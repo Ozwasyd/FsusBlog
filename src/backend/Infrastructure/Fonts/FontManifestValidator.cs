@@ -42,6 +42,19 @@ public static partial class FontManifestValidator
         FontDisplayModes.Optional
     };
 
+    private static readonly HashSet<string> s_licenses = new(StringComparer.Ordinal)
+    {
+        "Apache-2.0",
+        "MIT",
+        "OFL-1.1"
+    };
+
+    private static readonly HashSet<string> s_sourceKinds = new(StringComparer.Ordinal)
+    {
+        "local-vendored",
+        "npm-fontsource"
+    };
+
     public static FontManifestValidation Validate(FontManifest? manifest, Version currentFsusBlogVersion)
     {
         ArgumentNullException.ThrowIfNull(currentFsusBlogVersion);
@@ -87,6 +100,7 @@ public static partial class FontManifestValidator
 
         ValidateFaces(manifest, errors);
         ValidateLicense(manifest.License, errors);
+        ValidateSource(manifest.Source, errors);
         ValidateBudgets(manifest.Budgets, errors);
         if (manifest.Budgets is not null
             && manifest.Faces is not null
@@ -112,6 +126,12 @@ public static partial class FontManifestValidator
         for (int index = 0; index < manifest.Faces.Count; index++)
         {
             FontFaceDescriptor face = manifest.Faces[index];
+            if (face is null)
+            {
+                errors.Add("font_face_descriptor_invalid");
+                continue;
+            }
+
             if (face.Weight is < 1 or > 1000
                 || !s_styles.Contains(face.Style ?? string.Empty))
             {
@@ -125,6 +145,11 @@ public static partial class FontManifestValidator
                 errors.Add("font_face_file_invalid");
             }
 
+            if (!IsSha256(face.ContentHash))
+            {
+                errors.Add("font_face_content_hash_invalid");
+            }
+
             if (!identities.Add($"{face.Weight}:{face.Style}"))
             {
                 errors.Add("font_face_duplicate");
@@ -135,13 +160,27 @@ public static partial class FontManifestValidator
     private static void ValidateLicense(FontLicenseDescriptor? license, HashSet<string> errors)
     {
         if (license is null
-            || string.IsNullOrWhiteSpace(license.Name)
+            || !s_licenses.Contains(license.Name ?? string.Empty)
             || !FontPackagePath.TryNormalize(license.File, out string licenseFile)
             || !FontPackagePath.TryNormalize(license.Source, out string sourceFile)
             || !licenseFile.StartsWith("license/", StringComparison.Ordinal)
             || !sourceFile.StartsWith("license/", StringComparison.Ordinal))
         {
             errors.Add("font_license_invalid");
+        }
+    }
+
+    private static void ValidateSource(FontSourceDescriptor? source, HashSet<string> errors)
+    {
+        if (source is null
+            || !s_sourceKinds.Contains(source.Kind ?? string.Empty)
+            || string.IsNullOrWhiteSpace(source.Package)
+            || !SemanticVersionPattern().IsMatch(source.Version ?? string.Empty)
+            || string.IsNullOrWhiteSpace(source.Upstream)
+            || ContainsRemoteUrl(source.Package)
+            || ContainsRemoteUrl(source.Upstream))
+        {
+            errors.Add("font_source_invalid");
         }
     }
 
@@ -191,6 +230,15 @@ public static partial class FontManifestValidator
         => values is not null
             && values.All(static value => !string.IsNullOrWhiteSpace(value))
             && values.Distinct(StringComparer.Ordinal).Count() == values.Count;
+
+    internal static bool IsSha256(string? value)
+        => value is { Length: 64 }
+            && value.All(static character => character is >= '0' and <= '9'
+                or >= 'a' and <= 'f');
+
+    internal static bool ContainsRemoteUrl(string? value)
+        => value?.Contains("://", StringComparison.OrdinalIgnoreCase) == true
+            || value?.StartsWith("//", StringComparison.Ordinal) == true;
 
     [GeneratedRegex(@"^fsusblog\.font\.[a-z0-9]+(?:-[a-z0-9]+)*$", RegexOptions.CultureInvariant)]
     private static partial Regex FontIdPattern();

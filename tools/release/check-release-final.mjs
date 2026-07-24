@@ -11,6 +11,7 @@ import { validateReleaseRuntimeMatrix } from '../runtime-profiles/release-runtim
 import { readEvidenceDocument } from '../test-matrix/content-addressed-evidence-store.mjs';
 
 import { requirePublicPreviewReleaseEvidence } from './public-preview-release-evidence.mjs';
+import { validateFontLicenseEvidence } from './font-license-evidence.mjs';
 import { validateReleaseManifest } from './release-manifest.mjs';
 import {
     createReleaseFinalTestEvidenceBinding,
@@ -434,6 +435,20 @@ function validateManifest(manifest, manifestFile)
                 .map(error => `themeCssSafetySummary: ${error}`));
     }
 
+    const fontLicenseFile = artifactPath(
+        manifestFile,
+        manifest.artifacts?.fontLicenseSummary);
+    if (!fontLicenseFile || !fs.existsSync(fontLicenseFile))
+    {
+        errors.push('fontLicenseSummary release evidence artifact is required');
+    }
+    else
+    {
+        errors.push(
+            ...validateFontLicenseEvidence(readJson(fontLicenseFile))
+                .map(error => `fontLicenseSummary: ${error}`));
+    }
+
     return errors;
 }
 
@@ -501,6 +516,17 @@ async function runSelfTest()
         violations: [],
         warnings: []
     }));
+    fs.writeFileSync(path.join(tmp, 'font-license-summary.json'), JSON.stringify({
+        schema: 'fsusblog.font.license.v1',
+        status: 'ok',
+        fonts: [{
+            id: 'fsusblog.font.fixture',
+            license: 'OFL-1.1',
+            source: '@fontsource/fixture@1.0.0',
+            hashVerified: true
+        }],
+        violations: []
+    }));
     const manifestFile = path.join(tmp, 'manifest.json');
     const { createReleaseRuntimeMatrixFixture } = await import('../../tests/tools/fixtures/release-runtime-matrix.mjs');
     const matrixEvidence = createReleaseRuntimeMatrixFixture({ commitSha: commit, profileManifestDigest, profileDigest });
@@ -552,6 +578,7 @@ async function runSelfTest()
             memoryLeakSummary: 'memory-leak-summary.json',
             openHandleSummary: 'open-handle-summary.json',
             themeCssSafetySummary: 'theme-css-safety-summary.json',
+            fontLicenseSummary: 'font-license-summary.json',
             runtimePublishMatrix: 'runtime-publish-matrix.json',
             visualGateSkip: null
         },
@@ -577,6 +604,16 @@ async function runSelfTest()
     {
         fail([`self-test expected pass: ${errors.join('; ')}`]);
     }
+
+    const fontLicenseFile = path.join(tmp, 'font-license-summary.json');
+    const fontLicenseFixture = fs.readFileSync(fontLicenseFile);
+    fs.rmSync(fontLicenseFile);
+    if (!validateManifest(manifest, manifestFile)
+        .some((error) => error.includes('fontLicenseSummary release evidence artifact is required')))
+    {
+        fail(['self-test expected release-final to reject missing font license evidence']);
+    }
+    fs.writeFileSync(fontLicenseFile, fontLicenseFixture);
 
     const duplicateContractA = path.join(tmp, 'browser-contract-a.json');
     const duplicateContractB = path.join(tmp, 'browser-contract-b.json');

@@ -2,6 +2,17 @@
 
 本文档说明 FsusBlog 采用的安全机制及其实现要点。
 
+字体包属于本地 supply-chain 输入。`.fsfont` 必须在写盘前验证 reviewed license、
+非空本地 license 文件、结构化 package origin/source、每个 WOFF2 face 的声明
+SHA-256、目录边界和 WOFF2 signature；未知 license/origin、remote URL、hash
+mismatch、undeclared/out-of-root/non-WOFF2 asset 或 executable archive entry
+一律 fail closed。enable/activate 还会从 content-addressed store 重读 exact bytes
+并复核 size/hash，不能把安装时验证当成永久信任。release collector 与
+`release-final` 都要求 `fsusblog.font.license.v1` machine evidence 为 `ok` 且
+violations 为空。无需重启的回退是将 scope 切回 built-in selection；若持久 metadata
+本身损坏，先原子恢复 last-known-good `registry.json` 再切换，不允许跳过验证或远程
+补下载。完整合同见 [`.fsfont` package and registry](fonts/fsfont-package.md)。
+
 主题 CSS 是不可信的声明式输入。安装和激活都通过
 `ThemeCssSafetyScanner` fail closed：只允许 exact `data-theme` 稳定 scope，
 拒绝 Element Plus internal selector、远程或未知资源、script-like URL、

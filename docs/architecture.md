@@ -323,7 +323,12 @@ Font Registry 属于 durable shared 数据：`FSUSBLOG_DATA_ROOT/fonts/registry.
 WOFF2、预算和来源 metadata 校验；registry 通过同目录临时文件原子替换，active font
 的 disable/delete 必须先切换到 enabled replacement 或 built-in fallback。无需重启的
 降级是把受影响 scope 重新 activate 到 built-in selection；格式与生命周期详见
-[`.fsfont` package and registry](fonts/fsfont-package.md)。`IFontStackRuntime`
+[`.fsfont` package and registry](fonts/fsfont-package.md)。每个 face 必须声明
+lowercase SHA-256，license 只接受 reviewed identifier，结构化 source 必须与本地
+`license/source.json` 完全一致且不得包含远程 URL。enable/activate 会重开
+content-addressed WOFF2 并复核 size/hash；release evidence 固定为
+`.tmp/release-evidence/font-license-summary.json`，缺失、非 `ok`、未知来源或 hash
+漂移都会阻断 `release-final`。`IFontStackRuntime`
 把 activation 按 UI/prose/code/CJK/emoji 角色、locale/script fallback 和
 `font-token-v1` 稳定变量解析；theme 只能让 semantic typography token 引用
 `font.family.*`，不能注入 raw `font-family`。缺失 scope、disabled/missing font、

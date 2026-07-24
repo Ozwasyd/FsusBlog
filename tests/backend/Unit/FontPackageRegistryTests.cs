@@ -15,16 +15,25 @@ namespace FsusBlog.Server.Tests;
 public sealed class FontPackageRegistryTests
 {
     private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly byte[] s_fixtureFontBytes = [0x77, 0x4f, 0x46, 0x32, 0x01, 0x02, 0x03];
+    private static readonly FontSourceDescriptor s_fixtureSource = new(
+        "npm-fontsource",
+        "@fontsource/fixture",
+        "1.0.0",
+        "Fixture upstream");
+    private static readonly string s_fixtureSourceJson = JsonSerializer.Serialize(
+        s_fixtureSource,
+        s_jsonOptions);
 
     [Fact]
     public async Task ReadAsync_MinimumPackage_ValidatesAndHashesWoff2Faces()
     {
-        byte[] fontBytes = [0x77, 0x4f, 0x46, 0x32, 0x01, 0x02, 0x03];
+        byte[] fontBytes = s_fixtureFontBytes;
         await using MemoryStream package = CreatePackage(CreateManifest(), new Dictionary<string, byte[]>
         {
             ["fonts/body-regular.woff2"] = fontBytes,
             ["license/LICENSE.txt"] = Encoding.UTF8.GetBytes("fixture license"),
-            ["license/source.json"] = Encoding.UTF8.GetBytes("""{"url":"https://fonts.example.invalid/source"}""")
+            ["license/source.json"] = Encoding.UTF8.GetBytes(s_fixtureSourceJson)
         });
 
         ValidatedFontPackage result = await FontPackageReader.ReadAsync(
@@ -37,7 +46,7 @@ public sealed class FontPackageRegistryTests
         Assert.Equal(fontBytes.Length, face.SizeBytes);
         Assert.Equal(fontBytes, face.Content.ToArray());
         Assert.Equal("fixture license", result.LicenseText);
-        Assert.Contains("fonts.example.invalid", result.LicenseSourceJson, StringComparison.Ordinal);
+        Assert.Contains("@fontsource/fixture", result.LicenseSourceJson, StringComparison.Ordinal);
         Assert.Equal(".fsfont", FontPackageFormat.Extension);
     }
 
@@ -52,7 +61,7 @@ public sealed class FontPackageRegistryTests
             ["fonts/body-regular.woff2"] = [0x77, 0x4f, 0x46, 0x32],
             [path] = [0x77, 0x4f, 0x46, 0x32, 0x09],
             ["license/LICENSE.txt"] = Encoding.UTF8.GetBytes("fixture license"),
-            ["license/source.json"] = Encoding.UTF8.GetBytes("{}")
+            ["license/source.json"] = Encoding.UTF8.GetBytes(s_fixtureSourceJson)
         });
 
         FontPackageException error = await Assert.ThrowsAsync<FontPackageException>(
@@ -71,7 +80,7 @@ public sealed class FontPackageRegistryTests
         await using MemoryStream package = CreatePackage(incompatible, new Dictionary<string, byte[]>
         {
             ["fonts/body-regular.woff2"] = [0x77, 0x4f, 0x46, 0x32],
-            ["license/source.json"] = Encoding.UTF8.GetBytes("{}")
+            ["license/source.json"] = Encoding.UTF8.GetBytes(s_fixtureSourceJson)
         });
 
         FontPackageException error = await Assert.ThrowsAsync<FontPackageException>(
@@ -92,7 +101,7 @@ public sealed class FontPackageRegistryTests
         {
             ["fonts/body-regular.woff2"] = [0x77, 0x4f, 0x46, 0x32],
             ["license/LICENSE.txt"] = Encoding.UTF8.GetBytes("fixture license"),
-            ["license/source.json"] = Encoding.UTF8.GetBytes("{}")
+            ["license/source.json"] = Encoding.UTF8.GetBytes(s_fixtureSourceJson)
         });
 
         FontPackageException incompatibleError = await Assert.ThrowsAsync<FontPackageException>(
@@ -109,6 +118,104 @@ public sealed class FontPackageRegistryTests
         FontPackageException sourceError = await Assert.ThrowsAsync<FontPackageException>(
             () => FontPackageReader.ReadAsync(invalidSourcePackage, new Version(1, 3, 0)));
         Assert.Equal("font_license_source_invalid", sourceError.Code);
+    }
+
+    [Fact]
+    public async Task ReadAsync_RejectsHashMismatchAndSourceMetadataMismatch()
+    {
+        FontManifest wrongHash = CreateManifest() with
+        {
+            Faces =
+            [
+                CreateManifest().Faces[0] with
+                {
+                    ContentHash = new string('0', 64)
+                }
+            ]
+        };
+        await using MemoryStream hashPackage = CreatePackage(wrongHash, FixtureFiles());
+
+        FontPackageException hashError = await Assert.ThrowsAsync<FontPackageException>(
+            () => FontPackageReader.ReadAsync(hashPackage, new Version(1, 3, 0)));
+        Assert.Equal("font_asset_hash_mismatch", hashError.Code);
+
+        FontSourceDescriptor otherSource = s_fixtureSource with
+        {
+            Package = "@fontsource/other"
+        };
+        Dictionary<string, byte[]> files = FixtureFiles();
+        files["license/source.json"] = JsonSerializer.SerializeToUtf8Bytes(otherSource, s_jsonOptions);
+        await using MemoryStream sourcePackage = CreatePackage(CreateManifest(), files);
+
+        FontPackageException sourceError = await Assert.ThrowsAsync<FontPackageException>(
+            () => FontPackageReader.ReadAsync(sourcePackage, new Version(1, 3, 0)));
+        Assert.Equal("font_source_mismatch", sourceError.Code);
+    }
+
+    [Theory]
+    [InlineData("tools/install.sh", "package_executable_forbidden")]
+    [InlineData("outside/body.woff2", "font_asset_outside_fonts")]
+    [InlineData("outside/body.ttf", "font_asset_outside_fonts")]
+    public async Task ReadAsync_RejectsExecutableAndOutOfRootFontEntries(
+        string path,
+        string expectedCode)
+    {
+        Dictionary<string, byte[]> files = FixtureFiles();
+        files[path] = path.EndsWith(".woff2", StringComparison.Ordinal)
+            ? s_fixtureFontBytes
+            : Encoding.UTF8.GetBytes("exit 0");
+        await using MemoryStream package = CreatePackage(CreateManifest(), files);
+
+        FontPackageException error = await Assert.ThrowsAsync<FontPackageException>(
+            () => FontPackageReader.ReadAsync(package, new Version(1, 3, 0)));
+
+        Assert.Equal(expectedCode, error.Code);
+    }
+
+    [Fact]
+    public async Task ReadAsync_RejectsRemoteFontUrlWithoutFetching()
+    {
+        Dictionary<string, byte[]> files = FixtureFiles();
+        files["css/remote.css"] = Encoding.UTF8.GetBytes(
+            """@font-face { src: url("https://fonts.example/fixture.woff2"); }""");
+        await using MemoryStream package = CreatePackage(CreateManifest(), files);
+
+        FontPackageException error = await Assert.ThrowsAsync<FontPackageException>(
+            () => FontPackageReader.ReadAsync(package, new Version(1, 3, 0)));
+
+        Assert.Equal("font_remote_url_forbidden", error.Code);
+    }
+
+    [Fact]
+    public void Validate_RejectsUnknownLicenseRemoteOriginAndMissingHash()
+    {
+        FontManifest invalid = CreateManifest() with
+        {
+            License = CreateManifest().License with
+            {
+                Name = "unknown"
+            },
+            Source = CreateManifest().Source with
+            {
+                Upstream = "https://fonts.example/fixture"
+            },
+            Faces =
+            [
+                CreateManifest().Faces[0] with
+                {
+                    ContentHash = string.Empty
+                }
+            ]
+        };
+
+        FontManifestValidation validation = FontManifestValidator.Validate(
+            invalid,
+            new Version(1, 3, 0));
+
+        Assert.False(validation.IsValid);
+        Assert.Contains("font_license_invalid", validation.Errors);
+        Assert.Contains("font_source_invalid", validation.Errors);
+        Assert.Contains("font_face_content_hash_invalid", validation.Errors);
     }
 
     [Fact]
@@ -145,6 +252,7 @@ public sealed class FontPackageRegistryTests
                     Weight: 500,
                     Style: FontFaceStyles.Normal,
                     File: "fonts/body-medium.woff2",
+                    ContentHash: Sha256([0x77, 0x4f, 0x46, 0x32, 0x02]),
                     UnicodeRange: "U+0000-00FF",
                     Critical: true)
             ],
@@ -155,10 +263,10 @@ public sealed class FontPackageRegistryTests
         };
         await using MemoryStream package = CreatePackage(manifest, new Dictionary<string, byte[]>
         {
-            ["fonts/body-regular.woff2"] = [0x77, 0x4f, 0x46, 0x32, 0x01],
+            ["fonts/body-regular.woff2"] = s_fixtureFontBytes,
             ["fonts/body-medium.woff2"] = [0x77, 0x4f, 0x46, 0x32, 0x02],
             ["license/LICENSE.txt"] = Encoding.UTF8.GetBytes("fixture license"),
-            ["license/source.json"] = Encoding.UTF8.GetBytes("{}")
+            ["license/source.json"] = Encoding.UTF8.GetBytes(s_fixtureSourceJson)
         });
 
         FontPackageException error = await Assert.ThrowsAsync<FontPackageException>(
@@ -199,7 +307,10 @@ public sealed class FontPackageRegistryTests
             Assert.Contains(snapshot.Fonts, entry => entry.Id == installed.Id && entry.Enabled);
             Assert.Contains(snapshot.Fonts, entry => entry.Id == FontBuiltIns.UiSans.Id && entry.BuiltIn);
             Assert.Equal(installed.Id, Assert.Single(snapshot.Activations).UiFontId);
-            Assert.Equal("{}", snapshot.Fonts.Single(entry => entry.Id == installed.Id).LicenseSourceJson);
+            Assert.Contains(
+                "@fontsource/fixture",
+                snapshot.Fonts.Single(entry => entry.Id == installed.Id).LicenseSourceJson,
+                StringComparison.Ordinal);
         }
         finally
         {
@@ -279,6 +390,71 @@ public sealed class FontPackageRegistryTests
     }
 
     [Fact]
+    public async Task Registry_TamperedAssetCannotBeEnabledOrActivated()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            var registry = new LocalFontRegistry(root);
+            FontRegistryEntry installed = await registry.InstallAsync(await ReadFixturePackageAsync());
+            string assetPath = Path.Combine(root, Assert.Single(installed.Faces).FilePath);
+            await File.WriteAllBytesAsync(assetPath, [0x77, 0x4f, 0x46, 0x32, 0xff]);
+
+            FontRegistryException error = await Assert.ThrowsAsync<FontRegistryException>(
+                () => registry.SetEnabledAsync(installed.Id, enabled: true));
+
+            Assert.Equal("font_asset_integrity_invalid", error.Code);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task LicenseEvidence_IsAtomicMachineReadableAndFailsOnTamperedAsset()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            var registry = new LocalFontRegistry(root);
+            FontRegistryEntry installed = await registry.InstallAsync(await ReadFixturePackageAsync());
+            FontRegistrySnapshot snapshot = await registry.ReadAsync();
+            string output = Path.Combine(root, FontLicenseEvidenceWriter.RelativeReleasePath);
+
+            FontLicenseEvidence evidence = await FontLicenseEvidenceWriter.WriteAsync(
+                snapshot,
+                root,
+                output);
+
+            Assert.Equal(FontLicenseEvidenceWriter.Schema, evidence.Schema);
+            Assert.Equal("ok", evidence.Status);
+            FontLicenseEvidenceFont font = Assert.Single(evidence.Fonts);
+            Assert.Equal("OFL-1.1", font.License);
+            Assert.Equal("@fontsource/fixture@1.0.0", font.Source);
+            Assert.True(font.HashVerified);
+            Assert.Empty(evidence.Violations);
+            Assert.True(File.Exists(output));
+
+            string assetPath = Path.Combine(root, Assert.Single(installed.Faces).FilePath);
+            await File.WriteAllBytesAsync(assetPath, [0x77, 0x4f, 0x46, 0x32, 0xff]);
+            FontLicenseEvidence blocked = await FontLicenseEvidenceWriter.CreateAsync(
+                snapshot,
+                root);
+
+            Assert.Equal("blocked", blocked.Status);
+            Assert.Contains(
+                blocked.Violations,
+                violation => violation.Code == "font_asset_hash_mismatch"
+                    && violation.FontId == installed.Id);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void RuntimeServices_RegisterFontRegistryAsSingleton()
     {
         string root = Path.Combine(Path.GetTempPath(), $"fsusblog-font-runtime-{Guid.NewGuid():N}");
@@ -334,14 +510,17 @@ public sealed class FontPackageRegistryTests
 
     private static async Task<ValidatedFontPackage> ReadFixturePackageAsync()
     {
-        await using MemoryStream package = CreatePackage(CreateManifest(), new Dictionary<string, byte[]>
-        {
-            ["fonts/body-regular.woff2"] = [0x77, 0x4f, 0x46, 0x32, 0x01, 0x02, 0x03],
-            ["license/LICENSE.txt"] = Encoding.UTF8.GetBytes("fixture license"),
-            ["license/source.json"] = Encoding.UTF8.GetBytes("{}")
-        });
+        await using MemoryStream package = CreatePackage(CreateManifest(), FixtureFiles());
         return await FontPackageReader.ReadAsync(package, new Version(1, 3, 0));
     }
+
+    private static Dictionary<string, byte[]> FixtureFiles()
+        => new()
+        {
+            ["fonts/body-regular.woff2"] = s_fixtureFontBytes,
+            ["license/LICENSE.txt"] = Encoding.UTF8.GetBytes("fixture license"),
+            ["license/source.json"] = Encoding.UTF8.GetBytes(s_fixtureSourceJson)
+        };
 
     private static FontManifest CreateManifest()
         => new(
@@ -360,6 +539,7 @@ public sealed class FontPackageRegistryTests
                     Weight: 400,
                     Style: FontFaceStyles.Normal,
                     File: "fonts/body-regular.woff2",
+                    ContentHash: Sha256(s_fixtureFontBytes),
                     UnicodeRange: "U+0000-00FF",
                     Critical: true)
             ],
@@ -367,6 +547,7 @@ public sealed class FontPackageRegistryTests
                 "OFL-1.1",
                 "license/LICENSE.txt",
                 "license/source.json"),
+            Source: s_fixtureSource,
             Budgets: new FontBudgetDescriptor(
                 CriticalBytes: 220_000,
                 TotalBytes: 1_200_000,
@@ -402,6 +583,9 @@ public sealed class FontPackageRegistryTests
         using Stream destination = entry.Open();
         destination.Write(content);
     }
+
+    private static string Sha256(ReadOnlySpan<byte> content)
+        => Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(content));
 
     private static string CreateTempDirectory()
     {

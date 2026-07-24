@@ -243,10 +243,16 @@ public sealed class FontLoadingPlannerTests
                     face.Weight,
                     face.Style,
                     $"fonts/{face.Weight}.woff2",
+                    face.ContentHash,
                     face.UnicodeRange,
                     face.Critical))
             ],
             new FontLicenseDescriptor("OFL-1.1", "license/LICENSE.txt", "license/source.json"),
+            new FontSourceDescriptor(
+                "npm-fontsource",
+                "@fontsource/fixture",
+                "1.0.0",
+                "Fixture upstream"),
             new FontBudgetDescriptor(
                 faces.Where(face => face.Critical).Sum(face => face.SizeBytes),
                 faces.Sum(face => face.SizeBytes),

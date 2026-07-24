@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -290,6 +291,11 @@ public sealed class LocalFontRegistry : IFontRegistry
                     "An active font cannot be disabled until its activation has a replacement.");
             }
 
+            if (enabled)
+            {
+                await VerifyAssetsAsync([current], cancellationToken).ConfigureAwait(false);
+            }
+
             FontRegistryEntry updated = current with
             {
                 Enabled = enabled,
@@ -334,6 +340,9 @@ public sealed class LocalFontRegistry : IFontRegistry
         {
             RegistryDocument document = await LoadAsync(cancellationToken).ConfigureAwait(false);
             EnsureSelectionEnabled(document, selection);
+            await VerifyAssetsAsync(
+                ResolveSelectionEntries(document, selection),
+                cancellationToken).ConfigureAwait(false);
             int activationIndex = document.Activations.FindIndex(
                 activation => string.Equals(activation.Scope, scope, StringComparison.Ordinal));
             long nextVersion = activationIndex >= 0
@@ -596,6 +605,50 @@ public sealed class LocalFontRegistry : IFontRegistry
         }
     }
 
+    private static IReadOnlyList<FontRegistryEntry> ResolveSelectionEntries(
+        RegistryDocument document,
+        FontActivationSelection selection)
+        => new[]
+        {
+            selection.UiFontId,
+            selection.ProseFontId,
+            selection.CodeFontId,
+            selection.CjkFontId,
+            selection.EmojiFontId
+        }
+        .Distinct(StringComparer.Ordinal)
+        .Select(id => document.Fonts.Single(font => string.Equals(font.Id, id, StringComparison.Ordinal)))
+        .ToArray();
+
+    private async Task VerifyAssetsAsync(
+        IEnumerable<FontRegistryEntry> entries,
+        CancellationToken cancellationToken)
+    {
+        foreach (FontRegistryEntry entry in entries.Where(static entry => !entry.BuiltIn))
+        {
+            foreach (FontRegistryFace face in entry.Faces)
+            {
+                string path = Path.Combine(_assetRoot, $"{face.ContentHash}.woff2");
+                if (!File.Exists(path))
+                {
+                    throw new FontRegistryException(
+                        "font_asset_integrity_invalid",
+                        $"Font asset for '{entry.Id}' is missing.");
+                }
+
+                byte[] content = await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false);
+                string contentHash = Convert.ToHexStringLower(SHA256.HashData(content));
+                if (content.LongLength != face.SizeBytes
+                    || !string.Equals(contentHash, face.ContentHash, StringComparison.Ordinal))
+                {
+                    throw new FontRegistryException(
+                        "font_asset_integrity_invalid",
+                        $"Font asset for '{entry.Id}' failed SHA-256 verification.");
+                }
+            }
+        }
+    }
+
     private static bool IsActive(RegistryDocument document, string id)
         => document.Activations.Any(activation => References(activation, id));
 
@@ -698,6 +751,11 @@ public sealed class LocalFontRegistry : IFontRegistry
                     "Font registry contains an invalid font entry.");
             }
 
+            if (!entry.BuiltIn)
+            {
+                ValidatePersistedPackageMetadata(entry);
+            }
+
             foreach (FontRegistryFace face in entry.Faces)
             {
                 string expectedPath = $"assets/{face.ContentHash}.woff2";
@@ -726,6 +784,45 @@ public sealed class LocalFontRegistry : IFontRegistry
                     "font_registry_invalid",
                     $"Font activation '{activation.Scope}' references unavailable fonts.");
             }
+        }
+    }
+
+    private static void ValidatePersistedPackageMetadata(FontRegistryEntry entry)
+    {
+        try
+        {
+            FontManifest manifest = JsonSerializer.Deserialize<FontManifest>(
+                entry.ManifestJson,
+                s_jsonOptions)
+                ?? throw new JsonException("Font manifest was null.");
+            FontManifestValidation validation = FontManifestValidator.Validate(
+                manifest,
+                new Version(1, 3, 0));
+            FontSourceDescriptor source = JsonSerializer.Deserialize<FontSourceDescriptor>(
+                entry.LicenseSourceJson,
+                s_jsonOptions)
+                ?? throw new JsonException("Font source metadata was null.");
+            if (!validation.IsValid
+                || !string.Equals(manifest.Id, entry.Id, StringComparison.Ordinal)
+                || !string.Equals(manifest.Family, entry.Family, StringComparison.Ordinal)
+                || string.IsNullOrWhiteSpace(entry.LicenseText)
+                || !Equals(source, manifest.Source)
+                || manifest.Faces.Count != entry.Faces.Count
+                || manifest.Faces.Any(face => !entry.Faces.Any(
+                    stored => stored.Weight == face.Weight
+                        && string.Equals(stored.Style, face.Style, StringComparison.Ordinal)
+                        && string.Equals(stored.ContentHash, face.ContentHash, StringComparison.Ordinal))))
+            {
+                throw new FontRegistryException(
+                    "font_registry_invalid",
+                    $"Font registry metadata for '{entry.Id}' is invalid.");
+            }
+        }
+        catch (JsonException exception)
+        {
+            throw new FontRegistryException(
+                "font_registry_invalid",
+                $"Font registry metadata for '{entry.Id}' is invalid: {exception.Message}");
         }
     }
 

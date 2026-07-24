@@ -15,6 +15,7 @@ public sealed record FontManifest(
     IReadOnlyList<string> Locales,
     IReadOnlyList<FontFaceDescriptor> Faces,
     FontLicenseDescriptor License,
+    FontSourceDescriptor Source,
     FontBudgetDescriptor Budgets,
     FontLoadingDescriptor Loading);
 
@@ -25,6 +26,7 @@ public sealed record FontFaceDescriptor(
     int Weight,
     string Style,
     string File,
+    string ContentHash,
     string? UnicodeRange,
     bool Critical);
 
@@ -35,6 +37,15 @@ public sealed record FontLicenseDescriptor(
     string Name,
     string File,
     string Source);
+
+/// <summary>
+/// Identifies the declared package origin without authorizing a network fetch.
+/// </summary>
+public sealed record FontSourceDescriptor(
+    string Kind,
+    string Package,
+    string Version,
+    string Upstream);
 
 /// <summary>
 /// Sets the package-level byte and face limits enforced before installation.
@@ -52,6 +63,9 @@ public sealed record FontLoadingDescriptor(
     IReadOnlyList<string> Preload,
     IReadOnlyList<string> Defer);
 
+/// <summary>
+/// Lists the stable registry roles accepted by the font manifest.
+/// </summary>
 public static class FontCategories
 {
     public const string UiSans = "ui-sans";
@@ -61,6 +75,9 @@ public static class FontCategories
     public const string Emoji = "emoji";
 }
 
+/// <summary>
+/// Lists the browser face styles accepted by the font manifest.
+/// </summary>
 public static class FontFaceStyles
 {
     public const string Normal = "normal";
@@ -68,6 +85,9 @@ public static class FontFaceStyles
     public const string Oblique = "oblique";
 }
 
+/// <summary>
+/// Lists the browser font-display policies accepted by the font manifest.
+/// </summary>
 public static class FontDisplayModes
 {
     public const string Auto = "auto";

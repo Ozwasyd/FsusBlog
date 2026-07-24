@@ -16,6 +16,7 @@
         "locales",
         "faces",
         "license",
+        "source",
         "budgets",
         "loading"
     ],
@@ -79,6 +80,9 @@
         "license": {
             "$ref": "#/$defs/license"
         },
+        "source": {
+            "$ref": "#/$defs/source"
+        },
         "budgets": {
             "$ref": "#/$defs/budgets"
         },
@@ -98,6 +102,7 @@
                 "weight",
                 "style",
                 "file",
+                "contentHash",
                 "critical"
             ],
             "properties": {
@@ -123,6 +128,10 @@
                         }
                     ]
                 },
+                "contentHash": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                },
                 "unicodeRange": {
                     "type": [
                         "string",
@@ -144,8 +153,11 @@
             ],
             "properties": {
                 "name": {
-                    "type": "string",
-                    "minLength": 1
+                    "enum": [
+                        "Apache-2.0",
+                        "MIT",
+                        "OFL-1.1"
+                    ]
                 },
                 "file": {
                     "allOf": [
@@ -166,6 +178,38 @@
                             "pattern": "^license/.+\\.json$"
                         }
                     ]
+                }
+            }
+        },
+        "source": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "kind",
+                "package",
+                "version",
+                "upstream"
+            ],
+            "properties": {
+                "kind": {
+                    "enum": [
+                        "local-vendored",
+                        "npm-fontsource"
+                    ]
+                },
+                "package": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^(?!.*://)(?!//).+$"
+                },
+                "version": {
+                    "type": "string",
+                    "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$"
+                },
+                "upstream": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^(?!.*://)(?!//).+$"
                 }
             }
         },

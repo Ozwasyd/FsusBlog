@@ -2,6 +2,7 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 
 using FsusBlog.Shared.Contracts.Fonts;
 
@@ -102,7 +103,7 @@ public sealed class ValidatedFontPackage
     }
 }
 
-public static class FontPackageReader
+public static partial class FontPackageReader
 {
     private const int MaxManifestBytes = 256 * 1024;
     private const int MaxMetadataFileBytes = 2 * 1024 * 1024;
@@ -165,15 +166,23 @@ public static class FontPackageReader
         }
 
         ValidateMetadataEntries(entries, manifest);
+        await ValidateLocalCssAsync(entries, cancellationToken).ConfigureAwait(false);
         string licenseText = await ReadTextAsync(
             licenseEntry,
             MaxMetadataFileBytes,
             cancellationToken).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(licenseText))
+        {
+            throw new FontPackageException(
+                "font_license_file_invalid",
+                "Font license file must contain declared license text.");
+        }
+
         string licenseSourceJson = await ReadTextAsync(
             sourceEntry,
             MaxMetadataFileBytes,
             cancellationToken).ConfigureAwait(false);
-        ValidateLicenseSourceJson(licenseSourceJson);
+        ValidateLicenseSourceJson(licenseSourceJson, manifest.Source);
         var faces = new List<FontPackageFace>(manifest.Faces.Count);
         long totalBytes = 0;
         long criticalBytes = 0;
@@ -207,6 +216,14 @@ public static class FontPackageReader
                     $"Font asset '{descriptor.File}' is not a WOFF2 file.");
             }
 
+            string contentHash = Convert.ToHexStringLower(SHA256.HashData(content));
+            if (!string.Equals(descriptor.ContentHash, contentHash, StringComparison.Ordinal))
+            {
+                throw new FontPackageException(
+                    "font_asset_hash_mismatch",
+                    $"Font asset '{descriptor.File}' does not match its declared SHA-256 hash.");
+            }
+
             totalBytes = checked(totalBytes + content.LongLength);
             if (descriptor.Critical)
             {
@@ -215,7 +232,7 @@ public static class FontPackageReader
 
             faces.Add(new FontPackageFace(
                 descriptor,
-                Convert.ToHexStringLower(SHA256.HashData(content)),
+                contentHash,
                 content.LongLength,
                 content));
         }
@@ -288,6 +305,13 @@ public static class FontPackageReader
             .ToHashSet(StringComparer.Ordinal);
         foreach ((string path, ZipArchiveEntry entry) in entries)
         {
+            if (IsExecutableEntry(entry, path))
+            {
+                throw new FontPackageException(
+                    "package_executable_forbidden",
+                    $"Executable package entry '{path}' is forbidden.");
+            }
+
             if (path.StartsWith("fonts/", StringComparison.Ordinal))
             {
                 if (!path.EndsWith(".woff2", StringComparison.OrdinalIgnoreCase))
@@ -303,6 +327,12 @@ public static class FontPackageReader
                         "font_asset_not_declared",
                         $"Font asset '{path}' is not declared by the manifest.");
                 }
+            }
+            else if (IsFontAssetPath(path))
+            {
+                throw new FontPackageException(
+                    "font_asset_outside_fonts",
+                    $"Font asset '{path}' must be stored below fonts/.");
             }
             else if (entry.Length > MaxMetadataFileBytes && path != "manifest.json")
             {
@@ -326,6 +356,31 @@ public static class FontPackageReader
         }
 
         return entry;
+    }
+
+    private static async Task ValidateLocalCssAsync(
+        IReadOnlyDictionary<string, ZipArchiveEntry> entries,
+        CancellationToken cancellationToken)
+    {
+        foreach ((string path, ZipArchiveEntry entry) in entries)
+        {
+            if (!path.StartsWith("css/", StringComparison.Ordinal)
+                || !path.EndsWith(".css", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            string css = await ReadTextAsync(
+                entry,
+                MaxMetadataFileBytes,
+                cancellationToken).ConfigureAwait(false);
+            if (RemoteCssUrlPattern().IsMatch(css))
+            {
+                throw new FontPackageException(
+                    "font_remote_url_forbidden",
+                    $"Font package CSS '{path}' contains a remote URL.");
+            }
+        }
     }
 
     private static async Task<string> ReadTextAsync(
@@ -382,16 +437,59 @@ public static class FontPackageReader
             && content[2] == 0x46
             && content[3] == 0x32;
 
-    private static void ValidateLicenseSourceJson(string sourceJson)
+    [GeneratedRegex(
+        """url\s*\(\s*['"]?(?:https?:)?//""",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.NonBacktracking)]
+    private static partial Regex RemoteCssUrlPattern();
+
+    private static bool IsExecutableEntry(ZipArchiveEntry entry, string path)
+    {
+        const int UnixExecuteBits = 0b001_001_001;
+        int unixMode = entry.ExternalAttributes >> 16;
+        string extension = Path.GetExtension(path);
+        return (unixMode & UnixExecuteBits) != 0
+            || extension.Equals(".bat", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".cmd", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".com", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".dll", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".dylib", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".exe", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".js", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".mjs", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".cjs", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".ps1", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".scr", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".sh", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".so", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsFontAssetPath(string path)
+    {
+        string extension = Path.GetExtension(path);
+        return extension.Equals(".eot", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".otf", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".ttf", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".woff", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".woff2", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void ValidateLicenseSourceJson(
+        string sourceJson,
+        FontSourceDescriptor expected)
     {
         try
         {
-            using JsonDocument source = JsonDocument.Parse(sourceJson);
-            if (source.RootElement.ValueKind != JsonValueKind.Object)
+            FontSourceDescriptor source = JsonSerializer.Deserialize<FontSourceDescriptor>(
+                sourceJson,
+                s_jsonOptions)
+                ?? throw new JsonException("Source metadata was null.");
+            if (!Equals(source, expected)
+                || FontManifestValidator.ContainsRemoteUrl(source.Package)
+                || FontManifestValidator.ContainsRemoteUrl(source.Upstream))
             {
                 throw new FontPackageException(
-                    "font_license_source_invalid",
-                    "Font license source must be a JSON object.");
+                    "font_source_mismatch",
+                    "Font source metadata must exactly match the local manifest declaration.");
             }
         }
         catch (JsonException exception)
