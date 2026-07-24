@@ -34,4 +34,42 @@ mkdir -p \
     "$XDG_CONFIG_HOME" \
     "$XDG_STATE_HOME" \
     "$MSBUILDDEBUGPATH"
+
+ResolveProductionBuildCacheDomain() {
+    if [[ -z "${FSUSBLOG_PRODUCTION_BUILD_ROOT:-}" \
+        || "${FSUSBLOG_PHYSICAL_BUNDLE_ID:-}" != "backend-tests" \
+        || "${FSUSBLOG_BUILD_CACHE_INNER:-0}" == "1" ]]; then
+        return 1
+    fi
+    if [[ "${1:-}" == "dotnet" && "${2:-}" == "restore" && "${3:-}" == "tests/FsusBlog.ProductionBackend.slnx" ]]; then
+        printf 'dotnet-restore'
+        return 0
+    fi
+    if [[ "${1:-}" == "dotnet" && "${2:-}" == "build" ]]; then
+        case "${3:-}" in
+            src/backend/FsusBlog.Server.csproj)
+                printf 'backend-server-release'
+                return 0
+                ;;
+            tests/backend/FsusBlog.Server.Tests.csproj)
+                printf 'backend-tests-release'
+                return 0
+                ;;
+            benchmarks/core/FsusBlog.Core.Benchmarks.csproj)
+                printf 'backend-benchmark-release'
+                return 0
+                ;;
+        esac
+    fi
+    return 1
+}
+
+if CACHE_DOMAIN="$(ResolveProductionBuildCacheDomain "$@")"; then
+    export FSUSBLOG_BUILD_CACHE_COMMAND_JSON
+    FSUSBLOG_BUILD_CACHE_COMMAND_JSON="$(node -e 'process.stdout.write(JSON.stringify(process.argv.slice(1)))' "$@")"
+    exec node "$ROOT_DIR/tools/test-matrix/content-addressed-build-cache.mjs" run \
+        --domain "$CACHE_DOMAIN" \
+        -- node tools/test-matrix/run-build-cache-command.mjs
+fi
+
 exec "$@"

@@ -1,0 +1,337 @@
+{
+  "schema": "fsusblog.content-addressed-build-cache-config.v1",
+  "cacheRoot": ".tmp/build-cache/v1",
+  "quarantineRoot": ".tmp/build-cache/quarantine",
+  "evidenceRoot": ".tmp/release-evidence/production-build-cache/domains",
+  "summaryFile": ".tmp/release-evidence/production-build-cache.json",
+  "lockWaitMs": 120000,
+  "environmentAllowlist": [
+    "ASPNETCORE_ENVIRONMENT",
+    "Configuration",
+    "ContinuousIntegrationBuild",
+    "DOTNET_SYSTEM_GLOBALIZATION_INVARIANT",
+    "Deterministic",
+    "FSUSBLOG_ZK_PRODUCTION_ENABLED",
+    "FsusBlogCommitSha",
+    "FsusBlogReleaseId",
+    "NODE_ENV",
+    "RuntimeIdentifier",
+    "VITE_PUBLIC_SHELL_PROXY"
+  ],
+  "ignoredInputSegments": [
+    ".git",
+    ".tmp",
+    "bin",
+    "coverage",
+    "dist",
+    "node_modules",
+    "obj"
+  ],
+  "forbiddenOutputPrefixes": [
+    "runtime",
+    "test-results",
+    "coverage",
+    "release-evidence",
+    "database",
+    "checkpoints"
+  ],
+  "dynamicFacts": [
+    "TRX",
+    "coverage",
+    "database state",
+    "runtime state",
+    "scheduler checkpoints",
+    "release evidence",
+    "test outcomes"
+  ],
+  "domains": {
+    "dotnet-restore": {
+      "phase": "restore",
+      "toolchainKeys": [
+        "dotnet"
+      ],
+      "inputPaths": [
+        {
+          "path": "global.json",
+          "optional": true
+        },
+        {
+          "path": "NuGet.config",
+          "optional": true
+        },
+        "Directory.Build.props",
+        "tests/FsusBlog.ProductionBackend.slnx",
+        "src/shared/FsusBlog.Shared.csproj",
+        "src/shared/packages.lock.json",
+        "src/core/FsusBlog.Core.csproj",
+        "src/core/packages.lock.json",
+        "src/backend/FsusBlog.Server.csproj",
+        "src/backend/packages.lock.json",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "tests/backend/packages.lock.json",
+        "benchmarks/core/FsusBlog.Core.Benchmarks.csproj",
+        "benchmarks/core/packages.lock.json",
+        "tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj",
+        "tools/architecture/FsusBlog.DiLifetimeAnalyzer/packages.lock.json",
+        "config/testing/content-addressed-build-cache.json",
+        "tools/test-matrix/content-addressed-build-cache.mjs",
+        "tools/test-matrix/content-addressed-build-cache-contract.mjs",
+        "tools/test-matrix/content-addressed-build-cache-storage.mjs",
+        "tools/test-matrix/run-build-cache-command.mjs",
+        "tools/build-with-data-env.sh",
+        "tools/test-matrix/production-build-layout.mjs"
+      ],
+      "outputPaths": [
+        "dotnet/FsusBlog.Shared/obj",
+        "dotnet/FsusBlog.Core/obj",
+        "dotnet/FsusBlog.Server/obj",
+        "dotnet/FsusBlog.Server.Tests/obj",
+        "dotnet/FsusBlog.Core.Benchmarks/obj",
+        "dotnet/FsusBlog.DiLifetimeAnalyzer/obj"
+      ],
+      "dependencies": [],
+      "outputReceipts": [],
+      "properties": {
+        "lockedMode": true,
+        "nugetAudit": false
+      },
+      "relocation": {
+        "kind": "run-root-text",
+        "extensions": [
+          ".cache",
+          ".editorconfig",
+          ".json",
+          ".props",
+          ".targets"
+        ]
+      },
+      "dependencyGraph": {
+        "FsusBlog.Shared": [],
+        "FsusBlog.Core": [
+          "FsusBlog.Shared"
+        ],
+        "FsusBlog.DiLifetimeAnalyzer": [],
+        "FsusBlog.Server": [
+          "FsusBlog.Core",
+          "FsusBlog.Shared",
+          "FsusBlog.DiLifetimeAnalyzer"
+        ],
+        "FsusBlog.Server.Tests": [
+          "FsusBlog.Server",
+          "FsusBlog.Core",
+          "FsusBlog.Shared",
+          "FsusBlog.DiLifetimeAnalyzer"
+        ],
+        "FsusBlog.Core.Benchmarks": [
+          "FsusBlog.Server",
+          "FsusBlog.Core",
+          "FsusBlog.Shared"
+        ]
+      }
+    },
+    "backend-server-release": {
+      "phase": "build",
+      "toolchainKeys": [
+        "dotnet"
+      ],
+      "inputPaths": [
+        "Directory.Build.props",
+        "src/shared",
+        "src/core",
+        "src/backend",
+        "config/moderation",
+        "tools/architecture/FsusBlog.DiLifetimeAnalyzer",
+        "config/testing/content-addressed-build-cache.json",
+        "tools/test-matrix/content-addressed-build-cache.mjs",
+        "tools/test-matrix/content-addressed-build-cache-contract.mjs",
+        "tools/test-matrix/content-addressed-build-cache-storage.mjs",
+        "tools/test-matrix/run-build-cache-command.mjs",
+        "tools/build-with-data-env.sh",
+        "tools/test-matrix/production-build-layout.mjs"
+      ],
+      "outputPaths": [
+        "dotnet/FsusBlog.Shared/bin",
+        "dotnet/FsusBlog.Core/bin",
+        "dotnet/FsusBlog.Server/bin",
+        "dotnet/FsusBlog.DiLifetimeAnalyzer/bin"
+      ],
+      "dependencies": [
+        "dotnet-restore"
+      ],
+      "outputReceipts": [],
+      "properties": {
+        "configuration": "Release",
+        "noRestore": true,
+        "warnAsError": true,
+        "sharedCompilation": true
+      },
+      "dependencyGraph": {
+        "FsusBlog.Shared": [],
+        "FsusBlog.Core": [
+          "FsusBlog.Shared"
+        ],
+        "FsusBlog.DiLifetimeAnalyzer": [],
+        "FsusBlog.Server": [
+          "FsusBlog.Core",
+          "FsusBlog.Shared",
+          "FsusBlog.DiLifetimeAnalyzer"
+        ]
+      }
+    },
+    "backend-tests-release": {
+      "phase": "build",
+      "toolchainKeys": [
+        "dotnet"
+      ],
+      "inputPaths": [
+        "Directory.Build.props",
+        "tests/backend",
+        "tools/architecture/FsusBlog.DiLifetimeAnalyzer",
+        "config/testing/content-addressed-build-cache.json",
+        "tools/test-matrix/content-addressed-build-cache.mjs",
+        "tools/test-matrix/content-addressed-build-cache-contract.mjs",
+        "tools/test-matrix/content-addressed-build-cache-storage.mjs",
+        "tools/test-matrix/run-build-cache-command.mjs",
+        "tools/build-with-data-env.sh",
+        "tools/test-matrix/production-build-layout.mjs"
+      ],
+      "outputPaths": [
+        "dotnet/FsusBlog.Server.Tests/bin"
+      ],
+      "dependencies": [
+        "backend-server-release"
+      ],
+      "outputReceipts": [],
+      "properties": {
+        "configuration": "Release",
+        "noRestore": true,
+        "noDependencies": true,
+        "noIncremental": true,
+        "warnAsError": true
+      },
+      "dependencyGraph": {
+        "FsusBlog.Server.Tests": [
+          "backend-server-release"
+        ]
+      }
+    },
+    "backend-benchmark-release": {
+      "phase": "build",
+      "toolchainKeys": [
+        "dotnet"
+      ],
+      "inputPaths": [
+        "Directory.Build.props",
+        "benchmarks/core",
+        "config/testing/content-addressed-build-cache.json",
+        "tools/test-matrix/content-addressed-build-cache.mjs",
+        "tools/test-matrix/content-addressed-build-cache-contract.mjs",
+        "tools/test-matrix/content-addressed-build-cache-storage.mjs",
+        "tools/test-matrix/run-build-cache-command.mjs",
+        "tools/build-with-data-env.sh",
+        "tools/test-matrix/production-build-layout.mjs"
+      ],
+      "outputPaths": [
+        "dotnet/FsusBlog.Core.Benchmarks/bin"
+      ],
+      "dependencies": [
+        "backend-server-release"
+      ],
+      "outputReceipts": [],
+      "properties": {
+        "configuration": "Release",
+        "noRestore": true,
+        "noDependencies": true,
+        "warnAsError": true
+      },
+      "dependencyGraph": {
+        "FsusBlog.Core.Benchmarks": [
+          "backend-server-release"
+        ]
+      }
+    },
+    "frontend-release": {
+      "phase": "build",
+      "toolchainKeys": [
+        "node",
+        "npm",
+        "vite",
+        "emsdk"
+      ],
+      "inputPaths": [
+        "src/frontend/package.json",
+        "src/frontend/package-lock.json",
+        "src/frontend/index.html",
+        "src/frontend/vite.config.ts",
+        "src/frontend/tsconfig.json",
+        "src/frontend/src",
+        "src/frontend/public",
+        "src/frontend/scripts",
+        "src/frontend/wasm",
+        "src/shared/Contracts",
+        "src/zk",
+        "tools/frontend",
+        "tools/build-wasm-artifact.sh",
+        "tools/check-wasm-artifact-ownership.mjs",
+        "CMakeLists.txt",
+        "CMakePresets.json",
+        "cmake",
+        "config/testing/content-addressed-build-cache.json",
+        "tools/test-matrix/content-addressed-build-cache.mjs",
+        "tools/test-matrix/content-addressed-build-cache-contract.mjs",
+        "tools/test-matrix/content-addressed-build-cache-storage.mjs",
+        "tools/test-matrix/production-build-layout.mjs",
+        "tools/test-matrix/frontend-build-cache-bootstrap.mjs"
+      ],
+      "outputPaths": [
+        "frontend/dist",
+        "frontend/wasm",
+        "generated/frontend-build-stages.json"
+      ],
+      "dependencies": [],
+      "outputReceipts": [
+        "frontend/wasm/wasm-build-receipt.json",
+        "generated/frontend-build-stages.json"
+      ],
+      "properties": {
+        "configuration": "production",
+        "skipBackendWwwrootSync": true
+      },
+      "dependencyGraph": {
+        "frontend-release": [
+          "generated-contracts",
+          "frontend-wasm-build-receipt"
+        ],
+        "generated-contracts": [
+          "frontend-source"
+        ],
+        "frontend-wasm-build-receipt": [
+          "frontend-wasm-source",
+          "emsdk-toolchain"
+        ]
+      },
+      "relocation": {
+        "kind": "run-root-text",
+        "extensions": [
+          ".css",
+          ".html",
+          ".js",
+          ".json",
+          ".map"
+        ]
+      },
+      "postMaterialization": [
+        {
+          "kind": "rewrite-frontend-build-stage-receipt",
+          "path": "generated/frontend-build-stages.json"
+        },
+        {
+          "kind": "reseal-wasm-build-receipt",
+          "path": "frontend/wasm/wasm-build-receipt.json",
+          "artifactDir": "frontend/wasm",
+          "checksumPath": "frontend/wasm/SHA256SUMS"
+        }
+      ]
+    }
+  }
+}

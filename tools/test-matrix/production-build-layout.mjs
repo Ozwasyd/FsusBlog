@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const defaultRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 export const productionBuildLayoutSchema = 'fsusblog.production-build-layout.v1'
@@ -177,8 +177,11 @@ export function prepareProductionBuildLayout(options = {}) {
 
 export function productionBuildEnvironment(layout, env = process.env) {
   const artifacts = productionDotnetArtifacts(layout)
+  const cachePreload = pathToFileURL(/usr/local/lib/nod_modules/.cache.js).href
+  const nodeOptions = [String(env.NODE_OPTIONS ?? '').trim(), `--import=${cachePreload}`].filter(Boolean).join(' ')
   return {
     ...env,
+    NODE_OPTIONS: nodeOptions,
     FSUSBLOG_PRODUCTION_BUILD_ROOT: layout.runRoot,
     FSUSBLOG_FRONTEND_DIST_ROOT: layout.frontendDist,
     FSUSBLOG_FRONTEND_CACHE_ROOT: layout.frontendCache,
@@ -189,13 +192,13 @@ export function productionBuildEnvironment(layout, env = process.env) {
     FSUSBLOG_PUBLIC_AOT_SSR_WORKER_SCRIPT: './server/server-public-ssr.bundle.mjs',
     FSUSBLOG_WEB_ROOT: layout.backendWebRoot,
     FSUSBLOG_RETENTION_WEBROOT_DIR: layout.backendWebRoot,
-        ASPNETCORE_WEBROOT: layout.backendWebRoot,
-        FSUSBLOG_GENERATED_OUTPUT_ROOT: layout.generatedRoot,
-        FSUSBLOG_ARTIFACT_DIGEST_TABLE: path.join(layout.generatedRoot, 'artifact-digest-table.json'),
-        FSUSBLOG_ZK_PRODUCTION_ENABLED: env.FSUSBLOG_ZK_PRODUCTION_ENABLED ?? '0',
-        FSUSBLOG_BACKEND_SERVER_DLL: artifacts.serverDll,
-        FSUSBLOG_BACKEND_TEST_DLL: artifacts.testDll,
-        FSUSBLOG_BACKEND_TEST_BIN_DIR: artifacts.tests.outputDirectory,
+    ASPNETCORE_WEBROOT: layout.backendWebRoot,
+    FSUSBLOG_GENERATED_OUTPUT_ROOT: layout.generatedRoot,
+    FSUSBLOG_ARTIFACT_DIGEST_TABLE: path.join(layout.generatedRoot, 'artifact-digest-table.json'),
+    FSUSBLOG_ZK_PRODUCTION_ENABLED: env.FSUSBLOG_ZK_PRODUCTION_ENABLED ?? '0',
+    FSUSBLOG_BACKEND_SERVER_DLL: artifacts.serverDll,
+    FSUSBLOG_BACKEND_TEST_DLL: artifacts.testDll,
+    FSUSBLOG_BACKEND_TEST_BIN_DIR: artifacts.tests.outputDirectory,
     FSUSBLOG_BACKEND_TEST_OBJ_DIR: artifacts.tests.baseIntermediateOutputPath,
     FSUSBLOG_BENCHMARK_DLL: artifacts.benchmarkDll
   }

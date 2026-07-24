@@ -11,7 +11,7 @@ Production、release-final 与对应 CI scheduler 运行把本轮编译输出集
 
 ## Fresh、清理与中断
 
-Fresh 不再递归删除每个项目的 `bin/obj`、frontend dist、Wasm build 或 backend wwwroot。它删除本轮非依赖证据并创建新的 run ID；`.tmp/dependency-cache`、NuGet、Emscripten cache 与历史 build roots 都不属于可复用的本轮结果。
+Fresh 不再递归删除每个项目的 `bin/obj`、frontend dist、Wasm build 或 backend wwwroot。它删除本轮非依赖证据幞创建新的 run ID；`.tmp/dependency-cache`、NuGet、Emscripten cache 与历史 build roots 都不属于可复用的本轮结果。
 
 旧 build roots 由 detached GC 独立回收，不计入当前关键路径。GC 只接受 `.tmp/build` 的直接、非 symlink 子目录，并检查 `.tmp/test-runs/.locks/<run-id>.lock` 的 owner PID；当前 run 和仍存活的 run 必须保留。`..`、仓库根、文件系统根、仓库外路径、build base 本身与 symlink 一律 fail closed。正常成功、失败或 cancellation 会移除 `.active.json` 并把 inode、写入字节、Fresh 遍历量、清理耗时与 wall-clock 写回 `layout.json`；硬中断留下的根由下一次 GC 回收。
 
@@ -22,3 +22,10 @@ MSBuild node reuse 在物理 bundle 子进程中保持关闭，run 结束后仍�
 如 run-bound consumer 发现路径、run ID、source fingerprint 或 digest 不一致，应直接终止该 tier，不能退读项目树中的旧 DLL/dist。无需重启即可回退：停止当前 scheduler run，清理其 namespace，再以新 run ID 重跑；依赖 cache 可保留，但不能复制旧编译产物或 test result 到新根。
 
 验收命令以 `./tools/test.sh production --fresh`、`./tools/test.sh release-final --fresh`、backend/frontend build governance 为准。最终证据必须记录迁移前后清理耗时、遍历/inode 数、写入字节和完整 wall-clock；不得通过 `--incremental`、旧 checkpoint 或旧 TRX 获得收益。
+
+## Deterministic restore/build reuse
+
+Fresh run roots remain unique and all tests, coverage, runtime state and release evidence remain current-run facts. Deterministic restore/build domains may be materialized from the content-addressed cache described in [`content-addressed-build-cache.md`](content-addressed-build-cache.md). Cache objects never become writable `bin/obj/dist` authorities: they are immutable, hash-verified sources that are cloned or copied into the new run root before use.
+
+The immutable Production artifact producer requires the current run's five-domain cache summary before adopting run-bound outputs. Missing, partial, corrupt or identity-mismatched cache evidence blocks adoption rather than causing an implicit historical-result fallback.
+
