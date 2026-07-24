@@ -9,6 +9,6 @@ public static class PerceptionCharacterV3ReleaseTarget
     public const string Algorithm = "fsu.challenge/perception-character-artifact@v3";
     public const string WireName = "perceptionCharacterV3";
     public const string ContractDigest = "7206502fb3b558a0f5f1250b18ab0ab8eedf46df74d8449c9ea9b15295a335f4";
-    public const string AedsSchemaFingerprint = "51b92ab8a82bac8977aea764558dd87ca9b7de0e326b1eefc4ad13ed436175b6";
-    public const string TargetFingerprint = "07ecefcba99b653844a68e8adda52817012b0f927ac728649693a3b9b1211b9f";
+    public const string AedsSchemaFingerprint = "4bee7e68178873b3086a9d5f4e8e22b66f5619d1ce89d161e7ba6b3dde7a0c81";
+    public const string TargetFingerprint = "0442397a6aba55bc1ea056019ed77fa20ce25ea4f36687016521fdcf5bcd4ed2";
 }
