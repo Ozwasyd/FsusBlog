@@ -8,14 +8,15 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import { validateReleaseRuntimeMatrix } from '../runtime-profiles/release-runtime-matrix.mjs';
+import { readEvidenceDocument } from '../test-matrix/content-addressed-evidence-store.mjs';
 
 import { requirePublicPreviewReleaseEvidence } from './public-preview-release-evidence.mjs';
 import { validateReleaseManifest } from './release-manifest.mjs';
-import { validateThemeCssSafetyEvidence } from './theme-css-safety-evidence.mjs';
 import {
     createReleaseFinalTestEvidenceBinding,
     writeJsonAtomic
 } from './test-evidence-receipts.mjs';
+import { validateThemeCssSafetyEvidence } from './theme-css-safety-evidence.mjs';
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 
@@ -30,7 +31,7 @@ function fail(errors)
 
 function readJson(file)
 {
-    return JSON.parse(fs.readFileSync(file, 'utf8'));
+    return readEvidenceDocument(file);
 }
 
 function latestManifest()

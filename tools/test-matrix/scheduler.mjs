@@ -5,24 +5,17 @@ import path from 'node:path'
 import process from 'node:process'
 import { spawn, spawnSync } from 'node:child_process'
 
-import {
-  artifactSubstitutionBindingDigest,
-  resolveRunBoundArtifactDeclaration
-} from './local-profile.mjs'
+import { createAsyncLogPipeline } from './async-log-pipeline.mjs'
 import {
   readAndValidateArtifactDigestTable,
   validateArtifactRefs
 } from './artifact-digest-table.mjs'
+import { RunEvidenceObjectStore } from './content-addressed-evidence-store.mjs'
 import {
-  createLinuxProcessTreeCollector,
-  createWaitLedger,
-  prioritySchemas,
-  rankReadyTiers,
-  resolveResourceSampleIntervalMs,
-  startupAdmissionOrder
-} from './scheduler-admission-support.mjs'
+  artifactSubstitutionBindingDigest,
+  resolveRunBoundArtifactDeclaration
+} from './local-profile.mjs'
 import { createProductionResourceEnforcer } from './production-resource-enforcement.mjs'
-import { createAsyncLogPipeline } from './async-log-pipeline.mjs'
 import {
   createResidentLeaseHandoff,
   readResidentLeaseDocument,
@@ -31,6 +24,14 @@ import {
   validateResidentLeaseInventory,
   writeResidentLeaseDocument
 } from './resident-resource-leases.mjs'
+import {
+  createLinuxProcessTreeCollector,
+  createWaitLedger,
+  prioritySchemas,
+  rankReadyTiers,
+  resolveResourceSampleIntervalMs,
+  startupAdmissionOrder
+} from './scheduler-admission-support.mjs'
 
 const checkpointSchema = 'fsusblog.test-matrix.checkpoint.v1'
 const protectedSupersedesPattern = /(^|[^a-z])(property|model|perf|performance|benchmark|runtime)([^a-z]|$)/i
@@ -56,6 +57,7 @@ const orchestrationOnlyFingerprintEnvironmentKeys = new Set([
   'FSUSBLOG_CGROUP_EFFECTIVE_MEMORY_MAX_BYTES',
   'FSUSBLOG_CGROUP_EFFECTIVE_PIDS_MAX'
 ])
+const checkpointPersistence = new Map()
 function sha256(value) {
   return crypto.createHash('sha256').update(value).digest('hex')
 }
@@ -916,13 +918,63 @@ function tierPhase(tier) {
   return Number.isFinite(value) && value >= 0 ? value : 0
 }
 
+function applyCheckpointPatch(state, payload) {
+  let result = structuredClone(state)
+  for (const operation of payload?.operations ?? []) {
+    const segments = operation.path
+    if (!Array.isArray(segments)) throw new Error('scheduler checkpoint patch path must be an array')
+    if (segments.length === 0) {
+      if (operation.kind !== 'set') throw new Error('scheduler checkpoint root patch must use set')
+      result = structuredClone(operation.value)
+      continue
+    }
+    let parent = result
+    for (const segment of segments.slice(0, -1)) {
+      if (!parent || typeof parent !== 'object') throw new Error('scheduler checkpoint patch traverses a non-object')
+      parent = parent[segment]
+    }
+    const key = segments.at(-1)
+    if (operation.kind === 'set') parent[key] = structuredClone(operation.value)
+    else if (operation.kind === 'delete') delete parent[key]
+    else if (operation.kind === 'append') {
+      if (!Array.isArray(parent[key])) throw new Error('scheduler checkpoint append target must be an array')
+      parent[key].push(...structuredClone(operation.values))
+    } else {
+      throw new Error(`unsupported scheduler checkpoint patch operation: ${operation.kind}`)
+    }
+  }
+  return result
+}
+
 function readCheckpoint(checkpointFile) {
+  let compatibilityCheckpoint = null
   try {
     const checkpoint = JSON.parse(fs.readFileSync(checkpointFile, 'utf8'))
-    return checkpoint?.schema === checkpointSchema ? checkpoint : null
+    compatibilityCheckpoint = checkpoint?.schema === checkpointSchema ? checkpoint : null
   } catch {
-    return null
+    // A compact checkpoint may still recover the compatibility projection.
   }
+  const storeRoot = path.join(path.dirname(checkpointFile), 'evidence-store')
+  if (!fs.existsSync(storeRoot)) return compatibilityCheckpoint
+  let identity = compatibilityCheckpoint
+  if (!identity) {
+    const compactFile = path.join(storeRoot, 'checkpoints', `${path.basename(path.dirname(checkpointFile))}.json`)
+    if (!fs.existsSync(compactFile)) return null
+    identity = JSON.parse(fs.readFileSync(compactFile, 'utf8'))
+  }
+  const store = new RunEvidenceObjectStore({
+    root: storeRoot,
+    runId: identity.runId,
+    sourceState: identity.sourceState
+  })
+  const recovered = store.recover(applyCheckpointPatch)
+  const recoveredCheckpoint = recovered.state?.schema === checkpointSchema ? recovered.state : null
+  if (compatibilityCheckpoint
+    && (!recoveredCheckpoint
+      || Number(compatibilityCheckpoint.revision) >= Number(recoveredCheckpoint.revision))) {
+    return compatibilityCheckpoint
+  }
+  return recoveredCheckpoint
 }
 
 function resumeTierCandidates(previous, tierIds) {
@@ -954,16 +1006,122 @@ function resumeTierCandidates(previous, tierIds) {
   return candidates
 }
 
-function writeCheckpoint(checkpointFile, checkpoint) {
+function checkpointPatch(before, after) {
+  const operations = []
+  const visit = (left, right, currentPath) => {
+    if (Object.is(left, right)) return
+    if (Array.isArray(left) && Array.isArray(right)) {
+      const prefixMatches = left.length <= right.length
+        && left.every((value, index) => JSON.stringify(stableValue(value)) === JSON.stringify(stableValue(right[index])))
+      if (prefixMatches) {
+        if (right.length > left.length) {
+          operations.push({ kind: 'append', path: currentPath, values: right.slice(left.length) })
+        }
+        return
+      }
+      operations.push({ kind: 'set', path: currentPath, value: right })
+      return
+    }
+    const leftObject = left && typeof left === 'object'
+    const rightObject = right && typeof right === 'object'
+    if (!leftObject || !rightObject || Array.isArray(left) || Array.isArray(right)) {
+      operations.push({ kind: 'set', path: currentPath, value: right })
+      return
+    }
+    for (const key of Object.keys(left)) {
+      if (!Object.hasOwn(right, key)) operations.push({ kind: 'delete', path: [...currentPath, key] })
+    }
+    for (const key of Object.keys(right)) {
+      if (!Object.hasOwn(left, key)) operations.push({ kind: 'set', path: [...currentPath, key], value: right[key] })
+      else visit(left[key], right[key], [...currentPath, key])
+    }
+  }
+  visit(before, after, [])
+  return { operations }
+}
+
+function schedulerPersistence(checkpointFile, checkpoint) {
+  const key = path.resolve(checkpointFile)
+  let persistence = checkpointPersistence.get(key)
+  if (persistence
+    && (persistence.store.runId !== checkpoint.runId
+      || !sameCheckpointSource(persistence.store.sourceState, checkpoint.sourceState))) {
+    checkpointPersistence.delete(key)
+    persistence = null
+  }
+  if (!persistence) {
+    const store = new RunEvidenceObjectStore({
+      root: path.join(path.dirname(checkpointFile), 'evidence-store'),
+      runId: checkpoint.runId,
+      sourceState: checkpoint.sourceState
+    })
+    let previous = null
+    try {
+      previous = store.recover(applyCheckpointPatch).state
+    } catch (error) {
+      if (fs.existsSync(path.join(store.checkpointsDirectory, `${checkpoint.runId}.json`))) throw error
+    }
+    persistence = {
+      store,
+      previous,
+      compatibilityWrites: fs.existsSync(checkpointFile) ? 1 : 0,
+      compatibilityBytesWritten: fs.existsSync(checkpointFile) ? fs.statSync(checkpointFile).size : 0
+    }
+    checkpointPersistence.set(key, persistence)
+  }
+  return persistence
+}
+
+function writeCheckpoint(checkpointFile, checkpoint, {
+  boundary = false,
+  stage = null,
+  eventType = 'scheduler-state-updated',
+  tier = null,
+  step = null
+} = {}) {
   checkpoint.revision = Math.max(0, Number(checkpoint.revision) || 0) + 1
   checkpoint.updatedAt = new Date().toISOString()
   checkpoint.completedTiers = Object.entries(checkpoint.tiers)
     .filter(([, value]) => value.status === 'success')
     .map(([tierId]) => tierId)
     .sort()
+  const persistence = schedulerPersistence(checkpointFile, checkpoint)
+  const patch = checkpointPatch(persistence.previous, checkpoint)
+  const event = persistence.store.appendJournalEvent({
+    eventType,
+    tier,
+    step,
+    status: checkpoint.status,
+    payload: patch
+  })
+  persistence.previous = structuredClone(checkpoint)
+  if (!boundary) return
+  persistence.store.writeCompactCheckpoint({
+    stage: stage ?? (checkpoint.status === 'running' ? 'run-start' : 'run-complete'),
+    state: checkpoint,
+    lastSequence: event.sequence,
+    retention: {
+      activeRun: checkpoint.status === 'running',
+      releaseBinding: checkpoint.status === 'success'
+    }
+  })
+  const serialized = `${JSON.stringify(checkpoint, null, 2)}\n`
   const temporaryFile = `${checkpointFile}.next-${process.pid}`
-  fs.writeFileSync(temporaryFile, `${JSON.stringify(checkpoint, null, 2)}\n`)
+  fs.writeFileSync(temporaryFile, serialized)
   fs.renameSync(temporaryFile, checkpointFile)
+  persistence.compatibilityWrites += 1
+  persistence.compatibilityBytesWritten += Buffer.byteLength(serialized)
+  if (checkpoint.status !== 'running') {
+    const metrics = {
+      ...persistence.store.metrics(),
+      schedulerCompatibilityCheckpointWrites: persistence.compatibilityWrites,
+      schedulerCompatibilityCheckpointBytesWritten: persistence.compatibilityBytesWritten
+    }
+    const metricsFile = path.join(path.dirname(checkpointFile), 'evidence-storage-metrics.json')
+    const metricsTemporary = `${metricsFile}.next-${process.pid}`
+    fs.writeFileSync(metricsTemporary, `${JSON.stringify(metrics, null, 2)}\n`)
+    fs.renameSync(metricsTemporary, metricsFile)
+  }
 }
 
 export function markCheckpointWallClockTimeout(checkpointFile, failure, finishedAt = new Date().toISOString()) {
@@ -979,7 +1137,13 @@ export function markCheckpointWallClockTimeout(checkpointFile, failure, finished
     checkpoint.failures = [...(checkpoint.failures ?? []), failure]
   }
   checkpoint.finishedAt = finishedAt
-  writeCheckpoint(checkpointFile, checkpoint)
+  writeCheckpoint(checkpointFile, checkpoint, {
+    boundary: true,
+    stage: 'wall-clock-timeout',
+    eventType: 'run-timed-out',
+    tier: failure.tierId ?? checkpoint.targetTierId,
+    step: 'scheduler'
+  })
   return checkpoint
 }
 
@@ -1352,7 +1516,13 @@ function persistEvidenceFailure(checkpointFile, expectedRunId, error) {
     tierId: checkpoint.targetTierId,
     declaration: 'logicalTierProjection'
   }]
-  writeCheckpoint(checkpointFile, checkpoint)
+  writeCheckpoint(checkpointFile, checkpoint, {
+    boundary: true,
+    stage: 'evidence-finalization-failed',
+    eventType: 'evidence-finalization-failed',
+    tier: checkpoint.targetTierId,
+    step: 'finalize-evidence'
+  })
 }
 
 export async function attachCheckpointEvidence(checkpointFileValue, expectedRunId, evidenceOrBuilder, options = {}) {
@@ -1388,7 +1558,13 @@ export async function attachCheckpointEvidence(checkpointFileValue, expectedRunI
     validateCheckpointBundleSummaries(checkpoint, root)
     validateCheckpointEvidence(checkpoint, evidence, root)
     checkpoint.logicalTierProjection = evidence.logicalTierProjection
-    writeCheckpoint(checkpointFile, checkpoint)
+    writeCheckpoint(checkpointFile, checkpoint, {
+      boundary: true,
+      stage: 'evidence-finalized',
+      eventType: 'evidence-finalized',
+      tier: checkpoint.targetTierId,
+      step: 'finalize-evidence'
+    })
     return checkpoint
   } catch (error) {
     if (finalizationStarted) persistEvidenceFailure(checkpointFile, expectedRunId, error)
@@ -1451,7 +1627,13 @@ export async function resumeCheckpointEvidence(checkpointFileValue, expectedRunI
       finalizedAt: new Date().toISOString(),
       finalizerSource
     }
-    writeCheckpoint(checkpointFile, checkpoint)
+    writeCheckpoint(checkpointFile, checkpoint, {
+      boundary: true,
+      stage: 'evidence-finalized',
+      eventType: 'evidence-finalized',
+      tier: checkpoint.targetTierId,
+      step: 'resume-evidence'
+    })
     return checkpoint
   } finally {
     releaseLock()
@@ -1575,7 +1757,10 @@ async function runDagUnlocked(options) {
     ? repositoryInputFingerprint(root)
     : null
 
-  if (!resume) fs.rmSync(runDirectory, { recursive: true, force: true })
+  if (!resume) {
+    checkpointPersistence.delete(path.resolve(checkpointFile))
+    fs.rmSync(runDirectory, { recursive: true, force: true })
+  }
   fs.mkdirSync(tierLogDirectory, { recursive: true })
   const previous = resume ? readCheckpoint(checkpointFile) : null
   const resumeSourceChanged = Boolean(previous)
@@ -1659,7 +1844,17 @@ async function runDagUnlocked(options) {
     inputSchema: options.priorityInput?.schema ?? null,
     waves: []
   }
-  writeCheckpoint(checkpointFile, checkpoint)
+  if (resumeSourceChanged) {
+    checkpointPersistence.delete(path.resolve(checkpointFile))
+    fs.rmSync(path.join(runDirectory, 'evidence-store'), { recursive: true, force: true })
+  }
+  writeCheckpoint(checkpointFile, checkpoint, {
+    boundary: true,
+    stage: 'run-start',
+    eventType: 'run-started',
+    tier: checkpoint.targetTierId,
+    step: 'scheduler'
+  })
 
   const pending = [...tiers]
   const completed = new Set()
@@ -2182,8 +2377,6 @@ async function runDagUnlocked(options) {
       admissionOrder: orderedReady.map((tier) => tier.id),
       decisions
     })
-    writeCheckpoint(checkpointFile, checkpoint)
-
     const dynamic = selected.filter((tier) => tier.resourceGrantMode === 'dynamic')
     const dynamicCpu = Math.max(0, Math.floor(availableCpu - fixedCpu))
     const cpuAllocations = dynamic.length > 0
@@ -2242,7 +2435,11 @@ async function runDagUnlocked(options) {
       reuseSourceState: candidate.sourceState,
       logFile: path.relative(root, path.join(tierLogDirectory, `${tier.id}.log`)).replaceAll(path.sep, '/')
     }
-    writeCheckpoint(checkpointFile, checkpoint)
+    writeCheckpoint(checkpointFile, checkpoint, {
+      eventType: 'tier-reused',
+      tier: tier.id,
+      step: 'resume'
+    })
     options.onTierReused?.(tier, checkpoint.tiers[tier.id])
     return true
   }
@@ -2285,7 +2482,11 @@ async function runDagUnlocked(options) {
     // resume remains fail-closed on the next attempt.
     if (resume && checkpoint.resumeCandidates?.[tier.id]) {
       delete checkpoint.resumeCandidates[tier.id]
-      writeCheckpoint(checkpointFile, checkpoint)
+      writeCheckpoint(checkpointFile, checkpoint, {
+        eventType: 'resume-candidate-retired',
+        tier: tier.id,
+        step: 'resume'
+      })
     }
 
     const ownedOutputs = ownedGeneratedDeclarations(tier, byId)
@@ -2535,7 +2736,11 @@ async function runDagUnlocked(options) {
       resultFingerprints.set(tier.id, resultFingerprint)
     }
     options.onTierComplete?.(tier, checkpoint.tiers[tier.id])
-    writeCheckpoint(checkpointFile, checkpoint)
+    writeCheckpoint(checkpointFile, checkpoint, {
+      eventType: success ? 'tier-completed' : (cancelled ? 'tier-cancelled' : 'tier-failed'),
+      tier: tier.id,
+      step: 'execute'
+    })
     return { success, cancelled, reason, changedPaths, executionResult }
   }
 
@@ -2672,7 +2877,11 @@ async function runDagUnlocked(options) {
       checkpoint.failure = firstFailure
       checkpoint.failurePoint = firstFailure.tierId
       checkpoint.failures.push(firstFailure)
-      writeCheckpoint(checkpointFile, checkpoint)
+      writeCheckpoint(checkpointFile, checkpoint, {
+        eventType: 'run-interrupted',
+        tier: firstFailure.tierId,
+        step: 'scheduler'
+      })
       continue
     }
     if (outcome.budgetExpired) {
@@ -2690,7 +2899,11 @@ async function runDagUnlocked(options) {
       checkpoint.failure = firstFailure
       checkpoint.failurePoint = timedOutTierId
       checkpoint.failures.push(firstFailure)
-      writeCheckpoint(checkpointFile, checkpoint)
+      writeCheckpoint(checkpointFile, checkpoint, {
+        eventType: 'run-timed-out',
+        tier: timedOutTierId,
+        step: 'scheduler'
+      })
       for (const entry of active.values()) {
         entry.cancelRequested = true
         entry.terminate()
@@ -2760,7 +2973,13 @@ async function runDagUnlocked(options) {
         }))
       })
     : []
-  writeCheckpoint(checkpointFile, checkpoint)
+  writeCheckpoint(checkpointFile, checkpoint, {
+    boundary: true,
+    stage: firstFailure ? 'run-failed' : 'run-complete',
+    eventType: firstFailure ? 'run-failed' : 'run-completed',
+    tier: firstFailure?.tierId ?? checkpoint.targetTierId,
+    step: 'scheduler'
+  })
 
   return {
     status: checkpoint.status,

@@ -7,6 +7,9 @@ import { pathToFileURL } from 'node:url';
 const { projectEvidence } = await import(pathToFileURL(
     path.resolve(import.meta.dirname, '../test-matrix/evidence-projection.mjs')
 ).href);
+const { readEvidenceDocument } = await import(pathToFileURL(
+    path.resolve(import.meta.dirname, '../test-matrix/content-addressed-evidence-store.mjs')
+).href);
 
 function option(name)
 {
@@ -39,7 +42,7 @@ try
     const repositoryRoot = path.resolve(option('root'));
     const receipt = projectEvidence({
         catalog: readJson(catalogPath),
-        producerReceipt: readJson(producerPath),
+        producerReceipt: readEvidenceDocument(producerPath),
         producerReceiptPath: path.relative(repositoryRoot, producerPath),
         sourceState: {
             commit: option('commit'),

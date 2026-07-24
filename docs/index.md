@@ -197,6 +197,7 @@
 - [Browser geometry、motion 与 focus 分层](testing/browser-geometry-motion-focus.md)
 - [Browser readiness contract](testing/browser-readiness-contract.md)
 - [Canonical hash test ownership](testing/canonical-hash-test-ownership.md)
+- [Content-addressed test evidence storage](testing/content-addressed-evidence-storage.md)
 - [Evidence Projection Contract](testing/evidence-projection-contract.md)
 - [Frontend private runtime governance](testing/frontend-private-runtime-governance.md)
 - [HTTP/3 + QUIC local-equivalent experiment](testing/http3-local-equivalent-experiment.md)

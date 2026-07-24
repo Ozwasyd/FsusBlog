@@ -2070,6 +2070,16 @@
             "supersededBy": null
         },
         {
+            "path": "docs/testing/content-addressed-evidence-storage.md",
+            "status": "current",
+            "owner": "release",
+            "relatedIssues": [
+                1423
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
             "path": "docs/testing/evidence-projection-contract.md",
             "status": "current",
             "owner": "release",

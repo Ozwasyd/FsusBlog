@@ -39,6 +39,12 @@ The projector validates the receipt schema and digest, exact source/run/namespac
 
 Successful projection writes an independent `fsusblog.evidence-projection-receipt.v1` receipt. Its `executionBoundary` records zero child processes, `dotnet test`, Vitest, Playwright, and runtime probe launches. This receipt is the logical tier's evidence; the producer receipt remains the physical execution authority.
 
+Large producer documents may be persisted through the
+[content-addressed evidence storage contract](content-addressed-evidence-storage.md).
+The projector validates and materializes the run/source-bound logical receipt
+before applying this contract's producer schema, source, run, namespace, assertion,
+coverage, and artifact checks. Object storage never relaxes projection validation.
+
 ## Local verification
 
 ```bash

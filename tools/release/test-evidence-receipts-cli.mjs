@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable import-x/no-relative-parent-imports */
 
 import crypto from 'node:crypto'
 import fs from 'node:fs'
@@ -6,7 +7,9 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
+import { readEvidenceDocument } from '../test-matrix/content-addressed-evidence-store.mjs'
 import { parseMatrix } from '../test-matrix/parse-matrix.mjs'
+
 import {
   browserlessCorrectnessReceiptSchema,
   createBrowserlessCorrectnessReceipt,
@@ -44,7 +47,7 @@ function walkJsonFiles(directory, results = []) {
 }
 
 function readJson(file) {
-  return JSON.parse(fs.readFileSync(file, 'utf8'))
+  return readEvidenceDocument(file)
 }
 
 function canonicalize(value) {

@@ -102,6 +102,7 @@ test('scheduler receipt generation rejects a same-commit summary from another sc
   for (const relativeFile of [
     'tools/release/test-evidence-receipts-cli.mjs',
     'tools/release/test-evidence-receipts.mjs',
+    'tools/test-matrix/content-addressed-evidence-store.mjs',
     'tools/test-matrix/parse-matrix.mjs',
     'tools/yaml/parse-document.mjs'
   ]) {
@@ -335,6 +336,7 @@ test('receipt CLI passes the ordinary PR plan to core without claiming policy-sk
   for (const relativeFile of [
     'tools/release/test-evidence-receipts-cli.mjs',
     'tools/release/test-evidence-receipts.mjs',
+    'tools/test-matrix/content-addressed-evidence-store.mjs',
     'tools/test-matrix/parse-matrix.mjs',
     'tools/yaml/parse-document.mjs',
     'tests/matrix.yml'
