@@ -55,6 +55,10 @@ public sealed class CspNonceUtf8TemplateTests
     [InlineData("<html><head></head><script nonce=bad></script></html>")]
     [InlineData("<html><head><meta property=\"csp-nonce\" nonce=\"fixed\" /></head></html>")]
     [InlineData("<html><head></head><script /> </html>")]
+    [InlineData("<html><head></head><script / >owned()</script></html>")]
+    [InlineData("<html><head></head><script /data-owner=\"attacker\">owned()</script></html>")]
+    [InlineData("<html><head></head><script data-owner=attacker\"payload>owned()</script></html>")]
+    [InlineData("<html><head></head><script>owned()</script data-owner=\"attacker\"></html>")]
     [InlineData("<html><head></head><script>unterminated</html>")]
     [InlineData("<html><head></head><script>%%FSUSBLOG_CSP_NONCE%%</script></html>")]
     public void Compile_MalformedOrAttackerControlledTemplate_FailsClosed(string html)
@@ -119,6 +123,7 @@ public sealed class CspNonceUtf8TemplateTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             CspNonceHtmlResponseWriter.WriteBodyAsync(context.Response, template, "cancel_nonce", cancellation.Token));
 
+        Assert.Equal(0, writer.AdvanceCalls);
         Assert.Equal(0, writer.FlushCalls);
         await writer.CompleteAsync();
         await pipe.Reader.CompleteAsync();
@@ -147,6 +152,29 @@ public sealed class CspNonceUtf8TemplateTests
 
         Assert.Equal(1, writer.FlushCalls);
         Assert.True(writer.AdvanceCalls >= template.SlotCount + 1);
+        await writer.CompleteAsync();
+        await pipe.Reader.CompleteAsync();
+    }
+
+    [Fact]
+    public async Task ResponseWriter_StopsAtNextSegmentBoundaryWhenRequestIsCanceled()
+    {
+        CspNonceUtf8Template template = CreateLargeTemplate();
+        var pipe = new Pipe();
+        var writer = new CountingPipeWriter(pipe.Writer);
+        DefaultHttpContext context = CreateContext(writer);
+        using var cancellation = new CancellationTokenSource();
+        writer.Advanced = _ => cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            CspNonceHtmlResponseWriter.WriteBodyAsync(
+                context.Response,
+                template,
+                "cancel_between_segments",
+                cancellation.Token));
+
+        Assert.Equal(1, writer.AdvanceCalls);
+        Assert.Equal(0, writer.FlushCalls);
         await writer.CompleteAsync();
         await pipe.Reader.CompleteAsync();
     }
@@ -289,6 +317,11 @@ public sealed class CspNonceUtf8TemplateTests
 
     private sealed class CountingPipeWriter(PipeWriter inner) : PipeWriter
     {
+        public Action<int>? Advanced
+        {
+            get; set;
+        }
+
         public int AdvanceCalls
         {
             get; private set;
@@ -302,6 +335,7 @@ public sealed class CspNonceUtf8TemplateTests
         {
             inner.Advance(bytes);
             AdvanceCalls++;
+            Advanced?.Invoke(bytes);
         }
 
         public override void CancelPendingFlush() => inner.CancelPendingFlush();

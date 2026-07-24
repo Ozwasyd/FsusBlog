@@ -164,7 +164,7 @@ public sealed class CspNonceUtf8Template
                 || tagName.Equals("style", StringComparison.OrdinalIgnoreCase);
             if (executable)
             {
-                if (tag[^2..].SequenceEqual("/>"))
+                if (attributes.IsSelfClosing)
                 {
                     throw new InvalidOperationException("Self-closing script/style tags are not supported by the CSP nonce compiler.");
                 }
@@ -194,7 +194,7 @@ public sealed class CspNonceUtf8Template
 
             if (tagName.Equals("head", StringComparison.OrdinalIgnoreCase))
             {
-                if (tag[^2..].SequenceEqual("/>"))
+                if (attributes.IsSelfClosing)
                 {
                     throw new InvalidOperationException("Self-closing head tags are not supported by the CSP nonce compiler.");
                 }
@@ -240,6 +240,12 @@ public sealed class CspNonceUtf8Template
     }
 
     public void Write(IBufferWriter<byte> writer, ReadOnlySpan<byte> nonceUtf8)
+        => Write(writer, nonceUtf8, CancellationToken.None);
+
+    internal void Write(
+        IBufferWriter<byte> writer,
+        ReadOnlySpan<byte> nonceUtf8,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(writer);
         if (!IsSafeNonce(nonceUtf8))
@@ -247,15 +253,19 @@ public sealed class CspNonceUtf8Template
             throw new InvalidOperationException("CSP nonce must be non-empty base64url data.");
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         int placeholderLength = s_strictUtf8.GetByteCount(Placeholder);
         int position = 0;
         foreach (int slotOffset in _slotOffsets)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             WriteBytes(writer, _templateBytes.AsSpan(position, slotOffset - position));
+            cancellationToken.ThrowIfCancellationRequested();
             WriteBytes(writer, nonceUtf8);
             position = slotOffset + placeholderLength;
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         WriteBytes(writer, _templateBytes.AsSpan(position));
     }
 
@@ -323,6 +333,7 @@ public sealed class CspNonceUtf8Template
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         int nonceCount = 0;
         bool hasSrc = false;
+        bool isSelfClosing = false;
         string? propertyValue = null;
         int end = tag.Length - 1;
         while (position < end)
@@ -332,8 +343,25 @@ public sealed class CspNonceUtf8Template
                 position++;
             }
 
-            if (position >= end || tag[position] == '/')
+            if (position >= end)
             {
+                break;
+            }
+
+            if (tag[position] == '/')
+            {
+                position++;
+                while (position < end && char.IsWhiteSpace(tag[position]))
+                {
+                    position++;
+                }
+
+                if (position != end)
+                {
+                    throw new InvalidOperationException("CSP nonce HTML contains a malformed self-closing tag.");
+                }
+
+                isSelfClosing = true;
                 break;
             }
 
@@ -402,6 +430,12 @@ public sealed class CspNonceUtf8Template
                     int valueStart = position;
                     while (position < end && !char.IsWhiteSpace(tag[position]) && tag[position] != '>')
                     {
+                        if (tag[position] is '"' or '\'' or '=' or '`' or '<')
+                        {
+                            throw new InvalidOperationException(
+                                "CSP nonce HTML contains an invalid unquoted attribute value.");
+                        }
+
                         position++;
                     }
 
@@ -423,7 +457,7 @@ public sealed class CspNonceUtf8Template
             }
         }
 
-        return new ParsedAttributes(nonceCount, hasSrc, propertyValue);
+        return new ParsedAttributes(nonceCount, hasSrc, isSelfClosing, propertyValue);
     }
 
     private static (int Start, int End) FindClosingTag(
@@ -445,6 +479,15 @@ public sealed class CspNonceUtf8Template
             if (nameEnd < html.Length && (char.IsWhiteSpace(html[nameEnd]) || html[nameEnd] == '>'))
             {
                 int closeEnd = FindTagEnd(html, nameEnd);
+                for (int position = nameEnd; position < closeEnd; position++)
+                {
+                    if (!char.IsWhiteSpace(html[position]))
+                    {
+                        throw new InvalidOperationException(
+                            $"CSP nonce HTML contains a malformed closing {tagName.ToString()} tag.");
+                    }
+                }
+
                 return (closeStart, closeEnd);
             }
 
@@ -531,7 +574,11 @@ public sealed class CspNonceUtf8Template
         writer.Advance(bytes.Length);
     }
 
-    private readonly record struct ParsedAttributes(int NonceCount, bool HasSrc, string? PropertyValue);
+    private readonly record struct ParsedAttributes(
+        int NonceCount,
+        bool HasSrc,
+        bool IsSelfClosing,
+        string? PropertyValue);
 }
 
 internal static class CspNonceHtmlResponseWriter
@@ -544,7 +591,7 @@ internal static class CspNonceHtmlResponseWriter
     {
         Span<byte> nonceBytes = stackalloc byte[64];
         int nonceLength = Encoding.UTF8.GetBytes(nonce.AsSpan(), nonceBytes);
-        template.Write(response.BodyWriter, nonceBytes[..nonceLength]);
+        template.Write(response.BodyWriter, nonceBytes[..nonceLength], cancellationToken);
         ValueTask<FlushResult> flush = response.BodyWriter.FlushAsync(cancellationToken);
         if (flush.IsCompletedSuccessfully)
         {
