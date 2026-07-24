@@ -1,5 +1,17 @@
 # FsusBlog Operations Runbook
 
+## Module invocation degradation
+
+`module_route_unavailable` means no healthy node currently advertises the required
+capability; `module_backpressure` means the bounded remote-call budget is full; and
+`module_circuit_open` means repeated remote failures opened the contract circuit.
+Drain the unhealthy target or remove its active responsibility and let another healthy
+node take the assignment. New requests recover after membership and capability health
+return; the circuit probes again after its open interval, so request-serving nodes do
+not need a restart. Durable queue consumers may be paused without discarding messages.
+Do not bypass the owner contract, redirect writes to another module's tables, or switch
+a running multi-node process to the in-memory `single` authority.
+
 ## Upload session expiration cleanup
 
 Upload-session cleanup only enumerates the expiration-bucket index; it does not sweep every directory below the session root. If an old orphan is found, quarantine or remove that exact path through an operator-reviewed maintenance action and repair the missing index producer. The cleanup worker may be paused without restarting request-serving nodes, but the unbounded root sweep must not be restored. Production closeout keeps the release-cycle and read-only residual-scan evidence in `tests/backend/runtime-fallback-milestones.json`; absent external observations remain `deferred-unverified`.

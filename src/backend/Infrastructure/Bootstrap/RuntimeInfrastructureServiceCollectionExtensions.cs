@@ -48,6 +48,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddFsusDistributedInvalidation(configuration);
         services.AddFsusDistributedStateControl(configuration);
         services.AddFsusClusterMembership(configuration);
+        services.AddFsusModuleInvocation(configuration);
         services.AddPluginFoundation(configuration);
         services.AddIdentityRuntime();
         services.AddBackgroundRuntime();
