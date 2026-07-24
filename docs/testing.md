@@ -2,6 +2,12 @@
 
 FsusBlog 采用机器可读测试 DAG。`tests/matrix.yml` 是唯一测试拓扑源，`tools/run-test-matrix.mjs` 负责 `preflight` / `validate` / `list` / `plan` / `run` / `ci-plan` / `docs` / `evidence-plan`，`tools/test.sh` 是唯一公开 shell 入口并代理到 runner。lane 脚本只能执行一个已由 matrix 声明的叶节点；共享 shell 文件是 source-only 能力库，不得包含 tier 分派、依赖关系或另一个命令清单。后端 profile、mutation、security static/runtime 和 cross-stack static/runtime 都由 matrix 或 production bundle 投影到同一组叶节点，不能通过兼容 alias 再建一套拓扑。
 
+Static governance Node contract 的 resident host 隔离分类与 frontend
+structure producer-receipt join 见
+[`testing/static-governance-resident-hosts.md`](testing/static-governance-resident-hosts.md)。
+pure/file 检查共享 host，lifecycle 与 destructive rehearsal 保持独立进程；
+最终性能结论仍必须来自同 source 的三轮 Production fresh，不得由局部验收替代。
+
 ## 可执行数据测试治理
 
 可执行数据约束必须由真实 owner test 和中央事实源共同表达，不使用 issue 文档充当测试清单：

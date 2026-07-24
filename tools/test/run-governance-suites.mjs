@@ -3,15 +3,23 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 
-import { buildGovernanceSuitePlan, serializeGovernanceSuitePlan } from './governance-suite-plan.mjs'
 import { runWeightedCommandManifest } from './run-command-manifest.mjs'
+import {
+  buildStaticGovernanceExecutionPlan,
+  buildStaticGovernanceHostEvidence,
+  buildStaticGovernanceTestCatalog,
+  collectExecutedStaticGovernanceTestIds,
+  loadStaticGovernanceIsolationRegistry
+} from './static-governance-host.mjs'
 import { sourceIdentity } from './test-asset-audit/preflight.mjs'
 
 const root = path.resolve(new URL('../..', import.meta.url).pathname)
 const node = process.env.FSUSBLOG_NODE || process.execPath
-const files = String(process.env.FSUSBLOG_STATIC_CONTRACT_FILES ?? '').split('\n').filter(Boolean)
-const zdtFile = process.argv[2]
-if (files.length === 0 || !zdtFile) throw new Error('static contract files and zero-downtime fixture are required')
+const registryFile = path.join(root, 'tests/governance/static-governance-isolation-registry.json')
+const reporterFile = path.join(root, 'tools/test/static-governance-reporter.mjs')
+const registry = loadStaticGovernanceIsolationRegistry(registryFile, root)
+const plan = buildStaticGovernanceExecutionPlan(registry)
+const testCatalog = buildStaticGovernanceTestCatalog(root, registry)
 
 const historicalDurationMs = new Map([
   ['gateway-switch.test.mjs', 36_000],
@@ -22,49 +30,81 @@ const historicalDurationMs = new Map([
   ['release-rollout-evidence.test.mjs', 3_000]
 ])
 
-function suiteCommand(suite) {
-  const options = suite.isolation === 'none' ? ['--test-isolation=none', '--test-concurrency=1'] : []
-  return [node, '--test', ...options, ...suite.files]
+function hostCommand(host) {
+  const shared = ['pure-file-validation', 'isolated-temporary-repository-fixture'].includes(host.category)
+  const options = shared ? ['--test-isolation=none', '--test-concurrency=1'] : []
+  return [node, '--test', `--test-reporter=${reporterFile}`, ...options, ...host.checks.map((check) => path.join(root, check.file))]
 }
 
-const suites = buildGovernanceSuitePlan(files)
 const planFile = path.join(root, '.tmp/test-governance/suite-plan.json')
 fs.mkdirSync(path.dirname(planFile), { recursive: true })
-fs.writeFileSync(planFile, `${JSON.stringify(serializeGovernanceSuitePlan(root, suites, sourceIdentity(root)), null, 2)}\n`)
+fs.writeFileSync(planFile, `${JSON.stringify({
+  ...plan,
+  source: sourceIdentity(root),
+  registry: path.relative(root, registryFile).split(path.sep).join('/')
+}, null, 2)}\n`)
 
-const suiteCommands = suites.map((suite) => ({
-  id: `suite:${suite.id}`,
+const hostResultDirectory = path.join(root, '.tmp/test-governance/host-results')
+fs.rmSync(hostResultDirectory, { recursive: true, force: true })
+fs.mkdirSync(hostResultDirectory, { recursive: true })
+const hostResultFiles = plan.hosts.map((_, index) => path.join(hostResultDirectory, `${index}.json`))
+const hostCommands = plan.hosts.map((host, index) => ({
+  id: host.id,
   access: 'read',
-  command: suiteCommand(suite),
-  estimatedDurationMs: suite.files.reduce((sum, file) => sum + (historicalDurationMs.get(path.basename(file)) ?? 1_000), 0)
+  command: hostCommand(host),
+  environment: {
+    ...(host.checks[0]?.environment ?? {}),
+    FSUSBLOG_STATIC_GOVERNANCE_HOST_RESULT: hostResultFiles[index]
+  },
+  ...(host.exclusive ? { concurrencyWeight: Number.MAX_SAFE_INTEGER } : {}),
+  estimatedDurationMs: host.checks.reduce(
+    (sum, check) => sum + (historicalDurationMs.get(path.basename(check.file)) ?? 1_000),
+    0
+  )
 }))
-const zdtShards = [
-  ['all', 1_000],
-  ['sigkill-resume', 16_000],
-  ['explicit-rollback', 12_000],
-  ['post-switch-rollback', 7_000],
-  ['normal', 7_000],
-  ['base', 1_000]
-]
 const environment = { ...process.env }
 delete environment.FSUSBLOG_COMMAND_MANIFEST_WORKERS
+const controller = new AbortController()
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.once(signal, () => controller.abort(new Error(`static governance host cancelled by ${signal}`)))
+}
+const startedAt = process.hrtime.bigint()
+const cpuStarted = process.cpuUsage()
 await runWeightedCommandManifest({
   schema: 'fsusblog.test-command-manifest.v1',
   lane: 'static-governance-node-contracts',
-  commands: [
-    ...suiteCommands,
-    ...zdtShards.map(([shard, estimatedDurationMs]) => ({
-      id: `zdt:${shard}`,
-      access: 'read',
-      command: [node, '--test', zdtFile],
-      environment: { FSUSBLOG_ZDT_FIXTURE_SHARD: shard },
-      concurrencyWeight: Number.MAX_SAFE_INTEGER,
-      estimatedDurationMs
-    }))
-  ]
+  commands: hostCommands
 }, {
   cwd: root,
   env: environment,
   orchestrationWorkersPerCpu: 1,
-  orchestrationMemoryGiBPerWorker: process.memoryUsage().rss / 1024 ** 3
+  orchestrationMemoryGiBPerWorker: process.memoryUsage().rss / 1024 ** 3,
+  signal: controller.signal,
+  evidenceFile: path.join(root, '.tmp/test-governance/live-grant.json')
 })
+const elapsed = process.hrtime.bigint() - startedAt
+const cpu = process.cpuUsage(cpuStarted)
+const executedTestIds = collectExecutedStaticGovernanceTestIds(
+  root,
+  testCatalog,
+  hostResultFiles.map((file) => JSON.parse(fs.readFileSync(file, 'utf8')))
+)
+const evidence = buildStaticGovernanceHostEvidence({
+  registry,
+  plan,
+  executedCheckIds: registry.checks.map((check) => check.id),
+  testCatalog,
+  executedTestIds,
+  source: sourceIdentity(root),
+  runId: process.env.FSUSBLOG_TEST_RUN_ID ?? 'direct',
+  metrics: {
+    wallTimeMs: Number(elapsed / 1_000_000n),
+    cpuSeconds: (cpu.user + cpu.system) / 1_000_000,
+    fileReadBytes: registry.checks.reduce(
+      (sum, check) => sum + fs.statSync(path.join(root, check.file)).size,
+      fs.statSync(registryFile).size
+    )
+  }
+})
+const evidenceFile = path.join(root, '.tmp/test-governance/host-evidence.json')
+fs.writeFileSync(evidenceFile, `${JSON.stringify(evidence, null, 2)}\n`)

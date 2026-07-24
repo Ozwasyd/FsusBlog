@@ -2204,6 +2204,8 @@ async function runFrontendTests() {
                 artifacts: [
                     path.join(root, '.tmp/frontend/markdown-render-budget.json'),
                     path.join(root, '.tmp/frontend/dom-depth-static.json'),
+                    path.join(root, '.tmp/frontend/receipts/markdown-render-budget.json'),
+                    path.join(root, '.tmp/frontend/receipts/dom-depth-static.json'),
                     path.join(root, '.tmp/release-evidence/frontend-render-structure-summary.json')
                 ],
                 resources: {

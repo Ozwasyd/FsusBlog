@@ -6,6 +6,7 @@ import { executeWeightedStepDag } from '../../tools/test/bundles/bundle-steps.mj
 
 const runnerSource = fs.readFileSync(new URL('../../tools/test/bundles/run-bundle.mjs', import.meta.url), 'utf8')
 const staticLaneSource = fs.readFileSync(new URL('../../tools/test/lanes/static-governance.sh', import.meta.url), 'utf8')
+const staticHostSource = fs.readFileSync(new URL('../../tools/test/run-governance-suites.mjs', import.meta.url), 'utf8')
 const privacyLaneSource = fs.readFileSync(new URL('../../tools/test/lanes/privacy-zk-comment-matrix.sh', import.meta.url), 'utf8')
 const frontendPackage = JSON.parse(fs.readFileSync(new URL('../../src/frontend/package.json', import.meta.url), 'utf8'))
 const vitestSharedSource = fs.readFileSync(new URL('../../src/frontend/vitest.shared.mjs', import.meta.url), 'utf8')
@@ -63,6 +64,8 @@ test('frontend bundle gates Vitest on only explicit blocking checks and schedule
   assert.match(dagDeclaration, /commandStep\('frontend-static-final-ready',[\s\S]*?frontend-static-concurrent[\s\S]*?frontend-static-postbuild[\s\S]*?frontend-static-isolated[\s\S]*?runAfterSettled: true,[\s\S]*?coordinationOnly: true/u)
   assert.match(dagDeclaration, /staticStageStep\('final',[\s\S]*?dependsOn: \['frontend-static-final-ready'\]/u)
     assert.match(dagDeclaration, /commandStep\([\s\S]*?'frontend-render-structure',[\s\S]*?frontend-render-structure\.sh[\s\S]*?\['frontend-render-structure'\][\s\S]*?dependsOn: \['frontend-static-final'\]/u);
+    assert.match(dagDeclaration, /\.tmp\/frontend\/receipts\/dom-depth-static\.json[\s\S]*?frontend-render-structure-summary\.json/u);
+    assert.match(dagDeclaration, /\.tmp\/frontend\/receipts\/markdown-render-budget\.json/u);
   assert.match(dagDeclaration, /commandStep\('vitest-settled',[\s\S]*?runAfterSettled: true/u)
   assert.match(dagDeclaration, /perfStep,[\s\S]*?commandStep\('static-governance-post-vitest'[\s\S]*?ensure test-asset-governance/u);
     assert.match(dagDeclaration, /commandStep\('frontend-tests-join',[\s\S]*?'vitest-production-projects'[\s\S]*?'frontend-static-concurrent'[\s\S]*?'frontend-static-postbuild'[\s\S]*?'frontend-static-isolated'[\s\S]*?'frontend-static-final'[\s\S]*?'frontend-render-structure'[\s\S]*?'frontend-coverage-summary'[\s\S]*?runAfterSettled: true/u);
@@ -345,8 +348,8 @@ test('concurrent privacy and static work cannot write Vitest reports, coverage, 
   )
   assert.doesNotMatch(concurrentStatic, /StaticRetention/u)
   assert.match(postVitestStatic, /StaticRetention/u)
-  assert.match(staticLaneSource, /access: 'read'/u)
-  assert.doesNotMatch(staticLaneSource, /access: 'write'/u)
+  assert.match(staticHostSource, /access: 'read'/u)
+  assert.doesNotMatch(staticHostSource, /access: 'write'/u)
 
   const privacyPrebuild = frontendPackage.scripts['check:privacy-zk-contract:prebuild']
   const privacyPostbuild = frontendPackage.scripts['check:privacy-zk-contract:postbuild']

@@ -4,12 +4,16 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- The checker writes the canonical repository receipt.
+import { writeFrontendStructureProducerForArtifact } from '../../../../tools/test/frontend-render-structure-receipts.mjs'
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
 const adapterFile = path.join(root, 'src/frontend/src/components/ui/MarkdownEditorAdapter.vue')
 const rendererFile = path.join(root, 'src/frontend/src/components/ui/MarkdownRenderer.vue')
 const fsusuiMarkdownFile = path.join(root, 'src/frontend/src/fsusui/markdown.ts')
 const packageFile = path.join(root, 'src/frontend/package.json')
 const outFile = path.join(root, '.tmp/frontend/markdown-render-budget.json')
+const receiptFile = path.join(root, '.tmp/frontend/receipts/markdown-render-budget.json')
 const releaseSummaryFile = path.join(root, '.tmp/release-evidence/frontend-render-pressure-summary.json')
 
 const corpus = {
@@ -97,6 +101,13 @@ const summary = {
 ensureDir(path.dirname(outFile))
 fs.writeFileSync(outFile, `${JSON.stringify(summary, null, 2)}\n`)
 writeReleaseSummary(summary)
+writeFrontendStructureProducerForArtifact({
+  root,
+  checkId: 'markdown-render-budget',
+  status: summary.status,
+  artifactFile: outFile,
+  receiptFile
+})
 
 if (summary.status !== 'ok') {
   for (const failure of failures) {

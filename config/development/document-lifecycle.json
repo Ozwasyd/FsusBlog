@@ -2076,6 +2076,16 @@
             "supersededBy": null
         },
         {
+            "path": "docs/testing/frontend-source-index.md",
+            "status": "current",
+            "owner": "release",
+            "relatedIssues": [
+                1379
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
             "path": "docs/testing/http3-local-equivalent-experiment.md",
             "status": "current",
             "owner": "release",
@@ -2779,6 +2789,16 @@
             "status": "current",
             "owner": "release",
             "relatedIssues": [],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/testing/static-governance-resident-hosts.md",
+            "status": "current",
+            "owner": "release",
+            "relatedIssues": [
+                1380
+            ],
             "supersedes": [],
             "supersededBy": null
         },

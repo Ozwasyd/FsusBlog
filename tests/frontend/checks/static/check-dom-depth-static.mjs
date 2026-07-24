@@ -4,10 +4,13 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- The checker writes the canonical repository receipt.
+import { writeFrontendStructureProducerForArtifact } from '../../../../tools/test/frontend-render-structure-receipts.mjs'
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
 const srcDir = path.join(root, 'src/frontend/src')
 const outFile = path.join(root, '.tmp/frontend/dom-depth-static.json')
-const releaseSummaryFile = path.join(root, '.tmp/release-evidence/frontend-render-structure-summary.json')
+const receiptFile = path.join(root, '.tmp/frontend/receipts/dom-depth-static.json')
 
 const routeFiles = new Set([
   'src/frontend/src/views/admin/article/Write.vue',
@@ -221,29 +224,13 @@ const summary = {
 ensureDir(path.dirname(outFile))
 fs.writeFileSync(outFile, `${JSON.stringify(summary, null, 2)}\n`)
 
-ensureDir(path.dirname(releaseSummaryFile))
-const existing = fs.existsSync(releaseSummaryFile)
-  ? JSON.parse(fs.readFileSync(releaseSummaryFile, 'utf8'))
-  : { status: 'ok', generatedAt: new Date().toISOString(), artifacts: {} }
-fs.writeFileSync(releaseSummaryFile, `${JSON.stringify({
-  ...existing,
-  schema: 'fsusblog.frontend-render-structure.v1',
-  status: existing.status === 'failed' || summary.status === 'failed' ? 'failed' : 'ok',
-  evidenceClass: 'correctness',
-  affectsCorrectness: true,
-  executionBoundary: 'browserless-static-analysis',
-  generatedAt: new Date().toISOString(),
-  domDepthStatic: {
-    status: summary.status,
-    hardViolationCount: hardViolations.length,
-    softViolationCount: softViolations.length,
-    artifact: relative(outFile)
-  },
-  artifacts: {
-    ...(existing.artifacts ?? {}),
-    domDepthStatic: relative(outFile)
-  }
-}, null, 2)}\n`)
+writeFrontendStructureProducerForArtifact({
+  root,
+  checkId: 'dom-depth-static',
+  status: summary.status,
+  artifactFile: outFile,
+  receiptFile
+})
 
 for (const line of softViolations) {
   console.warn(`[dom-depth-static] soft: ${line}`)

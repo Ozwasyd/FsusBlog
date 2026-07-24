@@ -89,8 +89,17 @@ test('static lane and matrix own the physical-topology checker and evidence', ()
 {
     const lane = readFileSync(join(root, 'tools/test/lanes/static-governance.sh'), 'utf8');
     assert.match(lane, /backend-physical-topology StaticBackendPhysicalTopology/u);
-    assert.match(lane, /tests\/tools\/backend-physical-topology\.test\.mjs/u);
     assert.match(lane, /\.tmp\/release-evidence\/backend-physical-topology\.json/u);
+
+    const isolationRegistry = JSON.parse(readFileSync(
+        join(root, 'tests/governance/static-governance-isolation-registry.json'),
+        'utf8'
+    ));
+    const owners = isolationRegistry.checks.filter((entry) =>
+        entry.file === 'tests/tools/backend-physical-topology.test.mjs'
+    );
+    assert.equal(owners.length, 1);
+    assert.equal(owners[0].physicalOwner, 'host:pure-file');
 
     const matrix = readFileSync(join(root, 'tests/matrix.yml'), 'utf8');
     assert.match(matrix, /backend-physical-topology-governance/u);
