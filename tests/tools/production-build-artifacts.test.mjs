@@ -2,12 +2,16 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { spawnSync } from 'node:child_process'
 import test from 'node:test'
 
 import {
+  collectProductionBuildArtifactStore,
   createProductionBuildReceipt,
   materializeProductionBuildDomains,
   productionBuildReceiptSchema,
+  registerProductionBuildConsumer,
+  releaseProductionBuildConsumer,
   verifyProductionBuildReceipt
 } from '../../tools/ci/production-build-artifacts.mjs'
 
@@ -80,6 +84,17 @@ test('receipt verification preserves the filesystem order for mixed-case artifac
   assert.equal(verified.evidence.artifactCount, 4)
 })
 
+test('verification restores the read-only seal after a transfer strips file modes', t => {
+  const value = fixture(t)
+  create(value)
+  const artifact = path.join(value.artifactRoot, 'payload/backend/FsusBlog.Server.dll')
+  fs.chmodSync(artifact, 0o644)
+  fs.chmodSync(path.join(value.artifactRoot, 'receipt.json'), 0o644)
+  const verified = verifyProductionBuildReceipt({ artifactRoot: value.artifactRoot })
+  assert.equal(verified.evidence.restoredSealFiles, 2)
+  assert.equal(fs.statSync(artifact).mode & 0o222, 0)
+})
+
 test('consumer rejects checkout input drift even when the receipt and payload are unchanged', t => {
   const value = fixture(t)
   create(value)
@@ -119,6 +134,7 @@ test('wrong commit, wrong run and toolchain drift fail closed', t => {
 test('missing, damaged and unreceipted artifacts are all rejected', t => {
   const value = fixture(t)
   create(value)
+  fs.chmodSync(path.join(value.artifactRoot, 'payload/backend/FsusBlog.Server.dll'), 0o644)
   fs.appendFileSync(path.join(value.artifactRoot, 'payload/backend/FsusBlog.Server.dll'), '-tampered')
   fs.rmSync(path.join(value.artifactRoot, 'payload/frontend/index.html'))
   fs.writeFileSync(path.join(value.artifactRoot, 'payload/backend/unreceipted.dll'), 'extra')
@@ -148,27 +164,165 @@ test('path escape and symlink payloads are rejected before a receipt is emitted'
   assert.throws(() => create(value), /symlink/u)
 })
 
-test('two consumers materialize isolated copies without modifying the downloaded artifact', t => {
+test('sealed domains are read-only and receipt identity changes with source, toolchain or build input', t => {
+  const value = fixture(t)
+  const receipt = create(value)
+  assert.equal(receipt.seal.mode, 'read-only-files')
+  assert.equal(receipt.seal.atomicReceipt, true)
+  assert.equal(receipt.digestTable.authority, 'receipt.artifacts')
+  assert.equal(receipt.digestTable.traversalCount, 1)
+  assert.equal(fs.statSync(path.join(value.artifactRoot, 'payload/backend/FsusBlog.Server.dll')).mode & 0o222, 0)
+  assert.throws(() => create(value), /receipt is already sealed/u)
+
+  for (const drift of [
+    { expectedSourceState: { ...sourceState, commit: 'c'.repeat(40) } },
+    { expectedToolchain: { node: 'v99' } }
+  ]) {
+    assert.throws(() => verifyProductionBuildReceipt({ artifactRoot: value.artifactRoot, ...drift }), /mismatch/u)
+  }
+  fs.chmodSync(path.join(value.root, 'global.json'), 0o644)
+  fs.writeFileSync(path.join(value.root, 'global.json'), '{"sdk":{"version":"99.0.0"}}\n')
+  assert.throws(() => verifyProductionBuildReceipt({
+    artifactRoot: value.artifactRoot,
+    expectedInputRoot: value.root
+  }), /input digest mismatch/u)
+})
+
+test('read-only consumers reference one sealed tree while writable consumers use CoW and cannot pollute it', t => {
   const value = fixture(t)
   create(value)
   const original = fs.readFileSync(path.join(value.artifactRoot, 'payload/backend/FsusBlog.Server.dll'))
-  for (const shard of ['shard-a', 'shard-b']) {
-    const destinationRoot = path.join(value.root, shard)
-    const result = materializeProductionBuildDomains({
-      artifactRoot: value.artifactRoot,
-      destinationRoot,
-      mappings: [
-        { name: 'backend-runtime', destination: '.runtime/backend' },
-        { name: 'frontend-dist', destination: '.runtime/frontend' }
-      ],
-      verification: { expectedSourceState: sourceState, expectedProducer: { runId: '42' } }
-    })
-    assert.equal(result.copied.length, 2)
-    fs.appendFileSync(path.join(destinationRoot, '.runtime/backend/FsusBlog.Server.dll'), `-${shard}`)
-  }
-  assert.deepEqual(fs.readFileSync(path.join(value.artifactRoot, 'payload/backend/FsusBlog.Server.dll')), original)
-  assert.notEqual(
-    fs.readFileSync(path.join(value.root, 'shard-a/.runtime/backend/FsusBlog.Server.dll'), 'utf8'),
-    fs.readFileSync(path.join(value.root, 'shard-b/.runtime/backend/FsusBlog.Server.dll'), 'utf8')
+  const destinationRoot = path.join(value.root, 'consumer')
+  const result = materializeProductionBuildDomains({
+    artifactRoot: value.artifactRoot,
+    destinationRoot,
+    mappings: [
+      { name: 'backend-runtime', destination: '.runtime/backend' },
+      { name: 'frontend-dist', destination: '.runtime/frontend' },
+      { name: 'frontend-dist', destination: '.runtime/wwwroot' }
+    ],
+    verification: { expectedSourceState: sourceState, expectedProducer: { runId: '42' } }
+  })
+  assert.equal(result.evidence.digestTraversalCount, 1)
+  assert.equal(result.evidence.referencedBytes, Buffer.byteLength('server') + (2 * Buffer.byteLength('<main>ok</main>')))
+  assert.equal(result.evidence.copiedBytes, 0)
+  assert.equal(result.evidence.materialization.domains.every(item => item.method === 'reference'), true)
+  assert.equal(
+    fs.realpathSync(path.join(destinationRoot, '.runtime/frontend')),
+    fs.realpathSync(path.join(destinationRoot, '.runtime/wwwroot'))
   )
+
+  const writable = materializeProductionBuildDomains({
+    artifactRoot: value.artifactRoot,
+    destinationRoot: path.join(value.root, 'writable'),
+    mappings: [{ name: 'backend-runtime', destination: '.runtime/backend', writable: true }],
+    cloneFile: (source, destination) => fs.copyFileSync(source, destination),
+    verification: { expectedSourceState: sourceState }
+  })
+  assert.equal(writable.evidence.materialization.domains[0].method, 'reflink')
+  assert.equal(writable.evidence.reflinkedBytes, Buffer.byteLength('server'))
+  fs.chmodSync(path.join(value.root, 'writable/.runtime/backend/FsusBlog.Server.dll'), 0o644)
+  fs.appendFileSync(path.join(value.root, 'writable/.runtime/backend/FsusBlog.Server.dll'), '-pollution')
+  assert.deepEqual(fs.readFileSync(path.join(value.artifactRoot, 'payload/backend/FsusBlog.Server.dll')), original)
+})
+
+test('unsupported CoW records an explicit ordinary-copy fallback instead of silently degrading', t => {
+  const value = fixture(t)
+  create(value)
+  const result = materializeProductionBuildDomains({
+    artifactRoot: value.artifactRoot,
+    destinationRoot: path.join(value.root, 'fallback'),
+    mappings: [{ name: 'backend-runtime', destination: 'backend', writable: true }],
+    cloneFile: () => {
+      const error = new Error('fixture has no reflink')
+      error.code = 'ENOTSUP'
+      throw error
+    }
+  })
+  assert.equal(result.evidence.materialization.domains[0].method, 'copy-fallback')
+  assert.match(result.evidence.materialization.domains[0].fallbackReason, /ENOTSUP/u)
+  assert.deepEqual(
+    result.evidence.materialization.domains[0].attempts.map(item => item.method),
+    ['reflink', 'overlay', 'hardlink-writable-layer', 'copy-fallback']
+  )
+  assert.equal(result.evidence.copiedBytes, Buffer.byteLength('server'))
+})
+
+test('CoW I/O failures fail closed instead of being mislabeled as unsupported-platform fallback', t => {
+  const value = fixture(t)
+  create(value)
+  assert.throws(() => materializeProductionBuildDomains({
+    artifactRoot: value.artifactRoot,
+    destinationRoot: path.join(value.root, 'io-failure'),
+    mappings: [{ name: 'backend-runtime', destination: 'backend', writable: true }],
+    cloneFile: () => {
+      const error = new Error('fixture storage failure')
+      error.code = 'EIO'
+      throw error
+    }
+  }), /fixture storage failure/u)
+  assert.equal(fs.existsSync(path.join(value.root, 'io-failure/backend')), false)
+})
+
+test('failed materialization releases its active consumer lease for cancel-safe GC', t => {
+  const value = fixture(t)
+  create(value)
+  const result = spawnSync(process.execPath, [
+    'tools/ci/production-build-artifacts-cli.mjs',
+    'materialize',
+    '--artifact-root', value.artifactRoot,
+    '--destination-root', path.join(value.root, 'failed-consumer'),
+    '--map', 'missing-domain=runtime',
+    '--consumer-run-id', 'run-failed',
+    '--consumer-id', 'fixture'
+  ], { cwd: path.resolve(import.meta.dirname, '../..'), encoding: 'utf8' })
+  assert.equal(result.status, 1)
+  const lease = JSON.parse(fs.readFileSync(
+    `${value.artifactRoot}.state/consumers/run-failed--fixture.json`,
+    'utf8'
+  ))
+  assert.equal(lease.status, 'released')
+  assert.equal(lease.releaseReason, 'materialization-failed')
+})
+
+test('active consumer leases protect sealed artifacts across resume and cancel while stale artifacts are collected', t => {
+  const nowMs = Date.now()
+  const storeRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-ci-build-store-'))
+  t.after(() => fs.rmSync(storeRoot, { recursive: true, force: true }))
+  const activeRoot = path.join(storeRoot, 'active')
+  const invalidRoot = path.join(storeRoot, 'invalid')
+  const staleRoot = path.join(storeRoot, 'stale')
+  fs.mkdirSync(activeRoot)
+  fs.mkdirSync(invalidRoot)
+  fs.mkdirSync(staleRoot)
+  const lifecycleReceipt = JSON.stringify({ schema: productionBuildReceiptSchema, status: 'complete' })
+  fs.writeFileSync(path.join(activeRoot, 'receipt.json'), lifecycleReceipt)
+  fs.writeFileSync(path.join(invalidRoot, 'receipt.json'), '{}')
+  fs.writeFileSync(path.join(staleRoot, 'receipt.json'), lifecycleReceipt)
+  assert.throws(
+    () => registerProductionBuildConsumer({ artifactRoot: activeRoot, runId: '', consumerId: 'test-runtime' }),
+    /requires runId and consumerId/u
+  )
+  const staleDate = new Date(nowMs - 1_000)
+  fs.utimesSync(activeRoot, staleDate, staleDate)
+  fs.utimesSync(staleRoot, staleDate, staleDate)
+  registerProductionBuildConsumer({ artifactRoot: activeRoot, runId: 'run-1', consumerId: 'test-runtime', nowMs: nowMs - 100 })
+  registerProductionBuildConsumer({ artifactRoot: activeRoot, runId: 'run-1', consumerId: 'test-runtime', nowMs })
+
+  const protectedResult = collectProductionBuildArtifactStore({
+    storeRoot,
+    nowMs,
+    staleAfterMs: 500
+  })
+  assert.deepEqual(protectedResult.removed, ['stale'])
+  assert.deepEqual(protectedResult.protected, ['active'])
+  assert.equal(fs.existsSync(invalidRoot), true)
+
+  releaseProductionBuildConsumer({ artifactRoot: activeRoot, runId: 'run-1', consumerId: 'test-runtime', reason: 'cancelled' })
+  const cancelledResult = collectProductionBuildArtifactStore({
+    storeRoot,
+    nowMs: nowMs + 1,
+    staleAfterMs: 500
+  })
+  assert.deepEqual(cancelledResult.removed, ['active'])
 })

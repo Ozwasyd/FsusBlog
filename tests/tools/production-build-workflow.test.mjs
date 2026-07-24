@@ -98,6 +98,11 @@ test('producer receipts existing lock, project and build configuration inputs', 
         'security/zk/contracts/comment-v5-circuit.manifest.json',
         'security/zk/provenance/comment-v5-trusted-setup.manifest.json',
         'config/zk/anonymous-comment-v5-verifying-key.manifest.json',
+        'tools/ci/production-build-artifacts.mjs',
+        'tools/ci/production-build-artifacts-cli.mjs',
+        'tools/ci/benchmark-production-build-materialization.mjs',
+        'tests/tools/production-build-artifacts.test.mjs',
+        'tests/tools/production-build-materialization-benchmark.test.mjs',
         'src/frontend/wasm/CMakeLists.txt'
     ]) {assert.match(source, new RegExp(`--input ${input.replaceAll('.', '\\.')}`, 'u'), input)};
     assert.doesNotMatch(source, /--input global\.json/u);
@@ -106,6 +111,19 @@ test('producer receipts existing lock, project and build configuration inputs', 
   for (const input of declaredInputs) {
     assert.equal(fs.existsSync(path.join(root, input)), true, `missing producer receipt input: ${input}`)
   }
+})
+
+test('producer transfers canonical build directories into the immutable domain without a payload copy', () => {
+  const source = fs.readFileSync(producerLaneFile, 'utf8')
+  assert.match(source, /AdoptDirectory/u)
+  assert.match(source, /mv -- "\$source" "\$destination"/u)
+  assert.match(source, /ln -s -- "\$destination" "\$source"/u)
+  assert.match(source, /stat -c %d "\$source"/u)
+  assert.match(source, /resumed sealed immutable artifact/u)
+  assert.match(source, /--expected-input-root "\$ROOT_DIR"/u)
+  assert.doesNotMatch(source, /CopyDirectory/u)
+  assert.doesNotMatch(source, /cp -a "\$source\/\." "\$destination\/"/u)
+  assert.doesNotMatch(source, /rm -rf "\$ARTIFACT_ROOT"/u)
 })
 
 test('smart gate selects producer exactly when an immutable build consumer is selected', t => {

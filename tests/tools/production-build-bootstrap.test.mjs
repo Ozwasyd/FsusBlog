@@ -30,6 +30,7 @@ test('acceptance bootstrap materializes verified domains into its current run-bo
   const evidenceFile = path.join(root, '.tmp/release-evidence/jobs', `ci-build-materialization-${namespace}.json`)
   t.after(() => {
     fs.rmSync(temporary, { recursive: true, force: true })
+    fs.rmSync(`${temporary}.state`, { recursive: true, force: true })
     fs.rmSync(targetRoot, { recursive: true, force: true })
     fs.rmSync(path.join(root, '.tmp/acceptance', namespace), { recursive: true, force: true })
     fs.rmSync(path.join(root, '.tmp/fixtures', namespace), { recursive: true, force: true })
@@ -106,6 +107,7 @@ test('acceptance bootstrap materializes verified domains into its current run-bo
   )
   const evidence = JSON.parse(fs.readFileSync(evidenceFile, 'utf8'))
   assert.equal(evidence.status, 'success')
+  assert.equal(evidence.consumerLease.status, 'active')
   assert.ok(evidence.materialized.some(value => value.endsWith('backend/FsusBlog.Server.dll')))
 })
 

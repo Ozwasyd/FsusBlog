@@ -85,6 +85,21 @@ bundle 内同一 wave 的独立步骤不会在首个失败后停止调度，而�
 
 `production-build-artifacts` receipt 绑定当前 v5 circuit/setup/config 与 `comment-privacy-build-contract.mjs`。默认 fail-closed build 不包含 `comment-privacy-prover.zkey` 或其 public manifest；这表示 ZK 功能关闭，不表示用占位 key 通过 gate。只有显式 production ZK build 才把这两个文件加入 Wasm artifact contract，并在编译前校验完整 ceremony/transcript/artifact SHA。正向测试使用临时 hash-bound v5 fixture，负向测试必须覆盖 setup 未就绪、旧 circuit/layout 与 artifact digest 漂移；测试不得生成或下载真实 ceremony key。
 
+Production build artifact 的 canonical 输出目录由 producer 通过同文件系统原子 rename 接管并原位封存，不再执行 build output 到 payload 的目录复制；原路径只保留指向封存 domain 的只读引用。大型 backend runtime、test runtime、frontend dist 与 Wasm 目录因此不读取或重写文件内容；generated contracts 直接写入最终 domain。全部 writer 关闭后，producer 只生成一次 `receipt.artifacts` digest table，以临时文件加 rename 原子发布 receipt，并清除 payload 文件与 receipt 的写权限。
+
+只读 consumer 直接引用封存目录，因此 SPA 与 backend wwwroot 可绑定同一 `frontend-dist` entry，不重复物化 hashed assets、AEDS 或 Wasm。`copy-before-write` domain 依次尝试强制 reflink、预授权 overlay、带 copy-up 的 hardlink writable layer，最后才普通 copy。当前 runtime 没有 mount/copy-up provider 时必须把 overlay 与 hardlink layer 记作 unsupported；禁止用会污染 source 的裸 hardlink。evidence 包含每次尝试、fallback reason、`copiedBytes`、`reflinkedBytes`、`referencedBytes`、digest traversal count 与 materialization wall time。下载边界执行一次物理 tree digest 校验；同一 materialize 调用中的多个 logical mapping 只引用同一 digest table entry，不按 destination 重散列。
+
+consumer lease 原子写入 `<artifact-root>.state/consumers`。相同 run/consumer identity 再次 acquire 是 resume refresh；完成或 cancel 使用 `release` 写明原因。GC 只回收超过 stale threshold 且没有 active lease 的合法 receipted artifact，active lease 不因时间阈值被误删。污染负向 fixture 会修改 writable consumer 并重新读取 immutable source；source/toolchain/build-input 任一 identity 漂移都 fail closed。可审计 lifecycle 命令为 `production-build-artifacts-cli.mjs acquire|release|gc`。
+
+三轮同机 benchmark 同时建模 frontend 的 SPA/wwwroot 双 consumer 与 writable test runtime；它不把不支持的 reflink 记作成功：
+
+```bash
+node tools/ci/benchmark-production-build-materialization.mjs \
+  --rounds 3 --bytes 8388608 --out .tmp/release-evidence/jobs/production-build-seal-cow.json
+```
+
+回退不需要重启：保留 receipt 与 immutable source，writable consumer 在同一次 materialize 内切换到带 evidence 的 ordinary copy。若引用路径与调用方不兼容，只将该 mapping 标为 writable 触发隔离物化；不得解除 source 写保护、跳过 digest 或跨 identity 复用。
+
 lane-local collect executor 会等待全部独立子任务结束后聚合失败，不因首错 kill peer。security 的 matrix、ZAP policy、SBOM、supply-chain 与 network baseline 静态检查并行；共享安全 fixture/runtime state 的 API、认证、权限、攻击矩阵、notification stream、a11y 与 DAST 保持有序执行，但每个失败只记入汇总，后续检查和必要 reset 继续执行，最后一次性报告全部失败。跨 lane 的依赖、取消和资源 admission 仍只属于 matrix scheduler。
 
 测试资产变更使用持续治理入口，不再依赖一次性 before/after campaign CLI、固定 tier 数量或 wall-clock target：

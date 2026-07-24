@@ -16,6 +16,9 @@ export FSUSBLOG_ZK_PRODUCTION_ENABLED="${FSUSBLOG_ZK_PRODUCTION_ENABLED:-0}"
 IFS=',' read -r -a DOMAIN_LIST <<<"$REQUESTED_DOMAINS"
 
 node --test "$ROOT_DIR/tests/tools/wasm-artifact-ownership.test.mjs"
+node --test \
+    "$ROOT_DIR/tests/tools/production-build-artifacts.test.mjs" \
+    "$ROOT_DIR/tests/tools/production-build-materialization-benchmark.test.mjs"
 node "$ROOT_DIR/tools/check-wasm-artifact-ownership.mjs"
 node "$ROOT_DIR/tools/security/comment-privacy-build-contract.mjs" --check
 
@@ -52,6 +55,35 @@ for domain in "${DOMAIN_LIST[@]}"; do
     esac
 done
 
+if [[ -f "$ARTIFACT_ROOT/receipt.json" ]]; then
+    node "$ROOT_DIR/tools/ci/production-build-artifacts-cli.mjs" verify \
+        --root "$ROOT_DIR" \
+        --artifact-root "$ARTIFACT_ROOT" \
+        --expected-commit "${FSUSBLOG_TEST_SOURCE_COMMIT:?FSUSBLOG_TEST_SOURCE_COMMIT is required}" \
+        --expected-fingerprint "${FSUSBLOG_TEST_SOURCE_FINGERPRINT:?FSUSBLOG_TEST_SOURCE_FINGERPRINT is required}" \
+        --expected-workflow "$PRODUCER_WORKFLOW" \
+        --expected-run-id "$PRODUCER_RUN_ID" \
+        --expected-run-attempt "$PRODUCER_RUN_ATTEMPT" \
+        --expected-job "$PRODUCER_JOB" \
+        --expected-current-toolchain true \
+        --expected-input-root "$ROOT_DIR" >/dev/null
+    node - "$ARTIFACT_ROOT/receipt.json" "$REQUESTED_DOMAINS" <<'NODE'
+const fs = require('node:fs')
+const receipt = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'))
+const expected = process.argv[3].split(',').filter(Boolean).sort()
+const actual = receipt.domains.map(domain => domain.name).sort()
+if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+  throw new Error(`sealed artifact domains do not match resume request: actual=${actual.join(',')} expected=${expected.join(',')}`)
+}
+NODE
+    printf '[production-build-artifacts] resumed sealed immutable artifact receipt=%s\n' "$ARTIFACT_ROOT/receipt.json"
+    exit 0
+fi
+if [[ -e "$ARTIFACT_ROOT" || -L "$ARTIFACT_ROOT" ]]; then
+    printf '[production-build-artifacts] refusing incomplete or unreceipted artifact root: %s\n' "$ARTIFACT_ROOT" >&2
+    exit 1
+fi
+
 RequireFile() {
     if [[ ! -f "$1" ]]; then
         printf '[production-build-artifacts] required build output is missing: %s\n' "$1" >&2
@@ -59,18 +91,30 @@ RequireFile() {
     fi
 }
 
-CopyDirectory() {
+AdoptDirectory() {
     local source="$1"
     local destination="$2"
     if [[ ! -d "$source" ]]; then
         printf '[production-build-artifacts] required build directory is missing: %s\n' "$source" >&2
         exit 1
     fi
-    mkdir -p "$destination"
-    cp -a "$source/." "$destination/"
+    if [[ -e "$destination" || -L "$destination" ]]; then
+        printf '[production-build-artifacts] immutable domain destination already exists: %s\n' "$destination" >&2
+        exit 1
+    fi
+    mkdir -p "$(dirname "$destination")"
+    if [[ "$(stat -c %d "$source")" != "$(stat -c %d "$(dirname "$destination")")" ]]; then
+        printf '[production-build-artifacts] seal-in-place requires source and immutable domain on one filesystem: %s -> %s\n' "$source" "$destination" >&2
+        exit 1
+    fi
+    mv -- "$source" "$destination"
+    mkdir -p "$(dirname "$source")"
+    if ! ln -s -- "$destination" "$source"; then
+        mv -- "$destination" "$source"
+        return 1
+    fi
 }
 
-rm -rf "$ARTIFACT_ROOT"
 mkdir -p "$PAYLOAD_ROOT"
 
 if [[ "$REUSE_BUILD_OUTPUTS" != "1" ]] && { HasDomain backend-runtime || HasDomain test-runtime; }; then
@@ -94,18 +138,18 @@ fi
 
 if HasDomain backend-runtime; then
     RequireFile "${FSUSBLOG_BACKEND_SERVER_DLL:?FSUSBLOG_BACKEND_SERVER_DLL is required}"
-    CopyDirectory "$(dirname "$FSUSBLOG_BACKEND_SERVER_DLL")" "$PAYLOAD_ROOT/backend-runtime"
+    AdoptDirectory "$(dirname "$FSUSBLOG_BACKEND_SERVER_DLL")" "$PAYLOAD_ROOT/backend-runtime"
 fi
 if HasDomain test-runtime; then
     RequireFile "${FSUSBLOG_BACKEND_TEST_DLL:?FSUSBLOG_BACKEND_TEST_DLL is required}"
-    CopyDirectory "$(dirname "$FSUSBLOG_BACKEND_TEST_DLL")" "$PAYLOAD_ROOT/test-runtime"
+    AdoptDirectory "$(dirname "$FSUSBLOG_BACKEND_TEST_DLL")" "$PAYLOAD_ROOT/test-runtime"
 fi
 if HasDomain frontend-dist; then
-    CopyDirectory "${FSUSBLOG_FRONTEND_DIST_ROOT:?FSUSBLOG_FRONTEND_DIST_ROOT is required}" "$PAYLOAD_ROOT/frontend-dist"
+    AdoptDirectory "${FSUSBLOG_FRONTEND_DIST_ROOT:?FSUSBLOG_FRONTEND_DIST_ROOT is required}" "$PAYLOAD_ROOT/frontend-dist"
 fi
 if HasDomain wasm; then
     WASM_SOURCE="${FSUSBLOG_FRONTEND_WASM_ROOT:-$ROOT_DIR/src/frontend/public/wasm}"
-    CopyDirectory "$WASM_SOURCE" "$PAYLOAD_ROOT/wasm"
+    AdoptDirectory "$WASM_SOURCE" "$PAYLOAD_ROOT/wasm"
     (
         cd "$PAYLOAD_ROOT/wasm"
         mapfile -d '' -t checksumFiles < <(
@@ -162,6 +206,11 @@ CREATE_ARGS=(
     --input security/zk/provenance/comment-v5-trusted-setup.manifest.json
     --input config/zk/anonymous-comment-v5-verifying-key.manifest.json
     --input tests/tools/wasm-artifact-ownership.test.mjs
+    --input tests/tools/production-build-artifacts.test.mjs
+    --input tests/tools/production-build-materialization-benchmark.test.mjs
+    --input tools/ci/production-build-artifacts.mjs
+    --input tools/ci/production-build-artifacts-cli.mjs
+    --input tools/ci/benchmark-production-build-materialization.mjs
     --input tools/test/run-with-dotnet-release-build-lock.sh
     --input tools/test/lanes/production-build-artifacts.sh
 )

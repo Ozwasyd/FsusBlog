@@ -261,6 +261,8 @@ NODE
         --expected-run-id "${GITHUB_RUN_ID:?GITHUB_RUN_ID is required for CI artifact materialization}"
         --expected-job production-build-artifacts
         --expected-receipt-digest "${FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST:?FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST is required}"
+        --consumer-run-id "${FSUSBLOG_TEST_RUN_ID:?FSUSBLOG_TEST_RUN_ID is required for CI artifact consumer leases}"
+        --consumer-id "$NS_SLUG"
         --evidence "$ROOT_DIR/.tmp/release-evidence/jobs/ci-build-materialization-${NS_SLUG}.json"
     )
     local domain

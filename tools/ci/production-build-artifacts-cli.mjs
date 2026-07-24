@@ -4,9 +4,12 @@ import path from 'node:path'
 import process from 'node:process'
 
 import {
+  collectProductionBuildArtifactStore,
   collectProductionToolchain,
   createProductionBuildReceipt,
   materializeProductionBuildDomains,
+  registerProductionBuildConsumer,
+  releaseProductionBuildConsumer,
   verifyProductionBuildReceipt
 } from './production-build-artifacts.mjs'
 
@@ -90,6 +93,7 @@ const options = parseOptions(args)
 const root = path.resolve(options.root ?? process.cwd())
 const artifactRoot = path.resolve(options.artifact_root ?? path.join(root, '.tmp/ci-production-build'))
 const receiptFile = options.receipt ?? 'receipt.json'
+let acquiredConsumerLease = null
 
 try {
   if (command === 'create') {
@@ -134,6 +138,13 @@ try {
     writeEvidence(options.evidence, result.evidence)
     process.stdout.write(`${JSON.stringify(result.evidence, null, 2)}\n`)
   } else if (command === 'materialize') {
+    acquiredConsumerLease = options.consumer_run_id && options.consumer_id
+      ? registerProductionBuildConsumer({
+          artifactRoot,
+          runId: options.consumer_run_id,
+          consumerId: options.consumer_id
+        })
+      : null
     const result = materializeProductionBuildDomains({
       artifactRoot,
       receiptFile,
@@ -147,13 +158,50 @@ try {
         expectedReceiptDigest: options.expected_receipt_digest,
         transferStartedAtMs: options.transfer_started_at_ms
       }
+      })
+    const evidence = { ...result.evidence, materialized: result.copied, consumerLease: acquiredConsumerLease }
+    writeEvidence(options.evidence, evidence)
+    process.stdout.write(`${JSON.stringify(evidence, null, 2)}\n`)
+  } else if (command === 'acquire') {
+    const lease = registerProductionBuildConsumer({
+      artifactRoot,
+      runId: options.consumer_run_id,
+      consumerId: options.consumer_id
     })
-    writeEvidence(options.evidence, { ...result.evidence, materialized: result.copied })
-    process.stdout.write(`${JSON.stringify({ ...result.evidence, materialized: result.copied }, null, 2)}\n`)
+    writeEvidence(options.evidence, lease)
+    process.stdout.write(`${JSON.stringify(lease, null, 2)}\n`)
+  } else if (command === 'release') {
+    const lease = releaseProductionBuildConsumer({
+      artifactRoot,
+      runId: options.consumer_run_id,
+      consumerId: options.consumer_id,
+      reason: options.reason
+    })
+    writeEvidence(options.evidence, lease)
+    process.stdout.write(`${JSON.stringify(lease, null, 2)}\n`)
+  } else if (command === 'gc') {
+    const result = collectProductionBuildArtifactStore({
+      storeRoot: path.resolve(options.store_root ?? root),
+      staleAfterMs: Number(options.stale_after_ms)
+    })
+    writeEvidence(options.evidence, result)
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`)
   } else {
-    throw new Error('usage: production-build-artifacts-cli.mjs <create|verify|materialize> [options]')
+    throw new Error('usage: production-build-artifacts-cli.mjs <create|verify|materialize|acquire|release|gc> [options]')
   }
 } catch (error) {
+  if (acquiredConsumerLease?.status === 'active') {
+    try {
+      releaseProductionBuildConsumer({
+        artifactRoot,
+        runId: acquiredConsumerLease.runId,
+        consumerId: acquiredConsumerLease.consumerId,
+        reason: 'materialization-failed'
+      })
+    } catch {
+      // Preserve the materialization failure; a malformed lease remains visible for operator recovery.
+    }
+  }
   if (error?.evidence) writeEvidence(options.evidence, error.evidence)
   console.error(`[production-build-artifacts] ${error.message}`)
   process.exit(1)

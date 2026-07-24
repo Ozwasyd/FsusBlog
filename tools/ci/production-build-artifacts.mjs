@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url'
 
 export const productionBuildReceiptSchema = 'fsusblog.ci-production-build-receipt.v1'
 export const productionBuildVerificationSchema = 'fsusblog.ci-production-build-verification.v1'
+export const productionBuildMaterializationSchema = 'fsusblog.ci-production-build-materialization.v2'
+export const productionBuildLifecycleSchema = 'fsusblog.ci-production-build-lifecycle.v1'
 
 const defaultRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 
@@ -34,6 +36,11 @@ function writeJsonAtomic(file, value) {
   const temporary = `${file}.next-${process.pid}-${randomUUID()}`
   fs.writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`)
   fs.renameSync(temporary, file)
+}
+
+function chmodReadOnly(file) {
+  const mode = fs.statSync(file).mode & 0o777
+  fs.chmodSync(file, mode & ~0o222)
 }
 
 function normalizeRelative(value, label) {
@@ -221,11 +228,27 @@ export function createProductionBuildReceipt({
       artifactCount: files.length,
       artifactBytes: files.reduce((sum, file) => sum + file.size, 0)
     },
+    digestTable: {
+      authority: 'receipt.artifacts',
+      traversalCount: 1,
+      entryCount: files.length
+    },
+    seal: {
+      mode: 'read-only-files',
+      atomicReceipt: true,
+      sealedAt: createdAt
+    },
     createdAt,
     contentDigest: null
   }
   receipt.contentDigest = contentDigest(receipt)
-  writeJsonAtomic(path.join(payloadRoot, normalizedReceiptFile), receipt)
+  const receiptPath = path.join(payloadRoot, normalizedReceiptFile)
+  if (fs.existsSync(receiptPath)) {
+    throw new Error(`production build receipt is already sealed: ${normalizedReceiptFile}`)
+  }
+  for (const file of files) chmodReadOnly(assertInside(payloadRoot, file.path, 'artifact'))
+  writeJsonAtomic(receiptPath, receipt)
+  chmodReadOnly(receiptPath)
   return receipt
 }
 
@@ -235,7 +258,7 @@ function readReceipt(artifactRoot, receiptFile) {
   const absolute = assertInside(root, relative, 'receipt')
   if (!fs.existsSync(absolute)) throw new Error(`production build receipt is missing: ${relative}`)
   assertNoSymlink(root, absolute, 'receipt')
-  return { root, relative, receipt: JSON.parse(fs.readFileSync(absolute, 'utf8')) }
+  return { root, relative, absolute, receipt: JSON.parse(fs.readFileSync(absolute, 'utf8')) }
 }
 
 export function verifyProductionBuildReceipt({
@@ -250,11 +273,28 @@ export function verifyProductionBuildReceipt({
   now = () => new Date()
 }) {
   const startedAtMs = Date.now()
-  const { root, relative, receipt } = readReceipt(artifactRoot, receiptFile)
+  const { root, relative, absolute: receiptPath, receipt } = readReceipt(artifactRoot, receiptFile)
   const errors = []
+  let restoredSealFiles = 0
+  try {
+    if ((fs.statSync(receiptPath).mode & 0o222) !== 0) {
+      chmodReadOnly(receiptPath)
+      restoredSealFiles += 1
+    }
+  } catch (error) {
+    errors.push(`receipt read-only seal could not be restored: ${error.message}`)
+  }
   if (receipt.schema !== productionBuildReceiptSchema) errors.push(`receipt schema mismatch: ${receipt.schema}`)
   if (receipt.status !== 'complete') errors.push(`receipt is not complete: ${receipt.status}`)
   if (receipt.contentDigest !== contentDigest(receipt)) errors.push('receipt content digest mismatch')
+  if (receipt.digestTable?.authority !== 'receipt.artifacts'
+    || Number(receipt.digestTable?.traversalCount) !== 1
+    || Number(receipt.digestTable?.entryCount) !== receipt.artifacts?.length) {
+    errors.push('receipt digest table authority is invalid')
+  }
+  if (receipt.seal?.mode !== 'read-only-files' || receipt.seal?.atomicReceipt !== true) {
+    errors.push('receipt immutable seal is invalid')
+  }
   if (expectedReceiptDigest && receipt.contentDigest !== expectedReceiptDigest) errors.push('receipt digest does not match producer output')
   try { validateSourceState(receipt.sourceState) } catch (error) { errors.push(error.message) }
   try { normalizeProducer(receipt.producer) } catch (error) { errors.push(error.message) }
@@ -319,6 +359,10 @@ export function verifyProductionBuildReceipt({
       const bytes = fs.readFileSync(absolute)
       if (bytes.byteLength !== Number(record.size)) errors.push(`artifact size mismatch: ${artifactPath}`)
       if (sha256Buffer(bytes) !== record.sha256) errors.push(`artifact digest mismatch: ${artifactPath}`)
+      if ((fs.statSync(absolute).mode & 0o222) !== 0) {
+        chmodReadOnly(absolute)
+        restoredSealFiles += 1
+      }
     } catch (error) {
       errors.push(error.message)
     }
@@ -362,6 +406,9 @@ export function verifyProductionBuildReceipt({
     inputsVerifiedAgainstCheckout: Boolean(expectedInputRoot),
     artifactCount: artifacts.length,
     artifactBytes: artifacts.reduce((sum, record) => sum + Number(record.size || 0), 0),
+    digestAuthority: receipt.digestTable?.authority ?? 'receipt.artifacts',
+    digestTraversalCount: 1,
+    restoredSealFiles,
     transferDurationMs: Number.isFinite(Number(transferStartedAtMs)) ? Math.max(0, Date.now() - Number(transferStartedAtMs)) : null,
     verifiedAt: now().toISOString(),
     durationMs: Date.now() - startedAtMs,
@@ -389,31 +436,230 @@ function safeDestination(root, relative) {
   return absolute
 }
 
+function cowUnavailable(error) {
+  return new Set(['ENOTSUP', 'EOPNOTSUPP', 'EXDEV', 'EINVAL', 'ENOSYS']).has(error?.code)
+}
+
 export function materializeProductionBuildDomains({
   artifactRoot,
   receiptFile = 'receipt.json',
   destinationRoot,
   mappings,
-  verification = {}
+  verification = {},
+  cloneFile = (source, destination) => fs.copyFileSync(source, destination, fs.constants.COPYFILE_FICLONE_FORCE)
 }) {
+  const startedAtMs = Date.now()
   const { receipt, evidence } = verifyProductionBuildReceipt({ artifactRoot, receiptFile, ...verification })
   const sourceRoot = path.resolve(artifactRoot)
   const targetRoot = path.resolve(destinationRoot)
   const byName = new Map(receipt.domains.map(domain => [domain.name, domain]))
-  const copied = []
+  const materialized = []
+  const domainEvidence = []
+  let referencedBytes = 0
+  let reflinkedBytes = 0
+  let copiedBytes = 0
   for (const mapping of mappings) {
     const domain = byName.get(mapping.name)
     if (!domain) throw new Error(`unknown production artifact domain: ${mapping.name}`)
     const destination = normalizeRelative(mapping.destination, `domain ${mapping.name} destination`)
-    for (const record of receipt.artifacts.filter(item => item.path === domain.path || item.path.startsWith(`${domain.path}/`))) {
+    const records = receipt.artifacts.filter(item => item.path === domain.path || item.path.startsWith(`${domain.path}/`))
+    const bytes = records.reduce((sum, record) => sum + Number(record.size), 0)
+    const writable = mapping.writable === true || domain.consumerMode === 'copy-before-write'
+    const domainTarget = safeDestination(targetRoot, destination)
+    if (!writable) {
+      if (fs.existsSync(domainTarget)) {
+        throw new Error(`read-only materialization destination already exists: ${destination}`)
+      }
+      fs.symlinkSync(assertInside(sourceRoot, domain.path, `domain ${mapping.name}`), domainTarget, 'junction')
+      referencedBytes += bytes
+      domainEvidence.push({
+        name: mapping.name,
+        destination,
+        method: 'reference',
+        bytes,
+        fallbackReason: null
+      })
+      for (const record of records) {
+        const suffix = record.path === domain.path ? path.basename(record.path) : record.path.slice(domain.path.length + 1)
+        materialized.push(path.posix.join(destination, suffix))
+      }
+      continue
+    }
+    if (fs.existsSync(domainTarget)) {
+      throw new Error(`writable materialization destination already exists: ${destination}`)
+    }
+    let method = 'reflink'
+    let fallbackReason = null
+    const attempts = []
+    try {
+      for (const record of records) {
+        const suffix = record.path === domain.path ? path.basename(record.path) : record.path.slice(domain.path.length + 1)
+        const target = safeDestination(targetRoot, path.posix.join(destination, suffix))
+        fs.mkdirSync(path.dirname(target), { recursive: true })
+        cloneFile(assertInside(sourceRoot, record.path, 'artifact'), target)
+        fs.chmodSync(target, fs.statSync(target).mode | 0o200)
+      }
+      reflinkedBytes += bytes
+      attempts.push({ method: 'reflink', status: 'success' })
+    } catch (error) {
+      fs.rmSync(domainTarget, { recursive: true, force: true })
+      if (!cowUnavailable(error)) throw error
+      method = 'copy-fallback'
+      fallbackReason = `${error?.code ?? 'ERROR'}: ${error?.message ?? String(error)}`
+      attempts.push({ method: 'reflink', status: 'unsupported', reason: fallbackReason })
+      attempts.push({
+        method: 'overlay',
+        status: 'unsupported',
+        reason: 'no pre-authorized overlay mount provider was supplied'
+      })
+      attempts.push({
+        method: 'hardlink-writable-layer',
+        status: 'unsupported',
+        reason: 'no copy-up writable layer provider was supplied; unsafe bare hardlinks are forbidden'
+      })
+      for (const record of records) {
+        const suffix = record.path === domain.path ? path.basename(record.path) : record.path.slice(domain.path.length + 1)
+        const target = safeDestination(targetRoot, path.posix.join(destination, suffix))
+        fs.mkdirSync(path.dirname(target), { recursive: true })
+        fs.copyFileSync(assertInside(sourceRoot, record.path, 'artifact'), target)
+        fs.chmodSync(target, fs.statSync(target).mode | 0o200)
+      }
+      copiedBytes += bytes
+      attempts.push({ method: 'copy-fallback', status: 'success' })
+    }
+    domainEvidence.push({
+      name: mapping.name,
+      destination,
+      method,
+      bytes,
+      fallbackReason,
+      attempts
+    })
+    for (const record of records) {
       const suffix = record.path === domain.path ? path.basename(record.path) : record.path.slice(domain.path.length + 1)
-      const target = safeDestination(targetRoot, path.posix.join(destination, suffix))
-      fs.mkdirSync(path.dirname(target), { recursive: true })
-      fs.copyFileSync(assertInside(sourceRoot, record.path, 'artifact'), target)
-      copied.push(path.relative(targetRoot, target).replaceAll(path.sep, '/'))
+      materialized.push(path.posix.join(destination, suffix))
     }
   }
-  return { receipt, evidence, copied: copied.sort() }
+  return {
+    receipt,
+    copied: materialized.sort(),
+    evidence: {
+      ...evidence,
+      schema: productionBuildMaterializationSchema,
+      digestAuthority: receipt.digestTable?.authority ?? 'receipt.artifacts',
+      digestTraversalCount: evidence.digestTraversalCount,
+      referencedBytes,
+      reflinkedBytes,
+      copiedBytes,
+      materializationDurationMs: Date.now() - startedAtMs,
+      materialization: { domains: domainEvidence }
+    }
+  }
+}
+
+function lifecycleRoot(artifactRoot) {
+  return `${path.resolve(artifactRoot)}.state`
+}
+
+function consumerLeaseFile({ artifactRoot, runId, consumerId }) {
+  const normalizedRunId = String(runId ?? '').trim()
+  const normalizedConsumerId = String(consumerId ?? '').trim()
+  if (!normalizedRunId || !normalizedConsumerId) {
+    throw new Error('consumer lease requires runId and consumerId')
+  }
+  const identity = `${normalizedRunId}--${normalizedConsumerId}`
+  if (!/^[A-Za-z0-9._-]+--[A-Za-z0-9._-]+$/u.test(identity)) {
+    throw new Error('consumer lease requires safe runId and consumerId')
+  }
+  return path.join(lifecycleRoot(artifactRoot), 'consumers', `${identity}.json`)
+}
+
+export function registerProductionBuildConsumer({
+  artifactRoot,
+  runId,
+  consumerId,
+  nowMs = Date.now()
+}) {
+  const file = consumerLeaseFile({ artifactRoot, runId, consumerId })
+  const previous = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : null
+  const lease = {
+    schema: productionBuildLifecycleSchema,
+    artifactRoot: path.resolve(artifactRoot),
+    runId,
+    consumerId,
+    status: 'active',
+    startedAtMs: previous?.startedAtMs ?? nowMs,
+    refreshedAtMs: nowMs,
+    releaseReason: null
+  }
+  writeJsonAtomic(file, lease)
+  return lease
+}
+
+export function releaseProductionBuildConsumer({
+  artifactRoot,
+  runId,
+  consumerId,
+  reason = 'completed',
+  nowMs = Date.now()
+}) {
+  const file = consumerLeaseFile({ artifactRoot, runId, consumerId })
+  if (!fs.existsSync(file)) throw new Error('cannot release a missing production build consumer lease')
+  const lease = JSON.parse(fs.readFileSync(file, 'utf8'))
+  const released = {
+    ...lease,
+    status: 'released',
+    refreshedAtMs: nowMs,
+    releasedAtMs: nowMs,
+    releaseReason: reason
+  }
+  writeJsonAtomic(file, released)
+  return released
+}
+
+function activeConsumerLeases(artifactRoot) {
+  const root = path.join(lifecycleRoot(artifactRoot), 'consumers')
+  if (!fs.existsSync(root)) return []
+  return fs.readdirSync(root)
+    .filter(name => name.endsWith('.json'))
+    .map(name => JSON.parse(fs.readFileSync(path.join(root, name), 'utf8')))
+    .filter(lease => lease.status === 'active')
+}
+
+export function collectProductionBuildArtifactStore({
+  storeRoot,
+  nowMs = Date.now(),
+  staleAfterMs
+}) {
+  if (!Number.isFinite(Number(staleAfterMs)) || Number(staleAfterMs) < 0) {
+    throw new Error('artifact collection requires non-negative staleAfterMs')
+  }
+  const root = path.resolve(storeRoot)
+  const removed = []
+  const protectedArtifacts = []
+  for (const entry of fs.readdirSync(root, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name))) {
+    if (!entry.isDirectory() || entry.name.endsWith('.state')) continue
+    const artifactRoot = path.join(root, entry.name)
+    const receiptPath = path.join(artifactRoot, 'receipt.json')
+    if (!fs.existsSync(receiptPath)) continue
+    let receipt
+    try {
+      receipt = JSON.parse(fs.readFileSync(receiptPath, 'utf8'))
+    } catch {
+      continue
+    }
+    if (receipt.schema !== productionBuildReceiptSchema || receipt.status !== 'complete') continue
+    if (activeConsumerLeases(artifactRoot).length > 0) {
+      protectedArtifacts.push(entry.name)
+      continue
+    }
+    const stat = fs.statSync(artifactRoot)
+    if (nowMs - stat.mtimeMs < Number(staleAfterMs)) continue
+    fs.rmSync(artifactRoot, { recursive: true, force: true })
+    fs.rmSync(lifecycleRoot(artifactRoot), { recursive: true, force: true })
+    removed.push(entry.name)
+  }
+  return { removed, protected: protectedArtifacts }
 }
 
 function commandVersion(command, args = ['--version']) {

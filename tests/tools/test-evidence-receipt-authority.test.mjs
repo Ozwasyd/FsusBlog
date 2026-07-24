@@ -127,7 +127,6 @@ test('scheduler receipt generation rejects a same-commit summary from another sc
     domains: [{ name: 'backend', path: 'backend' }]
   })
   const buildFile = path.join(artifactRoot, 'receipt.json')
-  fs.writeFileSync(buildFile, `${JSON.stringify(buildReceipt, null, 2)}\n`)
 
   const checkpointFile = path.join(fixture, '.tmp/test-runs/current-run/checkpoint.json')
   fs.mkdirSync(path.dirname(checkpointFile), { recursive: true })
@@ -362,7 +361,6 @@ test('receipt CLI passes the ordinary PR plan to core without claiming policy-sk
     domains: [{ name: 'frontend-dist', path: 'frontend-dist' }]
   })
   const buildFile = path.join(artifactRoot, 'receipt.json')
-  fs.writeFileSync(buildFile, `${JSON.stringify(buildReceipt, null, 2)}\n`)
 
   const matrix = parseMatrix(fs.readFileSync(path.join(repositoryRoot, 'tests/matrix.yml'), 'utf8'))
   const correctnessTierIds = productionCorrectnessTierClosure(matrix).map((tier) => tier.id)
