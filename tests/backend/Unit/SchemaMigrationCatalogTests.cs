@@ -23,9 +23,22 @@ public sealed class SchemaMigrationCatalogTests
             catalog => Assert.Equal("current-20260709-20260716", catalog.CatalogId),
             catalog => Assert.Equal("current-20260719", catalog.CatalogId),
             catalog => Assert.Equal("current-20260720", catalog.CatalogId),
-            catalog => Assert.Equal("current-20260724", catalog.CatalogId));
-        Assert.Equal(124, manifest.Descriptors.Count);
-        const string ExpectedPlanFingerprint = "89F21AD54AE15801C2D6E8E3CE07FA4441FAB18F6E4909B113A2C142EC9B2F5C";
+            catalog =>
+            {
+                Assert.Equal("current-20260724", catalog.CatalogId);
+                Assert.Equal(new DateOnly(2026, 7, 24), catalog.StartVersion);
+                Assert.Equal(new DateOnly(2026, 7, 24), catalog.EndVersion);
+                SchemaMigrationCatalogDependency dependency = Assert.Single(catalog.Dependencies);
+                Assert.Equal(ScheduledPublishIndexMigrationDefinitions.MigrationId, dependency.MigrationId);
+                Assert.Equal(SchemaMigrationPhase.PostCodeFirst, dependency.Phase);
+            });
+        Assert.Contains(
+            new SchemaMigrationVersionGap(
+                new DateOnly(2026, 7, 21),
+                new DateOnly(2026, 7, 23)),
+            manifest.DeclaredVersionGaps);
+        Assert.Equal(125, manifest.Descriptors.Count);
+        const string ExpectedPlanFingerprint = "21D58ACF08BB748BFCF9CC0E0475D6F9C7FBD59A45692036FD4A23CFA6D70D2F";
         string actualPlanFingerprint = ComputePlanFingerprint(manifest.Descriptors);
         Assert.True(
             string.Equals(ExpectedPlanFingerprint, actualPlanFingerprint, StringComparison.Ordinal),
@@ -287,7 +300,7 @@ public sealed class SchemaMigrationCatalogTests
 
         Assert.Same(first, second);
         Assert.Same(manifest, first);
-        Assert.Equal(124, first.Count);
+        Assert.Equal(125, first.Count);
         Assert.Equal(first.Count, first.Select(static descriptor => descriptor.MigrationId).Distinct(StringComparer.Ordinal).Count());
         Assert.Equal(
             ComputePlanFingerprint(manifest),

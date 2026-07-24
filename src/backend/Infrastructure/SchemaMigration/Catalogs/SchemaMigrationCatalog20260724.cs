@@ -18,6 +18,7 @@ internal static class SchemaMigrationCatalog20260724
             ],
             Descriptors:
             [
-                PluginRegistryMigrationDefinitions.BuildMigration()
+                PluginRegistryMigrationDefinitions.BuildMigration(),
+                ThemeRegistryMigrationDefinitions.BuildMigration()
             ]);
 }

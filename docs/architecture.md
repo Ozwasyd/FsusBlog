@@ -774,3 +774,23 @@ unmount 都撤销当前 envelope；replacement 保留 pending command，但必�
 The stable capability catalog is the dependency boundary for later scheduler issues. Static-role and adaptive nodes publish the same descriptors; schedulers consume `ListAliveNodesAsync` and do not inspect configuration strings. Membership uses the existing Redis dependency and runtime key scope, without adding service discovery or a second application binary.
 
 No-restart degradation is status based: set a node to `Draining` before removing responsibilities, or `Maintenance` to exclude it while preserving diagnostics. Membership failure must not disable public reads, binary API, or notification stream. The next process generation can start in `single` mode to fully bypass registration.
+
+## Theme package 与 registry 边界
+
+Theme 基础设施位于 `Infrastructure/Themes`。`ThemePackageValidator` 只接受
+声明式 `.fstheme` ZIP，先完成 canonical path、必需文件、manifest、运行时
+版本、权限、预算、config schema 与 SHA-256 校验，再允许
+`ThemeLifecycleService` 进入 registry 事务。它不执行 CSS/JS、不访问主题声明
+的网络或文件系统，也不承担 marketplace、admin UI 或 CSS safety scanner。
+完整包契约见 [FsusBlog theme package format](themes/package-format.md)。
+
+`LocalThemePackageStore` 通过同文件系统 staging directory + atomic rename 保存
+exact package 与展开条目；registry 事务失败时只清除本次新建目录，不删除已存在
+的 content-addressed package。`PostgresThemeRegistry` 持久化 manifest、config
+schema、package hash/location、配置版本、activation scope 和 asset hash/size。
+enable、disable、replacement uninstall
+都以数据库事务保持 `theme_registry.enabled` 与 `theme_activation` 一致；安装
+校验失败发生在事务前，不会改变已有 active theme。运行期无需重启的降级路径是
+按 scope disable，或把 active scope 原子切换到已安装 replacement 后再卸载。
+数据库 migration 是 additive；回退旧应用时保留这些表即可，不要求删除或
+恢复数据库。

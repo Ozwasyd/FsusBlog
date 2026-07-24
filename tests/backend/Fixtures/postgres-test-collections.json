@@ -3,9 +3,10 @@
   "collections": [
     {
       "id": "SchemaMigrationPostgresCollectionA",
-      "estimatedFacts": 190,
+      "estimatedFacts": 191,
       "tests": [
         { "path": "Integration/SchemaMigrationIntegrationTests.cs", "class": "SchemaMigrationIntegrationTests" },
+        { "path": "Integration/ThemeRegistryPostgresTests.cs", "class": "ThemeRegistryPostgresTests" },
         { "path": "Integration/ArticleListKeysetPaginationIntegrationTests.cs", "class": "ArticleListKeysetPaginationIntegrationTests" },
         { "path": "Integration/ArticlePublicationValidatorIntegrationTests.cs", "class": "ArticlePublicationValidatorIntegrationTests" },
         { "path": "Integration/ArticleStatusTransitionIntegrationTests.cs", "class": "ArticleStatusTransitionIntegrationTests" },

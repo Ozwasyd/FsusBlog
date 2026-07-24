@@ -24,6 +24,14 @@ const components = [
     minimumFiles: 13
   },
   {
+    id: 'theme-registry',
+    roots: [],
+    directories: [
+      'src/backend/Infrastructure/Themes'
+    ],
+    minimumFiles: 5
+  },
+  {
     id: 'authoring-workflow',
     roots: [
       'src/backend/Services/Authoring/AuthoringAnalyticsReadService.cs',

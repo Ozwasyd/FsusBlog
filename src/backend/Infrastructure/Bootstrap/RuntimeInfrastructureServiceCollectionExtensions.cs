@@ -12,6 +12,7 @@ using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Spa;
 using FsusBlog.Server.Infrastructure.Storage;
+using FsusBlog.Server.Infrastructure.Themes;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Articles;
@@ -43,6 +44,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddMessagingRuntime();
         services.AddCacheRuntime();
         services.AddPublicReadArtifactRuntime(configuration);
+        services.AddThemeRuntime(configuration);
         services.AddFsusDistributedInvalidation(configuration);
         services.AddFsusDistributedStateControl(configuration);
         services.AddFsusClusterMembership(configuration);
@@ -78,6 +80,31 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<PluginPermissionManager>();
         services.AddSingleton<PluginIsolationController>();
         services.AddScoped<PluginSecurityAdministrativeSnapshotService>();
+        return services;
+    }
+
+    private static IServiceCollection AddThemeRuntime(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        string configuredVersion = configuration["Themes:FsusBlogVersion"] ?? "1.3.0";
+        if (!Version.TryParse(configuredVersion, out Version? fsusBlogVersion))
+        {
+            throw new InvalidOperationException(
+                "Themes:FsusBlogVersion must be a numeric major.minor.patch version.");
+        }
+
+        services.AddSingleton<ThemePackageValidator>();
+        string packageStoreRoot = configuration["Themes:PackageStoreRoot"]
+            ?? Path.Combine(AppContext.BaseDirectory, "data", "themes");
+        services.AddSingleton<IThemePackageStore>(new LocalThemePackageStore(packageStoreRoot));
+        services.AddScoped<IThemeRegistry, PostgresThemeRegistry>();
+        services.AddScoped(serviceProvider => new ThemeLifecycleService(
+            serviceProvider.GetRequiredService<ThemePackageValidator>(),
+            serviceProvider.GetRequiredService<IThemeRegistry>(),
+            fsusBlogVersion,
+            serviceProvider.GetRequiredService<TimeProvider>(),
+            serviceProvider.GetRequiredService<IThemePackageStore>()));
         return services;
     }
 
