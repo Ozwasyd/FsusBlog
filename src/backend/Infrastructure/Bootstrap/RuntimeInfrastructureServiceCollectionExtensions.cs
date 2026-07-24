@@ -95,6 +95,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         }
 
         services.AddSingleton<ThemePackageValidator>();
+        services.AddSingleton<ThemeTokenCompiler>();
         string packageStoreRoot = configuration["Themes:PackageStoreRoot"]
             ?? Path.Combine(AppContext.BaseDirectory, "data", "themes");
         services.AddSingleton<IThemePackageStore>(new LocalThemePackageStore(packageStoreRoot));

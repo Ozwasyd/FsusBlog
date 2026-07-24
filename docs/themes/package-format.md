@@ -88,6 +88,13 @@ The minimum paths have fixed roles: `entry.tokens` is
 `config/schema.json`. All other manifest paths must resolve to entries in the
 same archive.
 
+`styles/tokens.css` is generated from the versioned token source contract
+described in [Theme token schema and CSS variable runtime](token-schema.md).
+It must use stable `--fsus-*` variables and theme-scoped root selectors.
+Primitive/package-private names are build input only and are not a component
+API. The compiler returns the exact CSS SHA-256 used by the content-addressed
+runtime URL; the package does not gain a remote loading permission.
+
 All permission values must remain `false`. CSS and asset bytes are measured
 from the expanded entries and must fit the manifest budgets. The platform also
 caps CSS at 1 MiB, assets at 4 MiB and declared selectors at 4096. CSS safety

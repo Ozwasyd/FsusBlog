@@ -384,6 +384,9 @@ public sealed class ThemeInfrastructureTests
         ServiceDescriptor validator = Assert.Single(
             services,
             static descriptor => descriptor.ServiceType == typeof(ThemePackageValidator));
+        ServiceDescriptor tokenCompiler = Assert.Single(
+            services,
+            static descriptor => descriptor.ServiceType == typeof(ThemeTokenCompiler));
         ServiceDescriptor registry = Assert.Single(
             services,
             static descriptor => descriptor.ServiceType == typeof(IThemeRegistry));
@@ -394,6 +397,7 @@ public sealed class ThemeInfrastructureTests
             services,
             static descriptor => descriptor.ServiceType == typeof(ThemeLifecycleService));
         Assert.Equal(ServiceLifetime.Singleton, validator.Lifetime);
+        Assert.Equal(ServiceLifetime.Singleton, tokenCompiler.Lifetime);
         Assert.Equal(ServiceLifetime.Scoped, registry.Lifetime);
         Assert.Equal(typeof(PostgresThemeRegistry), registry.ImplementationType);
         Assert.Equal(ServiceLifetime.Singleton, packageStore.Lifetime);

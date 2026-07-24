@@ -794,3 +794,18 @@ enable、disable、replacement uninstall
 按 scope disable，或把 active scope 原子切换到已安装 replacement 后再卸载。
 数据库 migration 是 additive；回退旧应用时保留这些表即可，不要求删除或
 恢复数据库。
+
+`ThemeTokenCompiler` 在 package lifecycle 之前把
+`fsusblog.theme.tokens.v1` 的 primitive、semantic、component、context 层
+编译为 `data-theme` 作用域内的稳定 `--fsus-*` 变量，并返回 exact CSS 的
+SHA-256。light/dark 是完整模式，reduced-motion/high-contrast 是受限 overlay；
+缺少必需 semantic token、未知 schema 字段、无效引用或引用环都 fail closed。
+完整契约见 [Theme token schema and CSS variable runtime](themes/token-schema.md)。
+
+浏览器侧 `themeAssetRuntime` 只接受 same-origin、路径含声明 SHA-256 的 CSS。
+它按 user preview -> active scope -> default 解析；候选 CSS load 成功前不修改
+根节点或移除当前 stylesheet，失败则退回 default。色彩模式按 explicit user
+mode -> system preference -> theme default 解析，motion/contrast preference
+同步为根节点属性。暴露给 UI 的 current state 是 frozen snapshot，preview
+不会写入 registry activation。无需重启的降级方式是 registry scope disable /
+replacement；前端加载失败也会保留现有 stylesheet 并尝试 default。
