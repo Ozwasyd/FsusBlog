@@ -3,7 +3,16 @@
 @custom-variant dark (&:where(.dark, .dark *, [data-theme-resolved='dark'], [data-theme-resolved='dark'] *));
 
 @theme {
-  --font-sans: "Google Sans", 'Noto Sans SC', 'Noto Sans TC', 'Noto Sans JP', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
-  --font-mono: "JetBrains Mono", 'PingFang SC', 'Microsoft YaHei', "ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Helvetica Neue", Arial, monospace;
-
+  --fsus-font-ui: "Google Sans", "Noto Sans SC", "Noto Sans TC", "Noto Sans JP", "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, system-ui, sans-serif;
+  --fsus-font-prose: "Noto Sans SC", "Noto Sans TC", "Noto Sans JP", "Google Sans", system-ui, sans-serif;
+  --fsus-font-code: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+  --fsus-font-cjk: "Noto Sans SC", "Noto Sans TC", "Noto Sans JP", system-ui, sans-serif;
+  --fsus-font-emoji: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  --fsus-typography-body-family: var(--fsus-font-ui);
+  --fsus-typography-article-family: var(--fsus-font-prose);
+  --fsus-typography-heading-family: var(--fsus-font-ui);
+  --fsus-typography-code-family: var(--fsus-font-code);
+  --fsus-typography-admin-table-family: var(--fsus-font-ui);
+  --font-sans: var(--fsus-font-ui);
+  --font-mono: var(--fsus-font-code);
 }

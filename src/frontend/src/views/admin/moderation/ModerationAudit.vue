@@ -189,7 +189,7 @@ const readAuditActionText = (value: string): string => {
 .moderation-audit-index__row code {
   overflow: hidden;
   color: var(--fsusblog-text-muted);
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--fsus-typography-code-family, var(--fsus-font-code, ui-monospace, monospace));
   font-size: 12px;
   line-height: 1.5;
   text-overflow: ellipsis;

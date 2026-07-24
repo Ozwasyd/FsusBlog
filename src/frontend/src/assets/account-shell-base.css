@@ -7,7 +7,7 @@
 
     background: var(--fsusblog-page-bg, Canvas);
     color: var(--fsusblog-text-primary);
-    font-family: var(--font-sans, "Google Sans", "Noto Sans SC", "Noto Sans TC", "Noto Sans JP", ui-sans-serif, system-ui, sans-serif);
+    font-family: var(--fsus-typography-body-family, var(--fsus-font-ui, system-ui, sans-serif));
 }
 
 .account-header-link

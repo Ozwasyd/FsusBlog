@@ -353,7 +353,7 @@ const appendixCopyrightText = computed(() => {
   color: var(--fsusblog-text-quiet);
   font-size: 14px;
   font-weight: 400;
-  font-family: 'Google Sans', 'Noto Sans CJK', sans-serif;
+  font-family: var(--fsus-typography-body-family, var(--fsus-font-ui, system-ui, sans-serif));
 }
 
 .fsus-appendix__tags {

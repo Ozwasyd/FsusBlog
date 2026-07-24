@@ -71,7 +71,7 @@ const previewDocument = computed(() => toTrustedSanitizedHtml(`<!doctype html>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <base target="_blank">
   <style>
-    :root { color-scheme: light dark; font-family: "Google Sans", "Noto Sans SC", "Noto Sans TC", "Noto Sans JP", ui-sans-serif, system-ui, sans-serif; --preview-surface: Canvas; --preview-text: CanvasText; --preview-muted: GrayText; --preview-link: LinkText; --preview-border: ButtonBorder; --preview-code-bg: Field; --preview-radius-inline: var(--fsus-radius-control-small, 4px); }
+    :root { color-scheme: light dark; --fsus-font-ui: "Google Sans", "Noto Sans SC", "Noto Sans TC", "Noto Sans JP", ui-sans-serif, system-ui, sans-serif; --fsus-typography-body-family: var(--fsus-font-ui); font-family: var(--fsus-typography-body-family); --preview-surface: Canvas; --preview-text: CanvasText; --preview-muted: GrayText; --preview-link: LinkText; --preview-border: ButtonBorder; --preview-code-bg: Field; --preview-radius-inline: var(--fsus-radius-control-small, 4px); }
     body { margin: 0; padding: 24px; background: var(--preview-surface); color: var(--preview-text); line-height: 1.72; }
     article { max-width: 760px; margin: 0 auto; }
     h1, h2, h3, h4, h5, h6 { color: var(--preview-text); line-height: 1.3; }

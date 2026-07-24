@@ -831,9 +831,9 @@ expectMatches(markdownCss, /\.markdown-body \.markdown-renderer__text\s*\{[^}]*l
 expectNotMatches(markdownCss, /\.markdown-body(?: \.markdown-renderer__text)?\s*\{[^}]*text-align:\s*justify;/s, 'markdown.css reading text must not use justified alignment')
 expectMatches(markdownCss, /\.markdown-body h1\s*\{[^}]*text-align:\s*left;/s, 'markdown.css left-aligned reading h1')
 expectMatches(markdownCss, /\.markdown-body h2\s*\{[^}]*text-align:\s*left;/s, 'markdown.css left-aligned reading h2')
-expectIncludes(markdownCss, "font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;", 'markdown.css fenced code canonical mono stack')
-expectIncludes(markdownCss, "font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace !important;", 'markdown.css inline code canonical mono stack')
-expectNotMatches(markdownCss, /font-family:[^;]*(?:Monaco|Consolas|var\(--font-sans\))/, 'markdown.css must not fork the canonical mono stack')
+expectIncludes(markdownCss, 'font-family: var(--fsus-typography-code-family, var(--fsus-font-code, ui-monospace, monospace));', 'markdown.css fenced code semantic font token')
+expectIncludes(markdownCss, 'font-family: var(--fsus-typography-code-family, var(--fsus-font-code, ui-monospace, monospace)) !important;', 'markdown.css inline code semantic font token')
+expectNotMatches(markdownCss, /font-family:[^;]*(?:Monaco|Consolas|var\(--font-sans\)|['"]JetBrains Mono['"])/, 'markdown.css must not fork the semantic code font token')
 expectNotMatches(markdownCss, /\.fsus-article-preview-image:focus-visible\s*\{[^}]*outline-offset:/, 'markdown.css image preview must not use an exterior focus offset')
 
 if (!exists('docs/public-layout-rules.md')) {

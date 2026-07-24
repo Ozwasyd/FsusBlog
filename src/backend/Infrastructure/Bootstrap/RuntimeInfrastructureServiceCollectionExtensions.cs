@@ -346,6 +346,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<IFontRegistry>(provider => new LocalFontRegistry(
             fontRoot,
             provider.GetRequiredService<TimeProvider>()));
+        services.AddSingleton<IFontStackRuntime, FontStackRuntime>();
         return services;
     }
 

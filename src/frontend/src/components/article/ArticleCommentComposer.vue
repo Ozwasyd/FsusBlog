@@ -923,7 +923,7 @@ function createCommentMutationId(): string
   background: transparent;
   box-shadow: none;
   text-align: left;
-  font-family: 'Google Sans', 'Noto Sans CJK', sans-serif;
+  font-family: var(--fsus-typography-body-family, var(--fsus-font-ui, system-ui, sans-serif));
 }
 
 .fsus-comment-login__text {

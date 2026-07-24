@@ -722,7 +722,7 @@ async function copyEvidence(incident: OpsIncident): Promise<void>
     min-width: 0;
     overflow-wrap: anywhere;
     color: var(--fsusblog-text-muted);
-    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-family: var(--fsus-typography-code-family, var(--fsus-font-code, ui-monospace, monospace));
     font-size: 12px;
     line-height: 1.5;
 }
@@ -758,7 +758,7 @@ async function copyEvidence(incident: OpsIncident): Promise<void>
     background: var(--fsusblog-panel-bg-soft);
     padding: 10px 12px;
     color: var(--fsusblog-text-secondary);
-    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-family: var(--fsus-typography-code-family, var(--fsus-font-code, ui-monospace, monospace));
     font-size: 12px;
     line-height: 1.5;
     white-space: pre-wrap;

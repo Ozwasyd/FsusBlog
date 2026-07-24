@@ -323,7 +323,13 @@ Font Registry 属于 durable shared 数据：`FSUSBLOG_DATA_ROOT/fonts/registry.
 WOFF2、预算和来源 metadata 校验；registry 通过同目录临时文件原子替换，active font
 的 disable/delete 必须先切换到 enabled replacement 或 built-in fallback。无需重启的
 降级是把受影响 scope 重新 activate 到 built-in selection；格式与生命周期详见
-[`.fsfont` package and registry](fonts/fsfont-package.md)。
+[`.fsfont` package and registry](fonts/fsfont-package.md)。`IFontStackRuntime`
+把 activation 按 UI/prose/code/CJK/emoji 角色、locale/script fallback 和
+`font-token-v1` 稳定变量解析；theme 只能让 semantic typography token 引用
+`font.family.*`，不能注入 raw `font-family`。缺失 scope、disabled/missing font、
+角色 category 漂移或不安全 family 都回退到对应 built-in stack，并保留
+system-ui/ui-monospace/platform emoji 末级降级；完整契约见
+[Font token schema and stack runtime](fonts/font-token-schema.md)。
 
 Compose 把 `${FSUSBLOG_RELEASE_ASSET_STORE}/releases` 只读挂载为 `/app/release-assets`，把共享 release-derived volume 挂载为 `/app/release-derived`。`UseReleaseScopedStaticAssets` 在 SPA fallback 前注册 `/release-assets/<releaseId>/...` 与 `/release-derived/<releaseId>/...`；Production 缺任一 root 配置会拒绝启动。服务可达不等于产物可发布：rollout 仍必须先 materialize exact manifest、验证 N/N-1、持久 retention state，执行 applied GC 后再复读旧 index/hash/SW/cache。无需重启的降级是停止 GC、保护 active/N-1、为当前 release 重新发布 generation；禁止 clear shared root、改写旧 release 或恢复 mutable `current/latest` 路径。
 

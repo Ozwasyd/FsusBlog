@@ -14,6 +14,11 @@
    src/assets/public-shell-critical.css for the full rationale. */
 @import '@ozwasyd/element-plus/dist/el-fsus-theme.css';
 
+:root {
+    /* FsusBlog owns the active family; FsusUI consumes the stable role token. */
+    --el-font-family: var(--fsus-font-ui);
+}
+
 .transition-fsus {
     transition-property: color, background-color, border-color, box-shadow, opacity, transform;
     transition-timing-function: var(--fsus-motion-standard, cubic-bezier(0.4, 0, 0.2, 1));

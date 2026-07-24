@@ -51,7 +51,7 @@ const loginRoute = computed(() => ({
 .fsus-comments-empty__text {
   margin: 0;
   color: var(--fsusblog-text-quiet);
-  font-family: 'Google Sans', 'Noto Sans CJK', sans-serif;
+  font-family: var(--fsus-typography-body-family, var(--fsus-font-ui, system-ui, sans-serif));
   font-size: 14px;
   font-weight: 400;
   line-height: 1.5;

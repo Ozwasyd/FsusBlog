@@ -75,6 +75,9 @@ been committed.
 
 The built-in registry entries represent the existing hardcoded UI, prose,
 code, CJK, and emoji stacks. They do not claim ownership of local WOFF2 files.
+Activation is compiled into stable, locale-aware theme variables by the
+[font token schema and stack runtime](font-token-schema.md); themes reference
+those tokens instead of font IDs, asset paths, or raw `font-family` strings.
 
 ## Failure and rollback
 

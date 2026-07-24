@@ -20,7 +20,7 @@ const legacyFsusFontMonoVar = `var(--fsus-${'font-mono'})`
 const unregisteredFsusFontFamilyMono = `--fsus-${'font-family-mono'}`
 const legacyElementPrimaryBlue = `#${'409eff'}`
 const legacyWarmBrownFallback = `#${'4A453C'}`
-const canonicalCodeMonoStack = "font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;"
+const canonicalCodeMonoStack = 'font-family: var(--fsus-typography-code-family, var(--fsus-font-code, ui-monospace, monospace));'
 
 function read(path) {
   return readFileSync(resolve(repoRoot, path), 'utf8')
@@ -51,6 +51,7 @@ const motionPath = 'src/frontend/src/assets/motion.css';
 const tailwindPath = 'src/frontend/src/assets/tailwind.css';
 const markdownPath = 'src/frontend/src/assets/markdown.css';
 const accountShellBasePath = 'src/frontend/src/assets/account-shell-base.css';
+const mainPath = 'src/frontend/src/assets/main.css';
 const moderationAuditPath = 'src/frontend/src/views/admin/moderation/ModerationAudit.vue';
 const messagesPath = 'src/frontend/src/components/user/messages/MessagesConversationList.vue';
 const identityPath = 'src/frontend/src/views/user/IdentityCenter.vue';
@@ -63,6 +64,7 @@ const motion = read(motionPath);
 const tailwind = read(tailwindPath);
 const markdown = read(markdownPath);
 const accountShellBase = read(accountShellBasePath);
+const main = read(mainPath);
 const moderationAudit = read(moderationAuditPath);
 const messages = read(messagesPath);
 const identity = read(identityPath);
@@ -143,20 +145,32 @@ for (const forbidden of ['120ms', '180ms', 'var(--fsus-motion-panel, 220ms)', '-
 expectIncludes(
   tailwindPath,
   tailwind,
-  '--font-sans: "Google Sans", \'Noto Sans SC\', \'Noto Sans TC\', \'Noto Sans JP\', \'PingFang SC\', \'Microsoft YaHei\', \'Helvetica Neue\', Arial, sans-serif;'
+  '--font-sans: var(--fsus-font-ui);'
 )
 expectIncludes(
   tailwindPath,
   tailwind,
-  '--font-mono: "JetBrains Mono", \'PingFang SC\', \'Microsoft YaHei\', "ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Helvetica Neue", Arial, monospace;'
+  '--font-mono: var(--fsus-font-code);'
 )
+for (const token of [
+  '--fsus-font-ui:',
+  '--fsus-font-prose:',
+  '--fsus-font-code:',
+  '--fsus-font-cjk:',
+  '--fsus-font-emoji:',
+  '--fsus-typography-body-family: var(--fsus-font-ui);',
+  '--fsus-typography-code-family: var(--fsus-font-code);'
+]) {
+  expectIncludes(tailwindPath, tailwind, token)
+  expectIncludes(publicShellPath, publicShell, token)
+}
 expectIncludes(markdownPath, markdown, canonicalCodeMonoStack, 'canonical Markdown code font stack')
 expectIncludes(moderationAuditPath, moderationAudit, canonicalCodeMonoStack, 'canonical moderation audit code font stack')
 
 expectNotIncludes(messagesPath, messages, legacyTabularNumsVar)
 expectIncludes(messagesPath, messages, 'font-variant-numeric: tabular-nums;')
 expectNotIncludes(identityPath, identity, legacyFsusFontMonoVar);
-expectIncludes(identityPath, identity, 'font-family: var(--font-mono);');
+expectIncludes(identityPath, identity, canonicalCodeMonoStack);
 
 expectIncludes(publicShellPath, publicShell, '--fsusblog-public-header-height: 4rem;');
 expectNotIncludes(publicShellPath, publicShell, '--fsusblog-public-overlay-radius:');
@@ -164,6 +178,7 @@ expectIncludes(markdownPath, markdown, 'border-radius: var(--fsus-radius-panel, 
 expectIncludes(markdownPath, markdown, 'border-radius: var(--fsus-radius-control-small, 4px)');
 expectIncludes(markdownPath, markdown, 'border-radius: var(--fsus-radius-control, 6px);');
 expectIncludes(accountShellBasePath, accountShellBase, 'border-radius: var(--fsus-radius-control);');
+expectIncludes(mainPath, main, '--el-font-family: var(--fsus-font-ui);', 'FsusUI font family stable role alias');
 
 expectIncludes(complianceFooterPath, complianceFooter, 'transition-transform group-hover:-translate-y-px');
 
