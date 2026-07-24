@@ -257,6 +257,21 @@
             "status": "manual"
         },
         {
+            "id": "backend-qps-scenario-catalog",
+            "owner": "backend-performance-governance",
+            "canonicalPath": "config/testing/backend-qps-scenario-catalog.json",
+            "pathType": "file",
+            "purpose": "Canonical authority for 13 backend QPS scenarios and static invariant definitions",
+            "consumers": [
+                "tools/test/run-backend-qps-scenarios.mjs",
+                "tools/test/lanes/backend-qps.sh",
+                "docs/testing/backend-qps-driver-migration-ledger.md"
+            ],
+            "validationCommand": "node tools/test/run-backend-qps-scenarios.mjs --validate-catalog",
+            "changePolicy": "manual-update-with-qps-matrix-validation",
+            "status": "manual"
+        },
+        {
             "id": "content-addressed-build-cache",
             "owner": "test-matrix-scheduler",
             "canonicalPath": "config/testing/content-addressed-build-cache.json",

@@ -1,0 +1,292 @@
+{
+  "schema": "fsusblog.backend-qps-scenario-catalog.v1",
+  "catalogScenarioCount": 13,
+  "scenarios": [
+    {
+      "id": "view-count-flush",
+      "route": "visit-log:view-count-flush",
+      "trafficMode": "static-qps-guard",
+      "checks": [
+        "batch-core-gateway",
+        "batch-adapter-no-single-loop",
+        "batch-db-values-update"
+      ],
+      "requiredTokens": [
+        { "file": "src/core/Services/Gateways/IArticleCoreGateway.cs", "token": "IncreaseViewCountsAsync(" },
+        { "file": "src/backend/Services/ArticleService.CorePort.cs", "token": "IncreaseViewCountsAsync(command.ArticleCounts" },
+        { "file": "src/backend/Services/ArticleService.cs", "token": "FROM (VALUES" },
+        { "file": "src/backend/Services/ArticleService.cs", "token": "IBatch redisBatch = _redis.CreateBatch()" }
+      ],
+      "forbiddenTokens": [
+        { "file": "src/backend/Services/ArticleService.CorePort.cs", "token": "for (int i = 0; i < count; i++)" }
+      ],
+      "evidencePath": ".tmp/perf/backend-qps/view-count-flush.json"
+    },
+    {
+      "id": "visitlog-invalidation",
+      "route": "visit-log:hot-stats-invalidation",
+      "trafficMode": "cache-invalidation-pressure",
+      "checks": [
+        "dirty-coalescer",
+        "versioned-hot-cache",
+        "no-empty-hot-prefix-delete",
+        "diagnostics-snapshot"
+      ],
+      "requiredTokens": [
+        { "file": "src/backend/Services/VisitLog/VisitLogProcessorService.cs", "token": "GetRequiredService<IHotStatsInvalidationCoalescer>()" },
+        { "file": "src/backend/Services/VisitLog/VisitLogProcessorService.cs", "token": "MarkStatsDirtyAsync(\"read-aggregate-flush\"" },
+        { "file": "src/backend/Services/VisitLog/VisitLogProcessorService.cs", "token": "MarkHotArticlesDirtyAsync(\"article-read-projection\"" },
+        { "file": "src/backend/Infrastructure/Cache/HotStatsInvalidationCoalescer.cs", "token": "s_hotArticlesDebounce" },
+        { "file": "src/backend/Infrastructure/Cache/HotStatsInvalidationCoalescer.cs", "token": "s_statsDebounce" },
+        { "file": "src/backend/Infrastructure/Cache/HotStatsInvalidationCoalescer.cs", "token": "FlushPendingAsync" },
+        { "file": "src/backend/Services/ArticleEndpointService.cs", "token": "BuildVersionedHotArticlesIdentity" },
+        { "file": "src/backend/Infrastructure/Cache/ArticleCacheOwnershipCatalog.cs", "token": "no writer after Core bridge cache removal" },
+        { "file": "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs", "token": "PublishNextHotArticlesVersion" },
+        { "file": "src/backend/Models/Dtos/OperationsDtos.cs", "token": "HotStatsInvalidationSnapshot" }
+      ],
+      "forbiddenTokens": [
+        { "file": "src/backend/Services/VisitLog/VisitLogProcessorService.cs", "token": "InvalidateStatsAsync(token)" },
+        { "file": "src/backend/Services/VisitLog/VisitLogProcessorService.cs", "token": "InvalidateHotArticlesAsync(token)" },
+        { "file": "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs", "token": "RemoveByPrefixAsync(CachePolicyId.ArticleHot, string.Empty" },
+        { "file": "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs", "token": "RemoveByPrefixAsync(CachePolicyId.ArticleHotFrame, string.Empty" }
+      ],
+      "evidencePath": ".tmp/perf/backend-qps/visitlog-invalidation.json"
+    },
+    {
+      "id": "cache-hit",
+      "route": "/api/binary/article/list/home/1/10.aeds",
+      "trafficMode": "static-qps-guard",
+      "checks": [
+        "full-frame-cache",
+        "article-list-frame",
+        "article-hot-frame",
+        "comment-frame",
+        "taxonomy-frame",
+        "stats-frame"
+      ],
+      "requiredTokens": [
+        { "file": "src/backend/Infrastructure/Cache/CachePolicyId.cs", "token": "ArticleListFrame" },
+        { "file": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs", "token": "BinaryResults.PreencodedFrame" },
+        { "file": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs", "token": "CommentCursorFrame" },
+        { "file": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Taxonomy.cs", "token": "CategoryFrame" },
+        { "file": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Stats.cs", "token": "AdminStatsFrame" }
+      ],
+      "forbiddenTokens": [],
+      "evidencePath": ".tmp/perf/backend-qps/cache-hit.json"
+    },
+    {
+      "id": "comment-cursor",
+      "route": "/api/binary/comment/{articleId}",
+      "trafficMode": "static-qps-guard",
+      "checks": [
+        "comment-thread-frame-cache",
+        "comment-reply-frame-cache",
+        "user-comment-frame-cache",
+        "versioned-invalidation"
+      ],
+      "requiredTokens": [
+        { "file": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs", "token": "BuildCommentThreadFrameIdentity" },
+        { "file": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs", "token": "WriteCommentReplyCursor" },
+        { "file": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs", "token": "CachePolicyId.CommentCursorFrame" },
+        { "file": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs", "token": "CachePolicyId.UserCommentCursorFrame" },
+        { "file": "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs", "token": "CachePolicyId.CommentCursorVersion" },
+        { "file": "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs", "token": "CachePolicyId.UserCommentCursorVersion" }
+      ],
+      "forbiddenTokens": [
+        { "file": "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs", "token": "CachePolicyId.CommentCursorFrame" },
+        { "file": "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs", "token": "CachePolicyId.UserCommentCursorFrame" }
+      ],
+      "evidencePath": ".tmp/perf/backend-qps/comment-cursor.json"
+    },
+    {
+      "id": "hotread",
+      "route": "/api/binary/category",
+      "trafficMode": "early-hot-read",
+      "checks": [
+        "single-classification-feature",
+        "dedicated-rate-risk-pow-gate",
+        "generic-pipeline-bypass",
+        "taxonomy-suffixless-fastpath",
+        "preencoded-bodywriter"
+      ],
+      "requiredTokens": [
+        { "file": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadEarlyDataPlane.cs", "token": "PublicHotReadRequestFeature" },
+        { "file": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadEarlyDataPlane.cs", "token": "UseFsusPublicHotReadRateLimiter" },
+        { "file": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSecurityGateMiddleware.cs", "token": "PublicReadSecurityGate" },
+        { "file": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSecurityGateMiddleware.cs", "token": "PublicReadSecurityGateResultFeature.Allowed" },
+        { "file": "src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs", "token": "public-hot-read-classifier" },
+        { "file": "src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs", "token": "public-hot-read-fallback-restore" },
+        { "file": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Serving.cs", "token": "CategoryPathWithoutSuffix" },
+        { "file": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Serving.cs", "token": "TagPathWithoutSuffix" },
+        { "file": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Serving.cs", "token": "BodyWriter.WriteAsync(frame" }
+      ],
+      "forbiddenTokens": [],
+      "evidencePath": ".tmp/perf/backend-qps/hotread.json"
+    },
+    {
+      "id": "cache-miss-singleflight",
+      "route": "/api/binary/article/list/home/1/10.aeds",
+      "trafficMode": "db-miss",
+      "checks": [
+        "detail-singleflight",
+        "search-singleflight",
+        "hot-singleflight",
+        "featured-singleflight"
+      ],
+      "requiredTokens": [
+        { "file": "src/backend/Services/ArticleService.cs", "token": "CachePolicyId.ArticleDetail" },
+        { "file": "src/backend/Services/ArticleService.cs", "token": "_cacheMissCoordinator.CoordinateAsync(" },
+        { "file": "src/backend/Services/ArticleService.LifecycleAndReadModels.cs", "token": "_cacheMissCoordinator.CoordinateAsync(" },
+        { "file": "src/backend/Services/ArticleService.LifecycleAndReadModels.cs", "token": "CachePolicyId.ArticleSearch" },
+        { "file": "src/backend/Services/ArticleService.LifecycleAndReadModels.cs", "token": "\"article-search\"" },
+        { "file": "src/backend/Services/ArticleService.LifecycleAndReadModels.cs", "token": "CachePolicyId.TopArticles" },
+        { "file": "src/backend/Services/ArticleService.LifecycleAndReadModels.cs", "token": "\"article-hot-seed\"" }
+      ],
+      "forbiddenTokens": [],
+      "evidencePath": ".tmp/perf/backend-qps/cache-miss-singleflight.json"
+    },
+    {
+      "id": "risk-filter",
+      "route": "public_read:risk-filter",
+      "trafficMode": "static-qps-guard",
+      "checks": [
+        "zero-risk-microcache",
+        "no-public-read-lowercase",
+        "stable-partition-key"
+      ],
+      "requiredTokens": [
+        { "file": "src/backend/Infrastructure/Security/CrawlerRiskService.cs", "token": "ZeroRiskCacheTtlSeconds" },
+        { "file": "src/backend/Infrastructure/Security/CrawlerRiskService.cs", "token": "zeroRiskCache" },
+        { "file": "src/backend/Infrastructure/Bootstrap/ServiceCollectionExtensions.cs", "token": "GetPublicReadPartitionPath" }
+      ],
+      "forbiddenTokens": [],
+      "evidencePath": ".tmp/perf/backend-qps/risk-filter.json"
+    },
+    {
+      "id": "related-reading",
+      "route": "/api/binary/article/{articleId}/related.aeds",
+      "trafficMode": "static-qps-guard",
+      "checks": [
+        "versioned-related-cache",
+        "output-cache-tag"
+      ],
+      "requiredTokens": [
+        { "file": "src/backend/Services/Distribution/RelatedReadingService.cs", "token": "GetArticleListVersionAsync" },
+        { "file": "src/backend/Services/Distribution/RelatedReadingService.cs", "token": "CachePolicyId.RelatedReading" },
+        { "file": "src/backend/Services/Distribution/RelatedReadingService.cs", "token": "CachePolicyId.ArticleListVersion" },
+        { "file": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs", "token": "AedsFrameType.ArticleRelatedReading" },
+        { "file": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs", "token": "CacheTag.ArticleList.ToOutputCacheTag()" }
+      ],
+      "forbiddenTokens": [],
+      "evidencePath": ".tmp/perf/backend-qps/related-reading.json"
+    },
+    {
+      "id": "list-pagination",
+      "route": "/api/binary/article/list/home/{page}/{size}.aeds",
+      "trafficMode": "db-miss",
+      "checks": [
+        "keyset-small-pages",
+        "offset-deep-pages"
+      ],
+      "requiredTokens": [
+        { "file": "src/backend/Services/ArticleService.LifecycleAndReadModels.cs", "token": "ShouldUsePublicKeysetPagination(isDeleted, status, includePrivate)" },
+        { "file": "src/backend/Services/ArticleService.LifecycleAndReadModels.cs", "token": "LoadPublicArticleListPageByKeysetAsync" },
+        { "file": "src/backend/Services/ArticleService.cs", "token": "ArticleListCursorWhereClause" },
+        { "file": "src/backend/Services/ArticleService.LifecycleAndReadModels.cs", "token": "OFFSET @Offset" }
+      ],
+      "forbiddenTokens": [],
+      "evidencePath": ".tmp/perf/backend-qps/list-pagination.json"
+    },
+    {
+      "id": "article-detail-miss",
+      "route": "/api/binary/article/{id}.aeds",
+      "trafficMode": "db-miss",
+      "checks": [
+        "public-detail-artifact",
+        "prepared-primary-key-projection",
+        "sequential-binary-read",
+        "classified-db-gate",
+        "async-backfill",
+        "preencoded-frame"
+      ],
+      "requiredTokens": [
+        { "file": "src/backend/Services/ArticleEndpointService.cs", "token": "GetPublicArtifactBackedDetailAsync" },
+        { "file": "src/backend/Infrastructure/PublicReadArtifacts/PublicArticleProjectionStore.cs", "token": "WHERE article_id = $1" },
+        { "file": "src/backend/Infrastructure/PublicReadArtifacts/PublicArticleProjectionStore.cs", "token": "PrepareAsync" },
+        { "file": "src/backend/Infrastructure/PublicReadArtifacts/PublicArticleProjectionStore.cs", "token": "CommandBehavior.SequentialAccess | CommandBehavior.SingleRow" },
+        { "file": "src/backend/Infrastructure/PublicReadArtifacts/PublicArticleProjectionStore.cs", "token": "DbWorkloadClass.PublicShortRead" },
+        { "file": "src/backend/Infrastructure/PublicReadArtifacts/ArticleDetailAedsArtifactStore.cs", "token": "ArticleDetailAedsArtifactBackfillWorker" },
+        { "file": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs", "token": "PreencodedFrame" }
+      ],
+      "forbiddenTokens": [],
+      "evidencePath": ".tmp/perf/backend-qps/article-detail-miss.json"
+    },
+    {
+      "id": "cache-registry",
+      "route": "cache:registry",
+      "trafficMode": "static-qps-guard",
+      "checks": [
+        "policy-register-flag",
+        "exact-cache-no-registry",
+        "prefix-cache-registry"
+      ],
+      "requiredTokens": [
+        { "file": "src/backend/Infrastructure/Cache/CachePolicy.cs", "token": "RegisterKeysForPrefixInvalidation" },
+        { "file": "src/backend/Infrastructure/Cache/IUnifiedCache.cs", "token": "RegisterKeysForPrefixInvalidation" },
+        { "file": "src/backend/Infrastructure/Cache/CachePolicyRegistry.cs", "token": "ArticleListFrame" },
+        { "file": "src/backend/Infrastructure/Cache/CachePolicyRegistry.cs", "token": "CommentCursorFrame" }
+      ],
+      "forbiddenTokens": [],
+      "evidencePath": ".tmp/perf/backend-qps/cache-registry.json"
+    },
+    {
+      "id": "cache-invalidation-batch",
+      "route": "cache:invalidation-batch",
+      "trafficMode": "cache-mutation",
+      "checks": [
+        "remove-many",
+        "remove-prefix-many",
+        "registry-setremove-batch",
+        "prefix-policy-group",
+        "dispatcher-batch"
+      ],
+      "requiredTokens": [
+        { "file": "src/backend/Infrastructure/Cache/IUnifiedCache.cs", "token": "Task RemoveManyAsync" },
+        { "file": "src/backend/Infrastructure/Cache/IUnifiedCache.cs", "token": "Task RemoveByPrefixManyAsync" },
+        { "file": "src/backend/Infrastructure/Cache/IUnifiedCache.cs", "token": "DeleteKeysAndRegistryMembersAtomicAsync" },
+        { "file": "src/backend/Infrastructure/Cache/IUnifiedCache.cs", "token": "ScriptEvaluateAsync" },
+        { "file": "src/backend/Infrastructure/Cache/IUnifiedCache.cs", "token": "DeleteKeysAndRegistryMembersScript" },
+        { "file": "src/backend/Infrastructure/Cache/IUnifiedCache.cs", "token": "prefixes.GroupBy(static item => item.PolicyId)" },
+        { "file": "src/backend/Infrastructure/Cache/IUnifiedCache.cs", "token": "DeleteRegisteredKeysByPrefixesAsync(registryKey, resolvedPrefixes" },
+        { "file": "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs", "token": "RemoveManyAsync" },
+        { "file": "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs", "token": "CachePolicyId.AdminStatsFrame" },
+        { "file": "src/backend/Infrastructure/Observability/FsusObservability.cs", "token": "fsus.cache.remove_many.keys" },
+        { "file": "src/backend/Infrastructure/Observability/FsusObservability.cs", "token": "fsus.cache.remove_prefix_many.registry_scans" }
+      ],
+      "forbiddenTokens": [],
+      "evidencePath": ".tmp/perf/backend-qps/cache-invalidation-batch.json"
+    },
+    {
+      "id": "index-plan",
+      "route": "db:index-plan",
+      "trafficMode": "db-miss",
+      "checks": [
+        "article-public-index",
+        "comment-index",
+        "tag-index",
+        "public-article-projection-plan"
+      ],
+      "requiredTokens": [
+        { "file": "src/backend/Entities/Article.cs", "token": "idx_article_public_status_time" },
+        { "file": "src/backend/Entities/Article.cs", "token": "idx_article_public_category_status_time" },
+        { "file": "src/backend/Entities/Comment.cs", "token": "article_id" },
+        { "file": "src/backend/Entities/Article.cs", "token": "idx_article_tag_article_tag" },
+        { "file": "src/backend/Entities/Article.cs", "token": "idx_article_tag_tag_article" },
+        { "file": "tools/perf/public-article-projection-plan.sql", "token": "EXPLAIN (ANALYZE, BUFFERS, WAL, FORMAT JSON)" },
+        { "file": "tools/perf/public-article-projection-plan.sql", "token": "FROM public_article_projection" }
+      ],
+      "forbiddenTokens": [],
+      "evidencePath": ".tmp/perf/backend-qps/index-plan.json"
+    }
+  ]
+}
