@@ -1,0 +1,45 @@
+{
+    "schema": "fsusblog.public-preview-quality-scenarios.v1",
+    "qualityScenarios": [
+        {
+            "id": "public-home-desktop-150-zoom",
+            "route": "Home",
+            "scope": "anonymous",
+            "viewport": {
+                "width": 1440,
+                "height": 900
+            },
+            "theme": "light",
+            "locale": "zh-CN",
+            "zoom": 1.5,
+            "tier": "release",
+            "primaryTaskSelectors": [],
+            "linkedIssues": [
+                1474,
+                1476
+            ],
+            "surfaceRole": "public"
+        },
+        {
+            "id": "article-detail-mobile-150-zoom",
+            "route": "ArticleDetail",
+            "scope": "anonymous",
+            "viewport": {
+                "width": 375,
+                "height": 812
+            },
+            "theme": "light",
+            "locale": "zh-CN",
+            "zoom": 1.5,
+            "tier": "release",
+            "primaryTaskSelectors": [],
+            "linkedIssues": [
+                1463,
+                1464,
+                1473,
+                1476
+            ],
+            "surfaceRole": "public"
+        }
+    ]
+}

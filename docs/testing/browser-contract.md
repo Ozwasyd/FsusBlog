@@ -31,7 +31,7 @@ runner 在读取旧 receipt 或启动 Chromium 前，fail closed 验证显式的
 
 \#1149 的 fixture producer 固定准备 `1 session / 1 concurrency`：一个 run-scoped 专用 PostgreSQL instance/schema、一个 Redis instance/namespace、一个普通 user、一个 admin 和一份 sealed auth/storage manifest。它不读取 live CPU/memory grant 或 PostgreSQL PID headroom，不按 worker clone schema，也不回退到共享 `public` schema。场景只消费 `createPublishedArticle()`、`createPendingComment()`、`createUserSession()`、`createAdminSession()` 和 `resetContractNamespace()` 形成的稳定 fixture view；浏览器场景不执行 SQL、Redis 或 Docker 命令。完整生命周期见 [`issue-1149-browser-contract-fixture.md`](issue-1149-browser-contract-fixture.md)。
 
-固定可上传结果是 `.tmp/browser-contract/receipt.json` 与 `.tmp/release-evidence/public-preview-screenshots.json`；sealed fixture manifest 在 cleanup 前位于 `.tmp/browser-contract/fixtures/<namespace>/contract-fixture.json`，本机私有调试产物位于 `.tmp/browser-contract/runs/<namespace>/`。receipt 记录 source/build fingerprint、run/lane/preparation identity、database/Redis identity、稳定实体 ID、cleanup 分项证据、Playwright 版本、Chromium revision、精确 scenario IDs、launch/context 数、wall clock、console/page/request issues、product/contract/infra 分类及本地证据的相对路径，不内联原始 trace、screenshot 或会话材料。场景 context 数只统计 5–6 个产品场景；public-preview 另行绑定固定 9 个 capture context、九图 SHA-256、视觉输入摘要、三类 audit 结果和证据文件 digest。只有显式 `anonymous` 场景允许在本地私有目录保留 raw trace；`user`、`admin` 及任何未知/未来 role 都不启动 tracing。场景失败时可在本地私有目录保留 viewport screenshot，但 CI 无论成功或失败都不上传 `fixtures/**` 或 `runs/**`。
+固定可上传结果是 `.tmp/browser-contract/receipt.json` 与 `.tmp/release-evidence/public-preview-screenshots.json`；sealed fixture manifest 在 cleanup 前位于 `.tmp/browser-contract/fixtures/<namespace>/contract-fixture.json`，本机私有调试产物位于 `.tmp/browser-contract/runs/<namespace>/`。receipt 记录 source/build fingerprint、run/lane/preparation identity、database/Redis identity、稳定实体 ID、cleanup 分项证据、Playwright 版本、Chromium revision、精确 scenario IDs、launch/context 数、wall clock、console/page/request issues、product/contract/infra 分类及本地证据的相对路径，不内联原始 trace、screenshot 或会话材料。场景 context 数只统计 5–6 个产品场景；public-preview 另行绑定 9 个截图 context 与 registry 声明的 viewport/locale/zoom 质量场景 context、九图 SHA-256、视觉输入摘要、质量策略摘要、runtime/layout/sanitization/quality 四类 audit、逐图质量报告、完整质量矩阵和证据文件 digest。只有显式 `anonymous` 场景允许在本地私有目录保留 raw trace；`user`、`admin` 及任何未知/未来 role 都不启动 tracing。场景失败时可在本地私有目录保留 viewport screenshot，但 CI 无论成功或失败都不上传 `fixtures/**` 或 `runs/**`。
 
 ## 运行
 
@@ -62,3 +62,20 @@ Browser Contract 失败时 release-final 保持阻断，并根据 receipt 的 `p
 Browser Contract 的离线场景证明当前 release 的公开缓存边界；Blue/Green 发布还必须通过 [零停机发布资格运行手册](../releases/zero-downtime-release-runbook.md) 中独立的 N/N-1 retained-asset 场景。该场景在真实 gateway switch 前后读取旧 release 的 manifest、HTML、Service Worker 和 immutable assets，并在 GC 后复读受保护 URL。`browser.required=true` 时，HTTP-only probe 不能替代受控浏览器 checkpoint。
 
 浏览器 evidence 绑定 release ID、asset manifest hash、gateway generation、Service Worker script/cache identity 和独立 HMAC key。模板、Playwright 测试源码、历史 receipt 与 `browser.required=false` 都不能声明一次执行已通过。私有/认证流量禁止进入 Cache Storage，长期安全规则由 [Service Worker private-cache boundary](../security/service-worker-cache-boundary.md) 唯一声明。
+
+## Public-preview quality evidence
+
+The public-preview gallery is audited inside the existing single Chromium
+launch. `tests/browser-contract/public-preview-gallery.mjs` captures the nine
+managed PNG contexts, runs the registry's additional viewport/locale/zoom
+scenarios, and calls the same `tools/docs/public-preview-quality.mjs` facade as
+the formal docs writer. It does not implement a parallel screenshot service.
+
+PNG provenance remains in `docs/assets/screenshots/manifest.json`; geometry,
+locale and deterministic reviewer results remain in the separate
+`docs/assets/visual-evidence/public-preview-quality.json`. Browser Contract
+compares both against a fresh same-source capture and augments
+`.tmp/release-evidence/public-preview-screenshots.json`. A missing, stale,
+tampered, `fail` or `needs-design-review` quality manifest is a product failure,
+not an infrastructure retry condition. No issue comment, CI URL or external
+visual service is required for the local decision.

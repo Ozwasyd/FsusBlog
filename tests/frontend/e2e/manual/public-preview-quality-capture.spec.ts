@@ -1,0 +1,150 @@
+import { expect, test, type Browser, type StorageState } from '@playwright/test'
+import type { RouteRecordRaw } from 'vue-router'
+
+import { LOCALE_PREFERENCE_STORAGE_KEY } from '../../../../src/frontend/src/locales/keys'
+import { APP_ROUTE_RECORDS } from '../../../../src/frontend/src/router/appRouteRecords'
+import {
+  adminName,
+  adminPassword,
+  captureStorageState,
+  ensureThemeApplied,
+  freezeUiForScreenshot,
+  normalizeDynamicEvidenceForScreenshot,
+  openThemedAuditedPage,
+  settlePage,
+  userName,
+  userPassword,
+  waitForAppReady,
+  waitForScreenshotPaintStability,
+  type ThemeMode
+} from '../../support/playwright/acceptance-shared'
+import { loadAuditFixtures, type PlaywrightAuditFixtures } from '../../support/playwright/routeAuditFixtures'
+import { resolveDocsScreenshotRoot } from '../../support/playwright/manualScreenshotConfiguration'
+import { loadPublicPreviewRegistry } from '../../../../tools/docs/public-preview-registry.mjs'
+import {
+  applyPublicPreviewZoom,
+  auditPublicPreviewPage,
+  createPublicPreviewQualityMatrix,
+  measurePublicPreviewHeader,
+  writePublicPreviewQualityMatrix,
+  writePublicPreviewQualitySidecar,
+  type PublicPreviewQualityReport,
+  type PublicPreviewQualityScenario
+} from '../../../../tools/docs/public-preview-quality.mjs'
+
+type RouteTarget = {
+  name: string
+  path: string
+}
+
+const publicPreviewDocsCapture = process.env.FSUSBLOG_PUBLIC_PREVIEW_DOCS_CAPTURE === '1'
+const qualityOnly = process.env.FSUSBLOG_PUBLIC_PREVIEW_QUALITY_ONLY === '1'
+const strictRuntimeAudit = process.env.FSUSBLOG_MANUAL_SCREENSHOT_RUNTIME_AUDIT !== '0'
+const outputDirectory = resolveDocsScreenshotRoot({ publicPreviewDocsCapture })
+const registry = loadPublicPreviewRegistry(new URL('../../../..', import.meta.url))
+const fixtures = loadAuditFixtures()
+const routes = new Map(flattenRoutes(APP_ROUTE_RECORDS).map((route) => [route.name, route]))
+
+test.describe('public-preview quality capture', () => {
+  test.skip(!publicPreviewDocsCapture, 'quality capture only runs through the governed public-preview writer')
+
+  test('writes per-image audits and the complete quality matrix', async ({ browser }) => {
+    test.setTimeout(1_800_000)
+    if (!outputDirectory) throw new Error('public-preview quality output directory is missing')
+
+    if (!qualityOnly) {
+      for (const entry of registry.screenshots) {
+        const report = await captureScenario(browser, {
+          ...entry,
+          viewport: entry.qualityViewport
+        })
+        await writePublicPreviewQualitySidecar(outputDirectory, entry.file, report)
+        expect(report.status, `${entry.id} public-preview quality`).toBe('pass')
+      }
+    }
+
+    const tier = process.env.FSUSBLOG_PUBLIC_PREVIEW_QUALITY_TIER?.trim() || 'release'
+    const scenarios = registry.qualityScenarios.filter((scenario) => tier === 'release' || scenario.tier === 'quick')
+    const reports: PublicPreviewQualityReport[] = []
+    for (const scenario of scenarios) reports.push(await captureScenario(browser, scenario))
+
+    const matrix = createPublicPreviewQualityMatrix(reports)
+    await writePublicPreviewQualityMatrix(outputDirectory, matrix)
+    expect(matrix.status, 'public-preview quality matrix').toBe('pass')
+  })
+})
+
+async function captureScenario(
+  browser: Browser,
+  scenario: PublicPreviewQualityScenario
+): Promise<PublicPreviewQualityReport> {
+  const target = routes.get(scenario.route)
+  if (!target) throw new Error(`public-preview quality route is not registered: ${scenario.route}`)
+  const path = materializeRoute(target, fixtures)
+  const storageState = await resolveStorageState(browser, scenario.scope)
+  const session = await openThemedAuditedPage(browser, scenario.theme as ThemeMode, storageState)
+  try {
+    await session.page.addInitScript(({ key, locale }) => localStorage.setItem(key, locale), {
+      key: LOCALE_PREFERENCE_STORAGE_KEY,
+      locale: scenario.locale
+    })
+    await session.page.setViewportSize(scenario.viewport)
+    const checkpoint = session.audit.checkpoint()
+    await session.page.goto(path, { waitUntil: 'domcontentloaded' })
+    await applyPublicPreviewZoom(session.page, scenario.zoom)
+    const headerSamples = [await measurePublicPreviewHeader(session.page, 'domcontentloaded')]
+    await waitForAppReady(session.page)
+    headerSamples.push(await measurePublicPreviewHeader(session.page, 'application-ready'))
+    await settlePage(session.page)
+    await ensureThemeApplied(session.page, scenario.theme as ThemeMode)
+    await freezeUiForScreenshot(session.page)
+    await normalizeDynamicEvidenceForScreenshot(session.page)
+    await waitForScreenshotPaintStability(session.page)
+    headerSamples.push(await measurePublicPreviewHeader(session.page, 'stable-frame'))
+
+    const report = await auditPublicPreviewPage(session.page, scenario, registry.qualityPolicy, { headerSamples })
+    if (strictRuntimeAudit) session.audit.assertCleanSince(checkpoint, `public-preview quality ${scenario.id}`)
+    return report
+  } finally {
+    await session.close()
+  }
+}
+
+async function resolveStorageState(browser: Browser, scope?: string): Promise<StorageState | undefined> {
+  if (scope === 'admin') return await captureStorageState(browser, adminName, adminPassword, '/user/manage')
+  if (scope === 'user') return await captureStorageState(browser, userName, userPassword, '/user/profile')
+  return undefined
+}
+
+function flattenRoutes(records: readonly RouteRecordRaw[], parentPath = ''): RouteTarget[] {
+  const result: RouteTarget[] = []
+  for (const record of records) {
+    const path = joinRoutePath(parentPath, record.path)
+    if (record.name) result.push({ name: String(record.name), path })
+    if ('children' in record && Array.isArray(record.children)) result.push(...flattenRoutes(record.children, path))
+  }
+  return result
+}
+
+function joinRoutePath(parent: string, child: string): string {
+  if (child.startsWith('/')) return normalizePath(child)
+  if (!parent || parent === '/') return normalizePath(`/${child}`)
+  if (!child) return normalizePath(parent)
+  return normalizePath(`${parent.replace(/\/+$/u, '')}/${child}`)
+}
+
+function normalizePath(value: string): string {
+  const normalized = value.replace(/\/{2,}/gu, '/')
+  return normalized || '/'
+}
+
+function materializeRoute(route: RouteTarget, auditFixtures: PlaywrightAuditFixtures): string {
+  return route.path.replace(/:id(?:\([^)]*\))?/gu, () => {
+    if (route.name === 'ArticleDetail' || route.name === 'ManageEditArticle' || route.path.includes('/article/')) {
+      return auditFixtures.articleId
+    }
+    if (route.name === 'Category' || route.path.includes('/category/')) return auditFixtures.categoryId
+    if (route.name === 'TagById' || route.path.includes('/tag/')) return auditFixtures.tagId
+    return auditFixtures.articleId
+  })
+}

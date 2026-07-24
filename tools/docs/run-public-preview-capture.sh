@@ -5,14 +5,15 @@ umask 077
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 MODE="${1:-capture}"
-[[ "$MODE" == "capture" || "$MODE" == "verify" ]] || {
-    printf '[public-preview-capture] mode must be capture or verify\n' >&2
+[[ "$MODE" == "capture" || "$MODE" == "verify" || "$MODE" == "quality-smoke" ]] || {
+    printf '[public-preview-capture] mode must be capture, verify, or quality-smoke\n' >&2
     exit 2
 }
 
 NAMESPACE="public-preview-docs-$$"
 WORK_DIR="$ROOT_DIR/.tmp/public-preview-screenshots/$NAMESPACE"
 STAGING_DIR="$WORK_DIR/staging"
+QUALITY_STAGING_FILE="$WORK_DIR/public-preview-quality.json"
 LOCK_DIR="$ROOT_DIR/.tmp/locks/public-preview-docs.lock"
 LOCK_TOOL="$ROOT_DIR/tools/docs/public-preview-writer-transaction.mjs"
 ENV_FILE="$ROOT_DIR/.tmp/env/$NAMESPACE.env"
@@ -97,6 +98,10 @@ export FSUSBLOG_BASE_URL="$FSUSBLOG_DEBUG_BACKEND_URL"
 export PLAYWRIGHT_BASE_URL="$FSUSBLOG_DEBUG_FRONTEND_URL"
 export FSUSBLOG_PUBLIC_PREVIEW_STAGING_DIR="$STAGING_DIR"
 export FSUSBLOG_MANUAL_SCREENSHOT_DIR="$WORK_DIR/manual"
+if [[ "$MODE" == "quality-smoke" ]]; then
+    export FSUSBLOG_PUBLIC_PREVIEW_QUALITY_ONLY=1
+    export FSUSBLOG_PUBLIC_PREVIEW_QUALITY_TIER=quick
+fi
 export FSUSBLOG_MANUAL_SCREENSHOT_RUNTIME_AUDIT=1
 export FSUSBLOG_MANUAL_SCREENSHOT_LAYOUT_AUDIT=1
 export FSUSBLOG_DISABLE_HUMAN_READ_PROOF=1
@@ -111,18 +116,42 @@ node "$ROOT_DIR/tools/docs/public-preview-runtime-identity.mjs" \
     --source-commit "$SOURCE_COMMIT" \
     --source-fingerprint "$SOURCE_FINGERPRINT"
 
-npm --prefix "$ROOT_DIR/src/frontend" run capture:manual-layout-screenshots
+if [[ "$MODE" != "quality-smoke" ]]; then
+    npm --prefix "$ROOT_DIR/src/frontend" run capture:manual-layout-screenshots
+fi
+env -u NO_COLOR \
+    NODE_PATH="$ROOT_DIR/src/frontend/node_modules" \
+    FSUSBLOG_DISABLE_HUMAN_READ_PROOF=1 \
+    FSUSBLOG_PLAYWRIGHT_SERIAL_REASON=public-preview-quality-single-writer \
+    "$ROOT_DIR/src/frontend/node_modules/.bin/playwright" test \
+    --config "$ROOT_DIR/src/frontend/playwright.config.ts" \
+    --workers=1 \
+    "$ROOT_DIR/tests/frontend/e2e/manual/public-preview-quality-capture.spec.ts"
+if [[ "$MODE" == "quality-smoke" ]]; then
+    printf '[public-preview-capture] quality-smoke ok source=%s\n' "$SOURCE_COMMIT"
+    exit 0
+fi
+node "$ROOT_DIR/tools/docs/public-preview-quality-publication.mjs" generate \
+    --capture-dir "$STAGING_DIR" \
+    --file "$QUALITY_STAGING_FILE" \
+    --source-commit "$SOURCE_COMMIT"
 node "$ROOT_DIR/tools/docs/public-preview-screenshots.mjs" generate \
     --dir "$STAGING_DIR" \
     --source-commit "$SOURCE_COMMIT"
 node "$ROOT_DIR/tools/docs/public-preview-screenshots.mjs" check --dir "$STAGING_DIR"
+node "$ROOT_DIR/tools/docs/public-preview-quality-publication.mjs" check --file "$QUALITY_STAGING_FILE"
 
 if [[ "$MODE" == "capture" ]]; then
     node "$ROOT_DIR/tools/docs/public-preview-screenshots.mjs" publish --dir "$STAGING_DIR"
+    node "$ROOT_DIR/tools/docs/public-preview-quality-publication.mjs" publish --file "$QUALITY_STAGING_FILE"
     node "$ROOT_DIR/tools/docs/public-preview-screenshots.mjs" sync
 else
     node "$ROOT_DIR/tools/docs/public-preview-screenshots.mjs" compare \
         --dir "$STAGING_DIR" \
+        --evidence "$ROOT_DIR/.tmp/release-evidence/public-preview-screenshots.json"
+    node "$ROOT_DIR/tools/docs/public-preview-quality-publication.mjs" compare \
+        --file "$QUALITY_STAGING_FILE" \
+        --committed-file "$ROOT_DIR/docs/assets/visual-evidence/public-preview-quality.json" \
         --evidence "$ROOT_DIR/.tmp/release-evidence/public-preview-screenshots.json"
 fi
 

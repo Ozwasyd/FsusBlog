@@ -50,26 +50,26 @@ const recommendations: PopularArticleSummaryResponse[] = articles
     title: article.title,
     views: 980 - index * 111
   }))
-const feedArticles: ArticleListCardViewContract[] = articles
-  .slice(1 + recommendationCount)
-  .map((article, index) => {
-    const id = index + recommendationCount + 2
-    return {
-      card: { kind: 'article-list-card', index },
-      id,
-      href: articleHref(id),
-      title: article.title,
-      summary: article.summary,
-      meta: {
-        isoTime: `2026-07-${String(22 - index).padStart(2, '0')}T08:00:00.000Z`,
-        displayTime: `2026-07-${String(22 - index).padStart(2, '0')}`,
-        fullTime: `2026-07-${String(22 - index).padStart(2, '0')} 08:00`,
-        categoryName: article.category,
-        categoryHref: `/filter?category=${id}`
-      },
-      tags: [{ label: locale === 'zh-CN' ? '#证据' : '#Evidence', href: `/filter?tag=${id}` }]
-    }
-  })
+// The feed is the authoritative current-page article list. Editorial
+// recommendations may reuse these articles, but must never consume them.
+const feedArticles: ArticleListCardViewContract[] = articles.map((article, index) => {
+  const id = index + 1
+  return {
+    card: { kind: 'article-list-card', index },
+    id,
+    href: articleHref(id),
+    title: article.title,
+    summary: article.summary,
+    meta: {
+      isoTime: `2026-07-${String(22 - index).padStart(2, '0')}T08:00:00.000Z`,
+      displayTime: `2026-07-${String(22 - index).padStart(2, '0')}`,
+      fullTime: `2026-07-${String(22 - index).padStart(2, '0')} 08:00`,
+      categoryName: article.category,
+      categoryHref: `/filter?category=${id}`
+    },
+    tags: [{ label: locale === 'zh-CN' ? '#证据' : '#Evidence', href: `/filter?tag=${id}` }]
+  }
+})
 const view: ArticleListViewContract = {
   items: feedArticles,
   pagination: {

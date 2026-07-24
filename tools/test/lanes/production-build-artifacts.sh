@@ -32,6 +32,13 @@ case "$REUSE_BUILD_OUTPUTS" in
         ;;
 esac
 
+if [[ "$REUSE_BUILD_OUTPUTS" == "1" \
+    && -n "${FSUSBLOG_PRODUCTION_BUILD_ROOT:-}" \
+    && "${FSUSBLOG_PHYSICAL_BUNDLE_ID:-}" == "build-static" \
+    && "${FSUSBLOG_STEP_ID:-}" == "production-build-artifacts" ]]; then
+    node "$ROOT_DIR/tools/test-matrix/content-addressed-build-cache.mjs" wait-summary
+fi
+
 HasDomain() {
     local expected="$1"
     local domain

@@ -54,6 +54,16 @@ public static class ActiveReleaseFenceServiceCollectionExtensions
 {
     public static IServiceCollection AddActiveReleaseFencing(this IServiceCollection services)
     {
+        bool hasPerceptionCharacterV3ArtifactPool = false;
+        foreach (ServiceDescriptor descriptor in services)
+        {
+            if (descriptor.ServiceType == typeof(IPerceptionCharacterV3ArtifactPool))
+            {
+                hasPerceptionCharacterV3ArtifactPool = true;
+                break;
+            }
+        }
+
         services.TryAddSingleton<RedisActiveReleaseFenceStore>();
         services.TryAddSingleton<IActiveReleaseFenceReplicaStore>(static provider =>
             provider.GetRequiredService<RedisActiveReleaseFenceStore>());
@@ -65,13 +75,16 @@ public static class ActiveReleaseFenceServiceCollectionExtensions
         services.TryAddSingleton<IActiveReleaseTransactionalCommitGuard, ActiveReleaseTransactionalCommitGuard>();
         services.TryAddSingleton<ISecurityChallengeKindCutoverStore, RedisSecurityChallengeKindCutoverStore>();
         services.TryAddSingleton<SecurityChallengeKindCutover>();
-        services.TryAddSingleton<IPerceptionCharacterV3CutoverStore, RedisPerceptionCharacterV3CutoverStore>();
-        services.TryAddSingleton<SecurityChallengeProtocolActivationGuard>();
-        services.TryAddSingleton<ISecurityChallengeProtocolActivationGuard>(
-            static provider => provider.GetRequiredService<SecurityChallengeProtocolActivationGuard>());
-        services.TryAddSingleton<IPerceptionCharacterV3ActivationGate>(
-            static provider => provider.GetRequiredService<SecurityChallengeProtocolActivationGuard>());
-        services.TryAddSingleton<PerceptionCharacterV3ContractCutover>();
+        if (hasPerceptionCharacterV3ArtifactPool)
+        {
+            services.TryAddSingleton<IPerceptionCharacterV3CutoverStore, RedisPerceptionCharacterV3CutoverStore>();
+            services.TryAddSingleton<SecurityChallengeProtocolActivationGuard>();
+            services.TryAddSingleton<ISecurityChallengeProtocolActivationGuard>(
+                static provider => provider.GetRequiredService<SecurityChallengeProtocolActivationGuard>());
+            services.TryAddSingleton<IPerceptionCharacterV3ActivationGate>(
+                static provider => provider.GetRequiredService<SecurityChallengeProtocolActivationGuard>());
+            services.TryAddSingleton<PerceptionCharacterV3ContractCutover>();
+        }
         services.TryAddSingleton<ActiveReleaseFenceReadiness>();
         services.TryAddSingleton<NotificationStreamRestartCoordinator>();
         services.TryAddSingleton<ReleaseDrainParticipantRegistry>();
