@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { baseUrl, requestTimeoutMs } from '../../support/auth-helpers.mjs';
+import { isDirectExecution, reportDirectFailure } from '../../support/direct-execution.mjs';
 import { fetchWithTimeout } from '../../support/http.mjs';
 
 const frontendBaseUrl = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000';
@@ -64,7 +65,7 @@ function assertNonHtmlSecurityHeaders(response, label) {
   assertHeaderNotContains(response, 'content-security-policy', "'wasm-unsafe-eval'", label);
 }
 
-async function main() {
+export async function runSecurityHeadersCors() {
   const publicResponse = await fetchWithTimeout(`${baseUrl}/`, {
     headers: {
       'User-Agent': 'Mozilla/5.0 (FsusBlog Security Header Check)',
@@ -114,7 +115,6 @@ async function main() {
   console.log(`[check-security-headers-cors] ok | base=${baseUrl} allowedOrigin=${allowedOrigin}`);
 }
 
-main().catch((error) => {
-  console.error('[check-security-headers-cors] fatal:', error instanceof Error ? error.message : String(error));
-  process.exit(1);
-});
+if (isDirectExecution(import.meta.url)) {
+  runSecurityHeadersCors().catch((error) => reportDirectFailure('check-security-headers-cors', error));
+}

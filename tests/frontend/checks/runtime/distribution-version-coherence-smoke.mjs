@@ -13,6 +13,7 @@ import {
     loginWithFixtureSessionBypass,
     requestTimeoutMs
 } from '../../support/auth-helpers.mjs';
+import { isDirectExecution, reportDirectFailure } from '../../support/direct-execution.mjs';
 import { fetchWithTimeout } from '../../support/http.mjs';
 import { readPublicFixtureIds } from '../../support/public-fixtures.mjs';
 import { resolveRuntimeBrowserTimeoutPlan } from '../../support/runtime-browser-timeout.mjs';
@@ -582,7 +583,7 @@ async function mutateArticle(session, path, method, operation, marker)
     assert(response.ok, `article ${operation} failed: ${response.status}`);
 }
 
-async function main()
+export async function runDistributionVersionCoherence()
 {
     await resetAndWaitForMutationBudget('distribution coherence');
     const session = await loginWithFixtureSessionBypass(adminUsername, adminPassword, false, 'distribution-admin-login', timeoutMs);
@@ -738,8 +739,8 @@ async function main()
     }
 }
 
-main().catch((error) =>
+if (isDirectExecution(import.meta.url))
 {
-    console.error('[distribution-version-coherence] fatal:', error instanceof Error ? error.message : String(error));
-    process.exit(1);
-});
+    runDistributionVersionCoherence().catch((error) =>
+        reportDirectFailure('distribution-version-coherence', error));
+}

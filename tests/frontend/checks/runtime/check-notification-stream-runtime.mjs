@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 
 import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { join, relative, resolve } from 'node:path'
+import { dirname, join, relative, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { isDirectExecution, reportDirectFailure } from '../../support/direct-execution.mjs'
 
-const clientRoot = process.cwd()
-const repoRoot = resolve(clientRoot, '..', '..')
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..')
+const clientRoot = join(repoRoot, 'src', 'frontend')
 const clientSrcRoot = join(clientRoot, 'src')
 const serverRoot = join(repoRoot, 'src', 'backend')
 const notificationRuntimePath = join(clientSrcRoot, 'services', 'notificationStreamRuntime.ts')
@@ -37,6 +39,8 @@ function report(filePath, message) {
   violations.push(`${relative(repoRoot, filePath).replaceAll('\\', '/')}: ${message}`)
 }
 
+export function runNotificationStreamContract() {
+violations.length = 0
 for (const filePath of walkFiles(clientSrcRoot)) {
   if (!/\.(ts|tsx|vue|js|mjs)$/.test(filePath)) {
     continue
@@ -108,7 +112,15 @@ for (const line of violations) {
 }
 
 if (violations.length > 0) {
-  process.exit(1)
+  throw new Error(`notification stream runtime contract has ${violations.length} violation(s)`)
 }
 
 console.log('[notification-stream-runtime] ok')
+return { violationCount: 0 }
+}
+
+if (isDirectExecution(import.meta.url)) {
+  Promise.resolve()
+    .then(() => runNotificationStreamContract())
+    .catch((error) => reportDirectFailure('notification-stream-runtime', error))
+}

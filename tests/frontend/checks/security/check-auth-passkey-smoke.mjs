@@ -6,6 +6,7 @@ import {
   loginWithFixtureSessionBypass,
   requestTimeoutMs
 } from '../../support/auth-helpers.mjs';
+import { isDirectExecution, reportDirectFailure } from '../../support/direct-execution.mjs';
 
 const userName = process.env.FSUSBLOG_USER_USERNAME || 'binaryuser';
 const userPassword = process.env.FSUSBLOG_USER_PASSWORD ?? '';
@@ -53,7 +54,7 @@ async function cleanupExistingPasskeys(session) {
   }
 }
 
-async function main() {
+export async function runAuthPasskeySmoke() {
   // ── 1. Unauthenticated enforcement: auth-required endpoints must return 401 ──
 
   const unauthCases = [
@@ -237,7 +238,6 @@ async function main() {
   console.log(`[check-auth-passkey-smoke] ok | base=${baseUrl}`);
 }
 
-main().catch((error) => {
-  console.error('[check-auth-passkey-smoke] fatal:', error instanceof Error ? error.message : String(error));
-  process.exit(1);
-});
+if (isDirectExecution(import.meta.url)) {
+  runAuthPasskeySmoke().catch((error) => reportDirectFailure('check-auth-passkey-smoke', error));
+}

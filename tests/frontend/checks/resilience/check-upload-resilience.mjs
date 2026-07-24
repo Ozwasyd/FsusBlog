@@ -7,6 +7,7 @@ import {
   loginWithFixtureSessionBypass,
   requestTimeoutMs
 } from '../../support/auth-helpers.mjs';
+import { isDirectExecution, reportDirectFailure } from '../../support/direct-execution.mjs';
 
 const adminName = process.env.FSUSBLOG_ADMIN_USERNAME || 'binaryadmin';
 const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD ?? '';
@@ -56,7 +57,7 @@ async function uploadPart(uploadId, uploadToken, session, partNumber, offset, pa
   return response;
 }
 
-async function main() {
+export async function runUploadResilience() {
   const session = await loginWithFixtureSessionBypass(adminName, adminPassword, false, deviceFingerprint, requestTimeoutMs);
   const invalidMime = await authBinary('/api/File/upload/init', {
     method: 'POST',
@@ -191,7 +192,6 @@ async function main() {
   console.log(`[check-upload-resilience] ok | base=${baseUrl}`);
 }
 
-main().catch((error) => {
-  console.error('[check-upload-resilience] fatal:', error instanceof Error ? error.message : String(error));
-  process.exit(1);
-});
+if (isDirectExecution(import.meta.url)) {
+  runUploadResilience().catch((error) => reportDirectFailure('check-upload-resilience', error));
+}

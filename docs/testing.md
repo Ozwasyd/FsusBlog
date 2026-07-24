@@ -8,6 +8,12 @@ structure producer-receipt join 见
 pure/file 检查共享 host，lifecycle 与 destructive rehearsal 保持独立进程；
 最终性能结论仍必须来自同 source 的三轮 Production fresh，不得由局部验收替代。
 
+Browserless integration/security/resilience runtime probe 的 source/run-bound
+scenario catalog、常驻 Node host、identity/reset barrier、独立 result、取消
+partial evidence、同机三轮 before/after 指标与即时 per-CLI 回退见
+[`testing/runtime-scenario-host.md`](testing/runtime-scenario-host.md)。wall time、
+CPU、Node process 与 connection setup 只用于性能观察，绝不参与 correctness。
+
 ## 可执行数据测试治理
 
 可执行数据约束必须由真实 owner test 和中央事实源共同表达，不使用 issue 文档充当测试清单：

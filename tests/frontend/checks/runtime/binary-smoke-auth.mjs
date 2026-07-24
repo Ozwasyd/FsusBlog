@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { loginWithFixtureSessionBypass } from '../../support/auth-helpers.mjs';
+import { isDirectExecution, reportDirectFailure } from '../../support/direct-execution.mjs';
 import { fetchWithTimeout, probeReachable, parseTimeoutMs } from '../../support/http.mjs';
 
 const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:7568';
@@ -43,18 +44,17 @@ async function runAdminChecks() {
   return true;
 }
 
-async function main() {
+export async function runBinaryAuthSmoke() {
   await probeReachable(`${baseUrl}/api/binary/auth/pow-challenge`, '[binary-smoke-auth backend]', requestTimeoutMs);
 
   const userOk = await runUserChecks();
   const adminOk = await runAdminChecks();
   if (!userOk || !adminOk) {
-    process.exit(1);
+    throw new Error('authenticated binary checks failed');
   }
   console.log('[binary-smoke-auth] completed');
 }
 
-main().catch((error) => {
-  console.error('[binary-smoke-auth] fatal:', error instanceof Error ? error.message : String(error));
-  process.exit(1);
-});
+if (isDirectExecution(import.meta.url)) {
+  runBinaryAuthSmoke().catch((error) => reportDirectFailure('binary-smoke-auth', error));
+}

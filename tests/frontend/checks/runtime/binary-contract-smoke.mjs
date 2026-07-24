@@ -5,6 +5,7 @@ import { promisify } from 'node:util';
 
 import { decodeApiErrorFrame, decodeAedsFrame } from '../../support/aeds-envelope.mjs';
 import { buildPowHeaders, fetchChallenge } from '../../support/auth-helpers.mjs';
+import { isDirectExecution, reportDirectFailure } from '../../support/direct-execution.mjs';
 import { fetchWithTimeout, probeReachable, parseTimeoutMs } from '../../support/http.mjs';
 
 const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:7568';
@@ -141,7 +142,7 @@ async function checkDenial([name, path, expectedStatus])
     console.log(`[binary-contract-smoke] ok: ${name}`);
 }
 
-async function main()
+export async function runBinaryContractSmoke()
 {
     await probeReachable(`${baseUrl}/api/binary/article/list/home/1/1.aeds`, '[binary-contract-smoke backend]', requestTimeoutMs);
     await resetAndWaitForPublicReadBudget();
@@ -159,8 +160,7 @@ async function main()
     console.log('[binary-contract-smoke] all checks passed');
 }
 
-main().catch((error) =>
+if (isDirectExecution(import.meta.url))
 {
-    console.error('[binary-contract-smoke] fatal:', error instanceof Error ? error.message : String(error));
-    process.exit(1);
-});
+    runBinaryContractSmoke().catch((error) => reportDirectFailure('binary-contract-smoke', error));
+}

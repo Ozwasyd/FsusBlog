@@ -1,0 +1,6 @@
+{
+  "schema": "fsusblog.runtime-scenario-host-pollution-fixture.v1",
+  "activeIdentity": "deliberate-leaked-identity",
+  "expected": "reset-barrier-failure",
+  "mustNeverProduceSuccess": true
+}

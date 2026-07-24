@@ -4,6 +4,7 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { decodeAedsFrame, readAedsResponse } from '../../support/aeds-envelope.mjs'
 import { baseUrl, buildPowHeaders, fetchChallenge, requestTimeoutMs } from '../../support/auth-helpers.mjs'
+import { isDirectExecution, reportDirectFailure } from '../../support/direct-execution.mjs'
 import { fetchWithTimeout, probeReachable } from '../../support/http.mjs'
 
 const streamPath = '/api/notifications/stream'
@@ -146,7 +147,7 @@ async function expectLiveWebSocket(name, extraParams = {}) {
   })
 }
 
-async function main() {
+export async function runNotificationStreamLiveSmoke() {
   await probeReachable(`${baseUrl}/api/binary/article/list/home/1/1.aeds`, '[notification-stream-live-smoke backend]', requestTimeoutMs)
 
   await expectHttpHandshakeFailure('http-upgrade-required', 426, 'websocket_required')
@@ -155,10 +156,8 @@ async function main() {
   await expectLiveWebSocket('anonymous-reconnect', { cursor: '0' })
 
   console.log('[notification-stream-live-smoke] all checks passed')
-  process.exit(0)
 }
 
-main().catch((error) => {
-  console.error('[notification-stream-live-smoke] fatal:', error instanceof Error ? error.message : String(error))
-  process.exit(1)
-})
+if (isDirectExecution(import.meta.url)) {
+  runNotificationStreamLiveSmoke().catch((error) => reportDirectFailure('notification-stream-live-smoke', error))
+}

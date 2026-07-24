@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { authBinary, loginWithFixtureSessionBypass } from '../../support/auth-helpers.mjs';
+import { isDirectExecution, reportDirectFailure } from '../../support/direct-execution.mjs';
 import { fetchWithTimeout, probeReachable, parseTimeoutMs } from '../../support/http.mjs';
 
 const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:7568';
@@ -38,7 +39,7 @@ async function callBinary(path, cookieHeader, deviceFingerprint, init = {})
     });
 }
 
-async function main()
+export async function runAuthSessionSmoke()
 {
     await probeReachable(`${baseUrl}/api/binary/auth/pow-challenge`, '[auth-session-smoke backend]', requestTimeoutMs);
 
@@ -112,8 +113,7 @@ async function main()
     console.log('[auth-session-smoke] ok: logout endpoint completes for authenticated session');
 }
 
-main().catch((error) =>
+if (isDirectExecution(import.meta.url))
 {
-    console.error('[auth-session-smoke] fatal:', error instanceof Error ? error.message : String(error));
-    process.exit(1);
-});
+    runAuthSessionSmoke().catch((error) => reportDirectFailure('auth-session-smoke', error));
+}

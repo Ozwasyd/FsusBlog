@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { fetchWithTimeout, probeReachable, parseTimeoutMs } from '../../support/http.mjs';
 import { decodeApiErrorFrame } from '../../support/aeds-envelope.mjs';
+import { isDirectExecution, reportDirectFailure } from '../../support/direct-execution.mjs';
 
 const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:7568';
 const userToken = process.env.FSUSBLOG_USER_TOKEN || '';
@@ -101,7 +102,7 @@ async function ensureServerReachable() {
   }
 }
 
-async function main() {
+export async function runBinarySmoke() {
   await probeReachable(`${baseUrl}${reachabilityProbe}`, '[binary-smoke backend]', requestTimeoutMs);
   await ensureServerReachable();
 
@@ -119,13 +120,12 @@ async function main() {
     for (const line of failures) {
       console.error(line);
     }
-    process.exit(1);
+    throw new Error(failures.join(' | '));
   }
 
   console.log('[binary-smoke] all checks passed');
 }
 
-main().catch((error) => {
-  console.error('[binary-smoke] fatal:', error);
-  process.exit(1);
-});
+if (isDirectExecution(import.meta.url)) {
+  runBinarySmoke().catch((error) => reportDirectFailure('binary-smoke', error));
+}

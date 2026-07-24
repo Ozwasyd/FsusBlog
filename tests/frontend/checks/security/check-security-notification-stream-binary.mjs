@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { baseUrl, requestTimeoutMs } from '../../support/auth-helpers.mjs';
+import { isDirectExecution, reportDirectFailure } from '../../support/direct-execution.mjs';
 import {
   decodeAedsFrame,
   encodeAedsFrame,
@@ -45,7 +46,7 @@ function makeWrongVersionFrame() {
   return bytes;
 }
 
-async function main() {
+export async function runSecurityNotificationBinary() {
   const noUpgrade = await fetchWithTimeout(`${baseUrl}/api/notifications/stream`, {
     headers: {
       Accept: 'application/octet-stream',
@@ -118,7 +119,7 @@ async function main() {
   console.log(`[check-security-notification-stream-binary] ok | base=${baseUrl}`);
 }
 
-main().catch((error) => {
-  console.error('[check-security-notification-stream-binary] fatal:', error instanceof Error ? error.message : String(error));
-  process.exit(1);
-});
+if (isDirectExecution(import.meta.url)) {
+  runSecurityNotificationBinary().catch((error) =>
+    reportDirectFailure('check-security-notification-stream-binary', error));
+}

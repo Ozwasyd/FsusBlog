@@ -1609,6 +1609,46 @@ RunFastOnly() {
 }
 
 
+BeginLegacyRuntimeScenarioObservation() {
+    local phase="$1"
+    if [[ "${FSUSBLOG_RUNTIME_SCENARIO_COMPARE_VARIANT:-}" != "before" ]]; then
+        return
+    fi
+    if [[ -z "${FSUSBLOG_TEST_RUN_ID:-}" || -z "${FSUSBLOG_TEST_SOURCE_COMMIT:-}" ||
+        -z "${FSUSBLOG_TEST_SOURCE_FINGERPRINT:-}" ]]; then
+        Fail "runtime scenario before observation requires source and run identity"
+    fi
+    FSUSBLOG_RUNTIME_SCENARIO_OBSERVATION_ACTIVE=1
+    FSUSBLOG_RUNTIME_SCENARIO_OBSERVATION_PHASE="$phase"
+    FSUSBLOG_RUNTIME_SCENARIO_OBSERVATION_STARTED_MS="$(date +%s%3N)"
+    FSUSBLOG_RUNTIME_SCENARIO_OBSERVATION_DIR="$ROOT_DIR/.tmp/runtime-scenario-host/$FSUSBLOG_TEST_RUN_ID/$phase/before-processes"
+    FSUSBLOG_RUNTIME_SCENARIO_ORIGINAL_NODE_OPTIONS="${NODE_OPTIONS:-}"
+    rm -rf "$FSUSBLOG_RUNTIME_SCENARIO_OBSERVATION_DIR"
+    mkdir -p "$FSUSBLOG_RUNTIME_SCENARIO_OBSERVATION_DIR"
+    export FSUSBLOG_RUNTIME_SCENARIO_PROCESS_EVIDENCE_DIR="$FSUSBLOG_RUNTIME_SCENARIO_OBSERVATION_DIR"
+    export NODE_OPTIONS="${NODE_OPTIONS:-} --import=$ROOT_DIR/tools/test/runtime-scenario-process-observer.mjs"
+}
+
+EndLegacyRuntimeScenarioObservation() {
+    local status="$1"
+    if [[ "${FSUSBLOG_RUNTIME_SCENARIO_OBSERVATION_ACTIVE:-0}" != "1" ]]; then
+        return
+    fi
+    if [[ -n "$FSUSBLOG_RUNTIME_SCENARIO_ORIGINAL_NODE_OPTIONS" ]]; then
+        export NODE_OPTIONS="$FSUSBLOG_RUNTIME_SCENARIO_ORIGINAL_NODE_OPTIONS"
+    else
+        unset NODE_OPTIONS
+    fi
+    unset FSUSBLOG_RUNTIME_SCENARIO_PROCESS_EVIDENCE_DIR
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/aggregate-runtime-scenario-processes.mjs" \
+        --phase "$FSUSBLOG_RUNTIME_SCENARIO_OBSERVATION_PHASE" \
+        --input "$FSUSBLOG_RUNTIME_SCENARIO_OBSERVATION_DIR" \
+        --output "$ROOT_DIR/.tmp/runtime-scenario-host/$FSUSBLOG_TEST_RUN_ID/$FSUSBLOG_RUNTIME_SCENARIO_OBSERVATION_PHASE/before-summary.json" \
+        --status "$status" \
+        --started-at-ms "$FSUSBLOG_RUNTIME_SCENARIO_OBSERVATION_STARTED_MS"
+    unset FSUSBLOG_RUNTIME_SCENARIO_OBSERVATION_ACTIVE
+}
+
 RunIntegrationOnly() {
     Log "tier=integration | debug runtime validation, requires frontend=3000 backend=5000"
     if [[ "${FSUSBLOG_SKIP_BACKEND_INTEGRATION_TESTS:-0}" != "1" ]]; then
@@ -1637,39 +1677,47 @@ RunIntegrationOnly() {
         fi
     }
 
-    # Dispatched indirectly by the RunParallel command specifications below.
-    # shellcheck disable=SC2317
-    RunIntegrationClientCheck() {
-        RunInClient npm run "$1"
-    }
-
-    # These checks only read the already-prepared runtime fixtures (the session
-    # smoke mutates only its own user sessions). They are subprocess/HTTP wait
-    # heavy, so two children can share one admitted CPU while the live scheduler
-    # grant remains the authoritative memory and CPU envelope.
-    # Dispatched indirectly through RunIntegrationStage.
-    # shellcheck disable=SC2317
-    RunIntegrationParallelChecks() {
-        local -x FSUSBLOG_ADAPTIVE_PARALLEL=1
-        local -x FSUSBLOG_PARALLEL_WORKLOAD=orchestration
-        RunParallel "integration-runtime-checks" \
-            "auth-session::RunIntegrationClientCheck check:auth-session-smoke" \
-            "api-contracts::RunIntegrationClientCheck check:api-contracts" \
-            "binary-contract-smoke::RunIntegrationClientCheck check:binary-contract-smoke" \
-            "binary-smoke::RunIntegrationClientCheck check:binary-smoke" \
-            "notification-stream-runtime::RunIntegrationClientCheck check:notification-stream-runtime" \
-            "notification-stream-live::RunIntegrationClientCheck check:notification-stream-live" \
-            "sw-search-runtime::RunIntegrationClientCheck check:sw-search-runtime"
-    }
-
-    RunIntegrationStage "runtime-parallel" RunIntegrationParallelChecks
+    if [[ "${FSUSBLOG_RUNTIME_SCENARIO_HOST:-1}" == "0" ]]; then
+        Log "runtime scenario host disabled; using retained per-CLI integration fallback"
+        if [[ "${FSUSBLOG_RUNTIME_SCENARIO_COMPARE_VARIANT:-}" == "before" ]]; then
+            RunIntegrationStage "auth-broadcast-boundaries" RunInClient npm run check:auth-broadcast-boundaries
+        fi
+        BeginLegacyRuntimeScenarioObservation integration
+        if [[ "${FSUSBLOG_RUNTIME_SCENARIO_COMPARE_VARIANT:-}" == "before" ]]; then
+            RunIntegrationStage "auth-session" RunInClient \
+                "${FSUSBLOG_NODE:-node}" ../../tests/frontend/checks/runtime/auth-session-smoke.mjs
+        else
+            RunIntegrationStage "auth-session" RunInClient npm run check:auth-session-smoke
+        fi
+        RunIntegrationStage "api-contracts" RunInClient npm run check:api-contracts
+        RunIntegrationStage "binary-contract-smoke" RunInClient npm run check:binary-contract-smoke
+        RunIntegrationStage "binary-smoke" RunInClient npm run check:binary-smoke
+        RunIntegrationStage "notification-stream-runtime" RunInClient npm run check:notification-stream-runtime
+        RunIntegrationStage "notification-stream-live" RunInClient npm run check:notification-stream-live
+        RunIntegrationStage "binary-smoke-auth" RunInClient npm run check:binary-smoke:auth
+        RunIntegrationStage "distribution-version-coherence" RunInClient npm run check:distribution-version-coherence
+        if ((${#integrationFailures[@]} > 0)); then
+            EndLegacyRuntimeScenarioObservation failure
+        else
+            EndLegacyRuntimeScenarioObservation success
+        fi
+        RunIntegrationStage "sw-search-runtime" RunInClient npm run check:sw-search-runtime
+    else
+        # Keep the source-only auth broadcast assertion. Runtime probes themselves
+        # share one source/run-bound Node host and its keep-alive/AEDS/helper cache.
+        RunIntegrationStage "auth-broadcast-boundaries" RunInClient npm run check:auth-broadcast-boundaries
+        RunIntegrationStage "runtime-resident-host" Run \
+            "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-runtime-scenario-host.mjs" \
+            --phase integration
+        # Search shard validation is a single-shot filesystem/HTTP scenario and
+        # remains outside the resident host; it is still declared in the catalog.
+        RunIntegrationStage "sw-search-runtime" Run \
+            "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-retained-runtime-scenario.mjs" \
+            --scenario integration.sw-search --cwd src/frontend -- npm run check:sw-search-runtime
+    fi
     Log "real-browser PoW and search probes are delegated to browser-runtime-risk-diagnostics"
-    # Keep authenticated admin/session work and distribution mutation out of the
-    # shared read pool so parallel execution cannot change their observable state.
-    RunIntegrationStage "binary-smoke-auth" RunInClient npm run check:binary-smoke:auth
-    RunIntegrationStage "distribution-version-coherence" RunInClient npm run check:distribution-version-coherence
 
-    unset -f RunIntegrationStage RunIntegrationClientCheck RunIntegrationParallelChecks
+    unset -f RunIntegrationStage
     if ((${#integrationFailures[@]} > 0)); then
         Fail "integration runtime failures (${integrationFailures[*]})"
     fi
@@ -1886,9 +1934,9 @@ RunSecurityRuntimeCoreOnly() {
         fi
     }
 
-    # Dispatched indirectly by the securityRuntimeJobs command specifications.
-    # shellcheck disable=SC2317
-    RunSecurityIsolatedClientCheck() {
+    # Used only by the immediate no-restart fallback. The resident host derives
+    # the same identity suffixes from catalog scenario IDs.
+    RunSecurityLegacyIsolatedClientCheck() {
         local suffix
         suffix="security-$(NamespaceSlug "$1")"
         shift
@@ -1929,45 +1977,57 @@ RunSecurityRuntimeCoreOnly() {
     export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
     export FSUSBLOG_HTTP_TIMEOUT_MS="$SECURITY_HTTP_TIMEOUT_MS"
     RunSecurityStage "prepare-runtime-fixtures" PrepareRuntimeFixturesOnce
-    RunSecurityStage "reset-pre-parallel" ResetSecurityRuntimeState "pre security parallel checks"
-
-    local -a securityRuntimeJobs=(
-        "api-contracts::RunInClient npm run check:api-contracts"
-        "auth-session::RunSecurityIsolatedClientCheck auth-session npm run check:auth-session-smoke"
-        "auth-mfa::RunSecurityIsolatedClientCheck auth-mfa npm run check:security:auth-mfa"
-        "auth-passkey::RunSecurityIsolatedClientCheck auth-passkey npm run check:security:auth-passkey"
-        "headers-cors::RunInClient npm run check:security:headers-cors"
-        "notification-stream-binary::RunInClient npm run check:security:notification-stream-binary"
-    )
+    RunSecurityStage "auth-broadcast-boundaries" RunInClient npm run check:auth-broadcast-boundaries
+    if [[ "${FSUSBLOG_RUNTIME_SCENARIO_HOST:-1}" == "0" ]]; then
+        Log "runtime scenario host disabled; using retained per-CLI security fallback"
+        BeginLegacyRuntimeScenarioObservation security
+        RunSecurityStage "reset-pre-legacy" ResetSecurityRuntimeState "pre security legacy checks"
+        RunSecurityStage "api-contracts" RunInClient npm run check:api-contracts
+        RunSecurityStage "auth-session" RunSecurityLegacyIsolatedClientCheck \
+            auth-session "${FSUSBLOG_NODE:-node}" \
+            ../../tests/frontend/checks/runtime/auth-session-smoke.mjs
+        RunSecurityStage "auth-mfa" RunSecurityLegacyIsolatedClientCheck \
+            auth-mfa npm run check:security:auth-mfa
+        RunSecurityStage "auth-passkey" RunSecurityLegacyIsolatedClientCheck \
+            auth-passkey npm run check:security:auth-passkey
+        RunSecurityStage "headers-cors" RunInClient npm run check:security:headers-cors
+        RunSecurityStage "notification-stream-binary" RunInClient \
+            npm run check:security:notification-stream-binary
+        RunSecurityStage "reset-pre-attack" ResetSecurityRuntimeState "pre attack matrix"
+        RunSecurityStage "attack-matrix" RunInClient npm run check:security:attack-matrix
+        if ((${#securityFailures[@]} > 0)); then
+            EndLegacyRuntimeScenarioObservation failure
+        else
+            EndLegacyRuntimeScenarioObservation success
+        fi
+    else
+        RunSecurityStage "runtime-resident-host" Run \
+            "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-runtime-scenario-host.mjs" \
+            --phase security
+    fi
     if [[ "${FSUSBLOG_LOCAL_RUNTIME_EXPOSURE_IN_DAG:-0}" != "1" ]]; then
-        securityRuntimeJobs+=("local-runtime-exposure::Run \"$ROOT_DIR/tools/security/check-local-runtime-exposure.mjs\"")
+        RunSecurityStage "local-runtime-exposure" Run \
+            "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-retained-runtime-scenario.mjs" \
+            --scenario security.local-runtime-exposure -- \
+            "$ROOT_DIR/tools/security/check-local-runtime-exposure.mjs"
     fi
     if [[ -n "${FSUSBLOG_FIREWALL_POLICY_EVIDENCE:-}" ]]; then
-        securityRuntimeJobs+=("firewall-evidence::CheckSecurityFirewallEvidence")
+        RunSecurityStage "firewall-evidence" CheckSecurityFirewallEvidence
     fi
     if [[ "${FSUSBLOG_RUN_PRODUCTION_EXPOSURE_LIVE:-0}" == "1" ]]; then
-        securityRuntimeJobs+=("external-production-exposure::CheckExternalProductionExposure")
+        RunSecurityStage "external-production-exposure" CheckExternalProductionExposure
     fi
-    # Dispatched indirectly through RunSecurityStage.
-    # shellcheck disable=SC2317
-    RunSecurityRuntimePool() {
-        local -x FSUSBLOG_ADAPTIVE_PARALLEL=1
-        local -x FSUSBLOG_PARALLEL_WORKLOAD=cpu
-        RunParallel "security-runtime-core" "${securityRuntimeJobs[@]}"
-    }
-    RunSecurityStage "security-runtime-parallel" RunSecurityRuntimePool
     # Rendered permission and a11y behavior are browser diagnostics. Correctness
     # retains the backend/API authorization matrices and Browser Contract role flows.
     Log "real-browser permission routing is delegated to browser-runtime-risk-diagnostics"
 
-    RunSecurityStage "reset-pre-attack" ResetSecurityRuntimeState "pre attack matrix"
-    RunSecurityStage "attack-matrix" RunInClient npm run check:security:attack-matrix
-    RunSecurityStage "reset-post-attack" ResetSecurityRuntimeState "post attack matrix"
     if [[ "${FSUSBLOG_SKIP_ZAP:-0}" != "1" ]]; then
-        RunSecurityStage "dast" RunInClient npm run check:security:dast
+        RunSecurityStage "dast" Run \
+            "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-retained-runtime-scenario.mjs" \
+            --scenario security.dast --cwd src/frontend -- npm run check:security:dast
     fi
     RunSecurityStage "reset-post-gate" ResetSecurityRuntimeState "post security gate"
-    unset -f RunSecurityStage RunSecurityIsolatedClientCheck RunSecurityRuntimePool \
+    unset -f RunSecurityStage RunSecurityLegacyIsolatedClientCheck \
         CheckSecurityFirewallEvidence CheckExternalProductionExposure
     if ((${#securityFailures[@]} > 0)); then
         Fail "security runtime failures (${securityFailures[*]})"
@@ -1993,12 +2053,23 @@ RunResilienceOnly() {
     export FSUSBLOG_HTTP_TIMEOUT_MS="$RESILIENCE_HTTP_TIMEOUT_MS"
 
     PrepareRuntimeFixturesOnce
-    RunInClient npm run check:aot-cache-resilience
-    RunInClient npm run check:resilience:upload
-    RunInClient npm run check:notification-stream-runtime
     Log "real-browser search recovery is delegated to browser-runtime-risk-diagnostics"
-    RunInClient npm run check:binary-smoke
-    RunInClient npm run check:binary-contract-smoke
+    if [[ "${FSUSBLOG_RUNTIME_SCENARIO_HOST:-1}" == "0" ]]; then
+        Log "runtime scenario host disabled; using retained per-CLI resilience fallback"
+        RunInClient npm run check:aot-cache-resilience
+        BeginLegacyRuntimeScenarioObservation resilience
+        RunInClient npm run check:resilience:upload
+        RunInClient npm run check:notification-stream-runtime
+        RunInClient npm run check:binary-smoke
+        RunInClient npm run check:binary-contract-smoke
+        EndLegacyRuntimeScenarioObservation success
+    else
+        Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-retained-runtime-scenario.mjs" \
+            --scenario resilience.aot-cache-mutation --cwd src/frontend -- \
+            npm run check:aot-cache-resilience
+        Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-runtime-scenario-host.mjs" \
+            --phase resilience
+    fi
     WriteRuntimeLaneSummary resilience
 }
 

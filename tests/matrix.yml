@@ -2434,10 +2434,18 @@ tiers:
           - backend-anonymous-identity-behavior
           - backend-projection-serialization-behavior
           - frontend-admin-console-behavior
-      artifacts: [.tmp/acceptance/*.log, .tmp/runtime/integration.json]
+      artifacts:
+          [
+              .tmp/acceptance/*.log,
+              .tmp/runtime/integration.json,
+              .tmp/runtime-scenario-host/**,
+          ]
       evidence:
           - .tmp/acceptance/*.log
           - .tmp/runtime/integration.json
+          - .tmp/runtime-scenario-host/**
+          - config/testing/runtime-scenario-catalog.json
+          - docs/testing/runtime-scenario-host.md
           - tests/backend/runtime-fallback-evidence.json
           - tests/backend/legacy-identity-retirement-evidence.json
           - docs/security.md
@@ -2474,9 +2482,18 @@ tiers:
               tests/backend/Integration,
               tests/frontend/checks/runtime,
               tests/frontend/checks/resilience,
+              tools/test/runtime-scenario-host.mjs,
+              tools/test/runtime-scenario-benchmark.mjs,
+              tools/test/run-runtime-scenario-host.mjs,
               tools/bootstrap-acceptance-env.sh,
           ]
-      triggerFiles: [tests/matrix.yml, tests/contracts/openapi-policy.yml]
+      triggerFiles:
+          [
+              tests/matrix.yml,
+              tests/contracts/openapi-policy.yml,
+              config/testing/runtime-scenario-catalog.json,
+              docs/testing/runtime-scenario-host.md,
+          ]
       triggerCoverage: [runtime-contract-smoke]
       triggerReason: backend runtime, API contract, auth, cache, DB, or runtime smoke inputs changed
 
@@ -2672,9 +2689,12 @@ tiers:
           - backend-admin-console-persistence-behavior
           - frontend-admin-console-behavior
           - security-domain-structure-governance
-      artifacts: [.tmp/security]
+      artifacts: [.tmp/security, .tmp/runtime-scenario-host/**]
       evidence:
           - .tmp/security
+          - .tmp/runtime-scenario-host/**
+          - config/testing/runtime-scenario-catalog.json
+          - docs/testing/runtime-scenario-host.md
           - tests/backend/endpoint-security-evidence.json
           - tests/backend/Unit/AdminConsistencyContractTests.cs
           - tests/frontend/unit/api/integrityConsole.test.ts
@@ -2699,8 +2719,17 @@ tiers:
               tests/frontend/checks/security,
               tests/security,
               security,
+              tools/test/runtime-scenario-host.mjs,
+              tools/test/runtime-scenario-benchmark.mjs,
+              tools/test/run-runtime-scenario-host.mjs,
           ]
-      triggerFiles: [docs/security.md, tests/matrix.yml]
+      triggerFiles:
+          [
+              docs/security.md,
+              tests/matrix.yml,
+              config/testing/runtime-scenario-catalog.json,
+              docs/testing/runtime-scenario-host.md,
+          ]
       triggerCoverage:
           [
               auth-mfa-passkey-pow-permission-dast,
@@ -3673,10 +3702,14 @@ tiers:
           [
               .tmp/runtime/resilience.json,
               .tmp/release-evidence/aot-cache-resilience-summary.json,
+              .tmp/runtime-scenario-host/**,
           ]
       evidence:
           - .tmp/runtime/resilience.json
           - .tmp/release-evidence/aot-cache-resilience-summary.json
+          - .tmp/runtime-scenario-host/**
+          - config/testing/runtime-scenario-catalog.json
+          - docs/testing/runtime-scenario-host.md
           - tests/tools/gateway-switch.test.mjs
           - security/evidence-contracts/active-release-fencing-implementation.json
           - tests/tools/release-rollout-probes.test.mjs
@@ -3694,8 +3727,16 @@ tiers:
               src/frontend/src/composables,
               tests/frontend/checks/resilience,
               tests/frontend/checks/runtime,
+              tools/test/runtime-scenario-host.mjs,
+              tools/test/runtime-scenario-benchmark.mjs,
+              tools/test/run-runtime-scenario-host.mjs,
           ]
-      triggerFiles: [tests/matrix.yml]
+      triggerFiles:
+          [
+              tests/matrix.yml,
+              config/testing/runtime-scenario-catalog.json,
+              docs/testing/runtime-scenario-host.md,
+          ]
       triggerCoverage:
           [
               upload-search-notification-binary-resilience,

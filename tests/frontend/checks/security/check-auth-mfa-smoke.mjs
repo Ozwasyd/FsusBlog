@@ -8,6 +8,7 @@ import {
   requestTimeoutMs
 } from '../../support/auth-helpers.mjs';
 import { encodeAedsFrame, encodeMfaPasswordProofRequest } from '../../support/aeds-envelope.mjs';
+import { isDirectExecution, reportDirectFailure } from '../../support/direct-execution.mjs';
 
 const userName = process.env.FSUSBLOG_USER_USERNAME || 'binaryuser';
 const userPassword = process.env.FSUSBLOG_USER_PASSWORD ?? '';
@@ -73,7 +74,7 @@ async function mintMfaProof({ action, cookieHeader, code, recoveryCode }) {
   return result.proofToken;
 }
 
-async function main() {
+export async function runAuthMfaSmoke() {
   const session = await loginWithFixtureSessionBypass(userName, userPassword, false, deviceFingerprint, requestTimeoutMs);
 
   const setupProofToken = await mintMfaProof({
@@ -203,7 +204,6 @@ async function main() {
   console.log(`[check-auth-mfa-smoke] ok | base=${baseUrl}`);
 }
 
-main().catch((error) => {
-  console.error('[check-auth-mfa-smoke] fatal:', error instanceof Error ? error.message : String(error));
-  process.exit(1);
-});
+if (isDirectExecution(import.meta.url)) {
+  runAuthMfaSmoke().catch((error) => reportDirectFailure('check-auth-mfa-smoke', error));
+}

@@ -4,6 +4,7 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { decodeApiErrorFrame, decodeAedsFrame, decodeKnownFrame } from '../../support/aeds-envelope.mjs'
 import { buildPowHeaders, fetchChallenge } from '../../support/auth-helpers.mjs'
+import { isDirectExecution, reportDirectFailure } from '../../support/direct-execution.mjs'
 import { fetchWithTimeout, probeReachable, parseTimeoutMs } from '../../support/http.mjs'
 import { readPublicFixtureIds } from '../../support/public-fixtures.mjs'
 import { extractBackendBinaryRoutes, loadProtocol } from '../support/crossStackMatrix.mjs'
@@ -269,7 +270,7 @@ async function checkLegacyPublicQueryRoute() {
   console.log('[api-contract-matrix] ok: legacy public query route')
 }
 
-async function main() {
+export async function runApiContractMatrix() {
   await probeReachable(`${baseUrl}/api/binary/article/list/home/1/1.aeds`, '[api-contract-matrix backend]', requestTimeoutMs)
   await resetAndWaitForPublicReadBudget()
 
@@ -286,7 +287,6 @@ async function main() {
   console.log('[api-contract-matrix] all checks passed')
 }
 
-main().catch((error) => {
-  console.error('[api-contract-matrix] fatal:', error instanceof Error ? error.message : String(error))
-  process.exit(1)
-})
+if (isDirectExecution(import.meta.url)) {
+  runApiContractMatrix().catch((error) => reportDirectFailure('api-contract-matrix', error))
+}

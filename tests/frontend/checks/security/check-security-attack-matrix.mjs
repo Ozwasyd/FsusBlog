@@ -2,8 +2,9 @@
 
 import { execFile } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
 import {
   authBinary,
   baseUrl,
@@ -16,6 +17,7 @@ import {
   encodeAedsFrame,
   encodeAuthAnonymousBootstrapRequest
 } from '../../support/aeds-envelope.mjs';
+import { isDirectExecution } from '../../support/direct-execution.mjs';
 import { fetchWithTimeout } from '../../support/http.mjs';
 
 const userName = process.env.FSUSBLOG_USER_USERNAME || 'binaryuser';
@@ -26,7 +28,7 @@ const deniedStatuses = new Set([400, 401, 403, 404, 405, 406, 409, 413, 415, 422
 const FRAME_AUTH_ANONYMOUS_BOOTSTRAP_REQUEST = 189;
 const AUTH_BOOTSTRAP_PATH = '/api/binary/auth/anonymous/bootstrap';
 const FRAME_CATEGORY_WRITE_REQUEST = 33;
-const repoRoot = resolve(process.cwd(), '..', '..');
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
 const evidenceDir = process.env.FSUSBLOG_SECURITY_EVIDENCE_DIR || resolve(repoRoot, '.tmp/security');
 const execFileAsync = promisify(execFile);
 const redisContainer = process.env.FSUSBLOG_REDIS_CONTAINER || process.env.FSUSBLOG_REDIS_CONTAINER_NAME || 'fsusblog-redis';
@@ -254,7 +256,7 @@ async function assertMarkerAbsent(adminSession, marker) {
   assert(!payloadContains(tags.payload, marker), `tag marker persisted after denied attack: ${marker}`);
 }
 
-async function main() {
+export async function runSecurityAttackMatrix() {
   const marker = `sec-attack-${Date.now()}`;
 
   await resetAndWaitForPow('attack matrix start');
@@ -368,11 +370,13 @@ async function main() {
   console.log(`[check-security-attack-matrix] ok | base=${baseUrl}`);
 }
 
-main().catch((error) => {
-  writeEvidence('failed', error).catch((writeError) => {
-    console.error('[check-security-attack-matrix] evidence write failed:', writeError instanceof Error ? writeError.message : String(writeError));
-  }).finally(() => {
-    console.error('[check-security-attack-matrix] fatal:', error instanceof Error ? error.message : String(error));
-    process.exit(1);
+if (isDirectExecution(import.meta.url)) {
+  runSecurityAttackMatrix().catch((error) => {
+    writeEvidence('failed', error).catch((writeError) => {
+      console.error('[check-security-attack-matrix] evidence write failed:', writeError instanceof Error ? writeError.message : String(writeError));
+    }).finally(() => {
+      console.error('[check-security-attack-matrix] fatal:', error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    });
   });
-});
+}
