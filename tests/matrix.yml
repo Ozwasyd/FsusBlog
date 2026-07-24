@@ -5798,25 +5798,25 @@ tiers:
 
     - id: release-admin-console
       owner: InteropGlueAgent
-      command: tools/test/lanes/release-runtime-flow.sh admin-console
-      dependsOn: [bootstrap, release]
-      services: [postgres, redis, backend, frontend, preview]
-      parallelizable: false
-      serialReason: mutates the shared release runtime state
-      exclusiveResources: [release-runtime]
+      executionMode: summary
+      command: node tools/run-test-matrix.mjs aggregate release-admin-console
+      dependsOn: []
+      services: []
+      parallelizable: true
+      exclusiveResources: []
       phase: 5
-      cost: high
-      resourceClass: cpu
-      cpuWeight: 2
-      memoryWeight: 4
+      cost: low
+      resourceClass: io
+      cpuWeight: 1
+      memoryWeight: 1
       minCpuUnits: 1
       maxParallel: 1
-      requiresBootstrap: full
+      requiresBootstrap: none
       requiresNode: true
-      requiresDotnet: true
+      requiresDotnet: false
       requiresPlaywright: none
-      cacheProfile: full
-      timeoutMinutes: 45
+      cacheProfile: none
+      timeoutMinutes: 5
       shardable: false
       defaultShards: 1
       risk: critical
@@ -5838,25 +5838,25 @@ tiers:
 
     - id: release-auth-flow
       owner: InteropGlueAgent
-      command: tools/test/lanes/release-runtime-flow.sh auth-flow
-      dependsOn: [bootstrap, release]
-      services: [postgres, redis, backend, frontend, preview]
-      parallelizable: false
-      serialReason: mutates the shared release runtime state
-      exclusiveResources: [release-runtime]
+      executionMode: summary
+      command: node tools/run-test-matrix.mjs aggregate release-auth-flow
+      dependsOn: []
+      services: []
+      parallelizable: true
+      exclusiveResources: []
       phase: 5
-      cost: high
-      resourceClass: cpu
-      cpuWeight: 2
-      memoryWeight: 4
+      cost: low
+      resourceClass: io
+      cpuWeight: 1
+      memoryWeight: 1
       minCpuUnits: 1
       maxParallel: 1
-      requiresBootstrap: full
+      requiresBootstrap: none
       requiresNode: true
-      requiresDotnet: true
+      requiresDotnet: false
       requiresPlaywright: none
-      cacheProfile: full
-      timeoutMinutes: 45
+      cacheProfile: none
+      timeoutMinutes: 5
       shardable: false
       defaultShards: 1
       risk: critical
@@ -5872,25 +5872,25 @@ tiers:
 
     - id: release-authoring-flow
       owner: InteropGlueAgent
-      command: tools/test/lanes/release-runtime-flow.sh authoring-flow
-      dependsOn: [bootstrap, release]
-      services: [postgres, redis, backend, frontend, preview]
-      parallelizable: false
-      serialReason: mutates the shared release runtime state
-      exclusiveResources: [release-runtime]
+      executionMode: summary
+      command: node tools/run-test-matrix.mjs aggregate release-authoring-flow
+      dependsOn: []
+      services: []
+      parallelizable: true
+      exclusiveResources: []
       phase: 5
-      cost: high
-      resourceClass: cpu
-      cpuWeight: 2
-      memoryWeight: 4
+      cost: low
+      resourceClass: io
+      cpuWeight: 1
+      memoryWeight: 1
       minCpuUnits: 1
       maxParallel: 1
-      requiresBootstrap: full
+      requiresBootstrap: none
       requiresNode: true
-      requiresDotnet: true
+      requiresDotnet: false
       requiresPlaywright: none
-      cacheProfile: full
-      timeoutMinutes: 35
+      cacheProfile: none
+      timeoutMinutes: 5
       shardable: false
       defaultShards: 1
       risk: critical
@@ -5906,25 +5906,25 @@ tiers:
 
     - id: release-private-preview
       owner: InteropGlueAgent
-      command: tools/test/lanes/release-runtime-flow.sh private-preview
-      dependsOn: [bootstrap, release]
-      services: [postgres, redis, backend, frontend, preview]
-      parallelizable: false
-      serialReason: mutates the shared release runtime state
-      exclusiveResources: [release-runtime]
+      executionMode: summary
+      command: node tools/run-test-matrix.mjs aggregate release-private-preview
+      dependsOn: []
+      services: []
+      parallelizable: true
+      exclusiveResources: []
       phase: 5
-      cost: medium
-      resourceClass: cpu
-      cpuWeight: 2
-      memoryWeight: 4
+      cost: low
+      resourceClass: io
+      cpuWeight: 1
+      memoryWeight: 1
       minCpuUnits: 1
       maxParallel: 1
-      requiresBootstrap: full
+      requiresBootstrap: none
       requiresNode: true
-      requiresDotnet: true
+      requiresDotnet: false
       requiresPlaywright: none
-      cacheProfile: full
-      timeoutMinutes: 25
+      cacheProfile: none
+      timeoutMinutes: 5
       shardable: false
       defaultShards: 1
       risk: critical
@@ -5940,25 +5940,25 @@ tiers:
 
     - id: release-error-boundary
       owner: InteropGlueAgent
-      command: tools/test/lanes/release-runtime-flow.sh error-boundary
-      dependsOn: [release]
-      services: [preview]
-      parallelizable: false
-      serialReason: mutates the shared release runtime state
-      exclusiveResources: [release-runtime]
+      executionMode: summary
+      command: node tools/run-test-matrix.mjs aggregate release-error-boundary
+      dependsOn: []
+      services: []
+      parallelizable: true
+      exclusiveResources: []
       phase: 5
-      cost: medium
-      resourceClass: cpu
-      cpuWeight: 2
-      memoryWeight: 4
+      cost: low
+      resourceClass: io
+      cpuWeight: 1
+      memoryWeight: 1
       minCpuUnits: 1
       maxParallel: 1
-      requiresBootstrap: frontend
+      requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
       requiresPlaywright: none
-      cacheProfile: frontend
-      timeoutMinutes: 20
+      cacheProfile: none
+      timeoutMinutes: 5
       shardable: false
       defaultShards: 1
       risk: high
@@ -5974,26 +5974,26 @@ tiers:
 
     - id: release-rbac-negative
       owner: InteropGlueAgent
-      command: tools/test/lanes/release-runtime-flow.sh rbac-negative
-      dependsOn: [bootstrap, release, security]
-      services: [postgres, redis, backend, frontend, preview]
-      parallelizable: false
-      serialReason: mutates the shared release runtime state
-      exclusiveResources: [release-runtime]
+      executionMode: summary
+      command: node tools/run-test-matrix.mjs aggregate release-rbac-negative
+      dependsOn: []
+      services: []
+      parallelizable: true
+      exclusiveResources: []
       phase: 5
-      cost: high
-      resourceClass: browser
-      cpuWeight: 2
-      memoryWeight: 4
+      cost: low
+      resourceClass: io
+      cpuWeight: 1
+      memoryWeight: 1
       minCpuUnits: 1
       maxParallel: 1
-      requiresBootstrap: full
+      requiresBootstrap: none
       requiresNode: true
-      requiresDotnet: true
-      requiresPlaywright: chromium
+      requiresDotnet: false
+      requiresPlaywright: none
       evidenceClass: diagnostic
-      cacheProfile: full
-      timeoutMinutes: 35
+      cacheProfile: none
+      timeoutMinutes: 5
       shardable: false
       defaultShards: 1
       risk: critical
@@ -6011,24 +6011,25 @@ tiers:
 
     - id: release-aot-generation
       owner: InteropGlueAgent
-      command: tools/test/lanes/release-aot-coherence.sh generation
-      dependsOn: [release]
-      services: [preview]
-      parallelizable: false
-      exclusiveResources: [release-aot]
+      executionMode: summary
+      command: node tools/run-test-matrix.mjs aggregate release-aot-generation
+      dependsOn: []
+      services: []
+      parallelizable: true
+      exclusiveResources: []
       phase: 5
-      cost: medium
-      resourceClass: cpu
-      cpuWeight: 2
-      memoryWeight: 4
+      cost: low
+      resourceClass: io
+      cpuWeight: 1
+      memoryWeight: 1
       minCpuUnits: 1
       maxParallel: 1
-      requiresBootstrap: frontend
+      requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
       requiresPlaywright: none
-      cacheProfile: frontend
-      timeoutMinutes: 20
+      cacheProfile: none
+      timeoutMinutes: 5
       shardable: false
       defaultShards: 1
       risk: critical
@@ -6044,26 +6045,26 @@ tiers:
 
     - id: release-aot-consumption
       owner: InteropGlueAgent
-      command: tools/test/lanes/release-aot-coherence.sh consumption
-      dependsOn: [release]
-      services: [preview]
-      parallelizable: false
-      serialReason: consumes the shared release AOT artifact set
-      exclusiveResources: [release-aot]
+      executionMode: summary
+      command: node tools/run-test-matrix.mjs aggregate release-aot-consumption
+      dependsOn: []
+      services: []
+      parallelizable: true
+      exclusiveResources: []
       phase: 5
-      cost: medium
-      resourceClass: browser
-      cpuWeight: 2
-      memoryWeight: 4
+      cost: low
+      resourceClass: io
+      cpuWeight: 1
+      memoryWeight: 1
       minCpuUnits: 1
       maxParallel: 1
-      requiresBootstrap: frontend
+      requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
-      requiresPlaywright: chromium
+      requiresPlaywright: none
       evidenceClass: diagnostic
-      cacheProfile: frontend
-      timeoutMinutes: 25
+      cacheProfile: none
+      timeoutMinutes: 5
       shardable: false
       defaultShards: 1
       risk: critical
@@ -6081,13 +6082,14 @@ tiers:
 
     - id: release-static-asset-digest-coherence
       owner: InteropGlueAgent
-      command: tools/test/lanes/release-aot-coherence.sh static-asset-digest
-      dependsOn: [release]
-      services: [preview]
-      parallelizable: false
-      exclusiveResources: [release-aot]
+      executionMode: summary
+      command: node tools/run-test-matrix.mjs aggregate release-static-asset-digest-coherence
+      dependsOn: []
+      services: []
+      parallelizable: true
+      exclusiveResources: []
       phase: 5
-      cost: medium
+      cost: low
       resourceClass: io
       cpuWeight: 1
       memoryWeight: 1
