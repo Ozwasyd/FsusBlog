@@ -113,7 +113,7 @@
         { "file": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadEarlyDataPlane.cs", "token": "PublicHotReadRequestFeature" },
         { "file": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadEarlyDataPlane.cs", "token": "UseFsusPublicHotReadRateLimiter" },
         { "file": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSecurityGateMiddleware.cs", "token": "PublicReadSecurityGate" },
-        { "file": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSecurityGateMiddleware.cs", "token": "PublicReadSecurityGateResultFeature.Allowed" },
+        { "file": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSecurityGateMiddleware.cs", "token": "PublicReadSecurityGateResultFeature.s_allowed" },
         { "file": "src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs", "token": "public-hot-read-classifier" },
         { "file": "src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs", "token": "public-hot-read-fallback-restore" },
         { "file": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Serving.cs", "token": "CategoryPathWithoutSuffix" },
@@ -232,7 +232,7 @@
       ],
       "requiredTokens": [
         { "file": "src/backend/Infrastructure/Cache/CachePolicy.cs", "token": "RegisterKeysForPrefixInvalidation" },
-        { "file": "src/backend/Infrastructure/Cache/IUnifiedCache.cs", "token": "RegisterKeysForPrefixInvalidation" },
+        { "file": "src/backend/Infrastructure/Cache/RedisCacheStorage.cs", "token": "RegisterKeysForPrefixInvalidation" },
         { "file": "src/backend/Infrastructure/Cache/CachePolicyRegistry.cs", "token": "ArticleListFrame" },
         { "file": "src/backend/Infrastructure/Cache/CachePolicyRegistry.cs", "token": "CommentCursorFrame" }
       ],
@@ -251,13 +251,13 @@
         "dispatcher-batch"
       ],
       "requiredTokens": [
-        { "file": "src/backend/Infrastructure/Cache/IUnifiedCache.cs", "token": "Task RemoveManyAsync" },
-        { "file": "src/backend/Infrastructure/Cache/IUnifiedCache.cs", "token": "Task RemoveByPrefixManyAsync" },
-        { "file": "src/backend/Infrastructure/Cache/IUnifiedCache.cs", "token": "DeleteKeysAndRegistryMembersAtomicAsync" },
-        { "file": "src/backend/Infrastructure/Cache/IUnifiedCache.cs", "token": "ScriptEvaluateAsync" },
-        { "file": "src/backend/Infrastructure/Cache/IUnifiedCache.cs", "token": "DeleteKeysAndRegistryMembersScript" },
-        { "file": "src/backend/Infrastructure/Cache/IUnifiedCache.cs", "token": "prefixes.GroupBy(static item => item.PolicyId)" },
-        { "file": "src/backend/Infrastructure/Cache/IUnifiedCache.cs", "token": "DeleteRegisteredKeysByPrefixesAsync(registryKey, resolvedPrefixes" },
+        { "file": "src/backend/Infrastructure/Cache/CachePorts.cs", "token": "Task RemoveManyAsync" },
+        { "file": "src/backend/Infrastructure/Cache/CachePorts.cs", "token": "Task RemoveByPrefixManyAsync" },
+        { "file": "src/backend/Infrastructure/Cache/RedisCacheStorage.cs", "token": "DeleteKeysAndRegistryMembersAtomicAsync" },
+        { "file": "src/backend/Infrastructure/Cache/RedisCacheStorage.cs", "token": "ScriptEvaluateAsync" },
+        { "file": "src/backend/Infrastructure/Cache/RedisCacheStorage.cs", "token": "DeleteKeysAndRegistryMembersScript" },
+        { "file": "src/backend/Infrastructure/Cache/RedisCacheStorage.cs", "token": "prefixes.GroupBy(static item => item.PolicyId)" },
+        { "file": "src/backend/Infrastructure/Cache/RedisCacheStorage.cs", "token": "DeleteRegisteredKeysByPrefixesAsync(registryKey, resolvedPrefixes" },
         { "file": "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs", "token": "RemoveManyAsync" },
         { "file": "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs", "token": "CachePolicyId.AdminStatsFrame" },
         { "file": "src/backend/Infrastructure/Observability/FsusObservability.cs", "token": "fsus.cache.remove_many.keys" },
