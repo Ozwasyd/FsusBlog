@@ -495,3 +495,9 @@
 | GET `/api/binary/comment/policy?articleId=&rootId=` | 🔓 📦 | `CommentPolicySnapshot`(164) | 全站→文章→线程有效 composer 策略 |
 | GET/PUT `/api/authoring/moderation/articles/{articleId}/comment-policy` | 🔐 📦 | `CommentPolicySnapshot`(164) envelope | admin 文章 override、审核/慢速模式与乐观版本 |
 | PUT `/api/authoring/moderation/articles/{articleId}/comment-threads/{rootId}` | 🔐 📦 | `CommentPolicySnapshot`(164) envelope | admin 单线程锁定/解锁与审计 |
+
+## Cluster operations
+
+| 方法与路径 | 权限 | 响应 | 说明 |
+| --- | --- | --- | --- |
+| GET `/api/ops/cluster/nodes` | independent admin principal + `system.config` + `fixed_ip` | JSON membership view, `no-store` | 单机返回 disabled 空视图；多节点返回 capability、heartbeat、状态和低敏资源提示 |

@@ -2345,3 +2345,11 @@ Notification deployment drill 请求固定为 `{releaseId,slot,generation,drillI
 - `GET|PUT /api/authoring/moderation/articles/{articleId}/comment-policy` 读取/更新文章策略；更新请求包含 nullable override、`moderationMode=direct|premoderated|risk_based`、`slowModeSeconds`、`closedAtUtc` 与 `expectedPolicyVersion`。
 - `PUT /api/authoring/moderation/articles/{articleId}/comment-threads/{rootId}` 原子锁定/解锁单一根线程；请求包含 `locked`、`expectedPolicyVersion`、`reason`。
 - 稳定写入拒绝码：`comment_policy_closed`、`comment_thread_locked`、`comment_slow_mode_active`、`comment_policy_version_conflict`。所有评论读取在关闭后保持可用。
+
+## Cluster membership operational contract
+
+Cluster capability values are a closed catalog: `web.api`, `admin.ui`, `comment.api`, `comment.audit`, `antispam.inference`, `search.query`, `search.indexer`, `media.processor`, and `scheduler.worker`. `CapabilityId` rejects unknown values before registration.
+
+Each member snapshot contains a stable configured or host-derived `nodeId`, a per-process UUID `instanceId`, version, start time, runtime mode, capability set, `Alive|Suspect|Dead|Draining|Maintenance` status, last heartbeat, resource hints, and active responsibilities. A heartbeat with a stale `instanceId` cannot revive a restarted node. Heartbeat timeout first marks `Suspect`, then `Dead`; records are retained for diagnosis rather than deleted.
+
+`GET /api/ops/cluster/nodes` returns `{ enabled, mode, currentNodeId, nodes }`. It is JSON only because `/api/ops/**` is an explicitly protected operational surface. It requires `identity_kind=admin_principal`, `admin_id`, `admin_permission=system.config`, `fixed_ip`, and `Cache-Control: no-store`. It does not accept a body, Cookie-derived normal account authorization, or an AEDS compatibility fallback.

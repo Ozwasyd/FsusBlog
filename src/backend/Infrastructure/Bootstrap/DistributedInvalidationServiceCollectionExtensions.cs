@@ -1,9 +1,30 @@
 using FsusBlog.Server.Infrastructure.Distributed;
+using FsusBlog.Server.Infrastructure.Distributed.Cluster;
 
 namespace FsusBlog.Server.Infrastructure.Bootstrap;
 
 internal static class DistributedInvalidationServiceCollectionExtensions
 {
+    public static IServiceCollection AddFsusClusterMembership(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        ClusterMembershipOptions options = ClusterMembershipOptions.FromConfiguration(configuration);
+        services.AddSingleton(options);
+        if (!options.Enabled)
+        {
+            services.AddSingleton<IClusterMembershipStore, InMemoryClusterMembershipStore>();
+            return services;
+        }
+
+        services.AddSingleton<IClusterMembershipStore, RedisClusterMembershipStore>();
+        if (!OpenApiExportMode.IsEnabled(configuration))
+        {
+            services.AddHostedService<ClusterMembershipHostedService>();
+        }
+        return services;
+    }
+
     public static IServiceCollection AddFsusDistributedInvalidation(
         this IServiceCollection services,
         IConfiguration configuration)

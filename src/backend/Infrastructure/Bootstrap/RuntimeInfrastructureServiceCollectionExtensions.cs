@@ -43,6 +43,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddCacheRuntime();
         services.AddPublicReadArtifactRuntime(configuration);
         services.AddFsusDistributedInvalidation(configuration);
+        services.AddFsusClusterMembership(configuration);
         services.AddIdentityRuntime();
         services.AddBackgroundRuntime();
         services.AddScoped<IArticleRevisionContentBlockMaintenance, ArticleRevisionContentBlockMaintenance>();

@@ -742,3 +742,13 @@ unmount 都撤销当前 envelope；replacement 保留 pending command，但必�
 ## 评论策略分层与失效
 
 `ArticleCommentPolicyService` 在请求时组合全站匿名评论策略、`article_comment_policy` override 与 `comment_thread_policy` 锁定状态。最终写入校验和 privacy-safe slow-mode CAS 位于同一数据库事务，避免 ticket 签发后的策略变化或并发锁定穿透。文章/线程更新使用 PostgreSQL advisory lock + `policy_version` 乐观并发，并追加 `comment_policy_audit_event`；提交后复用 `InvalidateCommentPolicyAsync` 广播，多节点不持有不可失效的文章策略副本。无需重启即可将文章 `enabled=false` 或设置 `closedAtUtc`，读取链路保持不变。
+
+## Capability registry and membership
+
+`Runtime:Mode` selects `single`, `static-role`, or `adaptive`. `single` does not start the membership hosted service and therefore has no Redis registration dependency. The other modes create one `NodeDescriptor` per process generation and store the shared view under the runtime-scoped Redis membership hash.
+
+`nodeId` identifies a configured deployment node while `instanceId` is a new UUID for every process start. Heartbeats update health/load/resource hints only when both identities match. This prevents a delayed heartbeat from an old process generation reviving the replacement. The failure detector retains members and progresses `Alive -> Suspect -> Dead`; `Draining` and `Maintenance` are operator-owned states and are never overwritten by timeout detection.
+
+The stable capability catalog is the dependency boundary for later scheduler issues. Static-role and adaptive nodes publish the same descriptors; schedulers consume `ListAliveNodesAsync` and do not inspect configuration strings. Membership uses the existing Redis dependency and runtime key scope, without adding service discovery or a second application binary.
+
+No-restart degradation is status based: set a node to `Draining` before removing responsibilities, or `Maintenance` to exclude it while preserving diagnostics. Membership failure must not disable public reads, binary API, or notification stream. The next process generation can start in `single` mode to fully bypass registration.

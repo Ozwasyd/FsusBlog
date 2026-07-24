@@ -873,3 +873,11 @@ RiskControl 运行态写入只能使用 `/api/binary/admin/security/risk-control
 评论写入策略按 `site default -> article override -> thread state` 组合。公开 AEDS 端点 `GET /api/binary/comment/policy?articleId=&rootId=` 仍返回既有 `CommentPolicySnapshot` frame，但 author-mode 开关和 `snapshotHash` 是当前文章/线程的有效快照；关闭写入不影响评论读取。`POST /comment/anonymous-ticket` 与最终 public/strong-anonymous submit 必须分别重读有效策略，旧 ticket 不得绕过期间发生的关闭或线程锁定。
 
 管理写入仅位于 authoring API：文章策略使用乐观 `expectedPolicyVersion`，线程锁只影响目标根树。慢速模式以现有 privacy-safe moderation subject hash 为键，在评论事务内原子推进；禁止使用稳定设备指纹。策略变更写 append-only audit event，并通过既有 comment-policy cache invalidation 广播使各节点及 composer 重新取快照。
+
+## Cluster membership diagnostic boundary
+
+`GET /api/ops/cluster/nodes` is an operational diagnostic route rather than a runtime business API. It returns the current shared membership view as JSON and requires an independent admin principal with `system.config`, the `fixed_ip` rate-limit policy, and `no-store`. Anonymous users, normal signed-in accounts, and admin principals without that permission cannot read node identity, capabilities, load hints, or active responsibilities.
+
+The route does not add an AEDS frame, change `/api/binary/**`, or affect notification stream envelopes. `Runtime:Mode=single` returns a disabled empty view and never registers the process. `static-role` and `adaptive` register the same stable capability catalog in Redis; business code cannot introduce arbitrary capability strings.
+
+Without restarting the public API, operators can place a node in `Draining` or `Maintenance`; failure detection preserves those operator states. Scheduling can be stopped independently while public reads, binary endpoints, and notification stream continue. Returning to `single` is a startup-mode rollback for the next process generation and leaves no cluster registration dependency on the single-node path.

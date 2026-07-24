@@ -715,3 +715,9 @@ RiskControl proof endpoint/flow；admin-sensitive 操作继续使用独立的 `X
 申诉 capability 只证明当前评论作者控制权；申诉绑定最新 Hidden/Rejected event，并由数据库唯一索引限制每个决定一次。`Moderation:Appeals:RequireDifferentReviewer=true` 为默认安全值，原审核 admin principal 不能复核自己的决定。紧急降级可在配置 reload 后拒绝新的 appeal decision 写入，同时保留 timeline/report 读取；不得删除或改写既有事件。
 
 文章级评论 override 只能收紧全站 author-mode 开关；ticket 签发与最终提交都重新读取 `site -> article -> thread` 有效快照。线程锁只阻止目标根树的新回复，既有评论和其他线程继续可读写。慢速模式以评论 actor 的 privacy-safe moderation subject hash 为作用域，在评论事务内 CAS 更新；不得使用 IP 原文、设备指纹、credential commitment、nullifier 原文或账号可逆标识。策略管理要求 admin permission、step-up、乐观版本，并把原因与版本写入 append-only `comment_policy_audit_event`。
+
+## Cluster membership diagnostics
+
+Cluster membership diagnostics are private operational metadata. Only independent admin principals with `system.config` may call `GET /api/ops/cluster/nodes`; the endpoint also uses `fixed_ip` and `no-store`. Normal signed-in accounts, legacy user admin roles, anonymous requests, and admin principals without the exact permission are rejected. The response contains no Cookie, token, session ID, raw network address, connection string, exception text, or secret.
+
+The Redis record uses the runtime key scope and only stable capability IDs plus bounded health/load/resource hints. Operator-controlled `Draining` and `Maintenance` states are preserved by failure detection. If scheduling must be stopped without restarting the public service, responsibilities are removed and the node is marked `Draining` or `Maintenance`; binary routes and notification stream continue under their existing security controls.
