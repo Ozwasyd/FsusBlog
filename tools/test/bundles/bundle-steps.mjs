@@ -999,7 +999,7 @@ export function performanceSteps()
         step('release-evidence', 'tools/test/lanes/release-evidence.sh', ['release-evidence'], {
             dependsOn: ['performance-summary']
         }),
-        step('production-summary', 'tools/test/lanes/noop.sh production', ['production'], {
+        step('production-summary', 'tools/test/lanes/production-correctness-receipt.sh', ['production'], {
             dependsOn: ['release-evidence']
         })
     ];

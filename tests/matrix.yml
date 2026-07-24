@@ -878,7 +878,8 @@ tiers:
 
     - id: frontend-fast-summary
       owner: InteropGlueAgent
-      command: tools/test/lanes/noop.sh frontend-fast-summary
+      executionMode: summary
+      command: node tools/run-test-matrix.mjs aggregate fast-summary
       dependsOn:
           [
               frontend-build,
@@ -1992,7 +1993,8 @@ tiers:
 
     - id: fast
       owner: ServerContractAgent
-      command: tools/test/lanes/noop.sh fast
+      executionMode: summary
+      command: node tools/run-test-matrix.mjs aggregate fast
       dependsOn:
           [
               frontend-fast-summary,
@@ -2267,7 +2269,8 @@ tiers:
 
     - id: coverage-gate
       owner: ServerContractAgent
-      command: tools/test/lanes/noop.sh coverage-gate
+      executionMode: summary
+      command: node tools/run-test-matrix.mjs aggregate coverage-gate
       dependsOn: [coverage-threshold]
       services: []
       parallelizable: false
@@ -2511,7 +2514,8 @@ tiers:
 
     - id: ci
       owner: ServerContractAgent
-      command: tools/test/lanes/noop.sh ci
+      executionMode: summary
+      command: node tools/run-test-matrix.mjs aggregate ci
       dependsOn: [fast, integration]
       services: [postgres, redis, backend, frontend]
       parallelizable: false
@@ -3096,7 +3100,8 @@ tiers:
 
     - id: browser-diagnostics
       owner: InteropGlueAgent
-      command: tools/test/lanes/noop.sh browser-diagnostics
+      executionMode: summary
+      command: tools/test/lanes/browser-runtime-risk-diagnostics.sh
       dependsOn: [browser-diagnostics-manual]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false
@@ -6718,7 +6723,8 @@ tiers:
 
     - id: production
       owner: ServerContractAgent
-      command: tools/test/lanes/noop.sh production
+      executionMode: summary
+      command: tools/test/lanes/production-correctness-receipt.sh
       dependsOn: [production-correctness]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false

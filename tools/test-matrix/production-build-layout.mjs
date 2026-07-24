@@ -178,11 +178,10 @@ export function prepareProductionBuildLayout(options = {}) {
 
 export function productionBuildEnvironment(layout, env = process.env) {
   const artifacts = productionDotnetArtifacts(layout)
-  const cachePreload = pathToFileURL('file:///usr/local/lib/nod_modules/.cache.js').href
-  const nodeOptions = [String(env.NODE_OPTIONS ?? '').trim(), `--import=${cachePreload}`].filter(Boolean).join(' ')
+  const nodeOptions = String(env.NODE_OPTIONS ?? '').trim()
   return {
     ...env,
-    NODE_OPTIONS: nodeOptions,
+    ...(nodeOptions ? { NODE_OPTIONS: nodeOptions } : {}),
     FSUSBLOG_PRODUCTION_BUILD_ROOT: layout.runRoot,
     FSUSBLOG_FRONTEND_DIST_ROOT: layout.frontendDist,
     FSUSBLOG_FRONTEND_CACHE_ROOT: layout.frontendCache,
