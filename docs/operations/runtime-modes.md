@@ -18,7 +18,7 @@ FsusBlog v1.3.0 继续使用同一个仓库、同一个 Server 项目和同一�
 
 - `single`：默认模式。完整业务能力在本进程执行，调用保持 local in-process；不启动 cluster foundation，不启用 adaptive scheduler，也不订阅跨节点 Public AOT invalidation。
 - `static-role`：同一程序按 `StaticRoles` 启动固定后台职责，不进行自动迁移。可选角色为 `web`、`content`、`security`、`audit`、`maintenance`；至少配置一个角色。
-- `adaptive`：同一程序启动 cluster foundation、Redis membership heartbeat 和 distributed-invalidation gate。动态调度算法和职责迁移由后续独立实现接入。
+- `adaptive`：同一程序启动 cluster foundation、Redis membership heartbeat、distributed-invalidation gate 与 adaptive responsibility scheduler。调度器按 capability、health、load 和稳定性策略分配职责，并通过 lease/fencing 控制 module runtime eligibility。
 
 静态角色示例：
 
@@ -61,6 +61,18 @@ capability 只接受 catalog 中的稳定值；adaptive 未声明 capability 会
 `single` 仅移除跨节点 invalidation subscriber 且不启动 membership heartbeat，本机 worker 和本地失效路径继续工作。`static-role` 只裁剪归属已登记角色的后台 worker；生命周期、启动校验和未知的核心 hosted service 保持启用，避免因新增 worker 未登记而静默停机。`adaptive` 不改变 HTTP 入口或发布物，也不在业务层引入节点位置依赖。
 
 多节点 membership 视图位于 runtime-scoped Redis hash。heartbeat 超时按 `Alive -> Suspect -> Dead` 收敛；`Draining` 与 `Maintenance` 由运维显式控制，failure detector 不覆盖。受保护的 `GET /api/ops/cluster/nodes` 只允许 independent admin principal + `system.config` + `fixed_ip`，用于后台或诊断查看节点、capability、低敏资源提示与 active responsibility。
+
+同一路由的 `scheduler` 字段给出 responsibility/replica assignment graph、
+placement score/reason 与未分配原因。调度每轮只选择 Alive、network-reachable
+且 capability 匹配的节点；cooldown、minimum runtime、hysteresis 与 migration
+cost 阻止短时负载变化造成迁移，节点失效则立即重新选择。高压只做 bounded
+scale-out，低压每轮至多缩一个 replica。
+
+可热更新 `Runtime:Scheduler:Enabled=false` 停止 assignment 并释放本机
+responsibility lease；这不会停止 Kestrel、公开读取、登录、admin、
+notification stream 或 binary endpoint。恢复前先确认所有 mandatory
+responsibility 至少有一个健康 capability candidate。完整边界见
+[`adaptive-responsibility-scheduler.md`](../architecture/adaptive-responsibility-scheduler.md)。
 
 ## 有状态职责协议
 

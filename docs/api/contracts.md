@@ -2352,4 +2352,18 @@ Cluster capability values are a closed catalog: `web.api`, `admin.ui`, `comment.
 
 Each member snapshot contains a stable configured or host-derived `nodeId`, a per-process UUID `instanceId`, version, start time, runtime mode, capability set, `Alive|Suspect|Dead|Draining|Maintenance` status, last heartbeat, resource hints, and active responsibilities. A heartbeat with a stale `instanceId` cannot revive a restarted node. Heartbeat timeout first marks `Suspect`, then `Dead`; records are retained for diagnosis rather than deleted.
 
-`GET /api/ops/cluster/nodes` returns `{ enabled, mode, currentNodeId, nodes }`. It is JSON only because `/api/ops/**` is an explicitly protected operational surface. It requires `identity_kind=admin_principal`, `admin_id`, `admin_permission=system.config`, `fixed_ip`, and `Cache-Control: no-store`. It does not accept a body, Cookie-derived normal account authorization, or an AEDS compatibility fallback.
+`GET /api/ops/cluster/nodes` returns
+`{ enabled, mode, currentNodeId, scheduler, nodes }`. `scheduler` contains
+`{ generation, observedAt, mode, enabled, assignments, unassigned }`; every assignment
+contains `responsibilityId`, `capability`, `replica`, `nodeId`, `assignedAt`,
+`placementScore`, `reason`, and nullable `fencingToken`. Responsibility IDs are the
+seven values in `CoreResponsibilityCatalog`; capability values remain the closed
+membership catalog. `unassigned` contains bounded machine reasons such as
+`<responsibility-id>:no-healthy-capability`.
+
+This endpoint is JSON only because `/api/ops/**` is an explicitly protected operational
+surface. It requires `identity_kind=admin_principal`, `admin_id`,
+`admin_permission=system.config`, `fixed_ip`, and `Cache-Control: no-store`. It does not
+accept a body, Cookie-derived normal account authorization, or an AEDS compatibility
+fallback. The additive scheduler object does not create a public JSON fallback for
+binary APIs and is not emitted to notification stream.

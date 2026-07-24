@@ -50,6 +50,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddFsusDistributedStateControl(configuration);
         services.AddFsusClusterMembership(configuration);
         services.AddFsusModuleInvocation(configuration);
+        services.AddFsusAdaptiveScheduler(configuration);
         services.AddPluginFoundation(configuration);
         services.AddIdentityRuntime();
         services.AddBackgroundRuntime();

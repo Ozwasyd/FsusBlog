@@ -1,5 +1,6 @@
 using System.Diagnostics;
 
+using FsusBlog.Server.Infrastructure.Distributed.Scheduling;
 using FsusBlog.Server.Infrastructure.Distributed.StateControl;
 
 namespace FsusBlog.Server.Infrastructure.Distributed.Cluster;
@@ -7,6 +8,7 @@ namespace FsusBlog.Server.Infrastructure.Distributed.Cluster;
 public sealed class ClusterMembershipHostedService(
     IClusterMembershipStore store,
     ILeaseManager leaseManager,
+    IResponsibilityRuntime responsibilityRuntime,
     ClusterMembershipOptions options,
     TimeProvider timeProvider,
     ILogger<ClusterMembershipHostedService> logger) : BackgroundService
@@ -34,13 +36,19 @@ public sealed class ClusterMembershipHostedService(
         do
         {
             DateTimeOffset now = timeProvider.GetUtcNow();
+            IReadOnlyList<ActiveResponsibility> active =
+                await responsibilityRuntime.ListActiveAsync(stoppingToken).ConfigureAwait(false);
             await store.MarkHeartbeatAsync(
                 new NodeHeartbeat(
                     options.NodeId,
                     options.InstanceId,
                     now,
                     CaptureResources(),
-                    []),
+                    active
+                        .Select(static item => item.Assignment.Capability)
+                        .Distinct()
+                        .OrderBy(static capability => capability.Value, StringComparer.Ordinal)
+                        .ToArray()),
                 stoppingToken).ConfigureAwait(false);
             await DetectFailuresAsSingleWriterAsync(now, stoppingToken).ConfigureAwait(false);
         }

@@ -1,13 +1,15 @@
 using System.Diagnostics;
 
 using FsusBlog.Server.Infrastructure.Distributed.Cluster;
+using FsusBlog.Server.Infrastructure.Distributed.Scheduling;
 using FsusBlog.Server.Infrastructure.Observability;
 
 namespace FsusBlog.Server.Infrastructure.Distributed.Modules;
 
 public sealed class ClusterModuleRouteResolver(
     ClusterMembershipOptions cluster,
-    IClusterMembershipStore membership) : IModuleRouteResolver
+    IClusterMembershipStore membership,
+    IResponsibilityActivationView? localAssignments = null) : IModuleRouteResolver
 {
     public async ValueTask<ModuleInvocationRoute> ResolveAsync(
         ModuleContractDescriptor contract,
@@ -32,7 +34,10 @@ public sealed class ClusterModuleRouteResolver(
         NodeDescriptor? local = nodes.FirstOrDefault(node =>
             node.NodeId == cluster.NodeId
             && node.Status == ClusterMemberStatus.Alive
-            && node.Capabilities.Contains(contract.Capability));
+            && node.Capabilities.Contains(contract.Capability)
+            && (cluster.Mode != ClusterRuntimeMode.Adaptive
+                || localAssignments is null
+                || localAssignments.IsCapabilityActive(contract.Capability)));
         if (local is not null)
         {
             return new ModuleInvocationRoute(ModuleInvocationPathKind.Local, local.NodeId);
@@ -42,6 +47,8 @@ public sealed class ClusterModuleRouteResolver(
             .Where(node => node.NodeId != cluster.NodeId)
             .Where(static node => node.Status == ClusterMemberStatus.Alive)
             .Where(node => node.Capabilities.Contains(contract.Capability))
+            .Where(node => cluster.Mode != ClusterRuntimeMode.Adaptive
+                || node.ActiveResponsibilities.Contains(contract.Capability))
             .OrderByDescending(node => node.ActiveResponsibilities.Contains(contract.Capability))
             .ThenBy(static node => node.Resources.QueueLength)
             .ThenBy(static node => node.Resources.P95LatencyMilliseconds)

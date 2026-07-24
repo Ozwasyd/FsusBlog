@@ -791,7 +791,20 @@ unmount 都撤销当前 envelope；replacement 保留 pending command，但必�
 
 `nodeId` identifies a configured deployment node while `instanceId` is a new UUID for every process start. Heartbeats update health/load/resource hints only when both identities match. This prevents a delayed heartbeat from an old process generation reviving the replacement. The failure detector retains members and progresses `Alive -> Suspect -> Dead`; `Draining` and `Maintenance` are operator-owned states and are never overwritten by timeout detection.
 
-The stable capability catalog is the dependency boundary for later scheduler issues. Static-role and adaptive nodes publish the same descriptors; schedulers consume `ListAliveNodesAsync` and do not inspect configuration strings. Membership uses the existing Redis dependency and runtime key scope, without adding service discovery or a second application binary.
+The stable capability catalog is the dependency boundary for the responsibility scheduler. Static-role and adaptive nodes publish the same descriptors; schedulers consume the membership store and do not inspect arbitrary business configuration strings. Membership uses the existing Redis dependency and runtime key scope, without adding service discovery or a second application binary.
+
+动态职责由 `Infrastructure/Distributed/Scheduling` 的稳定 descriptor / assignment
+模型表达。`single` 不读 membership 并保留 typed local fast path；`static-role`
+按 capability 固定表达职责；`adaptive` 只在 Alive、network-reachable 且
+capability 匹配的节点间按 CPU、memory、IO、queue、P99、error、lease 与 warm
+locality 评分。replica scale-out/in 受上下限约束，cooldown、minimum runtime、
+hysteresis 与 migration cost 阻止抖动；节点失效则绕过 cooldown 立即重排。
+
+本地激活以 `responsibility:<id>.<replica>` lease 和 fencing token 进入
+`IResponsibilityRuntime`，并成为 module invocation local/remote route eligibility；
+调度器不直接持有 repository、DB context 或业务对象。受保护的 cluster
+diagnostic 同时返回 assignment graph。完整模型、故障语义与热关闭路径见
+[Adaptive responsibility scheduler](architecture/adaptive-responsibility-scheduler.md)。
 
 No-restart degradation is status based: set a node to `Draining` before removing responsibilities, or `Maintenance` to exclude it while preserving diagnostics. Membership failure must not disable public reads, binary API, or notification stream. The next process generation can start in `single` mode to fully bypass registration.
 

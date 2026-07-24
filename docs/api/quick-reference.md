@@ -500,4 +500,4 @@
 
 | 方法与路径 | 权限 | 响应 | 说明 |
 | --- | --- | --- | --- |
-| GET `/api/ops/cluster/nodes` | independent admin principal + `system.config` + `fixed_ip` | JSON membership view, `no-store` | 单机返回 disabled 空视图；多节点返回 capability、heartbeat、状态和低敏资源提示 |
+| GET `/api/ops/cluster/nodes` | independent admin principal + `system.config` + `fixed_ip` | JSON membership + scheduler assignment graph, `no-store` | 单机 membership disabled；多节点返回 capability、heartbeat、状态、低敏资源提示与 responsibility/replica assignment |

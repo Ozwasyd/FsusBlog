@@ -1,5 +1,23 @@
 # FsusBlog Operations Runbook
 
+## Adaptive responsibility scheduling
+
+Inspect `GET /api/ops/cluster/nodes` with an independent admin principal carrying
+`system.config`. The `scheduler.unassigned` list means no current healthy,
+network-reachable node advertises a required capability. `adaptive-reassigned` is
+expected after node failure or a material post-cooldown score improvement;
+rapid alternating owners indicates that membership inputs or policy thresholds need
+repair.
+
+For a local incident, mark the node `Draining` and wait for responsibility leases to
+release or expire. To stop all adaptive placement without restarting request-serving
+nodes, hot-update `Runtime:Scheduler:Enabled=false`; the next reconcile deactivates local
+responsibilities while anonymous, login, admin, notification-stream, and binary paths
+remain available. Do not clear fencing counters, force another node to bypass a lease,
+or route module calls to a capability that is not active. Re-enable after membership and
+capability coverage recover. A mode change back to `single` is only for the next process
+generation.
+
 ## Module invocation degradation
 
 `module_route_unavailable` means no healthy node currently advertises the required
