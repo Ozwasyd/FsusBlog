@@ -6,6 +6,7 @@ export interface ThemeAssetDescriptor {
     contentHash: string;
     cssUrl: string;
     defaultMode: ThemeColorMode;
+    activationId?: string | null;
 }
 
 export interface ThemeAssetSelection {
@@ -33,6 +34,16 @@ export interface ThemeAssetRuntimeOptions {
     root: HTMLElement;
     head: HTMLHeadElement;
     matchMedia: (query: string) => MediaQueryList;
+    reportFailure?: (failure: ThemeAssetFailureReport) => void | Promise<void>;
+}
+
+export interface ThemeAssetFailureReport {
+    source: ThemeAssetSource;
+    themeId: string;
+    contentHash: string;
+    activationId: string | null;
+    code: string;
+    detail: string;
 }
 
 export class ThemeAssetRuntimeError extends Error
@@ -127,6 +138,7 @@ export function createThemeAssetRuntime(options: ThemeAssetRuntimeOptions)
             catch (error)
             {
                 lastError = error;
+                await reportFailure(resolvedFailure(candidate, error));
             }
         }
 
@@ -251,11 +263,43 @@ export function createThemeAssetRuntime(options: ThemeAssetRuntimeOptions)
         cleanupPreferenceListeners = null;
     }
 
+    async function reportFailure(failure: ThemeAssetFailureReport): Promise<void>
+    {
+        try
+        {
+            await options.reportFailure?.(failure);
+        }
+        catch
+        {
+            // Reporting is best-effort. A telemetry/control-plane outage must never
+            // block the active/default stylesheet fallback.
+        }
+    }
+
     return Object.freeze({
         apply,
         current,
         dispose
     });
+}
+
+function resolvedFailure(
+    resolved: ResolvedThemeAsset,
+    error: unknown
+): ThemeAssetFailureReport
+{
+    return {
+        source: resolved.source,
+        themeId: resolved.theme.id,
+        contentHash: resolved.theme.contentHash,
+        activationId: resolved.theme.activationId ?? null,
+        code: error instanceof ThemeAssetRuntimeError
+            ? error.code
+            : 'theme_asset_runtime_failed',
+        detail: error instanceof Error
+            ? error.message
+            : 'Theme asset runtime failed with an unknown error.'
+    };
 }
 
 interface PreferenceSnapshot {

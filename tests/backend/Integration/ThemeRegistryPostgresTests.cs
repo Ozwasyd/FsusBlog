@@ -19,11 +19,7 @@ public sealed class ThemeRegistryPostgresTests(PostgresSchemaMigrationFixture fi
     public async Task Registry_PersistsLifecycleConfigActivationAndAssetsAtomically()
     {
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
-        ISchemaMigrationDescriptor migration = ThemeRegistryMigrationDefinitions.BuildMigration();
-        foreach (SchemaMigrationStep step in migration.Steps)
-        {
-            await step.ExecuteAsync(db, CancellationToken.None);
-        }
+        await ApplyThemeMigrationsAsync(db);
 
         var registry = new PostgresThemeRegistry(db);
         var validator = new ThemePackageValidator();
@@ -121,6 +117,105 @@ public sealed class ThemeRegistryPostgresTests(PostgresSchemaMigrationFixture fi
             await db.Ado.GetIntAsync(
                 "SELECT COUNT(*) FROM theme_asset WHERE theme_id = @theme_id;",
                 new SugarParameter("@theme_id", first.Manifest.Id)));
+    }
+
+    [Fact]
+    public async Task Registry_RuntimeActivationRollbackRestoresVersionedStateAndHistory()
+    {
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        await ApplyThemeMigrationsAsync(db);
+        var registry = new PostgresThemeRegistry(db);
+        var validator = new ThemePackageValidator();
+        DateTimeOffset now = DateTimeOffset.Parse(
+            "2026-07-24T01:00:00Z",
+            System.Globalization.CultureInfo.InvariantCulture);
+        using MemoryStream firstStream = CreatePackage(
+            "fsusblog.theme.runtime-first",
+            "Runtime First",
+            "1.0.0");
+        using MemoryStream secondStream = CreatePackage(
+            "fsusblog.theme.runtime-second",
+            "Runtime Second",
+            "1.0.0");
+        ValidatedThemePackage first = validator.Validate(firstStream, new Version(1, 3, 0));
+        ValidatedThemePackage second = validator.Validate(secondStream, new Version(1, 3, 0));
+        await registry.InstallAsync(first, "/themes/runtime-first", now, CancellationToken.None);
+        await registry.InstallAsync(second, "/themes/runtime-second", now, CancellationToken.None);
+        await registry.SaveConfigAsync(
+            first.Manifest.Id,
+            """{"fontScale":1.1}""",
+            1,
+            now,
+            CancellationToken.None);
+        await registry.SaveConfigAsync(
+            second.Manifest.Id,
+            """{"fontScale":1.2}""",
+            2,
+            now,
+            CancellationToken.None);
+        await registry.ActivateAsync(
+            ThemeActivationScope.SiteWide,
+            first.Manifest.Id,
+            first.PackageHash,
+            1,
+            "dark",
+            "admin:integration",
+            now,
+            CancellationToken.None);
+        ThemeActivationHistorySnapshot secondActivation = await registry.ActivateAsync(
+            ThemeActivationScope.SiteWide,
+            second.Manifest.Id,
+            second.PackageHash,
+            2,
+            "light",
+            "admin:integration",
+            now.AddMinutes(1),
+            CancellationToken.None);
+
+        await registry.RollbackAsync(
+            ThemeActivationScope.SiteWide,
+            secondActivation.Id,
+            "system:smoke",
+            "post-activation smoke failed",
+            now.AddMinutes(2),
+            CancellationToken.None);
+
+        ThemeActivationSnapshot? restored = await registry.GetActivationAsync(
+            ThemeActivationScope.SiteWide,
+            CancellationToken.None);
+        Assert.NotNull(restored);
+        Assert.Equal(first.Manifest.Id, restored.ActiveThemeId);
+        Assert.Equal(first.PackageHash, restored.AssetVersion);
+        Assert.Equal(1, restored.ConfigVersion);
+        Assert.Equal("dark", restored.Mode);
+        IReadOnlyList<ThemeActivationHistorySnapshot> history =
+            await registry.GetActivationHistoryAsync(
+                ThemeActivationScope.SiteWide,
+                10,
+                CancellationToken.None);
+        Assert.Contains(
+            history,
+            static item => item.Status == ThemeActivationStatus.RolledBack
+                && item.FailureReason == "post-activation smoke failed");
+        Assert.All(
+            history,
+            static item => Assert.False(string.IsNullOrWhiteSpace(item.EvidenceJson)));
+    }
+
+    private static async Task ApplyThemeMigrationsAsync(SqlSugarClient db)
+    {
+        ISchemaMigrationDescriptor[] migrations =
+        [
+            ThemeRegistryMigrationDefinitions.BuildMigration(),
+            ThemeActivationRuntimeMigrationDefinitions.BuildMigration()
+        ];
+        foreach (ISchemaMigrationDescriptor migration in migrations)
+        {
+            foreach (SchemaMigrationStep step in migration.Steps)
+            {
+                await step.ExecuteAsync(db, CancellationToken.None);
+            }
+        }
     }
 
     private static MemoryStream CreatePackage(string id, string name, string version)

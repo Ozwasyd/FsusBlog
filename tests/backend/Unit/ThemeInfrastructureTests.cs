@@ -4,6 +4,7 @@ using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
 using FsusBlog.Server.Infrastructure.Themes;
 
 using Microsoft.Extensions.Configuration;
@@ -592,6 +593,15 @@ public sealed class ThemeInfrastructureTests
         ServiceDescriptor lifecycle = Assert.Single(
             services,
             static descriptor => descriptor.ServiceType == typeof(ThemeLifecycleService));
+        ServiceDescriptor activationRuntime = Assert.Single(
+            services,
+            static descriptor => descriptor.ServiceType == typeof(ThemeActivationRuntimeService));
+        ServiceDescriptor activationEffects = Assert.Single(
+            services,
+            static descriptor => descriptor.ServiceType == typeof(IThemeActivationEffects));
+        ServiceDescriptor runtimeState = Assert.Single(
+            services,
+            static descriptor => descriptor.ServiceType == typeof(ThemeRuntimeState));
         Assert.Equal(ServiceLifetime.Singleton, validator.Lifetime);
         Assert.Equal(ServiceLifetime.Singleton, cssSafetyScanner.Lifetime);
         Assert.Equal(ServiceLifetime.Singleton, tokenCompiler.Lifetime);
@@ -600,6 +610,10 @@ public sealed class ThemeInfrastructureTests
         Assert.Equal(ServiceLifetime.Singleton, packageStore.Lifetime);
         Assert.IsType<LocalThemePackageStore>(packageStore.ImplementationInstance);
         Assert.Equal(ServiceLifetime.Scoped, lifecycle.Lifetime);
+        Assert.Equal(ServiceLifetime.Scoped, activationRuntime.Lifetime);
+        Assert.Equal(ServiceLifetime.Scoped, activationEffects.Lifetime);
+        Assert.Equal(typeof(ThemeActivationEffects), activationEffects.ImplementationType);
+        Assert.Equal(ServiceLifetime.Singleton, runtimeState.Lifetime);
     }
 
     [Fact]
@@ -620,6 +634,239 @@ public sealed class ThemeInfrastructureTests
         Assert.Contains("UNIQUE(theme_id, asset_key)", fingerprint, StringComparison.Ordinal);
         Assert.Contains("CHECK (install_state IN", fingerprint, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task ThemeRuntime_PreviewIsIsolatedAndApplyPublishesSharedAssetVersion()
+    {
+        var registry = new InMemoryThemeRegistry();
+        var store = new InMemoryThemePackageStore();
+        var effects = new RecordingThemeEffects();
+        ThemeLifecycleService lifecycle = CreateLifecycle(registry, store);
+        ThemeActivationRuntimeService runtime = CreateRuntime(registry, store, effects);
+        using MemoryStream publicPackage = CreatePackage();
+        using MemoryStream previewPackage = CreatePackage(
+            manifest: ManifestJson(id: "fsusblog.theme.paper", name: "Paper"));
+        ThemeRegistrySnapshot publicTheme = await lifecycle.InstallAsync(
+            publicPackage,
+            CancellationToken.None);
+        ThemeRegistrySnapshot previewTheme = await lifecycle.InstallAsync(
+            previewPackage,
+            CancellationToken.None);
+
+        ThemeActivationHistorySnapshot applied = await runtime.ApplyAsync(
+            ThemeActivationScope.Public,
+            publicTheme.Manifest.Id,
+            "dark",
+            "admin:42",
+            CancellationToken.None);
+        ThemeActivationHistorySnapshot previewed = await runtime.PreviewAsync(
+            ThemeActivationScope.UserPreview(42),
+            previewTheme.Manifest.Id,
+            "light",
+            "admin:42",
+            CancellationToken.None);
+
+        ThemeActivationSnapshot? publicActivation = await registry.GetActivationAsync(
+            ThemeActivationScope.Public,
+            CancellationToken.None);
+        ThemeActivationSnapshot? previewActivation = await registry.GetActivationAsync(
+            ThemeActivationScope.UserPreview(42),
+            CancellationToken.None);
+        Assert.Equal(publicTheme.Manifest.Id, publicActivation?.ActiveThemeId);
+        Assert.Equal(previewTheme.Manifest.Id, previewActivation?.ActiveThemeId);
+        Assert.Equal(publicTheme.PackageHash, publicActivation?.AssetVersion);
+        Assert.Equal(previewTheme.PackageHash, previewActivation?.AssetVersion);
+        Assert.Equal([true, false], effects.Invalidations);
+        Assert.Contains(""""status":"applied"""", applied.EvidenceJson, StringComparison.Ordinal);
+        Assert.Contains("user-preview:42", previewed.EvidenceJson, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ThemeRuntime_RollbackRestoresThemeAssetConfigAndModeAtomically()
+    {
+        var registry = new InMemoryThemeRegistry();
+        var store = new InMemoryThemePackageStore();
+        ThemeLifecycleService lifecycle = CreateLifecycle(registry, store);
+        ThemeActivationRuntimeService runtime = CreateRuntime(registry, store);
+        using MemoryStream firstPackage = CreatePackage();
+        using MemoryStream secondPackage = CreatePackage(
+            manifest: ManifestJson(id: "fsusblog.theme.paper", name: "Paper"));
+        ThemeRegistrySnapshot first = await lifecycle.InstallAsync(firstPackage, CancellationToken.None);
+        ThemeRegistrySnapshot second = await lifecycle.InstallAsync(secondPackage, CancellationToken.None);
+        await lifecycle.SaveConfigAsync(
+            first.Manifest.Id,
+            """{"fontScale":1.1}""",
+            1,
+            CancellationToken.None);
+        await lifecycle.SaveConfigAsync(
+            second.Manifest.Id,
+            """{"fontScale":1.2}""",
+            2,
+            CancellationToken.None);
+        await runtime.ApplyAsync(
+            ThemeActivationScope.SiteWide,
+            first.Manifest.Id,
+            "dark",
+            "admin:1",
+            CancellationToken.None);
+        ThemeActivationHistorySnapshot secondActivation = await runtime.ApplyAsync(
+            ThemeActivationScope.SiteWide,
+            second.Manifest.Id,
+            "light",
+            "admin:1",
+            CancellationToken.None);
+
+        ThemeActivationHistorySnapshot rollback = await runtime.RollbackAsync(
+            ThemeActivationScope.SiteWide,
+            secondActivation.Id,
+            "admin:1",
+            "post-activation smoke failed",
+            CancellationToken.None);
+
+        ThemeActivationSnapshot? restored = await registry.GetActivationAsync(
+            ThemeActivationScope.SiteWide,
+            CancellationToken.None);
+        Assert.Equal(first.Manifest.Id, restored?.ActiveThemeId);
+        Assert.Equal(first.PackageHash, restored?.AssetVersion);
+        Assert.Equal(1, restored?.ConfigVersion);
+        Assert.Equal("dark", restored?.Mode);
+        Assert.Equal(ThemeActivationStatus.RolledBack, rollback.Status);
+        Assert.Equal(second.Manifest.Id, rollback.PreviousThemeId);
+        Assert.Contains("post-activation smoke failed", rollback.EvidenceJson, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ThemeRuntime_PublishFailureAutomaticallyRollsBackPreviousActivation()
+    {
+        var registry = new InMemoryThemeRegistry();
+        var store = new InMemoryThemePackageStore();
+        var effects = new RecordingThemeEffects();
+        ThemeLifecycleService lifecycle = CreateLifecycle(registry, store);
+        ThemeActivationRuntimeService runtime = CreateRuntime(registry, store, effects);
+        using MemoryStream firstPackage = CreatePackage();
+        using MemoryStream secondPackage = CreatePackage(
+            manifest: ManifestJson(id: "fsusblog.theme.paper", name: "Paper"));
+        ThemeRegistrySnapshot first = await lifecycle.InstallAsync(firstPackage, CancellationToken.None);
+        ThemeRegistrySnapshot second = await lifecycle.InstallAsync(secondPackage, CancellationToken.None);
+        await runtime.ApplyAsync(
+            ThemeActivationScope.Public,
+            first.Manifest.Id,
+            "auto",
+            "admin:1",
+            CancellationToken.None);
+        effects.Fail = true;
+
+        ThemeLifecycleException failure = await Assert.ThrowsAsync<ThemeLifecycleException>(
+            () => runtime.ApplyAsync(
+                ThemeActivationScope.Public,
+                second.Manifest.Id,
+                "dark",
+                "admin:1",
+                CancellationToken.None));
+
+        Assert.Equal("theme_activation_publish_failed", failure.ErrorCode);
+        ThemeActivationSnapshot? restored = await registry.GetActivationAsync(
+            ThemeActivationScope.Public,
+            CancellationToken.None);
+        Assert.Equal(first.Manifest.Id, restored?.ActiveThemeId);
+        IReadOnlyList<ThemeActivationHistorySnapshot> history = await runtime.GetHistoryAsync(
+            ThemeActivationScope.Public,
+            10,
+            CancellationToken.None);
+        Assert.Contains(
+            history,
+            static item => item.Status == ThemeActivationStatus.RolledBack
+                && item.FailureReason?.Contains("theme_activation_publish_failed", StringComparison.Ordinal) == true);
+    }
+
+    [Fact]
+    public async Task ThemeRuntime_CssFailureRollsBackOnlyMatchingActivationAndResetUsesDefault()
+    {
+        var registry = new InMemoryThemeRegistry();
+        var store = new InMemoryThemePackageStore();
+        ThemeLifecycleService lifecycle = CreateLifecycle(registry, store);
+        ThemeActivationRuntimeService runtime = CreateRuntime(registry, store);
+        using MemoryStream package = CreatePackage();
+        ThemeRegistrySnapshot theme = await lifecycle.InstallAsync(package, CancellationToken.None);
+        ThemeActivationHistorySnapshot activation = await runtime.ApplyAsync(
+            ThemeActivationScope.Admin,
+            theme.Manifest.Id,
+            "auto",
+            "admin:7",
+            CancellationToken.None);
+
+        ThemeLifecycleException stale = await Assert.ThrowsAsync<ThemeLifecycleException>(
+            () => runtime.ReportRuntimeCssLoadFailureAsync(
+                new ThemeRuntimeCssFailure(
+                    Guid.NewGuid(),
+                    ThemeActivationScope.Admin,
+                    theme.Manifest.Id,
+                    theme.PackageHash,
+                    "theme_asset_stylesheet_load_failed",
+                    "stylesheet error event",
+                    "admin:7"),
+                CancellationToken.None));
+        Assert.Equal("theme_runtime_failure_stale", stale.ErrorCode);
+
+        ThemeActivationHistorySnapshot rollback = await runtime.ReportRuntimeCssLoadFailureAsync(
+            new ThemeRuntimeCssFailure(
+                activation.Id,
+                ThemeActivationScope.Admin,
+                theme.Manifest.Id,
+                theme.PackageHash,
+                "theme_asset_stylesheet_load_failed",
+                "stylesheet error event",
+                "admin:7"),
+            CancellationToken.None);
+        Assert.Equal(ThemeActivationStatus.RolledBack, rollback.Status);
+        Assert.Null(await registry.GetActivationAsync(
+            ThemeActivationScope.Admin,
+            CancellationToken.None));
+
+        ThemeActivationHistorySnapshot reset = await runtime.ResetToDefaultAsync(
+            ThemeActivationScope.Public,
+            "admin:7",
+            "hot disable",
+            CancellationToken.None);
+        Assert.Equal(ThemeActivationStatus.ResetToDefault, reset.Status);
+        Assert.Null(reset.ThemeId);
+    }
+
+    [Fact]
+    public void ThemeActivationRuntimeMigration_DeclaresHistoryAndVersionColumns()
+    {
+        ISchemaMigrationDescriptor migration = ThemeActivationRuntimeMigrationDefinitions.BuildMigration();
+        string fingerprint = string.Join('\n', migration.Steps.Select(static step => step.Fingerprint));
+
+        Assert.Equal("20260724-post-theme-runtime", migration.MigrationId);
+        Assert.Contains("theme_activation.activation_id:varchar(36) NULL", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("theme_activation.asset_version:varchar(64) NULL", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("CREATE TABLE IF NOT EXISTS theme_activation_history", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("evidence_json jsonb NOT NULL", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("reset_to_default", fingerprint, StringComparison.Ordinal);
+    }
+
+    private static ThemeLifecycleService CreateLifecycle(
+        IThemeRegistry registry,
+        IThemePackageStore store)
+        => new(
+            new ThemePackageValidator(),
+            registry,
+            new Version(1, 3, 0),
+            TimeProvider.System,
+            store);
+
+    private static ThemeActivationRuntimeService CreateRuntime(
+        IThemeRegistry registry,
+        IThemePackageStore store,
+        IThemeActivationEffects? effects = null)
+        => new(
+            new ThemePackageValidator(),
+            registry,
+            new Version(1, 3, 0),
+            TimeProvider.System,
+            store,
+            effects);
 
     private static MemoryStream CreatePackage(
         string? manifest = null,
@@ -727,5 +974,34 @@ public sealed class ThemeInfrastructureTests
         ZipArchiveEntry entry = archive.CreateEntry(path);
         using Stream stream = entry.Open();
         stream.Write(content);
+    }
+
+    private sealed class RecordingThemeEffects : IThemeActivationEffects
+    {
+        public List<bool> Invalidations
+        {
+            get;
+        } = [];
+
+        public bool Fail
+        {
+            get;
+            set;
+        }
+
+        public Task PublishAsync(
+            ThemeActivationHistorySnapshot transition,
+            bool invalidateSharedAssets,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Invalidations.Add(invalidateSharedAssets);
+            if (Fail)
+            {
+                throw new InvalidOperationException("asset cache unavailable");
+            }
+
+            return Task.CompletedTask;
+        }
     }
 }

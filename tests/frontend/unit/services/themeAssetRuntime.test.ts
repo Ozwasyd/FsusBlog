@@ -92,9 +92,13 @@ describe('theme asset runtime', () => {
 
   it('falls back to default when active CSS fails without mutating the selection input', async () => {
     const defaultTheme = descriptor('fsusblog.theme.default', DEFAULT_HASH)
-    const activeTheme = descriptor('fsusblog.theme.active', ACTIVE_HASH)
+    const activeTheme = {
+      ...descriptor('fsusblog.theme.active', ACTIVE_HASH),
+      activationId: '019f846b-f7c8-7c73-8935-37fc0367dac6'
+    }
     const selection = { defaultTheme, activeTheme, explicitMode: 'light' as const }
     const head = document.createElement('head')
+    const reportFailure = vi.fn()
     const runtime = createThemeAssetRuntime({
       root: document.documentElement,
       head,
@@ -103,7 +107,8 @@ describe('theme asset runtime', () => {
         media: '',
         addEventListener: vi.fn(),
         removeEventListener: vi.fn()
-      } as unknown as MediaQueryList)
+      } as unknown as MediaQueryList),
+      reportFailure
     })
 
     const pending = runtime.apply(selection)
@@ -128,6 +133,38 @@ describe('theme asset runtime', () => {
       themeId: defaultTheme.id
     })
     expect(selection.activeTheme).toBe(activeTheme)
+    expect(reportFailure).toHaveBeenCalledWith({
+      source: 'active',
+      themeId: activeTheme.id,
+      contentHash: ACTIVE_HASH,
+      activationId: activeTheme.activationId,
+      code: 'theme_asset_stylesheet_load_failed',
+      detail: `Theme stylesheet '${activeTheme.id}' failed to load.`
+    })
+  })
+
+  it('keeps fallback available when failure reporting is unavailable', async () => {
+    const defaultTheme = descriptor('fsusblog.theme.default', DEFAULT_HASH)
+    const activeTheme = descriptor('fsusblog.theme.active', ACTIVE_HASH)
+    const head = document.createElement('head')
+    const runtime = createThemeAssetRuntime({
+      root: document.documentElement,
+      head,
+      matchMedia: window.matchMedia.bind(window),
+      reportFailure: () => Promise.reject(new Error('control plane unavailable'))
+    })
+
+    const pending = runtime.apply({ defaultTheme, activeTheme })
+    head.querySelector<HTMLLinkElement>('link')?.dispatchEvent(new Event('error'))
+    await vi.waitFor(() => {
+      expect(head.querySelector<HTMLLinkElement>('link')?.dataset.contentHash).toBe(DEFAULT_HASH)
+    })
+    head.querySelector<HTMLLinkElement>('link')?.dispatchEvent(new Event('load'))
+
+    await expect(pending).resolves.toMatchObject({
+      source: 'default',
+      themeId: defaultTheme.id
+    })
   })
 
   it('falls back from a broken preview to the active theme before default', async () => {

@@ -869,6 +869,18 @@ evidence 见 [Theme CSS safety and asset budgets](themes/css-safety.md)。运行
 数据库 migration 是 additive；回退旧应用时保留这些表即可，不要求删除或
 恢复数据库。
 
+`ThemeActivationRuntimeService` 是 preview/apply/rollback/default reset 的唯一
+运行时 owner。每次 apply 先从 content-addressed store 重开 archive，重验 package
+与全部 entry/asset hash，再把新的 activation pointer 和
+`theme_activation_history` evidence 写在同一 PostgreSQL transaction。pointer
+保存 operation UUID、package hash、config version 与 mode；rollback 用 UUID
+作 fencing，只有仍是当前版本的 activation 才能恢复 previous theme/config/
+asset/mode，避免晚到 CSS error 回滚掉更新版本。`user-preview:{userId}` 只能走
+preview operation，不推进共享 asset-cache version；public/admin/console/site-wide
+transition 会推进 `ThemeRuntimeState.AssetCacheVersion` 并清除 Theme/AOT/SystemPage
+output-cache tag。完整状态机、证据和故障路径见
+[Theme activation runtime](themes/runtime-lifecycle.md)。
+
 `ThemeTokenCompiler` 在 package lifecycle 之前把
 `fsusblog.theme.tokens.v1` 的 primitive、semantic、component、context 层
 编译为 `data-theme` 作用域内的稳定 `--fsus-*` 变量，并返回 exact CSS 的
@@ -881,7 +893,10 @@ SHA-256。light/dark 是完整模式，reduced-motion/high-contrast 是受限 ov
 根节点或移除当前 stylesheet，失败则退回 default。色彩模式按 explicit user
 mode -> system preference -> theme default 解析，motion/contrast preference
 同步为根节点属性。暴露给 UI 的 current state 是 frozen snapshot，preview
-不会写入 registry activation。无需重启的降级方式是 registry scope disable /
+不会写入其他 registry activation。CSS error 会通过 bounded failure callback
+携带 activation UUID/theme/package hash；服务端仅在三者仍匹配当前 pointer 时
+接受并原子 rollback。failure reporter 不可用时不能阻塞 active/default fallback。
+无需重启的降级方式是 reset affected scope to default 或 fenced rollback /
 replacement；前端加载失败也会保留现有 stylesheet 并尝试 default。
 ## Plugin Admin read model and rollback
 

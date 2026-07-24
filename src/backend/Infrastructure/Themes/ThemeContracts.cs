@@ -367,7 +367,52 @@ public sealed record ThemeActivationSnapshot(
     ThemeActivationScope Scope,
     string ActiveThemeId,
     string Mode,
-    DateTimeOffset UpdatedAtUtc);
+    DateTimeOffset UpdatedAtUtc,
+    Guid? ActivationId = null,
+    string? AssetVersion = null,
+    long? ConfigVersion = null);
+
+public enum ThemeActivationStatus
+{
+    [JsonStringEnumMemberName("applied")]
+    Applied,
+
+    [JsonStringEnumMemberName("rejected")]
+    Rejected,
+
+    [JsonStringEnumMemberName("rolled_back")]
+    RolledBack,
+
+    [JsonStringEnumMemberName("reset_to_default")]
+    ResetToDefault
+}
+
+public sealed record ThemeActivationHistorySnapshot(
+    Guid Id,
+    ThemeActivationScope Scope,
+    string? ThemeId,
+    string? PreviousThemeId,
+    string? AssetVersion,
+    string? PreviousAssetVersion,
+    long? ConfigVersion,
+    long? PreviousConfigVersion,
+    string? Mode,
+    string? PreviousMode,
+    ThemeActivationStatus Status,
+    DateTimeOffset StartedAtUtc,
+    DateTimeOffset CompletedAtUtc,
+    string? FailureReason,
+    string ActivatedBy,
+    string EvidenceJson);
+
+public sealed record ThemeRuntimeCssFailure(
+    Guid ActivationId,
+    ThemeActivationScope Scope,
+    string ThemeId,
+    string ContentHash,
+    string FailureCode,
+    string Detail,
+    string ReportedBy);
 
 public sealed class ThemePackageException(
     string errorCode,
@@ -400,7 +445,9 @@ public sealed class ThemeLifecycleException(
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     PropertyNameCaseInsensitive = false,
-    UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow)]
+    UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
+    UseStringEnumConverter = true)]
 [JsonSerializable(typeof(ThemeManifest))]
 [JsonSerializable(typeof(ThemeCssSafetyEvidence))]
+[JsonSerializable(typeof(ThemeActivationHistorySnapshot))]
 internal partial class ThemeJsonSerializerContext : JsonSerializerContext;

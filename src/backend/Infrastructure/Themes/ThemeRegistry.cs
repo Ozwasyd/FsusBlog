@@ -13,6 +13,46 @@ public interface IThemeRegistry
         ThemeActivationScope scope,
         CancellationToken cancellationToken);
 
+    Task<long?> GetConfigVersionAsync(string themeId, CancellationToken cancellationToken);
+
+    Task<ThemeActivationHistorySnapshot> ActivateAsync(
+        ThemeActivationScope scope,
+        string themeId,
+        string assetVersion,
+        long? configVersion,
+        string mode,
+        string activatedBy,
+        DateTimeOffset activatedAtUtc,
+        CancellationToken cancellationToken);
+
+    Task<ThemeActivationHistorySnapshot> RollbackAsync(
+        ThemeActivationScope scope,
+        Guid expectedActivationId,
+        string activatedBy,
+        string failureReason,
+        DateTimeOffset rolledBackAtUtc,
+        CancellationToken cancellationToken);
+
+    Task<ThemeActivationHistorySnapshot> ResetToDefaultAsync(
+        ThemeActivationScope scope,
+        string activatedBy,
+        string reason,
+        DateTimeOffset resetAtUtc,
+        CancellationToken cancellationToken);
+
+    Task<ThemeActivationHistorySnapshot> RecordActivationFailureAsync(
+        ThemeActivationScope scope,
+        string? themeId,
+        string activatedBy,
+        string failureReason,
+        DateTimeOffset failedAtUtc,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<ThemeActivationHistorySnapshot>> GetActivationHistoryAsync(
+        ThemeActivationScope scope,
+        int limit,
+        CancellationToken cancellationToken);
+
     Task InstallAsync(
         ValidatedThemePackage package,
         string packageLocation,
@@ -45,7 +85,7 @@ public interface IThemeRegistry
         CancellationToken cancellationToken);
 }
 
-public sealed class InMemoryThemeRegistry : IThemeRegistry
+public sealed partial class InMemoryThemeRegistry : IThemeRegistry
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly Dictionary<string, ThemeRegistrySnapshot> _themes = new(StringComparer.Ordinal);
@@ -297,7 +337,7 @@ public sealed class InMemoryThemeRegistry : IThemeRegistry
     }
 }
 
-public sealed class PostgresThemeRegistry(ISqlSugarClient db) : IThemeRegistry
+public sealed partial class PostgresThemeRegistry(ISqlSugarClient db) : IThemeRegistry
 {
     public async Task<ThemeRegistrySnapshot?> GetThemeAsync(
         string themeId,
@@ -340,7 +380,8 @@ public sealed class PostgresThemeRegistry(ISqlSugarClient db) : IThemeRegistry
         cancellationToken.ThrowIfCancellationRequested();
         DataTable table = await db.Ado.GetDataTableAsync(
             """
-            SELECT active_theme_id, mode, updated_at_utc
+            SELECT active_theme_id, mode, updated_at_utc,
+                   activation_id, asset_version, config_version
             FROM theme_activation
             WHERE scope = @scope;
             """,
@@ -355,7 +396,14 @@ public sealed class PostgresThemeRegistry(ISqlSugarClient db) : IThemeRegistry
             scope,
             Convert.ToString(row["active_theme_id"]) ?? string.Empty,
             Convert.ToString(row["mode"]) ?? string.Empty,
-            AsUtc(row["updated_at_utc"]));
+            AsUtc(row["updated_at_utc"]),
+            row.IsNull("activation_id") ? null : Guid.Parse(Convert.ToString(row["activation_id"])!),
+            row.IsNull("asset_version") ? null : Convert.ToString(row["asset_version"]),
+            row.IsNull("config_version")
+                ? null
+                : Convert.ToInt64(
+                    row["config_version"],
+                    System.Globalization.CultureInfo.InvariantCulture));
     }
 
     public async Task InstallAsync(

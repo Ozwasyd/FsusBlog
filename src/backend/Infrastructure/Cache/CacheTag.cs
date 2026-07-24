@@ -11,7 +11,8 @@ public enum CacheTag
     Seo = 6,
     Stats = 7,
     Aot = 8,
-    Comment = 9
+    Comment = 9,
+    Theme = 10
 }
 
 public static class CacheTagExtensions
@@ -27,6 +28,7 @@ public static class CacheTagExtensions
         CacheTag.Stats => "Stats",
         CacheTag.Aot => "Aot",
         CacheTag.Comment => "Comment",
+        CacheTag.Theme => "Theme",
         _ => "None"
     };
 }

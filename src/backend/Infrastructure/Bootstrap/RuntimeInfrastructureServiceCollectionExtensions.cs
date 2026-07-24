@@ -122,6 +122,15 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
             ?? Path.Combine(AppContext.BaseDirectory, "data", "themes");
         services.AddSingleton<IThemePackageStore>(new LocalThemePackageStore(packageStoreRoot));
         services.AddScoped<IThemeRegistry, PostgresThemeRegistry>();
+        services.AddSingleton<ThemeRuntimeState>();
+        services.AddScoped<IThemeActivationEffects, ThemeActivationEffects>();
+        services.AddScoped(serviceProvider => new ThemeActivationRuntimeService(
+            serviceProvider.GetRequiredService<ThemePackageValidator>(),
+            serviceProvider.GetRequiredService<IThemeRegistry>(),
+            fsusBlogVersion,
+            serviceProvider.GetRequiredService<TimeProvider>(),
+            serviceProvider.GetRequiredService<IThemePackageStore>(),
+            serviceProvider.GetRequiredService<IThemeActivationEffects>()));
         services.AddScoped(serviceProvider => new ThemeLifecycleService(
             serviceProvider.GetRequiredService<ThemePackageValidator>(),
             serviceProvider.GetRequiredService<IThemeRegistry>(),
