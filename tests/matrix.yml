@@ -2914,7 +2914,7 @@ tiers:
               src/frontend/src/components/ui/PasskeyRegisterModal.vue,
               src/frontend/src/store/user.ts,
               src/frontend/src/store/admin.ts,
-              src/frontend/src/copy/auth.ts,
+              src/frontend/src/locales/zh-CN/auth.ts,
               tools/bootstrap-acceptance-env.sh,
               tools/test-matrix/local-runtime-cleanup.mjs,
               tests/matrix.yml,

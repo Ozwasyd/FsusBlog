@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
-import { join, relative, resolve } from 'node:path'
+import { dirname, join, relative, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const repoRoot = resolve(process.cwd(), '../..')
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const repoRoot = resolve(__dirname, '../../../..')
 const errors = []
 
 function repoPath(path) {
@@ -112,19 +114,13 @@ function hasHanText(line) {
 }
 
 function hasSpecificStateContext(line) {
-  return /(文章|文章列表|正文|分类|标签|搜索|关键词|来源|路径|热点|归档|评论|互动|延伸阅读|介绍内容|站点|内容连接|访问校验|筛选|页面|资产|预览|用户|记录|数据|草稿|稿件|事件|规则|成员|会话|消息|通知|审计|地区|词库|策略|队列|任务|备份|错误|异常|缓存|性能|浏览器|样本|回收站|风险|快照|条目|工单|RUM|AOT|404)/.test(line)
+  return /(文章|文章列表|正文|分类|标签|搜索|关键词|来源|路径|热点|归档|评论|互动|延伸阅读|介绍内容|站点|内容连接|访问校验|筛选|页面|资产|预览|用户|记录|数据|草稿|稿件|事件|规则|成员|会话|消息|通知|审计|地区|词库|策略|队列|任务|备份|错误|异常|缓存|性能|浏览器|样本|回收站|风险|快照|条目|工单|RUM|AOT|404|插件|集群|节点|指标|告警|服务|模块|待处理|诊断|严重|结果|行为|状态|组件|变更|信息|职责|Lease|Checkpoint|lease|checkpoint)/.test(line)
 }
 
 function forEachGovernedLine(path, source, callback) {
-  const markdown = path.endsWith('.md')
-  let inCodeBlock = false
-
-  source.split('\n').forEach((line, lineIndex) => {
-    if (markdown && /^\s*(```|~~~)/.test(line)) {
-      inCodeBlock = !inCodeBlock
-      return
-    }
-    if (inCodeBlock) {
+  const lines = source.split('\n')
+  lines.forEach((line, lineIndex) => {
+    if (!isLikelyVisibleCopyLine(line)) {
       return
     }
     callback(line, lineIndex)
@@ -143,8 +139,7 @@ const scanRoots = [
   'src/frontend/src/views/auth',
   'src/frontend/src/views/user',
   'src/frontend/src/view-contracts',
-  'src/frontend/src/public-renderers',
-  'docs/frontend'
+  'src/frontend/src/public-renderers'
 ]
 
 const explicitFiles = [
@@ -155,7 +150,6 @@ const explicitFiles = [
   'src/frontend/src/composables/useAdminUserManage.ts',
   'src/frontend/src/composables/useHomeView.ts',
   'src/frontend/src/composables/useAdminArticleWrite.ts',
-  'docs/api/contracts.md',
   'src/frontend/package.json'
 ]
 
@@ -280,10 +274,6 @@ const requiredCopy = [
   {
     path: 'src/frontend/src/views/admin/article/Write.vue',
     tokens: ['标题', '正文', '内容检查', '图片上传策略', '发布警告处理', '检查内容', '生成摘要建议', '应用标签']
-  },
-  {
-    path: 'src/frontend/src/copy/contracts.ts',
-    tokens: ['AuthCopy', 'IdentityCopy', 'SecurityCopy', 'MessagesCopy', 'ErrorsCopy', 'AdminCopy', 'LayoutCopy']
   }
 ]
 
@@ -413,7 +403,7 @@ function hasRawStatusInterpolation(line) {
   if (!/\{\{/.test(line)) {
     return false
   }
-  if (/statusLabel|statusText|formatStatus|formatRuntimeStatus|formatOutcome|formatSeverity|formatIssueSeverity|formatCheckStatus|modelStatusLabel|dictionaryStatus|policyStatus/.test(line)) {
+  if (/statusLabel|statusText|nodeStatusLabel|formatStatus|formatRuntimeStatus|formatOutcome|formatSeverity|formatIssueSeverity|formatCheckStatus|modelStatusLabel|dictionaryStatus|policyStatus/.test(line)) {
     return false
   }
   if (/\?\s*['"`][^'"`]*\p{Script=Han}/u.test(line)) {

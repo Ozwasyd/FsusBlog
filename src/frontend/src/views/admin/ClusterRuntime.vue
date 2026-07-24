@@ -228,7 +228,7 @@
                     >
                         <template #default="{ row }: { row: ClusterTaskResponse }">
                             <div class="cluster-runtime-primary">{{ row.key }}</div>
-                            <div class="cluster-runtime-secondary">{{ row.status }} · attempt {{ row.attempt }}</div>
+                            <div class="cluster-runtime-secondary">{{ nodeStatusLabel(row.status) }} · attempt {{ row.attempt }}</div>
                         </template>
                     </ElTableColumn>
                     <ElTableColumn

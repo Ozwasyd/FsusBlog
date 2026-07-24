@@ -11,8 +11,8 @@ const read = (file) => fs.readFileSync(file, 'utf8')
 
 const profilePath = path.join(repoRoot, 'src/frontend/src/views/user/Profile.vue')
 const identityCenterPath = path.join(repoRoot, 'src/frontend/src/views/user/IdentityCenter.vue')
-const identityCopyPath = path.join(repoRoot, 'src/frontend/src/copy/identity.ts')
-const routerPath = path.join(repoRoot, 'src/frontend/src/router/index.ts')
+const identityCopyPath = path.join(repoRoot, 'src/frontend/src/locales/zh-CN/identity.ts')
+const routerPath = path.join(repoRoot, 'src/frontend/src/router/appRouteRecords.ts')
 const accountNavPath = path.join(repoRoot, 'src/frontend/src/layouts/accountNav.ts')
 const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json')
 
@@ -87,8 +87,8 @@ for (const token of requiredProfileTokens) {
   }
 }
 
-if (!profile.includes("from '@/copy'") && !profile.includes("from '../copy'") && !profile.includes("from '../../copy'")) {
-  fail(profilePath, 1, 'Profile.vue must import copy registry from @/copy')
+if (!profile.includes('useI18nText')) {
+  fail(profilePath, 1, 'Profile.vue must use locale text via useI18nText')
 }
 
 for (const token of [
@@ -219,14 +219,14 @@ for (const token of [
   '.identity-policy-state--active .identity-policy-state__dot',
   '.identity-policy-state--muted .identity-policy-state__dot',
   'background: transparent',
-  'commentRecordsCopy.policyPublicSendLabel',
-  'commentRecordsCopy.policyAnonymousLabel',
-  'commentRecordsCopy.policyZkLabel',
-  'commentRecordsCopy.policyGovernanceLabel',
-  'commentRecordsCopy.policyOpen',
-  'commentRecordsCopy.policyClosed',
-  'commentRecordsCopy.policyActive',
-  'commentRecordsCopy.policyUnavailable',
+  'commentRecordsCopy.value.policyPublicSendLabel',
+  'commentRecordsCopy.value.policyAnonymousLabel',
+  'commentRecordsCopy.value.policyZkLabel',
+  'commentRecordsCopy.value.policyGovernanceLabel',
+  'commentRecordsCopy.value.policyOpen',
+  'commentRecordsCopy.value.policyClosed',
+  'commentRecordsCopy.value.policyActive',
+  'commentRecordsCopy.value.policyUnavailable',
   'UserCommentsEmptyState',
   'UserCommentsErrorState',
   'UserCommentsList',

@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 
 import { existsSync, readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import './check-reading-layout-primitive.mjs'
 
-const repoRoot = resolve(process.cwd(), '../..')
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const repoRoot = resolve(__dirname, '../../../..')
 const errors = []
 let accountFocusMutationProofs = 0
 
@@ -452,10 +454,10 @@ expectNotMatches(readingNotice, /text-\[13px\] font-medium text-\[var\(--fsusblo
 expectIncludes(publicArticleDetail, 'id="fsus-comments-island"', 'PublicArticleDetailPageContent.vue comments island')
 expectIncludes(toc, '<el-drawer', 'ArticleTocPanel.vue drawer')
 
-const homeRecommendationsCopy = read('src/frontend/src/copy/layout.ts')
+const homeRecommendationsCopy = read('src/frontend/src/locales/zh-CN/layout.ts')
 expectIncludes(featuredArticles, 'copy.leadEyebrow', 'FeaturedArticlesSection.vue lead eyebrow registry binding')
-expectIncludes(homeRecommendationsCopy, "leadEyebrow: '本期推荐'", 'FeaturedArticlesSection.vue lead eyebrow (via @/copy layout registry)')
-expectIncludes(homeRecommendationsCopy, '热门文章', 'HomeTextFirstRecommendations.vue eyebrow (via @/copy layout registry)')
+expectIncludes(homeRecommendationsCopy, "leadEyebrow: '本期推荐'", 'FeaturedArticlesSection.vue lead eyebrow (via layout locale)')
+expectIncludes(homeRecommendationsCopy, "eyebrow: '热门文章'", 'HomeTextFirstRecommendations.vue eyebrow (via layout locale)')
 expectIncludes(hotArticlesIsland, '热门文章', 'homeHotArticlesIsland.ts')
 expectNotMatches(homeRecommendations, /顺着读/, 'HomeTextFirstRecommendations.vue hot fallback heading must not drift to 顺着读')
 
