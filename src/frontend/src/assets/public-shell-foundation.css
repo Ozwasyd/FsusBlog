@@ -507,6 +507,10 @@ html[data-theme-resolved='dark'] #fsus-aot-shell .fsusblog-public-brand-image--d
   min-height: 55vh;
 }
 
+#fsus-aot-shell .fsusblog-public-main-target[data-public-content-flow='content-driven'] {
+  min-height: 0;
+}
+
 #top > footer,
 #fsus-aot-shell > footer,
 #fsus-aot-shell .public-colophon {

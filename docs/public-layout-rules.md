@@ -27,6 +27,13 @@ FsusBlog consumer token 使用 `--fsusblog-*` 命名空间。公开布局不得�
 
 Reading surface 禁用 glass、motion trail、glow 与 accent shimmer。公开阅读面的 skeleton 使用中性 document placeholder，不使用 `animated` prop。
 
+ArticleDetail 评论 section 与正文末尾间距固定为 mobile 40px / desktop 56px；
+section title 到 divider 为 12px，divider 到首个评论状态为 24px。Empty 与
+populated 共用同一 heading 和左右基线，但 Empty 不继承列表分页、加载区或 shell
+viewport 填充预算。空态 CTA 保持 44px 高、6px 圆角与 16px 水平 padding；最后一个
+真实状态区块到 footer 只保留 mobile 48px / desktop 64px。不得用 `min-height`,
+flex spacer、插画或装饰卡片填补短内容。
+
 ## 4. Dialog 宽度变体白名单
 
 公开布局只允许以下 dialog 宽度变体：

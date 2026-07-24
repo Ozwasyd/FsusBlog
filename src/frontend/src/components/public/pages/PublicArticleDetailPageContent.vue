@@ -1,7 +1,7 @@
 <template>
   <!-- reading layout 的 content line 将中文正文限制在 760px，并为 wide media 提供共享 bleed line。 -->
   <article
-    class="public-article-detail min-h-screen pt-6 pb-10 sm:pt-10 sm:pb-12"
+    class="public-article-detail pt-6 pb-12 sm:pt-10 sm:pb-16"
     data-fsus-reading-layout
     data-readable-region
     data-fsus-surface="reading"
@@ -206,13 +206,13 @@
 
     <section
       id="fsus-comments-island"
-      class="mt-6 sm:mt-8"
+      :class="themeTokens.articleDetail.commentsRoot"
       data-fsus-surface="reading"
       :data-article-id="String(safeArticleId)"
     >
       <h2
         id="comments"
-        class="mb-6 border-b border-[var(--fsusblog-panel-border)] pb-4 text-sm font-bold normal-case text-[var(--fsusblog-text-primary)]"
+        :class="themeTokens.articleDetail.commentsSectionHeading"
       >
         {{ messages.article.comments.heading }}
       </h2>

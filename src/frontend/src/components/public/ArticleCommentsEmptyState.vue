@@ -42,7 +42,7 @@ const loginRoute = computed(() => ({
   align-items: center;
   justify-content: center;
   gap: 16px;
-  padding-block: 32px;
+  padding-block: 0;
   background-color: transparent;
   box-shadow: none;
   text-align: center;

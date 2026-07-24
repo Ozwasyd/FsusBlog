@@ -95,6 +95,13 @@ for (const token of [
     expectIncludes(foundationPath, foundation, token, `missing product-owned public-shell foundation contract ${token}`);
 }
 
+expectMatches(
+  foundationPath,
+  foundation,
+  /#fsus-aot-shell\s+\.fsusblog-public-main-target\[data-public-content-flow=['"]content-driven['"]\]\s*\{[^}]*\bmin-height:\s*0;/u,
+  'content-driven article detail must opt out of the generic first-paint viewport minimum',
+)
+
 for (const pattern of [
     /--fsusblog-public-(?:control|mobile-control|overlay)[a-z0-9-]*\s*:/u,
     /--el-public-shell-[a-z0-9-]*\s*:/u,

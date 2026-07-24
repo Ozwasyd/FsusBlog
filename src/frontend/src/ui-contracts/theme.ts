@@ -24,6 +24,7 @@ export type ThemeTokenContract = Readonly<{
     tagList: string;
     tagLink: string;
     commentsRoot: string;
+    commentsSectionHeading: string;
     commentsHeading: string;
     commentsPlaceholderRoot: string;
     commentsPlaceholderDot: string;

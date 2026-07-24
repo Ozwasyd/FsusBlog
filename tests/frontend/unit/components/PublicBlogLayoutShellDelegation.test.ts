@@ -103,4 +103,17 @@ describe('PublicBlogLayoutShell PublicShell delegation', () => {
     expect(wrapper.emitted('search')).toEqual([[' delegated ']])
     expect(shell.props('searchQuery')).toBe('delegated')
   })
+
+  it('marks only ArticleDetail content as content-driven', async () => {
+    const wrapper = mountShell()
+    const content = wrapper.get('#main-content')
+
+    expect(content.attributes('data-public-content-flow')).toBeUndefined()
+
+    await wrapper.setProps({ hydrationKind: 'ArticleDetail' })
+    expect(content.attributes('data-public-content-flow')).toBe('content-driven')
+
+    await wrapper.setProps({ hydrationKind: 'Home' })
+    expect(content.attributes('data-public-content-flow')).toBeUndefined()
+  })
 })

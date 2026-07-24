@@ -628,10 +628,15 @@ expectIncludes(
   'PublicArticleDetailPageContent.vue Chinese reading-line rationale'
 )
 expectIncludes(publicArticleDetail, 'data-fsus-reading-layout', 'PublicArticleDetailPageContent.vue shared reading geometry')
-expectMatches(
+expectIncludes(
   publicArticleDetail,
-  /id="comments"\s+class="mb-6 border-b border-\[var\(--fsusblog-panel-border\)\] pb-4 text-sm font-bold normal-case text-\[var\(--fsusblog-text-primary\)\]"/u,
-  'PublicArticleDetailPageContent.vue comments heading hierarchy'
+  ':class="themeTokens.articleDetail.commentsSectionHeading"',
+  'PublicArticleDetailPageContent.vue comments heading uses the shared rhythm token'
+)
+expectIncludes(
+  themeTokens,
+  'commentsSectionHeading: `mb-6 border-b ${lineBorder} pb-3 text-sm font-bold ${textPrimary} normal-case`',
+  'themeTokens.ts owns the 12px comments divider rhythm'
 )
 expectIncludes(publicArticleDetail, 'class="fsus-appendix"', 'PublicArticleDetailPageContent.vue restrained appendix boundary')
 expectIncludes(publicArticleDetail, 'data-fsus-surface="reading"', 'PublicArticleDetailPageContent.vue appendix reading surface')
@@ -683,7 +688,16 @@ expectNotMatches(
   /box-shadow:\s*inset 0 0 0 2px var\(--fsusblog-color-focus-ring\)/u,
   'PublicArticleDetailPageContent.vue appendix focus must retain its forced-colors-compatible outline owner'
 )
-expectIncludes(publicArticleDetail, 'id="fsus-comments-island"\n      class="mt-6 sm:mt-8"', 'PublicArticleDetailPageContent.vue comments island follows article tail without duplicate rule')
+expectIncludes(
+  publicArticleDetail,
+  ':class="themeTokens.articleDetail.commentsRoot"',
+  'PublicArticleDetailPageContent.vue comments island uses the shared section rhythm token'
+)
+expectIncludes(
+  themeTokens,
+  "commentsRoot: 'mt-10 sm:mt-14'",
+  'themeTokens.ts owns the 40px mobile and 56px desktop comments section gap'
+)
 expectIncludes(publicArticleDetail, 'id="fsus-comments-island-content"\n        class="min-h-0"', 'PublicArticleDetailPageContent.vue comments mount must not reserve a tall empty block')
 expectNotMatches(publicArticleDetail, /class="mt-12 sm:mt-16 border-t border-\[var\(--fsusblog-panel-border\)\] pt-8 sm:pt-10"/, 'PublicArticleDetailPageContent.vue comments island must not add a duplicate top rule and large whitespace after related reading')
 expectNotMatches(publicArticleDetail, /class="min-h-\[10rem\]"/, 'PublicArticleDetailPageContent.vue comments mount must not keep the old tall empty state')
@@ -747,7 +761,7 @@ expectIncludes(articleLocaleZh, "loginCta: '登录以参与讨论'", 'zh-CN arti
 expectIncludes(commentsEmpty, 'flex-direction: column;', 'ArticleCommentsEmptyState.vue centered vertical grouping')
 expectIncludes(commentsEmpty, 'align-items: center;', 'ArticleCommentsEmptyState.vue centered horizontal alignment')
 expectIncludes(commentsEmpty, 'justify-content: center;', 'ArticleCommentsEmptyState.vue centered vertical alignment')
-expectIncludes(commentsEmpty, 'padding-block: 32px;', 'ArticleCommentsEmptyState.vue compact breathing room')
+expectIncludes(commentsEmpty, 'padding-block: 0;', 'ArticleCommentsEmptyState.vue does not stack empty-state padding onto the section rhythm')
 expectIncludes(commentsEmpty, 'gap: 16px;', 'ArticleCommentsEmptyState.vue fixed vertical rhythm')
 expectIncludes(commentsEmpty, 'min-height: 44px;', 'ArticleCommentsEmptyState.vue mobile-safe secondary action')
 expectIncludes(commentsEmpty, 'padding-inline: 16px;', 'ArticleCommentsEmptyState.vue compact action padding')

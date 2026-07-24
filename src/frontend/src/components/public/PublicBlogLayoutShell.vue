@@ -96,6 +96,7 @@
       <div
         id="main-content"
         class="fsusblog-public-main-target"
+        :data-public-content-flow="hydrationKind === 'ArticleDetail' ? 'content-driven' : undefined"
         tabindex="-1"
       >
         <slot />
@@ -391,6 +392,11 @@ onBeforeUnmount(() => {
 <style scoped>
 .fsusblog-public-main-target {
   min-width: 0;
+}
+
+:deep(main:has(> [data-public-content-flow='content-driven'])) {
+  flex: 0 0 auto;
+  padding-bottom: 0;
 }
 
 .fsusblog-public-mobile-menu-utilities {
