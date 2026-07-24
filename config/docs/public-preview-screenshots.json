@@ -96,7 +96,19 @@
             "config/docs/public-preview-screenshots.json",
             "tests/browser-contract/public-preview-gallery.mjs",
             "tests/frontend/e2e/manual/manual-layout-screenshots.spec.ts",
-            "tests/frontend/support/playwright"
+            "tests/frontend/support/playwright",
+            "config/docs/public-preview-quality-policy.json",
+            "tools/docs/public-preview-registry.mjs",
+            "tools/docs/public-preview-registry.d.ts",
+            "tools/docs/public-preview-quality.mjs",
+            "tools/docs/public-preview-quality-contract.mjs",
+            "tools/docs/public-preview-quality-dom.mjs",
+            "tools/docs/public-preview-quality-runtime.mjs",
+            "tools/docs/public-preview-quality.d.ts",
+            "tests/frontend/e2e/manual/public-preview-quality-capture.spec.ts",
+            "config/docs/public-preview-quality-scenarios-public.json",
+            "config/docs/public-preview-quality-scenarios-task.json",
+            "config/docs/public-preview-quality-scenarios-zoom.json"
         ],
         "dependencies": [
             {
@@ -155,5 +167,11 @@
             "src/frontend/src/layouts",
             "src/frontend/src/main.ts"
         ]
-    }
+    },
+    "qualityPolicyFile": "config/docs/public-preview-quality-policy.json",
+    "qualityScenarioFiles": [
+        "config/docs/public-preview-quality-scenarios-public.json",
+        "config/docs/public-preview-quality-scenarios-task.json",
+        "config/docs/public-preview-quality-scenarios-zoom.json"
+    ]
 }

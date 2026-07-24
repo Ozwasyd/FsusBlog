@@ -52,34 +52,50 @@ The Do/Don't examples and full review checklist live in
 
 The screenshots do not include a separate logo file, trademark artwork, generated bitmap illustration, or production brand asset. The visible `FsusBlog` wordmark is rendered as plain text for documentation context. Code is covered by the repository license; screenshots and brand usage should be treated as documentation examples unless a later brand policy says otherwise.
 
-## Provenance And Freshness
+## Provenance, Freshness And Quality
 
-[`manifest.json`](manifest.json) is the machine-readable authority for the nine
-managed images. It records source commit and canonical ReleaseId provenance,
-frontend/backend build identities, deterministic fixture and capture digests,
-the resolved local FsusUI commit/tree/lock identity, the visual-input digest,
-and each PNG SHA-256. `sourceCommit` answers where an image was captured;
-`visualInputDigest` independently decides whether it is fresh for this checkout.
+[`manifest.json`](manifest.json) remains the machine-readable authority for the
+nine managed PNG files. It records source commit and canonical ReleaseId, build
+identities, fixture/capture digests, local FsusUI identity, the visual-input
+digest and every PNG SHA-256. `sourceCommit` answers where an image was
+captured; `visualInputDigest` independently decides whether it is fresh for the
+current checkout.
+
+Visual quality is deliberately stored in a separate governed artifact:
+`docs/assets/visual-evidence/public-preview-quality.json`. That manifest binds
+the same source commit to the quality-policy digest, one report for every
+managed screenshot and the complete viewport/locale/zoom matrix. Keeping this
+separate preserves the existing screenshot provenance schema while preventing
+a stable but defective PNG from being accepted as a valid baseline. A quality
+manifest may only be produced by the same formal capture runtime; it must not be
+written by hand or inferred from PNG hashes.
+
 The reviewed input registry hashes full route, view, component, style, fixture,
-localization, capture-support, lockfile, Vite, and local FsusUI inputs. For
-`package.json`, it hashes only `dependencies`, `devDependencies`, and
-`overrides`: changing a non-visual npm script does not invalidate pixels, while
-changing a resolved dependency still does. Validator and lifecycle-only docs
-tools are deliberately outside the pixel digest; the declarative capture
-policy in the registry remains inside it.
-The writer emits canonical top-level, screenshot, and FsusUI field order and
-sorts screenshot entries by stable ID. The offline checker rejects reordered
-fields or entries, duplicate files/IDs, cross-entry identity drift, dirty or
-malformed FsusUI provenance, build identities that are not exactly bound to
-the source commit, and a ReleaseId whose SHA does not match that commit.
+localization, capture-support, lockfile, Vite and local FsusUI inputs. For
+`package.json`, only dependency-bearing keys participate, so changing an
+unrelated npm script does not invalidate pixels while a resolved dependency
+change does. Quality policy, scenario registries and the shared audit source are
+part of the visual-input set.
 
-These fast local checks do not start an application, browser, database, network
-service, or GitHub API:
+The offline provenance checks do not start an application, browser, database,
+network service or GitHub API:
 
 ```bash
 npm --prefix src/frontend run check:public-preview-screenshot-manifest
 npm --prefix src/frontend run check:public-preview-screenshot-sync
 ```
+
+The lightweight browser-backed quality path uses the same isolated runtime and
+audit implementation but skips PNG publication and runs only scenarios marked
+`quick`:
+
+```bash
+bash tools/docs/run-public-preview-capture.sh quality-smoke
+```
+
+It checks overflow, clipping, overlap, target geometry, focus clipping, locale
+coherence, header lifecycle stability, first-viewport task visibility and the
+deterministic reviewer rules. It does not replace the complete release matrix.
 
 ## Regeneration And Verification
 
@@ -102,13 +118,13 @@ commit and fingerprint to match that checkout. A mismatch reports expected and
 actual identities and fails while output is still isolated in staging.
 The single-writer lock records the owning namespace and PID; a concurrent
 writer fails with that owner identity, and a different process cannot release
-the lock. The staging path must match the lock-owning namespace exactly. The
-publisher accepts only the complete registry, `manifest.json`, and this README,
-then performs one same-filesystem directory transaction. Validation or
-replacement failure restores the previous gallery byte-for-byte; success
-removes the old global-registry directory, including files retired by the full
-registry, without consulting any manual shard filter.
-It also fails before taking the writer lock when the checked-out frontend
+the lock. The staging path must match the lock-owning namespace exactly. The PNG publisher accepts only the complete registry, `manifest.json`, and this
+README, then performs one same-filesystem directory transaction. The quality
+publisher accepts only a complete `pass` quality manifest. All quality checks
+and both staged manifests are validated before the first publication step; the
+PNG transaction retains its existing byte-for-byte rollback behavior. Both
+publication steps remain under the same single-writer lock. The command also
+fails before taking that lock when the checked-out frontend
 toolchain is incomplete; install the lockfile-resolved dependencies locally
 before retrying. The explicit capture command receives a cold-build budget,
 while ordinary dedicated browser-contract runs retain their shorter default.

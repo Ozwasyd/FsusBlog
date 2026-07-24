@@ -1,0 +1,217 @@
+{
+    "schema": "fsusblog.public-preview-quality-scenarios.v1",
+    "qualityScenarios": [
+        {
+            "id": "public-home-mobile-light",
+            "route": "Home",
+            "scope": "anonymous",
+            "viewport": {
+                "width": 375,
+                "height": 812
+            },
+            "theme": "light",
+            "locale": "zh-CN",
+            "zoom": 1,
+            "tier": "quick",
+            "primaryTaskSelectors": [],
+            "linkedIssues": [
+                1425,
+                1474,
+                1476
+            ],
+            "surfaceRole": "public"
+        },
+        {
+            "id": "public-home-mobile-dark",
+            "route": "Home",
+            "scope": "anonymous",
+            "viewport": {
+                "width": 375,
+                "height": 812
+            },
+            "theme": "dark",
+            "locale": "zh-CN",
+            "zoom": 1,
+            "tier": "release",
+            "primaryTaskSelectors": [],
+            "linkedIssues": [
+                1425,
+                1474,
+                1476
+            ],
+            "surfaceRole": "public"
+        },
+        {
+            "id": "public-home-desktop-light",
+            "route": "Home",
+            "scope": "anonymous",
+            "viewport": {
+                "width": 1440,
+                "height": 900
+            },
+            "theme": "light",
+            "locale": "zh-CN",
+            "zoom": 1,
+            "tier": "release",
+            "primaryTaskSelectors": [],
+            "linkedIssues": [
+                1425,
+                1474,
+                1476
+            ],
+            "surfaceRole": "public"
+        },
+        {
+            "id": "public-home-desktop-dark",
+            "route": "Home",
+            "scope": "anonymous",
+            "viewport": {
+                "width": 1440,
+                "height": 900
+            },
+            "theme": "dark",
+            "locale": "zh-CN",
+            "zoom": 1,
+            "tier": "release",
+            "primaryTaskSelectors": [],
+            "linkedIssues": [
+                1425,
+                1474,
+                1476
+            ],
+            "surfaceRole": "public"
+        },
+        {
+            "id": "article-detail-mobile-zh-cn",
+            "route": "ArticleDetail",
+            "scope": "anonymous",
+            "viewport": {
+                "width": 375,
+                "height": 812
+            },
+            "theme": "light",
+            "locale": "zh-CN",
+            "zoom": 1,
+            "tier": "quick",
+            "primaryTaskSelectors": [],
+            "linkedIssues": [
+                1462,
+                1463,
+                1464,
+                1473,
+                1476
+            ],
+            "surfaceRole": "public"
+        },
+        {
+            "id": "article-detail-mobile-en-us",
+            "route": "ArticleDetail",
+            "scope": "anonymous",
+            "viewport": {
+                "width": 375,
+                "height": 812
+            },
+            "theme": "light",
+            "locale": "en-US",
+            "zoom": 1,
+            "tier": "quick",
+            "primaryTaskSelectors": [],
+            "linkedIssues": [
+                1462,
+                1463,
+                1464,
+                1473,
+                1476
+            ],
+            "surfaceRole": "public"
+        },
+        {
+            "id": "article-detail-tablet-zh-cn",
+            "route": "ArticleDetail",
+            "scope": "anonymous",
+            "viewport": {
+                "width": 768,
+                "height": 1024
+            },
+            "theme": "light",
+            "locale": "zh-CN",
+            "zoom": 1,
+            "tier": "release",
+            "primaryTaskSelectors": [],
+            "linkedIssues": [
+                1462,
+                1463,
+                1464,
+                1473,
+                1476
+            ],
+            "surfaceRole": "public"
+        },
+        {
+            "id": "article-detail-tablet-en-us",
+            "route": "ArticleDetail",
+            "scope": "anonymous",
+            "viewport": {
+                "width": 768,
+                "height": 1024
+            },
+            "theme": "light",
+            "locale": "en-US",
+            "zoom": 1,
+            "tier": "release",
+            "primaryTaskSelectors": [],
+            "linkedIssues": [
+                1462,
+                1463,
+                1464,
+                1473,
+                1476
+            ],
+            "surfaceRole": "public"
+        },
+        {
+            "id": "article-detail-desktop-zh-cn",
+            "route": "ArticleDetail",
+            "scope": "anonymous",
+            "viewport": {
+                "width": 1440,
+                "height": 900
+            },
+            "theme": "light",
+            "locale": "zh-CN",
+            "zoom": 1,
+            "tier": "release",
+            "primaryTaskSelectors": [],
+            "linkedIssues": [
+                1462,
+                1463,
+                1464,
+                1473,
+                1476
+            ],
+            "surfaceRole": "public"
+        },
+        {
+            "id": "article-detail-desktop-en-us",
+            "route": "ArticleDetail",
+            "scope": "anonymous",
+            "viewport": {
+                "width": 1440,
+                "height": 900
+            },
+            "theme": "light",
+            "locale": "en-US",
+            "zoom": 1,
+            "tier": "release",
+            "primaryTaskSelectors": [],
+            "linkedIssues": [
+                1462,
+                1463,
+                1464,
+                1473,
+                1476
+            ],
+            "surfaceRole": "public"
+        }
+    ]
+}

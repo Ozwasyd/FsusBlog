@@ -1,0 +1,245 @@
+{
+    "schema": "fsusblog.public-preview-quality-policy.v1",
+    "qualityPolicy": {
+        "schema": "fsusblog.public-preview-quality-policy.v1",
+        "mobileMaxWidth": 768,
+        "normalHitTargetMinPx": 40,
+        "primaryHitTargetHeightMinPx": 44,
+        "focusClipTolerancePx": 2,
+        "layoutShiftMaxPx": 1,
+        "overflowTolerancePx": 1,
+        "maxTaskPanels": 8,
+        "maxBadges": 12,
+        "maxPrimaryActions": 3,
+        "maxUnscopedRadiusPx": 12,
+        "expressiveRadiusPx": 24,
+        "zoomMode": "css-layout-smoke",
+        "reviewerStatuses": [
+            "pass",
+            "fail",
+            "needs-design-review"
+        ],
+        "localeTokens": {
+            "zh-CN": [
+                "登录",
+                "搜索",
+                "菜单",
+                "上一页",
+                "下一页",
+                "最新文章",
+                "评论",
+                "管理"
+            ],
+            "en-US": [
+                "Login",
+                "Search",
+                "Menu",
+                "Previous",
+                "Next",
+                "Latest articles",
+                "Comments",
+                "Administration"
+            ]
+        },
+        "uiChromeSelectors": [
+            "header",
+            "nav",
+            "button",
+            "label",
+            "summary",
+            "[role=\"button\"]",
+            "[data-ui-chrome]",
+            "[data-public-shell-action]",
+            "[data-home-feed-heading]"
+        ],
+        "userContentSelectors": [
+            "article",
+            "[data-user-content]",
+            "[data-public-preview-user-content]",
+            "[data-content-body]",
+            "[data-article-content]"
+        ],
+        "primaryHitTargetSelectors": [
+            "[data-public-shell-action]",
+            "[data-comment-empty-action]",
+            "[data-primary-action]",
+            "[data-article-category]",
+            "[data-article-tag]"
+        ],
+        "panelSelectors": [
+            "[data-surface-role=\"panel\"]",
+            ".el-card",
+            "[data-task-panel]",
+            "[data-dashboard-panel]"
+        ],
+        "badgeSelectors": [
+            ".el-tag",
+            "[data-badge]",
+            "[data-status-badge]"
+        ],
+        "primaryActionSelectors": [
+            "[data-primary-action]",
+            ".el-button--primary",
+            "button[type=\"submit\"]"
+        ],
+        "localeStorageKey": "fsusblog.locale"
+    },
+    "screenshotProfiles": {
+        "admin-dashboard-desktop-light": {
+            "locale": "zh-CN",
+            "zoom": 1,
+            "linkedIssues": [
+                1471,
+                1476
+            ],
+            "surfaceRole": "task",
+            "primaryTaskSelectors": [
+                "main h1",
+                "[data-page-title]",
+                "[data-primary-task]",
+                "[data-empty-state]"
+            ],
+            "qualityViewport": {
+                "width": 1440,
+                "height": 960
+            }
+        },
+        "article-detail-desktop-light": {
+            "locale": "zh-CN",
+            "zoom": 1,
+            "linkedIssues": [
+                1462,
+                1463,
+                1464,
+                1473,
+                1476
+            ],
+            "surfaceRole": "public",
+            "primaryTaskSelectors": [],
+            "qualityViewport": {
+                "width": 1440,
+                "height": 960
+            }
+        },
+        "article-detail-mobile-light": {
+            "locale": "zh-CN",
+            "zoom": 1,
+            "linkedIssues": [
+                1462,
+                1463,
+                1464,
+                1473,
+                1476
+            ],
+            "surfaceRole": "public",
+            "primaryTaskSelectors": [],
+            "qualityViewport": {
+                "width": 390,
+                "height": 844
+            }
+        },
+        "article-editor-desktop-light": {
+            "locale": "zh-CN",
+            "zoom": 1,
+            "linkedIssues": [
+                1476
+            ],
+            "surfaceRole": "task",
+            "primaryTaskSelectors": [
+                "main h1",
+                "[data-page-title]",
+                "[data-primary-task]",
+                "[data-empty-state]"
+            ],
+            "qualityViewport": {
+                "width": 1440,
+                "height": 960
+            }
+        },
+        "comment-moderation-desktop-light": {
+            "locale": "zh-CN",
+            "zoom": 1,
+            "linkedIssues": [
+                1476
+            ],
+            "surfaceRole": "task",
+            "primaryTaskSelectors": [
+                "main h1",
+                "[data-page-title]",
+                "[data-primary-task]",
+                "[data-empty-state]"
+            ],
+            "qualityViewport": {
+                "width": 1440,
+                "height": 960
+            }
+        },
+        "operations-status-desktop-light": {
+            "locale": "zh-CN",
+            "zoom": 1,
+            "linkedIssues": [
+                1471,
+                1476
+            ],
+            "surfaceRole": "task",
+            "primaryTaskSelectors": [
+                "main h1",
+                "[data-page-title]",
+                "[data-primary-task]",
+                "[data-empty-state]"
+            ],
+            "qualityViewport": {
+                "width": 1440,
+                "height": 960
+            }
+        },
+        "public-home-desktop-dark": {
+            "locale": "zh-CN",
+            "zoom": 1,
+            "linkedIssues": [
+                1425,
+                1474,
+                1476
+            ],
+            "surfaceRole": "public",
+            "primaryTaskSelectors": [],
+            "qualityViewport": {
+                "width": 1440,
+                "height": 960
+            }
+        },
+        "public-home-desktop-light": {
+            "locale": "zh-CN",
+            "zoom": 1,
+            "linkedIssues": [
+                1425,
+                1474,
+                1476
+            ],
+            "surfaceRole": "public",
+            "primaryTaskSelectors": [],
+            "qualityViewport": {
+                "width": 1440,
+                "height": 960
+            }
+        },
+        "security-console-desktop-light": {
+            "locale": "zh-CN",
+            "zoom": 1,
+            "linkedIssues": [
+                1476
+            ],
+            "surfaceRole": "task",
+            "primaryTaskSelectors": [
+                "main h1",
+                "[data-page-title]",
+                "[data-primary-task]",
+                "[data-empty-state]"
+            ],
+            "qualityViewport": {
+                "width": 1440,
+                "height": 960
+            }
+        }
+    }
+}
