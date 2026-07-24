@@ -670,7 +670,11 @@
             "owner": "ServerContractAgent",
             "risk": "high",
             "evidencePaths": [
-                ".tmp/coverage/backend-merged/Summary.json"
+                ".tmp/coverage/backend-merged/Summary.json",
+                ".tmp/coverage/backend-merged/coverage.json",
+                ".tmp/coverage/backend-merged/coverage.cobertura.xml",
+                ".tmp/coverage/backend-merged/migration-evidence.json",
+                "tests/tools/backend-coverage-pipeline.test.mjs"
             ],
             "assertionType": "static",
             "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",

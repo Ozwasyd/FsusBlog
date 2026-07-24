@@ -32,6 +32,9 @@ StaticCsharpStyle() {
 TEST_ASSET_BEHAVIOR_FILES=(
     "$ROOT_DIR/tests/tools/artifact-digest-table.test.mjs"
     "$ROOT_DIR/tests/tools/async-log-pipeline.test.mjs"
+    "$ROOT_DIR/tests/tools/backend-coverage-collector-layout.test.mjs"
+    "$ROOT_DIR/tests/tools/backend-coverage-pipeline.test.mjs"
+    "$ROOT_DIR/tests/tools/coverage-merge-parallelism.test.mjs"
     "$ROOT_DIR/tests/tools/cross-stack-receipt-join.test.mjs"
     "$ROOT_DIR/tests/tools/dotnet-build-server-cleanup.test.mjs"
     "$ROOT_DIR/tests/tools/frontend-vitest-rolling-shards.test.mjs"

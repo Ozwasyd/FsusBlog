@@ -26,6 +26,11 @@ import {
 } from '../test-matrix/production-build-layout.mjs'
 import { resolveCgroupLimits } from '../test-matrix/production-resource-enforcement.mjs'
 import { findCSharpClassDeclaration } from './csharp-source-mask.mjs'
+import {
+  prepareCoverageShard,
+  resolveCoverageBinding,
+  writeCoverageUniverse
+} from '../coverage/backend-coverage-pipeline.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const project = 'tests/backend/FsusBlog.Server.Tests.csproj'
@@ -2320,7 +2325,7 @@ async function runBackendProductionShardsCore({
       '--logger', `trx;LogFileName=${mainTrxFile}`,
       '--collect:XPlat Code Coverage',
       '--results-directory', mainCoverageRoot,
-      '--', 'DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=json,cobertura'
+      '--', 'DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=json'
     ], { env: backendPartitionEnvironment(process.env, {
       processors: parallelism.cpuBudget,
       memoryGiB: parallelism.memoryGiB,
@@ -2336,6 +2341,12 @@ async function runBackendProductionShardsCore({
   if (discoveryResultFailed(mainResult)) {
     throw new Error(`backend production coverage main failed: ${discoveryFailureDetail(mainResult)}`)
   }
+  const coverageBinding = resolveCoverageBinding()
+  prepareCoverageShard({
+    directory: mainCoverageRoot,
+    shardId: 'production-main',
+    binding: coverageBinding
+  })
   const mainEvidence = parseTrxExecutionEvidence(fs.readFileSync(mainTrxFile, 'utf8'))
   const mainRecords = mainEvidence.records
   const evidenceResult = await runNode(['tools/security/check-perception-v2-e2e-evidence.mjs'], { capture: true })
@@ -2478,6 +2489,11 @@ async function runBackendProductionShardsCore({
     generatedAt: new Date().toISOString()
   }
   validateShardSummaryArtifacts(summary, [mainTrxFile])
+  writeCoverageUniverse({
+    file: path.join(coverageRoot, 'universe.json'),
+    shards: [{ id: 'production-main', directory: mainCoverageRoot }],
+    binding: coverageBinding
+  })
   writeJsonAtomic(summaryFile, summary)
   console.log(
     `[backend-production-shards] ok tests=${validation.executedTestCaseCount} methods=${validation.executedMethodCount} `
@@ -2673,7 +2689,7 @@ async function runExpandableBackendProductionShards({
           `--logger:trx;LogFileName=${path.basename(trxFile)}`,
           `--ResultsDirectory:${resultRoot}`,
           '--Collect:XPlat Code Coverage',
-          '--', 'DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=json,cobertura'
+          '--', 'DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=json'
         ]
         const result = await runDotnet(command, { env: backendPartitionEnvironment(process.env, {
           processors: slot.processors,
@@ -2681,9 +2697,19 @@ async function runExpandableBackendProductionShards({
           namespace: `${databaseNamespace}-s${partition.index}`,
           tempDirectory
         }) })
-        if (fs.existsSync(collectorTrxFile)) fs.copyFileSync(collectorTrxFile, trxFile)
+        if (fs.existsSync(collectorTrxFile)) {
+          fs.copyFileSync(collectorTrxFile, trxFile)
+          fs.rmSync(collectorTrxFile)
+        }
         else if (!discoveryResultFailed(result)) {
           throw new Error(`backend production shard ${partition.index} did not write ${collectorTrxFile}`)
+        }
+        if (!discoveryResultFailed(result)) {
+          prepareCoverageShard({
+            directory: resultRoot,
+            shardId: `production-${partition.index}`,
+            binding: resolveCoverageBinding()
+          })
         }
         return { ...result, index: partition.index, trxFile, coverageRoot: resultRoot }
       }, {
@@ -2832,6 +2858,14 @@ async function runExpandableBackendProductionShards({
     }
     const trxFiles = outcomes.map((outcome) => outcome.value.trxFile)
     validateShardSummaryArtifacts(summary, trxFiles)
+    writeCoverageUniverse({
+      file: path.join(coverageRoot, 'universe.json'),
+      shards: outcomes.map((outcome) => ({
+        id: `production-${outcome.value.index}`,
+        directory: outcome.value.coverageRoot
+      })),
+      binding: resolveCoverageBinding()
+    })
     writeJsonAtomic(summaryFile, summary)
     return summary
   } finally {

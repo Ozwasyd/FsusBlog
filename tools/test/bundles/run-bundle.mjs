@@ -1337,7 +1337,7 @@ async function runBackendTests() {
         ]
       }),
     commandStep('backend-coverage-summary',
-      'node tools/coverage/summarize-cobertura.mjs .tmp/coverage/backend .tmp/coverage/backend-merged/Summary.json backend-cobertura', [], {
+      'node tools/coverage/backend-coverage-pipeline.mjs merge --manifest .tmp/coverage/backend/production/universe.json --out .tmp/coverage/backend-merged', [], {
         dependsOn: ['dotnet-production-union']
       })
   ], bundleDagCapacity, async (step) => {

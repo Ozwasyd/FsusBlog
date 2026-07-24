@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { chmod, mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
@@ -16,22 +16,38 @@ const lanes = [
   'special-golden'
 ]
 
-async function writeReportPair(directory) {
+const fixtureCoverage = {
+  'Example.dll': {
+    '/workspace/FsusBlog/src/backend/Example.cs': {
+      'Example.Subject': {
+        'System.Void Example.Subject::Run()': {
+          Lines: { 1: 1 },
+          Branches: [{ Line: 1, Offset: 0, EndOffset: 1, Path: 0, Ordinal: 0, Hits: 1 }]
+        }
+      }
+    }
+  }
+}
+
+async function writeReport(directory) {
   await mkdir(directory, { recursive: true })
-  await writeFile(path.join(directory, 'coverage.cobertura.xml'), '<coverage />\n')
-  await writeFile(path.join(directory, 'coverage.json'), '{}\n')
+  await writeFile(path.join(directory, 'coverage.json'), `${JSON.stringify(fixtureCoverage)}\n`)
 }
 
 async function fixture() {
   const root = await mkdtemp(path.join(os.tmpdir(), 'fsusblog-backend-coverage-layout-'))
   const coverageRoot = path.join(root, 'coverage')
   for (const lane of lanes) {
-    await writeReportPair(path.join(coverageRoot, 'backend', lane, 'collector-primary'))
+    const laneDirectory = path.join(coverageRoot, 'backend', lane)
+    await writeReport(path.join(laneDirectory, 'collector-primary'))
+    const prepared = spawnSync(process.execPath, [
+      path.join(repoRoot, 'tools/coverage/backend-coverage-pipeline.mjs'),
+      'prepare',
+      '--dir', laneDirectory,
+      '--shard', lane
+    ], { cwd: repoRoot, encoding: 'utf8' })
+    assert.equal(prepared.status, 0, prepared.stderr || prepared.stdout)
   }
-
-  const fakeNode = path.join(root, 'fake-node.sh')
-  await writeFile(fakeNode, '#!/usr/bin/env bash\nset -euo pipefail\nprintf \'{"schema":"fixture"}\\n\' > "$3"\n')
-  await chmod(fakeNode, 0o755)
 
   return {
     root,
@@ -44,8 +60,7 @@ async function fixture() {
           ...process.env,
           FSUSBLOG_COVERAGE_ROOT: coverageRoot,
           FSUSBLOG_BACKEND_TRX_DIR: path.join(root, 'trx'),
-          FSUSBLOG_COVERAGE_SKIP_TESTS: '1',
-          FSUSBLOG_NODE: fakeNode
+          FSUSBLOG_COVERAGE_SKIP_TESTS: '1'
         }
       })
     }
@@ -63,7 +78,7 @@ test('collector discards VSTest serialized attachment copies before exact lane v
     'In',
     'ser012345'
   )
-  await writeReportPair(serializedCopy)
+  await writeReport(serializedCopy)
 
   const result = subject.run()
 
@@ -74,10 +89,10 @@ test('collector discards VSTest serialized attachment copies before exact lane v
 test('collector still rejects two independent collector result directories', async (t) => {
   const subject = await fixture()
   t.after(() => rm(subject.root, { recursive: true, force: true }))
-  await writeReportPair(path.join(subject.coverageRoot, 'backend', 'ordinary', 'collector-secondary'))
+  await writeReport(path.join(subject.coverageRoot, 'backend', 'ordinary', 'collector-secondary'))
 
   const result = subject.run()
 
   assert.notEqual(result.status, 0)
-  assert.match(result.stderr, /ordinary must contain exactly one Cobertura and one Coverlet JSON report \(got cobertura=2 json=2\)/u)
+  assert.match(result.stderr, /ordinary must contain exactly one canonical coverage\.json; found 2/u)
 })

@@ -9,36 +9,8 @@ RESULTS_DIR="$COVERAGE_ROOT/backend"
 ORDINARY_RESULTS_DIR="$RESULTS_DIR/ordinary"
 SUMMARY_DIR="$COVERAGE_ROOT/backend-merged"
 SUMMARY_FILE="$SUMMARY_DIR/Summary.json"
+UNIVERSE_FILE="$RESULTS_DIR/universe.json"
 EXPECTED_RESULT_LANES=(ordinary special-api-integration special-auth-state-machine special-concurrency special-property special-golden)
-
-PruneVstestSerializedAttachmentCopies() {
-    local laneDir="$1"
-    local serializedDir serializedCobertura serializedJson primaryCobertura primaryJson
-    local -a serializedCoberturaFiles serializedJsonFiles
-
-    while IFS= read -r -d '' serializedDir; do
-        mapfile -d '' serializedCoberturaFiles < <(find "$serializedDir" -type f -name 'coverage.cobertura.xml' -print0)
-        mapfile -d '' serializedJsonFiles < <(find "$serializedDir" -type f -name 'coverage.json' -print0)
-        if [[ "${#serializedCoberturaFiles[@]}" != "1" || "${#serializedJsonFiles[@]}" != "1" ]]; then
-            continue
-        fi
-
-        serializedCobertura="${serializedCoberturaFiles[0]}"
-        serializedJson="${serializedJsonFiles[0]}"
-        while IFS= read -r -d '' primaryCobertura; do
-            if [[ "$primaryCobertura" == "$serializedDir"/* ]]; then
-                continue
-            fi
-            primaryJson="$(dirname "$primaryCobertura")/coverage.json"
-            if [[ -f "$primaryJson" ]] &&
-                cmp -s "$serializedCobertura" "$primaryCobertura" &&
-                cmp -s "$serializedJson" "$primaryJson"; then
-                rm -rf "$serializedDir"
-                break
-            fi
-        done < <(find "$laneDir" -type f -name 'coverage.cobertura.xml' -print0)
-    done < <(find "$laneDir" -mindepth 1 -maxdepth 1 -type d -name '_ser*' -print0)
-}
 
 if [[ "${1:-}" == "--dry-run" ]]; then
     jq -n --arg script "collect-backend-coverage" --arg out "$SUMMARY_FILE" '{
@@ -70,7 +42,11 @@ if [[ "${FSUSBLOG_COVERAGE_SKIP_TESTS:-0}" != "1" ]]; then
         --logger "trx;LogFileName=$TRX_FILE" \
         "--collect:XPlat Code Coverage" \
         --results-directory "$ORDINARY_RESULTS_DIR" \
-        -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=json,cobertura
+        -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=json
+    "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/coverage/backend-coverage-pipeline.mjs" \
+        prepare \
+        --dir "$ORDINARY_RESULTS_DIR" \
+        --shard ordinary
 else
     mkdir -p "$SUMMARY_DIR"
 fi
@@ -92,23 +68,31 @@ done < <(find "$RESULTS_DIR" -mindepth 1 -maxdepth 1 -print0 2>/dev/null)
 
 for lane in "${EXPECTED_RESULT_LANES[@]}"; do
     laneDir="$RESULTS_DIR/$lane"
-    cobertura_count=0
+    "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/coverage/backend-coverage-pipeline.mjs" \
+        prepare \
+        --dir "$laneDir" \
+        --shard "$lane"
     json_count=0
+    identity_count=0
     if [[ -d "$laneDir" ]]; then
-        # VSTest copies collector attachments into a top-level _ser* transport
-        # directory after the run. Remove only byte-identical copies; independent
-        # or divergent reports remain visible to the exact-one fail-closed check.
-        PruneVstestSerializedAttachmentCopies "$laneDir"
-        cobertura_count="$(find "$laneDir" -type f -name 'coverage.cobertura.xml' | wc -l)"
         json_count="$(find "$laneDir" -type f -name 'coverage.json' | wc -l)"
+        identity_count="$(find "$laneDir" -type f -name 'coverage.identity.json' | wc -l)"
     fi
-    if [[ "$cobertura_count" != "1" || "$json_count" != "1" ]]; then
-        printf '[coverage:backend] %s must contain exactly one Cobertura and one Coverlet JSON report (got cobertura=%s json=%s)\n' \
-            "$lane" "$cobertura_count" "$json_count" >&2
+    if [[ "$json_count" != "1" || "$identity_count" != "1" ]]; then
+        printf '[coverage:backend] %s must contain exactly one Coverlet JSON report and identity sidecar (got json=%s identity=%s)\n' \
+            "$lane" "$json_count" "$identity_count" >&2
         exit 1
     fi
 done
 
-"${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/coverage/summarize-cobertura.mjs" "$RESULTS_DIR" "$SUMMARY_FILE" backend-cobertura
+"${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/coverage/backend-coverage-pipeline.mjs" \
+    universe \
+    --input-root "$RESULTS_DIR" \
+    --expected-shards "$(IFS=,; printf '%s' "${EXPECTED_RESULT_LANES[*]}")" \
+    --out "$UNIVERSE_FILE"
+"${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/coverage/backend-coverage-pipeline.mjs" \
+    merge \
+    --manifest "$UNIVERSE_FILE" \
+    --out "$SUMMARY_DIR"
 
 printf '[coverage:backend] wrote %s\n' "$SUMMARY_FILE"

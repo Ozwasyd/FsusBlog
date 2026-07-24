@@ -1219,7 +1219,11 @@ RunBackendDotnetFilterWithCoverage() {
         --logger "trx;LogFileName=$trxFile" \
         "--collect:XPlat Code Coverage" \
         --results-directory "$resultsDir" \
-        -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=json,cobertura
+        -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=json
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/coverage/backend-coverage-pipeline.mjs" \
+        prepare \
+        --dir "$resultsDir" \
+        --shard "special-$lane"
 }
 
 RunBackendTestGovernanceCheckOnce() {
