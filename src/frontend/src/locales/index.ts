@@ -19,6 +19,14 @@ export {
     isSupportedLocale
 } from './keys';
 export type { SupportedLocale, TranslationParams } from './keys';
+export {
+    MIGRATION_PLACEHOLDER_PREFIX,
+    enumeratePlaceholders,
+    extractInterpolationParams,
+    parseMigrationPlaceholder,
+    validateLocaleParity
+} from './validator';
+export type { EnumeratedPlaceholder, MigrationPlaceholderInfo, ParityValidationResult } from './validator';
 
 export type LocaleMessages = DeepStringShape<typeof zhCN>;
 export type TranslationKey = LeafPaths<typeof zhCN>;

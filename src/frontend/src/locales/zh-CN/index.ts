@@ -3,6 +3,8 @@ import { article } from './article';
 import { auth } from './auth';
 import { common } from './common';
 import { errors } from './errors';
+import { identity } from './identity';
+import { messages } from './messages';
 import { publicMessages } from './public';
 import { security } from './security';
 
@@ -11,7 +13,9 @@ export const zhCN = {
     public: publicMessages,
     article,
     auth,
-    errors,
+    identity,
+    messages,
+    security,
     admin,
-    security
+    errors
 } as const;
