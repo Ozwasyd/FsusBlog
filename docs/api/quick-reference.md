@@ -504,3 +504,12 @@
 | POST `/api/ops/cluster/nodes/{nodeId}/state` | 同上 + trusted origin + `X-Fsus-Mfa-Proof` | JSON node state, `no-store` | 仅 `alive|draining|maintenance` |
 | POST `/api/ops/cluster/scheduler` | 同上 + trusted origin + `X-Fsus-Mfa-Proof` | JSON scheduling latch, `no-store` | 无重启停止/恢复新职责调度 |
 | POST `/api/ops/cluster/leases/{leaseId}/release-expired` | 同上 + trusted origin + `X-Fsus-Mfa-Proof` | JSON release result, `no-store` | 只清理已过期 lease，不允许强制释放 active lease |
+
+## Plugin Admin
+
+| Method | Path | Auth | Purpose |
+| --- | --- | --- | --- |
+| GET | `/api/binary/author/plugins` | admin `system.config` | 插件列表、健康与集群一致性摘要 |
+| GET | `/api/binary/author/plugins/{pluginId}` | admin `system.config` | manifest 摘要、权限、配置、Hook、指标、日志、错误与逐节点状态 |
+| POST | `/api/binary/author/plugins/install` | admin `system.config` + step-up | 验证并安装 `.fspkg` |
+| POST | `/api/binary/author/plugins/{pluginId}/actions` | admin `system.config` + step-up | grant/revoke/enable/disable/reload/quarantine/restore/uninstall/update-config |

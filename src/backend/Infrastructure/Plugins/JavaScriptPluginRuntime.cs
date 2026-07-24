@@ -63,7 +63,8 @@ public interface IJavaScriptPluginHostApi
 }
 
 public sealed class DefaultJavaScriptPluginHostApi(
-    ILogger<DefaultJavaScriptPluginHostApi> logger) : IJavaScriptPluginHostApi
+    ILogger<DefaultJavaScriptPluginHostApi> logger,
+    PluginObservabilityStore? observability = null) : IJavaScriptPluginHostApi
 {
     public ValueTask<JsonElement> InvokeAsync(
         string pluginId,
@@ -114,6 +115,14 @@ public sealed class DefaultJavaScriptPluginHostApi(
             },
             "Plugin {PluginId} wrote {PluginMessage}",
             pluginId,
+            message);
+        PluginExecutionAmbientContext.Context? execution = PluginExecutionAmbientContext.Current;
+        observability?.RecordLog(
+            pluginId,
+            PluginRuntimeType.JavaScript,
+            execution?.HookName ?? "host.log",
+            execution?.TraceId ?? string.Empty,
+            level,
             message);
         return ValueTask.FromResult(JsonSerializer.SerializeToElement(
             new
@@ -364,6 +373,11 @@ public sealed class JavaScriptPluginRuntime(
                         throw;
                     }
                 };
+            using IDisposable ambient = PluginExecutionAmbientContext.Push(
+                invocation.PluginId,
+                invocation.Runtime,
+                invocation.Definition.Name,
+                invocation.Context.TraceId);
             JsValue raw = await engine.InvokeAsync(
                 "__fsusInvokeHookJson",
                 token,

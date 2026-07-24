@@ -266,6 +266,9 @@ public enum AedsFrameType : ushort
     CommentModerationClaimRequest = 229,
     CommentModerationClaimMutationRequest = 230,
     CommentModerationClaimResponse = 231,
+    PluginPackageInstallRequest = 232,
+    PluginAdminSnapshot = 233,
+    PluginAdminMutationRequest = 234,
     EmptySuccess = 240,
     MutationId = 241,
     ApiError = 251

@@ -947,6 +947,18 @@
             "value": 231
         },
         {
+            "name": "PluginPackageInstallRequest",
+            "value": 232
+        },
+        {
+            "name": "PluginAdminSnapshot",
+            "value": 233
+        },
+        {
+            "name": "PluginAdminMutationRequest",
+            "value": 234
+        },
+        {
             "name": "EmptySuccess",
             "value": 240
         },

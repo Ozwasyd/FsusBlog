@@ -142,6 +142,7 @@ const accountNavItems: readonly AccountNavItem[] = [
   },
 
   { label: '系统设置', to: '/user/manage/settings', area: 'manage', groupKey: 'system', adminOnly: true, requiredPermission: 'system.config' },
+  { label: '插件', to: '/user/manage/plugins', helper: '运行时', area: 'manage', groupKey: 'system', adminOnly: true, requiredPermission: 'system.config' },
   { label: '备份迁移', to: '/user/manage/content-tools', helper: '导入/导出', area: 'manage', groupKey: 'system', adminOnly: true, requiredPermission: 'system.config' },
   { label: '审计日志', to: '/user/manage/audit', area: 'manage', groupKey: 'system', adminOnly: true, requiredPermission: 'audit.read' },
 
@@ -163,7 +164,7 @@ const navLabelKeys = {
     '/user/manage/moderation/anonymous-policy': 'anonymousPolicy', '/user/manage/moderation/anonymous-risk': 'anonymousRisk',
     '/user/manage/moderation/anonymous-credentials': 'anonymousCredentials', '/user/manage/moderation/nullifiers': 'anonymousNullifiers',
     '/user/manage/moderation/zk-anonymous': 'privacyProof', '/user/manage/security': 'security',
-    '/user/manage/settings': 'settings', '/user/manage/content-tools': 'contentTools', '/user/manage/audit': 'audit',
+    '/user/manage/settings': 'settings', '/user/manage/plugins': 'plugins', '/user/manage/content-tools': 'contentTools', '/user/manage/audit': 'audit',
     '/user/manage/analytics': 'analytics', '/user/manage/ops': 'operations', '/user/manage/cluster': 'clusterRuntime', '/user/manage/cache': 'cache',
     '/user/manage/integrity': 'integrity', '/user/manage/integrity-proof': 'integrityProof'
 } as const;
@@ -171,7 +172,7 @@ const navLabelKeys = {
 const helperKeys = {
     '设备': 'devices', '恢复': 'recovery', '评论/策略': 'commentsPolicies', '工单': 'tickets', '开关': 'toggle',
     '风险桶': 'riskBuckets', '撤销': 'revoke', '封禁': 'block', '证明': 'proof', '风险防护': 'riskProtection',
-    '导入/导出': 'importExport', '统计': 'statistics', '后台': 'background', '节点': 'nodes', '索引': 'index', '一致性': 'consistency'
+    '导入/导出': 'importExport', '运行时': 'runtime', '统计': 'statistics', '后台': 'background', '节点': 'nodes', '索引': 'index', '一致性': 'consistency'
 } as const;
 
 const navGroupTemplates: readonly AccountNavGroupTemplate[] = [

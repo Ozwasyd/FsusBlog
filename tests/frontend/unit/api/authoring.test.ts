@@ -14,6 +14,10 @@ import {
   rollbackModerationDictionaries,
   saveArticleResponsibility,
   getArticleResponsibilityHistory,
+  getPlugin,
+  installPlugin,
+  listPlugins,
+  mutatePlugin,
   saveServerDraft,
   setModerationGlobalState,
   setModerationRegionState
@@ -356,6 +360,63 @@ describe('authoring API binary transport', () => {
     expectAedsJsonBody(call?.requestOptions?.body, FrameType.AnonymousGovernanceActionRequest, {
       reason: 'abuse confirmed'
     })
+  })
+
+  it('reads plugin overview and detail through the admin-only snapshot frame', async () => {
+    binaryMock.mockResolvedValueOnce({ plugins: [] }).mockResolvedValueOnce({ summary: { pluginId: 'fsusblog.plugin.guard' } })
+
+    await listPlugins()
+    await getPlugin('fsusblog.plugin.guard')
+
+    expect(binaryMock.mock.calls[0]?.[0]).toMatchObject({
+      binaryUrl: '/api/binary/author/plugins',
+      privateScope: 'admin',
+      frameType: FrameType.PluginAdminSnapshot
+    })
+    expect(binaryMock.mock.calls[1]?.[0]).toMatchObject({
+      binaryUrl: '/api/binary/author/plugins/fsusblog.plugin.guard',
+      privateScope: 'admin',
+      frameType: FrameType.PluginAdminSnapshot
+    })
+  })
+
+  it('encodes plugin mutations with explicit confirmation and config version', async () => {
+    binaryMock.mockResolvedValue(null)
+
+    await mutatePlugin('fsusblog.plugin.guard', {
+      action: 'update-config',
+      confirmed: true,
+      expectedConfigVersion: 7,
+      config: { mode: 'enforce' }
+    }, { mfaProofToken: 'proof-plugin' })
+
+    const call = binaryMock.mock.calls[0]?.[0]
+    expect(call?.binaryUrl).toBe('/api/binary/author/plugins/fsusblog.plugin.guard/actions')
+    expect(call?.frameType).toBe(FrameType.PluginAdminSnapshot)
+    expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-plugin')
+    expectAedsJsonBody(call?.requestOptions?.body, FrameType.PluginAdminMutationRequest, {
+      action: 'update-config',
+      confirmed: true,
+      expectedConfigVersion: 7,
+      config: { mode: 'enforce' }
+    })
+  })
+
+  it('installs the exact fspkg bytes in a route-specific AEDS frame', async () => {
+    binaryMock.mockResolvedValue({ summary: { pluginId: 'fsusblog.plugin.guard' } })
+    const file = new File([new Uint8Array([1, 2, 3, 4])], 'guard.fspkg')
+
+    await installPlugin(file, { mfaProofToken: 'proof-install' })
+
+    const call = binaryMock.mock.calls[0]?.[0]
+    expect(call?.binaryUrl).toBe('/api/binary/author/plugins/install')
+    expect(call?.frameType).toBe(FrameType.PluginAdminSnapshot)
+    expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-install')
+    expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Plugin-Confirm')).toBe('install')
+    const bytes = new Uint8Array(call?.requestOptions?.body as ArrayBuffer)
+    const view = new DataView(bytes.buffer)
+    expect(view.getUint16(8, true)).toBe(FrameType.PluginPackageInstallRequest)
+    expect([...bytes.slice(16)]).toEqual([1, 2, 3, 4])
   })
 
 })

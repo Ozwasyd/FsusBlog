@@ -883,3 +883,19 @@ mode -> system preference -> theme default 解析，motion/contrast preference
 同步为根节点属性。暴露给 UI 的 current state 是 frozen snapshot，preview
 不会写入 registry activation。无需重启的降级方式是 registry scope disable /
 replacement；前端加载失败也会保留现有 stylesheet 并尝试 default。
+## Plugin Admin read model and rollback
+
+Plugin Admin 由 `PluginAdminService` 组合 Registry、permission manager、isolation
+controller、Jint/Lua runtime、Hook registry 和 cluster membership，不建立第二套
+安装权威。`PluginObservabilityStore` 是每节点有界 read cache：每插件最多保留 200
+条执行、200 条日志和 100 条错误，指标维度含 plugin/version/runtime/hook/result/
+timeout/resource budget/node/trace/fail policy/scope。它不是 durable Registry，也不把
+未上报远端节点补成当前节点状态。cluster console 对当前节点展示实际 load/Hook
+snapshot，对其它节点明确展示 `not-reported`，因此只有单节点真实状态与 Registry
+一致时才可声明 `clusterConsistent=true`。
+
+配置表单从已验证 `.fspkg` 的 config Schema 生成。写入先做受支持 JSON Schema 子集
+校验和 version CAS；enabled runtime 随后 reload。任一 load/reload 失败会把 durable
+lifecycle 推进到 Quarantined、移除 Hook、清空 grant，并保留低基数错误证据。
+无需重启的回退是针对单插件执行 disable/quarantine；匿名、登录、admin session、
+notification stream 和其它 binary routes 不改变。

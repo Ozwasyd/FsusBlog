@@ -83,6 +83,8 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<IPluginPermissionGrantStore, InMemoryPluginPermissionGrantStore>();
         services.AddSingleton<PluginPermissionManager>();
         services.AddSingleton<PluginIsolationController>();
+        services.AddSingleton<PluginObservabilityStore>();
+        services.AddSingleton<PluginAdminConfigStore>();
         services.AddSingleton<IPluginHookRegistry, PluginHookRegistry>();
         services.AddSingleton<ILuaScriptEngineAdapter, UnavailableLuaScriptEngineAdapter>();
         services.AddSingleton<ILuaPluginRuntime, LuaPluginRuntime>();
@@ -98,6 +100,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<IPluginHookScopeCoordinator, PluginHookScopeCoordinator>();
         services.AddSingleton<IPluginHookDispatcher, PluginHookDispatcher>();
         services.AddScoped<PluginSecurityAdministrativeSnapshotService>();
+        services.AddScoped<PluginAdminService>();
         return services;
     }
 

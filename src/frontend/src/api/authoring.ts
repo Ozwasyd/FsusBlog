@@ -29,6 +29,145 @@ export interface ServerDraftSaveRequest {
     warningOverrideReason?: string | null;
 }
 
+export interface PluginAdminSummary {
+  pluginId: string
+  name: string
+  version: string
+  runtime: 'ts/js' | 'lua' | 'native' | 'wasm'
+  installState: string
+  healthState: 'healthy' | 'degraded' | 'quarantined' | 'disabled' | 'failed'
+  enabled: boolean
+  installedAtUtc: string
+  updatedAtUtc: string
+  lastErrorCode: string | null
+  activeHookCount: number
+  grantedCapabilityCount: number
+  requestedCapabilityCount: number
+  clusterConsistent: boolean
+}
+
+export interface PluginAdminOverview {
+  generatedAtUtc: string
+  currentNodeId: string
+  plugins: PluginAdminSummary[]
+}
+
+export interface PluginAdminHook {
+  name: string
+  priority: number
+  timeoutMs: number
+  failPolicy: string
+  executionMode: string
+  scope: string
+  idempotent: boolean
+}
+
+export interface PluginAdminCapability {
+  name: string
+  risk: 'safe' | 'sensitive' | 'dangerous' | 'trusted'
+  granted: boolean
+  requiresAdministratorConfirmation: boolean
+  reason: string
+}
+
+export interface PluginAdminExecutionMetric {
+  pluginId: string
+  pluginVersion: string
+  runtime: string
+  hookName: string
+  durationMilliseconds: number
+  success: boolean
+  errorCode: string | null
+  timeout: boolean
+  memoryUsedBytes: number
+  memoryBudgetBytes: number
+  nodeId: string
+  traceId: string
+  failPolicy: string
+  scope: string
+  createdAtUtc: string
+}
+
+export interface PluginAdminLog {
+  pluginId: string
+  runtime: string
+  hookName: string
+  nodeId: string
+  traceId: string
+  level: string
+  message: string
+  createdAtUtc: string
+}
+
+export interface PluginAdminError {
+  pluginId: string
+  runtime: string
+  hookName: string
+  nodeId: string
+  traceId: string
+  code: string
+  createdAtUtc: string
+}
+
+export interface PluginAdminNodeState {
+  nodeId: string
+  memberStatus: string
+  runtimeState: string
+  loaded: boolean
+  registeredHooks: string[]
+  lastErrorCode: string | null
+  observedAtUtc: string | null
+}
+
+export interface PluginAdminDetail {
+  summary: PluginAdminSummary
+  manifest: {
+    pluginId: string
+    name: string
+    version: string
+    author: string
+    description: string
+    hostVersionRange: string
+    runtime: string
+    runtimeEntry: string
+    requestedCapabilities: string[]
+    deniedRawPermissions: string[]
+    hooks: PluginAdminHook[]
+  }
+  permissions: PluginAdminCapability[]
+  config: {
+    version: number
+    schema: Record<string, unknown>
+    value: Record<string, unknown>
+    updatedAtUtc: string
+    reloadState: string
+  }
+  metrics: {
+    executionCount: number
+    successCount: number
+    errorCount: number
+    timeoutCount: number
+    permissionDeniedCount: number
+    quarantineCount: number
+    runtimeLoadCount: number
+    runtimeLoadFailureCount: number
+    averageDurationMilliseconds: number
+    maximumDurationMilliseconds: number
+  }
+  recentExecutions: PluginAdminExecutionMetric[]
+  recentLogs: PluginAdminLog[]
+  recentErrors: PluginAdminError[]
+  nodes: PluginAdminNodeState[]
+}
+
+export interface PluginAdminMutation {
+  action: 'grant' | 'revoke' | 'enable' | 'disable' | 'reload' | 'quarantine' | 'restore' | 'uninstall' | 'update-config'
+  capabilities?: string[]
+  confirmed?: boolean
+  expectedConfigVersion?: number
+  config?: Record<string, unknown>
+}
+
 export interface ServerDraftResponse {
     draftKey: string;
     articleId: number | null;
@@ -1412,6 +1551,68 @@ export async function applyIntegrityFix(
     requestFrame: FrameType.IntegrityFixRequest,
     request
   })
+}
+
+export async function listPlugins(config?: ApiRequestConfig): Promise<PluginAdminOverview> {
+  return requestAuthoringBinary<PluginAdminOverview>(
+    '/plugins',
+    FrameType.PluginAdminSnapshot,
+    config
+  )
+}
+
+export async function getPlugin(
+  pluginId: string,
+  config?: ApiRequestConfig
+): Promise<PluginAdminDetail> {
+  return requestAuthoringBinary<PluginAdminDetail>(
+    `/plugins/${encodeURIComponent(pluginId)}`,
+    FrameType.PluginAdminSnapshot,
+    config
+  )
+}
+
+export async function installPlugin(
+  file: File,
+  config?: ApiRequestConfig
+): Promise<PluginAdminDetail> {
+  const packageBytes = new Uint8Array(await file.arrayBuffer())
+  const headers = authoringHeaders(config?.mfaProofToken)
+  headers.set('X-Fsus-Plugin-Confirm', 'install')
+  return requestBinaryOnly<PluginAdminDetail>({
+    binaryUrl: `${BINARY_API_PREFIX}/author/plugins/install`,
+    privateScope: 'admin',
+    frameType: FrameType.PluginAdminSnapshot,
+    requestOptions: {
+      method: 'POST',
+      credentials: 'include',
+      headers,
+      body: encodeAedsFrame(FrameType.PluginPackageInstallRequest, packageBytes)
+    },
+    signal: config?.signal as AbortSignal | undefined
+  })
+}
+
+export async function mutatePlugin(
+  pluginId: string,
+  request: PluginAdminMutation,
+  config?: ApiRequestConfig
+): Promise<PluginAdminDetail | null> {
+  return requestAuthoringBinary<PluginAdminDetail | null>(
+    `/plugins/${encodeURIComponent(pluginId)}/actions`,
+    FrameType.PluginAdminSnapshot,
+    config,
+    {
+      method: 'POST',
+      requestFrame: FrameType.PluginAdminMutationRequest,
+      request: {
+        capabilities: [],
+        confirmed: false,
+        expectedConfigVersion: 0,
+        ...request
+      }
+    }
+  )
 }
 
 export async function listCommentModerationQueue(

@@ -325,7 +325,8 @@ public sealed class PluginHookDispatcher(
     IPluginHookScopeCoordinator scopeCoordinator,
     PluginPermissionManager permissions,
     PluginIsolationController isolation,
-    TimeProvider timeProvider) : IPluginHookDispatcher
+    TimeProvider timeProvider,
+    PluginObservabilityStore? observability = null) : IPluginHookDispatcher
 {
     private static readonly ActivitySource s_activity = new("FsusBlog.PluginHooks");
     private static readonly Meter s_meter = new("FsusBlog.PluginHooks");
@@ -355,6 +356,11 @@ public sealed class PluginHookDispatcher(
             PluginHookFailPolicy failPolicy =
                 PluginHookWireNames.ParseFailPolicy(registration.Descriptor.FailPolicy);
             long started = Stopwatch.GetTimestamp();
+            bool success = false;
+            bool timeout = false;
+            string? errorCode = null;
+            long memoryUsedBytes = 0;
+            long memoryBudgetBytes = 0;
             using Activity? activity = s_activity.StartActivity("plugin.hook", ActivityKind.Internal);
             activity?.SetTag("plugin.id", registration.PluginId);
             activity?.SetTag("hook.name", definition.Name);
@@ -365,6 +371,7 @@ public sealed class PluginHookDispatcher(
                 isolation.DemandExecutable(registration.PluginId);
                 PluginExecutionBudget budget = ResolveBudget(registration.Descriptor, definition);
                 using var guard = new PluginExecutionBudgetGuard(budget, timeProvider, cancellationToken);
+                memoryBudgetBytes = guard.MemoryBudgetBytes;
                 var hostApi = new PluginHostApiProxy(registration.PluginId, permissions);
                 PluginHookScopeExecution outcome = await scopeCoordinator.ExecuteAsync(
                     registration,
@@ -388,11 +395,14 @@ public sealed class PluginHookDispatcher(
                     guard.CancellationToken).ConfigureAwait(false);
                 if (!outcome.Executed)
                 {
+                    success = true;
                     skipped++;
                     continue;
                 }
                 executed++;
                 PluginHookResult result = outcome.Result!;
+                memoryUsedBytes = guard.MemoryUsedBytes;
+                success = true;
                 value = result.Value ?? value;
                 if (!result.Continue)
                 {
@@ -404,15 +414,28 @@ public sealed class PluginHookDispatcher(
                 || !cancellationToken.IsCancellationRequested)
             {
                 failed++;
+                errorCode = exception.GetType().Name;
                 s_failures.Add(1,
                     new KeyValuePair<string, object?>("plugin.id", registration.PluginId),
                     new KeyValuePair<string, object?>("hook.name", definition.Name));
                 activity?.SetStatus(ActivityStatusCode.Error, exception.GetType().Name);
-                bool timeout = exception is PluginResourceLimitException
+                timeout = exception is PluginResourceLimitException
                     || exception is OperationCanceledException;
-                isolation.RecordFailure(
+                PluginIsolationSnapshot isolationSnapshot = isolation.RecordFailure(
                     registration.PluginId,
                     criticalHookTimeout: timeout || failPolicy == PluginHookFailPolicy.Quarantine);
+                if (exception is PluginCapabilityDeniedException)
+                {
+                    observability?.RecordPermissionDenied(
+                        registration.PluginId,
+                        registration.Runtime,
+                        definition.Name,
+                        context.TraceId);
+                }
+                if (isolationSnapshot.State == PluginIsolationState.Quarantined)
+                {
+                    observability?.RecordQuarantine(registration.PluginId);
+                }
                 if (failPolicy == PluginHookFailPolicy.FailClosed)
                 {
                     throw new PluginHookDispatchException(
@@ -422,10 +445,24 @@ public sealed class PluginHookDispatcher(
             }
             finally
             {
+                double durationMilliseconds = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
                 s_duration.Record(
-                    Stopwatch.GetElapsedTime(started).TotalMilliseconds,
+                    durationMilliseconds,
                     new KeyValuePair<string, object?>("plugin.id", registration.PluginId),
                     new KeyValuePair<string, object?>("hook.name", definition.Name));
+                observability?.RecordExecution(
+                    registration.PluginId,
+                    registration.Runtime,
+                    definition.Name,
+                    durationMilliseconds,
+                    success,
+                    errorCode,
+                    timeout,
+                    memoryUsedBytes,
+                    memoryBudgetBytes,
+                    context.TraceId,
+                    registration.Descriptor.FailPolicy,
+                    registration.Descriptor.Scope);
             }
         }
         return new(true, value, executed, failed, skipped);

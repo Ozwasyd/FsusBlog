@@ -1,16 +1,19 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.Policies;
+using FsusBlog.Server.Infrastructure.Plugins;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
@@ -19,6 +22,7 @@ using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Security;
+using FsusBlog.Shared.Contracts.Outputs;
 
 using SqlSugar;
 
@@ -469,6 +473,244 @@ public static partial class AuthoringEndpoints
         .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
+        group.MapGet("/plugins", async (
+            HttpContext context,
+            IAedsEncoder aeds,
+            PluginAdminService plugins,
+            IAuditEventService auditEvents,
+            CancellationToken cancellationToken) =>
+        {
+            PluginAdminOverviewDto response = await plugins.ListAsync(cancellationToken);
+            await auditEvents.RecordAsync(new AuditEvent(
+                AuditSourceCatalog.Admin,
+                AuditTypeCatalog.Infra,
+                "admin.plugin.overview_viewed",
+                AuditOutcomeCatalog.Success,
+                AuditSeverityCatalog.Info,
+                "管理员查看插件运行概览",
+                TargetType: "plugin_registry"), cancellationToken);
+            return Ok(context, aeds, response);
+        })
+        .RequireAdminPermission(AdminPermissions.SystemConfig)
+        .RequireRateLimiting("fixed_ip")
+        .RequireNoStoreResponse();
+
+        group.MapGet("/plugins/{pluginId}", async (
+            string pluginId,
+            HttpContext context,
+            IAedsEncoder aeds,
+            PluginAdminService plugins,
+            IAuditEventService auditEvents,
+            CancellationToken cancellationToken) =>
+        {
+            PluginAdminDetailDto? response = await plugins.GetAsync(pluginId, cancellationToken);
+            await auditEvents.RecordAsync(new AuditEvent(
+                AuditSourceCatalog.Admin,
+                AuditTypeCatalog.Infra,
+                "admin.plugin.detail_viewed",
+                response is null ? AuditOutcomeCatalog.Failure : AuditOutcomeCatalog.Success,
+                response is null ? AuditSeverityCatalog.Warning : AuditSeverityCatalog.Info,
+                "管理员查看插件详情",
+                TargetType: "plugin",
+                TargetId: pluginId), cancellationToken);
+            return response is null
+                ? AedsJsonResults.NotFound(aeds, "plugin_not_found")
+                : Ok(context, aeds, response);
+        })
+        .RequireAdminPermission(AdminPermissions.SystemConfig)
+        .RequireRateLimiting("fixed_ip")
+        .RequireNoStoreResponse();
+
+        group.MapPost("/plugins/install", async (
+            HttpContext context,
+            IAedsEncoder aeds,
+            IAdminPrincipalService adminPrincipals,
+            PluginAdminService plugins,
+            IAuditEventService auditEvents,
+            CancellationToken cancellationToken) =>
+        {
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
+            if (stepUp is not null)
+            {
+                return stepUp;
+            }
+            if (!string.Equals(
+                context.Request.Headers["X-Fsus-Plugin-Confirm"],
+                "install",
+                StringComparison.Ordinal))
+            {
+                return AedsJsonResults.BadRequest(aeds, "plugin_install_confirmation_required");
+            }
+
+            var requestContext = context.RequestServices.GetRequiredService<IBinaryEndpointRequestContext>();
+            using BinaryRequestPayload payload = await requestContext.ReadFrameAsync(
+                context,
+                aeds,
+                AedsFrameType.PluginPackageInstallRequest,
+                cancellationToken,
+                (32 * 1024 * 1024) + AedsFrameHeader.Size);
+            if (!payload.IsSuccess)
+            {
+                return BinaryResults.FromError(payload.Error, aeds);
+            }
+
+            try
+            {
+                using var package = new MemoryStream(payload.Payload.ToArray(), writable: false);
+                PluginRegistryEntry installed =
+                    await plugins.InstallAsync(package, cancellationToken).ConfigureAwait(false);
+                await RecordPluginMutationAuditAsync(
+                    auditEvents,
+                    installed.Manifest.Id,
+                    "install",
+                    AuditOutcomeCatalog.Success,
+                    cancellationToken);
+                PluginAdminDetailDto response =
+                    (await plugins.GetAsync(installed.Manifest.Id, cancellationToken).ConfigureAwait(false))!;
+                return Ok(context, aeds, response);
+            }
+            catch (PluginPackageValidationException)
+            {
+                return AedsJsonResults.BadRequest(aeds, "plugin_package_invalid");
+            }
+            catch (PluginLifecycleException)
+            {
+                return AedsJsonResults.Error(
+                    aeds,
+                    ErrorCode.Conflict,
+                    "plugin_install_conflict",
+                    StatusCodes.Status409Conflict);
+            }
+        })
+        .RequireAdminPermission(AdminPermissions.SystemConfig)
+        .RequireRateLimiting("fixed_ip")
+        .RequireNoStoreResponse();
+
+        group.MapPost("/plugins/{pluginId}/actions", async (
+            string pluginId,
+            HttpContext context,
+            IAedsEncoder aeds,
+            IAdminPrincipalService adminPrincipals,
+            PluginAdminService plugins,
+            IAuditEventService auditEvents,
+            CancellationToken cancellationToken) =>
+        {
+            var parsed = await ReadRequestAsync<PluginAdminMutationRequest>(
+                context,
+                aeds,
+                "plugin_admin_mutation_request_invalid",
+                cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
+            if (stepUp is not null)
+            {
+                return stepUp;
+            }
+            PluginAdminMutationRequest request = parsed.Value!;
+            if (request.Action is "uninstall" or "quarantine" or "restore"
+                && !request.Confirmed)
+            {
+                return AedsJsonResults.BadRequest(aeds, "plugin_dangerous_action_confirmation_required");
+            }
+            try
+            {
+                switch (request.Action)
+                {
+                    case "grant":
+                        await plugins.GrantAsync(
+                            pluginId,
+                            request.Capabilities ?? [],
+                            request.Confirmed,
+                            cancellationToken);
+                        break;
+                    case "revoke":
+                        await plugins.GrantAsync(
+                            pluginId,
+                            request.Capabilities ?? [],
+                            administratorConfirmed: true,
+                            cancellationToken);
+                        break;
+                    case "enable":
+                        await plugins.EnableAsync(pluginId, cancellationToken);
+                        break;
+                    case "disable":
+                        await plugins.DisableAsync(pluginId, cancellationToken);
+                        break;
+                    case "reload":
+                        await plugins.ReloadAsync(pluginId, cancellationToken);
+                        break;
+                    case "quarantine":
+                        await plugins.QuarantineAsync(pluginId, cancellationToken);
+                        break;
+                    case "restore":
+                        await plugins.RestoreAsync(pluginId, cancellationToken);
+                        break;
+                    case "uninstall":
+                        await plugins.UninstallAsync(pluginId, cancellationToken);
+                        break;
+                    case "update-config" when request.Config is JsonElement config:
+                        await plugins.UpdateConfigAsync(
+                            pluginId,
+                            config,
+                            request.ExpectedConfigVersion,
+                            cancellationToken);
+                        break;
+                    default:
+                        return AedsJsonResults.BadRequest(aeds, "plugin_action_invalid");
+                }
+                await RecordPluginMutationAuditAsync(
+                    auditEvents,
+                    pluginId,
+                    request.Action,
+                    AuditOutcomeCatalog.Success,
+                    cancellationToken);
+                PluginAdminDetailDto? response =
+                    await plugins.GetAsync(pluginId, cancellationToken).ConfigureAwait(false);
+                return response is null
+                    ? AedsJsonResults.OkNull(aeds, AedsFrameType.PluginAdminSnapshot)
+                    : Ok(context, aeds, response);
+            }
+            catch (PluginAdminConflictException)
+            {
+                return AedsJsonResults.Error(
+                    aeds,
+                    ErrorCode.Conflict,
+                    "plugin_config_version_conflict",
+                    StatusCodes.Status409Conflict);
+            }
+            catch (Exception exception) when (
+                exception is PluginAdminValidationException
+                    or PluginPermissionApprovalException)
+            {
+                return AedsJsonResults.BadRequest(aeds, "plugin_action_validation_failed");
+            }
+            catch (PluginLifecycleException)
+            {
+                return AedsJsonResults.Error(
+                    aeds,
+                    ErrorCode.Conflict,
+                    "plugin_lifecycle_conflict",
+                    StatusCodes.Status409Conflict);
+            }
+            catch (Exception exception) when (
+                exception is PluginJavaScriptRuntimeException
+                    or LuaPluginRuntimeException
+                    or PluginResourceLimitException)
+            {
+                return AedsJsonResults.Error(
+                    aeds,
+                    ErrorCode.InfraFailure,
+                    "plugin_runtime_action_failed",
+                    StatusCodes.Status503ServiceUnavailable);
+            }
+        })
+        .RequireAdminPermission(AdminPermissions.SystemConfig)
+        .RequireRateLimiting("fixed_ip")
+        .RequireNoStoreResponse();
+
         group.MapPost("/ai-assist", async (
             HttpContext context,
             IAedsEncoder aeds,
@@ -486,4 +728,33 @@ public static partial class AuthoringEndpoints
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
     }
+
+    private static Task RecordPluginMutationAuditAsync(
+        IAuditEventService auditEvents,
+        string pluginId,
+        string action,
+        string outcome,
+        CancellationToken cancellationToken)
+        => auditEvents.RecordHighValueAsync(new AuditEvent(
+            AuditSourceCatalog.Admin,
+            AuditTypeCatalog.Security,
+            $"admin.plugin.{action}",
+            outcome,
+            action is "uninstall" or "quarantine"
+                ? AuditSeverityCatalog.Warning
+                : AuditSeverityCatalog.Info,
+            "管理员执行插件控制面操作",
+            TargetType: "plugin",
+            TargetId: pluginId,
+            Context: new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["action"] = action
+            }), cancellationToken);
+
+    private sealed record PluginAdminMutationRequest(
+        string Action,
+        IReadOnlyList<string>? Capabilities,
+        bool Confirmed,
+        long ExpectedConfigVersion,
+        JsonElement? Config);
 }

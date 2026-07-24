@@ -259,6 +259,14 @@ public static partial class AuthoringEndpoints
             return Found(null, AedsFrameType.IntegrityFixPreview, out route);
         if (HttpMethods.IsPost(method) && segments is ["integrity", "fix"])
             return Found(AedsFrameType.IntegrityFixRequest, AedsFrameType.IntegrityFixResponse, out route);
+        if (HttpMethods.IsGet(method) && segments is ["plugins"])
+            return Found(null, AedsFrameType.PluginAdminSnapshot, out route);
+        if (HttpMethods.IsGet(method) && segments is ["plugins", _])
+            return Found(null, AedsFrameType.PluginAdminSnapshot, out route);
+        if (HttpMethods.IsPost(method) && segments is ["plugins", "install"])
+            return Found(AedsFrameType.PluginPackageInstallRequest, AedsFrameType.PluginAdminSnapshot, out route);
+        if (HttpMethods.IsPost(method) && segments is ["plugins", _, "actions"])
+            return Found(AedsFrameType.PluginAdminMutationRequest, AedsFrameType.PluginAdminSnapshot, out route);
 
         return false;
     }

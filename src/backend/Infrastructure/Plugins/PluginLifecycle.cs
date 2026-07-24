@@ -42,6 +42,10 @@ public interface IPluginLifecycle
 
     Task<PluginRegistryEntry> UninstallAsync(string pluginId, CancellationToken cancellationToken = default);
 
+    Task<PluginRegistryEntry> QuarantineAsync(string pluginId, CancellationToken cancellationToken = default);
+
+    Task<PluginRegistryEntry> RestoreAsync(string pluginId, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<PluginRegistryEntry>> ListAsync(CancellationToken cancellationToken = default);
 }
 
@@ -110,6 +114,29 @@ public sealed class PluginLifecycle(
             PluginInstallState.Uninstalled,
             enabled: false,
             clearPackage: true,
+            cancellationToken);
+
+    public Task<PluginRegistryEntry> QuarantineAsync(
+        string pluginId,
+        CancellationToken cancellationToken = default)
+        => TransitionAsync(
+            pluginId,
+            static current => current.InstallState is not (
+                PluginInstallState.Uninstalled or PluginInstallState.Quarantined),
+            PluginInstallState.Quarantined,
+            enabled: false,
+            clearPackage: false,
+            cancellationToken);
+
+    public Task<PluginRegistryEntry> RestoreAsync(
+        string pluginId,
+        CancellationToken cancellationToken = default)
+        => TransitionAsync(
+            pluginId,
+            static current => current.InstallState == PluginInstallState.Quarantined,
+            PluginInstallState.Disabled,
+            enabled: false,
+            clearPackage: false,
             cancellationToken);
 
     public Task<IReadOnlyList<PluginRegistryEntry>> ListAsync(CancellationToken cancellationToken = default)

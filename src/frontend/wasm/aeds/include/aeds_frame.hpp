@@ -263,6 +263,9 @@ enum class FrameType : std::uint16_t
     CommentModerationClaimRequest = 229,
     CommentModerationClaimMutationRequest = 230,
     CommentModerationClaimResponse = 231,
+    PluginPackageInstallRequest = 232,
+    PluginAdminSnapshot = 233,
+    PluginAdminMutationRequest = 234,
     EmptySuccess = 240,
     MutationId = 241,
     ApiError = 251,
@@ -495,6 +498,9 @@ enum class FrameType : std::uint16_t
         case FrameType::CommentModerationClaimRequest:
         case FrameType::CommentModerationClaimMutationRequest:
         case FrameType::CommentModerationClaimResponse:
+        case FrameType::PluginPackageInstallRequest:
+        case FrameType::PluginAdminSnapshot:
+        case FrameType::PluginAdminMutationRequest:
         case FrameType::EmptySuccess:
         case FrameType::MutationId:
         case FrameType::ApiError:

@@ -899,3 +899,11 @@ lease, set `Suspect`/`Dead`, clear fencing counters, or expose checkpoint payloa
 Failure detection preserves operator states. Public reads, binary endpoints and
 notification stream continue while scheduling is disabled. Returning to `single` is a
 startup-mode rollback for the next process generation.
+
+## Plugin Admin 控制面补充
+
+插件控制面属于 admin authoring API，只能使用 `/api/binary/author/plugins/**`
+的 AEDS v2 frame。浏览器不得自行判断 capability 风险等级，也不得把未上报的
+远端节点推断成已加载；权限分类、隔离状态与 `not-reported` 节点状态均以服务端
+快照为准。安装、权限、配置与生命周期写入必须叠加独立 admin principal、
+`system.config`、固定 IP 限流和一次性 admin step-up。

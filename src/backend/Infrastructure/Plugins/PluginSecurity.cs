@@ -431,6 +431,10 @@ public sealed class PluginExecutionBudgetGuard : IDisposable
 
     public CancellationToken CancellationToken => _timeoutSource.Token;
 
+    public long MemoryUsedBytes => Volatile.Read(ref _memoryBytes);
+
+    public long MemoryBudgetBytes => _budget.MemoryBytes;
+
     public void ReserveMemory(long bytes)
         => AddBounded(ref _memoryBytes, bytes, _budget.MemoryBytes, "memory");
 

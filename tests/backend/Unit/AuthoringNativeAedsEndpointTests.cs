@@ -82,6 +82,27 @@ public sealed class AuthoringNativeAedsEndpointTests
         Assert.Equal(AedsFrameType.IntegrityFixResponse, integrityRoute.ResponseFrame);
 
         Assert.True(AuthoringEndpoints.TryResolveRoute(
+            HttpMethods.Get,
+            new PathString("/plugins"),
+            out var pluginListRoute));
+        Assert.Null(pluginListRoute.RequestFrame);
+        Assert.Equal(AedsFrameType.PluginAdminSnapshot, pluginListRoute.ResponseFrame);
+
+        Assert.True(AuthoringEndpoints.TryResolveRoute(
+            HttpMethods.Post,
+            new PathString("/plugins/install"),
+            out var pluginInstallRoute));
+        Assert.Equal(AedsFrameType.PluginPackageInstallRequest, pluginInstallRoute.RequestFrame);
+        Assert.Equal(AedsFrameType.PluginAdminSnapshot, pluginInstallRoute.ResponseFrame);
+
+        Assert.True(AuthoringEndpoints.TryResolveRoute(
+            HttpMethods.Post,
+            new PathString("/plugins/fsusblog.plugin.example/actions"),
+            out var pluginActionRoute));
+        Assert.Equal(AedsFrameType.PluginAdminMutationRequest, pluginActionRoute.RequestFrame);
+        Assert.Equal(AedsFrameType.PluginAdminSnapshot, pluginActionRoute.ResponseFrame);
+
+        Assert.True(AuthoringEndpoints.TryResolveRoute(
             HttpMethods.Put,
             new PathString("/articles/42/revisions/9001/responsibility"),
             out var responsibilityRoute));

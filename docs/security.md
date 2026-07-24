@@ -773,3 +773,18 @@ Distributed state ownership is fail-closed. Cluster heartbeat establishes livene
 State-control storage failure never disables authentication, authorization, PoW, RiskControl, binary framing, or notification-stream admission. In multi-node modes it instead stops new stateful worker writes until Redis recovers or another healthy node acquires the expired lease. Operators may drain the affected node without restart; they may not switch a running multi-node process to the in-memory store or reset fencing counters to regain progress.
 
 The Redis record uses the runtime key scope and only stable capability IDs plus bounded health/load/resource hints. Operator-controlled `Draining` and `Maintenance` states are preserved by failure detection. If scheduling must be stopped without restarting the public service, responsibilities are removed and the node is marked `Draining` or `Maintenance`; binary routes and notification stream continue under their existing security controls.
+## Plugin Admin authorization and disclosure
+
+插件管理 UI 和 API 不构成新的授权平面。读取和写入均要求独立 admin principal 的
+`system.config`，固定 IP 限流与 `no-store`；安装、授权、撤销、启停、重载、隔离、
+恢复、卸载和配置写入还必须消费一次性 admin step-up。安装另需
+`X-Fsus-Plugin-Confirm: install`，隔离/恢复/卸载另需 request 内
+`confirmed=true`。浏览器只呈现服务端生成的 `PluginPermissionPlan`，Dangerous/
+Trusted 不自动授权；未知 capability、raw database/filesystem/network、manifest
+未声明 capability 和未确认 Sensitive 申请均 fail closed。
+
+插件日志与错误按 plugin/node/hook/trace 隔离，并受每插件固定条数与执行期 log byte
+budget 双重限制。控制面不返回 package bytes、签名、unredacted manifest、credential、
+Cookie/JWT/Passkey、raw header 或异常 message。权限撤销在下一次 Host API demand
+生效；隔离会卸载 Hook、清 grant 并取消后续 runtime 调用，不需重启或放宽 PoW、
+`X-Fsus-*`、notification stream 与统一 AEDS error 边界。

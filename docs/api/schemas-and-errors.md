@@ -666,3 +666,17 @@ admin authoring JSON 使用既有 AEDS frame envelope，不新增公开文本 fa
 - `400 comment_moderation_claim_invalid`：lease/SLA/note/escalation 或 token 形状无效。
 - `409 comment_moderation_claim_conflict`：claim 已被占用、过期、续租或释放所携带的 owner/token/generation/row version 已过时。
 - `409 comment_moderation_conflict`：评论状态、评论 row version 或 claim 条件在决策前变化；事务不写评论、outbox、审计或 claim 完成状态。
+## Plugin Admin frames and stable errors
+
+`PluginAdminSnapshot` (233) 使用 authoring JSON payload，并固定包含 summary、
+manifest summary、permission plan、versioned config、bounded metrics/logs/errors
+和 node states。`PluginPackageInstallRequest` (232) 的 payload 是 `.fspkg` 原始 bytes；
+`PluginAdminMutationRequest` (234) 是带 `action`、`capabilities`、`confirmed`、
+`expectedConfigVersion` 与可选 `config` 的 authoring JSON payload。
+
+插件控制面只返回低基数错误：`plugin_not_found`、
+`plugin_package_invalid`、`plugin_install_confirmation_required`、
+`plugin_dangerous_action_confirmation_required`、`plugin_action_invalid`、
+`plugin_action_validation_failed`、`plugin_config_version_conflict`、
+`plugin_lifecycle_conflict`、`plugin_runtime_action_failed`。包内容、Schema path、
+runtime exception message、日志正文和签名细节不得进入 `ApiError`。

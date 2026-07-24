@@ -2385,3 +2385,28 @@ require trusted origin/referer plus a one-use `X-Fsus-Mfa-Proof` bound to
 
 Invalid state, active lease release, missing node, missing step-up proof and untrusted
 origin fail closed without changing assignment or fencing state.
+
+## Plugin Admin binary contract
+
+插件管理只注册于独立 admin principal 的 authoring surface：
+
+| Method | Path | Request frame | Response frame |
+| --- | --- | --- | --- |
+| `GET` | `/api/binary/author/plugins` | none | `PluginAdminSnapshot` (233) |
+| `GET` | `/api/binary/author/plugins/{pluginId}` | none | `PluginAdminSnapshot` (233) |
+| `POST` | `/api/binary/author/plugins/install` | `PluginPackageInstallRequest` (232) | `PluginAdminSnapshot` (233) |
+| `POST` | `/api/binary/author/plugins/{pluginId}/actions` | `PluginAdminMutationRequest` (234) | `PluginAdminSnapshot` (233) |
+
+安装 request payload 是未经文本转码的完整 `.fspkg` bytes，受 package reader 的
+32 MiB、entry count、path、checksum、signature 和 manifest 约束；还必须携带
+`X-Fsus-Plugin-Confirm: install`。action payload 是 authoring JSON payload，action
+仅允许 `grant|revoke|enable|disable|reload|quarantine|restore|uninstall|update-config`。
+`quarantine|restore|uninstall` 必须显式 `confirmed=true`。配置写入携带
+`expectedConfigVersion`，先按已验证包内 Schema 校验，再 CAS 递增版本；enabled
+插件保存后立即 reload，失败则隔离且返回固定 `plugin_runtime_action_failed`。
+
+所有四个 endpoint 要求 admin principal、`system.config`、`fixed_ip`、`no-store`；
+所有写入还要求一次性 `X-Fsus-Mfa-Proof`。响应只含 manifest 摘要、服务端分类的权限
+计划、当前 grant、Hook 元数据、有界执行指标/日志/错误和逐节点状态；不得返回 package
+bytes、signature、未裁剪 manifest 或异常 message。非当前节点未提交运行态时必须返回
+`not-reported`，不能伪装为 healthy/loaded/cluster-consistent。

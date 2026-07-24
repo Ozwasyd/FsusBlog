@@ -1629,3 +1629,135 @@ public readonly record struct AdminPrincipalSnapshotDto(
     IReadOnlyList<string> Permissions,
     string AdminSessionStatus,
     bool TotpStepUpRequired);
+
+/// <summary>
+/// Admin-only summary of one installed plugin. Package bytes and unredacted
+/// manifest documents are deliberately excluded.
+/// </summary>
+public sealed record PluginAdminSummaryDto(
+    string PluginId,
+    string Name,
+    string Version,
+    string Runtime,
+    string InstallState,
+    string HealthState,
+    bool Enabled,
+    DateTimeOffset InstalledAtUtc,
+    DateTimeOffset UpdatedAtUtc,
+    string? LastErrorCode,
+    int ActiveHookCount,
+    int GrantedCapabilityCount,
+    int RequestedCapabilityCount,
+    bool ClusterConsistent);
+
+/// <summary>
+/// Admin-only plugin collection returned by the binary authoring surface.
+/// </summary>
+public sealed record PluginAdminOverviewDto(
+    DateTimeOffset GeneratedAtUtc,
+    string CurrentNodeId,
+    IReadOnlyList<PluginAdminSummaryDto> Plugins);
+
+public sealed record PluginAdminManifestSummaryDto(
+    string PluginId,
+    string Name,
+    string Version,
+    string Author,
+    string Description,
+    string HostVersionRange,
+    string Runtime,
+    string RuntimeEntry,
+    IReadOnlyList<string> RequestedCapabilities,
+    IReadOnlyList<string> DeniedRawPermissions,
+    IReadOnlyList<PluginAdminHookDto> Hooks);
+
+public sealed record PluginAdminHookDto(
+    string Name,
+    int Priority,
+    int TimeoutMs,
+    string FailPolicy,
+    string ExecutionMode,
+    string Scope,
+    bool Idempotent);
+
+public sealed record PluginAdminCapabilityDto(
+    string Name,
+    string Risk,
+    bool Granted,
+    bool RequiresAdministratorConfirmation,
+    string Reason);
+
+public sealed record PluginAdminConfigDto(
+    long Version,
+    System.Text.Json.JsonElement Schema,
+    System.Text.Json.JsonElement Value,
+    DateTimeOffset UpdatedAtUtc,
+    string ReloadState);
+
+public sealed record PluginAdminExecutionMetricDto(
+    string PluginId,
+    string PluginVersion,
+    string Runtime,
+    string HookName,
+    double DurationMilliseconds,
+    bool Success,
+    string? ErrorCode,
+    bool Timeout,
+    long MemoryUsedBytes,
+    long MemoryBudgetBytes,
+    string NodeId,
+    string TraceId,
+    string FailPolicy,
+    string Scope,
+    DateTimeOffset CreatedAtUtc);
+
+public sealed record PluginAdminMetricSummaryDto(
+    long ExecutionCount,
+    long SuccessCount,
+    long ErrorCount,
+    long TimeoutCount,
+    long PermissionDeniedCount,
+    long QuarantineCount,
+    long RuntimeLoadCount,
+    long RuntimeLoadFailureCount,
+    double AverageDurationMilliseconds,
+    double MaximumDurationMilliseconds);
+
+public sealed record PluginAdminLogDto(
+    string PluginId,
+    string Runtime,
+    string HookName,
+    string NodeId,
+    string TraceId,
+    string Level,
+    string Message,
+    DateTimeOffset CreatedAtUtc);
+
+public sealed record PluginAdminErrorDto(
+    string PluginId,
+    string Runtime,
+    string HookName,
+    string NodeId,
+    string TraceId,
+    string Code,
+    DateTimeOffset CreatedAtUtc);
+
+public sealed record PluginAdminNodeStateDto(
+    string NodeId,
+    string MemberStatus,
+    string RuntimeState,
+    bool Loaded,
+    IReadOnlyList<string> RegisteredHooks,
+    string? LastErrorCode,
+    DateTimeOffset? ObservedAtUtc);
+
+public sealed record PluginAdminDetailDto(
+    PluginAdminSummaryDto Summary,
+    PluginAdminManifestSummaryDto Manifest,
+    IReadOnlyList<PluginAdminCapabilityDto> Permissions,
+    PluginAdminConfigDto Config,
+    PluginAdminMetricSummaryDto Metrics,
+    IReadOnlyList<PluginAdminExecutionMetricDto> RecentExecutions,
+    IReadOnlyList<PluginAdminLogDto> RecentLogs,
+    IReadOnlyList<PluginAdminErrorDto> RecentErrors,
+    IReadOnlyList<PluginAdminNodeStateDto> Nodes);
