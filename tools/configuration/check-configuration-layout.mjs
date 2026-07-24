@@ -169,6 +169,33 @@ function checkOwnership(root, manifest, errors) {
       }
     }
 
+    if (Array.isArray(rawEntry.consumers)) {
+      for (const [consumerIndex, consumerValue] of rawEntry.consumers.entries()) {
+        const consumerPath = normalizeDeclaredPath(consumerValue, `${label}.consumers[${consumerIndex}]`, errors)
+        if (consumerPath && !existsSync(path.join(root, consumerPath))) {
+          errors.push(`${label}.consumers path does not exist: ${consumerPath}`)
+        }
+      }
+    }
+
+    if (rawEntry.id === 'runtime-scenario-catalog') {
+      if (typeof rawEntry.purpose !== 'string' || rawEntry.purpose.trim() === '') {
+        errors.push(`${label}.purpose must be non-empty string`)
+      }
+      if (!Array.isArray(rawEntry.consumers) || rawEntry.consumers.length === 0) {
+        errors.push(`${label}.consumers must be a non-empty array`)
+      }
+      if (typeof rawEntry.validationCommand !== 'string' || rawEntry.validationCommand.trim() === '') {
+        errors.push(`${label}.validationCommand must be non-empty string`)
+      }
+      if (typeof rawEntry.changePolicy !== 'string' || rawEntry.changePolicy.trim() === '') {
+        errors.push(`${label}.changePolicy must be non-empty string`)
+      }
+      if (typeof rawEntry.status !== 'string' || rawEntry.status.trim() === '') {
+        errors.push(`${label}.status must be non-empty string`)
+      }
+    }
+
     entries.push({ ...rawEntry, canonicalPath })
   }
 

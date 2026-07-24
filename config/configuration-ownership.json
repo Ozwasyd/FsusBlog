@@ -241,6 +241,62 @@
             "owner": "repository-governance",
             "canonicalPath": "config/governance/repository-governance-authorities.json",
             "pathType": "file"
+        },
+        {
+            "id": "runtime-scenario-catalog",
+            "owner": "runtime-scenario-host",
+            "canonicalPath": "config/testing/runtime-scenario-catalog.json",
+            "pathType": "file",
+            "purpose": "Canonical authority for runtime scenario catalog defining test matrix scenarios and capability assertions",
+            "consumers": [
+                "tools/test/runtime-scenario-host.mjs",
+                "docs/testing/runtime-scenario-host.md"
+            ],
+            "validationCommand": "node tools/test/runtime-scenario-host.mjs",
+            "changePolicy": "manual-update-with-test-matrix-validation",
+            "status": "manual"
+        },
+        {
+            "id": "content-addressed-build-cache",
+            "owner": "test-matrix-scheduler",
+            "canonicalPath": "config/testing/content-addressed-build-cache.json",
+            "pathType": "file"
+        },
+        {
+            "id": "customization-contracts-ownership",
+            "owner": "customization-contracts-governance",
+            "canonicalPath": "config/customization-contracts-ownership.json",
+            "pathType": "file"
+        },
+        {
+            "id": "customization-dependency-dag",
+            "owner": "customization-contracts-governance",
+            "canonicalPath": "config/customization-dependency-dag.json",
+            "pathType": "file"
+        },
+        {
+            "id": "public-preview-quality-policy",
+            "owner": "documentation-visual-evidence",
+            "canonicalPath": "config/docs/public-preview-quality-policy.json",
+            "pathType": "file"
+        },
+        {
+            "id": "public-preview-quality-scenarios-public",
+            "owner": "documentation-visual-evidence",
+            "canonicalPath": "config/docs/public-preview-quality-scenarios-public.json",
+            "pathType": "file"
+        },
+        {
+            "id": "public-preview-quality-scenarios-task",
+            "owner": "documentation-visual-evidence",
+            "canonicalPath": "config/docs/public-preview-quality-scenarios-task.json",
+            "pathType": "file"
+        },
+        {
+            "id": "public-preview-quality-scenarios-zoom",
+            "owner": "documentation-visual-evidence",
+            "canonicalPath": "config/docs/public-preview-quality-scenarios-zoom.json",
+            "pathType": "file"
         }
     ]
 }

@@ -32,6 +32,11 @@ function createFixture() {
     } else {
       write(root, entry.canonicalPath, entry.canonicalPath.endsWith('.json') ? '{}\n' : 'fixture\n')
     }
+    if (Array.isArray(entry.consumers)) {
+      for (const consumer of entry.consumers) {
+        write(root, consumer, 'fixture\n')
+      }
+    }
     if (/\.(?:csproj|dcproj|esproj|fsproj|vbproj)$/.test(entry.owner)) {
       write(root, entry.owner, '<Project />\n')
     }
@@ -140,4 +145,36 @@ test('requires every generic or framework configuration file to have exactly one
   assert.ok(errors.some((error) => error.includes('configuration file must have exactly one canonical owner: .config/unowned.json (found 0)')))
   assert.ok(errors.some((error) => error.includes('duplicate canonical configuration path: config/observability/slo.yml')))
   assert.ok(errors.some((error) => error.includes('config/observability/slo.yml (found 2)')))
+})
+
+test('requires runtime-scenario-catalog entry to declare purpose, consumers, validationCommand, changePolicy, and status', () => {
+  const root = createFixture()
+  const manifestPath = path.join(root, 'config/configuration-ownership.json')
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+  const entry = manifest.ownership.find((e) => e.id === 'runtime-scenario-catalog')
+  delete entry.purpose
+  delete entry.consumers
+  delete entry.validationCommand
+  delete entry.changePolicy
+  delete entry.status
+  writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
+
+  const errors = checkConfigurationLayout(root)
+  assert.ok(errors.some((error) => error.includes('.purpose must be non-empty string')))
+  assert.ok(errors.some((error) => error.includes('.consumers must be a non-empty array')))
+  assert.ok(errors.some((error) => error.includes('.validationCommand must be non-empty string')))
+  assert.ok(errors.some((error) => error.includes('.changePolicy must be non-empty string')))
+  assert.ok(errors.some((error) => error.includes('.status must be non-empty string')))
+})
+
+test('reports invalid consumer paths declared on configuration ownership entries', () => {
+  const root = createFixture()
+  const manifestPath = path.join(root, 'config/configuration-ownership.json')
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+  const entry = manifest.ownership.find((e) => e.id === 'runtime-scenario-catalog')
+  entry.consumers.push('tools/non-existent-consumer.mjs')
+  writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
+
+  const errors = checkConfigurationLayout(root)
+  assert.ok(errors.some((error) => error.includes('.consumers path does not exist: tools/non-existent-consumer.mjs')))
 })
