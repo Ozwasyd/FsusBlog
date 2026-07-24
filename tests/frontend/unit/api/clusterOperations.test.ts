@@ -1,12 +1,19 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { FrameType } from '@wasm/protocol/frame';
 import {
     getClusterOperations,
+    setClusterNodeState,
+    setClusterSchedulerState,
+    releaseExpiredClusterLease,
     type ClusterOperationsResponse
 } from '@/api/clusterOperations';
-import { privateRequestRuntime } from '@/services/privateRequestRuntime';
+import { requestBinaryOnly } from '@/composition/binaryTransport';
 
-const fetchMock = vi.fn<typeof fetch>();
+vi.mock('@/composition/binaryTransport', () => ({
+    requestBinaryOnly: vi.fn()
+}));
+
+const binaryMock = vi.mocked(requestBinaryOnly);
 
 const response = (): ClusterOperationsResponse => ({
     enabled: true,
@@ -48,59 +55,70 @@ const response = (): ClusterOperationsResponse => ({
     }
 });
 
-beforeEach(() =>
-{
-    privateRequestRuntime.resetForTests();
-    fetchMock.mockReset();
-    vi.stubGlobal('fetch', fetchMock);
-});
+describe('cluster operations API AEDS binary transport', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
 
-afterEach(() =>
-{
-    vi.unstubAllGlobals();
-});
-
-describe('cluster operations API', () =>
-{
-    it('uses the admin private generation and no-store JSON endpoint', async () =>
-    {
-        fetchMock.mockResolvedValue(new Response(JSON.stringify(response()), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' }
-        }));
+    it('getClusterOperations issues binary GET request with ClusterRuntimeSnapshot frame type', async () => {
+        binaryMock.mockResolvedValue(response());
 
         await expect(getClusterOperations()).resolves.toMatchObject({
             mode: 'adaptive',
             currentNodeId: 'node-a'
         });
-        expect(fetchMock).toHaveBeenCalledWith(
-            '/api/ops/cluster/nodes',
+        expect(binaryMock).toHaveBeenCalledWith(
             expect.objectContaining({
-                cache: 'no-store',
-                credentials: 'include',
-                method: 'GET'
+                binaryUrl: '/api/binary/author/ops/cluster/nodes',
+                privateScope: 'admin',
+                frameType: FrameType.ClusterRuntimeSnapshot
             })
         );
     });
 
-    it('rejects a stale response after the admin generation changes', async () =>
-    {
-        let resolveResponse!: (value: Response) => void;
-        fetchMock.mockReturnValue(new Promise(resolve =>
-        {
-            resolveResponse = resolve;
-        }));
+    it('setClusterNodeState issues binary POST request with ClusterNodeStateRequest frame type', async () => {
+        binaryMock.mockResolvedValue({ nodeId: 'node-a', status: 'draining' });
 
-        const pending = getClusterOperations();
-        privateRequestRuntime.advance('admin');
-        resolveResponse(new Response(JSON.stringify(response()), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' }
-        }));
-
-        await expect(pending).rejects.toMatchObject({
-            name: 'AbortError',
-            scope: 'admin'
+        await expect(setClusterNodeState('node-a', 'draining', 'maintenance')).resolves.toEqual({
+            nodeId: 'node-a',
+            status: 'draining'
         });
+        expect(binaryMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                binaryUrl: '/api/binary/author/ops/cluster/nodes/node-a/state',
+                privateScope: 'admin',
+                frameType: FrameType.ClusterRuntimeSnapshot
+            })
+        );
+    });
+
+    it('setClusterSchedulerState issues binary POST request with ClusterSchedulerStateRequest frame type', async () => {
+        binaryMock.mockResolvedValue({ schedulingAllowed: false });
+
+        await expect(setClusterSchedulerState(false, 'pause')).resolves.toEqual({
+            schedulingAllowed: false
+        });
+        expect(binaryMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                binaryUrl: '/api/binary/author/ops/cluster/scheduler',
+                privateScope: 'admin',
+                frameType: FrameType.ClusterRuntimeSnapshot
+            })
+        );
+    });
+
+    it('releaseExpiredClusterLease issues binary POST request with ClusterLeaseReleaseRequest frame type', async () => {
+        binaryMock.mockResolvedValue({ released: true });
+
+        await expect(releaseExpiredClusterLease('00000000000000000000000000000001', 'cleanup')).resolves.toEqual({
+            released: true
+        });
+        expect(binaryMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                binaryUrl: '/api/binary/author/ops/cluster/leases/00000000000000000000000000000001/release-expired',
+                privateScope: 'admin',
+                frameType: FrameType.ClusterRuntimeSnapshot
+            })
+        );
     });
 });

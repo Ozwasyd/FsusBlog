@@ -267,6 +267,14 @@ public static partial class AuthoringEndpoints
             return Found(AedsFrameType.PluginPackageInstallRequest, AedsFrameType.PluginAdminSnapshot, out route);
         if (HttpMethods.IsPost(method) && segments is ["plugins", _, "actions"])
             return Found(AedsFrameType.PluginAdminMutationRequest, AedsFrameType.PluginAdminSnapshot, out route);
+        if (HttpMethods.IsGet(method) && segments is ["ops", "cluster", "nodes"])
+            return Found(null, AedsFrameType.ClusterRuntimeSnapshot, out route);
+        if (HttpMethods.IsPost(method) && segments is ["ops", "cluster", "nodes", _, "state"])
+            return Found(AedsFrameType.ClusterNodeStateRequest, AedsFrameType.ClusterRuntimeSnapshot, out route);
+        if (HttpMethods.IsPost(method) && segments is ["ops", "cluster", "scheduler"])
+            return Found(AedsFrameType.ClusterSchedulerStateRequest, AedsFrameType.ClusterRuntimeSnapshot, out route);
+        if (HttpMethods.IsPost(method) && segments is ["ops", "cluster", "leases", _, "release-expired"])
+            return Found(AedsFrameType.ClusterLeaseReleaseRequest, AedsFrameType.ClusterRuntimeSnapshot, out route);
 
         return false;
     }

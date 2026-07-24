@@ -1,8 +1,11 @@
+using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Distributed.Cluster;
 using FsusBlog.Server.Infrastructure.Distributed.StateControl;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Policies;
+using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Services.Security;
 
@@ -18,7 +21,7 @@ public static class ClusterMembershipEndpoints
     public static IEndpointRouteBuilder MapClusterMembershipEndpoints(
         this IEndpointRouteBuilder app)
     {
-        RouteGroupBuilder group = app.MapGroup("/api/ops/cluster")
+        RouteGroupBuilder group = app.MapGroup("/api/binary/author/ops/cluster")
             .WithTags("ClusterOperations")
             .RequireAdminPermission(AdminPermissions.SystemConfig)
             .RequireRateLimiting("fixed_ip")
@@ -33,11 +36,12 @@ public static class ClusterMembershipEndpoints
 
     private static async Task<IResult> ReadSnapshotAsync(
         [FromServices] ClusterOperationsService operations,
+        [FromServices] IAedsEncoder aeds,
         CancellationToken cancellationToken)
     {
         ClusterOperationsSnapshot snapshot =
             await operations.CaptureAsync(cancellationToken).ConfigureAwait(false);
-        return Results.Json(new
+        return AedsJsonResults.Ok(aeds, AedsFrameType.ClusterRuntimeSnapshot, new
         {
             snapshot.Enabled,
             snapshot.Mode,
@@ -129,35 +133,46 @@ public static class ClusterMembershipEndpoints
 
     private static async Task<IResult> SetNodeStateAsync(
         string nodeId,
-        [FromBody] ClusterNodeStateRequest request,
         HttpContext context,
         [FromServices] ClusterOperationsService operations,
         [FromServices] IAdminPrincipalService adminPrincipals,
+        [FromServices] IAedsEncoder aeds,
         CancellationToken cancellationToken)
     {
         IResult? stepUp = await RequireAdminSensitiveStepUpAsync(
             context,
             adminPrincipals,
+            aeds,
             cancellationToken).ConfigureAwait(false);
         if (stepUp is not null)
         {
             return stepUp;
         }
-        if (!TryParseOperatorStatus(request.State, out ClusterMemberStatus status))
+
+        AedsJsonRequest<ClusterNodeStateRequest> request = await AedsJsonResults.ReadAsync<ClusterNodeStateRequest>(
+            context,
+            aeds,
+            AedsFrameType.ClusterNodeStateRequest,
+            AedsJsonResults.MaxAuthoringFrameBytes,
+            "cluster_node_state_invalid",
+            cancellationToken).ConfigureAwait(false);
+        if (!request.IsSuccess)
         {
-            return Results.BadRequest(new
-            {
-                code = "cluster_node_state_invalid"
-            });
+            return request.ToErrorResult(aeds);
+        }
+
+        if (!TryParseOperatorStatus(request.Value!.State, out ClusterMemberStatus status))
+        {
+            return AedsJsonResults.BadRequest(aeds, "cluster_node_state_invalid");
         }
         try
         {
             NodeDescriptor node = await operations.SetNodeStateAsync(
                 new NodeId(nodeId),
                 status,
-                request.Reason,
+                request.Value.Reason,
                 cancellationToken).ConfigureAwait(false);
-            return Results.Json(new
+            return AedsJsonResults.Ok(aeds, AedsFrameType.ClusterRuntimeSnapshot, new
             {
                 nodeId = node.NodeId.Value,
                 status = ClusterMembershipWireNames.Status(node.Status)
@@ -165,39 +180,47 @@ public static class ClusterMembershipEndpoints
         }
         catch (KeyNotFoundException)
         {
-            return Results.NotFound(new
-            {
-                code = "cluster_node_not_found"
-            });
+            return AedsJsonResults.NotFound(aeds, "cluster_node_not_found");
         }
         catch (InvalidOperationException exception)
         {
-            return Results.Conflict(new
-            {
-                code = exception.Message
-            });
+            return AedsJsonResults.Error(aeds, ErrorCode.Conflict, exception.Message, StatusCodes.Status409Conflict);
         }
     }
 
     private static async Task<IResult> SetSchedulerAsync(
-        [FromBody] ClusterSchedulerStateRequest request,
         HttpContext context,
         [FromServices] ClusterOperationsService operations,
         [FromServices] IAdminPrincipalService adminPrincipals,
+        [FromServices] IAedsEncoder aeds,
         CancellationToken cancellationToken)
     {
         IResult? stepUp = await RequireAdminSensitiveStepUpAsync(
             context,
             adminPrincipals,
+            aeds,
             cancellationToken).ConfigureAwait(false);
         if (stepUp is not null)
         {
             return stepUp;
         }
+
+        AedsJsonRequest<ClusterSchedulerStateRequest> request = await AedsJsonResults.ReadAsync<ClusterSchedulerStateRequest>(
+            context,
+            aeds,
+            AedsFrameType.ClusterSchedulerStateRequest,
+            AedsJsonResults.MaxAuthoringFrameBytes,
+            "cluster_scheduler_state_invalid",
+            cancellationToken).ConfigureAwait(false);
+        if (!request.IsSuccess)
+        {
+            return request.ToErrorResult(aeds);
+        }
+
         bool schedulingAllowed = operations.SetSchedulingAllowed(
-            request.Enabled,
-            request.Reason);
-        return Results.Json(new
+            request.Value!.Enabled,
+            request.Value.Reason);
+        return AedsJsonResults.Ok(aeds, AedsFrameType.ClusterRuntimeSnapshot, new
         {
             schedulingAllowed
         });
@@ -205,32 +228,43 @@ public static class ClusterMembershipEndpoints
 
     private static async Task<IResult> ReleaseExpiredLeaseAsync(
         string leaseId,
-        [FromBody] ClusterLeaseReleaseRequest request,
         HttpContext context,
         [FromServices] ClusterOperationsService operations,
         [FromServices] IAdminPrincipalService adminPrincipals,
+        [FromServices] IAedsEncoder aeds,
         CancellationToken cancellationToken)
     {
         IResult? stepUp = await RequireAdminSensitiveStepUpAsync(
             context,
             adminPrincipals,
+            aeds,
             cancellationToken).ConfigureAwait(false);
         if (stepUp is not null)
         {
             return stepUp;
         }
+
+        AedsJsonRequest<ClusterLeaseReleaseRequest> request = await AedsJsonResults.ReadAsync<ClusterLeaseReleaseRequest>(
+            context,
+            aeds,
+            AedsFrameType.ClusterLeaseReleaseRequest,
+            AedsJsonResults.MaxAuthoringFrameBytes,
+            "cluster_lease_release_invalid",
+            cancellationToken).ConfigureAwait(false);
+        if (!request.IsSuccess)
+        {
+            return request.ToErrorResult(aeds);
+        }
+
         if (!Guid.TryParseExact(leaseId, "N", out Guid parsedLeaseId))
         {
-            return Results.BadRequest(new
-            {
-                code = "cluster_lease_id_invalid"
-            });
+            return AedsJsonResults.BadRequest(aeds, "cluster_lease_id_invalid");
         }
         bool released = await operations.ReleaseExpiredLeaseAsync(
             new LeaseId(parsedLeaseId),
-            request.Reason,
+            request.Value!.Reason,
             cancellationToken).ConfigureAwait(false);
-        return Results.Json(new
+        return AedsJsonResults.Ok(aeds, AedsFrameType.ClusterRuntimeSnapshot, new
         {
             released
         });
@@ -239,21 +273,17 @@ public static class ClusterMembershipEndpoints
     private static async Task<IResult?> RequireAdminSensitiveStepUpAsync(
         HttpContext context,
         IAdminPrincipalService adminPrincipals,
+        IAedsEncoder aeds,
         CancellationToken cancellationToken)
     {
         if (!context.User.TryGetAdminPrincipalId(out long adminPrincipalId)
             || string.IsNullOrWhiteSpace(context.User.GetAdminSessionId()))
         {
-            return Results.Unauthorized();
+            return AedsJsonResults.Unauthorized(aeds);
         }
         if (!TrustedRequestOrigin.RequireTrustedOriginOrReferer(context))
         {
-            return Results.Json(
-                new
-                {
-                    code = "origin_not_allowed"
-                },
-                statusCode: StatusCodes.Status403Forbidden);
+            return AedsJsonResults.Error(aeds, ErrorCode.Forbidden, "origin_not_allowed", StatusCodes.Status403Forbidden);
         }
         string proofToken = context.Request.Headers.TryGetValue(MfaProofHeader, out var values)
             ? values.ToString().Trim()
@@ -266,12 +296,7 @@ public static class ClusterMembershipEndpoints
                 proofToken,
                 cancellationToken).ConfigureAwait(false))
         {
-            return Results.Json(
-                new
-                {
-                    code = "mfa_proof_required"
-                },
-                statusCode: StatusCodes.Status428PreconditionRequired);
+            return AedsJsonResults.PreconditionRequired(aeds, "mfa_proof_required");
         }
         return null;
     }

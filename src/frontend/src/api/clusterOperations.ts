@@ -1,9 +1,6 @@
-import { runPrivateRequest } from '@/services/privateRequestRuntime';
-import { appErrorFromStatus } from '@/utils/appError';
-
 import type { ApiRequestConfig } from './requestConfig';
-
-const ENDPOINT = '/api/ops/cluster/nodes';
+import { FrameType } from '@wasm/protocol/frame';
+import { requestAuthoringBinary } from './authoring';
 
 export interface ClusterHealthResponse {
     status: 'healthy' | 'degraded' | 'unhealthy';
@@ -133,26 +130,81 @@ export interface ClusterOperationsResponse {
     metrics: ClusterMetricResponse;
 }
 
+export interface ClusterNodeStateResponse {
+    nodeId: string;
+    status: string;
+}
+
+export interface ClusterSchedulerStateResponse {
+    schedulingAllowed: boolean;
+}
+
+export interface ClusterLeaseReleaseResponse {
+    released: boolean;
+}
+
 export async function getClusterOperations(
     config?: ApiRequestConfig
 ): Promise<ClusterOperationsResponse>
 {
-    return await runPrivateRequest('admin', config?.signal, async (signal) =>
-    {
-        const response = await fetch(ENDPOINT, {
-            method: 'GET',
-            credentials: 'include',
-            cache: 'no-store',
-            signal,
-            headers: {
-                Accept: 'application/json'
-            }
-        });
-        if (!response.ok)
+    return requestAuthoringBinary<ClusterOperationsResponse>(
+        '/ops/cluster/nodes',
+        FrameType.ClusterRuntimeSnapshot,
+        config
+    );
+}
+
+export async function setClusterNodeState(
+    nodeId: string,
+    state: string,
+    reason: string,
+    config?: ApiRequestConfig
+): Promise<ClusterNodeStateResponse>
+{
+    return requestAuthoringBinary<ClusterNodeStateResponse>(
+        `/ops/cluster/nodes/${encodeURIComponent(nodeId)}/state`,
+        FrameType.ClusterRuntimeSnapshot,
+        config,
         {
-            const text = await response.text();
-            throw appErrorFromStatus(response.status, text || `HTTP ${response.status}`);
+            method: 'POST',
+            requestFrame: FrameType.ClusterNodeStateRequest,
+            request: { state, reason }
         }
-        return await response.json() as ClusterOperationsResponse;
-    });
+    );
+}
+
+export async function setClusterSchedulerState(
+    enabled: boolean,
+    reason: string,
+    config?: ApiRequestConfig
+): Promise<ClusterSchedulerStateResponse>
+{
+    return requestAuthoringBinary<ClusterSchedulerStateResponse>(
+        '/ops/cluster/scheduler',
+        FrameType.ClusterRuntimeSnapshot,
+        config,
+        {
+            method: 'POST',
+            requestFrame: FrameType.ClusterSchedulerStateRequest,
+            request: { enabled, reason }
+        }
+    );
+}
+
+export async function releaseExpiredClusterLease(
+    leaseId: string,
+    reason: string,
+    config?: ApiRequestConfig
+): Promise<ClusterLeaseReleaseResponse>
+{
+    return requestAuthoringBinary<ClusterLeaseReleaseResponse>(
+        `/ops/cluster/leases/${encodeURIComponent(leaseId)}/release-expired`,
+        FrameType.ClusterRuntimeSnapshot,
+        config,
+        {
+            method: 'POST',
+            requestFrame: FrameType.ClusterLeaseReleaseRequest,
+            request: { reason }
+        }
+    );
 }

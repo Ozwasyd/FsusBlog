@@ -218,7 +218,7 @@ public sealed class ClusterMembershipTests
             .ToArray();
         Assert.Equal(4, endpoints.Length);
         Assert.Contains(endpoints, endpoint =>
-            endpoint.RoutePattern.RawText == "/api/ops/cluster/nodes");
+            endpoint.RoutePattern.RawText == "/api/binary/author/ops/cluster/nodes");
         foreach (RouteEndpoint endpoint in endpoints)
         {
             AuthorizationPolicy policy = Assert.IsType<AuthorizationPolicy>(

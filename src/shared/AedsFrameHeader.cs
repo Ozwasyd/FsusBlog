@@ -269,6 +269,10 @@ public enum AedsFrameType : ushort
     PluginPackageInstallRequest = 232,
     PluginAdminSnapshot = 233,
     PluginAdminMutationRequest = 234,
+    ClusterRuntimeSnapshot = 235,
+    ClusterNodeStateRequest = 236,
+    ClusterSchedulerStateRequest = 237,
+    ClusterLeaseReleaseRequest = 238,
     EmptySuccess = 240,
     MutationId = 241,
     ApiError = 251

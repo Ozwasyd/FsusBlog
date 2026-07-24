@@ -959,6 +959,22 @@
             "value": 234
         },
         {
+            "name": "ClusterRuntimeSnapshot",
+            "value": 235
+        },
+        {
+            "name": "ClusterNodeStateRequest",
+            "value": 236
+        },
+        {
+            "name": "ClusterSchedulerStateRequest",
+            "value": 237
+        },
+        {
+            "name": "ClusterLeaseReleaseRequest",
+            "value": 238
+        },
+        {
             "name": "EmptySuccess",
             "value": 240
         },

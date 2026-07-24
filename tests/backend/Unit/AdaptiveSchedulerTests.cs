@@ -1,5 +1,7 @@
 using System.Text.Json;
 
+using FsusBlog.Core.Algorithms;
+
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Distributed.Cluster;
 using FsusBlog.Server.Infrastructure.Distributed.Modules;
@@ -490,6 +492,7 @@ public sealed class AdaptiveSchedulerTests
         builder.Services.AddSingleton<IClusterOperationsTelemetry, ClusterOperationsTelemetry>();
         builder.Services.AddSingleton<IDistributedStateControlDiagnostics>(
             new InMemoryDistributedStateControlStore(TimeProvider.System));
+        builder.Services.AddSingleton<IAedsEncoder, AedsEncoder>();
         builder.Services.AddSingleton<ClusterOperationsService>();
         await using WebApplication application = builder.Build();
         application.MapClusterMembershipEndpoints();
@@ -498,7 +501,7 @@ public sealed class AdaptiveSchedulerTests
                 .SelectMany(static source => source.Endpoints)
                 .OfType<RouteEndpoint>(),
             endpoint =>
-                endpoint.RoutePattern.RawText == "/api/ops/cluster/nodes"
+                endpoint.RoutePattern.RawText == "/api/binary/author/ops/cluster/nodes"
                 && endpoint.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods
                     .Contains("GET", StringComparer.Ordinal) == true);
         var context = new DefaultHttpContext
@@ -511,8 +514,10 @@ public sealed class AdaptiveSchedulerTests
         };
 
         await endpoint.RequestDelegate!(context);
-        context.Response.Body.Position = 0;
-        using JsonDocument body = await JsonDocument.ParseAsync(context.Response.Body);
+        byte[] frameBytes = ((MemoryStream)context.Response.Body).ToArray();
+        ushort frameType = System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(frameBytes.AsSpan(8, 2));
+        Assert.Equal((ushort)FsusBlog.Core.Algorithms.AedsFrameType.ClusterRuntimeSnapshot, frameType);
+        using JsonDocument body = JsonDocument.Parse(frameBytes.AsMemory(FsusBlog.Shared.AedsFrameHeader.Size));
         JsonElement scheduler = body.RootElement.GetProperty("scheduler");
         JsonElement assignment = Assert.Single(
             scheduler.GetProperty("assignments").EnumerateArray());
@@ -522,7 +527,7 @@ public sealed class AdaptiveSchedulerTests
         Assert.Equal("node-a", assignment.GetProperty("nodeId").GetString());
         Assert.Equal(7, assignment.GetProperty("fencingToken").GetInt64());
         Assert.Equal(
-            "/api/ops/cluster/nodes",
+            "/api/binary/author/ops/cluster/nodes",
             endpoint.RoutePattern.RawText);
     }
 

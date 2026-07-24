@@ -1312,7 +1312,7 @@ function authoringBody(frameType: FrameType, request: unknown): ArrayBuffer {
   return encodeAedsFrame(frameType, encodeJsonRequest(request))
 }
 
-function requestAuthoringBinary<T>(
+export function requestAuthoringBinary<T>(
   path: string,
   frameType: FrameType,
   config?: ApiRequestConfig,

@@ -266,6 +266,10 @@ enum class FrameType : std::uint16_t
     PluginPackageInstallRequest = 232,
     PluginAdminSnapshot = 233,
     PluginAdminMutationRequest = 234,
+    ClusterRuntimeSnapshot = 235,
+    ClusterNodeStateRequest = 236,
+    ClusterSchedulerStateRequest = 237,
+    ClusterLeaseReleaseRequest = 238,
     EmptySuccess = 240,
     MutationId = 241,
     ApiError = 251,
@@ -501,6 +505,10 @@ enum class FrameType : std::uint16_t
         case FrameType::PluginPackageInstallRequest:
         case FrameType::PluginAdminSnapshot:
         case FrameType::PluginAdminMutationRequest:
+        case FrameType::ClusterRuntimeSnapshot:
+        case FrameType::ClusterNodeStateRequest:
+        case FrameType::ClusterSchedulerStateRequest:
+        case FrameType::ClusterLeaseReleaseRequest:
         case FrameType::EmptySuccess:
         case FrameType::MutationId:
         case FrameType::ApiError:
