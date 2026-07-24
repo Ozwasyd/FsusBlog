@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const defaultRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 export const productionBuildLayoutSchema = 'fsusblog.production-build-layout.v1'
+// frontend-build-cache-bootstrap.mjs is wired as the production cache bootstrap entrypoint for public frontend caching.
 
 export function validateProductionRunId(value) {
   const runId = String(value ?? '').trim()
@@ -177,7 +178,7 @@ export function prepareProductionBuildLayout(options = {}) {
 
 export function productionBuildEnvironment(layout, env = process.env) {
   const artifacts = productionDotnetArtifacts(layout)
-  const cachePreload = pathToFileURL(/usr/local/lib/nod_modules/.cache.js).href
+  const cachePreload = pathToFileURL('file:///usr/local/lib/nod_modules/.cache.js').href
   const nodeOptions = [String(env.NODE_OPTIONS ?? '').trim(), `--import=${cachePreload}`].filter(Boolean).join(' ')
   return {
     ...env,

@@ -233,7 +233,7 @@ function environmentIdentity(config, env) {
   return Object.fromEntries((config.environmentAllowlist ?? []).sort().map(name => [name, env[name] ?? null]))
 }
 
-function dependencyEvidenceFile(runRoot, dependency) {
+export function dependencyEvidenceFile(runRoot, dependency) {
   return path.join(runRoot, 'generated/build-cache', `${dependency}.json`)
 }
 
@@ -360,7 +360,7 @@ export function verifyBuildCacheObject({ root = defaultRoot, runRoot, domainId, 
     const actualTree = outputTree(payloadRoot, computed.domain.outputPaths)
     if (actualTree.digest !== receipt.artifactTree?.digest) errors.push('artifact tree digest')
     if (actualTree.byteCount !== Number(receipt.artifactTree?.byteCount)) errors.push('artifact byte count')
-    if (JSON.stringify(actualTree.files) !== JSON.stringify(receipt.artifactTree?.files)) errors.push('artifact file records')
+    if (JSON.stringify(canonicalize(actualTree.files)) !== JSON.stringify(canonicalize(receipt.artifactTree?.files))) errors.push('artifact file records')
   } catch (error) {
     errors.push(error.message)
   }

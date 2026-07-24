@@ -13,6 +13,7 @@ import {
   cachePaths,
   computeBuildCacheIdentity,
   defaultRoot,
+  dependencyEvidenceFile,
   loadBuildCacheConfiguration,
   readJson,
   verifyBuildCacheObject
@@ -123,6 +124,20 @@ function writeEvidence({ root, runRoot, config, domainId, runId, evidence }) {
   atomicJson(paths.dependency, evidence)
   atomicJson(paths.domain, evidence)
   writeSummary(root, config, runId, paths)
+}
+
+function makeWritableTree(target) {
+  if (!fs.existsSync(target)) return
+  const visit = current => {
+    const stat = fs.statSync(current)
+    fs.chmodSync(current, stat.mode | 0o200)
+    if (stat.isDirectory()) {
+      for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+        visit(path.join(current, entry.name))
+      }
+    }
+  }
+  visit(path.resolve(target))
 }
 
 async function runCommand(command, env, cwd = defaultRoot) {
@@ -252,8 +267,16 @@ export async function executeBuildCacheDomain({ root = defaultRoot, runRoot, dom
     writeEvidence({ root: repositoryRoot, runRoot: buildRoot, config: verified.config, domainId, runId, evidence })
     return evidence
   } finally {
-    fs.rmSync(paths.stagingRoot, { recursive: true, force: true })
-    releaseLock(paths)
+    if (fs.existsSync(paths.stagingRoot)) {
+      makeWritableTree(paths.stagingRoot)
+      fs.rmSync(paths.stagingRoot, { recursive: true, force: true })
+    }
+    if (fs.existsSync(paths.lockRoot)) {
+      makeWritableTree(paths.lockRoot)
+      releaseLock(paths)
+    } else {
+      releaseLock(paths)
+    }
   }
 }
 

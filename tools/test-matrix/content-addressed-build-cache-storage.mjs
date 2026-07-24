@@ -9,6 +9,8 @@ import {
   atomicJson,
   contentDigest,
   outputTree,
+  canonicalize,
+  buildCacheReceiptSchema,
   readJson,
   safeInside,
   safeRelative,
@@ -16,13 +18,35 @@ import {
   walkAll
 } from './content-addressed-build-cache-contract.mjs'
 
-const lockWaitArray = new Int32Array(new SharedArrayBuffer(4))
-
 function cowUnavailable(error) {
   return new Set(['ENOTSUP', 'EOPNOTSUPP', 'EXDEV', 'EINVAL', 'ENOSYS']).has(error?.code)
 }
 
-function copyTree(sourceRoot, destinationRoot, outputPaths, mode) {
+function makeWritableTree(target) {
+  if (!fs.existsSync(target)) return
+  const visit = current => {
+    const stat = fs.lstatSync(current)
+    fs.chmodSync(current, stat.mode | 0o200)
+    if (stat.isDirectory()) {
+      for (const entry of fs.readdirSync(current)) visit(path.join(current, entry))
+    }
+  }
+  visit(path.resolve(target))
+}
+
+function makeWritableDirectoryTree(target) {
+  if (!fs.existsSync(target)) return
+  const visit = current => {
+    const stat = fs.lstatSync(current)
+    fs.chmodSync(current, stat.mode | 0o200)
+    if (stat.isDirectory()) {
+      for (const entry of fs.readdirSync(current)) visit(path.join(current, entry))
+    }
+  }
+  visit(path.resolve(target))
+}
+
+function copyTree(sourceRoot, destinationRoot, outputPaths, mode, destinationWritable = false) {
   for (const output of outputPaths) {
     const source = safeInside(sourceRoot, output, 'cache source')
     const destination = safeInside(destinationRoot, output, 'cache destination')
@@ -31,13 +55,15 @@ function copyTree(sourceRoot, destinationRoot, outputPaths, mode) {
       const stat = fs.lstatSync(currentSource)
       if (stat.isSymbolicLink()) throw new Error(`cannot materialize symlink: ${currentSource}`)
       if (stat.isDirectory()) {
-        fs.mkdirSync(currentDestination, { recursive: true, mode: stat.mode & 0o777 })
+        const destinationMode = (stat.mode & 0o777) | (destinationWritable ? 0o200 : 0)
+        fs.mkdirSync(currentDestination, { recursive: true, mode: destinationMode })
         for (const child of fs.readdirSync(currentSource).sort()) visit(path.join(currentSource, child), path.join(currentDestination, child))
       } else if (stat.isFile()) {
         fs.mkdirSync(path.dirname(currentDestination), { recursive: true })
         const copyMode = mode === 'reflink' ? fs.constants.COPYFILE_FICLONE_FORCE : 0
         fs.copyFileSync(currentSource, currentDestination, copyMode)
-        fs.chmodSync(currentDestination, (stat.mode & 0o777) | 0o200)
+        const destinationFileMode = (stat.mode & 0o777) | (destinationWritable ? 0o200 : 0o000)
+        fs.chmodSync(currentDestination, destinationFileMode)
       } else throw new Error(`unsupported cache entry: ${currentSource}`)
     }
     visit(source, destination)
@@ -140,13 +166,13 @@ export function materializeObject({ root, objectRoot, runRoot, domain, receipt, 
   let mode = 'reflink'
   let fallbackReason = null
   try {
-    copyTree(payloadRoot, runRoot, domain.outputPaths, 'reflink')
+    copyTree(payloadRoot, runRoot, domain.outputPaths, 'reflink', true)
   } catch (error) {
     for (const output of domain.outputPaths) fs.rmSync(safeInside(runRoot, output, 'cache destination'), { recursive: true, force: true })
     if (!cowUnavailable(error)) throw error
     mode = 'copy-fallback'
     fallbackReason = `${error.code}: ${error.message}`
-    copyTree(payloadRoot, runRoot, domain.outputPaths, 'copy')
+    copyTree(payloadRoot, runRoot, domain.outputPaths, 'copy', true)
   }
   const relocation = applyRunRootRelocation(runRoot, receipt)
   const postMaterialization = applyPostMaterialization({ root, runRoot, domain, receipt, runId, sourceState, env })
@@ -259,7 +285,7 @@ function verifyMaterializedTree(payloadRoot, runRoot, receipt, postMaterializedP
     const transformed = transformRelocatableBytes(source, receipt.relocation.tokens, replacementTokens(runRoot))
     return { path: record.path, size: transformed.byteLength, digest: sha256(transformed) }
   })
-  if (JSON.stringify(actual.files) !== JSON.stringify(expectedFiles)) {
+  if (JSON.stringify(canonicalize(actual.files)) !== JSON.stringify(canonicalize(expectedFiles))) {
     throw new Error('materialized build cache artifact digest mismatch')
   }
   return actual
@@ -330,7 +356,9 @@ export function publishObject({ root, runRoot, computed, paths, command, sourceS
   sealReadOnly(paths.stagingRoot)
   fs.mkdirSync(path.dirname(paths.objectRoot), { recursive: true })
   if (fs.existsSync(paths.objectRoot)) throw new Error('build cache object appeared during publication')
+  makeWritableDirectoryTree(paths.stagingRoot)
   fs.renameSync(paths.stagingRoot, paths.objectRoot)
+  sealReadOnly(paths.objectRoot)
   return receipt
 }
 
@@ -338,6 +366,7 @@ export function quarantineObject(paths, reason) {
   if (!fs.existsSync(paths.objectRoot)) return null
   fs.mkdirSync(paths.quarantineRoot, { recursive: true })
   const target = path.join(paths.quarantineRoot, `${path.basename(paths.objectRoot)}-${Date.now()}-${crypto.randomUUID()}`)
+  makeWritableTree(paths.objectRoot)
   fs.renameSync(paths.objectRoot, target)
   const targetMode = fs.statSync(target).mode & 0o777
   fs.chmodSync(target, targetMode | 0o200)
@@ -368,7 +397,7 @@ export async function acquireLock(paths, config, runId) {
   while (Date.now() < deadline) {
     if (fs.existsSync(paths.objectRoot)) return { owned: false, waited: true }
     if (!fs.existsSync(paths.lockRoot)) return { owned: false, waited: true }
-    Atomics.wait(lockWaitArray, 0, 0, 50)
+    await new Promise(resolve => setTimeout(resolve, 50))
   }
   throw new Error(`timed out waiting for concurrent build cache producer: ${paths.lockRoot}`)
 }

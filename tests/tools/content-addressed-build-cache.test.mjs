@@ -75,9 +75,24 @@ function isWritable(file) {
   return (fs.statSync(file).mode & 0o222) !== 0
 }
 
+function makeWritableTree(target) {
+  if (!fs.existsSync(target)) return
+  const visit = current => {
+    const stat = fs.lstatSync(current)
+    fs.chmodSync(current, stat.mode | 0o222)
+    if (stat.isDirectory()) {
+      for (const entry of fs.readdirSync(current)) visit(path.join(current, entry))
+    }
+  }
+  visit(path.resolve(target))
+}
+
 test('identical deterministic inputs hit a sealed object in a new run root while dynamic facts remain fresh', async t => {
   const root = fixture()
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }))
+  t.after(() => {
+    makeWritableTree(root)
+    fs.rmSync(root, { recursive: true, force: true })
+  })
   const firstRoot = path.join(root, '.runs/run-one')
   const secondRoot = path.join(root, '.runs/run-two')
   const calls = { count: 0 }
@@ -107,7 +122,10 @@ test('identical deterministic inputs hit a sealed object in a new run root while
 
 test('source and allowlisted property changes invalidate only by content identity', async t => {
   const root = fixture()
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }))
+  t.after(() => {
+    makeWritableTree(root)
+    fs.rmSync(root, { recursive: true, force: true })
+  })
   const command = ['fixture-compiler']
   const calls = { count: 0 }
   const runOne = path.join(root, '.runs/one')
@@ -124,7 +142,10 @@ test('source and allowlisted property changes invalidate only by content identit
 
 test('corrupt, partial and writable objects fail closed and are quarantined', async t => {
   const root = fixture()
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }))
+  t.after(() => {
+    makeWritableTree(root)
+    fs.rmSync(root, { recursive: true, force: true })
+  })
   const command = ['fixture-compiler']
   const runOne = path.join(root, '.runs/one')
   const result = await executeBuildCacheDomain({ root, runRoot: runOne, domainId: 'fixture-build', command, env: env('one'), execute: build(runOne, 'sealed', { count: 0 }) })
@@ -157,7 +178,10 @@ test('corrupt, partial and writable objects fail closed and are quarantined', as
 
 test('concurrent producers publish one object and the follower consumes a race hit', async t => {
   const root = fixture()
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }))
+  t.after(() => {
+    makeWritableTree(root)
+    fs.rmSync(root, { recursive: true, force: true })
+  })
   const command = ['fixture-compiler']
   const calls = { count: 0 }
   const execute = runRoot => async () => {

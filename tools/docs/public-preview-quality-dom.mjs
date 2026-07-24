@@ -155,8 +155,8 @@ export async function collectPublicPreviewQualityDom(page, normalizedScenario, p
                 right: rect.right + focusTolerance,
                 bottom: rect.bottom + focusTolerance
             };
-            if (expanded.left < -tolerance || expanded.top < -tolerance
-                || expanded.right > innerWidth + tolerance || expanded.bottom > innerHeight + Math.max(document.documentElement.scrollHeight - innerHeight, 0) + tolerance)
+            if (expanded.left < -focusTolerance || expanded.top < -focusTolerance
+                || expanded.right > innerWidth + focusTolerance || expanded.bottom > innerHeight + Math.max(document.documentElement.scrollHeight - innerHeight, 0) + focusTolerance)
             {
                 focusFindings.push({ element: descriptor(element), reason: 'viewport', rect: rectRecord(element) });
                 continue;
@@ -168,8 +168,8 @@ export async function collectPublicPreviewQualityDom(page, normalizedScenario, p
                 if (/(hidden|clip)/u.test(`${style.overflow}${style.overflowX}${style.overflowY}`))
                 {
                     const parentRect = ancestor.getBoundingClientRect();
-                    if (expanded.left < parentRect.left - tolerance || expanded.right > parentRect.right + tolerance
-                        || expanded.top < parentRect.top - tolerance || expanded.bottom > parentRect.bottom + tolerance)
+                    if (expanded.left < parentRect.left - focusTolerance || expanded.right > parentRect.right + focusTolerance
+                        || expanded.top < parentRect.top - focusTolerance || expanded.bottom > parentRect.bottom + focusTolerance)
                     {
                         focusFindings.push({ element: descriptor(element), reason: `clipped by ${descriptor(ancestor)}`, rect: rectRecord(element) });
                         break;
