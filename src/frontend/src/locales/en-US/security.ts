@@ -1,3 +1,6 @@
+import type { DeepStringShape } from '../keys';
+import type { security as zhCNSecurity } from '../zh-CN/security';
+
 export const security = {
     challenge: {
         title: 'Complete security verification',
@@ -33,6 +36,80 @@ export const security = {
         unsupported: 'This verification method is not supported.',
         capabilityUpdate: 'Verification capabilities changed. Reloading this page.',
         capabilityUpdateFailed: 'Verification capabilities changed, but this page could not reload automatically.',
-        preparing: 'Preparing security verification.'
+        preparing: 'Preparing security verification.',
+        passkeyStepUpFallback: 'Passkey step-up is temporarily unavailable.'
+    },
+    passkeyStepUp: {
+        unavailable: 'Passkey step-up is temporarily unavailable.'
+    },
+    passkeyRegister: {
+        dialogTitle: 'Add a Passkey',
+        stepNameHintWithSession: 'Recovery Key verified. Add a new passkey.',
+        stepNameHintStandalone: 'Passkeys use device security hardware or biometrics for authentication.',
+        deviceNameLabel: 'Device name (optional)',
+        deviceNamePlaceholder: 'e.g. My MacBook Touch ID',
+        mfaStepHint: 'Complete TOTP verification before adding a passkey. TOTP recovery codes are separate from the Recovery Key.',
+        mfaCodeLabel: 'Verification code',
+        mfaCodePlaceholder: '6-digit code',
+        mfaRecoveryCodeLabel: 'TOTP recovery code (optional)',
+        mfaRecoveryCodePlaceholder: 'TOTP recovery code',
+        waitingAuthenticator: 'Waiting for authenticator',
+        successTitle: 'Passkey added',
+        successHint: 'Use this passkey for future logins',
+        closeCta: 'Done',
+        cancelCta: 'Cancel',
+        nextCta: 'Next',
+        registerCta: 'Add',
+        verifyCta: 'Verify and add',
+        verifying: 'Verifying',
+        stepStatusName: 'Step 1: Enter passkey device name',
+        stepStatusMfa: 'Step 2: Complete MFA verification',
+        stepStatusCeremony: 'Step 3: Waiting for browser authenticator',
+        stepStatusSuccess: 'Step 4: Passkey added successfully',
+        invalidCeremonySession: 'Server returned invalid registration session',
+        mfaCodeInvalid: 'Invalid verification code',
+        mfaVerifyFailed: 'MFA verification failed',
+        registerFailed: 'Registration failed'
+    },
+    mfaSetup: {
+        title: 'MFA Setup',
+        intro: 'Scan the QR code using an authenticator app and enter the 6-digit code.',
+        scanHint: 'Scan QR code to bind',
+        manualKeyLabel: 'Manual secret key',
+        copyCta: 'Copy',
+        copyOtpAuthUrlCta: 'Copy setup link',
+        codeLabel: 'Verification code',
+        codePlaceholder: '6-digit code',
+        recoveryCodesTitle: 'Recovery codes (shown once)',
+        copyRecoveryCodesCta: 'Copy recovery codes',
+        downloadRecoveryCodesCta: 'Download recovery codes',
+        savedRecoveryCodesCheckbox: 'I have saved the recovery codes',
+        closeCta: 'Done',
+        cancelCta: 'Cancel',
+        bindingCta: 'Bind',
+        verifying: 'Verifying',
+        saveRecoveryCodesFirstWarning: 'Please confirm recovery codes are saved first',
+        recoveryCodesCopied: 'Recovery codes copied',
+        recoveryCodesCopyFailed: 'Copy failed. Save recovery codes manually',
+        secretCopied: 'Secret key copied',
+        secretCopyFailed: 'Copy failed. Copy secret key manually',
+        otpAuthUrlCopied: 'Setup link copied',
+        otpAuthUrlCopyFailed: 'Copy failed. Enter key manually',
+        recoveryCodesDownloaded: 'Recovery codes downloaded',
+        statusBindingComplete: 'MFA setup complete. Save recovery codes',
+        statusBindingInProgress: 'MFA setup in progress',
+        statusBindingSteps: 'MFA setup steps: scan QR code or enter manual key, then enter code',
+        statusPreparing: 'Preparing MFA setup information'
+    },
+    mfaChallenge: {
+        dialogTitle: 'Security Verification',
+        defaultDescription: 'Enter the 6-digit code or use a recovery code.',
+        codeLabel: 'Verification code',
+        codePlaceholder: '6-digit code',
+        recoveryCodeLabel: 'Recovery code (optional)',
+        recoveryCodePlaceholder: 'Recovery code',
+        cancelCta: 'Cancel',
+        verifyCta: 'Verify',
+        verifying: 'Verifying'
     }
-} as const;
+} as const satisfies DeepStringShape<typeof zhCNSecurity>;

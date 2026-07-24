@@ -217,14 +217,10 @@ import PolicyModal from '@/components/PolicyModal.vue'
 import PasskeyRegisterModal from '@/components/ui/PasskeyRegisterModal.vue'
 import { themeTokens } from '@/ui-tokens/themeTokens'
 import { useI18nText } from '@/composables/useI18nText'
-import { FSUSBLOG_AUTH_COPY } from '@/copy'
 
 const focusRingClass = themeTokens.focusRing
 const { messages } = useI18nText()
-const copy = computed(() => ({
-  ...FSUSBLOG_AUTH_COPY.register,
-  ...messages.value.auth.register
-}))
+const copy = computed(() => messages.value.auth.register)
 
 const {
   localError,

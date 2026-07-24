@@ -7,11 +7,12 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import type {
   SecurityChallengeAssignment,
   SecurityChallengeProviderPayload
 } from '@/api/security'
-import { FSUSBLOG_SECURITY_COPY } from '@/copy'
+import { useI18nText } from '@/composables/useI18nText'
 
 defineProps<{
   assignment: SecurityChallengeAssignment | null
@@ -19,5 +20,6 @@ defineProps<{
   refresh: () => Promise<void>
 }>()
 
-const copy = FSUSBLOG_SECURITY_COPY.passkeyStepUp
+const { messages } = useI18nText()
+const copy = computed(() => messages.value.security.passkeyStepUp)
 </script>

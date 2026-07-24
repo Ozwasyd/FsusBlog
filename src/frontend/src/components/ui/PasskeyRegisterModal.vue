@@ -137,12 +137,13 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { beginRecoveryPasskeyRegistration, completeRecoveryPasskeyRegistration, enrollmentPasskeyRegisterBegin, enrollmentPasskeyRegisterComplete, getPasskeySignalState, passkeyRegisterBegin, passkeyRegisterComplete, startMfaChallenge, verifyMfaChallenge } from '@/api/auth'
 import { webauthnSignalService } from '@/services/webauthnSignal'
 import FsusDialog from '@/components/ui/FsusDialog.vue'
-import { FSUSBLOG_SECURITY_COPY } from '@/copy'
+import { useI18nText } from '@/composables/useI18nText'
 import { startPasskeyRegistration, type PasskeyRegistrationResult } from '@/services/passkeyCeremony'
 
 type Step = 'name' | 'mfa' | 'ceremony' | 'success'
 
-const copy = FSUSBLOG_SECURITY_COPY.passkeyRegister
+const { messages } = useI18nText()
+const copy = computed(() => messages.value.security.passkeyRegister)
 
 const props = withDefaults(defineProps<{
   visible: boolean
@@ -170,13 +171,13 @@ const errorMessage = ref('')
 const nameInput = ref<HTMLElement | null>(null)
 const mfaCodeInput = ref<HTMLElement | null>(null)
 const stepStatusText = computed(() => {
-  if (step.value === 'name') return copy.stepStatusName
-  if (step.value === 'mfa') return copy.stepStatusMfa
-  if (step.value === 'ceremony') return copy.stepStatusCeremony
-  return copy.stepStatusSuccess
+  if (step.value === 'name') return copy.value.stepStatusName
+  if (step.value === 'mfa') return copy.value.stepStatusMfa
+  if (step.value === 'ceremony') return copy.value.stepStatusCeremony
+  return copy.value.stepStatusSuccess
 })
 const stepNameHint = computed(() =>
-  props.recoverySessionToken ? copy.stepNameHintWithSession : copy.stepNameHintStandalone
+  props.recoverySessionToken ? copy.value.stepNameHintWithSession : copy.value.stepNameHintStandalone
 )
 
 watch(() => props.visible, (val) => {
@@ -224,13 +225,13 @@ const onMfaVerify = async () => {
     })
 
     if (!verifyResult.proofToken) {
-      errorMessage.value = copy.mfaCodeInvalid
+      errorMessage.value = copy.value.mfaCodeInvalid
       return
     }
 
     await runCeremony(verifyResult.proofToken)
   } catch (e: any) {
-    errorMessage.value = e?.response?.data?.message ?? copy.mfaVerifyFailed
+    errorMessage.value = e?.response?.data?.message ?? copy.value.mfaVerifyFailed
   } finally {
     loading.value = false
   }
@@ -250,7 +251,7 @@ const runCeremony = async (mfaProofToken: string | undefined) => {
     const options = (beginResp as any).options || (beginResp as any).Options
 
     if (!sessionKey || !options) {
-      throw new Error(copy.invalidCeremonySession)
+      throw new Error(copy.value.invalidCeremonySession)
     }
 
     let attestation: PasskeyRegistrationResult
@@ -292,7 +293,7 @@ const runCeremony = async (mfaProofToken: string | undefined) => {
 
     step.value = 'success'
   } catch (e: any) {
-    errorMessage.value = e?.message || copy.registerFailed
+    errorMessage.value = e?.message || copy.value.registerFailed
     step.value = props.needsMfa ? 'mfa' : 'name'
   } finally {
     loading.value = false

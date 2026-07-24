@@ -55,13 +55,9 @@ import { getPageData } from '@/api/system'
 import FsusDialog from '@/components/ui/FsusDialog.vue'
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue'
 import { useI18nText } from '@/composables/useI18nText'
-import { FSUSBLOG_AUTH_COPY } from '@/copy'
 
 const { messages } = useI18nText()
-const copy = computed(() => ({
-  ...FSUSBLOG_AUTH_COPY.policyModal,
-  ...messages.value.auth.policyModal
-}))
+const copy = computed(() => messages.value.auth.policyModal)
 
 type PolicyType = 'privacy' | 'guidelines'
 

@@ -117,9 +117,10 @@ import FsusDialog from '@/components/ui/FsusDialog.vue'
 import QrcodeVue from 'qrcode.vue'
 import { toast } from '@/fsusui/feedback'
 import { CopyDocument } from '@/fsusui/icons'
-import { FSUSBLOG_SECURITY_COPY } from '@/copy'
+import { useI18nText } from '@/composables/useI18nText'
 
-const copy = FSUSBLOG_SECURITY_COPY.mfaSetup
+const { messages } = useI18nText()
+const copy = computed(() => messages.value.security.mfaSetup)
 
 const props = withDefaults(defineProps<{
   visible: boolean
@@ -131,8 +132,10 @@ const props = withDefaults(defineProps<{
   recoveryCodes: string[]
   errorMessage: string
 }>(), {
-  title: FSUSBLOG_SECURITY_COPY.mfaSetup.defaultTitle
+  title: ''
 })
+
+const title = computed(() => props.title || copy.value.title)
 
 const emit = defineEmits<{
   'update:visible': [value: boolean]
@@ -149,7 +152,7 @@ watch(recoveryCodesText, () => {
 
 const close = () => {
   if (props.recoveryCodes.length > 0 && !recoveryCodesAcknowledged.value) {
-    toast.warning(copy.saveRecoveryCodesFirstWarning)
+    toast.warning(copy.value.saveRecoveryCodesFirstWarning)
     return
   }
 
@@ -161,7 +164,7 @@ const copyRecoveryCodes = async (): Promise<void> => {
     return
   }
 
-  await copyText(recoveryCodesText.value, copy.recoveryCodesCopied, copy.recoveryCodesCopyFailed)
+  await copyText(recoveryCodesText.value, copy.value.recoveryCodesCopied, copy.value.recoveryCodesCopyFailed)
 }
 
 const copySecret = async (): Promise<void> => {
@@ -169,7 +172,7 @@ const copySecret = async (): Promise<void> => {
     return
   }
 
-  await copyText(props.secret, copy.secretCopied, copy.secretCopyFailed)
+  await copyText(props.secret, copy.value.secretCopied, copy.value.secretCopyFailed)
 }
 
 const copyOtpAuthUrl = async (): Promise<void> => {
@@ -177,7 +180,7 @@ const copyOtpAuthUrl = async (): Promise<void> => {
     return
   }
 
-  await copyText(props.otpAuthUrl, copy.otpAuthUrlCopied, copy.otpAuthUrlCopyFailed)
+  await copyText(props.otpAuthUrl, copy.value.otpAuthUrlCopied, copy.value.otpAuthUrlCopyFailed)
 }
 
 const copyText = async (text: string, successMessage: string, failureMessage: string): Promise<void> => {
@@ -198,22 +201,22 @@ const downloadRecoveryCodes = (): void => {
   anchor.rel = 'noopener'
   anchor.click()
   URL.revokeObjectURL(url)
-  toast.success(copy.recoveryCodesDownloaded)
+  toast.success(copy.value.recoveryCodesDownloaded)
 }
 
 const setupStepStatusText = computed(() => {
   if (props.recoveryCodes.length > 0) {
-    return copy.statusBindingComplete
+    return copy.value.statusBindingComplete
   }
 
   if (props.loading) {
-    return copy.statusBindingInProgress
+    return copy.value.statusBindingInProgress
   }
 
   if (props.otpAuthUrl) {
-    return copy.statusBindingSteps
+    return copy.value.statusBindingSteps
   }
 
-  return copy.statusPreparing
+  return copy.value.statusPreparing
 })
 </script>
