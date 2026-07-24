@@ -153,9 +153,10 @@ import AdminStatusMatrix, { type AdminStatusMatrixItem } from '@/components/admi
 import { DocumentChecked } from '@/fsusui/icons'
 import { showErrorToast } from '@/utils/errorPresentation'
 import { formatModerationRegionName } from '@/utils/moderationRegionDisplay'
-import { FSUSBLOG_ADMIN_COPY } from '@/copy'
+import { useI18nText } from '@/composables/useI18nText'
 
-const copy = FSUSBLOG_ADMIN_COPY.moderationReplay
+const { messages } = useI18nText()
+const copy = computed(() => messages.value.admin.moderationReplay)
 const fallbackReplayRegionCodes = ['CN-MAINLAND', 'GLOBAL', 'EU', 'US', 'UNKNOWN']
 
 const loading = shallowRef(false)
@@ -187,14 +188,14 @@ const replayRegionOptions = computed(() => {
 const metrics = computed<AdminStatusMatrixItem[]>(() => {
   if (!preview.value) return []
   return [
-    { label: copy.metricScanned, value: preview.value.scannedCount },
-    { label: copy.metricAffected, value: preview.value.affectedCommentCount },
-    { label: copy.metricVisibilityChanged, value: preview.value.publicVisibilityChangedCount },
-    { label: copy.metricHighRiskChanged, value: preview.value.highRiskChangeCount },
-    { label: copy.metricAddedRegions, value: preview.value.addedBlockedRegionCount },
-    { label: copy.metricRemovedRegions, value: preview.value.removedBlockedRegionCount },
-    { label: copy.metricAddedRiskLabels, value: preview.value.addedRiskLabelCount },
-    { label: copy.metricRemovedRiskLabels, value: preview.value.removedRiskLabelCount }
+    { label: copy.value.metricScanned, value: preview.value.scannedCount },
+    { label: copy.value.metricAffected, value: preview.value.affectedCommentCount },
+    { label: copy.value.metricVisibilityChanged, value: preview.value.publicVisibilityChangedCount },
+    { label: copy.value.metricHighRiskChanged, value: preview.value.highRiskChangeCount },
+    { label: copy.value.metricAddedRegions, value: preview.value.addedBlockedRegionCount },
+    { label: copy.value.metricRemovedRegions, value: preview.value.removedBlockedRegionCount },
+    { label: copy.value.metricAddedRiskLabels, value: preview.value.addedRiskLabelCount },
+    { label: copy.value.metricRemovedRiskLabels, value: preview.value.removedRiskLabelCount }
   ]
 })
 
@@ -203,7 +204,7 @@ const loadReplayRegions = async (): Promise<void> => {
   try {
     replayRegions.value = await listModerationRegions()
   } catch (error) {
-    showErrorToast(error, copy.regionOptionsErrorToastFallback)
+    showErrorToast(error, copy.value.regionOptionsErrorToastFallback)
   } finally {
     regionsLoading.value = false
   }
@@ -219,7 +220,7 @@ const runPreview = async (): Promise<void> => {
       limit: form.limit
     })
   } catch (error) {
-    showErrorToast(error, copy.errorToastFallback)
+    showErrorToast(error, copy.value.errorToastFallback)
   } finally {
     loading.value = false
   }
