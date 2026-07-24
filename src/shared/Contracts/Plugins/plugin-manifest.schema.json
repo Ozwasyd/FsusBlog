@@ -83,7 +83,8 @@
                     "network.http.outbound",
                     "scheduler.job.create",
                     "admin.ui.extend",
-                    "theme.asset.read"
+                    "theme.asset.read",
+                    "user.auth.hook"
                 ]
             }
         },
@@ -139,13 +140,44 @@
                 "name",
                 "priority",
                 "timeoutMs",
-                "failPolicy"
+                "failPolicy",
+                "executionMode",
+                "scope",
+                "idempotent"
             ],
             "properties": {
                 "name": {
                     "type": "string",
                     "enum": [
-                        "comment.beforeCreate"
+                        "article.beforeSave",
+                        "article.afterSave",
+                        "article.beforeRenderMarkdown",
+                        "article.afterRenderHtml",
+                        "article.beforePublish",
+                        "article.afterPublish",
+                        "article.beforeDelete",
+                        "comment.beforeCreate",
+                        "comment.afterCreate",
+                        "comment.beforeAudit",
+                        "comment.afterAudit",
+                        "comment.beforeDisplay",
+                        "comment.beforeDelete",
+                        "search.beforeIndex",
+                        "search.afterIndex",
+                        "search.queryRewrite",
+                        "search.resultRank",
+                        "media.beforeUpload",
+                        "media.afterUpload",
+                        "media.beforeProcess",
+                        "media.afterProcess",
+                        "user.beforeLogin",
+                        "user.afterLogin",
+                        "user.beforeRegister",
+                        "system.startup",
+                        "system.shutdown",
+                        "scheduler.tick",
+                        "plugin.activate",
+                        "plugin.deactivate"
                     ]
                 },
                 "priority": {
@@ -162,8 +194,31 @@
                     "type": "string",
                     "enum": [
                         "fail-open",
-                        "fail-closed"
+                        "fail-closed",
+                        "ignore",
+                        "quarantine"
                     ]
+                },
+                "executionMode": {
+                    "type": "string",
+                    "enum": [
+                        "sync",
+                        "async",
+                        "background"
+                    ]
+                },
+                "scope": {
+                    "type": "string",
+                    "enum": [
+                        "local",
+                        "cluster-once",
+                        "per-node",
+                        "scheduled",
+                        "leased"
+                    ]
+                },
+                "idempotent": {
+                    "type": "boolean"
                 }
             }
         },

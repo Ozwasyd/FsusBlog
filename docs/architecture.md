@@ -698,7 +698,11 @@ timeout, memory, instruction, call-depth, output and log budgets. Raw SQL and na
 C# loading remain unavailable. Exact package and state transitions are documented
 in [Plugin package and Registry foundation](architecture/plugin-foundation.md);
 permission, isolation and no-restart quarantine semantics are documented in
-[Plugin permission and sandbox boundary](security/plugin-sandbox.md).
+[Plugin permission and sandbox boundary](security/plugin-sandbox.md). The controlled
+execution boundary is the cached [Plugin Hook Dispatcher](architecture/plugin-hook-dispatcher.md):
+stable Hook names map to a required capability, all runtime calls recheck grants and
+isolation, and distributed scopes reuse the shared fenced lease/idempotency state
+instead of inventing node-local leader semantics.
 
 ## 生产启动保护
 

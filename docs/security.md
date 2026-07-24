@@ -511,6 +511,12 @@ FsusBlog 采用三级角色体系：
 timeout、memory、instruction、call-depth、output、log 与 cancellation budget。连续失败会
 进入 Degraded/Quarantined，恢复必须由管理员确认。完整分级、隔离状态、风险和无需重启的
 fail-closed 回退见 [Plugin permission and sandbox boundary](security/plugin-sandbox.md)。
+Hook 执行只通过 [Plugin Hook Dispatcher](architecture/plugin-hook-dispatcher.md)：签名后
+Manifest 中每个 Hook 必须同时声明其封闭 capability，dispatcher 在 runtime 前逐次复核，
+登录相关 Hook 额外要求敏感的 `user.auth.hook`，且调用方不得把凭据、Cookie、JWT、
+Passkey assertion 或原始请求头放入 Hook DTO。`cluster-once` / `scheduled` / `leased`
+必须声明幂等并使用 fencing lease；隔离、清空 grant 和移除本地注册均可在不重启时
+阻断后续调用。
 
 站点订阅写入与退订 ownership proof 只使用 `Subscription:EmailHashPepper` 派生的 `hmac-v1` identity。运行时不接受 `sha256-legacy` lookup、OR fallback 或 `LegacySha256EmailHash`；finalize migration 会隔离 legacy rows 并断言遗留计数为零。发生 cutover 问题时暂停 subscription mutation 并在隔离恢复库诊断，不得重新启用可关联的无密钥 SHA-256 identity。
 

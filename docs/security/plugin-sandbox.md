@@ -26,6 +26,7 @@ network.http.outbound
 scheduler.job.create
 admin.ui.extend
 theme.asset.read
+user.auth.hook
 ```
 
 Private plugin storage, plugin-scoped logging and theme asset reads are `Safe`. The remaining
@@ -33,6 +34,12 @@ capabilities are `Sensitive` because they touch content, shared indexes, schedul
 work, outbound HTTP or administrative UI. Sensitive grants require an explicit
 administrator confirmation. A grant must be a subset of the capabilities in the
 verified manifest; a later grant cannot add an undeclared capability.
+
+`user.auth.hook` is always Sensitive. It gates the conservative login/registration
+Hook family and does not authorize reading credentials, Cookie/JWT contents,
+Passkey assertions or raw request headers. Hook names, ordering, distributed scope
+and failure handling are specified by the
+[Plugin Hook Dispatcher](../architecture/plugin-hook-dispatcher.md).
 
 `database.raw`, `filesystem.raw`, `process.spawn`, `reflection`,
 `serviceProvider.access`, `assembly.load`, `environment.read`,

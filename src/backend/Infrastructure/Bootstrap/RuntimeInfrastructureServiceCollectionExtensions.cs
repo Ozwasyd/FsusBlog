@@ -80,6 +80,10 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<IPluginPermissionGrantStore, InMemoryPluginPermissionGrantStore>();
         services.AddSingleton<PluginPermissionManager>();
         services.AddSingleton<PluginIsolationController>();
+        services.AddSingleton<IPluginHookRegistry, PluginHookRegistry>();
+        services.AddSingleton<IPluginHookRuntimeInvoker, UnavailablePluginHookRuntimeInvoker>();
+        services.AddSingleton<IPluginHookScopeCoordinator, PluginHookScopeCoordinator>();
+        services.AddSingleton<IPluginHookDispatcher, PluginHookDispatcher>();
         services.AddScoped<PluginSecurityAdministrativeSnapshotService>();
         return services;
     }

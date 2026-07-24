@@ -20,7 +20,8 @@ public enum PluginCapability
     NetworkHttpOutbound = 12,
     SchedulerJobCreate = 13,
     AdminUiExtend = 14,
-    ThemeAssetRead = 15
+    ThemeAssetRead = 15,
+    UserAuthHook = 16
 }
 
 public enum PluginCapabilityRisk
@@ -51,7 +52,8 @@ public static class PluginCapabilityCatalog
             ["network.http.outbound"] = PluginCapability.NetworkHttpOutbound,
             ["scheduler.job.create"] = PluginCapability.SchedulerJobCreate,
             ["admin.ui.extend"] = PluginCapability.AdminUiExtend,
-            ["theme.asset.read"] = PluginCapability.ThemeAssetRead
+            ["theme.asset.read"] = PluginCapability.ThemeAssetRead,
+            ["user.auth.hook"] = PluginCapability.UserAuthHook
         };
 
     private static readonly IReadOnlyDictionary<PluginCapability, string> s_byCapability =

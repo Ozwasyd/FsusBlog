@@ -18,11 +18,6 @@ public sealed partial class PluginPackageReader(
     private const long MaximumEntryBytes = 8 * 1024 * 1024;
     private const long MaximumPackageBytes = 32 * 1024 * 1024;
 
-    private static readonly HashSet<string> s_supportedHooks =
-    [
-        "comment.beforeCreate"
-    ];
-
     private static readonly HashSet<string> s_supportedConfigSchemaKeywords =
     [
         "$schema",
@@ -279,12 +274,23 @@ public sealed partial class PluginPackageReader(
         }
         foreach (PluginHookDescriptor hook in manifest.Hooks)
         {
-            if (!s_supportedHooks.Contains(hook.Name)
+            if (!PluginHookCatalog.TryGet(hook.Name, out PluginHookDefinition? definition)
                 || hook.Priority is < -1000 or > 1000
                 || hook.TimeoutMs is < 1 or > 30_000
-                || hook.FailPolicy is not ("fail-open" or "fail-closed"))
+                || !IsSupportedHookFailPolicy(hook.FailPolicy)
+                || !IsSupportedHookExecutionMode(hook.ExecutionMode)
+                || !IsSupportedHookScope(hook.Scope)
+                || (hook.Scope is "cluster-once" or "scheduled" or "leased"
+                    && !hook.Idempotent))
             {
                 throw new PluginPackageValidationException($"Plugin hook '{hook.Name}' is invalid.");
+            }
+            if (!manifest.Capabilities.Contains(
+                PluginCapabilityCatalog.GetName(definition.Capability),
+                StringComparer.Ordinal))
+            {
+                throw new PluginPackageValidationException(
+                    $"Plugin hook '{hook.Name}' is missing its required capability.");
             }
         }
         if (manifest.Capabilities.Count > 64
@@ -303,6 +309,15 @@ public sealed partial class PluginPackageReader(
         }
         return configSchema;
     }
+
+    private static bool IsSupportedHookFailPolicy(string value)
+        => value is "fail-open" or "fail-closed" or "ignore" or "quarantine";
+
+    private static bool IsSupportedHookExecutionMode(string value)
+        => value is "sync" or "async" or "background";
+
+    private static bool IsSupportedHookScope(string value)
+        => value is "local" or "cluster-once" or "per-node" or "scheduled" or "leased";
 
     private static void ValidateRequiredText(string? value, int maximumLength, string field)
     {

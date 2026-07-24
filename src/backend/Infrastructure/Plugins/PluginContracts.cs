@@ -75,6 +75,24 @@ public sealed record PluginHookDescriptor
         get;
         init;
     }
+
+    public string ExecutionMode
+    {
+        get;
+        init;
+    } = "sync";
+
+    public string Scope
+    {
+        get;
+        init;
+    } = "local";
+
+    public bool Idempotent
+    {
+        get;
+        init;
+    }
 }
 
 /// <summary>

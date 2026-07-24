@@ -10,13 +10,16 @@ public sealed class PluginSecurityTests
     [Fact]
     public void CapabilityCatalog_IsClosedTypedAndClassified()
     {
-        Assert.Equal(16, Enum.GetValues<PluginCapability>().Length);
+        Assert.Equal(17, Enum.GetValues<PluginCapability>().Length);
         Assert.Equal(
             PluginCapabilityRisk.Safe,
             PluginCapabilityCatalog.GetRisk(PluginCapability.PluginStorageKv));
         Assert.Equal(
             PluginCapabilityRisk.Sensitive,
             PluginCapabilityCatalog.GetRisk(PluginCapability.CommentModerate));
+        Assert.Equal(
+            PluginCapabilityRisk.Sensitive,
+            PluginCapabilityCatalog.GetRisk(PluginCapability.UserAuthHook));
         Assert.False(PluginCapabilityCatalog.TryParse("database.raw", out _));
         Assert.False(PluginCapabilityCatalog.TryParse("clr.unrestricted", out _));
     }

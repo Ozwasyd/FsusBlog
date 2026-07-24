@@ -114,6 +114,35 @@ public sealed class PluginFoundationTests
     }
 
     [Fact]
+    public async Task ReadAsync_HookMissingRequiredCapability_IsRejected()
+    {
+        byte[] package = CreatePackage(manifestTransform: static json =>
+            json.Replace(",\"comment.create\"", string.Empty, StringComparison.Ordinal));
+        var reader = new PluginPackageReader(new Version(1, 3, 0));
+
+        PluginPackageValidationException exception = await Assert.ThrowsAsync<PluginPackageValidationException>(
+            () => reader.ReadAsync(new MemoryStream(package)));
+
+        Assert.Contains("required capability", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ReadAsync_DistributedHookWithoutIdempotency_IsRejected()
+    {
+        byte[] package = CreatePackage(manifestTransform: static json =>
+            json.Replace(
+                "\"scope\":\"local\",\"idempotent\":true",
+                "\"scope\":\"cluster-once\",\"idempotent\":false",
+                StringComparison.Ordinal));
+        var reader = new PluginPackageReader(new Version(1, 3, 0));
+
+        PluginPackageValidationException exception = await Assert.ThrowsAsync<PluginPackageValidationException>(
+            () => reader.ReadAsync(new MemoryStream(package)));
+
+        Assert.Contains("invalid", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ReadAsync_InvalidConfigSchema_IsRejected()
     {
         byte[] package = CreatePackage(configOverride: """{"type":"array"}""");
@@ -287,7 +316,7 @@ public sealed class PluginFoundationTests
             {"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false,"properties":{"threshold":{"type":"integer"}}}
             """;
         string manifest = """
-            {"id":"fsusblog.plugin.comment-guard","name":"Comment Guard","version":"1.0.0","fsusblog":">=1.3.0 <1.4.0","author":"example","description":"Comment audit rules","runtime":{"type":"lua","entry":"lua/main.lua"},"hooks":[{"name":"comment.beforeCreate","priority":100,"timeoutMs":30,"failPolicy":"fail-open"}],"capabilities":["comment.read","comment.moderate","plugin.storage.kv","plugin.log.write"],"permissions":{"network":false,"filesystem":false,"database":"none"},"configSchema":"config/schema.json"}
+            {"id":"fsusblog.plugin.comment-guard","name":"Comment Guard","version":"1.0.0","fsusblog":">=1.3.0 <1.4.0","author":"example","description":"Comment audit rules","runtime":{"type":"lua","entry":"lua/main.lua"},"hooks":[{"name":"comment.beforeCreate","priority":100,"timeoutMs":30,"failPolicy":"fail-open","executionMode":"sync","scope":"local","idempotent":true}],"capabilities":["comment.read","comment.create","comment.moderate","plugin.storage.kv","plugin.log.write"],"permissions":{"network":false,"filesystem":false,"database":"none"},"configSchema":"config/schema.json"}
             """;
         manifest = manifestTransform?.Invoke(manifest) ?? manifest;
         var payload = new Dictionary<string, string>(StringComparer.Ordinal)
