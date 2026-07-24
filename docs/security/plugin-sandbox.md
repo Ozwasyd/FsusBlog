@@ -71,6 +71,16 @@ startup if their engine cannot implement that profile; they must not silently
 substitute an unrestricted engine. Level 2 trusted native, Level 3 out-of-process
 and Level 4 WASM are reserved and are not enabled by this boundary.
 
+The Lua adapter additionally requires engine support for a standard-library
+allow-list and exposes only `string`, `table`, `math` and `utf8`. It requires
+positive enforcement support for instruction, memory, call-depth, output and log
+budgets plus cancellation before it reads or compiles the entry. Missing support
+fails closed before Hook registration. The repository default is an explicitly
+unavailable adapter because no concrete Lua engine is currently in the dependency
+graph; source is never interpreted by an ad-hoc host parser. The adapter contract,
+package load sequence and engine-integration boundary are documented in
+[Controlled Lua plugin runtime](../architecture/lua-plugin-runtime.md).
+
 ## Resource budgets and isolation
 
 Every execution receives a `PluginExecutionBudgetGuard` with positive limits for
@@ -78,6 +88,12 @@ timeout, memory, instruction count, call depth, output and log bytes, plus a lin
 `CancellationToken`. Runtime adapters must charge the guard before allocating or
 emitting the corresponding resource and check the timeout at safe interruption
 points. Unknown hooks have no default budget and fail closed.
+
+Lua Host API calls cross `LuaPluginExecutionContext.InvokeHostAsync`, which checks
+the timeout, charges the instruction guard and then calls the plugin-scoped proxy.
+The proxy rechecks the capability on every call. A concrete engine binding must
+not cache the result, surface the proxy object itself, or turn library names into
+arbitrary CLR member access.
 
 Isolation state is `Healthy -> Degraded -> Quarantined`, with `Disabled` as an
 operator state. Five failures in one minute degrade a plugin. The next failure

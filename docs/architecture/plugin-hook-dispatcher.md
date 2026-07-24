@@ -11,8 +11,10 @@ core event -> cached Hook registry -> capability/isolation check
 
 No plugin receives a repository, `DbContext`, `IServiceProvider`, filesystem or
 unrestricted network handle. Runtime adapters are replaceable behind
-`IPluginHookRuntimeInvoker`; the default adapter is intentionally unavailable and
-fails closed until the JavaScript or Lua runtime is installed on the node.
+`IPluginHookRuntimeInvoker`. The Lua route and its fail-closed engine adapter are
+specified in [Controlled Lua plugin runtime](lua-plugin-runtime.md); the default
+engine remains intentionally unavailable until a concrete adapter proves the full
+Level 1 contract.
 
 ## Stable models and ordering
 
@@ -74,8 +76,11 @@ embedded in Hook metrics.
 
 The dispatcher does not itself prove that a JavaScript/Lua engine implements the
 Level 1 sandbox; each runtime adapter must refuse registration when it cannot
-enforce the profile. Cluster-once is effectively-once only for work whose side
-effect also honors the fencing/idempotency boundary.
+enforce the profile. The Lua boundary verifies the adapter's declared isolation
+and six budget capabilities before compilation, restricts standard libraries, and
+refuses to publish partial Hook registration. A concrete engine still needs
+engine-specific adversarial evidence. Cluster-once is effectively-once only for
+work whose side effect also honors the fencing/idempotency boundary.
 
 No restart is required to degrade one plugin: remove it from the in-memory Hook
 registry, clear its grants, quarantine or disable it, and allow in-flight linked

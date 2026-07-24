@@ -511,6 +511,11 @@ FsusBlog 采用三级角色体系：
 timeout、memory、instruction、call-depth、output、log 与 cancellation budget。连续失败会
 进入 Degraded/Quarantined，恢复必须由管理员确认。完整分级、隔离状态、风险和无需重启的
 fail-closed 回退见 [Plugin permission and sandbox boundary](security/plugin-sandbox.md)。
+Lua 运行时进一步只允许 `string/table/math/utf8`，并在编译前要求 engine adapter 明确支持
+CLR/assembly/reflection/raw I/O/process 隔离、六维资源计费与 cancellation；缺少任一能力就
+在 Hook 注册前拒绝加载。当前依赖图没有具体 Lua engine，默认 adapter 因而明确
+fail closed，不用宿主自制解析器伪装执行。入口加载、Hook 原子发布与无需重启卸载流程见
+[Controlled Lua plugin runtime](architecture/lua-plugin-runtime.md)。
 Hook 执行只通过 [Plugin Hook Dispatcher](architecture/plugin-hook-dispatcher.md)：签名后
 Manifest 中每个 Hook 必须同时声明其封闭 capability，dispatcher 在 runtime 前逐次复核，
 登录相关 Hook 额外要求敏感的 `user.auth.hook`，且调用方不得把凭据、Cookie、JWT、

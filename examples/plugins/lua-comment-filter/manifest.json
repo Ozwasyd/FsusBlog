@@ -1,0 +1,32 @@
+{
+  "id": "fsusblog.example.lua-comment-filter",
+  "name": "Lua comment keyword filter",
+  "version": "1.0.0",
+  "fsusblog": ">=1.3.0 <1.4.0",
+  "author": "FsusBlog",
+  "description": "Minimal comment filter for the controlled Lua runtime adapter.",
+  "runtime": {
+    "type": "lua",
+    "entry": "lua/main.lua"
+  },
+  "hooks": [
+    {
+      "name": "comment.beforeCreate",
+      "priority": 100,
+      "timeoutMs": 30,
+      "failPolicy": "fail-closed",
+      "executionMode": "sync",
+      "scope": "local",
+      "idempotent": true
+    }
+  ],
+  "capabilities": [
+    "comment.create"
+  ],
+  "permissions": {
+    "network": false,
+    "filesystem": false,
+    "database": "none"
+  },
+  "configSchema": "config/schema.json"
+}

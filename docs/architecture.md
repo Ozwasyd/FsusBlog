@@ -717,6 +717,12 @@ execution boundary is the cached [Plugin Hook Dispatcher](architecture/plugin-ho
 stable Hook names map to a required capability, all runtime calls recheck grants and
 isolation, and distributed scopes reuse the shared fenced lease/idempotency state
 instead of inventing node-local leader semantics.
+Lua execution uses the [Controlled Lua plugin runtime](architecture/lua-plugin-runtime.md):
+verified package entries compile only through an engine adapter that positively
+attests Level 1 isolation, minimal standard libraries, all six resource controls
+and cancellation. The repository currently ships no concrete Lua engine; its
+default unavailable adapter therefore rejects load before Hook registration
+instead of pretending to interpret source or weakening the sandbox.
 
 ## 生产启动保护
 
