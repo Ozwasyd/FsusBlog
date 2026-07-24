@@ -3,6 +3,7 @@
     ref="rootEl"
     class="comment-markdown-renderer fsus-markdown-body"
     :class="{ 'comment-markdown-renderer--collapsed': isCollapsed }"
+    data-fsus-comment-markdown
     data-fsus-surface="reading"
     v-csp-style="{ '--comment-markdown-collapsed-lines': String(collapsedLines) }"
   >
@@ -85,19 +86,19 @@ onMounted(() => {
   position: relative;
 }
 
-.fsus-markdown-body :deep(.markdown-body p:last-child) {
-  margin-bottom: 0 !important;
+</style>
+
+<style>
+[data-fsus-comment-markdown] .markdown-body p:last-child {
+  margin-bottom: 0;
 }
 
-.fsus-markdown-body :deep(.markdown-body pre),
-.fsus-markdown-body :deep(.markdown-body .shiki) {
+[data-fsus-comment-markdown] .markdown-body pre {
   max-width: 100%;
   overflow-x: auto;
 }
 
-.comment-markdown-renderer :deep(img),
-.comment-markdown-renderer :deep(svg),
-.comment-markdown-renderer :deep(iframe) {
-  display: none !important;
+[data-fsus-comment-markdown] .markdown-body :is(img, svg, iframe) {
+  display: none;
 }
 </style>

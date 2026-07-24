@@ -28,6 +28,7 @@
         :loading-key="previewLoadingRegion"
         :href="regionPreviewHrefForRow"
         density="compact"
+        variant="navigation"
         :show-header="false"
         aria-label="地区定义列表"
         @row-click="handleMobileRegionClick"
@@ -381,7 +382,7 @@ type RegionsTableInstance = {
 const regionsTableRef = shallowRef<RegionsTableInstance | null>(null);
 const regionMobileColumns: FsusUiDataListColumn[] = [
   { key: "region", label: "地区", grid: "minmax(0, 1fr)" },
-  { key: "indicator", label: "进入", grid: "24px", align: "end" },
+  { key: "indicator", label: "进入", grid: "40px", align: "end" },
 ];
 const effectiveRuleColumns: FsusUiDataListColumn[] = [
   { key: "rule", label: "规则", grid: "minmax(0, 1fr)" },
@@ -720,64 +721,22 @@ watch(
 }
 
 .moderation-regions-mobile-list {
+  --el-data-list-hover-background: color-mix(
+    in srgb,
+    var(--fsusblog-color-primary) 5%,
+    transparent
+  );
+  --el-data-list-active-background: color-mix(
+    in srgb,
+    var(--fsusblog-color-primary) 8%,
+    transparent
+  );
+  --el-data-list-focus-ring: var(--fsusblog-color-focus-ring);
+  --el-data-list-active-indicator: var(--fsusblog-color-primary);
+  --el-data-list-row-accent-color: var(--fsusblog-text-muted);
+
   display: grid;
   border-block: 1px solid var(--fsusblog-panel-border);
-}
-
-.moderation-regions-mobile-list :deep(.el-data-list__row) {
-  position: relative;
-  min-height: 58px;
-  align-items: center;
-  column-gap: var(--fsus-space-3);
-  border: 0;
-  border-bottom: 1px solid var(--fsusblog-panel-border);
-  background: transparent;
-  color: var(--fsusblog-text-primary);
-  cursor: pointer;
-  text-align: left;
-  text-decoration: none;
-}
-
-.moderation-regions-mobile-list :deep(.el-data-list__row:hover) {
-  background: color-mix(in srgb, var(--fsusblog-color-primary) 5%, transparent);
-}
-
-.moderation-regions-mobile-list :deep(.el-data-list__row:focus-visible) {
-  background: color-mix(in srgb, var(--fsusblog-color-primary) 5%, transparent);
-  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
-  outline: none;
-}
-
-.moderation-regions-mobile-list :deep(.el-data-list__row.is-active) {
-  background: color-mix(in srgb, var(--fsusblog-color-primary) 8%, transparent);
-}
-
-.moderation-regions-mobile-list :deep(.el-data-list__row.is-active)::before {
-  position: absolute;
-  left: 0;
-  top: 10px;
-  bottom: 10px;
-  width: 2px;
-  border-radius: var(--fsus-radius-pill);
-  background: var(--fsusblog-color-primary);
-  content: "";
-}
-
-.moderation-regions-mobile-list :deep(.el-data-list__cell) {
-  min-width: 0;
-  padding-block: var(--fsus-space-3);
-}
-
-.moderation-regions-mobile-list :deep(.el-data-list__cell:first-child) {
-  padding-left: var(--fsus-space-5);
-}
-
-.moderation-regions-mobile-list :deep(.el-data-list__cell:last-child) {
-  padding-right: var(--fsus-space-4);
-}
-
-.moderation-regions-mobile-list :deep(.el-data-list__cell--end) {
-  text-align: right;
 }
 
 .moderation-regions-mobile-summary {
@@ -825,8 +784,8 @@ watch(
   height: 22px;
   align-items: center;
   justify-content: center;
-  color: var(--fsusblog-text-muted);
-  opacity: 0.72;
+  color: var(--el-data-list-row-accent-color);
+  opacity: var(--el-data-list-row-accent-opacity);
   transition:
     color var(--blog-motion-fast) var(--blog-motion-ease),
     opacity var(--blog-motion-fast) var(--blog-motion-ease),
@@ -836,15 +795,6 @@ watch(
 .moderation-regions-mobile-cell--indicator svg {
   width: 14px;
   height: 14px;
-}
-
-.moderation-regions-mobile-list :deep(.el-data-list__row:hover)
-  .moderation-regions-mobile-cell--indicator,
-.moderation-regions-mobile-list :deep(.el-data-list__row:focus-visible)
-  .moderation-regions-mobile-cell--indicator,
-.moderation-regions-mobile-cell--indicator.is-active {
-  color: var(--fsusblog-color-primary);
-  opacity: 1;
 }
 
 .moderation-regions-mobile-cell--indicator.is-active {
@@ -874,10 +824,6 @@ watch(
 
 .moderation-regions-rules-list {
   display: grid;
-}
-
-.moderation-regions-rules-list :deep(.el-data-list__row) {
-  border-bottom: 1px solid var(--fsusblog-panel-border);
 }
 
 .moderation-regions-rule-row {

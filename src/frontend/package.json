@@ -108,6 +108,7 @@
     "check:page-title-scale": "node ../../tests/frontend/checks/static/check-page-title-scale.mjs",
     "check:shell-material-governance": "node ../../tests/frontend/checks/static/check-shell-material-governance.mjs",
     "check:public-shell-css-ownership": "node ../../tests/frontend/checks/static/check-public-shell-css-ownership.mjs",
+    "check:internal-selector-governance": "node ../../tests/frontend/checks/static/check-internal-selector-governance.mjs",
     "check:messages-inbox-governance": "node ../../tests/frontend/checks/static/check-messages-inbox-governance.mjs",
     "check:public-reading-motion": "node ../../tests/frontend/checks/static/check-public-reading-motion.mjs",
     "check:radius-scale-contract": "node ../../tests/frontend/checks/static/check-radius-scale-contract.mjs",

@@ -99,7 +99,7 @@ const app = createApp({
         }
       }),
       h('form', { class: 'write-validation-form' }, [
-        h('div', { class: 'el-form-item is-error' }, [
+        h('div', { class: 'article-validation-field' }, [
           h('label', { for: 'fixture-invalid-title' }, '缺失标题'),
           h('input', {
             id: 'fixture-invalid-title',

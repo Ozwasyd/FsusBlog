@@ -84,22 +84,6 @@ const authAction = computed(() => {
   color: var(--fsusblog-text-primary);
 }
 
-:deep(.auth-header-brand) {
-  display: inline-flex;
-  min-height: 2.5rem;
-  min-width: 0;
-  align-items: center;
-  gap: var(--fsus-space-2);
-  border-radius: var(--fsus-radius-control);
-  color: var(--fsusblog-text-primary);
-  text-decoration: none;
-  transition: color var(--fsus-motion-control-fast) var(--fsus-motion-standard);
-}
-
-:deep(.auth-header-brand:hover) {
-  color: var(--fsusblog-color-primary);
-}
-
 .auth-header-action {
   display: inline-flex;
   min-height: 2.5rem;

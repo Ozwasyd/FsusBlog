@@ -2,6 +2,10 @@
 
 本文档是 FsusBlog 公开壳层的唯一长期事实源。它描述 FsusUI `PublicShell`、Blog consumer、AOT/emergency CSS 与运行时 sticky geometry 的边界；产品级内容编排见 [`../public-layout-rules.md`](../public-layout-rules.md)，组件库内部规范仍由 FsusUI 维护。
 
+全站其他 `:deep()` 与直接 `.el-*` override 的预算、owner、expiry 和 replacement
+规则见 [`internal-selector-governance.md`](internal-selector-governance.md)；
+PublicShell 在该治理中仍是零豁免边界。
+
 ## 组件与交互所有权
 
 `PublicBlogLayoutShell.vue` 通过 alias 使用真实的 FsusUI `ElPublicShell`，并显式选择 `mobileNavMode="menu"` 与 `desktop-search-mode="trigger"`。FsusUI 拥有 header/main/footer DOM 布局、desktop 40px 与 mobile 44px 控件几何、原生 `details/summary` 菜单、search/auth/theme 的 open/closed、focus、Escape、outside-pointer、reduced-motion 与 safe-area 行为；Blog 只传入导航文案、鉴权目标、搜索 query/action 与 SPA 路由选择。

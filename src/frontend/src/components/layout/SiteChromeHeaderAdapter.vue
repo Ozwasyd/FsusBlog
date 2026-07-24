@@ -15,7 +15,15 @@
     :mobile-secondary-actions-class="mobileSecondaryActionsClass"
   >
     <template #brand>
-      <a :href="brandHref" :class="brandLinkClass" v-bind="brandDataAttributes">
+      <a
+        :href="brandHref"
+        :class="[
+          'site-chrome-header__brand-link',
+          `site-chrome-header__brand-link--${brandContext}`,
+          brandLinkClass,
+        ]"
+        v-bind="brandDataAttributes"
+      >
         <span
           v-if="hasBrandImage"
           class="site-chrome-header__brand-mark"
@@ -256,6 +264,22 @@ function resolveBrandImage(theme: 'light' | 'dark'): string {
 
 <style scoped>
 @reference "@/assets/main.css";
+
+.site-chrome-header__brand-link--auth {
+  display: inline-flex;
+  min-height: 2.5rem;
+  min-width: 0;
+  align-items: center;
+  gap: var(--fsus-space-2);
+  border-radius: var(--fsus-radius-control);
+  color: var(--fsusblog-text-primary);
+  text-decoration: none;
+  transition: color var(--fsus-motion-control-fast) var(--fsus-motion-standard);
+}
+
+.site-chrome-header__brand-link--auth:hover {
+  color: var(--fsusblog-color-primary);
+}
 
 .site-chrome-header__brand-mark {
   display: inline-flex;

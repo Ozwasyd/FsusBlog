@@ -12,6 +12,7 @@ const read = (file) => fs.readFileSync(file, 'utf8')
 const files = {
   filterHeader: path.join(repoRoot, 'src/frontend/src/components/filter/FilterHeader.vue'),
   home: path.join(repoRoot, 'src/frontend/src/components/public/pages/PublicHomePageContent.vue'),
+  articleList: path.join(repoRoot, 'src/frontend/src/components/public/PublicArticleList.vue'),
   archive: path.join(repoRoot, 'src/frontend/src/components/public/pages/PublicArchivePageContent.vue'),
   about: path.join(repoRoot, 'src/frontend/src/components/public/pages/PublicAboutPageContent.vue'),
   featured: path.join(repoRoot, 'src/frontend/src/components/home/FeaturedArticlesSection.vue'),
@@ -124,6 +125,7 @@ checkLines(files.home, [
 ])
 
 const homeSource = read(files.home)
+const articleListSource = read(files.articleList)
 const featuredSource = read(files.featured)
 const recommendationsSource = read(files.recommendations)
 const publicLayoutRules = read(files.publicLayoutRules)
@@ -139,10 +141,18 @@ expectHomeIncludes(files.featured, featuredSource, "'gap-8 py-12 md:grid-cols-2 
 expectHomeIncludes(files.featured, featuredSource, "'py-12 md:py-16'", 'home text lead must keep 48/64px block padding')
 expectHomeIncludes(files.recommendations, recommendationsSource, 'class="text-xl font-bold leading-[1.2]', 'home section headings must keep the 20px/700 tier')
 expectHomeIncludes(files.home, homeSource, 'data-home-punctuation-motif="metadata"', 'home must confine the punctuation motif to feed metadata')
-expectHomeIncludes(files.home, homeSource, 'font-size: 12px;', 'home feed metadata must keep a readable 12px tier')
-expectHomeIncludes(files.home, homeSource, 'font-size: 14px;', 'home feed summaries must keep the 14px tier')
-expectHomeIncludes(files.home, homeSource, 'line-height: 1.6;', 'home feed summaries must keep 1.6 line height')
+expectHomeIncludes(files.home, homeSource, 'presentation="home-feed"', 'home must select the stable article-list presentation contract')
+expectHomeIncludes(files.articleList, articleListSource, 'data-public-article-presentation', 'article list must expose its owned presentation hook')
+expectHomeIncludes(files.articleList, articleListSource, ".ui-article-list[data-public-article-presentation='home-feed']", 'article list must own home-feed styling')
+expectHomeIncludes(files.articleList, articleListSource, 'font-size: 12px;', 'home feed metadata must keep a readable 12px tier')
+expectHomeIncludes(files.articleList, articleListSource, 'font-size: 14px;', 'home feed summaries must keep the 14px tier')
+expectHomeIncludes(files.articleList, articleListSource, 'line-height: 1.6;', 'home feed summaries must keep 1.6 line height')
 expectHomeIncludes(files.publicLayoutRules, publicLayoutRules, 'Scholarly Blue 仅用于 link hover、focus 与 active', 'public layout rules must document interaction-only Scholarly Blue')
+
+for (const match of homeSource.matchAll(/:deep\(\.ui-article-[^)]+\)/gu)) {
+  const line = homeSource.slice(0, match.index).split(/\r?\n/u).length
+  fail(files.home, line, `home must not reach into article-list internals via ${match[0]}`)
+}
 
 for (const [file, source] of [
   [files.home, homeSource],

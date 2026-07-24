@@ -29,6 +29,7 @@
           <MarkdownRenderer
             v-else
             class="policy-legal-doc"
+            data-policy-document
             :content="markdownContent"
             mode="about"
             @render-complete="handleMarkdownComplete"
@@ -142,7 +143,7 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped>
+<style>
 @reference "@/assets/main.css";
 
 /* =======================================================
@@ -150,7 +151,7 @@ onUnmounted(() => {
    核心要求：严谨、清晰的层级、紧凑但不拥挤、去除花哨装饰
 ======================================================= */
 
-.policy-legal-doc {
+[data-policy-document].policy-legal-doc {
   color: var(--fsusblog-text-secondary);
   font-size: 16px;
   line-height: 1.7;
@@ -161,20 +162,20 @@ onUnmounted(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .policy-legal-doc * {
-    animation: none !important;
-    transition: none !important;
+  [data-policy-document].policy-legal-doc * {
+    animation: none;
+    transition: none;
   }
 }
 
 /* 消除顶部元素的无意义边距 */
-.policy-legal-doc :deep(:where(h1, h2, h3, h4, p, ul, ol, blockquote):first-child) { margin-top: 0; }
+[data-policy-document].policy-legal-doc :where(h1, h2, h3, h4, p, ul, ol, blockquote):first-child { margin-top: 0; }
 
 /* 1. 标题层级重构 (Headings) */
-.policy-legal-doc :deep(h1),
-.policy-legal-doc :deep(h2),
-.policy-legal-doc :deep(h3),
-.policy-legal-doc :deep(h4) {
+[data-policy-document].policy-legal-doc h1,
+[data-policy-document].policy-legal-doc h2,
+[data-policy-document].policy-legal-doc h3,
+[data-policy-document].policy-legal-doc h4 {
   color: var(--fsusblog-text-primary);
   font-weight: 700;
   text-indent: 0;
@@ -182,7 +183,7 @@ onUnmounted(() => {
 }
 
 /* 协议主标题 */
-.policy-legal-doc :deep(h1) {
+[data-policy-document].policy-legal-doc h1 {
   font-size: 1.5em;
   margin-top: 2em;
   text-align: left;
@@ -192,7 +193,7 @@ onUnmounted(() => {
 }
 
 /* 条款大类 (如：一、数据收集) */
-.policy-legal-doc :deep(h2) {
+[data-policy-document].policy-legal-doc h2 {
   font-size: 1.15em;
   margin-top: 2.5em;
   border-bottom: 1px solid var(--fsusblog-panel-border);
@@ -200,13 +201,13 @@ onUnmounted(() => {
 }
 
 /* 具体细则条款 */
-.policy-legal-doc :deep(h3) {
+[data-policy-document].policy-legal-doc h3 {
   font-size: 1em;
   margin-top: 1.8em;
 }
 
 /* 2. 段落节律 (Paragraphs) */
-.policy-legal-doc :deep(p) {
+[data-policy-document].policy-legal-doc p {
   margin-top: 0;
   margin-bottom: 0.8em;
   text-indent: 0;
@@ -215,25 +216,25 @@ onUnmounted(() => {
 /* 3. 有序编号体系 (Lists & Indentation)
    法务文档极其依赖清晰的缩进结构（如 1.1, 1.1.1）
 */
-.policy-legal-doc :deep(ol),
-.policy-legal-doc :deep(ul) {
+[data-policy-document].policy-legal-doc ol,
+[data-policy-document].policy-legal-doc ul {
   padding-left: 1.8em;
   margin-top: 0.5em;
   margin-bottom: 1.2em;
 }
 
-.policy-legal-doc :deep(li) {
+[data-policy-document].policy-legal-doc li {
   margin-bottom: 0.4em;
   padding-left: 0.2em;
 }
 
-.policy-legal-doc :deep(li p) {
+[data-policy-document].policy-legal-doc li p {
   margin-bottom: 0;
   margin-top: 0.2em;
 }
 
 /* 4. 关键信息强调 (Strong & Emphasis) */
-.policy-legal-doc :deep(strong) {
+[data-policy-document].policy-legal-doc strong {
   font-weight: 700;
   color: var(--fsusblog-text-primary);
   background-color: var(--fsusblog-panel-bg-soft);
@@ -242,7 +243,7 @@ onUnmounted(() => {
 }
 
 /* 5. 引用块 (Blockquotes - 常用于定义或免责声明) */
-.policy-legal-doc :deep(blockquote) {
+[data-policy-document].policy-legal-doc blockquote {
   border-left: 3px solid var(--fsusblog-text-tertiary);
   margin: 1.5em 0;
   padding: 0.8em 1.2em;
@@ -252,15 +253,15 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
-.policy-legal-doc :deep(blockquote p) {
+[data-policy-document].policy-legal-doc blockquote p {
   margin-bottom: 0.5em;
 }
-.policy-legal-doc :deep(blockquote p:last-child) {
+[data-policy-document].policy-legal-doc blockquote p:last-child {
   margin-bottom: 0;
 }
 
 /* 6. 超链接 */
-.policy-legal-doc :deep(a) {
+[data-policy-document].policy-legal-doc a {
   color: var(--fsusblog-color-primary);
   font-weight: 500;
   text-decoration: underline;
@@ -268,7 +269,7 @@ onUnmounted(() => {
   transition: opacity var(--fsus-motion-control-fast) var(--fsus-motion-standard);
 }
 
-.policy-legal-doc :deep(a:hover) {
+[data-policy-document].policy-legal-doc a:hover {
   color: var(--fsusblog-text-primary);
 }
 </style>

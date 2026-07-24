@@ -2,6 +2,7 @@
     <div
         class="ui-article-list"
         :class="themeTokens.articleList.container"
+        :data-public-article-presentation="presentation"
         data-fsus-surface="reading"
     >
         <article
@@ -137,12 +138,14 @@ import type { ArticleListCardViewContract } from '@/view-contracts/articleList';
 const props = withDefaults(defineProps<{
     spaNavigation?: boolean;
     showReadCta?: boolean;
+    presentation?: 'default' | 'home-feed';
     items: readonly ArticleListCardViewContract[];
     pagination: PaginationContract;
     showPagination: boolean;
 }>(), {
     spaNavigation: false,
-    showReadCta: true
+    showReadCta: true,
+    presentation: 'default'
 });
 
 const emit = defineEmits<{
@@ -196,6 +199,41 @@ function handleNext(event: MouseEvent): void
 </script>
 
 <style scoped>
+.ui-article-list[data-public-article-presentation='home-feed']
+ {
+    gap: 40px;
+}
+
+.ui-article-list[data-public-article-presentation='home-feed'] .ui-article-card
+ {
+    gap: 16px;
+}
+
+.ui-article-list[data-public-article-presentation='home-feed'] .ui-article-meta
+ {
+    color: var(--fsusblog-text-muted);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.5;
+}
+
+.ui-article-list[data-public-article-presentation='home-feed'] .ui-article-title
+ {
+    color: var(--fsusblog-text-heading);
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+.ui-article-list[data-public-article-presentation='home-feed'] .ui-article-summary
+ {
+    margin-top: 8px;
+    color: var(--fsusblog-text-secondary);
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.6;
+}
+
 .public-article-tag
  {
     min-height: 32px;

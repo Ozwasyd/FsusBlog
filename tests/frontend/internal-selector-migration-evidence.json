@@ -1,0 +1,101 @@
+{
+  "schema": "fsusblog.internal-selector-migration-evidence.v1",
+  "baseline": {
+    "sourceCommit": "99e06dc0844b537ef0ca16b2ff42e125217573db",
+    "deepOccurrences": 103,
+    "directElementPlusOccurrences": 8,
+    "publicShellInternalOccurrences": 0
+  },
+  "current": {
+    "deepOccurrences": 51,
+    "directElementPlusOccurrences": 8,
+    "publicShellInternalOccurrences": 0
+  },
+  "migrations": [
+    {
+      "surface": "PolicyModal",
+      "owner": "FsusBlog",
+      "removedDeepOccurrences": 19,
+      "replacement": "data-policy-document markup-owner boundary",
+      "viewports": ["390x844", "1440x1000"],
+      "themes": ["light", "dark"],
+      "geometryMaximumDifferencePx": 0,
+      "focusRingMaximumDifferencePx": 0,
+      "screenshotResult": "before/after PNG byte-identical in all four scenarios"
+    },
+    {
+      "surface": "CommentMarkdownRenderer",
+      "owner": "FsusBlog",
+      "removedDeepOccurrences": 6,
+      "replacement": "data-fsus-comment-markdown generated-content boundary",
+      "viewports": ["mobile", "desktop"],
+      "themes": ["light", "dark"],
+      "geometryMaximumDifferencePx": 0,
+      "focusRingMaximumDifferencePx": 0,
+      "screenshotResult": "geometry and overflow assertions passed; mobile-dark PNG was not byte-identical"
+    },
+    {
+      "surface": "PublicHomePageContent",
+      "owner": "FsusBlog",
+      "removedDeepOccurrences": 5,
+      "replacement": "PublicArticleList presentation=home-feed",
+      "viewports": ["375", "768", "1024", "1440"],
+      "themes": ["light", "dark"],
+      "geometryMaximumDifferencePx": 0,
+      "focusRingMaximumDifferencePx": 0,
+      "screenshotResult": "browser geometry assertions passed; the successful runner did not retain PNG files"
+    },
+    {
+      "surface": "PublicAuthLayout",
+      "owner": "FsusBlog",
+      "removedDeepOccurrences": 2,
+      "replacement": "site-chrome-header__brand-link--auth markup-owner modifier",
+      "viewports": [],
+      "themes": [],
+      "geometryMaximumDifferencePx": null,
+      "focusRingMaximumDifferencePx": null,
+      "screenshotResult": "static ownership regression only; no screenshot claim"
+    },
+    {
+      "surface": "ArticleWriteTitleField",
+      "owner": "FsusUI",
+      "removedDeepOccurrences": 8,
+      "replacement": "ElInput textarea-variant=editor-title",
+      "fsusUiIssue": "Ozwasyd/FsusUI#258",
+      "fsusUiCommit": "794165a308ecf4d843116f3e2c8c606feca8b90e",
+      "viewports": ["375x812", "1440x900"],
+      "themes": ["light", "dark"],
+      "geometryMaximumDifferencePx": 0,
+      "focusRingMaximumDifferencePx": 0,
+      "screenshotResult": "system Chrome geometry, overflow and keyboard focus assertions passed"
+    },
+    {
+      "surface": "ModerationRegions",
+      "owner": "FsusUI",
+      "removedDeepOccurrences": 12,
+      "replacement": "ElDataList variant=navigation",
+      "fsusUiIssue": "Ozwasyd/FsusUI#258",
+      "fsusUiCommits": [
+        "35ad4a227a88631f4529fe32b5269fa7b1531185",
+        "f5755e8b7b95d461ed5280225f8a71cdda66b0a3"
+      ],
+      "viewports": ["mobile", "desktop"],
+      "themes": ["light", "dark"],
+      "geometryMaximumDifferencePx": null,
+      "focusRingMaximumDifferencePx": null,
+      "screenshotResult": "integrated system Chrome passed 4/4 geometry, focus, active-state and overflow assertions; no before/after delta claim"
+    },
+    {
+      "surface": "articleEditorAccessibility",
+      "owner": "FsusBlog",
+      "removedDeepOccurrences": 0,
+      "removedBoundaryOccurrences": 4,
+      "replacement": "aria-invalid=true semantic validation control selector",
+      "viewports": [],
+      "themes": [],
+      "geometryMaximumDifferencePx": null,
+      "focusRingMaximumDifferencePx": null,
+      "screenshotResult": "semantic unit tests and strict FsusUI boundary gate passed; no screenshot claim"
+    }
+  ]
+}

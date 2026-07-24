@@ -35,6 +35,7 @@
             <PublicArticleList
               :items="view.items"
               :pagination="view.pagination"
+              presentation="home-feed"
               :show-pagination="view.showPagination"
               :show-read-cta="showArticleCta !== false"
               :spa-navigation="spaNavigation"
@@ -84,36 +85,3 @@ const emit = defineEmits<{
 const copy = FSUSBLOG_LAYOUT_COPY.recommendations
 
 </script>
-
-<style scoped>
-.home-editorial-section--feed :deep(.ui-article-list) {
-  gap: 40px;
-}
-
-.home-editorial-section--feed :deep(.ui-article-card) {
-  gap: 16px;
-}
-
-.home-editorial-section--feed :deep(.ui-article-meta) {
-  color: var(--fsusblog-text-muted);
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1.5;
-}
-
-.home-editorial-section--feed :deep(.ui-article-title) {
-  color: var(--fsusblog-text-heading);
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 1.25;
-}
-
-.home-editorial-section--feed :deep(.ui-article-summary) {
-  margin-top: 8px;
-  color: var(--fsusblog-text-secondary);
-  font-size: 14px;
-  font-weight: 400;
-  line-height: 1.6;
-}
-
-</style>

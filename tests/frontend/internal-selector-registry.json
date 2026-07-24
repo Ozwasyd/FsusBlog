@@ -1,0 +1,269 @@
+{
+  "schema": "fsusblog.internal-selector-registry.v1",
+  "maximumDeepOccurrences": 51,
+  "maximumDirectElOccurrences": 8,
+  "entries": [
+    {
+      "path": "src/frontend/src/components/admin/AdminTaxonomyManageView.vue",
+      "owner": "FsusUI",
+      "reason": "Temporary internal geometry dependency while #1472 replaces it with a public prop, slot, token, variant, or data hook.",
+      "expiresOn": "2026-08-31",
+      "replacementIssue": "Ozwasyd/FsusBlog#1472",
+      "selectors": [
+        { "kind": "deep", "selector": ".el-table-fixed-column--right.is-first-column", "occurrences": 1 },
+        { "kind": "deep", "selector": ".el-table-fixed-column--right.is-first-column::before", "occurrences": 1 }
+      ]
+    },
+    {
+      "path": "src/frontend/src/components/admin/article/ArticleWriteSidebar.vue",
+      "owner": "FsusUI",
+      "reason": "Temporary internal geometry dependency while #1472 replaces it with a public prop, slot, token, variant, or data hook.",
+      "expiresOn": "2026-08-31",
+      "replacementIssue": "Ozwasyd/FsusBlog#1472",
+      "selectors": [
+        { "kind": "deep", "selector": ".el-form-item__content", "occurrences": 1 },
+        { "kind": "deep", "selector": ".el-textarea", "occurrences": 1 },
+        { "kind": "deep", "selector": ".el-textarea__inner", "occurrences": 1 }
+      ]
+    },
+    {
+      "path": "src/frontend/src/components/admin/comment-moderation/CommentModerationQueue.vue",
+      "owner": "FsusUI",
+      "reason": "Temporary internal geometry dependency while #1472 replaces it with a public prop, slot, token, variant, or data hook.",
+      "expiresOn": "2026-08-31",
+      "replacementIssue": "Ozwasyd/FsusBlog#1472",
+      "selectors": [
+        { "kind": "deep", "selector": ".el-table-fixed-column--right.is-first-column", "occurrences": 1 },
+        { "kind": "deep", "selector": ".el-table-fixed-column--right.is-first-column::before", "occurrences": 1 }
+      ]
+    },
+    {
+      "path": "src/frontend/src/components/admin/users/UserManageHeader.vue",
+      "owner": "FsusUI",
+      "reason": "Temporary internal geometry dependency while #1472 replaces it with a public prop, slot, token, variant, or data hook.",
+      "expiresOn": "2026-08-31",
+      "replacementIssue": "Ozwasyd/FsusBlog#1472",
+      "selectors": [
+        { "kind": "deep", "selector": ".el-button", "occurrences": 1 }
+      ]
+    },
+    {
+      "path": "src/frontend/src/components/admin/users/UserManageTable.vue",
+      "owner": "FsusUI",
+      "reason": "Temporary internal geometry dependency while #1472 replaces it with a public prop, slot, token, variant, or data hook.",
+      "expiresOn": "2026-08-31",
+      "replacementIssue": "Ozwasyd/FsusBlog#1472",
+      "selectors": [
+        { "kind": "deep", "selector": ".el-responsive-collection.is-compact", "occurrences": 1 },
+        { "kind": "deep", "selector": ".el-responsive-collection__compact", "occurrences": 1 },
+        { "kind": "direct-el", "selector": ".el-responsive-collection", "occurrences": 1 }
+      ]
+    },
+    {
+      "path": "src/frontend/src/components/admin/users/UserManageTable.vue",
+      "owner": "FsusBlog",
+      "reason": "Temporary consumer cross-component selector while #1472 moves the rule to its markup owner or a stable business hook.",
+      "expiresOn": "2026-08-31",
+      "replacementIssue": "Ozwasyd/FsusBlog#1472",
+      "selectors": [
+        { "kind": "deep", "selector": ".user-table-action-button", "occurrences": 1 }
+      ]
+    },
+    {
+      "path": "src/frontend/src/components/ui/FsusDialog.vue",
+      "owner": "FsusUI",
+      "reason": "Temporary internal geometry dependency while #1472 replaces it with a public prop, slot, token, variant, or data hook.",
+      "expiresOn": "2026-08-31",
+      "replacementIssue": "Ozwasyd/FsusBlog#1472",
+      "selectors": [
+        { "kind": "direct-el", "selector": ".el-overlay-dialog", "occurrences": 1 },
+        { "kind": "direct-el", "selector": ".el-dialog__header", "occurrences": 1 },
+        { "kind": "direct-el", "selector": ".el-dialog__footer", "occurrences": 1 },
+        { "kind": "direct-el", "selector": ".el-dialog__body", "occurrences": 1 }
+      ]
+    },
+    {
+      "path": "src/frontend/src/components/ui/PasskeyRegisterModal.vue",
+      "owner": "FsusUI",
+      "reason": "Temporary internal geometry dependency while #1472 replaces it with a public prop, slot, token, variant, or data hook.",
+      "expiresOn": "2026-08-31",
+      "replacementIssue": "Ozwasyd/FsusBlog#1472",
+      "selectors": [
+        { "kind": "direct-el", "selector": ".el-dialog__header", "occurrences": 1 },
+        { "kind": "direct-el", "selector": ".el-dialog__body", "occurrences": 1 },
+        { "kind": "direct-el", "selector": ".el-dialog__footer", "occurrences": 1 }
+      ]
+    },
+    {
+      "path": "src/frontend/src/views/admin/AuditLog.vue",
+      "owner": "FsusUI",
+      "reason": "Temporary internal geometry dependency while #1472 replaces it with a public prop, slot, token, variant, or data hook.",
+      "expiresOn": "2026-08-31",
+      "replacementIssue": "Ozwasyd/FsusBlog#1472",
+      "selectors": [
+        { "kind": "deep", "selector": ".audit-filter-grid .el-input", "occurrences": 1 },
+        { "kind": "deep", "selector": ".audit-filter-grid .el-select", "occurrences": 1 },
+        { "kind": "deep", "selector": ".audit-filter-grid .el-date-editor", "occurrences": 1 },
+        { "kind": "deep", "selector": ".audit-filter-grid .el-date-editor .el-range-input", "occurrences": 1 }
+      ]
+    },
+    {
+      "path": "src/frontend/src/views/admin/AuditLog.vue",
+      "owner": "FsusBlog",
+      "reason": "Temporary consumer cross-component selector while #1472 moves the rule to its markup owner or a stable business hook.",
+      "expiresOn": "2026-08-31",
+      "replacementIssue": "Ozwasyd/FsusBlog#1472",
+      "selectors": [
+        { "kind": "deep", "selector": ".audit-facet-grid .admin-status-matrix__bar", "occurrences": 1 }
+      ]
+    },
+    {
+      "path": "src/frontend/src/views/admin/CacheDiagnostics.vue",
+      "owner": "FsusUI",
+      "reason": "Temporary internal geometry dependency while #1472 replaces it with a public prop, slot, token, variant, or data hook.",
+      "expiresOn": "2026-08-31",
+      "replacementIssue": "Ozwasyd/FsusBlog#1472",
+      "selectors": [
+        { "kind": "deep", "selector": ".el-button + .el-button", "occurrences": 1 },
+        { "kind": "deep", "selector": ".el-button", "occurrences": 1 }
+      ]
+    },
+    {
+      "path": "src/frontend/src/views/admin/Settings.vue",
+      "owner": "FsusUI",
+      "reason": "Temporary internal geometry dependency while #1472 replaces it with a public prop, slot, token, variant, or data hook.",
+      "expiresOn": "2026-08-31",
+      "replacementIssue": "Ozwasyd/FsusBlog#1472",
+      "selectors": [
+        { "kind": "deep", "selector": ".el-tabs__header", "occurrences": 1 },
+        { "kind": "deep", "selector": ".el-tabs__nav-wrap", "occurrences": 1 },
+        { "kind": "deep", "selector": ".el-tabs__nav-scroll", "occurrences": 2 },
+        { "kind": "deep", "selector": ".el-tabs__nav-scroll::-webkit-scrollbar", "occurrences": 1 }
+      ]
+    },
+    {
+      "path": "src/frontend/src/views/admin/article/List.vue",
+      "owner": "FsusUI",
+      "reason": "Temporary internal geometry dependency while #1472 replaces it with a public prop, slot, token, variant, or data hook.",
+      "expiresOn": "2026-08-31",
+      "replacementIssue": "Ozwasyd/FsusBlog#1472",
+      "selectors": [
+        { "kind": "deep", "selector": ".el-form-item__content", "occurrences": 1 },
+        { "kind": "deep", "selector": ".el-button + .el-button", "occurrences": 1 },
+        { "kind": "deep", "selector": ".el-button", "occurrences": 1 },
+        { "kind": "deep", "selector": ".article-list-write-button.el-button", "occurrences": 2 },
+        { "kind": "deep", "selector": ".el-table-fixed-column--right.is-first-column", "occurrences": 1 },
+        { "kind": "deep", "selector": ".el-table-fixed-column--right.is-first-column::before", "occurrences": 1 }
+      ]
+    },
+    {
+      "path": "src/frontend/src/views/admin/article/Trash.vue",
+      "owner": "FsusUI",
+      "reason": "Temporary internal geometry dependency while #1472 replaces it with a public prop, slot, token, variant, or data hook.",
+      "expiresOn": "2026-08-31",
+      "replacementIssue": "Ozwasyd/FsusBlog#1472",
+      "selectors": [
+        { "kind": "deep", "selector": ".article-trash-empty-action.el-button", "occurrences": 1 }
+      ]
+    },
+    {
+      "path": "src/frontend/src/views/admin/article/Write.vue",
+      "owner": "FsusUI",
+      "reason": "Temporary internal geometry dependency while #1472 replaces it with a public prop, slot, token, variant, or data hook.",
+      "expiresOn": "2026-08-31",
+      "replacementIssue": "Ozwasyd/FsusBlog#1472",
+      "selectors": [
+        { "kind": "deep", "selector": ".el-button", "occurrences": 1 },
+        { "kind": "deep", "selector": ".el-form-item", "occurrences": 1 },
+        { "kind": "deep", "selector": ".el-form-item__content", "occurrences": 1 }
+      ]
+    },
+    {
+      "path": "src/frontend/src/views/admin/moderation/ModerationDictionaries.vue",
+      "owner": "FsusUI",
+      "reason": "Temporary internal geometry dependency while #1472 replaces it with a public prop, slot, token, variant, or data hook.",
+      "expiresOn": "2026-08-31",
+      "replacementIssue": "Ozwasyd/FsusBlog#1472",
+      "selectors": [
+        { "kind": "deep", "selector": ".el-table-fixed-column--right.is-first-column", "occurrences": 1 },
+        { "kind": "deep", "selector": ".el-table-fixed-column--right.is-first-column::before", "occurrences": 1 }
+      ]
+    },
+    {
+      "path": "src/frontend/src/views/admin/moderation/ModerationModel.vue",
+      "owner": "FsusUI",
+      "reason": "Temporary internal geometry dependency while #1472 replaces it with a public prop, slot, token, variant, or data hook.",
+      "expiresOn": "2026-08-31",
+      "replacementIssue": "Ozwasyd/FsusBlog#1472",
+      "selectors": [
+        { "kind": "deep", "selector": ".el-select", "occurrences": 1 },
+        { "kind": "deep", "selector": ".el-input", "occurrences": 1 },
+        { "kind": "deep", "selector": ".el-button + .el-button", "occurrences": 1 },
+        { "kind": "deep", "selector": ".el-button", "occurrences": 1 }
+      ]
+    },
+    {
+      "path": "src/frontend/src/views/admin/moderation/ModerationPolicies.vue",
+      "owner": "FsusUI",
+      "reason": "Temporary internal geometry dependency while #1472 replaces it with a public prop, slot, token, variant, or data hook.",
+      "expiresOn": "2026-08-31",
+      "replacementIssue": "Ozwasyd/FsusBlog#1472",
+      "selectors": [
+        { "kind": "deep", "selector": ".moderation-policy-table-cell .cell", "occurrences": 1 }
+      ]
+    },
+    {
+      "path": "src/frontend/src/views/admin/moderation/ModerationRegions.vue",
+      "owner": "FsusUI",
+      "reason": "Temporary internal geometry dependency while #1472 replaces it with a public prop, slot, token, variant, or data hook.",
+      "expiresOn": "2026-08-31",
+      "replacementIssue": "Ozwasyd/FsusBlog#1472",
+      "selectors": [
+        { "kind": "deep", "selector": ".moderation-region-table-cell .cell", "occurrences": 1 }
+      ]
+    },
+    {
+      "path": "src/frontend/src/views/admin/moderation/ModerationReplay.vue",
+      "owner": "FsusUI",
+      "reason": "Temporary internal geometry dependency while #1472 replaces it with a public prop, slot, token, variant, or data hook.",
+      "expiresOn": "2026-08-31",
+      "replacementIssue": "Ozwasyd/FsusBlog#1472",
+      "selectors": [
+        { "kind": "deep", "selector": ".el-button", "occurrences": 3 },
+        { "kind": "deep", "selector": ".el-select", "occurrences": 1 },
+        { "kind": "deep", "selector": ".el-input", "occurrences": 1 },
+        { "kind": "deep", "selector": ".el-input-number", "occurrences": 1 }
+      ]
+    },
+    {
+      "path": "src/frontend/src/views/admin/security/SecurityEvents.vue",
+      "owner": "FsusUI",
+      "reason": "Temporary internal geometry dependency while #1472 replaces it with a public prop, slot, token, variant, or data hook.",
+      "expiresOn": "2026-08-31",
+      "replacementIssue": "Ozwasyd/FsusBlog#1472",
+      "selectors": [
+        { "kind": "deep", "selector": ".security-events-filter .el-input-number", "occurrences": 1 }
+      ]
+    },
+    {
+      "path": "src/frontend/src/views/admin/security/SecurityPerceptionV2.vue",
+      "owner": "FsusBlog",
+      "reason": "Temporary consumer cross-component selector while #1472 moves the rule to its markup owner or a stable business hook.",
+      "expiresOn": "2026-08-31",
+      "replacementIssue": "Ozwasyd/FsusBlog#1472",
+      "selectors": [
+        { "kind": "deep", "selector": ".perception-v2-number-field__input", "occurrences": 1 }
+      ]
+    },
+    {
+      "path": "src/frontend/src/views/auth/Register.vue",
+      "owner": "FsusUI",
+      "reason": "Temporary internal geometry dependency while #1472 replaces it with a public prop, slot, token, variant, or data hook.",
+      "expiresOn": "2026-08-31",
+      "replacementIssue": "Ozwasyd/FsusBlog#1472",
+      "selectors": [
+        { "kind": "deep", "selector": ".register-guidelines-button.el-button", "occurrences": 1 }
+      ]
+    }
+  ]
+}

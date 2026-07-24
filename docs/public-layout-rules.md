@@ -10,6 +10,11 @@ FsusBlog consumer token 使用 `--fsusblog-*` 命名空间。公开布局不得�
 
 公开顶栏、移动导航、搜索增强、鉴权入口、footer、AOT/emergency CSS 和 sticky geometry 的权威契约见 [`frontend/public-shell-ownership.md`](frontend/public-shell-ownership.md)。本文只决定内容如何进入壳层：顶栏是唯一站点品牌面，页面正文不复制 Hero；全局 BottomTabBar 与页面 reading dock 互斥。文章详情通过 FsusUI `content-flow="content-driven"` 使用自然文档流，其他公开路由使用 `viewport-stable`；consumer 禁止用 deep/internal selector 改写 shell 主内容 flex 或 padding。
 
+其他生产页面的跨组件 selector 必须遵循
+[`frontend/internal-selector-governance.md`](frontend/internal-selector-governance.md)：
+先归类 FsusUI/FsusBlog/third-party owner，再登记有限 expiry 与 replacement，预算只能
+下降。将 `:deep()` 改成全局 `.el-*` 不算迁移。
+
 ## 3. Reading surface 契约
 
 以下组件必须声明 `data-fsus-surface="reading"`：

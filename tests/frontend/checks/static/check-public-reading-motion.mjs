@@ -741,7 +741,7 @@ expectMatches(commentTreeNode, /\.fsus-comment-tree-node__action\.is-danger:hove
 expectNotMatches(commentsVirtualList, /comment-thread-action/, 'ArticleCommentsVirtualList.vue must not retain the old Element Plus action styling')
 expectIncludes(commentMarkdown, 'class="comment-markdown-renderer fsus-markdown-body"', 'CommentMarkdownRenderer.vue exposes the restrained markdown surface')
 expectIncludes(commentMarkdown, 'data-fsus-surface="reading"', 'CommentMarkdownRenderer.vue declares the shared reading surface')
-expectIncludes(commentMarkdown, 'margin-bottom: 0 !important;', 'CommentMarkdownRenderer.vue removes the last paragraph margin')
+expectIncludes(commentMarkdown, 'margin-bottom: 0;', 'CommentMarkdownRenderer.vue removes the last paragraph margin at its stable content boundary')
 expectIncludes(commentMarkdown, 'font-size: 16px;', 'CommentMarkdownRenderer.vue uses the canonical reading size')
 expectIncludes(commentMarkdown, 'line-height: 1.8;', 'CommentMarkdownRenderer.vue uses the canonical reading line height')
 expectNotMatches(commentMarkdown, /font-family:\s*monospace|font-size:\s*14px\s*!important|line-height:\s*1\.6\s*!important/, 'CommentMarkdownRenderer.vue must not fork the shared reading typography')

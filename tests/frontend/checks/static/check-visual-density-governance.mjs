@@ -34,6 +34,7 @@ const accountMobileActionPath = path.join(repoRoot, 'src/frontend/src/layouts/Ac
 const accountNavigationPanelPath = path.join(repoRoot, 'src/frontend/src/components/account/AccountNavigationPanel.vue');
 const accountHeaderMenuPath = path.join(repoRoot, 'src/frontend/src/components/account/AccountHeaderMenu.vue');
 const siteChromeHeaderAdapterPath = path.join(repoRoot, 'src/frontend/src/components/layout/SiteChromeHeaderAdapter.vue');
+const publicAuthLayoutPath = path.join(repoRoot, 'src/frontend/src/layouts/PublicAuthLayout.vue');
 const registerPath = path.join(repoRoot, 'src/frontend/src/views/auth/Register.vue');
 const adminDashboardPath = path.join(repoRoot, 'src/frontend/src/views/admin/Dashboard.vue');
 const adminDashboardWorkbenchPath = path.join(repoRoot, 'src/frontend/src/components/admin/AdminDashboardTaskWorkbench.vue');
@@ -702,6 +703,9 @@ function checkIssueDensityContracts()
     assertContains(siteChromeHeaderAdapterPath, /\.site-chrome-header__brand-mark\s*\{[\s\S]*?max-width:\s*min\(14rem, 42vw\);/, 'site chrome default wordmark must retain its public width cap');
     assertContains(siteChromeHeaderAdapterPath, /\.site-chrome-header__brand-mark--account\s*\{[\s\S]*?max-width:\s*min\(10rem, 32vw\);/, 'site chrome account wordmark must retain its tighter width cap');
     assertNotContains(siteChromeHeaderAdapterPath, /\.site-chrome-header__brand-mark--public\s*\{/, 'site chrome public wordmark must keep the shared default rather than a forked override');
+    assertContains(siteChromeHeaderAdapterPath, /site-chrome-header__brand-link--\$\{brandContext\}/, 'site chrome brand link must expose its context modifier at the markup owner');
+    assertContains(siteChromeHeaderAdapterPath, /\.site-chrome-header__brand-link--auth\s*\{[\s\S]*?min-height:\s*2\.5rem;[\s\S]*?transition:\s*color var\(--fsus-motion-control-fast\)/, 'site chrome adapter must own the 40px auth brand-link geometry and motion');
+    assertNotContains(publicAuthLayoutPath, /:deep\(\.auth-header-brand/, 'auth layout must not style child-owned brand markup through deep selectors');
     assertContains(path.join(repoRoot, 'docs/frontend/account-navigation.md'), /Desktop[\s\S]*Mobile[\s\S]*exactly one Drawer[\s\S]*44px/, 'account navigation authority must document the single-drawer module navigation pattern');
 
     assertNotContains(registerPath, /高级|极致|奢华|未来感|智能|大气|简约而不简单|沉浸式/, 'Register copy must avoid FsusUI marketing adjective blacklist');

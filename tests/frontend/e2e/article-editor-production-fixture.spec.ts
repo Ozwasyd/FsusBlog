@@ -125,6 +125,64 @@ test.describe('article editor production fixture title hierarchy', () => {
       }
     }
   })
+
+  test('public editor-title variant keeps geometry and focus ring across themes and breakpoints', async ({ page }) => {
+    await openFixture(page, 'short', 'light')
+
+    for (const viewport of [
+      { width: 1440, height: 900 },
+      { width: 375, height: 812 }
+    ]) {
+      await page.setViewportSize(viewport)
+
+      for (const theme of contract.themes) {
+        await page.evaluate((nextTheme) => {
+          document.documentElement.classList.toggle('dark', nextTheme === 'dark')
+          document.documentElement.dataset.themeResolved = nextTheme
+        }, theme)
+
+        const titleInput = page.getByRole('textbox', { name: '文章标题' })
+        const titleRoot = page.locator('[data-textarea-variant="editor-title"]')
+        await expect(titleRoot).toBeVisible()
+
+        await page.getByRole('button', { name: '发布' }).focus()
+        await page.keyboard.press('Tab')
+        await expect(titleInput).toBeFocused()
+
+        const geometry = await titleInput.evaluate((element) => {
+          const style = getComputedStyle(element)
+          const placeholderStyle = getComputedStyle(element, '::placeholder')
+          const box = element.getBoundingClientRect()
+          return {
+            bottom: box.bottom,
+            boxShadow: style.boxShadow,
+            fontSize: Number.parseFloat(style.fontSize),
+            fontWeight: style.fontWeight,
+            left: box.left,
+            placeholderWeight: placeholderStyle.fontWeight,
+            right: box.right,
+            top: box.top,
+            viewportWidth: window.innerWidth
+          }
+        })
+
+        expect(geometry.left).toBeGreaterThanOrEqual(0)
+        expect(geometry.right).toBeLessThanOrEqual(geometry.viewportWidth)
+        expect(geometry.bottom).toBeGreaterThan(geometry.top)
+        expect(geometry.fontSize).toBe(viewport.width === 375 ? 30 : 40)
+        expect(geometry.fontWeight).toBe('700')
+        expect(geometry.placeholderWeight).toBe('500')
+        expect(geometry.boxShadow).not.toBe('none')
+
+        const count = titleRoot.locator('.el-input__count')
+        if (viewport.width === 375) {
+          await expect(count).toBeHidden()
+        } else {
+          await expect(count).toBeVisible()
+        }
+      }
+    }
+  })
 })
 
 test.describe('article editor production fixture command bar', () => {

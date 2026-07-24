@@ -232,6 +232,7 @@ describe('home editorial components', () => {
       'border-t',
       'pt-10'
     ]))
+    expect(homeWrapper.get('.ui-article-list').attributes('data-public-article-presentation')).toBe('home-feed')
 
     featuredWrapper.unmount()
     recommendationsWrapper.unmount()
@@ -321,6 +322,7 @@ describe('home editorial components', () => {
     })
 
     expect(wrapper.findAll('a[data-public-link="article"]')).toHaveLength(1)
+    expect(wrapper.get('.ui-article-list').attributes('data-public-article-presentation')).toBe('default')
     expect(wrapper.get('a[data-public-link="article"]').text()).toBe('Article 1')
     expect(wrapper.text()).not.toContain('阅读')
     expect(wrapper.get('nav').text()).toContain('1 / 2')

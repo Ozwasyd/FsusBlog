@@ -145,12 +145,8 @@ if (!/padding-bottom:\s*calc\(5rem \+ env\(safe-area-inset-bottom\)\);/u.test(co
 
 for (const token of [
   'type="textarea"',
+  'textarea-variant="editor-title"',
   ':autosize="{ minRows: 1, maxRows: 3 }"',
-  'font-size: clamp(2.25rem, 2.8vw, 2.5rem);',
-  'font-size: 1.875rem;',
-  'line-height: 1.2;',
-  'letter-spacing: 0;',
-  'color: var(--fsusblog-text-muted);'
 ]) {
   if (!titleField.includes(token)) {
     fail(titleFieldPath, 1, `Article title field contract is missing ${token}`)
@@ -158,9 +154,17 @@ for (const token of [
 }
 
 for (const forbidden of [
+  /:deep\(/u,
+  /::v-deep/u,
+  /:global\(/u,
+  /\.el-(?:form|input|textarea)/u,
+  /!important/u,
+  /font-weight:\s*(?:600|650)\b/u,
   /font-size:\s*(?:4rem|[4-9]\dpx)/u,
   /min-height:\s*(?:6\.5rem|10[0-9]px)/u,
-  /letter-spacing:\s*-/u
+  /letter-spacing:\s*-/u,
+  /margin(?:-[a-z]+)?:\s*-\d/u,
+  /position:\s*absolute/u
 ]) {
   if (forbidden.test(titleField)) {
     fail(titleFieldPath, 1, `Article title field exceeds task-surface hierarchy: ${forbidden}`)

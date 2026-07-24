@@ -1,9 +1,5 @@
-const VALIDATION_ERROR_FOCUS_SELECTOR = [
-  '.write-validation-form .el-form-item.is-error input:not([disabled])',
-  '.write-validation-form .el-form-item.is-error textarea:not([disabled])',
-  '.write-validation-form .el-form-item.is-error button:not([disabled])',
-  '.write-validation-form .el-form-item.is-error [tabindex]:not([tabindex="-1"])'
-].join(', ')
+const VALIDATION_ERROR_FOCUS_SELECTOR =
+  '.write-validation-form [aria-invalid="true"]:not([disabled]):not([tabindex="-1"])'
 
 export function focusFirstArticleValidationError(root: ParentNode = document): boolean {
   const target = root.querySelector<HTMLElement>(VALIDATION_ERROR_FOCUS_SELECTOR)
