@@ -163,6 +163,26 @@ describe('AEDS Wasm tier selection', () => {
     expect(() => runtime.validateAedsRuntimeManifest(manifest)).toThrow('aeds_manifest_basic_identity_invalid')
   })
 
+  it.each([
+    ['SIMD', (manifest: ReturnType<typeof runtimeManifest>) => { manifest.tiers.speed.simd = false }],
+    ['LTO', (manifest: ReturnType<typeof runtimeManifest>) => { manifest.tiers.speed.lto = false }],
+    ['validated wasm-opt', (manifest: ReturnType<typeof runtimeManifest>) => {
+      manifest.tiers.speed.wasmOptValidated = false
+    }],
+    ['fixed maximum memory', (manifest: ReturnType<typeof runtimeManifest>) => {
+      manifest.tiers.speed.maximumMemoryBytes = 128 * 1024 * 1024
+    }],
+    ['disabled memory growth', (manifest: ReturnType<typeof runtimeManifest>) => {
+      manifest.tiers.speed.memoryGrowth = 'bounded'
+    }]
+  ])('rejects a speed tier without %s identity', async (_field, mutate) => {
+    const runtime = await vi.importActual<typeof import('@wasm/aeds')>('@wasm/aeds')
+    const manifest = runtimeManifest()
+    mutate(manifest)
+
+    expect(() => runtime.validateAedsRuntimeManifest(manifest)).toThrow('aeds_manifest_speed_identity_invalid')
+  })
+
   it('rejects an unpinned Binaryen toolchain identity', async () => {
     const runtime = await vi.importActual<typeof import('@wasm/aeds')>('@wasm/aeds')
     const manifest = runtimeManifest()
