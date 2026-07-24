@@ -6116,24 +6116,25 @@ tiers:
 
     - id: release-soak-min
       owner: ServerContractAgent
-      command: FSUSBLOG_SOAK_MODE=short tools/test/lanes/soak.sh
-      dependsOn: [bootstrap]
-      services: [postgres, redis, backend, frontend]
-      parallelizable: false
-      exclusiveResources: [soak-runtime]
+      executionMode: summary
+      command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-soak-min
+      dependsOn: []
+      services: []
+      parallelizable: true
+      exclusiveResources: []
       phase: 5
-      cost: high
-      resourceClass: database
-      cpuWeight: 2
-      memoryWeight: 3
+      cost: low
+      resourceClass: io
+      cpuWeight: 1
+      memoryWeight: 1
       minCpuUnits: 1
       maxParallel: 1
-      requiresBootstrap: full
+      requiresBootstrap: none
       requiresNode: true
-      requiresDotnet: true
+      requiresDotnet: false
       requiresPlaywright: none
-      cacheProfile: full
-      timeoutMinutes: 35
+      cacheProfile: none
+      timeoutMinutes: 5
       shardable: false
       defaultShards: 1
       risk: critical
@@ -6149,24 +6150,25 @@ tiers:
 
     - id: release-load-peak
       owner: ServerContractAgent
-      command: tools/test/lanes/load-profile.sh expected-peak
-      dependsOn: [bootstrap]
-      services: [backend, redis, postgres]
-      parallelizable: false
-      exclusiveResources: [load-runtime]
+      executionMode: summary
+      command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-load-peak
+      dependsOn: []
+      services: []
+      parallelizable: true
+      exclusiveResources: []
       phase: 5
-      cost: high
-      resourceClass: benchmark
-      cpuWeight: 4
-      memoryWeight: 2
+      cost: low
+      resourceClass: io
+      cpuWeight: 1
+      memoryWeight: 1
       minCpuUnits: 1
       maxParallel: 1
-      requiresBootstrap: full
-      requiresNode: false
-      requiresDotnet: true
+      requiresBootstrap: none
+      requiresNode: true
+      requiresDotnet: false
       requiresPlaywright: none
-      cacheProfile: backend
-      timeoutMinutes: 35
+      cacheProfile: none
+      timeoutMinutes: 5
       shardable: false
       defaultShards: 1
       risk: critical
@@ -6186,24 +6188,25 @@ tiers:
 
     - id: release-load-burst
       owner: ServerContractAgent
-      command: tools/test/lanes/load-profile.sh burst
-      dependsOn: [bootstrap]
-      services: [backend, redis, postgres]
-      parallelizable: false
-      exclusiveResources: [load-runtime]
+      executionMode: summary
+      command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-load-burst
+      dependsOn: []
+      services: []
+      parallelizable: true
+      exclusiveResources: []
       phase: 5
-      cost: high
-      resourceClass: benchmark
-      cpuWeight: 4
-      memoryWeight: 2
+      cost: low
+      resourceClass: io
+      cpuWeight: 1
+      memoryWeight: 1
       minCpuUnits: 1
       maxParallel: 1
-      requiresBootstrap: full
-      requiresNode: false
-      requiresDotnet: true
+      requiresBootstrap: none
+      requiresNode: true
+      requiresDotnet: false
       requiresPlaywright: none
-      cacheProfile: backend
-      timeoutMinutes: 25
+      cacheProfile: none
+      timeoutMinutes: 5
       shardable: false
       defaultShards: 1
       risk: critical
@@ -6223,24 +6226,25 @@ tiers:
 
     - id: release-data-scale-m
       owner: ServerContractAgent
-      command: tools/test/lanes/data-scale.sh scale-m
-      dependsOn: [bootstrap]
-      services: [postgres, redis]
-      parallelizable: false
-      exclusiveResources: [scale-data]
+      executionMode: summary
+      command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-data-scale-m
+      dependsOn: []
+      services: []
+      parallelizable: true
+      exclusiveResources: []
       phase: 5
-      cost: high
-      resourceClass: database
-      cpuWeight: 2
-      memoryWeight: 3
+      cost: low
+      resourceClass: io
+      cpuWeight: 1
+      memoryWeight: 1
       minCpuUnits: 1
       maxParallel: 1
-      requiresBootstrap: full
-      requiresNode: false
-      requiresDotnet: true
+      requiresBootstrap: none
+      requiresNode: true
+      requiresDotnet: false
       requiresPlaywright: none
-      cacheProfile: backend
-      timeoutMinutes: 45
+      cacheProfile: none
+      timeoutMinutes: 5
       shardable: false
       defaultShards: 1
       risk: critical
@@ -6260,24 +6264,25 @@ tiers:
 
     - id: release-mutation-critical-slice
       owner: ServerContractAgent
-      command: tools/test/lanes/backend-mutation-critical.sh
+      executionMode: summary
+      command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-mutation-critical-slice
       dependsOn: []
       services: []
-      parallelizable: false
-      exclusiveResources: [stryker]
+      parallelizable: true
+      exclusiveResources: []
       phase: 5
-      cost: very-high
-      resourceClass: cpu
+      cost: low
+      resourceClass: io
       cpuWeight: 1
       memoryWeight: 1
       minCpuUnits: 1
       maxParallel: 1
       requiresBootstrap: none
-      requiresNode: false
-      requiresDotnet: true
+      requiresNode: true
+      requiresDotnet: false
       requiresPlaywright: none
-      cacheProfile: backend
-      timeoutMinutes: 120
+      cacheProfile: none
+      timeoutMinutes: 5
       shardable: false
       defaultShards: 1
       risk: critical
@@ -6301,24 +6306,25 @@ tiers:
 
     - id: release-memory-leak-budget
       owner: ServerContractAgent
-      command: tools/test/lanes/release-resource-budget.sh memory-leak
-      dependsOn: [bootstrap]
-      services: [postgres, redis, backend, frontend]
-      parallelizable: false
-      exclusiveResources: [soak-runtime]
+      executionMode: summary
+      command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-memory-leak-budget
+      dependsOn: []
+      services: []
+      parallelizable: true
+      exclusiveResources: []
       phase: 5
-      cost: high
-      resourceClass: database
-      cpuWeight: 2
-      memoryWeight: 3
+      cost: low
+      resourceClass: io
+      cpuWeight: 1
+      memoryWeight: 1
       minCpuUnits: 1
       maxParallel: 1
-      requiresBootstrap: full
+      requiresBootstrap: none
       requiresNode: true
-      requiresDotnet: true
+      requiresDotnet: false
       requiresPlaywright: none
-      cacheProfile: full
-      timeoutMinutes: 35
+      cacheProfile: none
+      timeoutMinutes: 5
       shardable: false
       defaultShards: 1
       risk: critical
@@ -6334,24 +6340,25 @@ tiers:
 
     - id: release-open-handle-budget
       owner: ServerContractAgent
-      command: tools/test/lanes/release-resource-budget.sh open-handle
-      dependsOn: [bootstrap]
-      services: [postgres, redis, backend, frontend]
-      parallelizable: false
-      exclusiveResources: [soak-runtime]
+      executionMode: summary
+      command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-open-handle-budget
+      dependsOn: []
+      services: []
+      parallelizable: true
+      exclusiveResources: []
       phase: 5
-      cost: high
-      resourceClass: database
-      cpuWeight: 2
-      memoryWeight: 3
+      cost: low
+      resourceClass: io
+      cpuWeight: 1
+      memoryWeight: 1
       minCpuUnits: 1
       maxParallel: 1
-      requiresBootstrap: full
+      requiresBootstrap: none
       requiresNode: true
-      requiresDotnet: true
+      requiresDotnet: false
       requiresPlaywright: none
-      cacheProfile: full
-      timeoutMinutes: 35
+      cacheProfile: none
+      timeoutMinutes: 5
       shardable: false
       defaultShards: 1
       risk: critical

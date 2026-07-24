@@ -272,6 +272,20 @@
             "status": "manual"
         },
         {
+            "id": "release-reliability-scenario-catalog",
+            "owner": "backend-performance-governance",
+            "canonicalPath": "config/testing/release-reliability-scenario-catalog.json",
+            "pathType": "file",
+            "purpose": "Canonical authority for 7 release reliability scenarios",
+            "consumers": [
+                "tools/test/run-release-reliability-scenarios.mjs",
+                "docs/testing/issue-1393-release-reliability-fresh.md"
+            ],
+            "validationCommand": "node tools/test/run-release-reliability-scenarios.mjs --validate-catalog",
+            "changePolicy": "manual-update-with-reliability-matrix-validation",
+            "status": "manual"
+        },
+        {
             "id": "content-addressed-build-cache",
             "owner": "test-matrix-scheduler",
             "canonicalPath": "config/testing/content-addressed-build-cache.json",

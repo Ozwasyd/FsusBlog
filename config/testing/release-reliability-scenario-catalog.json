@@ -1,0 +1,55 @@
+{
+  "schema": "fsusblog.release-reliability-scenario-catalog.v1",
+  "catalogScenarioCount": 7,
+  "scenarios": [
+    {
+      "id": "release-soak-min",
+      "owner": "ServerContractAgent",
+      "command": "FSUSBLOG_SOAK_MODE=short tools/test/lanes/soak.sh",
+      "resourceClass": "database",
+      "evidencePath": ".tmp/soak/summary.json"
+    },
+    {
+      "id": "release-load-peak",
+      "owner": "ServerContractAgent",
+      "command": "tools/test/lanes/load-profile.sh expected-peak",
+      "resourceClass": "benchmark",
+      "evidencePath": ".tmp/perf/release-summaries/load-expected-peak.json"
+    },
+    {
+      "id": "release-load-burst",
+      "owner": "ServerContractAgent",
+      "command": "tools/test/lanes/load-profile.sh burst",
+      "resourceClass": "benchmark",
+      "evidencePath": ".tmp/perf/release-summaries/load-burst.json"
+    },
+    {
+      "id": "release-data-scale-m",
+      "owner": "ServerContractAgent",
+      "command": "tools/test/lanes/data-scale.sh scale-m",
+      "resourceClass": "database",
+      "evidencePath": ".tmp/scale/release-summaries/scale-m.json"
+    },
+    {
+      "id": "release-mutation-critical-slice",
+      "owner": "ServerContractAgent",
+      "command": "tools/test/lanes/backend-mutation-critical.sh",
+      "resourceClass": "cpu",
+      "evidencePath": ".tmp/mutation/backend-critical/authority.json"
+    },
+    {
+      "id": "release-memory-leak-budget",
+      "owner": "ServerContractAgent",
+      "command": "tools/test/lanes/release-resource-budget.sh memory-leak",
+      "resourceClass": "database",
+      "evidencePath": ".tmp/release-evidence/memory-leak-summary.json"
+    },
+    {
+      "id": "release-open-handle-budget",
+      "owner": "ServerContractAgent",
+      "command": "tools/test/lanes/release-resource-budget.sh open-handle",
+      "resourceClass": "database",
+      "evidencePath": ".tmp/release-evidence/open-handle-summary.json"
+    }
+  ]
+}
