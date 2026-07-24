@@ -129,7 +129,6 @@
             "tests/frontend/support/playwright/routeAuditFixtures.ts"
         ],
         "localization": [
-            "src/frontend/src/copy",
             "src/frontend/src/locales"
         ],
         "routes": [
