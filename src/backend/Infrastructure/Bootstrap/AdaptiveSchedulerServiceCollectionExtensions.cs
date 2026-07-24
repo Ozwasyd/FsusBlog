@@ -14,6 +14,9 @@ internal static class AdaptiveSchedulerServiceCollectionExtensions
         ClusterMembershipOptions cluster = ClusterMembershipOptions.FromConfiguration(configuration);
         services.TryAddSingleton(cluster);
         services.TryAddSingleton<TimeProvider>(TimeProvider.System);
+        services.TryAddSingleton<AdaptiveSchedulerControlState>();
+        services.TryAddSingleton<IClusterOperationsTelemetry, ClusterOperationsTelemetry>();
+        services.TryAddSingleton<ClusterOperationsService>();
         services.TryAddSingleton<IAdaptiveSchedulerRuntimeOptionsSource,
             ConfigurationAdaptiveSchedulerRuntimeOptionsSource>();
         services.TryAddSingleton<ResponsibilityAssignmentState>();

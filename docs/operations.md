@@ -9,14 +9,23 @@ expected after node failure or a material post-cooldown score improvement;
 rapid alternating owners indicates that membership inputs or policy thresholds need
 repair.
 
-For a local incident, mark the node `Draining` and wait for responsibility leases to
-release or expire. To stop all adaptive placement without restarting request-serving
-nodes, hot-update `Runtime:Scheduler:Enabled=false`; the next reconcile deactivates local
-responsibilities while anonymous, login, admin, notification-stream, and binary paths
-remain available. Do not clear fencing counters, force another node to bypass a lease,
-or route module calls to a capability that is not active. Re-enable after membership and
-capability coverage recover. A mode change back to `single` is only for the next process
-generation.
+The admin page `/user/manage/cluster` shows nodes, responsibility state, lease/checkpoint
+summary, takeover events and cluster health. The JSON route intentionally omits checkpoint
+payloads and network addresses.
+
+For a local incident, call the protected node-state operation with `draining` and wait
+for responsibility leases to release or expire; use `maintenance` while the node must
+remain excluded, then `alive` after repair. Each mutation requires independent admin
+`system.config`, fixed-IP limiting, trusted same-site origin and a one-use
+`X-Fsus-Mfa-Proof`. To stop placement without restarting request-serving nodes, call the
+scheduler operation with `enabled=false`; the next reconcile deactivates local leased
+responsibilities while anonymous, login, admin, notification-stream and binary paths
+remain available. Re-enable only after membership and capability coverage recover.
+
+Never clear fencing counters or force another node to bypass a live lease. The expired
+lease action is deliberately a no-op while the authoritative expiry is in the future;
+Redis TTL may already have removed the lease before the action runs. A mode change back
+to `single` is only for the next process generation.
 
 ## Module invocation degradation
 

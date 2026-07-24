@@ -212,25 +212,31 @@ public sealed class ClusterMembershipTests
         WebApplication application = builder.Build();
         application.MapClusterMembershipEndpoints();
 
-        RouteEndpoint endpoint = Assert.Single(((IEndpointRouteBuilder)application).DataSources
+        RouteEndpoint[] endpoints = ((IEndpointRouteBuilder)application).DataSources
             .SelectMany(static source => source.Endpoints)
-            .OfType<RouteEndpoint>());
-        Assert.Equal("/api/ops/cluster/nodes", endpoint.RoutePattern.RawText);
-        AuthorizationPolicy policy = Assert.IsType<AuthorizationPolicy>(
-            endpoint.Metadata.GetMetadata<AuthorizationPolicy>());
-        ClaimsAuthorizationRequirement[] claims = policy.Requirements
-            .OfType<ClaimsAuthorizationRequirement>()
+            .OfType<RouteEndpoint>()
             .ToArray();
-        Assert.Contains(claims, requirement =>
-            requirement.ClaimType == "identity_kind"
-            && requirement.AllowedValues!.Contains("admin_principal"));
-        Assert.Contains(claims, requirement =>
-            requirement.ClaimType == AdminPermissions.PermissionClaimType
-            && requirement.AllowedValues!.Contains(AdminPermissions.SystemConfig));
-        Assert.Equal(
-            "fixed_ip",
-            endpoint.Metadata.GetMetadata<EnableRateLimitingAttribute>()?.PolicyName);
-        Assert.NotNull(endpoint.Metadata.GetMetadata<NoStoreResponseMetadata>());
+        Assert.Equal(4, endpoints.Length);
+        Assert.Contains(endpoints, endpoint =>
+            endpoint.RoutePattern.RawText == "/api/ops/cluster/nodes");
+        foreach (RouteEndpoint endpoint in endpoints)
+        {
+            AuthorizationPolicy policy = Assert.IsType<AuthorizationPolicy>(
+                endpoint.Metadata.GetMetadata<AuthorizationPolicy>());
+            ClaimsAuthorizationRequirement[] claims = policy.Requirements
+                .OfType<ClaimsAuthorizationRequirement>()
+                .ToArray();
+            Assert.Contains(claims, requirement =>
+                requirement.ClaimType == "identity_kind"
+                && requirement.AllowedValues!.Contains("admin_principal"));
+            Assert.Contains(claims, requirement =>
+                requirement.ClaimType == AdminPermissions.PermissionClaimType
+                && requirement.AllowedValues!.Contains(AdminPermissions.SystemConfig));
+            Assert.Equal(
+                "fixed_ip",
+                endpoint.Metadata.GetMetadata<EnableRateLimitingAttribute>()?.PolicyName);
+            Assert.NotNull(endpoint.Metadata.GetMetadata<NoStoreResponseMetadata>());
+        }
     }
 
     [Fact]
@@ -239,11 +245,10 @@ public sealed class ClusterMembershipTests
         WebApplicationBuilder builder = WebApplication.CreateBuilder();
         WebApplication application = builder.Build();
         application.MapClusterMembershipEndpoints();
-        RouteEndpoint endpoint = Assert.Single(((IEndpointRouteBuilder)application).DataSources
+        RouteEndpoint[] endpoints = ((IEndpointRouteBuilder)application).DataSources
             .SelectMany(static source => source.Endpoints)
-            .OfType<RouteEndpoint>());
-        AuthorizationPolicy policy = Assert.IsType<AuthorizationPolicy>(
-            endpoint.Metadata.GetMetadata<AuthorizationPolicy>());
+            .OfType<RouteEndpoint>()
+            .ToArray();
 
         var services = new ServiceCollection();
         services.AddLogging();
@@ -251,25 +256,30 @@ public sealed class ClusterMembershipTests
         await using ServiceProvider provider = services.BuildServiceProvider();
         IAuthorizationService authorization = provider.GetRequiredService<IAuthorizationService>();
 
-        Assert.False((await authorization.AuthorizeAsync(
-            new ClaimsPrincipal(new ClaimsIdentity()),
-            null,
-            policy)).Succeeded);
-        Assert.False((await authorization.AuthorizeAsync(
-            Principal(("sub", "account-1"), ("identity_kind", "account")),
-            null,
-            policy)).Succeeded);
-        Assert.False((await authorization.AuthorizeAsync(
-            Principal(("identity_kind", "admin_principal"), ("admin_id", "7")),
-            null,
-            policy)).Succeeded);
-        Assert.True((await authorization.AuthorizeAsync(
-            Principal(
-                ("identity_kind", "admin_principal"),
-                ("admin_id", "7"),
-                (AdminPermissions.PermissionClaimType, AdminPermissions.SystemConfig)),
-            null,
-            policy)).Succeeded);
+        foreach (RouteEndpoint endpoint in endpoints)
+        {
+            AuthorizationPolicy policy = Assert.IsType<AuthorizationPolicy>(
+                endpoint.Metadata.GetMetadata<AuthorizationPolicy>());
+            Assert.False((await authorization.AuthorizeAsync(
+                new ClaimsPrincipal(new ClaimsIdentity()),
+                null,
+                policy)).Succeeded);
+            Assert.False((await authorization.AuthorizeAsync(
+                Principal(("sub", "account-1"), ("identity_kind", "account")),
+                null,
+                policy)).Succeeded);
+            Assert.False((await authorization.AuthorizeAsync(
+                Principal(("identity_kind", "admin_principal"), ("admin_id", "7")),
+                null,
+                policy)).Succeeded);
+            Assert.True((await authorization.AuthorizeAsync(
+                Principal(
+                    ("identity_kind", "admin_principal"),
+                    ("admin_id", "7"),
+                    (AdminPermissions.PermissionClaimType, AdminPermissions.SystemConfig)),
+                null,
+                policy)).Succeeded);
+        }
     }
 
     private static ClaimsPrincipal Principal(params (string Type, string Value)[] claims)

@@ -11,7 +11,8 @@ public sealed class ClusterMembershipHostedService(
     IResponsibilityRuntime responsibilityRuntime,
     ClusterMembershipOptions options,
     TimeProvider timeProvider,
-    ILogger<ClusterMembershipHostedService> logger) : BackgroundService
+    ILogger<ClusterMembershipHostedService> logger,
+    IClusterOperationsTelemetry? telemetry = null) : BackgroundService
 {
     private readonly object _sampleGate = new();
     private TimeSpan _lastCpuTime = Process.GetCurrentProcess().TotalProcessorTime;
@@ -31,6 +32,7 @@ public sealed class ClusterMembershipHostedService(
             options.Mode,
             options.Capabilities);
         await store.UpsertNodeAsync(descriptor, stoppingToken).ConfigureAwait(false);
+        telemetry?.RecordNodeLifecycle(descriptor, "alive", "node-registered");
 
         using var timer = new PeriodicTimer(options.HeartbeatInterval, timeProvider);
         do
@@ -51,6 +53,8 @@ public sealed class ClusterMembershipHostedService(
                         .ToArray()),
                 stoppingToken).ConfigureAwait(false);
             await DetectFailuresAsSingleWriterAsync(now, stoppingToken).ConfigureAwait(false);
+            telemetry?.RecordNodeCounts(
+                await store.ListNodesAsync(stoppingToken).ConfigureAwait(false));
         }
         while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false));
     }
@@ -73,11 +77,28 @@ public sealed class ClusterMembershipHostedService(
         }
         try
         {
+            IReadOnlyList<NodeDescriptor> before =
+                await store.ListNodesAsync(cancellationToken).ConfigureAwait(false);
             await store.DetectFailuresAsync(
                 now,
                 options.SuspectAfter,
                 options.DeadAfter,
                 cancellationToken).ConfigureAwait(false);
+            IReadOnlyList<NodeDescriptor> after =
+                await store.ListNodesAsync(cancellationToken).ConfigureAwait(false);
+            foreach (NodeDescriptor node in after)
+            {
+                NodeDescriptor? previous = before.FirstOrDefault(
+                    candidate => candidate.NodeId == node.NodeId
+                        && candidate.InstanceId == node.InstanceId);
+                if (previous is not null && previous.Status != node.Status)
+                {
+                    telemetry?.RecordNodeLifecycle(
+                        node,
+                        ClusterMembershipWireNames.Status(node.Status),
+                        "heartbeat-timeout");
+                }
+            }
         }
         finally
         {
@@ -99,6 +120,19 @@ public sealed class ClusterMembershipHostedService(
                     options.InstanceId,
                     ClusterMemberStatus.Draining,
                     cancellationToken).ConfigureAwait(false);
+                NodeDescriptor? descriptor = (await store
+                        .ListNodesAsync(cancellationToken)
+                        .ConfigureAwait(false))
+                    .FirstOrDefault(node =>
+                        node.NodeId == options.NodeId
+                        && node.InstanceId == options.InstanceId);
+                if (descriptor is not null)
+                {
+                    telemetry?.RecordNodeLifecycle(
+                        descriptor,
+                        "draining",
+                        "host-stopping");
+                }
             }
             catch (Exception ex)
             {

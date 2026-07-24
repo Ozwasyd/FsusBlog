@@ -284,7 +284,51 @@ public interface IDistributedTaskStateStore
         CancellationToken cancellationToken);
 }
 
-public interface IDistributedStateControlStore : ILeaseManager, IDistributedTaskStateStore;
+public sealed record DistributedLeaseDiagnostic(
+    LeaseKey Key,
+    LeaseId LeaseId,
+    NodeId HolderNodeId,
+    FencingToken FencingToken,
+    TimeSpan Ttl,
+    DateTimeOffset LastRenewedAt,
+    DateTimeOffset ExpiresAt);
+
+public sealed record DistributedCheckpointDiagnostic(
+    int Version,
+    int PayloadBytes,
+    string PayloadSha256,
+    DateTimeOffset UpdatedAt);
+
+public sealed record DistributedTaskDiagnostic(
+    IdempotencyKey IdempotencyKey,
+    LeaseKey LeaseKey,
+    DistributedTaskStatus Status,
+    int Attempt,
+    NodeId WriterNodeId,
+    FencingToken FencingToken,
+    DistributedCheckpointDiagnostic? Checkpoint,
+    string? LastError,
+    DateTimeOffset UpdatedAt);
+
+public interface IDistributedStateControlDiagnostics
+{
+    ValueTask<IReadOnlyList<DistributedLeaseDiagnostic>> ListLeasesAsync(
+        int limit,
+        CancellationToken cancellationToken);
+
+    ValueTask<IReadOnlyList<DistributedTaskDiagnostic>> ListTasksAsync(
+        int limit,
+        CancellationToken cancellationToken);
+
+    ValueTask<bool> ReleaseExpiredLeaseAsync(
+        LeaseId leaseId,
+        CancellationToken cancellationToken);
+}
+
+public interface IDistributedStateControlStore :
+    ILeaseManager,
+    IDistributedTaskStateStore,
+    IDistributedStateControlDiagnostics;
 
 public sealed class StaleFencingTokenException(string message) : InvalidOperationException(message);
 
@@ -326,5 +370,37 @@ internal static class DistributedStateControlGuards
             throw new ArgumentOutOfRangeException(nameof(failureCode), "Failure code is invalid.");
         }
         return normalized;
+    }
+
+    public static DistributedCheckpointDiagnostic ToDiagnostic(
+        DistributedTaskCheckpoint checkpoint)
+    {
+        byte[] payload = Encoding.UTF8.GetBytes(checkpoint.Payload);
+        return new DistributedCheckpointDiagnostic(
+            checkpoint.Version,
+            payload.Length,
+            Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(payload)),
+            checkpoint.UpdatedAt);
+    }
+
+    public static DistributedTaskDiagnostic ToDiagnostic(DistributedTaskRecord record)
+        => new(
+            record.IdempotencyKey,
+            record.LeaseKey,
+            record.Status,
+            record.Attempt,
+            record.WriterNodeId,
+            record.FencingToken,
+            record.Checkpoint is null ? null : ToDiagnostic(record.Checkpoint),
+            record.LastError,
+            record.UpdatedAt);
+
+    public static int DiagnosticLimit(int limit)
+    {
+        if (limit is <= 0 or > 500)
+        {
+            throw new ArgumentOutOfRangeException(nameof(limit));
+        }
+        return limit;
     }
 }

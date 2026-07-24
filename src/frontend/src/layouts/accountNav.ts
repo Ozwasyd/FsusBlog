@@ -147,6 +147,7 @@ const accountNavItems: readonly AccountNavItem[] = [
 
   { label: '数据概览', to: '/user/manage/analytics', helper: '统计', area: 'manage', groupKey: 'ops', adminOnly: true, requiredPermission: 'admin.manage' },
   { label: '服务与后台状态', to: '/user/manage/ops', helper: '后台', area: 'manage', groupKey: 'ops', adminOnly: true, requiredPermission: 'system.config' },
+  { label: '集群与运行时', to: '/user/manage/cluster', helper: '节点', area: 'manage', groupKey: 'ops', adminOnly: true, requiredPermission: 'system.config' },
   { label: '缓存与索引', to: '/user/manage/cache', helper: '索引', area: 'manage', groupKey: 'ops', adminOnly: true, requiredPermission: 'system.config' },
   { label: '内容一致性', to: '/user/manage/integrity', helper: '一致性', area: 'manage', groupKey: 'ops', adminOnly: true, requiredPermission: 'system.config' },
     { label: 'Integrity Proof', to: '/user/manage/integrity-proof', helper: '证明', area: 'manage', groupKey: 'ops', adminOnly: true, requiredPermission: 'system.config' }
@@ -163,14 +164,14 @@ const navLabelKeys = {
     '/user/manage/moderation/anonymous-credentials': 'anonymousCredentials', '/user/manage/moderation/nullifiers': 'anonymousNullifiers',
     '/user/manage/moderation/zk-anonymous': 'privacyProof', '/user/manage/security': 'security',
     '/user/manage/settings': 'settings', '/user/manage/content-tools': 'contentTools', '/user/manage/audit': 'audit',
-    '/user/manage/analytics': 'analytics', '/user/manage/ops': 'operations', '/user/manage/cache': 'cache',
+    '/user/manage/analytics': 'analytics', '/user/manage/ops': 'operations', '/user/manage/cluster': 'clusterRuntime', '/user/manage/cache': 'cache',
     '/user/manage/integrity': 'integrity', '/user/manage/integrity-proof': 'integrityProof'
 } as const;
 
 const helperKeys = {
     '设备': 'devices', '恢复': 'recovery', '评论/策略': 'commentsPolicies', '工单': 'tickets', '开关': 'toggle',
     '风险桶': 'riskBuckets', '撤销': 'revoke', '封禁': 'block', '证明': 'proof', '风险防护': 'riskProtection',
-    '导入/导出': 'importExport', '统计': 'statistics', '后台': 'background', '索引': 'index', '一致性': 'consistency'
+    '导入/导出': 'importExport', '统计': 'statistics', '后台': 'background', '节点': 'nodes', '索引': 'index', '一致性': 'consistency'
 } as const;
 
 const navGroupTemplates: readonly AccountNavGroupTemplate[] = [

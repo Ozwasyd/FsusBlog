@@ -7,7 +7,8 @@ public sealed class LeasedModuleResponsibilityRuntime(
     ILeaseManager leases,
     ClusterMembershipOptions cluster,
     IAdaptiveSchedulerRuntimeOptionsSource options,
-    TimeProvider timeProvider) : IResponsibilityRuntime, IResponsibilityActivationView
+    TimeProvider timeProvider,
+    IClusterOperationsTelemetry? telemetry = null) : IResponsibilityRuntime, IResponsibilityActivationView
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly Dictionary<(ResponsibilityId Id, int Replica), RuntimeEntry> _active = [];
@@ -16,6 +17,7 @@ public sealed class LeasedModuleResponsibilityRuntime(
         ResponsibilityAssignment assignment,
         CancellationToken cancellationToken)
     {
+        long started = timeProvider.GetTimestamp();
         if (assignment.NodeId != cluster.NodeId)
         {
             throw new InvalidOperationException("responsibility_activation_target_not_local");
@@ -31,20 +33,31 @@ public sealed class LeasedModuleResponsibilityRuntime(
                 _active[key] = new RuntimeEntry(
                     new ActiveResponsibility(assignment, now, now),
                     null);
+                telemetry?.RecordResponsibilityTransition(
+                    assignment,
+                    "active",
+                    "single-local-fast-path");
                 return;
             }
 
             AdaptiveSchedulerRuntimeOptions runtimeOptions = options.Current();
             if (_active.TryGetValue(key, out RuntimeEntry? current))
             {
-                if (current.Lease is null
-                    || !await leases.RenewAsync(
-                        current.Lease.LeaseId,
-                        current.Lease.FencingToken,
+                DistributedLease? currentLease = current.Lease;
+                bool renewed = currentLease is not null
+                    && await leases.RenewAsync(
+                        currentLease.LeaseId,
+                        currentLease.FencingToken,
                         runtimeOptions.LeaseTtl,
-                        cancellationToken).ConfigureAwait(false))
+                        cancellationToken).ConfigureAwait(false);
+                telemetry?.RecordLease("renew", renewed, assignment);
+                if (!renewed)
                 {
                     _active.Remove(key);
+                    telemetry?.RecordResponsibilityTransition(
+                        assignment,
+                        "failed",
+                        "responsibility-lease-lost");
                     throw new InvalidOperationException("responsibility_lease_lost");
                 }
                 _active[key] = current with
@@ -53,7 +66,7 @@ public sealed class LeasedModuleResponsibilityRuntime(
                     {
                         Assignment = assignment with
                         {
-                            FencingToken = current.Lease.FencingToken
+                            FencingToken = currentLease!.FencingToken
                         },
                         LastLeaseRenewedAt = now
                     }
@@ -68,8 +81,13 @@ public sealed class LeasedModuleResponsibilityRuntime(
                 cluster.NodeId,
                 runtimeOptions.LeaseTtl,
                 cancellationToken).ConfigureAwait(false);
+            telemetry?.RecordLease("acquire", acquired.Acquired, assignment);
             if (!acquired.Acquired || acquired.Lease is null)
             {
+                telemetry?.RecordResponsibilityTransition(
+                    assignment,
+                    "waitingLease",
+                    "responsibility-lease-contended");
                 throw new InvalidOperationException("responsibility_lease_contended");
             }
             ResponsibilityAssignment fenced = assignment with
@@ -79,9 +97,15 @@ public sealed class LeasedModuleResponsibilityRuntime(
             _active[key] = new RuntimeEntry(
                 new ActiveResponsibility(fenced, now, now),
                 acquired.Lease);
+            telemetry?.RecordResponsibilityTransition(
+                fenced,
+                "active",
+                "responsibility-lease-acquired");
         }
         finally
         {
+            telemetry?.RecordActivationDuration(
+                timeProvider.GetElapsedTime(started, timeProvider.GetTimestamp()));
             _gate.Release();
         }
     }
@@ -177,7 +201,8 @@ public sealed class ResponsibilityAssignmentHostedService(
     ClusterMembershipOptions cluster,
     IAdaptiveSchedulerRuntimeOptionsSource options,
     TimeProvider timeProvider,
-    ILogger<ResponsibilityAssignmentHostedService> logger) : BackgroundService
+    ILogger<ResponsibilityAssignmentHostedService> logger,
+    IClusterOperationsTelemetry? telemetry = null) : BackgroundService
 {
     public async ValueTask<ResponsibilityAssignmentSnapshot> ReconcileOnceAsync(
         CancellationToken cancellationToken)
@@ -185,6 +210,7 @@ public sealed class ResponsibilityAssignmentHostedService(
         ResponsibilityAssignmentSnapshot previous = state.Capture();
         ResponsibilityAssignmentSnapshot planned =
             await planner.PlanAsync(previous, cancellationToken).ConfigureAwait(false);
+        telemetry?.RecordSchedulerDecision(previous, planned);
         IReadOnlyList<ActiveResponsibility> active =
             await runtime.ListActiveAsync(cancellationToken).ConfigureAwait(false);
 
@@ -200,6 +226,18 @@ public sealed class ResponsibilityAssignmentHostedService(
                     item => item.Assignment.Replica == assignment.Replica));
             if (!unchanged)
             {
+                foreach (ActiveResponsibility current in group)
+                {
+                    ResponsibilityAssignment? replacement = desired.FirstOrDefault(
+                        assignment => assignment.Replica == current.Assignment.Replica);
+                    telemetry?.RecordResponsibilityTransition(
+                        replacement ?? current.Assignment,
+                        replacement is null ? "deactivating" : "migrating",
+                        replacement is null
+                            ? "assignment-removed"
+                            : "assignment-node-changed",
+                        current.Assignment.NodeId.Value);
+                }
                 await runtime.DeactivateAsync(group.Key, cancellationToken).ConfigureAwait(false);
             }
         }

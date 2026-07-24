@@ -162,6 +162,7 @@ export const APP_ROUTE_RECORDS: RouteRecordRaw[] = [
                     { path: 'content-tools', name: 'ManageContentTools', component: () => import('@/views/admin/ContentTools.vue'), meta: manageMeta({ title: '备份与迁移', permissions: ['system.config'], pageKind: 'console' }) },
                     { path: 'audit', name: 'ManageAuditLog', component: () => import('@/views/admin/AuditLog.vue'), meta: manageMeta({ title: '审计日志', permissions: ['audit.read'], pageKind: 'collection' }) },
                     { path: 'ops', name: 'ManageOpsHealth', component: () => import('@/views/admin/OpsHealth.vue'), meta: manageMeta({ title: '服务与后台状态', permissions: ['system.config'], pageKind: 'console' }) },
+                    { path: 'cluster', name: 'ManageClusterRuntime', component: () => import('@/views/admin/ClusterRuntime.vue'), meta: manageMeta({ title: '集群与运行时', permissions: ['system.config'], pageKind: 'console', routeState: 'session-sensitive' }) },
                     { path: 'cache', name: 'ManageCacheDiagnostics', component: () => import('@/views/admin/CacheDiagnostics.vue'), meta: manageMeta({ title: '缓存与索引', permissions: ['system.config'], pageKind: 'console' }) },
                     { path: 'integrity', name: 'ManageIntegrity', component: () => import('@/views/admin/Integrity.vue'), meta: manageMeta({ title: '内容一致性', permissions: ['system.config'], pageKind: 'console' }) },
                     { path: 'integrity-proof', name: 'ManageIntegrityProof', component: () => import('@/views/admin/IntegrityProofConsole.vue'), meta: manageMeta({ title: 'Integrity Proof', permissions: ['system.config'], pageKind: 'console', routeState: 'session-sensitive' }) },
@@ -175,4 +176,3 @@ export const APP_ROUTE_RECORDS: RouteRecordRaw[] = [
     { path: '/403', name: 'Forbidden', component: () => import('@/views/error/403.vue'), meta: { title: '无权访问', routeState: 'memory-only' } },
     { path: '/:pathMatch(.*)*', name: 'NotFound', component: () => import('@/views/error/404.vue'), meta: { title: '页面不存在', routeState: 'public-shareable' } }
 ];
-

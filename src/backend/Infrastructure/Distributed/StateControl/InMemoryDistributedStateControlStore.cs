@@ -8,6 +8,7 @@ public sealed class InMemoryDistributedStateControlStore(
     private readonly object _gate = new();
     private readonly Dictionary<LeaseKey, DistributedLease> _leases = [];
     private readonly Dictionary<LeaseId, LeaseKey> _leaseIndex = [];
+    private readonly Dictionary<LeaseId, DateTimeOffset> _leaseRenewedAt = [];
     private readonly Dictionary<LeaseKey, long> _fencingTokens = [];
     private readonly Dictionary<IdempotencyKey, DistributedTaskRecord> _tasks = [];
 
@@ -30,6 +31,7 @@ public sealed class InMemoryDistributedStateControlStore(
             if (current is not null)
             {
                 _leaseIndex.Remove(current.LeaseId);
+                _leaseRenewedAt.Remove(current.LeaseId);
             }
             long nextToken = checked(_fencingTokens.GetValueOrDefault(key) + 1);
             _fencingTokens[key] = nextToken;
@@ -41,6 +43,7 @@ public sealed class InMemoryDistributedStateControlStore(
                 now.Add(ttl));
             _leases[key] = lease;
             _leaseIndex[lease.LeaseId] = key;
+            _leaseRenewedAt[lease.LeaseId] = now;
             return ValueTask.FromResult(LeaseAcquireResult.Success(lease));
         }
     }
@@ -64,6 +67,7 @@ public sealed class InMemoryDistributedStateControlStore(
             {
                 ExpiresAt = now.Add(ttl)
             };
+            _leaseRenewedAt[leaseId] = now;
             return ValueTask.FromResult(true);
         }
     }
@@ -86,6 +90,7 @@ public sealed class InMemoryDistributedStateControlStore(
             }
             _leases.Remove(lease.Key);
             _leaseIndex.Remove(leaseId);
+            _leaseRenewedAt.Remove(leaseId);
             return ValueTask.FromResult(true);
         }
     }
@@ -267,6 +272,88 @@ public sealed class InMemoryDistributedStateControlStore(
         lock (_gate)
         {
             return ValueTask.FromResult(_tasks.GetValueOrDefault(key));
+        }
+    }
+
+    public ValueTask<IReadOnlyList<DistributedLeaseDiagnostic>> ListLeasesAsync(
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        DistributedStateControlGuards.DiagnosticLimit(limit);
+        lock (_gate)
+        {
+            DateTimeOffset now = timeProvider.GetUtcNow();
+            RemoveExpiredLeases(now);
+            return ValueTask.FromResult<IReadOnlyList<DistributedLeaseDiagnostic>>(
+                _leases.Values
+                    .OrderBy(static lease => lease.Key.Responsibility, StringComparer.Ordinal)
+                    .ThenBy(static lease => lease.Key.Resource, StringComparer.Ordinal)
+                    .Take(limit)
+                    .Select(lease =>
+                    {
+                        DateTimeOffset renewedAt = _leaseRenewedAt.GetValueOrDefault(
+                            lease.LeaseId,
+                            lease.ExpiresAt);
+                        return new DistributedLeaseDiagnostic(
+                            lease.Key,
+                            lease.LeaseId,
+                            lease.OwnerNodeId,
+                            lease.FencingToken,
+                            lease.ExpiresAt - renewedAt,
+                            renewedAt,
+                            lease.ExpiresAt);
+                    })
+                    .ToArray());
+        }
+    }
+
+    public ValueTask<IReadOnlyList<DistributedTaskDiagnostic>> ListTasksAsync(
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        DistributedStateControlGuards.DiagnosticLimit(limit);
+        lock (_gate)
+        {
+            return ValueTask.FromResult<IReadOnlyList<DistributedTaskDiagnostic>>(
+                _tasks.Values
+                    .OrderByDescending(static task => task.UpdatedAt)
+                    .Take(limit)
+                    .Select(DistributedStateControlGuards.ToDiagnostic)
+                    .ToArray());
+        }
+    }
+
+    public ValueTask<bool> ReleaseExpiredLeaseAsync(
+        LeaseId leaseId,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate)
+        {
+            if (!_leaseIndex.TryGetValue(leaseId, out LeaseKey key)
+                || !_leases.TryGetValue(key, out DistributedLease? lease)
+                || lease.ExpiresAt > timeProvider.GetUtcNow())
+            {
+                return ValueTask.FromResult(false);
+            }
+            _leases.Remove(key);
+            _leaseIndex.Remove(leaseId);
+            _leaseRenewedAt.Remove(leaseId);
+            return ValueTask.FromResult(true);
+        }
+    }
+
+    private void RemoveExpiredLeases(DateTimeOffset now)
+    {
+        foreach (DistributedLease lease in _leases.Values
+            .Where(lease => lease.ExpiresAt <= now)
+            .ToArray())
+        {
+            _leases.Remove(lease.Key);
+            _leaseIndex.Remove(lease.LeaseId);
+            _leaseRenewedAt.Remove(lease.LeaseId);
         }
     }
 

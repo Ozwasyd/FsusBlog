@@ -71,6 +71,7 @@ export const admin = {
         audit: '审计日志',
         analytics: '数据概览',
         operations: '服务与后台状态',
+        clusterRuntime: '集群与运行时',
         cache: '缓存与索引',
         integrity: '内容一致性',
         integrityProof: 'Integrity Proof'
@@ -89,6 +90,7 @@ export const admin = {
         importExport: '导入/导出',
         statistics: '统计',
         background: '后台',
+        nodes: '节点',
         index: '索引',
         consistency: '一致性'
     }

@@ -30,6 +30,8 @@ internal static class DistributedInvalidationServiceCollectionExtensions
             static provider => provider.GetRequiredService<IDistributedStateControlStore>());
         services.TryAddSingleton<IDistributedTaskStateStore>(
             static provider => provider.GetRequiredService<IDistributedStateControlStore>());
+        services.TryAddSingleton<IDistributedStateControlDiagnostics>(
+            static provider => provider.GetRequiredService<IDistributedStateControlStore>());
         return services;
     }
 

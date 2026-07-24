@@ -836,6 +836,14 @@ hysteresis 与 migration cost 阻止抖动；节点失效则绕过 cooldown 立�
 diagnostic 同时返回 assignment graph。完整模型、故障语义与热关闭路径见
 [Adaptive responsibility scheduler](architecture/adaptive-responsibility-scheduler.md)。
 
+`Infrastructure/Distributed/Cluster/ClusterOperations` 汇总 membership、assignment、
+state-control diagnostics 与有界事件，不进入领域写路径。lease 诊断读取权威 store；
+checkpoint 只投影 version/bytes/SHA-256，避免运维视图泄露任务 payload。调度 reconcile、
+activation/lease 和 failure detector 记录 structured lifecycle event，并输出
+`cluster.nodes.*`、`scheduler.*`、`lease.*` 与 `responsibility.*` 指标。运维写入口只修改
+节点 operator state、进程内 scheduler latch 或已经过期的 lease；它不能绕过 fencing
+token 或把 Redis 诊断失败降级成多写者。
+
 No-restart degradation is status based: set a node to `Draining` before removing responsibilities, or `Maintenance` to exclude it while preserving diagnostics. Membership failure must not disable public reads, binary API, or notification stream. The next process generation can start in `single` mode to fully bypass registration.
 
 ## Theme package 与 registry 边界

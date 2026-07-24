@@ -876,16 +876,26 @@ RiskControl 运行态写入只能使用 `/api/binary/admin/security/risk-control
 
 ## Cluster membership diagnostic boundary
 
-`GET /api/ops/cluster/nodes` is an operational diagnostic route rather than a runtime business API. It returns the current shared membership view as JSON and requires an independent admin principal with `system.config`, the `fixed_ip` rate-limit policy, and `no-store`. Anonymous users, normal signed-in accounts, and admin principals without that permission cannot read node identity, capabilities, load hints, or active responsibilities.
+`GET /api/ops/cluster/nodes` is an operational diagnostic route rather than a runtime business API. It returns the current membership, assignment, lease/checkpoint summary, lifecycle events, health and metric view as JSON and requires an independent admin principal with `system.config`, the `fixed_ip` rate-limit policy, and `no-store`. Anonymous users, normal signed-in accounts, and admin principals without that permission cannot read node identity, capabilities, load hints, active responsibilities, lease identity, or task progress.
 
 The same response carries an additive `scheduler` object instead of adding another
 operational route. It exposes the immutable assignment generation, observed time, mode,
 enabled state, responsibility/replica-to-node edges, bounded placement score/reason,
-optional fencing token, and unassigned causes. It does not expose lease IDs, Redis keys,
-network addresses, queue payloads, exception text, or module request data. The complete
-assignment graph has the same authorization, fixed-IP, and no-store boundary as
-membership.
+optional fencing token, and unassigned causes. Lease diagnostics expose the opaque lease
+ID, holder, fencing token, TTL and renew/expiry times. Checkpoint diagnostics expose only
+version, byte count and SHA-256; they never return payload content. Redis key material,
+network addresses, queue payloads, exception stack text and module request data remain
+private. The complete graph has the same authorization, fixed-IP and no-store boundary.
 
-The route does not add an AEDS frame, change `/api/binary/**`, or affect notification stream envelopes. `Runtime:Mode=single` returns a disabled empty view and never registers the process. `static-role` and `adaptive` register the same stable capability catalog in Redis; business code cannot introduce arbitrary capability strings.
+The route does not add an AEDS frame, change `/api/binary/**`, or affect notification stream envelopes. `Runtime:Mode=single` returns a synthetic local healthy node and never registers the process in Redis. `static-role` and `adaptive` register the same stable capability catalog in Redis; business code cannot introduce arbitrary capability strings.
 
-Without restarting the public API, operators can place a node in `Draining` or `Maintenance`; failure detection preserves those operator states. Scheduling can be stopped independently while public reads, binary endpoints, and notification stream continue. Returning to `single` is a startup-mode rollback for the next process generation and leaves no cluster registration dependency on the single-node path.
+`POST /api/ops/cluster/nodes/{nodeId}/state`,
+`POST /api/ops/cluster/scheduler` and
+`POST /api/ops/cluster/leases/{leaseId}/release-expired` additionally require trusted
+same-site origin/referer and a consumed `X-Fsus-Mfa-Proof` for `admin-sensitive`.
+Operators can place a node in `Draining` or `Maintenance`, resume it as `Alive`, stop new
+scheduling, or remove only an already-expired lease. They cannot force-release a live
+lease, set `Suspect`/`Dead`, clear fencing counters, or expose checkpoint payloads.
+Failure detection preserves operator states. Public reads, binary endpoints and
+notification stream continue while scheduling is disabled. Returning to `single` is a
+startup-mode rollback for the next process generation.

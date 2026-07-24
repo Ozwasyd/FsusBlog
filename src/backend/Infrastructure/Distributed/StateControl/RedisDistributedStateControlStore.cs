@@ -1,3 +1,4 @@
+using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -43,6 +44,7 @@ redis.call('HSET', KEYS[1],
   'nodeId', ARGV[2],
   'responsibility', ARGV[3],
   'resource', ARGV[5],
+  'lastRenewAt', (now[1] * 1000) + math.floor(now[2] / 1000),
   'expiresAt', expiresAt)
 redis.call('PEXPIRE', KEYS[1], ARGV[4])
 redis.call('SET', KEYS[3], KEYS[1], 'PX', ARGV[4])
@@ -90,6 +92,7 @@ end
 local now = redis.call('TIME')
 local expiresAt = (now[1] * 1000) + math.floor(now[2] / 1000) + tonumber(ARGV[3])
 redis.call('HSET', KEYS[1], 'expiresAt', expiresAt)
+redis.call('HSET', KEYS[1], 'lastRenewAt', (now[1] * 1000) + math.floor(now[2] / 1000))
 redis.call('PEXPIRE', KEYS[1], ARGV[3])
 redis.call('PEXPIRE', KEYS[2], ARGV[3])
 return 1
@@ -234,8 +237,8 @@ return 1
             lease,
             current =>
             {
-                DistributedTaskRecord record = EnsureCurrentExecution(current, execution);
-                int currentVersion = record.Checkpoint?.Version ?? 0;
+                DistributedTaskRecord currentRecord = EnsureCurrentExecution(current, execution);
+                int currentVersion = currentRecord.Checkpoint?.Version ?? 0;
                 if (currentVersion != expectedVersion)
                 {
                     throw new CheckpointVersionConflictException(
@@ -246,7 +249,7 @@ return 1
                     checkpointPayload,
                     timeProvider.GetUtcNow());
                 return MutationResult.Changed(
-                    record with
+                    currentRecord with
                     {
                         Checkpoint = checkpoint,
                         UpdatedAt = checkpoint.UpdatedAt
@@ -268,9 +271,9 @@ return 1
             lease,
             current =>
             {
-                DistributedTaskRecord record = EnsureCurrentExecution(current, execution);
+                DistributedTaskRecord currentRecord = EnsureCurrentExecution(current, execution);
                 return MutationResult.Changed(
-                    record with
+                    currentRecord with
                     {
                         Status = DistributedTaskStatus.Succeeded,
                         ResultDigest = normalizedResultDigest,
@@ -324,7 +327,171 @@ return 1
         return payload.IsNullOrEmpty ? null : DeserializeRecord(payload);
     }
 
+    public async ValueTask<IReadOnlyList<DistributedLeaseDiagnostic>> ListLeasesAsync(
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        DistributedStateControlGuards.DiagnosticLimit(limit);
+        var diagnostics = new List<DistributedLeaseDiagnostic>(limit);
+        foreach (RedisKey key in ScanKeys($"{_prefix}:lease:*", limit))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            HashEntry[] entries = await Database.HashGetAllAsync(key).ConfigureAwait(false);
+            Dictionary<string, string> fields = entries.ToDictionary(
+                static entry => entry.Name.ToString(),
+                static entry => entry.Value.ToString(),
+                StringComparer.Ordinal);
+            if (!TryReadLeaseDiagnostic(fields, out DistributedLeaseDiagnostic? diagnostic))
+            {
+                continue;
+            }
+            diagnostics.Add(diagnostic);
+            if (diagnostics.Count >= limit)
+            {
+                break;
+            }
+        }
+        return diagnostics
+            .OrderBy(static lease => lease.Key.Responsibility, StringComparer.Ordinal)
+            .ThenBy(static lease => lease.Key.Resource, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    public async ValueTask<IReadOnlyList<DistributedTaskDiagnostic>> ListTasksAsync(
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        DistributedStateControlGuards.DiagnosticLimit(limit);
+        var diagnostics = new List<DistributedTaskDiagnostic>(limit);
+        foreach (RedisKey key in ScanKeys($"{_prefix}:task:*", limit))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            RedisValue payload = await Database.StringGetAsync(key).ConfigureAwait(false);
+            if (payload.IsNullOrEmpty)
+            {
+                continue;
+            }
+            diagnostics.Add(DistributedStateControlGuards.ToDiagnostic(DeserializeRecord(payload)));
+            if (diagnostics.Count >= limit)
+            {
+                break;
+            }
+        }
+        return diagnostics
+            .OrderByDescending(static task => task.UpdatedAt)
+            .ToArray();
+    }
+
+    public async ValueTask<bool> ReleaseExpiredLeaseAsync(
+        LeaseId leaseId,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        RedisKey indexKey = BuildLeaseIndexKey(leaseId);
+        RedisValue indexedLeaseKey = await Database.StringGetAsync(indexKey).ConfigureAwait(false);
+        if (indexedLeaseKey.IsNullOrEmpty)
+        {
+            // Redis TTL expiry is already an authoritative release.
+            return false;
+        }
+        const string Script = """
+local expiresAt = redis.call('HGET', KEYS[1], 'expiresAt')
+if not expiresAt then
+  redis.call('DEL', KEYS[2])
+  return 0
+end
+local now = redis.call('TIME')
+local nowMs = (now[1] * 1000) + math.floor(now[2] / 1000)
+if tonumber(expiresAt) > nowMs then
+  return 0
+end
+redis.call('DEL', KEYS[1])
+redis.call('DEL', KEYS[2])
+return 1
+""";
+        RedisResult result = await Database.ScriptEvaluateAsync(
+                Script,
+                [(RedisKey)indexedLeaseKey.ToString(), indexKey],
+                [],
+                CommandFlags.None)
+            .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        return (long)result == 1L;
+    }
+
     private IDatabase Database => redis.GetDatabase();
+
+    private IEnumerable<RedisKey> ScanKeys(string pattern, int limit)
+    {
+        var seen = new HashSet<RedisKey>();
+        foreach (EndPoint endpoint in redis.GetEndPoints())
+        {
+            IServer server = redis.GetServer(endpoint);
+            if (!server.IsConnected)
+            {
+                continue;
+            }
+            foreach (RedisKey key in server.Keys(
+                Database.Database,
+                pattern,
+                pageSize: Math.Min(limit, 128)))
+            {
+                if (seen.Add(key))
+                {
+                    yield return key;
+                    if (seen.Count >= limit)
+                    {
+                        yield break;
+                    }
+                }
+            }
+        }
+    }
+
+    private static bool TryReadLeaseDiagnostic(
+        IReadOnlyDictionary<string, string> fields,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)]
+        out DistributedLeaseDiagnostic? diagnostic)
+    {
+        diagnostic = null;
+        if (!fields.TryGetValue("leaseId", out string? leaseId)
+            || !Guid.TryParseExact(leaseId, "N", out Guid parsedLeaseId)
+            || !fields.TryGetValue("token", out string? token)
+            || !long.TryParse(
+                token,
+                System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out long parsedToken)
+            || !fields.TryGetValue("nodeId", out string? nodeId)
+            || !fields.TryGetValue("responsibility", out string? responsibility)
+            || !fields.TryGetValue("resource", out string? resource)
+            || !fields.TryGetValue("lastRenewAt", out string? lastRenewAt)
+            || !long.TryParse(
+                lastRenewAt,
+                System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out long parsedLastRenewAt)
+            || !fields.TryGetValue("expiresAt", out string? expiresAt)
+            || !long.TryParse(
+                expiresAt,
+                System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out long parsedExpiresAt))
+        {
+            return false;
+        }
+        DateTimeOffset renewed = DateTimeOffset.FromUnixTimeMilliseconds(parsedLastRenewAt);
+        DateTimeOffset expires = DateTimeOffset.FromUnixTimeMilliseconds(parsedExpiresAt);
+        diagnostic = new DistributedLeaseDiagnostic(
+            new LeaseKey(responsibility, resource),
+            new LeaseId(parsedLeaseId),
+            new NodeId(nodeId),
+            new FencingToken(parsedToken),
+            expires - renewed,
+            renewed,
+            expires);
+        return true;
+    }
 
     private async ValueTask<T> MutateTaskAsync<T>(
         IdempotencyKey key,

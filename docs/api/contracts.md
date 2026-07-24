@@ -2353,17 +2353,35 @@ Cluster capability values are a closed catalog: `web.api`, `admin.ui`, `comment.
 Each member snapshot contains a stable configured or host-derived `nodeId`, a per-process UUID `instanceId`, version, start time, runtime mode, capability set, `Alive|Suspect|Dead|Draining|Maintenance` status, last heartbeat, resource hints, and active responsibilities. A heartbeat with a stale `instanceId` cannot revive a restarted node. Heartbeat timeout first marks `Suspect`, then `Dead`; records are retained for diagnosis rather than deleted.
 
 `GET /api/ops/cluster/nodes` returns
-`{ enabled, mode, currentNodeId, scheduler, nodes }`. `scheduler` contains
+`{ enabled, mode, currentNodeId, schedulingAllowed, health, scheduler, nodes, leases, tasks, events, metrics }`. `scheduler` contains
 `{ generation, observedAt, mode, enabled, assignments, unassigned }`; every assignment
 contains `responsibilityId`, `capability`, `replica`, `nodeId`, `assignedAt`,
 `placementScore`, `reason`, and nullable `fencingToken`. Responsibility IDs are the
 seven values in `CoreResponsibilityCatalog`; capability values remain the closed
 membership catalog. `unassigned` contains bounded machine reasons such as
-`<responsibility-id>:no-healthy-capability`.
+`<responsibility-id>:no-healthy-capability`. `leases` contains opaque lease ID, holder
+node, fencing token, TTL, last-renew and expiry coordinates. `tasks[].checkpoint` contains
+only version, payload byte count, SHA-256 and update time; checkpoint payload is never
+returned. Events are bounded in-process lifecycle/decision records with optional W3C
+trace ID, and metrics use the documented low-cardinality cluster counter names.
 
 This endpoint is JSON only because `/api/ops/**` is an explicitly protected operational
 surface. It requires `identity_kind=admin_principal`, `admin_id`,
 `admin_permission=system.config`, `fixed_ip`, and `Cache-Control: no-store`. It does not
-accept a body, Cookie-derived normal account authorization, or an AEDS compatibility
-fallback. The additive scheduler object does not create a public JSON fallback for
-binary APIs and is not emitted to notification stream.
+accept Cookie-derived normal account authorization or an AEDS compatibility fallback.
+The additive operations view does not create a public JSON fallback for binary APIs and
+is not emitted to notification stream.
+
+The three mutation routes share the same admin/fixed-IP/no-store boundary and additionally
+require trusted origin/referer plus a one-use `X-Fsus-Mfa-Proof` bound to
+`admin-sensitive`:
+
+- `POST /api/ops/cluster/nodes/{nodeId}/state` accepts
+  `{ state: alive|draining|maintenance, reason }`;
+- `POST /api/ops/cluster/scheduler` accepts `{ enabled, reason }` and updates the
+  in-process hot scheduling latch;
+- `POST /api/ops/cluster/leases/{leaseId}/release-expired` accepts `{ reason }` and
+  removes only a lease already expired by the authoritative clock.
+
+Invalid state, active lease release, missing node, missing step-up proof and untrusted
+origin fail closed without changing assignment or fencing state.

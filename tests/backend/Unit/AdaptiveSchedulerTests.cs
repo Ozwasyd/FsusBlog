@@ -484,12 +484,23 @@ public sealed class AdaptiveSchedulerTests
         builder.Services.AddSingleton(Cluster(ClusterRuntimeMode.Adaptive));
         builder.Services.AddSingleton<IResponsibilityAssignmentSnapshotProvider>(
             new FixedSnapshotProvider(snapshot));
+        builder.Services.AddLogging();
+        builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
+        builder.Services.AddSingleton<AdaptiveSchedulerControlState>();
+        builder.Services.AddSingleton<IClusterOperationsTelemetry, ClusterOperationsTelemetry>();
+        builder.Services.AddSingleton<IDistributedStateControlDiagnostics>(
+            new InMemoryDistributedStateControlStore(TimeProvider.System));
+        builder.Services.AddSingleton<ClusterOperationsService>();
         await using WebApplication application = builder.Build();
         application.MapClusterMembershipEndpoints();
         RouteEndpoint endpoint = Assert.Single(
             ((IEndpointRouteBuilder)application).DataSources
                 .SelectMany(static source => source.Endpoints)
-                .OfType<RouteEndpoint>());
+                .OfType<RouteEndpoint>(),
+            endpoint =>
+                endpoint.RoutePattern.RawText == "/api/ops/cluster/nodes"
+                && endpoint.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods
+                    .Contains("GET", StringComparer.Ordinal) == true);
         var context = new DefaultHttpContext
         {
             RequestServices = application.Services,

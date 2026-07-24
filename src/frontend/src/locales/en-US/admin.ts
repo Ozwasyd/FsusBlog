@@ -74,6 +74,7 @@ export const admin = {
         audit: 'Audit log',
         analytics: 'Analytics',
         operations: 'Services and jobs',
+        clusterRuntime: 'Cluster and runtime',
         cache: 'Cache and indexes',
         integrity: 'Content integrity',
         integrityProof: 'Integrity Proof'
@@ -92,6 +93,7 @@ export const admin = {
         importExport: 'Import / export',
         statistics: 'Metrics',
         background: 'Jobs',
+        nodes: 'Nodes',
         index: 'Indexes',
         consistency: 'Integrity'
     }

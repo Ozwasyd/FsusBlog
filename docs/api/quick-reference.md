@@ -500,4 +500,7 @@
 
 | 方法与路径 | 权限 | 响应 | 说明 |
 | --- | --- | --- | --- |
-| GET `/api/ops/cluster/nodes` | independent admin principal + `system.config` + `fixed_ip` | JSON membership + scheduler assignment graph, `no-store` | 单机 membership disabled；多节点返回 capability、heartbeat、状态、低敏资源提示与 responsibility/replica assignment |
+| GET `/api/ops/cluster/nodes` | independent admin principal + `system.config` + `fixed_ip` | JSON cluster runtime snapshot, `no-store` | 节点、职责状态、lease/checkpoint 摘要、事件、健康与指标；single 返回本地健康节点 |
+| POST `/api/ops/cluster/nodes/{nodeId}/state` | 同上 + trusted origin + `X-Fsus-Mfa-Proof` | JSON node state, `no-store` | 仅 `alive|draining|maintenance` |
+| POST `/api/ops/cluster/scheduler` | 同上 + trusted origin + `X-Fsus-Mfa-Proof` | JSON scheduling latch, `no-store` | 无重启停止/恢复新职责调度 |
+| POST `/api/ops/cluster/leases/{leaseId}/release-expired` | 同上 + trusted origin + `X-Fsus-Mfa-Proof` | JSON release result, `no-store` | 只清理已过期 lease，不允许强制释放 active lease |

@@ -30,10 +30,18 @@ public interface IAdaptiveSchedulerRuntimeOptionsSource
 }
 
 public sealed class ConfigurationAdaptiveSchedulerRuntimeOptionsSource(
-    IConfiguration configuration) : IAdaptiveSchedulerRuntimeOptionsSource
+    IConfiguration configuration,
+    AdaptiveSchedulerControlState? control = null) : IAdaptiveSchedulerRuntimeOptionsSource
 {
     public AdaptiveSchedulerRuntimeOptions Current()
-        => AdaptiveSchedulerRuntimeOptions.FromConfiguration(configuration);
+    {
+        AdaptiveSchedulerRuntimeOptions configured =
+            AdaptiveSchedulerRuntimeOptions.FromConfiguration(configuration);
+        return configured with
+        {
+            Enabled = configured.Enabled && (control?.SchedulingAllowed ?? true)
+        };
+    }
 }
 
 public sealed class AdaptiveResponsibilityScheduler(
