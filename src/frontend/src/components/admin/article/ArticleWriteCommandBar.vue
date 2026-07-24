@@ -110,7 +110,7 @@ defineEmits<{
   padding-inline: 0.5rem;
   color: var(--fsusblog-text-muted);
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 500;
 }
 
 .article-write-command-bar__back:hover,
@@ -123,7 +123,7 @@ defineEmits<{
   border-left: 1px solid var(--fsusblog-panel-border);
   padding-left: 0.75rem;
   color: var(--fsusblog-text-muted);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   line-height: 1.25;
 }
@@ -138,7 +138,7 @@ defineEmits<{
   min-width: 0;
   overflow: hidden;
   color: var(--fsusblog-text-muted);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   line-height: 1.25;
   text-align: right;

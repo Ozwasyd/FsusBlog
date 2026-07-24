@@ -62,8 +62,7 @@ commandGroups:
             - {id: "cross-stack-test-governance", script: "check:cross-stack-test-governance", access: "read", stage: "concurrent", reason: "Audits cross-stack test declarations independently of Vitest outputs.", consumedInputs: ["tests/frontend", "tests/backend", "src/shared/Contracts"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "cross-stack-receipt-fixtures", command: ["node", "--test", "../../tests/tools/cross-stack-receipt-join.test.mjs"], access: "write", stage: "concurrent", reason: "Exercises current-run receipt joins and fail-closed mutations in process-unique temporary repositories.", consumedInputs: ["tests/fixtures/evidence-projection/cross-stack-assertion-ownership.json", "tests/tools/cross-stack-receipt-join.test.mjs", "tools/test-matrix/cross-stack-receipts.mjs"], ownedOutputs: ["os-temp://fsus-cross-stack-join-unique"], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "modern-standards", script: "check:modern-standards", access: "read", stage: "concurrent", reason: "Scans source standards without touching build or test artifacts.", consumedInputs: ["src/frontend/src", "tests/frontend"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "font-weight-contract", command: ["node", "../../tests/frontend/checks/static/check-font-weight-contract.mjs"], access: "read", stage: "concurrent", reason: "Rejects CSS declarations and utility classes outside the loaded 400/500/700 font-weight contract.", consumedInputs: ["src/frontend/src", "docs/design/reading-typography.md", "tests/frontend/checks/static/check-font-weight-contract.mjs"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "font-size-contract", command: ["node", "../../tests/frontend/checks/static/check-font-size-contract.mjs"], access: "read", stage: "concurrent", reason: "Rejects arbitrary 0.6-0.9 rem/em declarations and legacy 11px/13px CSS sizes outside the 12/14/16px compact typography scale.", consumedInputs: ["src/frontend/src", "src/frontend/public/public-shell-emergency.css", "docs/design/reading-typography.md", "tests/frontend/checks/static/check-font-size-contract.mjs"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "frontend-source-rule-host", command: ["node", "../../tools/frontend/run-source-rule-host.mjs"], access: "write", stage: "concurrent", reason: "Builds one commit- and worktree-bound frontend source index, executes migrated read-only rules in one resident Node process, and emits independent fail-closed receipts plus before/after process and source-read evidence.", consumedInputs: ["src/frontend/src", "src/frontend/public/public-shell-emergency.css", "src/frontend/package.json", "docs/design/reading-typography.md", "tools/frontend/source-index.mjs", "tools/frontend/source-rule-host.mjs", "tools/frontend/rules"], ownedOutputs: [".tmp/frontend/source-rule-host"], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: ["frontend-source-rule-evidence"]}}
             - {id: "result-boundaries", script: "check:result-boundaries", access: "read", stage: "concurrent", reason: "Checks result boundaries from source only.", consumedInputs: ["src/frontend/src", "src/shared/Contracts"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "error-code-alignment", script: "check:error-code-alignment", access: "read", stage: "concurrent", reason: "Compares error-code declarations without producing shared output.", consumedInputs: ["src/frontend/src", "src/shared/Contracts", "docs/api"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "runtime-message-branching", script: "check:no-runtime-message-branching", access: "read", stage: "concurrent", reason: "Scans runtime message handling and does not share Vitest state.", consumedInputs: ["src/frontend/src"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
@@ -827,6 +826,7 @@ tiers:
               frontend-static,
               frontend-public-archive-sticky-geometry,
               frontend-public-typography,
+              frontend-source-index-rule-host,
               csharp-entrypoint-ownership-governance,
           ]
       artifacts:
@@ -848,6 +848,16 @@ tiers:
               tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs,
               tests/frontend/archive-sticky-geometry-evidence.json,
               tests/public-typography-evidence.json,
+              .tmp/frontend/source-rule-host/source-index.json,
+              .tmp/frontend/source-rule-host/owner-registry.json,
+              .tmp/frontend/source-rule-host/rule-host.json,
+              .tmp/frontend/source-rule-host/migration-before-after.json,
+              tools/frontend/source-index.mjs,
+              tools/frontend/source-rule-host.mjs,
+              tools/frontend/run-source-rule-host.mjs,
+              tools/frontend/frontend-static-owner-registry.mjs,
+              tools/frontend/source-rule-host.test.mjs,
+              docs/testing/frontend-source-index.md,
               docs/design/reading-typography.md,
               tools/check-csharp-entrypoint-ownership.mjs,
               tests/governance/csharp-entrypoint-ownership.json,

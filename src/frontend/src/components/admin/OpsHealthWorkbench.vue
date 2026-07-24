@@ -566,8 +566,8 @@ async function copyEvidence(incident: OpsIncident): Promise<void>
  {
     min-height: 40px;
     padding: 0 14px;
-    font-size: 13px;
-    font-weight: 600;
+    font-size: 14px;
+    font-weight: 500;
 }
 
 .ops-refresh:hover,
@@ -623,7 +623,7 @@ async function copyEvidence(incident: OpsIncident): Promise<void>
     margin: 3px 0 0;
     color: var(--fsusblog-text-primary);
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 700;
     line-height: 1.5;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -790,7 +790,7 @@ async function copyEvidence(incident: OpsIncident): Promise<void>
     color: var(--fsusblog-text-primary);
     cursor: pointer;
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 700;
 }
 
 .ops-quiet__count

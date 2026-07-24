@@ -404,7 +404,7 @@ const formatMode = (value: string): string => modeLabels[value] ?? value;
  {
     color: var(--fsusblog-text-primary);
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 700;
     line-height: 1.35;
 }
 
@@ -510,7 +510,7 @@ const formatMode = (value: string): string => modeLabels[value] ?? value;
  {
     color: var(--fsusblog-text-primary);
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 700;
     line-height: 1.35;
 }
 

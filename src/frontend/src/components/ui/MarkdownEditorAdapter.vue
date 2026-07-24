@@ -268,7 +268,7 @@ defineExpose({
 
 .editor-shell__title,
 .editor-shell__status {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   line-height: 1.25;
 }
@@ -276,7 +276,7 @@ defineExpose({
 .editor-shell__title {
   flex: 0 0 auto;
   color: var(--fsusblog-text-primary);
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .editor-shell__status {

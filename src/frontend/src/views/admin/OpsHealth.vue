@@ -85,6 +85,6 @@ onMounted(loadHealth);
     color: var(--fsusblog-text-primary);
     cursor: pointer;
     font: inherit;
-    font-weight: 600;
+    font-weight: 500;
 }
 </style>

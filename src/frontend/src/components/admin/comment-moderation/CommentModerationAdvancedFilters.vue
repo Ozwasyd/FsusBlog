@@ -266,7 +266,7 @@ function apply(): void
     border-radius: var(--fsus-radius-control-small);
     background: var(--fsusblog-text-primary);
     color: var(--fsusblog-page-bg);
-    font-size: 11px;
+    font-size: 12px;
     line-height: 20px;
     text-align: center;
 }

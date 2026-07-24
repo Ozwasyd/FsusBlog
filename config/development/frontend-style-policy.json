@@ -115,8 +115,8 @@
     "specializedGovernance": {
         "package": "src/frontend/package.json",
         "scriptPrefix": "check:",
-        "count": 191,
-        "idsSha256": "53a66fe57bc4a0c02a259f6908f1d0a7885e0695665a8ed41ac519e415fbeb4d",
-        "definitionsSha256": "dd1f702a01683b7c7f053617512d8e34c25f078a8201a6e8940a2140404c98fd"
+        "count": 197,
+        "idsSha256": "3a99a8de0fbe234bf8cdf650f8c2e3883b5aa0717b687d25aceb9c391f0eccf4",
+        "definitionsSha256": "7a8d2fc227e1d232bd6ee885085c2177cbc68afe44258c4f20b8c238f5d268ee"
     }
 }

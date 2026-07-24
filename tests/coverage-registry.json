@@ -2980,6 +2980,30 @@
             ]
         },
         {
+            "id": "frontend-source-index-rule-host",
+            "description": "Source-bound frontend governance shares one current-run source index and resident rule host while retaining independent diagnostics, coverage, receipts and isolated writer or fixture owners.",
+            "owner": "InteropGlueAgent",
+            "risk": "medium",
+            "evidencePaths": [
+                "tools/frontend/source-index.mjs",
+                "tools/frontend/source-rule-host.mjs",
+                "tools/frontend/run-source-rule-host.mjs",
+                "tools/frontend/frontend-static-owner-registry.mjs",
+                "tools/frontend/source-rule-host.test.mjs",
+                "docs/testing/frontend-source-index.md",
+                ".tmp/frontend/source-rule-host/source-index.json",
+                ".tmp/frontend/source-rule-host/owner-registry.json",
+                ".tmp/frontend/source-rule-host/rule-host.json",
+                ".tmp/frontend/source-rule-host/migration-before-after.json"
+            ],
+            "assertionType": "static",
+            "failClosedRule": "Reject a stale commit or worktree identity, changed input digest without reparsing, parser-version drift, missing or duplicate ownership, host crash, missing rule receipt, reduced coverage IDs, finding identity drift, or an unlocatable source span.",
+            "minimumRequirement": "Local positive and mutation fixtures must prove one inventory/read/primary-parse pass, exact legacy-to-host finding identity, independent rule receipts, complete check-command ownership, and fewer Node processes and repeated source reads without using elapsed time as correctness.",
+            "tierIds": [
+                "frontend-static-governance"
+            ]
+        },
+        {
             "id": "frontend-public-home-editorial",
             "description": "Public home uses one shared deterministic editorial composition across AOT, hydration and SPA takeover with one lead, bounded secondary recommendations, a deduplicated feed and a complete coverless text hierarchy.",
             "owner": "InteropGlueAgent",
