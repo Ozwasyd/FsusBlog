@@ -5938,6 +5938,750 @@
       "consumer": "src/backend/Infrastructure/Auth",
       "runtimeOnly": false,
       "deprecation": null
+    },
+    {
+      "key": "Security:PerceptionCharacterV3:Resources:AllocationsEnabled",
+      "owner": "security",
+      "purpose": "Owned configuration key: Security:PerceptionCharacterV3:Resources:AllocationsEnabled",
+      "valueType": "boolean",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "Security__PerceptionCharacterV3__Resources__AllocationsEnabled"
+      ],
+      "secret": false,
+      "requiredStatus": "required",
+      "requiredWhen": "Production",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "startup",
+        "owner": "ProductionStartupValidator"
+      },
+      "documentation": "docs/security.md",
+      "consumer": "src/backend/Infrastructure/Security",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
+      "key": "Security:PerceptionCharacterV3:Resources:Watermarks:High",
+      "owner": "security",
+      "purpose": "Owned configuration key: Security:PerceptionCharacterV3:Resources:Watermarks:High",
+      "valueType": "number",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "Security__PerceptionCharacterV3__Resources__Watermarks__High"
+      ],
+      "secret": false,
+      "requiredStatus": "required",
+      "requiredWhen": "Production",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "startup",
+        "owner": "ProductionStartupValidator"
+      },
+      "documentation": "docs/security.md",
+      "consumer": "src/backend/Infrastructure/Security",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
+      "key": "Security:PerceptionCharacterV3:Resources:Watermarks:Low",
+      "owner": "security",
+      "purpose": "Owned configuration key: Security:PerceptionCharacterV3:Resources:Watermarks:Low",
+      "valueType": "number",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "Security__PerceptionCharacterV3__Resources__Watermarks__Low"
+      ],
+      "secret": false,
+      "requiredStatus": "required",
+      "requiredWhen": "Production",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "startup",
+        "owner": "ProductionStartupValidator"
+      },
+      "documentation": "docs/security.md",
+      "consumer": "src/backend/Infrastructure/Security",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
+      "key": "Security:PerceptionCharacterV3:Resources:Watermarks:Critical",
+      "owner": "security",
+      "purpose": "Owned configuration key: Security:PerceptionCharacterV3:Resources:Watermarks:Critical",
+      "valueType": "number",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "Security__PerceptionCharacterV3__Resources__Watermarks__Critical"
+      ],
+      "secret": false,
+      "requiredStatus": "required",
+      "requiredWhen": "Production",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "startup",
+        "owner": "ProductionStartupValidator"
+      },
+      "documentation": "docs/security.md",
+      "consumer": "src/backend/Infrastructure/Security",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
+      "key": "Security:PerceptionCharacterV3:Resources:Watermarks:TotalHigh",
+      "owner": "security",
+      "purpose": "Owned configuration key: Security:PerceptionCharacterV3:Resources:Watermarks:TotalHigh",
+      "valueType": "number",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "Security__PerceptionCharacterV3__Resources__Watermarks__TotalHigh"
+      ],
+      "secret": false,
+      "requiredStatus": "required",
+      "requiredWhen": "Production",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "startup",
+        "owner": "ProductionStartupValidator"
+      },
+      "documentation": "docs/security.md",
+      "consumer": "src/backend/Infrastructure/Security",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
+      "key": "Security:PerceptionCharacterV3:Resources:Watermarks:TotalLow",
+      "owner": "security",
+      "purpose": "Owned configuration key: Security:PerceptionCharacterV3:Resources:Watermarks:TotalLow",
+      "valueType": "number",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "Security__PerceptionCharacterV3__Resources__Watermarks__TotalLow"
+      ],
+      "secret": false,
+      "requiredStatus": "required",
+      "requiredWhen": "Production",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "startup",
+        "owner": "ProductionStartupValidator"
+      },
+      "documentation": "docs/security.md",
+      "consumer": "src/backend/Infrastructure/Security",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
+      "key": "Security:PerceptionCharacterV3:Resources:Watermarks:TotalCritical",
+      "owner": "security",
+      "purpose": "Owned configuration key: Security:PerceptionCharacterV3:Resources:Watermarks:TotalCritical",
+      "valueType": "number",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "Security__PerceptionCharacterV3__Resources__Watermarks__TotalCritical"
+      ],
+      "secret": false,
+      "requiredStatus": "required",
+      "requiredWhen": "Production",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "startup",
+        "owner": "ProductionStartupValidator"
+      },
+      "documentation": "docs/security.md",
+      "consumer": "src/backend/Infrastructure/Security",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
+      "key": "Security:PerceptionCharacterV3:Resources:Budgets:LeasePerMinute",
+      "owner": "security",
+      "purpose": "Owned configuration key: Security:PerceptionCharacterV3:Resources:Budgets:LeasePerMinute",
+      "valueType": "integer",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "Security__PerceptionCharacterV3__Resources__Budgets__LeasePerMinute"
+      ],
+      "secret": false,
+      "requiredStatus": "required",
+      "requiredWhen": "Production",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "startup",
+        "owner": "ProductionStartupValidator"
+      },
+      "documentation": "docs/security.md",
+      "consumer": "src/backend/Infrastructure/Security",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
+      "key": "Security:PerceptionCharacterV3:Resources:Budgets:LeaseRollingHour",
+      "owner": "security",
+      "purpose": "Owned configuration key: Security:PerceptionCharacterV3:Resources:Budgets:LeaseRollingHour",
+      "valueType": "integer",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "Security__PerceptionCharacterV3__Resources__Budgets__LeaseRollingHour"
+      ],
+      "secret": false,
+      "requiredStatus": "required",
+      "requiredWhen": "Production",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "startup",
+        "owner": "ProductionStartupValidator"
+      },
+      "documentation": "docs/security.md",
+      "consumer": "src/backend/Infrastructure/Security",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
+      "key": "Security:PerceptionCharacterV3:Resources:Budgets:EgressBytesPerMinute",
+      "owner": "security",
+      "purpose": "Owned configuration key: Security:PerceptionCharacterV3:Resources:Budgets:EgressBytesPerMinute",
+      "valueType": "integer",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "Security__PerceptionCharacterV3__Resources__Budgets__EgressBytesPerMinute"
+      ],
+      "secret": false,
+      "requiredStatus": "required",
+      "requiredWhen": "Production",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "startup",
+        "owner": "ProductionStartupValidator"
+      },
+      "documentation": "docs/security.md",
+      "consumer": "src/backend/Infrastructure/Security",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
+      "key": "Security:PerceptionCharacterV3:Resources:Budgets:EgressBytesRollingHour",
+      "owner": "security",
+      "purpose": "Owned configuration key: Security:PerceptionCharacterV3:Resources:Budgets:EgressBytesRollingHour",
+      "valueType": "integer",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "Security__PerceptionCharacterV3__Resources__Budgets__EgressBytesRollingHour"
+      ],
+      "secret": false,
+      "requiredStatus": "required",
+      "requiredWhen": "Production",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "startup",
+        "owner": "ProductionStartupValidator"
+      },
+      "documentation": "docs/security.md",
+      "consumer": "src/backend/Infrastructure/Security",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
+      "key": "Security:PerceptionCharacterV3:Resources:Quotas:IpPrefixPerMinute",
+      "owner": "security",
+      "purpose": "Owned configuration key: Security:PerceptionCharacterV3:Resources:Quotas:IpPrefixPerMinute",
+      "valueType": "integer",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "Security__PerceptionCharacterV3__Resources__Quotas__IpPrefixPerMinute"
+      ],
+      "secret": false,
+      "requiredStatus": "required",
+      "requiredWhen": "Production",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "startup",
+        "owner": "ProductionStartupValidator"
+      },
+      "documentation": "docs/security.md",
+      "consumer": "src/backend/Infrastructure/Security",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
+      "key": "Security:PerceptionCharacterV3:Resources:Quotas:DevicePerMinute",
+      "owner": "security",
+      "purpose": "Owned configuration key: Security:PerceptionCharacterV3:Resources:Quotas:DevicePerMinute",
+      "valueType": "integer",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "Security__PerceptionCharacterV3__Resources__Quotas__DevicePerMinute"
+      ],
+      "secret": false,
+      "requiredStatus": "required",
+      "requiredWhen": "Production",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "startup",
+        "owner": "ProductionStartupValidator"
+      },
+      "documentation": "docs/security.md",
+      "consumer": "src/backend/Infrastructure/Security",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
+      "key": "Security:PerceptionCharacterV3:Resources:Quotas:SubjectPerMinute",
+      "owner": "security",
+      "purpose": "Owned configuration key: Security:PerceptionCharacterV3:Resources:Quotas:SubjectPerMinute",
+      "valueType": "integer",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "Security__PerceptionCharacterV3__Resources__Quotas__SubjectPerMinute"
+      ],
+      "secret": false,
+      "requiredStatus": "required",
+      "requiredWhen": "Production",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "startup",
+        "owner": "ProductionStartupValidator"
+      },
+      "documentation": "docs/security.md",
+      "consumer": "src/backend/Infrastructure/Security",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
+      "key": "Security:PerceptionCharacterV3:Resources:Quotas:ActionPerMinute",
+      "owner": "security",
+      "purpose": "Owned configuration key: Security:PerceptionCharacterV3:Resources:Quotas:ActionPerMinute",
+      "valueType": "integer",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "Security__PerceptionCharacterV3__Resources__Quotas__ActionPerMinute"
+      ],
+      "secret": false,
+      "requiredStatus": "required",
+      "requiredWhen": "Production",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "startup",
+        "owner": "ProductionStartupValidator"
+      },
+      "documentation": "docs/security.md",
+      "consumer": "src/backend/Infrastructure/Security",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
+      "key": "Security:PerceptionCharacterV3:Resources:Replenishment:MaxEntries",
+      "owner": "security",
+      "purpose": "Owned configuration key: Security:PerceptionCharacterV3:Resources:Replenishment:MaxEntries",
+      "valueType": "integer",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "Security__PerceptionCharacterV3__Resources__Replenishment__MaxEntries"
+      ],
+      "secret": false,
+      "requiredStatus": "required",
+      "requiredWhen": "Production",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "startup",
+        "owner": "ProductionStartupValidator"
+      },
+      "documentation": "docs/security.md",
+      "consumer": "src/backend/Infrastructure/Security",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
+      "key": "Security:PerceptionCharacterV3:Resources:Replenishment:MaxBytes",
+      "owner": "security",
+      "purpose": "Owned configuration key: Security:PerceptionCharacterV3:Resources:Replenishment:MaxBytes",
+      "valueType": "integer",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "Security__PerceptionCharacterV3__Resources__Replenishment__MaxBytes"
+      ],
+      "secret": false,
+      "requiredStatus": "required",
+      "requiredWhen": "Production",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "startup",
+        "owner": "ProductionStartupValidator"
+      },
+      "documentation": "docs/security.md",
+      "consumer": "src/backend/Infrastructure/Security",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
+      "key": "Security:PerceptionCharacterV3:Resources:CriticalActions",
+      "owner": "security",
+      "purpose": "Owned configuration key: Security:PerceptionCharacterV3:Resources:CriticalActions",
+      "valueType": "string-array",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "Security__PerceptionCharacterV3__Resources__CriticalActions"
+      ],
+      "secret": false,
+      "requiredStatus": "required",
+      "requiredWhen": "Production",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "startup",
+        "owner": "ProductionStartupValidator"
+      },
+      "documentation": "docs/security.md",
+      "consumer": "src/backend/Infrastructure/Security",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
+      "key": "Security:PerceptionCharacterV3:Resources:Dispositions:Comment",
+      "owner": "security",
+      "purpose": "Owned configuration key: Security:PerceptionCharacterV3:Resources:Dispositions:Comment",
+      "valueType": "string",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "Security__PerceptionCharacterV3__Resources__Dispositions__Comment"
+      ],
+      "secret": false,
+      "requiredStatus": "required",
+      "requiredWhen": "Production",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "startup",
+        "owner": "ProductionStartupValidator"
+      },
+      "documentation": "docs/security.md",
+      "consumer": "src/backend/Infrastructure/Security",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
+      "key": "Security:PerceptionCharacterV3:Resources:Dispositions:Enrollment",
+      "owner": "security",
+      "purpose": "Owned configuration key: Security:PerceptionCharacterV3:Resources:Dispositions:Enrollment",
+      "valueType": "string",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "Security__PerceptionCharacterV3__Resources__Dispositions__Enrollment"
+      ],
+      "secret": false,
+      "requiredStatus": "required",
+      "requiredWhen": "Production",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "startup",
+        "owner": "ProductionStartupValidator"
+      },
+      "documentation": "docs/security.md",
+      "consumer": "src/backend/Infrastructure/Security",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
+      "key": "Security:PerceptionCharacterV3:Resources:Dispositions:AccountRecovery",
+      "owner": "security",
+      "purpose": "Owned configuration key: Security:PerceptionCharacterV3:Resources:Dispositions:AccountRecovery",
+      "valueType": "string",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "Security__PerceptionCharacterV3__Resources__Dispositions__AccountRecovery"
+      ],
+      "secret": false,
+      "requiredStatus": "required",
+      "requiredWhen": "Production",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "startup",
+        "owner": "ProductionStartupValidator"
+      },
+      "documentation": "docs/security.md",
+      "consumer": "src/backend/Infrastructure/Security",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
+      "key": "Security:PerceptionCharacterV3:Resources:Dispositions:AdminSensitive",
+      "owner": "security",
+      "purpose": "Owned configuration key: Security:PerceptionCharacterV3:Resources:Dispositions:AdminSensitive",
+      "valueType": "string",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "Security__PerceptionCharacterV3__Resources__Dispositions__AdminSensitive"
+      ],
+      "secret": false,
+      "requiredStatus": "required",
+      "requiredWhen": "Production",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "startup",
+        "owner": "ProductionStartupValidator"
+      },
+      "documentation": "docs/security.md",
+      "consumer": "src/backend/Infrastructure/Security",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
+      "key": "Security:PerceptionCharacterV3:Resources:Dispositions:PublicRead",
+      "owner": "security",
+      "purpose": "Owned configuration key: Security:PerceptionCharacterV3:Resources:Dispositions:PublicRead",
+      "valueType": "string",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "Security__PerceptionCharacterV3__Resources__Dispositions__PublicRead"
+      ],
+      "secret": false,
+      "requiredStatus": "required",
+      "requiredWhen": "Production",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "startup",
+        "owner": "ProductionStartupValidator"
+      },
+      "documentation": "docs/security.md",
+      "consumer": "src/backend/Infrastructure/Security",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
+      "key": "Security:PerceptionCharacterV3:Resources:Dispositions:Other",
+      "owner": "security",
+      "purpose": "Owned configuration key: Security:PerceptionCharacterV3:Resources:Dispositions:Other",
+      "valueType": "string",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "Security__PerceptionCharacterV3__Resources__Dispositions__Other"
+      ],
+      "secret": false,
+      "requiredStatus": "required",
+      "requiredWhen": "Production",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "startup",
+        "owner": "ProductionStartupValidator"
+      },
+      "documentation": "docs/security.md",
+      "consumer": "src/backend/Infrastructure/Security",
+      "runtimeOnly": false,
+      "deprecation": null
     }
   ],
   "environmentVariables": [
@@ -7050,6 +7794,7 @@
         "tools/deployment/deployment-control.sh",
         "tools/deployment/gateway-recover.sh",
         "tools/deployment/gateway-switch.sh",
+        "tools/deployment/invoke-perception-character-v3-cutover.mjs",
         "tools/deployment/invoke-security-challenge-kind-cutover.mjs",
         "tools/deployment/notification-stream-restart.mjs",
         "tools/deployment/release-asset-compatibility-probe.mjs",
@@ -8799,6 +9544,61 @@
       "name": "CHALLENGE_KIND_TARGET_MAP",
       "category": "deployment-control",
       "owner": "security",
+      "secret": false,
+      "mapsTo": [],
+      "sources": [
+        "tools/deployment/release-rollout.sh"
+      ],
+      "deprecation": null
+    },
+    {
+      "name": "FSUSBLOG_PERCEPTION_V3_RELEASE_TARGET",
+      "category": "deployment-control",
+      "owner": "release-lifecycle",
+      "secret": false,
+      "mapsTo": [],
+      "sources": [
+        "tools/deployment/release-rollout.sh"
+      ],
+      "deprecation": null
+    },
+    {
+      "name": "FSUSBLOG_PERCEPTION_V3_POOL_MANIFEST",
+      "category": "deployment-control",
+      "owner": "release-lifecycle",
+      "secret": false,
+      "mapsTo": [],
+      "sources": [
+        "tools/deployment/release-rollout.sh"
+      ],
+      "deprecation": null
+    },
+    {
+      "name": "FSUSBLOG_PERCEPTION_V3_POLICY_VERSION",
+      "category": "deployment-control",
+      "owner": "release-lifecycle",
+      "secret": false,
+      "mapsTo": [],
+      "sources": [
+        "tools/deployment/release-rollout.sh"
+      ],
+      "deprecation": null
+    },
+    {
+      "name": "PERCEPTION_V3_RELEASE_TARGET",
+      "category": "deployment-control",
+      "owner": "release-lifecycle",
+      "secret": false,
+      "mapsTo": [],
+      "sources": [
+        "tools/deployment/release-rollout.sh"
+      ],
+      "deprecation": null
+    },
+    {
+      "name": "PERCEPTION_V3_POOL_MANIFEST",
+      "category": "deployment-control",
+      "owner": "release-lifecycle",
       "secret": false,
       "mapsTo": [],
       "sources": [

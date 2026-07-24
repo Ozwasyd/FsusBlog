@@ -196,6 +196,7 @@ function listDeploymentScripts(absoluteRoot, roots, errors) {
 
 function walkRepositoryFiles(absoluteRoot, relative = '', output = []) {
   const directory = path.join(absoluteRoot, relative)
+  if (!fs.existsSync(directory)) return output
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
     if (entry.isDirectory() && sourceWalkIgnores.has(entry.name)) continue
     const child = normalize(path.posix.join(relative, entry.name))
