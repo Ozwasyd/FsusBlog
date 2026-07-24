@@ -21,6 +21,7 @@ import {
   evaluateRuntimeProfileSelection,
   resolveContainerVisibleCpuCount,
   resolveContainerVisibleMemoryBytes,
+  resolveRuntimeProfileAvailability,
   sealRuntimeProfileSelection,
   summarizeRuntimeRuns,
   validateRuntimeMatrixEvidence,
@@ -243,6 +244,83 @@ test('container-visible CPU and memory identity never expands to host-only capac
   assert.equal(resolveContainerVisibleMemoryBytes(64 * 1024 ** 3, 'max'), 64 * 1024 ** 3)
 })
 
+test('hardware capability gaps are sealed as unsupported profiles instead of runtime failures', () => {
+  const profiles = readRuntimeProfileManifest().manifest.profiles.filter((profile) => profile.conditionalAdmission === undefined)
+  const singleNumaNode = structuredClone(testHardware)
+  singleNumaNode.topology.numa = {
+    status: 'not-applicable',
+    reason: 'only one NUMA node intersects the visible cpuset',
+    nodes: [{ id: 0, cpulist: '0-3' }]
+  }
+  const availability = resolveRuntimeProfileAvailability(profiles, singleNumaNode)
+  assert.ok(availability.profiles.some((profile) => profile.id === 'physical-core-only'))
+  assert.ok(!availability.profiles.some((profile) => profile.id === 'numa-local'))
+  assert.deepEqual(availability.unsupportedProfiles, [{
+    profileId: 'numa-local',
+    capability: 'numa-topology',
+    status: 'not-applicable',
+    reason: 'NUMA topology is not-applicable: only one NUMA node intersects the visible cpuset'
+  }])
+
+  const hiddenTopology = structuredClone(singleNumaNode)
+  hiddenTopology.topology = {
+    status: 'unavailable',
+    reason: 'CPU topology sysfs is hidden',
+    numa: {
+      status: 'unavailable',
+      reason: 'NUMA sysfs is hidden',
+      nodes: []
+    }
+  }
+  const hidden = resolveRuntimeProfileAvailability(profiles, hiddenTopology)
+  assert.deepEqual(hidden.unsupportedProfiles.map((entry) => entry.profileId), ['physical-core-only', 'numa-local'])
+  assert.ok(hidden.unsupportedProfiles.every((entry) => entry.status === 'unavailable'))
+})
+
+test('complete evidence may exclude only topology profiles proven unsupported by sealed hardware', () => {
+  const loaded = readRuntimeProfileManifest()
+  const catalogProfiles = loaded.manifest.profiles.filter((profile) => profile.conditionalAdmission === undefined)
+  const singleNumaNode = structuredClone(testHardware)
+  singleNumaNode.topology.numa = {
+    status: 'not-applicable',
+    reason: 'only one NUMA node intersects the visible cpuset',
+    nodes: [{ id: 0, cpulist: '0-3' }]
+  }
+  const singleNumaHardwareDigest = sha256Value(singleNumaNode)
+  const availability = resolveRuntimeProfileAvailability(catalogProfiles, singleNumaNode)
+  const profileIds = availability.profiles.map((profile) => profile.id)
+  const schedule = createBalancedSchedule(profileIds, 3, 'single-numa-node')
+  const runs = schedule.map((entry) => createResult(entry.profileId, entry.round, {
+    hardwareDigest: singleNumaHardwareDigest,
+    profileManifestDigest: loaded.digest,
+    profileDigest: sha256Value(catalogProfiles.find((profile) => profile.id === entry.profileId)),
+    position: entry.position
+  }))
+  const evidence = {
+    schema: RUNTIME_MATRIX_EVIDENCE_SCHEMA,
+    status: 'complete',
+    identity: { commitSha, fixtureId, profileManifestDigest: loaded.digest, hardwareDigest: singleNumaHardwareDigest },
+    hardware: singleNumaNode,
+    rounds: 3,
+    catalogProfileIds: catalogProfiles.map((profile) => profile.id),
+    profileIds,
+    unsupportedProfiles: availability.unsupportedProfiles,
+    schedule,
+    runs,
+    comparison: summarizeRuntimeRuns(runs, loaded.manifest.defaultProfile)
+  }
+  evidence.selection = sealRuntimeProfileSelection(evidence, selectionPolicy)
+  assert.deepEqual(validateRuntimeMatrixEvidence(evidence), [])
+
+  const fabricated = structuredClone(evidence)
+  fabricated.unsupportedProfiles[0].profileId = 'throughput-glibc'
+  assert.ok(validateRuntimeMatrixEvidence(fabricated).some((error) => error.includes('not justified by captured hardware')))
+
+  const missing = structuredClone(evidence)
+  missing.unsupportedProfiles = []
+  assert.ok(validateRuntimeMatrixEvidence(missing).some((error) => error.includes('requires unsupported evidence for numa-local')))
+})
+
 test('auto-balanced isolation honors SMT, physical-core-only and NUMA-local profiles', () => {
   const common = {
     visibleCpus: [0, 1, 2, 3, 4, 5, 6, 7],
@@ -309,7 +387,9 @@ test('complete matrix evidence requires three rounds and emits pairwise plus Par
     identity: { commitSha, fixtureId, profileManifestDigest: loaded.digest, hardwareDigest },
     hardware: testHardware,
     rounds: 3,
+    catalogProfileIds: profileIds,
     profileIds,
+    unsupportedProfiles: [],
     schedule,
     runs,
     comparison
@@ -843,6 +923,10 @@ test('full matrix default excludes conditional NativeAOT admission without hidin
 })
 
 test('plan-driven executor runs cleanup, gates and measurement with isolated target and loadgen identities', (t) => {
+  // Seven independently bounded stage processes plus image inspection run under
+  // this outer harness. Keep its timeout above normal contended CI wall time;
+  // every individual site command remains fail-closed at 10 seconds.
+  const harnessTimeoutMs = 60000
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-runtime-plan-'))
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }))
   const output = path.join(directory, 'evidence.json')
@@ -878,7 +962,7 @@ test('plan-driven executor runs cleanup, gates and measurement with isolated tar
   ], {
     cwd: root,
     encoding: 'utf8',
-    timeout: 30000,
+    timeout: harnessTimeoutMs,
     env: {
       ...process.env,
       PATH: `${dockerBin}${path.delimiter}${process.env.PATH ?? ''}`,
@@ -919,7 +1003,7 @@ test('plan-driven executor runs cleanup, gates and measurement with isolated tar
   ], {
     cwd: root,
     encoding: 'utf8',
-    timeout: 30000,
+    timeout: harnessTimeoutMs,
     env: {
       ...process.env,
       PATH: `${dockerBin}${path.delimiter}${process.env.PATH ?? ''}`,
@@ -1017,7 +1101,7 @@ function createResult(profileId, round, overrides = {}) {
     identity: {
       commitSha,
       fixtureId,
-      hardwareDigest,
+      hardwareDigest: overrides.hardwareDigest ?? hardwareDigest,
       profileManifestDigest: overrides.profileManifestDigest ?? `sha256:${'b'.repeat(64)}`,
       profileDigest: overrides.profileDigest ?? `sha256:${'c'.repeat(64)}`,
       profileId,
@@ -1232,7 +1316,9 @@ function createCompleteMatrixEvidence() {
     identity: { commitSha, fixtureId, profileManifestDigest: loaded.digest, hardwareDigest },
     hardware: testHardware,
     rounds: 3,
+    catalogProfileIds: profileIds,
     profileIds,
+    unsupportedProfiles: [],
     schedule,
     runs,
     comparison: summarizeRuntimeRuns(runs, loaded.manifest.defaultProfile)

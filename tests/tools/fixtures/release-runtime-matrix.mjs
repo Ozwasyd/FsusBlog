@@ -42,7 +42,9 @@ export function createReleaseRuntimeMatrixFixture({ commitSha, profileManifestDi
     identity: { commitSha, fixtureId, profileManifestDigest, hardwareDigest },
     hardware,
     rounds: 3,
+    catalogProfileIds: profileIds,
     profileIds,
+    unsupportedProfiles: [],
     schedule,
     runs,
     comparison: summarizeRuntimeRuns(runs, 'throughput-musl')

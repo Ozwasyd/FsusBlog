@@ -4,7 +4,7 @@ import os from 'node:os'
 import { execFileSync } from 'node:child_process'
 import { canonicalJson, sha256Value } from './runtime-publish-profile.mjs'
 
-export const RUNTIME_MATRIX_EVIDENCE_SCHEMA = 'fsusblog.runtime-publish-matrix-evidence.v1'
+export const RUNTIME_MATRIX_EVIDENCE_SCHEMA = 'fsusblog.runtime-publish-matrix-evidence.v2'
 export const RUNTIME_PROFILE_RESULT_SCHEMA = 'fsusblog.runtime-publish-profile-result.v1'
 export const RUNTIME_PROFILE_SELECTION_SCHEMA = 'fsusblog.runtime-publish-selection.v1'
 export const RUNTIME_PROFILE_SELECTION_POLICY_SCHEMA = 'fsusblog.runtime-publish-selection-policy.v1'
@@ -86,6 +86,36 @@ export function resolveContainerVisibleMemoryBytes(hostMemoryBytes, memoryMax) {
   const limit = Number(text)
   if (!Number.isSafeInteger(limit) || limit <= 0) return host
   return Math.min(host, limit)
+}
+
+export function resolveRuntimeProfileAvailability(profiles, hardware) {
+  if (!Array.isArray(profiles)) throw new Error('profiles must be an array')
+  const topology = hardware?.topology
+  const unsupportedProfiles = []
+  for (const profile of profiles) {
+    if (profile?.topology?.mode === 'physical-core-only' && topology?.status !== 'ok') {
+      unsupportedProfiles.push({
+        profileId: profile.id,
+        capability: 'cpu-topology',
+        status: 'unavailable',
+        reason: `CPU topology is unavailable: ${boundedReason(topology?.reason ?? 'hardware topology was not captured')}`
+      })
+    }
+    if (profile?.topology?.mode === 'numa-local' && topology?.numa?.status !== 'ok') {
+      const status = topology?.numa?.status === 'not-applicable' ? 'not-applicable' : 'unavailable'
+      unsupportedProfiles.push({
+        profileId: profile.id,
+        capability: 'numa-topology',
+        status,
+        reason: `NUMA topology is ${status}: ${boundedReason(topology?.numa?.reason ?? 'NUMA topology was not captured')}`
+      })
+    }
+  }
+  const unsupportedIds = new Set(unsupportedProfiles.map((entry) => entry.profileId))
+  return {
+    profiles: profiles.filter((profile) => !unsupportedIds.has(profile.id)),
+    unsupportedProfiles
+  }
 }
 
 export function validateRuntimeProfileResult(result, expected = {}) {
@@ -310,7 +340,19 @@ export function validateRuntimeMatrixEvidence(evidence, options = {}) {
   if (plainObject(evidence.hardware) && identity.hardwareDigest !== sha256Value(evidence.hardware)) errors.push('identity.hardwareDigest does not bind the hardware evidence')
   if (!Number.isInteger(evidence.rounds) || evidence.rounds < 1) errors.push('rounds is invalid')
   if (validatesCompleteEvidence && evidence.rounds < 3) errors.push('complete evidence requires at least three rounds')
+  if (!Array.isArray(evidence.catalogProfileIds) || evidence.catalogProfileIds.length < 2 || new Set(evidence.catalogProfileIds).size !== evidence.catalogProfileIds.length) {
+    errors.push('catalogProfileIds are invalid')
+  }
   if (!Array.isArray(evidence.profileIds) || evidence.profileIds.length < 2 || new Set(evidence.profileIds).size !== evidence.profileIds.length) errors.push('profileIds are invalid')
+  validateUnsupportedProfiles(evidence.unsupportedProfiles, evidence.hardware, evidence.catalogProfileIds, evidence.profileIds, errors)
+  if (validatesCompleteEvidence && Array.isArray(evidence.catalogProfileIds) && Array.isArray(evidence.profileIds) && Array.isArray(evidence.unsupportedProfiles)) {
+    const covered = [...evidence.profileIds, ...evidence.unsupportedProfiles.map((entry) => entry.profileId)]
+    if (covered.length !== evidence.catalogProfileIds.length ||
+        new Set(covered).size !== covered.length ||
+        evidence.catalogProfileIds.some((profileId) => !covered.includes(profileId))) {
+      errors.push('profileIds and unsupportedProfiles must exactly cover catalogProfileIds')
+    }
+  }
   if (!Array.isArray(evidence.schedule) || !Array.isArray(evidence.runs)) {
     errors.push('schedule and runs are required')
     return errors
@@ -379,6 +421,52 @@ export function validateRuntimeMatrixEvidence(evidence, options = {}) {
   if (validatesCompleteEvidence) validateSelection(evidence, options, errors)
   else if (evidence.selection !== null && evidence.selection !== undefined) errors.push('partial evidence cannot contain a production selection')
   return errors
+}
+
+function validateUnsupportedProfiles(value, hardware, catalogProfileIds, profileIds, errors) {
+  if (!Array.isArray(value)) return errors.push('unsupportedProfiles must be an array')
+  const expectedById = new Map()
+  const topology = hardware?.topology
+  if (topology?.status !== 'ok') {
+    expectedById.set('physical-core-only', {
+      capability: 'cpu-topology',
+      status: 'unavailable',
+      reason: `CPU topology is unavailable: ${boundedReason(topology?.reason ?? 'hardware topology was not captured')}`
+    })
+  }
+  if (topology?.numa?.status !== 'ok') {
+    const status = topology?.numa?.status === 'not-applicable' ? 'not-applicable' : 'unavailable'
+    expectedById.set('numa-local', {
+      capability: 'numa-topology',
+      status,
+      reason: `NUMA topology is ${status}: ${boundedReason(topology?.numa?.reason ?? 'NUMA topology was not captured')}`
+    })
+  }
+  const seen = new Set()
+  for (const entry of value) {
+    if (!plainObject(entry)) {
+      errors.push('unsupportedProfiles entries must be objects')
+      continue
+    }
+    if (!SAFE_ID.test(String(entry.profileId ?? '')) || seen.has(entry.profileId)) errors.push('unsupportedProfiles profileId is invalid or duplicated')
+    seen.add(entry.profileId)
+    if (!Array.isArray(catalogProfileIds) || !catalogProfileIds.includes(entry.profileId)) errors.push(`unsupported profile ${entry.profileId ?? '<missing>'} is absent from catalogProfileIds`)
+    if (Array.isArray(profileIds) && profileIds.includes(entry.profileId)) errors.push(`unsupported profile ${entry.profileId} cannot be scheduled`)
+    const expected = expectedById.get(entry.profileId)
+    if (!expected) {
+      errors.push(`unsupported profile ${entry.profileId ?? '<missing>'} is not justified by captured hardware`)
+      continue
+    }
+    if (entry.capability !== expected.capability) errors.push(`unsupported profile ${entry.profileId} capability does not match captured hardware`)
+    if (entry.status !== expected.status) errors.push(`unsupported profile ${entry.profileId} status does not match captured hardware`)
+    if (typeof entry.reason !== 'string' || entry.reason.trim().length < 3 || entry.reason.length > 512) errors.push(`unsupported profile ${entry.profileId} requires a bounded reason`)
+    else if (entry.reason !== expected.reason) errors.push(`unsupported profile ${entry.profileId} reason does not match captured hardware`)
+  }
+  if (Array.isArray(catalogProfileIds)) {
+    for (const [profileId] of expectedById) {
+      if (catalogProfileIds.includes(profileId) && !seen.has(profileId)) errors.push(`captured hardware requires unsupported evidence for ${profileId}`)
+    }
+  }
 }
 
 function validateMatrixRuntimeIdentity(successfulRuns, errors) {

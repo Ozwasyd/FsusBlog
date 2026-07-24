@@ -8,6 +8,7 @@ import {
   RUNTIME_MATRIX_EVIDENCE_SCHEMA,
   captureHardwareIdentity,
   createBalancedSchedule,
+  resolveRuntimeProfileAvailability,
   sealRuntimeProfileSelection,
   summarizeRuntimeRuns,
   validateRuntimeMatrixEvidence,
@@ -25,9 +26,18 @@ try {
   const cooldownMs = parseInteger(options['cooldown-ms'] ?? '30000', '--cooldown-ms', 0, 900000)
   const loaded = readRuntimeProfileManifest(options.manifest)
   const requiredProfiles = loaded.manifest.profiles.filter((profile) => profile.conditionalAdmission === undefined)
-  const requiredProfileIds = requiredProfiles.map((profile) => profile.id)
+  const catalogProfileIds = requiredProfiles.map((profile) => profile.id)
+  const hardware = captureHardwareIdentity()
+  const availability = resolveRuntimeProfileAvailability(requiredProfiles, hardware.identity)
+  const requiredProfileIds = availability.profiles.map((profile) => profile.id)
   const selectedIds = options.profiles ? options.profiles.split(',').filter(Boolean) : requiredProfileIds
   if (new Set(selectedIds).size !== selectedIds.length || selectedIds.length < 2) throw new Error('--profiles must contain at least two unique profile ids')
+  const unsupportedIds = new Set(availability.unsupportedProfiles.map((entry) => entry.profileId))
+  const explicitlyUnsupported = selectedIds.find((id) => unsupportedIds.has(id))
+  if (explicitlyUnsupported) {
+    const unavailable = availability.unsupportedProfiles.find((entry) => entry.profileId === explicitlyUnsupported)
+    throw new Error(`profile ${explicitlyUnsupported} is unsupported on captured hardware: ${unavailable.reason}`)
+  }
   const profiles = selectedIds.map((id) => {
     const profile = loaded.manifest.profiles.find((candidate) => candidate.id === id)
     if (!profile) throw new Error(`unknown profile in --profiles: ${id}`)
@@ -38,7 +48,6 @@ try {
   if (expectsComplete && !selectionPolicy) throw new Error('full matrix requires --selection-policy so production selection is evidence-bound')
   const executor = path.resolve(options.executor)
   if (!fs.statSync(executor).isFile()) throw new Error('--executor must be a regular file')
-  const hardware = captureHardwareIdentity()
   const schedule = createBalancedSchedule(selectedIds, rounds, `${options['commit-sha']}:${options['fixture-id']}:${hardware.digest}`)
   const output = path.resolve(options.output)
   fs.mkdirSync(path.dirname(output), { recursive: true })
@@ -48,6 +57,8 @@ try {
         loaded,
         hardware,
         profiles,
+        catalogProfileIds,
+        unsupportedProfiles: availability.unsupportedProfiles,
         rounds,
         cooldownMs,
         schedule,
@@ -124,12 +135,12 @@ try {
         }
       }
       runs.push(result)
-      writeEvidence(output, loaded, hardware, options, profiles, requiredProfileIds, rounds, cooldownMs, schedule, runs, selectionPolicy)
+      writeEvidence(output, loaded, hardware, options, profiles, catalogProfileIds, availability.unsupportedProfiles, requiredProfileIds, rounds, cooldownMs, schedule, runs, selectionPolicy)
     }
   } finally {
     fs.rmSync(workRoot, { recursive: true, force: true })
   }
-  const evidence = writeEvidence(output, loaded, hardware, options, profiles, requiredProfileIds, rounds, cooldownMs, schedule, runs, selectionPolicy)
+  const evidence = writeEvidence(output, loaded, hardware, options, profiles, catalogProfileIds, availability.unsupportedProfiles, requiredProfileIds, rounds, cooldownMs, schedule, runs, selectionPolicy)
   const errors = validateRuntimeMatrixEvidence(evidence, { requireComplete: expectsComplete })
   if (errors.length > 0) throw new Error(errors.join('\n'))
   console.log(JSON.stringify({
@@ -144,7 +155,7 @@ try {
   process.exitCode = 1
 }
 
-function writeEvidence(output, loaded, hardware, options, profiles, requiredProfileIds, rounds, cooldownMs, schedule, runs, selectionPolicy) {
+function writeEvidence(output, loaded, hardware, options, profiles, catalogProfileIds, unsupportedProfiles, requiredProfileIds, rounds, cooldownMs, schedule, runs, selectionPolicy) {
   const isFull = rounds >= 3 &&
     sameIds(profiles.map((profile) => profile.id), requiredProfileIds) &&
     schedule.every((entry) => runs.some((run) => run.status === 'ok' && sameScheduleEntry(run.identity, entry)))
@@ -161,7 +172,9 @@ function writeEvidence(output, loaded, hardware, options, profiles, requiredProf
     hardware: hardware.identity,
     rounds,
     cooldownMs,
+    catalogProfileIds,
     profileIds: profiles.map((profile) => profile.id),
+    unsupportedProfiles,
     schedule,
     runs,
     comparison: summarizeRuntimeRuns(runs, loaded.manifest.defaultProfile),
@@ -192,6 +205,8 @@ function readResumeRuns(file, expected) {
   if (sha256Value(evidence.hardware) !== sha256Value(expected.hardware.identity)) throw new Error('resume evidence hardware does not match the current matrix')
   if (evidence.rounds !== expected.rounds) throw new Error('resume evidence rounds do not match the current matrix')
   if (evidence.cooldownMs !== expected.cooldownMs) throw new Error('resume evidence cooldown does not match the current matrix')
+  if (sha256Value(evidence.catalogProfileIds) !== sha256Value(expected.catalogProfileIds)) throw new Error('resume evidence catalog profiles do not match the current matrix')
+  if (sha256Value(evidence.unsupportedProfiles) !== sha256Value(expected.unsupportedProfiles)) throw new Error('resume evidence unsupported profiles do not match the current matrix')
   if (sha256Value(evidence.profileIds) !== sha256Value(expected.profiles.map((profile) => profile.id))) throw new Error('resume evidence profiles do not match the current matrix')
   if (sha256Value(evidence.schedule) !== sha256Value(expected.schedule)) throw new Error('resume evidence schedule does not match the current matrix')
   if (evidence.selection !== null && evidence.selection !== undefined) {
