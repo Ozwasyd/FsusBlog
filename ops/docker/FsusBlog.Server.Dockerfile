@@ -128,8 +128,8 @@ COPY security/zk/contracts/comment-v5-circuit.manifest.json /work/security/zk/co
 COPY security/zk/provenance/comment-v5-trusted-setup.manifest.json /work/security/zk/provenance/comment-v5-trusted-setup.manifest.json
 COPY config/zk/anonymous-comment-v5-verifying-key.manifest.json /work/config/zk/anonymous-comment-v5-verifying-key.manifest.json
 COPY tools/security/comment-privacy-build-contract.mjs /work/tools/security/comment-privacy-build-contract.mjs
-COPY src/frontend/ /work/FsusBlog.Client/
-ENV FSUSBLOG_FRONTEND_WASM_ROOT=/work/FsusBlog.Client/public/wasm
+COPY src/frontend/ /work/src/frontend/
+ENV FSUSBLOG_FRONTEND_WASM_ROOT=/work/src/frontend/public/wasm
 ENV FSUSBLOG_REPOSITORY_ROOT=/work
 ENV FSUSBLOG_ZK_PRODUCTION_ENABLED=${FSUSBLOG_ZK_PRODUCTION_ENABLED}
 
@@ -138,13 +138,12 @@ RUN --mount=type=cache,id=fsusblog-wasm-dependency,target=/.tmp/dependency-cache
     bash -lc 'set -euo pipefail; \
   export PATH="/opt/vcpkg:${PATH}"; \
   export VCPKG_ROOT="/opt/vcpkg"; \
-  cd /work/FsusBlog.Client; \
-  bash ./wasm/build.sh; \
-  node /work/tools/frontend/ensure-wasm.mjs write-manifest; \
-  node /work/tools/frontend/ensure-wasm.mjs status'
+  export FSUSBLOG_WASM_SKIP_RECEIPT=1; \
+  cd /work/src/frontend; \
+  bash ./wasm/build.sh'
 
 FROM scratch AS wasm-artifact
-COPY --from=wasm-builder /work/FsusBlog.Client/public/wasm/ /
+COPY --from=wasm-builder /work/src/frontend/public/wasm/ /
 
 ## =========================================================================
 # 阶段 2：.NET SDK 编译发布
@@ -261,6 +260,7 @@ WORKDIR /app
 
 COPY src/frontend/package*.json ./
 COPY tools/frontend/ /tools/frontend/
+COPY tools/security/comment-privacy-build-contract.mjs /tools/security/comment-privacy-build-contract.mjs
 COPY tools/test-matrix/ /tools/test-matrix/
 
 RUN --mount=type=secret,id=github_packages_token \
@@ -298,7 +298,10 @@ RUN mkdir -p /src && ln -sfn /app /src/frontend
 COPY build/artifacts/wasm-release/ ./public/wasm/
 
 RUN test -f public/wasm/SHA256SUMS && (cd public/wasm && sha256sum -c SHA256SUMS)
-RUN node ../../tools/frontend/ensure-wasm.mjs status
+RUN node ../../tools/frontend/wasm-build-receipt.mjs verify-envelope \
+    --root / \
+    --client-root /app \
+    --artifact-dir /app/public/wasm
 
 RUN npm run build:release
 

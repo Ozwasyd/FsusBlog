@@ -11,12 +11,19 @@ import {
     commentPrivacyBuildContract,
     productionZkRequested
 } from '../security/comment-privacy-build-contract.mjs';
+import {
+    classifyWasmReceiptFallback,
+    createWasmBuildReceipt,
+    validateWasmBuildReceipt,
+    wasmBuildReceiptName
+} from './wasm-build-receipt.mjs';
 
 const clientRoot = process.cwd();
 const wasmRoot = join(clientRoot, 'wasm');
 const publicWasmRoot = resolve(process.env.FSUSBLOG_FRONTEND_WASM_ROOT || join(clientRoot, 'public', 'wasm'));
 const manifestPath = join(publicWasmRoot, 'wasm-manifest.aeds');
 const aedsRuntimeManifestPath = join(publicWasmRoot, 'aeds-runtime-manifest.json');
+const wasmBuildReceiptPath = join(publicWasmRoot, wasmBuildReceiptName);
 const dependencyInstallerPath = fileURLToPath(new URL('./install-wasm-codec-deps.sh', import.meta.url));
 const cmakeBootstrapPath = fileURLToPath(new URL('./ensure-cmake.sh', import.meta.url));
 const binaryenBootstrapPath = fileURLToPath(new URL('./ensure-binaryen.sh', import.meta.url));
@@ -348,6 +355,17 @@ async function writeManifest() {
 
   const manifest = await createManifest({ builtAtUtc: new Date().toISOString(), toolchain });
   await writeFile(manifestPath, formatManifest(manifest), 'utf8');
+  if (process.env.FSUSBLOG_WASM_SKIP_RECEIPT !== '1') {
+    createWasmBuildReceipt({
+      repositoryRoot: resolve(process.env.FSUSBLOG_REPOSITORY_ROOT || resolve(clientRoot, '../..')),
+      clientRoot,
+      artifactDir: publicWasmRoot,
+      manifest,
+      contract: wasmArtifactContract,
+      buildCount: Number(process.env.FSUSBLOG_WASM_PRODUCER_BUILD_COUNT || 1),
+      trustProducerValidation: true
+    });
+  }
   log(`wrote ${relative(clientRoot, manifestPath).replaceAll('\\', '/')}`);
 }
 
@@ -600,6 +618,24 @@ async function isFresh() {
   return { fresh: true, reason: 'up to date' };
 }
 
+async function validateReceipt() {
+  if (!await exists(wasmBuildReceiptPath)) {
+    throw new Error('WASM build receipt is missing');
+  }
+  const manifest = await readManifest();
+  if (!manifest) {
+    throw new Error('manifest missing');
+  }
+  return validateWasmBuildReceipt({
+    repositoryRoot: resolve(clientRoot, '../..'),
+    clientRoot,
+    artifactDir: publicWasmRoot,
+    receiptFile: wasmBuildReceiptPath,
+    manifest,
+    contract: wasmArtifactContract
+  });
+}
+
 async function runBuild() {
   return new Promise((resolve, reject) => {
     const child = spawn('bash', ['./wasm/build.sh'], {
@@ -622,9 +658,28 @@ async function runBuild() {
 }
 
 async function ensure() {
+  try {
+    const validation = await validateReceipt();
+    log(`artifacts are receipt-bound (${validation.evidence.validationMode})`);
+    return;
+  } catch (error) {
+    const fallback = classifyWasmReceiptFallback(error);
+    log(`receipt fallback=${fallback.action}: ${fallback.reason}`);
+  }
+
   const freshness = await isFresh();
   if (freshness.fresh) {
-    log(`artifacts are ${freshness.reason}`);
+    const manifest = await readManifest();
+    createWasmBuildReceipt({
+      repositoryRoot: resolve(clientRoot, '../..'),
+      clientRoot,
+      artifactDir: publicWasmRoot,
+      manifest,
+      contract: wasmArtifactContract,
+      buildCount: 0,
+      trustProducerValidation: true
+    });
+    log(`artifacts are ${freshness.reason}; sealed ${wasmBuildReceiptName}`);
     return;
   }
 
@@ -641,6 +696,16 @@ async function ensure() {
     throw new Error(`wasm rebuild completed but artifacts are still stale: ${afterBuild.reason}`);
   }
 
+  const manifest = await readManifest();
+  createWasmBuildReceipt({
+    repositoryRoot: resolve(clientRoot, '../..'),
+    clientRoot,
+    artifactDir: publicWasmRoot,
+    manifest,
+    contract: wasmArtifactContract,
+    buildCount: 1,
+    trustProducerValidation: true
+  });
   log('artifacts refreshed');
 }
 
@@ -658,6 +723,17 @@ async function main() {
   }
 
   if (command === 'status') {
+    try {
+      const validation = await validateReceipt();
+      log(`fresh: receipt-bound ${validation.receipt.contentDigest}`);
+    } catch (error) {
+      log(`stale: ${error instanceof Error ? error.message : String(error)}`);
+      process.exitCode = 1;
+    }
+    return;
+  }
+
+  if (command === 'full-status') {
     const freshness = await isFresh();
     log(`${freshness.fresh ? 'fresh' : 'stale'}: ${freshness.reason}`);
     process.exitCode = freshness.fresh ? 0 : 1;

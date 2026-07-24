@@ -860,12 +860,12 @@ requireFileIncludes(
 )
 requireFileIncludes(
   'src/frontend/package.json',
-  'check:spa:routes": "npm run ensure:wasm && env -u NO_COLOR NODE_PATH=./node_modules npx playwright test ${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-} --workers=${FSUSBLOG_SPA_ROUTES_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-`node ../../tools/test/resolve-playwright-workers.mjs acceptance-spa-routes`}}',
+  'check:spa:routes": "npm run verify:wasm && env -u NO_COLOR NODE_PATH=./node_modules npx playwright test ${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-} --workers=${FSUSBLOG_SPA_ROUTES_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-`node ../../tools/test/resolve-playwright-workers.mjs acceptance-spa-routes`}}',
   'SPA route audit must honor the acceptance lane worker cap'
 )
 requireFileIncludes(
   'src/frontend/package.json',
-  'check:acceptance:public": "npm run ensure:wasm && env -u NO_COLOR NODE_PATH=./node_modules npx playwright test ${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-} --workers=${FSUSBLOG_PUBLIC_ACCEPTANCE_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-`node ../../tools/test/resolve-playwright-workers.mjs acceptance-public-routes`}}',
+  'check:acceptance:public": "npm run verify:wasm && env -u NO_COLOR NODE_PATH=./node_modules npx playwright test ${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-} --workers=${FSUSBLOG_PUBLIC_ACCEPTANCE_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-`node ../../tools/test/resolve-playwright-workers.mjs acceptance-public-routes`}}',
   'public route audit must honor the isolated acceptance worker cap'
 )
 requireFileIncludes(

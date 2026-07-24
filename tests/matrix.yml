@@ -459,8 +459,11 @@ tiers:
               tools/check-wasm-artifact-ownership.mjs,
               tools/build-wasm-artifact.sh,
               tools/frontend/ensure-wasm.mjs,
+              tools/frontend/wasm-build-receipt.mjs,
               tools/test/lanes/production-build-artifacts.sh,
               tests/tools/wasm-artifact-ownership.test.mjs,
+              tests/tools/wasm-build-receipt.test.mjs,
+              docs/testing/wasm-build-receipt.md,
               docs/wasm.md,
               .gitignore,
               .dockerignore,
@@ -482,6 +485,7 @@ tiers:
               tests/backend/**,
               tests/frontend/**,
               tests/tools/wasm-artifact-ownership.test.mjs,
+              tests/tools/wasm-build-receipt.test.mjs,
               tests/matrix.yml,
               tests/coverage-registry.json,
               tools/ci/**,
@@ -492,6 +496,7 @@ tiers:
               tools/test/run-with-dotnet-release-build-lock.sh,
               tools/test/lanes/production-build-artifacts.sh,
               docs/wasm.md,
+              docs/testing/wasm-build-receipt.md,
               .gitignore,
               .dockerignore,
           ]
@@ -1607,11 +1612,14 @@ tiers:
           - tools/runtime-profiles/runtime-publish-selection-policy.example.json
           - tools/operations/collect-release-evidence.sh
           - tools/frontend/ensure-wasm.mjs
+          - tools/frontend/wasm-build-receipt.mjs
           - tools/check-wasm-artifact-ownership.mjs
           - tools/build-wasm-artifact.sh
           - tools/test/lanes/production-build-artifacts.sh
           - tests/tools/wasm-artifact-ownership.test.mjs
+          - tests/tools/wasm-build-receipt.test.mjs
           - docs/wasm.md
+          - docs/testing/wasm-build-receipt.md
           - .gitignore
           - .dockerignore
           - tools/check-repository-source-layout.mjs

@@ -309,6 +309,7 @@
                 "tools/deployment/image-runtime-contract.sh",
                 "tools/build-native.sh",
                 "tools/frontend/ensure-wasm.mjs",
+                "tools/frontend/wasm-build-receipt.mjs",
                 "ops/docker/FsusBlog.Server.Dockerfile",
                 "tools/build-final-image.sh",
                 "docs/production.md",
@@ -4102,14 +4103,16 @@
                 "tools/build-final-image.sh",
                 "tools/test/lanes/production-build-artifacts.sh",
                 "tests/tools/wasm-artifact-ownership.test.mjs",
+                "tests/tools/wasm-build-receipt.test.mjs",
                 "tests/tools/final-image-toolchain-pin.test.mjs",
                 "docs/wasm.md",
+                "docs/testing/wasm-build-receipt.md",
                 ".gitignore",
                 ".dockerignore"
             ],
             "assertionType": "integration",
-            "failClosedRule": "Reject tracked release outputs, stale source hashes, a non-pinned or self-declared toolchain, schema or ABI drift, incomplete output inventories, outer/runtime tier identity mismatch, resealed module bytes, checksum drift, or skip/reuse without a fully generated package.",
-            "minimumRequirement": "Static governance and the production artifact producer must execute the ownership fixtures and validate schema v3, ABI v4, all 26 outputs, exact Emscripten/Binaryen/CMake/vcpkg/container pins, complete basic/speed runtime identity and every declared module, Wasm and package digest.",
+            "failClosedRule": "Reject tracked release outputs, stale source hashes, a non-pinned or self-declared toolchain, schema or ABI drift, incomplete output inventories, outer/runtime tier identity mismatch, resealed module bytes, checksum drift, ambiguous or tampered build receipts, changed ownership policy, symlink outputs, or skip/reuse without the exact producer receipt.",
+            "minimumRequirement": "Static governance and the production artifact producer must execute the ownership and receipt fixtures; validate schema v3, ABI v4, every output, exact Emscripten/Binaryen/CMake/vcpkg/container pins and complete runtime identity; and prove read-only consumers use zero source traversals and zero output hashes on the immutable local identity path.",
             "tierIds": [
                 "static-governance",
                 "production-build-artifacts"

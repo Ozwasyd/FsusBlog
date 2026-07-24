@@ -15,7 +15,9 @@ PRODUCER_JOB="${GITHUB_JOB:-production-build-artifacts}"
 export FSUSBLOG_ZK_PRODUCTION_ENABLED="${FSUSBLOG_ZK_PRODUCTION_ENABLED:-0}"
 IFS=',' read -r -a DOMAIN_LIST <<<"$REQUESTED_DOMAINS"
 
-node --test "$ROOT_DIR/tests/tools/wasm-artifact-ownership.test.mjs"
+node --test \
+    "$ROOT_DIR/tests/tools/wasm-artifact-ownership.test.mjs" \
+    "$ROOT_DIR/tests/tools/wasm-build-receipt.test.mjs"
 node --test \
     "$ROOT_DIR/tests/tools/production-build-artifacts.test.mjs" \
     "$ROOT_DIR/tests/tools/production-build-materialization-benchmark.test.mjs"
@@ -129,11 +131,10 @@ if [[ "$REUSE_BUILD_OUTPUTS" != "1" ]] && HasDomain test-runtime; then
         "$ROOT_DIR/tools/build-with-data-env.sh" dotnet build "$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj" \
         -c Release --no-restore --no-dependencies --no-incremental -warnaserror -v minimal /p:NuGetAudit=false
 fi
-if [[ "$REUSE_BUILD_OUTPUTS" != "1" ]] && { HasDomain frontend-dist || HasDomain wasm; }; then
-    npm --prefix "$ROOT_DIR/src/frontend" run ensure:wasm
-fi
 if [[ "$REUSE_BUILD_OUTPUTS" != "1" ]] && HasDomain frontend-dist; then
     FSUSBLOG_SKIP_BACKEND_WWWROOT_SYNC=1 npm --prefix "$ROOT_DIR/src/frontend" run build:release
+elif [[ "$REUSE_BUILD_OUTPUTS" != "1" ]] && HasDomain wasm; then
+    npm --prefix "$ROOT_DIR/src/frontend" run ensure:wasm
 fi
 
 if HasDomain backend-runtime; then
@@ -150,20 +151,15 @@ fi
 if HasDomain wasm; then
     WASM_SOURCE="${FSUSBLOG_FRONTEND_WASM_ROOT:-$ROOT_DIR/src/frontend/public/wasm}"
     AdoptDirectory "$WASM_SOURCE" "$PAYLOAD_ROOT/wasm"
-    (
-        cd "$PAYLOAD_ROOT/wasm"
-        mapfile -d '' -t checksumFiles < <(
-            find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%P\0' | sort -z
-        )
-        if ((${#checksumFiles[@]} == 0)); then
-            : >SHA256SUMS
-        else
-            sha256sum "${checksumFiles[@]}" >SHA256SUMS
-        fi
-    )
-    node "$ROOT_DIR/tools/check-wasm-artifact-ownership.mjs" \
-        --require-generated \
+    node "$ROOT_DIR/tools/frontend/wasm-build-receipt.mjs" verify \
+        --root "$ROOT_DIR" \
+        --client-root "$ROOT_DIR/src/frontend" \
         --artifact-dir "$PAYLOAD_ROOT/wasm"
+    node "$ROOT_DIR/tools/frontend/wasm-build-receipt.mjs" write-checksums \
+        --root "$ROOT_DIR" \
+        --client-root "$ROOT_DIR/src/frontend" \
+        --artifact-dir "$PAYLOAD_ROOT/wasm"
+    node "$ROOT_DIR/tools/check-wasm-artifact-ownership.mjs"
 fi
 if HasDomain generated-contracts; then
     mkdir -p "$PAYLOAD_ROOT/generated-contracts"
@@ -206,6 +202,7 @@ CREATE_ARGS=(
     --input security/zk/provenance/comment-v5-trusted-setup.manifest.json
     --input config/zk/anonymous-comment-v5-verifying-key.manifest.json
     --input tests/tools/wasm-artifact-ownership.test.mjs
+    --input tests/tools/wasm-build-receipt.test.mjs
     --input tests/tools/production-build-artifacts.test.mjs
     --input tests/tools/production-build-materialization-benchmark.test.mjs
     --input tools/ci/production-build-artifacts.mjs

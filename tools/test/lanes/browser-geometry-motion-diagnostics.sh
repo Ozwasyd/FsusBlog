@@ -174,7 +174,7 @@ if (RequireReleasePreview); then
     export FSUSBLOG_PUBLIC_BASE_URL="$RELEASE_PREVIEW_URL"
     export PLAYWRIGHT_BASE_URL="$RELEASE_PREVIEW_URL"
     set +e
-    RunInClient npm run ensure:wasm
+    RunInClient npm run verify:wasm
     ENSURE_WASM_EXIT_CODE=$?
     if ((ENSURE_WASM_EXIT_CODE == 0)); then
         RunInClient env -u NO_COLOR \

@@ -198,8 +198,10 @@ trap CleanupLocalContext EXIT
 
 if [[ "${FSUSBLOG_FINAL_SKIP_WASM:-0}" == "1" ]]; then
     Log "resume with an existing generated wasm artifact package by FSUSBLOG_FINAL_SKIP_WASM=1"
-    node "$ROOT_DIR/tools/check-wasm-artifact-ownership.mjs" \
-        --require-generated \
+    node "$ROOT_DIR/tools/check-wasm-artifact-ownership.mjs"
+    node "$ROOT_DIR/tools/frontend/wasm-build-receipt.mjs" verify \
+        --root "$ROOT_DIR" \
+        --client-root "$ROOT_DIR/src/frontend" \
         --artifact-dir "$ROOT_DIR/build/artifacts/wasm-release"
 else
     Log "building wasm artifact package"

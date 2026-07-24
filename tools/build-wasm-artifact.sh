@@ -54,11 +54,13 @@ const files = entries.filter((entry) => entry.isFile()).map((entry) => entry.nam
 const manifestName = path.basename(manifestPath);
 const runtimeManifestName = 'aeds-runtime-manifest.json';
 const checksumName = 'SHA256SUMS';
+const receiptName = 'wasm-build-receipt.json';
 const structuredArtifactNames = new Set([
   runtimeManifestName,
   'comment-privacy-prover.manifest.json',
   'comment-privacy-prover.zkey',
   manifestName,
+  receiptName,
   checksumName
 ]);
 const invalidFiles = files.filter((name) => !name.endsWith('.js') && !name.endsWith('.wasm') && !structuredArtifactNames.has(name));
@@ -84,7 +86,8 @@ if (runtimeManifest.schema !== 'fsusblog.aeds-runtime.v1' || runtimeManifest.abi
   process.exit(1);
 }
 const requiredFiles = Array.isArray(manifest.outputFiles) ? [...manifest.outputFiles].sort() : [];
-const actualOutputFiles = files.filter((name) => name !== manifestName && name !== checksumName).sort();
+const actualOutputFiles = files.filter((name) =>
+  name !== manifestName && name !== receiptName && name !== checksumName).sort();
 
 if (requiredFiles.length !== actualOutputFiles.length ||
     requiredFiles.some((name, index) => name !== actualOutputFiles[index])) {
@@ -169,17 +172,24 @@ function parseManifest(raw) {
 }
 EOF
 
-(
-    cd "${ARTIFACT_DIR}"
-    mapfile -d '' -t artifactFiles < <(find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%P\0' | sort -z)
-    ((${#artifactFiles[@]} > 0)) || {
-        printf '[build-wasm-artifact] fatal: artifact directory is empty\n' >&2
-        exit 1
-    }
-    sha256sum "${artifactFiles[@]}" >SHA256SUMS
-    sha256sum -c SHA256SUMS >/dev/null
-)
+rm -f "${ARTIFACT_DIR}/wasm-build-receipt.json" "${ARTIFACT_DIR}/SHA256SUMS"
+FSUSBLOG_COMMIT_SHA="$(git -C "${ROOT_DIR}" rev-parse HEAD)" \
+    node "${ROOT_DIR}/tools/frontend/wasm-build-receipt.mjs" create \
+        --root "${ROOT_DIR}" \
+        --client-root "${CLIENT_DIR}" \
+        --artifact-dir "${ARTIFACT_DIR}" \
+        --build-count 1 \
+        --trust-producer-validation true
+FSUSBLOG_COMMIT_SHA="$(git -C "${ROOT_DIR}" rev-parse HEAD)" \
+    node "${ROOT_DIR}/tools/frontend/wasm-build-receipt.mjs" write-checksums \
+        --root "${ROOT_DIR}" \
+        --client-root "${CLIENT_DIR}" \
+        --artifact-dir "${ARTIFACT_DIR}"
 
-node "${ROOT_DIR}/tools/check-wasm-artifact-ownership.mjs" --require-generated --artifact-dir "${ARTIFACT_DIR}"
+node "${ROOT_DIR}/tools/check-wasm-artifact-ownership.mjs"
+node "${ROOT_DIR}/tools/frontend/wasm-build-receipt.mjs" verify \
+    --root "${ROOT_DIR}" \
+    --client-root "${CLIENT_DIR}" \
+    --artifact-dir "${ARTIFACT_DIR}"
 
 Log "artifact ready at ${ARTIFACT_DIR}"

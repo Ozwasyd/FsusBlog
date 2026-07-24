@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtemp, readFile, rm, unlink, writeFile } from 'node:fs/promises';
+import { access, mkdtemp, readFile, rm, unlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -106,7 +106,14 @@ async function writeFreshSourcePackage() {
 }
 
 async function rewriteChecksums(artifactDir) {
-  const checksumFiles = [...wasmArtifactContract.requiredOutputFiles, 'wasm-manifest.aeds'].sort();
+  const checksumFiles = [...wasmArtifactContract.requiredOutputFiles, 'wasm-manifest.aeds'];
+  try {
+    await access(path.join(artifactDir, 'wasm-build-receipt.json'));
+    checksumFiles.push('wasm-build-receipt.json');
+  } catch {
+    // Legacy fixture packages intentionally exercise the underlying manifest validator.
+  }
+  checksumFiles.sort();
   const checksumLines = [];
   for (const checksumFile of checksumFiles) {
     const body = await readFile(path.join(artifactDir, checksumFile));

@@ -539,10 +539,18 @@ export function createFrontendBuildStages(generatedArgs, generatedAction, {
             consumedInputs: ['wasm'],
             producedArtifacts: env.FSUSBLOG_SKIP_ENSURE_WASM === '1'
                 ? []
-                : [join(stageFrontendWasmRoot, 'wasm-manifest.aeds'), join(stageFrontendWasmRoot, 'aeds-runtime-manifest.json')],
+                : [
+                    join(stageFrontendWasmRoot, 'wasm-manifest.aeds'),
+                    join(stageFrontendWasmRoot, 'aeds-runtime-manifest.json'),
+                    join(stageFrontendWasmRoot, 'wasm-build-receipt.json')
+                ],
             ownedOutputs: env.FSUSBLOG_SKIP_ENSURE_WASM === '1'
                 ? []
-                : [join(stageFrontendWasmRoot, 'wasm-manifest.aeds'), join(stageFrontendWasmRoot, 'aeds-runtime-manifest.json')],
+                : [
+                    join(stageFrontendWasmRoot, 'wasm-manifest.aeds'),
+                    join(stageFrontendWasmRoot, 'aeds-runtime-manifest.json'),
+                    join(stageFrontendWasmRoot, 'wasm-build-receipt.json')
+                ],
             resources: buildStageResources(3, 2, 0.75, ['frontend-wasm-output']),
             estimatedDurationMs: 45_000,
             toolchain: { executable: process.execPath }

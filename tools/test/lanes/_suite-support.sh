@@ -304,7 +304,7 @@ FixtureRootPath() {
     "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tests/frontend/support/fixture-paths.mjs"
 }
 
-EnsureWasmOnce() {
+VerifyWasmReceiptOnce() {
     local fingerprint wasmOutput
     wasmOutput="${FSUSBLOG_FRONTEND_WASM_ROOT:-public/wasm}"
     fingerprint="$(TestInputFingerprint \
@@ -312,13 +312,14 @@ EnsureWasmOnce() {
         --path tools/frontend/ensure-wasm.mjs \
         --path tools/frontend/install-wasm-codec-deps.sh \
         --path tools/test/lanes/_suite-support.sh \
-        --value ensure-wasm-v1)"
+        --path tools/frontend/wasm-build-receipt.mjs \
+        --value verify-wasm-receipt-v1)"
     RunOnceCommand \
-        ensure-wasm \
+        verify-wasm-receipt \
         "$fingerprint" \
         "$CLIENT_DIR" \
         "$wasmOutput" \
-        npm run ensure:wasm
+        npm run verify:wasm
 }
 
 PrepareAuthFixturesOnce() {
@@ -1510,7 +1511,7 @@ NODE
 }
 
 RunFrontendFastBuildLane() {
-    EnsureWasmOnce
+    VerifyWasmReceiptOnce
     PrepareFrontendFastGroupTimings
     RunFrontendFastGroup build RunFrontendFastBuildGroup
     WriteFrontendFastGroupSummary
@@ -1560,7 +1561,7 @@ RunFrontendFastRuntimeContractsGroup() {
 }
 
 RunFrontendRuntimeContractsLane() {
-    EnsureWasmOnce
+    VerifyWasmReceiptOnce
     PrepareFrontendFastGroupTimings
     RunFrontendFastRuntimeContractsGroup
     WriteFrontendFastGroupSummary
@@ -1600,7 +1601,7 @@ RunFastFrontendLane() {
 
 RunFastOnly() {
     Log "tier=fast | no running services required"
-    EnsureWasmOnce
+    VerifyWasmReceiptOnce
     # The frontend release build syncs hashed assets into the selected backend webroot.
     # Keep it ahead of the .NET StaticWebAssets pass so the manifest and files
     # are read from one coherent generation instead of racing on deleted chunks.

@@ -2839,6 +2839,16 @@
             "supersededBy": null
         },
         {
+            "path": "docs/testing/wasm-build-receipt.md",
+            "status": "current",
+            "owner": "release",
+            "relatedIssues": [
+                1421
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
             "path": "docs/troubleshooting.md",
             "status": "current",
             "owner": "governance",

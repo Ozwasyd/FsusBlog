@@ -13,6 +13,10 @@ import {
   validateAedsRuntimeManifestIdentity,
   wasmArtifactContract
 } from './frontend/ensure-wasm.mjs';
+import {
+  validateWasmBuildReceipt,
+  wasmBuildReceiptName
+} from './frontend/wasm-build-receipt.mjs';
 
 export const generatedArtifactRelativePath = 'build/artifacts/wasm-release';
 const manifestName = 'wasm-manifest.aeds';
@@ -87,13 +91,16 @@ export async function checkWasmArtifactOwnership({ repoRoot = defaultRepoRoot } 
     'tools/check-wasm-artifact-ownership.mjs',
     'docker build',
     '--target wasm-artifact',
-    'tools/check-wasm-artifact-ownership.mjs" --require-generated'
+    'tools/frontend/wasm-build-receipt.mjs" create',
+    'tools/frontend/wasm-build-receipt.mjs" write-checksums',
+    'tools/frontend/wasm-build-receipt.mjs" verify'
   ], 'tools/build-wasm-artifact.sh');
 
   const finalImageBuilder = await readFile(path.join(repoRoot, 'tools/build-final-image.sh'), 'utf8');
   for (const resumeNeedle of [
     'tools/check-wasm-artifact-ownership.mjs',
-    '--require-generated',
+    'tools/frontend/wasm-build-receipt.mjs',
+    'verify',
     '--artifact-dir "$ROOT_DIR/build/artifacts/wasm-release"'
   ]) {
     if (!finalImageBuilder.includes(resumeNeedle)) {
@@ -111,14 +118,15 @@ export async function checkWasmArtifactOwnership({ repoRoot = defaultRepoRoot } 
     'tools/check-wasm-artifact-ownership.mjs',
     'npm --prefix "$ROOT_DIR/src/frontend" run ensure:wasm',
     'AdoptDirectory "$WASM_SOURCE" "$PAYLOAD_ROOT/wasm"',
-    '--artifact-dir "$PAYLOAD_ROOT/wasm"'
+    'tools/frontend/wasm-build-receipt.mjs" verify',
+    'tools/frontend/wasm-build-receipt.mjs" write-checksums'
   ], 'tools/test/lanes/production-build-artifacts.sh');
 
   const dockerfile = await readFile(path.join(repoRoot, 'ops/docker/FsusBlog.Server.Dockerfile'), 'utf8');
   requireOrderedSubset(dockerfile, [
     'COPY build/artifacts/wasm-release/ ./public/wasm/',
     'sha256sum -c SHA256SUMS',
-    'ensure-wasm.mjs status'
+    'wasm-build-receipt.mjs verify-envelope'
   ], 'ops/docker/FsusBlog.Server.Dockerfile');
 
   return {
@@ -155,7 +163,9 @@ function parseChecksums(raw) {
 
 export async function validateGeneratedWasmPackage({
   artifactDir,
-  contract = wasmArtifactContract
+  contract = wasmArtifactContract,
+  repoRoot = defaultRepoRoot,
+  requireReceipt = false
 }) {
   const entries = await readdir(artifactDir, { withFileTypes: true });
   const nonFiles = entries.filter((entry) => !entry.isFile()).map((entry) => entry.name);
@@ -163,7 +173,16 @@ export async function validateGeneratedWasmPackage({
     fail(`generated WASM package contains non-file entries: ${nonFiles.join(', ')}`);
   }
 
-  const expectedFiles = [...contract.requiredOutputFiles, manifestName, checksumName];
+  const hasReceipt = entries.some((entry) => entry.name === wasmBuildReceiptName);
+  if (requireReceipt && !hasReceipt) {
+    fail('generated WASM package is missing the canonical build receipt');
+  }
+  const expectedFiles = [
+    ...contract.requiredOutputFiles,
+    manifestName,
+    ...(hasReceipt ? [wasmBuildReceiptName] : []),
+    checksumName
+  ];
   const actualFiles = entries.map((entry) => entry.name);
   if (!sameSortedValues(actualFiles, expectedFiles)) {
     fail(`generated WASM package file set mismatch; expected=${[...expectedFiles].sort().join(',')} actual=${[...actualFiles].sort().join(',')}`);
@@ -210,7 +229,11 @@ export async function validateGeneratedWasmPackage({
     }
   }
 
-  const expectedChecksumFiles = [...contract.requiredOutputFiles, manifestName];
+  const expectedChecksumFiles = [
+    ...contract.requiredOutputFiles,
+    manifestName,
+    ...(hasReceipt ? [wasmBuildReceiptName] : [])
+  ];
   const checksums = parseChecksums(await readFile(path.join(artifactDir, checksumName), 'utf8'));
   if (!sameSortedValues(checksums.keys(), expectedChecksumFiles)) {
     fail('SHA256SUMS coverage does not match the generated WASM package');
@@ -220,6 +243,16 @@ export async function validateGeneratedWasmPackage({
     if (checksums.get(checksumFile) !== actualHash) {
       fail(`SHA256SUMS hash mismatch: ${checksumFile}`);
     }
+  }
+
+  if (hasReceipt) {
+    validateWasmBuildReceipt({
+      repositoryRoot: repoRoot,
+      clientRoot: path.join(repoRoot, 'src/frontend'),
+      artifactDir,
+      manifest,
+      contract
+    });
   }
 
   return {
@@ -232,7 +265,7 @@ export async function validateGeneratedWasmPackage({
 
 export function validateGeneratedPackageFreshness({ repoRoot = defaultRepoRoot, artifactDir }) {
   const ensureWasm = path.join(repoRoot, 'tools/frontend/ensure-wasm.mjs');
-  const result = spawnSync(process.execPath, [ensureWasm, 'status'], {
+  const result = spawnSync(process.execPath, [ensureWasm, 'full-status'], {
     cwd: path.join(repoRoot, 'src/frontend'),
     encoding: 'utf8',
     env: {
@@ -279,10 +312,10 @@ async function main() {
   const ownership = await checkWasmArtifactOwnership({ repoRoot: options.repoRoot });
   let generated = null;
   if (options.requireGenerated) {
-    generated = await validateGeneratedWasmPackage({ artifactDir: options.artifactDir });
-    validateGeneratedPackageFreshness({
+    generated = await validateGeneratedWasmPackage({
+      artifactDir: options.artifactDir,
       repoRoot: options.repoRoot,
-      artifactDir: options.artifactDir
+      requireReceipt: true
     });
   }
   console.log(

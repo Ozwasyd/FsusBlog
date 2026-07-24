@@ -100,6 +100,7 @@ function runBuildWithInspect(t, labels, extraEnv = {}) {
     fs.writeFileSync(path.join(binDir, 'node'), `#!/usr/bin/env bash
 set -euo pipefail
 if [[ "\${1:-}" == "${path.join(root, 'tools/check-wasm-artifact-ownership.mjs')}" ]]; then exit 0; fi
+if [[ "\${1:-}" == "${path.join(root, 'tools/frontend/wasm-build-receipt.mjs')}" ]]; then exit 0; fi
 exec "${process.execPath}" "$@"
 `, { mode: 0o755 })
   fs.writeFileSync(path.join(binDir, 'docker'), `#!/usr/bin/env bash

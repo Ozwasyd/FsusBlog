@@ -9,7 +9,8 @@
 | `src/frontend/wasm/aeds/` | AEDS v2 C++ decoder、CRC16、POD validation 与 Emscripten exports |
 | `src/frontend/wasm/aeds/CMakeLists.txt` | basic/speed 两套受控目标 |
 | `src/frontend/wasm/build.sh` | 多 variant 并行构建、严格 Binaryen 优化、artifact 汇总 |
-| `tools/frontend/ensure-wasm.mjs` | source/output hash、ABI、toolchain 与 runtime manifest |
+| `tools/frontend/ensure-wasm.mjs` | canonical producer：source/output hash、ABI、toolchain 与 runtime manifest |
+| `tools/frontend/wasm-build-receipt.mjs` | source-bound build receipt、immutable identity 快速校验与 checksum 投影 |
 | `tools/frontend/ensure-binaryen.sh` | Binaryen 123 的架构选择、下载、SHA-256 校验与缓存 |
 | `src/frontend/wasm/web/aeds.ts` | SIMD 探测、tier 选择、arena bridge 与运行时诊断 |
 | `src/frontend/wasm/web/runtime/emscripten.ts` | Wasm hash 校验、compiled module 单飞缓存与 load timing |
@@ -25,11 +26,12 @@
 
 1. `tools/build-wasm-artifact.sh` 用 pinned `wasm-builder` fresh 构建到临时目录，不读取仓库历史中的 Wasm binary。
 2. 生成的 `wasm-manifest.aeds` 必须是 schema `3`、`aedsAbi=fsusblog.aeds.v4`，其 output set/hash、runtime manifest 与当前 `ensure-wasm` source hash 完全一致。
-3. `tools/check-wasm-artifact-ownership.mjs --require-generated` 校验精确文件集、每个 output hash、完整 `SHA256SUMS`、仓库权威 toolchain pins，并逐字段锁定 runtime root（`maxFrameBytes`、`workerModel`）和 basic/speed tier（module、wasm、优化能力、内存边界），同时把 `moduleSha256`/`wasmSha256` 与实际文件交叉验证；随后再次执行 `ensure-wasm status`。任一 stale/missing/extra/tampered field 或 file 在 final image 前 fail closed。
-4. `.dockerignore` 只为 Docker context 重新纳入这个已生成目录；Dockerfile 在 frontend build 前复核 `SHA256SUMS` 和 `ensure-wasm status`。
-5. Quality Gate 将 fresh `payload/wasm` 连同 immutable production-build receipt 上传为短期 Actions artifact。最终 OCI image 内的 `SHA256SUMS` hash 写入 release manifest 的 `wasmArtifactHash`，消费方绑定该 digest，而不是 Git 路径中的旧 binary。
+3. frontend build 的 `ensure-wasm` 是唯一 canonical producer：完成真实 build、完整 source/output hash 与 ownership 校验后，原子写入 `wasm-build-receipt.json`。receipt 绑定 worktree/source、toolchain、build args/features、input tree、output hash/size、manifest digest table、ownership policy、producer run ID 与 content digest。
+4. 同一 Production fresh 内，production-build-artifacts、Browser Contract、visual 与 final-image host path 只执行 exact receipt/immutable identity 校验；该路径的 source traversal 与 output hash 均为 `0`。receipt 不存在、歧义、source/toolchain/args/policy/output identity 漂移时 fail closed，consumer 不得自行 build，只能回到 canonical producer。
+5. `.dockerignore` 只为 Docker context 重新纳入这个已生成目录。跨 Docker COPY 的 inode 会变化，因此 producer 从 receipt 的既有 output digest 投影一次 `SHA256SUMS`（不重读 output）；BuildKit copy 后只执行一次 checksum transport 校验，再校验 receipt envelope，不再执行第二次 `ensure-wasm` 全树扫描。
+6. Quality Gate 将 fresh `payload/wasm` 连同 immutable production-build receipt 上传为短期 Actions artifact。最终 OCI image 内的 `SHA256SUMS` hash 写入 release manifest 的 `wasmArtifactHash`，消费方绑定该 digest，而不是 Git 路径中的旧 binary。
 
-`.gitignore` 必须持续忽略该目录，仓库中出现任何 tracked `build/artifacts/wasm-release/**` 都是治理错误。`FSUSBLOG_FINAL_SKIP_WASM=1` 只允许同一工作区断点续用已经生成且立即通过 `--require-generated` 复核的 package；它不能把缺失、stale、自报错误 toolchain 或被篡改的 package 变成可发布状态。
+`.gitignore` 必须持续忽略该目录，仓库中出现任何 tracked `build/artifacts/wasm-release/**` 都是治理错误。`FSUSBLOG_FINAL_SKIP_WASM=1` 只允许同一工作区断点续用已经生成且立即通过 exact receipt 与 ownership policy 复核的 package；它不能把缺失、stale、自报错误 toolchain 或被篡改的 package 变成可发布状态。
 
 ## AEDS artifact 与固定 ABI
 
@@ -164,7 +166,8 @@ node tools/check-wasm-artifact-ownership.mjs
 (cd src/frontend && node ../../tools/frontend/ensure-wasm.mjs status)
 
 # release package 已生成后，复核完整 package 与当前 source contract
-node tools/check-wasm-artifact-ownership.mjs --require-generated
+node tools/frontend/wasm-build-receipt.mjs verify \
+  --root . --client-root src/frontend --artifact-dir build/artifacts/wasm-release
 
 # basic/speed 真实吞吐、artifact raw/gzip/br、compile、memory、copy/arena
 cd ../.. && node tests/frontend/checks/perf/check-aeds-decode-budget.mjs

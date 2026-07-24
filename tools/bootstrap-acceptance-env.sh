@@ -1838,7 +1838,6 @@ EnsureReleasePreview() {
             export VITE_API_BASE_URL="$DEBUG_BACKEND_URL"
             export FSUSBLOG_TEST_NAMESPACE
             source "$laneSupport"
-            EnsureWasmOnce
             RunFrontendFastBuildGroup
         )
     fi
