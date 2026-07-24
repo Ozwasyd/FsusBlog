@@ -1665,9 +1665,21 @@ export function findLatestRunId(runsRoot, targetTierId = null) {
   return latest?.runId ?? null
 }
 
+function resolveRealOrAncestralPath(targetPath) {
+  const resolved = path.resolve(targetPath)
+  if (fs.existsSync(resolved)) {
+    return fs.realpathSync(resolved)
+  }
+  const parent = path.dirname(resolved)
+  if (fs.existsSync(parent)) {
+    return path.join(fs.realpathSync(parent), path.basename(resolved))
+  }
+  return resolved
+}
+
 async function runDagUnlocked(options) {
   const root = path.resolve(options.root)
-  const runsRoot = path.resolve(options.runsRoot ?? path.join(root, '.tmp/test-runs'))
+  const runsRoot = resolveRealOrAncestralPath(options.runsRoot ?? path.join(root, '.tmp/test-runs'))
   const runId = safeRunId(options.runId ?? createRunId(options.targetTierId ?? 'matrix'))
   const runDirectory = path.join(runsRoot, runId)
   const checkpointFile = path.join(runDirectory, 'checkpoint.json')
@@ -3057,7 +3069,7 @@ function acquireRunLock(runsRoot, runId) {
 
 export async function runDag(options) {
   const root = path.resolve(options.root)
-  const runsRoot = path.resolve(options.runsRoot ?? path.join(root, '.tmp/test-runs'))
+  const runsRoot = resolveRealOrAncestralPath(options.runsRoot ?? path.join(root, '.tmp/test-runs'))
   const runId = safeRunId(options.runId ?? createRunId(options.targetTierId ?? 'matrix'))
   const releaseLock = acquireRunLock(runsRoot, runId)
   const schedulerFinalizers = []

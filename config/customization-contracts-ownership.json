@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "ownership": {
+    "FsusBlog.Shared.Contracts.Customization.CustomizationProfileId": "#1585",
+    "FsusBlog.Shared.Contracts.Customization.CustomizationProfileVersion": "#1585",
+    "FsusBlog.Shared.Contracts.Customization.CustomizationDraftId": "#1585",
+    "FsusBlog.Shared.Contracts.Customization.CustomizationChangeSetId": "#1585",
+    "FsusBlog.Shared.Contracts.Customization.CustomizationGeneration": "#1585",
+    "FsusBlog.Shared.Contracts.Customization.CustomizationDigest": "#1585",
+    "FsusBlog.Shared.Contracts.Customization.CustomizationMutationDescriptor": "#1585",
+    "FsusBlog.Shared.Contracts.Customization.CustomizationAssetReference": "#1585",
+    "FsusBlog.Shared.Contracts.Customization.CustomizationOperationContext": "#1585"
+  },
+  "consumers": {
+    "#156": [
+      "CustomizationProfileId",
+      "CustomizationProfileVersion",
+      "CustomizationDraftId",
+      "CustomizationChangeSetId",
+      "CustomizationGeneration",
+      "CustomizationMutationDescriptor"
+    ],
+    "#180": [
+      "CustomizationMutationDescriptor",
+      "CustomizationOperationContext"
+    ],
+    "#182": [
+      "CustomizationMutationDescriptor",
+      "CustomizationAssetReference"
+    ]
+  }
+}
