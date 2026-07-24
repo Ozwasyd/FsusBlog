@@ -62,6 +62,30 @@ capability 只接受 catalog 中的稳定值；adaptive 未声明 capability 会
 
 多节点 membership 视图位于 runtime-scoped Redis hash。heartbeat 超时按 `Alive -> Suspect -> Dead` 收敛；`Draining` 与 `Maintenance` 由运维显式控制，failure detector 不覆盖。受保护的 `GET /api/ops/cluster/nodes` 只允许 independent admin principal + `system.config` + `fixed_ip`，用于后台或诊断查看节点、capability、低敏资源提示与 active responsibility。
 
+## 有状态职责协议
+
+`static-role` 和 `adaptive` 中的有状态职责不能只依赖 membership 判断 owner，必须取得 `responsibility + resource` lease。lease TTL 到期后才允许另一节点接管；每次新 acquire 产生单调递增 fencing token，renew/release 只接受原 `leaseId + token`。因此旧节点即使从长暂停恢复，也不能覆盖新 owner 已写入的状态。
+
+后台任务默认采用：
+
+```text
+scheduling: at-least-once
+side effect: effectively-once by taskType + objectId + operationId
+critical write: single writer + fencing token
+long task: compare-version checkpoint
+terminal failure: dead letter or explicit compensation-required
+```
+
+任务接管流程固定为：
+
+1. 新节点在旧 TTL 到期后取得更大的 fencing token；
+2. 用同一 idempotency key 读取 task record；
+3. 从最后成功 checkpoint version 恢复；
+4. 每次 checkpoint、complete 或 failure transition 都复核当前 lease；
+5. 达到最大重试次数后进入 dead letter；已登记补偿的任务进入 `CompensationRequired`，不自动伪造成功。
+
+当前 cluster failure detector 已使用 `cluster:failure-detector` lease，避免每个节点同时写 membership 状态转换。后续 search index、media、moderation、notification 与 scheduler worker 接入时必须按各自资源或 partition 建 key，不能共用一个全局锁，也不能绕过 idempotency record。
+
 ## 风险与回退
 
-运行模式在 DI 容器构建前固定，不支持进程内热切换。配置错误会 fail closed。无需重启的局部降级是把节点标记为 `Draining` 或 `Maintenance` 并移除 active responsibility；公开读取、binary 与 notification stream 继续工作。若静态角色或 adaptive 基础组件整体异常，把 `RuntimeMode:Mode` 恢复为 `single` 并启动下一进程代际；不需要迁移数据、切换镜像或部署另一类服务。回退不得通过添加固定业务 sidecar 或让 single hot path 经过跨节点协议完成。
+运行模式在 DI 容器构建前固定，不支持进程内热切换。配置错误会 fail closed。Redis state-control 不可用或 lease renew 丢失时，worker 必须停止新的 checkpoint/critical write；不得降级为进程内多写者。无需重启的局部降级是把节点标记为 `Draining` 或 `Maintenance` 并移除 active responsibility，等待 lease TTL 后由健康节点接管；公开读取、登录、admin、binary 与 notification stream 继续工作。若静态角色或 adaptive 基础组件整体异常，把 `RuntimeMode:Mode` 恢复为 `single` 并启动下一进程代际；不需要迁移数据、切换镜像或部署另一类服务。回退不得通过添加固定业务 sidecar、清空 fencing counter、删除 idempotency record 或让 single hot path 经过跨节点协议完成。

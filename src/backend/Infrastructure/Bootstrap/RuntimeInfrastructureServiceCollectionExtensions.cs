@@ -44,6 +44,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddCacheRuntime();
         services.AddPublicReadArtifactRuntime(configuration);
         services.AddFsusDistributedInvalidation(configuration);
+        services.AddFsusDistributedStateControl(configuration);
         services.AddFsusClusterMembership(configuration);
         services.AddPluginFoundation(configuration);
         services.AddIdentityRuntime();

@@ -1,9 +1,12 @@
 using System.Diagnostics;
 
+using FsusBlog.Server.Infrastructure.Distributed.StateControl;
+
 namespace FsusBlog.Server.Infrastructure.Distributed.Cluster;
 
 public sealed class ClusterMembershipHostedService(
     IClusterMembershipStore store,
+    ILeaseManager leaseManager,
     ClusterMembershipOptions options,
     TimeProvider timeProvider,
     ILogger<ClusterMembershipHostedService> logger) : BackgroundService
@@ -39,13 +42,42 @@ public sealed class ClusterMembershipHostedService(
                     CaptureResources(),
                     []),
                 stoppingToken).ConfigureAwait(false);
+            await DetectFailuresAsSingleWriterAsync(now, stoppingToken).ConfigureAwait(false);
+        }
+        while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false));
+    }
+
+    private async Task DetectFailuresAsSingleWriterAsync(
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        TimeSpan ttl = TimeSpan.FromTicks(Math.Max(
+            TimeSpan.FromSeconds(5).Ticks,
+            options.HeartbeatInterval.Ticks * 2));
+        LeaseAcquireResult acquired = await leaseManager.TryAcquireAsync(
+            new LeaseKey("cluster", "failure-detector"),
+            options.NodeId,
+            ttl,
+            cancellationToken).ConfigureAwait(false);
+        if (!acquired.Acquired || acquired.Lease is null)
+        {
+            return;
+        }
+        try
+        {
             await store.DetectFailuresAsync(
                 now,
                 options.SuspectAfter,
                 options.DeadAfter,
-                stoppingToken).ConfigureAwait(false);
+                cancellationToken).ConfigureAwait(false);
         }
-        while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false));
+        finally
+        {
+            _ = await leaseManager.ReleaseAsync(
+                acquired.Lease.LeaseId,
+                acquired.Lease.FencingToken,
+                CancellationToken.None).ConfigureAwait(false);
+        }
     }
 
     public override async Task StopAsync(CancellationToken cancellationToken)

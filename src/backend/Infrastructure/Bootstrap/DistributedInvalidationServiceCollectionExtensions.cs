@@ -1,14 +1,43 @@
 using FsusBlog.Server.Infrastructure.Distributed;
 using FsusBlog.Server.Infrastructure.Distributed.Cluster;
+using FsusBlog.Server.Infrastructure.Distributed.StateControl;
+
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace FsusBlog.Server.Infrastructure.Bootstrap;
 
 internal static class DistributedInvalidationServiceCollectionExtensions
 {
+    public static IServiceCollection AddFsusDistributedStateControl(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        ClusterMembershipOptions cluster = ClusterMembershipOptions.FromConfiguration(configuration);
+        services.TryAddSingleton(TimeProvider.System);
+        if (cluster.Mode == ClusterRuntimeMode.Single)
+        {
+            services.TryAdd(ServiceDescriptor.Singleton(
+                typeof(IDistributedStateControlStore),
+                typeof(InMemoryDistributedStateControlStore)));
+        }
+        else
+        {
+            services.TryAdd(ServiceDescriptor.Singleton(
+                typeof(IDistributedStateControlStore),
+                typeof(RedisDistributedStateControlStore)));
+        }
+        services.TryAddSingleton<ILeaseManager>(
+            static provider => provider.GetRequiredService<IDistributedStateControlStore>());
+        services.TryAddSingleton<IDistributedTaskStateStore>(
+            static provider => provider.GetRequiredService<IDistributedStateControlStore>());
+        return services;
+    }
+
     public static IServiceCollection AddFsusClusterMembership(
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        services.AddFsusDistributedStateControl(configuration);
         ClusterMembershipOptions options = ClusterMembershipOptions.FromConfiguration(configuration);
         services.AddSingleton(options);
         if (!options.Enabled)

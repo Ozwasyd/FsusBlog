@@ -138,6 +138,16 @@
       "replaySource": "challenge v2 audit queue"
     },
     {
+      "type": "ClusterMembershipHostedService",
+      "source": "src/backend/Infrastructure/Distributed/Cluster/ClusterMembershipHostedService.cs",
+      "classification": "multi-consumer-safe",
+      "idempotency": "each node owns its heartbeat identity; failure detection is serialized by the cluster:failure-detector resource lease",
+      "drain": "cancel",
+      "maxDrainSeconds": 5,
+      "fence": "resource-lease+monotonic-fencing-token",
+      "replaySource": "runtime-scoped Redis membership and lease state"
+    },
+    {
       "type": "CommentMutationOutboxWorker",
       "source": "src/backend/Services/Background/CommentMutationOutboxWorker.cs",
       "classification": "multi-consumer-safe",
