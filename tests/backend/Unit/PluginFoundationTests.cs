@@ -189,6 +189,27 @@ public sealed class PluginFoundationTests
     }
 
     [Fact]
+    public async Task EnableAsync_RawPermissionRequest_FailsClosed()
+    {
+        var store = new InMemoryPluginRegistryStore();
+        var lifecycle = new PluginLifecycle(
+            new PluginPackageReader(new Version(1, 3, 0)),
+            store,
+            TimeProvider.System);
+        byte[] package = CreatePackage(manifestTransform: static json =>
+            json.Replace("\"network\":false", "\"network\":true", StringComparison.Ordinal));
+        PluginRegistryEntry installed = await lifecycle.InstallAsync(new MemoryStream(package));
+
+        PluginLifecycleException exception = await Assert.ThrowsAsync<PluginLifecycleException>(
+            () => lifecycle.EnableAsync(installed.Manifest.Id));
+
+        Assert.Contains("cannot transition", exception.Message, StringComparison.Ordinal);
+        PluginRegistryEntry unchanged = Assert.Single(await store.ListAsync());
+        Assert.Equal(PluginInstallState.Installed, unchanged.InstallState);
+        Assert.False(unchanged.Enabled);
+    }
+
+    [Fact]
     public void PluginManifestSchema_DeclaresClosedRequiredContract()
     {
         string root = BackendTestPaths.RepositoryRoot;

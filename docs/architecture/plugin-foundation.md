@@ -1,8 +1,10 @@
 # Plugin package and Registry foundation
 
 This document owns the v1.3.0 plugin package, manifest, Registry and lifecycle
-foundation. It does not authorize plugin code execution, Hook dispatch, permission
-grants, native C# loading, Raw SQL, a public marketplace or automatic updates.
+foundation. It does not authorize plugin code execution or Hook dispatch. Permission
+requests are interpreted by the separate default-deny
+[plugin sandbox boundary](../security/plugin-sandbox.md); native C# loading, Raw
+SQL, a public marketplace and automatic updates remain unavailable.
 
 ## Package boundary
 
@@ -72,9 +74,11 @@ Discover -> Verify -> Install -> ResolveDependencies -> ValidateManifest
 -> PrepareRuntime -> RegisterHooks -> Activate -> Execute -> Deactivate -> Uninstall
 ```
 
-This issue implements the inert Discover/Verify/Install and durable state transition
-portion only. Runtime preparation, dependency resolution, Hook registration and
-execution belong to later plugin-system boundaries.
+The package issue implements the inert Discover/Verify/Install and durable state
+transition portion only. The permission layer turns the verified manifest into an
+administrator-readable `PluginPermissionPlan`; it does not make package verification
+an implicit grant. Runtime preparation, dependency resolution, Hook registration
+and execution belong to later plugin-system boundaries.
 
 ## Failure isolation and rollback
 
@@ -88,3 +92,10 @@ plugin to `Disabled` through the lifecycle owner before its future runtime is
 dispatched. Registry readers on all nodes then observe the same state. The additive
 `plugin_registry` table remains during rollback; an N-1 build ignores it. Do not
 drop the table or erase package evidence during rollback.
+
+Before a future dispatcher invokes plugin code it must additionally check the
+isolation controller, construct the closed Level 1 sandbox profile and resource
+guard, and expose only a plugin-scoped Host API proxy. The proxy performs a fresh
+capability check for every operation. Detailed limits, quarantine transitions and
+the fail-closed no-restart path are defined in
+[Plugin permission and sandbox boundary](../security/plugin-sandbox.md).

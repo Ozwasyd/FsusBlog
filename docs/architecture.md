@@ -678,14 +678,19 @@ Schema migration 不再使用 runtime service partial。`SchemaMigrationRegistry
 
 ## Plugin foundation boundary
 
-v1.3.0 plugin foundation is an inert package and control-plane boundary. A hostile
+v1.3.0 plugin foundation begins as an inert package and control-plane boundary. A hostile
 `.fspkg` is bounded and fully verified before persistence; it cannot extract files
 or execute code. PostgreSQL `plugin_registry` stores the verified package bytes,
 manifest, digest and lifecycle CAS coordinate, so cluster nodes read one authority
-instead of node-local install state. Runtime execution, Hook dispatch, permission
-grants, Raw SQL and native C# loading are not enabled by this layer. Exact package,
-state transition, failure-isolation and no-restart disable semantics are documented
-in [Plugin package and Registry foundation](architecture/plugin-foundation.md).
+instead of node-local install state. The next boundary converts manifest requests
+into a closed capability plan; grants default to empty, sensitive grants require
+administrator confirmation, and every Host API operation rechecks its grant. Level
+1 script profiles disable CLR/reflection/service-provider/raw I/O access and attach
+timeout, memory, instruction, call-depth, output and log budgets. Raw SQL and native
+C# loading remain unavailable. Exact package and state transitions are documented
+in [Plugin package and Registry foundation](architecture/plugin-foundation.md);
+permission, isolation and no-restart quarantine semantics are documented in
+[Plugin permission and sandbox boundary](security/plugin-sandbox.md).
 
 ## 生产启动保护
 

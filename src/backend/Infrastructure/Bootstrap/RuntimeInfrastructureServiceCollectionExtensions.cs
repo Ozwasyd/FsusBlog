@@ -73,6 +73,10 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddScoped<IPluginRegistryStore, PostgresPluginRegistryStore>();
         services.AddScoped<IPluginRegistry, PluginRegistry>();
         services.AddScoped<IPluginLifecycle, PluginLifecycle>();
+        services.AddSingleton<IPluginPermissionGrantStore, InMemoryPluginPermissionGrantStore>();
+        services.AddSingleton<PluginPermissionManager>();
+        services.AddSingleton<PluginIsolationController>();
+        services.AddScoped<PluginSecurityAdministrativeSnapshotService>();
         return services;
     }
 

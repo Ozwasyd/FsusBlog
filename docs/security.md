@@ -503,6 +503,15 @@ FsusBlog 采用三级角色体系：
 
 ## 作者工作台、订阅与 RUM 隐私
 
+插件 Manifest 只声明权限请求，不产生授权。运行时 capability 使用封闭的强类型目录，
+默认 grant 集为空；敏感 capability 需要管理员明确确认，且只能授予已在签名后 Manifest
+中声明的子集。`database.raw`、裸文件系统/网络、进程、反射、程序集加载、
+`IServiceProvider` 与 unrestricted CLR 不属于可授权 capability。每次 Host API 调用都在
+代理边界重新检查 grant；Level 1 JavaScript/Lua profile 默认关闭所有 CLR import，并强制
+timeout、memory、instruction、call-depth、output、log 与 cancellation budget。连续失败会
+进入 Degraded/Quarantined，恢复必须由管理员确认。完整分级、隔离状态、风险和无需重启的
+fail-closed 回退见 [Plugin permission and sandbox boundary](security/plugin-sandbox.md)。
+
 站点订阅写入与退订 ownership proof 只使用 `Subscription:EmailHashPepper` 派生的 `hmac-v1` identity。运行时不接受 `sha256-legacy` lookup、OR fallback 或 `LegacySha256EmailHash`；finalize migration 会隔离 legacy rows 并断言遗留计数为零。发生 cutover 问题时暂停 subscription mutation 并在隔离恢复库诊断，不得重新启用可关联的无密钥 SHA-256 identity。
 
 认证 Cookie 的生产读取只接受当前 `__Host-*` 名称。Development 的 `AuthCookies:AllowInsecureTransportCookies` 仅控制本地非 HTTPS transport 下的当前 cookie 名称，不是旧 plain-cookie 名称回退。旧 cookie 应清除并重新认证；不得恢复 `AllowLegacyPlainCookieRead`。

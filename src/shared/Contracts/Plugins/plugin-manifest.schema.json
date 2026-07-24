@@ -68,10 +68,22 @@
             "items": {
                 "type": "string",
                 "enum": [
+                    "article.read",
+                    "article.render",
+                    "article.write.draft",
                     "comment.read",
+                    "comment.create",
                     "comment.moderate",
+                    "search.index.write",
+                    "search.query.rewrite",
+                    "media.process",
                     "plugin.storage.kv",
-                    "plugin.log.write"
+                    "plugin.storage.object",
+                    "plugin.log.write",
+                    "network.http.outbound",
+                    "scheduler.job.create",
+                    "admin.ui.extend",
+                    "theme.asset.read"
                 ]
             }
         },

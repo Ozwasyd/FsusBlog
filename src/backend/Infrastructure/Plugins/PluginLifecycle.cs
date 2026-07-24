@@ -82,7 +82,9 @@ public sealed class PluginLifecycle(
         CancellationToken cancellationToken = default)
         => TransitionAsync(
             pluginId,
-            static current => current.InstallState is PluginInstallState.Installed or PluginInstallState.Disabled,
+            static current =>
+                (current.InstallState is PluginInstallState.Installed or PluginInstallState.Disabled)
+                && PluginPermissionPlanner.Create(current.Manifest).CanEnable,
             PluginInstallState.Enabled,
             enabled: true,
             clearPackage: false,

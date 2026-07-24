@@ -23,14 +23,6 @@ public sealed partial class PluginPackageReader(
         "comment.beforeCreate"
     ];
 
-    private static readonly HashSet<string> s_supportedCapabilities =
-    [
-        "comment.read",
-        "comment.moderate",
-        "plugin.storage.kv",
-        "plugin.log.write"
-    ];
-
     private static readonly HashSet<string> s_supportedConfigSchemaKeywords =
     [
         "$schema",
@@ -301,7 +293,7 @@ public sealed partial class PluginPackageReader(
         {
             throw new PluginPackageValidationException("Plugin capabilities must be unique.");
         }
-        if (manifest.Capabilities.Any(capability => !s_supportedCapabilities.Contains(capability)))
+        if (manifest.Capabilities.Any(capability => !PluginCapabilityCatalog.TryParse(capability, out _)))
         {
             throw new PluginPackageValidationException("Plugin capability is unsupported.");
         }
