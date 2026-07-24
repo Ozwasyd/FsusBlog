@@ -250,4 +250,91 @@ public sealed class PublicArticleProjectionContractTests
         Assert.All(gate.GetDiagnostics().Workloads.Values, static snapshot => Assert.Equal(1, snapshot.Completed));
     }
 
+    [Fact]
+    public async Task ClassifiedGate_PublicQueueRejectionAndTimeoutDoNotConsumeAdminCapacity()
+    {
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:DefaultConnection"] = "Host=localhost;Database=fsus;Username=fsus;Password=fsus;Maximum Pool Size=4",
+                ["Database:PublicArticleProjection:MaxPoolSize"] = "1",
+                ["Database:ConcurrencyGate:PublicShortRead:Limit"] = "1",
+                ["Database:ConcurrencyGate:PublicShortRead:QueueLimit"] = "1",
+                ["Database:ConcurrencyGate:PublicShortRead:WaitTimeoutMs"] = "75",
+                ["Database:ConcurrencyGate:AdminHeavyRead:Limit"] = "1",
+                ["Database:ConcurrencyGate:ForegroundWrite:Limit"] = "1",
+                ["Database:ConcurrencyGate:BackgroundProjection:Limit"] = "1"
+            })
+            .Build();
+        var gate = new DbConcurrencyGate(configuration, NullLogger<DbConcurrencyGate>.Instance);
+        var activeEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseActive = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        Task<string> activePublic = gate.ExecuteClassifiedAsync(
+            DbWorkloadClass.PublicShortRead,
+            "public-active",
+            async _ =>
+            {
+                activeEntered.TrySetResult();
+                await releaseActive.Task;
+                return "public-active";
+            },
+            _ => Task.FromResult("unexpected-active-timeout"));
+        await activeEntered.Task;
+
+        Task<string> queuedPublic = gate.ExecuteClassifiedAsync(
+            DbWorkloadClass.PublicShortRead,
+            "public-queued",
+            _ => Task.FromResult("unexpected-queued-entry"),
+            _ => Task.FromResult("public-timeout"));
+        try
+        {
+            await WaitForPublicWaitingAsync(gate, expected: 1);
+
+            string admin = await gate.ExecuteClassifiedAsync(
+                DbWorkloadClass.AdminHeavyRead,
+                "admin-independent",
+                _ => Task.FromResult("admin"),
+                _ => Task.FromResult("unexpected-admin-timeout"));
+            string rejectedPublic = await gate.ExecuteClassifiedAsync(
+                DbWorkloadClass.PublicShortRead,
+                "public-queue-full",
+                _ => Task.FromResult("unexpected-rejected-entry"),
+                _ => Task.FromResult("public-rejected"));
+            string timedOutPublic = await queuedPublic;
+
+            Assert.Equal("admin", admin);
+            Assert.Equal("public-rejected", rejectedPublic);
+            Assert.Equal("public-timeout", timedOutPublic);
+
+            DbConcurrencyGateDiagnostics diagnostics = gate.GetDiagnostics();
+            DbWorkloadGateSnapshot publicSnapshot = diagnostics.Workloads["public-short-read"];
+            Assert.Equal(1, publicSnapshot.InUse);
+            Assert.Equal(0, publicSnapshot.Waiting);
+            Assert.Equal(1, publicSnapshot.Timeouts);
+            Assert.Equal(1, publicSnapshot.QueueRejected);
+            Assert.True(publicSnapshot.P99WaitMs >= 50);
+
+            DbWorkloadGateSnapshot adminSnapshot = diagnostics.Workloads["admin-heavy-read"];
+            Assert.Equal(1, adminSnapshot.Completed);
+            Assert.Equal(0, adminSnapshot.Timeouts);
+            Assert.Equal(0, adminSnapshot.QueueRejected);
+        }
+        finally
+        {
+            releaseActive.TrySetResult();
+        }
+
+        Assert.Equal("public-active", await activePublic);
+    }
+
+    private static async Task WaitForPublicWaitingAsync(DbConcurrencyGate gate, int expected)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        while (gate.GetDiagnostics().Workloads["public-short-read"].Waiting != expected)
+        {
+            await Task.Delay(5, timeout.Token);
+        }
+    }
+
 }
