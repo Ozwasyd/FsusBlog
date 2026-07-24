@@ -73,5 +73,6 @@ than becoming CSS.
 
 Operational rollback does not require a restart: activate the five built-in
 font IDs for the affected scope. The next resolution observes the incremented
-registry `configVersion`. Package loading and font download planning are
-separate work and are not implemented by this runtime.
+registry `configVersion`. Asset selection is compiled by the
+[Font loading planner](font-loading-planner.md); token resolution itself never
+downloads or probes a font.

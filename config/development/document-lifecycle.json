@@ -748,6 +748,16 @@
             "supersededBy": null
         },
         {
+            "path": "docs/fonts/font-loading-planner.md",
+            "status": "current",
+            "owner": "frontend",
+            "relatedIssues": [
+                149
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
             "path": "docs/frontend/account-layout-ownership.md",
             "status": "current",
             "owner": "frontend",

@@ -88,4 +88,6 @@ this increments `configVersion` and leaves the installed package available for
 inspection or later reactivation. Delete remains a separate explicit action.
 
 This base infrastructure does not add an HTTP endpoint, public font
-marketplace, remote fetch, license approval engine, or loading planner.
+marketplace, remote fetch, or license approval engine. Enabled faces and
+activation state are consumed by the
+[Font loading planner](font-loading-planner.md).

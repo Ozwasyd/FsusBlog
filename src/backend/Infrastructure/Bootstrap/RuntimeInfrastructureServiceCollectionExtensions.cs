@@ -350,6 +350,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
             fontRoot,
             provider.GetRequiredService<TimeProvider>()));
         services.AddSingleton<IFontStackRuntime, FontStackRuntime>();
+        services.AddSingleton<IFontLoadingPlanner, FontLoadingPlanner>();
         return services;
     }
 

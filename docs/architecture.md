@@ -330,6 +330,15 @@ WOFF2、预算和来源 metadata 校验；registry 通过同目录临时文件�
 角色 category 漂移或不安全 family 都回退到对应 built-in stack，并保留
 system-ui/ui-monospace/platform emoji 末级降级；完整契约见
 [Font token schema and stack runtime](fonts/font-token-schema.md)。
+`IFontLoadingPlanner` 再把同一 registry/activation 与 route、locale/script、
+bounded code/emoji signal 编译为确定性的 critical/deferred plan：installed face
+只产生 `/font-assets/<sha256>.woff2` 本地内容寻址 URL，相同 hash/weight/style
+只加载一次，manifest preload 超过预算会 fail closed。前端 declarative bundled
+plan 保留既有 critical Fontsource 与 `requestIdleCallback` deferred 行为；动态
+style 失败继续使用 checked-in fallback stack 并可重试。planner receipt 为
+`fsusblog.font.loading-evidence.v1`，不含字体字节、family、文件系统路径或远程
+URL。无需重启降级仍是把 scope activate 回五个 built-in role；完整契约见
+[Font loading planner](fonts/font-loading-planner.md)。
 
 Compose 把 `${FSUSBLOG_RELEASE_ASSET_STORE}/releases` 只读挂载为 `/app/release-assets`，把共享 release-derived volume 挂载为 `/app/release-derived`。`UseReleaseScopedStaticAssets` 在 SPA fallback 前注册 `/release-assets/<releaseId>/...` 与 `/release-derived/<releaseId>/...`；Production 缺任一 root 配置会拒绝启动。服务可达不等于产物可发布：rollout 仍必须先 materialize exact manifest、验证 N/N-1、持久 retention state，执行 applied GC 后再复读旧 index/hash/SW/cache。无需重启的降级是停止 GC、保护 active/N-1、为当前 release 重新发布 generation；禁止 clear shared root、改写旧 release 或恢复 mutable `current/latest` 路径。
 
