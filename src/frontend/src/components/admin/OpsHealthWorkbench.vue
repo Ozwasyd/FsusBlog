@@ -505,11 +505,7 @@ async function copyEvidence(incident: OpsIncident): Promise<void>
  {
     display: grid;
     min-width: 0;
-    gap: 24px;
-}
-
-.ops-status-strip,
-.ops-section
+    gap: var(--fsus-space-6);
  {
     min-width: 0;
     border: 1px solid var(--fsusblog-panel-border);
@@ -519,7 +515,7 @@ async function copyEvidence(incident: OpsIncident): Promise<void>
 
 .ops-status-strip
  {
-    padding: 18px;
+    padding: var(--fsus-space-5);
 }
 
 .ops-status-strip__heading,
@@ -528,7 +524,7 @@ async function copyEvidence(incident: OpsIncident): Promise<void>
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 16px;
+    gap: var(--fsus-space-4);
 }
 
 .ops-status-strip h2,
@@ -544,7 +540,7 @@ async function copyEvidence(incident: OpsIncident): Promise<void>
 .ops-status-strip p,
 .ops-section__header p
  {
-    margin: 4px 0 0;
+    margin: var(--fsus-space-1) 0 0;
     color: var(--fsusblog-text-muted);
     font-size: 12px;
     line-height: 1.5;
@@ -565,7 +561,7 @@ async function copyEvidence(incident: OpsIncident): Promise<void>
 .ops-refresh
  {
     min-height: 40px;
-    padding: 0 14px;
+    padding: 0 var(--fsus-space-4);
     font-size: 14px;
     font-weight: 500;
 }
@@ -591,16 +587,16 @@ async function copyEvidence(incident: OpsIncident): Promise<void>
  {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    margin: 16px 0 0;
+    margin: var(--fsus-space-4) 0 0;
     border-top: 1px solid var(--fsusblog-panel-border);
-    padding-top: 14px;
+    padding-top: var(--fsus-space-4);
 }
 
 .ops-status-strip__values > div
  {
     min-width: 0;
     border-left: 1px solid var(--fsusblog-panel-border);
-    padding: 0 16px;
+    padding: 0 var(--fsus-space-4);
 }
 
 .ops-status-strip__values > div:first-child
@@ -620,7 +616,7 @@ async function copyEvidence(incident: OpsIncident): Promise<void>
 .ops-status-strip__values dd
  {
     overflow: hidden;
-    margin: 3px 0 0;
+    margin: var(--fsus-space-1) 0 0;
     color: var(--fsusblog-text-primary);
     font-size: 14px;
     font-weight: 700;
@@ -631,7 +627,7 @@ async function copyEvidence(incident: OpsIncident): Promise<void>
 
 .ops-section__header
  {
-    padding: 16px;
+    padding: var(--fsus-space-4);
 }
 
 .ops-incident-list
@@ -647,16 +643,15 @@ async function copyEvidence(incident: OpsIncident): Promise<void>
     grid-template-columns: 88px minmax(0, 1fr) 144px;
     min-height: 56px;
     border-top: 1px solid var(--fsusblog-panel-border);
-    padding: 12px 16px;
+    padding: var(--fsus-space-3) var(--fsus-space-4);
 }
 
 .ops-incident-row__severity
  {
     display: flex;
     align-items: flex-start;
-    gap: 6px;
-    width: 88px;
-    padding-top: 1px;
+    gap: var(--fsus-space-2);
+    padding-top: var(--fsus-space-1);
     color: var(--fsusblog-text-secondary);
     font-size: 12px;
     font-weight: 700;
@@ -689,7 +684,7 @@ async function copyEvidence(incident: OpsIncident): Promise<void>
 .ops-incident-row__content > p
  {
     overflow: hidden;
-    margin: 2px 0 0;
+    margin: var(--fsus-space-1) 0 0;
     color: var(--fsusblog-text-secondary);
     font-size: 12px;
     line-height: 1.5;
@@ -700,7 +695,7 @@ async function copyEvidence(incident: OpsIncident): Promise<void>
 .ops-incident-row__time
  {
     width: 144px;
-    padding-top: 1px;
+    padding-top: var(--fsus-space-1);
     color: var(--fsusblog-text-muted);
     font-size: 12px;
     line-height: 1.5;
@@ -712,8 +707,8 @@ async function copyEvidence(incident: OpsIncident): Promise<void>
     display: flex;
     flex-wrap: wrap;
     align-items: flex-start;
-    gap: 6px 12px;
-    margin-top: 8px;
+    gap: var(--fsus-space-2) var(--fsus-space-3);
+    margin-top: var(--fsus-space-2);
 }
 
 .ops-evidence__path
@@ -731,14 +726,14 @@ async function copyEvidence(incident: OpsIncident): Promise<void>
  {
     display: flex;
     flex: 0 0 auto;
-    gap: 4px;
+    gap: var(--fsus-space-1);
 }
 
 .ops-evidence__copy,
 .ops-evidence__disclosure
  {
     min-height: 40px;
-    padding: 0 10px;
+    padding: 0 var(--fsus-space-3);
     font-size: 12px;
     line-height: 1;
 }
@@ -756,7 +751,7 @@ async function copyEvidence(incident: OpsIncident): Promise<void>
     margin: 0;
     border-radius: var(--fsus-radius-control);
     background: var(--fsusblog-panel-bg-soft);
-    padding: 10px 12px;
+    padding: var(--fsus-space-3) var(--fsus-space-3);
     color: var(--fsusblog-text-secondary);
     font-family: var(--fsus-typography-code-family, var(--fsus-font-code, ui-monospace, monospace));
     font-size: 12px;
@@ -769,7 +764,7 @@ async function copyEvidence(incident: OpsIncident): Promise<void>
  {
     margin: 0;
     border-top: 1px solid var(--fsusblog-panel-border);
-    padding: 20px 16px;
+    padding: var(--fsus-space-5) var(--fsus-space-4);
     color: var(--fsusblog-text-secondary);
     font-size: 14px;
 }
@@ -785,8 +780,8 @@ async function copyEvidence(incident: OpsIncident): Promise<void>
     min-height: 48px;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    padding: 0 16px;
+    gap: var(--fsus-space-3);
+    padding: 0 var(--fsus-space-4);
     color: var(--fsusblog-text-primary);
     cursor: pointer;
     font-size: 14px;
@@ -803,20 +798,20 @@ async function copyEvidence(incident: OpsIncident): Promise<void>
 .ops-quiet__body
  {
     border-top: 1px solid var(--fsusblog-panel-border);
-    padding: 14px 16px 16px;
+    padding: var(--fsus-space-4) var(--fsus-space-4) var(--fsus-space-4);
 }
 
 .ops-quiet__body dl
  {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px 24px;
+    gap: var(--fsus-space-4) var(--fsus-space-6);
     margin: 0;
 }
 
 .ops-quiet dd
  {
-    margin: 3px 0 0;
+    margin: var(--fsus-space-1) 0 0;
     color: var(--fsusblog-text-secondary);
     font-size: 12px;
     line-height: 1.5;
@@ -837,7 +832,7 @@ async function copyEvidence(incident: OpsIncident): Promise<void>
     .ops-status-strip__values
  {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px 0;
+        gap: var(--fsus-space-3) 0;
     }
 
     .ops-status-strip__values > div:nth-child(3)
@@ -855,7 +850,7 @@ async function copyEvidence(incident: OpsIncident): Promise<void>
  {
         grid-column: 2;
         width: auto;
-        margin-top: 3px;
+        margin-top: var(--fsus-space-1);
         text-align: left;
     }
 }
@@ -864,7 +859,7 @@ async function copyEvidence(incident: OpsIncident): Promise<void>
  {
     .ops-status-strip
  {
-        padding: 16px;
+        padding: var(--fsus-space-4);
     }
 
     .ops-status-strip__heading
@@ -886,13 +881,13 @@ async function copyEvidence(incident: OpsIncident): Promise<void>
     .ops-incident-row
  {
         grid-template-columns: 1fr;
-        padding: 12px;
+        padding: var(--fsus-space-3);
     }
 
     .ops-incident-row__severity
  {
         width: auto;
-        margin-bottom: 4px;
+        margin-bottom: var(--fsus-space-1);
     }
 
     .ops-incident-row__time
@@ -910,7 +905,7 @@ async function copyEvidence(incident: OpsIncident): Promise<void>
         align-items: flex-start;
         flex-direction: column;
         justify-content: center;
-        padding-block: 10px;
+        padding-block: var(--fsus-space-3);
     }
 
     .ops-quiet__body dl

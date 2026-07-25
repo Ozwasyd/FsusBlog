@@ -419,7 +419,7 @@ onMounted(loadSnapshot);
 .cluster-runtime-grid
  {
     display: grid;
-    gap: 24px;
+    gap: var(--fsus-space-6);
 }
 
 .cluster-runtime-primary
@@ -430,14 +430,14 @@ onMounted(loadSnapshot);
 
 .cluster-runtime-secondary
  {
-    margin-top: 3px;
+    margin-top: var(--fsus-space-1);
     color: var(--fsusblog-text-muted);
     font-size: 12px;
 }
 
 .cluster-runtime-warning
  {
-    margin: 16px 0 0;
+    margin: var(--fsus-space-4) 0 0;
     color: var(--fsusblog-color-warning);
     font-size: 13px;
 }

@@ -549,14 +549,10 @@ onMounted(loadOverview)
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
-}
-
-.plugin-admin-layout {
+  gap: var(--fsus-space-3); {
   display: grid;
   grid-template-columns: minmax(240px, 0.32fr) minmax(0, 1fr);
-  gap: 24px;
-  align-items: start;
+  gap: var(--fsus-space-6);
 }
 
 .plugin-admin-list {
@@ -570,8 +566,8 @@ onMounted(loadOverview)
 .plugin-admin-list__item {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
-  padding: 16px;
+  gap: var(--fsus-space-4);
+  padding: var(--fsus-space-4);
 }
 
 .plugin-admin-list__summary {
@@ -600,10 +596,7 @@ onMounted(loadOverview)
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 5px;
-}
-
-.plugin-admin-list__identity small {
+  gap: var(--fsus-space-1); {
   overflow: hidden;
   color: var(--fsusblog-text-secondary);
   text-overflow: ellipsis;
@@ -623,8 +616,7 @@ onMounted(loadOverview)
 }
 
 .plugin-admin-empty {
-  padding: 20px;
-}
+  padding: var(--fsus-space-5);
 
 .plugin-admin-placeholder {
   display: grid;
@@ -638,21 +630,21 @@ onMounted(loadOverview)
 .plugin-permission-list,
 .plugin-config-form {
   display: grid;
-  gap: 12px;
-  margin: 18px 0;
+  gap: var(--fsus-space-3);
+  margin: var(--fsus-space-5) 0;
 }
 
 .plugin-permission {
   display: flex;
   justify-content: space-between;
-  gap: 20px;
+  gap: var(--fsus-space-5);
   border: 1px solid var(--fsusblog-panel-border);
   border-radius: var(--fsus-radius-control);
-  padding: 14px;
+  padding: var(--fsus-space-4);
 }
 
 .plugin-permission p {
-  margin: 6px 0 0;
+  margin: var(--fsus-space-2) 0 0;
   color: var(--fsusblog-text-secondary);
   font-size: 12px;
 }
@@ -660,13 +652,13 @@ onMounted(loadOverview)
 .plugin-permission__action {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--fsus-space-3);
 }
 
 .plugin-config-field {
   display: grid;
   grid-template-columns: minmax(140px, 0.35fr) minmax(180px, 1fr);
-  gap: 8px 20px;
+  gap: var(--fsus-space-2) var(--fsus-space-5);
   align-items: center;
 }
 
@@ -684,7 +676,7 @@ onMounted(loadOverview)
   justify-content: space-between;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1023px) {
   .plugin-admin-layout {
     grid-template-columns: 1fr;
   }
@@ -695,7 +687,7 @@ onMounted(loadOverview)
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 639px) {
   .plugin-permission,
   .plugin-config-field {
     grid-template-columns: 1fr;

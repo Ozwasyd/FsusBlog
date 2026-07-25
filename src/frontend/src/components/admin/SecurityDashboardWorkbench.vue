@@ -373,7 +373,7 @@ const formatMode = (value: string): string => modeLabels[value] ?? value;
     width: 6px;
     height: 6px;
     margin-inline-end: var(--fsus-space-2);
-    border-radius: 50%;
+    border-radius: var(--fsus-radius-pill);
     background: currentcolor;
     vertical-align: middle;
 }

@@ -87,9 +87,9 @@ defineEmits<{
   box-sizing: border-box;
   min-height: 3.5rem;
   align-items: center;
-  margin-bottom: 2rem;
+  margin-bottom: var(--fsus-space-8);
   border-bottom: 1px solid var(--fsusblog-panel-border);
-  padding: 0 1.5rem;
+  padding: 0 var(--fsus-space-6);
 }
 
 .article-write-command-bar__heading,
@@ -100,14 +100,14 @@ defineEmits<{
 }
 
 .article-write-command-bar__heading {
-  gap: 0.75rem;
+  gap: var(--fsus-space-3);
 }
 
 .article-write-command-bar__back {
   min-width: 2.5rem;
   min-height: 2.5rem;
   flex: 0 0 auto;
-  padding-inline: 0.5rem;
+  padding-inline: var(--fsus-space-2);
   color: var(--fsusblog-text-muted);
   font-size: 14px;
   font-weight: 500;
@@ -121,7 +121,7 @@ defineEmits<{
 .article-write-command-bar__article-state {
   flex: 0 0 auto;
   border-left: 1px solid var(--fsusblog-panel-border);
-  padding-left: 0.75rem;
+  padding-left: var(--fsus-space-3);
   color: var(--fsusblog-text-muted);
   font-size: 14px;
   font-weight: 500;
@@ -130,7 +130,7 @@ defineEmits<{
 
 .article-write-command-bar__actions {
   justify-content: flex-end;
-  gap: 0.75rem;
+  gap: var(--fsus-space-3);
 }
 
 .article-write-command-bar__save-status {
@@ -164,20 +164,20 @@ defineEmits<{
   min-width: 7rem;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 767px) {
   :global(.write-workspace) {
-    padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+    padding-bottom: calc(var(--fsus-space-8) + env(safe-area-inset-bottom));
   }
 
   .article-write-command-bar {
     min-height: 3.5rem;
     gap: 0;
-    margin-bottom: 1.5rem;
-    padding: 0 1rem;
+    margin-bottom: var(--fsus-space-6);
+    padding: 0 var(--fsus-space-4);
   }
 
   .article-write-command-bar__heading {
-    gap: 0.5rem;
+    gap: var(--fsus-space-2);
   }
 
   .article-write-command-bar__article-state {
@@ -191,12 +191,12 @@ defineEmits<{
     right: 0;
     bottom: 0;
     left: 0;
-    height: calc(4rem + env(safe-area-inset-bottom));
+    height: calc(var(--fsus-space-8) + env(safe-area-inset-bottom));
     justify-content: flex-end;
-    gap: 0.5rem;
+    gap: var(--fsus-space-2);
     border-top: 1px solid var(--fsusblog-panel-border);
     background: var(--fsusblog-page-bg);
-    padding: 0.625rem 1rem calc(0.625rem + env(safe-area-inset-bottom));
+    padding: var(--fsus-space-3) var(--fsus-space-4) calc(var(--fsus-space-3) + env(safe-area-inset-bottom));
   }
 
   .article-write-command-bar__save-status {
@@ -209,13 +209,13 @@ defineEmits<{
   .article-write-command-bar__primary {
     min-width: 0;
     min-height: 2.75rem;
-    padding-inline: 0.875rem;
+    padding-inline: var(--fsus-space-4);
   }
 }
 
-@media (max-width: 380px) {
+@media (max-width: 639px) {
   .article-write-command-bar__actions {
-    padding-inline: 0.75rem;
+    padding-inline: var(--fsus-space-3);
   }
 
   .article-write-command-bar__save-status {
