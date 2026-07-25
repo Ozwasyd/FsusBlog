@@ -9,7 +9,8 @@ const assert = (condition, message) => {
   if (!condition) throw new Error(message)
 }
 
-const router = read('src/frontend/src/router/index.ts')
+const routerIndex = read('src/frontend/src/router/index.ts')
+const appRoutes = read('src/frontend/src/router/appRouteRecords.ts')
 const publicRoutes = read('src/frontend/src/public-renderers/publicRouteRegistry.ts')
 const policy = read('src/frontend/src/security/privateNavigationPolicy.ts')
 const inbox = read('src/frontend/src/composables/useAccountMessagesInbox.ts')
@@ -23,16 +24,16 @@ for (const routeState of [
   'session-sensitive',
   'memory-only'
 ]) {
-  assert(router.includes(routeState) || publicRoutes.includes(routeState),
+  assert(appRoutes.includes(routeState) || publicRoutes.includes(routeState),
     `route metadata is missing ${routeState}`)
 }
 
 assert(publicRoutes.includes("routeState: 'public-shareable'"),
   'public route registry must declare shareable URL state')
-assert(router.includes('allowLoginRedirect: routeState ==='),
+assert(appRoutes.includes('allowLoginRedirect: routeState ==='),
   'private login recovery must be an explicit route metadata gate')
-assert(router.includes('privateQueryNeedsSanitizing(to.name, to.query)')
-  && router.includes('routeQueryNeedsSanitizing || Boolean(to.hash)'),
+assert(routerIndex.includes('privateQueryNeedsSanitizing(to.name, to.query)')
+  && routerIndex.includes('routeQueryNeedsSanitizing || Boolean(to.hash)'),
   'private query and fragments must be sanitized before history commit')
 assert(policy.includes("route.meta.routeState !== 'private-recoverable'"),
   'login recovery must fail closed outside private-recoverable routes')
