@@ -1,6 +1,6 @@
 {
     "schema": "fsusblog.document-lifecycle-policy.v2",
-    "lastVerifiedCommit": "cc19b486b8ea658ab071ce80758a9f7ee6b5a8a3",
+    "lastVerifiedCommit": "843b9920f2fff3502467d59995cc24aeb1f27fa2",
     "maximumVerificationDistance": 100,
     "documents": [
         {
@@ -3024,7 +3024,10 @@
             "path": "docs/themes/runtime-lifecycle.md",
             "status": "current",
             "owner": "frontend",
-            "relatedIssues": [],
+            "relatedIssues": [
+                138,
+                1500
+            ],
             "supersedes": [],
             "supersededBy": null
         },

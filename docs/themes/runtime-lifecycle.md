@@ -1,12 +1,25 @@
 # Theme activation runtime
 
-`ThemeActivationRuntimeService` owns preview, apply, rollback, runtime CSS
-failure handling and default reset. It consumes only an already-installed
-declarative `.fstheme`; it does not install packages, render an admin UI,
-execute theme code or bypass `ThemePackageValidator` /
-`ThemeCssSafetyScanner`.
+## Current production state
 
-## Scope and activation flow
+The only theme capability wired in production is `themeRuntime.ts` — a
+light/dark/system mode toggle with localStorage persistence, DOM attribute
+synchronization (`data-theme-mode` / `data-theme-resolved`), MutationObserver
+for external DOM changes, AOT hydration reconciliation, and a Vue composable
+(`useThemeRuntime`). It is consumed by `ThemeModeToggle.vue`,
+`bootstrap/publicShell.ts`, `App.vue`, and `public-renderers/`.
+
+## Planned v1.3.0 capabilities
+
+The theme activation service described below (`ThemeActivationRuntimeService`,
+theme asset loading via `themeAssetRuntime`, CSS failure fallback, atomic
+rollback, default reset, and the full preview → active → default lifecycle) is
+planned for v1.3.0 (tracking issue #138). `themeAssetRuntime.ts` provides the
+type contracts and browser load/failure infrastructure but is not yet wired
+into any production entry or bootstrap path. Its only current consumer is the
+unit test `tests/frontend/unit/services/themeAssetRuntime.test.ts`.
+
+## Planned scope and activation flow
 
 Preview accepts only `user-preview:{positiveUserId}`. It writes an independent
 activation pointer for that user and never changes `site-wide`, `public`,
@@ -33,7 +46,7 @@ The pointer persists `activation_id`, `active_theme_id`, `asset_version`
 reason and source-generated JSON evidence. A rejected rescan writes history
 without changing the pointer.
 
-## Atomic rollback and default reset
+## Planned atomic rollback and default reset
 
 Rollback requires the activation UUID observed by the caller. The registry
 locks the scope row and rejects a stale UUID before mutation. It then restores
@@ -52,7 +65,7 @@ a fenced automatic rollback and throws `theme_activation_publish_failed`.
 The database rollback is authoritative even if publishing the rollback event
 also fails; no failure path reactivates the rejected version.
 
-## Browser CSS failure
+## Planned browser CSS failure
 
 `themeAssetRuntime` loads each candidate with `media="not all"` and does not
 change root attributes or remove the previous link until the candidate emits
@@ -69,7 +82,7 @@ accepts it only when scope, activation UUID, theme id and content hash still
 match the current pointer. A late report returns
 `theme_runtime_failure_stale` rather than rolling back a newer activation.
 
-## Risk, rollback and compatibility
+## Planned risk, rollback and compatibility
 
 - A migration adds nullable version columns to existing activation rows and a
   new history table. Old rows remain readable but cannot be used as a fenced
