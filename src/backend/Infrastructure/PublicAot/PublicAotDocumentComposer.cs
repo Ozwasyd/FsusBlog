@@ -725,7 +725,7 @@ internal static class PublicAotDocumentComposer
       try {
         const stored = window.localStorage.getItem('fsus:theme-mode');
         return stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system';
-      } catch {
+      } catch (e) {
         return 'system';
       }
     };
@@ -784,7 +784,9 @@ internal static class PublicAotDocumentComposer
         if (window.performance && typeof window.performance.mark === 'function') {{
           window.performance.mark('fsus:start:' + name);
         }}
-      }} catch {{
+      }} catch (e) {{
+        // performance.mark may throw when the name exceeds browser limits
+        // or the API is blocked by an extension. Degrade silently.
       }}
     }};
 
