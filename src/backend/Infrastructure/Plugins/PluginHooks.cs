@@ -400,7 +400,7 @@ public sealed class PluginHookDispatcher(
                     continue;
                 }
                 executed++;
-                PluginHookResult result = outcome.Result!;
+                PluginHookResult result = outcome.Result;
                 memoryUsedBytes = guard.MemoryUsedBytes;
                 success = true;
                 value = result.Value ?? value;

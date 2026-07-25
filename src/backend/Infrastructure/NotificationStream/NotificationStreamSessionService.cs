@@ -30,6 +30,8 @@ internal sealed class NotificationStreamSessionService(
     private const int DefaultDrillQueueCapacity = 32;
     private const int MinDrillQueueCapacity = 32;
     private const int MaxDrillQueueCapacity = 4096;
+    private static readonly CancellationToken s_closeTimeout
+        = new CancellationTokenSource(TimeSpan.FromSeconds(5)).Token;
 
     public async Task RunAsync(HttpContext context, NotificationStreamHandshake handshake, CancellationToken cancellationToken)
     {
@@ -289,7 +291,7 @@ internal sealed class NotificationStreamSessionService(
         SemaphoreSlim sendGate,
         NotificationStreamCloseInstruction closeInstruction)
     {
-        await sendGate.WaitAsync(CancellationToken.None);
+        await sendGate.WaitAsync(s_closeTimeout);
         try
         {
             if (socket.State == WebSocketState.Open || socket.State == WebSocketState.CloseReceived)
@@ -297,7 +299,7 @@ internal sealed class NotificationStreamSessionService(
                 await socket.CloseAsync(
                     NotificationStreamRestartProtocol.ToWebSocketCloseStatus(closeInstruction),
                     closeInstruction.Reason,
-                    CancellationToken.None);
+                    s_closeTimeout);
             }
         }
         finally
