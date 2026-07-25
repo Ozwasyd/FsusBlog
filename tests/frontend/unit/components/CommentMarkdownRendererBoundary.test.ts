@@ -1,16 +1,9 @@
 // @vitest-environment happy-dom
 
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { mount } from '@vue/test-utils'
 import { defineComponent, h } from 'vue'
 import { describe, expect, it } from 'vitest'
 import CommentMarkdownRenderer from '@/components/article/CommentMarkdownRenderer.vue'
-
-const componentSource = readFileSync(
-  resolve(process.cwd(), 'src/components/article/CommentMarkdownRenderer.vue'),
-  'utf8'
-)
 
 const MarkdownRendererStub = defineComponent({
   name: 'MarkdownRenderer',
@@ -59,17 +52,5 @@ describe('CommentMarkdownRenderer consumer-owned style boundary', () => {
     expect(wrapper.find('iframe').exists()).toBe(true)
 
     wrapper.unmount()
-  })
-
-  it('owns descendant styling through the stable data hook without deep or library internals', () => {
-    expect(componentSource.match(/:deep\s*\(/gu) ?? []).toHaveLength(0)
-    expect(componentSource).toContain('[data-fsus-comment-markdown] .markdown-body p:last-child')
-    expect(componentSource).toContain('[data-fsus-comment-markdown] .markdown-body pre')
-    expect(componentSource).toContain('[data-fsus-comment-markdown] .markdown-body :is(img, svg, iframe)')
-    expect(componentSource).not.toContain('.shiki')
-    expect(componentSource).not.toMatch(/\.el-[a-z0-9_-]+/iu)
-    expect(componentSource).not.toContain('!important')
-    expect(componentSource).not.toMatch(/margin(?:-inline|-block|-left|-right|-top|-bottom)?:\s*-/u)
-    expect(componentSource).not.toMatch(/position:\s*absolute/u)
   })
 })

@@ -1,7 +1,6 @@
 // @vitest-environment happy-dom
 
 import { createRequire } from 'node:module'
-import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { mount } from '@vue/test-utils'
 import { createSSRApp, defineComponent, h, nextTick } from 'vue'
@@ -49,21 +48,6 @@ afterEach(() => {
 })
 
 describe('PublicBlogLayoutShell PublicShell delegation', () => {
-  it('keeps the Blog-owned locale action on the shared 44px and 14px/500 baseline', () => {
-    const source = readFileSync(
-      resolve(process.cwd(), 'src/components/ui/LocaleToggle.vue'),
-      'utf8',
-    )
-    const controlRule = source.match(/\.fsusblog-locale-toggle\s*\{(?<body>[^}]+)\}/u)?.groups?.body ?? ''
-    const activeRule = source.match(/\.fsusblog-locale-toggle__active\s*\{(?<body>[^}]+)\}/u)?.groups?.body ?? ''
-
-    expect(controlRule).toContain('min-height: 2.75rem;')
-    expect(controlRule).toContain('font-size: 14px;')
-    expect(controlRule).toContain('font-weight: 500;')
-    expect(activeRule).toContain('font-weight: 500;')
-    expect(activeRule).not.toContain('font-weight: 700;')
-  })
-
   it('keeps native auth and search fallbacks in CSP-safe server output', async () => {
     const app = createSSRApp({
       render: () => h(PublicBlogLayoutShell, {

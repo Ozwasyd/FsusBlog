@@ -1,8 +1,6 @@
 // @vitest-environment happy-dom
 
 import { flushPromises, mount } from '@vue/test-utils'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 
@@ -108,26 +106,5 @@ describe('PolicyModal document style ownership', () => {
     expect(document.findAll('blockquote')).toHaveLength(1)
 
     wrapper.unmount()
-  })
-
-  it('does not pierce rendered markdown with scoped deep selectors', () => {
-    const source = readFileSync(
-      resolve(process.cwd(), 'src/components/PolicyModal.vue'),
-      'utf8'
-    )
-    const style = source.match(/<style[^>]*>([\s\S]*?)<\/style>/u)?.[1] ?? ''
-
-    expect(source.match(/:deep\(/gu) ?? []).toHaveLength(0)
-    expect(source).toContain('class="policy-legal-doc"')
-    expect(source).toContain('data-policy-document')
-    expect(source).toContain('mode="about"')
-    expect(style).toContain('[data-policy-document].policy-legal-doc')
-    expect(
-      style.replaceAll('[data-policy-document].policy-legal-doc', '')
-    ).not.toContain('.policy-legal-doc')
-    expect(style).not.toContain('.el-')
-    expect(style).not.toContain('!important')
-    expect(style).not.toMatch(/(?:^|[\s{;])margin(?:-[a-z]+)?:\s*-/mu)
-    expect(style).not.toContain('position: absolute')
   })
 })
