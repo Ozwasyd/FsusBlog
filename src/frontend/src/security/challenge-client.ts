@@ -390,7 +390,16 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
       deviceFingerprint: context.deviceFingerprint,
       policyVersion: run.response.policyVersion
     }
-        void cancelChallenge(request).catch(() => cancelChallenge(request).catch(() => undefined));
+        void cancelChallenge(request).catch((firstError: unknown) => {
+          if (import.meta.env.DEV) {
+            console.warn('[challenge-client] cancel retry #1 failed', firstError);
+          }
+          return cancelChallenge(request).catch((secondError: unknown) => {
+            if (import.meta.env.DEV) {
+              console.warn('[challenge-client] cancel retry #2 failed', secondError);
+            }
+          });
+        });
     }
 
     function abandonReplacement(context: SecurityChallengeContext, run: ActiveEnvelopeRun | undefined): void
