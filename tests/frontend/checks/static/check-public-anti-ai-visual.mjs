@@ -137,7 +137,7 @@ expectNotIncludes(homeFeedSurface, 'public-aside-placeholder', 'HomeFeedSurface.
 expectNotIncludes(homeFeedSurface, 'min-h-[18rem]', 'HomeFeedSurface.vue 18rem blank fallback');
 expectNotIncludes(homeFeedSurface, 'v-else\n      id="fsus-home-hot-articles-slot"', 'HomeFeedSurface.vue hidden aside fallback');
 expectIncludes(hotArticlesIsland, 'rounded-[var(--fsusblog-radius-control)]', 'homeHotArticlesIsland.ts');
-expectIncludes(siteStore, 'FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackKeywords', 'site.ts default keywords source');
+expectIncludes(siteStore, 'DEFAULT_SITE_KEYWORDS', 'site.ts default keywords source');
 expectIncludes(siteStore, 'normalizePublicSiteDescription(payload?.siteDescription)', 'site.ts default description source');
 expectIncludes(siteIdentityDefaults, '工程记录、性能实验、UI 系统与 FsusBlog 构建过程。', 'publicSiteIdentityDefaults.ts default description');
 expectIncludes(siteIdentityDefaults, '.NET, 前端性能, 系统设计, UI 系统, 技术博客, FsusBlog', 'publicSiteIdentityDefaults.ts default keywords')
