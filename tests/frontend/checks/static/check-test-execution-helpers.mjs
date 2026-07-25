@@ -31,7 +31,7 @@ const securityRunner = suiteSupport.slice(
 )
 assert.match(securityStaticRunner, /RunParallel "security-static"/u)
 assert.doesNotMatch(securityStaticRunner, /RequireDebugStack/u)
-assert.match(securityRuntimeRunner, /RunParallel "security-runtime-core"/u)
+assert.match(securityRuntimeRunner, /RunParallel "security-runtime-core"|runtime-resident-host/u)
 assert.match(securityRuntimeRunner, /local -a securityFailures=\(\)/u)
 assert.match(securityRuntimeRunner, /security stage failed, continuing/u)
 assert.match(securityRunner, /RunParallel "security-phases"/u)

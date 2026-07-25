@@ -169,8 +169,8 @@ requireIncludes('src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs', [
 requireIncludes('.gitignore', ['/package-lock.json'])
 requireIncludes('tools/test/lanes/_suite-support.sh', [
   'RunOnceCommand',
-  'RunFrontendFastBuildLane() {\n    EnsureWasmOnce',
-  'RunFrontendRuntimeContractsLane() {\n    EnsureWasmOnce',
+  'RunFrontendFastBuildLane() {\n    VerifyWasmReceiptOnce',
+  'RunFrontendRuntimeContractsLane() {\n    VerifyWasmReceiptOnce',
   'run-command-manifest.mjs',
   'resolve-dotnet-test-processors.mjs',
   '--no-build',
@@ -315,7 +315,7 @@ requireIncludes('tools/test/run-command-manifest.mjs', [
   'orchestrationMemoryGiBPerWorker: resolveNestedManifestMemoryGiBPerWorker({ env })'
 ])
 requireIncludes('tools/test/lanes/cross-browser-smoke.sh', [
-  'PLAYWRIGHT_OUTPUT_DIR="${PLAYWRIGHT_OUTPUT_DIR:-test-results/playwright/cross-browser}"'
+  'PLAYWRIGHT_OUTPUT_DIR="test-results/playwright/$browser_profile"'
 ])
 requireSectionIncludes('tools/test/bundles/run-bundle.mjs', "commandStep('privacy-zk-contract-prebuild',", "commandStep('privacy-zk-contract',", [
   "commandStep('privacy-zk-contract-prebuild', 'tools/test/lanes/privacy-zk-comment-matrix.sh contract-prebuild'",
