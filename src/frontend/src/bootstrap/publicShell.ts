@@ -383,7 +383,7 @@ function unmountHomeHotArticlesIslandLazy(): void {
 
   void homeHotArticlesIslandModulePromise
     .then((module) => module.unmountHomeHotArticlesIsland())
-    .catch(() => {})
+    .catch((e: unknown) => { if (import.meta.env.DEV) { console.warn('[publicShell] unmount failed', e) } })
 }
 
 async function mountArticleCommentsIslandLazy(
@@ -407,7 +407,7 @@ function unmountArticleCommentsIslandLazy(): void {
 
   void commentsIslandModulePromise
     .then((module) => module.unmountArticleCommentsIsland())
-    .catch(() => {})
+    .catch((e: unknown) => { if (import.meta.env.DEV) { console.warn('[publicShell] unmount failed', e) } })
 }
 
 function clearArticleCommentsIslandActivation(): void {
@@ -496,7 +496,7 @@ function requestPublicRoutePrewarm(target: string | null, reason: PublicRoutePre
 
   void import('@/bootstrap/fullApp')
     .then(({ prewarmFullAppRoute }: FullAppBootstrapModule) => prewarmFullAppRoute(target, { reason }))
-    .catch(() => {})
+    .catch((e: unknown) => { if (import.meta.env.DEV) { console.warn('[publicShell] unmount failed', e) } })
 }
 
 function schedulePublicRouteIdlePrewarm(): void {

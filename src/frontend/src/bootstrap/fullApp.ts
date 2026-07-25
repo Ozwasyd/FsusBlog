@@ -107,7 +107,9 @@ async function syncRouterToCurrentLocationForClientMount(): Promise<void> {
     return
   }
 
-  await router.replace(targetRoute).catch(() => {})
+  await router.replace(targetRoute).catch((e: unknown) => {
+    if (import.meta.env.DEV) { console.warn('[fullApp] router.replace failed', e) }
+  })
 }
 
 function installFullAppPlugins(prepared: PreparedFullApp): void {
@@ -230,8 +232,10 @@ function installDeferredFsusMotion(prepared: PreparedFullApp): void {
         prepared.app.use(FsuMotion)
         markStartup('full-app-bootstrap:motion-ready')
       })
-      .catch(() => {
+      .catch((e: unknown) => {
         deferredMotionInstallStarted = false
+        if (import.meta.env.DEV) { console.warn('[fullApp] motion install failed', e) }
+      })
       })
   }
 
