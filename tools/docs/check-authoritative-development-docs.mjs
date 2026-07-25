@@ -21,13 +21,15 @@ const expectedStyleOwnerIds = [
   'csharp-dotnet',
   'typescript-javascript-vue',
   'css-web',
+  'c',
   'cpp',
   'cmake',
   'shell',
   'yaml',
   'json',
   'markdown',
-  'sql'
+  'sql',
+  'lua'
 ]
 const expectedClassificationIds = ['generated', 'vendor', 'fixture', 'lock', 'minified']
 const expectedExternalExceptionIds = [

@@ -50,13 +50,15 @@
         "csharp-dotnet",
         "typescript-javascript-vue",
         "css-web",
+        "c",
         "cpp",
         "cmake",
         "shell",
         "yaml",
         "json",
         "markdown",
-        "sql"
+        "sql",
+        "lua"
     ],
     "styleOwners": [
         {
@@ -96,11 +98,18 @@
             "documentationHeading": "## CSS"
         },
         {
+            "id": "c",
+            "owner": "NativeCStyleOwner",
+            "extensions": [
+                ".c",
+                ".h"
+            ],
+            "documentationHeading": "## C"
+        },
+        {
             "id": "cpp",
             "owner": "WasmEngineAgent",
             "extensions": [
-                ".c",
-                ".h",
                 ".cpp",
                 ".hpp"
             ],
@@ -166,6 +175,14 @@
                 ".sql"
             ],
             "documentationHeading": "## SQL"
+        },
+        {
+            "id": "lua",
+            "owner": "LuaPluginStyleOwner",
+            "extensions": [
+                ".lua"
+            ],
+            "documentationHeading": "## Lua"
         },
         {
             "id": "repository-config",

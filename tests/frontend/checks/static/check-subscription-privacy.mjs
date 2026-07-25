@@ -23,9 +23,10 @@ const entityMatch = entities.match(/public class SiteSubscription[\s\S]*?^}/m)
 assert(entityMatch, 'SiteSubscription entity block not found')
 const entityBlock = entityMatch[0]
 
-assert(entityBlock.includes('EmailHash'), 'SiteSubscription must store EmailHash')
-assert(!/\bEmail\s*\{/.test(entityBlock), 'SiteSubscription must not store raw Email')
-assert(endpoints.includes('SHA256.HashData'), 'subscription endpoint must hash email')
+assert(entities.includes('HashVersion'), 'SiteSubscription must store HashVersion')
+assert(entities.includes('"hmac-v1"'), 'SiteSubscription HashVersion must be hmac-v1')
+assert(endpoints.includes('SiteSubscriptionIdentity.HashEmail'), 'subscription endpoint must delegate to canonical keyed HMAC helper')
+assert(!endpoints.includes('SHA256.HashData'), 'subscription endpoint must not use bare SHA256 without HMAC key')
 assert(!endpoints.includes('SmtpClient'), 'subscription endpoint must not send email directly')
 assert(!endpoints.includes('WebPush'), 'subscription endpoint must not send Web Push directly')
 assert(!endpoints.includes('SendGrid'), 'subscription endpoint must not depend on external email provider')

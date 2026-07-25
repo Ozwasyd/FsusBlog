@@ -68,6 +68,12 @@ Allman braces 适用于 C# 和仓库手写 C++。TS/JS/Vue、CSS、Shell、CMake
 - component scope、theme token 和 reduced-motion contract 优先于个人 selector 偏好。
 - class/custom-property 是 DOM/CSS 外部契约时保留原名，内部 TS adapter 不复制 kebab-case 命名。
 
+## C
+
+- C11 以上，4 spaces、Allman braces；系统和第三方 header 优先于项目 header。
+- 函数和类型使用 `PascalCase`，module-static/local 使用 `camelCase`；Wasm C ABI export 通过窄 adapter 暴露并保留外部 `snake_case`。
+- 不默认套用 C++ 规则或 STL；安全敏感代码显式标注边界和生命周期。
+
 ## C++
 
 - 手写 C++23 使用 4 spaces 和 Allman braces；header include 依次为对应 header、标准库、第三方、仓库 header。
@@ -102,6 +108,12 @@ Allman braces 适用于 C# 和仓库手写 C++。TS/JS/Vue、CSS、Shell、CMake
 - heading 层级不跳级，fenced code block 标注语言，relative link 指向真实文件。
 - 一条规范只在本文件定义；其他文档链接到具体 heading，不复制完整规则表。
 - 命令示例必须可解析到现有脚本或 package script，不把伪命令写成可执行指引。
+
+## Lua
+
+- 4 spaces；插件入口位于 `examples/plugins/`，不嵌入 C# 或 TypeScript 流程。
+- host API、错误处理和模块返回值遵循插件 SDK 契约；不依赖全局 IO、系统调用或未声明的跨模块状态。
+- 注释和格式化遵循插件示例统一风格；示例代码视为受治理手写 source。
 
 ## SQL
 
