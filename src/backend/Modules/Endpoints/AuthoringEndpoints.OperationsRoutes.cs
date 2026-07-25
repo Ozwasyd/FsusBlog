@@ -476,7 +476,7 @@ public static partial class AuthoringEndpoints
         group.MapGet("/plugins", async (
             HttpContext context,
             IAedsEncoder aeds,
-            PluginAdminService plugins,
+            [FromServices] PluginAdminService plugins,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
@@ -499,7 +499,7 @@ public static partial class AuthoringEndpoints
             string pluginId,
             HttpContext context,
             IAedsEncoder aeds,
-            PluginAdminService plugins,
+            [FromServices] PluginAdminService plugins,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
@@ -525,7 +525,7 @@ public static partial class AuthoringEndpoints
             HttpContext context,
             IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
-            PluginAdminService plugins,
+            [FromServices] PluginAdminService plugins,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
@@ -591,7 +591,7 @@ public static partial class AuthoringEndpoints
             HttpContext context,
             IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
-            PluginAdminService plugins,
+            [FromServices] PluginAdminService plugins,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {

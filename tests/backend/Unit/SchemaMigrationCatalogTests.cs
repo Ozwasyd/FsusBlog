@@ -31,13 +31,14 @@ public sealed class SchemaMigrationCatalogTests
                 SchemaMigrationCatalogDependency dependency = Assert.Single(catalog.Dependencies);
                 Assert.Equal(ScheduledPublishIndexMigrationDefinitions.MigrationId, dependency.MigrationId);
                 Assert.Equal(SchemaMigrationPhase.PostCodeFirst, dependency.Phase);
+            },
+            catalog =>
+            {
+                Assert.Equal("current-20260725", catalog.CatalogId);
+                Assert.Equal(new DateOnly(2026, 7, 25), catalog.StartVersion);
+                Assert.Equal(new DateOnly(2026, 7, 25), catalog.EndVersion);
             });
-        Assert.Contains(
-            new SchemaMigrationVersionGap(
-                new DateOnly(2026, 7, 21),
-                new DateOnly(2026, 7, 23)),
-            manifest.DeclaredVersionGaps);
-        Assert.Equal(125, manifest.Descriptors.Count);
+        Assert.Equal(127, manifest.Descriptors.Count);
         const string ExpectedPlanFingerprint = "21D58ACF08BB748BFCF9CC0E0475D6F9C7FBD59A45692036FD4A23CFA6D70D2F";
         string actualPlanFingerprint = ComputePlanFingerprint(manifest.Descriptors);
         Assert.True(
@@ -300,7 +301,7 @@ public sealed class SchemaMigrationCatalogTests
 
         Assert.Same(first, second);
         Assert.Same(manifest, first);
-        Assert.Equal(125, first.Count);
+        Assert.Equal(127, first.Count);
         Assert.Equal(first.Count, first.Select(static descriptor => descriptor.MigrationId).Distinct(StringComparer.Ordinal).Count());
         Assert.Equal(
             ComputePlanFingerprint(manifest),

@@ -456,6 +456,8 @@ enum class FrameType : std::uint16_t
         case FrameType::AnonymousPrivacyStateSnapshot:
         case FrameType::PerceptionSealedChallengeV2:
         case FrameType::PerceptionSealedResultV2:
+        case FrameType::RetiredCredentialSpecificRevocationRequest:
+        case FrameType::RetiredCredentialSpecificRevocationResponse:
         case FrameType::AdminPrincipalSnapshot:
         case FrameType::AuthAnonymousBootstrapRequest:
         case FrameType::AuthUpdatePublicHandleRequest:
@@ -514,12 +516,6 @@ enum class FrameType : std::uint16_t
         default:
             return false;
     }
-}
-
-[[nodiscard]] constexpr bool IsRetiredFrameType(std::uint16_t raw) noexcept
-{
-    return raw == 40 || raw == 43 || raw == 44 || raw == 45 || raw == 46
-        || raw == 180 || raw == 181 || raw == 186 || raw == 187;
 }
 
 } // namespace FsusBlog::Aeds

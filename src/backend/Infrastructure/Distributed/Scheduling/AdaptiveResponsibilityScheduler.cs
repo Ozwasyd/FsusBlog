@@ -265,7 +265,7 @@ public sealed class AdaptiveResponsibilityScheduler(
             ? 0.05
             : 0;
         double leasePenalty = Math.Clamp(node.Resources.ActiveLeaseCount / 100d, 0, 1) * 0.04;
-        return Math.Round(Math.Max(0, pressure + leasePenalty - localityBonus), 6);
+        return Math.Round(Math.Max(0, pressure + leasePenalty - localityBonus), 6, MidpointRounding.AwayFromZero);
     }
 
     private static double Pressure(NodeDescriptor node, ResponsibilityDescriptor descriptor)
