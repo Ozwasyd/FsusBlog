@@ -1,77 +1,77 @@
-import type { DeepStringShape } from '../keys';
-import type { messages as zhCNMessages } from '../zh-CN/messages';
+import type { DeepStringShape } from '../keys'
+import type { messages as zhCNMessages } from '../zh-CN/messages'
 
 export const messages = {
     conversationList: {
         titleAccount: 'Messages',
-        titleAdmin: 'Active Conversations',
-        newTicketCta: 'Submit Ticket',
-        emptyTitleAccount: 'No Site Messages',
-        emptyTitleAdmin: 'No Pending Conversations',
-        emptyDescriptionAccount: 'Notifications, system messages, and appeal tickets.',
-        emptyDescriptionAdmin: 'No messages require action under current filter.',
-        noContentAdmin: 'No content',
-        noContentAccount: 'No message content',
-        systemTag: 'System',
-        listAriaLabel: 'Conversation list',
-        showMoreLabel: 'Show more conversations ({n})'
+        titleAdmin: 'Conversations actives',
+        newTicketCta: 'Créer un ticket',
+        emptyTitleAccount: 'Aucun message',
+        emptyTitleAdmin: 'Aucune conversation en attente',
+        emptyDescriptionAccount: 'Notifications, messages système et tickets de recours.',
+        emptyDescriptionAdmin: "Aucun message ne nécessite d'action avec le filtre actuel.",
+        noContentAdmin: 'Aucun contenu',
+        noContentAccount: 'Aucun message',
+        systemTag: 'Système',
+        listAriaLabel: 'Liste des conversations',
+        showMoreLabel: 'Afficher plus de conversations ({n})'
     },
     threadPanel: {
-        backAriaLabel: 'Back to conversation list',
-        backCta: 'Back to conversation list',
-        titleFallback: 'Select conversation',
-        titleFallbackAccount: 'Select conversation or submit ticket',
-        titleFallbackAdmin: 'Select conversation',
-        systemTag: 'System',
-        statusChangeWillNotify: 'Status changes will notify user',
-        markOpen: 'Mark Open',
-        moveToPending: 'Move to Pending',
-        closeConversation: 'Close Conversation',
-        emptyDescriptionAccount: 'Conversation details and reply section.',
-        emptyDescriptionAdmin: 'Pending conversation.',
-        newTicketCta: 'Submit Ticket',
-        replyingToPrefix: 'Replying to',
-        accountContext: 'Current conversation',
-        accountContextAdmin: 'Account {id}',
-        statusPrefix: 'Status',
-        showOlder: 'Load older messages',
-        replyHeader: 'Reply to current conversation',
-        replyLabel: 'Reply',
-        replyLabelAccount: 'Reply to administrator',
-        replyPlaceholder: 'Enter reply message',
-        replyCta: 'Send reply'
+        backAriaLabel: 'Retour à la liste des conversations',
+        backCta: 'Retour à la liste',
+        titleFallback: 'Sélectionnez une conversation',
+        titleFallbackAccount: 'Sélectionnez une conversation ou créez un ticket',
+        titleFallbackAdmin: 'Sélectionnez une conversation',
+        systemTag: 'Système',
+        statusChangeWillNotify: "Les changements de statut seront notifiés à l'utilisateur",
+        markOpen: 'Marquer comme en cours',
+        moveToPending: 'Remettre en attente',
+        closeConversation: 'Fermer la conversation',
+        emptyDescriptionAccount: 'Détails de la conversation et zone de réponse.',
+        emptyDescriptionAdmin: 'Conversation en attente.',
+        newTicketCta: 'Créer un ticket',
+        replyingToPrefix: 'Réponse à',
+        accountContext: 'Conversation actuelle',
+        accountContextAdmin: 'Compte {id}',
+        statusPrefix: 'Statut',
+        showOlder: 'Charger les messages plus anciens',
+        replyHeader: 'Répondre à la conversation',
+        replyLabel: 'Répondre',
+        replyLabelAccount: "Répondre à l'administrateur",
+        replyPlaceholder: 'Saisissez votre réponse',
+        replyCta: 'Envoyer la réponse'
     },
     composePanel: {
-        titleAdmin: 'Send System Message',
-        titleAccount: 'Submit Appeal Ticket',
-        targetAccountIdLabel: 'Target Account ID',
-        targetAccountIdPlaceholder: 'Enter account ID',
-        subjectLabel: 'Subject',
-        systemSubjectPlaceholder: 'e.g. System Notification',
-        accountSubjectPlaceholder: 'e.g. Account Appeal',
-        bodyLabel: 'Body',
-        bodyPlaceholderAdmin: 'Enter message body',
-        bodyPlaceholderAccount: 'Describe problem and request',
-        submitAdminCta: 'Send System Message',
-        submitAccountCta: 'Submit Ticket'
+        titleAdmin: 'Envoyer un message système',
+        titleAccount: 'Créer un ticket de recours',
+        targetAccountIdLabel: 'ID du compte cible',
+        targetAccountIdPlaceholder: "Saisissez l'ID du compte",
+        subjectLabel: 'Sujet',
+        systemSubjectPlaceholder: 'Ex. : Notification système',
+        accountSubjectPlaceholder: 'Ex. : Recours contre un bannissement',
+        bodyLabel: 'Contenu',
+        bodyPlaceholderAdmin: 'Saisissez le corps du message',
+        bodyPlaceholderAccount: 'Décrivez votre problème et votre demande',
+        submitAdminCta: 'Envoyer le message système',
+        submitAccountCta: 'Créer le ticket'
     },
     emptyState: {
-        titleFallback: 'No conversations to display'
+        titleFallback: 'Aucune conversation à afficher'
     },
     filter: {
-        open: 'Open',
-        pending: 'Pending',
-        closed: 'Closed',
-        system: 'System',
-        all: 'All',
-        unread: 'Unread',
-        systemMessages: 'System Messages'
+        open: 'En cours',
+        pending: 'En attente',
+        closed: 'Fermé',
+        system: 'Système',
+        all: 'Tout',
+        unread: 'Non lu',
+        systemMessages: 'Messages système'
     },
     status: {
-        systemTag: 'System'
+        systemTag: 'Système'
     },
     errors: {
-        loadFailed: 'Failed to load messages',
-        sendFailed: 'Failed to send message'
+        loadFailed: 'Échec du chargement des messages',
+        sendFailed: "Échec de l'envoi"
     }
-} as const satisfies DeepStringShape<typeof zhCNMessages>;
+} as const satisfies DeepStringShape<typeof zhCNMessages>

@@ -1,56 +1,56 @@
-import type { DeepStringShape } from '../keys';
-import type { article as zhCNArticle } from '../zh-CN/article';
+import type { DeepStringShape } from '../keys'
+import type { article as zhCNArticle } from '../zh-CN/article'
 
 export const article = {
     actions: {
-        toc: 'Contents',
-        tocAria: 'Article contents',
-        comments: 'Comments',
-        share: 'Share',
-        top: 'Top',
-        copyLink: 'Copy link',
-        linkCopied: 'Link copied',
-        copyFailed: 'Copy failed',
-        copyCode: 'Copy',
-        codeCopied: 'Copied',
-        viewImage: 'View image',
-        viewImageNamed: 'View image: {title}',
-        closeImage: 'Close image',
-        previousImage: 'Previous',
-        nextImage: 'Next',
-        previousArticle: 'Previous post',
-        nextArticle: 'Next post',
-        related: 'Related',
-        read: 'Read',
-        readFull: 'Read: {title}',
-        loadMoreComments: 'Load more comments',
-        noMoreComments: 'No more comments'
+        toc: '目次',
+        tocAria: '記事目次',
+        comments: 'コメント',
+        share: '共有',
+        top: 'トップ',
+        copyLink: 'リンクをコピー',
+        linkCopied: 'リンクをコピーしました',
+        copyFailed: 'コピーに失敗しました',
+        copyCode: 'コピー',
+        codeCopied: 'コピーしました',
+        viewImage: '画像を拡大',
+        viewImageNamed: '画像を拡大：{title}',
+        closeImage: '画像を閉じる',
+        previousImage: '前へ',
+        nextImage: '次へ',
+        previousArticle: '前の記事',
+        nextArticle: '次の記事',
+        related: '関連記事',
+        read: '読む',
+        readFull: '全文を読む：{title}',
+        loadMoreComments: 'さらにコメントを読み込む',
+        noMoreComments: 'これ以上のコメントはありません'
     },
     metadata: {
-        publishedAt: 'Published',
-        updatedAt: 'Updated',
-        wordsPrefix: '',
-        wordsSuffix: 'words',
-        readingMinutesPrefix: '',
-        readingMinutesSuffix: 'min read',
-        longRead: 'Long read',
-        longReadAria: 'Long-read notice'
+        publishedAt: '公開日',
+        updatedAt: '更新日',
+        wordsPrefix: '約',
+        wordsSuffix: '字',
+        readingMinutesPrefix: '読了目安',
+        readingMinutesSuffix: '分',
+        longRead: '長文',
+        longReadAria: '長文記事のお知らせ'
     },
     comments: {
-        heading: 'Reader comments',
-        empty: 'No comments.',
-        emptyTitle: 'No comments',
-        emptyDescription: 'Log in to join the discussion.',
-        loginCta: 'Log in to comment',
-        safetyTitle: 'Complete comment security check',
-        treeAria: 'Comment tree'
+        heading: '読者コメント',
+        empty: 'まだコメントはありません。',
+        emptyTitle: 'コメントなし',
+        emptyDescription: 'ログインするとディスカッションに参加できます。',
+        loginCta: 'ログインしてコメントする',
+        safetyTitle: 'コメントセキュリティ検証を完了してください',
+        treeAria: 'コメントツリー'
     },
     content: {
-        emptyAria: 'Article body is empty',
-        empty: 'This article does not have body content yet.',
-        tagsAria: 'Article tags',
-        rightsAria: 'Copyright and citation',
-        relatedAria: 'Related articles',
-        coverAlt: '{title} — cover image'
+        emptyAria: '記事本文が空です',
+        empty: 'この記事にはまだ本文がありません',
+        tagsAria: '記事タグ',
+        rightsAria: '著作権と引用',
+        relatedAria: '関連記事',
+        coverAlt: '{title} — カバー画像'
     }
-} as const satisfies DeepStringShape<typeof zhCNArticle>;
+} as const satisfies DeepStringShape<typeof zhCNArticle>

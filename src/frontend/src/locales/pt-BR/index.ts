@@ -12,5 +12,14 @@ import { publicMessages } from './public'
 import { security } from './security'
 
 export const ptBR = {
-    common, public: publicMessages, article, auth, identity, layout, messages, security, admin, errors
+    common,
+    public: publicMessages,
+    article,
+    auth,
+    identity,
+    layout,
+    messages,
+    security,
+    admin,
+    errors
 } as const satisfies DeepStringShape<typeof zhCN>

@@ -1,56 +1,56 @@
-import type { DeepStringShape } from '../keys';
-import type { article as zhCNArticle } from '../zh-CN/article';
+import type { DeepStringShape } from '../keys'
+import type { article as zhCNArticle } from '../zh-CN/article'
 
 export const article = {
     actions: {
-        toc: 'Contents',
-        tocAria: 'Article contents',
-        comments: 'Comments',
-        share: 'Share',
-        top: 'Top',
-        copyLink: 'Copy link',
-        linkCopied: 'Link copied',
-        copyFailed: 'Copy failed',
-        copyCode: 'Copy',
-        codeCopied: 'Copied',
-        viewImage: 'View image',
-        viewImageNamed: 'View image: {title}',
-        closeImage: 'Close image',
-        previousImage: 'Previous',
-        nextImage: 'Next',
-        previousArticle: 'Previous post',
-        nextArticle: 'Next post',
-        related: 'Related',
-        read: 'Read',
-        readFull: 'Read: {title}',
-        loadMoreComments: 'Load more comments',
-        noMoreComments: 'No more comments'
+        toc: '目錄',
+        tocAria: '文章目錄',
+        comments: '評論',
+        share: '分享',
+        top: '頂部',
+        copyLink: '複製連結',
+        linkCopied: '連結已複製',
+        copyFailed: '複製失敗',
+        copyCode: '複製',
+        codeCopied: '已複製',
+        viewImage: '檢視大圖',
+        viewImageNamed: '檢視大圖：{title}',
+        closeImage: '關閉大圖',
+        previousImage: '上一張',
+        nextImage: '下一張',
+        previousArticle: '上一篇',
+        nextArticle: '下一篇',
+        related: '相關閱讀',
+        read: '閱讀',
+        readFull: '閱讀全文：{title}',
+        loadMoreComments: '載入更多評論',
+        noMoreComments: '沒有更多評論'
     },
     metadata: {
-        publishedAt: 'Published',
-        updatedAt: 'Updated',
-        wordsPrefix: '',
-        wordsSuffix: 'words',
-        readingMinutesPrefix: '',
-        readingMinutesSuffix: 'min read',
-        longRead: 'Long read',
-        longReadAria: 'Long-read notice'
+        publishedAt: '發佈於',
+        updatedAt: '更新於',
+        wordsPrefix: '全文約',
+        wordsSuffix: '字',
+        readingMinutesPrefix: '預計閱讀',
+        readingMinutesSuffix: '分鐘',
+        longRead: '長文',
+        longReadAria: '長文閱讀提示'
     },
     comments: {
-        heading: 'Reader comments',
-        empty: 'No comments.',
-        emptyTitle: 'No comments',
-        emptyDescription: 'Log in to join the discussion.',
-        loginCta: 'Log in to comment',
-        safetyTitle: 'Complete comment security check',
-        treeAria: 'Comment tree'
+        heading: '讀者評論',
+        empty: '暫無評論。',
+        emptyTitle: '暫無評論',
+        emptyDescription: '登入後可參與討論。',
+        loginCta: '登入以參與討論',
+        safetyTitle: '完成評論安全驗證',
+        treeAria: '評論樹'
     },
     content: {
-        emptyAria: 'Article body is empty',
-        empty: 'This article does not have body content yet.',
-        tagsAria: 'Article tags',
-        rightsAria: 'Copyright and citation',
-        relatedAria: 'Related articles',
-        coverAlt: '{title} — cover image'
+        emptyAria: '文章正文為空',
+        empty: '這篇文章目前還沒有正文內容',
+        tagsAria: '文章標籤',
+        rightsAria: '版權與引用',
+        relatedAria: '延伸閱讀文章',
+        coverAlt: '{title} — 題圖'
     }
-} as const satisfies DeepStringShape<typeof zhCNArticle>;
+} as const satisfies DeepStringShape<typeof zhCNArticle>

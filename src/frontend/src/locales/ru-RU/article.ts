@@ -1,56 +1,56 @@
-import type { DeepStringShape } from '../keys';
-import type { article as zhCNArticle } from '../zh-CN/article';
+import type { DeepStringShape } from '../keys'
+import type { article as zhCNArticle } from '../zh-CN/article'
 
 export const article = {
     actions: {
-        toc: 'Contents',
-        tocAria: 'Article contents',
-        comments: 'Comments',
-        share: 'Share',
-        top: 'Top',
-        copyLink: 'Copy link',
-        linkCopied: 'Link copied',
-        copyFailed: 'Copy failed',
-        copyCode: 'Copy',
-        codeCopied: 'Copied',
-        viewImage: 'View image',
-        viewImageNamed: 'View image: {title}',
-        closeImage: 'Close image',
-        previousImage: 'Previous',
-        nextImage: 'Next',
-        previousArticle: 'Previous post',
-        nextArticle: 'Next post',
-        related: 'Related',
-        read: 'Read',
-        readFull: 'Read: {title}',
-        loadMoreComments: 'Load more comments',
-        noMoreComments: 'No more comments'
+        toc: 'Содержание',
+        tocAria: 'Содержание статьи',
+        comments: 'Комментарии',
+        share: 'Поделиться',
+        top: 'Наверх',
+        copyLink: 'Копировать ссылку',
+        linkCopied: 'Ссылка скопирована',
+        copyFailed: 'Не удалось скопировать',
+        copyCode: 'Копировать',
+        codeCopied: 'Скопировано',
+        viewImage: 'Посмотреть изображение',
+        viewImageNamed: 'Посмотреть: {title}',
+        closeImage: 'Закрыть изображение',
+        previousImage: 'Предыдущее',
+        nextImage: 'Следующее',
+        previousArticle: 'Предыдущая статья',
+        nextArticle: 'Следующая статья',
+        related: 'Похожие',
+        read: 'Читать',
+        readFull: 'Читать: {title}',
+        loadMoreComments: 'Загрузить ещё комментарии',
+        noMoreComments: 'Комментариев больше нет'
     },
     metadata: {
-        publishedAt: 'Published',
-        updatedAt: 'Updated',
+        publishedAt: 'Опубликовано',
+        updatedAt: 'Обновлено',
         wordsPrefix: '',
-        wordsSuffix: 'words',
+        wordsSuffix: 'слов',
         readingMinutesPrefix: '',
-        readingMinutesSuffix: 'min read',
-        longRead: 'Long read',
-        longReadAria: 'Long-read notice'
+        readingMinutesSuffix: 'мин. чтения',
+        longRead: 'Длинная статья',
+        longReadAria: 'Длинная статья'
     },
     comments: {
-        heading: 'Reader comments',
-        empty: 'No comments.',
-        emptyTitle: 'No comments',
-        emptyDescription: 'Log in to join the discussion.',
-        loginCta: 'Log in to comment',
-        safetyTitle: 'Complete comment security check',
-        treeAria: 'Comment tree'
+        heading: 'Комментарии читателей',
+        empty: 'Пока нет комментариев.',
+        emptyTitle: 'Нет комментариев',
+        emptyDescription: 'Войдите, чтобы участвовать в обсуждении.',
+        loginCta: 'Войти, чтобы комментировать',
+        safetyTitle: 'Пройдите проверку безопасности',
+        treeAria: 'Дерево комментариев'
     },
     content: {
-        emptyAria: 'Article body is empty',
-        empty: 'This article does not have body content yet.',
-        tagsAria: 'Article tags',
-        rightsAria: 'Copyright and citation',
-        relatedAria: 'Related articles',
-        coverAlt: '{title} — cover image'
+        emptyAria: 'Текст статьи пуст',
+        empty: 'У этой статьи пока нет текста.',
+        tagsAria: 'Теги статьи',
+        rightsAria: 'Авторские права и цитирование',
+        relatedAria: 'Похожие статьи',
+        coverAlt: '{title} — обложка'
     }
-} as const satisfies DeepStringShape<typeof zhCNArticle>;
+} as const satisfies DeepStringShape<typeof zhCNArticle>

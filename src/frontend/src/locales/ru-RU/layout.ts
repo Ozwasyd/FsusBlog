@@ -1,33 +1,33 @@
-import type { DeepStringShape } from '../keys';
-import type { layout as zhCNLayout } from '../zh-CN/layout';
+import type { DeepStringShape } from '../keys'
+import type { layout as zhCNLayout } from '../zh-CN/layout'
 
 export const layout = {
     siteHeader: {
-        ariaLabel: 'Site navigation',
-        navAriaLabel: 'Main navigation',
-        mobileNavMenuLabel: 'Menu',
-        mobileUtilityAriaLabel: 'Display and account',
-        searchTriggerLabel: 'Search',
-        searchCancelLabel: 'Cancel',
-        searchAriaLabel: 'Search content',
-        searchPlaceholder: 'Search posts, tags, or keywords',
+        ariaLabel: 'Навигация по сайту',
+        navAriaLabel: 'Главное меню',
+        mobileNavMenuLabel: 'Меню',
+        mobileUtilityAriaLabel: 'Оформление и аккаунт',
+        searchTriggerLabel: 'Поиск',
+        searchCancelLabel: 'Отмена',
+        searchAriaLabel: 'Поиск по сайту',
+        searchPlaceholder: 'Поиск статей, тегов или ключевых слов',
         fallbackTitle: "Fsu's Blog",
-        fallbackDescription: 'Engineering logs, performance benchmarks, UI design systems, and FsusBlog development.',
-        fallbackKeywords: '.NET, Frontend performance, System design, UI systems, Tech blog, FsusBlog',
+        fallbackDescription: 'Технические заметки, тесты производительности, системы дизайна и разработка FsusBlog.',
+        fallbackKeywords: '.NET, Производительность фронтенда, Системный дизайн, UI-системы, Технический блог, FsusBlog',
         fallbackAuthor: 'Fsu',
         fallbackManifestName: "Fsu's Blog",
         fallbackManifestShortName: 'FsusBlog'
     },
     recommendations: {
-        eyebrow: 'Popular posts',
-        leadEyebrow: 'Featured',
-        feedEyebrow: 'Latest posts',
-        leadLoadingLabel: 'Loading featured post',
-        feedLoadingLabel: 'Loading post list',
-        ariaReadFull: 'Read full post: {title}',
-        viewsUnit: 'views'
+        eyebrow: 'Популярные статьи',
+        leadEyebrow: 'Рекомендуемое',
+        feedEyebrow: 'Последние статьи',
+        leadLoadingLabel: 'Загрузка рекомендуемой статьи',
+        feedLoadingLabel: 'Загрузка списка статей',
+        ariaReadFull: 'Читать полностью: {title}',
+        viewsUnit: 'просмотров'
     },
     themeMode: {
-        label: 'Theme mode'
+        label: 'Тема оформления'
     }
-} as const satisfies DeepStringShape<typeof zhCNLayout>;
+} as const satisfies DeepStringShape<typeof zhCNLayout>

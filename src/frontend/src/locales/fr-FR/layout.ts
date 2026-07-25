@@ -1,33 +1,33 @@
-import type { DeepStringShape } from '../keys';
-import type { layout as zhCNLayout } from '../zh-CN/layout';
+import type { DeepStringShape } from '../keys'
+import type { layout as zhCNLayout } from '../zh-CN/layout'
 
 export const layout = {
     siteHeader: {
-        ariaLabel: 'Site navigation',
-        navAriaLabel: 'Main navigation',
+        ariaLabel: 'Navigation du site',
+        navAriaLabel: 'Navigation principale',
         mobileNavMenuLabel: 'Menu',
-        mobileUtilityAriaLabel: 'Display and account',
-        searchTriggerLabel: 'Search',
-        searchCancelLabel: 'Cancel',
-        searchAriaLabel: 'Search content',
-        searchPlaceholder: 'Search posts, tags, or keywords',
-        fallbackTitle: "Fsu's Blog",
-        fallbackDescription: 'Engineering logs, performance benchmarks, UI design systems, and FsusBlog development.',
-        fallbackKeywords: '.NET, Frontend performance, System design, UI systems, Tech blog, FsusBlog',
+        mobileUtilityAriaLabel: 'Affichage et compte',
+        searchTriggerLabel: 'Rechercher',
+        searchCancelLabel: 'Annuler',
+        searchAriaLabel: 'Rechercher du contenu',
+        searchPlaceholder: 'Rechercher articles, étiquettes ou mots-clés',
+        fallbackTitle: 'Le blog de Fsu',
+        fallbackDescription: "Notes d'ingénierie, tests de performance, systèmes UI et développement de FsusBlog.",
+        fallbackKeywords: '.NET, Performance frontale, Conception système, Systèmes UI, Blog technique, FsusBlog',
         fallbackAuthor: 'Fsu',
-        fallbackManifestName: "Fsu's Blog",
+        fallbackManifestName: 'Le blog de Fsu',
         fallbackManifestShortName: 'FsusBlog'
     },
     recommendations: {
-        eyebrow: 'Popular posts',
-        leadEyebrow: 'Featured',
-        feedEyebrow: 'Latest posts',
-        leadLoadingLabel: 'Loading featured post',
-        feedLoadingLabel: 'Loading post list',
-        ariaReadFull: 'Read full post: {title}',
-        viewsUnit: 'views'
+        eyebrow: 'Articles populaires',
+        leadEyebrow: 'À la une',
+        feedEyebrow: 'Derniers articles',
+        leadLoadingLabel: "Chargement de l'article principal",
+        feedLoadingLabel: "Chargement de la liste d'articles",
+        ariaReadFull: "Lire l'article : {title}",
+        viewsUnit: 'vues'
     },
     themeMode: {
-        label: 'Theme mode'
+        label: 'Thème'
     }
-} as const satisfies DeepStringShape<typeof zhCNLayout>;
+} as const satisfies DeepStringShape<typeof zhCNLayout>

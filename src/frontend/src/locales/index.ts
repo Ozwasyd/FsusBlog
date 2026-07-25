@@ -6,17 +6,23 @@ import { syncLocaleDocumentMetadata } from './documentMetadata'
 
 import { zhCN } from './zh-CN'
 import { enUS } from './en-US'
+import { frFR } from './fr-FR'
+import { ptBR } from './pt-BR'
 
 export { isSupportedLocale } from './keys'
 
 const BOOTSTRAP_BUNDLES: Record<string, LocaleMessages> = {
     'zh-CN': zhCN,
-    'en-US': enUS
+    'en-US': enUS,
+    'fr-FR': frFR,
+    'pt-BR': ptBR
 }
 
 const localeMessages = new Map<string, LocaleMessages>()
 localeMessages.set('zh-CN', zhCN)
 localeMessages.set('en-US', enUS)
+localeMessages.set('fr-FR', frFR)
+localeMessages.set('pt-BR', ptBR)
 
 const localeState = shallowRef<SupportedLocale>(DEFAULT_LOCALE)
 let runtimeInitialized = false

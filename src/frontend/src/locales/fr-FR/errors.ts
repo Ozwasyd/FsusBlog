@@ -1,20 +1,20 @@
-import type { DeepStringShape } from '../keys';
-import type { errors as zhCNErrors } from '../zh-CN/errors';
+import type { DeepStringShape } from '../keys'
+import type { errors as zhCNErrors } from '../zh-CN/errors'
 
 export const errors = {
     forbidden: {
         codePrefix: '403',
-        title: 'Access denied',
-        description: 'This account does not have access to this area.',
-        homeCta: 'Home',
-        reLoginCta: 'Use another account'
+        title: 'Accès refusé',
+        description: 'Ce compte ne dispose pas des droits nécessaires pour accéder à cette zone.',
+        homeCta: "Retour à l'accueil",
+        reLoginCta: 'Se reconnecter'
     },
     notFound: {
         codePrefix: '404',
-        title: 'Page not found',
-        description: 'The resource moved, was removed, or does not exist.',
-        homeCta: 'Home',
-        searchCta: 'Search posts',
-        archiveCta: 'Archive'
+        title: 'Page introuvable',
+        description: "La ressource a été déplacée, supprimée ou n'existe pas.",
+        homeCta: "Retour à l'accueil",
+        searchCta: 'Rechercher des articles',
+        archiveCta: 'Voir les archives'
     }
-} as const satisfies DeepStringShape<typeof zhCNErrors>;
+} as const satisfies DeepStringShape<typeof zhCNErrors>

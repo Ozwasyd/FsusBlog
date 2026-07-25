@@ -1,48 +1,48 @@
-import type { DeepStringShape } from '../keys';
-import type { common as zhCNCommon } from '../zh-CN/common';
+import type { DeepStringShape } from '../keys'
+import type { common as zhCNCommon } from '../zh-CN/common'
 
 export const common = {
     actions: {
-        save: 'Save',
-        cancel: 'Cancel',
-        confirm: 'Confirm',
-        retry: 'Retry',
-        delete: 'Delete',
-        refresh: 'Refresh',
-        publish: 'Publish',
-        close: 'Close',
-        backHome: 'Home'
+        save: 'Enregistrer',
+        cancel: 'Annuler',
+        confirm: 'Confirmer',
+        retry: 'Réessayer',
+        delete: 'Supprimer',
+        refresh: 'Actualiser',
+        publish: 'Publier',
+        close: 'Fermer',
+        backHome: "Retour à l'accueil"
     },
     locale: {
-        toggleLabel: 'Switch to Chinese',
-        compactLabel: '中 / EN',
+        toggleLabel: 'Passer en chinois',
+        compactLabel: 'FR / 中',
         chinese: '中文',
         english: 'English'
     },
     time: {
-        unknown: 'Unknown time',
-        invalid: 'Invalid time',
-        justNow: 'Just now'
+        unknown: 'Date inconnue',
+        invalid: 'Format de date invalide',
+        justNow: "À l'instant"
     },
     routeTitles: {
-        home: 'Home',
+        home: 'Accueil',
         article: 'Article',
-        archive: 'Archive',
-        about: 'About',
-        privacy: 'Privacy policy',
-        guidelines: 'Site guidelines',
-        copyright: 'Copyright',
-        search: 'Search results',
-        login: 'Log in',
-        register: 'Register',
-        recover: 'Recover access',
-        account: 'Identity center',
-        messages: 'Messages',
-        dashboard: 'Dashboard',
-        writeArticle: 'Write',
-        moderateComments: 'Comment moderation',
-        settings: 'Settings',
-        forbidden: 'Access denied',
-        notFound: 'Page not found'
+        archive: 'Archives',
+        about: 'À propos',
+        privacy: 'Politique de confidentialité',
+        guidelines: "Règles d'utilisation",
+        copyright: 'Mentions légales',
+        search: 'Résultats de recherche',
+        login: 'Connexion',
+        register: 'Inscription',
+        recover: "Récupérer l'accès",
+        account: "Centre d'identité",
+        messages: 'Mes messages',
+        dashboard: 'Tableau de bord',
+        writeArticle: 'Rédiger un article',
+        moderateComments: 'Modération des commentaires',
+        settings: 'Paramètres',
+        forbidden: 'Accès refusé',
+        notFound: 'Page introuvable'
     }
-} as const satisfies DeepStringShape<typeof zhCNCommon>;
+} as const satisfies DeepStringShape<typeof zhCNCommon>

@@ -1,77 +1,77 @@
-import type { DeepStringShape } from '../keys';
-import type { messages as zhCNMessages } from '../zh-CN/messages';
+import type { DeepStringShape } from '../keys'
+import type { messages as zhCNMessages } from '../zh-CN/messages'
 
 export const messages = {
     conversationList: {
-        titleAccount: 'Messages',
-        titleAdmin: 'Active Conversations',
-        newTicketCta: 'Submit Ticket',
-        emptyTitleAccount: 'No Site Messages',
-        emptyTitleAdmin: 'No Pending Conversations',
-        emptyDescriptionAccount: 'Notifications, system messages, and appeal tickets.',
-        emptyDescriptionAdmin: 'No messages require action under current filter.',
-        noContentAdmin: 'No content',
-        noContentAccount: 'No message content',
-        systemTag: 'System',
-        listAriaLabel: 'Conversation list',
-        showMoreLabel: 'Show more conversations ({n})'
+        titleAccount: 'Сообщения',
+        titleAdmin: 'Активные обращения',
+        newTicketCta: 'Создать обращение',
+        emptyTitleAccount: 'Нет сообщений',
+        emptyTitleAdmin: 'Нет ожидающих обращений',
+        emptyDescriptionAccount: 'Уведомления, системные сообщения и обращения.',
+        emptyDescriptionAdmin: 'Нет сообщений, требующих действий по текущему фильтру.',
+        noContentAdmin: 'Нет содержания',
+        noContentAccount: 'Нет сообщений',
+        systemTag: 'Система',
+        listAriaLabel: 'Список обращений',
+        showMoreLabel: 'Показать ещё обращения ({n})'
     },
     threadPanel: {
-        backAriaLabel: 'Back to conversation list',
-        backCta: 'Back to conversation list',
-        titleFallback: 'Select conversation',
-        titleFallbackAccount: 'Select conversation or submit ticket',
-        titleFallbackAdmin: 'Select conversation',
-        systemTag: 'System',
-        statusChangeWillNotify: 'Status changes will notify user',
-        markOpen: 'Mark Open',
-        moveToPending: 'Move to Pending',
-        closeConversation: 'Close Conversation',
-        emptyDescriptionAccount: 'Conversation details and reply section.',
-        emptyDescriptionAdmin: 'Pending conversation.',
-        newTicketCta: 'Submit Ticket',
-        replyingToPrefix: 'Replying to',
-        accountContext: 'Current conversation',
-        accountContextAdmin: 'Account {id}',
-        statusPrefix: 'Status',
-        showOlder: 'Load older messages',
-        replyHeader: 'Reply to current conversation',
-        replyLabel: 'Reply',
-        replyLabelAccount: 'Reply to administrator',
-        replyPlaceholder: 'Enter reply message',
-        replyCta: 'Send reply'
+        backAriaLabel: 'Вернуться к списку обращений',
+        backCta: 'Вернуться к списку',
+        titleFallback: 'Выберите обращение',
+        titleFallbackAccount: 'Выберите обращение или создайте новое',
+        titleFallbackAdmin: 'Выберите обращение',
+        systemTag: 'Система',
+        statusChangeWillNotify: 'Изменение статуса уведомит пользователя',
+        markOpen: 'Взять в работу',
+        moveToPending: 'Вернуть в ожидание',
+        closeConversation: 'Закрыть обращение',
+        emptyDescriptionAccount: 'Детали обращения и область ответа.',
+        emptyDescriptionAdmin: 'Ожидающее обращение.',
+        newTicketCta: 'Создать обращение',
+        replyingToPrefix: 'Ответ на',
+        accountContext: 'Текущее обращение',
+        accountContextAdmin: 'Аккаунт {id}',
+        statusPrefix: 'Статус',
+        showOlder: 'Загрузить более старые сообщения',
+        replyHeader: 'Ответить на обращение',
+        replyLabel: 'Ответить',
+        replyLabelAccount: 'Ответить администратору',
+        replyPlaceholder: 'Введите текст ответа',
+        replyCta: 'Отправить ответ'
     },
     composePanel: {
-        titleAdmin: 'Send System Message',
-        titleAccount: 'Submit Appeal Ticket',
-        targetAccountIdLabel: 'Target Account ID',
-        targetAccountIdPlaceholder: 'Enter account ID',
-        subjectLabel: 'Subject',
-        systemSubjectPlaceholder: 'e.g. System Notification',
-        accountSubjectPlaceholder: 'e.g. Account Appeal',
-        bodyLabel: 'Body',
-        bodyPlaceholderAdmin: 'Enter message body',
-        bodyPlaceholderAccount: 'Describe problem and request',
-        submitAdminCta: 'Send System Message',
-        submitAccountCta: 'Submit Ticket'
+        titleAdmin: 'Отправить системное сообщение',
+        titleAccount: 'Создать обращение',
+        targetAccountIdLabel: 'ID целевого аккаунта',
+        targetAccountIdPlaceholder: 'Введите ID аккаунта',
+        subjectLabel: 'Тема',
+        systemSubjectPlaceholder: 'Например: Системное уведомление',
+        accountSubjectPlaceholder: 'Например: Обжалование блокировки',
+        bodyLabel: 'Содержание',
+        bodyPlaceholderAdmin: 'Введите текст сообщения',
+        bodyPlaceholderAccount: 'Опишите проблему и желаемый результат',
+        submitAdminCta: 'Отправить системное сообщение',
+        submitAccountCta: 'Отправить обращение'
     },
     emptyState: {
-        titleFallback: 'No conversations to display'
+        titleFallback: 'Нет обращений для отображения'
     },
     filter: {
-        open: 'Open',
-        pending: 'Pending',
-        closed: 'Closed',
-        system: 'System',
-        all: 'All',
-        unread: 'Unread',
-        systemMessages: 'System Messages'
+        open: 'В работе',
+        pending: 'Ожидает',
+        closed: 'Закрыто',
+        system: 'Система',
+        all: 'Все',
+        unread: 'Непрочитанные',
+        systemMessages: 'Системные сообщения'
     },
     status: {
-        systemTag: 'System'
+        systemTag: 'Система'
     },
     errors: {
-        loadFailed: 'Failed to load messages',
-        sendFailed: 'Failed to send message'
+        loadFailed: 'Не удалось загрузить сообщения',
+        sendFailed: 'Не удалось отправить сообщение'
     }
-} as const satisfies DeepStringShape<typeof zhCNMessages>;
+} as const satisfies DeepStringShape<typeof zhCNMessages>

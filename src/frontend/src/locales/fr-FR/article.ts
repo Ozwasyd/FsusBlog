@@ -1,56 +1,56 @@
-import type { DeepStringShape } from '../keys';
-import type { article as zhCNArticle } from '../zh-CN/article';
+import type { DeepStringShape } from '../keys'
+import type { article as zhCNArticle } from '../zh-CN/article'
 
 export const article = {
     actions: {
-        toc: 'Contents',
-        tocAria: 'Article contents',
-        comments: 'Comments',
-        share: 'Share',
-        top: 'Top',
-        copyLink: 'Copy link',
-        linkCopied: 'Link copied',
-        copyFailed: 'Copy failed',
-        copyCode: 'Copy',
-        codeCopied: 'Copied',
-        viewImage: 'View image',
-        viewImageNamed: 'View image: {title}',
-        closeImage: 'Close image',
-        previousImage: 'Previous',
-        nextImage: 'Next',
-        previousArticle: 'Previous post',
-        nextArticle: 'Next post',
-        related: 'Related',
-        read: 'Read',
-        readFull: 'Read: {title}',
-        loadMoreComments: 'Load more comments',
-        noMoreComments: 'No more comments'
+        toc: 'Sommaire',
+        tocAria: 'Table des matières',
+        comments: 'Commentaires',
+        share: 'Partager',
+        top: 'Haut',
+        copyLink: 'Copier le lien',
+        linkCopied: 'Lien copié',
+        copyFailed: 'Échec de la copie',
+        copyCode: 'Copier',
+        codeCopied: 'Copié',
+        viewImage: "Voir l'image",
+        viewImageNamed: "Voir l'image : {title}",
+        closeImage: "Fermer l'image",
+        previousImage: 'Précédente',
+        nextImage: 'Suivante',
+        previousArticle: 'Article précédent',
+        nextArticle: 'Article suivant',
+        related: 'Articles connexes',
+        read: 'Lire',
+        readFull: 'Lire : {title}',
+        loadMoreComments: 'Charger plus de commentaires',
+        noMoreComments: 'Pas plus de commentaires'
     },
     metadata: {
-        publishedAt: 'Published',
-        updatedAt: 'Updated',
-        wordsPrefix: '',
-        wordsSuffix: 'words',
-        readingMinutesPrefix: '',
-        readingMinutesSuffix: 'min read',
-        longRead: 'Long read',
-        longReadAria: 'Long-read notice'
+        publishedAt: 'Publié le',
+        updatedAt: 'Mis à jour le',
+        wordsPrefix: 'Environ ',
+        wordsSuffix: ' mots',
+        readingMinutesPrefix: 'Lecture de ',
+        readingMinutesSuffix: ' min',
+        longRead: 'Article long',
+        longReadAria: "Indication d'article long"
     },
     comments: {
-        heading: 'Reader comments',
-        empty: 'No comments.',
-        emptyTitle: 'No comments',
-        emptyDescription: 'Log in to join the discussion.',
-        loginCta: 'Log in to comment',
-        safetyTitle: 'Complete comment security check',
-        treeAria: 'Comment tree'
+        heading: 'Commentaires des lecteurs',
+        empty: 'Aucun commentaire.',
+        emptyTitle: 'Aucun commentaire',
+        emptyDescription: 'Connectez-vous pour participer à la discussion.',
+        loginCta: 'Se connecter pour commenter',
+        safetyTitle: 'Vérification de sécurité pour commentaire',
+        treeAria: 'Arbre des commentaires'
     },
     content: {
-        emptyAria: 'Article body is empty',
-        empty: 'This article does not have body content yet.',
-        tagsAria: 'Article tags',
-        rightsAria: 'Copyright and citation',
-        relatedAria: 'Related articles',
-        coverAlt: '{title} — cover image'
+        emptyAria: "Le corps de l'article est vide",
+        empty: "Cet article n'a pas encore de contenu.",
+        tagsAria: "Étiquettes de l'article",
+        rightsAria: "Droits d'auteur et citation",
+        relatedAria: 'Articles connexes',
+        coverAlt: '{title} — image de couverture'
     }
-} as const satisfies DeepStringShape<typeof zhCNArticle>;
+} as const satisfies DeepStringShape<typeof zhCNArticle>

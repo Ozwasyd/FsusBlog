@@ -1,48 +1,48 @@
-import type { DeepStringShape } from '../keys';
-import type { common as zhCNCommon } from '../zh-CN/common';
+import type { DeepStringShape } from '../keys'
+import type { common as zhCNCommon } from '../zh-CN/common'
 
 export const common = {
     actions: {
-        save: 'Save',
-        cancel: 'Cancel',
-        confirm: 'Confirm',
-        retry: 'Retry',
-        delete: 'Delete',
-        refresh: 'Refresh',
-        publish: 'Publish',
-        close: 'Close',
-        backHome: 'Home'
+        save: 'Salvar',
+        cancel: 'Cancelar',
+        confirm: 'Confirmar',
+        retry: 'Tentar novamente',
+        delete: 'Excluir',
+        refresh: 'Atualizar',
+        publish: 'Publicar',
+        close: 'Fechar',
+        backHome: 'Início'
     },
     locale: {
-        toggleLabel: 'Switch to Chinese',
+        toggleLabel: 'Mudar para chinês',
         compactLabel: '中 / EN',
         chinese: '中文',
         english: 'English'
     },
     time: {
-        unknown: 'Unknown time',
-        invalid: 'Invalid time',
-        justNow: 'Just now'
+        unknown: 'Horário desconhecido',
+        invalid: 'Formato de horário inválido',
+        justNow: 'Agora mesmo'
     },
     routeTitles: {
-        home: 'Home',
-        article: 'Article',
-        archive: 'Archive',
-        about: 'About',
-        privacy: 'Privacy policy',
-        guidelines: 'Site guidelines',
-        copyright: 'Copyright',
-        search: 'Search results',
-        login: 'Log in',
-        register: 'Register',
-        recover: 'Recover access',
-        account: 'Identity center',
-        messages: 'Messages',
-        dashboard: 'Dashboard',
-        writeArticle: 'Write',
-        moderateComments: 'Comment moderation',
-        settings: 'Settings',
-        forbidden: 'Access denied',
-        notFound: 'Page not found'
+        home: 'Início',
+        article: 'Detalhes do artigo',
+        archive: 'Arquivo',
+        about: 'Sobre',
+        privacy: 'Política de privacidade',
+        guidelines: 'Diretrizes do site',
+        copyright: 'Declaração de direitos autorais',
+        search: 'Resultados da busca',
+        login: 'Entrar',
+        register: 'Cadastrar',
+        recover: 'Recuperar acesso',
+        account: 'Central de identidade',
+        messages: 'Minhas mensagens',
+        dashboard: 'Painel',
+        writeArticle: 'Escrever artigo',
+        moderateComments: 'Moderação de comentários',
+        settings: 'Configurações',
+        forbidden: 'Acesso negado',
+        notFound: 'Página não encontrada'
     }
-} as const satisfies DeepStringShape<typeof zhCNCommon>;
+} as const satisfies DeepStringShape<typeof zhCNCommon>

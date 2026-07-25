@@ -1,77 +1,77 @@
-import type { DeepStringShape } from '../keys';
-import type { messages as zhCNMessages } from '../zh-CN/messages';
+import type { DeepStringShape } from '../keys'
+import type { messages as zhCNMessages } from '../zh-CN/messages'
 
 export const messages = {
     conversationList: {
-        titleAccount: 'Messages',
-        titleAdmin: 'Active Conversations',
-        newTicketCta: 'Submit Ticket',
-        emptyTitleAccount: 'No Site Messages',
-        emptyTitleAdmin: 'No Pending Conversations',
-        emptyDescriptionAccount: 'Notifications, system messages, and appeal tickets.',
-        emptyDescriptionAdmin: 'No messages require action under current filter.',
-        noContentAdmin: 'No content',
-        noContentAccount: 'No message content',
+        titleAccount: 'Nachrichten',
+        titleAdmin: 'Aktive Konversationen',
+        newTicketCta: 'Ticket einreichen',
+        emptyTitleAccount: 'Keine Nachrichten',
+        emptyTitleAdmin: 'Keine ausstehenden Konversationen',
+        emptyDescriptionAccount: 'Benachrichtigungen, Systemnachrichten und Beschwerde-Tickets.',
+        emptyDescriptionAdmin: 'Keine Nachrichten erfordern Maßnahmen unter dem aktuellen Filter.',
+        noContentAdmin: 'Kein Inhalt',
+        noContentAccount: 'Kein Nachrichteninhalt',
         systemTag: 'System',
-        listAriaLabel: 'Conversation list',
-        showMoreLabel: 'Show more conversations ({n})'
+        listAriaLabel: 'Konversationsliste',
+        showMoreLabel: 'Weitere Konversationen anzeigen ({n})'
     },
     threadPanel: {
-        backAriaLabel: 'Back to conversation list',
-        backCta: 'Back to conversation list',
-        titleFallback: 'Select conversation',
-        titleFallbackAccount: 'Select conversation or submit ticket',
-        titleFallbackAdmin: 'Select conversation',
+        backAriaLabel: 'Zurück zur Konversationsliste',
+        backCta: 'Zurück zur Konversationsliste',
+        titleFallback: 'Konversation auswählen',
+        titleFallbackAccount: 'Konversation auswählen oder Ticket einreichen',
+        titleFallbackAdmin: 'Konversation auswählen',
         systemTag: 'System',
-        statusChangeWillNotify: 'Status changes will notify user',
-        markOpen: 'Mark Open',
-        moveToPending: 'Move to Pending',
-        closeConversation: 'Close Conversation',
-        emptyDescriptionAccount: 'Conversation details and reply section.',
-        emptyDescriptionAdmin: 'Pending conversation.',
-        newTicketCta: 'Submit Ticket',
-        replyingToPrefix: 'Replying to',
-        accountContext: 'Current conversation',
-        accountContextAdmin: 'Account {id}',
+        statusChangeWillNotify: 'Statusänderungen werden dem Benutzer mitgeteilt',
+        markOpen: 'Als offen markieren',
+        moveToPending: 'In ausstehend verschieben',
+        closeConversation: 'Konversation schließen',
+        emptyDescriptionAccount: 'Konversationsdetails und Antwortbereich.',
+        emptyDescriptionAdmin: 'Ausstehende Konversation.',
+        newTicketCta: 'Ticket einreichen',
+        replyingToPrefix: 'Antwort an',
+        accountContext: 'Aktuelle Konversation',
+        accountContextAdmin: 'Konto {id}',
         statusPrefix: 'Status',
-        showOlder: 'Load older messages',
-        replyHeader: 'Reply to current conversation',
-        replyLabel: 'Reply',
-        replyLabelAccount: 'Reply to administrator',
-        replyPlaceholder: 'Enter reply message',
-        replyCta: 'Send reply'
+        showOlder: 'Ältere Nachrichten laden',
+        replyHeader: 'Auf aktuelle Konversation antworten',
+        replyLabel: 'Antworten',
+        replyLabelAccount: 'Administrator antworten',
+        replyPlaceholder: 'Antwortnachricht eingeben',
+        replyCta: 'Antwort senden'
     },
     composePanel: {
-        titleAdmin: 'Send System Message',
-        titleAccount: 'Submit Appeal Ticket',
-        targetAccountIdLabel: 'Target Account ID',
-        targetAccountIdPlaceholder: 'Enter account ID',
-        subjectLabel: 'Subject',
-        systemSubjectPlaceholder: 'e.g. System Notification',
-        accountSubjectPlaceholder: 'e.g. Account Appeal',
-        bodyLabel: 'Body',
-        bodyPlaceholderAdmin: 'Enter message body',
-        bodyPlaceholderAccount: 'Describe problem and request',
-        submitAdminCta: 'Send System Message',
-        submitAccountCta: 'Submit Ticket'
+        titleAdmin: 'Systemnachricht senden',
+        titleAccount: 'Beschwerde-Ticket einreichen',
+        targetAccountIdLabel: 'Zielkonto-ID',
+        targetAccountIdPlaceholder: 'Konto-ID eingeben',
+        subjectLabel: 'Betreff',
+        systemSubjectPlaceholder: 'z. B. Systembenachrichtigung',
+        accountSubjectPlaceholder: 'z. B. Kontobeschwerde',
+        bodyLabel: 'Inhalt',
+        bodyPlaceholderAdmin: 'Nachrichtentext eingeben',
+        bodyPlaceholderAccount: 'Problem und Anliegen beschreiben',
+        submitAdminCta: 'Systemnachricht senden',
+        submitAccountCta: 'Ticket einreichen'
     },
     emptyState: {
-        titleFallback: 'No conversations to display'
+        titleFallback: 'Keine Konversationen anzuzeigen'
     },
     filter: {
-        open: 'Open',
-        pending: 'Pending',
-        closed: 'Closed',
+        open: 'Offen',
+        pending: 'Ausstehend',
+        closed: 'Geschlossen',
         system: 'System',
-        all: 'All',
-        unread: 'Unread',
-        systemMessages: 'System Messages'
+        all: 'Alle',
+        unread: 'Ungelesen',
+        systemMessages: 'Systemnachrichten'
     },
     status: {
         systemTag: 'System'
     },
     errors: {
-        loadFailed: 'Failed to load messages',
-        sendFailed: 'Failed to send message'
+        loadFailed: 'Laden der Nachrichten fehlgeschlagen',
+        sendFailed: 'Senden fehlgeschlagen'
     }
-} as const satisfies DeepStringShape<typeof zhCNMessages>;
+} as const satisfies DeepStringShape<typeof zhCNMessages>

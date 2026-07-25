@@ -1,33 +1,33 @@
-import type { DeepStringShape } from '../keys';
-import type { layout as zhCNLayout } from '../zh-CN/layout';
+import type { DeepStringShape } from '../keys'
+import type { layout as zhCNLayout } from '../zh-CN/layout'
 
 export const layout = {
     siteHeader: {
-        ariaLabel: 'Site navigation',
-        navAriaLabel: 'Main navigation',
+        ariaLabel: 'Navegação do site',
+        navAriaLabel: 'Navegação principal',
         mobileNavMenuLabel: 'Menu',
-        mobileUtilityAriaLabel: 'Display and account',
-        searchTriggerLabel: 'Search',
-        searchCancelLabel: 'Cancel',
-        searchAriaLabel: 'Search content',
-        searchPlaceholder: 'Search posts, tags, or keywords',
+        mobileUtilityAriaLabel: 'Exibição e conta',
+        searchTriggerLabel: 'Buscar',
+        searchCancelLabel: 'Cancelar',
+        searchAriaLabel: 'Buscar conteúdo',
+        searchPlaceholder: 'Buscar artigos, tags ou palavras-chave',
         fallbackTitle: "Fsu's Blog",
-        fallbackDescription: 'Engineering logs, performance benchmarks, UI design systems, and FsusBlog development.',
-        fallbackKeywords: '.NET, Frontend performance, System design, UI systems, Tech blog, FsusBlog',
+        fallbackDescription: 'Registros de engenharia, benchmarks de performance, sistemas de UI e desenvolvimento do FsusBlog.',
+        fallbackKeywords: '.NET, Performance frontend, Design de sistemas, Sistemas de UI, Blog técnico, FsusBlog',
         fallbackAuthor: 'Fsu',
         fallbackManifestName: "Fsu's Blog",
         fallbackManifestShortName: 'FsusBlog'
     },
     recommendations: {
-        eyebrow: 'Popular posts',
-        leadEyebrow: 'Featured',
-        feedEyebrow: 'Latest posts',
-        leadLoadingLabel: 'Loading featured post',
-        feedLoadingLabel: 'Loading post list',
-        ariaReadFull: 'Read full post: {title}',
-        viewsUnit: 'views'
+        eyebrow: 'Posts populares',
+        leadEyebrow: 'Destaque',
+        feedEyebrow: 'Posts recentes',
+        leadLoadingLabel: 'Carregando destaque',
+        feedLoadingLabel: 'Carregando lista de posts',
+        ariaReadFull: 'Ler post completo: {title}',
+        viewsUnit: ' visualizações'
     },
     themeMode: {
-        label: 'Theme mode'
+        label: 'Modo de tema'
     }
-} as const satisfies DeepStringShape<typeof zhCNLayout>;
+} as const satisfies DeepStringShape<typeof zhCNLayout>
