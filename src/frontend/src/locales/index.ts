@@ -10,6 +10,7 @@ import { frFR } from './fr-FR'
 import { ptBR } from './pt-BR'
 
 export { isSupportedLocale } from './keys'
+export { DEFAULT_LOCALE, LOCALE_PREFERENCE_STORAGE_KEY } from './keys'
 
 const BOOTSTRAP_BUNDLES: Record<string, LocaleMessages> = {
     'zh-CN': zhCN,
