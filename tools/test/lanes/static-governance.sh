@@ -23,6 +23,7 @@ StaticMatrixSchema() { Run "$ROOT_DIR/tools/test/run-matrix-governance-once.sh" 
 StaticRetention() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-retention.mjs"; }
 StaticCodeIntent() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-code-intent.mjs"; }
 StaticCustomRulePlatform() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-rule-platform.mjs" --mode full; }
+StaticLabelGovernance() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/check-github-label-governance.mjs"; }
 StaticAppsettingsAuthority() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/configuration/check-appsettings-authority.mjs"; }
 StaticBackendConfigurationContract() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/configuration/check-backend-configuration-contract.mjs"; }
 StaticMonolithicDistributedArchitecture() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-monolithic-distributed-architecture.mjs"; }
@@ -66,7 +67,8 @@ RunApplicationStaticPrechecksPhase() {
         appsettings-authority StaticAppsettingsAuthority \
         backend-configuration-contract StaticBackendConfigurationContract \
         monolithic-distributed-architecture StaticMonolithicDistributedArchitecture \
-        csharp-style StaticCsharpStyle
+        csharp-style StaticCsharpStyle \
+        label-governance StaticLabelGovernance
 }
 
 RunTestAssetGovernancePhase() {
