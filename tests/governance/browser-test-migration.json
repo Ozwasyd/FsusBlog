@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.browser-test-migration.v1",
     "issue": 1151,
-    "expectedEffectiveRecordCount": 71,
+    "expectedEffectiveRecordCount": 72,
     "historyBaseline": {
         "commit": "73c9c087185e69925aa4fee8593feec3f858051c",
         "scopes": [
@@ -125,6 +125,32 @@
                         "node-test:tests/tools/ux-risk-elastic-pool.test.mjs#persistent-ux-pool-retries-only-a-browser-crash-and-neve-1d9513b14b",
                         "node-test:tests/tools/ux-risk-elastic-pool.test.mjs#persistent-ux-pool-cancellation-destroys-active-workers--6cd70a593d",
                         "node-test:tests/tools/ux-risk-elastic-pool.test.mjs#production-ux-risk-defaults-to-public-api-persistent-bro-4a7932a532"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "removed-admin-dashboard-v1-browser-test",
+            "defaults": {
+                "assertionCategory": [
+                    "visual"
+                ],
+                "replacementLayer": "correctness",
+                "replacementTestIds": [
+                    "vitest:tests/frontend/e2e/visual/admin-dashboard-workbench.spec.ts#keeps-task-priority-next-actions-and-flat-states-measura-a456930826"
+                ],
+                "browserOnlyRisk": {
+                    "present": false,
+                    "route": "none",
+                    "testIds": []
+                },
+                "status": "migrated"
+            },
+            "sourceTests": [
+                {
+                    "file": "tests/frontend/e2e/visual/admin-dashboard-workbench.spec.ts",
+                    "testIds": [
+                        "vitest:tests/frontend/e2e/visual/admin-dashboard-workbench.spec.ts#keeps-every-task-actionable-and-the-ledger-compact-8742b31ccb"
                     ]
                 }
             ]
@@ -297,7 +323,7 @@
                 {
                     "file": "tests/frontend/e2e/visual/admin-dashboard-workbench.spec.ts",
                     "testIds": [
-                        "vitest:tests/frontend/e2e/visual/admin-dashboard-workbench.spec.ts#keeps-every-task-actionable-and-the-ledger-compact-8742b31ccb"
+                        "vitest:tests/frontend/e2e/visual/admin-dashboard-workbench.spec.ts#keeps-task-priority-next-actions-and-flat-states-measura-a456930826"
                     ]
                 }
             ]
