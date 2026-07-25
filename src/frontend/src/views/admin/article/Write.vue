@@ -1032,7 +1032,7 @@ const submitQuickCreateTag = async (): Promise<void> => {
   justify-content: flex-end;
 }
 
-.write-draft-actions :deep(.el-button) {
+.write-draft-actions > * {
   min-width: 7.25rem;
   min-height: 2.75rem;
   padding-inline: 1.25rem;
@@ -1080,8 +1080,7 @@ const submitQuickCreateTag = async (): Promise<void> => {
   min-width: 0;
 }
 
-.write-editor-panel :deep(.el-form-item),
-.write-editor-panel :deep(.el-form-item__content) {
+.write-editor-panel > * {
   width: 100%;
   min-width: 0;
 }

@@ -755,15 +755,13 @@ onMounted(() => {
   border-bottom: 1px solid var(--fsusblog-panel-border);
 }
 
-:deep(.audit-filter-grid .el-input),
-:deep(.audit-filter-grid .el-select),
-:deep(.audit-filter-grid .el-date-editor) {
+.audit-filter-grid > * {
   width: 100%;
   max-width: 100%;
 }
 
 @media (max-width: 639px) {
-  :deep(.audit-filter-grid .el-date-editor .el-range-input) {
+  .audit-filter-grid input {
     min-width: 32px;
   }
 }
@@ -786,7 +784,7 @@ onMounted(() => {
 }
 
 @media (max-width: 1023px) {
-  :deep(.audit-facet-grid .admin-status-matrix__bar) {
+  .audit-facet-grid .admin-status-matrix__bar {
     display: none;
   }
 }

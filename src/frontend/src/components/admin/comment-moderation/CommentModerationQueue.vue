@@ -355,13 +355,9 @@ const modelMetaItems = (item: CommentModerationViewItem): DetailMetaItem[] => [
   overflow-x: auto;
 }
 
-.comment-moderation-table :deep(.el-table-fixed-column--right.is-first-column) {
-  border-left: 1px solid var(--fsusblog-panel-border);
-}
 
-.comment-moderation-table :deep(.el-table-fixed-column--right.is-first-column::before) {
-  box-shadow: none;
-}
+
+
 
 .recommendation-strip {
   display: grid;

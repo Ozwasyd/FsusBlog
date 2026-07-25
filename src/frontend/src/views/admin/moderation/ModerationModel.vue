@@ -285,8 +285,7 @@ onMounted(() => {
 }
 
 .moderation-model-runtime-field__control,
-.moderation-model-runtime-field :deep(.el-select),
-.moderation-model-runtime-field :deep(.el-input) {
+.moderation-model-runtime-field > * {
   width: 100%;
 }
 
@@ -318,8 +317,8 @@ onMounted(() => {
   text-decoration: none;
 }
 
-.moderation-model-secondary-actions :deep(.el-button + .el-button),
-.moderation-model-secondary-actions__link :deep(.el-button) {
+.moderation-model-secondary-actions > * + *,
+.moderation-model-secondary-actions__link > * {
   margin-left: 0;
 }
 </style>

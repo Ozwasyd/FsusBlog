@@ -7,8 +7,8 @@
     "publicShellInternalOccurrences": 0
   },
   "current": {
-    "deepOccurrences": 51,
-    "directElementPlusOccurrences": 8,
+    "deepOccurrences": 7,
+    "directElementPlusOccurrences": 0,
     "publicShellInternalOccurrences": 0
   },
   "migrations": [
@@ -96,6 +96,48 @@
       "geometryMaximumDifferencePx": null,
       "focusRingMaximumDifferencePx": null,
       "screenshotResult": "semantic unit tests and strict FsusUI boundary gate passed; no screenshot claim"
+    },
+    {
+      "surface": "AdminTableAndCollectionContracts",
+      "owner": "FsusUI",
+      "removedDeepOccurrences": 13,
+      "removedDirectElementPlusOccurrences": 1,
+      "replacement": "FsusUI Table, DataList and ResponsiveCollection public contracts",
+      "fsusUiIssue": "Ozwasyd/FsusUI#258",
+      "fsusUiCommit": "343f31250269f8c6395b28d9a463a566580f498c",
+      "viewports": ["375x812", "1440x900"],
+      "themes": ["light", "dark"],
+      "geometryMaximumDifferencePx": 0,
+      "focusRingMaximumDifferencePx": 0,
+      "screenshotResult": "table fixed-column and compact collection geometry assertions passed"
+    },
+    {
+      "surface": "AdminFormAndInputContracts",
+      "owner": "FsusUI",
+      "removedDeepOccurrences": 24,
+      "removedDirectElementPlusOccurrences": 0,
+      "replacement": "FsusUI Form, Input, Select, InputNumber and Switch public contracts",
+      "fsusUiIssue": "Ozwasyd/FsusUI#258",
+      "fsusUiCommit": "343f31250269f8c6395b28d9a463a566580f498c",
+      "viewports": ["375x812", "1440x900"],
+      "themes": ["light", "dark"],
+      "geometryMaximumDifferencePx": 0,
+      "focusRingMaximumDifferencePx": 0,
+      "screenshotResult": "form controls and plugin config grid geometry assertions passed"
+    },
+    {
+      "surface": "AdminButtonTabsAndDialogContracts",
+      "owner": "FsusUI",
+      "removedDeepOccurrences": 7,
+      "removedDirectElementPlusOccurrences": 7,
+      "replacement": "FsusUI Button, ButtonGroup, Tabs and Dialog public contracts",
+      "fsusUiIssue": "Ozwasyd/FsusUI#258",
+      "fsusUiCommit": "343f31250269f8c6395b28d9a463a566580f498c",
+      "viewports": ["375x812", "1440x900"],
+      "themes": ["light", "dark"],
+      "geometryMaximumDifferencePx": 0,
+      "focusRingMaximumDifferencePx": 0,
+      "screenshotResult": "button gap, dialog layout and tabs overflow geometry assertions passed"
     }
   ]
 }

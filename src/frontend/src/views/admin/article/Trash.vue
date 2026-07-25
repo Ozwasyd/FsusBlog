@@ -216,7 +216,7 @@ const goToArticleList = async (): Promise<void> => {
   font-variant-numeric: tabular-nums;
 }
 
-:deep(.article-trash-empty-action.el-button) {
+.article-trash-empty-action {
   min-height: 40px;
   align-items: center;
 }

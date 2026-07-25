@@ -257,7 +257,7 @@ onMounted(() => {
   line-height: 1.3;
 }
 
-:deep(.security-events-filter .el-input-number) {
+.security-events-filter > * {
   width: min(100%, 12rem);
 }
 

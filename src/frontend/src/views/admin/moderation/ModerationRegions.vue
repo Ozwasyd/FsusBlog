@@ -708,7 +708,7 @@ watch(
   opacity: 0.62;
 }
 
-:deep(.moderation-region-table-cell .cell) {
+.moderation-region-table-cell {
   display: flex;
   align-items: center;
   min-height: 24px;

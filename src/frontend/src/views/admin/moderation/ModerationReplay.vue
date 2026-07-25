@@ -260,13 +260,11 @@ onMounted(() => {
 }
 
 .moderation-replay-field__control,
-.moderation-replay-action :deep(.el-button) {
+.moderation-replay-action > * {
   width: 100%;
 }
 
-.moderation-replay-field :deep(.el-select),
-.moderation-replay-field :deep(.el-input),
-.moderation-replay-field :deep(.el-input-number) {
+.moderation-replay-field > * {
   width: 100%;
 }
 
@@ -277,7 +275,7 @@ onMounted(() => {
   min-width: 0;
 }
 
-.moderation-replay-action :deep(.el-button) {
+.moderation-replay-action > * {
   width: auto;
   min-width: 168px;
 }
@@ -296,7 +294,7 @@ onMounted(() => {
     justify-content: stretch;
   }
 
-  .moderation-replay-action :deep(.el-button) {
+  .moderation-replay-action > * {
     width: 100%;
   }
 }

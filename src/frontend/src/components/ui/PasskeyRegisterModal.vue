@@ -306,18 +306,9 @@ const runCeremony = async (mfaProofToken: string | undefined) => {
   max-height: min(82dvh, 34rem);
 }
 
-:global(.passkey-register-dialog .el-dialog__header) {
+.passkey-register-modal__header {
   padding: var(--fsus-space-5) var(--fsus-space-6) var(--fsus-space-3);
   border-bottom: 1px solid var(--fsusblog-panel-border);
-}
-
-:global(.passkey-register-dialog .el-dialog__body) {
-  padding: 0;
-}
-
-:global(.passkey-register-dialog .el-dialog__footer) {
-  padding: 0;
-  border-top: 1px solid var(--fsusblog-panel-border);
 }
 
 :global(.passkey-register-dialog .fsus-dialog__footer) {

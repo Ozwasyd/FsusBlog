@@ -79,7 +79,7 @@ const resolvedModalClass = computed(() =>
   box-sizing: border-box;
 }
 
-:global(.fsusblog-dialog-overlay .el-overlay-dialog) {
+:global(.fsusblog-dialog-overlay) {
   display: grid;
   place-items: center;
   box-sizing: border-box;
@@ -95,17 +95,6 @@ const resolvedModalClass = computed(() =>
   max-height: calc(100dvh - var(--fsus-space-8));
   margin: 0 !important;
   overflow: hidden;
-}
-
-:global(.fsusblog-dialog .el-dialog__header),
-:global(.fsusblog-dialog .el-dialog__footer) {
-  flex: 0 0 auto;
-}
-
-:global(.fsusblog-dialog .el-dialog__body) {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
 }
 
 .fsus-dialog__content {

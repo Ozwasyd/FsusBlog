@@ -394,16 +394,9 @@ const coverSectionOpen = ref(false)
 }
 
 .article-summary-item,
-.article-summary-item :deep(.el-form-item__content),
-.article-summary-field,
-.article-summary-field :deep(.el-textarea) {
+.article-summary-field {
   width: 100%;
   min-width: 0;
-}
-
-.article-summary-field :deep(.el-textarea__inner) {
-  min-height: 12rem;
-  resize: vertical;
 }
 
 .article-field-label {

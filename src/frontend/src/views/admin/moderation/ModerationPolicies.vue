@@ -339,7 +339,7 @@ onMounted(() => {
   min-height: 22px;
 }
 
-:deep(.moderation-policy-table-cell .cell) {
+.moderation-policy-table-cell {
   display: flex;
   align-items: center;
   min-height: 24px;

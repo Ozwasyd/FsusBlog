@@ -211,13 +211,7 @@ const submitForm = (): void => {
   padding-inline: var(--fsus-space-1);
 }
 
-.taxonomy-table :deep(.el-table-fixed-column--right.is-first-column) {
-  border-left: 1px solid var(--fsusblog-panel-border);
-}
 
-.taxonomy-table :deep(.el-table-fixed-column--right.is-first-column::before) {
-  box-shadow: none;
-}
 
 .taxonomy-action-locked {
   display: inline-flex;

@@ -112,7 +112,7 @@ const onStatusChange = (value: number | undefined): void => {
   align-items: stretch;
 }
 
-.user-filter-actions :deep(.el-button) {
+.user-filter-actions > * {
   min-width: 5rem;
 }
 

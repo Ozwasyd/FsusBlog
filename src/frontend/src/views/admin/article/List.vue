@@ -400,7 +400,7 @@ const handleMoveToTrash = (row: ArticleListViewItem): void => handleMoreCommand(
   min-height: 2rem;
 }
 
-.article-list-toolbar-buttons :deep(.el-form-item__content) {
+.article-list-toolbar-buttons > * {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -408,15 +408,16 @@ const handleMoveToTrash = (row: ArticleListViewItem): void => handleMoreCommand(
   width: 100%;
 }
 
-.article-list-toolbar-buttons :deep(.el-button + .el-button) {
+.article-list-toolbar-buttons > * + * {
   margin-left: 0;
 }
 
-.article-list-toolbar-buttons :deep(.el-button) {
+.article-list-toolbar-buttons > button,
+.article-list-toolbar-buttons > * {
   min-height: 3rem;
 }
 
-.article-list-toolbar-buttons :deep(.article-list-write-button.el-button) {
+.article-list-write-button {
   margin-left: auto;
 }
 
@@ -430,13 +431,7 @@ const handleMoveToTrash = (row: ArticleListViewItem): void => handleMoreCommand(
   word-break: keep-all;
 }
 
-.article-list-table :deep(.el-table-fixed-column--right.is-first-column) {
-  border-left: 1px solid var(--fsusblog-panel-border);
-}
 
-.article-list-table :deep(.el-table-fixed-column--right.is-first-column::before) {
-  box-shadow: none;
-}
 
 .article-cover-thumb {
   display: grid;
@@ -507,7 +502,7 @@ const handleMoveToTrash = (row: ArticleListViewItem): void => handleMoreCommand(
     flex: 1 1 100%;
   }
 
-  .article-list-toolbar-buttons :deep(.article-list-write-button.el-button) {
+  .article-list-write-button {
     margin-left: 0;
   }
 

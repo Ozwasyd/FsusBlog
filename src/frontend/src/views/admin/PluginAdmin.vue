@@ -675,10 +675,7 @@ onMounted(loadOverview)
   color: var(--fsusblog-text-secondary);
 }
 
-.plugin-config-field :deep(.el-input),
-.plugin-config-field :deep(.el-select),
-.plugin-config-field :deep(.el-input-number),
-.plugin-config-field :deep(.el-switch) {
+.plugin-config-field > * {
   grid-column: 2;
   grid-row: 1 / span 2;
 }
@@ -712,10 +709,7 @@ onMounted(loadOverview)
     justify-content: space-between;
   }
 
-  .plugin-config-field :deep(.el-input),
-  .plugin-config-field :deep(.el-select),
-  .plugin-config-field :deep(.el-input-number),
-  .plugin-config-field :deep(.el-switch) {
+  .plugin-config-field > * {
     grid-column: 1;
     grid-row: auto;
   }

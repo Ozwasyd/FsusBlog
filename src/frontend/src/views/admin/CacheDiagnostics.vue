@@ -270,7 +270,7 @@ onMounted(loadDiagnostics)
   min-width: 12rem;
 }
 
-.cache-public-read-actions :deep(.el-button + .el-button) {
+.cache-public-read-actions > * + * {
   margin-left: 0;
 }
 
@@ -287,7 +287,7 @@ onMounted(loadDiagnostics)
     min-width: 0;
   }
 
-  .cache-public-read-actions :deep(.el-button) {
+  .cache-public-read-actions > * {
     flex: 1 1 0;
   }
 }

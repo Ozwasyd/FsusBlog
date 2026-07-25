@@ -265,26 +265,14 @@ const emit = defineEmits<{
   border-block: 1px solid var(--fsusblog-panel-border);
 }
 
-.user-resource-surface:has(.el-responsive-collection.is-compact) {
+.user-resource-surface:has(.is-compact) {
   width: min(100%, 44rem);
   margin-inline: auto;
   background: var(--fsusblog-panel-bg);
   box-shadow: none;
 }
 
-:deep(.el-responsive-collection.is-compact) {
-  background: transparent;
-  border-color: transparent;
-  box-shadow: none;
-}
 
-:deep(.el-responsive-collection__compact) {
-  display: block;
-  padding-block: 0;
-  background: transparent;
-  border-color: transparent;
-  box-shadow: none;
-}
 
 .user-resource-list-item {
   width: 100%;
@@ -303,7 +291,7 @@ const emit = defineEmits<{
   gap: var(--fsus-space-1) var(--fsus-space-3);
 }
 
-:deep(.user-table-action-button) {
+.user-table-action-button {
   min-height: 2.5rem;
   padding-inline: var(--fsus-space-2);
 }
