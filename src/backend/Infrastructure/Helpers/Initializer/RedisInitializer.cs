@@ -40,16 +40,14 @@ public static class RedisInitializer
             sp.GetRequiredService<IRedisConnectionMultiplexerFactory>(),
             sp,
             sp.GetRequiredService<ILogger<RedisMultiplexerHostedService>>()));
+        // Register IConnectionMultiplexer by delegating to the holder. The
+        // RedisMultiplexerHostedService (above) starts connection creation during host
+        // startup, so by the time any IConnectionMultiplexer consumer resolves it
+        // (during request serving), holder.Current is already populated with an active
+        // connection. The previous sync-over-async .GetAwaiter().GetResult() in the
+        // singleton factory blocked the DI build thread unnecessarily.
         services.AddSingleton<IConnectionMultiplexer>(sp =>
-        {
-            RedisConnectionMultiplexerHolder holder = sp.GetRequiredService<RedisConnectionMultiplexerHolder>();
-            return holder
-                .GetOrCreateAsync(
-                    sp.GetRequiredService<IRedisConnectionMultiplexerFactory>(),
-                    redisOptions)
-                .GetAwaiter()
-                .GetResult();
-        });
+            sp.GetRequiredService<RedisConnectionMultiplexerHolder>().Current);
 
         var instanceName = configuration.GetSection("RedisOptions:InstanceName").Value ?? "FsusBlog_";
         services.AddSingleton(new SharedRedisDistributedCacheOptions(instanceName));
