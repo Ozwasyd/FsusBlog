@@ -1,16 +1,11 @@
 import type { LocaleMessages } from './keys'
-
-export type LocaleBundle = { readonly default: LocaleMessages }
-
-const LOADERS: Record<string, () => Promise<LocaleBundle>> = {
-    'zh-CN': () => import('./zh-CN'),
-    'en-US': () => import('./en-US')
-}
+import { REGISTRY_BY_CODE } from './registry'
 
 const CACHE = new Map<string, LocaleMessages>()
 
 export function hasBundle(code: string): boolean {
-    return code in LOADERS
+    const desc = REGISTRY_BY_CODE.get(code)
+    return desc?.loader !== null
 }
 
 export function getCachedBundle(code: string): LocaleMessages | undefined {
@@ -25,12 +20,12 @@ export async function loadBundle(code: string): Promise<LocaleMessages> {
     const cached = CACHE.get(code)
     if (cached) return cached
 
-    const loader = LOADERS[code]
-    if (!loader) {
+    const desc = REGISTRY_BY_CODE.get(code)
+    if (!desc?.loader) {
         throw new Error(`locale_bundle_unavailable:${code}`)
     }
 
-    const mod = await loader()
+    const mod = await desc.loader()
     CACHE.set(code, mod.default)
     return mod.default
 }
