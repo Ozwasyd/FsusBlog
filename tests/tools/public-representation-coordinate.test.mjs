@@ -48,7 +48,7 @@ test('manifest is the single coordinate authority and delegates release/AEDS ide
 
   const generated = [
     'src/shared/Contracts/Validation/PublicRepresentationCoordinate.Generated.cs',
-    'src/frontend/src/generated/publicRepresentationCoordinate.ts',
+    'tools/contracts/generated/public-representation-coordinate.evidence.ts',
     'src/frontend/wasm/aeds/include/public_representation_coordinate.hpp'
   ]
   for (const relative of generated) {

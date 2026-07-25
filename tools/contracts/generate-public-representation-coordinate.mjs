@@ -60,7 +60,7 @@ const cpp = `// ${notice}\n#pragma once\n\n#include <array>\n#include <cstdint>\
 
 const outputs = [
   ['src/shared/Contracts/Validation/PublicRepresentationCoordinate.Generated.cs', csharp],
-  ['src/frontend/src/generated/publicRepresentationCoordinate.ts', typescript],
+  ['tools/contracts/generated/public-representation-coordinate.evidence.ts', typescript],
   ['src/frontend/wasm/aeds/include/public_representation_coordinate.hpp', cpp]
 ]
 

@@ -3217,7 +3217,7 @@
             "evidencePaths": [
                 "src/shared/Contracts/Validation/public-representation-coordinate.json",
                 "src/shared/Contracts/Validation/PublicRepresentationCoordinate.Generated.cs",
-                "src/frontend/src/generated/publicRepresentationCoordinate.ts",
+                "tools/contracts/generated/public-representation-coordinate.evidence.ts",
                 "src/frontend/wasm/aeds/include/public_representation_coordinate.hpp",
                 "tools/contracts/generate-public-representation-coordinate.mjs",
                 "tools/contracts/public-representation-coordinate.mjs",

@@ -1,6 +1,6 @@
 {
     "schema": "fsusblog.document-lifecycle-policy.v2",
-    "lastVerifiedCommit": "843b9920f2fff3502467d59995cc24aeb1f27fa2",
+    "lastVerifiedCommit": "5ce3335efc83191168a5e33028fb67aa19d0c289",
     "maximumVerificationDistance": 100,
     "documents": [
         {
