@@ -897,6 +897,8 @@ public sealed partial class FileService : IFileService
             SessionLockEntry entry = s_sessionLocks.GetOrAdd(uploadId, static _ => new SessionLockEntry());
             if (!entry.TryAddReference())
             {
+                s_sessionLocks.TryRemove(uploadId, out _);
+                Thread.Yield();
                 continue;
             }
 
