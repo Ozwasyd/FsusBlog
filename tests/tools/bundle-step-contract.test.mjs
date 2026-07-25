@@ -153,7 +153,7 @@ test('browser lane session prefixes isolate workers and preserve the worker suff
     assert.ok(bounded.length <= 41);
 
     const crossBrowser = readFileSync(new URL('../../tools/test/lanes/cross-browser-smoke.sh', import.meta.url), 'utf8');
-    assert.match(crossBrowser, /PLAYWRIGHT_OUTPUT_DIR="\$\{PLAYWRIGHT_OUTPUT_DIR:-test-results\/playwright\/cross-browser\}"/u);
+    assert.match(crossBrowser, /PLAYWRIGHT_OUTPUT_DIR="test-results\/playwright\/\$browser_profile"/u);
 });
 
 function deferred()
