@@ -87,7 +87,7 @@ export function validateBackendProductionBuildAuthority({
     {
         throw new Error('Rights V3 is not projected from the canonical backend summary and TRX artifacts');
     }
-    if (!integritySource.includes('producerReceipt: readJson(producerPath)')
+    if (!integritySource.includes('readEvidenceDocument(producerPath)')
         || !integritySource.includes('producerReceiptPath: path.relative(repositoryRoot, producerPath)'))
     {
         throw new Error('Integrity Proof is not projected from its canonical backend producer receipt');

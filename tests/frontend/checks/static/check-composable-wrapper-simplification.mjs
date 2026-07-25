@@ -32,7 +32,7 @@ expectPresent('ensureAdminSensitiveProof should be exported directly', adminSens
 
 const articleDetailView = read('src/frontend/src/composables/useArticleDetailView.ts')
 expectAbsent('useArticleDetailView should not define a commentChallengeClient forwarding wrapper', articleDetailView, /const\s+commentChallengeClient\s*:/)
-expectPresent('useArticleDetailView should spread the base challenge client at the return boundary', articleDetailView, /commentChallengeClient:\s*{\s*[\r\n]\s*\.\.\.baseCommentChallengeClient,/)
+expectPresent('useArticleDetailView should import and use the risk challenge command', articleDetailView, /import\s*{\s*useRiskChallengeCommand\s*}\s*from/)
 
 const homeView = read('src/frontend/src/composables/useHomeView.ts')
 expectAbsent('useHomeView should not expose the loadFeaturedArticles alias', homeView, /\bloadFeaturedArticles\b/)
