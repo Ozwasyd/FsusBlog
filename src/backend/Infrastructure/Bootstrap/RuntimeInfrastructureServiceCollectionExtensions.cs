@@ -13,6 +13,7 @@ using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Spa;
 using FsusBlog.Server.Infrastructure.Storage;
+using FsusBlog.Server.Infrastructure.Customization;
 using FsusBlog.Server.Infrastructure.Themes;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
@@ -38,6 +39,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<DeploymentRuntimeState>();
         services.AddSingleton<DeploymentDrainCoordinator>();
         services.AddBinaryRuntime();
+        services.AddCustomizationRuntime();
         services.AddNotificationRuntime();
         services.AddCrawlerAndSearchRuntime(configuration);
         services.AddFileAndAuthRuntime();
@@ -426,6 +428,13 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
             services.AddSingleton(CreateIp2LocationPool);
         }
 
+        return services;
+    }
+
+    private static IServiceCollection AddCustomizationRuntime(this IServiceCollection services)
+    {
+        services.AddSingleton<InMemoryCustomizationProfileStore>();
+        services.AddScoped<ICustomizationProfileStore, PostgresCustomizationProfileStore>();
         return services;
     }
 
