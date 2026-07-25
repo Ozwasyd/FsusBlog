@@ -16,7 +16,8 @@ enum class ErrorCode : std::uint8_t
     HeaderLengthMismatch = 5,
     PayloadCrcMismatch = 6,
     ArticlePayloadInvalid = 7,
-    FrameTypeUnsupported = 8
+    FrameTypeUnsupported = 8,
+    FrameTypeRetired = 9
 };
 
 struct DecodeResult

@@ -129,8 +129,8 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `177`: reserved; no decoder or compatibility path
 - `178`: reserved; no decoder or compatibility path
 - `179`: AnonymousCredentialRootSnapshot
-- `180`: AnonymousCommentTicketRequest
-- `181`: AnonymousCommentTicketResponse
+- `180`: retired (precise-anonymous-credential-ticket-request); 必须按退休 frame fail closed
+- `181`: retired (precise-anonymous-credential-ticket-response); 必须按退休 frame fail closed
 - `182`: AnonymousCommentCreateRequest
 - `183`: AnonymousPrivacyStateSnapshot
 - `184`: PerceptionSealedChallengeV2

@@ -57,6 +57,8 @@ const char* ToErrorString(ErrorCode errorCode)
             return "article_payload_invalid";
         case ErrorCode::FrameTypeUnsupported:
             return "frame_type_unsupported";
+        case ErrorCode::FrameTypeRetired:
+            return "frame_type_retired";
         default:
             return "decode_failed";
     }
@@ -94,6 +96,11 @@ DecodeResult DecodeFrame(const std::uint8_t* frame, std::size_t frameLen)
     if (frameLen != static_cast<std::size_t>(PayloadLength) + kHeaderSize)
     {
         return MakeError(ErrorCode::PayloadLengthMismatch);
+    }
+
+    if (IsRetiredFrameType(FrameType))
+    {
+        return MakeError(ErrorCode::FrameTypeRetired);
     }
 
     if (!IsKnownFrameType(FrameType))

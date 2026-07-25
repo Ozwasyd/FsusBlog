@@ -121,15 +121,9 @@
 
 400/404/410/503 HTML 固定 `Cache-Control: no-store`、`X-Robots-Tag: noindex, follow`、`X-Fsus-Public-Aot-Backfill: none`；503 额外带 `Retry-After: 5`。负响应不含成功页 canonical、Open Graph URL、`BlogPosting` 或 hydration script。SPA-only `/search`、认证入口与 `/user/**` 不属于此 SEO 成功页集合；搜索成功壳层也不输出 canonical、JSON-LD 或 AOT entry。
 
-## 文章 — `/api/Article`
+## 文章
 
-| 方法 | 路径 | 权限 | 缓存 | 说明 |
-| ------ | ------ | ------ | ------ | ------ |
-| GET | `/api/Article/` | 🔓 | 🗄️ | 文章列表（分页），查询参数：`page`、`pageSize`、`categoryId`、`tagId` |
-| GET | `/api/Article/{id}` | 🔓 | 🗄️ | 文章详情 |
-| GET | `/api/Article/hot` | 🔓 | 🗄️ | 热门文章列表 |
-
----
+> 已迁移至 [Binary 端点 — `/api/binary`](#binary-端点--apibinary) 下的 `/api/binary/article/**` AEDS v2 frame。旧 `/api/Article/**` JSON 路径不再注册。
 
 ## 评论 — `/api/binary/comment`
 
@@ -143,21 +137,11 @@
 
 ---
 
-## 分类 — `/api/Category`
+## 分类 / 标签
 
-| 方法 | 路径 | 权限 | 缓存 | 说明 |
-| ------ | ------ | ------ | ------ | ------ |
-| GET | `/api/Category/` | 🔓 | 🗄️ | 所有分类列表 |
+> 已迁移至 [Binary 端点 — `/api/binary`](#binary-端点--apibinary) 下的 `/api/binary/category.aeds`、`/api/binary/tag.aeds` AEDS v2 frame。旧 `/api/Category/**`、`/api/Tag/**` JSON 路径不再注册。
 
----
 
-## 标签 — `/api/Tag`
-
-| 方法 | 路径 | 权限 | 缓存 | 说明 |
-| ------ | ------ | ------ | ------ | ------ |
-| GET | `/api/Tag/` | 🔓 | 🗄️ | 所有标签列表 |
-
----
 
 ## 系统配置 — `/api/binary/system`
 

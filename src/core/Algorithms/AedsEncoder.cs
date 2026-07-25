@@ -128,5 +128,5 @@ public sealed class AedsEncoder : IAedsEncoder
     }
 
     private static bool IsRetiredFrameType(ushort frameTypeRaw)
-        => frameTypeRaw is 40 or 43 or 44 or 45 or 46;
+        => frameTypeRaw is 40 or 43 or 44 or 45 or 46 or 180 or 181 or 186 or 187;
 }

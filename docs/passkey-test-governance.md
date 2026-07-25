@@ -12,7 +12,7 @@
 | `PasskeyServiceTests` 展开 case | 39 | 20 | -19（-48.7%） |
 | `PasskeyServiceTests` 行数 | 560 | 168 | -392（-70.0%） |
 | 加上 `PasskeySignCountConcurrencyTests` 的测试方法 | 37 | 14 | -23（-62.2%） |
-| 两文件总行数 | 809 | 573 | -236（-29.2%） |
+| 两文件总行数 | 809 | 592 | -217（-26.8%） |
 
 ## Retention replacement
 

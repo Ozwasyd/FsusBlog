@@ -224,6 +224,10 @@ public sealed class AedsEncoderTests
     [InlineData(44)]
     [InlineData(45)]
     [InlineData(46)]
+    [InlineData(180)]
+    [InlineData(181)]
+    [InlineData(186)]
+    [InlineData(187)]
     public void TryDecode_RejectsEveryRetiredFrameType(int frameTypeRaw)
     {
         byte[] frame = _enc.Encode(AedsFrameType.ArticleList, []);

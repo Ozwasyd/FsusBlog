@@ -218,15 +218,16 @@ Production 使用已跟踪的 `appsettings.Production.json` 作为真实 fail-cl
 
 ### 前端代理配置
 
-Vite 通过 `vite.config.ts` 中的 `proxy` 配置将 `/api/` 和 `/health/` 请求转发到后端：
+Vite 通过 `vite.config.ts` 中的 `proxy` 配置将 `/api/` 请求转发到后端：
 
 ```typescript
 // vite.config.ts（示意）
 proxy: {
   '/api': { target: 'http://127.0.0.1:7568', changeOrigin: true },
-  '/health': { target: 'http://127.0.0.1:7568', changeOrigin: true },
 }
 ```
+
+`/health` 端点需直接访问后端端口（默认 `http://127.0.0.1:7568`），不经过 Vite proxy。
 
 前端代码中所有 API 调用使用相对路径，无需在开发/生产间切换 base URL。
 

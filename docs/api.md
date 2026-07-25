@@ -45,8 +45,6 @@ Notification stream 使用 WebSocket 传输、`fsus-aeds.v2` 子协议和 AEDS �
 
 ---
 
-## Legacy Aliases
-
 ## Auth — `/api/binary/auth`
 
 ### PoW 与账号入口
