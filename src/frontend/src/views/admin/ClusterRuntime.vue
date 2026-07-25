@@ -114,7 +114,7 @@
                 </ElTableColumn>
                 <template #empty>
                     <AdminInlineEmptyState
-                        title="暂无节点"
+                        title="尚未发现活动节点"
                         content="当前成员存储没有返回节点。"
                     />
                 </template>
@@ -165,7 +165,7 @@
                 <template #empty>
                     <AdminInlineEmptyState
                         title="暂无职责分配"
-                        content="调度器尚未生成职责分配快照。"
+                        content="调度器尚未生成职责分配快照，可能是集群刚启动或尚未选举主调度器。"
                     />
                 </template>
             </ElTable>
@@ -206,8 +206,8 @@
                     </ElTableColumn>
                     <template #empty>
                         <AdminInlineEmptyState
-                            title="暂无活跃 Lease"
-                            content="当前没有活跃分布式 lease。"
+                            title="暂无活跃分布式租约"
+                            content="当前没有活跃的分布式租约，可能因为尚未有需要排他执行的任务。"
                         />
                     </template>
                 </ElTable>
@@ -241,8 +241,8 @@
                     </ElTableColumn>
                     <template #empty>
                         <AdminInlineEmptyState
-                            title="暂无 Checkpoint"
-                            content="任务尚未保存 checkpoint。"
+                            title="暂无检查点"
+                            content="调度任务尚未保存检查点快照。"
                         />
                     </template>
                 </ElTable>
@@ -293,7 +293,7 @@
                 <template #empty>
                     <AdminInlineEmptyState
                         title="暂无运行事件"
-                        content="调度决策和节点生命周期事件会显示在这里。"
+                        content="集群尚未产生调度决策或节点生命周期事件。"
                     />
                 </template>
             </ElTable>

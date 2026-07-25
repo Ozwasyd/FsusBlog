@@ -60,7 +60,7 @@
       </ul>
       <div v-else class="dashboard-healthy-empty" role="status">
         <span class="dashboard-healthy-empty__copy">
-          <strong>暂无待处理</strong>
+          <strong>暂无待处理任务</strong>
           <span>审核、工单与运行队列均已清空，可以继续内容工作。</span>
         </span>
         <router-link
@@ -103,7 +103,7 @@
       </ul>
 
       <div v-else class="dashboard-inline-state" role="status">
-        <span>{{ recentChangesLoaded ? '暂无可显示的最近变更。' : '最近变更尚未检查。' }}</span>
+        <span>{{ recentChangesLoaded ? '最近变更中暂无新记录。' : '最近变更尚未检查。' }}</span>
         <button v-if="!recentChangesLoaded" type="button" class="dashboard-inline-action" @click="$emit('refresh-recent-changes')">
           立即检查
         </button>

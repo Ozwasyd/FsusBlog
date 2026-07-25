@@ -227,7 +227,7 @@
                     {{ detail.metrics.averageDurationMilliseconds.toFixed(2) }} ms
                   </FsusUiKeyValueItem>
                 </FsusUiKeyValueGrid>
-                <el-table class="mt-5" :data="detail.recentExecutions" empty-text="暂无执行记录">
+                <el-table class="mt-5" :data="detail.recentExecutions" empty-text="该插件尚未产生执行记录">
                   <el-table-column prop="hookName" label="Hook" min-width="180" />
                   <el-table-column prop="nodeId" label="节点" min-width="120" />
                   <el-table-column label="结果" width="90">
@@ -241,7 +241,7 @@
               </FsusUiSettingsSection>
 
               <FsusUiSettingsSection class="mt-8" title="最近错误" id="plugin-errors">
-                <el-table :data="detail.recentErrors" empty-text="暂无错误">
+                <el-table :data="detail.recentErrors" empty-text="该插件尚未产生错误记录">
                   <el-table-column prop="createdAtUtc" label="时间" min-width="170" />
                   <el-table-column prop="code" label="错误码" min-width="180" />
                   <el-table-column prop="hookName" label="Hook" min-width="160" />
@@ -253,7 +253,7 @@
             <el-tab-pane label="日志" name="logs">
               <FsusUiSettingsSection title="插件日志" id="plugin-logs">
                 <p class="plugin-admin-hint">每个插件每节点最多保留最近 200 条，避免日志刷爆。</p>
-                <el-table :data="detail.recentLogs" empty-text="暂无插件日志">
+                <el-table :data="detail.recentLogs" empty-text="该插件尚未产生日志条目">
                   <el-table-column prop="createdAtUtc" label="时间" min-width="170" />
                   <el-table-column prop="level" label="级别" width="90" />
                   <el-table-column prop="hookName" label="Hook" min-width="150" />
