@@ -1,6 +1,6 @@
 {
     "schema": "fsusblog.document-lifecycle-policy.v2",
-    "lastVerifiedCommit": "c2f3495d4d845faef95832d701316395b7443b71",
+    "lastVerifiedCommit": "cc19b486b8ea658ab071ce80758a9f7ee6b5a8a3",
     "maximumVerificationDistance": 100,
     "documents": [
         {
@@ -1803,16 +1803,6 @@
             "supersededBy": null
         },
         {
-            "path": "docs/security/issue-1369-perception-character-v3-release-validation-v1.md",
-            "status": "historical",
-            "owner": "security",
-            "relatedIssues": [
-                1369
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
             "path": "docs/security/jwt-key-rotation.md",
             "status": "current",
             "owner": "security",
@@ -2913,6 +2903,208 @@
             "relatedIssues": [],
             "supersedes": [],
             "supersededBy": null
+        },
+        {
+            "path": "docs/architecture/adaptive-responsibility-scheduler.md",
+            "status": "current",
+            "owner": "backend",
+            "relatedIssues": [],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/architecture/lua-plugin-runtime.md",
+            "status": "current",
+            "owner": "backend",
+            "relatedIssues": [],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/architecture/module-invocation-boundary.md",
+            "status": "current",
+            "owner": "backend",
+            "relatedIssues": [],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/architecture/plugin-foundation.md",
+            "status": "current",
+            "owner": "backend",
+            "relatedIssues": [],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/architecture/plugin-hook-dispatcher.md",
+            "status": "current",
+            "owner": "backend",
+            "relatedIssues": [],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/fonts/font-manifest.schema.json",
+            "status": "proposed",
+            "owner": "frontend",
+            "relatedIssues": [
+                146
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/fonts/font-token-schema.md",
+            "status": "proposed",
+            "owner": "frontend",
+            "relatedIssues": [
+                146
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/fonts/fsfont-package.md",
+            "status": "proposed",
+            "owner": "frontend",
+            "relatedIssues": [
+                146
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/frontend/internal-selector-governance.md",
+            "status": "current",
+            "owner": "frontend",
+            "relatedIssues": [
+                1472
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/plugins/typescript-sdk.md",
+            "status": "current",
+            "owner": "backend",
+            "relatedIssues": [],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/security/plugin-sandbox.md",
+            "status": "current",
+            "owner": "security",
+            "relatedIssues": [],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/themes/css-safety.md",
+            "status": "proposed",
+            "owner": "frontend",
+            "relatedIssues": [
+                138
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/themes/package-format.md",
+            "status": "proposed",
+            "owner": "frontend",
+            "relatedIssues": [
+                138
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/themes/runtime-lifecycle.md",
+            "status": "current",
+            "owner": "frontend",
+            "relatedIssues": [],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/themes/token-schema.md",
+            "status": "current",
+            "owner": "frontend",
+            "relatedIssues": [],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/testing/theme-runtime-verification.md",
+            "status": "historical",
+            "owner": "frontend",
+            "relatedIssues": [
+                142
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/testing/backend-qps-driver-migration-ledger.md",
+            "status": "historical",
+            "owner": "release",
+            "relatedIssues": [
+                1388
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/testing/content-addressed-build-cache.md",
+            "status": "historical",
+            "owner": "release",
+            "relatedIssues": [
+                1386
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/testing/issue-1390-canonical-producer-topology.md",
+            "status": "historical",
+            "owner": "release",
+            "relatedIssues": [
+                1390
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/testing/issue-1391-release-final-evidence-binding.md",
+            "status": "historical",
+            "owner": "release",
+            "relatedIssues": [
+                1391
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/testing/issue-1392-canonical-evidence-projection.md",
+            "status": "historical",
+            "owner": "release",
+            "relatedIssues": [
+                1392
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/testing/issue-1393-release-reliability-fresh.md",
+            "status": "historical",
+            "owner": "release",
+            "relatedIssues": [
+                1393
+            ],
+            "supersedes": [],
+            "supersededBy": null
         }
     ],
     "legacyNamingCompatibility": [
@@ -2943,11 +3135,6 @@
         },
         {
             "path": "docs/recovery-passkey-completion.md",
-            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
-            "removalIssue": 1406
-        },
-        {
-            "path": "docs/security/issue-1369-perception-character-v3-release-validation-v1.md",
             "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
             "removalIssue": 1406
         },
@@ -3275,6 +3462,26 @@
             "path": "docs/testing/issues-1033-1035-test-governance-retirements.md",
             "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
             "removalIssue": 1406
+        },
+        {
+            "path": "docs/testing/issue-1390-canonical-producer-topology.md",
+            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
+            "removalIssue": 1406
+        },
+        {
+            "path": "docs/testing/issue-1391-release-final-evidence-binding.md",
+            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
+            "removalIssue": 1406
+        },
+        {
+            "path": "docs/testing/issue-1392-canonical-evidence-projection.md",
+            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
+            "removalIssue": 1406
+        },
+        {
+            "path": "docs/testing/issue-1393-release-reliability-fresh.md",
+            "reason": "Exact migration-window compatibility; new legacy names remain forbidden.",
+            "removalIssue": 1406
         }
     ],
     "authorityClaims": [
@@ -3382,7 +3589,60 @@
             "token": "Results.Stream"
         }
     ],
-    "brokenLinkExceptions": [],
+    "brokenLinkExceptions": [
+        {
+            "source": "docs/testing/issue-1390-canonical-producer-topology.md",
+            "target": "file:///home/lyuaoss/projects/FsusBlog/tests/tools/test-matrix-projection-declarations.test.mjs"
+        },
+        {
+            "source": "docs/testing/issue-1390-canonical-producer-topology.md",
+            "target": "file:///home/lyuaoss/projects/FsusBlog/tools/test-matrix/production-build-layout.mjs"
+        },
+        {
+            "source": "docs/testing/issue-1390-canonical-producer-topology.md",
+            "target": "file:///home/lyuaoss/projects/FsusBlog/tools/test/bundles/bundle-steps.mjs"
+        },
+        {
+            "source": "docs/testing/issue-1391-release-final-evidence-binding.md",
+            "target": "file:///home/lyuaoss/projects/FsusBlog/tests/matrix.yml"
+        },
+        {
+            "source": "docs/testing/issue-1391-release-final-evidence-binding.md",
+            "target": "file:///home/lyuaoss/projects/FsusBlog/tests/tools/release-final-evidence-binding.test.mjs"
+        },
+        {
+            "source": "docs/testing/issue-1391-release-final-evidence-binding.md",
+            "target": "file:///home/lyuaoss/projects/FsusBlog/tools/release/check-release-final.mjs"
+        },
+        {
+            "source": "docs/testing/issue-1391-release-final-evidence-binding.md",
+            "target": "file:///home/lyuaoss/projects/FsusBlog/tools/test/lanes/release-final.sh"
+        },
+        {
+            "source": "docs/testing/issue-1392-canonical-evidence-projection.md",
+            "target": "file:///home/lyuaoss/projects/FsusBlog/tests/matrix.yml"
+        },
+        {
+            "source": "docs/testing/issue-1393-release-reliability-fresh.md",
+            "target": "file:///home/lyuaoss/projects/FsusBlog/config/configuration-ownership.json"
+        },
+        {
+            "source": "docs/testing/issue-1393-release-reliability-fresh.md",
+            "target": "file:///home/lyuaoss/projects/FsusBlog/config/testing/release-reliability-scenario-catalog.json"
+        },
+        {
+            "source": "docs/testing/issue-1393-release-reliability-fresh.md",
+            "target": "file:///home/lyuaoss/projects/FsusBlog/tests/matrix.yml"
+        },
+        {
+            "source": "docs/testing/issue-1393-release-reliability-fresh.md",
+            "target": "file:///home/lyuaoss/projects/FsusBlog/tests/tools/release-reliability-driver.test.mjs"
+        },
+        {
+            "source": "docs/testing/issue-1393-release-reliability-fresh.md",
+            "target": "file:///home/lyuaoss/projects/FsusBlog/tools/test/run-release-reliability-scenarios.mjs"
+        }
+    ],
     "pathMigrations": [
         {
             "from": "docs/issue-1013-runtime-fallback-retirement-handoff.md",
@@ -3550,6 +3810,11 @@
             "from": "docs/issue-399-distributed-invalidation.md",
             "to": "docs/architecture/distributed-cache-invalidation.md",
             "issue": 1430
+        },
+        {
+            "from": "docs/testing/issue-142-theme-runtime.md",
+            "to": "docs/testing/theme-runtime-verification.md",
+            "issue": 1499
         }
     ]
 }

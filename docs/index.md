@@ -19,6 +19,7 @@
 - [错误码、Binary 帧格式与 POD 大小目录](api/schemas-and-errors.md)
 - [API Stability](api/stability.md)
 - [系统架构](architecture.md)
+- [Adaptive responsibility scheduler](architecture/adaptive-responsibility-scheduler.md)
 - [Admin artifact operations boundary](architecture/admin-artifact-operations-boundary.md)
 - [Admin backup status boundary](architecture/admin-backup-status-boundary.md)
 - [Admin cache diagnostics boundary](architecture/admin-cache-diagnostics-boundary.md)
@@ -43,10 +44,14 @@
 - [ADR: anonymous credentials use RFC 9474 blind issuance](architecture/decisions/ADR-Anonymous-Credential-Blind-Issuance.md)
 - [DI lifetime validation](architecture/dependency-injection-lifetime-validation.md)
 - [Distributed cache invalidation](architecture/distributed-cache-invalidation.md)
+- [Controlled Lua plugin runtime](architecture/lua-plugin-runtime.md)
 - [MessageCenter 内部职责边界](architecture/message-center-responsibilities.md)
+- [Module invocation and ownership boundary](architecture/module-invocation-boundary.md)
 - [单体分布式架构边界](architecture/monolithic-distributed-boundary.md)
 - [Notification stream handshake use-case boundaries](architecture/notification-stream-handshake-use-case-boundaries.md)
 - [FsusBlog Architecture Overview](architecture/overview.md)
+- [Plugin package and Registry foundation](architecture/plugin-foundation.md)
+- [Plugin Hook Dispatcher](architecture/plugin-hook-dispatcher.md)
 - [Public AOT artifact storage boundary](architecture/public-aot-artifact-storage-boundary.md)
 - [Public AOT document composition boundary](architecture/public-aot-document-composition-boundary.md)
 - [Public AOT route identity boundary](architecture/public-aot-route-identity-boundary.md)
@@ -83,6 +88,7 @@
 - [Comment Moderation State Machine](moderation/comment-moderation-state-machine.yaml)
 - [Moderation Dictionary Architecture](moderation/dictionary-architecture.md)
 - [Third-Party Moderation Runtime Package Guide](moderation/third-party-model-development.md)
+- [TypeScript plugin SDK and Jint runtime](plugins/typescript-sdk.md)
 - [Atomic account enrollment migration](schema-migrations/atomic-account-enrollment.md)
 - [Data Reader Projections](schema-migrations/data-reader-projections.json)
 - [Destructive Rollback Window Proofs](schema-migrations/destructive-rollback-window-proofs.json)
@@ -97,6 +103,7 @@
 - [页面级标题比例](design/page-title-scale.md)
 - [阅读排版契约](design/reading-typography.md)
 - [Task surface geometry](design/task-surface-geometry.md)
+- [Font loading planner](fonts/font-loading-planner.md)
 - [Account layout ownership](frontend/account-layout-ownership.md)
 - [Account motion](frontend/account-motion.md)
 - [Account navigation](frontend/account-navigation.md)
@@ -106,11 +113,14 @@
 - [Browser Runtime Baseline](frontend/browser-runtime-baseline.md)
 - [Console feedback entry](frontend/console-welcome-callout.md)
 - [FsusUI Typecheck Modes](frontend/fsusui-typecheck-modes.md)
+- [Internal selector governance](frontend/internal-selector-governance.md)
 - [Layout visual governance](frontend/layout-visual-governance.md)
 - [FsusBlog Motion Guidelines](frontend/motion-guidelines.md)
 - [Public shell ownership](frontend/public-shell-ownership.md)
 - [Public Layout Rules](public-layout-rules.md)
 - [SEO measurement operations](seo/measurement-operations.md)
+- [Theme activation runtime](themes/runtime-lifecycle.md)
+- [Theme token schema and CSS variable runtime](themes/token-schema.md)
 - [小样本可用性测试脚本](ux/usability-test-script.md)
 
 ### Security
@@ -140,7 +150,8 @@
 - [JWT signing-key rotation](security/jwt-key-rotation.md)
 - [Passkey signature counter 风险响应](security/passkey-counter-risk-response.md)
 - [Passkey metadata 与 PasskeyEnabled 投影](security/passkey-metadata-projection.md)
-- [PerceptionCharacterV3 protocol](security/perception-character-v3-protocol.md)
+- [PerceptionCharacterV3 final-media protocol](security/perception-character-v3-protocol.md)
+- [Plugin permission and sandbox boundary](security/plugin-sandbox.md)
 - [私有请求身份代际](security/private-request-generations.md)
 - [私有页面运行时销毁边界](security/private-surface-runtime.md)
 - [PublicHotRead 横切控制与回退手册](security/public-hot-read-cross-cutting-controls.md)
@@ -200,15 +211,19 @@
 - [Content-addressed test evidence storage](testing/content-addressed-evidence-storage.md)
 - [Evidence Projection Contract](testing/evidence-projection-contract.md)
 - [Frontend private runtime governance](testing/frontend-private-runtime-governance.md)
+- [Frontend Source Index 与 rule host](testing/frontend-source-index.md)
 - [HTTP/3 + QUIC local-equivalent experiment](testing/http3-local-equivalent-experiment.md)
 - [私有请求 generation 验证](testing/private-request-generations.md)
 - [PrivateSurfaceRuntime 验证清单](testing/private-surface-runtime.md)
 - [Public-preview screenshot governance](testing/public-preview-screenshot-governance.md)
 - [Repository governance authorities](testing/repository-governance-authorities.md)
+- [Runtime Scenario Host](testing/runtime-scenario-host.md)
 - [Issue #1037：安全 hardening 边界测试替换](testing/security-hardening-boundary-replacements.md)
 - [Backend security Roslyn source policy](testing/security-hardening-source-policy.md)
+- [Static governance resident hosts and receipt join](testing/static-governance-resident-hosts.md)
 - [Test asset lifecycle governance](testing/test-asset-lifecycle-governance.md)
 - [Test lifecycle governance](testing/test-lifecycle-governance.md)
+- [Single WASM build receipt](testing/wasm-build-receipt.md)
 
 ### Governance
 
@@ -243,9 +258,14 @@
 
 ## Proposed
 
+- [Font Manifest.schema](fonts/font-manifest.schema.json) - owner `frontend`; issues #146
+- [Font token schema and stack runtime](fonts/font-token-schema.md) - owner `frontend`; issues #146
+- [`.fsfont` package and registry](fonts/fsfont-package.md) - owner `frontend`; issues #146
 - [Dead Code Audit Index](planning/dead-code-audit-index.json) - owner `governance`
 - [Perception Sealed V2 Issue Map](planning/perception-sealed-v2-issue-map.json) - owner `governance`
 - [perception-sealed@v2 production tracking plan](planning/perception-sealed-v2-production-plan.md) - owner `governance`
+- [Theme CSS safety and asset budgets](themes/css-safety.md) - owner `frontend`; issues #138
+- [FsusBlog theme package format](themes/package-format.md) - owner `frontend`; issues #138
 
 ## Historical
 
@@ -256,8 +276,7 @@
 - `releases`: 1 document
 - `reports`: 15 documents
 - `reports/open-source-readiness`: 1 asset
-- `security`: 1 document
-- `testing`: 65 documents
+- `testing`: 72 documents
 
 ## Generated
 
