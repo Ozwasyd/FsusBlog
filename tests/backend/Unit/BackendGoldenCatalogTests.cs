@@ -57,7 +57,7 @@ public sealed class BackendGoldenCatalogTests
             .Select(static node => node!["value"]!.GetValue<int>())
             .ToHashSet();
 
-        Assert.True(retiredValues.SetEquals([40, 43, 44, 45, 46]));
+        Assert.True(retiredValues.SetEquals([40, 43, 44, 45, 46, 180, 181]));
         foreach (int retired in retiredValues)
         {
             Assert.DoesNotContain(retired, activeValues);
