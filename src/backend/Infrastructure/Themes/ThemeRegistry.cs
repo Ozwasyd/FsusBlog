@@ -53,6 +53,15 @@ public interface IThemeRegistry
         int limit,
         CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<ThemeActivationHistorySnapshot>> GetActivationHistoryAsync(
+        ThemeActivationScope scope,
+        CancellationToken cancellationToken)
+        => GetActivationHistoryAsync(scope, 50, cancellationToken);
+
+    Task<IReadOnlyList<ThemeRegistrySnapshot>> ListThemesAsync(CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<ThemeActivationSnapshot>> ListActivationsAsync(CancellationToken cancellationToken);
+
     Task InstallAsync(
         ValidatedThemePackage package,
         string packageLocation,
@@ -115,6 +124,36 @@ public sealed partial class InMemoryThemeRegistry : IThemeRegistry
         try
         {
             return _activations.GetValueOrDefault(scope);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    public async Task<IReadOnlyList<ThemeRegistrySnapshot>> ListThemesAsync(
+        CancellationToken cancellationToken)
+    {
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return _themes.Values
+                .Where(t => t.InstallState is not ThemeInstallState.Uninstalled)
+                .ToList().AsReadOnly();
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    public async Task<IReadOnlyList<ThemeActivationSnapshot>> ListActivationsAsync(
+        CancellationToken cancellationToken)
+    {
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return _activations.Values.ToList().AsReadOnly();
         }
         finally
         {
@@ -504,6 +543,35 @@ public sealed partial class PostgresThemeRegistry(ISqlSugarClient db) : IThemeRe
         EnsureTransactionSucceeded(transaction, "Theme activation transaction failed.");
     }
 
+    public async Task<IReadOnlyList<ThemeRegistrySnapshot>> ListThemesAsync(
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        DataTable table = await db.Ado.GetDataTableAsync(
+            """
+            SELECT id, manifest_json, config_schema_json, package_hash, package_location,
+                   install_state, enabled, installed_at_utc, updated_at_utc
+            FROM theme_registry
+            WHERE install_state NOT IN ('failed', 'rolled_back', 'uninstalled')
+            ORDER BY updated_at_utc DESC;
+            """).ConfigureAwait(false);
+        return ConvertThemeRegistryList(table);
+    }
+
+    public async Task<IReadOnlyList<ThemeActivationSnapshot>> ListActivationsAsync(
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        DataTable table = await db.Ado.GetDataTableAsync(
+            """
+            SELECT scope, active_theme_id, mode, updated_at_utc,
+                   activation_id, asset_version, config_version
+            FROM theme_activation
+            ORDER BY scope;
+            """).ConfigureAwait(false);
+        return ConvertActivationList(table);
+    }
+
     public async Task DisableAsync(
         ThemeActivationScope scope,
         DateTimeOffset updatedAtUtc,
@@ -739,5 +807,47 @@ public sealed partial class PostgresThemeRegistry(ISqlSugarClient db) : IThemeRe
             throw transaction.ErrorException
                 ?? new ThemeLifecycleException("theme_registry_transaction_failed", message);
         }
+    }
+
+    private IReadOnlyList<ThemeRegistrySnapshot> ConvertThemeRegistryList(DataTable table)
+    {
+        var themes = new List<ThemeRegistrySnapshot>(table.Rows.Count);
+        foreach (DataRow row in table.Rows)
+        {
+            string manifestJson = Convert.ToString(row["manifest_json"]) ?? string.Empty;
+            ThemeManifest manifest = DeserializeManifest(manifestJson);
+            themes.Add(new ThemeRegistrySnapshot(
+                manifest,
+                manifestJson,
+                Convert.ToString(row["config_schema_json"]) ?? string.Empty,
+                Convert.ToString(row["package_hash"]) ?? string.Empty,
+                Convert.ToString(row["package_location"]) ?? string.Empty,
+                ParseInstallState(Convert.ToString(row["install_state"])),
+                Convert.ToBoolean(row["enabled"]),
+                AsUtc(row["installed_at_utc"]),
+                AsUtc(row["updated_at_utc"])));
+        }
+        return themes.AsReadOnly();
+    }
+
+    private IReadOnlyList<ThemeActivationSnapshot> ConvertActivationList(DataTable table)
+    {
+        var activations = new List<ThemeActivationSnapshot>(table.Rows.Count);
+        foreach (DataRow row in table.Rows)
+        {
+            activations.Add(new ThemeActivationSnapshot(
+                ThemeActivationScope.Parse(Convert.ToString(row["scope"]) ?? string.Empty),
+                Convert.ToString(row["active_theme_id"]) ?? string.Empty,
+                Convert.ToString(row["mode"]) ?? string.Empty,
+                AsUtc(row["updated_at_utc"]),
+                row.IsNull("activation_id") ? null : Guid.Parse(Convert.ToString(row["activation_id"])!),
+                row.IsNull("asset_version") ? null : Convert.ToString(row["asset_version"]),
+                row.IsNull("config_version")
+                    ? null
+                    : Convert.ToInt64(
+                        row["config_version"],
+                        System.Globalization.CultureInfo.InvariantCulture)));
+        }
+        return activations.AsReadOnly();
     }
 }

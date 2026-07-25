@@ -291,6 +291,7 @@ internal static partial class PublicWebRuntime
         app.MapNotificationStreamRestartEndpoints();
         app.MapNotificationStreamDeploymentDrillEndpoints();
         app.MapClusterMembershipEndpoints();
+        app.MapThemeAdminEndpoints();
     }
 
     internal static void MapFsusApiRoutes(this WebApplication app)
