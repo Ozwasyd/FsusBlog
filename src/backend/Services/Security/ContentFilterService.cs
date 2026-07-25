@@ -16,7 +16,7 @@ namespace FsusBlog.Server.Services.Security;
 /// <summary>
 /// Owns the in-memory moderation dictionaries and atomically publishes rebuilt search automata.
 /// </summary>
-public partial class ContentFilterService : IContentFilterService, IDisposable
+public partial class ContentFilterService : IContentFilterService, IDisposable, IAsyncDisposable
 {
     private const int MaxValidationTextChars = 256 * 1024;
 
@@ -710,9 +710,15 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
         }
     }
 
+    public async ValueTask DisposeAsync()
+    {
+        await DisposeAsyncCore().ConfigureAwait(false);
+        GC.SuppressFinalize(this);
+    }
+
     public void Dispose()
     {
-        Dispose(true);
+        Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }
 
@@ -726,18 +732,30 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
                 _fileWatcher?.Dispose();
                 _reloadQueue.Writer.TryComplete();
                 _reloadCts.Cancel();
-                try
-                {
-                    _reloadWorker.Wait(TimeSpan.FromSeconds(2));
-                }
-                catch (AggregateException ex)
-                {
-                    _logger.LogDebug(ex, "内容审查词库 reload worker 停止时已忽略异常。");
-                }
-                finally
-                {
-                    _reloadCts.Dispose();
-                }
+                _reloadCts.Dispose();
+            }
+        }
+    }
+
+    private async ValueTask DisposeAsyncCore()
+    {
+        if (!_disposed)
+        {
+            _disposed = true;
+            _fileWatcher?.Dispose();
+            _reloadQueue.Writer.TryComplete();
+            _reloadCts.Cancel();
+            try
+            {
+                await _reloadWorker.WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
+            }
+            catch (AggregateException ex)
+            {
+                _logger.LogDebug(ex, "内容审查词库 reload worker 停止时已忽略异常。");
+            }
+            finally
+            {
+                _reloadCts.Dispose();
             }
         }
     }
