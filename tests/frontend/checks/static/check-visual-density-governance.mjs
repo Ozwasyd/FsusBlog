@@ -309,7 +309,7 @@ function checkTouchTargetFloor()
     );
     assertContains(
         articleTrashPath,
-        /\.article-trash-empty-action\.el-button\)\s*\{[\s\S]*?min-height:\s*40px;/,
+        /\.article-trash-empty-action\s*\{[\s\S]*?min-height:\s*40px;/,
         'article trash empty actions must keep the 40px admin compact tier'
     );
     assertContains(
