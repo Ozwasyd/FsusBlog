@@ -43,8 +43,8 @@ public partial class CommentCommandService(
     private const int DefaultMaxChildrenPerNode = 500;
     private const int DefaultMutationTtlHours = 24;
 
-    private static readonly CancellationToken s_shortCancellation
-        = new CancellationTokenSource(TimeSpan.FromSeconds(5)).Token;
+    private static CancellationToken ShortCancellationToken
+        => new CancellationTokenSource(TimeSpan.FromSeconds(5)).Token;
 
     private sealed record CommentMutationCommand(
         int? AccountId,
@@ -88,7 +88,7 @@ public partial class CommentCommandService(
             dto,
             normalizedContent,
             regionDecision.SubmitRegion,
-            s_shortCancellation);
+            ShortCancellationToken);
         if (actor is null)
         {
             return false;
@@ -102,7 +102,7 @@ public partial class CommentCommandService(
             dto.ReplyToCommentId,
             actor,
             regionDecision,
-            s_shortCancellation);
+            ShortCancellationToken);
         return result.Created;
     }
 
@@ -833,7 +833,7 @@ public partial class CommentCommandService(
             dto,
             normalizedContent,
             regionDecision.SubmitRegion,
-            s_shortCancellation);
+            ShortCancellationToken);
         return actor is null
             ? CommentCreateResult.Failed
             : await CreateResolvedCommentAsync(
@@ -844,7 +844,7 @@ public partial class CommentCommandService(
                 dto.ReplyToCommentId,
                 actor,
                 regionDecision,
-                s_shortCancellation,
+                ShortCancellationToken,
                 mutation);
     }
 
