@@ -34,7 +34,7 @@ const fixtureModule = `/@fs/${fileURLToPath(
 const evidenceRoot = path.resolve(
   process.cwd(),
   process.env.FSUSBLOG_OPS_HEALTH_EVIDENCE_DIR
-    ?? '../../.tmp/visual-evidence/issue-1471'
+    ?? '../../.tmp/visual-evidence/ops-health-incidents'
 )
 mkdirSync(evidenceRoot, { recursive: true })
 const completedEvidence: Array<{
