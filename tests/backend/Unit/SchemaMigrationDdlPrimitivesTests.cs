@@ -49,6 +49,7 @@ public sealed class SchemaMigrationDdlPrimitivesTests
     [Theory]
     [InlineData(SchemaDdlDialect.MySql)]
     [InlineData(SchemaDdlDialect.Sqlite)]
+    [InlineData(SchemaDdlDialect.PostgreSql)]
     public void ProviderSnapshot_MatchesCheckedInCrossDialectContract(SchemaDdlDialect dialect)
     {
         JsonObject contract = BackendTestPaths.ReadJsonFromRoot(

@@ -20,6 +20,16 @@
       "DropTable": "DROP TABLE IF EXISTS \"article_archive\";",
       "DropIndex": "DROP INDEX IF EXISTS \"idx_article_title\";",
       "CreateIndex": "CREATE INDEX IF NOT EXISTS idx_article_title ON article (title);"
+    },
+    "PostgreSql": {
+      "EnsureTable": "CREATE TABLE IF NOT EXISTS article (id bigint);",
+      "EnsureColumn": "DO $$\nBEGIN\n    IF EXISTS (\n        SELECT 1 FROM information_schema.tables\n        WHERE table_schema = 'public'\n          AND table_name = 'article'\n    ) THEN\n        EXECUTE 'ALTER TABLE \"article\" ADD COLUMN IF NOT EXISTS \"title\" varchar(64) NULL';\n    END IF;\nEND $$;",
+      "RenameTable": "DO $$\nBEGIN\n    IF EXISTS (\n        SELECT 1 FROM information_schema.tables\n        WHERE table_schema = 'public' AND table_name = 'article'\n    )\n    AND NOT EXISTS (\n        SELECT 1 FROM information_schema.tables\n        WHERE table_schema = 'public' AND table_name = 'article_archive'\n    ) THEN\n        EXECUTE 'ALTER TABLE \"article\" RENAME TO \"article_archive\"';\n    END IF;\nEND $$;",
+      "RenameColumn": "DO $$\nBEGIN\n    IF EXISTS (\n        SELECT 1 FROM information_schema.columns\n        WHERE table_schema = 'public'\n          AND table_name = 'article'\n          AND column_name = 'title'\n    )\n    AND NOT EXISTS (\n        SELECT 1 FROM information_schema.columns\n        WHERE table_schema = 'public'\n          AND table_name = 'article'\n          AND column_name = 'headline'\n    ) THEN\n        EXECUTE 'ALTER TABLE \"article\" RENAME COLUMN \"title\" TO \"headline\"';\n    END IF;\nEND $$;",
+      "DropColumn": "ALTER TABLE IF EXISTS \"article\" DROP COLUMN IF EXISTS \"legacy_title\";",
+      "DropTable": "DROP TABLE IF EXISTS \"article_archive\";",
+      "DropIndex": "DROP INDEX IF EXISTS \"idx_article_title\";",
+      "CreateIndex": "DO $$\nBEGIN\n    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_article_title ON article (title);';\nEXCEPTION\n    WHEN undefined_table OR undefined_column THEN\n        NULL;\nEND $$;"
     }
   }
 }
