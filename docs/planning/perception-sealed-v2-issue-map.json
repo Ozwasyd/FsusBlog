@@ -152,6 +152,13 @@
             "acceptanceBoundary": "Replay, expiry and attempt limits fail closed without adding DB writes to the issue hot path."
         },
         {
+            "order": 7,
+            "issue": 511,
+            "title": "security(challenge-v2): implement text-task perception provider",
+            "surface": "text-task perception provider",
+            "acceptanceBoundary": "Provider serves non-semantic render recipes with expected text hashed into the sealed token; verify path uses normalized text hash constant-time compare; solver duration policy bounded per risk tier; server does not generate images or embed character IDs."
+        },
+        {
             "order": 8,
             "issue": 512,
             "title": "security(challenge-v2): implement localization perception provider",
