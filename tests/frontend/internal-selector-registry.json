@@ -1,40 +1,6 @@
 {
   "schema": "fsusblog.internal-selector-registry.v1",
-  "maximumDeepOccurrences": 7,
+  "maximumDeepOccurrences": 0,
   "maximumDirectElOccurrences": 0,
-  "entries": [
-    {
-      "path": "src/frontend/src/views/admin/Settings.vue",
-      "owner": "FsusUI",
-      "reason": "Temporary internal geometry dependency while #1472 replaces it with a public prop, slot, token, variant, or data hook.",
-      "expiresOn": "2026-08-31",
-      "replacementIssue": "Ozwasyd/FsusBlog#1472",
-      "selectors": [
-        { "kind": "deep", "selector": ".el-tabs__header", "occurrences": 1 },
-        { "kind": "deep", "selector": ".el-tabs__nav-wrap", "occurrences": 1 },
-        { "kind": "deep", "selector": ".el-tabs__nav-scroll", "occurrences": 2 },
-        { "kind": "deep", "selector": ".el-tabs__nav-scroll::-webkit-scrollbar", "occurrences": 1 }
-      ]
-    },
-    {
-      "path": "src/frontend/src/views/admin/security/SecurityPerceptionV2.vue",
-      "owner": "FsusBlog",
-      "reason": "Temporary consumer cross-component selector while #1472 moves the rule to its markup owner or a stable business hook.",
-      "expiresOn": "2026-08-31",
-      "replacementIssue": "Ozwasyd/FsusBlog#1472",
-      "selectors": [
-        { "kind": "deep", "selector": ".perception-v2-number-field__input", "occurrences": 1 }
-      ]
-    },
-    {
-      "path": "src/frontend/src/views/auth/Register.vue",
-      "owner": "FsusUI",
-      "reason": "Temporary internal geometry dependency while #1472 replaces it with a public prop, slot, token, variant, or data hook.",
-      "expiresOn": "2026-08-31",
-      "replacementIssue": "Ozwasyd/FsusBlog#1472",
-      "selectors": [
-        { "kind": "deep", "selector": ".register-guidelines-button.el-button", "occurrences": 1 }
-      ]
-    }
-  ]
+  "entries": []
 }

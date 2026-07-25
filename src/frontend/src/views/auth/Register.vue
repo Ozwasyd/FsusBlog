@@ -250,7 +250,7 @@ const {
 <style scoped>
 @reference "@/assets/main.css";
 
-:deep(.register-guidelines-button.el-button) {
+.register-guidelines-button {
   min-height: 40px;
   align-items: center;
 }

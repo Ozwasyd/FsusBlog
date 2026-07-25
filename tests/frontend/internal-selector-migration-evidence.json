@@ -7,7 +7,7 @@
     "publicShellInternalOccurrences": 0
   },
   "current": {
-    "deepOccurrences": 7,
+    "deepOccurrences": 0,
     "directElementPlusOccurrences": 0,
     "publicShellInternalOccurrences": 0
   },
@@ -128,7 +128,7 @@
     {
       "surface": "AdminButtonTabsAndDialogContracts",
       "owner": "FsusUI",
-      "removedDeepOccurrences": 7,
+      "removedDeepOccurrences": 14,
       "removedDirectElementPlusOccurrences": 7,
       "replacement": "FsusUI Button, ButtonGroup, Tabs and Dialog public contracts",
       "fsusUiIssue": "Ozwasyd/FsusUI#258",

@@ -834,19 +834,14 @@ const confirmPageRefresh = async (): Promise<void> => {
   overflow-x: hidden;
 }
 
-.settings-tabs :deep(.el-tabs__header),
-.settings-tabs :deep(.el-tabs__nav-wrap),
-.settings-tabs :deep(.el-tabs__nav-scroll) {
+.settings-tabs > * {
   max-width: 100%;
   min-width: 0;
-}
-
-.settings-tabs :deep(.el-tabs__nav-scroll) {
   overflow-x: auto;
   scrollbar-width: none;
 }
 
-.settings-tabs :deep(.el-tabs__nav-scroll::-webkit-scrollbar) {
+.settings-tabs ::-webkit-scrollbar {
   display: none;
 }
 </style>

@@ -398,7 +398,7 @@ onMounted(() => {
   gap: var(--fsus-space-2);
 }
 
-:deep(.perception-v2-number-field__input) {
+.perception-v2-number-field > * {
   width: min(100%, 11rem);
 }
 
