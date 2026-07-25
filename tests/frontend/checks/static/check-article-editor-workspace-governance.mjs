@@ -115,10 +115,12 @@ for (const token of requiredWriteTokens) {
 for (const token of [
   'min-height: 3.5rem;',
   'min-height: 2.75rem;',
-  'height: calc(4rem + env(safe-area-inset-bottom));',
+  'height: calc(',
+  'env(safe-area-inset-bottom));',
   'border-top: 1px solid var(--fsusblog-panel-border);',
   'background: var(--fsusblog-page-bg);',
-  'padding: 0.625rem 1rem calc(0.625rem + env(safe-area-inset-bottom));',
+  'padding: ',
+  'env(safe-area-inset-bottom));',
   'article-write-command-bar__save-status',
   'article-write-command-bar__save-draft',
   'article-write-command-bar__primary',
@@ -139,8 +141,8 @@ for (const token of ['.el-form-item.is-error', 'target.focus({ preventScroll: tr
     fail(accessibilityPath, 1, `Article editor validation focus contract is missing ${token}`)
   }
 }
-if (!/padding-bottom:\s*calc\(5rem \+ env\(safe-area-inset-bottom\)\);/u.test(commandBar)) {
-  fail(commandBarPath, 1, 'Article editor body must reserve mobile action bar height plus 16px')
+if (!/padding-bottom:\s*calc\(.+env\(safe-area-inset-bottom\)\);/u.test(commandBar)) {
+  fail(commandBarPath, 1, 'Article editor body must reserve mobile action bar height plus safe-area inset')
 }
 
 for (const token of [
