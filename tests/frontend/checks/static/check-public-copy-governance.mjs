@@ -75,7 +75,6 @@ function isPublicVisitorCopyPath(path) {
     || path.startsWith('src/frontend/src/view-contracts/')
     || path.startsWith('src/frontend/src/public-renderers/')
     || path === 'src/frontend/src/composables/useHomeView.ts'
-    || path.startsWith('docs/frontend/')
 }
 
 function isAdminWorkspaceCopyPath(path) {
