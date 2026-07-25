@@ -5,6 +5,39 @@ import path from 'node:path'
 const gibibyte = 1024 ** 3
 const defaultMinimumFreeBytes = 4 * gibibyte
 
+function forceRmSync(target) {
+  try {
+    fs.rmSync(target, { recursive: true, force: true })
+  } catch (error) {
+    if (error.code === 'EACCES' || error.code === 'EPERM') {
+      chmodRecursive(target)
+      fs.rmSync(target, { recursive: true, force: true })
+    } else {
+      throw error
+    }
+  }
+}
+
+function chmodRecursive(target) {
+  if (!fs.existsSync(target)) return
+  const stat = fs.lstatSync(target)
+  if (!stat.isDirectory()) return
+  try { fs.chmodSync(target, (stat.mode | fs.constants.S_IWUSR) & ~0o111) } catch {}
+  try { fs.chmodSync(target, stat.mode | fs.constants.S_IWUSR | fs.constants.S_IXUSR) } catch {}
+  for (const entry of fs.readdirSync(target)) {
+    const childPath = path.join(target, entry)
+    try {
+      const childStat = fs.lstatSync(childPath)
+      if (childStat.isDirectory()) {
+        chmodRecursive(childPath)
+      } else {
+        try { fs.chmodSync(childPath, (childStat.mode | fs.constants.S_IWUSR) & ~0o111) } catch {}
+        try { fs.chmodSync(childPath, childStat.mode | fs.constants.S_IWUSR) } catch {}
+      }
+    } catch {}
+  }
+}
+
 const generatedDirectories = Object.freeze([
   '.tmp',
   'src/frontend/coverage',
@@ -86,7 +119,7 @@ export function cleanLocalProductionOutputs(root) {
       : path.join(resolvedRoot, `.fsusblog-${id}-cache-${process.pid}`)
   }))
   for (const cache of dependencyCaches) {
-    fs.rmSync(cache.preserved, { recursive: true, force: true })
+    forceRmSync(cache.preserved)
     if (fs.existsSync(cache.target)) fs.renameSync(cache.target, cache.preserved)
   }
   try {
@@ -100,12 +133,12 @@ export function cleanLocalProductionOutputs(root) {
         for (const entry of fs.readdirSync(externalTempRoot)) {
           traversedEntryCount += 1
           if (preservedNames.has(entry)) continue
-          fs.rmSync(path.join(externalTempRoot, entry), { recursive: true, force: true })
+          forceRmSync(path.join(externalTempRoot, entry))
         }
         continue
       }
       if (fs.existsSync(target)) traversedEntryCount += 1
-      fs.rmSync(target, { recursive: true, force: true })
+      forceRmSync(target)
     }
   } finally {
     for (const cache of dependencyCaches) {

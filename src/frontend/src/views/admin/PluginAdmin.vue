@@ -549,7 +549,7 @@ onMounted(loadOverview)
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--fsus-space-3); {
+  gap: var(--fsus-space-3);
   display: grid;
   grid-template-columns: minmax(240px, 0.32fr) minmax(0, 1fr);
   gap: var(--fsus-space-6);
@@ -596,7 +596,7 @@ onMounted(loadOverview)
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: var(--fsus-space-1); {
+  gap: var(--fsus-space-1);
   overflow: hidden;
   color: var(--fsusblog-text-secondary);
   text-overflow: ellipsis;
@@ -617,6 +617,7 @@ onMounted(loadOverview)
 
 .plugin-admin-empty {
   padding: var(--fsus-space-5);
+}
 
 .plugin-admin-placeholder {
   display: grid;

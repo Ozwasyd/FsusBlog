@@ -1,6 +1,4 @@
 using System.Data.Common;
-
-using FsusBlog.Server.Infrastructure.Data;
 using System.Diagnostics.Metrics;
 using System.Security.Cryptography;
 using System.Text;
@@ -8,6 +6,7 @@ using System.Text;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Data;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Services.Moderation;

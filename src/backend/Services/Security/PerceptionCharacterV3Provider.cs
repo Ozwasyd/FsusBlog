@@ -1,6 +1,6 @@
+using System.Net;
 using System.Security.Cryptography;
 using System.Text;
-using System.Net;
 
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Shared.Contracts.Security;

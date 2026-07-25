@@ -1,5 +1,5 @@
-using FsusBlog.Server.Infrastructure.Themes;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Themes;
 
 using Microsoft.AspNetCore.Mvc;
 
@@ -52,7 +52,11 @@ public static class ThemeAdminEndpoints
     {
         ThemeRegistrySnapshot? theme = await registry.GetThemeAsync(themeId, cancellationToken);
         if (theme is null)
-            return Results.NotFound(new { error = "theme_not_found", themeId });
+            return Results.NotFound(new
+            {
+                error = "theme_not_found",
+                themeId
+            });
 
         return Results.Ok(new
         {
@@ -102,7 +106,11 @@ public static class ThemeAdminEndpoints
         ThemeActivationScope parsedScope = ThemeActivationScope.Parse(scope);
         ThemeActivationSnapshot? activation = await registry.GetActivationAsync(parsedScope, cancellationToken);
         if (activation is null)
-            return Results.Ok(new { scope = parsedScope.Value, activeThemeId = (string?)null });
+            return Results.Ok(new
+            {
+                scope = parsedScope.Value,
+                activeThemeId = (string?)null
+            });
 
         return Results.Ok(new
         {

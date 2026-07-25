@@ -1,5 +1,5 @@
-using FsusBlog.Server.Infrastructure.Fonts;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Fonts;
 
 using Microsoft.AspNetCore.Mvc;
 
@@ -53,7 +53,11 @@ public static class FontAdminEndpoints
         FontRegistryEntry? font = snapshot.Fonts.FirstOrDefault(
             f => string.Equals(f.Id, fontId, StringComparison.Ordinal));
         if (font is null)
-            return Results.NotFound(new { error = "font_not_found", fontId });
+            return Results.NotFound(new
+            {
+                error = "font_not_found",
+                fontId
+            });
 
         return Results.Ok(new
         {

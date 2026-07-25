@@ -58,7 +58,11 @@ public static class CustomizationEndpoints
     {
         if (string.IsNullOrWhiteSpace(request.Name))
         {
-            return Results.BadRequest(new { error = "validation", message = "Name is required." });
+            return Results.BadRequest(new
+            {
+                error = "validation",
+                message = "Name is required."
+            });
         }
 
         int userId = ResolveAdminUserId(httpContext);
@@ -76,7 +80,11 @@ public static class CustomizationEndpoints
         CustomizationProfile? profile = await store.GetProfileAsync(id, cancellationToken);
         if (profile is null)
         {
-            return Results.NotFound(new { error = "not_found", message = "Profile not found." });
+            return Results.NotFound(new
+            {
+                error = "not_found",
+                message = "Profile not found."
+            });
         }
 
         return Results.Ok(ToProfileDto(profile));
@@ -90,7 +98,11 @@ public static class CustomizationEndpoints
         CustomizationProfile? profile = await store.GetProfileAsync(id, cancellationToken);
         if (profile is null)
         {
-            return Results.NotFound(new { error = "not_found", message = "Profile not found." });
+            return Results.NotFound(new
+            {
+                error = "not_found",
+                message = "Profile not found."
+            });
         }
 
         IReadOnlyList<CustomizationVersion> versions = await store.ListVersionsAsync(id, cancellationToken);
@@ -105,13 +117,24 @@ public static class CustomizationEndpoints
         CustomizationProfile? profile = await store.GetProfileAsync(id, cancellationToken);
         if (profile is null)
         {
-            return Results.NotFound(new { error = "not_found", message = "Profile not found." });
+            return Results.NotFound(new
+            {
+                error = "not_found",
+                message = "Profile not found."
+            });
         }
 
         CustomizationDraft? draft = await store.GetDraftAsync(id, cancellationToken);
         if (draft is null)
         {
-            return Results.Ok(new { profileId = id, exists = false, payload = "{}", versionId = (long?)null, etag = (string?)null });
+            return Results.Ok(new
+            {
+                profileId = id,
+                exists = false,
+                payload = "{}",
+                versionId = (long?)null,
+                etag = (string?)null
+            });
         }
 
         return Results.Ok(ToDraftDto(draft));
@@ -127,7 +150,11 @@ public static class CustomizationEndpoints
         CustomizationProfile? profile = await store.GetProfileAsync(id, cancellationToken);
         if (profile is null)
         {
-            return Results.NotFound(new { error = "not_found", message = "Profile not found." });
+            return Results.NotFound(new
+            {
+                error = "not_found",
+                message = "Profile not found."
+            });
         }
 
         // Read If-Match header for ETag-based optimistic concurrency.
@@ -153,7 +180,11 @@ public static class CustomizationEndpoints
         if (draft is null)
         {
             // ETag mismatch - conflict.
-            return Results.Conflict(new { error = "conflict", message = "Draft was modified by another request. Re-fetch and retry." });
+            return Results.Conflict(new
+            {
+                error = "conflict",
+                message = "Draft was modified by another request. Re-fetch and retry."
+            });
         }
 
         httpContext.Response.Headers["ETag"] = $"\"{draft.Etag}\"";
@@ -168,7 +199,11 @@ public static class CustomizationEndpoints
         CustomizationProfile? profile = await store.GetProfileAsync(id, cancellationToken);
         if (profile is null)
         {
-            return Results.NotFound(new { error = "not_found", message = "Profile not found." });
+            return Results.NotFound(new
+            {
+                error = "not_found",
+                message = "Profile not found."
+            });
         }
 
         IReadOnlyList<CustomizationChangeSet> changeSets = await store.ListChangeSetsAsync(id, cancellationToken);

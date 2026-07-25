@@ -1,5 +1,5 @@
 import { computed, readonly, shallowRef } from 'vue'
-import { DEFAULT_LOCALE, LOCALE_PREFERENCE_STORAGE_KEY, isSupportedLocale } from './keys'
+import { DEFAULT_LOCALE, LOCALE_PREFERENCE_STORAGE_KEY, isSupportedLocale, ACTIVE_LOCALES } from './keys'
 import type { LocaleMessages, SupportedLocale } from './keys'
 import { loadBundle, getCachedBundle } from './bundleLoader'
 import { syncLocaleDocumentMetadata } from './documentMetadata'
@@ -11,6 +11,7 @@ import { ptBR } from './pt-BR'
 
 export { isSupportedLocale } from './keys'
 export { DEFAULT_LOCALE, LOCALE_PREFERENCE_STORAGE_KEY } from './keys'
+export const ENABLED_LOCALES: ReadonlySet<string> = ACTIVE_LOCALES
 
 const BOOTSTRAP_BUNDLES: Record<string, LocaleMessages> = {
     'zh-CN': zhCN,

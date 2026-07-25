@@ -5,15 +5,27 @@ namespace FsusBlog.Server.Infrastructure.Customization;
 /// </summary>
 public sealed class CustomizationProfile
 {
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
-    public int UserId { get; set; }
+    public int UserId
+    {
+        get; set;
+    }
 
     public string Name { get; set; } = string.Empty;
 
-    public DateTime CreatedAtUtc { get; set; }
+    public DateTime CreatedAtUtc
+    {
+        get; set;
+    }
 
-    public DateTime UpdatedAtUtc { get; set; }
+    public DateTime UpdatedAtUtc
+    {
+        get; set;
+    }
 }
 
 /// <summary>
@@ -21,18 +33,30 @@ public sealed class CustomizationProfile
 /// </summary>
 public sealed class CustomizationVersion
 {
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
-    public long ProfileId { get; set; }
+    public long ProfileId
+    {
+        get; set;
+    }
 
-    public int Version { get; set; }
+    public int Version
+    {
+        get; set;
+    }
 
     /// <summary>
     /// Typed hash-bound customization payload stored as JSON.
     /// </summary>
     public string Payload { get; set; } = string.Empty;
 
-    public DateTime CreatedAtUtc { get; set; }
+    public DateTime CreatedAtUtc
+    {
+        get; set;
+    }
 }
 
 /// <summary>
@@ -40,14 +64,23 @@ public sealed class CustomizationVersion
 /// </summary>
 public sealed class CustomizationDraft
 {
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
-    public long ProfileId { get; set; }
+    public long ProfileId
+    {
+        get; set;
+    }
 
     /// <summary>
     /// The version this draft was branched from, if any.
     /// </summary>
-    public long? VersionId { get; set; }
+    public long? VersionId
+    {
+        get; set;
+    }
 
     /// <summary>
     /// Mutable customization payload stored as JSON.
@@ -59,7 +92,10 @@ public sealed class CustomizationDraft
     /// </summary>
     public string Etag { get; set; } = string.Empty;
 
-    public DateTime UpdatedAtUtc { get; set; }
+    public DateTime UpdatedAtUtc
+    {
+        get; set;
+    }
 }
 
 /// <summary>
@@ -67,20 +103,35 @@ public sealed class CustomizationDraft
 /// </summary>
 public sealed class CustomizationChangeSet
 {
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
-    public long ProfileId { get; set; }
+    public long ProfileId
+    {
+        get; set;
+    }
 
-    public long FromVersionId { get; set; }
+    public long FromVersionId
+    {
+        get; set;
+    }
 
-    public long ToVersionId { get; set; }
+    public long ToVersionId
+    {
+        get; set;
+    }
 
     /// <summary>
     /// Structured diff payload stored as JSONB.
     /// </summary>
     public string Changes { get; set; } = string.Empty;
 
-    public DateTime CreatedAtUtc { get; set; }
+    public DateTime CreatedAtUtc
+    {
+        get; set;
+    }
 }
 
 /// <summary>
@@ -99,7 +150,10 @@ public sealed class UpsertCustomizationDraftRequest
     /// <summary>
     /// The version id this draft is based on. May be null to create a blank draft.
     /// </summary>
-    public long? VersionId { get; set; }
+    public long? VersionId
+    {
+        get; set;
+    }
 
     /// <summary>
     /// The customization payload as a JSON string.

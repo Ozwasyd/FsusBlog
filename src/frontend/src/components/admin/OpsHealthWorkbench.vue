@@ -506,8 +506,6 @@ async function copyEvidence(incident: OpsIncident): Promise<void>
     display: grid;
     min-width: 0;
     gap: var(--fsus-space-6);
- {
-    min-width: 0;
     border: 1px solid var(--fsusblog-panel-border);
     border-radius: var(--fsus-radius-panel);
     background: var(--fsusblog-panel-bg);

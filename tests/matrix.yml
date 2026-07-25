@@ -3261,7 +3261,7 @@ tiers:
               tests/frontend/e2e/visual/admin-dashboard-workbench.spec.ts,
               tests/frontend/unit/components/admin/AdminDashboardTaskWorkbench.test.ts,
               tests/frontend/checks/static/check-visual-density-governance.mjs,
-              src/frontend/tests/frontend/fixtures/adminDashboardWorkbenchVisual.ts,
+              tests/frontend/fixtures/adminDashboardWorkbenchVisual.ts,
               src/frontend/src/components/admin/AdminInlineEmptyState.vue,
               tests/frontend/checks/static/check-admin-empty-state-governance.mjs,
               tests/frontend/fixtures/admin-inline-empty-state-contract.json,
@@ -5810,7 +5810,6 @@ tiers:
       cpuWeight: 1
       memoryWeight: 1
       minCpuUnits: 1
-      maxParallel: 1
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
@@ -5850,7 +5849,6 @@ tiers:
       cpuWeight: 1
       memoryWeight: 1
       minCpuUnits: 1
-      maxParallel: 1
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
@@ -5884,7 +5882,6 @@ tiers:
       cpuWeight: 1
       memoryWeight: 1
       minCpuUnits: 1
-      maxParallel: 1
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
@@ -5918,7 +5915,6 @@ tiers:
       cpuWeight: 1
       memoryWeight: 1
       minCpuUnits: 1
-      maxParallel: 1
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
@@ -5952,7 +5948,6 @@ tiers:
       cpuWeight: 1
       memoryWeight: 1
       minCpuUnits: 1
-      maxParallel: 1
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
@@ -5986,7 +5981,6 @@ tiers:
       cpuWeight: 1
       memoryWeight: 1
       minCpuUnits: 1
-      maxParallel: 1
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
@@ -6023,7 +6017,6 @@ tiers:
       cpuWeight: 1
       memoryWeight: 1
       minCpuUnits: 1
-      maxParallel: 1
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
@@ -6057,7 +6050,6 @@ tiers:
       cpuWeight: 1
       memoryWeight: 1
       minCpuUnits: 1
-      maxParallel: 1
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
@@ -6094,12 +6086,12 @@ tiers:
       cpuWeight: 1
       memoryWeight: 1
       minCpuUnits: 1
-      maxParallel: 1
       requiresBootstrap: frontend
       requiresNode: true
       requiresDotnet: false
       requiresPlaywright: none
       cacheProfile: frontend
+      selfBootstraps: true
       timeoutMinutes: 20
       shardable: false
       defaultShards: 1
@@ -6128,7 +6120,6 @@ tiers:
       cpuWeight: 1
       memoryWeight: 1
       minCpuUnits: 1
-      maxParallel: 1
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
@@ -6162,7 +6153,6 @@ tiers:
       cpuWeight: 1
       memoryWeight: 1
       minCpuUnits: 1
-      maxParallel: 1
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
@@ -6200,7 +6190,6 @@ tiers:
       cpuWeight: 1
       memoryWeight: 1
       minCpuUnits: 1
-      maxParallel: 1
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
@@ -6238,7 +6227,6 @@ tiers:
       cpuWeight: 1
       memoryWeight: 1
       minCpuUnits: 1
-      maxParallel: 1
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
@@ -6276,7 +6264,6 @@ tiers:
       cpuWeight: 1
       memoryWeight: 1
       minCpuUnits: 1
-      maxParallel: 1
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
@@ -6318,7 +6305,6 @@ tiers:
       cpuWeight: 1
       memoryWeight: 1
       minCpuUnits: 1
-      maxParallel: 1
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
@@ -6352,7 +6338,6 @@ tiers:
       cpuWeight: 1
       memoryWeight: 1
       minCpuUnits: 1
-      maxParallel: 1
       requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
@@ -6566,7 +6551,7 @@ tiers:
       owner: ServerContractAgent
       executionMode: summary
       command: tools/test/lanes/release-final.sh
-      dependsOn: [release-closeout]
+      dependsOn: [production-correctness, browser-contract, release-closeout]
       requiresEvidenceFrom:
           [
               coverage-gate-strict,
@@ -6606,7 +6591,7 @@ tiers:
       maxParallel: 1
       requiresBootstrap: none
       requiresNode: true
-      requiresDotnet: false
+      requiresDotnet: true
       requiresPlaywright: none
       evidenceClass: correctness
       cacheProfile: full

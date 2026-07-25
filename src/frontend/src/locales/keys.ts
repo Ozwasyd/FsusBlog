@@ -1,4 +1,4 @@
-import { DEFAULT_LOCALE, ACTIVE_LOCALES, isActiveLocale, isAvailableLocale, type LocaleDescriptor, REGISTRY_BY_CODE } from './registry'
+import { DEFAULT_LOCALE, ACTIVE_LOCALES, isAvailableLocale, type LocaleDescriptor, REGISTRY_BY_CODE } from './registry'
 
 export { DEFAULT_LOCALE, isAvailableLocale } from './registry'
 export type { LocaleDescriptor } from './registry'

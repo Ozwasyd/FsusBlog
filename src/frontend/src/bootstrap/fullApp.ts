@@ -236,7 +236,6 @@ function installDeferredFsusMotion(prepared: PreparedFullApp): void {
         deferredMotionInstallStarted = false
         if (import.meta.env.DEV) { console.warn('[fullApp] motion install failed', e) }
       })
-      })
   }
 
   const idleWindow = window as IdleWindow

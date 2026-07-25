@@ -1,7 +1,7 @@
-using FsusBlog.Server.Infrastructure.Data;
 using System.Data.Common;
 
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Data;
 
 using SqlSugar;
 
