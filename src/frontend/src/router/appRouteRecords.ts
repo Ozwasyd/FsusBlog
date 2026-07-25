@@ -168,6 +168,7 @@ export const APP_ROUTE_RECORDS: RouteRecordRaw[] = [
                     { path: 'integrity-proof', name: 'ManageIntegrityProof', component: () => import('@/views/admin/IntegrityProofConsole.vue'), meta: manageMeta({ title: 'Integrity Proof', permissions: ['system.config'], pageKind: 'console', routeState: 'session-sensitive' }) },
                     { path: 'settings', name: 'ManageSettings', component: () => import('@/views/admin/Settings.vue'), meta: manageMeta({ title: '系统设置', permissions: ['system.config'], pageKind: 'settings' }) },
                     { path: 'plugins', name: 'ManagePlugins', component: () => import('@/views/admin/PluginAdmin.vue'), meta: manageMeta({ title: '插件', permissions: ['system.config'], pageKind: 'console', routeState: 'session-sensitive' }) },
+                    { path: 'themes', name: 'ManageThemes', component: () => import('@/views/admin/ThemeAdmin.vue'), meta: manageMeta({ title: '主题', permissions: ['system.config'], pageKind: 'console', routeState: 'session-sensitive' }) },
                     { path: 'users', name: 'ManageUsers', component: () => import('@/views/admin/UserManage.vue'), meta: manageMeta({ title: '用户管理', permissions: ['admin.manage'], pageKind: 'collection' }) }
                 ]
             }
