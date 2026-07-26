@@ -22,8 +22,7 @@ import {
     productionBuildLayoutDigest,
     productionDotnetArtifacts,
     productionRuntimeEnvironment,
-    resolveProductionBuildLayout,
-    scheduleStaleProductionBuildGc
+    resolveProductionBuildLayout
 } from '../../tools/test-matrix/production-build-layout.mjs'
 import { snapshotTierOutputs } from '../../tools/test-matrix/scheduler.mjs'
 import { currentProcessIdentity } from '../../tools/test/process-identity.mjs'
@@ -273,22 +272,4 @@ test('GC refuses traversal, repository/root targets and symlinks without deletin
     /refusing symlink/u
   )
   assert.equal(fs.readFileSync(path.join(outside, 'keep'), 'utf8'), 'keep')
-})
-
-test('GC scheduling is detached and never blocks the current critical path', t => {
-  const root = repositoryFixture(t)
-  let captured = null
-  let unrefCalled = false
-  const result = scheduleStaleProductionBuildGc({
-    root,
-    currentRunId: 'production-now',
-    spawnProcess(command, args, options) {
-      captured = { command, args, options }
-      return { pid: 321, unref: () => { unrefCalled = true } }
-    }
-  })
-  assert.equal(result.pid, 321)
-  assert.equal(captured.options.detached, true)
-  assert.equal(captured.options.stdio, 'ignore')
-  assert.equal(unrefCalled, true)
 })

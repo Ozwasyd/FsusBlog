@@ -1,4 +1,4 @@
-import { spawn, spawnSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -687,9 +687,15 @@ export function bindProductionBuildLayoutSource(layout, sourceState) {
 export function productionBuildRunIsActive(root, runId) {
     const safeRunId = validateProductionRunId(runId)
     const layout = resolveProductionBuildLayout({ root, runId: safeRunId })
+    const runRootExists = fs.existsSync(layout.runRoot)
     const activeExists = fs.existsSync(layout.activeFile)
     const manifestExists = fs.existsSync(layout.manifestFile)
-    if (!activeExists && !manifestExists) return false
+    if (!activeExists && !manifestExists) {
+        if (runRootExists) {
+            throw new Error(`production build owner identity is missing: ${safeRunId}`)
+        }
+        return false
+    }
     if (!activeExists && manifestExists) {
         const manifest = JSON.parse(fs.readFileSync(layout.manifestFile, 'utf8'))
         if (
@@ -1012,7 +1018,9 @@ export function collectStaleProductionBuildRoots({
     currentRunId = null,
     isRunActive = (runId) => productionBuildRunIsActive(root, runId),
     remove = (directory) => fs.rmSync(directory, { recursive: true, force: true }),
-    beforeDelete = null
+    beforeDelete = null,
+    allowDelete = null,
+    onRoot = null
 } = {}) {
     const startedAtMs = Date.now()
     const repositoryRoot = path.resolve(root)
@@ -1038,20 +1046,65 @@ export function collectStaleProductionBuildRoots({
         assertSafeProductionBuildRunRoot(candidate, { root: repositoryRoot })
         verifyProductionBuildRootIntegrity(resolveProductionBuildLayout({ root: repositoryRoot, runId: entry.name }))
         const expectedIdentity = productionBuildRootIdentity(candidate)
-        if (entry.name === normalizedCurrent || isRunActive(entry.name)) {
+        const measured = measureProductionBuildTree(candidate)
+        const observation = {
+            runId: entry.name,
+            root: candidate,
+            identity: expectedIdentity,
+            size: { byteCount: measured.byteCount, inodeCount: measured.inodeCount },
+            decision: null,
+            deleteResult: null,
+            postObservation: null
+        }
+        if (entry.name === normalizedCurrent) {
+            observation.decision = 'retain-current-run'
+            observation.postObservation = { exists: true }
+            onRoot?.(observation)
             retained.push(entry.name)
             continue
         }
-        const measured = measureProductionBuildTree(candidate)
+        let active
+        try {
+            active = isRunActive(entry.name)
+        } catch (error) {
+            observation.decision = 'block-unverifiable-identity'
+            observation.deleteResult = { status: 'not-attempted', reason: error.message }
+            observation.postObservation = { exists: fs.existsSync(candidate) }
+            onRoot?.(observation)
+            throw error
+        }
+        if (active) {
+            observation.decision = 'retain-active-owner'
+            observation.postObservation = { exists: true }
+            onRoot?.(observation)
+            retained.push(entry.name)
+            continue
+        }
+        if (allowDelete && allowDelete(observation) !== true) {
+            observation.decision = 'block-budget-or-policy'
+            observation.deleteResult = { status: 'not-attempted' }
+            observation.postObservation = { exists: true }
+            onRoot?.(observation)
+            retained.push(entry.name)
+            continue
+        }
         if (
             !reclaimExactProductionBuildRoot(candidate, expectedIdentity, {
                 remove,
                 beforeDelete: beforeDelete ? (context) => beforeDelete({ ...context, runId: entry.name }) : null
             })
         ) {
+            observation.decision = 'retain-identity-changed'
+            observation.deleteResult = { status: 'not-deleted' }
+            observation.postObservation = { exists: fs.existsSync(candidate) }
+            onRoot?.(observation)
             retained.push(entry.name)
             continue
         }
+        observation.decision = 'delete-stale-complete'
+        observation.deleteResult = { status: 'deleted' }
+        observation.postObservation = { exists: fs.existsSync(candidate) }
+        onRoot?.(observation)
         reclaimed.inodeCount += measured.inodeCount
         reclaimed.byteCount += measured.byteCount
         removed.push(entry.name)
@@ -1213,24 +1266,6 @@ export function failClosedProductionBuildLayout(
     atomicWriteJson(layout.manifestFile, terminal)
     fs.rmSync(layout.activeFile, { force: true })
     return terminal
-}
-
-export function scheduleStaleProductionBuildGc({
-  root = defaultRoot,
-  currentRunId,
-  spawnProcess = spawn
-} = {}) {
-  const repositoryRoot = path.resolve(root)
-  const safeRunId = validateProductionRunId(currentRunId)
-  const script = fileURLToPath(new URL('./production-build-gc.mjs', import.meta.url))
-  const child = spawnProcess(process.execPath, [script, '--root', repositoryRoot, '--current-run', safeRunId], {
-    cwd: repositoryRoot,
-    detached: true,
-    stdio: 'ignore',
-    env: { ...process.env, FSUSBLOG_PRODUCTION_BUILD_GC: '1' }
-  })
-  child.unref?.()
-  return { pid: child.pid ?? null, currentRunId: safeRunId, script }
 }
 
 export function productionBuildLayoutDigest(layout) {

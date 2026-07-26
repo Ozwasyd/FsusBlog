@@ -41,8 +41,7 @@ import { runProductionBuildLifecycle } from './test-matrix/production-build-life
 import {
     bindProductionBuildLayoutSource,
     productionBuildEnvironment,
-    registerProductionBuildCompiler,
-    scheduleStaleProductionBuildGc
+    registerProductionBuildCompiler
 } from './test-matrix/production-build-layout.mjs'
 import { validateEvidenceExecutionDeclaration } from './test-matrix/projection-declaration.mjs'
 import { buildReleaseFinalizerPlan } from './test-matrix/release-final-evidence-contract.mjs'
@@ -117,6 +116,53 @@ const summaryInvocationId = `${process.env.GITHUB_RUN_ID ?? 'local'}-${process.e
 const ciSummaryAuthorityId = process.env.GITHUB_RUN_ID && process.env.GITHUB_JOB
   ? `gha-${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT ?? '1'}-${process.env.GITHUB_JOB}`
   : null
+
+export function managedProductionBuildGcTier(runId) {
+  const receipt = `.tmp/release-evidence/build-gc/${runId}.json`
+  return {
+    id: 'managed-production-build-gc',
+    owner: 'governance',
+    command: `node tools/test-matrix/production-build-gc.mjs --root . --current-run ${runId} --byte-budget 17179869184 --inode-budget 500000`,
+    executionDependsOn: [],
+    services: [],
+    parallelizable: false,
+    exclusiveResources: ['build-root-gc', 'disk-heavy'],
+    phase: 0,
+    cost: 'high',
+    resourceClass: 'io',
+    cpuWeight: 1,
+    memoryWeight: 0.5,
+    minCpuUnits: 1,
+    requiresBootstrap: 'none',
+    requiresNode: true,
+    requiresDotnet: false,
+    requiresPlaywright: 'none',
+    cacheProfile: 'none',
+    timeoutMinutes: 5,
+    shardable: false,
+    risk: 'high',
+    cadence: 'pr',
+    requiredFor: 'none',
+    coverage: [],
+    artifacts: [receipt],
+    evidence: [receipt],
+    ciJob: 'managed-production-build-gc',
+    localOnly: true,
+    nightlyOnly: false,
+    targetRoots: ['.tmp/build'],
+    ioBudget: { byteBudget: 17179869184, inodeBudget: 500000 },
+    measurementIsolation: 'preflight-before-build'
+  }
+}
+
+function prependManagedProductionBuildGc(tiers, runId, { enabled = true } = {}) {
+  if (!enabled) return tiers
+  const gc = managedProductionBuildGcTier(runId)
+  return [gc, ...tiers.map((tier) => ({
+    ...tier,
+    executionDependsOn: [gc.id, ...tierExecutionDependencies(tier)]
+  }))]
+}
 
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize)
@@ -1733,13 +1779,13 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
       throwIfInterrupted
     }) {
   const preparedBuildSourceState = buildLayout.manifest.sourceState
-  const buildGc = options.resume ? null : scheduleStaleProductionBuildGc({ root, currentRunId: runId })
+  const scheduledPhysicalTiers = prependManagedProductionBuildGc(physicalTiers, runId, { enabled: !options.resume })
     throwIfInterrupted()
   if (options.resume) {
     console.error(`[matrix:${profileId}] physical resume run=${runId} buildRoot=${path.relative(root, buildLayout.runRoot)}`)
   } else {
     console.error(`[matrix:${profileId}] fresh cleanup duration=${freshCleanup.durationMs}ms traversed=${freshCleanup.traversedEntryCount} buildRoot=${path.relative(root, buildLayout.runRoot)}`)
-    console.error(`[matrix:${profileId}] stale build GC pid=${buildGc.pid ?? 'unavailable'} currentRun=${runId}`)
+    console.error(`[matrix:${profileId}] managed stale build GC is a preflight scheduler step currentRun=${runId}`)
   }
   const capacity = assertLocalProductionCapacity({ root })
   console.error(`[matrix:${profileId}] capacity preflight=${capacity.measurements.map(({ directory, availableBytes }) => `${directory}:${(availableBytes / (1024 ** 3)).toFixed(1)}GiB`).join(',')}`)
@@ -1757,7 +1803,7 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
             registerProductionBuildCompiler(buildLayout, identity, authority),
         sourceState: buildSourceState,
         namespace: runNamespace,
-      tiers: physicalTiers,
+      tiers: scheduledPhysicalTiers,
       root,
       runsRoot,
       runId,
@@ -2243,7 +2289,7 @@ async function runTier(matrix, tierId, args) {
             namespace: runNamespace
         },
         async execute({ buildLayout, recordSchedulerResult, setFinalization, throwIfInterrupted }) {
-            if (!options.resume) scheduleStaleProductionBuildGc({ root, currentRunId: runId })
+            const scheduledTiers = prependManagedProductionBuildGc(all, runId, { enabled: !options.resume })
             throwIfInterrupted()
             prepareNamespaceEnvironmentIfNeeded(all, runNamespace)
             if (options.fresh) resetFreshJobSummaries(all.map((tier) => [tier, {}]))
@@ -2253,7 +2299,7 @@ async function runTier(matrix, tierId, args) {
                         registerProductionBuildCompiler(buildLayout, identity, authority),
                     sourceState: buildSourceState,
                     namespace: runNamespace,
-                    tiers: all,
+                    tiers: scheduledTiers,
                     root,
                     runsRoot,
                     runId,
@@ -2586,7 +2632,7 @@ async function runCiJobScheduled(matrix, jobId, tiers, options) {
             namespace: buildNamespace
         },
         async execute({ buildLayout, recordSchedulerResult, setFinalization, throwIfInterrupted }) {
-            if (!options.resume) scheduleStaleProductionBuildGc({ root, currentRunId: runId })
+            const scheduledTiers = prependManagedProductionBuildGc(tiers, runId, { enabled: !options.resume })
             throwIfInterrupted()
             console.error(`[matrix:ci-job:${jobId}] scheduler=${schedulerMode} max=${maxParallel}`)
             const bootstrapTier = tiers.find((tier) => tier.selfBootstraps === true)
@@ -3346,7 +3392,7 @@ async function ciPrSmart(matrix, args) {
             namespace: runNamespace
         },
         async execute({ buildLayout, recordSchedulerResult, setFinalization, throwIfInterrupted }) {
-            scheduleStaleProductionBuildGc({ root, currentRunId: runId })
+            const scheduledTiers = prependManagedProductionBuildGc(tiers, runId)
             throwIfInterrupted()
             prepareNamespaceEnvironmentIfNeeded(tiers, runNamespace)
             resetFreshJobSummaries(tiers.map((tier) => [tier, {}]))
@@ -3356,7 +3402,7 @@ async function ciPrSmart(matrix, args) {
                         registerProductionBuildCompiler(buildLayout, identity, authority),
                     sourceState: buildSourceState,
                     namespace: runNamespace,
-                    tiers,
+                    tiers: scheduledTiers,
                     root,
                     runsRoot,
                     runId,
