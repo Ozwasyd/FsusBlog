@@ -27,7 +27,7 @@
                 "postcondition": "authoritative-evidence-status-ok"
             },
             "authoritativeEvidence": {
-                "path": ".tmp/soak/summary.json",
+                "path": ".tmp/soak/short/summary.json",
                 "expectedSchema": {
                     "required": [
                         "status",

@@ -35,4 +35,8 @@ test('release reliability catalog declares structured executable commands and ev
         assert.equal(typeof scenario.authoritativeEvidence.path, 'string');
         assert.ok(Array.isArray(scenario.authoritativeEvidence.expectedSchema.required));
     }
+    assert.equal(
+        catalog.scenarios.find((scenario) => scenario.id === 'release-soak-min').authoritativeEvidence.path,
+        '.tmp/soak/short/summary.json'
+    );
 });
