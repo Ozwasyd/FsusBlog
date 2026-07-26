@@ -61,6 +61,12 @@ import {
     validateFrontendBuildStageReceiptBinding,
     validateFrontendBuildStageReceiptIdentity
 } from '../../test-matrix/frontend-build-ready-marker.mjs';
+import {
+  consumeResetReceiptsForStep,
+  resetPostconditionReceiptFile,
+  resetReceiptsProducedByStep,
+  resolveRuntimeResetContext
+} from '../../test-matrix/reset-postcondition-verifier.mjs'
 import { productionZkRequested } from '../../security/comment-privacy-build-contract.mjs';
 import {
     consumeResidentLeaseHandoffFile,
@@ -329,6 +335,34 @@ function currentSourceState() {
     commit: process.env.FSUSBLOG_TEST_SOURCE_COMMIT,
     worktreeFingerprint: process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT
   }
+}
+
+function runtimeResetIdentity() {
+  return {
+    runId: schedulerRunId(),
+    namespace: String(process.env.FSUSBLOG_TEST_NAMESPACE ?? '').trim(),
+    profileId,
+    sourceState: currentSourceState()
+  }
+}
+
+function loadRuntimeStateDomainCatalog() {
+  return JSON.parse(fs.readFileSync(
+    path.join(root, 'config/testing/runtime-state-domain-catalog.json'),
+    'utf8'
+  ))
+}
+
+function resetReceiptArtifactsProducedByStep(catalog, stepId) {
+  const identity = runtimeResetIdentity()
+  const resets = catalog.steps
+    .flatMap((entry) => [...(entry.resetBefore ?? []), ...(entry.resetAfter ?? [])])
+    .filter((reset) => reset.producer === stepId)
+  return [...new Set(resets.map((reset) => resetPostconditionReceiptFile(root, {
+    runId: identity.runId,
+    producer: stepId,
+    assertionId: reset.assertionId
+  })))]
 }
 
 function currentRunMarkerArtifacts(markerId) {
@@ -1817,6 +1851,22 @@ async function executeRuntimeStepBody(step) {
         ? waitForFrontendBuildReady
         : null
   if (!readinessWait) {
+    const resetContext = resolveRuntimeResetContext({
+      bundleId,
+      stepId: step.id,
+      catalogLoader: loadRuntimeStateDomainCatalog,
+      stepsLoader: runtimeSteps
+    })
+    const consumedBefore = resetContext
+      ? consumeResetReceiptsForStep({
+          root,
+          catalog: resetContext.catalog,
+          steps: resetContext.steps,
+          stepId: step.id,
+          phase: 'resetBefore',
+          runIdentity: runtimeResetIdentity()
+        })
+      : []
     let executableStep = step
     if (step.id === 'bootstrap') {
       const runtimeLayout = prepareProductionRuntimeLayout(productionBuildLayout)
@@ -1833,6 +1883,27 @@ async function executeRuntimeStepBody(step) {
         + ` backend=${relative(runtimeLayout.runtimeBackendWebRoot)}`
       )
     }
+    if (resetContext) {
+      const originalAfterSuccess = executableStep.afterSuccess
+      executableStep = {
+        ...executableStep,
+        artifacts: [
+          ...(executableStep.artifacts ?? []),
+          ...consumedBefore.map((entry) => entry.file),
+          ...resetReceiptArtifactsProducedByStep(resetContext.catalog, step.id)
+        ],
+        afterSuccess: async (result) => {
+          if (typeof originalAfterSuccess === 'function') await originalAfterSuccess(result)
+          resetReceiptsProducedByStep({
+            root,
+            catalog: resetContext.catalog,
+            step: executableStep,
+            result,
+            runIdentity: runtimeResetIdentity()
+          })
+        }
+      }
+    }
     const result = await executeStep(executableStep)
     if (step.id === 'bootstrap') {
       const namespace = String(process.env.FSUSBLOG_TEST_NAMESPACE ?? '').trim()
@@ -1841,6 +1912,16 @@ async function executeRuntimeStepBody(step) {
         ...productionRuntimeChildEnvironment
       }
       console.log(`[local-production:${bundleId}] loaded runtime environment namespace=${namespace}`)
+    }
+    if (resetContext) {
+      consumeResetReceiptsForStep({
+        root,
+        catalog: resetContext.catalog,
+        steps: resetContext.steps,
+        stepId: step.id,
+        phase: 'resetAfter',
+        runIdentity: runtimeResetIdentity()
+      })
     }
     return result
   }

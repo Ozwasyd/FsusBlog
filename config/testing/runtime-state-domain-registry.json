@@ -1,0 +1,6 @@
+{
+  "schema": "fsusblog.runtime-state-domain-registry.v1",
+  "domains": [
+    "artifact.public-aot-overlay", "artifact.release-derived", "artifact.static-web-assets", "browser.service-worker", "browser.storage-state", "fixture.auth-identities", "fixture.public-content", "fixture.runtime-config", "fixture.security-state", "network.host-topology", "network.zap-container", "postgres.article", "postgres.audit", "postgres.auth", "postgres.comment", "postgres.outbox", "postgres.schema", "postgres.security", "postgres.settings", "redis.cache.private", "redis.cache.public", "redis.notification", "redis.rate-limit", "redis.session", "runtime.backend-process", "runtime.frontend-preview", "runtime.release-preview"
+  ]
+}

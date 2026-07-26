@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fsusblog.runtime-state-domain-catalog.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "auditBaseline", "implementationBaseline", "registry", "steps"],
+  "properties": {
+    "schema": {"const": "fsusblog.runtime-state-domain-catalog.v1"},
+    "auditBaseline": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "implementationBaseline": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "registry": {"const": "config/testing/runtime-state-domain-registry.json"},
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/step"}
+    }
+  },
+  "$defs": {
+    "domainList": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "reset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["producer", "producerCommand", "postcondition", "verifier", "assertionId", "receiptSchema"],
+      "properties": {
+        "producer": {"type": "string", "minLength": 1},
+        "producerCommand": {"type": "string", "minLength": 1},
+        "postcondition": {"type": "string", "minLength": 1},
+        "verifier": {"type": "string", "minLength": 1},
+        "assertionId": {"type": "string", "minLength": 1},
+        "receiptSchema": {"const": "fsusblog.runtime-reset-postcondition.v1"}
+      }
+    },
+    "commutativeWrite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["domain", "verifier"],
+      "properties": {
+        "domain": {"type": "string", "minLength": 1},
+        "verifier": {"type": "string", "minLength": 1}
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["proofKind", "operation", "domain"],
+      "properties": {
+        "proofKind": {"enum": ["static-analyzer", "structured-test"]},
+        "operation": {"enum": ["reads", "writes", "deletes", "invalidates", "creates", "all"]},
+        "domain": {"type": "string", "minLength": 1},
+        "source": {"type": "string", "minLength": 1},
+        "ruleId": {"type": "string", "minLength": 1},
+        "assertionId": {"type": "string", "minLength": 1},
+        "verifier": {"type": "string", "minLength": 1}
+      }
+    },
+    "operationOverlap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["domain", "operations", "testId"],
+      "properties": {
+        "domain": {"type": "string", "minLength": 1},
+        "operations": {"type": "array", "minItems": 2, "items": {"enum": ["reads", "writes", "deletes", "invalidates", "creates"]}, "uniqueItems": true},
+        "testId": {"type": "string", "minLength": 1}
+      }
+    },
+    "noneStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stepId", "stateAccess"],
+      "properties": {
+        "stepId": {"type": "string", "minLength": 1},
+        "stateAccess": {"const": "none"}
+      }
+    },
+    "declaredStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stepId", "stateAccess", "reads", "writes", "deletes", "invalidates", "creates", "resetBefore", "resetAfter", "exclusiveStateDomains", "commutativeWrites", "requiredPredecessors", "postconditions", "evidence"],
+      "properties": {
+        "stepId": {"type": "string", "minLength": 1},
+        "stateAccess": {"const": "declared"},
+        "reads": {"$ref": "#/$defs/domainList"},
+        "writes": {"$ref": "#/$defs/domainList"},
+        "deletes": {"$ref": "#/$defs/domainList"},
+        "invalidates": {"$ref": "#/$defs/domainList"},
+        "creates": {"$ref": "#/$defs/domainList"},
+        "resetBefore": {"type": "array", "items": {"$ref": "#/$defs/reset"}},
+        "resetAfter": {"type": "array", "items": {"$ref": "#/$defs/reset"}},
+        "exclusiveStateDomains": {"$ref": "#/$defs/domainList"},
+        "commutativeWrites": {"type": "array", "items": {"$ref": "#/$defs/commutativeWrite"}},
+        "requiredPredecessors": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "postconditions": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "operationOverlaps": {"type": "array", "items": {"$ref": "#/$defs/operationOverlap"}},
+        "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}}
+      }
+    },
+    "step": {"oneOf": [{"$ref": "#/$defs/noneStep"}, {"$ref": "#/$defs/declaredStep"}]}
+  }
+}

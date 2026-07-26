@@ -39,8 +39,15 @@ for target in $TARGETS; do
     markdown_report="${label}.md"
 
     Log "scan target=$target"
+    docker_labels=()
+    if [[ -n "${FSUSBLOG_TEST_RUN_ID:-}" ]]; then
+        docker_labels+=(
+            --label "fsusblog.test-run=$FSUSBLOG_TEST_RUN_ID"
+            --label "fsusblog.step-id=${FSUSBLOG_STEP_ID:-zap-baseline}"
+        )
+    fi
     set +e
-    docker run --rm --network host \
+    docker run --rm --network host "${docker_labels[@]}" \
         -v "$RUN_DIR:/zap/wrk:rw" \
         -v "$CONFIG_FILE:/zap/fsusblog-zap-baseline.conf:ro" \
         "$ZAP_IMAGE" \

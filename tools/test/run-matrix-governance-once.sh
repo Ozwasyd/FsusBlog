@@ -11,12 +11,22 @@ exec "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-deterministic-command.mj
     --projection-directory .tmp/physical-execution-projections \
     --path tests/matrix.yml \
     --path tests/coverage-registry.json \
+    --path config/testing/runtime-state-domain-catalog.json \
+    --path config/testing/runtime-state-domain-registry.json \
+    --path config/schemas/runtime-state-domain-catalog.schema.json \
+    --path config/schemas/runtime-state-domain-registry.schema.json \
     --path tests/tools \
+    --path tests/frontend \
+    --path src/frontend/package.json \
+    --path tools/bootstrap-acceptance-env.sh \
+    --path tools/security \
     --path tools/run-test-matrix.mjs \
     --path tools/check-test-matrix.mjs \
     --path tools/check-workflow-matrix-sync.mjs \
     --path tools/docs/generate-testing-docs.mjs \
     --path tools/test-matrix \
+    --path tools/test/bundles \
+    --path tools/test/lanes \
     --path tools/test/run-matrix-governance-once.sh \
     --path tools/test/run-deterministic-command.mjs \
     --path tools/test/run-once.mjs \
@@ -28,4 +38,4 @@ exec "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-deterministic-command.mj
     --test-id matrix-validate \
     --test-id matrix-preflight \
     --test-id matrix-evidence-plan \
-    -- node tools/check-test-matrix.mjs
+    -- bash -c 'node tools/test-matrix/runtime-state-domain-catalog.mjs && node tools/check-test-matrix.mjs'

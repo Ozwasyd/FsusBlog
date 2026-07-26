@@ -1,0 +1,867 @@
+{
+  "schema": "fsusblog.runtime-state-domain-catalog.v1",
+  "auditBaseline": "3bd957a74a9846567a6f6270c03349b8219d6dc1",
+  "implementationBaseline": "b49320d24ed605ca98c5f24df5f33c1c767b4451",
+  "registry": "config/testing/runtime-state-domain-registry.json",
+  "steps": [
+    {
+      "stepId": "backend-build-ready",
+      "stateAccess": "none"
+    },
+    {
+      "stepId": "frontend-build-ready",
+      "stateAccess": "none"
+    },
+    {
+      "stepId": "security-join",
+      "stateAccess": "none"
+    },
+    {
+      "stepId": "cross-stack-join",
+      "stateAccess": "none"
+    },
+    {
+      "stepId": "runtime-state-stable",
+      "stateAccess": "none"
+    },
+    {
+      "stepId": "security-static",
+      "stateAccess": "declared",
+      "reads": [],
+      "writes": [],
+      "deletes": [],
+      "invalidates": [],
+      "creates": [],
+      "resetBefore": [],
+      "resetAfter": [],
+      "exclusiveStateDomains": [],
+      "commutativeWrites": [],
+      "requiredPredecessors": [],
+      "postconditions": [
+        "receipt"
+      ],
+      "evidence": [],
+      "operationOverlaps": []
+    },
+    {
+      "stepId": "cross-stack",
+      "stateAccess": "declared",
+      "reads": [],
+      "writes": [],
+      "deletes": [],
+      "invalidates": [],
+      "creates": [],
+      "resetBefore": [],
+      "resetAfter": [],
+      "exclusiveStateDomains": [],
+      "commutativeWrites": [],
+      "requiredPredecessors": [],
+      "postconditions": [
+        "receipt"
+      ],
+      "evidence": [],
+      "operationOverlaps": []
+    },
+    {
+      "stepId": "csrf-matrix",
+      "stateAccess": "declared",
+      "reads": [],
+      "writes": [],
+      "deletes": [],
+      "invalidates": [],
+      "creates": [],
+      "resetBefore": [],
+      "resetAfter": [],
+      "exclusiveStateDomains": [],
+      "commutativeWrites": [],
+      "requiredPredecessors": [],
+      "postconditions": [
+        "receipt"
+      ],
+      "evidence": [],
+      "operationOverlaps": []
+    },
+    {
+      "stepId": "bootstrap",
+      "stateAccess": "declared",
+      "reads": [
+        "artifact.public-aot-overlay",
+        "artifact.static-web-assets",
+        "fixture.runtime-config",
+        "postgres.auth",
+        "postgres.schema",
+        "postgres.security",
+        "redis.cache.public",
+        "redis.rate-limit"
+      ],
+      "writes": [
+        "postgres.schema",
+        "redis.cache.public",
+        "runtime.backend-process",
+        "runtime.frontend-preview",
+        "runtime.release-preview"
+      ],
+      "deletes": [
+        "postgres.schema",
+        "postgres.security",
+        "redis.cache.public",
+        "redis.rate-limit",
+        "runtime.release-preview"
+      ],
+      "invalidates": [],
+      "creates": [
+        "fixture.auth-identities",
+        "fixture.public-content",
+        "fixture.runtime-config",
+        "fixture.security-state",
+        "redis.cache.private",
+        "redis.cache.public",
+        "redis.session"
+      ],
+      "resetBefore": [],
+      "resetAfter": [],
+      "exclusiveStateDomains": [
+        "runtime.backend-process",
+        "runtime.frontend-preview",
+        "runtime.release-preview"
+      ],
+      "commutativeWrites": [],
+      "requiredPredecessors": [],
+      "postconditions": [
+        "runtime-ready"
+      ],
+      "operationOverlaps": [
+        {
+          "domain": "fixture.runtime-config",
+          "operations": [
+            "creates",
+            "reads"
+          ],
+          "testId": "bootstrap"
+        },
+        {
+          "domain": "postgres.schema",
+          "operations": [
+            "deletes",
+            "reads",
+            "writes"
+          ],
+          "testId": "bootstrap"
+        },
+        {
+          "domain": "postgres.security",
+          "operations": [
+            "deletes",
+            "reads"
+          ],
+          "testId": "bootstrap"
+        },
+        {
+          "domain": "redis.cache.public",
+          "operations": [
+            "creates",
+            "deletes",
+            "reads",
+            "writes"
+          ],
+          "testId": "bootstrap"
+        },
+        {
+          "domain": "redis.rate-limit",
+          "operations": [
+            "deletes",
+            "reads"
+          ],
+          "testId": "bootstrap"
+        },
+        {
+          "domain": "runtime.release-preview",
+          "operations": [
+            "deletes",
+            "writes"
+          ],
+          "testId": "bootstrap"
+        }
+      ],
+      "evidence": [
+        {"proofKind":"structured-test","operation":"all","domain":"all-declared-access","assertionId":"bootstrap","verifier":"tools/test/bundles/bundle-steps.mjs"},
+        {
+          "proofKind": "static-analyzer",
+          "operation": "reads",
+          "domain": "artifact.public-aot-overlay",
+          "source": "tools/bootstrap-acceptance-env.sh",
+          "ruleId": "artifact.public-aot-overlay.reads"
+        },
+        {
+          "proofKind": "static-analyzer",
+          "operation": "reads",
+          "domain": "postgres.auth",
+          "source": "tools/bootstrap-acceptance-env.sh",
+          "ruleId": "postgres.auth.reads"
+        },
+        {
+          "proofKind": "static-analyzer",
+          "operation": "reads",
+          "domain": "postgres.schema",
+          "source": "tools/bootstrap-acceptance-env.sh",
+          "ruleId": "postgres.schema.reads"
+        },
+        {
+          "proofKind": "static-analyzer",
+          "operation": "reads",
+          "domain": "postgres.security",
+          "source": "tools/bootstrap-acceptance-env.sh",
+          "ruleId": "postgres.security.reads"
+        },
+        {
+          "proofKind": "static-analyzer",
+          "operation": "reads",
+          "domain": "redis.cache.public",
+          "source": "tools/bootstrap-acceptance-env.sh",
+          "ruleId": "redis.cache.public.reads"
+        },
+        {
+          "proofKind": "static-analyzer",
+          "operation": "reads",
+          "domain": "redis.rate-limit",
+          "source": "tools/bootstrap-acceptance-env.sh",
+          "ruleId": "redis.rate-limit.reads"
+        },
+        {
+          "proofKind": "static-analyzer",
+          "operation": "writes",
+          "domain": "postgres.schema",
+          "source": "tools/bootstrap-acceptance-env.sh",
+          "ruleId": "postgres.schema.writes"
+        },
+        {
+          "proofKind": "static-analyzer",
+          "operation": "writes",
+          "domain": "redis.cache.public",
+          "source": "tools/bootstrap-acceptance-env.sh",
+          "ruleId": "redis.cache.public.writes"
+        },
+        {
+          "proofKind": "static-analyzer",
+          "operation": "writes",
+          "domain": "runtime.backend-process",
+          "source": "tools/bootstrap-acceptance-env.sh",
+          "ruleId": "runtime.backend-process.writes"
+        },
+        {
+          "proofKind": "static-analyzer",
+          "operation": "writes",
+          "domain": "runtime.release-preview",
+          "source": "tools/bootstrap-acceptance-env.sh",
+          "ruleId": "runtime.release-preview.writes"
+        },
+        {
+          "proofKind": "static-analyzer",
+          "operation": "deletes",
+          "domain": "postgres.schema",
+          "source": "tools/bootstrap-acceptance-env.sh",
+          "ruleId": "postgres.schema.deletes"
+        },
+        {
+          "proofKind": "static-analyzer",
+          "operation": "deletes",
+          "domain": "postgres.security",
+          "source": "tools/bootstrap-acceptance-env.sh",
+          "ruleId": "postgres.security.deletes"
+        },
+        {
+          "proofKind": "static-analyzer",
+          "operation": "deletes",
+          "domain": "redis.cache.public",
+          "source": "tools/bootstrap-acceptance-env.sh",
+          "ruleId": "redis.cache.public.deletes"
+        },
+        {
+          "proofKind": "static-analyzer",
+          "operation": "deletes",
+          "domain": "redis.rate-limit",
+          "source": "tools/bootstrap-acceptance-env.sh",
+          "ruleId": "redis.rate-limit.deletes"
+        },
+        {
+          "proofKind": "static-analyzer",
+          "operation": "deletes",
+          "domain": "runtime.release-preview",
+          "source": "tools/bootstrap-acceptance-env.sh",
+          "ruleId": "runtime.release-preview.deletes"
+        },
+        {
+          "proofKind": "static-analyzer",
+          "operation": "creates",
+          "domain": "fixture.runtime-config",
+          "source": "tools/bootstrap-acceptance-env.sh",
+          "ruleId": "fixture.runtime-config.creates"
+        },
+        {
+          "proofKind": "static-analyzer",
+          "operation": "creates",
+          "domain": "redis.cache.public",
+          "source": "tools/bootstrap-acceptance-env.sh",
+          "ruleId": "redis.cache.public.creates"
+        }
+      ]
+    },
+    {
+      "stepId": "security-runtime-core",
+      "stateAccess": "declared",
+      "reads": [
+        "fixture.runtime-config",
+        "postgres.security",
+        "redis.rate-limit",
+        "runtime.backend-process"
+      ],
+      "writes": [
+        "postgres.security",
+        "redis.rate-limit"
+      ],
+      "deletes": [
+        "postgres.security",
+        "redis.rate-limit"
+      ],
+      "invalidates": [
+        "redis.session"
+      ],
+      "creates": [
+        "fixture.security-state"
+      ],
+      "resetBefore": [
+        {
+          "producer": "bootstrap",
+          "producerCommand": "FSUSBLOG_RUNTIME_NO_BUILD=1 tools/bootstrap-acceptance-env.sh",
+          "postcondition": "runtime-ready",
+          "verifier": "tools/test-matrix/reset-postcondition-verifier.mjs",
+          "receiptSchema": "fsusblog.runtime-reset-postcondition.v1",
+          "assertionId": "bootstrap-runtime-ready"
+        }
+      ],
+      "resetAfter": [],
+      "exclusiveStateDomains": [],
+      "commutativeWrites": [],
+      "requiredPredecessors": [
+        "bootstrap"
+      ],
+      "postconditions": [
+        "receipt"
+      ],
+      "operationOverlaps": [
+        {
+          "domain": "postgres.security",
+          "operations": [
+            "deletes",
+            "reads",
+            "writes"
+          ],
+          "testId": "security"
+        },
+        {
+          "domain": "redis.rate-limit",
+          "operations": [
+            "deletes",
+            "reads",
+            "writes"
+          ],
+          "testId": "security"
+        }
+      ],
+      "evidence": [
+        {"proofKind":"structured-test","operation":"all","domain":"all-declared-access","assertionId":"security-runtime-core","verifier":"tools/test/bundles/bundle-steps.mjs"},
+        {
+          "proofKind": "static-analyzer",
+          "operation": "reads",
+          "domain": "postgres.security",
+          "source": "tools/test/lanes/_suite-support.sh#ResetSecurityRuntimeState",
+          "ruleId": "postgres.security.reads"
+        },
+        {
+          "proofKind": "static-analyzer",
+          "operation": "reads",
+          "domain": "redis.rate-limit",
+          "source": "tools/test/lanes/_suite-support.sh#ResetSecurityRuntimeState",
+          "ruleId": "redis.rate-limit.reads"
+        },
+        {
+          "proofKind": "static-analyzer",
+          "operation": "deletes",
+          "domain": "postgres.security",
+          "source": "tools/test/lanes/_suite-support.sh#ResetSecurityRuntimeState",
+          "ruleId": "postgres.security.deletes"
+        },
+        {
+          "proofKind": "static-analyzer",
+          "operation": "deletes",
+          "domain": "redis.rate-limit",
+          "source": "tools/test/lanes/_suite-support.sh#ResetSecurityRuntimeState",
+          "ruleId": "redis.rate-limit.deletes"
+        }
+      ]
+    },
+    {
+      "stepId": "authenticated-dast",
+      "stateAccess": "declared",
+      "reads": [
+        "fixture.runtime-config",
+        "runtime.backend-process"
+      ],
+      "writes": [
+        "postgres.security",
+        "redis.rate-limit"
+      ],
+      "deletes": [],
+      "invalidates": [],
+      "creates": [
+        "fixture.auth-identities"
+      ],
+      "resetBefore": [
+        {
+          "producer": "bootstrap",
+          "producerCommand": "FSUSBLOG_RUNTIME_NO_BUILD=1 tools/bootstrap-acceptance-env.sh",
+          "postcondition": "runtime-ready",
+          "verifier": "tools/test-matrix/reset-postcondition-verifier.mjs",
+          "receiptSchema": "fsusblog.runtime-reset-postcondition.v1",
+          "assertionId": "bootstrap-runtime-ready"
+        }
+      ],
+      "resetAfter": [],
+      "exclusiveStateDomains": [],
+      "commutativeWrites": [],
+      "requiredPredecessors": [
+        "security-runtime-core"
+      ],
+      "postconditions": [
+        "receipt"
+      ],
+      "evidence": [{"proofKind":"structured-test","operation":"all","domain":"all-declared-access","assertionId":"security-authenticated-dast","verifier":"tools/test/bundles/bundle-steps.mjs"}],
+      "operationOverlaps": []
+    },
+    {
+      "stepId": "runtime-integration",
+      "stateAccess": "declared",
+      "reads": [
+        "fixture.auth-identities",
+        "fixture.runtime-config",
+        "runtime.backend-process"
+      ],
+      "writes": [
+        "postgres.article",
+        "postgres.comment",
+        "postgres.settings"
+      ],
+      "deletes": [],
+      "invalidates": [
+        "redis.cache.private",
+        "redis.cache.public"
+      ],
+      "creates": [
+        "fixture.public-content"
+      ],
+      "resetBefore": [
+        {
+          "producer": "bootstrap",
+          "producerCommand": "FSUSBLOG_RUNTIME_NO_BUILD=1 tools/bootstrap-acceptance-env.sh",
+          "postcondition": "runtime-ready",
+          "verifier": "tools/test-matrix/reset-postcondition-verifier.mjs",
+          "receiptSchema": "fsusblog.runtime-reset-postcondition.v1",
+          "assertionId": "bootstrap-runtime-ready"
+        }
+      ],
+      "resetAfter": [],
+      "exclusiveStateDomains": [],
+      "commutativeWrites": [],
+      "requiredPredecessors": [
+        "security-runtime-core"
+      ],
+      "postconditions": [
+        "ready"
+      ],
+      "evidence": [{"proofKind":"structured-test","operation":"all","domain":"all-declared-access","assertionId":"integration","verifier":"tools/test/bundles/bundle-steps.mjs"}],
+      "operationOverlaps": []
+    },
+    {
+      "stepId": "release-public-hydration",
+      "stateAccess": "declared",
+      "reads": [
+        "fixture.public-content",
+        "runtime.backend-process"
+      ],
+      "writes": [
+        "artifact.public-aot-overlay",
+        "artifact.release-derived"
+      ],
+      "deletes": [],
+      "invalidates": [
+        "redis.cache.public"
+      ],
+      "creates": [],
+      "resetBefore": [],
+      "resetAfter": [],
+      "exclusiveStateDomains": [
+        "artifact.public-aot-overlay"
+      ],
+      "commutativeWrites": [],
+      "requiredPredecessors": [
+        "runtime-integration"
+      ],
+      "postconditions": [
+        "ready"
+      ],
+      "evidence": [{"proofKind":"structured-test","operation":"all","domain":"all-declared-access","assertionId":"release","verifier":"tools/test/bundles/bundle-steps.mjs"}],
+      "operationOverlaps": []
+    },
+    {
+      "stepId": "release-public",
+      "stateAccess": "declared",
+      "reads": [
+        "artifact.public-aot-overlay",
+        "artifact.release-derived",
+        "fixture.public-content",
+        "runtime.release-preview"
+      ],
+      "writes": [],
+      "deletes": [],
+      "invalidates": [],
+      "creates": [],
+      "resetBefore": [
+        {
+          "producer": "release-public-hydration",
+          "producerCommand": "tools/test/lanes/release-public-hydration.sh",
+          "postcondition": "ready",
+          "verifier": "tools/test-matrix/reset-postcondition-verifier.mjs",
+          "receiptSchema": "fsusblog.runtime-reset-postcondition.v1",
+          "assertionId": "release-public-hydration-ready"
+        }
+      ],
+      "resetAfter": [],
+      "exclusiveStateDomains": [],
+      "commutativeWrites": [],
+      "requiredPredecessors": [
+        "release-public-hydration"
+      ],
+      "postconditions": [
+        "receipt"
+      ],
+      "evidence": [
+        {"proofKind":"structured-test","operation":"all","domain":"all-declared-access","assertionId":"release","verifier":"tools/test/bundles/bundle-steps.mjs"},
+        {
+          "proofKind": "static-analyzer",
+          "operation": "reads",
+          "domain": "artifact.release-derived",
+          "source": "tools/test/lanes/_suite-support.sh#RunReleaseOnly",
+          "ruleId": "artifact.release-derived.reads"
+        }
+      ],
+      "operationOverlaps": []
+    },
+    {
+      "stepId": "endpoint-depth",
+      "stateAccess": "declared",
+      "reads": [
+        "artifact.public-aot-overlay",
+        "fixture.public-content",
+        "runtime.release-preview"
+      ],
+      "writes": [
+        "browser.storage-state"
+      ],
+      "deletes": [],
+      "invalidates": [],
+      "creates": [],
+      "resetBefore": [
+        {
+          "producer": "bootstrap",
+          "producerCommand": "FSUSBLOG_RUNTIME_NO_BUILD=1 tools/bootstrap-acceptance-env.sh",
+          "postcondition": "runtime-ready",
+          "verifier": "tools/test-matrix/reset-postcondition-verifier.mjs",
+          "receiptSchema": "fsusblog.runtime-reset-postcondition.v1",
+          "assertionId": "bootstrap-runtime-ready"
+        }
+      ],
+      "resetAfter": [],
+      "exclusiveStateDomains": [],
+      "commutativeWrites": [],
+      "requiredPredecessors": [
+        "release-public-hydration"
+      ],
+      "postconditions": [
+        "receipt"
+      ],
+      "evidence": [{"proofKind":"structured-test","operation":"all","domain":"all-declared-access","assertionId":"endpoint-depth","verifier":"tools/test/bundles/bundle-steps.mjs"}],
+      "operationOverlaps": []
+    },
+    {
+      "stepId": "zap-baseline",
+      "stateAccess": "declared",
+      "reads": [
+        "fixture.runtime-config",
+        "network.host-topology",
+        "runtime.backend-process"
+      ],
+      "writes": [
+        "network.zap-container"
+      ],
+      "deletes": [
+        "network.zap-container"
+      ],
+      "invalidates": [],
+      "creates": [
+        "network.zap-container"
+      ],
+      "resetBefore": [
+        {
+          "producer": "bootstrap",
+          "producerCommand": "FSUSBLOG_RUNTIME_NO_BUILD=1 tools/bootstrap-acceptance-env.sh",
+          "postcondition": "runtime-ready",
+          "verifier": "tools/test-matrix/reset-postcondition-verifier.mjs",
+          "receiptSchema": "fsusblog.runtime-reset-postcondition.v1",
+          "assertionId": "bootstrap-runtime-ready"
+        }
+      ],
+      "resetAfter": [
+        {
+          "producer": "zap-baseline",
+          "producerCommand": "tools/security/run-zap-baseline.sh",
+          "postcondition": "removed",
+          "verifier": "tools/test-matrix/reset-postcondition-verifier.mjs",
+          "receiptSchema": "fsusblog.runtime-reset-postcondition.v1",
+          "assertionId": "zap-container-removed"
+        }
+      ],
+      "exclusiveStateDomains": [
+        "network.zap-container"
+      ],
+      "commutativeWrites": [],
+      "requiredPredecessors": [
+        "runtime-integration"
+      ],
+      "postconditions": [
+        "removed"
+      ],
+      "operationOverlaps": [
+        {
+          "domain": "network.zap-container",
+          "operations": [
+            "creates",
+            "deletes",
+            "writes"
+          ],
+          "testId": "security"
+        }
+      ],
+      "evidence": [
+        {"proofKind":"structured-test","operation":"all","domain":"all-declared-access","assertionId":"zap-baseline","verifier":"tools/test/bundles/bundle-steps.mjs"},
+        {
+          "proofKind": "static-analyzer",
+          "operation": "reads",
+          "domain": "network.host-topology",
+          "source": "tools/security/run-zap-baseline.sh",
+          "ruleId": "network.host-topology.reads"
+        }
+      ]
+    },
+    {
+      "stepId": "cross-stack-runtime",
+      "stateAccess": "declared",
+      "reads": [
+        "artifact.public-aot-overlay",
+        "fixture.runtime-config",
+        "runtime.backend-process"
+      ],
+      "writes": [],
+      "deletes": [],
+      "invalidates": [],
+      "creates": [],
+      "resetBefore": [
+        {
+          "producer": "bootstrap",
+          "producerCommand": "FSUSBLOG_RUNTIME_NO_BUILD=1 tools/bootstrap-acceptance-env.sh",
+          "postcondition": "runtime-ready",
+          "verifier": "tools/test-matrix/reset-postcondition-verifier.mjs",
+          "receiptSchema": "fsusblog.runtime-reset-postcondition.v1",
+          "assertionId": "bootstrap-runtime-ready"
+        }
+      ],
+      "resetAfter": [],
+      "exclusiveStateDomains": [],
+      "commutativeWrites": [],
+      "requiredPredecessors": [
+        "runtime-integration"
+      ],
+      "postconditions": [
+        "receipt"
+      ],
+      "evidence": [{"proofKind":"structured-test","operation":"all","domain":"all-declared-access","assertionId":"cross-stack-contract","verifier":"tools/test/bundles/bundle-steps.mjs"}],
+      "operationOverlaps": []
+    },
+    {
+      "stepId": "rights-matrix",
+      "stateAccess": "declared",
+      "reads": [
+        "fixture.auth-identities",
+        "runtime.backend-process"
+      ],
+      "writes": [],
+      "deletes": [],
+      "invalidates": [],
+      "creates": [],
+      "resetBefore": [
+        {
+          "producer": "bootstrap",
+          "producerCommand": "FSUSBLOG_RUNTIME_NO_BUILD=1 tools/bootstrap-acceptance-env.sh",
+          "postcondition": "runtime-ready",
+          "verifier": "tools/test-matrix/reset-postcondition-verifier.mjs",
+          "receiptSchema": "fsusblog.runtime-reset-postcondition.v1",
+          "assertionId": "bootstrap-runtime-ready"
+        }
+      ],
+      "resetAfter": [],
+      "exclusiveStateDomains": [],
+      "commutativeWrites": [],
+      "requiredPredecessors": [
+        "runtime-integration"
+      ],
+      "postconditions": [
+        "receipt"
+      ],
+      "evidence": [{"proofKind":"structured-test","operation":"all","domain":"all-declared-access","assertionId":"rights-v3-test-matrix","verifier":"tools/test/bundles/bundle-steps.mjs"}],
+      "operationOverlaps": []
+    },
+    {
+      "stepId": "resilience",
+      "stateAccess": "declared",
+      "reads": [
+        "fixture.runtime-config",
+        "postgres.security",
+        "redis.rate-limit",
+        "runtime.backend-process"
+      ],
+      "writes": [
+        "postgres.audit",
+        "redis.cache.private"
+      ],
+      "deletes": [
+        "postgres.security",
+        "redis.rate-limit"
+      ],
+      "invalidates": [],
+      "creates": [],
+      "resetBefore": [
+        {
+          "producer": "bootstrap",
+          "producerCommand": "FSUSBLOG_RUNTIME_NO_BUILD=1 tools/bootstrap-acceptance-env.sh",
+          "postcondition": "runtime-ready",
+          "verifier": "tools/test-matrix/reset-postcondition-verifier.mjs",
+          "receiptSchema": "fsusblog.runtime-reset-postcondition.v1",
+          "assertionId": "bootstrap-runtime-ready"
+        }
+      ],
+      "resetAfter": [],
+      "exclusiveStateDomains": [],
+      "commutativeWrites": [],
+      "requiredPredecessors": [
+        "release-public"
+      ],
+      "postconditions": [
+        "receipt"
+      ],
+      "evidence": [
+        {"proofKind":"structured-test","operation":"all","domain":"all-declared-access","assertionId":"resilience","verifier":"tools/test/bundles/bundle-steps.mjs"},
+        {
+          "proofKind": "static-analyzer",
+          "operation": "reads",
+          "domain": "postgres.security",
+          "source": "tools/test/lanes/_suite-support.sh#ResetSecurityRuntimeState",
+          "ruleId": "postgres.security.reads"
+        },
+        {
+          "proofKind": "static-analyzer",
+          "operation": "reads",
+          "domain": "redis.rate-limit",
+          "source": "tools/test/lanes/_suite-support.sh#ResetSecurityRuntimeState",
+          "ruleId": "redis.rate-limit.reads"
+        },
+        {
+          "proofKind": "static-analyzer",
+          "operation": "deletes",
+          "domain": "postgres.security",
+          "source": "tools/test/lanes/_suite-support.sh#ResetSecurityRuntimeState",
+          "ruleId": "postgres.security.deletes"
+        },
+        {
+          "proofKind": "static-analyzer",
+          "operation": "deletes",
+          "domain": "redis.rate-limit",
+          "source": "tools/test/lanes/_suite-support.sh#ResetSecurityRuntimeState",
+          "ruleId": "redis.rate-limit.deletes"
+        }
+      ],
+      "operationOverlaps": [
+        {
+          "domain": "postgres.security",
+          "operations": [
+            "deletes",
+            "reads"
+          ],
+          "testId": "resilience"
+        },
+        {
+          "domain": "redis.rate-limit",
+          "operations": [
+            "deletes",
+            "reads"
+          ],
+          "testId": "resilience"
+        }
+      ]
+    },
+    {
+      "stepId": "local-runtime-exposure",
+      "stateAccess": "declared",
+      "reads": [
+        "fixture.runtime-config",
+        "network.host-topology",
+        "postgres.schema",
+        "redis.cache.public",
+        "runtime.backend-process",
+        "runtime.release-preview"
+      ],
+      "writes": [],
+      "deletes": [],
+      "invalidates": [],
+      "creates": [],
+      "resetBefore": [
+        {
+          "producer": "bootstrap",
+          "producerCommand": "FSUSBLOG_RUNTIME_NO_BUILD=1 tools/bootstrap-acceptance-env.sh",
+          "postcondition": "runtime-ready",
+          "verifier": "tools/test-matrix/reset-postcondition-verifier.mjs",
+          "receiptSchema": "fsusblog.runtime-reset-postcondition.v1",
+          "assertionId": "bootstrap-runtime-ready"
+        }
+      ],
+      "resetAfter": [],
+      "exclusiveStateDomains": [],
+      "commutativeWrites": [],
+      "requiredPredecessors": [
+        "release-public-hydration"
+      ],
+      "postconditions": [
+        "receipt"
+      ],
+      "evidence": [
+        {"proofKind":"structured-test","operation":"all","domain":"all-declared-access","assertionId":"local-runtime-exposure","verifier":"tools/test/bundles/bundle-steps.mjs"},
+        {
+          "proofKind": "static-analyzer",
+          "operation": "reads",
+          "domain": "network.host-topology",
+          "source": "tools/security/check-local-runtime-exposure.mjs",
+          "ruleId": "network.host-topology.reads"
+        }
+      ],
+      "operationOverlaps": []
+    }
+  ]
+}
