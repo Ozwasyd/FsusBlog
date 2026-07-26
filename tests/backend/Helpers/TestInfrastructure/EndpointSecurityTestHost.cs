@@ -170,6 +170,11 @@ public sealed class EndpointContractSnapshot : IEndpointRouteBuilder, IDisposabl
 
 public sealed class EndpointSecurityTestServerOptions
 {
+    public Action<IServiceCollection>? ConfigureServices
+    {
+        get; init;
+    }
+
     public bool AccountBanned
     {
         get; init;
@@ -538,6 +543,7 @@ public sealed class EndpointSecurityTestServer : IDisposable
         builder.Services.AddTransient<RequiresRiskControlFilter>();
         builder.Services.AddTransient<RequiresPowFilter>();
         builder.Services.AddTransient<RiskAwarePublicReadFilter>();
+        options.ConfigureServices?.Invoke(builder.Services);
 
         WebApplication app = builder.Build();
         app.UseMiddleware<ApiBinaryResponseMiddleware>();

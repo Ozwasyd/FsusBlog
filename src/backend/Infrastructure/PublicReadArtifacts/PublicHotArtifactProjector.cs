@@ -1431,11 +1431,12 @@ public sealed class PublicHotReadStartupWarmupService(
                     continue;
                 }
 
-                PublicHotArtifactEnqueueResult result = updateQueue.Enqueue(null, "sanity-age-refresh");
-                if (!result.Accepted)
-                {
-                    logger.LogWarning("public-hot-read-sanity-refresh-enqueue-failed {Status}", result.Status);
-                }
+                PublicHotArtifactEnqueueResult result = await updateQueue.EnqueueAsync(
+                    PublicHotArtifactDeliveryClass.FullRebuildMarker,
+                    null,
+                    "sanity-age-refresh",
+                    cancellationToken: stoppingToken).ConfigureAwait(false);
+                PublicHotArtifactDeliveryReceipt.RequireDurable(result, "sanity-age-refresh");
             }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)

@@ -127,9 +127,20 @@ public sealed class ArticleServiceViewFlushSink(
         await hotStatsInvalidation.MarkHotArticlesDirtyAsync(Reason, cancellationToken).ConfigureAwait(false);
         foreach (int articleId in updatedArticleIds)
         {
-            if (!publicHotUpdates.TryEnqueue(articleId, Reason))
+            PublicHotArtifactEnqueueResult delivery = await publicHotUpdates.EnqueueAsync(
+                    PublicHotArtifactDeliveryClass.BestEffortView,
+                    articleId,
+                    Reason,
+                    cancellationToken: CancellationToken.None)
+                .ConfigureAwait(false);
+            PublicHotArtifactDeliveryReceipt.RequireDurable(delivery, Reason);
+            if (delivery.Status is PublicHotArtifactDeliveryStatus.PersistedDirty
+                or PublicHotArtifactDeliveryStatus.Coalesced)
             {
-                logger.LogWarning("public-hot-read-update-enqueue-failed {ArticleId} {Reason}", articleId, Reason);
+                logger.LogInformation(
+                    "article-view-public-hot-persisted-for-replay {ArticleId} {DeliveryStatus}",
+                    articleId,
+                    delivery.Status);
             }
         }
 

@@ -516,7 +516,8 @@ public class ArticleServiceValidationTests
         Assert.Contains("MarkStatsDirtyAsync", method, StringComparison.Ordinal);
         Assert.Contains("MarkHotArticlesDirtyAsync", method, StringComparison.Ordinal);
         Assert.Contains("GetEnumerator", method, StringComparison.Ordinal);
-        Assert.Contains("TryEnqueue", method, StringComparison.Ordinal);
+        Assert.Contains("EnqueueAsync", method, StringComparison.Ordinal);
+        Assert.Contains("RequireDurable", method, StringComparison.Ordinal);
         Assert.Contains("article-view-projection-buffer-flush", method, StringComparison.Ordinal);
     }
 

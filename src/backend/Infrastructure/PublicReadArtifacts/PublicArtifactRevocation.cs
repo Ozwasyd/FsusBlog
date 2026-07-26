@@ -698,17 +698,14 @@ public sealed class PublicArtifactRevocationSubscriber(
             return;
         }
 
-        PublicHotArtifactEnqueueResult result = updateQueue.Enqueue(
-            tombstone.ArticleId > 0 ? tombstone.ArticleId : null,
-            "public-artifact-revocation-edge");
-        if (!result.Accepted)
-        {
-            logger.LogWarning(
-                "public-artifact-revocation-edge-rebuild-enqueue-failed {ArticleId} {Generation} {Status}",
-                tombstone.ArticleId,
-                tombstone.Generation,
-                result.Status);
-        }
+        PublicHotArtifactEnqueueResult result = updateQueue.EnqueueAsync(
+                PublicHotArtifactDeliveryClass.RequiredContent,
+                tombstone.ArticleId > 0 ? tombstone.ArticleId : null,
+                "public-artifact-revocation-edge",
+                cancellationToken: CancellationToken.None)
+            .GetAwaiter()
+            .GetResult();
+        PublicHotArtifactDeliveryReceipt.RequireDurable(result, "public-artifact-revocation-edge");
     }
 
 }

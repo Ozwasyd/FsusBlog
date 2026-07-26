@@ -240,7 +240,9 @@ public sealed class ArticleMutationVersionedOutboxIntegrationTests(PostgresSchem
 
         var redis = Substitute.For<IConnectionMultiplexer>();
         redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(Substitute.For<IDatabase>());
-        var hotQueue = new PublicHotArtifactUpdateQueue(Options.Create(new PublicHotReadOptions { UpdateQueueCapacity = 4 }));
+        var hotQueue = new PublicHotArtifactUpdateQueue(
+            Options.Create(new PublicHotReadOptions { UpdateQueueCapacity = 4 }),
+            new InMemoryPublicHotArtifactDeliveryStateStore());
         var projections = new ArticleMutationProjectionInvalidator(
             redis,
             Substitute.For<IRuntimeKeyScope>(),

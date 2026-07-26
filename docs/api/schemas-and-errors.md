@@ -75,6 +75,7 @@ GET 与 HEAD 返回相同状态和关键头；HEAD 保留与 GET 相同的 `Cont
 | `Unauthorized` | 401 | 未认证或令牌失效 |
 | `Forbidden` | 403 | 权限不足 |
 | `RateLimited` | 429 | 请求频率超限 |
+| `InfraFailure` | 500 | 基础设施无法完成当前契约；taxonomy 写入后的 PublicHot delivery failure 可能已提交数据库 mutation，客户端须先重读管理端 taxonomy 状态再决定是否重试 |
 | `InternalError` | 500 | 服务端内部错误 |
 
 ### 认证错误

@@ -156,7 +156,7 @@ public sealed class DistributedInvalidationBusTests
         var queue = new PublicHotArtifactUpdateQueue(Options.Create(new PublicHotReadOptions
         {
             UpdateQueueCapacity = 4
-        }));
+        }), new InMemoryPublicHotArtifactDeliveryStateStore());
         var cacheRuntime = new CacheInvalidationRuntimeState();
         var applier = new DistributedInvalidationLocalApplier(
             localCache,

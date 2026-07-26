@@ -53,11 +53,27 @@ internal sealed class AdminArtifactOperations(
                     await publicAotInvalidationService.InvalidateAllAsync(cancellationToken);
                 }
 
-                bool queued = publicHotArtifactUpdateQueue.TryEnqueue(request.ArticleId, "admin-cache-action");
-                return ActionResult(
-                    action,
-                    queued ? "queued" : "degraded",
-                    queued ? "public hot/AOT rebuild queued" : "AOT invalidated; public hot rebuild queue rejected");
+                PublicHotArtifactEnqueueResult queued = await publicHotArtifactUpdateQueue.EnqueueAsync(
+                    PublicHotArtifactDeliveryClass.FullRebuildMarker,
+                    request.ArticleId,
+                    "admin-cache-action",
+                    cancellationToken: cancellationToken).ConfigureAwait(false);
+                return queued.Status switch
+                {
+                    PublicHotArtifactDeliveryStatus.Accepted =>
+                        ActionResult(action, "queued", "public hot/AOT rebuild queued"),
+                    PublicHotArtifactDeliveryStatus.PersistedDirty =>
+                        ActionResult(action, "queued", "public hot/AOT full rebuild persisted for durable replay"),
+                    PublicHotArtifactDeliveryStatus.Coalesced =>
+                        ActionResult(action, "queued", "public hot/AOT full rebuild coalesced into a durable obligation"),
+                    PublicHotArtifactDeliveryStatus.Cancelled =>
+                        ActionResult(action, "degraded", "AOT invalidated; public hot rebuild delivery was cancelled"),
+                    PublicHotArtifactDeliveryStatus.Closed =>
+                        ActionResult(action, "degraded", "AOT invalidated; public hot rebuild channel is closed"),
+                    PublicHotArtifactDeliveryStatus.Failed =>
+                        ActionResult(action, "degraded", "AOT invalidated; public hot rebuild obligation persistence failed"),
+                    _ => ActionResult(action, "degraded", "AOT invalidated; public hot rebuild delivery status is unknown")
+                };
             case "output-cache-clear":
                 await Task.WhenAll(
                     cacheInvalidationDispatcher.InvalidateArticleMutationAsync(request.ArticleId, cancellationToken),

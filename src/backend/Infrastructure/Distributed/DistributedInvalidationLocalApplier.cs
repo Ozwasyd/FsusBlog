@@ -15,7 +15,7 @@ public sealed class DistributedInvalidationLocalApplier(
     CacheInvalidationRuntimeState cacheRuntimeState,
     ILogger<DistributedInvalidationLocalApplier> logger) : IDistributedInvalidationLocalApplier
 {
-    public Task ApplyAsync(
+    public async Task ApplyAsync(
         DistributedInvalidationEvent invalidation,
         CancellationToken cancellationToken = default)
     {
@@ -33,23 +33,38 @@ public sealed class DistributedInvalidationLocalApplier(
             aotSeoConfigSnapshot.Invalidate();
         }
 
-        PublicHotArtifactEnqueueResult queued = publicHotUpdateQueue.Enqueue(
-            null,
-            $"distributed-invalidation:{invalidation.Kind}");
+        PublicHotArtifactEnqueueResult queued = await publicHotUpdateQueue.EnqueueAsync(
+                PublicHotArtifactDeliveryClass.FullRebuildMarker,
+                null,
+                $"distributed-invalidation:{invalidation.Kind}",
+                cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+        string rebuild = queued.Status switch
+        {
+            PublicHotArtifactDeliveryStatus.Accepted => "accepted",
+            PublicHotArtifactDeliveryStatus.PersistedDirty => "persisted-dirty",
+            PublicHotArtifactDeliveryStatus.Coalesced => "coalesced",
+            PublicHotArtifactDeliveryStatus.Cancelled =>
+                throw new OperationCanceledException("distributed public-hot delivery cancelled", cancellationToken),
+            PublicHotArtifactDeliveryStatus.Closed =>
+                throw new InvalidOperationException("distributed public-hot delivery channel closed"),
+            PublicHotArtifactDeliveryStatus.Failed =>
+                throw new InvalidOperationException("distributed public-hot delivery persistence failed"),
+            _ => throw new InvalidOperationException("distributed public-hot delivery status is unknown")
+        };
         string detail = string.Join(
             ';',
             $"event:{invalidation.EventId}",
             $"source:{invalidation.SourceNodeId}",
             $"trace:{invalidation.TraceId}",
-            $"rebuild:{(queued.Accepted ? "queued" : "degraded")}");
+            $"rebuild:{rebuild}");
         cacheRuntimeState.Record($"distributed:{invalidation.Kind}", detail);
         logger.LogInformation(
-            "distributed-invalidation-local-convergence {EventId} {Kind} {SourceNodeId} {TraceId} {RebuildAccepted}",
+            "distributed-invalidation-local-convergence {EventId} {Kind} {SourceNodeId} {TraceId} {RebuildStatus}",
             invalidation.EventId,
             invalidation.Kind,
             invalidation.SourceNodeId,
             invalidation.TraceId,
-            queued.Accepted);
-        return Task.CompletedTask;
+            rebuild);
     }
 }

@@ -326,6 +326,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<LocalPublicArtifactStorage>();
         services.AddSingleton<IPublicArtifactStorage>(sp => sp.GetRequiredService<LocalPublicArtifactStorage>());
         services.AddSingleton<IPublicArtifactRevocationStateStore, RedisPublicArtifactRevocationStateStore>();
+        services.AddSingleton<IPublicHotArtifactDeliveryStateStore, RedisPublicHotArtifactDeliveryStateStore>();
         services.AddSingleton<IPublicArtifactCdnPurger, HttpPublicArtifactCdnPurger>();
         services.AddSingleton<IPublicArtifactRevocationCoordinator, PublicArtifactRevocationCoordinator>();
         services.AddScoped<PublicReadSecurityGate>();

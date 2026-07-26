@@ -133,15 +133,24 @@ public sealed class PublicContentInvalidationFlowTests
     }
 
     [Fact]
-    public void OutboxReplay_TreatsPublicHotEnqueueFailureAsRequiredEdgeFailure()
+    public async Task OutboxReplay_TreatsFullPublicHotQueueAsDurableObligation()
     {
-        var queue = new PublicHotArtifactUpdateQueue(Options.Create(new PublicHotReadOptions { UpdateQueueCapacity = 1 }));
-        PublicHotArtifactEnqueueResult accepted = queue.Enqueue(42, "outbox-updated");
-        PublicHotArtifactEnqueueResult rejected = queue.Enqueue(43, "outbox-updated");
-        Assert.True(accepted.Accepted);
-        Assert.False(rejected.Accepted);
-        Assert.Equal("queue-full-or-closed", rejected.Status);
-        FieldInfo channel = typeof(PublicHotArtifactUpdateQueue).GetField("_channel", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var queue = new PublicHotArtifactUpdateQueue(
+            Options.Create(new PublicHotReadOptions { UpdateQueueCapacity = 1 }),
+            new InMemoryPublicHotArtifactDeliveryStateStore());
+        PublicHotArtifactEnqueueResult accepted = await queue.EnqueueAsync(
+            PublicHotArtifactDeliveryClass.RequiredContent,
+            42,
+            "outbox-updated");
+        PublicHotArtifactEnqueueResult persisted = await queue.EnqueueAsync(
+            PublicHotArtifactDeliveryClass.RequiredContent,
+            43,
+            "outbox-updated");
+        Assert.Equal(PublicHotArtifactDeliveryStatus.Accepted, accepted.Status);
+        Assert.Equal(PublicHotArtifactDeliveryStatus.PersistedDirty, persisted.Status);
+        PublicHotArtifactDeliveryReceipt.RequireDurable(persisted, "outbox-updated");
+        FieldInfo channel = typeof(PublicHotArtifactUpdateQueue)
+            .GetField("_channel", BindingFlags.NonPublic | BindingFlags.Instance)!;
         object channelOptionsRuntime = channel.GetValue(queue)!;
         Assert.Contains("BoundedChannel", channelOptionsRuntime.GetType().Name, StringComparison.Ordinal);
 
@@ -149,12 +158,11 @@ public sealed class PublicContentInvalidationFlowTests
         string queueRuntime = RuntimeMetadataInspection.DescribeMethods(projections, nameof(ArticleMutationProjectionInvalidator.QueuePublicHotUpdateAsync));
         string ensureRuntime = RuntimeMetadataInspection.DescribeMethods(projections, nameof(ArticleMutationProjectionInvalidator.EnsurePublicHotUpdateQueuedAsync));
         string replayRuntime = RuntimeMetadataInspection.DescribeMethods(typeof(ArticleMutationSideEffectCoordinator), nameof(ArticleMutationSideEffectCoordinator.ReplayOutboxAsync));
-        Assert.Contains("PublicHotArtifactUpdateQueue.Enqueue", queueRuntime, StringComparison.Ordinal);
-        Assert.Contains("required", queueRuntime, StringComparison.Ordinal);
-        Assert.Contains("best-effort", queueRuntime, StringComparison.Ordinal);
+        Assert.Contains("PublicHotArtifactUpdateQueue.EnqueueAsync", queueRuntime, StringComparison.Ordinal);
+        Assert.Contains("PublicHotArtifactDeliveryReceipt.RequireDurable", queueRuntime, StringComparison.Ordinal);
         Assert.Contains("EnsurePublicHotUpdateQueuedAsync", replayRuntime, StringComparison.Ordinal);
         Assert.Contains("ArticleMutationProjectionInvalidator.RevokeArticleAsync", replayRuntime, StringComparison.Ordinal);
-        Assert.Contains("InvalidOperationException", ensureRuntime, StringComparison.Ordinal);
+        Assert.Contains("QueuePublicHotUpdateAsync", ensureRuntime, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -170,7 +178,7 @@ public sealed class PublicContentInvalidationFlowTests
         Assert.Contains("IPublicHotArtifactProjector.RebuildAfterArticleMutationAsync", worker, StringComparison.Ordinal);
         Assert.Contains("IPublicArtifactRevocationCoordinator.CompleteRebuildAsync", worker, StringComparison.Ordinal);
         Assert.Contains(
-            "PublicHotArtifactUpdateQueue.Enqueue",
+            "PublicHotArtifactUpdateQueue.EnqueueAsync",
             RuntimeMetadataInspection.DescribeMethods(typeof(PublicArtifactRevocationSubscriber), "QueueRebuildWhenConfirmed"),
             StringComparison.Ordinal);
         Assert.DoesNotContain("Nullable`1.GetValueOrDefault", worker, StringComparison.Ordinal);
@@ -198,24 +206,30 @@ public sealed class PublicContentInvalidationFlowTests
         Assert.Contains("ArticleMutationProjectionInvalidator.RevokeAllAsync", trashCleared, StringComparison.Ordinal);
         Assert.Contains("IPublicArtifactRevocationCoordinator.RevokeArticleAsync", projectionRuntime, StringComparison.Ordinal);
         Assert.Contains("IPublicArtifactRevocationCoordinator.RevokeAllAsync", projectionRuntime, StringComparison.Ordinal);
-        Assert.Contains("PublicHotArtifactUpdateQueue.Enqueue", projectionRuntime, StringComparison.Ordinal);
+        Assert.Contains("PublicHotArtifactUpdateQueue.EnqueueAsync", projectionRuntime, StringComparison.Ordinal);
         Assert.Contains("PromoteAndReleaseAsync", fenceRuntime, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void PublicHotViewProjection_RefreshesRankingWithoutFullSnapshotRebuild()
+    public async Task PublicHotViewProjection_RefreshesRankingWithoutFullSnapshotRebuild()
     {
         string worker = RuntimeMetadataInspection.DescribeMethods(typeof(PublicHotArtifactUpdateWorker), "ExecuteAsync");
 
         Assert.Contains("IPublicHotArtifactProjector.RebuildAfterViewProjectionAsync", worker, StringComparison.Ordinal);
-        var queue = new PublicHotArtifactUpdateQueue(Options.Create(new PublicHotReadOptions { UpdateQueueCapacity = 2 }));
-        Assert.Equal(PublicHotArtifactDirtyReason.ViewProjection, queue.Enqueue(1, "article-view-projection-batch").DirtyReason);
+        var queue = new PublicHotArtifactUpdateQueue(
+            Options.Create(new PublicHotReadOptions { UpdateQueueCapacity = 2 }),
+            new InMemoryPublicHotArtifactDeliveryStateStore());
+        PublicHotArtifactEnqueueResult queued = await queue.EnqueueAsync(
+            PublicHotArtifactDeliveryClass.BestEffortView,
+            1,
+            "article-view-projection-batch");
+        Assert.Equal(PublicHotArtifactDirtyReason.ViewProjection, queued.DirtyReason);
         MethodInfo apply = AsyncMoveNext(typeof(ArticleViewProjectionService).GetMethod(nameof(ArticleViewProjectionService.ApplyAsync))!);
         Assert.Contains(ReadCalledMethods(apply), static call => call.Method.DeclaringType == typeof(PublicHotArtifactUpdateQueue)
-            && call.Method.Name == nameof(PublicHotArtifactUpdateQueue.TryEnqueue));
+            && call.Method.Name == nameof(PublicHotArtifactUpdateQueue.EnqueueAsync));
         MethodInfo flush = AsyncMoveNext(typeof(ArticleServiceViewFlushSink).GetMethod(nameof(ArticleServiceViewFlushSink.FlushArticleViewsAsync))!);
         Assert.Contains(ReadCalledMethods(flush), static call => call.Method.DeclaringType == typeof(PublicHotArtifactUpdateQueue)
-            && call.Method.Name == nameof(PublicHotArtifactUpdateQueue.TryEnqueue));
+            && call.Method.Name == nameof(PublicHotArtifactUpdateQueue.EnqueueAsync));
     }
 
     [Fact]
@@ -254,7 +268,7 @@ public sealed class PublicContentInvalidationFlowTests
         int aotAll = Assert.Single(calls, static call =>
             call.Method.Name == nameof(IPublicAotInvalidationService.InvalidateAllAsync)).Offset;
         int publicHotQueue = Assert.Single(calls, static call =>
-            call.Method.Name == nameof(PublicHotArtifactUpdateQueue.TryEnqueue)).Offset;
+            call.Method.Name == nameof(PublicHotArtifactUpdateQueue.EnqueueAsync)).Offset;
         Assert.True(publicHotQueue > aotAll);
     }
 

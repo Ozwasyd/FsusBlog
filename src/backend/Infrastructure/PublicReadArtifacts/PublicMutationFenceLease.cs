@@ -263,17 +263,12 @@ public sealed class PublicMutationFenceRecoveryWorker(
                     continue;
                 }
 
-                PublicHotArtifactEnqueueResult enqueue = updateQueue.Enqueue(
+                PublicHotArtifactEnqueueResult enqueue = await updateQueue.EnqueueAsync(
+                    PublicHotArtifactDeliveryClass.RequiredContent,
                     tombstone.ArticleId > 0 ? tombstone.ArticleId : null,
-                    "public-mutation-fence-owner-ended");
-                if (!enqueue.Accepted)
-                {
-                    logger.LogWarning(
-                        "public-mutation-fence-recovery-enqueue-failed {ArticleId} {Generation} {Status}",
-                        tombstone.ArticleId,
-                        tombstone.Generation,
-                        enqueue.Status);
-                }
+                    "public-mutation-fence-owner-ended",
+                    cancellationToken: cancellationToken).ConfigureAwait(false);
+                PublicHotArtifactDeliveryReceipt.RequireDurable(enqueue, "mutation-fence-recovery");
                 recovered++;
             }
             finally

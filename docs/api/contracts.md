@@ -957,12 +957,20 @@ Submit 同样受 `read_proof` 专用限流保护。限流 key 是 path + 一分�
 
 公开 `CategoryList` / `TagList` 的 `articleCount` 只统计公开可见文章，不能作为后台删除判断。管理端 taxonomy 读取必须使用 `/api/binary/author/taxonomy/categories` 与 `/api/binary/author/taxonomy/tags`，返回真实阻断引用：
 
-管理端创建分类和标签均使用 binary mutation path，写入成功响应 `MutationId`，编辑器可用返回的 `id` 立即选中新建分类或关联新建标签，不能只依赖刷新列表后按名称猜测：
+管理端分类和标签写入均使用 binary mutation path。创建成功响应 `MutationId`，编辑器可用返回的 `id` 立即选中新建分类或关联新建标签，不能只依赖刷新列表后按名称猜测；更新和删除成功响应 `EmptySuccess`：
 
 | 方法 | 路径 | 请求 frame | 响应 frame |
 | ------ | ------ | ------------ | ------------ |
 | POST | `/api/binary/category` | `CategoryWriteRequest` | `MutationId` |
+| PUT | `/api/binary/category/{id}` | `CategoryWriteRequest` | `EmptySuccess` |
+| DELETE | `/api/binary/category/{id}` | — | `EmptySuccess` |
 | POST | `/api/binary/tag` | `TagWriteRequest` | `MutationId` |
+| PUT | `/api/binary/tag/{id}` | `TagWriteRequest` | `EmptySuccess` |
+| DELETE | `/api/binary/tag/{id}` | — | `EmptySuccess` |
+
+上述六个 admin mutation 只有在 PublicHot `required-taxonomy` dirty generation 已持久化且 typed delivery receipt 允许成功后才返回成功。bounded channel 已满时，持久化的 `persisted-dirty` receipt 仍授权成功并由 full rebuild 恢复；delivery result 为 `cancelled`、`closed` 或 `failed` 时返回 HTTP `500` + AEDS `ApiError(Code=InfraFailure)`，不得返回 `MutationId` / `EmptySuccess`。该失败可能发生在 taxonomy 数据库写入已经提交之后，不表示事务回滚。客户端必须先重读 `/api/binary/author/taxonomy/categories` 或 `/api/binary/author/taxonomy/tags` 再决定是否重试，尤其不能盲目重放 create。运维恢复 Redis 后按 [PublicHot recovery runbook](../architecture/public-aot-runtime-state-boundary.md#recovery-runbook) 触发或等待 full rebuild。
+
+该变更的调用面边界如下：anonymous 请求在进入 mutation handler 前返回 binary `401 ApiError`；普通登录 principal 缺少 admin permission，在 handler 前返回 binary `403 ApiError`；具备 `article.write` 且通过 PoW 的 admin 才能进入写入与 delivery 链。notification stream 的 route、event 和 durability contract 均未修改，不参与 taxonomy delivery receipt。binary response 仍只使用 AEDS v2；已提交写入后的 delivery failure 由真实 endpoint 返回 HTTP `500` 的 `ApiError(InfraFailure)`，没有 JSON/text fallback。无需重启恢复时，先修复 Redis，再通过 `/api/binary/author/cache/actions` 的 `public-hot-rebuild` action 触发保留 generation 的 full rebuild；不得把 required delivery 热切换为进程内成功。
 
 ```ts
 interface AdminCategoryItemResponse {

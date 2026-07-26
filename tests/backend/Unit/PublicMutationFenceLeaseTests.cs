@@ -36,7 +36,8 @@ public sealed class PublicMutationFenceLeaseTests(PostgresSchemaMigrationFixture
         revocations.RecoverPendingMutationFenceAsync(pending, Arg.Any<CancellationToken>())
             .Returns(true);
         var queue = new PublicHotArtifactUpdateQueue(
-            Options.Create(new PublicHotReadOptions { UpdateQueueCapacity = 4 }));
+            Options.Create(new PublicHotReadOptions { UpdateQueueCapacity = 4 }),
+            new InMemoryPublicHotArtifactDeliveryStateStore());
         var keyScope = new PrefixRuntimeKeyScope("lease-recovery-a:");
         var worker = new PublicMutationFenceRecoveryWorker(
             configuration,

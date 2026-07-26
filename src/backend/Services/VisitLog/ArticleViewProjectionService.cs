@@ -55,10 +55,13 @@ public sealed class ArticleViewProjectionService(
 
         foreach (int articleId in updatedArticleIds)
         {
-            if (!publicHotUpdates.TryEnqueue(articleId, "article-view-projection-batch"))
-            {
-                logger.LogWarning("public-hot-read-update-enqueue-failed {ArticleId} {Reason}", articleId, "article-view-projection-batch");
-            }
+            PublicHotArtifactEnqueueResult delivery = await publicHotUpdates.EnqueueAsync(
+                    PublicHotArtifactDeliveryClass.BestEffortView,
+                    articleId,
+                    "article-view-projection-batch",
+                    cancellationToken: CancellationToken.None)
+                .ConfigureAwait(false);
+            PublicHotArtifactDeliveryReceipt.RequireDurable(delivery, "article-view-projection-batch");
         }
     }
 

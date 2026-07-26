@@ -150,9 +150,17 @@ public static partial class BinaryEndpoints
                 AuditTypeCatalog.Audit,
                 new KeyValuePair<string, object?>("AuditAction", "category.create"),
                 new KeyValuePair<string, object?>("CategoryName", trimmedName));
-            await taxonomyProjection.BumpFrameVersionAsync("taxonomy-category-created", cancellationToken);
+            await taxonomyProjection.BumpFrameVersionAsync("taxonomy-category-created", CancellationToken.None);
             await httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.ArticleList);
-            publicHotUpdates.TryEnqueue(null, "taxonomy-category-created");
+            PublicHotArtifactEnqueueResult delivery = await publicHotUpdates.EnqueueAsync(
+                PublicHotArtifactDeliveryClass.RequiredTaxonomy,
+                null,
+                "taxonomy-category-created",
+                cancellationToken: CancellationToken.None);
+            if (!IsRequiredTaxonomyDeliveryDurable(delivery))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "分类已创建，但 PublicHot 重建交付未确认"), aeds);
+            }
             return BinaryResults.Frame(aeds, AedsFrameType.MutationId, writer => PodBinaryCodec.WriteMutationId(newId, writer));
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
@@ -200,9 +208,17 @@ public static partial class BinaryEndpoints
                 new KeyValuePair<string, object?>("AuditAction", "category.update"),
                 new KeyValuePair<string, object?>("CategoryId", id),
                 new KeyValuePair<string, object?>("CategoryName", trimmedName));
-            await taxonomyProjection.BumpFrameVersionAsync("taxonomy-category-updated", cancellationToken);
+            await taxonomyProjection.BumpFrameVersionAsync("taxonomy-category-updated", CancellationToken.None);
             await httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.ArticleList);
-            publicHotUpdates.TryEnqueue(null, "taxonomy-category-updated");
+            PublicHotArtifactEnqueueResult delivery = await publicHotUpdates.EnqueueAsync(
+                PublicHotArtifactDeliveryClass.RequiredTaxonomy,
+                null,
+                "taxonomy-category-updated",
+                cancellationToken: CancellationToken.None);
+            if (!IsRequiredTaxonomyDeliveryDurable(delivery))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "分类已更新，但 PublicHot 重建交付未确认"), aeds);
+            }
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
@@ -234,9 +250,17 @@ public static partial class BinaryEndpoints
                 AuditTypeCatalog.Audit,
                 new KeyValuePair<string, object?>("AuditAction", "category.delete"),
                 new KeyValuePair<string, object?>("CategoryId", id));
-            await taxonomyProjection.BumpFrameVersionAsync("taxonomy-category-deleted", cancellationToken);
+            await taxonomyProjection.BumpFrameVersionAsync("taxonomy-category-deleted", CancellationToken.None);
             await httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.ArticleList);
-            publicHotUpdates.TryEnqueue(null, "taxonomy-category-deleted");
+            PublicHotArtifactEnqueueResult delivery = await publicHotUpdates.EnqueueAsync(
+                PublicHotArtifactDeliveryClass.RequiredTaxonomy,
+                null,
+                "taxonomy-category-deleted",
+                cancellationToken: CancellationToken.None);
+            if (!IsRequiredTaxonomyDeliveryDurable(delivery))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "分类已删除，但 PublicHot 重建交付未确认"), aeds);
+            }
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
@@ -281,9 +305,17 @@ public static partial class BinaryEndpoints
                 AuditTypeCatalog.Audit,
                 new KeyValuePair<string, object?>("AuditAction", "tag.create"),
                 new KeyValuePair<string, object?>("TagName", trimmedName));
-            await taxonomyProjection.BumpFrameVersionAsync("taxonomy-tag-created", cancellationToken);
+            await taxonomyProjection.BumpFrameVersionAsync("taxonomy-tag-created", CancellationToken.None);
             await httpCacheInvalidator.InvalidateAsync(CacheTag.Tag, CacheTag.ArticleList);
-            publicHotUpdates.TryEnqueue(null, "taxonomy-tag-created");
+            PublicHotArtifactEnqueueResult delivery = await publicHotUpdates.EnqueueAsync(
+                PublicHotArtifactDeliveryClass.RequiredTaxonomy,
+                null,
+                "taxonomy-tag-created",
+                cancellationToken: CancellationToken.None);
+            if (!IsRequiredTaxonomyDeliveryDurable(delivery))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "标签已创建，但 PublicHot 重建交付未确认"), aeds);
+            }
             return BinaryResults.Frame(aeds, AedsFrameType.MutationId, writer => PodBinaryCodec.WriteMutationId(newId, writer));
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
@@ -332,9 +364,17 @@ public static partial class BinaryEndpoints
                 new KeyValuePair<string, object?>("AuditAction", "tag.update"),
                 new KeyValuePair<string, object?>("TagId", id),
                 new KeyValuePair<string, object?>("TagName", trimmedName));
-            await taxonomyProjection.BumpFrameVersionAsync("taxonomy-tag-updated", cancellationToken);
+            await taxonomyProjection.BumpFrameVersionAsync("taxonomy-tag-updated", CancellationToken.None);
             await httpCacheInvalidator.InvalidateAsync(CacheTag.Tag, CacheTag.ArticleList);
-            publicHotUpdates.TryEnqueue(null, "taxonomy-tag-updated");
+            PublicHotArtifactEnqueueResult delivery = await publicHotUpdates.EnqueueAsync(
+                PublicHotArtifactDeliveryClass.RequiredTaxonomy,
+                null,
+                "taxonomy-tag-updated",
+                cancellationToken: CancellationToken.None);
+            if (!IsRequiredTaxonomyDeliveryDurable(delivery))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "标签已更新，但 PublicHot 重建交付未确认"), aeds);
+            }
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
@@ -365,9 +405,17 @@ public static partial class BinaryEndpoints
                 AuditTypeCatalog.Audit,
                 new KeyValuePair<string, object?>("AuditAction", "tag.delete"),
                 new KeyValuePair<string, object?>("TagId", id));
-            await taxonomyProjection.BumpFrameVersionAsync("taxonomy-tag-deleted", cancellationToken);
+            await taxonomyProjection.BumpFrameVersionAsync("taxonomy-tag-deleted", CancellationToken.None);
             await httpCacheInvalidator.InvalidateAsync(CacheTag.Tag, CacheTag.ArticleList);
-            publicHotUpdates.TryEnqueue(null, "taxonomy-tag-deleted");
+            PublicHotArtifactEnqueueResult delivery = await publicHotUpdates.EnqueueAsync(
+                PublicHotArtifactDeliveryClass.RequiredTaxonomy,
+                null,
+                "taxonomy-tag-deleted",
+                cancellationToken: CancellationToken.None);
+            if (!IsRequiredTaxonomyDeliveryDurable(delivery))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "标签已删除，但 PublicHot 重建交付未确认"), aeds);
+            }
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
@@ -629,6 +677,18 @@ public static partial class BinaryEndpoints
 
         return inserted;
     }
+
+    internal static bool IsRequiredTaxonomyDeliveryDurable(PublicHotArtifactEnqueueResult receipt)
+        => receipt.Status switch
+        {
+            PublicHotArtifactDeliveryStatus.Accepted => true,
+            PublicHotArtifactDeliveryStatus.PersistedDirty => true,
+            PublicHotArtifactDeliveryStatus.Coalesced => true,
+            PublicHotArtifactDeliveryStatus.Cancelled => false,
+            PublicHotArtifactDeliveryStatus.Closed => false,
+            PublicHotArtifactDeliveryStatus.Failed => false,
+            _ => false
+        };
 
     internal enum TagDeleteOutcome
     {

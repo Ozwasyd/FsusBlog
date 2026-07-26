@@ -106,17 +106,12 @@ public sealed class ArticlePublicMutationFence(
             }
 
             string normalized = string.IsNullOrWhiteSpace(reason) ? "mutation-fence-committed" : reason;
-            PublicHotArtifactEnqueueResult result = publicHotUpdates.Enqueue(
+            PublicHotArtifactEnqueueResult result = await publicHotUpdates.EnqueueAsync(
+                PublicHotArtifactDeliveryClass.RequiredContent,
                 articleId is > 0 ? articleId : null,
-                normalized);
-            if (!result.Accepted)
-            {
-                logger.LogWarning(
-                    "public-hot-read-mutation-fence-rebuild-enqueue-failed {ArticleId} {Reason} {Status}",
-                    articleId,
-                    normalized,
-                    result.Status);
-            }
+                normalized,
+                cancellationToken: CancellationToken.None).ConfigureAwait(false);
+            PublicHotArtifactDeliveryReceipt.RequireDurable(result, "mutation-fence");
         }
         finally
         {

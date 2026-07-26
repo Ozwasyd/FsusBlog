@@ -272,9 +272,14 @@ public sealed class ArticleMutationOutboxEnvelopeTests
             coordinateResolved: false));
 
         var queue = new PublicHotArtifactUpdateQueue(
-            Microsoft.Extensions.Options.Options.Create(new PublicHotReadOptions { UpdateQueueCapacity = 4 }));
-        PublicHotArtifactEnqueueResult queued = queue.Enqueue(1215, "outbox-updated", expectedReleaseId: 1601);
-        Assert.True(queued.Accepted);
+            Microsoft.Extensions.Options.Options.Create(new PublicHotReadOptions { UpdateQueueCapacity = 4 }),
+            new InMemoryPublicHotArtifactDeliveryStateStore());
+        PublicHotArtifactEnqueueResult queued = await queue.EnqueueAsync(
+            PublicHotArtifactDeliveryClass.RequiredContent,
+            1215,
+            "outbox-updated",
+            expectedReleaseId: 1601);
+        Assert.Equal(PublicHotArtifactDeliveryStatus.Accepted, queued.Status);
         Assert.True(queue.Reader.TryRead(out PublicHotArtifactUpdate update));
         Assert.Equal(1601, update.ExpectedReleaseId);
 

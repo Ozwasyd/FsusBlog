@@ -132,8 +132,13 @@ public sealed class ArticleMutationOutboxFailurePropagationTests
         ITaxonomyCountProjectionService taxonomy = Substitute.For<ITaxonomyCountProjectionService>();
         IArticleDetailAedsArtifactProjector detail = Substitute.For<IArticleDetailAedsArtifactProjector>();
         IPublicArtifactRevocationCoordinator revocations = Substitute.For<IPublicArtifactRevocationCoordinator>();
+        IPublicHotArtifactDeliveryStateStore deliveryState =
+            failedCriticalEdge == ArticleMutationReplayEdges.PublicHotRead
+                ? new FailingDeliveryStateStore()
+                : new InMemoryPublicHotArtifactDeliveryStateStore();
         var publicHot = new PublicHotArtifactUpdateQueue(
-            Options.Create(new PublicHotReadOptions { UpdateQueueCapacity = 1 }));
+            Options.Create(new PublicHotReadOptions { UpdateQueueCapacity = 1 }),
+            deliveryState);
 
         Task failure = Task.FromException(new InvalidOperationException($"{failedCriticalEdge}-failed"));
         switch (failedCriticalEdge)
@@ -148,9 +153,6 @@ public sealed class ArticleMutationOutboxFailurePropagationTests
                 break;
             case ArticleMutationReplayEdges.ArticleDetailAeds:
                 detail.RemoveAsync(42, Arg.Any<CancellationToken>()).Returns(failure);
-                break;
-            case ArticleMutationReplayEdges.PublicHotRead:
-                Assert.True(publicHot.Enqueue(7, "occupy-test-queue").Accepted);
                 break;
         }
 
@@ -180,5 +182,19 @@ public sealed class ArticleMutationOutboxFailurePropagationTests
             delivery,
             new ArticleAssetCleanupPolicy(new ArticleAssetCleanupQueue()),
             NullLogger<ArticleMutationSideEffectCoordinator>.Instance);
+    }
+
+    private sealed class FailingDeliveryStateStore : IPublicHotArtifactDeliveryStateStore
+    {
+        public Task<long> MarkDirtyAsync(
+            PublicHotArtifactDeliveryClass deliveryClass,
+            CancellationToken cancellationToken)
+            => throw new InvalidOperationException("public-hot-read-failed");
+
+        public Task<long> GetPendingGenerationAsync(CancellationToken cancellationToken)
+            => Task.FromResult(0L);
+
+        public Task CompleteAsync(long generation, CancellationToken cancellationToken)
+            => Task.CompletedTask;
     }
 }

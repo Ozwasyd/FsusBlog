@@ -51,24 +51,28 @@ public sealed class ArticleMutationProjectionInvalidator(
     public Task RestoreTopArticleAsync(int articleId, int views)
         => _redis.SortedSetAddAsync(RedisKey("blog:top_articles"), articleId, views);
 
-    public Task<PublicHotArtifactEnqueueResult> QueuePublicHotUpdateAsync(
+    public async Task<PublicHotArtifactEnqueueResult> QueuePublicHotUpdateAsync(
         int? articleId,
         string reason,
-        bool required = false,
         long? expectedReleaseId = null)
     {
-        PublicHotArtifactEnqueueResult result = publicHotUpdates.Enqueue(articleId, reason, expectedReleaseId);
-        if (!result.Accepted)
-        {
-            logger.LogWarning(
-                "public-hot-read-update-enqueue-failed {ArticleId} {Reason} {Mode} {Status}",
+        PublicHotArtifactEnqueueResult result = await publicHotUpdates.EnqueueAsync(
+                PublicHotArtifactDeliveryClass.RequiredContent,
                 articleId,
-                result.Reason,
-                required ? "required" : "best-effort",
+                reason,
+                expectedReleaseId)
+            .ConfigureAwait(false);
+        PublicHotArtifactDeliveryReceipt.RequireDurable(result, $"public-hot-read-projection:{reason}");
+        if (result.Status is PublicHotArtifactDeliveryStatus.PersistedDirty
+            or PublicHotArtifactDeliveryStatus.Coalesced)
+        {
+            logger.LogInformation(
+                "public-hot-projection-persisted-for-replay {Reason} {DeliveryStatus}",
+                reason,
                 result.Status);
         }
 
-        return Task.FromResult(result);
+        return result;
     }
 
     public async Task EnsurePublicHotUpdateQueuedAsync(
@@ -79,13 +83,9 @@ public sealed class ArticleMutationProjectionInvalidator(
         PublicHotArtifactEnqueueResult result = await QueuePublicHotUpdateAsync(
                 articleId,
                 reason,
-                required: true,
                 expectedReleaseId: expectedReleaseId)
             .ConfigureAwait(false);
-        if (!result.Accepted)
-        {
-            throw new InvalidOperationException($"public-hot-read update enqueue failed: {result.Status}");
-        }
+        PublicHotArtifactDeliveryReceipt.RequireDurable(result, $"required-projection:{reason}");
     }
 
     private string RedisKey(string key)

@@ -141,7 +141,17 @@
 
 > 已迁移至 [Binary 端点 — `/api/binary`](#binary-端点--apibinary) 下的 `/api/binary/category.aeds`、`/api/binary/tag.aeds` AEDS v2 frame。旧 `/api/Category/**`、`/api/Tag/**` JSON 路径不再注册。
 
+| 方法 | 路径 | 权限 | 说明 |
+| ------ | ------ | ------ | ------ |
+| POST | `/api/binary/category` | 👑 📦 | 创建分类；durable PublicHot receipt 后返回 `MutationId` |
+| PUT | `/api/binary/category/{id}` | 👑 📦 | 更新分类；durable PublicHot receipt 后返回 `EmptySuccess` |
+| DELETE | `/api/binary/category/{id}` | 👑 📦 | 删除未被引用的分类；durable PublicHot receipt 后返回 `EmptySuccess` |
+| POST | `/api/binary/tag` | 👑 📦 | 创建标签；durable PublicHot receipt 后返回 `MutationId` |
+| PUT | `/api/binary/tag/{id}` | 👑 📦 | 更新标签；durable PublicHot receipt 后返回 `EmptySuccess` |
+| DELETE | `/api/binary/tag/{id}` | 👑 📦 | 删除无关联的标签；durable PublicHot receipt 后返回 `EmptySuccess` |
 
+PublicHot delivery result 为 `cancelled`、`closed` 或 `failed` 时，上述 mutation 返回 HTTP `500` + AEDS `ApiError(Code=InfraFailure)`，即使 taxonomy 数据库写入可能已经提交。客户端应先重读管理端 taxonomy 状态，再决定是否重试。
+无需重启恢复时，修复 Redis 后调用 `/api/binary/author/cache/actions` 的 `public-hot-rebuild` action；保留 pending generation，禁止降级为进程内成功或盲目重放 create。
 
 ## 系统配置 — `/api/binary/system`
 

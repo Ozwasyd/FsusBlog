@@ -282,21 +282,24 @@ public class BackgroundWorkflowSourceTests
     }
 
     [Fact]
-    public void PublicHotUpdateQueue_ReturnsRejectedResultWhenCapacityIsFull()
+    public async Task PublicHotUpdateQueue_PersistsDirtyResultWhenCapacityIsFull()
     {
         var queue = new PublicHotArtifactUpdateQueue(Options.Create(new PublicHotReadOptions
         {
             UpdateQueueCapacity = 1
-        }));
+        }), new InMemoryPublicHotArtifactDeliveryStateStore());
 
-        PublicHotArtifactEnqueueResult first = queue.Enqueue(1, "article-updated");
-        PublicHotArtifactEnqueueResult second = queue.Enqueue(2, "article-updated");
+        PublicHotArtifactEnqueueResult first = await queue.EnqueueAsync(
+            PublicHotArtifactDeliveryClass.RequiredContent,
+            1,
+            "article-updated");
+        PublicHotArtifactEnqueueResult second = await queue.EnqueueAsync(
+            PublicHotArtifactDeliveryClass.RequiredContent,
+            2,
+            "article-updated");
 
-        Assert.True(first.Accepted);
-        Assert.Equal("accepted", first.Status);
-        Assert.False(second.Accepted);
-        Assert.Equal("queue-full-or-closed", second.Status);
-        Assert.False(queue.TryEnqueue(3, "article-updated"));
+        Assert.Equal(PublicHotArtifactDeliveryStatus.Accepted, first.Status);
+        Assert.Equal(PublicHotArtifactDeliveryStatus.PersistedDirty, second.Status);
     }
 
     [Fact]
