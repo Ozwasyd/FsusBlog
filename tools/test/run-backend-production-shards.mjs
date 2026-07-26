@@ -22,6 +22,7 @@ import {
 } from './backend-production-topology.mjs'
 import {
   productionDotnetArtifacts,
+  productionBuildRunIsActive,
   resolveProductionBuildLayout
 } from '../test-matrix/production-build-layout.mjs'
 import { resolveCgroupLimits } from '../test-matrix/production-resource-enforcement.mjs'
@@ -132,15 +133,13 @@ export function staleBackendBuildServerPids(processes, {
   repositoryRoot = root,
   currentRunId = process.env.FSUSBLOG_TEST_RUN_ID ?? '',
   currentNamespace = process.env.FSUSBLOG_TEST_NAMESPACE ?? '',
-  isRunActive = () => true,
-  includeInactiveProductionRuns = false
+  isRunActive = () => true
 } = {}) {
   return selectOrphanDotnetBuildServers(processes, {
     root: repositoryRoot,
     currentRunId,
     currentNamespace,
     includeCurrentBinding: true,
-    includeInactiveProductionRuns,
     isRunActive
   }).map(({ pid }) => pid)
 }
@@ -1894,16 +1893,15 @@ function installBackendPostgresSignalCleanup(baselineContainerNames, databaseNam
 }
 
 function backendSchedulerRunIsActive(runId) {
-  return fs.existsSync(path.join(root, '.tmp/test-runs/.locks', `${runId}.lock`))
+  return productionBuildRunIsActive(root, runId)
 }
 
-function cleanupBackendBuildServers({ includeInactiveProductionRuns }) {
+function cleanupBackendBuildServers() {
   return cleanupOrphanDotnetBuildServers({
     root,
     currentRunId: process.env.FSUSBLOG_TEST_RUN_ID ?? '',
     currentNamespace: process.env.FSUSBLOG_TEST_NAMESPACE ?? '',
     includeCurrentBinding: true,
-    includeInactiveProductionRuns,
     isRunActive: backendSchedulerRunIsActive,
     terminationGraceMs: 250
   })
@@ -1916,7 +1914,7 @@ async function reclaimBackendTestResources() {
   const staleContainerCleanupStartedAt = Date.now()
   const removedStaleContainers = await removeBackendPostgresContainers(stale)
   const staleContainerCleanupDurationMs = Date.now() - staleContainerCleanupStartedAt
-  const terminatedBuildServerPids = cleanupBackendBuildServers({ includeInactiveProductionRuns: true })
+  const terminatedBuildServerPids = []
   const baselineContainerNames = await listBackendPostgresContainers()
   return {
     removedStaleContainers,
@@ -2353,9 +2351,7 @@ async function runBackendProductionShardsCore({
   if (discoveryResultFailed(evidenceResult)) {
     throw new Error(`backend Perception evidence finalization failed: ${discoveryFailureDetail(evidenceResult)}`)
   }
-  const terminatedBuildServerPostflightPids = cleanupBackendBuildServers({
-    includeInactiveProductionRuns: false
-  })
+  const terminatedBuildServerPostflightPids = cleanupBackendBuildServers()
   const executionIds = new Set(mainRecords.map((record) => record.testId))
   if (executionIds.size !== mainRecords.length) {
     throw new Error('backend production TRX partitions repeat a stable test ID')
@@ -2883,7 +2879,7 @@ export async function runBackendProductionShards(options = {}) {
   } finally {
     // The strict run binding prevents this failure-path cleanup from touching
     // developer build servers or a sibling scheduler namespace.
-    cleanupBackendBuildServers({ includeInactiveProductionRuns: false })
+    cleanupBackendBuildServers()
   }
 }
 

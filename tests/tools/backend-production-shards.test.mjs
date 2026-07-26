@@ -467,7 +467,7 @@ test('backend production database namespace is short, deterministic, and has no 
   assert.throws(() => backendProductionDatabaseNamespace('unknown'), /unknown backend database namespace role/u)
 })
 
-test('backend production build-server cleanup is limited to the current or dead-owner scheduler run', () => {
+test('backend production build-server cleanup is limited to the current scheduler run', () => {
   const command = [
     '/usr/lib/dotnet/dotnet',
     '/usr/lib/dotnet/sdk/10.0.108/MSBuild.dll',
@@ -485,7 +485,8 @@ test('backend production build-server cleanup is limited to the current or dead-
     args: command,
     env: {
       FSUSBLOG_TEST_RUN_ID: runId,
-      FSUSBLOG_TEST_NAMESPACE: namespace
+      FSUSBLOG_TEST_NAMESPACE: namespace,
+      FSUSBLOG_PRODUCTION_BUILD_ROOT: `${root}/.tmp/build/${runId}`
     },
     ...overrides
   })
@@ -509,9 +510,8 @@ test('backend production build-server cleanup is limited to the current or dead-
     repositoryRoot: root,
     currentRunId,
     currentNamespace: 'current-tier',
-    includeInactiveProductionRuns: true,
     isRunActive: (runId) => runId === activeRunId
-  }), [100, 101])
+  }), [100])
   const source = fs.readFileSync(path.join(root, 'tools/test-matrix/dotnet-build-server-cleanup.mjs'), 'utf8')
   assert.match(source, /observed\.ppid === expected\.ppid/u)
   assert.match(source, /observed\.startTimeTicks === expected\.startTimeTicks/u)

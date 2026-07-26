@@ -3,9 +3,10 @@ import fs from 'node:fs'
 import test from 'node:test'
 
 import {
-  canonicalProductionBuildServerBinding,
+  dotnetBuildServerInventory,
   managedOrphanDotnetBuildServer,
-  selectOrphanDotnetBuildServers
+  selectOrphanDotnetBuildServers,
+  terminateOrphanDotnetBuildServers
 } from '../../tools/test-matrix/dotnet-build-server-cleanup.mjs'
 
 const root = '/workspace/FsusBlog'
@@ -29,7 +30,8 @@ function msbuildRecord(overrides = {}) {
     ],
     env: {
       FSUSBLOG_TEST_RUN_ID: currentRunId,
-      FSUSBLOG_TEST_NAMESPACE: currentNamespace
+      FSUSBLOG_TEST_NAMESPACE: currentNamespace,
+      FSUSBLOG_PRODUCTION_BUILD_ROOT: `${root}/.tmp/build/${currentRunId}`
     },
     ...overrides
   }
@@ -65,13 +67,14 @@ test('managed VBCSCompiler shape is exact and rejects a developer compiler comma
   }, { root }), false)
 })
 
-test('selection cleans only the exact current binding or an inactive canonical production run', () => {
+test('selection cleans only the exact current binding', () => {
   const staleRunId = 'production-2026-07-12_11-00-00-000-600'
   const stale = msbuildRecord({
     pid: 101,
     env: {
       FSUSBLOG_TEST_RUN_ID: staleRunId,
-      FSUSBLOG_TEST_NAMESPACE: `${staleRunId}-fresh-local-production-0`
+      FSUSBLOG_TEST_NAMESPACE: `${staleRunId}-fresh-local-production-0`,
+      FSUSBLOG_PRODUCTION_BUILD_ROOT: `${root}/.tmp/build/${staleRunId}`
     }
   })
   const activeRunId = 'production-2026-07-12_11-30-00-000-650'
@@ -79,7 +82,8 @@ test('selection cleans only the exact current binding or an inactive canonical p
     pid: 102,
     env: {
       FSUSBLOG_TEST_RUN_ID: activeRunId,
-      FSUSBLOG_TEST_NAMESPACE: `${activeRunId}-fresh-local-production-0`
+      FSUSBLOG_TEST_NAMESPACE: `${activeRunId}-fresh-local-production-0`,
+      FSUSBLOG_PRODUCTION_BUILD_ROOT: `${root}/.tmp/build/${activeRunId}`
     }
   })
   const manual = msbuildRecord({
@@ -96,12 +100,91 @@ test('selection cleans only the exact current binding or an inactive canonical p
     currentRunId,
     currentNamespace,
     includeCurrentBinding: true,
-    includeInactiveProductionRuns: true,
     isRunActive: (runId) => runId === activeRunId
   })
-  assert.deepEqual(selected.map(({ pid }) => pid), [100, 101])
-  assert.equal(canonicalProductionBuildServerBinding(staleRunId, `${staleRunId}-fresh-local-production-0`), true)
-  assert.equal(canonicalProductionBuildServerBinding(staleRunId, 'other-namespace'), false)
+  assert.deepEqual(selected.map(({ pid }) => pid), [100])
+})
+
+test('termination never signals sibling, IDE, external, or unknown server records', () => {
+  const siblingRunId = 'production-2026-07-12_12-07-56-517-701'
+  const records = [
+    msbuildRecord({ pid: 100 }),
+    msbuildRecord({ pid: 101, env: {
+      FSUSBLOG_TEST_RUN_ID: siblingRunId,
+      FSUSBLOG_TEST_NAMESPACE: `${siblingRunId}-fresh-local-production-0`,
+      FSUSBLOG_PRODUCTION_BUILD_ROOT: `${root}/.tmp/build/${siblingRunId}`
+    } }),
+    msbuildRecord({ pid: 102, env: {} }),
+    msbuildRecord({ pid: 103, env: {
+      FSUSBLOG_TEST_RUN_ID: currentRunId,
+      FSUSBLOG_TEST_NAMESPACE: currentNamespace,
+      FSUSBLOG_PRODUCTION_BUILD_ROOT: '/unknown/build-root'
+    } })
+  ]
+  const signals = []
+  const terminated = terminateOrphanDotnetBuildServers(records, {
+    root,
+    currentRunId,
+    currentNamespace,
+    includeCurrentBinding: true,
+    readProcess: (pid) => records.find((record) => record.pid === pid) ?? null,
+    signalProcess: (pid, signal) => signals.push([pid, signal]),
+    processExists: () => false,
+    terminationGraceMs: 1
+  })
+  assert.deepEqual(terminated, [100])
+  assert.deepEqual(signals, [[100, 'SIGTERM']])
+})
+
+test('build-root replacement after selection is not signalled', () => {
+  const selected = msbuildRecord()
+  const signals = []
+  const terminated = terminateOrphanDotnetBuildServers([selected], {
+    root,
+    currentRunId,
+    currentNamespace,
+    includeCurrentBinding: true,
+    readProcess: () => ({
+      ...selected,
+      env: { ...selected.env, FSUSBLOG_PRODUCTION_BUILD_ROOT: '/replacement/build-root' }
+    }),
+    signalProcess: (pid, signal) => signals.push([pid, signal]),
+    processExists: () => false,
+    terminationGraceMs: 1
+  })
+  assert.deepEqual(terminated, [])
+  assert.deepEqual(signals, [])
+})
+
+test('inventory proves exact run and build-root ownership without classifying sibling, IDE, or unknown servers as current', () => {
+  const siblingRunId = 'production-2026-07-12_12-07-56-517-701'
+  const inventory = dotnetBuildServerInventory([
+    msbuildRecord(),
+    msbuildRecord({ pid: 101, env: {
+      FSUSBLOG_TEST_RUN_ID: siblingRunId,
+      FSUSBLOG_TEST_NAMESPACE: `${siblingRunId}-fresh-local-production-0`,
+      FSUSBLOG_PRODUCTION_BUILD_ROOT: `${root}/.tmp/build/${siblingRunId}`
+    } }),
+    msbuildRecord({ pid: 102, env: {
+      FSUSBLOG_TEST_RUN_ID: currentRunId,
+      FSUSBLOG_TEST_NAMESPACE: currentNamespace,
+      FSUSBLOG_PRODUCTION_BUILD_ROOT: '/unverifiable/build-root'
+    } }),
+    msbuildRecord({ pid: 103, env: {} }),
+    msbuildRecord({ pid: 104, args: ['/usr/lib/dotnet/dotnet', 'build', 'other.csproj'] })
+  ], {
+    root,
+    currentRunId,
+    currentNamespace,
+    isRunActive: (runId) => runId === siblingRunId
+  })
+  assert.equal(inventory.length, 4)
+  assert.deepEqual(inventory.map((entry) => entry.startedByCurrentRun), [true, false, false, false])
+  assert.deepEqual(inventory.map((entry) => entry.sharedWithOtherRun), [false, true, true, true])
+  assert.equal(inventory[3].ownerState, 'external-unknown')
+  assert.equal(inventory[0].serverKind, 'msbuild-node')
+  assert.equal(inventory[0].buildRoot, `${root}/.tmp/build/${currentRunId}`)
+  assert.equal(inventory[0].processIdentity.startTimeTicks, '123456')
 })
 
 test('termination revalidates PID start time, PPID, cwd, args, run id, and namespace before signaling', () => {
@@ -112,6 +195,7 @@ test('termination revalidates PID start time, PPID, cwd, args, run id, and names
     'observed.cwd === expected.cwd',
     "observed.args.join('\\0') === expected.args.join('\\0')",
     'observed.env.FSUSBLOG_TEST_RUN_ID === expected.env.FSUSBLOG_TEST_RUN_ID',
-    'observed.env.FSUSBLOG_TEST_NAMESPACE === expected.env.FSUSBLOG_TEST_NAMESPACE'
+    'observed.env.FSUSBLOG_TEST_NAMESPACE === expected.env.FSUSBLOG_TEST_NAMESPACE',
+    'observed.env.FSUSBLOG_PRODUCTION_BUILD_ROOT === expected.env.FSUSBLOG_PRODUCTION_BUILD_ROOT'
   ]) assert.ok(source.includes(contract), `missing identity revalidation: ${contract}`)
 })

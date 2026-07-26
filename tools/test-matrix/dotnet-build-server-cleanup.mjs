@@ -1,8 +1,13 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-const productionRunIdPattern = /^production-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}-\d{3}-\d+$/u
 const msbuildFlags = new Set(['/noautoresponse', '/nologo', '/nodemode:1', '/nodeReuse:true', '/low:false'])
+
+function serverKind(args) {
+  if (exactMsbuildNode(args)) return 'msbuild-node'
+  if (exactVbcsCompiler(args)) return 'roslyn-compiler'
+  return null
+}
 
 function positiveInteger(value) {
   const parsed = Number.parseInt(String(value ?? ''), 10)
@@ -29,12 +34,6 @@ function exactVbcsCompiler(args) {
     && /^-pipename:[A-Za-z0-9._-]+$/u.test(String(args[3] ?? ''))
 }
 
-export function canonicalProductionBuildServerBinding(runId, namespace) {
-  const normalizedRunId = String(runId ?? '').trim()
-  return productionRunIdPattern.test(normalizedRunId)
-    && String(namespace ?? '') === `${normalizedRunId}-fresh-local-production-0`
-}
-
 export function managedOrphanDotnetBuildServer(record, { root }) {
   // MSBuild worker nodes chdir into the selected SDK directory before they
   // detach, so their /proc/<pid>/cwd no longer identifies the repository that
@@ -50,7 +49,60 @@ export function managedOrphanDotnetBuildServer(record, { root }) {
     && /^\d+$/u.test(String(record.startTimeTicks ?? ''))
     && runId.length > 0
     && namespace.length > 0
-    && (exactMsbuildNode(args) || exactVbcsCompiler(args))
+    && serverKind(args) !== null
+}
+
+function dotnetBuildServerShape(record) {
+  return positiveInteger(record?.pid) !== null
+    && record.ppid === 1
+    && /^\d+$/u.test(String(record.startTimeTicks ?? ''))
+    && serverKind(Array.isArray(record?.args) ? record.args : []) !== null
+}
+
+export function dotnetBuildServerInventory(records, {
+  root,
+  currentRunId = '',
+  currentNamespace = '',
+  isRunActive = () => false
+}) {
+  if (!Array.isArray(records)) throw new Error('dotnet build-server inventory requires a process array')
+  if (typeof isRunActive !== 'function') throw new Error('dotnet build-server inventory requires a run activity probe')
+  const expectedBuildRoot = currentRunId ? path.join(path.resolve(root), '.tmp/build', currentRunId) : ''
+  return records
+    .filter(dotnetBuildServerShape)
+    .map((record) => {
+      const env = record.env ?? {}
+      const runId = String(env.FSUSBLOG_TEST_RUN_ID ?? '')
+      const namespace = String(env.FSUSBLOG_TEST_NAMESPACE ?? '')
+      const buildRoot = String(env.FSUSBLOG_PRODUCTION_BUILD_ROOT ?? '')
+      const startedByCurrentRun = runId === currentRunId && namespace === currentNamespace
+        && buildRoot === expectedBuildRoot
+      const ownerState = startedByCurrentRun
+        ? 'current'
+        : (!runId || !namespace
+          ? 'external-unknown'
+          : (runId === currentRunId
+            ? 'unknown-current-run'
+            : (isRunActive(runId) ? 'active-other-run' : 'inactive-or-unknown')))
+      return {
+        processIdentity: {
+          pid: record.pid,
+          ppid: record.ppid,
+          startTimeTicks: record.startTimeTicks,
+          cwd: record.cwd,
+          args: [...record.args]
+        },
+        serverKind: serverKind(record.args),
+        runId,
+        namespace,
+        buildRoot,
+        pipeOrSocketIdentity: serverKind(record.args) === 'roslyn-compiler' ? record.args[3] : null,
+        startedByCurrentRun,
+        sharedWithOtherRun: ownerState !== 'current',
+        ownerState,
+        record
+      }
+    })
 }
 
 export function selectOrphanDotnetBuildServers(records, {
@@ -58,23 +110,18 @@ export function selectOrphanDotnetBuildServers(records, {
   currentRunId = '',
   currentNamespace = '',
   includeCurrentBinding = false,
-  includeInactiveProductionRuns = false,
   isRunActive = () => true
 }) {
   if (!Array.isArray(records)) throw new Error('dotnet build-server cleanup requires a process array')
   if (typeof isRunActive !== 'function') throw new Error('dotnet build-server cleanup requires a run activity probe')
-  return records.filter((record) => {
-    if (!managedOrphanDotnetBuildServer(record, { root })) return false
-    const runId = String(record.env.FSUSBLOG_TEST_RUN_ID)
-    const namespace = String(record.env.FSUSBLOG_TEST_NAMESPACE)
-    if (includeCurrentBinding
-      && runId === currentRunId
-      && namespace === currentNamespace) return true
-    return includeInactiveProductionRuns
-      && canonicalProductionBuildServerBinding(runId, namespace)
-      && runId !== currentRunId
-      && isRunActive(runId) === false
-  })
+  return dotnetBuildServerInventory(records, {
+    root,
+    currentRunId,
+    currentNamespace,
+    isRunActive
+  }).filter((entry) => (
+    includeCurrentBinding && entry.startedByCurrentRun
+  )).map((entry) => entry.record)
 }
 
 export function readProcProcess(pid) {
@@ -109,11 +156,10 @@ export function discoverOrphanDotnetBuildServers({ root }) {
   return fs.readdirSync('/proc', { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && /^\d+$/u.test(entry.name))
     .map((entry) => readProcProcess(Number.parseInt(entry.name, 10)))
-    .filter((record) => record && managedOrphanDotnetBuildServer(record, { root }))
+    .filter((record) => record && dotnetBuildServerShape(record))
 }
 
-function sameProcessIdentity(expected) {
-  const observed = readProcProcess(expected.pid)
+function sameProcessIdentity(expected, observed = readProcProcess(expected.pid)) {
   return observed !== null
     && observed.ppid === expected.ppid
     && observed.startTimeTicks === expected.startTimeTicks
@@ -121,6 +167,7 @@ function sameProcessIdentity(expected) {
     && observed.args.join('\0') === expected.args.join('\0')
     && observed.env.FSUSBLOG_TEST_RUN_ID === expected.env.FSUSBLOG_TEST_RUN_ID
     && observed.env.FSUSBLOG_TEST_NAMESPACE === expected.env.FSUSBLOG_TEST_NAMESPACE
+    && observed.env.FSUSBLOG_PRODUCTION_BUILD_ROOT === expected.env.FSUSBLOG_PRODUCTION_BUILD_ROOT
 }
 
 export function terminateOrphanDotnetBuildServers(records, {
@@ -128,9 +175,11 @@ export function terminateOrphanDotnetBuildServers(records, {
   currentRunId = '',
   currentNamespace = '',
   includeCurrentBinding = false,
-  includeInactiveProductionRuns = false,
   isRunActive = () => true,
-  terminationGraceMs = 250
+  terminationGraceMs = 250,
+  readProcess = readProcProcess,
+  signalProcess = process.kill,
+  processExists = (pid) => fs.existsSync(`/proc/${pid}`)
 }) {
   if (!Number.isFinite(terminationGraceMs) || terminationGraceMs <= 0) {
     throw new Error('dotnet build-server cleanup requires a positive termination grace')
@@ -140,31 +189,34 @@ export function terminateOrphanDotnetBuildServers(records, {
     currentRunId,
     currentNamespace,
     includeCurrentBinding,
-    includeInactiveProductionRuns,
     isRunActive
   })
+  const signalled = []
   for (const record of selected) {
-    if (!sameProcessIdentity(record)) continue
+    const observed = readProcess(record.pid)
+    if (!sameProcessIdentity(record, observed)) continue
     try {
-      process.kill(record.pid, 'SIGTERM')
+      signalProcess(record.pid, 'SIGTERM')
+      signalled.push(record)
     } catch (error) {
       if (error.code !== 'ESRCH') throw error
     }
   }
   const waitBuffer = new Int32Array(new SharedArrayBuffer(4))
   const deadline = Date.now() + terminationGraceMs
-  while (selected.some((record) => fs.existsSync(`/proc/${record.pid}`)) && Date.now() < deadline) {
+  while (signalled.some((record) => processExists(record.pid)) && Date.now() < deadline) {
     Atomics.wait(waitBuffer, 0, 0, Math.min(25, Math.max(1, deadline - Date.now())))
   }
   const terminatedPids = []
-  for (const record of selected) {
-    if (!fs.existsSync(`/proc/${record.pid}`)) {
+  for (const record of signalled) {
+    if (!processExists(record.pid)) {
       terminatedPids.push(record.pid)
       continue
     }
-    if (!sameProcessIdentity(record)) continue
+    const observed = readProcess(record.pid)
+    if (!sameProcessIdentity(record, observed)) continue
     try {
-      process.kill(record.pid, 'SIGKILL')
+      signalProcess(record.pid, 'SIGKILL')
       terminatedPids.push(record.pid)
     } catch (error) {
       if (error.code === 'ESRCH') terminatedPids.push(record.pid)

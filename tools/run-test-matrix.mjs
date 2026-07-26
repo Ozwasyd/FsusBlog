@@ -12,7 +12,11 @@ import {
     buildReceiptPlan as buildReceiptReachabilityPlan
 } from './test-matrix/aggregate-plan.mjs'
 import { createArtifactDigestTable } from './test-matrix/artifact-digest-table.mjs'
-import { cleanupOrphanDotnetBuildServers } from './test-matrix/dotnet-build-server-cleanup.mjs'
+import {
+    cleanupOrphanDotnetBuildServers,
+    discoverOrphanDotnetBuildServers,
+    dotnetBuildServerInventory
+} from './test-matrix/dotnet-build-server-cleanup.mjs'
 import { assertLocalProductionCapacity, cleanLocalProductionOutputs } from './test-matrix/fresh-production.mjs'
 import {
     buildLocalProfileProjection,
@@ -41,6 +45,7 @@ import { runProductionBuildLifecycle } from './test-matrix/production-build-life
 import {
     bindProductionBuildLayoutSource,
     productionBuildEnvironment,
+    productionBuildRunIsActive,
     registerProductionBuildCompiler
 } from './test-matrix/production-build-layout.mjs'
 import { validateEvidenceExecutionDeclaration } from './test-matrix/projection-declaration.mjs'
@@ -1718,16 +1723,8 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
       ?? path.join(os.tmpdir(), 'fsusblog-runtime-cleanup-receipts'),
     cleanupOptions: runtimeCleanupOptions,
     cleanupRuntime: runtime.cleanupRuntime,
-    additionalCleanup: runtime.additionalCleanup ?? (() => cleanupOrphanDotnetBuildServers({
-      root: profileRoot,
-      currentRunId: process.env.FSUSBLOG_TEST_RUN_ID ?? '',
-      currentNamespace: process.env.FSUSBLOG_TEST_NAMESPACE ?? '',
-      includeCurrentBinding: false,
-      includeInactiveProductionRuns: true,
-      isRunActive: schedulerRunIsActive,
-      terminationGraceMs: Math.ceil(profile.budgetMs / 100)
-    })),
-    additionalCleanupStage: 'preflight-dotnet-build-server-cleanup'
+    additionalCleanup: runtime.additionalCleanup,
+    additionalCleanupStage: 'preflight-additional-cleanup'
   })
   const staleCleanup = preflightCleanup.cleanup
   let preflightReceipt = preflightCleanup.receipt
@@ -1994,16 +1991,11 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
       } catch (error) {
         sensitiveFixtureFailure = error
       }
-      // Every managed bundle has settled before this finally block. Reclaim
-      // build servers here so a cancelled compiler cannot steal CPU from the
-      // next fresh run; doing this inside a bundle would race sibling dotnet
-      // processes.
-      const buildServerShutdown = spawnSync('dotnet', ['build-server', 'shutdown'], {
-        cwd: root,
-        encoding: 'utf8',
-        timeout: 5_000
-      })
+      // Every managed bundle has settled before this finally block. Only the
+      // current run's identity-bound compiler servers are eligible; a global
+      // dotnet build-server shutdown would also stop IDEs and sibling repos.
       let dotnetBuildServerPostflightPids = []
+      let dotnetBuildServerPostflightInventory = []
       let dotnetBuildServerPostflightFailure = null
       try {
         dotnetBuildServerPostflightPids = cleanupOrphanDotnetBuildServers({
@@ -2011,10 +2003,17 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
           currentRunId: runId,
           currentNamespace: runNamespace,
           includeCurrentBinding: true,
-          includeInactiveProductionRuns: false,
-          isRunActive: schedulerRunIsActive,
+          isRunActive: (candidateRunId) => productionBuildRunIsActive(root, candidateRunId),
           terminationGraceMs: Math.ceil(profile.budgetMs / 100)
         })
+        dotnetBuildServerPostflightInventory = dotnetBuildServerInventory(
+          discoverOrphanDotnetBuildServers({ root }),
+          {
+            root,
+            currentRunId: runId,
+            currentNamespace: runNamespace,
+            isRunActive: (candidateRunId) => productionBuildRunIsActive(root, candidateRunId)
+          })
       } catch (error) {
         dotnetBuildServerPostflightFailure = error
       }
@@ -2036,6 +2035,13 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
           postflightCleanup,
           dotnetBuildServerPostflightFailure,
           'postflight-dotnet-build-server-cleanup')
+      }
+      if (dotnetBuildServerPostflightInventory.some((entry) =>
+        entry.runId === runId && entry.namespace === runNamespace)) {
+        postflightCleanup = appendFreshRuntimeCleanupFailure(
+          postflightCleanup,
+          new Error('current-run dotnet build-server inventory was not empty before postflight termination'),
+          'postflight-dotnet-build-server-inventory')
       }
       const postflightSource = await snapshotSourceState(root)
       postflightCleanup = {
@@ -2073,11 +2079,11 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
         ...postflightCleanup,
         receipt: runtimeCleanupReceiptReference(root, postflightReceipt),
         dotnetBuildServer: {
-          status: buildServerShutdown.status,
-          signal: buildServerShutdown.signal,
-          error: buildServerShutdown.error?.message ?? null,
+          status: dotnetBuildServerPostflightFailure === null ? 'complete' : 'failed',
+          error: dotnetBuildServerPostflightFailure?.message ?? null,
           preflightOrphanPids: dotnetBuildServerPreflightPids,
-          postflightOrphanPids: dotnetBuildServerPostflightPids
+          postflightOrphanPids: dotnetBuildServerPostflightPids,
+          postflightInventory: dotnetBuildServerPostflightInventory.map(({ record: _record, ...entry }) => entry)
         },
         generatedAt: new Date().toISOString()
       }, null, 2)}\n`)
