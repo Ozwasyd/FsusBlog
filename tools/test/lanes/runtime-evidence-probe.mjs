@@ -918,6 +918,19 @@ function discoverBackendProcessTarget() {
     }
   }
 
+  if (process.platform === 'win32') {
+    const connection = spawnSync('powershell.exe', [
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command',
+      `(Get-NetTCPConnection -LocalPort ${port} -State Listen -ErrorAction Stop | Select-Object -First 1 -ExpandProperty OwningProcess)`
+    ], { cwd: root, encoding: 'utf8' })
+    const pid = parsePid(connection.stdout)
+    if (connection.status === 0 && pid && processExists(pid)) {
+      return { status: 'ok', pid, source: `Get-NetTCPConnection:tcp:${port}` }
+    }
+  }
+
   return {
     status: 'missing',
     reason: `backend process listening on ${baseUrl} was not discoverable; set FSUSBLOG_RELEASE_RESOURCE_PID`
@@ -940,6 +953,19 @@ function readProcessRssBytes(pid) {
   const rssKiB = Number.parseInt(ps.stdout.trim(), 10)
   if (ps.status === 0 && Number.isFinite(rssKiB) && rssKiB > 0) {
     return { status: 'ok', value: rssKiB * 1024, source: 'ps:rss' }
+  }
+
+  if (process.platform === 'win32') {
+    const windowsProcess = spawnSync('powershell.exe', [
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command',
+      `(Get-Process -Id ${pid} -ErrorAction Stop).WorkingSet64`
+    ], { cwd: root, encoding: 'utf8' })
+    const bytes = Number.parseInt(windowsProcess.stdout.trim(), 10)
+    if (windowsProcess.status === 0 && Number.isFinite(bytes) && bytes > 0) {
+      return { status: 'ok', value: bytes, source: 'Get-Process.WorkingSet64' }
+    }
   }
 
   return {
@@ -970,6 +996,19 @@ function readProcessOpenFileDescriptors(pid) {
     const count = lsof.stdout.split(/\r?\n/u).filter(Boolean).length - 1
     if (count >= 0) {
       return { status: 'ok', value: count, source: 'lsof:pid' }
+    }
+  }
+
+  if (process.platform === 'win32') {
+    const windowsProcess = spawnSync('powershell.exe', [
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command',
+      `(Get-Process -Id ${pid} -ErrorAction Stop).HandleCount`
+    ], { cwd: root, encoding: 'utf8' })
+    const handles = Number.parseInt(windowsProcess.stdout.trim(), 10)
+    if (windowsProcess.status === 0 && Number.isFinite(handles) && handles >= 0) {
+      return { status: 'ok', value: handles, source: 'Get-Process.HandleCount' }
     }
   }
 
