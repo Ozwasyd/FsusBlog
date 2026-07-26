@@ -47,7 +47,7 @@ const frontendBundleRunner = localBundleRunner.slice(
 
 function tier(id, dependsOn = [])
 {
-    return { id, dependsOn };
+    return { id, executionDependsOn: dependsOn };
 }
 
 function profile(overrides = {})
@@ -1080,7 +1080,7 @@ test('physical bundle DAG preserves dependencies and derives deadlines from reso
     for (const bundle of bundles)
     {
         assert.ok(bundle.id.startsWith('local-production-'));
-        assert.ok(bundle.dependsOn.every((dependency) => ids.has(dependency)));
+        assert.ok(bundle.executionDependsOn.every((dependency) => ids.has(dependency)));
         assert.ok(bundle.cpuWeight > 0);
         assert.ok(bundle.minCpuUnits > 0);
         assert.ok(bundle.maxParallel > 0);

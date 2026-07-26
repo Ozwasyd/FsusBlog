@@ -87,6 +87,7 @@ tiers:
     - id: canonical-producer
       ciJob: ${producerJob}
       outputReceiptSchema: fsusblog.ci.job-result.v1
+      executionDependsOn: []
       artifacts: [.tmp/canonical/receipt.json]
       evidence: [.tmp/canonical/receipt.json]
     - id: release-summary-tier
@@ -200,10 +201,14 @@ test('aggregate planner rejects a declared tier with mismatched command, input, 
 test('matrix schema makes aggregate authorities and summary receipt declarations machine-readable', () => {
     const schema = JSON.parse(readFileSync(path.join(root, 'tests/matrix.schema.json'), 'utf8'));
     assert.ok(schema.required.includes('aggregateAuthorities'));
+    assert.ok(schema.required.includes('finalizerAuthorities'));
     const properties = schema.properties.tiers.items.properties;
     assert.ok(schema.properties.tiers.items.required.includes('executionDependsOn'));
     assert.equal('dependsOn' in properties, false);
-    assert.deepEqual(properties.commandKind.enum, ['aggregate', 'producer', 'projection', 'receipt']);
+    assert.deepEqual(
+        properties.commandKind.enum,
+        ['aggregate', 'finalizer', 'producer', 'projection', 'receipt']
+    );
     assert.equal(properties.summaryInputs.minItems, 1);
     assert.equal(properties.outputReceiptSchema.minLength, 1);
 });

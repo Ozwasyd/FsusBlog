@@ -133,6 +133,16 @@ function validateSummary(summary, file) {
 function tierClosure(tiers, targetId) {
   if (!targetId) return tiers
   const byId = new Map(tiers.map((tier) => [tier.id, tier]))
+  const target = byId.get(targetId)
+  if (!target) throw new Error(`unknown required tier: ${targetId}`)
+  if ((target.requiresEvidenceFrom ?? []).length > 0) {
+    const included = new Set([targetId])
+    for (const producerId of target.requiresEvidenceFrom) {
+      if (!byId.has(producerId)) throw new Error(`unknown evidence producer tier: ${producerId}`)
+      included.add(producerId)
+    }
+    return tiers.filter((tier) => included.has(tier.id))
+  }
   const included = new Set()
   function visit(id) {
     if (included.has(id)) return
@@ -173,17 +183,22 @@ function shardId(index, total) {
   return `${index}-of-${total}`
 }
 
-function expectedSummaryIds(options) {
-  const ids = new Set()
+function expectedSummaryEntries(options) {
+  const entries = new Map()
+  const add = (id, tier) => {
+    const tiers = entries.get(id) ?? []
+    tiers.push(tier)
+    entries.set(id, tiers)
+  }
   for (const tier of requiredTiersFromPlan(options)) {
     if (tier.requiresPlaywright === 'all') {
       for (const browser of releaseBrowsers) {
         if (tier.shardable === true && Number(tier.defaultShards) > 1) {
           for (let index = 1; index <= Number(tier.defaultShards); index += 1) {
-            ids.add(`${tier.ciJob}-${browser}-${shardId(index, tier.defaultShards)}`)
+            add(`${tier.ciJob}-${browser}-${shardId(index, tier.defaultShards)}`, tier)
           }
         } else {
-          ids.add(`${tier.ciJob}-${browser}`)
+          add(`${tier.ciJob}-${browser}`, tier)
         }
       }
       continue
@@ -191,14 +206,25 @@ function expectedSummaryIds(options) {
 
     if (tier.shardable === true && Number(tier.defaultShards) > 1) {
       for (let index = 1; index <= Number(tier.defaultShards); index += 1) {
-        ids.add(`${tier.ciJob}-${shardId(index, tier.defaultShards)}`)
+        add(`${tier.ciJob}-${shardId(index, tier.defaultShards)}`, tier)
       }
       continue
     }
 
-    ids.add(tier.ciJob)
+    add(tier.ciJob, tier)
   }
-  return [...ids].sort()
+  return [...entries.entries()].sort(([left], [right]) => left.localeCompare(right))
+}
+
+function summaryMatchesTier(summary, tier) {
+  if (!(summary.tierIds ?? []).includes(tier.id)) return false
+  return [summary.ciJob, summary.jobId]
+    .filter((value) => typeof value === 'string')
+    .some((value) => value === tier.ciJob || value.startsWith(`${tier.ciJob}-`))
+}
+
+function producerCommand(tier) {
+  return `./tools/test.sh ci-tier ${tier.id}`
 }
 
 function main() {
@@ -231,17 +257,17 @@ function main() {
   }
 
   if (requirePlan) {
-    const summaryIds = new Set(summaries.map(({ summary }) => summary.ciJob ?? summary.jobId))
     const summaryResultIds = new Set(summaries.map(({ summary }) => summary.jobId))
-    for (const jobId of requiredJobsFromPlan(options)) {
-      const hasBase = summaryIds.has(jobId) || summaryResultIds.has(jobId)
-      const hasShard = [...summaryResultIds].some((id) => id.startsWith(`${jobId}-`))
-      if (!hasBase && !hasShard) errors.push(`missing job summary for required CI job: ${jobId}`)
+    for (const tier of requiredTiersFromPlan(options)) {
+      if (!summaries.some(({ summary }) => summaryMatchesTier(summary, tier))) {
+        errors.push(`missing job summary for required evidence tier: ${tier.id} (CI job ${tier.ciJob}); produce with: ${producerCommand(tier)}`)
+      }
     }
     if (options.strictShards) {
-      for (const expectedId of expectedSummaryIds(options)) {
+      for (const [expectedId, tiers] of expectedSummaryEntries(options)) {
         if (!summaryResultIds.has(expectedId)) {
-          errors.push(`missing strict job summary: ${expectedId}`)
+          const commands = [...new Set(tiers.map(producerCommand))].join(', ')
+          errors.push(`missing strict job summary: ${expectedId}; produce with: ${commands}`)
         }
       }
     }

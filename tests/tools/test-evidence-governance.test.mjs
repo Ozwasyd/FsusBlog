@@ -53,7 +53,7 @@ test('matrix evidence classes make every real browser boundary explicit', () => 
   assert.equal(tiers.get('release-final')?.evidenceClass, 'correctness')
 })
 
-test('authoritative correctness excludes diagnostics while release final adds one browser contract', () => {
+test('authoritative execution excludes diagnostics and release final binds browser evidence only', () => {
   const production = dependencyClosure('production-correctness')
   assert.deepEqual(
     [...production].filter((id) => tiers.get(id)?.evidenceClass === 'diagnostic'),
@@ -67,15 +67,16 @@ test('authoritative correctness excludes diagnostics while release final adds on
   const release = dependencyClosure('release-final')
   assert.deepEqual(
     [...release].filter((id) => tiers.get(id)?.evidenceClass === 'browser-contract'),
-    ['browser-contract']
+    []
   )
   assert.deepEqual(
     [...release].filter((id) => tiers.get(id)?.evidenceClass === 'diagnostic'),
     []
   )
+  assert.equal(tiers.get('release-final')?.requiresEvidenceFrom?.includes('browser-contract'), true)
 })
 
-test('release evidence plan serializes the resolved evidence class', () => {
+test('release evidence plan serializes evidence classes and dependency roles', () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-1151-evidence-plan-'))
   const output = path.join(directory, 'plan.json')
   try {
@@ -90,6 +91,11 @@ test('release evidence plan serializes the resolved evidence class', () => {
     assert.equal(planned.get('production-correctness')?.evidenceClass, 'correctness')
     assert.equal(planned.get('browser-contract')?.evidenceClass, 'browser-contract')
     assert.equal(planned.get('browser-diagnostics-nightly')?.evidenceClass, 'diagnostic')
+    assert.deepEqual(planned.get('release-final')?.executionDependsOn, [])
+    assert.deepEqual(
+      planned.get('release-final')?.requiresEvidenceFrom,
+      tiers.get('release-final')?.requiresEvidenceFrom
+    )
   } finally {
     fs.rmSync(directory, { recursive: true, force: true })
   }

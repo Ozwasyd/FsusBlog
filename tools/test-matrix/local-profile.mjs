@@ -590,11 +590,11 @@ export function createLocalBundleTiers(profileId, profile, { maxParallel = null 
       residentLeaseConsumer: bundle.id === 'performance-evidence',
       logicalMembers: [...(bundle.members ?? [])],
       command: bundle.command,
-      dependsOn: (bundle.dependsOn ?? []).map((dependencyId) => `${prefix}${dependencyId}`),
+      executionDependsOn: (bundle.dependsOn ?? []).map((dependencyId) => `${prefix}${dependencyId}`),
       services: [...(bundle.services ?? [])],
       parallelizable: true,
       exclusiveResources: [...(bundle.exclusiveResources ?? [])],
-      // Physical bundle ordering is fully expressed by dependsOn. Keeping every
+      // Physical bundle ordering is fully expressed by executionDependsOn. Keeping every
       // local bundle in one scheduler phase lets independent ready work overlap;
       // resource and exclusive-resource gates still bound actual concurrency.
       phase: 0,

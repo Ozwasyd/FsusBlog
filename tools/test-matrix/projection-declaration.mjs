@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { buildAggregatePlan, buildReceiptPlan, parseAggregateCommand } from './aggregate-plan.mjs';
+import { buildReleaseFinalizerPlan } from './release-final-evidence-contract.mjs';
 
 export const evidenceExecutionModes = ['execute', 'projection', 'summary'];
 
@@ -51,9 +52,9 @@ function validateSummaryDeclaration(tier, matrix)
             errors.push(`${tier.id}.${field} is reserved for projection tiers`);
         }
     }
-    if (!['aggregate', 'receipt'].includes(tier.commandKind))
+    if (!['aggregate', 'finalizer', 'receipt'].includes(tier.commandKind))
     {
-        errors.push(`${tier.id}.commandKind must be aggregate or receipt for summary tiers`);
+        errors.push(`${tier.id}.commandKind must be aggregate, finalizer, or receipt for summary tiers`);
     }
     if (typeof tier.outputReceiptSchema !== 'string' || !tier.outputReceiptSchema.trim())
     {
@@ -107,6 +108,11 @@ function validateSummaryDeclaration(tier, matrix)
             const plan = buildReceiptPlan(matrix, tier.summaryAuthority);
             errors.push(...plan.errors.map((error) => `${tier.id} receipt: ${error}`));
         }
+    }
+    else if (tier.commandKind === 'finalizer')
+    {
+        const plan = buildReleaseFinalizerPlan(matrix, tier.summaryAuthority);
+        errors.push(...plan.errors.map((error) => `${tier.id} finalizer: ${error}`));
     }
     return errors;
 }

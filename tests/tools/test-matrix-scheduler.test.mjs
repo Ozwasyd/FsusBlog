@@ -63,7 +63,7 @@ function tier(id, overrides = {})
     return {
         id,
         command: `${process.execPath} -e "process.exit(0)"`,
-        dependsOn: [],
+        executionDependsOn: [],
         services: [],
         parallelizable: true,
         exclusiveResources: [],
@@ -308,7 +308,7 @@ test('runDag executes independent tiers concurrently before their dependent tier
         tiers: [
             tier('left'),
             tier('right'),
-            tier('join', { dependsOn: ['left', 'right'] })
+            tier('join', { executionDependsOn: ['left', 'right'] })
         ],
         root: temp,
         runsRoot: path.join(temp, 'runs'),
@@ -352,7 +352,7 @@ test('runDag collectFailures executes independent tiers and blocks only failed d
         tiers: [
             tier('fails'),
             tier('independent'),
-            tier('blocked-child', { dependsOn: ['fails'] })
+            tier('blocked-child', { executionDependsOn: ['fails'] })
         ],
         root: temp,
         runsRoot: path.join(temp, 'runs'),
@@ -912,7 +912,7 @@ test('dynamic admission grants fill the live envelope across only the currently 
         tiers: [
             dynamicTier('ready-heavy', { cpuWeight: 3, memoryWeight: 2, minCpuUnits: 2 }),
             dynamicTier('ready-light'),
-            dynamicTier('later-only', { dependsOn: ['ready-heavy', 'ready-light'] })
+            dynamicTier('later-only', { executionDependsOn: ['ready-heavy', 'ready-light'] })
         ],
         root: temp,
         runsRoot: path.join(temp, 'runs'),
@@ -1285,7 +1285,7 @@ test('released elastic capacity admits newly-ready work before expanding active 
         tiers: [
             dynamicTier('short'),
             dynamicTier('long'),
-            dynamicTier('runtime', { dependsOn: ['short'] })
+            dynamicTier('runtime', { executionDependsOn: ['short'] })
         ],
         root: temp,
         runsRoot: path.join(temp, 'runs'),
@@ -1439,7 +1439,7 @@ test('collectFailures consumes active settlements once after the wall-clock dead
         "import { setTimeout as delay } from 'node:timers/promises'",
         `import { runDag } from ${JSON.stringify(pathToFileURL(schedulerFile).href)}`,
         `const root = ${JSON.stringify(temp)}`,
-        "const makeTier = (id) => ({ id, command: 'custom', dependsOn: [], services: [], parallelizable: true, exclusiveResources: [], phase: 0, resourceClass: 'cpu', maxParallel: 2, cpuUnits: 1, memoryGiB: 0.1, cacheInputs: [], executionKey: `probe/${id}`, executionVariant: 'ordinary', coverage: ['ordinary-unit'] })",
+        "const makeTier = (id) => ({ id, command: 'custom', executionDependsOn: [], services: [], parallelizable: true, exclusiveResources: [], phase: 0, resourceClass: 'cpu', maxParallel: 2, cpuUnits: 1, memoryGiB: 0.1, cacheInputs: [], executionKey: `probe/${id}`, executionVariant: 'ordinary', coverage: ['ordinary-unit'] })",
         'const executed = []',
         'const aborted = []',
         'const completed = []',
@@ -1626,7 +1626,7 @@ test('resume reuses successful tiers only while input and dependency fingerprint
     fs.writeFileSync(inputFile, 'v1\n');
     const tiers = [
         tier('compile', { cacheInputs: ['input.txt'] }),
-        tier('verify', { dependsOn: ['compile'] })
+        tier('verify', { executionDependsOn: ['compile'] })
     ];
     const runsRoot = path.join(temp, 'runs');
     const executed = [];
@@ -1823,7 +1823,7 @@ test('resume can require one coherent source state instead of reusing otherwise 
     const { runDag } = await loadScheduler();
     const temp = createTempDir('scheduler-resume-source-state');
     const runsRoot = path.join(temp, 'runs');
-    const tiers = [tier('compile'), tier('verify', { dependsOn: ['compile'] })];
+    const tiers = [tier('compile'), tier('verify', { executionDependsOn: ['compile'] })];
     const executed = [];
     let sourceFingerprint = 'source-v1';
     const snapshotWorktree = async () => ({ fingerprint: sourceFingerprint, entries: {} });
@@ -1868,7 +1868,7 @@ test('resume reruns tiers when declared artifacts disappear and never reuses ser
     const tiers = [
         tier('artifact', { artifacts: ['artifact.txt'] }),
         tier('service-bootstrap', {
-            dependsOn: ['artifact'],
+            executionDependsOn: ['artifact'],
             services: ['postgres'],
             artifacts: ['service-ready.txt']
         })
@@ -1958,10 +1958,10 @@ test('a consumer does not claim generated evidence owned by a transitive depende
             }),
             tier('aggregate', {
                 command: 'tools/test/lanes/noop.sh aggregate',
-                dependsOn: ['producer']
+                executionDependsOn: ['producer']
             }),
             tier('consumer', {
-                dependsOn: ['aggregate'],
+                executionDependsOn: ['aggregate'],
                 artifacts: [sharedRelativePath],
                 evidence: [sharedRelativePath]
             })
@@ -2197,7 +2197,7 @@ test('supersedes rewires ordinary unit coverage subsets and rejects protected te
             coverage: ['ordinary-unit', 'ordinary-unit-extra'],
             supersedes: ['unit-slow']
         }),
-        tier('summary', { dependsOn: ['unit-slow'], coverage: [] })
+        tier('summary', { executionDependsOn: ['unit-slow'], coverage: [] })
     ];
     const registry = new Map([
         ['ordinary-unit', { assertionType: 'unit' }],
@@ -2206,7 +2206,7 @@ test('supersedes rewires ordinary unit coverage subsets and rejects protected te
     assert.deepEqual(validateSupersedesRules(ordinary, registry), []);
     const selected = applySupersedes(ordinary);
     assert.deepEqual(selected.map((item) => item.id).sort(), ['summary', 'unit-fast']);
-    assert.deepEqual(selected.find((item) => item.id === 'summary').dependsOn, ['unit-fast']);
+    assert.deepEqual(selected.find((item) => item.id === 'summary').executionDependsOn, ['unit-fast']);
 
     for (const kind of ['property', 'model', 'perf', 'runtime'])
     {
@@ -2413,7 +2413,7 @@ test('runner accepts fresh, resume, and max-parallel flags while CI always execu
         'tiers:',
         '  - id: fixture',
         `    command: ${JSON.stringify(`${process.execPath} ${script}`)}`,
-        '    dependsOn: []',
+        '    executionDependsOn: []',
         '    services: []',
         '    parallelizable: true',
         '    exclusiveResources: []',
@@ -2462,7 +2462,7 @@ test('matrix job summaries explicitly separate browser diagnostics from correctn
         const tierLines = (id, ciJob) => [
             `  - id: ${id}`,
             `    command: ${JSON.stringify(`${process.execPath} ${script}`)}`,
-            '    dependsOn: []',
+            '    executionDependsOn: []',
             '    services: []',
             '    parallelizable: true',
             '    exclusiveResources: []',
@@ -2528,7 +2528,7 @@ test('viewport CLI resume reaches Playwright progress while fresh clears ambient
         'tiers:',
         '  - id: ux-viewport-smoke',
         `    command: ${JSON.stringify(`${process.execPath} ${script}`)}`,
-        '    dependsOn: []',
+        '    executionDependsOn: []',
         '    services: []',
         '    parallelizable: true',
         '    exclusiveResources: []',
@@ -2580,7 +2580,7 @@ test('local fresh runs isolate the default namespace by scheduler run id', () =>
         'tiers:',
         '  - id: fixture',
         `    command: ${JSON.stringify(`${process.execPath} ${script}`)}`,
-        '    dependsOn: []',
+        '    executionDependsOn: []',
         '    services: []',
         '    parallelizable: true',
         '    exclusiveResources: []',
@@ -2637,7 +2637,7 @@ test('fresh summaries reset locally while tier resources cap nested worker pools
         '  - id: fixture',
         '    physicalBundleId: fixture-bundle',
         `    command: ${JSON.stringify(`${process.execPath} ${script}`)}`,
-        '    dependsOn: []',
+        '    executionDependsOn: []',
         '    services: []',
         '    parallelizable: true',
         '    exclusiveResources: []',
@@ -2686,7 +2686,7 @@ test('fresh CI steps accumulate within one workflow job but reset on the next wo
     const tierLines = (id) => [
         `  - id: ${id}`,
         `    command: ${JSON.stringify(`${process.execPath} ${noop}`)}`,
-        '    dependsOn: []',
+        '    executionDependsOn: []',
         '    services: []',
         '    parallelizable: true',
         '    exclusiveResources: []',
@@ -2742,7 +2742,7 @@ test('production cleanup uses the same safe namespace for dot segments as fixtur
         'tiers:',
         '  - id: production',
         `    command: ${JSON.stringify(`${process.execPath} ${script}`)}`,
-        '    dependsOn: []',
+        '    executionDependsOn: []',
         '    services: []',
         '    parallelizable: true',
         '    exclusiveResources: []',
@@ -2783,7 +2783,7 @@ test('ci-job keeps its CLI contract while using one scheduler checkpoint for all
     const tierLines = (id, script) => [
         `  - id: ${id}`,
         `    command: ${JSON.stringify(`${process.execPath} ${script}`)}`,
-        '    dependsOn: []',
+        '    executionDependsOn: []',
         '    services: []',
         '    parallelizable: true',
         '    exclusiveResources: []',
@@ -3238,7 +3238,7 @@ test('ci-pr-smart executes selected tiers through one asynchronous DAG run', () 
     const tierLines = (id) => [
         `  - id: ${id}`,
         `    command: ${JSON.stringify(`${process.execPath} ${scriptFor(id)}`)}`,
-        '    dependsOn: []',
+        '    executionDependsOn: []',
         '    services: []',
         '    parallelizable: true',
         '    exclusiveResources: []',
@@ -3319,7 +3319,7 @@ test('resident leases stay in admission accounting, hand off once, and release c
         startupPriority: 0
     });
     const afterExit = tier('after-exit', {
-        dependsOn: ['performance'],
+        executionDependsOn: ['performance'],
         cpuUnits: 4,
         memoryGiB: 4
     });
@@ -3477,7 +3477,7 @@ test('failed resident producer retains partial live-service evidence without pub
     });
     const performance = tier('performance', {
         physicalBundleId: 'performance-evidence', residentLeaseConsumer: true,
-        dependsOn: ['runtime'], cpuUnits: 1, memoryGiB: 1
+        executionDependsOn: ['runtime'], cpuUnits: 1, memoryGiB: 1
     });
     const result = await runDag({
         tiers: [runtime, performance],

@@ -111,7 +111,7 @@ test('scheduler receipt generation rejects a same-commit summary from another sc
     fs.copyFileSync(path.join(repositoryRoot, relativeFile), target)
   }
   fs.mkdirSync(path.join(fixture, 'tests'), { recursive: true })
-  fs.writeFileSync(path.join(fixture, 'tests/matrix.yml'), `version: 1\ntiers:\n  - id: unit\n    dependsOn: []\n    requiresPlaywright: none\n  - id: production-correctness\n    dependsOn: [unit]\n    requiresPlaywright: none\n`)
+  fs.writeFileSync(path.join(fixture, 'tests/matrix.yml'), `version: 1\ntiers:\n  - id: unit\n    executionDependsOn: []\n    requiresPlaywright: none\n  - id: production-correctness\n    executionDependsOn: [unit]\n    requiresPlaywright: none\n`)
 
   const artifactRoot = path.join(fixture, 'build')
   fs.mkdirSync(path.join(fixture, 'inputs'), { recursive: true })

@@ -36,6 +36,7 @@ import {
   buildReceiptPlan as buildReceiptReachabilityPlan
 } from './test-matrix/aggregate-plan.mjs';
 import { validateEvidenceExecutionDeclaration } from './test-matrix/projection-declaration.mjs';
+import { buildReleaseFinalizerPlan } from './test-matrix/release-final-evidence-contract.mjs';
 import { parseWorkflowJobNeeds } from './yaml/workflow-structure.mjs'
 import { assertLocalProductionCapacity, cleanLocalProductionOutputs } from './test-matrix/fresh-production.mjs'
 import { cleanupLocalRuntime, cleanupStaleLocalRuntimes } from './test-matrix/local-runtime-cleanup.mjs'
@@ -149,11 +150,14 @@ const requiredFields = [
   'nightlyOnly'
 ]
 
-function loadMatrix() {
+function loadMatrix({ validateDependencyFields = true } = {}) {
   if (!fs.existsSync(matrixFile)) {
     throw new Error(`missing ${path.relative(root, matrixFile)}`)
   }
-  return parseMatrix(fs.readFileSync(matrixFile, 'utf8'))
+  return parseMatrix(
+    fs.readFileSync(matrixFile, 'utf8'),
+    { validateDependencyFields }
+  )
 }
 
 function loadCoverageRegistry() {
@@ -534,6 +538,10 @@ function validateMatrix(matrix) {
     errors.push(...buildReceiptReachabilityPlan(matrix, authorityId, { root }).errors
       .map((error) => `receiptAuthorities.${authorityId}: ${error}`))
   }
+  for (const authorityId of Object.keys(matrix.finalizerAuthorities ?? {}).sort()) {
+    errors.push(...buildReleaseFinalizerPlan(matrix, authorityId).errors
+      .map((error) => `finalizerAuthorities.${authorityId}: ${error}`))
+  }
   if (!Array.isArray(matrix.tiers) || matrix.tiers.length === 0) {
     errors.push('tiers must be a non-empty list')
   }
@@ -767,6 +775,13 @@ function validateMatrix(matrix) {
         errors.push(`${tier.id} depends on ${dep} with later phase ${depTier.phase} > ${tier.phase}`)
       }
     }
+    for (const producerId of tier.requiresEvidenceFrom ?? []) {
+      if (producerId === tier.id) {
+        errors.push(`${tier.id}.requiresEvidenceFrom must not reference itself`)
+      } else if (!byId.has(producerId)) {
+        errors.push(`${tier.id} requires evidence from missing tier ${producerId}`)
+      }
+    }
     if (
       tier.requiresBootstrap !== 'none'
       && !hasBootstrapDependencyPath(tier.id)
@@ -868,16 +883,20 @@ function validateMatrix(matrix) {
     errors.push('release topology missing release-final tier')
   } else {
     if (releaseFinal.requiresPlaywright !== 'none' || releaseFinal.evidenceClass !== 'correctness') {
-      errors.push('release-final aggregate must use evidenceClass=correctness and must not install or launch Playwright itself')
+      errors.push('release-final finalizer must use evidenceClass=correctness and must not install or launch Playwright itself')
     }
-    if (!tierExecutionDependencies(releaseFinal).includes('production-correctness') || !tierExecutionDependencies(releaseFinal).includes('browser-contract')) {
-      errors.push('release-final must depend on production-correctness and browser-contract')
+    if (releaseFinal.requiresBootstrap !== 'none'
+      || releaseFinal.requiresNode !== true
+      || releaseFinal.requiresDotnet !== false
+      || releaseFinal.cacheProfile !== 'none'
+      || releaseFinal.services.length !== 0) {
+      errors.push('release-final must be Node-only with no services, bootstrap, .NET, or build/test cache')
     }
     const browserDependencies = [...dependencyClosure('release-final')]
       .filter((id) => byId.get(id)?.requiresPlaywright !== 'none')
       .sort()
-    if (JSON.stringify(browserDependencies) !== JSON.stringify(['browser-contract'])) {
-      errors.push(`release-final dependency closure must contain only browser-contract as a browser tier: ${browserDependencies.join(', ') || 'none'}`)
+    if (browserDependencies.length !== 0) {
+      errors.push(`release-final execution closure must not contain browser tiers: ${browserDependencies.join(', ')}`)
     }
   }
 
@@ -908,12 +927,15 @@ function planTier(matrix, requestedId) {
 function printPlan(tiers) {
   for (const [index, tier] of tiers.entries()) {
     const dependencies = tierExecutionDependencies(tier)
-    const deps = dependencies.length > 0 ? ` deps=${dependencies.join(',')}` : ''
+    const deps = dependencies.length > 0 ? ` executionDeps=${dependencies.join(',')}` : ''
+    const evidence = (tier.requiresEvidenceFrom ?? []).length > 0
+      ? ` evidenceInputs=${tier.requiresEvidenceFrom.join(',')}`
+      : ''
     const shard = tier.shardable ? ` shards=${tier.defaultShards}` : ''
     const timeout = Number.isFinite(Number(tier.budgetMs)) && Number(tier.budgetMs) > 0
       ? `${Math.ceil(Number(tier.budgetMs) / 60_000)}m`
       : 'observe-only'
-    console.log(`${index + 1}. ${tier.id} [job=${tier.ciJob} phase=${tier.phase} resource=${tier.resourceClass} cost=${tier.cost} timeout=${timeout} risk=${tier.risk}${shard}]${deps}`)
+    console.log(`${index + 1}. ${tier.id} [job=${tier.ciJob} phase=${tier.phase} resource=${tier.resourceClass} cost=${tier.cost} timeout=${timeout} risk=${tier.risk}${shard}]${deps}${evidence}`)
     console.log(`   ${tier.command}`)
   }
 }
@@ -3057,8 +3079,8 @@ function docs(matrix, outFile) {
     '',
     `Version: \`${matrix.version}\``,
     '',
-    '| Tier | CI job | Local command | Phase | Risk | Cadence | Required for | Evidence class | Execution mode | Physical execution owner | Evidence source | Smart gate | PR default | Retention | Trigger reason | Resource weights | Cost | Parallelism | PW workers | Bootstrap | Node | .NET | Playwright | Cache | Depends on | Services | Sharding | Timeout | Artifacts | Evidence |',
-    '|---|---|---|---:|---|---|---|---|---|---|---|---|---|---|---|---|---|---:|---:|---|---|---|---|---|---|---|---:|---:|---|---|'
+    '| Tier | CI job | Local command | Phase | Risk | Cadence | Required for | Evidence class | Execution mode | Physical execution owner | Evidence source | Smart gate | PR default | Retention | Trigger reason | Resource weights | Cost | Parallelism | PW workers | Bootstrap | Node | .NET | Playwright | Cache | Execution depends on | Evidence inputs | Services | Sharding | Timeout | Artifacts | Evidence |',
+    '|---|---|---|---:|---|---|---|---|---|---|---|---|---|---|---|---|---|---:|---:|---|---|---|---|---|---|---|---|---:|---:|---|---|'
   ]
   for (const tier of resolveLogicalTierResources(matrix.tiers)) {
     lines.push([
@@ -3082,6 +3104,9 @@ function docs(matrix, outFile) {
       tier.requiresPlaywright,
       tier.cacheProfile,
       tierExecutionDependencies(tier).length > 0 ? tierExecutionDependencies(tier).map((id) => `\`${id}\``).join(', ') : '-',
+      (tier.requiresEvidenceFrom?.length ?? 0) > 0
+        ? tier.requiresEvidenceFrom.map((id) => `\`${id}\``).join(', ')
+        : '-',
       tier.services.length > 0 ? tier.services.join(', ') : '-',
       tier.shardable ? 'machine' : 'single',
       `${tier.timeoutMinutes}m`,
@@ -3120,6 +3145,7 @@ function evidencePlan(matrix, outFile) {
       ciJob: tier.ciJob,
       command: tier.command,
       executionDependsOn: tierExecutionDependencies(tier),
+      requiresEvidenceFrom: tier.requiresEvidenceFrom ?? [],
       timeoutMinutes: tier.timeoutMinutes,
       phase: tier.phase,
       cost: tier.cost,
@@ -3321,7 +3347,7 @@ async function main() {
     return
   }
 
-  const matrix = loadMatrix()
+  const matrix = loadMatrix({ validateDependencyFields: command !== 'validate' })
   if (command === 'validate') {
     const errors = validateMatrix(matrix)
     if (errors.length > 0) {

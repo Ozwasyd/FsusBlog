@@ -432,9 +432,15 @@ expectMatrixValidateFailure(
 )
 
 expectMatrixValidateFailure(
-  replaceTierField(matrixSourceText, 'release-final', 'executionDependsOn', '[production-correctness, browser-contract, acceptance]'),
-  'release-final dependency closure must contain only browser-contract as a browser tier: acceptance, browser-contract',
-  'release-final must reject a second browser dependency'
+  replaceTierField(matrixSourceText, 'release-final', 'executionDependsOn', '[production-correctness]'),
+  'release-final.executionDependsOn must be empty; canonical producer tiers are evidence inputs only',
+  'release-final must reject producer execution dependencies'
+)
+
+expectMatrixValidateFailure(
+  replaceTierField(matrixSourceText, 'release-final', 'requiresEvidenceFrom', '[missing-evidence-producer]'),
+  'release-final requires evidence from missing tier missing-evidence-producer',
+  'release-final must reject missing evidence producers'
 )
 
 expectMatrixValidateFailure(
@@ -772,9 +778,10 @@ requireFileIncludes(
   requireCondition(
     releaseFinal?.requiresPlaywright === 'none'
       && releaseFinal?.evidenceClass === 'correctness'
-      && tierExecutionDependencies(releaseFinal).includes('production-correctness')
-      && tierExecutionDependencies(releaseFinal).includes('browser-contract'),
-    'release-final must aggregate browserless correctness and exactly one Browser Contract'
+      && tierExecutionDependencies(releaseFinal).length === 0
+      && releaseFinal?.requiresEvidenceFrom?.includes('production-correctness')
+      && releaseFinal?.requiresEvidenceFrom?.includes('browser-contract'),
+    'release-final must bind browserless correctness and Browser Contract as evidence only'
   )
 }
 {

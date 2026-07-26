@@ -28,11 +28,11 @@ localProfiles:
                   ]
 tiers:
     - id: compile
-      dependsOn:
+      executionDependsOn:
           - bootstrap
       coverage: [native, shell]
     - id: lint
-      dependsOn: []
+      executionDependsOn: []
 `)
 
   assert.deepEqual(matrix.localProfiles.production.bundles[0], {
@@ -41,16 +41,24 @@ tiers:
     artifacts: ['.tmp/build.json', '.tmp/lint.json']
   })
   assert.deepEqual(matrix.tiers, [
-    { id: 'compile', dependsOn: ['bootstrap'], coverage: ['native', 'shell'] },
-    { id: 'lint', dependsOn: [] }
+    { id: 'compile', executionDependsOn: ['bootstrap'], coverage: ['native', 'shell'] },
+    { id: 'lint', executionDependsOn: [] }
   ])
 
-  const legacyWidth = parseMatrix(`tiers:
-  - id: legacy
-    dependsOn:
+  const narrowWidth = parseMatrix(`tiers:
+  - id: narrow
+    executionDependsOn:
       - bootstrap
 `)
-  assert.deepEqual(legacyWidth.tiers[0], { id: 'legacy', dependsOn: ['bootstrap'] })
+  assert.deepEqual(narrowWidth.tiers[0], { id: 'narrow', executionDependsOn: ['bootstrap'] })
+  assert.throws(
+    () => parseMatrix('tiers:\n  - id: retired\n    dependsOn: []\n'),
+    /tier retired uses retired dependsOn; use executionDependsOn/u
+  )
+  assert.throws(
+    () => parseMatrix('tiers:\n  - id: evidence\n    executionDependsOn: []\n    requiresEvidenceFrom: producer\n'),
+    /tier evidence must declare requiresEvidenceFrom as an array/u
+  )
 })
 
 test('structured YAML parser rejects misalignment, duplicate keys and unfinished flow lists', () => {

@@ -73,15 +73,15 @@ test('every browser-capable tier declares the browser resource boundary', () =>
     }
 });
 
-test('release closeout binds one immutable browser contract without adding it to correctness', () =>
+test('release final binds one immutable browser contract as evidence without scheduling it', () =>
 {
     const correctness = dependencyClosure('production-correctness');
     const release = [...dependencyClosure('release-final')].map((id) => tiers.get(id));
     const browserTiers = release.filter((tier) => tier.requiresPlaywright !== 'none');
-    assert.equal(browserTiers.length, 1);
-    assert.equal(browserTiers[0].id, 'browser-contract');
-    assert.ok(tierExecutionDependencies(browserTiers[0]).includes('production-build-artifacts'));
-    assert.equal(correctness.has(browserTiers[0].id), false);
+    assert.equal(browserTiers.length, 0);
+    assert.ok(tiers.get('release-final').requiresEvidenceFrom.includes('browser-contract'));
+    assert.ok(tierExecutionDependencies(tiers.get('browser-contract')).includes('production-build-artifacts'));
+    assert.equal(correctness.has('browser-contract'), false);
 });
 
 test('smart-gate behavior selects browser work only for declared boundary inputs', () =>

@@ -6,6 +6,7 @@
         "version",
         "governance",
         "aggregateAuthorities",
+        "finalizerAuthorities",
         "commandGroups",
         "tiers"
     ],
@@ -101,6 +102,29 @@
                     "summaryTierIds": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
                     "inputTierIds": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
                     "inputReceiptSchemas": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+                    "outputReceiptSchema": {"type": "string", "minLength": 1}
+                },
+                "additionalProperties": false
+            }
+        },
+        "finalizerAuthorities": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "commandKind",
+                    "command",
+                    "summaryTierIds",
+                    "inputContractSchema",
+                    "outputReceiptSchema"
+                ],
+                "properties": {
+                    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+                    "commandKind": {"const": "finalizer"},
+                    "command": {"type": "string", "minLength": 1},
+                    "summaryTierIds": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+                    "inputContractSchema": {"type": "string", "minLength": 1},
                     "outputReceiptSchema": {"type": "string", "minLength": 1}
                 },
                 "additionalProperties": false
@@ -308,7 +332,7 @@
                     },
                     "commandKind": {
                         "type": "string",
-                        "enum": ["aggregate", "producer", "projection", "receipt"]
+                        "enum": ["aggregate", "finalizer", "producer", "projection", "receipt"]
                     },
                     "summaryAuthority": {
                         "type": "string",
@@ -747,7 +771,7 @@
                     },
                     {
                         "if": {
-                            "properties": {"commandKind": {"enum": ["aggregate", "receipt"]}},
+                            "properties": {"commandKind": {"enum": ["aggregate", "finalizer", "receipt"]}},
                             "required": ["commandKind"]
                         },
                         "then": {

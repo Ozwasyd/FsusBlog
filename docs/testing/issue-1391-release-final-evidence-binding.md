@@ -1,20 +1,28 @@
 # Issue #1391: Release-Final Pure Evidence Binding Topology Ledger
 
 ## 1. Context & Purpose
-Refactored `release-final` from a heavy recursive test execution closure into a pure evidence finalizer (`executionMode: summary`) that validates evidence bindings, publish credentials, and target environment closeout without executing test producers.
+Issue #1594 hardens the historical #1391 boundary: `release-final` is a pure evidence finalizer (`executionMode: summary`). It validates evidence bindings, publish credentials, and target environment closeout without executing test producers.
 
 ## 2. Key Changes Made
 1. **Removed Physical Producer Invocations from `release-final`**:
-   - `release-final` script files ([release-final.sh](file:///home/lyuaoss/projects/FsusBlog/tools/test/lanes/release-final.sh), [check-release-final.mjs](file:///home/lyuaoss/projects/FsusBlog/tools/release/check-release-final.mjs)) do not call `dotnet test`, `vitest`, `playwright`, `bootstrap-acceptance`, `load-`, `soak`, `mutation`, or `npm build`.
+    - `release-final` script files ([release-final.sh](file:///home/lyuaoss/projects/FsusBlog/tools/test/lanes/release-final.sh), [check-release-final.mjs](file:///home/lyuaoss/projects/FsusBlog/tools/release/check-release-final.mjs)) do not call `dotnet test`, `vitest`, `playwright`, `bootstrap-acceptance`, `load-`, `soak`, `mutation`, or `npm build`.
 2. **Updated Matrix Topology**:
-   - Set `executionMode: summary` on `release-final` tier in [tests/matrix.yml](file:///home/lyuaoss/projects/FsusBlog/tests/matrix.yml).
-   - Moved the 23 heavy producer dependencies into `requiresEvidenceFrom`.
-   - Cleared `services` (`[]`), set `cost: low`, `requiresBootstrap: none`, and `requiresDotnet: false`.
+    - `executionDependsOn` is the only scheduler edge. `requiresEvidenceFrom` is receipt-only and never enters the execution closure.
+    - Tier-level `dependsOn` is retired and rejected by the active parser/schema; command-group and local bundle DAGs retain their separately scoped dependency fields.
+    - `release-final.executionDependsOn` is empty; its Production, Browser, reliability, build, and fuzz inputs remain required evidence.
+    - The finalizer is Node-only: `services: []`, `requiresBootstrap: none`, `requiresDotnet: false`, `requiresPlaywright: none`, and `cacheProfile: none`.
 3. **Unit & Negative Tests**:
-   - Created [release-final-evidence-binding.test.mjs](file:///home/lyuaoss/projects/FsusBlog/tests/tools/release-final-evidence-binding.test.mjs) asserting zero recursive producer invocations in scripts and valid `summary` executionMode in `matrix.yml`.
+    - `tests/fixtures/test-matrix/execution-dependency-contract.json` seals the carried tier and command-group graphs without requiring Git history. Its only update authority is `node tools/test-matrix/execution-dependency-contract.mjs --write`; `--check` rejects drift.
+    - `tests/fixtures/test-matrix/release-final-evidence-inputs.json` is the independent, sorted, unique 23-tier semantic source for the finalizer's exact evidence set. `node tools/test-matrix/release-final-evidence-contract.mjs --write` seals only that source into `release-final-evidence-contract.json`; it never reads `tests/matrix.yml`, and `--check` rejects digest drift.
+    - `release-final-execution-graph.test.mjs` carries a fixed digest anchor independent of the semantic fixture, matrix, and generated contract, so changing and regenerating all three cannot silently bless a deletion, replacement, duplication, or addition. It also checks both default and CI plans, runs their execution commands with process-level producer sentinels, and proves its scheduler-edge mutation fixture observes a producer entering the scheduler.
+    - The carried execution graph contract is checked against the current matrix-derived graph without pinning a historical edge count. Evidence-only projection changes can therefore update the graph contract to their integrated current value without restoring retired scheduler edges.
+    - `release-final-evidence-binding.test.mjs` runs the real finalizer/checker boundary; missing receipts fail closed without spawning a fallback producer.
+    - Summary validation binds every required evidence tier to a matching `tierIds` and CI-job identity; missing base or shard evidence reports `./tools/test.sh ci-tier <producer>` without executing it.
 
 ## 3. Verification & Compliance
 - `! rg -n "dotnet test|vitest|playwright|bootstrap-acceptance|load-|soak|mutation|npm.*build" tools/test/lanes/release-final.sh tools/release/check-release-final.mjs` (0 matches, PASSED)
-- `node --test tests/tools/release-final-evidence-binding.test.mjs` (2/2 PASSED)
-- `node --test tests/tools/test-matrix-projection-declarations.test.mjs` (2/2 PASSED)
-- `node --test tests/tools/local-production-profile.test.mjs` (33/33 PASSED)
+- `node --test tests/tools/release-final-execution-graph.test.mjs`
+- `node --test tests/tools/release-final-evidence-binding.test.mjs`
+- `node tools/test-matrix/release-final-evidence-contract.mjs --check`
+- `node --test tests/tools/test-matrix-projection-declarations.test.mjs`
+- `node --test tests/tools/local-production-profile.test.mjs`

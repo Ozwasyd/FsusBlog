@@ -33,6 +33,14 @@ governance:
               releaseEvidencePaths:
                   - {from: .tmp/release-evidence/ux-viewport-canary-parity.json, to: .tmp/release-evidence/ux-viewport-summary.json}
           reason: "Current boundary planning, execution and visual evidence replace the incomplete historical canary parity lane."
+finalizerAuthorities:
+    release-final:
+        id: release-final
+        commandKind: finalizer
+        command: tools/test/lanes/release-final.sh
+        summaryTierIds: [release-final]
+        inputContractSchema: fsusblog.release-final-evidence-inputs.v1
+        outputReceiptSchema: fsusblog.release-final-test-evidence-binding.v1
 aggregateAuthorities:
     fast-summary:
         id: fast-summary
@@ -6618,33 +6626,37 @@ tiers:
     - id: release-final
       owner: ServerContractAgent
       executionMode: summary
+      commandKind: finalizer
+      summaryAuthority: release-final
+      summaryInputs: [fsusblog.release-final-evidence-inputs.v1]
+      outputReceiptSchema: fsusblog.release-final-test-evidence-binding.v1
       command: tools/test/lanes/release-final.sh
-      executionDependsOn: [production-correctness, browser-contract, release-closeout]
+      executionDependsOn: []
       requiresEvidenceFrom:
           [
-              coverage-gate-strict,
-              production-correctness,
               browser-contract,
-              release-closeout,
-              release-admin-console,
-              release-auth-flow,
-              release-authoring-flow,
-              release-private-preview,
-              release-error-boundary,
-              release-aot-generation,
-              release-static-asset-digest-coherence,
-              release-soak-min,
-              release-load-peak,
-              release-load-burst,
-              release-data-scale-m,
-              release-mutation-critical-slice,
-              release-memory-leak-budget,
-              release-open-handle-budget,
-              release-final-flaky-governance,
-              release-final-shard-completeness,
-              test-quality-lint,
+              coverage-gate-strict,
               native-fuzz-sanitizer,
               perception-character-v3-release-gate,
+              production-correctness,
+              release-admin-console,
+              release-aot-generation,
+              release-auth-flow,
+              release-authoring-flow,
+              release-closeout,
+              release-data-scale-m,
+              release-error-boundary,
+              release-final-flaky-governance,
+              release-final-shard-completeness,
+              release-load-burst,
+              release-load-peak,
+              release-memory-leak-budget,
+              release-mutation-critical-slice,
+              release-open-handle-budget,
+              release-private-preview,
+              release-soak-min,
+              release-static-asset-digest-coherence,
+              test-quality-lint,
           ]
       services: []
       parallelizable: false
@@ -6659,11 +6671,11 @@ tiers:
       maxParallel: 1
       requiresBootstrap: none
       requiresNode: true
-      requiresDotnet: true
+      requiresDotnet: false
       requiresPlaywright: none
       evidenceClass: correctness
-      cacheProfile: full
-      timeoutMinutes: 240
+      cacheProfile: none
+      timeoutMinutes: 10
       shardable: false
       defaultShards: 1
       risk: critical
@@ -6692,6 +6704,13 @@ tiers:
               tools/release/check-release-final.mjs,
               tools/release/public-preview-release-evidence.mjs,
               .tmp/release-evidence/public-preview-screenshots.json,
+              tests/fixtures/test-matrix/execution-dependency-contract.json,
+              tools/test-matrix/execution-dependency-contract.mjs,
+              tests/fixtures/test-matrix/release-final-evidence-inputs.json,
+              tests/fixtures/test-matrix/release-final-evidence-contract.json,
+              tools/test-matrix/release-final-evidence-contract.mjs,
+              tests/tools/release-final-execution-graph.test.mjs,
+              tests/tools/release-final-evidence-binding.test.mjs,
               tests/tools/test-evidence-governance.test.mjs,
               docs/testing/issue-1151-evidence-governance.md,
           ]

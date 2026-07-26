@@ -60,7 +60,7 @@ function validBuildVerification(overrides = {}) {
   }
 }
 
-function runChecker(t, documents) {
+function runChecker(t, documents, options = {}) {
   const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-job-summary-check-'))
   t.after(() => fs.rmSync(fixture, { recursive: true, force: true }))
   const fixtureChecker = path.join(fixture, 'tools/ci/check-job-summaries.mjs')
@@ -71,7 +71,12 @@ function runChecker(t, documents) {
   documents.forEach((document, index) => {
     fs.writeFileSync(path.join(jobs, `evidence-${index}.json`), `${JSON.stringify(document, null, 2)}\n`)
   })
-  return spawnSync(process.execPath, [fixtureChecker], {
+  if (options.plan) {
+    const planFile = path.join(fixture, '.tmp/release-evidence/test-plan.json')
+    fs.mkdirSync(path.dirname(planFile), { recursive: true })
+    fs.writeFileSync(planFile, `${JSON.stringify(options.plan, null, 2)}\n`)
+  }
+  return spawnSync(process.execPath, [fixtureChecker, ...(options.args ?? [])], {
     cwd: fixture,
     encoding: 'utf8',
     timeout: 10_000
@@ -122,5 +127,90 @@ test('known auxiliary schema is not job-summary validated and cannot masquerade 
     assert.equal(result.status, 1)
     assert.match(result.stderr, /cannot declare job summary field jobId/u)
     assert.match(result.stderr, /cannot declare job summary field tierIds/u)
+  })
+})
+
+test('required evidence tiers are validated without entering the execution graph', async t => {
+  const plan = {
+    schema: 'fsusblog.release-evidence.test-plan.v1',
+    tiers: [
+      {
+        id: 'execution-only',
+        ciJob: 'execution-job',
+        executionDependsOn: [],
+        requiresEvidenceFrom: [],
+        localOnly: false,
+        nightlyOnly: false,
+        manualOnly: false,
+        requiresPlaywright: 'none',
+        shardable: false
+      },
+      {
+        id: 'evidence-producer',
+        ciJob: 'evidence-job',
+        executionDependsOn: [],
+        requiresEvidenceFrom: [],
+        localOnly: false,
+        nightlyOnly: false,
+        manualOnly: false,
+        requiresPlaywright: 'none',
+        shardable: false
+      },
+      {
+        id: 'finalizer',
+        ciJob: 'finalizer',
+        executionDependsOn: ['execution-only'],
+        requiresEvidenceFrom: ['evidence-producer'],
+        localOnly: false,
+        nightlyOnly: false,
+        manualOnly: false,
+        requiresPlaywright: 'none',
+        shardable: false
+      }
+    ]
+  }
+  const args = ['--require-plan', '--tier', 'finalizer']
+
+  await t.test('missing evidence fails closed and prints its producer command', subtest => {
+    const result = runChecker(subtest, [], { plan, args })
+    assert.equal(result.status, 1)
+    assert.match(result.stderr, /missing job summary for required evidence tier: evidence-producer/u)
+    assert.match(result.stderr, /\.\/tools\/test\.sh ci-tier evidence-producer/u)
+    assert.doesNotMatch(result.stderr, /execution-only/u)
+  })
+
+  await t.test('a same-job summary cannot satisfy an unrelated evidence tier', subtest => {
+    const result = runChecker(subtest, [validJobSummary({
+      jobId: 'evidence-job',
+      ciJob: 'evidence-job',
+      tierIds: ['execution-only']
+    })], { plan, args })
+    assert.equal(result.status, 1)
+    assert.match(result.stderr, /missing job summary for required evidence tier: evidence-producer/u)
+  })
+
+  await t.test('the declared evidence producer satisfies the finalizer without execution evidence', subtest => {
+    const result = runChecker(subtest, [validJobSummary({
+      jobId: 'evidence-job',
+      ciJob: 'evidence-job',
+      tierIds: ['evidence-producer']
+    })], { plan, args })
+    assert.equal(result.status, 0, result.stderr || result.stdout)
+    assert.match(result.stdout, /required=1/u)
+  })
+
+  await t.test('missing strict shards name the evidence producer command', subtest => {
+    const shardedPlan = structuredClone(plan)
+    const producer = shardedPlan.tiers.find((tier) => tier.id === 'evidence-producer')
+    producer.shardable = true
+    producer.defaultShards = 2
+    const result = runChecker(subtest, [validJobSummary({
+      jobId: 'evidence-job-1-of-2',
+      ciJob: 'evidence-job',
+      tierIds: ['evidence-producer']
+    })], { plan: shardedPlan, args: [...args, '--strict-shards'] })
+    assert.equal(result.status, 1)
+    assert.match(result.stderr, /missing strict job summary: evidence-job-2-of-2/u)
+    assert.match(result.stderr, /\.\/tools\/test\.sh ci-tier evidence-producer/u)
   })
 })
