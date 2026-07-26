@@ -71,12 +71,19 @@ public sealed class PublicHotArtifactUpdateQueue
 {
     private readonly Channel<PublicHotArtifactUpdate> _channel;
     private readonly IPublicHotArtifactDeliveryStateStore _deliveryState;
+    private readonly IPublicHotArtifactObligationStore? _obligations;
 
     public PublicHotArtifactUpdateQueue(
         IOptions<PublicHotReadOptions> options,
-        IPublicHotArtifactDeliveryStateStore deliveryState)
+        IPublicHotArtifactDeliveryStateStore deliveryState,
+        IPublicHotArtifactObligationStore? obligations = null)
     {
         _deliveryState = deliveryState;
+        // Redis is the production durability owner. The in-memory state remains
+        // the legacy deterministic test double for watermark compatibility.
+        _obligations = obligations ?? (deliveryState is RedisPublicHotArtifactDeliveryStateStore
+            ? deliveryState as IPublicHotArtifactObligationStore
+            : null);
         int capacity = Math.Clamp(options.Value.UpdateQueueCapacity, 1, 65_536);
         _channel = Channel.CreateBounded<PublicHotArtifactUpdate>(new BoundedChannelOptions(capacity)
         {
@@ -103,8 +110,19 @@ public sealed class PublicHotArtifactUpdateQueue
         long generation;
         try
         {
-            // Persist before notification: a crash in either channel window is replayed at startup.
-            generation = await _deliveryState.MarkDirtyAsync(deliveryClass, cancellationToken).ConfigureAwait(false);
+            // The obligation is written before the channel wake-up. Production never
+            // recovers from this channel; it only uses it to reduce replay latency.
+            if (_obligations is { } obligations)
+            {
+                PublicHotArtifactObligation obligation = await obligations.MergeAsync(
+                    new PublicHotArtifactUpdate(articleId, normalized, dirtyReason, expectedReleaseId, 0, deliveryClass),
+                    cancellationToken).ConfigureAwait(false);
+                generation = obligation.TargetGeneration;
+            }
+            else
+            {
+                generation = await _deliveryState.MarkDirtyAsync(deliveryClass, cancellationToken).ConfigureAwait(false);
+            }
         }
         catch (OperationCanceledException)
         {
@@ -153,6 +171,14 @@ public sealed class PublicHotArtifactUpdateQueue
 
     internal async Task<PublicHotArtifactUpdate?> LoadRecoveryUpdateAsync(CancellationToken cancellationToken)
     {
+        if (_obligations is { } obligations)
+        {
+            PublicHotArtifactObligation? obligation = await obligations.GetActiveAsync(cancellationToken).ConfigureAwait(false);
+            if (obligation is { State: not PublicHotArtifactObligationState.Published })
+            {
+                return new PublicHotArtifactUpdate(null, "durable-obligation-replay", obligation.DirtyReasons, null, obligation.TargetGeneration, PublicHotArtifactDeliveryClass.FullRebuildMarker);
+            }
+        }
         long generation = await _deliveryState.GetPendingGenerationAsync(cancellationToken).ConfigureAwait(false);
         return generation > 0
             ? new PublicHotArtifactUpdate(null, "durable-delivery-replay", PublicHotArtifactDirtyReason.Content, null, generation, PublicHotArtifactDeliveryClass.FullRebuildMarker)
@@ -161,6 +187,8 @@ public sealed class PublicHotArtifactUpdateQueue
 
     internal Task CompleteGenerationAsync(long generation, CancellationToken cancellationToken)
         => generation > 0 ? _deliveryState.CompleteAsync(generation, cancellationToken) : Task.CompletedTask;
+
+    internal IPublicHotArtifactObligationStore? Obligations => _obligations;
 
     private static PublicHotArtifactDirtyReason ClassifyReason(string reason)
     {
@@ -191,6 +219,11 @@ public sealed class PublicHotArtifactUpdateWorker(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        if (queue.Obligations is { } obligations)
+        {
+            await obligations.RecoverInterruptedAsync(DateTimeOffset.UtcNow, stoppingToken).ConfigureAwait(false);
+            await ProcessDurableAsync(stoppingToken, scheduleRetry: true).ConfigureAwait(false);
+        }
         PublicHotArtifactUpdate? recovery = await queue.LoadRecoveryUpdateAsync(stoppingToken).ConfigureAwait(false);
         if (recovery is { } pending)
         {
@@ -199,7 +232,10 @@ public sealed class PublicHotArtifactUpdateWorker(
 
         await foreach (PublicHotArtifactUpdate first in queue.Reader.ReadAllAsync(stoppingToken).ConfigureAwait(false))
         {
-            await ProcessOnceAsync(first, stoppingToken).ConfigureAwait(false);
+            if (queue.Obligations is { })
+                await ProcessDurableAsync(stoppingToken, scheduleRetry: true).ConfigureAwait(false);
+            else
+                await ProcessOnceAsync(first, stoppingToken).ConfigureAwait(false);
             // A producer may have persisted a newer generation while the bounded
             // channel was full. Drain that durable marker before waiting for more
             // notifications, so a coalesced view update becomes a full rebuild.
@@ -215,6 +251,12 @@ public sealed class PublicHotArtifactUpdateWorker(
 
     internal async Task ProcessOnceAsync(PublicHotArtifactUpdate first, CancellationToken stoppingToken)
     {
+        if (queue.Obligations is { } obligations
+            && await obligations.GetActiveAsync(stoppingToken).ConfigureAwait(false) is not null)
+        {
+            await ProcessDurableAsync(stoppingToken).ConfigureAwait(false);
+            return;
+        }
         string reason = first.Reason;
         PublicHotArtifactDirtyReason dirtyReason = first.DirtyReason;
         int coalesced = 1;
@@ -290,7 +332,6 @@ public sealed class PublicHotArtifactUpdateWorker(
             }
 
             store.Publish(snapshot);
-            await queue.CompleteGenerationAsync(deliveryGeneration, stoppingToken).ConfigureAwait(false);
             if ((dirtyReason & PublicHotArtifactDirtyReason.Content) != 0)
             {
                 await revocations
@@ -300,6 +341,11 @@ public sealed class PublicHotArtifactUpdateWorker(
                         stoppingToken)
                     .ConfigureAwait(false);
             }
+
+            // The durable generation is the recovery truth. Do not acknowledge
+            // it until every publication stage, including revocation completion,
+            // has succeeded; a crash or exception here must replay this build.
+            await queue.CompleteGenerationAsync(deliveryGeneration, stoppingToken).ConfigureAwait(false);
             logger.LogInformation("public-hot-read-snapshot-updated {Version} {Reason} {Coalesced}", snapshot.Version, reason, coalesced);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -310,6 +356,77 @@ public sealed class PublicHotArtifactUpdateWorker(
         {
             store.ReportBuildFailure(reason, ex);
             logger.LogWarning(ex, "public-hot-read-snapshot-update-failed {Reason} {Coalesced}", reason, coalesced);
+        }
+    }
+
+    private async Task ProcessDurableAsync(CancellationToken stoppingToken, bool scheduleRetry = false)
+    {
+        IPublicHotArtifactObligationStore obligations = queue.Obligations!;
+        PublicHotArtifactObligation? obligation = await obligations
+            .ClaimEligibleAsync(DateTimeOffset.UtcNow, stoppingToken).ConfigureAwait(false);
+        if (obligation is null)
+            return;
+
+        int maxAttempts = Math.Clamp(options.Value.PublicHotRecoveryMaximumAttempts, 1, 20);
+        long maximumRevocationGeneration = revocations.CurrentGeneration;
+        PublicHotArtifactAttemptStage stage = PublicHotArtifactAttemptStage.Projector;
+        try
+        {
+            store.BeginBuild("obligation:" + obligation.ObligationId);
+            await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+            var projector = scope.ServiceProvider.GetRequiredService<IPublicHotArtifactProjector>();
+            PublicHotReadSnapshot snapshot = store.Current;
+            if (obligation.DirtyReasons == PublicHotArtifactDirtyReason.ViewProjection && !obligation.RequiresFullRebuild)
+            {
+                snapshot = await projector.RebuildAfterViewProjectionAsync(snapshot, obligation.ArticleIds, stoppingToken).ConfigureAwait(false);
+            }
+            else if (obligation.RequiresFullRebuild || obligation.ArticleIds.Count == 0)
+            {
+                snapshot = await projector.BuildInitialSnapshotAsync(stoppingToken).ConfigureAwait(false);
+            }
+            else
+            {
+                foreach (int articleId in obligation.ArticleIds)
+                {
+                    obligation.ExpectedReleaseIds.TryGetValue(articleId, out long release);
+                    snapshot = projector is IVersionedPublicHotArtifactProjector versioned
+                        ? await versioned.RebuildAfterArticleMutationAsync(snapshot, articleId, release > 0 ? release : null, stoppingToken).ConfigureAwait(false)
+                        : await projector.RebuildAfterArticleMutationAsync(snapshot, articleId, stoppingToken).ConfigureAwait(false);
+                }
+            }
+            await obligations.RecordStageSuccessAsync(obligation.ObligationId, obligation.AttemptNumber, PublicHotArtifactAttemptStage.Projector, DateTimeOffset.UtcNow, stoppingToken).ConfigureAwait(false);
+            stage = PublicHotArtifactAttemptStage.Publish;
+            store.Publish(snapshot);
+            await obligations.RecordStageSuccessAsync(obligation.ObligationId, obligation.AttemptNumber, PublicHotArtifactAttemptStage.Publish, DateTimeOffset.UtcNow, stoppingToken).ConfigureAwait(false);
+            stage = PublicHotArtifactAttemptStage.RevocationCompletion;
+            if ((obligation.DirtyReasons & PublicHotArtifactDirtyReason.Content) != 0)
+                await revocations.CompleteRebuildAsync(obligation.RequiresFullRebuild ? null : obligation.ArticleIds, maximumRevocationGeneration, stoppingToken).ConfigureAwait(false);
+            await obligations.RecordStageSuccessAsync(obligation.ObligationId, obligation.AttemptNumber, PublicHotArtifactAttemptStage.RevocationCompletion, DateTimeOffset.UtcNow, stoppingToken).ConfigureAwait(false);
+            stage = PublicHotArtifactAttemptStage.Completion;
+            // A claim can be superseded while its snapshot is building.  CAS the
+            // generation claimed by this attempt, so a later merge remains pending.
+            bool published = await obligations.CompletePublishedAsync(obligation.ObligationId, obligation.AttemptNumber, obligation.TargetGeneration, stoppingToken).ConfigureAwait(false);
+            if (published)
+                logger.LogInformation("public-hot obligation published {ObligationId} {Generation} {Recovered}", obligation.ObligationId, obligation.TargetGeneration, obligation.Recovered);
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            await obligations.RecordFailureAsync(obligation.ObligationId, obligation.AttemptNumber, stage, new OperationCanceledException(stoppingToken), DateTimeOffset.UtcNow, maxAttempts, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            PublicHotArtifactObligation failed = await obligations.RecordFailureAsync(obligation.ObligationId, obligation.AttemptNumber, stage, ex, DateTimeOffset.UtcNow, maxAttempts, CancellationToken.None).ConfigureAwait(false);
+            store.ReportBuildFailure("obligation:" + obligation.ObligationId, ex);
+            logger.LogWarning(ex, "public-hot obligation failed {ObligationId} {Attempt} {State} {FailureKind}", obligation.ObligationId, obligation.AttemptNumber, failed.State, failed.LastFailureKind);
+            if (scheduleRetry && failed.State == PublicHotArtifactObligationState.FailedRetryable && !stoppingToken.IsCancellationRequested)
+            {
+                TimeSpan delay = failed.NextEligibleAt - DateTimeOffset.UtcNow;
+                if (delay > TimeSpan.Zero)
+                {
+                    await Task.Delay(delay, stoppingToken).ConfigureAwait(false);
+                }
+                await ProcessDurableAsync(stoppingToken, scheduleRetry: true).ConfigureAwait(false);
+            }
         }
     }
 

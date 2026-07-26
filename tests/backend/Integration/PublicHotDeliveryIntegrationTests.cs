@@ -117,6 +117,97 @@ public sealed class PublicHotDeliveryIntegrationTests(
     }
 
     [Fact]
+    public async Task RedisObligation_LuaCasRetainsTerminalEvidenceAcrossFreshConnections()
+    {
+        string prefix = $"test:public-hot-obligation:{Guid.CreateVersion7():N}:";
+        try
+        {
+            string obligationId;
+            await using (ConnectionMultiplexer writer = await redis.ConnectAsync())
+            {
+                var store = new RedisPublicHotArtifactDeliveryStateStore(writer, new PrefixRuntimeKeyScope(prefix));
+                PublicHotArtifactObligation created = await store.MergeAsync(
+                    new PublicHotArtifactUpdate(7, "article-updated", PublicHotArtifactDirtyReason.Content, 12),
+                    CancellationToken.None);
+                PublicHotArtifactObligation claim = (await store.ClaimEligibleAsync(DateTimeOffset.UtcNow, CancellationToken.None))!;
+                PublicHotArtifactObligation terminal = await store.RecordFailureAsync(
+                    created.ObligationId,
+                    claim.AttemptNumber,
+                    PublicHotArtifactAttemptStage.Projector,
+                    new TimeoutException("injected"),
+                    DateTimeOffset.UtcNow,
+                    max: 1,
+                    ct: CancellationToken.None);
+                obligationId = terminal.ObligationId;
+                Assert.Equal(PublicHotArtifactObligationState.FailedTerminal, terminal.State);
+                Assert.Single(terminal.Attempts);
+            }
+
+            await using ConnectionMultiplexer reader = await redis.ConnectAsync();
+            var restarted = new RedisPublicHotArtifactDeliveryStateStore(reader, new PrefixRuntimeKeyScope(prefix));
+            PublicHotArtifactObligation persisted = (await restarted.GetActiveAsync(CancellationToken.None))!;
+            Assert.Equal(obligationId, persisted.ObligationId);
+            Assert.Equal(PublicHotArtifactObligationState.FailedTerminal, persisted.State);
+            Assert.True(await restarted.HasTerminalFailureAsync(CancellationToken.None));
+            PublicHotArtifactObligation replayable = await restarted.MergeAsync(
+                new PublicHotArtifactUpdate(null, "taxonomy-updated", PublicHotArtifactDirtyReason.Content), CancellationToken.None);
+            Assert.Equal(obligationId, replayable.ObligationId);
+            Assert.Equal(PublicHotArtifactObligationState.Pending, replayable.State);
+            Assert.True(replayable.RequiresFullRebuild);
+            Assert.Contains(replayable.Attempts, static attempt => attempt.FailureKind == PublicHotArtifactFailureKind.ProjectorTransient);
+            Assert.False(await restarted.HasTerminalFailureAsync(CancellationToken.None));
+            PublicHotArtifactObligation replay = (await restarted.ClaimEligibleAsync(DateTimeOffset.UtcNow, CancellationToken.None))!;
+            Assert.True(await restarted.CompletePublishedAsync(replay.ObligationId, replay.AttemptNumber, replay.TargetGeneration, CancellationToken.None));
+        }
+        finally
+        {
+            await redis.DeleteNamespaceAsync(prefix);
+        }
+    }
+
+    [Fact]
+    public async Task RedisObligation_ConcurrentMergeSurvivesFailureAndStaleCompletion()
+    {
+        string prefix = $"test:public-hot-interleave:{Guid.CreateVersion7():N}:";
+        try
+        {
+            await using ConnectionMultiplexer connection = await redis.ConnectAsync();
+            var state = new RedisPublicHotArtifactDeliveryStateStore(connection, new PrefixRuntimeKeyScope(prefix));
+            PublicHotArtifactObligation initial = await state.MergeAsync(
+                new PublicHotArtifactUpdate(41, "article-a", PublicHotArtifactDirtyReason.Content, 101), CancellationToken.None);
+            PublicHotArtifactObligation claim = (await state.ClaimEligibleAsync(DateTimeOffset.UtcNow, CancellationToken.None))!;
+            PublicHotArtifactObligation merged = await state.MergeAsync(
+                new PublicHotArtifactUpdate(null, "global", PublicHotArtifactDirtyReason.Content), CancellationToken.None);
+            merged = await state.MergeAsync(
+                new PublicHotArtifactUpdate(42, "article-b", PublicHotArtifactDirtyReason.Content, 202), CancellationToken.None);
+
+            PublicHotArtifactObligation failed = await state.RecordFailureAsync(
+                initial.ObligationId, claim.AttemptNumber, PublicHotArtifactAttemptStage.Projector,
+                new TimeoutException("injected"), DateTimeOffset.UtcNow, 3, CancellationToken.None);
+            Assert.Equal(PublicHotArtifactObligationState.FailedRetryable, failed.State);
+            Assert.Equal(merged.TargetGeneration, failed.TargetGeneration);
+            Assert.True(failed.RequiresFullRebuild);
+            Assert.Contains(41, failed.ArticleIds);
+            Assert.Contains(42, failed.ArticleIds);
+            Assert.Equal(202, failed.ExpectedReleaseIds[42]);
+
+            PublicHotArtifactObligation replay = (await state.ClaimEligibleAsync(DateTimeOffset.MaxValue, CancellationToken.None))!;
+            bool completed = await state.CompletePublishedAsync(
+                replay.ObligationId, replay.AttemptNumber, initial.TargetGeneration, CancellationToken.None);
+            PublicHotArtifactObligation pending = (await state.GetActiveAsync(CancellationToken.None))!;
+            Assert.False(completed);
+            Assert.Equal(PublicHotArtifactObligationState.Pending, pending.State);
+            Assert.Equal(merged.TargetGeneration, pending.TargetGeneration);
+            Assert.True(pending.RequiresFullRebuild);
+            Assert.Contains(42, pending.ArticleIds);
+        }
+        finally
+        {
+            await redis.DeleteNamespaceAsync(prefix);
+        }
+    }
+
+    [Fact]
     public async Task CategoryCreate_AdminBinaryEndpoint_CommitsRowThenReturnsAedsInfraFailure()
     {
         string databaseName = await postgres.CreateDatabaseAsync();

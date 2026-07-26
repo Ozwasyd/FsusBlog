@@ -49,6 +49,14 @@ public sealed record ProductionDependencyHealthCheck(
     double? LatencyMs = null,
     string? Error = null) : IProductionHealthCheck;
 
+public sealed record PublicHotRecoveryHealthCheck(
+    string Status,
+    bool TerminalFailure,
+    bool Recovered,
+    int AttemptCount,
+    string? ObligationId,
+    string? Error = null) : IProductionHealthCheck;
+
 public sealed record ProductionConfigurationHealthCheck(
     string Status,
     IReadOnlyList<string> Errors) : IProductionHealthCheck;
@@ -407,6 +415,7 @@ public sealed class ProductionReadinessProbe(
         checks["redis"] = asyncChecks.Redis.Dependency;
         checks["riskControl"] = asyncChecks.RiskControl;
         checks["runtime"] = asyncChecks.Runtime;
+        checks["publicHotRecovery"] = await CheckPublicHotRecoveryAsync(cancellationToken).ConfigureAwait(false);
 
         bool dependencyGatesReady = checks.Values.All(IsHealthyCheck);
         if (serviceProvider.GetService<DeploymentDrainCoordinator>() is { } deployment)
@@ -579,6 +588,34 @@ public sealed class ProductionReadinessProbe(
             PublicArticleProjection = publicArticleProjection,
             CommentMutationOutbox = commentMutationOutbox
         };
+    }
+
+    private async Task<PublicHotRecoveryHealthCheck> CheckPublicHotRecoveryAsync(CancellationToken cancellationToken)
+    {
+        if (serviceProvider.GetService<IPublicHotArtifactObligationStore>() is not { } obligations)
+        {
+            return new PublicHotRecoveryHealthCheck("ok", false, false, 0, null);
+        }
+
+        try
+        {
+            PublicHotArtifactObligation? obligation = await obligations.GetActiveAsync(cancellationToken).ConfigureAwait(false);
+            bool terminal = await obligations.HasTerminalFailureAsync(cancellationToken).ConfigureAwait(false);
+            return obligation is null
+                ? new PublicHotRecoveryHealthCheck(terminal ? "failed" : "ok", terminal, false, 0, null, terminal ? "terminal-obligation-retained" : null)
+                : new PublicHotRecoveryHealthCheck(
+                    terminal ? "failed" : "ok",
+                    terminal,
+                    obligation.Recovered,
+                    obligation.AttemptNumber,
+                    obligation.ObligationId,
+                    terminal ? obligation.LastFailureKind.ToString() : null);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "public-hot recovery readiness check failed");
+            return new PublicHotRecoveryHealthCheck("failed", false, false, 0, null, ex.GetType().Name);
+        }
     }
 
     private async Task<ProductionRiskControlHealthCheck> CheckRiskControlAsync(

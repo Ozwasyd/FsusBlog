@@ -125,6 +125,8 @@ public sealed class PublicHotReadOptions
     public int CounterSampleRate { get; set; } = 64;
     public int UpdateDebounceMilliseconds { get; set; } = 250;
     public int UpdateQueueCapacity { get; set; } = 4096;
+    /// <summary>Maximum durable public-hot recovery attempts before readiness fails.</summary>
+    public int PublicHotRecoveryMaximumAttempts { get; set; } = 3;
     public int MaxPreloadPage { get; set; } = 64;
     public int MaxPreloadSize { get; set; } = 100;
     public int MaxArticleFrames { get; set; } = 100_000;
@@ -529,7 +531,7 @@ public sealed class PublicHotReadSnapshot
     }
 }
 
-public sealed class PublicHotReadStore
+public class PublicHotReadStore
 {
     private static readonly TimeSpan s_minimumSnapshotAge = TimeSpan.FromSeconds(2);
     private static readonly Meter s_retiringMeter = new("FsusBlog.PublicHotRead.Retiring", "1.0.0");
@@ -622,13 +624,19 @@ public sealed class PublicHotReadStore
         get => Volatile.Read(ref _current);
     }
 
-    public void Publish(PublicHotReadSnapshot next)
+    public virtual void Publish(PublicHotReadSnapshot next)
     {
         ArgumentNullException.ThrowIfNull(next);
         long overlapBytes;
         lock (_gate)
         {
             PublicHotReadSnapshot current = Current;
+            // Durable obligation replay may repeat a completed publication after
+            // a process crash. Never let such a replay restore an older snapshot.
+            if (next.Version < current.Version)
+            {
+                return;
+            }
             DateTimeOffset now = _timeProvider.GetUtcNow();
             if (!next.PublicationEvidence.IsVerifiedFor(next.Version))
             {
