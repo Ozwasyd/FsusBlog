@@ -43,7 +43,15 @@ test('release reliability catalog declares structured executable commands and ev
         catalog.scenarios.find((scenario) => scenario.id === 'release-mutation-critical-slice').authoritativeEvidence.expectedSchema,
         {
             schema: 'fsusblog.stryker-authority.v1',
-            required: ['schema', 'status', 'tierId', 'sliceId', 'producer'],
+            required: [
+                'schema', 'status', 'tierId', 'sliceId', 'producer', 'inventory',
+                'testIdentities',
+                'plannedMutantIds', 'executedMutantIds', 'compileErrorMutantIds',
+                'ignoredMutantIds', 'noCoverageMutantIds', 'killedMutantIds',
+                'survivedMutantIds', 'timeoutMutantIds', 'executedTestIds',
+                'inventoryDigest', 'executionMatrixDigest', 'rawReport', 'rawTrace',
+                'traceExecution'
+            ],
             passStatusValues: ['success']
         }
     );

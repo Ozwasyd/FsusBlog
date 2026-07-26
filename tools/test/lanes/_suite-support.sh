@@ -1355,6 +1355,14 @@ RunBackendMutationWithConfig() {
     local workingDir="${4:-$ROOT_DIR}"
     local authorityTier="${5:-}"
     local authorityOut="${6:-}"
+    local authoritySourceRoot="${7:-$ROOT_DIR}"
+    local strykerTraceArgs=()
+    if [[ -n "$authorityTier" || -n "$authorityOut" ]]; then
+        if [[ -z "$authorityTier" || -z "$authorityOut" ]]; then
+            Fail "Stryker authority requires both tier and output path"
+        fi
+        strykerTraceArgs=(--log-to-file --verbosity trace)
+    fi
     (
         cd "$ROOT_DIR"
         Run dotnet tool restore
@@ -1366,17 +1374,24 @@ RunBackendMutationWithConfig() {
         cd "$workingDir"
         Run dotnet tool run dotnet-stryker \
             --config-file "$configPath" \
-            --output "$outputDir"
+            --output "$outputDir" \
+            "${strykerTraceArgs[@]}"
     )
     if [[ -n "$authorityTier" || -n "$authorityOut" ]]; then
-        if [[ -z "$authorityTier" || -z "$authorityOut" ]]; then
-            Fail "Stryker authority requires both tier and output path"
+        local traceLogs=()
+        mapfile -t traceLogs < <(
+            find "$outputDir/logs" -maxdepth 1 -type f -name 'log-*.txt' -print | sort
+        )
+        if [[ "${#traceLogs[@]}" -ne 1 ]]; then
+            Fail "Stryker authority requires exactly one verbose trace log, found ${#traceLogs[@]}"
         fi
         Run node "$ROOT_DIR/tools/test/check-stryker-report.mjs" \
             "$outputDir/reports/$reportName.json" \
             --config "$configPath" \
             --tier "$authorityTier" \
-            --out "$authorityOut"
+            --out "$authorityOut" \
+            --trace-log "${traceLogs[0]}" \
+            --source-root "${authoritySourceRoot#"$ROOT_DIR"/}"
     else
         Run node "$ROOT_DIR/tools/test/check-stryker-report.mjs" "$outputDir/reports/$reportName.json"
     fi
@@ -1396,7 +1411,8 @@ RunBackendMutationCriticalOnly() {
         backend-mutation-critical \
         "$ROOT_DIR/src/core" \
         release-mutation-critical-slice \
-        "$ROOT_DIR/.tmp/mutation/backend-critical/authority.json"
+        "$ROOT_DIR/.tmp/mutation/backend-critical/authority.json" \
+        src/core
 }
 
 RunCrossStackStaticContracts() {
