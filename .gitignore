@@ -220,7 +220,11 @@ benchmarks/core/FsusBlog.Core.Benchmarks/BenchmarkDotNet.Artifacts/
 .codex/
 .claude/
 .agent/
-.agents/
+.agents/*
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/fsusblog-design-conformance/
+!.agents/skills/fsusblog-design-conformance/**
 .memory/
 Dictionaries/
 AGENTS.MD

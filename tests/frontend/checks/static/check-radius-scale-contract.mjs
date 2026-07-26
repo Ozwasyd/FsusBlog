@@ -111,15 +111,25 @@ expectCount(
 
 const layoutRules = read('docs/public-layout-rules.md');
 for (const requiredText of [
-    '行内高亮与紧凑标记使用 `--fsus-radius-control-small`（4px）',
-    '`--fsusblog-radius-control`（映射 `--fsus-radius-control`，默认 6px）',
-    '`--fsusblog-radius-panel`（映射 `--fsus-radius-panel`，默认 12px）',
-    '横向滚动条 thumb 是真实胶囊几何',
-    '`border-radius` 禁止重新引入 2/3/8px 字面值'
+    '公开布局只消费当前 FsusUI 基线的语义圆角',
+    '普通 public/reading surface 不得为取得更大圆角而标注为 expressive',
+    'Blog 可以提供 `--fsusblog-*` 产品语义映射',
+    '不得复制上游数值',
+    '使用局部字面值或以 `rem` 重算同一标度'
 ])
 {
   if (!layoutRules.includes(requiredText)) {
     errors.push(`docs/public-layout-rules.md: missing radius contract text: ${requiredText}`)
+  }
+}
+for (const copiedUpstreamContract of [
+  '公开布局圆角使用 4/6/10/12/24/999px 步进',
+  '`--fsusblog-radius-control`（映射 `--fsus-radius-control`，默认 6px）',
+  '`--fsusblog-radius-panel`（映射 `--fsus-radius-panel`，默认 12px）'
+])
+{
+  if (layoutRules.includes(copiedUpstreamContract)) {
+    errors.push(`docs/public-layout-rules.md: must not copy the FsusUI radius contract: ${copiedUpstreamContract}`)
   }
 }
 

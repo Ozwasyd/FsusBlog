@@ -1,10 +1,10 @@
 # Public Layout Rules
 
-本文档记录 FsusBlog 作为 FsusUI consumer 的公开阅读面决策。它只约束本仓 public site，不替代 FsusUI `docs/design.md`。
+本文档只拥有 FsusBlog 的公共与编辑式页面构图。设计基线、所有权和规则优先级见 [`design/governance.md`](design/governance.md)，页面分类见 [`design/surface-profiles.md`](design/surface-profiles.md)；本文不替代 FsusUI `docs/design.md`，也不拥有通用组件几何或 token 数值。
 
 ## 1. Token 命名空间策略
 
-FsusBlog consumer token 使用 `--fsusblog-*` 命名空间。公开布局不得伪造未注册的 `--fsus-*` 中转别名；需要承接 FsusUI 或 Element Plus 稳定变量时，直接引用公开 token，例如 `--fsus-scholarly-blue`、`--el-fill-color-light` 或 `--el-a11y-focus-color`。
+FsusBlog consumer token 使用 `--fsusblog-*` 命名空间，并且必须表达公共布局、阅读列、内容层级或其他 Blog 产品语义。公开布局不得定义、覆盖或伪造 `--fsus-*` 中转别名，也不得把当前 FsusUI 数值复制为本仓权威值；需要承接上游设计语义时，映射当前基线公开的 FsusUI 或 Element Plus token。
 
 ## 2. Public shell 边界
 
@@ -30,7 +30,7 @@ FsusBlog consumer token 使用 `--fsusblog-*` 命名空间。公开布局不得�
 - `PublicArticleList.vue`
 - `FeaturedArticlesSection.vue`
 
-Reading surface 禁用 glass、motion trail、glow 与 accent shimmer。公开阅读面的 skeleton 使用中性 document placeholder，不使用 `animated` prop。
+Reading surface 禁用 glass、motion trail、glow、accent shimmer 和 scroll reveal。正文、标题、图片与代码块静态出现；复制反馈、focus/target 定位、阅读进度状态和媒体 overlay 仍可使用功能动效。公开阅读面的 skeleton 使用中性 document placeholder，不使用 `animated` prop。
 
 ArticleDetail 评论 section 与正文末尾间距固定为 mobile 40px / desktop 56px；
 section title 到 divider 为 12px，divider 到首个评论状态为 24px。Empty 与
@@ -41,14 +41,7 @@ flex spacer、插画或装饰卡片填补短内容。
 
 ## 4. Dialog 宽度变体白名单
 
-公开布局只允许以下 dialog 宽度变体：
-
-- 默认：`50%`
-- 紧凑：`min(92vw, 28rem)`
-- 超紧凑：`min(92vw, 24rem)`
-- long-form：`min(92vw, 48rem)`
-
-新增宽度必须先写入本文档，再进入组件实现。
+Dialog、Drawer 与 Popover 的几何由当前 FsusUI 公共契约拥有。公开布局只选择 documented variant，并拥有标题、内容顺序和 action priority；不得在本文复制宽度值，也不得用 consumer CSS 新增变体。宿主关系、材料与响应式验收见 [`design/surface-profiles.md`](design/surface-profiles.md) 的 `overlay` 档案。
 
 ## 5. Glass material 启用 surface 白名单
 
@@ -60,9 +53,9 @@ Glass material 只允许用于以下 surface：
 
 ## 6. 暗色 Scholarly Blue 决策
 
-暗色 Scholarly Blue 锁定为 `#4B79CC`。本仓不得把公开阅读面的 focus、active、link 反馈漂移到高饱和蓝或其他装饰色。
+Scholarly Blue 的 canonical value 和主题映射由当前 FsusUI 基线拥有。本仓不得把公开阅读面的 focus、active、link 反馈漂移到高饱和蓝或其他装饰色，也不得在本文或组件旁路登记第二套数值。
 
-导航进度与管理面交互反馈使用同一条 Scholarly Blue 降级链：优先消费已注册 token，最终静态 fallback 为 `#2A599C`。文章阅读进度条的已读段固定使用 `--fsusblog-color-primary` 58% 透明混合，未读轨道继续使用 `--fsusblog-panel-border` 72% 透明混合；不得用 `--fsusblog-text-primary` 代替功能反馈色。`src/frontend/src` 不得重新引入 Element Plus `#409EFF` 或暖棕 `#4A453C` 作为交互反馈兜底；`check:foundation-token-governance` 与 `check:public-reading-motion` 共同守住该契约。
+导航进度与管理面交互反馈消费同一条上游语义映射。文章阅读进度条的已读段使用 `--fsusblog-color-primary`，未读轨道使用 `--fsusblog-panel-border`；不得用文本色代替功能反馈色，也不得在 consumer 中添加品牌色 fallback。Scholarly Blue 仅用于 link hover、focus 与 active。
 
 ## 7. 排版边界
 
@@ -70,22 +63,20 @@ Glass material 只允许用于以下 surface：
 
 ## 8. 圆角标度规则
 
-公开布局圆角使用 4/6/10/12/24/999px 步进。普通阅读卡片、面板和控件默认不超过 12px；24px 只用于明确的 opt-in expressive surface。
-
-行内高亮与紧凑标记使用 `--fsus-radius-control-small`（4px）；按钮、输入框及其 focus ring 使用 `--fsusblog-radius-control`（映射 `--fsus-radius-control`，默认 6px），panel 使用 `--fsusblog-radius-panel`（映射 `--fsus-radius-panel`，默认 12px）。横向滚动条 thumb 是真实胶囊几何，只使用 `--fsus-radius-pill`（999px）。`border-radius` 禁止重新引入 2/3/8px 字面值；评论 composer 的控件圆角必须消费 token，不以 `rem` 重复换算标度。
+公开布局只消费当前 FsusUI 基线的语义圆角。行内标记、control、panel、popover、expressive 和 pill 必须选择对应的 public token；普通 public/reading surface 不得为取得更大圆角而标注为 expressive。Blog 可以提供 `--fsusblog-*` 产品语义映射，但不得复制上游数值、使用局部字面值或以 `rem` 重算同一标度。
 
 ## 9. 动效标度规则
 
-动效时长只使用 140/220/300/360ms 步进。Reading surface 的颜色与边框反馈消费 `--blog-motion-control` 和 `--blog-motion-ease`，不在组件内复制 easing；同时不使用 translate、scale、stagger、scroll reveal 或 motion trail。`prefers-reduced-motion: reduce` 下非必要动画移除 transform，保留状态机所需过渡时使用 `1ms`，不使用 `0ms` 或 `transition: none` 破坏钩子。
+动效时长、easing 和 preset 由当前 FsusUI 基线拥有。Reading surface 只保留颜色、边框、复制、focus/target、进度和 overlay 等功能反馈；正文、标题、图片与代码块不使用 translate、scale、stagger、scroll reveal 或 motion trail。`prefers-reduced-motion: reduce` 下移除非必要位移，同时保留状态机完成语义。
 
 ## 10. Commit 评审 checklist
 
-- 改 FsusUI token、组件 API 或跨项目设计规范时，归类为 FsusUI 改动。
-- 改 `--fsusblog-*`、public shell slot、reading surface、AOT/hydration markup 或 SEO/archive/filter/article 页面时，归类为 Consumer 改动。
-- Consumer 改动不得伪造未注册 `--fsus-*` token。
-- Reading surface 新组件必须声明 `data-fsus-surface="reading"`。
-- 新 glass surface 必须在本文档白名单中登记。
-- 新 public motion 必须说明状态语义，并通过 static governance 检查。
+- 先按 [`design/governance.md`](design/governance.md) 记录实际 FsusUI 基线、owner 和设计档案。
+- 改 FsusUI token、组件 API、内部几何或跨项目设计规范时，归类为 FsusUI 改动。
+- 改 public shell slot、reading layout、AOT/hydration markup 或 SEO/archive/filter/article 构图时，归类为 FsusBlog `public-editorial` 或 `reading` 改动。
+- Consumer 改动不得伪造 `--fsus-*` token、复制上游数值或依赖内部 selector。
+- Reading surface 新组件必须声明 `data-fsus-surface="reading"`；新 glass surface 必须在本文档白名单中登记。
+- 新 public motion 必须说明状态语义，并提供实际 rendered evidence。
 
 ## 11. 首页单一编辑主线 recipe
 
@@ -152,15 +143,6 @@ Don't：
 - 检查页面内没有重复文章标题、分类、CTA 或同一抽象构图换色；无封面路径没有空白 media box。
 - public-preview 截图必须通过 manual route capture 重新生成；Home desktop Light/Dark、ArticleDetail desktop Light 与 ArticleDetail mobile Light 是文档别名的最低覆盖面。
 
-## 14. Account shell module navigation
+## 14. 非公共页面边界
 
-Account 与 admin 不属于 public layout 事实源。长期职责分别收口于：
-
-- [Account layout ownership](frontend/account-layout-ownership.md)：shared chrome、identity/admin frame、route metadata 与滚动职责；
-- [Account navigation](frontend/account-navigation.md)：一级模块、局部导航、单 Drawer、页面标题与 header actions；
-- [Account style ownership](frontend/account-style-ownership.md)：base、identity 与 admin CSS 边界；
-- [Account motion](frontend/account-motion.md)：稳定 chrome、route replacement、focus 与 reduced motion；
-- [Admin information architecture](frontend/admin-information-architecture.md)：admin 模块与权限/feature/policy filtering；
-- [Admin dashboard task workbench](frontend/admin-dashboard-workbench.md)：dashboard task model 与 summary boundary。
-
-视觉变化分类仍只由 [Layout visual governance](frontend/layout-visual-governance.md) 及其 ledger 管理。
+Account、admin、auth、status 和普通 overlay 不属于本文事实源。它们先由 [`design/surface-profiles.md`](design/surface-profiles.md) 分类；account/admin 再按顺序进入 [Account layout ownership](frontend/account-layout-ownership.md)、[Account navigation](frontend/account-navigation.md)、[Account style ownership](frontend/account-style-ownership.md) 与 [Account motion](frontend/account-motion.md)，auth/status 则读取最近的领域文档。代表页面和 baseline movement 只由 [Layout visual governance](frontend/layout-visual-governance.md) 及其 ledger 管理。

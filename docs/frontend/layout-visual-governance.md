@@ -1,5 +1,11 @@
 # Layout visual governance
 
+Design intent, ownership and rule precedence come from
+[`../design/governance.md`](../design/governance.md). Route-level composition is
+classified by [`../design/surface-profiles.md`](../design/surface-profiles.md).
+This document owns representative-route evidence and baseline movement only; it
+does not establish a second design language.
+
 The canonical representative route set lives in
 `tests/frontend/fixtures/layout-archetype-matrix.json`. Public, identity, and
 admin Playwright suites consume this registry directly. Adding a business route
@@ -35,9 +41,9 @@ temporary external-selector exceptions. Apple Touch Icon remains a
 standards-facing asset label; Apple or Linear design-language names in
 production classes, tokens, or route metadata are prohibited.
 
-Public/design documentation changes use the same authority rule as visual
-baselines: one concern has one current document. Shell implementation ownership
-and geometry live in `public-shell-ownership.md`; product composition lives in
+Public/design documentation follows the single-concern ownership map in
+`../design/governance.md`. Shell implementation ownership and geometry live in
+`public-shell-ownership.md`; public product composition lives in
 `../public-layout-rules.md`; reading typography and page titles live in their
 separate design documents. A current document must not cite an issue/handoff file
 as its contract, and deleted migration sources are represented only by lifecycle

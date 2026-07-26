@@ -1,6 +1,6 @@
 # FsusBlog Motion Guidelines
 
-FsusBlog motion is functional feedback, not decoration. Preset motion must enter the app through `src/frontend/src/fsusui/motion.ts`, which re-exports FsusUI motion components, directives and composables from `@ozwasyd/element-plus`. Application-owned `--blog-motion-*` aliases and semantic classes remain only for state feedback that FsusUI does not expose as a preset.
+FsusBlog motion is functional feedback, not decoration. Design ownership and surface classification come from [`../design/governance.md`](../design/governance.md) and [`../design/surface-profiles.md`](../design/surface-profiles.md). Preset motion must enter the app through `src/frontend/src/fsusui/motion.ts`, which re-exports FsusUI motion components, directives and composables from `@ozwasyd/element-plus`. Application-owned `--blog-motion-*` aliases and semantic classes remain only for product state feedback that the current FsusUI baseline does not expose as a preset.
 
 ## FsusUI Preset Adoption
 
@@ -13,7 +13,7 @@ Use FsusUI motion primitives for page and interaction presets:
 - Tag chips: FsusUI `el-tag` public `motion` prop with `fsusBlogMotionPresets.tagChip`.
 - Toast surfaces: FsusUI `ElMessage`, tagged by `fsusBlogMotionPresets.toast` (`slide-up`).
 - Article title: public article detail titles render statically; do not use `v-motion` on `[data-fsus-surface='reading']`.
-- Article body images and code blocks: `useScrollReveal()` with `fsusBlogScrollRevealOptions`; do not animate ordinary paragraphs.
+- Article body images and code blocks: render statically; do not call `useScrollReveal()`; expose only the metadata required for reading governance and interaction enhancement.
 - Media overlay and back-to-top: `mediaOverlay` / `backToTop` (`scale-fade`).
 - Route transitions: the active app host consumes the FsusUI route preset and cleans up through `useMotionRouteCleanup()`. Account-specific route policy is defined only in [Account motion](account-motion.md).
 
@@ -23,7 +23,7 @@ Do not import `@element-plus/motion`, `motion-dom`, or `gsap` directly from Fsus
 
 Allowed motion explains state: route settle, panel enter, pending to success or error, row update highlight, copy/save feedback, active reading targets, and reduced-motion-safe overlay settle.
 
-Forbidden motion adds noise: long decorative loops, generic loading sweeps, hover scale, icon or row nudges, large scale or rotate, complex stagger, high-saturation trails, nonessential blur, page shake, and layout-moving animation on reading content.
+Forbidden motion adds noise: long decorative loops, generic loading sweeps, hover scale, icon or row nudges, large scale or rotate, complex stagger, scroll reveal, high-saturation trails, nonessential blur, page shake, and layout-moving animation on reading content.
 
 ## Tokens
 
@@ -101,7 +101,7 @@ Use `blog-motion-task-region` on the affected form, row, panel or summary. Use `
 
 Article reading aids must not move the article body layout. Reading progress uses `transform: scaleX(...)`, never width animation. TOC active state uses color/border/background changes with `aria-current`; it must not translate, scale or stagger entries.
 
-Copy controls use text feedback plus toast feedback. Runtime code block copy buttons use `blog-motion-reading-control` and a copied state class, so the label change remains visible on touch devices and screen readers.
+Article titles, body images and code blocks appear statically and never use scroll reveal. Copy controls use text feedback plus toast feedback. Runtime code block copy buttons use `blog-motion-reading-control` and a copied state class, so the label change remains visible on touch devices and screen readers.
 
 Lightbox overlay enter/leave uses `--blog-motion-overlay`; the figure uses `--blog-motion-panel`. Reduced motion disables transitions and must not introduce zoom or scale. Mobile reading actions use `blog-motion-mobile-bar`, respect `safe-area-inset-bottom`, and limit translate to 4px. Hash and comments navigation should call the shared reading target helper so smooth scroll becomes auto under reduced motion and the destination gets a short `blog-motion-reading-target` highlight.
 

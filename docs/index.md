@@ -100,8 +100,10 @@
 
 - [Public Preview Screenshots](assets/screenshots/README.md)
 - [Manifest](assets/screenshots/manifest.json)
+- [FsusBlog Design Governance](design/governance.md)
 - [页面级标题比例](design/page-title-scale.md)
 - [阅读排版契约](design/reading-typography.md)
+- [FsusBlog Surface Profiles](design/surface-profiles.md)
 - [Task surface geometry](design/task-surface-geometry.md)
 - [Font loading planner](fonts/font-loading-planner.md)
 - [Account layout ownership](frontend/account-layout-ownership.md)

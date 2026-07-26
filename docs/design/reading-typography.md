@@ -1,6 +1,6 @@
 # 阅读排版契约
 
-Article、About、Comment 与管理端 Preview 共用 `MarkdownRenderer` 和 `markdown.css`，正文唯一基线为 16px、400 字重、1.8 行高、自然字距与左对齐。入口只声明 `article`、`about` 或 `preview` 语义，不允许在调用方重写正文、引用、列表、标题或代码字体。
+本文只拥有 [`surface-profiles.md`](surface-profiles.md) 中 `reading` 内容的排版。Article、About、Comment 与管理端 Preview 共用 `MarkdownRenderer` 和 `markdown.css`，正文唯一基线为 16px、400 字重、1.8 行高、自然字距与左对齐。入口只声明 `article`、`about` 或 `preview` 语义，不允许在调用方重写正文、引用、列表、标题或代码字体。
 
 ## Display、reading 与 metadata
 
@@ -8,11 +8,11 @@ Article、About、Comment 与管理端 Preview 共用 `MarkdownRenderer` 和 `ma
 - `reading`：列表摘要使用 14/16px、400、1.7；长文正文与引用使用 16px/400/1.8。Markdown paragraph 只有一条权威规则。
 - `metadata`：日期、分类、状态、阅读量和动作使用 12px 或 14px，不能用装饰性微缩文字承载信息。信息文本消费达到 AA 的 muted/tertiary；decorative token 只用于点和 marker。
 
-AOT emergency、hydration 与 SPA takeover 使用同一角色、行高和 12/14px metadata。`src/frontend/src` 的 public/account/admin CSS `font-size` 小字号只写 `12px`、`14px` 或 `16px`；`AccountNavigationPanel.vue` 的导航层级是唯一例外，使用 11px 分组标签与 13px 导航项。除该例外外，11px/13px 和 `0.6` 至 `0.9rem/em` 任意小字号均不得回流。Markdown blockquote 继承 16px/400/1.8，不另行缩小。
+AOT emergency、hydration 与 SPA takeover 使用同一 reading role、行高和 metadata 档位。Markdown blockquote 继承正文排版，不另行缩小；账户导航、task controls 和其他非阅读文本由 FsusUI 及对应 task 领域文档拥有。
 
 ## 加载字重
 
-CSS 只允许真实加载的 `400`、`500`、`700`；utility 只允许 `font-normal`、`font-medium`、`font-bold`。不得使用 100/200/300/600/800/900 或对应 utility，也不得依赖浏览器合成缺失的粗体或细体。弱层级用颜色表达；标题使用 700，metadata/操作强调使用 500，正文默认 400。
+Reading renderer 只使用 font loader 已确认存在的正文、强调和标题字重，不依赖浏览器合成缺失字重。弱层级用语义颜色表达；正文、metadata/操作强调与标题分别选择已加载的 reading role。通用字体与组件排版权威仍在当前 FsusUI 基线。
 
 `ArticleCommentComposer` 的身份标签、badge、toggle、draft、empty preview、feedback 与 metrics 使用 700；desktop TOC title 使用 700；blockquote 不声明局部字重，继承 Markdown 根的 400。
 
@@ -24,4 +24,4 @@ About、privacy、guidelines 与 copyright 使用 `mode="about"` 和 `markdown-b
 
 fenced code、inline code、comment code、audit/detail preview、AOT/SSR 与 hydrated 内容统一使用 `'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace`。代码块使用阅读面语义填充和中性边界，长行只在块内横向滚动，不扩大 reading container。
 
-`data-fsus-surface="reading"` 禁止 blur、glow、motion trail，以及在 reduced-motion 下继续运行的 shimmer、pulse、translate、scale 或 scroll reveal。Light/Dark 只替换语义颜色；375px、768px、1440px 与 150% zoom 不改变 DOM 顺序和排版角色。
+`data-fsus-surface="reading"` 在所有 motion preference 下都禁止 blur、glow、motion trail、shimmer、pulse、translate、scale、stagger 和 scroll reveal。正文、标题、图片与代码块静态出现；复制反馈、focus/target 定位、阅读进度状态和 media overlay 可以使用功能动效。Light/Dark 只替换语义颜色；375px、768px、1440px 与 150% zoom 不改变 DOM 顺序和排版角色。

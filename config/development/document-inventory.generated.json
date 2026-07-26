@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v2",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:a724a81cc4754a087ea4637bf3ab7df9346a78ad42b88b2faf9a6fdf73fb9016",
+    "policyDigest": "sha256:685a9be57d17764057460e8f83e3363b65c801da49adf62fed3721bd58a96d05",
     "documents": [
         {
             "path": "docs/active-release-fenced-commits.md",
@@ -1065,6 +1065,19 @@
             "producer": null
         },
         {
+            "path": "docs/design/governance.md",
+            "title": "FsusBlog Design Governance",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "frontend",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "65089dbcdaff10e01b2af79bdb5d3fcb14c9b94b",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
             "path": "docs/design/page-title-scale.md",
             "title": "页面级标题比例",
             "kind": "markdown",
@@ -1096,6 +1109,19 @@
                 1294,
                 1428
             ],
+            "producer": null
+        },
+        {
+            "path": "docs/design/surface-profiles.md",
+            "title": "FsusBlog Surface Profiles",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "frontend",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "65089dbcdaff10e01b2af79bdb5d3fcb14c9b94b",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
             "producer": null
         },
         {

@@ -1,0 +1,4 @@
+interface:
+  display_name: "FsusBlog Design Conformance"
+  short_description: "Review FsusBlog changes against the active FsusUI design"
+  default_prompt: "Use $fsusblog-design-conformance to classify and review this FsusBlog design change against the active FsusUI baseline."

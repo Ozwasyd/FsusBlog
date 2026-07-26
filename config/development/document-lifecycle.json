@@ -631,6 +631,14 @@
             "supersededBy": null
         },
         {
+            "path": "docs/design/governance.md",
+            "status": "current",
+            "owner": "frontend",
+            "relatedIssues": [],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
             "path": "docs/design/page-title-scale.md",
             "status": "current",
             "owner": "frontend",
@@ -651,6 +659,14 @@
                 1294,
                 1428
             ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/design/surface-profiles.md",
+            "status": "current",
+            "owner": "frontend",
+            "relatedIssues": [],
             "supersedes": [],
             "supersededBy": null
         },
