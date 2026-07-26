@@ -628,6 +628,9 @@ export default defineConfig(({ command, mode }) => {
         },
         optimizeDeps: {
             exclude: [
+                // Local FsusUI WASM must stay source-resolved; the published
+                // package can lag the local table composable API.
+                '@element-plus/wasm',
                 '@ozwasyd/element-plus/es/wasm/index.mjs',
                 '@ozwasyd/element-plus/es/wasm/markdown.mjs',
                 '@ozwasyd/element-plus/es/wasm/markdown-runtime.mjs',

@@ -116,7 +116,7 @@ export function initializeLocaleRuntime(initialLocale?: SupportedLocale): Suppor
         if (initialLocale && initialLocale !== localeState.value) {
             applyLocale(initialLocale, false)
         }
-        syncLocaleDocumentMetadata()
+        syncLocaleDocumentMetadata(localeState.value)
         return localeState.value
     }
 

@@ -30,6 +30,11 @@ on conflict (name) do nothing;
 
 delete from comment where id in (9100001, 9100002, 9100003);
 delete from article_tag where articleid in (910001, 910002);
+update article
+set current_revision_id = null,
+    current_publication_id = null
+where id in (910001, 910002);
+delete from article_publication where article_id in (910001, 910002);
 delete from article_rights_proof where article_id in (910001, 910002);
 delete from article_rights_snapshot where article_id in (910001, 910002);
 delete from article_rights_policy where article_id in (910001, 910002);
@@ -188,6 +193,46 @@ from article_revision revision
 join article_rights_policy policy on policy.article_id = revision.article_id
 where revision.article_id in (910001, 910002)
   and revision.revision_no = 1;
+
+insert into article_publication (
+  article_id, publication_no, article_revision_id, revision_no,
+  rights_snapshot_id, responsibility_snapshot_id, transition_kind,
+  published_at, created_at
+)
+select
+  article.id,
+  1,
+  revision.id,
+  revision.revision_no,
+  rights.id,
+  null,
+  'immediate-publish',
+  article.published_at,
+  article.published_at
+from article
+join article_revision revision
+  on revision.article_id = article.id
+ and revision.revision_no = 1
+join article_rights_snapshot rights
+  on rights.article_id = article.id
+ and rights.article_revision_id = revision.id
+where article.id in (910001, 910002)
+on conflict (article_id, publication_no) do update set
+  article_revision_id = excluded.article_revision_id,
+  revision_no = excluded.revision_no,
+  rights_snapshot_id = excluded.rights_snapshot_id,
+  responsibility_snapshot_id = excluded.responsibility_snapshot_id,
+  transition_kind = excluded.transition_kind,
+  published_at = excluded.published_at,
+  created_at = excluded.created_at;
+
+update article
+set current_revision_id = publication.article_revision_id,
+    current_publication_id = publication.id
+from article_publication publication
+where publication.article_id = article.id
+  and publication.publication_no = 1
+  and article.id in (910001, 910002);
 
 insert into comment (
   id, article_id, content, create_time, current_version, author_mode,

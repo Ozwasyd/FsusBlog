@@ -57,6 +57,8 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+
 import HomeArticleLoadingState from '@/components/home/HomeArticleLoadingState.vue'
 import HomeArticleErrorState from '@/components/home/HomeArticleErrorState.vue'
 import HomeArticleEmptyState from '@/components/home/HomeArticleEmptyState.vue'

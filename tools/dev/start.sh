@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 COMPOSE_FILE="$ROOT_DIR/ops/development/dependencies.compose.yml"
 FRONTEND_DIR="$ROOT_DIR/src/frontend"
+FRONTEND_DIST_DIR="$FRONTEND_DIR/dist"
 BACKEND_PROJECT="$ROOT_DIR/src/backend/FsusBlog.Server.csproj"
 
 SEED_DEMO=0
@@ -102,6 +103,8 @@ if [[ ! -d "$FRONTEND_DIR/node_modules" ]]; then
 fi
 
 export ASPNETCORE_ENVIRONMENT=Development
+mkdir -p "$FRONTEND_DIST_DIR"
+export ASPNETCORE_WEBROOT="$FRONTEND_DIST_DIR"
 export ConnectionStrings__DefaultConnection="Host=127.0.0.1;Port=${FSUSBLOG_DEV_POSTGRES_PORT:-5432};Database=${FSUSBLOG_DEV_POSTGRES_DB:-fsusblog};Username=${FSUSBLOG_DEV_POSTGRES_USER:-fsusblog};Password=${FSUSBLOG_DEV_POSTGRES_PASSWORD:-fsusblog_dev}"
 export ConnectionStrings__Redis="127.0.0.1:${FSUSBLOG_DEV_REDIS_PORT:-6379},abortConnect=false,connectTimeout=10000"
 export RedisOptions__Configuration="$ConnectionStrings__Redis"
@@ -149,7 +152,8 @@ CleanupChildren() {
 trap CleanupChildren EXIT INT TERM
 
 echo "[dev-start] starting backend on http://127.0.0.1:7568 ..."
-dotnet run --project "$BACKEND_PROJECT" --no-launch-profile --urls "http://127.0.0.1:7568" &
+ASPNETCORE_ENVIRONMENT=Development \
+    dotnet run --project "$BACKEND_PROJECT" --no-launch-profile --urls "http://127.0.0.1:7568" &
 backend_pid=$!
 
 if command -v curl >/dev/null 2>&1; then
