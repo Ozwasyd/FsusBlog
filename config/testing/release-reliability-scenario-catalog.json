@@ -16,6 +16,16 @@
                 "cwd": "."
             },
             "resourceClass": "database",
+            "isolation": {
+                "exclusiveResources": [
+                    "database",
+                    "runtime-http",
+                    "resource-counters"
+                ],
+                "precondition": "fresh-authoritative-evidence",
+                "measurement": "producer-owned-short-soak-window",
+                "postcondition": "authoritative-evidence-status-ok"
+            },
             "authoritativeEvidence": {
                 "path": ".tmp/soak/summary.json",
                 "expectedSchema": {
@@ -43,6 +53,16 @@
                 "cwd": "."
             },
             "resourceClass": "benchmark",
+            "isolation": {
+                "exclusiveResources": [
+                    "runtime-http",
+                    "network",
+                    "performance-counters"
+                ],
+                "precondition": "fresh-authoritative-evidence",
+                "measurement": "producer-owned-expected-peak-window",
+                "postcondition": "authoritative-evidence-status-ok"
+            },
             "authoritativeEvidence": {
                 "path": ".tmp/perf/release-summaries/load-expected-peak.json",
                 "expectedSchema": {
@@ -71,6 +91,16 @@
                 "cwd": "."
             },
             "resourceClass": "benchmark",
+            "isolation": {
+                "exclusiveResources": [
+                    "runtime-http",
+                    "network",
+                    "performance-counters"
+                ],
+                "precondition": "fresh-authoritative-evidence",
+                "measurement": "producer-owned-burst-window",
+                "postcondition": "authoritative-evidence-status-ok"
+            },
             "authoritativeEvidence": {
                 "path": ".tmp/perf/release-summaries/load-burst.json",
                 "expectedSchema": {
@@ -99,6 +129,16 @@
                 "cwd": "."
             },
             "resourceClass": "database",
+            "isolation": {
+                "exclusiveResources": [
+                    "database",
+                    "fixture-data",
+                    "runtime-http"
+                ],
+                "precondition": "fresh-authoritative-evidence",
+                "measurement": "producer-owned-scale-m-window",
+                "postcondition": "producer-cleanup-and-authoritative-evidence-status-ok"
+            },
             "authoritativeEvidence": {
                 "path": ".tmp/scale/release-summaries/scale-m.json",
                 "expectedSchema": {
@@ -128,6 +168,16 @@
                 "cwd": "."
             },
             "resourceClass": "cpu",
+            "isolation": {
+                "exclusiveResources": [
+                    "cpu",
+                    "mutation-output",
+                    "build-artifacts"
+                ],
+                "precondition": "fresh-authoritative-evidence",
+                "measurement": "producer-owned-critical-mutation-window",
+                "postcondition": "authoritative-evidence-status-success"
+            },
             "authoritativeEvidence": {
                 "path": ".tmp/mutation/backend-critical/authority.json",
                 "expectedSchema": {
@@ -157,6 +207,16 @@
                 "cwd": "."
             },
             "resourceClass": "database",
+            "isolation": {
+                "exclusiveResources": [
+                    "runtime-http",
+                    "database",
+                    "resource-counters"
+                ],
+                "precondition": "fresh-authoritative-evidence",
+                "measurement": "producer-owned-memory-leak-window",
+                "postcondition": "authoritative-evidence-status-ok"
+            },
             "authoritativeEvidence": {
                 "path": ".tmp/release-evidence/memory-leak-summary.json",
                 "expectedSchema": {
@@ -185,6 +245,16 @@
                 "cwd": "."
             },
             "resourceClass": "database",
+            "isolation": {
+                "exclusiveResources": [
+                    "runtime-http",
+                    "database",
+                    "resource-counters"
+                ],
+                "precondition": "fresh-authoritative-evidence",
+                "measurement": "producer-owned-open-handle-window",
+                "postcondition": "authoritative-evidence-status-ok"
+            },
             "authoritativeEvidence": {
                 "path": ".tmp/release-evidence/open-handle-summary.json",
                 "expectedSchema": {

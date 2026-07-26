@@ -26,6 +26,18 @@ const canonicalIds = [
     'release-open-handle-budget'
 ];
 
+const runIdentity = {
+    source: {
+        commit: '0123456789abcdef0123456789abcdef01234567',
+        worktreeFingerprint: 'sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+    },
+    policy: {
+        catalogDigest: 'sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
+        thresholdDigest: 'sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
+        executorSchema: 'fsusblog.release-reliability-scenario-result.v1'
+    }
+};
+
 const producerSource = `
 import fs from 'node:fs';
 import path from 'node:path';
@@ -67,6 +79,12 @@ function catalogFor(fixture, mode = 'success')
                 cwd: '.'
             },
             resourceClass: 'test',
+            isolation: {
+                exclusiveResources: ['test-resource'],
+                precondition: 'fresh-evidence',
+                measurement: 'fixture-producer',
+                postcondition: 'passing-evidence'
+            },
             authoritativeEvidence: {
                 path: `.tmp/evidence/${id}.json`,
                 expectedSchema: {
@@ -85,7 +103,8 @@ function scenarioResult(catalog, fixture, options = {})
         scenarioId: canonicalIds[0],
         repositoryRoot: fixture.root,
         invocationId: options.invocationId ?? 'fixture-run',
-        spawnProcess: options.spawnProcess ?? spawn
+        spawnProcess: options.spawnProcess ?? spawn,
+        runIdentity
     });
 }
 
@@ -218,7 +237,8 @@ test('unknown IDs fail and single-scenario execution spawns only its declared pr
             scenarioId: canonicalIds[2],
             repositoryRoot: fixture.root,
             invocationId: 'single',
-            spawnProcess: countingSpawn
+            spawnProcess: countingSpawn,
+            runIdentity
         });
         assert.equal(results.length, 1);
         assert.equal(results[0].scenarioId, canonicalIds[2]);
@@ -241,6 +261,7 @@ test('the complete entry executes every canonical scenario exactly once', async 
             catalog,
             repositoryRoot: fixture.root,
             invocationId: 'complete',
+            runIdentity,
             spawnProcess: (executable, args, options) =>
             {
                 spawned.push(args.at(-1));

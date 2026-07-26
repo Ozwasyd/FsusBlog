@@ -279,7 +279,10 @@
             "purpose": "Canonical authority for 7 release reliability scenarios",
             "consumers": [
                 "tools/test/run-release-reliability-scenarios.mjs",
+                "tools/test/release-reliability-receipt.mjs",
+                "tools/test/verify-release-reliability-receipt.mjs",
                 "tests/tools/release-reliability-executor.test.mjs",
+                "tests/tools/release-reliability-receipt.test.mjs",
                 "docs/release-evidence-model.md"
             ],
             "validationCommand": "node tools/test/run-release-reliability-scenarios.mjs --validate-catalog",

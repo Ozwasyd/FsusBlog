@@ -7,6 +7,12 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import {
+    collectRunIdentity,
+    createQualifiedReceipt,
+    digestValue
+} from './release-reliability-receipt.mjs';
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const catalogPath = path.join(root, 'config/testing/release-reliability-scenario-catalog.json');
 const canonicalScenarioIds = [
@@ -92,6 +98,22 @@ export function validateCatalog(catalog)
         }
         requireNonEmptyString(scenario?.command?.cwd, `${prefix}.command.cwd`, errors);
         requireNonEmptyString(scenario?.resourceClass, `${prefix}.resourceClass`, errors);
+        if (!scenario?.isolation || typeof scenario.isolation !== 'object' || Array.isArray(scenario.isolation))
+        {
+            errors.push(`${prefix}.isolation must be an object`);
+        }
+        else
+        {
+            if (!Array.isArray(scenario.isolation.exclusiveResources) || scenario.isolation.exclusiveResources.length === 0
+                || scenario.isolation.exclusiveResources.some((resource) => typeof resource !== 'string' || resource.trim() === ''))
+            {
+                errors.push(`${prefix}.isolation.exclusiveResources must be a non-empty string array`);
+            }
+            for (const field of ['precondition', 'measurement', 'postcondition'])
+            {
+                requireNonEmptyString(scenario.isolation[field], `${prefix}.isolation.${field}`, errors);
+            }
+        }
         requireNonEmptyString(scenario?.authoritativeEvidence?.path, `${prefix}.authoritativeEvidence.path`, errors);
         const expectedSchema = scenario?.authoritativeEvidence?.expectedSchema;
         if (!expectedSchema || typeof expectedSchema !== 'object' || Array.isArray(expectedSchema))
@@ -235,6 +257,7 @@ export async function executeScenario({
     repositoryRoot = root,
     invocationId = randomUUID(),
     spawnProcess = spawn,
+    runIdentity = null,
     now = () => new Date().toISOString()
 })
 {
@@ -257,6 +280,7 @@ export async function executeScenario({
     }));
 
     fs.mkdirSync(path.dirname(stdoutLog), { recursive: true });
+    const priorEvidenceExisted = fs.existsSync(evidenceFile);
     fs.rmSync(evidenceFile, { force: true });
 
     const outcome = await runProcess({
@@ -314,6 +338,9 @@ export async function executeScenario({
         owner: scenario.owner,
         resourceClass: scenario.resourceClass,
         status: failure === null ? 'passed' : 'failed',
+        source: runIdentity?.source ?? null,
+        policy: runIdentity?.policy ?? null,
+        identityDigest: runIdentity === null ? null : digestValue(runIdentity),
         startedAt: new Date(outcome.startedAtMs).toISOString(),
         finishedAt: new Date(outcome.finishedAtMs).toISOString(),
         durationMs: outcome.finishedAtMs - outcome.startedAtMs,
@@ -327,6 +354,30 @@ export async function executeScenario({
             signal: outcome.signal,
             stdoutLog: path.relative(repositoryRoot, stdoutLog).replaceAll(path.sep, '/'),
             stderrLog: path.relative(repositoryRoot, stderrLog).replaceAll(path.sep, '/')
+        },
+        isolation: {
+            exclusiveResources: scenario.isolation.exclusiveResources,
+            precondition: {
+                status: 'complete',
+                declaration: scenario.isolation.precondition,
+                observedAt: new Date(outcome.startedAtMs).toISOString()
+            },
+            reset: {
+                status: 'complete',
+                action: 'removed-authoritative-evidence',
+                priorEvidenceExisted,
+                observedAt: new Date(outcome.startedAtMs).toISOString()
+            },
+            measurement: {
+                declaration: scenario.isolation.measurement,
+                startedAt: new Date(outcome.startedAtMs).toISOString(),
+                finishedAt: new Date(outcome.finishedAtMs).toISOString()
+            },
+            postcondition: {
+                status: failure === null ? 'complete' : 'failed',
+                declaration: scenario.isolation.postcondition,
+                observedAt: new Date(outcome.finishedAtMs).toISOString()
+            }
         },
         authoritativeEvidence: evidence,
         failure,
@@ -342,6 +393,7 @@ export async function executeScenarios({
     repositoryRoot = root,
     invocationId = randomUUID(),
     spawnProcess = spawn,
+    runIdentity = null,
     now = () => new Date().toISOString()
 })
 {
@@ -361,6 +413,7 @@ export async function executeScenarios({
             repositoryRoot,
             invocationId,
             spawnProcess,
+            runIdentity,
             now
         }));
     }
@@ -400,10 +453,39 @@ async function main()
         return;
     }
     const invocationId = randomUUID();
-    const results = await executeScenarios({ catalog, scenarioId: scenario, invocationId });
+    const runIdentity = collectRunIdentity({ repositoryRoot: root, catalog });
+    const results = await executeScenarios({ catalog, scenarioId: scenario, invocationId, runIdentity });
     for (const result of results)
     {
         console.log(`[release-reliability:${result.scenarioId}] status=${result.status} result=${path.relative(root, resultPath(root, invocationId, result.scenarioId))}`);
+    }
+    if (scenario === null)
+    {
+        const receipt = createQualifiedReceipt({
+            invocationId,
+            scenarioResults: results,
+            identity: runIdentity,
+            createdAt: new Date().toISOString()
+        });
+        const invocationRoot = path.join(root, '.tmp', 'release-reliability', invocationId);
+        const receiptFile = path.join(invocationRoot, 'qualified-receipt.json');
+        const timelineFile = path.join(invocationRoot, 'timeline.json');
+        writeJsonAtomic(receiptFile, receipt);
+        writeJsonAtomic(timelineFile, {
+            schema: 'fsusblog.release-reliability-timeline.v1',
+            invocationId,
+            status: receipt.status,
+            scenarioResults: results.map((result) => ({
+                scenarioId: result.scenarioId,
+                status: result.status,
+                result: path.relative(root, resultPath(root, invocationId, result.scenarioId)).replaceAll(path.sep, '/')
+            }))
+        });
+        console.log(`[release-reliability:receipt] status=${receipt.status} receipt=${path.relative(root, receiptFile)}`);
+        if (receipt.status !== 'qualified')
+        {
+            process.exitCode = 1;
+        }
     }
     if (results.some((result) => result.status !== 'passed'))
     {
