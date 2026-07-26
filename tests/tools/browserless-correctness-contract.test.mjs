@@ -7,7 +7,10 @@ import test from 'node:test';
 import { pathToFileURL } from 'node:url';
 
 const root = path.resolve(import.meta.dirname, '../..');
-const { parseMatrix } = await import(pathToFileURL(path.join(root, 'tools/test-matrix/parse-matrix.mjs')).href);
+const {
+    parseMatrix,
+    tierExecutionDependencies
+} = await import(pathToFileURL(path.join(root, 'tools/test-matrix/parse-matrix.mjs')).href);
 const matrix = parseMatrix(readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
 const tiers = new Map(matrix.tiers.map((tier) => [tier.id, tier]));
 
@@ -20,7 +23,7 @@ function dependencyClosure(id, seen = new Set())
     const tier = tiers.get(id);
     assert.ok(tier, `missing matrix tier ${id}`);
     seen.add(id);
-    for (const dependency of tier.dependsOn ?? [])
+    for (const dependency of tierExecutionDependencies(tier))
     {
         dependencyClosure(dependency, seen);
     }
@@ -77,7 +80,7 @@ test('release closeout binds one immutable browser contract without adding it to
     const browserTiers = release.filter((tier) => tier.requiresPlaywright !== 'none');
     assert.equal(browserTiers.length, 1);
     assert.equal(browserTiers[0].id, 'browser-contract');
-    assert.ok(browserTiers[0].dependsOn.includes('production-build-artifacts'));
+    assert.ok(tierExecutionDependencies(browserTiers[0]).includes('production-build-artifacts'));
     assert.equal(correctness.has(browserTiers[0].id), false);
 });
 

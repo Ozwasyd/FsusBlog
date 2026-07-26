@@ -9,6 +9,10 @@ function profileEntries(localProfiles) {
   return Object.entries(localProfiles ?? {})
 }
 
+function tierExecutionDependencies(tier) {
+  return tier?.executionDependsOn ?? tier?.dependsOn ?? []
+}
+
 const bundleSummarySchema = 'fsusblog.local-production.bundle.v1'
 const summaryOnlySchema = 'fsusblog.local-production.summary-only.v1'
 const logicalProjectionSchema = 'fsusblog.local-profile-projection.v1'
@@ -1123,7 +1127,7 @@ export function buildLocalProfileProjection({
   }
   if (!matrixById.has(profileId)) errors.push(`matrix target tier is missing: ${profileId}`)
   for (const tier of tiers) {
-    for (const dependencyId of tier?.dependsOn ?? []) {
+    for (const dependencyId of tierExecutionDependencies(tier)) {
       if (!matrixById.has(dependencyId)) errors.push(`${tier.id} depends on missing matrix tier: ${dependencyId}`)
     }
   }
@@ -1266,13 +1270,24 @@ export function buildLocalProfileProjection({
 
 export function collectLogicalTierIds(tiers, targetTierId) {
   const byId = new Map((tiers ?? []).map((tier) => [tier.id, tier]))
+  const summariesByAuthority = new Map()
+  for (const tier of tiers ?? []) {
+    if (tier.executionMode !== 'summary' || !String(tier.summaryAuthority ?? '').trim()) continue
+    const siblings = summariesByAuthority.get(tier.summaryAuthority) ?? []
+    siblings.push(tier.id)
+    summariesByAuthority.set(tier.summaryAuthority, siblings)
+  }
   const collected = new Set()
   const visit = (tierId) => {
     if (collected.has(tierId)) return
     const tier = byId.get(tierId)
     if (!tier) return
     collected.add(tierId)
-    for (const dependencyId of tier.dependsOn ?? []) visit(dependencyId)
+    for (const siblingId of summariesByAuthority.get(tier.summaryAuthority) ?? []) visit(siblingId)
+    for (const dependencyId of [
+      ...tierExecutionDependencies(tier),
+      ...(tier.requiresEvidenceFrom ?? [])
+    ]) visit(dependencyId)
   }
   visit(targetTierId)
   return [...collected].sort()

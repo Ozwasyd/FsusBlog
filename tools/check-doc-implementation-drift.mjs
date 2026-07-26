@@ -4,6 +4,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { spawnSync } from 'node:child_process'
 import { loadMatrix, planTier, relative, root } from './docs/lib/matrix.mjs'
+import { tierExecutionDependencies } from './test-matrix/parse-matrix.mjs'
 
 const outFile = path.join(root, '.tmp/docs/doc-implementation-drift.json')
 const releaseSummaryFile = path.join(root, '.tmp/release-evidence/doc-sync-summary.json')
@@ -68,7 +69,8 @@ add('coverage', 'README names coverage-gate as an independent required check', (
 add('production-order', 'production plan keeps release evidence as CI schema gate, not closeout gate', () => {
   const matrix = loadMatrix()
   const production = matrix.tiers.find((tier) => tier.id === 'production-correctness')
-  return production?.dependsOn?.includes('release-evidence') && !production.dependsOn.includes('release-closeout')
+  return tierExecutionDependencies(production).includes('release-evidence')
+    && !tierExecutionDependencies(production).includes('release-closeout')
 })
 
 add('production-order', 'production DAG includes browserless runtime and frontend structure tiers', () => {

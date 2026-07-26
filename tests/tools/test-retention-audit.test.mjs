@@ -8,6 +8,7 @@ import test from 'node:test'
 
 import {
   auditTestRecords,
+  buildRetentionCatalogSnapshot,
   compactRetentionBaseline,
   compactRetentionKey,
   decodeCompactRetentionIndex,
@@ -24,6 +25,41 @@ import {
   xunitMethodHistoryId,
   xunitTrxHistoryEntries
 } from '../../tools/test-retention/audit.mjs'
+
+test('retention snapshot follows evidence inputs and aggregate authority siblings without scheduling them', () => {
+  const snapshot = buildRetentionCatalogSnapshot({
+    matrix: {
+      tiers: [
+        { id: 'production', executionDependsOn: ['fast'] },
+        {
+          id: 'fast',
+          executionMode: 'summary',
+          summaryAuthority: 'fast-summary',
+          executionDependsOn: [],
+          requiresEvidenceFrom: ['backend-producer']
+        },
+        {
+          id: 'frontend-fast-summary',
+          executionMode: 'summary',
+          summaryAuthority: 'fast-summary',
+          executionDependsOn: [],
+          requiresEvidenceFrom: ['frontend-producer']
+        },
+        { id: 'backend-producer', executionDependsOn: [] },
+        { id: 'frontend-producer', executionDependsOn: [] }
+      ]
+    },
+    coverageRegistry: { entries: [] },
+    requirementCatalog: { requirements: [], profiles: [] }
+  })
+  assert.deepEqual(snapshot.productionRequiredTierIds, [
+    'backend-producer',
+    'fast',
+    'frontend-fast-summary',
+    'frontend-producer',
+    'production'
+  ])
+})
 
 test('full repository inventory includes node test suites outside frontend and backend folders', () => {
   assert.equal(isTestInventoryPath('tests/tools/test-matrix-scheduler.test.mjs'), true)

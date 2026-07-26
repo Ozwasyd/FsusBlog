@@ -1,8 +1,12 @@
 import { createHash } from 'node:crypto';
 
+import { canonicalReceiptCommandSources } from '../../test-matrix/receipt-command-sources.mjs';
+
 const terminalStates = new Set(['success', 'failed', 'timed-out', 'cancelled', 'blocked', 'internal-error']);
 const terminalFailureStates = new Set(['failed', 'timed-out', 'internal-error']);
 const finalizerPurposes = new Set(['cleanup', 'sealed-failure-summary', 'partial-evidence-inventory']);
+const dataScaleEvidenceSummaryCommand =
+    canonicalReceiptCommandSources['data-scale-evidence-summary'].command;
 
 export class StepTerminalError extends Error
 {
@@ -1308,7 +1312,7 @@ export function performanceSteps()
         step('data-scale-s', 'tools/test/lanes/data-scale.sh scale-s', ['data-scale-s'], {
             dependsOn: ['runtime-state-ready', 'resident-handoff-ready']
         }),
-        step('data-scale-summary', 'node tools/test/aggregate-data-scale-evidence.mjs', ['data-scale-evidence-summary'], {
+        step('data-scale-summary', dataScaleEvidenceSummaryCommand, ['data-scale-evidence-summary'], {
             dependsOn: ['data-scale-xs', 'data-scale-s']
         }),
         step('fault-injection', 'tools/test/lanes/fault-injection.sh', ['fault-injection'], {

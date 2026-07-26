@@ -154,6 +154,8 @@ test('matrix declaration accepts a strict projector and rejects missing owner, s
     const declaration = {
         id: 'logical-tier',
         executionMode: 'projection',
+        commandKind: 'projection',
+        outputReceiptSchema: 'fsusblog.evidence-projection-receipt.v1',
         executionOwner: 'canonical-backend',
         projectFrom: 'canonical-backend',
         projectionCatalog: 'tests/fixtures/evidence-projection/catalog.json',
@@ -162,7 +164,7 @@ test('matrix declaration accepts a strict projector and rejects missing owner, s
         requiredArtifactDeclarations: [{ id: 'backend-trx', path: '.tmp/backend.trx' }],
         requiresEvidenceFrom: ['canonical-backend'],
         command: 'node tools/test/project-evidence.mjs --catalog catalog.json',
-        dependsOn: ['canonical-backend'],
+        executionDependsOn: [],
         services: [],
         exclusiveResources: [],
         requiresBootstrap: 'none',

@@ -2,6 +2,10 @@ import { parseYamlDocument, parseYamlScalar } from '../yaml/parse-document.mjs'
 
 export const parseMatrixValue = parseYamlScalar
 
+export function tierExecutionDependencies(tier) {
+  return tier?.executionDependsOn ?? tier?.dependsOn ?? []
+}
+
 export function parseMatrix(text) {
   const document = parseYamlDocument(text, { source: 'test matrix' })
   if (!document || typeof document !== 'object' || Array.isArray(document)) {

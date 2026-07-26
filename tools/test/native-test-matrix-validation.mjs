@@ -1,3 +1,11 @@
+function tierExecutionDependencies(tier) {
+  return tier?.executionDependsOn ?? tier?.dependsOn ?? []
+}
+
+function tierEvidenceDependencies(tier) {
+  return tier?.requiresEvidenceFrom ?? tierExecutionDependencies(tier)
+}
+
 export function validateNativeMatrix({ catalog, matrix }) {
   const errors = []
   const targets = catalog?.targets ?? []
@@ -21,8 +29,8 @@ export function validateNativeMatrix({ catalog, matrix }) {
   const releaseFinal = tiers.get('release-final')
   const smoke = profiles.find((profile) => profile.consumers?.includes('production-fresh'))
   const fuzz = profiles.find((profile) => profile.consumers?.includes('release-final'))
-  if (!smoke || (production?.dependsOn ?? []).filter((tierId) => tierId === smoke.matrixTier).length !== 1) errors.push('production fresh must consume the native smoke tier exactly once')
-  if (!fuzz || (releaseFinal?.dependsOn ?? []).filter((tierId) => tierId === fuzz.matrixTier).length !== 1) errors.push('release-final must consume the native fuzz/sanitizer tier exactly once')
-  if (smoke && (tiers.get(smoke.matrixTier)?.dependsOn ?? []).includes(fuzz?.matrixTier)) errors.push('native smoke must not be blocked by the fuzz/sanitizer tier')
+  if (!smoke || tierExecutionDependencies(production).filter((tierId) => tierId === smoke.matrixTier).length !== 1) errors.push('production fresh must consume the native smoke tier exactly once')
+  if (!fuzz || tierEvidenceDependencies(releaseFinal).filter((tierId) => tierId === fuzz.matrixTier).length !== 1) errors.push('release-final must consume the native fuzz/sanitizer tier exactly once')
+  if (smoke && tierExecutionDependencies(tiers.get(smoke.matrixTier)).includes(fuzz?.matrixTier)) errors.push('native smoke must not be blocked by the fuzz/sanitizer tier')
   return errors
 }

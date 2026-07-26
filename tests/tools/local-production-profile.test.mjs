@@ -68,11 +68,12 @@ function profile(overrides = {})
     };
 }
 
-test('collectLogicalTierIds returns the complete dependency closure', () =>
+test('collectLogicalTierIds returns the complete dependency and summary authority closure', () =>
 {
     const tiers = [
         tier('production', ['summary']),
-        tier('summary', ['a', 'b']),
+        { ...tier('summary', ['a', 'b']), executionMode: 'summary', summaryAuthority: 'summary-authority' },
+        { ...tier('summary-sibling'), executionMode: 'summary', summaryAuthority: 'summary-authority' },
         tier('a'),
         tier('b', ['c']),
         tier('c'),
@@ -81,7 +82,7 @@ test('collectLogicalTierIds returns the complete dependency closure', () =>
 
     assert.deepEqual(
         collectLogicalTierIds(tiers, 'production'),
-        ['a', 'b', 'c', 'production', 'summary']
+        ['a', 'b', 'c', 'production', 'summary', 'summary-sibling']
     );
 });
 

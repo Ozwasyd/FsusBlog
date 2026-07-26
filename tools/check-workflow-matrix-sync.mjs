@@ -4,7 +4,8 @@ import path from 'node:path'
 import process from 'node:process'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { parseMatrix } from './test-matrix/parse-matrix.mjs'
+import { parseMatrix, tierExecutionDependencies } from './test-matrix/parse-matrix.mjs'
+import { buildAggregatePlan } from './test-matrix/aggregate-plan.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
 const defaultPlanPath = path.join(root, '.tmp/ci-plan.json')
@@ -94,7 +95,11 @@ function annotateWorkflowJob(job) {
   job.usesGeneratedFastBackendMatrix = /matrix:\s*\$\{\{\s*fromJson\(needs\.validate-matrix\.outputs\.fast_backend_matrix\)\s*\}\}/.test(text)
   job.usesGeneratedFastBackendMaxParallel = /max-parallel:\s*\$\{\{\s*fromJson\(needs\.validate-matrix\.outputs\.fast_backend_max_parallel\)\s*\}\}/.test(text)
   job.generatesFastBackendMatrix = /node tools\/run-test-matrix\.mjs ci-job-matrix fast-backend --github-output "\$GITHUB_OUTPUT"/.test(text)
-  job.usesFastSummaryAggregate = /node tools\/run-test-matrix\.mjs aggregate fast-summary(?:\s|$)/.test(text)
+  job.aggregateTargets = new Set(
+    [...text.matchAll(/node tools\/run-test-matrix\.mjs aggregate ([a-z0-9][a-z0-9-]*)(?:\s|$)/gu)]
+      .map((match) => match[1])
+  )
+  job.usesFastSummaryAggregate = job.aggregateTargets.has('fast-summary')
   job.usesMatrixPlaywrightWorkers = /FSUSBLOG_PLAYWRIGHT_WORKERS:\s*\$\{\{\s*matrix\.playwright_workers\s*\}\}/.test(text)
   job.playwrightWorkerEnvValues = new Set([...text.matchAll(/FSUSBLOG_PLAYWRIGHT_WORKERS:\s*['"]?(\d+)['"]?/g)].map((match) => Number(match[1])))
   job.downloadsFastBackendArtifacts = /uses:\s*actions\/download-artifact@/.test(text) && /(?:name:\s*fast-backend|pattern:\s*fast-backend-\*)/.test(text)
@@ -317,7 +322,7 @@ function planTierClosure(tiersById, targetId, noDeps) {
     if (covered.has(id)) return
     const tier = tiersById.get(id)
     if (!tier) return
-    for (const dep of tier.dependsOn ?? []) visit(dep)
+    for (const dep of tierExecutionDependencies(tier)) visit(dep)
     covered.add(id)
   }
   visit(targetId)
@@ -330,6 +335,9 @@ function coveredTiersForWorkflowJob(job, tiersById, plannedTierIds = []) {
     for (const tierId of plannedTierIds) covered.add(tierId)
   }
   if (job.usesFastSummaryAggregate) {
+    for (const tierId of plannedTierIds) covered.add(tierId)
+  }
+  if (job.aggregateTargets.size > 0) {
     for (const tierId of plannedTierIds) covered.add(tierId)
   }
   for (const command of job.runs) {
@@ -407,6 +415,33 @@ function validateFastSummaryAggregate(workflowJob, planJob, errors) {
   if (!workflowJob.downloadsFastStaticArtifacts) {
     errors.push('workflow job fast-summary must download fast-static-governance artifacts before aggregating')
   }
+}
+
+function validateAggregateWorkflowJob(matrix, workflowJob, planJob, errors) {
+  const authority = Object.values(matrix.aggregateAuthorities ?? {})
+    .find((candidate) => candidate?.ciJob === planJob.id)
+  if (!authority) return false
+
+  const plan = buildAggregatePlan(matrix, authority.id)
+  if (plan.errors.length > 0) {
+    errors.push(`workflow job ${planJob.id} has invalid aggregate authority ${authority.id}: ${plan.errors.join('; ')}`)
+    return true
+  }
+  const testRuns = workflowJob.runs.filter((command) =>
+    /(?:^|\s)(?:\.\/)?tools\/test\.sh(?:\s|$)/u.test(command)
+  )
+  if (testRuns.length > 0) {
+    errors.push(`workflow job ${planJob.id} must be artifact-only, but runs test commands: ${testRuns.join('; ')}`)
+  }
+  if (!workflowJob.aggregateTargets.has(authority.id)) {
+    errors.push(`workflow job ${planJob.id} must invoke aggregate authority ${authority.id}`)
+  }
+  for (const dependencyJob of plan.dependencyJobs) {
+    if (!workflowJob.needs.has(dependencyJob)) {
+      errors.push(`workflow job ${planJob.id} is missing aggregate dependency job: ${dependencyJob}`)
+    }
+  }
+  return true
 }
 
 function setupRequirementsForTiers(tierIds, tiersById) {
@@ -755,6 +790,7 @@ function main() {
     }
 
     if (job.id !== 'production-summary') {
+      const aggregateJob = validateAggregateWorkflowJob(matrix, workflowJob, job, errors)
       validateScheduledFastDag(workflowJob, job, errors)
       validateFastSummaryAggregate(workflowJob, job, errors)
       const coveredTiers = coveredTiersForWorkflowJob(workflowJob, tiersById, job.tiers)
@@ -771,14 +807,21 @@ function main() {
       }
 
       const uploadPaths = workflowJobs.get(job.id).uploadPaths
-      for (const artifact of job.artifacts) {
-        if (![...uploadPaths].some((uploadPath) => pathPatternCovers(uploadPath, artifact))) {
-          errors.push(`workflow job ${job.id} does not upload matrix artifact: ${artifact}`)
+      if (aggregateJob) {
+        if (![...uploadPaths].some((uploadPath) =>
+          pathPatternCovers(uploadPath, '.tmp/release-evidence/jobs/**'))) {
+          errors.push(`workflow job ${job.id} does not upload its aggregate job-result receipt`)
         }
-      }
-      for (const evidence of job.evidence.filter(requiresUpload)) {
-        if (![...uploadPaths].some((uploadPath) => pathPatternCovers(uploadPath, evidence))) {
-          errors.push(`workflow job ${job.id} does not upload generated matrix evidence: ${evidence}`)
+      } else {
+        for (const artifact of job.artifacts) {
+          if (![...uploadPaths].some((uploadPath) => pathPatternCovers(uploadPath, artifact))) {
+            errors.push(`workflow job ${job.id} does not upload matrix artifact: ${artifact}`)
+          }
+        }
+        for (const evidence of job.evidence.filter(requiresUpload)) {
+          if (![...uploadPaths].some((uploadPath) => pathPatternCovers(uploadPath, evidence))) {
+            errors.push(`workflow job ${job.id} does not upload generated matrix evidence: ${evidence}`)
+          }
         }
       }
     }
@@ -795,7 +838,7 @@ function main() {
   }
 
   const productionTier = tiersById.get('production')
-  for (const dep of productionTier?.dependsOn ?? []) {
+  for (const dep of tierExecutionDependencies(productionTier)) {
     const depTier = tiersById.get(dep)
     if (!depTier || !isWorkflowRequiredTier(dep)) continue
     if (!workflowJobs.has(depTier.ciJob)) {

@@ -196,12 +196,19 @@ export function applySupersedes(tiers) {
 
   return tiers
     .filter((tier) => !replacementByTarget.has(tier.id))
-    .map((tier) => ({
-      ...tier,
-      dependsOn: [...new Set((tier.dependsOn ?? [])
-        .map(resolveReplacement)
-        .filter((dependencyId) => dependencyId !== tier.id))]
-    }))
+    .map((tier) => {
+      const field = 'executionDependsOn' in tier ? 'executionDependsOn' : 'dependsOn'
+      return {
+        ...tier,
+        [field]: [...new Set(tierExecutionDependencies(tier)
+          .map(resolveReplacement)
+          .filter((dependencyId) => dependencyId !== tier.id))]
+      }
+    })
+}
+
+function tierExecutionDependencies(tier) {
+  return tier?.executionDependsOn ?? tier?.dependsOn ?? []
 }
 
 function worktreePaths(root) {
@@ -473,9 +480,9 @@ function ownedGeneratedDeclarations(tier, byId) {
     const dependency = byId.get(dependencyId)
     if (!dependency) return
     dependencyDeclarations.push(...(dependency.artifacts ?? []), ...(dependency.evidence ?? []))
-    for (const ancestorId of dependency.dependsOn ?? []) collectDependencyDeclarations(ancestorId)
+    for (const ancestorId of tierExecutionDependencies(dependency)) collectDependencyDeclarations(ancestorId)
   }
-  for (const dependencyId of tier.dependsOn ?? []) collectDependencyDeclarations(dependencyId)
+  for (const dependencyId of tierExecutionDependencies(tier)) collectDependencyDeclarations(dependencyId)
   const candidates = [...new Set([...(tier.artifacts ?? []), ...(tier.evidence ?? [])])]
     .filter(generatedOutputDeclaration)
     .filter((declaration) => !dependencyDeclarations.some((dependency) => declarationsOverlap(declaration, dependency)))
@@ -588,7 +595,7 @@ export function effectiveCacheInputs(tier) {
     for (const value of ['src/frontend/package.json', 'tests/frontend', 'src/frontend/vitest*.config.ts', 'src/frontend/vitest.shared.mjs']) inputs.add(value)
   }
 
-  const dependencyOnlyAggregate = (tier.dependsOn?.length ?? 0) > 0 && /tools\/test\/lanes\/noop\.sh\b/u.test(String(tier.command))
+  const dependencyOnlyAggregate = tierExecutionDependencies(tier).length > 0 && /tools\/test\/lanes\/noop\.sh\b/u.test(String(tier.command))
   if (!hasDeclaredInputs && !dependencyOnlyAggregate && (tier.triggerPaths?.length ?? 0) === 0 && (tier.triggerFiles?.length ?? 0) === 0) {
     inputs.add('tools')
     const backend = tier.requiresDotnet === true || tier.owner === 'ServerContractAgent' || ['backend', 'full'].includes(tier.cacheProfile)
@@ -809,7 +816,7 @@ function criticalPath(tiers, tierResults) {
   const selectedIds = new Set(tiers.map((tier) => tier.id))
   const paths = new Map()
   for (const tier of tiers) {
-    const dependencies = (tier.dependsOn ?? []).filter((dependencyId) => selectedIds.has(dependencyId))
+    const dependencies = tierExecutionDependencies(tier).filter((dependencyId) => selectedIds.has(dependencyId))
     const longestDependency = dependencies
       .map((dependencyId) => paths.get(dependencyId) ?? { durationMs: 0, tierIds: [] })
       .sort((left, right) => right.durationMs - left.durationMs)[0] ?? { durationMs: 0, tierIds: [] }
@@ -2155,9 +2162,9 @@ async function runDagUnlocked(options) {
       })
   let deadlineExpired = false
 
-  const dependenciesReady = (tier) => (tier.dependsOn ?? []).every((dependencyId) => completed.has(dependencyId) || !byId.has(dependencyId))
-  const failedDependencies = (tier) => (tier.dependsOn ?? []).filter((dependencyId) => failed.has(dependencyId))
-  const dependencyFingerprint = (tier) => fingerprint((tier.dependsOn ?? []).map((dependencyId) => ({
+  const dependenciesReady = (tier) => tierExecutionDependencies(tier).every((dependencyId) => completed.has(dependencyId) || !byId.has(dependencyId))
+  const failedDependencies = (tier) => tierExecutionDependencies(tier).filter((dependencyId) => failed.has(dependencyId))
+  const dependencyFingerprint = (tier) => fingerprint(tierExecutionDependencies(tier).map((dependencyId) => ({
     id: dependencyId,
     fingerprint: resultFingerprints.get(dependencyId) ?? 'external'
   })))
@@ -2793,7 +2800,7 @@ async function runDagUnlocked(options) {
           schedulerWaitLedger.observe(tier.id, { dependencies: [`phase:${barrierPhase}`] })
           continue
         }
-        const dependencies = (tier.dependsOn ?? []).filter((dependencyId) => byId.has(dependencyId) && !completed.has(dependencyId))
+        const dependencies = tierExecutionDependencies(tier).filter((dependencyId) => byId.has(dependencyId) && !completed.has(dependencyId))
         if (dependencies.length > 0) {
           schedulerWaitLedger.observe(tier.id, { dependencies })
           continue

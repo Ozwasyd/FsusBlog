@@ -1,7 +1,11 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { parseMatrix, parseMatrixValue as parseValue } from '../../test-matrix/parse-matrix.mjs'
+import {
+  parseMatrix,
+  parseMatrixValue as parseValue,
+  tierExecutionDependencies
+} from '../../test-matrix/parse-matrix.mjs'
 
 export const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..'))
 export { parseMatrix, parseValue }
@@ -26,7 +30,7 @@ export function planTier(matrix, requestedId) {
     if (visited.has(id)) return
     const tier = byId.get(id)
     if (!tier) throw new Error(`missing dependency: ${id}`)
-    for (const dep of tier.dependsOn ?? []) visit(dep)
+    for (const dep of tierExecutionDependencies(tier)) visit(dep)
     visited.add(id)
     planned.push(tier)
   }

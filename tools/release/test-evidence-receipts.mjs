@@ -10,6 +10,11 @@ export const releaseFinalTestEvidenceBindingSchema = 'fsusblog.release-final-tes
 const browserContractReceiptSchema = 'fsusblog.browser-contract-receipt.v2';
 const productionBuildReceiptSchema = 'fsusblog.ci-production-build-receipt.v1';
 
+function tierExecutionDependencies(tier)
+{
+    return tier?.executionDependsOn ?? tier?.dependsOn ?? [];
+}
+
 function canonicalize(value)
 {
     if (Array.isArray(value))
@@ -235,7 +240,7 @@ export function productionCorrectnessTierClosure(matrix)
         {
             throw new Error(`browserless correctness matrix is missing tier ${id}`);
         }
-        for (const dependency of tier.dependsOn ?? [])
+        for (const dependency of tierExecutionDependencies(tier))
         {
             visit(dependency);
         }

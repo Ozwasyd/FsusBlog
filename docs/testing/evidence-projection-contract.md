@@ -21,9 +21,25 @@ A projection tier declares all of the following in `tests/matrix.yml`:
 - a checked-in `projectionCatalog`;
 - exact, sorted `requiredTestIds` and `requiredCoverageIds`;
 - exact, sorted `requiredArtifactDeclarations`;
-- `dependsOn` and `requiresEvidenceFrom` containing `projectFrom`.
+- `executionDependsOn: []` and `requiresEvidenceFrom` containing `projectFrom`.
 
 Projection tiers are Node-only, low-cost I/O steps. They cannot declare bootstrap services, exclusive resources, .NET, Playwright, execution caches, or another command entry point. The matrix validator rejects incomplete or ambiguous declarations before scheduling.
+
+## Dependency and summary authority
+
+`executionDependsOn` is the only scheduler DAG edge. `requiresEvidenceFrom`
+declares receipt inputs and never schedules or executes a producer. Projection and
+summary tiers therefore keep an empty execution dependency list while naming every
+producer whose typed receipt they consume.
+
+Every summary tier declares `executionMode: summary`, its `commandKind`,
+`summaryAuthority`, exact sorted `summaryInputs`, and `outputReceiptSchema`.
+`aggregateAuthorities` and `receiptAuthorities` are the executable authority
+registry: the shared planners validate the selected tiers, typed receipt schemas,
+commands, and permission boundary before either the runner or generated
+documentation can publish a command. Receipt authorities use the canonical Node
+permission command with only their declared filesystem reads and writes; child
+processes and workers remain denied.
 
 ## Producer and projection receipts
 
@@ -48,6 +64,7 @@ coverage, and artifact checks. Object storage never relaxes projection validatio
 ## Local verification
 
 ```bash
+npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit
 node tools/run-test-matrix.mjs validate
 node --test tests/tools/evidence-projection.test.mjs
 node tools/run-test-matrix.mjs docs

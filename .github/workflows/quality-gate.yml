@@ -39,6 +39,7 @@ jobs:
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - run: tools/test/run-matrix-governance-once.sh validate-matrix
             - run: node tools/test/check-physical-execution-consumer-evidence.mjs .tmp/physical-execution-projections/validate-matrix-matrix-governance.json
             - run: node tools/moderation/provider-conformance.mjs --provider schema-only
@@ -186,7 +187,7 @@ jobs:
         runs-on: ubuntu-latest
         needs: [plan-pr-risk, fast-backend, fast-frontend-unit]
         if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.coverage_merge_threshold == 'true'
-        timeout-minutes: 90
+        timeout-minutes: 10
         env:
             FSUSBLOG_COVERAGE_LINE_THRESHOLD: "35"
             FSUSBLOG_COVERAGE_BRANCH_THRESHOLD: "20"
@@ -212,7 +213,6 @@ jobs:
                   path: .
             - run: ./tools/test.sh coverage-merge --no-deps
             - run: ./tools/test.sh coverage-threshold --no-deps
-            - run: ./tools/test.sh coverage-gate --no-deps
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
               if: always()
               with:
@@ -223,6 +223,34 @@ jobs:
                   path: |
                       .tmp/coverage/**
                       .tmp/release-evidence/jobs/**
+
+    coverage-summary:
+        name: Coverage Summary
+        runs-on: ubuntu-latest
+        needs: [coverage-merge-threshold]
+        if: always() && needs.coverage-merge-threshold.result == 'success'
+        timeout-minutes: 90
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: coverage-merge-threshold
+                  path: .tmp/downloaded-artifacts/coverage-merge-threshold
+            - name: Aggregate coverage evidence
+              env:
+                  QUALITY_GATE_NEEDS_JSON: ${{ toJson(needs) }}
+              run: node tools/run-test-matrix.mjs aggregate coverage-merge-threshold
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: coverage-summary
+                  if-no-files-found: ignore
+                  retention-days: 14
+                  include-hidden-files: true
+                  path: .tmp/release-evidence/jobs/**
 
     fast-backend:
         name: Fast Backend DAG
@@ -379,6 +407,7 @@ jobs:
                   path: .
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix tools/frontend/style-toolchain ci --ignore-scripts --no-audit --progress=false
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - run: ./tools/test.sh ci-tier frontend-static-governance --no-deps
             - name: Run browserless frontend structure budgets
               run: ./tools/test.sh ci-tier frontend-render-structure --no-deps
@@ -404,6 +433,7 @@ jobs:
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - run: node tools/db/migration-doc-lint.mjs
             - run: ./tools/test.sh static-governance --no-deps
             - run: ./tools/test.sh app-config-local-tuning --no-deps
@@ -576,6 +606,38 @@ jobs:
                       .tmp/scale/**
                       .tmp/release-evidence/rights-v3-test-matrix.json
                       .tmp/release-evidence/jobs/**
+
+    ci-summary:
+        name: CI Summary
+        runs-on: ubuntu-latest
+        needs: [fast-summary, integration-runtime]
+        if: always() && github.event_name != 'pull_request'
+        timeout-minutes: 70
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: fast-summary
+                  path: .tmp/downloaded-artifacts/fast-summary
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: integration-runtime
+                  path: .tmp/downloaded-artifacts/integration-runtime
+            - name: Aggregate CI evidence
+              env:
+                  QUALITY_GATE_NEEDS_JSON: ${{ toJson(needs) }}
+              run: node tools/run-test-matrix.mjs aggregate ci-summary
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: ci-summary
+                  if-no-files-found: ignore
+                  retention-days: 14
+                  include-hidden-files: true
+                  path: .tmp/release-evidence/jobs/**
 
     endpoint-depth-runtime:
         name: Endpoint Depth Runtime
@@ -1061,7 +1123,7 @@ jobs:
         name: Release Evidence
         runs-on: ubuntu-latest
         needs:
-            - coverage-merge-threshold
+            - coverage-summary
             - fast-backend
             - frontend-build
             - fast-frontend-unit
@@ -1111,7 +1173,7 @@ jobs:
             - plan-pr-risk
             - validate-matrix
             - production-build-artifacts
-            - coverage-merge-threshold
+            - coverage-summary
             - fast-backend
             - frontend-build
             - fast-frontend-unit

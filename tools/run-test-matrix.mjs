@@ -31,7 +31,10 @@ import {
   validateLocalProfiles
 } from './test-matrix/local-profile.mjs'
 import { parseMatrix } from './test-matrix/parse-matrix.mjs'
-import { buildAggregatePlan as buildAggregateReachabilityPlan } from './test-matrix/aggregate-plan.mjs';
+import {
+  buildAggregatePlan as buildAggregateReachabilityPlan,
+  buildReceiptPlan as buildReceiptReachabilityPlan
+} from './test-matrix/aggregate-plan.mjs';
 import { validateEvidenceExecutionDeclaration } from './test-matrix/projection-declaration.mjs';
 import { parseWorkflowJobNeeds } from './yaml/workflow-structure.mjs'
 import { assertLocalProductionCapacity, cleanLocalProductionOutputs } from './test-matrix/fresh-production.mjs'
@@ -56,6 +59,7 @@ const matrixFile = process.env.FSUSBLOG_MATRIX_FILE
   ? path.resolve(root, process.env.FSUSBLOG_MATRIX_FILE)
   : path.join(root, 'tests/matrix.yml')
 const schemaFile = path.join(root, 'tests/matrix.schema.json')
+const schemaValidatorFile = path.join(root, 'tools/test-matrix/schema-validator/validate.mjs')
 const coverageRegistryFile = process.env.FSUSBLOG_COVERAGE_REGISTRY_FILE
   ? path.resolve(root, process.env.FSUSBLOG_COVERAGE_REGISTRY_FILE)
   : path.join(root, 'tests/coverage-registry.json')
@@ -117,7 +121,7 @@ const requiredFields = [
   'id',
   'owner',
   'command',
-  'dependsOn',
+  'executionDependsOn',
   'services',
   'parallelizable',
   'exclusiveResources',
@@ -182,6 +186,10 @@ function relativeToRoot(filePath) {
 
 function tierMap(matrix) {
   return new Map(matrix.tiers.map((tier) => [tier.id, tier]))
+}
+
+function tierExecutionDependencies(tier) {
+  return tier?.executionDependsOn ?? tier?.dependsOn ?? []
 }
 
 function logicalTierSystemResources() {
@@ -434,20 +442,28 @@ function validateFrontendFastSplit(matrix, byId) {
 
   const summary = byId.get('frontend-fast-summary')
   if (summary) {
-    const actual = new Set(summary.dependsOn ?? [])
+    const actual = new Set(summary.requiresEvidenceFrom ?? [])
     const expected = new Set(frontendFastExecutableSplitIds)
     if (!sameSet(actual, expected)) {
-      errors.push(`frontend-fast-summary.dependsOn must be ${frontendFastExecutableSplitIds.join(',')}`)
+      errors.push(`frontend-fast-summary.requiresEvidenceFrom must be ${frontendFastExecutableSplitIds.join(',')}`)
+    }
+    if (tierExecutionDependencies(summary).length > 0) {
+      errors.push('frontend-fast-summary.executionDependsOn must be empty')
     }
   }
 
   const fast = byId.get('fast')
   if (fast) {
-    if ((fast.dependsOn ?? []).includes('frontend-fast')) {
-      errors.push('fast must not depend on deprecated frontend-fast')
+    if ((fast.requiresEvidenceFrom ?? []).includes('frontend-fast')) {
+      errors.push('fast must not require evidence from deprecated frontend-fast')
     }
-    if (!(fast.dependsOn ?? []).includes('frontend-fast-summary')) {
-      errors.push('fast must depend on frontend-fast-summary')
+    for (const tierId of frontendFastExecutableSplitIds) {
+      if (!(fast.requiresEvidenceFrom ?? []).includes(tierId)) {
+        errors.push(`fast must require evidence from ${tierId}`)
+      }
+    }
+    if (tierExecutionDependencies(fast).length > 0) {
+      errors.push('fast.executionDependsOn must be empty')
     }
   }
 
@@ -472,6 +488,25 @@ function cacheInputCoversSource(patternValue, sourcePath) {
   return new RegExp(`^${escaped}$`, 'u').test(sourcePath)
 }
 
+function validateMatrixSchema(matrix) {
+  if (!fs.existsSync(schemaFile)) return ['missing tests/matrix.schema.json']
+  const result = spawnSync(process.execPath, [schemaValidatorFile, schemaFile], {
+    cwd: root,
+    encoding: 'utf8',
+    input: JSON.stringify(matrix),
+    maxBuffer: 16 * 1024 * 1024
+  })
+  if (result.status !== 0) {
+    const detail = result.stderr.trim() || `validator exited with ${result.status}`
+    return [`matrix schema validator failed: ${detail}`]
+  }
+  try {
+    return JSON.parse(result.stdout).map((error) => `schema ${error}`)
+  } catch (error) {
+    return [`matrix schema validator returned invalid output: ${error.message}`]
+  }
+}
+
 function validateMatrix(matrix) {
   const errors = []
   const ids = new Set()
@@ -481,7 +516,7 @@ function validateMatrix(matrix) {
     if (seen.has(tierId)) return false
     seen.add(tierId)
     const tier = byId.get(tierId)
-    for (const dep of tier?.dependsOn ?? []) {
+    for (const dep of tierExecutionDependencies(tier)) {
       if (dep === 'bootstrap' || hasBootstrapDependencyPath(dep, seen)) return true
     }
     return false
@@ -490,8 +525,14 @@ function validateMatrix(matrix) {
   if (matrix.version !== 'fsusblog-test-matrix-v2') {
     errors.push(`version must be fsusblog-test-matrix-v2, got ${matrix.version ?? 'missing'}`)
   }
-  if (!fs.existsSync(schemaFile)) {
-    errors.push('missing tests/matrix.schema.json')
+  errors.push(...validateMatrixSchema(matrix))
+  for (const authorityId of Object.keys(matrix.aggregateAuthorities ?? {}).sort()) {
+    errors.push(...buildAggregateReachabilityPlan(matrix, authorityId).errors
+      .map((error) => `aggregateAuthorities.${authorityId}: ${error}`))
+  }
+  for (const authorityId of Object.keys(matrix.receiptAuthorities ?? {}).sort()) {
+    errors.push(...buildReceiptReachabilityPlan(matrix, authorityId, { root }).errors
+      .map((error) => `receiptAuthorities.${authorityId}: ${error}`))
   }
   if (!Array.isArray(matrix.tiers) || matrix.tiers.length === 0) {
     errors.push('tiers must be a non-empty list')
@@ -558,16 +599,14 @@ function validateMatrix(matrix) {
     for (const field of requiredFields) {
       if (!(field in tier)) errors.push(`${tier.id} missing ${field}`)
     }
-        errors.push(...validateEvidenceExecutionDeclaration(tier, matrix));
-        for (const field of ['dependsOn', 'services', 'exclusiveResources', 'coverage', 'artifacts', 'evidence'])
-{
-            if (!Array.isArray(tier[field])) {errors.push(`${tier.id}.${field} must be an array`)};
-        }
-        errors.push(...validateTierTopology(tier));
-        for (const field of ['supersedes', 'cacheInputs'])
-{
-            if (field in tier && !Array.isArray(tier[field])) {errors.push(`${tier.id}.${field} must be an array`)};
-        }
+    errors.push(...validateEvidenceExecutionDeclaration(tier, matrix))
+    for (const field of ['executionDependsOn', 'services', 'exclusiveResources', 'coverage', 'artifacts', 'evidence']) {
+      if (!Array.isArray(tier[field])) errors.push(`${tier.id}.${field} must be an array`)
+    }
+    errors.push(...validateTierTopology(tier))
+    for (const field of ['supersedes', 'cacheInputs']) {
+      if (field in tier && !Array.isArray(tier[field])) errors.push(`${tier.id}.${field} must be an array`)
+    }
     const commandSource = commandSourcePath(tier.command)
     if ((tier.cacheInputs?.length ?? 0) > 0 && commandSource && !tier.cacheInputs.some((input) => cacheInputCoversSource(input, commandSource))) {
       errors.push(`${tier.id}.cacheInputs must cover command source ${commandSource}`)
@@ -720,7 +759,7 @@ function validateMatrix(matrix) {
     if (tier.parallelizable === true && 'maxParallel' in tier) {
       errors.push(`${tier.id}.maxParallel is machine-resolved and must be omitted when parallelizable=true`)
     }
-    for (const dep of tier.dependsOn ?? []) {
+    for (const dep of tierExecutionDependencies(tier)) {
       const depTier = byId.get(dep)
       if (!depTier) {
         errors.push(`${tier.id} depends on missing tier ${dep}`)
@@ -767,7 +806,7 @@ function validateMatrix(matrix) {
     }
     visiting.add(id)
     const tier = byId.get(id)
-    for (const dep of tier?.dependsOn ?? []) visit(dep, [...stack, id])
+    for (const dep of tierExecutionDependencies(tier)) visit(dep, [...stack, id])
     visiting.delete(id)
     visited.add(id)
   }
@@ -780,7 +819,7 @@ function validateMatrix(matrix) {
       const tier = byId.get(id)
       if (!tier) return
       closure.add(id)
-      for (const dependency of tier.dependsOn ?? []) collect(dependency)
+      for (const dependency of tierExecutionDependencies(tier)) collect(dependency)
     }
     collect(targetId)
     return closure
@@ -803,7 +842,7 @@ function validateMatrix(matrix) {
   }
 
   const productionAlias = byId.get('production')
-  if (productionAlias && JSON.stringify(productionAlias.dependsOn ?? []) !== JSON.stringify(['production-correctness'])) {
+  if (productionAlias && JSON.stringify(tierExecutionDependencies(productionAlias)) !== JSON.stringify(['production-correctness'])) {
     errors.push('production compatibility tier must depend only on production-correctness')
   }
 
@@ -819,7 +858,7 @@ function validateMatrix(matrix) {
     || browserContract.requiredFor !== 'release-final'
     || browserContract.ciJob !== 'browser-contract'
     || browserContract.selfBootstraps !== true
-    || JSON.stringify(browserContract.dependsOn ?? []) !== JSON.stringify(['production-build-artifacts'])
+    || JSON.stringify(tierExecutionDependencies(browserContract)) !== JSON.stringify(['production-build-artifacts'])
   ) {
     errors.push('browser-contract must be one self-bootstrapped, unsharded 10m Chromium tier consuming only production-build-artifacts')
   }
@@ -831,7 +870,7 @@ function validateMatrix(matrix) {
     if (releaseFinal.requiresPlaywright !== 'none' || releaseFinal.evidenceClass !== 'correctness') {
       errors.push('release-final aggregate must use evidenceClass=correctness and must not install or launch Playwright itself')
     }
-    if (!(releaseFinal.dependsOn ?? []).includes('production-correctness') || !(releaseFinal.dependsOn ?? []).includes('browser-contract')) {
+    if (!tierExecutionDependencies(releaseFinal).includes('production-correctness') || !tierExecutionDependencies(releaseFinal).includes('browser-contract')) {
       errors.push('release-final must depend on production-correctness and browser-contract')
     }
     const browserDependencies = [...dependencyClosure('release-final')]
@@ -857,7 +896,7 @@ function planTier(matrix, requestedId) {
     if (visited.has(id)) return
     const tier = byId.get(id)
     if (!tier) throw new Error(`missing dependency: ${id}`)
-    for (const dep of tier.dependsOn) visit(dep)
+    for (const dep of tierExecutionDependencies(tier)) visit(dep)
     visited.add(id)
     planned.push(tier)
   }
@@ -868,7 +907,8 @@ function planTier(matrix, requestedId) {
 
 function printPlan(tiers) {
   for (const [index, tier] of tiers.entries()) {
-    const deps = tier.dependsOn.length > 0 ? ` deps=${tier.dependsOn.join(',')}` : ''
+    const dependencies = tierExecutionDependencies(tier)
+    const deps = dependencies.length > 0 ? ` deps=${dependencies.join(',')}` : ''
     const shard = tier.shardable ? ` shards=${tier.defaultShards}` : ''
     const timeout = Number.isFinite(Number(tier.budgetMs)) && Number(tier.budgetMs) > 0
       ? `${Math.ceil(Number(tier.budgetMs) / 60_000)}m`
@@ -2048,7 +2088,7 @@ function ciJobMaxParallel(tiers) {
 }
 
 function internalCiJobDependencies(tier, tierIds) {
-  return (tier.dependsOn ?? []).filter((dependencyId) => tierIds.has(dependencyId))
+  return tierExecutionDependencies(tier).filter((dependencyId) => tierIds.has(dependencyId))
 }
 
 function activeResourceClassCount(active, resourceClass) {
@@ -2353,20 +2393,6 @@ function generatedMatrixSummaryIds(matrix, jobId) {
   return [jobId]
 }
 
-function aggregateDependencyJobs(matrix, summaryTiers, jobId) {
-  const byId = tierMap(matrix)
-  const jobs = new Set()
-  for (const tier of summaryTiers) {
-    for (const dependencyId of tier.dependsOn ?? []) {
-      const dependency = byId.get(dependencyId)
-      if (!dependency) throw new Error(`${tier.id} depends on missing tier ${dependencyId}`)
-      if (dependency.ciJob === jobId) continue
-      jobs.add(dependency.ciJob)
-    }
-  }
-  return [...jobs].sort()
-}
-
 function aggregateRequiredPaths(matrix, dependencyJobs, summaryTiers) {
   const paths = new Set()
   const addTierPaths = (tier) => {
@@ -2392,13 +2418,19 @@ function requiresAggregateArtifact(value) {
 function buildAggregatePlan(matrix, jobId) {
   const reachability = buildAggregateReachabilityPlan(matrix, jobId)
   if (reachability.errors.length > 0) throw new Error(reachability.errors[0])
-  const summaryTiers = ciJobTiers(matrix, reachability.ciJob)
+  const byId = tierMap(matrix)
+  const summaryTiers = reachability.selectedTierIds.map((tierId) => byId.get(tierId)).filter(Boolean)
   const dependencyJobs = reachability.dependencyJobs
+  const receiptJobs = [...new Set(reachability.dependencyReceipts.map((receipt) => receipt.jobId))].sort()
+  const requiredArtifactPaths = new Set(aggregateRequiredPaths(matrix, dependencyJobs, summaryTiers))
+  for (const receiptInput of reachability.requiredReceiptInputs) {
+    if (requiresAggregateArtifact(receiptInput)) requiredArtifactPaths.add(receiptInput)
+  }
   return {
     ...reachability,
     dependencyJobs,
-    requiredJobSummaries: dependencyJobs.flatMap((dependencyJob) => generatedMatrixSummaryIds(matrix, dependencyJob)).sort(),
-    requiredArtifactPaths: aggregateRequiredPaths(matrix, dependencyJobs, summaryTiers),
+    requiredJobSummaries: receiptJobs.flatMap((receiptJob) => generatedMatrixSummaryIds(matrix, receiptJob)).sort(),
+    requiredArtifactPaths: [...requiredArtifactPaths].sort(),
     localReproduction: `node tools/run-test-matrix.mjs aggregate ${jobId}`
   }
 }
@@ -2466,7 +2498,7 @@ function aggregateCiJob(matrix, jobId, args) {
   }
 
   const startedAt = Date.now()
-  const summaryTier = ciJobTiers(matrix, jobId)[0]
+  const summaryTier = tierMap(matrix).get(plan.selectedTierIds[0])
   const errors = githubNeedsErrors(options.githubNeedsJson, plan.dependencyJobs)
   const summaries = loadJobSummaries()
 
@@ -2586,7 +2618,7 @@ function buildCiPlan(matrix, format) {
   const byId = tierMap(matrix)
   for (const tier of matrix.tiers) {
     const job = jobs.get(tier.ciJob)
-    for (const dep of tier.dependsOn) {
+    for (const dep of tierExecutionDependencies(tier)) {
       const depJob = byId.get(dep)?.ciJob
       if (depJob && depJob !== tier.ciJob) job.needs.add(depJob)
     }
@@ -3049,7 +3081,7 @@ function docs(matrix, outFile) {
       tier.requiresDotnet ? 'yes' : 'no',
       tier.requiresPlaywright,
       tier.cacheProfile,
-      tier.dependsOn.length > 0 ? tier.dependsOn.map((id) => `\`${id}\``).join(', ') : '-',
+      tierExecutionDependencies(tier).length > 0 ? tierExecutionDependencies(tier).map((id) => `\`${id}\``).join(', ') : '-',
       tier.services.length > 0 ? tier.services.join(', ') : '-',
       tier.shardable ? 'machine' : 'single',
       `${tier.timeoutMinutes}m`,
@@ -3087,7 +3119,7 @@ function evidencePlan(matrix, outFile) {
       id: tier.id,
       ciJob: tier.ciJob,
       command: tier.command,
-      dependsOn: tier.dependsOn,
+      executionDependsOn: tierExecutionDependencies(tier),
       timeoutMinutes: tier.timeoutMinutes,
       phase: tier.phase,
       cost: tier.cost,

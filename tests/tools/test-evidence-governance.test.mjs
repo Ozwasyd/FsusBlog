@@ -6,7 +6,7 @@ import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
-import { parseMatrix } from '../../tools/test-matrix/parse-matrix.mjs'
+import { parseMatrix, tierExecutionDependencies } from '../../tools/test-matrix/parse-matrix.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8')
@@ -18,7 +18,7 @@ function dependencyClosure(id, seen = new Set()) {
   const tier = tiers.get(id)
   assert.ok(tier, `missing matrix tier ${id}`)
   seen.add(id)
-  for (const dependency of tier.dependsOn ?? []) dependencyClosure(dependency, seen)
+  for (const dependency of tierExecutionDependencies(tier)) dependencyClosure(dependency, seen)
   return seen
 }
 

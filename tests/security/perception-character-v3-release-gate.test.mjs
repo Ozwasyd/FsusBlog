@@ -151,11 +151,11 @@ test('production and release-final share one physical corpus and benchmark tier'
     );
     assert.match(
         matrix,
-        /- id: release-evidence[\s\S]*?dependsOn:[\s\S]*?perception-character-v3-release-gate/u
+        /- id: release-evidence[\s\S]*?executionDependsOn:[\s\S]*?perception-character-v3-release-gate/u
     );
     assert.match(
         matrix,
-        /- id: release-final[\s\S]*?dependsOn:[\s\S]*?perception-character-v3-release-gate/u
+        /- id: release-final[\s\S]*?requiresEvidenceFrom:[\s\S]*?perception-character-v3-release-gate/u
     );
     assert.equal(
         (runner.match(/tools\/security\/perception-character-v3-release-corpus\.mjs/gmu) ?? []).length,

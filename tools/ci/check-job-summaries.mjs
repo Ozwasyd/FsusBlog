@@ -12,6 +12,10 @@ const allowedFailureStages = ['setup', 'restore', 'install', 'bootstrap', 'test'
 const releaseBrowsers = ['chromium', 'firefox', 'webkit']
 const jobResultSchema = 'fsusblog.ci.job-result.v1'
 const productionBuildVerificationSchema = 'fsusblog.ci-production-build-verification.v1'
+
+function tierExecutionDependencies(tier) {
+  return tier?.executionDependsOn ?? tier?.dependsOn ?? []
+}
 const jobSummaryOnlyFields = [
   'jobId',
   'ciJob',
@@ -134,7 +138,7 @@ function tierClosure(tiers, targetId) {
     if (included.has(id)) return
     const tier = byId.get(id)
     if (!tier) throw new Error(`unknown required tier: ${id}`)
-    for (const dep of tier.dependsOn ?? []) visit(dep)
+    for (const dep of tierExecutionDependencies(tier)) visit(dep)
     included.add(id)
   }
   visit(targetId)

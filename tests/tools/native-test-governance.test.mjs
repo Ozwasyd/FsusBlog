@@ -39,7 +39,7 @@ test('duplicate matrix owner fails closed', () => {
 
 test('duplicate production consumer fails exact-once validation', () => {
   const { catalog, matrix } = clonedGovernance()
-  matrix.tiers.find((entry) => entry.id === 'production-correctness').dependsOn.push('native-smoke')
+  matrix.tiers.find((entry) => entry.id === 'production-correctness').executionDependsOn.push('native-smoke')
   assert.match(validateNativeGovernance({ root, catalog, matrix }).join('\n'), /exactly once/)
 })
 

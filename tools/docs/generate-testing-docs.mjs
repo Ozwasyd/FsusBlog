@@ -2,7 +2,9 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
+import { fileURLToPath } from 'node:url'
 import { loadMatrix, relative, root } from './lib/matrix.mjs'
+import { buildAggregatePlan, buildReceiptPlan } from '../test-matrix/aggregate-plan.mjs'
 
 const groupDefinitions = [
   {
@@ -103,6 +105,21 @@ function tierSmartGateMode(tier) {
   return 'conditional'
 }
 
+function executionContractCell(tier) {
+  const mode = tier.executionMode ?? 'execute'
+  const fields = [`mode=${mode}`]
+  if (mode === 'summary') {
+    if (tier.summaryAuthority) fields.push(`authority=${tier.summaryAuthority}`)
+    if (tier.summaryInputs?.length) fields.push(`receiptInputs=${tier.summaryInputs.join(',')}`)
+  }
+  if (mode === 'projection') {
+    const producers = Array.isArray(tier.projectFrom) ? tier.projectFrom : [tier.projectFrom]
+    fields.push(`canonicalProducer=${producers.filter(Boolean).join(',') || '-'}`)
+  }
+  if (tier.outputReceiptSchema) fields.push(`output=${tier.outputReceiptSchema}`)
+  return fields.map((field) => `\`${field}\``).join('<br>')
+}
+
 function tierRow(tier) {
   return [
     `\`${tier.id}\``,
@@ -126,7 +143,9 @@ function tierRow(tier) {
     tier.requiresDotnet ? 'yes' : 'no',
     tier.requiresPlaywright,
     tier.cacheProfile,
-    tier.dependsOn.length > 0 ? tier.dependsOn.map((id) => `\`${id}\``).join(', ') : '-',
+    executionContractCell(tier),
+    (tier.executionDependsOn?.length ?? 0) > 0 ? tier.executionDependsOn.map((id) => `\`${id}\``).join(', ') : '-',
+    (tier.requiresEvidenceFrom?.length ?? 0) > 0 ? tier.requiresEvidenceFrom.map((id) => `\`${id}\``).join(', ') : '-',
     tier.services.length > 0 ? tier.services.join(', ') : '-',
     tier.shardable ? 'machine' : 'single',
     `${tier.timeoutMinutes}m`,
@@ -137,8 +156,8 @@ function tierRow(tier) {
 
 function tableFor(tiers) {
   const lines = [
-    '| Tier | CI job | Local command | Phase | Risk | Cadence | Required for | Evidence class | Smart gate | PR default | Retention | Trigger reason | Resource weights | Cost | Parallelism | PW workers | Bootstrap | Node | .NET | Playwright | Cache | Depends on | Services | Sharding | Timeout | Artifacts | Evidence |',
-    '|---|---|---|---:|---|---|---|---|---|---|---|---|---|---|---:|---:|---|---|---|---|---|---|---|---:|---:|---|---|'
+    '| Tier | CI job | Local command | Phase | Risk | Cadence | Required for | Evidence class | Smart gate | PR default | Retention | Trigger reason | Resource weights | Cost | Parallelism | PW workers | Bootstrap | Node | .NET | Playwright | Cache | Execution evidence contract | Execution depends on | Evidence inputs | Services | Sharding | Timeout | Artifacts | Evidence |',
+    '|---|---|---|---:|---|---|---|---|---|---|---|---|---|---|---:|---:|---|---|---|---|---|---|---|---|---|---:|---:|---|---|'
   ]
   for (const tier of tiers) {
     lines.push(tierRow(tier))
@@ -150,25 +169,44 @@ function isWorkflowTier(tier) {
   return tier.localOnly !== true && tier.nightlyOnly !== true && tier.manualOnly !== true
 }
 
-function ciJobExecutionMode(job) {
-  if (
-    job.id === 'fast-summary'
-    &&
-    job.tiers.length > 0
-    && job.tiers.every((tier) => String(tier.command).startsWith('tools/test/lanes/noop.sh '))
-    && job.tiers.some((tier) => (tier.dependsOn?.length ?? 0) > 0)
-  ) {
-    return 'aggregate'
+export function resolveCiJobExecution(matrix, job) {
+  const matches = []
+  for (const authority of Object.values(matrix.aggregateAuthorities ?? {})) {
+    if (authority?.ciJob !== job.id) continue
+    const plan = buildAggregatePlan(matrix, authority.id)
+    if (plan.errors.length > 0) {
+      throw new Error(`${job.id} aggregate authority ${authority.id} is invalid: ${plan.errors.join('; ')}`)
+    }
+    matches.push({
+      mode: 'aggregate',
+      authorityId: authority.id,
+      command: `node tools/run-test-matrix.mjs aggregate ${authority.id}`
+    })
   }
-  return 'test'
+  const tierIds = new Set(job.tiers.map((tier) => tier.id))
+  for (const authority of Object.values(matrix.receiptAuthorities ?? {})) {
+    if (!(authority?.summaryTierIds ?? []).some((tierId) => tierIds.has(tierId))) continue
+    const plan = buildReceiptPlan(matrix, authority.id, { root })
+    if (plan.errors.length > 0) {
+      throw new Error(`${job.id} receipt authority ${authority.id} is invalid: ${plan.errors.join('; ')}`)
+    }
+    matches.push({
+      mode: 'receipt',
+      authorityId: authority.id,
+      command: authority.command
+    })
+  }
+  if (matches.length > 1) {
+    throw new Error(`${job.id} resolves multiple execution authorities: ${matches.map((entry) => entry.authorityId).join(', ')}`)
+  }
+  return matches[0] ?? {
+    mode: 'test',
+    authorityId: null,
+    command: `./tools/test.sh ci-job ${job.id}`
+  }
 }
 
-function ciJobReproductionCommand(job) {
-  if (ciJobExecutionMode(job) === 'aggregate') return `node tools/run-test-matrix.mjs aggregate ${job.id}`
-  return `./tools/test.sh ci-job ${job.id}`
-}
-
-function ciJobRows(matrix) {
+export function ciJobRows(matrix) {
   const combineCacheProfile = (left, right) => {
     const frontend = left === 'frontend' || left === 'full' || right === 'frontend' || right === 'full'
     const backend = left === 'backend' || left === 'full' || right === 'backend' || right === 'full'
@@ -196,10 +234,11 @@ function ciJobRows(matrix) {
     '|---|---|---|---|---|---:|---|---:|---:|---:|---:|'
   ]
   for (const job of [...jobs.values()].sort((left, right) => left.id.localeCompare(right.id))) {
+    const execution = resolveCiJobExecution(matrix, job)
     lines.push([
       `\`${job.id}\``,
-      `\`${ciJobExecutionMode(job)}\``,
-      `\`${ciJobReproductionCommand(job)}\``,
+      `\`${execution.mode}\``,
+      `\`${execution.command}\``,
       job.tiers.map((tier) => `\`${tier.id}\``).join(', '),
       [...job.evidenceClasses].sort().join(', '),
       String(job.phase ?? 0),
@@ -305,4 +344,4 @@ function main() {
   console.log(`[testing-docs] wrote ${relative(outFile)}`)
 }
 
-main()
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main()

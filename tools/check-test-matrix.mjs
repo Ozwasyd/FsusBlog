@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { parseMatrix } from './test-matrix/parse-matrix.mjs'
+import { parseMatrix, tierExecutionDependencies } from './test-matrix/parse-matrix.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
 const matrixSourceText = fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8')
@@ -44,8 +44,8 @@ function validateStructuredToolWiring() {
     const tier = tiers.get(tierId)
     requireCondition(Boolean(tier), `structured matrix is missing tier ${tierId}`)
     requireCondition(
-      JSON.stringify(tier.dependsOn ?? []) === JSON.stringify(expected),
-      `${tierId}.dependsOn must equal ${expected.join(', ')}`
+      JSON.stringify(tierExecutionDependencies(tier)) === JSON.stringify(expected),
+      `${tierId}.executionDependsOn must equal ${expected.join(', ')}`
     )
   }
   requireTierDependencies('data-scale-evidence-summary', ['data-scale-xs', 'data-scale-s'])
@@ -54,7 +54,7 @@ function validateStructuredToolWiring() {
     'load-peak',
     'backend-benchmark-regression'
   ])
-  const releaseDependencies = new Set(tiers.get('release-evidence')?.dependsOn ?? [])
+  const releaseDependencies = new Set(tierExecutionDependencies(tiers.get('release-evidence')))
   for (const aggregate of ['data-scale-evidence-summary', 'performance-evidence-summary']) {
     requireCondition(releaseDependencies.has(aggregate), `release-evidence must depend on ${aggregate}`)
   }
@@ -345,7 +345,7 @@ expectMatrixValidateFailure(
 )
 
 expectMatrixValidateFailure(
-  replaceTierField(matrixSourceText, 'integration', 'dependsOn', '[]'),
+  replaceTierField(matrixSourceText, 'integration', 'executionDependsOn', '[]'),
   'integration.requiresBootstrap=full needs dependency path to bootstrap, selfBootstraps=true, or workflowBootstraps=true',
   'validate must reject runtime tiers without an explicit bootstrap source'
 )
@@ -408,7 +408,7 @@ expectMatrixValidateFailure(
 )
 
 expectMatrixValidateFailure(
-  replaceTierField(matrixSourceText, 'production-correctness', 'dependsOn', '[fast, acceptance]'),
+  replaceTierField(matrixSourceText, 'production-correctness', 'executionDependsOn', '[fast, acceptance]'),
   'production-correctness dependency closure must be browserless: acceptance',
   'production correctness must reject any transitive Playwright tier'
 )
@@ -432,7 +432,7 @@ expectMatrixValidateFailure(
 )
 
 expectMatrixValidateFailure(
-  replaceTierField(matrixSourceText, 'release-final', 'dependsOn', '[production-correctness, browser-contract, acceptance]'),
+  replaceTierField(matrixSourceText, 'release-final', 'executionDependsOn', '[production-correctness, browser-contract, acceptance]'),
   'release-final dependency closure must contain only browser-contract as a browser tier: acceptance, browser-contract',
   'release-final must reject a second browser dependency'
 )
@@ -748,8 +748,8 @@ requireFileIncludes(
     production?.requiresPlaywright === 'none'
       && production?.requiredFor === 'production'
       && production?.evidenceClass === 'correctness'
-      && production?.dependsOn?.includes('release-evidence')
-      && !production?.dependsOn?.includes('acceptance'),
+      && tierExecutionDependencies(production).includes('release-evidence')
+      && !tierExecutionDependencies(production).includes('acceptance'),
     'production-correctness must be the browserless production aggregate'
   )
   requireCondition(
@@ -772,8 +772,8 @@ requireFileIncludes(
   requireCondition(
     releaseFinal?.requiresPlaywright === 'none'
       && releaseFinal?.evidenceClass === 'correctness'
-      && releaseFinal?.dependsOn?.includes('production-correctness')
-      && releaseFinal?.dependsOn?.includes('browser-contract'),
+      && tierExecutionDependencies(releaseFinal).includes('production-correctness')
+      && tierExecutionDependencies(releaseFinal).includes('browser-contract'),
     'release-final must aggregate browserless correctness and exactly one Browser Contract'
   )
 }
@@ -932,7 +932,7 @@ requireCondition(
 requireCondition(
   structuredTiers.get('visual')?.owner === 'InteropGlueAgent'
     && structuredTiers.get('visual')?.command === 'tools/test/lanes/visual-screenshots-aggregate.sh'
-    && JSON.stringify(structuredTiers.get('visual')?.dependsOn) === JSON.stringify(['visual-public', 'visual-console']),
+    && JSON.stringify(tierExecutionDependencies(structuredTiers.get('visual'))) === JSON.stringify(['visual-public', 'visual-console']),
   'visual screenshot checks must have a final aggregate tier'
 )
 requireCondition(

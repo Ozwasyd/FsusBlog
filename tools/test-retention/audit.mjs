@@ -5,6 +5,10 @@ import path from 'node:path'
 
 import { snapshotGitWorktree } from '../test-matrix/scheduler.mjs'
 
+function tierExecutionDependencies(tier) {
+  return tier?.executionDependsOn ?? tier?.dependsOn ?? []
+}
+
 const safetyRiskPatterns = [
   ['security', /security|auth|permission|passkey|pow|csrf|credential|privacy|anonymous/iu],
   ['protocol', /aeds|binary|protocol|codec|contract|frame/iu],
@@ -190,11 +194,25 @@ export function buildRetentionCatalogSnapshot({
 }) {
   const tiers = matrix?.tiers ?? []
   const tiersById = new Map(tiers.map((tier) => [tier?.id, tier]))
+  const summariesByAuthority = new Map()
+  for (const tier of tiers) {
+    if (tier?.executionMode !== 'summary' || !String(tier.summaryAuthority ?? '').trim()) continue
+    const siblingIds = summariesByAuthority.get(tier.summaryAuthority) ?? []
+    siblingIds.push(tier.id)
+    summariesByAuthority.set(tier.summaryAuthority, siblingIds)
+  }
   const productionRequiredTierIds = new Set()
   const visitProductionDependency = (tierId) => {
     if (!tierId || productionRequiredTierIds.has(tierId)) return
     productionRequiredTierIds.add(tierId)
-    for (const dependencyId of tiersById.get(tierId)?.dependsOn ?? []) visitProductionDependency(dependencyId)
+    const tier = tiersById.get(tierId)
+    for (const siblingId of summariesByAuthority.get(tier?.summaryAuthority) ?? []) {
+      visitProductionDependency(siblingId)
+    }
+    for (const dependencyId of [
+      ...tierExecutionDependencies(tier),
+      ...(tier?.requiresEvidenceFrom ?? [])
+    ]) visitProductionDependency(dependencyId)
   }
   visitProductionDependency('production')
   const matrixArtifactPaths = sortedUnique(tiers.flatMap((tier) => tier?.artifacts ?? []))

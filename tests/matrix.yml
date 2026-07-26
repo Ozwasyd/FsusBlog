@@ -39,12 +39,13 @@ aggregateAuthorities:
         commandKind: aggregate
         ciJob: fast-summary
         summaryTierIds: [fast, frontend-fast-summary]
-        inputReceiptSchemas: [fsusblog.ci.job-result.v1]
+        inputReceiptSchemas:
+            [fsusblog.ci.job-result.v1, fsusblog.evidence-projection-receipt.v1]
         outputReceiptSchema: fsusblog.ci.job-result.v1
     coverage-merge-threshold:
         id: coverage-merge-threshold
         commandKind: aggregate
-        ciJob: coverage-merge-threshold
+        ciJob: coverage-summary
         summaryTierIds: [coverage-gate]
         inputReceiptSchemas: [fsusblog.ci.job-result.v1]
         outputReceiptSchema: fsusblog.ci.job-result.v1
@@ -371,7 +372,7 @@ tiers:
               tools/test/run-once.mjs,
               .github/workflows,
           ]
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -410,7 +411,7 @@ tiers:
     - id: pr-smart-gate-plan
       owner: ServerContractAgent
       command: node tools/run-test-matrix.mjs ci-pr-plan --out .tmp/pr-plan.json
-      dependsOn: [validate-matrix]
+      executionDependsOn: [validate-matrix]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -446,7 +447,7 @@ tiers:
     - id: production-build-artifacts
       owner: ServerContractAgent
       command: bash tools/test/lanes/production-build-artifacts.sh
-      dependsOn: [validate-matrix]
+      executionDependsOn: [validate-matrix]
       services: []
       parallelizable: false
       exclusiveResources: [build-output, static-web-assets]
@@ -527,7 +528,8 @@ tiers:
     - id: frontend-build
       owner: InteropGlueAgent
       command: tools/test/lanes/frontend-build.sh
-      dependsOn: []
+      outputReceiptSchema: fsusblog.ci.job-result.v1
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: [static-web-assets]
@@ -583,7 +585,8 @@ tiers:
     - id: frontend-unit-shard
       owner: InteropGlueAgent
       command: tools/test/lanes/frontend-unit-shard.sh
-      dependsOn: []
+      outputReceiptSchema: fsusblog.ci.job-result.v1
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: [frontend-vitest-unit]
@@ -696,7 +699,8 @@ tiers:
     - id: frontend-property-model-perf
       owner: InteropGlueAgent
       command: tools/test/lanes/frontend-property-model-perf.sh
-      dependsOn: []
+      outputReceiptSchema: fsusblog.ci.job-result.v1
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -755,7 +759,8 @@ tiers:
     - id: frontend-runtime-contracts
       owner: InteropGlueAgent
       command: tools/test/lanes/frontend-runtime-contracts.sh
-      dependsOn: []
+      outputReceiptSchema: fsusblog.ci.job-result.v1
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -813,7 +818,8 @@ tiers:
     - id: frontend-static-governance
       owner: InteropGlueAgent
       command: tools/test/lanes/frontend-static-governance.sh
-      dependsOn: [frontend-build]
+      outputReceiptSchema: fsusblog.ci.job-result.v1
+      executionDependsOn: [frontend-build]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -903,10 +909,12 @@ tiers:
       executionMode: summary
       commandKind: aggregate
       summaryAuthority: fast-summary
-      summaryInputs: [fsusblog.ci.job-result.v1]
+      summaryInputs:
+          [fsusblog.ci.job-result.v1, fsusblog.evidence-projection-receipt.v1]
       outputReceiptSchema: fsusblog.ci.job-result.v1
       command: node tools/run-test-matrix.mjs aggregate fast-summary
-      dependsOn:
+      executionDependsOn: []
+      requiresEvidenceFrom:
           [
               frontend-build,
               frontend-unit-shard,
@@ -924,7 +932,7 @@ tiers:
       memoryWeight: 1
       minCpuUnits: 1
       requiresBootstrap: none
-      requiresNode: false
+      requiresNode: true
       requiresDotnet: false
       requiresPlaywright: none
       cacheProfile: none
@@ -944,7 +952,7 @@ tiers:
     - id: backend-build-governance
       owner: ServerContractAgent
       command: tools/test/lanes/backend-build-governance.sh
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: [static-web-assets]
@@ -1000,7 +1008,7 @@ tiers:
     - id: backend-unit
       owner: ServerContractAgent
       command: tools/test/lanes/backend-unit.sh
-      dependsOn: [backend-build-governance]
+      executionDependsOn: [backend-build-governance]
       services: []
       parallelizable: true
       exclusiveResources: [backend-coverlet-instrumentation]
@@ -1205,7 +1213,7 @@ tiers:
     - id: distributed-contract-fast
       owner: ServerContractAgent
       command: tools/test/lanes/distributed-contract-fast.sh
-      dependsOn: [backend-build-governance]
+      executionDependsOn: [backend-build-governance]
       services: []
       parallelizable: true
       exclusiveResources: [backend-coverlet-instrumentation]
@@ -1270,7 +1278,8 @@ tiers:
     - id: backend-fast
       owner: ServerContractAgent
       command: tools/test/lanes/backend-fast.sh
-      dependsOn:
+      outputReceiptSchema: fsusblog.ci.job-result.v1
+      executionDependsOn:
           [
               backend-build-governance,
               backend-unit,
@@ -1344,7 +1353,7 @@ tiers:
             path: .tmp/test-results/backend/integrity-proof-source.json
       requiresEvidenceFrom: [backend-unit]
       command: node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/integrity-proof-verification.json --producer .tmp/test-results/backend/evidence-producers/backend-unit.json --output .tmp/release-evidence/integrity-proof-verification.json --root . --commit "$FSUSBLOG_TEST_SOURCE_COMMIT" --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT" --run-id "$FSUSBLOG_TEST_RUN_ID" --namespace "$FSUSBLOG_TEST_NAMESPACE"
-      dependsOn: [backend-unit]
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -1407,7 +1416,7 @@ tiers:
             path: .tmp/test-results/backend/rights-v3-integration-producer.json
       requiresEvidenceFrom: [backend-unit, frontend-static-governance, frontend-unit-shard, integration]
       command: node tools/test/project-rights-v3-evidence.mjs
-      dependsOn: [backend-unit, frontend-static-governance, frontend-unit-shard, integration]
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -1461,7 +1470,8 @@ tiers:
     - id: static-governance
       owner: ServerContractAgent
       command: tools/test/lanes/static-governance.sh
-      dependsOn: [validate-matrix]
+      outputReceiptSchema: fsusblog.ci.job-result.v1
+      executionDependsOn: [validate-matrix]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -1938,7 +1948,8 @@ tiers:
     - id: app-config-local-tuning
       owner: ServerContractAgent
       command: node --test tests/tools/app-config-local-tuner.test.mjs
-      dependsOn: [validate-matrix]
+      outputReceiptSchema: fsusblog.ci.job-result.v1
+      executionDependsOn: [validate-matrix]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -1996,7 +2007,8 @@ tiers:
     - id: public-hydration-fast
       owner: ServerContractAgent
       command: tools/test/lanes/public-hydration-fast.sh
-      dependsOn: [validate-matrix]
+      outputReceiptSchema: fsusblog.ci.job-result.v1
+      executionDependsOn: [validate-matrix]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -2031,12 +2043,18 @@ tiers:
       executionMode: summary
       commandKind: aggregate
       summaryAuthority: fast-summary
-      summaryInputs: [fsusblog.ci.job-result.v1]
+      summaryInputs:
+          [fsusblog.ci.job-result.v1, fsusblog.evidence-projection-receipt.v1]
       outputReceiptSchema: fsusblog.ci.job-result.v1
       command: node tools/run-test-matrix.mjs aggregate fast-summary
-      dependsOn:
+      executionDependsOn: []
+      requiresEvidenceFrom:
           [
-              frontend-fast-summary,
+              frontend-build,
+              frontend-unit-shard,
+              frontend-property-model-perf,
+              frontend-runtime-contracts,
+              frontend-static-governance,
               backend-fast,
               integrity-proof-verification,
               static-governance,
@@ -2053,7 +2071,7 @@ tiers:
       memoryWeight: 1
       minCpuUnits: 1
       requiresBootstrap: none
-      requiresNode: false
+      requiresNode: true
       requiresDotnet: false
       requiresPlaywright: none
       cacheProfile: none
@@ -2073,7 +2091,7 @@ tiers:
     - id: coverage-backend
       owner: ServerContractAgent
       command: tools/coverage/collect-backend-coverage.sh
-      dependsOn:
+      executionDependsOn:
           [
               backend-build-governance,
               backend-api-integration,
@@ -2150,7 +2168,7 @@ tiers:
     - id: coverage-frontend
       owner: InteropGlueAgent
       command: tools/coverage/collect-frontend-coverage.sh
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: [frontend-vitest-unit]
@@ -2205,7 +2223,7 @@ tiers:
     - id: coverage-merge
       owner: ServerContractAgent
       command: tools/coverage/merge-coverage.sh
-      dependsOn: [coverage-backend, coverage-frontend]
+      executionDependsOn: [coverage-backend, coverage-frontend]
       services: []
       parallelizable: false
       exclusiveResources: [coverage-root]
@@ -2257,7 +2275,8 @@ tiers:
     - id: coverage-threshold
       owner: ServerContractAgent
       command: tools/test/lanes/coverage-threshold.sh
-      dependsOn: [coverage-merge]
+      outputReceiptSchema: fsusblog.ci.job-result.v1
+      executionDependsOn: [coverage-merge]
       services: []
       parallelizable: false
       exclusiveResources: [coverage-root]
@@ -2314,7 +2333,8 @@ tiers:
       summaryInputs: [fsusblog.ci.job-result.v1]
       outputReceiptSchema: fsusblog.ci.job-result.v1
       command: node tools/run-test-matrix.mjs aggregate coverage-merge-threshold
-      dependsOn: [coverage-threshold]
+      executionDependsOn: []
+      requiresEvidenceFrom: [coverage-threshold]
       services: []
       parallelizable: false
       exclusiveResources: [coverage-root]
@@ -2326,7 +2346,7 @@ tiers:
       minCpuUnits: 1
       maxParallel: 1
       requiresBootstrap: none
-      requiresNode: false
+      requiresNode: true
       requiresDotnet: false
       requiresPlaywright: none
       cacheProfile: none
@@ -2339,7 +2359,7 @@ tiers:
       coverage: [backend-frontend-merged]
       artifacts: [.tmp/coverage]
       evidence: [.tmp/coverage]
-      ciJob: coverage-merge-threshold
+      ciJob: coverage-summary
       localOnly: false
       nightlyOnly: false
       smartGateMode: conditional
@@ -2366,7 +2386,7 @@ tiers:
     - id: bootstrap
       owner: ServerContractAgent
       command: tools/test/lanes/bootstrap-acceptance-env.sh
-      dependsOn: []
+      executionDependsOn: []
       services: [postgres, redis, backend, frontend, preview]
       runtimeMode: single
       nodeCount: 1
@@ -2410,7 +2430,7 @@ tiers:
     - id: homogeneous-two-node-fixture
       owner: ServerContractAgent
       command: tools/test/lanes/homogeneous-two-node-fixture.sh
-      dependsOn: []
+      executionDependsOn: []
       services: [postgres, redis, backend]
       runtimeMode: static-role
       nodeCount: 2
@@ -2454,7 +2474,8 @@ tiers:
     - id: integration
       owner: ServerContractAgent
       command: tools/test/lanes/runtime-integration.sh
-      dependsOn: [bootstrap]
+      outputReceiptSchema: fsusblog.ci.job-result.v1
+      executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend]
       parallelizable: false
       exclusiveResources: [debug-runtime]
@@ -2563,39 +2584,39 @@ tiers:
       summaryInputs: [fsusblog.ci.job-result.v1]
       outputReceiptSchema: fsusblog.ci.job-result.v1
       command: node tools/run-test-matrix.mjs aggregate ci-summary
-      dependsOn: [fast, integration]
-      services: [postgres, redis, backend, frontend]
-      parallelizable: false
-      exclusiveResources: [debug-runtime]
+      executionDependsOn: []
+      requiresEvidenceFrom: [fast, integration]
+      services: []
+      parallelizable: true
+      exclusiveResources: []
       phase: 3
       cost: high
-      resourceClass: database
+      resourceClass: io
       cpuWeight: 2
       memoryWeight: 3
       minCpuUnits: 1
-      maxParallel: 1
-      requiresBootstrap: full
+      requiresBootstrap: none
       requiresNode: true
-      requiresDotnet: true
+      requiresDotnet: false
       requiresPlaywright: none
-      cacheProfile: full
+      cacheProfile: none
       timeoutMinutes: 70
       shardable: false
       defaultShards: 1
-      risk: high
+      risk: medium
       cadence: push
       requiredFor: none
       coverage: [fast-plus-integration]
       artifacts: [.tmp/acceptance/*.log, .tmp/gate-logs]
       evidence: [.tmp/acceptance/*.log, .tmp/gate-logs]
       ciJob: ci-summary
-      localOnly: true
+      localOnly: false
       nightlyOnly: false
 
     - id: release
       owner: ServerContractAgent
       command: tools/test/lanes/release-public.sh
-      dependsOn: [bootstrap]
+      executionDependsOn: [bootstrap]
       services: [backend, preview]
       parallelizable: false
       exclusiveResources: [release-preview]
@@ -2682,7 +2703,7 @@ tiers:
     - id: public-hydration-nightly
       owner: InteropGlueAgent
       command: tools/test/lanes/public-hydration-nightly.sh
-      dependsOn: [validate-matrix]
+      executionDependsOn: [validate-matrix]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -2723,7 +2744,7 @@ tiers:
     - id: security
       owner: ServerContractAgent
       command: tools/test/lanes/security-runtime.sh
-      dependsOn: [bootstrap]
+      executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend]
       parallelizable: false
       exclusiveResources: [security-runtime-state, redis-test-state]
@@ -2803,7 +2824,7 @@ tiers:
     - id: acceptance
       owner: InteropGlueAgent
       command: tools/test/lanes/acceptance-playwright.sh
-      dependsOn: [fast, integration, release]
+      executionDependsOn: [fast, integration, release]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: true
       exclusiveResources: [playwright-session]
@@ -2862,7 +2883,7 @@ tiers:
     - id: browser-contract
       owner: InteropGlueAgent
       command: bash tools/test/lanes/browser-contract.sh
-      dependsOn: [production-build-artifacts]
+      executionDependsOn: [production-build-artifacts]
       services: []
       parallelizable: false
       serialReason: one Playwright Library controller consumes one sealed run namespace with one session/concurrency, reuses one managed Chromium, and creates one context for each fixed scenario
@@ -2981,7 +3002,7 @@ tiers:
     - id: browser-diagnostics-nightly
       owner: InteropGlueAgent
       command: bash tools/test/lanes/browser-diagnostics.sh nightly
-      dependsOn: [production-build-artifacts, bootstrap, release, integration]
+      executionDependsOn: [production-build-artifacts, bootstrap, release, integration]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false
       serialReason: the explicit diagnostics catalog aggregates every category failure while keeping browser and artifact ownership visible per lane
@@ -3054,7 +3075,7 @@ tiers:
     - id: browser-diagnostics-manual
       owner: InteropGlueAgent
       command: bash tools/test/lanes/browser-diagnostics.sh manual
-      dependsOn: [production-build-artifacts, bootstrap, release, integration]
+      executionDependsOn: [production-build-artifacts, bootstrap, release, integration]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false
       serialReason: manual diagnostics use the same explicit catalog and immutable input while allowing an operator-selected category
@@ -3105,7 +3126,7 @@ tiers:
     - id: browser-runtime-risk-diagnostics
       owner: InteropGlueAgent
       command: tools/test/lanes/browser-runtime-risk-diagnostics.sh
-      dependsOn: [bootstrap, release]
+      executionDependsOn: [bootstrap, release]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false
       serialReason: migrated runtime browser probes share one managed Chromium and reset mutable security state between probe groups
@@ -3149,7 +3170,7 @@ tiers:
       owner: InteropGlueAgent
       executionMode: summary
       command: tools/test/lanes/browser-runtime-risk-diagnostics.sh
-      dependsOn: [browser-diagnostics-manual]
+      executionDependsOn: [browser-diagnostics-manual]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false
       serialReason: the explicit manual diagnostics entry delegates to the single managed diagnostics orchestrator
@@ -3192,7 +3213,7 @@ tiers:
     - id: visual-public
       owner: InteropGlueAgent
       command: tools/test/lanes/visual-public-playwright.sh
-      dependsOn: [bootstrap]
+      executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: true
       exclusiveResources: [visual-public-screenshots]
@@ -3263,7 +3284,7 @@ tiers:
     - id: visual-console
       owner: InteropGlueAgent
       command: tools/test/lanes/visual-console-playwright.sh
-      dependsOn: [bootstrap]
+      executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: true
       exclusiveResources: [visual-console-screenshots]
@@ -3353,7 +3374,7 @@ tiers:
     - id: visual
       owner: InteropGlueAgent
       command: tools/test/lanes/visual-screenshots-aggregate.sh
-      dependsOn: [visual-public, visual-console]
+      executionDependsOn: [visual-public, visual-console]
       services: []
       parallelizable: false
       exclusiveResources: [visual-screenshot-aggregate]
@@ -3406,7 +3427,7 @@ tiers:
     - id: ux-viewport-smoke
       owner: InteropGlueAgent
       command: tools/test/lanes/ux-viewport-smoke.sh
-      dependsOn: [bootstrap]
+      executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: true
       exclusiveResources: [playwright-ux-viewport]
@@ -3462,7 +3483,7 @@ tiers:
     - id: ux-viewport-plan-progress
       owner: InteropGlueAgent
       command: node tools/ux/run-viewport-plan-progress.mjs
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -3515,7 +3536,7 @@ tiers:
     - id: ux-viewport-visual
       owner: InteropGlueAgent
       command: tools/test/lanes/ux-viewport-visual.sh
-      dependsOn: [bootstrap]
+      executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false
       serialReason: writes the shared viewport screenshot evidence with one managed Chromium
@@ -3561,7 +3582,7 @@ tiers:
     - id: ux-viewport-boundaries
       owner: InteropGlueAgent
       command: tools/test/lanes/ux-viewport-boundaries.sh
-      dependsOn: [bootstrap]
+      executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false
       serialReason: writes the shared viewport visual baseline set
@@ -3605,7 +3626,7 @@ tiers:
     - id: frontend-render-structure
       owner: InteropGlueAgent
       command: tools/test/lanes/frontend-render-structure.sh
-      dependsOn: [frontend-static-governance]
+      executionDependsOn: [frontend-static-governance]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -3665,7 +3686,7 @@ tiers:
     - id: cross-browser-smoke
       owner: InteropGlueAgent
       command: tools/test/lanes/cross-browser-smoke.sh
-      dependsOn: [release]
+      executionDependsOn: [release]
       services: [preview]
       parallelizable: true
       exclusiveResources: [playwright-browser]
@@ -3733,7 +3754,7 @@ tiers:
     - id: resilience
       owner: ServerContractAgent
       command: tools/test/lanes/resilience-runtime.sh
-      dependsOn: [bootstrap]
+      executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false
       exclusiveResources: [runtime-fault-state]
@@ -3811,7 +3832,7 @@ tiers:
     - id: load
       owner: ServerContractAgent
       command: tools/test/lanes/load-smoke.sh
-      dependsOn: [bootstrap]
+      executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false
       exclusiveResources: [load-runtime]
@@ -3856,7 +3877,7 @@ tiers:
     - id: backend-qps-view-count-flush
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh view-count-flush
-      dependsOn: []
+      executionDependsOn: []
       services: [postgres, redis, backend, frontend]
       parallelizable: true
       exclusiveResources: []
@@ -3899,7 +3920,7 @@ tiers:
     - id: backend-qps-visitlog-invalidation
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh visitlog-invalidation
-      dependsOn: []
+      executionDependsOn: []
       services: [postgres, redis, backend, frontend]
       parallelizable: true
       exclusiveResources: []
@@ -3941,7 +3962,7 @@ tiers:
     - id: backend-qps-cache-hit
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh cache-hit
-      dependsOn: []
+      executionDependsOn: []
       services: [postgres, redis, backend, frontend]
       parallelizable: true
       exclusiveResources: []
@@ -3984,7 +4005,7 @@ tiers:
     - id: backend-qps-comment-cursor
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh comment-cursor
-      dependsOn: []
+      executionDependsOn: []
       services: [postgres, redis, backend, frontend]
       parallelizable: true
       exclusiveResources: []
@@ -4026,7 +4047,7 @@ tiers:
     - id: backend-qps-hotread
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh hotread
-      dependsOn: []
+      executionDependsOn: []
       services: [postgres, redis, backend, frontend]
       parallelizable: true
       exclusiveResources: []
@@ -4069,7 +4090,7 @@ tiers:
     - id: backend-qps-cache-miss-singleflight
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh cache-miss-singleflight
-      dependsOn: []
+      executionDependsOn: []
       services: [postgres, redis, backend, frontend]
       parallelizable: true
       exclusiveResources: []
@@ -4112,7 +4133,7 @@ tiers:
     - id: backend-qps-risk-filter
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh risk-filter
-      dependsOn: []
+      executionDependsOn: []
       services: [postgres, redis, backend, frontend]
       parallelizable: true
       exclusiveResources: []
@@ -4154,7 +4175,7 @@ tiers:
     - id: backend-qps-related-reading
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh related-reading
-      dependsOn: []
+      executionDependsOn: []
       services: [postgres, redis, backend, frontend]
       parallelizable: true
       exclusiveResources: []
@@ -4196,7 +4217,7 @@ tiers:
     - id: backend-qps-list-pagination
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh list-pagination
-      dependsOn: []
+      executionDependsOn: []
       services: [postgres, redis, backend, frontend]
       parallelizable: true
       exclusiveResources: []
@@ -4237,7 +4258,7 @@ tiers:
     - id: backend-qps-article-detail-miss
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh article-detail-miss
-      dependsOn: []
+      executionDependsOn: []
       services: [postgres, redis, backend, frontend]
       parallelizable: true
       exclusiveResources: []
@@ -4280,7 +4301,7 @@ tiers:
     - id: backend-qps-cache-registry
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh cache-registry
-      dependsOn: []
+      executionDependsOn: []
       services: [postgres, redis, backend, frontend]
       parallelizable: true
       exclusiveResources: []
@@ -4318,7 +4339,7 @@ tiers:
     - id: backend-cache-invalidation-batch
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh cache-invalidation-batch
-      dependsOn: []
+      executionDependsOn: []
       services: [postgres, redis, backend, frontend]
       parallelizable: true
       exclusiveResources: []
@@ -4360,7 +4381,7 @@ tiers:
     - id: backend-qps-index-plan
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh index-plan
-      dependsOn: []
+      executionDependsOn: []
       services: [postgres, redis, backend, frontend]
       parallelizable: true
       exclusiveResources: []
@@ -4404,7 +4425,7 @@ tiers:
     - id: backend-qps
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh aggregate
-      dependsOn:
+      executionDependsOn:
           [
               bootstrap,
               backend-qps-view-count-flush,
@@ -4459,7 +4480,7 @@ tiers:
     - id: backend-qps-runtime-sequential
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh backend-qps-runtime-sequential
-      dependsOn: [bootstrap]
+      executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend]
       parallelizable: false
       exclusiveResources: [backend-qps-runtime]
@@ -4496,7 +4517,7 @@ tiers:
     - id: aeds-frame-cost
       owner: InteropGlueAgent
       command: tools/test/lanes/aeds-frame-cost.sh
-      dependsOn: [frontend-build]
+      executionDependsOn: [frontend-build]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -4561,7 +4582,7 @@ tiers:
     - id: aeds-compression-profile
       owner: ServerContractAgent
       command: tools/test/lanes/aeds-compression-profile.sh
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -4619,7 +4640,7 @@ tiers:
     - id: endpoint-depth
       owner: ServerContractAgent
       command: tools/test/lanes/endpoint-depth.sh
-      dependsOn: [bootstrap]
+      executionDependsOn: [bootstrap]
       services: [postgres, redis, backend]
       parallelizable: true
       exclusiveResources: []
@@ -4662,7 +4683,7 @@ tiers:
     - id: data-scale-xs
       owner: ServerContractAgent
       command: tools/test/lanes/data-scale.sh scale-xs
-      dependsOn: [bootstrap]
+      executionDependsOn: [bootstrap]
       services: [postgres, redis]
       parallelizable: true
       exclusiveResources: []
@@ -4697,7 +4718,7 @@ tiers:
     - id: data-scale-s
       owner: ServerContractAgent
       command: tools/test/lanes/data-scale.sh scale-s
-      dependsOn: [bootstrap]
+      executionDependsOn: [bootstrap]
       services: [postgres, redis]
       parallelizable: false
       exclusiveResources: [scale-data]
@@ -4732,8 +4753,8 @@ tiers:
 
     - id: data-scale-evidence-summary
       owner: ServerContractAgent
-      command: node tools/test/aggregate-data-scale-evidence.mjs
-      dependsOn: [data-scale-xs, data-scale-s]
+      command: node --permission '--allow-fs-read=.tmp/scale/*' '--allow-fs-read=.tmp/downloaded-artifacts/*' '--allow-fs-read=.tmp/release-evidence/*' '--allow-fs-write=.tmp/release-evidence/*' tools/test/aggregate-data-scale-evidence.mjs
+      executionDependsOn: [data-scale-xs, data-scale-s]
       services: []
       parallelizable: false
       exclusiveResources: [release-evidence]
@@ -4774,7 +4795,7 @@ tiers:
     - id: data-scale-m
       owner: ServerContractAgent
       command: tools/test/lanes/data-scale.sh scale-m
-      dependsOn: [bootstrap]
+      executionDependsOn: [bootstrap]
       services: [postgres, redis]
       parallelizable: false
       exclusiveResources: [scale-data]
@@ -4810,7 +4831,7 @@ tiers:
     - id: data-scale-nightly
       owner: ServerContractAgent
       command: tools/test/lanes/data-scale.sh scale-l-nightly
-      dependsOn: [bootstrap]
+      executionDependsOn: [bootstrap]
       services: [postgres, redis]
       parallelizable: false
       exclusiveResources: [scale-data-nightly]
@@ -4846,7 +4867,7 @@ tiers:
     - id: load-baseline
       owner: ServerContractAgent
       command: tools/test/lanes/load-profile.sh baseline
-      dependsOn: [bootstrap]
+      executionDependsOn: [bootstrap]
       services: [backend, redis, postgres]
       parallelizable: false
       exclusiveResources: [load-runtime]
@@ -4882,7 +4903,7 @@ tiers:
     - id: load-peak
       owner: ServerContractAgent
       command: tools/test/lanes/load-profile.sh expected-peak
-      dependsOn: [bootstrap]
+      executionDependsOn: [bootstrap]
       services: [backend, redis, postgres]
       parallelizable: false
       exclusiveResources: [load-runtime]
@@ -4918,7 +4939,7 @@ tiers:
     - id: load-2x-peak
       owner: ServerContractAgent
       command: tools/test/lanes/load-profile.sh 2x-peak
-      dependsOn: [bootstrap]
+      executionDependsOn: [bootstrap]
       services: [backend, redis, postgres]
       parallelizable: false
       exclusiveResources: [load-runtime]
@@ -4954,7 +4975,7 @@ tiers:
     - id: load-burst
       owner: ServerContractAgent
       command: tools/test/lanes/load-profile.sh burst
-      dependsOn: [bootstrap]
+      executionDependsOn: [bootstrap]
       services: [backend, redis, postgres]
       parallelizable: false
       exclusiveResources: [load-runtime]
@@ -4990,7 +5011,7 @@ tiers:
     - id: backend-perf
       owner: ServerContractAgent
       command: tools/test/lanes/perf-regression.sh
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: false
       exclusiveResources: [benchmark-window]
@@ -5042,7 +5063,7 @@ tiers:
     - id: backend-benchmark-regression
       owner: ServerContractAgent
       command: tools/test/lanes/backend-benchmark-regression.sh
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: false
       exclusiveResources: [benchmark-window]
@@ -5109,7 +5130,7 @@ tiers:
     - id: browser-performance-regression
       owner: InteropGlueAgent
       command: tools/test/lanes/browser-performance-regression.sh
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -5148,7 +5169,7 @@ tiers:
     - id: performance-evidence-summary
       owner: ServerContractAgent
       command: node tools/test/aggregate-performance-evidence.mjs
-      dependsOn: [load-baseline, load-peak, backend-benchmark-regression]
+      executionDependsOn: [load-baseline, load-peak, backend-benchmark-regression]
       services: []
       parallelizable: false
       exclusiveResources: [release-evidence]
@@ -5197,7 +5218,7 @@ tiers:
     - id: fault-injection
       owner: ServerContractAgent
       command: tools/test/lanes/fault-injection.sh
-      dependsOn: [bootstrap]
+      executionDependsOn: [bootstrap]
       services: [postgres, redis, backend]
       parallelizable: false
       exclusiveResources: [fault-runtime]
@@ -5229,7 +5250,7 @@ tiers:
     - id: soak-short-runtime
       owner: ServerContractAgent
       command: FSUSBLOG_SOAK_MODE=short tools/test/lanes/soak.sh
-      dependsOn: [bootstrap]
+      executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend]
       parallelizable: false
       exclusiveResources: [soak-runtime]
@@ -5261,7 +5282,7 @@ tiers:
     - id: soak-long-scheduled
       owner: ServerContractAgent
       command: FSUSBLOG_SOAK_MODE=72h tools/test/lanes/soak.sh
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -5292,7 +5313,7 @@ tiers:
     - id: soak-long-evidence-import
       owner: ServerContractAgent
       command: FSUSBLOG_SOAK_MODE=72h FSUSBLOG_SOAK_REQUIRE_IMPORTED_EVIDENCE=1 tools/test/lanes/soak.sh
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -5324,7 +5345,7 @@ tiers:
     - id: security-authenticated-dast
       owner: ServerContractAgent
       command: tools/test/lanes/security-authenticated-dast.sh
-      dependsOn: []
+      executionDependsOn: []
       services: [backend, frontend]
       parallelizable: false
       exclusiveResources: [dast-target, database-writes]
@@ -5357,7 +5378,7 @@ tiers:
     - id: csrf-browser-matrix
       owner: InteropGlueAgent
       command: npm --prefix src/frontend run check:security:csrf-browser-matrix
-      dependsOn: []
+      executionDependsOn: []
       services: [frontend, backend]
       parallelizable: true
       exclusiveResources: []
@@ -5389,7 +5410,7 @@ tiers:
     - id: risk-control-test-matrix
       owner: ServerContractAgent
       command: tools/test/lanes/risk-control-test-matrix.sh
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -5432,7 +5453,7 @@ tiers:
     - id: perception-v2-test-matrix
       owner: ServerContractAgent
       command: tools/test/lanes/perception-v2-test-matrix.sh
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -5479,7 +5500,7 @@ tiers:
     - id: privacy-zk-comment-matrix
       owner: ServerContractAgent
       command: tools/test/lanes/privacy-zk-comment-matrix.sh
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: false
       exclusiveResources: [benchmark-window]
@@ -5562,7 +5583,7 @@ tiers:
     - id: wasm-fuzz-regression
       owner: WasmEngineAgent
       command: tools/test/lanes/wasm-fuzz-regression.sh
-      dependsOn: [frontend-build]
+      executionDependsOn: [frontend-build]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -5593,7 +5614,7 @@ tiers:
     - id: perception-v2-redteam-pr
       owner: ServerContractAgent
       command: tools/test/lanes/perception-v2-redteam.sh pr
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -5628,7 +5649,7 @@ tiers:
     - id: perception-character-v3-release-gate
       owner: ServerContractAgent
       command: tools/test/lanes/perception-character-v3-release-gate.sh
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: [perception-character-v3-release-corpus]
@@ -5667,7 +5688,7 @@ tiers:
     - id: release-evidence
       owner: ServerContractAgent
       command: tools/test/lanes/release-evidence.sh
-      dependsOn:
+      executionDependsOn:
           [
               fast,
               coverage-gate,
@@ -5742,7 +5763,7 @@ tiers:
     - id: release-closeout
       owner: ServerContractAgent
       command: tools/test/lanes/release-closeout.sh
-      dependsOn: [release-evidence]
+      executionDependsOn: [release-evidence]
       services: []
       parallelizable: false
       exclusiveResources: [release-evidence]
@@ -5775,7 +5796,7 @@ tiers:
     - id: changed-code-coverage
       owner: ServerContractAgent
       command: tools/test/lanes/changed-code-coverage.sh
-      dependsOn: [coverage-merge]
+      executionDependsOn: [coverage-merge]
       services: []
       parallelizable: false
       exclusiveResources: [coverage-root]
@@ -5808,7 +5829,7 @@ tiers:
     - id: coverage-gate-strict
       owner: ServerContractAgent
       command: tools/test/lanes/coverage-gate-strict.sh
-      dependsOn: [coverage-gate, changed-code-coverage]
+      executionDependsOn: [coverage-gate, changed-code-coverage]
       services: []
       parallelizable: false
       exclusiveResources: [coverage-root]
@@ -5847,7 +5868,7 @@ tiers:
       owner: InteropGlueAgent
       executionMode: summary
       command: node tools/run-test-matrix.mjs aggregate release-admin-console
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -5886,7 +5907,7 @@ tiers:
       owner: InteropGlueAgent
       executionMode: summary
       command: node tools/run-test-matrix.mjs aggregate release-auth-flow
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -5919,7 +5940,7 @@ tiers:
       owner: InteropGlueAgent
       executionMode: summary
       command: node tools/run-test-matrix.mjs aggregate release-authoring-flow
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -5952,7 +5973,7 @@ tiers:
       owner: InteropGlueAgent
       executionMode: summary
       command: node tools/run-test-matrix.mjs aggregate release-private-preview
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -5985,7 +6006,7 @@ tiers:
       owner: InteropGlueAgent
       executionMode: summary
       command: node tools/run-test-matrix.mjs aggregate release-error-boundary
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -6018,7 +6039,7 @@ tiers:
       owner: InteropGlueAgent
       executionMode: summary
       command: node tools/run-test-matrix.mjs aggregate release-rbac-negative
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -6054,7 +6075,7 @@ tiers:
       owner: InteropGlueAgent
       executionMode: summary
       command: node tools/run-test-matrix.mjs aggregate release-aot-generation
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -6087,7 +6108,7 @@ tiers:
       owner: InteropGlueAgent
       executionMode: summary
       command: node tools/run-test-matrix.mjs aggregate release-aot-consumption
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -6123,7 +6144,7 @@ tiers:
       owner: InteropGlueAgent
       executionMode: summary
       command: node tools/run-test-matrix.mjs aggregate release-static-asset-digest-coherence
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -6157,7 +6178,7 @@ tiers:
       owner: ServerContractAgent
       executionMode: execute
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-soak-min
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -6190,7 +6211,7 @@ tiers:
       owner: ServerContractAgent
       executionMode: execute
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-load-peak
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -6227,7 +6248,7 @@ tiers:
       owner: ServerContractAgent
       executionMode: execute
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-load-burst
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -6264,7 +6285,7 @@ tiers:
       owner: ServerContractAgent
       executionMode: execute
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-data-scale-m
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -6301,7 +6322,7 @@ tiers:
       owner: ServerContractAgent
       executionMode: execute
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-mutation-critical-slice
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -6342,7 +6363,7 @@ tiers:
       owner: ServerContractAgent
       executionMode: execute
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-memory-leak-budget
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -6375,7 +6396,7 @@ tiers:
       owner: ServerContractAgent
       executionMode: execute
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-open-handle-budget
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -6407,7 +6428,7 @@ tiers:
     - id: release-final-flaky-governance
       owner: ServerContractAgent
       command: node tools/ci/check-flaky-registry.mjs --release-final
-      dependsOn: [validate-matrix]
+      executionDependsOn: [validate-matrix]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -6447,7 +6468,7 @@ tiers:
     - id: release-final-shard-completeness
       owner: ServerContractAgent
       command: node tools/ci/check-job-summaries.mjs --require-plan --tier production --strict-shards
-      dependsOn: [release-evidence]
+      executionDependsOn: [release-evidence]
       services: []
       parallelizable: false
       exclusiveResources: [release-evidence]
@@ -6480,7 +6501,7 @@ tiers:
     - id: test-quality-lint
       owner: ServerContractAgent
       command: tools/test/lanes/test-quality-lint.sh
-      dependsOn: [validate-matrix]
+      executionDependsOn: [validate-matrix]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -6512,7 +6533,7 @@ tiers:
     - id: native-smoke
       owner: WasmEngineAgent
       command: node tools/test/run-native-tests.mjs --profile smoke
-      dependsOn: [validate-matrix]
+      executionDependsOn: [validate-matrix]
       services: []
       parallelizable: true
       exclusiveResources: [native-cmake-build]
@@ -6552,7 +6573,7 @@ tiers:
     - id: native-fuzz-sanitizer
       owner: WasmEngineAgent
       command: node tools/test/run-native-tests.mjs --profile fuzz-sanitizer
-      dependsOn: [validate-matrix]
+      executionDependsOn: [validate-matrix]
       services: []
       parallelizable: true
       exclusiveResources: [native-cmake-build]
@@ -6598,7 +6619,7 @@ tiers:
       owner: ServerContractAgent
       executionMode: summary
       command: tools/test/lanes/release-final.sh
-      dependsOn: [production-correctness, browser-contract, release-closeout]
+      executionDependsOn: [production-correctness, browser-contract, release-closeout]
       requiresEvidenceFrom:
           [
               coverage-gate-strict,
@@ -6682,7 +6703,7 @@ tiers:
     - id: production-correctness
       owner: ServerContractAgent
       command: tools/test/lanes/production-correctness-receipt.sh
-      dependsOn:
+      executionDependsOn:
           [
               fast,
               coverage-gate,
@@ -6768,7 +6789,7 @@ tiers:
       owner: ServerContractAgent
       executionMode: summary
       command: tools/test/lanes/production-correctness-receipt.sh
-      dependsOn: [production-correctness]
+      executionDependsOn: [production-correctness]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false
       exclusiveResources: [production-runtime]
@@ -6862,7 +6883,7 @@ tiers:
     - id: backend-api-integration
       owner: ServerContractAgent
       command: tools/test/lanes/backend-api-integration.sh
-      dependsOn: [backend-build-governance]
+      executionDependsOn: [backend-build-governance]
       services: []
       parallelizable: true
       exclusiveResources: [backend-coverlet-instrumentation]
@@ -6934,7 +6955,7 @@ tiers:
     - id: backend-auth-state-machine
       owner: ServerContractAgent
       command: tools/test/lanes/backend-auth-state-machine.sh
-      dependsOn: [backend-build-governance]
+      executionDependsOn: [backend-build-governance]
       services: []
       parallelizable: true
       exclusiveResources: [backend-coverlet-instrumentation]
@@ -7011,7 +7032,7 @@ tiers:
     - id: backend-concurrency
       owner: ServerContractAgent
       command: tools/test/lanes/backend-concurrency.sh
-      dependsOn: [backend-build-governance]
+      executionDependsOn: [backend-build-governance]
       services: []
       parallelizable: true
       exclusiveResources: [backend-coverlet-instrumentation]
@@ -7101,7 +7122,7 @@ tiers:
     - id: backend-property
       owner: ServerContractAgent
       command: tools/test/lanes/backend-property.sh
-      dependsOn: [backend-build-governance]
+      executionDependsOn: [backend-build-governance]
       services: []
       parallelizable: true
       exclusiveResources: [backend-coverlet-instrumentation]
@@ -7157,7 +7178,7 @@ tiers:
     - id: backend-golden
       owner: ServerContractAgent
       command: tools/test/lanes/backend-golden.sh
-      dependsOn: [backend-build-governance]
+      executionDependsOn: [backend-build-governance]
       services: []
       parallelizable: true
       exclusiveResources: [backend-coverlet-instrumentation]
@@ -7222,7 +7243,7 @@ tiers:
     - id: backend-test-governance
       owner: ServerContractAgent
       command: tools/test/lanes/backend-test-governance.sh
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -7260,7 +7281,7 @@ tiers:
     - id: backend-mutation
       owner: ServerContractAgent
       command: tools/test/lanes/backend-mutation.sh
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: false
       exclusiveResources: [stryker]
@@ -7302,7 +7323,7 @@ tiers:
     - id: backend-mutation-changed-critical
       owner: ServerContractAgent
       command: tools/test/lanes/backend-mutation-changed-critical.sh
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: false
       serialReason: one generated closure owns the repository Stryker process and run-bound authority
@@ -7336,7 +7357,7 @@ tiers:
     - id: backend-nightly
       owner: ServerContractAgent
       command: tools/test/lanes/backend-nightly.sh
-      dependsOn:
+      executionDependsOn:
           [
               backend-property,
               backend-golden,
@@ -7388,7 +7409,7 @@ tiers:
     - id: perception-v2-redteam-nightly
       owner: ServerContractAgent
       command: tools/test/lanes/perception-v2-redteam.sh nightly
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -7423,7 +7444,7 @@ tiers:
     - id: cross-stack-contract
       owner: ServerContractAgent
       command: tools/test/lanes/cross-stack-contract.sh static
-      dependsOn: []
+      executionDependsOn: []
       services: []
       parallelizable: true
       exclusiveResources: []

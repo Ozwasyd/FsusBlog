@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { buildAggregatePlan, parseAggregateCommand } from './aggregate-plan.mjs';
+import { buildAggregatePlan, buildReceiptPlan, parseAggregateCommand } from './aggregate-plan.mjs';
 
 export const evidenceExecutionModes = ['execute', 'projection', 'summary'];
 
@@ -37,6 +37,20 @@ function validateSortedStrings(tier, field, errors)
 function validateSummaryDeclaration(tier, matrix)
 {
     const errors = [];
+    for (const field of [
+        'executionOwner',
+        'projectFrom',
+        'projectionCatalog',
+        'requiredTestIds',
+        'requiredCoverageIds',
+        'requiredArtifactDeclarations'
+    ])
+    {
+        if (field in tier)
+        {
+            errors.push(`${tier.id}.${field} is reserved for projection tiers`);
+        }
+    }
     if (!['aggregate', 'receipt'].includes(tier.commandKind))
     {
         errors.push(`${tier.id}.commandKind must be aggregate or receipt for summary tiers`);
@@ -49,6 +63,11 @@ function validateSummaryDeclaration(tier, matrix)
         || tier.summaryInputs.some((input) => typeof input !== 'string' || !input.trim()))
     {
         errors.push(`${tier.id}.summaryInputs must declare non-empty structured receipt inputs`);
+    }
+    else if (new Set(tier.summaryInputs).size !== tier.summaryInputs.length
+        || JSON.stringify(tier.summaryInputs) !== JSON.stringify([...tier.summaryInputs].sort()))
+    {
+        errors.push(`${tier.id}.summaryInputs must be sorted unique structured receipt schemas`);
     }
     const aggregate = parseAggregateCommand(tier.command);
     if (aggregate)
@@ -63,6 +82,11 @@ function validateSummaryDeclaration(tier, matrix)
         }
         const plan = buildAggregatePlan(matrix, aggregate.target);
         errors.push(...plan.errors.map((error) => `${tier.id} aggregate: ${error}`));
+        const authority = matrix.aggregateAuthorities?.[aggregate.target];
+        if (authority && JSON.stringify(tier.summaryInputs) !== JSON.stringify(authority.inputReceiptSchemas))
+        {
+            errors.push(`${tier.id}.summaryInputs must match aggregate authority ${aggregate.target}`);
+        }
         if (plan.outputReceiptSchema && tier.outputReceiptSchema !== plan.outputReceiptSchema)
         {
             errors.push(`${tier.id}.outputReceiptSchema must match aggregate authority ${aggregate.target}`);
@@ -71,6 +95,18 @@ function validateSummaryDeclaration(tier, matrix)
     else if (tier.commandKind === 'aggregate')
     {
         errors.push(`${tier.id}.commandKind=aggregate must use node tools/run-test-matrix.mjs aggregate <authority>`);
+    }
+    else if (tier.commandKind === 'receipt')
+    {
+        if (typeof tier.summaryAuthority !== 'string' || !tier.summaryAuthority.trim())
+        {
+            errors.push(`${tier.id}.summaryAuthority must name a receipt authority`);
+        }
+        else
+        {
+            const plan = buildReceiptPlan(matrix, tier.summaryAuthority);
+            errors.push(...plan.errors.map((error) => `${tier.id} receipt: ${error}`));
+        }
     }
     return errors;
 }
@@ -85,11 +121,24 @@ export function validateEvidenceExecutionDeclaration(tier, matrix = { tiers: [] 
     }
     if (executionMode === 'execute')
     {
-        for (const field of ['projectionCatalog', 'requiredTestIds', 'requiredCoverageIds', 'requiredArtifactDeclarations'])
+        if ('commandKind' in tier && tier.commandKind !== 'producer')
+        {
+            errors.push(`${tier.id}.commandKind must be producer for execute tiers`);
+        }
+        for (const field of [
+            'executionOwner',
+            'projectFrom',
+            'projectionCatalog',
+            'requiredTestIds',
+            'requiredCoverageIds',
+            'requiredArtifactDeclarations',
+            'summaryAuthority',
+            'summaryInputs'
+        ])
         {
             if (field in tier)
             {
-                errors.push(`${tier.id}.${field} is reserved for projection tiers`);
+                errors.push(`${tier.id}.${field} is reserved for summary or projection tiers`);
             }
         }
         return errors;
@@ -99,6 +148,13 @@ export function validateEvidenceExecutionDeclaration(tier, matrix = { tiers: [] 
         return validateSummaryDeclaration(tier, matrix);
     }
 
+    for (const field of ['summaryAuthority', 'summaryInputs'])
+    {
+        if (field in tier)
+        {
+            errors.push(`${tier.id}.${field} is reserved for summary tiers`);
+        }
+    }
     for (const field of ['executionOwner', 'projectionCatalog'])
     {
         if (typeof tier[field] !== 'string' || !tier[field].trim())
@@ -181,11 +237,10 @@ export function validateEvidenceExecutionDeclaration(tier, matrix = { tiers: [] 
     {
         errors.push(`${tier.id} projection tier must use resourceClass=io and cost=low`);
     }
-    const missingDependencies = producers.filter((producer) => !tier.dependsOn?.includes(producer));
     const missingEvidence = producers.filter((producer) => !tier.requiresEvidenceFrom?.includes(producer));
-    if (missingDependencies.length > 0 || missingEvidence.length > 0)
+    if ((tier.executionDependsOn?.length ?? 0) > 0 || missingEvidence.length > 0)
     {
-        errors.push(`${tier.id} projection tier must depend on and require evidence from every projectFrom producer`);
+        errors.push(`${tier.id} projection tier must not execute producers and must require evidence from every projectFrom producer`);
     }
     return errors;
 }

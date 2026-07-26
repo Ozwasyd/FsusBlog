@@ -5,6 +5,7 @@
     "required": [
         "version",
         "governance",
+        "aggregateAuthorities",
         "commandGroups",
         "tiers"
     ],
@@ -61,6 +62,49 @@
                 }
             },
             "additionalProperties": false
+        },
+        "aggregateAuthorities": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "required": ["id", "commandKind", "ciJob", "summaryTierIds", "inputReceiptSchemas", "outputReceiptSchema"],
+                "properties": {
+                    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+                    "commandKind": {"const": "aggregate"},
+                    "ciJob": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+                    "summaryTierIds": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"}, "uniqueItems": true},
+                    "inputReceiptSchemas": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+                    "outputReceiptSchema": {"type": "string", "minLength": 1}
+                },
+                "additionalProperties": false
+            }
+        },
+        "receiptAuthorities": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "commandKind",
+                    "commandSourceId",
+                    "command",
+                    "summaryTierIds",
+                    "inputTierIds",
+                    "inputReceiptSchemas",
+                    "outputReceiptSchema"
+                ],
+                "properties": {
+                    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+                    "commandKind": {"const": "receipt"},
+                    "commandSourceId": {"type": "string", "minLength": 1},
+                    "command": {"type": "string", "minLength": 1},
+                    "summaryTierIds": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+                    "inputTierIds": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+                    "inputReceiptSchemas": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+                    "outputReceiptSchema": {"type": "string", "minLength": 1}
+                },
+                "additionalProperties": false
+            }
         },
         "commandGroups": {
             "type": "object",
@@ -222,7 +266,7 @@
                     "id",
                     "owner",
                     "command",
-                    "dependsOn",
+                    "executionDependsOn",
                     "services",
                     "parallelizable",
                     "exclusiveResources",
@@ -261,6 +305,24 @@
                         "type": "string",
                         "enum": ["execute", "projection", "summary"],
                         "default": "execute"
+                    },
+                    "commandKind": {
+                        "type": "string",
+                        "enum": ["aggregate", "producer", "projection", "receipt"]
+                    },
+                    "summaryAuthority": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9][a-z0-9-]*$"
+                    },
+                    "summaryInputs": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {"type": "string", "minLength": 1},
+                        "uniqueItems": true
+                    },
+                    "outputReceiptSchema": {
+                        "type": "string",
+                        "minLength": 1
                     },
                     "executionOwner": {
                         "type": "string",
@@ -312,15 +374,14 @@
                         "items": {"type": "string", "minLength": 1},
                         "uniqueItems": true
                     },
+                    "executionDependsOn": {
+                        "type": "array",
+                        "items": {"type": "string", "minLength": 1},
+                        "uniqueItems": true
+                    },
                     "command": {
                         "type": "string",
                         "minLength": 1
-                    },
-                    "dependsOn": {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
                     },
                     "services": {
                         "type": "array",
@@ -673,6 +734,24 @@
                                 "requiredArtifactDeclarations",
                                 "requiresEvidenceFrom"
                             ]
+                        }
+                    },
+                    {
+                        "if": {
+                            "properties": {"executionMode": {"const": "summary"}},
+                            "required": ["executionMode"]
+                        },
+                        "then": {
+                            "required": ["commandKind", "summaryInputs", "outputReceiptSchema"]
+                        }
+                    },
+                    {
+                        "if": {
+                            "properties": {"commandKind": {"enum": ["aggregate", "receipt"]}},
+                            "required": ["commandKind"]
+                        },
+                        "then": {
+                            "required": ["summaryAuthority"]
                         }
                     }
                 ],
