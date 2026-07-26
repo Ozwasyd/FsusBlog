@@ -1344,7 +1344,7 @@ export function validateLocalProfiles(localProfiles, tiers) {
         ['backend-tests', []],
         ['frontend-tests', []],
         ['runtime-browser', []],
-        ['performance-evidence', []]
+        ['performance-evidence', ['build-static', 'backend-tests', 'frontend-tests', 'runtime-browser']]
       ])
       for (const [bundleId, expected] of productionBundleContract) {
         const productionBundle = profile.bundles.find((bundle) => bundle.id === bundleId)

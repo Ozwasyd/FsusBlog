@@ -308,7 +308,7 @@ localProfiles:
               command: tools/test/bundles/performance-evidence.sh
               deadlineWeight: 44
               minimumDeadlineShare: 0.2666666667
-              dependsOn: []
+              dependsOn: [build-static, backend-tests, frontend-tests, runtime-browser]
               members:
                   [
                       fast,

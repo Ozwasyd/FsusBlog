@@ -1,9 +1,10 @@
 # #1081 Performance evidence marker DAG
 
 `./tools/test.sh production` keeps five physical bundles, but
-`performance-evidence` no longer waits for the complete backend, frontend, and
-runtime bundle summaries. It starts as an independent physical bundle and its
-internal DAG waits only for the exact run-bound inputs of each operation.
+`performance-evidence` is a correctness consumer. It waits for successful
+terminal receipts from `build-static`, `backend-tests`, `frontend-tests`, and
+`runtime-browser` before the physical bundle can spawn. Its internal DAG then
+waits only for the exact run-bound inputs of each operation.
 
 ## Run-bound markers
 
@@ -89,9 +90,15 @@ evidence. Cleanup releases capacity only after the bound identities exit.
 
 ## Failure and rollback
 
-Marker waits are independent DAG nodes, so a failed producer blocks only real
-descendants and unrelated preparation can still report its own failure. The
-summary distinguishes dependency/marker waits from benchmark isolation.
+The physical correctness barrier rejects a failed, timed-out, cancelled,
+blocked, or receipt-incomplete producer before `performance-evidence` can
+spawn. The checkpoint preserves the first producer failure and records
+`performance-evidence` as its blocked dependent; no coverage merge, release
+evidence, or downstream success may be generated. After all producers succeed,
+marker waits are independent DAG nodes, so a failed marker blocks only real
+internal descendants and unrelated diagnostic work can still report its own
+failure. The summary distinguishes dependency/marker waits from benchmark
+isolation.
 Cancellation is wired into both the weighted DAG and every generic/specialized
 marker poll. Success or failure records the coordination step duration; signal
 shutdown writes `resource-utilization.json` with `status=partial`, completed

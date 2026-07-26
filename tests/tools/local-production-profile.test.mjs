@@ -62,7 +62,7 @@ function profile(overrides = {})
             { id: 'backend-tests', command: 'backend', deadlineWeight: 44, dependsOn: [], members: ['b'], cpuWeight: 3, memoryWeight: 4, minCpuUnits: 2, startupMinCpuUnits: 1, startupMemoryWeight: 4, startupPriority: 4 },
             { id: 'frontend-tests', command: 'frontend', deadlineWeight: 27, dependsOn: [], members: ['c'], cpuWeight: 3, memoryWeight: 2, minCpuUnits: 1, startupMinCpuUnits: 1, startupMemoryWeight: 2, startupPriority: 3 },
             { id: 'runtime-browser', command: 'runtime', deadlineWeight: 24, dependsOn: [], members: ['d'], cpuWeight: 5, memoryWeight: 5, minCpuUnits: 1, startupMinCpuUnits: 1, startupMemoryWeight: 5, startupPriority: 4 },
-            { id: 'performance-evidence', command: 'performance', deadlineWeight: 36, minimumDeadlineShare: 0.25, dependsOn: [], members: ['production'], cpuWeight: 8, memoryWeight: 10, minCpuUnits: 1, startupMinCpuUnits: 1, startupMemoryWeight: 10, startupPriority: 1 }
+            { id: 'performance-evidence', command: 'performance', deadlineWeight: 36, minimumDeadlineShare: 0.25, dependsOn: ['build-static', 'backend-tests', 'frontend-tests', 'runtime-browser'], members: ['production'], cpuWeight: 8, memoryWeight: 10, minCpuUnits: 1, startupMinCpuUnits: 1, startupMemoryWeight: 10, startupPriority: 1 }
         ],
         summaryOnly: [],
         ...overrides
@@ -379,6 +379,8 @@ test('repository production profile maps every logical tier exactly once', () =>
     assert.ok(matrix.localProfiles.production.bundles.every((bundle) => !Object.hasOwn(bundle, 'cpuUnits')));
     assert.ok(matrix.localProfiles.production.bundles.every((bundle) => !Object.hasOwn(bundle, 'memoryGiB')));
     assert.ok(matrix.localProfiles.production.bundles.every((bundle) => !Object.hasOwn(bundle, 'stepMaxParallel')));
+    const performanceBundle = matrix.localProfiles.production.bundles.find((bundle) => bundle.id === 'performance-evidence');
+    assert.deepEqual(performanceBundle.dependsOn, ['build-static', 'backend-tests', 'frontend-tests', 'runtime-browser']);
     const frontendBundle = matrix.localProfiles.production.bundles.find((bundle) => bundle.id === 'frontend-tests');
     const frontendSubstitutions = resolveArtifactSubstitutions(frontendBundle, matrix.tiers)['frontend-property-model-perf'];
     for (const canonical of [

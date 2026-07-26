@@ -512,6 +512,48 @@ test('runDag collectFailures executes independent tiers and blocks only failed d
     assert.equal(result.checkpoint.failures[0].tierId, 'fails');
 });
 
+test('real subprocess failure blocks the production correctness consumer and preserves its root cause', async (t) =>
+{
+    const { runDag } = await loadScheduler();
+    const temp = createTempDir('production-correctness-barrier');
+    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+    const producerMarker = path.join(temp, 'producer-started');
+    const diagnosticMarker = path.join(temp, 'diagnostic-finished');
+    const consumerMarker = path.join(temp, 'coverage-merge-ran');
+    const command = (source) => `${process.execPath} -e ${JSON.stringify(source)}`;
+    const result = await runDag({
+        tiers: [
+            tier('frontend-tests', {
+                command: command(`require('node:fs').writeFileSync(${JSON.stringify(producerMarker)}, 'failed\\n'); process.exit(23)`)
+            }),
+            tier('diagnostic-continuation', {
+                command: command(`require('node:fs').writeFileSync(${JSON.stringify(diagnosticMarker)}, 'complete\\n')`)
+            }),
+            tier('performance-evidence', {
+                command: command(`require('node:fs').writeFileSync(${JSON.stringify(consumerMarker)}, 'must not run\\n')`),
+                executionDependsOn: ['frontend-tests']
+            })
+        ],
+        root: temp,
+        runsRoot: path.join(temp, 'runs'),
+        runId: 'production-correctness-failure-barrier',
+        maxParallel: 1,
+        collectFailures: true,
+        systemResources: { cpuCount: 2, availableMemoryGiB: 2, load1: 0 },
+        snapshotWorktree: stableSnapshot
+    });
+
+    assert.equal(result.status, 'failure');
+    assert.equal(fs.existsSync(producerMarker), true);
+    assert.equal(fs.existsSync(diagnosticMarker), true);
+    assert.equal(fs.existsSync(consumerMarker), false);
+    assert.equal(result.checkpoint.failurePoint, 'frontend-tests');
+    assert.deepEqual(result.checkpoint.failures.map((failure) => failure.tierId), ['frontend-tests']);
+    assert.equal(result.checkpoint.tiers['diagnostic-continuation'].status, 'success');
+    assert.equal(result.checkpoint.tiers['performance-evidence'].status, 'blocked');
+    assert.match(result.checkpoint.tiers['performance-evidence'].reason, /frontend-tests/u);
+});
+
 test('checkpoint evidence attach is atomic, run-bound, and preserves physical scheduler tiers', async () =>
 {
     const { attachCheckpointEvidence, runDag } = await loadScheduler();
