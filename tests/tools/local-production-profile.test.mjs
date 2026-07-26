@@ -671,9 +671,9 @@ test('local production runner attaches the logical projection only after fresh p
         matrixRunner.indexOf('function writeSummaryOnlyEvidence('),
         matrixRunner.indexOf('\nfunction resetFreshJobSummaries(')
     );
-    const freshProjectionRunner = localProfileRunner.slice(localProfileRunner.indexOf('result = await runDag({'));
+    const freshProjectionRunner = localProfileRunner.slice(localProfileRunner.indexOf('await runDag({'));
     const orderedMarkers = [
-        'result = await runDag({',
+        'await runDag({',
         'const projectionInput = projectLocalBundleSummaries(',
         'const summaryOnlyEvidence = writeSummaryOnlyEvidence(',
         'buildLocalProfileProjection({',
@@ -686,7 +686,7 @@ test('local production runner attaches the logical projection only after fresh p
     assert.doesNotMatch(localProfileRunner, /fresh-only/u);
     assert.match(localProfileRunner, /isProjectionOnlyCheckpointFailure\(resumeCheckpoint\)[\s\S]*?resumeCheckpointEvidence\([\s\S]*?fresh-projection-resume/u);
     assert.match(localProfileRunner, /physical resume run=\$\{runId\}/u);
-    assert.match(localProfileRunner, /prepareProductionBuildLayout\(\{ root, runId, fresh: !options\.resume \}\)/u);
+    assert.match(localProfileRunner, /runProductionBuildLifecycle\(\{[\s\S]*?prepareOptions: \{[\s\S]*?fresh: !options\.resume/u);
     assert.match(localProfileRunner, /mode: options\.resume \? 'resume' : 'fresh'/u);
     assert.match(localProfileRunner, /resume: options\.resume/u);
     assert.match(localProfileRunner, /reuseAcrossSourceChanges: false/u);
@@ -707,7 +707,7 @@ test('local production runner attaches the logical projection only after fresh p
     assert.match(localProfileRunner, /failures: result\.checkpoint\.failures/u);
     assert.match(localProfileRunner, /independent failure\(s\) collected/u);
     assert.match(localProfileRunner, /const cleanupSource = await \(runtime\.snapshotSourceState \?\? snapshotSourceState\)\(profileRoot\)[\s\S]*?executeProductionFreshPreflight\(\{[\s\S]*?receiptDirectory: runtime\.receiptDirectory[\s\S]*?fsusblog-runtime-cleanup-receipts[\s\S]*?additionalCleanup: runtime\.additionalCleanup \?\? \(\(\) => cleanupOrphanDotnetBuildServers/u);
-    assert.match(localProfileRunner, /executeProductionFreshPreflight\(\{[\s\S]*?assertFreshRuntimeCleanupReceipt\(preflightReceipt\.receipt\)[\s\S]*?cleanLocalProductionOutputs[\s\S]*?bindFreshRuntimeCleanupReceipt\(\{ root: profileRoot, receipt: preflightReceipt \}\)[\s\S]*?result = await runDag/u);
+    assert.match(localProfileRunner, /executeProductionFreshPreflight\(\{[\s\S]*?assertFreshRuntimeCleanupReceipt\(preflightReceipt\.receipt\)[\s\S]*?cleanLocalProductionOutputs[\s\S]*?bindFreshRuntimeCleanupReceipt\(\{ root: profileRoot, receipt: preflightReceipt \}\)[\s\S]*?recordSchedulerResult\(await runDag/u);
     assert.match(localProfileRunner, /catch \(error\) \{[\s\S]*?runError = error[\s\S]*?throw error[\s\S]*?finally \{[\s\S]*?if \(runError !== null \|\| !result\)[\s\S]*?recordCheckpointFailure\(/u);
     assert.doesNotMatch(localProfileRunner, /fs\.writeFileSync\(result\.checkpointPath/u);
     assert.match(localProfileRunner, /runProductionFreshRuntimeCleanupPhase\(\{[\s\S]*?phase: 'postflight'[\s\S]*?preflightSource: cleanupSource,[\s\S]*?cleanupOptions: runtimeCleanupOptions/u);

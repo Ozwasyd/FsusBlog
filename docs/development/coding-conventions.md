@@ -88,6 +88,7 @@ Allman braces 适用于 C# 和仓库手写 C++。TS/JS/Vue、CSS、Shell、CMake
 ## Shell
 
 - POSIX/Bash 语法要求高于 brace 映射；4 spaces，函数和 control block 分行清晰。
+- PowerShell 同样使用 4 spaces；function 使用 `PascalCase`、local variable 使用 `camelCase`，native resource 必须在 `finally` 中释放。
 - exported environment variable 使用 `UPPER_SNAKE_CASE`；仓库自有 function 使用 `PascalCase`，local variable 使用 `camelCase`；仅已登记的公共 Shell API 或环境契约保留外部名称。
 - 新脚本使用 fail-closed 参数解析、引用变量展开，并给 cleanup 安装 `trap`。
 

@@ -1,73 +1,76 @@
 #!/usr/bin/env node
+import { spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
-import { createHash } from 'node:crypto'
-import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+
 import {
-  aggregateArtifactPathExists,
-  applySupersedes,
-  attachCheckpointEvidence,
-  createRunId,
-  findLatestRunId,
-  isProjectionOnlyCheckpointFailure,
-  markCheckpointWallClockTimeout,
-  recordCheckpointFailure,
-  recordCheckpointRuntimeCleanup,
-  resumeCheckpointEvidence,
-  runDag,
-  snapshotGitWorktree,
-  snapshotSourceState,
-  tierResourceUnits,
-  validateSupersedesRules
-} from './test-matrix/scheduler.mjs'
-import {
-  buildLocalProfileProjection,
-  createLocalBundleTiers,
-  localBundleSummaryPath,
-  localProfileSystemResources,
-  resolveLocalProfileResources,
-  validateLocalBundleSummary,
-  validateLocalProfileRunSummary,
-  validateLocalProfiles
-} from './test-matrix/local-profile.mjs'
-import { parseMatrix } from './test-matrix/parse-matrix.mjs'
-import {
-  buildAggregatePlan as buildAggregateReachabilityPlan,
-  buildReceiptPlan as buildReceiptReachabilityPlan
-} from './test-matrix/aggregate-plan.mjs';
-import { validateEvidenceExecutionDeclaration } from './test-matrix/projection-declaration.mjs';
-import { buildReleaseFinalizerPlan } from './test-matrix/release-final-evidence-contract.mjs';
-import { parseWorkflowJobNeeds } from './yaml/workflow-structure.mjs'
+    buildAggregatePlan as buildAggregateReachabilityPlan,
+    buildReceiptPlan as buildReceiptReachabilityPlan
+} from './test-matrix/aggregate-plan.mjs'
+import { createArtifactDigestTable } from './test-matrix/artifact-digest-table.mjs'
+import { cleanupOrphanDotnetBuildServers } from './test-matrix/dotnet-build-server-cleanup.mjs'
 import { assertLocalProductionCapacity, cleanLocalProductionOutputs } from './test-matrix/fresh-production.mjs'
 import {
-  appendFreshRuntimeCleanupFailure,
-  assertFreshRuntimeCleanupReceipt,
-  writeFreshRuntimeCleanupReceipt
+    buildLocalProfileProjection,
+    createLocalBundleTiers,
+    localBundleSummaryPath,
+    localProfileSystemResources,
+    resolveLocalProfileResources,
+    validateLocalBundleSummary,
+    validateLocalProfileRunSummary,
+    validateLocalProfiles
+} from './test-matrix/local-profile.mjs'
+import {
+    appendFreshRuntimeCleanupFailure,
+    assertFreshRuntimeCleanupReceipt,
+    writeFreshRuntimeCleanupReceipt
 } from './test-matrix/local-runtime-cleanup.mjs'
+import { parseMatrix } from './test-matrix/parse-matrix.mjs'
 import {
-  bindFreshRuntimeCleanupReceipt,
-  executeProductionFreshPreflight,
-  recordProductionFreshFailure,
-  runProductionFreshRuntimeCleanupPhase,
-  runtimeCleanupReceiptReference
+    bindFreshRuntimeCleanupReceipt,
+    executeProductionFreshPreflight,
+    recordProductionFreshFailure,
+    runProductionFreshRuntimeCleanupPhase,
+    runtimeCleanupReceiptReference
 } from './test-matrix/production-fresh-runtime-evidence.mjs'
-import { cleanupOrphanDotnetBuildServers } from './test-matrix/dotnet-build-server-cleanup.mjs'
+import { runProductionBuildLifecycle } from './test-matrix/production-build-lifecycle.mjs'
 import {
-  bindProductionBuildLayoutSource,
-  finalizeProductionBuildLayout,
-  prepareProductionBuildLayout,
-  productionBuildEnvironment,
-  scheduleStaleProductionBuildGc
+    bindProductionBuildLayoutSource,
+    productionBuildEnvironment,
+    registerProductionBuildCompiler,
+    scheduleStaleProductionBuildGc
 } from './test-matrix/production-build-layout.mjs'
-import { createArtifactDigestTable } from './test-matrix/artifact-digest-table.mjs'
+import { validateEvidenceExecutionDeclaration } from './test-matrix/projection-declaration.mjs'
+import { buildReleaseFinalizerPlan } from './test-matrix/release-final-evidence-contract.mjs'
 import {
     measureResourceCollectorOverhead,
     writeResourceUtilizationEvidence
-} from './test-matrix/resource-utilization.mjs';
-import { topologyEnvironmentForTier, validateTierTopology } from './test-matrix/topology.mjs';
+} from './test-matrix/resource-utilization.mjs'
+import {
+    aggregateArtifactPathExists,
+    applySupersedes,
+    attachCheckpointEvidence,
+    collectSchedulerSourceState,
+    createRunId,
+    findLatestRunId,
+    isProjectionOnlyCheckpointFailure,
+    markCheckpointWallClockTimeout,
+    recordCheckpointFailure,
+    recordCheckpointRuntimeCleanup,
+    resumeCheckpointEvidence,
+    runDag,
+    schedulerRunLockIsActive,
+    snapshotGitWorktree,
+    snapshotSourceState,
+    tierResourceUnits,
+    validateSupersedesRules
+} from './test-matrix/scheduler.mjs'
+import { topologyEnvironmentForTier, validateTierTopology } from './test-matrix/topology.mjs'
+import { parseWorkflowJobNeeds } from './yaml/workflow-structure.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'));
 const matrixFile = process.env.FSUSBLOG_MATRIX_FILE
@@ -1129,26 +1132,10 @@ function bindScheduledBuildLayoutSource(layout, sourceState) {
 }
 
 function schedulerRunIsActive(runId) {
-  const lockPath = path.join(root, '.tmp/test-runs/.locks', `${runId}.lock`)
-  const ownerFile = path.join(lockPath, 'owner.json')
-  if (!fs.existsSync(lockPath)) return false
-  try {
-    const owner = JSON.parse(fs.readFileSync(ownerFile, 'utf8'))
-    const pid = Number(owner.pid)
-    if (!Number.isInteger(pid) || pid <= 0) return true
-    try {
-      process.kill(pid, 0)
-      return true
-    } catch (error) {
-      return error.code === 'EPERM'
-    }
-  } catch {
-    try {
-      return Date.now() - fs.statSync(lockPath).mtimeMs < 30_000
-    } catch {
-      return true
-    }
-  }
+    return schedulerRunLockIsActive({
+        runId,
+        runsRoot: path.join(root, '.tmp/test-runs')
+    })
 }
 
 function applyUxViewportResumeEnvironment(env, tier, resume) {
@@ -1729,9 +1716,25 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
     })
     throw error
   }
-  const buildLayout = prepareProductionBuildLayout({ root, runId, fresh: !options.resume })
+  const { sourceState: buildSourceState } = await collectSchedulerSourceState(root)
+  const lifecycle = await runProductionBuildLifecycle({
+    prepareOptions: {
+      root,
+      runId,
+      fresh: !options.resume,
+      sourceState: buildSourceState,
+      namespace: runNamespace
+    },
+    async execute({
+      afterFinalize,
+      buildLayout,
+      recordSchedulerResult,
+      setFinalization,
+      throwIfInterrupted
+    }) {
   const preparedBuildSourceState = buildLayout.manifest.sourceState
   const buildGc = options.resume ? null : scheduleStaleProductionBuildGc({ root, currentRunId: runId })
+    throwIfInterrupted()
   if (options.resume) {
     console.error(`[matrix:${profileId}] physical resume run=${runId} buildRoot=${path.relative(root, buildLayout.runRoot)}`)
   } else {
@@ -1749,7 +1752,11 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
   let runError = null
   let postflightReceipt = null
   try {
-    result = await runDag({
+    result = recordSchedulerResult(await runDag({
+        registerManagedProcess: (identity, _tier, authority) =>
+            registerProductionBuildCompiler(buildLayout, identity, authority),
+        sourceState: buildSourceState,
+        namespace: runNamespace,
       tiers: physicalTiers,
       root,
       runsRoot,
@@ -1801,7 +1808,7 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
         const budgetLabel = Number.isFinite(Number(tier.budgetMs)) ? `${tier.budgetMs}ms` : 'observe-only'
         console.error(`[matrix:${profileId}] bundle=${tier.physicalBundleId} budget=${budgetLabel} command=${tier.command}`)
       }
-    })
+    }))
 
     let projectedTierIds = []
     const completedTierIds = new Set(result.checkpoint.completedTiers ?? [])
@@ -2112,61 +2119,73 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
     fs.writeFileSync(summaryFile, `${JSON.stringify(summary, null, 2)}\n`)
   }
 
-  const buildManifest = finalizeProductionBuildLayout(buildLayout, {
-    status: result.status === 'success' ? 'success' : 'failure',
-    cleanup: freshCleanup,
-    wallClockMs: fullScriptDurationMs,
-    completedAt: new Date(completedAtMs).toISOString()
-  })
-  const buildEvidenceFile = options.resume
-    ? path.join(root, `.tmp/local-${profileId}/resume-build-layout.json`)
-    : path.join(root, '.tmp/release-evidence/production-build-layout.json')
-  fs.mkdirSync(path.dirname(buildEvidenceFile), { recursive: true })
-  fs.writeFileSync(buildEvidenceFile, `${JSON.stringify(buildManifest, null, 2)}\n`)
+            setFinalization({
+                status:
+                    result.status === 'success' ? 'success' : result.failure?.signal ? 'cancelled' : 'failure',
+                cleanup: freshCleanup,
+                wallClockMs: fullScriptDurationMs,
+                completedAt: new Date(completedAtMs).toISOString(),
+                primaryFailure: result.status === 'success' ? null : result.failure
+            })
+            afterFinalize((buildManifest) => {
+                const buildEvidenceFile = options.resume
+                    ? path.join(root, `.tmp/local-${profileId}/resume-build-layout.json`)
+                    : path.join(root, '.tmp/release-evidence/production-build-layout.json')
+                fs.mkdirSync(path.dirname(buildEvidenceFile), { recursive: true })
+                fs.writeFileSync(buildEvidenceFile, `${JSON.stringify(buildManifest, null, 2)}\n`)
 
-  if (options.resume) {
-    // A physical resume can combine unchanged fresh outputs with newly rerun
-    // bundles. Its checkpoint records that reuse, but it must not replace the
-    // same-source, all-fresh resource evidence consumed by release gates.
-    if (fs.existsSync(summaryFile)) {
-      const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8'))
-      summary.resourceUtilization = {
-        path: relativeToRoot(result.checkpointPath),
-        status: result.checkpoint.resourceUtilization?.status ?? 'unavailable',
-        digest: fileDigest(result.checkpointPath),
-        authoritative: false
-      }
-      fs.writeFileSync(summaryFile, `${JSON.stringify(summary, null, 2)}\n`)
-    }
-  } else {
-    const resourceUtilizationEvidence = emitProductionResourceUtilization({
-      profileId,
-      profile: resolvedProfile,
-      result,
-      detectedResources,
-      durationMs: fullScriptDurationMs
+                if (options.resume) {
+                    // A physical resume can combine unchanged fresh outputs with newly rerun
+                    // bundles. Its checkpoint records that reuse, but it must not replace the
+                    // same-source, all-fresh resource evidence consumed by release gates.
+                    if (fs.existsSync(summaryFile)) {
+                        const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8'))
+                        summary.resourceUtilization = {
+                            path: relativeToRoot(result.checkpointPath),
+                            status: result.checkpoint.resourceUtilization?.status ?? 'unavailable',
+                            digest: fileDigest(result.checkpointPath),
+                            authoritative: false
+                        }
+                        fs.writeFileSync(summaryFile, `${JSON.stringify(summary, null, 2)}\n`)
+                    }
+                } else {
+                    const resourceUtilizationEvidence = emitProductionResourceUtilization({
+                        profileId,
+                        profile: resolvedProfile,
+                        result,
+                        detectedResources,
+                        durationMs: fullScriptDurationMs
+                    })
+                    if (fs.existsSync(summaryFile)) {
+                        const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8'))
+                        summary.resourceUtilization = {
+                            path: '.tmp/release-evidence/production-resource-utilization.json',
+                            status: resourceUtilizationEvidence.status,
+                            digest: fileDigest(
+                                path.join(root, '.tmp/release-evidence/production-resource-utilization.json')
+                            )
+                        }
+                        fs.writeFileSync(summaryFile, `${JSON.stringify(summary, null, 2)}\n`)
+                    }
+                }
+            })
+            return result
+        }
     })
-    if (fs.existsSync(summaryFile)) {
-      const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8'))
-      summary.resourceUtilization = {
-        path: '.tmp/release-evidence/production-resource-utilization.json',
-        status: resourceUtilizationEvidence.status,
-        digest: fileDigest(path.join(root, '.tmp/release-evidence/production-resource-utilization.json'))
-      }
-      fs.writeFileSync(summaryFile, `${JSON.stringify(summary, null, 2)}\n`)
+    const result = lifecycle.operationResult
+    if (result.status !== 'success') {
+        const failures =
+            result.checkpoint.failures?.length > 0
+                ? result.checkpoint.failures
+                : [result.failure ?? { tierId: profileId, reason: 'local profile failed' }]
+        console.error(`[matrix:${profileId}] ${failures.length} independent failure(s) collected`)
+        for (const failure of failures) {
+            console.error(
+                `[matrix:${failure.tierId ?? profileId}] ${failure.reason ?? 'local profile failed'}`
+            )
+        }
+        process.exitCode = Number(result.failure?.exitCode) || 1
     }
-  }
-
-  if (result.status !== 'success') {
-    const failures = result.checkpoint.failures?.length > 0
-      ? result.checkpoint.failures
-      : [result.failure ?? { tierId: profileId, reason: 'local profile failed' }]
-    console.error(`[matrix:${profileId}] ${failures.length} independent failure(s) collected`)
-    for (const failure of failures) {
-      console.error(`[matrix:${failure.tierId ?? profileId}] ${failure.reason ?? 'local profile failed'}`)
-    }
-    process.exit(Number(result.failure?.exitCode) || 1)
-  }
 }
 
 function resetFreshJobSummaries(entries) {
@@ -2184,107 +2203,143 @@ function emitTierReproductionHint(tier, options) {
 }
 
 async function runTier(matrix, tierId, args) {
-  const options = parseRunOptions(args)
-  if (shouldUseLocalProfile(matrix, tierId, options)) {
-    await runLocalProfile(matrix, normalizeTierId(tierId), options)
-    return
-  }
-  const targetTierId = normalizeTierId(tierId)
-  const declaredTiers = options.noDeps ? [tierMap(matrix).get(normalizeTierId(tierId))] : planTier(matrix, tierId)
-  if (declaredTiers.some((tier) => !tier)) throw new Error(`unknown tier: ${tierId}`)
-  const systemResources = logicalTierSystemResources()
-  const all = applyDirectCorrectnessBudgetPolicy(
-    resolveLogicalTierResources(declaredTiers, systemResources),
-    targetTierId)
-
-  if (options.shard) {
-    const target = all[all.length - 1]
-    if (!target.shardable) throw new Error(`${target.id} is not shardable`)
-    if (!/^\d+\/\d+$/.test(options.shard)) throw new Error('--shard must use i/n format')
-  }
-
-  if (options.planOnly) {
-    printPlan(all)
-    return
-  }
-
-  const target = all[all.length - 1]
-  const { runsRoot, runId } = schedulerRunIdentity(targetTierId, options)
-  const buildLayout = prepareProductionBuildLayout({ root, runId, fresh: !options.resume })
-  if (!options.resume) scheduleStaleProductionBuildGc({ root, currentRunId: runId })
-  const runNamespace = namespaceFor(target, options.shard, runId)
-  prepareNamespaceEnvironmentIfNeeded(all, runNamespace)
-  if (options.fresh) resetFreshJobSummaries(all.map((tier) => [tier, {}]))
-  const result = await runDag({
-    tiers: all,
-    root,
-    runsRoot,
-    runId,
-    targetTierId,
-    mode: options.resume ? 'resume' : 'fresh',
-    resume: options.resume,
-    supersedesUniverse: matrix.tiers,
-    coverageRegistry: loadCoverageRegistry().entries,
-    maxParallel: Math.min(options.maxParallel ?? systemResources.availableCpuUnits, systemResources.availableCpuUnits),
-    systemResources,
-    teeOutput: true,
-    onSourceState(sourceState) {
-      bindScheduledBuildLayoutSource(buildLayout, sourceState)
-    },
-    envForTier(tier) {
-      const namespaceEnv = loadNamespaceEnv(runNamespace)
-      const env = applyNamespaceBuildEnvironment(tier, productionBuildEnvironment(buildLayout, {
-        ...namespaceEnv,
-        CURRENT_TIER: tier.id,
-        MATRIX_JOB: tier.ciJob,
-        FSUSBLOG_TEST_NAMESPACE: runNamespace,
-        FSUSBLOG_TEST_RUN_ID: runId
-      }))
-      Object.assign(env, resourceEnvironmentForTier(tier, env))
-      applyUxViewportResumeEnvironment(env, tier, options.resume)
-      if (options.shard) {
-        const [index, total] = options.shard.split('/')
-        env.MATRIX_SHARD = options.shard
-        env.FSUSBLOG_TEST_SHARD_INDEX = index
-        env.FSUSBLOG_TEST_SHARD_TOTAL = total
-        if (tier.requiresPlaywright !== 'none') env.FSUSBLOG_PLAYWRIGHT_SHARD_ARG = `--shard=${index}/${total}`
-      }
-      return env
-    },
-    onTierStart(tier) {
-      emitTierReproductionHint(tier, options)
-      console.error(`[matrix:${tier.id}] ${tier.command}`)
-    },
-    onTierReused(tier) {
-      console.error(`[matrix:${tier.id}] reused successful checkpoint from ${runId}`)
-    },
-    onTierComplete(tier, tierResult) {
-      const startedAt = Date.now() - tierResult.durationMs
-      if (tierResult.status === 'success') {
-        writeJobSummary(matrix, tier, 'success', startedAt, { schedulerRunId: runId })
-      } else {
-        writeJobSummary(matrix, tier, 'failure', startedAt, {
-          schedulerRunId: runId,
-          failureStage: stageForTier(tier),
-          rootCause: tierResult.reason
-        })
-      }
+    const options = parseRunOptions(args)
+    if (shouldUseLocalProfile(matrix, tierId, options)) {
+        await runLocalProfile(matrix, normalizeTierId(tierId), options)
+        return
     }
-  })
+    const targetTierId = normalizeTierId(tierId)
+    const declaredTiers = options.noDeps
+        ? [tierMap(matrix).get(normalizeTierId(tierId))]
+        : planTier(matrix, tierId)
+    if (declaredTiers.some((tier) => !tier)) throw new Error(`unknown tier: ${tierId}`)
+    const systemResources = logicalTierSystemResources()
+    const all = applyDirectCorrectnessBudgetPolicy(
+        resolveLogicalTierResources(declaredTiers, systemResources),
+        targetTierId
+    )
 
-  console.error(`[matrix:${target.id}] run=${result.runId} checkpoint=${relativeToRoot(result.checkpointPath)}`)
-  finalizeProductionBuildLayout(buildLayout, {
-    status: result.status === 'success' ? 'success' : 'failure'
-  })
-  if (options.fresh && new Set(['production', 'release-final']).has(targetTierId)) {
-    cleanupSensitiveFixtures(runNamespace, loadNamespaceEnv(runNamespace))
-    console.error(`[matrix:${target.id}] removed namespaced auth fixture cache`)
-  }
-  if (result.status !== 'success') {
-    const exitCode = Number(result.failure?.exitCode) || 1
-    console.error(`[matrix:${result.failure?.tierId ?? target.id}] ${result.failure?.reason ?? 'scheduler failed'}`)
-    process.exit(exitCode)
-  }
+    if (options.shard) {
+        const target = all[all.length - 1]
+        if (!target.shardable) throw new Error(`${target.id} is not shardable`)
+        if (!/^\d+\/\d+$/.test(options.shard)) throw new Error('--shard must use i/n format')
+    }
+
+    if (options.planOnly) {
+        printPlan(all)
+        return
+    }
+
+    const target = all[all.length - 1]
+    const { runsRoot, runId } = schedulerRunIdentity(targetTierId, options)
+    const runNamespace = namespaceFor(target, options.shard, runId)
+    const { sourceState: buildSourceState } = await collectSchedulerSourceState(root)
+    const lifecycle = await runProductionBuildLifecycle({
+        prepareOptions: {
+            root,
+            runId,
+            fresh: !options.resume,
+            sourceState: buildSourceState,
+            namespace: runNamespace
+        },
+        async execute({ buildLayout, recordSchedulerResult, setFinalization, throwIfInterrupted }) {
+            if (!options.resume) scheduleStaleProductionBuildGc({ root, currentRunId: runId })
+            throwIfInterrupted()
+            prepareNamespaceEnvironmentIfNeeded(all, runNamespace)
+            if (options.fresh) resetFreshJobSummaries(all.map((tier) => [tier, {}]))
+            const result = recordSchedulerResult(
+                await runDag({
+                    registerManagedProcess: (identity, _tier, authority) =>
+                        registerProductionBuildCompiler(buildLayout, identity, authority),
+                    sourceState: buildSourceState,
+                    namespace: runNamespace,
+                    tiers: all,
+                    root,
+                    runsRoot,
+                    runId,
+                    targetTierId,
+                    mode: options.resume ? 'resume' : 'fresh',
+                    resume: options.resume,
+                    supersedesUniverse: matrix.tiers,
+                    coverageRegistry: loadCoverageRegistry().entries,
+                    maxParallel: Math.min(
+                        options.maxParallel ?? systemResources.availableCpuUnits,
+                        systemResources.availableCpuUnits
+                    ),
+                    systemResources,
+                    teeOutput: true,
+                    onSourceState(sourceState) {
+                        bindScheduledBuildLayoutSource(buildLayout, sourceState)
+                    },
+                    envForTier(tier) {
+                        const namespaceEnv = loadNamespaceEnv(runNamespace)
+                        const env = applyNamespaceBuildEnvironment(
+                            tier,
+                            productionBuildEnvironment(buildLayout, {
+                                ...namespaceEnv,
+                                CURRENT_TIER: tier.id,
+                                MATRIX_JOB: tier.ciJob,
+                                FSUSBLOG_TEST_NAMESPACE: runNamespace,
+                                FSUSBLOG_TEST_RUN_ID: runId
+                            })
+                        )
+                        Object.assign(env, resourceEnvironmentForTier(tier, env))
+                        applyUxViewportResumeEnvironment(env, tier, options.resume)
+                        if (options.shard) {
+                            const [index, total] = options.shard.split('/')
+                            env.MATRIX_SHARD = options.shard
+                            env.FSUSBLOG_TEST_SHARD_INDEX = index
+                            env.FSUSBLOG_TEST_SHARD_TOTAL = total
+                            if (tier.requiresPlaywright !== 'none')
+                                env.FSUSBLOG_PLAYWRIGHT_SHARD_ARG = `--shard=${index}/${total}`
+                        }
+                        return env
+                    },
+                    onTierStart(tier) {
+                        emitTierReproductionHint(tier, options)
+                        console.error(`[matrix:${tier.id}] ${tier.command}`)
+                    },
+                    onTierReused(tier) {
+                        console.error(`[matrix:${tier.id}] reused successful checkpoint from ${runId}`)
+                    },
+                    onTierComplete(tier, tierResult) {
+                        const startedAt = Date.now() - tierResult.durationMs
+                        if (tierResult.status === 'success') {
+                            writeJobSummary(matrix, tier, 'success', startedAt, { schedulerRunId: runId })
+                        } else {
+                            writeJobSummary(matrix, tier, 'failure', startedAt, {
+                                schedulerRunId: runId,
+                                failureStage: stageForTier(tier),
+                                rootCause: tierResult.reason
+                            })
+                        }
+                    }
+                })
+            )
+
+            console.error(
+                `[matrix:${target.id}] run=${result.runId} checkpoint=${relativeToRoot(result.checkpointPath)}`
+            )
+            if (options.fresh && new Set(['production', 'release-final']).has(targetTierId)) {
+                cleanupSensitiveFixtures(runNamespace, loadNamespaceEnv(runNamespace))
+                console.error(`[matrix:${target.id}] removed namespaced auth fixture cache`)
+            }
+            setFinalization({
+                status:
+                    result.status === 'success' ? 'success' : result.failure?.signal ? 'cancelled' : 'failure',
+                primaryFailure: result.status === 'success' ? null : result.failure
+            })
+            return result
+        }
+    })
+    const result = lifecycle.operationResult
+    if (result.status !== 'success') {
+        const exitCode = Number(result.failure?.exitCode) || 1
+        console.error(
+            `[matrix:${result.failure?.tierId ?? target.id}] ${result.failure?.reason ?? 'scheduler failed'}`
+        )
+        process.exitCode = exitCode
+    }
 }
 
 function parseCiJobOptions(args) {
@@ -2513,84 +2568,124 @@ function printCiJobPlan(matrix, jobId) {
 }
 
 async function runCiJobScheduled(matrix, jobId, tiers, options) {
-  const targetTierId = `ci-job/${jobId}`
-  const { runsRoot, runId } = schedulerRunIdentity(targetTierId, options)
-  const buildLayout = prepareProductionBuildLayout({ root, runId, fresh: !options.resume })
-  if (!options.resume) scheduleStaleProductionBuildGc({ root, currentRunId: runId })
-  const schedulerMode = options.forceSerial ? 'serial' : 'parallel'
-  const dynamicMaximum = Math.min(ciJobMaxParallel(tiers), options.systemResources.availableCpuUnits)
-  const maxParallel = options.forceSerial ? 1 : Math.min(options.maxParallel ?? dynamicMaximum, dynamicMaximum)
-  console.error(`[matrix:ci-job:${jobId}] scheduler=${schedulerMode} max=${maxParallel}`)
-  const bootstrapTier = tiers.find((tier) => tier.selfBootstraps === true)
-  if (bootstrapTier) prepareNamespaceEnvironmentIfNeeded(tiers, namespaceFor(bootstrapTier, options.shard, runId))
-  if (options.fresh) {
-    resetFreshJobSummaries(tiers.map((tier) => [tier, {
-      jobId: options.forceSerial ? jobId : `${jobId}-${tier.id}`
-    }]))
-  }
+    const targetTierId = `ci-job/${jobId}`
+    const { runsRoot, runId } = schedulerRunIdentity(targetTierId, options)
+    const buildNamespace = namespaceFor({ id: targetTierId, ciJob: jobId }, options.shard, runId)
+    const { sourceState: buildSourceState } = await collectSchedulerSourceState(root)
+    const schedulerMode = options.forceSerial ? 'serial' : 'parallel'
+    const dynamicMaximum = Math.min(ciJobMaxParallel(tiers), options.systemResources.availableCpuUnits)
+    const maxParallel = options.forceSerial
+        ? 1
+        : Math.min(options.maxParallel ?? dynamicMaximum, dynamicMaximum)
+    const lifecycle = await runProductionBuildLifecycle({
+        prepareOptions: {
+            root,
+            runId,
+            fresh: !options.resume,
+            sourceState: buildSourceState,
+            namespace: buildNamespace
+        },
+        async execute({ buildLayout, recordSchedulerResult, setFinalization, throwIfInterrupted }) {
+            if (!options.resume) scheduleStaleProductionBuildGc({ root, currentRunId: runId })
+            throwIfInterrupted()
+            console.error(`[matrix:ci-job:${jobId}] scheduler=${schedulerMode} max=${maxParallel}`)
+            const bootstrapTier = tiers.find((tier) => tier.selfBootstraps === true)
+            if (bootstrapTier)
+                prepareNamespaceEnvironmentIfNeeded(
+                    tiers,
+                    namespaceFor(bootstrapTier, options.shard, runId)
+                )
+            if (options.fresh) {
+                resetFreshJobSummaries(
+                    tiers.map((tier) => [
+                        tier,
+                        {
+                            jobId: options.forceSerial ? jobId : `${jobId}-${tier.id}`
+                        }
+                    ])
+                )
+            }
 
-  const result = await runDag({
-    tiers,
-    root,
-    runsRoot,
-    runId,
-    targetTierId,
-    mode: options.resume ? 'resume' : 'fresh',
-    resume: options.resume,
-    supersedesUniverse: matrix.tiers,
-    coverageRegistry: loadCoverageRegistry().entries,
-    maxParallel,
-    systemResources: options.systemResources,
-    teeOutput: true,
-    onSourceState(sourceState) {
-      bindScheduledBuildLayoutSource(buildLayout, sourceState)
-    },
-    envForTier(tier) {
-      const runNamespace = namespaceFor(tier, options.shard, runId)
-      const env = applyNamespaceBuildEnvironment(tier, productionBuildEnvironment(buildLayout, {
-        ...loadNamespaceEnv(runNamespace),
-        CURRENT_TIER: tier.id,
-        MATRIX_JOB: tier.ciJob,
-        FSUSBLOG_TEST_NAMESPACE: runNamespace,
-        FSUSBLOG_TEST_RUN_ID: runId,
-        FSUSBLOG_CI_JOB_ID: options.forceSerial ? jobId : `${jobId}-${tier.id}`,
-        FSUSBLOG_CI_JOB_SCHEDULER: schedulerMode
-      }))
-      Object.assign(env, resourceEnvironmentForTier(tier, env))
-      applyUxViewportResumeEnvironment(env, tier, options.resume)
-      if (options.shard && tier.shardable) {
-        const [index, total] = options.shard.split('/')
-        env.MATRIX_SHARD = options.shard
-        env.FSUSBLOG_TEST_SHARD_INDEX = index
-        env.FSUSBLOG_TEST_SHARD_TOTAL = total
-        if (tier.requiresPlaywright !== 'none') env.FSUSBLOG_PLAYWRIGHT_SHARD_ARG = `--shard=${index}/${total}`
-      }
-      return env
-    },
-    onTierStart(tier) {
-      emitTierReproductionHint(tier, { noDeps: true, shard: options.shard })
-      console.error(`[matrix:ci-job:${jobId}] started ${tier.id}: ${tier.command}`)
-    },
-    onTierReused(tier) {
-      console.error(`[matrix:ci-job:${jobId}] reused ${tier.id} from ${runId}`)
-    },
-    onTierComplete(tier, tierResult) {
-      const startedAt = Date.now() - tierResult.durationMs
-      const success = tierResult.status === 'success'
-      writeJobSummary(matrix, tier, success ? 'success' : 'failure', startedAt, {
-        jobId: options.forceSerial ? jobId : `${jobId}-${tier.id}`,
-        schedulerRunId: runId,
-        failureStage: success ? null : stageForTier(tier),
-        rootCause: success ? null : tierResult.reason
-      })
-      console.error(`[matrix:ci-job:${jobId}] ${tier.id} ${tierResult.status}`)
-    }
-  })
-  console.error(`[matrix:ci-job:${jobId}] run=${result.runId} checkpoint=${relativeToRoot(result.checkpointPath)}`)
-  finalizeProductionBuildLayout(buildLayout, {
-    status: result.status === 'success' ? 'success' : 'failure'
-  })
-  return result.status === 'success' ? 0 : (Number(result.failure?.exitCode) || 1)
+            const result = recordSchedulerResult(
+                await runDag({
+                    registerManagedProcess: (identity, _tier, authority) =>
+                        registerProductionBuildCompiler(buildLayout, identity, authority),
+                    sourceState: buildSourceState,
+                    namespace: buildNamespace,
+                    tiers,
+                    root,
+                    runsRoot,
+                    runId,
+                    targetTierId,
+                    mode: options.resume ? 'resume' : 'fresh',
+                    resume: options.resume,
+                    supersedesUniverse: matrix.tiers,
+                    coverageRegistry: loadCoverageRegistry().entries,
+                    maxParallel,
+                    systemResources: options.systemResources,
+                    teeOutput: true,
+                    onSourceState(sourceState) {
+                        bindScheduledBuildLayoutSource(buildLayout, sourceState)
+                    },
+                    envForTier(tier) {
+                        const runNamespace = namespaceFor(tier, options.shard, runId)
+                        const env = applyNamespaceBuildEnvironment(
+                            tier,
+                            productionBuildEnvironment(buildLayout, {
+                                ...loadNamespaceEnv(runNamespace),
+                                CURRENT_TIER: tier.id,
+                                MATRIX_JOB: tier.ciJob,
+                                FSUSBLOG_TEST_NAMESPACE: runNamespace,
+                                FSUSBLOG_TEST_RUN_ID: runId,
+                                FSUSBLOG_CI_JOB_ID: options.forceSerial ? jobId : `${jobId}-${tier.id}`,
+                                FSUSBLOG_CI_JOB_SCHEDULER: schedulerMode
+                            })
+                        )
+                        Object.assign(env, resourceEnvironmentForTier(tier, env))
+                        applyUxViewportResumeEnvironment(env, tier, options.resume)
+                        if (options.shard && tier.shardable) {
+                            const [index, total] = options.shard.split('/')
+                            env.MATRIX_SHARD = options.shard
+                            env.FSUSBLOG_TEST_SHARD_INDEX = index
+                            env.FSUSBLOG_TEST_SHARD_TOTAL = total
+                            if (tier.requiresPlaywright !== 'none')
+                                env.FSUSBLOG_PLAYWRIGHT_SHARD_ARG = `--shard=${index}/${total}`
+                        }
+                        return env
+                    },
+                    onTierStart(tier) {
+                        emitTierReproductionHint(tier, { noDeps: true, shard: options.shard })
+                        console.error(`[matrix:ci-job:${jobId}] started ${tier.id}: ${tier.command}`)
+                    },
+                    onTierReused(tier) {
+                        console.error(`[matrix:ci-job:${jobId}] reused ${tier.id} from ${runId}`)
+                    },
+                    onTierComplete(tier, tierResult) {
+                        const startedAt = Date.now() - tierResult.durationMs
+                        const success = tierResult.status === 'success'
+                        writeJobSummary(matrix, tier, success ? 'success' : 'failure', startedAt, {
+                            jobId: options.forceSerial ? jobId : `${jobId}-${tier.id}`,
+                            schedulerRunId: runId,
+                            failureStage: success ? null : stageForTier(tier),
+                            rootCause: success ? null : tierResult.reason
+                        })
+                        console.error(`[matrix:ci-job:${jobId}] ${tier.id} ${tierResult.status}`)
+                    }
+                })
+            )
+            console.error(
+                `[matrix:ci-job:${jobId}] run=${result.runId} checkpoint=${relativeToRoot(result.checkpointPath)}`
+            )
+            setFinalization({
+                status:
+                    result.status === 'success' ? 'success' : result.failure?.signal ? 'cancelled' : 'failure',
+                primaryFailure: result.status === 'success' ? null : result.failure
+            })
+            return result
+        }
+    })
+    const result = lifecycle.operationResult
+    return result.status === 'success' ? 0 : Number(result.failure?.exitCode) || 1
 }
 
 async function runCiJob(matrix, jobId, args) {
@@ -2608,7 +2703,7 @@ async function runCiJob(matrix, jobId, args) {
   options.forceSerial = process.env.FSUSBLOG_CI_JOB_SERIAL === '1' || ciJobSchedulerMode(tiers) === 'serial'
   if (process.env.FSUSBLOG_CI_JOB_SERIAL === '1') console.error(`[matrix:ci-job:${jobId}] scheduler=serial forced by FSUSBLOG_CI_JOB_SERIAL=1`)
   const status = await runCiJobScheduled(matrix, jobId, tiers, options)
-  if (status !== 0) process.exit(status)
+    if (status !== 0) process.exitCode = status
 }
 
 function parseAggregateOptions(args) {
@@ -3227,77 +3322,103 @@ async function ciPrPlan(matrix, args) {
 }
 
 async function ciPrSmart(matrix, args) {
-  const options = parsePrSmartGateOptions(args)
-  const plan = buildPrSmartGatePlan(matrix, options, await prSmartGateIdentity())
-  if (options.planOnly === true) {
-    console.log(JSON.stringify(plan, null, 2))
-    return
-  }
-  const byId = tierMap(matrix)
-  const declaredTiers = plan.selectedTierIds.map((tierId) => byId.get(tierId)).filter(Boolean)
-  if (declaredTiers.length === 0) return
-  const systemResources = logicalTierSystemResources()
-  const tiers = resolveLogicalTierResources(declaredTiers, systemResources)
-  const targetTierId = 'ci-pr-smart'
-  const schedulerOptions = { resume: false }
-  const { runsRoot, runId } = schedulerRunIdentity(targetTierId, schedulerOptions)
-  const buildLayout = prepareProductionBuildLayout({ root, runId })
-  scheduleStaleProductionBuildGc({ root, currentRunId: runId })
-  const runNamespace = namespaceFor({ ciJob: targetTierId, id: targetTierId }, null, runId)
-  prepareNamespaceEnvironmentIfNeeded(tiers, runNamespace)
-  resetFreshJobSummaries(tiers.map((tier) => [tier, {}]))
-  const result = await runDag({
-    tiers,
-    root,
-    runsRoot,
-    runId,
-    targetTierId,
-    mode: 'fresh',
-    resume: false,
-    supersedesUniverse: matrix.tiers,
-    coverageRegistry: loadCoverageRegistry().entries,
-    maxParallel: systemResources.availableCpuUnits,
-    systemResources,
-    teeOutput: true,
-    onSourceState(sourceState) {
-      bindScheduledBuildLayoutSource(buildLayout, sourceState)
-    },
-    envForTier(tier) {
-      const env = applyNamespaceBuildEnvironment(tier, productionBuildEnvironment(buildLayout, {
-        ...loadNamespaceEnv(runNamespace),
-        CURRENT_TIER: tier.id,
-        MATRIX_JOB: tier.ciJob,
-        FSUSBLOG_TEST_NAMESPACE: runNamespace,
-        FSUSBLOG_TEST_RUN_ID: runId,
-        FSUSBLOG_CI_JOB_ID: tier.ciJob,
-        FSUSBLOG_CI_JOB_SCHEDULER: 'dag'
-      }))
-      Object.assign(env, resourceEnvironmentForTier(tier, env))
-      applyUxViewportResumeEnvironment(env, tier, false)
-      return env
-    },
-    onTierStart(tier) {
-      emitTierReproductionHint(tier, { noDeps: true })
-      console.error(`[matrix:ci-pr-smart] started ${tier.id}: ${tier.command}`)
-    },
-    onTierComplete(tier, tierResult) {
-      const startedAt = Date.now() - tierResult.durationMs
-      const success = tierResult.status === 'success'
-      writeJobSummary(matrix, tier, success ? 'success' : 'failure', startedAt, {
-        schedulerRunId: runId,
-        failureStage: success ? null : stageForTier(tier),
-        rootCause: success ? null : tierResult.reason
-      })
-      console.error(`[matrix:ci-pr-smart] ${tier.id} ${tierResult.status}`)
+    const options = parsePrSmartGateOptions(args)
+    const plan = buildPrSmartGatePlan(matrix, options, await prSmartGateIdentity())
+    if (options.planOnly === true) {
+        console.log(JSON.stringify(plan, null, 2))
+        return
     }
-  })
-  console.error(`[matrix:ci-pr-smart] run=${result.runId} checkpoint=${relativeToRoot(result.checkpointPath)}`)
-  finalizeProductionBuildLayout(buildLayout, {
-    status: result.status === 'success' ? 'success' : 'failure'
-  })
-  if (result.status !== 'success') {
-    process.exit(Number(result.failure?.exitCode) || 1)
-  }
+    const byId = tierMap(matrix)
+    const declaredTiers = plan.selectedTierIds.map((tierId) => byId.get(tierId)).filter(Boolean)
+    if (declaredTiers.length === 0) return
+    const systemResources = logicalTierSystemResources()
+    const tiers = resolveLogicalTierResources(declaredTiers, systemResources)
+    const targetTierId = 'ci-pr-smart'
+    const schedulerOptions = { resume: false }
+    const { runsRoot, runId } = schedulerRunIdentity(targetTierId, schedulerOptions)
+    const runNamespace = namespaceFor({ ciJob: targetTierId, id: targetTierId }, null, runId)
+    const { sourceState: buildSourceState } = await collectSchedulerSourceState(root)
+    const lifecycle = await runProductionBuildLifecycle({
+        prepareOptions: {
+            root,
+            runId,
+            sourceState: buildSourceState,
+            namespace: runNamespace
+        },
+        async execute({ buildLayout, recordSchedulerResult, setFinalization, throwIfInterrupted }) {
+            scheduleStaleProductionBuildGc({ root, currentRunId: runId })
+            throwIfInterrupted()
+            prepareNamespaceEnvironmentIfNeeded(tiers, runNamespace)
+            resetFreshJobSummaries(tiers.map((tier) => [tier, {}]))
+            const result = recordSchedulerResult(
+                await runDag({
+                    registerManagedProcess: (identity, _tier, authority) =>
+                        registerProductionBuildCompiler(buildLayout, identity, authority),
+                    sourceState: buildSourceState,
+                    namespace: runNamespace,
+                    tiers,
+                    root,
+                    runsRoot,
+                    runId,
+                    targetTierId,
+                    mode: 'fresh',
+                    resume: false,
+                    supersedesUniverse: matrix.tiers,
+                    coverageRegistry: loadCoverageRegistry().entries,
+                    maxParallel: systemResources.availableCpuUnits,
+                    systemResources,
+                    teeOutput: true,
+                    onSourceState(sourceState) {
+                        bindScheduledBuildLayoutSource(buildLayout, sourceState)
+                    },
+                    envForTier(tier) {
+                        const env = applyNamespaceBuildEnvironment(
+                            tier,
+                            productionBuildEnvironment(buildLayout, {
+                                ...loadNamespaceEnv(runNamespace),
+                                CURRENT_TIER: tier.id,
+                                MATRIX_JOB: tier.ciJob,
+                                FSUSBLOG_TEST_NAMESPACE: runNamespace,
+                                FSUSBLOG_TEST_RUN_ID: runId,
+                                FSUSBLOG_CI_JOB_ID: tier.ciJob,
+                                FSUSBLOG_CI_JOB_SCHEDULER: 'dag'
+                            })
+                        )
+                        Object.assign(env, resourceEnvironmentForTier(tier, env))
+                        applyUxViewportResumeEnvironment(env, tier, false)
+                        return env
+                    },
+                    onTierStart(tier) {
+                        emitTierReproductionHint(tier, { noDeps: true })
+                        console.error(`[matrix:ci-pr-smart] started ${tier.id}: ${tier.command}`)
+                    },
+                    onTierComplete(tier, tierResult) {
+                        const startedAt = Date.now() - tierResult.durationMs
+                        const success = tierResult.status === 'success'
+                        writeJobSummary(matrix, tier, success ? 'success' : 'failure', startedAt, {
+                            schedulerRunId: runId,
+                            failureStage: success ? null : stageForTier(tier),
+                            rootCause: success ? null : tierResult.reason
+                        })
+                        console.error(`[matrix:ci-pr-smart] ${tier.id} ${tierResult.status}`)
+                    }
+                })
+            )
+            console.error(
+                `[matrix:ci-pr-smart] run=${result.runId} checkpoint=${relativeToRoot(result.checkpointPath)}`
+            )
+            setFinalization({
+                status:
+                    result.status === 'success' ? 'success' : result.failure?.signal ? 'cancelled' : 'failure',
+                primaryFailure: result.status === 'success' ? null : result.failure
+            })
+            return result
+        }
+    })
+    const result = lifecycle.operationResult
+    if (result.status !== 'success') {
+        process.exitCode = Number(result.failure?.exitCode) || 1
+    }
 }
 
 function ciPlan(matrix, format, outFile) {
@@ -3664,6 +3785,6 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   } catch (error) {
     console.error(`[matrix] ${error.message}`)
     if (process.env.FSUSBLOG_MATRIX_DEBUG_STACK === '1' && error?.stack) console.error(error.stack)
-    process.exit(1)
+    process.exitCode = Number(error?.exitCode) || 1
   }
 }

@@ -5,32 +5,62 @@ import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
-import {
-  assertSafeProductionBuildRunRoot,
-  bindProductionBuildLayoutSource,
-  collectStaleProductionBuildRoots,
-  dotnetProjectLayout,
-  finalizeProductionBuildLayout,
-  prepareProductionRuntimeLayout,
-  prepareProductionBuildLayout,
-  productionBuildEnvironment,
-  productionBuildLayoutDigest,
-  productionDotnetArtifacts,
-  productionRuntimeEnvironment,
-  resolveProductionBuildLayout,
-  scheduleStaleProductionBuildGc
-} from '../../tools/test-matrix/production-build-layout.mjs'
-import {
-  digestDeclaredOutputs,
-  resolveRunBoundArtifactDeclaration
-} from '../../tools/test-matrix/local-profile.mjs'
 import { createArtifactDigestTable } from '../../tools/test-matrix/artifact-digest-table.mjs'
+import {
+    digestDeclaredOutputs,
+    resolveRunBoundArtifactDeclaration
+} from '../../tools/test-matrix/local-profile.mjs'
+import {
+    assertSafeProductionBuildRunRoot,
+    bindProductionBuildLayoutSource,
+    collectStaleProductionBuildRoots,
+    dotnetProjectLayout,
+    finalizeProductionBuildLayout,
+    prepareProductionBuildLayout,
+    prepareProductionRuntimeLayout,
+    productionBuildEnvironment,
+    productionBuildLayoutDigest,
+    productionDotnetArtifacts,
+    productionRuntimeEnvironment,
+    resolveProductionBuildLayout,
+    scheduleStaleProductionBuildGc
+} from '../../tools/test-matrix/production-build-layout.mjs'
 import { snapshotTierOutputs } from '../../tools/test-matrix/scheduler.mjs'
+import { currentProcessIdentity } from '../../tools/test/process-identity.mjs'
 
 function repositoryFixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-build-layout-'))
   t.after(() => fs.rmSync(root, { recursive: true, force: true }))
   return root
+}
+
+function prepareBoundLayout(root, runId, sourceState) {
+    const namespace = `test:${runId}`
+    const layout = prepareProductionBuildLayout({ root, runId, sourceState, namespace })
+    const identity = currentProcessIdentity()
+    const lock = path.join(root, '.tmp/test-runs/.locks', `${runId}.lock`)
+    fs.mkdirSync(lock, { recursive: true })
+    fs.writeFileSync(
+        path.join(lock, 'owner.json'),
+        `${JSON.stringify({
+            schema: 'fsusblog.scheduler-lock-owner.v2',
+            ownerToken: `token-${runId}`,
+            pid: identity.pid,
+            processStartIdentity: identity.processStartIdentity,
+            executablePath: identity.executablePath,
+            executableDigest: identity.executableDigest,
+            commandDigest: identity.commandDigest,
+            schedulerRunId: runId,
+            namespace,
+            executionKey: runId,
+            sourceCommit: sourceState.commit,
+            worktreeFingerprint: sourceState.worktreeFingerprint,
+            createdAt: new Date().toISOString(),
+            heartbeatAt: new Date().toISOString()
+        })}\n`
+    )
+    bindProductionBuildLayoutSource(layout, sourceState)
+    return layout
 }
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -106,37 +136,36 @@ test('runtime writes use disposable overlays and cannot mutate sealed build root
   assert.doesNotThrow(() => artifactTable.finalize())
 })
 
-test('layout identity binds run, source fingerprint and digest before readiness consumption', t => {
-  const root = repositoryFixture(t)
-  const layout = prepareProductionBuildLayout({ root, runId: 'release-final-42' })
-  const sourceState = { commit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) }
-  const manifest = bindProductionBuildLayoutSource(layout, sourceState)
-  assert.deepEqual(manifest.sourceState, sourceState)
-  const identityDigest = productionBuildLayoutDigest(layout)
-  assert.match(identityDigest, /^sha256:[a-f0-9]{64}$/u)
+test('layout identity binds run, source fingerprint and digest before readiness consumption', (t) => {
+    const root = repositoryFixture(t)
+    const sourceState = { commit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) }
+    const layout = prepareBoundLayout(root, 'release-final-42', sourceState)
+    const manifest = JSON.parse(fs.readFileSync(layout.manifestFile, 'utf8'))
+    assert.deepEqual(manifest.sourceState, sourceState)
+    const identityDigest = productionBuildLayoutDigest(layout)
+    assert.match(identityDigest, /^sha256:[a-f0-9]{64}$/u)
 
-  fs.mkdirSync(layout.frontendDist, { recursive: true })
-  fs.writeFileSync(path.join(layout.frontendDist, 'index.html'), '<!doctype html>')
-  const canonical = 'src/frontend/dist/index.html'
-  const actual = path.relative(root, path.join(layout.frontendDist, 'index.html')).replaceAll(path.sep, '/')
-  const env = productionBuildEnvironment(layout, {
-    FSUSBLOG_TEST_RUN_ID: layout.runId,
-    FSUSBLOG_TEST_SOURCE_COMMIT: sourceState.commit,
-    FSUSBLOG_TEST_SOURCE_FINGERPRINT: sourceState.worktreeFingerprint
-  })
-  assert.equal(resolveRunBoundArtifactDeclaration(root, canonical, env), actual)
-  assert.match(digestDeclaredOutputs(root, [canonical], env)[canonical], /^sha256:/u)
-  assert.equal(fs.existsSync(env.FSUSBLOG_ARTIFACT_DIGEST_TABLE), true)
-  finalizeProductionBuildLayout(layout, { status: 'success' })
-    assert.equal(productionBuildLayoutDigest(layout), identityDigest);
-});
+    fs.mkdirSync(layout.frontendDist, { recursive: true })
+    fs.writeFileSync(path.join(layout.frontendDist, 'index.html'), '<!doctype html>')
+    const canonical = 'src/frontend/dist/index.html'
+    const actual = path.relative(root, path.join(layout.frontendDist, 'index.html')).replaceAll(path.sep, '/')
+    const env = productionBuildEnvironment(layout, {
+        FSUSBLOG_TEST_RUN_ID: layout.runId,
+        FSUSBLOG_TEST_SOURCE_COMMIT: sourceState.commit,
+        FSUSBLOG_TEST_SOURCE_FINGERPRINT: sourceState.worktreeFingerprint
+    })
+    assert.equal(resolveRunBoundArtifactDeclaration(root, canonical, env), actual)
+    assert.match(digestDeclaredOutputs(root, [canonical], env)[canonical], /^sha256:/u)
+    assert.equal(fs.existsSync(env.FSUSBLOG_ARTIFACT_DIGEST_TABLE), true)
+    finalizeProductionBuildLayout(layout, { status: 'success' })
+    assert.equal(productionBuildLayoutDigest(layout), identityDigest)
+})
 
 test('a run root cannot be rebound to another source identity while retaining its artifacts', t =>
 {
     const root = repositoryFixture(t);
-    const layout = prepareProductionBuildLayout({ root, runId: 'immutable-source' });
     const originalSource = { commit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) };
-    bindProductionBuildLayoutSource(layout, originalSource);
+    const layout = prepareBoundLayout(root, 'immutable-source', originalSource);
     fs.mkdirSync(layout.frontendDist, { recursive: true });
     const artifact = path.join(layout.frontendDist, 'index.html');
     fs.writeFileSync(artifact, 'original-source');

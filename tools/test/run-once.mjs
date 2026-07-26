@@ -18,6 +18,8 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+import { currentProcessIdentity, processIdentityStatus } from './process-identity.mjs'
+
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const defaultStateRoot = path.join(repoRoot, '.tmp', 'run-once')
 const defaultPhysicalExecutionRoot = path.join(repoRoot, '.tmp', 'physical-executions')
@@ -25,6 +27,9 @@ const defaultLockTimeoutMs = 5 * 60 * 1000
 const defaultStaleLockMs = 15 * 60 * 1000
 const defaultHeartbeatMs = 5 * 1000
 const runBoundSchema = 'fsusblog.physical-execution-receipt.v3'
+const lockOwnerSchema = 'fsusblog.run-once-lock-owner.v3'
+const lockLifecycleSchema = 'fsusblog.run-once-lock-lifecycle.v1'
+const lockObservationSchema = 'fsusblog.run-once-lock-observation.v1'
 
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize)
@@ -165,191 +170,447 @@ async function sleep(milliseconds, signal) {
   })
 }
 
-function isProcessAlive(pid) {
-  if (!Number.isInteger(pid) || pid <= 0) return false
-  try {
-    process.kill(pid, 0)
-    return true
-  } catch (error) {
-    return error?.code === 'EPERM'
-  }
-}
-
 async function writeLockOwner(ownerFile, owner) {
-  const temporaryOwnerFile = `${ownerFile}.${owner.token}.tmp`
-  await writeFile(temporaryOwnerFile, `${JSON.stringify(owner, null, 2)}\n`, {
-    encoding: 'utf8',
-    mode: 0o600
-  })
-  await rename(temporaryOwnerFile, ownerFile)
+    const temporaryOwnerFile = `${ownerFile}.${owner.ownerToken}.tmp`
+    await writeFile(temporaryOwnerFile, `${JSON.stringify(owner, null, 2)}\n`, {
+        encoding: 'utf8',
+        mode: 0o600
+    })
+    await rename(temporaryOwnerFile, ownerFile)
 }
 
-async function releaseOwnedLock(lockDirectory, token) {
-  const owner = await readState(path.join(lockDirectory, 'owner.json'))
-  if (owner?.token === token) {
-    await rm(lockDirectory, { recursive: true, force: true })
-  }
+function lockOwnerProcessIdentityMatches(owner, identity) {
+    return Boolean(
+        owner &&
+            identity &&
+            owner.pid === identity.pid &&
+            owner.processStartIdentity === identity.processStartIdentity &&
+            owner.executablePath === identity.executablePath &&
+            owner.executableDigest === identity.executableDigest &&
+            owner.commandDigest === identity.commandDigest
+    )
 }
 
-async function clearDeadStaleLock(lockDirectory, staleAfterMs) {
-  const ownerFile = path.join(lockDirectory, 'owner.json')
-  const owner = await readState(ownerFile)
-  let lockMetadata
-  try {
-    lockMetadata = await stat(ownerFile)
-  } catch {
+function lockOwnerIdentityMatches(expected, actual) {
+    return Boolean(
+        expected &&
+            actual &&
+            expected.schema === actual.schema &&
+            expected.ownerToken === actual.ownerToken &&
+            lockOwnerProcessIdentityMatches(expected, actual) &&
+            expected.schedulerRunId === actual.schedulerRunId &&
+            expected.namespace === actual.namespace &&
+            expected.executionKey === actual.executionKey
+    )
+}
+
+function lockOwnerExactMatches(expected, actual) {
+    return lockOwnerIdentityMatches(expected, actual) && digestValue(expected) === digestValue(actual)
+}
+
+function lockOwnerIsComplete(owner, nowMs = Date.now()) {
+    const createdAtMs = Date.parse(owner?.createdAt)
+    const heartbeatAtMs = Date.parse(owner?.heartbeatAt)
+    return Boolean(
+        owner &&
+            owner.schema === lockOwnerSchema &&
+            typeof owner.ownerToken === 'string' &&
+            owner.ownerToken.length > 0 &&
+            Number.isInteger(owner.pid) &&
+            owner.pid > 0 &&
+            owner.processStartIdentity &&
+            owner.executablePath &&
+            owner.executableDigest &&
+            owner.commandDigest &&
+            Object.hasOwn(owner, 'schedulerRunId') &&
+            (owner.schedulerRunId === null ||
+                (typeof owner.schedulerRunId === 'string' && owner.schedulerRunId.length > 0)) &&
+            typeof owner.namespace === 'string' &&
+            owner.namespace.length > 0 &&
+            typeof owner.executionKey === 'string' &&
+            owner.executionKey.length > 0 &&
+            Number.isFinite(createdAtMs) &&
+            Number.isFinite(heartbeatAtMs) &&
+            createdAtMs <= heartbeatAtMs &&
+            heartbeatAtMs <= nowMs &&
+            Number.isFinite(owner.heartbeatEveryMs) &&
+            owner.heartbeatEveryMs > 0 &&
+            Number.isFinite(owner.unverifiableGraceMs) &&
+            owner.unverifiableGraceMs > 0 &&
+            Number.isFinite(owner.staleAfterMs) &&
+            owner.staleAfterMs > 0
+    )
+}
+
+async function releaseOwnedLock(lockDirectory, expectedOwner) {
+    const owner = await readState(path.join(lockDirectory, 'owner.json'))
+    if (lockOwnerIdentityMatches(expectedOwner, owner) && processIdentityStatus(expectedOwner).status === 'live') {
+        await rm(lockDirectory, { recursive: true, force: true })
+    }
+}
+
+function lockOwnerPolicy(staleAfterMs, heartbeatEveryMs) {
+    return {
+        schema: lockOwnerSchema,
+        heartbeatEveryMs,
+        unverifiableGraceMs: staleAfterMs,
+        staleAfterMs
+    }
+}
+
+function createLockLifecycleReceipt(owner) {
+    const payload = {
+        schema: lockLifecycleSchema,
+        ownerSchema: owner.schema,
+        ownerToken: owner.ownerToken,
+        schedulerRunId: owner.schedulerRunId,
+        namespace: owner.namespace,
+        executionKey: owner.executionKey,
+        ownerIdentity: {
+            pid: owner.pid,
+            processStartIdentity: owner.processStartIdentity,
+            executablePath: owner.executablePath,
+            executableDigest: owner.executableDigest,
+            commandDigest: owner.commandDigest
+        },
+        policy: {
+            heartbeatEveryMs: owner.heartbeatEveryMs,
+            unverifiableGraceMs: owner.unverifiableGraceMs,
+            staleAfterMs: owner.staleAfterMs
+        },
+        acquiredAt: owner.createdAt
+    }
+    return { ...payload, receiptDigest: digestValue(payload) }
+}
+
+export function validateRunOnceLockLifecycleReceipt(
+    receipt,
+    { namespace = receipt?.namespace, executionKey = receipt?.executionKey } = {}
+) {
+    const { receiptDigest: _receiptDigest, ...payload } = receipt ?? {}
+    const identity = receipt?.ownerIdentity
+    const policy = receipt?.policy
+    if (
+        receipt?.schema !== lockLifecycleSchema ||
+        receipt.ownerSchema !== lockOwnerSchema ||
+        typeof receipt.ownerToken !== 'string' ||
+        receipt.ownerToken.length === 0 ||
+        receipt.namespace !== namespace ||
+        receipt.executionKey !== executionKey ||
+        !Object.hasOwn(receipt, 'schedulerRunId') ||
+        !Number.isFinite(Date.parse(receipt.acquiredAt)) ||
+        !Number.isInteger(identity?.pid) ||
+        identity.pid <= 0 ||
+        !identity.processStartIdentity ||
+        !identity.executablePath ||
+        !identity.executableDigest ||
+        !identity.commandDigest ||
+        !Number.isFinite(policy?.heartbeatEveryMs) ||
+        policy.heartbeatEveryMs <= 0 ||
+        !Number.isFinite(policy?.unverifiableGraceMs) ||
+        policy.unverifiableGraceMs <= 0 ||
+        !Number.isFinite(policy?.staleAfterMs) ||
+        policy.staleAfterMs <= 0 ||
+        receipt.receiptDigest !== digestValue(payload)
+    ) {
+        throw new Error('run-once lock lifecycle receipt integrity validation failed')
+    }
+    return true
+}
+
+function reusableRunOnceState(state, { namespace, executionKey }) {
+    if (state?.schema !== 'fsusblog.test-run-once.v3') return false
     try {
-      lockMetadata = await stat(lockDirectory)
+        return validateRunOnceLockLifecycleReceipt(state.lockLifecycleReceipt, { namespace, executionKey })
     } catch {
-      return true
+        return false
     }
-  }
-
-  const heartbeatAt = Date.parse(owner?.heartbeatAt ?? owner?.createdAt ?? '')
-  const lastHeartbeatMs = Number.isFinite(heartbeatAt)
-    ? Math.max(heartbeatAt, lockMetadata.mtimeMs)
-    : lockMetadata.mtimeMs
-  const ownerPid = Number(owner?.pid)
-  const hasValidOwnerPid = Number.isInteger(ownerPid) && ownerPid > 0
-  const ownerIsAlive = hasValidOwnerPid && isProcessAlive(ownerPid)
-  if (ownerIsAlive) return false
-  if (!hasValidOwnerPid && Date.now() - lastHeartbeatMs <= staleAfterMs) return false
-
-  const token = owner?.token
-  const confirmedOwner = await readState(ownerFile)
-  if (token && confirmedOwner?.token !== token) return false
-  await rm(lockDirectory, { recursive: true, force: true })
-  return true
 }
 
-async function acquireLock(lockDirectory, timeoutMs, {
-  staleAfterMs,
-  heartbeatEveryMs,
-  signal
+export async function heartbeatRunOnceLock({
+    ownerFile,
+    ownerToken,
+    ownerIdentity,
+    heartbeatAt = new Date().toISOString()
 }) {
-  const startedAt = Date.now()
-  for (;;) {
-    throwIfAborted(signal)
-    const token = randomUUID()
-    try {
-      await mkdir(lockDirectory, { mode: 0o700 })
-      const ownerFile = path.join(lockDirectory, 'owner.json')
-      const owner = {
-        token,
-        pid: process.pid,
-        createdAt: new Date().toISOString(),
-        heartbeatAt: new Date().toISOString()
-      }
-      await writeLockOwner(ownerFile, owner)
-
-      let stopped = false
-      let heartbeatInFlight = Promise.resolve()
-      const heartbeat = () => {
-        heartbeatInFlight = heartbeatInFlight.then(async () => {
-          if (stopped) return
-          const current = await readState(ownerFile)
-          if (current?.token !== token) return
-          await writeLockOwner(ownerFile, {
-            ...current,
-            heartbeatAt: new Date().toISOString()
-          })
-        }).catch(() => {})
-      }
-      const heartbeatTimer = setInterval(heartbeat, Math.max(1, heartbeatEveryMs))
-      heartbeatTimer.unref()
-      try {
-        throwIfAborted(signal)
-      } catch (error) {
-        stopped = true
-        clearInterval(heartbeatTimer)
-        await releaseOwnedLock(lockDirectory, token)
-        throw error
-      }
-      return {
-        token,
-        async release() {
-          stopped = true
-          clearInterval(heartbeatTimer)
-          await heartbeatInFlight
-          await releaseOwnedLock(lockDirectory, token)
-        }
-      }
-    } catch (error) {
-      if (error?.code !== 'EEXIST') throw error
-
-      if (await clearDeadStaleLock(lockDirectory, staleAfterMs)) continue
-
-      if (Date.now() - startedAt >= timeoutMs) {
-        throw new Error(`timed out waiting for run-once lock: ${lockDirectory}`)
-      }
-      await sleep(100, signal)
-    }
-  }
+    const heartbeatAtMs = Date.parse(heartbeatAt)
+    const nowMs = Date.now()
+    if (await exists(path.join(path.dirname(ownerFile), 'reclaim.json'))) return false
+    const current = await readState(ownerFile)
+    if (
+        current?.ownerToken !== ownerToken ||
+        !lockOwnerProcessIdentityMatches(current, ownerIdentity) ||
+        processIdentityStatus(ownerIdentity).status !== 'live' ||
+        !lockOwnerIsComplete(current, nowMs) ||
+        !Number.isFinite(heartbeatAtMs) ||
+        heartbeatAtMs < Date.parse(current.heartbeatAt) ||
+        heartbeatAtMs < Date.parse(current.createdAt) ||
+        heartbeatAtMs > nowMs
+    )
+        return false
+    if (await exists(path.join(path.dirname(ownerFile), 'reclaim.json'))) return false
+    await writeLockOwner(ownerFile, { ...current, heartbeatAt })
+    return true
 }
 
-export async function runOnce({
-  root = defaultStateRoot,
-  namespace = process.env.FSUSBLOG_TEST_NAMESPACE || 'local',
-  key,
-  fingerprint,
-  requiredOutputs = [],
-  lockTimeoutMs = defaultLockTimeoutMs,
-  staleLockMs = defaultStaleLockMs,
-  heartbeatMs = defaultHeartbeatMs
-}, operation) {
-  if (!String(key ?? '').trim()) throw new Error('run-once key is required')
-  if (!String(fingerprint ?? '').trim()) throw new Error('run-once fingerprint is required')
-  if (typeof operation !== 'function') throw new Error('run-once operation must be a function')
+async function lockOwnerSnapshotDigest(ownerFile) {
+    try {
+        return digestValue({ ownerBytes: await readFile(ownerFile, 'utf8') })
+    } catch (error) {
+        if (error?.code === 'ENOENT') return digestValue({ ownerBytes: null })
+        throw error
+    }
+}
 
-  const namespaceDirectory = path.join(root, sanitizeSegment(namespace, 'local'))
-  const normalizedKey = sanitizeSegment(key, 'operation')
-  const stateFile = path.join(namespaceDirectory, `${normalizedKey}.json`)
-  const lockDirectory = path.join(namespaceDirectory, `${normalizedKey}.lock`)
-  const normalizedOutputs = requiredOutputs.map((output) => path.resolve(output)).sort()
-  await mkdir(namespaceDirectory, { recursive: true })
+function lockObservationReceipt(ownerSnapshotDigest, observedAt) {
+    const payload = {
+        schema: lockObservationSchema,
+        ownerSnapshotDigest,
+        observedAt
+    }
+    return { ...payload, receiptDigest: digestValue(payload) }
+}
 
-  const current = await readState(stateFile)
-  if (current?.status === 'success'
-      && current.fingerprint === fingerprint
-      && await outputsMatchState(normalizedOutputs, current.requiredOutputStates)) {
-    return { status: 'shared-current-run', stateFile }
-  }
+function validLockObservation(receipt, ownerSnapshotDigest, nowMs) {
+    const { receiptDigest: _receiptDigest, ...payload } = receipt ?? {}
+    const observedAtMs = Date.parse(receipt?.observedAt)
+    return Boolean(
+        receipt &&
+            receipt.schema === lockObservationSchema &&
+            receipt.ownerSnapshotDigest === ownerSnapshotDigest &&
+            Number.isFinite(observedAtMs) &&
+            observedAtMs <= nowMs &&
+            receipt.receiptDigest === digestValue(payload)
+    )
+}
 
-  const lock = await acquireLock(lockDirectory, lockTimeoutMs, {
-    staleAfterMs: Math.max(1, Number(staleLockMs) || defaultStaleLockMs),
-    heartbeatEveryMs: Math.max(1, Number(heartbeatMs) || defaultHeartbeatMs)
-  })
-  try {
-    const lockedCurrent = await readState(stateFile)
-    if (lockedCurrent?.status === 'success'
-        && lockedCurrent.fingerprint === fingerprint
-        && await outputsMatchState(normalizedOutputs, lockedCurrent.requiredOutputStates)) {
-      return { status: 'shared-current-run', stateFile }
+async function observeUnverifiableLock(lockDirectory, ownerFile, graceMs, nowMs) {
+    const observationFile = path.join(lockDirectory, 'owner-observation.json')
+    const ownerSnapshotDigest = await lockOwnerSnapshotDigest(ownerFile)
+    let observation = await readState(observationFile)
+    if (!validLockObservation(observation, ownerSnapshotDigest, nowMs)) {
+        observation = lockObservationReceipt(ownerSnapshotDigest, new Date(nowMs).toISOString())
+        try {
+            await writeFile(observationFile, `${JSON.stringify(observation, null, 2)}\n`, {
+                encoding: 'utf8',
+                mode: 0o600,
+                flag: 'wx'
+            })
+        } catch (error) {
+            if (error?.code === 'ENOENT') return { expired: false }
+            if (error?.code !== 'EEXIST') throw error
+            const concurrent = await readState(observationFile)
+            if (!validLockObservation(concurrent, ownerSnapshotDigest, nowMs)) {
+                throw new Error('owner-unverifiable: lock observation receipt integrity validation failed')
+            }
+            observation = concurrent
+        }
+    }
+    return { expired: nowMs - Date.parse(observation.observedAt) > graceMs }
+}
+
+export async function reclaimStaleRunOnceLock(
+    lockDirectory,
+    staleAfterMs,
+    { identityStatus = processIdentityStatus, beforeDelete = null, nowMs = Date.now() } = {}
+) {
+    const ownerFile = path.join(lockDirectory, 'owner.json')
+    const owner = await readState(ownerFile)
+    if (!(await exists(lockDirectory))) return true
+    if (!lockOwnerIsComplete(owner, nowMs)) {
+        const observation = await observeUnverifiableLock(lockDirectory, ownerFile, staleAfterMs, nowMs)
+        if (!observation.expired) return false
+        throw new Error(`owner-unverifiable after ${staleAfterMs}ms: owner metadata is incomplete`)
+    }
+    const ageMs = nowMs - Date.parse(owner.heartbeatAt)
+    const ownerStatus = identityStatus(owner)
+    if (ownerStatus.status === 'live') return false
+    if (ownerStatus.status === 'unverifiable') {
+        if (ageMs <= owner.unverifiableGraceMs) return false
+        throw new Error(
+            `owner-unverifiable after ${owner.unverifiableGraceMs}ms: ${ownerStatus.actual?.reason ?? 'identity unavailable'}`
+        )
+    }
+    const ownerToken = owner?.ownerToken
+    const reclaimMarker = path.join(lockDirectory, 'reclaim.json')
+    try {
+        await writeFile(
+            reclaimMarker,
+            `${JSON.stringify({ ownerToken, processStartIdentity: owner.processStartIdentity })}\n`,
+            {
+                encoding: 'utf8',
+                mode: 0o600,
+                flag: 'wx'
+            }
+        )
+    } catch (error) {
+        if (error?.code === 'EEXIST' || error?.code === 'ENOENT') return false
+        throw error
+    }
+    await beforeDelete?.({ ownerFile, owner })
+    const confirmedOwner = await readState(ownerFile)
+    if (!ownerToken || !lockOwnerExactMatches(owner, confirmedOwner)) {
+        await rm(reclaimMarker, { force: true })
+        return false
+    }
+    const tombstone = `${lockDirectory}.reclaimed-${ownerToken}-${randomUUID()}`
+    try {
+        await rename(lockDirectory, tombstone)
+    } catch (error) {
+        if (error?.code === 'ENOENT') return false
+        throw error
+    }
+    await rm(tombstone, { recursive: true, force: true })
+    return true
+}
+
+async function acquireLock(lockDirectory, timeoutMs, { staleAfterMs, heartbeatEveryMs, signal }) {
+    const startedAt = Date.now()
+    for (;;) {
+        throwIfAborted(signal)
+        const ownerToken = randomUUID()
+        try {
+            await mkdir(lockDirectory, { mode: 0o700 })
+            const ownerFile = path.join(lockDirectory, 'owner.json')
+            const identity = currentProcessIdentity()
+            const owner = {
+                ...lockOwnerPolicy(staleAfterMs, heartbeatEveryMs),
+                ownerToken,
+                pid: identity.pid,
+                processStartIdentity: identity.processStartIdentity,
+                executablePath: identity.executablePath,
+                executableDigest: identity.executableDigest,
+                commandDigest: identity.commandDigest,
+                schedulerRunId: String(process.env.FSUSBLOG_TEST_RUN_ID ?? '').trim() || null,
+                namespace: path.basename(path.dirname(lockDirectory)),
+                executionKey: path.basename(lockDirectory, '.lock'),
+                createdAt: new Date().toISOString(),
+                heartbeatAt: new Date().toISOString()
+            }
+            await writeLockOwner(ownerFile, owner)
+
+            let stopped = false
+            let heartbeatInFlight = Promise.resolve()
+            const heartbeat = () => {
+                heartbeatInFlight = heartbeatInFlight
+                    .then(async () => {
+                        if (stopped) return
+                        await heartbeatRunOnceLock({ ownerFile, ownerToken, ownerIdentity: identity })
+                    })
+                    .catch(() => {})
+            }
+            const heartbeatTimer = setInterval(heartbeat, Math.max(1, heartbeatEveryMs))
+            heartbeatTimer.unref()
+            try {
+                throwIfAborted(signal)
+            } catch (error) {
+                stopped = true
+                clearInterval(heartbeatTimer)
+                await releaseOwnedLock(lockDirectory, owner)
+                throw error
+            }
+            return {
+                ownerToken,
+                lockLifecycleReceipt: createLockLifecycleReceipt(owner),
+                async release() {
+                    stopped = true
+                    clearInterval(heartbeatTimer)
+                    await heartbeatInFlight
+                    await releaseOwnedLock(lockDirectory, owner)
+                }
+            }
+        } catch (error) {
+            if (error?.code !== 'EEXIST') throw error
+
+            if (await reclaimStaleRunOnceLock(lockDirectory, staleAfterMs)) continue
+
+            if (Date.now() - startedAt >= timeoutMs) {
+                throw new Error(`timed out waiting for run-once lock: ${lockDirectory}`)
+            }
+            await sleep(100, signal)
+        }
+    }
+}
+
+export async function runOnce(
+    {
+        root = defaultStateRoot,
+        namespace = process.env.FSUSBLOG_TEST_NAMESPACE || 'local',
+        key,
+        fingerprint,
+        requiredOutputs = [],
+        lockTimeoutMs = defaultLockTimeoutMs,
+        staleLockMs = defaultStaleLockMs,
+        heartbeatMs = defaultHeartbeatMs
+    },
+    operation
+) {
+    if (!String(key ?? '').trim()) throw new Error('run-once key is required')
+    if (!String(fingerprint ?? '').trim()) throw new Error('run-once fingerprint is required')
+    if (typeof operation !== 'function') throw new Error('run-once operation must be a function')
+
+    const namespaceDirectory = path.join(root, sanitizeSegment(namespace, 'local'))
+    const normalizedKey = sanitizeSegment(key, 'operation')
+    const stateFile = path.join(namespaceDirectory, `${normalizedKey}.json`)
+    const lockDirectory = path.join(namespaceDirectory, `${normalizedKey}.lock`)
+    const normalizedOutputs = requiredOutputs.map((output) => path.resolve(output)).sort()
+    await mkdir(namespaceDirectory, { recursive: true })
+
+    const current = await readState(stateFile)
+    if (
+        reusableRunOnceState(current, {
+            namespace: sanitizeSegment(namespace, 'local'),
+            executionKey: normalizedKey
+        }) &&
+        current.status === 'success' &&
+        current.fingerprint === fingerprint &&
+        (await outputsMatchState(normalizedOutputs, current.requiredOutputStates))
+    ) {
+        return { status: 'shared-current-run', stateFile }
     }
 
-    await operation()
-    const requiredOutputStates = await captureOutputStates(normalizedOutputs)
-    if (requiredOutputStates == null) {
-      throw new Error(`run-once command succeeded without required outputs: ${normalizedOutputs.join(', ')}`)
-    }
+    const lock = await acquireLock(lockDirectory, lockTimeoutMs, {
+        staleAfterMs: Math.max(1, Number(staleLockMs) || defaultStaleLockMs),
+        heartbeatEveryMs: Math.max(1, Number(heartbeatMs) || defaultHeartbeatMs)
+    })
+    try {
+        const lockedCurrent = await readState(stateFile)
+        if (
+            reusableRunOnceState(lockedCurrent, {
+                namespace: sanitizeSegment(namespace, 'local'),
+                executionKey: normalizedKey
+            }) &&
+            lockedCurrent.status === 'success' &&
+            lockedCurrent.fingerprint === fingerprint &&
+            (await outputsMatchState(normalizedOutputs, lockedCurrent.requiredOutputStates))
+        ) {
+            return { status: 'shared-current-run', stateFile }
+        }
 
-    const nextState = {
-      schema: 'fsusblog.test-run-once.v2',
-      namespace: sanitizeSegment(namespace, 'local'),
-      key: normalizedKey,
-      fingerprint,
-      status: 'success',
-      requiredOutputs: normalizedOutputs,
-      requiredOutputStates,
-      completedAt: new Date().toISOString()
+        await operation()
+        const requiredOutputStates = await captureOutputStates(normalizedOutputs)
+        if (requiredOutputStates == null) {
+            throw new Error(`run-once command succeeded without required outputs: ${normalizedOutputs.join(', ')}`)
+        }
+
+        const nextState = {
+            schema: 'fsusblog.test-run-once.v3',
+            namespace: sanitizeSegment(namespace, 'local'),
+            key: normalizedKey,
+            fingerprint,
+            status: 'success',
+            requiredOutputs: normalizedOutputs,
+            requiredOutputStates,
+            lockLifecycleReceipt: lock.lockLifecycleReceipt,
+            completedAt: new Date().toISOString()
+        }
+        const temporaryState = `${stateFile}.${process.pid}.tmp`
+        await writeFile(temporaryState, `${JSON.stringify(nextState, null, 2)}\n`, 'utf8')
+        await rename(temporaryState, stateFile)
+        return { status: 'executed', stateFile }
+    } finally {
+        await lock.release()
     }
-    const temporaryState = `${stateFile}.${process.pid}.tmp`
-    await writeFile(temporaryState, `${JSON.stringify(nextState, null, 2)}\n`, 'utf8')
-    await rename(temporaryState, stateFile)
-    return { status: 'executed', stateFile }
-  } finally {
-    await lock.release()
-  }
 }
 
 function receiptPayload(receipt) {

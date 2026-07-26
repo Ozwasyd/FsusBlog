@@ -1,12 +1,23 @@
-import { createHash } from 'node:crypto'
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
+import { createHash, randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+import {
+    collectProcessGroupOrJobIdentity,
+    currentProcessIdentity,
+    processDescendantIdentities,
+    processGroupMemberIdentities,
+    processGroupOrJobIdentityMatches,
+    processIdentitySchema,
+    processIdentityStatus
+} from '../test/process-identity.mjs'
+
 const defaultRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-export const productionBuildLayoutSchema = 'fsusblog.production-build-layout.v1'
+export const productionBuildLayoutSchema = 'fsusblog.production-build-layout.v2'
+const buildOwnerMonitors = new Map()
 // frontend-build-cache-bootstrap.mjs is wired as the production cache bootstrap entrypoint for public frontend caching.
 
 export function validateProductionRunId(value) {
@@ -93,87 +104,421 @@ function atomicWriteJson(file, value) {
   fs.renameSync(temporary, file)
 }
 
+function canonicalize(value) {
+    if (Array.isArray(value)) return value.map(canonicalize)
+    if (value && typeof value === 'object') {
+        return Object.fromEntries(
+            Object.keys(value)
+                .sort()
+                .map((key) => [key, canonicalize(value[key])])
+        )
+    }
+    return value
+}
+
+function processTreeReceipt(owner) {
+    const payload = {
+        schema: 'fsusblog.production-build-process-tree-receipt.v1',
+        runId: owner.runId,
+        ownerPlatform: owner.ownerPlatform,
+        schedulerRunId: owner.schedulerRunId,
+        namespace: owner.namespace,
+        sourceCommit: owner.sourceCommit,
+        worktreeFingerprint: owner.worktreeFingerprint,
+        ownerIdentity: owner.ownerIdentity,
+        processGroupOrJobIdentity: owner.processGroupOrJobIdentity,
+        schedulerLockIdentity: owner.schedulerLockIdentity,
+        managedContainmentAuthorities: [...owner.managedContainmentAuthorities].sort((left, right) =>
+            left.authorityId.localeCompare(right.authorityId)
+        ),
+        managedProcessGroupIdentities: [...owner.managedProcessGroupIdentities].sort((left, right) =>
+            JSON.stringify(left).localeCompare(JSON.stringify(right))
+        ),
+        activeCompilerProcessIdentities: [...owner.activeCompilerProcessIdentities].sort((left, right) =>
+            left.processStartIdentity.localeCompare(right.processStartIdentity)
+        )
+    }
+    return {
+        ...payload,
+        receiptDigest: `sha256:${createHash('sha256')
+            .update(JSON.stringify(canonicalize(payload)))
+            .digest('hex')}`
+    }
+}
+
+export function sealProductionBuildProcessTreeReceipt(owner) {
+    return processTreeReceipt(owner)
+}
+
+function digestBuildTree(directory) {
+    const hash = createHash('sha256')
+    const visit = (current, relativePath = '') => {
+        for (const entry of fs
+            .readdirSync(current, { withFileTypes: true })
+            .sort((left, right) => left.name.localeCompare(right.name))) {
+            const child = path.join(current, entry.name)
+            const relativeChild = relativePath ? `${relativePath}/${entry.name}` : entry.name
+            if (
+                relativeChild === 'layout.json' ||
+                relativeChild === '.active.json' ||
+                relativeChild === '.reclaim.json'
+            )
+                continue
+            const metadata = fs.lstatSync(child)
+            let type = 'other'
+            if (entry.isDirectory()) type = 'directory'
+            else if (entry.isFile()) type = 'file'
+            else if (entry.isSymbolicLink()) type = 'symlink'
+            hash.update(`${relativeChild}\0${type}\0${metadata.mode & 0o777}\0${metadata.size}\0`)
+            if (entry.isDirectory()) visit(child, relativeChild)
+            if (entry.isFile()) hash.update(fs.readFileSync(child))
+            if (entry.isSymbolicLink()) hash.update(fs.readlinkSync(child))
+        }
+    }
+    visit(directory)
+    return `sha256:${hash.digest('hex')}`
+}
+
+function buildOwner(layout, { sourceState, namespace, allowDiagnosticProcessContainmentForTests }) {
+    const identity = currentProcessIdentity()
+    const group = process.platform === 'win32' ? null : collectProcessGroupOrJobIdentity(identity.pid)
+    if (group && group.status !== 'verified')
+        throw new Error(`production build process-group identity is unverifiable: ${group.reason}`)
+    const sourceCommit = String(sourceState?.commit ?? '').trim()
+    const worktreeFingerprint = String(sourceState?.worktreeFingerprint ?? '').trim()
+    const normalizedNamespace = String(namespace ?? '').trim()
+    if (!sourceCommit || !worktreeFingerprint || !normalizedNamespace) {
+        throw new Error('production build owner requires exact source and namespace before preparing')
+    }
+    const owner = {
+        runId: layout.runId,
+        ownerPlatform: process.platform,
+        schedulerRunId: layout.runId,
+        namespace: normalizedNamespace,
+        sourceCommit,
+        worktreeFingerprint,
+        ownerPid: identity.pid,
+        ownerProcessStartIdentity: identity.processStartIdentity,
+        ownerExecutableDigest: identity.executableDigest,
+        ownerCommandDigest: identity.commandDigest,
+        ownerIdentity: identity,
+        processGroupOrJobIdentity: group?.value ?? null,
+        schedulerLockIdentity: null,
+        allowDiagnosticProcessContainmentForTests: allowDiagnosticProcessContainmentForTests === true,
+        managedContainmentAuthorities: [],
+        managedProcessGroupIdentities: [],
+        activeCompilerProcessIdentities: [],
+        createdAt: new Date().toISOString(),
+        heartbeatAt: new Date().toISOString(),
+        state: 'preparing'
+    }
+    owner.processTreeReceipt = processTreeReceipt(owner)
+    return owner
+}
+
+function completeProcessIdentity(identity) {
+    return Boolean(
+        identity &&
+            identity.schema === processIdentitySchema &&
+            Number.isInteger(identity.pid) &&
+            identity.pid > 0 &&
+            identity.processStartIdentity &&
+            identity.executablePath &&
+            identity.executableDigest &&
+            identity.commandDigest
+    )
+}
+
+function completeProcessGroupOrJobIdentity(group) {
+    return Boolean(
+        group &&
+            group.schema === 'fsusblog.process-group-or-job-identity.v1' &&
+            ['linux', 'darwin'].includes(group.platform) &&
+            group.kind === 'process-group' &&
+            Number.isInteger(group.groupId) &&
+            group.groupId > 0 &&
+            Number.isInteger(group.leaderPid) &&
+            group.leaderPid > 0 &&
+            group.leaderProcessStartIdentity
+    )
+}
+
+function completeContainmentAuthority(authority) {
+    return Boolean(
+        authority &&
+            authority.schema === 'fsusblog.durable-process-containment.v1' &&
+            typeof authority.authorityId === 'string' &&
+            authority.authorityId.length > 0 &&
+            completeProcessIdentity(authority.supervisorProcessIdentity) &&
+            ((authority.platform === 'linux' &&
+                authority.kind === 'systemd-transient-service' &&
+                authority.killPolicy === 'control-group' &&
+                typeof authority.unitName === 'string' &&
+                authority.unitName.length > 0) ||
+                (authority.platform === 'win32' &&
+                    authority.kind === 'windows-job-object' &&
+                    authority.killPolicy === 'kill-on-job-close' &&
+                    typeof authority.jobName === 'string' &&
+                    authority.jobName.length > 0 &&
+                    /^sha256:[a-f0-9]{64}$/u.test(authority.supervisorScriptDigest)))
+    )
+}
+
+function completeSchedulerLockIdentity(identity, owner) {
+    return Boolean(
+        identity &&
+            identity.schema === 'fsusblog.scheduler-lock-owner.v2' &&
+            identity.ownerToken &&
+            identity.schedulerRunId === owner.schedulerRunId &&
+            identity.namespace === owner.namespace &&
+            identity.executionKey === owner.runId &&
+            identity.sourceCommit === owner.sourceCommit &&
+            identity.worktreeFingerprint === owner.worktreeFingerprint &&
+            identity.pid === owner.ownerPid &&
+            identity.processStartIdentity === owner.ownerProcessStartIdentity &&
+            identity.executablePath === owner.ownerIdentity.executablePath &&
+            identity.executableDigest === owner.ownerExecutableDigest &&
+            identity.commandDigest === owner.ownerCommandDigest
+    )
+}
+
+function readBuildOwner(layout) {
+    const manifest = JSON.parse(fs.readFileSync(layout.manifestFile, 'utf8'))
+    const active = JSON.parse(fs.readFileSync(layout.activeFile, 'utf8'))
+    const owner = manifest.owner
+    const ownerComplete =
+        owner &&
+        owner.runId === layout.runId &&
+        ['linux', 'darwin', 'win32'].includes(owner.ownerPlatform) &&
+        owner.schedulerRunId === layout.runId &&
+        typeof owner.namespace === 'string' &&
+        owner.namespace.length > 0 &&
+        typeof owner.sourceCommit === 'string' &&
+        owner.sourceCommit.length > 0 &&
+        typeof owner.worktreeFingerprint === 'string' &&
+        owner.worktreeFingerprint.length > 0 &&
+        Number.isInteger(owner.ownerPid) &&
+        owner.ownerPid > 0 &&
+        owner.ownerProcessStartIdentity &&
+        owner.ownerExecutableDigest &&
+        owner.ownerCommandDigest &&
+        completeProcessIdentity(owner.ownerIdentity) &&
+        owner.ownerIdentity.pid === owner.ownerPid &&
+        owner.ownerIdentity.processStartIdentity === owner.ownerProcessStartIdentity &&
+        owner.ownerIdentity.executableDigest === owner.ownerExecutableDigest &&
+        owner.ownerIdentity.commandDigest === owner.ownerCommandDigest &&
+        (owner.ownerPlatform === 'win32'
+            ? owner.processGroupOrJobIdentity === null
+            : completeProcessGroupOrJobIdentity(owner.processGroupOrJobIdentity)) &&
+        typeof owner.allowDiagnosticProcessContainmentForTests === 'boolean' &&
+        Array.isArray(owner.managedContainmentAuthorities) &&
+        owner.managedContainmentAuthorities.every(completeContainmentAuthority) &&
+        Array.isArray(owner.managedProcessGroupIdentities) &&
+        owner.managedProcessGroupIdentities.every(completeProcessGroupOrJobIdentity) &&
+        Array.isArray(owner.activeCompilerProcessIdentities) &&
+        owner.activeCompilerProcessIdentities.every(completeProcessIdentity) &&
+        (owner.allowDiagnosticProcessContainmentForTests ||
+            owner.activeCompilerProcessIdentities.every((identity) =>
+                owner.managedContainmentAuthorities.some(
+                    (authority) =>
+                        authority.supervisorProcessIdentity.processStartIdentity === identity.processStartIdentity
+                )
+            )) &&
+        ['preparing', 'building', 'finalizing'].includes(owner.state) &&
+        (owner.state === 'preparing'
+            ? owner.schedulerLockIdentity === null
+            : completeSchedulerLockIdentity(owner.schedulerLockIdentity, owner)) &&
+        owner.createdAt &&
+        owner.heartbeatAt
+    const expectedReceipt = ownerComplete ? processTreeReceipt(owner) : null
+    if (
+        manifest.schema !== productionBuildLayoutSchema ||
+        active.schema !== 'fsusblog.production-build-owner.v1' ||
+        manifest.runId !== layout.runId ||
+        active.runId !== layout.runId ||
+        !ownerComplete ||
+        manifest.sourceState?.commit !== owner.sourceCommit ||
+        manifest.sourceState?.worktreeFingerprint !== owner.worktreeFingerprint ||
+        JSON.stringify(canonicalize(manifest.owner)) !== JSON.stringify(canonicalize(active.owner)) ||
+        JSON.stringify(canonicalize(manifest.owner?.processTreeReceipt)) !==
+            JSON.stringify(canonicalize(expectedReceipt))
+    ) {
+        throw new Error(`production build owner identity mismatch: ${layout.runId}`)
+    }
+    return { manifest, owner }
+}
+
 export function assertSafeProductionBuildRunRoot(candidate, { root = defaultRoot } = {}) {
-  const repositoryRoot = path.resolve(root)
-  const buildBase = path.resolve(repositoryRoot, '.tmp/build')
-  const resolved = path.resolve(candidate)
-  if (resolved === buildBase || resolved === repositoryRoot || resolved === path.parse(resolved).root
-    || path.dirname(resolved) !== buildBase || !resolved.startsWith(`${buildBase}${path.sep}`)) {
-    throw new Error(`refusing unsafe production build root: ${candidate}`)
-  }
-  if (fs.existsSync(resolved) && fs.lstatSync(resolved).isSymbolicLink()) {
-    throw new Error(`refusing symlink production build root: ${candidate}`)
-  }
-  validateProductionRunId(path.basename(resolved))
-  return resolved
+    const repositoryRoot = path.resolve(root)
+    const buildBase = path.resolve(repositoryRoot, '.tmp/build')
+    const resolved = path.resolve(candidate)
+    if (
+        resolved === buildBase ||
+        resolved === repositoryRoot ||
+        resolved === path.parse(resolved).root ||
+        path.dirname(resolved) !== buildBase ||
+        !resolved.startsWith(`${buildBase}${path.sep}`)
+    ) {
+        throw new Error(`refusing unsafe production build root: ${candidate}`)
+    }
+    if (fs.existsSync(resolved) && fs.lstatSync(resolved).isSymbolicLink()) {
+        throw new Error(`refusing symlink production build root: ${candidate}`)
+    }
+    validateProductionRunId(path.basename(resolved))
+    return resolved
+}
+
+function productionBuildRootIdentity(directory) {
+    const metadata = fs.lstatSync(directory)
+    const fileDigest = (file) =>
+        fs.existsSync(file) ? `sha256:${createHash('sha256').update(fs.readFileSync(file)).digest('hex')}` : null
+    return {
+        schema: 'fsusblog.production-build-gc-owner.v1',
+        device: String(metadata.dev),
+        inode: String(metadata.ino),
+        manifestDigest: fileDigest(path.join(directory, 'layout.json')),
+        activeOwnerDigest: fileDigest(path.join(directory, '.active.json'))
+    }
+}
+
+function productionBuildRootIdentityMatches(expected, actual) {
+    return Boolean(
+        expected &&
+            actual &&
+            expected.schema === actual.schema &&
+            expected.device === actual.device &&
+            expected.inode === actual.inode &&
+            expected.manifestDigest === actual.manifestDigest &&
+            expected.activeOwnerDigest === actual.activeOwnerDigest
+    )
+}
+
+function reclaimExactProductionBuildRoot(
+    directory,
+    expectedIdentity,
+    { beforeDelete = null, remove = (target) => fs.rmSync(target, { recursive: true, force: true }) } = {}
+) {
+    const markerFile = path.join(directory, '.reclaim.json')
+    const reclaimToken = randomUUID()
+    try {
+        fs.writeFileSync(
+            markerFile,
+            `${JSON.stringify({
+                schema: 'fsusblog.production-build-gc-reclaim.v1',
+                reclaimToken,
+                expectedIdentity
+            })}\n`,
+            { mode: 0o600, flag: 'wx' }
+        )
+    } catch (error) {
+        if (['EEXIST', 'ENOENT'].includes(error?.code)) return false
+        throw error
+    }
+    beforeDelete?.({ directory, markerFile, expectedIdentity })
+    let actualIdentity
+    try {
+        actualIdentity = productionBuildRootIdentity(directory)
+    } catch (error) {
+        if (error?.code === 'ENOENT') return false
+        throw error
+    }
+    if (!productionBuildRootIdentityMatches(expectedIdentity, actualIdentity)) return false
+    const tombstone = `${directory}.reclaimed-${reclaimToken}`
+    try {
+        fs.renameSync(directory, tombstone)
+    } catch (error) {
+        if (error?.code === 'ENOENT') return false
+        throw error
+    }
+    remove(tombstone)
+    return true
 }
 
 export function prepareProductionBuildLayout(options = {}) {
-  const layout = resolveProductionBuildLayout(options)
-  assertSafeProductionBuildRunRoot(layout.runRoot, { root: layout.repositoryRoot })
-  const fresh = options.fresh !== false
-  if (fresh && fs.existsSync(layout.runRoot)) {
-    if (productionBuildRunIsActive(layout.repositoryRoot, layout.runId)) {
-      throw new Error(`production build run is already active: ${layout.runId}`)
+    const layout = resolveProductionBuildLayout(options)
+    const sourceState = options.sourceState ?? {
+        commit: process.env.FSUSBLOG_TEST_SOURCE_COMMIT ?? 'unversioned',
+        worktreeFingerprint:
+            process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT ??
+            `sha256:${createHash('sha256').update(layout.repositoryRoot).digest('hex')}`
     }
-    fs.rmSync(layout.runRoot, { recursive: true, force: true })
-  }
-  fs.mkdirSync(layout.runRoot, { recursive: true })
-  for (const directory of [
-    layout.frontendCache,
-    layout.wasmArtifacts,
-    layout.generatedRoot
-  ]) fs.mkdirSync(directory, { recursive: true })
-  const artifacts = productionDotnetArtifacts(layout)
-  const projects = [artifacts.server, artifacts.tests, artifacts.benchmark]
-  if (new Set(projects.map((entry) => entry.projectExtensionsPath)).size !== projects.length) {
-    throw new Error('production MSBuild project extension paths are not isolated')
-  }
-  const manifest = {
-    schema: productionBuildLayoutSchema,
-    status: 'active',
-    runId: layout.runId,
-    sourceState: {
-      commit: process.env.FSUSBLOG_TEST_SOURCE_COMMIT ?? null,
-      worktreeFingerprint: process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT ?? null
-    },
-    paths: {
-      runRoot: relative(layout.repositoryRoot, layout.runRoot),
-      frontendDist: relative(layout.repositoryRoot, layout.frontendDist),
-      frontendWasm: relative(layout.repositoryRoot, layout.frontendWasm),
-      backendWebRoot: relative(layout.repositoryRoot, layout.backendWebRoot),
-      runtimeFrontendDist: relative(layout.repositoryRoot, layout.runtimeFrontendDist),
-      runtimeBackendWebRoot: relative(layout.repositoryRoot, layout.runtimeBackendWebRoot),
-      generatedRoot: relative(layout.repositoryRoot, layout.generatedRoot)
-    },
-    projects: Object.fromEntries(projects.map((entry) => [entry.name, {
-      projectFile: entry.projectFile,
-      baseOutputPath: relative(layout.repositoryRoot, entry.baseOutputPath),
-      baseIntermediateOutputPath: relative(layout.repositoryRoot, entry.baseIntermediateOutputPath),
-      projectExtensionsPath: relative(layout.repositoryRoot, entry.projectExtensionsPath)
-    }])),
-    createdAt: new Date().toISOString()
-  }
-  if (!fresh && fs.existsSync(layout.manifestFile)) {
-    const existing = JSON.parse(fs.readFileSync(layout.manifestFile, 'utf8'))
-    if (existing.schema !== productionBuildLayoutSchema || existing.runId !== layout.runId) {
-      throw new Error(`production build layout identity mismatch: ${layout.manifestFile}`)
+    const namespace = options.namespace ?? `production-build:${layout.runId}`
+    assertSafeProductionBuildRunRoot(layout.runRoot, { root: layout.repositoryRoot })
+    const fresh = options.fresh !== false
+    if (fresh && fs.existsSync(layout.runRoot)) {
+        const expectedIdentity = productionBuildRootIdentity(layout.runRoot)
+        if (productionBuildRunIsActive(layout.repositoryRoot, layout.runId)) {
+            throw new Error(`production build run is already active: ${layout.runId}`)
+        }
+        if (!reclaimExactProductionBuildRoot(layout.runRoot, expectedIdentity)) {
+            throw new Error(`production build run changed while it was being reclaimed: ${layout.runId}`)
+        }
     }
-    atomicWriteJson(layout.manifestFile, {
-      ...existing,
-      status: 'active',
-      resumedAt: new Date().toISOString()
+    fs.mkdirSync(layout.runRoot, { recursive: true })
+    for (const directory of [layout.frontendCache, layout.wasmArtifacts, layout.generatedRoot])
+        fs.mkdirSync(directory, { recursive: true })
+    const artifacts = productionDotnetArtifacts(layout)
+    const projects = [artifacts.server, artifacts.tests, artifacts.benchmark]
+    if (new Set(projects.map((entry) => entry.projectExtensionsPath)).size !== projects.length) {
+        throw new Error('production MSBuild project extension paths are not isolated')
+    }
+    const owner = buildOwner(layout, {
+        sourceState,
+        namespace,
+        allowDiagnosticProcessContainmentForTests: options.allowDiagnosticProcessContainmentForTests
     })
-  } else {
-    atomicWriteJson(layout.manifestFile, manifest)
-  }
-  atomicWriteJson(layout.activeFile, {
-    schema: 'fsusblog.production-build-layout-active.v1',
-    runId: layout.runId,
-    pid: process.pid,
-    startedAt: new Date().toISOString()
-  })
-  return { ...layout, manifest: JSON.parse(fs.readFileSync(layout.manifestFile, 'utf8')), artifacts }
+    const manifest = {
+        schema: productionBuildLayoutSchema,
+        status: 'active',
+        runId: layout.runId,
+        sourceState: {
+            commit: owner.sourceCommit,
+            worktreeFingerprint: owner.worktreeFingerprint
+        },
+        paths: {
+            runRoot: relative(layout.repositoryRoot, layout.runRoot),
+            frontendDist: relative(layout.repositoryRoot, layout.frontendDist),
+            frontendWasm: relative(layout.repositoryRoot, layout.frontendWasm),
+            backendWebRoot: relative(layout.repositoryRoot, layout.backendWebRoot),
+            runtimeFrontendDist: relative(layout.repositoryRoot, layout.runtimeFrontendDist),
+            runtimeBackendWebRoot: relative(layout.repositoryRoot, layout.runtimeBackendWebRoot),
+            generatedRoot: relative(layout.repositoryRoot, layout.generatedRoot)
+        },
+        projects: Object.fromEntries(
+            projects.map((entry) => [
+                entry.name,
+                {
+                    projectFile: entry.projectFile,
+                    baseOutputPath: relative(layout.repositoryRoot, entry.baseOutputPath),
+                    baseIntermediateOutputPath: relative(layout.repositoryRoot, entry.baseIntermediateOutputPath),
+                    projectExtensionsPath: relative(layout.repositoryRoot, entry.projectExtensionsPath)
+                }
+            ])
+        ),
+        owner,
+        contentDigest: null,
+        createdAt: owner.createdAt
+    }
+    if (!fresh && fs.existsSync(layout.manifestFile)) {
+        const existing = JSON.parse(fs.readFileSync(layout.manifestFile, 'utf8'))
+        if (existing.schema !== productionBuildLayoutSchema || existing.runId !== layout.runId) {
+            throw new Error(`production build layout identity mismatch: ${layout.manifestFile}`)
+        }
+        atomicWriteJson(layout.manifestFile, {
+            ...existing,
+            status: 'active',
+            owner,
+            resumedAt: new Date().toISOString()
+        })
+    } else {
+        atomicWriteJson(layout.manifestFile, manifest)
+    }
+    atomicWriteJson(layout.activeFile, {
+        schema: 'fsusblog.production-build-owner.v1',
+        runId: layout.runId,
+        owner
+    })
+    return { ...layout, manifest: JSON.parse(fs.readFileSync(layout.manifestFile, 'utf8')), artifacts }
 }
 
 export function productionBuildEnvironment(layout, env = process.env) {
@@ -258,53 +603,377 @@ export function prepareProductionRuntimeLayout(layout) {
 }
 
 export function bindProductionBuildLayoutSource(layout, sourceState) {
-  assertSafeProductionBuildRunRoot(layout.runRoot, { root: layout.repositoryRoot })
-  const manifest = JSON.parse(fs.readFileSync(layout.manifestFile, 'utf8'))
-  if (manifest.schema !== productionBuildLayoutSchema || manifest.runId !== layout.runId || manifest.status !== 'active') {
-    throw new Error(`production build layout cannot bind source identity: ${layout.manifestFile}`)
-  }
-    const commit = String(sourceState?.commit ?? '').trim();
-    const worktreeFingerprint = String(sourceState?.worktreeFingerprint ?? '').trim();
-    if (!commit || !worktreeFingerprint) {throw new Error('production build layout requires complete source identity')};
-    const existingCommit = String(manifest.sourceState?.commit ?? '').trim();
-    const existingWorktreeFingerprint = String(manifest.sourceState?.worktreeFingerprint ?? '').trim();
-    if ((existingCommit && existingCommit !== commit)
-    || (existingWorktreeFingerprint && existingWorktreeFingerprint !== worktreeFingerprint))
-{
-        throw new Error('production build layout source identity is immutable after binding');
+    assertSafeProductionBuildRunRoot(layout.runRoot, { root: layout.repositoryRoot })
+    const manifest = JSON.parse(fs.readFileSync(layout.manifestFile, 'utf8'))
+    if (
+        manifest.schema !== productionBuildLayoutSchema ||
+        manifest.runId !== layout.runId ||
+        manifest.status !== 'active'
+    ) {
+        throw new Error(`production build layout cannot bind source identity: ${layout.manifestFile}`)
+    }
+    const commit = String(sourceState?.commit ?? '').trim()
+    const worktreeFingerprint = String(sourceState?.worktreeFingerprint ?? '').trim()
+    if (!commit || !worktreeFingerprint) throw new Error('production build layout requires complete source identity')
+    const existingCommit = String(manifest.sourceState?.commit ?? '').trim()
+    const existingWorktreeFingerprint = String(manifest.sourceState?.worktreeFingerprint ?? '').trim()
+    if (existingCommit !== commit || existingWorktreeFingerprint !== worktreeFingerprint) {
+        throw new Error('production build layout source identity is immutable after binding')
+    }
+    const lockOwnerFile = path.join(
+        layout.repositoryRoot,
+        '.tmp/test-runs/.locks',
+        `${layout.runId}.lock`,
+        'owner.json'
+    )
+    let schedulerOwner
+    try {
+        schedulerOwner = JSON.parse(fs.readFileSync(lockOwnerFile, 'utf8'))
+    } catch {
+        throw new Error('production build scheduler lock owner is required before building')
+    }
+    if (
+        schedulerOwner.schema !== 'fsusblog.scheduler-lock-owner.v2' ||
+        schedulerOwner.schedulerRunId !== layout.runId ||
+        schedulerOwner.executionKey !== layout.runId ||
+        schedulerOwner.namespace !== manifest.owner.namespace ||
+        schedulerOwner.sourceCommit !== commit ||
+        schedulerOwner.worktreeFingerprint !== worktreeFingerprint ||
+        schedulerOwner.pid !== manifest.owner.ownerPid ||
+        schedulerOwner.processStartIdentity !== manifest.owner.ownerProcessStartIdentity ||
+        schedulerOwner.executablePath !== manifest.owner.ownerIdentity.executablePath ||
+        schedulerOwner.executableDigest !== manifest.owner.ownerExecutableDigest ||
+        schedulerOwner.commandDigest !== manifest.owner.ownerCommandDigest ||
+        !schedulerOwner.ownerToken
+    ) {
+        throw new Error('production build manifest and scheduler lock do not exact-match')
+    }
+    const schedulerLockIdentity = {
+        schema: schedulerOwner.schema,
+        ownerToken: schedulerOwner.ownerToken,
+        schedulerRunId: schedulerOwner.schedulerRunId,
+        namespace: schedulerOwner.namespace,
+        executionKey: schedulerOwner.executionKey,
+        sourceCommit: schedulerOwner.sourceCommit,
+        worktreeFingerprint: schedulerOwner.worktreeFingerprint,
+        pid: schedulerOwner.pid,
+        processStartIdentity: schedulerOwner.processStartIdentity,
+        executablePath: schedulerOwner.executablePath,
+        executableDigest: schedulerOwner.executableDigest,
+        commandDigest: schedulerOwner.commandDigest
     }
     const bound = {
         ...manifest,
-        sourceState: { commit, worktreeFingerprint }
-  }
-  atomicWriteJson(layout.manifestFile, bound)
-  return bound
-}
-
-function processIsAlive(pid) {
-  if (!Number.isInteger(pid) || pid <= 0) return false
-  try {
-    process.kill(pid, 0)
-    return true
-  } catch (error) {
-    return error.code === 'EPERM'
-  }
+        sourceState: { commit, worktreeFingerprint },
+        owner: {
+            ...manifest.owner,
+            sourceCommit: commit,
+            worktreeFingerprint,
+            schedulerLockIdentity,
+            state: 'building',
+            heartbeatAt: new Date().toISOString()
+        }
+    }
+    bound.owner.processTreeReceipt = processTreeReceipt(bound.owner)
+    atomicWriteJson(layout.manifestFile, bound)
+    atomicWriteJson(layout.activeFile, {
+        schema: 'fsusblog.production-build-owner.v1',
+        runId: layout.runId,
+        owner: bound.owner
+    })
+    return bound
 }
 
 export function productionBuildRunIsActive(root, runId) {
-  const safeRunId = validateProductionRunId(runId)
-  const lockPath = path.join(path.resolve(root), '.tmp/test-runs/.locks', `${safeRunId}.lock`)
-  if (!fs.existsSync(lockPath)) return false
-  try {
-    const owner = JSON.parse(fs.readFileSync(path.join(lockPath, 'owner.json'), 'utf8'))
-    return processIsAlive(Number(owner.pid))
-  } catch {
-    try {
-      return Date.now() - fs.statSync(lockPath).mtimeMs < 30_000
-    } catch {
-      return false
+    const safeRunId = validateProductionRunId(runId)
+    const layout = resolveProductionBuildLayout({ root, runId: safeRunId })
+    const activeExists = fs.existsSync(layout.activeFile)
+    const manifestExists = fs.existsSync(layout.manifestFile)
+    if (!activeExists && !manifestExists) return false
+    if (!activeExists && manifestExists) {
+        const manifest = JSON.parse(fs.readFileSync(layout.manifestFile, 'utf8'))
+        if (
+            manifest.schema === productionBuildLayoutSchema &&
+            manifest.runId === safeRunId &&
+            ['complete', 'failed', 'cancelled'].includes(manifest.owner?.state)
+        ) {
+            verifyProductionBuildRootIntegrity(layout)
+            return false
+        }
     }
-  }
+    if (!activeExists || !manifestExists) {
+        throw new Error(`production build owner identity is missing: ${safeRunId}`)
+    }
+    const { owner } = readBuildOwner(layout)
+    if (owner.processIdentityFailure)
+        throw new Error(`production build process identity failure: ${owner.processIdentityFailure}`)
+    const ownerStatus = processIdentityStatus(owner.ownerIdentity)
+    if (ownerStatus.status === 'unverifiable') {
+        throw new Error(`production build owner-unverifiable: ${ownerStatus.actual?.reason ?? 'identity unavailable'}`)
+    }
+    if (ownerStatus.status === 'live' && owner.processGroupOrJobIdentity) {
+        const group = collectProcessGroupOrJobIdentity(owner.ownerIdentity.pid)
+        if (
+            group.status !== 'verified' ||
+            !processGroupOrJobIdentityMatches(group.value, owner.processGroupOrJobIdentity)
+        ) {
+            throw new Error('production build process group or Job Object identity mismatch')
+        }
+    }
+    const compilerStatuses = owner.activeCompilerProcessIdentities.map((identity) => processIdentityStatus(identity))
+    if (compilerStatuses.some((status) => status.status === 'unverifiable')) {
+        throw new Error('production build compiler identity is unverifiable')
+    }
+    const descendants =
+        ownerStatus.status === 'live' && owner.ownerPlatform !== 'win32'
+            ? processDescendantIdentities(owner.ownerIdentity)
+            : { status: 'verified', identities: [] }
+    if (descendants.status === 'unverifiable') {
+        throw new Error(`production build descendant identity is unverifiable: ${descendants.reason}`)
+    }
+    const lockPath = path.join(path.resolve(root), '.tmp/test-runs/.locks', `${safeRunId}.lock`, 'owner.json')
+    if (fs.existsSync(lockPath)) {
+        let schedulerOwner
+        try {
+            schedulerOwner = JSON.parse(fs.readFileSync(lockPath, 'utf8'))
+        } catch {
+            throw new Error('production build scheduler owner is missing or invalid')
+        }
+        const stored = owner.schedulerLockIdentity
+        if (
+            !stored ||
+            schedulerOwner.schema !== stored.schema ||
+            schedulerOwner.ownerToken !== stored.ownerToken ||
+            schedulerOwner.schedulerRunId !== stored.schedulerRunId ||
+            schedulerOwner.namespace !== stored.namespace ||
+            schedulerOwner.executionKey !== stored.executionKey ||
+            schedulerOwner.sourceCommit !== stored.sourceCommit ||
+            schedulerOwner.worktreeFingerprint !== stored.worktreeFingerprint ||
+            schedulerOwner.pid !== stored.pid ||
+            schedulerOwner.processStartIdentity !== stored.processStartIdentity ||
+            schedulerOwner.executablePath !== stored.executablePath ||
+            schedulerOwner.executableDigest !== stored.executableDigest ||
+            schedulerOwner.commandDigest !== stored.commandDigest
+        ) {
+            throw new Error('production build manifest and scheduler owner do not exact-match')
+        }
+    }
+    if (owner.state !== 'preparing' && !owner.schedulerLockIdentity) {
+        throw new Error('production build process-tree receipt is missing scheduler lock identity')
+    }
+    const groupMemberStatuses = []
+    for (const managedGroup of owner.managedProcessGroupIdentities) {
+        const members = processGroupMemberIdentities(managedGroup)
+        if (members.status !== 'verified')
+            throw new Error(`production build managed group is unverifiable: ${members.reason}`)
+        groupMemberStatuses.push(...members.identities.map((identity) => processIdentityStatus(identity)))
+    }
+    const containmentStatuses = owner.managedContainmentAuthorities.map(containmentAuthorityStatus)
+    const unverifiableContainment = containmentStatuses.find((status) => status.status === 'unverifiable')
+    if (unverifiableContainment) {
+        throw new Error(`production build containment authority is unverifiable: ${unverifiableContainment.reason}`)
+    }
+    const descendantStatuses =
+        descendants.status === 'verified'
+            ? descendants.identities.map((identity) => processIdentityStatus(identity))
+            : []
+    return (
+        ownerStatus.status === 'live' ||
+        compilerStatuses.some((status) => status.status === 'live') ||
+        descendantStatuses.some((status) => status.status === 'live') ||
+        groupMemberStatuses.some((status) => status.status === 'live') ||
+        containmentStatuses.some((status) => status.status === 'active')
+    )
+}
+
+function persistBuildOwner(layout, manifest, owner) {
+    owner.processTreeReceipt = processTreeReceipt(owner)
+    const next = { ...manifest, owner }
+    atomicWriteJson(layout.manifestFile, next)
+    atomicWriteJson(layout.activeFile, { schema: 'fsusblog.production-build-owner.v1', runId: layout.runId, owner })
+    return next
+}
+
+function addManagedIdentity(owner, identity) {
+    if (
+        owner.activeCompilerProcessIdentities.some(
+            (entry) => entry.processStartIdentity === identity.processStartIdentity
+        )
+    )
+        return false
+    owner.activeCompilerProcessIdentities.push(identity)
+    return true
+}
+
+function addManagedGroup(owner, group) {
+    if (owner.managedProcessGroupIdentities.some((entry) => processGroupOrJobIdentityMatches(entry, group)))
+        return false
+    owner.managedProcessGroupIdentities.push(group)
+    return true
+}
+
+function containmentAuthorityReceipt(authority, supervisorProcessIdentity) {
+    const common = {
+        schema: authority?.schema,
+        platform: authority?.platform,
+        kind: authority?.kind,
+        authorityId: authority?.authorityId,
+        killPolicy: authority?.killPolicy,
+        supervisorProcessIdentity,
+        createdAt: authority?.createdAt
+    }
+    let receipt = common
+    if (authority?.kind === 'systemd-transient-service') {
+        receipt = { ...common, unitName: authority.unitName }
+    } else if (authority?.kind === 'windows-job-object') {
+        receipt = {
+            ...common,
+            jobName: authority.jobName,
+            supervisorScriptDigest: authority.supervisorScriptDigest
+        }
+    }
+    if (!completeContainmentAuthority(receipt)) {
+        throw new Error('production build durable containment authority is incomplete')
+    }
+    return receipt
+}
+
+function addContainmentAuthority(owner, authority) {
+    if (owner.managedContainmentAuthorities.some((entry) => entry.authorityId === authority.authorityId)) return false
+    owner.managedContainmentAuthorities.push(authority)
+    return true
+}
+
+function containmentAuthorityStatus(authority) {
+    if (!completeContainmentAuthority(authority)) {
+        return { status: 'unverifiable', reason: 'containment authority receipt is incomplete' }
+    }
+    if (authority.kind === 'systemd-transient-service') {
+        const result = spawnSync(
+            'systemctl',
+            ['--user', 'show', authority.unitName, '--property=LoadState', '--property=ActiveState', '--value'],
+            { encoding: 'utf8', windowsHide: true }
+        )
+        if (result.error || result.status !== 0) {
+            return {
+                status: 'unverifiable',
+                reason: result.error?.message ?? String(result.stderr || `systemctl exited ${result.status}`).trim()
+            }
+        }
+        const [loadState, activeState] = String(result.stdout).trim().split(/\r?\n/u)
+        if (!loadState || !activeState) {
+            return { status: 'unverifiable', reason: 'systemd authority state is incomplete' }
+        }
+        if (['active', 'activating', 'deactivating', 'reloading'].includes(activeState)) {
+            return { status: 'active', loadState, activeState }
+        }
+        if (['inactive', 'failed'].includes(activeState)) {
+            return { status: 'inactive', loadState, activeState }
+        }
+        return { status: 'unverifiable', reason: `unknown systemd ActiveState ${activeState}` }
+    }
+    if (authority.kind === 'windows-job-object') {
+        const supervisor = processIdentityStatus(authority.supervisorProcessIdentity)
+        if (supervisor.status === 'live') return { status: 'active' }
+        if (['dead', 'mismatch'].includes(supervisor.status)) return { status: 'inactive' }
+        return {
+            status: 'unverifiable',
+            reason: supervisor.actual?.reason ?? 'Windows Job Object supervisor identity is unavailable'
+        }
+    }
+    return { status: 'unverifiable', reason: `unsupported containment authority ${authority.kind}` }
+}
+
+export function scanProductionBuildProcesses(layout) {
+    const { manifest, owner } = readBuildOwner(layout)
+    if (owner.state !== 'building') return manifest
+    if (owner.ownerPlatform === 'win32') return manifest
+    let changed = false
+    const roots = [...owner.activeCompilerProcessIdentities]
+    for (const identity of roots) {
+        const status = processIdentityStatus(identity)
+        if (status.status === 'unverifiable')
+            throw new Error(`managed compiler identity is unverifiable: ${status.actual?.reason}`)
+        if (status.status !== 'live') continue
+        const descendants = processDescendantIdentities(identity)
+        if (descendants.status !== 'verified')
+            throw new Error(`managed compiler descendants are unverifiable: ${descendants.reason}`)
+        for (const descendant of descendants.identities) {
+            changed = addManagedIdentity(owner, descendant) || changed
+            let containedByKnownGroup = false
+            for (const knownGroup of owner.managedProcessGroupIdentities) {
+                const knownMembers = processGroupMemberIdentities(knownGroup)
+                if (knownMembers.status !== 'verified') {
+                    throw new Error(`managed compiler group is unverifiable: ${knownMembers.reason}`)
+                }
+                containedByKnownGroup ||= knownMembers.identities.some(
+                    (member) =>
+                        member.pid === descendant.pid && member.processStartIdentity === descendant.processStartIdentity
+                )
+            }
+            if (containedByKnownGroup) continue
+            const group = collectProcessGroupOrJobIdentity(descendant.pid)
+            if (group.status !== 'verified') throw new Error(`managed compiler group is unverifiable: ${group.reason}`)
+            changed = addManagedGroup(owner, group.value) || changed
+        }
+    }
+    for (const group of owner.managedProcessGroupIdentities) {
+        const members = processGroupMemberIdentities(group)
+        if (members.status !== 'verified') throw new Error(`managed process group is unverifiable: ${members.reason}`)
+        for (const member of members.identities) changed = addManagedIdentity(owner, member) || changed
+    }
+    if (!changed) return manifest
+    owner.heartbeatAt = new Date().toISOString()
+    return persistBuildOwner(layout, manifest, owner)
+}
+
+function startBuildOwnerMonitor(layout) {
+    if (buildOwnerMonitors.has(layout.manifestFile)) return
+    const timer = setInterval(() => {
+        try {
+            scanProductionBuildProcesses(layout)
+        } catch (error) {
+            try {
+                const { manifest, owner } = readBuildOwner(layout)
+                owner.processIdentityFailure = error instanceof Error ? error.message : String(error)
+                owner.heartbeatAt = new Date().toISOString()
+                persistBuildOwner(layout, manifest, owner)
+            } catch {}
+        }
+    }, 25)
+    timer.unref?.()
+    buildOwnerMonitors.set(layout.manifestFile, timer)
+}
+
+function stopBuildOwnerMonitor(layout) {
+    const timer = buildOwnerMonitors.get(layout.manifestFile)
+    if (timer) clearInterval(timer)
+    buildOwnerMonitors.delete(layout.manifestFile)
+}
+
+export function registerProductionBuildCompiler(layout, identity, containmentAuthority = null) {
+    const { manifest, owner } = readBuildOwner(layout)
+    if (owner.state !== 'building' || processIdentityStatus(identity).status !== 'live') {
+        throw new Error('production build compiler identity must be live and registered while building')
+    }
+    if (!containmentAuthority && !owner.allowDiagnosticProcessContainmentForTests) {
+        throw new Error('production build compiler requires a durable OS containment authority')
+    }
+    const group = owner.ownerPlatform === 'win32' ? null : collectProcessGroupOrJobIdentity(identity.pid)
+    if (group && group.status !== 'verified')
+        throw new Error(`production build compiler group is unverifiable: ${group.reason}`)
+    addManagedIdentity(owner, identity)
+    if (group) addManagedGroup(owner, group.value)
+    if (containmentAuthority) {
+        addContainmentAuthority(owner, containmentAuthorityReceipt(containmentAuthority, identity))
+    }
+    owner.heartbeatAt = new Date().toISOString()
+    const next = persistBuildOwner(layout, manifest, owner)
+    if (owner.ownerPlatform !== 'win32') {
+        scanProductionBuildProcesses(layout)
+        startBuildOwnerMonitor(layout)
+    }
+    return next
 }
 
 export function measureProductionBuildTree(directory) {
@@ -323,79 +992,227 @@ export function measureProductionBuildTree(directory) {
   return { inodeCount, byteCount }
 }
 
-export function collectStaleProductionBuildRoots({
-  root = defaultRoot,
-  currentRunId = null,
-  isRunActive = (runId) => productionBuildRunIsActive(root, runId),
-  remove = (directory) => fs.rmSync(directory, { recursive: true, force: true })
-} = {}) {
-  const startedAtMs = Date.now()
-  const repositoryRoot = path.resolve(root)
-  const buildBase = path.join(repositoryRoot, '.tmp/build')
-  if (!fs.existsSync(buildBase)) return {
-    removed: [],
-    retained: [],
-    reclaimed: { inodeCount: 0, byteCount: 0 },
-    durationMs: Date.now() - startedAtMs
-  }
-  if (fs.lstatSync(buildBase).isSymbolicLink()) throw new Error('refusing symlink production build base')
-  const normalizedCurrent = currentRunId ? validateProductionRunId(currentRunId) : null
-  const removed = []
-  const retained = []
-  const reclaimed = { inodeCount: 0, byteCount: 0 }
-  for (const entry of fs.readdirSync(buildBase, { withFileTypes: true })) {
-    const candidate = path.join(buildBase, entry.name)
-    if (!entry.isDirectory() || entry.isSymbolicLink()) {
-      if (entry.isSymbolicLink()) throw new Error(`refusing symlink production build candidate: ${candidate}`)
-      continue
+export function verifyProductionBuildRootIntegrity(layout) {
+    if (!fs.existsSync(layout.manifestFile)) return true
+    const manifest = JSON.parse(fs.readFileSync(layout.manifestFile, 'utf8'))
+    if (manifest.schema !== productionBuildLayoutSchema || manifest.runId !== layout.runId) {
+        throw new Error(`production build layout identity mismatch: ${layout.manifestFile}`)
     }
-    assertSafeProductionBuildRunRoot(candidate, { root: repositoryRoot })
-    if (entry.name === normalizedCurrent || isRunActive(entry.name)) {
-      retained.push(entry.name)
-      continue
+    if (
+        ['complete', 'failed', 'cancelled'].includes(manifest.owner?.state) &&
+        manifest.contentDigest !== digestBuildTree(layout.runRoot)
+    ) {
+        throw new Error(`production build governance failure: ${manifest.owner.state} root received a write`)
     }
-    const measured = measureProductionBuildTree(candidate)
-    reclaimed.inodeCount += measured.inodeCount
-    reclaimed.byteCount += measured.byteCount
-    remove(candidate)
-    removed.push(entry.name)
-  }
-  return {
-    removed: removed.sort(),
-    retained: retained.sort(),
-    reclaimed,
-    durationMs: Date.now() - startedAtMs
-  }
+    return true
 }
 
-export function finalizeProductionBuildLayout(layout, {
-  status,
-  cleanup = null,
-  wallClockMs = null,
-  completedAt = new Date().toISOString()
+export function collectStaleProductionBuildRoots({
+    root = defaultRoot,
+    currentRunId = null,
+    isRunActive = (runId) => productionBuildRunIsActive(root, runId),
+    remove = (directory) => fs.rmSync(directory, { recursive: true, force: true }),
+    beforeDelete = null
 } = {}) {
-  if (!['success', 'failure', 'cancelled'].includes(status)) {
-    throw new Error(`production build layout final status is invalid: ${status}`)
-  }
-  assertSafeProductionBuildRunRoot(layout.runRoot, { root: layout.repositoryRoot })
-  const manifest = JSON.parse(fs.readFileSync(layout.manifestFile, 'utf8'))
-  if (manifest.schema !== productionBuildLayoutSchema || manifest.runId !== layout.runId) {
-    throw new Error(`production build layout identity mismatch: ${layout.manifestFile}`)
-  }
-  const output = measureProductionBuildTree(layout.runRoot)
-  const finalized = {
-    ...manifest,
-    status,
-    completedAt,
-    metrics: {
-      cleanup,
-      output,
-      wallClockMs: Number.isFinite(Number(wallClockMs)) ? Number(wallClockMs) : null
+    const startedAtMs = Date.now()
+    const repositoryRoot = path.resolve(root)
+    const buildBase = path.join(repositoryRoot, '.tmp/build')
+    if (!fs.existsSync(buildBase))
+        return {
+            removed: [],
+            retained: [],
+            reclaimed: { inodeCount: 0, byteCount: 0 },
+            durationMs: Date.now() - startedAtMs
+        }
+    if (fs.lstatSync(buildBase).isSymbolicLink()) throw new Error('refusing symlink production build base')
+    const normalizedCurrent = currentRunId ? validateProductionRunId(currentRunId) : null
+    const removed = []
+    const retained = []
+    const reclaimed = { inodeCount: 0, byteCount: 0 }
+    for (const entry of fs.readdirSync(buildBase, { withFileTypes: true })) {
+        const candidate = path.join(buildBase, entry.name)
+        if (!entry.isDirectory() || entry.isSymbolicLink()) {
+            if (entry.isSymbolicLink()) throw new Error(`refusing symlink production build candidate: ${candidate}`)
+            continue
+        }
+        assertSafeProductionBuildRunRoot(candidate, { root: repositoryRoot })
+        verifyProductionBuildRootIntegrity(resolveProductionBuildLayout({ root: repositoryRoot, runId: entry.name }))
+        const expectedIdentity = productionBuildRootIdentity(candidate)
+        if (entry.name === normalizedCurrent || isRunActive(entry.name)) {
+            retained.push(entry.name)
+            continue
+        }
+        const measured = measureProductionBuildTree(candidate)
+        if (
+            !reclaimExactProductionBuildRoot(candidate, expectedIdentity, {
+                remove,
+                beforeDelete: beforeDelete ? (context) => beforeDelete({ ...context, runId: entry.name }) : null
+            })
+        ) {
+            retained.push(entry.name)
+            continue
+        }
+        reclaimed.inodeCount += measured.inodeCount
+        reclaimed.byteCount += measured.byteCount
+        removed.push(entry.name)
     }
-  }
-  atomicWriteJson(layout.manifestFile, finalized)
-  fs.rmSync(layout.activeFile, { force: true })
-  return finalized
+    return {
+        removed: removed.sort(),
+        retained: retained.sort(),
+        reclaimed,
+        durationMs: Date.now() - startedAtMs
+    }
+}
+
+export function finalizeProductionBuildLayout(
+    layout,
+    { status, cleanup = null, wallClockMs = null, completedAt = new Date().toISOString() } = {}
+) {
+    if (!['success', 'failure', 'cancelled'].includes(status)) {
+        throw new Error(`production build layout final status is invalid: ${status}`)
+    }
+    assertSafeProductionBuildRunRoot(layout.runRoot, { root: layout.repositoryRoot })
+    stopBuildOwnerMonitor(layout)
+    const before = readBuildOwner(layout)
+    if (before.owner.state === 'building') scanProductionBuildProcesses(layout)
+    const { manifest, owner } = readBuildOwner(layout)
+    if (status === 'success' && !['building', 'finalizing'].includes(owner.state)) {
+        throw new Error('production build cannot complete before scheduler/source binding')
+    }
+    if (owner.processIdentityFailure)
+        throw new Error(`production build process identity failure: ${owner.processIdentityFailure}`)
+    const ownerStatus = processIdentityStatus(owner.ownerIdentity)
+    if (ownerStatus.status !== 'live') {
+        throw new Error(`production build finalize refused because owner identity is ${ownerStatus.status}`)
+    }
+    owner.state = 'finalizing'
+    persistBuildOwner(layout, manifest, owner)
+    const writers = owner.activeCompilerProcessIdentities.map((identity) => processIdentityStatus(identity))
+    const descendants =
+        owner.ownerPlatform === 'win32'
+            ? { status: 'verified', identities: [] }
+            : processDescendantIdentities(owner.ownerIdentity)
+    if (descendants.status === 'unverifiable') {
+        throw new Error(
+            `production build finalize refused while descendant identity is unverifiable: ${descendants.reason}`
+        )
+    }
+    const descendantWriters = descendants.identities.map((identity) => processIdentityStatus(identity))
+    const groupWriters = []
+    for (const group of owner.managedProcessGroupIdentities) {
+        const members = processGroupMemberIdentities(group)
+        if (members.status !== 'verified') {
+            throw new Error(`production build finalize refused while process group is unverifiable: ${members.reason}`)
+        }
+        groupWriters.push(...members.identities.map((identity) => processIdentityStatus(identity)))
+    }
+    const containmentStatuses = owner.managedContainmentAuthorities.map(containmentAuthorityStatus)
+    const unverifiableContainment = containmentStatuses.find((entry) => entry.status === 'unverifiable')
+    if (unverifiableContainment) {
+        throw new Error(
+            `production build finalize refused while containment authority is unverifiable: ${unverifiableContainment.reason}`
+        )
+    }
+    if (
+        writers.some((writer) => writer.status === 'live') ||
+        descendantWriters.some((writer) => writer.status === 'live') ||
+        groupWriters.some((writer) => writer.status === 'live') ||
+        containmentStatuses.some((entry) => entry.status === 'active')
+    ) {
+        throw new Error('production build finalize refused while compiler writer is active')
+    }
+    if (writers.some((writer) => writer.status === 'unverifiable')) {
+        throw new Error('production build finalize refused while compiler identity is unverifiable')
+    }
+    if (
+        descendantWriters.some((writer) => writer.status === 'unverifiable') ||
+        groupWriters.some((writer) => writer.status === 'unverifiable')
+    ) {
+        throw new Error('production build finalize refused while process-tree identity is unverifiable')
+    }
+    const output = measureProductionBuildTree(layout.runRoot)
+    const finalized = {
+        ...manifest,
+        owner: {
+            ...owner,
+            state: status === 'success' ? 'complete' : status === 'failure' ? 'failed' : 'cancelled',
+            heartbeatAt: new Date().toISOString(),
+            processTreeReceipt: processTreeReceipt({
+                ...owner,
+                state: status === 'success' ? 'complete' : status === 'failure' ? 'failed' : 'cancelled'
+            })
+        },
+        status,
+        completedAt,
+        contentDigest: digestBuildTree(layout.runRoot),
+        metrics: {
+            cleanup,
+            output,
+            wallClockMs: Number.isFinite(Number(wallClockMs)) ? Number(wallClockMs) : null
+        }
+    }
+    atomicWriteJson(layout.manifestFile, finalized)
+    fs.rmSync(layout.activeFile, { force: true })
+    return finalized
+}
+
+function lifecycleFailureReceipt(error) {
+    if (!error) return null
+    let message = String(error)
+    if (error instanceof Error) message = error.message
+    else if (typeof error.reason === 'string') message = error.reason
+    return {
+        name: typeof error.name === 'string' ? error.name : null,
+        message,
+        code: typeof error.code === 'string' || Number.isInteger(error.code) ? error.code : null,
+        exitCode: Number.isInteger(error.exitCode) ? error.exitCode : null,
+        signal: typeof error.signal === 'string' ? error.signal : null,
+        tierId: typeof error.tierId === 'string' ? error.tierId : null
+    }
+}
+
+export function failClosedProductionBuildLayout(
+    layout,
+    {
+        status = 'failure',
+        primaryFailure = null,
+        sealFailure,
+        completedAt = new Date().toISOString()
+    } = {}
+) {
+    if (!['failure', 'cancelled'].includes(status)) {
+        throw new Error(`production build fail-closed status is invalid: ${status}`)
+    }
+    if (!sealFailure) throw new Error('production build fail-closed terminalization requires the seal failure')
+    assertSafeProductionBuildRunRoot(layout.runRoot, { root: layout.repositoryRoot })
+    stopBuildOwnerMonitor(layout)
+    const manifest = JSON.parse(fs.readFileSync(layout.manifestFile, 'utf8'))
+    if (manifest.schema !== productionBuildLayoutSchema || manifest.runId !== layout.runId) {
+        throw new Error(`production build layout identity mismatch: ${layout.manifestFile}`)
+    }
+    const terminalState = status === 'cancelled' ? 'cancelled' : 'failed'
+    const owner = {
+        ...manifest.owner,
+        state: terminalState,
+        heartbeatAt: new Date().toISOString()
+    }
+    owner.processTreeReceipt = processTreeReceipt(owner)
+    const terminal = {
+        ...manifest,
+        owner,
+        status,
+        completedAt,
+        lifecycleFinalization: {
+            schema: 'fsusblog.production-build-lifecycle-finalization.v1',
+            mode: 'fail-closed-fallback',
+            primaryFailure: lifecycleFailureReceipt(primaryFailure),
+            sealFailure: lifecycleFailureReceipt(sealFailure)
+        },
+        contentDigest: digestBuildTree(layout.runRoot)
+    }
+    atomicWriteJson(layout.manifestFile, terminal)
+    fs.rmSync(layout.activeFile, { force: true })
+    return terminal
 }
 
 export function scheduleStaleProductionBuildGc({
@@ -417,13 +1234,15 @@ export function scheduleStaleProductionBuildGc({
 }
 
 export function productionBuildLayoutDigest(layout) {
-  const manifest = JSON.parse(fs.readFileSync(layout.manifestFile, 'utf8'))
-  const identity = {
-    schema: manifest.schema,
-    runId: manifest.runId,
-    sourceState: manifest.sourceState,
-    paths: manifest.paths,
-    projects: manifest.projects
-  }
-  return `sha256:${createHash('sha256').update(JSON.stringify(identity)).digest('hex')}`
+    const manifest = JSON.parse(fs.readFileSync(layout.manifestFile, 'utf8'))
+    const identity = {
+        schema: manifest.schema,
+        runId: manifest.runId,
+        sourceState: manifest.sourceState,
+        paths: manifest.paths,
+        projects: manifest.projects
+    }
+    return `sha256:${createHash('sha256')
+        .update(JSON.stringify(canonicalize(identity)))
+        .digest('hex')}`
 }

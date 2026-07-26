@@ -22,6 +22,7 @@ import {
     readResidentLeaseDocument,
     writeResidentLeaseDocument
 } from '../../tools/test-matrix/resident-resource-leases.mjs';
+import { currentProcessIdentity } from '../../tools/test/process-identity.mjs';
 import {
     assertAllowedRootBoundary,
     assertMissingDependencyDiagnostic,
@@ -2272,7 +2273,20 @@ test('stale running checkpoints are resumable when their lock owner is dead', as
         updatedAt: new Date(Date.now() - 60_000).toISOString(),
         tiers: {}
     })}\n`);
-    fs.writeFileSync(path.join(lockDirectory, 'owner.json'), `${JSON.stringify({ pid: 2_147_483_647, token: 'dead' })}\n`);
+    const staleIdentity = currentProcessIdentity();
+    fs.writeFileSync(path.join(lockDirectory, 'owner.json'), `${JSON.stringify({
+        ...staleIdentity,
+        schema: 'fsusblog.scheduler-lock-owner.v2',
+        ownerToken: 'dead',
+        processStartIdentity: `${staleIdentity.processStartIdentity}:exited`,
+        schedulerRunId: 'stale',
+        namespace: 'test-matrix',
+        executionKey: 'stale',
+        sourceCommit: null,
+        worktreeFingerprint: 'stable',
+        createdAt: new Date(Date.now() - 60_000).toISOString(),
+        heartbeatAt: new Date(Date.now() - 60_000).toISOString()
+    })}\n`);
     assert.equal(findLatestRunId(runsRoot, 'fixture'), 'stale');
     let executions = 0;
     const result = await runDag({

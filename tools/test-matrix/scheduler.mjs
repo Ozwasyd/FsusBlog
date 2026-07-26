@@ -1,10 +1,12 @@
+import { spawn, spawnSync } from 'node:child_process'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
-import { spawn, spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 
+import { collectProcessIdentity, currentProcessIdentity, processIdentityStatus } from '../test/process-identity.mjs'
 import { createAsyncLogPipeline } from './async-log-pipeline.mjs'
 import {
   readAndValidateArtifactDigestTable,
@@ -311,6 +313,19 @@ export async function snapshotSourceState(root) {
     commit: gitHead(root),
     worktreeFingerprint: snapshot.fingerprint
   }
+}
+
+export async function collectSchedulerSourceState(root, { snapshotWorktree = () => snapshotGitWorktree(root) } = {}) {
+    const snapshot = await snapshotWorktree()
+    const envCommit = String(process.env.FSUSBLOG_TEST_SOURCE_COMMIT ?? '').trim()
+    const envFingerprint = String(process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT ?? '').trim()
+    return {
+        sourceState: {
+            commit: envCommit || gitHead(root) || 'unversioned',
+            worktreeFingerprint: envFingerprint || snapshot.fingerprint
+        },
+        snapshot
+    }
 }
 
 function changedSnapshotPaths(before, after) {
@@ -681,105 +696,277 @@ function signalProcessTree(child, signal) {
   if (child.exitCode === null && child.signalCode === null) child.kill(signal)
 }
 
-function beginSubprocess(tier, { root, env, outputPipeline, terminationGraceMs, suspendForAttach = false }) {
-  const suspendedEntry = suspendForAttach && process.platform !== 'win32'
-  const child = suspendedEntry
-    ? spawn('/bin/bash', ['-c', 'kill -STOP $$; exec /bin/bash -lc "$1"', 'fsusblog-cgroup-entry', tier.command], {
-        cwd: root,
-        env,
-        shell: false,
-        detached: true,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        windowsHide: true
-      })
-    : spawn(tier.command, {
-    cwd: root,
-    env,
-    shell: true,
-    detached: process.platform !== 'win32',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true
-      })
-  outputPipeline.attach(child.stdout, 'stdout')
-  outputPipeline.attach(child.stderr, 'stderr')
-
-  let settled = false
-  let budgetExpired = false
-  let terminationStarted = false
-  const tierBudgetMs = Number.isFinite(Number(tier.budgetMs)) && Number(tier.budgetMs) > 0
-    ? Number(tier.budgetMs)
-    : null
-  let budgetTimer = null
-  let escalationTimer = null
-  let forcedSettleTimer = null
-  let resolvePromise = null
-
-  const closePipes = () => {
-    for (const stream of [child.stdin, child.stdout, child.stderr]) {
-      stream?.destroy()
+function durableSubprocessSpec(tier, { root, env }) {
+    const authorityId = crypto.randomUUID()
+    if (process.platform === 'linux') {
+        const unitName = `fsusblog-build-${sha256(`${process.pid}:${authorityId}:${tier.id}`).slice(0, 32)}`
+        const setEnvironment = Object.entries(env)
+            .sort(([left], [right]) => left.localeCompare(right))
+            .map(([key, value]) => {
+                const normalized = String(value)
+                if (normalized.includes('\0') || normalized.includes('\n')) {
+                    throw new Error(`durable process containment cannot encode environment variable ${key}`)
+                }
+                return `--setenv=${key}=${normalized}`
+            })
+        return {
+            command: 'systemd-run',
+            args: [
+                '--user',
+                '--quiet',
+                '--wait',
+                '--pipe',
+                '--collect',
+                '--service-type=exec',
+                '--property=KillMode=control-group',
+                `--working-directory=${root}`,
+                `--unit=${unitName}`,
+                ...setEnvironment,
+                '/bin/bash',
+                '-lc',
+                tier.command
+            ],
+            authority: {
+                schema: 'fsusblog.durable-process-containment.v1',
+                platform: 'linux',
+                kind: 'systemd-transient-service',
+                authorityId,
+                unitName,
+                killPolicy: 'control-group',
+                createdAt: new Date().toISOString()
+            }
+        }
     }
-  }
-  const settle = (result) => {
-    if (settled) return
-    settled = true
-    if (budgetTimer) clearTimeout(budgetTimer)
-    if (escalationTimer) clearTimeout(escalationTimer)
-    if (forcedSettleTimer) clearTimeout(forcedSettleTimer)
-    resolvePromise(result)
-  }
-  const timeoutResult = () => ({
-    code: 124,
-    signal: null,
-    error: new Error(`bundle budget exceeded (${tierBudgetMs}ms)`)
-  })
-  const beginTermination = () => {
-    if (settled || terminationStarted) return
-    terminationStarted = true
-    signalProcessTree(child, 'SIGTERM')
-    escalationTimer = setTimeout(() => {
-      // Do not rely on ChildProcess.close here: a descendant may have survived
-      // the shell and still own its inherited stdout/stderr descriptors.
-      signalProcessTree(child, 'SIGKILL')
-      closePipes()
-      const pipeCloseGraceMs = Math.max(25, Math.min(250, terminationGraceMs || 25))
-      forcedSettleTimer = setTimeout(() => {
-        settle({
-          ...(budgetExpired ? timeoutResult() : { code: 1, signal: 'SIGKILL' }),
-          logComplete: false,
-          logTruncationReason: 'forced-pipe-close-after-sigkill'
+    if (process.platform === 'win32') {
+        const supervisorScript = path.join(path.dirname(fileURLToPath(import.meta.url)), 'windows-job-supervisor.ps1')
+        const jobName = `Local\\FsusBlog-${authorityId}`
+        const handshakeRoot = path.join(os.tmpdir(), `fsusblog-job-${authorityId}`)
+        fs.mkdirSync(handshakeRoot, { mode: 0o700 })
+        const readyFile = path.join(handshakeRoot, 'ready')
+        const startFile = path.join(handshakeRoot, 'start')
+        return {
+            command: 'powershell.exe',
+            args: [
+                '-NoProfile',
+                '-ExecutionPolicy',
+                'Bypass',
+                '-File',
+                supervisorScript,
+                '-JobName',
+                jobName,
+                '-ReadyFile',
+                readyFile,
+                '-StartFile',
+                startFile,
+                '-WorkingDirectory',
+                root,
+                '-CommandBase64',
+                Buffer.from(tier.command, 'utf16le').toString('base64')
+            ],
+            authority: {
+                schema: 'fsusblog.durable-process-containment.v1',
+                platform: 'win32',
+                kind: 'windows-job-object',
+                authorityId,
+                jobName,
+                killPolicy: 'kill-on-job-close',
+                supervisorScriptDigest: `sha256:${sha256(fs.readFileSync(supervisorScript))}`,
+                readyFile,
+                startFile,
+                handshakeRoot,
+                createdAt: new Date().toISOString()
+            }
+        }
+    }
+    throw new Error(`durable process containment is unavailable on ${process.platform}`)
+}
+
+async function waitForSuspendedProcess(child) {
+    const deadline = Date.now() + 5_000
+    while (Date.now() < deadline) {
+        if (child.exitCode !== null || child.signalCode !== null) {
+            throw new Error('scheduler child exited before its registration handshake completed')
+        }
+        try {
+            if (process.platform === 'linux') {
+                const value = fs.readFileSync(`/proc/${child.pid}/stat`, 'utf8')
+                const close = value.lastIndexOf(')')
+                if (
+                    close >= 0 &&
+                    value
+                        .slice(close + 2)
+                        .trim()
+                        .split(/\s+/u)[0] === 'T'
+                )
+                    return
+            } else if (process.platform === 'darwin') {
+                const state = spawnSync('ps', ['-o', 'state=', '-p', String(child.pid)], {
+                    encoding: 'utf8'
+                }).stdout.trim()
+                if (state.startsWith('T')) return
+            } else {
+                throw new Error('scheduler registration handshake is unavailable on this platform')
+            }
+        } catch (error) {
+            if (error?.code !== 'ENOENT') throw error
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1))
+    }
+    throw new Error('timed out waiting for scheduler child registration handshake')
+}
+
+async function waitForFile(file, child) {
+    const deadline = Date.now() + 10_000
+    while (Date.now() < deadline) {
+        if (fs.existsSync(file)) return
+        if (child.exitCode !== null || child.signalCode !== null) {
+            throw new Error('durable process supervisor exited before its registration handshake completed')
+        }
+        await new Promise((resolve) => setTimeout(resolve, 2))
+    }
+    throw new Error('timed out waiting for durable process containment handshake')
+}
+
+function beginSubprocess(
+    tier,
+    { root, env, outputPipeline, terminationGraceMs, suspendForAttach = false, durableContainment = false }
+) {
+    const durableSpec = durableContainment ? durableSubprocessSpec(tier, { root, env }) : null
+    const suspendedEntry = suspendForAttach && process.platform !== 'win32'
+    let child
+    if (suspendedEntry) {
+        child = spawn(
+            '/bin/bash',
+            [
+                '-c',
+                'kill -STOP $$; exec "$@"',
+                'fsusblog-contained-entry',
+                durableSpec?.command ?? '/bin/bash',
+                ...(durableSpec?.args ?? ['-lc', tier.command])
+            ],
+            {
+                cwd: root,
+                env,
+                shell: false,
+                detached: true,
+                stdio: ['ignore', 'pipe', 'pipe'],
+                windowsHide: true
+            }
+        )
+    } else {
+        child = spawn(durableSpec?.command ?? tier.command, durableSpec?.args ?? [], {
+            cwd: root,
+            env,
+            shell: durableSpec === null,
+            detached: process.platform !== 'win32',
+            stdio: ['ignore', 'pipe', 'pipe'],
+            windowsHide: true
         })
-      }, pipeCloseGraceMs)
-    }, terminationGraceMs)
-  }
-  const promise = new Promise((resolve) => {
-    resolvePromise = resolve
-    child.once('error', (error) => {
-      closePipes()
-      settle({ code: 1, signal: null, error })
-    })
-    child.once('close', (code, signal) => {
-      settle(budgetExpired ? timeoutResult() : { code: code ?? 1, signal })
-    })
-    if (tierBudgetMs !== null) {
-      budgetTimer = setTimeout(() => {
-        if (settled) return
-        budgetExpired = true
-        beginTermination()
-      }, tierBudgetMs)
-      budgetTimer.unref?.()
     }
-  })
+    outputPipeline.attach(child.stdout, 'stdout')
+    outputPipeline.attach(child.stderr, 'stderr')
 
-  return {
-    child,
-    promise,
-    resume() {
-      if (suspendedEntry) child.kill('SIGCONT')
-    },
-    terminate() {
-      beginTermination()
+    let settled = false
+    let budgetExpired = false
+    let terminationStarted = false
+    const tierBudgetMs =
+        Number.isFinite(Number(tier.budgetMs)) && Number(tier.budgetMs) > 0 ? Number(tier.budgetMs) : null
+    let budgetTimer = null
+    let escalationTimer = null
+    let forcedSettleTimer = null
+    let resolvePromise = null
+
+    const closePipes = () => {
+        for (const stream of [child.stdin, child.stdout, child.stderr]) {
+            stream?.destroy()
+        }
     }
-  }
+    const settle = (result) => {
+        if (settled) return
+        settled = true
+        if (budgetTimer) clearTimeout(budgetTimer)
+        if (escalationTimer) clearTimeout(escalationTimer)
+        if (forcedSettleTimer) clearTimeout(forcedSettleTimer)
+        resolvePromise(result)
+    }
+    const timeoutResult = () => ({
+        code: 124,
+        signal: null,
+        error: new Error(`bundle budget exceeded (${tierBudgetMs}ms)`)
+    })
+    const beginTermination = () => {
+        if (settled || terminationStarted) return
+        terminationStarted = true
+        if (durableSpec?.authority?.kind === 'systemd-transient-service') {
+            spawnSync('systemctl', ['--user', 'stop', durableSpec.authority.unitName], {
+                encoding: 'utf8',
+                timeout: Math.max(1_000, terminationGraceMs),
+                windowsHide: true
+            })
+        }
+        signalProcessTree(child, 'SIGTERM')
+        escalationTimer = setTimeout(() => {
+            // Do not rely on ChildProcess.close here: a descendant may have survived
+            // the shell and still own its inherited stdout/stderr descriptors.
+            signalProcessTree(child, 'SIGKILL')
+            closePipes()
+            const pipeCloseGraceMs = Math.max(25, Math.min(250, terminationGraceMs || 25))
+            forcedSettleTimer = setTimeout(() => {
+                settle({
+                    ...(budgetExpired ? timeoutResult() : { code: 1, signal: 'SIGKILL' }),
+                    logComplete: false,
+                    logTruncationReason: 'forced-pipe-close-after-sigkill'
+                })
+            }, pipeCloseGraceMs)
+        }, terminationGraceMs)
+    }
+    const promise = new Promise((resolve) => {
+        resolvePromise = resolve
+        child.once('error', (error) => {
+            closePipes()
+            settle({ code: 1, signal: null, error })
+        })
+        child.once('close', (code, signal) => {
+            settle(budgetExpired ? timeoutResult() : { code: code ?? 1, signal })
+        })
+        if (tierBudgetMs !== null) {
+            budgetTimer = setTimeout(() => {
+                if (settled) return
+                budgetExpired = true
+                beginTermination()
+            }, tierBudgetMs)
+            budgetTimer.unref?.()
+        }
+    })
+
+    let registrationReady = Promise.resolve()
+    if (suspendedEntry) {
+        registrationReady = waitForSuspendedProcess(child)
+    } else if (durableSpec?.authority?.kind === 'windows-job-object') {
+        registrationReady = waitForFile(durableSpec.authority.readyFile, child)
+    }
+    return {
+        child,
+        containmentAuthority: durableSpec?.authority ?? null,
+        promise,
+        registrationReady,
+        resume() {
+            if (suspendedEntry) child.kill('SIGCONT')
+            if (durableSpec?.authority?.kind === 'windows-job-object') {
+                fs.writeFileSync(durableSpec.authority.startFile, `${durableSpec.authority.authorityId}\n`, {
+                    mode: 0o600
+                })
+            }
+        },
+        terminate() {
+            beginTermination()
+        },
+        cleanupContainmentHandshake() {
+            if (durableSpec?.authority?.kind === 'windows-job-object') {
+                fs.rmSync(durableSpec.authority.handshakeRoot, { recursive: true, force: true })
+            }
+        }
+    }
 }
 
 function defaultSystemResources() {
@@ -2060,7 +2247,7 @@ async function runDagUnlocked(options) {
   const residentHandoffFile = path.join(runDirectory, 'resident-resource-handoff.json')
   const tierLogDirectory = path.join(runDirectory, 'tiers')
   const snapshotWorktree = options.snapshotWorktree ?? (() => snapshotGitWorktree(root))
-  const runSourceSnapshot = await snapshotWorktree()
+    const runSourceSnapshot = options.runSourceSnapshot ?? (await snapshotWorktree())
   // Honor explicit source-identity env overrides so prepareProductionBuildLayout
   // (which seeds layout.json from the same env) and onSourceState bind once with
   // the same commit/fingerprint. Without this, fixture/CI overrides in
@@ -2068,10 +2255,10 @@ async function runDagUnlocked(options) {
   // here would fail closed as an immutable identity mismatch (#1069 / #1079).
   const envCommit = String(process.env.FSUSBLOG_TEST_SOURCE_COMMIT ?? '').trim()
   const envFingerprint = String(process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT ?? '').trim()
-  const sourceState = {
-    commit: envCommit || gitHead(root),
-    worktreeFingerprint: envFingerprint || runSourceSnapshot.fingerprint
-  }
+    const sourceState = options.sourceState ?? {
+        commit: envCommit || gitHead(root) || 'unversioned',
+        worktreeFingerprint: envFingerprint || runSourceSnapshot.fingerprint
+    }
   await options.onSourceState?.(sourceState)
   const resources = options.systemResources ?? defaultSystemResources()
   const budget = resourceBudget(resources)
@@ -2251,22 +2438,25 @@ async function runDagUnlocked(options) {
   let resolveInterrupt = null
   let interrupted = null
   const interruptHandlers = new Map()
-  if (resourceEnforcer.mode === 'enforced') {
-    interruptPromise = new Promise((resolve) => { resolveInterrupt = resolve })
-    for (const [signal, exitCode] of [['SIGINT', 130], ['SIGTERM', 143]]) {
-      const handler = () => {
-        if (interrupted) return
-        interrupted = { signal, exitCode }
-        for (const entry of active.values()) {
-          entry.cancelRequested = true
-          entry.terminate()
+    interruptPromise = new Promise((resolve) => {
+        resolveInterrupt = resolve
+    })
+    for (const [signal, exitCode] of [
+        ['SIGINT', 130],
+        ['SIGTERM', 143]
+    ]) {
+        const handler = () => {
+            if (interrupted) return
+            interrupted = { signal, exitCode }
+            for (const entry of active.values()) {
+                entry.cancelRequested = true
+                entry.terminate()
+            }
+            resolveInterrupt({ interrupted: true, signal, exitCode })
         }
-        resolveInterrupt({ interrupted: true, signal, exitCode })
-      }
-      interruptHandlers.set(signal, handler)
-      process.on(signal, handler)
+        interruptHandlers.set(signal, handler)
+        process.on(signal, handler)
     }
-  }
   const removeInterruptHandlers = () => {
     for (const [signal, handler] of interruptHandlers) process.off(signal, handler)
     interruptHandlers.clear()
@@ -2901,28 +3091,53 @@ async function runDagUnlocked(options) {
       runId,
       runDirectory
     }
-    const execution = options.executeTier
-      ? {
-          promise: Promise.resolve().then(() => options.executeTier(tier, context)).then(normalizeExecutionResult, (error) => ({ code: 1, signal: null, error })),
-          terminate: () => options.abortTier?.(tier)
+    let execution
+    if (options.executeTier) {
+        execution = {
+            promise: Promise.resolve()
+                .then(() => options.executeTier(tier, context))
+                .then(normalizeExecutionResult, (error) => ({ code: 1, signal: null, error })),
+            terminate: () => options.abortTier?.(tier)
         }
-      : beginSubprocess(tier, {
-          root,
-          env: tierEnvironment,
-          outputPipeline,
-          terminationGraceMs,
-          suspendForAttach: resourceEnforcer.mode === 'enforced'
+    } else {
+        execution = beginSubprocess(tier, {
+            root,
+            env: tierEnvironment,
+            outputPipeline,
+            terminationGraceMs,
+            suspendForAttach: resourceEnforcer.mode === 'enforced' || Boolean(options.registerManagedProcess),
+            durableContainment: Boolean(options.registerManagedProcess)
         })
+    }
     if (execution.child) {
-      try {
-        resourceEnforcer.attach(enforcementBundleId, execution.child.pid)
-        execution.resume?.()
-      } catch (error) {
-        execution.terminate()
-        execution.resume?.()
-        await outputPipeline.close({ complete: false, truncationReason: 'cgroup-attach-failed' })
-        throw new Error(`cgroup attach failed for ${enforcementBundleId}: ${error.message}`, { cause: error })
-      }
+        try {
+            await execution.registrationReady
+        } catch (error) {
+            execution.terminate()
+            execution.resume?.()
+            await execution.promise
+            await outputPipeline.close({ complete: false, truncationReason: 'registration-handshake-failed' })
+            throw error
+        }
+        const identity = collectProcessIdentity(execution.child.pid)
+        if (identity.status !== 'verified') {
+            execution.terminate()
+            execution.resume?.()
+            await execution.promise
+            await outputPipeline.close({ complete: false, truncationReason: 'registration-identity-failed' })
+            throw new Error(`scheduler child identity is unverifiable: ${identity.reason}`)
+        }
+        try {
+            options.registerManagedProcess?.(identity, tier, execution.containmentAuthority)
+            resourceEnforcer.attach(enforcementBundleId, execution.child.pid)
+            execution.resume?.()
+        } catch (error) {
+            execution.terminate()
+            execution.resume?.()
+            await execution.promise
+            await outputPipeline.close({ complete: false, truncationReason: 'cgroup-attach-failed' })
+            throw new Error(`cgroup attach failed for ${enforcementBundleId}: ${error.message}`, { cause: error })
+        }
     }
     const resourceCollector = execution.child
       ? createLinuxProcessTreeCollector({
@@ -2965,6 +3180,7 @@ async function runDagUnlocked(options) {
           complete: executionResult.logComplete !== false,
           truncationReason: executionResult.logTruncationReason ?? null
         })
+        execution.cleanupContainmentHandshake?.()
         if (logFinalization.error && !executionResult.error) {
           executionResult = {
             ...executionResult,
@@ -3377,74 +3593,239 @@ async function runDagUnlocked(options) {
   }
 }
 
-function processIsAlive(pid) {
-  if (!Number.isInteger(pid) || pid <= 0) return false
-  try {
-    process.kill(pid, 0)
-    return true
-  } catch (error) {
-    return error.code === 'EPERM'
-  }
+export function schedulerRunLockActivity({
+    runsRoot,
+    runId,
+    identityStatus = processIdentityStatus
+}) {
+    const normalizedRunId = safeRunId(runId)
+    const lockPath = path.join(path.resolve(runsRoot), '.locks', `${normalizedRunId}.lock`)
+    const ownerFile = path.join(lockPath, 'owner.json')
+    if (!fs.existsSync(lockPath)) return { status: 'inactive', reason: 'lock-missing', owner: null }
+    let owner
+    try {
+        owner = JSON.parse(fs.readFileSync(ownerFile, 'utf8'))
+    } catch (error) {
+        return {
+            status: 'unverifiable',
+            reason: `owner-read-failed:${error instanceof Error ? error.message : String(error)}`,
+            owner: null
+        }
+    }
+    if (
+        !schedulerLockOwnerIsComplete(owner) ||
+        owner.schedulerRunId !== normalizedRunId ||
+        owner.executionKey !== normalizedRunId
+    ) {
+        return { status: 'unverifiable', reason: 'owner-identity-incomplete', owner }
+    }
+    let observed
+    try {
+        observed = identityStatus(owner)
+    } catch (error) {
+        return {
+            status: 'unverifiable',
+            reason: `owner-identity-check-failed:${error instanceof Error ? error.message : String(error)}`,
+            owner
+        }
+    }
+    if (observed.status === 'live') return { status: 'active', reason: null, owner }
+    if (['dead', 'mismatch'].includes(observed.status)) {
+        return { status: 'inactive', reason: `owner-${observed.status}`, owner }
+    }
+    return {
+        status: 'unverifiable',
+        reason: `owner-${observed.status}:${observed.actual?.reason ?? 'identity unavailable'}`,
+        owner
+    }
+}
+
+export function schedulerRunLockIsActive(options) {
+    const activity = schedulerRunLockActivity(options)
+    if (activity.status === 'unverifiable') {
+        throw new Error(`scheduler lock owner-unverifiable: ${activity.reason}`)
+    }
+    return activity.status === 'active'
 }
 
 function runLockIsActive(runsRoot, runId) {
-  const lockPath = path.join(runsRoot, '.locks', `${runId}.lock`)
-  const ownerFile = path.join(lockPath, 'owner.json')
-  if (!fs.existsSync(lockPath)) return false
-  try {
-    const owner = JSON.parse(fs.readFileSync(ownerFile, 'utf8'))
-    return processIsAlive(Number(owner.pid))
-  } catch {
-    try {
-      return Date.now() - fs.statSync(lockPath).mtimeMs < 30_000
-    } catch {
-      return false
-    }
-  }
+    return schedulerRunLockIsActive({ runsRoot, runId })
 }
 
-function acquireRunLock(runsRoot, runId) {
-  const lockDirectory = path.join(runsRoot, '.locks')
-  const lockPath = path.join(lockDirectory, `${runId}.lock`)
-  const ownerFile = path.join(lockPath, 'owner.json')
-  fs.mkdirSync(lockDirectory, { recursive: true })
-  const token = crypto.randomUUID()
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    try {
-      fs.mkdirSync(lockPath, { mode: 0o700 })
-      fs.writeFileSync(ownerFile, `${JSON.stringify({ pid: process.pid, token, startedAt: new Date().toISOString() })}\n`, { mode: 0o600 })
-      return () => {
-        try {
-          const owner = JSON.parse(fs.readFileSync(ownerFile, 'utf8'))
-          if (owner.token === token) fs.rmSync(lockPath, { recursive: true, force: true })
-        } catch (error) {
-          if (error.code !== 'ENOENT') throw error
-        }
-      }
-    } catch (error) {
-      if (error.code !== 'EEXIST') throw error
-      let owner = null
-      try {
-        owner = JSON.parse(fs.readFileSync(ownerFile, 'utf8'))
-      } catch {}
-      if (processIsAlive(Number(owner?.pid))) {
-        throw new Error(`test matrix run ${runId} is already active (pid ${owner.pid})`)
-      }
-      if (!owner) {
-        const ageMs = Date.now() - fs.statSync(lockPath).mtimeMs
-        if (ageMs < 30_000) throw new Error(`test matrix run ${runId} is already active (owner metadata initializing)`)
-      }
-      fs.rmSync(lockPath, { recursive: true, force: true })
+function schedulerLockOwnerMatches(expected, actual) {
+    return Boolean(
+        expected &&
+            actual &&
+            expected.schema === actual.schema &&
+            expected.ownerToken === actual.ownerToken &&
+            expected.pid === actual.pid &&
+            expected.processStartIdentity === actual.processStartIdentity &&
+            expected.executablePath === actual.executablePath &&
+            expected.executableDigest === actual.executableDigest &&
+            expected.commandDigest === actual.commandDigest &&
+            expected.schedulerRunId === actual.schedulerRunId &&
+            expected.namespace === actual.namespace &&
+            expected.executionKey === actual.executionKey &&
+            expected.sourceCommit === actual.sourceCommit &&
+            expected.worktreeFingerprint === actual.worktreeFingerprint
+    )
+}
+
+function schedulerLockOwnerExactMatches(expected, actual) {
+    return schedulerLockOwnerMatches(expected, actual) && fingerprint(expected) === fingerprint(actual)
+}
+
+function schedulerLockOwnerIsComplete(owner) {
+    return Boolean(
+        owner &&
+            owner.schema === 'fsusblog.scheduler-lock-owner.v2' &&
+            typeof owner.ownerToken === 'string' &&
+            owner.ownerToken.length > 0 &&
+            Number.isInteger(owner.pid) &&
+            owner.pid > 0 &&
+            owner.processStartIdentity &&
+            owner.executablePath &&
+            owner.executableDigest &&
+            owner.commandDigest &&
+            typeof owner.schedulerRunId === 'string' &&
+            owner.schedulerRunId.length > 0 &&
+            typeof owner.namespace === 'string' &&
+            owner.namespace.length > 0 &&
+            typeof owner.executionKey === 'string' &&
+            owner.executionKey.length > 0 &&
+            Object.hasOwn(owner, 'sourceCommit') &&
+            Object.hasOwn(owner, 'worktreeFingerprint')
+    )
+}
+
+export function reclaimSchedulerRunLock(lockPath, expectedOwner, { beforeDelete = null } = {}) {
+    if (!schedulerLockOwnerIsComplete(expectedOwner)) {
+        throw new Error('test matrix run owner-unverifiable: owner metadata is incomplete')
     }
-  }
-  throw new Error(`unable to acquire test matrix run lock for ${runId}`)
+    const ownerFile = path.join(lockPath, 'owner.json')
+    const markerFile = path.join(lockPath, 'reclaim.json')
+    try {
+        fs.writeFileSync(
+            markerFile,
+            `${JSON.stringify({
+                schema: 'fsusblog.scheduler-lock-reclaim.v1',
+                ownerToken: expectedOwner.ownerToken,
+                processStartIdentity: expectedOwner.processStartIdentity
+            })}\n`,
+            { mode: 0o600, flag: 'wx' }
+        )
+    } catch (error) {
+        if (['EEXIST', 'ENOENT'].includes(error?.code)) return false
+        throw error
+    }
+    beforeDelete?.({ lockPath, ownerFile, expectedOwner })
+    let confirmedOwner
+    try {
+        confirmedOwner = JSON.parse(fs.readFileSync(ownerFile, 'utf8'))
+    } catch (error) {
+        if (error?.code !== 'ENOENT') throw error
+    }
+    if (!schedulerLockOwnerExactMatches(expectedOwner, confirmedOwner)) {
+        try {
+            fs.rmSync(markerFile, { force: true })
+        } catch {}
+        return false
+    }
+    const tombstone = `${lockPath}.reclaimed-${expectedOwner.ownerToken}-${crypto.randomUUID()}`
+    try {
+        fs.renameSync(lockPath, tombstone)
+    } catch (error) {
+        if (error?.code === 'ENOENT') return false
+        throw error
+    }
+    fs.rmSync(tombstone, { recursive: true, force: true })
+    return true
+}
+
+function acquireRunLock(
+    runsRoot,
+    runId,
+    { sourceState = null, namespace = 'test-matrix', beforeStaleLockDelete = null } = {}
+) {
+    const lockDirectory = path.join(runsRoot, '.locks')
+    const lockPath = path.join(lockDirectory, `${runId}.lock`)
+    const ownerFile = path.join(lockPath, 'owner.json')
+    fs.mkdirSync(lockDirectory, { recursive: true })
+    const ownerToken = crypto.randomUUID()
+    const identity = currentProcessIdentity()
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+            fs.mkdirSync(lockPath, { mode: 0o700 })
+            const owner = {
+                schema: 'fsusblog.scheduler-lock-owner.v2',
+                ownerToken,
+                pid: identity.pid,
+                processStartIdentity: identity.processStartIdentity,
+                executablePath: identity.executablePath,
+                executableDigest: identity.executableDigest,
+                commandDigest: identity.commandDigest,
+                schedulerRunId: runId,
+                namespace,
+                executionKey: runId,
+                sourceCommit: sourceState?.commit ?? null,
+                worktreeFingerprint: sourceState?.worktreeFingerprint ?? null,
+                createdAt: new Date().toISOString(),
+                heartbeatAt: new Date().toISOString()
+            }
+            fs.writeFileSync(ownerFile, `${JSON.stringify(owner)}\n`, { mode: 0o600 })
+            return () => {
+                try {
+                    const currentOwner = JSON.parse(fs.readFileSync(ownerFile, 'utf8'))
+                    if (
+                        schedulerLockOwnerMatches(owner, currentOwner) &&
+                        processIdentityStatus(identity).status === 'live'
+                    ) {
+                        fs.rmSync(lockPath, { recursive: true, force: true })
+                    }
+                } catch (error) {
+                    if (error.code !== 'ENOENT') throw error
+                }
+            }
+        } catch (error) {
+            if (error.code !== 'EEXIST') throw error
+            let owner = null
+            try {
+                owner = JSON.parse(fs.readFileSync(ownerFile, 'utf8'))
+            } catch {}
+            if (!schedulerLockOwnerIsComplete(owner)) {
+                throw new Error(`test matrix run ${runId} owner-unverifiable: owner metadata is incomplete`)
+            }
+            const status = processIdentityStatus(owner)
+            if (status.status === 'live') {
+                throw new Error(`test matrix run ${runId} is already active (pid ${owner.pid})`)
+            }
+            if (status.status === 'unverifiable')
+                throw new Error(
+                    `test matrix run ${runId} owner-unverifiable: ${status.actual?.reason ?? 'identity unavailable'}`
+                )
+            reclaimSchedulerRunLock(lockPath, owner, { beforeDelete: beforeStaleLockDelete })
+        }
+    }
+    throw new Error(`unable to acquire test matrix run lock for ${runId}`)
 }
 
 export async function runDag(options) {
   const root = path.resolve(options.root)
   const runsRoot = resolveRealOrAncestralPath(options.runsRoot ?? path.join(root, '.tmp/test-runs'))
   const runId = safeRunId(options.runId ?? createRunId(options.targetTierId ?? 'matrix'))
-  const releaseLock = acquireRunLock(runsRoot, runId)
+    const snapshotWorktree = options.snapshotWorktree ?? (() => snapshotGitWorktree(root))
+    const runSourceSnapshot = await snapshotWorktree()
+    const envCommit = String(process.env.FSUSBLOG_TEST_SOURCE_COMMIT ?? '').trim()
+    const envFingerprint = String(process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT ?? '').trim()
+    const sourceState = options.sourceState ?? {
+        commit: envCommit || gitHead(root),
+        worktreeFingerprint: envFingerprint || runSourceSnapshot.fingerprint
+    }
+    const releaseLock = acquireRunLock(runsRoot, runId, {
+        sourceState,
+        namespace: options.namespace ?? 'test-matrix',
+        beforeStaleLockDelete: options.beforeStaleLockDelete
+    })
   const schedulerFinalizers = []
   try {
     return await runDagUnlocked({
@@ -3452,6 +3833,8 @@ export async function runDag(options) {
       root,
       runsRoot,
       runId,
+        sourceState,
+        runSourceSnapshot,
       registerSchedulerFinalizer(finalizer) {
         schedulerFinalizers.push(finalizer)
       }

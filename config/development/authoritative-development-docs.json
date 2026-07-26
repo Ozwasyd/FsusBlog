@@ -134,6 +134,7 @@
             "id": "shell",
             "owner": "ToolingStyleOwner",
             "extensions": [
+                ".ps1",
                 ".sh"
             ],
             "specialFiles": [
