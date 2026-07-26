@@ -26,6 +26,8 @@ pending/failed -> processing -> processed
 expired processing lease -> processing
 ```
 
+每个 processing event 都有独立的 `claim_token`、`claimed_by`、`lease_generation`、`claimed_at`、`lease_expires_at` 和 `last_heartbeat_at`。worker 从 reloadable `CommentMutationOutbox:ClaimLeaseSeconds`（默认 60，范围 30..300）与 `HeartbeatSeconds`（严格小于 lease 的三分之一）读取策略；只有后台 heartbeat 按 event 的 id、token、worker 与 generation 续租且必须影响恰好一行，并在同一成功点累计 `renewed` 与 `heartbeat`。consumer 开始前、外部调用返回后、checkpoint 写入前和 outbox 完成前的 ownership check 也检查同一 guard 的 affected row，但不延长 lease、不更新 `last_heartbeat_at`，也不计作 renewal。0 行、过期或短时 heartbeat 失败会把该 event 标为 lost，停止其后续副作用，旧 owner 不得写 checkpoint、failed 或 processed 覆盖新 owner。
+
 每个 `event id + consumer name` 在 `comment_mutation_outbox_delivery` 只有一行。consumer 完成后写 `completed`；重复投递先检查 checkpoint。外部交付还使用稳定键：notification stream 使用 `comment-outbox:{eventId}:realtime`，站内信使用已有的 deterministic source-event id。模型和人工状态变化继续使用数据库 CAS，重复事件不能重复状态转换。
 
 worker 总是按 `occurred_at_utc, id` claim，但不依赖绝对有序：实时发布前重新读取当前评论。旧的 approve 事件看到当前行已隐藏/删除时不发送 `CommentAdded`；旧的 hide 事件看到当前行已重新 approve 时不发送 `CommentRemoved`。缓存失效允许重复执行且采用当前 aggregate scope。
@@ -41,7 +43,7 @@ worker 总是按 `occurred_at_utc, id` claim，但不依赖绝对有序：实时
 
 ## 可观测性与回退
 
-`/api/ops/health/ready-detail` 的 `runtime.commentMutationOutbox` 返回 backlog、failed、poison、oldest age、processed、last completed 和 last error。`fsus.comment_outbox.processed.count`、`failed.count`、`backlog`、`oldest_age_seconds`、`poison` 提供对应指标；poison 非零使 runtime readiness degraded。
+`/api/ops/health/ready-detail` 的 `runtime.commentMutationOutbox` 返回 backlog、failed、poison、oldest age、processed、last completed、last error、owned、renewed、lost、reclaimed 和 oldest lease age。`fsus.comment_outbox.processed.count`、`failed.count`、`claim_lost.count`、`heartbeat.count`、`backlog`、`oldest_age_seconds`、`poison` 提供对应指标；poison 非零使 runtime readiness degraded。
 
 无需重启的 fail-closed 回退：把 reloadable `CommentMutationOutbox:Enabled` 设为 `false`，worker 停止 claim，权威评论事务仍持续写 pending。排查 PostgreSQL、模型、Redis/notification stream 或 message delivery 后恢复为 `true`，积压会自动继续。不要删除事件、checkpoint，或把未知副作用手工改为 completed。
 

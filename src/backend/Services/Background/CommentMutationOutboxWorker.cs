@@ -22,7 +22,12 @@ public sealed record CommentMutationOutboxRuntimeSnapshot(
     long OldestAgeSeconds,
     long ProcessedCount,
     DateTime? LastCompletedAtUtc,
-    string? LastError);
+    string? LastError,
+    int OwnedCount = 0,
+    long RenewedCount = 0,
+    long LostCount = 0,
+    long ReclaimedCount = 0,
+    long OldestLeaseAgeSeconds = 0);
 
 public sealed class CommentMutationOutboxRuntimeState
 {
@@ -37,7 +42,8 @@ public sealed class CommentMutationOutboxRuntimeState
         }
     }
 
-    internal void Update(int backlog, int failed, int poison, long oldestAgeSeconds, int processedDelta, DateTime now, string? error)
+    internal void Update(int backlog, int failed, int poison, long oldestAgeSeconds, int processedDelta, DateTime now, string? error,
+        int owned = 0, int renewed = 0, int lost = 0, int reclaimed = 0, long oldestLeaseAgeSeconds = 0)
     {
         lock (_gate)
         {
@@ -48,7 +54,27 @@ public sealed class CommentMutationOutboxRuntimeState
                 Math.Max(0, oldestAgeSeconds),
                 _snapshot.ProcessedCount + processedDelta,
                 processedDelta > 0 ? now : _snapshot.LastCompletedAtUtc,
-                error);
+                error,
+                owned,
+                _snapshot.RenewedCount + renewed,
+                _snapshot.LostCount + lost,
+                _snapshot.ReclaimedCount + reclaimed,
+                Math.Max(0, oldestLeaseAgeSeconds));
+        }
+    }
+
+    internal void UpdateLeaseLifecycle(int owned, int renewed = 0, int lost = 0, int reclaimed = 0, long oldestLeaseAgeSeconds = 0)
+    {
+        lock (_gate)
+        {
+            _snapshot = _snapshot with
+            {
+                OwnedCount = owned,
+                RenewedCount = _snapshot.RenewedCount + renewed,
+                LostCount = _snapshot.LostCount + lost,
+                ReclaimedCount = _snapshot.ReclaimedCount + reclaimed,
+                OldestLeaseAgeSeconds = Math.Max(0, oldestLeaseAgeSeconds)
+            };
         }
     }
 }
@@ -66,7 +92,10 @@ public sealed class CommentMutationOutboxWorker(
     CommentMutationOutboxRuntimeState runtimeState,
     TimeProvider timeProvider,
     IConfiguration configuration,
-    ILogger<CommentMutationOutboxWorker> logger) : BackgroundService
+    ILogger<CommentMutationOutboxWorker> logger,
+    Func<Exception?>? heartbeatFaultInjector = null,
+    Func<CommentMutationOutboxEvent, Task>? beforeMarkFailed = null,
+    Func<CommentMutationOutboxEvent, Task>? beforeReleaseClaim = null) : BackgroundService
 {
     private const int BatchSize = 32;
     private const int PoisonThreshold = 10;
@@ -77,6 +106,9 @@ public sealed class CommentMutationOutboxWorker(
     private static readonly Histogram<long> s_backlog = s_meter.CreateHistogram<long>("fsus.comment_outbox.backlog");
     private static readonly Histogram<long> s_latency = s_meter.CreateHistogram<long>("fsus.comment_outbox.oldest_age_seconds");
     private static readonly Histogram<long> s_poison = s_meter.CreateHistogram<long>("fsus.comment_outbox.poison");
+    private static readonly Counter<long> s_claimLost = s_meter.CreateCounter<long>("fsus.comment_outbox.claim_lost.count");
+    private static readonly Counter<long> s_heartbeat = s_meter.CreateCounter<long>("fsus.comment_outbox.heartbeat.count");
+    private static readonly string s_workerId = BuildWorkerId();
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -104,36 +136,86 @@ public sealed class CommentMutationOutboxWorker(
         using IServiceScope scope = scopeFactory.CreateScope();
         ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
         DateTime now = timeProvider.GetUtcNow().UtcDateTime;
-        List<CommentMutationOutboxEvent> events = await ClaimAsync(db, now, cancellationToken).ConfigureAwait(false);
+        List<ClaimedCommentMutationOutboxEvent> claims = await ClaimAsync(db, now, cancellationToken).ConfigureAwait(false);
+        List<CommentMutationOutboxEvent> events = claims.Select(static claim => claim.Event).ToList();
+        var claimStates = claims.ToDictionary(static claim => claim.Event.Id, static claim => new ClaimState(claim.Event));
+        UpdateLeaseRuntimeState(claimStates.Values, reclaimed: claims.Count(static claim => claim.WasReclaimed));
         int processed = 0;
         string? lastError = null;
-        foreach (CommentMutationOutboxEvent item in events)
+        using var heartbeatCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        Task heartbeat = MaintainClaimHeartbeatsAsync(claimStates, heartbeatCts.Token);
+        try
         {
-            try
+            foreach (CommentMutationOutboxEvent item in events)
             {
-                await ProcessOneAsync(scope.ServiceProvider, db, item, cancellationToken).ConfigureAwait(false);
-                await MarkProcessedAsync(db, item, timeProvider.GetUtcNow().UtcDateTime).ConfigureAwait(false);
-                processed++;
-                s_processed.Add(1);
+                ClaimState claim = claimStates[item.Id];
+                try
+                {
+                    await ProcessOneAsync(scope.ServiceProvider, db, item, claim, cancellationToken).ConfigureAwait(false);
+                    await EnsureClaimOwnedAsync(db, claim, cancellationToken).ConfigureAwait(false);
+                    await MarkProcessedAsync(db, item, claim, timeProvider.GetUtcNow().UtcDateTime).ConfigureAwait(false);
+                    UpdateLeaseRuntimeState(claimStates.Values);
+                    processed++;
+                    s_processed.Add(1);
+                }
+                catch (CommentMutationOutboxClaimLostException)
+                {
+                    bool newlyLost = claim.TryRecordLost();
+                    if (newlyLost)
+                        s_claimLost.Add(1);
+                    UpdateLeaseRuntimeState(claimStates.Values, lost: newlyLost ? 1 : 0);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex.GetType().Name;
+                    try
+                    {
+                        if (beforeMarkFailed is not null)
+                            await beforeMarkFailed(item).ConfigureAwait(false);
+                        await MarkFailedAsync(db, item, claim, ex, timeProvider.GetUtcNow().UtcDateTime).ConfigureAwait(false);
+                    }
+                    catch (CommentMutationOutboxClaimLostException)
+                    {
+                        bool newlyLost = claim.TryRecordLost();
+                        if (newlyLost)
+                            s_claimLost.Add(1);
+                        UpdateLeaseRuntimeState(claimStates.Values, lost: newlyLost ? 1 : 0);
+                        continue;
+                    }
+                    s_failed.Add(1);
+                    logger.LogError(ex, "评论 Outbox 消费失败 | EventId: {EventId} | EventType: {EventType} | Attempt: {Attempt}", item.EventId, item.EventType, item.AttemptCount + 1);
+                }
             }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        }
+        finally
+        {
+            await heartbeatCts.CancelAsync().ConfigureAwait(false);
+            await heartbeat.ConfigureAwait(false);
+            if (cancellationToken.IsCancellationRequested)
             {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                lastError = ex.GetType().Name;
-                s_failed.Add(1);
-                await MarkFailedAsync(db, item, ex, timeProvider.GetUtcNow().UtcDateTime).ConfigureAwait(false);
-                logger.LogError(ex, "评论 Outbox 消费失败 | EventId: {EventId} | EventType: {EventType} | Attempt: {Attempt}",
-                    item.EventId,
-                    item.EventType,
-                    item.AttemptCount + 1);
+                using IServiceScope releaseScope = scopeFactory.CreateScope();
+                ISqlSugarClient releaseDb = releaseScope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
+                int releasedLost = await ReleaseOwnedClaimsAsync(releaseDb, claimStates.Values, beforeReleaseClaim, CancellationToken.None).ConfigureAwait(false);
+                if (releasedLost > 0)
+                    s_claimLost.Add(releasedLost);
+                UpdateLeaseRuntimeState(claimStates.Values, lost: releasedLost);
             }
         }
 
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return processed;
+        }
+
         OutboxCounts counts = await LoadCountsAsync(db, now, cancellationToken).ConfigureAwait(false);
-        runtimeState.Update(counts.Backlog, counts.Failed, counts.Poison, counts.OldestAgeSeconds, processed, now, lastError);
+        DateTime completedAt = timeProvider.GetUtcNow().UtcDateTime;
+        long oldestLeaseAge = GetOldestOwnedLeaseAge(claimStates.Values, completedAt);
+        runtimeState.Update(counts.Backlog, counts.Failed, counts.Poison, counts.OldestAgeSeconds, processed, now, lastError,
+            claimStates.Values.Count(static claim => claim.OwnerState == ClaimOwnerState.Owned), 0, 0, 0, oldestLeaseAge);
         s_backlog.Record(counts.Backlog);
         s_latency.Record(counts.OldestAgeSeconds);
         s_poison.Record(counts.Poison);
@@ -144,11 +226,12 @@ public sealed class CommentMutationOutboxWorker(
         IServiceProvider services,
         ISqlSugarClient db,
         CommentMutationOutboxEvent item,
+        ClaimState claim,
         CancellationToken cancellationToken)
     {
         if (item.EventType == CommentMutationEventTypes.Created)
         {
-            await RunConsumerAsync(db, item, "model-moderation", ct => ApplyModerationAsync(services, db, item, ct), cancellationToken);
+            await RunConsumerAsync(db, item, claim, "model-moderation", ct => ApplyModerationAsync(services, db, item, ct), cancellationToken);
         }
 
         if (item.EventType is CommentMutationEventTypes.Created
@@ -157,16 +240,16 @@ public sealed class CommentMutationOutboxWorker(
             or CommentMutationEventTypes.Edited
             or CommentMutationEventTypes.VisibilityChanged)
         {
-            await RunConsumerAsync(db, item, "cache-version", ct => InvalidateCacheAsync(services, db, item, ct), cancellationToken);
-            await RunConsumerAsync(db, item, "realtime-stream", ct => PublishRealtimeAsync(services, db, item, ct), cancellationToken);
-            await RunConsumerAsync(db, item, "audit-projection", ct => VerifyAuditProjectionAsync(db, item, ct), cancellationToken);
+            await RunConsumerAsync(db, item, claim, "cache-version", ct => InvalidateCacheAsync(services, db, item, ct), cancellationToken);
+            await RunConsumerAsync(db, item, claim, "realtime-stream", ct => PublishRealtimeAsync(services, db, item, ct), cancellationToken);
+            await RunConsumerAsync(db, item, claim, "audit-projection", ct => VerifyAuditProjectionAsync(db, item, ct), cancellationToken);
         }
 
         if (item.EventType is CommentMutationEventTypes.ReplyNotificationRequested
             or CommentMutationEventTypes.Deleted
             or CommentMutationEventTypes.ModerationChanged)
         {
-            await RunConsumerAsync(db, item, "site-notification", ct => DeliverNotificationAsync(services, db, item, ct), cancellationToken);
+            await RunConsumerAsync(db, item, claim, "site-notification", ct => DeliverNotificationAsync(services, db, item, ct), cancellationToken);
         }
     }
 
@@ -411,9 +494,10 @@ public sealed class CommentMutationOutboxWorker(
         }
     }
 
-    private static async Task RunConsumerAsync(
+    private async Task RunConsumerAsync(
         ISqlSugarClient db,
         CommentMutationOutboxEvent item,
+        ClaimState claim,
         string consumer,
         Func<CancellationToken, Task> action,
         CancellationToken cancellationToken)
@@ -429,23 +513,34 @@ public sealed class CommentMutationOutboxWorker(
             return;
         }
 
+        await EnsureClaimOwnedAsync(db, claim, cancellationToken).ConfigureAwait(false);
         try
         {
             await action(cancellationToken).ConfigureAwait(false);
-            await UpsertDeliveryAsync(db, item.Id, consumer, CommentMutationOutboxDeliveryStatus.Completed, null).ConfigureAwait(false);
+            await EnsureClaimOwnedAsync(db, claim, cancellationToken).ConfigureAwait(false);
+            await UpsertDeliveryAsync(db, item.Id, claim, consumer, CommentMutationOutboxDeliveryStatus.Completed, null).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            await UpsertDeliveryAsync(db, item.Id, consumer, CommentMutationOutboxDeliveryStatus.Failed, SanitizeError(ex)).ConfigureAwait(false);
+            if (claim.OwnerState == ClaimOwnerState.Owned)
+            {
+                await UpsertDeliveryAsync(db, item.Id, claim, consumer, CommentMutationOutboxDeliveryStatus.Failed, SanitizeError(ex)).ConfigureAwait(false);
+            }
             throw;
         }
     }
 
-    private static Task UpsertDeliveryAsync(ISqlSugarClient db, long outboxId, string consumer, string status, string? error)
-        => db.Ado.ExecuteCommandAsync(
+    private static async Task UpsertDeliveryAsync(ISqlSugarClient db, long outboxId, ClaimState claim, string consumer, string status, string? error)
+    {
+        int updated = await db.Ado.ExecuteCommandAsync(
             """
+            WITH owned_claim AS (
+                SELECT id FROM comment_mutation_outbox
+                WHERE id = @OutboxId AND status = 'processing' AND claim_token = @ClaimToken AND claimed_by = @ClaimedBy
+                  AND lease_generation = @LeaseGeneration AND lease_expires_at > (now() AT TIME ZONE 'utc')
+            )
             INSERT INTO comment_mutation_outbox_delivery(outbox_event_id, consumer_name, status, attempt_count, last_error, updated_at_utc)
-            VALUES (@OutboxId, @Consumer, @Status, 1, @Error, (now() AT TIME ZONE 'utc'))
+            SELECT @OutboxId, @Consumer, @Status, 1, @Error, (now() AT TIME ZONE 'utc') FROM owned_claim
             ON CONFLICT (outbox_event_id, consumer_name) DO UPDATE
             SET status = EXCLUDED.status,
                 attempt_count = comment_mutation_outbox_delivery.attempt_count + 1,
@@ -453,23 +548,31 @@ public sealed class CommentMutationOutboxWorker(
                 updated_at_utc = EXCLUDED.updated_at_utc;
             """,
             new SugarParameter("@OutboxId", outboxId),
+            new SugarParameter("@ClaimToken", claim.Event.ClaimToken),
+            new SugarParameter("@ClaimedBy", claim.Event.ClaimedBy),
+            new SugarParameter("@LeaseGeneration", claim.Event.LeaseGeneration),
             new SugarParameter("@Consumer", consumer),
             new SugarParameter("@Status", status),
             new SugarParameter("@Error", (object?)error ?? DBNull.Value));
+        if (updated != 1)
+        {
+            claim.MarkLost();
+            throw new CommentMutationOutboxClaimLostException(outboxId);
+        }
+    }
 
-    private static async Task<List<CommentMutationOutboxEvent>> ClaimAsync(
+    private async Task<List<ClaimedCommentMutationOutboxEvent>> ClaimAsync(
         ISqlSugarClient db,
         DateTime now,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        string token = Guid.NewGuid().ToString("N");
-        DateTime leaseExpires = now.AddSeconds(60);
-        var events = new List<CommentMutationOutboxEvent>(BatchSize);
+        DateTime leaseExpires = now.Add(GetClaimLeaseDuration());
+        var events = new List<ClaimedCommentMutationOutboxEvent>(BatchSize);
         await using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             """
             WITH candidates AS (
-                SELECT id
+                SELECT id, status AS previous_status
                 FROM comment_mutation_outbox
                 WHERE ((status IN (@Pending, @Failed) AND next_attempt_at <= @Now)
                     OR (status = @Processing AND lease_expires_at <= @Now))
@@ -479,27 +582,30 @@ public sealed class CommentMutationOutboxWorker(
             )
             UPDATE comment_mutation_outbox o
             SET status = @Processing,
-                claim_token = @ClaimToken,
+                claim_token = md5(random()::text || clock_timestamp()::text || o.id::text),
+                claimed_by = @ClaimedBy,
                 claimed_at = @Now,
-                lease_expires_at = @LeaseExpires
+                lease_expires_at = @LeaseExpires,
+                last_heartbeat_at = @Now,
+                lease_generation = o.lease_generation + 1
             FROM candidates c
             WHERE o.id = c.id
             RETURNING o.id, o.event_id, o.event_type, o.comment_id, o.article_id, o.root_id,
                       o.parent_id, o.account_id, o.reply_to_account_id, o.actor_admin_principal_id,
                       o.previous_status, o.next_status, o.payload_json, o.status, o.attempt_count,
-                      o.next_attempt_at, o.claim_token, o.claimed_at, o.lease_expires_at,
-                      o.last_error, o.occurred_at_utc, o.processed_at_utc;
+                      o.next_attempt_at, o.claim_token, o.claimed_by, o.claimed_at, o.lease_expires_at, o.last_heartbeat_at, o.lease_generation,
+                      o.last_error, o.occurred_at_utc, o.processed_at_utc, c.previous_status AS claim_previous_status;
             """,
             new SugarParameter("@Pending", CommentMutationOutboxStatus.Pending),
             new SugarParameter("@Failed", CommentMutationOutboxStatus.Failed),
             new SugarParameter("@Processing", CommentMutationOutboxStatus.Processing),
             new SugarParameter("@Now", now),
             new SugarParameter("@LeaseExpires", leaseExpires),
-            new SugarParameter("@ClaimToken", token),
+            new SugarParameter("@ClaimedBy", s_workerId),
             new SugarParameter("@BatchSize", BatchSize));
         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
         {
-            events.Add(ReadEvent(reader));
+            events.Add(new ClaimedCommentMutationOutboxEvent(ReadEvent(reader), reader.ReadString("claim_previous_status") == CommentMutationOutboxStatus.Processing));
         }
         return events;
     }
@@ -524,46 +630,201 @@ public sealed class CommentMutationOutboxWorker(
             AttemptCount = reader.ReadInt32("attempt_count"),
             NextAttemptAt = reader.ReadDateTime("next_attempt_at"),
             ClaimToken = reader.IsNull("claim_token") ? null : reader.ReadString("claim_token"),
+            ClaimedBy = reader.IsNull("claimed_by") ? null : reader.ReadString("claimed_by"),
             ClaimedAt = reader.IsNull("claimed_at") ? null : reader.ReadDateTime("claimed_at"),
             LeaseExpiresAt = reader.IsNull("lease_expires_at") ? null : reader.ReadDateTime("lease_expires_at"),
+            LastHeartbeatAt = reader.IsNull("last_heartbeat_at") ? null : reader.ReadDateTime("last_heartbeat_at"),
+            LeaseGeneration = reader.ReadInt64("lease_generation"),
             LastError = reader.IsNull("last_error") ? null : reader.ReadString("last_error"),
             OccurredAtUtc = reader.ReadDateTime("occurred_at_utc"),
             ProcessedAtUtc = reader.IsNull("processed_at_utc") ? null : reader.ReadDateTime("processed_at_utc")
         };
 
-    private static Task MarkProcessedAsync(ISqlSugarClient db, CommentMutationOutboxEvent item, DateTime now)
-        => db.Ado.ExecuteCommandAsync(
-            """
+    private static async Task MarkProcessedAsync(ISqlSugarClient db, CommentMutationOutboxEvent item, ClaimState claim, DateTime now)
+    {
+        await claim.OperationGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (claim.OwnerState != ClaimOwnerState.Owned)
+                throw new CommentMutationOutboxClaimLostException(item.Id);
+            int updated = await db.Ado.ExecuteCommandAsync(
+                """
             UPDATE comment_mutation_outbox
             SET status = @Processed, processed_at_utc = @Now, claim_token = NULL,
                 claimed_at = NULL, lease_expires_at = NULL, last_error = NULL
-            WHERE id = @Id AND status = @Processing AND claim_token = @ClaimToken;
+            WHERE id = @Id AND status = @Processing AND claim_token = @ClaimToken AND claimed_by = @ClaimedBy
+              AND lease_generation = @LeaseGeneration AND lease_expires_at > @Now;
             """,
-            new SugarParameter("@Processed", CommentMutationOutboxStatus.Processed),
-            new SugarParameter("@Processing", CommentMutationOutboxStatus.Processing),
-            new SugarParameter("@Now", now),
-            new SugarParameter("@Id", item.Id),
-            new SugarParameter("@ClaimToken", item.ClaimToken));
+                new SugarParameter("@Processed", CommentMutationOutboxStatus.Processed),
+                new SugarParameter("@Processing", CommentMutationOutboxStatus.Processing),
+                new SugarParameter("@Now", now),
+                new SugarParameter("@Id", item.Id),
+                new SugarParameter("@ClaimToken", item.ClaimToken),
+                new SugarParameter("@ClaimedBy", item.ClaimedBy),
+                new SugarParameter("@LeaseGeneration", item.LeaseGeneration));
+            if (updated != 1)
+            {
+                claim.MarkLost();
+                throw new CommentMutationOutboxClaimLostException(item.Id);
+            }
+            claim.OwnerState = ClaimOwnerState.Released;
+        }
+        finally { claim.OperationGate.Release(); }
+    }
 
-    private static Task MarkFailedAsync(ISqlSugarClient db, CommentMutationOutboxEvent item, Exception exception, DateTime now)
+    private static async Task MarkFailedAsync(ISqlSugarClient db, CommentMutationOutboxEvent item, ClaimState claim, Exception exception, DateTime now)
     {
-        int attempt = item.AttemptCount + 1;
-        string status = attempt >= PoisonThreshold ? CommentMutationOutboxStatus.Poison : CommentMutationOutboxStatus.Failed;
-        DateTime next = now.AddSeconds(Math.Min(300, Math.Pow(2, Math.Min(attempt, 8))));
-        return db.Ado.ExecuteCommandAsync(
-            """
+        await claim.OperationGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (claim.OwnerState != ClaimOwnerState.Owned)
+                throw new CommentMutationOutboxClaimLostException(item.Id);
+            int attempt = item.AttemptCount + 1;
+            string status = attempt >= PoisonThreshold ? CommentMutationOutboxStatus.Poison : CommentMutationOutboxStatus.Failed;
+            DateTime next = now.AddSeconds(Math.Min(300, Math.Pow(2, Math.Min(attempt, 8))));
+            int updated = await db.Ado.ExecuteCommandAsync(
+                """
             UPDATE comment_mutation_outbox
             SET status = @Status, attempt_count = @Attempt, next_attempt_at = @Next,
                 claim_token = NULL, claimed_at = NULL, lease_expires_at = NULL, last_error = @Error
-            WHERE id = @Id AND status = @Processing AND claim_token = @ClaimToken;
+            WHERE id = @Id AND status = @Processing AND claim_token = @ClaimToken AND claimed_by = @ClaimedBy
+              AND lease_generation = @LeaseGeneration AND lease_expires_at > @Now;
             """,
-            new SugarParameter("@Status", status),
-            new SugarParameter("@Attempt", attempt),
-            new SugarParameter("@Next", next),
-            new SugarParameter("@Error", SanitizeError(exception)),
-            new SugarParameter("@Id", item.Id),
-            new SugarParameter("@Processing", CommentMutationOutboxStatus.Processing),
-            new SugarParameter("@ClaimToken", item.ClaimToken));
+                new SugarParameter("@Status", status),
+                new SugarParameter("@Attempt", attempt),
+                new SugarParameter("@Next", next),
+                new SugarParameter("@Error", SanitizeError(exception)),
+                new SugarParameter("@Id", item.Id),
+                new SugarParameter("@Processing", CommentMutationOutboxStatus.Processing),
+                new SugarParameter("@ClaimToken", item.ClaimToken),
+                new SugarParameter("@ClaimedBy", item.ClaimedBy),
+                new SugarParameter("@LeaseGeneration", item.LeaseGeneration),
+                new SugarParameter("@Now", now));
+            if (updated != 1)
+            {
+                claim.MarkLost();
+                throw new CommentMutationOutboxClaimLostException(item.Id);
+            }
+            claim.OwnerState = ClaimOwnerState.Released;
+        }
+        finally { claim.OperationGate.Release(); }
+    }
+
+    private async Task EnsureClaimOwnedAsync(ISqlSugarClient db, ClaimState claim, CancellationToken cancellationToken, bool heartbeat = false)
+    {
+        await claim.OperationGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (claim.OwnerState != ClaimOwnerState.Owned)
+                throw new CommentMutationOutboxClaimLostException(claim.Event.Id);
+            DateTime now = timeProvider.GetUtcNow().UtcDateTime;
+            int updated;
+            try
+            {
+                if (heartbeat && heartbeatFaultInjector?.Invoke() is Exception fault)
+                    throw fault;
+                updated = await db.Ado.ExecuteCommandAsync(
+                    heartbeat
+                        ? """
+                          UPDATE comment_mutation_outbox SET last_heartbeat_at = @Now, lease_expires_at = @Expires
+                          WHERE id = @Id AND status = 'processing' AND claim_token = @ClaimToken AND claimed_by = @ClaimedBy
+                            AND lease_generation = @LeaseGeneration AND lease_expires_at > @Now;
+                          """
+                        : """
+                          UPDATE comment_mutation_outbox SET status = status
+                          WHERE id = @Id AND status = 'processing' AND claim_token = @ClaimToken AND claimed_by = @ClaimedBy
+                            AND lease_generation = @LeaseGeneration AND lease_expires_at > @Now;
+                          """,
+                    new SugarParameter("@Now", now), new SugarParameter("@Expires", now.Add(GetClaimLeaseDuration())),
+                    new SugarParameter("@Id", claim.Event.Id), new SugarParameter("@ClaimToken", claim.Event.ClaimToken),
+                    new SugarParameter("@ClaimedBy", claim.Event.ClaimedBy), new SugarParameter("@LeaseGeneration", claim.Event.LeaseGeneration));
+            }
+            catch (Exception)
+            {
+                claim.MarkLost();
+                throw new CommentMutationOutboxClaimLostException(claim.Event.Id);
+            }
+            if (updated != 1)
+            {
+                claim.MarkLost();
+                throw new CommentMutationOutboxClaimLostException(claim.Event.Id);
+            }
+            if (heartbeat)
+            {
+                claim.Event.LastHeartbeatAt = now;
+                claim.Event.LeaseExpiresAt = now.Add(GetClaimLeaseDuration());
+                claim.IncrementRenewed();
+                s_heartbeat.Add(1);
+            }
+        }
+        finally { claim.OperationGate.Release(); }
+    }
+
+    private async Task MaintainClaimHeartbeatsAsync(IReadOnlyDictionary<long, ClaimState> claims, CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(GetHeartbeatInterval(), timeProvider, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { return; }
+            using IServiceScope scope = scopeFactory.CreateScope();
+            ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
+            foreach (ClaimState claim in claims.Values.Where(static value => value.OwnerState == ClaimOwnerState.Owned))
+            {
+                try
+                {
+                    await EnsureClaimOwnedAsync(db, claim, cancellationToken, heartbeat: true).ConfigureAwait(false);
+                    UpdateLeaseRuntimeState(claims.Values, renewed: 1);
+                }
+                catch (CommentMutationOutboxClaimLostException)
+                {
+                    bool newlyLost = claim.TryRecordLost();
+                    if (newlyLost)
+                        s_claimLost.Add(1);
+                    UpdateLeaseRuntimeState(claims.Values, lost: newlyLost ? 1 : 0);
+                }
+                catch (Exception ex)
+                {
+                    claim.MarkLost();
+                    bool newlyLost = claim.TryRecordLost();
+                    if (newlyLost)
+                        s_claimLost.Add(1);
+                    UpdateLeaseRuntimeState(claims.Values, lost: newlyLost ? 1 : 0);
+                    logger.LogWarning(ex, "评论 Outbox heartbeat 失败 | EventId: {EventId}", claim.Event.EventId);
+                }
+            }
+        }
+    }
+
+    private static async Task<int> ReleaseOwnedClaimsAsync(ISqlSugarClient db, IEnumerable<ClaimState> claims, Func<CommentMutationOutboxEvent, Task>? beforeReleaseClaim, CancellationToken cancellationToken)
+    {
+        int lost = 0;
+        foreach (ClaimState claim in claims.Where(static value => value.OwnerState == ClaimOwnerState.Owned))
+        {
+            await claim.OperationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                if (claim.OwnerState != ClaimOwnerState.Owned)
+                    continue;
+                if (beforeReleaseClaim is not null)
+                    await beforeReleaseClaim(claim.Event).ConfigureAwait(false);
+                int updated = await db.Ado.ExecuteCommandAsync(
+                    "UPDATE comment_mutation_outbox SET status = 'pending', claim_token = NULL, claimed_by = NULL, claimed_at = NULL, lease_expires_at = NULL, last_heartbeat_at = NULL WHERE id = @Id AND status = 'processing' AND claim_token = @ClaimToken AND claimed_by = @ClaimedBy AND lease_generation = @LeaseGeneration;",
+                    new SugarParameter("@Id", claim.Event.Id), new SugarParameter("@ClaimToken", claim.Event.ClaimToken), new SugarParameter("@ClaimedBy", claim.Event.ClaimedBy), new SugarParameter("@LeaseGeneration", claim.Event.LeaseGeneration));
+                if (updated == 1)
+                    claim.OwnerState = ClaimOwnerState.Released;
+                else
+                {
+                    claim.MarkLost();
+                    if (claim.TryRecordLost())
+                        lost++;
+                }
+            }
+            finally { claim.OperationGate.Release(); }
+        }
+        return lost;
     }
 
     private static async Task<OutboxCounts> LoadCountsAsync(ISqlSugarClient db, DateTime now, CancellationToken cancellationToken)
@@ -589,6 +850,43 @@ public sealed class CommentMutationOutboxWorker(
     private TimeSpan GetPollInterval()
         => TimeSpan.FromMilliseconds(Math.Clamp(configuration.GetValue<int?>("CommentMutationOutbox:PollIntervalMs") ?? 1000, 100, 30000));
 
+    private TimeSpan GetClaimLeaseDuration()
+        => GetClaimLeaseDuration(configuration);
+
+    internal static TimeSpan GetClaimLeaseDuration(IConfiguration? configuration)
+        => TimeSpan.FromSeconds(Math.Clamp(configuration?.GetValue<int?>("CommentMutationOutbox:ClaimLeaseSeconds") ?? 60, 30, 300));
+
+    private TimeSpan GetHeartbeatInterval()
+        => GetHeartbeatInterval(configuration);
+
+    internal static TimeSpan GetHeartbeatInterval(IConfiguration? configuration)
+    {
+        int leaseSeconds = (int)GetClaimLeaseDuration(configuration).TotalSeconds;
+        int configured = configuration?.GetValue<int?>("CommentMutationOutbox:HeartbeatSeconds")
+            ?? Math.Max(1, (leaseSeconds - 1) / 3);
+        return TimeSpan.FromSeconds(Math.Clamp(configured, 1, Math.Max(1, (leaseSeconds - 1) / 3)));
+    }
+
+    private static string BuildWorkerId()
+    {
+        string value = $"{Environment.MachineName}:{Environment.ProcessId}";
+        return value.Length <= 128 ? value : value[..128];
+    }
+
+    private void UpdateLeaseRuntimeState(IEnumerable<ClaimState> claims, int renewed = 0, int lost = 0, int reclaimed = 0)
+    {
+        ClaimState[] values = claims.ToArray();
+        DateTime now = timeProvider.GetUtcNow().UtcDateTime;
+        runtimeState.UpdateLeaseLifecycle(values.Count(static claim => claim.OwnerState == ClaimOwnerState.Owned), renewed, lost, reclaimed,
+            GetOldestOwnedLeaseAge(values, now));
+    }
+
+    private static long GetOldestOwnedLeaseAge(IEnumerable<ClaimState> claims, DateTime now)
+        => claims.Where(static claim => claim.OwnerState == ClaimOwnerState.Owned && claim.Event.ClaimedAt is not null)
+            .Select(claim => (long)Math.Max(0, (now - claim.Event.ClaimedAt!.Value).TotalSeconds))
+            .DefaultIfEmpty()
+            .Max();
+
     private static IReadOnlyList<string> ParseCsv(string? value)
         => string.IsNullOrWhiteSpace(value)
             ? []
@@ -601,4 +899,74 @@ public sealed class CommentMutationOutboxWorker(
     }
 
     private sealed record OutboxCounts(int Backlog, int Failed, int Poison, long OldestAgeSeconds);
+
+    private sealed record ClaimedCommentMutationOutboxEvent(CommentMutationOutboxEvent Event, bool WasReclaimed);
+
+    private sealed class ClaimState(CommentMutationOutboxEvent @event)
+    {
+        private readonly object _gate = new();
+        public SemaphoreSlim OperationGate { get; } = new(1, 1);
+        private ClaimOwnerState _ownerState = ClaimOwnerState.Owned;
+        private int _renewed;
+        private bool _lossRecorded;
+        public CommentMutationOutboxEvent Event { get; } = @event;
+        public ClaimOwnerState OwnerState
+        {
+            get
+            {
+                lock (_gate)
+                    return _ownerState;
+            }
+            set
+            {
+                lock (_gate)
+                    _ownerState = value;
+            }
+        }
+        public int Renewed
+        {
+            get
+            {
+                lock (_gate)
+                    return _renewed;
+            }
+        }
+        public bool LossRecorded
+        {
+            get
+            {
+                lock (_gate)
+                    return _lossRecorded;
+            }
+        }
+        public void MarkLost()
+        {
+            lock (_gate)
+                _ownerState = ClaimOwnerState.Lost;
+        }
+        public bool TryRecordLost()
+        {
+            lock (_gate)
+            {
+                if (_ownerState != ClaimOwnerState.Lost)
+                    return false;
+                if (_lossRecorded)
+                    return false;
+                _lossRecorded = true;
+                return true;
+            }
+        }
+        public void IncrementRenewed()
+        {
+            lock (_gate)
+                _renewed++;
+        }
+    }
+
+    private enum ClaimOwnerState
+    {
+        Owned, Lost, Released
+    }
+
+    private sealed class CommentMutationOutboxClaimLostException(long outboxId) : Exception($"comment_mutation_outbox_claim_lost:{outboxId}");
 }

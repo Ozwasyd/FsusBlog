@@ -1,10 +1,23 @@
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Services.Background;
 
+using Microsoft.Extensions.Configuration;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class CommentMutationOutboxRuntimeStateTests
 {
+    [Fact]
+    public void ClaimLeasePolicy_DefaultsToSixtySecondsAndHeartbeatIsStrictlyLessThanOneThird()
+    {
+        IConfiguration configuration = new ConfigurationBuilder().Build();
+
+        Assert.Equal(TimeSpan.FromSeconds(60), CommentMutationOutboxWorker.GetClaimLeaseDuration(configuration));
+        Assert.Equal(TimeSpan.FromSeconds(19), CommentMutationOutboxWorker.GetHeartbeatInterval(configuration));
+        Assert.True(CommentMutationOutboxWorker.GetHeartbeatInterval(configuration)
+            < CommentMutationOutboxWorker.GetClaimLeaseDuration(configuration) / 3);
+    }
+
     [Fact]
     public void Update_ExposesBacklogLatencyRetryFailureAndPoisonState()
     {
@@ -21,6 +34,20 @@ public sealed class CommentMutationOutboxRuntimeStateTests
         Assert.Equal(3, snapshot.ProcessedCount);
         Assert.Equal(completedAt, snapshot.LastCompletedAtUtc);
         Assert.Equal("TimeoutException", snapshot.LastError);
+    }
+
+    [Fact]
+    public void Update_ExposesClaimLeaseLifecycle()
+    {
+        var state = new CommentMutationOutboxRuntimeState();
+        state.Update(1, 0, 0, 3, 0, DateTime.UtcNow, null, owned: 1, renewed: 4, lost: 2, reclaimed: 3, oldestLeaseAgeSeconds: 19);
+
+        CommentMutationOutboxRuntimeSnapshot snapshot = state.CreateSnapshot();
+        Assert.Equal(1, snapshot.OwnedCount);
+        Assert.Equal(4, snapshot.RenewedCount);
+        Assert.Equal(2, snapshot.LostCount);
+        Assert.Equal(3, snapshot.ReclaimedCount);
+        Assert.Equal(19, snapshot.OldestLeaseAgeSeconds);
     }
 
     [Fact]

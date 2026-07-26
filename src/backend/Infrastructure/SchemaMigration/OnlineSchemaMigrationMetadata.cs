@@ -1034,6 +1034,28 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
+            CommentMutationOutboxClaimLeaseMigrationDefinitions.MigrationId,
+            new OnlineSchemaMigrationMetadata(
+                CommentMutationOutboxClaimLeaseMigrationDefinitions.MigrationId,
+                OnlineSchemaMigrationPhase.Expand,
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260726-comment-mutation-outbox-claim-lease"),
+                ContractAfterCoordinate: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write",
+                    "comment_outbox_claim_ownership"
+                ]));
+
+        result.Add(
             UserSessionModeMigrationDefinitions.MigrationId,
             new OnlineSchemaMigrationMetadata(
                 UserSessionModeMigrationDefinitions.MigrationId,

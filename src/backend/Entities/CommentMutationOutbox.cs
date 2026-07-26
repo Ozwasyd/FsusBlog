@@ -94,6 +94,18 @@ public sealed class CommentMutationOutboxEvent
         get; set;
     }
 
+    [SugarColumn(ColumnName = "claimed_by", Length = 128, IsNullable = true)]
+    public string? ClaimedBy
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "lease_generation")]
+    public long LeaseGeneration
+    {
+        get; set;
+    }
+
     [SugarColumn(ColumnName = "claimed_at", IsNullable = true)]
     public DateTime? ClaimedAt
     {
@@ -102,6 +114,12 @@ public sealed class CommentMutationOutboxEvent
 
     [SugarColumn(ColumnName = "lease_expires_at", IsNullable = true)]
     public DateTime? LeaseExpiresAt
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "last_heartbeat_at", IsNullable = true)]
+    public DateTime? LastHeartbeatAt
     {
         get; set;
     }

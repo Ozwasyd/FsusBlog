@@ -30,6 +30,8 @@ ever-growing array. The manifest composes these immutable version catalogs:
 | `current-20260719` | 20260719 | sparse dates allowed | 20260716 pre/post tails |
 | `current-20260720` | 20260720 | sparse dates allowed | 20260719 pre/post tails |
 | `current-20260724` | 20260724 | sparse dates allowed | 20260720 post tail |
+| `current-20260725` | 20260725 | sparse dates allowed | 20260724 post tail |
+| `current-20260726` | 20260726 | sparse dates allowed | 20260725 post tail |
 
 Catalog boundaries have five explicitly declared gaps: 20260519-20260601,
 20260622-20260624, 20260705-20260708, 20260717-20260718, and
