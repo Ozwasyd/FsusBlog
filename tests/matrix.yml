@@ -6356,11 +6356,13 @@ tiers:
           [
               .tmp/mutation/backend-critical/reports/backend-mutation-critical.json,
               .tmp/mutation/backend-critical/authority.json,
+              .tmp/mutation/backend-critical/inventory-retention.json,
           ]
       evidence:
           [
               .tmp/mutation/backend-critical/reports/backend-mutation-critical.json,
               .tmp/mutation/backend-critical/authority.json,
+              .tmp/mutation/backend-critical/inventory-retention.json,
           ]
       ciJob: release-final
       localOnly: false

@@ -1392,6 +1392,10 @@ RunBackendMutationWithConfig() {
             --out "$authorityOut" \
             --trace-log "${traceLogs[0]}" \
             --source-root "${authoritySourceRoot#"$ROOT_DIR"/}"
+        if [[ "$authorityTier" == "release-mutation-critical-slice" ]]; then
+            Run node "$ROOT_DIR/tools/test/check-mutation-inventory.mjs" \
+                --authority "$authorityOut"
+        fi
     else
         Run node "$ROOT_DIR/tools/test/check-stryker-report.mjs" "$outputDir/reports/$reportName.json"
     fi
