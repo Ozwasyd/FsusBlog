@@ -1,8 +1,10 @@
 import { spawnSync } from 'node:child_process'
+import { createHash, randomBytes } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 
 import { finalizeResidentLeaseCleanup } from './resident-resource-leases.mjs'
+import { recordCheckpointResidentLeaseCleanup } from './scheduler.mjs'
 
 function namespaceSlug(value) {
   const normalized = String(value ?? '')
@@ -25,6 +27,24 @@ const runtimeContainerStepIdLabel = 'io.fsusblog.test.step-id'
 const runtimeContainerNamespaceLabel = 'io.fsusblog.test.namespace'
 const runtimeContainerPreparationIdLabel = 'io.fsusblog.test.preparation-id'
 const runtimeProcessIdentitySchema = 'fsusblog.local-runtime-process-identity.v1'
+const cleanupReceiptSchema = 'fsusblog.production-fresh.runtime-cleanup-receipt.v1'
+const containerActions = new Set(['skipped-external-name', 'already-absent', 'blocked-ownership-mismatch', 'blocked-identity-incomplete', 'removed', 'remove-failed'])
+const containerPostObservations = new Set(['not-observed', 'name-absent', 'not-removed', 'name-and-id-absent', 'id-still-present', 'name-still-present', 'removal-unconfirmed'])
+const processActions = new Set(['blocked', 'terminated', 'already-absent', 'termination-unconfirmed'])
+const processPostObservations = new Set(['not-observed', 'group-still-live', 'leader-and-group-absent', 'not-terminated', 'leader-or-group-still-live'])
+
+function canonicalJson(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',')}}`
+  }
+  return JSON.stringify(value)
+}
+
+export function freshRuntimeCleanupReceiptDigest(receipt) {
+  const { contentDigest: _contentDigest, ...unsigned } = receipt ?? {}
+  return `sha256:${createHash('sha256').update(canonicalJson(unsigned)).digest('hex')}`
+}
 
 function positiveInteger(value) {
   const parsed = Number.parseInt(String(value ?? ''), 10)
@@ -144,10 +164,14 @@ function ownedContainerNames(namespace) {
 }
 
 function defaultContainerExists(name) {
-  return spawnSync('docker', ['inspect', name], {
+  const result = spawnSync('docker', ['inspect', name], {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe']
-  }).status === 0
+  })
+  if (result.status === 0) return true
+  const detail = String(result.stderr ?? result.stdout ?? '').trim()
+  if (/no such (?:object|container)/iu.test(detail)) return false
+  throw new Error(`unable to inspect Docker container ${name}: ${detail || `exit ${result.status ?? 'unknown'}`}`)
 }
 
 function defaultRemoveContainer(name) {
@@ -192,8 +216,7 @@ function readRuntimeProcessIdentity(file) {
       || typeof identity.preparationId !== 'string'
       || !identity.runId.trim()
       || !identity.namespace.trim()
-      || !identity.role.trim()
-      || !identity.preparationId.trim()) {
+      || !identity.role.trim()) {
       return { identity: null, reason: 'identity-sidecar-invalid' }
     }
     return { identity, reason: null }
@@ -232,9 +255,16 @@ export function dedicatedProcessIdentityMatches(identity, observed, {
   runId,
   role,
   preparationId,
+  dedicatedRuntime = true,
   fixtureRoot = ''
 }) {
-  return Boolean(root && namespace && runId && role && preparationId)
+  const expectedPreparationId = String(preparationId ?? '')
+  const dedicatedEnvironmentMatches = dedicatedRuntime
+    ? observed?.env?.FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME === '1'
+      && observed?.env?.FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID === expectedPreparationId
+    : observed?.env?.FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME !== '1'
+      && String(observed?.env?.FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID ?? '') === expectedPreparationId
+  return Boolean(root && namespace && runId && role && (!dedicatedRuntime || expectedPreparationId))
     && identity?.schema === runtimeProcessIdentitySchema
     && identity.pid === observed?.pid
     && identity.pid === identity.processGroupId
@@ -243,12 +273,11 @@ export function dedicatedProcessIdentityMatches(identity, observed, {
     && identity.runId === runId
     && identity.namespace === namespace
     && identity.role === role
-    && identity.preparationId === preparationId
+    && identity.preparationId === expectedPreparationId
     && observed?.env?.FSUSBLOG_TEST_RUN_ID === runId
     && observed?.env?.FSUSBLOG_TEST_NAMESPACE === namespace
     && observed?.env?.FSUSBLOG_RUNTIME_ROLE === role
-    && observed?.env?.FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME === '1'
-    && observed?.env?.FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID === preparationId
+    && dedicatedEnvironmentMatches
     && (withinRepository(observed, root)
       || hasExactFixtureOwnership(observed, fixtureRoot, namespace))
     && commandMatchesRuntimeRole(observed, role)
@@ -256,9 +285,11 @@ export function dedicatedProcessIdentityMatches(identity, observed, {
 
 export function dedicatedProcessGroupMembersMatch(identity, members, {
   root,
+  dedicatedRuntime = true,
   fixtureRoot = ''
 }) {
-  if (!identity?.runId || !identity.namespace || !identity.role || !identity.preparationId
+  if (!identity?.runId || !identity.namespace || !identity.role
+    || (dedicatedRuntime && !identity.preparationId)
     || !root || !Array.isArray(members) || members.length === 0) return false
   return members.every((member) => member?.state !== 'Z'
     && positiveInteger(member?.pid) !== null
@@ -266,8 +297,11 @@ export function dedicatedProcessGroupMembersMatch(identity, members, {
     && member.env?.FSUSBLOG_TEST_RUN_ID === identity.runId
     && member.env?.FSUSBLOG_TEST_NAMESPACE === identity.namespace
     && member.env?.FSUSBLOG_RUNTIME_ROLE === identity.role
-    && member.env?.FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME === '1'
-    && member.env?.FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID === identity.preparationId
+    && (dedicatedRuntime
+      ? member.env?.FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME === '1'
+        && member.env?.FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID === identity.preparationId
+      : member.env?.FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME !== '1'
+        && String(member.env?.FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID ?? '') === identity.preparationId)
     && (withinRepository(member, root)
       || hasExactFixtureOwnership(member, fixtureRoot, identity.namespace)))
 }
@@ -307,6 +341,7 @@ export function terminateDedicatedProcessGroup(identity, {
   listProcessGroupMembers = defaultListProcessGroupMembers,
   procRoot = '/proc',
   root = '',
+  dedicatedRuntime = true,
   fixtureRoot = '',
   graceMs = 2_000
 } = {}) {
@@ -318,6 +353,7 @@ export function terminateDedicatedProcessGroup(identity, {
     runId: identity.runId,
     role: identity.role,
     preparationId: identity.preparationId,
+    dedicatedRuntime,
     fixtureRoot
   })
     || !processGroupExists(identity.processGroupId)) return false
@@ -338,45 +374,12 @@ export function terminateDedicatedProcessGroup(identity, {
   } catch {
     return false
   }
-  if (!dedicatedProcessGroupMembersMatch(identity, members, { root, fixtureRoot })) return false
+  if (!dedicatedProcessGroupMembersMatch(identity, members, { root, dedicatedRuntime, fixtureRoot })) return false
   if (!signalGroup(identity.processGroupId, 'SIGKILL')) return false
   return synchronousWaitUntil(
     () => observeProcess(identity.pid) === null && !processGroupExists(identity.processGroupId),
     graceMs
   )
-}
-
-function defaultKillProcess(pid, root, pidFileName) {
-  if (process.platform !== 'win32') {
-    try {
-      const resolvedRoot = fs.realpathSync(root)
-      const cwd = fs.realpathSync(`/proc/${pid}/cwd`)
-      const command = fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').replaceAll('\0', ' ')
-      const withinRoot = cwd === resolvedRoot || cwd.startsWith(`${resolvedRoot}${path.sep}`)
-      const expectedCommand = pidFileName === 'backend.pid'
-        ? /(?:dotnet.+FsusBlog\.Server|FsusBlog\.Server)/u.test(command)
-        : /(?:^|\s|\/)vite(?:\s|$)/u.test(command)
-      if (!withinRoot || !expectedCommand) return false
-    } catch {
-      return false
-    }
-  }
-  try {
-    if (process.platform !== 'win32') {
-      process.kill(-pid, 'SIGTERM')
-    } else {
-      process.kill(pid, 'SIGTERM')
-    }
-    return true
-  } catch (error) {
-    if (process.platform !== 'win32' && error.code === 'ESRCH') {
-      try {
-        process.kill(pid, 'SIGTERM')
-        return true
-      } catch {}
-    }
-    return false
-  }
 }
 
 function parseProcStat(pid, stat) {
@@ -523,7 +526,11 @@ function defaultInspectContainer(name) {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe']
   })
-  if (result.status !== 0) return null
+  if (result.status !== 0) {
+    const detail = String(result.stderr ?? result.stdout ?? '').trim()
+    if (/no such (?:object|container)/iu.test(detail)) return null
+    throw new Error(`unable to inspect Docker container ${name}: ${detail || `exit ${result.status ?? 'unknown'}`}`)
+  }
   try {
     return JSON.parse(result.stdout)?.[0] ?? null
   } catch {
@@ -538,13 +545,40 @@ export function dedicatedContainerOwnershipMatches(container, {
   namespace,
   preparationId
 }) {
+  return runtimeContainerOwnershipMatches(container, {
+    runId,
+    bundleId,
+    stepId,
+    namespace,
+    preparationId,
+    dedicatedRuntime: true
+  })
+}
+
+function runtimeContainerOwnershipMatches(container, {
+  runId,
+  bundleId,
+  stepId,
+  namespace,
+  preparationId,
+  dedicatedRuntime
+}) {
   const labels = container?.Config?.Labels ?? {}
-  return Boolean(runId && bundleId && stepId && namespace && preparationId)
+  const expectedPreparationId = String(preparationId ?? '')
+  const bundleMatches = bundleId
+    ? labels[runtimeContainerBundleIdLabel] === bundleId
+    : typeof labels[runtimeContainerBundleIdLabel] === 'string'
+      && labels[runtimeContainerBundleIdLabel].length > 0
+  const stepMatches = stepId
+    ? labels[runtimeContainerStepIdLabel] === stepId
+    : typeof labels[runtimeContainerStepIdLabel] === 'string'
+      && labels[runtimeContainerStepIdLabel].length > 0
+  return Boolean(runId && namespace && (!dedicatedRuntime || expectedPreparationId))
     && labels[runtimeContainerRunIdLabel] === runId
-    && labels[runtimeContainerBundleIdLabel] === bundleId
-    && labels[runtimeContainerStepIdLabel] === stepId
+    && bundleMatches
+    && stepMatches
     && labels[runtimeContainerNamespaceLabel] === namespace
-    && labels[runtimeContainerPreparationIdLabel] === preparationId
+    && String(labels[runtimeContainerPreparationIdLabel] ?? '') === expectedPreparationId
 }
 
 function containerRemovalSucceeded(outcome) {
@@ -564,8 +598,8 @@ function removeWithinRoot(root, relative) {
 export function cleanupLocalRuntime({
   root,
   namespace,
+  trackedIdentity = null,
   removeContainer = defaultRemoveContainer,
-  killProcess = defaultKillProcess,
   containerExists = null,
   inspectContainer = defaultInspectContainer,
   observeProcess = readProcProcess,
@@ -575,15 +609,16 @@ export function cleanupLocalRuntime({
   observeResidentService,
   residentCleanupTimeoutMs = null
 }) {
+  const startedAt = new Date().toISOString()
   const resolvedRoot = path.resolve(root)
   const slug = namespaceSlug(namespace)
   const envRelative = path.join('.tmp', 'env', `${slug}.env`)
   const envFile = path.join(resolvedRoot, envRelative)
   const environment = readEnvFile(envFile)
   const dedicatedRuntime = environment.FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME === '1'
-  const runId = String(environment.FSUSBLOG_TEST_RUN_ID ?? '').trim()
-  const bundleId = String(environment.FSUSBLOG_PHYSICAL_BUNDLE_ID ?? '').trim()
-  const stepId = String(environment.FSUSBLOG_STEP_ID ?? '').trim()
+  const runId = String(environment.FSUSBLOG_TEST_RUN_ID ?? trackedIdentity?.runId ?? '').trim()
+  const bundleId = String(environment.FSUSBLOG_PHYSICAL_BUNDLE_ID ?? trackedIdentity?.bundleId ?? '').trim()
+  const stepId = String(environment.FSUSBLOG_STEP_ID ?? trackedIdentity?.stepId ?? '').trim()
   const preparationId = String(environment.FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID ?? '').trim()
   const fixtureRoot = String(environment.FSUSBLOG_FIXTURE_ROOT ?? '').trim()
   const owned = ownedContainerNames(slug)
@@ -591,58 +626,65 @@ export function cleanupLocalRuntime({
     environment.FSUSBLOG_POSTGRES_CONTAINER_NAME,
     environment.FSUSBLOG_REDIS_CONTAINER_NAME
   ].filter(Boolean)
+  const containerCandidates = [...new Set([...configuredContainers, ...owned])]
   const removedContainers = []
   const skippedContainers = []
   const alreadyAbsentContainers = []
   const containerCleanupFailures = []
-  const hasContainerObserver = dedicatedRuntime
-    || typeof containerExists === 'function'
-    || removeContainer === defaultRemoveContainer
+  const containerRecords = []
+  const hasContainerObserver = typeof containerExists === 'function'
+    || typeof inspectContainer === 'function'
   const containerIsPresent = typeof containerExists === 'function'
     ? containerExists
-    : removeContainer === defaultRemoveContainer || dedicatedRuntime
-      ? defaultContainerExists
-      : () => true
-  for (const container of configuredContainers) {
+    : (identity) => inspectContainer(identity) !== null
+  for (const container of containerCandidates) {
     if (!owned.has(container)) {
       skippedContainers.push(container)
+      containerRecords.push({ name: container, id: null, ownershipLabels: null, action: 'skipped-external-name', postObservation: 'not-observed' })
       continue
     }
-    if (!containerIsPresent(container)) {
+    const inspected = inspectContainer(container)
+    if (inspected === null && !containerIsPresent(container)) {
       alreadyAbsentContainers.push(container)
+      containerRecords.push({ name: container, id: null, ownershipLabels: null, action: 'already-absent', postObservation: 'name-absent' })
       continue
     }
-    let inspected = null
-    let removalTarget = container
-    if (dedicatedRuntime) {
-      inspected = inspectContainer(container)
-      if (!dedicatedContainerOwnershipMatches(inspected, {
-        runId,
-        bundleId,
-        stepId,
-        namespace: slug,
-        preparationId
-      })) {
-        skippedContainers.push(container)
-        containerCleanupFailures.push({ container, reason: 'ownership-label-mismatch' })
-        continue
-      }
-      const observedContainerId = String(inspected?.Id ?? '').trim()
-      if (!/^[a-f0-9]{64}$/u.test(observedContainerId)) {
-        skippedContainers.push(container)
-        containerCleanupFailures.push({ container, reason: 'container-id-unavailable' })
-        continue
-      }
-      removalTarget = observedContainerId
+    if (inspected === null) {
+      skippedContainers.push(container)
+      containerCleanupFailures.push({ container, reason: 'container-inspect-identity-unavailable' })
+      containerRecords.push({ name: container, id: null, ownershipLabels: null, action: 'blocked-identity-incomplete', postObservation: 'not-removed' })
+      continue
     }
+    if (!runtimeContainerOwnershipMatches(inspected, {
+      runId,
+      bundleId,
+      stepId,
+      namespace: slug,
+      preparationId,
+      dedicatedRuntime
+    })) {
+      skippedContainers.push(container)
+      containerCleanupFailures.push({ container, reason: 'ownership-label-mismatch' })
+      containerRecords.push({ name: container, id: String(inspected?.Id ?? '') || null, ownershipLabels: inspected?.Config?.Labels ?? null, action: 'blocked-ownership-mismatch', postObservation: 'not-removed' })
+      continue
+    }
+    const observedContainerId = String(inspected?.Id ?? '').trim()
+    if (!/^[a-f0-9]{64}$/u.test(observedContainerId)) {
+      skippedContainers.push(container)
+      containerCleanupFailures.push({ container, reason: 'container-id-unavailable' })
+      containerRecords.push({ name: container, id: observedContainerId || null, ownershipLabels: inspected?.Config?.Labels ?? null, action: 'blocked-identity-incomplete', postObservation: 'not-removed' })
+      continue
+    }
+    const removalTarget = observedContainerId
     const outcome = removeContainer(removalTarget, { name: container, inspected })
     const nameStillPresent = hasContainerObserver && containerIsPresent(container)
-    const idStillPresent = dedicatedRuntime && containerIsPresent(removalTarget)
+    const idStillPresent = hasContainerObserver && containerIsPresent(removalTarget)
     const removed = containerRemovalSucceeded(outcome)
       && !nameStillPresent
       && !idStillPresent
     if (removed) {
       removedContainers.push(container)
+      containerRecords.push({ name: container, id: removalTarget, ownershipLabels: inspected?.Config?.Labels ?? null, action: 'removed', postObservation: 'name-and-id-absent' })
     } else {
       skippedContainers.push(container)
       containerCleanupFailures.push({
@@ -654,6 +696,7 @@ export function cleanupLocalRuntime({
             : 'docker-rm-reported-failure'),
         exitCode: outcome?.exitCode ?? null
       })
+      containerRecords.push({ name: container, id: removalTarget, ownershipLabels: inspected?.Config?.Labels ?? null, action: 'remove-failed', postObservation: idStillPresent ? 'id-still-present' : nameStillPresent ? 'name-still-present' : 'removal-unconfirmed' })
     }
   }
 
@@ -662,16 +705,14 @@ export function cleanupLocalRuntime({
   const terminatedPids = []
   const alreadyExitedPids = []
   const skippedProcesses = []
+  const processRecords = []
   if (fs.existsSync(runtimeDirectory)) {
     for (const entry of fs.readdirSync(runtimeDirectory)) {
       if (!entry.endsWith('.pid')) continue
       const value = Number.parseInt(fs.readFileSync(path.join(runtimeDirectory, entry), 'utf8').trim(), 10)
       if (!Number.isInteger(value) || value <= 1) {
-        if (dedicatedRuntime) skippedProcesses.push({ pidFile: entry, pid: null, reason: 'pid-file-invalid' })
-        continue
-      }
-      if (!dedicatedRuntime) {
-        if (killProcess(value, resolvedRoot, entry)) terminatedPids.push(value)
+        skippedProcesses.push({ pidFile: entry, pid: null, reason: 'pid-file-invalid' })
+        processRecords.push({ pid: null, processGroupId: null, startTimeTicks: null, role: expectedRoleForPidFile(entry), identityResult: 'pid-file-invalid', action: 'blocked', postObservation: 'not-observed' })
         continue
       }
 
@@ -679,19 +720,23 @@ export function cleanupLocalRuntime({
       const sidecar = readRuntimeProcessIdentity(processIdentityFile(runtimeDirectory, entry))
       if (!role || sidecar.identity === null) {
         skippedProcesses.push({ pidFile: entry, pid: value, reason: role ? sidecar.reason : 'runtime-role-unknown' })
+        processRecords.push({ pid: value, processGroupId: null, startTimeTicks: null, role, identityResult: role ? sidecar.reason : 'runtime-role-unknown', action: 'blocked', postObservation: 'not-observed' })
         continue
       }
       const identity = sidecar.identity
       if (identity.pid !== value) {
         skippedProcesses.push({ pidFile: entry, pid: value, reason: 'identity-pid-mismatch' })
+        processRecords.push({ pid: value, processGroupId: identity.processGroupId, startTimeTicks: identity.startTimeTicks, role, identityResult: 'identity-pid-mismatch', action: 'blocked', postObservation: 'not-observed' })
         continue
       }
       const observed = observeProcess(value)
       if (observed === null) {
         if (processGroupExists(identity.processGroupId)) {
           skippedProcesses.push({ pidFile: entry, pid: value, reason: 'process-leader-exited-group-still-live' })
+          processRecords.push({ pid: value, processGroupId: identity.processGroupId, startTimeTicks: identity.startTimeTicks, role, identityResult: 'leader-exited-group-still-live', action: 'blocked', postObservation: 'group-still-live' })
         } else {
           alreadyExitedPids.push(value)
+          processRecords.push({ pid: value, processGroupId: identity.processGroupId, startTimeTicks: identity.startTimeTicks, role, identityResult: 'identity-valid', action: 'already-absent', postObservation: 'leader-and-group-absent' })
         }
         continue
       }
@@ -701,27 +746,33 @@ export function cleanupLocalRuntime({
         runId,
         role,
         preparationId,
+        dedicatedRuntime,
         fixtureRoot
       })) {
         skippedProcesses.push({ pidFile: entry, pid: value, reason: 'proc-identity-mismatch' })
+        processRecords.push({ pid: value, processGroupId: identity.processGroupId, startTimeTicks: identity.startTimeTicks, role, identityResult: 'proc-identity-mismatch', action: 'blocked', postObservation: 'not-terminated' })
         continue
       }
       const terminationReported = terminateDedicatedProcess(identity, {
         observeProcess,
         processGroupExists,
         root: resolvedRoot,
+        dedicatedRuntime,
         fixtureRoot,
         graceMs: dedicatedTerminationGraceMs
       })
       if (terminationReported && observeProcess(value) === null && !processGroupExists(identity.processGroupId)) {
         terminatedPids.push(value)
+        processRecords.push({ pid: value, processGroupId: identity.processGroupId, startTimeTicks: identity.startTimeTicks, role, identityResult: 'identity-valid', action: 'terminated', postObservation: 'leader-and-group-absent' })
       } else {
         skippedProcesses.push({ pidFile: entry, pid: value, reason: 'process-group-exit-unconfirmed' })
+        processRecords.push({ pid: value, processGroupId: identity.processGroupId, startTimeTicks: identity.startTimeTicks, role, identityResult: 'identity-valid', action: 'termination-unconfirmed', postObservation: 'leader-or-group-still-live' })
       }
     }
   }
 
   const result = {
+    startedAt,
     namespace: slug,
     dedicatedRuntime,
     removedContainers,
@@ -730,7 +781,9 @@ export function cleanupLocalRuntime({
     containerCleanupFailures,
     terminatedPids,
     alreadyExitedPids,
-    skippedProcesses
+    skippedProcesses,
+    containerRecords,
+    processRecords
   }
   const schedulerRunId = String(environment.FSUSBLOG_TEST_RUN_ID ?? '').trim()
   const checkpointFile = schedulerRunId
@@ -741,6 +794,8 @@ export function cleanupLocalRuntime({
       root: resolvedRoot,
       checkpointFile,
       cleanup: result,
+      checkpointAuthority: (file, updateCheckpoint) =>
+        recordCheckpointResidentLeaseCleanup(file, schedulerRunId, updateCheckpoint),
       ...(observeResidentService ? { observeService: observeResidentService } : {}),
       ...(residentCleanupTimeoutMs === null ? {} : { timeoutMs: residentCleanupTimeoutMs })
     })
@@ -751,7 +806,9 @@ export function cleanupLocalRuntime({
     }
   }
   const cleanupIdentityIncomplete = containerCleanupFailures.length > 0
-    || (dedicatedRuntime && (skippedContainers.length > 0 || skippedProcesses.length > 0))
+    || skippedProcesses.length > 0
+    || skippedContainers.some((name) => !containerRecords.some((record) =>
+      record.name === name && record.action === 'skipped-external-name'))
   result.retainedRuntimeState = cleanupIdentityIncomplete
     || result.residentResourceLeases?.status === 'cleanup-pending-live-services'
   result.cleanupStatus = result.retainedRuntimeState ? 'skipped' : 'complete'
@@ -766,55 +823,113 @@ export function cleanupLocalRuntime({
       removeWithinRoot(resolvedRoot, relative)
     }
   }
+  result.finishedAt = new Date().toISOString()
   return result
 }
 
 export function cleanupStaleLocalRuntimes({
   root,
   removeContainer = defaultRemoveContainer,
-  killProcess = defaultKillProcess,
+  containerExists = null,
   discoverUntracked = false,
   discoverOrphanProcesses = discoverOrphanProductionViteProcesses,
   killOrphanProcess = defaultKillOrphanProcess,
+  observeOrphanProcess = readProcProcess,
+  orphanProcessGroupExists = defaultProcessGroupExists,
   listSchemaContainers = defaultListSchemaContainers,
   inspectContainer = defaultInspectContainer,
   legacyContainerMinimumAgeMs = null,
   orphanTerminationGraceMs = null,
   nowMs = Date.now(),
-  detectActiveBackendTesthost = hasActiveBackendTesthost
+  detectActiveBackendTesthost = hasActiveBackendTesthost,
+  cleanupRuntime = cleanupLocalRuntime
 }) {
+  const startedAt = new Date().toISOString()
   const resolvedRoot = path.resolve(root)
-  const namespaces = new Set()
+  const trackedNamespaces = new Map()
   const acceptanceRoot = path.join(resolvedRoot, '.tmp', 'acceptance')
   const envRoot = path.join(resolvedRoot, '.tmp', 'env')
   const runOnceRoot = path.join(resolvedRoot, '.tmp', 'run-once')
+  const testRunsRoot = path.join(resolvedRoot, '.tmp', 'test-runs')
+  const registerNamespace = (namespace, identity = null) => {
+    if (namespaceSlug(namespace) !== namespace) return
+    const previous = trackedNamespaces.get(namespace)
+    const runId = String(identity?.runId ?? '').trim()
+    if (previous?.runId && runId && previous.runId !== runId) {
+      throw new Error(`tracked namespace ${namespace} has conflicting scheduler run identities`)
+    }
+    trackedNamespaces.set(namespace, {
+      ...(previous ?? {}),
+      ...(runId ? { runId } : {})
+    })
+  }
 
   if (fs.existsSync(acceptanceRoot)) {
     for (const entry of fs.readdirSync(acceptanceRoot, { withFileTypes: true })) {
-      if (entry.isDirectory() && namespaceSlug(entry.name) === entry.name) namespaces.add(entry.name)
+      if (entry.isDirectory()) registerNamespace(entry.name)
     }
   }
   if (fs.existsSync(envRoot)) {
     for (const entry of fs.readdirSync(envRoot, { withFileTypes: true })) {
       if (!entry.isFile() || !entry.name.endsWith('.env')) continue
       const namespace = entry.name.slice(0, -4)
-      if (namespaceSlug(namespace) === namespace) namespaces.add(namespace)
+      const environment = readEnvFile(path.join(envRoot, entry.name))
+      registerNamespace(namespace, { runId: environment.FSUSBLOG_TEST_RUN_ID })
     }
   }
   if (fs.existsSync(runOnceRoot)) {
     for (const entry of fs.readdirSync(runOnceRoot, { withFileTypes: true })) {
-      if (entry.isDirectory() && namespaceSlug(entry.name) === entry.name) namespaces.add(entry.name)
+      if (entry.isDirectory()) registerNamespace(entry.name)
+    }
+  }
+  if (fs.existsSync(testRunsRoot)) {
+    for (const entry of fs.readdirSync(testRunsRoot, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue
+      const checkpointFile = path.join(testRunsRoot, entry.name, 'checkpoint.json')
+      if (!fs.existsSync(checkpointFile)) continue
+      let checkpoint
+      try {
+        checkpoint = JSON.parse(fs.readFileSync(checkpointFile, 'utf8'))
+      } catch (error) {
+        throw new Error(`tracked scheduler checkpoint is unreadable: ${checkpointFile}: ${error.message}`, { cause: error })
+      }
+      if (checkpoint?.schema !== 'fsusblog.test-matrix.checkpoint.v1'
+        || checkpoint.runId !== entry.name
+        || typeof checkpoint.targetTierId !== 'string'
+        || !checkpoint.targetTierId) {
+        throw new Error(`tracked scheduler checkpoint identity is invalid: ${checkpointFile}`)
+      }
+      const localProductionTarget = ['production', 'production-correctness', 'release-final']
+        .includes(checkpoint.targetTierId)
+      const namespace = String(checkpoint.runtimeNamespace ?? (
+        localProductionTarget
+          ? `${checkpoint.runId}-fresh-local-${checkpoint.targetTierId}-0`
+          : ''
+      )).trim()
+      if (!namespace) continue
+      if (namespaceSlug(namespace) !== namespace) {
+        throw new Error(`tracked scheduler checkpoint namespace is invalid: ${checkpointFile}`)
+      }
+      registerNamespace(namespace, { runId: checkpoint.runId })
     }
   }
 
-  const cleanups = [...namespaces].sort().map((namespace) => cleanupLocalRuntime({
+  const cleanups = [...trackedNamespaces].sort(([left], [right]) => left.localeCompare(right)).map(([namespace, trackedIdentity]) => cleanupRuntime({
     root: resolvedRoot,
     namespace,
+    trackedIdentity,
     removeContainer,
-    killProcess
+    containerExists,
+    inspectContainer
   }))
   const orphanProcesses = []
+  const orphanAlreadyExitedPids = []
+  const orphanSkippedProcesses = []
+  const orphanProcessRecords = []
   const untrackedContainers = []
+  const untrackedAlreadyAbsentContainers = []
+  const untrackedSkippedContainers = []
+  const untrackedContainerRecords = []
   if (discoverUntracked) {
     if (!Number.isFinite(orphanTerminationGraceMs) || orphanTerminationGraceMs <= 0) {
       throw new Error('untracked runtime cleanup requires a positive orphan termination grace')
@@ -823,7 +938,62 @@ export function cleanupStaleLocalRuntimes({
       throw new Error('untracked runtime cleanup requires a positive legacy container minimum age')
     }
     for (const record of discoverOrphanProcesses(resolvedRoot)) {
-      if (killOrphanProcess(record, orphanTerminationGraceMs)) orphanProcesses.push(record.pid)
+      const pid = positiveInteger(record?.pid)
+      const processGroupId = positiveInteger(record?.processGroupId)
+      const startTimeTicks = String(record?.startTimeTicks ?? '')
+      const role = record?.args?.[2] === 'preview' ? 'release-preview' : 'debug-frontend'
+      if (pid === null || processGroupId === null || !/^\d+$/u.test(startTimeTicks)) {
+        orphanSkippedProcesses.push({ pid: pid ?? null, reason: 'orphan-process-identity-incomplete' })
+        orphanProcessRecords.push({
+          pid,
+          processGroupId,
+          startTimeTicks: startTimeTicks || null,
+          role,
+          identityResult: 'strict-orphan-identity-incomplete',
+          action: 'blocked',
+          postObservation: 'not-observed'
+        })
+        continue
+      }
+      const terminationReported = killOrphanProcess(record, orphanTerminationGraceMs)
+      const leaderStillPresent = observeOrphanProcess(pid) !== null
+      const groupStillPresent = orphanProcessGroupExists(processGroupId)
+      if (!leaderStillPresent && !groupStillPresent) {
+        if (terminationReported) {
+          orphanProcesses.push(pid)
+          orphanProcessRecords.push({
+            pid,
+            processGroupId,
+            startTimeTicks,
+            role,
+            identityResult: 'strict-orphan-production-vite',
+            action: 'terminated',
+            postObservation: 'leader-and-group-absent'
+          })
+        } else {
+          orphanAlreadyExitedPids.push(pid)
+          orphanProcessRecords.push({
+            pid,
+            processGroupId,
+            startTimeTicks,
+            role,
+            identityResult: 'strict-orphan-production-vite',
+            action: 'already-absent',
+            postObservation: 'leader-and-group-absent'
+          })
+        }
+      } else {
+        orphanSkippedProcesses.push({ pid, reason: 'orphan-process-group-exit-unconfirmed' })
+        orphanProcessRecords.push({
+          pid,
+          processGroupId,
+          startTimeTicks,
+          role,
+          identityResult: 'strict-orphan-production-vite',
+          action: 'termination-unconfirmed',
+          postObservation: groupStillPresent ? 'group-still-live' : 'leader-or-group-still-live'
+        })
+      }
     }
     const activeBackendTesthost = detectActiveBackendTesthost(resolvedRoot)
     for (const name of listSchemaContainers()) {
@@ -833,16 +1003,379 @@ export function cleanupStaleLocalRuntimes({
         legacyMinimumAgeMs: legacyContainerMinimumAgeMs,
         activeBackendTesthost
       })) continue
-      removeContainer(name)
-      untrackedContainers.push(name)
+      const id = String(container.Id ?? '').trim()
+      const ownershipLabels = container?.Config?.Labels ?? {}
+      if (!/^[a-f0-9]{64}$/u.test(id)) {
+        untrackedSkippedContainers.push(name)
+        untrackedContainerRecords.push({
+          name,
+          id: id || null,
+          ownershipLabels,
+          action: 'blocked-identity-incomplete',
+          postObservation: 'not-removed'
+        })
+        continue
+      }
+      const outcome = removeContainer(id, { name, inspected: container })
+      const nameStillPresent = inspectContainer(name) !== null
+      const idStillPresent = inspectContainer(id) !== null
+      if (!nameStillPresent && !idStillPresent) {
+        if (containerRemovalSucceeded(outcome)) {
+          untrackedContainers.push(name)
+          untrackedContainerRecords.push({
+            name,
+            id,
+            ownershipLabels,
+            action: 'removed',
+            postObservation: 'name-and-id-absent'
+          })
+        } else {
+          untrackedAlreadyAbsentContainers.push(name)
+          untrackedContainerRecords.push({
+            name,
+            id,
+            ownershipLabels,
+            action: 'already-absent',
+            postObservation: 'name-and-id-absent'
+          })
+        }
+      } else {
+        untrackedSkippedContainers.push(name)
+        untrackedContainerRecords.push({
+          name,
+          id,
+          ownershipLabels,
+          action: 'remove-failed',
+          postObservation: idStillPresent ? 'id-still-present' : 'name-still-present'
+        })
+      }
     }
   }
   return {
+    startedAt,
+    finishedAt: new Date().toISOString(),
+    cleanups,
     namespaces: cleanups.map((cleanup) => cleanup.namespace),
     removedContainers: [...cleanups.flatMap((cleanup) => cleanup.removedContainers), ...untrackedContainers],
-    skippedContainers: cleanups.flatMap((cleanup) => cleanup.skippedContainers),
+    skippedContainers: [...cleanups.flatMap((cleanup) => cleanup.skippedContainers), ...untrackedSkippedContainers],
     terminatedPids: [...cleanups.flatMap((cleanup) => cleanup.terminatedPids), ...orphanProcesses],
+    skippedProcesses: [...cleanups.flatMap((cleanup) => cleanup.skippedProcesses), ...orphanSkippedProcesses],
     orphanProcesses,
-    untrackedContainers
+    orphanAlreadyExitedPids,
+    orphanProcessRecords,
+    untrackedContainers,
+    untrackedAlreadyAbsentContainers,
+    untrackedContainerRecords
   }
+}
+
+function runtimeCleanupOperationFailure(error, stage) {
+  return {
+    stage: String(stage || 'runtime-cleanup'),
+    message: error instanceof Error ? error.message : String(error)
+  }
+}
+
+export function appendFreshRuntimeCleanupFailure(cleanup, error, stage = 'runtime-cleanup') {
+  const startedAt = cleanup?.startedAt ?? new Date().toISOString()
+  return {
+    ...(cleanup ?? {}),
+    startedAt,
+    finishedAt: new Date().toISOString(),
+    namespaces: cleanup?.namespaces ?? [],
+    cleanups: cleanup?.cleanups ?? [],
+    operationFailures: [
+      ...(cleanup?.operationFailures ?? []),
+      runtimeCleanupOperationFailure(error, stage)
+    ]
+  }
+}
+
+export function captureFreshRuntimeCleanup(operation, { stage = 'runtime-cleanup' } = {}) {
+  const startedAt = new Date().toISOString()
+  try {
+    const cleanup = operation()
+    if (!cleanup || typeof cleanup.then === 'function') {
+      throw new Error('runtime cleanup operation must return a synchronous cleanup record')
+    }
+    return {
+      ...cleanup,
+      startedAt: cleanup.startedAt ?? startedAt,
+      finishedAt: cleanup.finishedAt ?? new Date().toISOString(),
+      operationFailures: cleanup.operationFailures ?? []
+    }
+  } catch (error) {
+    return appendFreshRuntimeCleanupFailure({
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      namespaces: [],
+      cleanups: []
+    }, error, stage)
+  }
+}
+
+export function verifyFreshRuntimeCleanup(cleanup) {
+  const failures = []
+  if (cleanup.sourceStateMatchesPreflight === false) failures.push('postflight source state differs from preflight')
+  for (const failure of cleanup.operationFailures ?? []) {
+    failures.push(`${failure.stage}: ${failure.message}`)
+  }
+  const verifyResourceRecords = (record) => {
+    for (const container of record.containerRecords ?? []) {
+      if (!container.name || !container.action || !container.postObservation) failures.push(`${record.namespace}: container receipt is incomplete`)
+      if (['remove-failed', 'blocked-ownership-mismatch', 'blocked-identity-incomplete'].includes(container.action)
+        || /still-present|not-removed/u.test(container.postObservation)) failures.push(`${record.namespace}: container post-observation blocks Fresh`)
+      if (container.action === 'removed' && container.postObservation !== 'name-and-id-absent') {
+        failures.push(`${record.namespace}: removed container name and ID absence is unconfirmed`)
+      }
+      if (container.action === 'already-absent'
+        && !['name-absent', 'name-and-id-absent'].includes(container.postObservation)) {
+        failures.push(`${record.namespace}: already-absent container observation is invalid`)
+      }
+    }
+    for (const process of record.processRecords ?? []) {
+      if (!process.action || !process.postObservation || !process.identityResult) failures.push(`${record.namespace}: process receipt is incomplete`)
+      if (['blocked', 'termination-unconfirmed'].includes(process.action)
+        || /still-live|not-observed|not-terminated/u.test(process.postObservation)) failures.push(`${record.namespace}: process post-observation blocks Fresh`)
+      if (['terminated', 'already-absent'].includes(process.action)
+        && process.postObservation !== 'leader-and-group-absent') {
+        failures.push(`${record.namespace}: process leader and group absence is unconfirmed`)
+      }
+    }
+  }
+  for (const record of cleanup.cleanups ?? [cleanup]) {
+    verifyResourceRecords(record)
+    if ((record.containerCleanupFailures?.length ?? 0) > 0) failures.push(`${record.namespace}: container cleanup failure`)
+    if ((record.skippedContainers ?? []).some((name) => !record.containerRecords?.some((container) =>
+      container.name === name && container.action === 'skipped-external-name'))) {
+      failures.push(`${record.namespace}: owned container skipped`)
+    }
+    if ((record.skippedProcesses?.length ?? 0) > 0) failures.push(`${record.namespace}: tracked process skipped`)
+    if (record.retainedRuntimeState === true) failures.push(`${record.namespace}: runtime state retained`)
+    if (record.cleanupStatus !== 'complete') failures.push(`${record.namespace}: cleanup status is not complete`)
+    if (record.residentResourceLeases?.status === 'cleanup-pending-live-services') failures.push(`${record.namespace}: resident lease remains cleanup-pending`)
+  }
+  verifyResourceRecords({
+    namespace: 'untracked-owned-runtime',
+    containerRecords: cleanup.untrackedContainerRecords ?? [],
+    processRecords: cleanup.orphanProcessRecords ?? []
+  })
+  return { status: failures.length === 0 ? 'complete' : 'blocked', failures }
+}
+
+export function verifyFreshRuntimeCleanupReceipt(receipt) {
+  if (!receipt || receipt.schema !== cleanupReceiptSchema) throw new Error('runtime cleanup receipt schema is invalid')
+  if (typeof receipt.runId !== 'string' || !receipt.runId.trim()) throw new Error('runtime cleanup receipt runId is required')
+  if (typeof receipt.invocationId !== 'string' || !receipt.invocationId.trim()) throw new Error('runtime cleanup receipt invocationId is required')
+  if (!/^[a-f0-9]{32}$/u.test(String(receipt.attemptId ?? ''))) throw new Error('runtime cleanup receipt attemptId is invalid')
+  if (!['preflight', 'postflight'].includes(receipt.phase)) throw new Error('runtime cleanup receipt phase is invalid')
+  if (!/^[a-f0-9]{40}$/u.test(String(receipt.source?.commit ?? ''))
+    || !/^[a-f0-9]{64}$/u.test(String(receipt.source?.worktreeFingerprint ?? ''))
+    || Object.keys(receipt.source ?? {}).toSorted().join(',') !== 'commit,worktreeFingerprint') {
+    throw new Error('runtime cleanup receipt source state is invalid')
+  }
+  const startedMs = Date.parse(String(receipt.startedAt ?? ''))
+  const finishedMs = Date.parse(String(receipt.finishedAt ?? ''))
+  if (!Number.isFinite(startedMs) || !Number.isFinite(finishedMs) || finishedMs < startedMs
+    || new Date(startedMs).toISOString() !== receipt.startedAt
+    || new Date(finishedMs).toISOString() !== receipt.finishedAt) {
+    throw new Error('runtime cleanup receipt timestamps are invalid')
+  }
+  if (!Array.isArray(receipt.discoveredNamespaces)
+    || receipt.discoveredNamespaces.some((value) => typeof value !== 'string' || !value)
+    || new Set(receipt.discoveredNamespaces).size !== receipt.discoveredNamespaces.length
+    || receipt.discoveredNamespaces.join('\0') !== receipt.discoveredNamespaces.toSorted().join('\0')) {
+    throw new Error('runtime cleanup receipt discovered namespaces must be sorted and unique')
+  }
+  if (!Array.isArray(receipt.cleanups)
+    || !Array.isArray(receipt.untrackedContainerRecords)
+    || !Array.isArray(receipt.orphanProcessRecords)
+    || !Array.isArray(receipt.operationFailures)
+    || !Array.isArray(receipt.residentLeaseStatus)
+    || receipt.residentLeaseStatus.length !== receipt.cleanups.length
+    || !Array.isArray(receipt.removed) || !Array.isArray(receipt.alreadyAbsent)
+    || !Array.isArray(receipt.skipped) || !Array.isArray(receipt.failures)
+    || typeof receipt.sourceStateMatchesPreflight !== 'boolean') {
+    throw new Error('runtime cleanup receipt cleanup and resident lease records are invalid')
+  }
+  for (const failure of receipt.operationFailures) {
+    if (typeof failure?.stage !== 'string' || !failure.stage
+      || typeof failure?.message !== 'string' || !failure.message) {
+      throw new Error('runtime cleanup receipt operation failure is invalid')
+    }
+  }
+  const cleanupNamespaces = receipt.cleanups.map((cleanup) => cleanup.namespace)
+  if (cleanupNamespaces.join('\0') !== receipt.discoveredNamespaces.join('\0')) {
+    throw new Error('runtime cleanup receipt discovered namespaces do not match cleanup records')
+  }
+  for (const lease of receipt.residentLeaseStatus) {
+    if (typeof lease?.namespace !== 'string' || !lease.namespace || typeof lease?.status !== 'string' || !lease.status) {
+      throw new Error('runtime cleanup receipt resident lease record is invalid')
+    }
+  }
+  if (receipt.residentLeaseStatus.map((lease) => lease.namespace).join('\0') !== cleanupNamespaces.join('\0')) {
+    throw new Error('runtime cleanup receipt resident lease namespaces do not match cleanup records')
+  }
+  const validateResourceRecords = (cleanup) => {
+    if (typeof cleanup.namespace !== 'string' || !cleanup.namespace
+      || !Array.isArray(cleanup.containerRecords) || !Array.isArray(cleanup.processRecords)) {
+      throw new Error('runtime cleanup receipt per-namespace record is invalid')
+    }
+    for (const container of cleanup.containerRecords) {
+      if (typeof container.name !== 'string' || !container.name
+        || !(container.id === null || /^[a-f0-9]{64}$/u.test(container.id))
+        || !(container.ownershipLabels === null || (container.ownershipLabels && typeof container.ownershipLabels === 'object' && !Array.isArray(container.ownershipLabels)))
+        || (container.ownershipLabels !== null && Object.values(container.ownershipLabels).some((value) => typeof value !== 'string'))
+        || !containerActions.has(container.action)
+        || !containerPostObservations.has(container.postObservation)) {
+        throw new Error('runtime cleanup receipt container identity is invalid')
+      }
+    }
+    for (const process of cleanup.processRecords) {
+      if (!(process.pid === null || (Number.isInteger(process.pid) && process.pid > 1))
+        || !(process.processGroupId === null || (Number.isInteger(process.processGroupId) && process.processGroupId > 1))
+        || !(process.startTimeTicks === null || /^\d+$/u.test(process.startTimeTicks))
+        || !(process.role === null || ['backend', 'debug-frontend', 'release-preview'].includes(process.role))
+        || typeof process.identityResult !== 'string' || !process.identityResult
+        || !processActions.has(process.action)
+        || !processPostObservations.has(process.postObservation)) {
+        throw new Error('runtime cleanup receipt process identity is invalid')
+      }
+    }
+  }
+  for (const cleanup of receipt.cleanups) {
+    if (!['complete', 'skipped'].includes(cleanup.cleanupStatus)
+      || typeof cleanup.retainedRuntimeState !== 'boolean'
+      || !Array.isArray(cleanup.containerCleanupFailures)
+      || !Array.isArray(cleanup.skippedContainers)
+      || !Array.isArray(cleanup.skippedProcesses)) {
+      throw new Error('runtime cleanup receipt cleanup outcome is invalid')
+    }
+    validateResourceRecords(cleanup)
+  }
+  validateResourceRecords({
+    namespace: 'untracked-owned-runtime',
+    containerRecords: receipt.untrackedContainerRecords,
+    processRecords: receipt.orphanProcessRecords
+  })
+  if (!/^sha256:[a-f0-9]{64}$/u.test(String(receipt.contentDigest ?? ''))
+    || receipt.contentDigest !== freshRuntimeCleanupReceiptDigest(receipt)) {
+    throw new Error('runtime cleanup receipt digest does not match its content')
+  }
+  const verification = verifyFreshRuntimeCleanup({
+    cleanups: receipt.cleanups,
+    untrackedContainerRecords: receipt.untrackedContainerRecords,
+    orphanProcessRecords: receipt.orphanProcessRecords,
+    operationFailures: receipt.operationFailures,
+    sourceStateMatchesPreflight: receipt.sourceStateMatchesPreflight
+  })
+  if (receipt.status !== verification.status
+    || JSON.stringify(receipt.failures) !== JSON.stringify(verification.failures)) {
+    throw new Error('runtime cleanup receipt status does not match independent verification')
+  }
+  const allContainerRecords = [
+    ...receipt.cleanups.flatMap((item) => item.containerRecords),
+    ...receipt.untrackedContainerRecords
+  ]
+  const allProcessRecords = [
+    ...receipt.cleanups.flatMap((item) => item.processRecords),
+    ...receipt.orphanProcessRecords
+  ]
+  const expectedRemoved = [
+    ...allContainerRecords.filter((item) => item.action === 'removed').map((item) => item.name),
+    ...allProcessRecords.filter((item) => item.action === 'terminated').map((item) => item.pid)
+  ]
+  const expectedAlreadyAbsent = [
+    ...allContainerRecords.filter((item) => item.action === 'already-absent').map((item) => item.name),
+    ...allProcessRecords.filter((item) => item.action === 'already-absent').map((item) => item.pid)
+  ]
+  const expectedSkipped = [
+    ...allContainerRecords.filter((item) => !['removed', 'already-absent'].includes(item.action)).map((item) => item.name),
+    ...allProcessRecords.filter((item) => !['terminated', 'already-absent'].includes(item.action)).map((item) => item.pid)
+  ]
+  if (JSON.stringify(receipt.removed) !== JSON.stringify(expectedRemoved)
+    || JSON.stringify(receipt.alreadyAbsent) !== JSON.stringify(expectedAlreadyAbsent)
+    || JSON.stringify(receipt.skipped) !== JSON.stringify(expectedSkipped)) {
+    throw new Error('runtime cleanup receipt action summaries do not match per-resource records')
+  }
+  return verification
+}
+
+export function assertFreshRuntimeCleanupReceipt(receipt) {
+  const verification = verifyFreshRuntimeCleanupReceipt(receipt)
+  if (verification.status !== 'complete') {
+    throw new Error(`Production Fresh runtime cleanup blocked: ${verification.failures.join('; ')}`)
+  }
+  return verification
+}
+
+export function writeFreshRuntimeCleanupReceipt({
+  root,
+  phase,
+  runId,
+  invocationId,
+  source,
+  cleanup,
+  directory = null,
+  attemptId = randomBytes(16).toString('hex')
+}) {
+  if (!cleanup.startedAt || !cleanup.finishedAt) throw new Error('runtime cleanup did not record real start and finish timestamps')
+  const startedAt = cleanup.startedAt
+  const verification = verifyFreshRuntimeCleanup(cleanup)
+  const cleanups = cleanup.cleanups ?? [cleanup]
+  const untrackedContainerRecords = cleanup.untrackedContainerRecords ?? []
+  const orphanProcessRecords = cleanup.orphanProcessRecords ?? []
+  const allContainerRecords = [
+    ...cleanups.flatMap((item) => item.containerRecords ?? []),
+    ...untrackedContainerRecords
+  ]
+  const allProcessRecords = [
+    ...cleanups.flatMap((item) => item.processRecords ?? []),
+    ...orphanProcessRecords
+  ]
+  const receipt = {
+    schema: cleanupReceiptSchema,
+    runId,
+    invocationId,
+    attemptId,
+    source,
+    sourceStateMatchesPreflight: cleanup.sourceStateMatchesPreflight ?? true,
+    phase,
+    startedAt,
+    finishedAt: cleanup.finishedAt,
+    discoveredNamespaces: cleanup.namespaces ?? [],
+    cleanups,
+    untrackedContainerRecords,
+    orphanProcessRecords,
+    operationFailures: cleanup.operationFailures ?? [],
+    removed: [
+      ...allContainerRecords.filter((item) => item.action === 'removed').map((item) => item.name),
+      ...allProcessRecords.filter((item) => item.action === 'terminated').map((item) => item.pid)
+    ],
+    alreadyAbsent: [
+      ...allContainerRecords.filter((item) => item.action === 'already-absent').map((item) => item.name),
+      ...allProcessRecords.filter((item) => item.action === 'already-absent').map((item) => item.pid)
+    ],
+    skipped: [
+      ...allContainerRecords.filter((item) => !['removed', 'already-absent'].includes(item.action)).map((item) => item.name),
+      ...allProcessRecords.filter((item) => !['terminated', 'already-absent'].includes(item.action)).map((item) => item.pid)
+    ],
+    failures: verification.failures,
+    residentLeaseStatus: cleanups.map((item) => ({ namespace: item.namespace, status: item.residentResourceLeases?.status ?? 'not-acquired' })),
+    status: verification.status
+  }
+  receipt.contentDigest = freshRuntimeCleanupReceiptDigest(receipt)
+  verifyFreshRuntimeCleanupReceipt(receipt)
+  const receiptDirectory = directory ?? path.join(root, '.tmp', 'release-evidence', 'runtime-cleanup')
+  fs.mkdirSync(receiptDirectory, { recursive: true })
+  const invocationFileId = createHash('sha256').update(String(invocationId)).digest('hex').slice(0, 16)
+  const file = path.join(receiptDirectory, `${namespaceSlug(runId)}-${invocationFileId}-${phase}-${attemptId}.json`)
+  const pending = `${file}.pending-${process.pid}-${randomBytes(8).toString('hex')}`
+  fs.writeFileSync(pending, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600, flag: 'wx' })
+  try {
+    fs.linkSync(pending, file)
+  } finally {
+    fs.rmSync(pending, { force: true })
+  }
+  return { file, receipt, verification }
 }

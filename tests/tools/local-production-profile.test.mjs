@@ -31,6 +31,7 @@ const {
     validateLocalProfiles
 } = await import(pathToFileURL(path.join(root, 'tools/test-matrix/local-profile.mjs')).href);
 const { parseMatrix } = await import(pathToFileURL(path.join(root, 'tools/test-matrix/parse-matrix.mjs')).href);
+const { runLocalProfile } = await import(pathToFileURL(path.join(root, 'tools/run-test-matrix.mjs')).href);
 
 const localBundleRunner = fs.readFileSync(path.join(root, 'tools/test/bundles/run-bundle.mjs'), 'utf8');
 const localBundleSteps = fs.readFileSync(path.join(root, 'tools/test/bundles/bundle-steps.mjs'), 'utf8');
@@ -705,6 +706,114 @@ test('local production runner attaches the logical projection only after fresh p
     assert.match(localProfileRunner, /collectFailures: true/u);
     assert.match(localProfileRunner, /failures: result\.checkpoint\.failures/u);
     assert.match(localProfileRunner, /independent failure\(s\) collected/u);
+    assert.match(localProfileRunner, /const cleanupSource = await \(runtime\.snapshotSourceState \?\? snapshotSourceState\)\(profileRoot\)[\s\S]*?executeProductionFreshPreflight\(\{[\s\S]*?receiptDirectory: runtime\.receiptDirectory[\s\S]*?fsusblog-runtime-cleanup-receipts[\s\S]*?additionalCleanup: runtime\.additionalCleanup \?\? \(\(\) => cleanupOrphanDotnetBuildServers/u);
+    assert.match(localProfileRunner, /executeProductionFreshPreflight\(\{[\s\S]*?assertFreshRuntimeCleanupReceipt\(preflightReceipt\.receipt\)[\s\S]*?cleanLocalProductionOutputs[\s\S]*?bindFreshRuntimeCleanupReceipt\(\{ root: profileRoot, receipt: preflightReceipt \}\)[\s\S]*?result = await runDag/u);
+    assert.match(localProfileRunner, /catch \(error\) \{[\s\S]*?runError = error[\s\S]*?throw error[\s\S]*?finally \{[\s\S]*?if \(runError !== null \|\| !result\)[\s\S]*?recordCheckpointFailure\(/u);
+    assert.doesNotMatch(localProfileRunner, /fs\.writeFileSync\(result\.checkpointPath/u);
+    assert.match(localProfileRunner, /runProductionFreshRuntimeCleanupPhase\(\{[\s\S]*?phase: 'postflight'[\s\S]*?preflightSource: cleanupSource,[\s\S]*?cleanupOptions: runtimeCleanupOptions/u);
+    assert.match(localProfileRunner, /writeFreshRuntimeCleanupReceipt\([\s\S]*?phase: 'postflight'[\s\S]*?source: postflightSource[\s\S]*?bindFreshRuntimeCleanupReceipt\(\{ root, receipt: postflightReceipt \}\)[\s\S]*?postflightReceipt\.verification\.status !== 'complete'[\s\S]*?result\.status = 'failure'/u);
+    assert.match(localProfileRunner, /if \(runError !== null \|\| finalizationError !== null\)[\s\S]*?status: 'failure'[\s\S]*?runtimeCleanup: result\.checkpoint\.runtimeCleanup[\s\S]*?fs\.writeFileSync\(summaryFile/u);
+    assert.match(localProfileRunner, /postflightReceipt\.verification\.status !== 'complete'[\s\S]*?postflightFailure = \{[\s\S]*?recordCheckpointRuntimeCleanup\([\s\S]*?postflightFailure\)/u);
+    assert.match(localProfileRunner, /recordCheckpointRuntimeCleanup\(result\.checkpointPath, runId, \{[\s\S]*?preflight:/u);
+    assert.match(localProfileRunner, /recordCheckpointRuntimeCleanup\(result\.checkpointPath, runId, \{[\s\S]*?postflight: runtimeCleanupReceiptReference\(root, postflightReceipt\)[\s\S]*?postflightFailure/u);
+});
+
+test('local production run keeps a blocked invocation sealed after its run directory is rebuilt', async (t) =>
+{
+    const directory = fs.mkdtempSync(path.join(process.env.TMPDIR ?? '/tmp', 'fsusblog-profile-blocked-ledger-'));
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const profileRoot = path.join(directory, 'repository');
+    const receiptDirectory = path.join(directory, 'runtime-cleanup-receipts');
+    const runsRoot = path.join(profileRoot, '.tmp/test-runs');
+    const runId = 'production-blocked-ledger';
+    const invocationId = 'production-blocked-ledger-invocation';
+    const sourceState = { commit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) };
+    const matrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
+    const options = { resume: false, planOnly: false, maxParallel: null };
+    let cleanupAttempts = 0;
+    let producerStarts = 0;
+    const runtime = {
+        root: profileRoot,
+        invocationId,
+        receiptDirectory,
+        wallClockStartedAtMs: Date.now() - 100,
+        schedulerRunIdentity: () => ({ runsRoot, runId }),
+        snapshotSourceState: async () => sourceState,
+        detectedResources: {
+            cpuCount: 8,
+            availableCpuUnits: 8,
+            availableMemoryGiB: 15,
+            load1: 0,
+            launchParallelism: 8,
+            memoryReserveGiB: 1
+        },
+        cleanupRuntime: () =>
+        {
+            cleanupAttempts += 1;
+            return {
+                namespaces: [],
+                cleanups: [],
+                untrackedContainerRecords: [],
+                orphanProcessRecords: [],
+                operationFailures: cleanupAttempts === 1
+                    ? [{ stage: 'preflight-inventory-cleanup', message: 'injected blocked attempt' }]
+                    : []
+            };
+        },
+        additionalCleanup: () => [],
+        cleanLocalProductionOutputs: () =>
+        {
+            producerStarts += 1;
+            throw new Error('producer must not start for a sealed blocked invocation');
+        }
+    };
+
+    await assert.rejects(
+        runLocalProfile(matrix, 'production', options, runtime),
+        /runtime cleanup preflight blocked/u
+    );
+    assert.equal(cleanupAttempts, 1);
+    assert.equal(producerStarts, 0);
+
+    const ledgerRoot = `${receiptDirectory}.attempt-ledgers`;
+    const [ledgerRunId] = fs.readdirSync(ledgerRoot)
+        .filter((entry) => entry !== '.locks');
+    const ledgerFile = path.join(ledgerRoot, ledgerRunId, 'checkpoint.json');
+    const sealedLedger = JSON.parse(fs.readFileSync(ledgerFile, 'utf8'));
+    assert.equal(sealedLedger.runtimeCleanupAttemptLedger.status, 'blocked');
+    assert.equal(sealedLedger.runtimeCleanupAttemptLedger.attempts.length, 1);
+    assert.equal(sealedLedger.runtimeCleanupAttemptLedger.attempts[0].status, 'blocked');
+    const ledgerJournal = fs.readFileSync(
+        path.join(ledgerRoot, ledgerRunId, 'evidence-store/journals', `${ledgerRunId}.jsonl`),
+        'utf8'
+    ).trim().split('\n').map((line) => JSON.parse(line));
+    assert.deepEqual(ledgerJournal.map((entry) => entry.eventType), ['runtime-cleanup-attempt-sealed']);
+    assert.equal(fs.existsSync(path.join(ledgerRoot, '.locks', `${ledgerRunId}.lock`)), false);
+
+    fs.rmSync(path.join(runsRoot, runId), { recursive: true, force: true });
+    await assert.rejects(
+        runLocalProfile(matrix, 'production', { ...options, resume: true }, runtime),
+        /runtime cleanup preflight blocked/u
+    );
+
+    assert.equal(cleanupAttempts, 1, 'the complete retry must not run after the authority reads a sealed block');
+    assert.equal(producerStarts, 0);
+    const rebuiltCheckpoint = JSON.parse(fs.readFileSync(
+        path.join(runsRoot, runId, 'checkpoint.json'),
+        'utf8'
+    ));
+    assert.equal(rebuiltCheckpoint.status, 'failure');
+    assert.equal(rebuiltCheckpoint.runtimeCleanup.preflight.status, 'blocked');
+    assert.equal(fs.existsSync(path.join(runsRoot, runId, 'logs')), false);
+    const rebuiltSummary = JSON.parse(fs.readFileSync(
+        path.join(profileRoot, '.tmp/local-production/summary.json'),
+        'utf8'
+    ));
+    assert.equal(rebuiltSummary.status, 'failure');
+    assert.equal(rebuiltSummary.runtimeCleanup.preflight.status, 'blocked');
+    const unchangedLedger = JSON.parse(fs.readFileSync(ledgerFile, 'utf8'));
+    assert.equal(unchangedLedger.revision, sealedLedger.revision);
+    assert.equal(unchangedLedger.runtimeCleanupAttemptLedger.attempts.length, 1);
 });
 
 test('backend bundle exposes run-bound readiness and exact-union contracts', () =>

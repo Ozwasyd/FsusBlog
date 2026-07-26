@@ -14,9 +14,12 @@ import {
   findLatestRunId,
   isProjectionOnlyCheckpointFailure,
   markCheckpointWallClockTimeout,
+  recordCheckpointFailure,
+  recordCheckpointRuntimeCleanup,
   resumeCheckpointEvidence,
   runDag,
   snapshotGitWorktree,
+  snapshotSourceState,
   tierResourceUnits,
   validateSupersedesRules
 } from './test-matrix/scheduler.mjs'
@@ -39,7 +42,18 @@ import { validateEvidenceExecutionDeclaration } from './test-matrix/projection-d
 import { buildReleaseFinalizerPlan } from './test-matrix/release-final-evidence-contract.mjs';
 import { parseWorkflowJobNeeds } from './yaml/workflow-structure.mjs'
 import { assertLocalProductionCapacity, cleanLocalProductionOutputs } from './test-matrix/fresh-production.mjs'
-import { cleanupLocalRuntime, cleanupStaleLocalRuntimes } from './test-matrix/local-runtime-cleanup.mjs'
+import {
+  appendFreshRuntimeCleanupFailure,
+  assertFreshRuntimeCleanupReceipt,
+  writeFreshRuntimeCleanupReceipt
+} from './test-matrix/local-runtime-cleanup.mjs'
+import {
+  bindFreshRuntimeCleanupReceipt,
+  executeProductionFreshPreflight,
+  recordProductionFreshFailure,
+  runProductionFreshRuntimeCleanupPhase,
+  runtimeCleanupReceiptReference
+} from './test-matrix/production-fresh-runtime-evidence.mjs'
 import { cleanupOrphanDotnetBuildServers } from './test-matrix/dotnet-build-server-cleanup.mjs'
 import {
   bindProductionBuildLayoutSource,
@@ -1554,14 +1568,16 @@ function emitProductionResourceUtilization({ profileId, profile, result, detecte
   return evidence
 }
 
-async function runLocalProfile(matrix, profileId, options) {
+export async function runLocalProfile(matrix, profileId, options, runtime = {}) {
   const profile = matrix.localProfiles[profileId]
-  const detectResources = () => localProfileSystemResources(profile, {
+  const profileRoot = path.resolve(runtime.root ?? root)
+  const detectResources = () => runtime.detectedResources ?? localProfileSystemResources(profile, {
     cpuCount: os.availableParallelism?.() ?? os.cpus().length,
     availableMemoryGiB: os.freemem() / (1024 ** 3),
     load1: process.platform === 'win32' ? 0 : os.loadavg()[0]
   })
-  const resumeIdentity = options.resume ? schedulerRunIdentity(profileId, options) : null
+  const resolveRunIdentity = runtime.schedulerRunIdentity ?? schedulerRunIdentity
+  const resumeIdentity = options.resume ? resolveRunIdentity(profileId, options) : null
   if (resumeIdentity && !options.planOnly) {
     const checkpointPath = path.join(resumeIdentity.runsRoot, resumeIdentity.runId, 'checkpoint.json')
     let resumeCheckpoint = null
@@ -1614,25 +1630,16 @@ async function runLocalProfile(matrix, profileId, options) {
       return
     }
   }
-  const wallClockStartedAtMs = Number(process.env.FSUSBLOG_TEST_INVOCATION_STARTED_AT_MS ?? Date.now())
+  const wallClockStartedAtMs = Number(
+    runtime.wallClockStartedAtMs
+      ?? process.env.FSUSBLOG_TEST_INVOCATION_STARTED_AT_MS
+      ?? Date.now())
   if (!Number.isFinite(wallClockStartedAtMs) || wallClockStartedAtMs <= 0 || wallClockStartedAtMs > Date.now()) {
     throw new Error('FSUSBLOG_TEST_INVOCATION_STARTED_AT_MS must be a valid epoch timestamp that is not in the future')
   }
-  const staleCleanup = options.planOnly ? null : cleanupStaleLocalRuntimes({
-    root,
-    discoverUntracked: true,
-    legacyContainerMinimumAgeMs: profile.budgetMs * 2,
-    orphanTerminationGraceMs: Math.ceil(profile.budgetMs / 100)
-  })
-  const dotnetBuildServerPreflightPids = options.planOnly ? [] : cleanupOrphanDotnetBuildServers({
-    root,
-    currentRunId: process.env.FSUSBLOG_TEST_RUN_ID ?? '',
-    currentNamespace: process.env.FSUSBLOG_TEST_NAMESPACE ?? '',
-    includeCurrentBinding: false,
-    includeInactiveProductionRuns: true,
-    isRunActive: schedulerRunIsActive,
-    terminationGraceMs: Math.ceil(profile.budgetMs / 100)
-  })
+  const preflightRunIdentity = resumeIdentity ?? resolveRunIdentity(profileId, options)
+  const runId = preflightRunIdentity.runId
+  const cleanupSource = await (runtime.snapshotSourceState ?? snapshotSourceState)(profileRoot)
   const detectedResources = detectResources()
   const resolvedLogicalMatrix = {
     ...matrix,
@@ -1656,9 +1663,72 @@ async function runLocalProfile(matrix, profileId, options) {
     return
   }
 
-  const { runsRoot, runId } = resumeIdentity ?? schedulerRunIdentity(profileId, options)
+  const { runsRoot } = preflightRunIdentity
+  const runNamespace = namespaceFor({ id: profileId, ciJob: `local-${profileId}` }, null, runId)
+  const runtimeCleanupOptions = {
+    legacyContainerMinimumAgeMs: profile.budgetMs * 2,
+    orphanTerminationGraceMs: Math.ceil(profile.budgetMs / 100)
+  }
+  const preflightCleanup = executeProductionFreshPreflight({
+    root: profileRoot,
+    profileId,
+    profile,
+    runId,
+    runsRoot,
+    runtimeNamespace: runNamespace,
+    invocationId: runtime.invocationId ?? summaryInvocationId,
+    sourceState: cleanupSource,
+    physicalTiers,
+    executionSource: options.resume ? 'resume' : 'fresh',
+    wallClockStartedAtMs,
+    receiptDirectory: runtime.receiptDirectory
+      ?? path.join(os.tmpdir(), 'fsusblog-runtime-cleanup-receipts'),
+    cleanupOptions: runtimeCleanupOptions,
+    cleanupRuntime: runtime.cleanupRuntime,
+    additionalCleanup: runtime.additionalCleanup ?? (() => cleanupOrphanDotnetBuildServers({
+      root: profileRoot,
+      currentRunId: process.env.FSUSBLOG_TEST_RUN_ID ?? '',
+      currentNamespace: process.env.FSUSBLOG_TEST_NAMESPACE ?? '',
+      includeCurrentBinding: false,
+      includeInactiveProductionRuns: true,
+      isRunActive: schedulerRunIsActive,
+      terminationGraceMs: Math.ceil(profile.budgetMs / 100)
+    })),
+    additionalCleanupStage: 'preflight-dotnet-build-server-cleanup'
+  })
+  const staleCleanup = preflightCleanup.cleanup
+  let preflightReceipt = preflightCleanup.receipt
+  const dotnetBuildServerPreflightPids = preflightCleanup.additionalCleanupResult ?? []
+  console.error(`[matrix:${profileId}] runtime cleanup preflight receipt=${preflightReceipt.file} status=${preflightReceipt.receipt.status}`)
   console.error(`[matrix:${profileId}] stale runtime cleanup namespaces=${staleCleanup.namespaces.length} processes=${staleCleanup.terminatedPids.length} containers=${staleCleanup.removedContainers.length} dotnetBuildServers=${dotnetBuildServerPreflightPids.length}`)
-  const freshCleanup = options.resume ? null : cleanLocalProductionOutputs(root)
+  let freshCleanup
+  try {
+    assertFreshRuntimeCleanupReceipt(preflightReceipt.receipt)
+    freshCleanup = options.resume
+      ? null
+      : (runtime.cleanLocalProductionOutputs ?? cleanLocalProductionOutputs)(profileRoot)
+    preflightReceipt = bindFreshRuntimeCleanupReceipt({ root: profileRoot, receipt: preflightReceipt })
+  } catch (error) {
+    recordProductionFreshFailure({
+      root,
+      profileId,
+      profile,
+      runId,
+      runsRoot,
+      runtimeNamespace: runNamespace,
+      sourceState: cleanupSource,
+      physicalTiers,
+      executionSource: options.resume ? 'resume' : 'fresh',
+      wallClockStartedAtMs,
+      failure: {
+        tierId: profileId,
+        exitCode: 1,
+        reason: `Production Fresh preflight cleanup/evidence binding failed: ${error.message}`
+      },
+      stage: 'runtime-cleanup-preflight-binding-failed'
+    })
+    throw error
+  }
   const buildLayout = prepareProductionBuildLayout({ root, runId, fresh: !options.resume })
   const preparedBuildSourceState = buildLayout.manifest.sourceState
   const buildGc = options.resume ? null : scheduleStaleProductionBuildGc({ root, currentRunId: runId })
@@ -1673,16 +1743,18 @@ async function runLocalProfile(matrix, profileId, options) {
   console.error(`[matrix:${profileId}] dynamic resources cpu=${detectedResources.availableCpuUnits}/${detectedResources.cpuCount} memory=${detectedResources.availableMemoryGiB.toFixed(1)}GiB reserve=${detectedResources.memoryReserveGiB.toFixed(1)}GiB load1=${detectedResources.load1.toFixed(2)} launchParallelism=${launchParallelism}`)
   const target = physicalTiers.at(-1)
   target.selfBootstraps = true
-  const runNamespace = namespaceFor({ id: profileId, ciJob: `local-${profileId}` }, null, runId)
   prepareNamespaceEnvironmentIfNeeded(physicalTiers, runNamespace)
 
   let result
+  let runError = null
+  let postflightReceipt = null
   try {
     result = await runDag({
       tiers: physicalTiers,
       root,
       runsRoot,
       runId,
+      runtimeNamespace: runNamespace,
       targetTierId: profileId,
       mode: options.resume ? 'resume' : 'fresh',
       resume: options.resume,
@@ -1784,6 +1856,13 @@ async function runLocalProfile(matrix, profileId, options) {
     const ungeneratedTierIds = profile.bundles
       .filter((bundle) => !completedTierIds.has(`local-${profileId}-${bundle.id}`))
       .flatMap((bundle) => bundle.members)
+    result.checkpoint = recordCheckpointRuntimeCleanup(result.checkpointPath, runId, {
+      preflight: {
+        path: relativeToRoot(preflightReceipt.file),
+        status: preflightReceipt.receipt.status,
+        digest: preflightReceipt.receipt.contentDigest
+      }
+    })
     const summaryFile = path.join(root, `.tmp/local-${profileId}/summary.json`)
     fs.mkdirSync(path.dirname(summaryFile), { recursive: true })
     const summary = {
@@ -1803,6 +1882,13 @@ async function runLocalProfile(matrix, profileId, options) {
       ungeneratedTierIds,
       failure: result.failure ?? null,
       failures: result.checkpoint.failures ?? (result.failure ? [result.failure] : []),
+      runtimeCleanup: {
+        preflight: {
+          path: relativeToRoot(preflightReceipt.file),
+          status: preflightReceipt.receipt.status,
+          digest: preflightReceipt.receipt.contentDigest
+        }
+      },
       generatedAt: new Date().toISOString()
     }
     const summaryDurationErrors = validateLocalProfileRunSummary(summary, profile)
@@ -1815,40 +1901,180 @@ async function runLocalProfile(matrix, profileId, options) {
     fs.writeFileSync(summaryFile, `${JSON.stringify(summary, null, 2)}\n`)
 
     console.error(`[matrix:${profileId}] run=${result.runId} checkpoint=${relativeToRoot(result.checkpointPath)} summary=${relativeToRoot(summaryFile)}`)
+  } catch (error) {
+    runError = error
+    throw error
   } finally {
-    cleanupSensitiveFixtures(runNamespace, loadNamespaceEnv(runNamespace))
-    const cleanup = cleanupLocalRuntime({ root, namespace: runNamespace })
-    // Every managed bundle has settled before this finally block. Reclaim build
-    // servers here so a cancelled compiler cannot steal CPU from the next fresh
-    // run; doing this inside a bundle would race sibling dotnet processes.
-    const buildServerShutdown = spawnSync('dotnet', ['build-server', 'shutdown'], {
-      cwd: root,
-      encoding: 'utf8',
-      timeout: 5_000
-    })
-    const dotnetBuildServerPostflightPids = cleanupOrphanDotnetBuildServers({
-      root,
-      currentRunId: runId,
-      currentNamespace: runNamespace,
-      includeCurrentBinding: true,
-      includeInactiveProductionRuns: false,
-      isRunActive: schedulerRunIsActive,
-      terminationGraceMs: Math.ceil(profile.budgetMs / 100)
-    })
+    let finalizationError = null
+    if (runError !== null || !result) {
+      const failure = {
+        tierId: profileId,
+        exitCode: 1,
+        reason: runError?.message ?? 'Production Fresh scheduler failed before producing a run result'
+      }
+      const checkpointPath = result?.checkpointPath ?? path.join(runsRoot, runId, 'checkpoint.json')
+      const checkpoint = recordCheckpointFailure(checkpointPath, runId, failure, {
+        targetTierId: profileId,
+        sourceState: cleanupSource,
+        runtimeNamespace: runNamespace,
+        startedAt: new Date(wallClockStartedAtMs).toISOString(),
+        stage: 'local-production-run-failed',
+        eventType: 'local-production-run-failed',
+        step: 'scheduler'
+      })
+      result = {
+        ...(result ?? {}),
+        status: 'failure',
+        failure: result?.failure ?? failure,
+        checkpoint,
+        checkpointPath,
+        runId
+      }
+    }
     const cleanupFile = path.join(root, `.tmp/local-${profileId}/runtime-cleanup.json`)
-    fs.mkdirSync(path.dirname(cleanupFile), { recursive: true })
-    fs.writeFileSync(cleanupFile, `${JSON.stringify({
-      ...cleanup,
-      dotnetBuildServer: {
-        status: buildServerShutdown.status,
-        signal: buildServerShutdown.signal,
-        error: buildServerShutdown.error?.message ?? null,
-        preflightOrphanPids: dotnetBuildServerPreflightPids,
-        postflightOrphanPids: dotnetBuildServerPostflightPids
-      },
-      generatedAt: new Date().toISOString()
-    }, null, 2)}\n`)
-    console.error(`[matrix:${profileId}] runtime cleanup=${relativeToRoot(cleanupFile)} containers=${cleanup.removedContainers.length}`)
+    let postflightCleanup = null
+    try {
+      const namespaceEnvironment = loadNamespaceEnv(runNamespace)
+      let sensitiveFixtureFailure = null
+      try {
+        cleanupSensitiveFixtures(runNamespace, namespaceEnvironment)
+      } catch (error) {
+        sensitiveFixtureFailure = error
+      }
+      // Every managed bundle has settled before this finally block. Reclaim
+      // build servers here so a cancelled compiler cannot steal CPU from the
+      // next fresh run; doing this inside a bundle would race sibling dotnet
+      // processes.
+      const buildServerShutdown = spawnSync('dotnet', ['build-server', 'shutdown'], {
+        cwd: root,
+        encoding: 'utf8',
+        timeout: 5_000
+      })
+      let dotnetBuildServerPostflightPids = []
+      let dotnetBuildServerPostflightFailure = null
+      try {
+        dotnetBuildServerPostflightPids = cleanupOrphanDotnetBuildServers({
+          root,
+          currentRunId: runId,
+          currentNamespace: runNamespace,
+          includeCurrentBinding: true,
+          includeInactiveProductionRuns: false,
+          isRunActive: schedulerRunIsActive,
+          terminationGraceMs: Math.ceil(profile.budgetMs / 100)
+        })
+      } catch (error) {
+        dotnetBuildServerPostflightFailure = error
+      }
+      postflightCleanup = runProductionFreshRuntimeCleanupPhase({
+        root,
+        phase: 'postflight',
+        source: cleanupSource,
+        preflightSource: cleanupSource,
+        cleanupOptions: runtimeCleanupOptions
+      })
+      if (sensitiveFixtureFailure !== null) {
+        postflightCleanup = appendFreshRuntimeCleanupFailure(
+          postflightCleanup,
+          sensitiveFixtureFailure,
+          'postflight-sensitive-fixture-cleanup')
+      }
+      if (dotnetBuildServerPostflightFailure !== null) {
+        postflightCleanup = appendFreshRuntimeCleanupFailure(
+          postflightCleanup,
+          dotnetBuildServerPostflightFailure,
+          'postflight-dotnet-build-server-cleanup')
+      }
+      const postflightSource = await snapshotSourceState(root)
+      postflightCleanup = {
+        ...postflightCleanup,
+        sourceStateMatchesPreflight: postflightSource.commit === cleanupSource.commit
+          && postflightSource.worktreeFingerprint === cleanupSource.worktreeFingerprint
+      }
+      postflightReceipt = writeFreshRuntimeCleanupReceipt({
+        root,
+        phase: 'postflight',
+        runId,
+        invocationId: summaryInvocationId,
+        source: postflightSource,
+        cleanup: postflightCleanup,
+        directory: path.join(os.tmpdir(), 'fsusblog-runtime-cleanup-receipts')
+      })
+      console.error(`[matrix:${profileId}] runtime cleanup postflight receipt=${postflightReceipt.file} status=${postflightReceipt.receipt.status}`)
+      postflightReceipt = bindFreshRuntimeCleanupReceipt({ root, receipt: postflightReceipt })
+      let postflightFailure = null
+      if (postflightReceipt.verification.status !== 'complete') {
+        postflightFailure = {
+          tierId: profileId,
+          exitCode: 1,
+          reason: `Production Fresh runtime cleanup postflight blocked: ${postflightReceipt.verification.failures.join('; ')}`
+        }
+        result.status = 'failure'
+        result.failure ??= postflightFailure
+      }
+      result.checkpoint = recordCheckpointRuntimeCleanup(result.checkpointPath, runId, {
+        ...(result.checkpoint.runtimeCleanup ?? {}),
+        postflight: runtimeCleanupReceiptReference(root, postflightReceipt)
+      }, postflightFailure)
+      fs.mkdirSync(path.dirname(cleanupFile), { recursive: true })
+      fs.writeFileSync(cleanupFile, `${JSON.stringify({
+        ...postflightCleanup,
+        receipt: runtimeCleanupReceiptReference(root, postflightReceipt),
+        dotnetBuildServer: {
+          status: buildServerShutdown.status,
+          signal: buildServerShutdown.signal,
+          error: buildServerShutdown.error?.message ?? null,
+          preflightOrphanPids: dotnetBuildServerPreflightPids,
+          postflightOrphanPids: dotnetBuildServerPostflightPids
+        },
+        generatedAt: new Date().toISOString()
+      }, null, 2)}\n`)
+    } catch (error) {
+      finalizationError = error
+      const failure = {
+        tierId: profileId,
+        exitCode: 1,
+        reason: `Production Fresh runtime cleanup finalization failed: ${error.message}`
+      }
+      result.status = 'failure'
+      result.failure ??= failure
+      result.checkpoint = recordCheckpointFailure(result.checkpointPath, runId, failure, {
+        targetTierId: profileId,
+        sourceState: cleanupSource,
+        runtimeNamespace: runNamespace,
+        stage: 'runtime-cleanup-finalization-failed',
+        eventType: 'runtime-cleanup-finalization-failed',
+        step: 'runtime-cleanup'
+      })
+    }
+    if (runError !== null || finalizationError !== null) {
+      const summaryFile = path.join(root, `.tmp/local-${profileId}/summary.json`)
+      const summary = {
+        schema: 'fsusblog.local-production.run.v1',
+        status: 'failure',
+        executionSource: options.resume ? 'resume' : 'fresh',
+        schedulerRunId: runId,
+        budgetMs: profile.budgetMs,
+        durationMs: Math.max(0, Date.now() - wallClockStartedAtMs),
+        physicalBundles: physicalTiers.map((tier) => ({
+          id: tier.physicalBundleId,
+          status: result.checkpoint.tiers?.[tier.id]?.status ?? 'not-run',
+          durationMs: result.checkpoint.tiers?.[tier.id]?.durationMs ?? 0
+        })),
+        projectedTierIds: [],
+        summaryOnlyTierIds: profile.summaryOnly ?? [],
+        ungeneratedTierIds: profile.bundles.flatMap((bundle) => bundle.members),
+        failure: result.failure,
+        failures: result.checkpoint.failures,
+        runtimeCleanup: result.checkpoint.runtimeCleanup,
+        generatedAt: new Date().toISOString()
+      }
+      fs.mkdirSync(path.dirname(summaryFile), { recursive: true })
+      fs.writeFileSync(summaryFile, `${JSON.stringify(summary, null, 2)}\n`)
+    }
+    if (postflightCleanup !== null) {
+      console.error(`[matrix:${profileId}] runtime cleanup=${relativeToRoot(cleanupFile)} containers=${postflightCleanup.removedContainers?.length ?? 0}`)
+    }
+    if (finalizationError !== null && runError === null) throw finalizationError
   }
 
   const completedAtMs = Date.now()
@@ -1875,6 +2101,13 @@ async function runLocalProfile(matrix, profileId, options) {
     summary.status = result.status
     summary.failure = result.failure ?? null
     summary.failures = result.checkpoint.failures ?? (result.failure ? [result.failure] : [])
+    if (postflightReceipt !== null) {
+      summary.runtimeCleanup.postflight = {
+        path: relativeToRoot(postflightReceipt.file),
+        status: postflightReceipt.receipt.status,
+        digest: postflightReceipt.receipt.contentDigest
+      }
+    }
     summary.generatedAt = new Date(completedAtMs).toISOString()
     fs.writeFileSync(summaryFile, `${JSON.stringify(summary, null, 2)}\n`)
   }
@@ -3425,10 +3658,12 @@ async function main() {
   throw new Error(`unknown command: ${command}`)
 }
 
-try {
-  await main()
-} catch (error) {
-  console.error(`[matrix] ${error.message}`)
-  if (process.env.FSUSBLOG_MATRIX_DEBUG_STACK === '1' && error?.stack) console.error(error.stack)
-  process.exit(1)
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    await main()
+  } catch (error) {
+    console.error(`[matrix] ${error.message}`)
+    if (process.env.FSUSBLOG_MATRIX_DEBUG_STACK === '1' && error?.stack) console.error(error.stack)
+    process.exit(1)
+  }
 }

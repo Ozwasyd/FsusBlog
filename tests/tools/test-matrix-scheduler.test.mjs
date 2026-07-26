@@ -58,6 +58,141 @@ test('ESM fixture materializer follows first- and second-level relative imports 
 test('ESM fixture preflight reports importer, specifier and resolved target for a missing dependency', assertMissingDependencyDiagnostic);
 test('ESM fixture materializer rejects a relative import outside explicit allowed roots', assertAllowedRootBoundary);
 
+test('runtime cleanup creates an early failure checkpoint through journaled scheduler authority', async (t) =>
+{
+    const { recordCheckpointRuntimeCleanup } = await loadScheduler();
+    assert.equal(typeof recordCheckpointRuntimeCleanup, 'function');
+    const temp = createTempDir('runtime-cleanup-early-checkpoint');
+    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+    const runsRoot = path.join(temp, 'runs');
+    const runId = 'production-preflight-blocked';
+    const checkpointFile = path.join(runsRoot, runId, 'checkpoint.json');
+    const failure = {
+        tierId: 'production',
+        exitCode: 1,
+        reason: 'runtime cleanup preflight blocked'
+    };
+    const sourceState = {
+        commit: 'a'.repeat(40),
+        worktreeFingerprint: 'b'.repeat(64)
+    };
+    const checkpoint = recordCheckpointRuntimeCleanup(
+        checkpointFile,
+        runId,
+        {
+            preflight: {
+                path: '.tmp/release-evidence/runtime-cleanup/preflight.json',
+                status: 'blocked',
+                digest: `sha256:${'c'.repeat(64)}`
+            }
+        },
+        failure,
+        {
+            targetTierId: 'production',
+            sourceState,
+            runtimeNamespace: `${runId}-fresh-local-production-0`
+        }
+    );
+
+    assert.equal(checkpoint.status, 'failure');
+    assert.equal(checkpoint.runtimeCleanup.preflight.status, 'blocked');
+    assert.equal(checkpoint.revision, 1);
+    assert.deepEqual(JSON.parse(fs.readFileSync(checkpointFile, 'utf8')), checkpoint);
+    const journalFile = path.join(
+        path.dirname(checkpointFile),
+        'evidence-store',
+        'journals',
+        `${runId}.jsonl`
+    );
+    const journal = fs.readFileSync(journalFile, 'utf8')
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line));
+    assert.equal(journal.length, 1);
+    assert.equal(journal[0].eventType, 'runtime-cleanup-blocked');
+    assert.equal(
+        fs.existsSync(path.join(
+            path.dirname(checkpointFile),
+            'evidence-store',
+            'checkpoints',
+            `${runId}.json`
+        )),
+        true
+    );
+    assert.throws(
+        () => recordCheckpointRuntimeCleanup(
+            checkpointFile,
+            runId,
+            {
+                preflight: {
+                    path: '.tmp/release-evidence/runtime-cleanup/retry.json',
+                    status: 'complete',
+                    digest: `sha256:${'d'.repeat(64)}`
+                }
+            }
+        ),
+        /cannot upgrade blocked evidence/u
+    );
+    assert.equal(
+        JSON.parse(fs.readFileSync(checkpointFile, 'utf8')).runtimeCleanup.preflight.status,
+        'blocked'
+    );
+});
+
+test('checkpoint failure fallback journals a valid failure after runtime cleanup evidence rejects', async (t) =>
+{
+    const { recordCheckpointFailure, recordCheckpointRuntimeCleanup } = await loadScheduler();
+    assert.equal(typeof recordCheckpointFailure, 'function');
+    const temp = createTempDir('runtime-cleanup-fallback-checkpoint');
+    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+    const runsRoot = path.join(temp, 'runs');
+    const runId = 'production-finalization-failed';
+    const checkpointFile = path.join(runsRoot, runId, 'checkpoint.json');
+    const sourceState = {
+        commit: 'a'.repeat(40),
+        worktreeFingerprint: 'b'.repeat(64)
+    };
+    assert.throws(
+        () => recordCheckpointRuntimeCleanup(
+            checkpointFile,
+            runId,
+            { postflight: { path: '', status: 'blocked', digest: 'invalid' } },
+            null
+        ),
+        /evidence is invalid/u
+    );
+    const failure = {
+        tierId: 'production',
+        exitCode: 1,
+        reason: 'postflight receipt persistence failed'
+    };
+    const checkpoint = recordCheckpointFailure(checkpointFile, runId, failure, {
+        targetTierId: 'production',
+        sourceState,
+        runtimeNamespace: `${runId}-fresh-local-production-0`,
+        stage: 'runtime-cleanup-finalization-failed',
+        eventType: 'runtime-cleanup-finalization-failed',
+        step: 'runtime-cleanup'
+    });
+
+    assert.equal(checkpoint.status, 'failure');
+    assert.equal(checkpoint.failure.reason, failure.reason);
+    assert.equal(checkpoint.revision, 1);
+    const journalFile = path.join(
+        path.dirname(checkpointFile),
+        'evidence-store',
+        'journals',
+        `${runId}.jsonl`
+    );
+    const journal = fs.readFileSync(journalFile, 'utf8')
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line));
+    assert.deepEqual(journal.map((entry) => entry.eventType), [
+        'runtime-cleanup-finalization-failed'
+    ]);
+});
+
 function tier(id, overrides = {})
 {
     return {

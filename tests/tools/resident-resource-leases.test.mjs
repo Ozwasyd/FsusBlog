@@ -22,6 +22,7 @@ import {
   writeResidentLeaseDocument
 } from '../../tools/test-matrix/resident-resource-leases.mjs'
 import { publishResidentInventoryFromEnvironment } from '../../tools/test-matrix/resident-resource-leases-cli.mjs'
+import { recordCheckpointResidentLeaseCleanup } from '../../tools/test-matrix/scheduler.mjs'
 
 function services() {
   return [
@@ -445,6 +446,19 @@ test('cleanup evidence releases the ledger only after every bound identity is co
   writeResidentLeaseDocument(inventoryFile, inventory())
   writeResidentLeaseDocument(checkpointFile, {
     schema: 'fsusblog.test-matrix.checkpoint.v1',
+    runId: 'run-1',
+    targetTierId: 'production',
+    mode: 'fresh',
+    authoritative: true,
+    status: 'success',
+    startedAt: '2026-07-14T00:00:00.000Z',
+    updatedAt: '2026-07-14T00:00:01.000Z',
+    finishedAt: '2026-07-14T00:00:01.000Z',
+    sourceState: inventory().sourceState,
+    completedTiers: [],
+    tiers: {},
+    failure: null,
+    failures: [],
     residentResourceLeases: {
       status: 'handed-off',
       inventoryFile: '.tmp/test-runs/run-1/resident-resource-leases.json',
@@ -453,20 +467,53 @@ test('cleanup evidence releases the ledger only after every bound identity is co
       events: []
     }
   })
+  const checkpointAuthority = (file, updateCheckpoint) =>
+    recordCheckpointResidentLeaseCleanup(file, 'run-1', updateCheckpoint)
+  const lockPath = path.join(root, '.tmp/test-runs/.locks/run-1.lock')
+  fs.mkdirSync(lockPath, { recursive: true })
+  fs.writeFileSync(path.join(lockPath, 'owner.json'), `${JSON.stringify({
+    pid: process.pid,
+    token: 'resident-cleanup-test',
+    startedAt: new Date().toISOString()
+  })}\n`)
+  assert.throws(() => finalizeResidentLeaseCleanup({
+    root,
+    checkpointFile,
+    cleanup: { terminatedPids: [] },
+    checkpointAuthority,
+    observeService: () => ({ status: 'unknown', reason: 'still-visible' })
+  }), /already active/u)
+  assert.equal(JSON.parse(fs.readFileSync(checkpointFile, 'utf8')).revision, undefined)
+  fs.rmSync(lockPath, { recursive: true, force: true })
+
   const retained = finalizeResidentLeaseCleanup({
     root,
     checkpointFile,
     cleanup: { terminatedPids: [] },
+    checkpointAuthority,
     observeService: () => ({ status: 'unknown', reason: 'still-visible' })
   })
   assert.equal(retained.residentResourceLeases.status, 'cleanup-pending-live-services')
   assert.ok(retained.residentResourceLeases.reservation.cpuUnits > 0)
+  assert.equal(retained.revision, 1)
+  assert.equal(fs.existsSync(lockPath), false)
   const released = finalizeResidentLeaseCleanup({
     root,
     checkpointFile,
     cleanup: { terminatedPids: [42] },
+    checkpointAuthority,
     observeService: () => ({ status: 'exited' })
   })
   assert.equal(released.residentResourceLeases.status, 'released')
   assert.deepEqual(released.residentResourceLeases.reservation, { cpuUnits: 0, memoryGiB: 0 })
+  assert.equal(released.revision, 2)
+  assert.equal(fs.existsSync(lockPath), false)
+  const journal = fs.readFileSync(
+    path.join(runDirectory, 'evidence-store/journals/run-1.jsonl'),
+    'utf8'
+  ).trim().split('\n').map((line) => JSON.parse(line))
+  assert.deepEqual(journal.map((entry) => entry.eventType), [
+    'resident-lease-cleanup-recorded',
+    'resident-lease-cleanup-recorded'
+  ])
 })

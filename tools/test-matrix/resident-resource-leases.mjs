@@ -686,54 +686,58 @@ export function finalizeResidentLeaseCleanup({
   root,
   checkpointFile,
   cleanup,
+  checkpointAuthority,
   observeService = observeResidentService,
   timeoutMs = null
 }) {
+  if (typeof checkpointAuthority !== 'function') {
+    throw new Error('resident lease cleanup requires scheduler checkpoint authority')
+  }
   const absoluteRoot = path.resolve(root)
-  const checkpoint = readResidentLeaseDocument(checkpointFile)
-  const evidence = checkpoint.residentResourceLeases
-  if (!evidence || evidence.status === 'not-acquired') return checkpoint
-  const inventoryFile = path.resolve(absoluteRoot, evidence.inventoryFile)
-  const inventory = readResidentLeaseDocument(inventoryFile)
-  const observedTierDurationMs = Math.max(0, ...Object.values(checkpoint.tiers ?? {})
-    .map((tier) => Math.max(0, Number(tier?.durationMs) || 0)))
-  const effectiveTimeoutMs = Number.isFinite(Number(timeoutMs)) && Number(timeoutMs) >= 0
-    ? Number(timeoutMs)
-    : Math.max(100, Math.min(5_000, Math.ceil(observedTierDurationMs * 0.02)))
-  const deadline = Date.now() + effectiveTimeoutMs
-  const waitBuffer = new Int32Array(new SharedArrayBuffer(4))
-  let reconciliation
-  do {
-    reconciliation = reconcileResidentLeaseInventory(inventory, { observeService })
-    if (reconciliation.fullyReleased || Date.now() >= deadline) break
-    Atomics.wait(waitBuffer, 0, 0, Math.min(100, Math.max(1, deadline - Date.now())))
-  } while (true)
-  for (const service of reconciliation.services) {
-    const serviceEvidence = evidence.services[service.id] ??= {
-      generation: service.generation,
-      reservation: inventory.services.find((item) => item.id === service.id)?.reservation ?? null,
-      history: [],
-      restartCount: 0,
-      releasedAt: null
+  return checkpointAuthority(checkpointFile, (checkpoint) => {
+    const evidence = checkpoint.residentResourceLeases
+    if (!evidence || evidence.status === 'not-acquired') return checkpoint
+    const inventoryFile = path.resolve(absoluteRoot, evidence.inventoryFile)
+    const inventory = readResidentLeaseDocument(inventoryFile)
+    const observedTierDurationMs = Math.max(0, ...Object.values(checkpoint.tiers ?? {})
+      .map((tier) => Math.max(0, Number(tier?.durationMs) || 0)))
+    const effectiveTimeoutMs = Number.isFinite(Number(timeoutMs)) && Number(timeoutMs) >= 0
+      ? Number(timeoutMs)
+      : Math.max(100, Math.min(5_000, Math.ceil(observedTierDurationMs * 0.02)))
+    const deadline = Date.now() + effectiveTimeoutMs
+    const waitBuffer = new Int32Array(new SharedArrayBuffer(4))
+    let reconciliation
+    do {
+      reconciliation = reconcileResidentLeaseInventory(inventory, { observeService })
+      if (reconciliation.fullyReleased || Date.now() >= deadline) break
+      Atomics.wait(waitBuffer, 0, 0, Math.min(100, Math.max(1, deadline - Date.now())))
+    } while (true)
+    for (const service of reconciliation.services) {
+      const serviceEvidence = evidence.services[service.id] ??= {
+        generation: service.generation,
+        reservation: inventory.services.find((item) => item.id === service.id)?.reservation ?? null,
+        history: [],
+        restartCount: 0,
+        releasedAt: null
+      }
+      serviceEvidence.history.push(service)
+      if (service.status === 'exited' && serviceEvidence.releasedAt === null) {
+        serviceEvidence.releasedAt = service.observedAt
+      }
     }
-    serviceEvidence.history.push(service)
-    if (service.status === 'exited' && serviceEvidence.releasedAt === null) {
-      serviceEvidence.releasedAt = service.observedAt
+    evidence.reservation = reconciliation.reservation
+    evidence.cleanup = cleanup
+    evidence.events.push({
+      type: reconciliation.fullyReleased ? 'cleanup-confirmed-release' : 'cleanup-retained-live',
+      at: new Date().toISOString(),
+      reservation: reconciliation.reservation
+    })
+    if (reconciliation.fullyReleased) {
+      evidence.status = 'released'
+      evidence.releasedAt = new Date().toISOString()
+    } else {
+      evidence.status = 'cleanup-pending-live-services'
     }
-  }
-  evidence.reservation = reconciliation.reservation
-  evidence.cleanup = cleanup
-  evidence.events.push({
-    type: reconciliation.fullyReleased ? 'cleanup-confirmed-release' : 'cleanup-retained-live',
-    at: new Date().toISOString(),
-    reservation: reconciliation.reservation
+    return checkpoint
   })
-  if (reconciliation.fullyReleased) {
-    evidence.status = 'released'
-    evidence.releasedAt = new Date().toISOString()
-  } else {
-    evidence.status = 'cleanup-pending-live-services'
-  }
-  writeResidentLeaseDocument(checkpointFile, checkpoint)
-  return checkpoint
 }

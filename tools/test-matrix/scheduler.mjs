@@ -34,6 +34,7 @@ import {
 } from './scheduler-admission-support.mjs'
 
 const checkpointSchema = 'fsusblog.test-matrix.checkpoint.v1'
+const runtimeCleanupAttemptLedgerSchema = 'fsusblog.production-fresh.runtime-cleanup-attempt-ledger.v1'
 const protectedSupersedesPattern = /(^|[^a-z])(property|model|perf|performance|benchmark|runtime)([^a-z]|$)/i
 const protectedAssertionTypes = new Set(['runtime', 'browser', 'perf', 'fuzz', 'mutation'])
 const protectedExecutionVariants = new Set(['property', 'model', 'performance', 'runtime'])
@@ -302,6 +303,14 @@ export async function snapshotGitWorktree(root) {
     }
   }
   return { entries, fingerprint: fingerprint(entries), hashedPathCount }
+}
+
+export async function snapshotSourceState(root) {
+  const snapshot = await snapshotGitWorktree(root)
+  return {
+    commit: gitHead(root),
+    worktreeFingerprint: snapshot.fingerprint
+  }
 }
 
 function changedSnapshotPaths(before, after) {
@@ -1051,7 +1060,8 @@ function schedulerPersistence(checkpointFile, checkpoint) {
   const key = path.resolve(checkpointFile)
   let persistence = checkpointPersistence.get(key)
   if (persistence
-    && (persistence.store.runId !== checkpoint.runId
+    && (!fs.existsSync(persistence.store.root)
+      || persistence.store.runId !== checkpoint.runId
       || !sameCheckpointSource(persistence.store.sourceState, checkpoint.sourceState))) {
     checkpointPersistence.delete(key)
     persistence = null
@@ -1152,6 +1162,361 @@ export function markCheckpointWallClockTimeout(checkpointFile, failure, finished
     step: 'scheduler'
   })
   return checkpoint
+}
+
+function createEarlyFailureCheckpoint(expectedRunId, failure, options) {
+  if (typeof options?.targetTierId !== 'string' || !options.targetTierId) {
+    throw new Error('early scheduler checkpoint requires targetTierId')
+  }
+  if (typeof options?.sourceState?.commit !== 'string'
+    || typeof options?.sourceState?.worktreeFingerprint !== 'string') {
+    throw new Error('early scheduler checkpoint requires sourceState')
+  }
+  const startedAt = options.startedAt ?? new Date().toISOString()
+  return {
+    schema: checkpointSchema,
+    runId: expectedRunId,
+    targetTierId: options.targetTierId,
+    mode: options.mode ?? 'fresh',
+    authoritative: (options.mode ?? 'fresh') === 'fresh',
+    status: 'failure',
+    startedAt,
+    updatedAt: startedAt,
+    finishedAt: new Date().toISOString(),
+    sourceState: structuredClone(options.sourceState),
+    ...(options.runtimeNamespace ? { runtimeNamespace: options.runtimeNamespace } : {}),
+    completedTiers: [],
+    tiers: {},
+    failure,
+    failurePoint: failure.tierId ?? options.targetTierId,
+    failures: [failure]
+  }
+}
+
+function appendCheckpointFailure(checkpoint, failure) {
+  checkpoint.status = 'failure'
+  checkpoint.failure ??= failure
+  checkpoint.failurePoint ??= failure.tierId ?? checkpoint.targetTierId
+  checkpoint.failures ??= []
+  if (!checkpoint.failures.some((entry) => (
+    entry?.tierId === failure.tierId && entry?.reason === failure.reason
+  ))) {
+    checkpoint.failures.push(failure)
+  }
+  checkpoint.finishedAt = new Date().toISOString()
+}
+
+function readOrCreateFailureCheckpoint(checkpointFile, expectedRunId, failure, options) {
+  const checkpoint = readCheckpoint(checkpointFile)
+  if (checkpoint) {
+    if (checkpoint.runId !== expectedRunId) {
+      throw new Error(`missing or mismatched scheduler checkpoint: ${checkpointFile}`)
+    }
+    return checkpoint
+  }
+  if (failure === null) {
+    throw new Error(`missing or mismatched scheduler checkpoint: ${checkpointFile}`)
+  }
+  fs.mkdirSync(path.dirname(checkpointFile), { recursive: true })
+  return createEarlyFailureCheckpoint(expectedRunId, failure, options)
+}
+
+export function recordCheckpointFailure(checkpointFileValue, expectedRunId, failure, options = {}) {
+  const checkpointFile = path.resolve(checkpointFileValue)
+  const runDirectory = path.dirname(checkpointFile)
+  const runsRoot = path.dirname(runDirectory)
+  const releaseLock = acquireRunLock(runsRoot, expectedRunId)
+  try {
+    const checkpoint = readOrCreateFailureCheckpoint(
+      checkpointFile,
+      expectedRunId,
+      failure,
+      options)
+    appendCheckpointFailure(checkpoint, failure)
+    writeCheckpoint(checkpointFile, checkpoint, {
+      boundary: true,
+      stage: options.stage ?? 'run-failed',
+      eventType: options.eventType ?? 'run-failed',
+      tier: failure.tierId ?? checkpoint.targetTierId,
+      step: options.step ?? 'scheduler'
+    })
+    return checkpoint
+  } finally {
+    releaseLock()
+  }
+}
+
+export function recordCheckpointRuntimeCleanup(
+  checkpointFileValue,
+  expectedRunId,
+  runtimeCleanup,
+  failure = null,
+  options = {}
+) {
+  const checkpointFile = path.resolve(checkpointFileValue)
+  const runDirectory = path.dirname(checkpointFile)
+  const runsRoot = path.dirname(runDirectory)
+  const phases = Object.entries(runtimeCleanup ?? {})
+  if (phases.length === 0 || phases.some(([phase, evidence]) => (
+    !['preflight', 'postflight'].includes(phase)
+    || typeof evidence?.path !== 'string'
+    || !evidence.path
+    || !['complete', 'blocked'].includes(evidence.status)
+    || !/^sha256:[a-f0-9]{64}$/u.test(String(evidence.digest ?? ''))
+  ))) {
+    throw new Error('checkpoint runtime cleanup evidence is invalid')
+  }
+  const releaseLock = acquireRunLock(runsRoot, expectedRunId)
+  try {
+    const checkpoint = readOrCreateFailureCheckpoint(
+      checkpointFile,
+      expectedRunId,
+      failure,
+      options)
+    for (const [phase, evidence] of phases) {
+      if (checkpoint.runtimeCleanup?.[phase]?.status === 'blocked'
+        && evidence.status === 'complete') {
+        throw new Error(`checkpoint runtime cleanup ${phase} cannot upgrade blocked evidence`)
+      }
+    }
+    checkpoint.runtimeCleanup = structuredClone(runtimeCleanup)
+    if (failure !== null) {
+      appendCheckpointFailure(checkpoint, failure)
+    }
+    writeCheckpoint(checkpointFile, checkpoint, {
+      boundary: true,
+      stage: failure === null ? 'runtime-cleanup-recorded' : 'runtime-cleanup-blocked',
+      eventType: failure === null ? 'runtime-cleanup-recorded' : 'runtime-cleanup-blocked',
+      tier: checkpoint.targetTierId,
+      step: 'runtime-cleanup'
+    })
+    return checkpoint
+  } finally {
+    releaseLock()
+  }
+}
+
+function runtimeCleanupAttemptLedger(checkpoint, {
+  expectedRunId,
+  targetTierId,
+  schedulerRunId,
+  invocationId,
+  repositoryRoot
+}) {
+  if (!checkpoint
+    || checkpoint.runId !== expectedRunId
+    || checkpoint.targetTierId !== targetTierId) {
+    throw new Error('runtime cleanup attempt ledger checkpoint identity is invalid')
+  }
+  const ledger = checkpoint.runtimeCleanupAttemptLedger
+  if (!ledger
+    || ledger.schema !== runtimeCleanupAttemptLedgerSchema
+    || ledger.schedulerRunId !== schedulerRunId
+    || ledger.invocationId !== invocationId
+    || ledger.repositoryRoot !== repositoryRoot
+    || !['complete', 'blocked'].includes(ledger.status)
+    || !Array.isArray(ledger.attempts)) {
+    throw new Error('runtime cleanup attempt ledger identity is invalid')
+  }
+  if (ledger.attempts.some((attempt) => (
+    !/^[a-f0-9]{32}$/u.test(String(attempt?.attemptId ?? ''))
+    || attempt.phase !== 'preflight'
+    || !['complete', 'blocked'].includes(attempt.status)
+    || !/^sha256:[a-f0-9]{64}$/u.test(String(attempt.digest ?? ''))
+    || typeof attempt.receiptFile !== 'string'
+    || !path.isAbsolute(attempt.receiptFile)
+  ))) {
+    throw new Error('runtime cleanup attempt ledger contains invalid evidence')
+  }
+  if (new Set(ledger.attempts.map((attempt) => attempt.attemptId)).size !== ledger.attempts.length) {
+    throw new Error('runtime cleanup attempt ledger contains duplicate attempts')
+  }
+  const blockedAttempts = ledger.attempts.filter((attempt) => attempt.status === 'blocked')
+  if ((ledger.status === 'blocked') !== (blockedAttempts.length > 0)
+    || (ledger.status === 'blocked'
+      && ledger.blockedAttemptId !== blockedAttempts[0].attemptId)
+    || (ledger.status === 'complete' && ledger.blockedAttemptId !== null)) {
+    throw new Error('runtime cleanup attempt ledger sealed status is invalid')
+  }
+  return ledger
+}
+
+export function readRuntimeCleanupAttemptLedger(
+  checkpointFileValue,
+  expectedRunId,
+  identity
+) {
+  const checkpointFile = path.resolve(checkpointFileValue)
+  const runsRoot = path.dirname(path.dirname(checkpointFile))
+  const releaseLock = acquireRunLock(runsRoot, expectedRunId)
+  try {
+    const checkpoint = readCheckpoint(checkpointFile)
+    if (!checkpoint) {
+      return {
+        schema: runtimeCleanupAttemptLedgerSchema,
+        schedulerRunId: identity.schedulerRunId,
+        invocationId: identity.invocationId,
+        repositoryRoot: identity.repositoryRoot,
+        status: 'complete',
+        blockedAttemptId: null,
+        attempts: [],
+        checkpointRevision: 0
+      }
+    }
+    const ledger = runtimeCleanupAttemptLedger(checkpoint, {
+      expectedRunId,
+      ...identity
+    })
+    return {
+      ...structuredClone(ledger),
+      checkpointRevision: checkpoint.revision
+    }
+  } finally {
+    releaseLock()
+  }
+}
+
+export function recordRuntimeCleanupAttempt(
+  checkpointFileValue,
+  expectedRunId,
+  identity,
+  attempt
+) {
+  const checkpointFile = path.resolve(checkpointFileValue)
+  const runsRoot = path.dirname(path.dirname(checkpointFile))
+  if (typeof identity?.targetTierId !== 'string' || !identity.targetTierId
+    || typeof identity?.schedulerRunId !== 'string' || !identity.schedulerRunId
+    || typeof identity?.invocationId !== 'string' || !identity.invocationId
+    || typeof identity?.repositoryRoot !== 'string' || !path.isAbsolute(identity.repositoryRoot)
+    || typeof identity?.sourceState?.commit !== 'string'
+    || typeof identity?.sourceState?.worktreeFingerprint !== 'string') {
+    throw new Error('runtime cleanup attempt ledger identity is incomplete')
+  }
+  if (!/^[a-f0-9]{32}$/u.test(String(attempt?.attemptId ?? ''))
+    || attempt.phase !== 'preflight'
+    || !['complete', 'blocked'].includes(attempt.status)
+    || !/^sha256:[a-f0-9]{64}$/u.test(String(attempt.digest ?? ''))
+    || typeof attempt.receiptFile !== 'string'
+    || !path.isAbsolute(attempt.receiptFile)) {
+    throw new Error('runtime cleanup attempt evidence is invalid')
+  }
+  const releaseLock = acquireRunLock(runsRoot, expectedRunId)
+  try {
+    let checkpoint = readCheckpoint(checkpointFile)
+    if (!checkpoint) {
+      const startedAt = attempt.startedAt ?? new Date().toISOString()
+      checkpoint = {
+        schema: checkpointSchema,
+        runId: expectedRunId,
+        targetTierId: identity.targetTierId,
+        mode: 'fresh',
+        authoritative: true,
+        status: 'running',
+        startedAt,
+        updatedAt: startedAt,
+        sourceState: structuredClone(identity.sourceState),
+        completedTiers: [],
+        tiers: {},
+        failure: null,
+        failures: [],
+        runtimeCleanupAttemptLedger: {
+          schema: runtimeCleanupAttemptLedgerSchema,
+          schedulerRunId: identity.schedulerRunId,
+          invocationId: identity.invocationId,
+          repositoryRoot: identity.repositoryRoot,
+          status: 'complete',
+          blockedAttemptId: null,
+          attempts: []
+        }
+      }
+      fs.mkdirSync(path.dirname(checkpointFile), { recursive: true })
+    }
+    const ledger = runtimeCleanupAttemptLedger(checkpoint, {
+      expectedRunId,
+      ...identity
+    })
+    const duplicate = ledger.attempts.find((entry) => entry.attemptId === attempt.attemptId)
+    if (duplicate) {
+      if (JSON.stringify(stableValue(duplicate)) !== JSON.stringify(stableValue(attempt))) {
+        throw new Error(`runtime cleanup attempt ${attempt.attemptId} was already sealed with different evidence`)
+      }
+      return {
+        ...structuredClone(ledger),
+        checkpointRevision: checkpoint.revision
+      }
+    }
+    ledger.attempts.push(structuredClone(attempt))
+    const blockedAttempt = ledger.attempts.find((entry) => entry.status === 'blocked') ?? null
+    ledger.status = blockedAttempt ? 'blocked' : 'complete'
+    ledger.blockedAttemptId = blockedAttempt?.attemptId ?? null
+    checkpoint.status = blockedAttempt ? 'failure' : 'success'
+    checkpoint.finishedAt = attempt.finishedAt ?? new Date().toISOString()
+    if (blockedAttempt) {
+      checkpoint.failure = {
+        tierId: identity.targetTierId,
+        exitCode: 1,
+        reason: `Production Fresh runtime cleanup attempt ${blockedAttempt.attemptId} is blocked`
+      }
+      checkpoint.failurePoint = identity.targetTierId
+      checkpoint.failures = [checkpoint.failure]
+    } else {
+      checkpoint.failure = null
+      delete checkpoint.failurePoint
+      checkpoint.failures = []
+    }
+    writeCheckpoint(checkpointFile, checkpoint, {
+      boundary: true,
+      stage: blockedAttempt
+        ? 'runtime-cleanup-attempt-blocked'
+        : 'runtime-cleanup-attempt-complete',
+      eventType: 'runtime-cleanup-attempt-sealed',
+      tier: identity.targetTierId,
+      step: 'runtime-cleanup'
+    })
+    return {
+      ...structuredClone(ledger),
+      checkpointRevision: checkpoint.revision
+    }
+  } finally {
+    releaseLock()
+  }
+}
+
+export function recordCheckpointResidentLeaseCleanup(
+  checkpointFileValue,
+  expectedRunId,
+  updateCheckpoint
+) {
+  if (typeof updateCheckpoint !== 'function') {
+    throw new Error('resident lease cleanup checkpoint update must be a function')
+  }
+  const checkpointFile = path.resolve(checkpointFileValue)
+  const runsRoot = path.dirname(path.dirname(checkpointFile))
+  const releaseLock = acquireRunLock(runsRoot, expectedRunId)
+  try {
+    const checkpoint = readCheckpoint(checkpointFile)
+    if (!checkpoint || checkpoint.runId !== expectedRunId) {
+      throw new Error(`missing or mismatched scheduler checkpoint: ${checkpointFileValue}`)
+    }
+    const sourceState = structuredClone(checkpoint.sourceState)
+    const updated = updateCheckpoint(checkpoint) ?? checkpoint
+    if (updated !== checkpoint
+      || updated.runId !== expectedRunId
+      || updated.schema !== checkpointSchema
+      || !sameCheckpointSource(updated.sourceState, sourceState)) {
+      throw new Error('resident lease cleanup may only mutate the locked scheduler checkpoint')
+    }
+    writeCheckpoint(checkpointFile, checkpoint, {
+      boundary: true,
+      stage: 'resident-lease-cleanup-recorded',
+      eventType: 'resident-lease-cleanup-recorded',
+      tier: checkpoint.targetTierId,
+      step: 'resident-resource-leases'
+    })
+    return checkpoint
+  } finally {
+    releaseLock()
+  }
 }
 
 function plainObject(value) {
@@ -1838,6 +2203,7 @@ async function runDagUnlocked(options) {
     },
     maxParallel,
     sourceState,
+    ...(options.runtimeNamespace ? { runtimeNamespace: options.runtimeNamespace } : {}),
     resumePolicy: resume ? {
       sourceChanged: resumeSourceChanged,
       reuseAcrossSourceChanges: options.reuseAcrossSourceChanges !== false
