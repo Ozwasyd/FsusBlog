@@ -31,6 +31,7 @@ import {
   validateLocalProfiles
 } from './test-matrix/local-profile.mjs'
 import { parseMatrix } from './test-matrix/parse-matrix.mjs'
+import { buildAggregatePlan as buildAggregateReachabilityPlan } from './test-matrix/aggregate-plan.mjs';
 import { validateEvidenceExecutionDeclaration } from './test-matrix/projection-declaration.mjs';
 import { parseWorkflowJobNeeds } from './yaml/workflow-structure.mjs'
 import { assertLocalProductionCapacity, cleanLocalProductionOutputs } from './test-matrix/fresh-production.mjs'
@@ -557,7 +558,7 @@ function validateMatrix(matrix) {
     for (const field of requiredFields) {
       if (!(field in tier)) errors.push(`${tier.id} missing ${field}`)
     }
-        errors.push(...validateEvidenceExecutionDeclaration(tier));
+        errors.push(...validateEvidenceExecutionDeclaration(tier, matrix));
         for (const field of ['dependsOn', 'services', 'exclusiveResources', 'coverage', 'artifacts', 'evidence'])
 {
             if (!Array.isArray(tier[field])) {errors.push(`${tier.id}.${field} must be an array`)};
@@ -2032,17 +2033,9 @@ function effectiveCiJobTiers(matrix, jobId) {
 }
 
 function ciJobExecutionMode(matrix, jobId) {
-  const tiers = ciJobTiers(matrix, jobId)
-  if (
-    jobId === 'fast-summary'
-    &&
-    tiers.length > 0
-    && tiers.every((tier) => String(tier.command).startsWith('tools/test/lanes/noop.sh '))
-    && tiers.some((tier) => (tier.dependsOn?.length ?? 0) > 0)
-  ) {
-    return 'aggregate'
-  }
-  return 'test'
+  return Object.values(matrix.aggregateAuthorities ?? {}).some((authority) => authority?.ciJob === jobId)
+    ? 'aggregate'
+    : 'test'
 }
 
 function hasIntersection(left, right) {
@@ -2397,17 +2390,12 @@ function requiresAggregateArtifact(value) {
 }
 
 function buildAggregatePlan(matrix, jobId) {
-  const summaryTiers = ciJobTiers(matrix, jobId)
-  if (summaryTiers.length === 0) throw new Error(`unknown aggregate CI job: ${jobId}`)
-  if (ciJobExecutionMode(matrix, jobId) !== 'aggregate') throw new Error(`${jobId} is not an artifact-only aggregate job`)
-
-  const dependencyJobs = aggregateDependencyJobs(matrix, summaryTiers, jobId)
+  const reachability = buildAggregateReachabilityPlan(matrix, jobId)
+  if (reachability.errors.length > 0) throw new Error(reachability.errors[0])
+  const summaryTiers = ciJobTiers(matrix, reachability.ciJob)
+  const dependencyJobs = reachability.dependencyJobs
   return {
-    schema: 'fsusblog.ci.aggregate-plan.v1',
-    jobId,
-    tierIds: summaryTiers.map((tier) => tier.id),
-    artifactOnly: true,
-    executesTestCommands: false,
+    ...reachability,
     dependencyJobs,
     requiredJobSummaries: dependencyJobs.flatMap((dependencyJob) => generatedMatrixSummaryIds(matrix, dependencyJob)).sort(),
     requiredArtifactPaths: aggregateRequiredPaths(matrix, dependencyJobs, summaryTiers),

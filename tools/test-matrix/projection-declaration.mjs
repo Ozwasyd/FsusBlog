@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { buildAggregatePlan, parseAggregateCommand } from './aggregate-plan.mjs';
 
 export const evidenceExecutionModes = ['execute', 'projection', 'summary'];
 
@@ -33,7 +34,48 @@ function validateSortedStrings(tier, field, errors)
     }
 }
 
-export function validateEvidenceExecutionDeclaration(tier)
+function validateSummaryDeclaration(tier, matrix)
+{
+    const errors = [];
+    if (!['aggregate', 'receipt'].includes(tier.commandKind))
+    {
+        errors.push(`${tier.id}.commandKind must be aggregate or receipt for summary tiers`);
+    }
+    if (typeof tier.outputReceiptSchema !== 'string' || !tier.outputReceiptSchema.trim())
+    {
+        errors.push(`${tier.id}.outputReceiptSchema must be declared for summary tiers`);
+    }
+    if (!Array.isArray(tier.summaryInputs) || tier.summaryInputs.length === 0
+        || tier.summaryInputs.some((input) => typeof input !== 'string' || !input.trim()))
+    {
+        errors.push(`${tier.id}.summaryInputs must declare non-empty structured receipt inputs`);
+    }
+    const aggregate = parseAggregateCommand(tier.command);
+    if (aggregate)
+    {
+        if (tier.commandKind !== 'aggregate')
+        {
+            errors.push(`${tier.id}.aggregate command requires commandKind=aggregate`);
+        }
+        if (tier.summaryAuthority !== aggregate.target)
+        {
+            errors.push(`${tier.id}.summaryAuthority must equal aggregate command target ${aggregate.target}`);
+        }
+        const plan = buildAggregatePlan(matrix, aggregate.target);
+        errors.push(...plan.errors.map((error) => `${tier.id} aggregate: ${error}`));
+        if (plan.outputReceiptSchema && tier.outputReceiptSchema !== plan.outputReceiptSchema)
+        {
+            errors.push(`${tier.id}.outputReceiptSchema must match aggregate authority ${aggregate.target}`);
+        }
+    }
+    else if (tier.commandKind === 'aggregate')
+    {
+        errors.push(`${tier.id}.commandKind=aggregate must use node tools/run-test-matrix.mjs aggregate <authority>`);
+    }
+    return errors;
+}
+
+export function validateEvidenceExecutionDeclaration(tier, matrix = { tiers: [] })
 {
     const errors = [];
     const executionMode = tier.executionMode ?? 'execute';
@@ -41,7 +83,7 @@ export function validateEvidenceExecutionDeclaration(tier)
     {
         return [`${tier.id}.executionMode is invalid: ${tier.executionMode}`];
     }
-    if (executionMode !== 'projection')
+    if (executionMode === 'execute')
     {
         for (const field of ['projectionCatalog', 'requiredTestIds', 'requiredCoverageIds', 'requiredArtifactDeclarations'])
         {
@@ -52,6 +94,10 @@ export function validateEvidenceExecutionDeclaration(tier)
         }
         return errors;
     }
+    if (executionMode === 'summary')
+    {
+        return validateSummaryDeclaration(tier, matrix);
+    }
 
     for (const field of ['executionOwner', 'projectionCatalog'])
     {
@@ -59,6 +105,14 @@ export function validateEvidenceExecutionDeclaration(tier)
         {
             errors.push(`${tier.id}.${field} is required for projection tiers`);
         }
+    }
+    if (tier.commandKind !== 'projection')
+    {
+        errors.push(`${tier.id}.commandKind must be projection for projection tiers`);
+    }
+    if (typeof tier.outputReceiptSchema !== 'string' || !tier.outputReceiptSchema.trim())
+    {
+        errors.push(`${tier.id}.outputReceiptSchema must be declared for projection tiers`);
     }
     const producers = Array.isArray(tier.projectFrom) ? tier.projectFrom : [tier.projectFrom];
     if (producers.some((producer) => typeof producer !== 'string' || !producer.trim())

@@ -33,6 +33,28 @@ governance:
               releaseEvidencePaths:
                   - {from: .tmp/release-evidence/ux-viewport-canary-parity.json, to: .tmp/release-evidence/ux-viewport-summary.json}
           reason: "Current boundary planning, execution and visual evidence replace the incomplete historical canary parity lane."
+aggregateAuthorities:
+    fast-summary:
+        id: fast-summary
+        commandKind: aggregate
+        ciJob: fast-summary
+        summaryTierIds: [fast, frontend-fast-summary]
+        inputReceiptSchemas: [fsusblog.ci.job-result.v1]
+        outputReceiptSchema: fsusblog.ci.job-result.v1
+    coverage-merge-threshold:
+        id: coverage-merge-threshold
+        commandKind: aggregate
+        ciJob: coverage-merge-threshold
+        summaryTierIds: [coverage-gate]
+        inputReceiptSchemas: [fsusblog.ci.job-result.v1]
+        outputReceiptSchema: fsusblog.ci.job-result.v1
+    ci-summary:
+        id: ci-summary
+        commandKind: aggregate
+        ciJob: ci-summary
+        summaryTierIds: [ci]
+        inputReceiptSchemas: [fsusblog.ci.job-result.v1]
+        outputReceiptSchema: fsusblog.ci.job-result.v1
 commandGroups:
     frontend-static-governance:
         schema: "fsusblog.frontend-static-command-manifest.v2"
@@ -879,6 +901,10 @@ tiers:
     - id: frontend-fast-summary
       owner: InteropGlueAgent
       executionMode: summary
+      commandKind: aggregate
+      summaryAuthority: fast-summary
+      summaryInputs: [fsusblog.ci.job-result.v1]
+      outputReceiptSchema: fsusblog.ci.job-result.v1
       command: node tools/run-test-matrix.mjs aggregate fast-summary
       dependsOn:
           [
@@ -1288,6 +1314,8 @@ tiers:
     - id: integrity-proof-verification
       owner: ServerContractAgent
       executionMode: projection
+      commandKind: projection
+      outputReceiptSchema: fsusblog.evidence-projection-receipt.v1
       executionOwner: backend-unit
       projectFrom: backend-unit
       projectionCatalog: tests/fixtures/evidence-projection/integrity-proof-verification.json
@@ -1361,6 +1389,8 @@ tiers:
     - id: rights-v3-test-matrix
       owner: ServerContractAgent
       executionMode: projection
+      commandKind: projection
+      outputReceiptSchema: fsusblog.evidence-projection-receipt.v1
       executionOwner: canonical-production-results
       projectFrom: [backend-unit, frontend-static-governance, frontend-unit-shard, integration]
       projectionCatalog: tests/fixtures/evidence-projection/rights-v3-test-matrix.json
@@ -1994,7 +2024,11 @@ tiers:
     - id: fast
       owner: ServerContractAgent
       executionMode: summary
-      command: node tools/run-test-matrix.mjs aggregate fast
+      commandKind: aggregate
+      summaryAuthority: fast-summary
+      summaryInputs: [fsusblog.ci.job-result.v1]
+      outputReceiptSchema: fsusblog.ci.job-result.v1
+      command: node tools/run-test-matrix.mjs aggregate fast-summary
       dependsOn:
           [
               frontend-fast-summary,
@@ -2270,7 +2304,11 @@ tiers:
     - id: coverage-gate
       owner: ServerContractAgent
       executionMode: summary
-      command: node tools/run-test-matrix.mjs aggregate coverage-gate
+      commandKind: aggregate
+      summaryAuthority: coverage-merge-threshold
+      summaryInputs: [fsusblog.ci.job-result.v1]
+      outputReceiptSchema: fsusblog.ci.job-result.v1
+      command: node tools/run-test-matrix.mjs aggregate coverage-merge-threshold
       dependsOn: [coverage-threshold]
       services: []
       parallelizable: false
@@ -2515,7 +2553,11 @@ tiers:
     - id: ci
       owner: ServerContractAgent
       executionMode: summary
-      command: node tools/run-test-matrix.mjs aggregate ci
+      commandKind: aggregate
+      summaryAuthority: ci-summary
+      summaryInputs: [fsusblog.ci.job-result.v1]
+      outputReceiptSchema: fsusblog.ci.job-result.v1
+      command: node tools/run-test-matrix.mjs aggregate ci-summary
       dependsOn: [fast, integration]
       services: [postgres, redis, backend, frontend]
       parallelizable: false
@@ -6108,7 +6150,7 @@ tiers:
 
     - id: release-soak-min
       owner: ServerContractAgent
-      executionMode: summary
+      executionMode: execute
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-soak-min
       dependsOn: []
       services: []
@@ -6141,7 +6183,7 @@ tiers:
 
     - id: release-load-peak
       owner: ServerContractAgent
-      executionMode: summary
+      executionMode: execute
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-load-peak
       dependsOn: []
       services: []
@@ -6178,7 +6220,7 @@ tiers:
 
     - id: release-load-burst
       owner: ServerContractAgent
-      executionMode: summary
+      executionMode: execute
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-load-burst
       dependsOn: []
       services: []
@@ -6215,7 +6257,7 @@ tiers:
 
     - id: release-data-scale-m
       owner: ServerContractAgent
-      executionMode: summary
+      executionMode: execute
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-data-scale-m
       dependsOn: []
       services: []
@@ -6252,7 +6294,7 @@ tiers:
 
     - id: release-mutation-critical-slice
       owner: ServerContractAgent
-      executionMode: summary
+      executionMode: execute
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-mutation-critical-slice
       dependsOn: []
       services: []
@@ -6293,7 +6335,7 @@ tiers:
 
     - id: release-memory-leak-budget
       owner: ServerContractAgent
-      executionMode: summary
+      executionMode: execute
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-memory-leak-budget
       dependsOn: []
       services: []
@@ -6326,7 +6368,7 @@ tiers:
 
     - id: release-open-handle-budget
       owner: ServerContractAgent
-      executionMode: summary
+      executionMode: execute
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-open-handle-budget
       dependsOn: []
       services: []

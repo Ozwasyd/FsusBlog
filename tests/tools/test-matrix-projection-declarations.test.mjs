@@ -10,7 +10,7 @@ const { validateEvidenceExecutionDeclaration, evidenceExecutionModes } = await i
     pathToFileURL(path.join(root, 'tools/test-matrix/projection-declaration.mjs')).href
 );
 
-test('matrix projection and summary declarations adhere to executionMode schema rules', async () => {
+test('matrix validates every executionMode declaration and exposes invalid release aggregate targets', async () => {
     const matrix = parseMatrix(readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
     const errors = [];
 
@@ -20,10 +20,7 @@ test('matrix projection and summary declarations adhere to executionMode schema 
             errors.push(`${tier.id} executionMode is invalid: ${tier.executionMode}`);
         }
 
-        if (mode === 'projection') {
-            const declarationErrors = validateEvidenceExecutionDeclaration(tier);
-            errors.push(...declarationErrors);
-        }
+        errors.push(...validateEvidenceExecutionDeclaration(tier, matrix));
 
         const command = String(tier.command ?? '');
         if (command.includes('noop.sh')) {
@@ -31,7 +28,12 @@ test('matrix projection and summary declarations adhere to executionMode schema 
         }
     }
 
-    assert.deepEqual(errors, []);
+    for (const tierId of ['release-admin-console', 'release-auth-flow', 'release-authoring-flow', 'release-private-preview', 'release-error-boundary', 'release-aot-generation', 'release-static-asset-digest-coherence']) {
+        assert.ok(errors.some((error) => error.includes(`${tierId}.commandKind`)), `${tierId} must not bypass summary validation`);
+        assert.ok(errors.some((error) => error.includes(`unknown aggregate authority: ${tierId}`)), `${tierId} must not resolve as an aggregate authority`);
+    }
+    assert.ok(errors.some((error) => error.includes('release-aot-consumption.commandKind')));
+    assert.ok(errors.some((error) => error.includes('release-rbac-negative.commandKind')));
 });
 
 test('canonical producer topologies define valid projectFrom dependencies and clear execution owners', async () => {
