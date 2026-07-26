@@ -1,55 +1,204 @@
 {
-  "schema": "fsusblog.release-reliability-scenario-catalog.v1",
-  "catalogScenarioCount": 7,
-  "scenarios": [
-    {
-      "id": "release-soak-min",
-      "owner": "ServerContractAgent",
-      "command": "FSUSBLOG_SOAK_MODE=short tools/test/lanes/soak.sh",
-      "resourceClass": "database",
-      "evidencePath": ".tmp/soak/summary.json"
-    },
-    {
-      "id": "release-load-peak",
-      "owner": "ServerContractAgent",
-      "command": "tools/test/lanes/load-profile.sh expected-peak",
-      "resourceClass": "benchmark",
-      "evidencePath": ".tmp/perf/release-summaries/load-expected-peak.json"
-    },
-    {
-      "id": "release-load-burst",
-      "owner": "ServerContractAgent",
-      "command": "tools/test/lanes/load-profile.sh burst",
-      "resourceClass": "benchmark",
-      "evidencePath": ".tmp/perf/release-summaries/load-burst.json"
-    },
-    {
-      "id": "release-data-scale-m",
-      "owner": "ServerContractAgent",
-      "command": "tools/test/lanes/data-scale.sh scale-m",
-      "resourceClass": "database",
-      "evidencePath": ".tmp/scale/release-summaries/scale-m.json"
-    },
-    {
-      "id": "release-mutation-critical-slice",
-      "owner": "ServerContractAgent",
-      "command": "tools/test/lanes/backend-mutation-critical.sh",
-      "resourceClass": "cpu",
-      "evidencePath": ".tmp/mutation/backend-critical/authority.json"
-    },
-    {
-      "id": "release-memory-leak-budget",
-      "owner": "ServerContractAgent",
-      "command": "tools/test/lanes/release-resource-budget.sh memory-leak",
-      "resourceClass": "database",
-      "evidencePath": ".tmp/release-evidence/memory-leak-summary.json"
-    },
-    {
-      "id": "release-open-handle-budget",
-      "owner": "ServerContractAgent",
-      "command": "tools/test/lanes/release-resource-budget.sh open-handle",
-      "resourceClass": "database",
-      "evidencePath": ".tmp/release-evidence/open-handle-summary.json"
-    }
-  ]
+    "schema": "fsusblog.release-reliability-scenario-catalog.v2",
+    "catalogScenarioCount": 7,
+    "scenarios": [
+        {
+            "id": "release-soak-min",
+            "owner": "ServerContractAgent",
+            "command": {
+                "executable": "bash",
+                "args": [
+                    "tools/test/lanes/soak.sh"
+                ],
+                "env": {
+                    "FSUSBLOG_SOAK_MODE": "short"
+                },
+                "cwd": "."
+            },
+            "resourceClass": "database",
+            "authoritativeEvidence": {
+                "path": ".tmp/soak/summary.json",
+                "expectedSchema": {
+                    "required": [
+                        "status",
+                        "metrics",
+                        "thresholdEvaluation"
+                    ],
+                    "passStatusValues": [
+                        "ok"
+                    ]
+                }
+            }
+        },
+        {
+            "id": "release-load-peak",
+            "owner": "ServerContractAgent",
+            "command": {
+                "executable": "bash",
+                "args": [
+                    "tools/test/lanes/load-profile.sh",
+                    "expected-peak"
+                ],
+                "env": {},
+                "cwd": "."
+            },
+            "resourceClass": "benchmark",
+            "authoritativeEvidence": {
+                "path": ".tmp/perf/release-summaries/load-expected-peak.json",
+                "expectedSchema": {
+                    "required": [
+                        "status",
+                        "profile",
+                        "thresholdEvaluation",
+                        "metrics"
+                    ],
+                    "passStatusValues": [
+                        "ok"
+                    ]
+                }
+            }
+        },
+        {
+            "id": "release-load-burst",
+            "owner": "ServerContractAgent",
+            "command": {
+                "executable": "bash",
+                "args": [
+                    "tools/test/lanes/load-profile.sh",
+                    "burst"
+                ],
+                "env": {},
+                "cwd": "."
+            },
+            "resourceClass": "benchmark",
+            "authoritativeEvidence": {
+                "path": ".tmp/perf/release-summaries/load-burst.json",
+                "expectedSchema": {
+                    "required": [
+                        "status",
+                        "profile",
+                        "thresholdEvaluation",
+                        "metrics"
+                    ],
+                    "passStatusValues": [
+                        "ok"
+                    ]
+                }
+            }
+        },
+        {
+            "id": "release-data-scale-m",
+            "owner": "ServerContractAgent",
+            "command": {
+                "executable": "bash",
+                "args": [
+                    "tools/test/lanes/data-scale.sh",
+                    "scale-m"
+                ],
+                "env": {},
+                "cwd": "."
+            },
+            "resourceClass": "database",
+            "authoritativeEvidence": {
+                "path": ".tmp/scale/release-summaries/scale-m.json",
+                "expectedSchema": {
+                    "schema": "fsusblog.data-scale-tier-summary.v1",
+                    "required": [
+                        "schema",
+                        "status",
+                        "tier",
+                        "observed",
+                        "cleanup"
+                    ],
+                    "passStatusValues": [
+                        "ok"
+                    ]
+                }
+            }
+        },
+        {
+            "id": "release-mutation-critical-slice",
+            "owner": "ServerContractAgent",
+            "command": {
+                "executable": "bash",
+                "args": [
+                    "tools/test/lanes/backend-mutation-critical.sh"
+                ],
+                "env": {},
+                "cwd": "."
+            },
+            "resourceClass": "cpu",
+            "authoritativeEvidence": {
+                "path": ".tmp/mutation/backend-critical/authority.json",
+                "expectedSchema": {
+                    "schema": "fsusblog.changed-critical-mutation-authority.v1",
+                    "required": [
+                        "schema",
+                        "status",
+                        "runId",
+                        "mutants"
+                    ],
+                    "passStatusValues": [
+                        "success"
+                    ]
+                }
+            }
+        },
+        {
+            "id": "release-memory-leak-budget",
+            "owner": "ServerContractAgent",
+            "command": {
+                "executable": "bash",
+                "args": [
+                    "tools/test/lanes/release-resource-budget.sh",
+                    "memory-leak"
+                ],
+                "env": {},
+                "cwd": "."
+            },
+            "resourceClass": "database",
+            "authoritativeEvidence": {
+                "path": ".tmp/release-evidence/memory-leak-summary.json",
+                "expectedSchema": {
+                    "required": [
+                        "status",
+                        "mode",
+                        "thresholdEvaluation",
+                        "runtime"
+                    ],
+                    "passStatusValues": [
+                        "ok"
+                    ]
+                }
+            }
+        },
+        {
+            "id": "release-open-handle-budget",
+            "owner": "ServerContractAgent",
+            "command": {
+                "executable": "bash",
+                "args": [
+                    "tools/test/lanes/release-resource-budget.sh",
+                    "open-handle"
+                ],
+                "env": {},
+                "cwd": "."
+            },
+            "resourceClass": "database",
+            "authoritativeEvidence": {
+                "path": ".tmp/release-evidence/open-handle-summary.json",
+                "expectedSchema": {
+                    "required": [
+                        "status",
+                        "mode",
+                        "thresholdEvaluation",
+                        "runtime"
+                    ],
+                    "passStatusValues": [
+                        "ok"
+                    ]
+                }
+            }
+        }
+    ]
 }
