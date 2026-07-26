@@ -67,7 +67,7 @@ function parseTrackedFiles(root) {
         worktreeState: match[2]
       }
     })
-    .sort((left, right) => left.file.localeCompare(right.file, 'en'))
+    .sort((left, right) => left.file === right.file ? 0 : left.file < right.file ? -1 : 1)
 }
 
 function readAttributes(root, files) {

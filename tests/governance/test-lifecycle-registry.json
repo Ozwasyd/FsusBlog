@@ -1221,7 +1221,7 @@
             "physicalExecutionCount": 1,
             "classifications": [
                 "source-text",
-                "compatibility-wrapper"
+                "behavior"
             ]
         },
         {
