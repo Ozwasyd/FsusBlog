@@ -35,6 +35,9 @@ export const wasmToolchainContract = Object.freeze({
     vcpkgCommit: 'eae1680538b86f962455c27abca2aad0dc304a4d',
     emsdkImage: 'emscripten/emsdk:4.0.13@sha256:520088b81877b610389dfd4cf7fb8c69f3ae41a611b0f80e222f57dafd930973'
 });
+const imageCodecEnabled = ['ON', '1', 'TRUE'].includes(
+  String(process.env.FSUSBLOG_WASM_IMAGE_CODEC_ENABLE || 'ON').toUpperCase()
+);
 const alwaysRequiredOutputFiles = Object.freeze([
     'aeds_decoder_basic.js',
     'aeds_decoder_basic.wasm',
@@ -49,10 +52,12 @@ const alwaysRequiredOutputFiles = Object.freeze([
     'fsus_pow_relaxed.wasm',
     'fsus_pow_threads.js',
     'fsus_pow_threads.wasm',
-    'image_codec_basic.js',
-    'image_codec_basic.wasm',
-    'image_codec_simd.js',
-    'image_codec_simd.wasm',
+    ...(imageCodecEnabled ? [
+        'image_codec_basic.js',
+        'image_codec_basic.wasm',
+        'image_codec_simd.js',
+        'image_codec_simd.wasm'
+    ] : []),
     'search_basic.js',
     'search_basic.wasm',
     'search_simd.js',

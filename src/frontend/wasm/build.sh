@@ -238,7 +238,7 @@ VersionLessThan() {
 CmakeIsSupported() {
     local candidate="$1" version
     [[ -x "${candidate}" ]] || return 1
-    version="$(${candidate} --version 2>/dev/null | head -n 1 | sed -E 's/.* ([0-9]+\.[0-9]+\.[0-9]+).*/\1/')"
+    version="$("${candidate}" --version 2>/dev/null | head -n 1 | sed -E 's/.* ([0-9]+\.[0-9]+\.[0-9]+).*/\1/')"
     [[ "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || return 1
     # Every configure path below uses `cmake --fresh`, which was introduced in
     # CMake 3.24. Reusing an older distro CMake makes the container build fail
@@ -288,6 +288,24 @@ SelectCmake() {
 
 SelectCmake
 echo "[build:wasm] cmake=${CMAKE_BIN} version=${CMAKE_VERSION}"
+
+EMCMAKE_CMD=()
+if [[ -n "${FSUSBLOG_EMCMAKE:-}" ]]; then
+    EMCMAKE_CMD=("${FSUSBLOG_EMCMAKE}")
+elif command -v emcmake >/dev/null 2>&1; then
+    EMCMAKE_CMD=("$(command -v emcmake)")
+else
+    EMSCRIPTEN_ROOT="$(dirname "$(command -v emcc)")"
+    PYTHON_BIN="${FSUSBLOG_PYTHON:-$(command -v python || true)}"
+    [[ -n "${PYTHON_BIN}" && -f "${EMSCRIPTEN_ROOT}/emcmake.py" ]] || {
+        echo "[build:wasm] unable to resolve emcmake or emcmake.py" >&2
+        exit 1
+    }
+    EMCMAKE_CMD=("${PYTHON_BIN}" "${EMSCRIPTEN_ROOT}/emcmake.py")
+fi
+RunEmcmake() {
+    "${EMCMAKE_CMD[@]}" "$@"
+}
 PrintResourcePlan
 
 WASM_OPT_BIN="${FSUSBLOG_WASM_OPT:-}"
@@ -412,7 +430,7 @@ BuildSimd() {
         targets+=(FsusImageCodec)
     fi
     cd "${BUILD_SIMD_DIR}"
-    emcmake "${CMAKE_BIN}" --fresh "${WASM_SOURCE_DIR}" \
+    RunEmcmake "${CMAKE_BIN}" --fresh "${WASM_SOURCE_DIR}" \
         -DCMAKE_BUILD_TYPE=Release \
         -DWASM_SIMD=ON \
         -DFSUSBLOG_WASM_IMAGE_CODEC_ENABLE="${BUILD_IMAGE_CODEC}" \
@@ -433,7 +451,7 @@ BuildBasic() {
         targets+=(FsusImageCodec)
     fi
     cd "${BUILD_BASIC_DIR}"
-    emcmake "${CMAKE_BIN}" --fresh "${WASM_SOURCE_DIR}" \
+    RunEmcmake "${CMAKE_BIN}" --fresh "${WASM_SOURCE_DIR}" \
         -DCMAKE_BUILD_TYPE=Release \
         -DWASM_SIMD=OFF \
         -DFSUSBLOG_WASM_IMAGE_CODEC_ENABLE="${BUILD_IMAGE_CODEC}" \
@@ -445,7 +463,7 @@ BuildBasic() {
 BuildRelaxedPow() {
     local jobs="$1"
     cd "${BUILD_RELAXED_POW_DIR}"
-    emcmake "${CMAKE_BIN}" --fresh "${WASM_POW_SOURCE_DIR}" \
+    RunEmcmake "${CMAKE_BIN}" --fresh "${WASM_POW_SOURCE_DIR}" \
         -DCMAKE_BUILD_TYPE=Release \
         -DWASM_RELAXED_SIMD=ON \
         -DFSUSBLOG_WASM_OUTPUT_DIR="${STAGE_RELAXED_POW_DIR}" \
@@ -456,7 +474,7 @@ BuildRelaxedPow() {
 BuildThreadsPow() {
     local jobs="$1"
     cd "${BUILD_THREADS_POW_DIR}"
-    emcmake "${CMAKE_BIN}" --fresh "${WASM_POW_SOURCE_DIR}" \
+    RunEmcmake "${CMAKE_BIN}" --fresh "${WASM_POW_SOURCE_DIR}" \
         -DCMAKE_BUILD_TYPE=Release \
         -DWASM_THREADS=ON \
         -DFSUSBLOG_WASM_OUTPUT_DIR="${STAGE_THREADS_POW_DIR}" \

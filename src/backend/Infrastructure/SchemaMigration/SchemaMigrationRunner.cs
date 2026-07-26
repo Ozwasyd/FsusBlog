@@ -118,7 +118,17 @@ public sealed class SchemaMigrationRunner(
                 "public_article_projection",
                 "public_article_projection_backfill",
                 "public_article_projection_shadow_mismatch",
-                "comment_moderation_event"
+                "comment_moderation_event",
+                "plugin_registry",
+                "theme_registry",
+                "theme_config",
+                "theme_activation",
+                "theme_activation_history",
+                "theme_asset",
+                "customization_profile",
+                "customization_version",
+                "customization_draft",
+                "customization_change_set"
             ],
             cancellationToken).ConfigureAwait(false);
 

@@ -2,11 +2,12 @@
 
 begin;
 
-insert into sys_user (public_handle, identity_kind, passkey_enabled, recovery_enabled, privacy_initialized_at, anonymous_credential_level, anonymous_credential_status, createtime, status)
+insert into sys_user (public_handle, identity_kind, account_subject_hash, passkey_enabled, recovery_enabled, privacy_initialized_at, anonymous_credential_level, anonymous_credential_status, createtime, status)
 values
-  ('demo-reader', 'anonymous_account', false, false, '2026-06-01 09:05:00+00', 'basic', 'active', '2026-06-01 09:05:00+00', 0)
+  ('demo-reader', 'anonymous_account', '01484933d090b8b44fdcb50ca221ca70383f2cb06c45df58e4b1b554cef6e53d', false, false, '2026-06-01 09:05:00+00', 'basic', 'active', '2026-06-01 09:05:00+00', 0)
 on conflict (public_handle) where public_handle is not null do update set
   identity_kind = excluded.identity_kind,
+  account_subject_hash = excluded.account_subject_hash,
   passkey_enabled = excluded.passkey_enabled,
   recovery_enabled = excluded.recovery_enabled,
   privacy_initialized_at = excluded.privacy_initialized_at,
@@ -203,7 +204,7 @@ values
     '[demo] This approved comment is fictional and safe for screenshots.',
     '2026-06-01 11:00:00+00',
     1,
-    'anonymous',
+    'legacy_server_visible_pseudonymous',
     null,
     'demo-reader-scope',
     'Demo Reader',
@@ -229,7 +230,7 @@ values
     '[demo] This pending moderation item is fictional and repeatable.',
     '2026-06-02 11:00:00+00',
     1,
-    'anonymous',
+    'legacy_server_visible_pseudonymous',
     null,
     'demo-reader-scope',
     'Demo Reader',

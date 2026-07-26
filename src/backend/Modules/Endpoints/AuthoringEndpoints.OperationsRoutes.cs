@@ -24,6 +24,8 @@ using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Outputs;
 
+using Microsoft.AspNetCore.Mvc;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Modules.Endpoints;

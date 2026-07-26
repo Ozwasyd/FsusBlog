@@ -275,6 +275,25 @@ enum class FrameType : std::uint16_t
     ApiError = 251,
 };
 
+[[nodiscard]] constexpr bool IsRetiredFrameType(std::uint16_t raw) noexcept
+{
+    switch (raw)
+    {
+        case 40:
+        case 43:
+        case 44:
+        case 45:
+        case 46:
+        case 180:
+        case 181:
+        case static_cast<std::uint16_t>(FrameType::RetiredCredentialSpecificRevocationRequest):
+        case static_cast<std::uint16_t>(FrameType::RetiredCredentialSpecificRevocationResponse):
+            return true;
+        default:
+            return false;
+    }
+}
+
 [[nodiscard]] constexpr bool IsKnownFrameType(std::uint16_t raw) noexcept
 {
     switch (static_cast<FrameType>(raw))
