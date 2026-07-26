@@ -1214,6 +1214,17 @@
             ]
         },
         {
+            "file": "tests/tools/line-endings.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper"
+            ]
+        },
+        {
             "file": "tests/tools/monolithic-distributed-architecture.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",

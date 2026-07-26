@@ -1495,6 +1495,7 @@ tiers:
           - repository-source-layout-governance
           - csharp-entrypoint-ownership-governance
           - csharp-style-governance
+          - repository-line-ending-invariant
           - code-intent-governance
           - authoritative-development-docs-governance
           - document-lifecycle-governance
@@ -1702,6 +1703,10 @@ tiers:
           - tools/dotnet/check-csharp-style.mjs
           - tests/tools/csharp-style.test.mjs
           - docs/development/csharp-style-enforcement.md
+          - .gitattributes
+          - tools/style/line-ending-invariant.mjs
+          - tests/tools/line-endings.test.mjs
+          - docs/development/native-tooling-style-enforcement.md
           - tools/governance/check-code-intent.mjs
           - tests/governance/code-intent-registry.json
           - tests/tools/code-intent.test.mjs

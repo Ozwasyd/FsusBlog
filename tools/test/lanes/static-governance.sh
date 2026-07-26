@@ -30,6 +30,9 @@ StaticMonolithicDistributedArchitecture() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_
 StaticCsharpStyle() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/dotnet/check-csharp-style.mjs" --mode full
 }
+StaticLineEndings() {
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/style/line-ending-invariant.mjs"
+}
 TEST_ASSET_BEHAVIOR_FILES=(
     "$ROOT_DIR/tests/tools/artifact-digest-table.test.mjs"
     "$ROOT_DIR/tests/tools/async-log-pipeline.test.mjs"
@@ -67,6 +70,7 @@ RunApplicationStaticPrechecksPhase() {
         appsettings-authority StaticAppsettingsAuthority \
         backend-configuration-contract StaticBackendConfigurationContract \
         monolithic-distributed-architecture StaticMonolithicDistributedArchitecture \
+        line-endings StaticLineEndings \
         csharp-style StaticCsharpStyle \
         label-governance StaticLabelGovernance
 }

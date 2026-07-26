@@ -17,6 +17,37 @@ Use `--base <ref>` for stacked branches and `--full` for the authoritative repos
 
 `./tools/format.sh` writes only selected changed files. It normalizes UTF-8/LF/final-newline/trailing whitespace, delegates C++ to `clang-format`, delegates Shell/CMake when their formatters exist, and pretty-prints JSON without sorting semantic keys. Markdown is never destructively wrapped. `--check` is read-only.
 
+## Line-ending invariant
+
+`.gitattributes` is the checkout authority: every Git-recognized text file resolves to `eol=lf` unless the repository adds a narrow, documented `eol=crlf` exception for a Windows-native contract that demonstrably requires it. The repository currently has no such tracked exception. Binary files remain classified by Git as non-text and are never rewritten by the line-ending gate.
+
+Run the byte-level repository check with:
+
+```bash
+node tools/style/line-ending-invariant.mjs
+```
+
+The check enumerates only Git-tracked files, resolves each file's `text` and `eol` attributes, and reads the actual worktree bytes. LF-policy files fail on CRLF, mixed LF/CRLF, or a lone carriage return. Explicit CRLF exceptions fail on LF or mixed endings. Binary files are skipped. Check mode never rewrites a file.
+
+On Windows, diagnose the effective Git configuration and index/worktree state with:
+
+```bash
+git config --show-origin --get core.autocrlf
+git config --show-origin --get core.eol
+git config --show-origin --get core.safecrlf
+git ls-files --eol
+```
+
+The repository-local setup may be pinned without changing the developer's global Git configuration:
+
+```bash
+git config --local core.autocrlf false
+git config --local core.eol lf
+git config --local core.safecrlf true
+```
+
+Parser tolerance remains appropriate only at genuinely external or platform-provided text boundaries. Repository-owned files must satisfy this invariant instead of depending on parser-side `\r?\n` compatibility.
+
 ## Standard tool adapters
 
 | Surface | Standard configuration | Gate behavior |

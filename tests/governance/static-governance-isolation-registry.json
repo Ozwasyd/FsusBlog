@@ -25,6 +25,7 @@
     {"id":"release-document-convergence","file":"tests/tools/release-document-convergence.test.mjs","category":"pure-file-validation","physicalOwner":"host:pure-file"},
     {"id":"product-version-governance","file":"tests/tools/product-version-governance.test.mjs","category":"pure-file-validation","physicalOwner":"host:pure-file"},
     {"id":"csharp-style","file":"tests/tools/csharp-style.test.mjs","category":"pure-file-validation","physicalOwner":"host:pure-file"},
+    {"id":"line-endings","file":"tests/tools/line-endings.test.mjs","category":"isolated-temporary-repository-fixture","physicalOwner":"host:temporary-repository","temporaryRoot":".tmp/test-governance/fixtures/{checkId}/line-endings","output":".tmp/test-governance/results/{checkId}/line-endings.json"},
     {"id":"code-intent","file":"tests/tools/code-intent.test.mjs","category":"pure-file-validation","physicalOwner":"host:pure-file"},
     {"id":"rule-platform","file":"tests/tools/rule-platform.test.mjs","category":"isolated-temporary-repository-fixture","physicalOwner":"host:temporary-repository","temporaryRoot":".tmp/test-governance/fixtures/{checkId}/rule-platform","output":".tmp/test-governance/results/{checkId}/rule-platform.json"},
     {"id":"appsettings-authority","file":"tests/tools/appsettings-authority.test.mjs","category":"isolated-temporary-repository-fixture","physicalOwner":"host:temporary-repository","temporaryRoot":".tmp/test-governance/fixtures/{checkId}/appsettings-authority","output":".tmp/test-governance/results/{checkId}/appsettings-authority.json"},
