@@ -39,4 +39,12 @@ test('release reliability catalog declares structured executable commands and ev
         catalog.scenarios.find((scenario) => scenario.id === 'release-soak-min').authoritativeEvidence.path,
         '.tmp/soak/short/summary.json'
     );
+    assert.deepEqual(
+        catalog.scenarios.find((scenario) => scenario.id === 'release-mutation-critical-slice').authoritativeEvidence.expectedSchema,
+        {
+            schema: 'fsusblog.stryker-authority.v1',
+            required: ['schema', 'status', 'tierId', 'sliceId', 'producer'],
+            passStatusValues: ['success']
+        }
+    );
 });
