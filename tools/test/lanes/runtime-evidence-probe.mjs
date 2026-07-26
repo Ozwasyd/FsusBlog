@@ -101,7 +101,7 @@ function loadBootstrapEnv(namespaceValue) {
 
 function yamlSection(text, name, indent = 0) {
   const prefix = ' '.repeat(indent)
-  const pattern = new RegExp(`(?:^|\\n)${prefix}${name}:\\n([\\s\\S]*?)(?=\\n${prefix}\\S|$)`, 'u')
+  const pattern = new RegExp(`(?:^|\\r?\\n)${prefix}${name}:\\r?\\n([\\s\\S]*?)(?=\\r?\\n${prefix}\\S|$)`, 'u')
   return text.match(pattern)?.[1] ?? ''
 }
 
@@ -122,7 +122,7 @@ function readPerfPolicy() {
   }
 }
 
-function readLoadProfilePolicy(profile) {
+export function readLoadProfilePolicy(profile) {
   const policy = readPerfPolicy()
   const profiles = yamlSection(policy.text, 'loadProfiles')
   const values = yamlScalarMap(yamlSection(profiles, profile, 2))
@@ -4279,9 +4279,11 @@ async function main() {
   throw new Error(`unknown runtime evidence probe command: ${command}`)
 }
 
-main().then(() => {
-  process.exit(0)
-}).catch((error) => {
-  console.error(`[runtime-evidence] ${error.message}`)
-  process.exit(1)
-})
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().then(() => {
+    process.exit(0)
+  }).catch((error) => {
+    console.error(`[runtime-evidence] ${error.message}`)
+    process.exit(1)
+  })
+}
