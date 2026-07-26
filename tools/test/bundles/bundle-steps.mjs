@@ -1,3 +1,40 @@
+import { createHash } from 'node:crypto';
+
+const terminalStates = new Set(['success', 'failed', 'timed-out', 'cancelled', 'blocked', 'internal-error']);
+const terminalFailureStates = new Set(['failed', 'timed-out', 'internal-error']);
+const finalizerPurposes = new Set(['cleanup', 'sealed-failure-summary', 'partial-evidence-inventory']);
+
+export class StepTerminalError extends Error
+{
+    constructor(terminalState, reasonCode, message, options = {})
+    {
+        super(message, options);
+        this.name = 'StepTerminalError';
+        this.terminalState = terminalState;
+        this.reasonCode = reasonCode;
+        this.primaryFailureRefs = options.primaryFailureRefs ?? [];
+    }
+}
+
+export class StepDagExecutionError extends AggregateError
+{
+    constructor({ failures, states, terminalReceipts })
+    {
+        const primary = failures[0]?.reason ?? new Error('step DAG reached a non-success terminal state');
+        super(failures.map((failure) => failure.reason), `step DAG failed in ${failures.length} terminal branches: ${primary.message}`);
+        this.name = 'StepDagExecutionError';
+        this.cause = primary;
+        this.primaryFailure = primary;
+        this.states = Object.fromEntries(states);
+        this.terminalReceipts = Object.fromEntries(terminalReceipts);
+    }
+}
+
+function digest(value)
+{
+    return createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
 function step(id, command, members, options = {})
 {
     return {
@@ -218,6 +255,7 @@ export function buildSettledPhaseJoinEvidence({
     dependencyIds,
     dependencyOutcomes,
     dependencyResults,
+    evidenceRef = `phase-join/${stepId}`,
     generatedAt = new Date().toISOString()
 })
 {
@@ -238,10 +276,34 @@ export function buildSettledPhaseJoinEvidence({
         return {
             id: dependencyId,
             outcome: dependencyOutcomes?.[dependencyId] ?? 'unknown',
+            receiptPresent: result !== null,
+            receiptTerminalState: result?.terminalState ?? result?.status ?? null,
             durationMs: result?.durationMs ?? null,
             logFile: result?.logFile ?? null
         };
     });
+    const hasIncompleteDependency = dependencies.some((dependency) =>
+        !terminalStates.has(dependency.outcome)
+        || dependency.outcome === 'blocked'
+        || dependency.receiptPresent !== true
+        || dependency.receiptTerminalState !== dependency.outcome);
+    const primaryFailureRefs = dependencies
+        .filter((dependency) => terminalFailureStates.has(dependency.outcome))
+        .map((dependency) => dependency.id);
+    const terminalState = hasIncompleteDependency
+        ? 'failed'
+        : primaryFailureRefs.length > 0
+            ? 'failed'
+            : dependencies.some((dependency) => dependency.outcome === 'cancelled')
+                ? 'cancelled'
+                : 'success';
+    const reasonCode = hasIncompleteDependency
+        ? 'dependency-outcome-incomplete'
+        : terminalState === 'failed'
+            ? 'dependency-terminal-failure'
+            : terminalState === 'cancelled'
+                ? 'dependency-cancelled'
+                : 'all-dependencies-succeeded';
     const completedResults = dependencyIds.map((dependencyId) => results.get(dependencyId)).filter(Boolean);
     const startedAtMs = completedResults.length > 0
         ? Math.min(...completedResults.map((result) => result.startedAtMs))
@@ -249,19 +311,233 @@ export function buildSettledPhaseJoinEvidence({
     const finishedAtMs = completedResults.length > 0
         ? Math.max(...completedResults.map((result) => result.finishedAtMs))
         : startedAtMs;
-    return {
-        evidence: {
+    const evidence = {
             schema: 'fsusblog.local-production.phase-join.v1',
-            status: dependencies.every((dependency) => dependency.outcome === 'success') ? 'success' : 'failed',
+            status: terminalState,
+            terminalState,
+            reasonCode,
+            primaryFailureRefs,
             stepId,
+            evidenceRef,
+            canonicalDependencyOrder: [...dependencyIds],
             dependencies,
             generatedAt
-        },
+    };
+    evidence.dependencyOutcomeDigest = digest(dependencies.map((dependency) => ({
+        id: dependency.id,
+        outcome: dependency.outcome,
+        receiptPresent: dependency.receiptPresent,
+        receiptTerminalState: dependency.receiptTerminalState
+    })));
+    evidence.contentDigest = digest({
+            status: evidence.status,
+            terminalState: evidence.terminalState,
+            reasonCode: evidence.reasonCode,
+            primaryFailureRefs: evidence.primaryFailureRefs,
+            stepId: evidence.stepId,
+            evidenceRef: evidence.evidenceRef,
+            canonicalDependencyOrder: evidence.canonicalDependencyOrder,
+            dependencies: evidence.dependencies,
+            dependencyOutcomeDigest: evidence.dependencyOutcomeDigest
+    });
+    return {
+        evidence,
         startedAtMs,
         finishedAtMs,
         durationMs: Math.max(0, finishedAtMs - startedAtMs),
         dependencyLogs: completedResults.map((result) => result.logFile).filter(Boolean)
     };
+}
+
+export function validateSettledPhaseJoinConsistency({
+    schedulerState,
+    evidence,
+    dependencyReceipts = {},
+    canonicalDependencyOutcomes,
+    stepId
+})
+{
+    if (!terminalStates.has(schedulerState))
+    {
+        throw new Error(`join scheduler state is not terminal: ${schedulerState}`);
+    }
+    if (!evidence || typeof evidence !== 'object')
+    {
+        throw new Error('join evidence is required');
+    }
+    if (evidence.schema !== 'fsusblog.local-production.phase-join.v1'
+        || (stepId && evidence.stepId !== stepId))
+    {
+        throw new Error('join evidence schema or step identity mismatch');
+    }
+    if (evidence.status !== schedulerState || evidence.terminalState !== schedulerState)
+    {
+        throw new Error(`join scheduler/evidence terminal state mismatch: scheduler=${schedulerState} evidence=${evidence.status}`);
+    }
+    if (typeof evidence.reasonCode !== 'string' || !Array.isArray(evidence.primaryFailureRefs)
+        || typeof evidence.evidenceRef !== 'string' || !evidence.evidenceRef
+        || !Array.isArray(evidence.dependencies) || !evidence.contentDigest || !evidence.dependencyOutcomeDigest)
+    {
+        throw new Error('join evidence is missing terminal audit fields');
+    }
+    const expectedOrder = evidence.dependencies.map((dependency) => dependency.id);
+    if (!Array.isArray(evidence.canonicalDependencyOrder)
+        || evidence.canonicalDependencyOrder.join('\0') !== expectedOrder.join('\0')
+        || new Set(expectedOrder).size !== expectedOrder.length)
+    {
+        throw new Error('join evidence dependencies must preserve declared canonical order');
+    }
+    if (canonicalDependencyOutcomes)
+    {
+        const canonicalOrder = Object.keys(canonicalDependencyOutcomes);
+        if (canonicalOrder.join('\0') !== expectedOrder.join('\0'))
+        {
+            throw new Error('join evidence dependency order does not match scheduler order');
+        }
+        for (const dependency of evidence.dependencies)
+        {
+            if (canonicalDependencyOutcomes[dependency.id] !== dependency.outcome)
+            {
+                throw new Error(`join evidence outcome does not match scheduler state: ${dependency.id}`);
+            }
+        }
+        const receiptIds = dependencyReceipts instanceof Map
+            ? [...dependencyReceipts.keys()]
+            : Object.keys(dependencyReceipts);
+        if (receiptIds.join('\0') !== canonicalOrder.join('\0'))
+        {
+            throw new Error('join dependency receipt set does not match scheduler dependencies');
+        }
+    }
+    const expectedDependencyDigest = digest(evidence.dependencies.map((dependency) => ({
+        id: dependency.id,
+        outcome: dependency.outcome,
+        receiptPresent: dependency.receiptPresent,
+        receiptTerminalState: dependency.receiptTerminalState
+    })));
+    if (evidence.dependencyOutcomeDigest !== expectedDependencyDigest)
+    {
+        throw new Error('join evidence dependency outcome digest mismatch');
+    }
+    const expectedContentDigest = digest({
+        status: evidence.status,
+        terminalState: evidence.terminalState,
+        reasonCode: evidence.reasonCode,
+        primaryFailureRefs: evidence.primaryFailureRefs,
+        stepId: evidence.stepId,
+        evidenceRef: evidence.evidenceRef,
+        canonicalDependencyOrder: evidence.canonicalDependencyOrder,
+        dependencies: evidence.dependencies,
+        dependencyOutcomeDigest: evidence.dependencyOutcomeDigest
+    });
+    if (evidence.contentDigest !== expectedContentDigest)
+    {
+        throw new Error('join evidence content digest mismatch');
+    }
+    for (const dependency of evidence.dependencies)
+    {
+        const receipt = dependencyReceipts instanceof Map
+            ? dependencyReceipts.get(dependency.id)
+            : dependencyReceipts[dependency.id];
+        if (receipt && receipt.terminalState !== dependency.outcome)
+        {
+            throw new Error(`join dependency receipt mismatch: ${dependency.id}`);
+        }
+        if (!receipt || receipt.schema !== 'fsusblog.scheduler.terminal-receipt.v1'
+            || receipt.terminalState !== dependency.outcome)
+        {
+            throw new Error(`join dependency terminal receipt is missing or invalid: ${dependency.id}`);
+        }
+        if (dependency.receiptPresent !== true || dependency.receiptTerminalState !== dependency.outcome)
+        {
+            if (evidence.reasonCode !== 'dependency-outcome-incomplete' || schedulerState !== 'failed')
+            {
+                throw new Error(`join dependency outcome is incomplete: ${dependency.id}`);
+            }
+        }
+    }
+    if (schedulerState === 'success' && evidence.dependencies.some((dependency) =>
+        dependency.outcome !== 'success' || dependency.receiptPresent !== true || dependency.receiptTerminalState !== 'success'))
+    {
+        throw new Error('successful join evidence contains a dependency terminal failure or missing receipt');
+    }
+    const incomplete = evidence.dependencies.some((dependency) => dependency.outcome === 'blocked'
+        || !terminalStates.has(dependency.outcome) || dependency.receiptPresent !== true
+        || dependency.receiptTerminalState !== dependency.outcome);
+    const failures = evidence.dependencies.filter((dependency) => terminalFailureStates.has(dependency.outcome));
+    const expectedState = incomplete ? 'failed'
+        : failures.length > 0 ? 'failed'
+            : evidence.dependencies.some((dependency) => dependency.outcome === 'cancelled') ? 'cancelled'
+                : 'success';
+    const expectedReason = incomplete ? 'dependency-outcome-incomplete'
+        : failures.length > 0 ? 'dependency-terminal-failure'
+            : expectedState === 'cancelled' ? 'dependency-cancelled'
+                : 'all-dependencies-succeeded';
+    const expectedPrimaryRefs = failures.map((dependency) => dependency.id);
+    if (schedulerState !== expectedState || evidence.reasonCode !== expectedReason
+        || evidence.primaryFailureRefs.join('\0') !== expectedPrimaryRefs.join('\0'))
+    {
+        throw new Error('join evidence terminal mapping or primary failure refs mismatch');
+    }
+    return true;
+}
+
+function normalizeTerminalOutcome(entry, result, terminalReceipts)
+{
+    const outcome = result?.terminalState
+        ? result
+        : { terminalState: 'success', reasonCode: 'execute-resolved' };
+    if (!terminalStates.has(outcome.terminalState))
+    {
+        throw new Error(`step "${entry.id}" returned invalid terminal state: ${outcome.terminalState}`);
+    }
+    if (entry.runAfterSettled === true)
+    {
+        if (!outcome.evidence)
+        {
+            throw new Error(`runAfterSettled step "${entry.id}" must return evidence`);
+        }
+        validateSettledPhaseJoinConsistency({
+            schedulerState: outcome.terminalState,
+            evidence: outcome.evidence,
+            dependencyReceipts: new Map(Object.keys(entry.dependencyOutcomes ?? {}).map((dependency) =>
+                [dependency, terminalReceipts.get(dependency)])),
+            canonicalDependencyOutcomes: entry.dependencyOutcomes,
+            stepId: entry.id
+        });
+    }
+    return {
+        ...outcome,
+        evidenceRef: outcome.evidenceRef ?? outcome.evidence?.evidenceRef,
+        contentDigest: outcome.contentDigest ?? outcome.evidence?.contentDigest,
+        dependencyOutcomeDigest: outcome.dependencyOutcomeDigest ?? outcome.evidence?.dependencyOutcomeDigest,
+        reasonCode: outcome.reasonCode ?? outcome.evidence?.reasonCode,
+        dependencyOutcomes: outcome.dependencyOutcomes ?? outcome.evidence?.dependencies,
+        primaryFailureRefs: outcome.primaryFailureRefs ?? outcome.evidence?.primaryFailureRefs
+    };
+}
+
+function terminalOutcomeFromReason(entry, reason)
+{
+    if (reason instanceof StepTerminalError)
+    {
+        return {
+            terminalState: reason.terminalState,
+            reasonCode: reason.reasonCode,
+            primaryFailureRefs: reason.primaryFailureRefs,
+            reason
+        };
+    }
+    if (entry.runAfterSettled === true)
+    {
+        return {
+            terminalState: 'internal-error',
+            reason,
+            reasonCode: 'join-evidence-processing-failed',
+            primaryFailureRefs: [entry.id]
+        };
+    }
+    return { terminalState: 'failed', reason, reasonCode: 'execute-rejected' };
 }
 
 /**
@@ -345,12 +621,30 @@ function validateWeightedSteps(steps, capacity, allowedExclusiveResources, allow
         {
             throw new Error(`runAfterSettled step "${entry.id}" must be coordination-only`);
         }
+        if (entry.alwaysRunFinalizer === true && entry.resources.coordinationOnly !== true)
+        {
+            throw new Error(`alwaysRunFinalizer step "${entry.id}" must be coordination-only`);
+        }
+        if (entry.alwaysRunFinalizer === true && (!finalizerPurposes.has(entry.finalizerPurpose)
+            || entry.runAfterSettled === true || (entry.members?.length ?? 0) > 0
+            || (entry.testIds?.length ?? 0) > 0 || (entry.artifacts?.length ?? 0) > 0))
+        {
+            throw new Error(`alwaysRunFinalizer step "${entry.id}" has an invalid finalizer declaration`);
+        }
         for (const dependency of [...(entry.dependsOn ?? []), ...(entry.settledDependsOn ?? [])])
         {
             if (!ids.has(dependency))
             {
                 throw new Error(`${entry.id} depends on unknown dependency: ${dependency}`);
             }
+        }
+    }
+    for (const entry of normalized.filter((candidate) => candidate.alwaysRunFinalizer === true))
+    {
+        if (normalized.some((candidate) => (candidate.dependsOn ?? []).includes(entry.id)
+            || (candidate.settledDependsOn ?? []).includes(entry.id)))
+        {
+            throw new Error(`alwaysRunFinalizer step "${entry.id}" cannot unlock a downstream step`);
         }
     }
     return normalized;
@@ -499,6 +793,7 @@ export async function executeWeightedStepDag(steps, capacity, execute)
     );
     const states = new Map(normalized.map((entry) => [entry.id, 'pending']));
     const failures = [];
+    const terminalReceipts = new Map();
     const active = new Map();
     const reportedExclusiveWaits = new Set();
     const reportedCountedWaits = new Set();
@@ -518,18 +813,50 @@ export async function executeWeightedStepDag(steps, capacity, execute)
         const promise = Promise.resolve()
             .then(() => execute({ ...entry, runtimeCapacity }))
             .then(
-                () => ({ status: 'success' }),
-                (reason) => ({ status: 'failure', reason })
+                (result) =>
+                {
+                    try
+                    {
+                        return normalizeTerminalOutcome(entry, result, terminalReceipts);
+                    }
+                    catch (reason)
+                    {
+                        return {
+                            terminalState: 'internal-error',
+                            reasonCode: 'terminal-outcome-validation-failed',
+                            primaryFailureRefs: [entry.id],
+                            reason
+                        };
+                    }
+                },
+                (reason) => terminalOutcomeFromReason(entry, reason)
             )
             .then((outcome) =>
             {
                 usedCpuUnits = Math.max(0, usedCpuUnits - runtimeCapacity.cpuUnits);
                 usedMemoryGiB = Math.max(0, usedMemoryGiB - runtimeCapacity.memoryGiB);
                 active.delete(entry.id);
-                states.set(entry.id, outcome.status);
-                if (outcome.status === 'failure')
+                states.set(entry.id, outcome.terminalState);
+                terminalReceipts.set(entry.id, {
+                    schema: 'fsusblog.scheduler.terminal-receipt.v1',
+                    stepId: entry.id,
+                    stepKind: entry.runAfterSettled === true ? 'settled-join'
+                        : entry.alwaysRunFinalizer === true ? 'finalizer' : 'physical',
+                    terminalState: outcome.terminalState,
+                    reasonCode: outcome.reasonCode ?? null,
+                    primaryFailureRefs: outcome.primaryFailureRefs ?? (terminalFailureStates.has(outcome.terminalState) ? [entry.id] : []),
+                    evidenceRef: outcome.evidenceRef ?? null,
+                    contentDigest: outcome.contentDigest ?? outcome.evidence?.contentDigest ?? null,
+                    dependencyOutcomeDigest: outcome.dependencyOutcomeDigest ?? outcome.evidence?.dependencyOutcomeDigest ?? digest(
+                        outcome.dependencyOutcomes ?? outcome.evidence?.dependencies ?? []),
+                    dependencyOutcomes: outcome.dependencyOutcomes ?? outcome.evidence?.dependencies ?? []
+                });
+                if (terminalFailureStates.has(outcome.terminalState))
                 {
-                    failures.push({ index, entry, reason: outcome.reason });
+                    if (outcome.reason || (outcome.primaryFailureRefs?.length ?? 0) === 0)
+                    {
+                        failures.push({ index, entry, reason: outcome.reason });
+                    }
                 }
             });
 
@@ -561,20 +888,36 @@ export async function executeWeightedStepDag(steps, capacity, execute)
                 {
                     continue;
                 }
-                if (entry.runAfterSettled !== true
-          && (entry.dependsOn ?? []).some((dependency) => ['failure', 'blocked'].includes(states.get(dependency))))
+                if (entry.runAfterSettled !== true && entry.alwaysRunFinalizer !== true
+          && (entry.dependsOn ?? []).some((dependency) =>
+              terminalStates.has(states.get(dependency)) && states.get(dependency) !== 'success'))
                 {
                     states.set(entry.id, 'blocked');
+                    const dependencies = [...(entry.dependsOn ?? []), ...(entry.settledDependsOn ?? [])];
+                    const dependencyOutcomes = Object.fromEntries(dependencies.map((dependency) =>
+                        [dependency, states.get(dependency)]));
+                    terminalReceipts.set(entry.id, {
+                        schema: 'fsusblog.scheduler.terminal-receipt.v1',
+                        stepId: entry.id,
+                        stepKind: 'physical',
+                        terminalState: 'blocked',
+                        reasonCode: 'dependency-not-success',
+                        primaryFailureRefs: dependencies.filter((dependency) => states.get(dependency) !== 'success'),
+                        evidenceRef: null,
+                        contentDigest: null,
+                        dependencyOutcomeDigest: digest(dependencyOutcomes),
+                        dependencyOutcomes
+                    });
                     propagatedBlock = true;
                 }
             }
         } while (propagatedBlock);
         const ready = normalized.filter((entry) => states.get(entry.id) === 'pending'
-      && (entry.dependsOn ?? []).every((dependency) => entry.runAfterSettled === true
-          ? ['success', 'failure', 'blocked'].includes(states.get(dependency))
+      && (entry.dependsOn ?? []).every((dependency) => entry.runAfterSettled === true || entry.alwaysRunFinalizer === true
+          ? terminalStates.has(states.get(dependency))
           : states.get(dependency) === 'success')
       && (entry.settledDependsOn ?? []).every((dependency) =>
-          ['success', 'failure', 'blocked'].includes(states.get(dependency))));
+          terminalStates.has(states.get(dependency))));
         const freeCpuUnits = Math.max(0, Math.floor(normalizedCapacity.cpuUnits) - usedCpuUnits);
         const freeMemoryGiB = Math.max(0, normalizedCapacity.memoryGiB - usedMemoryGiB);
         const admissionResult = selectWeightedAdmission(
@@ -601,12 +944,12 @@ export async function executeWeightedStepDag(steps, capacity, execute)
             const dependencies = (entry.dependsOn ?? []).filter((dependency) =>
             {
                 const dependencyState = states.get(dependency);
-                return entry.runAfterSettled === true
-                    ? !['success', 'failure', 'blocked'].includes(dependencyState)
+                return entry.runAfterSettled === true || entry.alwaysRunFinalizer === true
+                    ? !terminalStates.has(dependencyState)
                     : dependencyState !== 'success';
             });
             dependencies.push(...(entry.settledDependsOn ?? []).filter((dependency) =>
-                !['success', 'failure', 'blocked'].includes(states.get(dependency))));
+                !terminalStates.has(states.get(dependency))));
             if (dependencies.length > 0)
             {
                 normalizedCapacity.onWaitState?.(entry.id, { dependencies });
@@ -740,17 +1083,34 @@ export async function executeWeightedStepDag(steps, capacity, execute)
     }
 
     failures.sort((left, right) => left.index - right.index);
-    if (failures.length === 1)
+    if (failures.length === 0)
     {
-        throw failures[0].reason;
+        const nonSuccessReceipt = [...terminalReceipts.entries()].find(([, receipt]) =>
+            receipt.terminalState !== 'success');
+        if (nonSuccessReceipt)
+        {
+            failures.push({
+                entry: { id: nonSuccessReceipt[0] },
+                reason: new Error(`step DAG failed: ${nonSuccessReceipt[0]}`)
+            });
+        }
     }
-    if (failures.length > 1)
+    if (failures.length > 0)
     {
-        throw new AggregateError(
-            failures.map((failure) => failure.reason),
-            `step DAG failed in ${failures.length} independent branches: ${failures.map((failure) => failure.entry.id).join(', ')}`
-        );
+        const structuredFailures = failures.map((failure) => ({
+            ...failure,
+            reason: failure.reason ?? new Error(`step DAG failed: ${failure.entry.id}`)
+        }));
+        throw new StepDagExecutionError({
+            failures: structuredFailures,
+            states,
+            terminalReceipts
+        });
     }
+    return {
+        states: Object.fromEntries(states),
+        terminalReceipts: Object.fromEntries(terminalReceipts)
+    };
 }
 
 export function runtimeSteps()

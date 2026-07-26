@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs'
 import test from 'node:test'
 
-import { executeWeightedStepDag } from '../../tools/test/bundles/bundle-steps.mjs'
+import { buildSettledPhaseJoinEvidence, executeWeightedStepDag } from '../../tools/test/bundles/bundle-steps.mjs'
 
 const runnerSource = fs.readFileSync(new URL('../../tools/test/bundles/run-bundle.mjs', import.meta.url), 'utf8')
 const staticLaneSource = fs.readFileSync(new URL('../../tools/test/lanes/static-governance.sh', import.meta.url), 'utf8')
@@ -11,6 +11,20 @@ const privacyLaneSource = fs.readFileSync(new URL('../../tools/test/lanes/privac
 const frontendPackage = JSON.parse(fs.readFileSync(new URL('../../src/frontend/package.json', import.meta.url), 'utf8'))
 const vitestSharedSource = fs.readFileSync(new URL('../../src/frontend/vitest.shared.mjs', import.meta.url), 'utf8')
 const vitestUnitSource = fs.readFileSync(new URL('../../src/frontend/vitest.config.ts', import.meta.url), 'utf8')
+
+function settledOutcome(step) {
+  const joined = buildSettledPhaseJoinEvidence({
+    stepId: step.id,
+    dependencyIds: step.dependsOn,
+    dependencyOutcomes: step.dependencyOutcomes,
+    dependencyResults: new Map(step.dependsOn.map((id) => [id, {
+      status: step.dependencyOutcomes[id],
+      startedAtMs: 1,
+      finishedAtMs: 2
+    }]))
+  })
+  return { terminalState: joined.evidence.terminalState, evidence: joined.evidence }
+}
 
 test('frontend bundle gates Vitest on only explicit blocking checks and schedules other static stages in the DAG', () => {
   const vitestStart = runnerSource.indexOf("const step = commandStep('vitest-production-projects'")
@@ -103,6 +117,8 @@ test('frontend bundle model overlaps Vitest and static work then joins all settl
       }
     },
     coordinationStep('vitest-settled', ['vitest-production-projects'], true),
+    ordinaryStep('isolated-frontend-perf', ['vitest-settled']),
+    ordinaryStep('test-asset-governance', ['vitest-settled']),
     ordinaryStep('static-governance-post-vitest', ['vitest-settled']),
     ordinaryStep('frontend-coverage-summary', ['vitest-settled']),
     coordinationStep('frontend-tests-join', [
@@ -129,6 +145,7 @@ test('frontend bundle model overlaps Vitest and static work then joins all settl
       throw second
     }
     if (step.id === 'frontend-tests-join') joinOutcomes = step.dependencyOutcomes
+    if (step.runAfterSettled) return settledOutcome(step)
   })
 
   await nextTurn()
@@ -146,8 +163,10 @@ test('frontend bundle model overlaps Vitest and static work then joins all settl
   vitestRelease.resolve()
   await nextTurn()
   assert.ok(started.includes('vitest-settled'))
-  assert.ok(started.includes('static-governance-post-vitest'))
-  assert.ok(started.includes('frontend-coverage-summary'))
+  assert.equal(started.includes('static-governance-post-vitest'), false)
+  assert.equal(started.includes('frontend-coverage-summary'), false)
+  assert.equal(started.includes('isolated-frontend-perf'), false)
+  assert.equal(started.includes('test-asset-governance'), false)
 
   staticRelease.resolve()
   await assert.rejects(execution, (error) => {
@@ -157,11 +176,11 @@ test('frontend bundle model overlaps Vitest and static work then joins all settl
   })
   assert.equal(started.at(-1), 'frontend-tests-join')
   assert.deepEqual(joinOutcomes, {
-    'vitest-production-projects': 'failure',
-    'frontend-static-concurrent': 'failure',
+    'vitest-production-projects': 'failed',
+    'frontend-static-concurrent': 'failed',
     'frontend-static-postbuild': 'success',
-    'static-governance-post-vitest': 'success',
-    'frontend-coverage-summary': 'success'
+    'static-governance-post-vitest': 'blocked',
+    'frontend-coverage-summary': 'blocked'
   })
 })
 
@@ -186,6 +205,7 @@ test('perf starts after every rolling host settles without waiting for unrelated
     if (step.id === 'vitest-production-perf-isolated') {
       assert.equal(unrelatedFuzzSettled, false)
     }
+    if (step.runAfterSettled) return settledOutcome(step)
   })
 
   marker.resolve()

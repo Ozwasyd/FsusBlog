@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 
 import {
@@ -11,12 +13,31 @@ import {
     resolveConcurrentStepCapacities,
     resolveMachineExecutionTimeoutMs,
     resolveStepRuntimeCapacity,
-    runtimeSteps
+    runtimeSteps,
+    StepDagExecutionError,
+    validateSettledPhaseJoinConsistency
 } from '../../tools/test/bundles/bundle-steps.mjs';
 import { parseRuntimeEnvironment } from '../../tools/test/bundles/runtime-environment.mjs';
+import { validateLocalBundleSummary } from '../../tools/test-matrix/local-profile.mjs';
+import { writeBundleSummaryAtomically } from '../../tools/test/bundles/terminal-summary.mjs';
 import { resolveWorkerTestSession } from '../frontend/support/test-session.mjs';
 
 const byId = (steps) => new Map(steps.map((step) => [step.id, step]));
+
+function settledOutcome(entry)
+{
+    const joined = buildSettledPhaseJoinEvidence({
+        stepId: entry.id,
+        dependencyIds: entry.dependsOn,
+        dependencyOutcomes: entry.dependencyOutcomes,
+        dependencyResults: new Map(entry.dependsOn.map((id) => [id, {
+            status: entry.dependencyOutcomes[id],
+            startedAtMs: 1,
+            finishedAtMs: 2
+        }]))
+    });
+    return { terminalState: joined.evidence.terminalState, evidence: joined.evidence };
+}
 
 const runtimeEnvironmentFixture = (overrides = {}) => ({
     FSUSBLOG_TEST_NAMESPACE: 'runtime-focused-1',
@@ -293,9 +314,9 @@ test('security phase join evidence binds every phase log and the complete concur
             'zap-baseline': 'success'
         },
         dependencyResults: new Map([
-            ['security-static', { startedAtMs: 100, finishedAtMs: 500, durationMs: 400, logFile: 'static.log' }],
-            ['security-runtime-core', { startedAtMs: 300, finishedAtMs: 800, durationMs: 500, logFile: 'core.log' }],
-            ['zap-baseline', { startedAtMs: 350, finishedAtMs: 600, durationMs: 250, logFile: 'zap.log' }]
+            ['security-static', { status: 'success', startedAtMs: 100, finishedAtMs: 500, durationMs: 400, logFile: 'static.log' }],
+            ['security-runtime-core', { status: 'success', startedAtMs: 300, finishedAtMs: 800, durationMs: 500, logFile: 'core.log' }],
+            ['zap-baseline', { status: 'success', startedAtMs: 350, finishedAtMs: 600, durationMs: 250, logFile: 'zap.log' }]
         ]),
         generatedAt: '2026-07-12T00:00:00.000Z'
     });
@@ -305,6 +326,318 @@ test('security phase join evidence binds every phase log and the complete concur
     ]);
     assert.deepEqual(joined.dependencyLogs, ['static.log', 'core.log', 'zap.log']);
     assert.equal(joined.durationMs, 700);
+});
+
+test('settled join terminal failure blocks normal downstream admission and preserves canonical root cause', async () =>
+{
+    const rootFailure = new Error('Vitest root failure');
+    const executed = [];
+    const receipts = new Map();
+    await assert.rejects(executeWeightedStepDag([
+        { id: 'vitest', resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 } },
+        {
+            id: 'vitest-settled',
+            dependsOn: ['vitest'],
+            runAfterSettled: true,
+            resources: { coordinationOnly: true }
+        },
+        {
+            id: 'coverage',
+            dependsOn: ['vitest-settled'],
+            resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
+        }
+    ], { maxParallel: 2, cpuUnits: 2, memoryGiB: 2 }, async (entry) =>
+    {
+        executed.push(entry.id);
+        if (entry.id === 'vitest')
+        {
+            receipts.set(entry.id, { status: 'failed', startedAtMs: 1, finishedAtMs: 2 });
+            throw rootFailure;
+        }
+        if (entry.id === 'vitest-settled')
+        {
+            const joined = buildSettledPhaseJoinEvidence({
+                stepId: entry.id,
+                dependencyIds: entry.dependsOn,
+                dependencyOutcomes: entry.dependencyOutcomes,
+                dependencyResults: receipts,
+                generatedAt: '2026-07-26T00:00:00.000Z'
+            });
+            return { terminalState: joined.evidence.terminalState, evidence: joined.evidence };
+        }
+        throw new Error('normal downstream must remain blocked');
+    }), (error) => error instanceof StepDagExecutionError && error.cause === rootFailure);
+    assert.deepEqual(executed, ['vitest', 'vitest-settled']);
+});
+
+test('settled join evidence rejects incomplete receipts and scheduler/evidence disagreement', () =>
+{
+    const joined = buildSettledPhaseJoinEvidence({
+        stepId: 'settled',
+        dependencyIds: ['first', 'second'],
+        dependencyOutcomes: { first: 'failed', second: 'success' },
+        dependencyResults: new Map([
+            ['first', { startedAtMs: 1, finishedAtMs: 2 }]
+        ]),
+        generatedAt: '2026-07-26T00:00:00.000Z'
+    });
+    assert.equal(joined.evidence.terminalState, 'failed');
+    assert.equal(joined.evidence.reasonCode, 'dependency-outcome-incomplete');
+    assert.deepEqual(joined.evidence.primaryFailureRefs, ['first']);
+    assert.throws(() => validateSettledPhaseJoinConsistency({
+        schedulerState: 'success',
+        evidence: joined.evidence
+    }), /terminal state mismatch/u);
+});
+
+test('validator rejects absent null and malformed actual terminal receipts', () =>
+{
+    const joined = buildSettledPhaseJoinEvidence({
+        stepId: 'join',
+        dependencyIds: ['dep'],
+        dependencyOutcomes: { dep: 'success' },
+        dependencyResults: new Map([['dep', { status: 'success', startedAtMs: 1, finishedAtMs: 2 }]])
+    });
+    for (const receipt of [undefined, null, { schema: 'wrong', terminalState: 'success' }, {
+        schema: 'fsusblog.scheduler.terminal-receipt.v1', terminalState: 'failed'
+    }])
+    {
+        assert.throws(() => validateSettledPhaseJoinConsistency({
+            schedulerState: 'success',
+            evidence: joined.evidence,
+            canonicalDependencyOutcomes: { dep: 'success' },
+            dependencyReceipts: new Map([['dep', receipt]]),
+            stepId: 'join'
+        }), /terminal receipt|receipt mismatch/u);
+    }
+});
+
+test('terminal receipts survive atomic summary round-trip and production validation fails closed on tampering', async () =>
+{
+    const execution = await executeWeightedStepDag([
+        { id: 'dep', resources: { coordinationOnly: true } },
+        { id: 'join', dependsOn: ['dep'], runAfterSettled: true, resources: { coordinationOnly: true } }
+    ], { maxParallel: 1, cpuUnits: 1, memoryGiB: 1 }, async (entry) =>
+    {
+        if (entry.id === 'dep') return { terminalState: 'success' };
+        const joined = buildSettledPhaseJoinEvidence({
+            stepId: entry.id,
+            dependencyIds: entry.dependsOn,
+            dependencyOutcomes: entry.dependencyOutcomes,
+            dependencyResults: new Map([['dep', { status: 'success', startedAtMs: 1, finishedAtMs: 2 }]]),
+            evidenceRef: 'logs/join.json'
+        });
+        return { terminalState: 'success', evidence: joined.evidence };
+    });
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-terminal-summary-'));
+    const summaryFile = path.join(directory, 'summary.json');
+    const fixtureBundle = { id: 'fixture', members: [], requiresSchedulerTerminalReceipts: true };
+    const summary = {
+        schema: 'fsusblog.local-production.bundle.v1',
+        physicalBundleId: 'fixture',
+        executionSource: 'fresh',
+        status: 'success',
+        schedulerRunId: 'fixture-run',
+        members: {},
+        schedulerTerminalReceipts: execution.terminalReceipts,
+        schedulerTerminalReceiptIds: Object.keys(execution.terminalReceipts),
+        schedulerTerminalReceiptRequired: true
+    };
+    try
+    {
+        const roundTripped = writeBundleSummaryAtomically(summaryFile, summary);
+        assert.deepEqual(validateLocalBundleSummary(roundTripped, fixtureBundle, {
+            expectedRunId: 'fixture-run'
+        }), []);
+        for (const mutate of [
+            (value) => { delete value.schedulerTerminalReceipts.join; },
+            (value) => { delete value.schedulerTerminalReceipts; delete value.schedulerTerminalReceiptIds; },
+            (value) => { value.schedulerTerminalReceipts.join.terminalState = 'forged-success'; },
+            (value) => { delete value.schedulerTerminalReceipts.join.contentDigest; },
+            (value) => { value.schedulerTerminalReceipts.join.contentDigest = 'a'.repeat(64); },
+            (value) => { value.schedulerTerminalReceipts.join.dependencyOutcomes[0].outcome = 'failed'; },
+            (value) => { value.schedulerTerminalReceipts.join.evidenceRef = null; value.schedulerTerminalReceipts.join.contentDigest = null; },
+            (value) => { delete value.schedulerTerminalReceipts.join.dependencyOutcomeDigest; }
+        ])
+        {
+            const tampered = structuredClone(roundTripped);
+            mutate(tampered);
+            const reread = writeBundleSummaryAtomically(summaryFile, tampered);
+            assert.notDeepEqual(validateLocalBundleSummary(reread, fixtureBundle, {
+                expectedRunId: 'fixture-run'
+            }), []);
+        }
+        const partial = writeBundleSummaryAtomically(summaryFile, { ...summary, status: 'partial' });
+        assert.notDeepEqual(validateLocalBundleSummary(partial, fixtureBundle, {
+            expectedRunId: 'fixture-run'
+        }), []);
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test('settled join maps blocked unknown missing timed-out and cancelled dependency outcomes exactly', () =>
+{
+    const receipt = (status) => ({ status, startedAtMs: 1, finishedAtMs: 2 });
+    for (const outcome of ['blocked', 'unknown'])
+    {
+        const joined = buildSettledPhaseJoinEvidence({
+            stepId: 'settled',
+            dependencyIds: ['dependency'],
+            dependencyOutcomes: { dependency: outcome },
+            dependencyResults: new Map([['dependency', receipt(outcome)]])
+        });
+        assert.equal(joined.evidence.terminalState, 'failed');
+        assert.equal(joined.evidence.reasonCode, 'dependency-outcome-incomplete');
+    }
+    const missing = buildSettledPhaseJoinEvidence({
+        stepId: 'settled',
+        dependencyIds: ['dependency'],
+        dependencyOutcomes: { dependency: 'success' },
+        dependencyResults: new Map()
+    });
+    assert.equal(missing.evidence.reasonCode, 'dependency-outcome-incomplete');
+    const timedOut = buildSettledPhaseJoinEvidence({
+        stepId: 'settled',
+        dependencyIds: ['dependency'],
+        dependencyOutcomes: { dependency: 'timed-out' },
+        dependencyResults: new Map([['dependency', receipt('timed-out')]])
+    });
+    assert.equal(timedOut.evidence.terminalState, 'failed');
+    const cancelled = buildSettledPhaseJoinEvidence({
+        stepId: 'settled',
+        dependencyIds: ['dependency'],
+        dependencyOutcomes: { dependency: 'cancelled' },
+        dependencyResults: new Map([['dependency', receipt('cancelled')]])
+    });
+    assert.equal(cancelled.evidence.terminalState, 'cancelled');
+});
+
+test('missing or invalid settled evidence records an internal-error terminal receipt', async () =>
+{
+    await assert.rejects(executeWeightedStepDag([
+        { id: 'dependency', resources: { coordinationOnly: true } },
+        {
+            id: 'settled',
+            dependsOn: ['dependency'],
+            runAfterSettled: true,
+            resources: { coordinationOnly: true }
+        }
+    ], { maxParallel: 1, cpuUnits: 1, memoryGiB: 1 }, async () => ({ terminalState: 'success' })), (error) =>
+    {
+        assert.ok(error instanceof StepDagExecutionError);
+        assert.equal(error.terminalReceipts.settled.terminalState, 'internal-error');
+        assert.equal(error.terminalReceipts.settled.reasonCode, 'terminal-outcome-validation-failed');
+        return true;
+    });
+});
+
+test('scheduler rejects forged settled evidence and blocks its downstream consumer', async () =>
+{
+    const started = [];
+    await assert.rejects(executeWeightedStepDag([
+        { id: 'dependency', resources: { coordinationOnly: true } },
+        { id: 'join', dependsOn: ['dependency'], runAfterSettled: true, resources: { coordinationOnly: true } },
+        { id: 'tail', dependsOn: ['join'], resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 } }
+    ], { maxParallel: 1, cpuUnits: 1, memoryGiB: 1 }, async (entry) =>
+    {
+        started.push(entry.id);
+        if (entry.id === 'dependency')
+        {
+            return { terminalState: 'failed', reasonCode: 'fixture-failure' };
+        }
+        if (entry.id === 'join')
+        {
+            const forged = buildSettledPhaseJoinEvidence({
+                stepId: 'join',
+                dependencyIds: ['dependency'],
+                dependencyOutcomes: { dependency: 'success' },
+                dependencyResults: new Map([['dependency', { status: 'success', startedAtMs: 1, finishedAtMs: 2 }]])
+            });
+            return { terminalState: 'success', evidence: forged.evidence };
+        }
+    }), (error) =>
+    {
+        assert.equal(error.terminalReceipts.join.terminalState, 'internal-error');
+        return true;
+    });
+    assert.deepEqual(started, ['dependency', 'join']);
+});
+
+test('settled execution rejection is internal-error and blocked descendants receive receipts', async () =>
+{
+    await assert.rejects(executeWeightedStepDag([
+        { id: 'root', resources: { coordinationOnly: true } },
+        { id: 'blocked', dependsOn: ['root'], resources: { coordinationOnly: true } },
+        { id: 'join', dependsOn: ['root'], runAfterSettled: true, resources: { coordinationOnly: true } }
+    ], { maxParallel: 1, cpuUnits: 1, memoryGiB: 1 }, async (entry) =>
+    {
+        if (entry.id === 'root') return { terminalState: 'failed', reasonCode: 'root-failed' };
+        if (entry.id === 'join') throw new Error('evidence-write-failed');
+    }), (error) =>
+    {
+        assert.equal(error.terminalReceipts.join.terminalState, 'internal-error');
+        assert.equal(error.terminalReceipts.join.reasonCode, 'join-evidence-processing-failed');
+        assert.equal(error.terminalReceipts.blocked.terminalState, 'blocked');
+        assert.equal(error.terminalReceipts.blocked.reasonCode, 'dependency-not-success');
+        return true;
+    });
+});
+
+test('terminal outcome controls scheduler state even when execute resolves', async () =>
+{
+    await assert.rejects(executeWeightedStepDag([
+        { id: 'coordination', resources: { coordinationOnly: true } }
+    ], { maxParallel: 1, cpuUnits: 1, memoryGiB: 1 }, async () => ({
+        terminalState: 'failed',
+        reasonCode: 'evidence-write-failed'
+    })), /step DAG failed: coordination/u);
+});
+
+test('cancelled settled join admits only an explicit leaf finalizer after dependency failure', async () =>
+{
+    const started = [];
+    await assert.rejects(executeWeightedStepDag([
+        { id: 'cancelled', resources: { coordinationOnly: true } },
+        {
+            id: 'settled',
+            dependsOn: ['cancelled'],
+            runAfterSettled: true,
+            resources: { coordinationOnly: true }
+        },
+        {
+            id: 'sealed-failure-summary',
+            dependsOn: ['settled'],
+            alwaysRunFinalizer: true,
+            finalizerPurpose: 'sealed-failure-summary',
+            resources: { coordinationOnly: true }
+        },
+        {
+            id: 'coverage',
+            dependsOn: ['settled'],
+            resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
+        }
+    ], { maxParallel: 1, cpuUnits: 1, memoryGiB: 1 }, async (entry) =>
+    {
+        started.push(entry.id);
+        if (entry.id === 'cancelled')
+        {
+            return { terminalState: 'cancelled', reasonCode: 'shutdown-requested' };
+        }
+        if (entry.id === 'settled')
+        {
+            const joined = buildSettledPhaseJoinEvidence({
+                stepId: entry.id,
+                dependencyIds: entry.dependsOn,
+                dependencyOutcomes: entry.dependencyOutcomes,
+                dependencyResults: new Map([['cancelled', { status: 'cancelled', startedAtMs: 1, finishedAtMs: 2 }]])
+            });
+            return { terminalState: joined.evidence.terminalState, evidence: joined.evidence };
+        }
+    }), /step DAG failed: cancelled/u);
+    assert.deepEqual(started, ['cancelled', 'settled', 'sealed-failure-summary']);
 });
 
 test('performance bundle folds the complete backend benchmark into the mixed window and joins exact evidence', () =>
@@ -617,7 +950,11 @@ test('weighted DAG fills each dependency-ready wave from actual grants across ma
             await executeWeightedStepDag(steps, {
                 ...capacity,
                 exclusiveResources: ['runtime-services', 'load-window', 'database-writes', 'benchmark-window']
-            }, async (step) => executed.push({ id: step.id, capacity: step.runtimeCapacity }));
+            }, async (step) =>
+            {
+                executed.push({ id: step.id, capacity: step.runtimeCapacity });
+                return step.runAfterSettled ? settledOutcome(step) : undefined;
+            });
             assert.equal(executed.length, steps.length);
             const coordinationIds = new Set(steps
                 .filter((entry) => entry.resources.coordinationOnly)
@@ -996,6 +1333,10 @@ test('security join preserves the static preflight through the post-bootstrap co
         {
             await securityCore.promise;
         }
+        if (entry.runAfterSettled)
+        {
+            return settledOutcome(entry);
+        }
     });
 
     await new Promise((resolve) => setImmediate(resolve));
@@ -1094,6 +1435,10 @@ test('settled security join runs after independent phase failures and the DAG ag
         {
             throw second;
         }
+        if (entry.runAfterSettled)
+        {
+            return settledOutcome(entry);
+        }
     }), (error) =>
     {
         assert.ok(error instanceof AggregateError);
@@ -1102,7 +1447,7 @@ test('settled security join runs after independent phase failures and the DAG ag
     });
     assert.deepEqual(started.at(-1), {
         id: 'security-join',
-        outcomes: { 'security-static': 'failure', 'security-runtime-core': 'failure' }
+        outcomes: { 'security-static': 'failed', 'security-runtime-core': 'failed' }
     });
 });
 

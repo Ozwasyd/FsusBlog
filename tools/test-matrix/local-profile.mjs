@@ -21,6 +21,10 @@ const performanceMeasurementStepIds = Object.freeze([
   'mixed-performance-window',
   'privacy-zk-benchmark'
 ])
+
+function terminalDigest(value) {
+  return createHash('sha256').update(JSON.stringify(value)).digest('hex')
+}
 const generatedRuntimeRoots = [
   '.tmp',
   'BenchmarkDotNet.Artifacts',
@@ -539,6 +543,7 @@ export function resolveLocalProfileResources(profile, detectedResources) {
     bundles: resourceResolvedBundles.map((bundle) => {
       return {
         ...bundle,
+        requiresSchedulerTerminalReceipts: true,
         budgetMs: budgetById.get(bundle.id),
         stepMaxParallel: Math.max(1, Math.floor(bundle.cpuUnits))
       }
@@ -697,6 +702,89 @@ export function validateLocalBundleSummary(summary, bundle, {
   if (summary?.status !== 'success') errors.push('status must be success')
   if (expectedRunId !== null && summary?.schedulerRunId !== expectedRunId) {
     errors.push(`schedulerRunId must be ${expectedRunId}`)
+  }
+  if (bundle?.requiresSchedulerTerminalReceipts === true && summary?.status === 'success' && (!plainRecord(summary?.schedulerTerminalReceipts)
+    || !Array.isArray(summary?.schedulerTerminalReceiptIds) || summary.schedulerTerminalReceiptIds.length === 0)) {
+    errors.push('successful bundle summary requires scheduler terminal receipts')
+  }
+  if (summary?.schedulerTerminalReceipts !== undefined) {
+    if (!plainRecord(summary.schedulerTerminalReceipts)) {
+      errors.push('schedulerTerminalReceipts must be an object')
+    } else {
+      if (!sameStringArray(Object.keys(summary.schedulerTerminalReceipts).sort(),
+        [...(summary.schedulerTerminalReceiptIds ?? [])].sort())) {
+        errors.push('schedulerTerminalReceiptIds must exactly match schedulerTerminalReceipts')
+      }
+      for (const [stepId, receipt] of Object.entries(summary.schedulerTerminalReceipts)) {
+        if (!plainRecord(receipt) || receipt.schema !== 'fsusblog.scheduler.terminal-receipt.v1') {
+          errors.push(`${stepId} has an invalid scheduler terminal receipt`)
+          continue
+        }
+        if (receipt.stepId !== stepId || !['physical', 'settled-join', 'finalizer'].includes(receipt.stepKind)) {
+          errors.push(`${stepId} has an invalid scheduler step identity or kind`)
+        }
+        if (!['success', 'failed', 'timed-out', 'cancelled', 'blocked', 'internal-error'].includes(receipt.terminalState)) {
+          errors.push(`${stepId} has an invalid terminal state`)
+        }
+        if (typeof receipt.dependencyOutcomeDigest !== 'string' || !/^[a-f0-9]{64}$/u.test(receipt.dependencyOutcomeDigest)) {
+          errors.push(`${stepId} is missing dependencyOutcomeDigest`)
+        }
+        if (!Array.isArray(receipt.dependencyOutcomes) && !plainRecord(receipt.dependencyOutcomes)) {
+          errors.push(`${stepId} is missing dependency outcomes`)
+        }
+        const isJoin = receipt.stepKind === 'settled-join'
+        const dependencies = Array.isArray(receipt.dependencyOutcomes) ? receipt.dependencyOutcomes : []
+        const dependencyDigest = terminalDigest(dependencies.map((dependency) => ({
+          id: dependency.id,
+          outcome: dependency.outcome,
+          receiptPresent: dependency.receiptPresent,
+          receiptTerminalState: dependency.receiptTerminalState
+        })))
+        if (isJoin && receipt.dependencyOutcomeDigest !== dependencyDigest) {
+          errors.push(`${stepId} join dependency outcome digest mismatch`)
+        }
+        if (isJoin && (!receipt.evidenceRef || !/^[a-f0-9]{64}$/u.test(String(receipt.contentDigest ?? '')))) {
+          errors.push(`${stepId} join receipt is missing evidence reference or content digest`)
+        }
+        if (isJoin) {
+          const primaryFailureRefs = receipt.primaryFailureRefs ?? []
+          const canonicalDependencyOrder = dependencies.map((dependency) => dependency.id)
+          const contentDigest = terminalDigest({
+            status: receipt.terminalState,
+            terminalState: receipt.terminalState,
+            reasonCode: receipt.reasonCode,
+            primaryFailureRefs,
+            stepId,
+            evidenceRef: receipt.evidenceRef,
+            canonicalDependencyOrder,
+            dependencies,
+            dependencyOutcomeDigest: receipt.dependencyOutcomeDigest
+          })
+          if (receipt.contentDigest !== contentDigest) errors.push(`${stepId} join content digest mismatch`)
+          const failureStates = new Set(['failed', 'timed-out', 'internal-error'])
+          const incomplete = dependencies.some((dependency) => {
+            const sibling = summary.schedulerTerminalReceipts[dependency.id]
+            return !sibling || sibling.stepId !== dependency.id
+              || sibling.terminalState !== dependency.outcome
+              || dependency.receiptPresent !== true
+              || dependency.receiptTerminalState !== dependency.outcome
+              || dependency.outcome === 'blocked'
+          })
+          const failedDependencies = dependencies.filter((dependency) => failureStates.has(dependency.outcome))
+          const expectedState = incomplete ? 'failed'
+            : failedDependencies.length > 0 ? 'failed'
+              : dependencies.some((dependency) => dependency.outcome === 'cancelled') ? 'cancelled' : 'success'
+          const expectedReason = incomplete ? 'dependency-outcome-incomplete'
+            : failedDependencies.length > 0 ? 'dependency-terminal-failure'
+              : expectedState === 'cancelled' ? 'dependency-cancelled' : 'all-dependencies-succeeded'
+          const expectedPrimaryRefs = failedDependencies.map((dependency) => dependency.id)
+          if (receipt.terminalState !== expectedState || receipt.reasonCode !== expectedReason
+            || JSON.stringify(receipt.primaryFailureRefs ?? []) !== JSON.stringify(expectedPrimaryRefs)) {
+            errors.push(`${stepId} join terminal mapping does not match dependency receipts`)
+          }
+        }
+      }
+    }
   }
   for (const tierId of bundle.members ?? []) {
     const evidence = summary?.members?.[tierId]

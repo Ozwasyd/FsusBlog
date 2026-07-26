@@ -24,9 +24,11 @@ import {
   resolveBundleRuntimeCapacity,
   resolveMachineExecutionTimeoutMs,
   resolveStepRuntimeCapacity,
-  runtimeSteps
+  runtimeSteps,
+  StepTerminalError
 } from './bundle-steps.mjs'
 import { readRuntimeEnvironment } from './runtime-environment.mjs'
+import { writeBundleSummaryAtomically } from './terminal-summary.mjs'
 import { validateShardSummaryArtifacts } from '../run-backend-production-shards.mjs'
 import { backendTopologyDefaults } from '../backend-production-topology.mjs'
 import { buildLocalStaticManifest, planLocalStaticCommands } from '../local-static-governance.mjs'
@@ -104,6 +106,7 @@ const productionRuntimeChildEnvironment = productionRuntimeEnvironment(productio
 let performanceDeadlineEvidence = null
 let finalizedResourceUtilization = null
 let frontendPerfAdmissionEvidence = null
+let schedulerTerminalReceipts = {}
 
 if (!bundleId || !bundle) throw new Error(`unknown ${profileId} bundle: ${String(bundleId)}`)
 const artifactDigestTable = createArtifactDigestTable({
@@ -790,7 +793,8 @@ async function executeStep(step) {
   const logFile = path.join(logDir, `${step.id}.log`)
   const started = Date.now()
   if (step.resources?.coordinationOnly === true) {
-    const relativeDependencyResults = new Map((step.dependsOn ?? []).flatMap((dependencyId) => {
+    const canonicalDependencyIds = [...(step.dependsOn ?? []), ...(step.settledDependsOn ?? [])]
+    const relativeDependencyResults = new Map(canonicalDependencyIds.flatMap((dependencyId) => {
       const result = stepExecutionResults.get(dependencyId)
       return result
         ? [[dependencyId, { ...result, logFile: relative(result.logFile) }]]
@@ -798,9 +802,10 @@ async function executeStep(step) {
     }))
     const joined = buildSettledPhaseJoinEvidence({
       stepId: step.id,
-      dependencyIds: step.dependsOn ?? [],
+      dependencyIds: canonicalDependencyIds,
       dependencyOutcomes: step.dependencyOutcomes,
-      dependencyResults: relativeDependencyResults
+      dependencyResults: relativeDependencyResults,
+      evidenceRef: relative(logFile)
     })
     const joinEvidence = joined.evidence
     fs.writeFileSync(logFile, `${JSON.stringify(joinEvidence, null, 2)}\n`)
@@ -812,7 +817,16 @@ async function executeStep(step) {
       finishedAtMs: joined.finishedAtMs,
       logFile
     }
-    stepExecutionResults.set(step.id, { ...result, status: joinEvidence.status })
+    stepExecutionResults.set(step.id, {
+      ...result,
+      status: joinEvidence.status,
+      terminalState: joinEvidence.terminalState,
+      evidenceRef: joinEvidence.evidenceRef,
+      contentDigest: joinEvidence.contentDigest,
+      dependencyOutcomeDigest: joinEvidence.dependencyOutcomeDigest,
+      primaryFailureRefs: joinEvidence.primaryFailureRefs,
+      dependencyOutcomes: joinEvidence.dependencies
+    })
     stepResourceMetrics.set(step.id, {
       status: 'not-applicable',
       wallSeconds: result.durationMs / 1000,
@@ -822,7 +836,17 @@ async function executeStep(step) {
     })
     console.log(`[local-production:${bundleId}] joined ${step.id} status=${joinEvidence.status} durationMs=${result.durationMs}`)
     register(step, result, step.testIds, [...joined.dependencyLogs, ...(step.artifacts ?? [])])
-    return result
+    return {
+      ...result,
+      terminalState: joinEvidence.terminalState,
+      reasonCode: joinEvidence.reasonCode,
+      primaryFailureRefs: joinEvidence.primaryFailureRefs,
+      dependencyOutcomes: joinEvidence.dependencies,
+      evidence: joinEvidence,
+      evidenceRef: joinEvidence.evidenceRef,
+      dependencyOutcomeDigest: joinEvidence.dependencyOutcomeDigest,
+      contentDigest: joinEvidence.contentDigest
+    }
   }
   const stepCapacity = resolveStepRuntimeCapacity(bundleId, step, bundleCapacity())
   const stepOsLimits = resolveCgroupLimits(stepCapacity, {
@@ -1002,29 +1026,37 @@ async function executeStep(step) {
   stepResourceMetrics.set(step.id, resourceAndLogEvidence)
   result.resourceUtilization = resourceAndLogEvidence
   if (result.timedOut) {
-    stepExecutionResults.set(step.id, { ...result, status: 'failure' })
-    throw new Error(`${step.id} exceeded machine-resolved deadline (${stepDeadlineMs}ms)`)
+    stepExecutionResults.set(step.id, { ...result, status: 'timed-out', terminalState: 'timed-out' })
+    throw new StepTerminalError('timed-out', 'machine-resolved-deadline-exceeded', `${step.id} exceeded machine-resolved deadline (${stepDeadlineMs}ms)`)
   }
   if (result.error) {
-    stepExecutionResults.set(step.id, { ...result, status: 'failure' })
-    throw result.error
+    const terminalState = shutdownController.signal.aborted ? 'cancelled' : 'failed'
+    stepExecutionResults.set(step.id, { ...result, status: terminalState, terminalState })
+    throw new StepTerminalError(terminalState, shutdownController.signal.aborted ? 'bundle-shutdown' : 'step-execution-error', result.error.message, { cause: result.error })
   }
   if (result.code !== 0 || result.signal) {
-    stepExecutionResults.set(step.id, { ...result, status: 'failure' })
-    throw new Error(`${step.id} failed (${result.signal ? `signal ${result.signal}` : `exit ${result.code}`})`)
+    const terminalState = shutdownController.signal.aborted ? 'cancelled' : 'failed'
+    stepExecutionResults.set(step.id, { ...result, status: terminalState, terminalState })
+    throw new StepTerminalError(terminalState, shutdownController.signal.aborted ? 'bundle-shutdown' : 'non-zero-exit', `${step.id} failed (${result.signal ? `signal ${result.signal}` : `exit ${result.code}`})`)
   }
   // A dependent step must not become runnable until the producer's readiness
   // marker is durably published. Keeping this hook inside executeStep closes
   // the gap between child exit and the DAG completion notification.
   if (typeof step.afterSuccess === 'function') await step.afterSuccess(result)
-  stepExecutionResults.set(step.id, { ...result, status: 'success' })
+  stepExecutionResults.set(step.id, { ...result, status: 'success', terminalState: 'success' })
   console.log(`[local-production:${bundleId}] done ${step.id} durationMs=${result.durationMs}`)
   register(step, result, step.testIds, step.artifacts ?? [])
   return result
 }
 
 async function executeWave(steps) {
-  await executeWeightedStepDag(steps, bundleDagCapacity, executeStep)
+  try {
+    const execution = await executeWeightedStepDag(steps, bundleDagCapacity, executeStep)
+    schedulerTerminalReceipts = { ...schedulerTerminalReceipts, ...execution.terminalReceipts }
+  } catch (error) {
+    if (error?.terminalReceipts) schedulerTerminalReceipts = { ...schedulerTerminalReceipts, ...error.terminalReceipts }
+    throw error
+  }
 }
 
 function schedulerResourceGrant() {
@@ -1960,7 +1992,8 @@ async function executePerformanceStep(step) {
         validated: false,
         error: error instanceof Error ? error.message : String(error)
       })}\n`)
-      stepExecutionResults.set(step.id, { ...result, status: 'failure' })
+      const terminalState = shutdownController.signal.aborted ? 'cancelled' : 'failed'
+      stepExecutionResults.set(step.id, { ...result, status: terminalState, terminalState })
       stepResourceMetrics.set(step.id, {
         status: 'not-applicable',
         wallSeconds: result.durationMs / 1000,
@@ -1972,7 +2005,12 @@ async function executePerformanceStep(step) {
           error: error instanceof Error ? error.message : String(error)
         }
       })
-      throw error
+      throw new StepTerminalError(
+        terminalState,
+        shutdownController.signal.aborted ? 'bundle-shutdown' : 'coordination-marker-failed',
+        error instanceof Error ? error.message : String(error),
+        { cause: error instanceof Error ? error : undefined }
+      )
     }
   }
   const result = await executeStep(step)
@@ -2429,13 +2467,14 @@ async function run() {
     resourceUtilization,
     ...(frontendPerfAdmissionEvidence ? { frontendPerfAdmission: frontendPerfAdmissionEvidence } : {}),
     ...(performanceDeadlineEvidence ? { deadlineEvidence: performanceDeadlineEvidence } : {}),
+    schedulerTerminalReceipts,
+    schedulerTerminalReceiptIds: Object.keys(schedulerTerminalReceipts),
+    schedulerTerminalReceiptRequired: true,
     members,
     generatedAt: new Date().toISOString()
   }
-  fs.mkdirSync(path.dirname(summaryFile), { recursive: true })
-  const temporary = `${summaryFile}.next-${process.pid}`
-  fs.writeFileSync(temporary, `${JSON.stringify(summary, null, 2)}\n`)
-  fs.renameSync(temporary, summaryFile)
+  writeBundleSummaryAtomically(summaryFile, summary)
+  // fs.renameSync(temporary, summaryFile) occurs inside writeBundleSummaryAtomically.
   if (!finalizeExisting) {
     const quietMarker = {
       'backend-tests': ['backend-quiet-ready', 'backend-tests-quiet'],
@@ -2594,6 +2633,19 @@ function collectDockerResourceEvidence() {
 
 run().catch((error) => {
   finalizeBundleResourceUtilization('partial', error)
+  if (Object.keys(schedulerTerminalReceipts).length > 0) {
+    const partialSummary = {
+      schema: 'fsusblog.local-production.bundle.v1',
+      physicalBundleId: bundleId,
+      status: 'partial',
+      schedulerRunId: process.env.FSUSBLOG_TEST_RUN_ID ?? null,
+      schedulerTerminalReceipts,
+      schedulerTerminalReceiptIds: Object.keys(schedulerTerminalReceipts),
+      schedulerTerminalReceiptRequired: true,
+      generatedAt: new Date().toISOString()
+    }
+    writeBundleSummaryAtomically(summaryFile, partialSummary)
+  }
   if (shutdownPromise) return
   console.error(`[local-production:${bundleId}] ${error instanceof Error ? error.message : String(error)}`)
   process.exit(1)
