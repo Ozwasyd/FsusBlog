@@ -94,6 +94,7 @@ commandGroups:
             - {id: "cross-stack-receipt-fixtures", command: ["node", "--test", "../../tests/tools/cross-stack-receipt-join.test.mjs"], access: "write", stage: "concurrent", reason: "Exercises current-run receipt joins and fail-closed mutations in process-unique temporary repositories.", consumedInputs: ["tests/fixtures/evidence-projection/cross-stack-assertion-ownership.json", "tests/tools/cross-stack-receipt-join.test.mjs", "tools/test-matrix/cross-stack-receipts.mjs"], ownedOutputs: ["os-temp://fsus-cross-stack-join-unique"], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "modern-standards", script: "check:modern-standards", access: "read", stage: "concurrent", reason: "Scans source standards without touching build or test artifacts.", consumedInputs: ["src/frontend/src", "tests/frontend"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "frontend-source-rule-host", command: ["node", "../../tools/frontend/run-source-rule-host.mjs"], access: "write", stage: "concurrent", reason: "Builds one commit- and worktree-bound frontend source index, executes migrated read-only rules in one resident Node process, and emits independent fail-closed receipts plus before/after process and source-read evidence.", consumedInputs: ["src/frontend/src", "src/frontend/public/public-shell-emergency.css", "src/frontend/package.json", "docs/design/reading-typography.md", "tools/frontend/source-index.mjs", "tools/frontend/source-rule-host.mjs", "tools/frontend/rules"], ownedOutputs: [".tmp/frontend/source-rule-host"], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: ["frontend-source-rule-evidence"]}}
+            - {id: "author-ai-assist", script: "check:author-ai-assist", access: "read", stage: "concurrent", reason: "Canonical current-run owner validates the author AI assist boundary once for release-domain projection.", consumedInputs: ["src/backend", "src/frontend/src", "src/frontend/package.json", "docs/security.md", "docs/operations.md"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "result-boundaries", script: "check:result-boundaries", access: "read", stage: "concurrent", reason: "Checks result boundaries from source only.", consumedInputs: ["src/frontend/src", "src/shared/Contracts"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "error-code-alignment", script: "check:error-code-alignment", access: "read", stage: "concurrent", reason: "Compares error-code declarations without producing shared output.", consumedInputs: ["src/frontend/src", "src/shared/Contracts", "docs/api"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "runtime-message-branching", script: "check:no-runtime-message-branching", access: "read", stage: "concurrent", reason: "Scans runtime message handling and does not share Vitest state.", consumedInputs: ["src/frontend/src"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
@@ -105,6 +106,7 @@ commandGroups:
             - {id: "asset-size-budget", script: "check:asset-size-budget", access: "write", stage: "postbuild", reason: "Consumes the completed frontend dist tree and owns its asset-budget evidence.", consumedInputs: ["src/frontend/dist"], ownedOutputs: [".tmp/frontend/asset-size-budget.json"], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.75, minCpuUnits: 1, exclusiveResources: ["frontend-dist", "frontend-static-output"]}}
             - {id: "public-private-data-leakage", script: "check:public-private-data-leakage", access: "read", stage: "concurrent", reason: "Audits public/private source boundaries without writing shared artifacts.", consumedInputs: ["src/frontend/src", "src/backend", "src/shared/Contracts"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "public-aot-contracts", script: "check:public-aot-contracts", access: "read", stage: "postbuild", reason: "Validates public AOT output only after the frontend build marker is available.", consumedInputs: ["src/frontend/dist", "src/frontend/src/public-renderers", "src/shared/Contracts"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: ["frontend-dist"]}}
+            - {id: "public-distribution-contract", script: "check:public-distribution-contract", access: "read", stage: "postbuild", reason: "Canonical current-run owner validates immutable public distribution assets once for release-domain projection.", consumedInputs: ["src/frontend/dist", "src/frontend/public", "src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: ["frontend-dist"]}}
             - {id: "public-page-manifest-sync", script: "check:public-page-manifest-sync", access: "read", stage: "concurrent", reason: "Validates the generated public page manifest once under the canonical frontend static producer so Rights V3 can project this rule without a second checker launch.", consumedInputs: ["src/frontend/src/public-renderers", "src/frontend/src/generated", "tools/frontend/generate-public-page-manifest.mjs"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "pwa-offline-policy", script: "check:pwa-offline-policy", access: "read", stage: "concurrent", reason: "Reads PWA policy sources independently from build and Vitest outputs.", consumedInputs: ["src/frontend", "docs"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "local-fsusui-public-shell-motion", script: "check:local-fsusui-public-shell-motion", access: "read", stage: "concurrent", reason: "Verifies that the local FsusUI alias and theme source own public-shell motion without browser geometry.", consumedInputs: ["src/frontend/scripts/fsusui-local.ts", "../FsusUI/vue/packages/theme-chalk/src", "../FsusUI/vue/packages/theme-chalk/dist"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
@@ -654,10 +656,14 @@ tiers:
           [
               .tmp/frontend/frontend-unit-shard.json,
               .tmp/frontend/timings/frontend-unit-shard.json,
+              .tmp/test-results/evidence-producers/frontend-unit-shard,
+              .tmp/test-results/release-domain-assertions/frontend-unit-shard,
           ]
       evidence:
           - .tmp/frontend/frontend-unit-shard.json
           - .tmp/frontend/timings/frontend-unit-shard.json
+          - .tmp/test-results/evidence-producers/frontend-unit-shard
+          - .tmp/test-results/release-domain-assertions/frontend-unit-shard
           - src/frontend/src/components/public/usePublicStickyGeometry.ts
           - tests/frontend/unit/components/usePublicStickyGeometry.test.ts
           - tests/public-shell-sticky-geometry-evidence.json
@@ -2927,7 +2933,11 @@ tiers:
       cadence: push
       requiredFor: release-final
       coverage: [release-browser-contract, testing-evidence-governance]
-      artifacts: [.tmp/browser-contract/receipt.json, .tmp/release-evidence/public-preview-screenshots.json]
+      artifacts:
+          [
+              .tmp/browser-contract/receipt.json,
+              .tmp/release-evidence/public-preview-screenshots.json,
+          ]
       evidence:
           [
               .tmp/browser-contract/receipt.json,
@@ -3057,19 +3067,25 @@ tiers:
       artifacts:
           [
               .tmp/browser-diagnostics,
+              .tmp/browser-diagnostics-runtime/release-runtime,
               .tmp/frontend/dom-budget.json,
               .tmp/frontend/dom-budget,
               .tmp/frontend/route-render-pressure.json,
               .tmp/frontend/aeds-wasm-browser/summary.json,
               .tmp/release-evidence/aeds-wasm-browser-summary.json,
+              .tmp/test-results/evidence-producers/browser-diagnostics-manual,
+              .tmp/test-results/release-domain-assertions/browser-diagnostics-manual,
           ]
       evidence:
           [
-              .tmp/browser-diagnostics,
+              .tmp/browser-diagnostics/release-runtime-receipt.json,
+              .tmp/browser-diagnostics-runtime/release-runtime,
               .tmp/frontend/dom-budget.json,
               .tmp/frontend/route-render-pressure.json,
               .tmp/frontend/aeds-wasm-browser/summary.json,
               .tmp/release-evidence/aeds-wasm-browser-summary.json,
+              .tmp/test-results/evidence-producers/browser-diagnostics-manual,
+              .tmp/test-results/release-domain-assertions/browser-diagnostics-manual,
               tests/browser-diagnostics/catalog.mjs,
               tests/browser-diagnostics/run.mjs,
               tests/browser-diagnostics-retirement-map.json,
@@ -3119,9 +3135,19 @@ tiers:
       cadence: release-manual
       requiredFor: none
       coverage: [browser-diagnostics-orchestration, testing-evidence-governance]
-      artifacts: [.tmp/browser-diagnostics]
+      artifacts:
+          [
+              .tmp/browser-diagnostics,
+              .tmp/browser-diagnostics-runtime/release-runtime,
+              .tmp/test-results/evidence-producers/browser-diagnostics-manual,
+              .tmp/test-results/release-domain-assertions/browser-diagnostics-manual,
+          ]
       evidence:
           [
+              .tmp/browser-diagnostics/release-runtime-receipt.json,
+              .tmp/browser-diagnostics-runtime/release-runtime,
+              .tmp/test-results/evidence-producers/browser-diagnostics-manual,
+              .tmp/test-results/release-domain-assertions/browser-diagnostics-manual,
               tests/browser-diagnostics/catalog.mjs,
               tests/browser-diagnostics/run.mjs,
               tests/browser-diagnostics-retirement-map.json,
@@ -5764,12 +5790,16 @@ tiers:
               .tmp/release-evidence/*/manifest.json,
               .tmp/release-evidence/test-plan.json,
               .tmp/physical-execution-projections/release-evidence-plan-matrix-governance.json,
+              .tmp/test-results/evidence-producers/release-evidence,
+              .tmp/test-results/release-domain-assertions/release-evidence,
           ]
       evidence:
           [
               .tmp/release-evidence/*/manifest.json,
               .tmp/release-evidence/test-plan.json,
               .tmp/physical-execution-projections/release-evidence-plan-matrix-governance.json,
+              .tmp/test-results/evidence-producers/release-evidence,
+              .tmp/test-results/release-domain-assertions/release-evidence,
               tests/tools/release-evidence-artifact-restore.test.mjs,
           ]
       ciJob: release-evidence
@@ -5884,8 +5914,17 @@ tiers:
 
     - id: release-admin-console
       owner: InteropGlueAgent
-      executionMode: summary
-      command: node tools/run-test-matrix.mjs aggregate release-admin-console
+      executionMode: projection
+      commandKind: projection
+      outputReceiptSchema: fsusblog.evidence-projection-receipt.v1
+      executionOwner: frontend-unit-shard
+      projectFrom: frontend-unit-shard
+      projectionCatalog: tests/fixtures/evidence-projection/release-admin-console.json
+      requiredTestIds: [release-admin-console/account-navigation, release-admin-console/admin-workbench, release-admin-console/messages-state, release-admin-console/router-authorization]
+      requiredCoverageIds: [release-admin-console]
+      requiredArtifactDeclarations: [{id: frontend-unit-shard-results, path: .tmp/frontend/frontend-unit-shard.json}]
+      requiresEvidenceFrom: [frontend-unit-shard]
+      command: node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-admin-console.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-admin-console.json --root . --commit "$FSUSBLOG_TEST_SOURCE_COMMIT" --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT" --run-id "$FSUSBLOG_TEST_RUN_ID" --namespace "$FSUSBLOG_TEST_NAMESPACE"
       executionDependsOn: []
       services: []
       parallelizable: true
@@ -5908,7 +5947,7 @@ tiers:
       cadence: release-manual
       requiredFor: release-final
       coverage: [release-admin-console]
-      artifacts: []
+      artifacts: [.tmp/release-evidence/projections/release-admin-console.json]
       evidence:
           [
               tests/frontend/unit/router/index.test.ts,
@@ -5923,8 +5962,17 @@ tiers:
 
     - id: release-auth-flow
       owner: InteropGlueAgent
-      executionMode: summary
-      command: node tools/run-test-matrix.mjs aggregate release-auth-flow
+      executionMode: projection
+      commandKind: projection
+      outputReceiptSchema: fsusblog.evidence-projection-receipt.v1
+      executionOwner: frontend-unit-shard
+      projectFrom: frontend-unit-shard
+      projectionCatalog: tests/fixtures/evidence-projection/release-auth-flow.json
+      requiredTestIds: [release-auth-flow/state-transitions]
+      requiredCoverageIds: [release-auth-flow]
+      requiredArtifactDeclarations: [{id: frontend-unit-shard-results, path: .tmp/frontend/frontend-unit-shard.json}]
+      requiresEvidenceFrom: [frontend-unit-shard]
+      command: node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-auth-flow.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-auth-flow.json --root . --commit "$FSUSBLOG_TEST_SOURCE_COMMIT" --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT" --run-id "$FSUSBLOG_TEST_RUN_ID" --namespace "$FSUSBLOG_TEST_NAMESPACE"
       executionDependsOn: []
       services: []
       parallelizable: true
@@ -5947,7 +5995,7 @@ tiers:
       cadence: release-manual
       requiredFor: release-final
       coverage: [release-auth-flow]
-      artifacts: []
+      artifacts: [.tmp/release-evidence/projections/release-auth-flow.json]
       evidence: [tests/frontend/unit/components/AuthFlowStates.test.ts]
       ciJob: release-final
       localOnly: false
@@ -5956,8 +6004,17 @@ tiers:
 
     - id: release-authoring-flow
       owner: InteropGlueAgent
-      executionMode: summary
-      command: node tools/run-test-matrix.mjs aggregate release-authoring-flow
+      executionMode: projection
+      commandKind: projection
+      outputReceiptSchema: fsusblog.evidence-projection-receipt.v1
+      executionOwner: test-quality-lint
+      projectFrom: test-quality-lint
+      projectionCatalog: tests/fixtures/evidence-projection/release-authoring-flow.json
+      requiredTestIds: [release-authoring-flow/ai-assist, release-authoring-flow/article-workspace, release-authoring-flow/local-draft, release-authoring-flow/markdown-state]
+      requiredCoverageIds: [release-authoring-flow]
+      requiredArtifactDeclarations: [{id: test-quality-summary, path: .tmp/release-evidence/test-quality-summary.json}]
+      requiresEvidenceFrom: [test-quality-lint]
+      command: node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-authoring-flow.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-authoring-flow.json --root . --commit "$FSUSBLOG_TEST_SOURCE_COMMIT" --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT" --run-id "$FSUSBLOG_TEST_RUN_ID" --namespace "$FSUSBLOG_TEST_NAMESPACE"
       executionDependsOn: []
       services: []
       parallelizable: true
@@ -5980,7 +6037,7 @@ tiers:
       cadence: release-manual
       requiredFor: release-final
       coverage: [release-authoring-flow]
-      artifacts: [.tmp/release-evidence/test-quality-summary.json]
+      artifacts: [.tmp/release-evidence/projections/release-authoring-flow.json]
       evidence: [.tmp/release-evidence/test-quality-summary.json]
       ciJob: release-final
       localOnly: false
@@ -5989,8 +6046,17 @@ tiers:
 
     - id: release-private-preview
       owner: InteropGlueAgent
-      executionMode: summary
-      command: node tools/run-test-matrix.mjs aggregate release-private-preview
+      executionMode: projection
+      commandKind: projection
+      outputReceiptSchema: fsusblog.evidence-projection-receipt.v1
+      executionOwner: test-quality-lint
+      projectFrom: test-quality-lint
+      projectionCatalog: tests/fixtures/evidence-projection/release-private-preview.json
+      requiredTestIds: [release-private-preview/admin-feedback, release-private-preview/public-private-leakage]
+      requiredCoverageIds: [release-private-preview]
+      requiredArtifactDeclarations: [{id: test-quality-summary, path: .tmp/release-evidence/test-quality-summary.json}]
+      requiresEvidenceFrom: [test-quality-lint]
+      command: node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-private-preview.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-private-preview.json --root . --commit "$FSUSBLOG_TEST_SOURCE_COMMIT" --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT" --run-id "$FSUSBLOG_TEST_RUN_ID" --namespace "$FSUSBLOG_TEST_NAMESPACE"
       executionDependsOn: []
       services: []
       parallelizable: true
@@ -6013,7 +6079,7 @@ tiers:
       cadence: release-manual
       requiredFor: release-final
       coverage: [release-private-preview]
-      artifacts: [.tmp/release-evidence/test-quality-summary.json]
+      artifacts: [.tmp/release-evidence/projections/release-private-preview.json]
       evidence: [.tmp/release-evidence/test-quality-summary.json]
       ciJob: release-final
       localOnly: false
@@ -6022,8 +6088,17 @@ tiers:
 
     - id: release-error-boundary
       owner: InteropGlueAgent
-      executionMode: summary
-      command: node tools/run-test-matrix.mjs aggregate release-error-boundary
+      executionMode: projection
+      commandKind: projection
+      outputReceiptSchema: fsusblog.evidence-projection-receipt.v1
+      executionOwner: test-quality-lint
+      projectFrom: test-quality-lint
+      projectionCatalog: tests/fixtures/evidence-projection/release-error-boundary.json
+      requiredTestIds: [release-error-boundary/app-error, release-error-boundary/error-kinds, release-error-boundary/errors, release-error-boundary/result-boundaries]
+      requiredCoverageIds: [release-error-boundary]
+      requiredArtifactDeclarations: [{id: test-quality-summary, path: .tmp/release-evidence/test-quality-summary.json}]
+      requiresEvidenceFrom: [test-quality-lint]
+      command: node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-error-boundary.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-error-boundary.json --root . --commit "$FSUSBLOG_TEST_SOURCE_COMMIT" --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT" --run-id "$FSUSBLOG_TEST_RUN_ID" --namespace "$FSUSBLOG_TEST_NAMESPACE"
       executionDependsOn: []
       services: []
       parallelizable: true
@@ -6046,7 +6121,7 @@ tiers:
       cadence: release-manual
       requiredFor: release-final
       coverage: [release-error-boundary]
-      artifacts: [.tmp/release-evidence/test-quality-summary.json]
+      artifacts: [.tmp/release-evidence/projections/release-error-boundary.json]
       evidence: [.tmp/release-evidence/test-quality-summary.json]
       ciJob: release-final
       localOnly: false
@@ -6055,8 +6130,21 @@ tiers:
 
     - id: release-rbac-negative
       owner: InteropGlueAgent
-      executionMode: summary
-      command: node tools/run-test-matrix.mjs aggregate release-rbac-negative
+      executionMode: projection
+      commandKind: projection
+      outputReceiptSchema: fsusblog.evidence-projection-receipt.v1
+      executionOwner: browser-diagnostics-manual
+      projectFrom: browser-diagnostics-manual
+      projectionCatalog: tests/fixtures/evidence-projection/release-rbac-negative.json
+      requiredTestIds: [release-rbac-negative/attack-matrix, release-rbac-negative/permissions]
+      requiredCoverageIds: [release-rbac-negative]
+      requiredArtifactDeclarations:
+          [
+              {id: browser-diagnostics-rbac-assertions, path: .tmp/browser-diagnostics-runtime/release-runtime/release-rbac-negative.json},
+              {id: browser-diagnostics-release-runtime-receipt, path: .tmp/browser-diagnostics/release-runtime-receipt.json},
+          ]
+      requiresEvidenceFrom: [browser-diagnostics-manual]
+      command: node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-rbac-negative.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-rbac-negative.json --root . --commit "$FSUSBLOG_TEST_SOURCE_COMMIT" --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT" --run-id "$FSUSBLOG_TEST_RUN_ID" --namespace "$FSUSBLOG_TEST_NAMESPACE"
       executionDependsOn: []
       services: []
       parallelizable: true
@@ -6080,8 +6168,12 @@ tiers:
       cadence: release-manual
       requiredFor: none
       coverage: [release-rbac-negative]
-      artifacts: [.tmp/security]
-      evidence: [.tmp/security]
+      artifacts: [.tmp/release-evidence/projections/release-rbac-negative.json]
+      evidence:
+          [
+              .tmp/browser-diagnostics/release-runtime-receipt.json,
+              .tmp/browser-diagnostics-runtime/release-runtime/release-rbac-negative.json,
+          ]
       ciJob: browser-diagnostics
       localOnly: false
       nightlyOnly: false
@@ -6091,8 +6183,17 @@ tiers:
 
     - id: release-aot-generation
       owner: InteropGlueAgent
-      executionMode: summary
-      command: node tools/run-test-matrix.mjs aggregate release-aot-generation
+      executionMode: projection
+      commandKind: projection
+      outputReceiptSchema: fsusblog.evidence-projection-receipt.v1
+      executionOwner: release-evidence
+      projectFrom: release-evidence
+      projectionCatalog: tests/fixtures/evidence-projection/release-aot-generation.json
+      requiredTestIds: [release-aot-generation/page-manifest-sync, release-aot-generation/public-aot-contracts]
+      requiredCoverageIds: [release-aot-generation]
+      requiredArtifactDeclarations: [{id: release-evidence-plan, path: .tmp/release-evidence/test-plan.json}]
+      requiresEvidenceFrom: [release-evidence]
+      command: node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-aot-generation.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-aot-generation.json --root . --commit "$FSUSBLOG_TEST_SOURCE_COMMIT" --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT" --run-id "$FSUSBLOG_TEST_RUN_ID" --namespace "$FSUSBLOG_TEST_NAMESPACE"
       executionDependsOn: []
       services: []
       parallelizable: true
@@ -6115,7 +6216,7 @@ tiers:
       cadence: release-manual
       requiredFor: release-final
       coverage: [release-aot-generation]
-      artifacts: [.tmp/release-evidence]
+      artifacts: [.tmp/release-evidence/projections/release-aot-generation.json]
       evidence: [.tmp/release-evidence]
       ciJob: release-final
       localOnly: false
@@ -6124,8 +6225,21 @@ tiers:
 
     - id: release-aot-consumption
       owner: InteropGlueAgent
-      executionMode: summary
-      command: node tools/run-test-matrix.mjs aggregate release-aot-consumption
+      executionMode: projection
+      commandKind: projection
+      outputReceiptSchema: fsusblog.evidence-projection-receipt.v1
+      executionOwner: browser-diagnostics-manual
+      projectFrom: browser-diagnostics-manual
+      projectionCatalog: tests/fixtures/evidence-projection/release-aot-consumption.json
+      requiredTestIds: [release-aot-consumption/distribution-version, release-aot-consumption/pow-runtime, release-aot-consumption/public-hydration]
+      requiredCoverageIds: [release-aot-consumption]
+      requiredArtifactDeclarations:
+          [
+              {id: browser-diagnostics-aot-assertions, path: .tmp/browser-diagnostics-runtime/release-runtime/release-aot-consumption.json},
+              {id: browser-diagnostics-release-runtime-receipt, path: .tmp/browser-diagnostics/release-runtime-receipt.json},
+          ]
+      requiresEvidenceFrom: [browser-diagnostics-manual]
+      command: node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-aot-consumption.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-aot-consumption.json --root . --commit "$FSUSBLOG_TEST_SOURCE_COMMIT" --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT" --run-id "$FSUSBLOG_TEST_RUN_ID" --namespace "$FSUSBLOG_TEST_NAMESPACE"
       executionDependsOn: []
       services: []
       parallelizable: true
@@ -6149,8 +6263,12 @@ tiers:
       cadence: release-manual
       requiredFor: none
       coverage: [release-aot-consumption]
-      artifacts: [src/frontend/test-results/playwright, .tmp/release-evidence]
-      evidence: [src/frontend/test-results/playwright, .tmp/release-evidence]
+      artifacts: [.tmp/release-evidence/projections/release-aot-consumption.json]
+      evidence:
+          [
+              .tmp/browser-diagnostics/release-runtime-receipt.json,
+              .tmp/browser-diagnostics-runtime/release-runtime/release-aot-consumption.json,
+          ]
       ciJob: browser-diagnostics
       localOnly: false
       nightlyOnly: false
@@ -6160,8 +6278,17 @@ tiers:
 
     - id: release-static-asset-digest-coherence
       owner: InteropGlueAgent
-      executionMode: summary
-      command: node tools/run-test-matrix.mjs aggregate release-static-asset-digest-coherence
+      executionMode: projection
+      commandKind: projection
+      outputReceiptSchema: fsusblog.evidence-projection-receipt.v1
+      executionOwner: release-evidence
+      projectFrom: release-evidence
+      projectionCatalog: tests/fixtures/evidence-projection/release-static-asset-digest-coherence.json
+      requiredTestIds: [release-static-asset-digest-coherence/public-distribution-contract, release-static-asset-digest-coherence/publish-artifact-slimness]
+      requiredCoverageIds: [release-static-asset-digest-coherence]
+      requiredArtifactDeclarations: [{id: release-evidence-plan, path: .tmp/release-evidence/test-plan.json}]
+      requiresEvidenceFrom: [release-evidence]
+      command: node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-static-asset-digest-coherence.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-static-asset-digest-coherence.json --root . --commit "$FSUSBLOG_TEST_SOURCE_COMMIT" --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT" --run-id "$FSUSBLOG_TEST_RUN_ID" --namespace "$FSUSBLOG_TEST_NAMESPACE"
       executionDependsOn: []
       services: []
       parallelizable: true
@@ -6172,12 +6299,11 @@ tiers:
       cpuWeight: 1
       memoryWeight: 1
       minCpuUnits: 1
-      requiresBootstrap: frontend
+      requiresBootstrap: none
       requiresNode: true
       requiresDotnet: false
       requiresPlaywright: none
-      cacheProfile: frontend
-      selfBootstraps: true
+      cacheProfile: none
       timeoutMinutes: 20
       shardable: false
       defaultShards: 1
@@ -6185,7 +6311,7 @@ tiers:
       cadence: release-manual
       requiredFor: release-final
       coverage: [release-static-asset-digest-coherence]
-      artifacts: [.tmp/release-evidence/publish-artifacts-summary.json]
+      artifacts: [.tmp/release-evidence/projections/release-static-asset-digest-coherence.json]
       evidence: [.tmp/release-evidence/publish-artifacts-summary.json]
       ciJob: release-final
       localOnly: false
@@ -6535,7 +6661,7 @@ tiers:
       requiresNode: true
       requiresDotnet: false
       requiresPlaywright: none
-      cacheProfile: none
+      cacheProfile: frontend
       timeoutMinutes: 10
       shardable: false
       defaultShards: 1
@@ -6543,8 +6669,18 @@ tiers:
       cadence: release-manual
       requiredFor: release-final
       coverage: [test-quality-lint]
-      artifacts: [.tmp/release-evidence/test-quality-summary.json]
-      evidence: [.tmp/release-evidence/test-quality-summary.json]
+      artifacts:
+          [
+              .tmp/release-evidence/test-quality-summary.json,
+              .tmp/test-results/evidence-producers/test-quality-lint,
+              .tmp/test-results/release-domain-assertions/test-quality-lint,
+          ]
+      evidence:
+          [
+              .tmp/release-evidence/test-quality-summary.json,
+              .tmp/test-results/evidence-producers/test-quality-lint,
+              .tmp/test-results/release-domain-assertions/test-quality-lint,
+          ]
       ciJob: release-final
       localOnly: false
       nightlyOnly: false
@@ -6708,12 +6844,16 @@ tiers:
       evidence:
           [
               .tmp/release-evidence,
+              .tmp/release-evidence/projections,
               .tmp/release-evidence/test-suite-convergence.json,
               .tmp/release-evidence/backend-physical-topology.json,
               .tmp/release-evidence/release-final-test-evidence-binding.json,
               tools/release/test-evidence-receipts.mjs,
               tools/release/test-evidence-receipts-cli.mjs,
               tools/release/check-release-final.mjs,
+              tools/release/release-domain-final-binding.mjs,
+              tools/release/release-final-diagnostics.mjs,
+              tools/release/release-final-domain-evidence.mjs,
               tools/release/public-preview-release-evidence.mjs,
               .tmp/release-evidence/public-preview-screenshots.json,
               tests/fixtures/test-matrix/execution-dependency-contract.json,
@@ -6721,9 +6861,19 @@ tiers:
               tests/fixtures/test-matrix/release-final-evidence-inputs.json,
               tests/fixtures/test-matrix/release-final-evidence-contract.json,
               tools/test-matrix/release-final-evidence-contract.mjs,
+              config/testing/release-domain-assertion-dispositions.json,
+              tools/test-matrix/release-domain-evidence.mjs,
+              tools/test-matrix/release-domain-ledger.mjs,
+              tools/test-matrix/release-domain-native-evidence.mjs,
+              tools/test-matrix/release-domain-projection-receipt.mjs,
+              tools/test-matrix/release-domain-report.mjs,
+              tests/tools/browser-diagnostics-release-runtime.test.mjs,
+              tests/tools/release-domain-native-evidence.cases.mjs,
+              tests/tools/release-domain-projections.test.mjs,
               tests/tools/release-final-execution-graph.test.mjs,
               tests/tools/release-final-evidence-binding.test.mjs,
               tests/tools/test-evidence-governance.test.mjs,
+              docs/testing/release-domain-projection-ledger.md,
               docs/testing/issue-1151-evidence-governance.md,
           ]
       ciJob: release-final

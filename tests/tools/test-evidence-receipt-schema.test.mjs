@@ -490,6 +490,22 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
     const browserContractFile = path.join(build.directory, 'browser-contract.json');
     fs.writeFileSync(correctnessFile, `${JSON.stringify(correctness, null, 2)}\n`);
     fs.writeFileSync(browserContractFile, `${JSON.stringify(browserContract, null, 2)}\n`);
+    const releaseDomainProjectionReceipts = [
+        'release-admin-console',
+        'release-aot-generation',
+        'release-auth-flow',
+        'release-authoring-flow',
+        'release-error-boundary',
+        'release-private-preview',
+        'release-static-asset-digest-coherence'
+    ].map((tierId, index) => ({
+        tierId,
+        path: `.tmp/release-evidence/projections/${tierId}.json`,
+        fileDigest: `sha256:${String(index + 1).repeat(64)}`,
+        contentDigest: `sha256:${String(index + 2).repeat(64)}`,
+        buildIdentity: `sha256:${'a'.repeat(64)}`,
+        policyIdentity: `sha256:${'b'.repeat(64)}`
+    }));
 
     const binding = createReleaseFinalTestEvidenceBinding({
         commitSha: build.sourceState.commit,
@@ -499,11 +515,50 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
         correctnessReceiptPath: correctnessFile,
         browserContractReceipt: browserContract,
         browserContractReceiptPath: browserContractFile,
+        releaseDomainProjectionReceipts,
         now: () => new Date('2026-07-18T00:04:00.000Z')
     });
     assert.deepEqual(validateReleaseFinalTestEvidenceBinding(binding), []);
     assert.match(binding.receipts.correctness.fileDigest, /^sha256:[a-f0-9]{64}$/u);
     assert.match(binding.receipts.browserContract.fileDigest, /^sha256:[a-f0-9]{64}$/u);
+    assert.deepEqual(
+        binding.receipts.releaseDomains.map((receipt) => receipt.tierId),
+        releaseDomainProjectionReceipts.map((receipt) => receipt.tierId)
+    );
+    const duplicateReleaseDomain = structuredClone(binding);
+    duplicateReleaseDomain.receipts.releaseDomains[1].tierId =
+        duplicateReleaseDomain.receipts.releaseDomains[0].tierId;
+    assert.ok(validateReleaseFinalTestEvidenceBinding(duplicateReleaseDomain)
+        .some((error) => error.includes('canonical release-domain set')));
+    const missingReleaseDomain = structuredClone(binding);
+    missingReleaseDomain.receipts.releaseDomains.splice(0, 1);
+    missingReleaseDomain.contentDigest = sealDocument(missingReleaseDomain).contentDigest;
+    assert.ok(validateReleaseFinalTestEvidenceBinding(missingReleaseDomain)
+        .some((error) => error.includes('canonical release-domain set')));
+    const extraReleaseDomain = structuredClone(binding);
+    extraReleaseDomain.receipts.releaseDomains.push({
+        ...extraReleaseDomain.receipts.releaseDomains.at(-1),
+        tierId: 'release-rbac-negative',
+        path: '.tmp/release-evidence/projections/release-rbac-negative.json'
+    });
+    extraReleaseDomain.contentDigest = sealDocument(extraReleaseDomain).contentDigest;
+    assert.ok(validateReleaseFinalTestEvidenceBinding(extraReleaseDomain)
+        .some((error) => error.includes('canonical release-domain set')));
+    const replacedReleaseDomain = structuredClone(binding);
+    replacedReleaseDomain.receipts.releaseDomains[0] = {
+        ...replacedReleaseDomain.receipts.releaseDomains[0],
+        tierId: 'release-rbac-negative',
+        path: '.tmp/release-evidence/projections/release-rbac-negative.json'
+    };
+    replacedReleaseDomain.contentDigest = sealDocument(replacedReleaseDomain).contentDigest;
+    assert.ok(validateReleaseFinalTestEvidenceBinding(replacedReleaseDomain)
+        .some((error) => error.includes('canonical release-domain set')));
+    const wrongReleaseDomainPath = structuredClone(binding);
+    wrongReleaseDomainPath.receipts.releaseDomains[0].path =
+        '.tmp/release-evidence/projections/forged.json';
+    wrongReleaseDomainPath.contentDigest = sealDocument(wrongReleaseDomainPath).contentDigest;
+    assert.ok(validateReleaseFinalTestEvidenceBinding(wrongReleaseDomainPath)
+        .some((error) => error.includes('.path must be')));
 
     const wrongBuild = structuredClone(browserContract);
     wrongBuild.build.receiptContentDigest = `sha256:${'0'.repeat(64)}`;
@@ -515,7 +570,8 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
         correctnessReceipt: correctness,
         correctnessReceiptPath: correctnessFile,
         browserContractReceipt: wrongBuild,
-        browserContractReceiptPath: browserContractFile
+        browserContractReceiptPath: browserContractFile,
+        releaseDomainProjectionReceipts
     }), /build receipt digest mismatch|content digest mismatch/u);
 
     const nonAuthoritative = structuredClone(correctness);
@@ -527,6 +583,7 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
         correctnessReceipt: nonAuthoritative,
         correctnessReceiptPath: correctnessFile,
         browserContractReceipt: browserContract,
-        browserContractReceiptPath: browserContractFile
+        browserContractReceiptPath: browserContractFile,
+        releaseDomainProjectionReceipts
     }), /authoritative scheduler correctness checkpoint/u);
 });

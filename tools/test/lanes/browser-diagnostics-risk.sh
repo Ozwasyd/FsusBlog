@@ -16,6 +16,41 @@ export FSUSBLOG_PLAYWRIGHT_MANAGED_ONLY=1
 export FSUSBLOG_PLAYWRIGHT_WORKERS=1
 export FSUSBLOG_TEST_SESSION_ISOLATION="${FSUSBLOG_TEST_SESSION_ISOLATION:-1}"
 
+RELEASE_ASSERTION_RESULTS=()
+RELEASE_ASSERTION_FAILED=0
+
+RunReleaseAssertion() {
+    local assertionId="$1"
+    shift
+    local status=0
+    if "$@"; then
+        RELEASE_ASSERTION_RESULTS+=("${assertionId}=success")
+    else
+        status=$?
+        RELEASE_ASSERTION_RESULTS+=("${assertionId}=failure")
+        RELEASE_ASSERTION_FAILED=1
+        Log "release-runtime assertion failed: $assertionId (exit $status)"
+    fi
+}
+
+WriteReleaseAssertions() {
+    local probeId="$1"
+    local output="$ROOT_DIR/.tmp/browser-diagnostics-runtime/release-runtime/${probeId}.json"
+    local arguments=()
+    local assertion
+    for assertion in "${RELEASE_ASSERTION_RESULTS[@]}"; do
+        arguments+=(--assertion "$assertion")
+    done
+    "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/write-browser-diagnostics-release-assertions.mjs" \
+        --category release-runtime \
+        --probe "$probeId" \
+        --output "${output#"$ROOT_DIR"/}" \
+        "${arguments[@]}"
+    if ((RELEASE_ASSERTION_FAILED != 0)); then
+        return 1
+    fi
+}
+
 LoadSharedDiagnosticsRuntime() {
     local probeNamespace="${FSUSBLOG_TEST_NAMESPACE:-}"
     local probeFixtureRoot="${FSUSBLOG_FIXTURE_ROOT:-}"
@@ -94,15 +129,17 @@ case "$PROBE" in
     release-rbac-negative)
         PrepareProbeFixtures
         ResetSecurityRuntimeState "pre diagnostic release RBAC"
-        RunInClient npm run check:security:permissions
-        RunInClient npm run check:security:attack-matrix
+        RunReleaseAssertion check:security:permissions RunInClient npm run check:security:permissions
+        RunReleaseAssertion check:security:attack-matrix RunInClient npm run check:security:attack-matrix
+        WriteReleaseAssertions release-rbac-negative
         ;;
     release-aot-consumption)
         PrepareProbeFixtures
         export PLAYWRIGHT_BASE_URL="$RELEASE_PREVIEW_URL"
-        RunInClient npm run check:pow-runtime
-        RunInClient npm run check:public-hydration
-        RunInClient npm run check:distribution-version-coherence
+        RunReleaseAssertion check:pow-runtime RunInClient npm run check:pow-runtime
+        RunReleaseAssertion check:public-hydration RunInClient npm run check:public-hydration
+        RunReleaseAssertion check:distribution-version-coherence RunInClient npm run check:distribution-version-coherence
+        WriteReleaseAssertions release-aot-consumption
         ;;
     pow-runtime)
         PrepareProbeFixtures

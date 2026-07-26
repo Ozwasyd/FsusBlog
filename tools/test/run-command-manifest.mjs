@@ -641,6 +641,8 @@ export async function runWeightedCommandManifest(manifest, {
     lane: manifest.lane,
     executionMode: grantFileConfigured || grantTierConfigured ? 'live-grant' : 'fixed',
     schedulerRunId: env.FSUSBLOG_TEST_RUN_ID ?? null,
+    workflowRunId: env.GITHUB_RUN_ID ?? null,
+    workflowRunAttempt: env.GITHUB_RUN_ATTEMPT ?? null,
     grantHistory: [],
     children: [],
     blocked: [],
@@ -721,14 +723,19 @@ export async function runWeightedCommandManifest(manifest, {
         memoryGiB: Number(childEnv.FSUSBLOG_STEP_MEMORY_GIB),
         nestedWorkers: Number(childEnv.FSUSBLOG_COMMAND_MANIFEST_WORKERS)
       }
+      if ((entry.localCommands?.length ?? 0) > 0) childEvidence.nestedAssertions = entry.localCommands
+        .map((child) => ({ id: child.id, status: 'running' }))
+        .sort((left, right) => left.id.localeCompare(right.id))
       evidence.children.push(childEvidence)
       try {
         await execute(entry, { cwd, env: childEnv, signal: executionSignal })
         childEvidence.status = 'success'
+        childEvidence.nestedAssertions?.forEach((nested) => nested.status = 'success')
       } catch (error) {
         childEvidence.status = deadlineExpired
           ? 'timed-out'
           : executionSignal?.aborted ? 'cancelled' : 'failure'
+        childEvidence.nestedAssertions?.forEach((nested) => nested.status = 'unknown')
         childEvidence.error = error instanceof Error ? error.message : String(error)
         throw new Error(`${entry.id}: ${childEvidence.error}`, { cause: error })
       } finally {

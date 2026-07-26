@@ -3,6 +3,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
+import {
+    createReleaseDomainProjectionBindings,
+    validateReleaseDomainProjectionBindings
+} from './release-domain-final-binding.mjs';
+
 export const browserlessCorrectnessReceiptSchema = 'fsusblog.browserless-correctness-receipt.v1';
 export const browserDiagnosticsReceiptSchema = 'fsusblog.browser-diagnostics-receipt.v2';
 export const releaseFinalTestEvidenceBindingSchema = 'fsusblog.release-final-test-evidence-binding.v1';
@@ -1501,6 +1506,7 @@ export function createReleaseFinalTestEvidenceBinding({
     correctnessReceiptPath,
     browserContractReceipt,
     browserContractReceiptPath,
+    releaseDomainProjectionReceipts,
     now = () => new Date()
 })
 {
@@ -1525,6 +1531,9 @@ export function createReleaseFinalTestEvidenceBinding({
     {
         throw new Error([...correctnessErrors, ...contractErrors].join('; '));
     }
+    const releaseDomains = createReleaseDomainProjectionBindings(
+        releaseDomainProjectionReceipts
+    );
     return seal({
         schema: releaseFinalTestEvidenceBindingSchema,
         status: 'ok',
@@ -1543,7 +1552,8 @@ export function createReleaseFinalTestEvidenceBinding({
                 path: String(browserContractReceiptPath).replaceAll(path.sep, '/'),
                 fileDigest: sha256File(browserContractReceiptPath),
                 contentDigest: browserContractReceipt.contentDigest
-            }
+            },
+            releaseDomains
         },
         generatedAt: now().toISOString()
     });
@@ -1584,6 +1594,9 @@ export function validateReleaseFinalTestEvidenceBinding(binding)
             errors.push(`release-final binding ${key} content digest is invalid`);
         }
     }
+    errors.push(...validateReleaseDomainProjectionBindings(
+        binding?.receipts?.releaseDomains
+    ));
     return errors;
 }
 

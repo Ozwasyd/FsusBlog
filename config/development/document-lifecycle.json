@@ -2094,6 +2094,16 @@
             "supersededBy": null
         },
         {
+            "path": "docs/testing/release-domain-projection-ledger.md",
+            "status": "current",
+            "owner": "release",
+            "relatedIssues": [
+                1593
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
             "path": "docs/testing/frontend-private-runtime-governance.md",
             "status": "current",
             "owner": "release",

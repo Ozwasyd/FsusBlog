@@ -18,6 +18,12 @@ import {
   sealBrowserDiagnosticsReceipt,
   validateBrowserDiagnosticsReceipt
 } from '../../tools/release/test-evidence-receipts.mjs'
+import {
+  sealProjectionDocument
+} from '../../tools/test-matrix/evidence-projection.mjs'
+import {
+  browserDiagnosticsReleaseRuntimeReceiptSchema
+} from '../../tools/test-matrix/release-domain-evidence.mjs'
 import { snapshotGitWorktree } from '../../tools/test-matrix/scheduler.mjs'
 import { resolveWorkerTestSession } from '../frontend/support/test-session.mjs'
 
@@ -405,6 +411,27 @@ function writeDiagnosticsReceipt(outputRoot, runId, receiptInput) {
   writeJson(receiptFile, receipt)
   const latestFile = path.join(root, '.tmp/browser-diagnostics/latest.json')
   writeJson(latestFile, { runId, receipt: path.relative(root, receiptFile).replaceAll(path.sep, '/') })
+  const releaseRuntime = receipt.categories?.find((category) => category?.id === 'release-runtime')
+  if (releaseRuntime) {
+    writeJson(
+      path.join(root, '.tmp/browser-diagnostics/release-runtime-receipt.json'),
+      sealProjectionDocument({
+        schema: browserDiagnosticsReleaseRuntimeReceiptSchema,
+        status: releaseRuntime.status,
+        evidenceClass: 'diagnostic',
+        affectsCorrectness: false,
+        runId,
+        sourceState: receipt.sourceState,
+        buildBinding: receipt.buildBinding,
+        category: releaseRuntime,
+        diagnosticsReceipt: {
+          path: path.relative(root, receiptFile).replaceAll(path.sep, '/'),
+          contentDigest: receipt.contentDigest
+        },
+        generatedAt: receipt.finishedAt
+      })
+    )
+  }
   return { receipt, receiptFile }
 }
 
@@ -660,6 +687,11 @@ export async function runBrowserDiagnostics(options, dependencies = {}) {
           outputDir: probeOutput,
           workers: resources.effectiveWorkers
         })
+        env.FSUSBLOG_BROWSER_DIAGNOSTICS_RUN_ID = runId
+        env.FSUSBLOG_TEST_SOURCE_COMMIT = plan.sourceState.commit
+        env.FSUSBLOG_TEST_SOURCE_FINGERPRINT = plan.sourceState.worktreeFingerprint
+        env.FSUSBLOG_BROWSER_DIAGNOSTICS_BUILD_DIGEST =
+          plan.build.receiptContentDigest ?? plan.build.contentDigest
         const artifactPaths = [
           ...probe.artifactPaths,
           ...(category.id === 'ux' ? [`.tmp/ux/runs/${env.FSUSBLOG_UX_VIEWPORT_RUN_ID}`] : [])
@@ -686,7 +718,7 @@ export async function runBrowserDiagnostics(options, dependencies = {}) {
           : [{
               attempt: 1,
               status: result.status,
-              testIds: [`${category.id}/${probe.id}`],
+              testIds: probe.testIds?.length > 0 ? probe.testIds : [`${category.id}/${probe.id}`],
               failureClass: result.failureClass ?? null,
               failureKind: result.status === 'success'
                 ? null
@@ -705,7 +737,8 @@ export async function runBrowserDiagnostics(options, dependencies = {}) {
             ...attempt,
             attempt: attemptNumber,
             status,
-            testIds: [...new Set(attempt.testIds ?? [`${category.id}/${probe.id}`])].sort(),
+            testIds: [...new Set(attempt.testIds
+              ?? (probe.testIds?.length > 0 ? probe.testIds : [`${category.id}/${probe.id}`]))].sort(),
             failureClass: status === 'success' ? null : attempt.failureClass ?? result.failureClass ?? 'diagnostic',
             failureKind: status === 'success'
               ? null

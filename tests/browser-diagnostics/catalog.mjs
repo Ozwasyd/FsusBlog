@@ -96,13 +96,21 @@ const replacementLayers = Object.freeze({
   ]
 })
 
-function probe(id, command, artifactPaths = [], timeoutMinutes = 45, dimensions = fallbackDimensions) {
+function probe(
+  id,
+  command,
+  artifactPaths = [],
+  timeoutMinutes = 45,
+  dimensions = fallbackDimensions,
+  testIds = []
+) {
   return Object.freeze({
     id,
     command: Object.freeze(command),
     artifactPaths: Object.freeze(artifactPaths),
     timeoutMinutes,
-    plannedDimensions: dimensions
+    plannedDimensions: dimensions,
+    testIds: Object.freeze([...new Set(testIds)].sort())
   })
 }
 
@@ -225,8 +233,31 @@ export const browserDiagnosticCatalog = Object.freeze([
     risk: 'release-rbac-and-aot-consumption',
     replacements: Object.freeze(replacementLayers['release-runtime']),
     probes: Object.freeze([
-      probe('release-rbac-negative', ['bash', 'tools/test/lanes/browser-diagnostics-risk.sh', 'release-rbac-negative'], [], 35),
-      probe('release-aot-consumption', ['bash', 'tools/test/lanes/browser-diagnostics-risk.sh', 'release-aot-consumption'], [], 25)
+      probe(
+        'release-rbac-negative',
+        ['bash', 'tools/test/lanes/browser-diagnostics-risk.sh', 'release-rbac-negative'],
+        ['.tmp/browser-diagnostics-runtime/release-runtime/release-rbac-negative.json'],
+        35,
+        fallbackDimensions,
+        [
+          'check:security:attack-matrix',
+          'check:security:permissions',
+          'release-runtime/release-rbac-negative'
+        ]
+      ),
+      probe(
+        'release-aot-consumption',
+        ['bash', 'tools/test/lanes/browser-diagnostics-risk.sh', 'release-aot-consumption'],
+        ['.tmp/browser-diagnostics-runtime/release-runtime/release-aot-consumption.json'],
+        25,
+        fallbackDimensions,
+        [
+          'check:distribution-version-coherence',
+          'check:pow-runtime',
+          'check:public-hydration',
+          'release-runtime/release-aot-consumption'
+        ]
+      )
     ])
   }),
   Object.freeze({

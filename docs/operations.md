@@ -485,7 +485,7 @@ The smoke records automated `verifiedCoverage` for anonymous public pages, feeds
 
 ## Release Evidence
 
-测试证据先按 `correctness`、`browser-contract` 与 `diagnostic` 分层。普通 PR 和 `production-correctness` 必须保持零浏览器；`release-final` 只额外消费一个 source/build/digest 绑定的 Browser Contract receipt；nightly/manual diagnostics 使用独立 receipt、artifact 与 retention，不能改变 Production Summary。浏览器安装/launch/crash/disconnect、runner OOM/PID/FD exhaustion 和 fixture/bootstrap failure 记为 `infra-failure`，不能伪装成产品断言，也不能通过整套自动重试变成 clean pass。操作与回退顺序见 [`testing/issue-1151-evidence-governance.md`](testing/issue-1151-evidence-governance.md)。
+测试证据先按 `correctness`、`browser-contract` 与 `diagnostic` 分层。普通 PR 和 `production-correctness` 必须保持零浏览器。九个 release logical domain 各自生成独立 projection receipt；`release-final` 额外消费一个 source/build/digest 绑定的 Browser Contract receipt，并只从其中精确的七份 correctness projection receipt 读取历史发布断言。RBAC negative 与 AOT consumption 两份独立 diagnostic projection receipt 不是 target-only closeout evidence，也不能改变 Production Summary。所有 projection consumer 均不回读 producer artifact 或执行 fallback。nightly/manual diagnostics 使用独立 receipt、artifact 与 retention。浏览器安装/launch/crash/disconnect、runner OOM/PID/FD exhaustion 和 fixture/bootstrap failure 记为 `infra-failure`，不能伪装成产品断言，也不能通过整套自动重试变成 clean pass。release-domain 集合与回执边界见 [`testing/release-domain-projection-ledger.md`](testing/release-domain-projection-ledger.md)，操作与回退顺序见 [`testing/issue-1151-evidence-governance.md`](testing/issue-1151-evidence-governance.md)。
 
 Collect machine-readable release evidence after gates and smoke:
 

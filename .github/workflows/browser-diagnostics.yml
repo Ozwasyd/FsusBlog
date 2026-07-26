@@ -93,6 +93,9 @@ jobs:
             FSUSBLOG_BROWSER_DIAGNOSTICS_RESOURCE_STATUS: complete
             FSUSBLOG_BROWSER_DIAGNOSTICS_RUN_ID: browser-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
             FSUSBLOG_BROWSER_DIAGNOSTICS_OUTPUT_ROOT: .tmp/browser-diagnostics/browser-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+            FSUSBLOG_TEST_RUN_ID: browser-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+            FSUSBLOG_TEST_SOURCE_COMMIT: ${{ github.sha }}
+            FSUSBLOG_TEST_SOURCE_FINGERPRINT: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
             FSUSBLOG_PLAYWRIGHT_SESSION_MODE: browser-diagnostics
             FSUSBLOG_PLAYWRIGHT_SESSION_PREP_CONCURRENCY: "1"
             FSUSBLOG_PLAYWRIGHT_WORKERS: "1"
@@ -168,6 +171,8 @@ jobs:
                   path: |
                       .tmp/browser-diagnostics/**
                       .tmp/browser-diagnostics-runtime/**
+                      .tmp/test-results/release-domain-assertions/browser-diagnostics-manual/**
+                      .tmp/test-results/evidence-producers/browser-diagnostics-manual/**
                       .tmp/visual/**
                       .tmp/ux/**
                       .tmp/frontend/dom-budget*

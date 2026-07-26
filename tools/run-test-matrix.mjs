@@ -49,7 +49,7 @@ import {
     productionBuildRunIsActive,
     registerProductionBuildCompiler
 } from './test-matrix/production-build-layout.mjs'
-import { validateEvidenceExecutionDeclaration } from './test-matrix/projection-declaration.mjs'
+import { validateEvidenceExecutionDeclaration, validateReleaseDomainMatrix } from './test-matrix/projection-declaration.mjs'
 import { buildReleaseFinalizerPlan } from './test-matrix/release-final-evidence-contract.mjs'
 import {
     measureResourceCollectorOverhead,
@@ -876,6 +876,7 @@ function validateMatrix(matrix) {
   }
 
   errors.push(...validateFrontendFastSplit(matrix, byId))
+  errors.push(...validateReleaseDomainMatrix(root, matrix))
   errors.push(...validateLocalProfiles(matrix.localProfiles, matrix.tiers))
   errors.push(...validateCoverageRegistry(matrix))
   errors.push(...validateSupersedesRules(matrix.tiers, loadCoverageRegistry().entries))

@@ -218,10 +218,22 @@ test('production summary fails closed when the correctness receipt generator is 
     assert.match(result.stderr, /browserless correctness receipt generator is missing/u);
 });
 
-test('release-final checker explicitly fails closed on missing Browser Contract and seals the three-way binding', () =>
+test('release-final checker fails closed and seals exact projection-only domain bindings', () =>
 {
-    const source = fs.readFileSync(path.join(repositoryRoot, 'tools/release/check-release-final.mjs'), 'utf8');
+    const checker = fs.readFileSync(
+        path.join(repositoryRoot, 'tools/release/check-release-final.mjs'),
+        'utf8'
+    );
+    const domainBinding = fs.readFileSync(
+        path.join(repositoryRoot, 'tools/release/release-final-domain-evidence.mjs'),
+        'utf8'
+    );
+    const source = `${checker}\n${domainBinding}`;
     assert.match(source, /Browser Contract receipt is required; release-final fails closed without it/u);
+    assert.match(source, /collectReleaseFinalDomainProjectionReceipts\(\{/u);
+    assert.match(source, /expectedTierIds: releaseFinalDomainProjectionTierIds/u);
     assert.match(source, /createReleaseFinalTestEvidenceBinding\(\{/u);
-    assert.match(source, /release-final-test-evidence-binding\.json/u);
+    assert.match(source, /releaseDomainProjectionReceipts/u);
+    assert.doesNotMatch(source, /evidence-producers|release-domain-assertions/u);
+    assert.match(checker, /release-final-test-evidence-binding\.json/u);
 });

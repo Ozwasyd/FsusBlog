@@ -2110,79 +2110,75 @@
     },
     {
       "id": "release-admin-console",
-      "description": "Release Admin Console is covered by browserless Vitest contracts for route authorization, message state, account navigation and the admin dashboard task workbench.",
+      "description": "Release Admin Console projects the canonical frontend-unit-shard results for route authorization, message state, account navigation and the admin dashboard task workbench.",
       "owner": "InteropGlueAgent",
       "risk": "critical",
       "evidencePaths": [
-        "tests/frontend/unit/router/index.test.ts",
-        "tests/frontend/unit/components/user/MessagesStateMachine.test.ts",
-        "tests/frontend/unit/components/account/AccountNavigationPanel.test.ts",
-        "tests/frontend/unit/components/admin/AdminDashboardTaskWorkbench.test.ts"
+        ".tmp/release-evidence/projections/release-admin-console.json"
       ],
       "assertionType": "unit",
-      "failClosedRule": "The release tier must run every declared Vitest owner and fail when route authorization, message state, account navigation or admin workbench behavior regresses; a stale Playwright directory cannot satisfy this coverage.",
-      "minimumRequirement": "The router, message state machine, account navigation and admin dashboard workbench Vitest suites must all execute in the release-admin-console tier.",
+      "failClosedRule": "The projection must reject missing, duplicate, failed, stale or tampered canonical Vitest assertions and may not execute a fallback producer.",
+      "minimumRequirement": "The sealed receipt must contain the exact four admin-console assertion IDs and the frontend-unit-shard artifact digest.",
       "tierIds": [
         "release-admin-console"
       ]
     },
     {
       "id": "release-aot-consumption",
-      "description": "Release AOT Consumption is covered by browser and public-page artifacts that exercise the named behavior.",
+      "description": "Release AOT Consumption projects the exact browser-diagnostics release-runtime probe and all three native PoW, public-hydration and distribution-version assertions.",
       "owner": "InteropGlueAgent",
       "risk": "critical",
       "evidencePaths": [
-        ".tmp/release-evidence",
-        "src/frontend/test-results/playwright"
+        ".tmp/release-evidence/projections/release-aot-consumption.json"
       ],
       "assertionType": "browser",
-      "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
+      "failClosedRule": "The projection must reject any missing, extra, failed, duplicated, cross-source, cross-run or tampered release-aot-consumption probe/assertion artifact and may not launch Playwright.",
+      "minimumRequirement": "The sealed receipt must bind the exact release-aot-consumption probe plus check:pow-runtime, check:public-hydration and check:distribution-version-coherence, with matching source, run, build, policy and artifact digests.",
       "tierIds": [
         "release-aot-consumption"
       ]
     },
     {
       "id": "release-aot-generation",
-      "description": "Release AOT Generation is covered by runtime artifacts that exercise the named behavior.",
+      "description": "Release AOT Generation projects current-run frontend static governance assertions for public AOT contracts and page-manifest synchronization.",
       "owner": "InteropGlueAgent",
       "risk": "critical",
       "evidencePaths": [
-        ".tmp/release-evidence"
+        ".tmp/release-evidence/projections/release-aot-generation.json"
       ],
-      "assertionType": "browser",
-      "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
+      "assertionType": "static",
+      "failClosedRule": "The projection must reject missing, failed, ambiguous or tampered structured static-governance assertions and may not run a build or AOT generator.",
+      "minimumRequirement": "The sealed receipt must contain the exact public AOT and page-manifest assertion IDs plus the release-evidence plan digest.",
       "tierIds": [
         "release-aot-generation"
       ]
     },
     {
       "id": "release-auth-flow",
-      "description": "Release Auth Flow is covered by the browserless AuthFlowStates Vitest contract for login, registration and recovery state transitions.",
+      "description": "Release Auth Flow projects the canonical AuthFlowStates Vitest result for login, registration and recovery state transitions.",
       "owner": "InteropGlueAgent",
       "risk": "critical",
       "evidencePaths": [
-        "tests/frontend/unit/components/AuthFlowStates.test.ts"
+        ".tmp/release-evidence/projections/release-auth-flow.json"
       ],
       "assertionType": "unit",
-      "failClosedRule": "The release tier must execute the AuthFlowStates Vitest suite and fail on an invalid login, registration or recovery transition; a stale Playwright directory cannot satisfy this coverage.",
-      "minimumRequirement": "AuthFlowStates.test.ts must execute its login, registration and recovery state assertions in the release-auth-flow tier.",
+      "failClosedRule": "The projection must reject a missing, duplicate, failed, stale or tampered AuthFlowStates result and may not execute Vitest.",
+      "minimumRequirement": "The sealed receipt must contain the exact auth state-transition assertion ID and frontend-unit-shard artifact digest.",
       "tierIds": [
         "release-auth-flow"
       ]
     },
     {
       "id": "release-authoring-flow",
-      "description": "Release Authoring Flow is covered by runtime artifacts that exercise the named behavior.",
+      "description": "Release Authoring Flow projects exact current-run unit and frontend governance assertions for AI assist, article workspace, local draft and Markdown state.",
       "owner": "InteropGlueAgent",
       "risk": "critical",
       "evidencePaths": [
-        ".tmp/release-evidence/test-quality-summary.json"
+        ".tmp/release-evidence/projections/release-authoring-flow.json"
       ],
-      "assertionType": "browser",
-      "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
+      "assertionType": "static",
+      "failClosedRule": "The projection must reject missing, failed, duplicate, cross-run or tampered unit and nested governance assertions without fallback execution.",
+      "minimumRequirement": "The sealed receipt must contain the exact four authoring assertion IDs and the test-quality summary digest.",
       "tierIds": [
         "release-authoring-flow"
       ]
@@ -2219,15 +2215,15 @@
     },
     {
       "id": "release-error-boundary",
-      "description": "Release Error Boundary is covered by runtime artifacts that exercise the named behavior.",
+      "description": "Release Error Boundary projects exact current-run error utility Vitest results and the canonical result-boundaries governance assertion.",
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
-        ".tmp/release-evidence/test-quality-summary.json"
+        ".tmp/release-evidence/projections/release-error-boundary.json"
       ],
-      "assertionType": "browser",
-      "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
+      "assertionType": "static",
+      "failClosedRule": "The projection must reject missing, failed, duplicate, cross-run or tampered error and result-boundary assertions without fallback execution.",
+      "minimumRequirement": "The sealed receipt must contain the exact four error-boundary assertion IDs and the test-quality summary digest.",
       "tierIds": [
         "release-error-boundary"
       ]
@@ -2423,30 +2419,30 @@
     },
     {
       "id": "release-private-preview",
-      "description": "Release Private Preview is covered by runtime artifacts that exercise the named behavior.",
+      "description": "Release Private Preview projects exact current-run admin feedback and public/private leakage governance assertions.",
       "owner": "InteropGlueAgent",
       "risk": "critical",
       "evidencePaths": [
-        ".tmp/release-evidence/test-quality-summary.json"
+        ".tmp/release-evidence/projections/release-private-preview.json"
       ],
-      "assertionType": "browser",
-      "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
+      "assertionType": "static",
+      "failClosedRule": "The projection must reject missing, failed, duplicate, cross-run or tampered governance assertions without fallback execution.",
+      "minimumRequirement": "The sealed receipt must contain the exact admin-feedback and public/private-leakage assertion IDs plus the test-quality summary digest.",
       "tierIds": [
         "release-private-preview"
       ]
     },
     {
       "id": "release-rbac-negative",
-      "description": "Release RBAC Negative is covered by runtime artifacts that exercise the named behavior.",
+      "description": "Release RBAC Negative projects the exact browser-diagnostics release-runtime probe and both native permissions and attack-matrix assertions.",
       "owner": "InteropGlueAgent",
       "risk": "critical",
       "evidencePaths": [
-        ".tmp/security"
+        ".tmp/release-evidence/projections/release-rbac-negative.json"
       ],
       "assertionType": "browser",
-      "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
+      "failClosedRule": "The projection must reject any missing, extra, failed, duplicated, cross-source, cross-run or tampered release-rbac-negative probe/assertion artifact and may not launch Playwright.",
+      "minimumRequirement": "The sealed receipt must bind the exact release-rbac-negative probe plus check:security:permissions and check:security:attack-matrix, with matching source, run, build, policy and artifact digests.",
       "tierIds": [
         "release-rbac-negative"
       ]
@@ -2468,15 +2464,15 @@
     },
     {
       "id": "release-static-asset-digest-coherence",
-      "description": "Release Static Asset Digest Coherence is covered by runtime artifacts that exercise the named behavior.",
+      "description": "Release Static Asset Digest Coherence projects current-run public distribution and publish-artifact slimness assertions.",
       "owner": "InteropGlueAgent",
       "risk": "critical",
       "evidencePaths": [
-        ".tmp/release-evidence/publish-artifacts-summary.json"
+        ".tmp/release-evidence/projections/release-static-asset-digest-coherence.json"
       ],
       "assertionType": "runtime",
-      "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "Runtime summary evidence must include a success or explicit non-success status with concrete measured fields or reasoned unavailable fields.",
+      "failClosedRule": "The projection must reject missing, failed, duplicate, cross-run or tampered distribution and slimness assertions without rerunning a build.",
+      "minimumRequirement": "The sealed receipt must contain the exact distribution-contract and artifact-slimness assertion IDs plus the release-evidence plan digest.",
       "tierIds": [
         "release-static-asset-digest-coherence"
       ]

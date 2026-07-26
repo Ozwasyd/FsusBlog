@@ -352,6 +352,8 @@ jobs:
                       .tmp/coverage/frontend/**
                       .tmp/frontend/**
                       .tmp/test-results/vitest/**
+                      .tmp/test-results/release-domain-assertions/frontend-unit-shard/**
+                      .tmp/test-results/evidence-producers/frontend-unit-shard/**
                       .tmp/ux/viewport-plan-progress.json
                       .tmp/release-evidence/jobs/**
 
@@ -420,6 +422,7 @@ jobs:
                   include-hidden-files: true
                   path: |
                       .tmp/frontend/**
+                      .tmp/test-results/live-grant/**
                       .tmp/release-evidence/frontend-render-structure-summary.json
                       .tmp/release-evidence/jobs/**
 
@@ -1164,6 +1167,9 @@ jobs:
                   path: |
                       .tmp/release-evidence/**
                       .tmp/physical-execution-projections/release-evidence-plan-matrix-governance.json
+                      .tmp/test-results/live-grant/**
+                      .tmp/test-results/release-domain-assertions/release-evidence/**
+                      .tmp/test-results/evidence-producers/release-evidence/**
                       .tmp/perf/release-summaries/performance-saturation-v2.json
 
     production-summary:

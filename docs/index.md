@@ -218,6 +218,7 @@
 - [私有请求 generation 验证](testing/private-request-generations.md)
 - [PrivateSurfaceRuntime 验证清单](testing/private-surface-runtime.md)
 - [Public-preview screenshot governance](testing/public-preview-screenshot-governance.md)
+- [Release domain projection ledger](testing/release-domain-projection-ledger.md)
 - [Repository governance authorities](testing/repository-governance-authorities.md)
 - [Runtime Scenario Host](testing/runtime-scenario-host.md)
 - [Issue #1037：安全 hardening 边界测试替换](testing/security-hardening-boundary-replacements.md)

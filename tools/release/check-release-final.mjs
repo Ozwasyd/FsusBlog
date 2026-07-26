@@ -6,35 +6,23 @@ import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
-
 import { validateReleaseRuntimeMatrix } from '../runtime-profiles/release-runtime-matrix.mjs';
-import { readEvidenceDocument } from '../test-matrix/content-addressed-evidence-store.mjs';
 import { validateLocalProfileCheckpointEvidence } from '../test-matrix/scheduler.mjs';
-
-import { requirePublicPreviewReleaseEvidence } from './public-preview-release-evidence.mjs';
-import { validateFontLicenseEvidence } from './font-license-evidence.mjs';
-import { validateReleaseManifest } from './release-manifest.mjs';
 import {
-    createReleaseFinalTestEvidenceBinding,
-    writeJsonAtomic
-} from './test-evidence-receipts.mjs';
+    readEvidenceDocument as readJson
+} from '../test-matrix/content-addressed-evidence-store.mjs';
+import { validateFontLicenseEvidence } from './font-license-evidence.mjs';
+import {
+    failReleaseFinal as fail,
+    isNonBlockingDiagnosticEvidence,
+    isNonBlockingDiagnosticVisualGateSkip,
+    validateReleaseResourceSummary
+} from './release-final-diagnostics.mjs';
+import { createReleaseFinalDomainEvidence } from './release-final-domain-evidence.mjs';
+import { validateReleaseManifest } from './release-manifest.mjs';
+import { writeJsonAtomic } from './test-evidence-receipts.mjs';
 import { validateThemeCssSafetyEvidence } from './theme-css-safety-evidence.mjs';
-
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
-
-function fail(errors)
-{
-    for (const error of errors)
-    {
-        console.error(`[release-final] ${error}`);
-    }
-    process.exit(1);
-}
-
-function readJson(file)
-{
-    return readEvidenceDocument(file);
-}
 
 function latestManifest()
 {
@@ -124,184 +112,6 @@ function findReceiptFile(schema, preferredFiles, expectedCommit, { requireExactO
         throw new Error(`ambiguous ${schema} receipts: ${matches.map(({ file }) => path.relative(root, file)).join(', ')}`);
     }
     return matches[0] ?? null;
-}
-
-function createTestEvidenceBinding(manifest)
-{
-    const correctness = findReceiptFile(
-        'fsusblog.browserless-correctness-receipt.v1',
-        [process.env.FSUSBLOG_CORRECTNESS_RECEIPT, '.tmp/release-evidence/browserless-correctness-receipt.json'],
-        manifest.commitSha
-    );
-    if (!correctness)
-    {
-        throw new Error('browserless correctness receipt is required');
-    }
-
-    const browserContract = findReceiptFile(
-        'fsusblog.browser-contract-receipt.v2',
-        [process.env.FSUSBLOG_BROWSER_CONTRACT_RECEIPT, '.tmp/browser-contract/receipt.json'],
-        manifest.commitSha,
-        { requireExactOne: true }
-    );
-    if (!browserContract)
-    {
-        throw new Error('Browser Contract receipt is required; release-final fails closed without it');
-    }
-
-    const publicPreview = requirePublicPreviewReleaseEvidence({
-        commitSha: manifest.commitSha,
-        browserContractReceipt: browserContract.receipt,
-        findReceiptFile,
-        sha256Hex
-    });
-
-    const build = findReceiptFile(
-        'fsusblog.ci-production-build-receipt.v1',
-        [
-            process.env.FSUSBLOG_PRODUCTION_BUILD_RECEIPT,
-            correctness.receipt.build?.receipt,
-            browserContract.receipt.buildBinding?.receipt,
-            '.tmp/ci-production-build/receipt.json'
-        ],
-        manifest.commitSha
-    );
-    if (!build)
-    {
-        throw new Error('immutable #1078 production build receipt is required');
-    }
-
-    return {
-        binding: createReleaseFinalTestEvidenceBinding({
-            commitSha: manifest.commitSha,
-            buildReceipt: build.receipt,
-            buildReceiptPath: path.relative(root, build.file),
-            correctnessReceipt: correctness.receipt,
-            correctnessReceiptPath: correctness.file,
-            browserContractReceipt: browserContract.receipt,
-            browserContractReceiptPath: browserContract.file
-        }),
-        publicPreview
-    };
-}
-
-function isFiniteNumber(value)
-{
-    return typeof value === 'number' && Number.isFinite(value);
-}
-
-function isNonBlockingDiagnosticEvidence(summary)
-{
-    return summary?.evidenceClass === 'diagnostic'
-    && summary.affectsCorrectness === false;
-}
-
-function isNonBlockingDiagnosticVisualGateSkip(manifest, manifestFile)
-{
-    const artifact = manifest.artifacts?.visualGateSkip;
-    const summaryArtifact = manifest.evidenceSummary?.gates?.visualGateSkip;
-    if (typeof artifact !== 'string' || artifact.length === 0 || summaryArtifact !== artifact)
-    {
-        return false;
-    }
-    const file = artifactPath(manifestFile, artifact);
-    if (!file)
-    {
-        return false;
-    }
-    try
-    {
-        if (!fs.existsSync(file) || !fs.statSync(file).isFile())
-        {
-            return false;
-        }
-        const evidence = readJson(file);
-        return evidence.schema === 'fsusblog.visual-gate-skip.v1'
-      && evidence.status === 'visual-gate-skipped'
-      && evidence.executionBoundary === 'real-browser-screenshot-diagnostics'
-      && isNonBlockingDiagnosticEvidence(evidence);
-    }
-    catch
-    {
-        return false;
-    }
-}
-
-function validateReleaseResourceSummary(summary, artifactKey)
-{
-    const errors = [];
-    if (!summary || typeof summary !== 'object')
-    {
-        return [`${artifactKey} release resource summary is missing`];
-    }
-
-    if (summary.status !== 'ok')
-    {
-        errors.push(`${artifactKey}.status must be ok, got ${summary.status}`);
-    }
-
-    if (!Array.isArray(summary.metrics) || summary.metrics.length === 0)
-    {
-        errors.push(`${artifactKey}.metrics must be non-empty`);
-    }
-
-    const unavailable = Array.isArray(summary.unavailableMetrics) ? summary.unavailableMetrics : [];
-    for (const [index, item] of unavailable.entries())
-    {
-        if (!item || typeof item.reason !== 'string' || item.reason.length === 0)
-        {
-            errors.push(`${artifactKey}.unavailableMetrics[${index}].reason missing`);
-        }
-    }
-
-    let okMetricCount = 0;
-    for (const [index, metric] of (summary.metrics ?? []).entries())
-    {
-        const label = `${artifactKey}.metrics[${index}]`;
-        if (!metric || typeof metric !== 'object')
-        {
-            errors.push(`${label} must be an object`);
-            continue;
-        }
-        if (typeof metric.name !== 'string' || metric.name.length === 0)
-        {
-            errors.push(`${label}.name missing`);
-        }
-        for (const field of ['startValue', 'endValue', 'maxValue', 'delta', 'threshold'])
-        {
-            if (!isFiniteNumber(metric[field]))
-            {
-                errors.push(`${label}.${field} must be a finite number`);
-            }
-        }
-        if (metric.status !== 'ok')
-        {
-            errors.push(`${label}.status must be ok, got ${metric.status}`);
-        }
-        else
-        {
-            okMetricCount += 1;
-        }
-        if (metric.thresholdOperator !== '<=')
-        {
-            errors.push(`${label}.thresholdOperator must be <=`);
-        }
-        if (metric.thresholdField !== 'delta')
-        {
-            errors.push(`${label}.thresholdField must be delta`);
-        }
-        if (isFiniteNumber(metric.delta) && isFiniteNumber(metric.threshold) && metric.delta > metric.threshold)
-        {
-            errors.push(`${label}.delta ${metric.delta} exceeds threshold ${metric.threshold}`);
-        }
-    }
-
-    if (okMetricCount === 0)
-    {
-        errors.push(`${artifactKey} must include at least one passing resource metric`);
-    }
-
-    return errors;
 }
 
 function validateManifest(manifest, manifestFile)
@@ -868,7 +678,12 @@ let testEvidenceBinding = null;
 let publicPreviewEvidence = null;
 try
 {
-    const testEvidence = createTestEvidenceBinding(manifest);
+    const testEvidence = createReleaseFinalDomainEvidence({
+        manifest,
+        repositoryRoot: root,
+        findReceiptFile,
+        sha256Hex
+    });
     testEvidenceBinding = testEvidence.binding;
     publicPreviewEvidence = testEvidence.publicPreview;
 }

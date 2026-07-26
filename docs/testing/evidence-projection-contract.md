@@ -53,7 +53,30 @@ The canonical producer receipt binds:
 
 The projector validates the receipt schema and digest, exact source/run/namespace identity, unique assertion and artifact IDs, every required `Passed` outcome, the exact coverage union, and each live artifact path and digest. Missing, duplicate, cross-run, cross-source, stale, failed, undeclared, or modified evidence fails closed.
 
+Release-domain projections additionally bind `buildIdentity` to the declared canonical artifact digest and `policyIdentity` to the machine-readable assertion disposition ledger digest. Their producer receipt is domain-specific: test, coverage, and artifact ID sets must exactly equal the catalog, so an otherwise sealed receipt with an extra unknown ID is rejected.
+
+The assertion report adapter runs only after the physical producer and cannot start a
+child process. It selects existing run-bound Vitest JSON results, live-grant child and
+nested execution records, sealed browser-diagnostics probe/subassertion artifacts, or
+immutable artifact reports. The report binds each assertion to the exact selector and
+to the SHA-256 of every native source artifact. Receipt construction and projection
+both reopen those artifacts, verify the report digest and full producer identity, and
+re-evaluate the selected outcome. Release-runtime browser diagnostics additionally
+require the exact planned and executed probe set, the exact all-of subassertion set,
+one successful attempt, and matching source, scheduler/diagnostics run, namespace,
+immutable build, and disposition-policy identities. Re-sealing a report or receipt
+cannot substitute invented assertion metadata, a generic browser scenario, a plain
+log, an unrelated successful child, or a stale native result.
+
 Successful projection writes an independent `fsusblog.evidence-projection-receipt.v1` receipt. Its `executionBoundary` records zero child processes, `dotnet test`, Vitest, Playwright, and runtime probe launches. This receipt is the logical tier's evidence; the producer receipt remains the physical execution authority.
+
+The release finalizer reads only the canonical seven release-domain projection
+receipts, never their producer receipts or native source artifacts. The expected
+tier IDs and ledger output paths are an exact-set contract. The final binding seals
+each projection file digest, projection content digest, build identity, and policy
+identity. A missing, extra, duplicate, substituted, relocated, failed, stale, or
+tampered projection is rejected; no producer execution or compatibility fallback is
+available from `release-final`.
 
 Large producer documents may be persisted through the
 [content-addressed evidence storage contract](content-addressed-evidence-storage.md).

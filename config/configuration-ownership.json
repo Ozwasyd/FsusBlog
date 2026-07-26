@@ -311,6 +311,34 @@
             "status": "manual"
         },
         {
+            "id": "release-domain-assertion-dispositions",
+            "owner": "test-governance",
+            "canonicalPath": "config/testing/release-domain-assertion-dispositions.json",
+            "pathType": "file",
+            "purpose": "Exact historical release assertion ownership and projection disposition authority",
+            "consumers": [
+                "tests/browser-diagnostics/catalog.mjs",
+                "tests/browser-diagnostics/run.mjs",
+                "tests/tools/release-domain-native-evidence.cases.mjs",
+                "tests/tools/release-domain-projections.test.mjs",
+                "tools/release/check-release-final.mjs",
+                "tools/release/release-final-domain-evidence.mjs",
+                "tools/test/lanes/browser-diagnostics-risk.sh",
+                "tools/test-matrix/release-domain-evidence.mjs",
+                "tools/test-matrix/release-domain-ledger.mjs",
+                "tools/test-matrix/release-domain-native-evidence.mjs",
+                "tools/test-matrix/release-domain-projection-receipt.mjs",
+                "tools/test-matrix/release-domain-report.mjs",
+                "tools/test/produce-release-domain-receipt.mjs",
+                "tools/test/project-evidence.mjs",
+                "tools/test/write-browser-diagnostics-release-assertions.mjs",
+                "tools/test/write-release-domain-assertion-report.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/release-domain-projections.test.mjs",
+            "changePolicy": "manual-update-with-release-domain-projection-validation",
+            "status": "manual"
+        },
+        {
             "id": "content-addressed-build-cache",
             "owner": "test-matrix-scheduler",
             "canonicalPath": "config/testing/content-addressed-build-cache.json",

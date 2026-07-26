@@ -142,6 +142,8 @@ const document = {
   lane: `collect:${group}`,
   executionMode: process.env.FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE ? 'live-grant' : 'fixed',
   schedulerRunId: process.env.FSUSBLOG_TEST_RUN_ID || null,
+  workflowRunId: process.env.GITHUB_RUN_ID || null,
+  workflowRunAttempt: process.env.GITHUB_RUN_ATTEMPT || null,
   status: finalStatus,
   grantHistory,
   children,

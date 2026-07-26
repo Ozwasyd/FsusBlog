@@ -7,6 +7,9 @@ import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
 import { parseMatrix, tierExecutionDependencies } from '../../tools/test-matrix/parse-matrix.mjs'
+import {
+  releaseFinalDomainProjectionTierIds
+} from '../../tools/test-matrix/release-domain-evidence.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8')
@@ -53,7 +56,7 @@ test('matrix evidence classes make every real browser boundary explicit', () => 
   assert.equal(tiers.get('release-final')?.evidenceClass, 'correctness')
 })
 
-test('authoritative execution excludes diagnostics and release final binds browser evidence only', () => {
+test('authoritative execution excludes diagnostics and release final binds exact receipt-only inputs', () => {
   const production = dependencyClosure('production-correctness')
   assert.deepEqual(
     [...production].filter((id) => tiers.get(id)?.evidenceClass === 'diagnostic'),
@@ -74,6 +77,13 @@ test('authoritative execution excludes diagnostics and release final binds brows
     []
   )
   assert.equal(tiers.get('release-final')?.requiresEvidenceFrom?.includes('browser-contract'), true)
+  assert.deepEqual(
+    tiers.get('release-final')?.requiresEvidenceFrom
+      ?.filter((tierId) => releaseFinalDomainProjectionTierIds.includes(tierId)),
+    releaseFinalDomainProjectionTierIds
+  )
+  assert.equal(tiers.get('release-final')?.requiresEvidenceFrom?.includes('release-aot-consumption'), false)
+  assert.equal(tiers.get('release-final')?.requiresEvidenceFrom?.includes('release-rbac-negative'), false)
 })
 
 test('release evidence plan serializes evidence classes and dependency roles', () => {

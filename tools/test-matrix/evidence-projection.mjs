@@ -141,9 +141,13 @@ function validateSortedUniqueById(entries, label)
 
 export function createEvidenceProducerReceipt({
     producerId,
+    logicalTierId,
     sourceState,
     runId,
     namespace,
+    buildIdentity,
+    policyIdentity,
+    assertionReport,
     assertions,
     artifacts,
     generatedAt = new Date().toISOString()
@@ -176,9 +180,16 @@ export function createEvidenceProducerReceipt({
         schema: evidenceProducerReceiptSchema,
         status: 'success',
         producerId: requiredText(producerId, 'producerId'),
+        ...(logicalTierId ? { logicalTierId: requiredText(logicalTierId, 'logicalTierId') } : {}),
         sourceState: normalizedSource,
         runId: validateIdentitySegment(runId, 'runId'),
         namespace: validateIdentitySegment(namespace, 'namespace'),
+        ...(buildIdentity ? { buildIdentity: validateDigest(buildIdentity, 'buildIdentity') } : {}),
+        ...(policyIdentity ? { policyIdentity: validateDigest(policyIdentity, 'policyIdentity') } : {}),
+        ...(assertionReport ? { assertionReport: {
+            path: validateRelativeArtifactPath(assertionReport?.path, 'assertionReport.path'),
+            digest: validateDigest(assertionReport?.digest, 'assertionReport.digest')
+        } } : {}),
         assertions: normalizedAssertions,
         artifacts: normalizedArtifacts,
         generatedAt: requiredText(generatedAt, 'generatedAt')
@@ -202,7 +213,13 @@ function validateCatalog(catalog)
         projectFrom: requiredText(catalog.projectFrom, 'projectFrom'),
         requiredTestIds: sortedUniqueStrings(catalog.requiredTestIds, 'requiredTestIds'),
         requiredCoverageIds: sortedUniqueStrings(catalog.requiredCoverageIds, 'requiredCoverageIds'),
-        requiredArtifactDeclarations: requiredArtifacts
+        requiredArtifactDeclarations: requiredArtifacts,
+        ...(catalog.dispositionLedger ? {
+            buildIdentityArtifactId: requiredText(catalog.buildIdentityArtifactId, 'buildIdentityArtifactId'),
+            dispositionLedger: validateRelativeArtifactPath(catalog.dispositionLedger, 'dispositionLedger'),
+            dispositionIds: sortedUniqueStrings(catalog.dispositionIds, 'dispositionIds'),
+            strictReleaseDomain: true
+        } : { strictReleaseDomain: false })
     };
 }
 
@@ -228,6 +245,8 @@ export function projectEvidence({
     sourceState,
     runId,
     namespace,
+    buildIdentity,
+    policyIdentity,
     repositoryRoot,
     generatedAt = new Date().toISOString()
 })
@@ -249,6 +268,10 @@ export function projectEvidence({
     {
         throw new Error('projection owner/projectFrom does not match producer identity');
     }
+    if (expected.strictReleaseDomain && producerReceipt.logicalTierId !== expected.tierId)
+    {
+        throw new Error('producer receipt logical tier does not match projection tier');
+    }
     const normalizedSource = assertSameSource(producerReceipt.sourceState, sourceState);
     const normalizedRunId = validateIdentitySegment(runId, 'runId');
     const normalizedNamespace = validateIdentitySegment(namespace, 'namespace');
@@ -260,9 +283,38 @@ export function projectEvidence({
     {
         throw new Error('producer receipt belongs to another namespace');
     }
+    if (expected.strictReleaseDomain && producerReceipt.buildIdentity !== validateDigest(buildIdentity, 'expected buildIdentity'))
+    {
+        throw new Error('producer build identity does not match projection build identity');
+    }
+    if (expected.strictReleaseDomain && producerReceipt.policyIdentity !== validateDigest(policyIdentity, 'expected policyIdentity'))
+    {
+        throw new Error('producer policy identity does not match projection policy identity');
+    }
+    if (expected.strictReleaseDomain)
+    {
+        const reportPath = validateRelativeArtifactPath(producerReceipt.assertionReport?.path, 'producer assertionReport.path');
+        const reportDigest = validateDigest(producerReceipt.assertionReport?.digest, 'producer assertionReport.digest');
+        const absoluteReport = path.resolve(repositoryRoot, reportPath);
+        if (!fs.existsSync(absoluteReport) || !fs.statSync(absoluteReport).isFile() || sha256File(absoluteReport) !== reportDigest)
+        {
+            throw new Error('producer assertion report digest mismatch');
+        }
+    }
 
     validateSortedUniqueById(producerReceipt.assertions, 'producer assertions');
     validateSortedUniqueById(producerReceipt.artifacts, 'producer artifacts');
+    const producerTestIds = producerReceipt.assertions.map((assertion) => assertion.id);
+    if (expected.strictReleaseDomain && JSON.stringify(producerTestIds) !== JSON.stringify(expected.requiredTestIds))
+    {
+        throw new Error('producer test IDs do not exactly match requiredTestIds');
+    }
+    const producerArtifactIds = producerReceipt.artifacts.map((artifact) => artifact.id);
+    const requiredArtifactIdsInOrder = expected.requiredArtifactDeclarations.map((artifact) => artifact.id);
+    if (expected.strictReleaseDomain && JSON.stringify(producerArtifactIds) !== JSON.stringify(requiredArtifactIdsInOrder))
+    {
+        throw new Error('producer artifact IDs do not exactly match requiredArtifactDeclarations');
+    }
     const assertionsById = new Map(producerReceipt.assertions.map((assertion) => [assertion.id, assertion]));
     const artifactsById = new Map(producerReceipt.artifacts.map((artifact) => [artifact.id, normalizeArtifact(artifact, `producer artifact ${artifact.id}`)]));
     const projectedAssertions = expected.requiredTestIds.map((id) =>
@@ -285,6 +337,11 @@ export function projectEvidence({
     if (JSON.stringify(projectedCoverageIds) !== JSON.stringify(expected.requiredCoverageIds))
     {
         throw new Error('projected coverage IDs do not exactly match requiredCoverageIds');
+    }
+    const declaredCoverageIds = [...new Set(producerReceipt.assertions.flatMap((assertion) => assertion.coverageIds))].sort();
+    if (expected.strictReleaseDomain && JSON.stringify(declaredCoverageIds) !== JSON.stringify(expected.requiredCoverageIds))
+    {
+        throw new Error('producer coverage IDs do not exactly match requiredCoverageIds');
     }
 
     const root = path.resolve(requiredText(repositoryRoot, 'repositoryRoot'));
@@ -334,11 +391,14 @@ export function projectEvidence({
         sourceState: normalizedSource,
         runId: normalizedRunId,
         namespace: normalizedNamespace,
+        buildIdentity: producerReceipt.buildIdentity,
+        policyIdentity: producerReceipt.policyIdentity,
         producer: {
             schema: producerReceipt.schema,
             producerId: producerReceipt.producerId,
             receipt: validateRelativeArtifactPath(producerReceiptPath, 'producerReceiptPath'),
-            receiptContentDigest: producerReceipt.contentDigest
+            receiptContentDigest: producerReceipt.contentDigest,
+            ...(expected.strictReleaseDomain ? { assertionReport: producerReceipt.assertionReport } : {})
         },
         testIds: expected.requiredTestIds,
         coverageIds: expected.requiredCoverageIds,

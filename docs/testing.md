@@ -305,6 +305,14 @@ Flaky 治理由 `tests/flaky.yml` 和 `tools/ci/check-flaky-registry.mjs` 控制
 
 `coverage-gate` 与 `production-correctness` 是两个 independent required checks：coverage 负责阈值和合并覆盖率，production-correctness 负责 browserless 运行时风险 DAG；`production` 只是相同拓扑的兼容命令。`release-final` 在二者之上增加唯一 Browser Contract、strict coverage、changed-code coverage、critical module coverage、ordinary required-job completeness、live exposure、artifact digest binding 和 test-quality lint。browser diagnostics receipt 保持独立，不存在 visual skip 影响 correctness 的路径。
 
+九个历史 release domain 由
+[`testing/release-domain-projection-ledger.md`](testing/release-domain-projection-ledger.md)
+逐断言映射到 canonical producer。`release-final` 只消费其中同时属于 canonical
+final evidence input 的七份 `fsusblog.evidence-projection-receipt.v1`，并在最终
+binding 中封存每份回执的精确 ledger 路径、文件/content/build/policy digest；
+它不读取 producer receipt、assertion report 或原生结果，也不执行缺失证据的
+fallback。集合删除、替换、重复、新增、路径漂移或重封篡改均 fail closed。
+
 `load` 与 WebSocket pressure 检查会写入 `.tmp/perf/load-public-api.json` 和 `.tmp/perf/notification-stream-pressure.json`，release evidence 会把 `.tmp/perf/` 作为性能证据归档。默认参数来自 `tests/performance/perf-policy.yml`：HTTP load baseline 为 `concurrency=10`、`rounds=6`、`durationMs=30000`；WebSocket pressure 为 `connections=50`、`durationMs=30000`。
 
 `tests/performance/perf-policy.yml` 是 load profile 的唯一策略源。`tools/test/lanes/load-profile.sh <profile>` 与 `runtime-evidence-probe.mjs load-profile` 必须从该文件读取 baseline / expected-peak / 2x-peak / burst 的 `concurrency`、`rounds`、`durationMs` 与预算阈值；只有显式环境变量 `FSUSBLOG_LOAD_PROFILE_CONCURRENCY`、`FSUSBLOG_LOAD_PROFILE_ROUNDS`、`FSUSBLOG_LOAD_PROFILE_DURATION_MS` 可以覆盖执行参数。每个 load profile summary 必须同时写入 `policy.file`、`profileName`、`declared`、`effective`、`thresholds`、`thresholdEvaluation`、`overrideSource` 与 `overrideSources`，release evidence 校验会拒绝没有解释的 policy/effective 不一致或没有 threshold 对照的 performance profile。`performance-evidence-summary` 只聚合 baseline、expected-peak、backend benchmark 与 capacity saturation reference，不消费 browser performance regression；browser performance 写入自己的 diagnostics summary。聚合状态保留各 ordinary producer 的真实 status，任何 failed 优先于 blocked，不能无条件写 `status:"ok"`。

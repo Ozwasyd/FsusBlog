@@ -111,7 +111,11 @@ test('catalog owns retained acceptance, release and runtime-risk probes without 
 
   const entry = read('tools/test/lanes/browser-diagnostics.sh')
   assert.doesNotMatch(entry, /browser-runtime-risk-diagnostics\.sh/u)
-  assert.match(entry, /exec .*tests\/browser-diagnostics\/run\.mjs/u)
+  assert.doesNotMatch(entry, /exec .*tests\/browser-diagnostics\/run\.mjs/u)
+  assert.ok(entry.indexOf('tests/browser-diagnostics/run.mjs')
+    < entry.indexOf('write-release-domain-assertion-report.mjs'))
+  assert.ok(entry.indexOf('write-release-domain-assertion-report.mjs')
+    < entry.indexOf('produce-release-domain-receipt.mjs'))
 })
 
 test('diagnostics topology is fixed, managed and independent from correctness', () => {

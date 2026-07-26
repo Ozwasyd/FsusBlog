@@ -2,6 +2,8 @@ import path from 'node:path';
 import { buildAggregatePlan, buildReceiptPlan, parseAggregateCommand } from './aggregate-plan.mjs';
 import { buildReleaseFinalizerPlan } from './release-final-evidence-contract.mjs';
 
+export { validateReleaseDomainMatrix } from './release-domain-evidence.mjs';
+
 export const evidenceExecutionModes = ['execute', 'projection', 'summary'];
 
 function isSafeRepositoryPath(value)

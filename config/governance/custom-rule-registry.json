@@ -3,7 +3,7 @@
     "generatedBy": "tools/governance/check-rule-platform.mjs --write-registry",
     "inventory": {
         "packageScriptCount": 196,
-        "implementationCount": 344
+        "implementationCount": 342
     },
     "rules": [
         {
@@ -14729,35 +14729,6 @@
             }
         },
         {
-            "id": "Implementation.ToolsTestLanesReleaseAotCoherenceSh",
-            "externalId": "tools/test/lanes/release-aot-coherence.sh",
-            "symbol": "CheckToolsTestLanesReleaseAotCoherence",
-            "owner": "ReleaseEngineeringOwner",
-            "category": "release-evidence",
-            "engine": "runtime",
-            "sourceScopes": [
-                "tools/test/lanes/release-aot-coherence.sh",
-                ".github/**",
-                "ops/**",
-                "tools/**",
-                "tests/tools/**"
-            ],
-            "severity": "error",
-            "fixable": false,
-            "changedFileSafe": true,
-            "dependencies": [],
-            "testFixtures": [
-                "tests/tools/rule-platform.test.mjs"
-            ],
-            "documentation": "docs/development/custom-rule-platform.md",
-            "execution": {
-                "mode": "delegated-implementation",
-                "implementation": "tools/test/lanes/release-aot-coherence.sh",
-                "executionKey": "governance:file:tools/test/lanes/release-aot-coherence.sh",
-                "receiptCompatible": true
-            }
-        },
-        {
             "id": "Implementation.ToolsTestLanesReleaseCloseoutSh",
             "externalId": "tools/test/lanes/release-closeout.sh",
             "symbol": "CheckToolsTestLanesReleaseCloseout",
@@ -14928,35 +14899,6 @@
                 "mode": "delegated-implementation",
                 "implementation": "tools/test/lanes/release-resource-budget.sh",
                 "executionKey": "governance:file:tools/test/lanes/release-resource-budget.sh",
-                "receiptCompatible": true
-            }
-        },
-        {
-            "id": "Implementation.ToolsTestLanesReleaseRuntimeFlowSh",
-            "externalId": "tools/test/lanes/release-runtime-flow.sh",
-            "symbol": "CheckToolsTestLanesReleaseRuntimeFlow",
-            "owner": "ReleaseEngineeringOwner",
-            "category": "release-evidence",
-            "engine": "runtime",
-            "sourceScopes": [
-                "tools/test/lanes/release-runtime-flow.sh",
-                ".github/**",
-                "ops/**",
-                "tools/**",
-                "tests/tools/**"
-            ],
-            "severity": "error",
-            "fixable": false,
-            "changedFileSafe": true,
-            "dependencies": [],
-            "testFixtures": [
-                "tests/tools/rule-platform.test.mjs"
-            ],
-            "documentation": "docs/development/custom-rule-platform.md",
-            "execution": {
-                "mode": "delegated-implementation",
-                "implementation": "tools/test/lanes/release-runtime-flow.sh",
-                "executionKey": "governance:file:tools/test/lanes/release-runtime-flow.sh",
                 "receiptCompatible": true
             }
         },

@@ -66,3 +66,5 @@ RunCollectParallel release-evidence-postcollect \
     evidence-metrics CheckEvidenceMetrics \
     evidence-manifest CheckEvidenceManifest
 FinishCollect
+"${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/write-release-domain-assertion-report.mjs" --producer release-evidence
+"${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/produce-release-domain-receipt.mjs" --producer release-evidence
