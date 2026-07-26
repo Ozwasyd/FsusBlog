@@ -105,6 +105,7 @@ RUN apt-get update && \
       zip && \
     rm -rf /var/lib/apt/lists/*
 COPY --from=node-runtime-glibc /usr/local/bin/node /usr/local/bin/node
+ENV PATH="/usr/local/bin:${PATH}"
 RUN test "$(node --version)" = "v${NODE_VERSION}"
 
 RUN git clone https://github.com/microsoft/vcpkg.git /opt/vcpkg && \

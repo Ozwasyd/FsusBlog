@@ -9,6 +9,7 @@ import { resolveRuntimeProfile } from '../../tools/runtime-profiles/runtime-publ
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 const dockerfile = fs.readFileSync(path.join(root, 'ops/docker/FsusBlog.Server.Dockerfile'), 'utf8');
+const bashExecutable = process.platform === 'win32' ? 'C:\\Program Files\\Git\\bin\\bash.exe' : 'bash'
 const releaseId = '20260715010101-0123456789ab';
 const releaseCreatedAtUtc = '2026-07-15T01:01:01Z';
 const commitSha = '0123456789abcdef0123456789abcdef01234567';
@@ -64,6 +65,11 @@ test('final Dockerfile pins musl and glibc .NET and Node images to one patch set
   }
   const baseStages = dockerfile.slice(dockerfile.indexOf(' AS base-musl'), dockerfile.indexOf('FROM base-${RUNTIME_BASE_FLAVOR} AS base'))
   assert.equal(baseStages.match(/! command -v npm/gu)?.length, 2)
+  const wasmBuilder = dockerfile.slice(
+    dockerfile.indexOf('FROM emscripten/emsdk:'),
+    dockerfile.indexOf('FROM scratch AS wasm-artifact')
+  )
+  assert.match(wasmBuilder, /COPY --from=node-runtime-glibc \/usr\/local\/bin\/node \/usr\/local\/bin\/node\s+ENV PATH="\/usr\/local\/bin:\$\{PATH\}"\s+RUN test "\$\(node --version\)" = "v\$\{NODE_VERSION\}"/u)
   for (const label of [
     'io.fsusblog.runtime.dotnet-version',
     'io.fsusblog.build.dotnet-sdk-version',
@@ -97,10 +103,11 @@ function runBuildWithInspect(t, labels, extraEnv = {}) {
         } }
     }]);
     fs.mkdirSync(binDir);
-    fs.writeFileSync(path.join(binDir, 'node'), `#!/usr/bin/env bash
+fs.writeFileSync(path.join(binDir, 'node'), `#!/usr/bin/env bash
 set -euo pipefail
-if [[ "\${1:-}" == "${path.join(root, 'tools/check-wasm-artifact-ownership.mjs')}" ]]; then exit 0; fi
-if [[ "\${1:-}" == "${path.join(root, 'tools/frontend/wasm-build-receipt.mjs')}" ]]; then exit 0; fi
+case "\${1:-}" in
+  */tools/check-wasm-artifact-ownership.mjs|*/tools/frontend/wasm-build-receipt.mjs) exit 0 ;;
+esac
 exec "${process.execPath}" "$@"
 `, { mode: 0o755 })
   fs.writeFileSync(path.join(binDir, 'docker'), `#!/usr/bin/env bash
@@ -111,13 +118,13 @@ if [[ "\${1:-}" == "run" ]]; then printf '%s\\n' "$*" > "${dockerRunArgs}"; prin
 exit 91
 `, { mode: 0o755 })
 
-  const result = spawnSync('bash', [path.join(root, 'tools/build-final-image.sh')], {
+  const result = spawnSync(bashExecutable, ['--noprofile', '--norc', path.join(root, 'tools/build-final-image.sh')], {
     cwd: root,
     encoding: 'utf8',
     timeout: 10_000,
     env: {
             ...process.env,
-            PATH: `${binDir}:${process.env.PATH}`,
+            PATH: `${binDir}${path.delimiter}${process.env.PATH}`,
             GITHUB_PACKAGES_TOKEN: 'fixture-token',
             FSUSBLOG_COMMIT_SHA: commitSha,
             FSUSBLOG_RELEASE_ID: releaseId,
