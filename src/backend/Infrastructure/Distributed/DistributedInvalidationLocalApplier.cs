@@ -24,7 +24,8 @@ public sealed class DistributedInvalidationLocalApplier(
 
         localCache.ClearForDistributedInvalidation();
         publicAotCache.InvalidateDistributedMemoryState();
-        publicAotInvalidationTracker.MarkAll();
+        long publicAotGeneration =
+            publicAotInvalidationTracker.MarkAll(invalidation.EventId);
         publicAotSsrRuntimeState.ClearAllRouteQuarantines();
         publicHotReadStore.InvalidateDistributedSnapshot(invalidation.Kind);
         if (invalidation.Kind is DistributedInvalidationEventKinds.SeoMutation
@@ -67,6 +68,7 @@ public sealed class DistributedInvalidationLocalApplier(
             $"event:{invalidation.EventId}",
             $"source:{invalidation.SourceNodeId}",
             $"trace:{invalidation.TraceId}",
+            $"publicAotGeneration:{publicAotGeneration}",
             $"rebuild:{rebuildStatus}",
             $"obligation:{queued.ObligationId ?? "none"}",
             $"generation:{queued.DeliveryGeneration}");
@@ -86,6 +88,7 @@ public sealed class DistributedInvalidationLocalApplier(
             rebuildStatus,
             localStatus,
             queued.ObligationId,
-            queued.DeliveryGeneration);
+            queued.DeliveryGeneration,
+            publicAotGeneration);
     }
 }

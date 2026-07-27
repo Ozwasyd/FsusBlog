@@ -227,7 +227,8 @@ public sealed record DistributedInvalidationLocalApplyResult(
     DistributedInvalidationRebuildObligationStatus RebuildObligationStatus,
     DistributedInvalidationLocalApplyStatus LocalApplyStatus,
     string? RebuildObligationId,
-    long? RebuildGeneration)
+    long? RebuildGeneration,
+    long? AotGeneration)
 {
     public bool IsApplied
         => MemoryInvalidated
@@ -238,11 +239,16 @@ public sealed record DistributedInvalidationLocalApplyResult(
                 or DistributedInvalidationRebuildObligationStatus.Queued)
             && LocalApplyStatus == DistributedInvalidationLocalApplyStatus.Applied
             && RebuildGeneration is > 0
+            && AotGeneration is > 0
             && (RebuildObligationStatus != DistributedInvalidationRebuildObligationStatus.Durable
                 || !string.IsNullOrWhiteSpace(RebuildObligationId));
 
     public bool HasCompletedLocalInvalidation
-        => MemoryInvalidated && AotMemoryInvalidated && AotGenerationMarked && HotSnapshotRetired;
+        => MemoryInvalidated
+            && AotMemoryInvalidated
+            && AotGenerationMarked
+            && HotSnapshotRetired
+            && AotGeneration is > 0;
 
     public bool HasRebuildObligation
         => (RebuildObligationStatus is DistributedInvalidationRebuildObligationStatus.Durable
@@ -367,7 +373,8 @@ public sealed record DistributedInvalidationRuntimeSnapshot(
     DistributedInvalidationLocalApplyStatus? LastLocalApplyStatus,
     DistributedInvalidationRebuildObligationStatus? LastRebuildObligationStatus,
     string? LastRebuildObligationId,
-    long? LastRebuildGeneration);
+    long? LastRebuildGeneration,
+    long? LastAotGeneration);
 
 public sealed class DistributedInvalidationRuntimeState(TimeProvider timeProvider)
 {
@@ -381,6 +388,7 @@ public sealed class DistributedInvalidationRuntimeState(TimeProvider timeProvide
         0,
         0,
         0,
+        null,
         null,
         null,
         null,
@@ -479,7 +487,8 @@ public sealed class DistributedInvalidationRuntimeState(TimeProvider timeProvide
                 LastLocalApplyStatus = result?.LocalApplyStatus ?? _snapshot.LastLocalApplyStatus,
                 LastRebuildObligationStatus = result?.RebuildObligationStatus ?? _snapshot.LastRebuildObligationStatus,
                 LastRebuildObligationId = result?.RebuildObligationId ?? _snapshot.LastRebuildObligationId,
-                LastRebuildGeneration = result?.RebuildGeneration ?? _snapshot.LastRebuildGeneration
+                LastRebuildGeneration = result?.RebuildGeneration ?? _snapshot.LastRebuildGeneration,
+                LastAotGeneration = result?.AotGeneration ?? _snapshot.LastAotGeneration
             };
         }
     }

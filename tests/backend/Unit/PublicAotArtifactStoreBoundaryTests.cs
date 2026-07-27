@@ -6,10 +6,16 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.Spa;
 
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging.Abstractions;
 
 using NSubstitute;
+
+using StackExchange.Redis;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -82,6 +88,60 @@ public sealed class PublicAotArtifactStoreBoundaryTests
         Assert.Equal(
             string.Concat(CacheKeyBuilder.PublicAotDocument(PublicPageId.ArticleDetail, "article:42"), ":iv:0"),
             lookup.DocumentCacheKey);
+    }
+
+    [Fact]
+    public async Task Lookup_DurableGenerationDoesNotReviveTheLv0DiskArtifact()
+    {
+        using var temp = new TemporaryDirectory();
+        var database = Substitute.For<IDatabase>();
+        database.SetAddAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<CommandFlags>())
+            .Returns(Task.FromResult(true));
+        var redis = Substitute.For<IConnectionMultiplexer>();
+        redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(database);
+        var cache = new PublicAotFileShellCache(
+            new TestWebHostEnvironment(temp.Root),
+            redis,
+            NullLogger<PublicAotFileShellCache>.Instance);
+        var tracker = new PublicAotInvalidationTracker();
+        var scheduler = Substitute.For<IPublicAotBackfillScheduler>();
+        var manifest = Substitute.For<ISpaAssetManifestService>();
+        manifest.GetFrontendAssetVersion(Arg.Any<HttpContext>()).Returns("frontend-v1");
+        var store = new PublicAotArtifactStore(
+            cache,
+            Substitute.For<IPublicAotCacheWriter>(),
+            scheduler,
+            manifest,
+            new PrefixRuntimeKeyScope(string.Empty),
+            tracker);
+        PublicAotRouteMatch match = ArticleMatch();
+        string lv0Key = string.Concat(
+            CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey),
+            ":iv:0");
+        await cache.SetAsync(new PublicAotCacheEntry
+        {
+            CacheKey = lv0Key,
+            PageId = match.PageId,
+            RouteKey = match.RouteKey,
+            Source = PublicAotWriteSource.ServerSsrBackfill,
+            Value = "<html>lv0</html>",
+            RendererVersion = PublicAotConstants.RendererVersion,
+            FrontendAssetVersion = "frontend-v1",
+            GeneratedAtUtc = DateTimeOffset.UtcNow,
+            ExpiresAtUtc = DateTimeOffset.UtcNow.AddHours(1)
+        });
+        Assert.NotNull(await cache.TryGetEntryAsync(lv0Key, "frontend-v1"));
+
+        for (int generation = 0; generation < 5; generation++)
+        {
+            tracker.MarkKey(CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey));
+        }
+
+        PublicAotArtifactLookup lookup = store.CreateLookup(new DefaultHttpContext(), match);
+
+        Assert.EndsWith(":iv:5", lookup.DocumentCacheKey, StringComparison.Ordinal);
+        Assert.Null(await store.TryGetEntryAsync(lookup, CancellationToken.None));
+        Assert.NotNull(await cache.TryGetEntryAsync(lv0Key, "frontend-v1"));
     }
 
     [Fact]
@@ -448,6 +508,37 @@ public sealed class PublicAotArtifactStoreBoundaryTests
     private sealed class PrefixRuntimeKeyScope(string prefix) : IRuntimeKeyScope
     {
         public string PrefixKey(string key) => string.Concat(prefix, key);
+    }
+
+    private sealed class TemporaryDirectory : IDisposable
+    {
+        public string Root { get; } = Path.Combine(Path.GetTempPath(), $"fsus-public-aot-boundary-{Guid.NewGuid():N}");
+
+        public TemporaryDirectory()
+        {
+            Directory.CreateDirectory(Path.Combine(Root, "wwwroot"));
+        }
+
+        public void Dispose()
+        {
+            try
+            {
+                Directory.Delete(Root, recursive: true);
+            }
+            catch
+            {
+            }
+        }
+    }
+
+    private sealed class TestWebHostEnvironment(string root) : IWebHostEnvironment
+    {
+        public string ApplicationName { get; set; } = "FsusBlog.Tests";
+        public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
+        public string WebRootPath { get; set; } = Path.Combine(root, "wwwroot");
+        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+        public string ContentRootPath { get; set; } = root;
+        public string EnvironmentName { get; set; } = Environments.Development;
     }
 
     private static PublicAotRouteMatch ArticleMatch()

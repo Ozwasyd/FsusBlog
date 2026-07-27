@@ -248,6 +248,16 @@
       "replaySource": "public AOT route registry"
     },
     {
+      "type": "PublicAotInvalidationGenerationCompactionWorker",
+      "source": "src/backend/Infrastructure/PublicAot/PublicAotInvalidationGenerationAuthority.cs",
+      "classification": "multi-consumer-safe",
+      "idempotency": "Redis compare-and-set compaction preserves the global/all watermark and all artifact-registry-referenced coordinates",
+      "drain": "cancel",
+      "maxDrainSeconds": 2,
+      "fence": "not-required",
+      "replaySource": "Redis Public AOT artifact registry and invalidation generation authority"
+    },
+    {
       "type": "PublicAotFileShellCacheInvalidationSubscriber",
       "source": "src/backend/Infrastructure/PublicAot/PublicAotFileShellCacheInvalidationSubscriber.cs",
       "classification": "instance-local",

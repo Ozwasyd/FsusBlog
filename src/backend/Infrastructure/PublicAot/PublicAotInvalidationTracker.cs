@@ -5,28 +5,32 @@ namespace FsusBlog.Server.Infrastructure.PublicAot;
 public sealed class PublicAotInvalidationTracker
 {
     private const string AllKey = "__all__";
-    private readonly ConcurrentDictionary<string, long> _versions = new(StringComparer.Ordinal);
+    private readonly IPublicAotInvalidationGenerationAuthority _authority;
     private readonly ConcurrentDictionary<string, PublicAotBackfillCommitReceipt> _commitReceipts = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _publicationLocks = new(StringComparer.Ordinal);
     private readonly SemaphoreSlim _globalPublicationGate = new(1, 1);
-    private long _nextVersion;
+    private PublicAotInvalidationGenerationState? _localGenerationMirror;
     private DateTimeOffset? _lastInvalidatedAt;
 
-    public long MarkAll()
-        => Mark(AllKey);
+    public PublicAotInvalidationTracker(IPublicAotInvalidationGenerationAuthority? authority = null)
+        => _authority = authority ?? new InMemoryPublicAotInvalidationGenerationAuthority();
 
-    public long MarkPrefix(string prefix)
-        => string.IsNullOrWhiteSpace(prefix) ? CurrentVersion : Mark(prefix);
+    public long MarkAll(string? mutationId = null)
+        => Mark("all", AllKey, mutationId);
 
-    public long MarkKey(string cacheKey)
-        => string.IsNullOrWhiteSpace(cacheKey) ? CurrentVersion : Mark(cacheKey);
+    public long MarkPrefix(string prefix, string? mutationId = null)
+        => string.IsNullOrWhiteSpace(prefix)
+            ? CurrentVersion
+            : Mark("prefix", prefix, mutationId);
+
+    public long MarkKey(string cacheKey, string? mutationId = null)
+        => string.IsNullOrWhiteSpace(cacheKey)
+            ? CurrentVersion
+            : Mark("key", cacheKey, mutationId);
 
     public long GetCurrentVersion(string cacheKey, string pagePrefixKey)
     {
-        long version = GetVersion(AllKey);
-        version = Math.Max(version, GetVersion(cacheKey));
-        version = Math.Max(version, GetVersion(pagePrefixKey));
-        return version;
+        return LoadState().Current(cacheKey, pagePrefixKey);
     }
 
     public bool WasInvalidatedAfter(PublicAotBackfillRequest request)
@@ -160,18 +164,16 @@ public sealed class PublicAotInvalidationTracker
         }
     }
 
-    private long CurrentVersion => Interlocked.Read(ref _nextVersion);
+    private long CurrentVersion => LoadState().AllGeneration;
 
-    private long Mark(string key)
+    private long Mark(string kind, string key, string? mutationId)
     {
-        long version = Interlocked.Increment(ref _nextVersion);
-        _versions.AddOrUpdate(key, version, (_, _) => version);
+        PublicAotInvalidationGenerationState state =
+            _authority.Mark(kind, key, mutationId);
+        UpdateLocalMirror(state);
         _lastInvalidatedAt = DateTimeOffset.UtcNow;
-        return version;
+        return state.AllGeneration;
     }
-
-    private long GetVersion(string key)
-        => string.IsNullOrWhiteSpace(key) ? 0 : _versions.GetValueOrDefault(key);
 
     private SemaphoreSlim GetPublicationLock(string pagePrefixKey)
         => _publicationLocks.GetOrAdd(
@@ -182,7 +184,78 @@ public sealed class PublicAotInvalidationTracker
         => value.Length == 64 && value.All(static character => char.IsAsciiHexDigit(character));
 
     public PublicAotInvalidationRuntimeSnapshot Snapshot()
-        => new(CurrentVersion, _versions.Count, _lastInvalidatedAt);
+    {
+        PublicAotInvalidationGenerationState state = LoadState();
+        return new(state.AllGeneration, state.KeyGenerations.Count + state.PrefixGenerations.Count, _lastInvalidatedAt ?? state.UpdatedAt);
+    }
+
+    private PublicAotInvalidationGenerationState LoadState()
+    {
+        for (int attempt = 0; attempt < 4; attempt++)
+        {
+            PublicAotInvalidationGenerationState durable = _authority.Load();
+            PublicAotInvalidationGenerationStateCodec.Validate(durable);
+            PublicAotInvalidationGenerationState? local =
+                Volatile.Read(ref _localGenerationMirror);
+            if (local is not null)
+            {
+                if (!string.Equals(
+                    local.RuntimeScope,
+                    durable.RuntimeScope,
+                    StringComparison.Ordinal))
+                {
+                    throw new InvalidOperationException(
+                        "public-aot-invalidation-generation-durable-regression");
+                }
+
+                if (local.AllGeneration > durable.AllGeneration)
+                {
+                    continue;
+                }
+            }
+
+            UpdateLocalMirror(durable);
+            return durable;
+        }
+
+        throw new InvalidOperationException(
+            "public-aot-invalidation-generation-durable-regression");
+    }
+
+    private void UpdateLocalMirror(PublicAotInvalidationGenerationState durable)
+    {
+        while (true)
+        {
+            PublicAotInvalidationGenerationState? local =
+                Volatile.Read(ref _localGenerationMirror);
+            if (local is not null)
+            {
+                if (!string.Equals(
+                    local.RuntimeScope,
+                    durable.RuntimeScope,
+                    StringComparison.Ordinal))
+                {
+                    throw new InvalidOperationException(
+                        "public-aot-invalidation-generation-durable-regression");
+                }
+
+                if (local.AllGeneration > durable.AllGeneration)
+                {
+                    return;
+                }
+            }
+
+            if (ReferenceEquals(
+                Interlocked.CompareExchange(
+                    ref _localGenerationMirror,
+                    durable,
+                    local),
+                local))
+            {
+                return;
+            }
+        }
+    }
 }
 
 public sealed record PublicAotInvalidationRuntimeSnapshot(

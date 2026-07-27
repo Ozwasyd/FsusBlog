@@ -125,6 +125,7 @@ public sealed class DistributedInvalidationBusTests
         Assert.Equal(DistributedInvalidationRebuildObligationStatus.Durable, snapshot.LastRebuildObligationStatus);
         Assert.Equal("obligation-42", snapshot.LastRebuildObligationId);
         Assert.Equal(42, snapshot.LastRebuildGeneration);
+        Assert.Equal(1, snapshot.LastAotGeneration);
     }
 
     [Theory]
@@ -151,22 +152,27 @@ public sealed class DistributedInvalidationBusTests
             true, false, true, true,
             DistributedInvalidationRebuildObligationStatus.Durable,
             DistributedInvalidationLocalApplyStatus.Applied,
-            "obligation-42", 42)];
+            "obligation-42", 42, 1)];
         yield return [new DistributedInvalidationLocalApplyResult(
             true, true, true, false,
             DistributedInvalidationRebuildObligationStatus.Durable,
             DistributedInvalidationLocalApplyStatus.Applied,
-            "obligation-42", 42)];
+            "obligation-42", 42, 1)];
         yield return [new DistributedInvalidationLocalApplyResult(
             true, true, true, true,
             DistributedInvalidationRebuildObligationStatus.Failed,
             DistributedInvalidationLocalApplyStatus.FailedTerminal,
-            null, null)];
+            null, null, 1)];
         yield return [new DistributedInvalidationLocalApplyResult(
             true, true, true, true,
             (DistributedInvalidationRebuildObligationStatus)99,
             DistributedInvalidationLocalApplyStatus.Applied,
-            "obligation-42", 42)];
+            "obligation-42", 42, 1)];
+        yield return [new DistributedInvalidationLocalApplyResult(
+            true, true, true, true,
+            DistributedInvalidationRebuildObligationStatus.Durable,
+            DistributedInvalidationLocalApplyStatus.Applied,
+            "obligation-42", 42, null)];
     }
 
     [Fact]
@@ -398,7 +404,9 @@ public sealed class DistributedInvalidationBusTests
             NullLogger<PublicAotFileShellCache>.Instance,
             configuration: new ConfigurationBuilder().Build(),
             publicArtifactStorage: Substitute.For<IPublicArtifactStorage>());
-        var tracker = new PublicAotInvalidationTracker();
+        var generationAuthority =
+            new InMemoryPublicAotInvalidationGenerationAuthority();
+        var tracker = new PublicAotInvalidationTracker(generationAuthority);
         var hotRead = new PublicHotReadStore();
         var deliveryState = new InMemoryPublicHotArtifactDeliveryStateStore();
         var queue = new PublicHotArtifactUpdateQueue(Options.Create(new PublicHotReadOptions
@@ -421,12 +429,18 @@ public sealed class DistributedInvalidationBusTests
             PublicHotArtifactDeliveryClass.FullRebuildMarker,
             null,
             "pre-fill-durable-marker");
-        DistributedInvalidationLocalApplyResult? result = await applier.ApplyAsync(CreateEvent("node-a", "real-local-state"));
+        DistributedInvalidationEvent invalidation =
+            CreateEvent("node-a", "real-local-state");
+        DistributedInvalidationLocalApplyResult? result =
+            await applier.ApplyAsync(invalidation);
 
         Assert.Equal(1, localCache.DistributedInvalidationGenerationForTests);
         Assert.Equal(1, publicAotCache.DistributedMemoryInvalidationGenerationForTests);
         Assert.Equal(1, hotRead.DistributedInvalidationGenerationForTests);
         Assert.Equal(1, tracker.Snapshot().CurrentVersion);
+        Assert.Equal(
+            invalidation.EventId,
+            generationAuthority.Load().LastMutationId);
         Assert.False(hotRead.IsReady);
         Assert.Equal(1, queue.QueuedCount);
         Assert.NotNull(result);
@@ -434,8 +448,10 @@ public sealed class DistributedInvalidationBusTests
         Assert.Equal(DistributedInvalidationRebuildObligationStatus.Durable, result.RebuildObligationStatus);
         Assert.False(string.IsNullOrWhiteSpace(result.RebuildObligationId));
         Assert.True(result.RebuildGeneration > 0);
+        Assert.Equal(1, result.AotGeneration);
         Assert.Equal("distributed:article_mutation", cacheRuntime.Snapshot().LastKind);
         Assert.Contains("source:node-a", cacheRuntime.Snapshot().LastDetail, StringComparison.Ordinal);
+        Assert.Contains("publicAotGeneration:1", cacheRuntime.Snapshot().LastDetail, StringComparison.Ordinal);
     }
 
     private static DistributedInvalidationBus CreateBus(
@@ -570,19 +586,19 @@ public sealed class DistributedInvalidationBusTests
         => new(true, true, true, true,
             DistributedInvalidationRebuildObligationStatus.Queued,
             DistributedInvalidationLocalApplyStatus.Applied,
-            null, 1);
+            null, 1, 1);
 
     private static DistributedInvalidationLocalApplyResult DurableAppliedResult()
         => new(true, true, true, true,
             DistributedInvalidationRebuildObligationStatus.Durable,
             DistributedInvalidationLocalApplyStatus.Applied,
-            "obligation-42", 42);
+            "obligation-42", 42, 1);
 
     private static DistributedInvalidationLocalApplyResult DegradedRetryableResult()
         => new(true, true, true, true,
             DistributedInvalidationRebuildObligationStatus.Rejected,
             DistributedInvalidationLocalApplyStatus.DegradedRetryable,
-            null, null);
+            null, null, 1);
 
     private sealed class InMemoryTransportHub
     {

@@ -15,7 +15,21 @@ internal static class RuntimePublicAotServiceCollectionExtensions
         services.AddSingleton<IAotSeoConfigSnapshot, AotSeoConfigSnapshot>();
         services.AddSingleton<PublicAotBackfillScheduler>();
         services.AddSingleton<IPublicAotBackfillScheduler>(sp => sp.GetRequiredService<PublicAotBackfillScheduler>());
-        services.AddSingleton<PublicAotInvalidationTracker>();
+        services.AddSingleton<
+            IPublicAotInvalidationGenerationBootstrapGuard,
+            FilePublicAotInvalidationGenerationBootstrapGuard>();
+        services.AddSingleton<IPublicAotInvalidationGenerationAuthority, RedisPublicAotInvalidationGenerationAuthority>();
+        services.AddSingleton(sp =>
+        {
+            IPublicAotInvalidationGenerationAuthority authority = sp.GetRequiredService<IPublicAotInvalidationGenerationAuthority>();
+            _ = authority.Load();
+            return new PublicAotInvalidationTracker(authority);
+        });
+        if (!OpenApiExportMode.IsEnabled())
+        {
+            services.AddHostedService<PublicAotInvalidationGenerationStartupValidator>();
+            services.AddHostedService<PublicAotInvalidationGenerationCompactionWorker>();
+        }
         services.AddSingleton(PublicAotBackfillLeaseOptions.FromEnvironment());
         services.AddSingleton<IPublicAotBackfillLease, PublicAotBackfillLease>();
         if (!OpenApiExportMode.IsEnabled())
