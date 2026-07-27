@@ -8,7 +8,12 @@ export const identity = {
         passkeyLabel: '패스키',
         passkeyEnabled: '활성화됨',
         passkeyDisabled: '미등록',
-        passkeyDeviceCount: '{n}개 로그인 기기',
+        passkeyDeviceCount: {
+            kind: 'plural',
+            forms: {
+                other: '{count}개 로그인 기기'
+            }
+        },
         recoveryKeyLabel: '복구 키',
         recoveryKeyReady: '생성됨',
         recoveryKeyRequired: '미생성',
@@ -130,7 +135,12 @@ export const identity = {
         sectionTitle: '기기 세션',
         sectionDescription: '이 계정의 활성 기기 세션입니다.',
         loading: '기기 세션 로딩 중',
-        activeCountPrefix: '활성 세션 {n}개',
+        activeCount: {
+            kind: 'plural',
+            forms: {
+                other: '활성 세션 {count}개'
+            }
+        },
         revokeOthersCta: '기타 기기 세션 해제',
         currentDevice: '현재 기기',
         otherDevice: '기타 기기',

@@ -8,7 +8,15 @@ export const identity = {
         passkeyLabel: 'Ключ доступа',
         passkeyEnabled: 'Включено',
         passkeyDisabled: 'Не добавлено',
-        passkeyDeviceCount: '{n} устройств для входа',
+        passkeyDeviceCount: {
+            kind: 'plural',
+            forms: {
+                one: '{count} устройство для входа',
+                few: '{count} устройства для входа',
+                many: '{count} устройств для входа',
+                other: '{count} устройства для входа'
+            }
+        },
         recoveryKeyLabel: 'Recovery Key',
         recoveryKeyReady: 'Создан',
         recoveryKeyRequired: 'Не создан',
@@ -130,7 +138,15 @@ export const identity = {
         sectionTitle: 'Сессии устройств',
         sectionDescription: 'Активные сессии устройств этого аккаунта.',
         loading: 'Загрузка сессий устройств',
-        activeCountPrefix: '{n} активных сессий',
+        activeCount: {
+            kind: 'plural',
+            forms: {
+                one: '{count} активная сессия',
+                few: '{count} активные сессии',
+                many: '{count} активных сессий',
+                other: '{count} активной сессии'
+            }
+        },
         revokeOthersCta: 'Завершить сессии на других устройствах',
         currentDevice: 'Текущее устройство',
         otherDevice: 'Другое устройство',

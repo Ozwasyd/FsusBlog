@@ -24,7 +24,12 @@ export const layout = {
         leadLoadingLabel: '正在加载主推荐',
         feedLoadingLabel: '正在加载文章列表',
         ariaReadFull: '阅读全文：{title}',
-        viewsUnit: '次打开'
+        viewCount: {
+            kind: 'plural',
+            forms: {
+                other: '{count} 次打开'
+            }
+        }
     },
     themeMode: {
         label: '主题模式'

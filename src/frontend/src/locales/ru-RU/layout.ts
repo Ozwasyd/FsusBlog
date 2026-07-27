@@ -27,7 +27,15 @@ export const layout = {
         leadLoadingLabel: 'Загрузка рекомендуемой статьи',
         feedLoadingLabel: 'Загрузка списка статей',
         ariaReadFull: 'Читать полностью: {title}',
-        viewsUnit: 'просмотров'
+        viewCount: {
+            kind: 'plural',
+            forms: {
+                one: '{count} просмотр',
+                few: '{count} просмотра',
+                many: '{count} просмотров',
+                other: '{count} просмотра'
+            }
+        }
     },
     themeMode: {
         label: 'Тема оформления'

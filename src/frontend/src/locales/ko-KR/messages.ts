@@ -16,7 +16,12 @@ export const messages = {
         noContentAccount: '메시지 내용 없음',
         systemTag: '시스템',
         listAriaLabel: '대화 목록',
-        showMoreLabel: '대화 더 보기 ({n})'
+        showMoreLabel: {
+            kind: 'plural',
+            forms: {
+                other: '대화 더 보기 ({count})'
+            }
+        }
     },
     threadPanel: {
         backAriaLabel: '대화 목록으로 돌아가기',

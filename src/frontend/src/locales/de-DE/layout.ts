@@ -27,7 +27,13 @@ export const layout = {
         leadLoadingLabel: 'Empfohlenen Beitrag laden',
         feedLoadingLabel: 'Beitragsliste laden',
         ariaReadFull: 'Ganzen Beitrag lesen: {title}',
-        viewsUnit: 'Aufrufe'
+        viewCount: {
+            kind: 'plural',
+            forms: {
+                one: '{count} Aufruf',
+                other: '{count} Aufrufe'
+            }
+        }
     },
     themeMode: {
         label: 'Theme-Modus'

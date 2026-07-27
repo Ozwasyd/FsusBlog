@@ -8,7 +8,13 @@ export const identity = {
         passkeyLabel: 'Passkey',
         passkeyEnabled: 'Aktiviert',
         passkeyDisabled: 'Nicht hinzugefügt',
-        passkeyDeviceCount: '{n} Anmeldegeräte',
+        passkeyDeviceCount: {
+            kind: 'plural',
+            forms: {
+                one: '{count} Anmeldegerät',
+                other: '{count} Anmeldegeräte'
+            }
+        },
         recoveryKeyLabel: 'Recovery Key',
         recoveryKeyReady: 'Generiert',
         recoveryKeyRequired: 'Nicht erstellt',
@@ -130,7 +136,13 @@ export const identity = {
         sectionTitle: 'Gerätesitzungen',
         sectionDescription: 'Aktive Gerätesitzungen für dieses Konto.',
         loading: 'Gerätesitzungen werden geladen',
-        activeCountPrefix: '{n} aktive Sitzungen',
+        activeCount: {
+            kind: 'plural',
+            forms: {
+                one: '{count} aktive Sitzung',
+                other: '{count} aktive Sitzungen'
+            }
+        },
         revokeOthersCta: 'Andere Geräte widerrufen',
         currentDevice: 'Aktuelles Gerät',
         otherDevice: 'Anderes Gerät',

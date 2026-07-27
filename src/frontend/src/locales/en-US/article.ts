@@ -31,10 +31,20 @@ export const article = {
     metadata: {
         publishedAt: 'Published',
         updatedAt: 'Updated',
-        wordsPrefix: '',
-        wordsSuffix: 'words',
-        readingMinutesPrefix: '',
-        readingMinutesSuffix: 'min read',
+        wordCount: {
+            kind: 'plural',
+            forms: {
+                one: '{count} word',
+                other: '{count} words'
+            }
+        },
+        readingMinuteCount: {
+            kind: 'plural',
+            forms: {
+                one: '{count} min read',
+                other: '{count} min read'
+            }
+        },
         longRead: 'Long read',
         longReadAria: 'Long-read notice'
     },

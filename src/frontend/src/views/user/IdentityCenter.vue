@@ -494,7 +494,7 @@ import { useI18nText } from '@/composables/useI18nText'
 import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime'
 import { webauthnSignalService } from '@/services/webauthnSignal'
 
-const { messages } = useI18nText()
+const { messages, translatePlural } = useI18nText()
 const identityCopy = computed(() => messages.value.identity)
 const copy = computed(() => identityCopy.value.overview)
 const passkeysCopy = computed(() => identityCopy.value.passkeys)
@@ -697,7 +697,7 @@ const currentSession = computed(() => sessions.value.find((session) => session.i
 const otherSessions = computed(() => sessions.value.filter((session) => !session.isCurrent))
 
 const passkeyDeviceCountText = computed(() =>
-  copy.value.passkeyDeviceCount.replace('{n}', String(passkeyCredentials.value.length))
+  translatePlural('identity.overview.passkeyDeviceCount', passkeyCredentials.value.length)
 )
 
 const publicHandleDisplayText = computed(() =>
@@ -751,7 +751,7 @@ const commentRecordPolicyItems = computed<Array<{ label: string; value: string; 
 })
 
 const sessionsActiveCountText = computed(() =>
-  sessionsCopy.value.activeCountPrefix.replace('{n}', String(sessions.value.length))
+  translatePlural('identity.sessions.activeCount', sessions.value.length)
 )
 
 const identityAccountSnapshot = computed(() => {

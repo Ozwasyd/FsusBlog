@@ -27,7 +27,14 @@ export const layout = {
         leadLoadingLabel: 'Carregando destaque',
         feedLoadingLabel: 'Carregando lista de posts',
         ariaReadFull: 'Ler post completo: {title}',
-        viewsUnit: ' visualizações'
+        viewCount: {
+            kind: 'plural',
+            forms: {
+                one: '{count} visualização',
+                many: '{count} visualizações',
+                other: '{count} visualizações'
+            }
+        }
     },
     themeMode: {
         label: 'Modo de tema'

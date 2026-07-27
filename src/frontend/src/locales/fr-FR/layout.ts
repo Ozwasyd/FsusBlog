@@ -27,7 +27,14 @@ export const layout = {
         leadLoadingLabel: "Chargement de l'article principal",
         feedLoadingLabel: "Chargement de la liste d'articles",
         ariaReadFull: "Lire l'article : {title}",
-        viewsUnit: 'vues'
+        viewCount: {
+            kind: 'plural',
+            forms: {
+                one: '{count} vue',
+                many: '{count} vues',
+                other: '{count} vues'
+            }
+        }
     },
     themeMode: {
         label: 'Thème'

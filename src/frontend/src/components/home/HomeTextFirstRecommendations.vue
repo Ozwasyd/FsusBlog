@@ -37,7 +37,7 @@
                 {{ article.title }}
               </span>
               <span class="mt-1 block text-xs leading-4 tabular-nums font-medium normal-case text-[var(--fsusblog-text-muted)]">
-                {{ formatViews(article.views) }} {{ copy.viewsUnit }}
+                {{ viewCountText(article.views) }}
               </span>
             </span>
           </a>
@@ -53,7 +53,7 @@ import type { PopularArticleSummaryResponse } from '@/api/article'
 import { themeTokens } from '@/ui-tokens/themeTokens'
 import { useI18nText } from '@/composables/useI18nText'
 
-const { messages } = useI18nText()
+const { messages, translatePlural } = useI18nText()
 const copy = computed(() => messages.value.layout.recommendations)
 
 defineProps<{
@@ -62,7 +62,6 @@ defineProps<{
 
 const focusRingClass = themeTokens.focusRing
 const articleHref = (id: number) => `/article/${id}`
-const viewFormatter = new Intl.NumberFormat('en-US', { notation: 'compact', compactDisplay: 'short' })
-const formatViews = (views: number) => viewFormatter.format(views)
+const viewCountText = (views: number) => translatePlural('layout.recommendations.viewCount', views)
 const readFullLabel = (title: string) => copy.value.ariaReadFull.replace('{title}', title)
 </script>

@@ -16,7 +16,15 @@ export const messages = {
         noContentAccount: 'Нет сообщений',
         systemTag: 'Система',
         listAriaLabel: 'Список обращений',
-        showMoreLabel: 'Показать ещё обращения ({n})'
+        showMoreLabel: {
+            kind: 'plural',
+            forms: {
+                one: 'Показать ещё {count} обращение',
+                few: 'Показать ещё {count} обращения',
+                many: 'Показать ещё {count} обращений',
+                other: 'Показать ещё {count} обращения'
+            }
+        }
     },
     threadPanel: {
         backAriaLabel: 'Вернуться к списку обращений',

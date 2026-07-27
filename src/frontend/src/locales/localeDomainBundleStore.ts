@@ -48,11 +48,11 @@ const EXPORT_NAMES: Readonly<Record<LocaleDomain, string>> = Object.freeze({
 export const LOCALE_DOMAIN_SCHEMA_DIGESTS: Readonly<Record<LocaleDomain, string>> = Object.freeze({
   common: 'fnv1a64:5e095c10692fa690',
   public: 'fnv1a64:4d3917b2cfcdec05',
-  article: 'fnv1a64:0417548869290be5',
+  article: 'fnv1a64:f245ac00da8b2169',
   auth: 'fnv1a64:ab80b75ceb4d74f2',
-  identity: 'fnv1a64:bbf205a4dceaff67',
-  layout: 'fnv1a64:fc3282d65efde9dd',
-  messages: 'fnv1a64:4197cc4000a8773a',
+  identity: 'fnv1a64:0c32c45b03b65a43',
+  layout: 'fnv1a64:787733fa4d7dae24',
+  messages: 'fnv1a64:91797ababdcdb013',
   security: 'fnv1a64:834e719c9d47690d',
   admin: 'fnv1a64:5712299ccf0010b3',
   errors: 'fnv1a64:69d72f2c2060118c'

@@ -16,7 +16,12 @@ export const messages = {
         noContentAccount: '暫無訊息內容',
         systemTag: '系統',
         listAriaLabel: '工作階段列表',
-        showMoreLabel: '顯示更多工作階段（{n}）'
+        showMoreLabel: {
+            kind: 'plural',
+            forms: {
+                other: '顯示更多工作階段（{count}）'
+            }
+        }
     },
     threadPanel: {
         backAriaLabel: '返回工作階段列表',

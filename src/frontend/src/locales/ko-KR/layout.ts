@@ -27,7 +27,12 @@ export const layout = {
         leadLoadingLabel: '추천 게시물 로딩 중',
         feedLoadingLabel: '게시물 목록 로딩 중',
         ariaReadFull: '전체 글 읽기: {title}',
-        viewsUnit: '조회'
+        viewCount: {
+            kind: 'plural',
+            forms: {
+                other: '{count}회 조회'
+            }
+        }
     },
     themeMode: {
         label: '테마 모드'

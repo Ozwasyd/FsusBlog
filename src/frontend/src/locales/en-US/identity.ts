@@ -8,7 +8,13 @@ export const identity = {
         passkeyLabel: 'Passkey',
         passkeyEnabled: 'Enabled',
         passkeyDisabled: 'Not added',
-        passkeyDeviceCount: '{n} login devices',
+        passkeyDeviceCount: {
+            kind: 'plural',
+            forms: {
+                one: '{count} login device',
+                other: '{count} login devices'
+            }
+        },
         recoveryKeyLabel: 'Recovery Key',
         recoveryKeyReady: 'Generated',
         recoveryKeyRequired: 'Not created',
@@ -130,7 +136,13 @@ export const identity = {
         sectionTitle: 'Device Sessions',
         sectionDescription: 'Active device sessions for this account.',
         loading: 'Loading device sessions',
-        activeCountPrefix: '{n} active sessions',
+        activeCount: {
+            kind: 'plural',
+            forms: {
+                one: '{count} active session',
+                other: '{count} active sessions'
+            }
+        },
         revokeOthersCta: 'Revoke Other Devices',
         currentDevice: 'Current device',
         otherDevice: 'Other device',

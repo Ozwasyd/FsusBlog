@@ -31,10 +31,18 @@ export const article = {
     metadata: {
         publishedAt: '발행',
         updatedAt: '업데이트',
-        wordsPrefix: '전체',
-        wordsSuffix: '단어',
-        readingMinutesPrefix: '예상',
-        readingMinutesSuffix: '분 읽기',
+        wordCount: {
+            kind: 'plural',
+            forms: {
+                other: '전체 {count}단어'
+            }
+        },
+        readingMinuteCount: {
+            kind: 'plural',
+            forms: {
+                other: '예상 {count}분 읽기'
+            }
+        },
         longRead: '긴 글',
         longReadAria: '긴 글 안내'
     },

@@ -31,10 +31,18 @@ export const article = {
     metadata: {
         publishedAt: '公開日',
         updatedAt: '更新日',
-        wordsPrefix: '約',
-        wordsSuffix: '字',
-        readingMinutesPrefix: '読了目安',
-        readingMinutesSuffix: '分',
+        wordCount: {
+            kind: 'plural',
+            forms: {
+                other: '約 {count} 字'
+            }
+        },
+        readingMinuteCount: {
+            kind: 'plural',
+            forms: {
+                other: '読了目安 {count} 分'
+            }
+        },
         longRead: '長文',
         longReadAria: '長文記事のお知らせ'
     },

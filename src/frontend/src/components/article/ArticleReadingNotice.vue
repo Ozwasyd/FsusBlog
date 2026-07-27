@@ -10,20 +10,12 @@
         {{ messages.article.metadata.longRead }}
       </span>
       <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] font-normal text-[var(--fsusblog-text-secondary)]">
-        <span class="inline-flex items-center gap-1.5">
-          {{ messages.article.metadata.wordsPrefix }}
-          <span class="tabular-nums font-bold text-[var(--fsusblog-text-primary)]">
-            {{ formatNumber(notice.wordCount) }}
-          </span>
-          {{ messages.article.metadata.wordsSuffix }}
+        <span class="tabular-nums font-bold text-[var(--fsusblog-text-primary)]">
+          {{ wordCountText }}
         </span>
         <span class="h-0.5 w-0.5 rounded-[var(--fsus-radius-control-small)] bg-[var(--fsusblog-text-muted)] opacity-40" aria-hidden="true"></span>
-        <span class="inline-flex items-center gap-1.5">
-          {{ messages.article.metadata.readingMinutesPrefix }}
-          <span class="tabular-nums font-bold text-[var(--fsusblog-text-primary)]">
-            {{ formatNumber(notice.readingMinutes) }}
-          </span>
-          {{ messages.article.metadata.readingMinutesSuffix }}
+        <span class="tabular-nums font-bold text-[var(--fsusblog-text-primary)]">
+          {{ readingMinuteCountText }}
         </span>
       </div>
     </div>
@@ -31,14 +23,21 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useI18nText } from '@/composables/useI18nText'
 import type { ArticleReadingNoticeContract } from '@/view-contracts/articleDetail'
 
-defineProps<{
+const props = defineProps<{
   notice: ArticleReadingNoticeContract
 }>()
 
-const { formatNumber, messages } = useI18nText()
+const { messages, translatePlural } = useI18nText()
+const wordCountText = computed(() =>
+  translatePlural('article.metadata.wordCount', props.notice.wordCount)
+)
+const readingMinuteCountText = computed(() =>
+  translatePlural('article.metadata.readingMinuteCount', props.notice.readingMinutes)
+)
 </script>
 
 <style scoped>

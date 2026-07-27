@@ -8,7 +8,12 @@ export const identity = {
         passkeyLabel: 'Passkey',
         passkeyEnabled: '已啟用',
         passkeyDisabled: '未新增',
-        passkeyDeviceCount: '{n} 個裝置可登入',
+        passkeyDeviceCount: {
+            kind: 'plural',
+            forms: {
+                other: '{count} 個裝置可登入'
+            }
+        },
         recoveryKeyLabel: 'Recovery Key',
         recoveryKeyReady: '本次已產生',
         recoveryKeyRequired: '未建立',
@@ -130,7 +135,12 @@ export const identity = {
         sectionTitle: '裝置工作階段',
         sectionDescription: '目前帳號的活躍裝置工作階段。',
         loading: '裝置工作階段載入中',
-        activeCountPrefix: '{n} 個活躍工作階段',
+        activeCount: {
+            kind: 'plural',
+            forms: {
+                other: '{count} 個活躍工作階段'
+            }
+        },
         revokeOthersCta: '下線其他裝置',
         currentDevice: '目前裝置',
         otherDevice: '其他裝置',

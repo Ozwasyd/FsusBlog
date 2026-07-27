@@ -31,10 +31,24 @@ export const article = {
     metadata: {
         publishedAt: 'Опубликовано',
         updatedAt: 'Обновлено',
-        wordsPrefix: '',
-        wordsSuffix: 'слов',
-        readingMinutesPrefix: '',
-        readingMinutesSuffix: 'мин. чтения',
+        wordCount: {
+            kind: 'plural',
+            forms: {
+                one: '{count} слово',
+                few: '{count} слова',
+                many: '{count} слов',
+                other: '{count} слова'
+            }
+        },
+        readingMinuteCount: {
+            kind: 'plural',
+            forms: {
+                one: '{count} минута чтения',
+                few: '{count} минуты чтения',
+                many: '{count} минут чтения',
+                other: '{count} минуты чтения'
+            }
+        },
         longRead: 'Длинная статья',
         longReadAria: 'Длинная статья'
     },

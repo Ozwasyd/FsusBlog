@@ -27,7 +27,14 @@ export const layout = {
         leadLoadingLabel: 'Cargando artículo destacado',
         feedLoadingLabel: 'Cargando lista de artículos',
         ariaReadFull: 'Leer artículo completo: {title}',
-        viewsUnit: 'vistas'
+        viewCount: {
+            kind: 'plural',
+            forms: {
+                one: '{count} vista',
+                many: '{count} vistas',
+                other: '{count} vistas'
+            }
+        }
     },
     themeMode: {
         label: 'Modo de tema'

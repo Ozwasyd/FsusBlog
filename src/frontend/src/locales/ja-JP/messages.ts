@@ -16,7 +16,12 @@ export const messages = {
         noContentAccount: 'メッセージ内容はありません',
         systemTag: 'システム',
         listAriaLabel: '会話一覧',
-        showMoreLabel: 'さらに会話を表示（{n}）'
+        showMoreLabel: {
+            kind: 'plural',
+            forms: {
+                other: 'さらに会話を表示（{count}）'
+            }
+        }
     },
     threadPanel: {
         backAriaLabel: '会話一覧に戻る',

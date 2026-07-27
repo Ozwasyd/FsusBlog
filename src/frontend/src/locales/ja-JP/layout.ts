@@ -27,7 +27,12 @@ export const layout = {
         leadLoadingLabel: '注目記事を読み込み中',
         feedLoadingLabel: '記事一覧を読み込み中',
         ariaReadFull: '全文を読む：{title}',
-        viewsUnit: '回表示'
+        viewCount: {
+            kind: 'plural',
+            forms: {
+                other: '{count} 回表示'
+            }
+        }
     },
     themeMode: {
         label: 'テーマモード'

@@ -27,7 +27,7 @@
           归档
         </h1>
         <div class="flex items-center gap-6 text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
-          <span>已发布 <span class="text-[var(--fsusblog-text-primary)] tabular-nums">{{ view.total }}</span> 篇</span>
+          <span class="text-[var(--fsusblog-text-primary)] tabular-nums">{{ publishedCountText }}</span>
         </div>
         <nav
           v-if="view.yearGroups.length > 1"
@@ -115,8 +115,10 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import PublicContentState from '@/components/public/PublicContentState.vue'
 import PublicReadingPageFrame from '@/components/public/PublicReadingPageFrame.vue'
+import { useI18nText } from '@/composables/useI18nText'
 import type { ArchivePageViewContract } from '@/view-contracts/archive'
 import { themeTokens } from '@/ui-tokens/themeTokens'
 
@@ -130,7 +132,11 @@ const emit = defineEmits<{
   (event: 'navigate', href: string): void
 }>()
 
+const { translatePlural } = useI18nText()
 const focusRingClass = themeTokens.focusRing
+const publishedCountText = computed(() =>
+  translatePlural('public.archive.publishedCount', props.view.total)
+)
 
 function handleNavigate(event: MouseEvent, articleId: string): void {
   if (!props.spaNavigation) {

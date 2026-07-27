@@ -28,10 +28,18 @@ export const article = {
     metadata: {
         publishedAt: '发布于',
         updatedAt: '更新于',
-        wordsPrefix: '全文约',
-        wordsSuffix: '字',
-        readingMinutesPrefix: '预计阅读',
-        readingMinutesSuffix: '分钟',
+        wordCount: {
+            kind: 'plural',
+            forms: {
+                other: '全文约 {count} 字'
+            }
+        },
+        readingMinuteCount: {
+            kind: 'plural',
+            forms: {
+                other: '预计阅读 {count} 分钟'
+            }
+        },
         longRead: '长文',
         longReadAria: '长文阅读提示'
     },

@@ -13,7 +13,12 @@ export const messages = {
         noContentAccount: '暂无消息内容',
         systemTag: '系统',
         listAriaLabel: '会话列表',
-        showMoreLabel: '显示更多会话（{n}）'
+        showMoreLabel: {
+            kind: 'plural',
+            forms: {
+                other: '显示更多会话（{count}）'
+            }
+        }
     },
     threadPanel: {
         backAriaLabel: '返回会话列表',

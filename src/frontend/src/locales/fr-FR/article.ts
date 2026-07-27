@@ -31,10 +31,22 @@ export const article = {
     metadata: {
         publishedAt: 'Publié le',
         updatedAt: 'Mis à jour le',
-        wordsPrefix: 'Environ ',
-        wordsSuffix: ' mots',
-        readingMinutesPrefix: 'Lecture de ',
-        readingMinutesSuffix: ' min',
+        wordCount: {
+            kind: 'plural',
+            forms: {
+                one: 'Environ {count} mot',
+                many: 'Environ {count} mots',
+                other: 'Environ {count} mots'
+            }
+        },
+        readingMinuteCount: {
+            kind: 'plural',
+            forms: {
+                one: 'Lecture de {count} min',
+                many: 'Lecture de {count} min',
+                other: 'Lecture de {count} min'
+            }
+        },
         longRead: 'Article long',
         longReadAria: "Indication d'article long"
     },

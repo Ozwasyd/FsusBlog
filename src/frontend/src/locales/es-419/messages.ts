@@ -16,7 +16,14 @@ export const messages = {
         noContentAccount: 'Sin contenido de mensajes',
         systemTag: 'Sistema',
         listAriaLabel: 'Lista de conversaciones',
-        showMoreLabel: 'Mostrar más conversaciones ({n})'
+        showMoreLabel: {
+            kind: 'plural',
+            forms: {
+                one: 'Mostrar más conversaciones ({count})',
+                many: 'Mostrar más conversaciones ({count})',
+                other: 'Mostrar más conversaciones ({count})'
+            }
+        }
     },
     threadPanel: {
         backAriaLabel: 'Volver a la lista de conversaciones',

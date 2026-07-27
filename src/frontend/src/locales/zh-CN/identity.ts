@@ -5,7 +5,12 @@ export const identity = {
         passkeyLabel: 'Passkey',
         passkeyEnabled: '已启用',
         passkeyDisabled: '未添加',
-        passkeyDeviceCount: '{n} 个设备可登录',
+        passkeyDeviceCount: {
+            kind: 'plural',
+            forms: {
+                other: '{count} 个设备可登录'
+            }
+        },
         recoveryKeyLabel: 'Recovery Key',
         recoveryKeyReady: '本次已生成',
         recoveryKeyRequired: '未创建',
@@ -127,7 +132,12 @@ export const identity = {
         sectionTitle: '设备会话',
         sectionDescription: '当前账号的活跃设备会话。',
         loading: '设备会话加载中',
-        activeCountPrefix: '{n} 个活跃会话',
+        activeCount: {
+            kind: 'plural',
+            forms: {
+                other: '{count} 个活跃会话'
+            }
+        },
         revokeOthersCta: '下线其他设备',
         currentDevice: '当前设备',
         otherDevice: '其他设备',

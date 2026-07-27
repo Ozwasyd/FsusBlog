@@ -8,7 +8,12 @@ export const identity = {
         passkeyLabel: 'パスキー',
         passkeyEnabled: '有効',
         passkeyDisabled: '未追加',
-        passkeyDeviceCount: '{n} 台のデバイスでログイン可能',
+        passkeyDeviceCount: {
+            kind: 'plural',
+            forms: {
+                other: '{count} 台のデバイスでログイン可能'
+            }
+        },
         recoveryKeyLabel: 'Recovery Key',
         recoveryKeyReady: '生成済み',
         recoveryKeyRequired: '未作成',
@@ -130,7 +135,12 @@ export const identity = {
         sectionTitle: 'デバイスセッション',
         sectionDescription: 'このアカウントのアクティブなデバイスセッションです。',
         loading: 'デバイスセッションを読み込み中',
-        activeCountPrefix: '{n} 件のアクティブセッション',
+        activeCount: {
+            kind: 'plural',
+            forms: {
+                other: '{count} 件のアクティブセッション'
+            }
+        },
         revokeOthersCta: '他のデバイスをログアウト',
         currentDevice: '現在のデバイス',
         otherDevice: '他のデバイス',

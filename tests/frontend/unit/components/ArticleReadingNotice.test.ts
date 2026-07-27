@@ -27,7 +27,7 @@ describe('ArticleReadingNotice hierarchy', () => {
     })
 
     expect(wrapper.get('section').attributes('aria-label')).toBe('长文阅读提示')
-    expect(wrapper.text()).toContain('全文约 8,432 字')
+    expect(wrapper.text()).toContain('全文约 8432 字')
     expect(wrapper.text()).toContain('预计阅读 34 分钟')
 
     const label = wrapper.get('section > div > span')
@@ -61,7 +61,7 @@ describe('ArticleReadingNotice hierarchy', () => {
       }
     })
 
-    expect(wrapper.text()).toContain('8,432 words')
+    expect(wrapper.text()).toContain('8432 words')
     expect(wrapper.text()).toContain('34 min read')
     expect(wrapper.findAll('.font-bold')).toHaveLength(2)
 

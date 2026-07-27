@@ -27,7 +27,12 @@ export const layout = {
         leadLoadingLabel: '正在載入主推薦',
         feedLoadingLabel: '正在載入文章列表',
         ariaReadFull: '閱讀全文：{title}',
-        viewsUnit: '次開啟'
+        viewCount: {
+            kind: 'plural',
+            forms: {
+                other: '{count} 次開啟'
+            }
+        }
     },
     themeMode: {
         label: '主題模式'

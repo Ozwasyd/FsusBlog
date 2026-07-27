@@ -123,7 +123,7 @@ type ConversationRow = ConversationListItemResponse & {
   ariaLabel: string
 }
 
-const { messages } = useI18nText()
+const { messages, translatePlural } = useI18nText()
 const conversationListCopy = computed(() => messages.value.messages.conversationList)
 const filterCopy = computed(() => messages.value.messages.filter)
 
@@ -171,7 +171,7 @@ const filterOptions = computed(() =>
       ] satisfies { label: string; value: ConversationFilter }[]
 )
 const showMoreText = computed(() =>
-  conversationListCopy.value.showMoreLabel.replace('{n}', String(Math.max(0, props.hiddenCount)))
+  translatePlural('messages.conversationList.showMoreLabel', Math.max(0, props.hiddenCount))
 )
 
 const handleFilterUpdate = (value: unknown): void => {

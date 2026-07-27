@@ -8,7 +8,14 @@ export const identity = {
         passkeyLabel: "Clé d'accès",
         passkeyEnabled: 'Activée',
         passkeyDisabled: 'Non ajoutée',
-        passkeyDeviceCount: '{n} appareils de connexion',
+        passkeyDeviceCount: {
+            kind: 'plural',
+            forms: {
+                one: '{count} appareil de connexion',
+                many: '{count} appareils de connexion',
+                other: '{count} appareils de connexion'
+            }
+        },
         recoveryKeyLabel: 'Clé de récupération',
         recoveryKeyReady: 'Générée',
         recoveryKeyRequired: 'Non créée',
@@ -130,7 +137,14 @@ export const identity = {
         sectionTitle: "Sessions d'appareils",
         sectionDescription: 'Sessions actives pour ce compte.',
         loading: 'Chargement des sessions',
-        activeCountPrefix: '{n} sessions actives',
+        activeCount: {
+            kind: 'plural',
+            forms: {
+                one: '{count} session active',
+                many: '{count} sessions actives',
+                other: '{count} sessions actives'
+            }
+        },
         revokeOthersCta: 'Déconnecter les autres appareils',
         currentDevice: 'Appareil actuel',
         otherDevice: 'Autre appareil',

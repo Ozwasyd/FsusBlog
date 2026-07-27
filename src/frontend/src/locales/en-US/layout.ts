@@ -27,7 +27,13 @@ export const layout = {
         leadLoadingLabel: 'Loading featured post',
         feedLoadingLabel: 'Loading post list',
         ariaReadFull: 'Read full post: {title}',
-        viewsUnit: 'views'
+        viewCount: {
+            kind: 'plural',
+            forms: {
+                one: '{count} view',
+                other: '{count} views'
+            }
+        }
     },
     themeMode: {
         label: 'Theme mode'

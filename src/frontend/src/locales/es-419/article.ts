@@ -31,10 +31,22 @@ export const article = {
     metadata: {
         publishedAt: 'Publicado el',
         updatedAt: 'Actualizado el',
-        wordsPrefix: 'Aprox. ',
-        wordsSuffix: 'palabras',
-        readingMinutesPrefix: 'Lectura estimada: ',
-        readingMinutesSuffix: 'min',
+        wordCount: {
+            kind: 'plural',
+            forms: {
+                one: 'Aprox. {count} palabra',
+                many: 'Aprox. {count} palabras',
+                other: 'Aprox. {count} palabras'
+            }
+        },
+        readingMinuteCount: {
+            kind: 'plural',
+            forms: {
+                one: 'Lectura estimada: {count} min',
+                many: 'Lectura estimada: {count} min',
+                other: 'Lectura estimada: {count} min'
+            }
+        },
         longRead: 'Lectura extensa',
         longReadAria: 'Aviso de lectura extensa'
     },
