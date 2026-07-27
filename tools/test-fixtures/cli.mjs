@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Unique fixture orchestrator CLI (#1709).
+ * Unique fixture orchestrator CLI (#1709 + #1710 FixtureReceipt).
  * Dev, acceptance, browser-contract, diagnostics, and scale share this entry.
- * No compat wrappers, feature flags, or second lifecycle.
+ * No compat wrappers, feature flags, dual legacy receipts, or second lifecycle.
  */
 
 import fs from 'node:fs'
@@ -10,7 +10,6 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import {
-  fixtureReceiptDigestFromFile,
   writeFixtureProfileReceipt
 } from '../testing/fixture-catalog.mjs'
 import {
@@ -19,6 +18,14 @@ import {
   prepare,
   verify
 } from './orchestrator.mjs'
+import {
+  FIXTURE_PREPARE_STATE_SCHEMA,
+  FIXTURE_RECEIPT_SCHEMA,
+  fileContentDigest,
+  readFixtureReceipt,
+  writeFixtureReceipt,
+  writePrivateJson
+} from './receipt/index.mjs'
 import { createDefaultProducerPorts, createPortsForProducerIds } from './producers/catalog-ports.mjs'
 
 function parseArgs(argv) {
@@ -54,11 +61,8 @@ function readJson(file) {
   return JSON.parse(fs.readFileSync(file, 'utf8'))
 }
 
-function writeJson(file, value) {
-  fs.mkdirSync(path.dirname(path.resolve(file)), { recursive: true })
-  fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 })
-  try { fs.chmodSync(file, 0o600) } catch { /* best-effort */ }
-  return value
+function writePrepareState(file, value) {
+  return writePrivateJson(file, value, { label: 'fixture-prepare-state' })
 }
 
 function buildProfileIdentity(options) {
@@ -87,6 +91,7 @@ function buildExecutionIdentity(options) {
   if (options['pg-user']) handles.pgUser = options['pg-user']
   if (options['pg-db']) handles.pgDb = options['pg-db']
   if (options['scale-tier']) handles.scaleTier = options['scale-tier']
+  if (options['service-generation']) handles.serviceGeneration = options['service-generation']
   return {
     runId: options['run-id'] ?? process.env.FSUSBLOG_TEST_RUN_ID ?? null,
     namespace: options.namespace ?? process.env.FSUSBLOG_TEST_NAMESPACE ?? null,
@@ -104,32 +109,26 @@ function resolvePorts(planDocument, options) {
   if (options['ports-module']) {
     throw new Error('--ports-module is not supported; inject ports in-process or use default catalog ports')
   }
+  if (Object.keys(options).some((key) => key.startsWith('legacy-'))) {
+    throw new Error('dual/legacy receipt paths were deleted; FixtureReceipt v2 is the sole authority (#1710)')
+  }
   const ids = planDocument.producers ?? planDocument.order ?? []
   if (ids.length === 0) return []
   if (options['all-ports'] === true) return createDefaultProducerPorts()
   return createPortsForProducerIds(ids)
 }
 
-function toLegacyFixtureReceipt(orchestratorReceipt) {
-  return {
-    schema: 'fsusblog.fixture-receipt.v1',
-    kind: 'fixture-receipt',
-    generatedAt: new Date().toISOString(),
-    profileId: orchestratorReceipt.profileId,
-    profileSource: orchestratorReceipt.profileSource,
-    catalogDigest: orchestratorReceipt.catalogDigest,
-    expandedCapabilityDigest: orchestratorReceipt.expandedCapabilityDigest,
-    capabilityIds: orchestratorReceipt.plan?.capabilities ?? [],
-    producerIds: orchestratorReceipt.producerIds ?? [],
-    mutationPolicy: orchestratorReceipt.plan?.mutationPolicy,
-    mutations: orchestratorReceipt.mutations ?? [],
-    zeroData: orchestratorReceipt.zeroData === true,
-    terminalState: orchestratorReceipt.terminalState,
-    strategies: orchestratorReceipt.strategies ?? [],
-    primaryFailure: orchestratorReceipt.primaryFailure ?? null,
-    cleanupFailure: orchestratorReceipt.cleanupFailure ?? null,
-    orchestratorSchema: orchestratorReceipt.schema
+function writeAuthoritativeOut(file, document) {
+  if (!file) return
+  if (document?.schema === FIXTURE_RECEIPT_SCHEMA) {
+    writeFixtureReceipt(file, document)
+    return
   }
+  if (document?.schema === FIXTURE_PREPARE_STATE_SCHEMA) {
+    writePrepareState(file, document)
+    return
+  }
+  writePrivateJson(file, document, { label: 'fixture-out' })
 }
 
 async function main(argv = process.argv.slice(2)) {
@@ -138,18 +137,19 @@ async function main(argv = process.argv.slice(2)) {
   if (!command || command === 'help' || options.help === true) {
     process.stdout.write(`Usage:
   node tools/test-fixtures/cli.mjs plan --profile <id> --source dev-cli|matrix [sealed opts] [--out plan.json]
-  node tools/test-fixtures/cli.mjs prepare --plan plan.json [--out receipt.json] [--legacy-fixture-receipt path]
-  node tools/test-fixtures/cli.mjs verify --receipt receipt.json [--out receipt.json]
-  node tools/test-fixtures/cli.mjs cleanup --receipt receipt.json [--out receipt.json]
-  node tools/test-fixtures/cli.mjs run --profile <id> --source ... [--out receipt.json]
+  node tools/test-fixtures/cli.mjs prepare --plan plan.json [--out prepare-state.json] [--fixture-receipt path]
+  node tools/test-fixtures/cli.mjs verify --receipt prepare-state.json [--out fixture-receipt.json]
+  node tools/test-fixtures/cli.mjs cleanup --receipt prepare-state|fixture-receipt.json [--out out.json]
+  node tools/test-fixtures/cli.mjs run --profile <id> --source ... [--out fixture-receipt.json]
+  node tools/test-fixtures/cli.mjs receipt-digest --file fixture-receipt.json
 `)
     return
   }
 
   if (command === 'plan') {
     const planDocument = planOrchestration(buildProfileIdentity(options), buildExecutionIdentity(options))
-    if (options.out) writeJson(options.out, planDocument)
-    // Also emit #1708 planned-profile receipt shape when requested.
+    if (options.out) writePrivateJson(options.out, planDocument, { label: 'fixture-plan' })
+    // Planned-profile receipt (profile selection identity only — not fixture completeness).
     if (options['planned-profile-out']) {
       writeFixtureProfileReceipt(options['planned-profile-out'], {
         profileId: planDocument.profileIdentity.profileId,
@@ -181,16 +181,19 @@ async function main(argv = process.argv.slice(2)) {
     process.once('SIGINT', onSignal)
     process.once('SIGTERM', onSignal)
     try {
-      const receipt = await prepare(planDocument, ports, controller.signal)
-      if (options.out) writeJson(options.out, receipt)
-      if (options['legacy-fixture-receipt']) {
-        writeJson(options['legacy-fixture-receipt'], toLegacyFixtureReceipt(receipt))
+      const prepareState = await prepare(planDocument, ports, controller.signal)
+      if (options.out) writeAuthoritativeOut(options.out, prepareState)
+      // Optional explicit prepare-state path alias.
+      if (options['prepare-state']) writeAuthoritativeOut(options['prepare-state'], prepareState)
+      // --fixture-receipt without verify only allowed for none zero-mutation (still requires verify for verified status).
+      if (options['fixture-receipt']) {
+        throw new Error('prepare cannot write FixtureReceipt; run verify (or run without --skip-verify)')
       }
-      process.stdout.write(`${JSON.stringify(receipt)}\n`)
+      process.stdout.write(`${JSON.stringify(prepareState)}\n`)
     } catch (error) {
-      if (error?.receipt && options.out) writeJson(options.out, error.receipt)
-      if (error?.receipt && options['legacy-fixture-receipt']) {
-        writeJson(options['legacy-fixture-receipt'], toLegacyFixtureReceipt(error.receipt))
+      if (error?.receipt && options.out) writeAuthoritativeOut(options.out, error.receipt)
+      if (error?.fixtureReceipt && options['fixture-receipt']) {
+        writeAuthoritativeOut(options['fixture-receipt'], error.fixtureReceipt)
       }
       throw error
     } finally {
@@ -201,12 +204,13 @@ async function main(argv = process.argv.slice(2)) {
   }
 
   if (command === 'verify') {
-    const receiptFile = options.receipt ?? options['receipt-file']
-    if (!receiptFile) throw new Error('verify requires --receipt')
-    const receipt = readJson(receiptFile)
-    const ports = resolvePorts(receipt.plan ?? receipt, options)
-    const next = await verify(receipt, ports)
-    if (options.out) writeJson(options.out, next)
+    const receiptFile = options.receipt ?? options['receipt-file'] ?? options['prepare-state']
+    if (!receiptFile) throw new Error('verify requires --receipt (prepare-state)')
+    const prepareState = readJson(receiptFile)
+    const ports = resolvePorts(prepareState.plan ?? prepareState, options)
+    const next = await verify(prepareState, ports)
+    const out = options.out ?? options['fixture-receipt']
+    if (out) writeAuthoritativeOut(out, next)
     process.stdout.write(`${JSON.stringify(next)}\n`)
     return
   }
@@ -222,7 +226,7 @@ async function main(argv = process.argv.slice(2)) {
     process.once('SIGTERM', onSignal)
     try {
       const next = await cleanup(receipt, ports, controller.signal)
-      if (options.out) writeJson(options.out, next)
+      if (options.out) writeAuthoritativeOut(options.out, next)
       process.stdout.write(`${JSON.stringify(next)}\n`)
     } finally {
       process.removeListener('SIGINT', onSignal)
@@ -233,7 +237,7 @@ async function main(argv = process.argv.slice(2)) {
 
   if (command === 'run') {
     const planDocument = planOrchestration(buildProfileIdentity(options), buildExecutionIdentity(options))
-    if (options['plan-out']) writeJson(options['plan-out'], planDocument)
+    if (options['plan-out']) writePrivateJson(options['plan-out'], planDocument, { label: 'fixture-plan' })
     if (options['planned-profile-out']) {
       writeFixtureProfileReceipt(options['planned-profile-out'], {
         profileId: planDocument.profileIdentity.profileId,
@@ -256,20 +260,35 @@ async function main(argv = process.argv.slice(2)) {
     const onSignal = () => controller.abort(new Error('fixture run cancelled'))
     process.once('SIGINT', onSignal)
     process.once('SIGTERM', onSignal)
+    const prepareOut = options['prepare-state'] ?? options['prepare-out'] ?? null
+    const fixtureReceiptOut = options['fixture-receipt'] ?? options.out ?? null
     try {
-      let receipt = await prepare(planDocument, ports, controller.signal)
-      if (options.verify !== false && options['skip-verify'] !== true) {
-        receipt = await verify(receipt, ports, { signal: controller.signal })
+      let prepareState = await prepare(planDocument, ports, controller.signal)
+      if (prepareOut) writeAuthoritativeOut(prepareOut, prepareState)
+
+      const skipVerify = options.verify === false || options['skip-verify'] === true
+      if (skipVerify) {
+        // Honest partial land: prepare-state is not verified evidence.
+        if (fixtureReceiptOut) {
+          throw new Error(
+            'cannot write FixtureReceipt with --skip-verify; omit --fixture-receipt or run verify'
+          )
+        }
+        if (options.out && options.out !== prepareOut) writeAuthoritativeOut(options.out, prepareState)
+        process.stdout.write(`${JSON.stringify(prepareState)}\n`)
+        return
       }
-      if (options.out) writeJson(options.out, receipt)
-      if (options['legacy-fixture-receipt']) {
-        writeJson(options['legacy-fixture-receipt'], toLegacyFixtureReceipt(receipt))
-      }
-      process.stdout.write(`${JSON.stringify(receipt)}\n`)
+
+      const fixtureReceipt = await verify(prepareState, ports, { signal: controller.signal })
+      if (fixtureReceiptOut) writeAuthoritativeOut(fixtureReceiptOut, fixtureReceipt)
+      else if (options.out) writeAuthoritativeOut(options.out, fixtureReceipt)
+      process.stdout.write(`${JSON.stringify(fixtureReceipt)}\n`)
     } catch (error) {
-      if (error?.receipt && options.out) writeJson(options.out, error.receipt)
-      if (error?.receipt && options['legacy-fixture-receipt']) {
-        writeJson(options['legacy-fixture-receipt'], toLegacyFixtureReceipt(error.receipt))
+      if (error?.receipt && prepareOut) writeAuthoritativeOut(prepareOut, error.receipt)
+      if (error?.fixtureReceipt && fixtureReceiptOut) {
+        writeAuthoritativeOut(fixtureReceiptOut, error.fixtureReceipt)
+      } else if (error?.receipt && options.out && !fixtureReceiptOut) {
+        writeAuthoritativeOut(options.out, error.receipt)
       }
       throw error
     } finally {
@@ -282,7 +301,13 @@ async function main(argv = process.argv.slice(2)) {
   if (command === 'receipt-digest') {
     const file = options.file ?? options._[1]
     if (!file) throw new Error('receipt-digest requires --file')
-    process.stdout.write(`${fixtureReceiptDigestFromFile(file)}\n`)
+    // Prefer validated FixtureReceipt digest; fall back to content digest of private file.
+    try {
+      const receipt = readFixtureReceipt(file)
+      process.stdout.write(`${receipt.receiptDigest}\n`)
+    } catch {
+      process.stdout.write(`${fileContentDigest(file)}\n`)
+    }
     return
   }
 

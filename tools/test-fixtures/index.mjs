@@ -1,4 +1,4 @@
-/** Public exports for the unique FixtureOrchestrator (#1709). */
+/** Public exports for the unique FixtureOrchestrator (#1709) and FixtureReceipt (#1710). */
 export {
   plan,
   prepare,
@@ -14,3 +14,4 @@ export {
   createDefaultProducerPorts,
   createPortsForProducerIds
 } from './producers/catalog-ports.mjs'
+export * from './receipt/index.mjs'

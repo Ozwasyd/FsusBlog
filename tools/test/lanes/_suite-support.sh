@@ -354,26 +354,24 @@ PrepareSessionFixturesOnce() {
             "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tests/frontend/fixtures/prepare-playwright-sessions.mjs" --workers "$workers"
 }
 
-# Unique orchestrator entry for runtime lanes (#1709).
+# Unique orchestrator entry for runtime lanes (#1709 + #1710 FixtureReceipt).
 InvokeLaneFixtureOrchestrator() {
     local profileId="${FSUSBLOG_SEALED_FIXTURE_PROFILE_ID:-${1:-}}"
     local profileSource="${FSUSBLOG_FIXTURE_PROFILE_SOURCE:-matrix}"
-    local fixtureRoot orchestratorPlan orchestratorReceipt legacyReceipt
+    local fixtureRoot orchestratorPlan prepareState fixtureReceipt
     if [[ -z "$profileId" ]]; then
         Fail "lane fixture orchestrator requires sealed profile id (FSUSBLOG_SEALED_FIXTURE_PROFILE_ID)"
     fi
     fixtureRoot="$(FixtureRootPath)"
     orchestratorPlan="$fixtureRoot/orchestrator-plan.json"
-    orchestratorReceipt="$fixtureRoot/orchestrator-receipt.json"
-    legacyReceipt="$fixtureRoot/fixture-receipt.json"
+    prepareState="$fixtureRoot/prepare-state.json"
+    fixtureReceipt="$fixtureRoot/fixture-receipt.json"
     local -a runArgs=(
         "$ROOT_DIR/tools/test-fixtures/cli.mjs" run
         --profile "$profileId"
         --source "$profileSource"
         --plan-out "$orchestratorPlan"
-        --out "$orchestratorReceipt"
-        --legacy-fixture-receipt "$legacyReceipt"
-        --skip-verify
+        --prepare-state "$prepareState"
         --namespace "${FSUSBLOG_TEST_NAMESPACE:-}"
         --run-id "${FSUSBLOG_TEST_RUN_ID:-}"
         --base-url "${FSUSBLOG_BASE_URL:-${DEBUG_BACKEND_URL:-}}"
@@ -382,6 +380,12 @@ InvokeLaneFixtureOrchestrator() {
         --pg-container "${FSUSBLOG_PG_CONTAINER:-}"
         --redis-container "${FSUSBLOG_REDIS_CONTAINER:-${FSUSBLOG_REDIS_CONTAINER_NAME:-}}"
     )
+    if [[ "$profileId" == "none" ]]; then
+        runArgs+=(--fixture-receipt "$fixtureReceipt")
+    else
+        # Honest partial: prepare-state only until producers publish observations (#1712+).
+        runArgs+=(--skip-verify --out "$prepareState")
+    fi
     if [[ -n "${FSUSBLOG_SEALED_FIXTURE_EXECUTION_CLASS:-}" ]]; then
         runArgs+=(--execution-class "$FSUSBLOG_SEALED_FIXTURE_EXECUTION_CLASS")
     fi

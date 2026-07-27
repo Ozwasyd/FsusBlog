@@ -1,14 +1,15 @@
 /**
- * Unique FixtureOrchestrator (#1709).
+ * Unique FixtureOrchestrator (#1709 + #1710 receipts).
  *
  * Public surface:
  *   plan(profileIdentity, executionIdentity)
- *   prepare(plan, injectedPorts, signal)
- *   verify(receipt, injectedVerifiers)
- *   cleanup(receipt, injectedPorts, signal)
+ *   prepare(plan, injectedPorts, signal) → prepare-state (not verified evidence)
+ *   verify(prepareState, injectedVerifiers) → FixtureReceipt (verified or fail)
+ *   cleanup(stateOrReceipt, injectedPorts, signal)
  *
  * Orchestrator reads only #1707 catalog authority (+ #1708 sealed digests).
  * It does not parse business SQL, open Docker/PostgreSQL/Redis, or import browser tests.
+ * FixtureReceipt / ProducerReceipt authority lives in ./receipt/ (#1710).
  */
 
 import {
@@ -19,11 +20,25 @@ import {
 } from '../testing/fixture-catalog.mjs'
 import { buildProducerDag, reverseTopo } from './dag.mjs'
 import { createProducerContext, indexProducerPorts, requireProducerPorts } from './producer-port.mjs'
+import {
+  aggregateVerifiedFixtureReceipt,
+  assertProfilePostconditionsBound,
+  buildProducerReceipt,
+  buildTerminalFailureReceipt,
+  FIXTURE_PREPARE_STATE_SCHEMA,
+  FIXTURE_RECEIPT_SCHEMA,
+  verifyCapabilityPostconditions
+} from './receipt/index.mjs'
 import { createTerminalState } from './terminal-state.mjs'
 
 export { buildProducerDag } from './dag.mjs'
 export { createTerminalState, FIXTURE_TERMINAL_STATES } from './terminal-state.mjs'
 export { normalizeProducerPort, createProducerContext } from './producer-port.mjs'
+export {
+  FIXTURE_RECEIPT_SCHEMA,
+  PRODUCER_RECEIPT_SCHEMA,
+  FIXTURE_PREPARE_STATE_SCHEMA
+} from './receipt/index.mjs'
 
 function throwIfAborted(signal) {
   if (signal?.aborted) {
@@ -145,7 +160,7 @@ export async function prepare(planDocument, injectedPorts, signal = undefined, {
   }
 
   const producerOutputs = {}
-  const producerReceipts = []
+  const producerResults = []
   const succeeded = []
   let primaryFailure = null
   let cleanupFailure = null
@@ -188,6 +203,10 @@ export async function prepare(planDocument, injectedPorts, signal = undefined, {
             `producer ${producerId} returned strategy ${result.strategy}; cannot fallback from ${port.strategy}`
           )
         }
+        // Prepare must not publish ProducerReceipt success; only raw results until verify.
+        if (result.producerReceiptDigest || result.schema === 'fsusblog.fixture-producer-receipt.v1') {
+          throw new Error(`producer ${producerId} must not publish ProducerReceipt during prepare`)
+        }
         return {
           producerId,
           strategy: port.strategy,
@@ -199,15 +218,16 @@ export async function prepare(planDocument, injectedPorts, signal = undefined, {
         succeeded.push(entry.producerId)
         strategies.push({ producerId: entry.producerId, strategy: entry.strategy })
         producerOutputs[entry.producerId] = entry.result
-        producerReceipts.push(entry.result)
+        producerResults.push(entry.result)
       }
     }
 
     terminal.transition('prepared')
     terminal.assertPublishable('prepared')
 
+    // Prepare-state is not verified evidence (no dual legacy fixture-receipt.v1).
     return Object.freeze({
-      schema: 'fsusblog.fixture-orchestrator-receipt.v1',
+      schema: FIXTURE_PREPARE_STATE_SCHEMA,
       terminalState: terminal.state,
       terminalHistory: terminal.history,
       plan: planDocument,
@@ -217,8 +237,10 @@ export async function prepare(planDocument, injectedPorts, signal = undefined, {
       profileSource: planDocument.profileIdentity.profileSource,
       producerIds: Object.freeze([...producerIds]),
       strategies: Object.freeze(strategies.map((item) => Object.freeze({ ...item }))),
-      producerReceipts: Object.freeze(producerReceipts),
+      producerResults: Object.freeze(producerResults),
       producerOutputs: Object.freeze({ ...producerOutputs }),
+      // Explicitly empty: ProducerReceipt success is publish-only after verify.
+      producerReceipts: Object.freeze([]),
       primaryFailure: null,
       cleanupFailure: null,
       zeroData: producerIds.length === 0,
@@ -226,7 +248,7 @@ export async function prepare(planDocument, injectedPorts, signal = undefined, {
     })
   } catch (error) {
     primaryFailure = error
-    // Do not publish prepared for partial results.
+    // Do not publish prepared/verified for partial results.
     try {
       if (terminal.state === 'preparing') terminal.transition('failed')
     } catch {
@@ -266,8 +288,9 @@ export async function prepare(planDocument, injectedPorts, signal = undefined, {
       } catch { /* ignore */ }
     }
 
-    const receipt = Object.freeze({
-      schema: 'fsusblog.fixture-orchestrator-receipt.v1',
+    const terminalStatus = cleanupFailure ? 'cleanup-failed' : (succeeded.length ? 'partial' : 'failed')
+    const prepareState = Object.freeze({
+      schema: FIXTURE_PREPARE_STATE_SCHEMA,
       terminalState: terminal.state === 'preparing' ? 'failed' : terminal.state,
       terminalHistory: terminal.history,
       plan: planDocument,
@@ -277,58 +300,139 @@ export async function prepare(planDocument, injectedPorts, signal = undefined, {
       profileSource: planDocument.profileIdentity.profileSource,
       producerIds: Object.freeze([...producerIds]),
       strategies: Object.freeze(strategies.map((item) => Object.freeze({ ...item }))),
-      producerReceipts: Object.freeze(producerReceipts),
+      producerResults: Object.freeze(producerResults),
       producerOutputs: Object.freeze({ ...producerOutputs }),
+      producerReceipts: Object.freeze([]),
       primaryFailure: serializeError(primaryFailure),
       cleanupFailure: serializeError(cleanupFailure),
       zeroData: false,
       mutations: Object.freeze([...succeeded])
     })
 
+    let fixtureReceipt = null
+    try {
+      fixtureReceipt = buildTerminalFailureReceipt({
+        terminalStatus,
+        plan: planDocument,
+        primaryFailure: serializeError(primaryFailure),
+        cleanupFailure: serializeError(cleanupFailure),
+        catalogs
+      })
+    } catch {
+      fixtureReceipt = null
+    }
+
     const wrapped = new Error(primaryFailure instanceof Error ? primaryFailure.message : String(primaryFailure))
     wrapped.name = primaryFailure instanceof Error ? primaryFailure.name : 'Error'
-    wrapped.receipt = receipt
+    wrapped.receipt = prepareState
+    wrapped.fixtureReceipt = fixtureReceipt
     wrapped.cause = primaryFailure instanceof Error ? primaryFailure : undefined
     throw wrapped
   }
 }
 
-export async function verify(receipt, injectedVerifiers = {}, {
-  catalogs = readFixtureCatalogs(),
-  signal = undefined
-} = {}) {
-  if (!receipt || receipt.schema !== 'fsusblog.fixture-orchestrator-receipt.v1') {
-    throw new Error('verify requires an orchestrator receipt')
+function resolveVerifierPorts(prepareState, injectedVerifiers, catalogs) {
+  const planDocument = prepareState.plan
+  const producerIds = [...(prepareState.producerIds ?? [])]
+  const catalogProducers = planDocument.producerSpecs
+    ?? (catalogs.producer.producers ?? []).filter((item) => producerIds.includes(item.id))
+  if (injectedVerifiers instanceof Map) return injectedVerifiers
+  if (Array.isArray(injectedVerifiers)) {
+    return indexProducerPorts(injectedVerifiers, { catalogProducers })
   }
-  if (receipt.terminalState !== 'prepared' && receipt.terminalState !== 'verified') {
-    throw new Error(`cannot verify receipt in terminal state ${receipt.terminalState}`)
+  if (injectedVerifiers && typeof injectedVerifiers === 'object') {
+    return indexProducerPorts(
+      Object.entries(injectedVerifiers).map(([id, port]) => ({ id, ...port })),
+      { catalogProducers }
+    )
+  }
+  return new Map()
+}
+
+function observationsFromProducerResult(result) {
+  if (result?.observations && typeof result.observations === 'object') {
+    return {
+      database: result.observations.database ?? result.databaseObservation ?? null,
+      redis: result.observations.redis ?? result.redisObservation ?? null,
+      cache: result.observations.cache ?? result.cacheObservation ?? null,
+      source: result.observations.source,
+      fallback: result.observations.fallback,
+      warningOnly: result.observations.warningOnly,
+      stale: result.observations.stale
+    }
+  }
+  return {
+    database: result?.databaseObservation ?? null,
+    redis: result?.redisObservation ?? null,
+    cache: result?.cacheObservation ?? null,
+    source: result?.observationSource,
+    fallback: result?.fallback === true,
+    warningOnly: result?.warningOnly === true,
+    stale: result?.stale === true
+  }
+}
+
+/**
+ * Verify prepare-state into a FixtureReceipt.
+ * Only terminalStatus=verified is success evidence; missing postconditions fail closed.
+ */
+export async function verify(prepareState, injectedVerifiers = {}, {
+  catalogs = readFixtureCatalogs(),
+  signal = undefined,
+  serviceIdentity = null,
+  outputArtifacts = []
+} = {}) {
+  if (!prepareState || prepareState.schema !== FIXTURE_PREPARE_STATE_SCHEMA) {
+    if (prepareState?.schema === 'fsusblog.fixture-orchestrator-receipt.v1'
+      || prepareState?.schema === 'fsusblog.fixture-receipt.v1') {
+      throw new Error('retired prepare/receipt schema; no dual adapter — re-run prepare under #1710')
+    }
+    throw new Error('verify requires a fixture prepare-state')
+  }
+  if (prepareState.terminalState !== 'prepared' && prepareState.terminalState !== 'verified') {
+    throw new Error(`cannot verify prepare-state in terminal state ${prepareState.terminalState}`)
   }
   throwIfAborted(signal)
 
   const terminal = createTerminalState('prepared')
   terminal.transition('verifying')
 
-  const planDocument = receipt.plan
-  const producerIds = [...(receipt.producerIds ?? [])]
-  const catalogProducers = planDocument.producerSpecs
-    ?? (catalogs.producer.producers ?? []).filter((item) => producerIds.includes(item.id))
-  const verifierMap = injectedVerifiers instanceof Map
-    ? injectedVerifiers
-    : indexProducerPorts(
-      Array.isArray(injectedVerifiers)
-        ? injectedVerifiers
-        : Object.entries(injectedVerifiers).map(([id, port]) => ({ id, ...port })),
-      { catalogProducers }
-    )
+  const planDocument = prepareState.plan
+  const producerIds = [...(prepareState.producerIds ?? [])]
+  const profileCapabilities = [...(planDocument.capabilities ?? [])]
+  assertProfilePostconditionsBound(profileCapabilities, catalogs)
 
-  const postconditions = []
+  const verifierMap = resolveVerifierPorts(prepareState, injectedVerifiers, catalogs)
+  const sealedProducerReceipts = []
+  const portPostconditions = []
+
   try {
+    // none profile: zero producers, zero business mutation, still verified.
+    if (planDocument.profileIdentity.profileId === 'none' || producerIds.length === 0) {
+      if (profileCapabilities.length !== 0) {
+        throw new Error('none/zero-producer plan cannot claim non-empty capabilities')
+      }
+      terminal.transition('verified')
+      terminal.assertPublishable('verified')
+      // Return pure FixtureReceipt only — extra fields would invalidate receiptDigest.
+      return aggregateVerifiedFixtureReceipt({
+        plan: planDocument,
+        producerReceipts: [],
+        serviceIdentity,
+        outputArtifacts,
+        catalogs
+      })
+    }
+
     for (const producerId of producerIds) {
       throwIfAborted(signal)
       const port = verifierMap.get?.(producerId) ?? verifierMap[producerId]
       if (!port || typeof port.verify !== 'function') {
         throw new Error(`missing verifier port for producer ${producerId}`)
       }
+      const rawResult = prepareState.producerOutputs[producerId]
+      if (!rawResult) throw new Error(`missing prepare result for producer ${producerId}`)
+
       const context = createProducerContext({
         plan: planDocument,
         producerId,
@@ -336,76 +440,224 @@ export async function verify(receipt, injectedVerifiers = {}, {
         runIdentity: planDocument.executionIdentity?.runId,
         sourceIdentity: planDocument.executionIdentity?.sourceIdentity,
         profileIdentity: planDocument.profileIdentity,
-        producerOutputs: receipt.producerOutputs,
+        producerOutputs: prepareState.producerOutputs,
         handles: planDocument.executionIdentity?.handles
       })
-      const result = await port.verify(context, receipt.producerOutputs[producerId])
-      postconditions.push(Object.freeze({
+      const portVerify = await port.verify(context, rawResult)
+      const portOk = portVerify === true
+        || (portVerify && typeof portVerify === 'object' && portVerify.ok === true)
+      if (!portOk) {
+        const reason = portVerify && typeof portVerify === 'object'
+          ? (portVerify.reason ?? portVerify.note ?? 'producer verify returned not-ok')
+          : 'producer verify returned not-ok'
+        throw new Error(`producer ${producerId} verify failed: ${reason}`)
+      }
+      if (portVerify?.structuralOnly === true) {
+        throw new Error(
+          `producer ${producerId} structural-only prepare cannot verify; business observations required (#1712+)`
+        )
+      }
+      if (portVerify?.fallback === true || portVerify?.warningOnly === true || portVerify?.stale === true) {
+        throw new Error(`producer ${producerId} warning/fallback/stale verify cannot become verified evidence`)
+      }
+      portPostconditions.push(Object.freeze({
         producerId,
-        ...(result && typeof result === 'object' ? result : { ok: result === true })
+        ...(portVerify && typeof portVerify === 'object' ? portVerify : { ok: true })
       }))
+
+      const catalogProducer = (planDocument.producerSpecs ?? catalogs.producer.producers)
+        .find((item) => item.id === producerId)
+      if (!catalogProducer) throw new Error(`catalog producer ${producerId} missing during verify`)
+
+      // Profile-scoped provided capabilities = catalog provides ∩ plan capabilities.
+      const providedCapabilities = catalogProducer.provides.filter((id) => profileCapabilities.includes(id))
+      // Producer must not claim extra capabilities beyond the profile or catalog.
+      const claimed = Array.isArray(rawResult.providedCapabilities)
+        ? rawResult.providedCapabilities
+        : providedCapabilities
+      for (const capabilityId of claimed) {
+        if (!catalogProducer.provides.includes(capabilityId)) {
+          throw new Error(`producer ${producerId} provided undeclared capability ${capabilityId}`)
+        }
+        if (!profileCapabilities.includes(capabilityId)) {
+          throw new Error(`producer ${producerId} provided capability ${capabilityId} outside profile`)
+        }
+      }
+      // Fail closed if producer invents receipt fields outside the allow-list shape.
+      if (rawResult.inventedReceiptField != null) {
+        throw new Error(`producer ${producerId} invented receipt fields are forbidden`)
+      }
+
+      const observations = observationsFromProducerResult({
+        ...rawResult,
+        ...(portVerify && typeof portVerify === 'object' ? portVerify : {})
+      })
+      // Local constructed objects / file-only evidence cannot satisfy postconditions.
+      if (observations.source === 'local-fallback' || rawResult.localConstructed === true) {
+        throw new Error(`producer ${producerId} local constructed objects cannot serve as service postconditions`)
+      }
+
+      const postconditionResult = verifyCapabilityPostconditions({
+        capabilities: profileCapabilities,
+        producerId,
+        providedCapabilities,
+        observations,
+        entityIdentities: rawResult.entityIdentities ?? portVerify?.entityIdentities ?? [],
+        catalogs
+      })
+
+      const producerReceipt = buildProducerReceipt({
+        producerId,
+        strategy: catalogProducer.strategy,
+        runId: planDocument.executionIdentity?.runId ?? null,
+        namespace: planDocument.executionIdentity?.namespace ?? null,
+        source: planDocument.executionIdentity?.sourceIdentity ?? null,
+        fixtureCatalogDigest: planDocument.catalogDigest,
+        profileId: planDocument.profileIdentity.profileId,
+        expandedCapabilityDigest: planDocument.expandedCapabilityDigest,
+        serviceGeneration: planDocument.executionIdentity?.handles?.serviceGeneration ?? null,
+        providedCapabilities,
+        ownedStateDomains: catalogProducer.stateDomains,
+        entityIdentities: rawResult.entityIdentities ?? portVerify?.entityIdentities ?? [],
+        postconditionObservations: postconditionResult.results,
+        cleanupContract: rawResult.cleanupContract ?? { kind: 'owned-namespace' },
+        databaseObservation: observations.database,
+        redisObservation: observations.redis,
+        cacheObservation: observations.cache,
+        catalogs
+      })
+      sealedProducerReceipts.push(producerReceipt)
     }
+
+    // Every profile capability must be covered by a sealed ProducerReceipt.
+    const covered = new Set(sealedProducerReceipts.flatMap((item) => item.providedCapabilities))
+    for (const capabilityId of profileCapabilities) {
+      if (!covered.has(capabilityId)) {
+        throw new Error(`profile capability ${capabilityId} has no verified ProducerReceipt (fail closed)`)
+      }
+    }
+
     terminal.transition('verified')
     terminal.assertPublishable('verified')
-    return Object.freeze({
-      ...receipt,
-      terminalState: terminal.state,
-      terminalHistory: Object.freeze([...(receipt.terminalHistory ?? []), ...terminal.history.slice(1)]),
-      postconditions: Object.freeze(postconditions)
+
+    // Pure FixtureReceipt only (schema + digest). Orchestrator annotations must not be mixed in.
+    return aggregateVerifiedFixtureReceipt({
+      plan: planDocument,
+      producerReceipts: sealedProducerReceipts,
+      serviceIdentity,
+      outputArtifacts: outputArtifacts.length
+        ? outputArtifacts
+        : (prepareState.outputArtifacts ?? []),
+      catalogs
     })
   } catch (error) {
+    let fixtureReceipt = null
+    try {
+      fixtureReceipt = buildTerminalFailureReceipt({
+        terminalStatus: sealedProducerReceipts.length ? 'partial' : 'failed',
+        plan: planDocument,
+        primaryFailure: serializeError(error),
+        producerReceipts: sealedProducerReceipts,
+        catalogs
+      })
+    } catch {
+      fixtureReceipt = null
+    }
     const wrapped = new Error(error instanceof Error ? error.message : String(error))
     wrapped.name = error instanceof Error ? error.name : 'Error'
     wrapped.receipt = Object.freeze({
-      ...receipt,
+      ...prepareState,
       terminalState: 'failed',
       primaryFailure: serializeError(error),
-      postconditions: Object.freeze(postconditions)
+      portPostconditions: Object.freeze(portPostconditions),
+      producerReceipts: Object.freeze(sealedProducerReceipts)
     })
+    wrapped.fixtureReceipt = fixtureReceipt
     wrapped.cause = error instanceof Error ? error : undefined
     throw wrapped
   }
 }
 
-export async function cleanup(receipt, injectedPorts, signal = undefined, {
+function planFromState(state) {
+  if (state?.plan) return state.plan
+  if (state?.schema === FIXTURE_RECEIPT_SCHEMA) {
+    // Cleanup may receive a FixtureReceipt; reconstruct a minimal plan handle via producer ids.
+    return {
+      producerSpecs: (state.producerReceipts ?? []).map((item) => ({
+        id: item.producerId,
+        strategy: item.strategy,
+        provides: item.providedCapabilities,
+        consumes: [],
+        stateDomains: item.ownedStateDomains
+      })),
+      executionIdentity: state.executionIdentity,
+      profileIdentity: state.profileIdentity,
+      catalogDigest: state.catalogDigest,
+      expandedCapabilityDigest: state.expandedCapabilityDigest
+    }
+  }
+  return null
+}
+
+export async function cleanup(state, injectedPorts, signal = undefined, {
   catalogs = readFixtureCatalogs(),
   handles = null
 } = {}) {
-  if (!receipt || receipt.schema !== 'fsusblog.fixture-orchestrator-receipt.v1') {
-    throw new Error('cleanup requires an orchestrator receipt')
+  if (!state) throw new Error('cleanup requires prepare-state or FixtureReceipt')
+  if (state.schema === 'fsusblog.fixture-orchestrator-receipt.v1'
+    || state.schema === 'fsusblog.fixture-receipt.v1') {
+    throw new Error('retired receipt schema; no dual adapter for cleanup')
+  }
+  if (state.schema !== FIXTURE_PREPARE_STATE_SCHEMA && state.schema !== FIXTURE_RECEIPT_SCHEMA) {
+    throw new Error('cleanup requires prepare-state or FixtureReceipt')
   }
   throwIfAborted(signal)
 
+  const terminalState = state.terminalState
+    ?? (state.terminalStatus === 'verified' ? 'verified'
+      : state.terminalStatus === 'cleanup-failed' ? 'cleanup-failed'
+        : state.terminalStatus === 'failed' || state.terminalStatus === 'partial' ? 'failed'
+          : 'prepared')
+
   const terminal = createTerminalState(
-    ['prepared', 'verified', 'failed', 'cleaned', 'cleanup-failed'].includes(receipt.terminalState)
-      ? (receipt.terminalState === 'cleaned' || receipt.terminalState === 'cleanup-failed'
-        ? receipt.terminalState
-        : receipt.terminalState === 'failed' ? 'failed' : 'prepared')
+    ['prepared', 'verified', 'failed', 'cleaned', 'cleanup-failed'].includes(terminalState)
+      ? (terminalState === 'cleaned' || terminalState === 'cleanup-failed'
+        ? terminalState
+        : terminalState === 'failed' ? 'failed' : (terminalState === 'verified' ? 'verified' : 'prepared'))
       : 'prepared'
   )
 
   if (terminal.state === 'cleaned') {
-    return Object.freeze({ ...receipt, terminalState: 'cleaned' })
+    return Object.freeze({ ...state, terminalState: 'cleaned' })
   }
   if (terminal.state === 'cleanup-failed') {
-    return Object.freeze({ ...receipt, terminalState: 'cleanup-failed' })
+    return Object.freeze({ ...state, terminalState: 'cleanup-failed' })
   }
 
   if (terminal.state === 'failed') terminal.transition('cleaning')
   else if (terminal.state === 'prepared' || terminal.state === 'verified') terminal.transition('cleaning')
   else terminal.transition('cleaning')
 
-  const planDocument = receipt.plan
+  const planDocument = planFromState(state)
   // Cleanup reverse of actual success order (mutations), not a re-sorted catalog topo alone.
-  const succeeded = [...(receipt.mutations ?? Object.keys(receipt.producerOutputs ?? {}))]
+  let succeeded = []
+  if (Array.isArray(state.mutations) && state.mutations.length) {
+    succeeded = [...state.mutations]
+  } else if (state.producerOutputs && Object.keys(state.producerOutputs).length) {
+    succeeded = Object.keys(state.producerOutputs)
+  } else if (Array.isArray(state.producerReceipts) && state.producerReceipts.length) {
+    succeeded = state.producerReceipts.map((item) => item.producerId)
+  } else if (Array.isArray(state.producerIds) && state.producerIds.length) {
+    succeeded = [...state.producerIds]
+  }
   const producerIds = reverseTopo(succeeded)
-  const catalogProducers = planDocument.producerSpecs
-    ?? (catalogs.producer.producers ?? []).filter((item) => producerIds.includes(item.id))
+  // Always index ports against full catalog producers (not profile-scoped provides subsets).
+  const catalogProducers = (catalogs.producer.producers ?? []).filter((item) => producerIds.includes(item.id))
   const portMap = indexProducerPorts(injectedPorts ?? [], { catalogProducers })
 
   let cleanupFailure = null
   const baseHandles = Object.freeze({
-    ...(planDocument.executionIdentity?.handles ?? {}),
+    ...(planDocument?.executionIdentity?.handles ?? {}),
     ...(handles ?? {})
   })
 
@@ -417,14 +669,21 @@ export async function cleanup(receipt, injectedPorts, signal = undefined, {
       const context = createProducerContext({
         plan: planDocument,
         producerId,
-        namespace: planDocument.executionIdentity?.namespace,
-        runIdentity: planDocument.executionIdentity?.runId,
-        sourceIdentity: planDocument.executionIdentity?.sourceIdentity,
-        profileIdentity: planDocument.profileIdentity,
-        producerOutputs: receipt.producerOutputs,
+        namespace: planDocument?.executionIdentity?.namespace
+          ?? state.executionIdentity?.namespace,
+        runIdentity: planDocument?.executionIdentity?.runId
+          ?? state.executionIdentity?.runId,
+        sourceIdentity: planDocument?.executionIdentity?.sourceIdentity
+          ?? state.executionIdentity?.source,
+        profileIdentity: planDocument?.profileIdentity ?? state.profileIdentity,
+        producerOutputs: state.producerOutputs ?? {},
         handles: baseHandles
       })
-      await port.cleanup(context, receipt.producerOutputs?.[producerId], signal)
+      await port.cleanup(
+        context,
+        state.producerOutputs?.[producerId] ?? state.producerReceipts?.find((item) => item.producerId === producerId),
+        signal
+      )
     } catch (error) {
       if (!cleanupFailure) cleanupFailure = error
     }
@@ -438,13 +697,13 @@ export async function cleanup(receipt, injectedPorts, signal = undefined, {
   }
 
   const next = Object.freeze({
-    ...receipt,
+    ...state,
     terminalState: nextState,
     cleanupFailure: cleanupFailure
       ? serializeError(cleanupFailure)
-      : (receipt.cleanupFailure ?? null),
+      : (state.cleanupFailure ?? null),
     // Never overwrite primary failure with cleanup failure.
-    primaryFailure: receipt.primaryFailure ?? null
+    primaryFailure: state.primaryFailure ?? null
   })
 
   if (cleanupFailure) {

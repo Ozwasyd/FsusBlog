@@ -59,9 +59,15 @@ test('none plan has empty DAG and prepare is zero-mutation', async () => {
   assert.deepEqual(planned.waves, [])
   assert.equal(planned.mutationPolicy, 'zero-mutation')
   const receipt = await prepare(planned, [])
+  assert.equal(receipt.schema, 'fsusblog.fixture-prepare-state.v1')
   assert.equal(receipt.terminalState, 'prepared')
   assert.equal(receipt.zeroData, true)
   assert.deepEqual(receipt.mutations, [])
+  const verified = await verify(receipt, [])
+  assert.equal(verified.schema, 'fsusblog.fixture-receipt.v2')
+  assert.equal(verified.terminalStatus, 'verified')
+  assert.equal(verified.zeroBusinessMutation, true)
+  assert.deepEqual(verified.orderedProducerReceiptDigests, [])
 })
 
 test('profile expands to a single producer DAG resolver', () => {
@@ -242,16 +248,59 @@ test('matrix sealed digests fail closed on catalog drift', () => {
   )
 })
 
-test('verify and cleanup succeed for prepared mock plan', async () => {
+test('verify and cleanup succeed for prepared mock plan with observations', async () => {
   const planned = plan({ profileId: 'auth-basic', profileSource: 'dev-cli' })
-  const ports = portsForPlan(planned)
+  const ports = portsForPlan(planned, {
+    'auth-session': {
+      onPrepare: async () => ({
+        ok: true,
+        producerId: 'auth-session',
+        strategy: 'transaction-fixture',
+        entityIdentities: [
+          { kind: 'user', id: 'u1' },
+          { kind: 'admin', id: 'a1' },
+          { kind: 'session', id: 's1' }
+        ],
+        observations: {
+          database: {
+            namespace: null,
+            schemaIdentity: 'public',
+            entities: [
+              { kind: 'user', id: 'u1', fields: { status: 'active', deleted: false } },
+              { kind: 'admin', id: 'a1', fields: { permission: 'full' } },
+              { kind: 'session', id: 's1', fields: { active: true } }
+            ]
+          },
+          redis: {
+            namespace: null,
+            keys: [
+              { domain: 'redis.session', key: 'session:s1', present: true, sessionRevoked: false }
+            ]
+          },
+          cache: { namespace: null, entries: [] }
+        }
+      })
+    }
+  })
   const prepared = await prepare(planned, ports)
+  assert.equal(prepared.schema, 'fsusblog.fixture-prepare-state.v1')
   assert.equal(prepared.terminalState, 'prepared')
+  assert.deepEqual(prepared.producerReceipts, [])
   const verified = await verify(prepared, ports)
-  assert.equal(verified.terminalState, 'verified')
+  assert.equal(verified.schema, 'fsusblog.fixture-receipt.v2')
+  assert.equal(verified.terminalStatus, 'verified')
+  assert.ok(verified.receiptDigest.startsWith('sha256:'))
+  assert.equal(verified.producerReceipts.length, 1)
   const cleaned = await cleanup(verified, ports)
   assert.equal(cleaned.terminalState, 'cleaned')
   assert.equal(ports[0].calls.cleanup, 1)
+})
+
+test('verify fails closed without service observations', async () => {
+  const planned = plan({ profileId: 'auth-basic', profileSource: 'dev-cli' })
+  const ports = portsForPlan(planned)
+  const prepared = await prepare(planned, ports)
+  await assert.rejects(() => verify(prepared, ports), /missing database\/redis\/cache observations|verify failed|postcondition/)
 })
 
 test('shell dual paths and prepare package scripts are gone', () => {

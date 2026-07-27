@@ -289,11 +289,16 @@ test('planned and environment-ready receipts record profile identity', () => {
     const fixtureReceipt = path.join(directory, 'fixture-receipt.json')
     const ready = path.join(directory, 'environment-ready.json')
     writeFixtureProfileReceipt(planned, plan, { kind: 'planned-profile' })
-    writeFixtureProfileReceipt(fixtureReceipt, plan, { kind: 'fixture-receipt', extra: { zeroData: true, mutations: [] } })
+    // #1710: kind=fixture-receipt removed; FixtureReceipt v2 is the sole authority.
+    assert.throws(
+      () => writeFixtureProfileReceipt(fixtureReceipt, plan, { kind: 'fixture-receipt', extra: { zeroData: true, mutations: [] } }),
+      /deleted|FixtureReceipt v2/
+    )
     writeFixtureProfileReceipt(ready, JSON.parse(readFileSync(planned, 'utf8')), {
       kind: 'environment-ready',
       fixtureReceiptPath: fixtureReceipt,
-      fixtureReceiptDigest: `sha256:${Buffer.from('x').toString('hex').padStart(64, '0')}`
+      fixtureReceiptDigest: `sha256:${'ab'.repeat(32)}`,
+      fixtureReceiptTerminalStatus: 'verified'
     })
     const readyJson = JSON.parse(readFileSync(ready, 'utf8'))
     assert.equal(readyJson.profileId, 'none')
@@ -303,6 +308,8 @@ test('planned and environment-ready receipts record profile identity', () => {
     assert.deepEqual(readyJson.capabilityIds, [])
     assert.deepEqual(readyJson.producerIds, [])
     assert.equal(readyJson.fixtureReceiptPath, fixtureReceipt)
+    assert.equal(readyJson.fixtureReceiptTerminalStatus, 'verified')
+    assert.equal(readyJson.schema, 'fsusblog.fixture-environment-ready.v1')
   } finally {
     rmSync(directory, { recursive: true, force: true })
   }

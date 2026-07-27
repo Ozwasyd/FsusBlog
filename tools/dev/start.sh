@@ -249,11 +249,29 @@ else
     sleep 8
 fi
 
-# Unique FixtureOrchestrator (#1709). Profile → DAG → producer ports only.
+# Unique FixtureOrchestrator (#1709 + #1710 FixtureReceipt). Profile → DAG → producer ports only.
 FIXTURE_RECEIPT="$RECEIPT_ROOT/fixture-receipt.json"
 ORCHESTRATOR_PLAN="$RECEIPT_ROOT/orchestrator-plan.json"
-ORCHESTRATOR_RECEIPT="$RECEIPT_ROOT/orchestrator-receipt.json"
+PREPARE_STATE="$RECEIPT_ROOT/prepare-state.json"
 echo "[dev-start] invoking unique fixture orchestrator for profile ${PROFILE_ID}..."
+# Default dev profile is none → verified zero-mutation FixtureReceipt. Other profiles prepare only until #1712+.
+DEV_FIXTURE_ARGS=(
+    run
+    --profile "$PROFILE_ID"
+    --source dev-cli
+    --plan-out "$ORCHESTRATOR_PLAN"
+    --prepare-state "$PREPARE_STATE"
+    --base-url "http://127.0.0.1:7568"
+    --debug-backend-url "http://127.0.0.1:7568"
+    --frontend-url "http://localhost:3000"
+    --pg-container "fsusblog-dev-postgres"
+    --redis-container "fsusblog-dev-redis"
+)
+if [[ "$PROFILE_ID" == "none" ]]; then
+    DEV_FIXTURE_ARGS+=(--fixture-receipt "$FIXTURE_RECEIPT")
+else
+    DEV_FIXTURE_ARGS+=(--skip-verify --out "$PREPARE_STATE")
+fi
 FSUSBLOG_BASE_URL="http://127.0.0.1:7568" \
     PLAYWRIGHT_BASE_URL="http://localhost:3000" \
     FSUSBLOG_DEBUG_BACKEND_URL="http://127.0.0.1:7568" \
@@ -261,26 +279,26 @@ FSUSBLOG_BASE_URL="http://127.0.0.1:7568" \
     FSUSBLOG_PG_CONTAINER="fsusblog-dev-postgres" \
     FSUSBLOG_REDIS_CONTAINER="fsusblog-dev-redis" \
     FSUSBLOG_JWT_ACCESS_TOKEN_EXPIRES_MINUTES="${Jwt__AccessTokenExpiresMinutes:-}" \
-    node "$ROOT_DIR/tools/test-fixtures/cli.mjs" run \
-        --profile "$PROFILE_ID" \
-        --source dev-cli \
-        --plan-out "$ORCHESTRATOR_PLAN" \
-        --out "$ORCHESTRATOR_RECEIPT" \
-        --legacy-fixture-receipt "$FIXTURE_RECEIPT" \
-        --skip-verify \
-        --base-url "http://127.0.0.1:7568" \
-        --debug-backend-url "http://127.0.0.1:7568" \
-        --frontend-url "http://localhost:3000" \
-        --pg-container "fsusblog-dev-postgres" \
-        --redis-container "fsusblog-dev-redis"
+    node "$ROOT_DIR/tools/test-fixtures/cli.mjs" "${DEV_FIXTURE_ARGS[@]}"
 
-FIXTURE_RECEIPT_DIGEST="$(node "${FIXTURE_CATALOG_CLI[@]}" receipt-digest --file "$FIXTURE_RECEIPT")"
+FIXTURE_RECEIPT_DIGEST=""
+FIXTURE_RECEIPT_TERMINAL_STATUS="prepared-unverified"
+if [[ -f "$FIXTURE_RECEIPT" ]]; then
+    FIXTURE_RECEIPT_DIGEST="$(node "$ROOT_DIR/tools/test-fixtures/cli.mjs" receipt-digest --file "$FIXTURE_RECEIPT")"
+    FIXTURE_RECEIPT_TERMINAL_STATUS="verified"
+fi
 READY_RECEIPT="$RECEIPT_ROOT/environment-ready.json"
-node "${FIXTURE_CATALOG_CLI[@]}" write-receipt \
-    --plan "$PLANNED_RECEIPT" \
-    --out "$READY_RECEIPT" \
-    --kind environment-ready \
-    --fixture-receipt "$FIXTURE_RECEIPT" >/dev/null
+READY_ARGS=(
+    write-receipt
+    --plan "$PLANNED_RECEIPT"
+    --out "$READY_RECEIPT"
+    --kind environment-ready
+    --fixture-receipt-terminal-status "$FIXTURE_RECEIPT_TERMINAL_STATUS"
+)
+if [[ -f "$FIXTURE_RECEIPT" ]]; then
+    READY_ARGS+=(--fixture-receipt "$FIXTURE_RECEIPT")
+fi
+node "${FIXTURE_CATALOG_CLI[@]}" "${READY_ARGS[@]}" >/dev/null
 
 echo "[dev-start] starting frontend on http://127.0.0.1:3000 ..."
 npm --prefix "$FRONTEND_DIR" run dev:debug &

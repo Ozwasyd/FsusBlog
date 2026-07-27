@@ -21,7 +21,18 @@ function basePort(producer, handlers) {
     providedCapabilities: [...producer.provides],
     consumedCapabilities: [...producer.consumes],
     prepare: handlers.prepare,
-    verify: handlers.verify ?? (async () => ({ ok: true, producerId: producer.id })),
+    // Default verify fails closed without service observations (#1710).
+    verify: handlers.verify ?? (async (_context, producerResult) => {
+      if (producerResult?.observations || producerResult?.databaseObservation
+        || producerResult?.redisObservation || producerResult?.cacheObservation) {
+        return { ok: true, producerId: producer.id }
+      }
+      return {
+        ok: false,
+        producerId: producer.id,
+        reason: 'producer verify missing database/redis/cache observations'
+      }
+    }),
     cleanup: handlers.cleanup ?? (async () => undefined)
   }
 }
@@ -196,17 +207,26 @@ function createStructuralBusinessPort(producer, adapterHandleName) {
       }
     },
     async verify(context, producerReceipt) {
+      // #1710: structural-only prepare cannot become verified evidence.
       if (producerReceipt?.structuralOnly === true) {
         return {
-          ok: true,
+          ok: false,
           structuralOnly: true,
           producerId: producer.id,
-          note: 'business postconditions deferred to consumer-owned seed / later producer issue'
+          reason: 'business observations required before ProducerReceipt success (#1712+)'
         }
       }
       const adapter = context.handles?.[adapterHandleName]
       if (adapter && typeof adapter.verify === 'function') {
         return adapter.verify(context, producerReceipt)
+      }
+      // Without an injected adapter or observations, fail closed.
+      if (!producerReceipt?.observations && !producerReceipt?.databaseObservation) {
+        return {
+          ok: false,
+          producerId: producer.id,
+          reason: 'producer verify missing database/redis/cache observations'
+        }
       }
       return { ok: true, producerId: producer.id }
     },

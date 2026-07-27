@@ -127,6 +127,7 @@ FIXTURE_REQUIRES_SECURITY_RESET=0
 FIXTURE_REQUIRES_LOCAL_AUTH=0
 FIXTURE_RECEIPT_FILE=""
 FIXTURE_RECEIPT_DIGEST=""
+FIXTURE_RECEIPT_TERMINAL_STATUS=""
 ENVIRONMENT_READY_RECEIPT_FILE=""
 if [[ "${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" == "1" ]]; then
     # A dedicated Browser Contract runtime is intentionally deterministic.  Do not
@@ -1590,17 +1591,16 @@ ResolveFixtureProfilePlan() {
 }
 
 InvokeFixtureOrchestrator() {
-    # Unique FixtureOrchestrator entry (#1709). No shell producer case lists or second lifecycle.
+    # Unique FixtureOrchestrator entry (#1709 + #1710 FixtureReceipt).
+    # none profile verifies to FixtureReceipt v2; non-none producers land observations in #1712+.
     local orchestratorPlan="$FIXTURE_DIR/orchestrator-plan.json"
-    local orchestratorReceipt="$FIXTURE_DIR/orchestrator-receipt.json"
+    local prepareStateFile="$FIXTURE_DIR/prepare-state.json"
     local -a runArgs=(
         "$ROOT_DIR/tools/test-fixtures/cli.mjs" run
         --profile "$FIXTURE_PROFILE_ID"
         --source "$FIXTURE_PROFILE_SOURCE"
         --plan-out "$orchestratorPlan"
-        --out "$orchestratorReceipt"
-        --legacy-fixture-receipt "$FIXTURE_RECEIPT_FILE"
-        --skip-verify
+        --prepare-state "$prepareStateFile"
         --namespace "${FSUSBLOG_TEST_NAMESPACE:-}"
         --run-id "${FSUSBLOG_TEST_RUN_ID:-}"
         --base-url "$DEBUG_BACKEND_URL"
@@ -1609,6 +1609,13 @@ InvokeFixtureOrchestrator() {
         --pg-container "$POSTGRES_CONTAINER"
         --redis-container "$REDIS_CONTAINER"
     )
+    # FixtureReceipt is the sole authority. none always verifies; other profiles skip verify
+    # until business producers publish observations (#1712+) — never write a fake verified receipt.
+    if [[ "$FIXTURE_PROFILE_ID" == "none" ]]; then
+        runArgs+=(--fixture-receipt "$FIXTURE_RECEIPT_FILE")
+    else
+        runArgs+=(--skip-verify --out "$prepareStateFile")
+    fi
     if [[ -n "${FSUSBLOG_SEALED_FIXTURE_EXECUTION_CLASS:-}" ]]; then
         runArgs+=(--execution-class "$FSUSBLOG_SEALED_FIXTURE_EXECUTION_CLASS")
     fi
@@ -1651,17 +1658,35 @@ InvokeFixtureOrchestrator() {
         Log 'fixture orchestrator prepare failed'
         exit 1
     }
-    FIXTURE_RECEIPT_DIGEST="$("${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/testing/fixture-catalog.mjs" receipt-digest --file "$FIXTURE_RECEIPT_FILE")"
-    Log "fixture receipt: ${FIXTURE_RECEIPT_FILE} digest=${FIXTURE_RECEIPT_DIGEST}"
+    if [[ "$FIXTURE_PROFILE_ID" == "none" && -f "$FIXTURE_RECEIPT_FILE" ]]; then
+        FIXTURE_RECEIPT_DIGEST="$("${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test-fixtures/cli.mjs" receipt-digest --file "$FIXTURE_RECEIPT_FILE")"
+        FIXTURE_RECEIPT_TERMINAL_STATUS="verified"
+        Log "fixture receipt (verified): ${FIXTURE_RECEIPT_FILE} digest=${FIXTURE_RECEIPT_DIGEST}"
+    else
+        # Honest partial land: prepare-state exists; FixtureReceipt verified deferred to producers (#1712+).
+        FIXTURE_RECEIPT_DIGEST=""
+        FIXTURE_RECEIPT_TERMINAL_STATUS="prepared-unverified"
+        Log "fixture prepare-state: ${prepareStateFile} (FixtureReceipt verified deferred; profile=${FIXTURE_PROFILE_ID})"
+    fi
 }
 
 PublishEnvironmentReadyReceipt() {
-    "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/testing/fixture-catalog.mjs" write-receipt \
-        --plan "$FIXTURE_PROFILE_PLAN_FILE" \
-        --out "$ENVIRONMENT_READY_RECEIPT_FILE" \
-        --kind environment-ready \
-        --fixture-receipt "$FIXTURE_RECEIPT_FILE" >/dev/null
-    Log "environment-ready receipt: ${ENVIRONMENT_READY_RECEIPT_FILE}"
+    # environment-ready is runtime topology readiness, not fixture completeness.
+    # Completeness requires FixtureReceipt terminalStatus=verified (#1710).
+    local -a readyArgs=(
+        write-receipt
+        --plan "$FIXTURE_PROFILE_PLAN_FILE"
+        --out "$ENVIRONMENT_READY_RECEIPT_FILE"
+        --kind environment-ready
+    )
+    if [[ -n "${FIXTURE_RECEIPT_FILE:-}" && -f "${FIXTURE_RECEIPT_FILE:-}" ]]; then
+        readyArgs+=(--fixture-receipt "$FIXTURE_RECEIPT_FILE")
+    fi
+    if [[ -n "${FIXTURE_RECEIPT_TERMINAL_STATUS:-}" ]]; then
+        readyArgs+=(--fixture-receipt-terminal-status "$FIXTURE_RECEIPT_TERMINAL_STATUS")
+    fi
+    "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/testing/fixture-catalog.mjs" "${readyArgs[@]}" >/dev/null
+    Log "environment-ready receipt: ${ENVIRONMENT_READY_RECEIPT_FILE} fixtureTerminal=${FIXTURE_RECEIPT_TERMINAL_STATUS:-unknown}"
 }
 
 MANAGED_BACKEND_SHARED_DEBUG_BUILD_REQUIRED=0
@@ -2144,6 +2169,8 @@ Main() {
         fi
     fi
     PublishEnvironmentReadyReceipt
+    # Runtime topology inventory only (#1710). URLs/containers/generatedAt are NOT fixture
+    # completeness evidence — FixtureReceipt terminalStatus=verified is the sole authority.
     jq -n \
         --arg namespace "$FSUSBLOG_TEST_NAMESPACE" \
         --arg backend "$DEBUG_BACKEND_URL" \
@@ -2160,8 +2187,12 @@ Main() {
         --arg mutationPolicy "$FIXTURE_MUTATION_POLICY" \
         --arg fixtureReceiptPath "$FIXTURE_RECEIPT_FILE" \
         --arg fixtureReceiptDigest "$FIXTURE_RECEIPT_DIGEST" \
+        --arg fixtureReceiptTerminalStatus "${FIXTURE_RECEIPT_TERMINAL_STATUS:-unknown}" \
         --arg environmentReadyPath "$ENVIRONMENT_READY_RECEIPT_FILE" \
         '{
+            schema: "fsusblog.acceptance-runtime-topology.v1",
+            authority: "runtime-topology-only",
+            notFixtureCompletenessEvidence: true,
             namespace: $namespace,
             backendUrl: $backend,
             frontendUrl: $frontend,
@@ -2177,11 +2208,14 @@ Main() {
                 mutationPolicy: $mutationPolicy,
                 fixtureReceiptPath: $fixtureReceiptPath,
                 fixtureReceiptDigest: $fixtureReceiptDigest,
+                fixtureReceiptTerminalStatus: $fixtureReceiptTerminalStatus,
                 environmentReadyReceiptPath: $environmentReadyPath
             },
             generatedAt: now | todate
         }' \
-        >"$FIXTURE_DIR/manifest.json"
+        >"$FIXTURE_DIR/runtime-topology.json"
+    # Remove retired URL/container-only completeness manifest if present from older runs.
+    rm -f "$FIXTURE_DIR/manifest.json"
     WaitForBinaryUrl 'seo probe' "$DEBUG_BACKEND_URL/api/binary/system/seo" "$EXECUTION_DEADLINE_AT_MS"
     WaitForBinaryUrl 'pow challenge probe' "$DEBUG_BACKEND_URL/api/binary/auth/pow-challenge" "$EXECUTION_DEADLINE_AT_MS"
     if [[ "${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" != "1" &&

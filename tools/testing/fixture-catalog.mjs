@@ -561,18 +561,27 @@ export function writeFixtureProfileReceipt(file, plan, {
   kind = 'planned-profile',
   fixtureReceiptPath = null,
   fixtureReceiptDigest = null,
+  fixtureReceiptTerminalStatus = null,
   extra = null
 } = {}) {
   if (!file) throw new Error('fixture profile receipt path is required')
+  // #1710 one-shot: fixture-receipt.v1 removed — use tools/test-fixtures FixtureReceipt v2.
+  if (kind === 'fixture-receipt') {
+    throw new Error(
+      'writeFixtureProfileReceipt kind=fixture-receipt was deleted; write FixtureReceipt v2 via tools/test-fixtures/receipt'
+    )
+  }
+  if (kind !== 'planned-profile' && kind !== 'environment-ready') {
+    throw new Error(`unsupported fixture profile receipt kind: ${kind}`)
+  }
   const capabilityIds = plan.capabilityIds ?? plan.capabilities ?? []
   const producerIds = plan.producerIds ?? plan.producers ?? []
   const receipt = {
     schema: kind === 'environment-ready'
       ? 'fsusblog.fixture-environment-ready.v1'
-      : kind === 'fixture-receipt'
-        ? 'fsusblog.fixture-receipt.v1'
-        : 'fsusblog.fixture-planned-profile.v1',
+      : 'fsusblog.fixture-planned-profile.v1',
     kind,
+    // generatedAt is audit metadata only — never a currency/completeness criterion (#1710).
     generatedAt: new Date().toISOString(),
     profileId: plan.profileId,
     profileSource: plan.profileSource,
@@ -590,8 +599,10 @@ export function writeFixtureProfileReceipt(file, plan, {
     requiresPublicFixtures: plan.requiresPublicFixtures,
     requiresDemoSeed: plan.requiresDemoSeed,
     requiresSecurityReset: plan.requiresSecurityReset,
+    // environment-ready references FixtureReceipt v2 digests; URLs/containers are not completeness proof.
     fixtureReceiptPath,
     fixtureReceiptDigest,
+    fixtureReceiptTerminalStatus,
     ...(extra && typeof extra === 'object' ? extra : {})
   }
   fs.mkdirSync(path.dirname(path.resolve(file)), { recursive: true })
@@ -601,6 +612,7 @@ export function writeFixtureProfileReceipt(file, plan, {
 }
 
 export function fixtureReceiptDigestFromFile(file) {
+  // Prefer content-addressed file digest; FixtureReceipt.receiptDigest is authoritative body digest.
   const bytes = fs.readFileSync(file)
   return `sha256:${createHash('sha256').update(bytes).digest('hex')}`
 }
@@ -929,10 +941,12 @@ function runCli(argv = process.argv.slice(2)) {
     const fixtureReceiptDigest = fixtureReceiptPath
       ? fixtureReceiptDigestFromFile(fixtureReceiptPath)
       : (options['fixture-receipt-digest'] ?? null)
+    const fixtureReceiptTerminalStatus = options['fixture-receipt-terminal-status'] ?? null
     const receipt = writeFixtureProfileReceipt(out, plan, {
       kind: options.kind ?? 'environment-ready',
       fixtureReceiptPath,
-      fixtureReceiptDigest
+      fixtureReceiptDigest,
+      fixtureReceiptTerminalStatus
     })
     process.stdout.write(`${JSON.stringify(receipt)}\n`)
     return

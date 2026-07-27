@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // fixture-catalog: consumer playwright-fixture-discovery acceptance-representative
 // fixture-catalog: producer public-content
-import { spawnSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { copyFile, mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -10,7 +9,6 @@ import { authBinary, loginWithFixtureSessionBypass, requestTimeoutMs as defaultR
 import { encodeAedsFrame, readAedsResponse } from '../support/aeds-envelope.mjs'
 import { fetchWithTimeout, parseTimeoutMs, probeReachable } from '../support/http.mjs'
 import { resolveFixtureAssetDirectory, resolvePublicFixtureFile } from '../support/fixture-paths.mjs'
-import { buildDirectDbSeedCacheActions } from './direct-db-seed-cache-plan.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -22,11 +20,6 @@ const checkedInCoverFixtureDir = path.join(clientRoot, 'public', 'fixtures')
 const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:7568'
 const outputPath = resolvePublicFixtureFile()
 const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, defaultRequestTimeoutMs)
-const pgContainer = process.env.FSUSBLOG_PG_CONTAINER || ''
-const pgUser = process.env.FSUSBLOG_PG_USER || 'fsusblog'
-const pgDb = process.env.FSUSBLOG_PG_DB || 'fsusblog'
-const redisContainer = process.env.FSUSBLOG_REDIS_CONTAINER || 'fsusblog-redis'
-const testSession = process.env.FSUSBLOG_TEST_SESSION || ''
 const adminName = process.env.FSUSBLOG_ADMIN_USERNAME || 'binaryadmin'
 const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD ?? ''
 const deviceFingerprint = process.env.FSUSBLOG_DEVICE_FP || 'playwright-fixtures-node'
@@ -68,11 +61,6 @@ const seedPublicHomeArticles = [
 ]
 const publicArticlePageSize = 5
 
-function assertSafeFixtureContainer(container, label) {
-  if (!/^fsusblog-(?:dev|test|ci)(?:[-_.a-zA-Z0-9]*)$/.test(container)) {
-    throw new Error(`${label} must name a dev/test/ci fixture container.`)
-  }
-}
 
 async function writePublicCoverFixtures() {
   const managedCoverFiles = new Set([
@@ -203,12 +191,6 @@ async function requestPublicHotRebuild(cookie = null) {
   return requestCacheAction('public-hot-rebuild', null, adminCookie)
 }
 
-async function refreshDirectDbSeedCaches(seed) {
-  const adminCookie = await loginAdminSession()
-  for (const action of buildDirectDbSeedCacheActions(seed)) {
-    await requestCacheAction(action.action, action.articleId, adminCookie)
-  }
-}
 
 function buildSearchKeyword(title) {
   const normalized = String(title || '').trim().replace(/\s+/g, ' ')
@@ -267,25 +249,6 @@ function formatFixtureSummary(fixtures) {
     .join(' ')
 }
 
-function buildSeededArticleFallback(seeded) {
-  return {
-    article: {
-      id: Number(seeded.articleId),
-      title: seedArticleTitle,
-      category: { id: Number(seeded.categoryId), name: seedCategoryName },
-      tags: [{ id: Number(seeded.tagId), name: seedTagName }]
-    },
-    detail: {
-      title: seedArticleTitle,
-      content: seedArticleMarkdown,
-      showReadingNotice: false,
-      wordCount: seedArticleMarkdown.trim().split(/\s+/u).filter(Boolean).length,
-      estimatedReadingMinutes: 1
-    },
-    categories: [{ id: Number(seeded.categoryId), name: seedCategoryName }],
-    tags: [{ id: Number(seeded.tagId), name: seedTagName }]
-  }
-}
 
 function hasCompleteHomeSecondaryFixtures(featuredArticles, hotArticles) {
   return Array.isArray(featuredArticles)
@@ -340,360 +303,6 @@ async function waitForPublicFixtureSnapshot() {
 
 function escapeSqlLiteral(value) {
   return String(value).replaceAll("'", "''")
-}
-
-function runPsql(sql) {
-  assertSafeFixtureContainer(pgContainer, 'FSUSBLOG_PG_CONTAINER')
-  const schema = testSession ? `fsus_e2e_${testSession.replaceAll('-', '_')}` : ''
-  const scopedSql = schema ? `set search_path to "${schema}", public;\n${sql}` : sql
-  const result = spawnSync('docker', [
-    'exec',
-    '-i',
-    pgContainer,
-    'psql',
-    '-U',
-    pgUser,
-    '-d',
-    pgDb,
-    '-t',
-    '-A',
-    '-F',
-    '|',
-    '-c',
-    scopedSql
-  ], {
-    encoding: 'utf8'
-  })
-
-  if (result.status !== 0) {
-    throw new Error(result.stderr || result.stdout || 'psql command failed')
-  }
-
-  return result.stdout
-    .split(/\r?\n/u)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0 && !/^(?:SET|INSERT|UPDATE|DELETE|SELECT)(?:\s+\d+)?$/iu.test(line))
-    .join('\n')
-}
-
-function redisKey(key) {
-  return testSession ? `e2e:${testSession}:${key}` : key
-}
-
-function runRedis(args) {
-  const result = spawnSync('docker', [
-    'exec',
-    '-i',
-    redisContainer,
-    'redis-cli',
-    ...args
-  ], {
-    encoding: 'utf8'
-  })
-
-  if (result.status !== 0) {
-    throw new Error(result.stderr || result.stdout || 'redis command failed')
-  }
-
-  return result.stdout.trim()
-}
-
-function seedPublicFixtures() {
-  const categoryName = escapeSqlLiteral(seedCategoryName)
-  const tagName = escapeSqlLiteral(seedTagName)
-  const identitySql = `
-WITH category_row AS (
-  INSERT INTO category(name)
-  VALUES ('${categoryName}')
-  ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
-  RETURNING id
-),
-tag_row AS (
-  INSERT INTO tag(name)
-  VALUES ('${tagName}')
-  ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
-  RETURNING id
-)
-SELECT
-  (SELECT id FROM category_row),
-  (SELECT id FROM tag_row);
-`
-  const identityOutput = runPsql(identitySql)
-  const [categoryId, tagId] = identityOutput.split('|').map((item) => item.trim())
-  if (!categoryId || !tagId) {
-    throw new Error(`seeded fixture taxonomy identifiers are incomplete: ${identityOutput}`)
-  }
-
-  const seededArticles = []
-  for (let index = 0; index < seedPublicHomeArticles.length; index += 1) {
-    const article = seedPublicHomeArticles[index]
-    const title = escapeSqlLiteral(article.title)
-    const summary = escapeSqlLiteral(article.summary)
-    const markdown = escapeSqlLiteral(article.markdown)
-    const coverImageUrl = escapeSqlLiteral(article.coverImageUrl)
-    const views = Number.isFinite(article.views) ? Math.max(1, Math.trunc(article.views)) : 1
-    const publishOffsetHours = index
-    const articleSql = `
-WITH existing_article AS (
-  SELECT id
-  FROM article
-  WHERE title = '${title}' AND isdeleted = false
-  ORDER BY id
-  LIMIT 1
-),
-inserted_article AS (
-  INSERT INTO article(title, summary, categoryid, coverimageurl, views, createtime, status, published_at, metadata_updated_at, isdeleted)
-  SELECT '${title}', '${summary}', ${categoryId}, '${coverImageUrl}', ${views}, NOW() - INTERVAL '${publishOffsetHours} hours', 2, NOW() - INTERVAL '${publishOffsetHours} hours', NOW() - INTERVAL '${publishOffsetHours} hours', false
-  WHERE NOT EXISTS (SELECT 1 FROM existing_article)
-  RETURNING id
-),
-final_article AS (
-  SELECT id FROM inserted_article
-  UNION ALL
-  SELECT id FROM existing_article
-  LIMIT 1
-),
-updated_article AS (
-  UPDATE article
-  SET categoryid = ${categoryId},
-      summary = '${summary}',
-      coverimageurl = '${coverImageUrl}',
-      views = GREATEST(views, ${views}),
-      status = 2,
-      published_at = NOW() - INTERVAL '${publishOffsetHours} hours',
-      metadata_updated_at = COALESCE(metadata_updated_at, NOW() - INTERVAL '${publishOffsetHours} hours'),
-      isdeleted = false
-  WHERE id = (SELECT id FROM final_article)
-  RETURNING id
-),
-upsert_body AS (
-  INSERT INTO article_body(article_id, markdown_content, updated_at)
-  SELECT id, '${markdown}', NOW()
-  FROM final_article
-  ON CONFLICT (article_id) DO UPDATE
-  SET markdown_content = EXCLUDED.markdown_content,
-      updated_at = EXCLUDED.updated_at
-),
-upsert_article_tag AS (
-  INSERT INTO article_tag(articleid, tagid)
-  SELECT (SELECT id FROM final_article), ${tagId}
-  ON CONFLICT (articleid, tagid) DO NOTHING
-),
-upsert_content_block AS (
-  INSERT INTO article_revision_content_block(content_hash, markdown_content, byte_length, created_at)
-  VALUES (
-    encode(sha256(convert_to('${markdown}', 'UTF8')), 'hex'),
-    '${markdown}',
-    octet_length(convert_to('${markdown}', 'UTF8')),
-    NOW()
-  )
-  ON CONFLICT (content_hash) DO UPDATE
-  SET markdown_content = EXCLUDED.markdown_content,
-      byte_length = EXCLUDED.byte_length
-  RETURNING id
-),
-upsert_revision AS (
-  INSERT INTO article_revision(
-    article_id,
-    revision_no,
-    title,
-    summary,
-    cover_image_url,
-    categoryid,
-    tag_ids,
-    content_block_id,
-    markdown_content,
-    diff_summary,
-    created_by_admin_principal_id,
-    created_at
-  )
-  SELECT
-    article.id,
-    1,
-    '${title}',
-    '${summary}',
-    '${coverImageUrl}',
-    ${categoryId},
-    '${tagId}',
-    block.id,
-    '',
-    'acceptance fixture seed',
-    0,
-    NOW()
-  FROM final_article article
-  CROSS JOIN upsert_content_block block
-  ON CONFLICT (article_id, revision_no) DO UPDATE
-  SET title = EXCLUDED.title,
-      summary = EXCLUDED.summary,
-      cover_image_url = EXCLUDED.cover_image_url,
-      categoryid = EXCLUDED.categoryid,
-      tag_ids = EXCLUDED.tag_ids,
-      content_block_id = EXCLUDED.content_block_id,
-      markdown_content = EXCLUDED.markdown_content,
-      diff_summary = EXCLUDED.diff_summary,
-      created_at = EXCLUDED.created_at
-  RETURNING id, article_id, revision_no
-),
-upsert_rights_policy AS (
-  INSERT INTO article_rights_policy(
-    article_id,
-    enabled,
-    license_type,
-    copy_policy,
-    max_excerpt_chars,
-    allow_code_copy,
-    show_public_badge,
-    proof_binding_enabled,
-    created_at,
-    updated_at
-  )
-  SELECT
-    id,
-    true,
-    'all-rights-reserved',
-    'append-attribution',
-    300,
-    true,
-    true,
-    true,
-    NOW(),
-    NOW()
-  FROM final_article
-  ON CONFLICT (article_id) DO UPDATE
-  SET enabled = EXCLUDED.enabled,
-      license_type = EXCLUDED.license_type,
-      copy_policy = EXCLUDED.copy_policy,
-      max_excerpt_chars = EXCLUDED.max_excerpt_chars,
-      allow_code_copy = EXCLUDED.allow_code_copy,
-      show_public_badge = EXCLUDED.show_public_badge,
-      proof_binding_enabled = EXCLUDED.proof_binding_enabled,
-      updated_at = EXCLUDED.updated_at
-  RETURNING id, article_id
-),
-upsert_rights_snapshot AS (
-  INSERT INTO article_rights_snapshot(
-    article_id,
-    article_revision_id,
-    revision_no,
-    article_rights_policy_id,
-    enabled,
-    license_type,
-    copy_policy,
-    max_excerpt_chars,
-    allow_code_copy,
-    show_public_badge,
-    proof_binding_enabled,
-    policy_hash,
-    content_canonical_hash,
-    created_at
-  )
-  SELECT
-    revision.article_id,
-    revision.id,
-    revision.revision_no,
-    policy.id,
-    true,
-    'all-rights-reserved',
-    'append-attribution',
-    300,
-    true,
-    true,
-    true,
-    'rights-v3:policy-hash:recompute',
-    'rights-v3:content-hash:recompute',
-    NOW()
-  FROM upsert_revision revision
-  JOIN upsert_rights_policy policy
-    ON policy.article_id = revision.article_id
-  ON CONFLICT (article_id, article_revision_id) DO UPDATE
-  SET article_rights_policy_id = EXCLUDED.article_rights_policy_id,
-      enabled = EXCLUDED.enabled,
-      license_type = EXCLUDED.license_type,
-      copy_policy = EXCLUDED.copy_policy,
-      max_excerpt_chars = EXCLUDED.max_excerpt_chars,
-      allow_code_copy = EXCLUDED.allow_code_copy,
-      show_public_badge = EXCLUDED.show_public_badge,
-      proof_binding_enabled = EXCLUDED.proof_binding_enabled,
-      policy_hash = EXCLUDED.policy_hash,
-      content_canonical_hash = EXCLUDED.content_canonical_hash,
-      created_at = EXCLUDED.created_at
-  RETURNING id, article_id, article_revision_id, revision_no
-),
-upsert_publication AS (
-  INSERT INTO article_publication(
-    article_id,
-    publication_no,
-    article_revision_id,
-    revision_no,
-    rights_snapshot_id,
-    responsibility_snapshot_id,
-    transition_kind,
-    published_at,
-    created_at
-  )
-  SELECT
-    revision.article_id,
-    1,
-    revision.id,
-    revision.revision_no,
-    rights.id,
-    NULL,
-    'publish',
-    NOW() - INTERVAL '${publishOffsetHours} hours',
-    NOW()
-  FROM upsert_revision revision
-  JOIN upsert_rights_snapshot rights
-    ON rights.article_id = revision.article_id
-   AND rights.article_revision_id = revision.id
-  ON CONFLICT (article_id, publication_no) DO UPDATE
-  SET article_revision_id = EXCLUDED.article_revision_id,
-      revision_no = EXCLUDED.revision_no,
-      rights_snapshot_id = EXCLUDED.rights_snapshot_id,
-      transition_kind = EXCLUDED.transition_kind,
-      published_at = EXCLUDED.published_at
-  RETURNING id, article_id, article_revision_id
-),
-link_article_publication AS (
-  UPDATE article article
-  SET current_revision_id = publication.article_revision_id,
-      current_publication_id = publication.id,
-      status = 2,
-      published_at = COALESCE(article.published_at, NOW() - INTERVAL '${publishOffsetHours} hours'),
-      metadata_updated_at = COALESCE(article.metadata_updated_at, NOW() - INTERVAL '${publishOffsetHours} hours'),
-      isdeleted = false
-  FROM upsert_publication publication
-  WHERE article.id = publication.article_id
-  RETURNING article.id
-)
-SELECT id FROM final_article;
-`
-    const articleId = runPsql(articleSql).trim()
-    if (!articleId) {
-      throw new Error(`seeded fixture article identifier is incomplete for ${article.title}`)
-    }
-
-    seededArticles.push({ articleId, views })
-  }
-
-  const articleId = seededArticles[0]?.articleId
-  if (!articleId) {
-    throw new Error('seeded fixture identifiers are incomplete: no articles were created')
-  }
-
-  runRedis(['INCR', redisKey('fsus:blog:article-list-version:main')])
-  runRedis(['DEL', redisKey('blog:top_articles')])
-  runRedis([
-    'ZADD',
-    redisKey('blog:top_articles'),
-    ...seededArticles.flatMap((article) => [String(article.views), article.articleId])
-  ])
-
-  return {
-    articleId,
-    articleIds: seededArticles.map((article) => article.articleId),
-    categoryId,
-    tagId
-  }
 }
 
 async function seedPublicFixturesViaApi() {
@@ -813,7 +422,11 @@ async function main() {
   const firstTag = pickArticleTag(firstArticle, Array.isArray(tags) ? tags : [])
   assert(firstTag?.id, 'playwright fixture discovery failed: no tag found')
 
+  // Narrow ID projection for test consumers only — NOT FixtureReceipt authority (#1710).
+  // Completeness is proven by verified FixtureReceipt postconditions, not article/category/tag IDs alone.
   const fixtures = {
+    authority: 'projection-not-receipt',
+    notAuthoritative: 'true',
     generatedAt: new Date().toISOString(),
     baseUrl,
     articleId: String(firstArticle.id),
