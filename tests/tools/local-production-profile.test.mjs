@@ -37,6 +37,22 @@ const { acquireProductionFreshExclusiveLease } = await import(
     pathToFileURL(path.join(root, 'tools/test-matrix/production-fresh-exclusive-lease.mjs')).href
 );
 
+function cacheTransactionOwner(repositoryRoot)
+{
+    return {
+        leaseId: 'lease-local-profile-test',
+        ownerToken: 'token-local-profile-test',
+        canonicalRepositoryRoot: fs.realpathSync(repositoryRoot),
+        profile: 'production-fresh',
+        candidateIdentityDigest: `sha256:${'a'.repeat(64)}`,
+        pid: process.pid,
+        processStartIdentity: 'local-profile-test',
+        executableDigest: `sha256:${'b'.repeat(64)}`,
+        commandDigest: `sha256:${'c'.repeat(64)}`,
+        processGroupOrJobIdentity: { kind: 'unix-process-group', processGroupId: process.pid }
+    };
+}
+
 const localBundleRunner = fs.readFileSync(path.join(root, 'tools/test/bundles/run-bundle.mjs'), 'utf8');
 const localBundleSteps = fs.readFileSync(path.join(root, 'tools/test/bundles/bundle-steps.mjs'), 'utf8');
 const backendShardRunner = fs.readFileSync(path.join(root, 'tools/test/run-backend-production-shards.mjs'), 'utf8');
@@ -715,6 +731,7 @@ test('local production runner attaches the logical projection only after fresh p
     assert.match(localProfileRunner, /failures: result\.checkpoint\.failures/u);
     assert.match(localProfileRunner, /independent failure\(s\) collected/u);
     assert.match(localProfileRunner, /const leaseSourceState = await \(runtime\.snapshotSourceState \?\? snapshotSourceState\)\(profileRoot\)[\s\S]*?acquireProductionFreshExclusiveLease\(\{[\s\S]*?sourceState: leaseSourceState[\s\S]*?const cleanupSource = runtime\.productionFreshSourceState[\s\S]*?executeProductionFreshPreflight\(\{[\s\S]*?receiptDirectory: runtime\.receiptDirectory[\s\S]*?fsusblog-runtime-cleanup-receipts[\s\S]*?additionalCleanup: runtime\.additionalCleanup,/u);
+    assert.match(localProfileRunner, /productionFreshLeaseOwner: lease\.owner[\s\S]*?cleanLocalProductionOutputs\)\(profileRoot, \{[\s\S]*?runId,[\s\S]*?ownerIdentity: runtime\.productionFreshLeaseOwner/u);
     assert.match(localProfileRunner, /executeProductionFreshPreflight\(\{[\s\S]*?assertFreshRuntimeCleanupReceipt\(preflightReceipt\.receipt\)[\s\S]*?cleanLocalProductionOutputs[\s\S]*?bindFreshRuntimeCleanupReceipt\(\{ root: profileRoot, receipt: preflightReceipt \}\)[\s\S]*?recordSchedulerResult\(await runDag/u);
     assert.match(localProfileRunner, /catch \(error\) \{[\s\S]*?runError = error[\s\S]*?throw error[\s\S]*?finally \{[\s\S]*?if \(runError !== null \|\| !result\)[\s\S]*?recordCheckpointFailure\(/u);
     assert.doesNotMatch(localProfileRunner, /fs\.writeFileSync\(result\.checkpointPath/u);
@@ -1154,7 +1171,10 @@ test('fresh production cleanup removes outputs and preserves dependency caches',
         fs.writeFileSync(path.join(temp, file), 'fixture');
     }
 
-    const cleanup = cleanLocalProductionOutputs(temp);
+    const cleanup = cleanLocalProductionOutputs(temp, {
+        runId: 'local-profile-cleanup-test',
+        ownerIdentity: cacheTransactionOwner(temp)
+    });
 
     for (const file of generated)
     {
@@ -1187,7 +1207,10 @@ test('fresh production cleanup preserves an external temp root and its dependenc
     fs.writeFileSync(path.join(externalTempRoot, 'emscripten-cache/sysroot/cache.txt'), 'cache');
     fs.writeFileSync(path.join(externalTempRoot, 'stale/result.json'), '{}');
 
-    cleanLocalProductionOutputs(repositoryRoot);
+    cleanLocalProductionOutputs(repositoryRoot, {
+        runId: 'local-profile-external-cleanup-test',
+        ownerIdentity: cacheTransactionOwner(repositoryRoot)
+    });
 
     assert.equal(fs.lstatSync(path.join(repositoryRoot, '.tmp')).isSymbolicLink(), true);
     assert.equal(fs.existsSync(path.join(externalTempRoot, 'stale')), false);

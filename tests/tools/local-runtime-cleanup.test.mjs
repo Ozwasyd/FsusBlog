@@ -28,6 +28,21 @@ import {
   writeResidentLeaseDocument
 } from '../../tools/test-matrix/resident-resource-leases.mjs'
 
+function cacheTransactionOwner(root) {
+  return {
+    leaseId: 'lease-runtime-cleanup-test',
+    ownerToken: 'token-runtime-cleanup-test',
+    canonicalRepositoryRoot: fs.realpathSync(root),
+    profile: 'production-fresh',
+    candidateIdentityDigest: `sha256:${'a'.repeat(64)}`,
+    pid: process.pid,
+    processStartIdentity: 'runtime-cleanup-test',
+    executableDigest: `sha256:${'b'.repeat(64)}`,
+    commandDigest: `sha256:${'c'.repeat(64)}`,
+    processGroupOrJobIdentity: { kind: 'unix-process-group', processGroupId: process.pid }
+  }
+}
+
 function schemaContainer(name, {
   id = 'c'.repeat(64),
   created = '2026-07-12T00:00:00.000Z',
@@ -1551,7 +1566,10 @@ test('external preflight receipt survives fresh output cleanup before current-ru
     }
   })
 
-  cleanLocalProductionOutputs(root)
+  cleanLocalProductionOutputs(root, {
+    runId: 'receipt-survival-run',
+    ownerIdentity: cacheTransactionOwner(root)
+  })
 
   assert.equal(fs.existsSync(path.join(root, '.tmp', 'stale')), false)
   assert.equal(fs.existsSync(receipt.file), true)

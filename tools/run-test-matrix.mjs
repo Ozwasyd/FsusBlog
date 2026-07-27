@@ -1645,6 +1645,7 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
       const result = await runLocalProfile(matrix, profileId, options, {
         ...runtime,
         productionFreshLeaseHeld: true,
+        productionFreshLeaseOwner: lease.owner,
         productionFreshRunIdentity: leaseRunIdentity,
         productionFreshSourceState: leaseSourceState
       })
@@ -1792,7 +1793,10 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
     assertFreshRuntimeCleanupReceipt(preflightReceipt.receipt)
     freshCleanup = options.resume
       ? null
-      : (runtime.cleanLocalProductionOutputs ?? cleanLocalProductionOutputs)(profileRoot)
+      : (runtime.cleanLocalProductionOutputs ?? cleanLocalProductionOutputs)(profileRoot, {
+          runId,
+          ownerIdentity: runtime.productionFreshLeaseOwner
+        })
     preflightReceipt = bindFreshRuntimeCleanupReceipt({ root: profileRoot, receipt: preflightReceipt })
   } catch (error) {
     recordProductionFreshFailure({
