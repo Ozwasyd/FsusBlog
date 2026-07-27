@@ -1,3 +1,4 @@
+// fixture-catalog: consumer browser-contract-facade acceptance-representative
 import { existsSync, lstatSync, realpathSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';

@@ -1,0 +1,211 @@
+{
+    "schema": "fsusblog.fixture-producer-registry.v1",
+    "producers": [
+        {
+            "id": "account-messaging",
+            "strategy": "transaction-fixture",
+            "implementationPaths": [
+                "tests/backend/Integration/MessageCenterPersistenceIntegrationTests.cs"
+            ],
+            "provides": [
+                "messages.thread",
+                "notifications.unread",
+                "preferences.locale-auto",
+                "preferences.locale-fixed"
+            ],
+            "consumes": [
+                "auth.user.active"
+            ],
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth",
+                "postgres.settings",
+                "redis.notification"
+            ],
+            "receiptPostconditions": [
+                "locale-auto",
+                "locale-fixed",
+                "messages-thread",
+                "notifications-unread"
+            ]
+        },
+        {
+            "id": "auth-session",
+            "strategy": "transaction-fixture",
+            "implementationPaths": [
+                "src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs",
+                "src/backend/Modules/Endpoints/LocalAuthFixtureRefreshRunner.cs",
+                "tests/frontend/support/session-fixtures.mjs"
+            ],
+            "provides": [
+                "auth.admin.disabled",
+                "auth.admin.full-permission",
+                "auth.admin.partial-permission",
+                "auth.admin.read-only",
+                "auth.user.active",
+                "auth.user.deleted",
+                "auth.user.mfa-enabled",
+                "session.multi-device",
+                "session.single-device"
+            ],
+            "consumes": [],
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth",
+                "redis.session"
+            ],
+            "receiptPostconditions": [
+                "admin-disabled",
+                "admin-full-permission",
+                "admin-partial-permission",
+                "admin-read-only",
+                "session-multi-device",
+                "session-single-device",
+                "user-active",
+                "user-deleted",
+                "user-mfa-enabled"
+            ]
+        },
+        {
+            "id": "comment-moderation",
+            "strategy": "transaction-fixture",
+            "implementationPaths": [
+                "tests/browser-contract/default-fixture-provider.mjs"
+            ],
+            "provides": [
+                "comment.moderation-matrix",
+                "comment.threaded",
+                "moderation.policy-matrix"
+            ],
+            "consumes": [
+                "public.article.published"
+            ],
+            "stateDomains": [
+                "fixture.public-content",
+                "postgres.article",
+                "postgres.comment",
+                "postgres.settings",
+                "redis.cache.public"
+            ],
+            "receiptPostconditions": [
+                "comment-moderation-matrix",
+                "comment-threaded",
+                "moderation-policy-matrix"
+            ]
+        },
+        {
+            "id": "development-demo",
+            "strategy": "transaction-fixture",
+            "implementationPaths": [
+                "tools/dev/demo-seed.sql"
+            ],
+            "provides": [
+                "development.demo.dataset"
+            ],
+            "consumes": [],
+            "stateDomains": [
+                "fixture.auth-identities",
+                "fixture.public-content",
+                "postgres.article",
+                "postgres.audit",
+                "postgres.auth",
+                "postgres.comment"
+            ],
+            "receiptPostconditions": [
+                "development-demo-dataset"
+            ]
+        },
+        {
+            "id": "public-content",
+            "strategy": "public-api-scenario",
+            "implementationPaths": [
+                "tests/frontend/fixtures/discover-playwright-fixtures.mjs"
+            ],
+            "provides": [
+                "public.article.archived",
+                "public.article.deleted",
+                "public.article.draft",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.article.scheduled",
+                "public.home.featured-hot"
+            ],
+            "consumes": [],
+            "stateDomains": [
+                "fixture.public-content",
+                "postgres.article",
+                "postgres.outbox",
+                "redis.cache.public"
+            ],
+            "receiptPostconditions": [
+                "article-archived",
+                "article-deleted",
+                "article-draft",
+                "article-published",
+                "article-revision-history",
+                "article-scheduled",
+                "home-featured-hot"
+            ]
+        },
+        {
+            "id": "scale-data",
+            "strategy": "deterministic-generator",
+            "implementationPaths": [
+                "tools/data-scale/cleanup.sh",
+                "tools/data-scale/probe.sh",
+                "tools/data-scale/seed.sh"
+            ],
+            "provides": [
+                "scale.article-comment.l",
+                "scale.article-comment.m",
+                "scale.article-comment.s",
+                "scale.article-comment.xs"
+            ],
+            "consumes": [
+                "public.article.published"
+            ],
+            "stateDomains": [
+                "fixture.public-content",
+                "postgres.article",
+                "postgres.comment",
+                "postgres.outbox",
+                "redis.cache.public"
+            ],
+            "receiptPostconditions": [
+                "scale-l",
+                "scale-m",
+                "scale-s",
+                "scale-xs"
+            ]
+        },
+        {
+            "id": "security-state",
+            "strategy": "transaction-fixture",
+            "implementationPaths": [
+                "tests/frontend/support/session-fixtures.mjs"
+            ],
+            "provides": [
+                "security.credential.revoked",
+                "security.pow.elevated",
+                "security.risk-escalated",
+                "security.subject.banned"
+            ],
+            "consumes": [
+                "auth.user.active"
+            ],
+            "stateDomains": [
+                "fixture.auth-identities",
+                "fixture.security-state",
+                "postgres.auth",
+                "postgres.security",
+                "redis.rate-limit"
+            ],
+            "receiptPostconditions": [
+                "credential-revoked",
+                "pow-elevated",
+                "risk-escalated",
+                "subject-banned"
+            ]
+        }
+    ]
+}

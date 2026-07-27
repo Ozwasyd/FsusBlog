@@ -1,3 +1,4 @@
+// fixture-catalog: producer account-messaging
 using System.Globalization;
 
 using FsusBlog.Core.Cache;

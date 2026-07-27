@@ -104,6 +104,7 @@ import {
 } from './test-matrix/scheduler.mjs'
 import { topologyEnvironmentForTier, validateTierTopology } from './test-matrix/topology.mjs'
 import { validateRuntimeStateDomainCatalog } from './test-matrix/runtime-state-domain-catalog.mjs'
+import { validateFixtureCatalogs } from './testing/fixture-catalog.mjs'
 import { parseWorkflowJobNeeds } from './yaml/workflow-structure.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'));
@@ -4267,7 +4268,8 @@ async function main() {
   if (command === 'validate') {
     const errors = [
       ...validateMatrix(matrix),
-      ...validateRuntimeStateDomainCatalog().map((error) => `runtime state-domain: ${error}`)
+      ...validateRuntimeStateDomainCatalog().map((error) => `runtime state-domain: ${error}`),
+      ...validateFixtureCatalogs().map((error) => `fixture catalog: ${error}`)
     ]
     if (errors.length > 0) {
       for (const error of errors) console.error(`[matrix] ${error}`)

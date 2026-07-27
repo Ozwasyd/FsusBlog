@@ -371,6 +371,10 @@ tiers:
           [
               tests/matrix.yml,
               tests/coverage-registry.json,
+              config/testing/fixture-capability-catalog.json,
+              config/testing/fixture-consumer-inventory.generated.json,
+              config/testing/fixture-producer-registry.json,
+              config/testing/fixture-profile-catalog.json,
               config/testing/runtime-state-domain-catalog.json,
               config/testing/runtime-state-domain-registry.json,
               config/testing/correctness-budget-policy.json,
@@ -386,6 +390,8 @@ tiers:
               tools/check-test-matrix.mjs,
               tools/check-workflow-matrix-sync.mjs,
               tools/docs/generate-testing-docs.mjs,
+              tools/testing/fixture-catalog.mjs,
+              tools/testing/generate-fixture-catalog-artifacts.mjs,
               tools/test-matrix,
               tools/test/bundles,
               tools/test/lanes,
@@ -2443,6 +2449,8 @@ tiers:
     - id: bootstrap
       owner: ServerContractAgent
       command: tools/test/lanes/bootstrap-acceptance-env.sh
+      fixtureProfile: acceptance-representative
+      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
       executionDependsOn: []
       services: [postgres, redis, backend, frontend, preview]
       runtimeMode: single
@@ -2487,6 +2495,8 @@ tiers:
     - id: homogeneous-two-node-fixture
       owner: ServerContractAgent
       command: tools/test/lanes/homogeneous-two-node-fixture.sh
+      fixtureProfile: acceptance-representative
+      fixtureCapabilities: [auth.user.active, public.article.published, session.single-device]
       executionDependsOn: []
       services: [postgres, redis, backend]
       runtimeMode: static-role
@@ -2531,6 +2541,8 @@ tiers:
     - id: integration
       owner: ServerContractAgent
       command: tools/test/lanes/runtime-integration.sh
+      fixtureProfile: acceptance-representative
+      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
       outputReceiptSchema: fsusblog.ci.job-result.v1
       executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend]
@@ -2673,6 +2685,8 @@ tiers:
     - id: release
       owner: ServerContractAgent
       command: tools/test/lanes/release-public.sh
+      fixtureProfile: public-content-lifecycle
+      fixtureCapabilities: [public.article.published]
       executionDependsOn: [bootstrap]
       services: [backend, preview]
       parallelizable: false
@@ -2801,6 +2815,8 @@ tiers:
     - id: security
       owner: ServerContractAgent
       command: tools/test/lanes/security-runtime.sh
+      fixtureProfile: auth-security-matrix
+      fixtureCapabilities: [auth.user.active, security.risk-escalated, security.subject.banned]
       executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend]
       parallelizable: false
@@ -2881,6 +2897,8 @@ tiers:
     - id: acceptance
       owner: InteropGlueAgent
       command: tools/test/lanes/acceptance-playwright.sh
+      fixtureProfile: acceptance-representative
+      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
       executionDependsOn: [fast, integration, release]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: true
@@ -2940,6 +2958,8 @@ tiers:
     - id: browser-contract
       owner: InteropGlueAgent
       command: bash tools/test/lanes/browser-contract.sh
+      fixtureProfile: acceptance-representative
+      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, comment.threaded, public.article.published, session.single-device]
       executionDependsOn: [production-build-artifacts]
       services: []
       parallelizable: false
@@ -3063,6 +3083,8 @@ tiers:
     - id: browser-diagnostics-nightly
       owner: InteropGlueAgent
       command: bash tools/test/lanes/browser-diagnostics.sh nightly
+      fixtureProfile: acceptance-representative
+      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
       executionDependsOn: [production-build-artifacts, bootstrap, release, integration]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false
@@ -3142,6 +3164,8 @@ tiers:
     - id: browser-diagnostics-manual
       owner: InteropGlueAgent
       command: bash tools/test/lanes/browser-diagnostics.sh manual
+      fixtureProfile: acceptance-representative
+      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
       executionDependsOn: [production-build-artifacts, bootstrap, release, integration]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false
@@ -3203,6 +3227,8 @@ tiers:
     - id: browser-runtime-risk-diagnostics
       owner: InteropGlueAgent
       command: tools/test/lanes/browser-runtime-risk-diagnostics.sh
+      fixtureProfile: acceptance-representative
+      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
       executionDependsOn: [bootstrap, release]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false
@@ -3290,6 +3316,8 @@ tiers:
     - id: visual-public
       owner: InteropGlueAgent
       command: tools/test/lanes/visual-public-playwright.sh
+      fixtureProfile: public-content-lifecycle
+      fixtureCapabilities: [public.article.published, public.home.featured-hot]
       executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: true
@@ -3361,6 +3389,8 @@ tiers:
     - id: visual-console
       owner: InteropGlueAgent
       command: tools/test/lanes/visual-console-playwright.sh
+      fixtureProfile: acceptance-representative
+      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
       executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: true
@@ -3504,6 +3534,8 @@ tiers:
     - id: ux-viewport-smoke
       owner: InteropGlueAgent
       command: tools/test/lanes/ux-viewport-smoke.sh
+      fixtureProfile: acceptance-representative
+      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
       executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: true
@@ -3613,6 +3645,8 @@ tiers:
     - id: ux-viewport-visual
       owner: InteropGlueAgent
       command: tools/test/lanes/ux-viewport-visual.sh
+      fixtureProfile: acceptance-representative
+      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
       executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false
@@ -3659,6 +3693,8 @@ tiers:
     - id: ux-viewport-boundaries
       owner: InteropGlueAgent
       command: tools/test/lanes/ux-viewport-boundaries.sh
+      fixtureProfile: acceptance-representative
+      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
       executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false
@@ -3763,6 +3799,8 @@ tiers:
     - id: cross-browser-smoke
       owner: InteropGlueAgent
       command: tools/test/lanes/cross-browser-smoke.sh
+      fixtureProfile: none
+      fixtureCapabilities: []
       executionDependsOn: [release]
       services: [preview]
       parallelizable: true
@@ -3831,6 +3869,8 @@ tiers:
     - id: resilience
       owner: ServerContractAgent
       command: tools/test/lanes/resilience-runtime.sh
+      fixtureProfile: acceptance-representative
+      fixtureCapabilities: [auth.user.active, public.article.published, session.single-device]
       executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false
@@ -3909,6 +3949,8 @@ tiers:
     - id: load
       owner: ServerContractAgent
       command: tools/test/lanes/load-smoke.sh
+      fixtureProfile: scale-xs
+      fixtureCapabilities: [public.article.published, scale.article-comment.xs]
       executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false
@@ -3954,6 +3996,8 @@ tiers:
     - id: backend-qps-view-count-flush
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh view-count-flush
+      fixtureProfile: public-content-lifecycle
+      fixtureCapabilities: [public.article.published]
       executionDependsOn: []
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -3997,6 +4041,8 @@ tiers:
     - id: backend-qps-visitlog-invalidation
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh visitlog-invalidation
+      fixtureProfile: public-content-lifecycle
+      fixtureCapabilities: [public.article.published]
       executionDependsOn: []
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -4039,6 +4085,8 @@ tiers:
     - id: backend-qps-cache-hit
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh cache-hit
+      fixtureProfile: public-content-lifecycle
+      fixtureCapabilities: [public.article.published]
       executionDependsOn: []
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -4082,6 +4130,8 @@ tiers:
     - id: backend-qps-comment-cursor
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh comment-cursor
+      fixtureProfile: comments-moderation
+      fixtureCapabilities: [comment.threaded, public.article.published]
       executionDependsOn: []
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -4124,6 +4174,8 @@ tiers:
     - id: backend-qps-hotread
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh hotread
+      fixtureProfile: public-content-lifecycle
+      fixtureCapabilities: [public.article.published, public.home.featured-hot]
       executionDependsOn: []
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -4167,6 +4219,8 @@ tiers:
     - id: backend-qps-cache-miss-singleflight
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh cache-miss-singleflight
+      fixtureProfile: public-content-lifecycle
+      fixtureCapabilities: [public.article.published]
       executionDependsOn: []
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -4210,6 +4264,8 @@ tiers:
     - id: backend-qps-risk-filter
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh risk-filter
+      fixtureProfile: auth-security-matrix
+      fixtureCapabilities: [auth.user.active, security.risk-escalated]
       executionDependsOn: []
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -4252,6 +4308,8 @@ tiers:
     - id: backend-qps-related-reading
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh related-reading
+      fixtureProfile: public-content-lifecycle
+      fixtureCapabilities: [public.article.published]
       executionDependsOn: []
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -4294,6 +4352,8 @@ tiers:
     - id: backend-qps-list-pagination
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh list-pagination
+      fixtureProfile: public-content-lifecycle
+      fixtureCapabilities: [public.article.published]
       executionDependsOn: []
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -4335,6 +4395,8 @@ tiers:
     - id: backend-qps-article-detail-miss
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh article-detail-miss
+      fixtureProfile: public-content-lifecycle
+      fixtureCapabilities: [public.article.published]
       executionDependsOn: []
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -4378,6 +4440,8 @@ tiers:
     - id: backend-qps-cache-registry
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh cache-registry
+      fixtureProfile: public-content-lifecycle
+      fixtureCapabilities: [public.article.published]
       executionDependsOn: []
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -4416,6 +4480,8 @@ tiers:
     - id: backend-cache-invalidation-batch
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh cache-invalidation-batch
+      fixtureProfile: public-content-lifecycle
+      fixtureCapabilities: [public.article.published]
       executionDependsOn: []
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -4458,6 +4524,8 @@ tiers:
     - id: backend-qps-index-plan
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh index-plan
+      fixtureProfile: public-content-lifecycle
+      fixtureCapabilities: [public.article.published]
       executionDependsOn: []
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -4557,6 +4625,8 @@ tiers:
     - id: backend-qps-runtime-sequential
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh backend-qps-runtime-sequential
+      fixtureProfile: acceptance-representative
+      fixtureCapabilities: [auth.user.active, public.article.published, session.single-device]
       executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend]
       parallelizable: false
@@ -4717,6 +4787,8 @@ tiers:
     - id: endpoint-depth
       owner: ServerContractAgent
       command: tools/test/lanes/endpoint-depth.sh
+      fixtureProfile: acceptance-representative
+      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
       executionDependsOn: [bootstrap]
       services: [postgres, redis, backend]
       parallelizable: true
@@ -4760,6 +4832,8 @@ tiers:
     - id: data-scale-xs
       owner: ServerContractAgent
       command: tools/test/lanes/data-scale.sh scale-xs
+      fixtureProfile: scale-xs
+      fixtureCapabilities: [public.article.published, scale.article-comment.xs]
       executionDependsOn: [bootstrap]
       services: [postgres, redis]
       parallelizable: true
@@ -4795,6 +4869,8 @@ tiers:
     - id: data-scale-s
       owner: ServerContractAgent
       command: tools/test/lanes/data-scale.sh scale-s
+      fixtureProfile: scale-s
+      fixtureCapabilities: [public.article.published, scale.article-comment.s]
       executionDependsOn: [bootstrap]
       services: [postgres, redis]
       parallelizable: false
@@ -4872,6 +4948,8 @@ tiers:
     - id: data-scale-m
       owner: ServerContractAgent
       command: tools/test/lanes/data-scale.sh scale-m
+      fixtureProfile: scale-m
+      fixtureCapabilities: [public.article.published, scale.article-comment.m]
       executionDependsOn: [bootstrap]
       services: [postgres, redis]
       parallelizable: false
@@ -4908,6 +4986,8 @@ tiers:
     - id: data-scale-nightly
       owner: ServerContractAgent
       command: tools/test/lanes/data-scale.sh scale-l-nightly
+      fixtureProfile: scale-l-nightly
+      fixtureCapabilities: [public.article.published, scale.article-comment.l]
       executionDependsOn: [bootstrap]
       services: [postgres, redis]
       parallelizable: false
@@ -4944,6 +5024,8 @@ tiers:
     - id: load-baseline
       owner: ServerContractAgent
       command: tools/test/lanes/load-profile.sh baseline
+      fixtureProfile: scale-xs
+      fixtureCapabilities: [public.article.published, scale.article-comment.xs]
       executionDependsOn: [bootstrap]
       services: [backend, redis, postgres]
       parallelizable: false
@@ -4980,6 +5062,8 @@ tiers:
     - id: load-peak
       owner: ServerContractAgent
       command: tools/test/lanes/load-profile.sh expected-peak
+      fixtureProfile: scale-s
+      fixtureCapabilities: [public.article.published, scale.article-comment.s]
       executionDependsOn: [bootstrap]
       services: [backend, redis, postgres]
       parallelizable: false
@@ -5016,6 +5100,8 @@ tiers:
     - id: load-2x-peak
       owner: ServerContractAgent
       command: tools/test/lanes/load-profile.sh 2x-peak
+      fixtureProfile: scale-m
+      fixtureCapabilities: [public.article.published, scale.article-comment.m]
       executionDependsOn: [bootstrap]
       services: [backend, redis, postgres]
       parallelizable: false
@@ -5052,6 +5138,8 @@ tiers:
     - id: load-burst
       owner: ServerContractAgent
       command: tools/test/lanes/load-profile.sh burst
+      fixtureProfile: scale-m
+      fixtureCapabilities: [public.article.published, scale.article-comment.m]
       executionDependsOn: [bootstrap]
       services: [backend, redis, postgres]
       parallelizable: false
@@ -5295,6 +5383,8 @@ tiers:
     - id: fault-injection
       owner: ServerContractAgent
       command: tools/test/lanes/fault-injection.sh
+      fixtureProfile: acceptance-representative
+      fixtureCapabilities: [auth.user.active, public.article.published, session.single-device]
       executionDependsOn: [bootstrap]
       services: [postgres, redis, backend]
       parallelizable: false
@@ -5327,6 +5417,8 @@ tiers:
     - id: soak-short-runtime
       owner: ServerContractAgent
       command: FSUSBLOG_SOAK_MODE=short tools/test/lanes/soak.sh
+      fixtureProfile: scale-s
+      fixtureCapabilities: [public.article.published, scale.article-comment.s]
       executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend]
       parallelizable: false
@@ -5422,6 +5514,8 @@ tiers:
     - id: security-authenticated-dast
       owner: ServerContractAgent
       command: tools/test/lanes/security-authenticated-dast.sh
+      fixtureProfile: auth-security-matrix
+      fixtureCapabilities: [auth.user.active, security.risk-escalated, session.multi-device]
       executionDependsOn: []
       services: [backend, frontend]
       parallelizable: false
@@ -5455,6 +5549,8 @@ tiers:
     - id: csrf-browser-matrix
       owner: InteropGlueAgent
       command: npm --prefix src/frontend run check:security:csrf-browser-matrix
+      fixtureProfile: auth-security-matrix
+      fixtureCapabilities: [auth.user.active, session.multi-device]
       executionDependsOn: []
       services: [frontend, backend]
       parallelizable: true
@@ -6919,6 +7015,8 @@ tiers:
     - id: production-correctness
       owner: ServerContractAgent
       command: tools/test/lanes/production-correctness-receipt.sh
+      fixtureProfile: acceptance-representative
+      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
       executionDependsOn:
           [
               fast,

@@ -59,7 +59,6 @@ if [[ -d "$ROOT_DIR/.tmp/playwright-system-deps/root/usr/lib/x86_64-linux-gnu" ]
     export LD_LIBRARY_PATH="$ROOT_DIR/.tmp/playwright-system-deps/root/usr/lib/x86_64-linux-gnu${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 fi
 
-ResetSecurityRuntimeState "pre cross-browser smoke"
 RunInClient npm run "$profile_script"
 
 if [[ -n "$previous_playwright_browsers" ]]; then

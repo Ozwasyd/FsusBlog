@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// fixture-catalog: consumer browser-contract-run acceptance-representative
 
 import { existsSync, lstatSync, realpathSync } from 'node:fs';
 import { chmod, mkdir, readFile, rm } from 'node:fs/promises';

@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// fixture-catalog: consumer browser-contract-fixture acceptance-representative
+// fixture-catalog: producer comment-moderation
 
 import { createHash, randomUUID } from 'node:crypto'
 import { spawn, spawnSync } from 'node:child_process'

@@ -1,0 +1,1285 @@
+{
+    "schema": "fsusblog.fixture-consumer-inventory.v1",
+    "generatedBy": "tools/testing/generate-fixture-catalog-artifacts.mjs",
+    "consumers": [
+        {
+            "consumerId": "matrix:acceptance",
+            "executionClass": "browser",
+            "source": "tools/test/lanes/acceptance-playwright.sh",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, public.article.published, session.single-device",
+            "implicitSource": "tests/matrix.yml tier acceptance; command tools/test/lanes/acceptance-playwright.sh",
+            "currentFallback": "admin API public seed falls back to direct-DB seed when API unavailable; bootstrap prepares auth/public fixtures once per namespace via run-once keys; direct-DB public seed reuses existing article rows by title when present; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; reuses public content already present in the running env when list/home discovery succeeds; tolerates stale list cache entries while a reused acceptance environment refreshes; upserts auth identities; reuses existing user/admin rows when handles already exist; uses direct-DB seeded article IDs while public hot-read snapshot refreshes",
+            "profileId": "acceptance-representative",
+            "profileIds": [
+                "acceptance-representative"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "public.article.published",
+                "session.single-device"
+            ],
+            "producerOwners": [
+                "auth-session",
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:backend-cache-invalidation-batch",
+            "executionClass": "runtime",
+            "source": "tools/test/lanes/backend-qps.sh",
+            "requiredBusinessFact": "public.article.published",
+            "implicitSource": "tests/matrix.yml tier backend-cache-invalidation-batch; command tools/test/lanes/backend-qps.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys; scale data is produced by the scale-data generator for the selected scale profile only",
+            "profileId": "public-content-lifecycle",
+            "profileIds": [
+                "public-content-lifecycle"
+            ],
+            "requiredCapabilities": [
+                "public.article.published"
+            ],
+            "producerOwners": [
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:backend-qps-article-detail-miss",
+            "executionClass": "load",
+            "source": "tools/test/lanes/backend-qps.sh",
+            "requiredBusinessFact": "public.article.published",
+            "implicitSource": "tests/matrix.yml tier backend-qps-article-detail-miss; command tools/test/lanes/backend-qps.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys; scale data is produced by the scale-data generator for the selected scale profile only",
+            "profileId": "public-content-lifecycle",
+            "profileIds": [
+                "public-content-lifecycle"
+            ],
+            "requiredCapabilities": [
+                "public.article.published"
+            ],
+            "producerOwners": [
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:backend-qps-cache-hit",
+            "executionClass": "load",
+            "source": "tools/test/lanes/backend-qps.sh",
+            "requiredBusinessFact": "public.article.published",
+            "implicitSource": "tests/matrix.yml tier backend-qps-cache-hit; command tools/test/lanes/backend-qps.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys; scale data is produced by the scale-data generator for the selected scale profile only",
+            "profileId": "public-content-lifecycle",
+            "profileIds": [
+                "public-content-lifecycle"
+            ],
+            "requiredCapabilities": [
+                "public.article.published"
+            ],
+            "producerOwners": [
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:backend-qps-cache-miss-singleflight",
+            "executionClass": "load",
+            "source": "tools/test/lanes/backend-qps.sh",
+            "requiredBusinessFact": "public.article.published",
+            "implicitSource": "tests/matrix.yml tier backend-qps-cache-miss-singleflight; command tools/test/lanes/backend-qps.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys; scale data is produced by the scale-data generator for the selected scale profile only",
+            "profileId": "public-content-lifecycle",
+            "profileIds": [
+                "public-content-lifecycle"
+            ],
+            "requiredCapabilities": [
+                "public.article.published"
+            ],
+            "producerOwners": [
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:backend-qps-cache-registry",
+            "executionClass": "load",
+            "source": "tools/test/lanes/backend-qps.sh",
+            "requiredBusinessFact": "public.article.published",
+            "implicitSource": "tests/matrix.yml tier backend-qps-cache-registry; command tools/test/lanes/backend-qps.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys; scale data is produced by the scale-data generator for the selected scale profile only",
+            "profileId": "public-content-lifecycle",
+            "profileIds": [
+                "public-content-lifecycle"
+            ],
+            "requiredCapabilities": [
+                "public.article.published"
+            ],
+            "producerOwners": [
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:backend-qps-comment-cursor",
+            "executionClass": "load",
+            "source": "tools/test/lanes/backend-qps.sh",
+            "requiredBusinessFact": "comment.threaded, public.article.published",
+            "implicitSource": "tests/matrix.yml tier backend-qps-comment-cursor; command tools/test/lanes/backend-qps.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys; scale data is produced by the scale-data generator for the selected scale profile only",
+            "profileId": "comments-moderation",
+            "profileIds": [
+                "comments-moderation"
+            ],
+            "requiredCapabilities": [
+                "comment.threaded",
+                "public.article.published"
+            ],
+            "producerOwners": [
+                "comment-moderation",
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:backend-qps-hotread",
+            "executionClass": "load",
+            "source": "tools/test/lanes/backend-qps.sh",
+            "requiredBusinessFact": "public.article.published, public.home.featured-hot",
+            "implicitSource": "tests/matrix.yml tier backend-qps-hotread; command tools/test/lanes/backend-qps.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys; scale data is produced by the scale-data generator for the selected scale profile only",
+            "profileId": "public-content-lifecycle",
+            "profileIds": [
+                "public-content-lifecycle"
+            ],
+            "requiredCapabilities": [
+                "public.article.published",
+                "public.home.featured-hot"
+            ],
+            "producerOwners": [
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:backend-qps-index-plan",
+            "executionClass": "load",
+            "source": "tools/test/lanes/backend-qps.sh",
+            "requiredBusinessFact": "public.article.published",
+            "implicitSource": "tests/matrix.yml tier backend-qps-index-plan; command tools/test/lanes/backend-qps.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys; scale data is produced by the scale-data generator for the selected scale profile only",
+            "profileId": "public-content-lifecycle",
+            "profileIds": [
+                "public-content-lifecycle"
+            ],
+            "requiredCapabilities": [
+                "public.article.published"
+            ],
+            "producerOwners": [
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:backend-qps-list-pagination",
+            "executionClass": "load",
+            "source": "tools/test/lanes/backend-qps.sh",
+            "requiredBusinessFact": "public.article.published",
+            "implicitSource": "tests/matrix.yml tier backend-qps-list-pagination; command tools/test/lanes/backend-qps.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys; scale data is produced by the scale-data generator for the selected scale profile only",
+            "profileId": "public-content-lifecycle",
+            "profileIds": [
+                "public-content-lifecycle"
+            ],
+            "requiredCapabilities": [
+                "public.article.published"
+            ],
+            "producerOwners": [
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:backend-qps-related-reading",
+            "executionClass": "load",
+            "source": "tools/test/lanes/backend-qps.sh",
+            "requiredBusinessFact": "public.article.published",
+            "implicitSource": "tests/matrix.yml tier backend-qps-related-reading; command tools/test/lanes/backend-qps.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys; scale data is produced by the scale-data generator for the selected scale profile only",
+            "profileId": "public-content-lifecycle",
+            "profileIds": [
+                "public-content-lifecycle"
+            ],
+            "requiredCapabilities": [
+                "public.article.published"
+            ],
+            "producerOwners": [
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:backend-qps-risk-filter",
+            "executionClass": "load",
+            "source": "tools/test/lanes/backend-qps.sh",
+            "requiredBusinessFact": "auth.user.active, security.risk-escalated",
+            "implicitSource": "tests/matrix.yml tier backend-qps-risk-filter; command tools/test/lanes/backend-qps.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys; scale data is produced by the scale-data generator for the selected scale profile only",
+            "profileId": "auth-security-matrix",
+            "profileIds": [
+                "auth-security-matrix"
+            ],
+            "requiredCapabilities": [
+                "auth.user.active",
+                "security.risk-escalated"
+            ],
+            "producerOwners": [
+                "auth-session",
+                "security-state"
+            ]
+        },
+        {
+            "consumerId": "matrix:backend-qps-runtime-sequential",
+            "executionClass": "load",
+            "source": "tools/test/lanes/backend-qps.sh",
+            "requiredBusinessFact": "auth.user.active, public.article.published, session.single-device",
+            "implicitSource": "tests/matrix.yml tier backend-qps-runtime-sequential; command tools/test/lanes/backend-qps.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys; scale data is produced by the scale-data generator for the selected scale profile only",
+            "profileId": "acceptance-representative",
+            "profileIds": [
+                "acceptance-representative"
+            ],
+            "requiredCapabilities": [
+                "auth.user.active",
+                "public.article.published",
+                "session.single-device"
+            ],
+            "producerOwners": [
+                "auth-session",
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:backend-qps-view-count-flush",
+            "executionClass": "load",
+            "source": "tools/test/lanes/backend-qps.sh",
+            "requiredBusinessFact": "public.article.published",
+            "implicitSource": "tests/matrix.yml tier backend-qps-view-count-flush; command tools/test/lanes/backend-qps.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys; scale data is produced by the scale-data generator for the selected scale profile only",
+            "profileId": "public-content-lifecycle",
+            "profileIds": [
+                "public-content-lifecycle"
+            ],
+            "requiredCapabilities": [
+                "public.article.published"
+            ],
+            "producerOwners": [
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:backend-qps-visitlog-invalidation",
+            "executionClass": "load",
+            "source": "tools/test/lanes/backend-qps.sh",
+            "requiredBusinessFact": "public.article.published",
+            "implicitSource": "tests/matrix.yml tier backend-qps-visitlog-invalidation; command tools/test/lanes/backend-qps.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys; scale data is produced by the scale-data generator for the selected scale profile only",
+            "profileId": "public-content-lifecycle",
+            "profileIds": [
+                "public-content-lifecycle"
+            ],
+            "requiredCapabilities": [
+                "public.article.published"
+            ],
+            "producerOwners": [
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:bootstrap",
+            "executionClass": "runtime",
+            "source": "tools/test/lanes/bootstrap-acceptance-env.sh",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, public.article.published, session.single-device",
+            "implicitSource": "tests/matrix.yml tier bootstrap; command tools/test/lanes/bootstrap-acceptance-env.sh",
+            "currentFallback": "admin API public seed falls back to direct-DB seed when API unavailable; bootstrap prepares auth/public fixtures once per namespace via run-once keys; direct-DB public seed reuses existing article rows by title when present; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; reuses public content already present in the running env when list/home discovery succeeds; tolerates stale list cache entries while a reused acceptance environment refreshes; upserts auth identities; reuses existing user/admin rows when handles already exist; uses direct-DB seeded article IDs while public hot-read snapshot refreshes",
+            "profileId": "acceptance-representative",
+            "profileIds": [
+                "acceptance-representative"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "public.article.published",
+                "session.single-device"
+            ],
+            "producerOwners": [
+                "auth-session",
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:browser-contract",
+            "executionClass": "browser",
+            "source": "tools/test/lanes/browser-contract.sh",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.threaded, public.article.published, session.single-device",
+            "implicitSource": "tests/matrix.yml tier browser-contract; command tools/test/lanes/browser-contract.sh",
+            "currentFallback": "admin API public seed falls back to direct-DB seed when API unavailable; bootstrap prepares auth/public fixtures once per namespace via run-once keys; direct-DB public seed reuses existing article rows by title when present; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; requires sealed browser-contract fixture root; public fallback is forbidden; reuses public content already present in the running env when list/home discovery succeeds; tolerates stale list cache entries while a reused acceptance environment refreshes; upserts auth identities; reuses existing user/admin rows when handles already exist; uses direct-DB seeded article IDs while public hot-read snapshot refreshes",
+            "profileId": "acceptance-representative",
+            "profileIds": [
+                "acceptance-representative"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "comment.threaded",
+                "public.article.published",
+                "session.single-device"
+            ],
+            "producerOwners": [
+                "auth-session",
+                "comment-moderation",
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:browser-diagnostics-manual",
+            "executionClass": "browser",
+            "source": "tools/test/lanes/browser-diagnostics.sh",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, public.article.published, session.single-device",
+            "implicitSource": "tests/matrix.yml tier browser-diagnostics-manual; command tools/test/lanes/browser-diagnostics.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys",
+            "profileId": "acceptance-representative",
+            "profileIds": [
+                "acceptance-representative"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "public.article.published",
+                "session.single-device"
+            ],
+            "producerOwners": [
+                "auth-session",
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:browser-diagnostics-nightly",
+            "executionClass": "browser",
+            "source": "tools/test/lanes/browser-diagnostics.sh",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, public.article.published, session.single-device",
+            "implicitSource": "tests/matrix.yml tier browser-diagnostics-nightly; command tools/test/lanes/browser-diagnostics.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys",
+            "profileId": "acceptance-representative",
+            "profileIds": [
+                "acceptance-representative"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "public.article.published",
+                "session.single-device"
+            ],
+            "producerOwners": [
+                "auth-session",
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:browser-runtime-risk-diagnostics",
+            "executionClass": "browser",
+            "source": "tools/test/lanes/browser-runtime-risk-diagnostics.sh",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, public.article.published, session.single-device",
+            "implicitSource": "tests/matrix.yml tier browser-runtime-risk-diagnostics; command tools/test/lanes/browser-runtime-risk-diagnostics.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys; lane may reset security runtime state around execution (not a business-data fallback)",
+            "profileId": "acceptance-representative",
+            "profileIds": [
+                "acceptance-representative"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "public.article.published",
+                "session.single-device"
+            ],
+            "producerOwners": [
+                "auth-session",
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:cross-browser-smoke",
+            "executionClass": "browser",
+            "source": "tools/test/lanes/cross-browser-smoke.sh",
+            "requiredBusinessFact": "none",
+            "implicitSource": "tests/matrix.yml tier cross-browser-smoke; command tools/test/lanes/cross-browser-smoke.sh",
+            "currentFallback": "no local data fallback path; depends on producers declared by the bound fixture profile",
+            "profileId": "none",
+            "profileIds": [
+                "none"
+            ],
+            "requiredCapabilities": [],
+            "producerOwners": []
+        },
+        {
+            "consumerId": "matrix:csrf-browser-matrix",
+            "executionClass": "security",
+            "source": "npm --prefix src/frontend run check:security:csrf-browser-matrix",
+            "requiredBusinessFact": "auth.user.active, session.multi-device",
+            "implicitSource": "tests/matrix.yml tier csrf-browser-matrix; command npm --prefix src/frontend run check:security:csrf-browser-matrix",
+            "currentFallback": "admin API public seed falls back to direct-DB seed when API unavailable; bootstrap prepares auth/public fixtures once per namespace via run-once keys; direct-DB public seed reuses existing article rows by title when present; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; reuses public content already present in the running env when list/home discovery succeeds; tolerates stale list cache entries while a reused acceptance environment refreshes; upserts auth identities; reuses existing user/admin rows when handles already exist; uses direct-DB seeded article IDs while public hot-read snapshot refreshes",
+            "profileId": "auth-security-matrix",
+            "profileIds": [
+                "auth-security-matrix"
+            ],
+            "requiredCapabilities": [
+                "auth.user.active",
+                "session.multi-device"
+            ],
+            "producerOwners": [
+                "auth-session"
+            ]
+        },
+        {
+            "consumerId": "matrix:data-scale-m",
+            "executionClass": "load",
+            "source": "tools/test/lanes/data-scale.sh",
+            "requiredBusinessFact": "public.article.published, scale.article-comment.m",
+            "implicitSource": "tests/matrix.yml tier data-scale-m; command tools/test/lanes/data-scale.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys; scale data is produced by the scale-data generator for the selected scale profile only",
+            "profileId": "scale-m",
+            "profileIds": [
+                "scale-m"
+            ],
+            "requiredCapabilities": [
+                "public.article.published",
+                "scale.article-comment.m"
+            ],
+            "producerOwners": [
+                "public-content",
+                "scale-data"
+            ]
+        },
+        {
+            "consumerId": "matrix:data-scale-nightly",
+            "executionClass": "load",
+            "source": "tools/test/lanes/data-scale.sh",
+            "requiredBusinessFact": "public.article.published, scale.article-comment.l",
+            "implicitSource": "tests/matrix.yml tier data-scale-nightly; command tools/test/lanes/data-scale.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys; scale data is produced by the scale-data generator for the selected scale profile only",
+            "profileId": "scale-l-nightly",
+            "profileIds": [
+                "scale-l-nightly"
+            ],
+            "requiredCapabilities": [
+                "public.article.published",
+                "scale.article-comment.l"
+            ],
+            "producerOwners": [
+                "public-content",
+                "scale-data"
+            ]
+        },
+        {
+            "consumerId": "matrix:data-scale-s",
+            "executionClass": "load",
+            "source": "tools/test/lanes/data-scale.sh",
+            "requiredBusinessFact": "public.article.published, scale.article-comment.s",
+            "implicitSource": "tests/matrix.yml tier data-scale-s; command tools/test/lanes/data-scale.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys; scale data is produced by the scale-data generator for the selected scale profile only",
+            "profileId": "scale-s",
+            "profileIds": [
+                "scale-s"
+            ],
+            "requiredCapabilities": [
+                "public.article.published",
+                "scale.article-comment.s"
+            ],
+            "producerOwners": [
+                "public-content",
+                "scale-data"
+            ]
+        },
+        {
+            "consumerId": "matrix:data-scale-xs",
+            "executionClass": "load",
+            "source": "tools/test/lanes/data-scale.sh",
+            "requiredBusinessFact": "public.article.published, scale.article-comment.xs",
+            "implicitSource": "tests/matrix.yml tier data-scale-xs; command tools/test/lanes/data-scale.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys; scale data is produced by the scale-data generator for the selected scale profile only",
+            "profileId": "scale-xs",
+            "profileIds": [
+                "scale-xs"
+            ],
+            "requiredCapabilities": [
+                "public.article.published",
+                "scale.article-comment.xs"
+            ],
+            "producerOwners": [
+                "public-content",
+                "scale-data"
+            ]
+        },
+        {
+            "consumerId": "matrix:endpoint-depth",
+            "executionClass": "runtime",
+            "source": "tools/test/lanes/endpoint-depth.sh",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, public.article.published, session.single-device",
+            "implicitSource": "tests/matrix.yml tier endpoint-depth; command tools/test/lanes/endpoint-depth.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys",
+            "profileId": "acceptance-representative",
+            "profileIds": [
+                "acceptance-representative"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "public.article.published",
+                "session.single-device"
+            ],
+            "producerOwners": [
+                "auth-session",
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:fault-injection",
+            "executionClass": "runtime",
+            "source": "tools/test/lanes/fault-injection.sh",
+            "requiredBusinessFact": "auth.user.active, public.article.published, session.single-device",
+            "implicitSource": "tests/matrix.yml tier fault-injection; command tools/test/lanes/fault-injection.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys",
+            "profileId": "acceptance-representative",
+            "profileIds": [
+                "acceptance-representative"
+            ],
+            "requiredCapabilities": [
+                "auth.user.active",
+                "public.article.published",
+                "session.single-device"
+            ],
+            "producerOwners": [
+                "auth-session",
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:homogeneous-two-node-fixture",
+            "executionClass": "runtime",
+            "source": "tools/test/lanes/homogeneous-two-node-fixture.sh",
+            "requiredBusinessFact": "auth.user.active, public.article.published, session.single-device",
+            "implicitSource": "tests/matrix.yml tier homogeneous-two-node-fixture; command tools/test/lanes/homogeneous-two-node-fixture.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys",
+            "profileId": "acceptance-representative",
+            "profileIds": [
+                "acceptance-representative"
+            ],
+            "requiredCapabilities": [
+                "auth.user.active",
+                "public.article.published",
+                "session.single-device"
+            ],
+            "producerOwners": [
+                "auth-session",
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:integration",
+            "executionClass": "runtime",
+            "source": "tools/test/lanes/runtime-integration.sh",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, public.article.published, session.single-device",
+            "implicitSource": "tests/matrix.yml tier integration; command tools/test/lanes/runtime-integration.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys",
+            "profileId": "acceptance-representative",
+            "profileIds": [
+                "acceptance-representative"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "public.article.published",
+                "session.single-device"
+            ],
+            "producerOwners": [
+                "auth-session",
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:load",
+            "executionClass": "load",
+            "source": "tools/test/lanes/load-smoke.sh",
+            "requiredBusinessFact": "public.article.published, scale.article-comment.xs",
+            "implicitSource": "tests/matrix.yml tier load; command tools/test/lanes/load-smoke.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys; scale data is produced by the scale-data generator for the selected scale profile only",
+            "profileId": "scale-xs",
+            "profileIds": [
+                "scale-xs"
+            ],
+            "requiredCapabilities": [
+                "public.article.published",
+                "scale.article-comment.xs"
+            ],
+            "producerOwners": [
+                "public-content",
+                "scale-data"
+            ]
+        },
+        {
+            "consumerId": "matrix:load-2x-peak",
+            "executionClass": "load",
+            "source": "tools/test/lanes/load-profile.sh",
+            "requiredBusinessFact": "public.article.published, scale.article-comment.m",
+            "implicitSource": "tests/matrix.yml tier load-2x-peak; command tools/test/lanes/load-profile.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys; scale data is produced by the scale-data generator for the selected scale profile only",
+            "profileId": "scale-m",
+            "profileIds": [
+                "scale-m"
+            ],
+            "requiredCapabilities": [
+                "public.article.published",
+                "scale.article-comment.m"
+            ],
+            "producerOwners": [
+                "public-content",
+                "scale-data"
+            ]
+        },
+        {
+            "consumerId": "matrix:load-baseline",
+            "executionClass": "load",
+            "source": "tools/test/lanes/load-profile.sh",
+            "requiredBusinessFact": "public.article.published, scale.article-comment.xs",
+            "implicitSource": "tests/matrix.yml tier load-baseline; command tools/test/lanes/load-profile.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys; scale data is produced by the scale-data generator for the selected scale profile only",
+            "profileId": "scale-xs",
+            "profileIds": [
+                "scale-xs"
+            ],
+            "requiredCapabilities": [
+                "public.article.published",
+                "scale.article-comment.xs"
+            ],
+            "producerOwners": [
+                "public-content",
+                "scale-data"
+            ]
+        },
+        {
+            "consumerId": "matrix:load-burst",
+            "executionClass": "load",
+            "source": "tools/test/lanes/load-profile.sh",
+            "requiredBusinessFact": "public.article.published, scale.article-comment.m",
+            "implicitSource": "tests/matrix.yml tier load-burst; command tools/test/lanes/load-profile.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys; scale data is produced by the scale-data generator for the selected scale profile only",
+            "profileId": "scale-m",
+            "profileIds": [
+                "scale-m"
+            ],
+            "requiredCapabilities": [
+                "public.article.published",
+                "scale.article-comment.m"
+            ],
+            "producerOwners": [
+                "public-content",
+                "scale-data"
+            ]
+        },
+        {
+            "consumerId": "matrix:load-peak",
+            "executionClass": "load",
+            "source": "tools/test/lanes/load-profile.sh",
+            "requiredBusinessFact": "public.article.published, scale.article-comment.s",
+            "implicitSource": "tests/matrix.yml tier load-peak; command tools/test/lanes/load-profile.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys; scale data is produced by the scale-data generator for the selected scale profile only",
+            "profileId": "scale-s",
+            "profileIds": [
+                "scale-s"
+            ],
+            "requiredCapabilities": [
+                "public.article.published",
+                "scale.article-comment.s"
+            ],
+            "producerOwners": [
+                "public-content",
+                "scale-data"
+            ]
+        },
+        {
+            "consumerId": "matrix:production-correctness",
+            "executionClass": "runtime",
+            "source": "tools/test/lanes/production-correctness-receipt.sh",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, public.article.published, session.single-device",
+            "implicitSource": "tests/matrix.yml tier production-correctness; command tools/test/lanes/production-correctness-receipt.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys",
+            "profileId": "acceptance-representative",
+            "profileIds": [
+                "acceptance-representative"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "public.article.published",
+                "session.single-device"
+            ],
+            "producerOwners": [
+                "auth-session",
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:release",
+            "executionClass": "runtime",
+            "source": "tools/test/lanes/release-public.sh",
+            "requiredBusinessFact": "public.article.published",
+            "implicitSource": "tests/matrix.yml tier release; command tools/test/lanes/release-public.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys",
+            "profileId": "public-content-lifecycle",
+            "profileIds": [
+                "public-content-lifecycle"
+            ],
+            "requiredCapabilities": [
+                "public.article.published"
+            ],
+            "producerOwners": [
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:resilience",
+            "executionClass": "runtime",
+            "source": "tools/test/lanes/resilience-runtime.sh",
+            "requiredBusinessFact": "auth.user.active, public.article.published, session.single-device",
+            "implicitSource": "tests/matrix.yml tier resilience; command tools/test/lanes/resilience-runtime.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys",
+            "profileId": "acceptance-representative",
+            "profileIds": [
+                "acceptance-representative"
+            ],
+            "requiredCapabilities": [
+                "auth.user.active",
+                "public.article.published",
+                "session.single-device"
+            ],
+            "producerOwners": [
+                "auth-session",
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:security",
+            "executionClass": "security",
+            "source": "tools/test/lanes/security-runtime.sh",
+            "requiredBusinessFact": "auth.user.active, security.risk-escalated, security.subject.banned",
+            "implicitSource": "tests/matrix.yml tier security; command tools/test/lanes/security-runtime.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys",
+            "profileId": "auth-security-matrix",
+            "profileIds": [
+                "auth-security-matrix"
+            ],
+            "requiredCapabilities": [
+                "auth.user.active",
+                "security.risk-escalated",
+                "security.subject.banned"
+            ],
+            "producerOwners": [
+                "auth-session",
+                "security-state"
+            ]
+        },
+        {
+            "consumerId": "matrix:security-authenticated-dast",
+            "executionClass": "security",
+            "source": "tools/test/lanes/security-authenticated-dast.sh",
+            "requiredBusinessFact": "auth.user.active, security.risk-escalated, session.multi-device",
+            "implicitSource": "tests/matrix.yml tier security-authenticated-dast; command tools/test/lanes/security-authenticated-dast.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys",
+            "profileId": "auth-security-matrix",
+            "profileIds": [
+                "auth-security-matrix"
+            ],
+            "requiredCapabilities": [
+                "auth.user.active",
+                "security.risk-escalated",
+                "session.multi-device"
+            ],
+            "producerOwners": [
+                "auth-session",
+                "security-state"
+            ]
+        },
+        {
+            "consumerId": "matrix:soak-short-runtime",
+            "executionClass": "load",
+            "source": "tools/test/lanes/soak.sh",
+            "requiredBusinessFact": "public.article.published, scale.article-comment.s",
+            "implicitSource": "tests/matrix.yml tier soak-short-runtime; command tools/test/lanes/soak.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys",
+            "profileId": "scale-s",
+            "profileIds": [
+                "scale-s"
+            ],
+            "requiredCapabilities": [
+                "public.article.published",
+                "scale.article-comment.s"
+            ],
+            "producerOwners": [
+                "public-content",
+                "scale-data"
+            ]
+        },
+        {
+            "consumerId": "matrix:ux-viewport-boundaries",
+            "executionClass": "browser",
+            "source": "tools/test/lanes/ux-viewport-boundaries.sh",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, public.article.published, session.single-device",
+            "implicitSource": "tests/matrix.yml tier ux-viewport-boundaries; command tools/test/lanes/ux-viewport-boundaries.sh",
+            "currentFallback": "admin API public seed falls back to direct-DB seed when API unavailable; bootstrap prepares auth/public fixtures once per namespace via run-once keys; direct-DB public seed reuses existing article rows by title when present; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; reuses public content already present in the running env when list/home discovery succeeds; tolerates stale list cache entries while a reused acceptance environment refreshes; upserts auth identities; reuses existing user/admin rows when handles already exist; uses direct-DB seeded article IDs while public hot-read snapshot refreshes",
+            "profileId": "acceptance-representative",
+            "profileIds": [
+                "acceptance-representative"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "public.article.published",
+                "session.single-device"
+            ],
+            "producerOwners": [
+                "auth-session",
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:ux-viewport-smoke",
+            "executionClass": "browser",
+            "source": "tools/test/lanes/ux-viewport-smoke.sh",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, public.article.published, session.single-device",
+            "implicitSource": "tests/matrix.yml tier ux-viewport-smoke; command tools/test/lanes/ux-viewport-smoke.sh",
+            "currentFallback": "admin API public seed falls back to direct-DB seed when API unavailable; bootstrap prepares auth/public fixtures once per namespace via run-once keys; direct-DB public seed reuses existing article rows by title when present; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; reuses public content already present in the running env when list/home discovery succeeds; tolerates stale list cache entries while a reused acceptance environment refreshes; upserts auth identities; reuses existing user/admin rows when handles already exist; uses direct-DB seeded article IDs while public hot-read snapshot refreshes",
+            "profileId": "acceptance-representative",
+            "profileIds": [
+                "acceptance-representative"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "public.article.published",
+                "session.single-device"
+            ],
+            "producerOwners": [
+                "auth-session",
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:ux-viewport-visual",
+            "executionClass": "browser",
+            "source": "tools/test/lanes/ux-viewport-visual.sh",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, public.article.published, session.single-device",
+            "implicitSource": "tests/matrix.yml tier ux-viewport-visual; command tools/test/lanes/ux-viewport-visual.sh",
+            "currentFallback": "admin API public seed falls back to direct-DB seed when API unavailable; bootstrap prepares auth/public fixtures once per namespace via run-once keys; direct-DB public seed reuses existing article rows by title when present; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; reuses public content already present in the running env when list/home discovery succeeds; tolerates stale list cache entries while a reused acceptance environment refreshes; upserts auth identities; reuses existing user/admin rows when handles already exist; uses direct-DB seeded article IDs while public hot-read snapshot refreshes",
+            "profileId": "acceptance-representative",
+            "profileIds": [
+                "acceptance-representative"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "public.article.published",
+                "session.single-device"
+            ],
+            "producerOwners": [
+                "auth-session",
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:visual-console",
+            "executionClass": "browser",
+            "source": "tools/test/lanes/visual-console-playwright.sh",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, public.article.published, session.single-device",
+            "implicitSource": "tests/matrix.yml tier visual-console; command tools/test/lanes/visual-console-playwright.sh",
+            "currentFallback": "admin API public seed falls back to direct-DB seed when API unavailable; bootstrap prepares auth/public fixtures once per namespace via run-once keys; direct-DB public seed reuses existing article rows by title when present; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; reuses public content already present in the running env when list/home discovery succeeds; tolerates stale list cache entries while a reused acceptance environment refreshes; upserts auth identities; reuses existing user/admin rows when handles already exist; uses direct-DB seeded article IDs while public hot-read snapshot refreshes",
+            "profileId": "acceptance-representative",
+            "profileIds": [
+                "acceptance-representative"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "public.article.published",
+                "session.single-device"
+            ],
+            "producerOwners": [
+                "auth-session",
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:visual-public",
+            "executionClass": "browser",
+            "source": "tools/test/lanes/visual-public-playwright.sh",
+            "requiredBusinessFact": "public.article.published, public.home.featured-hot",
+            "implicitSource": "tests/matrix.yml tier visual-public; command tools/test/lanes/visual-public-playwright.sh",
+            "currentFallback": "admin API public seed falls back to direct-DB seed when API unavailable; bootstrap prepares auth/public fixtures once per namespace via run-once keys; direct-DB public seed reuses existing article rows by title when present; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; reuses public content already present in the running env when list/home discovery succeeds; tolerates stale list cache entries while a reused acceptance environment refreshes; upserts auth identities; reuses existing user/admin rows when handles already exist; uses direct-DB seeded article IDs while public hot-read snapshot refreshes",
+            "profileId": "public-content-lifecycle",
+            "profileIds": [
+                "public-content-lifecycle"
+            ],
+            "requiredCapabilities": [
+                "public.article.published",
+                "public.home.featured-hot"
+            ],
+            "producerOwners": [
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "source:acceptance-bootstrap",
+            "executionClass": "acceptance",
+            "source": "tools/bootstrap-acceptance-env.sh",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
+            "implicitSource": "fixture-catalog consumer declaration in tools/bootstrap-acceptance-env.sh",
+            "currentFallback": "bootstrap prepares auth/public fixtures once per namespace via run-once keys",
+            "profileId": "acceptance-representative",
+            "profileIds": [
+                "acceptance-representative"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "comment.moderation-matrix",
+                "comment.threaded",
+                "messages.thread",
+                "notifications.unread",
+                "public.article.draft",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
+                "session.single-device"
+            ],
+            "producerOwners": [
+                "account-messaging",
+                "auth-session",
+                "comment-moderation",
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "source:auth-session-runtime",
+            "executionClass": "browser",
+            "source": "tests/frontend/support/session-fixtures.mjs",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, session.single-device",
+            "implicitSource": "fixture-catalog consumer declaration in tests/frontend/support/session-fixtures.mjs",
+            "currentFallback": "persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; upserts auth identities; reuses existing user/admin rows when handles already exist",
+            "profileId": "auth-basic",
+            "profileIds": [
+                "auth-basic"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "session.single-device"
+            ],
+            "producerOwners": [
+                "auth-session"
+            ]
+        },
+        {
+            "consumerId": "source:auth-smoke-fixture",
+            "executionClass": "browser",
+            "source": "tests/frontend/fixtures/prepare-auth-smoke-users.mjs",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, session.single-device",
+            "implicitSource": "fixture-catalog consumer declaration in tests/frontend/fixtures/prepare-auth-smoke-users.mjs",
+            "currentFallback": "no local data fallback path; depends on producers declared by the bound fixture profile",
+            "profileId": "auth-basic",
+            "profileIds": [
+                "auth-basic"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "session.single-device"
+            ],
+            "producerOwners": [
+                "auth-session"
+            ]
+        },
+        {
+            "consumerId": "source:browser-contract-facade",
+            "executionClass": "acceptance",
+            "source": "tests/browser-contract/fixture.mjs",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
+            "implicitSource": "fixture-catalog consumer declaration in tests/browser-contract/fixture.mjs",
+            "currentFallback": "requires sealed browser-contract fixture root; public fallback is forbidden",
+            "profileId": "acceptance-representative",
+            "profileIds": [
+                "acceptance-representative"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "comment.moderation-matrix",
+                "comment.threaded",
+                "messages.thread",
+                "notifications.unread",
+                "public.article.draft",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
+                "session.single-device"
+            ],
+            "producerOwners": [
+                "account-messaging",
+                "auth-session",
+                "comment-moderation",
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "source:browser-contract-fixture",
+            "executionClass": "acceptance",
+            "source": "tests/browser-contract/default-fixture-provider.mjs",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
+            "implicitSource": "fixture-catalog consumer declaration in tests/browser-contract/default-fixture-provider.mjs",
+            "currentFallback": "persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse",
+            "profileId": "acceptance-representative",
+            "profileIds": [
+                "acceptance-representative"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "comment.moderation-matrix",
+                "comment.threaded",
+                "messages.thread",
+                "notifications.unread",
+                "public.article.draft",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
+                "session.single-device"
+            ],
+            "producerOwners": [
+                "account-messaging",
+                "auth-session",
+                "comment-moderation",
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "source:browser-contract-prepare",
+            "executionClass": "acceptance",
+            "source": "tests/browser-contract/prepare-fixture.mjs",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
+            "implicitSource": "fixture-catalog consumer declaration in tests/browser-contract/prepare-fixture.mjs",
+            "currentFallback": "no local data fallback path; depends on producers declared by the bound fixture profile",
+            "profileId": "acceptance-representative",
+            "profileIds": [
+                "acceptance-representative"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "comment.moderation-matrix",
+                "comment.threaded",
+                "messages.thread",
+                "notifications.unread",
+                "public.article.draft",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
+                "session.single-device"
+            ],
+            "producerOwners": [
+                "account-messaging",
+                "auth-session",
+                "comment-moderation",
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "source:browser-contract-run",
+            "executionClass": "acceptance",
+            "source": "tests/browser-contract/run.mjs",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
+            "implicitSource": "fixture-catalog consumer declaration in tests/browser-contract/run.mjs",
+            "currentFallback": "no local data fallback path; depends on producers declared by the bound fixture profile",
+            "profileId": "acceptance-representative",
+            "profileIds": [
+                "acceptance-representative"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "comment.moderation-matrix",
+                "comment.threaded",
+                "messages.thread",
+                "notifications.unread",
+                "public.article.draft",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
+                "session.single-device"
+            ],
+            "producerOwners": [
+                "account-messaging",
+                "auth-session",
+                "comment-moderation",
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "source:data-scale-lane",
+            "executionClass": "load",
+            "source": "tools/test/lanes/data-scale.sh",
+            "requiredBusinessFact": "public.article.published, scale.article-comment.l, scale.article-comment.m, scale.article-comment.s, scale.article-comment.xs",
+            "implicitSource": "fixture-catalog consumer declaration in tools/test/lanes/data-scale.sh",
+            "currentFallback": "scale data is produced by the scale-data generator for the selected scale profile only",
+            "profileId": null,
+            "profileIds": [
+                "scale-l-nightly",
+                "scale-m",
+                "scale-s",
+                "scale-xs"
+            ],
+            "requiredCapabilities": [
+                "public.article.published",
+                "scale.article-comment.l",
+                "scale.article-comment.m",
+                "scale.article-comment.s",
+                "scale.article-comment.xs"
+            ],
+            "producerOwners": [
+                "public-content",
+                "scale-data"
+            ]
+        },
+        {
+            "consumerId": "source:development-demo",
+            "executionClass": "diagnostic",
+            "source": "tools/dev/seed-demo-data.sh",
+            "requiredBusinessFact": "development.demo.dataset",
+            "implicitSource": "fixture-catalog consumer declaration in tools/dev/seed-demo-data.sh",
+            "currentFallback": "development demo dataset is applied via tools/dev demo seed; not a runtime acceptance producer",
+            "profileId": "demo-public",
+            "profileIds": [
+                "demo-public"
+            ],
+            "requiredCapabilities": [
+                "development.demo.dataset"
+            ],
+            "producerOwners": [
+                "development-demo"
+            ]
+        },
+        {
+            "consumerId": "source:playwright-fixture-discovery",
+            "executionClass": "acceptance",
+            "source": "tests/frontend/fixtures/discover-playwright-fixtures.mjs",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
+            "implicitSource": "fixture-catalog consumer declaration in tests/frontend/fixtures/discover-playwright-fixtures.mjs",
+            "currentFallback": "admin API public seed falls back to direct-DB seed when API unavailable; direct-DB public seed reuses existing article rows by title when present; reuses public content already present in the running env when list/home discovery succeeds; tolerates stale list cache entries while a reused acceptance environment refreshes; uses direct-DB seeded article IDs while public hot-read snapshot refreshes",
+            "profileId": "acceptance-representative",
+            "profileIds": [
+                "acceptance-representative"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "comment.moderation-matrix",
+                "comment.threaded",
+                "messages.thread",
+                "notifications.unread",
+                "public.article.draft",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
+                "session.single-device"
+            ],
+            "producerOwners": [
+                "account-messaging",
+                "auth-session",
+                "comment-moderation",
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "source:playwright-global-setup",
+            "executionClass": "browser",
+            "source": "tests/frontend/support/playwright/global-setup.ts",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, session.single-device",
+            "implicitSource": "fixture-catalog consumer declaration in tests/frontend/support/playwright/global-setup.ts",
+            "currentFallback": "no local data fallback path; depends on producers declared by the bound fixture profile",
+            "profileId": "auth-basic",
+            "profileIds": [
+                "auth-basic"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "session.single-device"
+            ],
+            "producerOwners": [
+                "auth-session"
+            ]
+        },
+        {
+            "consumerId": "source:playwright-session-fixture",
+            "executionClass": "browser",
+            "source": "tests/frontend/fixtures/prepare-playwright-sessions.mjs",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, session.single-device",
+            "implicitSource": "fixture-catalog consumer declaration in tests/frontend/fixtures/prepare-playwright-sessions.mjs",
+            "currentFallback": "rejects legacy multi-worker session prep in browser-contract mode",
+            "profileId": "auth-basic",
+            "profileIds": [
+                "auth-basic"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "session.single-device"
+            ],
+            "producerOwners": [
+                "auth-session"
+            ]
+        }
+    ],
+    "producerImplementations": [
+        {
+            "producerId": "account-messaging",
+            "source": "tests/backend/Integration/MessageCenterPersistenceIntegrationTests.cs"
+        },
+        {
+            "producerId": "auth-session",
+            "source": "src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs"
+        },
+        {
+            "producerId": "auth-session",
+            "source": "src/backend/Modules/Endpoints/LocalAuthFixtureRefreshRunner.cs"
+        },
+        {
+            "producerId": "auth-session",
+            "source": "tests/frontend/support/session-fixtures.mjs"
+        },
+        {
+            "producerId": "comment-moderation",
+            "source": "tests/browser-contract/default-fixture-provider.mjs"
+        },
+        {
+            "producerId": "development-demo",
+            "source": "tools/dev/demo-seed.sql"
+        },
+        {
+            "producerId": "public-content",
+            "source": "tests/frontend/fixtures/discover-playwright-fixtures.mjs"
+        },
+        {
+            "producerId": "scale-data",
+            "source": "tools/data-scale/cleanup.sh"
+        },
+        {
+            "producerId": "scale-data",
+            "source": "tools/data-scale/probe.sh"
+        },
+        {
+            "producerId": "scale-data",
+            "source": "tools/data-scale/seed.sh"
+        },
+        {
+            "producerId": "security-state",
+            "source": "tests/frontend/support/session-fixtures.mjs"
+        }
+    ]
+}

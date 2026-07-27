@@ -1,3 +1,4 @@
+// fixture-catalog: consumer browser-contract-prepare acceptance-representative
 import {
   cleanupBrowserContractFixture,
   prepareBrowserContractFixture

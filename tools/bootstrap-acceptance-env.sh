@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# fixture-catalog: consumer acceptance-bootstrap acceptance-representative
 set -euo pipefail
 umask 077
 

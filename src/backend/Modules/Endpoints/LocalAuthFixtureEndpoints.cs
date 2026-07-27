@@ -1,3 +1,4 @@
+// fixture-catalog: producer auth-session
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// fixture-catalog: consumer auth-smoke-fixture auth-basic
 import { persistAuthFixtureManifest, prepareAuthSmokeFixtures } from '../support/session-fixtures.mjs';
 import { probeReachable, parseTimeoutMs } from '../support/http.mjs';
 

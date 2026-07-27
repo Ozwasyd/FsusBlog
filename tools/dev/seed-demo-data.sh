@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# fixture-catalog: consumer development-demo demo-public
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"

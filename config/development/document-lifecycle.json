@@ -2020,6 +2020,17 @@
             "producer": "tools/docs/generate-testing-docs.mjs"
         },
         {
+            "path": "docs/testing/fixture-capability-catalog.md",
+            "status": "generated",
+            "owner": "release",
+            "relatedIssues": [
+                1707
+            ],
+            "supersedes": [],
+            "supersededBy": null,
+            "producer": "tools/testing/generate-fixture-catalog-artifacts.mjs"
+        },
+        {
             "path": "docs/testing.md",
             "status": "current",
             "owner": "release",

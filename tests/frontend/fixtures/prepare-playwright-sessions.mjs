@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// fixture-catalog: consumer playwright-session-fixture auth-basic
 import { spawn } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';

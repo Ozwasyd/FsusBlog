@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// fixture-catalog: consumer playwright-fixture-discovery acceptance-representative
+// fixture-catalog: producer public-content
 import { spawnSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { copyFile, mkdir, writeFile } from 'node:fs/promises'

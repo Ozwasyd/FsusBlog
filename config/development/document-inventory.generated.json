@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v2",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:dac510ec0931b22e8619507db6fd32bb0fcf0ffb1a79bd2679b08bd3c92b8339",
+    "policyDigest": "sha256:5c34d10f6378a01401956c1e27b1ab9ad65c44012c0e26ff5d6681653a78d783",
     "documents": [
         {
             "path": "docs/active-release-fenced-commits.md",
@@ -3535,6 +3535,21 @@
             "supersededBy": null,
             "relatedIssues": [],
             "producer": null
+        },
+        {
+            "path": "docs/testing/fixture-capability-catalog.md",
+            "title": "Fixture capability catalog",
+            "kind": "markdown",
+            "status": "generated",
+            "owner": "release",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "65089dbcdaff10e01b2af79bdb5d3fcb14c9b94b",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1707
+            ],
+            "producer": "tools/testing/generate-fixture-catalog-artifacts.mjs"
         },
         {
             "path": "docs/testing/frontend-private-runtime-governance.md",

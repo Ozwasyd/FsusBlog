@@ -1,3 +1,4 @@
+-- fixture-catalog: producer development-demo
 \set ON_ERROR_STOP on
 
 begin;
