@@ -1,9 +1,9 @@
 import { computed } from 'vue'
 import { readPublicHydrationPayload } from '@/bootstrap/publicHydrationBootstrap'
-import { publicTakeoverPhaseState } from '@/bootstrap/publicTakeoverState'
+import { publicActivationState } from '@/bootstrap/publicActivationRuntime'
 
 const hasInitialPublicHydrationSeed = Boolean(readPublicHydrationPayload())
 
 export const usePublicSpaNavigationMode = computed(() =>
-  !hasInitialPublicHydrationSeed || publicTakeoverPhaseState.value === 'spa-active'
+  !hasInitialPublicHydrationSeed || publicActivationState.value.phase === 'interactive'
 )

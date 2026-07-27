@@ -17,7 +17,7 @@ const ensureAccountSession = vi.fn<() => Promise<void>>()
 const ensureAdminSession = vi.fn<() => Promise<void>>()
 const syncDocumentTitle = vi.fn()
 let hasServerAotShellResult = false
-let publicRuntimeOwner: 'aot' | 'spa' = 'aot'
+let publicRuntimeOwner: 'aot' | 'full-app' = 'aot'
 
 const useRouterUserStoreMock = defineStore('router-user-session-mock', {
   state: () => ({ isLoggedIn: true })
@@ -64,10 +64,6 @@ vi.mock('@/bootstrap/publicShellPrimitives', () => ({
   hasServerAotShell: () => hasServerAotShellResult
 }))
 
-vi.mock('@/bootstrap/publicTakeoverState', () => ({
-  getPublicRuntimeOwner: () => publicRuntimeOwner
-}))
-
 const routeComponentStub = { template: '<div />' }
 
 vi.mock('@/layouts/BlogLayout.vue', () => ({ default: routeComponentStub }))
@@ -97,7 +93,8 @@ vi.mock('@/views/error/404.vue', () => ({ default: routeComponentStub }))
 async function createTestRouter(): Promise<Router> {
   return createAppRouter({
     history: createMemoryHistory(),
-    ssr: false
+    ssr: false,
+    getPublicActivationOwner: () => publicRuntimeOwner
   })
 }
 
@@ -334,7 +331,7 @@ describe('account router meta and guards', () => {
   }, 15_000)
 
   it('uses the injected prewarm port when the SPA owns public navigation', async () => {
-    publicRuntimeOwner = 'spa'
+    publicRuntimeOwner = 'full-app'
     const prewarmPublicRoute = vi.fn(async (target: string) => ({
       status: 'ready' as const,
       target,
@@ -346,6 +343,7 @@ describe('account router meta and guards', () => {
     const router = createAppRouter({
       history: createMemoryHistory(),
       ssr: false,
+      getPublicActivationOwner: () => publicRuntimeOwner,
       prewarmPublicRoute
     })
 

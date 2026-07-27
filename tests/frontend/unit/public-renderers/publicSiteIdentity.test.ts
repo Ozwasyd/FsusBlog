@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
   createPublicTakeoverSeed,
   normalizePublicComplianceConfig,
@@ -8,24 +8,8 @@ import { PUBLIC_SITE_IDENTITY_DEFAULTS } from '@/public-renderers/publicSiteIden
 import { PUBLIC_SHELL_DEFAULTS } from '@/public-renderers/publicShellState'
 import { LOCALE_CATALOG_DIGEST } from '@/locales/localeCatalog'
 import type { PublicHydrationPayload } from '@/public-renderers/types'
-import {
-  beginPublicTakeoverCommit,
-  beginPublicTakeoverPrewarm,
-  canTransitionPublicTakeoverPhase,
-  completePublicTakeoverCommit,
-  getPublicRuntimeOwner,
-  getPublicTakeoverPhase,
-  markPublicTakeoverPrepared,
-  resetPublicTakeover,
-  transitionPublicTakeoverPhase
-} from '@/bootstrap/publicTakeoverState'
-import {
-  abortPublicShellLifetime,
-  getPublicShellLifetimeAbortCount,
-  resetPublicShellLifetime
-} from '@/bootstrap/publicShellLifetime'
 
-describe('public takeover site identity', () => {
+describe('public site identity', () => {
   it('keeps frontend shell defaults aligned to the public site identity contract', () => {
     expect(PUBLIC_SHELL_DEFAULTS.siteTitle).toBe(PUBLIC_SITE_IDENTITY_DEFAULTS.siteTitle)
     expect(PUBLIC_SITE_IDENTITY_DEFAULTS.siteDescription).toBe('工程记录、性能实验、UI 系统与 FsusBlog 构建过程。')
@@ -116,48 +100,4 @@ describe('public takeover site identity', () => {
 
     expect(createPublicTakeoverSeed(invalid)).toBeNull()
   })
-
-})
-
-describe('public takeover source contracts', () => {
-  beforeEach(() => {
-    resetPublicTakeover({ reason: 'test-reset' })
-  })
-
-  it('uses one deterministic public takeover state machine', () => {
-    expect(getPublicTakeoverPhase()).toBe('aot-idle')
-    expect(getPublicRuntimeOwner()).toBe('aot')
-    expect(canTransitionPublicTakeoverPhase('aot-idle', 'prewarming')).toBe(true)
-    expect(canTransitionPublicTakeoverPhase('aot-idle', 'spa-active')).toBe(false)
-
-    expect(beginPublicTakeoverPrewarm({ reason: 'idle' })).toBe(true)
-    expect(getPublicTakeoverPhase()).toBe('prewarming')
-    expect(markPublicTakeoverPrepared({ reason: 'route-ready' })).toBe(true)
-    expect(getPublicTakeoverPhase()).toBe('prepared')
-    expect(beginPublicTakeoverCommit({ reason: 'click' })).toBe(true)
-    expect(getPublicRuntimeOwner()).toBe('spa')
-    expect(completePublicTakeoverCommit({ reason: 'mounted' })).toBe(true)
-    expect(getPublicTakeoverPhase()).toBe('spa-active')
-  })
-
-  it('rejects illegal public takeover transitions without moving owner state', () => {
-    expect(transitionPublicTakeoverPhase('spa-active', { reason: 'illegal-test' })).toBe(false)
-    expect(getPublicTakeoverPhase()).toBe('aot-idle')
-    expect(getPublicRuntimeOwner()).toBe('aot')
-  })
-
-  it('aborts public shell lifetime listeners exactly once', () => {
-    const signal = resetPublicShellLifetime()
-    let abortEvents = 0
-    signal.addEventListener('abort', () => {
-      abortEvents += 1
-    })
-
-    abortPublicShellLifetime('commit')
-    abortPublicShellLifetime('commit-again')
-
-    expect(abortEvents).toBe(1)
-    expect(getPublicShellLifetimeAbortCount()).toBe(1)
-  })
-
 })

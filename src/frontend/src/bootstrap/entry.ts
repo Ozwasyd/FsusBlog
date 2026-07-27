@@ -5,7 +5,8 @@ import {
 } from '@/bootstrap/bootstrapImportRecovery';
 import {
     consumePublicBootHandoff,
-    failClosedPublicBootNavigation
+    failClosedPublicBootNavigation,
+    type PublicBootIntent
 } from '@/bootstrap/publicBootHandoff';
 import {
     hasServerAotShell,
@@ -29,6 +30,7 @@ const bootstrapImportRecovery = createBootstrapImportRecovery({
     buildId: frontendBuildIdentity
 });
 
+let publicBootIntent: PublicBootIntent | null = null;
 const publicBootCarrier = document.getElementById('fsus-public-boot-handoff');
 if (publicBootCarrier)
 {
@@ -39,6 +41,7 @@ if (publicBootCarrier)
         failClosedPublicBootNavigation(frontendBuildIdentity);
         throw new Error('public_boot_handoff_mismatch');
     }
+    publicBootIntent = handoff.intent;
 }
 
 installSafeConsoleGuard();
@@ -52,7 +55,7 @@ if (isPublicSeoPath(pathname) && hasServerAotShell(root))
 {
     void runBootstrapImport(
         () => import('@/bootstrap/publicShell'),
-        ({ bootstrapPublicShell }) => bootstrapPublicShell(),
+        ({ bootstrapPublicShell }) => bootstrapPublicShell({ bootIntent: publicBootIntent }),
         bootstrapImportRecovery
     );
 }

@@ -61,9 +61,6 @@ const getPublicHydrationTakeoverHandle = vi.fn(() => ({
   },
   activate: activatePublicTakeover
 }))
-const beginPublicTakeoverCommit = vi.fn(() => true)
-const completePublicTakeoverCommit = vi.fn(() => true)
-const resetPublicTakeover = vi.fn()
 const abortPublicShellLifetime = vi.fn()
 const markStartup = vi.fn()
 const measureStartup = vi.fn()
@@ -110,11 +107,6 @@ vi.mock('@/bootstrap/nonCriticalResources', () => ({ scheduleNonCriticalResource
 vi.mock('@/bootstrap/runtimeGate', () => ({ runtimeReady: { value: true }, scheduleFullAppRuntime }))
 vi.mock('@/bootstrap/publicShellPrimitives', () => ({ removeGlobalLoader }))
 vi.mock('@/public-renderers/clientHydrate', () => ({ getPublicHydrationTakeoverHandle }))
-vi.mock('@/bootstrap/publicTakeoverState', () => ({
-  beginPublicTakeoverCommit,
-  completePublicTakeoverCommit,
-  resetPublicTakeover
-}))
 vi.mock('@/bootstrap/publicShellLifetime', () => ({ abortPublicShellLifetime }))
 vi.mock('@/bootstrap/startupProfiler', () => ({ markStartup, measureStartup }))
 vi.mock('@/services/authSessionRuntime', () => ({
@@ -145,6 +137,7 @@ describe('full app bootstrap prepare/commit', () => {
 
     expect(prepared.router).toBe(fakeRouter)
     expect(createAppRouter).toHaveBeenCalledWith({
+      getPublicActivationOwner: expect.any(Function),
       prepareLocaleDomains: beginLocaleRouteTransaction,
       prewarmPublicRoute
     })
@@ -173,7 +166,6 @@ describe('full app bootstrap prepare/commit', () => {
       }
     })
 
-    expect(beginPublicTakeoverCommit).toHaveBeenCalledWith({ reason: 'full-app-bootstrap' })
     expect(abortPublicShellLifetime).toHaveBeenCalledWith('full-app-bootstrap')
     expect(activatePublicTakeover).toHaveBeenCalledTimes(1)
     expect(appMount).not.toHaveBeenCalled()
@@ -189,7 +181,6 @@ describe('full app bootstrap prepare/commit', () => {
       timeoutMs: 5000
     })
     expect(authSessionRuntimeInit).toHaveBeenCalledTimes(1)
-    expect(completePublicTakeoverCommit).toHaveBeenCalledWith({ reason: 'full-app-mounted' })
     expect(scheduleFullAppRuntime).toHaveBeenCalledWith(true, {
       allowIdleActivation: false,
       allowScrollActivation: false
@@ -204,7 +195,6 @@ describe('full app bootstrap prepare/commit', () => {
 
     expect(document.querySelector('#app > #fsus-aot-shell')?.textContent).toBe('AOT')
     expect(appMount).not.toHaveBeenCalled()
-    expect(resetPublicTakeover).not.toHaveBeenCalled()
   })
 
   it('resets public takeover state when commit fails', async () => {
@@ -216,8 +206,6 @@ describe('full app bootstrap prepare/commit', () => {
     const prepared = prepareFullApp({ takeover: 'public-shell' })
     await expect(commitPreparedFullApp(prepared)).rejects.toThrow('mount failed')
 
-    expect(resetPublicTakeover).toHaveBeenCalledWith({ reason: 'full-app-bootstrap-failed' })
-    expect(completePublicTakeoverCommit).not.toHaveBeenCalled()
   })
 
   it('resets public takeover state when route readiness times out during commit', async () => {
@@ -227,8 +215,6 @@ describe('full app bootstrap prepare/commit', () => {
     const prepared = prepareFullApp({ takeover: 'public-shell' })
     await expect(commitPreparedFullApp(prepared)).rejects.toThrow('route readiness timeout')
 
-    expect(resetPublicTakeover).toHaveBeenCalledWith({ reason: 'full-app-bootstrap-failed' })
-    expect(completePublicTakeoverCommit).not.toHaveBeenCalled()
   })
 
   it('deduplicates repeated direct SPA bootstrap calls', async () => {
@@ -248,11 +234,8 @@ describe('full app bootstrap prepare/commit', () => {
     )
     expect(initializeLocaleRuntime.mock.invocationCallOrder[0])
       .toBeLessThan(appMount.mock.invocationCallOrder[0]!)
-    expect(beginPublicTakeoverCommit).toHaveBeenCalledWith({ reason: 'direct-spa-bootstrap' })
-    expect(completePublicTakeoverCommit).toHaveBeenCalledWith({ reason: 'direct-spa-mounted' })
     expect(appMount).toHaveBeenCalledWith('#app')
     expect(removeGlobalLoader).toHaveBeenCalledTimes(1)
-    expect(resetPublicTakeover).not.toHaveBeenCalled()
   })
 
   it('clears failed bootstrap ownership so a later call can retry', async () => {
@@ -267,6 +250,5 @@ describe('full app bootstrap prepare/commit', () => {
 
     expect(createApp).toHaveBeenCalledTimes(2)
     expect(appMount).toHaveBeenCalledTimes(2)
-    expect(resetPublicTakeover).toHaveBeenCalledWith({ reason: 'full-app-bootstrap-failed' })
   })
 })

@@ -98,6 +98,7 @@
 
 ### Frontend
 
+- [Public activation ownership](architecture/public-activation-ownership.md)
 - [Public Preview Screenshots](assets/screenshots/README.md)
 - [Manifest](assets/screenshots/manifest.json)
 - [FsusBlog Design Governance](design/governance.md)

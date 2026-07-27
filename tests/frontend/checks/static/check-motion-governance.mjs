@@ -229,10 +229,10 @@ for (const forbidden of ['name="fade-fast"', '.fade-fast-', 'FsusBlogRouteTransi
 
 const publicShell = expectIncludes(
   'src/frontend/src/bootstrap/publicShell.ts',
-  'navigateWithAtomicPublicTakeover',
-  'public route atomic takeover navigation'
+  'submitPublicActivationIntent',
+  'public route activation coordinator submission'
 )
-for (const token of ['commitPreparedFullApp', 'prewarmFullAppRoute', 'navigateWithDocumentRequest']) {
+for (const token of ['submitPublicActivationIntent', 'warmPublicActivation', 'navigateWithDocumentRequest']) {
   if (!publicShell.includes(token)) {
     errors.push(`src/frontend/src/bootstrap/publicShell.ts: missing ${token}`)
   }

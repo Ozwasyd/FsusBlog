@@ -11605,6 +11605,64 @@
         "node-test:tests/tools/test-retention-audit.test.mjs#retentionsourcestate-binds-evidence-to-commit-and-exclud-aa00820b26"
       ],
       "reason": "Continuous lifecycle, retention and suite-convergence authorities replace the one-time optimization campaign without freezing tier counts, elapsed-time targets or historical report shape."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/bootstrap/publicTakeoverDeterminism.test.ts#keeps-frontend-shell-defaults-aligned-to-the-public-site-50dc268ab2",
+      "path": "tests/frontend/unit/bootstrap/publicTakeoverDeterminism.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/unit/public-renderers/publicSiteIdentity.test.ts#keeps-frontend-shell-defaults-aligned-to-the-public-site-50dc268ab2"
+      ],
+      "reason": "coverage moved with the production ownership cutover; no legacy activation phase authority remains"
+    },
+    {
+      "id": "vitest:tests/frontend/unit/bootstrap/publicTakeoverDeterminism.test.ts#normalizes-site-title-and-compliance-through-one-shared--6b4d90c983",
+      "path": "tests/frontend/unit/bootstrap/publicTakeoverDeterminism.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/unit/public-renderers/publicSiteIdentity.test.ts#normalizes-site-title-and-compliance-through-one-shared--6b4d90c983"
+      ],
+      "reason": "coverage moved with the production ownership cutover; no legacy activation phase authority remains"
+    },
+    {
+      "id": "vitest:tests/frontend/unit/bootstrap/publicTakeoverDeterminism.test.ts#creates-an-immutable-takeover-seed-from-the-public-hydra-9fc13eb920",
+      "path": "tests/frontend/unit/bootstrap/publicTakeoverDeterminism.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/unit/public-renderers/publicSiteIdentity.test.ts#creates-an-immutable-takeover-seed-from-the-public-hydra-9fc13eb920"
+      ],
+      "reason": "coverage moved with the production ownership cutover; no legacy activation phase authority remains"
+    },
+    {
+      "id": "vitest:tests/frontend/unit/bootstrap/publicTakeoverDeterminism.test.ts#rejects-a-takeover-payload-whose-render-locale-is-missin-49ebfbee74",
+      "path": "tests/frontend/unit/bootstrap/publicTakeoverDeterminism.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/unit/public-renderers/publicSiteIdentity.test.ts#rejects-a-takeover-payload-whose-render-locale-is-missin-49ebfbee74"
+      ],
+      "reason": "coverage moved with the production ownership cutover; no legacy activation phase authority remains"
+    },
+    {
+      "id": "vitest:tests/frontend/unit/bootstrap/publicTakeoverDeterminism.test.ts#uses-one-deterministic-public-takeover-state-machine-5534e450f1",
+      "path": "tests/frontend/unit/bootstrap/publicTakeoverDeterminism.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/unit/bootstrap/publicActivationCoordinator.test.ts#warms-an-idle-route-without-creating-a-fullapp-or-changi-52d2739b65",
+        "vitest:tests/frontend/unit/bootstrap/publicActivationCoordinator.test.ts#fails-closed-on-an-illegal-transition-without-changing-o-5b536aca37",
+        "node-script:tests/frontend/checks/static/check-public-atomic-takeover-governance.mjs"
+      ],
+      "reason": "old public activation phase authority retired; coordinator owns activation phases"
+    },
+    {
+      "id": "vitest:tests/frontend/unit/bootstrap/publicTakeoverDeterminism.test.ts#rejects-illegal-public-takeover-transitions-without-movi-8277405cee",
+      "path": "tests/frontend/unit/bootstrap/publicTakeoverDeterminism.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/unit/bootstrap/publicActivationCoordinator.test.ts#fails-closed-on-an-illegal-transition-without-changing-o-5b536aca37"
+      ],
+      "reason": "old public activation phase authority retired; coordinator owns activation phases"
+    },
+    {
+      "id": "vitest:tests/frontend/unit/bootstrap/publicTakeoverDeterminism.test.ts#aborts-public-shell-lifetime-listeners-exactly-once-6536d4f4d0",
+      "path": "tests/frontend/unit/bootstrap/publicTakeoverDeterminism.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/unit/bootstrap/publicShellLifetime.test.ts#aborts-public-shell-lifetime-listeners-exactly-once-1f21071ba6"
+      ],
+      "reason": "coverage moved with the production ownership cutover; no legacy activation phase authority remains"
     }
   ],
   "assertionReplacements": [

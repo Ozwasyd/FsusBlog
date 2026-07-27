@@ -10,7 +10,6 @@ import {
 import { resolveMotionScrollBehavior } from '@/composables/useMotionPreference'
 import { useSessionBootstrap } from '@/composables/useSessionBootstrap'
 import { hasServerAotShell } from '@/bootstrap/publicShellPrimitives'
-import { getPublicRuntimeOwner } from '@/bootstrap/publicTakeoverState'
 import { isPublicSearchRouteName, isPublicSeoRouteName, isPublicShellRouteName } from '@/public-renderers/publicPageModel'
 import { PUBLIC_SEARCH_ROUTE_NAME } from '@/public-renderers/publicRouteRegistry'
 import { normalizePublicSearchQuery } from '@/public-renderers/publicSearchRoutePolicy'
@@ -107,6 +106,7 @@ export type RouterFactoryOptions = Readonly<{
   ssr?: boolean
   prewarmPublicRoute?: PublicRoutePrewarmPort
   prepareLocaleDomains?: LocaleRoutePreparationPort
+  getPublicActivationOwner?: () => 'aot' | 'full-app'
 }>
 
 function readRouteRequiredPermissions(route: RouteLocationNormalized): string[] {
@@ -219,7 +219,7 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
       && publicSeoRoute
       && hasServerAotShell(appRoot)
     const fullAppOwnsPublicRoute =
-      getPublicRuntimeOwner() === 'spa'
+      options.getPublicActivationOwner?.() === 'full-app'
       || (appRoot !== null && !hasServerAotShell(appRoot) && from.matched.length > 0)
 
     if (!options.ssr && publicSeoRoute &&

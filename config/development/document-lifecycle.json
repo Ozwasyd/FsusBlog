@@ -343,7 +343,7 @@
                 1262
             ],
             "supersedes": [],
-            "supersededBy": null
+            "supersededBy": "docs/architecture/public-activation-ownership.md"
         },
         {
             "path": "docs/architecture/issue-1264-article-core-ownership.md",
@@ -396,6 +396,19 @@
                 1430
             ],
             "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/architecture/public-activation-ownership.md",
+            "status": "current",
+            "owner": "frontend",
+            "relatedIssues": [
+                1262,
+                1696
+            ],
+            "supersedes": [
+                "docs/architecture/issue-1262-router-bootstrap-ownership.md"
+            ],
             "supersededBy": null
         },
         {
@@ -3580,6 +3593,10 @@
         {
             "id": "online-database-migration",
             "path": "docs/online-database-migration.md"
+        },
+        {
+            "id": "public-activation-ownership",
+            "path": "docs/architecture/public-activation-ownership.md"
         },
         {
             "id": "public-preview-policy",

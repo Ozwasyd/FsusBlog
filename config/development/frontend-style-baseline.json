@@ -3,8 +3,8 @@
     "generatedFrom": "source-state:eff760c96daa43fde5fac4c0721ddc61c1951689573731e82ae54e35b4eefafb",
     "sourceStateSha256": "eff760c96daa43fde5fac4c0721ddc61c1951689573731e82ae54e35b4eefafb",
     "configurationSha256": "178ff83b1d2e9e0fbb167309754c7a7db206085a41f2f106ce0460c248918f26",
-    "violationCount": 304382,
-    "fileCount": 1057,
+    "violationCount": 304288,
+    "fileCount": 1055,
     "files": [
         {
             "path": "src/frontend/public/sw.js",
@@ -1020,19 +1020,6 @@
                 "eslint/@stylistic/indent": 94,
                 "eslint/@stylistic/member-delimiter-style": 8,
                 "eslint/@stylistic/semi": 51
-            }
-        },
-        {
-            "path": "src/frontend/src/bootstrap/publicTakeoverState.ts",
-            "sourceSha256": "febc2f38426f459e3faa968a1fd53c12a9e7e75ea31b6661f523ec4f43760fe2",
-            "violationCount": 94,
-            "violationDigest": "741d40039207cbf362f9b331b59778f1544c9b24b6b997610e94daf9e346ef98",
-            "rules": {
-                "eslint/@stylistic/brace-style": 14,
-                "eslint/@stylistic/indent": 45,
-                "eslint/@stylistic/member-delimiter-style": 3,
-                "eslint/@stylistic/semi": 31,
-                "eslint/import-x/order": 1
             }
         },
         {

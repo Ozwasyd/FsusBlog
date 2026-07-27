@@ -1,17 +1,21 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { shallowRef } from 'vue'
 
 async function loadSpaNavigationModeWithSeed(payload: unknown) {
   vi.resetModules()
+  const publicActivationState = shallowRef<{ phase: string }>({
+    phase: 'static-visible'
+  })
   vi.doMock('@/bootstrap/publicHydrationBootstrap', () => ({
     readPublicHydrationPayload: vi.fn(() => payload)
   }))
+  vi.doMock('@/bootstrap/publicActivationRuntime', () => ({
+    publicActivationState
+  }))
 
-  const [{ usePublicSpaNavigationMode }, takeoverState] = await Promise.all([
-    import('@/composables/usePublicSpaNavigationMode'),
-    import('@/bootstrap/publicTakeoverState')
-  ])
+  const { usePublicSpaNavigationMode } = await import('@/composables/usePublicSpaNavigationMode')
 
-  return { usePublicSpaNavigationMode, takeoverState }
+  return { usePublicSpaNavigationMode, publicActivationState }
 }
 
 describe('usePublicSpaNavigationMode', () => {
@@ -21,7 +25,7 @@ describe('usePublicSpaNavigationMode', () => {
   })
 
   it('keeps takeover first render on SSR-compatible navigation semantics until hydration completes', async () => {
-    const { usePublicSpaNavigationMode, takeoverState } = await loadSpaNavigationModeWithSeed({
+    const { usePublicSpaNavigationMode, publicActivationState } = await loadSpaNavigationModeWithSeed({
       pageKind: 'Home',
       routeKey: 'home',
       rendererVersion: 'test'
@@ -30,10 +34,10 @@ describe('usePublicSpaNavigationMode', () => {
 
     expect(spaNavigation.value).toBe(false)
 
-    takeoverState.beginPublicTakeoverCommit()
+    publicActivationState.value = { phase: 'committing' }
     expect(spaNavigation.value).toBe(false)
 
-    takeoverState.completePublicTakeoverCommit()
+    publicActivationState.value = { phase: 'interactive' }
     expect(spaNavigation.value).toBe(true)
   })
 

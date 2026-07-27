@@ -19,16 +19,18 @@ import {
   resetPublicShellLifetime
 } from '@/bootstrap/publicShellLifetime'
 import {
-  getPublicRuntimeOwner,
-  markPublicTakeoverFallback
-} from '@/bootstrap/publicTakeoverState'
+  adoptPublicBootIntent,
+  getPublicActivationOwner,
+  submitPublicActivationIntent,
+  warmPublicActivation
+} from '@/bootstrap/publicActivationRuntime'
+import type { PublicBootIntent } from '@/bootstrap/publicBootHandoff'
 import {
   resolvePublicRoutePrewarmTarget,
   type PublicRoutePrewarmReason
 } from '@/router/publicRoutePreload'
 import {
-  classifyPublicNavigationIntent,
-  type PublicAtomicNavigationIntent
+  classifyPublicNavigationIntent
 } from '@/bootstrap/publicNavigationIntent'
 import {
   activateLocalFixtureSession,
@@ -82,8 +84,6 @@ const HOME_HOT_ARTICLES_SENTINEL_ID = 'fsus-home-secondary-content-sentinel'
 const HOME_HOT_ARTICLES_ROOT_MARGIN = '600px 0px 600px 0px'
 const HOME_HOT_ARTICLES_FALLBACK_DELAY_MS = 2500
 const COMMENTS_ISLAND_FALLBACK_DELAY_MS = 2500
-
-type FullAppBootstrapModule = typeof import('@/bootstrap/fullApp')
 
 const PUBLIC_STYLE_FALLBACKS: CriticalStyleLink[] = [
   {
@@ -310,8 +310,6 @@ function validatePublicShellStylesheetsInBackground(styleLinks: HTMLLinkElement[
 
 let preBootstrapNavigationBound = false
 let hydratedPayload: PublicHydrationPayload | null = null
-let activeNavigationController: AbortController | null = null
-let activeNavigationToken = 0
 let hotArticlesIdleTask: number | null = null
 let hotArticlesFallbackTimer: number | null = null
 let hotArticlesIntersectionObserver: IntersectionObserver | null = null
@@ -320,7 +318,6 @@ let commentsIdleTask: number | null = null
 let commentsFallbackTimer: number | null = null
 let commentsIntersectionObserver: IntersectionObserver | null = null
 let commentsActivationVersion = 0
-let publicTakeoverPromise: Promise<void> | null = null
 let publicRoutePrewarmIdleTask: number | null = null
 let homeHotArticlesIslandModulePromise: Promise<typeof import('@/public-renderers/homeHotArticlesIsland')> | null = null
 let commentsIslandModulePromise: Promise<typeof import('@/public-renderers/commentsIsland')> | null = null
@@ -491,12 +488,11 @@ async function preparePublicShellLocalFixtureSession(): Promise<void> {
 }
 
 function requestPublicRoutePrewarm(target: string | null, reason: PublicRoutePrewarmReason): void {
-  if (!target || getPublicRuntimeOwner() === 'spa') {
+  if (!target || getPublicActivationOwner() === 'full-app') {
     return
   }
 
-  void import('@/bootstrap/fullApp')
-    .then(({ prewarmFullAppRoute }: FullAppBootstrapModule) => prewarmFullAppRoute(target, { reason }))
+  void warmPublicActivation(target, reason)
     .catch((e: unknown) => { if (import.meta.env.DEV) { console.warn('[publicShell] unmount failed', e) } })
 }
 
@@ -574,59 +570,28 @@ function waitForDocumentInteractive(): Promise<void> {
   })
 }
 
-async function startPublicTakeover(reason: 'pointerdown' | 'keydown' | 'scroll' | 'search-focus' | 'click'): Promise<void> {
-  if (getPublicRuntimeOwner() === 'spa') {
-    return
-  }
-
-  if (publicTakeoverPromise) {
-    return await publicTakeoverPromise
-  }
-
+async function startPublicActivation(reason: 'pointerdown' | 'keydown' | 'scroll' | 'search-focus' | 'click'): Promise<void> {
   clearDynamicIslands()
-  publicTakeoverPromise = import('@/bootstrap/fullApp')
-    .then(({ bootstrapFullApp }: FullAppBootstrapModule) => bootstrapFullApp({
-      deferRuntime: true,
-      takeover: 'public-shell'
-    }))
-    .then(() => {
-      emitTelemetry('public_shell_takeover_completed', { reason }, 'info')
-    })
-    .catch((error) => {
-      markPublicTakeoverFallback({
-        reason: 'full-app-takeover-failed',
-        source: reason,
-        target: window.location.href
-      })
-      emitTelemetry('public_shell_takeover_failed', {
-        reason,
-        error: error instanceof Error ? error.message : String(error)
-      }, 'warn')
-      navigateWithDocumentRequest(window.location.href)
-      throw error
-    })
-    .finally(() => {
-      if (getPublicRuntimeOwner() !== 'spa') {
-        publicTakeoverPromise = null
-      }
-    })
-
-  return await publicTakeoverPromise
+  await submitPublicActivationIntent({
+    kind: 'activate',
+    source: reason,
+    target: currentPublicShellFullPath()
+  })
 }
 
-export function schedulePublicTakeover(reason: 'pointerdown' | 'keydown' | 'scroll' | 'search-focus' | 'click'): void {
-  if (publicTakeoverPromise || getPublicRuntimeOwner() === 'spa') {
+function schedulePublicActivation(reason: 'pointerdown' | 'keydown' | 'scroll' | 'search-focus' | 'click'): void {
+  if (getPublicActivationOwner() === 'full-app' || getPublicActivationOwner() === 'document-navigation') {
     return
   }
 
-  void startPublicTakeover(reason).catch(() => {})
+  void startPublicActivation(reason).catch(() => {})
 }
 
-function bindPublicTakeoverTriggers(): void {
-  addPublicShellEventListener(window, 'fsus:public-shell:takeover', () => schedulePublicTakeover('click'))
+function bindPublicActivationTriggers(): void {
+  addPublicShellEventListener(window, 'fsus:public-shell:takeover', () => schedulePublicActivation('click'))
   addPublicShellEventListener(window, 'fsus:public-shell:search-focus', () => {
     requestPublicRoutePrewarm('/search', 'search-focus')
-    schedulePublicTakeover('search-focus')
+    schedulePublicActivation('search-focus')
   })
 }
 
@@ -815,93 +780,17 @@ function scheduleDynamicIslands(payload: PublicHydrationPayload | null): void {
   }
 }
 
-async function navigateWithAtomicPublicTakeover(intent: PublicAtomicNavigationIntent): Promise<void> {
-  const target = new URL(intent.href, window.location.origin)
-  activeNavigationController?.abort()
-  const controller = new AbortController()
-  activeNavigationController = controller
-  const navigationToken = ++activeNavigationToken
-
-  emitTelemetry('public_navigation_atomic_start', {
-    source: intent.source,
-    target: intent.fullPath
-  }, 'info')
-
-  try {
-    const fullAppModule: FullAppBootstrapModule = await import('@/bootstrap/fullApp')
-    const prewarmResult = await fullAppModule.prewarmFullAppRoute(intent.fullPath, {
-      reason: 'atomic-navigation',
-      signal: controller.signal
-    })
-    if (controller.signal.aborted || navigationToken !== activeNavigationToken) {
-      return
-    }
-
-    if (prewarmResult.status !== 'ready') {
-      markPublicTakeoverFallback({
-        reason: 'atomic-navigation-prewarm-not-ready',
-        source: intent.source,
-        target: target.toString()
-      })
-      emitTelemetry('public_navigation_atomic_document_fallback', {
-        source: intent.source,
-        status: prewarmResult.status,
-        target: intent.fullPath
-      }, 'warn')
-      if (activeNavigationController === controller) {
-        activeNavigationController = null
-      }
-      navigateWithDocumentRequest(target.toString())
-      return
-    }
-
-    const { commitPreparedFullApp, prepareFullApp } = fullAppModule
-    const prepared = prepareFullApp({
-      deferRuntime: true,
-      takeover: 'public-shell'
-    })
-    if (controller.signal.aborted || navigationToken !== activeNavigationToken) {
-      return
-    }
-
-    await commitPreparedFullApp(prepared, {
-      navigationIntent: {
-        to: intent.fullPath
-      }
-    })
-    emitTelemetry('public_navigation_atomic_completed', {
-      source: intent.source,
-      target: intent.fullPath
-    }, 'info')
-  } catch (error) {
-    if ((error as { name?: string } | null)?.name === 'AbortError' || controller.signal.aborted) {
-      return
-    }
-
-    markPublicTakeoverFallback({
-      reason: 'atomic-navigation-failed',
-      source: intent.source,
-      target: target.toString()
-    })
-    emitTelemetry('public_navigation_atomic_failed', {
-      error: error instanceof Error ? error.message : String(error),
-      source: intent.source,
-      target: intent.fullPath
-    }, 'warn')
-    navigateWithDocumentRequest(target.toString())
-  } finally {
-    if (activeNavigationController === controller) {
-      activeNavigationController = null
-    }
-  }
-}
-
 async function navigateWithPublicIntent(
   intent: ReturnType<typeof classifyPublicNavigationIntent>,
   fallbackHref: string
 ): Promise<boolean> {
   if (intent.kind === 'atomic-public-route') {
-    await navigateWithAtomicPublicTakeover(intent)
+    clearDynamicIslands()
+    await submitPublicActivationIntent({
+      kind: 'navigate',
+      source: intent.source,
+      target: intent.fullPath
+    })
     return true
   }
 
@@ -962,7 +851,7 @@ export function bindPreBootstrapNavigation(): void {
 
   preBootstrapNavigationBound = true
   addPublicShellEventListener(document, 'click', (event) => {
-    if (getPublicRuntimeOwner() === 'spa') {
+    if (getPublicActivationOwner() === 'full-app') {
       return
     }
 
@@ -1024,7 +913,12 @@ export function bindPreBootstrapNavigation(): void {
     }
 
     event.preventDefault()
-    void navigateWithAtomicPublicTakeover(intent)
+    clearDynamicIslands()
+    void submitPublicActivationIntent({
+      kind: 'navigate',
+      source: intent.source,
+      target: intent.fullPath
+    })
   }, { capture: true, passive: false })
   addPublicShellEventListener(document, 'pointerenter', (event) => {
     requestPublicAnchorPrewarm(event, 'pointerenter')
@@ -1053,12 +947,14 @@ async function hydratePublicShell(): Promise<void> {
   clearPublicFirstPaintFlag()
 }
 
-export async function bootstrapPublicShell(): Promise<void> {
+export type BootstrapPublicShellOptions = Readonly<{
+  bootIntent?: PublicBootIntent | null
+}>
+
+export async function bootstrapPublicShell(options: BootstrapPublicShellOptions = {}): Promise<void> {
   resetPublicShellLifetime()
   resetPublicShellRuntimeAuthState()
   onPublicShellLifetimeAbort(() => {
-    activeNavigationController?.abort()
-    activeNavigationController = null
     clearPublicRouteIdlePrewarm()
     clearDynamicIslands()
     preBootstrapNavigationBound = false
@@ -1069,8 +965,9 @@ export async function bootstrapPublicShell(): Promise<void> {
     document.body.setAttribute('data-fsusblog-public-first-paint', 'true')
   }
   bindPreBootstrapNavigation()
-  bindPublicTakeoverTriggers()
+  bindPublicActivationTriggers()
   schedulePublicRouteIdlePrewarm()
+  adoptPublicBootIntent(options.bootIntent ?? null)
   const hydrateTask = (async () => {
     await waitForDocumentInteractive()
     await preparePublicShellLocalFixtureSession()

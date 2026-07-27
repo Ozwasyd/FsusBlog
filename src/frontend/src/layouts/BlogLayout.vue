@@ -18,7 +18,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useSessionBootstrap } from '@/composables/useSessionBootstrap'
 import { readPublicHydrationPayload } from '@/bootstrap/publicHydrationBootstrap'
 import { runtimeReady } from '@/bootstrap/runtimeGate'
-import { publicTakeoverPhaseState } from '@/bootstrap/publicTakeoverState'
+import { publicActivationState } from '@/bootstrap/publicActivationRuntime'
 import PublicBlogLayoutShell from '@/components/public/PublicBlogLayoutShell.vue'
 import {
   isPublicSearchRouteName,
@@ -54,7 +54,7 @@ const hydrationKind = computed(() => {
 })
 
 const isSearchRoute = computed(() => isPublicSearchRouteName(route.name))
-const shouldUseTakeoverShellSeed = computed(() => takeoverShellSeed !== null && publicTakeoverPhaseState.value !== 'spa-active')
+const shouldUseTakeoverShellSeed = computed(() => takeoverShellSeed !== null && publicActivationState.value.phase !== 'interactive')
 const activeSiteIdentity = computed(() => createPublicSiteIdentity({
   siteTitle: shouldUseTakeoverShellSeed.value ? takeoverShellSeed?.siteTitle : siteStore.siteInfo.title,
   siteDescription: shouldUseTakeoverShellSeed.value ? takeoverShellSeed?.siteDescription : siteStore.siteInfo.description,

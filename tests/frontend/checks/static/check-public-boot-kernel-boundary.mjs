@@ -55,6 +55,10 @@ assert(
     /consumePublicBootHandoff\(frontendBuildIdentity\)/u.test(entry),
     'entry must compare the handoff with its current build identity'
 );
+assert(
+    /bootstrapPublicShell\(\{\s*bootIntent:\s*publicBootIntent\s*\}\)/u.test(entry),
+    'entry must pass the one-shot BootKernel intent into public activation composition'
+);
 for (const mark of ['public-boot-preload', 'public-boot-entry-injected'])
 {
     assert(

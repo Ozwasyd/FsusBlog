@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v2",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:654cdcf680f87dd2c6e83952a8b20c7ad23af110154d98776ff4b71971af3ef8",
+    "policyDigest": "sha256:3a423bfbcb28b0858d4d080415c1f97add05eab61af8414be2193dc2d14f56a4",
     "documents": [
         {
             "path": "docs/active-release-fenced-commits.md",
@@ -552,7 +552,7 @@
             "sourceOfTruth": false,
             "lastVerifiedCommit": "65089dbcdaff10e01b2af79bdb5d3fcb14c9b94b",
             "supersedes": [],
-            "supersededBy": null,
+            "supersededBy": "docs/architecture/public-activation-ownership.md",
             "relatedIssues": [
                 1262
             ],
@@ -675,6 +675,24 @@
             "supersedes": [],
             "supersededBy": null,
             "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/architecture/public-activation-ownership.md",
+            "title": "Public activation ownership",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "frontend",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "65089dbcdaff10e01b2af79bdb5d3fcb14c9b94b",
+            "supersedes": [
+                "docs/architecture/issue-1262-router-bootstrap-ownership.md"
+            ],
+            "supersededBy": null,
+            "relatedIssues": [
+                1262,
+                1696
+            ],
             "producer": null
         },
         {

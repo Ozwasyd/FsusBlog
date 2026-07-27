@@ -159,8 +159,7 @@ async function importPublicShell(
   vi.doMock('@/bootstrap/fullApp', () => ({
     bootstrapFullApp,
     commitPreparedFullApp,
-    prepareFullApp,
-    prewarmFullAppRoute: prewarmPublicRoute
+    prepareFullApp
   }))
   vi.doMock('@/router/publicRoutePreload', () => ({
     resolvePublicRoutePrewarmTarget: vi.fn(() => null)
@@ -171,9 +170,11 @@ async function importPublicShell(
   vi.doMock('@/public-renderers/publicRouteSeedStore', () => ({
     putPublicRouteSeed: vi.fn()
   }))
-  vi.doMock('@/bootstrap/publicTakeoverState', () => ({
-    getPublicRuntimeOwner: vi.fn(() => 'public-shell'),
-    markPublicTakeoverFallback: vi.fn()
+  vi.doMock('@/bootstrap/publicActivationRuntime', () => ({
+    adoptPublicBootIntent: vi.fn(),
+    getPublicActivationOwner: vi.fn(() => 'aot'),
+    submitPublicActivationIntent: vi.fn(async () => ({ status: 'interactive' })),
+    warmPublicActivation: prewarmPublicRoute
   }))
   vi.doMock('@/bootstrap/publicNavigationIntent', () => ({
     classifyPublicNavigationIntent: vi.fn(() => ({ kind: 'comments-island' }))

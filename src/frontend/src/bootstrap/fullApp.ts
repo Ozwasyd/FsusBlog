@@ -10,11 +10,7 @@ import {
   isSupportedLocale
 } from '@/locales'
 import { requiredLocaleDomainsForRoute } from '@/locales/routeLocaleDomains'
-import {
-  prewarmPublicRoute,
-  type PublicRoutePrewarmOptions,
-  type PublicRoutePrewarmResult
-} from '@/router/publicRoutePreload'
+import { prewarmPublicRoute } from '@/router/publicRoutePreload'
 import PublicBlogLayoutShell from '@/components/public/PublicBlogLayoutShell.vue'
 import { provideFsusUiAppContext } from '@/fsusui/appContext'
 import { installFsusUiLoading } from '@/fsusui/feedback'
@@ -36,11 +32,6 @@ import { normalizePublicSearchKeyword } from '@/public-renderers/publicSearchRou
 import { createPublicShellViewState } from '@/public-renderers/publicShellViewState'
 import { createPublicTakeoverSeed } from '@/public-renderers/publicSiteIdentity'
 import {
-  beginPublicTakeoverCommit,
-  completePublicTakeoverCommit,
-  resetPublicTakeover
-} from '@/bootstrap/publicTakeoverState'
-import {
   DEFAULT_PUBLIC_TAKEOVER_ROUTE_READY_TIMEOUT_MS,
   beginPublicTakeoverVisualGuard,
   waitForPublicTakeoverVisualReady
@@ -51,15 +42,11 @@ import { authBroadcastRuntime } from '@/services/authBroadcastRuntime'
 import { authSessionRuntime } from '@/services/authSessionRuntime'
 import '@/assets/main.css'
 
-const router = createAppRouter({
-  prepareLocaleDomains: beginLocaleRouteTransaction,
-  prewarmPublicRoute
-})
-
 export type BootstrapFullAppOptions = {
   deferRuntime?: boolean
   hydrate?: boolean
   takeover?: 'public-shell' | 'direct'
+  getPublicActivationOwner?: () => 'aot' | 'full-app'
 }
 
 export type FullAppNavigationIntent = Readonly<{
@@ -67,31 +54,36 @@ export type FullAppNavigationIntent = Readonly<{
   replace?: boolean
 }>
 
-export function prewarmFullAppRoute(
-  target: string | URL,
-  options: PublicRoutePrewarmOptions
-): Promise<PublicRoutePrewarmResult> {
-  return prewarmPublicRoute(target, options)
-}
-
 export type CommitPreparedFullAppOptions = Readonly<{
   navigationIntent?: FullAppNavigationIntent
   routeReadinessTimeoutMs?: number
 }>
 
+type AppRouter = ReturnType<typeof createAppRouter>
+
 export type PreparedFullApp = Readonly<{
   app: ReturnType<typeof createApp>
   pinia: ReturnType<typeof createPinia>
   head: ReturnType<typeof createHead>
-  router: typeof router
+  router: AppRouter
   options: BootstrapFullAppOptions
   isPublicShellTakeover: boolean
   isDirectSpaBootstrap: boolean
   publicTakeover: PublicHydrationTakeoverHandle | null
 }>
 
-let bootstrapPromise: Promise<typeof router> | null = null
+let bootstrapPromise: Promise<AppRouter> | null = null
 let deferredMotionInstallStarted = false
+let router: AppRouter
+
+function ensureAppRouter(options: BootstrapFullAppOptions): AppRouter {
+  router ??= createAppRouter({
+    prepareLocaleDomains: beginLocaleRouteTransaction,
+    prewarmPublicRoute,
+    getPublicActivationOwner: options.getPublicActivationOwner ?? (() => 'full-app')
+  })
+  return router
+}
 
 type IdleWindow = Window & {
   requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
@@ -109,7 +101,8 @@ function readCurrentBrowserRoute(): string {
 }
 
 async function prepareInitialLocaleForFullApp(options: BootstrapFullAppOptions): Promise<void> {
-  const route = router.resolve(readCurrentBrowserRoute())
+  const appRouter = ensureAppRouter(options)
+  const route = appRouter.resolve(readCurrentBrowserRoute())
   const takeoverLocale = options.takeover === 'public-shell'
     ? getPublicHydrationTakeoverHandle()?.payload.renderLocale
     : undefined
@@ -131,7 +124,7 @@ async function syncRouterToCurrentLocationForClientMount(): Promise<void> {
 }
 
 function installFullAppPlugins(prepared: PreparedFullApp): void {
-  const { app, pinia, head } = prepared
+  const { app, pinia, head, router: preparedRouter } = prepared
 
   // FsusUI 1.4 MessageBox reads `center` during its initial render before
   // programmatic options are copied onto the instance.
@@ -142,7 +135,7 @@ function installFullAppPlugins(prepared: PreparedFullApp): void {
     pinia.use(piniaPluginPersistedstate)
     app.use(pinia)
   }
-  app.use(router)
+  app.use(preparedRouter)
   installFsusUiLoading(app)
   if (!prepared.isPublicShellTakeover) {
     provideFsusUiAppContext(app)
@@ -277,25 +270,14 @@ export function prepareFullApp(options: BootstrapFullAppOptions = {}): PreparedF
     app: publicTakeover?.app ?? createApp(App),
     pinia: publicTakeover?.pinia ?? createPinia(),
     head: createHead(),
-    router,
+    router: ensureAppRouter(options),
     options,
     isPublicShellTakeover,
     isDirectSpaBootstrap,
     publicTakeover
   }
 
-  if (isDirectSpaBootstrap) {
-    beginPublicTakeoverCommit({ reason: 'direct-spa-bootstrap' })
-  }
-
-  try {
-    installFullAppPlugins(prepared)
-  } catch (error) {
-    if (isDirectSpaBootstrap) {
-      resetPublicTakeover({ reason: 'direct-spa-prepare-failed' })
-    }
-    throw error
-  }
+  installFullAppPlugins(prepared)
   return prepared
 }
 
@@ -319,7 +301,7 @@ function resolvePublicTakeoverNavigationId(options: CommitPreparedFullAppOptions
 export async function commitPreparedFullApp(
   prepared: PreparedFullApp,
   options: CommitPreparedFullAppOptions = {}
-): Promise<typeof router> {
+): Promise<AppRouter> {
   try {
     const visualGuard = prepared.isPublicShellTakeover
       ? beginPublicTakeoverVisualGuard({
@@ -329,7 +311,6 @@ export async function commitPreparedFullApp(
       : null
 
     if (prepared.isPublicShellTakeover) {
-      beginPublicTakeoverCommit({ reason: 'full-app-bootstrap' })
       abortPublicShellLifetime('full-app-bootstrap')
       await syncRouterToCurrentLocationForClientMount()
       await router.isReady()
@@ -355,12 +336,7 @@ export async function commitPreparedFullApp(
     await replayNavigationIntent(options.navigationIntent)
     await waitForPublicTakeoverVisualReady(visualGuard)
     markStartup('full-app-bootstrap:router-ready')
-    if (prepared.isPublicShellTakeover) {
-      completePublicTakeoverCommit({ reason: 'full-app-mounted' })
-    } else if (prepared.isDirectSpaBootstrap) {
-      completePublicTakeoverCommit({ reason: 'direct-spa-mounted' })
-      markDirectPublicShellReady()
-    } else {
+    if (!prepared.isPublicShellTakeover) {
       markDirectPublicShellReady()
     }
     measureStartup('full-app-bootstrap', 'full-app-bootstrap:start', 'full-app-bootstrap:mounted')
@@ -368,15 +344,11 @@ export async function commitPreparedFullApp(
     removeGlobalLoader()
     return router
   } catch (error) {
-    if (prepared.isPublicShellTakeover || prepared.isDirectSpaBootstrap) {
-      resetPublicTakeover({ reason: 'full-app-bootstrap-failed' })
-    }
-
     throw error
   }
 }
 
-export function bootstrapFullApp(options?: BootstrapFullAppOptions): Promise<typeof router> {
+export function bootstrapFullApp(options?: BootstrapFullAppOptions): Promise<AppRouter> {
   if (bootstrapPromise) {
     return bootstrapPromise
   }
