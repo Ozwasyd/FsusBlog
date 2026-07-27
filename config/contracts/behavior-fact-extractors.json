@@ -1,0 +1,63 @@
+{
+    "schema": "fsusblog.behavior-fact-extractor-registry.v1",
+    "digestAlgorithm": "sha256",
+    "canonicalSerialization": "json-utf8-v1",
+    "extractors": [
+        {
+            "id": "test-asset-audit-fact-extractor",
+            "kind": "canonical-catalog",
+            "entrypoint": "tools/fact-extractors/seeds/test-asset-audit-seed.mjs",
+            "consumedInputs": [
+                "tests/coverage-registry.json"
+            ],
+            "outputSchema": "fsusblog.fact-observation-receipt.v1",
+            "requiredBuildArtifact": null,
+            "hermeticPolicy": "declared-inputs",
+            "ownedBehaviorIds": [
+                "test-asset-audit-reconciliation"
+            ]
+        },
+        {
+            "id": "code-intent-fact-extractor",
+            "kind": "canonical-catalog",
+            "entrypoint": "tools/fact-extractors/seeds/code-intent-seed.mjs",
+            "consumedInputs": [
+                "tests/governance/code-intent-registry.json"
+            ],
+            "outputSchema": "fsusblog.fact-observation-receipt.v1",
+            "requiredBuildArtifact": null,
+            "hermeticPolicy": "declared-inputs",
+            "ownedBehaviorIds": [
+                "code-intent-governance"
+            ]
+        },
+        {
+            "id": "document-lifecycle-fact-extractor",
+            "kind": "canonical-catalog",
+            "entrypoint": "tools/fact-extractors/seeds/document-lifecycle-seed.mjs",
+            "consumedInputs": [
+                "config/development/document-lifecycle.json"
+            ],
+            "outputSchema": "fsusblog.fact-observation-receipt.v1",
+            "requiredBuildArtifact": null,
+            "hermeticPolicy": "declared-inputs",
+            "ownedBehaviorIds": [
+                "document-lifecycle-governance"
+            ]
+        },
+        {
+            "id": "test-matrix-fact-extractor",
+            "kind": "matrix-projection",
+            "entrypoint": "tools/fact-extractors/seeds/test-matrix-seed.mjs",
+            "consumedInputs": [
+                "tests/matrix.yml"
+            ],
+            "outputSchema": "fsusblog.fact-observation-receipt.v1",
+            "requiredBuildArtifact": null,
+            "hermeticPolicy": "declared-inputs",
+            "ownedBehaviorIds": [
+                "browserless-production-correctness"
+            ]
+        }
+    ]
+}

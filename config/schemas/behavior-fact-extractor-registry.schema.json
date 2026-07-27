@@ -1,0 +1,109 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "fsusblog.behavior-fact-extractor-registry.v1",
+    "title": "FsusBlog behavior fact ExtractorRegistry",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "digestAlgorithm",
+        "canonicalSerialization",
+        "extractors"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.behavior-fact-extractor-registry.v1"
+        },
+        "digestAlgorithm": {
+            "const": "sha256"
+        },
+        "canonicalSerialization": {
+            "const": "json-utf8-v1"
+        },
+        "extractors": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "$ref": "#/$defs/extractor"
+            }
+        }
+    },
+    "$defs": {
+        "extractor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "kind",
+                "entrypoint",
+                "consumedInputs",
+                "outputSchema",
+                "requiredBuildArtifact",
+                "hermeticPolicy",
+                "ownedBehaviorIds"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]*$"
+                },
+                "kind": {
+                    "enum": [
+                        "source-ast",
+                        "compiled-assembly",
+                        "canonical-catalog",
+                        "generated-contract",
+                        "matrix-projection"
+                    ]
+                },
+                "entrypoint": {
+                    "type": "string",
+                    "pattern": "^tools/fact-extractors/"
+                },
+                "consumedInputs": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "outputSchema": {
+                    "const": "fsusblog.fact-observation-receipt.v1"
+                },
+                "requiredBuildArtifact": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "hermeticPolicy": {
+                    "enum": [
+                        "source-worktree",
+                        "exact-build-receipt",
+                        "declared-inputs"
+                    ]
+                },
+                "ownedBehaviorIds": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9-]*$"
+                    }
+                }
+            }
+        },
+        "forbiddenKinds": {
+            "description": "Kinds that are never admitted as static extractors.",
+            "enum": [
+                "shell-command",
+                "http-endpoint",
+                "database-query",
+                "browser"
+            ]
+        }
+    }
+}
