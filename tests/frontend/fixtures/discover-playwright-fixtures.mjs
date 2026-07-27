@@ -33,7 +33,7 @@ const seedArticleTitle = process.env.FSUSBLOG_PLAYWRIGHT_ARTICLE_TITLE || 'Accep
 const seedArticleSummary = process.env.FSUSBLOG_PLAYWRIGHT_ARTICLE_SUMMARY
   || 'Acceptance smoke summary for public routes and dashboard coverage.'
 const seedArticleMarkdown = process.env.FSUSBLOG_PLAYWRIGHT_ARTICLE_MARKDOWN
-  || 'Public preview content for browser verification.\n\nThis stable paragraph verifies hydration and article rendering.'
+  || 'Public preview content for browser verification.\n\n![Acceptance body image](/fixtures/acceptance-cover-primary.svg)\n\nThis stable paragraph verifies hydration and article rendering.'
 const seedArticleCoverImageUrl = process.env.FSUSBLOG_PLAYWRIGHT_ARTICLE_COVER_URL
   || '/fixtures/acceptance-cover-primary.svg'
 const seedPublicHomeArticles = [

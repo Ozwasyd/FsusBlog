@@ -61,6 +61,7 @@ export async function openUxViewportProgress({
       mode: plan.mode,
       planFingerprint: plan.fingerprint,
       matrixVersion: plan.matrixVersion,
+      safeAreaVersion: plan.safeAreaVersion ?? null,
       status: 'running',
       startedAt,
       updatedAt: startedAt,
@@ -69,9 +70,12 @@ export async function openUxViewportProgress({
       selection: plan.selection ? structuredClone(plan.selection) : null,
       actual: {
         completedRouteThemeGroups: 0,
+        completedSafeAreaGroups: 0,
         navigations: 0,
         cases: 0,
-        failedRouteThemeGroups: 0
+        safeAreaCases: 0,
+        failedRouteThemeGroups: 0,
+        failedSafeAreaGroups: 0
       },
       completedGroupIds: [],
       groupResults: [],
@@ -122,10 +126,15 @@ export async function recordUxViewportGroupResult({
     }
 
     const completedAt = now()
+    const isSafeArea = group.kind === 'safe-area'
     const result = {
       groupId,
+      kind: group.kind ?? 'route-theme',
       routeId: group.route.id,
       theme: group.theme,
+      browser: group.browser ?? null,
+      surfaceId: group.surface?.id ?? null,
+      profileId: group.profile?.id ?? null,
       status,
       navigations: group.viewports.length,
       cases: group.viewports.reduce((total, viewport) => total + viewport.steps.length, 0),
@@ -146,22 +155,32 @@ export async function recordUxViewportGroupResult({
     const passedResults = groupResults.filter((entry) => entry.status === 'passed')
     const failedResults = groupResults.filter((entry) => entry.status === 'failed')
     const completedGroupIds = passedResults.map((entry) => entry.groupId)
-    const isComplete = completedGroupIds.length === plan.counts.routeThemeGroups
+    const plannedGroupCount = plan.counts.routeThemeGroups + (plan.counts.safeAreaGroups ?? 0)
+    const isComplete = completedGroupIds.length === plannedGroupCount
     const nextStatus = failedResults.length > 0 ? 'failed' : isComplete ? 'passed' : 'running'
+    const passedRouteTheme = passedResults.filter((entry) => entry.kind !== 'safe-area')
+    const passedSafeArea = passedResults.filter((entry) => entry.kind === 'safe-area')
+    const failedRouteTheme = failedResults.filter((entry) => entry.kind !== 'safe-area')
+    const failedSafeArea = failedResults.filter((entry) => entry.kind === 'safe-area')
     const next = {
       ...progress,
       status: nextStatus,
       updatedAt: completedAt,
       finishedAt: nextStatus === 'running' ? null : completedAt,
       actual: {
-        completedRouteThemeGroups: passedResults.length,
+        completedRouteThemeGroups: passedRouteTheme.length,
+        completedSafeAreaGroups: passedSafeArea.length,
         navigations: passedResults.reduce((total, entry) => total + entry.navigations, 0),
         cases: passedResults.reduce((total, entry) => total + entry.cases, 0),
-        failedRouteThemeGroups: failedResults.length
+        safeAreaCases: passedSafeArea.reduce((total, entry) => total + entry.cases, 0),
+        failedRouteThemeGroups: failedRouteTheme.length,
+        failedSafeAreaGroups: failedSafeArea.length
       },
       completedGroupIds,
       groupResults
     }
+    // Keep linter aware that isSafeArea is part of the result contract.
+    void isSafeArea
     await writeJsonAtomic(run.progressFile, next)
     return next
   })

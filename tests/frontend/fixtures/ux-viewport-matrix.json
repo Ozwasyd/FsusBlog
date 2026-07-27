@@ -185,6 +185,136 @@
       "boundaryFull": true
     }
   ],
+  "safeArea": {
+    "version": "fsusblog-ux-safe-area-v1",
+    "generatedFrom": "issue-1789",
+    "cssVariables": [
+      "--fsus-safe-area-inset-top",
+      "--fsus-safe-area-inset-right",
+      "--fsus-safe-area-inset-bottom",
+      "--fsus-safe-area-inset-left",
+      "--fsus-viewport-block-size"
+    ],
+    "profiles": {
+      "zero-inset": {
+        "id": "zero-inset",
+        "viewport": { "width": 390, "height": 844 },
+        "insets": { "top": 0, "right": 0, "bottom": 0, "left": 0 }
+      },
+      "portrait-notch": {
+        "id": "portrait-notch",
+        "viewport": { "width": 390, "height": 844 },
+        "insets": { "top": 47, "right": 0, "bottom": 34, "left": 0 }
+      },
+      "landscape-notch": {
+        "id": "landscape-notch",
+        "viewport": { "width": 844, "height": 390 },
+        "insets": { "top": 0, "right": 59, "bottom": 21, "left": 59 }
+      },
+      "short-visual": {
+        "id": "short-visual",
+        "viewport": { "width": 390, "height": 430 },
+        "insets": { "top": 47, "right": 0, "bottom": 34, "left": 0 }
+      }
+    },
+    "overlayRiskSurfaces": [
+      {
+        "id": "fsus-dialog",
+        "surface": "FsusDialog",
+        "routeId": "public-register",
+        "open": "policy-modal",
+        "overlayRisk": true,
+        "profilesByMode": {
+          "smoke": ["portrait-notch"],
+          "visual": ["portrait-notch", "short-visual"],
+          "boundaries": ["zero-inset", "portrait-notch", "short-visual"]
+        },
+        "browsersByMode": {
+          "smoke": ["chromium"],
+          "visual": ["chromium", "webkit"],
+          "boundaries": ["chromium", "webkit"]
+        },
+        "themesByMode": {
+          "smoke": ["light"],
+          "visual": ["light"],
+          "boundaries": ["light"]
+        }
+      },
+      {
+        "id": "message-box",
+        "surface": "MessageBox",
+        "routeId": "manage-settings",
+        "open": "settings-refresh-cache",
+        "overlayRisk": true,
+        "profilesByMode": {
+          "smoke": ["portrait-notch"],
+          "visual": ["portrait-notch", "landscape-notch"],
+          "boundaries": ["zero-inset", "portrait-notch", "landscape-notch"]
+        },
+        "browsersByMode": {
+          "smoke": ["chromium"],
+          "visual": ["chromium", "webkit"],
+          "boundaries": ["chromium", "webkit"]
+        },
+        "themesByMode": {
+          "smoke": ["light"],
+          "visual": ["light"],
+          "boundaries": ["light"]
+        }
+      },
+      {
+        "id": "article-lightbox",
+        "surface": "ArticleImageLightbox",
+        "routeId": "public-article",
+        "open": "article-image-lightbox",
+        "overlayRisk": true,
+        "profilesByMode": {
+          "smoke": ["portrait-notch"],
+          "visual": ["portrait-notch", "landscape-notch"],
+          "boundaries": ["zero-inset", "portrait-notch", "landscape-notch", "short-visual"]
+        },
+        "browsersByMode": {
+          "smoke": ["webkit"],
+          "visual": ["chromium", "webkit"],
+          "boundaries": ["chromium", "webkit"]
+        },
+        "themesByMode": {
+          "smoke": ["light"],
+          "visual": ["light"],
+          "boundaries": ["light"]
+        }
+      },
+      {
+        "id": "account-drawer",
+        "surface": "Drawer",
+        "routeId": "user-profile",
+        "open": "account-mobile-drawer",
+        "overlayRisk": true,
+        "profilesByMode": {
+          "smoke": [],
+          "visual": ["landscape-notch"],
+          "boundaries": ["landscape-notch", "short-visual"]
+        },
+        "browsersByMode": {
+          "smoke": [],
+          "visual": ["chromium", "webkit"],
+          "boundaries": ["chromium", "webkit"]
+        },
+        "themesByMode": {
+          "smoke": [],
+          "visual": ["light"],
+          "boundaries": ["light"]
+        }
+      }
+    ],
+    "assertions": [
+      "assertScrimCoversViewport",
+      "assertControlsInsideSafeRect",
+      "assertOverlayActionsReachable",
+      "assertNoBodyOverflowLeak",
+      "assertOverlayCloseRestoresFocusAndScroll"
+    ]
+  },
   "modes": {
     "smoke": {
       "artifact": ".tmp/ux/viewport-smoke.json",

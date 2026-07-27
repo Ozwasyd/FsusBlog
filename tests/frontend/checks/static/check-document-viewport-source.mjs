@@ -129,13 +129,15 @@ function relative(filePath)
 }
 
 /** Pure validators used by live checks and mutation proofs. */
-function validateIndexHtml(html)
+export function validateIndexHtml(html, label = 'src/frontend/index.html')
 {
     /** @type {string[]} */
     const local = [];
-    assertUniqueCanonicalViewport('src/frontend/index.html', html, (message) => local.push(message));
+    assertUniqueCanonicalViewport(label, html, (message) => local.push(message));
     return local;
 }
+
+export { assertUniqueCanonicalViewport, CANONICAL_VIEWPORT_CONTENT, CANONICAL_VIEWPORT_META }
 
 function validateAppVue(source)
 {

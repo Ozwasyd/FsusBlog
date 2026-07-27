@@ -130,9 +130,12 @@ test('concurrent group completion merges results through atomic writes', async (
   assert.deepEqual(progress.completedGroupIds.sort(), plan.groups.map((group) => group.id).sort())
   assert.deepEqual(progress.actual, {
     completedRouteThemeGroups: plan.counts.routeThemeGroups,
+    completedSafeAreaGroups: plan.counts.safeAreaGroups ?? 0,
     navigations: plan.counts.navigations,
     cases: plan.counts.cases,
-    failedRouteThemeGroups: 0
+    safeAreaCases: plan.counts.safeAreaCases ?? 0,
+    failedRouteThemeGroups: 0,
+    failedSafeAreaGroups: 0
   })
   assert.deepEqual(
     (await readdir(path.dirname(run.progressFile))).filter((name) => name.includes('.tmp-') || name.endsWith('.lock')),

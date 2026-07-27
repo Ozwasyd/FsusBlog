@@ -28,6 +28,14 @@ export const UX_VIEWPORT_MODEL_ROUTE_IDS = Object.freeze([
   'manage-users', 'manage-message', 'manage-audit', 'manage-user-profile', 'manage-login-redirect'
 ])
 
+export const UX_SAFE_AREA_ASSERTION_NAMES = Object.freeze([
+  'assertScrimCoversViewport',
+  'assertControlsInsideSafeRect',
+  'assertOverlayActionsReachable',
+  'assertNoBodyOverflowLeak',
+  'assertOverlayCloseRestoresFocusAndScroll'
+])
+
 export function buildUxViewportPlan({ matrix, routes, mode, filters = {} }) {
   const config = matrix?.modes?.[mode]
   if (!config) {
@@ -59,6 +67,7 @@ export function buildUxViewportPlan({ matrix, routes, mode, filters = {} }) {
       const groupId = `route-theme:${route.id}:${theme}`
       groups.push({
         id: groupId,
+        kind: 'route-theme',
         route,
         theme,
         storage: route.storage,
@@ -83,6 +92,17 @@ export function buildUxViewportPlan({ matrix, routes, mode, filters = {} }) {
     groups = buildRiskGroups({ selectedRoutes, selectedThemes, selectedViewports, selectedMedia })
   }
 
+  const safeAreaGroups = filters.skipSafeArea === true
+    ? []
+    : buildSafeAreaGroups({
+        matrix,
+        routes: uniqueRoutes,
+        mode,
+        filters
+      })
+
+  groups = [...groups, ...safeAreaGroups]
+
   if (groups.length === 0) {
     throw new Error(`UX viewport plan ${mode} is empty after applying filters`)
   }
@@ -90,32 +110,40 @@ export function buildUxViewportPlan({ matrix, routes, mode, filters = {} }) {
   const cases = groups.reduce((total, group) => (
     total + group.viewports.reduce((subtotal, viewport) => subtotal + viewport.steps.length, 0)
   ), 0)
+  const safeAreaCases = listUxViewportSafeAreaCases({ groups: safeAreaGroups })
   const plan = {
     version: UX_VIEWPORT_PLAN_VERSION,
     matrixVersion: matrix.version,
+    safeAreaVersion: matrix.safeArea?.version ?? null,
     mode,
     groups,
     selection: {
-      routeIds: [...new Set(groups.map((group) => group.route.id))],
+      routeIds: [...new Set(groups.filter((group) => group.kind !== 'safe-area').map((group) => group.route.id))],
       themes: filters.riskMatrix === true
         ? [...selectedThemes]
-        : [...new Set(groups.map((group) => group.theme))],
+        : [...new Set(groups.filter((group) => group.kind !== 'safe-area').map((group) => group.theme))],
       viewportIds: filters.riskMatrix === true
         ? selectedViewports.map((viewport) => viewport.name)
-        : [...new Set(groups.flatMap((group) => (
+        : [...new Set(groups.filter((group) => group.kind !== 'safe-area').flatMap((group) => (
             group.viewports.map((viewport) => viewport.viewport.name)
           )))],
       media: filters.riskMatrix === true
         ? [...selectedMedia]
-        : [...new Set(groups.flatMap((group) => (
+        : [...new Set(groups.filter((group) => group.kind !== 'safe-area').flatMap((group) => (
             group.viewports.flatMap((viewport) => viewport.steps.map((step) => step.media))
-          )))]
+          )))],
+      safeAreaProfileIds: [...new Set(safeAreaCases.map((entry) => entry.profileId))],
+      safeAreaSurfaceIds: [...new Set(safeAreaCases.map((entry) => entry.surfaceId))],
+      safeAreaBrowsers: [...new Set(safeAreaCases.map((entry) => entry.browser))],
+      safeAreaCaseIds: safeAreaCases.map((entry) => entry.id)
     },
     counts: {
-      routes: new Set(groups.map((group) => group.route.id)).size,
-      routeThemeGroups: groups.length,
+      routes: new Set(groups.filter((group) => group.kind !== 'safe-area').map((group) => group.route.id)).size,
+      routeThemeGroups: groups.filter((group) => group.kind !== 'safe-area').length,
+      safeAreaGroups: safeAreaGroups.length,
       navigations: groups.reduce((total, group) => total + group.viewports.length, 0),
-      cases
+      cases,
+      safeAreaCases: safeAreaCases.length
     }
   }
 
@@ -124,6 +152,219 @@ export function buildUxViewportPlan({ matrix, routes, mode, filters = {} }) {
     fingerprint: createHash('sha256')
       .update(JSON.stringify(fingerprintPayload(plan)))
       .digest('hex')
+  }
+}
+
+export function buildSafeAreaGroups({ matrix, routes, mode, filters = {} }) {
+  const safeArea = matrix?.safeArea
+  if (!safeArea) {
+    return []
+  }
+
+  validateSafeAreaMatrix(safeArea)
+
+  const surfaces = safeArea.overlayRiskSurfaces ?? []
+  const nonOverlay = surfaces.filter((surface) => surface.overlayRisk !== true)
+  if (nonOverlay.length > 0) {
+    throw new Error(
+      `safe-area surfaces must set overlayRisk=true: ${nonOverlay.map((item) => item.id).join(', ')}`
+    )
+  }
+
+  const requestedSurfaces = filters.safeAreaSurfaceIds
+    ? new Set(normalizeFilter(filters.safeAreaSurfaceIds))
+    : null
+  const requestedProfiles = filters.safeAreaProfileIds
+    ? new Set(normalizeFilter(filters.safeAreaProfileIds))
+    : null
+  const requestedBrowsers = filters.safeAreaBrowsers
+    ? new Set(normalizeFilter(filters.safeAreaBrowsers))
+    : null
+
+  const groups = []
+  for (const surface of surfaces) {
+    if (requestedSurfaces && !requestedSurfaces.has(surface.id)) {
+      continue
+    }
+
+    const profiles = surface.profilesByMode?.[mode] ?? []
+    const browsers = surface.browsersByMode?.[mode] ?? []
+    const themes = surface.themesByMode?.[mode] ?? ['light']
+    if (profiles.length === 0 || browsers.length === 0 || themes.length === 0) {
+      continue
+    }
+
+    const route = requireEntry(routes, surface.routeId, `safe-area surface ${surface.id} route`)
+    for (const profileId of profiles) {
+      if (requestedProfiles && !requestedProfiles.has(profileId)) {
+        continue
+      }
+      const profile = safeArea.profiles?.[profileId]
+      if (!profile) {
+        throw new Error(`unknown safe-area profile for surface ${surface.id}: ${profileId}`)
+      }
+      for (const theme of themes) {
+        for (const browser of browsers) {
+          if (requestedBrowsers && !requestedBrowsers.has(browser)) {
+            continue
+          }
+          const groupId = `safe-area:${surface.id}:${profileId}:${theme}:${browser}`
+          groups.push({
+            id: groupId,
+            kind: 'safe-area',
+            route,
+            theme,
+            storage: route.storage,
+            browser,
+            surface: {
+              id: surface.id,
+              surface: surface.surface,
+              open: surface.open,
+              overlayRisk: true
+            },
+            profile: {
+              id: profile.id,
+              viewport: { ...profile.viewport },
+              insets: { ...profile.insets }
+            },
+            viewports: [{
+              id: `navigation:${groupId}`,
+              viewport: {
+                name: `safe-area:${profile.id}`,
+                width: profile.viewport.width,
+                height: profile.viewport.height,
+                category: 'safe-area-profile',
+                useInAcceptance: false,
+                useInPublicVisual: false,
+                useInConsoleVisual: false,
+                screenshotBaseline: false,
+                prSmoke: mode === 'smoke',
+                visualBoundary: mode === 'visual',
+                boundaryFull: mode === 'boundaries'
+              },
+              steps: [{
+                id: `case:${groupId}`,
+                routeId: route.id,
+                theme,
+                viewportId: `safe-area:${profile.id}`,
+                media: 'default',
+                screenshot: false,
+                safeArea: true,
+                profileId: profile.id,
+                surfaceId: surface.id,
+                browser,
+                open: surface.open
+              }]
+            }]
+          })
+        }
+      }
+    }
+  }
+
+  // Fail closed: safe-area must never cartesian-explode with full route×viewport×media.
+  const maxByMode = { smoke: 8, visual: 24, boundaries: 40 }
+  const limit = maxByMode[mode] ?? 40
+  if (groups.length > limit) {
+    throw new Error(
+      `safe-area plan for ${mode} exploded to ${groups.length} groups (limit ${limit}); keep overlay-risk only`
+    )
+  }
+
+  return groups
+}
+
+export function listUxViewportCases(plan) {
+  return plan.groups.flatMap((group) => (
+    group.viewports.flatMap((viewport) => viewport.steps.map((step) => ({
+      ...step,
+      groupId: group.id,
+      navigationId: viewport.id,
+      kind: group.kind ?? 'route-theme'
+    })))
+  ))
+}
+
+export function listUxViewportSafeAreaCases(plan) {
+  return listUxViewportCases(plan).filter((entry) => entry.safeArea === true || entry.kind === 'safe-area')
+}
+
+export function safeAreaProfileCssOverrides(profile) {
+  return {
+    '--fsus-safe-area-inset-top': `${profile.insets.top}px`,
+    '--fsus-safe-area-inset-right': `${profile.insets.right}px`,
+    '--fsus-safe-area-inset-bottom': `${profile.insets.bottom}px`,
+    '--fsus-safe-area-inset-left': `${profile.insets.left}px`,
+    '--fsus-viewport-block-size': `${profile.viewport.height}px`
+  }
+}
+
+export function safeRectFromProfile(profile) {
+  return {
+    left: profile.insets.left,
+    top: profile.insets.top,
+    right: profile.viewport.width - profile.insets.right,
+    bottom: profile.viewport.height - profile.insets.bottom,
+    width: profile.viewport.width - profile.insets.left - profile.insets.right,
+    height: profile.viewport.height - profile.insets.top - profile.insets.bottom
+  }
+}
+
+export function validateSafeAreaMatrix(safeArea) {
+  if (!safeArea || typeof safeArea !== 'object') {
+    throw new Error('safe-area matrix section is required for #1789 integration')
+  }
+  if (safeArea.version !== 'fsusblog-ux-safe-area-v1') {
+    throw new Error(`unexpected safe-area version: ${String(safeArea.version)}`)
+  }
+
+  const requiredProfiles = ['zero-inset', 'portrait-notch', 'landscape-notch', 'short-visual']
+  for (const profileId of requiredProfiles) {
+    const profile = safeArea.profiles?.[profileId]
+    if (!profile?.viewport || !profile?.insets) {
+      throw new Error(`safe-area profile missing: ${profileId}`)
+    }
+  }
+
+  const zero = safeArea.profiles['zero-inset']
+  const portrait = safeArea.profiles['portrait-notch']
+  const landscape = safeArea.profiles['landscape-notch']
+  const shortVisual = safeArea.profiles['short-visual']
+  assertProfileShape(zero, 390, 844, 0, 0, 0, 0)
+  assertProfileShape(portrait, 390, 844, 47, 0, 34, 0)
+  assertProfileShape(landscape, 844, 390, 0, 59, 21, 59)
+  assertProfileShape(shortVisual, 390, 430, 47, 0, 34, 0)
+
+  const surfaces = safeArea.overlayRiskSurfaces ?? []
+  if (surfaces.length === 0) {
+    throw new Error('safe-area overlayRiskSurfaces must not be empty')
+  }
+  for (const surface of surfaces) {
+    if (surface.overlayRisk !== true) {
+      throw new Error(`surface ${surface.id} must mark overlayRisk=true`)
+    }
+    if (!surface.routeId || !surface.open || !surface.id) {
+      throw new Error(`surface ${String(surface.id)} is missing routeId/open/id`)
+    }
+  }
+
+  for (const name of UX_SAFE_AREA_ASSERTION_NAMES) {
+    if (!(safeArea.assertions ?? []).includes(name)) {
+      throw new Error(`safe-area assertions must include ${name}`)
+    }
+  }
+}
+
+function assertProfileShape(profile, width, height, top, right, bottom, left) {
+  if (
+    profile.viewport.width !== width
+    || profile.viewport.height !== height
+    || profile.insets.top !== top
+    || profile.insets.right !== right
+    || profile.insets.bottom !== bottom
+    || profile.insets.left !== left
+  ) {
+    throw new Error(`safe-area profile ${profile.id} does not match the #1789 fixture table`)
   }
 }
 
@@ -139,6 +380,7 @@ function buildRiskGroups({ selectedRoutes, selectedThemes, selectedViewports, se
       const groupId = `route-theme:${route.id}:${theme}`
       const group = groups.get(groupId) ?? {
         id: groupId,
+        kind: 'route-theme',
         route,
         theme,
         storage: route.storage,
@@ -160,16 +402,6 @@ function buildRiskGroups({ selectedRoutes, selectedThemes, selectedViewports, se
     }
   }
   return [...groups.values()]
-}
-
-export function listUxViewportCases(plan) {
-  return plan.groups.flatMap((group) => (
-    group.viewports.flatMap((viewport) => viewport.steps.map((step) => ({
-      ...step,
-      groupId: group.id,
-      navigationId: viewport.id
-    })))
-  ))
 }
 
 function mediaForRoute(mode, routeId, selectedMedia) {
@@ -218,8 +450,12 @@ function indexUnique(entries, identify, label) {
 }
 
 function requireEntry(entries, id, label) {
-  const entry = entries.get(id)
+  const entry = entries instanceof Map ? entries.get(id) : entries?.[id]
   if (!entry) {
+    // routes may be a Map from indexUnique, or an object
+    if (entries instanceof Map) {
+      throw new Error(`unknown UX viewport ${label}: ${id}`)
+    }
     throw new Error(`unknown UX viewport ${label}: ${id}`)
   }
   return entry
@@ -229,10 +465,15 @@ function fingerprintPayload(plan) {
   return {
     version: plan.version,
     matrixVersion: plan.matrixVersion,
+    safeAreaVersion: plan.safeAreaVersion,
     mode: plan.mode,
     groups: plan.groups.map((group) => ({
       id: group.id,
+      kind: group.kind ?? 'route-theme',
       storage: group.storage,
+      browser: group.browser ?? null,
+      surface: group.surface ?? null,
+      profile: group.profile ?? null,
       route: {
         id: group.route.id,
         path: group.route.path,

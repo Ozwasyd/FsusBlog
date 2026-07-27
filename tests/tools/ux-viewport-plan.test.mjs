@@ -3,10 +3,15 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
 import {
+  UX_SAFE_AREA_ASSERTION_NAMES,
   UX_VIEWPORT_MOBILE_LANDSCAPE_CANARY_ROUTE_IDS,
   UX_VIEWPORT_MODEL_ROUTE_IDS,
   buildUxViewportPlan,
-  listUxViewportCases
+  listUxViewportCases,
+  listUxViewportSafeAreaCases,
+  safeAreaProfileCssOverrides,
+  safeRectFromProfile,
+  validateSafeAreaMatrix
 } from '../frontend/support/playwright/uxViewportPlan.mjs'
 import {
   buildViewportPlanProgressSummary,
@@ -97,21 +102,94 @@ test('shared planner preserves the exact smoke, visual, and boundaries coverage 
   assert.deepEqual(smoke.counts, {
     routes: 10,
     routeThemeGroups: 20,
-    navigations: 120,
-    cases: 336
+    safeAreaGroups: 3,
+    navigations: 123,
+    cases: 339,
+    safeAreaCases: 3
   })
   assert.deepEqual(visual.counts, {
     routes: 9,
     routeThemeGroups: 18,
-    navigations: 126,
-    cases: 378
+    safeAreaGroups: 14,
+    navigations: 140,
+    cases: 392,
+    safeAreaCases: 14
   })
   assert.deepEqual(boundaries.counts, {
     routes: 33,
     routeThemeGroups: 66,
-    navigations: 924,
-    cases: 6468
+    safeAreaGroups: 24,
+    navigations: 948,
+    cases: 6492,
+    safeAreaCases: 24
   })
+})
+
+test('safe-area matrix only pairs overlay-risk surfaces and freezes profile table', () => {
+  validateSafeAreaMatrix(matrix.safeArea)
+  assert.deepEqual(matrix.safeArea.assertions, [...UX_SAFE_AREA_ASSERTION_NAMES])
+
+  const smoke = buildUxViewportPlan({ matrix, routes, mode: 'smoke' })
+  const safeArea = listUxViewportSafeAreaCases(smoke)
+  assert.equal(safeArea.length, 3)
+  assert.deepEqual(
+    safeArea.map((entry) => entry.id).sort(),
+    [
+      'case:safe-area:article-lightbox:portrait-notch:light:webkit',
+      'case:safe-area:fsus-dialog:portrait-notch:light:chromium',
+      'case:safe-area:message-box:portrait-notch:light:chromium'
+    ]
+  )
+
+  // No unbounded route × profile × media cartesian product.
+  const boundaries = buildUxViewportPlan({ matrix, routes, mode: 'boundaries' })
+  assert.ok(boundaries.counts.safeAreaCases <= 40)
+  assert.ok(boundaries.counts.safeAreaGroups <= 40)
+  assert.equal(
+    listUxViewportSafeAreaCases(boundaries).every((entry) => entry.media === 'default'),
+    true
+  )
+  assert.equal(
+    listUxViewportSafeAreaCases(boundaries).every((entry) => entry.safeArea === true),
+    true
+  )
+
+  const portrait = matrix.safeArea.profiles['portrait-notch']
+  assert.deepEqual(safeAreaProfileCssOverrides(portrait), {
+    '--fsus-safe-area-inset-top': '47px',
+    '--fsus-safe-area-inset-right': '0px',
+    '--fsus-safe-area-inset-bottom': '34px',
+    '--fsus-safe-area-inset-left': '0px',
+    '--fsus-viewport-block-size': '844px'
+  })
+  assert.deepEqual(safeRectFromProfile(portrait), {
+    left: 0,
+    top: 47,
+    right: 390,
+    bottom: 810,
+    width: 390,
+    height: 763
+  })
+})
+
+test('safe-area plan rejects non-overlay-risk cartesian explosion mutations', () => {
+  const polluted = structuredClone(matrix)
+  polluted.safeArea.overlayRiskSurfaces.push({
+    id: 'leak-all-routes',
+    surface: 'Leak',
+    routeId: 'public-home',
+    open: 'policy-modal',
+    overlayRisk: false,
+    profilesByMode: {
+      boundaries: ['zero-inset', 'portrait-notch', 'landscape-notch', 'short-visual']
+    },
+    browsersByMode: { boundaries: ['chromium', 'webkit'] },
+    themesByMode: { boundaries: ['light', 'dark'] }
+  })
+  assert.throws(
+    () => buildUxViewportPlan({ matrix: polluted, routes, mode: 'boundaries' }),
+    /overlayRisk=true/u
+  )
 })
 
 test('group and step identities are stable semantic values without ordinal prefixes', () => {
@@ -134,7 +212,8 @@ test('planner keeps matrix media order inside one cold navigation per viewport',
     filters: {
       routeIds: ['public-article'],
       themes: ['dark'],
-      viewportIds: ['mobile-landscape']
+      viewportIds: ['mobile-landscape'],
+      skipSafeArea: true
     }
   })
 
@@ -152,7 +231,7 @@ test('local production risk plan covers every dimension within 48 navigations', 
     matrix,
     routes,
     mode: 'boundaries',
-    filters: { riskMatrix: true }
+    filters: { riskMatrix: true, skipSafeArea: true }
   })
 
   assert.equal(plan.counts.navigations, 28)
@@ -164,6 +243,19 @@ test('local production risk plan covers every dimension within 48 navigations', 
   assert.ok(plan.selection.routeIds.some((id) => id.startsWith('public-')))
   assert.ok(plan.selection.routeIds.some((id) => id.startsWith('user-')))
   assert.ok(plan.selection.routeIds.some((id) => id.startsWith('manage-')))
+})
+
+test('risk matrix plus safe-area stays bounded and overlay-risk only', () => {
+  const plan = buildUxViewportPlan({
+    matrix,
+    routes,
+    mode: 'boundaries',
+    filters: { riskMatrix: true }
+  })
+  assert.equal(plan.counts.navigations, 28 + 24)
+  assert.equal(plan.counts.safeAreaCases, 24)
+  assert.ok(plan.counts.safeAreaGroups <= 40)
+  assert.ok(plan.counts.navigations <= 48 + 40)
 })
 
 test('unknown filters fail closed even when another requested value is valid', () => {
@@ -195,7 +287,8 @@ test('mobile-landscape canary is a planner parity list, not a fabricated golden 
     mode: 'boundaries',
     filters: {
       routeIds: UX_VIEWPORT_MOBILE_LANDSCAPE_CANARY_ROUTE_IDS,
-      viewportIds: ['mobile-landscape']
+      viewportIds: ['mobile-landscape'],
+      skipSafeArea: true
     }
   })
   const actual = listUxViewportCases(plan).map(({ routeId, theme, viewportId, media }) => (

@@ -70,11 +70,41 @@ export type UxViewportModeConfig = Readonly<{
   media: string[]
   screenshots?: boolean
 }>
+export type UxSafeAreaInsets = Readonly<{
+  top: number
+  right: number
+  bottom: number
+  left: number
+}>
+
+export type UxSafeAreaProfile = Readonly<{
+  id: string
+  viewport: Readonly<{ width: number, height: number }>
+  insets: UxSafeAreaInsets
+}>
+
 export type UxViewportMatrix = Readonly<{
   version: string
   generatedFrom: string
   viewports: UxViewport[]
   modes: Record<UxViewportMode, UxViewportModeConfig>
+  safeArea?: Readonly<{
+    version: string
+    generatedFrom: string
+    cssVariables: string[]
+    profiles: Record<string, UxSafeAreaProfile>
+    overlayRiskSurfaces: ReadonlyArray<Readonly<{
+      id: string
+      surface: string
+      routeId: string
+      open: string
+      overlayRisk: boolean
+      profilesByMode: Partial<Record<UxViewportMode, string[]>>
+      browsersByMode: Partial<Record<UxViewportMode, string[]>>
+      themesByMode: Partial<Record<UxViewportMode, ThemeMode[]>>
+    }>>
+    assertions: string[]
+  }>
 }>
 export type UxContentBoundaryCase = Readonly<{
   id: string
@@ -1999,6 +2029,359 @@ export async function assertViewportBoundaryContract(page: Page, label = 'viewpo
   await assertStickyHeaderDoesNotCoverFocusedInput(page, label)
   await assertFocusOutlineVisible(page, label)
   await assertNoDuplicateStickyBars(page, label)
+}
+
+/** Geometry tolerance for #1789 safe-area bounding-box assertions (px). */
+export const UX_SAFE_AREA_GEOMETRY_TOLERANCE = 0
+
+export function uxSafeAreaProfileById(id: string): UxSafeAreaProfile {
+  const profile = UX_VIEWPORT_MATRIX.safeArea?.profiles?.[id]
+  if (!profile) {
+    throw new Error(`unknown UX safe-area profile: ${id}`)
+  }
+  return profile
+}
+
+export function uxSafeAreaCssVariableOverrides(profile: UxSafeAreaProfile): Record<string, string> {
+  return {
+    '--fsus-safe-area-inset-top': `${profile.insets.top}px`,
+    '--fsus-safe-area-inset-right': `${profile.insets.right}px`,
+    '--fsus-safe-area-inset-bottom': `${profile.insets.bottom}px`,
+    '--fsus-safe-area-inset-left': `${profile.insets.left}px`,
+    '--fsus-viewport-block-size': `${profile.viewport.height}px`
+  }
+}
+
+export function uxSafeRectFromProfile(profile: UxSafeAreaProfile): Readonly<{
+  left: number
+  top: number
+  right: number
+  bottom: number
+  width: number
+  height: number
+}> {
+  return {
+    left: profile.insets.left,
+    top: profile.insets.top,
+    right: profile.viewport.width - profile.insets.right,
+    bottom: profile.viewport.height - profile.insets.bottom,
+    width: profile.viewport.width - profile.insets.left - profile.insets.right,
+    height: profile.viewport.height - profile.insets.top - profile.insets.bottom
+  }
+}
+
+/**
+ * Test-only: override FsusUI canonical safe-area / viewport CSS variables.
+ * Never patches component selectors or mocks getBoundingClientRect().
+ */
+export async function applyUxSafeAreaProfile(page: Page, profile: UxSafeAreaProfile): Promise<void> {
+  await page.setViewportSize(profile.viewport)
+  const overrides = uxSafeAreaCssVariableOverrides(profile)
+  await page.evaluate((cssVars) => {
+    const root = document.documentElement
+    for (const [name, value] of Object.entries(cssVars)) {
+      root.style.setProperty(name, value)
+    }
+  }, overrides)
+}
+
+export async function clearUxSafeAreaProfileOverrides(page: Page): Promise<void> {
+  const names = UX_VIEWPORT_MATRIX.safeArea?.cssVariables ?? [
+    '--fsus-safe-area-inset-top',
+    '--fsus-safe-area-inset-right',
+    '--fsus-safe-area-inset-bottom',
+    '--fsus-safe-area-inset-left',
+    '--fsus-viewport-block-size'
+  ]
+  await page.evaluate((variableNames: string[]) => {
+    const root = document.documentElement
+    for (const name of variableNames) {
+      root.style.removeProperty(name)
+    }
+  }, [...names])
+}
+
+/** Scrim must cover the full drawable viewport (edge residual 0px). */
+export async function assertScrimCoversViewport(
+  page: Page,
+  scrim: Locator,
+  label = 'scrim'
+): Promise<void> {
+  await expect(scrim, `${label} must be visible`).toBeVisible()
+  const tolerance = UX_SAFE_AREA_GEOMETRY_TOLERANCE
+
+  const metrics = await scrim.evaluate((element) => {
+    const rect = element.getBoundingClientRect()
+    return {
+      bottom: rect.bottom,
+      left: rect.left,
+      right: rect.right,
+      top: rect.top,
+      viewportHeight: window.innerHeight,
+      viewportWidth: window.innerWidth
+    }
+  })
+
+  expect(Math.abs(metrics.left), `${label} left delta`).toBeLessThanOrEqual(tolerance)
+  expect(Math.abs(metrics.top), `${label} top delta`).toBeLessThanOrEqual(tolerance)
+  expect(Math.abs(metrics.right - metrics.viewportWidth), `${label} right delta`).toBeLessThanOrEqual(tolerance)
+  expect(Math.abs(metrics.bottom - metrics.viewportHeight), `${label} bottom delta`).toBeLessThanOrEqual(tolerance)
+
+  const box = await scrim.boundingBox()
+  const viewport = page.viewportSize()
+  expect(box, `${label} bounding box`).not.toBeNull()
+  expect(viewport, `${label} viewport`).not.toBeNull()
+  if (!box || !viewport) return
+
+  expect(Math.abs(box.x), `${label} box left`).toBeLessThanOrEqual(tolerance)
+  expect(Math.abs(box.y), `${label} box top`).toBeLessThanOrEqual(tolerance)
+  expect(Math.abs(box.x + box.width - viewport.width), `${label} box right`).toBeLessThanOrEqual(tolerance)
+  expect(Math.abs(box.y + box.height - viewport.height), `${label} box bottom`).toBeLessThanOrEqual(tolerance)
+}
+
+/** Enabled visible controls must land fully inside the safe rectangle. */
+export async function assertControlsInsideSafeRect(
+  page: Page,
+  root: Locator,
+  profile: UxSafeAreaProfile,
+  label = 'controls'
+): Promise<void> {
+  void page
+  const safeRect = uxSafeRectFromProfile(profile)
+  const tolerance = UX_SAFE_AREA_GEOMETRY_TOLERANCE
+  const offenders = await root.evaluate((element, args) => {
+    const safe = args.safeRect
+    const gap = args.tolerance
+    const selector = [
+      'button:not([disabled])',
+      '[role="button"]:not([aria-disabled="true"])',
+      'input:not([disabled])',
+      'textarea:not([disabled])',
+      'a[href]'
+    ].join(',')
+
+    const isVisible = (node: HTMLElement) => {
+      const style = getComputedStyle(node)
+      const rect = node.getBoundingClientRect()
+      if (
+        style.display === 'none'
+        || style.visibility === 'hidden'
+        || Number(style.opacity) === 0
+        || rect.width <= 0
+        || rect.height <= 0
+      ) {
+        return false
+      }
+      if ((node as HTMLButtonElement).disabled) return false
+      if (node.getAttribute('aria-disabled') === 'true') return false
+      return true
+    }
+
+    const scrollParents = (node: HTMLElement) => {
+      const parents: HTMLElement[] = []
+      let current: HTMLElement | null = node.parentElement
+      while (current) {
+        const style = getComputedStyle(current)
+        const scrollable = /(auto|scroll|overlay)/.test(style.overflowY)
+          || /(auto|scroll|overlay)/.test(style.overflow)
+          || current.scrollHeight > current.clientHeight + 1
+        if (scrollable) parents.push(current)
+        current = current.parentElement
+      }
+      return parents
+    }
+
+    const bringInsideSafeRect = (node: HTMLElement) => {
+      node.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' as ScrollBehavior })
+      for (let pass = 0; pass < 3; pass += 1) {
+        const rect = node.getBoundingClientRect()
+        const deltaTop = safe.top + gap - rect.top
+        const deltaBottom = rect.bottom - (safe.bottom - gap)
+        const deltaLeft = safe.left + gap - rect.left
+        const deltaRight = rect.right - (safe.right - gap)
+        if (deltaTop <= 0 && deltaBottom <= 0 && deltaLeft <= 0 && deltaRight <= 0) {
+          return
+        }
+        for (const parent of scrollParents(node)) {
+          if (deltaTop > 0) parent.scrollTop -= deltaTop
+          if (deltaBottom > 0) parent.scrollTop += deltaBottom
+          if (deltaLeft > 0) parent.scrollLeft -= deltaLeft
+          if (deltaRight > 0) parent.scrollLeft += deltaRight
+        }
+      }
+    }
+
+    return Array.from(element.querySelectorAll<HTMLElement>(selector))
+      .filter((node) => isVisible(node))
+      .flatMap((node) => {
+        bringInsideSafeRect(node)
+        const rect = node.getBoundingClientRect()
+        const outside = rect.left < safe.left - gap
+          || rect.top < safe.top - gap
+          || rect.right > safe.right + gap
+          || rect.bottom > safe.bottom + gap
+        return outside
+          ? [{
+              top: rect.top,
+              left: rect.left,
+              right: rect.right,
+              bottom: rect.bottom,
+              role: node.getAttribute('role') ?? node.tagName.toLowerCase(),
+              className: node.className?.toString?.() ?? ''
+            }]
+          : []
+      })
+  }, { safeRect, tolerance })
+
+  expect(
+    offenders,
+    `${label} must stay inside safe rect ${JSON.stringify(safeRect)} under profile ${profile.id}`
+  ).toEqual([])
+}
+
+/** Overlay primary actions are focusable and intersect the viewport after scroll. */
+export async function assertOverlayActionsReachable(
+  page: Page,
+  actions: Locator[],
+  options: { shortVisual?: boolean, label?: string } = {}
+): Promise<void> {
+  const label = options.label ?? 'overlay actions'
+  const tolerance = UX_SAFE_AREA_GEOMETRY_TOLERANCE
+  expect(actions.length, `${label} must provide at least one action`).toBeGreaterThan(0)
+
+  for (let index = 0; index < actions.length; index += 1) {
+    const action = actions[index]
+    await expect(action, `${label}[${index}] visible`).toBeVisible()
+    await action.evaluate((element) => {
+      element.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' as ScrollBehavior })
+    })
+    await action.scrollIntoViewIfNeeded().catch(() => undefined)
+
+    const box = await action.evaluate((element) => {
+      const rect = element.getBoundingClientRect()
+      return {
+        bottom: rect.bottom,
+        height: rect.height,
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        width: rect.width
+      }
+    })
+    expect(box.width, `${label}[${index}] width`).toBeGreaterThan(0)
+    expect(box.height, `${label}[${index}] height`).toBeGreaterThan(0)
+
+    const viewport = page.viewportSize()
+    expect(viewport).not.toBeNull()
+    if (viewport) {
+      const intersects = box.right > tolerance
+        && box.bottom > tolerance
+        && box.left < viewport.width - tolerance
+        && box.top < viewport.height - tolerance
+      expect(
+        intersects,
+        `${label}[${index}] must intersect the viewport after scroll (box=${JSON.stringify(box)})`
+      ).toBe(true)
+    }
+
+    if (options.shortVisual) {
+      // short-visual must keep confirm/cancel/close/next/previous keyboard-reachable.
+      await action.focus({ timeout: 2_000 }).catch(async () => {
+        await action.click({ trial: true }).catch(() => undefined)
+      })
+    } else {
+      await action.focus({ timeout: 2_000 }).catch(async () => {
+        await action.click({ trial: true }).catch(() => undefined)
+      })
+    }
+
+    const tabIndex = await action.evaluate((element) => element.getAttribute('tabindex'))
+    if (tabIndex !== '-1') {
+      const focused = await action.evaluate((element) => (
+        element === document.activeElement || element.contains(document.activeElement)
+      ))
+      expect(focused, `${label}[${index}] must accept focus`).toBe(true)
+    }
+  }
+}
+
+/** Body must not leak uncontrolled horizontal overflow under a safe-area profile. */
+export async function assertNoBodyOverflowLeak(page: Page, label = 'body overflow'): Promise<void> {
+  const tolerance = UX_SAFE_AREA_GEOMETRY_TOLERANCE
+  const overflow = await page.evaluate(() => ({
+    bodyScrollWidth: document.body.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth
+  }))
+
+  expect(
+    overflow.scrollWidth,
+    `${label}: document scrollWidth ${overflow.scrollWidth} > clientWidth ${overflow.clientWidth}`
+  ).toBeLessThanOrEqual(overflow.clientWidth + tolerance)
+  expect(
+    overflow.bodyScrollWidth,
+    `${label}: body scrollWidth ${overflow.bodyScrollWidth} > clientWidth ${overflow.clientWidth}`
+  ).toBeLessThanOrEqual(overflow.clientWidth + tolerance)
+}
+
+/**
+ * After closing an overlay: body scroll lock clears, scroll position restores,
+ * and the original trigger receives focus when still in document.
+ */
+export async function assertOverlayCloseRestoresFocusAndScroll(
+  page: Page,
+  options: Readonly<{
+    label?: string
+    expectedScrollY?: number
+    trigger?: Locator | null
+  }> = {}
+): Promise<void> {
+  const label = options.label ?? 'overlay close restore'
+  await expect.poll(async () => page.evaluate(() => ({
+    hiddenParent: document.body.classList.contains('el-popup-parent--hidden'),
+    lightboxOpen: document.body.classList.contains('article-image-lightbox-open'),
+    overflow: getComputedStyle(document.body).overflow
+  })), { timeout: 3_000, message: label }).toEqual(expect.objectContaining({
+    hiddenParent: false,
+    lightboxOpen: false
+  }))
+
+  if (options.expectedScrollY !== undefined) {
+    const scrollY = await page.evaluate(() => window.scrollY)
+    expect(
+      Math.abs(scrollY - options.expectedScrollY),
+      `${label} scrollY restored`
+    ).toBeLessThanOrEqual(2)
+  }
+
+  if (options.trigger) {
+    const count = await options.trigger.count()
+    if (count > 0) {
+      await expect.poll(async () => options.trigger!.evaluate((element) => (
+        element === document.activeElement || element.contains(document.activeElement)
+      )), { timeout: 3_000, message: `${label} focus restore` }).toBe(true)
+    }
+  }
+}
+
+/** Document viewport meta identity contract used by hydration and HTML gates. */
+export async function assertDocumentViewportMetaContract(
+  page: Page,
+  label = 'document viewport meta'
+): Promise<void> {
+  const report = await page.evaluate(() => {
+    const nodes = Array.from(document.querySelectorAll('meta[name="viewport"]'))
+    return {
+      count: nodes.length,
+      contents: nodes.map((node) => node.getAttribute('content') ?? ''),
+      outerHTML: nodes.map((node) => node.outerHTML)
+    }
+  })
+
+  expect(report.count, `${label} must have exactly one viewport meta`).toBe(1)
+  expect(report.contents[0], `${label} content`).toBe(
+    'width=device-width, initial-scale=1.0, viewport-fit=cover'
+  )
 }
 
 export async function assertThemeReadable(page: Page, mode: ThemeMode, label = 'theme'): Promise<void> {

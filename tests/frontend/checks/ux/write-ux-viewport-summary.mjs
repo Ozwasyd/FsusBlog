@@ -59,7 +59,10 @@ export async function writeUxViewportSummary({ root = defaultRoot, mode = 'smoke
     .filter((file) => /(?:^|[/\\])trace\.zip$/iu.test(file))
     .map((file) => relative(resolvedRoot, file))
     .sort()
-  const plannedScreenshotCount = config.screenshots === true ? progress.planned.navigations : 0
+  // Screenshots are captured for route-theme navigations only; safe-area cases are assertion-only.
+  const plannedScreenshotCount = config.screenshots === true
+    ? (progress.planned.navigations - (progress.planned.safeAreaGroups ?? 0))
+    : 0
   const summaryStatus = deriveSummaryStatus(progress, {
     screenshotsRequired: config.screenshots === true,
     screenshotCount: screenshots.length,
@@ -74,11 +77,25 @@ export async function writeUxViewportSummary({ root = defaultRoot, mode = 'smoke
     routeIds: config.routes === 'all' ? [] : config.routes,
     themes: config.themes,
     viewportIds: config.viewports,
-    media: config.media
+    media: config.media,
+    safeAreaCaseIds: [],
+    safeAreaBrowsers: [],
+    safeAreaSurfaceIds: [],
+    safeAreaProfileIds: []
   }
+  const safeAreaResults = progress.groupResults.filter((result) => result.kind === 'safe-area')
+  const passedSafeArea = safeAreaResults.filter((result) => result.status === 'passed')
+  const sourceBinding = resolveSourceBinding(resolvedRoot)
+  const safeAreaGateErrors = validateSafeAreaEvidence({
+    mode,
+    matrix,
+    plannedSelection,
+    safeAreaResults,
+    progress
+  })
 
   const summary = {
-    status: summaryStatus,
+    status: safeAreaGateErrors.length > 0 ? 'failed' : summaryStatus,
     evidenceClass: 'diagnostic',
     affectsCorrectness: false,
     executionBoundary: 'real-browser-ux-viewport',
@@ -88,9 +105,11 @@ export async function writeUxViewportSummary({ root = defaultRoot, mode = 'smoke
     startedAt: progress.startedAt,
     updatedAt: progress.updatedAt,
     matrixVersion: matrix.version,
+    safeAreaVersion: matrix.safeArea?.version ?? progress.safeAreaVersion ?? null,
     routeMatrixVersion: 'route-audit-matrix-v1',
     contentCorpusVersion: corpus.version,
     planFingerprint: progress.planFingerprint,
+    sourceBinding,
     viewports: plannedSelection.viewportIds,
     testedViewports: testedViewportIds,
     testedViewportCount: testedViewportIds.length,
@@ -110,10 +129,33 @@ export async function writeUxViewportSummary({ root = defaultRoot, mode = 'smoke
         - progress.actual.completedRouteThemeGroups
         - progress.actual.failedRouteThemeGroups
     ),
+    plannedSafeAreaGroupCount: progress.planned.safeAreaGroups ?? 0,
+    completedSafeAreaGroupCount: progress.actual.completedSafeAreaGroups
+      ?? passedSafeArea.length,
+    failedSafeAreaGroupCount: progress.actual.failedSafeAreaGroups
+      ?? safeAreaResults.filter((result) => result.status === 'failed').length,
     plannedNavigationCount: progress.planned.navigations,
     completedNavigationCount: progress.actual.navigations,
     plannedCaseCount: progress.planned.cases,
     completedCaseCount: progress.actual.cases,
+    plannedSafeAreaCaseCount: progress.planned.safeAreaCases
+      ?? (plannedSelection.safeAreaCaseIds?.length ?? 0),
+    completedSafeAreaCaseCount: progress.actual.safeAreaCases ?? passedSafeArea.length,
+    safeAreaCaseIds: plannedSelection.safeAreaCaseIds ?? [],
+    safeAreaBrowsers: plannedSelection.safeAreaBrowsers ?? [],
+    safeAreaSurfaces: plannedSelection.safeAreaSurfaceIds ?? [],
+    safeAreaProfiles: plannedSelection.safeAreaProfileIds ?? [],
+    safeAreaResults: safeAreaResults.map((result) => ({
+      groupId: result.groupId,
+      surfaceId: result.surfaceId,
+      profileId: result.profileId,
+      browser: result.browser,
+      routeId: result.routeId,
+      theme: result.theme,
+      status: result.status,
+      error: result.error ?? null
+    })),
+    safeAreaGateErrors,
     contentBoundaryCaseCount: corpus.cases.length,
     assertions: [
       'collectViewportBoundaryReport',
@@ -121,7 +163,13 @@ export async function writeUxViewportSummary({ root = defaultRoot, mode = 'smoke
       'assertFocusOutlineVisible',
       'assertNoDuplicateStickyBars',
       'assertThemeReadable',
-      'assertUxViewportMediaMode'
+      'assertUxViewportMediaMode',
+      'assertDocumentViewportMetaContract',
+      'assertScrimCoversViewport',
+      'assertControlsInsideSafeRect',
+      'assertOverlayActionsReachable',
+      'assertNoBodyOverflowLeak',
+      'assertOverlayCloseRestoresFocusAndScroll'
     ],
     screenshotCount: screenshots.length,
     plannedScreenshotCount,
@@ -136,6 +184,9 @@ export async function writeUxViewportSummary({ root = defaultRoot, mode = 'smoke
         groupId: result.groupId,
         routeId: result.routeId,
         theme: result.theme,
+        browser: result.browser ?? null,
+        surfaceId: result.surfaceId ?? null,
+        profileId: result.profileId ?? null,
         error: result.error
       })),
     skippedExtremeCases: []
@@ -214,6 +265,36 @@ function validateMatrix(matrix, corpus) {
     }
   }
 
+  if (!matrix.safeArea || matrix.safeArea.version !== 'fsusblog-ux-safe-area-v1') {
+    errors.push('matrix.safeArea.version must be fsusblog-ux-safe-area-v1')
+  } else {
+    for (const profileId of ['zero-inset', 'portrait-notch', 'landscape-notch', 'short-visual']) {
+      if (!matrix.safeArea.profiles?.[profileId]) {
+        errors.push(`safe-area profile missing: ${profileId}`)
+      }
+    }
+    const surfaces = matrix.safeArea.overlayRiskSurfaces ?? []
+    if (surfaces.length === 0) {
+      errors.push('safe-area overlayRiskSurfaces must not be empty')
+    }
+    for (const surface of surfaces) {
+      if (surface.overlayRisk !== true) {
+        errors.push(`surface ${surface.id} must mark overlayRisk=true`)
+      }
+    }
+    for (const assertion of [
+      'assertScrimCoversViewport',
+      'assertControlsInsideSafeRect',
+      'assertOverlayActionsReachable',
+      'assertNoBodyOverflowLeak',
+      'assertOverlayCloseRestoresFocusAndScroll'
+    ]) {
+      if (!(matrix.safeArea.assertions ?? []).includes(assertion)) {
+        errors.push(`safe-area assertions missing ${assertion}`)
+      }
+    }
+  }
+
   if (corpus.version !== 'fsusblog-ux-content-boundary-corpus-v1') {
     errors.push(`unexpected content corpus version: ${corpus.version}`)
   }
@@ -239,6 +320,107 @@ function validateMatrix(matrix, corpus) {
   return errors
 }
 
+function validateSafeAreaEvidence({ mode, matrix, plannedSelection, safeAreaResults, progress }) {
+  const errors = []
+  const plannedIds = plannedSelection.safeAreaCaseIds ?? []
+  const plannedBrowsers = new Set(plannedSelection.safeAreaBrowsers ?? [])
+  if (!matrix.safeArea) {
+    errors.push('matrix is missing safeArea integration section')
+    return errors
+  }
+
+  if ((progress.planned.safeAreaGroups ?? plannedIds.length) > 0) {
+    const passed = safeAreaResults.filter((result) => result.status === 'passed')
+    const failed = safeAreaResults.filter((result) => result.status === 'failed')
+    if (failed.length > 0) {
+      errors.push(`safe-area groups failed: ${failed.map((item) => item.groupId).join(', ')}`)
+    }
+    if (passed.length < (progress.planned.safeAreaGroups ?? plannedIds.length)) {
+      errors.push(
+        `safe-area evidence incomplete: passed=${passed.length} planned=${progress.planned.safeAreaGroups ?? plannedIds.length}`
+      )
+    }
+    if (plannedBrowsers.has('webkit')) {
+      const webkitPassed = passed.filter((result) => result.browser === 'webkit')
+      if (webkitPassed.length === 0) {
+        errors.push(
+          `safe-area release gate requires WebKit results for mode=${mode}; screenshot-only or chromium-only evidence is rejected`
+        )
+      }
+    }
+  }
+
+  // Forbid silent conversion of safe-area matrix into screenshot-only reports.
+  if ((progress.planned.safeAreaCases ?? 0) > 0 && safeAreaResults.length === 0) {
+    errors.push('safe-area cases were planned but no safe-area group results were recorded')
+  }
+
+  return errors
+}
+
+function resolveSourceBinding(root) {
+  const fsusblogSha = readGitHead(root)
+  const packageJsonPath = path.join(root, 'src/frontend/package.json')
+  let fsusuiVersion = null
+  try {
+    const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
+    fsusuiVersion = pkg.dependencies?.['@ozwasyd/element-plus']
+      ?? pkg.devDependencies?.['@ozwasyd/element-plus']
+      ?? null
+  } catch {
+    fsusuiVersion = null
+  }
+
+  let fsusuiResolvedSha = null
+  const localFsusUi = process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT
+  if (localFsusUi && fs.existsSync(localFsusUi)) {
+    fsusuiResolvedSha = readGitHead(localFsusUi)
+  }
+
+  return {
+    fsusblogSha,
+    fsusuiVersion,
+    fsusuiResolvedSha,
+    matrixPath: 'tests/frontend/fixtures/ux-viewport-matrix.json'
+  }
+}
+
+function readGitHead(repositoryRoot) {
+  try {
+    const headPath = path.join(repositoryRoot, '.git/HEAD')
+    if (!fs.existsSync(headPath)) {
+      // worktree: .git may be a file pointing at the real git dir
+      const gitFile = path.join(repositoryRoot, '.git')
+      if (fs.existsSync(gitFile) && fs.statSync(gitFile).isFile()) {
+        const content = fs.readFileSync(gitFile, 'utf8').trim()
+        const match = content.match(/^gitdir:\s*(.+)$/u)
+        if (match) {
+          const gitDir = path.resolve(repositoryRoot, match[1])
+          return readGitHeadFromGitDir(gitDir)
+        }
+      }
+      return null
+    }
+    return readGitHeadFromGitDir(path.join(repositoryRoot, '.git'))
+  } catch {
+    return null
+  }
+}
+
+function readGitHeadFromGitDir(gitDir) {
+  const head = fs.readFileSync(path.join(gitDir, 'HEAD'), 'utf8').trim()
+  if (head.startsWith('ref:')) {
+    const ref = head.slice(4).trim()
+    const refPath = path.join(gitDir, ref)
+    if (fs.existsSync(refPath)) {
+      return fs.readFileSync(refPath, 'utf8').trim()
+    }
+    // packed-refs fallback omitted; binding stays null rather than invent a SHA
+    return null
+  }
+  return head
+}
+
 function validateProgress(progress, pointer, matrix, mode) {
   if (progress.version !== 'fsusblog-ux-viewport-progress-v1') {
     throw new Error(`unexpected UX viewport progress version: ${progress.version}`)
@@ -261,16 +443,25 @@ function validateProgress(progress, pointer, matrix, mode) {
 }
 
 function deriveSummaryStatus(progress, screenshotEvidence) {
+  const plannedSafeArea = progress.planned.safeAreaGroups ?? 0
+  const completedSafeArea = progress.actual.completedSafeAreaGroups ?? 0
+  const failedSafeArea = progress.actual.failedSafeAreaGroups ?? 0
   const isComplete = progress.status === 'passed'
     && progress.actual.failedRouteThemeGroups === 0
+    && failedSafeArea === 0
     && progress.actual.completedRouteThemeGroups === progress.planned.routeThemeGroups
+    && completedSafeArea === plannedSafeArea
     && progress.actual.navigations === progress.planned.navigations
     && progress.actual.cases === progress.planned.cases
     && (!screenshotEvidence.screenshotsRequired || screenshotEvidence.screenshotCount === screenshotEvidence.plannedScreenshotCount)
   if (isComplete) {
     return 'ok'
   }
-  if (progress.status === 'failed' || progress.actual.failedRouteThemeGroups > 0) {
+  if (
+    progress.status === 'failed'
+    || progress.actual.failedRouteThemeGroups > 0
+    || failedSafeArea > 0
+  ) {
     return 'failed'
   }
   return 'incomplete'
@@ -292,13 +483,23 @@ function writeReleaseSummary({ root, matrix, corpus, mode, artifact, summary }) 
     generatedAt: new Date().toISOString(),
     latestMode: mode,
     matrixVersion: matrix.version,
+    safeAreaVersion: summary.safeAreaVersion,
     routeMatrixVersion: 'route-audit-matrix-v1',
     contentCorpusVersion: corpus.version,
     planFingerprint: summary.planFingerprint,
+    sourceBinding: summary.sourceBinding,
     testedThemes: summary.testedThemes,
     testedViewportCount: summary.testedViewportCount,
     plannedCaseCount: summary.plannedCaseCount,
     completedCaseCount: summary.completedCaseCount,
+    plannedSafeAreaCaseCount: summary.plannedSafeAreaCaseCount,
+    completedSafeAreaCaseCount: summary.completedSafeAreaCaseCount,
+    safeAreaCaseIds: summary.safeAreaCaseIds,
+    safeAreaBrowsers: summary.safeAreaBrowsers,
+    safeAreaSurfaces: summary.safeAreaSurfaces,
+    safeAreaProfiles: summary.safeAreaProfiles,
+    safeAreaResults: summary.safeAreaResults,
+    safeAreaGateErrors: summary.safeAreaGateErrors,
     plannedNavigationCount: summary.plannedNavigationCount,
     completedNavigationCount: summary.completedNavigationCount,
     completedRouteThemeGroupCount: summary.completedRouteThemeGroupCount,
@@ -371,7 +572,10 @@ if (isMain) {
       + `artifact=${relative(defaultRoot, result.artifact)} `
       + `release=${relative(defaultRoot, result.releaseArtifact)}`
     )
-    if (result.summary.status !== 'ok') {
+    if (result.summary.status !== 'ok' || (result.summary.safeAreaGateErrors?.length ?? 0) > 0) {
+      for (const message of result.summary.safeAreaGateErrors ?? []) {
+        console.error(`[ux-viewport-summary] ${message}`)
+      }
       process.exitCode = 1
     }
   } catch (error) {
