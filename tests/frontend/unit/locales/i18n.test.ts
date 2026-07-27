@@ -11,7 +11,8 @@ import {
   resetLocaleRuntimeForTests,
   setLocale,
   translate,
-  translateUnsafe
+  translateUnsafe,
+  parseSupportedLocale
 } from '@/locales'
 
 describe('locale runtime', () => {
@@ -56,5 +57,11 @@ describe('locale runtime', () => {
     expect(formatNumber(12345)).toBe(new Intl.NumberFormat('en-US').format(12345))
     expect(formatDate('2026-07-20T00:00:00Z', { year: 'numeric' }))
       .toBe(new Intl.DateTimeFormat('en-US', { year: 'numeric' }).format(new Date('2026-07-20T00:00:00Z')))
+  })
+
+  it('keeps canonical zh-Hant distinct from the controlled zh-TW input alias', () => {
+    expect(parseSupportedLocale('zh-tw')).toBe('zh-Hant')
+    expect(parseSupportedLocale('zh-Hant')).toBe('zh-Hant')
+    expect(parseSupportedLocale('zh-TW')).not.toBe('zh-TW')
   })
 })

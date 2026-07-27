@@ -28,7 +28,7 @@ public sealed class FontTokenRuntimeTests
     [Theory]
     [InlineData("en-US", null, "Google Sans", "Noto Sans SC")]
     [InlineData("zh-CN", null, "Noto Sans SC", "Noto Sans TC")]
-    [InlineData("zh-TW", null, "Noto Sans TC", "Noto Sans SC")]
+    [InlineData("zh-Hant", null, "Noto Sans TC", "Noto Sans SC")]
     [InlineData("ja-JP", null, "Noto Sans JP", "Noto Sans SC")]
     [InlineData("en-US", "Hant", "Noto Sans TC", "Noto Sans SC")]
     public async Task ResolveAsync_OrdersLocaleAndScriptFallbacks(

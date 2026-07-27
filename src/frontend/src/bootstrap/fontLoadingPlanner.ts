@@ -1,3 +1,5 @@
+import type { SupportedLocale } from '@/locales';
+
 export const FONT_LOADING_PLAN_SCHEMA = 'fsusblog.font.loading-plan.v1';
 export const FONT_LOADING_EVIDENCE_SCHEMA = 'fsusblog.font.loading-evidence.v1';
 export const FONT_PRELOAD_BUDGET = 4;
@@ -27,7 +29,7 @@ export type BundledFontLoadingPlan = Readonly<{
     deferred: readonly BundledFontFaceId[];
     preload: readonly BundledFontFaceId[];
     route: Readonly<Record<'shell' | 'article' | 'admin', readonly BundledFontFaceId[]>>;
-    locale: Readonly<Record<'zh-CN' | 'zh-TW' | 'ja-JP', readonly BundledFontFaceId[]>>;
+    locale: Readonly<Record<SupportedLocale, readonly BundledFontFaceId[]>>;
     fallback: readonly string[];
 }>;
 
@@ -89,8 +91,15 @@ const CODE_FACES: readonly BundledFontFaceId[] = [
 
 const LOCALE_FACES = {
     'zh-CN': ['noto-sans-sc:700'],
-    'zh-TW': ['noto-sans-tc:400', 'noto-sans-tc:500', 'noto-sans-tc:700'],
-    'ja-JP': ['noto-sans-jp:400', 'noto-sans-jp:500', 'noto-sans-jp:700']
+    'en-US': [],
+    'zh-Hant': ['noto-sans-tc:400', 'noto-sans-tc:500', 'noto-sans-tc:700'],
+    'ja-JP': ['noto-sans-jp:400', 'noto-sans-jp:500', 'noto-sans-jp:700'],
+    'ko-KR': [],
+    'es-419': [],
+    'fr-FR': [],
+    'de-DE': [],
+    'pt-BR': [],
+    'ru-RU': []
 } as const satisfies BundledFontLoadingPlan['locale'];
 
 const ROUTE_FACES = {
@@ -288,9 +297,9 @@ function resolveLocaleFaces(locale = 'und'): readonly BundledFontFaceId[]
     {
         return LOCALE_FACES['ja-JP'];
     }
-    if (/^zh-(?:TW|HK|MO)(?:-|$)/iu.test(locale))
+    if (/^zh-(?:Hant|TW|HK|MO)(?:-|$)/iu.test(locale))
     {
-        return LOCALE_FACES['zh-TW'];
+        return LOCALE_FACES['zh-Hant'];
     }
     if (/^zh(?:-|$)/iu.test(locale))
     {

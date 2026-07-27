@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 
 using FsusBlog.Shared.Contracts.Fonts;
+using FsusBlog.Shared.Contracts.Localization;
 
 namespace FsusBlog.Server.Infrastructure.Fonts;
 
@@ -470,12 +471,12 @@ public sealed class FontLoadingPlanner(
         IReadOnlyList<PlannedFace> faces)
     {
         IReadOnlyList<string> cjk = FaceIdsForRoles(faces, FontRole.Cjk);
-        return new SortedDictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal)
-        {
-            ["ja-JP"] = cjk,
-            ["zh-CN"] = cjk,
-            ["zh-TW"] = cjk
-        };
+        return LocaleCatalog.Enabled.ToDictionary(
+            static descriptor => descriptor.Code,
+            descriptor => descriptor.Script is "Hans" or "Hant" or "Jpan" or "Kore"
+                ? cjk
+                : Array.Empty<string>(),
+            StringComparer.Ordinal);
     }
 
     private static IReadOnlyList<string> FaceIdsForRoles(
@@ -504,10 +505,10 @@ public sealed class FontLoadingPlanner(
             : string.Compare(left.Style, right.Style, StringComparison.Ordinal);
     }
 
-    private static string NormalizeLocale(string? locale)
-        => string.IsNullOrWhiteSpace(locale) ? "und" : locale.Trim();
+    internal static string NormalizeLocale(string? locale)
+        => LocaleCatalog.TryParse(locale, out LocaleDescriptor descriptor) ? descriptor.Code : "und";
 
-    private static string ResolveScript(string locale, string? explicitScript)
+    internal static string ResolveScript(string locale, string? explicitScript)
     {
         if (!string.IsNullOrWhiteSpace(explicitScript))
         {
@@ -520,19 +521,9 @@ public sealed class FontLoadingPlanner(
             };
         }
 
-        if (locale.StartsWith("ja", StringComparison.OrdinalIgnoreCase))
-        {
-            return "Jpan";
-        }
-
-        if (locale.StartsWith("zh-TW", StringComparison.OrdinalIgnoreCase)
-            || locale.StartsWith("zh-HK", StringComparison.OrdinalIgnoreCase)
-            || locale.StartsWith("zh-MO", StringComparison.OrdinalIgnoreCase))
-        {
-            return "Hant";
-        }
-
-        return locale.StartsWith("zh", StringComparison.OrdinalIgnoreCase) ? "Hans" : "Latn";
+        return LocaleCatalog.TryParse(locale, out LocaleDescriptor descriptor)
+            ? descriptor.Script
+            : "Latn";
     }
 
     private sealed record ActivationResolution(FontActivation? Activation, bool UsedSafeFallback);

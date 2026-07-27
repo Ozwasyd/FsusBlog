@@ -23,7 +23,7 @@ public sealed class FontLoadingPlannerTests
                 Face(400, critical: false, "cccccccc")),
             code: Entry("fsusblog.font.fixture-code", FontCategories.CodeMono, "Fixture Code", "latin", ["en-US"],
                 Face(400, critical: false, "dddddddd")),
-            cjk: Entry("fsusblog.font.fixture-cjk", FontCategories.CjkSans, "Fixture CJK", "Hant", ["zh-TW"],
+            cjk: Entry("fsusblog.font.fixture-cjk", FontCategories.CjkSans, "Fixture CJK", "Hant", ["zh-Hant"],
                 Face(400, critical: true, "eeeeeeee"), Face(500, critical: false, "ffffffff")),
             emoji: Entry("fsusblog.font.fixture-emoji", FontCategories.Emoji, "Fixture Emoji", "emoji", ["und"],
                 Face(400, critical: false, "11111111")));
@@ -31,7 +31,7 @@ public sealed class FontLoadingPlannerTests
         var request = new FontLoadingPlanRequest(
             FontActivation.DefaultScope,
             FontLoadingPlanRoutes.Article,
-            Locale: "zh-TW",
+            Locale: "zh-Hant",
             HasCode: true,
             HasEmoji: true);
 
@@ -59,7 +59,7 @@ public sealed class FontLoadingPlannerTests
         Assert.Contains(first.Deferred, face => face.Category == FontCategories.CodeMono && face.Trigger == FontLoadingPlanTriggers.Content);
         Assert.Contains(first.Deferred, face => face.Category == FontCategories.Emoji && face.Trigger == FontLoadingPlanTriggers.Content);
         Assert.Contains("fsusblog.font.fixture-code:400:normal", first.RouteFaces[FontLoadingPlanRoutes.Admin]);
-        Assert.Contains("fsusblog.font.fixture-cjk:400:normal", first.LocaleFaces["zh-TW"]);
+        Assert.Contains("fsusblog.font.fixture-cjk:400:normal", first.LocaleFaces["zh-Hant"]);
         Assert.All(first.FallbackStacks.Values, value => Assert.False(string.IsNullOrWhiteSpace(value)));
     }
 

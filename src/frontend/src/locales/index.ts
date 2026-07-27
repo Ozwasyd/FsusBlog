@@ -1,5 +1,5 @@
-import { computed, readonly, shallowRef } from 'vue'
-import { DEFAULT_LOCALE, LOCALE_PREFERENCE_STORAGE_KEY, isSupportedLocale, ACTIVE_LOCALES } from './keys'
+import { computed, shallowRef } from 'vue'
+import { DEFAULT_LOCALE, LOCALE_PREFERENCE_STORAGE_KEY, isSupportedLocale, getLocaleDescriptor } from './keys'
 import type { LocaleMessages, SupportedLocale } from './keys'
 import { loadBundle, getCachedBundle } from './bundleLoader'
 import { syncLocaleDocumentMetadata } from './documentMetadata'
@@ -9,22 +9,18 @@ import { enUS } from './en-US'
 import { frFR } from './fr-FR'
 import { ptBR } from './pt-BR'
 
-export { isSupportedLocale } from './keys'
+export { isSupportedLocale, parseSupportedLocale } from './keys'
 export { DEFAULT_LOCALE, LOCALE_PREFERENCE_STORAGE_KEY } from './keys'
-export const ENABLED_LOCALES: ReadonlySet<string> = ACTIVE_LOCALES
+export { ENABLED_LOCALES } from './localeCatalog'
 
-const BOOTSTRAP_BUNDLES: Record<string, LocaleMessages> = {
+const BOOTSTRAP_BUNDLES: Partial<Record<SupportedLocale, LocaleMessages>> = {
     'zh-CN': zhCN,
     'en-US': enUS,
     'fr-FR': frFR,
     'pt-BR': ptBR
 }
 
-const localeMessages = new Map<string, LocaleMessages>()
-localeMessages.set('zh-CN', zhCN)
-localeMessages.set('en-US', enUS)
-localeMessages.set('fr-FR', frFR)
-localeMessages.set('pt-BR', ptBR)
+const localeMessages = new Map<SupportedLocale, LocaleMessages>(Object.entries(BOOTSTRAP_BUNDLES) as [SupportedLocale, LocaleMessages][])
 
 const localeState = shallowRef<SupportedLocale>(DEFAULT_LOCALE)
 let runtimeInitialized = false
@@ -53,7 +49,7 @@ function interpolate(message: string, params: Record<string, string | number> = 
         Object.prototype.hasOwnProperty.call(params, key) ? String(params[key]) : token)
 }
 
-export function translate(key: string, params?: Record<string, string | number>): string {
+export function translate(key: import('./keys').TranslationKey, params?: Record<string, string | number>): string {
     return translateUnsafe(key, params)
 }
 
@@ -154,15 +150,15 @@ export function formatDate(
 ): string {
     const date = value instanceof Date ? value : new Date(value)
     if (Number.isNaN(date.getTime())) return translate('common.time.invalid')
-    return new Intl.DateTimeFormat(localeState.value, options).format(date)
+    return new Intl.DateTimeFormat(getLocaleDescriptor(localeState.value).intlLocale, options).format(date)
 }
 
 export function formatNumber(value: number, options?: Intl.NumberFormatOptions): string {
-    return new Intl.NumberFormat(localeState.value, options).format(value)
+    return new Intl.NumberFormat(getLocaleDescriptor(localeState.value).intlLocale, options).format(value)
 }
 
 export function formatRelativeTime(value: number, unit: Intl.RelativeTimeFormatUnit): string {
-    return new Intl.RelativeTimeFormat(localeState.value, { numeric: 'auto' }).format(value, unit)
+    return new Intl.RelativeTimeFormat(getLocaleDescriptor(localeState.value).intlLocale, { numeric: 'auto' }).format(value, unit)
 }
 
 export function resetLocaleRuntimeForTests(): void {

@@ -1,31 +1,8 @@
-import { DEFAULT_LOCALE, ACTIVE_LOCALES, isAvailableLocale, type LocaleDescriptor, REGISTRY_BY_CODE } from './registry'
+import type { zhCN } from './zh-CN'
 
-export { DEFAULT_LOCALE, isAvailableLocale } from './registry'
-export type { LocaleDescriptor } from './registry'
+export { DEFAULT_LOCALE, ENABLED_LOCALES, getLocaleDescriptor, isSupportedLocale, parseSupportedLocale, type LocaleDescriptor, type SupportedLocale } from './localeCatalog'
 
 export const LOCALE_PREFERENCE_STORAGE_KEY = 'fsusblog.locale'
-
-export type SupportedLocale = string & { readonly __brand?: unique symbol }
-
-export function castSupported(value: string): SupportedLocale {
-    if (!isAvailableLocale(value)) throw new Error(`locale_not_available:${value}`)
-    return value as SupportedLocale
-}
-
-export function isActiveLocale(value: unknown): boolean {
-    return typeof value === 'string' && ACTIVE_LOCALES.has(value)
-}
-
-export function isSupportedLocale(value: unknown): value is SupportedLocale {
-    return typeof value === 'string' && isAvailableLocale(value)
-}
-
-export const ACTIVE_LOCAL_LIST: readonly SupportedLocale[] =
-    [...ACTIVE_LOCALES].map(castSupported)
-
-export function getLocaleDescriptor(code: string): LocaleDescriptor | undefined {
-    return REGISTRY_BY_CODE.get(code)
-}
 
 export type PluralCategory = 'zero' | 'one' | 'two' | 'few' | 'many' | 'other'
 
@@ -40,33 +17,38 @@ export function isPluralMessage(value: unknown): value is PluralMessage {
         ['zero', 'one', 'two', 'few', 'many', 'other'].includes(k))
 }
 
-export type DeepLocaleShape<T> = {
-    readonly [Key in keyof T]: T[Key] extends string
-        ? string | PluralMessage
-        : T[Key] extends Readonly<Record<string, unknown>>
-      ? DeepLocaleShape<T[Key]>
-      : never
+export type DeepStringShape<T> = {
+    readonly [Key in keyof T]: T[Key] extends PluralMessage
+        ? PluralMessage
+        : T[Key] extends string
+          ? string
+          : T[Key] extends Readonly<Record<string, unknown>>
+            ? DeepStringShape<T[Key]>
+            : never
 }
 
-export type LocaleMessages = Record<string, unknown>
+export type LocaleMessages = DeepStringShape<typeof zhCN>
 
-export type LeafPaths<T> = {
+type OrdinaryStringLeafPaths<T> = {
     [Key in Extract<keyof T, string>]: T[Key] extends string
         ? Key
         : T[Key] extends Record<string, unknown>
       ? T[Key] extends PluralMessage
-          ? Key
-          : `${Key}.${LeafPaths<T[Key]>}`
+          ? never
+          : `${Key}.${OrdinaryStringLeafPaths<T[Key]>}`
       : never
 }[Extract<keyof T, string>]
 
-export type TranslationKey = string
+type PluralMessageLeafPaths<T> = {
+    [Key in Extract<keyof T, string>]: T[Key] extends PluralMessage
+        ? Key
+        : T[Key] extends Record<string, unknown>
+          ? `${Key}.${PluralMessageLeafPaths<T[Key]>}`
+          : never
+}[Extract<keyof T, string>]
+
+export type TranslationKey = OrdinaryStringLeafPaths<typeof zhCN>
+
+export type PluralTranslationKey = PluralMessageLeafPaths<typeof zhCN>
 
 export type TranslationParams = Readonly<Record<string, string | number>>
-
-export {
-    LOCALE_REGISTRY,
-    REGISTRY_BY_CODE,
-    ACTIVE_LOCALES,
-    AVAILABLE_LOCALES
-} from './registry'

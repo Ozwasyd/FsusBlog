@@ -55,7 +55,7 @@ Latin/system fallback.
 | --- | --- |
 | Latin / other | `Noto Sans SC` -> `Noto Sans TC` -> `Noto Sans JP` |
 | `Hans`, `zh-CN`, other Simplified Chinese | `Noto Sans SC` -> `Noto Sans TC` -> `Noto Sans JP` |
-| `Hant`, `zh-TW`, `zh-HK`, `zh-MO` | `Noto Sans TC` -> `Noto Sans SC` -> `Noto Sans JP` |
+| `Hant`, `zh-Hant`, `zh-HK`, `zh-MO` | `Noto Sans TC` -> `Noto Sans SC` -> `Noto Sans JP` |
 | `Jpan`, `ja-*` | `Noto Sans JP` -> `Noto Sans SC` -> `Noto Sans TC` |
 | code | selected code font -> `ui-monospace` -> platform monospace |
 | emoji | platform emoji fonts -> optional selected emoji family -> `sans-serif` |

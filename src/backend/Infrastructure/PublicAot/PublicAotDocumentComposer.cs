@@ -8,6 +8,7 @@ using System.Text.RegularExpressions;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Spa;
+using FsusBlog.Shared.Contracts.Localization;
 using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
@@ -106,7 +107,7 @@ internal static class PublicAotDocumentComposer
             CanonicalUrl = canonicalUrl,
             PublicOrigin = new Uri(canonicalUrl, UriKind.Absolute).GetLeftPart(UriPartial.Authority),
             Robots = robots,
-            Locale = "zh-CN",
+            Locale = LocaleCatalog.Default.DocumentLanguage,
             PageType = kind.ToString(),
             PageEntityId = canonicalUrl,
             OpenGraph = new PublicSeoOpenGraphModel
@@ -115,7 +116,7 @@ internal static class PublicAotDocumentComposer
                 Description = description,
                 Type = ogType,
                 Url = canonicalUrl,
-                Locale = "zh_CN",
+                Locale = LocaleCatalog.Default.OpenGraphLocale,
                 ImageUrl = imageUrl
             },
             Twitter = new PublicSeoTwitterCardModel
