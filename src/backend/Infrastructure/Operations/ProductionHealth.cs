@@ -7,8 +7,8 @@ using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
-using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Distributed;
+using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicAot;
@@ -65,7 +65,9 @@ public sealed record DistributedConvergenceHealthCheck(
     string Status,
     int PendingCount,
     int TerminalFailedCount,
-    TimeSpan? OldestPendingAge) : IProductionHealthCheck;
+    TimeSpan? OldestPendingAge,
+    int AckGapCount,
+    bool LedgerAvailable) : IProductionHealthCheck;
 
 public sealed record ProductionResourceHealthCheck(
     string Status,
@@ -408,7 +410,9 @@ public sealed class ProductionReadinessProbe(
                 snapshot.Degraded ? "failed" : "ok",
                 snapshot.PendingCount,
                 snapshot.TerminalFailedCount,
-                snapshot.OldestPendingAge);
+                snapshot.OldestPendingAge,
+                snapshot.AckGapCount,
+                snapshot.LedgerAvailable);
         }
 
         checks["postgres"] = asyncChecks.Postgres;

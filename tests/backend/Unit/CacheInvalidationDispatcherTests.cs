@@ -18,7 +18,7 @@ public sealed class CacheInvalidationDispatcherTests
         var obligations = Substitute.For<IDistributedInvalidationObligationStore>();
         DistributedInvalidationPublishResult result = PublishResult(DistributedInvalidationPublishStatus.Published, DistributedInvalidationTransportStatus.Delivered);
         publisher.PublishAsync(Arg.Any<DistributedInvalidationRequest>(), Arg.Any<CancellationToken>()).Returns(result);
-        obligations.UpsertAsync(result, Arg.Any<CancellationToken>()).Returns(new DistributedInvalidationConvergenceObligation("o", "event", "article_mutation", "node", "scope", "mutation", "topology", result.Status, DistributedInvalidationTransportStatus.Delivered, DateTimeOffset.UtcNow, DistributedInvalidationConvergenceState.Satisfied, 1, null));
+        obligations.UpsertAsync(result, Arg.Any<CancellationToken>()).Returns(new DistributedInvalidationConvergenceObligation("o", "event", "article_mutation", "node", "scope", "mutation", "topology", result.Status, DistributedInvalidationTransportStatus.Delivered, DateTimeOffset.UtcNow, DistributedInvalidationConvergenceState.Complete, 1, null));
         var sut = new CacheInvalidationDispatcher(cache, cache, Substitute.For<IHttpCacheInvalidator>(), distributedInvalidationPublisher: publisher, distributedInvalidationObligations: obligations);
 
         await sut.InvalidateArticleMutationAsync(42);

@@ -1078,6 +1078,50 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
+            DistributedInvalidationDeliveryLedgerMigrationDefinitions.MigrationId,
+            new OnlineSchemaMigrationMetadata(
+                DistributedInvalidationDeliveryLedgerMigrationDefinitions.MigrationId,
+                OnlineSchemaMigrationPhase.Expand,
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260727-distributed-invalidation-delivery-ledger"),
+                ContractAfterCoordinate: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write",
+                    "distributed_invalidation_delivery_recovery"
+                ]));
+
+        result.Add(
+            DistributedInvalidationConvergenceObligationMigrationDefinitions.MigrationId,
+            new OnlineSchemaMigrationMetadata(
+                DistributedInvalidationConvergenceObligationMigrationDefinitions.MigrationId,
+                OnlineSchemaMigrationPhase.Expand,
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260726-distributed-invalidation-convergence-obligation"),
+                ContractAfterCoordinate: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write",
+                    "distributed_invalidation_convergence_health"
+                ]));
+
+        result.Add(
             UserSessionModeMigrationDefinitions.MigrationId,
             new OnlineSchemaMigrationMetadata(
                 UserSessionModeMigrationDefinitions.MigrationId,

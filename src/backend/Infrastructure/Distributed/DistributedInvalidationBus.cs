@@ -2,6 +2,8 @@ using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.Cache;
 
+using Microsoft.Extensions.DependencyInjection;
+
 namespace FsusBlog.Server.Infrastructure.Distributed;
 
 public sealed class DistributedInvalidationBus(
@@ -11,10 +13,10 @@ public sealed class DistributedInvalidationBus(
     DistributedInvalidationOptions options,
     DistributedInvalidationRuntimeState runtimeState,
     CacheInvalidationRuntimeState cacheRuntimeState,
-    ILogger<DistributedInvalidationBus> logger) : BackgroundService, IDistributedInvalidationPublisher
+    ILogger<DistributedInvalidationBus> logger,
+    IServiceScopeFactory? scopeFactory = null) : BackgroundService, IDistributedInvalidationPublisher
 {
     private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
-    private readonly DistributedInvalidationDeduplicator _deduplicator = new(options.DedupeCapacity);
 
     internal DistributedInvalidationRuntimeSnapshot RuntimeSnapshotForTests()
         => runtimeState.Snapshot();
@@ -27,6 +29,10 @@ public sealed class DistributedInvalidationBus(
         CancellationToken cancellationToken = default)
     {
         DistributedInvalidationEvent invalidation = eventFactory.Create(request);
+        await WithLedgerAsync(ledger => ledger.PrepareOutboxAsync(
+            invalidation,
+            options.Topology ?? throw new InvalidOperationException("distributed_invalidation_topology_required"),
+            cancellationToken)).ConfigureAwait(false);
         try
         {
             string payload = JsonSerializer.Serialize(invalidation, s_jsonOptions);
@@ -49,12 +55,14 @@ public sealed class DistributedInvalidationBus(
                     receipt.ExpectedMinimumSubscribers,
                     receipt.TopologyDigest,
                     receipt.TransportStatus);
-                return new DistributedInvalidationPublishResult(
+                var degradedResult = new DistributedInvalidationPublishResult(
                     DistributedInvalidationPublishStatus.Degraded,
                     invalidation.EventId,
                     detail,
                     invalidation,
                     receipt);
+                await RecordPublishAttemptAsync(degradedResult, cancellationToken).ConfigureAwait(false);
+                return degradedResult;
             }
             runtimeState.RecordPublished(invalidation, receipt);
             logger.LogInformation(
@@ -63,12 +71,14 @@ public sealed class DistributedInvalidationBus(
                 invalidation.Kind,
                 invalidation.SourceNodeId,
                 invalidation.TraceId);
-            return new DistributedInvalidationPublishResult(
+            var result = new DistributedInvalidationPublishResult(
                 DistributedInvalidationPublishStatus.Published,
                 invalidation.EventId,
                 null,
                 invalidation,
                 receipt);
+            await RecordPublishAttemptAsync(result, cancellationToken).ConfigureAwait(false);
+            return result;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -94,12 +104,14 @@ public sealed class DistributedInvalidationBus(
                 invalidation.Kind,
                 invalidation.SourceNodeId,
                 invalidation.TraceId);
-            return new DistributedInvalidationPublishResult(
+            var result = new DistributedInvalidationPublishResult(
                 DistributedInvalidationPublishStatus.Degraded,
                 invalidation.EventId,
                 detail,
                 invalidation,
                 receipt);
+            await RecordPublishAttemptAsync(result, cancellationToken).ConfigureAwait(false);
+            return result;
         }
     }
 
@@ -109,6 +121,13 @@ public sealed class DistributedInvalidationBus(
         => $"publish:{receipt.TransportStatus};reason:{receipt.FailureReason ?? "under-delivered"};channel:{receipt.Channel};count:{receipt.SubscriberCount?.ToString() ?? "null"};expected:{receipt.ExpectedMinimumSubscribers};topology:{receipt.TopologyDigest};event:{invalidation.EventId};trace:{invalidation.TraceId}";
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        Task subscription = RunSubscriptionLoopAsync(stoppingToken);
+        Task recovery = RunRecoveryLoopAsync(stoppingToken);
+        await Task.WhenAll(subscription, recovery).ConfigureAwait(false);
+    }
+
+    private async Task RunSubscriptionLoopAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -130,6 +149,46 @@ public sealed class DistributedInvalidationBus(
                 cacheRuntimeState.Record("distributed_degraded", detail);
                 logger.LogWarning(ex, "distributed-invalidation-subscription-degraded");
                 await Task.Delay(options.ApplyRetryDelay, stoppingToken).ConfigureAwait(false);
+            }
+        }
+    }
+
+    private async Task RunRecoveryLoopAsync(CancellationToken stoppingToken)
+    {
+        bool recoveredInterrupted = false;
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                if (!recoveredInterrupted)
+                {
+                    await WithLedgerAsync(ledger => ledger.RecoverInterruptedAsync(
+                        eventFactory.RuntimeScope,
+                        options.NodeId,
+                        stoppingToken)).ConfigureAwait(false);
+                    recoveredInterrupted = true;
+                }
+                await ReplayPendingAsync(stoppingToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                string detail = $"ledger-recovery:{ex.GetType().Name}";
+                runtimeState.RecordDegraded(null, detail);
+                cacheRuntimeState.Record("distributed_degraded", detail);
+                logger.LogWarning(ex, "distributed-invalidation-ledger-recovery-degraded");
+            }
+
+            try
+            {
+                await Task.Delay(options.RecoveryReplayInterval, stoppingToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                return;
             }
         }
     }
@@ -160,12 +219,49 @@ public sealed class DistributedInvalidationBus(
             runtimeState.RecordSelfIgnored(invalidation);
             return;
         }
-        runtimeState.RecordReceived(invalidation);
-        if (!_deduplicator.TryBegin(invalidation.ReplayIdentity))
+        DistributedInvalidationInboxReceipt receipt;
+        try
+        {
+            receipt = await WithLedgerAsync(ledger => ledger.ReceiveAsync(
+                invalidation,
+                options.NodeId,
+                cancellationToken)).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            string detail = $"inbox:{ex.GetType().Name};event:{invalidation.EventId};trace:{invalidation.TraceId}";
+            runtimeState.RecordDegraded(invalidation, detail);
+            cacheRuntimeState.Record("distributed_degraded", detail);
+            logger.LogWarning(ex, "distributed-invalidation-inbox-degraded {EventId}", invalidation.EventId);
+            return;
+        }
+        if (receipt.IsPayloadMismatch || receipt.IsTerminal)
+        {
+            string detail = receipt.IsPayloadMismatch
+                ? $"inbox:payload-digest-mismatch;event:{invalidation.EventId};trace:{invalidation.TraceId}"
+                : $"inbox:terminal;event:{invalidation.EventId};trace:{invalidation.TraceId}";
+            runtimeState.RecordDegraded(invalidation, detail);
+            cacheRuntimeState.Record("distributed_degraded", detail);
+            return;
+        }
+        if (receipt.IsAppliedDuplicate)
         {
             runtimeState.RecordDuplicate(invalidation);
             return;
         }
+        if (!await WithLedgerAsync(ledger => ledger.TryBeginApplyAsync(
+                invalidation,
+                options.NodeId,
+                cancellationToken)).ConfigureAwait(false))
+        {
+            runtimeState.RecordDuplicate(invalidation);
+            return;
+        }
+        runtimeState.RecordReceived(invalidation);
 
         for (int attempt = 1; attempt <= options.ApplyRetryCount; attempt++)
         {
@@ -195,6 +291,13 @@ public sealed class DistributedInvalidationBus(
                     throw new InvalidOperationException("distributed_invalidation_local_apply_result_not_applied");
                 }
                 runtimeState.RecordApplied(invalidation);
+                await WithLedgerAsync(ledger => ledger.RecordApplyAsync(
+                    invalidation,
+                    options.NodeId,
+                    DistributedInvalidationInboxApplyState.Applied,
+                    null,
+                    result.RebuildGeneration,
+                    cancellationToken)).ConfigureAwait(false);
                 logger.LogInformation(
                     "distributed-invalidation-applied {EventId} {Kind} {SourceNodeId} {TraceId}",
                     invalidation.EventId,
@@ -205,12 +308,18 @@ public sealed class DistributedInvalidationBus(
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                _deduplicator.Abandon(invalidation.ReplayIdentity);
+                await RecordInterruptedApplyAsync(invalidation).ConfigureAwait(false);
                 throw;
             }
             catch (DistributedInvalidationLocalApplyTerminalException ex)
             {
-                _deduplicator.Abandon(invalidation.ReplayIdentity);
+                await WithLedgerAsync(ledger => ledger.RecordApplyAsync(
+                    invalidation,
+                    options.NodeId,
+                    DistributedInvalidationInboxApplyState.TerminalFailed,
+                    ex.GetType().Name,
+                    null,
+                    CancellationToken.None)).ConfigureAwait(false);
                 string detail = $"apply:{ex.GetType().Name};event:{invalidation.EventId};trace:{invalidation.TraceId}";
                 runtimeState.RecordDegraded(invalidation, detail);
                 cacheRuntimeState.Record("distributed_degraded", detail);
@@ -235,7 +344,13 @@ public sealed class DistributedInvalidationBus(
             }
             catch (Exception ex)
             {
-                _deduplicator.Abandon(invalidation.ReplayIdentity);
+                await WithLedgerAsync(ledger => ledger.RecordApplyAsync(
+                    invalidation,
+                    options.NodeId,
+                    DistributedInvalidationInboxApplyState.RetryableFailed,
+                    ex.GetType().Name,
+                    null,
+                    CancellationToken.None)).ConfigureAwait(false);
                 string detail = $"apply:{ex.GetType().Name};event:{invalidation.EventId};trace:{invalidation.TraceId}";
                 runtimeState.RecordDegraded(invalidation, detail);
                 cacheRuntimeState.Record("distributed_degraded", detail);
@@ -250,6 +365,66 @@ public sealed class DistributedInvalidationBus(
             }
         }
     }
+
+    private async Task ReplayPendingAsync(CancellationToken cancellationToken)
+    {
+        IReadOnlyList<DistributedInvalidationEvent> pending = await WithLedgerAsync(
+            ledger => ledger.ReadPendingForNodeAsync(
+                eventFactory.RuntimeScope,
+                options.NodeId,
+                cancellationToken)).ConfigureAwait(false);
+        foreach (DistributedInvalidationEvent invalidation in pending)
+        {
+            await HandlePayloadAsync(
+                JsonSerializer.Serialize(invalidation, s_jsonOptions),
+                cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task RecordInterruptedApplyAsync(DistributedInvalidationEvent invalidation)
+    {
+        try
+        {
+            await WithLedgerAsync(ledger => ledger.RecordApplyAsync(
+                invalidation,
+                options.NodeId,
+                DistributedInvalidationInboxApplyState.RetryableFailed,
+                "operation-canceled",
+                null,
+                CancellationToken.None)).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "distributed-invalidation-inbox-cancellation-record-failed {EventId}", invalidation.EventId);
+        }
+    }
+
+    private async Task WithLedgerAsync(Func<IDistributedInvalidationDeliveryLedger, Task> action)
+    {
+        if (scopeFactory is null)
+        {
+            throw new InvalidOperationException("distributed_invalidation_delivery_ledger_missing");
+        }
+        using IServiceScope scope = scopeFactory.CreateScope();
+        await action(scope.ServiceProvider.GetRequiredService<IDistributedInvalidationDeliveryLedger>())
+            .ConfigureAwait(false);
+    }
+
+    private async Task<T> WithLedgerAsync<T>(Func<IDistributedInvalidationDeliveryLedger, Task<T>> action)
+    {
+        if (scopeFactory is null)
+        {
+            throw new InvalidOperationException("distributed_invalidation_delivery_ledger_missing");
+        }
+        using IServiceScope scope = scopeFactory.CreateScope();
+        return await action(scope.ServiceProvider.GetRequiredService<IDistributedInvalidationDeliveryLedger>())
+            .ConfigureAwait(false);
+    }
+
+    private Task RecordPublishAttemptAsync(
+        DistributedInvalidationPublishResult result,
+        CancellationToken cancellationToken)
+        => WithLedgerAsync(ledger => ledger.RecordPublishAttemptAsync(result, cancellationToken));
 
     private sealed class DistributedInvalidationLocalApplyTerminalException : Exception
     {

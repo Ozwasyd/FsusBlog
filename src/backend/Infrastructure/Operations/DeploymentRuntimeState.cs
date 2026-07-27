@@ -657,8 +657,16 @@ public sealed class DeploymentDrainCoordinator(
                 "distributed-convergence-obligations",
                 snapshot.PendingCount + snapshot.TerminalFailedCount,
                 snapshot.Degraded,
-                snapshot.Degraded ? "pending" : "drained",
-                snapshot.TerminalFailedCount > 0 ? "terminal-obligation" : null));
+                snapshot.Degraded
+                    ? $"pending={snapshot.PendingCount};terminal={snapshot.TerminalFailedCount};ack-gap={snapshot.AckGapCount};oldest-ms={snapshot.OldestPendingAge?.TotalMilliseconds:F0};ledger-available={snapshot.LedgerAvailable}"
+                    : "drained",
+                !snapshot.LedgerAvailable
+                    ? "ledger-unavailable"
+                    : snapshot.TerminalFailedCount > 0
+                        ? "terminal-obligation"
+                        : snapshot.AckGapCount > 0
+                            ? "ack-gap"
+                            : null));
         }
 
         if (serviceProvider.GetService<IArticleViewWriteBuffer>() is ArticleViewWriteBuffer articleViews)

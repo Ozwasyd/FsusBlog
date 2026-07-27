@@ -1,5 +1,8 @@
 using System.Threading.Channels;
 
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Distributed;
+
 using Microsoft.Extensions.Options;
 
 namespace FsusBlog.Server.Infrastructure.PublicReadArtifacts;
@@ -348,6 +351,14 @@ public sealed class PublicHotArtifactUpdateWorker(
             // The durable generation is the recovery truth. Do not acknowledge
             // it until every publication stage, including revocation completion,
             // has succeeded; a crash or exception here must replay this build.
+            if (requiresFullRebuild || articleIds.Count == 0)
+            {
+                await RecordDistributedReconcileCoverageAsync(
+                    scope.ServiceProvider,
+                    deliveryGeneration,
+                    snapshot.Version,
+                    stoppingToken).ConfigureAwait(false);
+            }
             await queue.CompleteGenerationAsync(deliveryGeneration, stoppingToken).ConfigureAwait(false);
             logger.LogInformation("public-hot-read-snapshot-updated {Version} {Reason} {Coalesced}", snapshot.Version, reason, coalesced);
         }
@@ -408,9 +419,19 @@ public sealed class PublicHotArtifactUpdateWorker(
             stage = PublicHotArtifactAttemptStage.Completion;
             // A claim can be superseded while its snapshot is building.  CAS the
             // generation claimed by this attempt, so a later merge remains pending.
+            if (obligation.RequiresFullRebuild || obligation.ArticleIds.Count == 0)
+            {
+                await RecordDistributedReconcileCoverageAsync(
+                    scope.ServiceProvider,
+                    obligation.TargetGeneration,
+                    snapshot.Version,
+                    stoppingToken).ConfigureAwait(false);
+            }
             bool published = await obligations.CompletePublishedAsync(obligation.ObligationId, obligation.AttemptNumber, obligation.TargetGeneration, stoppingToken).ConfigureAwait(false);
             if (published)
+            {
                 logger.LogInformation("public-hot obligation published {ObligationId} {Generation} {Recovered}", obligation.ObligationId, obligation.TargetGeneration, obligation.Recovered);
+            }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
@@ -430,6 +451,36 @@ public sealed class PublicHotArtifactUpdateWorker(
                 }
                 await ProcessDurableAsync(stoppingToken, scheduleRetry: true).ConfigureAwait(false);
             }
+        }
+    }
+
+    private static async Task RecordDistributedReconcileCoverageAsync(
+        IServiceProvider serviceProvider,
+        long generation,
+        long snapshotVersion,
+        CancellationToken cancellationToken)
+    {
+        if (generation <= 0
+            || serviceProvider.GetService<DistributedInvalidationOptions>() is not { Enabled: true } distributedOptions
+            || serviceProvider.GetService<IDistributedInvalidationDeliveryLedger>() is not { } ledger
+            || serviceProvider.GetService<IRuntimeKeyScope>() is not { } runtimeKeyScope)
+        {
+            return;
+        }
+        string runtimeScope = string.IsNullOrWhiteSpace(runtimeKeyScope.ScopeToken)
+            ? "default"
+            : runtimeKeyScope.ScopeToken;
+        string proofIdentity = FormattableString.Invariant(
+            $"public-hot-full-rebuild:snapshot:{snapshotVersion}:generation:{generation}");
+        foreach (string kind in DistributedInvalidationEventKinds.All.Order(StringComparer.Ordinal))
+        {
+            await ledger.RecordReconcileCoverageAsync(
+                runtimeScope,
+                distributedOptions.NodeId,
+                kind,
+                generation,
+                proofIdentity,
+                cancellationToken).ConfigureAwait(false);
         }
     }
 

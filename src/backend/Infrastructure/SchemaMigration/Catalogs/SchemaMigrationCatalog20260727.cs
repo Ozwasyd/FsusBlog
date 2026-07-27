@@ -16,5 +16,9 @@ internal static class SchemaMigrationCatalog20260727
                     DistributedInvalidationConvergenceObligationMigrationDefinitions.MigrationId,
                     SchemaMigrationPhase.PostCodeFirst)
             ],
-            Descriptors: [CommentMutationOutboxDeliveryReservationMigrationDefinitions.BuildMigration()]);
+            Descriptors:
+            [
+                CommentMutationOutboxDeliveryReservationMigrationDefinitions.BuildMigration(),
+                DistributedInvalidationDeliveryLedgerMigrationDefinitions.BuildMigration()
+            ]);
 }

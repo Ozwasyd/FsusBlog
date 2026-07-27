@@ -91,6 +91,46 @@ public sealed class DistributedInvalidationBusTests
     }
 
     [Fact]
+    public async Task RecoveryLoop_RetriesInitialLedgerFailureAndStopsOnCancellation()
+    {
+        var hub = new InMemoryTransportHub();
+        var ledger = Substitute.For<IDistributedInvalidationDeliveryLedger>();
+        int recoveryAttempts = 0;
+        ledger.RecoverInterruptedAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                if (Interlocked.Increment(ref recoveryAttempts) == 1)
+                {
+                    throw new InvalidOperationException("database-starting");
+                }
+                return Task.CompletedTask;
+            });
+        ledger.ReadPendingForNodeAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<DistributedInvalidationEvent>());
+        using ServiceProvider services = new ServiceCollection()
+            .AddSingleton<IDistributedInvalidationDeliveryLedger>(ledger)
+            .BuildServiceProvider();
+        using DistributedInvalidationBus bus = CreateBus(
+            "node-b",
+            hub.CreateTransport(),
+            new RecordingLocalApplier(),
+            scopeFactory: services.GetRequiredService<IServiceScopeFactory>());
+
+        await bus.StartAsync(CancellationToken.None);
+        await EventuallyAsync(() => Volatile.Read(ref recoveryAttempts) >= 2);
+        await bus.StopAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.True(recoveryAttempts >= 2);
+        Assert.True(bus.RuntimeSnapshotForTests().DegradedCount >= 1);
+    }
+
+    [Fact]
     public async Task RejectedRebuildWithoutDurableMarker_DoesNotRecordAppliedAndCanReplay()
     {
         var applier = new ResultLocalApplier(DegradedRetryableResult());
@@ -130,7 +170,7 @@ public sealed class DistributedInvalidationBusTests
 
     [Theory]
     [MemberData(nameof(NonAppliedResults))]
-    public async Task IncompleteOrUnknownLocalApplyResult_FailsClosedAndReleasesDedupe(
+    public async Task IncompleteOrUnknownLocalApplyResult_FailsClosedAndOnlyRetryableStateReplays(
         DistributedInvalidationLocalApplyResult? result)
     {
         var applier = new ResultLocalApplier(result);
@@ -141,7 +181,10 @@ public sealed class DistributedInvalidationBusTests
         await bus.HandlePayloadAsync(payload, CancellationToken.None);
         await bus.HandlePayloadAsync(payload, CancellationToken.None);
 
-        Assert.Equal(2, applier.ApplyAttempts);
+        int expectedAttempts = result?.LocalApplyStatus == DistributedInvalidationLocalApplyStatus.FailedTerminal
+            ? 1
+            : 2;
+        Assert.Equal(expectedAttempts, applier.ApplyAttempts);
         Assert.Equal(0, bus.RuntimeSnapshotForTests().AppliedCount);
     }
 
@@ -369,7 +412,7 @@ public sealed class DistributedInvalidationBusTests
                 DistributedInvalidationPublishStatus.Degraded,
                 DistributedInvalidationTransportStatus.UnderDelivered,
                 DateTimeOffset.UtcNow,
-                DistributedInvalidationConvergenceState.PendingRedelivery,
+                DistributedInvalidationConvergenceState.PartiallyAcked,
                 0,
                 null)));
         var dispatcher = new CacheInvalidationDispatcher(
@@ -458,7 +501,8 @@ public sealed class DistributedInvalidationBusTests
         string nodeId,
         IDistributedInvalidationTransport transport,
         IDistributedInvalidationLocalApplier applier,
-        int applyRetryCount = 2)
+        int applyRetryCount = 2,
+        IServiceScopeFactory? scopeFactory = null)
     {
         var options = new DistributedInvalidationOptions
         {
@@ -469,10 +513,58 @@ public sealed class DistributedInvalidationBusTests
                 ["node-a", "node-b"]),
             ApplyRetryCount = applyRetryCount,
             ApplyRetryDelay = TimeSpan.FromMilliseconds(1),
+            RecoveryReplayInterval = TimeSpan.FromMilliseconds(50),
             DedupeCapacity = 128
         };
         var runtimeState = new DistributedInvalidationRuntimeState(TimeProvider.System);
         var cacheRuntimeState = new CacheInvalidationRuntimeState();
+        if (scopeFactory is null)
+        {
+            var ledger = Substitute.For<IDistributedInvalidationDeliveryLedger>();
+            var inboxStates = new ConcurrentDictionary<string, DistributedInvalidationInboxApplyState>(
+                StringComparer.Ordinal);
+            ledger.ReceiveAsync(
+                    Arg.Any<DistributedInvalidationEvent>(),
+                    Arg.Any<string>(),
+                    Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    DistributedInvalidationEvent @event = callInfo.ArgAt<DistributedInvalidationEvent>(0);
+                    string targetNodeId = callInfo.ArgAt<string>(1);
+                    DistributedInvalidationInboxApplyState state = inboxStates.GetValueOrDefault(
+                        $"{@event.RuntimeScope}:{@event.EventId}:{targetNodeId}",
+                        DistributedInvalidationInboxApplyState.Pending);
+                    return new DistributedInvalidationInboxReceipt(
+                        state == DistributedInvalidationInboxApplyState.Applied,
+                        false,
+                        state == DistributedInvalidationInboxApplyState.TerminalFailed,
+                        state);
+                });
+            ledger.TryBeginApplyAsync(
+                    Arg.Any<DistributedInvalidationEvent>(),
+                    Arg.Any<string>(),
+                    Arg.Any<CancellationToken>())
+                .Returns(true);
+            ledger.When(value => value.RecordApplyAsync(
+                    Arg.Any<DistributedInvalidationEvent>(),
+                    Arg.Any<string>(),
+                    Arg.Any<DistributedInvalidationInboxApplyState>(),
+                    Arg.Any<string?>(),
+                    Arg.Any<long?>(),
+                    Arg.Any<CancellationToken>()))
+                .Do(callInfo =>
+                {
+                    DistributedInvalidationEvent @event = callInfo.ArgAt<DistributedInvalidationEvent>(0);
+                    string targetNodeId = callInfo.ArgAt<string>(1);
+                    DistributedInvalidationInboxApplyState state =
+                        callInfo.ArgAt<DistributedInvalidationInboxApplyState>(2);
+                    inboxStates[$"{@event.RuntimeScope}:{@event.EventId}:{targetNodeId}"] = state;
+                });
+            ServiceProvider ledgerServices = new ServiceCollection()
+                .AddSingleton<IDistributedInvalidationDeliveryLedger>(ledger)
+                .BuildServiceProvider();
+            scopeFactory = ledgerServices.GetRequiredService<IServiceScopeFactory>();
+        }
         var bus = new DistributedInvalidationBus(
             transport,
             applier,
@@ -480,7 +572,8 @@ public sealed class DistributedInvalidationBusTests
             options,
             runtimeState,
             cacheRuntimeState,
-            NullLogger<DistributedInvalidationBus>.Instance);
+            NullLogger<DistributedInvalidationBus>.Instance,
+            scopeFactory);
         return bus;
     }
 

@@ -107,6 +107,28 @@ public sealed class SchemaMigrationRegistryTests
     }
 
     [Fact]
+    public void GetDescriptors_DistributedInvalidationDeliveryLedger_IsAdditiveOnlineExpand()
+    {
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            static item => item.MigrationId
+                == "20260727-post-distributed-invalidation-delivery-ledger");
+        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
+        OnlineSchemaMigrationMetadata metadata =
+            new OnlineSchemaMigrationCatalog().GetMetadata()[descriptor.MigrationId];
+
+        Assert.Equal(OnlineSchemaMigrationPhase.Expand, metadata.Phase);
+        Assert.False(metadata.Destructive);
+        Assert.Equal(OnlineSchemaMigrationRollbackMode.CompatibleCode, metadata.RollbackMode);
+        Assert.Contains("payload_digest", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("distributed_invalidation_inbox", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("distributed_invalidation_topology_retirement", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("distributed_invalidation_reconcile_coverage", fingerprint, StringComparison.Ordinal);
+        Assert.DoesNotContain("UPDATE distributed_invalidation_convergence_obligation", fingerprint, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("DROP ", fingerprint, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void GetDescriptors_AdminMessageQueueState_BackfillsOnlyAccountMessages()
     {
         ISchemaMigrationDescriptor descriptor = Assert.Single(

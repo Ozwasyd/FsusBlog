@@ -14,6 +14,34 @@ public sealed class OnlineSchemaMigrationPolicyTests
         => ReleaseId.Parse(value);
 
     [Fact]
+    public void DistributedInvalidationLedgers_AreExplicitAdditiveExpands()
+    {
+        ISchemaMigrationDescriptor convergence =
+            DistributedInvalidationConvergenceObligationMigrationDefinitions.BuildMigration();
+        ISchemaMigrationDescriptor delivery =
+            DistributedInvalidationDeliveryLedgerMigrationDefinitions.BuildMigration();
+        IReadOnlyDictionary<string, OnlineSchemaMigrationMetadata> catalog =
+            new OnlineSchemaMigrationCatalog().GetMetadata();
+        var metadata = new Dictionary<string, OnlineSchemaMigrationMetadata>
+        {
+            [convergence.MigrationId] = catalog[convergence.MigrationId],
+            [delivery.MigrationId] = catalog[delivery.MigrationId]
+        };
+
+        OnlineSchemaMigrationPolicyReport report =
+            OnlineSchemaMigrationPolicy.Validate([convergence, delivery], metadata);
+
+        Assert.True(report.Valid, string.Join(Environment.NewLine, report.Violations));
+        Assert.All(metadata.Values, item =>
+        {
+            Assert.Equal(OnlineSchemaMigrationPhase.Expand, item.Phase);
+            Assert.False(item.Destructive);
+            Assert.False(item.RequiresExclusiveMode);
+            Assert.Equal(OnlineSchemaMigrationRollbackMode.CompatibleCode, item.RollbackMode);
+        });
+    }
+
+    [Fact]
     public void RefreshTokenLineage_IsExplicitAdditiveExpand()
     {
         ISchemaMigrationDescriptor descriptor = RefreshTokenLineageMigrationDefinitions.BuildMigration();
@@ -301,7 +329,9 @@ public sealed class OnlineSchemaMigrationPolicyTests
             userSessionMetadataMinimization.MigrationId,
             commentMutationOutbox.MigrationId,
             MessagePrivacyRetentionMigrationDefinitions.MigrationId,
-            userSessionMultiDevice.MigrationId
+            userSessionMultiDevice.MigrationId,
+            DistributedInvalidationConvergenceObligationMigrationDefinitions.MigrationId,
+            DistributedInvalidationDeliveryLedgerMigrationDefinitions.MigrationId
         };
         Assert.All(metadata.Values.Where(classification =>
             !onlineIds.Contains(classification.MigrationId)), classification =>

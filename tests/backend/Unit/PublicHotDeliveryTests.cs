@@ -2,12 +2,16 @@ using System.Collections.Frozen;
 using System.Reflection;
 using System.Threading.Channels;
 
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Distributed;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+
+using NSubstitute;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -333,6 +337,56 @@ public sealed class PublicHotDeliveryTests
         Assert.True(store.Current.Version > 0);
         Assert.Equal(latest, state.LastCompletedGeneration);
         Assert.Null(await queue.LoadRecoveryUpdateAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task FullRebuildCompletion_RecordsScopeNodeKindCoverageInDurableLedger()
+    {
+        var state = new TrackingStateStore();
+        var queue = CreateQueue(1, state);
+        PublicHotArtifactEnqueueResult enqueued = await queue.EnqueueAsync(
+            PublicHotArtifactDeliveryClass.FullRebuildMarker,
+            null,
+            "distributed-invalidation:article_mutation");
+        PublicHotArtifactUpdate pending = (await queue.LoadRecoveryUpdateAsync(CancellationToken.None))!.Value;
+        var ledger = Substitute.For<IDistributedInvalidationDeliveryLedger>();
+        ledger.RecordReconcileCoverageAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<long>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+        var options = new DistributedInvalidationOptions
+        {
+            RuntimeMode = RuntimeModeKind.StaticRole,
+            NodeId = "node-b",
+            Topology = DistributedInvalidationTopologyManifest.Create(
+                DistributedInvalidationOptions.DefaultChannel,
+                ["node-a", "node-b"])
+        };
+        using ServiceProvider services = new ServiceCollection()
+            .AddScoped<IPublicHotArtifactProjector, EmptyProjector>()
+            .AddSingleton<IDistributedInvalidationDeliveryLedger>(ledger)
+            .AddSingleton(options)
+            .AddSingleton<IRuntimeKeyScope, DefaultRuntimeKeyScope>()
+            .BuildServiceProvider();
+        var worker = CreateWorker(queue, new PublicHotReadStore(), services);
+
+        await worker.ProcessOnceAsync(pending, CancellationToken.None);
+
+        Assert.Equal(enqueued.DeliveryGeneration, state.LastCompletedGeneration);
+        foreach (string kind in DistributedInvalidationEventKinds.All)
+        {
+            await ledger.Received(1).RecordReconcileCoverageAsync(
+                Arg.Is<string>(value => !string.IsNullOrWhiteSpace(value)),
+                "node-b",
+                kind,
+                enqueued.DeliveryGeneration,
+                Arg.Is<string>(value => value.Contains("public-hot-full-rebuild", StringComparison.Ordinal)),
+                Arg.Any<CancellationToken>());
+        }
     }
 
     [Fact]

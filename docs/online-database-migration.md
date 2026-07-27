@@ -96,6 +96,16 @@ have an unknown-value path. It must not drop, rename, tighten nullability, chang
 type semantics, rewrite a full table, require exclusive mode, or require
 backup/restore rollback.
 
+`20260727-post-distributed-invalidation-delivery-ledger` is an Expand descriptor.
+It adds nullable canonical payload, ACK-set, attempt, and compaction columns to the
+existing convergence table, then creates the target inbox, explicit topology
+retirement, and scope/node/kind reconcile-coverage tables and their unique indexes.
+It does not rewrite or constrain legacy state rows online. New code writes only
+`pending|partially-acked|complete|terminal-failed`; a legacy unfinished row without
+a replayable payload is surfaced as a terminal readiness blocker until an operator
+resolves it. Compatible rollback leaves all additive structures in place for the
+previous release to ignore.
+
 Structural replacement uses a new structure beside the old one. The compatible
 release dual-writes, reads the new value with an old-value fallback, and keeps the
 old write path available for rollback until Backfill and observation finish.

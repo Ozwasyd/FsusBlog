@@ -56,6 +56,40 @@ public sealed class ProductionHealthTests
         Assert.Equal(pending, convergence.PendingCount);
         Assert.Equal(terminal, convergence.TerminalFailedCount);
     }
+
+    [Fact]
+    public async Task DistributedConvergenceSnapshot_ExposesAckGapAndLedgerAvailability()
+    {
+        string root = Path.GetTempPath();
+        var snapshot = new DistributedInvalidationConvergenceSnapshot(
+            0,
+            0,
+            TimeSpan.FromSeconds(7),
+            true,
+            AckGapCount: 3,
+            LedgerAvailable: false);
+        var services = new ServiceCollection()
+            .AddSingleton<IDistributedInvalidationObligationStore>(
+                new FixedConvergenceObligationStore(snapshot));
+        using ServiceProvider provider = services.BuildServiceProvider();
+        IConfiguration configuration = new ConfigurationBuilder().Build();
+        var environment = new TestWebHostEnvironment(root, Environments.Development);
+        var probe = new ProductionReadinessProbe(
+            configuration,
+            environment,
+            provider,
+            CreateConfigurationSnapshot(configuration, environment, provider),
+            NullLogger<ProductionReadinessProbe>.Instance);
+
+        ProductionHealthReport report = await probe.CheckAsync(CancellationToken.None);
+
+        DistributedConvergenceHealthCheck convergence =
+            Assert.IsType<DistributedConvergenceHealthCheck>(report.Checks["distributedConvergence"]);
+        Assert.Equal("failed", convergence.Status);
+        Assert.Equal(3, convergence.AckGapCount);
+        Assert.False(convergence.LedgerAvailable);
+        Assert.Equal(TimeSpan.FromSeconds(7), convergence.OldestPendingAge);
+    }
     [Fact]
     public async Task ReadinessProbe_ExposesStableSpaAssetsFailureSnapshot()
     {

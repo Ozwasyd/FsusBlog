@@ -300,6 +300,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddScoped<ICacheInvalidationDispatcher, CacheInvalidationDispatcher>();
         services.AddSingleton<DistributedInvalidationConvergenceRuntimeState>();
         services.AddScoped<IDistributedInvalidationObligationStore, DistributedInvalidationConvergenceObligationStore>();
+        services.AddScoped<IDistributedInvalidationDeliveryLedger, DistributedInvalidationConvergenceObligationStore>();
         if (!OpenApiExportMode.IsEnabled())
         {
             services.AddHostedService(sp => sp.GetRequiredService<HotStatsInvalidationCoalescer>());

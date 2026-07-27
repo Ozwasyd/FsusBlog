@@ -29,9 +29,9 @@ public sealed record DistributedInvalidationPublishResult(
 
 public enum DistributedInvalidationConvergenceState
 {
-    Satisfied = 0,
-    PendingRedelivery = 1,
-    PendingFullReconcile = 2,
+    Pending = 0,
+    PartiallyAcked = 1,
+    Complete = 2,
     TerminalFailed = 3
 }
 
@@ -49,13 +49,18 @@ public sealed record DistributedInvalidationConvergenceObligation(
     DateTimeOffset CreatedAt,
     DistributedInvalidationConvergenceState State,
     int AttemptCount,
-    string? LastFailureKind);
+    string? LastFailureKind,
+    string PayloadDigest = "",
+    IReadOnlyList<string>? RequiredNodeIds = null,
+    IReadOnlyList<string>? AckedNodeIds = null);
 
 public sealed record DistributedInvalidationConvergenceSnapshot(
     int PendingCount,
     int TerminalFailedCount,
     TimeSpan? OldestPendingAge,
-    bool Degraded);
+    bool Degraded,
+    int AckGapCount = 0,
+    bool LedgerAvailable = true);
 
 public sealed class DistributedInvalidationConvergenceRuntimeState
 {
@@ -77,6 +82,9 @@ public sealed class DistributedInvalidationConvergenceRuntimeState
             _snapshot = value;
         }
     }
+
+    public void RecordUnavailable()
+        => Record(new DistributedInvalidationConvergenceSnapshot(0, 0, null, true, 0, false));
 }
 
 public interface IDistributedInvalidationObligationStore
@@ -86,6 +94,83 @@ public interface IDistributedInvalidationObligationStore
         CancellationToken cancellationToken = default);
     Task<DistributedInvalidationConvergenceSnapshot> SnapshotAsync(CancellationToken cancellationToken = default);
 }
+
+/// <summary>PostgreSQL is the only recovery truth; Pub/Sub only wakes the target quickly.</summary>
+public interface IDistributedInvalidationDeliveryLedger
+{
+    Task PrepareOutboxAsync(
+        DistributedInvalidationEvent invalidation,
+        DistributedInvalidationTopologyManifest topology,
+        CancellationToken cancellationToken = default);
+
+    Task RecordPublishAttemptAsync(
+        DistributedInvalidationPublishResult result,
+        CancellationToken cancellationToken = default);
+
+    Task<DistributedInvalidationInboxReceipt> ReceiveAsync(
+        DistributedInvalidationEvent invalidation,
+        string targetNodeId,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> TryBeginApplyAsync(
+        DistributedInvalidationEvent invalidation,
+        string targetNodeId,
+        CancellationToken cancellationToken = default);
+
+    Task RecordApplyAsync(
+        DistributedInvalidationEvent invalidation,
+        string targetNodeId,
+        DistributedInvalidationInboxApplyState state,
+        string? failureKind,
+        long? generation,
+        CancellationToken cancellationToken = default);
+
+    Task RecoverInterruptedAsync(
+        string runtimeScope,
+        string targetNodeId,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<DistributedInvalidationEvent>> ReadPendingForNodeAsync(
+        string runtimeScope,
+        string targetNodeId,
+        CancellationToken cancellationToken = default);
+
+    Task RetireNodeAsync(
+        string runtimeScope,
+        string retiredNodeId,
+        DistributedInvalidationTopologyManifest replacementTopology,
+        string reason,
+        CancellationToken cancellationToken = default);
+
+    Task RecordReconcileCoverageAsync(
+        string runtimeScope,
+        string targetNodeId,
+        string kind,
+        long generation,
+        string proofIdentity,
+        CancellationToken cancellationToken = default);
+
+    Task<int> CompactCompletedAsync(
+        string runtimeScope,
+        long generationWatermark,
+        DateTimeOffset retainAfter,
+        CancellationToken cancellationToken = default);
+}
+
+public enum DistributedInvalidationInboxApplyState
+{
+    Pending = 0,
+    Applying = 1,
+    Applied = 2,
+    RetryableFailed = 3,
+    TerminalFailed = 4
+}
+
+public sealed record DistributedInvalidationInboxReceipt(
+    bool IsAppliedDuplicate,
+    bool IsPayloadMismatch,
+    bool IsTerminal,
+    DistributedInvalidationInboxApplyState State);
 
 public interface IDistributedInvalidationPublisher
 {
@@ -274,6 +359,7 @@ public sealed class DistributedInvalidationOptions
     public string Channel { get; init; } = DefaultChannel;
     public int ApplyRetryCount { get; init; } = 3;
     public TimeSpan ApplyRetryDelay { get; init; } = TimeSpan.FromMilliseconds(25);
+    public TimeSpan RecoveryReplayInterval { get; init; } = TimeSpan.FromSeconds(5);
     public int DedupeCapacity { get; init; } = 4096;
     public DistributedInvalidationTopologyManifest? Topology
     {
@@ -317,6 +403,8 @@ public sealed class DistributedInvalidationOptions
             ApplyRetryCount = Math.Clamp(section.GetValue("ApplyRetryCount", 3), 1, 10),
             ApplyRetryDelay = TimeSpan.FromMilliseconds(
                 Math.Clamp(section.GetValue("ApplyRetryDelayMilliseconds", 25), 1, 5000)),
+            RecoveryReplayInterval = TimeSpan.FromMilliseconds(
+                Math.Clamp(section.GetValue("RecoveryReplayIntervalMilliseconds", 5000), 100, 60000)),
             DedupeCapacity = Math.Clamp(section.GetValue("DedupeCapacity", 4096), 128, 65536)
         };
     }
@@ -330,6 +418,9 @@ public sealed class DistributedInvalidationEventFactory(
     IRuntimeKeyScope runtimeKeyScope,
     TimeProvider timeProvider)
 {
+    public string RuntimeScope
+        => string.IsNullOrWhiteSpace(runtimeKeyScope.ScopeToken) ? "default" : runtimeKeyScope.ScopeToken;
+
     public DistributedInvalidationEvent Create(DistributedInvalidationRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
