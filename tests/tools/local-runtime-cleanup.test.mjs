@@ -204,7 +204,7 @@ test('dedicated browser bootstrap is fixed at one worker and fail-closes owned r
   const backend = source.slice(source.indexOf('EnsureBackend()'), source.indexOf('StartBackgroundIfNeeded()'))
   const background = source.slice(source.indexOf('StartBackgroundIfNeeded()'), source.indexOf('EnsureDebugFrontend()'))
   const debugFrontend = source.slice(source.indexOf('EnsureDebugFrontend()'), source.indexOf('EnsureReleasePreview()'))
-  const releasePreview = source.slice(source.indexOf('EnsureReleasePreview()'), source.indexOf('PrepareFixtures()'))
+  const releasePreview = source.slice(source.indexOf('EnsureReleasePreview()'), source.indexOf('CurrentPowDifficulty()'))
   for (const [label, runtimeSource, reuseMarker] of [
     ['backend', backend, 'already healthy'],
     ['background helper', background, 'already reachable'],
@@ -232,8 +232,11 @@ test('dedicated browser bootstrap is fixed at one worker and fail-closes owned r
     assert.match(serviceSource, /AssertDedicatedContainerBinding/u)
     assert.match(serviceSource, /DEDICATED_RUNTIME:-0\}" == "1"[\s\S]*?refusing to remove or recreate[\s\S]*?return 1[\s\S]*?docker rm -f -v/u)
   }
-  const fixtures = source.slice(source.indexOf('PrepareFixtures()'), source.indexOf('CurrentPowDifficulty()'))
-  assert.match(fixtures, /DEDICATED_RUNTIME:-0\}" == "1"[\s\S]*?PrepareAuthFixturesOnce[\s\S]*?PreparePublicFixturesOnce[\s\S]*?else[\s\S]*?RunParallel "bootstrap-runtime-fixtures"/u)
+  assert.match(source, /InvokeFixtureOrchestrator/u)
+  assert.match(source, /tools\/test-fixtures\/cli\.mjs/u)
+  assert.doesNotMatch(source, /PrepareFixtures\s*\(/u)
+  assert.doesNotMatch(source, /PrepareAuthFixturesOnce|PreparePublicFixturesOnce|PrepareRuntimeFixturesOnce/u)
+  assert.doesNotMatch(source, /RunParallel "bootstrap-runtime-fixtures"/u)
 })
 
 test('dedicated runtime admission fail-closes foreign, hidden, reachable, and raced listeners for all roles', (t) => {

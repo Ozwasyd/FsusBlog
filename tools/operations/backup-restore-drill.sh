@@ -656,7 +656,8 @@ RunSmokeChecks() {
         cd "$ROOT_DIR"
         FSUSBLOG_BASE_URL="$BASE_URL" \
             FSUSBLOG_PG_CONTAINER="$postgres_container" \
-            npm --prefix src/frontend run prepare:binary-smoke:auth-users >/dev/null
+            node tools/test-fixtures/cli.mjs run --profile auth-basic --source dev-cli --skip-verify \
+            --base-url "$BASE_URL" --pg-container "$postgres_container" >/dev/null
 
         FSUSBLOG_BASE_URL="$BASE_URL" \
             node --input-type=module -e "import { loginWithPow } from './tests/frontend/support/auth-helpers.mjs'; await loginWithPow(process.env.FSUSBLOG_ADMIN_USERNAME || 'binaryadmin', process.env.FSUSBLOG_ADMIN_PASSWORD || 'BinaryAdminPass123!', false, 'backup-restore-drill');"

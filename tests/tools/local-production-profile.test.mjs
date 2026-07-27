@@ -1263,8 +1263,10 @@ test('acceptance bootstrap starts independent services within dynamic CPU and me
     assert.match(source, /capacity update workers=\$workerCap->\$nextWorkerCap active=\$active/u);
     assert.match(source, /RunBootstrapParallel 'database services'[\s\S]*?postgres EnsurePostgres[\s\S]*?redis EnsureRedis/u);
     assert.match(source, /local -a runtimeApplications=\(debug-backend EnsureBackend\)[\s\S]*?CiProductionHasDomain frontend-dist[\s\S]*?runtimeApplications\+=\(release-preview EnsureReleasePreview debug-frontend EnsureDebugFrontend\)[\s\S]*?RunBootstrapParallel 'runtime applications'/u);
-    assert.match(source, /RunParallel "bootstrap-runtime-fixtures"[\s\S]*?auth-fixtures::PrepareAuthFixturesOnce[\s\S]*?public-fixtures::PreparePublicFixturesOnce/u);
-    assert.match(source, /FSUSBLOG_PARALLEL_WORKLOAD=scheduler-admitted[\s\S]*RunParallel "bootstrap-runtime-fixtures"/u);
+    assert.match(source, /InvokeFixtureOrchestrator/u);
+    assert.match(source, /tools\/test-fixtures\/cli\.mjs/u);
+    assert.doesNotMatch(source, /PrepareAuthFixturesOnce|PreparePublicFixturesOnce|PrepareRuntimeFixturesOnce|PrepareFixtures\s*\(/u);
+    assert.doesNotMatch(source, /RunParallel "bootstrap-runtime-fixtures"/u);
     assert.doesNotMatch(source, /FLUSHDB|RefreshAcceptanceCacheAfterFixtures/u);
     assert.match(publicFixtureSource, /refreshDirectDbSeedCaches/u);
     assert.match(cachePlanSource, /action: 'output-cache-clear'/u);

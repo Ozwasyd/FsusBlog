@@ -21,7 +21,7 @@ export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
 export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
 export FSUSBLOG_PLAYWRIGHT_MANAGED_ONLY=1
 export FSUSBLOG_HTTP_TIMEOUT_MS="$RESILIENCE_HTTP_TIMEOUT_MS"
-PrepareRuntimeFixturesOnce
+InvokeLaneFixtureOrchestrator
 RunInClient npm run check:resilience:runtime
 
 mkdir -p "$ROOT_DIR/.tmp/browser-diagnostics-runtime/resilience"

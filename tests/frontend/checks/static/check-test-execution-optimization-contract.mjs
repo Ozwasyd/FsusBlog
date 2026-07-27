@@ -387,24 +387,28 @@ for (const token of [
   }
 }
 
-const authFingerprintStart = suiteSupportSource.indexOf('PrepareAuthFixturesOnce()')
-const authFingerprintEnd = suiteSupportSource.indexOf('PreparePublicFixturesOnce()', authFingerprintStart)
-const authFingerprint = suiteSupportSource.slice(authFingerprintStart, authFingerprintEnd)
+// Auth/public fixtures run only through the unique FixtureOrchestrator (#1709).
+// Session fixtures remain lane-local with secret-env fingerprinting.
+const sessionFingerprintStart = suiteSupportSource.indexOf('PrepareSessionFixturesOnce()')
+const sessionFingerprintEnd = suiteSupportSource.indexOf('InvokeLaneFixtureOrchestrator()', sessionFingerprintStart)
+const sessionFingerprint = suiteSupportSource.slice(sessionFingerprintStart, sessionFingerprintEnd)
 for (const secretName of [
   'Jwt__SecretKey',
-  'JWT_SECRET',
-  'FSUSBLOG_JWT_SECRET',
   'FSUSBLOG_TEST_SESSION_SECRET',
-  'Jwt__KeyVersion',
-  'AnonymousCredentialIssuer__SubjectHashPepper',
-  'FSUSBLOG_DEV_ANONYMOUS_SUBJECT_HASH_PEPPER'
+  'AnonymousCredentialIssuer__SubjectHashPepper'
 ]) {
-  if (!authFingerprint.includes(`--secret-env ${secretName}`)) {
-    errors.push(`auth fixture fingerprint must hash ${secretName} through --secret-env`)
+  if (!sessionFingerprint.includes(`--secret-env ${secretName}`)) {
+    errors.push(`session fixture fingerprint must hash ${secretName} through --secret-env`)
   }
-  if (authFingerprint.includes(`--value "\${${secretName}`)) {
-    errors.push(`auth fixture fingerprint must not pass raw ${secretName} through argv`)
+  if (sessionFingerprint.includes(`--value "\${${secretName}`)) {
+    errors.push(`session fixture fingerprint must not pass raw ${secretName} through argv`)
   }
+}
+if (!suiteSupportSource.includes('tools/test-fixtures/cli.mjs')) {
+  errors.push('suite support must invoke tools/test-fixtures/cli.mjs as the unique fixture orchestrator')
+}
+if (/\bPrepareAuthFixturesOnce\s*\(|\bPreparePublicFixturesOnce\s*\(|\bPrepareRuntimeFixturesOnce\s*\(/u.test(suiteSupportSource)) {
+  errors.push('suite support must not retain PrepareAuth/Public/RuntimeFixturesOnce dual orchestrators')
 }
 requireIncludes('tools/test/run-once.mjs', [
   "name === 'secret-env'",
@@ -436,11 +440,8 @@ requireIncludes('tools/test/run-matrix-governance-once.sh', [
 requireIncludes('tools/bootstrap-acceptance-env.sh', [
   'tools/frontend',
   'FSUSBLOG_FIXTURE_SERVICE_GENERATION',
-  'local laneSupport="$ROOT_DIR/tools/test/lanes/_lane-collect-support.sh"',
-  'source "$laneSupport"',
-  'RunParallel "bootstrap-runtime-fixtures"',
-  '"auth-fixtures::PrepareAuthFixturesOnce"',
-  '"public-fixtures::PreparePublicFixturesOnce"',
+  'tools/test-fixtures/cli.mjs',
+  'InvokeFixtureOrchestrator',
   'RunFrontendFastBuildGroup',
   'reusing digest-verified frontend release bundle produced by this build-static scheduler run'
 ])
@@ -459,10 +460,21 @@ requireIncludes('tools/test/lanes/visual-console-playwright.sh', [
   'WriteVisualPlaywrightSkipEvidence console'
 ])
 const bootstrapSource = read('tools/bootstrap-acceptance-env.sh')
-for (const duplicateFixtureCommand of ['npm run prepare:binary-smoke:auth-users', 'npm run prepare:playwright:fixtures']) {
-  if (bootstrapSource.includes(duplicateFixtureCommand)) {
-    errors.push(`bootstrap must use shared run-once fixture helpers instead of direct command: ${duplicateFixtureCommand}`)
+for (const dualPath of [
+  'PrepareAuthFixturesOnce',
+  'PreparePublicFixturesOnce',
+  'PrepareRuntimeFixturesOnce',
+  'PrepareFixtures()',
+  'npm run prepare:binary-smoke:auth-users',
+  'npm run prepare:playwright:fixtures',
+  'RunParallel "bootstrap-runtime-fixtures"'
+]) {
+  if (bootstrapSource.includes(dualPath)) {
+    errors.push(`bootstrap must not retain dual fixture path: ${dualPath}`)
   }
+}
+if (!bootstrapSource.includes('tools/test-fixtures/cli.mjs')) {
+  errors.push('bootstrap must call the unique fixture orchestrator CLI')
 }
 requireIncludes('tools/coverage/collect-backend-coverage.sh', [
   'EnsureBackendFilteredBuild',

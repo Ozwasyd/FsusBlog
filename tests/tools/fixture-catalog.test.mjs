@@ -160,7 +160,7 @@ test('none profile rejects hidden fixture preparation and security reset', () =>
   }
   const sourceOverrides = new Map([[
     'tools/test/lanes/none-negative.sh',
-    'ResetSecurityRuntimeState "hidden reset"\nPreparePublicFixturesOnce\n'
+    'ResetSecurityRuntimeState "hidden reset"\nInvokeLaneFixtureOrchestrator\n'
   ]])
   assert.deepEqual(validateNoneFixtureTier(tier, { sourceOverrides }), [
     'matrix tier none-negative none profile cannot execute security state reset',
@@ -168,11 +168,12 @@ test('none profile rejects hidden fixture preparation and security reset', () =>
   ])
 })
 
-test('inventory records truthful Playwright env reuse and dual seed fallback', () => {
+test('inventory records truthful Playwright env reuse without API→DB fallback', () => {
   const discover = readFileSync(path.join(root, 'tests/frontend/fixtures/discover-playwright-fixtures.mjs'), 'utf8')
   const observed = observeFixtureConsumerSource('tests/frontend/fixtures/discover-playwright-fixtures.mjs', discover)
   assert.match(observed, /reuses public content already present in the running env/u)
-  assert.match(observed, /admin API public seed falls back to direct-DB seed/u)
+  assert.match(observed, /public fixtures seeded via admin API only \(public-api-scenario; no direct-DB fallback\)/u)
+  assert.doesNotMatch(observed, /admin API public seed falls back to direct-DB seed/u)
   assert.doesNotMatch(observed, /no catalog alias or undeclared capability fallback/u)
 
   const inventory = JSON.parse(readFileSync(fixtureCatalogFiles.inventory, 'utf8'))

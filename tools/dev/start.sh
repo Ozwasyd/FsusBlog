@@ -249,100 +249,30 @@ else
     sleep 8
 fi
 
-# Fixture orchestrator (profile-gated). Full multi-producer orchestrator is owned by a later issue;
-# this entry only invokes the catalog-backed producers the selected profile requires.
+# Unique FixtureOrchestrator (#1709). Profile → DAG → producer ports only.
 FIXTURE_RECEIPT="$RECEIPT_ROOT/fixture-receipt.json"
-if [[ "$PROFILE_ID" == "none" || "$MUTATION_POLICY" == "zero-mutation" ]]; then
-    node -e '
-const fs = require("node:fs")
-const path = require("node:path")
-const file = process.argv[1]
-const plan = JSON.parse(process.argv[2])
-const receipt = {
-  schema: "fsusblog.fixture-receipt.v1",
-  kind: "fixture-receipt",
-  generatedAt: new Date().toISOString(),
-  profileId: plan.profileId,
-  profileSource: plan.profileSource,
-  catalogDigest: plan.catalogDigest,
-  expandedCapabilityDigest: plan.expandedCapabilityDigest,
-  capabilityIds: plan.capabilities,
-  producerIds: plan.producers,
-  mutationPolicy: plan.mutationPolicy,
-  mutations: [],
-  zeroData: true
-}
-fs.mkdirSync(path.dirname(file), { recursive: true })
-fs.writeFileSync(file, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 })
-' "$FIXTURE_RECEIPT" "$PLAN_JSON"
-    echo "[dev-start] none/zero-mutation profile: wrote zero-data fixture receipt"
-elif [[ "$REQUIRES_DEMO_SEED" == "1" ]]; then
-    "$ROOT_DIR/tools/dev/seed-demo-data.sh"
-    node -e '
-const fs = require("node:fs")
-const path = require("node:path")
-const file = process.argv[1]
-const plan = JSON.parse(process.argv[2])
-const receipt = {
-  schema: "fsusblog.fixture-receipt.v1",
-  kind: "fixture-receipt",
-  generatedAt: new Date().toISOString(),
-  profileId: plan.profileId,
-  profileSource: plan.profileSource,
-  catalogDigest: plan.catalogDigest,
-  expandedCapabilityDigest: plan.expandedCapabilityDigest,
-  capabilityIds: plan.capabilities,
-  producerIds: plan.producers,
-  mutationPolicy: plan.mutationPolicy,
-  mutations: ["development-demo"],
-  zeroData: false
-}
-fs.mkdirSync(path.dirname(file), { recursive: true })
-fs.writeFileSync(file, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 })
-' "$FIXTURE_RECEIPT" "$PLAN_JSON"
-elif [[ "$REQUIRES_AUTH_FIXTURES" == "1" || "$REQUIRES_PUBLIC_FIXTURES" == "1" ]]; then
-    if [[ "$REQUIRES_AUTH_FIXTURES" == "1" ]]; then
-        echo "[dev-start] preparing auth fixtures for profile ${PROFILE_ID}..."
-        FSUSBLOG_BASE_URL="http://127.0.0.1:7568" \
-            PLAYWRIGHT_BASE_URL="http://localhost:3000" \
-            FSUSBLOG_PG_CONTAINER="fsusblog-dev-postgres" \
-            FSUSBLOG_REDIS_CONTAINER="fsusblog-dev-redis" \
-            FSUSBLOG_JWT_ACCESS_TOKEN_EXPIRES_MINUTES="$Jwt__AccessTokenExpiresMinutes" \
-            npm --prefix "$FRONTEND_DIR" run prepare:binary-smoke:auth-users
-    fi
-    if [[ "$REQUIRES_PUBLIC_FIXTURES" == "1" && "$REQUIRES_AUTH_FIXTURES" != "1" ]]; then
-        echo "[dev-start] public-only fixture production for profile ${PROFILE_ID} is owned by the later fixture orchestrator" >&2
-        exit 1
-    fi
-    node -e '
-const fs = require("node:fs")
-const path = require("node:path")
-const file = process.argv[1]
-const plan = JSON.parse(process.argv[2])
-const mutations = []
-if (plan.requiresAuthFixtures) mutations.push("auth-session")
-if (plan.requiresPublicFixtures) mutations.push("public-content-deferred")
-const receipt = {
-  schema: "fsusblog.fixture-receipt.v1",
-  kind: "fixture-receipt",
-  generatedAt: new Date().toISOString(),
-  profileId: plan.profileId,
-  profileSource: plan.profileSource,
-  catalogDigest: plan.catalogDigest,
-  expandedCapabilityDigest: plan.expandedCapabilityDigest,
-  capabilityIds: plan.capabilities,
-  producerIds: plan.producers,
-  mutationPolicy: plan.mutationPolicy,
-  mutations,
-  zeroData: false
-}
-fs.mkdirSync(path.dirname(file), { recursive: true })
-fs.writeFileSync(file, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 })
-' "$FIXTURE_RECEIPT" "$PLAN_JSON"
-else
-    echo "[dev-start] profile ${PROFILE_ID} requires producers that this entry does not own yet" >&2
-    exit 1
-fi
+ORCHESTRATOR_PLAN="$RECEIPT_ROOT/orchestrator-plan.json"
+ORCHESTRATOR_RECEIPT="$RECEIPT_ROOT/orchestrator-receipt.json"
+echo "[dev-start] invoking unique fixture orchestrator for profile ${PROFILE_ID}..."
+FSUSBLOG_BASE_URL="http://127.0.0.1:7568" \
+    PLAYWRIGHT_BASE_URL="http://localhost:3000" \
+    FSUSBLOG_DEBUG_BACKEND_URL="http://127.0.0.1:7568" \
+    FSUSBLOG_DEBUG_FRONTEND_URL="http://localhost:3000" \
+    FSUSBLOG_PG_CONTAINER="fsusblog-dev-postgres" \
+    FSUSBLOG_REDIS_CONTAINER="fsusblog-dev-redis" \
+    FSUSBLOG_JWT_ACCESS_TOKEN_EXPIRES_MINUTES="${Jwt__AccessTokenExpiresMinutes:-}" \
+    node "$ROOT_DIR/tools/test-fixtures/cli.mjs" run \
+        --profile "$PROFILE_ID" \
+        --source dev-cli \
+        --plan-out "$ORCHESTRATOR_PLAN" \
+        --out "$ORCHESTRATOR_RECEIPT" \
+        --legacy-fixture-receipt "$FIXTURE_RECEIPT" \
+        --skip-verify \
+        --base-url "http://127.0.0.1:7568" \
+        --debug-backend-url "http://127.0.0.1:7568" \
+        --frontend-url "http://localhost:3000" \
+        --pg-container "fsusblog-dev-postgres" \
+        --redis-container "fsusblog-dev-redis"
 
 FIXTURE_RECEIPT_DIGEST="$(node "${FIXTURE_CATALOG_CLI[@]}" receipt-digest --file "$FIXTURE_RECEIPT")"
 READY_RECEIPT="$RECEIPT_ROOT/environment-ready.json"

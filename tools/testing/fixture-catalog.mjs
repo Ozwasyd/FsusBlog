@@ -84,13 +84,17 @@ export function observeFixtureConsumerSource(sourcePath, content) {
   const text = String(content ?? '')
   const pathHint = String(sourcePath ?? '')
 
-  if (/seedPublicFixturesViaApi/u.test(text) && /\bseedPublicFixtures\s*\(/u.test(text)) {
+  // Detect live API→DB fallback control flow, not merely co-located helper definitions.
+  if (/seedPublicFixturesViaApi[\s\S]{0,400}catch[\s\S]{0,400}seedPublicFixtures\s*\(/u.test(text)
+    || /admin API seeding unavailable; using direct DB seed/u.test(text)) {
     observations.add('admin API public seed falls back to direct-DB seed when API unavailable')
   } else if (/seedPublicFixturesViaApi/u.test(text)) {
-    observations.add('public fixtures seeded via admin API when discovery finds no usable article/taxonomy')
+    observations.add('public fixtures seeded via admin API only (public-api-scenario; no direct-DB fallback)')
   }
 
-  if (/\bseedPublicFixtures\s*\(/u.test(text) && /existing_article/u.test(text)) {
+  if (/\bseedPublicFixtures\s*\(/u.test(text)
+    && /existing_article/u.test(text)
+    && /seedPublicFixturesViaApi[\s\S]{0,400}catch[\s\S]{0,400}seedPublicFixtures\s*\(/u.test(text)) {
     observations.add('direct-DB public seed reuses existing article rows by title when present')
   }
 
@@ -102,7 +106,8 @@ export function observeFixtureConsumerSource(sourcePath, content) {
     observations.add('tolerates stale list cache entries while a reused acceptance environment refreshes')
   }
 
-  if (/buildSeededArticleFallback|using direct DB fixture seed while public hot-read/u.test(text)) {
+  if (/using direct DB fixture seed while public hot-read/u.test(text)
+    || (/buildSeededArticleFallback/u.test(text) && /seededFallback/u.test(text) && /firstArticle = fallback/u.test(text))) {
     observations.add('uses direct-DB seeded article IDs while public hot-read snapshot refreshes')
   }
 
@@ -114,8 +119,9 @@ export function observeFixtureConsumerSource(sourcePath, content) {
     observations.add('upserts auth identities; reuses existing user/admin rows when handles already exist')
   }
 
-  if (/PrepareAuthFixturesOnce|PreparePublicFixturesOnce|PrepareRuntimeFixturesOnce|PrepareSessionFixturesOnce/u.test(text)) {
-    observations.add('bootstrap prepares auth/public fixtures once per namespace via run-once keys')
+  if (/PrepareAuthFixturesOnce|PreparePublicFixturesOnce|PrepareRuntimeFixturesOnce|PrepareSessionFixturesOnce/u.test(text)
+    || /tools\/test-fixtures\/cli\.mjs|InvokeFixtureOrchestrator|InvokeLaneFixtureOrchestrator/u.test(text)) {
+    observations.add('bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan')
   }
 
   if (/public fallback is forbidden|sealed browser contract fixture is missing/u.test(text)) {
@@ -268,7 +274,7 @@ export function validateNoneFixtureTier(tier, {
   if (!source) return []
   const forbiddenOperations = [
     [/ResetSecurityRuntimeState/u, 'security state reset'],
-    [/\b(?:PrepareAuthFixturesOnce|PreparePublicFixturesOnce|PrepareRuntimeFixturesOnce|PrepareSessionFixturesOnce)\b/u, 'business fixture preparation']
+    [/\b(?:PrepareAuthFixturesOnce|PreparePublicFixturesOnce|PrepareRuntimeFixturesOnce|PrepareSessionFixturesOnce|InvokeLaneFixtureOrchestrator|InvokeFixtureOrchestrator)\b|tools\/test-fixtures\/cli\.mjs/u, 'business fixture preparation']
   ]
   return forbiddenOperations
     .filter(([pattern]) => pattern.test(source))

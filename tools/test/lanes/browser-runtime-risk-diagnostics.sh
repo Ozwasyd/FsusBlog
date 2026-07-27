@@ -19,7 +19,7 @@ export FSUSBLOG_PUBLIC_BASE_URL="$DEBUG_BACKEND_URL"
 export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
 export FSUSBLOG_HTTP_TIMEOUT_MS="$ACCEPTANCE_HTTP_TIMEOUT_MS"
 
-PrepareRuntimeFixturesOnce
+InvokeLaneFixtureOrchestrator
 RunCollect "pow-runtime" RunInClient npm run check:pow-runtime
 RunCollect "search-runtime" RunInClient npm run check:search-runtime
 RunCollect "zero-auth-probe" RunInClient npm run check:auth-zero-probe

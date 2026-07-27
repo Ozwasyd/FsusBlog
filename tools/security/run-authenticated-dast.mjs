@@ -164,7 +164,15 @@ function fixtureIdentity(namespace) {
 function runFreshFixturePreparation(env, namespace) {
   const suffix = fixtureIdentity(namespace)
   return new Promise((resolve, reject) => {
-    const child = spawn('npm', ['--prefix', 'src/frontend', 'run', 'prepare:binary-smoke:auth-users'], {
+    const child = spawn(process.execPath, [
+      'tools/test-fixtures/cli.mjs',
+      'run',
+      '--profile',
+      'auth-basic',
+      '--source',
+      'dev-cli',
+      '--skip-verify'
+    ], {
       cwd: root,
       env: {
         ...env,

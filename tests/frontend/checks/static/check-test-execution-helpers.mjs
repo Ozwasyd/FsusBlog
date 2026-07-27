@@ -331,13 +331,11 @@ FixtureRootPath() { printf '%s\\n' "$FIXTURE_ROOT"; }
 RunOnceCommand() { printf '%s:%s\\n' "$1" "$2" >> "$CAPTURE_FILE"; }
 export FSUSBLOG_TEST_NAMESPACE=contract
 export FSUSBLOG_FIXTURE_SERVICE_GENERATION=generation-a
-PrepareAuthFixturesOnce
-PreparePublicFixturesOnce
-PrepareAuthFixturesOnce
-PreparePublicFixturesOnce
+export FSUSBLOG_PLAYWRIGHT_WORKERS=1
+PrepareSessionFixturesOnce
+PrepareSessionFixturesOnce
 export FSUSBLOG_FIXTURE_SERVICE_GENERATION=generation-b
-PrepareAuthFixturesOnce
-PreparePublicFixturesOnce
+PrepareSessionFixturesOnce
 `, 'bash', legacyTestScript], {
     cwd: root,
     env: {
@@ -347,14 +345,12 @@ PreparePublicFixturesOnce
     },
     encoding: 'utf8'
   })
-  assert.equal(result.status, 0, result.stderr)
+  assert.equal(result.status, 0, result.stderr + result.stdout)
   const captured = (await readFile(captureFile, 'utf8')).trim().split('\n').map((line) => line.split(':'))
-  for (const key of ['auth-fixtures', 'public-fixtures']) {
-    const fingerprints = captured.filter(([capturedKey]) => capturedKey === key).map(([, value]) => value)
-    assert.equal(fingerprints.length, 3)
-    assert.equal(fingerprints[0], fingerprints[1], `${key} must reuse one fingerprint for unchanged service containers`)
-    assert.notEqual(fingerprints[1], fingerprints[2], `${key} must rerun after same-name service containers are recreated`)
-  }
+  const fingerprints = captured.filter(([capturedKey]) => capturedKey === 'session-fixtures').map(([, value]) => value)
+  assert.equal(fingerprints.length, 3)
+  assert.equal(fingerprints[0], fingerprints[1], 'session-fixtures must reuse one fingerprint for unchanged service containers')
+  assert.notEqual(fingerprints[1], fingerprints[2], 'session-fixtures must rerun after same-name service containers are recreated')
 } finally {
   await rm(fixtureGenerationRoot, { recursive: true, force: true })
 }

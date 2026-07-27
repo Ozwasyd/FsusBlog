@@ -530,7 +530,7 @@ export async function captureStorageState(
   const storageStatePath = path.join(resolveAuthFixtureDirectory(), storageStateFile)
 
   if (!existsSync(storageStatePath)) {
-    throw new Error(`acceptance storage state fixture is missing: ${storageStateFile}; run npm --prefix src/frontend run prepare:playwright:sessions or open with fsusLocalFixtureLogin=1`)
+    throw new Error(`acceptance storage state fixture is missing: ${storageStateFile}; prepare sessions via lane PrepareSessionFixturesOnce / node tests/frontend/fixtures/prepare-playwright-sessions.mjs or open with fsusLocalFixtureLogin=1`)
   }
 
   const storageState = JSON.parse(await readFile(storageStatePath, 'utf8')) as StorageState

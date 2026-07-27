@@ -765,55 +765,24 @@ async function main() {
   let page = await fetchPublicArticlePage(1, publicArticlePageSize)
   let categories = await fetchApiBinary('/api/Category')
   let tags = await fetchApiBinary('/api/Tag')
-  let seededFallback = null
 
   if (!page?.items?.[0]?.id || !Array.isArray(categories) || categories.length === 0 || !pickArticleTag(page?.items?.[0], Array.isArray(tags) ? tags : [])) {
-    try {
-      const seeded = await seedPublicFixturesViaApi()
-      console.log(`[discover-playwright-fixtures] seeded minimal public fixtures via admin APIs category=${seeded.categoryId} tag=${seeded.tagId}`)
-    } catch (apiSeedError) {
-      const apiSeedReason = apiSeedError instanceof Error
-        ? apiSeedError.message.replace(/\bfailed\b/giu, 'unavailable')
-        : String(apiSeedError).replace(/\bfailed\b/giu, 'unavailable')
-      console.log(`[discover-playwright-fixtures] admin API seeding unavailable; using direct DB seed: ${apiSeedReason}`)
-      const seeded = seedPublicFixtures()
-      seededFallback = seeded
-      console.log(`[discover-playwright-fixtures] seeded minimal public fixtures via direct DB article=${seeded.articleId} category=${seeded.categoryId} tag=${seeded.tagId}`)
-      try {
-        await refreshDirectDbSeedCaches(seeded)
-      } catch (cacheError) {
-        console.warn(`[discover-playwright-fixtures] direct DB cache refresh unavailable: ${cacheError instanceof Error ? cacheError.message : String(cacheError)}`)
-      }
-    }
+    // public-api-scenario only (#1709): API failure must not fall back to direct DB seed.
+    const seeded = await seedPublicFixturesViaApi()
+    console.log(`[discover-playwright-fixtures] seeded minimal public fixtures via admin APIs category=${seeded.categoryId} tag=${seeded.tagId}`)
 
-    try {
-      const snapshot = await waitForPublicFixtureSnapshot()
-      page = snapshot.page
-      categories = snapshot.categories
-      tags = snapshot.tags
-    } catch (snapshotError) {
-      if (!seededFallback) {
-        throw snapshotError
-      }
-      console.warn(`[discover-playwright-fixtures] public snapshot not converged after direct DB seed: ${snapshotError instanceof Error ? snapshotError.message : String(snapshotError)}`)
-    }
+    const snapshot = await waitForPublicFixtureSnapshot()
+    page = snapshot.page
+    categories = snapshot.categories
+    tags = snapshot.tags
   }
 
   const featuredArticles = await fetchPublicFeaturedArticles(3).catch(() => [])
   const hotArticles = await fetchPublicHotArticles(5).catch(() => [])
   if (!hasCompleteHomeSecondaryFixtures(featuredArticles, hotArticles)) {
-    try {
-      const seeded = seedPublicFixtures()
-      seededFallback = seeded
-      console.log(`[discover-playwright-fixtures] seeded public home secondary fixtures via direct DB article=${seeded.articleId} category=${seeded.categoryId} tag=${seeded.tagId}`)
-      await refreshDirectDbSeedCaches(seeded)
-      const snapshot = await waitForPublicFixtureSnapshot()
-      page = snapshot.page
-      categories = snapshot.categories
-      tags = snapshot.tags
-    } catch (dbSeedError) {
-      console.warn(`[discover-playwright-fixtures] direct DB secondary seeding failed: ${dbSeedError instanceof Error ? dbSeedError.message : String(dbSeedError)}`)
-    }
+    throw new Error(
+      'public-content producer (public-api-scenario) did not materialize complete home secondary fixtures; refusing direct DB fallback'
+    )
   }
 
   let firstArticle = null
@@ -833,44 +802,9 @@ async function main() {
   }
 
   if (!firstArticle?.id) {
-    const seeded = seedPublicFixtures()
-    seededFallback = seeded
-    console.log(`[discover-playwright-fixtures] seeded replacement public fixture via direct DB article=${seeded.articleId} category=${seeded.categoryId} tag=${seeded.tagId}`)
-    try {
-      await refreshDirectDbSeedCaches(seeded)
-    } catch (cacheError) {
-      console.warn(`[discover-playwright-fixtures] replacement cache refresh unavailable: ${cacheError instanceof Error ? cacheError.message : String(cacheError)}`)
-    }
-    try {
-      const snapshot = await waitForPublicFixtureSnapshot()
-      page = snapshot.page
-      categories = snapshot.categories
-      tags = snapshot.tags
-      for (const candidate of page?.items ?? []) {
-        if (!candidate?.id || !pickArticleTag(candidate, Array.isArray(tags) ? tags : [])) {
-          continue
-        }
-
-        try {
-          articleDetail = await fetchPublicArticleDetail(candidate.id)
-          firstArticle = candidate
-          break
-        } catch {
-          // Keep scanning; the list can contain stale cache entries while the acceptance environment is reused.
-        }
-      }
-    } catch (snapshotError) {
-      console.warn(`[discover-playwright-fixtures] public snapshot still incomplete after replacement seed: ${snapshotError instanceof Error ? snapshotError.message : String(snapshotError)}`)
-    }
-  }
-
-  if (!firstArticle?.id && seededFallback) {
-    const fallback = buildSeededArticleFallback(seededFallback)
-    firstArticle = fallback.article
-    articleDetail = fallback.detail
-    categories = Array.isArray(categories) && categories.length > 0 ? categories : fallback.categories
-    tags = Array.isArray(tags) && tags.length > 0 ? tags : fallback.tags
-    console.log('[discover-playwright-fixtures] using direct DB fixture seed while public hot-read snapshot refreshes')
+    throw new Error(
+      'public-content producer (public-api-scenario) found no readable public article after API seed; refusing direct DB fallback'
+    )
   }
 
   assert(firstArticle?.id, 'playwright fixture discovery failed: no public article found')

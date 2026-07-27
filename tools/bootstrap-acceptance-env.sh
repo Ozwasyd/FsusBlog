@@ -1590,61 +1590,67 @@ ResolveFixtureProfilePlan() {
 }
 
 InvokeFixtureOrchestrator() {
-    # Minimal profile-gated orchestrator. Full multi-producer orchestration is a later issue.
-    local mutationsJson='[]'
-    if [[ "$FIXTURE_PROFILE_ID" == "none" || "$FIXTURE_MUTATION_POLICY" == "zero-mutation" ]]; then
-        Log 'none/zero-mutation profile: skipping auth/public/security producers'
-        mutationsJson='[]'
-    else
-        if [[ "$FIXTURE_REQUIRES_SECURITY_RESET" == "1" ]]; then
-            ResetSecurityTestState || exit 1
-        fi
-        if [[ "$FIXTURE_REQUIRES_DEMO" == "1" ]]; then
-            Log 'development-demo producer is owned by tools/dev/start.sh; acceptance bootstrap refuses demo-public'
-            exit 1
-        fi
-        if [[ "$FIXTURE_REQUIRES_AUTH" == "1" || "$FIXTURE_REQUIRES_PUBLIC" == "1" ]]; then
-            PrepareFixtures
-            mutationsJson='['
-            local first=1
-            if [[ "$FIXTURE_REQUIRES_AUTH" == "1" ]]; then
-                mutationsJson+='"auth-session"'
-                first=0
-            fi
-            if [[ "$FIXTURE_REQUIRES_PUBLIC" == "1" ]]; then
-                if [[ "$first" != "1" ]]; then mutationsJson+=','; fi
-                mutationsJson+='"public-content"'
-            fi
-            mutationsJson+=']'
-        elif [[ -n "$FIXTURE_PRODUCER_IDS" ]]; then
-            Log "profile ${FIXTURE_PROFILE_ID} requires producers (${FIXTURE_PRODUCER_IDS}) not owned by this bootstrap stub"
-            exit 1
+    # Unique FixtureOrchestrator entry (#1709). No shell producer case lists or second lifecycle.
+    local orchestratorPlan="$FIXTURE_DIR/orchestrator-plan.json"
+    local orchestratorReceipt="$FIXTURE_DIR/orchestrator-receipt.json"
+    local -a runArgs=(
+        "$ROOT_DIR/tools/test-fixtures/cli.mjs" run
+        --profile "$FIXTURE_PROFILE_ID"
+        --source "$FIXTURE_PROFILE_SOURCE"
+        --plan-out "$orchestratorPlan"
+        --out "$orchestratorReceipt"
+        --legacy-fixture-receipt "$FIXTURE_RECEIPT_FILE"
+        --skip-verify
+        --namespace "${FSUSBLOG_TEST_NAMESPACE:-}"
+        --run-id "${FSUSBLOG_TEST_RUN_ID:-}"
+        --base-url "$DEBUG_BACKEND_URL"
+        --debug-backend-url "$DEBUG_BACKEND_URL"
+        --frontend-url "$DEBUG_FRONTEND_URL"
+        --pg-container "$POSTGRES_CONTAINER"
+        --redis-container "$REDIS_CONTAINER"
+    )
+    if [[ -n "${FSUSBLOG_SEALED_FIXTURE_EXECUTION_CLASS:-}" ]]; then
+        runArgs+=(--execution-class "$FSUSBLOG_SEALED_FIXTURE_EXECUTION_CLASS")
+    fi
+    if [[ "$FIXTURE_PROFILE_SOURCE" == "matrix" ]]; then
+        runArgs+=(
+            --sealed-profile-id "${FSUSBLOG_SEALED_FIXTURE_PROFILE_ID:?sealed fixtureProfileId is required}"
+            --sealed-catalog-digest "${FSUSBLOG_SEALED_FIXTURE_CATALOG_DIGEST:?sealed fixtureCatalogDigest is required}"
+            --sealed-capability-digest "${FSUSBLOG_SEALED_EXPANDED_CAPABILITY_DIGEST:?sealed expandedCapabilityDigest is required}"
+        )
+        if [[ -n "${FSUSBLOG_SEALED_FIXTURE_EXECUTION_CLASS:-}" ]]; then
+            runArgs+=(--sealed-execution-class "$FSUSBLOG_SEALED_FIXTURE_EXECUTION_CLASS")
         fi
     fi
-
-    "${FSUSBLOG_NODE:-node}" - "$FIXTURE_RECEIPT_FILE" "$FIXTURE_PROFILE_PLAN_FILE" "$mutationsJson" <<'NODE'
-const fs = require('node:fs')
-const path = require('node:path')
-const file = process.argv[2]
-const plan = JSON.parse(fs.readFileSync(process.argv[3], 'utf8'))
-const mutations = JSON.parse(process.argv[4])
-const receipt = {
-  schema: 'fsusblog.fixture-receipt.v1',
-  kind: 'fixture-receipt',
-  generatedAt: new Date().toISOString(),
-  profileId: plan.profileId,
-  profileSource: plan.profileSource,
-  catalogDigest: plan.catalogDigest,
-  expandedCapabilityDigest: plan.expandedCapabilityDigest,
-  capabilityIds: plan.capabilityIds ?? plan.capabilities ?? [],
-  producerIds: plan.producerIds ?? plan.producers ?? [],
-  mutationPolicy: plan.mutationPolicy,
-  mutations,
-  zeroData: mutations.length === 0
-}
-fs.mkdirSync(path.dirname(file), { recursive: true })
-fs.writeFileSync(file, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 })
-NODE
+    if [[ "$FIXTURE_REQUIRES_DEMO" == "1" ]]; then
+        Log 'development-demo producer is owned by tools/dev/start.sh; acceptance bootstrap refuses demo-public'
+        exit 1
+    fi
+    if [[ "$FIXTURE_REQUIRES_SECURITY_RESET" == "1" ]]; then
+        Log 'security.runtime-reset is not a catalog bootstrap producer; refusing'
+        exit 1
+    fi
+    Log "invoking unique fixture orchestrator profile=${FIXTURE_PROFILE_ID} producers=${FIXTURE_PRODUCER_IDS:-<none>}"
+    (
+        export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
+        export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
+        export FSUSBLOG_DEBUG_BACKEND_URL="$DEBUG_BACKEND_URL"
+        export FSUSBLOG_DEBUG_FRONTEND_URL="$DEBUG_FRONTEND_URL"
+        export FSUSBLOG_PG_CONTAINER="$POSTGRES_CONTAINER"
+        export FSUSBLOG_REDIS_CONTAINER="$REDIS_CONTAINER"
+        export FSUSBLOG_REDIS_CONTAINER_NAME="$REDIS_CONTAINER"
+        export Jwt__KeyVersion="$JWT_KEY_VERSION"
+        export Jwt__SecretKey="$JWT_SECRET"
+        export Jwt__Issuer="$JWT_ISSUER"
+        export Jwt__Audience="$JWT_AUDIENCE"
+        export Jwt__AccessTokenExpiresMinutes="$JWT_ACCESS_TOKEN_EXPIRES_MINUTES"
+        export Jwt__RotationWindowDays="$JWT_ROTATION_WINDOW_DAYS"
+        export AnonymousCredentialIssuer__SubjectHashPepper="$ANONYMOUS_SUBJECT_HASH_PEPPER"
+        "${FSUSBLOG_NODE:-node}" "${runArgs[@]}"
+    ) || {
+        Log 'fixture orchestrator prepare failed'
+        exit 1
+    }
     FIXTURE_RECEIPT_DIGEST="$("${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/testing/fixture-catalog.mjs" receipt-digest --file "$FIXTURE_RECEIPT_FILE")"
     Log "fixture receipt: ${FIXTURE_RECEIPT_FILE} digest=${FIXTURE_RECEIPT_DIGEST}"
 }
@@ -2051,57 +2057,6 @@ EnsureReleasePreview() {
             FSUSBLOG_DEBUG_BACKEND_URL="$DEBUG_BACKEND_URL" \
             "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/ux/release-preview-readiness.mjs" publish-ready
     fi
-}
-
-PrepareFixtures() {
-    # Called only when the sealed profile requires auth-session and/or public-content.
-    if [[ "$FIXTURE_REQUIRES_AUTH" != "1" && "$FIXTURE_REQUIRES_PUBLIC" != "1" ]]; then
-        Log 'PrepareFixtures refused: profile does not require auth/public producers'
-        return 1
-    fi
-    Log "preparing profile-gated fixtures auth=${FIXTURE_REQUIRES_AUTH} public=${FIXTURE_REQUIRES_PUBLIC}"
-    local laneSupport="$ROOT_DIR/tools/test/lanes/_lane-collect-support.sh"
-    (
-        export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
-        export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
-        export FSUSBLOG_DEBUG_BACKEND_URL="$DEBUG_BACKEND_URL"
-        export FSUSBLOG_DEBUG_FRONTEND_URL="$DEBUG_FRONTEND_URL"
-        export FSUSBLOG_PG_CONTAINER="$POSTGRES_CONTAINER"
-        export FSUSBLOG_REDIS_CONTAINER="$REDIS_CONTAINER"
-        export FSUSBLOG_REDIS_CONTAINER_NAME="$REDIS_CONTAINER"
-        export Jwt__KeyVersion="$JWT_KEY_VERSION"
-        export Jwt__SecretKey="$JWT_SECRET"
-        export Jwt__Issuer="$JWT_ISSUER"
-        export Jwt__Audience="$JWT_AUDIENCE"
-        export Jwt__AccessTokenExpiresMinutes="$JWT_ACCESS_TOKEN_EXPIRES_MINUTES"
-        export Jwt__RotationWindowDays="$JWT_ROTATION_WINDOW_DAYS"
-        export AnonymousCredentialIssuer__SubjectHashPepper="$ANONYMOUS_SUBJECT_HASH_PEPPER"
-        # Use the same namespaced run-once keys as every downstream runtime lane.
-        source "$laneSupport"
-        # Auth identities and public article/taxonomy fixtures have disjoint
-        # run-once keys, output contracts and database rows. Public fixture
-        # preparation performs scoped output-cache invalidation and a public-hot
-        # rebuild; never flush the shared runtime Redis database because it also
-        # owns active-release fences and background worker leases.
-        local -a tasks=()
-        if [[ "$FIXTURE_REQUIRES_AUTH" == "1" ]]; then
-            tasks+=("auth-fixtures::PrepareAuthFixturesOnce")
-        fi
-        if [[ "$FIXTURE_REQUIRES_PUBLIC" == "1" ]]; then
-            tasks+=("public-fixtures::PreparePublicFixturesOnce")
-        fi
-        if [[ "${#tasks[@]}" -eq 0 ]]; then
-            return 0
-        fi
-        if [[ "${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" == "1" ]]; then
-            if [[ "$FIXTURE_REQUIRES_AUTH" == "1" ]]; then PrepareAuthFixturesOnce; fi
-            if [[ "$FIXTURE_REQUIRES_PUBLIC" == "1" ]]; then PreparePublicFixturesOnce; fi
-        else
-            local -x FSUSBLOG_ADAPTIVE_PARALLEL=1
-            local -x FSUSBLOG_PARALLEL_WORKLOAD=scheduler-admitted
-            RunParallel "bootstrap-runtime-fixtures" "${tasks[@]}"
-        fi
-    )
 }
 
 CurrentPowDifficulty() {

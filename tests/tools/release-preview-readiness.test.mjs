@@ -323,7 +323,7 @@ test('bootstrap does not publish resident readiness until the post-fixture publi
 {
     const mainStart = bootstrapSource.indexOf('main() {');
     const mainSource = bootstrapSource.slice(mainStart);
-    const fixtures = mainSource.indexOf('PrepareFixtures');
+    const fixtures = mainSource.indexOf('InvokeFixtureOrchestrator');
     const publicHome = mainSource.indexOf("'release preview public home after fixture seeding'", fixtures);
     const residentLease = mainSource.indexOf('resident-resource-leases-cli.mjs" publish', publicHome);
 

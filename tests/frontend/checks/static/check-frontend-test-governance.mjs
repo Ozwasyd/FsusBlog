@@ -356,15 +356,19 @@ for (const script of [
   'check:worker-contracts',
   'check:a11y:deep',
   'check:frontend-test-governance',
-  'prepare:playwright:fixtures',
   'capture:manual-layout-screenshots'
 ]) {
   requireScript(script)
 }
 
 const manualScreenshotScript = pkg.scripts?.['capture:manual-layout-screenshots'] ?? ''
-if (!manualScreenshotScript.includes('prepare:playwright:fixtures')) {
-  fail('capture:manual-layout-screenshots must refresh Playwright fixtures before capture')
+if (!manualScreenshotScript.includes('tools/test-fixtures/cli.mjs')) {
+  fail('capture:manual-layout-screenshots must refresh fixtures through the unique fixture orchestrator before capture')
+}
+for (const retired of ['prepare:playwright:fixtures', 'prepare:binary-smoke:auth-users', 'prepare:playwright:sessions']) {
+  if (pkg.scripts?.[retired]) {
+    fail(`${retired} must not remain a public lifecycle package script; use tools/test-fixtures/cli.mjs`)
+  }
 }
 if (!manualScreenshotScript.includes('manual/manual-layout-screenshots.spec.ts')) {
   fail('capture:manual-layout-screenshots must run the route-driven manual screenshot spec')

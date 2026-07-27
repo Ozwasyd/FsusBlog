@@ -326,77 +326,8 @@ VerifyWasmReceiptOnce() {
         npm run verify:wasm
 }
 
-PrepareAuthFixturesOnce() {
-    local fingerprint fixtureRoot
-    fixtureRoot="$(FixtureRootPath)"
-    fingerprint="$(TestInputFingerprint \
-        --path tests/frontend/fixtures/prepare-auth-smoke-users.mjs \
-        --path tests/frontend/support/session-fixtures.mjs \
-        --path tests/frontend/support/fixture-paths.mjs \
-        --path tests/frontend/support/test-session.mjs \
-        --path tools/test/lanes/_suite-support.sh \
-        --value auth-fixtures-v2 \
-        --value "namespace=${FSUSBLOG_TEST_NAMESPACE:-local}" \
-        --value "session-prefix=${FSUSBLOG_TEST_SESSION_PREFIX:-pw}" \
-        --value "service-generation=${FSUSBLOG_FIXTURE_SERVICE_GENERATION:-unbootstrapped}" \
-        --secret-env FSUSBLOG_BASE_URL \
-        --secret-env FSUSBLOG_DEBUG_BACKEND_URL \
-        --secret-env FSUSBLOG_PG_CONTAINER \
-        --secret-env FSUSBLOG_PG_USER \
-        --secret-env FSUSBLOG_PG_DB \
-        --secret-env FSUSBLOG_REDIS_CONTAINER \
-        --secret-env FSUSBLOG_REDIS_CONTAINER_NAME \
-        --secret-env FSUSBLOG_USER_USERNAME \
-        --secret-env FSUSBLOG_ADMIN_USERNAME \
-        --secret-env FSUSBLOG_DEVICE_FP \
-        --secret-env Jwt__SecretKey \
-        --secret-env JWT_SECRET \
-        --secret-env FSUSBLOG_JWT_SECRET \
-        --secret-env FSUSBLOG_TEST_SESSION_SECRET \
-        --secret-env Jwt__KeyVersion \
-        --secret-env Jwt__Issuer \
-        --secret-env FSUSBLOG_JWT_ISSUER \
-        --secret-env Jwt__Audience \
-        --secret-env FSUSBLOG_JWT_AUDIENCE \
-        --secret-env AnonymousCredentialIssuer__SubjectHashPepper \
-        --secret-env FSUSBLOG_DEV_ANONYMOUS_SUBJECT_HASH_PEPPER \
-        --secret-env FSUSBLOG_PERSIST_AUTH_FIXTURES \
-        --secret-env FSUSBLOG_RESET_ANONYMOUS_ISSUANCE_FIXTURE \
-        --secret-env Jwt__AccessTokenExpiresMinutes \
-        --secret-env FSUSBLOG_JWT_ACCESS_TOKEN_EXPIRES_MINUTES \
-        --secret-env FSUSBLOG_TEST_SESSION \
-        --secret-env FSUSBLOG_TEST_SESSION_ISOLATION \
-        --secret-env TEST_PARALLEL_INDEX \
-        --secret-env TEST_WORKER_INDEX)"
-    RunOnceCommand \
-        auth-fixtures \
-        "$fingerprint" \
-        "$CLIENT_DIR" \
-        "$fixtureRoot/auth" \
-        npm run prepare:binary-smoke:auth-users
-}
-
-PreparePublicFixturesOnce() {
-    local fingerprint fixtureRoot
-    fixtureRoot="$(FixtureRootPath)"
-    fingerprint="$(TestInputFingerprint \
-        --path tests/frontend/fixtures/discover-playwright-fixtures.mjs \
-        --path tests/frontend/support/aeds-envelope.mjs \
-        --path tests/frontend/support/fixture-paths.mjs \
-        --path tools/test/lanes/_suite-support.sh \
-        --value "${FSUSBLOG_TEST_NAMESPACE:-local}" \
-        --value "service-generation=${FSUSBLOG_FIXTURE_SERVICE_GENERATION:-unbootstrapped}" \
-        --value "${FSUSBLOG_BASE_URL:-$DEBUG_BACKEND_URL}" \
-        --value "${FSUSBLOG_PG_CONTAINER:-}" \
-        --value "${FSUSBLOG_REDIS_CONTAINER:-}")"
-    RunOnceCommand \
-        public-fixtures \
-        "$fingerprint" \
-        "$CLIENT_DIR" \
-        "$fixtureRoot/public.aeds" \
-        npm run prepare:playwright:fixtures
-}
-
+# Session storage-state prep remains lane-local (not a catalog producer). Business
+# auth/public/security producers run only through tools/test-fixtures/cli.mjs.
 PrepareSessionFixturesOnce() {
     local fingerprint fixtureRoot workers
     fixtureRoot="$(FixtureRootPath)"
@@ -419,12 +350,53 @@ PrepareSessionFixturesOnce() {
         "$fingerprint" \
         "$CLIENT_DIR" \
         "$fixtureRoot/sessions" \
-        env FSUSBLOG_PLAYWRIGHT_WORKERS="$workers" npm run prepare:playwright:sessions -- --workers "$workers"
+        env FSUSBLOG_PLAYWRIGHT_WORKERS="$workers" \
+            "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tests/frontend/fixtures/prepare-playwright-sessions.mjs" --workers "$workers"
 }
 
-PrepareRuntimeFixturesOnce() {
-    PrepareAuthFixturesOnce
-    PreparePublicFixturesOnce
+# Unique orchestrator entry for runtime lanes (#1709).
+InvokeLaneFixtureOrchestrator() {
+    local profileId="${FSUSBLOG_SEALED_FIXTURE_PROFILE_ID:-${1:-}}"
+    local profileSource="${FSUSBLOG_FIXTURE_PROFILE_SOURCE:-matrix}"
+    local fixtureRoot orchestratorPlan orchestratorReceipt legacyReceipt
+    if [[ -z "$profileId" ]]; then
+        Fail "lane fixture orchestrator requires sealed profile id (FSUSBLOG_SEALED_FIXTURE_PROFILE_ID)"
+    fi
+    fixtureRoot="$(FixtureRootPath)"
+    orchestratorPlan="$fixtureRoot/orchestrator-plan.json"
+    orchestratorReceipt="$fixtureRoot/orchestrator-receipt.json"
+    legacyReceipt="$fixtureRoot/fixture-receipt.json"
+    local -a runArgs=(
+        "$ROOT_DIR/tools/test-fixtures/cli.mjs" run
+        --profile "$profileId"
+        --source "$profileSource"
+        --plan-out "$orchestratorPlan"
+        --out "$orchestratorReceipt"
+        --legacy-fixture-receipt "$legacyReceipt"
+        --skip-verify
+        --namespace "${FSUSBLOG_TEST_NAMESPACE:-}"
+        --run-id "${FSUSBLOG_TEST_RUN_ID:-}"
+        --base-url "${FSUSBLOG_BASE_URL:-${DEBUG_BACKEND_URL:-}}"
+        --debug-backend-url "${FSUSBLOG_DEBUG_BACKEND_URL:-${DEBUG_BACKEND_URL:-}}"
+        --frontend-url "${PLAYWRIGHT_BASE_URL:-${DEBUG_FRONTEND_URL:-}}"
+        --pg-container "${FSUSBLOG_PG_CONTAINER:-}"
+        --redis-container "${FSUSBLOG_REDIS_CONTAINER:-${FSUSBLOG_REDIS_CONTAINER_NAME:-}}"
+    )
+    if [[ -n "${FSUSBLOG_SEALED_FIXTURE_EXECUTION_CLASS:-}" ]]; then
+        runArgs+=(--execution-class "$FSUSBLOG_SEALED_FIXTURE_EXECUTION_CLASS")
+    fi
+    if [[ "$profileSource" == "matrix" ]]; then
+        runArgs+=(
+            --sealed-profile-id "${FSUSBLOG_SEALED_FIXTURE_PROFILE_ID:?}"
+            --sealed-catalog-digest "${FSUSBLOG_SEALED_FIXTURE_CATALOG_DIGEST:?}"
+            --sealed-capability-digest "${FSUSBLOG_SEALED_EXPANDED_CAPABILITY_DIGEST:?}"
+        )
+        if [[ -n "${FSUSBLOG_SEALED_FIXTURE_EXECUTION_CLASS:-}" ]]; then
+            runArgs+=(--sealed-execution-class "$FSUSBLOG_SEALED_FIXTURE_EXECUTION_CLASS")
+        fi
+    fi
+    Log "lane fixture orchestrator profile=${profileId} source=${profileSource}"
+    "${FSUSBLOG_NODE:-node}" "${runArgs[@]}"
     if [[ "${FSUSBLOG_TEST_SESSION_ISOLATION:-0}" == "1" ]]; then
         PrepareSessionFixturesOnce
     fi
@@ -1698,7 +1670,7 @@ RunIntegrationOnly() {
     export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
     export FSUSBLOG_HTTP_TIMEOUT_MS="$INTEGRATION_HTTP_TIMEOUT_MS"
 
-    PrepareRuntimeFixturesOnce
+    InvokeLaneFixtureOrchestrator
 
     local -a integrationFailures=()
     RunIntegrationStage() {
@@ -2013,7 +1985,7 @@ RunSecurityRuntimeCoreOnly() {
     export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
     export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
     export FSUSBLOG_HTTP_TIMEOUT_MS="$SECURITY_HTTP_TIMEOUT_MS"
-    RunSecurityStage "prepare-runtime-fixtures" PrepareRuntimeFixturesOnce
+    RunSecurityStage "prepare-runtime-fixtures" InvokeLaneFixtureOrchestrator
     RunSecurityStage "auth-broadcast-boundaries" RunInClient npm run check:auth-broadcast-boundaries
     if [[ "${FSUSBLOG_RUNTIME_SCENARIO_HOST:-1}" == "0" ]]; then
         Log "runtime scenario host disabled; using retained per-CLI security fallback"
@@ -2089,7 +2061,7 @@ RunResilienceOnly() {
     export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
     export FSUSBLOG_HTTP_TIMEOUT_MS="$RESILIENCE_HTTP_TIMEOUT_MS"
 
-    PrepareRuntimeFixturesOnce
+    InvokeLaneFixtureOrchestrator
     Log "real-browser search recovery is delegated to browser-runtime-risk-diagnostics"
     if [[ "${FSUSBLOG_RUNTIME_SCENARIO_HOST:-1}" == "0" ]]; then
         Log "runtime scenario host disabled; using retained per-CLI resilience fallback"
@@ -2121,7 +2093,7 @@ RunLoadOnly() {
     export FSUSBLOG_PUBLIC_BASE_URL="$RELEASE_PREVIEW_URL"
     export FSUSBLOG_HTTP_TIMEOUT_MS="$LOAD_HTTP_TIMEOUT_MS"
 
-    PrepareRuntimeFixturesOnce
+    InvokeLaneFixtureOrchestrator
     RunInClient npm run check:load:public-api
     ResetSecurityRuntimeState "pre notification stream pressure"
     RunInClient npm run check:load:notification-stream-pressure

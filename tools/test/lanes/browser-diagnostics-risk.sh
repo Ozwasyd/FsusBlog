@@ -97,7 +97,7 @@ LoadSharedDiagnosticsRuntime() {
 }
 
 PrepareProbeFixtures() {
-    PrepareRuntimeFixturesOnce
+    InvokeLaneFixtureOrchestrator
     export FSUSBLOG_SKIP_PLAYWRIGHT_SESSION_PREP=1
 }
 
