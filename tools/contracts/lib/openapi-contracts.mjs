@@ -28,9 +28,15 @@ export function loadMatrix() {
 }
 
 export function loadOpenApi({ preferGenerated = true } = {}) {
-  const candidate = preferGenerated && fs.existsSync(generatedOpenApiPath)
-    ? generatedOpenApiPath
-    : committedOpenApiPath
+  // Prefer sealed observed projection from the current observation run, then
+  // generated path, then checked-in projection. Checked-in file is never an
+  // observation input for generation — only a projection snapshot.
+  const observedPath = path.join(root, '.tmp/contracts/openapi/fsusblog.openapi.observed.json')
+  const candidate = preferGenerated && fs.existsSync(observedPath)
+    ? observedPath
+    : preferGenerated && fs.existsSync(generatedOpenApiPath)
+      ? generatedOpenApiPath
+      : committedOpenApiPath
   return readJson(candidate)
 }
 
@@ -94,97 +100,15 @@ export function flattenMatrixRoutes(matrix = loadMatrix()) {
   return routes
 }
 
-export function buildOpenApiFromMatrix(matrix = loadMatrix(), protocol = loadProtocol()) {
-  const frames = frameNames(protocol)
-  const paths = {}
-  const invalidFrames = []
-  for (const route of flattenMatrixRoutes(matrix)) {
-    for (const frame of [route.requestFrame, route.responseFrame, route.errorFrame || 'ApiError'].filter(Boolean)) {
-      if (!frames.has(frame)) invalidFrames.push(`${route.method} ${route.fullPath}: ${frame}`)
-    }
-    const pathItem = paths[route.fullPath] ?? {}
-    const successStatus = String(route.successStatus || 200)
-    const successResponse = {
-      description: `${route.responseFrame || 'NoBody'} AEDS frame`,
-      content: {
-        'application/octet-stream': {
-          schema: { type: 'string', format: 'binary' }
-        }
-      }
-    }
-    if (route.successHeaders && Object.keys(route.successHeaders).length > 0) {
-      successResponse.headers = route.successHeaders
-    }
-    const responses = {
-      [successStatus]: successResponse,
-      ...Object.fromEntries(Object.entries(route.errorResponses ?? {}).map(([status, description]) => [
-        String(status),
-        {
-          description,
-          content: {
-            'application/octet-stream': {
-              schema: { type: 'string', format: 'binary' }
-            }
-          }
-        }
-      ])),
-      default: {
-        description: 'ApiError AEDS frame',
-        content: {
-          'application/octet-stream': {
-            schema: { type: 'string', format: 'binary' }
-          }
-        }
-      }
-    }
-    const operation = {
-      operationId: route.operationId,
-      tags: ['Binary'],
-      summary: route.summary || route.testSurface,
-      responses,
-      'x-fsus-protocol': 'AEDS',
-      'x-fsus-aeds-version': protocol.header?.version ?? 2,
-      'x-fsus-request-frame': route.requestFrame || null,
-      'x-fsus-response-frame': route.responseFrame || 'server-only/no-response-body',
-      'x-fsus-error-frame': route.errorFrame || 'ApiError',
-      'x-fsus-auth': route.auth || 'anonymous',
-      'x-fsus-pow': Boolean(route.pow),
-      'x-fsus-content-type': 'application/octet-stream',
-      'x-fsus-success-status': Number(successStatus),
-      'x-fsus-cache': route.cache || (route.auth === 'anonymous' ? 'public-read' : 'no-store'),
-      'x-fsus-rate-limit': route.rateLimit || (route.auth === 'anonymous' ? 'public_read' : 'authenticated'),
-      'x-fsus-test-surface': route.testSurface,
-      'x-fsus-source': route.source,
-      'x-fsus-frontend-wrapper': route.frontendWrapper,
-      'x-fsus-frontend-adapter': route.frontendAdapter
-    }
-    if (route.parameters && route.parameters.length > 0) {
-      operation.parameters = route.parameters
-    }
-    pathItem[String(route.method).toLowerCase()] = operation
-    paths[route.fullPath] = pathItem
-  }
-  if (invalidFrames.length > 0) {
-    throw new Error(`OpenAPI matrix references unknown AEDS frames:\n${invalidFrames.join('\n')}`)
-  }
-  return {
-    openapi: '3.1.0',
-    info: {
-      title: 'FsusBlog Binary API',
-      version: '2.0.0',
-      description: 'Generated HTTP shell contract for /api/binary AEDS v2 endpoints.'
-    },
-    paths,
-    components: {
-      schemas: {
-        AedsFrame: { type: 'string', format: 'binary' }
-      }
-    },
-    'x-fsus-contract-source': {
-      matrix: 'tests/frontend/fixtures/cross-stack-contract-matrix.json',
-      protocol: 'src/shared/Contracts/Validation/aeds-protocol.json'
-    }
-  }
+/**
+ * @deprecated Removed as OpenAPI authority (#1740). OpenAPI is observed from
+ * compiled endpoint metadata via tools/contracts/FsusBlog.OpenApiObservation.
+ * Calling this function fails closed so matrix cannot re-enter as dual authority.
+ */
+export function buildOpenApiFromMatrix() {
+  throw new Error(
+    'buildOpenApiFromMatrix is retired: OpenAPI is generated only from compiled endpoint observation (issue #1740)'
+  )
 }
 
 export function operationsFromOpenApi(openapi = loadOpenApi()) {
@@ -217,8 +141,13 @@ export function operationsFromOpenApi(openapi = loadOpenApi()) {
 }
 
 export function generatedMatrixFromOpenApi(openapi = loadOpenApi(), currentMatrix = loadMatrix()) {
-  const operationKeys = new Set(operationsFromOpenApi(openapi).map((op) => op.key))
-  const matrixKeys = new Set(flattenMatrixRoutes(currentMatrix).map((route) => `${route.method} ${route.path}`))
+  const normalize = (value) => String(value).replace(/\{([A-Za-z_][A-Za-z0-9_]*)(?::[^}]+)?\}/gu, '{$1}')
+  const operationKeys = new Set(
+    operationsFromOpenApi(openapi).map((op) => `${op.method} ${normalize(op.path)}`)
+  )
+  const matrixKeys = new Set(
+    flattenMatrixRoutes(currentMatrix).map((route) => `${route.method} ${normalize(route.path)}`)
+  )
   const missing = [...operationKeys].filter((key) => !matrixKeys.has(key)).sort()
   const extra = [...matrixKeys].filter((key) => !operationKeys.has(key)).sort()
   if (missing.length > 0 || extra.length > 0) {
@@ -228,7 +157,9 @@ export function generatedMatrixFromOpenApi(openapi = loadOpenApi(), currentMatri
     ...currentMatrix,
     generatedFrom: {
       openapi: 'src/shared/Contracts/Validation/fsusblog.openapi.json',
-      protocol: 'src/shared/Contracts/Validation/aeds-protocol.json'
+      openapiAuthority: 'compiled-endpoint-observation',
+      protocol: 'src/shared/Contracts/Validation/aeds-protocol.json',
+      endpointContracts: 'src/shared/Contracts/Validation/aeds-endpoint-contracts.json'
     },
     openapiOperationCount: operationKeys.size
   }

@@ -5,7 +5,8 @@
     "domains": [
         "governance",
         "testing",
-        "documentation"
+        "documentation",
+        "api"
     ],
     "extractors": [
         {
@@ -23,6 +24,10 @@
         {
             "id": "test-matrix-fact-extractor",
             "path": "tools/run-test-matrix.mjs"
+        },
+        {
+            "id": "openapi-aeds-fact-extractor",
+            "path": "tools/fact-extractors/openapi-aeds/extract.mjs"
         }
     ],
     "contracts": [
@@ -103,6 +108,32 @@
             ],
             "documents": [
                 "docs/development/document-lifecycle.md"
+            ]
+        },
+        {
+            "id": "binary-api-aeds-contract",
+            "domain": "api",
+            "risk": "critical",
+            "status": "active",
+            "implementationOwnerCardinality": "one",
+            "allowedImplementationOwnerRoles": [],
+            "factExtractorId": "openapi-aeds-fact-extractor",
+            "requiredTestKinds": [
+                "positive",
+                "negative"
+            ],
+            "documentationPolicy": "required",
+            "documentationRationale": "Current API contract documents state binary OpenAPI and AEDS operation metadata.",
+            "allowedClaimTypes": [
+                "behavioral",
+                "safety"
+            ],
+            "releaseQualification": true,
+            "coverageIds": [
+                "binary-api-aeds-contract"
+            ],
+            "documents": [
+                "docs/api/contracts.md"
             ]
         },
         {

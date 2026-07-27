@@ -1,0 +1,116 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
+
+namespace FsusBlog.OpenApiObservation;
+
+internal static class OpenApiProjectionWriter
+{
+    public static string Write(ObservationDocument observation)
+    {
+        var paths = new JsonObject();
+        foreach (ObservationOperation op in observation.Operations
+            .OrderBy(static item => item.Path, StringComparer.Ordinal)
+            .ThenBy(static item => item.Method, StringComparer.Ordinal))
+        {
+            if (paths[op.Path] is not JsonObject pathItem)
+            {
+                pathItem = new JsonObject();
+                paths[op.Path] = pathItem;
+            }
+
+            string method = op.Method.ToLowerInvariant();
+            if (pathItem.ContainsKey(method))
+            {
+                throw new InvalidOperationException($"duplicate OpenAPI method/path {op.Method} {op.Path}");
+            }
+
+            var responses = new JsonObject
+            {
+                [op.SuccessStatus.ToString()] = new JsonObject
+                {
+                    ["description"] = $"{op.ResponseFrame} AEDS frame",
+                    ["content"] = BinaryContent()
+                },
+                ["default"] = new JsonObject
+                {
+                    ["description"] = "ApiError AEDS frame",
+                    ["content"] = BinaryContent()
+                }
+            };
+
+            var operation = new JsonObject
+            {
+                ["operationId"] = op.OperationId,
+                ["tags"] = new JsonArray("Binary"),
+                ["summary"] = op.Path.Replace("/api/binary", string.Empty, StringComparison.Ordinal),
+                ["responses"] = responses,
+                ["x-fsus-protocol"] = op.Protocol,
+                ["x-fsus-aeds-version"] = op.AedsVersion,
+                ["x-fsus-request-frame"] = op.RequestFrame is null ? null : JsonValue.Create(op.RequestFrame),
+                ["x-fsus-response-frame"] = op.ResponseFrame,
+                ["x-fsus-error-frame"] = op.ErrorFrame,
+                ["x-fsus-auth"] = op.Auth,
+                ["x-fsus-pow"] = op.Pow,
+                ["x-fsus-content-type"] = "application/octet-stream",
+                ["x-fsus-success-status"] = op.SuccessStatus,
+                ["x-fsus-cache"] = op.Cache,
+                ["x-fsus-rate-limit"] = op.RateLimit,
+                ["x-fsus-permission"] = op.Permission
+            };
+            if (!string.IsNullOrWhiteSpace(op.SourceIdentity))
+            {
+                operation["x-fsus-source-identity"] = op.SourceIdentity;
+            }
+
+            pathItem[method] = operation;
+        }
+
+        var document = new JsonObject
+        {
+            ["openapi"] = "3.1.0",
+            ["info"] = new JsonObject
+            {
+                ["title"] = "FsusBlog Binary API",
+                ["version"] = "2.0.0",
+                ["description"] = "Generated HTTP shell contract for /api/binary AEDS v2 endpoints from compiled endpoint metadata."
+            },
+            ["paths"] = paths,
+            ["components"] = new JsonObject
+            {
+                ["schemas"] = new JsonObject
+                {
+                    ["AedsFrame"] = new JsonObject
+                    {
+                        ["type"] = "string",
+                        ["format"] = "binary"
+                    }
+                }
+            },
+            ["x-fsus-contract-source"] = new JsonObject
+            {
+                ["observation"] = "compiled-endpoint-metadata",
+                ["protocol"] = "src/shared/Contracts/Validation/aeds-protocol.json",
+                ["endpointContracts"] = "src/shared/Contracts/Validation/aeds-endpoint-contracts.json"
+            },
+            ["x-fsus-observation-digest"] = observation.ObservationDigest
+        };
+
+        return document.ToJsonString(new JsonSerializerOptions
+        {
+            WriteIndented = true
+        }) + "\n";
+    }
+
+    private static JsonObject BinaryContent()
+        => new()
+        {
+            ["application/octet-stream"] = new JsonObject
+            {
+                ["schema"] = new JsonObject
+                {
+                    ["type"] = "string",
+                    ["format"] = "binary"
+                }
+            }
+        };
+}

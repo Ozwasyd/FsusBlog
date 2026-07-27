@@ -3,11 +3,12 @@ import {
   assert,
   assertPathExists,
   extractBackendBinaryRoutes,
-  extractBackendBinaryRoutesFromSource,
   flattenMatrixRoutes,
   loadMatrix,
   loadOpenApi,
-  loadProtocol
+  loadProtocol,
+  normalizeRouteTemplate,
+  routeKey
 } from '../support/crossStackMatrix.mjs'
 
 const matrix = loadMatrix()
@@ -15,11 +16,11 @@ const protocolFrames = new Set(loadProtocol().frameTypes.map(frame => frame.name
 const openapi = loadOpenApi()
 const actualRoutes = extractBackendBinaryRoutes()
 const matrixRoutes = flattenMatrixRoutes(matrix)
-const actualKeys = new Set(actualRoutes.map(route => route.key))
-const matrixKeys = new Set(matrixRoutes.map(route => route.key))
+const actualKeys = new Set(actualRoutes.map(route => routeKey(route.method, route.path)))
+const matrixKeys = new Set(matrixRoutes.map(route => routeKey(route.method, route.path)))
 
 assert(matrix.version === 'fsusblog-cross-stack-contract-matrix-v1', 'cross-stack contract matrix version drifted')
-const publicArtifactKeys = new Set((matrix.publicArtifactRoutes || []).map(route => `${route.method.toUpperCase()} ${route.path.replace(/^\/api\/binary/, '')}`))
+const publicArtifactKeys = new Set((matrix.publicArtifactRoutes || []).map(route => routeKey(route.method, route.path.replace(/^\/api\/binary/, '') || '/')))
 const missing = [...actualKeys].filter(key => !matrixKeys.has(key) && !publicArtifactKeys.has(key)).sort()
 const extra = [...matrixKeys].filter(key => !actualKeys.has(key)).sort()
 assert(missing.length === 0 && extra.length === 0, `binary endpoint matrix drifted\nmissing=${missing.join(', ')}\nextra=${extra.join(', ')}`)
@@ -51,10 +52,9 @@ const openApiBinaryPathCount = Object.entries(openapi.paths || {})
   .filter(item => item.operation['x-fsus-protocol'] === 'AEDS').length
 assert(openApiBinaryPathCount === actualRoutes.length, 'OpenAPI operation count drifted from extracted route count')
 
-const sourceRoutes = extractBackendBinaryRoutesFromSource()
-const openapiSourceKeys = new Set(actualRoutes.map(route => route.key))
-const sourceMissing = sourceRoutes.filter(route => !openapiSourceKeys.has(route.key)).map(route => route.key)
-assert(sourceMissing.length === 0, `binary endpoint source routes missing from OpenAPI metadata: ${sourceMissing.join(', ')}`)
+// Source regex route extraction is diagnostic-only and MUST NOT participate in
+// qualification conclusions (#1740). Bidirectional authority is observation↔projection.
+void normalizeRouteTemplate
 
 for (const required of [
   '/api/binary/article/list/home/{page}/{size}.aeds',
@@ -72,4 +72,4 @@ for (const required of [
 const refreshTokenRoute = matrixRoutes.find(route => route.method === 'POST' && route.path === '/auth/refresh-token')
 assert(refreshTokenRoute?.responseFrame === 'EmptySuccess', 'refresh-token responseFrame must remain EmptySuccess')
 
-console.log(`[binary-contract-matrix] ok openapiRoutes=${actualRoutes.length} matrixRoutes=${matrixRoutes.length}`)
+console.log(`[binary-contract-matrix] ok openapiRoutes=${actualRoutes.length} matrixRoutes=${matrixRoutes.length} (source-regex non-qualifying)`)

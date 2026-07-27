@@ -1,6 +1,6 @@
-// Generated from config/contracts/behavior-contracts.json; digest f6572db28b4856e748d7e064267dcae9acba5b892e5e3e73c36a8228a6773795; do not edit by hand.
+// Generated from config/contracts/behavior-contracts.json; digest 47e308f89c12464ef9379baeaaf27a42f41cc29dc3d603579add9e8ef66715b8; do not edit by hand.
 
-export const BEHAVIOR_CONTRACT_CATALOG_DIGEST = 'f6572db28b4856e748d7e064267dcae9acba5b892e5e3e73c36a8228a6773795' as const
+export const BEHAVIOR_CONTRACT_CATALOG_DIGEST = '47e308f89c12464ef9379baeaaf27a42f41cc29dc3d603579add9e8ef66715b8' as const
 export const BEHAVIOR_CONTRACTS = [
   {
     "id": "test-asset-audit-reconciliation",
@@ -79,6 +79,32 @@ export const BEHAVIOR_CONTRACTS = [
     ],
     "documents": [
       "docs/development/document-lifecycle.md"
+    ]
+  },
+  {
+    "id": "binary-api-aeds-contract",
+    "domain": "api",
+    "risk": "critical",
+    "status": "active",
+    "implementationOwnerCardinality": "one",
+    "allowedImplementationOwnerRoles": [],
+    "factExtractorId": "openapi-aeds-fact-extractor",
+    "requiredTestKinds": [
+      "positive",
+      "negative"
+    ],
+    "documentationPolicy": "required",
+    "documentationRationale": "Current API contract documents state binary OpenAPI and AEDS operation metadata.",
+    "allowedClaimTypes": [
+      "behavioral",
+      "safety"
+    ],
+    "releaseQualification": true,
+    "coverageIds": [
+      "binary-api-aeds-contract"
+    ],
+    "documents": [
+      "docs/api/contracts.md"
     ]
   },
   {

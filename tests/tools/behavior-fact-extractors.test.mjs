@@ -51,7 +51,10 @@ function fixtureRoot()
         'tests/coverage-registry.json',
         'tests/governance/code-intent-registry.json',
         'config/development/document-lifecycle.json',
-        'tests/matrix.yml'
+        'tests/matrix.yml',
+        'src/shared/Contracts/Validation/aeds-endpoint-contracts.json',
+        'src/shared/Contracts/Validation/aeds-protocol.json',
+        'tools/contracts/FsusBlog.OpenApiObservation/Program.cs'
     ])
     {
         const target = path.join(directory, relative)
@@ -73,6 +76,7 @@ function fixtureRoot()
         'tools/fact-extractors/seeds/code-intent-seed.mjs',
         'tools/fact-extractors/seeds/document-lifecycle-seed.mjs',
         'tools/fact-extractors/seeds/test-matrix-seed.mjs',
+        'tools/fact-extractors/openapi-aeds/extract.mjs',
         'tools/contracts/behavior-contract-catalog.mjs'
     ])
     {
@@ -136,7 +140,7 @@ test('repository registry owns each active behavior exactly once', () =>
     const registry = loadRegistry()
     const result = validateOwnershipAgainstBehaviorCatalog(registry, loadCatalog(), root)
     assert.match(result.digest, /^[a-f0-9]{64}$/u)
-    assert.equal(result.behaviorOwners.size, 4)
+    assert.equal(result.behaviorOwners.size, 5)
     const check = spawnSync(process.execPath, [checker], { cwd: root, encoding: 'utf8' })
     assert.equal(check.status, 0, check.stderr || check.stdout)
     assert.match(check.stdout, /registry, ownership, receipt schema/u)

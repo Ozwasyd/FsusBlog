@@ -209,8 +209,8 @@ if (frontendBuildSource.includes('skipping backend wwwroot sync because target i
 requireIncludes('tools/contracts/export-openapi.sh', [
   '--update-snapshot',
   'cmp -s "$OUT_FILE" "$SNAPSHOT_FILE"',
-  'generate-cross-stack-contract.mjs',
-  'OpenApiDocumentsDirectory="$RUNTIME_OUT_DIR"'
+  'check-openapi-sync.mjs',
+  'fsusblog.openapi.observed.json'
 ])
 requireIncludes('src/frontend/wasm/build.sh', [
   'WASM_SOURCE_DIR="${WASM_ROOT}"',

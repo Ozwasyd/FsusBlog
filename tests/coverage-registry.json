@@ -4474,6 +4474,24 @@
       "tierIds": [
         "static-governance"
       ]
+    },
+    {
+      "id": "binary-api-aeds-contract",
+      "description": "Binary OpenAPI/AEDS facts are observed from compiled endpoint metadata; checked-in OpenAPI is a generated projection with bidirectional exactness.",
+      "owner": "ContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tools/contracts/FsusBlog.OpenApiObservation/Program.cs",
+        "tools/fact-extractors/openapi-aeds/extract.mjs",
+        "tools/contracts/check-openapi-sync.mjs",
+        "tests/tools/openapi-aeds-observation.test.mjs"
+      ],
+      "assertionType": "contract",
+      "failClosedRule": "Observation must fail when implementation routes and projection diverge, operation metadata drifts, ambient bin identities are used, or checked-in OpenAPI is treated as observation input.",
+      "minimumRequirement": "Focused tests cover missing endpoint, missing operationId, auth/rate/cache/frame drift, ambient Debug DLL, reverse generation, and duplicate method/path.",
+      "tierIds": [
+        "frontend-static-governance"
+      ]
     }
   ]
 }

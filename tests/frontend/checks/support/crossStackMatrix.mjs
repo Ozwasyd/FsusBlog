@@ -19,7 +19,10 @@ export function loadBackendGoldenCatalog() {
 }
 
 export function loadOpenApi() {
-  return JSON.parse(readFileSync(openApiPath, 'utf8'))
+  const observed = resolve(root, '.tmp/contracts/openapi/fsusblog.openapi.observed.json')
+  const generated = resolve(root, '.tmp/contracts/openapi/fsusblog.openapi.json')
+  const candidate = existsSync(observed) ? observed : existsSync(generated) ? generated : openApiPath
+  return JSON.parse(readFileSync(candidate, 'utf8'))
 }
 
 export function assert(condition, message) {

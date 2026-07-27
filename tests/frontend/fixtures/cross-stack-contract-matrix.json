@@ -2412,6 +2412,233 @@
           "rateLimit": "fixed_ip"
         }
       ]
+    },
+    {
+      "id": "observed-openapi-supplement",
+      "source": "src/backend/Modules/Endpoints",
+      "frontendWrapper": "src/frontend/src/api/article.ts",
+      "frontendAdapter": "src/frontend/src/services/binaryTransport.ts",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/admin/security/challenges/overview",
+          "auth": "admin",
+          "responseFrame": "SecurityOverview",
+          "pow": false,
+          "rateLimit": null,
+          "cache": "no-store",
+          "operationId": "binary_get_admin_security_challenges_overview"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/security/perception-v2/options",
+          "auth": "admin",
+          "responseFrame": "SecurityOverview",
+          "pow": false,
+          "rateLimit": null,
+          "cache": "no-store",
+          "operationId": "binary_get_admin_security_perception_v2_options"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/security/perception-v2/overview",
+          "auth": "admin",
+          "responseFrame": "SecurityOverview",
+          "pow": false,
+          "rateLimit": null,
+          "cache": "no-store",
+          "operationId": "binary_get_admin_security_perception_v2_overview"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/security/policies/overview",
+          "auth": "admin",
+          "responseFrame": "SecurityOverview",
+          "pow": false,
+          "rateLimit": null,
+          "cache": "no-store",
+          "operationId": "binary_get_admin_security_policies_overview"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/security/risk-control/options",
+          "auth": "admin",
+          "responseFrame": "SecurityOverview",
+          "pow": false,
+          "rateLimit": null,
+          "cache": "no-store",
+          "operationId": "binary_get_admin_security_risk_control_options"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/security/risk-control/overview",
+          "auth": "admin",
+          "responseFrame": "SecurityOverview",
+          "pow": false,
+          "rateLimit": null,
+          "cache": "no-store",
+          "operationId": "binary_get_admin_security_risk_control_overview"
+        },
+        {
+          "method": "GET",
+          "path": "/author/moderation/anonymous-comment-policy",
+          "auth": "admin",
+          "responseFrame": "CommentPolicySnapshot",
+          "pow": false,
+          "rateLimit": "fixed_ip",
+          "cache": "no-store",
+          "operationId": "binary_get_author_moderation_anonymous_comment_policy"
+        },
+        {
+          "method": "GET",
+          "path": "/author/plugins",
+          "auth": "admin",
+          "responseFrame": "PluginAdminSnapshot",
+          "pow": false,
+          "rateLimit": "fixed_ip",
+          "cache": "no-store",
+          "operationId": "binary_get_author_plugins"
+        },
+        {
+          "method": "GET",
+          "path": "/author/plugins/{pluginId}",
+          "auth": "admin",
+          "responseFrame": "PluginAdminSnapshot",
+          "pow": false,
+          "rateLimit": "fixed_ip",
+          "cache": "no-store",
+          "operationId": "binary_get_author_plugins_pluginId"
+        },
+        {
+          "method": "GET",
+          "path": "/locale-preference",
+          "auth": "anonymous",
+          "responseFrame": "UserLocalePreference",
+          "pow": false,
+          "rateLimit": "fixed_ip",
+          "cache": "no-store",
+          "operationId": "binary_get_locale_preference"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/security/perception-v2/options/rollback",
+          "auth": "admin",
+          "responseFrame": "SecurityOverview",
+          "pow": false,
+          "rateLimit": "fixed_ip",
+          "cache": "no-store",
+          "operationId": "binary_post_admin_security_perception_v2_options_rollback"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/security/risk-control/options/rollback",
+          "auth": "admin",
+          "responseFrame": "SecurityOverview",
+          "pow": false,
+          "rateLimit": "fixed_ip",
+          "cache": "no-store",
+          "operationId": "binary_post_admin_security_risk_control_options_rollback"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/security/risk-control/simulate",
+          "auth": "admin",
+          "responseFrame": "SecurityOverview",
+          "pow": false,
+          "rateLimit": "fixed_ip",
+          "cache": "no-store",
+          "operationId": "binary_post_admin_security_risk_control_simulate",
+          "requestFrame": "SecurityOverview"
+        },
+        {
+          "method": "POST",
+          "path": "/author/comments/moderation/anonymous-credentials/{credentialId:long}/revoke",
+          "auth": "admin",
+          "responseFrame": "AnonymousGovernanceActionResponse",
+          "pow": false,
+          "rateLimit": "fixed_ip",
+          "cache": "no-store",
+          "operationId": "binary_post_author_comments_moderation_anonymous_credentials_credentialId_revoke",
+          "requestFrame": "AnonymousGovernanceActionRequest"
+        },
+        {
+          "method": "POST",
+          "path": "/author/comments/moderation/nullifiers/block",
+          "auth": "admin",
+          "responseFrame": "AnonymousGovernanceActionResponse",
+          "pow": false,
+          "rateLimit": "fixed_ip",
+          "cache": "no-store",
+          "operationId": "binary_post_author_comments_moderation_nullifiers_block",
+          "requestFrame": "AnonymousGovernanceActionRequest"
+        },
+        {
+          "method": "POST",
+          "path": "/author/plugins/install",
+          "auth": "admin",
+          "responseFrame": "PluginAdminSnapshot",
+          "pow": false,
+          "rateLimit": "fixed_ip",
+          "cache": "no-store",
+          "operationId": "binary_post_author_plugins_install",
+          "requestFrame": "PluginPackageInstallRequest"
+        },
+        {
+          "method": "POST",
+          "path": "/author/plugins/{pluginId}/actions",
+          "auth": "admin",
+          "responseFrame": "PluginAdminSnapshot",
+          "pow": false,
+          "rateLimit": "fixed_ip",
+          "cache": "no-store",
+          "operationId": "binary_post_author_plugins_pluginId_actions",
+          "requestFrame": "PluginAdminMutationRequest"
+        },
+        {
+          "method": "PUT",
+          "path": "/admin/security/perception-v2/options",
+          "auth": "admin",
+          "responseFrame": "SecurityOverview",
+          "pow": false,
+          "rateLimit": "fixed_ip",
+          "cache": "no-store",
+          "operationId": "binary_put_admin_security_perception_v2_options",
+          "requestFrame": "SecurityOverview"
+        },
+        {
+          "method": "PUT",
+          "path": "/admin/security/risk-control/options",
+          "auth": "admin",
+          "responseFrame": "SecurityOverview",
+          "pow": false,
+          "rateLimit": "fixed_ip",
+          "cache": "no-store",
+          "operationId": "binary_put_admin_security_risk_control_options",
+          "requestFrame": "SecurityOverview"
+        },
+        {
+          "method": "PUT",
+          "path": "/author/moderation/anonymous-comment-policy",
+          "auth": "admin",
+          "responseFrame": "CommentPolicySnapshot",
+          "pow": false,
+          "rateLimit": "fixed_ip",
+          "cache": "no-store",
+          "operationId": "binary_put_author_moderation_anonymous_comment_policy",
+          "requestFrame": "CommentPolicyUpdateRequest"
+        },
+        {
+          "method": "PUT",
+          "path": "/locale-preference",
+          "auth": "anonymous",
+          "responseFrame": "UserLocalePreference",
+          "pow": false,
+          "rateLimit": "fixed_ip",
+          "cache": "no-store",
+          "operationId": "binary_put_locale_preference",
+          "requestFrame": "UserLocalePreferenceUpdateRequest"
+        }
+      ]
     }
   ],
   "coherenceProfiles": [
