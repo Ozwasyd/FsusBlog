@@ -10,6 +10,7 @@ const expectedArtifactId = 'openapi-aeds-observation'
  * Reads only the sealed observation artifact produced by FsusBlog.OpenApiObservation
  * for this exact build identity. Never reads checked-in OpenAPI as observation input.
  */
+// BEHAVIOR-OWNER: binary-api-aeds-contract
 export function extract(context)
 {
   const buildIdentity = context.buildIdentity

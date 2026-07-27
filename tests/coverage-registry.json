@@ -4492,6 +4492,24 @@
       "tierIds": [
         "frontend-static-governance"
       ]
+    },
+    {
+      "id": "authentication-session-permission",
+      "description": "Auth, session, MFA/Passkey/recovery and admin permission facts are observed from compiled production constants; second-hand docs/fixture permission lists are not authority.",
+      "owner": "SecurityAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tools/contracts/FsusBlog.AuthSessionObservation/Program.cs",
+        "tools/fact-extractors/auth-session-permission/extract.mjs",
+        "tools/contracts/lib/auth-session-observation.mjs",
+        "tests/tools/auth-session-permission-observation.test.mjs"
+      ],
+      "assertionType": "contract",
+      "failClosedRule": "Observation must fail when multi-layer session/JWT/cookie semantics diverge, legacy strengths enter active current facts, admin catalog omits production permissions, freshness loses units, step-up binding is incomplete, or fixture defaultAdminPermissions is treated as authority.",
+      "minimumRequirement": "Focused tests cover new admin permission inclusion, freshness unit change, multi-layer coherence failure, legacy active-method rejection, refresh auth_time preservation, browser vs persistent cookie projection, step-up binding fields, and refusal to read defaultAdminPermissions.",
+      "tierIds": [
+        "static-governance"
+      ]
     }
   ]
 }

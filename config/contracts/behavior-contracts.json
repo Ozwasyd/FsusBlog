@@ -6,7 +6,8 @@
         "governance",
         "testing",
         "documentation",
-        "api"
+        "api",
+        "security"
     ],
     "extractors": [
         {
@@ -28,6 +29,10 @@
         {
             "id": "openapi-aeds-fact-extractor",
             "path": "tools/fact-extractors/openapi-aeds/extract.mjs"
+        },
+        {
+            "id": "auth-session-permission-fact-extractor",
+            "path": "tools/fact-extractors/auth-session-permission/extract.mjs"
         }
     ],
     "contracts": [
@@ -162,6 +167,34 @@
             ],
             "documents": [
                 "docs/testing.md"
+            ]
+        },
+        {
+            "id": "authentication-session-permission",
+            "domain": "security",
+            "risk": "critical",
+            "status": "active",
+            "implementationOwnerCardinality": "one",
+            "allowedImplementationOwnerRoles": [],
+            "factExtractorId": "auth-session-permission-fact-extractor",
+            "requiredTestKinds": [
+                "positive",
+                "negative",
+                "migration"
+            ],
+            "documentationPolicy": "required",
+            "documentationRationale": "Current security documentation states authentication methods, session duration, step-up and admin permission contracts.",
+            "allowedClaimTypes": [
+                "behavioral",
+                "safety"
+            ],
+            "releaseQualification": true,
+            "coverageIds": [
+                "authentication-session-permission"
+            ],
+            "documents": [
+                "docs/security/user-session-authentication-context.md",
+                "docs/security.md"
             ]
         }
     ]

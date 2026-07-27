@@ -1,4 +1,4 @@
-<!-- Generated from config/contracts/behavior-contracts.json; digest 47e308f89c12464ef9379baeaaf27a42f41cc29dc3d603579add9e8ef66715b8; do not edit by hand. -->
+<!-- Generated from config/contracts/behavior-contracts.json; digest 56a60d9801a686e96307c339a97b97507ea709dcaa0003315da50d96c02039fb; do not edit by hand. -->
 
 # Behavior Contract Index
 
@@ -11,3 +11,4 @@
 | `document-lifecycle-governance` | documentation | high | active | `document-lifecycle-fact-extractor` | positive, negative, migration | rationale-only | yes |
 | `binary-api-aeds-contract` | api | critical | active | `openapi-aeds-fact-extractor` | positive, negative | required | yes |
 | `browserless-production-correctness` | testing | critical | active | `test-matrix-fact-extractor` | positive, negative, concurrency | required | yes |
+| `authentication-session-permission` | security | critical | active | `auth-session-permission-fact-extractor` | positive, negative, migration | required | yes |

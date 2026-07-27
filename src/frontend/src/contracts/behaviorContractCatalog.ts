@@ -1,6 +1,6 @@
-// Generated from config/contracts/behavior-contracts.json; digest 47e308f89c12464ef9379baeaaf27a42f41cc29dc3d603579add9e8ef66715b8; do not edit by hand.
+// Generated from config/contracts/behavior-contracts.json; digest 56a60d9801a686e96307c339a97b97507ea709dcaa0003315da50d96c02039fb; do not edit by hand.
 
-export const BEHAVIOR_CONTRACT_CATALOG_DIGEST = '47e308f89c12464ef9379baeaaf27a42f41cc29dc3d603579add9e8ef66715b8' as const
+export const BEHAVIOR_CONTRACT_CATALOG_DIGEST = '56a60d9801a686e96307c339a97b97507ea709dcaa0003315da50d96c02039fb' as const
 export const BEHAVIOR_CONTRACTS = [
   {
     "id": "test-asset-audit-reconciliation",
@@ -133,6 +133,34 @@ export const BEHAVIOR_CONTRACTS = [
     ],
     "documents": [
       "docs/testing.md"
+    ]
+  },
+  {
+    "id": "authentication-session-permission",
+    "domain": "security",
+    "risk": "critical",
+    "status": "active",
+    "implementationOwnerCardinality": "one",
+    "allowedImplementationOwnerRoles": [],
+    "factExtractorId": "auth-session-permission-fact-extractor",
+    "requiredTestKinds": [
+      "positive",
+      "negative",
+      "migration"
+    ],
+    "documentationPolicy": "required",
+    "documentationRationale": "Current security documentation states authentication methods, session duration, step-up and admin permission contracts.",
+    "allowedClaimTypes": [
+      "behavioral",
+      "safety"
+    ],
+    "releaseQualification": true,
+    "coverageIds": [
+      "authentication-session-permission"
+    ],
+    "documents": [
+      "docs/security/user-session-authentication-context.md",
+      "docs/security.md"
     ]
   }
 ] as const
