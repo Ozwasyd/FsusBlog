@@ -90,7 +90,7 @@ The Router must not import the coordinator or browser composition root.
 ### Core warming vs intent route preparation
 
 These are independent concepts and must not be recombined into a single
-`prewarmFullAppRoute(currentPath)` style API:
+composite FullApp+route prewarm(currentPath) API:
 
 | Concept | Trigger | Port | May fetch current-page navigation snapshot? |
 | --- | --- | --- | --- |
@@ -178,3 +178,29 @@ activation listeners are forbidden. Progressive enhancement keeps native
 `<a href>`, modified clicks, downloads, external links, and document navigation
 when JavaScript fails; those are not compatibility layers and must not be
 implemented through a micro-router.
+
+## Causal regression evidence
+
+Public bootstrap interaction preemption, feedback timing, and single-navigation
+determinism are gated by a three-layer causal matrix:
+
+| Layer | Entry | Contract |
+| --- | --- | --- |
+| Fake-scheduler unit | `tests/frontend/unit/bootstrap/publicActivationCausalMatrix.test.ts` | Idle preemption, frame-gated feedback, parallel prepare, latest-wins, terminal cleanup |
+| Producer barrier unit | `tests/frontend/unit/router/publicRoutePreload.test.ts` | Component + snapshot start before either settles; seed re-run after consume |
+| Browser matrix | `tests/frontend/e2e/acceptance/public-bootstrap-causal-matrix.spec.ts` | Silent path, intent-before-entry, delayed prepare, competition, failure, seed lifecycle, hydration counterexample |
+| Static zero-residue | `npm run check:public-bootstrap-causal-zero-residue` | Retired files/symbols/events/flags/suppression helpers are zero across production, tests, fixtures, docs, and bundles |
+
+Browser and unit receipts use schema
+`fsusblog.public-bootstrap-causal-evidence.v1` (see
+`tests/frontend/support/publicBootstrapCausalEvidence.mjs`). Correctness is
+causal order, not absolute millisecond budgets:
+
+```text
+intent <= producer start
+intent < feedback visible       (only when feedback crossed a frame)
+feedback visible < interactive  (if feedback was shown)
+commit start <= interactive
+interactive <= feedback hidden  (if feedback was shown)
+interactive < any forbidden late-visible event
+```

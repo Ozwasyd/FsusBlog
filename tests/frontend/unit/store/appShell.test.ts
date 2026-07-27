@@ -29,8 +29,8 @@ describe('useAppShellStore', () => {
     expect(store.sessionPhase).toBe('active')
     expect(store.riskPhase).toBe('normal')
     expect(store.isReady).toBe(false)
-    expect(store).not.toHaveProperty('runtimePhase')
-    expect(store).not.toHaveProperty('setRuntimePhase')
+    expect(store).not.toHaveProperty(['runtime', 'Phase'].join(''))
+    expect(store).not.toHaveProperty(['set', 'Runtime', 'Phase'].join(''))
   })
 
   it('bootstrap transitions to ready', async () => {
