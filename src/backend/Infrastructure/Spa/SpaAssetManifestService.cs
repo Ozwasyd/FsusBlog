@@ -44,7 +44,8 @@ public sealed record SpaAssetManifestReadiness(
     string? DescriptorGeneration = null,
     string? LastFailureKind = null,
     int Attempts = 0,
-    string? LoadedDigest = null) : IProductionHealthCheck
+    string? LoadedDigest = null,
+    string? AssetSetDigest = null) : IProductionHealthCheck
 {
     internal static SpaAssetManifestReadiness Failed(string error)
         => new(
@@ -96,19 +97,19 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
     public const string DevSourceAssetVersion = "dev-source-assets";
     private const string StableSpaEntry = "/assets/fsus-spa-entry.js";
     private const int MaxFailureDiagnostics = 8;
-    private static readonly string[] s_publicBaseCssNames =
+    private static readonly string[] s_publicBaseCssOwners =
     [
         "public-shell-critical",
         "tailwind",
         "public-page"
     ];
 
-    private static readonly string[] s_publicMarkdownCssNames =
+    private static readonly string[] s_publicMarkdownCssOwners =
     [
         "markdown"
     ];
 
-    private static readonly string[] s_fullAppTakeoverModuleNames =
+    private static readonly string[] s_fullAppTakeoverModuleOwners =
     [
         "entry-runtime",
         "public-page-runtime",
@@ -120,7 +121,7 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         "markdown-runtime"
     ];
 
-    private static readonly string[] s_fullAppTakeoverCssNames =
+    private static readonly string[] s_fullAppTakeoverCssOwners =
     [
         "full-app-core",
         "vendor-element-plus",
@@ -278,7 +279,11 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         ManifestAssetSnapshot snapshot = Volatile.Read(ref _runtimeSnapshot).Assets;
         return pageId is null || !snapshot.IsReady
             ? snapshot.PublicAssetSet
-            : CreatePublicAssetSet(snapshot.ManifestByKey, snapshot.FrontendAssetVersion, pageId);
+            : CreatePublicAssetSet(
+                snapshot.ManifestByKey,
+                snapshot.FrontendAssetVersion,
+                snapshot.AssetSetDigest,
+                pageId);
     }
 
     public string GetFrontendAssetVersion(HttpContext? context = null)
@@ -414,7 +419,8 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
                     {
                         DescriptorGeneration = candidate.DescriptorGeneration,
                         Attempts = attempts,
-                        LoadedDigest = candidate.LoadedDigest
+                        LoadedDigest = candidate.LoadedDigest,
+                        AssetSetDigest = candidate.AssetSetDigest
                     };
                     Volatile.Write(
                         ref _runtimeSnapshot,
@@ -524,8 +530,11 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
             FrozenDictionary<string, ManifestAsset> manifestSnapshot = newManifest.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
             ValidateRequiredEntryCatalog(manifestSnapshot);
             ValidateImportGraph(manifestSnapshot);
-            ValidateManifestAssetBindings(manifestSnapshot, descriptor);
-            string frontendAssetVersion = ComputeSemanticAssetVersion(manifestSnapshot, descriptor.IndexPath);
+            SpaAssetSetReceipt assetSetReceipt = CreateAssetSetReceipt(manifestSnapshot, descriptor);
+            string frontendAssetVersion = isDevelopment
+                ? ComputeDevelopmentAssetVersion(manifestSnapshot, descriptor.IndexPath)
+                : assetSetReceipt.Digest;
+            string assetSetDigest = isDevelopment ? string.Empty : assetSetReceipt.Digest;
             return new ManifestAssetSnapshot(
                 newRouteMap.ToFrozenDictionary(
                     static pair => pair.Key,
@@ -536,10 +545,11 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
                 manifestPath,
                 descriptor.IndexPath,
                 frontendAssetVersion,
-                CreatePublicAssetSet(manifestSnapshot, frontendAssetVersion, pageId: null),
+                CreatePublicAssetSet(manifestSnapshot, frontendAssetVersion, assetSetDigest, pageId: null),
                 descriptorGeneration ?? descriptor.DescriptorContentDigest,
                 descriptor.ManifestDigest,
                 descriptor,
+                assetSetDigest,
                 IsReady: true);
         }
         catch (JsonException exception)
@@ -551,6 +561,7 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
     private SpaAssetSet CreatePublicAssetSet(
         IReadOnlyDictionary<string, ManifestAsset> manifest,
         string frontendAssetVersion,
+        string assetSetDigest,
         PublicPageId? pageId)
     {
         IReadOnlyList<string> publicStylesheets = PickPublicStylesheets(manifest, pageId);
@@ -563,7 +574,8 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         {
             FullAppTakeover = new FullAppTakeoverAssetSet(
                 PickFullAppTakeoverModulePreloads(manifest),
-                PickFullAppTakeoverStylesheets(manifest, publicStylesheets))
+                PickFullAppTakeoverStylesheets(manifest, publicStylesheets)),
+            AssetSetDigest = assetSetDigest
         };
     }
 
@@ -666,7 +678,7 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
             ? ComputeFallbackAssetVersion()
             : "missing-manifest";
         SpaAssetSet emptyPublicAssets = _env.IsDevelopment()
-            ? CreatePublicAssetSet(emptyManifest, version, pageId: null)
+            ? CreatePublicAssetSet(emptyManifest, version, string.Empty, pageId: null)
             : new SpaAssetSet(
                 string.Empty,
                 [],
@@ -697,6 +709,7 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
                 null,
                 null,
                 null),
+            AssetSetDigest: string.Empty,
             IsReady: false);
     }
 
@@ -787,17 +800,18 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
     private IReadOnlyList<string> PickPublicStylesheets(IReadOnlyDictionary<string, ManifestAsset> manifest, PublicPageId? pageId)
     {
         var styles = new List<string>();
-        IEnumerable<string> allowedNames = ShouldIncludeMarkdownCss(pageId)
-            ? s_publicBaseCssNames.Concat(s_publicMarkdownCssNames)
-            : s_publicBaseCssNames;
-        IReadOnlyList<string> cssHrefs = EnumerateCssHrefs(manifest).ToArray();
+        IEnumerable<string> owners = ShouldIncludeMarkdownCss(pageId)
+            ? s_publicBaseCssOwners.Concat(s_publicMarkdownCssOwners)
+            : s_publicBaseCssOwners;
 
-        foreach (string name in allowedNames)
+        foreach (string owner in owners)
         {
-            string? css = cssHrefs.FirstOrDefault(href => AssetFileNameMatches(href, name));
-            if (!string.IsNullOrWhiteSpace(css) && !styles.Contains(css, StringComparer.Ordinal))
+            foreach (string css in GetOwnedCss(manifest, owner))
             {
-                styles.Add(css);
+                if (!styles.Contains(css, StringComparer.Ordinal))
+                {
+                    styles.Add(css);
+                }
             }
         }
 
@@ -810,10 +824,9 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
     }
 
     private static IReadOnlyList<string> PickFullAppTakeoverModulePreloads(IReadOnlyDictionary<string, ManifestAsset> manifest)
-        => manifest.Values
-            .Where(static asset => !string.IsNullOrWhiteSpace(asset.File) &&
-                asset.File.EndsWith(".js", StringComparison.OrdinalIgnoreCase) &&
-                s_fullAppTakeoverModuleNames.Any(name => AssetNameMatches(asset, name)))
+        => s_fullAppTakeoverModuleOwners
+            .SelectMany(owner => GetOwnedAssets(manifest, owner))
+            .Where(static asset => asset.File.EndsWith(".js", StringComparison.OrdinalIgnoreCase))
             .Select(static asset => asset.File)
             .Distinct(StringComparer.Ordinal)
             .ToArray();
@@ -823,9 +836,9 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         IReadOnlyList<string> publicStylesheets)
     {
         var publicSet = publicStylesheets.ToHashSet(StringComparer.Ordinal);
-        return EnumerateCssHrefs(manifest)
-            .Where(href => !publicSet.Contains(href) &&
-                s_fullAppTakeoverCssNames.Any(name => AssetFileNameMatches(href, name)))
+        return s_fullAppTakeoverCssOwners
+            .SelectMany(owner => GetOwnedCss(manifest, owner))
+            .Where(href => !publicSet.Contains(href))
             .Distinct(StringComparer.Ordinal)
             .ToArray();
     }
@@ -841,8 +854,8 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         }
 
         IEnumerable<string> allowedNames = ShouldIncludeMarkdownCss(pageId)
-            ? s_publicBaseCssNames.Concat(s_publicMarkdownCssNames)
-            : s_publicBaseCssNames;
+            ? s_publicBaseCssOwners.Concat(s_publicMarkdownCssOwners)
+            : s_publicBaseCssOwners;
         foreach (string prefix in allowedNames)
         {
             string? file = Directory.GetFiles(assetsRoot, $"{prefix}*.css", SearchOption.TopDirectoryOnly)
@@ -881,22 +894,40 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
             or PublicPageId.Guidelines
             or PublicPageId.Copyright;
 
-    private static bool AssetNameMatches(ManifestAsset asset, string expectedName)
-        => string.Equals(asset.Name, expectedName, StringComparison.OrdinalIgnoreCase)
-            || AssetFileNameMatches(asset.File, expectedName)
-            || AssetFileNameMatches(asset.Key, expectedName)
-            || AssetFileNameMatches(asset.Src, expectedName);
+    private static IEnumerable<string> GetOwnedCss(IReadOnlyDictionary<string, ManifestAsset> manifest, string owner)
+        => GetOwnedAssets(manifest, owner)
+            .SelectMany(static asset => asset.File.EndsWith(".css", StringComparison.OrdinalIgnoreCase)
+                ? new[] { asset.File }.Concat(asset.Css)
+                : asset.Css)
+            .Distinct(StringComparer.Ordinal);
 
-    private static bool AssetFileNameMatches(string href, string expectedName)
+    private static IEnumerable<ManifestAsset> GetOwnedAssets(IReadOnlyDictionary<string, ManifestAsset> manifest, string owner)
     {
-        if (string.IsNullOrWhiteSpace(href))
+        ManifestAsset? root = manifest.Values.SingleOrDefault(asset => string.Equals(asset.Name, owner, StringComparison.Ordinal));
+        if (root is null)
         {
-            return false;
+            return [];
         }
 
-        string fileName = Path.GetFileNameWithoutExtension(href.Replace('\\', '/'));
-        return string.Equals(fileName, expectedName, StringComparison.OrdinalIgnoreCase)
-            || fileName.StartsWith(expectedName + "-", StringComparison.OrdinalIgnoreCase);
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        return Visit(root);
+
+        IEnumerable<ManifestAsset> Visit(ManifestAsset asset)
+        {
+            if (!visited.Add(asset.Key))
+            {
+                yield break;
+            }
+
+            yield return asset;
+            foreach (string import in asset.Imports)
+            {
+                foreach (ManifestAsset imported in Visit(manifest[import]))
+                {
+                    yield return imported;
+                }
+            }
+        }
     }
 
     private string ComputeFallbackAssetVersion()
@@ -910,27 +941,177 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
             : "missing-manifest";
     }
 
-    private static string ComputeSemanticAssetVersion(
+    private static string ComputeDevelopmentAssetVersion(
         IReadOnlyDictionary<string, ManifestAsset> manifest,
         string indexPath)
     {
         using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        if (File.Exists(indexPath))
-        {
-            sha.AppendData(File.ReadAllBytes(indexPath));
-        }
+        AppendLengthFramed(sha, "index", File.Exists(indexPath) ? ComputeSha256(File.ReadAllBytes(indexPath)) : "missing");
         foreach (ManifestAsset asset in manifest.Values.OrderBy(static asset => asset.Key, StringComparer.Ordinal))
         {
-            sha.AppendData(System.Text.Encoding.UTF8.GetBytes(string.Join('\n', new[]
+            AppendLengthFramed(sha, "key", asset.Key);
+            AppendLengthFramed(sha, "file", asset.File);
+            foreach (string css in asset.Css.OrderBy(static path => path, StringComparer.Ordinal))
             {
-                asset.Key, asset.Name, asset.Src, asset.File,
-                string.Join(',', asset.Css),
-                string.Join(',', asset.Imports),
-                string.Join(',', asset.DynamicImports),
-                string.Join(',', asset.Assets)
-            })));
+                AppendLengthFramed(sha, "css", css);
+            }
         }
+
         return Convert.ToHexStringLower(sha.GetHashAndReset());
+    }
+
+    private static SpaAssetSetReceipt CreateAssetSetReceipt(
+        IReadOnlyDictionary<string, ManifestAsset> manifest,
+        SpaManifestDescriptor descriptor)
+    {
+        ValidateManifestAssetBindings(manifest, descriptor);
+        if (string.IsNullOrWhiteSpace(descriptor.AssetInventoryPath)
+            || string.IsNullOrWhiteSpace(descriptor.ManifestDigest)
+            || string.IsNullOrWhiteSpace(descriptor.AssetInventoryDigest)
+            || string.IsNullOrWhiteSpace(descriptor.DescriptorContentDigest))
+        {
+            // Development has no sealed receipt. It deliberately remains outside
+            // the Production asset-generation contract.
+            return SpaAssetSetReceipt.Development();
+        }
+
+        IReadOnlyDictionary<string, string> perFileDigests = ReadInventoryDigests(descriptor.AssetInventoryPath);
+        string entryFile = StableSpaEntry.TrimStart('/');
+        if (!perFileDigests.ContainsKey(entryFile)
+            || !perFileDigests.TryGetValue("index.html", out string? indexDigest))
+        {
+            throw new SpaManifestValidationException("spa_asset_set_required_file_missing");
+        }
+
+        string[] cssFiles = EnumerateCssHrefs(manifest)
+            .Select(static href => href.TrimStart('/'))
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(static href => href, StringComparer.Ordinal)
+            .ToArray();
+        string[] preloadFiles = manifest.Values
+            .Where(static asset => asset.File.EndsWith(".js", StringComparison.OrdinalIgnoreCase))
+            .Select(static asset => asset.File.TrimStart('/'))
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(static href => href, StringComparer.Ordinal)
+            .ToArray();
+        if (cssFiles.Concat(preloadFiles).Any(path => !perFileDigests.ContainsKey(path)))
+        {
+            throw new SpaManifestValidationException("spa_asset_set_required_file_missing");
+        }
+
+        return SpaAssetSetReceipt.Create(
+            descriptor.DescriptorContentDigest,
+            entryFile,
+            cssFiles,
+            preloadFiles,
+            indexDigest,
+            descriptor.ManifestDigest,
+            descriptor.AssetInventoryDigest,
+            perFileDigests);
+    }
+
+    private static IReadOnlyDictionary<string, string> ReadInventoryDigests(string inventoryPath)
+    {
+        var inventory = new Dictionary<string, string>(StringComparer.Ordinal);
+        using JsonDocument document = JsonDocument.Parse(File.ReadAllBytes(inventoryPath));
+        if (document.RootElement.ValueKind != JsonValueKind.Object
+            || !document.RootElement.TryGetProperty("files", out JsonElement files)
+            || files.ValueKind != JsonValueKind.Array)
+        {
+            throw new SpaManifestValidationException("spa_asset_inventory_invalid");
+        }
+
+        foreach (JsonElement entry in files.EnumerateArray())
+        {
+            if (entry.ValueKind != JsonValueKind.Object
+                || !entry.TryGetProperty("path", out JsonElement path)
+                || !entry.TryGetProperty("sha256", out JsonElement digest)
+                || path.ValueKind != JsonValueKind.String
+                || digest.ValueKind != JsonValueKind.String)
+            {
+                throw new SpaManifestValidationException("spa_asset_inventory_invalid");
+            }
+
+            string relativePath = NormalizeInventoryPath(path.GetString());
+            string expectedDigest = digest.GetString() ?? string.Empty;
+            if (!expectedDigest.StartsWith("sha256:", StringComparison.Ordinal)
+                || !inventory.TryAdd(relativePath, expectedDigest))
+            {
+                throw new SpaManifestValidationException("spa_asset_inventory_invalid");
+            }
+        }
+
+        return inventory;
+    }
+
+    private sealed record SpaAssetSetReceipt(
+        string Generation,
+        string EntryFile,
+        IReadOnlyList<string> CssFiles,
+        IReadOnlyList<string> PreloadFiles,
+        string IndexDigest,
+        string ManifestDigest,
+        string InventoryDigest,
+        IReadOnlyDictionary<string, string> PerFileDigests,
+        string Digest)
+    {
+        public static SpaAssetSetReceipt Development()
+            => new(string.Empty, string.Empty, [], [], string.Empty, string.Empty, string.Empty,
+                FrozenDictionary<string, string>.Empty, DevSourceAssetVersion);
+
+        public static SpaAssetSetReceipt Create(
+            string generation,
+            string entryFile,
+            IReadOnlyList<string> cssFiles,
+            IReadOnlyList<string> preloadFiles,
+            string indexDigest,
+            string manifestDigest,
+            string inventoryDigest,
+            IReadOnlyDictionary<string, string> perFileDigests)
+        {
+            using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            // Generation and raw metadata digests remain receipt audit fields. The
+            // runtime version intentionally binds only normalized served semantics.
+            AppendLengthFramed(sha, "entryFile", entryFile);
+            AppendLengthFramed(sha, "indexDigest", indexDigest);
+            foreach (string css in cssFiles)
+                AppendLengthFramed(sha, "css", css);
+            foreach (string preload in preloadFiles)
+                AppendLengthFramed(sha, "preload", preload);
+            foreach ((string path, string digest) in perFileDigests
+                .Where(static pair => IsRuntimeInventoryFile(pair.Key))
+                .OrderBy(static pair => pair.Key, StringComparer.Ordinal))
+            {
+                AppendLengthFramed(sha, "path", path);
+                AppendLengthFramed(sha, "digest", digest);
+            }
+            return new(
+                generation,
+                entryFile,
+                cssFiles,
+                preloadFiles,
+                indexDigest,
+                manifestDigest,
+                inventoryDigest,
+                perFileDigests,
+                Convert.ToHexStringLower(sha.GetHashAndReset()));
+        }
+    }
+
+    private static bool IsRuntimeInventoryFile(string path)
+        => path is not ".vite/manifest.json" and not "asset-manifest.json";
+
+    private static void AppendLengthFramed(IncrementalHash hash, string name, string value)
+    {
+        byte[] nameBytes = System.Text.Encoding.UTF8.GetBytes(name);
+        byte[] valueBytes = System.Text.Encoding.UTF8.GetBytes(value);
+        Span<byte> length = stackalloc byte[4];
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(length, nameBytes.Length);
+        hash.AppendData(length);
+        hash.AppendData(nameBytes);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(length, valueBytes.Length);
+        hash.AppendData(length);
+        hash.AppendData(valueBytes);
     }
 
     private static string ComputeSha256(byte[] bytes)
@@ -1169,6 +1350,7 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         if (string.IsNullOrWhiteSpace(path)
             || Path.IsPathRooted(path)
             || path.Contains('\\')
+            || path.Any(char.IsControl)
             || path.Split('/').Any(static segment => string.IsNullOrEmpty(segment) || segment is "." or "..")
             || !path.StartsWith("assets/", StringComparison.Ordinal))
         {
@@ -1183,6 +1365,7 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         if (string.IsNullOrWhiteSpace(path)
             || Path.IsPathRooted(path)
             || path.Contains('\\')
+            || path.Any(char.IsControl)
             || path.Split('/').Any(static segment => string.IsNullOrEmpty(segment) || segment is "." or ".."))
         {
             throw new SpaManifestValidationException("spa_asset_inventory_invalid");
@@ -1212,6 +1395,7 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         string? DescriptorGeneration,
         string? LoadedDigest,
         SpaManifestDescriptor Descriptor,
+        string AssetSetDigest,
         bool IsReady);
 
     private sealed record ManifestRuntimeSnapshot(

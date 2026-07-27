@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 
 using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.Spa;
 using FsusBlog.Shared.Contracts.Outputs;
 
@@ -41,6 +42,7 @@ public sealed class SpaAssetManifestServiceTests
                 href => Assert.Equal("/src/assets/tailwind.css?direct", href),
                 href => Assert.Equal("/src/assets/public-page.css?direct", href));
             Assert.Equal("dev-source-assets", assets.FrontendAssetVersion);
+            Assert.Empty(assets.AssetSetDigest);
         }
         finally
         {
@@ -231,6 +233,159 @@ public sealed class SpaAssetManifestServiceTests
                 () => service.GetReadiness().State == "ready",
                 TimeSpan.FromSeconds(1)));
             Assert.Contains("/assets/public-page-b.css", service.GetPublicAssetSet(pageId: PublicPageId.Home).Stylesheets);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Production_CompleteAssetsWithoutManifestRemainNotReadyAndDoNotSelectCssByPrefix()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
+            string assetsRoot = Path.Combine(GetReleaseAssetRoot(root), "assets");
+            File.WriteAllText(Path.Combine(assetsRoot, "public-page-z.css"), "other generation");
+            File.Delete(Path.Combine(GetReleaseAssetRoot(root), ".vite", "manifest.json"));
+            var service = CreateService(root, new TestWebHostEnvironment(root, Environments.Production));
+
+            SpaAssetSet assets = service.GetPublicAssetSet(pageId: PublicPageId.Home);
+
+            Assert.Equal("failed", service.GetReadiness().Status);
+            Assert.Empty(assets.EntryScript);
+            Assert.Empty(assets.Stylesheets);
+            Assert.DoesNotContain("/assets/public-page-z.css", assets.Stylesheets);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Production_ExactManifestOwnerSelectionIgnoresNewerSamePrefixFile()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
+            string unlisted = Path.Combine(GetReleaseAssetRoot(root), "assets", "public-page-z.css");
+            File.WriteAllText(unlisted, "unlisted newer generation");
+            File.SetLastWriteTimeUtc(unlisted, s_updatedManifestVersionUtc);
+
+            SpaAssetManifestService service = CreateService(root, new TestWebHostEnvironment(root, Environments.Production));
+            SpaAssetSet assets = service.GetPublicAssetSet(pageId: PublicPageId.Home);
+
+            Assert.Equal("failed", service.GetReadiness().Status);
+            Assert.DoesNotContain("/assets/public-page-z.css", assets.Stylesheets);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Production_FrontendAssetVersionChangesWhenAnySealedInventoryFileChanges()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
+            var environment = new TestWebHostEnvironment(root, Environments.Production);
+            string first = CreateService(root, environment).GetFrontendAssetVersion();
+
+            ReplaceInventoryFileAndReseal(root, "assets/fsus-spa-entry.js", "stable entry generation two");
+            SpaAssetManifestService reloaded = CreateService(root, environment);
+
+            SpaAssetSet assets = reloaded.GetPublicAssetSet(pageId: PublicPageId.Home);
+            Assert.NotEqual(first, assets.FrontendAssetVersion);
+            Assert.Equal(assets.FrontendAssetVersion, assets.AssetSetDigest);
+            Assert.Equal(assets.AssetSetDigest, reloaded.GetReadiness().AssetSetDigest);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Production_ExplicitPointerCanActivateRetainedCompleteGeneration()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
+            const string RetainedReleaseId = "retained-old-generation";
+            string retainedRoot = CreateRetainedGeneration(root, RetainedReleaseId);
+
+            SpaAssetManifestReadiness readiness = CreateService(
+                root,
+                new TestWebHostEnvironment(root, Environments.Production),
+                descriptorPath: Path.Combine(retainedRoot, "spa-manifest-descriptor.json"),
+                receiptPath: Path.Combine(retainedRoot, "production-build-receipt.json"),
+                releaseId: RetainedReleaseId).GetReadiness();
+
+            Assert.Equal("ok", readiness.Status);
+            Assert.Equal(RetainedReleaseId, readiness.ReleaseId);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Production_RejectsRetainedDescriptorPointerWithoutMatchingReleaseIdentity()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
+            string retainedRoot = CreateRetainedGeneration(root, "retained-old-generation");
+
+            SpaAssetManifestReadiness readiness = CreateService(
+                root,
+                new TestWebHostEnvironment(root, Environments.Production),
+                descriptorPath: Path.Combine(retainedRoot, "spa-manifest-descriptor.json"),
+                receiptPath: Path.Combine(retainedRoot, "production-build-receipt.json")).GetReadiness();
+
+            Assert.Equal("failed", readiness.Status);
+            Assert.Equal("spa_manifest_descriptor_authority_mismatch", readiness.Error);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Production_RealAssetGenerationChangeMakesOldPublicAotDocumentNotRenderable()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
+            var environment = new TestWebHostEnvironment(root, Environments.Production);
+            string oldVersion = CreateService(root, environment).GetFrontendAssetVersion();
+            var staleDocument = new PublicAotCacheEntry
+            {
+                CacheKey = "public:aot:v2:doc:1:home",
+                RouteKey = "home",
+                RendererVersion = PublicAotConstants.RendererVersion,
+                FrontendAssetVersion = oldVersion,
+                ExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(5),
+                Value = "<html>old asset generation</html>"
+            };
+
+            ReplaceInventoryFileAndReseal(root, "assets/fsus-spa-entry.js", "stable entry generation two");
+            string currentVersion = CreateService(root, environment).GetFrontendAssetVersion();
+
+            Assert.NotEqual(oldVersion, currentVersion);
+            Assert.False(PublicAotArtifactStore.IsRenderableCacheEntry(staleDocument, currentVersion));
         }
         finally
         {
@@ -1226,14 +1381,19 @@ public sealed class SpaAssetManifestServiceTests
   },
   "_full-app-core-a.js": {
     "file": "assets/full-app-core-a.js",
-    "name": "full-app-core"
+    "name": "full-app-core",
+    "imports": ["_full-app-core-a.css"]
   },
   "_vendor-element-plus-a.js": {
     "file": "assets/vendor-element-plus-a.js",
-    "name": "vendor-element-plus"
+    "name": "vendor-element-plus",
+    "imports": ["_vendor-element-plus-a.css"]
   },
   "_full-app-core-a.css": {
     "file": "assets/full-app-core-a.css"
+  },
+  "_vendor-element-plus-a.css": {
+    "file": "assets/vendor-element-plus-a.css"
   },
   "src/views/admin/Dashboard.vue": {
     "file": "assets/admin-a.js",
@@ -1241,9 +1401,10 @@ public sealed class SpaAssetManifestServiceTests
     "css": ["assets/admin-a.css"]
   },
   "public-runtime": { "file": "assets/public-runtime.js", "name": "public-page-runtime" },
-  "public-critical": { "file": "assets/public-critical.css", "name": "public-shell-critical" },
-  "tailwind": { "file": "assets/tailwind.css", "name": "tailwind" },
-  "public-page": { "file": "assets/public-page.css", "name": "public-page" },
+  "public-critical": { "file": "assets/public-shell-critical-a.css", "name": "public-shell-critical" },
+  "tailwind": { "file": "assets/tailwind-a.css", "name": "tailwind" },
+  "public-page": { "file": "assets/{{publicCss}}", "name": "public-page" },
+  "markdown": { "file": "assets/markdown-a.css", "name": "markdown" },
   "user": { "file": "assets/user.js", "name": "route-user" },
   "auth": { "file": "assets/auth.js", "name": "route-auth" },
   "error": { "file": "assets/error.js", "name": "route-error" }
@@ -1310,7 +1471,7 @@ public sealed class SpaAssetManifestServiceTests
         File.Copy(Path.Combine(root, "wwwroot", "index.html"), Path.Combine(assetRoot, "index.html"), overwrite: true);
         File.Copy(Path.Combine(root, "wwwroot", ".vite", "manifest.json"), Path.Combine(assetRoot, ".vite", "manifest.json"), overwrite: true);
         using JsonDocument manifest = JsonDocument.Parse(File.ReadAllText(Path.Combine(assetRoot, ".vite", "manifest.json")));
-        HashSet<string> assets = ["index.html", ".vite/manifest.json"];
+        HashSet<string> assets = ["index.html", ".vite/manifest.json", "assets/fsus-spa-entry.js"];
         foreach (JsonProperty entry in manifest.RootElement.EnumerateObject())
         {
             foreach (string property in new[] { "file", "css" })
@@ -1449,6 +1610,42 @@ public sealed class SpaAssetManifestServiceTests
         ResealDescriptorDigest(root);
     }
 
+    private static string CreateRetainedGeneration(string root, string releaseId)
+    {
+        string source = GetReleaseAssetRoot(root);
+        string retainedRoot = Path.Combine(root, releaseId);
+        CopyDirectory(source, retainedRoot);
+
+        string inventoryPath = Path.Combine(retainedRoot, "asset-manifest.json");
+        JsonObject inventory = JsonNode.Parse(File.ReadAllText(inventoryPath))!.AsObject();
+        inventory["releaseId"] = releaseId;
+        inventory["frontendBuildId"] = releaseId;
+        File.WriteAllText(inventoryPath, inventory.ToJsonString());
+
+        string descriptorPath = Path.Combine(retainedRoot, "spa-manifest-descriptor.json");
+        JsonObject descriptor = JsonNode.Parse(File.ReadAllText(descriptorPath))!.AsObject();
+        descriptor["releaseId"] = releaseId;
+        descriptor["assetRoot"] = retainedRoot;
+        descriptor["manifestPath"] = Path.Combine(retainedRoot, ".vite", "manifest.json");
+        descriptor["assetInventoryDigest"] = Digest(inventoryPath);
+        File.WriteAllText(descriptorPath, descriptor.ToJsonString());
+        ResealDescriptorDigestAt(descriptorPath);
+        return retainedRoot;
+    }
+
+    private static void CopyDirectory(string source, string destination)
+    {
+        Directory.CreateDirectory(destination);
+        foreach (string file in Directory.GetFiles(source))
+        {
+            File.Copy(file, Path.Combine(destination, Path.GetFileName(file)));
+        }
+        foreach (string directory in Directory.GetDirectories(source))
+        {
+            CopyDirectory(directory, Path.Combine(destination, Path.GetFileName(directory)));
+        }
+    }
+
     private static void ResealDescriptor(string root)
     {
         string assetRoot = Path.Combine(root, "local-unversioned");
@@ -1460,6 +1657,36 @@ public sealed class SpaAssetManifestServiceTests
         descriptor["assetInventoryDigest"] = Digest(inventoryPath);
         File.WriteAllText(descriptorPath, descriptor.ToJsonString());
         ResealDescriptorDigest(root);
+    }
+
+    private static void ReplaceInventoryFileAndReseal(string root, string relativePath, string contents)
+    {
+        string assetRoot = GetReleaseAssetRoot(root);
+        string path = Path.Combine(assetRoot, relativePath.Replace('/', Path.DirectorySeparatorChar));
+        File.WriteAllText(path, contents);
+
+        string inventoryPath = Path.Combine(assetRoot, "asset-manifest.json");
+        JsonObject inventory = JsonNode.Parse(File.ReadAllText(inventoryPath))!.AsObject();
+        JsonObject inventoryEntry = inventory["files"]!.AsArray()
+            .Select(static item => item!.AsObject())
+            .Single(item => item["path"]!.GetValue<string>() == relativePath);
+        inventoryEntry["sha256"] = Digest(path);
+        inventoryEntry["bytes"] = new FileInfo(path).Length;
+        File.WriteAllText(inventoryPath, inventory.ToJsonString());
+
+        string receiptPath = GetReceiptPath(root);
+        JsonObject receipt = JsonNode.Parse(File.ReadAllText(receiptPath))!.AsObject();
+        JsonObject receiptEntry = receipt["artifacts"]!.AsArray()
+            .Select(static item => item!.AsObject())
+            .Single(item => item["path"]!.GetValue<string>() == "frontend-dist/" + relativePath);
+        receiptEntry["sha256"] = Digest(path);
+        receiptEntry["size"] = new FileInfo(path).Length;
+        receipt["metrics"]!["artifactBytes"] = receipt["artifacts"]!.AsArray()
+            .Select(static item => item!.AsObject()["size"]!.GetValue<long>())
+            .Sum();
+        File.WriteAllText(receiptPath, receipt.ToJsonString());
+        ResealReceiptDigest(root, updateDescriptor: true);
+        ResealDescriptor(root);
     }
 
     private static void ResealManifestMutation(string root)
@@ -1514,7 +1741,11 @@ public sealed class SpaAssetManifestServiceTests
 
     private static void ResealDescriptorDigest(string root)
     {
-        string descriptorPath = GetDescriptorPath(root);
+        ResealDescriptorDigestAt(GetDescriptorPath(root));
+    }
+
+    private static void ResealDescriptorDigestAt(string descriptorPath)
+    {
         JsonNode descriptor = JsonNode.Parse(File.ReadAllText(descriptorPath))!;
         descriptor["contentDigest"] = null;
         using (JsonDocument descriptorDocument = JsonDocument.Parse(descriptor.ToJsonString()))

@@ -68,6 +68,16 @@ must resolve to an entry in the same validated manifest graph, which rejects cyc
 Production readiness remains failed until all of these checks, including the
 descriptor/receipt/inventory binding, succeed.
 
+After that validation the runtime derives one canonical asset-set receipt. It
+retains descriptor generation plus raw manifest and inventory digests for audit,
+and records the stable entry file, manifest CSS and preload files, index digest,
+and the sorted per-file digest table for the complete sealed inventory.
+`frontendAssetVersion` derives from the canonical runtime asset-set projection:
+it excludes representation-only metadata ordering but changes when any runtime
+inventory file digest changes. Public AOT entries use that exact value, so an entry
+created for a prior generation is not renderable. Development source-assets remain
+outside this receipt and do not produce Production readiness evidence.
+
 Recovery is release-scoped: correct a rejected manifest by producing and sealing a
 new release inventory and descriptor, then switch the runtime's descriptor and
 receipt configuration together. Do not edit the retained release in place, copy an
