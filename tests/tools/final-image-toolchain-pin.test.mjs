@@ -26,6 +26,90 @@ const pins = {
   nodeGlibc: 'sha256:862263c612aa437e3037674b85419622a9d93bff80aa1eee5398dfe686375532'
 }
 
+function frontendBuildStageCopies() {
+  const stageStart = dockerfile.indexOf('FROM node-runtime-musl AS frontend-build')
+  const stageEnd = dockerfile.indexOf('FROM base AS final')
+  assert.notEqual(stageStart, -1, 'frontend build stage is missing')
+  assert.notEqual(stageEnd, -1, 'final stage is missing')
+  const copies = []
+  for (const line of dockerfile.slice(stageStart, stageEnd).split(/\r?\n/u)) {
+    const match = /^COPY\s+(?!.*--from=)(\S+)\s+(\S+)\s*$/u.exec(line)
+    if (match) copies.push({ source: match[1], destination: match[2] })
+  }
+  return copies
+}
+
+function frontendStageCopiesRepositoryFile(copies, file) {
+  const normalized = file.replaceAll('\\', '/')
+  const expectedDestination = `/${normalized}`
+  return copies.some(({ source, destination }) => {
+    const root = source.replace(/\/$/u, '')
+    if (source.endsWith('/')) {
+      if (!normalized.startsWith(`${root}/`)) return false
+      const relative = normalized.slice(root.length + 1)
+      return path.posix.normalize(path.posix.join(destination, relative)) === expectedDestination
+    }
+    return normalized === source && path.posix.normalize(destination) === expectedDestination
+  })
+}
+
+function staticallyKnownModuleDependencies(file) {
+  const source = fs.readFileSync(path.join(root, file), 'utf8')
+  const specifiers = new Set()
+  for (const match of source.matchAll(/^\s*import(?:[\s\S]*?\sfrom)?\s*['"](\.{1,2}\/[^'"]+)['"]/gmu)) {
+    specifiers.add(match[1])
+  }
+  for (const match of source.matchAll(/\b(?:import\s*\()?new URL\(\s*['"](\.{1,2}\/[^'"]+\.mjs)['"]\s*,\s*import\.meta\.url\s*\)/gu)) {
+    specifiers.add(match[1])
+  }
+  return [...specifiers].map((specifier) => path.posix.normalize(
+    path.posix.join(path.posix.dirname(file), specifier)
+  ))
+}
+
+function restoreStageProjectCopies() {
+  const stageStart = dockerfile.indexOf('FROM build-${RUNTIME_BASE_FLAVOR} AS build')
+  const restore = dockerfile.indexOf('dotnet restore "./src/backend/FsusBlog.Server.csproj"', stageStart)
+  assert.notEqual(stageStart, -1, 'build stage is missing')
+  assert.notEqual(restore, -1, 'backend restore is missing')
+  const copies = []
+  for (const line of dockerfile.slice(stageStart, restore).split(/\r?\n/u)) {
+    const match = /^COPY\s+(\[.*\])\s*$/u.exec(line)
+    if (!match) continue
+    const [source, destination] = JSON.parse(match[1])
+    copies.push({ source, destination })
+  }
+  return copies
+}
+
+function projectReferenceClosure(initialProjects) {
+  const pending = [...initialProjects]
+  const closure = new Set()
+  while (pending.length > 0) {
+    const project = pending.pop()
+    if (closure.has(project)) continue
+    closure.add(project)
+    const source = fs.readFileSync(path.join(root, project), 'utf8')
+    for (const match of source.matchAll(/<ProjectReference\b[^>]*\bInclude="([^"]+)"/gu)) {
+      const resolved = path.posix.normalize(path.posix.join(
+        path.posix.dirname(project),
+        match[1].replaceAll('\\', '/')
+      ))
+      assert.equal(resolved.startsWith('../'), false, `ProjectReference escapes repository: ${project}`)
+      pending.push(resolved)
+    }
+  }
+  return closure
+}
+
+function restoreStageCopiesProject(copies, project) {
+  const expectedDestination = `/src/${project}`
+  return copies.some(({ source, destination }) => (
+    source === project
+      && path.posix.join('/src', destination, path.posix.basename(source)) === expectedDestination
+  ))
+}
+
 test('final Dockerfile pins musl and glibc .NET and Node images to one patch set', () => {
   for (const [name, value] of [
     ['DOTNET_RUNTIME_VERSION', pins.runtimeVersion],
@@ -60,8 +144,12 @@ test('final Dockerfile pins musl and glibc .NET and Node images to one patch set
   )
   for (const [stage, source] of [[buildMusl, 'node-runtime-musl'], [buildGlibc, 'node-runtime-glibc']]) {
     assert.ok(stage.includes(`COPY --from=${source} /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm`))
-    assert.ok(stage.includes(`COPY --from=${source} /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/`))
-    assert.match(stage, /npm --version >\/dev\/null && npx --version >\/dev\/null/u)
+    assert.doesNotMatch(stage, new RegExp(`COPY --from=${source} /usr/local/bin/npm /usr/local/bin/npx`, 'u'))
+    assert.match(stage, /ln -sfn \.\.\/lib\/node_modules\/npm\/bin\/npm-cli\.js \/usr\/local\/bin\/npm/u)
+    assert.match(stage, /ln -sfn \.\.\/lib\/node_modules\/npm\/bin\/npx-cli\.js \/usr\/local\/bin\/npx/u)
+    assert.match(stage, /test "\$\(node --version\)" = "v\$\{NODE_VERSION\}"/u)
+    assert.match(stage, /test "\$\(npm --version\)" = "11\.13\.0"/u)
+    assert.match(stage, /test "\$\(npx --version\)" = "11\.13\.0"/u)
   }
   const baseStages = dockerfile.slice(dockerfile.indexOf(' AS base-musl'), dockerfile.indexOf('FROM base-${RUNTIME_BASE_FLAVOR} AS base'))
   assert.equal(baseStages.match(/! command -v npm/gu)?.length, 2)
@@ -85,6 +173,75 @@ test('final Dockerfile pins musl and glibc .NET and Node images to one patch set
     'io.fsusblog.runtime.gc-heap-hard-limit-percent',
     'io.fsusblog.runtime.thread-pool-min-threads-per-cpu'
   ]) assert.ok(dockerfile.includes(label), `missing ${label}`)
+})
+
+test('frontend Docker stage copies the complete static module and child-script closure of its real build entrypoints', () => {
+  const copies = frontendBuildStageCopies()
+  const pending = [
+    'tools/frontend/build.mjs',
+    'tools/test/run-command-manifest.mjs'
+  ]
+  const visited = new Set()
+  while (pending.length > 0) {
+    const file = pending.pop()
+    if (visited.has(file)) continue
+    visited.add(file)
+    assert.equal(
+      frontendStageCopiesRepositoryFile(copies, file),
+      true,
+      `frontend Docker stage does not copy imported module ${file}`
+    )
+    pending.push(...staticallyKnownModuleDependencies(file))
+  }
+  assert.ok(visited.has('tools/test/command-manifest-runtime.mjs'))
+  assert.ok(visited.has('tools/release/release-id.mjs'))
+  for (const childScript of [
+    'tools/frontend/ensure-wasm.mjs',
+    'tools/frontend/generate-public-page-manifest.mjs',
+    'tools/frontend/generate-public-shell-emergency.mjs',
+    'tools/frontend/build-public-ssr-bundle.mjs'
+  ]) {
+    assert.ok(visited.has(childScript), `frontend build does not audit child script ${childScript}`)
+  }
+})
+
+test('Docker restore layer copies the recursive backend ProjectReference closure before restore', () => {
+  const projects = projectReferenceClosure([
+    'src/backend/FsusBlog.Server.csproj',
+    'src/core/FsusBlog.Core.csproj',
+    'src/shared/FsusBlog.Shared.csproj'
+  ])
+  const copies = restoreStageProjectCopies()
+  for (const project of projects) {
+    assert.equal(
+      restoreStageCopiesProject(copies, project),
+      true,
+      `Docker restore layer does not copy ProjectReference ${project}`
+    )
+  }
+  assert.ok(projects.has('tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj'))
+})
+
+test('frontend Docker stage validates transported Wasm before scoped ensure-wasm skipping', () => {
+  const stageStart = dockerfile.indexOf('FROM node-runtime-musl AS frontend-build')
+  const stageEnd = dockerfile.indexOf('FROM base AS final')
+  const frontendStage = dockerfile.slice(stageStart, stageEnd)
+  const checksumValidation = frontendStage.indexOf('RUN test -f public/wasm/SHA256SUMS')
+  const envelopeValidation = frontendStage.indexOf('wasm-build-receipt.mjs verify-envelope')
+  const buildRun = frontendStage.indexOf('RUN FSUSBLOG_SKIP_ENSURE_WASM=1 npm run build:release')
+  assert.ok(checksumValidation >= 0, 'frontend stage must validate Wasm transport checksums')
+  assert.ok(envelopeValidation > checksumValidation, 'frontend stage must verify the receipt envelope after checksums')
+  assert.ok(buildRun > envelopeValidation, 'ensure-wasm may be skipped only after portable artifact validation')
+  assert.equal(
+    frontendStage.match(/FSUSBLOG_SKIP_ENSURE_WASM=1/gu)?.length,
+    1,
+    'ensure-wasm skip must be scoped to exactly one frontend build RUN'
+  )
+  assert.ok(
+    frontendStage.indexOf('COPY tools/release/release-id.mjs /tools/release/release-id.mjs')
+      > frontendStage.indexOf('npm ci'),
+    'release identity module must remain outside the npm dependency cache layer'
+  )
 })
 
 function runBuildWithInspect(t, labels, extraEnv = {}) {

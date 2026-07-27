@@ -154,8 +154,11 @@ ARG NODE_VERSION
 RUN apk add --no-cache libstdc++
 COPY --from=node-runtime-musl /usr/local/bin/node /usr/local/bin/node
 COPY --from=node-runtime-musl /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
-COPY --from=node-runtime-musl /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/
-RUN test "$(node --version)" = "v${NODE_VERSION}" && npm --version >/dev/null && npx --version >/dev/null
+RUN ln -sfn ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \
+    ln -sfn ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx && \
+    test "$(node --version)" = "v${NODE_VERSION}" && \
+    test "$(npm --version)" = "11.13.0" && \
+    test "$(npx --version)" = "11.13.0"
 
 FROM mcr.microsoft.com/dotnet/sdk:${DOTNET_SDK_VERSION}-noble@${DOTNET_SDK_GLIBC_DIGEST} AS build-glibc
 ARG NODE_VERSION
@@ -164,8 +167,11 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 COPY --from=node-runtime-glibc /usr/local/bin/node /usr/local/bin/node
 COPY --from=node-runtime-glibc /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
-COPY --from=node-runtime-glibc /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/
-RUN test "$(node --version)" = "v${NODE_VERSION}" && npm --version >/dev/null && npx --version >/dev/null
+RUN ln -sfn ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \
+    ln -sfn ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx && \
+    test "$(node --version)" = "v${NODE_VERSION}" && \
+    test "$(npm --version)" = "11.13.0" && \
+    test "$(npx --version)" = "11.13.0"
 
 ARG RUNTIME_BASE_FLAVOR
 FROM build-${RUNTIME_BASE_FLAVOR} AS build
@@ -177,6 +183,7 @@ WORKDIR /src
 COPY ["src/backend/FsusBlog.Server.csproj", "src/backend/"]
 COPY ["src/core/FsusBlog.Core.csproj", "src/core/"]
 COPY ["src/shared/FsusBlog.Shared.csproj", "src/shared/"]
+COPY ["tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj", "tools/architecture/FsusBlog.DiLifetimeAnalyzer/"]
 
 RUN sh -lc 'for i in 1 2 3; do dotnet restore "./src/backend/FsusBlog.Server.csproj" --runtime "$TARGET_RUNTIME" /p:PublishReadyToRun="$PUBLISH_READY_TO_RUN" /p:ReadyToRunUseCrossgen2="$PUBLISH_READY_TO_RUN" && exit 0; echo "dotnet restore retry $i failed"; sleep 5; done; exit 1'
 
@@ -288,9 +295,12 @@ ARG FSUSBLOG_RELEASE_ID=local-unversioned
 ENV VITE_FSUSBLOG_BUILD_ID=${FSUSBLOG_RELEASE_ID} \
     FSUSBLOG_RELEASE_CREATED_AT_UTC=${FSUSBLOG_RELEASE_CREATED_AT_UTC} \
     FSUSBLOG_COMMIT_SHA=${FSUSBLOG_COMMIT_SHA}
+COPY tools/release/release-id.mjs /tools/release/release-id.mjs
 COPY tools/test/run-command-manifest.mjs /tools/test/run-command-manifest.mjs
+COPY tools/test/command-manifest-runtime.mjs /tools/test/command-manifest-runtime.mjs
 COPY tools/test/bundles/bundle-steps.mjs /tools/test/bundles/bundle-steps.mjs
 COPY tests/matrix.yml /tests/matrix.yml
+COPY tools/yaml/parse-document.mjs /tools/yaml/parse-document.mjs
 COPY --from=fsusui /vue/packages /opt/fsusui/vue/packages
 RUN ln -s /app/node_modules /opt/fsusui/node_modules
 COPY src/frontend/ ./
@@ -304,7 +314,7 @@ RUN node ../../tools/frontend/wasm-build-receipt.mjs verify-envelope \
     --client-root /app \
     --artifact-dir /app/public/wasm
 
-RUN npm run build:release
+RUN FSUSBLOG_SKIP_ENSURE_WASM=1 npm run build:release
 
 ## =========================================================================
 # 阶段 4：终极生成镜像 (融合前后端)

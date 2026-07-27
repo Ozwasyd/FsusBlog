@@ -491,7 +491,13 @@ optional_deployment_layer:
 - 明确目标属于 `kestrel-only internal baseline` 还是 `optional deployment-layer`；未声明时默认前者。
 - `backend-qps` summary 必须拆分 `staticEvidenceResults` 与 `runtimeMeasurementResults`：前者是 source guard，后者是 warm runtime probe；release evidence 不得把 static guard 的 RPS 字段当作容量结论。
 - Soak 分为三种语义：`soak-short-runtime` / `release-soak-min` 是真实短时 runtime smoke，必须写 `.tmp/soak/short/summary.json`，并包含 `durationSeconds`、`sampleCount`、`latencyMs.p95`、`latencyMs.p99`、`errorRate`、`executionMode:"runtime"`、`countsAsReleaseFinal:true`，以及 `resourceMetricSummary.metrics[]` 或 `resourceMetricSummary.unavailableMetrics[].reason`；`soak-long-scheduled` 只写 72h/7d 计划证据，必须是 `status:"scheduled"`、`executionMode:"scheduled"`、`countsAsReleaseFinal:false`，不得作为 release-final completed evidence；`soak-long-evidence-import` 只有在设置 `FSUSBLOG_SOAK_LONG_EVIDENCE_FILE` 导入外部长跑证据时才允许 `status:"ok"`，否则使用 `FSUSBLOG_SOAK_REQUIRE_IMPORTED_EVIDENCE=1` fail-closed。
-- `release-memory-leak-budget` 与 `release-open-handle-budget` 必须输出真实资源指标，summary 文件分别为 `.tmp/release-evidence/memory-leak-summary.json` 与 `.tmp/release-evidence/open-handle-summary.json`。每个 summary 的 `metrics[]` 不得为空；每个 metric 必须包含 `name`、`startValue`、`endValue`、`maxValue`、`delta`、`threshold`、`thresholdOperator:"<="`、`thresholdField:"delta"` 和 `status`。`status:"ok"` 只有在至少一个真实资源 metric 通过预算且没有 unavailable metric 时才允许写入；缺少指标必须写入 `unavailableMetrics[].reason` 并使 lane failed，阈值超限也必须 failed。默认阈值为 RSS delta `FSUSBLOG_RELEASE_RESOURCE_RSS_DELTA_THRESHOLD_BYTES=67108864`、FD delta `FSUSBLOG_RELEASE_RESOURCE_FD_DELTA_THRESHOLD=16`，本地无法从端口发现后端进程时用 `FSUSBLOG_RELEASE_RESOURCE_PID` 指定。
+- `release-memory-leak-budget` 与 `release-open-handle-budget` 必须输出真实资源指标，summary 文件分别为 `.tmp/release-evidence/memory-leak-summary.json` 与 `.tmp/release-evidence/open-handle-summary.json`。每个 summary 的 `metrics[]` 不得为空；每个 metric 必须包含 `name`、`startValue`、`endValue`、`maxValue`、`delta`、`threshold`、`thresholdOperator:"<="`、`thresholdField:"delta"` 和 `status`。`status:"ok"` 只有在至少一个真实资源 metric 通过预算且没有 unavailable metric 时才允许写入；缺少指标必须写入 `unavailableMetrics[].reason` 并使 lane failed，阈值超限也必须 failed。默认阈值为 RSS delta `FSUSBLOG_RELEASE_RESOURCE_RSS_DELTA_THRESHOLD_BYTES=67108864`、FD delta `FSUSBLOG_RELEASE_RESOURCE_FD_DELTA_THRESHOLD=16`，本地无法从端口发现后端进程时用 `FSUSBLOG_RELEASE_RESOURCE_PID` 指定。qualified-local final-container 运行同时使用 topology authority 封存的 `FSUSBLOG_RELEASE_RESOURCE_CONTAINER_ID` 与 host PID，重新 inspect 二者后从该容器 `/proc/1` 读取指标；不得用端口猜测另一个进程，也不得把宿主 `/proc` 权限拒绝改写成零值。
+
+- `release-reliability-scenario-catalog.json` 的 lifecycle 标签描述 producer-owned helper 的真实动作：每个 reset 只删除该 scenario 的已声明 raw/projection output，`release-data-scale-m` 另执行 scoped data-scale namespace cleanup；它们不重置共享 runtime、database、network、resource counter 或 build artifact。precondition/postcondition 保留 declared conflict domains，但仅按场景实际记录并校验 live runtime、fixture container、resource counter、clean source 与 host CPU state；network/performance 结果仍由 load producer window 生成，不能把未观察的 domain 或未执行的 reset 写成已经完成。任何未运行、失败或缺失的 producer/lifecycle receipt 仍为 failed，不能因 lifecycle 文本存在而转为通过。
+
+- Release Reliability generator 只写 `candidate-receipt.json`。独立 verifier 必须在 runtime/container 仍存活时写入内容寻址的 `verified-attestation.json`，wrapper 随后清理 owned runtime，再由 verifier finalization 写入绑定 candidate、attestation 与 exact persistent-file manifest 的 `qualified-receipt.json`。清理后的普通 `--receipt` 复验不得依赖 live container，但必须重读 manifest 的每个持久文件和 verifier source；缺 attestation、跨 run、文件集合不完整、digest 篡改或 post-attestation bytes 漂移全部 fail closed。Registry/local image 均必须封存并复验 FsusBlog OCI revision 与 `io.fsusblog.build.fsusui-source` / `io.fsusblog.build.fsusui-commit`，不得仅凭 RepoDigest 把另一 source 的 image 拼入当前 receipt。
+
+- qualified-local final-container 启用 .NET single-file crash diagnostics，full dump 只写入容器私有的 `/app/runtime-cache` tmpfs，并随 owned container 删除，绝不复制到仓库或 release receipt。仅当该 owned backend 异常退出时，cleanup 才在私有 run-bound 目录保存 Docker state、最多 200 行且不超过 1 MiB 的日志尾部，以及各不超过 1 MiB 的 JSON crash report / createdump log；采集失败不得覆盖原始 producer 退出状态。这些诊断可能包含代码路径，完成归因后必须与该 run 的临时证据一起清理。
 
 在 Windows，资源 probe 通过 `Get-NetTCPConnection` 解析监听进程，并分别用 `Get-Process.WorkingSet64` 与 `Get-Process.HandleCount` 采集 RSS 和 handle 指标；这仍是对同一进程的真实计数，无法解析或读取时保持 unavailable/failed，不能以零值或目录存在代替。
 - `backend-qps-runtime-sequential` 是可选 warmed runtime measurement：必须在同一个 bootstrapped runtime 中按固定顺序执行全部 measured scenarios，并记录 runtime id / namespace、warmup duration、scenario order、per-scenario counters、machine metadata 和 `capacityConclusion.countedAsCapacity=false`。
@@ -960,6 +966,7 @@ tools/operations/check-release-evidence-manifest.mjs --require-ok
 - release runtime lanes：admin console、auth flow、authoring flow、private preview 与 error boundary 使用 Vitest/API/static contract 绑定 release artifact；真实 RBAC browser negative path 已迁入 diagnostics。
 - release AOT lanes：generation 与 static asset digest coherence 作为 browserless release evidence；真实 consumption/browser fallback 属于 diagnostics。
 - release load/scale/stability lanes：peak、burst、scale-m、soak-min、memory leak budget、open handle budget、critical mutation slice。
+- Release Reliability v3 qualification：catalog 同时固定 300 秒 soak、peak/burst 的 concurrency/rounds/duration/threshold、scale-m 的 10,000/100,000 seed 与 12/2 sampling、resource 的 12/2 sampling 和 64 MiB/16 delta limit，以及 mutation fixed subset。executor 不继承整份 caller environment；只允许 catalog 声明的 base/inherited/fixed/internal keys，缺 required key 在 spawn 前失败。run identity 绑定该环境合同及 load/mutation/resource policy 实际文件 digest；独立 verifier 从原始 evidence 重算 effective sampling、threshold 和 policy binding，caller override 或自重算 weakened receipt 均不能放行。
 - PerceptionCharacterV3 independent release gate：同一 physical tier 生成一次 10,000 visual + 2,000 audio corpus、一次 pool-vs-retired benchmark、一次真实 Redis 双 cutover，并生成 implementation 与 independent-review 两份同 commit 回执。它由 `production-correctness` 与 `release-final` 共享 DAG 节点；scheduler 必须去重，禁止复制 corpus/benchmark 来伪造两个独立执行。
 - strict evidence：manifest 必须为 `collected-ok`，live exposure/firewall/DNS evidence 必须存在，backup restore 必须是 real drill，post-deploy smoke 必须是 deployed endpoint 自动覆盖，authenticated DAST/Wasm fuzz/fault injection/short soak 必须真实执行，job summary 必须覆盖 production-correctness 与其他 required correctness jobs。独立 browser diagnostics receipt 不进入该 correctness required-job 集合。
 - artifact binding：`tools/release/check-release-final.mjs` 要求 manifest commit、job summary commit 与 `sha256:` image digest 一致。
@@ -993,6 +1000,14 @@ mutant IDs；普通 Release test 成功字符串不能替代 mutation producer �
 任一 selected mutant 在 Debug 或 Release 未 killed、两边 mutant identity
 不同、Release 含 `DEBUG` 或缺 `RELEASE`、未优化、artifact 不在 run-bound
 root，都会 fail closed。
+
+Debug authority 只有在 Release parity 校验成功后才原子追加
+`releaseQualification`。该字段绑定 fixed subset policy 的文件 digest /
+`subsetDigest`、run-bound parity receipt 文件 digest /
+`resolvedSubsetDigest`、相同 source authority inventory/config digest，以及
+authority 自身的完整 planned/executed mutant ID 集合。独立 verifier 会重读
+policy 与 parity receipt 并逐项比对；替换 subset、删减 executed 集合或仅改写
+authority JSON/status 都不能获得资格。
 
 该双层执行以 66 个 `AedsEncoder` planned mutants 和固定代表 subset 控制
 成本；required operators 是本 authority 中可执行的七类 operator，

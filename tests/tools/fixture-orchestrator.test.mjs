@@ -1,5 +1,14 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import {
+  chmodSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
@@ -21,6 +30,75 @@ import {
 } from '../../tools/testing/fixture-catalog.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+
+function fixtureCliBoundaryStub(context) {
+  const directory = mkdtempSync(path.join(tmpdir(), 'fsusblog-fixture-cli-boundary-'))
+  context.after(() => rmSync(directory, { recursive: true, force: true }))
+  const executable = path.join(directory, 'node-stub')
+  const capture = path.join(directory, 'invocation.json')
+  writeFileSync(executable, `#!/usr/bin/env node
+const fs = require('node:fs')
+const path = require('node:path')
+const [entry, ...args] = process.argv.slice(2)
+const fail = (message) => {
+  process.stderr.write(message + '\\n')
+  process.exit(31)
+}
+if (String(entry).endsWith('/tests/frontend/support/fixture-paths.mjs')) {
+  const fixtureRoot = process.env.FSUSBLOG_TEST_STUB_FIXTURE_ROOT
+  if (!fixtureRoot) fail('fixture root is required')
+  process.stdout.write(fixtureRoot)
+  process.exit(0)
+}
+if (!String(entry).endsWith('/tools/test-fixtures/cli.mjs')) fail('unexpected node entry: ' + entry)
+const options = { _: [] }
+for (let index = 0; index < args.length; index += 1) {
+  const argument = args[index]
+  if (!argument.startsWith('--')) {
+    options._.push(argument)
+    continue
+  }
+  const separator = argument.indexOf('=')
+  if (separator >= 0) {
+    options[argument.slice(2, separator)] = argument.slice(separator + 1)
+    continue
+  }
+  const key = argument.slice(2)
+  const next = args[index + 1]
+  if (next != null && !next.startsWith('--')) {
+    options[key] = next
+    index += 1
+  } else {
+    options[key] = true
+  }
+}
+if (options._[0] !== 'run') fail('fixture CLI run command is required')
+if (!options.profile || options.profile === 'none') fail('non-none profile is required')
+if (options['skip-verify'] !== true) fail('--skip-verify is required')
+if (Object.hasOwn(options, 'out')) fail('--out incorrectly requests a FixtureReceipt')
+if (Object.hasOwn(options, 'fixture-receipt')) fail('--fixture-receipt is forbidden for non-none prepare')
+if (typeof options['prepare-state'] !== 'string' || !options['prepare-state']) {
+  fail('--prepare-state is required')
+}
+const prepareState = {
+  schema: 'fsusblog.fixture-prepare-state.v1',
+  terminalState: 'prepared',
+  profileId: options.profile
+}
+fs.mkdirSync(path.dirname(options['prepare-state']), { recursive: true })
+fs.writeFileSync(options['prepare-state'], JSON.stringify(prepareState), { mode: 0o600 })
+fs.writeFileSync(process.env.FSUSBLOG_TEST_STUB_CAPTURE, JSON.stringify({
+  profileId: options.profile,
+  prepareState: options['prepare-state'],
+  skipVerify: options['skip-verify'],
+  fixtureReceiptRequested: Object.hasOwn(options, 'fixture-receipt'),
+  outputRequested: Object.hasOwn(options, 'out')
+}))
+process.stdout.write(JSON.stringify(prepareState) + '\\n')
+`)
+  chmodSync(executable, 0o755)
+  return { capture, directory, executable }
+}
 
 function mockPort(spec, hooks = {}) {
   const calls = { prepare: 0, verify: 0, cleanup: 0, prepareOrder: [] }
@@ -409,6 +487,7 @@ test('shell dual paths and prepare package scripts are gone', () => {
 
   for (const source of [bootstrap, start, suite]) {
     assert.match(source, /tools\/test-fixtures\/cli\.mjs/)
+    assert.doesNotMatch(source, /--skip-verify\s+--out/u)
     assert.doesNotMatch(source, /\bPrepareAuthFixturesOnce\b/)
     assert.doesNotMatch(source, /\bPreparePublicFixturesOnce\b/)
   }
@@ -423,6 +502,98 @@ test('shell dual paths and prepare package scripts are gone', () => {
   assert.equal(pkg.scripts['prepare:playwright:sessions'], undefined)
   assert.doesNotMatch(publicProducer, /using direct DB seed|seedPublicFixturesViaApi|buildSeededArticleFallback/)
   assert.match(publicProducer, /transaction-fixture/)
+})
+
+test('acceptance bootstrap non-none boundary writes prepare-state without requesting FixtureReceipt', (context) => {
+  const stub = fixtureCliBoundaryStub(context)
+  const fixtureRoot = path.join(stub.directory, 'bootstrap-fixtures')
+  const namespace = 'bootstrap-fixture-boundary'
+  const result = spawnSync('bash', ['-c', `
+export FSUSBLOG_BOOTSTRAP_SOURCE_ONLY=1
+export FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME=1
+export FSUSBLOG_TEST_NAMESPACE="${namespace}"
+export FSUSBLOG_TEST_RUN_ID=bootstrap-fixture-boundary-run
+export FSUSBLOG_ACCEPTANCE_OUTPUT_ROOT="$FSUSBLOG_TEST_STUB_ROOT/acceptance"
+export FSUSBLOG_ACCEPTANCE_ENV_ROOT="$FSUSBLOG_TEST_STUB_ROOT/env"
+export FSUSBLOG_ACCEPTANCE_FIXTURE_ROOT="$FSUSBLOG_TEST_STUB_ROOT/bootstrap-fixtures"
+export FSUSBLOG_TEST_SOURCE_COMMIT=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+export FSUSBLOG_TEST_SOURCE_FINGERPRINT=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+export FSUSBLOG_NODE="$FSUSBLOG_TEST_STUB_NODE"
+source ./tools/bootstrap-acceptance-env.sh
+FIXTURE_PROFILE_ID=acceptance-representative
+FIXTURE_PROFILE_SOURCE=dev-cli
+FIXTURE_PRODUCER_IDS=auth-session
+FIXTURE_REQUIRES_DEMO=0
+FIXTURE_REQUIRES_SECURITY_RESET=0
+InvokeFixtureOrchestrator
+`], {
+    cwd: root,
+    encoding: 'utf8',
+    timeout: 10_000,
+    env: {
+      ...process.env,
+      FSUSBLOG_TEST_STUB_CAPTURE: stub.capture,
+      FSUSBLOG_TEST_STUB_NODE: stub.executable,
+      FSUSBLOG_TEST_STUB_ROOT: stub.directory
+    }
+  })
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
+  const prepareState = path.join(fixtureRoot, namespace, 'prepare-state.json')
+  assert.equal(existsSync(prepareState), true)
+  assert.equal(existsSync(path.join(fixtureRoot, namespace, 'fixture-receipt.json')), false)
+  assert.deepEqual(JSON.parse(readFileSync(prepareState, 'utf8')), {
+    schema: 'fsusblog.fixture-prepare-state.v1',
+    terminalState: 'prepared',
+    profileId: 'acceptance-representative'
+  })
+  assert.deepEqual(JSON.parse(readFileSync(stub.capture, 'utf8')), {
+    profileId: 'acceptance-representative',
+    prepareState,
+    skipVerify: true,
+    fixtureReceiptRequested: false,
+    outputRequested: false
+  })
+})
+
+test('shared lane non-none boundary writes prepare-state without requesting FixtureReceipt', (context) => {
+  const stub = fixtureCliBoundaryStub(context)
+  const fixtureRoot = path.join(stub.directory, 'lane-fixtures')
+  const result = spawnSync('bash', ['-c', `
+export FSUSBLOG_NODE="$FSUSBLOG_TEST_STUB_NODE"
+export FSUSBLOG_TEST_NAMESPACE=lane-fixture-boundary
+export FSUSBLOG_TEST_RUN_ID=lane-fixture-boundary-run
+export FSUSBLOG_TEST_SESSION_ISOLATION=0
+export FSUSBLOG_SEALED_FIXTURE_PROFILE_ID=acceptance-representative
+export FSUSBLOG_FIXTURE_PROFILE_SOURCE=dev-cli
+source ./tools/test/lanes/_suite-support.sh
+InvokeLaneFixtureOrchestrator
+`], {
+    cwd: root,
+    encoding: 'utf8',
+    timeout: 10_000,
+    env: {
+      ...process.env,
+      FSUSBLOG_TEST_STUB_CAPTURE: stub.capture,
+      FSUSBLOG_TEST_STUB_FIXTURE_ROOT: fixtureRoot,
+      FSUSBLOG_TEST_STUB_NODE: stub.executable
+    }
+  })
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
+  const prepareState = path.join(fixtureRoot, 'prepare-state.json')
+  assert.equal(existsSync(prepareState), true)
+  assert.equal(existsSync(path.join(fixtureRoot, 'fixture-receipt.json')), false)
+  assert.deepEqual(JSON.parse(readFileSync(prepareState, 'utf8')), {
+    schema: 'fsusblog.fixture-prepare-state.v1',
+    terminalState: 'prepared',
+    profileId: 'acceptance-representative'
+  })
+  assert.deepEqual(JSON.parse(readFileSync(stub.capture, 'utf8')), {
+    profileId: 'acceptance-representative',
+    prepareState,
+    skipVerify: true,
+    fixtureReceiptRequested: false,
+    outputRequested: false
+  })
 })
 
 test('dev receipt transition reuses only the exact run and cleans profile or service drift', () => {

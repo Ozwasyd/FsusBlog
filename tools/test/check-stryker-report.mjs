@@ -5,6 +5,8 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { readReleaseReliabilityEvidenceBinding } from './release-reliability-evidence-binding.mjs'
+
 const knownStatuses = ['CompileError', 'Ignored', 'Killed', 'NoCoverage', 'Survived', 'Timeout']
 const executedStatuses = new Set(['Killed', 'Survived', 'Timeout'])
 const terminalStatuses = new Set(knownStatuses)
@@ -1054,7 +1056,8 @@ export function createStrykerAuthority({
     sourceState,
     generatedAt,
     repositoryRoot = process.cwd(),
-    sourceRoot
+    sourceRoot,
+    releaseReliability = null
 }) {
     const summary = validateStrykerReport(report)
     const reportBytes = rawJsonBytes(report, rawReport, 'raw Stryker report')
@@ -1186,7 +1189,8 @@ export function createStrykerAuthority({
             runId: normalizedRunId,
             sourceState: normalizedSourceState,
             generatedAt: normalizedGeneratedAt
-        }
+        },
+        ...(releaseReliability === null ? {} : { releaseReliability })
     }
     validateStrykerAuthorityShape(authority)
     return authority
@@ -1423,7 +1427,10 @@ function main() {
             sourceState: producer.sourceState,
             generatedAt,
             repositoryRoot: root,
-            sourceRoot: authorityOptions.sourceRoot
+            sourceRoot: authorityOptions.sourceRoot,
+            releaseReliability: readReleaseReliabilityEvidenceBinding({
+                repositoryRoot: root
+            })
         }
         const authority = createStrykerAuthority(inputs)
         validateStrykerAuthority({ authority, ...inputs })

@@ -187,5 +187,10 @@ export function readRuntimeEnvironment(root, expectedNamespace)
     {
         throw new Error(`runtime environment file is missing: ${path.relative(resolvedRoot, resolvedFile)}`);
     }
+    const stat = fs.lstatSync(resolvedFile);
+    if (!stat.isFile() || stat.isSymbolicLink())
+    {
+        throw new Error(`runtime environment file must be a regular non-symlink file: .tmp/env/${namespace}.env`);
+    }
     return parseRuntimeEnvironment(fs.readFileSync(resolvedFile, 'utf8'), namespace);
 }

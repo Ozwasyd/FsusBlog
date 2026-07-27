@@ -1,15 +1,30 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { execFileSync, spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
+import process from 'node:process';
 import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const {
-    createQualifiedReceipt,
+    collectRunIdentity,
+    createCandidateReceipt,
+    createTimeline,
     digestValue,
-    verifyQualifiedReceipt
-} = await import(pathToFileURL(path.join(root, 'tools/test/release-reliability-receipt.mjs')).href);
+    sealDocument
+} = await import(pathToFileURL(path.join(repositoryRoot, 'tools/test/release-reliability-receipt.mjs')).href);
+const {
+    collectProductionToolchain,
+    createProductionBuildReceipt
+} = await import(pathToFileURL(path.join(repositoryRoot, 'tools/ci/production-build-artifacts.mjs')).href);
+const {
+    snapshotGitWorktree
+} = await import(pathToFileURL(path.join(repositoryRoot, 'tools/test-matrix/scheduler.mjs')).href);
 
+const verifier = path.join(repositoryRoot, 'tools/test/verify-release-reliability-receipt.mjs');
 const scenarioIds = [
     'release-soak-min',
     'release-load-peak',
@@ -19,165 +34,1723 @@ const scenarioIds = [
     'release-memory-leak-budget',
     'release-open-handle-budget'
 ];
+const invocationId = 'receipt-invocation';
+const runId = 'receipt-run';
+const lifecyclePhases = ['precondition', 'reset', 'measurement', 'postcondition'];
 const digest = (character) => `sha256:${character.repeat(64)}`;
+const buildToolchain = {
+    node: process.version,
+    npm: 'fixture-npm',
+    dotnet: 'fixture-dotnet',
+    vite: 'fixture-vite',
+    vitest: 'fixture-vitest',
+    playwright: 'fixture-playwright',
+    emsdk: 'fixture-emsdk'
+};
+const imageProducerLabels = {
+    'io.fsusblog.build.fsusui-source': 'local-git-alias',
+    'io.fsusblog.build.fsusui-commit': 'f'.repeat(40)
+};
+const repositoryCatalog = JSON.parse(fs.readFileSync(
+    path.join(repositoryRoot, 'config/testing/release-reliability-scenario-catalog.json'),
+    'utf8'
+));
 
-function identity()
+function runtimeEnvironmentText({
+    namespace,
+    run = runId,
+    postgres = 'fixture-postgres',
+    redis = 'fixture-redis'
+})
+{
+    return [
+        `FSUSBLOG_TEST_RUN_ID=${run}`,
+        `FSUSBLOG_TEST_NAMESPACE=${namespace}`,
+        `FSUSBLOG_POSTGRES_CONTAINER_NAME=${postgres}`,
+        `FSUSBLOG_REDIS_CONTAINER_NAME=${redis}`,
+        'FSUSBLOG_DEBUG_BACKEND_PORT=24501',
+        'FSUSBLOG_DEBUG_FRONTEND_PORT=26501',
+        'FSUSBLOG_RELEASE_PREVIEW_PORT=28501',
+        'FSUSBLOG_DEBUG_BACKEND_URL=http://127.0.0.1:24501',
+        'FSUSBLOG_DEBUG_FRONTEND_URL=http://127.0.0.1:26501',
+        'FSUSBLOG_RELEASE_PREVIEW_URL=http://127.0.0.1:28501',
+        'ASPNETCORE_URLS=http://127.0.0.1:24501',
+        'FSUSBLOG_DATA_ROOT=/host/run-bound/data',
+        'PublicAot__SsrClientRoot=/host/run-bound/frontend/dist'
+    ].join('\n') + '\n';
+}
+
+function containerRuntimeEnvironment(options)
+{
+    return runtimeEnvironmentText(options).trimEnd().split('\n').map((entry) =>
+    {
+        if (entry.startsWith('FSUSBLOG_DATA_ROOT=')) return 'FSUSBLOG_DATA_ROOT=/app/data';
+        if (entry.startsWith('PublicAot__SsrClientRoot=')) return 'PublicAot__SsrClientRoot=/app/wwwroot';
+        return entry;
+    });
+}
+
+function bytesDigest(bytes)
+{
+    return `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+}
+
+function fixtureCatalog()
 {
     return {
-        source: {
-            commit: '0123456789abcdef0123456789abcdef01234567',
-            worktreeFingerprint: digest('a')
-        },
-        build: {
-            status: 'complete',
-            path: '.tmp/build/receipt.json',
-            digest: digest('b'),
-            imageDigest: digest('c')
-        },
-        fixture: {
-            collectorStatus: 'complete',
-            root: '.tmp/fixture/reliability',
-            namespace: 'reliability-fixture',
-            configDigest: digest('d'),
-            topology: 'postgres-redis-local'
-        },
-        machine: {
-            collectorStatus: 'complete',
-            os: 'linux 6.0',
-            architecture: 'x64',
-            cpuModels: ['test-cpu'],
-            cpuCount: 8,
-            memoryBytes: 16_000_000,
-            containerLimits: 'complete'
-        },
-        policy: {
-            catalogDigest: digest('e'),
-            thresholdDigest: digest('f'),
-            executorSchema: 'fsusblog.release-reliability-scenario-result.v1'
-        }
+        schema: 'fsusblog.release-reliability-scenario-catalog.v3',
+        catalogScenarioCount: 7,
+        canonicalScenarioIds: scenarioIds,
+        identityTools: ['node'],
+        childEnvironmentContract: repositoryCatalog.childEnvironmentContract,
+        policyBindings: repositoryCatalog.policyBindings,
+        lifecycleSchema: 'fsusblog.release-reliability-lifecycle-action.v1',
+        scenarios: scenarioIds.map((id) =>
+        {
+            const canonicalScenario = repositoryCatalog.scenarios.find(
+                (scenario) => scenario.id === id
+            );
+            return {
+            id,
+            owner: 'fixture-owner',
+            command: {
+                executable: 'node',
+                args: [],
+                env: canonicalScenario.command.env,
+                inheritEnv: canonicalScenario.command.inheritEnv,
+                cwd: '.'
+            },
+            qualification: canonicalScenario.qualification,
+            resourceClass: 'fixture',
+            identityTools: ['node'],
+            isolation: {
+                exclusiveResources: ['fixture-state'],
+                countableResources: [],
+                lifecycle: {
+                    precondition: 'fixture-precondition',
+                    reset: 'fixture-reset',
+                    measurement: 'fixture-measurement',
+                    postcondition: 'fixture-postcondition'
+                },
+                outputs: [{ id: 'authoritative-evidence', path: `.tmp/evidence/${id}.json` }]
+            },
+            authoritativeEvidence: {
+                path: `.tmp/evidence/${id}.json`,
+                expectedSchema: {
+                    required: ['status', 'sentinel', 'releaseReliability'],
+                    passStatusValues: ['ok']
+                }
+            }
+        };
+        })
     };
 }
 
-function results(runIdentity = identity())
+function childEnvironmentIdentity(catalog)
 {
-    return scenarioIds.map((scenarioId) => ({
-        schema: 'fsusblog.release-reliability-scenario-result.v1',
-        invocationId: 'reliability-run',
-        scenarioId,
-        status: 'passed',
-        source: structuredClone(runIdentity.source),
-        policy: structuredClone(runIdentity.policy),
-        identityDigest: digestValue(runIdentity),
-        authoritativeEvidence: {
-            path: `.tmp/reliability/${scenarioId}.json`,
-            digest: digest('1'),
-            status: 'ok'
+    return {
+        status: 'complete',
+        schema: catalog.childEnvironmentContract.schema,
+        contentDigest: digestValue({
+            contract: catalog.childEnvironmentContract,
+            scenarios: catalog.scenarios.map((scenario) => ({
+                id: scenario.id,
+                inheritEnv: scenario.command.inheritEnv,
+                env: scenario.command.env
+            }))
+        })
+    };
+}
+
+function scenarioEnvironmentContract(catalog, scenario)
+{
+    const content = {
+        schema: catalog.childEnvironmentContract.schema,
+        scenarioId: scenario.id,
+        requiredBaseKeys: catalog.childEnvironmentContract.requiredBaseKeys,
+        optionalBaseKeys: catalog.childEnvironmentContract.optionalBaseKeys,
+        requiredInheritedKeys: scenario.command.inheritEnv.required,
+        optionalInheritedKeys: scenario.command.inheritEnv.optional,
+        fixedEnvironment: scenario.command.env,
+        internalKeys: catalog.childEnvironmentContract.internalKeys
+    };
+    return {
+        schema: content.schema,
+        scenarioId: scenario.id,
+        contentDigest: digestValue(content)
+    };
+}
+
+function completeIdentity(overrides = {})
+{
+    const sourceState = {
+        commit: 'a'.repeat(40),
+        worktreeFingerprint: digest('b'),
+        dirtyPathCount: 0,
+        hashedPathCount: 0
+    };
+    return sealDocument({
+        schema: 'fsusblog.release-reliability-run-identity.v1',
+        status: 'complete',
+        invocationId,
+        runId,
+        sourceState,
+        build: {
+            status: 'complete',
+            path: '.tmp/build/receipt.json',
+            fileDigest: digest('c'),
+            contentDigest: digest('d'),
+            imageDigest: digest('e'),
+            image: {
+                kind: 'registry-repository-digest',
+                reference: 'fixture/runtime:latest',
+                repositoryDigest: `fixture/runtime@${digest('e')}`,
+                imageDigest: digest('e'),
+                revision: sourceState.commit,
+                fsusuiSource: imageProducerLabels['io.fsusblog.build.fsusui-source'],
+                fsusuiCommit: imageProducerLabels['io.fsusblog.build.fsusui-commit']
+            },
+            sourceState,
+            producerRunId: runId,
+            toolchain: buildToolchain
         },
-        isolation: {
-            precondition: { status: 'complete' },
-            reset: { status: 'complete' },
-            postcondition: { status: 'complete' }
-        }
-    }));
-}
-
-function qualifiedReceipt(runIdentity = identity(), scenarioResults = results(runIdentity))
-{
-    const receipt = createQualifiedReceipt({
-        invocationId: 'reliability-run',
-        scenarioResults,
-        identity: runIdentity,
-        createdAt: '2026-07-26T00:00:00.000Z'
+        fixture: {
+            status: 'complete',
+            root: 'fixtures/runtime',
+            namespace: 'receipt-fixture',
+            config: { status: 'complete', path: 'fixtures/config.json', fileDigest: digest('1') },
+            schema: { status: 'complete', path: 'fixtures/schema.sql', fileDigest: digest('2') },
+            seed: { status: 'complete', path: 'fixtures/seed.json', fileDigest: digest('3') },
+            auditRetentionPolicy: {
+                status: 'complete',
+                path: 'src/backend/Infrastructure/Audit/AuditRetentionCatalog.cs',
+                fileDigest: digest('8')
+            },
+            topology: {
+                status: 'complete',
+                path: 'fixtures/topology.json',
+                fileDigest: digest('4'),
+                content: {
+                    schema: 'fsusblog.release-reliability-runtime-topology.v1',
+                    contentDigest: digest('0'),
+                    postgres: {
+                        instance: 'fixture-postgres',
+                        version: '18',
+                        configDigest: digest('a')
+                    },
+                    redis: {
+                        instance: 'fixture-redis',
+                        version: '8',
+                        configDigest: digest('b')
+                    },
+                    auditRetentionPolicy: {
+                        path: 'src/backend/Infrastructure/Audit/AuditRetentionCatalog.cs',
+                        fileDigest: digest('8')
+                    },
+                    runtime: {
+                        profile: 'fixture-runtime',
+                        imageDigest: digest('e'),
+                        backendContainer: { hostPid: 4242 }
+                    }
+                }
+            }
+        },
+        machine: {
+            status: 'complete',
+            os: 'fixture-os',
+            architecture: 'fixture-architecture',
+            cpuModels: ['fixture-cpu'],
+            cpuCount: 1,
+            memoryBytes: 1,
+            cgroup: {
+                status: 'complete',
+                version: 'v2',
+                path: '/fixture',
+                limits: {
+                    'cpu.max': { path: 'fixture/cpu.max', value: 'max 100000' },
+                    'cpuset.cpus.effective': { path: 'fixture/cpuset.cpus.effective', value: '0' },
+                    'memory.max': { path: 'fixture/memory.max', value: 'max' },
+                    'pids.max': { path: 'fixture/pids.max', value: 'max' }
+                }
+            },
+            schedulerPolicy: { status: 'complete', path: 'fixtures/resources.json', fileDigest: digest('5') }
+        },
+        tools: [{ id: 'node', status: 'complete', executable: process.execPath, version: process.version }],
+        policy: {
+            catalog: {
+                status: 'complete',
+                path: 'config/testing/release-reliability-scenario-catalog.json',
+                fileDigest: digest('6')
+            },
+            threshold: { status: 'complete', path: 'tests/performance/perf-policy.yml', fileDigest: digest('7') },
+            mutationSubset: {
+                status: 'complete',
+                path: 'config/testing/mutation/release-parity-subset.json',
+                fileDigest: digest('9')
+            },
+            releaseResource: {
+                status: 'complete',
+                path: 'config/deployment/zero-downtime-resource-policy.json',
+                fileDigest: digest('a')
+            },
+            childEnvironment: childEnvironmentIdentity(fixtureCatalog()),
+            executorSchema: 'fsusblog.release-reliability-scenario-result.v2',
+            lifecycleSchema: 'fsusblog.release-reliability-lifecycle-action.v1'
+        },
+        collectedAt: '2026-07-26T00:00:00.000Z',
+        collectionErrors: [],
+        ...overrides
     });
-    assert.equal(receipt.status, 'qualified', receipt.failure);
-    return receipt;
 }
 
-test('qualified receipt binds the exact seven sealed scenario results', () =>
+function identityReference(identity)
 {
-    const runIdentity = identity();
-    const scenarioResults = results(runIdentity);
-    const receipt = qualifiedReceipt(runIdentity, scenarioResults);
+    return {
+        path: `.tmp/release-reliability/${identity.invocationId}/identity.json`,
+        contentDigest: identity.contentDigest
+    };
+}
+
+function producerRecord(scenario, identity)
+{
+    const commandToolId = path.basename(scenario.command.executable).replace(/\.exe$/iu, '');
+    const executable = identity.tools.find((tool) => tool.id === commandToolId)?.executable;
+    const logRoot = `.tmp/release-reliability/${identity.invocationId}/logs/${scenario.id}`;
+    return {
+        executable,
+        args: scenario.command.args,
+        env: scenario.command.env,
+        environmentContract: scenarioEnvironmentContract(fixtureCatalog(), scenario),
+        cwd: scenario.command.cwd,
+        commandDigest: bytesDigest(Buffer.from(JSON.stringify(scenario.command))),
+        exitCode: 0,
+        signal: null,
+        stdoutLog: `${logRoot}.stdout.log`,
+        stderrLog: `${logRoot}.stderr.log`
+    };
+}
+
+function scenarioResults(identity = completeIdentity())
+{
+    const reference = identityReference(identity);
+    return scenarioIds.map((scenarioId) =>
+    {
+        const scenario = fixtureCatalog().scenarios.find((candidate) => candidate.id === scenarioId);
+        const lifecycle = Object.fromEntries(lifecyclePhases.map((phase, index) => [
+            phase,
+            {
+                path: `.tmp/release-reliability/${identity.invocationId}/lifecycle/${scenarioId}/${phase}.json`,
+                schema: 'fsusblog.release-reliability-lifecycle-action.v1',
+                phase,
+                scenarioId,
+                runId: identity.runId,
+                invocationId: identity.invocationId,
+                stateDomains: ['fixture-state'],
+                status: 'complete',
+                contentDigest: digest(String(index + 1)),
+                startedAt: `2026-07-26T00:00:0${index * 2}.000Z`,
+                finishedAt: `2026-07-26T00:00:0${index * 2 + 1}.000Z`
+            }
+        ]));
+        const evidence = {
+            path: `.tmp/evidence/${scenarioId}.json`,
+            digest: digest('8'),
+            schema: null,
+            status: 'ok'
+        };
+        return sealDocument({
+            schema: 'fsusblog.release-reliability-scenario-result.v2',
+            invocationId: identity.invocationId,
+            runId: identity.runId,
+            scenarioId,
+            resultPath: `.tmp/release-reliability/${identity.invocationId}/scenario-results/${scenarioId}.json`,
+            owner: 'fixture-owner',
+            resourceClass: 'fixture',
+            status: 'passed',
+            identity: reference,
+            startedAt: '2026-07-26T00:00:00.000Z',
+            finishedAt: '2026-07-26T00:00:10.000Z',
+            producer: producerRecord(scenario, identity),
+            lifecycle,
+            authoritativeEvidence: evidence,
+            outputs: [{ id: 'authoritative-evidence', path: evidence.path, digest: evidence.digest }],
+            failure: null,
+            recordedAt: '2026-07-26T00:00:11.000Z'
+        });
+    });
+}
+
+function qualifiedReceipt(identity = completeIdentity(), results = scenarioResults(identity), catalog = fixtureCatalog())
+{
+    const reference = identityReference(identity);
+    const timeline = createTimeline({
+        invocationId: identity.invocationId,
+        runId: identity.runId,
+        scenarioResults: results,
+        identityReference: reference,
+        createdAt: '2026-07-26T00:00:12.000Z'
+    });
+    const receipt = createCandidateReceipt({
+        invocationId: identity.invocationId,
+        runId: identity.runId,
+        scenarioResults: results,
+        identity,
+        identityReference: reference,
+        timeline,
+        timelineReference: {
+            path: `.tmp/release-reliability/${identity.invocationId}/timeline.json`,
+            contentDigest: timeline.contentDigest
+        },
+        catalog,
+        createdAt: '2026-07-26T00:00:12.000Z'
+    });
+    return { receipt, timeline };
+}
+
+test('aggregate stores only sealed result and original evidence references', () =>
+{
+    const { receipt } = qualifiedReceipt();
+    assert.equal(receipt.status, 'candidate', receipt.failure);
     assert.equal(receipt.scenarios.length, 7);
-    assert.equal(receipt.contentDigest, digestValue({ ...receipt, contentDigest: undefined }));
-    verifyQualifiedReceipt({ receipt, scenarioResults });
+    for (const reference of receipt.scenarios)
+    {
+        assert.deepEqual(Object.keys(reference), [
+            'scenarioId',
+            'resultPath',
+            'resultContentDigest',
+            'evidencePath',
+            'evidenceDigest'
+        ]);
+        assert.equal('source' in reference, false);
+        assert.equal('isolation' in reference, false);
+    }
 });
 
-test('missing, duplicate, extra, or single diagnostic scenario cannot become qualified', () =>
+test('identity precondition failures still produce sealed partial timeline and failed receipt', () =>
 {
-    const runIdentity = identity();
-    for (const mutated of [
-        results(runIdentity).slice(1),
-        [...results(runIdentity), structuredClone(results(runIdentity)[0])],
-        [...results(runIdentity).slice(0, -1), { ...results(runIdentity)[0], scenarioId: 'unknown-scenario' }],
-        [results(runIdentity)[0]]
-    ])
+    const identity = sealDocument({
+        ...completeIdentity(),
+        status: 'unavailable',
+        collectionErrors: ['fixture identity is incomplete']
+    });
+    const reference = identityReference(identity);
+    const results = scenarioResults(identity).map((result) => sealDocument({
+        ...result,
+        status: 'failed',
+        producer: {
+            ...result.producer,
+            exitCode: null
+        },
+        lifecycle: null,
+        authoritativeEvidence: null,
+        outputs: [],
+        failure: 'run identity is incomplete; producer was not executed'
+    }));
+    const createdAt = '2026-07-26T00:00:12.000Z';
+    const timeline = createTimeline({
+        invocationId: identity.invocationId,
+        runId: identity.runId,
+        scenarioResults: results,
+        identityReference: reference,
+        createdAt
+    });
+    const receipt = createCandidateReceipt({
+        invocationId: identity.invocationId,
+        runId: identity.runId,
+        scenarioResults: results,
+        identity,
+        identityReference: reference,
+        timeline,
+        timelineReference: {
+            path: `.tmp/release-reliability/${identity.invocationId}/timeline.json`,
+            contentDigest: timeline.contentDigest
+        },
+        catalog: fixtureCatalog(),
+        createdAt
+    });
+    assert.equal(timeline.status, 'partial');
+    assert.equal(timeline.scenarioResults.length, 7);
+    assert.ok(timeline.scenarioResults.every((entry) => (
+        entry.evidencePath === null && entry.evidenceDigest === null
+    )));
+    assert.equal(receipt.status, 'failed');
+    assert.match(receipt.failure, /run identity is incomplete/u);
+});
+
+test('missing, duplicate, extra, cancelled, partial, and cross-run results cannot qualify', () =>
+{
+    const catalog = fixtureCatalog();
+    const identity = completeIdentity();
+    const cases = [
+        scenarioResults(identity).slice(1),
+        [scenarioResults(identity)[0]],
+        [...scenarioResults(identity), scenarioResults(identity)[0]],
+        [...scenarioResults(identity).slice(0, -1), {
+            ...scenarioResults(identity)[0],
+            scenarioId: 'unknown-scenario'
+        }],
+        scenarioResults(identity).map((result, index) => index === 0
+            ? sealDocument({ ...result, status: 'cancelled' })
+            : result),
+        scenarioResults(identity).map((result, index) => index === 0
+            ? sealDocument({ ...result, status: 'partial' })
+            : result),
+        scenarioResults(identity).map((result, index) => index === 0
+            ? sealDocument({ ...result, status: 'failed' })
+            : result),
+        scenarioResults(identity).map((result, index) => index === 0
+            ? sealDocument({ ...result, runId: 'other-run' })
+            : result)
+    ];
+    for (const results of cases)
     {
-        const receipt = createQualifiedReceipt({
-            invocationId: 'reliability-run',
-            scenarioResults: mutated,
-            identity: runIdentity,
-            createdAt: '2026-07-26T00:00:00.000Z'
-        });
+        const { receipt } = qualifiedReceipt(identity, results, catalog);
         assert.equal(receipt.status, 'failed');
     }
 });
 
-test('source, worktree, build, fixture, machine, and policy identity mismatches fail closed', () =>
+test('tampered sealed result and fake lifecycle reference fail qualification', () =>
+{
+    const identity = completeIdentity();
+    const tampered = scenarioResults(identity);
+    tampered[0].authoritativeEvidence.path = '.tmp/evidence/reused.json';
+    assert.equal(qualifiedReceipt(identity, tampered).receipt.status, 'failed');
+
+    const fakeLifecycle = scenarioResults(identity);
+    fakeLifecycle[0].lifecycle.reset.status = 'unverified';
+    fakeLifecycle[0] = sealDocument(fakeLifecycle[0]);
+    assert.equal(qualifiedReceipt(identity, fakeLifecycle).receipt.status, 'failed');
+});
+
+test('missing tool and unavailable cgroup identities cannot qualify', () =>
+{
+    const missingToolBase = completeIdentity();
+    const missingTool = sealDocument({
+        ...missingToolBase,
+        tools: [{ ...missingToolBase.tools[0], status: 'unavailable' }]
+    });
+    assert.equal(qualifiedReceipt(missingTool, scenarioResults(missingTool)).receipt.status, 'failed');
+
+    const missingCgroupBase = completeIdentity();
+    const missingCgroup = sealDocument({
+        ...missingCgroupBase,
+        machine: {
+            ...missingCgroupBase.machine,
+            cgroup: { status: 'unavailable', version: 'v2', limits: {} }
+        }
+    });
+    assert.equal(qualifiedReceipt(missingCgroup, scenarioResults(missingCgroup)).receipt.status, 'failed');
+});
+
+test('source, build image, and build producer run must exactly equal run identity', () =>
+{
+    const sourceMismatchBase = completeIdentity();
+    const sourceMismatch = sealDocument({
+        ...sourceMismatchBase,
+        build: {
+            ...sourceMismatchBase.build,
+            sourceState: { ...sourceMismatchBase.sourceState, commit: 'f'.repeat(40) }
+        }
+    });
+    assert.equal(qualifiedReceipt(sourceMismatch, scenarioResults(sourceMismatch)).receipt.status, 'failed');
+
+    const imageMismatchBase = completeIdentity();
+    const imageMismatch = sealDocument({
+        ...imageMismatchBase,
+        build: { ...imageMismatchBase.build, imageDigest: digest('f') }
+    });
+    assert.equal(qualifiedReceipt(imageMismatch, scenarioResults(imageMismatch)).receipt.status, 'failed');
+
+    const runMismatchBase = completeIdentity();
+    const runMismatch = sealDocument({
+        ...runMismatchBase,
+        build: { ...runMismatchBase.build, producerRunId: 'other-run' }
+    });
+    assert.equal(qualifiedReceipt(runMismatch, scenarioResults(runMismatch)).receipt.status, 'failed');
+});
+
+test('canonical worktree fingerprint binds dirty and untracked bytes at the same paths', async (context) =>
+{
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-worktree-fingerprint-'));
+    context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    execFileSync('git', ['init', '-q'], { cwd: root });
+    execFileSync('git', ['config', 'user.email', 'receipt@example.invalid'], { cwd: root });
+    execFileSync('git', ['config', 'user.name', 'Receipt Test'], { cwd: root });
+    fs.writeFileSync(path.join(root, 'tracked.txt'), 'base\n');
+    execFileSync('git', ['add', 'tracked.txt'], { cwd: root });
+    execFileSync('git', ['commit', '-qm', 'base'], { cwd: root });
+    fs.writeFileSync(path.join(root, 'tracked.txt'), 'first dirty bytes\n');
+    const first = await snapshotGitWorktree(root);
+    fs.writeFileSync(path.join(root, 'tracked.txt'), 'second dirty bytes\n');
+    const second = await snapshotGitWorktree(root);
+    assert.deepEqual(Object.keys(first.entries), ['tracked.txt']);
+    assert.deepEqual(Object.keys(second.entries), ['tracked.txt']);
+    assert.notEqual(first.fingerprint, second.fingerprint);
+
+    fs.writeFileSync(path.join(root, 'tracked.txt'), 'second dirty bytes\n');
+    fs.writeFileSync(path.join(root, 'untracked.txt'), 'first untracked bytes\n');
+    const firstUntracked = await snapshotGitWorktree(root);
+    fs.writeFileSync(path.join(root, 'untracked.txt'), 'second untracked bytes\n');
+    const secondUntracked = await snapshotGitWorktree(root);
+    assert.deepEqual(Object.keys(firstUntracked.entries).sort(), ['tracked.txt', 'untracked.txt']);
+    assert.deepEqual(Object.keys(secondUntracked.entries).sort(), ['tracked.txt', 'untracked.txt']);
+    assert.notEqual(firstUntracked.fingerprint, secondUntracked.fingerprint);
+});
+
+test('identity collector consumes the canonical production build receipt without inventing an image field', async (context) =>
+{
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-identity-collector-'));
+    context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const catalog = fixtureCatalog();
+    catalog.identityTools = ['lsof', 'node'];
+    for (const scenario of catalog.scenarios)
+    {
+        scenario.identityTools = ['lsof', 'node'];
+    }
+    const trackedFiles = {
+        '.gitignore': '.tmp/\n',
+        'config/testing/release-reliability-scenario-catalog.json': `${JSON.stringify(catalog, null, 2)}\n`,
+        'tests/performance/perf-policy.yml': fs.readFileSync(
+            path.join(repositoryRoot, 'tests/performance/perf-policy.yml'),
+            'utf8'
+        ),
+        'config/testing/mutation/release-parity-subset.json': fs.readFileSync(
+            path.join(repositoryRoot, 'config/testing/mutation/release-parity-subset.json'),
+            'utf8'
+        ),
+        'config/deployment/zero-downtime-resource-policy.json': fs.readFileSync(
+            path.join(repositoryRoot, 'config/deployment/zero-downtime-resource-policy.json'),
+            'utf8'
+        ),
+        'fixtures/config.env': runtimeEnvironmentText({ namespace: 'collector-fixture' }),
+        'fixtures/schema.sql': 'CREATE TABLE fixture(id integer);\n',
+        'fixtures/seed.json': '{"seed":[1]}\n',
+        'fixtures/resources.json': '{"cpu":"exclusive"}\n',
+        'fixtures/runtime/.keep': 'fixture\n',
+        'src/backend/Infrastructure/Audit/AuditRetentionCatalog.cs': 'public static class AuditRetentionCatalog {}\n'
+    };
+    for (const [relative, contents] of Object.entries(trackedFiles))
+    {
+        const file = path.join(root, relative);
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, contents);
+    }
+    execFileSync('git', ['init', '-q'], { cwd: root });
+    execFileSync('git', ['config', 'user.email', 'collector@example.invalid'], { cwd: root });
+    execFileSync('git', ['config', 'user.name', 'Collector Test'], { cwd: root });
+    execFileSync('git', ['add', '.'], { cwd: root });
+    execFileSync('git', ['commit', '-qm', 'fixture'], { cwd: root });
+    const commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
+    const snapshot = await snapshotGitWorktree(root);
+    const artifactRoot = path.join(root, '.tmp/ci-production-build');
+    fs.mkdirSync(path.join(artifactRoot, 'payload/backend'), { recursive: true });
+    fs.writeFileSync(path.join(artifactRoot, 'payload/backend/FsusBlog.Server.dll'), 'fixture');
+    const build = createProductionBuildReceipt({
+        root,
+        artifactRoot,
+        sourceState: { commit, worktreeFingerprint: `sha256:${snapshot.fingerprint}` },
+        producer: { runId, runAttempt: 1, job: 'production-build-artifacts' },
+        toolchain: collectProductionToolchain({ root }),
+        inputPaths: ['config/testing/release-reliability-scenario-catalog.json'],
+        domains: [{ name: 'backend-runtime', path: 'payload/backend' }]
+    });
+    assert.equal('imageDigest' in build.build, false);
+    const fakeToolDirectory = path.join(root, '.tmp/tools');
+    const fakeLsof = path.join(fakeToolDirectory, 'lsof');
+    fs.mkdirSync(fakeToolDirectory, { recursive: true });
+    fs.writeFileSync(fakeLsof, '#!/bin/sh\nprintf "lsof version information:\\n    revision: 4.95.0\\n"\n');
+    fs.chmodSync(fakeLsof, 0o755);
+    const collectorDocker = path.join(fakeToolDirectory, 'docker');
+    const collectorDockerState = path.join(root, '.tmp/collector-docker-state.json');
+    const collectorEnvironment = [
+        ...containerRuntimeEnvironment({ namespace: 'collector-fixture' }),
+        'FSUSBLOG_RUNTIME_ROLE=backend',
+        `FSUSBLOG_TEST_SOURCE_COMMIT=${commit}`,
+        `FSUSBLOG_TEST_SOURCE_FINGERPRINT=${snapshot.fingerprint}`
+    ];
+    const collectorProcess = {
+        pid: 1, processGroupId: 1, sessionId: 1, startTimeTicks: '123',
+        executable: '/app/FsusBlog.Server', commandLine: ['/app/FsusBlog.Server'],
+        workingDirectory: '/app',
+        environment: Object.fromEntries(collectorEnvironment.map((entry) => entry.split(/=(.*)/su).slice(0, 2)))
+    };
+    const collectorState = {
+        image: { Id: digest('9'), Config: { Labels: { 'org.opencontainers.image.revision': commit, ...imageProducerLabels } }, RootFS: { Layers: [digest('a'), digest('b')] } },
+        process: collectorProcess,
+        'fixture-backend': { Id: 'fixture-backend-id', Image: digest('9'), Path: '/app/FsusBlog.Server', Args: [], State: { Running: true, Pid: 4242, StartedAt: '2026-07-26T00:00:00Z' }, Config: { Image: 'fixture/runtime:immutable', Env: collectorEnvironment, Labels: {} } }
+    };
+    for (const name of ['fixture-postgres', 'fixture-redis'])
+    {
+        collectorState[name] = { Id: `${name}-id`, Image: digest('d'), State: { Running: true }, Config: { Image: `${name}:fixture`, Labels: { 'io.fsusblog.test.run-id': runId, 'io.fsusblog.test.namespace': 'collector-fixture' } } };
+    }
+    writeJson(collectorDockerState, collectorState);
+    fs.writeFileSync(collectorDocker, String.raw`#!/usr/bin/env node
+const fs = require('node:fs'); const state = JSON.parse(fs.readFileSync(process.env.FSUSBLOG_COLLECTOR_DOCKER_STATE, 'utf8'));
+if (process.argv[2] === 'image') { process.stdout.write(JSON.stringify([state.image])); process.exit(0); }
+if (process.argv[2] === 'exec') { const command = process.argv.at(-1); const value = state.process; if (command.includes('/proc/1/stat')) { const tail = ['S', '0', String(value.processGroupId), String(value.sessionId), ...Array(15).fill('0'), String(value.startTimeTicks)]; process.stdout.write('1 (FsusBlog.Server) ' + tail.join(' ') + '\n'); } else if (command.includes('/proc/1/environ')) process.stdout.write(Object.entries(value.environment).map(([key, item]) => key + '=' + item).join('\n') + '\n'); else if (command.includes('/proc/1/exe')) process.stdout.write(value.executable + '\n'); else if (command.includes('/proc/1/cmdline')) process.stdout.write(value.commandLine.join('\n') + '\n'); else if (command.includes('/proc/1/cwd')) process.stdout.write(value.workingDirectory + '\n'); else process.exit(1); process.exit(0); }
+const value = state[process.argv.at(-1)]; if (process.argv[2] !== 'inspect' || !value) process.exit(1); process.stdout.write(JSON.stringify([value]));
+`);
+    fs.chmodSync(collectorDocker, 0o755);
+    const collectedTopology = '.tmp/collector-topology.json';
+    const collectorResult = spawnSync(process.execPath, [path.join(repositoryRoot, 'tools/test/collect-release-reliability-fixture.mjs'),
+        '--root', root, '--run-id', runId, '--namespace', 'collector-fixture', '--fixture-root', 'fixtures/runtime',
+        '--config', 'fixtures/config.env', '--schema', 'fixtures/schema.sql', '--seed', 'fixtures/seed.json',
+        '--audit-retention-policy', 'src/backend/Infrastructure/Audit/AuditRetentionCatalog.cs',
+        '--postgres', 'fixture-postgres', '--redis', 'fixture-redis', '--backend-container', 'fixture-backend',
+        '--source-commit', commit, '--source-fingerprint', snapshot.fingerprint,
+        '--runtime-image', 'fixture/runtime:immutable', '--image-digest', digest('9'), '--out', collectedTopology
+    ], { cwd: root, encoding: 'utf8', env: { ...process.env, PATH: `${fakeToolDirectory}${path.delimiter}${process.env.PATH ?? ''}`, FSUSBLOG_COLLECTOR_DOCKER_STATE: collectorDockerState } });
+    assert.equal(collectorResult.status, 0, collectorResult.stderr);
+    const fixtureAuthority = {
+        schema: 'fsusblog.release-reliability-fixture-authority.v1', status: 'complete', runId,
+        namespace: 'collector-fixture', root: 'fixtures/runtime',
+        config: { path: 'fixtures/config.env', fileDigest: bytesDigest(fs.readFileSync(path.join(root, 'fixtures/config.env'))) },
+        schemaFile: { path: 'fixtures/schema.sql', fileDigest: bytesDigest(fs.readFileSync(path.join(root, 'fixtures/schema.sql'))) },
+        seed: { path: 'fixtures/seed.json', fileDigest: bytesDigest(fs.readFileSync(path.join(root, 'fixtures/seed.json'))) },
+        auditRetentionPolicy: {
+            path: 'src/backend/Infrastructure/Audit/AuditRetentionCatalog.cs',
+            fileDigest: bytesDigest(fs.readFileSync(path.join(
+                root,
+                'src/backend/Infrastructure/Audit/AuditRetentionCatalog.cs'
+            )))
+        },
+        topology: { postgres: { id: 'pg' }, redis: { id: 'redis' }, backend: { pid: 1, imageDigest: digest('9') } }, contentDigest: null
+    };
+    fixtureAuthority.contentDigest = digestValue(fixtureAuthority);
+    writeJson(path.join(root, '.tmp/fixture-authority.json'), fixtureAuthority);
+
+    const identity = await collectRunIdentity({
+        repositoryRoot: root,
+        catalog,
+        invocationId,
+        runId,
+        env: {
+            FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT: '.tmp/ci-production-build',
+            FSUSBLOG_RELEASE_RUNTIME_IMAGE: 'fixture/runtime:latest',
+            FSUSBLOG_RELEASE_FIXTURE_AUTHORITY: collectedTopology,
+            FSUSBLOG_TEST_FIXTURE_ROOT: 'fixtures/runtime',
+            FSUSBLOG_TEST_NAMESPACE: 'collector-fixture',
+            FSUSBLOG_TEST_FIXTURE_CONFIG: 'fixtures/config.env',
+            FSUSBLOG_TEST_FIXTURE_SCHEMA: 'fixtures/schema.sql',
+            FSUSBLOG_TEST_FIXTURE_SEED: 'fixtures/seed.json',
+            FSUSBLOG_TEST_FIXTURE_AUDIT_RETENTION_POLICY: 'src/backend/Infrastructure/Audit/AuditRetentionCatalog.cs',
+            FSUSBLOG_TEST_RUNTIME_TOPOLOGY: collectedTopology,
+            FSUSBLOG_RELEASE_RESOURCE_POLICY: 'fixtures/resources.json',
+            PATH: `${fakeToolDirectory}${path.delimiter}${process.env.PATH ?? ''}`
+        },
+        inspectImage: () => ({
+            Id: digest('9'),
+            Config: { Labels: { 'org.opencontainers.image.revision': commit, ...imageProducerLabels } },
+            RootFS: { Layers: [digest('a'), digest('b')] },
+            RepoDigests: []
+        }),
+        now: () => '2026-07-26T00:00:00.000Z'
+    });
+    assert.equal(identity.status, 'complete', identity.collectionErrors.join('\n'));
+    assert.deepEqual(identity.collectionErrors, []);
+    assert.equal(identity.build.contentDigest, build.contentDigest);
+    assert.equal(identity.build.imageDigest, digest('9'));
+    assert.equal(identity.build.image.kind, 'local-docker-image-id');
+    assert.equal(identity.build.image.revision, commit);
+    assert.equal(identity.build.image.fsusuiSource, 'local-git-alias');
+    assert.equal(identity.build.image.fsusuiCommit, 'f'.repeat(40));
+    assert.deepEqual(identity.build.image.layers, [digest('a'), digest('b')]);
+    assert.equal('receiptImageDigest' in identity.build, false);
+    assert.equal(identity.fixture.topology.content.runtime.imageDigest, digest('9'));
+    const lsof = identity.tools.find((tool) => tool.id === 'lsof');
+    assert.equal(lsof.status, 'complete');
+    assert.equal(lsof.executable, fs.realpathSync(fakeLsof));
+    assert.match(lsof.version, /^\d+\.\d+/u);
+});
+
+test('source and policy collector failures produce sealed unavailable identity instead of starting optimistically', async (context) =>
+{
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-unavailable-collector-'));
+    context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const identity = await collectRunIdentity({
+        repositoryRoot: root,
+        catalog: fixtureCatalog(),
+        invocationId,
+        runId,
+        env: {},
+        now: () => '2026-07-26T00:00:00.000Z'
+    });
+    assert.equal(identity.status, 'unavailable');
+    assert.equal(identity.contentDigest, digestValue(identity));
+    assert.equal(identity.sourceState.commit, null);
+    assert.ok(identity.collectionErrors.some((error) => error.includes('source identity collection failed')));
+    assert.equal(identity.policy.catalog.status, 'unavailable');
+});
+
+test('collector rejects caller-selected receipt paths and uninspected image digests', async (context) =>
+{
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-untrusted-release-input-'));
+    context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const identity = await collectRunIdentity({
+        repositoryRoot: root,
+        catalog: fixtureCatalog(),
+        invocationId,
+        runId,
+        env: {
+            FSUSBLOG_RELEASE_BUILD_RECEIPT: 'any/receipt.json',
+            FSUSBLOG_RELEASE_IMAGE_DIGEST: digest('a'),
+            FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT: 'any',
+            FSUSBLOG_RELEASE_RUNTIME_IMAGE: 'fixture/runtime:latest'
+        },
+        inspectImage: () => ({ RepoDigests: [] }),
+        now: () => '2026-07-26T00:00:00.000Z'
+    });
+    assert.equal(identity.status, 'unavailable');
+    assert.ok(identity.collectionErrors.some((error) => error.includes('forbidden')));
+    assert.ok(identity.collectionErrors.some((error) => error.includes('production build artifact root')));
+});
+
+function writeJson(file, document)
+{
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, `${JSON.stringify(document, null, 2)}\n`);
+}
+
+function currentCgroup()
+{
+    const membership = fs.readFileSync('/proc/self/cgroup', 'utf8')
+        .split(/\r?\n/u)
+        .map((line) => line.match(/^0::(\/.*)$/u)?.[1] ?? null)
+        .find(Boolean);
+    if (!membership || membership.includes('..'))
+    {
+        return { status: 'unavailable', version: 'v2', path: null, limits: {} };
+    }
+    const cgroupRoot = path.join('/sys/fs/cgroup', membership.replace(/^\//u, ''));
+    const limits = {};
+    for (const name of ['cpu.max', 'cpuset.cpus.effective', 'memory.max', 'pids.max'])
+    {
+        let cursor = cgroupRoot;
+        let file = null;
+        while (cursor.startsWith('/sys/fs/cgroup'))
+        {
+            const candidate = path.join(cursor, name);
+            if (fs.existsSync(candidate) && fs.lstatSync(candidate).isFile())
+            {
+                file = candidate;
+                break;
+            }
+            if (cursor === '/sys/fs/cgroup')
+            {
+                break;
+            }
+            cursor = path.dirname(cursor);
+        }
+        if (file === null)
+        {
+            return { status: 'unavailable', version: 'v2', path: membership, limits };
+        }
+        limits[name] = {
+            path: path.relative('/sys/fs/cgroup', file).replaceAll(path.sep, '/'),
+            value: fs.readFileSync(file, 'utf8').trim()
+        };
+    }
+    return { status: 'complete', version: 'v2', path: membership, limits };
+}
+
+function passingVerifierEvidence(root, scenario, releaseReliability)
+{
+    const qualification = scenario.qualification;
+    const common = { status: 'ok', sentinel: 'current', releaseReliability };
+    if (qualification.kind === 'soak')
+    {
+        return {
+            ...common,
+            mode: qualification.mode,
+            durationSeconds: qualification.durationSeconds,
+            executionMode: qualification.executionMode,
+            countsAsReleaseFinal: qualification.countsAsReleaseFinal,
+            sampling: {
+                intervalMs: qualification.intervalMs,
+                requestsPerProbe: qualification.requestsPerProbe,
+                concurrency: qualification.concurrency,
+                probeCount: 1
+            },
+            sampleCount: qualification.requestsPerProbe,
+            probes: [{
+                status: 'ok',
+                sampleCount: qualification.requestsPerProbe,
+                concurrency: qualification.concurrency
+            }]
+        };
+    }
+    if (qualification.kind === 'load-profile')
+    {
+        const policyBytes = fs.readFileSync(path.join(root, qualification.policy));
+        const routeCatalog = JSON.parse(fs.readFileSync(
+            path.join(root, 'config/testing/runtime-http-route-contracts.json'),
+            'utf8'
+        ));
+        const metrics = {
+            p95Ms: 1,
+            p99Ms: 1,
+            errorRate: 0,
+            timeoutRate: 0,
+            rps: 100
+        };
+        const check = (metric, operator, threshold) => ({
+            metric,
+            actual: metrics[metric],
+            operator,
+            threshold,
+            status: 'pass'
+        });
+        return {
+            ...common,
+            profile: qualification.profile,
+            profileName: qualification.profile,
+            policy: {
+                file: qualification.policy,
+                fileDigest: bytesDigest(policyBytes),
+                version: 'fsusblog-perf-policy-v1'
+            },
+            declared: qualification.declared,
+            effective: qualification.declared,
+            thresholds: qualification.thresholds,
+            overrideSource: 'env',
+            overrideSources: {
+                concurrency: 'env:FSUSBLOG_LOAD_PROFILE_CONCURRENCY',
+                rounds: 'env:FSUSBLOG_LOAD_PROFILE_ROUNDS',
+                durationMs: 'env:FSUSBLOG_LOAD_PROFILE_DURATION_MS'
+            },
+            sampling: {
+                totalRequests: qualification.declared.concurrency * qualification.declared.rounds,
+                concurrency: qualification.declared.concurrency,
+                rounds: qualification.declared.rounds,
+                durationMs: qualification.declared.durationMs,
+                routeIds: routeCatalog.producers['runtime-load-soak']
+            },
+            thresholdEvaluation: {
+                status: 'pass',
+                checks: [
+                    check('p95Ms', '<=', qualification.thresholds.maxP95Ms),
+                    check('p99Ms', '<=', qualification.thresholds.maxP99Ms),
+                    check('errorRate', '<=', qualification.thresholds.maxErrorRate),
+                    check('timeoutRate', '<=', qualification.thresholds.maxTimeoutRate),
+                    check('rps', '>=', qualification.thresholds.minRps)
+                ]
+            },
+            metrics,
+            runtime: {
+                sampleCount: qualification.declared.concurrency * qualification.declared.rounds,
+                concurrency: qualification.declared.concurrency,
+                routeContractDigest: bytesDigest(Buffer.from(JSON.stringify(routeCatalog)))
+            }
+        };
+    }
+    if (qualification.kind === 'data-scale')
+    {
+        const sampling = {
+            requests: qualification.requests,
+            concurrency: qualification.concurrency,
+            routeCount: 3
+        };
+        return {
+            ...common,
+            tier: qualification.tier,
+            expectedSeed: qualification.expectedSeed,
+            sampling,
+            cleanup: { status: 'ok' },
+            observed: {
+                status: 'ok',
+                tier: qualification.tier,
+                sampling,
+                runtime: {
+                    sampleCount: qualification.requests,
+                    concurrency: qualification.concurrency
+                },
+                observed: qualification.expectedSeed
+            }
+        };
+    }
+    if (qualification.kind === 'release-resource-budget')
+    {
+        const policyBytes = fs.readFileSync(path.join(root, qualification.policy));
+        const metric = {
+            name: qualification.metric,
+            threshold: qualification.threshold,
+            thresholdKind: qualification.thresholdKind,
+            thresholdOperator: qualification.thresholdOperator,
+            thresholdField: 'delta',
+            delta: 0,
+            status: 'ok'
+        };
+        return {
+            ...common,
+            mode: qualification.mode,
+            policy: {
+                file: qualification.policy,
+                fileDigest: bytesDigest(policyBytes)
+            },
+            sampling: {
+                requests: qualification.requests,
+                concurrency: qualification.concurrency,
+                routeCount: 3
+            },
+            metrics: [metric],
+            thresholdEvaluation: {
+                status: 'pass',
+                checks: [{
+                    metric: qualification.metric,
+                    actual: 0,
+                    operator: qualification.thresholdOperator,
+                    threshold: qualification.threshold,
+                    status: 'pass'
+                }]
+            },
+            runtime: {
+                sampleCount: qualification.requests,
+                concurrency: qualification.concurrency
+            }
+        };
+    }
+    if (qualification.kind === 'mutation-release-parity')
+    {
+        const policyFile = path.join(root, qualification.policy);
+        const policyBytes = fs.readFileSync(policyFile);
+        const policy = JSON.parse(policyBytes);
+        const executedMutantIds = policy.subset.map((_, index) => `mutant-${index + 1}`);
+        const resolvedSubset = policy.subset.map((entry, index) => ({
+            ...entry,
+            mutantId: executedMutantIds[index]
+        }));
+        const inventoryDigest = digest('b');
+        const configDigest = digest('c');
+        const releaseParityPath = `.tmp/mutation/backend-critical/release-parity/${
+            releaseReliability.runId
+        }/release-parity-receipt.json`;
+        const releaseParity = {
+            schema: 'fsusblog.release-mutation-parity-receipt.v1',
+            evidenceClass: 'release-artifact',
+            runId: releaseReliability.runId,
+            sourceAuthority: { inventoryDigest, configDigest },
+            resolvedSubset,
+            resolvedSubsetDigest: bytesDigest(Buffer.from(JSON.stringify(resolvedSubset)))
+        };
+        writeJson(path.join(root, releaseParityPath), releaseParity);
+        const releaseParityBytes = fs.readFileSync(path.join(root, releaseParityPath));
+        return {
+            ...common,
+            tierId: qualification.tierId,
+            sliceId: qualification.sliceId,
+            config: { sha256: configDigest },
+            inventoryDigest,
+            plannedMutantIds: executedMutantIds,
+            executedMutantIds,
+            releaseQualification: {
+                schema: 'fsusblog.release-mutation-qualification.v1',
+                status: 'complete',
+                tierId: qualification.tierId,
+                sliceId: qualification.sliceId,
+                releaseParity: true,
+                policy: {
+                    path: qualification.policy,
+                    fileDigest: bytesDigest(policyBytes),
+                    subsetDigest: policy.subsetDigest
+                },
+                releaseParityReceipt: {
+                    path: releaseParityPath,
+                    fileDigest: bytesDigest(releaseParityBytes),
+                    resolvedSubsetDigest: releaseParity.resolvedSubsetDigest
+                },
+                sourceAuthority: { inventoryDigest, configDigest },
+                plannedMutantIds: executedMutantIds,
+                executedMutantIds
+            }
+        };
+    }
+    throw new Error(`unsupported fixture qualification: ${qualification.kind}`);
+}
+
+async function createCliFixture(context)
+{
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-receipt-verifier-'));
+    context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const catalog = fixtureCatalog();
+    const containers = Object.fromEntries(['fixture-postgres', 'fixture-redis'].map((name) => [name, {
+        Id: `fixture-${name}-id`, Image: `sha256:${name.padEnd(64, '0').slice(0, 64)}`,
+        State: { Running: true }, Config: { Image: `${name}:fixture`, Labels: { fixture: name } }
+    }]));
+    let topology;
+    const trackedFiles = {
+        '.gitignore': '.tmp/\n',
+        'config/testing/release-reliability-scenario-catalog.json': `${JSON.stringify(catalog, null, 2)}\n`,
+        'tests/performance/perf-policy.yml': fs.readFileSync(
+            path.join(repositoryRoot, 'tests/performance/perf-policy.yml'),
+            'utf8'
+        ),
+        'config/testing/mutation/release-parity-subset.json': fs.readFileSync(
+            path.join(repositoryRoot, 'config/testing/mutation/release-parity-subset.json'),
+            'utf8'
+        ),
+        'config/deployment/zero-downtime-resource-policy.json': fs.readFileSync(
+            path.join(repositoryRoot, 'config/deployment/zero-downtime-resource-policy.json'),
+            'utf8'
+        ),
+        'config/testing/runtime-http-route-contracts.json': fs.readFileSync(
+            path.join(repositoryRoot, 'config/testing/runtime-http-route-contracts.json'),
+            'utf8'
+        ),
+        'fixtures/config.env': runtimeEnvironmentText({ namespace: 'verifier-fixture' }),
+        'fixtures/schema.sql': 'CREATE TABLE fixture(id integer);\n',
+        'fixtures/seed.json': '{"seed":[1]}\n',
+        'fixtures/resources.json': '{"cpu":"exclusive"}\n',
+        'fixtures/runtime/.keep': 'fixture\n',
+        'src/backend/Infrastructure/Audit/AuditRetentionCatalog.cs': 'public static class AuditRetentionCatalog {}\n',
+        'tools/test/verify-release-reliability-receipt.mjs': fs.readFileSync(verifier, 'utf8')
+    };
+    for (const [relative, contents] of Object.entries(trackedFiles))
+    {
+        const file = path.join(root, relative);
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, contents);
+    }
+    const fakeTools = path.join(root, '.tmp/tools');
+    fs.mkdirSync(fakeTools, { recursive: true });
+    const dockerState = path.join(root, '.tmp/docker-state.json');
+    fs.writeFileSync(path.join(fakeTools, 'docker'), String.raw`#!/usr/bin/env node
+const fs = require('node:fs'); const state = JSON.parse(fs.readFileSync(process.env.FSUSBLOG_RECEIPT_DOCKER_STATE, 'utf8'));
+if (process.argv[2] === 'image' && process.argv[3] === 'inspect') { process.stdout.write(JSON.stringify([state.image])); process.exit(0); }
+if (process.argv[2] === 'exec') { const command = process.argv.at(-1); const value = state.process; if (command.includes('/proc/1/stat')) { const tail = ['S', '0', String(value.processGroupId), String(value.sessionId), ...Array(15).fill('0'), String(value.startTimeTicks)]; process.stdout.write('1 (FsusBlog.Server) ' + tail.join(' ') + '\n'); } else if (command.includes('/proc/1/environ')) process.stdout.write(Object.entries(value.environment).map(([key, item]) => key + '=' + item).join('\n') + '\n'); else if (command.includes('/proc/1/exe')) process.stdout.write(value.executable + '\n'); else if (command.includes('/proc/1/cmdline')) process.stdout.write(value.commandLine.join('\n') + '\n'); else if (command.includes('/proc/1/cwd')) process.stdout.write(value.workingDirectory + '\n'); else process.exit(1); process.exit(0); }
+const requested = process.argv.at(-1); const entry = state.containers[requested] ?? Object.values(state.containers).find((value) => value.Id === requested); if (process.argv[2] !== 'inspect' || !entry) process.exit(1); process.stdout.write(JSON.stringify([entry]));
+`);
+    fs.chmodSync(path.join(fakeTools, 'docker'), 0o755);
+    execFileSync('git', ['init', '-q'], { cwd: root });
+    execFileSync('git', ['config', 'user.email', 'verifier@example.invalid'], { cwd: root });
+    execFileSync('git', ['config', 'user.name', 'Verifier Test'], { cwd: root });
+    execFileSync('git', ['add', '.'], { cwd: root });
+    execFileSync('git', ['commit', '-qm', 'fixture'], { cwd: root });
+    const commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
+    fs.writeFileSync(dockerState, JSON.stringify({
+        containers,
+        image: { Id: digest('9'), RepoDigests: [`fixture/runtime@${digest('9')}`], Config: { Labels: { 'org.opencontainers.image.revision': commit, ...imageProducerLabels } }, RootFS: { Layers: [digest('a')] } },
+        process: null
+    }));
+    const snapshot = await snapshotGitWorktree(root);
+    const sourceState = {
+        commit,
+        worktreeFingerprint: `sha256:${snapshot.fingerprint}`,
+        dirtyPathCount: 0,
+        hashedPathCount: 0
+    };
+    const backendEnvironment = [
+        ...containerRuntimeEnvironment({ namespace: 'verifier-fixture' }),
+        'FSUSBLOG_RUNTIME_ROLE=backend',
+        `FSUSBLOG_TEST_SOURCE_COMMIT=${commit}`,
+        `FSUSBLOG_TEST_SOURCE_FINGERPRINT=${sourceState.worktreeFingerprint}`
+    ];
+    const backendProcess = {
+        pid: 1, processGroupId: 1, sessionId: 1, startTimeTicks: '123',
+        executable: '/app/FsusBlog.Server', commandLine: ['/app/FsusBlog.Server'],
+        workingDirectory: '/app',
+        environment: Object.fromEntries(backendEnvironment.map((entry) => entry.split(/=(.*)/su).slice(0, 2)))
+    };
+    containers['fixture-backend'] = {
+        Id: 'fixture-backend-id',
+        Image: digest('9'),
+        Path: '/app/FsusBlog.Server',
+        Args: [],
+        State: { Running: true, Pid: 4242, StartedAt: '2026-07-26T00:00:00Z' },
+        Config: { Image: 'fixture/runtime:immutable', Env: backendEnvironment, Labels: { fixture: 'backend' } }
+    };
+    const liveDockerState = JSON.parse(fs.readFileSync(dockerState, 'utf8'));
+    liveDockerState.containers = containers;
+    liveDockerState.process = backendProcess;
+    fs.writeFileSync(dockerState, JSON.stringify(liveDockerState));
+    topology = sealDocument({
+        schema: 'fsusblog.release-reliability-runtime-topology.v1', status: 'complete', runId, namespace: 'verifier-fixture',
+        root: 'fixtures/runtime',
+        config: {
+            path: 'fixtures/config.env',
+            fileDigest: bytesDigest(Buffer.from(runtimeEnvironmentText({ namespace: 'verifier-fixture' })))
+        },
+        schemaFile: { path: 'fixtures/schema.sql', fileDigest: bytesDigest(Buffer.from('CREATE TABLE fixture(id integer);\n')) },
+        seed: { path: 'fixtures/seed.json', fileDigest: bytesDigest(Buffer.from('{"seed":[1]}\n')) },
+        auditRetentionPolicy: {
+            path: 'src/backend/Infrastructure/Audit/AuditRetentionCatalog.cs',
+            fileDigest: bytesDigest(Buffer.from('public static class AuditRetentionCatalog {}\n'))
+        },
+        runtime: {
+            profile: 'docker-final-image',
+            imageDigest: digest('9'),
+            sourceState,
+            image: { reference: 'fixture/runtime:immutable', id: digest('9'), revision: commit, layers: [digest('a')], layersDigest: digestValue({ layers: [digest('a')] }) },
+            backendContainer: {
+                id: containers['fixture-backend'].Id,
+                image: containers['fixture-backend'].Image,
+                configuredImage: containers['fixture-backend'].Config.Image,
+                hostPid: containers['fixture-backend'].State.Pid,
+                environment: containers['fixture-backend'].Config.Env,
+                path: containers['fixture-backend'].Path,
+                args: containers['fixture-backend'].Args,
+                startedAt: containers['fixture-backend'].State.StartedAt
+            },
+            process: backendProcess
+        },
+        postgres: { instance: containers['fixture-postgres'].Id, version: '18', configDigest: digestValue({ id: containers['fixture-postgres'].Id, image: containers['fixture-postgres'].Config.Image, imageId: containers['fixture-postgres'].Image, labels: containers['fixture-postgres'].Config.Labels }) },
+        redis: { instance: containers['fixture-redis'].Id, version: '8', configDigest: digestValue({ id: containers['fixture-redis'].Id, image: containers['fixture-redis'].Config.Image, imageId: containers['fixture-redis'].Image, labels: containers['fixture-redis'].Config.Labels }) }
+    });
+    writeJson(path.join(root, '.tmp/topology.json'), topology);
+    const buildPath = '.tmp/ci-production-build/receipt.json';
+    const artifactRoot = path.join(root, '.tmp/ci-production-build');
+    fs.mkdirSync(path.join(artifactRoot, 'payload/backend'), { recursive: true });
+    fs.writeFileSync(path.join(artifactRoot, 'payload/backend/FsusBlog.Server.dll'), 'fixture');
+    const build = createProductionBuildReceipt({
+        root,
+        artifactRoot,
+        sourceState,
+        producer: { runId, runAttempt: 1, job: 'production-build-artifacts' },
+        toolchain: collectProductionToolchain({ root }),
+        inputPaths: ['config/testing/release-reliability-scenario-catalog.json'],
+        domains: [{ name: 'backend-runtime', path: 'payload/backend' }]
+    });
+    const binding = (relative) => ({
+        status: 'complete',
+        path: relative,
+        fileDigest: bytesDigest(fs.readFileSync(path.join(root, relative)))
+    });
+    const identity = sealDocument({
+        schema: 'fsusblog.release-reliability-run-identity.v1',
+        status: 'complete',
+        invocationId,
+        runId,
+        sourceState,
+        build: {
+            ...binding(buildPath),
+            contentDigest: build.contentDigest,
+            imageDigest: digest('9'),
+            image: {
+                kind: 'local-docker-image-id',
+                reference: 'fixture/runtime:immutable',
+                repositoryDigest: null,
+                imageDigest: digest('9'),
+                revision: commit,
+                fsusuiSource: imageProducerLabels['io.fsusblog.build.fsusui-source'],
+                fsusuiCommit: imageProducerLabels['io.fsusblog.build.fsusui-commit'],
+                layers: [digest('a')],
+                layersDigest: digestValue({ layers: [digest('a')] })
+            },
+            sourceState,
+            producerRunId: runId,
+            toolchain: build.toolchain
+        },
+        fixture: {
+            status: 'complete',
+            root: 'fixtures/runtime',
+            namespace: 'verifier-fixture',
+            config: binding('fixtures/config.env'),
+            schema: binding('fixtures/schema.sql'),
+            seed: binding('fixtures/seed.json'),
+            auditRetentionPolicy: binding('src/backend/Infrastructure/Audit/AuditRetentionCatalog.cs'),
+            topology: {
+                ...binding('.tmp/topology.json'),
+                content: {
+                    schema: topology.schema,
+                    contentDigest: digestValue(topology),
+                    postgres: topology.postgres,
+                    redis: topology.redis,
+                    auditRetentionPolicy: topology.auditRetentionPolicy,
+                    runtime: topology.runtime
+                }
+            }
+        },
+        machine: {
+            status: 'complete',
+            os: `${os.platform()} ${os.release()}`,
+            architecture: os.arch(),
+            cpuModels: [...new Set(os.cpus().map((cpu) => cpu.model))].sort(),
+            cpuCount: os.cpus().length,
+            memoryBytes: os.totalmem(),
+            cgroup: currentCgroup(),
+            schedulerPolicy: binding('fixtures/resources.json')
+        },
+        tools: [{ id: 'node', status: 'complete', executable: process.execPath, version: process.version }],
+        policy: {
+            catalog: binding('config/testing/release-reliability-scenario-catalog.json'),
+            threshold: binding('tests/performance/perf-policy.yml'),
+            mutationSubset: binding('config/testing/mutation/release-parity-subset.json'),
+            releaseResource: binding('config/deployment/zero-downtime-resource-policy.json'),
+            childEnvironment: childEnvironmentIdentity(catalog),
+            executorSchema: 'fsusblog.release-reliability-scenario-result.v2',
+            lifecycleSchema: catalog.lifecycleSchema
+        },
+        collectedAt: '2026-07-26T00:00:00.000Z',
+        collectionErrors: []
+    });
+    const runRoot = path.join(root, '.tmp/release-reliability', invocationId);
+    const identityPath = `.tmp/release-reliability/${invocationId}/identity.json`;
+    writeJson(path.join(root, identityPath), identity);
+    const identityRef = { path: identityPath, contentDigest: identity.contentDigest };
+    const results = [];
+    const files = {
+        source: path.join(root, '.gitignore'),
+        build: path.join(root, buildPath),
+        identity: path.join(root, identityPath),
+        fixtureConfig: path.join(root, 'fixtures/config.env'),
+        fixtureSchema: path.join(root, 'fixtures/schema.sql'),
+        fixtureSeed: path.join(root, 'fixtures/seed.json'),
+        fixtureAuditRetentionPolicy: path.join(
+            root,
+            'src/backend/Infrastructure/Audit/AuditRetentionCatalog.cs'
+        ),
+        topology: path.join(root, '.tmp/topology.json'),
+        catalog: path.join(root, 'config/testing/release-reliability-scenario-catalog.json'),
+        threshold: path.join(root, 'tests/performance/perf-policy.yml'),
+        mutationSubset: path.join(root, 'config/testing/mutation/release-parity-subset.json'),
+        releaseResource: path.join(root, 'config/deployment/zero-downtime-resource-policy.json'),
+        routeCatalog: path.join(root, 'config/testing/runtime-http-route-contracts.json'),
+        schedulerPolicy: path.join(root, 'fixtures/resources.json')
+    };
+    for (const scenario of catalog.scenarios)
+    {
+        const evidencePath = scenario.authoritativeEvidence.path;
+        const evidence = passingVerifierEvidence(root, scenario, {
+            invocationId,
+            runId,
+            scenarioId: scenario.id,
+            identityContentDigest: identity.contentDigest,
+            sourceState,
+            buildContentDigest: build.contentDigest
+        });
+        writeJson(path.join(root, evidencePath), evidence);
+        const evidenceDigest = bytesDigest(fs.readFileSync(path.join(root, evidencePath)));
+        const lifecycle = {};
+        for (let index = 0; index < lifecyclePhases.length; index += 1)
+        {
+            const phase = lifecyclePhases[index];
+            const relative = `.tmp/release-reliability/${invocationId}/lifecycle/${scenario.id}/${phase}.json`;
+            const action = sealDocument({
+                schema: catalog.lifecycleSchema,
+                status: 'complete',
+                phase,
+                scenarioId: scenario.id,
+                invocationId,
+                runId,
+                identity: identityRef,
+                declaration: scenario.isolation.lifecycle[phase],
+                stateDomains: scenario.isolation.exclusiveResources,
+                state: { before: `${phase}-before`, after: `${phase}-after` },
+                observations: { observed: true },
+                startedAt: `2026-07-26T00:00:0${index * 2}.000Z`,
+                finishedAt: `2026-07-26T00:00:0${index * 2 + 1}.000Z`
+            });
+            writeJson(path.join(root, relative), action);
+            lifecycle[phase] = {
+                path: relative,
+                schema: action.schema,
+                phase,
+                scenarioId: scenario.id,
+                runId,
+                invocationId,
+                stateDomains: action.stateDomains,
+                status: action.status,
+                contentDigest: action.contentDigest,
+                startedAt: action.startedAt,
+                finishedAt: action.finishedAt
+            };
+            if (scenario.id === scenarioIds[0] && phase === 'reset')
+            {
+                files.lifecycle = path.join(root, relative);
+            }
+        }
+        const resultPath = `.tmp/release-reliability/${invocationId}/scenario-results/${scenario.id}.json`;
+        const result = sealDocument({
+            schema: 'fsusblog.release-reliability-scenario-result.v2',
+            invocationId,
+            runId,
+            scenarioId: scenario.id,
+            resultPath,
+            owner: scenario.owner,
+            resourceClass: scenario.resourceClass,
+            status: 'passed',
+            identity: identityRef,
+            startedAt: '2026-07-26T00:00:00.000Z',
+            finishedAt: '2026-07-26T00:00:10.000Z',
+            producer: producerRecord(scenario, identity),
+            lifecycle,
+            authoritativeEvidence: {
+                path: evidencePath,
+                digest: evidenceDigest,
+                schema: null,
+                status: 'ok'
+            },
+            outputs: [{ id: 'authoritative-evidence', path: evidencePath, digest: evidenceDigest }],
+            failure: null,
+            recordedAt: '2026-07-26T00:00:11.000Z'
+        });
+        writeJson(path.join(root, resultPath), result);
+        results.push(result);
+        if (scenario.id === scenarioIds[0])
+        {
+            files.evidence = path.join(root, evidencePath);
+            files.result = path.join(root, resultPath);
+        }
+    }
+    const timeline = createTimeline({
+        invocationId,
+        runId,
+        scenarioResults: results,
+        identityReference: identityRef,
+        createdAt: '2026-07-26T00:00:12.000Z'
+    });
+    const timelinePath = `.tmp/release-reliability/${invocationId}/timeline.json`;
+    writeJson(path.join(root, timelinePath), timeline);
+    files.timeline = path.join(root, timelinePath);
+    const receipt = createCandidateReceipt({
+        invocationId,
+        runId,
+        scenarioResults: results,
+        identity,
+        identityReference: identityRef,
+        timeline,
+        timelineReference: { path: timelinePath, contentDigest: timeline.contentDigest },
+        catalog,
+        createdAt: '2026-07-26T00:00:12.000Z'
+    });
+    assert.equal(receipt.status, 'candidate', receipt.failure);
+    const receiptPath = `.tmp/release-reliability/${invocationId}/candidate-receipt.json`;
+    writeJson(path.join(root, receiptPath), receipt);
+    files.receipt = path.join(root, receiptPath);
+    return {
+        root,
+        catalog,
+        identity,
+        results,
+        timeline,
+        receipt,
+        receiptPath,
+        receiptFile: path.join(root, receiptPath),
+        timelineFile: path.join(root, timelinePath),
+        files
+        , fakeTools,
+        dockerState,
+        containers
+    };
+}
+
+function verifyCli(fixture)
+{
+    return spawnSync(process.execPath, [
+        verifier,
+        '--root',
+        fixture.root,
+        '--candidate',
+        fixture.receiptPath,
+        '--attestation-out',
+        `.tmp/release-reliability/${invocationId}/verified-attestation.json`
+    ], { encoding: 'utf8', env: { ...process.env, PATH: `${fixture.fakeTools}${path.delimiter}${process.env.PATH ?? ''}`, FSUSBLOG_RECEIPT_DOCKER_STATE: fixture.dockerState } });
+}
+
+function finalizeCli(fixture)
+{
+    const invocationRoot = `.tmp/release-reliability/${invocationId}`;
+    return spawnSync(process.execPath, [
+        verifier,
+        '--root',
+        fixture.root,
+        '--candidate',
+        fixture.receiptPath,
+        '--attestation',
+        `${invocationRoot}/verified-attestation.json`,
+        '--finalize-out',
+        `${invocationRoot}/qualified-receipt.json`
+    ], { encoding: 'utf8' });
+}
+
+function verifyTerminalCli(fixture)
+{
+    return spawnSync(process.execPath, [
+        verifier,
+        '--root',
+        fixture.root,
+        '--receipt',
+        `.tmp/release-reliability/${invocationId}/qualified-receipt.json`
+    ], { encoding: 'utf8' });
+}
+
+function rewriteEvidenceAndAggregate(fixture, scenarioId, mutate)
+{
+    const candidate = JSON.parse(fs.readFileSync(fixture.receiptFile, 'utf8'));
+    const scenarioReference = candidate.scenarios.find(
+        (reference) => reference.scenarioId === scenarioId
+    );
+    const evidenceFile = path.join(fixture.root, scenarioReference.evidencePath);
+    const evidence = JSON.parse(fs.readFileSync(evidenceFile, 'utf8'));
+    mutate(evidence);
+    writeJson(evidenceFile, evidence);
+    const evidenceDigest = bytesDigest(fs.readFileSync(evidenceFile));
+
+    const resultFile = path.join(fixture.root, scenarioReference.resultPath);
+    const result = JSON.parse(fs.readFileSync(resultFile, 'utf8'));
+    result.authoritativeEvidence.digest = evidenceDigest;
+    result.outputs[0].digest = evidenceDigest;
+    const resealedResult = sealDocument(result);
+    writeJson(resultFile, resealedResult);
+
+    const timeline = JSON.parse(fs.readFileSync(fixture.timelineFile, 'utf8'));
+    const timelineReference = timeline.scenarioResults.find(
+        (reference) => reference.scenarioId === scenarioId
+    );
+    timelineReference.resultContentDigest = resealedResult.contentDigest;
+    timelineReference.evidenceDigest = evidenceDigest;
+    const resealedTimeline = sealDocument(timeline);
+    writeJson(fixture.timelineFile, resealedTimeline);
+
+    scenarioReference.resultContentDigest = resealedResult.contentDigest;
+    scenarioReference.evidenceDigest = evidenceDigest;
+    candidate.timeline.contentDigest = resealedTimeline.contentDigest;
+    writeJson(fixture.receiptFile, sealDocument(candidate));
+}
+
+test('independent verifier re-reads every bound file and accepts an untampered receipt', async (context) =>
+{
+    const fixture = await createCliFixture(context);
+    const result = verifyCli(fixture);
+    assert.equal(result.status, 0, result.stderr);
+    const source = fs.readFileSync(verifier, 'utf8');
+    assert.doesNotMatch(source, /from '.\/release-reliability-receipt\.mjs'/u);
+    assert.doesNotMatch(source, /mtime/u);
+});
+
+test('independent verifier rejects self-recomputed weakened effective, sampling, threshold, and policy evidence', async (context) =>
 {
     const mutations = [
-        (runIdentity, scenarioResults) => { scenarioResults[0].source.commit = 'fedcba9876543210fedcba9876543210fedcba98'; },
-        (runIdentity, scenarioResults) => { scenarioResults[0].source.worktreeFingerprint = digest('9'); },
-        (runIdentity) => { runIdentity.build.imageDigest = digest('8'); },
-        (runIdentity) => { runIdentity.fixture.configDigest = digest('7'); },
-        (runIdentity) => { runIdentity.machine.collectorStatus = 'unavailable'; },
-        (runIdentity, scenarioResults) => { scenarioResults[0].policy.catalogDigest = digest('6'); }
+        (evidence) => { evidence.effective.concurrency = 1; },
+        (evidence) => { evidence.sampling.totalRequests = 1; },
+        (evidence) => {
+            evidence.thresholds.maxP95Ms = 999999;
+            evidence.thresholdEvaluation.checks[0].threshold = 999999;
+        },
+        (evidence) => { evidence.policy.fileDigest = digest('f'); }
     ];
     for (const mutate of mutations)
     {
-        const runIdentity = identity();
-        const scenarioResults = results(runIdentity);
-        mutate(runIdentity, scenarioResults);
-        const receipt = createQualifiedReceipt({
-            invocationId: 'reliability-run',
-            scenarioResults,
-            identity: runIdentity,
-            createdAt: '2026-07-26T00:00:00.000Z'
-        });
-        assert.equal(receipt.status, 'failed');
+        const fixture = await createCliFixture(context);
+        rewriteEvidenceAndAggregate(fixture, 'release-load-peak', mutate);
+        assert.notEqual(verifyCli(fixture).status, 0);
     }
 });
 
-test('scenario evidence tamper, failed status, reset failure, collector failure, and partial status fail closed', () =>
+test('independent verifier rejects self-recomputed scale and mutation authority substitution', async (context) =>
 {
-    const cases = [
-        (receipt, scenarioResults) => { scenarioResults[0].authoritativeEvidence.digest = digest('0'); },
-        (receipt, scenarioResults) => { scenarioResults[0].status = 'failed'; },
-        (receipt, scenarioResults) => { scenarioResults[0].isolation.reset.status = 'failed'; },
-        (receipt, scenarioResults, runIdentity) => { runIdentity.build.status = 'unavailable'; },
-        (receipt) => { receipt.status = 'partial'; }
-    ];
-    for (const apply of cases)
+    const scaleFixture = await createCliFixture(context);
+    rewriteEvidenceAndAggregate(scaleFixture, 'release-data-scale-m', (evidence) =>
     {
-        const runIdentity = identity();
-        const scenarioResults = results(runIdentity);
-        const receipt = qualifiedReceipt(runIdentity, scenarioResults);
-        apply(receipt, scenarioResults, runIdentity);
-        receipt.contentDigest = digestValue(Object.fromEntries(Object.entries(receipt).filter(([key]) => key !== 'contentDigest')));
-        assert.throws(() => verifyQualifiedReceipt({ receipt, scenarioResults }));
+        evidence.tier = 'scale-xs';
+        evidence.sampling = { requests: 1, concurrency: 1, routeCount: 3 };
+    });
+    assert.notEqual(verifyCli(scaleFixture).status, 0);
+
+    const mutationFixture = await createCliFixture(context);
+    rewriteEvidenceAndAggregate(
+        mutationFixture,
+        'release-mutation-critical-slice',
+        (evidence) =>
+        {
+            evidence.releaseQualification.policy.subsetDigest = digest('e');
+            evidence.releaseQualification.executedMutantIds = ['substituted-mutant'];
+        }
+    );
+    assert.notEqual(verifyCli(mutationFixture).status, 0);
+});
+
+test('verified attestation finalizes and re-verifies after every live container is removed', async (context) =>
+{
+    const fixture = await createCliFixture(context);
+    const live = verifyCli(fixture);
+    assert.equal(live.status, 0, live.stderr);
+    const state = JSON.parse(fs.readFileSync(fixture.dockerState, 'utf8'));
+    state.containers = {};
+    fs.writeFileSync(fixture.dockerState, JSON.stringify(state));
+    const finalized = finalizeCli(fixture);
+    assert.equal(finalized.status, 0, finalized.stderr);
+    const receipt = JSON.parse(fs.readFileSync(path.join(
+        fixture.root,
+        `.tmp/release-reliability/${invocationId}/qualified-receipt.json`
+    ), 'utf8'));
+    assert.deepEqual(receipt.buildIdentity, {
+        imageDigest: digest('9'),
+        revision: fixture.identity.sourceState.commit,
+        fsusuiSource: imageProducerLabels['io.fsusblog.build.fsusui-source'],
+        fsusuiCommit: imageProducerLabels['io.fsusblog.build.fsusui-commit']
+    });
+    const terminal = verifyTerminalCli(fixture);
+    assert.equal(terminal.status, 0, terminal.stderr);
+});
+
+test('candidate without attestation and tampered or cross-run attestation cannot finalize', async (context) =>
+{
+    const fixture = await createCliFixture(context);
+    assert.notEqual(finalizeCli(fixture).status, 0);
+    assert.equal(verifyCli(fixture).status, 0);
+    const attestationFile = path.join(
+        fixture.root,
+        `.tmp/release-reliability/${invocationId}/verified-attestation.json`
+    );
+    const original = fs.readFileSync(attestationFile);
+    const attestation = JSON.parse(original);
+    attestation.runId = 'different-run';
+    writeJson(attestationFile, sealDocument(attestation));
+    assert.notEqual(finalizeCli(fixture).status, 0);
+    fs.writeFileSync(attestationFile, original);
+    fs.appendFileSync(fixture.files.evidence, '\ntampered\n');
+    assert.notEqual(finalizeCli(fixture).status, 0);
+});
+
+test('tamper after receipt fails for every source, identity, evidence, lifecycle, and aggregate binding', async (context) =>
+{
+    const fixture = await createCliFixture(context);
+    for (const [label, file] of Object.entries(fixture.files))
+    {
+        const original = fs.readFileSync(file);
+        fs.chmodSync(file, fs.statSync(file).mode | 0o200);
+        fs.writeFileSync(file, Buffer.concat([original, Buffer.from(`\n${label}-tamper`)]));
+        const result = verifyCli(fixture);
+        assert.notEqual(result.status, 0, `${label} tamper unexpectedly passed`);
+        fs.writeFileSync(file, original);
     }
 });
 
-test('a receipt rejects a scenario result from another invocation or source', () =>
+test('independent verifier rejects stopped, replaced, and topology-image-mismatched live fixture state', async (context) =>
 {
-    const runIdentity = identity();
-    const scenarioResults = results(runIdentity);
-    scenarioResults[0].invocationId = 'other-run';
-    const receipt = createQualifiedReceipt({
-        invocationId: 'reliability-run',
-        scenarioResults,
-        identity: runIdentity,
-        createdAt: '2026-07-26T00:00:00.000Z'
-    });
-    assert.equal(receipt.status, 'failed');
+    for (const mutate of [
+        (containers) => { containers['fixture-postgres'].State.Running = false; },
+        (containers) => { containers['fixture-redis'].Id = 'recycled-redis-id'; },
+        (containers) => { containers['fixture-postgres'].Image = `sha256:${'f'.repeat(64)}`; },
+        (containers) => { containers['fixture-backend'].State.Pid += 1; }
+    ])
+    {
+        const fixture = await createCliFixture(context);
+        const containers = structuredClone(fixture.containers);
+        mutate(containers);
+        const state = JSON.parse(fs.readFileSync(fixture.dockerState, 'utf8'));
+        state.containers = containers;
+        fs.writeFileSync(fixture.dockerState, JSON.stringify(state));
+        assert.notEqual(verifyCli(fixture).status, 0);
+    }
+});
+
+test('independent verifier rejects replaced and cross-source registry image inspection', async (context) =>
+{
+    for (const mutate of [
+        (state) => { state.image.Id = digest('f'); },
+        (state) => { state.image.Config.Labels['org.opencontainers.image.revision'] = '0'.repeat(40); },
+        (state) => { state.image.Config.Labels['io.fsusblog.build.fsusui-source'] = 'published-package'; },
+        (state) => { delete state.image.Config.Labels['io.fsusblog.build.fsusui-commit']; },
+        (state) => { state.image.Config.Labels['io.fsusblog.build.fsusui-commit'] = '1'.repeat(40); }
+    ])
+    {
+        const fixture = await createCliFixture(context);
+        const state = JSON.parse(fs.readFileSync(fixture.dockerState, 'utf8'));
+        mutate(state);
+        fs.writeFileSync(fixture.dockerState, JSON.stringify(state));
+        assert.notEqual(verifyCli(fixture).status, 0);
+    }
+});
+
+test('verifier rejects cross-root references and symlinks without consulting mtime', async (context) =>
+{
+    const fixture = await createCliFixture(context);
+    const originalReceipt = fs.readFileSync(fixture.receiptFile);
+    const escaped = structuredClone(fixture.receipt);
+    escaped.scenarios[0].evidencePath = '../outside.json';
+    writeJson(fixture.receiptFile, sealDocument(escaped));
+    assert.notEqual(verifyCli(fixture).status, 0);
+    fs.writeFileSync(fixture.receiptFile, originalReceipt);
+
+    const noncanonical = structuredClone(fixture.receipt);
+    noncanonical.scenarios[0].evidencePath = `.tmp/evidence/../evidence/${scenarioIds[0]}.json`;
+    writeJson(fixture.receiptFile, sealDocument(noncanonical));
+    assert.notEqual(verifyCli(fixture).status, 0);
+    fs.writeFileSync(fixture.receiptFile, originalReceipt);
+
+    const originalEvidence = fs.readFileSync(fixture.files.evidence);
+    const target = path.join(fixture.root, '.tmp', 'same-evidence.json');
+    fs.writeFileSync(target, originalEvidence);
+    fs.rmSync(fixture.files.evidence);
+    fs.symlinkSync(target, fixture.files.evidence);
+    assert.notEqual(verifyCli(fixture).status, 0);
+});
+
+test('an old receipt cannot be verified after the repository advances to a new commit', async (context) =>
+{
+    const fixture = await createCliFixture(context);
+    fs.appendFileSync(path.join(fixture.root, '.gitignore'), '# new source\n');
+    execFileSync('git', ['add', '.gitignore'], { cwd: fixture.root });
+    execFileSync('git', ['commit', '-qm', 'new source'], { cwd: fixture.root });
+    const verification = verifyCli(fixture);
+    assert.notEqual(verification.status, 0);
+    assert.match(verification.stderr, /run source identity does not match/u);
+});
+
+test('self-recomputed placeholder lifecycle cannot become qualified', async (context) =>
+{
+    const fixture = await createCliFixture(context);
+    const lifecycle = JSON.parse(fs.readFileSync(fixture.files.lifecycle, 'utf8'));
+    lifecycle.observations = {};
+    const resealedLifecycle = sealDocument(lifecycle);
+    writeJson(fixture.files.lifecycle, resealedLifecycle);
+
+    const result = structuredClone(fixture.results[0]);
+    result.lifecycle.reset.contentDigest = resealedLifecycle.contentDigest;
+    const resealedResult = sealDocument(result);
+    writeJson(fixture.files.result, resealedResult);
+
+    const timeline = structuredClone(fixture.timeline);
+    timeline.scenarioResults.find((reference) => reference.scenarioId === result.scenarioId).resultContentDigest
+        = resealedResult.contentDigest;
+    const resealedTimeline = sealDocument(timeline);
+    writeJson(fixture.timelineFile, resealedTimeline);
+
+    const receipt = structuredClone(fixture.receipt);
+    receipt.scenarios.find((reference) => reference.scenarioId === result.scenarioId).resultContentDigest
+        = resealedResult.contentDigest;
+    receipt.timeline.contentDigest = resealedTimeline.contentDigest;
+    writeJson(fixture.receiptFile, sealDocument(receipt));
+    const verification = verifyCli(fixture);
+    assert.notEqual(verification.status, 0);
+    assert.match(verification.stderr, /lacks observed state/u);
+});
+
+test('self-recomputed build receipt cannot break the immutable identity binding', async (context) =>
+{
+    const fixture = await createCliFixture(context);
+    const build = JSON.parse(fs.readFileSync(fixture.files.build, 'utf8'));
+    build.toolchain.node = 'attacker-recomputed-version';
+    fs.chmodSync(fixture.files.build, fs.statSync(fixture.files.build).mode | 0o200);
+    writeJson(fixture.files.build, sealDocument(build));
+
+    const verification = verifyCli(fixture);
+    assert.notEqual(verification.status, 0);
+    assert.match(verification.stderr, /build receipt bytes digest mismatch/u);
+});
+
+test('self-recomputed result cannot substitute a different producer invocation', async (context) =>
+{
+    const fixture = await createCliFixture(context);
+    const result = structuredClone(fixture.results[0]);
+    result.producer.executable = '/tmp/substituted-producer';
+    const resealedResult = sealDocument(result);
+    writeJson(fixture.files.result, resealedResult);
+
+    const timeline = structuredClone(fixture.timeline);
+    timeline.scenarioResults.find((reference) => reference.scenarioId === result.scenarioId).resultContentDigest
+        = resealedResult.contentDigest;
+    const resealedTimeline = sealDocument(timeline);
+    writeJson(fixture.timelineFile, resealedTimeline);
+
+    const receipt = structuredClone(fixture.receipt);
+    receipt.scenarios.find((reference) => reference.scenarioId === result.scenarioId).resultContentDigest
+        = resealedResult.contentDigest;
+    receipt.timeline.contentDigest = resealedTimeline.contentDigest;
+    writeJson(fixture.receiptFile, sealDocument(receipt));
+
+    const verification = verifyCli(fixture);
+    assert.notEqual(verification.status, 0);
+    assert.match(verification.stderr, /producer invocation mismatch/u);
 });

@@ -5,6 +5,7 @@ import { dirname, isAbsolute, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { validateStrykerAuthority } from './check-stryker-report.mjs'
+import { readReleaseReliabilityEvidenceBinding } from './release-reliability-evidence-binding.mjs'
 
 function canonicalJson(value) {
     if (Array.isArray(value)) {
@@ -68,7 +69,7 @@ function authorityInputPath(root, value, label) {
     return absolutePath
 }
 
-function validateAuthority(authority, repositoryRoot, authorityInputs) {
+function validateAuthority(authority, repositoryRoot, authorityInputs, environment) {
     if (authorityInputs) {
         validateStrykerAuthority({ authority, ...authorityInputs })
         return {
@@ -87,6 +88,10 @@ function validateAuthority(authority, repositoryRoot, authorityInputs) {
     const config = JSON.parse(rawConfig)
     const sourceRoot = authority?.sourceRoot
         ?? (authority?.tierId === 'release-mutation-critical-slice' ? 'src/core' : undefined)
+    const releaseReliability = readReleaseReliabilityEvidenceBinding({
+        repositoryRoot,
+        environment
+    })
     validateStrykerAuthority({
         authority,
         report,
@@ -103,7 +108,8 @@ function validateAuthority(authority, repositoryRoot, authorityInputs) {
         sourceState: authority?.producer?.sourceState,
         generatedAt: authority?.producer?.generatedAt,
         repositoryRoot,
-        sourceRoot
+        sourceRoot,
+        releaseReliability
     })
     const plannedIds = uniqueStrings(authority.plannedMutantIds, 'authority plannedMutantIds')
     const inventoryIds = authority.inventory.map(({ mutantId }) => requiredText(mutantId, 'authority mutantId'))
@@ -199,8 +205,19 @@ function validateRetirements({ policy, authority, baselineMutantIds, plannedIds 
     }
 }
 
-export function checkMutationInventory({ authority, policy, repositoryRoot = process.cwd(), authorityInputs }) {
-    const { plannedIds } = validateAuthority(authority, repositoryRoot, authorityInputs)
+export function checkMutationInventory({
+    authority,
+    policy,
+    repositoryRoot = process.cwd(),
+    authorityInputs,
+    environment = process.env
+}) {
+    const { plannedIds } = validateAuthority(
+        authority,
+        repositoryRoot,
+        authorityInputs,
+        environment
+    )
     const retention = validatePolicy(policy)
     if (authority.tierId !== policy.scopeId) {
         throw new Error('authority tierId does not match retention scopeId')

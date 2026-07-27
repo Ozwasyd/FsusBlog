@@ -529,6 +529,28 @@ export function prepareProductionBuildLayout(options = {}) {
     return { ...layout, manifest: JSON.parse(fs.readFileSync(layout.manifestFile, 'utf8')), artifacts }
 }
 
+export const productionBuildEnvironmentKeys = Object.freeze([
+  'FSUSBLOG_PRODUCTION_BUILD_ROOT',
+  'FSUSBLOG_FRONTEND_DIST_ROOT',
+  'FSUSBLOG_FRONTEND_CACHE_ROOT',
+  'FSUSBLOG_FRONTEND_WASM_ROOT',
+  'FSUSBLOG_WASM_ARTIFACT_ROOT',
+  'FSUSBLOG_BACKEND_WEBROOT',
+  'FSUSBLOG_PUBLIC_AOT_SSR_CLIENT_ROOT',
+  'FSUSBLOG_PUBLIC_AOT_SSR_WORKER_SCRIPT',
+  'FSUSBLOG_WEB_ROOT',
+  'FSUSBLOG_RETENTION_WEBROOT_DIR',
+  'ASPNETCORE_WEBROOT',
+  'FSUSBLOG_GENERATED_OUTPUT_ROOT',
+  'FSUSBLOG_ARTIFACT_DIGEST_TABLE',
+  'FSUSBLOG_ZK_PRODUCTION_ENABLED',
+  'FSUSBLOG_BACKEND_SERVER_DLL',
+  'FSUSBLOG_BACKEND_TEST_DLL',
+  'FSUSBLOG_BACKEND_TEST_BIN_DIR',
+  'FSUSBLOG_BACKEND_TEST_OBJ_DIR',
+  'FSUSBLOG_BENCHMARK_DLL'
+])
+
 export function productionBuildEnvironment(layout, env = process.env) {
   const artifacts = productionDotnetArtifacts(layout)
   const nodeOptions = String(env.NODE_OPTIONS ?? '').trim()
@@ -555,6 +577,22 @@ export function productionBuildEnvironment(layout, env = process.env) {
     FSUSBLOG_BACKEND_TEST_OBJ_DIR: artifacts.tests.baseIntermediateOutputPath,
     FSUSBLOG_BENCHMARK_DLL: artifacts.benchmarkDll
   }
+}
+
+export function productionBuildEnvironmentAssignments({ root = defaultRoot, runId, env = process.env } = {}) {
+  const repositoryRoot = fs.realpathSync(path.resolve(root))
+  if (!fs.statSync(repositoryRoot).isDirectory()) {
+    throw new Error('production build environment root must be a directory')
+  }
+  const layout = resolveProductionBuildLayout({ root: repositoryRoot, runId })
+  const environment = productionBuildEnvironment(layout, env)
+  return productionBuildEnvironmentKeys.map((key) => {
+    const value = environment[key]
+    if (typeof value !== 'string' || value.includes('\0')) {
+      throw new Error(`production build environment value is invalid: ${key}`)
+    }
+    return [key, value]
+  })
 }
 
 export function productionRuntimeEnvironment(layout, env = process.env) {

@@ -7,8 +7,17 @@ TIER="${FSUSBLOG_SCALE_TIER:-${1:-scale-xs}}"
 DATA_SCALE_ROOT="${FSUSBLOG_DATA_SCALE_ROOT:-$ROOT_DIR/.tmp/scale}"
 OUT_DIR="$DATA_SCALE_ROOT/$TIER"
 RELEASE_SUMMARY_DIR="$DATA_SCALE_ROOT/release-summaries"
-mkdir -p "$OUT_DIR"
 export FSUSBLOG_POSTGRES_CONTAINER_NAME="${FSUSBLOG_POSTGRES_CONTAINER_NAME:-${FSUSBLOG_PG_CONTAINER:-fsusblog-dev-postgres}}"
+
+# shellcheck source=_release-reliability-lifecycle.sh
+source "$ROOT_DIR/tools/test/lanes/_release-reliability-lifecycle.sh"
+InitializeReleaseReliabilityLifecycle
+
+mkdir -p "$OUT_DIR"
+mkdir -p "$RELEASE_SUMMARY_DIR"
+# Keep each tier self-contained: no failed invocation may consume its prior raw
+# observations or authority projection.
+rm -f -- "$OUT_DIR/seed.json" "$OUT_DIR/summary.json" "$OUT_DIR/cleanup.json" "$RELEASE_SUMMARY_DIR/$TIER.json"
 
 case "$TIER" in
     scale-xs)
@@ -42,24 +51,36 @@ bash "$ROOT_DIR/tools/data-scale/cleanup.sh" "$TIER"
 cleanup_status=$?
 set -e
 
-summary_status="$(jq -r '.status // "failed"' "$OUT_DIR/summary.json" 2>/dev/null || printf 'failed')"
-cleanup_result="$(jq -r '.status // "failed"' "$OUT_DIR/cleanup.json" 2>/dev/null || printf 'failed')"
+ReadJsonOrNull() {
+    local file="$1"
+    if [[ -f "$file" ]] && jq -e . "$file" >/dev/null 2>&1; then
+        jq -c . "$file"
+        return
+    fi
+
+    printf 'null'
+}
+
+seed_json="$(ReadJsonOrNull "$OUT_DIR/seed.json")"
+summary_json="$(ReadJsonOrNull "$OUT_DIR/summary.json")"
+cleanup_json="$(ReadJsonOrNull "$OUT_DIR/cleanup.json")"
+summary_status="$(jq -r '.status // "failed"' <<<"$summary_json")"
+cleanup_result="$(jq -r '.status // "failed"' <<<"$cleanup_json")"
 release_status="ok"
 if [[ "$probe_status" -ne 0 || "$cleanup_status" -ne 0 || "$summary_status" != "ok" || "$cleanup_result" != "ok" ]]; then
     release_status="failed"
 fi
 
-mkdir -p "$RELEASE_SUMMARY_DIR"
 jq -n \
     --arg status "$release_status" \
     --arg tier "$TIER" \
     --arg file "$(realpath --relative-to="$ROOT_DIR" "$OUT_DIR/summary.json")" \
     --argjson articles "$articles" \
     --argjson comments "$comments" \
-    --slurpfile seed "$OUT_DIR/seed.json" \
-    --slurpfile summary "$OUT_DIR/summary.json" \
-    --slurpfile cleanup "$OUT_DIR/cleanup.json" \
-    '{schema:"fsusblog.data-scale-tier-summary.v1", status:$status, tier:$tier, summary:$file, expectedSeed:{articles:$articles, comments:$comments}, seed:$seed[0], observed:$summary[0], cleanup:$cleanup[0], generatedAt: now | todate}' \
+    --argjson seed "$seed_json" \
+    --argjson observed "$summary_json" \
+    --argjson cleanup "$cleanup_json" \
+    '({schema:"fsusblog.data-scale-tier-summary.v1", status:$status, tier:$tier, summary:$file, expectedSeed:{articles:$articles, comments:$comments}, sampling:$observed.sampling, seed:$seed, observed:$observed, cleanup:$cleanup, generatedAt: now | todate} + (if $observed.releaseReliability == null then {} else {releaseReliability:$observed.releaseReliability} end))' \
     >"$RELEASE_SUMMARY_DIR/$TIER.json"
 
 if [[ "$release_status" != "ok" ]]; then

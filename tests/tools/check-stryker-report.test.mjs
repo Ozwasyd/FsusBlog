@@ -170,6 +170,31 @@ function authority(inputReport = report(), inputConfig = config, options = {}) {
     return createStrykerAuthority(authorityInputs(inputReport, inputConfig, options))
 }
 
+test('mutation producer authority preserves the current release reliability binding', () => {
+    const releaseReliability = {
+        invocationId: 'fixture-invocation',
+        runId: 'fixture-run',
+        scenarioId: 'release-mutation-critical-slice',
+        identityContentDigest: `sha256:${'d'.repeat(64)}`,
+        sourceState,
+        buildContentDigest: `sha256:${'e'.repeat(64)}`
+    }
+    const inputs = {
+        ...authorityInputs(),
+        releaseReliability
+    }
+    const value = createStrykerAuthority(inputs)
+    assert.deepEqual(value.releaseReliability, releaseReliability)
+    assert.equal(validateStrykerAuthority({ authority: value, ...inputs }), value)
+
+    const tampered = structuredClone(value)
+    tampered.releaseReliability.invocationId = 'other-invocation'
+    assert.throws(
+        () => validateStrykerAuthority({ authority: tampered, ...inputs }),
+        /authority content mismatch/u
+    )
+})
+
 test('mutation authority binds stable inventory, real test identities, terminal sets, and trace batches', () => {
     const input = report([
         mutant({ status: 'Killed', line: 1 }),

@@ -16,6 +16,12 @@ import {
 import {
     runFrontendBuildStageDag
 } from './build-stage-dag.mjs';
+import {
+    resolveMachineExecutionTimeoutMs
+} from '../test/bundles/bundle-steps.mjs';
+import {
+    resolveManifestLiveCapacity
+} from '../test/run-command-manifest.mjs';
 
 const [{ createReleaseIdentitySnapshot }, { parseMatrix }] = await Promise.all([
     import(new URL('../release/release-id.mjs', import.meta.url)),
@@ -95,20 +101,17 @@ const inheritedDeadlineMs = positiveNumber(
     process.env.FSUSBLOG_STEP_DEADLINE_MS
     ?? process.env.FSUSBLOG_BUNDLE_DEADLINE_MS);
 const configuredTimeoutMs = positiveNumber(process.env.FSUSBLOG_BUILD_TIMEOUT_MS);
-const hostCpu = os.availableParallelism?.() ?? os.cpus().length;
-const hostFreeMemoryGiB = os.freemem() / (1024 ** 3);
 const productionProfile = parseMatrix(fs.readFileSync(join(repositoryRoot, 'tests/matrix.yml'), 'utf8')).localProfiles?.production;
 const directBuildBundle = productionProfile?.bundles?.find((entry) => entry.id === 'build-static');
 if (!Number.isFinite(productionProfile?.budgetMs) || !directBuildBundle)
 {
     throw new Error('production build-static machine budget is unavailable');
 }
-const directBuildDeadlineMs = Math.ceil(productionProfile.budgetMs * Math.max(
-    1,
-    directBuildBundle.cpuWeight / Math.max(1, hostCpu),
-    directBuildBundle.memoryWeight / Math.max(Number.EPSILON, hostFreeMemoryGiB),
-    directBuildBundle.minCpuUnits / Math.max(1, hostCpu)
-));
+const directBuildDeadlineMs = resolveFrontendBuildDeadline({
+    env: process.env,
+    baseTimeoutMs: productionProfile.budgetMs,
+    workload: directBuildBundle
+});
 const buildDeadlineMs = inheritedDeadlineMs ?? directBuildDeadlineMs;
 const buildStartedAt = Date.now();
 
@@ -136,6 +139,32 @@ export function resolveFrontendBuildCapacity({
         memoryGiB,
         maxParallel: Math.max(1, Math.floor(cpuUnits))
     };
+}
+
+export function resolveFrontendBuildDeadline({
+    env = process.env,
+    baseTimeoutMs = productionProfile?.budgetMs,
+    workload = directBuildBundle,
+    actualCapacity = resolveManifestLiveCapacity({
+        env,
+        workload: 'scheduler-admitted',
+        orchestrationMemoryGiBPerWorker: 0.25
+    })
+} = {})
+{
+    const inherited = positiveNumber(
+        env.FSUSBLOG_STEP_DEADLINE_MS
+        ?? env.FSUSBLOG_BUNDLE_DEADLINE_MS
+    );
+    if (inherited !== null)
+    {
+        return inherited;
+    }
+    return resolveMachineExecutionTimeoutMs({
+        baseTimeoutMs,
+        workload,
+        actualCapacity
+    });
 }
 
 export function resolveConcurrentStageResources(stageCount, capacity)
@@ -771,7 +800,7 @@ function packageVersion(packageName)
 
 async function main()
 {
-    log(`execution deadline=${buildDeadlineMs}ms source=${inheritedDeadlineMs === null ? 'host-capacity' : 'step-grant'}`);
+    log(`execution deadline=${buildDeadlineMs}ms source=${inheritedDeadlineMs === null ? 'direct-grant-capacity' : 'step-grant'}`);
     const generatedArgs = process.env.FSUSBLOG_VALIDATE_GENERATED_ONLY === '1' ? ['--check'] : [];
     const generatedAction = generatedArgs.length > 0 ? 'check' : 'generate';
     const controller = new AbortController();

@@ -1,6 +1,57 @@
 {
-    "schema": "fsusblog.release-reliability-scenario-catalog.v2",
+    "schema": "fsusblog.release-reliability-scenario-catalog.v3",
     "catalogScenarioCount": 7,
+    "canonicalScenarioIds": [
+        "release-soak-min",
+        "release-load-peak",
+        "release-load-burst",
+        "release-data-scale-m",
+        "release-mutation-critical-slice",
+        "release-memory-leak-budget",
+        "release-open-handle-budget"
+    ],
+    "identityTools": [
+        "bash",
+        "docker",
+        "dotnet",
+        "git",
+        "jq",
+        "lsof",
+        "node",
+        "ps",
+        "readlink",
+        "ss"
+    ],
+    "childEnvironmentContract": {
+        "schema": "fsusblog.release-reliability-child-environment.v1",
+        "requiredBaseKeys": [
+            "HOME",
+            "PATH",
+            "XDG_RUNTIME_DIR"
+        ],
+        "optionalBaseKeys": [
+            "LANG",
+            "LC_ALL",
+            "TMPDIR",
+            "TZ"
+        ],
+        "internalKeys": [
+            "FSUSBLOG_RELEASE_RELIABILITY_IDENTITY_DIGEST",
+            "FSUSBLOG_RELEASE_RELIABILITY_IDENTITY_PATH",
+            "FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID",
+            "FSUSBLOG_RELEASE_RELIABILITY_LIFECYCLE_ROOT",
+            "FSUSBLOG_RELEASE_RELIABILITY_RUN_ID",
+            "FSUSBLOG_RELEASE_RELIABILITY_SCENARIO_ID",
+            "FSUSBLOG_RELEASE_RESOURCE_CONTAINER_ID",
+            "FSUSBLOG_RELEASE_RESOURCE_PID"
+        ]
+    },
+    "policyBindings": {
+        "loadProfile": "tests/performance/perf-policy.yml",
+        "mutationSubset": "config/testing/mutation/release-parity-subset.json",
+        "releaseResource": "config/deployment/zero-downtime-resource-policy.json"
+    },
+    "lifecycleSchema": "fsusblog.release-reliability-lifecycle-action.v1",
     "scenarios": [
         {
             "id": "release-soak-min",
@@ -11,28 +62,78 @@
                     "tools/test/lanes/soak.sh"
                 ],
                 "env": {
-                    "FSUSBLOG_SOAK_MODE": "short"
+                    "FSUSBLOG_CORRECTNESS_BUDGET_TIER_ID": "soak-short-runtime",
+                    "FSUSBLOG_MEASUREMENT_WINDOW_MS": "300000",
+                    "FSUSBLOG_PRODUCER_EXECUTION_BUDGET_MS": "375000",
+                    "FSUSBLOG_SOAK_INTERVAL_MS": "5000",
+                    "FSUSBLOG_SOAK_MODE": "short",
+                    "FSUSBLOG_SOAK_SHORT_SECONDS": "300"
+                },
+                "inheritEnv": {
+                    "required": [
+                        "FSUSBLOG_DEBUG_BACKEND_URL",
+                        "FSUSBLOG_TEST_NAMESPACE",
+                        "FSUSBLOG_TEST_RUN_ID"
+                    ],
+                    "optional": []
                 },
                 "cwd": "."
             },
+            "qualification": {
+                "kind": "soak",
+                "mode": "short",
+                "durationSeconds": 300,
+                "intervalMs": 5000,
+                "requestsPerProbe": 4,
+                "concurrency": 2,
+                "executionMode": "runtime",
+                "countsAsReleaseFinal": true
+            },
             "resourceClass": "database",
+            "identityTools": [
+                "bash",
+                "docker",
+                "dotnet",
+                "git",
+                "lsof",
+                "node",
+                "ps",
+                "ss"
+            ],
             "isolation": {
                 "exclusiveResources": [
                     "database",
                     "runtime-http",
                     "resource-counters"
                 ],
-                "precondition": "fresh-authoritative-evidence",
-                "measurement": "producer-owned-short-soak-window",
-                "postcondition": "authoritative-evidence-status-ok"
+                "countableResources": [],
+                "lifecycle": {
+                    "precondition": "verify-runtime-database-and-resource-counter-readiness",
+                    "reset": "delete-short-soak-scenario-output",
+                    "measurement": "producer-owned-short-soak-window",
+                    "postcondition": "verify-runtime-database-and-resource-counter-stability"
+                },
+                "outputs": [
+                    {
+                        "id": "authoritative-evidence",
+                        "path": ".tmp/soak/short/summary.json"
+                    }
+                ]
             },
             "authoritativeEvidence": {
                 "path": ".tmp/soak/short/summary.json",
                 "expectedSchema": {
                     "required": [
                         "status",
-                        "metrics",
-                        "thresholdEvaluation"
+                        "durationSeconds",
+                        "sampling",
+                        "sampleCount",
+                        "latencyMs",
+                        "errorRate",
+                        "executionMode",
+                        "countsAsReleaseFinal",
+                        "resourceMetricSummary",
+                        "releaseReliability"
                     ],
                     "passStatusValues": [
                         "ok"
@@ -49,19 +150,69 @@
                     "tools/test/lanes/load-profile.sh",
                     "expected-peak"
                 ],
-                "env": {},
+                "env": {
+                    "FSUSBLOG_LOAD_PROFILE_CONCURRENCY": "50",
+                    "FSUSBLOG_LOAD_PROFILE_DURATION_MS": "60000",
+                    "FSUSBLOG_LOAD_PROFILE_ROUNDS": "12"
+                },
+                "inheritEnv": {
+                    "required": [
+                        "FSUSBLOG_DEBUG_BACKEND_URL",
+                        "FSUSBLOG_TEST_NAMESPACE",
+                        "FSUSBLOG_TEST_RUN_ID"
+                    ],
+                    "optional": []
+                },
                 "cwd": "."
             },
+            "qualification": {
+                "kind": "load-profile",
+                "profile": "expected-peak",
+                "policy": "tests/performance/perf-policy.yml",
+                "declared": {
+                    "concurrency": 50,
+                    "rounds": 12,
+                    "durationMs": 60000
+                },
+                "thresholds": {
+                    "maxP95Ms": 3000,
+                    "maxP99Ms": 6000,
+                    "maxErrorRate": 0,
+                    "maxTimeoutRate": 0,
+                    "minRps": 1
+                }
+            },
             "resourceClass": "benchmark",
+            "identityTools": [
+                "bash",
+                "docker",
+                "dotnet",
+                "git",
+                "jq",
+                "lsof",
+                "node",
+                "ps",
+                "ss"
+            ],
             "isolation": {
                 "exclusiveResources": [
                     "runtime-http",
                     "network",
                     "performance-counters"
                 ],
-                "precondition": "fresh-authoritative-evidence",
-                "measurement": "producer-owned-expected-peak-window",
-                "postcondition": "authoritative-evidence-status-ok"
+                "countableResources": [],
+                "lifecycle": {
+                    "precondition": "verify-runtime-readiness-before-network-performance-window",
+                    "reset": "delete-expected-peak-raw-and-projection-output",
+                    "measurement": "producer-owned-expected-peak-window",
+                    "postcondition": "verify-runtime-stability-after-network-performance-window"
+                },
+                "outputs": [
+                    {
+                        "id": "authoritative-evidence",
+                        "path": ".tmp/perf/release-summaries/load-expected-peak.json"
+                    }
+                ]
             },
             "authoritativeEvidence": {
                 "path": ".tmp/perf/release-summaries/load-expected-peak.json",
@@ -69,8 +220,16 @@
                     "required": [
                         "status",
                         "profile",
+                        "policy",
+                        "declared",
+                        "effective",
+                        "overrideSource",
+                        "overrideSources",
+                        "sampling",
+                        "thresholds",
                         "thresholdEvaluation",
-                        "metrics"
+                        "metrics",
+                        "releaseReliability"
                     ],
                     "passStatusValues": [
                         "ok"
@@ -87,19 +246,69 @@
                     "tools/test/lanes/load-profile.sh",
                     "burst"
                 ],
-                "env": {},
+                "env": {
+                    "FSUSBLOG_LOAD_PROFILE_CONCURRENCY": "160",
+                    "FSUSBLOG_LOAD_PROFILE_DURATION_MS": "15000",
+                    "FSUSBLOG_LOAD_PROFILE_ROUNDS": "4"
+                },
+                "inheritEnv": {
+                    "required": [
+                        "FSUSBLOG_DEBUG_BACKEND_URL",
+                        "FSUSBLOG_TEST_NAMESPACE",
+                        "FSUSBLOG_TEST_RUN_ID"
+                    ],
+                    "optional": []
+                },
                 "cwd": "."
             },
+            "qualification": {
+                "kind": "load-profile",
+                "profile": "burst",
+                "policy": "tests/performance/perf-policy.yml",
+                "declared": {
+                    "concurrency": 160,
+                    "rounds": 4,
+                    "durationMs": 15000
+                },
+                "thresholds": {
+                    "maxP95Ms": 5000,
+                    "maxP99Ms": 10000,
+                    "maxErrorRate": 0,
+                    "maxTimeoutRate": 0,
+                    "minRps": 1
+                }
+            },
             "resourceClass": "benchmark",
+            "identityTools": [
+                "bash",
+                "docker",
+                "dotnet",
+                "git",
+                "jq",
+                "lsof",
+                "node",
+                "ps",
+                "ss"
+            ],
             "isolation": {
                 "exclusiveResources": [
                     "runtime-http",
                     "network",
                     "performance-counters"
                 ],
-                "precondition": "fresh-authoritative-evidence",
-                "measurement": "producer-owned-burst-window",
-                "postcondition": "authoritative-evidence-status-ok"
+                "countableResources": [],
+                "lifecycle": {
+                    "precondition": "verify-runtime-readiness-before-network-performance-window",
+                    "reset": "delete-burst-raw-and-projection-output",
+                    "measurement": "producer-owned-burst-window",
+                    "postcondition": "verify-runtime-stability-after-network-performance-window"
+                },
+                "outputs": [
+                    {
+                        "id": "authoritative-evidence",
+                        "path": ".tmp/perf/release-summaries/load-burst.json"
+                    }
+                ]
             },
             "authoritativeEvidence": {
                 "path": ".tmp/perf/release-summaries/load-burst.json",
@@ -107,8 +316,16 @@
                     "required": [
                         "status",
                         "profile",
+                        "policy",
+                        "declared",
+                        "effective",
+                        "overrideSource",
+                        "overrideSources",
+                        "sampling",
+                        "thresholds",
                         "thresholdEvaluation",
-                        "metrics"
+                        "metrics",
+                        "releaseReliability"
                     ],
                     "passStatusValues": [
                         "ok"
@@ -125,19 +342,73 @@
                     "tools/test/lanes/data-scale.sh",
                     "scale-m"
                 ],
-                "env": {},
+                "env": {
+                    "FSUSBLOG_DATA_SCALE_CONCURRENCY": "2",
+                    "FSUSBLOG_DATA_SCALE_REQUESTS": "12",
+                    "FSUSBLOG_DATA_SCALE_ROOT": ".tmp/scale",
+                    "FSUSBLOG_SCALE_TIER": "scale-m"
+                },
+                "inheritEnv": {
+                    "required": [
+                        "FSUSBLOG_DEBUG_BACKEND_URL",
+                        "FSUSBLOG_POSTGRES_CONTAINER_NAME",
+                        "FSUSBLOG_REDIS_CONTAINER_NAME",
+                        "FSUSBLOG_TEST_NAMESPACE",
+                        "FSUSBLOG_TEST_RUN_ID"
+                    ],
+                    "optional": [
+                        "FSUSBLOG_AOT_CACHE_DIR",
+                        "FSUSBLOG_BACKEND_WEBROOT",
+                        "FSUSBLOG_PUBLIC_AOT_CACHE_DIR",
+                        "FSUSBLOG_SEARCH_DIR",
+                        "FSUSBLOG_SEARCH_INDEX_DIR",
+                        "FSUSBLOG_WEB_ROOT"
+                    ]
+                },
                 "cwd": "."
             },
+            "qualification": {
+                "kind": "data-scale",
+                "tier": "scale-m",
+                "expectedSeed": {
+                    "articles": 10000,
+                    "comments": 100000
+                },
+                "requests": 12,
+                "concurrency": 2
+            },
             "resourceClass": "database",
+            "identityTools": [
+                "bash",
+                "docker",
+                "dotnet",
+                "git",
+                "jq",
+                "lsof",
+                "node",
+                "ps",
+                "readlink",
+                "ss"
+            ],
             "isolation": {
                 "exclusiveResources": [
                     "database",
                     "fixture-data",
                     "runtime-http"
                 ],
-                "precondition": "fresh-authoritative-evidence",
-                "measurement": "producer-owned-scale-m-window",
-                "postcondition": "producer-cleanup-and-authoritative-evidence-status-ok"
+                "countableResources": [],
+                "lifecycle": {
+                    "precondition": "verify-runtime-and-database-fixture-readiness",
+                    "reset": "delete-scale-m-output-and-clean-data-scale-namespace",
+                    "measurement": "producer-owned-scale-m-window",
+                    "postcondition": "verify-runtime-database-and-data-scale-cleanup-stability"
+                },
+                "outputs": [
+                    {
+                        "id": "authoritative-evidence",
+                        "path": ".tmp/scale/release-summaries/scale-m.json"
+                    }
+                ]
             },
             "authoritativeEvidence": {
                 "path": ".tmp/scale/release-summaries/scale-m.json",
@@ -147,8 +418,11 @@
                         "schema",
                         "status",
                         "tier",
+                        "expectedSeed",
+                        "sampling",
                         "observed",
-                        "cleanup"
+                        "cleanup",
+                        "releaseReliability"
                     ],
                     "passStatusValues": [
                         "ok"
@@ -168,18 +442,55 @@
                     "FSUSBLOG_RELEASE_MUTATION_PARITY": "1",
                     "FSUSBLOG_MUTATION_RELEASE_SUBSET_POLICY": "config/testing/mutation/release-parity-subset.json"
                 },
+                "inheritEnv": {
+                    "required": [
+                        "FSUSBLOG_TEST_RUN_ID",
+                        "FSUSBLOG_TEST_SOURCE_COMMIT",
+                        "FSUSBLOG_TEST_SOURCE_FINGERPRINT"
+                    ],
+                    "optional": [
+                        "FSUSBLOG_BACKEND_TEST_BIN_DIR",
+                        "FSUSBLOG_BACKEND_TEST_DLL",
+                        "FSUSBLOG_BACKEND_TEST_OBJ_DIR",
+                        "FSUSBLOG_PRODUCTION_BUILD_ROOT"
+                    ]
+                },
                 "cwd": "."
             },
+            "qualification": {
+                "kind": "mutation-release-parity",
+                "policy": "config/testing/mutation/release-parity-subset.json",
+                "subsetDigest": "sha256:6705c0ae19b9468ff0d2acdb10ea8d98914ba3fc9a4faa0e3b60d4d29352b342",
+                "tierId": "release-mutation-critical-slice",
+                "sliceId": "release-mutation-critical-slice",
+                "releaseParity": true
+            },
             "resourceClass": "cpu",
+            "identityTools": [
+                "bash",
+                "dotnet",
+                "git",
+                "node"
+            ],
             "isolation": {
                 "exclusiveResources": [
                     "cpu",
                     "mutation-output",
                     "build-artifacts"
                 ],
-                "precondition": "fresh-authoritative-evidence",
-                "measurement": "producer-owned-critical-mutation-window",
-                "postcondition": "authoritative-evidence-status-success"
+                "countableResources": [],
+                "lifecycle": {
+                    "precondition": "verify-clean-source-and-record-host-cpu-state",
+                    "reset": "delete-critical-mutation-scenario-output",
+                    "measurement": "producer-owned-critical-mutation-window",
+                    "postcondition": "verify-clean-source-and-record-host-cpu-state"
+                },
+                "outputs": [
+                    {
+                        "id": "authoritative-evidence",
+                        "path": ".tmp/mutation/backend-critical/authority.json"
+                    }
+                ]
             },
             "authoritativeEvidence": {
                 "path": ".tmp/mutation/backend-critical/authority.json",
@@ -206,7 +517,9 @@
                         "executionMatrixDigest",
                         "rawReport",
                         "rawTrace",
-                        "traceExecution"
+                        "traceExecution",
+                        "releaseQualification",
+                        "releaseReliability"
                     ],
                     "passStatusValues": [
                         "success"
@@ -223,19 +536,63 @@
                     "tools/test/lanes/release-resource-budget.sh",
                     "memory-leak"
                 ],
-                "env": {},
+                "env": {
+                    "FSUSBLOG_RELEASE_RESOURCE_CONCURRENCY": "2",
+                    "FSUSBLOG_RELEASE_RESOURCE_REQUESTS": "12",
+                    "FSUSBLOG_RELEASE_RESOURCE_RSS_DELTA_THRESHOLD_BYTES": "67108864"
+                },
+                "inheritEnv": {
+                    "required": [
+                        "FSUSBLOG_DEBUG_BACKEND_URL",
+                        "FSUSBLOG_TEST_NAMESPACE",
+                        "FSUSBLOG_TEST_RUN_ID"
+                    ],
+                    "optional": []
+                },
                 "cwd": "."
             },
+            "qualification": {
+                "kind": "release-resource-budget",
+                "mode": "memory-leak",
+                "requests": 12,
+                "concurrency": 2,
+                "metric": "backend_rss_bytes",
+                "threshold": 67108864,
+                "thresholdKind": "max_delta_bytes",
+                "thresholdOperator": "<=",
+                "policy": "config/deployment/zero-downtime-resource-policy.json"
+            },
             "resourceClass": "database",
+            "identityTools": [
+                "bash",
+                "docker",
+                "dotnet",
+                "git",
+                "jq",
+                "lsof",
+                "node",
+                "ps",
+                "ss"
+            ],
             "isolation": {
                 "exclusiveResources": [
                     "runtime-http",
                     "database",
                     "resource-counters"
                 ],
-                "precondition": "fresh-authoritative-evidence",
-                "measurement": "producer-owned-memory-leak-window",
-                "postcondition": "authoritative-evidence-status-ok"
+                "countableResources": [],
+                "lifecycle": {
+                    "precondition": "verify-runtime-database-and-resource-counter-readiness",
+                    "reset": "delete-memory-leak-raw-and-projection-output",
+                    "measurement": "producer-owned-memory-leak-window",
+                    "postcondition": "verify-runtime-database-and-resource-counter-stability"
+                },
+                "outputs": [
+                    {
+                        "id": "authoritative-evidence",
+                        "path": ".tmp/release-evidence/memory-leak-summary.json"
+                    }
+                ]
             },
             "authoritativeEvidence": {
                 "path": ".tmp/release-evidence/memory-leak-summary.json",
@@ -243,8 +600,11 @@
                     "required": [
                         "status",
                         "mode",
+                        "policy",
+                        "sampling",
                         "thresholdEvaluation",
-                        "runtime"
+                        "runtime",
+                        "releaseReliability"
                     ],
                     "passStatusValues": [
                         "ok"
@@ -261,19 +621,63 @@
                     "tools/test/lanes/release-resource-budget.sh",
                     "open-handle"
                 ],
-                "env": {},
+                "env": {
+                    "FSUSBLOG_RELEASE_RESOURCE_CONCURRENCY": "2",
+                    "FSUSBLOG_RELEASE_RESOURCE_FD_DELTA_THRESHOLD": "16",
+                    "FSUSBLOG_RELEASE_RESOURCE_REQUESTS": "12"
+                },
+                "inheritEnv": {
+                    "required": [
+                        "FSUSBLOG_DEBUG_BACKEND_URL",
+                        "FSUSBLOG_TEST_NAMESPACE",
+                        "FSUSBLOG_TEST_RUN_ID"
+                    ],
+                    "optional": []
+                },
                 "cwd": "."
             },
+            "qualification": {
+                "kind": "release-resource-budget",
+                "mode": "open-handle",
+                "requests": 12,
+                "concurrency": 2,
+                "metric": "backend_open_file_descriptors",
+                "threshold": 16,
+                "thresholdKind": "max_delta_count",
+                "thresholdOperator": "<=",
+                "policy": "config/deployment/zero-downtime-resource-policy.json"
+            },
             "resourceClass": "database",
+            "identityTools": [
+                "bash",
+                "docker",
+                "dotnet",
+                "git",
+                "jq",
+                "lsof",
+                "node",
+                "ps",
+                "ss"
+            ],
             "isolation": {
                 "exclusiveResources": [
                     "runtime-http",
                     "database",
                     "resource-counters"
                 ],
-                "precondition": "fresh-authoritative-evidence",
-                "measurement": "producer-owned-open-handle-window",
-                "postcondition": "authoritative-evidence-status-ok"
+                "countableResources": [],
+                "lifecycle": {
+                    "precondition": "verify-runtime-database-and-resource-counter-readiness",
+                    "reset": "delete-open-handle-raw-and-projection-output",
+                    "measurement": "producer-owned-open-handle-window",
+                    "postcondition": "verify-runtime-database-and-resource-counter-stability"
+                },
+                "outputs": [
+                    {
+                        "id": "authoritative-evidence",
+                        "path": ".tmp/release-evidence/open-handle-summary.json"
+                    }
+                ]
             },
             "authoritativeEvidence": {
                 "path": ".tmp/release-evidence/open-handle-summary.json",
@@ -281,8 +685,11 @@
                     "required": [
                         "status",
                         "mode",
+                        "policy",
+                        "sampling",
                         "thresholdEvaluation",
-                        "runtime"
+                        "runtime",
+                        "releaseReliability"
                     ],
                     "passStatusValues": [
                         "ok"

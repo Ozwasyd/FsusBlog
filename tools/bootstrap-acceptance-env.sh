@@ -277,6 +277,18 @@ if (!Array.isArray(receipt.domains) || receipt.domains.length === 0) throw new E
 for (const domain of receipt.domains) process.stdout.write(`${domain.name}\n`)
 NODE
     )
+    local producerWorkflow producerRunId producerRunAttempt producerJob
+    if [[ -n "${GITHUB_RUN_ID:-}" ]]; then
+        producerWorkflow="${GITHUB_WORKFLOW:?GITHUB_WORKFLOW is required for GitHub production artifact materialization}"
+        producerRunId="$GITHUB_RUN_ID"
+        producerRunAttempt="${GITHUB_RUN_ATTEMPT:?GITHUB_RUN_ATTEMPT is required for GitHub production artifact materialization}"
+        producerJob=production-build-artifacts
+    else
+        producerWorkflow="${FSUSBLOG_CI_PRODUCTION_PRODUCER_WORKFLOW:?FSUSBLOG_CI_PRODUCTION_PRODUCER_WORKFLOW is required for local production artifact materialization}"
+        producerRunId="${FSUSBLOG_CI_PRODUCTION_PRODUCER_RUN_ID:?FSUSBLOG_CI_PRODUCTION_PRODUCER_RUN_ID is required for local production artifact materialization}"
+        producerRunAttempt="${FSUSBLOG_CI_PRODUCTION_PRODUCER_RUN_ATTEMPT:?FSUSBLOG_CI_PRODUCTION_PRODUCER_RUN_ATTEMPT is required for local production artifact materialization}"
+        producerJob="${FSUSBLOG_CI_PRODUCTION_PRODUCER_JOB:?FSUSBLOG_CI_PRODUCTION_PRODUCER_JOB is required for local production artifact materialization}"
+    fi
     local -a materializeArgs=(
         materialize
         --root "$ROOT_DIR"
@@ -284,8 +296,10 @@ NODE
         --destination-root "$ROOT_DIR"
         --expected-commit "${FSUSBLOG_TEST_SOURCE_COMMIT:?FSUSBLOG_TEST_SOURCE_COMMIT is required for CI artifact materialization}"
         --expected-fingerprint "${FSUSBLOG_TEST_SOURCE_FINGERPRINT:?FSUSBLOG_TEST_SOURCE_FINGERPRINT is required for CI artifact materialization}"
-        --expected-run-id "${GITHUB_RUN_ID:?GITHUB_RUN_ID is required for CI artifact materialization}"
-        --expected-job production-build-artifacts
+        --expected-workflow "$producerWorkflow"
+        --expected-run-id "$producerRunId"
+        --expected-run-attempt "$producerRunAttempt"
+        --expected-job "$producerJob"
         --expected-receipt-digest "${FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST:?FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST is required}"
         --consumer-run-id "${FSUSBLOG_TEST_RUN_ID:?FSUSBLOG_TEST_RUN_ID is required for CI artifact consumer leases}"
         --consumer-id "$NS_SLUG"
@@ -1617,7 +1631,7 @@ InvokeFixtureOrchestrator() {
     if [[ "$FIXTURE_PROFILE_ID" == "none" ]]; then
         runArgs+=(--fixture-receipt "$FIXTURE_RECEIPT_FILE")
     else
-        runArgs+=(--skip-verify --out "$prepareStateFile")
+        runArgs+=(--skip-verify)
     fi
     if [[ -n "${FSUSBLOG_SEALED_FIXTURE_EXECUTION_CLASS:-}" ]]; then
         runArgs+=(--execution-class "$FSUSBLOG_SEALED_FIXTURE_EXECUTION_CLASS")

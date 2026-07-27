@@ -43,6 +43,7 @@ public static class AuditRetentionCatalog
         AuditActionCatalog.MfaChallengeFailed,
         AuditActionCatalog.MfaChallengeLocked,
         AuditActionCatalog.ModerationDictionaryLoaded,
+        AuditActionCatalog.ModerationRegionPolicyLoaded,
         AuditActionCatalog.PublicAotCache,
         "account.delete",
         "admin.bootstrap.completed",

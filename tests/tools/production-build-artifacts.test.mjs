@@ -76,6 +76,20 @@ test('receipt binds source, toolchain, producer, input and every immutable artif
     assert.equal(verified.evidence.artifactBytes, Buffer.byteLength('server') + Buffer.byteLength('<main>ok</main>'));
 });
 
+test('receipt verification treats prefixed and unprefixed worktree fingerprints as the same SHA-256', t =>
+{
+    const value = fixture(t);
+    create(value);
+    const verified = verifyProductionBuildReceipt({
+        artifactRoot: value.artifactRoot,
+        expectedSourceState: {
+            ...sourceState,
+            worktreeFingerprint: `sha256:${sourceState.worktreeFingerprint}`
+        }
+    });
+    assert.equal(verified.evidence.status, 'success');
+});
+
 test('receipt verification preserves the filesystem order for mixed-case artifact paths', t =>
 {
     const value = fixture(t);

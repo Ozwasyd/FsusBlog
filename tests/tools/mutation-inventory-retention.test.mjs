@@ -1,9 +1,14 @@
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import test from 'node:test'
 
 import { createStrykerAuthority } from '../../tools/test/check-stryker-report.mjs'
 import { checkMutationInventory } from '../../tools/test/check-mutation-inventory.mjs'
+import { readReleaseReliabilityEvidenceBinding } from '../../tools/test/release-reliability-evidence-binding.mjs'
+import { sealDocument } from '../../tools/test/release-reliability-receipt.mjs'
 
 const testId = '00000000-0000-0000-0000-000000000001'
 const testName = 'FsusBlog.Server.Tests.Unit.AedsEncoderTests.Encode'
@@ -43,6 +48,63 @@ function policy(ids, changes = {}) {
 function check(entry, policyValue) { return checkMutationInventory({ ...entry, policy: policyValue }) }
 function policyFor(entry, changes = {}) { return policy(entry.authority.plannedMutantIds, changes) }
 
+function dynamicAuthorityFixture({ releaseReliability = true } = {}) {
+    const repositoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-mutation-binding-'))
+    const invocationId = 'mutation-binding-invocation'
+    const runId = 'mutation-binding-run'
+    const scenarioId = 'release-mutation-critical-slice'
+    const identityPath = `.tmp/release-reliability/${invocationId}/identity.json`
+    const identity = sealDocument({
+        schema: 'fsusblog.release-reliability-run-identity.v1',
+        status: 'complete',
+        invocationId,
+        runId,
+        sourceState: {
+            commit: 'c'.repeat(40),
+            worktreeFingerprint: `sha256:${'d'.repeat(64)}`,
+            dirtyPathCount: 0,
+            hashedPathCount: 1
+        },
+        build: { contentDigest: `sha256:${'e'.repeat(64)}` }
+    })
+    fs.mkdirSync(path.dirname(path.join(repositoryRoot, identityPath)), { recursive: true })
+    fs.writeFileSync(path.join(repositoryRoot, identityPath), JSON.stringify(identity))
+    const environment = {
+        FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID: invocationId,
+        FSUSBLOG_RELEASE_RELIABILITY_RUN_ID: runId,
+        FSUSBLOG_RELEASE_RELIABILITY_SCENARIO_ID: scenarioId,
+        FSUSBLOG_RELEASE_RELIABILITY_IDENTITY_PATH: identityPath,
+        FSUSBLOG_RELEASE_RELIABILITY_IDENTITY_DIGEST: identity.contentDigest
+    }
+    const binding = readReleaseReliabilityEvidenceBinding({ repositoryRoot, environment })
+    const authorityInputs = inputs([rawMutant('one')])
+    authorityInputs.repositoryRoot = repositoryRoot
+    authorityInputs.reportAbsolutePath = path.join(repositoryRoot, authorityInputs.reportPath)
+    authorityInputs.rawTrace = Buffer.from(
+        authorityInputs.rawTrace.toString('utf8').replace(
+            '/repo/.tmp/mutation/reports',
+            path.dirname(authorityInputs.reportAbsolutePath)
+        )
+    )
+    authorityInputs.releaseReliability = releaseReliability ? binding : null
+    for (const [relativePath, bytes] of [
+        [authorityInputs.reportPath, authorityInputs.rawReport],
+        [authorityInputs.tracePath, authorityInputs.rawTrace],
+        [authorityInputs.configPath, authorityInputs.rawConfig]
+    ]) {
+        const absolutePath = path.join(repositoryRoot, relativePath)
+        fs.mkdirSync(path.dirname(absolutePath), { recursive: true })
+        fs.writeFileSync(absolutePath, bytes)
+    }
+    const authority = createStrykerAuthority(authorityInputs)
+    return {
+        authority,
+        environment: releaseReliability ? environment : {},
+        policy: policy(authority.plannedMutantIds),
+        repositoryRoot
+    }
+}
+
 test('inventory floors, operator/source coverage, and status shares fail independently', () => {
     const single = authority([['one']])
     assert.throws(() => check(single, policy([...single.authority.plannedMutantIds, ...Array.from({ length: 99 }, (_, i) => `m${i}`)])), /planned mutant count/u)
@@ -77,4 +139,45 @@ test('complete authority bindings are required and determine candidate identity'
     }
     const changedPolicy = policyFor(entry, { maximumIgnoredShare: 0.1 })
     assert.notEqual(candidate, check(entry, changedPolicy).candidateIdentity)
+})
+
+test('inventory rehydrates release reliability binding from current environment and identity', (context) => {
+    const fixture = dynamicAuthorityFixture()
+    context.after(() => fs.rmSync(fixture.repositoryRoot, { recursive: true, force: true }))
+    assert.equal(checkMutationInventory(fixture).status, 'success')
+
+    const tampered = structuredClone(fixture.authority)
+    tampered.releaseReliability.invocationId = 'tampered-invocation'
+    assert.throws(
+        () => checkMutationInventory({ ...fixture, authority: tampered }),
+        /authority content mismatch/u
+    )
+    assert.throws(
+        () => checkMutationInventory({ ...fixture, environment: {} }),
+        /authority content mismatch/u
+    )
+    assert.throws(
+        () => checkMutationInventory({
+            ...fixture,
+            environment: {
+                ...fixture.environment,
+                FSUSBLOG_RELEASE_RELIABILITY_RUN_ID: 'tampered-run'
+            }
+        }),
+        /identity is incomplete or mismatched/u
+    )
+    assert.throws(
+        () => checkMutationInventory({
+            ...fixture,
+            environment: {
+                FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID:
+                    fixture.environment.FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID
+            }
+        }),
+        /binding environment is incomplete/u
+    )
+
+    const ordinary = dynamicAuthorityFixture({ releaseReliability: false })
+    context.after(() => fs.rmSync(ordinary.repositoryRoot, { recursive: true, force: true }))
+    assert.equal(checkMutationInventory(ordinary).status, 'success')
 })

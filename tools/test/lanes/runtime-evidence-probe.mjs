@@ -9,11 +9,15 @@ import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { validateMeasurementNoiseReceipt } from '../measurement-noise-envelope.mjs';
+import { bindReleaseReliabilityEvidence } from '../release-reliability-evidence-binding.mjs';
 
 import { fetchRouteSample, producerRouteIds, routeCatalogDigest, routeContract } from './runtime-http-route-contract.mjs';
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../../..'));
-loadBootstrapEnv(process.env.FSUSBLOG_TEST_NAMESPACE || 'local');
+if (!process.env.FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID)
+{
+    loadBootstrapEnv(process.env.FSUSBLOG_TEST_NAMESPACE || 'local');
+}
 if (!process.env.FSUSBLOG_BASE_URL && process.env.FSUSBLOG_DEBUG_BACKEND_URL)
 {
     process.env.FSUSBLOG_BASE_URL = process.env.FSUSBLOG_DEBUG_BACKEND_URL;
@@ -48,6 +52,8 @@ const safeBinaryRouteIds = producerRouteIds('runtime-load-soak');
 const safeBinaryPaths = safeBinaryRouteIds.map((routeId) => routeContract(routeId).pathTemplate);
 const perfPolicyRelativeFile = 'tests/performance/perf-policy.yml';
 const perfPolicyFile = path.join(root, perfPolicyRelativeFile);
+const releaseResourcePolicyRelativeFile = 'config/deployment/zero-downtime-resource-policy.json';
+const releaseResourcePolicyFile = path.join(root, releaseResourcePolicyRelativeFile);
 
 const backendQpsModes = [
     'view-count-flush',
@@ -168,6 +174,7 @@ export function readLoadProfilePolicy(profile)
     }
     return {
         file: perfPolicyRelativeFile,
+        fileDigest: `sha256:${createHash('sha256').update(policy.text).digest('hex')}`,
         version: policy.version,
         profileName: profile,
         declared,
@@ -270,6 +277,11 @@ function writeJson(file, value)
 {
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+function writeReleaseReliabilityAuthority(file, value)
+{
+    writeJson(file, bindReleaseReliabilityEvidence(value, { repositoryRoot: root }));
 }
 
 function readOptionalJson(file)
@@ -1029,9 +1041,9 @@ function processExists(pid)
         process.kill(pid, 0);
         return true;
     }
-    catch
+    catch (error)
     {
-        return false;
+        return error?.code === 'EPERM';
     }
 }
 
@@ -1041,9 +1053,12 @@ function parsePid(value)
     return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
-function discoverBackendProcessTarget()
+export function discoverBackendProcessTarget({
+    environment = process.env,
+    spawnProcess = spawnSync
+} = {})
 {
-    if (process.env.FSUSBLOG_RELEASE_RESOURCE_FORCE_UNAVAILABLE === '1')
+    if (environment.FSUSBLOG_RELEASE_RESOURCE_FORCE_UNAVAILABLE === '1')
     {
         return {
             status: 'missing',
@@ -1051,7 +1066,44 @@ function discoverBackendProcessTarget()
         };
     }
 
-    const explicitPid = parsePid(process.env.FSUSBLOG_RELEASE_RESOURCE_PID ?? process.env.FSUSBLOG_BACKEND_PID);
+    const containerId = String(environment.FSUSBLOG_RELEASE_RESOURCE_CONTAINER_ID ?? '').trim();
+    if (containerId)
+    {
+        const expectedHostPid = parsePid(environment.FSUSBLOG_RELEASE_RESOURCE_PID);
+        if (!/^[0-9a-f]{64}$/u.test(containerId) || expectedHostPid === null)
+        {
+            return { status: 'missing', reason: 'configured backend container identity is incomplete' };
+        }
+        const inspected = spawnProcess('docker', ['inspect', containerId], {
+            cwd: root,
+            encoding: 'utf8'
+        });
+        try
+        {
+            const [container] = JSON.parse(inspected.stdout || '[]');
+            if (inspected.status !== 0 || container?.Id !== containerId
+                || container?.State?.Running !== true || container.State.Pid !== expectedHostPid)
+            {
+                return {
+                    status: 'missing',
+                    reason: 'configured backend container is not running with the verified host PID'
+                };
+            }
+        }
+        catch
+        {
+            return { status: 'missing', reason: 'configured backend container inspection is unavailable' };
+        }
+        return {
+            status: 'ok',
+            kind: 'docker-container',
+            containerId,
+            pid: expectedHostPid,
+            source: 'verified-docker-container-env'
+        };
+    }
+
+    const explicitPid = parsePid(environment.FSUSBLOG_RELEASE_RESOURCE_PID ?? environment.FSUSBLOG_BACKEND_PID);
     if (explicitPid)
     {
         return processExists(explicitPid)
@@ -1074,7 +1126,7 @@ function discoverBackendProcessTarget()
         return { status: 'missing', reason: `baseUrl has no explicit port: ${baseUrl}` };
     }
 
-    const lsof = spawnSync('lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN', '-t'], {
+    const lsof = spawnProcess('lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN', '-t'], {
         cwd: root,
         encoding: 'utf8'
     });
@@ -1092,7 +1144,7 @@ function discoverBackendProcessTarget()
 
     if (process.platform === 'win32')
     {
-        const connection = spawnSync('powershell.exe', [
+        const connection = spawnProcess('powershell.exe', [
             '-NoProfile',
             '-NonInteractive',
             '-Command',
@@ -1207,6 +1259,51 @@ function readProcessOpenFileDescriptors(pid)
     };
 }
 
+function readContainerProcessMetric(target, metric, spawnProcess = spawnSync)
+{
+    const commands = {
+        rss: `awk '/^VmRSS:/ { print $2 * 1024; found=1 } END { if (!found) exit 1 }' /proc/1/status`,
+        openFileDescriptors: 'count=0; for descriptor in /proc/1/fd/*; do [ -e "$descriptor" ] || continue; count=$((count + 1)); done; printf "%s\\n" "$count"'
+    };
+    const observed = spawnProcess(
+        'docker',
+        ['exec', target.containerId, 'sh', '-c', commands[metric]],
+        { cwd: root, encoding: 'utf8', maxBuffer: 1024 * 1024 }
+    );
+    const value = Number.parseInt(String(observed.stdout ?? '').trim(), 10);
+    const valid = metric === 'rss'
+        ? Number.isFinite(value) && value > 0
+        : Number.isFinite(value) && value >= 0;
+    if (observed.status === 0 && valid)
+    {
+        return {
+            status: 'ok',
+            value,
+            source: metric === 'rss'
+                ? `docker:${target.containerId}:/proc/1/status`
+                : `docker:${target.containerId}:/proc/1/fd`
+        };
+    }
+    return {
+        status: 'missing',
+        reason: String(observed.stderr || observed.stdout || `container ${metric} metric is unavailable`).trim()
+    };
+}
+
+export function readReleaseResourceRssBytes(target, { spawnProcess = spawnSync } = {})
+{
+    return target?.kind === 'docker-container'
+        ? readContainerProcessMetric(target, 'rss', spawnProcess)
+        : readProcessRssBytes(target?.pid);
+}
+
+export function readReleaseResourceOpenFileDescriptors(target, { spawnProcess = spawnSync } = {})
+{
+    return target?.kind === 'docker-container'
+        ? readContainerProcessMetric(target, 'openFileDescriptors', spawnProcess)
+        : readProcessOpenFileDescriptors(target?.pid);
+}
+
 function releaseResourceModeConfig(mode)
 {
     if (mode === 'memory-leak')
@@ -1217,7 +1314,7 @@ function releaseResourceModeConfig(mode)
             unit: 'bytes',
             threshold: nonNegativeIntEnv('FSUSBLOG_RELEASE_RESOURCE_RSS_DELTA_THRESHOLD_BYTES', 64 * 1024 * 1024),
             thresholdKind: 'max_delta_bytes',
-            read: readProcessRssBytes
+            read: readReleaseResourceRssBytes
         };
     }
 
@@ -1229,7 +1326,7 @@ function releaseResourceModeConfig(mode)
             unit: 'count',
             threshold: nonNegativeIntEnv('FSUSBLOG_RELEASE_RESOURCE_FD_DELTA_THRESHOLD', 16),
             thresholdKind: 'max_delta_count',
-            read: readProcessOpenFileDescriptors
+            read: readReleaseResourceOpenFileDescriptors
         };
     }
 
@@ -1296,6 +1393,7 @@ function buildResourceMetric(config, target, start, end)
             status: passed ? 'ok' : 'failed',
             source: {
                 pid: target.pid,
+                ...(target.containerId ? { containerId: target.containerId } : {}),
                 discovery: target.source,
                 start: start.source,
                 end: end.source
@@ -1337,6 +1435,7 @@ function buildSoakResourceMetric(config, target, start, end)
             status: 'observed',
             source: {
                 pid: target.pid,
+                ...(target.containerId ? { containerId: target.containerId } : {}),
                 discovery: target.source,
                 start: start.source,
                 end: end.source
@@ -1349,8 +1448,8 @@ function buildSoakResourceMetric(config, target, start, end)
 function readSoakResourceReadings(target)
 {
     return {
-        backend_rss_bytes: readProcessRssBytes(target.pid),
-        backend_open_file_descriptors: readProcessOpenFileDescriptors(target.pid)
+        backend_rss_bytes: readReleaseResourceRssBytes(target),
+        backend_open_file_descriptors: readReleaseResourceOpenFileDescriptors(target)
     };
 }
 
@@ -4353,13 +4452,14 @@ async function loadProfile(profile, outFile)
     };
     const thresholdEvaluation = evaluateLoadProfileThresholds(metrics, policy.thresholds);
     const status = probe.status === 'ok' && thresholdEvaluation.status === 'pass' ? 'ok' : 'failed';
-    writeJson(outFile, {
+    writeReleaseReliabilityAuthority(outFile, {
         status,
         profile,
         profileName: profile,
         namespace,
         policy: {
             file: policy.file,
+            fileDigest: policy.fileDigest,
             version: policy.version
         },
         declared: policy.declared,
@@ -4370,6 +4470,9 @@ async function loadProfile(profile, outFile)
         overrideSources: policy.overrideSources,
         sampling: {
             totalRequests: iterations,
+            concurrency: policy.effective.concurrency,
+            rounds: policy.effective.rounds,
+            durationMs: policy.effective.durationMs,
             routeIds: safeBinaryRouteIds
         },
         performance_baseline: performanceBaselineMetadata(),
@@ -4393,6 +4496,11 @@ async function dataScale(tier, outFile)
         'scale-l-nightly': [100000, 1000000]
     };
     const [articles, comments] = expected[tier] ?? expected['scale-xs'];
+    const requests = positiveInt(
+        process.env.FSUSBLOG_DATA_SCALE_REQUESTS,
+        tier === 'scale-xs' ? 6 : 12
+    );
+    const concurrency = positiveInt(process.env.FSUSBLOG_DATA_SCALE_CONCURRENCY, 2);
     const seedFile = path.join(root, '.tmp', 'scale', tier, 'seed.json');
     const artifactEvidenceFile = process.env.FSUSBLOG_DATA_SCALE_ARTIFACT_EVIDENCE
         ? path.resolve(root, process.env.FSUSBLOG_DATA_SCALE_ARTIFACT_EVIDENCE)
@@ -4415,7 +4523,7 @@ async function dataScale(tier, outFile)
 
     if (!seedMatches)
     {
-        writeJson(outFile, {
+        writeReleaseReliabilityAuthority(outFile, {
             status: 'failed',
             tier,
             namespace,
@@ -4431,8 +4539,8 @@ async function dataScale(tier, outFile)
     try
     {
         probe = await runHttpProbe(['/api/binary/article/list/home/1/10.aeds', '/api/binary/category', '/api/binary/tag'], {
-            iterations: process.env.FSUSBLOG_DATA_SCALE_REQUESTS || (tier === 'scale-xs' ? 6 : 12),
-            concurrency: process.env.FSUSBLOG_DATA_SCALE_CONCURRENCY || 2
+            iterations: requests,
+            concurrency
         });
     }
     catch (probeError)
@@ -4444,7 +4552,7 @@ async function dataScale(tier, outFile)
             status: 'blocked',
             error: probeError instanceof Error ? probeError.message : String(probeError),
             sampleCount: 0,
-            concurrency: Number(process.env.FSUSBLOG_DATA_SCALE_CONCURRENCY || 2),
+            concurrency,
             durationMs: 0,
             bytes: 0,
             statusCounts: {},
@@ -4557,7 +4665,7 @@ async function dataScale(tier, outFile)
         : !artifactEvidenceReady
       ? artifactEvidence.reason ?? 'data-scale artifact rebuild hook missing'
       : null;
-    writeJson(outFile, {
+    writeReleaseReliabilityAuthority(outFile, {
         status: summaryStatus,
         tier,
         namespace,
@@ -4578,6 +4686,11 @@ async function dataScale(tier, outFile)
             articleTags: articleTagRows.available ? articleTagRows.value : null,
             rootComments: rootCommentRows.available ? rootCommentRows.value : null,
             nestedComments: nestedCommentRows.available ? nestedCommentRows.value : null
+        },
+        sampling: {
+            requests,
+            concurrency,
+            routeCount: 3
         },
         categoryDistribution: categoryDistribution.available
             ? { status: 'ok', totalArticles: categoryDistributionTotal, buckets: categoryDistribution.value }
@@ -4654,6 +4767,8 @@ async function dataScale(tier, outFile)
 async function releaseResourceBudget(mode, outFile)
 {
     const config = releaseResourceModeConfig(mode);
+    const requests = positiveInt(process.env.FSUSBLOG_RELEASE_RESOURCE_REQUESTS, 12);
+    const concurrency = positiveInt(process.env.FSUSBLOG_RELEASE_RESOURCE_CONCURRENCY, 2);
     const target = discoverBackendProcessTarget();
     const started = performance.now();
     const generatedAt = nowIso();
@@ -4661,16 +4776,16 @@ async function releaseResourceBudget(mode, outFile)
     if (target.status !== 'ok')
     {
         const summary = buildUnavailableResourceSummary(mode, target, generatedAt);
-        writeJson(outFile, summary);
+        writeReleaseReliabilityAuthority(outFile, summary);
         throw new Error(`release resource ${mode} metric unavailable: ${target.reason}`);
     }
 
-    const start = config.read(target.pid);
+    const start = config.read(target);
     const probe = await runHttpProbe(safeBinaryPaths, {
-        iterations: positiveInt(process.env.FSUSBLOG_RELEASE_RESOURCE_REQUESTS, 12),
-        concurrency: positiveInt(process.env.FSUSBLOG_RELEASE_RESOURCE_CONCURRENCY, 2)
+        iterations: requests,
+        concurrency
     });
-    const end = config.read(target.pid);
+    const end = config.read(target);
     const { metric, unavailable } = buildResourceMetric(config, target, start, end);
     const metrics = metric ? [metric] : [];
     const okMetricCount = metrics.filter((item) => item.status === 'ok').length;
@@ -4692,6 +4807,17 @@ async function releaseResourceBudget(mode, outFile)
         metrics,
         resourceMetrics: Object.fromEntries(metrics.map((item) => [item.name, item])),
         unavailableMetrics: unavailable,
+        sampling: {
+            requests,
+            concurrency,
+            routeCount: safeBinaryPaths.length
+        },
+        policy: {
+            file: releaseResourcePolicyRelativeFile,
+            fileDigest: `sha256:${createHash('sha256')
+                .update(fs.readFileSync(releaseResourcePolicyFile))
+                .digest('hex')}`
+        },
         thresholdEvaluation: {
             status: status === 'ok' ? 'pass' : 'fail',
             checks: metrics.map((item) => ({
@@ -4709,7 +4835,7 @@ async function releaseResourceBudget(mode, outFile)
         performance_baseline: performanceBaselineMetadata(),
         optional_deployment_layer: optionalDeploymentLayerMetadata()
     };
-    writeJson(outFile, summary);
+    writeReleaseReliabilityAuthority(outFile, summary);
     if (status !== 'ok')
     {
         throw new Error(`release resource ${mode} failed threshold evaluation`);
@@ -4811,7 +4937,7 @@ async function soak(mode, outFile)
             {
                 throw new Error(`long soak imported evidence has no valid measurement noise authority: ${error.message}`);
             }
-            writeJson(outFile, {
+            writeReleaseReliabilityAuthority(outFile, {
                 ...imported,
                 status: 'ok',
                 mode,
@@ -4827,7 +4953,7 @@ async function soak(mode, outFile)
             return;
         }
 
-        writeJson(outFile, {
+        writeReleaseReliabilityAuthority(outFile, {
             status: 'scheduled',
             mode,
             executionMode: 'scheduled',
@@ -4863,7 +4989,7 @@ async function soak(mode, outFile)
     const failedProbes = probes.filter((probe) => probe.status !== 'ok');
     const latencies = probes.filter((probe) => probe.status === 'ok')
         .flatMap((probe) => [probe.latencyMs.p50, probe.latencyMs.p95, probe.latencyMs.p99].filter((value) => value !== null));
-    writeJson(outFile, {
+    writeReleaseReliabilityAuthority(outFile, {
         status: failedProbes.length === 0 ? 'ok' : 'failed',
         mode,
         executionMode: 'runtime',
@@ -4871,6 +4997,12 @@ async function soak(mode, outFile)
         namespace,
         scenarios: ['mixed-public-read', 'cache-churn', 'public-binary-contract'],
         durationSeconds,
+        sampling: {
+            intervalMs,
+            requestsPerProbe: 4,
+            concurrency: 2,
+            probeCount: probes.length
+        },
         sampleCount: probes.reduce((total, probe) => total + probe.sampleCount, 0),
         resourceMetricSummary,
         resourceCurve: soakResourceCurve(resourceMetricSummary),

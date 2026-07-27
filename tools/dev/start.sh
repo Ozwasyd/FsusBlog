@@ -363,7 +363,7 @@ if [[ "$PROFILE_ID" == "none" || "$PROFILE_ID" == "demo-public" ]]; then
     DEV_FIXTURE_ARGS+=(--fixture-receipt "$FIXTURE_RECEIPT")
     FIXTURE_RECEIPT_PUBLISHED=1
 else
-    DEV_FIXTURE_ARGS+=(--skip-verify --out "$PREPARE_STATE")
+    DEV_FIXTURE_ARGS+=(--skip-verify)
 fi
 FSUSBLOG_BASE_URL="http://127.0.0.1:7568" \
     PLAYWRIGHT_BASE_URL="http://localhost:3000" \

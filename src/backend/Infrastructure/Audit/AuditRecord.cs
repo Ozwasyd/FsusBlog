@@ -107,6 +107,7 @@ public static class AuditActionCatalog
     public const string MfaChallengeFailed = "mfa_challenge_failed";
     public const string MfaChallengeLocked = "mfa_challenge_locked";
     public const string ModerationDictionaryLoaded = "dictionary_loaded";
+    public const string ModerationRegionPolicyLoaded = "region_policy_loaded";
     public const string PublicAotCache = "public_aot.cache";
 }
 

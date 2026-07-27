@@ -209,6 +209,12 @@ function validateSourceState(sourceState)
     return { commit, worktreeFingerprint };
 }
 
+function normalizedWorktreeFingerprint(value)
+{
+    const fingerprint = String(value ?? '').trim().replace(/^sha256:/u, '');
+    return /^[a-f0-9]{64}$/u.test(fingerprint) ? fingerprint : null;
+}
+
 function normalizeProducer(producer = {})
 {
     const runId = String(producer.runId ?? '').trim();
@@ -455,7 +461,8 @@ export function verifyProductionBuildReceipt({
         {
             errors.push('receipt commit SHA mismatch');
         }
-        if (receipt.sourceState?.worktreeFingerprint !== expectedSourceState.worktreeFingerprint)
+        if (normalizedWorktreeFingerprint(receipt.sourceState?.worktreeFingerprint)
+            !== normalizedWorktreeFingerprint(expectedSourceState.worktreeFingerprint))
         {
             errors.push('receipt worktree fingerprint mismatch');
         }

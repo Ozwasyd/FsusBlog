@@ -469,6 +469,124 @@ public sealed class PublicAotFileShellCacheTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void DeleteMetadata_CacheRootAbsent_IsIdempotentAndDoesNotCreateDirectories()
+    {
+        using var temp = new TempDirectory();
+        string cacheRoot = Path.Combine(temp.Root, "never-created-cache");
+        var journal = new PublicAotArtifactCommitJournal(cacheRoot, TimeProvider.System);
+
+        journal.DeleteMetadata("public:aot:v2:doc:2:article:never-created");
+
+        Assert.False(Directory.Exists(cacheRoot));
+    }
+
+    [Theory]
+    [InlineData(".transactions")]
+    [InlineData(".transaction-pointers")]
+    [InlineData(".transaction-stage")]
+    public void DeleteMetadata_OneMetadataParentAbsent_StillRemovesOtherFiles(string missingParent)
+    {
+        using var temp = new TempDirectory();
+        string cacheRoot = Path.Combine(temp.Root, "metadata-parent-missing");
+        const string CacheKey = "public:aot:v2:doc:2:article:metadata-parent";
+        var journal = new PublicAotArtifactCommitJournal(cacheRoot, TimeProvider.System);
+        string artifactId = journal.GetArtifactId(CacheKey);
+        string[] paths =
+        [
+            Path.Combine(cacheRoot, ".transactions", $"{artifactId}.json"),
+            Path.Combine(cacheRoot, ".transaction-pointers", $"{artifactId}.json"),
+            journal.GetStagingPath(artifactId)
+        ];
+        foreach (string path in paths.Where(path =>
+                     !string.Equals(
+                         Path.GetFileName(Path.GetDirectoryName(path)),
+                         missingParent,
+                         StringComparison.Ordinal)))
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, "metadata");
+        }
+
+        journal.DeleteMetadata(CacheKey);
+
+        Assert.False(Directory.Exists(Path.Combine(cacheRoot, missingParent)));
+        Assert.All(paths, path => Assert.False(File.Exists(path)));
+    }
+
+    [Fact]
+    public void DeleteMetadata_ExistingMetadataFiles_RemovesAllThree()
+    {
+        using var temp = new TempDirectory();
+        string cacheRoot = Path.Combine(temp.Root, "existing-metadata");
+        const string CacheKey = "public:aot:v2:doc:2:article:existing-metadata";
+        var journal = new PublicAotArtifactCommitJournal(cacheRoot, TimeProvider.System);
+        string artifactId = journal.GetArtifactId(CacheKey);
+        string[] paths =
+        [
+            Path.Combine(cacheRoot, ".transactions", $"{artifactId}.json"),
+            Path.Combine(cacheRoot, ".transaction-pointers", $"{artifactId}.json"),
+            journal.GetStagingPath(artifactId)
+        ];
+        foreach (string path in paths)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, "metadata");
+        }
+
+        journal.DeleteMetadata(CacheKey);
+
+        Assert.All(paths, path => Assert.False(File.Exists(path)));
+    }
+
+    [Fact]
+    public void DeleteMetadata_NonMissingFileSystemFailure_Propagates()
+    {
+        using var temp = new TempDirectory();
+        string cacheRoot = Path.Combine(temp.Root, "metadata-io-failure");
+        const string CacheKey = "public:aot:v2:doc:2:article:metadata-io-failure";
+        var journal = new PublicAotArtifactCommitJournal(cacheRoot, TimeProvider.System);
+        string transactionPath = Path.Combine(
+            cacheRoot,
+            ".transactions",
+            $"{journal.GetArtifactId(CacheKey)}.json");
+        Directory.CreateDirectory(transactionPath);
+
+        Assert.Throws<UnauthorizedAccessException>(() => journal.DeleteMetadata(CacheKey));
+    }
+
+    [Fact]
+    public async Task RemoveAsync_FreshCacheNeverSet_SucceedsWithoutCreatingCacheRoot()
+    {
+        using var fixture = new JournalFixture();
+        const string CacheKey = "public:aot:v2:doc:2:article:fresh-remove";
+
+        await fixture.RestartedCache.RemoveAsync(CacheKey);
+
+        Assert.False(Directory.Exists(fixture.CacheRoot));
+    }
+
+    [Fact]
+    public void RemoteKeyAndStaleRegistryPrefix_NeverCreatedLocally_Succeed()
+    {
+        using var fixture = new JournalFixture();
+        const string CacheKey = "public:aot:v2:doc:2:article:remote-only";
+        const string Prefix = "public:aot:v2:doc:2:article:";
+        ConfigureSetScan(
+            fixture.Database,
+            PublicAotCacheRegistry.BuildRouteRegistryKey(PublicPageId.ArticleDetail, "article"),
+            CacheKey);
+
+        PublicAotBatchInvalidationStats keyStats = fixture.RestartedCache.ApplyRemoteInvalidationForTests(
+            PublicAotInvalidationMessage.Key(CacheKey));
+        PublicAotBatchInvalidationStats prefixStats = fixture.RestartedCache.ApplyRemoteInvalidationForTests(
+            PublicAotInvalidationMessage.Prefix(Prefix));
+
+        Assert.Equal(1, keyStats.InvalidatedKeys);
+        Assert.Equal(1, prefixStats.InvalidatedKeys);
+        Assert.False(Directory.Exists(fixture.CacheRoot));
+    }
+
+    [Fact]
     public async Task Lookup_JournalMissingBareFile_IsQuarantinedAndNeverRead()
     {
         using var fixture = new JournalFixture();

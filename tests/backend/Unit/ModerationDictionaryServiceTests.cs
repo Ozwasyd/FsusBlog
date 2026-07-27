@@ -54,6 +54,9 @@ public sealed class ModerationDictionaryServiceTests
         IReadOnlyList<AuditRecord> auditRecords = Drain(channel);
         Assert.Contains(auditRecords, static item => item.EventInfo == "dictionary_loaded");
         Assert.Contains(auditRecords, static item => item.EventInfo == "region_policy_loaded");
+        Assert.Contains(auditRecords, static item => item.Action == AuditActionCatalog.ModerationRegionPolicyLoaded);
+        Assert.All(auditRecords, static item =>
+            Assert.Equal(item.Action, AuditRetentionCatalog.GetRequired(item.Action).Action));
         Assert.DoesNotContain(auditRecords, static item => item.ContextJson?.Contains("\"value\"", StringComparison.Ordinal) is true);
     }
 

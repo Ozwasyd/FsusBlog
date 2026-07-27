@@ -204,6 +204,173 @@ function digest(value)
     return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 
+function scanSql(source, start, visit)
+{
+    let depth = 0;
+    let quote = null;
+    for (let index = start; index < source.length; index += 1)
+    {
+        const character = source[index];
+        const next = source[index + 1];
+        if (quote === "'")
+        {
+            if (character === "'" && next === "'")
+            {
+                index += 1;
+            }
+            else if (character === "'")
+            {
+                quote = null;
+            }
+            continue;
+        }
+        if (quote === '"')
+        {
+            if (character === '"' && next === '"')
+            {
+                index += 1;
+            }
+            else if (character === '"')
+            {
+                quote = null;
+            }
+            continue;
+        }
+        if (quote === '--')
+        {
+            if (character === '\n')
+            {
+                quote = null;
+            }
+            continue;
+        }
+        if (quote === '/*')
+        {
+            if (character === '*' && next === '/')
+            {
+                quote = null;
+                index += 1;
+            }
+            continue;
+        }
+        if (character === "'" || character === '"')
+        {
+            quote = character;
+            continue;
+        }
+        if (character === '-' && next === '-')
+        {
+            quote = '--';
+            index += 1;
+            continue;
+        }
+        if (character === '/' && next === '*')
+        {
+            quote = '/*';
+            index += 1;
+            continue;
+        }
+        if (character === '(')
+        {
+            depth += 1;
+        }
+        else if (character === ')')
+        {
+            depth -= 1;
+        }
+        const result = visit({ character, depth, index, source });
+        if (result !== undefined)
+        {
+            return result;
+        }
+    }
+    throw new Error('SQL list did not terminate');
+}
+
+function matchingParenthesis(source, opening)
+{
+    return scanSql(source, opening + 1, ({ character, depth, index }) =>
+    {
+        if (character === ')' && depth === -1)
+        {
+            return index;
+        }
+        return undefined;
+    });
+}
+
+function splitTopLevelSqlList(source)
+{
+    const items = [];
+    let itemStart = 0;
+    scanSql(`${source},`, 0, ({ character, depth, index }) =>
+    {
+        if (character === ',' && depth === 0)
+        {
+            items.push(source.slice(itemStart, index).trim());
+            itemStart = index + 1;
+            if (index === source.length)
+            {
+                return true;
+            }
+        }
+        return undefined;
+    });
+    assert.ok(items.every(Boolean), 'SQL list items must be non-empty');
+    return items;
+}
+
+function findTopLevelKeyword(source, start, keyword)
+{
+    const upperKeyword = keyword.toUpperCase();
+    return scanSql(source, start, ({ depth, index }) =>
+    {
+        if (depth !== 0 || source.slice(index, index + keyword.length).toUpperCase() !== upperKeyword)
+        {
+            return undefined;
+        }
+        const before = source[index - 1] ?? ' ';
+        const after = source[index + keyword.length] ?? ' ';
+        return /[A-Za-z0-9_]/u.test(before) || /[A-Za-z0-9_]/u.test(after)
+            ? undefined
+            : index;
+    });
+}
+
+function commentInsertContracts(source)
+{
+    const contracts = [];
+    const insertPattern = /\bINSERT\s+INTO\s+comment\s*\(/giu;
+    for (const match of source.matchAll(insertPattern))
+    {
+        const opening = match.index + match[0].lastIndexOf('(');
+        const closing = matchingParenthesis(source, opening);
+        const select = findTopLevelKeyword(source, closing + 1, 'SELECT');
+        const from = findTopLevelKeyword(source, select + 'SELECT'.length, 'FROM');
+        contracts.push({
+            columns: splitTopLevelSqlList(source.slice(opening + 1, closing))
+                .map((column) => column.toLowerCase()),
+            values: splitTopLevelSqlList(source.slice(select + 'SELECT'.length, from))
+        });
+    }
+    return contracts;
+}
+
+test('data-scale comment INSERT column and SELECT lists have unique equal arity', () =>
+{
+    const contracts = commentInsertContracts(readFileSync(seedScript, 'utf8'));
+    assert.equal(contracts.length, 2, 'expected root and nested comment INSERT statements');
+    for (const contract of contracts)
+    {
+        assert.equal(new Set(contract.columns).size, contract.columns.length);
+        assert.equal(contract.values.length, contract.columns.length);
+        assert.equal(
+            contract.columns.filter((column) => column === 'current_version').length,
+            1
+        );
+    }
+});
+
 test('real data-scale PostgreSQL seed replays identical business state', {
     skip: enabled ? false : 'set FSUSBLOG_RUN_DATA_SCALE_TEMPORAL_INTEGRATION=1',
     timeout: 300_000

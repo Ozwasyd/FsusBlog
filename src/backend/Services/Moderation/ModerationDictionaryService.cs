@@ -380,7 +380,7 @@ public sealed class ModerationDictionaryService(
         foreach (ModerationRegionPolicyDefinition policy in snapshot.RegionPolicies.Values)
         {
             WriteAudit(
-                "region_policy_loaded",
+                AuditActionCatalog.ModerationRegionPolicyLoaded,
                 AuditOutcomeCatalog.Success,
                 AuditSeverityCatalog.Info,
                 "moderation_region_policy",

@@ -414,9 +414,23 @@ internal sealed class PublicAotArtifactCommitJournal
     public void DeleteMetadata(string cacheKey)
     {
         string artifactId = GetArtifactId(cacheKey);
-        File.Delete(GetTransactionPath(artifactId));
-        File.Delete(GetPointerPath(artifactId));
-        File.Delete(GetStagingPath(artifactId));
+        DeleteMetadataFile(GetTransactionPath(artifactId));
+        DeleteMetadataFile(GetPointerPath(artifactId));
+        DeleteMetadataFile(GetStagingPath(artifactId));
+    }
+
+    private static void DeleteMetadataFile(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (FileNotFoundException)
+        {
+        }
+        catch (DirectoryNotFoundException)
+        {
+        }
     }
 
     public string ResolveRelativePath(string relativePath)

@@ -15,6 +15,10 @@ case "$MODE" in
         ;;
 esac
 
+# shellcheck source=_release-reliability-lifecycle.sh
+source "$ROOT_DIR/tools/test/lanes/_release-reliability-lifecycle.sh"
+InitializeReleaseReliabilityLifecycle
+
 RELEASE_SUMMARY="$RELEASE_EVIDENCE_DIR/$MODE-summary.json"
 rm -f "$OUT_DIR/$MODE.json" "$RELEASE_SUMMARY"
 

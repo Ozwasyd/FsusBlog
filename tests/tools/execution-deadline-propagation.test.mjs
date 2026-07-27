@@ -209,17 +209,20 @@ test('frontend build caps every stage by the remaining shared step deadline', ()
     'remainingBuildDeadlineMs()',
     'const timeoutMs = stageTimeoutMs()',
     'Math.min(configuredTimeoutMs, remaining)',
+    'resolveMachineExecutionTimeoutMs',
+    'actualCapacity = resolveManifestLiveCapacity',
     "detached: process.platform !== 'win32'",
     "process.kill(-child.pid, signal)",
     "signalProcessGroup('SIGTERM')",
     "signalProcessGroup('SIGKILL')",
     "child.once('close'",
-    'source=${inheritedDeadlineMs === null ? \'host-capacity\' : \'step-grant\'}'
+    'source=${inheritedDeadlineMs === null ? \'direct-grant-capacity\' : \'step-grant\'}'
   ]) assert.ok(source.includes(token), `missing frontend deadline token: ${token}`)
 
   assert.match(source, /os\.availableParallelism\?\.\(\) \?\? os\.cpus\(\)\.length/u)
   assert.match(source, /os\.freemem\(\) \/ \(1024 \*\* 3\)/u)
-  assert.match(source, /productionProfile\.budgetMs \* Math\.max/u)
+  assert.match(source, /resolveFrontendBuildDeadline\(\{[\s\S]*?baseTimeoutMs: productionProfile\.budgetMs,[\s\S]*?workload: directBuildBundle/u)
+  assert.match(source, /actualCapacity = resolveManifestLiveCapacity\(\{[\s\S]*?workload: 'scheduler-admitted'[\s\S]*?resolveMachineExecutionTimeoutMs\(\{[\s\S]*?actualCapacity/u)
   assert.doesNotMatch(source, /os\.totalmem/u)
-  assert.doesNotMatch(source, /directBuildDeadlineMs = Math\.ceil\(\d/u)
+  assert.doesNotMatch(source, /directBuildBundle\.cpuWeight \/ Math\.max\(1, hostCpu\)/u)
 })

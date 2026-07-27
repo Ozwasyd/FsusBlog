@@ -1,36 +1,39 @@
 import { createHash } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 
-const canonicalScenarioIds = [
-    'release-soak-min',
-    'release-load-peak',
-    'release-load-burst',
-    'release-data-scale-m',
-    'release-mutation-critical-slice',
-    'release-memory-leak-budget',
-    'release-open-handle-budget'
-];
+import {
+    collectProductionToolchain,
+    verifyProductionBuildReceipt
+} from '../ci/production-build-artifacts.mjs';
+import { snapshotGitWorktree } from '../test-matrix/scheduler.mjs';
 
-function stableValue(value)
+const digestPattern = /^sha256:[0-9a-f]{64}$/u;
+const isoTimePattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u;
+const lifecyclePhases = ['precondition', 'reset', 'measurement', 'postcondition'];
+const productionBuildToolchainKeys = ['dotnet', 'emsdk', 'node', 'npm', 'playwright', 'vite', 'vitest'];
+const auditRetentionPolicyPath = 'src/backend/Infrastructure/Audit/AuditRetentionCatalog.cs';
+
+function canonicalize(value)
 {
     if (Array.isArray(value))
     {
-        return value.map(stableValue);
+        return value.map(canonicalize);
     }
     if (value !== null && typeof value === 'object')
     {
-        return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stableValue(value[key])]));
+        return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalize(value[key])]));
     }
     return value;
 }
 
 export function digestValue(value)
 {
-    return `sha256:${createHash('sha256').update(JSON.stringify(stableValue(value))).digest('hex')}`;
+    const { contentDigest: _ignored, ...content } = value;
+    return `sha256:${createHash('sha256').update(JSON.stringify(canonicalize(content))).digest('hex')}`;
 }
 
 export function digestFile(file)
@@ -38,236 +41,1067 @@ export function digestFile(file)
     return `sha256:${createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`;
 }
 
-function sourceIdentity(repositoryRoot)
+export function sealDocument(value)
 {
-    const commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repositoryRoot, encoding: 'utf8' }).trim();
-    const worktree = execFileSync('git', ['status', '--porcelain=v1', '--untracked-files=all'], {
-        cwd: repositoryRoot,
-        encoding: 'utf8'
-    });
+    const sealed = { ...value, contentDigest: null };
+    sealed.contentDigest = digestValue(sealed);
+    return sealed;
+}
+
+function normalizedRelativePath(value, label)
+{
+    const raw = String(value ?? '').trim().replaceAll('\\', '/');
+    const normalized = raw.replace(/^\.\//u, '');
+    const segments = normalized.split('/');
+    if (!normalized || path.posix.isAbsolute(normalized)
+        || path.posix.normalize(normalized) !== normalized
+        || segments.some((segment) => segment === '' || segment === '.' || segment === '..'))
+    {
+        throw new Error(`${label} path is unsafe: ${normalized || '<empty>'}`);
+    }
+    return normalized;
+}
+
+function resolveApprovedPath(repositoryRoot, value, label)
+{
+    const relative = normalizedRelativePath(value, label);
+    const absolute = path.resolve(repositoryRoot, relative);
+    if (absolute === repositoryRoot || !absolute.startsWith(`${repositoryRoot}${path.sep}`))
+    {
+        throw new Error(`${label} path escapes repository root: ${relative}`);
+    }
+    let cursor = absolute;
+    while (cursor !== repositoryRoot)
+    {
+        if (fs.existsSync(cursor) && fs.lstatSync(cursor).isSymbolicLink())
+        {
+            throw new Error(`${label} path contains a symlink: ${relative}`);
+        }
+        cursor = path.dirname(cursor);
+    }
+    return { absolute, relative };
+}
+
+function regularFileBinding(repositoryRoot, configuredPath, label)
+{
+    const resolved = resolveApprovedPath(repositoryRoot, configuredPath, label);
+    if (!fs.existsSync(resolved.absolute) || !fs.lstatSync(resolved.absolute).isFile())
+    {
+        throw new Error(`${label} file is unavailable: ${resolved.relative}`);
+    }
     return {
-        commit,
-        worktreeFingerprint: digestValue({ commit, worktree })
+        path: resolved.relative,
+        fileDigest: digestFile(resolved.absolute)
     };
 }
 
-function requiredDigest(value)
+function requiredEnvironmentPath(repositoryRoot, env, variable, label, errors)
 {
-    return typeof value === 'string' && /^sha256:[0-9a-f]{64}$/u.test(value);
-}
-
-function tryReadBuildReceipt(repositoryRoot, env)
-{
-    const configured = String(env.FSUSBLOG_RELEASE_BUILD_RECEIPT ?? '').trim();
+    const configured = String(env[variable] ?? '').trim();
     if (!configured)
     {
-        return { status: 'unavailable', reason: 'FSUSBLOG_RELEASE_BUILD_RECEIPT is required' };
+        errors.push(`${variable} is required`);
+        return { status: 'unavailable', path: null, fileDigest: null };
     }
-    const receiptPath = path.resolve(repositoryRoot, configured);
-    if (!fs.existsSync(receiptPath) || !fs.statSync(receiptPath).isFile())
+    try
     {
-        return { status: 'unavailable', reason: `build receipt is unavailable: ${configured}` };
+        return { status: 'complete', ...regularFileBinding(repositoryRoot, configured, label) };
+    }
+    catch (error)
+    {
+        errors.push(error instanceof Error ? error.message : String(error));
+        return { status: 'unavailable', path: configured, fileDigest: null };
+    }
+}
+
+function readJson(file, label)
+{
+    try
+    {
+        return JSON.parse(fs.readFileSync(file, 'utf8'));
+    }
+    catch (error)
+    {
+        throw new Error(`${label} is not valid JSON`, { cause: error });
+    }
+}
+
+function normalizeFingerprint(value)
+{
+    const normalized = String(value ?? '').replace(/^sha256:/u, '');
+    return /^[0-9a-f]{64}$/u.test(normalized) ? `sha256:${normalized}` : null;
+}
+
+function sameSourceState(left, right)
+{
+    return left?.commit === right?.commit
+        && normalizeFingerprint(left?.worktreeFingerprint) === normalizeFingerprint(right?.worktreeFingerprint);
+}
+
+function inspectRuntimeImage(imageReference, inspectImage, sourceState)
+{
+    if (!imageReference)
+    {
+        throw new Error('FSUSBLOG_RELEASE_RUNTIME_IMAGE is required; a caller-supplied digest is not authority');
+    }
+    const inspection = inspectImage(imageReference);
+    const labels = inspection?.Config?.Labels ?? {};
+    const revision = String(labels['org.opencontainers.image.revision'] ?? '');
+    const fsusuiSource = String(labels['io.fsusblog.build.fsusui-source'] ?? '');
+    const fsusuiCommit = String(labels['io.fsusblog.build.fsusui-commit'] ?? '');
+    if (revision !== sourceState.commit
+        || !['published-package', 'local-git-alias'].includes(fsusuiSource)
+        || !/^[0-9a-f]{40}$/u.test(fsusuiCommit)
+        || fsusuiSource === 'local-git-alias' && fsusuiCommit === '0'.repeat(40))
+    {
+        throw new Error('runtime image lacks source-bound revision and explicit FsusUI producer labels');
+    }
+    const repositoryDigests = Array.isArray(inspection?.RepoDigests) ? inspection.RepoDigests : [];
+    const selected = repositoryDigests.find((value) => /@sha256:[0-9a-f]{64}$/u.test(String(value)));
+    if (selected)
+    {
+        const imageDigest = selected.slice(selected.lastIndexOf('@') + 1);
+        return {
+            kind: 'registry-repository-digest',
+            reference: imageReference,
+            repositoryDigest: selected,
+            imageDigest,
+            revision,
+            fsusuiSource,
+            fsusuiCommit
+        };
+    }
+    const imageDigest = String(inspection?.Id ?? '');
+    const layers = inspection?.RootFS?.Layers;
+    if (!digestPattern.test(imageDigest) || revision !== sourceState.commit
+        || !Array.isArray(layers) || layers.length === 0 || layers.some((layer) => !digestPattern.test(layer)))
+    {
+        throw new Error('local runtime image lacks a source-bound config digest, revision label, or inspected layers');
     }
     return {
-        status: 'complete',
-        path: path.relative(repositoryRoot, receiptPath).replaceAll(path.sep, '/'),
-        digest: digestFile(receiptPath)
+        kind: 'local-docker-image-id',
+        reference: imageReference,
+        repositoryDigest: null,
+        imageDigest,
+        revision,
+        fsusuiSource,
+        fsusuiCommit,
+        layers,
+        layersDigest: digestValue({ layers })
     };
 }
 
-function collectMachineIdentity()
+function defaultImageInspector(imageReference)
+{
+    const result = spawnSync('docker', ['image', 'inspect', imageReference], { encoding: 'utf8' });
+    if (result.status !== 0)
+    {
+        throw new Error(`docker image inspect failed for ${imageReference}: ${String(result.stderr ?? '').trim() || 'unavailable'}`);
+    }
+    const documents = JSON.parse(String(result.stdout));
+    if (!Array.isArray(documents) || documents.length !== 1)
+    {
+        throw new Error('docker image inspect did not return exactly one image');
+    }
+    return documents[0];
+}
+
+function collectBuildIdentity(repositoryRoot, env, sourceState, runId, errors, inspectImage)
+{
+    if (env.FSUSBLOG_RELEASE_BUILD_RECEIPT || env.FSUSBLOG_RELEASE_IMAGE_DIGEST)
+    {
+        errors.push('FSUSBLOG_RELEASE_BUILD_RECEIPT and FSUSBLOG_RELEASE_IMAGE_DIGEST are forbidden; use the production-build root and inspected runtime image');
+    }
+    const configuredRoot = String(env.FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT ?? '').trim();
+    const imageReference = String(env.FSUSBLOG_RELEASE_RUNTIME_IMAGE ?? '').trim();
+    if (!configuredRoot)
+    {
+        errors.push('FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT is required');
+    }
+    try
+    {
+        const root = resolveApprovedPath(repositoryRoot, configuredRoot, 'production build artifact root');
+        if (!fs.existsSync(root.absolute) || !fs.lstatSync(root.absolute).isDirectory()) throw new Error('production build artifact root is unavailable');
+        const verification = verifyProductionBuildReceipt({
+            artifactRoot: root.absolute,
+            expectedSourceState: sourceState,
+            expectedProducer: { runId, job: 'production-build-artifacts' },
+            expectedToolchain: collectProductionToolchain({ root: repositoryRoot }),
+            expectedInputRoot: repositoryRoot,
+            expectedReceiptDigest: String(env.FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST ?? '').trim() || null
+        });
+        const binding = regularFileBinding(repositoryRoot, `${root.relative}/receipt.json`, 'build receipt');
+        const image = inspectRuntimeImage(imageReference, inspectImage, sourceState);
+        const receipt = verification.receipt;
+        return {
+            status: 'complete',
+            ...binding,
+            contentDigest: receipt.contentDigest,
+            imageDigest: image.imageDigest,
+            image,
+            sourceState: receipt.sourceState,
+            producerRunId: receipt.producer.runId,
+            toolchain: receipt.toolchain
+        };
+    }
+    catch (error)
+    {
+        errors.push(error instanceof Error ? error.message : String(error));
+        return {
+            status: 'unavailable',
+            path: configuredRoot || null,
+            fileDigest: null,
+            contentDigest: null,
+            imageDigest: null,
+            sourceState: null,
+            producerRunId: null
+        };
+    }
+}
+
+function collectFixtureIdentity(repositoryRoot, env, runId, imageDigest, errors)
+{
+    if (!String(env.FSUSBLOG_RELEASE_FIXTURE_AUTHORITY ?? '').trim())
+    {
+        errors.push('FSUSBLOG_RELEASE_FIXTURE_AUTHORITY is required');
+    }
+    const configuredRoot = String(env.FSUSBLOG_TEST_FIXTURE_ROOT ?? '').trim();
+    const namespace = String(env.FSUSBLOG_TEST_NAMESPACE ?? '').trim();
+    let rootBinding = { status: 'unavailable', path: configuredRoot || null };
+    if (!configuredRoot)
+    {
+        errors.push('FSUSBLOG_TEST_FIXTURE_ROOT is required');
+    }
+    else
+    {
+        try
+        {
+            const resolved = resolveApprovedPath(repositoryRoot, configuredRoot, 'fixture root');
+            if (!fs.existsSync(resolved.absolute) || !fs.lstatSync(resolved.absolute).isDirectory())
+            {
+                throw new Error(`fixture root is unavailable: ${resolved.relative}`);
+            }
+            rootBinding = { status: 'complete', path: resolved.relative };
+        }
+        catch (error)
+        {
+            errors.push(error instanceof Error ? error.message : String(error));
+        }
+    }
+    if (!namespace)
+    {
+        errors.push('FSUSBLOG_TEST_NAMESPACE is required');
+    }
+    const config = requiredEnvironmentPath(repositoryRoot, env, 'FSUSBLOG_TEST_FIXTURE_CONFIG', 'fixture config', errors);
+    const schema = requiredEnvironmentPath(repositoryRoot, env, 'FSUSBLOG_TEST_FIXTURE_SCHEMA', 'fixture schema', errors);
+    const seed = requiredEnvironmentPath(repositoryRoot, env, 'FSUSBLOG_TEST_FIXTURE_SEED', 'fixture seed', errors);
+    const auditRetentionPolicy = requiredEnvironmentPath(
+        repositoryRoot,
+        env,
+        'FSUSBLOG_TEST_FIXTURE_AUDIT_RETENTION_POLICY',
+        'fixture audit retention policy',
+        errors
+    );
+    if (auditRetentionPolicy.path !== auditRetentionPolicyPath)
+    {
+        auditRetentionPolicy.status = 'unavailable';
+        errors.push('fixture audit retention policy must use the canonical machine-readable catalog');
+    }
+    const topology = requiredEnvironmentPath(repositoryRoot, {
+        FSUSBLOG_RELEASE_FIXTURE_AUTHORITY: env.FSUSBLOG_RELEASE_FIXTURE_AUTHORITY
+    }, 'FSUSBLOG_RELEASE_FIXTURE_AUTHORITY', 'runtime topology authority', errors);
+    if (topology.status === 'complete')
+    {
+        try
+        {
+            const document = readJson(
+                resolveApprovedPath(repositoryRoot, topology.path, 'runtime topology').absolute,
+                'runtime topology'
+            );
+            if (document.schema !== 'fsusblog.release-reliability-runtime-topology.v1'
+                || document.status !== 'complete' || document.runId !== runId
+                || document.namespace !== namespace
+                || document.root !== rootBinding.path
+                || JSON.stringify(document.config) !== JSON.stringify({ path: config.path, fileDigest: config.fileDigest })
+                || JSON.stringify(document.schemaFile) !== JSON.stringify({ path: schema.path, fileDigest: schema.fileDigest })
+                || JSON.stringify(document.seed) !== JSON.stringify({ path: seed.path, fileDigest: seed.fileDigest })
+                || JSON.stringify(document.auditRetentionPolicy) !== JSON.stringify({
+                    path: auditRetentionPolicy.path,
+                    fileDigest: auditRetentionPolicy.fileDigest
+                })
+                || !document.runtime?.profile
+                || !digestPattern.test(document.runtime?.imageDigest)
+                || document.runtime.imageDigest !== imageDigest
+                || !/^[0-9a-f]{40}$/u.test(document.runtime?.sourceState?.commit ?? '')
+                || !digestPattern.test(normalizeFingerprint(document.runtime?.sourceState?.worktreeFingerprint))
+                || !document.runtime?.backendContainer?.id
+                || !Number.isInteger(document.runtime?.backendContainer?.hostPid)
+                || document.runtime.backendContainer.hostPid < 2
+                || !Array.isArray(document.runtime?.backendContainer?.environment)
+                || !document.runtime?.backendContainer?.path
+                || !Array.isArray(document.runtime?.backendContainer?.args)
+                || !document.runtime?.backendContainer?.startedAt
+                || document.runtime?.process?.pid !== 1
+                || !document.postgres?.instance || !document.postgres?.version
+                || !digestPattern.test(document.postgres?.configDigest)
+                || !document.redis?.instance || !document.redis?.version
+                || !digestPattern.test(document.redis?.configDigest)
+                || document.contentDigest !== digestValue(document))
+            {
+                throw new Error('runtime topology schema/status/run/namespace/runtime identities are incomplete');
+            }
+            topology.content = {
+                schema: document.schema,
+                contentDigest: digestValue(document),
+                postgres: document.postgres,
+                redis: document.redis,
+                auditRetentionPolicy: document.auditRetentionPolicy,
+                runtime: document.runtime
+            };
+        }
+        catch (error)
+        {
+            topology.status = 'unavailable';
+            errors.push(error instanceof Error ? error.message : String(error));
+        }
+    }
+    const complete = rootBinding.status === 'complete' && namespace
+        && [config, schema, seed, auditRetentionPolicy, topology].every(
+            (binding) => binding.status === 'complete'
+        );
+    return {
+        status: complete ? 'complete' : 'unavailable',
+        root: rootBinding.path,
+        namespace: namespace || null,
+        config,
+        schema,
+        seed,
+        auditRetentionPolicy,
+        topology
+    };
+}
+
+function collectCgroupIdentity()
+{
+    if (process.platform !== 'linux')
+    {
+        return { status: 'unavailable', version: null, limits: {} };
+    }
+    const membership = fs.readFileSync('/proc/self/cgroup', 'utf8')
+        .split(/\r?\n/u)
+        .map((line) => line.match(/^0::(\/.*)$/u)?.[1] ?? null)
+        .find(Boolean);
+    if (!membership || membership.includes('..'))
+    {
+        return { status: 'unavailable', version: 'v2', path: null, limits: {} };
+    }
+    const cgroupRoot = path.join('/sys/fs/cgroup', membership.replace(/^\//u, ''));
+    const files = ['cpu.max', 'cpuset.cpus.effective', 'memory.max', 'pids.max'];
+    const limits = {};
+    for (const name of files)
+    {
+        let cursor = cgroupRoot;
+        let file = null;
+        while (cursor.startsWith('/sys/fs/cgroup'))
+        {
+            const candidate = path.join(cursor, name);
+            if (fs.existsSync(candidate) && fs.lstatSync(candidate).isFile())
+            {
+                file = candidate;
+                break;
+            }
+            if (cursor === '/sys/fs/cgroup')
+            {
+                break;
+            }
+            cursor = path.dirname(cursor);
+        }
+        if (file === null)
+        {
+            return { status: 'unavailable', version: 'v2', path: membership, limits };
+        }
+        limits[name] = {
+            path: path.relative('/sys/fs/cgroup', file).replaceAll(path.sep, '/'),
+            value: fs.readFileSync(file, 'utf8').trim()
+        };
+    }
+    return { status: 'complete', version: 'v2', path: membership, limits };
+}
+
+function resolveToolExecutable(tool, environment = process.env)
+{
+    const searchPath = environment.PATH ?? process.env.PATH ?? '';
+    for (const directory of String(searchPath).split(path.delimiter).filter(Boolean))
+    {
+        const candidate = path.resolve(directory, tool);
+        try
+        {
+            fs.accessSync(candidate, fs.constants.X_OK);
+            if (fs.lstatSync(candidate).isFile() || fs.lstatSync(candidate).isSymbolicLink())
+            {
+                return fs.realpathSync(candidate);
+            }
+        }
+        catch
+        {
+            // Continue to the next explicit PATH entry.
+        }
+    }
+    return null;
+}
+
+function collectTool(tool, environment = process.env)
+{
+    if (tool === 'node')
+    {
+        return {
+            id: tool,
+            status: 'complete',
+            executable: fs.realpathSync(process.execPath),
+            version: process.version
+        };
+    }
+    const executable = resolveToolExecutable(tool, environment);
+    if (executable === null)
+    {
+        return { id: tool, status: 'unavailable', executable: null, version: null };
+    }
+    if (tool === 'dotnet')
+    {
+        const sdk = spawnSync(executable, ['--version'], { encoding: 'utf8' });
+        const runtimes = spawnSync(executable, ['--list-runtimes'], { encoding: 'utf8' });
+        const sdkVersion = String(sdk.stdout ?? '').trim();
+        const runtimeVersions = String(runtimes.stdout ?? '').split(/\r?\n/u).map((line) => line.trim()).filter(Boolean);
+        return {
+            id: tool,
+            status: sdk.status === 0 && runtimes.status === 0 && sdkVersion && runtimeVersions.length > 0
+                ? 'complete'
+                : 'unavailable',
+            executable,
+            sdkVersion: sdkVersion || null,
+            runtimeVersions
+        };
+    }
+    if (tool === 'lsof')
+    {
+        const result = spawnSync(executable, ['-v'], { encoding: 'utf8' });
+        const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
+        const version = /^\s*revision:\s*(\S+)\s*$/imu.exec(output)?.[1] ?? null;
+        return {
+            id: tool,
+            status: result.status === 0 && version ? 'complete' : 'unavailable',
+            executable,
+            version
+        };
+    }
+    const result = spawnSync(executable, ['--version'], { encoding: 'utf8' });
+    const version = `${result.stdout ?? ''}\n${result.stderr ?? ''}`.split(/\r?\n/u).map((line) => line.trim()).find(Boolean);
+    return {
+        id: tool,
+        status: result.status === 0 && version ? 'complete' : 'unavailable',
+        executable,
+        version: version ?? null
+    };
+}
+
+function collectMachineIdentity(repositoryRoot, env, errors)
 {
     const cpus = os.cpus();
+    let cgroup;
+    try
+    {
+        cgroup = collectCgroupIdentity();
+    }
+    catch (error)
+    {
+        cgroup = { status: 'unavailable', version: null, path: null, limits: {} };
+        errors.push(`cgroup identity collection failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    if (cgroup.status !== 'complete')
+    {
+        errors.push('cgroup v2 CPU, cpuset, memory, and pids limits are required');
+    }
+    const schedulerPolicy = requiredEnvironmentPath(
+        repositoryRoot,
+        env,
+        'FSUSBLOG_RELEASE_RESOURCE_POLICY',
+        'scheduler resource policy',
+        errors
+    );
+    const complete = cpus.length > 0 && os.totalmem() > 0
+        && cgroup.status === 'complete' && schedulerPolicy.status === 'complete';
     return {
-        collectorStatus: 'complete',
+        status: complete ? 'complete' : 'unavailable',
         os: `${os.platform()} ${os.release()}`,
         architecture: os.arch(),
         cpuModels: [...new Set(cpus.map((cpu) => cpu.model))].sort(),
         cpuCount: cpus.length,
         memoryBytes: os.totalmem(),
-        containerLimits: process.platform === 'linux' ? 'collector-required-by-host-policy' : 'not-applicable'
+        cgroup,
+        schedulerPolicy
     };
 }
 
-export function collectRunIdentity({ repositoryRoot, catalog, env = process.env, source = null })
+function collectCatalogPolicyBinding(repositoryRoot, catalog, key, label, errors)
 {
-    const sourceState = source ?? sourceIdentity(repositoryRoot);
-    const fixtureRoot = String(env.FSUSBLOG_TEST_FIXTURE_ROOT ?? '').trim();
-    const fixtureConfig = String(env.FSUSBLOG_TEST_FIXTURE_CONFIG ?? '').trim();
-    const imageDigest = String(env.FSUSBLOG_RELEASE_IMAGE_DIGEST ?? '').trim();
-    const thresholdPath = path.join(repositoryRoot, 'tests/performance/perf-policy.yml');
+    const configuredPath = String(catalog?.policyBindings?.[key] ?? '').trim();
+    if (!configuredPath)
+    {
+        errors.push(`catalog policy binding is required: ${key}`);
+        return { status: 'unavailable', path: null, fileDigest: null };
+    }
+    try
+    {
+        return {
+            status: 'complete',
+            ...regularFileBinding(repositoryRoot, configuredPath, label)
+        };
+    }
+    catch (error)
+    {
+        errors.push(error instanceof Error ? error.message : String(error));
+        return { status: 'unavailable', path: configuredPath, fileDigest: null };
+    }
+}
+
+function collectChildEnvironmentIdentity(catalog)
+{
+    const content = {
+        contract: catalog.childEnvironmentContract,
+        scenarios: catalog.scenarios.map((scenario) => ({
+            id: scenario.id,
+            inheritEnv: scenario.command.inheritEnv,
+            env: scenario.command.env
+        }))
+    };
     return {
-        source: sourceState,
-        build: {
-            ...tryReadBuildReceipt(repositoryRoot, env),
-            imageDigest: requiredDigest(imageDigest) ? imageDigest : null
-        },
-        fixture: {
-            collectorStatus: fixtureRoot && fixtureConfig ? 'complete' : 'unavailable',
-            root: fixtureRoot || null,
-            namespace: String(env.FSUSBLOG_TEST_NAMESPACE ?? '').trim() || null,
-            configDigest: fixtureConfig && fs.existsSync(path.resolve(repositoryRoot, fixtureConfig))
-                ? digestFile(path.resolve(repositoryRoot, fixtureConfig))
-                : null,
-            topology: String(env.FSUSBLOG_TEST_RUNTIME_TOPOLOGY ?? '').trim() || null
-        },
-        machine: collectMachineIdentity(),
-        policy: {
-            catalogDigest: digestValue(catalog),
-            thresholdDigest: fs.existsSync(thresholdPath) ? digestFile(thresholdPath) : null,
-            executorSchema: 'fsusblog.release-reliability-scenario-result.v1'
-        }
+        status: 'complete',
+        schema: catalog.childEnvironmentContract.schema,
+        contentDigest: digestValue(content)
     };
 }
 
-function receiptPayload(receipt)
+function scenarioChildEnvironmentIdentity(catalog, scenario)
 {
-    const { contentDigest, ...payload } = receipt;
-    return payload;
+    const content = {
+        schema: catalog.childEnvironmentContract.schema,
+        scenarioId: scenario.id,
+        requiredBaseKeys: catalog.childEnvironmentContract.requiredBaseKeys,
+        optionalBaseKeys: catalog.childEnvironmentContract.optionalBaseKeys,
+        requiredInheritedKeys: scenario.command.inheritEnv.required,
+        optionalInheritedKeys: scenario.command.inheritEnv.optional,
+        fixedEnvironment: scenario.command.env,
+        internalKeys: catalog.childEnvironmentContract.internalKeys
+    };
+    return {
+        schema: content.schema,
+        scenarioId: scenario.id,
+        contentDigest: digestValue(content)
+    };
 }
 
-function assertExactScenarioIds(items, label)
+export async function collectRunIdentity({
+    repositoryRoot,
+    catalog,
+    invocationId,
+    runId,
+    scenarioId = null,
+    env = process.env,
+    now = () => new Date().toISOString(),
+    inspectImage = defaultImageInspector
+})
 {
-    const ids = items.map((item) => item.scenarioId);
-    if (ids.length !== canonicalScenarioIds.length || new Set(ids).size !== canonicalScenarioIds.length)
+    const errors = [];
+    let sourceState = {
+        commit: null,
+        worktreeFingerprint: null,
+        dirtyPathCount: null,
+        hashedPathCount: null
+    };
+    try
     {
-        throw new Error(`${label} must contain exactly the seven canonical scenarios`);
+        const commit = execFileSync(
+            'git',
+            ['rev-parse', 'HEAD'],
+            { cwd: repositoryRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+        ).trim();
+        const snapshot = await snapshotGitWorktree(repositoryRoot);
+        const worktreeFingerprint = normalizeFingerprint(snapshot.fingerprint);
+        if (!/^[0-9a-f]{40}$/u.test(commit) || worktreeFingerprint === null)
+        {
+            throw new Error('Git source identity is not canonical');
+        }
+        sourceState = {
+            commit,
+            worktreeFingerprint,
+            dirtyPathCount: Object.keys(snapshot.entries).length,
+            hashedPathCount: snapshot.hashedPathCount
+        };
     }
-    if (JSON.stringify([...ids].sort()) !== JSON.stringify([...canonicalScenarioIds].sort()))
+    catch (error)
     {
-        throw new Error(`${label} contains missing, duplicate, or unknown scenarios`);
+        errors.push(`source identity collection failed: ${error instanceof Error ? error.message : String(error)}`);
     }
-}
-
-function verifyIdentityComplete(identity)
-{
-    if (!/^[0-9a-f]{40}$/u.test(identity?.source?.commit ?? ''))
+    const build = collectBuildIdentity(repositoryRoot, env, sourceState, runId, errors, inspectImage);
+    const fixture = collectFixtureIdentity(repositoryRoot, env, runId, build.imageDigest, errors);
+    const machine = collectMachineIdentity(repositoryRoot, env, errors);
+    const selectedScenario = scenarioId === null
+        ? null
+        : catalog.scenarios.find((scenario) => scenario.id === scenarioId);
+    if (scenarioId !== null && selectedScenario === undefined)
     {
-        throw new Error('receipt source commit must be a full 40-character SHA');
+        throw new Error(`Unknown scenario: ${scenarioId}`);
     }
-    if (!requiredDigest(identity?.source?.worktreeFingerprint))
+    const declaredTools = selectedScenario?.identityTools ?? catalog.identityTools;
+    const tools = [...declaredTools].sort().map((tool) =>
     {
-        throw new Error('receipt worktree fingerprint is missing or invalid');
-    }
-    if (identity?.build?.status !== 'complete' || !requiredDigest(identity.build.digest) || !requiredDigest(identity.build.imageDigest))
+        try
+        {
+            return collectTool(tool, env);
+        }
+        catch (error)
+        {
+            errors.push(`tool identity collection failed for ${tool}: ${
+                error instanceof Error ? error.message : String(error)
+            }`);
+            return { id: tool, status: 'unavailable', executable: null, version: null };
+        }
+    });
+    for (const tool of tools)
     {
-        throw new Error('receipt immutable build receipt and image digest must be complete');
+        if (tool.status !== 'complete')
+        {
+            errors.push(`tool identity is unavailable: ${tool.id}`);
+        }
     }
-    if (identity?.fixture?.collectorStatus !== 'complete' || !requiredDigest(identity.fixture.configDigest)
-        || !identity.fixture.root || !identity.fixture.namespace || !identity.fixture.topology)
+    let catalogBinding = { path: 'config/testing/release-reliability-scenario-catalog.json', fileDigest: null };
+    try
     {
-        throw new Error('receipt fixture identity collector is incomplete');
+        catalogBinding = regularFileBinding(
+            repositoryRoot,
+            'config/testing/release-reliability-scenario-catalog.json',
+            'scenario catalog'
+        );
     }
-    if (identity?.machine?.collectorStatus !== 'complete')
+    catch (error)
     {
-        throw new Error('receipt machine identity collector is incomplete');
+        errors.push(error instanceof Error ? error.message : String(error));
     }
-    if (!requiredDigest(identity?.policy?.catalogDigest) || !requiredDigest(identity?.policy?.thresholdDigest))
-    {
-        throw new Error('receipt policy identity is incomplete');
-    }
-}
-
-function verifyScenarioResult(result, identity)
-{
-    if (result?.schema !== 'fsusblog.release-reliability-scenario-result.v1' || result.status !== 'passed')
-    {
-        throw new Error(`scenario ${result?.scenarioId ?? '<missing>'} is not a passed sealed result`);
-    }
-    if (JSON.stringify(result.source) !== JSON.stringify(identity.source))
-    {
-        throw new Error(`scenario ${result.scenarioId} source identity mismatch`);
-    }
-    if (result.policy?.catalogDigest !== identity.policy.catalogDigest)
-    {
-        throw new Error(`scenario ${result.scenarioId} policy identity mismatch`);
-    }
-    if (result.identityDigest !== digestValue(identity))
-    {
-        throw new Error(`scenario ${result.scenarioId} complete identity mismatch`);
-    }
-    if (!requiredDigest(result.authoritativeEvidence?.digest))
-    {
-        throw new Error(`scenario ${result.scenarioId} authoritative evidence digest is invalid`);
-    }
-    if (result.isolation?.precondition?.status !== 'complete'
-        || result.isolation?.reset?.status !== 'complete'
-        || result.isolation?.postcondition?.status !== 'complete')
-    {
-        throw new Error(`scenario ${result.scenarioId} isolation or reset evidence is incomplete`);
-    }
-}
-
-export function createQualifiedReceipt({ invocationId, scenarioResults, identity, createdAt })
-{
-    const base = {
-        schema: 'fsusblog.release-reliability-qualified-receipt.v1',
+    const threshold = collectCatalogPolicyBinding(
+        repositoryRoot,
+        catalog,
+        'loadProfile',
+        'threshold policy',
+        errors
+    );
+    const mutationSubset = collectCatalogPolicyBinding(
+        repositoryRoot,
+        catalog,
+        'mutationSubset',
+        'mutation subset policy',
+        errors
+    );
+    const releaseResource = collectCatalogPolicyBinding(
+        repositoryRoot,
+        catalog,
+        'releaseResource',
+        'release resource policy',
+        errors
+    );
+    return sealDocument({
+        schema: 'fsusblog.release-reliability-run-identity.v1',
+        status: errors.length === 0 ? 'complete' : 'unavailable',
         invocationId,
+        runId,
+        sourceState,
+        build,
+        fixture,
+        machine,
+        tools,
+        policy: {
+            catalog: {
+                status: digestPattern.test(catalogBinding.fileDigest) ? 'complete' : 'unavailable',
+                ...catalogBinding
+            },
+            threshold,
+            mutationSubset,
+            releaseResource,
+            childEnvironment: collectChildEnvironmentIdentity(catalog),
+            executorSchema: 'fsusblog.release-reliability-scenario-result.v2',
+            lifecycleSchema: catalog.lifecycleSchema
+        },
+        collectedAt: now(),
+        collectionErrors: errors
+    });
+}
+
+function exactScenarioIds(items, catalog, label)
+{
+    const expected = catalog.canonicalScenarioIds;
+    const ids = items.map((item) => item?.scenarioId);
+    if (ids.length !== expected.length || new Set(ids).size !== expected.length
+        || JSON.stringify([...ids].sort()) !== JSON.stringify([...expected].sort()))
+    {
+        throw new Error(`${label} must contain exactly the canonical scenario IDs`);
+    }
+}
+
+function validateIdentityReference(reference, invocationId)
+{
+    const expectedPath = `.tmp/release-reliability/${invocationId}/identity.json`;
+    if (reference?.path !== expectedPath || !digestPattern.test(reference?.contentDigest))
+    {
+        throw new Error('run identity reference is incomplete');
+    }
+}
+
+function validateCompleteIdentity(identity, catalog)
+{
+    if (!isoTimePattern.test(identity.collectedAt) || !Number.isFinite(Date.parse(identity.collectedAt))
+        || !Array.isArray(identity.collectionErrors) || identity.collectionErrors.length !== 0)
+    {
+        throw new Error('identity collection status/time is incomplete');
+    }
+    if (!/^[0-9a-f]{40}$/u.test(identity.sourceState?.commit)
+        || !digestPattern.test(normalizeFingerprint(identity.sourceState?.worktreeFingerprint))
+        || !Number.isInteger(identity.sourceState?.dirtyPathCount) || identity.sourceState.dirtyPathCount < 0
+        || !Number.isInteger(identity.sourceState?.hashedPathCount) || identity.sourceState.hashedPathCount < 0)
+    {
+        throw new Error('source identity is incomplete');
+    }
+    if (identity?.build?.status !== 'complete' || !digestPattern.test(identity.build.fileDigest)
+        || !digestPattern.test(identity.build.contentDigest) || !digestPattern.test(identity.build.imageDigest)
+        || identity.build.image?.imageDigest !== identity.build.imageDigest
+        || typeof identity.build.image?.reference !== 'string' || !identity.build.image.reference
+        || identity.build.image?.revision !== identity.sourceState.commit
+        || !['published-package', 'local-git-alias'].includes(identity.build.image?.fsusuiSource)
+        || !/^[0-9a-f]{40}$/u.test(identity.build.image?.fsusuiCommit ?? '')
+        || identity.build.image.fsusuiSource === 'local-git-alias'
+            && identity.build.image.fsusuiCommit === '0'.repeat(40)
+        || (identity.build.image?.kind === 'registry-repository-digest'
+            ? !/@sha256:[0-9a-f]{64}$/u.test(identity.build.image?.repositoryDigest ?? '')
+            : identity.build.image?.kind !== 'local-docker-image-id'
+                || identity.build.image.revision !== identity.sourceState.commit
+                || !Array.isArray(identity.build.image.layers) || identity.build.image.layers.length === 0
+                || identity.build.image.layers.some((layer) => !digestPattern.test(layer))
+                || identity.build.image.layersDigest !== digestValue({ layers: identity.build.image.layers }))
+        || !sameSourceState(identity.build.sourceState, identity.sourceState)
+        || identity.build.producerRunId !== identity.runId
+        || identity.build.path !== normalizedRelativePath(identity.build.path, 'build receipt'))
+    {
+        throw new Error('build identity is incomplete or mismatched');
+    }
+    if (identity?.fixture?.status !== 'complete' || !identity.fixture.root || !identity.fixture.namespace
+        || ['config', 'schema', 'seed', 'auditRetentionPolicy', 'topology'].some((field) => (
+            identity.fixture[field]?.status !== 'complete'
+            || !digestPattern.test(identity.fixture[field]?.fileDigest)
+        ))
+        || identity.fixture.topology.content?.schema !== 'fsusblog.release-reliability-runtime-topology.v1'
+        || !digestPattern.test(identity.fixture.topology.content?.contentDigest)
+        || !identity.fixture.topology.content?.postgres?.version
+        || !identity.fixture.topology.content?.postgres?.instance
+        || !digestPattern.test(identity.fixture.topology.content?.postgres?.configDigest)
+        || !identity.fixture.topology.content?.redis?.version
+        || !identity.fixture.topology.content?.redis?.instance
+        || !digestPattern.test(identity.fixture.topology.content?.redis?.configDigest)
+        || JSON.stringify(identity.fixture.topology.content?.auditRetentionPolicy) !== JSON.stringify({
+            path: identity.fixture.auditRetentionPolicy.path,
+            fileDigest: identity.fixture.auditRetentionPolicy.fileDigest
+        })
+        || !identity.fixture.topology.content?.runtime?.profile
+        || identity.fixture.topology.content.runtime.imageDigest !== identity.build.imageDigest
+        || !Number.isInteger(
+            identity.fixture.topology.content.runtime.backendContainer?.hostPid
+        )
+        || identity.fixture.topology.content.runtime.backendContainer.hostPid < 2
+        || identity.fixture.root !== normalizedRelativePath(identity.fixture.root, 'fixture root')
+        || identity.fixture.auditRetentionPolicy.path !== auditRetentionPolicyPath
+        || ['config', 'schema', 'seed', 'auditRetentionPolicy', 'topology'].some((field) => (
+            identity.fixture[field].path !== normalizedRelativePath(
+                identity.fixture[field].path,
+                `fixture ${field}`
+            )
+        )))
+    {
+        throw new Error('fixture identity is incomplete');
+    }
+    const cgroupNames = ['cpu.max', 'cpuset.cpus.effective', 'memory.max', 'pids.max'];
+    if (identity?.machine?.status !== 'complete' || identity.machine.cgroup?.status !== 'complete'
+        || identity.machine.cgroup.version !== 'v2' || !identity.machine.cgroup.path
+        || cgroupNames.some((name) => (
+            !identity.machine.cgroup.limits?.[name]?.path
+            || !String(identity.machine.cgroup.limits[name].value ?? '').trim()
+        ))
+        || !identity.machine.os || !identity.machine.architecture
+        || !Array.isArray(identity.machine.cpuModels) || identity.machine.cpuModels.length === 0
+        || !Number.isInteger(identity.machine.cpuCount) || identity.machine.cpuCount < 1
+        || !Number.isInteger(identity.machine.memoryBytes) || identity.machine.memoryBytes < 1
+        || identity.machine.schedulerPolicy?.status !== 'complete'
+        || !digestPattern.test(identity.machine.schedulerPolicy?.fileDigest)
+        || identity.machine.schedulerPolicy.path !== normalizedRelativePath(
+            identity.machine.schedulerPolicy.path,
+            'scheduler resource policy'
+        ))
+    {
+        throw new Error('machine/cgroup/resource-policy identity is incomplete');
+    }
+    if (!Array.isArray(identity.tools)
+        || JSON.stringify(identity.tools.map((tool) => tool.id)) !== JSON.stringify([...catalog.identityTools].sort())
+        || identity.tools.some((tool) => (
+            tool.status !== 'complete' || !String(tool.executable ?? '').trim()
+            || (tool.id === 'dotnet'
+                ? !String(tool.sdkVersion ?? '').trim()
+                    || !Array.isArray(tool.runtimeVersions) || tool.runtimeVersions.length === 0
+                : !String(tool.version ?? '').trim())
+        )))
+    {
+        throw new Error('tool identity is incomplete');
+    }
+    if (!identity.build.toolchain || typeof identity.build.toolchain !== 'object'
+        || productionBuildToolchainKeys.some((tool) => !String(identity.build.toolchain[tool] ?? '').trim()))
+    {
+        throw new Error('build toolchain identity is incomplete');
+    }
+    const expectedChildEnvironment = collectChildEnvironmentIdentity(catalog);
+    if (identity.policy?.catalog?.status !== 'complete'
+        || ['threshold', 'mutationSubset', 'releaseResource'].some((field) => (
+            identity.policy?.[field]?.status !== 'complete'
+            || !digestPattern.test(identity.policy[field]?.fileDigest)
+        ))
+        || !digestPattern.test(identity.policy.catalog.fileDigest)
+        || identity.policy.catalog.path !== 'config/testing/release-reliability-scenario-catalog.json'
+        || identity.policy.threshold.path !== catalog.policyBindings.loadProfile
+        || identity.policy.mutationSubset.path !== catalog.policyBindings.mutationSubset
+        || identity.policy.releaseResource.path !== catalog.policyBindings.releaseResource
+        || JSON.stringify(identity.policy.childEnvironment) !== JSON.stringify(expectedChildEnvironment)
+        || identity.policy.executorSchema !== 'fsusblog.release-reliability-scenario-result.v2'
+        || identity.policy.lifecycleSchema !== catalog.lifecycleSchema)
+    {
+        throw new Error('policy identity is incomplete');
+    }
+}
+
+function validateScenarioForQualification(result, { invocationId, runId, identity, identityReference, catalog })
+{
+    const scenario = catalog.scenarios.find((candidate) => candidate.id === result?.scenarioId);
+    if (result?.schema !== 'fsusblog.release-reliability-scenario-result.v2' || result.status !== 'passed')
+    {
+        throw new Error(`scenario ${result?.scenarioId ?? '<missing>'} is not passed`);
+    }
+    if (!scenario)
+    {
+        throw new Error(`scenario ${result.scenarioId} is not canonical`);
+    }
+    if (result.invocationId !== invocationId || result.runId !== runId)
+    {
+        throw new Error(`scenario ${result.scenarioId} run identity mismatch`);
+    }
+    if (result.contentDigest !== digestValue(result))
+    {
+        throw new Error(`scenario ${result.scenarioId} contentDigest mismatch`);
+    }
+    if (JSON.stringify(result.identity) !== JSON.stringify(identityReference))
+    {
+        throw new Error(`scenario ${result.scenarioId} identity reference mismatch`);
+    }
+    if (![result.startedAt, result.finishedAt, result.recordedAt].every(
+        (value) => isoTimePattern.test(value) && Number.isFinite(Date.parse(value))
+    )
+        || Date.parse(result.startedAt) < Date.parse(identity.collectedAt)
+        || Date.parse(result.finishedAt) < Date.parse(result.startedAt)
+        || Date.parse(result.recordedAt) < Date.parse(result.finishedAt))
+    {
+        throw new Error(`scenario ${result.scenarioId} time ordering mismatch`);
+    }
+    const expectedResultPath = `.tmp/release-reliability/${invocationId}/scenario-results/${scenario.id}.json`;
+    if (result.resultPath !== expectedResultPath || result.owner !== scenario.owner
+        || result.resourceClass !== scenario.resourceClass || result.failure !== null)
+    {
+        throw new Error(`scenario ${result.scenarioId} result metadata mismatch`);
+    }
+    if (!digestPattern.test(result.authoritativeEvidence?.digest)
+        || result.authoritativeEvidence?.path !== scenario.authoritativeEvidence.path
+        || !scenario.authoritativeEvidence.expectedSchema.passStatusValues.includes(
+            result.authoritativeEvidence.status
+        )
+        || scenario.authoritativeEvidence.expectedSchema.schema !== undefined
+            && result.authoritativeEvidence.schema !== scenario.authoritativeEvidence.expectedSchema.schema)
+    {
+        throw new Error(`scenario ${result.scenarioId} evidence reference is incomplete`);
+    }
+    if (JSON.stringify(result.outputs) !== JSON.stringify([{
+        id: 'authoritative-evidence',
+        path: result.authoritativeEvidence.path,
+        digest: result.authoritativeEvidence.digest
+    }]))
+    {
+        throw new Error(`scenario ${result.scenarioId} outputs are incomplete`);
+    }
+    const producerKeys = [
+        'executable',
+        'args',
+        'env',
+        'environmentContract',
+        'cwd',
+        'commandDigest',
+        'exitCode',
+        'signal',
+        'stdoutLog',
+        'stderrLog'
+    ];
+    const commandToolId = path.basename(scenario.command.executable).replace(/\.exe$/iu, '');
+    const expectedExecutable = identity.tools.find((tool) => tool.id === commandToolId)?.executable;
+    const expectedLogRoot = `.tmp/release-reliability/${invocationId}/logs/${scenario.id}`;
+    const expectedCommandDigest = `sha256:${createHash('sha256')
+        .update(JSON.stringify(scenario.command))
+        .digest('hex')}`;
+    if (!result.producer || JSON.stringify(Object.keys(result.producer).sort())
+            !== JSON.stringify(producerKeys.sort())
+        || !expectedExecutable || result.producer.executable !== expectedExecutable
+        || JSON.stringify(result.producer.args) !== JSON.stringify(scenario.command.args)
+        || JSON.stringify(result.producer.env) !== JSON.stringify(scenario.command.env)
+        || JSON.stringify(result.producer.environmentContract)
+            !== JSON.stringify(scenarioChildEnvironmentIdentity(catalog, scenario))
+        || result.producer.cwd !== scenario.command.cwd
+        || result.producer.commandDigest !== expectedCommandDigest
+        || result.producer.exitCode !== 0 || result.producer.signal !== null
+        || result.producer.stdoutLog !== `${expectedLogRoot}.stdout.log`
+        || result.producer.stderrLog !== `${expectedLogRoot}.stderr.log`)
+    {
+        throw new Error(`scenario ${result.scenarioId} producer invocation mismatch`);
+    }
+    const expectedStateDomains = [...new Set([
+        ...scenario.isolation.exclusiveResources,
+        ...scenario.isolation.countableResources
+    ])].sort();
+    let previousFinishedAt = null;
+    for (const phase of lifecyclePhases)
+    {
+        const reference = result.lifecycle?.[phase];
+        if (reference?.status !== 'complete' || reference?.schema !== catalog.lifecycleSchema
+            || reference?.runId !== runId || reference?.invocationId !== invocationId
+            || reference?.phase !== phase || reference?.scenarioId !== scenario.id
+            || reference?.path !== `.tmp/release-reliability/${invocationId}/lifecycle/${scenario.id}/${phase}.json`
+            || JSON.stringify(reference?.stateDomains) !== JSON.stringify(expectedStateDomains)
+            || !digestPattern.test(reference?.contentDigest))
+        {
+            throw new Error(`scenario ${result.scenarioId} ${phase} reference is incomplete`);
+        }
+        if (![reference.startedAt, reference.finishedAt].every(
+            (value) => isoTimePattern.test(value) && Number.isFinite(Date.parse(value))
+        )
+            || Date.parse(reference.startedAt) < Date.parse(result.startedAt)
+            || Date.parse(reference.finishedAt) < Date.parse(reference.startedAt)
+            || Date.parse(reference.finishedAt) > Date.parse(result.finishedAt)
+            || previousFinishedAt !== null && Date.parse(reference.startedAt) < previousFinishedAt)
+        {
+            throw new Error(`scenario ${result.scenarioId} ${phase} time ordering mismatch`);
+        }
+        previousFinishedAt = Date.parse(reference.finishedAt);
+    }
+}
+
+function scenarioReference(result)
+{
+    return {
+        scenarioId: result.scenarioId,
+        resultPath: result.resultPath,
+        resultContentDigest: result.contentDigest,
+        evidencePath: result.authoritativeEvidence?.path ?? null,
+        evidenceDigest: result.authoritativeEvidence?.digest ?? null
+    };
+}
+
+export function createTimeline({ invocationId, runId, scenarioResults, identityReference, createdAt })
+{
+    const references = scenarioResults.map(scenarioReference);
+    references.sort((left, right) => left.scenarioId.localeCompare(right.scenarioId));
+    return sealDocument({
+        schema: 'fsusblog.release-reliability-timeline.v2',
+        invocationId,
+        runId,
+        status: scenarioResults.every((result) => result.status === 'passed') ? 'complete' : 'partial',
+        identity: identityReference,
+        createdAt,
+        scenarioResults: references
+    });
+}
+
+export function createCandidateReceipt({
+    invocationId,
+    runId,
+    scenarioResults,
+    identity,
+    identityReference,
+    timeline,
+    timelineReference,
+    catalog,
+    createdAt
+})
+{
+    const receipt = {
+        schema: 'fsusblog.release-reliability-candidate-receipt.v1',
+        invocationId,
+        runId,
         status: 'failed',
-        identity,
+        identity: identityReference,
+        timeline: timelineReference,
         scenarios: [],
         createdAt,
         failure: null
     };
     try
     {
-        assertExactScenarioIds(scenarioResults, 'scenario results');
-        verifyIdentityComplete(identity);
+        exactScenarioIds(scenarioResults, catalog, 'scenario results');
+        validateIdentityReference(identityReference, invocationId);
+        if (identity?.schema !== 'fsusblog.release-reliability-run-identity.v1'
+            || identity.status !== 'complete' || identity.contentDigest !== digestValue(identity)
+            || identity.invocationId !== invocationId || identity.runId !== runId
+            || identity.contentDigest !== identityReference.contentDigest)
+        {
+            throw new Error('run identity is incomplete or mismatched');
+        }
+        validateCompleteIdentity(identity, catalog);
+        if (timelineReference?.path !== `.tmp/release-reliability/${invocationId}/timeline.json`
+            || !digestPattern.test(timelineReference?.contentDigest))
+        {
+            throw new Error('timeline reference is incomplete');
+        }
+        if (timeline?.schema !== 'fsusblog.release-reliability-timeline.v2'
+            || timeline.status !== 'complete' || timeline.invocationId !== invocationId
+            || timeline.runId !== runId || timeline.contentDigest !== digestValue(timeline)
+            || timeline.contentDigest !== timelineReference.contentDigest
+            || JSON.stringify(timeline.identity) !== JSON.stringify(identityReference)
+            || timeline.createdAt !== createdAt
+            || !isoTimePattern.test(createdAt) || !Number.isFinite(Date.parse(createdAt)))
+        {
+            throw new Error('timeline is incomplete or mismatched');
+        }
         for (const result of scenarioResults)
         {
-            if (result.invocationId !== invocationId)
-            {
-                throw new Error(`scenario ${result.scenarioId} invocation ID mismatch`);
-            }
-            verifyScenarioResult(result, identity);
-            base.scenarios.push({
-                scenarioId: result.scenarioId,
-                resultDigest: digestValue(result),
-                producerEvidenceDigest: result.authoritativeEvidence.digest,
-                source: result.source,
-                isolation: result.isolation
+            validateScenarioForQualification(result, {
+                invocationId,
+                runId,
+                identity,
+                identityReference,
+                catalog
             });
+            receipt.scenarios.push(scenarioReference(result));
         }
-        base.scenarios.sort((left, right) => left.scenarioId.localeCompare(right.scenarioId));
-        base.status = 'qualified';
+        receipt.scenarios.sort((left, right) => left.scenarioId.localeCompare(right.scenarioId));
+        if (JSON.stringify(timeline.scenarioResults) !== JSON.stringify(receipt.scenarios))
+        {
+            throw new Error('timeline scenario references are mismatched');
+        }
+        if (scenarioResults.some((result) => Date.parse(result.recordedAt) > Date.parse(createdAt)))
+        {
+            throw new Error('timeline precedes scenario result recording');
+        }
+        receipt.status = 'candidate';
     }
     catch (error)
     {
-        base.failure = error instanceof Error ? error.message : String(error);
+        receipt.failure = error instanceof Error ? error.message : String(error);
     }
-    return { ...base, contentDigest: digestValue(base) };
-}
-
-export function verifyQualifiedReceipt({ receipt, scenarioResults })
-{
-    if (receipt?.schema !== 'fsusblog.release-reliability-qualified-receipt.v1')
-    {
-        throw new Error('receipt schema is invalid');
-    }
-    if (receipt.contentDigest !== digestValue(receiptPayload(receipt)))
-    {
-        throw new Error('receipt content digest mismatch');
-    }
-    if (receipt.status !== 'qualified')
-    {
-        throw new Error(`receipt is not qualified: ${receipt.status}`);
-    }
-    assertExactScenarioIds(receipt.scenarios, 'receipt scenarios');
-    assertExactScenarioIds(scenarioResults, 'scenario results');
-    verifyIdentityComplete(receipt.identity);
-    const resultsById = new Map(scenarioResults.map((result) => [result.scenarioId, result]));
-    for (const scenario of receipt.scenarios)
-    {
-        const result = resultsById.get(scenario.scenarioId);
-        verifyScenarioResult(result, receipt.identity);
-        if (scenario.resultDigest !== digestValue(result))
-        {
-            throw new Error(`scenario ${scenario.scenarioId} sealed result digest mismatch`);
-        }
-        if (scenario.producerEvidenceDigest !== result.authoritativeEvidence.digest)
-        {
-            throw new Error(`scenario ${scenario.scenarioId} producer evidence digest mismatch`);
-        }
-    }
-    return receipt;
+    return sealDocument(receipt);
 }

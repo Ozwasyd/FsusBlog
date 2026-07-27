@@ -397,7 +397,7 @@ InvokeLaneFixtureOrchestrator() {
         runArgs+=(--fixture-receipt "$fixtureReceipt")
     else
         # Honest partial: prepare-state only until producers publish observations (#1712+).
-        runArgs+=(--skip-verify --out "$prepareState")
+        runArgs+=(--skip-verify)
     fi
     if [[ -n "${FSUSBLOG_SEALED_FIXTURE_EXECUTION_CLASS:-}" ]]; then
         runArgs+=(--execution-class "$FSUSBLOG_SEALED_FIXTURE_EXECUTION_CLASS")

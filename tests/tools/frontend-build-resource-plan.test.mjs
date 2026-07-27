@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   resolveConcurrentStageResources,
   resolveFrontendBuildCapacity,
+  resolveFrontendBuildDeadline,
   resolveStageEnvironment
 } from '../../tools/frontend/build.mjs';
 import { resolveEnsureWasmHashWorkers } from '../../tools/frontend/ensure-wasm.mjs';
@@ -23,6 +24,53 @@ test('frontend build capacity follows the live STEP grant and host ceilings', ()
     memoryGiB: 9,
     maxParallel: 6
   });
+});
+
+test('direct frontend build deadline scales from the effective bundle grant', () => {
+  const workload = {
+    cpuWeight: 8,
+    memoryWeight: 3,
+    minCpuUnits: 2
+  };
+
+  assert.equal(resolveFrontendBuildDeadline({
+    env: {},
+    baseTimeoutMs: 300_000,
+    workload,
+    actualCapacity: {
+      cpuUnits: 1,
+      memoryGiB: 8
+    }
+  }), 2_400_000);
+  assert.equal(resolveFrontendBuildDeadline({
+    env: {},
+    baseTimeoutMs: 300_000,
+    workload,
+    actualCapacity: {
+      cpuUnits: 8,
+      memoryGiB: 8
+    }
+  }), 300_000);
+});
+
+test('an inherited frontend step deadline remains the strict authority', () => {
+  assert.equal(resolveFrontendBuildDeadline({
+    env: {
+      FSUSBLOG_STEP_DEADLINE_MS: '60000',
+      FSUSBLOG_BUNDLE_CPU_BUDGET: '1',
+      FSUSBLOG_BUNDLE_MEMORY_GIB: '8'
+    },
+    baseTimeoutMs: 300_000,
+    workload: {
+      cpuWeight: 8,
+      memoryWeight: 3,
+      minCpuUnits: 2
+    },
+    actualCapacity: {
+      cpuUnits: 1,
+      memoryGiB: 8
+    }
+  }), 60_000);
 });
 
 test('frontend build consumes a four-CPU production step grant and divides it exactly across parallel stages', () => {
