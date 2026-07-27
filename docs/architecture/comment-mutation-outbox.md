@@ -30,6 +30,8 @@ expired processing lease -> processing
 
 每个 `event id + consumer name` 在 `comment_mutation_outbox_delivery` 只有一行，并使用 `pending -> processing -> completed|retryable-failed|terminal-failed` 状态机。consumer 在任何副作用之前，以当前 event 的 claim token、worker 和 lease generation 原子 reservation；仅 reservation owner 能执行、写失败或写入带语义 `result_digest` 的 completed。completed 必须有匹配 digest 才能跳过；有效 processing 属于其他 owner 时 fail-closed，过期 processing 或 retryable-failed 才可接管；terminal-failed 阻止 event 进入 processed。delivery lease 仅镜像 event claim fence，不单独续租。外部交付还使用稳定键：notification stream 使用 `comment-outbox:{eventId}:realtime`，站内信使用已有的 deterministic source-event id。模型和人工状态变化继续使用数据库 CAS，重复事件不能重复状态转换。
 
+终态转换同样是 claim-fenced 的 SQL compare-and-swap：`processed` 只允许当前 owner 在所有该事件必需 consumer 均有 `completed` receipt，且每个 `result_digest` 都精确匹配由事件与 consumer 派生的预期值时写入；delivery rows 的这组 exact digest 是 event terminal result 的权威绑定。`failed` 只允许当前 owner 在至少一个 delivery 已记录 `retryable-failed` 或 `terminal-failed` 后写入。任一终态 UPDATE 影响行数不是一行即视为 claim lost，旧 owner 不得覆盖新 owner 或累计 processed/failed 指标。已完成 receipt 的 digest 不匹配时先以当前 event claim 将该 delivery 标为 terminal-failed，再进入 event 失败路径。
+
 worker 总是按 `occurred_at_utc, id` claim，但不依赖绝对有序：实时发布前重新读取当前评论。旧的 approve 事件看到当前行已隐藏/删除时不发送 `CommentAdded`；旧的 hide 事件看到当前行已重新 approve 时不发送 `CommentRemoved`。缓存失效允许重复执行且采用当前 aggregate scope。
 
 ## 故障注入覆盖

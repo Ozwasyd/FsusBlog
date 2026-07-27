@@ -95,7 +95,8 @@ public sealed class CommentMutationOutboxWorker(
     ILogger<CommentMutationOutboxWorker> logger,
     Func<Exception?>? heartbeatFaultInjector = null,
     Func<CommentMutationOutboxEvent, Task>? beforeMarkFailed = null,
-    Func<CommentMutationOutboxEvent, Task>? beforeReleaseClaim = null) : BackgroundService
+    Func<CommentMutationOutboxEvent, Task>? beforeReleaseClaim = null,
+    Func<CommentMutationOutboxEvent, Task>? beforeMarkProcessed = null) : BackgroundService
 {
     private const int BatchSize = 32;
     private const int PoisonThreshold = 10;
@@ -153,6 +154,8 @@ public sealed class CommentMutationOutboxWorker(
                 {
                     await ProcessOneAsync(scope.ServiceProvider, db, item, claim, cancellationToken).ConfigureAwait(false);
                     await EnsureClaimOwnedAsync(db, claim, cancellationToken).ConfigureAwait(false);
+                    if (beforeMarkProcessed is not null)
+                        await beforeMarkProcessed(item).ConfigureAwait(false);
                     await MarkProcessedAsync(db, item, claim, timeProvider.GetUtcNow().UtcDateTime).ConfigureAwait(false);
                     UpdateLeaseRuntimeState(claimStates.Values);
                     processed++;
@@ -515,7 +518,10 @@ public sealed class CommentMutationOutboxWorker(
                 .SingleAsync()
                 .ConfigureAwait(false);
             if (!string.Equals(completed.ResultDigest, resultDigest, StringComparison.Ordinal))
+            {
+                await MarkCompletedDeliveryIntegrityFailureAsync(db, item.Id, claim, consumer).ConfigureAwait(false);
                 throw new CommentMutationOutboxTerminalDeliveryException($"comment_outbox_delivery_result_digest_invalid:{consumer}");
+            }
             return;
         }
         if (reservation == ConsumerReservation.TerminalFailed)
@@ -645,6 +651,31 @@ public sealed class CommentMutationOutboxWorker(
         }
     }
 
+    private static async Task MarkCompletedDeliveryIntegrityFailureAsync(ISqlSugarClient db, long outboxId, ClaimState claim, string consumer)
+    {
+        int updated = await db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE comment_mutation_outbox_delivery
+            SET status = 'terminal-failed', last_failure_kind = 'ResultDigestMismatch', last_error = 'comment_outbox_delivery_result_digest_invalid', updated_at_utc = (now() AT TIME ZONE 'utc')
+            FROM comment_mutation_outbox outbox
+            WHERE comment_mutation_outbox_delivery.outbox_event_id = @OutboxId
+              AND comment_mutation_outbox_delivery.consumer_name = @Consumer
+              AND comment_mutation_outbox_delivery.status = 'completed'
+              AND outbox.id = comment_mutation_outbox_delivery.outbox_event_id
+              AND outbox.status = @Processing AND outbox.claim_token = @ClaimToken AND outbox.claimed_by = @ClaimedBy
+              AND outbox.lease_generation = @LeaseGeneration AND outbox.lease_expires_at > @Now;
+            """,
+            new SugarParameter("@OutboxId", outboxId), new SugarParameter("@Consumer", consumer),
+            new SugarParameter("@Processing", CommentMutationOutboxStatus.Processing),
+            new SugarParameter("@ClaimToken", claim.Event.ClaimToken), new SugarParameter("@ClaimedBy", claim.Event.ClaimedBy),
+            new SugarParameter("@LeaseGeneration", claim.Event.LeaseGeneration), new SugarParameter("@Now", DateTime.UtcNow));
+        if (updated != 1)
+        {
+            claim.MarkLost();
+            throw new CommentMutationOutboxClaimLostException(outboxId);
+        }
+    }
+
     private static async Task FailDeliveryAsync(ISqlSugarClient db, long outboxId, ClaimState claim, string consumer, Exception exception)
     {
         string status = exception is CommentMutationOutboxTerminalDeliveryException
@@ -760,21 +791,56 @@ public sealed class CommentMutationOutboxWorker(
         {
             if (claim.OwnerState != ClaimOwnerState.Owned)
                 throw new CommentMutationOutboxClaimLostException(item.Id);
+            IReadOnlyList<string> requiredConsumers = GetRequiredConsumers(item);
+            string requiredConsumerSql = string.Join(", ", requiredConsumers.Select(static (_, index) => $"@RequiredConsumer{index}"));
+            string requiredDigestSql = string.Join(
+                "\n",
+                requiredConsumers.Select(static (_, index) => $"""
+                  AND EXISTS (SELECT 1 FROM comment_mutation_outbox_delivery delivery
+                              WHERE delivery.outbox_event_id = comment_mutation_outbox.id
+                                AND delivery.consumer_name = @RequiredConsumer{index}
+                                AND delivery.status = 'completed'
+                                AND delivery.result_digest = @RequiredDigest{index})
+                  """));
+            string deliveryConstraint = requiredConsumers.Count == 0
+                ? string.Empty
+                : $"""
+                  AND (SELECT COUNT(*) FROM comment_mutation_outbox_delivery delivery
+                       WHERE delivery.outbox_event_id = comment_mutation_outbox.id
+                         AND delivery.consumer_name IN ({requiredConsumerSql})
+                         AND delivery.status = 'completed' AND delivery.result_digest IS NOT NULL) = {requiredConsumers.Count}
+                  AND NOT EXISTS (SELECT 1 FROM comment_mutation_outbox_delivery delivery
+                                  WHERE delivery.outbox_event_id = comment_mutation_outbox.id
+                                    AND delivery.consumer_name IN ({requiredConsumerSql})
+                                    AND (delivery.status <> 'completed' OR delivery.result_digest IS NULL))
+                  {requiredDigestSql}
+                  """;
+            var parameters = new List<SugarParameter>
+            {
+                new("@Processed", CommentMutationOutboxStatus.Processed),
+                new("@Processing", CommentMutationOutboxStatus.Processing),
+                new("@Now", now),
+                new("@Id", item.Id),
+                new("@ClaimToken", item.ClaimToken),
+                new("@ClaimedBy", item.ClaimedBy),
+                new("@LeaseGeneration", item.LeaseGeneration)
+            };
+            for (int index = 0; index < requiredConsumers.Count; index++)
+            {
+                string consumer = requiredConsumers[index];
+                parameters.Add(new SugarParameter($"@RequiredConsumer{index}", consumer));
+                parameters.Add(new SugarParameter($"@RequiredDigest{index}", BuildDeliveryResultDigest(item, consumer)));
+            }
             int updated = await db.Ado.ExecuteCommandAsync(
-                """
+                $"""
             UPDATE comment_mutation_outbox
             SET status = @Processed, processed_at_utc = @Now, claim_token = NULL,
                 claimed_at = NULL, lease_expires_at = NULL, last_error = NULL
             WHERE id = @Id AND status = @Processing AND claim_token = @ClaimToken AND claimed_by = @ClaimedBy
-              AND lease_generation = @LeaseGeneration AND lease_expires_at > @Now;
+              AND lease_generation = @LeaseGeneration AND lease_expires_at > @Now
+              {deliveryConstraint};
             """,
-                new SugarParameter("@Processed", CommentMutationOutboxStatus.Processed),
-                new SugarParameter("@Processing", CommentMutationOutboxStatus.Processing),
-                new SugarParameter("@Now", now),
-                new SugarParameter("@Id", item.Id),
-                new SugarParameter("@ClaimToken", item.ClaimToken),
-                new SugarParameter("@ClaimedBy", item.ClaimedBy),
-                new SugarParameter("@LeaseGeneration", item.LeaseGeneration));
+                parameters.ToArray());
             if (updated != 1)
             {
                 claim.MarkLost();
@@ -801,7 +867,10 @@ public sealed class CommentMutationOutboxWorker(
             SET status = @Status, attempt_count = @Attempt, next_attempt_at = @Next,
                 claim_token = NULL, claimed_at = NULL, lease_expires_at = NULL, last_error = @Error
             WHERE id = @Id AND status = @Processing AND claim_token = @ClaimToken AND claimed_by = @ClaimedBy
-              AND lease_generation = @LeaseGeneration AND lease_expires_at > @Now;
+              AND lease_generation = @LeaseGeneration AND lease_expires_at > @Now
+              AND EXISTS (SELECT 1 FROM comment_mutation_outbox_delivery delivery
+                          WHERE delivery.outbox_event_id = comment_mutation_outbox.id
+                            AND delivery.status IN ('retryable-failed', 'terminal-failed'));
             """,
                 new SugarParameter("@Status", status),
                 new SugarParameter("@Attempt", attempt),
@@ -821,6 +890,18 @@ public sealed class CommentMutationOutboxWorker(
             claim.OwnerState = ClaimOwnerState.Released;
         }
         finally { claim.OperationGate.Release(); }
+    }
+
+    private static IReadOnlyList<string> GetRequiredConsumers(CommentMutationOutboxEvent item)
+    {
+        var consumers = new List<string>(5);
+        if (item.EventType == CommentMutationEventTypes.Created)
+            consumers.Add("model-moderation");
+        if (item.EventType is CommentMutationEventTypes.Created or CommentMutationEventTypes.ModerationChanged or CommentMutationEventTypes.Deleted or CommentMutationEventTypes.Edited or CommentMutationEventTypes.VisibilityChanged)
+            consumers.AddRange(["cache-version", "realtime-stream", "audit-projection"]);
+        if (item.EventType is CommentMutationEventTypes.ReplyNotificationRequested or CommentMutationEventTypes.Deleted or CommentMutationEventTypes.ModerationChanged)
+            consumers.Add("site-notification");
+        return consumers;
     }
 
     private async Task EnsureClaimOwnedAsync(ISqlSugarClient db, ClaimState claim, CancellationToken cancellationToken, bool heartbeat = false)
