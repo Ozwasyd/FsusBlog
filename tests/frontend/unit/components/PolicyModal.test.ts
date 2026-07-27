@@ -6,7 +6,7 @@ import { nextTick } from 'vue'
 
 import PolicyModal from '@/components/PolicyModal.vue'
 import { getPageData } from '@/api/system'
-import { initializeLocaleRuntime, requestLocale, resetLocaleRuntimeForTests } from '@/locales'
+import { activateLocaleRuntime, requestLocale, resetLocaleRuntimeForTests } from '@/locales'
 
 vi.mock('@/api/system', () => ({
   getPageData: vi.fn()
@@ -57,7 +57,7 @@ afterEach(() => {
 
 describe('PolicyModal localized title', () => {
   beforeEach(async () => {
-    await initializeLocaleRuntime('zh-CN', ['common', 'layout', 'public', 'auth', 'errors'])
+    await activateLocaleRuntime('zh-CN', ['common', 'layout', 'public', 'auth', 'errors'])
   })
 
   it('renders the registry-owned Chinese titles for both policy kinds', async () => {
@@ -90,7 +90,7 @@ describe('PolicyModal localized title', () => {
 
 describe('PolicyModal document style ownership', () => {
   beforeEach(async () => {
-    await initializeLocaleRuntime('zh-CN', ['common', 'layout', 'public', 'auth', 'errors'])
+    await activateLocaleRuntime('zh-CN', ['common', 'layout', 'public', 'auth', 'errors'])
   })
 
   it('renders fetched policy copy through the stable consumer-owned document surface', async () => {

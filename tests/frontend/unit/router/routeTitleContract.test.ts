@@ -6,7 +6,7 @@ import { assertRouteTitleContracts, staticRouteTitle } from '@/router/routeTitle
 import { syncStaticDocumentTitleOnLocaleChange } from '@/composables/useSessionBootstrap'
 import {
   ENABLED_LOCALES,
-  initializeLocaleRuntime,
+  activateLocaleRuntime,
   requestLocale,
   resetLocaleRuntimeForTests,
   translate
@@ -82,7 +82,7 @@ describe('route title contract', () => {
     const dispatchEvent = vi.spyOn(window, 'dispatchEvent').mockImplementation(() => true)
     try {
       for (const locale of ENABLED_LOCALES) {
-        await initializeLocaleRuntime(locale.code, ['common', 'identity', 'admin'])
+        await activateLocaleRuntime(locale.code, ['common', 'identity', 'admin'])
         for (const key of keys) {
           expect(translate(key), `${locale.code}:${key}`).not.toHaveLength(0)
         }

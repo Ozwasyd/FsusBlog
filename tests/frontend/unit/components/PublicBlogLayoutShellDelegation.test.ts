@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import PublicBlogLayoutShell from '@/components/public/PublicBlogLayoutShell.vue'
 import { FsusUiPublicShell } from '@/fsusui/publicShell'
 import {
-  initializeLocaleRuntime,
+  activateLocaleRuntime,
   prepareLocaleDomains,
   provideLocaleTextContext,
   resetLocaleRuntimeForTests
@@ -54,7 +54,7 @@ afterEach(() => {
 
 describe('PublicBlogLayoutShell PublicShell delegation', () => {
   beforeEach(async () => {
-    await initializeLocaleRuntime('zh-CN', ['common', 'layout', 'public'])
+    await activateLocaleRuntime('zh-CN', ['common', 'layout', 'public'])
   })
 
   it('keeps native auth and search fallbacks in CSP-safe server output', async () => {

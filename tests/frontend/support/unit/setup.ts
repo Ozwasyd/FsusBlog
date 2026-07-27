@@ -3,7 +3,7 @@ import { afterAll, beforeAll, vi } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
 import { createUnitAnimationFrameEnvironment } from './animationFrameEnvironment'
 import { LOCALE_DOMAINS } from '@/locales/localeDomains'
-import { initializeLocaleRuntime } from '@/locales'
+import { activateLocaleRuntime, resetLocaleRuntimeForTests } from '@/locales'
 
 const unitWindow = new Window({ url: 'https://fsusblog.test/' })
 const animationFrames = createUnitAnimationFrameEnvironment()
@@ -31,7 +31,8 @@ afterAll(() => {
 })
 
 beforeAll(async () => {
-  await initializeLocaleRuntime('zh-CN', LOCALE_DOMAINS)
+  resetLocaleRuntimeForTests()
+  await activateLocaleRuntime('zh-CN', LOCALE_DOMAINS)
 })
 
 // ---------------------------------------------------------------------------

@@ -20,6 +20,14 @@ const retiredSymbols = [
     'previous' + 'Locale',
     'toggle' + 'Label',
     'compact' + 'Label',
+    'initializeLocaleRuntime',
+    'applyLocale',
+    'performSwitch',
+    'activeSwitch',
+    'fsus:locale-change',
+]
+const retiredPatterns = [
+    /\bsetLocale\b/u,
 ]
 
 const violations = []
@@ -27,6 +35,9 @@ for (const file of trackedFiles) {
     const source = readFileSync(resolve(root, file), 'utf8')
     for (const symbol of retiredSymbols) {
         if (source.includes(symbol)) violations.push(`${file}: retired locale artifact ${symbol}`)
+    }
+    for (const pattern of retiredPatterns) {
+        if (pattern.test(source)) violations.push(`${file}: retired locale artifact ${pattern}`)
     }
 
     const explicitBinaryComparison = new RegExp(`(?:activeLocale|locale)\\.value\\s*(?:===|!==)\\s*['\"](?:${zh}|${en})['\"]`, 'u')
@@ -44,18 +55,57 @@ const runtime = readFileSync(resolve(root, runtimePath), 'utf8')
 if (/from\s+['"]\.\/zh-CN\//u.test(runtime)) {
     violations.push(`${runtimePath}: runtime must not statically carry zh-CN critical domains`)
 }
-if (!/export async function requestLocale\(value: SupportedLocale\)/u.test(runtime)) {
-    violations.push(`${runtimePath}: explicit locale request must accept SupportedLocale`)
+if (!/requestLocale/u.test(runtime)) {
+    violations.push(`${runtimePath}: explicit locale request must remain exported`)
 }
-if (!/export \{ localeState as activeLocale \}/u.test(runtime)) {
+if (!/activeLocale/u.test(runtime)) {
     violations.push(`${runtimePath}: current locale must be exposed as activeLocale`)
 }
 if (!runtime.includes('getLocaleDescriptor')) {
     violations.push(`${runtimePath}: locale display metadata must remain catalog-descriptor backed`)
 }
-if (!/export async function prepareLocaleDomains[\s\S]*?Promise<PreparedLocaleDomains>/u.test(runtime)
-    || !/export async function beginLocaleRouteTransaction/u.test(runtime)) {
-    violations.push(`${runtimePath}: locale domains must use pure snapshots and explicit route transactions`)
+if (!/prepareLocaleDomains/u.test(runtime)
+    || !/beginLocaleRouteTransaction/u.test(runtime)
+    || !/activateLocaleRuntime/u.test(runtime)) {
+    violations.push(`${runtimePath}: locale domains must use pure snapshots, activation, and explicit route transactions`)
+}
+if (/CustomEvent|fsus:locale-change|localStorage|sessionStorage/u.test(runtime)) {
+    violations.push(`${runtimePath}: locale surface must not host CustomEvent or storage authorities`)
+}
+
+const coordinatorPath = 'src/frontend/src/locales/runtime/localeRuntimeCoordinator.ts'
+const coordinator = readFileSync(resolve(root, coordinatorPath), 'utf8')
+for (const banned of [
+    "from 'vue'",
+    'from "vue"',
+    '@/router',
+    'pinia',
+    'document.cookie',
+    '@/api/',
+    '@/bootstrap/fontPreparationPort',
+    '@/services/localePreferenceCommandPort'
+]) {
+    if (coordinator.includes(banned)) {
+        violations.push(`${coordinatorPath}: coordinator must not depend on ${banned}`)
+    }
+}
+if (/\blocalStorage\b|\bsessionStorage\b/u.test(coordinator)) {
+    violations.push(`${coordinatorPath}: coordinator must not depend on browser storage APIs`)
+}
+if (!/domainBundlePort/u.test(coordinator)
+    || !/fontPreparationPort/u.test(coordinator)
+    || !/preferenceCommitPort/u.test(coordinator)
+    || !/metadataPort/u.test(coordinator)
+    || !/telemetryPort/u.test(coordinator)) {
+    violations.push(`${coordinatorPath}: coordinator must inject domain, font, preference, metadata, and telemetry ports`)
+}
+
+const compositionPath = 'src/frontend/src/locales/runtime/localeRuntimeComposition.ts'
+const composition = readFileSync(resolve(root, compositionPath), 'utf8')
+if (!/LocaleRuntimeCoordinator/u.test(composition)
+    || !/prepareLocaleFonts/u.test(composition)
+    || !/preferenceCommitPort/u.test(composition)) {
+    violations.push(`${compositionPath}: composition must wire coordinator with domain and font ports`)
 }
 
 for (const relativePath of [
@@ -65,14 +115,14 @@ for (const relativePath of [
     'src/frontend/src/components/public/PublicBlogLayoutShell.vue'
 ]) {
     const source = readFileSync(resolve(root, relativePath), 'utf8')
-    if (/initializeLocaleRuntime/u.test(source)) {
+    if (/activateLocaleRuntime/u.test(source)) {
         violations.push(`${relativePath}: locale initialization must complete before render, not in a component lifecycle`)
     }
 }
 
 const hydrationPath = 'src/frontend/src/public-renderers/clientHydrate.ts'
 const hydration = readFileSync(resolve(root, hydrationPath), 'utf8')
-const hydrationInitialization = hydration.indexOf('await initializeLocaleRuntime(')
+const hydrationInitialization = hydration.indexOf('await activateLocaleRuntime(')
 const hydrationMount = hydration.indexOf('app.mount(container, true)')
 if (hydrationInitialization < 0 || hydrationMount < 0 || hydrationInitialization > hydrationMount) {
     violations.push(`${hydrationPath}: resolved locale domains must be ready before hydration mount`)

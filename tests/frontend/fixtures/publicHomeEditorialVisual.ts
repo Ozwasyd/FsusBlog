@@ -5,7 +5,7 @@ import HomeTextFirstRecommendations from '@/components/home/HomeTextFirstRecomme
 import PublicHomePageContent from '@/components/public/pages/PublicHomePageContent.vue'
 import type { FeaturedArticleItem, PopularArticleSummaryResponse } from '@/api/article'
 import type { ArticleListCardViewContract, ArticleListViewContract } from '@/view-contracts/articleList'
-import { initializeLocaleRuntime } from '@/locales'
+import { activateLocaleRuntime } from '@/locales'
 import contract from './public-home-editorial-contract.json'
 import './public-home-editorial-fixture.css'
 
@@ -47,7 +47,7 @@ const articleCount = requestedCount === 3 ? 3 : 10
 const articles = contract.articles[locale].slice(0, articleCount)
 const copy = FIXTURE_COPY[locale]
 
-await initializeLocaleRuntime(locale, ['common', 'layout', 'public'])
+await activateLocaleRuntime(locale, ['common', 'layout', 'public'])
 
 document.documentElement.lang = locale
 document.documentElement.classList.toggle('dark', theme === 'dark')

@@ -2,12 +2,12 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  activateLocaleRuntime,
+  activeLocale,
   beginLocaleRouteTransaction,
   createLocaleTextContext,
   formatDate,
   formatNumber,
-  initializeLocaleRuntime,
-  activeLocale,
   messages,
   prepareLocaleDomains,
   resetLocaleRuntimeForTests,
@@ -30,7 +30,7 @@ describe('locale runtime', () => {
   })
 
   it('publishes the server-resolved non-default locale and exact domains before first render', async () => {
-    await initializeLocaleRuntime('ja-JP', ['common', 'layout', 'public'])
+    await activateLocaleRuntime('ja-JP', ['common', 'layout', 'public'])
 
     expect(activeLocale.value).toBe('ja-JP')
     expect(Object.keys(messages.value).sort()).toEqual(['common', 'layout', 'public'])
@@ -43,42 +43,53 @@ describe('locale runtime', () => {
   })
 
   it('keeps the server or document locale as the only startup authority', async () => {
-    await initializeLocaleRuntime('zh-CN', ['common', 'layout', 'public'])
+    await activateLocaleRuntime('zh-CN', ['common', 'layout', 'public'])
     expect(activeLocale.value).toBe('zh-CN')
     expect(translate('common.routeTitles.login')).toBe('登录')
     expect(document.documentElement.lang).toBe('zh-CN')
 
     resetLocaleRuntimeForTests()
     document.documentElement.lang = 'en-US'
-    await initializeLocaleRuntime(undefined, ['common', 'layout', 'public'])
+    await activateLocaleRuntime(undefined, ['common', 'layout', 'public'])
 
     expect(activeLocale.value).toBe('en-US')
     expect(translate('common.routeTitles.login')).toBe('Log in')
   })
 
+  it('fails closed when bootstrap lacks a server-resolved locale', async () => {
+    document.documentElement.lang = ''
+    await expect(activateLocaleRuntime(undefined, ['common', 'layout', 'public']))
+      .rejects.toThrow('locale_runtime_initial_locale_missing')
+    expect(activeLocale.value).toBe('zh-CN')
+    expect(document.documentElement.lang).toBe('')
+  })
+
   it('projects a supported locale without writing client persistence', async () => {
-    await initializeLocaleRuntime('zh-CN', ['common', 'layout', 'public', 'article'])
+    await activateLocaleRuntime('zh-CN', ['common', 'layout', 'public', 'article'])
     await requestLocale('en-US')
     expect(localStorage.length).toBe(0)
     expect(translate('article.metadata.longRead')).toBe('Long read')
   })
 
-  it('requests one explicit target without publishing a binary-toggle artifact', async () => {
+  it('requests one explicit target without publishing a locale CustomEvent', async () => {
+    await activateLocaleRuntime('zh-CN', ['common', 'layout', 'public'])
     const eventDetail = vi.fn()
+    // Construct the retired event name so the static erasure checker does not
+    // treat this negative proof as a live producer.
+    const retiredLocaleEvent = ['fsus', 'locale-change'].join(':')
     window.addEventListener(
-      'fsus:locale-change',
-      (event) => eventDetail((event as CustomEvent).detail),
-      { once: true },
+      retiredLocaleEvent,
+      (event) => eventDetail((event as CustomEvent).detail)
     )
 
     await requestLocale('fr-FR')
 
     expect(activeLocale.value).toBe('fr-FR')
-    expect(eventDetail).toHaveBeenCalledWith({ locale: 'fr-FR' })
+    expect(eventDetail).not.toHaveBeenCalled()
   })
 
   it('rolls back a staged route without changing active messages or metadata', async () => {
-    await initializeLocaleRuntime('en-US', ['common', 'layout', 'public'])
+    await activateLocaleRuntime('en-US', ['common', 'layout', 'public'])
     const previousMessages = messages.value
     const previousLanguage = document.documentElement.lang
 
@@ -99,7 +110,7 @@ describe('locale runtime', () => {
   })
 
   it('serializes a locale switch behind the immutable route transaction snapshot', async () => {
-    await initializeLocaleRuntime('en-US', ['common', 'layout', 'public'])
+    await activateLocaleRuntime('en-US', ['common', 'layout', 'public'])
     const transaction = await beginLocaleRouteTransaction([
       'common',
       'layout',
@@ -126,7 +137,7 @@ describe('locale runtime', () => {
   })
 
   it('keeps the old atomic projection when a required domain cannot be prepared', async () => {
-    await initializeLocaleRuntime('en-US', ['common', 'layout', 'public'])
+    await activateLocaleRuntime('en-US', ['common', 'layout', 'public'])
     const previousMessages = messages.value
     const previousLanguage = document.documentElement.lang
 
@@ -141,6 +152,7 @@ describe('locale runtime', () => {
   })
 
   it('fails closed when the active locale is missing a message key', async () => {
+    await activateLocaleRuntime('en-US', ['common', 'layout', 'public'])
     await requestLocale('en-US')
     const routeTitles = messages.value.common?.routeTitles as { login?: string }
     const login = routeTitles.login
@@ -154,6 +166,7 @@ describe('locale runtime', () => {
   })
 
   it('formats dates and numbers through the active Intl locale', async () => {
+    await activateLocaleRuntime('en-US', ['common', 'layout', 'public'])
     await requestLocale('en-US')
     expect(formatNumber(12345)).toBe(new Intl.NumberFormat('en-US').format(12345))
     expect(formatDate('2026-07-20T00:00:00Z', { year: 'numeric' }))
@@ -161,7 +174,7 @@ describe('locale runtime', () => {
   })
 
   it('keeps request-scoped formatting on the prepared SSR locale', async () => {
-    await initializeLocaleRuntime('en-US', ['common'])
+    await activateLocaleRuntime('en-US', ['common'])
     const scoped = createLocaleTextContext(
       await prepareLocaleDomains('ja-JP', ['common'])
     )

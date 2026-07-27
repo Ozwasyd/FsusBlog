@@ -12,7 +12,7 @@ import {
   type ChallengeCapabilityResolution
 } from '@/security/challenge-capability-registry'
 import type { SecurityChallengeClient, SecurityChallengeIssueResult } from '@/security/challenge-client'
-import { initializeLocaleRuntime, requestLocale } from '@/locales'
+import { activateLocaleRuntime, requestLocale } from '@/locales'
 
 vi.mock('@/fsusui/perceptionCharacterChallenge', async () => {
   const { defineComponent, h } = await import('vue')
@@ -68,7 +68,7 @@ describe('FsusSecurityChallenge capability dispatch', () => {
   })
 
   it('renders all shared challenge copy from the active English locale', async () => {
-    await initializeLocaleRuntime('en-US', ['common', 'layout', 'public', 'security'])
+    await activateLocaleRuntime('en-US', ['common', 'layout', 'public', 'security'])
     const wrapper = mount(FsusSecurityChallenge, {
       props: {
         action: 'comment.create',

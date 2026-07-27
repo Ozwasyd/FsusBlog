@@ -5,28 +5,44 @@ vi.mock('@/api/auth', () => ({
   updateLocalePreference: vi.fn()
 }))
 
-vi.mock('@/locales', () => ({
-  requestLocale: vi.fn(async (locale: string) => locale)
-}))
+vi.mock('@/locales/runtime/localeRuntimeComposition', async () => {
+  const actual = await vi.importActual<typeof import('@/locales/runtime/localeRuntimeComposition')>(
+    '@/locales/runtime/localeRuntimeComposition'
+  )
+  return {
+    ...actual,
+    requestLocalePreference: vi.fn(async () => 'de-DE'),
+    refreshPreferenceSnapshot: vi.fn(),
+    getPreferenceSnapshot: vi.fn()
+  }
+})
 
 import {
   getLocalePreference,
   updateLocalePreference
 } from '@/api/auth'
-import { requestLocale } from '@/locales'
+import {
+  getPreferenceSnapshot,
+  refreshPreferenceSnapshot,
+  requestLocalePreference
+} from '@/locales/runtime/localeRuntimeComposition'
 import { localePreferenceCommandPort } from '@/services/localePreferenceCommandPort'
 import { createAppError, AppErrorCode } from '@/utils/appError'
 
 const getLocalePreferenceMock = vi.mocked(getLocalePreference)
 const updateLocalePreferenceMock = vi.mocked(updateLocalePreference)
-const requestLocaleMock = vi.mocked(requestLocale)
+const requestLocalePreferenceMock = vi.mocked(requestLocalePreference)
+const refreshPreferenceSnapshotMock = vi.mocked(refreshPreferenceSnapshot)
+const getPreferenceSnapshotMock = vi.mocked(getPreferenceSnapshot)
 
 describe('localePreferenceCommandPort', () => {
   beforeEach(() => {
     getLocalePreferenceMock.mockReset()
     updateLocalePreferenceMock.mockReset()
-    requestLocaleMock.mockReset()
-    requestLocaleMock.mockImplementation(async (locale) => locale)
+    requestLocalePreferenceMock.mockReset()
+    refreshPreferenceSnapshotMock.mockReset()
+    getPreferenceSnapshotMock.mockReset()
+    requestLocalePreferenceMock.mockImplementation(async () => 'de-DE')
   })
 
   afterEach(() => {
@@ -34,7 +50,7 @@ describe('localePreferenceCommandPort', () => {
   })
 
   it('loads the independent preference snapshot without localStorage', async () => {
-    getLocalePreferenceMock.mockResolvedValue({
+    refreshPreferenceSnapshotMock.mockResolvedValue({
       mode: 'fixed',
       fixedLocale: 'ja-JP',
       revision: 2,
@@ -49,14 +65,14 @@ describe('localePreferenceCommandPort', () => {
     expect(localStorage.length).toBe(0)
   })
 
-  it('saves fixed preference through one command port and projects locale', async () => {
-    getLocalePreferenceMock.mockResolvedValue({
+  it('saves fixed preference through one command path that drives the runtime transaction', async () => {
+    refreshPreferenceSnapshotMock.mockResolvedValue({
       mode: 'auto',
       fixedLocale: null,
       revision: 0,
       updatedAt: '1970-01-01T00:00:00.000Z'
     })
-    updateLocalePreferenceMock.mockResolvedValue({
+    getPreferenceSnapshotMock.mockReturnValue({
       mode: 'fixed',
       fixedLocale: 'de-DE',
       revision: 1,
@@ -66,24 +82,23 @@ describe('localePreferenceCommandPort', () => {
     await localePreferenceCommandPort.refresh()
     const saved = await localePreferenceCommandPort.setFixed('de-DE')
 
-    expect(updateLocalePreferenceMock).toHaveBeenCalledWith({
+    expect(requestLocalePreferenceMock).toHaveBeenCalledWith({
       mode: 'fixed',
-      fixedLocale: 'de-DE',
-      expectedRevision: 0
+      locale: 'de-DE'
     })
-    expect(requestLocaleMock).toHaveBeenCalledWith('de-DE')
+    expect(updateLocalePreferenceMock).not.toHaveBeenCalled()
     expect(saved.revision).toBe(1)
     expect(localePreferenceCommandPort.status.value).toBe('success')
   })
 
   it('surfaces revision conflict for multi-device retry without silent overwrite', async () => {
-    getLocalePreferenceMock.mockResolvedValue({
+    refreshPreferenceSnapshotMock.mockResolvedValue({
       mode: 'fixed',
       fixedLocale: 'en-US',
       revision: 4,
       updatedAt: '2026-07-28T02:00:00.000Z'
     })
-    updateLocalePreferenceMock.mockRejectedValue(
+    requestLocalePreferenceMock.mockRejectedValue(
       createAppError(AppErrorCode.Conflict, 'locale_preference_revision_conflict')
     )
 
@@ -92,10 +107,6 @@ describe('localePreferenceCommandPort', () => {
       message: expect.stringContaining('locale_preference_revision_conflict')
     })
     expect(localePreferenceCommandPort.status.value).toBe('conflict')
-    expect(updateLocalePreferenceMock).toHaveBeenCalledWith({
-      mode: 'auto',
-      fixedLocale: null,
-      expectedRevision: 4
-    })
+    expect(requestLocalePreferenceMock).toHaveBeenCalledWith({ mode: 'auto' })
   })
 })

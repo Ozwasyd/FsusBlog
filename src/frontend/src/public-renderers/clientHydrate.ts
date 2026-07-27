@@ -18,7 +18,7 @@ import {
   type PublicHydrationTakeoverController
 } from './publicHydrationRoot';
 import { registerPublicStaticRouterLink } from './publicStaticRouterLink';
-import { initializeLocaleRuntime, isSupportedLocale } from '@/locales'
+import { activateLocaleRuntime, isSupportedLocale } from '@/locales'
 import { requiredLocaleDomainsForPublicPage } from '@/locales/routeLocaleDomains'
 import { hasCanonicalPublicSeedRenderTimestamp } from './publicRenderClock';
 
@@ -126,7 +126,7 @@ export async function hydratePublicPage(payload: PublicHydrationPayload): Promis
   markHydrationStep('hydrate:start');
 
   const normalizedPayload = normalizePublicHydrationPayload(payload);
-  await initializeLocaleRuntime(
+  await activateLocaleRuntime(
     normalizedPayload.renderLocale,
     requiredLocaleDomainsForPublicPage(normalizedPayload.pageKind)
   )

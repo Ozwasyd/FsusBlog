@@ -4,7 +4,7 @@ import {
     formatDate,
     formatNumber,
     formatRelativeTime,
-    initializeLocaleRuntime,
+    activateLocaleRuntime,
     activeLocale,
     messages,
     LOCALE_TEXT_CONTEXT_KEY,
@@ -23,7 +23,7 @@ export function useI18nText()
         enabledLocales: ENABLED_LOCALES,
         activeLocale: scoped?.activeLocale ?? activeLocale,
         messages: scoped?.messages ?? messages,
-        initializeLocaleRuntime,
+        activateLocaleRuntime,
         requestLocale,
         t: <Key extends TranslationKey>(key: Key, ...params: TranslationArguments<Key>) =>
             scoped ? scoped.translate(key, ...params) : translate(key, ...params),

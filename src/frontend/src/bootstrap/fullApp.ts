@@ -6,7 +6,7 @@ import App from '@/App.vue'
 import { createAppRouter } from '@/router'
 import {
   beginLocaleRouteTransaction,
-  initializeLocaleRuntime,
+  activateLocaleRuntime,
   isSupportedLocale
 } from '@/locales'
 import { requiredLocaleDomainsForRoute } from '@/locales/routeLocaleDomains'
@@ -121,7 +121,7 @@ async function prepareInitialLocaleForFullApp(options: BootstrapFullAppOptions):
   const takeoverLocale = options.takeover === 'public-shell'
     ? getPublicHydrationTakeoverHandle()?.payload.renderLocale
     : undefined
-  await initializeLocaleRuntime(
+  await activateLocaleRuntime(
     isSupportedLocale(takeoverLocale) ? takeoverLocale : undefined,
     requiredLocaleDomainsForRoute(route)
   )

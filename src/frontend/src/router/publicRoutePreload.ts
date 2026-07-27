@@ -1,6 +1,6 @@
 import { decodePublicAotPayload, decodePublicAotPayloadBytes } from '@/bootstrap/publicAotBinaryPayload'
 import { getPublicShellLifetimeSignal } from '@/bootstrap/publicShellLifetime'
-import { initializeLocaleRuntime, isSupportedLocale } from '@/locales'
+import { activateLocaleRuntime, isSupportedLocale } from '@/locales'
 import { getLocaleDescriptor, LOCALE_CATALOG_DIGEST } from '@/locales/localeCatalog'
 import { requiredLocaleDomainsForRoute } from '@/locales/routeLocaleDomains'
 import { emitTelemetry as emitRuntimeTelemetry } from '@/services/telemetryBus'
@@ -515,7 +515,7 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
           throw new Error('route-seo-validation-failed: invalid navigation snapshot SEO head')
         }
 
-        const preparedLocale = await initializeLocaleRuntime(
+        const preparedLocale = await activateLocaleRuntime(
           descriptor.code,
           requiredLocaleDomainsForRoute({
             name: matchedRoute.name,

@@ -31,7 +31,7 @@ const beginLocaleRouteTransaction = vi.fn(async () => ({
   commit: vi.fn(),
   rollback: vi.fn()
 }))
-const initializeLocaleRuntime = vi.fn(async () => 'zh-CN')
+const activateLocaleRuntime = vi.fn(async () => 'zh-CN')
 const isSupportedLocale = (value: unknown): value is string =>
   typeof value === 'string' && value.length > 0
 const createApp = vi.fn(() => fakeApp)
@@ -97,7 +97,7 @@ vi.mock('@/locales', () => ({
   DEFAULT_LOCALE: 'zh-CN',
   isSupportedLocale,
   beginLocaleRouteTransaction,
-  initializeLocaleRuntime
+  activateLocaleRuntime
 }))
 vi.mock('@/locales/routeLocaleDomains', () => ({
   requiredLocaleDomainsForRoute: vi.fn(() => ['common', 'layout', 'public'])
@@ -231,11 +231,11 @@ describe('full app bootstrap prepare/commit', () => {
     await expect(first).resolves.toBe(fakeRouter)
 
     expect(createApp).toHaveBeenCalledTimes(1)
-    expect(initializeLocaleRuntime).toHaveBeenCalledWith(
+    expect(activateLocaleRuntime).toHaveBeenCalledWith(
       undefined,
       ['common', 'layout', 'public']
     )
-    expect(initializeLocaleRuntime.mock.invocationCallOrder[0])
+    expect(activateLocaleRuntime.mock.invocationCallOrder[0])
       .toBeLessThan(appMount.mock.invocationCallOrder[0]!)
     expect(appMount).toHaveBeenCalledWith('#app')
     expect(removeGlobalLoader).toHaveBeenCalledTimes(1)

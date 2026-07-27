@@ -3,10 +3,10 @@
 import { mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import ArticleReadingNotice from '@/components/article/ArticleReadingNotice.vue'
-import { initializeLocaleRuntime, requestLocale, resetLocaleRuntimeForTests } from '@/locales'
+import { activateLocaleRuntime, requestLocale, resetLocaleRuntimeForTests } from '@/locales'
 
 beforeEach(async () => {
-  await initializeLocaleRuntime('zh-CN', ['common', 'layout', 'public', 'article'])
+  await activateLocaleRuntime('zh-CN', ['common', 'layout', 'public', 'article'])
 })
 
 afterEach(() => {

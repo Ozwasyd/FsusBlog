@@ -1,15 +1,15 @@
 import { readonly, shallowRef } from 'vue'
 
-import {
-  getLocalePreference,
-  updateLocalePreference
-} from '@/api/auth'
 import type {
   LocalePreferenceMode,
   UserLocalePreference
 } from '@/contracts/binaryApi'
-import { requestLocale } from '@/locales'
 import type { SupportedLocale } from '@/locales/localeCatalog'
+import {
+  getPreferenceSnapshot,
+  refreshPreferenceSnapshot,
+  requestLocalePreference
+} from '@/locales/runtime/localeRuntimeComposition'
 import { toAppError } from '@/utils/appError'
 
 type LocalePreferenceStatus =
@@ -25,14 +25,18 @@ const status = shallowRef<LocalePreferenceStatus>('idle')
 const failure = shallowRef<Error | null>(null)
 let refreshInFlight: Promise<UserLocalePreference> | null = null
 
+function syncPreferenceView(snapshot: UserLocalePreference | null): void {
+  preference.value = snapshot
+}
+
 async function refresh(signal?: AbortSignal): Promise<UserLocalePreference> {
   if (!signal && refreshInFlight) return refreshInFlight
   const execute = async (): Promise<UserLocalePreference> => {
     status.value = 'loading'
     failure.value = null
     try {
-      const snapshot = await getLocalePreference({ signal })
-      preference.value = snapshot
+      const snapshot = await refreshPreferenceSnapshot(signal)
+      syncPreferenceView(snapshot)
       status.value = 'idle'
       return snapshot
     } catch (error) {
@@ -57,19 +61,22 @@ async function save(
   mode: LocalePreferenceMode,
   fixedLocale: SupportedLocale | null
 ): Promise<UserLocalePreference> {
-  const current = preference.value ?? await refresh()
+  if (!preference.value) await refresh()
   status.value = 'saving'
   failure.value = null
   try {
-    const snapshot = await updateLocalePreference({
-      mode,
-      fixedLocale,
-      expectedRevision: current.revision
-    })
-    preference.value = snapshot
-    if (snapshot.mode === 'fixed' && snapshot.fixedLocale) {
-      await requestLocale(snapshot.fixedLocale)
+    const command = mode === 'fixed' && fixedLocale
+      ? Object.freeze({ mode: 'fixed' as const, locale: fixedLocale })
+      : Object.freeze({ mode: 'auto' as const })
+    await requestLocalePreference(command)
+    const snapshot = getPreferenceSnapshot()
+    if (!snapshot) {
+      throw toAppError(
+        new Error('locale_preference_unavailable'),
+        'locale_preference_unavailable'
+      )
     }
+    syncPreferenceView(snapshot)
     status.value = 'success'
     return snapshot
   } catch (error) {

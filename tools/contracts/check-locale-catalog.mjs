@@ -82,9 +82,13 @@ const assertLocaleDomainLoaders = (source, expectedDomainList) => {
 
 const assertLocaleDomainFiles = async (expectedDomainList) => {
   const localeRoot = path.join(root, 'src/frontend/src/locales')
+  // Non-catalog runtime composition lives under locales/runtime and is not a
+  // locale dictionary directory.
+  const allowedNonLocaleDirectories = new Set(['runtime'])
   const localeDirectories = (await readdir(localeRoot, { withFileTypes: true }))
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
+    .filter((name) => !allowedNonLocaleDirectories.has(name))
   assertExactKeys('locale domain directories', localeDirectories)
   for (const locale of localeDirectories) {
     const files = (await readdir(path.join(localeRoot, locale), { withFileTypes: true }))

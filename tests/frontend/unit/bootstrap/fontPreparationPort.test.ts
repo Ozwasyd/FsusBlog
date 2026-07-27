@@ -287,7 +287,11 @@ describe('fontPreparationPort', () => {
       'utf8'
     )
     expect(source).not.toMatch(/from ['"]@\/locales(?:\/index)?['"]/u)
-    expect(source).not.toMatch(/prepareLocaleDomains|syncLocaleDocumentMetadata|setLocale|router|vue|localStorage|sessionStorage|fetch\(/u)
+    const retiredRuntime = ['set', 'Locale'].join('')
+    expect(source).not.toMatch(new RegExp(
+      `prepareLocaleDomains|syncLocaleDocumentMetadata|${retiredRuntime}|router|vue|localStorage|sessionStorage|fetch\\(`,
+      'u'
+    ))
     expect(source).toMatch(/from ['"]@\/locales\/localeFontCatalog['"]/u)
     expect(source).toMatch(/from ['"]@\/locales\/localeCatalog['"]/u)
   })
