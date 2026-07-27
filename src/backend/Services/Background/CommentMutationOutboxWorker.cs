@@ -502,58 +502,171 @@ public sealed class CommentMutationOutboxWorker(
         Func<CancellationToken, Task> action,
         CancellationToken cancellationToken)
     {
-        bool completed = await db.Queryable<CommentMutationOutboxDelivery>()
-            .Where(row => row.OutboxEventId == item.Id
-                && row.ConsumerName == consumer
-                && row.Status == CommentMutationOutboxDeliveryStatus.Completed)
-            .AnyAsync(cancellationToken)
-            .ConfigureAwait(false);
-        if (completed)
+        if (!s_consumerRegistry.Contains(consumer))
+            throw new CommentMutationOutboxTerminalDeliveryException($"comment_outbox_consumer_unknown:{consumer}");
+
+        string resultDigest = BuildDeliveryResultDigest(item, consumer);
+        await EnsureClaimOwnedAsync(db, claim, cancellationToken).ConfigureAwait(false);
+        ConsumerReservation reservation = await ReserveDeliveryAsync(db, item, claim, consumer, cancellationToken).ConfigureAwait(false);
+        if (reservation == ConsumerReservation.Completed)
         {
+            CommentMutationOutboxDelivery completed = await db.Queryable<CommentMutationOutboxDelivery>()
+                .Where(row => row.OutboxEventId == item.Id && row.ConsumerName == consumer)
+                .SingleAsync()
+                .ConfigureAwait(false);
+            if (!string.Equals(completed.ResultDigest, resultDigest, StringComparison.Ordinal))
+                throw new CommentMutationOutboxTerminalDeliveryException($"comment_outbox_delivery_result_digest_invalid:{consumer}");
             return;
         }
+        if (reservation == ConsumerReservation.TerminalFailed)
+            throw new CommentMutationOutboxTerminalDeliveryException($"comment_outbox_delivery_terminal_failed:{consumer}");
+        if (reservation != ConsumerReservation.Reserved)
+        {
+            claim.MarkLost();
+            throw new CommentMutationOutboxClaimLostException(item.Id);
+        }
 
-        await EnsureClaimOwnedAsync(db, claim, cancellationToken).ConfigureAwait(false);
         try
         {
+            await EnsureClaimOwnedAsync(db, claim, cancellationToken).ConfigureAwait(false);
             await action(cancellationToken).ConfigureAwait(false);
             await EnsureClaimOwnedAsync(db, claim, cancellationToken).ConfigureAwait(false);
-            await UpsertDeliveryAsync(db, item.Id, claim, consumer, CommentMutationOutboxDeliveryStatus.Completed, null).ConfigureAwait(false);
+            await CompleteDeliveryAsync(db, item.Id, claim, consumer, resultDigest).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             if (claim.OwnerState == ClaimOwnerState.Owned)
             {
-                await UpsertDeliveryAsync(db, item.Id, claim, consumer, CommentMutationOutboxDeliveryStatus.Failed, SanitizeError(ex)).ConfigureAwait(false);
+                await FailDeliveryAsync(db, item.Id, claim, consumer, ex).ConfigureAwait(false);
             }
             throw;
         }
     }
 
-    private static async Task UpsertDeliveryAsync(ISqlSugarClient db, long outboxId, ClaimState claim, string consumer, string status, string? error)
+    private static readonly HashSet<string> s_consumerRegistry = new(StringComparer.Ordinal)
     {
-        int updated = await db.Ado.ExecuteCommandAsync(
+        "model-moderation",
+        "cache-version",
+        "realtime-stream",
+        "audit-projection",
+        "site-notification"
+    };
+
+    internal static string BuildDeliveryResultDigest(CommentMutationOutboxEvent item, string consumer)
+        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
+            $"comment-outbox-delivery:v1|{consumer}|{item.EventId}|{item.EventType}|{item.CommentId}|{item.ArticleId}"))).ToLowerInvariant();
+
+    private static async Task<ConsumerReservation> ReserveDeliveryAsync(
+        ISqlSugarClient db,
+        CommentMutationOutboxEvent item,
+        ClaimState claim,
+        string consumer,
+        CancellationToken cancellationToken)
+    {
+        await using (DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             """
             WITH owned_claim AS (
-                SELECT id FROM comment_mutation_outbox
+                SELECT id, lease_expires_at FROM comment_mutation_outbox
                 WHERE id = @OutboxId AND status = 'processing' AND claim_token = @ClaimToken AND claimed_by = @ClaimedBy
                   AND lease_generation = @LeaseGeneration AND lease_expires_at > (now() AT TIME ZONE 'utc')
+            ), reservation AS (
+                INSERT INTO comment_mutation_outbox_delivery(
+                    outbox_event_id, consumer_name, status, attempt_count, owner_claim_token, owner_worker_id,
+                    lease_generation, started_at, lease_expires_at, last_error, last_failure_kind, updated_at_utc)
+                SELECT @OutboxId, @Consumer, 'processing', 1, @ClaimToken, @ClaimedBy,
+                    @LeaseGeneration, (now() AT TIME ZONE 'utc'), owned_claim.lease_expires_at, NULL, NULL, (now() AT TIME ZONE 'utc')
+                FROM owned_claim
+                ON CONFLICT (outbox_event_id, consumer_name) DO UPDATE
+                SET status = 'processing',
+                    attempt_count = comment_mutation_outbox_delivery.attempt_count + 1,
+                    owner_claim_token = EXCLUDED.owner_claim_token,
+                    owner_worker_id = EXCLUDED.owner_worker_id,
+                    lease_generation = EXCLUDED.lease_generation,
+                    started_at = EXCLUDED.started_at,
+                    lease_expires_at = EXCLUDED.lease_expires_at,
+                    completed_at = NULL,
+                    result_digest = NULL,
+                    last_error = NULL,
+                    last_failure_kind = NULL,
+                    updated_at_utc = EXCLUDED.updated_at_utc
+                WHERE comment_mutation_outbox_delivery.status IN ('pending', 'retryable-failed')
+                    OR (comment_mutation_outbox_delivery.status = 'processing'
+                       AND (comment_mutation_outbox_delivery.lease_expires_at <= (now() AT TIME ZONE 'utc')
+                            OR comment_mutation_outbox_delivery.lease_generation < EXCLUDED.lease_generation))
+                RETURNING status
             )
-            INSERT INTO comment_mutation_outbox_delivery(outbox_event_id, consumer_name, status, attempt_count, last_error, updated_at_utc)
-            SELECT @OutboxId, @Consumer, @Status, 1, @Error, (now() AT TIME ZONE 'utc') FROM owned_claim
-            ON CONFLICT (outbox_event_id, consumer_name) DO UPDATE
-            SET status = EXCLUDED.status,
-                attempt_count = comment_mutation_outbox_delivery.attempt_count + 1,
-                last_error = EXCLUDED.last_error,
-                updated_at_utc = EXCLUDED.updated_at_utc;
+            SELECT status FROM reservation;
             """,
-            new SugarParameter("@OutboxId", outboxId),
+            new SugarParameter("@OutboxId", item.Id),
             new SugarParameter("@ClaimToken", claim.Event.ClaimToken),
             new SugarParameter("@ClaimedBy", claim.Event.ClaimedBy),
             new SugarParameter("@LeaseGeneration", claim.Event.LeaseGeneration),
-            new SugarParameter("@Consumer", consumer),
-            new SugarParameter("@Status", status),
-            new SugarParameter("@Error", (object?)error ?? DBNull.Value));
+            new SugarParameter("@Consumer", consumer)))
+        {
+            if (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                return ConsumerReservation.Reserved;
+        }
+
+        CommentMutationOutboxDelivery? existing = await db.Queryable<CommentMutationOutboxDelivery>()
+            .Where(row => row.OutboxEventId == item.Id && row.ConsumerName == consumer)
+            .FirstAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return existing?.Status switch
+        {
+            CommentMutationOutboxDeliveryStatus.Completed => ConsumerReservation.Completed,
+            CommentMutationOutboxDeliveryStatus.TerminalFailed => ConsumerReservation.TerminalFailed,
+            _ => ConsumerReservation.NotReserved
+        };
+    }
+
+    private static async Task CompleteDeliveryAsync(ISqlSugarClient db, long outboxId, ClaimState claim, string consumer, string resultDigest)
+    {
+        int updated = await db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE comment_mutation_outbox_delivery delivery
+            SET status = 'completed', completed_at = (now() AT TIME ZONE 'utc'), result_digest = @ResultDigest,
+                lease_expires_at = NULL, last_error = NULL, last_failure_kind = NULL, updated_at_utc = (now() AT TIME ZONE 'utc')
+            FROM comment_mutation_outbox outbox
+            WHERE delivery.outbox_event_id = @OutboxId AND delivery.consumer_name = @Consumer
+              AND delivery.status = 'processing' AND delivery.owner_claim_token = @ClaimToken
+              AND delivery.owner_worker_id = @ClaimedBy AND delivery.lease_generation = @LeaseGeneration
+              AND delivery.lease_expires_at > (now() AT TIME ZONE 'utc')
+              AND outbox.id = delivery.outbox_event_id AND outbox.status = 'processing'
+              AND outbox.claim_token = @ClaimToken AND outbox.claimed_by = @ClaimedBy
+              AND outbox.lease_generation = @LeaseGeneration AND outbox.lease_expires_at > (now() AT TIME ZONE 'utc');
+            """,
+            new SugarParameter("@OutboxId", outboxId), new SugarParameter("@Consumer", consumer),
+            new SugarParameter("@ClaimToken", claim.Event.ClaimToken), new SugarParameter("@ClaimedBy", claim.Event.ClaimedBy),
+            new SugarParameter("@LeaseGeneration", claim.Event.LeaseGeneration), new SugarParameter("@ResultDigest", resultDigest));
+        if (updated != 1)
+        {
+            claim.MarkLost();
+            throw new CommentMutationOutboxClaimLostException(outboxId);
+        }
+    }
+
+    private static async Task FailDeliveryAsync(ISqlSugarClient db, long outboxId, ClaimState claim, string consumer, Exception exception)
+    {
+        string status = exception is CommentMutationOutboxTerminalDeliveryException
+            ? CommentMutationOutboxDeliveryStatus.TerminalFailed
+            : CommentMutationOutboxDeliveryStatus.RetryableFailed;
+        int updated = await db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE comment_mutation_outbox_delivery delivery
+            SET status = @Status, lease_expires_at = NULL, last_error = @Error, last_failure_kind = @FailureKind,
+                updated_at_utc = (now() AT TIME ZONE 'utc')
+            FROM comment_mutation_outbox outbox
+            WHERE delivery.outbox_event_id = @OutboxId AND delivery.consumer_name = @Consumer
+              AND delivery.status = 'processing' AND delivery.owner_claim_token = @ClaimToken
+              AND delivery.owner_worker_id = @ClaimedBy AND delivery.lease_generation = @LeaseGeneration
+              AND outbox.id = delivery.outbox_event_id AND outbox.status = 'processing'
+              AND outbox.claim_token = @ClaimToken AND outbox.claimed_by = @ClaimedBy
+              AND outbox.lease_generation = @LeaseGeneration AND outbox.lease_expires_at > (now() AT TIME ZONE 'utc');
+            """,
+            new SugarParameter("@Status", status), new SugarParameter("@Error", SanitizeError(exception)),
+            new SugarParameter("@FailureKind", exception.GetType().Name), new SugarParameter("@OutboxId", outboxId),
+            new SugarParameter("@Consumer", consumer), new SugarParameter("@ClaimToken", claim.Event.ClaimToken),
+            new SugarParameter("@ClaimedBy", claim.Event.ClaimedBy), new SugarParameter("@LeaseGeneration", claim.Event.LeaseGeneration));
         if (updated != 1)
         {
             claim.MarkLost();
@@ -751,6 +864,22 @@ public sealed class CommentMutationOutboxWorker(
             }
             if (heartbeat)
             {
+                await db.Ado.ExecuteCommandAsync(
+                    """
+                    UPDATE comment_mutation_outbox_delivery delivery
+                    SET lease_expires_at = @Expires, updated_at_utc = (now() AT TIME ZONE 'utc')
+                    FROM comment_mutation_outbox outbox
+                    WHERE delivery.outbox_event_id = @Id AND delivery.status = 'processing'
+                      AND delivery.owner_claim_token = @ClaimToken AND delivery.owner_worker_id = @ClaimedBy
+                      AND delivery.lease_generation = @LeaseGeneration
+                      AND outbox.id = delivery.outbox_event_id AND outbox.status = 'processing'
+                      AND outbox.claim_token = @ClaimToken AND outbox.claimed_by = @ClaimedBy
+                      AND outbox.lease_generation = @LeaseGeneration AND outbox.lease_expires_at > @Now;
+                    """,
+                    new SugarParameter("@Expires", now.Add(GetClaimLeaseDuration())),
+                    new SugarParameter("@Id", claim.Event.Id), new SugarParameter("@ClaimToken", claim.Event.ClaimToken),
+                    new SugarParameter("@ClaimedBy", claim.Event.ClaimedBy), new SugarParameter("@LeaseGeneration", claim.Event.LeaseGeneration),
+                    new SugarParameter("@Now", now)).ConfigureAwait(false);
                 claim.Event.LastHeartbeatAt = now;
                 claim.Event.LeaseExpiresAt = now.Add(GetClaimLeaseDuration());
                 claim.IncrementRenewed();
@@ -968,5 +1097,15 @@ public sealed class CommentMutationOutboxWorker(
         Owned, Lost, Released
     }
 
+    private enum ConsumerReservation
+    {
+        Reserved,
+        Completed,
+        TerminalFailed,
+        NotReserved
+    }
+
     private sealed class CommentMutationOutboxClaimLostException(long outboxId) : Exception($"comment_mutation_outbox_claim_lost:{outboxId}");
+
+    private sealed class CommentMutationOutboxTerminalDeliveryException(string message) : Exception(message);
 }

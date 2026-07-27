@@ -92,6 +92,21 @@ public sealed class SchemaMigrationRegistryTests
     }
 
     [Fact]
+    public void GetDescriptors_CommentMutationOutboxDeliveryReservation_IsOwnerBoundAndTerminalAware()
+    {
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            static item => item.MigrationId == "20260727-post-comment-mutation-outbox-delivery-reservation");
+        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
+
+        Assert.Contains("owner_claim_token", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("owner_worker_id", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("lease_generation", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("result_digest", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("terminal-failed", fingerprint, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void GetDescriptors_AdminMessageQueueState_BackfillsOnlyAccountMessages()
     {
         ISchemaMigrationDescriptor descriptor = Assert.Single(

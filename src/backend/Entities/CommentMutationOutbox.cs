@@ -160,10 +160,58 @@ public sealed class CommentMutationOutboxDelivery
     public string ConsumerName { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "status", Length = 24)]
-    public string Status { get; set; } = CommentMutationOutboxDeliveryStatus.Completed;
+    public string Status { get; set; } = CommentMutationOutboxDeliveryStatus.Pending;
 
     [SugarColumn(ColumnName = "attempt_count")]
     public int AttemptCount
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "owner_claim_token", Length = 64, IsNullable = true)]
+    public string? OwnerClaimToken
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "owner_worker_id", Length = 128, IsNullable = true)]
+    public string? OwnerWorkerId
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "lease_generation")]
+    public long LeaseGeneration
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "started_at", IsNullable = true)]
+    public DateTime? StartedAt
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "lease_expires_at", IsNullable = true)]
+    public DateTime? LeaseExpiresAt
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "completed_at", IsNullable = true)]
+    public DateTime? CompletedAt
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "result_digest", Length = 64, IsNullable = true)]
+    public string? ResultDigest
+    {
+        get; set;
+    }
+
+    [SugarColumn(ColumnName = "last_failure_kind", Length = 64, IsNullable = true)]
+    public string? LastFailureKind
     {
         get; set;
     }
@@ -199,6 +247,9 @@ public static class CommentMutationOutboxStatus
 
 public static class CommentMutationOutboxDeliveryStatus
 {
+    public const string Pending = "pending";
+    public const string Processing = "processing";
     public const string Completed = "completed";
-    public const string Failed = "failed";
+    public const string RetryableFailed = "retryable-failed";
+    public const string TerminalFailed = "terminal-failed";
 }

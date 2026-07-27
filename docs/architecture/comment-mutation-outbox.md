@@ -28,7 +28,7 @@ expired processing lease -> processing
 
 每个 processing event 都有独立的 `claim_token`、`claimed_by`、`lease_generation`、`claimed_at`、`lease_expires_at` 和 `last_heartbeat_at`。worker 从 reloadable `CommentMutationOutbox:ClaimLeaseSeconds`（默认 60，范围 30..300）与 `HeartbeatSeconds`（严格小于 lease 的三分之一）读取策略；只有后台 heartbeat 按 event 的 id、token、worker 与 generation 续租且必须影响恰好一行，并在同一成功点累计 `renewed` 与 `heartbeat`。consumer 开始前、外部调用返回后、checkpoint 写入前和 outbox 完成前的 ownership check 也检查同一 guard 的 affected row，但不延长 lease、不更新 `last_heartbeat_at`，也不计作 renewal。0 行、过期或短时 heartbeat 失败会把该 event 标为 lost，停止其后续副作用，旧 owner 不得写 checkpoint、failed 或 processed 覆盖新 owner。
 
-每个 `event id + consumer name` 在 `comment_mutation_outbox_delivery` 只有一行。consumer 完成后写 `completed`；重复投递先检查 checkpoint。外部交付还使用稳定键：notification stream 使用 `comment-outbox:{eventId}:realtime`，站内信使用已有的 deterministic source-event id。模型和人工状态变化继续使用数据库 CAS，重复事件不能重复状态转换。
+每个 `event id + consumer name` 在 `comment_mutation_outbox_delivery` 只有一行，并使用 `pending -> processing -> completed|retryable-failed|terminal-failed` 状态机。consumer 在任何副作用之前，以当前 event 的 claim token、worker 和 lease generation 原子 reservation；仅 reservation owner 能执行、写失败或写入带语义 `result_digest` 的 completed。completed 必须有匹配 digest 才能跳过；有效 processing 属于其他 owner 时 fail-closed，过期 processing 或 retryable-failed 才可接管；terminal-failed 阻止 event 进入 processed。delivery lease 仅镜像 event claim fence，不单独续租。外部交付还使用稳定键：notification stream 使用 `comment-outbox:{eventId}:realtime`，站内信使用已有的 deterministic source-event id。模型和人工状态变化继续使用数据库 CAS，重复事件不能重复状态转换。
 
 worker 总是按 `occurred_at_utc, id` claim，但不依赖绝对有序：实时发布前重新读取当前评论。旧的 approve 事件看到当前行已隐藏/删除时不发送 `CommentAdded`；旧的 hide 事件看到当前行已重新 approve 时不发送 `CommentRemoved`。缓存失效允许重复执行且采用当前 aggregate scope。
 
@@ -36,9 +36,9 @@ worker 总是按 `occurred_at_utc, id` claim，但不依赖绝对有序：实时
 
 - 权威事务提交前中断：comment 与 Outbox 一起回滚。
 - 提交后、模型调用前中断：pending `CommentCreated` 被重启后的 worker reclaim。
-- cache、realtime 或 notification 前中断：已完成 consumer checkpoint 保留，其余 consumer 重试。
+- cache、realtime 或 notification 前中断：已完成且 digest 可验证的 consumer checkpoint 保留；reservation 未完成的 consumer 仅在 delivery lease 过期后重试。
 - consumer 暂时不可用：事件进入 `failed`，按指数退避重试，十次后进入 `poison`。
-- 重复投递：completed checkpoint 跳过；实时流与站内信再由稳定幂等键兜底。
+- 重复投递：原子 reservation 让任意 consumer（包括 cache-version）只由一个 owner 执行；实时流与站内信再由稳定幂等键兜底。
 - 删除/审核并发或乱序：consumer 读取当前 authoritative state，禁止旧事件重新公开。
 
 ## 可观测性与回退

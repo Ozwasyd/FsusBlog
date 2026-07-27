@@ -356,6 +356,9 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
         Assert.Equal(CommentMutationOutboxStatus.Processing, after.Status);
         Assert.Equal("new-owner-token", after.ClaimToken);
         Assert.Equal("new-owner", after.ClaimedBy);
+        CommentMutationOutboxDelivery delivery = verify.Queryable<CommentMutationOutboxDelivery>().Single();
+        Assert.Equal(CommentMutationOutboxDeliveryStatus.Processing, delivery.Status);
+        Assert.NotEqual("new-owner-token", delivery.OwnerClaimToken);
         Assert.Equal(1, state.CreateSnapshot().LostCount);
     }
 
@@ -446,6 +449,190 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
         await notifications.DidNotReceiveWithAnyArgs().PublishAddedAsync(default!, default, default);
         using SqlSugarClient verify = PostgresSqlSugarTestClient.Create(connectionString);
         Assert.Equal(CommentMutationOutboxStatus.Processing, verify.Queryable<CommentMutationOutboxEvent>().Single().Status);
+    }
+
+    [Fact]
+    public async Task Worker_AtomicallyReservesExpiredDeliveryBeforeCacheVersionSideEffect()
+    {
+        string connectionString = await CreateDatabaseAsync();
+        CommentMutationOutboxEvent item;
+        using (SqlSugarClient setup = PostgresSqlSugarTestClient.Create(connectionString))
+        {
+            await setup.Insertable(CreateComment(517)).ExecuteCommandAsync();
+            item = CreateEvent(517);
+            item.EventType = CommentMutationEventTypes.VisibilityChanged;
+            await setup.Insertable(item).ExecuteCommandAsync();
+            long outboxId = setup.Queryable<CommentMutationOutboxEvent>().Single().Id;
+            await setup.Insertable(new CommentMutationOutboxDelivery
+            {
+                OutboxEventId = outboxId,
+                ConsumerName = "cache-version",
+                Status = CommentMutationOutboxDeliveryStatus.Processing,
+                AttemptCount = 1,
+                OwnerClaimToken = "stale-owner",
+                OwnerWorkerId = "stale-worker",
+                LeaseGeneration = 1,
+                StartedAt = DateTime.UtcNow.AddMinutes(-2),
+                LeaseExpiresAt = DateTime.UtcNow.AddMinutes(-1)
+            }).ExecuteCommandAsync();
+        }
+
+        ICacheInvalidationDispatcher invalidations = Substitute.For<ICacheInvalidationDispatcher>();
+        using ServiceProvider provider = BuildWorkerServices(connectionString, invalidations);
+        var worker = new CommentMutationOutboxWorker(provider.GetRequiredService<IServiceScopeFactory>(),
+            Substitute.For<IBackgroundWorkerLease>(), new CommentMutationOutboxRuntimeState(), TimeProvider.System,
+            new ConfigurationBuilder().Build(), NullLogger<CommentMutationOutboxWorker>.Instance);
+
+        Assert.Equal(1, await worker.ProcessPendingAsync(CancellationToken.None));
+        await invalidations.Received(1).InvalidateCommentMutationAsync(Arg.Any<CommentCacheInvalidationScope?>(), Arg.Any<CancellationToken>());
+        using SqlSugarClient verify = PostgresSqlSugarTestClient.Create(connectionString);
+        CommentMutationOutboxDelivery delivery = verify.Queryable<CommentMutationOutboxDelivery>()
+            .Single(row => row.ConsumerName == "cache-version");
+        Assert.Equal(CommentMutationOutboxDeliveryStatus.Completed, delivery.Status);
+        Assert.Equal(2, delivery.AttemptCount);
+        Assert.False(string.IsNullOrWhiteSpace(delivery.ResultDigest));
+        Assert.NotEqual("stale-owner", delivery.OwnerClaimToken);
+    }
+
+    [Fact]
+    public async Task Worker_ActiveForeignDeliveryReservationFailsClosedWithoutCacheSideEffect()
+    {
+        string connectionString = await CreateDatabaseAsync();
+        using (SqlSugarClient setup = PostgresSqlSugarTestClient.Create(connectionString))
+        {
+            await setup.Insertable(CreateComment(521)).ExecuteCommandAsync();
+            CommentMutationOutboxEvent item = CreateEvent(521);
+            item.EventType = CommentMutationEventTypes.VisibilityChanged;
+            await setup.Insertable(item).ExecuteCommandAsync();
+            long outboxId = setup.Queryable<CommentMutationOutboxEvent>().Single().Id;
+            await setup.Insertable(new CommentMutationOutboxDelivery
+            {
+                OutboxEventId = outboxId,
+                ConsumerName = "cache-version",
+                Status = CommentMutationOutboxDeliveryStatus.Processing,
+                AttemptCount = 1,
+                OwnerClaimToken = "active-owner",
+                OwnerWorkerId = "active-worker",
+                LeaseGeneration = 99,
+                StartedAt = DateTime.UtcNow,
+                LeaseExpiresAt = DateTime.UtcNow.AddMinutes(5)
+            }).ExecuteCommandAsync();
+        }
+
+        ICacheInvalidationDispatcher invalidations = Substitute.For<ICacheInvalidationDispatcher>();
+        using ServiceProvider provider = BuildWorkerServices(connectionString, invalidations);
+        var worker = new CommentMutationOutboxWorker(provider.GetRequiredService<IServiceScopeFactory>(),
+            Substitute.For<IBackgroundWorkerLease>(), new CommentMutationOutboxRuntimeState(), TimeProvider.System,
+            new ConfigurationBuilder().Build(), NullLogger<CommentMutationOutboxWorker>.Instance);
+
+        Assert.Equal(0, await worker.ProcessPendingAsync(CancellationToken.None));
+        await invalidations.DidNotReceiveWithAnyArgs().InvalidateCommentMutationAsync(default, default);
+        using SqlSugarClient verify = PostgresSqlSugarTestClient.Create(connectionString);
+        CommentMutationOutboxDelivery delivery = verify.Queryable<CommentMutationOutboxDelivery>()
+            .Single(row => row.ConsumerName == "cache-version");
+        Assert.Equal(CommentMutationOutboxDeliveryStatus.Processing, delivery.Status);
+        Assert.Equal("active-owner", delivery.OwnerClaimToken);
+        Assert.Equal("active-worker", delivery.OwnerWorkerId);
+        Assert.Equal(99, delivery.LeaseGeneration);
+    }
+
+    [Fact]
+    public async Task Worker_TwoConcurrentWorkersExecuteSameConsumerSideEffectExactlyOnce()
+    {
+        string connectionString = await CreateDatabaseAsync();
+        using (SqlSugarClient setup = PostgresSqlSugarTestClient.Create(connectionString))
+        {
+            await setup.Insertable(CreateComment(520)).ExecuteCommandAsync();
+            CommentMutationOutboxEvent item = CreateEvent(520);
+            item.EventType = CommentMutationEventTypes.VisibilityChanged;
+            await setup.Insertable(item).ExecuteCommandAsync();
+        }
+
+        ICacheInvalidationDispatcher invalidations = Substitute.For<ICacheInvalidationDispatcher>();
+        using ServiceProvider provider = BuildWorkerServices(connectionString, invalidations);
+        var first = new CommentMutationOutboxWorker(provider.GetRequiredService<IServiceScopeFactory>(),
+            Substitute.For<IBackgroundWorkerLease>(), new CommentMutationOutboxRuntimeState(), TimeProvider.System,
+            new ConfigurationBuilder().Build(), NullLogger<CommentMutationOutboxWorker>.Instance);
+        var second = new CommentMutationOutboxWorker(provider.GetRequiredService<IServiceScopeFactory>(),
+            Substitute.For<IBackgroundWorkerLease>(), new CommentMutationOutboxRuntimeState(), TimeProvider.System,
+            new ConfigurationBuilder().Build(), NullLogger<CommentMutationOutboxWorker>.Instance);
+
+        int[] processed = await Task.WhenAll(
+            first.ProcessPendingAsync(CancellationToken.None),
+            second.ProcessPendingAsync(CancellationToken.None));
+
+        Assert.Equal(1, processed.Sum());
+        await invalidations.Received(1).InvalidateCommentMutationAsync(Arg.Any<CommentCacheInvalidationScope?>(), Arg.Any<CancellationToken>());
+        using SqlSugarClient verify = PostgresSqlSugarTestClient.Create(connectionString);
+        CommentMutationOutboxDelivery delivery = verify.Queryable<CommentMutationOutboxDelivery>()
+            .Single(row => row.ConsumerName == "cache-version");
+        Assert.Equal(CommentMutationOutboxDeliveryStatus.Completed, delivery.Status);
+        Assert.Equal(1, delivery.AttemptCount);
+    }
+
+    [Fact]
+    public async Task Worker_CompletedDeliveryWithoutMatchingDigestDoesNotExecuteOrProcessEvent()
+    {
+        string connectionString = await CreateDatabaseAsync();
+        using (SqlSugarClient setup = PostgresSqlSugarTestClient.Create(connectionString))
+        {
+            await setup.Insertable(CreateComment(518)).ExecuteCommandAsync();
+            CommentMutationOutboxEvent item = CreateEvent(518);
+            item.EventType = CommentMutationEventTypes.VisibilityChanged;
+            await setup.Insertable(item).ExecuteCommandAsync();
+            long outboxId = setup.Queryable<CommentMutationOutboxEvent>().Single().Id;
+            await setup.Insertable(new CommentMutationOutboxDelivery
+            {
+                OutboxEventId = outboxId,
+                ConsumerName = "cache-version",
+                Status = CommentMutationOutboxDeliveryStatus.Completed,
+                ResultDigest = null
+            }).ExecuteCommandAsync();
+        }
+
+        ICacheInvalidationDispatcher invalidations = Substitute.For<ICacheInvalidationDispatcher>();
+        using ServiceProvider provider = BuildWorkerServices(connectionString, invalidations);
+        var worker = new CommentMutationOutboxWorker(provider.GetRequiredService<IServiceScopeFactory>(),
+            Substitute.For<IBackgroundWorkerLease>(), new CommentMutationOutboxRuntimeState(), TimeProvider.System,
+            new ConfigurationBuilder().Build(), NullLogger<CommentMutationOutboxWorker>.Instance);
+
+        Assert.Equal(0, await worker.ProcessPendingAsync(CancellationToken.None));
+        await invalidations.DidNotReceiveWithAnyArgs().InvalidateCommentMutationAsync(default, default);
+        using SqlSugarClient verify = PostgresSqlSugarTestClient.Create(connectionString);
+        Assert.Equal(CommentMutationOutboxStatus.Failed, verify.Queryable<CommentMutationOutboxEvent>().Single().Status);
+    }
+
+    [Fact]
+    public async Task Worker_TerminalDeliveryFailurePreventsEventCompletion()
+    {
+        string connectionString = await CreateDatabaseAsync();
+        using (SqlSugarClient setup = PostgresSqlSugarTestClient.Create(connectionString))
+        {
+            await setup.Insertable(CreateComment(519)).ExecuteCommandAsync();
+            CommentMutationOutboxEvent item = CreateEvent(519);
+            item.EventType = CommentMutationEventTypes.VisibilityChanged;
+            await setup.Insertable(item).ExecuteCommandAsync();
+            long outboxId = setup.Queryable<CommentMutationOutboxEvent>().Single().Id;
+            await setup.Insertable(new CommentMutationOutboxDelivery
+            {
+                OutboxEventId = outboxId,
+                ConsumerName = "cache-version",
+                Status = CommentMutationOutboxDeliveryStatus.TerminalFailed,
+                AttemptCount = 1,
+                LastFailureKind = "contract"
+            }).ExecuteCommandAsync();
+        }
+
+        ICacheInvalidationDispatcher invalidations = Substitute.For<ICacheInvalidationDispatcher>();
+        using ServiceProvider provider = BuildWorkerServices(connectionString, invalidations);
+        var worker = new CommentMutationOutboxWorker(provider.GetRequiredService<IServiceScopeFactory>(),
+            Substitute.For<IBackgroundWorkerLease>(), new CommentMutationOutboxRuntimeState(), TimeProvider.System,
+            new ConfigurationBuilder().Build(), NullLogger<CommentMutationOutboxWorker>.Instance);
+
+        Assert.Equal(0, await worker.ProcessPendingAsync(CancellationToken.None));
+        await invalidations.DidNotReceiveWithAnyArgs().InvalidateCommentMutationAsync(default, default);
+        using SqlSugarClient verify = PostgresSqlSugarTestClient.Create(connectionString);
+        Assert.Equal(CommentMutationOutboxStatus.Failed, verify.Queryable<CommentMutationOutboxEvent>().Single().Status);
     }
 
     [Fact]

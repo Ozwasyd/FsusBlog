@@ -222,10 +222,10 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
 
             INSERT INTO comment_mutation_outbox(
                 event_id, event_type, comment_id, article_id, root_id, payload_json, status,
-                attempt_count, next_attempt_at, occurred_at_utc)
+                attempt_count, next_attempt_at, lease_generation, occurred_at_utc)
             VALUES (
                 '018ff010-1234-7abc-8def-0123456789ab', 'CommentCreated', 702, 1, 702, '{}', 'pending',
-                0, now() AT TIME ZONE 'utc', now() AT TIME ZONE 'utc');
+                0, now() AT TIME ZONE 'utc', 0, now() AT TIME ZONE 'utc');
             """);
 
         await using var connection = new NpgsqlConnection(connectionString);
@@ -234,10 +234,10 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             """
             INSERT INTO comment_mutation_outbox(
                 event_id, event_type, comment_id, article_id, root_id, payload_json, status,
-                attempt_count, next_attempt_at, occurred_at_utc)
+                attempt_count, next_attempt_at, lease_generation, occurred_at_utc)
             VALUES (
                 '018ff011-1234-7abc-8def-0123456789ab', 'CommentCreated', 702, 1, 702,
-                '{"content":"must-not-copy"}', 'pending', 0, now() AT TIME ZONE 'utc', now() AT TIME ZONE 'utc');
+                '{"content":"must-not-copy"}', 'pending', 0, now() AT TIME ZONE 'utc', 0, now() AT TIME ZONE 'utc');
             """,
             connection))
         {
@@ -247,11 +247,11 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
 
         await using (var duplicateDelivery = new NpgsqlCommand(
             """
-            INSERT INTO comment_mutation_outbox_delivery(outbox_event_id, consumer_name, status, attempt_count, updated_at_utc)
-            SELECT id, 'site-notification', 'completed', 1, now() AT TIME ZONE 'utc'
+            INSERT INTO comment_mutation_outbox_delivery(outbox_event_id, consumer_name, status, attempt_count, lease_generation, updated_at_utc)
+            SELECT id, 'site-notification', 'completed', 1, 0, now() AT TIME ZONE 'utc'
             FROM comment_mutation_outbox WHERE comment_id = 702;
-            INSERT INTO comment_mutation_outbox_delivery(outbox_event_id, consumer_name, status, attempt_count, updated_at_utc)
-            SELECT id, 'site-notification', 'completed', 1, now() AT TIME ZONE 'utc'
+            INSERT INTO comment_mutation_outbox_delivery(outbox_event_id, consumer_name, status, attempt_count, lease_generation, updated_at_utc)
+            SELECT id, 'site-notification', 'completed', 1, 0, now() AT TIME ZONE 'utc'
             FROM comment_mutation_outbox WHERE comment_id = 702;
             """,
             connection))
