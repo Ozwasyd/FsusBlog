@@ -8,6 +8,7 @@ using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Distributed;
 using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicAot;
@@ -51,6 +52,12 @@ public sealed record ProductionDependencyHealthCheck(
 public sealed record ProductionConfigurationHealthCheck(
     string Status,
     IReadOnlyList<string> Errors) : IProductionHealthCheck;
+
+public sealed record DistributedConvergenceHealthCheck(
+    string Status,
+    int PendingCount,
+    int TerminalFailedCount,
+    TimeSpan? OldestPendingAge) : IProductionHealthCheck;
 
 public sealed record ProductionResourceHealthCheck(
     string Status,
@@ -385,6 +392,16 @@ public sealed class ProductionReadinessProbe(
             checks["schemaCompatibility"] = CheckOnlineSchemaCompatibility();
         }
         ProductionReadinessAsyncResults asyncChecks = await asyncChecksTask;
+
+        if (serviceProvider.GetService<IDistributedInvalidationObligationStore>() is { } obligations)
+        {
+            DistributedInvalidationConvergenceSnapshot snapshot = await obligations.SnapshotAsync(cancellationToken).ConfigureAwait(false);
+            checks["distributedConvergence"] = new DistributedConvergenceHealthCheck(
+                snapshot.Degraded ? "failed" : "ok",
+                snapshot.PendingCount,
+                snapshot.TerminalFailedCount,
+                snapshot.OldestPendingAge);
+        }
 
         checks["postgres"] = asyncChecks.Postgres;
         checks["redis"] = asyncChecks.Redis.Dependency;

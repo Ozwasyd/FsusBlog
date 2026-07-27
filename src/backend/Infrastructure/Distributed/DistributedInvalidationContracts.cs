@@ -23,7 +23,69 @@ public enum DistributedInvalidationPublishStatus
 public sealed record DistributedInvalidationPublishResult(
     DistributedInvalidationPublishStatus Status,
     string? EventId,
-    string? Detail);
+    string? Detail,
+    DistributedInvalidationEvent? Event = null,
+    DistributedInvalidationTransportPublishResult? TransportReceipt = null);
+
+public enum DistributedInvalidationConvergenceState
+{
+    Satisfied = 0,
+    PendingRedelivery = 1,
+    PendingFullReconcile = 2,
+    TerminalFailed = 3
+}
+
+/// <summary>Source-side durable obligation only. Inbox, ACK and replay ownership belongs to the reconciliation worker.</summary>
+public sealed record DistributedInvalidationConvergenceObligation(
+    string ObligationId,
+    string EventId,
+    string Kind,
+    string SourceNodeId,
+    string RuntimeScope,
+    string SourceMutationIdentity,
+    string RequiredTopologyDigest,
+    DistributedInvalidationPublishStatus PublishStatus,
+    DistributedInvalidationTransportStatus? TransportStatus,
+    DateTimeOffset CreatedAt,
+    DistributedInvalidationConvergenceState State,
+    int AttemptCount,
+    string? LastFailureKind);
+
+public sealed record DistributedInvalidationConvergenceSnapshot(
+    int PendingCount,
+    int TerminalFailedCount,
+    TimeSpan? OldestPendingAge,
+    bool Degraded);
+
+public sealed class DistributedInvalidationConvergenceRuntimeState
+{
+    private readonly object _gate = new();
+    private DistributedInvalidationConvergenceSnapshot _snapshot = new(0, 0, null, false);
+
+    public DistributedInvalidationConvergenceSnapshot Snapshot()
+    {
+        lock (_gate)
+        {
+            return _snapshot;
+        }
+    }
+
+    public void Record(DistributedInvalidationConvergenceSnapshot value)
+    {
+        lock (_gate)
+        {
+            _snapshot = value;
+        }
+    }
+}
+
+public interface IDistributedInvalidationObligationStore
+{
+    Task<DistributedInvalidationConvergenceObligation> UpsertAsync(
+        DistributedInvalidationPublishResult publishResult,
+        CancellationToken cancellationToken = default);
+    Task<DistributedInvalidationConvergenceSnapshot> SnapshotAsync(CancellationToken cancellationToken = default);
+}
 
 public interface IDistributedInvalidationPublisher
 {

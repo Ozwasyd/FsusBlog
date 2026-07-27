@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Distributed;
 using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Infrastructure.Operations;
 
@@ -20,6 +21,24 @@ public sealed class DeploymentRuntimeStateTests
 {
     private const string ReleaseId = "20260711010101-0123456789ab";
     private const string Slot = "blue";
+
+    [Fact]
+    public async Task Drain_BlocksOnPendingDistributedConvergenceObligation()
+    {
+        DeploymentRuntimeState state = CreateActiveRuntime();
+        var convergence = new DistributedInvalidationConvergenceRuntimeState();
+        convergence.Record(new DistributedInvalidationConvergenceSnapshot(1, 0, TimeSpan.FromSeconds(1), true));
+        await using ServiceProvider provider = new ServiceCollection().AddSingleton(convergence).BuildServiceProvider();
+        IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Deployment:DrainTimeoutSeconds"] = "1" }).Build();
+        var coordinator = new DeploymentDrainCoordinator(state, provider, configuration, TimeProvider.System, NullLogger<DeploymentDrainCoordinator>.Instance);
+
+        await coordinator.DrainForHostStopAsync(CancellationToken.None);
+
+        DeploymentDrainComponentSnapshot obligation = Assert.Single(state.CreateSnapshot(0).Drain.Components, component => component.Name == "distributed-convergence-obligations");
+        Assert.True(state.CreateSnapshot(0).Drain.TimedOut);
+        Assert.True(obligation.Blocking);
+        Assert.Equal(1, obligation.PendingCount);
+    }
 
     [Fact]
     public void ProductionRuntime_StaysCandidateUntilStartupAndAllReadinessGatesComplete()

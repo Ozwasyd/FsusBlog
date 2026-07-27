@@ -35,6 +35,10 @@
 
 ## Degraded operation and recovery
 
+Before a distributed publish result is returned to a mutation caller, the dispatcher writes one durable source-side convergence obligation keyed by `(runtimeScope,eventId)`. The row binds the event kind, source node, canonical source mutation identity, topology digest, publish/transport classification, creation time, state, attempt count and latest failure kind. `delivered` is recorded as `satisfied`; `under-delivered` and `transport-failed` are recorded as `pending-redelivery`. Repeating the same event ID is an idempotent upsert and a conflicting topology or mutation identity fails closed.
+
+This ledger is intentionally not an inbox, ACK ledger or retry worker: the reconciliation worker owns those follow-up responsibilities. A pending or terminal obligation makes `distributedConvergence` fail readiness and exposes pending count, terminal count and oldest age; it is therefore visible to drain/release consumers rather than being a warning-only condition. `single` mode returns `LocalOnly` and creates no remote obligation.
+
 Redis 暂时不可用时，节点继续完成本地失效，并让读请求回退到数据库或其他权威读路径；订阅循环持续重试。恢复 Redis 后不需要重启，后续事件和 PublicHotRead 重建会继续收敛。不得通过重新发布接收到的事件、跳过本地优先顺序或把 mutation 改成失败来制造表面一致性。
 
 若要完全关闭多节点协调，必须把 `Runtime:Mode` 切回 `single` 并按正常编排滚动重启，因为 hosted-service 的 DI 组合在启动时确定。该模式切换不是 Redis 短时故障的恢复前置条件。

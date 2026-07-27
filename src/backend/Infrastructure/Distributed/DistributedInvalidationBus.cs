@@ -52,7 +52,9 @@ public sealed class DistributedInvalidationBus(
                 return new DistributedInvalidationPublishResult(
                     DistributedInvalidationPublishStatus.Degraded,
                     invalidation.EventId,
-                    detail);
+                    detail,
+                    invalidation,
+                    receipt);
             }
             runtimeState.RecordPublished(invalidation, receipt);
             logger.LogInformation(
@@ -64,7 +66,9 @@ public sealed class DistributedInvalidationBus(
             return new DistributedInvalidationPublishResult(
                 DistributedInvalidationPublishStatus.Published,
                 invalidation.EventId,
-                null);
+                null,
+                invalidation,
+                receipt);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -72,8 +76,16 @@ public sealed class DistributedInvalidationBus(
         }
         catch (Exception ex)
         {
+            DistributedInvalidationTopologyManifest topology = options.Topology
+                ?? throw new InvalidOperationException("distributed_invalidation_topology_required", ex);
+            DistributedInvalidationTransportPublishResult receipt = DistributedInvalidationTransportPublishResult.Failed(
+                options.Channel,
+                topology,
+                publisherNodeSubscribed: true,
+                timeProvider: TimeProvider.System,
+                reason: ex.GetType().Name);
             string detail = $"publish:{ex.GetType().Name};event:{invalidation.EventId};trace:{invalidation.TraceId}";
-            runtimeState.RecordDegraded(invalidation, detail);
+            runtimeState.RecordDegraded(invalidation, detail, receipt);
             cacheRuntimeState.Record("distributed_degraded", detail);
             logger.LogWarning(
                 ex,
@@ -85,7 +97,9 @@ public sealed class DistributedInvalidationBus(
             return new DistributedInvalidationPublishResult(
                 DistributedInvalidationPublishStatus.Degraded,
                 invalidation.EventId,
-                detail);
+                detail,
+                invalidation,
+                receipt);
         }
     }
 

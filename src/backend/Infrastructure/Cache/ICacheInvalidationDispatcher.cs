@@ -220,7 +220,8 @@ public sealed class CacheInvalidationDispatcher(
     IHotArticlesCacheVersionPublisher? hotArticlesVersionPublisher = null,
     IAnonymousCommentPolicyInvalidationSink? commentPolicyInvalidationSink = null,
     IAotSeoConfigSnapshot? aotSeoConfigSnapshot = null,
-    IDistributedInvalidationPublisher? distributedInvalidationPublisher = null) : ICacheInvalidationDispatcher
+    IDistributedInvalidationPublisher? distributedInvalidationPublisher = null,
+    IDistributedInvalidationObligationStore? distributedInvalidationObligations = null) : ICacheInvalidationDispatcher
 {
     public async Task InvalidateArticleMutationAsync(int? articleId = null, CancellationToken cancellationToken = default)
     {
@@ -423,17 +424,29 @@ public sealed class CacheInvalidationDispatcher(
     private long PublishHotArticlesVersion(string reason)
         => hotArticlesVersionPublisher?.PublishNextHotArticlesVersion(reason) ?? 0;
 
-    private Task<DistributedInvalidationPublishResult> PublishDistributedAsync(
+    private async Task<DistributedInvalidationPublishResult> PublishDistributedAsync(
         string kind,
         IReadOnlyList<string> cacheTags,
         IReadOnlyList<string> routeKeys,
         IReadOnlyList<string> artifactKeys,
         CancellationToken cancellationToken)
-        => distributedInvalidationPublisher?.PublishAsync(
+    {
+        DistributedInvalidationPublishResult result = await (distributedInvalidationPublisher?.PublishAsync(
             new DistributedInvalidationRequest(kind, cacheTags, routeKeys, artifactKeys),
             cancellationToken)
             ?? Task.FromResult(new DistributedInvalidationPublishResult(
                 DistributedInvalidationPublishStatus.LocalOnly,
                 null,
-                "distributed-publisher-not-registered"));
+                "distributed-publisher-not-registered"))).ConfigureAwait(false);
+        if (result.Status != DistributedInvalidationPublishStatus.LocalOnly)
+        {
+            if (distributedInvalidationObligations is null)
+            {
+                await RecordRuntimeAsync("distributed_degraded", "distributed-invalidation-obligation-store-missing", cancellationToken).ConfigureAwait(false);
+                throw new InvalidOperationException("distributed_invalidation_obligation_store_missing");
+            }
+            await distributedInvalidationObligations.UpsertAsync(result, cancellationToken).ConfigureAwait(false);
+        }
+        return result;
+    }
 }

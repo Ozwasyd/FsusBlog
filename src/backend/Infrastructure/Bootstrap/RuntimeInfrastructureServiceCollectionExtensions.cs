@@ -3,6 +3,7 @@ using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Customization;
+using FsusBlog.Server.Infrastructure.Distributed;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Fonts;
 using FsusBlog.Server.Infrastructure.Helpers;
@@ -297,6 +298,8 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddScoped<ITaxonomyCountProjectionService, TaxonomyCountProjectionService>();
         services.AddScoped<IHttpCacheInvalidator, HttpCacheInvalidator>();
         services.AddScoped<ICacheInvalidationDispatcher, CacheInvalidationDispatcher>();
+        services.AddSingleton<DistributedInvalidationConvergenceRuntimeState>();
+        services.AddScoped<IDistributedInvalidationObligationStore, DistributedInvalidationConvergenceObligationStore>();
         if (!OpenApiExportMode.IsEnabled())
         {
             services.AddHostedService(sp => sp.GetRequiredService<HotStatsInvalidationCoalescer>());

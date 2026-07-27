@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Distributed;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Services.Security;
 
@@ -9,6 +10,56 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class CacheInvalidationDispatcherTests
 {
+    [Fact]
+    public async Task DistributedDeliveredResult_IsDurablyConsumedBeforeMutationReturns()
+    {
+        var cache = Substitute.For<IUnifiedCache>();
+        var publisher = Substitute.For<IDistributedInvalidationPublisher>();
+        var obligations = Substitute.For<IDistributedInvalidationObligationStore>();
+        DistributedInvalidationPublishResult result = PublishResult(DistributedInvalidationPublishStatus.Published, DistributedInvalidationTransportStatus.Delivered);
+        publisher.PublishAsync(Arg.Any<DistributedInvalidationRequest>(), Arg.Any<CancellationToken>()).Returns(result);
+        obligations.UpsertAsync(result, Arg.Any<CancellationToken>()).Returns(new DistributedInvalidationConvergenceObligation("o", "event", "article_mutation", "node", "scope", "mutation", "topology", result.Status, DistributedInvalidationTransportStatus.Delivered, DateTimeOffset.UtcNow, DistributedInvalidationConvergenceState.Satisfied, 1, null));
+        var sut = new CacheInvalidationDispatcher(cache, cache, Substitute.For<IHttpCacheInvalidator>(), distributedInvalidationPublisher: publisher, distributedInvalidationObligations: obligations);
+
+        await sut.InvalidateArticleMutationAsync(42);
+
+        await obligations.Received(1).UpsertAsync(result, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task DistributedPendingResult_AndStoreFailureCannotBeReportedAsFullSuccess()
+    {
+        var cache = Substitute.For<IUnifiedCache>();
+        var publisher = Substitute.For<IDistributedInvalidationPublisher>();
+        var obligations = Substitute.For<IDistributedInvalidationObligationStore>();
+        DistributedInvalidationPublishResult result = PublishResult(DistributedInvalidationPublishStatus.Degraded, DistributedInvalidationTransportStatus.UnderDelivered);
+        publisher.PublishAsync(Arg.Any<DistributedInvalidationRequest>(), Arg.Any<CancellationToken>()).Returns(result);
+        obligations.UpsertAsync(result, Arg.Any<CancellationToken>()).Returns<Task<DistributedInvalidationConvergenceObligation>>(_ => throw new InvalidOperationException("store-failed"));
+        var sut = new CacheInvalidationDispatcher(cache, cache, Substitute.For<IHttpCacheInvalidator>(), distributedInvalidationPublisher: publisher, distributedInvalidationObligations: obligations);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => sut.InvalidateArticleMutationAsync(42));
+    }
+
+    [Fact]
+    public async Task LocalOnlyResult_CreatesNoRemoteObligation()
+    {
+        var cache = Substitute.For<IUnifiedCache>();
+        var publisher = Substitute.For<IDistributedInvalidationPublisher>();
+        var obligations = Substitute.For<IDistributedInvalidationObligationStore>();
+        publisher.PublishAsync(Arg.Any<DistributedInvalidationRequest>(), Arg.Any<CancellationToken>()).Returns(new DistributedInvalidationPublishResult(DistributedInvalidationPublishStatus.LocalOnly, null, null));
+        var sut = new CacheInvalidationDispatcher(cache, cache, Substitute.For<IHttpCacheInvalidator>(), distributedInvalidationPublisher: publisher, distributedInvalidationObligations: obligations);
+
+        await sut.InvalidateArticleMutationAsync(42);
+
+        await obligations.DidNotReceiveWithAnyArgs().UpsertAsync(default!, default);
+    }
+
+    private static DistributedInvalidationPublishResult PublishResult(DistributedInvalidationPublishStatus status, DistributedInvalidationTransportStatus transportStatus)
+    {
+        DistributedInvalidationEvent @event = DistributedInvalidationEvent.Create("event", DistributedInvalidationEventKinds.ArticleMutation, "node", "scope", ["article"], ["article:42"], ["public-aot"], "trace", TimeProvider.System);
+        var receipt = new DistributedInvalidationTransportPublishResult("channel", transportStatus == DistributedInvalidationTransportStatus.Delivered ? 2 : 1, 2, true, DateTimeOffset.UtcNow, transportStatus, "topology", transportStatus == DistributedInvalidationTransportStatus.Delivered ? null : "under-delivered");
+        return new(status, @event.EventId, status == DistributedInvalidationPublishStatus.Published ? null : "under-delivered", @event, receipt);
+    }
     [Fact]
     public async Task InvalidateArticleMutationAsync_ClearsDistributionAndListVersionCaches()
     {

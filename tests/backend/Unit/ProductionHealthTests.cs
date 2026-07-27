@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Distributed;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.PublicAot;
@@ -34,6 +35,27 @@ namespace FsusBlog.Server.Tests;
 
 public sealed class ProductionHealthTests
 {
+    [Theory]
+    [InlineData(1, 0, "failed")]
+    [InlineData(0, 1, "failed")]
+    [InlineData(0, 0, "ok")]
+    public async Task DistributedConvergenceSnapshot_IsFailClosedForPendingOrTerminalObligations(int pending, int terminal, string expectedStatus)
+    {
+        string root = Path.GetTempPath();
+        var services = new ServiceCollection()
+            .AddSingleton<IDistributedInvalidationObligationStore>(new FixedConvergenceObligationStore(new DistributedInvalidationConvergenceSnapshot(pending, terminal, pending > 0 ? TimeSpan.FromSeconds(5) : null, pending > 0 || terminal > 0)));
+        using ServiceProvider provider = services.BuildServiceProvider();
+        IConfiguration configuration = new ConfigurationBuilder().Build();
+        var environment = new TestWebHostEnvironment(root, Environments.Development);
+        var probe = new ProductionReadinessProbe(configuration, environment, provider, CreateConfigurationSnapshot(configuration, environment, provider), NullLogger<ProductionReadinessProbe>.Instance);
+
+        ProductionHealthReport report = await probe.CheckAsync(CancellationToken.None);
+
+        DistributedConvergenceHealthCheck convergence = Assert.IsType<DistributedConvergenceHealthCheck>(report.Checks["distributedConvergence"]);
+        Assert.Equal(expectedStatus, convergence.Status);
+        Assert.Equal(pending, convergence.PendingCount);
+        Assert.Equal(terminal, convergence.TerminalFailedCount);
+    }
     [Fact]
     public async Task ReadinessProbe_ExposesStableSpaAssetsFailureSnapshot()
     {
@@ -955,6 +977,14 @@ public sealed class ProductionHealthTests
             NullLogger<ConfigurationHealthSnapshot>.Instance);
         snapshot.Refresh();
         return snapshot;
+    }
+
+    private sealed class FixedConvergenceObligationStore(DistributedInvalidationConvergenceSnapshot snapshot) : IDistributedInvalidationObligationStore
+    {
+        public Task<DistributedInvalidationConvergenceObligation> UpsertAsync(DistributedInvalidationPublishResult publishResult, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+        public Task<DistributedInvalidationConvergenceSnapshot> SnapshotAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(snapshot);
     }
 
     private static async Task WaitUntilAsync(Func<bool> predicate)

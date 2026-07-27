@@ -2,6 +2,7 @@ using System.Net;
 
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Distributed;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
@@ -649,6 +650,16 @@ public sealed class DeploymentDrainCoordinator(
         Add(components, "http-in-flight", runtime.InFlightHttpRequests);
         Add(components, "notification-stream", runtime.NotificationStreamConnections);
         Add(components, "background-claims", runtime.ActiveBackgroundClaims);
+        if (serviceProvider.GetService<DistributedInvalidationConvergenceRuntimeState>() is { } convergence)
+        {
+            DistributedInvalidationConvergenceSnapshot snapshot = convergence.Snapshot();
+            components.Add(new DeploymentDrainComponentSnapshot(
+                "distributed-convergence-obligations",
+                snapshot.PendingCount + snapshot.TerminalFailedCount,
+                snapshot.Degraded,
+                snapshot.Degraded ? "pending" : "drained",
+                snapshot.TerminalFailedCount > 0 ? "terminal-obligation" : null));
+        }
 
         if (serviceProvider.GetService<IArticleViewWriteBuffer>() is ArticleViewWriteBuffer articleViews)
         {

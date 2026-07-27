@@ -11,5 +11,9 @@ internal static class SchemaMigrationCatalog20260726
             EndVersion: new DateOnly(2026, 7, 26),
             GapPolicy: SchemaMigrationGapPolicy.AllowSparseVersions,
             Dependencies: [new SchemaMigrationCatalogDependency(CustomizationMigrationDefinitions.MigrationId, SchemaMigrationPhase.PostCodeFirst)],
-            Descriptors: [CommentMutationOutboxClaimLeaseMigrationDefinitions.BuildMigration()]);
+            Descriptors:
+            [
+                CommentMutationOutboxClaimLeaseMigrationDefinitions.BuildMigration(),
+                DistributedInvalidationConvergenceObligationMigrationDefinitions.BuildMigration()
+            ]);
 }
