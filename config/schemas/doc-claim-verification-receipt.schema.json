@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fsusblog.doc-claim-verification-receipt.v1",
+  "title": "FsusBlog DocClaim verification receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "sourceCommit",
+    "worktreeFingerprint",
+    "catalogDigest",
+    "parseReceiptDigest",
+    "factObservationDigests",
+    "results",
+    "status",
+    "failureReasons",
+    "contentDigest"
+  ],
+  "properties": {
+    "schema": {
+      "const": "fsusblog.doc-claim-verification-receipt.v1"
+    },
+    "sourceCommit": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "worktreeFingerprint": {
+      "type": "string",
+      "pattern": "^(?:sha256:)?[a-f0-9]{64}$"
+    },
+    "catalogDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "parseReceiptDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "factObservationDigests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["extractorId", "contentDigest"],
+        "properties": {
+          "extractorId": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "contentDigest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/result"
+      }
+    },
+    "status": {
+      "enum": ["ok", "failed"]
+    },
+    "failureReasons": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "contentDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "$defs": {
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claimId",
+        "behaviorId",
+        "claimType",
+        "documentPath",
+        "documentStatus",
+        "factPath",
+        "status",
+        "reason"
+      ],
+      "properties": {
+        "claimId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "behaviorId": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "claimType": {
+          "type": "string",
+          "minLength": 1
+        },
+        "documentPath": {
+          "type": "string",
+          "pattern": "^docs/"
+        },
+        "documentStatus": {
+          "enum": ["current", "historical", "proposed", "generated", "retired"]
+        },
+        "factPath": {
+          "type": ["string", "null"]
+        },
+        "status": {
+          "enum": ["verified", "failed", "not-applicable"]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "forbiddenFields": {
+      "enum": [
+        "lastVerifiedCommit",
+        "expectedValue",
+        "baseline",
+        "approved",
+        "warning",
+        "partial",
+        "optional",
+        "defaultPass"
+      ]
+    }
+  }
+}
