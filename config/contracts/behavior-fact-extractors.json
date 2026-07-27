@@ -96,6 +96,37 @@
             "ownedBehaviorIds": [
                 "authentication-session-permission"
             ]
+        },
+        {
+            "id": "config-error-security-policy-fact-extractor",
+            "kind": "compiled-assembly",
+            "entrypoint": "tools/fact-extractors/config-error-security-policy/extract.mjs",
+            "consumedInputs": [
+                "src/core/Common/ErrorCode.cs",
+                "src/backend/Infrastructure/Results/ApiErrorSemanticMapper.cs",
+                "src/shared/Contracts/Security/SecurityChallengeContracts.cs",
+                "src/shared/Contracts/Security/SecurityChallengeCapabilityCatalog.cs",
+                "src/backend/Infrastructure/Cache/CachePolicyRegistry.cs",
+                "src/backend/Infrastructure/Bootstrap/ServiceCollectionExtensions.cs",
+                "src/backend/Services/Security/SecurityAdminPolicyService.cs",
+                "src/backend/Services/Security/SecurityChallengeVerifyRateLimiter.cs",
+                "src/backend/Services/Security/MfaChallengeService.cs",
+                "src/backend/Entities/AnonymousCommentPolicy.cs",
+                "src/backend/Models/Security/SecurityAdminModels.cs",
+                "src/backend/appsettings.json",
+                "config/application/backend-configuration-contract.json",
+                "src/frontend/src/utils/appError.ts",
+                "src/frontend/src/contracts/binaryApi.ts",
+                "src/frontend/src/security/challenge-kind-wire.ts",
+                "src/frontend/src/security/challenge-capability-registry.ts",
+                "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/Program.cs"
+            ],
+            "outputSchema": "fsusblog.fact-observation-receipt.v1",
+            "requiredBuildArtifact": "config-error-security-policy-observation",
+            "hermeticPolicy": "exact-build-receipt",
+            "ownedBehaviorIds": [
+                "configuration-error-security-policy"
+            ]
         }
     ]
 }

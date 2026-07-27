@@ -56,6 +56,7 @@ function fixtureRoot()
         'src/shared/Contracts/Validation/aeds-protocol.json',
         'tools/contracts/FsusBlog.OpenApiObservation/Program.cs',
         'tools/contracts/FsusBlog.AuthSessionObservation/Program.cs',
+        'tools/contracts/FsusBlog.ConfigErrorSecurityObservation/Program.cs',
         'src/backend/Entities/UserSessionAuthenticationContext.cs',
         'src/backend/Infrastructure/Auth/AdminPermissions.cs',
         'src/backend/Services/Security/MfaChallengeService.cs',
@@ -63,7 +64,23 @@ function fixtureRoot()
         'src/backend/Services/UserSessionCommandService.cs',
         'src/backend/Services/Security/AdminPrincipalService.cs',
         'src/backend/Infrastructure/Helpers/JwtHelper.cs',
-        'src/backend/Infrastructure/Auth/AuthCookieService.cs'
+        'src/backend/Infrastructure/Auth/AuthCookieService.cs',
+        'src/core/Common/ErrorCode.cs',
+        'src/backend/Infrastructure/Results/ApiErrorSemanticMapper.cs',
+        'src/shared/Contracts/Security/SecurityChallengeContracts.cs',
+        'src/shared/Contracts/Security/SecurityChallengeCapabilityCatalog.cs',
+        'src/backend/Infrastructure/Cache/CachePolicyRegistry.cs',
+        'src/backend/Infrastructure/Bootstrap/ServiceCollectionExtensions.cs',
+        'src/backend/Services/Security/SecurityAdminPolicyService.cs',
+        'src/backend/Services/Security/SecurityChallengeVerifyRateLimiter.cs',
+        'src/backend/Entities/AnonymousCommentPolicy.cs',
+        'src/backend/Models/Security/SecurityAdminModels.cs',
+        'src/backend/appsettings.json',
+        'config/application/backend-configuration-contract.json',
+        'src/frontend/src/utils/appError.ts',
+        'src/frontend/src/contracts/binaryApi.ts',
+        'src/frontend/src/security/challenge-kind-wire.ts',
+        'src/frontend/src/security/challenge-capability-registry.ts'
     ])
     {
         const target = path.join(directory, relative)
@@ -87,6 +104,7 @@ function fixtureRoot()
         'tools/fact-extractors/seeds/test-matrix-seed.mjs',
         'tools/fact-extractors/openapi-aeds/extract.mjs',
         'tools/fact-extractors/auth-session-permission/extract.mjs',
+        'tools/fact-extractors/config-error-security-policy/extract.mjs',
         'tools/contracts/behavior-contract-catalog.mjs'
     ])
     {
@@ -150,7 +168,7 @@ test('repository registry owns each active behavior exactly once', () =>
     const registry = loadRegistry()
     const result = validateOwnershipAgainstBehaviorCatalog(registry, loadCatalog(), root)
     assert.match(result.digest, /^[a-f0-9]{64}$/u)
-    assert.equal(result.behaviorOwners.size, 6)
+    assert.equal(result.behaviorOwners.size, 7)
     const check = spawnSync(process.execPath, [checker], { cwd: root, encoding: 'utf8' })
     assert.equal(check.status, 0, check.stderr || check.stdout)
     assert.match(check.stdout, /registry, ownership, receipt schema/u)

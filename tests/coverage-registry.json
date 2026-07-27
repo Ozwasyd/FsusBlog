@@ -4510,6 +4510,24 @@
       "tierIds": [
         "static-governance"
       ]
+    },
+    {
+      "id": "configuration-error-security-policy",
+      "description": "Configuration defaults, public error codes, and challenge/rate/cache/security policy facts are observed from production catalogs and compiled constants; checkers must not keep second-hand alignment maps or default copies as authority.",
+      "owner": "SecurityAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/Program.cs",
+        "tools/fact-extractors/config-error-security-policy/extract.mjs",
+        "tools/contracts/lib/config-error-security-observation.mjs",
+        "tests/tools/config-error-security-policy-observation.test.mjs"
+      ],
+      "assertionType": "contract",
+      "failClosedRule": "Observation must fail when frontend projections diverge from backend catalogs, retired challenges enter active sets, numeric boundaries lose units or inclusive/exclusive semantics, runtime environment values pollute code defaults, secret material enters receipts, or hardcoded alignment maps remain as fact authority.",
+      "minimumRequirement": "Focused tests cover new error-code projection failure, default value change, environment isolation, retired-vs-active partition, unit-preserving numeric boundaries, inclusive/exclusive bound changes, secret leakage refusal, and removal of hardcoded alignment authority.",
+      "tierIds": [
+        "static-governance"
+      ]
     }
   ]
 }

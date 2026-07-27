@@ -1,6 +1,6 @@
-// Generated from config/contracts/behavior-contracts.json; digest 56a60d9801a686e96307c339a97b97507ea709dcaa0003315da50d96c02039fb; do not edit by hand.
+// Generated from config/contracts/behavior-contracts.json; digest e16dd58f23870168616513b56e746e14f767ad5d277fca89fe60d0fcf5abe267; do not edit by hand.
 
-export const BEHAVIOR_CONTRACT_CATALOG_DIGEST = '56a60d9801a686e96307c339a97b97507ea709dcaa0003315da50d96c02039fb' as const
+export const BEHAVIOR_CONTRACT_CATALOG_DIGEST = 'e16dd58f23870168616513b56e746e14f767ad5d277fca89fe60d0fcf5abe267' as const
 export const BEHAVIOR_CONTRACTS = [
   {
     "id": "test-asset-audit-reconciliation",
@@ -161,6 +161,37 @@ export const BEHAVIOR_CONTRACTS = [
     "documents": [
       "docs/security/user-session-authentication-context.md",
       "docs/security.md"
+    ]
+  },
+  {
+    "id": "configuration-error-security-policy",
+    "domain": "security",
+    "risk": "critical",
+    "status": "active",
+    "implementationOwnerCardinality": "one",
+    "allowedImplementationOwnerRoles": [],
+    "factExtractorId": "config-error-security-policy-fact-extractor",
+    "requiredTestKinds": [
+      "positive",
+      "negative",
+      "boundary"
+    ],
+    "documentationPolicy": "required",
+    "documentationRationale": "Current security and configuration documentation states public error codes, challenge/rate/cache policy and configuration default contracts.",
+    "allowedClaimTypes": [
+      "behavioral",
+      "safety",
+      "operational"
+    ],
+    "releaseQualification": true,
+    "coverageIds": [
+      "configuration-error-security-policy"
+    ],
+    "documents": [
+      "docs/security.md",
+      "docs/configuration-layout.md",
+      "docs/configuration/appsettings-authority.md",
+      "docs/api/schemas-and-errors.md"
     ]
   }
 ] as const

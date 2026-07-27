@@ -4,3 +4,4 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
 [assembly: InternalsVisibleTo("FsusBlog.Core.Benchmarks")]
 [assembly: InternalsVisibleTo("FsusBlog.OpenApiObservation")]
+[assembly: InternalsVisibleTo("FsusBlog.ConfigErrorSecurityObservation")]

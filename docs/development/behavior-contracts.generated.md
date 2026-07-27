@@ -1,4 +1,4 @@
-<!-- Generated from config/contracts/behavior-contracts.json; digest 56a60d9801a686e96307c339a97b97507ea709dcaa0003315da50d96c02039fb; do not edit by hand. -->
+<!-- Generated from config/contracts/behavior-contracts.json; digest e16dd58f23870168616513b56e746e14f767ad5d277fca89fe60d0fcf5abe267; do not edit by hand. -->
 
 # Behavior Contract Index
 
@@ -12,3 +12,4 @@
 | `binary-api-aeds-contract` | api | critical | active | `openapi-aeds-fact-extractor` | positive, negative | required | yes |
 | `browserless-production-correctness` | testing | critical | active | `test-matrix-fact-extractor` | positive, negative, concurrency | required | yes |
 | `authentication-session-permission` | security | critical | active | `auth-session-permission-fact-extractor` | positive, negative, migration | required | yes |
+| `configuration-error-security-policy` | security | critical | active | `config-error-security-policy-fact-extractor` | positive, negative, boundary | required | yes |

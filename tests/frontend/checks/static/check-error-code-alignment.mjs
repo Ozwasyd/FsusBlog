@@ -8,16 +8,10 @@ const tsEnumPath = resolve(clientRoot, 'src/utils/appError.ts')
 const csharpEnumPath = resolve(repoRoot, 'src/core/Common/ErrorCode.cs')
 const resultBoundaryPath = resolve(repoRoot, 'tests/frontend/checks/static/check-result-boundaries.mjs')
 
-const alignment = {
-  Validation: { ts: 'Validation', csharp: 'Validation' },
-  Unauthorized: { ts: 'Unauthorized', csharp: 'Unauthorized' },
-  Forbidden: { ts: 'Forbidden', csharp: 'Forbidden' },
-  NotFound: { ts: 'NotFound', csharp: 'NotFound' },
-  Conflict: { ts: 'Conflict', csharp: 'Conflict' },
-  InfraFailure: { ts: 'InfraFailure', csharp: 'InfraFailure' },
-  ProtocolFailure: { ts: 'ProtocolFailure', csharp: null },
-  InvariantViolation: { ts: 'InvariantViolation', csharp: null }
-}
+// Fact authority for public error codes lives in the config-error-security-policy
+// observation / fact extractor. This checker only enforces structural hygiene and
+// that the frontend consumer catalog covers every production ErrorCode by name —
+// without maintaining a second handwritten alignment table.
 
 const bannedPatterns = [
   {
@@ -68,17 +62,13 @@ function parseEnumMembers(source) {
 const tsEnumSource = await readFile(tsEnumPath, 'utf8')
 const csharpEnumSource = await readFile(csharpEnumPath, 'utf8')
 const tsEnumMembers = new Set(parseEnumMembers(tsEnumSource))
-const csharpEnumMembers = new Set(parseEnumMembers(csharpEnumSource))
+const csharpEnumMembers = parseEnumMembers(csharpEnumSource).filter((name) => name !== 'None')
 
 const violations = []
 
-for (const [semantic, mapping] of Object.entries(alignment)) {
-  if (!tsEnumMembers.has(mapping.ts)) {
-    violations.push(`missing TS AppErrorCode mapping for ${semantic}`)
-  }
-
-  if (mapping.csharp && !csharpEnumMembers.has(mapping.csharp)) {
-    violations.push(`missing C# ErrorCode mapping for ${semantic}`)
+for (const csharpName of csharpEnumMembers) {
+  if (!tsEnumMembers.has(csharpName)) {
+    violations.push(`frontend AppErrorCode missing production ErrorCode ${csharpName}`)
   }
 }
 
@@ -122,4 +112,4 @@ if (violations.length > 0) {
   process.exit(1)
 }
 
-console.log('ok: error-code alignment and final exception allowlist are consistent')
+console.log('ok: frontend AppErrorCode covers production ErrorCode catalog; string-branch hygiene holds')
