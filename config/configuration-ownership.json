@@ -120,6 +120,27 @@
             "pathType": "file"
         },
         {
+            "id": "runtime-http-route-contract-schema",
+            "owner": "backend-performance-governance",
+            "canonicalPath": "config/schemas/runtime-http-route-contracts.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "runtime-http-route-contract-catalog",
+            "owner": "backend-performance-governance",
+            "canonicalPath": "config/testing/runtime-http-route-contracts.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/test/lanes/runtime-http-route-contract.mjs",
+                "tools/test/lanes/runtime-evidence-probe.mjs",
+                "tools/perf/run-open-loop-load.mjs",
+                "tests/frontend/checks/load/check-load-public-api.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/runtime-http-route-contract.test.mjs tests/tools/release-load-response-oracle.test.mjs",
+            "changePolicy": "manual-update-with-route-oracle-validation",
+            "status": "manual"
+        },
+        {
             "id": "flaky-observation-schema",
             "owner": "flaky-observation-lane",
             "canonicalPath": "config/schemas/flaky-observation-set.schema.json",

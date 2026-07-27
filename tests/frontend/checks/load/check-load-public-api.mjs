@@ -6,7 +6,8 @@ import { readAedsResponse } from '../../support/aeds-envelope.mjs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { readLoadProfile } from './loadPolicy.mjs';
-import { matchesExpectedStatus, waitForReadyResponse } from './loadReadiness.mjs';
+import { waitForReadyResponse } from './loadReadiness.mjs';
+import { fetchRouteSample, producerRouteIds } from '../../../../tools/test/lanes/runtime-http-route-contract.mjs';
 
 const publicBaseUrl = process.env.FSUSBLOG_PUBLIC_BASE_URL || process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:8080';
 const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, defaultTimeoutMs);
@@ -48,9 +49,8 @@ async function fetchFirstArticleId() {
 
 async function exerciseEndpoint(definition) {
   const durations = [];
-  const expectedStatuses = Array.isArray(definition.expectedStatuses)
-    ? definition.expectedStatuses
-    : null;
+  const successfulSamples = [];
+  const failedSamples = [];
   const statusCounts = {};
   let successCount = 0;
   let serverErrors = 0;
@@ -60,30 +60,43 @@ async function exerciseEndpoint(definition) {
     const batch = Array.from({ length: concurrency }, async () => {
       const startedAt = performance.now();
       try {
-        const response = await fetchWithTimeout(definition.url, {
-          headers: definition.headers
-        }, requestTimeoutMs);
+        const target = new URL(definition.url);
+        const response = await fetchRouteSample({ routeId: definition.routeId, baseUrl: target.origin, requestPath: `${target.pathname}${target.search}`, headers: definition.headers, timeoutMs: requestTimeoutMs });
         const elapsed = performance.now() - startedAt;
-        durations.push(elapsed);
         statusCounts[response.status] = (statusCounts[response.status] || 0) + 1;
-        if (response.status >= 500) {
-          serverErrors += 1;
+        if (!response.ok) {
+          failedSamples.push({
+            routeId: response.routeId,
+            contractDigest: response.contractDigest,
+            status: response.status,
+            contentType: response.contentType,
+            frameType: response.frameType,
+            bodyBytes: response.bodyBytes,
+            failureKind: response.failureKind,
+            latencyMs: response.latencyMs
+          });
+          if (response.status >= 500) serverErrors += 1;
+          if (response.failureKind === 'timeout') timeouts += 1;
           return;
         }
-        const hasExpectedStatus = matchesExpectedStatus(response, expectedStatuses);
-        if (!hasExpectedStatus) {
-          throw new Error(
-            `[${definition.name}] unexpected status ${response.status} for ${definition.url}`
-          );
-        }
+        durations.push(elapsed);
+        successfulSamples.push({ routeId: response.routeId, contractDigest: response.contractDigest, latencyMs: Number(elapsed.toFixed(3)) });
         successCount += 1;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        if (message.includes('timeout')) {
-          timeouts += 1;
-          return;
-        }
-        throw error;
+        const timeout = message.includes('timeout');
+        if (timeout) timeouts += 1;
+        failedSamples.push({
+          routeId: definition.routeId,
+          contractDigest: null,
+          status: 0,
+          contentType: null,
+          frameType: null,
+          bodyBytes: 0,
+          failureKind: timeout ? 'timeout' : 'probe-exception',
+          latencyMs: Number((performance.now() - startedAt).toFixed(3)),
+          message
+        });
       }
     });
 
@@ -91,31 +104,32 @@ async function exerciseEndpoint(definition) {
   }
 
   const expectedTotal = concurrency * rounds;
-  const p50 = percentile(durations, 50);
-  const p95 = percentile(durations, 95);
-  assert(
-    successCount === expectedTotal,
-    `[${definition.name}] success rate drift: ${successCount}/${expectedTotal} statuses=${JSON.stringify(statusCounts)} serverErrors=${serverErrors} timeouts=${timeouts}`
-  );
-  assert(serverErrors === 0, `[${definition.name}] should not return 5xx under light load`);
-  assert(timeouts === 0, `[${definition.name}] should not timeout under light load`);
-  assert(p95 <= definition.p95BudgetMs, `[${definition.name}] p95 ${p95.toFixed(1)}ms exceeds budget ${definition.p95BudgetMs}ms`);
+  const p50 = durations.length > 0 ? percentile(durations, 50) : null;
+  const p95 = durations.length > 0 ? percentile(durations, 95) : null;
+  const acceptanceFailures = [];
+  if (successCount !== expectedTotal) acceptanceFailures.push(`success rate drift: ${successCount}/${expectedTotal}`);
+  if (serverErrors !== 0) acceptanceFailures.push(`server errors: ${serverErrors}`);
+  if (timeouts !== 0) acceptanceFailures.push(`timeouts: ${timeouts}`);
+  if (p95 !== null && p95 > definition.p95BudgetMs) acceptanceFailures.push(`p95 ${p95.toFixed(1)}ms exceeds budget ${definition.p95BudgetMs}ms`);
 
   const summary = {
+    status: acceptanceFailures.length === 0 ? 'ok' : 'failed',
     name: definition.name,
     count: expectedTotal,
-    p50Ms: Number(p50.toFixed(1)),
-    p95Ms: Number(p95.toFixed(1)),
+    p50Ms: p50 === null ? null : Number(p50.toFixed(1)),
+    p95Ms: p95 === null ? null : Number(p95.toFixed(1)),
     p95BudgetMs: definition.p95BudgetMs,
-    expectedStatuses: expectedStatuses || ['2xx'],
+    routeId: definition.routeId,
+    routeContractDigest: successfulSamples[0]?.contractDigest ?? null,
+    samples: successfulSamples,
+    failures: failedSamples,
+    acceptanceFailures,
     statusCounts,
     serverErrors,
     timeouts
   };
 
-  console.log(
-    `[check-load-public-api] ok: ${definition.name} | count=${expectedTotal} | p50=${p50.toFixed(1)}ms | p95=${p95.toFixed(1)}ms`
-  );
+  console.log(`[check-load-public-api] ${summary.status}: ${definition.name} | count=${expectedTotal} | p50=${summary.p50Ms ?? 'n/a'}ms | p95=${summary.p95Ms ?? 'n/a'}ms`);
   return summary;
 }
 
@@ -124,18 +138,21 @@ async function main() {
   const definitions = [
     {
       name: 'public_home',
+      routeId: 'public-home',
       url: `${publicBaseUrl}/`,
       headers: { Accept: 'text/html' },
       p95BudgetMs: 2500
     },
     {
       name: 'public_article',
+      routeId: 'public-article',
       url: `${publicBaseUrl}/article/${articleId}`,
       headers: { Accept: 'text/html' },
       p95BudgetMs: 2500
     },
     {
       name: 'public_search_extreme_query',
+      routeId: 'public-search-invalid',
       url: `${publicBaseUrl}/search?q=${encodeURIComponent('markdown latex mermaid ' + 'boundary '.repeat(30) + '<script>')}`,
       headers: { Accept: 'text/html' },
       expectedStatuses: [400],
@@ -143,59 +160,71 @@ async function main() {
     },
     {
       name: 'api_system_seo',
+      routeId: 'system-seo',
       url: `${apiBaseUrl}/api/binary/system/seo`,
       headers: { Accept: 'application/octet-stream' },
       p95BudgetMs: 1500
     },
     {
       name: 'api_pow_challenge',
+      routeId: 'pow-challenge',
       url: `${apiBaseUrl}/api/binary/auth/pow-challenge`,
       headers: { Accept: 'application/octet-stream' },
       p95BudgetMs: 1500
     },
     {
       name: 'api_article_detail',
+      routeId: 'article-detail',
       url: `${apiBaseUrl}/api/binary/article/${articleId}.aeds`,
       headers: { Accept: 'application/octet-stream' },
       p95BudgetMs: 2000
     },
     {
       name: 'api_article_comments',
+      routeId: 'article-comments',
       url: `${apiBaseUrl}/api/binary/comment/${articleId}?limit=10`,
       headers: { Accept: 'application/octet-stream' },
       p95BudgetMs: 2000
     },
     {
       name: 'search_manifest',
+      routeId: 'search-manifest',
       url: `${publicBaseUrl}/search/index.manifest.aeds`,
       headers: { Accept: 'application/octet-stream' },
       p95BudgetMs: 1500
     },
     {
       name: 'binary_article_list',
+      routeId: 'article-list-home-5',
       url: `${apiBaseUrl}/api/binary/article/list/home/1/5.aeds`,
       headers: { Accept: 'application/octet-stream' },
       p95BudgetMs: 2000
     },
     {
       name: 'binary_article_detail',
+      routeId: 'article-detail',
       url: `${apiBaseUrl}/api/binary/article/${articleId}.aeds`,
       headers: { Accept: 'application/octet-stream' },
       p95BudgetMs: 2000
     },
     {
       name: 'binary_article_hot',
+      routeId: 'article-hot',
       url: `${apiBaseUrl}/api/binary/article/hot/5.aeds`,
       headers: { Accept: 'application/octet-stream' },
       p95BudgetMs: 2000
     },
     {
       name: 'binary_article_comments',
+      routeId: 'article-comments',
       url: `${apiBaseUrl}/api/binary/comment/${articleId}?limit=10`,
       headers: { Accept: 'application/octet-stream' },
       p95BudgetMs: 2000
     }
   ];
+  const declaredRouteIds = [...new Set(definitions.map((definition) => definition.routeId))].sort();
+  const ownedRouteIds = [...producerRouteIds('frontend-load-public-api')].sort();
+  assert(JSON.stringify(declaredRouteIds) === JSON.stringify(ownedRouteIds), 'frontend load definitions must exactly match their catalog ownership');
 
   await Promise.all(definitions.map(async (definition) => {
     const response = await waitForReadyResponse(definition, { requestTimeoutMs });
@@ -207,9 +236,10 @@ async function main() {
     results.push(await exerciseEndpoint(definition));
   }
 
+  const status = results.every((result) => result.status === 'ok') ? 'ok' : 'failed';
   await mkdir(evidenceDir, { recursive: true });
   await writeFile(resolve(evidenceDir, 'load-public-api.json'), `${JSON.stringify({
-    status: 'ok',
+    status,
     generatedAt: new Date().toISOString(),
     apiBaseUrl,
     publicBaseUrl,
@@ -223,6 +253,7 @@ async function main() {
     results
   }, null, 2)}\n`);
 
+  assert(status === 'ok', `load public API route contract failed: ${results.filter((result) => result.status !== 'ok').map((result) => result.name).join(',')}`);
   console.log(
     `[check-load-public-api] ok | apiBase=${apiBaseUrl} publicBase=${publicBaseUrl} concurrency=${concurrency} rounds=${rounds}`
   );

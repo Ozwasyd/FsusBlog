@@ -7,6 +7,7 @@ import { spawn, spawnSync } from 'node:child_process'
 import { createHash, createHmac, randomBytes } from 'node:crypto'
 import { performance } from 'node:perf_hooks'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { fetchRouteSample, producerRouteIds, routeCatalogDigest, routeContract } from './runtime-http-route-contract.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../../..'))
 loadBootstrapEnv(process.env.FSUSBLOG_TEST_NAMESPACE || 'local')
@@ -39,14 +40,8 @@ const defaultHeaders = {
   'X-Fsus-Device-Fp': `runtime-probe-${namespace}`
 }
 
-const safeBinaryPaths = [
-  '/api/binary/system/seo',
-  '/api/binary/article/list/home/1/10.aeds',
-  '/api/binary/category',
-  '/api/binary/tag',
-  '/api/binary/article/hot/5.aeds',
-  '/api/binary/article/featured/4.aeds'
-]
+const safeBinaryRouteIds = producerRouteIds('runtime-load-soak')
+const safeBinaryPaths = safeBinaryRouteIds.map((routeId) => routeContract(routeId).pathTemplate)
 const perfPolicyRelativeFile = 'tests/performance/perf-policy.yml'
 const perfPolicyFile = path.join(root, perfPolicyRelativeFile)
 
@@ -286,7 +281,16 @@ function optionalDeploymentLayerMetadata() {
   }
 }
 
-async function fetchSample(relativePath, options = {}) {
+async function fetchSample(routeId, options = {}) {
+  return await fetchRouteSample({ routeId, baseUrl, headers: { ...defaultHeaders, ...(options.headers ?? {}) }, timeoutMs })
+}
+async function fetchHealthPathSample(relativePath) {
+  const response = await fetch(`${baseUrl}${relativePath}`, { headers: defaultHeaders, redirect: 'manual' })
+  return { ok: response.status === 200, status: response.status }
+}
+// Non-catalog health/fault probes retain their diagnostic semantics.  Load and
+// soak correctness probes use fetchRouteSample through runRouteContractProbe.
+async function fetchPathSample(relativePath, options = {}) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(new Error(`timeout after ${timeoutMs}ms`)), timeoutMs)
   const started = performance.now()
@@ -322,7 +326,7 @@ async function fetchSample(relativePath, options = {}) {
   }
 }
 
-async function runHttpProbe(paths, options = {}) {
+async function runRouteContractProbe(routeIds, options = {}) {
   const iterations = positiveInt(options.iterations, 8)
   const concurrency = positiveInt(options.concurrency, 1)
   const samples = []
@@ -333,11 +337,54 @@ async function runHttpProbe(paths, options = {}) {
     while (next < iterations) {
       const index = next
       next += 1
-      const relativePath = paths[index % paths.length]
-      samples.push(await fetchSample(relativePath, options))
+      const routeId = routeIds[index % routeIds.length]
+      samples.push(await fetchSample(routeId, options))
     }
   }
 
+  await Promise.all(Array.from({ length: Math.min(concurrency, iterations) }, () => worker()))
+  const durationMs = performance.now() - started
+  const failures = samples.filter((sample) => !sample.ok)
+  const latencies = samples.filter((sample) => sample.ok).map((sample) => sample.latencyMs)
+  const bytes = samples.reduce((total, sample) => total + sample.bodyBytes, 0)
+  const cacheSignals = samples.filter((sample) => sample.xCache || sample.etag || sample.cacheControl).length
+  const probe = {
+    baseUrl,
+    namespace,
+    measurementSource: 'runtime-http-probe', routeContractDigest: routeCatalogDigest(),
+    generatedAt: new Date().toISOString(),
+    sampleCount: samples.length,
+    concurrency,
+    durationMs: Number(durationMs.toFixed(3)),
+    rps: Number((samples.length / Math.max(durationMs / 1000, 0.001)).toFixed(3)),
+    bytes,
+    statusCounts: statusCounts(samples),
+    latencyMs: {
+      min: latencies.length ? Number(Math.min(...latencies).toFixed(3)) : null,
+      p50: percentile(latencies, 50),
+      p95: percentile(latencies, 95),
+      p99: percentile(latencies, 99),
+      max: latencies.length ? Number(Math.max(...latencies).toFixed(3)) : null
+    },
+    cacheSignalRatio: Number((cacheSignals / samples.length).toFixed(3)),
+    status: failures.length === 0 ? 'ok' : 'failed', samples, failures
+  }
+  return attachExtendedObservability(probe)
+}
+
+async function runHttpProbe(paths, options = {}) {
+  const iterations = positiveInt(options.iterations, 8)
+  const concurrency = positiveInt(options.concurrency, 1)
+  const samples = []
+  const started = performance.now()
+  let next = 0
+  async function worker() {
+    while (next < iterations) {
+      const index = next
+      next += 1
+      samples.push(await fetchPathSample(paths[index % paths.length], options))
+    }
+  }
   await Promise.all(Array.from({ length: Math.min(concurrency, iterations) }, () => worker()))
   const durationMs = performance.now() - started
   const failures = samples.filter((sample) => !sample.ok)
@@ -350,42 +397,19 @@ async function runHttpProbe(paths, options = {}) {
   for (const sample of samples) {
     const expected = expectedByPath[sample.path]
     if (!expected) continue
-    if (expected.expectedStatus != null && sample.status !== expected.expectedStatus) {
-      throw new Error(`runtime probe status mismatch for ${sample.path}: expected ${expected.expectedStatus}, got ${sample.status}`)
-    }
-    if (expected.expectedContentType && !String(sample.contentType ?? '').includes(expected.expectedContentType)) {
-      throw new Error(`runtime probe content-type mismatch for ${sample.path}: expected ${expected.expectedContentType}, got ${sample.contentType}`)
-    }
-    if (expected.expectedFrameType != null && sample.frameType !== expected.expectedFrameType) {
-      throw new Error(`runtime probe frame type mismatch for ${sample.path}: expected ${expected.expectedFrameType}, got ${sample.frameType}`)
-    }
+    if (expected.expectedStatus != null && sample.status !== expected.expectedStatus) throw new Error(`runtime probe status mismatch for ${sample.path}: expected ${expected.expectedStatus}, got ${sample.status}`)
+    if (expected.expectedContentType && !String(sample.contentType ?? '').includes(expected.expectedContentType)) throw new Error(`runtime probe content-type mismatch for ${sample.path}: expected ${expected.expectedContentType}, got ${sample.contentType}`)
+    if (expected.expectedFrameType != null && sample.frameType !== expected.expectedFrameType) throw new Error(`runtime probe frame type mismatch for ${sample.path}: expected ${expected.expectedFrameType}, got ${sample.frameType}`)
   }
-
   const latencies = samples.map((sample) => sample.elapsedMs)
   const bytes = samples.reduce((total, sample) => total + sample.bytes, 0)
   const cacheSignals = samples.filter((sample) => sample.xCache || sample.etag || sample.cacheControl).length
-  const probe = {
-    baseUrl,
-    namespace,
-    measurementSource: 'runtime-http-probe',
-    generatedAt: new Date().toISOString(),
-    sampleCount: samples.length,
-    concurrency,
-    durationMs: Number(durationMs.toFixed(3)),
-    rps: Number((samples.length / Math.max(durationMs / 1000, 0.001)).toFixed(3)),
-    bytes,
-    statusCounts: statusCounts(samples),
-    latencyMs: {
-      min: Number(Math.min(...latencies).toFixed(3)),
-      p50: percentile(latencies, 50),
-      p95: percentile(latencies, 95),
-      p99: percentile(latencies, 99),
-      max: Number(Math.max(...latencies).toFixed(3))
-    },
-    cacheSignalRatio: Number((cacheSignals / samples.length).toFixed(3)),
-    samples: samples.slice(0, 10)
-  }
-  return attachExtendedObservability(probe)
+  return attachExtendedObservability({
+    baseUrl, namespace, measurementSource: 'runtime-http-probe', generatedAt: new Date().toISOString(), sampleCount: samples.length, concurrency,
+    durationMs: Number(durationMs.toFixed(3)), rps: Number((samples.length / Math.max(durationMs / 1000, 0.001)).toFixed(3)), bytes,
+    statusCounts: statusCounts(samples), latencyMs: { min: Number(Math.min(...latencies).toFixed(3)), p50: percentile(latencies, 50), p95: percentile(latencies, 95), p99: percentile(latencies, 99), max: Number(Math.max(...latencies).toFixed(3)) },
+    cacheSignalRatio: Number((cacheSignals / samples.length).toFixed(3)), samples: samples.slice(0, 10)
+  })
 }
 
 function firstPublicArticleId() {
@@ -2212,7 +2236,7 @@ async function resolveFaultRecoveryHealthMode() {
     return configuredMode
   }
 
-  const baseline = await fetchSample('/health/ready')
+  const baseline = await fetchHealthPathSample('/health/ready')
   resolvedFaultRecoveryHealthMode = baseline.ok ? 'strict-ready' : 'live'
   return resolvedFaultRecoveryHealthMode
 }
@@ -3789,18 +3813,19 @@ async function backendQpsSequential(outFile) {
 async function loadProfile(profile, outFile) {
   const policy = resolveLoadProfilePolicy(profile)
   const iterations = policy.effective.concurrency * policy.effective.rounds
-  const probe = await runHttpProbe(safeBinaryPaths, {
+  const probe = await runRouteContractProbe(safeBinaryRouteIds, {
     iterations,
     concurrency: policy.effective.concurrency
   })
+  const failedSamples = probe.failures.length
   const metrics = {
     rps: probe.rps,
     p50Ms: probe.latencyMs.p50,
     p95Ms: probe.latencyMs.p95,
     p99Ms: probe.latencyMs.p99,
     maxLatencyMs: probe.latencyMs.max,
-    errorRate: 0,
-    timeoutRate: 0,
+    errorRate: failedSamples / probe.sampleCount,
+    timeoutRate: probe.failures.filter((sample) => sample.failureKind === 'timeout').length / probe.sampleCount,
     cpuPercent: null,
     rssBytes: null,
     managedHeapBytes: null,
@@ -3811,7 +3836,7 @@ async function loadProfile(profile, outFile) {
     redisLatencyMs: null
   }
   const thresholdEvaluation = evaluateLoadProfileThresholds(metrics, policy.thresholds)
-  const status = thresholdEvaluation.status === 'pass' ? 'ok' : 'failed'
+  const status = probe.status === 'ok' && thresholdEvaluation.status === 'pass' ? 'ok' : 'failed'
   writeJson(outFile, {
     status,
     profile,
@@ -3829,7 +3854,7 @@ async function loadProfile(profile, outFile) {
     overrideSources: policy.overrideSources,
     sampling: {
       totalRequests: iterations,
-      paths: safeBinaryPaths
+      routeIds: safeBinaryRouteIds
     },
     performance_baseline: performanceBaselineMetadata(),
     optional_deployment_layer: optionalDeploymentLayerMetadata(),
@@ -3838,7 +3863,7 @@ async function loadProfile(profile, outFile) {
     generatedAt: probe.generatedAt
   })
   if (status !== 'ok') {
-    throw new Error(`load profile ${profile} failed threshold evaluation`)
+    throw new Error(`load profile ${profile} failed ${probe.status !== 'ok' ? `route contract: ${probe.failures[0]?.failureKind}` : 'threshold evaluation'}`)
   }
 }
 
@@ -4269,7 +4294,7 @@ async function soak(mode, outFile) {
   const target = discoverBackendProcessTarget()
   const startResources = target.status === 'ok' ? readSoakResourceReadings(target) : null
   do {
-    probes.push(await runHttpProbe(safeBinaryPaths, { iterations: 4, concurrency: 2 }))
+    probes.push(await runRouteContractProbe(safeBinaryRouteIds, { iterations: 4, concurrency: 2 }))
     if (Date.now() < deadline) {
       await new Promise((resolve) => setTimeout(resolve, Math.min(intervalMs, Math.max(0, deadline - Date.now()))))
     }
@@ -4278,9 +4303,11 @@ async function soak(mode, outFile) {
   const resourceMetricSummary = target.status === 'ok'
     ? buildSoakResourceSummary(target, startResources, endResources)
     : buildSoakUnavailableResourceSummary(target.reason ?? 'backend process unavailable')
-  const latencies = probes.flatMap((probe) => [probe.latencyMs.p50, probe.latencyMs.p95, probe.latencyMs.p99].filter((value) => value !== null))
+  const failedProbes = probes.filter((probe) => probe.status !== 'ok')
+  const latencies = probes.filter((probe) => probe.status === 'ok')
+    .flatMap((probe) => [probe.latencyMs.p50, probe.latencyMs.p95, probe.latencyMs.p99].filter((value) => value !== null))
   writeJson(outFile, {
-    status: 'ok',
+    status: failedProbes.length === 0 ? 'ok' : 'failed',
     mode,
     executionMode: 'runtime',
     countsAsReleaseFinal: true,
@@ -4295,10 +4322,11 @@ async function soak(mode, outFile) {
       p95: percentile(latencies, 95),
       p99: percentile(latencies, 99)
     },
-    errorRate: 0,
+    errorRate: probes.reduce((total, probe) => total + probe.failures.length, 0) / Math.max(1, probes.reduce((total, probe) => total + probe.sampleCount, 0)),
     generatedAt: new Date().toISOString(),
     probes
   })
+  if (failedProbes.length > 0) throw new Error(`short soak route contract failed: ${failedProbes[0].failures[0]?.failureKind}`)
 }
 
 function gitSha() {

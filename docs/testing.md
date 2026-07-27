@@ -144,6 +144,10 @@ changed-critical authority 进一步绑定 source/worktree identity、catalog/se
 
 ## 层级总览
 
+## Load / soak HTTP route oracle
+
+`config/testing/runtime-http-route-contracts.json` 是 load/short-soak binary route 的唯一 machine-readable contract。probe 只能以 `routeId` 发起请求，禁止裸 path 或 `status < 400` 成功判断；每个完整成功 sample 绑定 catalog digest，并精确验证 status、禁止 redirect、normalized Content-Type、AEDS header length/CRC/frame type、body bounds 与非 error frame。contract 失败样本保留 failure kind，但绝不进入 latency percentile；catalog 与运行 routeId 集合必须双向 exact match，unknown route 在请求前失败。
+
 层级表由 `tests/matrix.yml` 生成，提交快照见 [testing.generated.md](testing.generated.md)。本地查看当前 browserless production correctness DAG：
 
 ```bash

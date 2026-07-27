@@ -108,14 +108,14 @@ topology，不能覆盖生产结论。
 ```bash
 node tools/perf/run-open-loop-load.mjs \
   --url https://fsus.blog/api/binary/article/hot/5.aeds \
-  --route-id l0-binary-br \
+  --route-id article-hot \
   --topology production-topology \
   --header 'Accept: application/octet-stream' \
   --header 'Accept-Encoding: br' \
   --rates 500,1000,1500,2000 \
   --duration-ms 60000 \
   --repeats 3 \
-  --output /evidence/load/l0-binary-br-production.json
+  --output /evidence/load/article-hot-production.json
 ```
 
 在完全相同的时间窗口采集 `perf stat`/eBPF、.NET runtime counters、cgroup、socket/FD、

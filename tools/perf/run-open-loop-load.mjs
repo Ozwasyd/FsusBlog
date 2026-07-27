@@ -4,6 +4,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { performance } from 'node:perf_hooks'
 import { fileURLToPath } from 'node:url'
+import { fetchRouteSample, routeContract, routeCatalogDigest } from '../test/lanes/runtime-http-route-contract.mjs'
 
 import {
   createOpenLoopSchedule,
@@ -67,35 +68,11 @@ function wait(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds))
 }
 
-async function fetchAttempt({ url, method, headers, timeoutMs }) {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), timeoutMs)
-  const startedAt = performance.now()
-  try {
-    const response = await fetch(url, { method, headers, signal: controller.signal })
-    const body = method === 'HEAD' ? new Uint8Array() : new Uint8Array(await response.arrayBuffer())
-    return {
-      completed: true,
-      error: !response.ok,
-      timeout: false,
-      status: response.status,
-      responseBytes: body.byteLength,
-      latencyMs: performance.now() - startedAt
-    }
-  } catch (error) {
-    const timeoutError = error?.name === 'AbortError'
-    return {
-      completed: false,
-      error: true,
-      timeout: timeoutError,
-      status: 0,
-      responseBytes: 0,
-      latencyMs: performance.now() - startedAt,
-      message: error instanceof Error ? error.message : String(error)
-    }
-  } finally {
-    clearTimeout(timeout)
-  }
+async function fetchAttempt({ url, routeId, method, headers, timeoutMs }) {
+  const target = new URL(url); const contract = routeContract(routeId)
+  if (method !== contract.method) throw new Error(`route method does not match contract ${routeId}`)
+  const sample = await fetchRouteSample({ routeId, baseUrl: target.origin, requestPath: `${target.pathname}${target.search}`, headers, timeoutMs })
+  return { completed: sample.status !== 0, error: !sample.ok, timeout: sample.failureKind === 'timeout', status: sample.status, contentType: sample.contentType, frameType: sample.frameType, responseBytes: sample.bodyBytes, latencyMs: sample.latencyMs, failureKind: sample.failureKind, contractId: routeId, contractDigest: sample.contractDigest }
 }
 
 export async function runOfferedRate({
@@ -146,6 +123,9 @@ export async function runOpenLoopLoad(options) {
       const processCpuPercent = (cpu.user + cpu.system) / 1000 / wallMs * 100
       samples.push({
         repeat,
+        routeId: options.routeId,
+        contractDigest: routeCatalogDigest(),
+        attempts,
         ...summarizeOpenLoopAttempts({ attempts, durationMs: options.durationMs, processCpuPercent }),
         window: {
           startedAt: new Date(windowStartedAt).toISOString(),
@@ -159,6 +139,7 @@ export async function runOpenLoopLoad(options) {
     evidenceKind: 'real',
     generatedAt: new Date().toISOString(),
     routeId: options.routeId,
+    routeContractDigest: routeCatalogDigest(),
     topology: options.topology,
     target: {
       url: options.url,

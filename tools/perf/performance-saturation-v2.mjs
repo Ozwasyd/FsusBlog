@@ -258,8 +258,9 @@ export function createOpenLoopSchedule({ rate, durationMs, startMs = 0 }) {
 export function summarizeOpenLoopAttempts({ attempts, durationMs, processCpuPercent = 0 }) {
   if (!Array.isArray(attempts) || attempts.length === 0) throw new Error('open-loop attempts are required')
   const completed = attempts.filter((attempt) => attempt.completed === true)
+  const successful = completed.filter((attempt) => attempt.error !== true)
   const elapsedSeconds = durationMs / 1000
-  const latencies = completed.map((attempt) => Number(attempt.latencyMs))
+  const latencies = successful.map((attempt) => Number(attempt.latencyMs))
   const lags = attempts.map((attempt) => Number(attempt.scheduleLagMs))
   const errors = attempts.filter((attempt) => attempt.error === true).length
   const timeouts = attempts.filter((attempt) => attempt.timeout === true).length
