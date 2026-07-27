@@ -113,3 +113,21 @@ export type TranslationArguments<Key extends TranslationKey> =
     TranslationParamsByKey[Key] extends undefined
         ? readonly [params?: undefined]
         : readonly [params: TranslationParamsByKey[Key]]
+
+/**
+ * Caller params for plural keys exclude auto-injected `count`.
+ * `count` is a separate required numeric argument on translatePlural.
+ */
+type PluralCallerParams<Key extends PluralTranslationKey> =
+    PluralParamsByKey[Key] extends undefined
+        ? undefined
+        : Omit<PluralParamsByKey[Key], 'count'> extends infer Rest
+            ? [keyof Rest & string] extends [never]
+                ? undefined
+                : Readonly<Rest>
+            : never
+
+export type PluralTranslationArguments<Key extends PluralTranslationKey> =
+    PluralCallerParams<Key> extends undefined
+        ? readonly [count: number, params?: undefined]
+        : readonly [count: number, params: PluralCallerParams<Key>]

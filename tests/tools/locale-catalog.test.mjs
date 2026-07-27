@@ -96,14 +96,21 @@ test('ordinary and plural keys plus parameter maps are exact and mutually exclus
   assert.equal(exactCurrentCatalog.status, 0, `${exactCurrentCatalog.stdout}\n${exactCurrentCatalog.stderr}`)
   const arbitrary = await compileFixture(`import type { PluralTranslationKey } from '../src/locales/keys.js'\nconst impossible: PluralTranslationKey = 'untrusted.plural.key'\nvoid impossible\n`)
   assert.notEqual(arbitrary.status, 0, 'the TypeScript compiler accepted an arbitrary plural translation key')
-  const validCalls = await compileFixture(`import { translate } from '../src/locales/index.js'\ntranslate('common.actions.save')\ntranslate('article.actions.viewImageNamed', { title: 'cover' })\n`)
+  // Value imports of locales/index pull runtime composition ports that require
+  // the frontend tsconfig path map; these fixtures use --ignoreConfig and only
+  // assert the typed resolver call signatures exported from keys.
+  const validCalls = await compileFixture(`import type { PluralTranslationArguments, PluralTranslationKey, TranslationArguments, TranslationKey } from '../src/locales/keys.js'\ndeclare function translate<Key extends TranslationKey>(key: Key, ...args: TranslationArguments<Key>): string\ndeclare function translatePlural<Key extends PluralTranslationKey>(key: Key, ...args: PluralTranslationArguments<Key>): string\ntranslate('common.actions.save')\ntranslate('article.actions.viewImageNamed', { title: 'cover' })\ntranslatePlural('public.archive.publishedCount', 2)\n`)
   assert.equal(validCalls.status, 0, `${validCalls.stdout}\n${validCalls.stderr}`)
-  const missingParams = await compileFixture(`import { translate } from '../src/locales/index.js'\ntranslate('article.actions.viewImageNamed')\n`)
+  const missingParams = await compileFixture(`import type { TranslationArguments, TranslationKey } from '../src/locales/keys.js'\ndeclare function translate<Key extends TranslationKey>(key: Key, ...args: TranslationArguments<Key>): string\ntranslate('article.actions.viewImageNamed')\n`)
   assert.notEqual(missingParams.status, 0, 'translate accepted a parameterized key without its exact parameters')
-  const extraParams = await compileFixture(`import { translate } from '../src/locales/index.js'\ntranslate('common.actions.save', { count: 1 })\n`)
+  const extraParams = await compileFixture(`import type { TranslationArguments, TranslationKey } from '../src/locales/keys.js'\ndeclare function translate<Key extends TranslationKey>(key: Key, ...args: TranslationArguments<Key>): string\ntranslate('common.actions.save', { count: 1 })\n`)
   assert.notEqual(extraParams.status, 0, 'translate accepted parameters for a parameterless key')
-  const pluralThroughOrdinary = await compileFixture(`import { translate } from '../src/locales/index.js'\ntranslate('public.archive.publishedCount', { count: 1 })\n`)
+  const pluralThroughOrdinary = await compileFixture(`import type { TranslationArguments, TranslationKey } from '../src/locales/keys.js'\ndeclare function translate<Key extends TranslationKey>(key: Key, ...args: TranslationArguments<Key>): string\ntranslate('public.archive.publishedCount', { count: 1 })\n`)
   assert.notEqual(pluralThroughOrdinary.status, 0, 'ordinary translate accepted a plural key')
+  const ordinaryThroughPlural = await compileFixture(`import type { PluralTranslationArguments, PluralTranslationKey } from '../src/locales/keys.js'\ndeclare function translatePlural<Key extends PluralTranslationKey>(key: Key, ...args: PluralTranslationArguments<Key>): string\ntranslatePlural('common.actions.save', 1)\n`)
+  assert.notEqual(ordinaryThroughPlural.status, 0, 'translatePlural accepted an ordinary key')
+  const pluralCountInParams = await compileFixture(`import type { PluralTranslationArguments, PluralTranslationKey } from '../src/locales/keys.js'\ndeclare function translatePlural<Key extends PluralTranslationKey>(key: Key, ...args: PluralTranslationArguments<Key>): string\ntranslatePlural('public.archive.publishedCount', 2, { count: 9 })\n`)
+  assert.notEqual(pluralCountInParams.status, 0, 'translatePlural accepted caller-supplied count params')
 })
 
 test('LocaleSchema preserves the discriminated plural kind and required other form', async () => {
