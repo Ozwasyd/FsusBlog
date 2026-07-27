@@ -78,6 +78,7 @@ const anonymousGovernancePaths = [
 const accountNavItems: readonly AccountNavItem[] = [
   { label: '身份中心', to: '/user/identity', area: 'self', groupKey: 'self', match: (path) => path === '/user/identity' },
   { label: '我的消息', to: '/user/messagebox', area: 'self', groupKey: 'self' },
+  { label: '语言与区域', to: '/user/preferences/language', area: 'self', groupKey: 'self' },
   { label: '通行密钥', to: '/user/identity/passkeys', helper: '设备', area: 'self', groupKey: 'identity' },
   { label: 'Recovery Key', to: '/user/identity/recovery-key', helper: '恢复', area: 'self', groupKey: 'identity' },
   { label: '公开资料', to: '/user/identity/public-profile', area: 'self', groupKey: 'identity', requiredFeature: 'publicSendOptionEnabled' },
@@ -201,13 +202,16 @@ export function getAccountNavGroups(context: AccountNavWorkspaceContext): Accoun
         helper: messages.value.admin.groupHelpers[group.key],
         area: group.area,
         to: landingItem.to,
-        items: items.map((item) => ({
-          ...item,
-          label: messages.value.admin.nav[navLabelKeys[item.to as keyof typeof navLabelKeys]],
-          helper: item.helper
-            ? messages.value.admin.helpers[helperKeys[item.helper as keyof typeof helperKeys]]
-            : undefined
-        }))
+        items: items.map((item) => {
+          const labelKey = navLabelKeys[item.to as keyof typeof navLabelKeys]
+          return {
+            ...item,
+            label: labelKey ? messages.value.admin.nav[labelKey] : item.label,
+            helper: item.helper
+              ? messages.value.admin.helpers[helperKeys[item.helper as keyof typeof helperKeys]]
+              : undefined
+          }
+        })
       } : null;
         })
         .filter((group): group is AccountNavGroup => group !== null);

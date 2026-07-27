@@ -270,8 +270,10 @@ enum class FrameType : std::uint16_t
     ClusterNodeStateRequest = 236,
     ClusterSchedulerStateRequest = 237,
     ClusterLeaseReleaseRequest = 238,
+    UserLocalePreference = 239,
     EmptySuccess = 240,
     MutationId = 241,
+    UserLocalePreferenceUpdateRequest = 242,
     ApiError = 251,
 };
 
@@ -528,8 +530,10 @@ enum class FrameType : std::uint16_t
         case FrameType::ClusterNodeStateRequest:
         case FrameType::ClusterSchedulerStateRequest:
         case FrameType::ClusterLeaseReleaseRequest:
+        case FrameType::UserLocalePreference:
         case FrameType::EmptySuccess:
         case FrameType::MutationId:
+        case FrameType::UserLocalePreferenceUpdateRequest:
         case FrameType::ApiError:
             return true;
         default:

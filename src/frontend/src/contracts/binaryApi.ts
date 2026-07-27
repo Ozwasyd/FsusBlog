@@ -170,6 +170,21 @@ export interface CurrentUserSnapshot {
     accessExpiresAtUtc: string;
 }
 
+export type LocalePreferenceMode = 'auto' | 'fixed';
+
+export interface UserLocalePreference {
+    mode: LocalePreferenceMode;
+    fixedLocale: import('@/locales/localeCatalog').SupportedLocale | null;
+    revision: number;
+    updatedAt: string;
+}
+
+export interface UserLocalePreferenceUpdate {
+    mode: LocalePreferenceMode;
+    fixedLocale: import('@/locales/localeCatalog').SupportedLocale | null;
+    expectedRevision: number;
+}
+
 export interface AuthLoginFlow {
     accountId: number;
     identityKind: string;

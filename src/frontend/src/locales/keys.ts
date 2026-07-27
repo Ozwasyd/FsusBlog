@@ -11,7 +11,6 @@ import type { security } from './zh-CN/security'
 
 export { DEFAULT_LOCALE, ENABLED_LOCALES, getLocaleDescriptor, isSupportedLocale, parseSupportedLocale, type LocaleDescriptor, type SupportedLocale } from './localeCatalog'
 
-export const LOCALE_PREFERENCE_STORAGE_KEY = 'fsusblog.locale'
 
 export const PLURAL_CATEGORIES = ['zero', 'one', 'two', 'few', 'many', 'other'] as const
 

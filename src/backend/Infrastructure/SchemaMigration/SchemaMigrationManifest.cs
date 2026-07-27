@@ -28,7 +28,8 @@ internal sealed class SchemaMigrationManifest
             SchemaMigrationCatalog20260724.Create(),
             SchemaMigrationCatalog20260725.Create(),
             SchemaMigrationCatalog20260726.Create(),
-            SchemaMigrationCatalog20260727.Create()
+            SchemaMigrationCatalog20260727.Create(),
+            SchemaMigrationCatalog20260728.Create()
         ],
         [
             new SchemaMigrationVersionGap(

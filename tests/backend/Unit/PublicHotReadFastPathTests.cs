@@ -1137,7 +1137,7 @@ public sealed class PublicHotReadFastPathTests
         var cookieContext = CreateContext("/");
         cookieContext.Request.Headers.Accept = "text/html";
         cookieContext.Request.Headers.AcceptLanguage = "ja-JP";
-        cookieContext.Request.Headers.Cookie = $"{PublicLocaleRequest.CookieName}=en-US";
+        cookieContext.Request.Headers.Cookie = $"{LocalePreferenceCookieService.CookieName}=en-US";
         await PublicHotReadFastPath.TryServeAsync(
             cookieContext,
             _ => throw new InvalidOperationException("next should not run"),

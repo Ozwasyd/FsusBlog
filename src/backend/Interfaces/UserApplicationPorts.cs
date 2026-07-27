@@ -50,6 +50,44 @@ public interface IUserAccountReader
     Task<UserAccountSnapshot?> GetAccountByIdAsync(int id);
 }
 
+public interface IUserLocalePreferenceReader
+{
+    Task<UserLocalePreferenceDto> GetAsync(int accountId, CancellationToken cancellationToken = default);
+}
+
+public enum UserLocalePreferenceUpdateOutcome
+{
+    Success,
+    InvalidMode,
+    InvalidLocale,
+    RevisionConflict,
+    Unavailable
+}
+
+public readonly record struct UserLocalePreferenceUpdateResult(
+    UserLocalePreferenceUpdateOutcome Outcome,
+    UserLocalePreferenceDto? Preference,
+    UserLocalePreferenceDto? PreviousPreference,
+    bool PreviousPreferenceExisted)
+{
+    public bool Success => Outcome == UserLocalePreferenceUpdateOutcome.Success && Preference.HasValue;
+}
+
+public interface IUserLocalePreferenceCommand
+{
+    Task<UserLocalePreferenceUpdateResult> UpdateAsync(
+        int accountId,
+        UserLocalePreferenceUpdateDto request,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> CompensateAsync(
+        int accountId,
+        UserLocalePreferenceDto committedPreference,
+        UserLocalePreferenceDto previousPreference,
+        bool previousPreferenceExisted,
+        CancellationToken cancellationToken = default);
+}
+
 public interface IAnonymousAccountBootstrapService
 {
     Task<AnonymousAccountBootstrapResult> BootstrapAsync(

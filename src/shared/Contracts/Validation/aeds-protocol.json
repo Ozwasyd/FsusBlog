@@ -975,12 +975,20 @@
             "value": 238
         },
         {
+            "name": "UserLocalePreference",
+            "value": 239
+        },
+        {
             "name": "EmptySuccess",
             "value": 240
         },
         {
             "name": "MutationId",
             "value": 241
+        },
+        {
+            "name": "UserLocalePreferenceUpdateRequest",
+            "value": 242
         },
         {
             "name": "ApiError",

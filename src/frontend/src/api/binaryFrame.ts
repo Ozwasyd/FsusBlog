@@ -70,6 +70,32 @@ export function encodePasskeyCredentialFriendlyNameUpdateRequest(friendlyName: s
   return bytes
 }
 
+export function encodeUserLocalePreferenceUpdateRequest(
+  mode: 'auto' | 'fixed',
+  fixedLocale: string | null,
+  expectedRevision: number
+): Uint8Array {
+  const localeWireValues: Readonly<Record<string, number>> = {
+    'zh-CN': 1,
+    'en-US': 2,
+    'zh-Hant': 3,
+    'ja-JP': 4,
+    'ko-KR': 5,
+    'es-419': 6,
+    'fr-FR': 7,
+    'de-DE': 8,
+    'pt-BR': 9,
+    'ru-RU': 10
+  }
+  const bytes = new Uint8Array(16)
+  const view = new DataView(bytes.buffer)
+  view.setBigInt64(0, BigInt(expectedRevision), true)
+  view.setUint8(8, mode === 'fixed' ? 2 : 1)
+  view.setUint8(9, mode === 'fixed' ? 1 : 0)
+  view.setUint8(10, mode === 'fixed' && fixedLocale ? (localeWireValues[fixedLocale] ?? 0) : 0)
+  return bytes
+}
+
 export function writeFixedUtf8(target: Uint8Array, offset: number, length: number, value: string): void {
   const encoded = textEncoder.encode(value)
   target.set(encoded.subarray(0, length), offset)

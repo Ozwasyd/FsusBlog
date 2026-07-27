@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   beginLocaleRouteTransaction,
   createLocaleTextContext,
-  LOCALE_PREFERENCE_STORAGE_KEY,
   formatDate,
   formatNumber,
   initializeLocaleRuntime,
@@ -43,25 +42,24 @@ describe('locale runtime', () => {
     expect(messages.value).not.toHaveProperty('identity')
   })
 
-  it('keeps server authority distinct from a direct SPA stored preference', async () => {
-    localStorage.setItem(LOCALE_PREFERENCE_STORAGE_KEY, 'en-US')
-
+  it('keeps the server or document locale as the only startup authority', async () => {
     await initializeLocaleRuntime('zh-CN', ['common', 'layout', 'public'])
     expect(activeLocale.value).toBe('zh-CN')
     expect(translate('common.routeTitles.login')).toBe('登录')
     expect(document.documentElement.lang).toBe('zh-CN')
 
     resetLocaleRuntimeForTests()
+    document.documentElement.lang = 'en-US'
     await initializeLocaleRuntime(undefined, ['common', 'layout', 'public'])
 
     expect(activeLocale.value).toBe('en-US')
     expect(translate('common.routeTitles.login')).toBe('Log in')
   })
 
-  it('persists a supported preference and translates typed keys', async () => {
+  it('projects a supported locale without writing client persistence', async () => {
     await initializeLocaleRuntime('zh-CN', ['common', 'layout', 'public', 'article'])
     await requestLocale('en-US')
-    expect(localStorage.getItem(LOCALE_PREFERENCE_STORAGE_KEY)).toBe('en-US')
+    expect(localStorage.length).toBe(0)
     expect(translate('article.metadata.longRead')).toBe('Long read')
   })
 

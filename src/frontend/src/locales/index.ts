@@ -8,7 +8,6 @@ import {
 } from 'vue'
 import {
     DEFAULT_LOCALE,
-    LOCALE_PREFERENCE_STORAGE_KEY,
     getLocaleDescriptor,
     isSupportedLocale
 } from './keys'
@@ -29,7 +28,7 @@ import type {
 import { syncLocaleDocumentMetadata } from './documentMetadata'
 
 export { isSupportedLocale, parseSupportedLocale } from './keys'
-export { DEFAULT_LOCALE, LOCALE_PREFERENCE_STORAGE_KEY } from './keys'
+export { DEFAULT_LOCALE } from './keys'
 export { ENABLED_LOCALES } from './localeCatalog'
 export { LOCALE_DOMAINS, isLocaleDomain, type LocaleDomain } from './localeDomains'
 export {
@@ -98,7 +97,6 @@ const projectionState: ShallowRef<LocaleProjection> = shallowRef(Object.freeze({
 }))
 const localeState = computed(() => projectionState.value.locale)
 const messagesState = computed(() => projectionState.value.messages)
-let storageListener: ((event: StorageEvent) => void) | null = null
 let transactionTail: Promise<void> = Promise.resolve()
 
 export { localeState as activeLocale }
@@ -210,7 +208,6 @@ function formatDateForLocale(
 function commitProjection(
     snapshot: PreparedLocaleDomains,
     options: Readonly<{
-        persist: boolean
         emit: boolean
     }>
 ): SupportedLocale {
@@ -228,13 +225,6 @@ function commitProjection(
         revision: projectionState.value.revision + 1
     })
 
-    if (options.persist && typeof localStorage !== 'undefined') {
-        try {
-            localStorage.setItem(LOCALE_PREFERENCE_STORAGE_KEY, snapshot.locale)
-        } catch {
-            // Persistence is best effort; the in-memory transaction is valid.
-        }
-    }
     if (options.emit && typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('fsus:locale-change', {
             detail: { locale: snapshot.locale }
@@ -328,7 +318,7 @@ export async function requestLocale(value: SupportedLocale): Promise<SupportedLo
         const current = projectionState.value
         if (current.initialized && value === current.locale) return value
         const snapshot = await prepareLocaleDomains(value, current.domains)
-        return commitProjection(snapshot, { persist: true, emit: true })
+        return commitProjection(snapshot, { emit: true })
     } finally {
         release()
     }
@@ -336,24 +326,10 @@ export async function requestLocale(value: SupportedLocale): Promise<SupportedLo
 
 function resolveInitialLocale(initialLocale?: SupportedLocale): SupportedLocale {
     if (initialLocale) return initialLocale
-    const storedLocale = typeof localStorage === 'undefined'
-        ? null
-        : localStorage.getItem(LOCALE_PREFERENCE_STORAGE_KEY)
-    if (isSupportedLocale(storedLocale)) return storedLocale
     const documentLocale = typeof document === 'undefined'
         ? null
         : document.documentElement.lang
     return isSupportedLocale(documentLocale) ? documentLocale : DEFAULT_LOCALE
-}
-
-function installStorageListener(): void {
-    if (storageListener || typeof window === 'undefined') return
-    storageListener = (event: StorageEvent) => {
-        if (event.key === LOCALE_PREFERENCE_STORAGE_KEY && isSupportedLocale(event.newValue)) {
-            void requestLocale(event.newValue)
-        }
-    }
-    window.addEventListener('storage', storageListener)
 }
 
 export async function initializeLocaleRuntime(
@@ -364,8 +340,7 @@ export async function initializeLocaleRuntime(
     try {
         const resolvedLocale = resolveInitialLocale(initialLocale)
         const snapshot = await prepareLocaleDomains(resolvedLocale, domains)
-        const locale = commitProjection(snapshot, { persist: false, emit: false })
-        installStorageListener()
+        const locale = commitProjection(snapshot, { emit: false })
         return locale
     } finally {
         release()
@@ -436,10 +411,6 @@ export function formatRelativeTime(value: number, unit: Intl.RelativeTimeFormatU
 }
 
 export function resetLocaleRuntimeForTests(): void {
-    if (storageListener && typeof window !== 'undefined') {
-        window.removeEventListener('storage', storageListener)
-    }
-    storageListener = null
     projectionState.value = Object.freeze({
         initialized: false,
         locale: DEFAULT_LOCALE,

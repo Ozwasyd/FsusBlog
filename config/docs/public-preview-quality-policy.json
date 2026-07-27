@@ -82,7 +82,7 @@
             ".el-button--primary",
             "button[type=\"submit\"]"
         ],
-        "localeStorageKey": "fsusblog.locale"
+        "localePreferenceCookieName": "fsusblog.locale"
     },
     "screenshotProfiles": {
         "admin-dashboard-desktop-light": {

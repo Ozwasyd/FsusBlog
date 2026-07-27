@@ -231,8 +231,10 @@ export const FrameType = {
   ClusterNodeStateRequest: 236,
   ClusterSchedulerStateRequest: 237,
   ClusterLeaseReleaseRequest: 238,
+  UserLocalePreference: 239,
   EmptySuccess: 240,
   MutationId: 241,
+  UserLocalePreferenceUpdateRequest: 242,
   ApiError: 251,
 } as const;
 

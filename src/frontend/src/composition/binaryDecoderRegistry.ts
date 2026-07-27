@@ -13,6 +13,7 @@ import { mapPageContentFromPayload, mapSeoConfigFromPayload, mapSiteComplianceCo
 import { mapCategoryListFromPayload, mapTagListFromPayload } from '@/adapters/binary/taxonomyAdapter';
 import { mapUploadCompleteFromPayload, mapUploadInitFromPayload, mapUploadPartAckFromPayload, mapUploadPartMapFromPayload, mapUploadStatusFromPayload } from '@/adapters/binary/uploadAdapter';
 import { mapAdminUserPageFromPayload } from '@/adapters/binary/userAdapter';
+import { mapUserLocalePreferenceFromPayload } from '@/adapters/binary/localePreferenceAdapter';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 import { mapPublicArticleListCardProjection } from '@/adapters/binary/articleProjectionReader';
 import { AEDS_ACCESS_PROFILE, type AedsAccessProfileId } from '@/generated/aedsAccessProfiles';
@@ -40,6 +41,7 @@ export const binaryFrameDecoderFrameTypes = Object.freeze([
     FrameType.AuthLoginFlow,
     FrameType.CurrentUserSnapshot,
     FrameType.IdentityAccountSnapshot,
+    FrameType.UserLocalePreference,
     FrameType.AuthSessionList,
     FrameType.PowChallenge,
     FrameType.MfaSetupStart,
@@ -231,6 +233,7 @@ export const binaryFrameDecoderRegistrations = Object.freeze([
     [FrameType.AuthLoginFlow, mapAuthLoginFlowFromPayload],
     [FrameType.CurrentUserSnapshot, mapCurrentUserSnapshotFromPayload],
     [FrameType.IdentityAccountSnapshot, mapIdentityAccountSnapshotFromPayload],
+    [FrameType.UserLocalePreference, mapUserLocalePreferenceFromPayload],
     [FrameType.AuthSessionList, mapUserSessionsFromPayload],
     [FrameType.PowChallenge, mapPowChallengeFromPayload],
     [FrameType.MfaSetupStart, mapMfaSetupStartFromPayload],

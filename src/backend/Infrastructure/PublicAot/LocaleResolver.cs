@@ -227,7 +227,6 @@ public sealed class LocaleResolver : ILocaleResolver
 
 internal static class PublicLocaleRequest
 {
-    internal const string CookieName = "fsusblog.locale";
     private static readonly object s_resolutionKey = new();
 
     internal static LocaleResolutionResult Resolve(HttpContext context, ILocaleResolver resolver)
@@ -238,12 +237,10 @@ internal static class PublicLocaleRequest
             return result;
         }
 
-        LocaleDescriptor? explicitLocale = null;
-        if (context.Request.Cookies.TryGetValue(CookieName, out string? rawCookie)
-            && LocaleCatalog.TryParse(rawCookie, out LocaleDescriptor parsedCookie))
-        {
-            explicitLocale = parsedCookie;
-        }
+        LocaleDescriptor? explicitLocale =
+            LocalePreferenceCookieService.TryRead(context, out LocaleDescriptor parsedCookie)
+                ? parsedCookie
+                : null;
 
         result = resolver.Resolve(new LocaleResolutionInput(
             explicitLocale,

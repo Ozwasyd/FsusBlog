@@ -1100,6 +1100,28 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
+            UserLocalePreferenceMigrationDefinitions.MigrationId,
+            new OnlineSchemaMigrationMetadata(
+                UserLocalePreferenceMigrationDefinitions.MigrationId,
+                OnlineSchemaMigrationPhase.Expand,
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260728-user-locale-preference"),
+                ContractAfterCoordinate: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write",
+                    "user_locale_preference_constraints"
+                ]));
+
+        result.Add(
             DistributedInvalidationConvergenceObligationMigrationDefinitions.MigrationId,
             new OnlineSchemaMigrationMetadata(
                 DistributedInvalidationConvergenceObligationMigrationDefinitions.MigrationId,

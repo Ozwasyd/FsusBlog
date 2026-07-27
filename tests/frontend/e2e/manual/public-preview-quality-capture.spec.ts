@@ -1,7 +1,6 @@
 import { expect, test, type Browser, type StorageState } from '@playwright/test'
 import type { RouteRecordRaw } from 'vue-router'
 
-import { LOCALE_PREFERENCE_STORAGE_KEY } from '../../../../src/frontend/src/locales/keys'
 import { APP_ROUTE_RECORDS } from '../../../../src/frontend/src/router/appRouteRecords'
 import {
   adminName,
@@ -84,10 +83,15 @@ async function captureScenario(
   const storageState = await resolveStorageState(browser, scenario.scope)
   const session = await openThemedAuditedPage(browser, scenario.theme as ThemeMode, storageState)
   try {
-    await session.page.addInitScript(({ key, locale }) => localStorage.setItem(key, locale), {
-      key: LOCALE_PREFERENCE_STORAGE_KEY,
-      locale: scenario.locale
-    })
+    await session.page.context().addCookies([{
+      name: 'fsusblog.locale',
+      value: scenario.locale,
+      url: process.env.PLAYWRIGHT_BASE_URL
+        || process.env.FSUSBLOG_PUBLIC_BASE_URL
+        || 'http://127.0.0.1:3000',
+      httpOnly: true,
+      sameSite: 'Lax'
+    }])
     await session.page.setViewportSize(scenario.viewport)
     const checkpoint = session.audit.checkpoint()
     await session.page.goto(path, { waitUntil: 'domcontentloaded' })

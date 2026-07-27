@@ -73,12 +73,38 @@ public sealed class LocaleResolverTests
     public void ResolveForRequest_InvalidCookieFallsThroughToHeader()
     {
         var context = new DefaultHttpContext();
-        context.Request.Headers.Cookie = $"{PublicLocaleRequest.CookieName}=forged";
+        context.Request.Headers.Cookie = $"{LocalePreferenceCookieService.CookieName}=forged";
         context.Request.Headers.AcceptLanguage = "ja-JP";
 
         LocaleResolutionResult result = PublicLocaleRequest.Resolve(context, _resolver);
 
         Assert.Equal("ja-JP", result.Locale.Code);
+        Assert.Equal(LocaleResolutionSource.AcceptLanguage, result.Source);
+    }
+
+    [Fact]
+    public void ResolveForRequest_CanonicalPreferenceCookiePrecedesHeader()
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Headers.Cookie = $"{LocalePreferenceCookieService.CookieName}=de-DE";
+        context.Request.Headers.AcceptLanguage = "ja-JP";
+
+        LocaleResolutionResult result = PublicLocaleRequest.Resolve(context, _resolver);
+
+        Assert.Equal("de-DE", result.Locale.Code);
+        Assert.Equal(LocaleResolutionSource.ExplicitCookie, result.Source);
+    }
+
+    [Fact]
+    public void ResolveForRequest_AliasCookieIsRejectedAndFallsThrough()
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Headers.Cookie = $"{LocalePreferenceCookieService.CookieName}=en";
+        context.Request.Headers.AcceptLanguage = "fr-FR";
+
+        LocaleResolutionResult result = PublicLocaleRequest.Resolve(context, _resolver);
+
+        Assert.Equal("fr-FR", result.Locale.Code);
         Assert.Equal(LocaleResolutionSource.AcceptLanguage, result.Source);
     }
 

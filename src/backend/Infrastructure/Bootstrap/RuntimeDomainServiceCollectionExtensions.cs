@@ -85,6 +85,9 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<UserService>();
         services.AddScoped<AuthBinaryApplicationFacade>();
         services.AddScoped<IUserAccountReader, UserAccountReader>();
+        services.AddScoped<UserLocalePreferenceService>();
+        services.AddScoped<IUserLocalePreferenceReader>(sp => sp.GetRequiredService<UserLocalePreferenceService>());
+        services.AddScoped<IUserLocalePreferenceCommand>(sp => sp.GetRequiredService<UserLocalePreferenceService>());
         services.AddScoped<IAnonymousAccountBootstrapService, AnonymousAccountBootstrapService>();
         services.AddScoped<IAccountEnrollmentService, AccountEnrollmentService>();
         services.AddHostedService<AccountEnrollmentCleanupWorker>();

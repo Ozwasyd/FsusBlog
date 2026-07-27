@@ -116,6 +116,27 @@ struct TagPod
     std::uint8_t name[128];
 };
 
+struct UserLocalePreferencePod
+{
+    std::int64_t revision;
+    std::int64_t updated_at_unix_ms;
+    std::uint8_t mode;
+    std::uint8_t has_fixed_locale;
+    std::uint8_t fixed_locale;
+    std::uint8_t reserved0;
+    std::uint32_t reserved1;
+};
+
+struct UserLocalePreferenceUpdateRequestPod
+{
+    std::int64_t expected_revision;
+    std::uint8_t mode;
+    std::uint8_t has_fixed_locale;
+    std::uint8_t fixed_locale;
+    std::uint8_t reserved0;
+    std::uint32_t reserved1;
+};
+
 #pragma pack(pop)
 
 static_assert(sizeof(Utf8SliceRef) == 8, "Utf8SliceRef size mismatch");
@@ -126,6 +147,8 @@ static_assert(sizeof(ArticleDetailV3RecordPod) == 84, "ArticleDetailV3RecordPod 
 static_assert(sizeof(ArticleDetailV4RecordPod) == 92, "ArticleDetailV4RecordPod size mismatch");
 static_assert(sizeof(ArticleDetailV5RecordPod) == 116, "ArticleDetailV5RecordPod size mismatch");
 static_assert(sizeof(TagPod) == 132, "TagPod size mismatch");
+static_assert(sizeof(UserLocalePreferencePod) == 24, "UserLocalePreferencePod size mismatch");
+static_assert(sizeof(UserLocalePreferenceUpdateRequestPod) == 16, "UserLocalePreferenceUpdateRequestPod size mismatch");
 
 struct ParsedArticleDetail
 {

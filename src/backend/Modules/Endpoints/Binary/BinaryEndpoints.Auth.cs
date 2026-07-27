@@ -20,6 +20,7 @@ using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.Projections;
+using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
@@ -29,6 +30,7 @@ using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Outputs;
+using FsusBlog.Shared.Contracts.Localization;
 
 using SqlSugar;
 
@@ -527,6 +529,153 @@ public static partial class BinaryEndpoints
         })
         .RequireAnonymousAccountPrincipal()
         .AllowRestrictedAccountAction(RestrictedAccountAction.ViewSelf);
+
+        group.MapGet("/locale-preference", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            IUserLocalePreferenceReader preferences,
+            ILocalePreferenceCookieService localeCookie,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            EndpointUserContext user = EndpointUserContext.From(httpContext);
+            UserLocalePreferenceDto preference;
+            if (user.IsAuthenticated)
+            {
+                if (!user.IsAnonymousAccount || user.AccountId <= 0)
+                {
+                    return BinaryResults.FromError(
+                        ErrorDetail.Create(ErrorCode.Forbidden, "locale_preference_unavailable"),
+                        aeds,
+                        StatusCodes.Status403Forbidden);
+                }
+
+                preference = await preferences.GetAsync(user.AccountId, cancellationToken);
+            }
+            else
+            {
+                LocaleDescriptor? deviceLocale = localeCookie.Read(httpContext);
+                preference = new UserLocalePreferenceDto(
+                    deviceLocale is null ? LocalePreferenceModes.Auto : LocalePreferenceModes.Fixed,
+                    deviceLocale?.Code,
+                    0,
+                    DateTime.UnixEpoch);
+            }
+
+            return BinaryResults.Frame(
+                aeds,
+                AedsFrameType.UserLocalePreference,
+                writer => PodBinaryCodec.WriteUserLocalePreference(preference, writer));
+        })
+        .AllowAnonymous()
+        .RequireRateLimiting("fixed_ip")
+        .RequireNoStoreResponse();
+
+        group.MapPut("/locale-preference", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            IUserLocalePreferenceCommand preferenceCommand,
+            ILocalePreferenceCookieService localeCookie,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            var payload = await ReadBinaryRequestPayloadAsync(
+                httpContext,
+                aeds,
+                AedsFrameType.UserLocalePreferenceUpdateRequest,
+                cancellationToken);
+            if (!payload.IsSuccess)
+            {
+                return BinaryResults.FromError(payload.Error, aeds);
+            }
+
+            if (!PodBinaryCodec.TryDecodeUserLocalePreferenceUpdateRequest(payload.Payload, out UserLocalePreferenceUpdateDto request))
+            {
+                return LocalePreferenceError(
+                    aeds,
+                    UserLocalePreferenceUpdateOutcome.InvalidMode);
+            }
+
+            EndpointUserContext user = EndpointUserContext.From(httpContext);
+            if (!user.IsAuthenticated)
+            {
+                if (request.ExpectedRevision != 0)
+                {
+                    return LocalePreferenceError(
+                        aeds,
+                        UserLocalePreferenceUpdateOutcome.RevisionConflict);
+                }
+
+                try
+                {
+                    ApplyLocalePreferenceCookie(httpContext, localeCookie, request);
+                }
+                catch
+                {
+                    return LocalePreferenceError(
+                        aeds,
+                        UserLocalePreferenceUpdateOutcome.Unavailable);
+                }
+
+                var devicePreference = new UserLocalePreferenceDto(
+                    request.Mode,
+                    request.FixedLocale,
+                    0,
+                    DateTime.UtcNow);
+                return BinaryResults.Frame(
+                    aeds,
+                    AedsFrameType.UserLocalePreference,
+                    writer => PodBinaryCodec.WriteUserLocalePreference(devicePreference, writer));
+            }
+
+            if (!user.IsAnonymousAccount || user.AccountId <= 0)
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.Forbidden, "locale_preference_unavailable"),
+                    aeds,
+                    StatusCodes.Status403Forbidden);
+            }
+
+            UserLocalePreferenceUpdateResult update = await preferenceCommand.UpdateAsync(
+                user.AccountId,
+                request,
+                cancellationToken);
+            if (!update.Success
+                || update.Preference is not { } committed
+                || update.PreviousPreference is not { } previous)
+            {
+                return LocalePreferenceError(aeds, update.Outcome);
+            }
+
+            try
+            {
+                ApplyLocalePreferenceCookie(
+                    httpContext,
+                    localeCookie,
+                    new UserLocalePreferenceUpdateDto(
+                        committed.Mode,
+                        committed.FixedLocale,
+                        committed.Revision));
+            }
+            catch
+            {
+                _ = await preferenceCommand.CompensateAsync(
+                    user.AccountId,
+                    committed,
+                    previous,
+                    update.PreviousPreferenceExisted,
+                    CancellationToken.None);
+                return LocalePreferenceError(
+                    aeds,
+                    UserLocalePreferenceUpdateOutcome.Unavailable);
+            }
+
+            return BinaryResults.Frame(
+                aeds,
+                AedsFrameType.UserLocalePreference,
+                writer => PodBinaryCodec.WriteUserLocalePreference(committed, writer));
+        })
+        .AllowAnonymous()
+        .RequireRateLimiting("fixed_ip")
+        .RequireNoStoreResponse();
 
         group.MapGet("/auth/{id:int}", static async Task<BinaryFrameResult> (
             int id,
@@ -1126,6 +1275,8 @@ public static partial class BinaryEndpoints
             IUserLoginWorkflowService loginWorkflow,
             IUserMfaVerificationService mfaVerification,
             IMfaChallengeService challengeService,
+            IUserLocalePreferenceReader localePreferences,
+            ILocalePreferenceCookieService localeCookie,
             IWebHostEnvironment env,
             AuthCookieService authCookieService,
             IAedsEncoder aeds,
@@ -1187,6 +1338,18 @@ public static partial class BinaryEndpoints
                     return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "LOGIN_FINALIZE_FAILED"), aeds);
                 }
 
+                if (!await TrySyncAccountLocaleCookieAsync(
+                        httpContext,
+                        login.User.Value.Id,
+                        localePreferences,
+                        localeCookie,
+                        cancellationToken))
+                {
+                    return LocalePreferenceError(
+                        aeds,
+                        UserLocalePreferenceUpdateOutcome.Unavailable);
+                }
+
                 authCookieService.SetTokenCookies(
                     httpContext,
                     env,
@@ -1234,6 +1397,8 @@ public static partial class BinaryEndpoints
         group.MapPost("/auth/refresh-token", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IUserSessionCommandService sessions,
+            IUserLocalePreferenceReader localePreferences,
+            ILocalePreferenceCookieService localeCookie,
             IWebHostEnvironment env,
             AuthCookieService authCookieService,
             IAedsEncoder aeds,
@@ -1278,6 +1443,26 @@ public static partial class BinaryEndpoints
             TokenResponseDto rotatedTokens = newTokens;
             string rotatedSessionId = rotatedTokens.SessionId!;
             bool persistent = UserSessionDurationPolicies.IsPersistent(rotation.DurationPolicy);
+            UserSession? rotatedSession = await sessions.GetSessionByRefreshTokenAsync(
+                rotatedTokens.RefreshToken,
+                cancellationToken);
+            if (rotatedSession is null
+                || !await TrySyncAccountLocaleCookieAsync(
+                    httpContext,
+                    rotatedSession.UserId,
+                    localePreferences,
+                    localeCookie,
+                    cancellationToken))
+            {
+                _ = await sessions.RevokeRefreshDeliveryAsync(
+                    rotatedTokens.RefreshToken,
+                    rotatedSessionId,
+                    CancellationToken.None);
+                return LocalePreferenceError(
+                    aeds,
+                    UserLocalePreferenceUpdateOutcome.Unavailable);
+            }
+
             if (!await VerifyRefreshCookieDeliveryAsync(
                     sessions,
                     authCookieService,
@@ -1610,6 +1795,8 @@ public static partial class BinaryEndpoints
             HttpContext httpContext,
             IPasskeyService passkeyService,
             IUserLoginWorkflowService loginWorkflow,
+            IUserLocalePreferenceReader localePreferences,
+            ILocalePreferenceCookieService localeCookie,
             IWebHostEnvironment env,
             AuthCookieService authCookieService,
             ISecurityRiskSignalSink riskSignals,
@@ -1665,6 +1852,18 @@ public static partial class BinaryEndpoints
             }
 
             await RecordPasskeyAssertionAcceptedAsync(httpContext, riskSignals, cancellationToken);
+            if (!await TrySyncAccountLocaleCookieAsync(
+                    httpContext,
+                    login.User.Value.Id,
+                    localePreferences,
+                    localeCookie,
+                    cancellationToken))
+            {
+                return LocalePreferenceError(
+                    aeds,
+                    UserLocalePreferenceUpdateOutcome.Unavailable);
+            }
+
             authCookieService.SetTokenCookies(
                 httpContext,
                 env,
@@ -1781,6 +1980,84 @@ public static partial class BinaryEndpoints
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "通行密钥不存在"), aeds);
         })
         .RequireAnonymousAccountPrincipal();
+    }
+
+    private static void ApplyLocalePreferenceCookie(
+        HttpContext httpContext,
+        ILocalePreferenceCookieService localeCookie,
+        UserLocalePreferenceUpdateDto preference)
+    {
+        if (string.Equals(preference.Mode, LocalePreferenceModes.Auto, StringComparison.Ordinal))
+        {
+            localeCookie.Clear(httpContext);
+            return;
+        }
+
+        if (!LocaleCatalog.TryParse(preference.FixedLocale, out LocaleDescriptor locale)
+            || !string.Equals(preference.FixedLocale, locale.Code, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("locale preference was not normalized");
+        }
+
+        localeCookie.SetFixed(httpContext, locale);
+    }
+
+    private static async Task<bool> TrySyncAccountLocaleCookieAsync(
+        HttpContext httpContext,
+        int accountId,
+        IUserLocalePreferenceReader preferences,
+        ILocalePreferenceCookieService localeCookie,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            UserLocalePreferenceDto preference = await preferences.GetAsync(
+                accountId,
+                cancellationToken);
+            // Only account-fixed preference is pushed to the device cookie on login/refresh.
+            // Account auto leaves any existing device explicit cookie in place so logout/device
+            // language continuity is preserved until the user explicitly chooses auto.
+            if (!string.Equals(preference.Mode, LocalePreferenceModes.Fixed, StringComparison.Ordinal)
+                || string.IsNullOrWhiteSpace(preference.FixedLocale))
+            {
+                return true;
+            }
+
+            ApplyLocalePreferenceCookie(
+                httpContext,
+                localeCookie,
+                new UserLocalePreferenceUpdateDto(
+                    preference.Mode,
+                    preference.FixedLocale,
+                    preference.Revision));
+            return true;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static BinaryFrameResult LocalePreferenceError(
+        IAedsEncoder aeds,
+        UserLocalePreferenceUpdateOutcome outcome)
+    {
+        (ErrorCode code, string message, int statusCode) = outcome switch
+        {
+            UserLocalePreferenceUpdateOutcome.InvalidMode =>
+                (ErrorCode.Validation, "locale_preference_invalid_mode", StatusCodes.Status400BadRequest),
+            UserLocalePreferenceUpdateOutcome.InvalidLocale =>
+                (ErrorCode.Validation, "locale_preference_invalid_locale", StatusCodes.Status400BadRequest),
+            UserLocalePreferenceUpdateOutcome.RevisionConflict =>
+                (ErrorCode.Conflict, "locale_preference_revision_conflict", StatusCodes.Status409Conflict),
+            _ =>
+                (ErrorCode.InfraFailure, "locale_preference_unavailable", StatusCodes.Status503ServiceUnavailable)
+        };
+        return BinaryResults.FromError(ErrorDetail.Create(code, message), aeds, statusCode);
     }
 
     private static BinaryFrameResult RecoveryKeyError(in ErrorDetail error, IAedsEncoder aeds)

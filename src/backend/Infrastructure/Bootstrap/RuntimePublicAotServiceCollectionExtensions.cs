@@ -11,6 +11,7 @@ internal static class RuntimePublicAotServiceCollectionExtensions
     public static IServiceCollection AddFsusRuntimePublicAotServices(this IServiceCollection services)
     {
         services.AddSingleton<ILocaleResolver, LocaleResolver>();
+        services.AddSingleton<ILocalePreferenceCookieService, LocalePreferenceCookieService>();
         services.AddSingleton<PublicAotSsrRuntimeState>();
         services.AddSingleton<IPublicAotRuntimeState, PublicAotRuntimeState>();
         services.AddSingleton<IAotSeoConfigSnapshot, AotSeoConfigSnapshot>();

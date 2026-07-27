@@ -15,9 +15,11 @@ import type {
     RecoveryKeyCreateResponse,
     RecoveryKeyVerifyRequest,
     RecoveryKeyVerifyResponse,
+    UserLocalePreference,
+    UserLocalePreferenceUpdate,
   UserSessionSummary
 } from '@/contracts/binaryApi'
-import { encodeAedsFrame, encodePasskeyCredentialFriendlyNameUpdateRequest, encodeStringMutationRequest, writeFixedUtf8 } from './binaryFrame'
+import { encodeAedsFrame, encodePasskeyCredentialFriendlyNameUpdateRequest, encodeStringMutationRequest, encodeUserLocalePreferenceUpdateRequest, writeFixedUtf8 } from './binaryFrame'
 import { FSUS_HEADERS } from './contracts'
 
 import { AppErrorCode, createAppError } from '@/utils/appError'
@@ -35,6 +37,8 @@ export type {
     RecoveryKeyCreateResponse,
     RecoveryKeyVerifyRequest,
     RecoveryKeyVerifyResponse,
+    UserLocalePreference,
+    UserLocalePreferenceUpdate,
   UserSessionSummary
 } from '@/contracts/binaryApi'
 
@@ -126,6 +130,34 @@ export const updatePublicHandle = (data: UpdatePublicHandleDto, config?: ApiRequ
     }
   })
 }
+
+export const getLocalePreference = (config?: ApiRequestConfig) =>
+  requestBinaryOnly<UserLocalePreference>({
+    binaryRoute: { operationId: 'binary_get_locale_preference' },
+    frameType: FrameType.UserLocalePreference,
+    signal: config?.signal as AbortSignal | undefined
+  })
+
+export const updateLocalePreference = (
+  data: UserLocalePreferenceUpdate,
+  config?: ApiRequestConfig
+) =>
+  requestBinaryOnly<UserLocalePreference>({
+    binaryRoute: { operationId: 'binary_put_locale_preference' },
+    frameType: FrameType.UserLocalePreference,
+    signal: config?.signal as AbortSignal | undefined,
+    requestOptions: {
+      method: 'PUT',
+      body: encodeAedsFrame(
+        FrameType.UserLocalePreferenceUpdateRequest,
+        encodeUserLocalePreferenceUpdateRequest(
+          data.mode,
+          data.fixedLocale,
+          data.expectedRevision
+        )
+      )
+    }
+  })
 
 /**
  * 退出登录

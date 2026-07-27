@@ -76,6 +76,17 @@ public readonly record struct PasskeySignalStateDto(
     string DisplayName,
     IReadOnlyList<string> AllAcceptedCredentialIds);
 
+public readonly record struct UserLocalePreferenceDto(
+    string Mode,
+    string? FixedLocale,
+    long Revision,
+    DateTime UpdatedAt);
+
+public readonly record struct UserLocalePreferenceUpdateDto(
+    string Mode,
+    string? FixedLocale,
+    long ExpectedRevision);
+
 /// <summary>
 /// Defines the API output contract represented by <c>PageResponse</c>.
 /// </summary>

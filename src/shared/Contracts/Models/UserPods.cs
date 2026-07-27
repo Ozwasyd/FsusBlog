@@ -85,6 +85,29 @@ public readonly struct IdentityAccountSnapshotPod
     public readonly Utf8SliceRef BanReason;
 }
 
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct UserLocalePreferencePod
+{
+    public readonly long Revision;
+    public readonly long UpdatedAtUnixMs;
+    public readonly byte Mode;
+    public readonly byte HasFixedLocale;
+    public readonly byte FixedLocale;
+    public readonly byte Reserved0;
+    public readonly uint Reserved1;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct UserLocalePreferenceUpdateRequestPod
+{
+    public readonly long ExpectedRevision;
+    public readonly byte Mode;
+    public readonly byte HasFixedLocale;
+    public readonly byte FixedLocale;
+    public readonly byte Reserved0;
+    public readonly uint Reserved1;
+}
+
 /// <summary>
 /// Defines the fixed-layout binary representation used by the <c>UserSessionSummary</c> wire contract.
 /// </summary>

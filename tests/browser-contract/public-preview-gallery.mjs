@@ -71,11 +71,17 @@ async function captureEntry(browser, fixture, entry, stagingDirectory, timeoutMs
     const context = await browser.newContext(contextOptions(entry, fixture));
     try
     {
-        await context.addInitScript(({ theme, locale, localeStorageKey }) =>
+        await context.addCookies([{
+            name: qualityPolicy.localePreferenceCookieName,
+            value: entry.locale ?? 'zh-CN',
+            url: fixture.baseUrl,
+            httpOnly: true,
+            sameSite: 'Lax'
+        }]);
+        await context.addInitScript(({ theme }) =>
         {
             globalThis.localStorage.setItem('fsus:theme-mode', theme);
-            globalThis.localStorage.setItem(localeStorageKey, locale);
-        }, { theme: entry.theme, locale: entry.locale ?? 'zh-CN', localeStorageKey: qualityPolicy.localeStorageKey });
+        }, { theme: entry.theme });
         const page = await context.newPage();
         page.setDefaultTimeout(timeoutMs);
         page.setDefaultNavigationTimeout(timeoutMs);
@@ -150,11 +156,17 @@ async function auditQualityScenario(browser, fixture, scenario, timeoutMs, quali
     const context = await browser.newContext(contextOptions(scenario, fixture));
     try
     {
-        await context.addInitScript(({ theme, locale, localeStorageKey }) =>
+        await context.addCookies([{
+            name: qualityPolicy.localePreferenceCookieName,
+            value: scenario.locale,
+            url: fixture.baseUrl,
+            httpOnly: true,
+            sameSite: 'Lax'
+        }]);
+        await context.addInitScript(({ theme }) =>
         {
             globalThis.localStorage.setItem('fsus:theme-mode', theme);
-            globalThis.localStorage.setItem(localeStorageKey, locale);
-        }, { theme: scenario.theme, locale: scenario.locale, localeStorageKey: qualityPolicy.localeStorageKey });
+        }, { theme: scenario.theme });
         const page = await context.newPage();
         page.setDefaultTimeout(timeoutMs);
         page.setDefaultNavigationTimeout(timeoutMs);

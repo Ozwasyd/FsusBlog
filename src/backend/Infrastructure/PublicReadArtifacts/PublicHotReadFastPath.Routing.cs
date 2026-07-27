@@ -119,7 +119,7 @@ public static partial class PublicHotReadFastPath
         bool hasNonLocaleCookie = headers.ContainsKey("Cookie")
             && (context.Request.Cookies.Count == 0
                 || context.Request.Cookies.Keys.Any(static key =>
-                    !string.Equals(key, PublicLocaleRequest.CookieName, StringComparison.Ordinal)));
+                    !LocalePreferenceCookieService.IsLocalePreferenceCookieName(key)));
         if (context.User.Identity?.IsAuthenticated == true
             || headers.ContainsKey("Authorization")
             || hasNonLocaleCookie

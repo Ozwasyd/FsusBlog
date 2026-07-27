@@ -122,6 +122,8 @@ public static class PodSizeCatalog
     public static readonly int AuthLoginFlowPod = PodContractValidation.SizeOf<AuthLoginFlowPod>();
     public static readonly int CurrentUserSnapshotPod = PodContractValidation.SizeOf<CurrentUserSnapshotPod>();
     public static readonly int IdentityAccountSnapshotPod = PodContractValidation.SizeOf<IdentityAccountSnapshotPod>();
+    public static readonly int UserLocalePreferencePod = PodContractValidation.SizeOf<UserLocalePreferencePod>();
+    public static readonly int UserLocalePreferenceUpdateRequestPod = PodContractValidation.SizeOf<UserLocalePreferenceUpdateRequestPod>();
     public static readonly int AuthAnonymousBootstrapRequestPod = PodContractValidation.SizeOf<AuthAnonymousBootstrapRequestPod>();
     public static readonly int AuthDeleteAccountRequestPod = PodContractValidation.SizeOf<AuthDeleteAccountRequestPod>();
     public static readonly int UserSessionSummaryPod = PodContractValidation.SizeOf<UserSessionSummaryPod>();
