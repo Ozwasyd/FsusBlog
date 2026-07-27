@@ -523,6 +523,51 @@ function extractXunit(file, source) {
   return records
 }
 
+function extractBehaviorTestTitle(source, callIndex) {
+  // behaviorTest(id, kind, 'title', fn) or behaviorTest(id, kind, { title: '...' }, fn)
+  const open = source.indexOf('(', callIndex)
+  if (open < 0) return null
+  let cursor = open + 1
+  let depth = 1
+  let argIndex = 0
+  let argStart = cursor
+  let inString = null
+  let escaped = false
+  while (cursor < source.length && depth > 0) {
+    const char = source[cursor]
+    if (inString) {
+      if (escaped) escaped = false
+      else if (char === '\\') escaped = true
+      else if (char === inString) inString = null
+      cursor += 1
+      continue
+    }
+    if (char === '\'' || char === '"' || char === '`') {
+      inString = char
+      cursor += 1
+      continue
+    }
+    if (char === '(' || char === '{' || char === '[') depth += 1
+    else if (char === ')' || char === '}' || char === ']') {
+      depth -= 1
+      if (depth === 0) break
+    } else if (char === ',' && depth === 1) {
+      if (argIndex === 2) {
+        const raw = source.slice(argStart, cursor).trim()
+        const stringMatch = raw.match(/^(['"`])([\s\S]*)\1$/u)
+        if (stringMatch) return stringMatch[2].trim()
+        const titleMatch = raw.match(/title\s*:\s*(['"`])([^'"`\r\n]+)\1/u)
+        if (titleMatch) return titleMatch[2].trim()
+        return null
+      }
+      argIndex += 1
+      argStart = cursor + 1
+    }
+    cursor += 1
+  }
+  return null
+}
+
 function extractJavascriptTests(file, source) {
   const records = []
   const occurrenceByName = new Map()
@@ -532,6 +577,24 @@ function extractJavascriptTests(file, source) {
     const name = match[2].trim()
     const ordinal = (occurrenceByName.get(name) ?? 0) + 1
     occurrenceByName.set(name, ordinal)
+    const block = balancedBlock(source, match.index)
+    records.push(record({
+      id: namedJavascriptTestId(framework, file, name, ordinal),
+      file,
+      framework,
+      name,
+      source: block
+    }))
+  }
+  // Formal behaviorTest(...) registration is the only JS behavior-binding helper; inventory must see those titles.
+  const behaviorPattern = /\bbehaviorTest\s*\(/gu
+  for (const match of source.matchAll(behaviorPattern)) {
+    const name = extractBehaviorTestTitle(source, match.index)
+    if (!name) continue
+    const ordinal = (occurrenceByName.get(name) ?? 0) + 1
+    occurrenceByName.set(name, ordinal)
+    // Skip if an ordinary test() with the same title already owns this ordinal slot from a nested call.
+    if (records.some((entry) => entry.name === name && entry.file === file)) continue
     const block = balancedBlock(source, match.index)
     records.push(record({
       id: namedJavascriptTestId(framework, file, name, ordinal),

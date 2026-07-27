@@ -4,6 +4,7 @@ import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
+import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
 import {
     checkCodeIntent,
     evaluatePerformanceClaim,
@@ -28,11 +29,28 @@ function clone(value) {
     return JSON.parse(JSON.stringify(value))
 }
 
-test('repository comments and registered intent references pass as one aggregate check', () => {
+behaviorTest('code-intent-governance', 'positive', 'repository comments and registered intent references pass as one aggregate check', () => {
     const result = checkCodeIntent({ root })
     assert.deepEqual(result.errors, [])
     assert.ok(result.checkedFiles > 100)
     assert.ok(result.scopedFiles >= 7)
+})
+
+behaviorTest('code-intent-governance', 'negative', {
+    title: 'standard intent markers cannot exist outside their registered source path',
+    invariantIds: ['intent-marker-registration']
+}, () => {
+    const source = fixture('valid', 'ownership.cs')
+    assert.match(validateMarkerRegistration({
+        path: 'sample/ownership.cs',
+        source,
+        registeredMarkers: new Set()
+    }).join('\n'), /intent marker OWNERSHIP: is not registered/u)
+    assert.deepEqual(validateMarkerRegistration({
+        path: 'sample/ownership.cs',
+        source,
+        registeredMarkers: new Set(['OWNERSHIP:'])
+    }), [])
 })
 
 test('ownership intent is useful while an ordinary internal helper needs no comment', () => {
@@ -65,19 +83,6 @@ test('clang-format namespace closing comments are the only governed trailing-com
     }).join('\n'), /trailing comments are prohibited/u)
 })
 
-test('standard intent markers cannot exist outside their registered source path', () => {
-    const source = fixture('valid', 'ownership.cs')
-    assert.match(validateMarkerRegistration({
-        path: 'sample/ownership.cs',
-        source,
-        registeredMarkers: new Set()
-    }).join('\n'), /intent marker OWNERSHIP: is not registered/u)
-    assert.deepEqual(validateMarkerRegistration({
-        path: 'sample/ownership.cs',
-        source,
-        registeredMarkers: new Set(['OWNERSHIP:'])
-    }), [])
-})
 
 test('public entry documents reject unregistered absolute performance copy', () => {
     assert.deepEqual(validatePublicPerformanceText('README.md', 'A deployable content system.', registry), [])

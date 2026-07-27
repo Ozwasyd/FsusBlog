@@ -114,6 +114,18 @@
             "pathType": "file"
         },
         {
+            "id": "behavior-test-evidence-schema",
+            "owner": "behavior-test-evidence-binding",
+            "canonicalPath": "config/schemas/behavior-test-evidence.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/contracts/behavior-test-binding.mjs",
+                "tools/contracts/check-behavior-test-evidence.mjs",
+                "tests/tools/behavior-test-binding.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/behavior-test-binding.test.mjs"
+        },
+        {
             "id": "test-matrix-priority-score-schema",
             "owner": "test-matrix-scheduler",
             "canonicalPath": "config/schemas/test-matrix-priority-score.schema.json",

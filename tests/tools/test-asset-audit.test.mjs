@@ -5,13 +5,14 @@ import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
+import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
 import { executeAuditLayers, redactAuditText, summarizeAuditLayers } from '../../tools/test/test-asset-audit/execution.mjs'
 import { assignAuditRecords, compareAuditSnapshots } from '../../tools/test/test-asset-audit/inventory.mjs'
 import { detectAuditPreflight } from '../../tools/test/test-asset-audit/preflight.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 
-test('profile derives the live private registry posture without exposing credentials', () => {
+behaviorTest('test-asset-audit-reconciliation', 'positive', 'profile derives the live private registry posture without exposing credentials', () => {
   const preflight = detectAuditPreflight(root, { env: { GITHUB_TOKEN: 'irrelevant-token' } })
   assert.equal(preflight.package.privateAuthRequired, true)
   assert.equal(preflight.package.registryMode, 'private-auth-required')
@@ -20,7 +21,10 @@ test('profile derives the live private registry posture without exposing credent
   assert.equal(JSON.stringify(preflight).includes('TOKEN'), false)
 })
 
-test('authoritative records require exactly one audit layer owner', () => {
+behaviorTest('test-asset-audit-reconciliation', 'negative', {
+  title: 'authoritative records require exactly one audit layer owner',
+  invariantIds: ['audit-layer-owner-cardinality']
+}, () => {
   const records = [{ id: 'node-test:a#b', path: 'tests/a.test.mjs', framework: 'node-test' }]
   const missing = assignAuditRecords(records, [])
   assert.match(missing.errors[0], /exactly one/u)

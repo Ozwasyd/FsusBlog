@@ -5,6 +5,11 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import {
+    behaviorTest,
+    concurrencyHarnessId,
+    runRealConcurrencyHarness
+} from '../../tools/contracts/behavior-test.mjs';
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 const { parseMatrix } = await import(pathToFileURL(path.join(root, 'tools/test-matrix/parse-matrix.mjs')).href);
@@ -26,7 +31,7 @@ function tier(overrides = {})
     };
 }
 
-test('topology schema exposes optional single-mode defaults', () =>
+behaviorTest('browserless-production-correctness', 'positive', 'topology schema exposes optional single-mode defaults', () =>
 {
     const schema = JSON.parse(fs.readFileSync(path.join(root, 'tests/matrix.schema.json'), 'utf8'));
     const properties = schema.properties.tiers.items.properties;
@@ -92,7 +97,10 @@ test('homogeneous multi-node topology closes shared service, storage, and bootst
     assert.match(errors, /shared-artifact-storage/u);
 });
 
-test('shared stores fail closed when fixture and service declarations drift', () =>
+behaviorTest('browserless-production-correctness', 'negative', {
+    title: 'shared stores fail closed when fixture and service declarations drift',
+    invariantIds: ['matrix-topology-shared-store-consistency']
+}, () =>
 {
     const errors = validateTierTopology(tier({
         services: ['backend'],
@@ -106,6 +114,35 @@ test('shared stores fail closed when fixture and service declarations drift', ()
     assert.match(errors, /shared-postgres requires services to include postgres/u);
     assert.match(errors, /shared-volume requires clusterFixtures to include shared-artifact-storage/u);
     assert.deepEqual(validateTierTopology(tier({ clusterFixtures: 42 })), ['cluster-fixture.clusterFixtures must be an array']);
+});
+
+behaviorTest('browserless-production-correctness', 'concurrency', {
+    title: 'topology validation remains deterministic under real concurrent harness workers',
+    concurrencyHarness: concurrencyHarnessId
+}, async () =>
+{
+    const candidate = tier({
+        runtimeMode: 'adaptive',
+        nodeCount: 2,
+        artifactStorage: 'shared-volume',
+        coordinationStore: 'redis',
+        clusterScenario: 'convergence',
+        clusterBootstrap: 'homogeneous',
+        clusterFixtures: ['shared-postgres', 'shared-redis', 'shared-artifact-storage']
+    });
+    const results = await runRealConcurrencyHarness([
+        async () => validateTierTopology(candidate),
+        async () => validateTierTopology(candidate),
+        async () => validateTierTopology({
+            ...candidate,
+            runtimeMode: 'single',
+            nodeCount: 2,
+            clusterFixtures: []
+        })
+    ]);
+    assert.deepEqual(results[0], []);
+    assert.deepEqual(results[1], []);
+    assert.ok(results[2].length > 0);
 });
 
 test('matrix validate command rejects incomplete multi-node metadata', () =>

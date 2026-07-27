@@ -4023,6 +4023,33 @@
       ]
     },
     {
+      "id": "behavior-test-evidence-binding",
+      "description": "Managed frameworks bind live tests to BehaviorContractCatalog IDs and proof kinds; this-round test observations join into exact requiredTestKinds coverage without path, coverage-evidencePath, or existence inference.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "src/shared/Contracts/Governance/BehaviorTestKind.cs",
+        "src/shared/Contracts/Governance/CoversBehaviorAttribute.cs",
+        "tools/contracts/behavior-test.mjs",
+        "tools/contracts/behavior-test-binding.mjs",
+        "tools/contracts/check-behavior-test-evidence.mjs",
+        "config/schemas/behavior-test-evidence.schema.json",
+        "tools/test-retention/audit.mjs",
+        "tests/tools/behavior-test-binding.test.mjs",
+        "tests/tools/test-asset-audit.test.mjs",
+        "tests/tools/code-intent.test.mjs",
+        "tests/tools/document-lifecycle.test.mjs",
+        "tests/tools/test-matrix-topology.test.mjs",
+        "config/contracts/behavior-contracts.json"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject path/filename/evidencePath mapping, comment-only registration, multi-kind one-test claims, missing invariant/reason IDs for negative/migration, name-only concurrency, skipped or filtered cases counted as pass, historical TRX/run identity reuse, forged producer digests, unregistered kinds satisfying requirements, or active behaviors missing this-round discovered/executed/passed evidence for a required kind.",
+      "minimumRequirement": "C# CoversBehavior and JS behaviorTest are the only binding surfaces; fixture counterexamples cover missing boundary, filter miss, skip, multi-kind, missing invariant, previous-round identity, rename drift, unbound coverage hit, and comment registration; live active behaviors declare source bindings for every required kind.",
+      "tierIds": [
+        "static-governance"
+      ]
+    },
+    {
       "id": "isolated-flaky-observation-lane",
       "description": "Explicit test candidates run in isolated local processes to produce source-, runner- and producer-bound attempt evidence and deterministic flaky classifications without changing canonical correctness.",
       "owner": "ServerContractAgent",

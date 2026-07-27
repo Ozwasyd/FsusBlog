@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { behaviorTest } from '../../tools/contracts/behavior-test.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const {
@@ -83,7 +84,7 @@ function Validate(fixtureRoot, policy)
     return ValidateDocumentLifecycle(fixtureRoot, policy, inventory, RenderDocumentIndex(inventory), { validateGit: false });
 }
 
-test('repository document lifecycle inventory and generated index are current', () =>
+behaviorTest('document-lifecycle-governance', 'positive', 'repository document lifecycle inventory and generated index are current', () =>
 {
     const policy = ReadDocumentLifecyclePolicy(root);
     const inventory = BuildDocumentInventory(root, policy);
@@ -108,7 +109,10 @@ test('explicit issue metadata does not derive authority from a filename and gene
     assert.ok(Validate(fixtureRoot, missingProducer).some((error) => error.includes('generated producer does not exist')));
 });
 
-test('duplicate authority, retired references and broken internal links fail closed', (t) =>
+behaviorTest('document-lifecycle-governance', 'negative', {
+    title: 'duplicate authority, retired references and broken internal links fail closed',
+    invariantIds: ['document-lifecycle-fail-closed']
+}, (t) =>
 {
     const { fixtureRoot, policy } = Fixture(t);
     const duplicate = structuredClone(policy);
@@ -122,7 +126,10 @@ test('duplicate authority, retired references and broken internal links fail clo
     assert.ok(errors.some((error) => error.includes('missing internal link missing.md')));
 });
 
-test('path migration registry records removed sources without claiming runtime redirects', (t) =>
+behaviorTest('document-lifecycle-governance', 'migration', {
+    title: 'path migration registry records removed sources without claiming runtime redirects',
+    invariantIds: ['document-path-migration-registry']
+}, (t) =>
 {
     const { fixtureRoot, policy } = Fixture(t);
     const valid = structuredClone(policy);
