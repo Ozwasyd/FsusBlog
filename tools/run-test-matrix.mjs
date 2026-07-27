@@ -42,6 +42,7 @@ import {
     runtimeCleanupReceiptReference
 } from './test-matrix/production-fresh-runtime-evidence.mjs'
 import { runProductionBuildLifecycle } from './test-matrix/production-build-lifecycle.mjs'
+import { acquireProductionFreshExclusiveLease } from './test-matrix/production-fresh-exclusive-lease.mjs'
 import {
     bindProductionBuildLayoutSource,
     productionBuildEnvironment,
@@ -1628,13 +1629,44 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
   const profile = matrix.localProfiles[profileId]
   const externalEvidenceReceipts = readDeclaredExternalEvidenceReceipts(profileId)
   const profileRoot = path.resolve(runtime.root ?? root)
+  const resolveRunIdentity = runtime.schedulerRunIdentity ?? schedulerRunIdentity
+  const productionFresh = ['production-correctness', 'production'].includes(profileId)
+  if (productionFresh && !options.planOnly && runtime.productionFreshLeaseHeld !== true) {
+    const leaseRunIdentity = resolveRunIdentity(profileId, options)
+    const leaseSourceState = await (runtime.snapshotSourceState ?? snapshotSourceState)(profileRoot)
+    const lease = acquireProductionFreshExclusiveLease({
+      root: profileRoot,
+      runId: leaseRunIdentity.runId,
+      targetTierId: profileId,
+      sourceState: leaseSourceState
+    })
+    let terminalState = 'failed'
+    try {
+      const result = await runLocalProfile(matrix, profileId, options, {
+        ...runtime,
+        productionFreshLeaseHeld: true,
+        productionFreshRunIdentity: leaseRunIdentity,
+        productionFreshSourceState: leaseSourceState
+      })
+      terminalState = result?.status === 'failure' ? 'failed' : 'complete'
+      return result
+    } catch (error) {
+      terminalState = ['AbortError', 'CancellationError'].includes(error?.name)
+        ? 'cancelled'
+        : 'failed'
+      throw error
+    } finally {
+      lease.release(terminalState)
+    }
+  }
   const detectResources = () => runtime.detectedResources ?? localProfileSystemResources(profile, {
     cpuCount: os.availableParallelism?.() ?? os.cpus().length,
     availableMemoryGiB: os.freemem() / (1024 ** 3),
     load1: process.platform === 'win32' ? 0 : os.loadavg()[0]
   })
-  const resolveRunIdentity = runtime.schedulerRunIdentity ?? schedulerRunIdentity
-  const resumeIdentity = options.resume ? resolveRunIdentity(profileId, options) : null
+  const resumeIdentity = options.resume
+    ? (runtime.productionFreshRunIdentity ?? resolveRunIdentity(profileId, options))
+    : null
   if (resumeIdentity && !options.planOnly) {
     const checkpointPath = path.join(resumeIdentity.runsRoot, resumeIdentity.runId, 'checkpoint.json')
     let resumeCheckpoint = null
@@ -1696,9 +1728,12 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
   if (!Number.isFinite(wallClockStartedAtMs) || wallClockStartedAtMs <= 0 || wallClockStartedAtMs > Date.now()) {
     throw new Error('FSUSBLOG_TEST_INVOCATION_STARTED_AT_MS must be a valid epoch timestamp that is not in the future')
   }
-  const preflightRunIdentity = resumeIdentity ?? resolveRunIdentity(profileId, options)
+  const preflightRunIdentity = resumeIdentity
+    ?? runtime.productionFreshRunIdentity
+    ?? resolveRunIdentity(profileId, options)
   const runId = preflightRunIdentity.runId
-  const cleanupSource = await (runtime.snapshotSourceState ?? snapshotSourceState)(profileRoot)
+  const cleanupSource = runtime.productionFreshSourceState
+    ?? await (runtime.snapshotSourceState ?? snapshotSourceState)(profileRoot)
   const detectedResources = detectResources()
   const resolvedLogicalMatrix = {
     ...matrix,
@@ -2269,6 +2304,7 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
         }
         process.exitCode = Number(result.failure?.exitCode) || 1
     }
+    return result
 }
 
 function resetFreshJobSummaries(entries) {

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
@@ -32,6 +33,9 @@ const {
 } = await import(pathToFileURL(path.join(root, 'tools/test-matrix/local-profile.mjs')).href);
 const { parseMatrix } = await import(pathToFileURL(path.join(root, 'tools/test-matrix/parse-matrix.mjs')).href);
 const { runLocalProfile } = await import(pathToFileURL(path.join(root, 'tools/run-test-matrix.mjs')).href);
+const { acquireProductionFreshExclusiveLease } = await import(
+    pathToFileURL(path.join(root, 'tools/test-matrix/production-fresh-exclusive-lease.mjs')).href
+);
 
 const localBundleRunner = fs.readFileSync(path.join(root, 'tools/test/bundles/run-bundle.mjs'), 'utf8');
 const localBundleSteps = fs.readFileSync(path.join(root, 'tools/test/bundles/bundle-steps.mjs'), 'utf8');
@@ -710,7 +714,7 @@ test('local production runner attaches the logical projection only after fresh p
     assert.match(localProfileRunner, /collectFailures: true/u);
     assert.match(localProfileRunner, /failures: result\.checkpoint\.failures/u);
     assert.match(localProfileRunner, /independent failure\(s\) collected/u);
-    assert.match(localProfileRunner, /const cleanupSource = await \(runtime\.snapshotSourceState \?\? snapshotSourceState\)\(profileRoot\)[\s\S]*?executeProductionFreshPreflight\(\{[\s\S]*?receiptDirectory: runtime\.receiptDirectory[\s\S]*?fsusblog-runtime-cleanup-receipts[\s\S]*?additionalCleanup: runtime\.additionalCleanup,/u);
+    assert.match(localProfileRunner, /const leaseSourceState = await \(runtime\.snapshotSourceState \?\? snapshotSourceState\)\(profileRoot\)[\s\S]*?acquireProductionFreshExclusiveLease\(\{[\s\S]*?sourceState: leaseSourceState[\s\S]*?const cleanupSource = runtime\.productionFreshSourceState[\s\S]*?executeProductionFreshPreflight\(\{[\s\S]*?receiptDirectory: runtime\.receiptDirectory[\s\S]*?fsusblog-runtime-cleanup-receipts[\s\S]*?additionalCleanup: runtime\.additionalCleanup,/u);
     assert.match(localProfileRunner, /executeProductionFreshPreflight\(\{[\s\S]*?assertFreshRuntimeCleanupReceipt\(preflightReceipt\.receipt\)[\s\S]*?cleanLocalProductionOutputs[\s\S]*?bindFreshRuntimeCleanupReceipt\(\{ root: profileRoot, receipt: preflightReceipt \}\)[\s\S]*?recordSchedulerResult\(await runDag/u);
     assert.match(localProfileRunner, /catch \(error\) \{[\s\S]*?runError = error[\s\S]*?throw error[\s\S]*?finally \{[\s\S]*?if \(runError !== null \|\| !result\)[\s\S]*?recordCheckpointFailure\(/u);
     assert.doesNotMatch(localProfileRunner, /fs\.writeFileSync\(result\.checkpointPath/u);
@@ -722,11 +726,95 @@ test('local production runner attaches the logical projection only after fresh p
     assert.match(localProfileRunner, /recordCheckpointRuntimeCleanup\(result\.checkpointPath, runId, \{[\s\S]*?postflight: runtimeCleanupReceiptReference\(root, postflightReceipt\)[\s\S]*?postflightFailure/u);
 });
 
+test('a rejected second Production Fresh invocation reaches no cleanup, container, port, or producer mutation', async (t) =>
+{
+    const directory = fs.mkdtempSync(path.join(process.env.TMPDIR ?? '/tmp', 'fsusblog-profile-exclusive-'));
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const profileRoot = path.join(directory, 'repository');
+    fs.mkdirSync(profileRoot);
+    execFileSync('git', ['init', '-q'], { cwd: profileRoot });
+    fs.writeFileSync(path.join(profileRoot, '.gitignore'), '.tmp/\n');
+    fs.writeFileSync(path.join(profileRoot, 'tracked'), 'tracked\n');
+    fs.mkdirSync(path.join(profileRoot, 'nested'));
+    fs.writeFileSync(path.join(profileRoot, 'nested/untracked'), 'untracked\n');
+    execFileSync('git', ['add', '.gitignore', 'tracked'], { cwd: profileRoot });
+    execFileSync('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'fixture'], { cwd: profileRoot });
+    const sourceState = { commit: 'a'.repeat(40), worktreeFingerprint: `sha256:${'b'.repeat(64)}` };
+    const runId = 'production-exclusive-a';
+    const lease = acquireProductionFreshExclusiveLease({
+        root: profileRoot,
+        runId,
+        targetTierId: 'production',
+        sourceState,
+        heartbeatEveryMs: 60_000,
+        verifyDescendants: () => ({ status: 'verified', identities: [] })
+    });
+    t.after(() =>
+    {
+        try { lease.release(); } catch {}
+    });
+    const ownerFile = path.join(lease.leasePath, 'owner.json');
+    const before = {
+        files: [
+            fs.readFileSync(path.join(profileRoot, 'tracked'), 'utf8'),
+            fs.readFileSync(path.join(profileRoot, 'nested/untracked'), 'utf8'),
+            fs.readFileSync(ownerFile, 'utf8')
+        ],
+        processes: [{ pid: lease.owner.pid, start: lease.owner.processStartIdentity }],
+        containers: [{ id: 'fresh-a', state: 'running' }],
+        ports: [{ port: 54321, ownerPid: lease.owner.pid }]
+    };
+    const mutations = {
+        runtimeCleanup: 0,
+        additionalCleanup: 0,
+        outputCleanup: 0,
+        producerSpawn: 0
+    };
+    const matrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
+    await assert.rejects(
+        runLocalProfile(matrix, 'production', { resume: false, planOnly: false, maxParallel: null }, {
+            root: profileRoot,
+            schedulerRunIdentity: () => ({
+                runsRoot: path.join(profileRoot, '.tmp/test-runs'),
+                runId: 'production-exclusive-b'
+            }),
+            snapshotSourceState: async () => sourceState,
+            cleanupRuntime: () => { mutations.runtimeCleanup += 1; return {} },
+            additionalCleanup: () => { mutations.additionalCleanup += 1; return [] },
+            cleanLocalProductionOutputs: () => { mutations.outputCleanup += 1; return {} },
+            executeTier: () => { mutations.producerSpawn += 1 }
+        }),
+        /production fresh lease already active/u
+    );
+    const after = {
+        files: [
+            fs.readFileSync(path.join(profileRoot, 'tracked'), 'utf8'),
+            fs.readFileSync(path.join(profileRoot, 'nested/untracked'), 'utf8'),
+            fs.readFileSync(ownerFile, 'utf8')
+        ],
+        processes: [{ pid: lease.owner.pid, start: lease.owner.processStartIdentity }],
+        containers: [{ id: 'fresh-a', state: 'running' }],
+        ports: [{ port: 54321, ownerPid: lease.owner.pid }]
+    };
+    assert.deepEqual(after, before);
+    assert.deepEqual(mutations, {
+        runtimeCleanup: 0,
+        additionalCleanup: 0,
+        outputCleanup: 0,
+        producerSpawn: 0
+    });
+});
+
 test('local production run keeps a blocked invocation sealed after its run directory is rebuilt', async (t) =>
 {
     const directory = fs.mkdtempSync(path.join(process.env.TMPDIR ?? '/tmp', 'fsusblog-profile-blocked-ledger-'));
     t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
     const profileRoot = path.join(directory, 'repository');
+    fs.mkdirSync(profileRoot);
+    execFileSync('git', ['init', '-q'], { cwd: profileRoot });
+    fs.writeFileSync(path.join(profileRoot, '.gitignore'), '.tmp/\n');
+    execFileSync('git', ['add', '.gitignore'], { cwd: profileRoot });
+    execFileSync('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'fixture'], { cwd: profileRoot });
     const receiptDirectory = path.join(directory, 'runtime-cleanup-receipts');
     const runsRoot = path.join(profileRoot, '.tmp/test-runs');
     const runId = 'production-blocked-ledger';

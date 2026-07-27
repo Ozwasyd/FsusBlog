@@ -6,6 +6,8 @@
 
 FsusBlog 采用机器可读测试 DAG。`tests/matrix.yml` 是唯一测试拓扑源，`tools/run-test-matrix.mjs` 负责 `preflight` / `validate` / `list` / `plan` / `run` / `ci-plan` / `docs` / `evidence-plan`，`tools/test.sh` 是唯一公开 shell 入口并代理到 runner。lane 脚本只能执行一个已由 matrix 声明的叶节点；共享 shell 文件是 source-only 能力库，不得包含 tier 分派、依赖关系或另一个命令清单。后端 profile、mutation、security static/runtime 和 cross-stack static/runtime 都由 matrix 或 production bundle 投影到同一组叶节点，不能通过兼容 alias 再建一套拓扑。
 
+`production-correctness` 与 `production` 在 scheduler、runtime cleanup、cache/.tmp 清理、磁盘 reservation、namespace 准备或 producer spawn 前，必须取得以 canonical repository root 和 `production-fresh` 为键的仓库级独占 lease。candidate identity 绑定本轮真实 commit、worktree fingerprint、profile target tier 与固定 `production-fresh` namespace；owner process/start/executable/command 与 Unix process group 或 Windows Job Object authority 复用 scheduler verifier。Windows 必须在 acquisition 前证明 named Job member query 可用，release 时对稳定双快照中的每个成员收集完整 process identity，除 owner 外仍有成员或 query 不可验证都不得释放。第二个 Fresh 对可验证 owner fail-fast 且文件、进程、container、port 与 spawn 均零变化；owner 损坏或无法验证时 fail closed。stale reclaim 与 heartbeat/finalize 使用 owner token、content digest CAS；lease 只在 producer descendants、postflight、证据封存和 cache 恢复结束，写入 terminal receipt 后释放。
+
 Static governance Node contract 的 resident host 隔离分类与 frontend
 structure producer-receipt join 见
 [`testing/static-governance-resident-hosts.md`](testing/static-governance-resident-hosts.md)。

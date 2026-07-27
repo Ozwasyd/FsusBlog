@@ -239,6 +239,12 @@ function fileOutputFingerprint(file)
 async function createCheckpointEvidenceFixture(runDag, name = 'scheduler-checkpoint-evidence')
 {
     const temp = createTempDir(name);
+    execFileSync('git', ['init', '-q'], { cwd: temp });
+    execFileSync('git', ['config', 'user.email', 'test@example.invalid'], { cwd: temp });
+    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: temp });
+    fs.writeFileSync(path.join(temp, 'tracked'), 'fixture\n');
+    execFileSync('git', ['add', '.'], { cwd: temp });
+    execFileSync('git', ['commit', '-qm', 'fixture'], { cwd: temp });
     const runsRoot = path.join(temp, 'runs');
     const summaryPath = '.tmp/local-production/build-static/summary.json';
     const artifactPath = '.tmp/local-production/build-static/production.log';
@@ -3099,6 +3105,8 @@ test('fresh CI steps accumulate within one workflow job but reset on the next wo
 test('production cleanup uses the same safe namespace for dot segments as fixture writers', () =>
 {
     const temp = createTempDir('scheduler-namespace-cleanup');
+    execFileSync('git', ['init', '--quiet'], { cwd: temp });
+    fs.writeFileSync(path.join(temp, '.gitignore'), '.tmp/\n');
     const runner = createRunnerFixture(temp);
     const script = path.join(temp, 'fixture.mjs');
     const matrix = path.join(temp, 'matrix.yml');
