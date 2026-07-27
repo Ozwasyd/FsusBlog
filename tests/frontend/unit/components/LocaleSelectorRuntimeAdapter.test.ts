@@ -210,3 +210,38 @@ describe('PublicBlogLayoutShell locale entry cutover', () => {
     expect(shell).not.toMatch(/from\s+['"]@\/locales\/localeDomainBundleStore/u)
   })
 })
+
+describe('PublicAuthLayout locale entry cutover', () => {
+  it('mounts the shared LocaleSelectorRuntimeAdapter on desktop and mobile auth chrome', () => {
+    const layout = readFileSync(
+      resolve(process.cwd(), 'src/layouts/PublicAuthLayout.vue'),
+      'utf8'
+    )
+    expect(layout).toMatch(/LocaleSelectorRuntimeAdapter/u)
+    expect(layout.match(/LocaleSelectorRuntimeAdapter/gu)?.length).toBeGreaterThanOrEqual(2)
+    expect(layout).toMatch(/#desktop-actions[\s\S]*LocaleSelectorRuntimeAdapter/u)
+    expect(layout).toMatch(/#mobile-primary-actions[\s\S]*LocaleSelectorRuntimeAdapter compact/u)
+    expect(layout).toMatch(/<router-view\s*\/>/u)
+    expect(layout).not.toMatch(/:key=.*locale|key=.*activeLocale|v-if=.*activeLocale/u)
+
+    const retired = [
+      'Locale' + 'Toggle',
+      'locale' + 'Override',
+      'locale' + 'RuntimeReady',
+      'get' + 'LocaleMessages',
+      'initialize' + 'LocaleRuntime',
+      'onMounted'
+    ]
+    for (const symbol of retired) {
+      expect(layout.includes(symbol)).toBe(false)
+    }
+    expect(layout).not.toMatch(
+      /\brequestLocale\b|requestLocalePreference|localeRuntimeState|ENABLED_LOCALES|projectLocaleSelectorItems/u
+    )
+    expect(layout).not.toMatch(/from\s+['"]@\/locales(?:\/runtime)?['"]/u)
+    expect(layout).not.toMatch(/from\s+['"]@\/services\/localePreference/u)
+    expect(layout).not.toMatch(/from\s+['"]@\/locales\/localeDomainBundleStore/u)
+    expect(layout).not.toMatch(/localStorage|sessionStorage|document\.cookie|window\.location\.reload/u)
+    expect(layout).not.toMatch(/AuthLocale|localeSelectorAdapter|featureFlag|full.?reload/iu)
+  })
+})

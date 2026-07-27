@@ -20,6 +20,7 @@
       :show-mobile-theme-toggle="false"
     >
       <template #desktop-actions>
+        <LocaleSelectorRuntimeAdapter />
         <ThemeModeToggle visibility="desktop" />
         <router-link :to="authAction.to" class="auth-header-action">
           {{ authAction.label }}
@@ -27,6 +28,7 @@
       </template>
 
       <template #mobile-primary-actions>
+        <LocaleSelectorRuntimeAdapter compact />
         <ThemeModeToggle visibility="mobile" variant="menu-button" />
         <router-link
           :to="authAction.to"
@@ -48,6 +50,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
+import LocaleSelectorRuntimeAdapter from '@/components/i18n/LocaleSelectorRuntimeAdapter.vue'
 import SiteChromeHeaderAdapter from '@/components/layout/SiteChromeHeaderAdapter.vue'
 import ThemeModeToggle from '@/components/ui/ThemeModeToggle.vue'
 import { useI18nText } from '@/composables/useI18nText'
@@ -79,8 +82,15 @@ const authAction = computed(() => {
   color: var(--fsusblog-text-primary);
 }
 
+/* Slot geometry only — locale selection owns its trigger/menu surface. */
+.auth-header__actions,
+.auth-header__mobile-actions {
+  min-width: 0;
+}
+
 .auth-header-action {
   display: inline-flex;
+  flex: 0 0 auto;
   min-height: 2.5rem;
   align-items: center;
   justify-content: center;
