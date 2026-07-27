@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -8,6 +9,14 @@ const config = (name) => path.join(root, 'config/testing', name)
 const stableId = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/u
 const sortedUnique = (values) => Array.isArray(values) && values.every((value, index) => typeof value === 'string' && stableId.test(value) && (!index || values[index - 1] < value))
 const readJson = (file) => JSON.parse(fs.readFileSync(file, 'utf8'))
+const profileSources = new Set(['dev-cli', 'matrix'])
+const sha256Json = (value) => `sha256:${createHash('sha256').update(stableStringify(value)).digest('hex')}`
+
+function stableStringify(value) {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value)
+  if (Array.isArray(value)) return `[${value.map((item) => stableStringify(item)).join(',')}]`
+  return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(',')}}`
+}
 
 const requiredFixtureSourceFiles = Object.freeze([
   'src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs',
@@ -332,6 +341,276 @@ export function expandFixtureProfile(profileId, catalogs = readFixtureCatalogs()
   return Object.freeze({ id: profileId, capabilities: Object.freeze(capabilities) })
 }
 
+/**
+ * Authority digest over capability/profile/producer catalogs (inventory excluded).
+ * Used to fail closed when sealed matrix identity drifts from live catalogs.
+ */
+export function fixtureCatalogDigest(catalogs = readFixtureCatalogs()) {
+  return sha256Json({
+    capability: catalogs.capability,
+    profile: catalogs.profile,
+    producer: catalogs.producer
+  })
+}
+
+export function expandedCapabilityDigest(capabilities) {
+  return sha256Json([...(capabilities ?? [])].map(String).sort())
+}
+
+export function producersForCapabilities(capabilities, catalogs = readFixtureCatalogs()) {
+  const selected = new Set(capabilities ?? [])
+  return (catalogs.producer.producers ?? [])
+    .filter((producer) => producer.provides.some((id) => selected.has(id)))
+    .map((producer) => producer.id)
+    .sort()
+}
+
+/**
+ * Derive mutation policy and orchestrator flags from an expanded profile.
+ * Security runtime reset is never a default bootstrap side effect; only future
+ * explicit catalog-owned reset capabilities can enable it (none today).
+ */
+export function planFixtureMutation(profileId, catalogs = readFixtureCatalogs()) {
+  const profile = catalogs.profile.profiles.find((candidate) => candidate.id === profileId)
+  if (!profile) throw new Error(`unknown fixture profile ${profileId}`)
+  const expanded = expandFixtureProfile(profileId, catalogs)
+  const producers = producersForCapabilities(expanded.capabilities, catalogs)
+  const byCapability = new Map(catalogs.capability.capabilities.map((capability) => [capability.id, capability]))
+  const requiresAuthFixtures = expanded.capabilities.some((id) => byCapability.get(id)?.ownerProducerId === 'auth-session')
+  const requiresPublicFixtures = expanded.capabilities.some((id) => byCapability.get(id)?.ownerProducerId === 'public-content')
+  const requiresDemoSeed = expanded.capabilities.includes('development.demo.dataset')
+  const requiresSecurityState = expanded.capabilities.some((id) => byCapability.get(id)?.ownerProducerId === 'security-state')
+  // Catalog has no dedicated security-runtime-reset capability yet; fail closed to zero.
+  const requiresSecurityReset = expanded.capabilities.some((id) => id === 'security.runtime-reset')
+  const mutationPolicy = profileId === 'none' || expanded.capabilities.length === 0
+    ? 'zero-mutation'
+    : profile.isDestructive
+      ? 'destructive-namespace'
+      : 'namespace-fixture'
+  return Object.freeze({
+    profileId,
+    capabilities: expanded.capabilities,
+    producers: Object.freeze(producers),
+    mutationPolicy,
+    isDestructive: profile.isDestructive === true,
+    requiresFreshNamespace: profile.requiresFreshNamespace === true,
+    requiresLocalAuthBypass: requiresAuthFixtures,
+    requiresAuthFixtures,
+    requiresPublicFixtures,
+    requiresDemoSeed,
+    requiresSecurityState,
+    requiresSecurityReset,
+    allowedExecutionClasses: Object.freeze([...(profile.allowedExecutionClasses ?? [])])
+  })
+}
+
+/**
+ * Shared resolver for dev-cli and matrix-sealed bootstrap inputs.
+ * Correctness callers cannot substitute profile identity via free env override.
+ */
+export function resolveFixtureProfile({
+  profileId,
+  profileSource,
+  executionClass = null,
+  sealed = null,
+  catalogs = readFixtureCatalogs(),
+  allowFreeProfileEnv = false,
+  freeProfileEnv = process.env.FSUSBLOG_FIXTURE_PROFILE
+} = {}) {
+  if (!profileSources.has(profileSource)) {
+    throw new Error(`fixture profile source must be dev-cli or matrix, got ${profileSource ?? '<missing>'}`)
+  }
+  if (profileSource === 'matrix' && allowFreeProfileEnv !== true) {
+    const override = String(freeProfileEnv ?? '').trim()
+    if (override) {
+      throw new Error('correctness fixture profile cannot be overridden by FSUSBLOG_FIXTURE_PROFILE')
+    }
+  }
+  const requestedId = String(profileId ?? '').trim()
+  if (!requestedId) throw new Error('fixture profile id is required; use catalog id none for zero-data startup')
+  if (requestedId !== profileId || !stableId.test(requestedId)) {
+    throw new Error(`fixture profile id is invalid: ${profileId}`)
+  }
+  const profile = catalogs.profile.profiles.find((candidate) => candidate.id === requestedId)
+  if (!profile) throw new Error(`unknown fixture profile ${requestedId}`)
+  const plan = planFixtureMutation(requestedId, catalogs)
+  if (executionClass != null && executionClass !== '') {
+    if (!plan.allowedExecutionClasses.includes(executionClass)) {
+      throw new Error(`fixture profile ${requestedId} rejects execution class ${executionClass}`)
+    }
+  }
+  const catalogDigest = fixtureCatalogDigest(catalogs)
+  const capabilityDigest = expandedCapabilityDigest(plan.capabilities)
+  if (profileSource === 'matrix') {
+    if (!sealed || typeof sealed !== 'object') {
+      throw new Error('matrix fixture profile requires sealed identity before mutation')
+    }
+    const sealedId = String(sealed.fixtureProfileId ?? '').trim()
+    const sealedCatalogDigest = String(sealed.fixtureCatalogDigest ?? '').trim()
+    const sealedCapabilityDigest = String(sealed.expandedCapabilityDigest ?? '').trim()
+    const sealedExecutionClass = sealed.executionClass == null || sealed.executionClass === ''
+      ? null
+      : String(sealed.executionClass)
+    if (!sealedId) throw new Error('sealed fixtureProfileId is missing')
+    if (sealedId !== requestedId) {
+      throw new Error(`sealed fixture profile ${sealedId} does not match requested ${requestedId}`)
+    }
+    if (!sealedCatalogDigest) throw new Error('sealed fixtureCatalogDigest is missing')
+    if (!sealedCapabilityDigest) throw new Error('sealed expandedCapabilityDigest is missing')
+    if (sealedCatalogDigest !== catalogDigest) {
+      throw new Error('fixture catalog digest drifted after matrix seal; refusing mutation')
+    }
+    if (sealedCapabilityDigest !== capabilityDigest) {
+      throw new Error('expanded capability digest drifted after matrix seal; refusing mutation')
+    }
+    if (sealedExecutionClass != null) {
+      if (!plan.allowedExecutionClasses.includes(sealedExecutionClass)) {
+        throw new Error(`sealed execution class ${sealedExecutionClass} is not allowed for profile ${requestedId}`)
+      }
+      if (executionClass != null && executionClass !== '' && sealedExecutionClass !== executionClass) {
+        throw new Error(`sealed execution class ${sealedExecutionClass} does not match ${executionClass}`)
+      }
+    }
+  } else if (sealed != null) {
+    throw new Error('dev-cli fixture profile must not carry matrix sealed identity')
+  }
+  const resolvedExecutionClass = executionClass
+    || (profileSource === 'dev-cli'
+      ? (plan.allowedExecutionClasses.includes('diagnostic')
+        ? 'diagnostic'
+        : plan.allowedExecutionClasses[0] ?? null)
+      : null)
+  return Object.freeze({
+    schema: 'fsusblog.fixture-profile-plan.v1',
+    profileId: requestedId,
+    profileSource,
+    executionClass: resolvedExecutionClass,
+    catalogDigest,
+    expandedCapabilityDigest: capabilityDigest,
+    capabilities: plan.capabilities,
+    producers: plan.producers,
+    mutationPolicy: plan.mutationPolicy,
+    isDestructive: plan.isDestructive,
+    requiresFreshNamespace: plan.requiresFreshNamespace,
+    requiresLocalAuthBypass: plan.requiresLocalAuthBypass,
+    requiresAuthFixtures: plan.requiresAuthFixtures,
+    requiresPublicFixtures: plan.requiresPublicFixtures,
+    requiresDemoSeed: plan.requiresDemoSeed,
+    requiresSecurityState: plan.requiresSecurityState,
+    requiresSecurityReset: plan.requiresSecurityReset,
+    sealed: profileSource === 'matrix'
+      ? Object.freeze({
+        fixtureProfileId: requestedId,
+        fixtureCatalogDigest: catalogDigest,
+        expandedCapabilityDigest: capabilityDigest,
+        executionClass: resolvedExecutionClass
+      })
+      : null
+  })
+}
+
+export function inferFixtureExecutionClass(tier, catalogs = readFixtureCatalogs()) {
+  const profile = catalogs.profile.profiles.find((item) => item.id === tier?.fixtureProfile)
+  const candidates = []
+  if (tier?.resourceClass === 'browser') candidates.push('browser')
+  if (/^(?:backend-qps|data-scale|load|soak)/u.test(String(tier?.id ?? ''))) candidates.push('load')
+  if (/^(?:csrf|security)/u.test(String(tier?.id ?? ''))) candidates.push('security')
+  if (tier?.requiresBootstrap === 'full' || tier?.selfBootstraps === true) candidates.push('acceptance')
+  candidates.push('runtime', 'diagnostic')
+  for (const candidate of candidates) {
+    if (profile?.allowedExecutionClasses?.includes(candidate)) return candidate
+  }
+  return profile?.allowedExecutionClasses?.[0] ?? null
+}
+
+export function sealMatrixFixtureProfile(tier, catalogs = readFixtureCatalogs()) {
+  if (!tier || !Object.hasOwn(tier, 'fixtureProfile')) {
+    throw new Error('matrix tier is missing fixtureProfile')
+  }
+  const executionClass = inferFixtureExecutionClass(tier, catalogs)
+  const plan = planFixtureMutation(tier.fixtureProfile, catalogs)
+  if (executionClass != null && !plan.allowedExecutionClasses.includes(executionClass)) {
+    throw new Error(`fixture profile ${tier.fixtureProfile} rejects execution class ${executionClass}`)
+  }
+  const catalogDigest = fixtureCatalogDigest(catalogs)
+  const capabilityDigest = expandedCapabilityDigest(plan.capabilities)
+  return resolveFixtureProfile({
+    profileId: tier.fixtureProfile,
+    profileSource: 'matrix',
+    executionClass,
+    sealed: {
+      fixtureProfileId: tier.fixtureProfile,
+      fixtureCatalogDigest: catalogDigest,
+      expandedCapabilityDigest: capabilityDigest,
+      executionClass
+    },
+    catalogs,
+    // Sealing happens inside the matrix runner before child env is built.
+    allowFreeProfileEnv: true,
+    freeProfileEnv: ''
+  })
+}
+
+export function writeFixtureProfileReceipt(file, plan, {
+  kind = 'planned-profile',
+  fixtureReceiptPath = null,
+  fixtureReceiptDigest = null,
+  extra = null
+} = {}) {
+  if (!file) throw new Error('fixture profile receipt path is required')
+  const capabilityIds = plan.capabilityIds ?? plan.capabilities ?? []
+  const producerIds = plan.producerIds ?? plan.producers ?? []
+  const receipt = {
+    schema: kind === 'environment-ready'
+      ? 'fsusblog.fixture-environment-ready.v1'
+      : kind === 'fixture-receipt'
+        ? 'fsusblog.fixture-receipt.v1'
+        : 'fsusblog.fixture-planned-profile.v1',
+    kind,
+    generatedAt: new Date().toISOString(),
+    profileId: plan.profileId,
+    profileSource: plan.profileSource,
+    catalogDigest: plan.catalogDigest,
+    expandedCapabilityDigest: plan.expandedCapabilityDigest,
+    capabilityIds,
+    producerIds,
+    // Preserve plan-shaped aliases so later receipt writers can rehydrate.
+    capabilities: capabilityIds,
+    producers: producerIds,
+    mutationPolicy: plan.mutationPolicy,
+    executionClass: plan.executionClass,
+    requiresLocalAuthBypass: plan.requiresLocalAuthBypass,
+    requiresAuthFixtures: plan.requiresAuthFixtures,
+    requiresPublicFixtures: plan.requiresPublicFixtures,
+    requiresDemoSeed: plan.requiresDemoSeed,
+    requiresSecurityReset: plan.requiresSecurityReset,
+    fixtureReceiptPath,
+    fixtureReceiptDigest,
+    ...(extra && typeof extra === 'object' ? extra : {})
+  }
+  fs.mkdirSync(path.dirname(path.resolve(file)), { recursive: true })
+  fs.writeFileSync(file, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 })
+  try { fs.chmodSync(file, 0o600) } catch { /* best-effort on platforms without chmod */ }
+  return receipt
+}
+
+export function fixtureReceiptDigestFromFile(file) {
+  const bytes = fs.readFileSync(file)
+  return `sha256:${createHash('sha256').update(bytes).digest('hex')}`
+}
+
+export function applySealedFixtureProfileEnvironment(env, plan) {
+  const next = { ...env }
+  next.FSUSBLOG_SEALED_FIXTURE_PROFILE_ID = plan.profileId
+  next.FSUSBLOG_SEALED_FIXTURE_CATALOG_DIGEST = plan.catalogDigest
+  next.FSUSBLOG_SEALED_EXPANDED_CAPABILITY_DIGEST = plan.expandedCapabilityDigest
+  next.FSUSBLOG_SEALED_FIXTURE_EXECUTION_CLASS = plan.executionClass ?? ''
+  next.FSUSBLOG_FIXTURE_PROFILE_SOURCE = plan.profileSource
+  // Overwrite ambient free-profile env so process.env inheritance cannot smuggle overrides.
+  next.FSUSBLOG_FIXTURE_PROFILE = ''
+  return next
+}
+
 function validateInventoryTruthfulness(consumer, content, errors) {
   const fallback = String(consumer.currentFallback ?? '')
   const implicit = String(consumer.implicitSource ?? '')
@@ -548,11 +827,118 @@ export function validateFixtureCatalogs({
   return errors
 }
 
+function parseCliArgs(argv) {
+  const options = { _: [] }
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index]
+    if (arg === '--') {
+      options._.push(...argv.slice(index + 1))
+      break
+    }
+    if (arg.startsWith('--')) {
+      const eq = arg.indexOf('=')
+      if (eq >= 0) {
+        options[arg.slice(2, eq)] = arg.slice(eq + 1)
+      } else {
+        const key = arg.slice(2)
+        const next = argv[index + 1]
+        if (next != null && !next.startsWith('--')) {
+          options[key] = next
+          index += 1
+        } else {
+          options[key] = true
+        }
+      }
+    } else {
+      options._.push(arg)
+    }
+  }
+  return options
+}
+
+function runCli(argv = process.argv.slice(2)) {
+  const options = parseCliArgs(argv)
+  const command = options._[0] ?? 'validate'
+  if (command === 'validate') {
+    const errors = validateFixtureCatalogs()
+    if (errors.length) {
+      process.stderr.write(`${errors.join('\n')}\n`)
+      process.exit(1)
+    }
+    process.stdout.write('fixture capability catalog valid\n')
+    return
+  }
+  if (command === 'resolve') {
+    const profileId = options.profile ?? options['profile-id']
+    const profileSource = options.source ?? options['profile-source']
+    const executionClass = options['execution-class'] ?? null
+    const out = options.out ?? options.output ?? null
+    const kind = options.kind ?? 'planned-profile'
+    const sealed = profileSource === 'matrix'
+      ? {
+        fixtureProfileId: options['sealed-profile-id'] ?? profileId,
+        fixtureCatalogDigest: options['sealed-catalog-digest'],
+        expandedCapabilityDigest: options['sealed-capability-digest'],
+        executionClass: options['sealed-execution-class'] ?? executionClass
+      }
+      : null
+    const plan = resolveFixtureProfile({
+      profileId,
+      profileSource,
+      executionClass,
+      sealed,
+      allowFreeProfileEnv: profileSource === 'dev-cli',
+      freeProfileEnv: profileSource === 'dev-cli' ? '' : process.env.FSUSBLOG_FIXTURE_PROFILE
+    })
+    if (out) writeFixtureProfileReceipt(out, plan, { kind })
+    process.stdout.write(`${JSON.stringify(plan)}\n`)
+    return
+  }
+  if (command === 'digest') {
+    const catalogs = readFixtureCatalogs()
+    const profileId = options.profile ?? options['profile-id'] ?? 'none'
+    const plan = planFixtureMutation(profileId, catalogs)
+    process.stdout.write(`${JSON.stringify({
+      catalogDigest: fixtureCatalogDigest(catalogs),
+      expandedCapabilityDigest: expandedCapabilityDigest(plan.capabilities),
+      profileId,
+      capabilities: plan.capabilities,
+      producers: plan.producers,
+      mutationPolicy: plan.mutationPolicy
+    })}\n`)
+    return
+  }
+  if (command === 'receipt-digest') {
+    const file = options.file ?? options._[1]
+    if (!file) throw new Error('receipt-digest requires --file')
+    process.stdout.write(`${fixtureReceiptDigestFromFile(file)}\n`)
+    return
+  }
+  if (command === 'write-receipt') {
+    const planFile = options.plan ?? options['plan-file']
+    const out = options.out ?? options.output
+    if (!planFile || !out) throw new Error('write-receipt requires --plan and --out')
+    const plan = JSON.parse(fs.readFileSync(planFile, 'utf8'))
+    const fixtureReceiptPath = options['fixture-receipt'] ?? null
+    const fixtureReceiptDigest = fixtureReceiptPath
+      ? fixtureReceiptDigestFromFile(fixtureReceiptPath)
+      : (options['fixture-receipt-digest'] ?? null)
+    const receipt = writeFixtureProfileReceipt(out, plan, {
+      kind: options.kind ?? 'environment-ready',
+      fixtureReceiptPath,
+      fixtureReceiptDigest
+    })
+    process.stdout.write(`${JSON.stringify(receipt)}\n`)
+    return
+  }
+  throw new Error(`unknown fixture-catalog command: ${command}`)
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const errors = validateFixtureCatalogs()
-  if (errors.length) {
-    process.stderr.write(`${errors.join('\n')}\n`)
+  try {
+    runCli()
+  } catch (error) {
+    process.stderr.write(`${error?.message ?? error}\n`)
     process.exit(1)
   }
-  process.stdout.write('fixture capability catalog valid\n')
 }

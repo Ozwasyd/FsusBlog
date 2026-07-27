@@ -84,7 +84,14 @@ npm run build:wasm
 ### 一键启动（推荐）
 
 ```bash
-./tools/dev/start.sh --seed-demo
+# 默认零数据：不写业务 row / auth identity / session / security reset
+./tools/dev/start.sh
+
+# 显式 demo 数据集（fixture profile catalog id）
+./tools/dev/start.sh --fixture-profile demo-public
+
+# 显式 acceptance 代表态 auth/public fixtures
+./tools/dev/start.sh --fixture-profile acceptance-representative
 ```
 
 该入口会启动：
@@ -93,7 +100,7 @@ npm run build:wasm
 - Redis（默认 `127.0.0.1:6379`）
 - ASP.NET Core backend（`http://127.0.0.1:7568`）
 - Vite frontend（`http://127.0.0.1:3000`）
-- 可选 deterministic fictional demo data（`--seed-demo`）
+- 仅在 `--fixture-profile` 显式选择 catalog id 时写入对应 fixture（默认 `none`）
 
 清理本地开发容器和 volume：
 
@@ -101,7 +108,7 @@ npm run build:wasm
 ./tools/dev/start.sh --cleanup
 ```
 
-Demo seed 详情见 [development/demo-data.md](development/demo-data.md)。
+Demo seed 详情见 [development/demo-data.md](development/demo-data.md)。Fixture profile catalog 见 [testing/fixture-capability-catalog.md](testing/fixture-capability-catalog.md)。
 
 ### 手动启动后端依赖
 
@@ -193,7 +200,7 @@ await page.goto('/login')
 
 ```bash
 export FSUSBLOG_ADMIN_BOOTSTRAP_TOKEN=local-dev-bootstrap-token
-/opt/homebrew/bin/bash ./tools/dev/start.sh --seed-demo
+/opt/homebrew/bin/bash ./tools/dev/start.sh --fixture-profile none
 ```
 
 然后使用同一个 loopback origin 完成 admin bootstrap Passkey ceremony。root

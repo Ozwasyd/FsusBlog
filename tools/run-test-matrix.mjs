@@ -35,6 +35,10 @@ import {
 } from './test-matrix/local-runtime-cleanup.mjs'
 import { parseMatrix } from './test-matrix/parse-matrix.mjs'
 import {
+    applySealedFixtureProfileEnvironment,
+    sealMatrixFixtureProfile
+} from './testing/fixture-catalog.mjs'
+import {
     bindFreshRuntimeCleanupReceipt,
     executeProductionFreshPreflight,
     recordProductionFreshFailure,
@@ -1101,6 +1105,24 @@ function applyNamespaceBuildEnvironment(tier, env) {
     env.VITE_API_BASE_URL = env.FSUSBLOG_DEBUG_BACKEND_URL
   }
   return env
+}
+
+/**
+ * Seal matrix fixture profile into the child environment.
+ * Correctness callers cannot free-override via FSUSBLOG_FIXTURE_PROFILE.
+ */
+function applyMatrixFixtureProfileEnvironment(tier, env) {
+  const freeOverride = String(process.env.FSUSBLOG_FIXTURE_PROFILE ?? env.FSUSBLOG_FIXTURE_PROFILE ?? '').trim()
+  if (freeOverride) {
+    throw new Error('correctness fixture profile cannot be overridden by FSUSBLOG_FIXTURE_PROFILE')
+  }
+  if (!Object.hasOwn(tier, 'fixtureProfile')) {
+    // Clear any ambient free-profile env so non-consumer tiers cannot smuggle overrides.
+    env.FSUSBLOG_FIXTURE_PROFILE = ''
+    return env
+  }
+  const sealed = sealMatrixFixtureProfile(tier)
+  return applySealedFixtureProfileEnvironment(env, sealed)
 }
 
 function resourceEnvironmentForTier(tier, baseEnv = {}) {
@@ -2252,7 +2274,7 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
           FSUSBLOG_COVERAGE_BRANCH_THRESHOLD: '31.7961'
         }))
         Object.assign(env, resourceEnvironmentForTier(tier, env))
-        return env
+        return applyMatrixFixtureProfileEnvironment(tier, env)
       },
       onTierStart(tier) {
         const budgetLabel = Number.isFinite(Number(tier.budgetMs)) ? `${tier.budgetMs}ms` : 'observe-only'
@@ -2845,7 +2867,7 @@ async function runTier(matrix, tierId, args) {
                             if (tier.requiresPlaywright !== 'none')
                                 env.FSUSBLOG_PLAYWRIGHT_SHARD_ARG = `--shard=${index}/${total}`
                         }
-                        return env
+                        return applyMatrixFixtureProfileEnvironment(tier, env)
                     },
                     onTierStart(tier) {
                         emitTierReproductionHint(tier, options)
@@ -3213,7 +3235,7 @@ async function runCiJobScheduled(matrix, jobId, tiers, options) {
                             if (tier.requiresPlaywright !== 'none')
                                 env.FSUSBLOG_PLAYWRIGHT_SHARD_ARG = `--shard=${index}/${total}`
                         }
-                        return env
+                        return applyMatrixFixtureProfileEnvironment(tier, env)
                     },
                     onTierStart(tier) {
                         emitTierReproductionHint(tier, { noDeps: true, shard: options.shard })
@@ -3948,7 +3970,7 @@ async function ciPrSmart(matrix, args) {
                         )
                         Object.assign(env, resourceEnvironmentForTier(tier, env))
                         applyUxViewportResumeEnvironment(env, tier, false)
-                        return env
+                        return applyMatrixFixtureProfileEnvironment(tier, env)
                     },
                     onTierStart(tier) {
                         emitTierReproductionHint(tier, { noDeps: true })

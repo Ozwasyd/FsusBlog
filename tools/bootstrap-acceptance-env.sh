@@ -111,8 +111,23 @@ fi
 ulimit -f "$ACCEPTANCE_LOG_MAX_KIB"
 PERCEPTION_SEALED_TOKEN_KEY="${FSUSBLOG_TEST_PERCEPTION_SEALED_TOKEN_KEY:-000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f}"
 FORCE_BOOTSTRAP="${FSUSBLOG_FORCE_BOOTSTRAP:-${CI:+1}}"
-RESET_SECURITY_TEST_STATE="${FSUSBLOG_RESET_SECURITY_TEST_STATE:-1}"
 POW_READY_MAX_DIFFICULTY="${POW_MAX_DIFFICULTY}"
+FIXTURE_PROFILE_PLAN_FILE=""
+FIXTURE_PROFILE_ID=""
+FIXTURE_PROFILE_SOURCE=""
+FIXTURE_CATALOG_DIGEST=""
+FIXTURE_CAPABILITY_DIGEST=""
+FIXTURE_MUTATION_POLICY=""
+FIXTURE_CAPABILITY_IDS=""
+FIXTURE_PRODUCER_IDS=""
+FIXTURE_REQUIRES_AUTH=0
+FIXTURE_REQUIRES_PUBLIC=0
+FIXTURE_REQUIRES_DEMO=0
+FIXTURE_REQUIRES_SECURITY_RESET=0
+FIXTURE_REQUIRES_LOCAL_AUTH=0
+FIXTURE_RECEIPT_FILE=""
+FIXTURE_RECEIPT_DIGEST=""
+ENVIRONMENT_READY_RECEIPT_FILE=""
 if [[ "${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" == "1" ]]; then
     # A dedicated Browser Contract runtime is intentionally deterministic.  Do not
     # sample live CPU, memory, PID, or scheduler-grant state while bootstrapping it.
@@ -1473,7 +1488,9 @@ RefreshFixtureServiceGeneration() {
 }
 
 ResetSecurityTestState() {
-    if [[ "$RESET_SECURITY_TEST_STATE" == "0" ]]; then
+    # Only when the sealed/planned profile explicitly requires security.runtime-reset.
+    # No default-on side effect and no free env override path in bootstrap.
+    if [[ "$FIXTURE_REQUIRES_SECURITY_RESET" != "1" ]]; then
         return
     fi
 
@@ -1492,6 +1509,153 @@ ResetSecurityTestState() {
         Log "reset local security PoW risk keys: ${deleted}"
         FORCE_BOOTSTRAP=1
     fi
+}
+
+ResolveFixtureProfilePlan() {
+    local mode="${1:-full}"
+    FIXTURE_PROFILE_PLAN_FILE="$FIXTURE_DIR/planned-profile.json"
+    FIXTURE_RECEIPT_FILE="$FIXTURE_DIR/fixture-receipt.json"
+    ENVIRONMENT_READY_RECEIPT_FILE="$FIXTURE_DIR/environment-ready.json"
+
+    if [[ "$mode" == "prepare-env-only" || "$mode" == "services-only" ]]; then
+        # Port/env materialization and service containers do not mutate business fixtures.
+        if [[ -z "${FSUSBLOG_SEALED_FIXTURE_PROFILE_ID:-}" ]]; then
+            FIXTURE_PROFILE_ID="none"
+            FIXTURE_PROFILE_SOURCE="matrix"
+            FIXTURE_MUTATION_POLICY="zero-mutation"
+            return
+        fi
+    fi
+
+    local profileSource="${FSUSBLOG_FIXTURE_PROFILE_SOURCE:-matrix}"
+    local profileId="${FSUSBLOG_SEALED_FIXTURE_PROFILE_ID:-}"
+    local freeOverride
+    freeOverride="$(printf '%s' "${FSUSBLOG_FIXTURE_PROFILE:-}" | tr -d '[:space:]')"
+    if [[ -n "$freeOverride" ]]; then
+        Log 'correctness fixture profile cannot be overridden by FSUSBLOG_FIXTURE_PROFILE'
+        exit 1
+    fi
+    if [[ -z "$profileId" ]]; then
+        Log 'sealed fixture profile is required before schema/service/runtime mutation'
+        exit 1
+    fi
+    if [[ "$profileSource" != "matrix" && "$profileSource" != "dev-cli" ]]; then
+        Log "fixture profile source must be matrix or dev-cli, got ${profileSource}"
+        exit 1
+    fi
+
+    local -a resolveArgs=(
+        resolve
+        --profile "$profileId"
+        --source "$profileSource"
+        --out "$FIXTURE_PROFILE_PLAN_FILE"
+        --kind planned-profile
+    )
+    if [[ -n "${FSUSBLOG_SEALED_FIXTURE_EXECUTION_CLASS:-}" ]]; then
+        resolveArgs+=(--execution-class "$FSUSBLOG_SEALED_FIXTURE_EXECUTION_CLASS")
+    fi
+    if [[ "$profileSource" == "matrix" ]]; then
+        resolveArgs+=(
+            --sealed-profile-id "${FSUSBLOG_SEALED_FIXTURE_PROFILE_ID}"
+            --sealed-catalog-digest "${FSUSBLOG_SEALED_FIXTURE_CATALOG_DIGEST:?sealed fixtureCatalogDigest is required}"
+            --sealed-capability-digest "${FSUSBLOG_SEALED_EXPANDED_CAPABILITY_DIGEST:?sealed expandedCapabilityDigest is required}"
+        )
+        if [[ -n "${FSUSBLOG_SEALED_FIXTURE_EXECUTION_CLASS:-}" ]]; then
+            resolveArgs+=(--sealed-execution-class "$FSUSBLOG_SEALED_FIXTURE_EXECUTION_CLASS")
+        fi
+    fi
+
+    local planJson
+    if ! planJson="$("${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/testing/fixture-catalog.mjs" "${resolveArgs[@]}")"; then
+        Log 'fixture profile resolve/validate failed before mutation'
+        exit 1
+    fi
+
+    FIXTURE_PROFILE_ID="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write(p.profileId)})')"
+    FIXTURE_PROFILE_SOURCE="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write(p.profileSource)})')"
+    FIXTURE_CATALOG_DIGEST="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write(p.catalogDigest)})')"
+    FIXTURE_CAPABILITY_DIGEST="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write(p.expandedCapabilityDigest)})')"
+    FIXTURE_MUTATION_POLICY="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write(p.mutationPolicy)})')"
+    FIXTURE_CAPABILITY_IDS="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write((p.capabilities||[]).join(","))})')"
+    FIXTURE_PRODUCER_IDS="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write((p.producers||[]).join(","))})')"
+    FIXTURE_REQUIRES_AUTH="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write(p.requiresAuthFixtures?"1":"0")})')"
+    FIXTURE_REQUIRES_PUBLIC="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write(p.requiresPublicFixtures?"1":"0")})')"
+    FIXTURE_REQUIRES_DEMO="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write(p.requiresDemoSeed?"1":"0")})')"
+    FIXTURE_REQUIRES_SECURITY_RESET="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write(p.requiresSecurityReset?"1":"0")})')"
+    FIXTURE_REQUIRES_LOCAL_AUTH="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write(p.requiresLocalAuthBypass?"1":"0")})')"
+
+    Log "planned fixture profile=${FIXTURE_PROFILE_ID} source=${FIXTURE_PROFILE_SOURCE} catalogDigest=${FIXTURE_CATALOG_DIGEST} mutationPolicy=${FIXTURE_MUTATION_POLICY}"
+    Log "capabilities=${FIXTURE_CAPABILITY_IDS:-<none>} producers=${FIXTURE_PRODUCER_IDS:-<none>}"
+    Log "planned-profile receipt: ${FIXTURE_PROFILE_PLAN_FILE}"
+}
+
+InvokeFixtureOrchestrator() {
+    # Minimal profile-gated orchestrator. Full multi-producer orchestration is a later issue.
+    local mutationsJson='[]'
+    if [[ "$FIXTURE_PROFILE_ID" == "none" || "$FIXTURE_MUTATION_POLICY" == "zero-mutation" ]]; then
+        Log 'none/zero-mutation profile: skipping auth/public/security producers'
+        mutationsJson='[]'
+    else
+        if [[ "$FIXTURE_REQUIRES_SECURITY_RESET" == "1" ]]; then
+            ResetSecurityTestState || exit 1
+        fi
+        if [[ "$FIXTURE_REQUIRES_DEMO" == "1" ]]; then
+            Log 'development-demo producer is owned by tools/dev/start.sh; acceptance bootstrap refuses demo-public'
+            exit 1
+        fi
+        if [[ "$FIXTURE_REQUIRES_AUTH" == "1" || "$FIXTURE_REQUIRES_PUBLIC" == "1" ]]; then
+            PrepareFixtures
+            mutationsJson='['
+            local first=1
+            if [[ "$FIXTURE_REQUIRES_AUTH" == "1" ]]; then
+                mutationsJson+='"auth-session"'
+                first=0
+            fi
+            if [[ "$FIXTURE_REQUIRES_PUBLIC" == "1" ]]; then
+                if [[ "$first" != "1" ]]; then mutationsJson+=','; fi
+                mutationsJson+='"public-content"'
+            fi
+            mutationsJson+=']'
+        elif [[ -n "$FIXTURE_PRODUCER_IDS" ]]; then
+            Log "profile ${FIXTURE_PROFILE_ID} requires producers (${FIXTURE_PRODUCER_IDS}) not owned by this bootstrap stub"
+            exit 1
+        fi
+    fi
+
+    "${FSUSBLOG_NODE:-node}" - "$FIXTURE_RECEIPT_FILE" "$FIXTURE_PROFILE_PLAN_FILE" "$mutationsJson" <<'NODE'
+const fs = require('node:fs')
+const path = require('node:path')
+const file = process.argv[2]
+const plan = JSON.parse(fs.readFileSync(process.argv[3], 'utf8'))
+const mutations = JSON.parse(process.argv[4])
+const receipt = {
+  schema: 'fsusblog.fixture-receipt.v1',
+  kind: 'fixture-receipt',
+  generatedAt: new Date().toISOString(),
+  profileId: plan.profileId,
+  profileSource: plan.profileSource,
+  catalogDigest: plan.catalogDigest,
+  expandedCapabilityDigest: plan.expandedCapabilityDigest,
+  capabilityIds: plan.capabilityIds ?? plan.capabilities ?? [],
+  producerIds: plan.producerIds ?? plan.producers ?? [],
+  mutationPolicy: plan.mutationPolicy,
+  mutations,
+  zeroData: mutations.length === 0
+}
+fs.mkdirSync(path.dirname(file), { recursive: true })
+fs.writeFileSync(file, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 })
+NODE
+    FIXTURE_RECEIPT_DIGEST="$("${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/testing/fixture-catalog.mjs" receipt-digest --file "$FIXTURE_RECEIPT_FILE")"
+    Log "fixture receipt: ${FIXTURE_RECEIPT_FILE} digest=${FIXTURE_RECEIPT_DIGEST}"
+}
+
+PublishEnvironmentReadyReceipt() {
+    "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/testing/fixture-catalog.mjs" write-receipt \
+        --plan "$FIXTURE_PROFILE_PLAN_FILE" \
+        --out "$ENVIRONMENT_READY_RECEIPT_FILE" \
+        --kind environment-ready \
+        --fixture-receipt "$FIXTURE_RECEIPT_FILE" >/dev/null
+    Log "environment-ready receipt: ${ENVIRONMENT_READY_RECEIPT_FILE}"
 }
 
 MANAGED_BACKEND_SHARED_DEBUG_BUILD_REQUIRED=0
@@ -1890,7 +2054,12 @@ EnsureReleasePreview() {
 }
 
 PrepareFixtures() {
-    Log 'preparing auth users and playwright fixtures'
+    # Called only when the sealed profile requires auth-session and/or public-content.
+    if [[ "$FIXTURE_REQUIRES_AUTH" != "1" && "$FIXTURE_REQUIRES_PUBLIC" != "1" ]]; then
+        Log 'PrepareFixtures refused: profile does not require auth/public producers'
+        return 1
+    fi
+    Log "preparing profile-gated fixtures auth=${FIXTURE_REQUIRES_AUTH} public=${FIXTURE_REQUIRES_PUBLIC}"
     local laneSupport="$ROOT_DIR/tools/test/lanes/_lane-collect-support.sh"
     (
         export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
@@ -1914,15 +2083,23 @@ PrepareFixtures() {
         # preparation performs scoped output-cache invalidation and a public-hot
         # rebuild; never flush the shared runtime Redis database because it also
         # owns active-release fences and background worker leases.
+        local -a tasks=()
+        if [[ "$FIXTURE_REQUIRES_AUTH" == "1" ]]; then
+            tasks+=("auth-fixtures::PrepareAuthFixturesOnce")
+        fi
+        if [[ "$FIXTURE_REQUIRES_PUBLIC" == "1" ]]; then
+            tasks+=("public-fixtures::PreparePublicFixturesOnce")
+        fi
+        if [[ "${#tasks[@]}" -eq 0 ]]; then
+            return 0
+        fi
         if [[ "${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" == "1" ]]; then
-            PrepareAuthFixturesOnce
-            PreparePublicFixturesOnce
+            if [[ "$FIXTURE_REQUIRES_AUTH" == "1" ]]; then PrepareAuthFixturesOnce; fi
+            if [[ "$FIXTURE_REQUIRES_PUBLIC" == "1" ]]; then PreparePublicFixturesOnce; fi
         else
             local -x FSUSBLOG_ADAPTIVE_PARALLEL=1
             local -x FSUSBLOG_PARALLEL_WORKLOAD=scheduler-admitted
-            RunParallel "bootstrap-runtime-fixtures" \
-                "auth-fixtures::PrepareAuthFixturesOnce" \
-                "public-fixtures::PreparePublicFixturesOnce"
+            RunParallel "bootstrap-runtime-fixtures" "${tasks[@]}"
         fi
     )
 }
@@ -1954,6 +2131,7 @@ WaitForPowReady() {
 
 Main() {
     if [[ "${1:-}" == "--prepare-env-only" ]]; then
+        ResolveFixtureProfilePlan prepare-env-only
         printf '[acceptance:bootstrap] prepared namespace environment: %s\n' "$ENV_FILE"
         return
     fi
@@ -1962,8 +2140,11 @@ Main() {
         exit 1
     }
     if [[ "${1:-}" == "--services-only" ]]; then
+        ResolveFixtureProfilePlan services-only
         READINESS_PHASES_REMAINING=1
     else
+        # Order: resolve/validate profile → planned receipt → schema/services/runtime → orchestrator → receipts.
+        ResolveFixtureProfilePlan full
         READINESS_PHASES_REMAINING=2
         ConfigureManagedBackendRuntimeReader
     fi
@@ -1984,7 +2165,6 @@ Main() {
         Log 'postgres and redis ready'
         return
     fi
-    ResetSecurityTestState
     AllocateReadinessDeadline 'runtime applications'
     local -a runtimeApplications=(debug-backend EnsureBackend)
     if CiProductionHasDomain frontend-dist; then
@@ -1992,15 +2172,23 @@ Main() {
     fi
     RunBootstrapParallel 'runtime applications' "$READINESS_DEADLINE_AT_MS" "${runtimeApplications[@]}"
     WaitForPowReady
-    PrepareFixtures
+    InvokeFixtureOrchestrator
     if CiProductionHasDomain frontend-dist; then
         # Prefer the immutable frontend entry for liveness. Real public SSR may
         # still be warming via public-AOT backfill after empty-DB bootstrap.
-        WaitForUrl \
-            'release preview public home after fixture seeding' \
-            "${RELEASE_PREVIEW_URL}/?fsus-preview-proof=bootstrap" \
-            "$EXECUTION_DEADLINE_AT_MS"
+        if [[ "$FIXTURE_REQUIRES_PUBLIC" == "1" || "$FIXTURE_REQUIRES_AUTH" == "1" ]]; then
+            WaitForUrl \
+                'release preview public home after fixture seeding' \
+                "${RELEASE_PREVIEW_URL}/?fsus-preview-proof=bootstrap" \
+                "$EXECUTION_DEADLINE_AT_MS"
+        else
+            WaitForUrl \
+                'release preview public home (zero-mutation profile)' \
+                "${RELEASE_PREVIEW_URL}/?fsus-preview-proof=bootstrap" \
+                "$EXECUTION_DEADLINE_AT_MS"
+        fi
     fi
+    PublishEnvironmentReadyReceipt
     jq -n \
         --arg namespace "$FSUSBLOG_TEST_NAMESPACE" \
         --arg backend "$DEBUG_BACKEND_URL" \
@@ -2008,7 +2196,36 @@ Main() {
         --arg preview "$RELEASE_PREVIEW_URL" \
         --arg postgres "$POSTGRES_CONTAINER" \
         --arg redis "$REDIS_CONTAINER" \
-        '{namespace: $namespace, backendUrl: $backend, frontendUrl: $frontend, previewUrl: $preview, containers: {postgres: $postgres, redis: $redis}, generatedAt: now | todate}' \
+        --arg profileId "$FIXTURE_PROFILE_ID" \
+        --arg profileSource "$FIXTURE_PROFILE_SOURCE" \
+        --arg catalogDigest "$FIXTURE_CATALOG_DIGEST" \
+        --arg capabilityDigest "$FIXTURE_CAPABILITY_DIGEST" \
+        --arg capabilityIds "$FIXTURE_CAPABILITY_IDS" \
+        --arg producerIds "$FIXTURE_PRODUCER_IDS" \
+        --arg mutationPolicy "$FIXTURE_MUTATION_POLICY" \
+        --arg fixtureReceiptPath "$FIXTURE_RECEIPT_FILE" \
+        --arg fixtureReceiptDigest "$FIXTURE_RECEIPT_DIGEST" \
+        --arg environmentReadyPath "$ENVIRONMENT_READY_RECEIPT_FILE" \
+        '{
+            namespace: $namespace,
+            backendUrl: $backend,
+            frontendUrl: $frontend,
+            previewUrl: $preview,
+            containers: {postgres: $postgres, redis: $redis},
+            fixtureProfile: {
+                profileId: $profileId,
+                profileSource: $profileSource,
+                catalogDigest: $catalogDigest,
+                expandedCapabilityDigest: $capabilityDigest,
+                capabilityIds: (if $capabilityIds == "" then [] else ($capabilityIds | split(",")) end),
+                producerIds: (if $producerIds == "" then [] else ($producerIds | split(",")) end),
+                mutationPolicy: $mutationPolicy,
+                fixtureReceiptPath: $fixtureReceiptPath,
+                fixtureReceiptDigest: $fixtureReceiptDigest,
+                environmentReadyReceiptPath: $environmentReadyPath
+            },
+            generatedAt: now | todate
+        }' \
         >"$FIXTURE_DIR/manifest.json"
     WaitForBinaryUrl 'seo probe' "$DEBUG_BACKEND_URL/api/binary/system/seo" "$EXECUTION_DEADLINE_AT_MS"
     WaitForBinaryUrl 'pow challenge probe' "$DEBUG_BACKEND_URL/api/binary/auth/pow-challenge" "$EXECUTION_DEADLINE_AT_MS"
@@ -2022,7 +2239,7 @@ Main() {
         FSUSBLOG_REDIS_CONTAINER_NAME="$REDIS_CONTAINER" \
             "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test-matrix/resident-resource-leases-cli.mjs" publish
     fi
-    Log 'acceptance environment ready'
+    Log "acceptance environment ready profile=${FIXTURE_PROFILE_ID} source=${FIXTURE_PROFILE_SOURCE} mutationPolicy=${FIXTURE_MUTATION_POLICY} catalogDigest=${FIXTURE_CATALOG_DIGEST} fixtureReceiptDigest=${FIXTURE_RECEIPT_DIGEST}"
 }
 
 if [[ "${FSUSBLOG_BOOTSTRAP_SOURCE_ONLY:-0}" != "1" ]]; then

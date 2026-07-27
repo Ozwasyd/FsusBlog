@@ -147,10 +147,10 @@ FsusBlog/
 git clone https://github.com/Ozwasyd/FsusBlog.git
 cd FsusBlog
 cp .env.example .env
-./tools/dev/start.sh --seed-demo
+./tools/dev/start.sh --fixture-profile demo-public
 ```
 
-该命令会启动本地 PostgreSQL、Redis、ASP.NET Core backend 和 Vite frontend，并在后端完成迁移后写入 deterministic fictional demo data。
+默认 `./tools/dev/start.sh`（profile `none`）只启动 PostgreSQL、Redis、ASP.NET Core backend 和 Vite frontend，不写入业务/auth/session fixture。需要 deterministic fictional demo data 时显式选择 catalog id `demo-public`。
 
 | 项目 | 地址 / 说明 |
 | ------ | ------------- |

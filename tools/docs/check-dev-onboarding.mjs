@@ -39,7 +39,7 @@ const files = {
 }
 
 for (const token of [
-  './tools/dev/start.sh --seed-demo',
+  './tools/dev/start.sh --fixture-profile demo-public',
   'http://127.0.0.1:3000',
   'demo-admin',
   'docs/troubleshooting.md',
@@ -53,10 +53,20 @@ for (const token of [
   'Redis',
   'backend',
   'frontend',
-  '--seed-demo',
+  '--fixture-profile',
+  'none',
+  'demo-public',
+  'acceptance-representative',
   'ops/development/dependencies.compose.yml'
 ]) {
   includes('tools/dev/start.sh', files.start, token)
+}
+
+if (files.start.includes('--seed-demo') || files.start.includes('SEED_DEMO')) {
+  errors.push('tools/dev/start.sh must not retain --seed-demo or SEED_DEMO')
+}
+if (!/FIXTURE_PROFILE="none"|FIXTURE_PROFILE=none/u.test(files.start)) {
+  errors.push('tools/dev/start.sh default fixture profile must be none')
 }
 
 for (const token of [

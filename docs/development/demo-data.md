@@ -2,11 +2,13 @@
 
 FsusBlog includes deterministic fictional demo seed data for public-preview local development.
 
-Run it through the one-command dev stack:
+Run it through the one-command dev stack with the explicit catalog profile:
 
 ```bash
-./tools/dev/start.sh --seed-demo
+./tools/dev/start.sh --fixture-profile demo-public
 ```
+
+Default `./tools/dev/start.sh` uses profile `none` and does not seed demo data.
 
 Or run the seed step after the backend has started once and created the schema:
 

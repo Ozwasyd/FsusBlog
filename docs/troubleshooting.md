@@ -182,7 +182,7 @@ Fix: for disposable local data, reset the dev volumes:
 
 ```bash
 ./tools/dev/start.sh --cleanup
-./tools/dev/start.sh --seed-demo
+./tools/dev/start.sh --fixture-profile demo-public
 ```
 
 Relevant logs: backend startup logs and PostgreSQL logs.

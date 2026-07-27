@@ -975,7 +975,9 @@ WaitForPowReady() {
 
 ResetSecurityRuntimeState() {
     local label="${1:-security runtime state}"
-    if [[ "${FSUSBLOG_RESET_SECURITY_TEST_STATE:-1}" == "0" ]]; then
+    # Explicit lane call performs reset; only an explicit env value of 0 opts out.
+    # Bootstrap no longer defaults security reset on as a hidden side effect.
+    if [[ "${FSUSBLOG_RESET_SECURITY_TEST_STATE:-}" == "0" ]]; then
         return
     fi
 

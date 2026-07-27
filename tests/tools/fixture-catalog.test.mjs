@@ -6,13 +6,19 @@ import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 import {
+  applySealedFixtureProfileEnvironment,
   expandFixtureProfile,
+  fixtureCatalogDigest,
   fixtureCatalogFiles,
   observeFixtureConsumerSource,
+  planFixtureMutation,
+  resolveFixtureProfile,
   scanFixtureSourceDeclarations,
+  sealMatrixFixtureProfile,
   validateFixtureAuthoritySources,
   validateFixtureCatalogs,
-  validateNoneFixtureTier
+  validateNoneFixtureTier,
+  writeFixtureProfileReceipt
 } from '../../tools/testing/fixture-catalog.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
@@ -184,6 +190,140 @@ test('inventory rejects hardcoded no-fallback while source reuses env data', () 
   const consumer = data.inventory.consumers.find((item) => item.consumerId === 'source:playwright-fixture-discovery')
   consumer.currentFallback = 'no catalog alias or undeclared capability fallback'
 }, /hardcodes no-fallback while source reuses env data|currentFallback is stale or untruthful/))
+
+test('dev-cli and matrix resolve share digests and none is zero-mutation', () => {
+  const none = resolveFixtureProfile({ profileId: 'none', profileSource: 'dev-cli', freeProfileEnv: '' })
+  assert.equal(none.profileId, 'none')
+  assert.equal(none.mutationPolicy, 'zero-mutation')
+  assert.deepEqual(none.capabilities, [])
+  assert.deepEqual(none.producers, [])
+  assert.equal(none.requiresAuthFixtures, false)
+  assert.equal(none.requiresLocalAuthBypass, false)
+  assert.equal(none.requiresSecurityReset, false)
+  assert.equal(none.catalogDigest, fixtureCatalogDigest())
+
+  const demo = resolveFixtureProfile({ profileId: 'demo-public', profileSource: 'dev-cli', freeProfileEnv: '' })
+  assert.equal(demo.requiresDemoSeed, true)
+  assert.equal(demo.requiresLocalAuthBypass, false)
+
+  const acceptance = planFixtureMutation('acceptance-representative')
+  assert.equal(acceptance.requiresAuthFixtures, true)
+  assert.equal(acceptance.requiresPublicFixtures, true)
+  assert.equal(acceptance.requiresSecurityReset, false)
+
+  const sealed = sealMatrixFixtureProfile({
+    id: 'bootstrap',
+    fixtureProfile: 'acceptance-representative',
+    resourceClass: 'database',
+    requiresBootstrap: 'full',
+    selfBootstraps: true
+  })
+  assert.equal(sealed.profileSource, 'matrix')
+  assert.equal(sealed.profileId, 'acceptance-representative')
+  const env = applySealedFixtureProfileEnvironment({}, sealed)
+  assert.equal(env.FSUSBLOG_SEALED_FIXTURE_PROFILE_ID, 'acceptance-representative')
+  assert.equal(env.FSUSBLOG_FIXTURE_PROFILE, '')
+  assert.equal(env.FSUSBLOG_SEALED_FIXTURE_CATALOG_DIGEST, sealed.catalogDigest)
+})
+
+test('matrix resolve fail-closes free profile override and digest drift', () => {
+  assert.throws(
+    () => resolveFixtureProfile({
+      profileId: 'none',
+      profileSource: 'matrix',
+      freeProfileEnv: 'demo-public',
+      sealed: {
+        fixtureProfileId: 'none',
+        fixtureCatalogDigest: fixtureCatalogDigest(),
+        expandedCapabilityDigest: resolveFixtureProfile({ profileId: 'none', profileSource: 'dev-cli', freeProfileEnv: '' }).expandedCapabilityDigest,
+        executionClass: 'runtime'
+      }
+    }),
+    /cannot be overridden by FSUSBLOG_FIXTURE_PROFILE/
+  )
+  assert.throws(
+    () => resolveFixtureProfile({
+      profileId: 'unknown-profile',
+      profileSource: 'dev-cli',
+      freeProfileEnv: ''
+    }),
+    /unknown fixture profile/
+  )
+  const live = resolveFixtureProfile({ profileId: 'public-minimal', profileSource: 'dev-cli', freeProfileEnv: '' })
+  assert.throws(
+    () => resolveFixtureProfile({
+      profileId: 'public-minimal',
+      profileSource: 'matrix',
+      freeProfileEnv: '',
+      sealed: {
+        fixtureProfileId: 'public-minimal',
+        fixtureCatalogDigest: 'sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+        expandedCapabilityDigest: live.expandedCapabilityDigest,
+        executionClass: live.executionClass
+      }
+    }),
+    /catalog digest drifted/
+  )
+  assert.throws(
+    () => resolveFixtureProfile({
+      profileId: 'public-minimal',
+      profileSource: 'matrix',
+      freeProfileEnv: '',
+      sealed: {
+        fixtureProfileId: 'public-minimal',
+        fixtureCatalogDigest: live.catalogDigest,
+        expandedCapabilityDigest: 'sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+        executionClass: live.executionClass
+      }
+    }),
+    /capability digest drifted/
+  )
+})
+
+test('planned and environment-ready receipts record profile identity', () => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'fixture-receipt-'))
+  try {
+    const plan = resolveFixtureProfile({ profileId: 'none', profileSource: 'dev-cli', freeProfileEnv: '' })
+    const planned = path.join(directory, 'planned-profile.json')
+    const fixtureReceipt = path.join(directory, 'fixture-receipt.json')
+    const ready = path.join(directory, 'environment-ready.json')
+    writeFixtureProfileReceipt(planned, plan, { kind: 'planned-profile' })
+    writeFixtureProfileReceipt(fixtureReceipt, plan, { kind: 'fixture-receipt', extra: { zeroData: true, mutations: [] } })
+    writeFixtureProfileReceipt(ready, JSON.parse(readFileSync(planned, 'utf8')), {
+      kind: 'environment-ready',
+      fixtureReceiptPath: fixtureReceipt,
+      fixtureReceiptDigest: `sha256:${Buffer.from('x').toString('hex').padStart(64, '0')}`
+    })
+    const readyJson = JSON.parse(readFileSync(ready, 'utf8'))
+    assert.equal(readyJson.profileId, 'none')
+    assert.equal(readyJson.profileSource, 'dev-cli')
+    assert.equal(readyJson.mutationPolicy, 'zero-mutation')
+    assert.ok(readyJson.catalogDigest.startsWith('sha256:'))
+    assert.deepEqual(readyJson.capabilityIds, [])
+    assert.deepEqual(readyJson.producerIds, [])
+    assert.equal(readyJson.fixtureReceiptPath, fixtureReceipt)
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('bootstrap and start entrypoints no longer hide default fixture injection', () => {
+  const start = readFileSync(path.join(root, 'tools/dev/start.sh'), 'utf8')
+  const bootstrap = readFileSync(path.join(root, 'tools/bootstrap-acceptance-env.sh'), 'utf8')
+  assert.doesNotMatch(start, /--seed-demo|SEED_DEMO/u)
+  assert.match(start, /FIXTURE_PROFILE="none"/u)
+  assert.match(start, /--fixture-profile/u)
+  assert.doesNotMatch(start, /preparing persistent local auth fixtures/u)
+  assert.match(bootstrap, /ResolveFixtureProfilePlan/u)
+  assert.match(bootstrap, /InvokeFixtureOrchestrator/u)
+  assert.doesNotMatch(bootstrap, /RESET_SECURITY_TEST_STATE="\$\{FSUSBLOG_RESET_SECURITY_TEST_STATE:-1\}"/u)
+  assert.doesNotMatch(bootstrap, /RESET_SECURITY_TEST_STATE=/u)
+  assert.match(bootstrap, /FIXTURE_REQUIRES_SECURITY_RESET/u)
+  // Unconditional PrepareFixtures() call must not remain in Main order after WaitForPowReady.
+  const main = bootstrap.slice(bootstrap.indexOf('Main()'), bootstrap.indexOf('if [[ "${FSUSBLOG_BOOTSTRAP_SOURCE_ONLY:-0}"'))
+  assert.doesNotMatch(main, /^\s*PrepareFixtures\s*$/mu)
+  assert.match(main, /InvokeFixtureOrchestrator/u)
+})
 
 test('generated profile document drift is rejected by the real check command', () => {
   const directory = mkdtempSync(path.join(tmpdir(), 'fixture-doc-drift-'))
