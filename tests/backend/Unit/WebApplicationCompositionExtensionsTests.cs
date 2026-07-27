@@ -623,7 +623,7 @@ public sealed class WebApplicationCompositionExtensionsTests
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
         Assert.Equal("br", context.Response.Headers["Content-Encoding"].ToString());
-        Assert.Equal("Accept-Encoding", context.Response.Headers["Vary"].ToString());
+        Assert.Equal("Accept-Encoding, Accept-Language, Cookie", context.Response.Headers["Vary"].ToString());
         Assert.Equal(artifact.BrotliETag, context.Response.Headers["ETag"].ToString());
         Assert.Equal(artifact.BrotliBytes.Length, context.Response.ContentLength);
         Assert.Equal(artifact.BrotliBytes.ToArray(), ((MemoryStream)context.Response.Body).ToArray());
