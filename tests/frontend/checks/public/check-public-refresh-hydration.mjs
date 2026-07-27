@@ -771,9 +771,16 @@ async function assertUnhydratedAotFallbackRouteCell(page, route) {
 }
 
 async function triggerFullSpaTakeover(page, expectedKind, expectedPath = null) {
-  await page.evaluate(() => {
-    window.dispatchEvent(new CustomEvent('fsus:public-shell:takeover'))
-  })
+  // Production path only: same-path public anchor click submits a typed navigate intent.
+  const pathname = expectedPath ?? new URL(page.url()).pathname
+  await page.evaluate((targetPath) => {
+    const anchor = document.createElement('a')
+    anchor.href = targetPath
+    anchor.setAttribute('data-public-link', 'same-path-activate')
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+  }, pathname)
 
   await page.waitForFunction(
     ({ kind, pathname }) => {
@@ -1021,8 +1028,14 @@ async function searchFromHome(page) {
   }
 
   if (!input) {
+    // Fallback: activate SPA via same-path public anchor (typed navigate intent), not retired events.
     await page.evaluate(() => {
-      window.dispatchEvent(new CustomEvent('fsus:public-shell:search-focus'))
+      const anchor = document.createElement('a')
+      anchor.href = '/'
+      anchor.setAttribute('data-public-link', 'same-path-activate')
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
     })
     await page.waitForFunction(
       () => {

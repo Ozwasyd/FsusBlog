@@ -3,8 +3,8 @@
     "generatedFrom": "source-state:eff760c96daa43fde5fac4c0721ddc61c1951689573731e82ae54e35b4eefafb",
     "sourceStateSha256": "eff760c96daa43fde5fac4c0721ddc61c1951689573731e82ae54e35b4eefafb",
     "configurationSha256": "178ff83b1d2e9e0fbb167309754c7a7db206085a41f2f106ce0460c248918f26",
-    "violationCount": 304283,
-    "fileCount": 1054,
+    "violationCount": 304240,
+    "fileCount": 1053,
     "files": [
         {
             "path": "src/frontend/public/sw.js",
@@ -795,19 +795,6 @@
                 "eslint/@stylistic/indent": 11,
                 "eslint/@stylistic/semi": 8,
                 "eslint/curly": 1
-            }
-        },
-        {
-            "path": "src/frontend/src/bootstrap/aotActionBridge.ts",
-            "sourceSha256": "a2ac5ca5ade68e5ee280e9ab6747b0e1477f9c06c59e69b5294c38e8d1b4b2d1",
-            "violationCount": 43,
-            "violationDigest": "d413469af98429c28d684de71c7ada168bc3b9abd8d3524ee8acb0f42c158936",
-            "rules": {
-                "eslint/@stylistic/brace-style": 7,
-                "eslint/@stylistic/indent": 20,
-                "eslint/@stylistic/semi": 13,
-                "eslint/@typescript-eslint/no-empty-function": 1,
-                "eslint/import-x/order": 2
             }
         },
         {

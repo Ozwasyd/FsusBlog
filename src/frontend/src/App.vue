@@ -5,7 +5,6 @@ import { useHead } from '@unhead/vue'
 
 import { syncStaticDocumentTitleOnLocaleChange, useSessionBootstrap } from '@/composables/useSessionBootstrap'
 import { useWindowEvents } from '@/composables/useWindowEvents'
-import { handleRootAotClick } from '@/bootstrap/aotActionBridge'
 import { createSessionExpiredNavigationHandler, SESSION_EXPIRED_EVENT } from '@/bootstrap/sessionExpiryBridge'
 import { ADMIN_LOGOUT_EVENT, createAdminLogoutNavigationHandler } from '@/bootstrap/adminLogoutBridge'
 import { runtimeActive } from '@/bootstrap/runtimeActivation'
@@ -113,10 +112,6 @@ function shouldHandleSpaAnchor(anchor: HTMLAnchorElement): boolean {
 }
 
 const onDocumentClick = (event: MouseEvent): void => {
-  if (!runtimeActive.value) {
-    void handleRootAotClick(event, router)
-  }
-
   if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
     return
   }

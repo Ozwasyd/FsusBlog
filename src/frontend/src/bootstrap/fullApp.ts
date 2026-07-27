@@ -211,7 +211,12 @@ function createPublicTakeoverRenderer(payload: PublicHydrationPayload): () => VN
   }
 
   const handleSearchFocus = (): void => {
-    window.dispatchEvent(new CustomEvent('fsus:public-shell:search-focus'))
+    // Dynamic import keeps FullApp free of a static cycle with the activation composition root.
+    void import('@/bootstrap/publicActivationRuntime')
+      .then(({ requestPublicSearchFocusIntent }) => {
+        requestPublicSearchFocusIntent()
+      })
+      .catch(() => {})
   }
 
   return (): VNode => {

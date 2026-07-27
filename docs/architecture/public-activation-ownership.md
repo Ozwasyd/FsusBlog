@@ -157,3 +157,24 @@ generation token, or abort controller.
 mechanics, but it does not select the top-level activation phase. The Router
 receives an activation-owner getter and does not import the browser activation
 composition root.
+
+## Intent capture ownership
+
+At any moment, one navigation-decision owner owns each intent class:
+
+| Lifecycle | Owner | Allowed intent surface |
+| --- | --- | --- |
+| Entry not loaded | BootKernel | Minimal `pointerdown` / `touchstart` / `keydown` / `scroll` listeners that inject the entry and write a one-shot handoff. |
+| Entry adopted handoff | BootKernel → destroy | BootKernel unbinds intent listeners and destroys handoff carriers; entry consumes the one-shot intent. |
+| Entry loaded, AOT owner | PublicActivation runtime via `publicShell.ts` capture | Single capture `click` for public AOT actions/links, plus pointerenter/focus route prewarm. Activation/navigation submits typed intents only. |
+| Committing | Coordinator | Freezes ownership transfer; later intents queue for interactive Router. |
+| Interactive | Vue Router / component handlers | SPA navigation, search submit, and component-local handlers. |
+| Fallback | Document navigation | Native/document navigation only; no retired JS takeover path. |
+
+Search focus is a typed UI intent: producers call
+`requestPublicSearchFocusIntent()` on `publicActivationRuntime`. Window
+CustomEvent bridges, dual root AOT click handlers, and parallel pointer/key
+activation listeners are forbidden. Progressive enhancement keeps native
+`<a href>`, modified clicks, downloads, external links, and document navigation
+when JavaScript fails; those are not compatibility layers and must not be
+implemented through a micro-router.

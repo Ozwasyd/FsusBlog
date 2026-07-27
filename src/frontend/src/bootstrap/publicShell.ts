@@ -581,31 +581,6 @@ function waitForDocumentInteractive(): Promise<void> {
   })
 }
 
-async function startPublicActivation(reason: 'pointerdown' | 'keydown' | 'scroll' | 'search-focus' | 'click'): Promise<void> {
-  clearDynamicIslands()
-  await submitPublicActivationIntent({
-    kind: 'activate',
-    source: reason,
-    target: currentPublicShellFullPath()
-  })
-}
-
-function schedulePublicActivation(reason: 'pointerdown' | 'keydown' | 'scroll' | 'search-focus' | 'click'): void {
-  if (getPublicActivationOwner() === 'full-app' || getPublicActivationOwner() === 'document-navigation') {
-    return
-  }
-
-  void startPublicActivation(reason).catch(() => {})
-}
-
-function bindPublicActivationTriggers(): void {
-  addPublicShellEventListener(window, 'fsus:public-shell:takeover', () => schedulePublicActivation('click'))
-  addPublicShellEventListener(window, 'fsus:public-shell:search-focus', () => {
-    requestPublicRoutePrewarm('/search', 'search-focus')
-    schedulePublicActivation('search-focus')
-  })
-}
-
 function isPublicMicroRoute(href: string): boolean {
   const target = new URL(href, window.location.origin)
   return isPublicSeoPath(target.pathname)
@@ -976,7 +951,6 @@ export async function bootstrapPublicShell(options: BootstrapPublicShellOptions 
     document.body.setAttribute('data-fsusblog-public-first-paint', 'true')
   }
   bindPreBootstrapNavigation()
-  bindPublicActivationTriggers()
   schedulePublicCoreIdleWarm()
   adoptPublicBootIntent(options.bootIntent ?? null)
   const hydrateTask = (async () => {

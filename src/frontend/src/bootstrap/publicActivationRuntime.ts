@@ -178,6 +178,29 @@ export function submitPublicActivationIntent(intent: PublicActivationIntent): Pr
   return coordinator.submitIntent(intent)
 }
 
+/**
+ * Typed search-focus UI intent.
+ * Prewarms `/search` and activates FullApp ownership on the current path.
+ * Only the AOT public shell surface may accept this intent; FullApp/document
+ * owners and direct SPA boots no-op. Never dispatches window CustomEvents.
+ */
+export function requestPublicSearchFocusIntent(): void {
+  if (getPublicActivationOwner() !== 'aot') {
+    return
+  }
+
+  if (typeof document !== 'undefined' && !document.querySelector('#fsus-aot-shell')) {
+    return
+  }
+
+  void warmPublicActivation('/search', 'search-focus').catch(() => {})
+  void submitPublicActivationIntent({
+    kind: 'activate',
+    source: 'search-focus',
+    target: currentTarget()
+  }).catch(() => {})
+}
+
 export function adoptPublicBootIntent(intent: PublicBootIntent | null): void {
   if (bootIntentAdopted || !intent) {
     return

@@ -18,7 +18,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useSessionBootstrap } from '@/composables/useSessionBootstrap'
 import { readPublicHydrationPayload } from '@/bootstrap/publicHydrationBootstrap'
 import { runtimeActive } from '@/bootstrap/runtimeActivation'
-import { publicActivationState } from '@/bootstrap/publicActivationRuntime'
+import { publicActivationState, requestPublicSearchFocusIntent } from '@/bootstrap/publicActivationRuntime'
 import PublicBlogLayoutShell from '@/components/public/PublicBlogLayoutShell.vue'
 import {
   isPublicSearchRouteName,
@@ -169,6 +169,6 @@ const handleNavigate = async (href: string): Promise<void> => {
 }
 
 const handleSearchFocus = (): void => {
-  window.dispatchEvent(new CustomEvent('fsus:public-shell:search-focus'))
+  requestPublicSearchFocusIntent()
 }
 </script>

@@ -64,4 +64,35 @@ describe('public activation browser composition', () => {
     expect(warmCore).toHaveBeenCalledWith('idle')
     expect(warm).toHaveBeenCalledWith('/archive', 'pointerenter')
   })
+
+  it('routes search focus through the typed intent API without window events', async () => {
+    document.body.innerHTML = '<div id="fsus-aot-shell"></div>'
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
+    const { requestPublicSearchFocusIntent } = await import('@/bootstrap/publicActivationRuntime')
+
+    requestPublicSearchFocusIntent()
+    await Promise.resolve()
+
+    expect(warm).toHaveBeenCalledWith('/search', 'search-focus')
+    expect(submitIntent).toHaveBeenCalledWith({
+      kind: 'activate',
+      source: 'search-focus',
+      target: '/article/7?from=boot#comments'
+    })
+    expect(dispatchSpy.mock.calls.some(([event]) => {
+      return event instanceof Event && typeof event.type === 'string' && event.type.startsWith('fsus:public-shell:')
+    })).toBe(false)
+    dispatchSpy.mockRestore()
+  })
+
+  it('ignores search focus outside the AOT public shell surface', async () => {
+    document.body.innerHTML = ''
+    const { requestPublicSearchFocusIntent } = await import('@/bootstrap/publicActivationRuntime')
+
+    requestPublicSearchFocusIntent()
+    await Promise.resolve()
+
+    expect(warm).not.toHaveBeenCalled()
+    expect(submitIntent).not.toHaveBeenCalled()
+  })
 })

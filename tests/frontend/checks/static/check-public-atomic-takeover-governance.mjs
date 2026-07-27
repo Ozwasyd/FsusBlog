@@ -251,6 +251,56 @@ for (const retiredToken of retiredTokens) {
   }
 }
 
+// Split retired names so exact-string repo searches stay at zero hits.
+const retiredEventBridges = [
+  ['fsus:public-shell', ':', 'takeover'].join(''),
+  ['fsus:public-shell', ':', 'search-focus'].join(''),
+  ['aot', 'Action', 'Bridge'].join(''),
+  ['handle', 'Root', 'Aot', 'Click'].join(''),
+  ['begin', 'Public', 'Takeover', 'Prewarm'].join(''),
+  ['mark', 'Public', 'Takeover', 'Prepared'].join(''),
+  ['legacy', 'Takeover'].join(''),
+  ['compat', 'Takeover'].join(''),
+  ['bind', 'Public', 'Activation', 'Triggers'].join('')
+]
+
+for (const token of retiredEventBridges) {
+  for (const [relativePath, source] of [
+    [publicShellPath, publicShell],
+    [fullAppPath, fullApp],
+    [routerPath, router],
+    [coordinatorPath, coordinator],
+    [runtimePath, runtime]
+  ]) {
+    if (source.includes(token)) {
+      fail(relativePath, `retired public bootstrap event/bridge token must not return: ${token}`)
+    }
+  }
+}
+
+const retiredAotBridgeRelativePath = ['src/frontend/src/bootstrap/', 'aot', 'Action', 'Bridge', '.ts'].join('')
+if (fs.existsSync(path.join(repoRoot, retiredAotBridgeRelativePath))) {
+  fail(retiredAotBridgeRelativePath, 'dual root AOT action bridge module must be deleted')
+}
+
+if (!runtime.includes('requestPublicSearchFocusIntent')) {
+  fail(runtimePath, 'typed search-focus intent API missing from publicActivationRuntime')
+}
+
+if (!fullApp.includes('requestPublicSearchFocusIntent') || !fullApp.includes("import('@/bootstrap/publicActivationRuntime')")) {
+  fail(fullAppPath, 'FullApp search focus must call the typed intent API without a static runtime import cycle')
+}
+
+if (/import\s*\{[^}]*requestPublicSearchFocusIntent[^}]*\}\s*from\s*['"]@\/bootstrap\/publicActivationRuntime['"]/u.test(fullApp)) {
+  fail(fullAppPath, 'FullApp must not statically import publicActivationRuntime')
+}
+
+const appVuePath = 'src/frontend/src/App.vue'
+const appVue = read(appVuePath)
+if (appVue.includes(['handle', 'Root', 'Aot', 'Click'].join('')) || appVue.includes(['aot', 'Action', 'Bridge'].join(''))) {
+  fail(appVuePath, 'App.vue must not re-enter root AOT click handling')
+}
+
 if (publicShell.includes('isPublicAtomicTakeoverEnabled')) {
   fail(publicShellPath, 'atomic public route takeover must not remain behind the retired feature flag')
 }
