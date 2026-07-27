@@ -82,11 +82,67 @@ The parser emits declarations and source locations only. Parse receipts use `fsu
 - pass/fail or qualification flags
 - `lastVerifiedCommit` or any self-proving baseline field
 
-Updating lifecycle `lastVerifiedCommit` alone cannot create DocClaim pass evidence. Observation comparison, prose verification, and generated sections are later consumers of this protocol; they are not part of the parse gate.
+Updating lifecycle `lastVerifiedCommit` alone cannot create DocClaim pass evidence. Observation comparison and prose verification are later consumers of this protocol; they are not part of the parse gate. Precise tabular facts use generated sections (below).
+
+## Generated fact sections
+
+`claimType: generated-section` binds a `generatedSectionId` to a deterministic Markdown region owned by the FactObservation renderer. Exact lists, tables, enums, routes, and transitions must not be hand-maintained as a second authority.
+
+### Marker protocol
+
+```md
+<!-- FSUSBLOG-GENERATED:BEGIN auth.permissions.all -->
+...generated Markdown...
+<!-- FSUSBLOG-GENERATED:END auth.permissions.all -->
+```
+
+- `sectionId` maps one catalog entry (and therefore one DocClaim/Behavior/fact path).
+- begin/end markers are paired, repository-unique per document, and non-nested.
+- Marker interiors are generator-owned; hand edits fail the next `--check`.
+- Exterior prose is never rewritten. Compatibility markers and dual registries are forbidden.
+
+### Catalog and RendererRegistry
+
+- Catalog: [`config/contracts/generated-fact-sections.json`](../../config/contracts/generated-fact-sections.json) (`fsusblog.generated-fact-section-catalog.v1`)
+- Schema: [`config/schemas/generated-fact-section-catalog.schema.json`](../../config/schemas/generated-fact-section-catalog.schema.json)
+- Engine: [`tools/docs/generated-fact-sections/`](../../tools/docs/generated-fact-sections/) and CLI [`tools/docs/generate-fact-sections.mjs`](../../tools/docs/generate-fact-sections.mjs)
+
+Admitted renderers only:
+
+```text
+scalar
+boolean
+enum-set
+ordered-set
+key-value-table
+transition-table
+failure-mode-table
+route-table
+dependency-graph-table
+```
+
+Renderers format only. They do not import business source, extractors, or tests. Business facts enter as sealed `FactObservationReceipt` values via the public receipt reader.
+
+### Determinism and `--check`
+
+- Fixed Unicode NFC, LF newlines, and ordinal sorting for unordered sets; ordered sets preserve observation order.
+- Every run re-renders from current receipts; old section bodies are never inputs.
+- `--check` compares repository bytes and performs zero writes. Any drift fails.
+- Observation `sourceCommit` / `worktreeFingerprint` / build identity must match the current worktree before generate writes.
+- Generate replaces only owned marker ranges and never mutates `lastVerifiedCommit` or document-lifecycle metadata.
+- No section digest baselines, allowlists, warning-only modes, or feature flags.
+
+```bash
+node tools/docs/generate-fact-sections.mjs --check --receipt path/to/receipt.json
+node tools/docs/generate-fact-sections.mjs --generate --receipt path/to/receipt.json
+node --test tests/tools/generated-fact-sections.test.mjs
+```
 
 ## Verification
 
 ```bash
 node tools/docs/check-doc-claim.mjs
 node --test tests/tools/doc-claim.test.mjs
+node tools/docs/generate-fact-sections.mjs --check
+node --test tests/tools/generated-fact-sections.test.mjs
 ```

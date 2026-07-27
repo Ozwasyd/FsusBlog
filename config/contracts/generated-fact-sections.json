@@ -1,0 +1,6 @@
+{
+  "schema": "fsusblog.generated-fact-section-catalog.v1",
+  "digestAlgorithm": "sha256",
+  "canonicalSerialization": "json-utf8-v1",
+  "sections": []
+}
