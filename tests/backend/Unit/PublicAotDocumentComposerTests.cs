@@ -26,9 +26,12 @@ public sealed class PublicAotDocumentComposerTests
             AedsPayload(("pageKind", "Home"), ("routeKey", "home")),
             string.Empty,
             "/assets/fsus-spa-entry.js",
-            "    <link rel=\"stylesheet\" href=\"/assets/public-page-a.css\" data-fsusblog-style=\"public-manifest\" />"));
+            "    <link rel=\"stylesheet\" href=\"/assets/public-page-a.css\" data-fsusblog-style=\"public-manifest\" />",
+            UsesSourceAssets: false,
+            FrontendBuildIdentity: "release-build"));
 
         Assert.Contains("/assets/fsus-spa-entry.js", html);
+        Assert.Contains("\"frontendBuildIdentity\":\"release-build\"", html);
         Assert.Contains("/assets/public-page-a.css", html);
         Assert.DoesNotContain("/assets/index-old.js\" type=\"module\"", html);
         Assert.Contains("fsus-aot-bootstrap", html);
@@ -358,56 +361,75 @@ public sealed class PublicAotDocumentComposerTests
     }
 
     [Fact]
-    public void BuildDeferredSpaBootScript_WithExplicitOverride_ReturnsScriptTag()
+    public void BuildPublicBootMarkup_WithExplicitOverride_ReturnsConfigAndKernel()
     {
-        string result = PublicAotDocumentComposer.BuildDeferredSpaBootScript("<html></html>", "/assets/entry.js");
-        Assert.Contains("fsus-spa-boot", result);
+        string result = PublicAotDocumentComposer.BuildPublicBootMarkup(
+            "<html></html>",
+            "/assets/entry.js",
+            frontendBuildIdentity: "release-build");
+        Assert.Contains("fsus-public-boot-config", result);
         Assert.Contains("/assets/entry.js", result);
-        Assert.Contains("createPolicy('fsusblog-spa-entry'", result);
-        Assert.Contains("if (!trustedModuleSources.has(value))", result);
-        Assert.Contains("script.src = trustedEntrySrc", result);
-        Assert.Contains("preload.href = toTrustedModuleUrl(href)", result);
-        Assert.DoesNotContain("script.src = entrySrc", result);
+        Assert.Contains("\"frontendBuildIdentity\":\"release-build\"", result);
+        Assert.Contains("/assets/fsus-public-boot-kernel.js", result);
+        Assert.DoesNotContain("requestIdleCallback", result);
+        Assert.DoesNotContain("createPolicy", result);
+        Assert.DoesNotContain(" nonce=", result);
     }
 
     [Fact]
-    public void BuildDeferredSpaBootScript_WithDevTemplate_PrefersSourceEntryOverProductionOverride()
+    public void BuildPublicBootMarkup_CspNonceIsOwnedByArtifactCompiler()
+    {
+        string markup = PublicAotDocumentComposer.BuildPublicBootMarkup(
+            "<html></html>",
+            "/assets/entry.js",
+            frontendBuildIdentity: "release-build");
+
+        CspNonceUtf8Template template = Assert.IsType<CspNonceUtf8Template>(
+            CspNonceUtf8Template.Compile(
+                $"<html><head></head><body>{markup}</body></html>",
+                "public-boot:test"));
+
+        Assert.DoesNotContain(" nonce=", markup);
+        Assert.Equal(3, template.SlotCount);
+        Assert.Contains(
+            CspNonceUtf8Template.Placeholder,
+            System.Text.Encoding.UTF8.GetString(template.IntegrityBytes.Span));
+    }
+
+    [Fact]
+    public void BuildPublicBootMarkup_WithDevTemplate_PrefersSourceEntryOverProductionOverride()
     {
         string template = Template(
             headMarkup: "<script type=\"module\" src=\"/src/bootstrap/preTheme.ts\"></script>",
             spaScript: "<script type=\"module\" src=\"/src/bootstrap/entry.ts\"></script>");
 
-        string result = PublicAotDocumentComposer.BuildDeferredSpaBootScript(template, "/assets/fsus-spa-entry.js");
+        string result = PublicAotDocumentComposer.BuildPublicBootMarkup(template, "/assets/fsus-spa-entry.js", usesSourceAssets: true);
 
-        Assert.Contains("data-fsusblog-spa-entry=\"/src/bootstrap/entry.ts\"", result);
-        Assert.Contains("const entrySrc = \"/src/bootstrap/entry.ts\";", result);
+        Assert.Contains("\"entryUrl\":\"/src/bootstrap/entry.ts\"", result);
+        Assert.Contains("/src/bootstrap/publicBootKernel.ts", result);
         Assert.DoesNotContain("/assets/fsus-spa-entry.js", result);
         Assert.DoesNotContain("preTheme.ts", result);
     }
 
     [Fact]
-    public void BuildDeferredSpaBootScript_WithTakeoverAssets_DefersPreloadsUntilIdleOrIntent()
+    public void BuildPublicBootMarkup_WithTakeoverAssets_OnlySerializesData()
     {
-        string result = PublicAotDocumentComposer.BuildDeferredSpaBootScript(
+        string result = PublicAotDocumentComposer.BuildPublicBootMarkup(
             "<html></html>",
             "/assets/entry.js",
             ["/assets/full-app-core.js", "/assets/vendor-element-plus.js"],
             ["/assets/full-app-core.css"]);
 
-        Assert.Contains("const takeoverModulePreloads = [\"/assets/full-app-core.js\",\"/assets/vendor-element-plus.js\"]", result);
-        Assert.Contains("const takeoverStylesheets = [\"/assets/full-app-core.css\"]", result);
-        Assert.Contains("requestIdleCallback", result);
-        Assert.Contains("window.addEventListener('pointerdown', onIntent", result);
-        Assert.Contains("warmPreload();", result);
-        Assert.DoesNotContain("rel = 'preload'", result);
-        Assert.DoesNotContain("as = 'style'", result);
-        Assert.DoesNotContain("window.requestAnimationFrame(() => {\n        warmPreload();", result);
+        Assert.Contains("\"coreModulePreloads\":[\"/assets/full-app-core.js\",\"/assets/vendor-element-plus.js\"]", result);
+        Assert.Contains("\"takeoverStylesheets\":[\"/assets/full-app-core.css\"]", result);
+        Assert.DoesNotContain("requestIdleCallback", result);
+        Assert.DoesNotContain("pointerdown", result);
     }
 
     [Fact]
-    public void BuildDeferredSpaBootScript_NoEntryScript_ReturnsEmpty()
+    public void BuildPublicBootMarkup_NoEntryScript_ReturnsEmpty()
     {
-        string result = PublicAotDocumentComposer.BuildDeferredSpaBootScript("<html></html>", null);
+        string result = PublicAotDocumentComposer.BuildPublicBootMarkup("<html></html>", null);
         Assert.Equal(string.Empty, result);
     }
 

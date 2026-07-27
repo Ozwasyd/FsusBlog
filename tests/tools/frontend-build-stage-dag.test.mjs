@@ -14,6 +14,7 @@ const {
 const {
     createFrontendBuildStages,
     prepareFrontendBuildOutputRoot,
+    renderStablePublicBootKernelAlias,
     renderStableSpaEntryAlias
 } = await import(pathToFileURL(path.join(repositoryRoot, 'tools/frontend/build.mjs')).href);
 
@@ -151,6 +152,7 @@ test('release build declares independent prebuild stages and explicit postbuild 
     assert.equal(byId.has('assemble-run-bound-public-shell-emergency'), false);
     assert.equal(byId.has('sync-stable-spa-entry'), false);
     assert.ok(byId.get('vite-build').producedArtifacts.some((entry) => entry.endsWith('/assets/fsus-spa-entry.js')));
+    assert.ok(byId.get('vite-build').producedArtifacts.some((entry) => entry.endsWith('/assets/fsus-public-boot-kernel.js')));
     assert.ok(byId.get('vite-public-ssr-build').producedArtifacts.some((entry) => entry.endsWith('/server/public-shell-emergency.css')));
     assert.deepEqual(byId.get('sync-backend-wwwroot').dependsOn, [
         'vite-build',
@@ -241,6 +243,18 @@ test('stable SPA entry preserves the hashed entry as the only module identity', 
     assert.throws(
         () => renderStableSpaEntryAlias('../index-escape.js'),
         /stable spa entry alias target is invalid/u
+    );
+});
+
+test('stable public BootKernel entry preserves the hashed kernel as the only module identity', () =>
+{
+    assert.equal(
+        renderStablePublicBootKernelAlias('publicBootKernel-Abc_123.js'),
+        "import './publicBootKernel-Abc_123.js';\n"
+    );
+    assert.throws(
+        () => renderStablePublicBootKernelAlias('../publicBootKernel-escape.js'),
+        /stable public boot kernel alias target is invalid/u
     );
 });
 

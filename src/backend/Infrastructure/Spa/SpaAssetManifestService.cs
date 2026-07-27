@@ -126,10 +126,6 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         "full-app-core",
         "vendor-element-plus",
         "vendor-progress",
-        "route-user",
-        "route-admin",
-        "route-auth",
-        "route-error",
         "index",
         "main"
     ];
@@ -272,7 +268,10 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
                 sourceStylesheets,
                 [],
                 GetFrontendAssetVersion(context),
-                UsesSourceAssets: true);
+                UsesSourceAssets: true)
+            {
+                FrontendBuildIdentity = ReleaseIdContract.LocalSentinel
+            };
         }
 
         LoadManifest();
@@ -572,6 +571,7 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
             frontendAssetVersion,
             UsesSourceAssets: false)
         {
+            FrontendBuildIdentity = _releaseIdentity.Current.ReleaseId,
             FullAppTakeover = new FullAppTakeoverAssetSet(
                 PickFullAppTakeoverModulePreloads(manifest),
                 PickFullAppTakeoverStylesheets(manifest, publicStylesheets)),

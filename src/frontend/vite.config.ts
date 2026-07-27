@@ -665,6 +665,10 @@ export default defineConfig(({ command, mode }) => {
             // 针对大型项目优化块大小
             chunkSizeWarningLimit: 650,
             rolldownOptions: {
+                input: {
+                    index: path.resolve(FRONTEND_ROOT, 'index.html'),
+                    publicBootKernel: path.resolve(FRONTEND_ROOT, 'src/bootstrap/publicBootKernel.ts')
+                },
                 onwarn(warning, warn) {
                     if (shouldIgnoreBuildWarning(warning)) {
                         return

@@ -1718,7 +1718,7 @@ AOT document cache entry 必须记录 hydration sidecar 的 URL、SHA-256 和相
     - `<!--fsus:aot:head-end-->`：SEO/head 注入终点。
     - `<!--fsus:aot:app-->`：SPA/AOT shell 挂载点。
     - `<!--fsus:aot:payloads-->`：bootstrap AEDS 注入点与 hydration `.aeds` sidecar marker 注入点。
-    - `<!--fsus:aot:spa-boot-->`：deferred SPA boot 注入点。
+    - `<!--fsus:aot:spa-boot-->`：PublicBootConfig 与外部 BootKernel 注入点。
 - 由 Public AOT 管理的 SEO head 节点必须带 `data-fsus-aot-head`，包括 `<title>` 和 `script[data-fsus-seo-head-model]`。HTML、navigation snapshot 和 SPA takeover 必须使用 `PublicSeoHeadModel` 同一语义实例；不得由客户端从 route meta 另行拼接 canonical、OG、Twitter 或 JSON-LD。新增 sentinel/head 字段必须同步 `src/backend/Infrastructure/PublicAot/PublicAotDocumentComposer.cs`、`docs/api/design.md` 和 `tests/frontend/checks/public/check-public-aot-contracts.mjs`。
 - 含 `<head>`、inline `script` 或 inline `style` 的 document 在 publication/decode 阶段编译 CSP nonce UTF-8 segment template。模板绑定 renderer version、frontend asset version、artifact ETag/digest；请求只写预计算 segment/slot，不重新扫描或生成完整 rendered string/byte array。malformed/重复 nonce、预渲染 `csp-nonce` meta、原始 placeholder、重复 head、非法 self-closing marker、非法 unquoted attribute、带属性的 executable closing tag、未闭合或自闭合 script/style 必须 fail closed。writer 在首字节及 segment/slot 边界传播 request cancellation；预取消请求的 response pipe 必须保持零 `Advance`、零 flush。
 - nonce document 响应固定为 identity、`Cache-Control: private,no-store`、无 `Content-Encoding`、无 `ETag`/`304`；`Accept-Encoding` 明确 `identity;q=0` 时返回 406。无 nonce document 继续使用预生成 identity/br/gzip variant 与各自 strong ETag。HEAD 只返回按实际随机 nonce 长度计算的 Content-Length，不写 body。

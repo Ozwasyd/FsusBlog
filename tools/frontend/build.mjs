@@ -59,6 +59,7 @@ const publicRoot = join(clientRoot, 'public');
 const frontendWasmRoot = resolve(process.env.FSUSBLOG_FRONTEND_WASM_ROOT || join(publicRoot, 'wasm'));
 const backendWebRoot = resolve(process.env.FSUSBLOG_BACKEND_WEBROOT || join(clientRoot, '..', 'backend', 'wwwroot'));
 const stableSpaEntryName = 'fsus-spa-entry.js';
+const stablePublicBootKernelName = 'fsus-public-boot-kernel.js';
 const managedDistEntries = ['.vite', 'assets', 'dist', 'favicon.svg', 'generated', 'index.html', 'server', 'sw.js', 'vite.svg', 'wasm'];
 const fsusUiMarkdownRuntimeAssets = [
     'markdown_simd.js',
@@ -395,6 +396,21 @@ async function syncStableSpaEntryAlias()
     log(`synced stable spa entry alias ${stableSpaEntryName} -> ${entryCandidates[0]}`);
 }
 
+async function syncStablePublicBootKernelAlias()
+{
+    const assetFiles = await readdir(distAssetsDir, { withFileTypes: true });
+    const entry = assetFiles
+        .filter((candidate) => candidate.isFile() && /^publicBootKernel-[A-Za-z0-9_-]+\.js$/iu.test(candidate.name))
+        .map((candidate) => candidate.name)
+        .sort()[0];
+    if (!entry)
+    {
+        throw new Error('stable public boot kernel alias sync failed: missing built publicBootKernel asset');
+    }
+    await writeFile(join(distAssetsDir, stablePublicBootKernelName), renderStablePublicBootKernelAlias(entry), 'utf8');
+    log(`synced stable public boot kernel alias ${stablePublicBootKernelName} -> ${entry}`);
+}
+
 export function renderStableSpaEntryAlias(entryName)
 {
     if (!/^index-[A-Za-z0-9_-]+\.js$/iu.test(entryName))
@@ -406,6 +422,15 @@ export function renderStableSpaEntryAlias(entryName)
     // split chunks then evaluate both URLs, duplicating application bootstrap and
     // module-private Trusted Types policy creation. Keep the stable URL as a tiny
     // redirect module so the hashed entry remains the single module identity.
+    return `import './${entryName}';\n`;
+}
+
+export function renderStablePublicBootKernelAlias(entryName)
+{
+    if (!/^publicBootKernel-[A-Za-z0-9_-]+\.js$/iu.test(entryName))
+    {
+        throw new Error(`stable public boot kernel alias target is invalid: ${String(entryName)}`);
+    }
     return `import './${entryName}';\n`;
 }
 
@@ -585,7 +610,8 @@ export function createFrontendBuildStages(generatedArgs, generatedAction, {
             consumedInputs: ['src', 'public'],
             producedArtifacts: [
                 join(stageDistRoot, 'index.html'),
-                join(stageDistAssetsDir, stableSpaEntryName)
+                join(stageDistAssetsDir, stableSpaEntryName),
+                join(stageDistAssetsDir, stablePublicBootKernelName)
             ],
             ownedOutputs: [join(stageDistRoot, 'index.html'), join(stageDistRoot, 'assets')],
             resources: buildStageResources(4, 4, 1.5, ['frontend-dist-client']),
@@ -711,6 +737,7 @@ async function executeFrontendBuildStage(stage, context)
     if (stage.id === 'vite-build')
     {
         await syncStableSpaEntryAlias();
+        await syncStablePublicBootKernelAlias();
     }
 }
 

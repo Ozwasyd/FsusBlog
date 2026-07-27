@@ -27,4 +27,6 @@ public sealed record class SpaAssetSet(
     // Keep it explicit so diagnostics cannot accidentally describe a manifest-only
     // identity as an asset-set identity.
     public string AssetSetDigest { get; init; } = string.Empty;
+
+    public string FrontendBuildIdentity { get; init; } = "missing-manifest";
 }

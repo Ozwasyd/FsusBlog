@@ -26,7 +26,9 @@ internal sealed record class PublicAotDocumentModel(
     string HydrationPropsPayload,
     string IslandsPayload,
     string SpaEntryScript,
-    string HeadLinks)
+    string HeadLinks,
+    bool UsesSourceAssets = false,
+    string FrontendBuildIdentity = "missing-manifest")
 {
     public FullAppTakeoverAssetSet FullAppTakeover { get; init; } = FullAppTakeoverAssetSet.Empty;
 
@@ -588,22 +590,24 @@ internal static class PublicAotDocumentComposer
         string hydrationScript = string.IsNullOrWhiteSpace(model.HydrationPropsPayload)
             ? string.Empty
             : BuildBinaryPayloadSidecarMarker("fsus-aot-hydration-props", model.HydrationPropsPayload);
-        string deferredSpaBoot = BuildDeferredSpaBootScript(
+        string publicBootMarkup = BuildPublicBootMarkup(
             model.RawTemplate,
             model.SpaEntryScript,
             model.FullAppTakeover.ModulePreloads,
-            model.FullAppTakeover.Stylesheets);
+            model.FullAppTakeover.Stylesheets,
+            model.FrontendBuildIdentity,
+            model.UsesSourceAssets);
 
         string payloadScripts = string.Join(
             "\n    ",
             new[] { bootstrapScript, hydrationScript }.Where(static script => !string.IsNullOrWhiteSpace(script)));
 
         html = html.Replace(AotPayloadsSentinel, payloadScripts, StringComparison.Ordinal);
-        html = html.Replace(AotSpaBootSentinel, deferredSpaBoot, StringComparison.Ordinal);
+        html = html.Replace(AotSpaBootSentinel, publicBootMarkup, StringComparison.Ordinal);
 
         return html.Contains(BodyClose, StringComparison.Ordinal)
             ? html
-            : html + payloadScripts + deferredSpaBoot;
+            : html + payloadScripts + publicBootMarkup;
     }
 
     private static string BuildAotManagedHead(PublicAotDocumentModel model)
@@ -742,189 +746,47 @@ internal static class PublicAotDocumentComposer
 </script>
 """;
 
-    internal static string BuildDeferredSpaBootScript(
+    internal static string BuildPublicBootMarkup(
         string template,
         string? entryScriptOverride = null,
         IReadOnlyList<string>? takeoverModulePreloads = null,
-        IReadOnlyList<string>? takeoverStylesheets = null)
+        IReadOnlyList<string>? takeoverStylesheets = null,
+        string frontendBuildIdentity = "missing-manifest",
+        bool usesSourceAssets = false)
     {
         string templateEntryScriptSrc = TryExtractSpaEntryScriptSrc(template);
-        string entryScriptSrc = ResolveDeferredSpaEntryScript(templateEntryScriptSrc, entryScriptOverride);
+        string entryScriptSrc = ResolvePublicBootEntryScript(templateEntryScriptSrc, entryScriptOverride);
         if (string.IsNullOrWhiteSpace(entryScriptSrc))
         {
             return string.Empty;
         }
 
-        string encodedSrc = JavaScriptEncoder.Default.Encode(entryScriptSrc);
-        string encodedModulePreloads = BuildJavaScriptStringArray(takeoverModulePreloads);
-        string encodedStylesheets = BuildJavaScriptStringArray(takeoverStylesheets);
-        return $@"<script id=""fsus-spa-boot"" data-fsusblog-spa-entry=""{Encode(entryScriptSrc)}"">
-  (() => {{
-    const entrySrc = ""{encodedSrc}"";
-    const takeoverModulePreloads = {encodedModulePreloads};
-    const takeoverStylesheets = {encodedStylesheets};
-    const trustedModuleSources = new Set([entrySrc, ...takeoverModulePreloads]);
-    const toTrustedModuleUrl = (() => {{
-      const factory = window.trustedTypes;
-      if (!factory || typeof factory.createPolicy !== 'function') {{
-        return (value) => value;
-      }}
-      const policy = factory.createPolicy('fsusblog-spa-entry', {{
-        createScriptURL: (value) => {{
-          if (!trustedModuleSources.has(value)) {{
-            throw new TypeError('fsusblog_spa_entry_url_rejected');
-          }}
-          return value;
-        }}
-      }});
-      return (value) => policy.createScriptURL(value);
-    }})();
-    const trustedEntrySrc = toTrustedModuleUrl(entrySrc);
-    const mark = (name) => {{
-      try {{
-        if (window.performance && typeof window.performance.mark === 'function') {{
-          window.performance.mark('fsus:start:' + name);
-        }}
-      }} catch (e) {{
-        // performance.mark may throw when the name exceeds browser limits
-        // or the API is blocked by an extension. Degrade silently.
-      }}
-    }};
-
-        const readBinaryPayloadText = (id) => {{
-            const script = document.getElementById(id);
-            const text = script?.textContent?.trim();
-            return text && text.length > 0 ? text : null;
-        }};
-
-        window.__FSUS_PUBLIC_AOT_BOOTSTRAP_RAW__ = readBinaryPayloadText('fsus-aot-bootstrap');
-        window.__FSUS_PUBLIC_HYDRATION_RAW__ = readBinaryPayloadText('fsus-aot-hydration-props');
-
-    let preloadWarmed = false;
-    let injectScheduled = false;
-    let forcedInjectTimer = 0;
-
-    const appendHeadLink = (selector, configure) => {{
-      if (document.querySelector(selector)) {{
-        return;
-      }}
-
-      const link = document.createElement('link');
-      configure(link);
-      (document.head || document.body).appendChild(link);
-    }};
-
-    const warmPreload = () => {{
-      if (preloadWarmed) {{
-        return;
-      }}
-      preloadWarmed = true;
-
-      [entrySrc, ...takeoverModulePreloads].forEach((href) => {{
-        if (!href) {{
-          return;
-        }}
-
-        appendHeadLink('link[rel=""modulepreload""][href=""' + href + '""]', (preload) => {{
-          preload.rel = 'modulepreload';
-          preload.crossOrigin = 'anonymous';
-          preload.href = toTrustedModuleUrl(href);
-          preload.fetchPriority = 'low';
-          preload.dataset.fsusblogSpaPreload = 'deferred';
-        }});
-      }});
-      mark('server-spa-preload');
-    }};
-
-    const activateTakeoverStyles = () => {{
-      takeoverStylesheets.forEach((href) => {{
-        if (!href) {{
-          return;
-        }}
-
-        appendHeadLink('link[rel=""stylesheet""][href=""' + href + '""]', (stylesheet) => {{
-          stylesheet.rel = 'stylesheet';
-          stylesheet.href = href;
-          stylesheet.dataset.fsusblogSpaStyle = 'deferred';
-        }});
-      }});
-    }};
-
-    const loadSpaEntry = () => {{
-      injectScheduled = false;
-      if (document.querySelector('script[data-fsusblog-spa-entry][src=""' + entrySrc + '""]') ||
-          document.querySelector('script[type=""module""][src=""' + entrySrc + '""]')) {{
-        return;
-      }}
-
-      mark('server-spa-entry-injected');
-      warmPreload();
-      activateTakeoverStyles();
-      const script = document.createElement('script');
-      script.type = 'module';
-      script.crossOrigin = 'anonymous';
-      script.src = trustedEntrySrc;
-      script.dataset.fsusblogSpaEntry = 'deferred';
-      document.body.appendChild(script);
-    }};
-
-    const scheduleInject = () => {{
-      if (injectScheduled) {{
-        return;
-      }}
-      injectScheduled = true;
-
-      if ('requestIdleCallback' in window) {{
-        window.requestIdleCallback((deadline) => {{
-          if (!deadline.didTimeout && deadline.timeRemaining() < 8) {{
-            window.setTimeout(loadSpaEntry, 96);
-            return;
-          }}
-          loadSpaEntry();
-        }}, {{ timeout: 1200 }});
-        return;
-      }}
-
-      window.setTimeout(loadSpaEntry, 96);
-    }};
-
-    const scheduleForcedInject = () => {{
-      if (forcedInjectTimer) {{
-        return;
-      }}
-
-      forcedInjectTimer = window.setTimeout(() => {{
-        warmPreload();
-        loadSpaEntry();
-      }}, 1800);
-    }};
-
-    const onIntent = () => {{
-      warmPreload();
-      scheduleInject();
-    }};
-
-    window.addEventListener('pointerdown', onIntent, {{ once: true, passive: true }});
-    window.addEventListener('touchstart', onIntent, {{ once: true, passive: true }});
-    window.addEventListener('keydown', onIntent, {{ once: true }});
-    window.addEventListener('scroll', onIntent, {{ once: true, passive: true }});
-
-    const kickoff = () => {{
-      window.requestAnimationFrame(() => {{
-        scheduleInject();
-        scheduleForcedInject();
-      }});
-    }};
-
-    if (document.readyState === 'interactive' || document.readyState === 'complete') {{
-      kickoff();
-      return;
-    }}
-
-    document.addEventListener('DOMContentLoaded', kickoff, {{ once: true }});
-  }})();
-</script>";
+        var config = new PublicBootConfig(
+            "fsusblog.public-boot-config.v1",
+            frontendBuildIdentity,
+            entryScriptSrc,
+            NormalizeAssetList(takeoverModulePreloads),
+            NormalizeAssetList(takeoverStylesheets));
+        string json = JsonSerializer.Serialize(config, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            Encoder = JavaScriptEncoder.Default
+        });
+        string kernelSrc = usesSourceAssets
+            ? "/src/bootstrap/publicBootKernel.ts"
+            : "/assets/fsus-public-boot-kernel.js";
+        return $"<script id=\"fsus-public-boot-config\" type=\"application/json\">{json}</script>\n<script type=\"module\" src=\"{Encode(kernelSrc)}\" data-fsusblog-public-boot-kernel></script>";
     }
+
+    private sealed record PublicBootConfig(
+        string Schema,
+        string FrontendBuildIdentity,
+        string EntryUrl,
+        IReadOnlyList<string> CoreModulePreloads,
+        IReadOnlyList<string> TakeoverStylesheets);
+
+    private static IReadOnlyList<string> NormalizeAssetList(IReadOnlyList<string>? values)
+        => values is null ? [] : values.Where(static value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.Ordinal).ToArray();
 
     internal static string EnsureShellRoot(string html, PublicPageKind kind)
     {
@@ -1083,7 +945,7 @@ internal static class PublicAotDocumentComposer
         return string.Empty;
     }
 
-    private static string ResolveDeferredSpaEntryScript(string templateEntryScriptSrc, string? entryScriptOverride)
+    private static string ResolvePublicBootEntryScript(string templateEntryScriptSrc, string? entryScriptOverride)
     {
         if (IsDevelopmentSourceEntryScriptSrc(templateEntryScriptSrc))
         {
@@ -1211,33 +1073,6 @@ internal static class PublicAotDocumentComposer
 
     private static string Sha256Hex(ReadOnlySpan<byte> value)
         => Convert.ToHexStringLower(SHA256.HashData(value));
-
-    private static string BuildJavaScriptStringArray(IReadOnlyList<string>? values)
-    {
-        if (values is null || values.Count == 0)
-        {
-            return "[]";
-        }
-
-        var builder = new System.Text.StringBuilder(values.Count * 32);
-        builder.Append('[');
-        bool first = true;
-        foreach (string value in values.Where(static item => !string.IsNullOrWhiteSpace(item)).Distinct(StringComparer.Ordinal))
-        {
-            if (!first)
-            {
-                builder.Append(',');
-            }
-
-            first = false;
-            builder.Append('"');
-            builder.Append(JavaScriptEncoder.Default.Encode(value));
-            builder.Append('"');
-        }
-
-        builder.Append(']');
-        return builder.ToString();
-    }
 
     private static string Encode(string? value)
         => WebUtility.HtmlEncode(value ?? string.Empty);

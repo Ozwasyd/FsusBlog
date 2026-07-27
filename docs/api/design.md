@@ -645,7 +645,7 @@ Public AOT document composer 只允许通过以下 5 个具名 sentinel 写入 A
 | `<!--fsus:aot:head-end-->` | SEO/head 注入终点 |
 | `<!--fsus:aot:app-->` | SPA/AOT shell 挂载点 |
 | `<!--fsus:aot:payloads-->` | bootstrap AEDS 注入点与 hydration `.aeds` sidecar marker 注入点 |
-| `<!--fsus:aot:spa-boot-->` | deferred SPA boot 注入点 |
+| `<!--fsus:aot:spa-boot-->` | PublicBootConfig 与外部 BootKernel 注入点 |
 
 模板缺少任一 sentinel 必须失败而不是静默降级。AOT 负责维护的 `<title>`、description、robots、canonical、Open Graph、Twitter、feed、JSON-LD 和 head-model marker 必须统一带 `data-fsus-aot-head`。服务端 document composer 与 navigation snapshot 都消费 `PublicSeoHeadModel`；客户端只能在 contract schema/version、SHA-256 digest、同源 canonical、canonical path 和 page entity 全部校验后，将整组节点一次性替换。旧节点必须先作为同一历史 route 的回退模型保留，再整体移除，不允许逐字段叠加或让文章 canonical/JSON-LD 泄漏到非公开应用路由。
 

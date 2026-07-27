@@ -43,6 +43,7 @@ public sealed class SpaAssetManifestServiceTests
                 href => Assert.Equal("/src/assets/public-page.css?direct", href));
             Assert.Equal("dev-source-assets", assets.FrontendAssetVersion);
             Assert.Empty(assets.AssetSetDigest);
+            Assert.Equal(ReleaseIdContract.LocalSentinel, assets.FrontendBuildIdentity);
         }
         finally
         {
@@ -131,6 +132,10 @@ public sealed class SpaAssetManifestServiceTests
             Assert.Contains("/assets/vendor-element-plus-a.css", assets.FullAppTakeover.Stylesheets);
             Assert.Contains("/assets/full-app-core-a.css", assets.FullAppTakeover.Stylesheets);
             Assert.NotEqual("missing-manifest", assets.FrontendAssetVersion);
+            Assert.Equal("local-unversioned", assets.FrontendBuildIdentity);
+            Assert.DoesNotContain(
+                assets.FullAppTakeover.Stylesheets,
+                static href => href.Contains("route-", StringComparison.OrdinalIgnoreCase));
             Assert.Equal(Path.Combine(root, "local-unversioned", "index.html"), service.GetIndexTemplatePath());
             SpaAssetManifestReadiness readiness = service.GetReadiness();
             Assert.Equal("ok", readiness.Status);

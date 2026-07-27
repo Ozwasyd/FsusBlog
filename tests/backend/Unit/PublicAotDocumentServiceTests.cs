@@ -594,7 +594,10 @@ public sealed class PublicAotDocumentServiceTests
                     stylesheets,
                     [],
                     "dev-source-assets",
-                    UsesSourceAssets: true);
+                    UsesSourceAssets: true)
+                {
+                    FrontendBuildIdentity = "local-unversioned"
+                };
             }
 
             return new SpaAssetSet(
@@ -604,6 +607,7 @@ public sealed class PublicAotDocumentServiceTests
                     "prod-manifest",
                     UsesSourceAssets: false)
             {
+                FrontendBuildIdentity = "20260727150000-a62dca66e6e8",
                 FullAppTakeover = new FullAppTakeoverAssetSet(
                         ["/assets/full-app-core-prod.js"],
                         ["/assets/route-admin-moderation-prod.css"])

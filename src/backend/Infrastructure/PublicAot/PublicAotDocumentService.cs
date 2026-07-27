@@ -98,7 +98,9 @@ public sealed class PublicAotDocumentService(
                 hydrationPayload,
                 NormalizeOptionalText(entry.IslandsPayload ?? string.Empty, entry.ArticleId),
                 assetSet.EntryScript,
-                headLinks)
+                headLinks,
+                assetSet.UsesSourceAssets,
+                assetSet.FrontendBuildIdentity)
             {
                 FullAppTakeover = assetSet.FullAppTakeover,
                 ArticleSeo = seoContext.ArticleSeo,
