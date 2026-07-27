@@ -588,7 +588,10 @@ internal static class PublicAotDocumentComposer
             AotHeadEndSentinel,
             BuildAotManagedHead(model),
             "head");
-        html = html.Replace(AotAppSentinel, model.ShellHtml, StringComparison.Ordinal);
+        // Collapse template whitespace around the app sentinel so #app contains
+        // only the shell root element. Client hydration must not pre-delete
+        // whitespace text nodes before Vue compares the tree.
+        html = InjectAppShell(html, model.ShellHtml);
 
         if (!string.IsNullOrWhiteSpace(model.HeadLinks))
         {
@@ -671,6 +674,30 @@ internal static class PublicAotDocumentComposer
         RequireSentinel(template, AotAppSentinel, "app");
         RequireSentinel(template, AotPayloadsSentinel, "payloads");
         RequireSentinel(template, AotSpaBootSentinel, "spa-boot");
+    }
+
+    internal static string InjectAppShell(string html, string shellHtml)
+    {
+        string trimmedShell = shellHtml.Trim();
+        int sentinelIndex = html.IndexOf(AotAppSentinel, StringComparison.Ordinal);
+        if (sentinelIndex < 0)
+        {
+            throw new InvalidOperationException("public_aot_template_sentinel_missing:app");
+        }
+
+        int start = sentinelIndex;
+        while (start > 0 && char.IsWhiteSpace(html[start - 1]))
+        {
+            start--;
+        }
+
+        int end = sentinelIndex + AotAppSentinel.Length;
+        while (end < html.Length && char.IsWhiteSpace(html[end]))
+        {
+            end++;
+        }
+
+        return string.Concat(html.AsSpan(0, start), trimmedShell, html.AsSpan(end));
     }
 
     private static void RequireSentinel(string template, string sentinel, string name)

@@ -2,42 +2,34 @@ import { createSSRApp, nextTick, ref, shallowRef, type App as VueApp, type VNode
 import { createPinia, type Pinia } from 'pinia'
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import { provideFsusUiAppContext } from '@/fsusui/appContext'
-import type { PublicHydrationPayload } from './types';
+import type { PublicHydrationPayload } from './types'
 import {
   beginHydrationMetrics,
   finishHydrationMetrics,
   markHydrationStep
-} from './hydrationPerf';
+} from './hydrationPerf'
 import {
   captureHydrationIdentity,
   verifyHydrationIdentity
-} from './hydrationIdentityGuard';
-import { normalizePublicHydrationPayload } from './publicPayloadNormalizer';
+} from './hydrationIdentityGuard'
+import { normalizePublicHydrationPayload } from './publicPayloadNormalizer'
 import {
   createPublicHydrationRootComponent,
   type PublicHydrationTakeoverController
-} from './publicHydrationRoot';
-import { registerPublicStaticRouterLink } from './publicStaticRouterLink';
+} from './publicHydrationRoot'
+import { registerPublicStaticRouterLink } from './publicStaticRouterLink'
 import { activateLocaleRuntime, isSupportedLocale } from '@/locales'
 import { requiredLocaleDomainsForPublicPage } from '@/locales/routeLocaleDomains'
-import { hasCanonicalPublicSeedRenderTimestamp } from './publicRenderClock';
+import { hasCanonicalPublicSeedRenderTimestamp } from './publicRenderClock'
 
-const APP_SELECTOR = '#app';
-const SHELL_SELECTOR = '#fsus-aot-shell';
-const ALLOW_MISMATCH_ATTR = 'data-allow-mismatch';
-const PUBLIC_AOT_MISMATCH_SELECTORS = [
-  '#fsus-aot-shell',
-  '#fsus-aot-shell .el-input',
-  '#fsus-aot-shell .el-input__wrapper',
-  '#fsus-aot-shell .el-input__inner',
-  '#fsus-aot-shell .el-radio-group',
-  '#fsus-aot-shell .el-theme-mode-toggle',
-  '#fsus-aot-shell [data-fsus-motion-surface]'
-] as const;
-let mountedPublicShellApp: VueApp<Element> | null = null;
-let mountedPublicShellPinia: Pinia | null = null;
-let mountedPublicShellPayload: PublicHydrationPayload | null = null;
-let publicTakeoverController: PublicHydrationTakeoverController | null = null;
+const APP_SELECTOR = '#app'
+const SHELL_SELECTOR = '#fsus-aot-shell'
+const HYDRATION_MISMATCH_PATTERN = /hydration|Hydration/u
+
+let mountedPublicShellApp: VueApp<Element> | null = null
+let mountedPublicShellPinia: Pinia | null = null
+let mountedPublicShellPayload: PublicHydrationPayload | null = null
+let publicTakeoverController: PublicHydrationTakeoverController | null = null
 
 export type PublicHydrationTakeoverHandle = Readonly<{
   app: VueApp<Element>
@@ -48,46 +40,65 @@ export type PublicHydrationTakeoverHandle = Readonly<{
 
 export function getPublicHydrationTakeoverHandle(): PublicHydrationTakeoverHandle | null {
   if (!mountedPublicShellApp || !mountedPublicShellPinia || !mountedPublicShellPayload || !publicTakeoverController) {
-    return null;
+    return null
   }
 
-  const controller = publicTakeoverController;
+  const controller = publicTakeoverController
   return {
     app: mountedPublicShellApp,
     pinia: mountedPublicShellPinia,
     payload: mountedPublicShellPayload,
     activate: async (renderer: () => VNode): Promise<void> => {
-      controller.renderer.value = renderer;
-      controller.active.value = true;
-      await nextTick();
+      controller.renderer.value = renderer
+      controller.active.value = true
+      await nextTick()
     }
-  };
+  }
 }
 
 export function disposePublicHydrationApp(): void {
   if (!mountedPublicShellApp) {
-    return;
+    return
   }
 
-  mountedPublicShellApp.unmount();
-  mountedPublicShellApp = null;
-  mountedPublicShellPinia = null;
-  mountedPublicShellPayload = null;
-  publicTakeoverController = null;
+  mountedPublicShellApp.unmount()
+  releasePublicHydrationTakeover()
 }
 
-function removeWhitespaceTextNodes(container: HTMLElement): void {
-  for (const node of Array.from(container.childNodes)) {
-    if (node.nodeType === Node.TEXT_NODE && !node.textContent?.trim()) {
-      node.remove();
+/**
+ * Drop FullApp/AppRuntime takeover ownership without unmounting.
+ * Keeps the AOT/hydrated document readable after a fail-closed hydration identity failure.
+ */
+function releasePublicHydrationTakeover(): void {
+  mountedPublicShellApp = null
+  mountedPublicShellPinia = null
+  mountedPublicShellPayload = null
+  publicTakeoverController = null
+}
+
+function installHydrationMismatchTrap(app: VueApp<Element>): () => void {
+  const previous = app.config.warnHandler
+  let mismatch: Error | null = null
+
+  app.config.warnHandler = (message, instance, trace) => {
+    const text = String(message)
+    if (HYDRATION_MISMATCH_PATTERN.test(text)) {
+      const path = typeof trace === 'string' && trace.trim().length > 0
+        ? trace.trim().replace(/\s+/gu, ' ').slice(0, 240)
+        : 'unknown'
+      mismatch = new Error(`[public-hydrate] hydration mismatch: ${text.slice(0, 200)} path=${path}`)
+      return
+    }
+
+    if (typeof previous === 'function') {
+      previous(message, instance, trace)
     }
   }
-}
 
-function markPublicAotMismatchBoundaries(container: HTMLElement): void {
-  for (const selector of PUBLIC_AOT_MISMATCH_SELECTORS) {
-    for (const element of Array.from(container.querySelectorAll<HTMLElement>(selector))) {
-      element.setAttribute(ALLOW_MISMATCH_ATTR, '');
+  return () => {
+    app.config.warnHandler = previous
+    if (mismatch) {
+      throw mismatch
     }
   }
 }
@@ -96,69 +107,83 @@ function markPublicAotMismatchBoundaries(container: HTMLElement): void {
  * Hydration of public shell via the shared public shell factory.
  * SSR and BlogLayout both consume the same shell-state builder, so the hydrated
  * public route tree stays structurally identical across first paint and takeover.
+ *
+ * Production must not patch SSR DOM or suppress Vue mismatch attributes before
+ * compare. Unexpected mismatch/identity failure is fail-closed: no hydrated flag,
+ * no FullApp takeover handle, AOT document remains readable.
  */
 export async function hydratePublicPage(payload: PublicHydrationPayload): Promise<void> {
   if (!hasCanonicalPublicSeedRenderTimestamp(payload)) {
-    throw new Error('public_aot_hydration_render_timestamp_invalid');
+    throw new Error('public_aot_hydration_render_timestamp_invalid')
   }
-  const container = document.querySelector<HTMLElement>(APP_SELECTOR);
+  const container = document.querySelector<HTMLElement>(APP_SELECTOR)
   if (!container) {
-    return;
+    return
   }
 
-  const shell = container.querySelector<HTMLElement>(SHELL_SELECTOR);
+  const shell = container.querySelector<HTMLElement>(SHELL_SELECTOR)
   if (!shell || shell.dataset.publicHydrationKind !== payload.pageKind) {
-    return;
+    return
   }
 
   if (!isSupportedLocale(payload.renderLocale)
     || shell.dataset.publicRenderLocale !== payload.renderLocale
     || document.documentElement.lang !== payload.renderLocale) {
-    throw new Error('public_aot_hydration_locale_mismatch');
+    throw new Error('public_aot_hydration_locale_mismatch')
   }
 
-  // Hydration invariant: strip whitespace-only SSR text nodes before Vue compares the public shell tree.
-  removeWhitespaceTextNodes(container);
-  markPublicAotMismatchBoundaries(container);
-  const guard = captureHydrationIdentity(container, shell, payload);
+  const guard = captureHydrationIdentity(container, shell, payload)
 
-  const metrics = beginHydrationMetrics(payload);
-  markHydrationStep('hydrate:start');
+  const metrics = beginHydrationMetrics(payload)
+  markHydrationStep('hydrate:start')
 
-  const normalizedPayload = normalizePublicHydrationPayload(payload);
+  const normalizedPayload = normalizePublicHydrationPayload(payload)
   await activateLocaleRuntime(
     normalizedPayload.renderLocale,
     requiredLocaleDomainsForPublicPage(normalizedPayload.pageKind)
   )
-  markHydrationStep('hydrate:component-ready');
+  markHydrationStep('hydrate:component-ready')
 
-  if (!mountedPublicShellApp) {
-    const takeoverController: PublicHydrationTakeoverController = {
-      active: ref(false),
-      renderer: shallowRef<(() => VNode) | null>(null)
-    };
-    const app = createSSRApp(createPublicHydrationRootComponent(normalizedPayload, takeoverController));
-    const pinia = createPinia();
-    pinia.use(piniaPluginPersistedstate);
-    app.use(pinia);
-    provideFsusUiAppContext(app);
-    registerPublicStaticRouterLink(app);
-    app.mount(container, true);
-    mountedPublicShellApp = app;
-    mountedPublicShellPinia = pinia;
-    mountedPublicShellPayload = normalizedPayload;
-    publicTakeoverController = takeoverController;
-    await nextTick();
+  try {
+    if (!mountedPublicShellApp) {
+      const takeoverController: PublicHydrationTakeoverController = {
+        active: ref(false),
+        renderer: shallowRef<(() => VNode) | null>(null)
+      }
+      const app = createSSRApp(createPublicHydrationRootComponent(normalizedPayload, takeoverController))
+      const pinia = createPinia()
+      pinia.use(piniaPluginPersistedstate)
+      app.use(pinia)
+      provideFsusUiAppContext(app)
+      registerPublicStaticRouterLink(app)
+      const finishMismatchTrap = installHydrationMismatchTrap(app)
+      try {
+        app.mount(container, true)
+        await nextTick()
+        finishMismatchTrap()
+      } catch (error) {
+        releasePublicHydrationTakeover()
+        throw error
+      }
+      mountedPublicShellApp = app
+      mountedPublicShellPinia = pinia
+      mountedPublicShellPayload = normalizedPayload
+      publicTakeoverController = takeoverController
+    }
+
+    verifyHydrationIdentity({
+      appSelector: APP_SELECTOR,
+      shellSelector: SHELL_SELECTOR,
+      payload: normalizedPayload,
+      guard
+    })
+    shell.dataset.publicHydrated = 'true'
+    markHydrationStep('hydrate:mounted')
+    finishHydrationMetrics(metrics)
+  } catch (error) {
+    // Fail-closed: never claim hydration success or expose FullApp takeover.
+    delete shell.dataset.publicHydrated
+    releasePublicHydrationTakeover()
+    throw error
   }
-
-  verifyHydrationIdentity({
-    appSelector: APP_SELECTOR,
-    shellSelector: SHELL_SELECTOR,
-    payload: normalizedPayload,
-    guard
-  });
-  shell.dataset.publicHydrated = 'true';
-  markHydrationStep('hydrate:mounted');
-
-  finishHydrationMetrics(metrics);
 }

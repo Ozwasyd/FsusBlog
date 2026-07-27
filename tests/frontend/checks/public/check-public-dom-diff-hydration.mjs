@@ -270,8 +270,11 @@ async function main() {
     allowlist: {
       cspNonce: true,
       generatedAssetHashes: true,
-      whitespaceOnlyTextNodes: true,
-      note: 'runtime-only islands are allowlisted explicitly',
+      // Whitespace-only text nodes are normalized for tree compare only.
+      // Production client hydration must not pre-delete them; document composition
+      // collapses #app sentinel whitespace at the source instead.
+      whitespaceOnlyTextNodes: false,
+      note: 'runtime-only islands remain the only explicit structural allowlist; Vue mismatch suppression attrs are forbidden',
     },
     coverage: {
       pageKinds: [],

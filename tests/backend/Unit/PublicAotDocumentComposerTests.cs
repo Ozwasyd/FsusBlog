@@ -465,6 +465,14 @@ public sealed class PublicAotDocumentComposerTests
     }
 
     [Fact]
+    public void InjectAppShell_CollapsesWhitespaceAroundSentinel()
+    {
+        string template = "<div id=\"app\">\n      <!--fsus:aot:app-->\n    </div>";
+        string result = PublicAotDocumentComposer.InjectAppShell(template, "\n<div id=\"fsus-aot-shell\">ok</div>\n");
+        Assert.Equal("<div id=\"app\"><div id=\"fsus-aot-shell\">ok</div></div>", result);
+    }
+
+    [Fact]
     public void EnsureShellRoot_NoExistingShell_WrapsContent()
     {
         string result = PublicAotDocumentComposer.EnsureShellRoot("<p>content</p>", PublicPageKind.Home);
@@ -565,7 +573,9 @@ public sealed class PublicAotDocumentComposerTests
         Assert.Contains("<title data-fsus-aot-head>Public title - Blog</title>", html);
         Assert.Contains("<body class=\"source-body\" data-fsusblog-public-first-paint=\"true\" data-fsusblog-public-shell=\"true\">", html);
         string normalizedHtml = html.Replace("\r\n", "\n", StringComparison.Ordinal);
-        Assert.Contains("<div id=\"app\">\n    <main>shell</main>\n</div>", normalizedHtml);
+        // Template whitespace around the app sentinel must collapse so #app has
+        // only the shell root (no pre-hydration client whitespace deletion).
+        Assert.Contains("<div id=\"app\"><main>shell</main></div>", normalizedHtml);
     }
 
     [Fact]
