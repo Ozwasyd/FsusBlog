@@ -17,7 +17,7 @@ const requiredGracefulShutdownFaultCases = ['graceful-shutdown']
 const requiredDiskArtifactFaultCases = ['disk-artifact-storage-write-failure']
 const requiredRolloutStages = [
     'manifest-validate', 'capacity-preflight', 'backup-restore-gate', 'expand-migration',
-    'candidate-start', 'candidate-readiness', 'asset-materialize', 'candidate-smoke',
+    'asset-materialize', 'candidate-start', 'candidate-readiness', 'candidate-smoke',
     'compatibility-smoke', 'gateway-switch', 'source-drain', 'active-fence',
     'public-verify', 'source-stop', 'release-evidence'
 ];

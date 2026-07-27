@@ -147,9 +147,9 @@ function createFixture(t, name) {
     'capacity-preflight',
     'backup-restore-gate',
     'expand-migration',
+    'asset-materialize',
     'candidate-start',
     'candidate-readiness',
-    'asset-materialize',
     'candidate-smoke',
     'compatibility-smoke'
   ]

@@ -11,6 +11,8 @@ REQUESTED_RELEASE_ID="${FSUSBLOG_RELEASE_ID:-}"
 REQUESTED_IMAGE_REF="${FSUSBLOG_IMAGE_REF:-}"
 RELEASE_SLOT="${FSUSBLOG_RELEASE_SLOT:-}"
 PROJECT_NAME="${FSUSBLOG_COMPOSE_PROJECT_NAME:-}"
+SPA_MANIFEST_DESCRIPTOR=""
+PRODUCTION_BUILD_RECEIPT=""
 
 HOST_TRUSTED_SETUP_MANIFEST=""
 HOST_VERIFYING_KEY_MANIFEST=""
@@ -34,6 +36,8 @@ Usage: tools/deploy-production.sh [options]
 Options:
   --env-file <path>              Production env file. Defaults to .env.production.
   --release-manifest <path>      Required immutable release-manifest.json from CI.
+  --spa-manifest-descriptor <path> Required canonical descriptor in the retained release directory.
+  --production-build-receipt <path> Required validated receipt authority in the retained release directory.
   --release-id <id>              Optional expected releaseId; mismatch fails closed.
   --image-ref <repository@sha256> Optional expected immutable image ref.
   --slot <blue|green>            Required fixed runtime release slot.
@@ -61,6 +65,16 @@ while [[ $# -gt 0 ]]; do
         --release-manifest)
             [[ $# -ge 2 ]] || Fail "--release-manifest requires a path"
             RELEASE_MANIFEST="$2"
+            shift 2
+            ;;
+        --spa-manifest-descriptor)
+            [[ $# -ge 2 ]] || Fail "--spa-manifest-descriptor requires a path"
+            SPA_MANIFEST_DESCRIPTOR="$2"
+            shift 2
+            ;;
+        --production-build-receipt)
+            [[ $# -ge 2 ]] || Fail "--production-build-receipt requires a path"
+            PRODUCTION_BUILD_RECEIPT="$2"
             shift 2
             ;;
         --release-id)
@@ -291,6 +305,7 @@ ValidateEnv() {
         FSUSBLOG_ZK_SECRET_DIR
         FSUSBLOG_SHARED_UPLOADS_VOLUME
         FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME
+        FSUSBLOG_RELEASE_ASSET_STORE
         FSUSBLOG_ZK_VERIFYING_KEY_HASH
         FSUSBLOG_ZK_TRUSTED_SETUP_MANIFEST
         FSUSBLOG_ZK_VERIFYING_KEY_MANIFEST
@@ -440,6 +455,28 @@ LoadReleaseManifest() {
     Log "release=$FSUSBLOG_RELEASE_ID slot=$FSUSBLOG_RELEASE_SLOT digest=$FSUSBLOG_IMAGE_DIGEST rollbackTarget=$FSUSBLOG_ROLLBACK_TARGET"
 }
 
+ValidateSpaAuthority() {
+    [[ -f "$SPA_MANIFEST_DESCRIPTOR" && ! -L "$SPA_MANIFEST_DESCRIPTOR" ]] ||
+        Fail "--spa-manifest-descriptor must name the canonical immutable descriptor"
+    [[ -f "$PRODUCTION_BUILD_RECEIPT" && ! -L "$PRODUCTION_BUILD_RECEIPT" ]] ||
+        Fail "--production-build-receipt must name the canonical immutable receipt authority"
+    local releaseRoot expectedDescriptor expectedReceipt descriptorPath receiptPath
+    releaseRoot="$(realpath "$FSUSBLOG_RELEASE_ASSET_STORE")/releases/$FSUSBLOG_RELEASE_ID"
+    expectedDescriptor="$releaseRoot/spa-manifest-descriptor.json"
+    expectedReceipt="$releaseRoot/production-build-receipt.json"
+    descriptorPath="$(realpath "$SPA_MANIFEST_DESCRIPTOR")"
+    receiptPath="$(realpath "$PRODUCTION_BUILD_RECEIPT")"
+    [[ "$descriptorPath" == "$expectedDescriptor" ]] ||
+        Fail "SPA manifest descriptor is outside the current retained release"
+    [[ "$receiptPath" == "$expectedReceipt" ]] ||
+        Fail "production build receipt authority is outside the current retained release"
+    [[ "$((8#$(stat -c '%a' "$descriptorPath") & 8#222))" == "0" ]] ||
+        Fail "SPA manifest descriptor must be read-only"
+    [[ "$((8#$(stat -c '%a' "$receiptPath") & 8#222))" == "0" ]] ||
+        Fail "production build receipt authority must be read-only"
+    export FSUSBLOG_PRODUCTION_BUILD_RECEIPT_HOST_PATH="$receiptPath"
+}
+
 ConfigureSlotCompose() {
     local expectedProject bluePort greenPort
     bluePort="${FSUSBLOG_BLUE_PORT:-8081}"
@@ -507,6 +544,7 @@ Main() {
     ConfigureSlotCompose
     LoadReleaseManifest
     ValidateEnv
+    ValidateSpaAuthority
     ValidateZkFiles
     RunZkReleaseGate
 

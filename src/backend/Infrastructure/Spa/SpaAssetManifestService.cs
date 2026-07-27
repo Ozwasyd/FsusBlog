@@ -1,7 +1,9 @@
 using System.Collections.Frozen;
 using System.Security.Cryptography;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Shared.Contracts.Outputs;
 
 using Microsoft.AspNetCore.Http;
@@ -15,6 +17,66 @@ public interface ISpaAssetManifestService
     SpaAssetSet GetPublicAssetSet(HttpContext? context = null, PublicPageId? pageId = null);
 
     string GetFrontendAssetVersion(HttpContext? context = null);
+
+    string GetIndexTemplatePath()
+        => string.Empty;
+
+    SpaAssetManifestReadiness GetReadiness()
+        => SpaAssetManifestReadiness.Failed("spa_manifest_readiness_unavailable");
+}
+
+public sealed record SpaAssetManifestReadiness(
+    string Status,
+    string? DescriptorPath,
+    string? DescriptorContentDigest,
+    string? BuildReceiptPath,
+    string? BuildReceiptDigest,
+    string? SourceCommit,
+    string? WorktreeFingerprint,
+    string? ReleaseId,
+    string? AssetRoot,
+    string? IndexPath,
+    string? ManifestPath,
+    string? ManifestDigest,
+    string? AssetInventoryPath,
+    string? AssetInventoryDigest,
+    string? Error) : IProductionHealthCheck
+{
+    internal static SpaAssetManifestReadiness Failed(string error)
+        => new(
+            "failed",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            error);
+
+    internal static SpaAssetManifestReadiness Ready(SpaManifestDescriptor descriptor)
+        => new(
+            "ok",
+            descriptor.DescriptorPath,
+            descriptor.DescriptorContentDigest,
+            descriptor.BuildReceiptPath,
+            descriptor.BuildReceiptDigest,
+            descriptor.SourceCommit,
+            descriptor.WorktreeFingerprint,
+            descriptor.ReleaseId,
+            descriptor.AssetRoot,
+            descriptor.IndexPath,
+            descriptor.ManifestPath,
+            descriptor.ManifestDigest,
+            descriptor.AssetInventoryPath,
+            descriptor.AssetInventoryDigest,
+            null);
 }
 
 public sealed class SpaAssetManifestService : ISpaAssetManifestService
@@ -65,6 +127,8 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private readonly IWebHostEnvironment _env;
+    private readonly IConfiguration _configuration;
+    private readonly IReleaseIdentityProvider _releaseIdentity;
     private readonly ILogger<SpaAssetManifestService> _logger;
     private readonly Lock _loadLock = new();
     private bool _manifestLoaded;
@@ -72,7 +136,9 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
     private FrozenDictionary<string, ManifestAsset> _manifestByKey = FrozenDictionary<string, ManifestAsset>.Empty;
     private DateTime _lastManifestWriteTime = DateTime.MinValue;
     private string _manifestPath = string.Empty;
+    private string _indexTemplatePath = string.Empty;
     private string _frontendAssetVersion = "missing-manifest";
+    private SpaAssetManifestReadiness _readiness = SpaAssetManifestReadiness.Failed("spa_manifest_not_loaded");
     private SpaAssetSet _publicAssetSet = new(
         StableSpaEntry,
         [],
@@ -80,11 +146,25 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         "missing-manifest",
         UsesSourceAssets: false);
 
-    public SpaAssetManifestService(IWebHostEnvironment env, ILogger<SpaAssetManifestService> logger)
+    public SpaAssetManifestService(
+        IWebHostEnvironment env,
+        IConfiguration configuration,
+        IReleaseIdentityProvider releaseIdentity,
+        ILogger<SpaAssetManifestService> logger)
     {
         _env = env;
+        _configuration = configuration;
+        _releaseIdentity = releaseIdentity;
         _logger = logger;
         LoadManifest();
+    }
+
+    public SpaAssetManifestReadiness GetReadiness() => _readiness;
+
+    public string GetIndexTemplatePath()
+    {
+        LoadManifest();
+        return _indexTemplatePath;
     }
 
     public IReadOnlyList<string> GetPreloadsForPath(string path, HttpContext? context = null)
@@ -183,7 +263,8 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
             ? context.Request.Host.Value ?? string.Empty
             : forwardedHost;
 
-        return host.Contains(":3000", StringComparison.Ordinal);
+        return string.Equals(host, "localhost:3000", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(host, "127.0.0.1:3000", StringComparison.OrdinalIgnoreCase);
     }
 
     private void LoadManifest()
@@ -201,12 +282,27 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
                 return;
             }
 
-            string manifestPath = ResolveCurrentManifestPath();
+            string manifestPath;
+            SpaManifestDescriptor? descriptor = null;
+            try
+            {
+                descriptor = ResolveDescriptor();
+                manifestPath = descriptor.ManifestPath;
+            }
+            catch (Exception exception) when (exception is IOException
+                or UnauthorizedAccessException
+                or JsonException
+                or InvalidOperationException
+                or ArgumentException
+                or NotSupportedException
+                or PathTooLongException)
+            {
+                SetManifestFailure(ToStableFailureCode(exception));
+                return;
+            }
             if (string.IsNullOrWhiteSpace(manifestPath) || !File.Exists(manifestPath))
             {
-                _frontendAssetVersion = ComputeFallbackAssetVersion();
-                _publicAssetSet = CreatePublicAssetSet(FrozenDictionary<string, ManifestAsset>.Empty, _frontendAssetVersion, pageId: null);
-                _manifestLoaded = !isDevelopment;
+                SetManifestFailure("spa_manifest_missing");
                 return;
             }
 
@@ -263,18 +359,18 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
                 _manifestByKey = manifestSnapshot;
                 _routeAssetMap = newRouteMap.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
                 _manifestPath = manifestPath;
+                _indexTemplatePath = descriptor.IndexPath;
                 _lastManifestWriteTime = lastWrite;
                 _frontendAssetVersion = ComputeAssetVersion(manifestPath);
                 _publicAssetSet = CreatePublicAssetSet(manifestSnapshot, _frontendAssetVersion, pageId: null);
                 _manifestLoaded = !isDevelopment;
+                _readiness = SpaAssetManifestReadiness.Ready(descriptor);
                 _logger.LogInformation("SPA manifest loaded from {ManifestPath}. chunks={ChunkCount}", manifestPath, _manifestByKey.Count);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to load SPA asset manifest from {ManifestPath}", manifestPath);
-                _frontendAssetVersion = ComputeFallbackAssetVersion();
-                _publicAssetSet = CreatePublicAssetSet(_manifestByKey, _frontendAssetVersion, pageId: null);
-                _manifestLoaded = !isDevelopment;
+                SetManifestFailure("spa_manifest_parse_failed");
             }
         }
     }
@@ -298,15 +394,52 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         };
     }
 
-    private string ResolveCurrentManifestPath()
+    private SpaManifestDescriptor ResolveDescriptor()
     {
-        string currentManifestPath = _manifestPath;
-        return !string.IsNullOrWhiteSpace(currentManifestPath) && File.Exists(currentManifestPath)
-            ? currentManifestPath
-            : ResolveManifestPath();
+        if (_env.IsDevelopment())
+        {
+            string webRoot = string.IsNullOrWhiteSpace(_env.WebRootPath)
+                ? Path.Combine(_env.ContentRootPath, "wwwroot")
+                : _env.WebRootPath;
+            string manifestPath = ResolveDevelopmentManifestPath();
+            return new SpaManifestDescriptor(
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                webRoot,
+                Path.Combine(webRoot, "index.html"),
+                manifestPath,
+                null,
+                null,
+                null);
+        }
+
+        string descriptorPath = _configuration["FSUSBLOG_SPA_MANIFEST_DESCRIPTOR"]
+            ?? Environment.GetEnvironmentVariable("FSUSBLOG_SPA_MANIFEST_DESCRIPTOR")
+            ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(descriptorPath))
+        {
+            throw new SpaManifestValidationException("spa_manifest_descriptor_missing");
+        }
+
+        string buildReceiptPath = _configuration["FSUSBLOG_PRODUCTION_BUILD_RECEIPT"]
+            ?? Environment.GetEnvironmentVariable("FSUSBLOG_PRODUCTION_BUILD_RECEIPT")
+            ?? string.Empty;
+        string releaseAssetBase = _configuration["FSUSBLOG_RELEASE_ASSET_ROOT"]
+            ?? Environment.GetEnvironmentVariable("FSUSBLOG_RELEASE_ASSET_ROOT")
+            ?? string.Empty;
+        return SpaManifestDescriptor.ReadAndValidate(
+            descriptorPath,
+            buildReceiptPath,
+            releaseAssetBase,
+            _releaseIdentity.Current);
     }
 
-    private string ResolveManifestPath()
+    private string ResolveDevelopmentManifestPath()
     {
         string webRoot = string.IsNullOrWhiteSpace(_env.WebRootPath)
             ? Path.Combine(_env.ContentRootPath, "wwwroot")
@@ -326,6 +459,30 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         return candidates.FirstOrDefault(File.Exists) ?? string.Empty;
     }
 
+    private void SetManifestFailure(string error)
+    {
+        _manifestByKey = FrozenDictionary<string, ManifestAsset>.Empty;
+        _routeAssetMap = FrozenDictionary<string, List<string>>.Empty;
+        _manifestPath = string.Empty;
+        _indexTemplatePath = string.Empty;
+        _frontendAssetVersion = _env.IsDevelopment()
+            ? ComputeFallbackAssetVersion()
+            : "missing-manifest";
+        _publicAssetSet = CreatePublicAssetSet(_manifestByKey, _frontendAssetVersion, pageId: null);
+        _manifestLoaded = !_env.IsDevelopment();
+        _readiness = SpaAssetManifestReadiness.Failed(error);
+    }
+
+    private static string ToStableFailureCode(Exception exception)
+        => exception switch
+        {
+            SpaManifestValidationException validation => validation.Code,
+            JsonException => "spa_manifest_descriptor_invalid_json",
+            IOException => "spa_manifest_descriptor_io_failed",
+            UnauthorizedAccessException => "spa_manifest_descriptor_access_denied",
+            _ => "spa_manifest_validation_failed"
+        };
+
     private IReadOnlyList<string> PickPublicStylesheets(IReadOnlyDictionary<string, ManifestAsset> manifest, PublicPageId? pageId)
     {
         var styles = new List<string>();
@@ -343,7 +500,7 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
             }
         }
 
-        if (styles.Count == 0)
+        if (styles.Count == 0 && _env.IsDevelopment())
         {
             styles.AddRange(PickCssFromAssetsDirectory(pageId));
         }

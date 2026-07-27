@@ -6,6 +6,7 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
+import { createProductionBuildReceipt } from '../../tools/ci/production-build-artifacts.mjs'
 import {
   createEmptySlotState,
   readSlotState,
@@ -17,6 +18,8 @@ import {
   writeSlotStateAtomic
 } from '../../tools/deployment/slot-lib.mjs'
 import { createReleaseManifest, writeReleaseManifestAtomic } from '../../tools/release/release-manifest.mjs'
+import { createSpaManifestDescriptor } from '../../tools/storage/create-spa-manifest-descriptor.mjs'
+import { materializeReleaseAssets } from '../../tools/storage/release-assets.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 const commitSha = '0123456789abcdef0123456789abcdef01234567';
@@ -286,6 +289,24 @@ test('slot scripts coexist, remain idempotent, preserve active slot on candidate
   assert.equal(JSON.parse(restartRead.stdout).activeSlot, 'blue')
 })
 
+test('slot start rejects a valid receipt outside the retained current-release authority', (t) => {
+  const fixture = createScriptFixture(t)
+  const manifest = writeManifest(fixture.directory, 'blue.json', blueRelease, blueDigest)
+  const authority = ensureSpaAuthority(fixture, manifest, 'blue')
+
+  const rejected = runSlot(fixture, 'slot-start.sh', [
+    '--slot', 'blue',
+    '--release-manifest', manifest,
+    '--production-build-receipt', authority.originalReceiptPath,
+    '--env-file', fixture.envFile,
+    '--state-file', fixture.stateFile
+  ])
+
+  assert.notEqual(rejected.status, 0)
+  assert.match(rejected.stderr, /must use the current retained release authority/u)
+  assert.doesNotMatch(fs.readFileSync(fixture.dockerLog, 'utf8'), /^(?:pull|up):/mu)
+})
+
 test('slot preflight blocks occupied ports, insufficient resources, invalid slots and bad digests without touching active', (t) => {
   const fixture = createScriptFixture(t)
   const blueManifest = writeManifest(fixture.directory, 'blue.json', blueRelease, blueDigest)
@@ -440,6 +461,12 @@ test('production Compose keeps fixed slots on distinct loopback ports with share
   assert.match(compose, /FSUSBLOG_SLOT_LOGS_VOLUME/u)
   assert.match(compose, /FSUSBLOG_SLOT_DATA_VOLUME/u)
   assert.match(compose, /FSUSBLOG_RELEASE_MANIFEST_PATH=\/app\/release-manifest\.json/u)
+  assert.match(
+    compose,
+    /FSUSBLOG_SPA_MANIFEST_DESCRIPTOR=\/app\/release-assets\/\$\{FSUSBLOG_RELEASE_ID:[^}]+\}\/spa-manifest-descriptor\.json/u)
+  assert.match(
+    compose,
+    /FSUSBLOG_PRODUCTION_BUILD_RECEIPT=\/app\/release-assets\/\$\{FSUSBLOG_RELEASE_ID:[^}]+\}\/production-build-receipt\.json/u)
   assert.match(compose, /FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE/u)
   assert.match(compose, /FSUSBLOG_RELEASE_MANIFEST_HOST_PATH[^\n]+:\/app\/release-manifest\.json:ro/u)
   assert.doesNotMatch(compose, /127\.0\.0\.1:8080:8080/u)
@@ -452,7 +479,24 @@ function writeManifest(directory, name, releaseId, digest) {
 }
 
 function runSlot(fixture, script, args, overrides = {}) {
-  return spawnSync('bash', [path.join(root, 'tools/deployment', script), ...args], {
+  const resolvedArgs = [...args]
+  if (script === 'slot-start.sh' && !resolvedArgs.includes('--production-build-receipt')) {
+    const manifestIndex = resolvedArgs.indexOf('--release-manifest')
+    const slotIndex = resolvedArgs.indexOf('--slot')
+    let receiptPath = fixture.placeholderReceipt
+    if (manifestIndex >= 0 && slotIndex >= 0 && ['blue', 'green'].includes(resolvedArgs[slotIndex + 1])) {
+      try {
+        receiptPath = ensureSpaAuthority(
+          fixture,
+          resolvedArgs[manifestIndex + 1],
+          resolvedArgs[slotIndex + 1]).retainedReceiptPath
+      } catch {
+        // Invalid-manifest tests must reach the script's own fail-closed validation.
+      }
+    }
+    resolvedArgs.push('--production-build-receipt', receiptPath)
+  }
+  return spawnSync('bash', [path.join(root, 'tools/deployment', script), ...resolvedArgs], {
     cwd: root,
     encoding: 'utf8',
     timeout: 20_000,
@@ -473,15 +517,19 @@ function createScriptFixture(t) {
   const dockerState = path.join(directory, 'docker-state.json')
   const dockerLog = path.join(directory, 'docker.log')
   const stateFile = path.join(directory, 'persistent', 'slots.json')
+  const assetStore = path.join(directory, 'release-assets')
+  const placeholderReceipt = path.join(directory, 'invalid-production-build-receipt.json')
   fs.mkdirSync(binDir)
   fs.mkdirSync(dockerRoot)
+  fs.mkdirSync(assetStore)
   fs.writeFileSync(dockerState, '{}\n')
   fs.writeFileSync(dockerLog, '')
+  fs.writeFileSync(placeholderReceipt, '{}\n')
   writeFakeDocker(path.join(binDir, 'docker'))
   writeFakeCurl(path.join(binDir, 'curl'))
   writeFakeSs(path.join(binDir, 'ss'))
   fs.writeFileSync(path.join(binDir, 'npm'), '#!/usr/bin/env bash\nexit 0\n', { mode: 0o755 })
-  const envFile = createProductionEnv(directory)
+  const envFile = createProductionEnv(directory, assetStore)
   const environment = { ...process.env }
   for (const key of ['FSUSBLOG_RELEASE_ID', 'FSUSBLOG_RELEASE_SLOT', 'FSUSBLOG_COMMIT_SHA', 'FSUSBLOG_IMAGE_REF', 'FSUSBLOG_IMAGE_DIGEST']) delete environment[key]
   Object.assign(environment, {
@@ -498,12 +546,21 @@ function createScriptFixture(t) {
         FSUSBLOG_SLOT_HEALTH_INTERVAL_SECONDS: '1',
         FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE: '20260710010101-aaaaaaaaaaaa',
         FSUSBLOG_ROLLOUT_ENTRY: '1',
-        FSUSBLOG_DEPLOYMENT_LOCK_FILE: path.join(directory, 'deployment.lock')
+        FSUSBLOG_DEPLOYMENT_LOCK_FILE: path.join(directory, 'deployment.lock'),
+        FSUSBLOG_RELEASE_ASSET_STORE: assetStore
     });
-  return { directory, envFile, stateFile, dockerLog, environment }
+  return {
+    directory,
+    envFile,
+    stateFile,
+    dockerLog,
+    environment,
+    assetStore,
+    placeholderReceipt
+  }
 }
 
-function createProductionEnv(directory) {
+function createProductionEnv(directory, assetStore) {
   const configDir = path.join(directory, 'zk-config')
   const secretDir = path.join(directory, 'zk-secret')
   fs.mkdirSync(configDir)
@@ -525,6 +582,7 @@ function createProductionEnv(directory) {
     'FIDO2_SERVER_DOMAIN=example.com', 'REVERSE_PROXY_KNOWN_PROXIES=127.0.0.1',
     'FSUSBLOG_SHARED_UPLOADS_VOLUME=fsusblog-uploads-fixture',
     'FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME=fsusblog-data-protection-fixture',
+    `FSUSBLOG_RELEASE_ASSET_STORE=${assetStore}`,
     'FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1', 'FSUSBLOG_ZK_PROD_ENABLED=true',
         'FSUSBLOG_ZK_TRUSTED_SETUP_VERIFIED=true', 'FSUSBLOG_ZK_CREDENTIAL_READY=true',
         'FSUSBLOG_ZK_VERIFIER_ENABLED=true', 'FSUSBLOG_ZK_CREDENTIAL_ISSUER_ENABLED=true',
@@ -539,6 +597,102 @@ function createProductionEnv(directory) {
     `FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_HASH=${hash(path.join(configDir, 'issuer-public.key'))}`
   ].join('\n') + '\n')
   return envFile
+}
+
+function ensureSpaAuthority(fixture, releaseManifestPath, slot) {
+  const release = JSON.parse(fs.readFileSync(releaseManifestPath, 'utf8'))
+  const releaseId = String(release.releaseId ?? '')
+  const commit = String(release.commitSha ?? '')
+  if (!/^[0-9]{14}-[a-f0-9]{12}$/u.test(releaseId) || !/^[a-f0-9]{40}$/u.test(commit)) {
+    throw new Error('release manifest identity is invalid')
+  }
+
+  const authorityRoot = path.join(fixture.directory, 'spa-authority-inputs', releaseId)
+  const artifactRoot = path.join(authorityRoot, 'production-build')
+  const frontendDist = path.join(artifactRoot, 'frontend-dist')
+  const retainedReceiptPath = path.join(
+    fixture.assetStore,
+    'releases',
+    releaseId,
+    'production-build-receipt.json')
+  const descriptorPath = path.join(
+    fixture.assetStore,
+    'releases',
+    releaseId,
+    'spa-manifest-descriptor.json')
+  if (fs.existsSync(retainedReceiptPath) && fs.existsSync(descriptorPath)) {
+    return {
+      retainedReceiptPath,
+      descriptorPath,
+      originalReceiptPath: path.join(artifactRoot, 'receipt.json')
+    }
+  }
+
+  const checkout = path.join(authorityRoot, 'checkout')
+  fs.mkdirSync(path.join(frontendDist, '.vite'), { recursive: true })
+  fs.mkdirSync(path.join(frontendDist, 'assets'), { recursive: true })
+  fs.mkdirSync(checkout, { recursive: true })
+  fs.writeFileSync(path.join(checkout, 'build-input.json'), '{"profile":"production"}\n')
+  fs.writeFileSync(path.join(frontendDist, 'index.html'), `<main>${releaseId}</main>\n`)
+  fs.writeFileSync(
+    path.join(frontendDist, 'assets', 'app.js'),
+    `export const releaseId = '${releaseId}'\n`)
+  fs.writeFileSync(path.join(frontendDist, '.vite', 'manifest.json'), `${JSON.stringify({
+    'src/bootstrap/entry.ts': {
+      file: 'assets/app.js',
+      name: 'route-public'
+    }
+  })}\n`)
+  createProductionBuildReceipt({
+    root: checkout,
+    artifactRoot,
+    sourceState: {
+      commit,
+      worktreeFingerprint: `sha256:${crypto.createHash('sha256').update(releaseId).digest('hex')}`
+    },
+    producer: {
+      workflow: 'deployment-slots-test',
+      runId: releaseId,
+      runAttempt: 1,
+      job: 'production-build-artifacts'
+    },
+    toolchain: {
+      node: 'v24.1.0',
+      npm: '11.0.0',
+      dotnet: '10.0.1',
+      vite: '7.0.0',
+      vitest: '4.0.0',
+      playwright: '1.58.0',
+      emsdk: '4.0.0'
+    },
+    inputPaths: ['build-input.json'],
+    domains: [{ name: 'frontend-dist', path: 'frontend-dist' }],
+    build: {
+      profile: 'production-release-fresh',
+      command: './tools/test.sh ci-tier production-build-artifacts'
+    },
+    now: () => new Date('2026-07-11T00:00:00Z')
+  })
+  materializeReleaseAssets({
+    releaseId,
+    slot,
+    sourceDirectory: frontendDist,
+    storeDirectory: fixture.assetStore,
+    dryRun: false
+  })
+  createSpaManifestDescriptor({
+    releaseManifestPath,
+    buildReceiptPath: path.join(artifactRoot, 'receipt.json'),
+    releaseAssetRoot: path.join(fixture.assetStore, 'releases'),
+    assetRoot: path.join(fixture.assetStore, 'releases', releaseId),
+    runtimeAssetRoot: `/app/release-assets/${releaseId}`,
+    out: descriptorPath
+  })
+  return {
+    retainedReceiptPath,
+    descriptorPath,
+    originalReceiptPath: path.join(artifactRoot, 'receipt.json')
+  }
 }
 
 function writeFakeDocker(file) {

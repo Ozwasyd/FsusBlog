@@ -35,7 +35,7 @@ public sealed class PublicAotDocumentServiceTests
                 new TestWebHostEnvironment(root, Environments.Production),
                 new ConfigurationBuilder().Build(),
                 new FixedSystemService(),
-                new ContextAwareAssetManifest(),
+                new ContextAwareAssetManifest(Path.Combine(root, "wwwroot", "index.html")),
                 NullLogger<PublicAotDocumentService>.Instance);
             string hydrationPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>
             {
@@ -89,7 +89,7 @@ public sealed class PublicAotDocumentServiceTests
                 new TestWebHostEnvironment(root, Environments.Production),
                 new ConfigurationBuilder().Build(),
                 new FixedSystemService(),
-                new ContextAwareAssetManifest(),
+                new ContextAwareAssetManifest(Path.Combine(root, "wwwroot", "index.html")),
                 NullLogger<PublicAotDocumentService>.Instance);
             string hydrationPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>
             {
@@ -143,7 +143,7 @@ public sealed class PublicAotDocumentServiceTests
                 new TestWebHostEnvironment(root, Environments.Production),
                 new ConfigurationBuilder().Build(),
                 new FixedSystemService(),
-                new ContextAwareAssetManifest(),
+                new ContextAwareAssetManifest(Path.Combine(root, "wwwroot", "index.html")),
                 NullLogger<PublicAotDocumentService>.Instance);
             string firstPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>
             {
@@ -192,7 +192,7 @@ public sealed class PublicAotDocumentServiceTests
                 new TestWebHostEnvironment(root, Environments.Production),
                 configuration,
                 new FixedSystemService(baseUrl: "https://example.com"),
-                new ContextAwareAssetManifest(),
+                new ContextAwareAssetManifest(Path.Combine(root, "wwwroot", "index.html")),
                 NullLogger<PublicAotDocumentService>.Instance);
 
             Result<string> result = await service.ComposeAsync(new PublicAotShellEntryContract
@@ -256,7 +256,7 @@ public sealed class PublicAotDocumentServiceTests
                 new TestWebHostEnvironment(root, Environments.Production),
                 new ConfigurationBuilder().Build(),
                 new FixedSystemService(),
-                new ContextAwareAssetManifest(),
+                new ContextAwareAssetManifest(Path.Combine(root, "wwwroot", "index.html")),
                 NullLogger<PublicAotDocumentService>.Instance);
             string markdown = "# 标题\n\n**加粗内容**与[链接文字](https://example.com)，包含 &amp; 实体。\n\n```cs\nConsole.WriteLine(\"hidden\");\n```\n";
             markdown += string.Concat(Enumerable.Repeat("这是不会切断代理对的正文🚀。", 20));
@@ -308,7 +308,7 @@ public sealed class PublicAotDocumentServiceTests
                 new TestWebHostEnvironment(root, Environments.Production),
                 new ConfigurationBuilder().Build(),
                 new FixedSystemService(),
-                new ContextAwareAssetManifest(),
+                new ContextAwareAssetManifest(Path.Combine(root, "wwwroot", "index.html")),
                 NullLogger<PublicAotDocumentService>.Instance);
             (PublicPageId PageId, string RouteKey, string Title)[] pages =
             [
@@ -364,7 +364,7 @@ public sealed class PublicAotDocumentServiceTests
                 new TestWebHostEnvironment(root, Environments.Production),
                 new ConfigurationBuilder().Build(),
                 new FixedSystemService(),
-                new ContextAwareAssetManifest(),
+                new ContextAwareAssetManifest(Path.Combine(root, "wwwroot", "index.html")),
                 NullLogger<PublicAotDocumentService>.Instance);
             Result<PublicSeoHeadModel> result = await service.BuildSeoHeadModelAsync(new PublicAotShellEntryContract
             {
@@ -407,7 +407,7 @@ public sealed class PublicAotDocumentServiceTests
                 new TestWebHostEnvironment(root, Environments.Development),
                 new ConfigurationBuilder().Build(),
                 new FixedSystemService(),
-                new ContextAwareAssetManifest(),
+                new ContextAwareAssetManifest(Path.Combine(root, "wwwroot", "index.html")),
                 logger);
 
             Result<string> result = await service.ComposeAsync(new PublicAotShellEntryContract
@@ -461,7 +461,7 @@ public sealed class PublicAotDocumentServiceTests
                 new TestWebHostEnvironment(root, Environments.Development),
                 new ConfigurationBuilder().Build(),
                 new FixedSystemService(),
-                new ContextAwareAssetManifest(),
+                new ContextAwareAssetManifest(Path.Combine(root, "wwwroot", "index.html")),
                 logger);
 
             Result<string> result = await service.ComposeAsync(new PublicAotShellEntryContract
@@ -568,7 +568,7 @@ public sealed class PublicAotDocumentServiceTests
             HydrationPropsPayload = hydrationPayload
         };
 
-    private sealed class ContextAwareAssetManifest : ISpaAssetManifestService
+    private sealed class ContextAwareAssetManifest(string indexTemplatePath) : ISpaAssetManifestService
     {
         public IReadOnlyList<string> GetPreloadsForPath(string path, HttpContext? context = null) => [];
 
@@ -612,6 +612,8 @@ public sealed class PublicAotDocumentServiceTests
 
         public string GetFrontendAssetVersion(HttpContext? context = null)
             => IsViteProxy(context) ? "dev-source-assets" : "prod-manifest";
+
+        public string GetIndexTemplatePath() => indexTemplatePath;
 
         private static bool IsViteProxy(HttpContext? context)
             => context?.Request.Headers["X-Forwarded-Host"].ToString().Contains(":3000", StringComparison.Ordinal) == true;

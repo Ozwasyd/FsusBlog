@@ -5,6 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
+import { createProductionBuildReceipt } from '../../tools/ci/production-build-artifacts.mjs'
 import {
   createReleaseManifest,
   writeReleaseManifestAtomic
@@ -38,9 +39,16 @@ function fixture(t) {
 }
 
 function writeSource(source, marker) {
+  fs.mkdirSync(path.join(source, '.vite'), { recursive: true })
   fs.mkdirSync(path.join(source, 'assets'), { recursive: true })
   fs.mkdirSync(path.join(source, 'wasm'), { recursive: true })
   fs.writeFileSync(path.join(source, 'index.html'), `<script src="/assets/app.${marker}.js"></script>\n`)
+  fs.writeFileSync(path.join(source, '.vite', 'manifest.json'), `${JSON.stringify({
+    'src/bootstrap/entry.ts': {
+      file: `assets/app.${marker}.js`,
+      name: 'route-public'
+    }
+  })}\n`)
   fs.writeFileSync(path.join(source, 'sw.js'), `const BUILD = '${marker}'\n`)
   fs.writeFileSync(path.join(source, 'assets', `app.${marker}.js`), `export const build = '${marker}'\n`)
   fs.writeFileSync(path.join(source, 'wasm', 'aeds_decoder.wasm'), Buffer.from(`wasm-${marker}`))
@@ -213,10 +221,45 @@ test('GC dry-run is locked and protects active previous draining retention and r
 
 test('host CLIs emit stable machine JSON and retained asset gate fails closed', (t) =>
 {
-    const { root, source, store } = fixture(t);
+    const { root, store } = fixture(t);
     const candidateRelease = '20260711010101-0123456789ab';
     const previousRelease = '20260710010101-fedcbafedcba';
+    const artifactRoot = path.join(root, 'production-build');
+    const source = path.join(artifactRoot, 'frontend-dist');
+    const checkout = path.join(root, 'checkout');
     writeSource(source, 'candidate');
+    fs.mkdirSync(checkout);
+    fs.writeFileSync(path.join(checkout, 'build-input.json'), '{"profile":"production"}\n');
+    createProductionBuildReceipt({
+        root: checkout,
+        artifactRoot,
+        sourceState: {
+            commit: '0123456789abcdef0123456789abcdef01234567',
+            worktreeFingerprint: `sha256:${'2'.repeat(64)}`
+        },
+        producer: {
+            workflow: 'release-storage-lifecycle-test',
+            runId: '1665',
+            runAttempt: 1,
+            job: 'production-build-artifacts'
+        },
+        toolchain: {
+            node: 'v24.1.0',
+            npm: '11.0.0',
+            dotnet: '10.0.1',
+            vite: '7.0.0',
+            vitest: '4.0.0',
+            playwright: '1.58.0',
+            emsdk: '4.0.0'
+        },
+        inputPaths: ['build-input.json'],
+        domains: [{ name: 'frontend-dist', path: 'frontend-dist' }],
+        build: {
+            profile: 'production-release-fresh',
+            command: './tools/test.sh ci-tier production-build-artifacts'
+        },
+        now: () => new Date('2026-07-11T01:00:00Z')
+    });
     const releaseManifestFile = path.join(root, 'release-manifest.json');
     writeReleaseManifestAtomic(releaseManifestFile, createReleaseManifest({
     releaseId: candidateRelease,
@@ -257,13 +300,20 @@ test('host CLIs emit stable machine JSON and retained asset gate fails closed', 
     '--release-manifest', releaseManifestFile,
     '--slot', 'green',
     '--source', source,
-    '--store', store
+    '--store', store,
+    '--build-receipt', path.join(artifactRoot, 'receipt.json')
   ], { cwd: repositoryRoot, encoding: 'utf8' })
   assert.equal(materialize.status, 0, materialize.stderr)
   const materializationReport = JSON.parse(materialize.stdout)
   assert.equal(materializationReport.schema, 'fsusblog.release-assets.materialization.v1')
   assert.equal(materializationReport.status, 'ok')
   assert.equal(materializationReport.releaseId, candidateRelease)
+  assert.equal(
+    materializationReport.productionBuildReceipt,
+    path.join(store, 'releases', candidateRelease, 'production-build-receipt.json'))
+  assert.equal(
+    materializationReport.spaManifestDescriptor,
+    path.join(store, 'releases', candidateRelease, 'spa-manifest-descriptor.json'))
   assert.deepEqual(materializationReport.errors, [])
 
   const previousSource = path.join(root, 'previous-source')

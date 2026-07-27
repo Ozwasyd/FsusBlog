@@ -46,6 +46,8 @@ services:
             - ActiveReleaseFence__RefreshIntervalMs=${ACTIVE_RELEASE_FENCE_REFRESH_INTERVAL_MS:?Set active release fence refresh interval in milliseconds}
             - ActiveReleaseFence__StaleThresholdSeconds=${ACTIVE_RELEASE_FENCE_STALE_THRESHOLD_SECONDS:?Set active release fence hard-stale threshold in seconds}
             - FSUSBLOG_RELEASE_ASSET_ROOT=/app/release-assets
+            - FSUSBLOG_SPA_MANIFEST_DESCRIPTOR=/app/release-assets/${FSUSBLOG_RELEASE_ID:?Set releaseId from release-manifest.json}/spa-manifest-descriptor.json
+            - FSUSBLOG_PRODUCTION_BUILD_RECEIPT=/app/release-assets/${FSUSBLOG_RELEASE_ID:?Set releaseId from release-manifest.json}/production-build-receipt.json
             - FSUSBLOG_RELEASE_DERIVED_ROOT=/app/release-derived
             - Deployment__NotificationStreamDrillEnabled=${FSUSBLOG_DEPLOYMENT_NOTIFICATION_DRILL_ENABLED:-false}
             - SchemaMigration__QualificationEnabled=${FSUSBLOG_SCHEMA_QUALIFICATION_ENABLED:-false}

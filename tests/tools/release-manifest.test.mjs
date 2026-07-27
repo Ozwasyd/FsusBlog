@@ -62,8 +62,15 @@ function createDeploymentFixture(t) {
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }))
   const configDir = path.join(directory, 'zk-config')
   const secretDir = path.join(directory, 'zk-secret')
+  const assetStore = path.join(directory, 'release-assets')
+  const releaseAssetRoot = path.join(assetStore, 'releases', releaseId)
+  const descriptorPath = path.join(releaseAssetRoot, 'spa-manifest-descriptor.json')
+  const receiptPath = path.join(releaseAssetRoot, 'production-build-receipt.json')
   fs.mkdirSync(configDir, { recursive: true })
+    fs.mkdirSync(releaseAssetRoot, { recursive: true });
     fs.mkdirSync(secretDir, { recursive: true });
+    fs.writeFileSync(descriptorPath, '{}\n', { mode: 0o444 });
+    fs.writeFileSync(receiptPath, '{}\n', { mode: 0o444 });
     fs.writeFileSync(path.join(configDir, 'trusted.json'), '{}\n');
     fs.writeFileSync(path.join(configDir, 'verifying.json'), '{}\n');
     fs.writeFileSync(path.join(configDir, 'comment.v5.vk'), 'verifying key\n');
@@ -95,6 +102,7 @@ function createDeploymentFixture(t) {
     'REVERSE_PROXY_KNOWN_PROXIES=127.0.0.1',
     'FSUSBLOG_SHARED_UPLOADS_VOLUME=fsusblog-uploads-fixture',
     'FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME=fsusblog-data-protection-fixture',
+    `FSUSBLOG_RELEASE_ASSET_STORE=${assetStore}`,
     'FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1',
     'FSUSBLOG_ZK_PROD_ENABLED=true',
     'FSUSBLOG_ZK_TRUSTED_SETUP_VERIFIED=true',
@@ -114,7 +122,7 @@ function createDeploymentFixture(t) {
     ].join('\n') + '\n');
     const manifestFile = path.join(directory, 'release-manifest.json');
     writeReleaseManifestAtomic(manifestFile, createReleaseManifest(createInput()));
-    return { directory, envFile, manifestFile };
+    return { directory, envFile, manifestFile, descriptorPath, receiptPath };
 }
 
 function deploymentEnvironment(overrides = {}) {
@@ -356,7 +364,7 @@ test('production build generates one immutable release id when the caller omits 
     );
     fs.writeFileSync(
         path.join(binDir, 'node'),
-        `#!/usr/bin/env bash\nif [[ "\${1:-}" == *check-wasm-artifact-ownership.mjs ]]; then exit 0; fi\nexec "${process.execPath}" "$@"\n`,
+        `#!/usr/bin/env bash\nif [[ "\${1:-}" == *check-wasm-artifact-ownership.mjs || "\${1:-}" == *wasm-build-receipt.mjs ]]; then exit 0; fi\nexec "${process.execPath}" "$@"\n`,
         { mode: 0o755 }
     );
     const commit = createInput().commitSha;
@@ -441,7 +449,7 @@ test('deploy input checker blocks missing identity digest mismatch mutable tag a
 })
 
 test('production dry-run reports immutable release slot digest and rollback before no-build deploy', (t) => {
-  const { envFile, manifestFile } = createDeploymentFixture(t)
+  const { envFile, manifestFile, descriptorPath, receiptPath } = createDeploymentFixture(t)
 
   const result = spawnSync('bash', [
     path.join(root, 'tools/deploy-production.sh'),
@@ -449,6 +457,8 @@ test('production dry-run reports immutable release slot digest and rollback befo
     '--release-manifest', manifestFile,
     '--release-id', releaseId,
     '--image-ref', `ghcr.io/fsusblog/app@${digest}`,
+    '--spa-manifest-descriptor', descriptorPath,
+    '--production-build-receipt', receiptPath,
     '--slot', 'green',
     '--dry-run'
   ], { cwd: root, encoding: 'utf8', timeout: 10_000, env: deploymentEnvironment() })
@@ -464,7 +474,13 @@ test('production dry-run reports immutable release slot digest and rollback befo
 
 test('production deploy rejects a pulled digest or OCI release label that disagrees with manifest', (t) =>
 {
-    const { directory, envFile, manifestFile } = createDeploymentFixture(t);
+    const {
+        directory,
+        envFile,
+        manifestFile,
+        descriptorPath,
+        receiptPath
+    } = createDeploymentFixture(t);
     const binDir = path.join(directory, 'bin');
   fs.mkdirSync(binDir)
   const fakeDocker = path.join(binDir, 'docker')
@@ -489,6 +505,8 @@ exit 42
     path.join(root, 'tools/deploy-production.sh'),
     '--env-file', envFile,
     '--release-manifest', manifestFile,
+    '--spa-manifest-descriptor', descriptorPath,
+    '--production-build-receipt', receiptPath,
     '--slot', 'green',
     '--skip-up'
   ]

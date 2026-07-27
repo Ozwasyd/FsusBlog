@@ -663,7 +663,7 @@ async function release(args) {
     return
   }
   if (qualification) {
-    for (const stage of ['candidate-start', 'candidate-readiness', 'asset-materialize', 'candidate-smoke', 'compatibility-smoke', 'gateway-switch', 'source-drain', 'active-fence']) {
+    for (const stage of ['asset-materialize', 'candidate-start', 'candidate-readiness', 'candidate-smoke', 'compatibility-smoke', 'gateway-switch', 'source-drain', 'active-fence']) {
       state.currentStage = stage
       state.status = 'running'
       write(stateFile, state)

@@ -59,13 +59,51 @@ public sealed class PublicSpaTemplateLocatorTests
             var env = new TestWebHostEnvironment(root, Environments.Production);
             PublicSpaTemplateLocator.ResetCacheForTests();
 
-            string first = await PublicSpaTemplateLocator.ReadIndexTemplateAsync(env, CancellationToken.None);
+            string first = await PublicSpaTemplateLocator.ReadIndexTemplateAsync(
+                env,
+                CancellationToken.None,
+                boundIndexPath: indexPath);
             await File.WriteAllTextAsync(indexPath, "<html>v2</html>");
             SetFileVersion(indexPath, s_updatedFileVersionUtc);
-            string second = await PublicSpaTemplateLocator.ReadIndexTemplateAsync(env, CancellationToken.None);
+            string second = await PublicSpaTemplateLocator.ReadIndexTemplateAsync(
+                env,
+                CancellationToken.None,
+                boundIndexPath: indexPath);
 
             Assert.Equal("<html>v1</html>", first);
             Assert.Equal("<html>v1</html>", second);
+        }
+        finally
+        {
+            PublicSpaTemplateLocator.ResetCacheForTests();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Production_MissingBoundTemplateDoesNotUseOldDistCandidate()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            string contentRoot = Path.Combine(root, "src", "backend");
+            string oldDist = Path.Combine(root, "src", "frontend", "dist");
+            Directory.CreateDirectory(contentRoot);
+            Directory.CreateDirectory(oldDist);
+            await File.WriteAllTextAsync(Path.Combine(oldDist, "index.html"), "<html>stale-dist</html>");
+            var env = new TestWebHostEnvironment(root, Environments.Production)
+            {
+                ContentRootPath = contentRoot
+            };
+            PublicSpaTemplateLocator.ResetCacheForTests();
+
+            InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                PublicSpaTemplateLocator.ReadIndexTemplateAsync(
+                    env,
+                    CancellationToken.None,
+                    boundIndexPath: Path.Combine(root, "missing-release", "index.html")));
+
+            Assert.Equal("spa_index_template_unavailable", exception.Message);
         }
         finally
         {

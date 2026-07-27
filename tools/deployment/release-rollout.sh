@@ -9,6 +9,7 @@ ROLLOUT_STATE_FILE="${FSUSBLOG_ROLLOUT_STATE_FILE:-}"
 ROLLOUT_EVIDENCE_ROOT="${FSUSBLOG_ROLLOUT_EVIDENCE_ROOT:-/var/lib/fsusblog/deployment/rollouts}"
 BACKUP_RESTORE_EVIDENCE="${FSUSBLOG_BACKUP_RESTORE_EVIDENCE:-}"
 MIGRATION_SERVER_DLL="${FSUSBLOG_MIGRATION_SERVER_DLL:-}"
+PRODUCTION_BUILD_RECEIPT="${FSUSBLOG_PRODUCTION_BUILD_RECEIPT_HOST_PATH:-}"
 TRAFFIC_SCENARIO="${FSUSBLOG_ROLLOUT_TRAFFIC_SCENARIO:-}"
 TRAFFIC_BINDING_KEY_FILE="${FSUSBLOG_ROLLOUT_TRAFFIC_BINDING_KEY_FILE:-}"
 NOTIFICATION_AUTH_STORAGE_STATE="${FSUSBLOG_ROLLOUT_NOTIFICATION_AUTH_STORAGE_STATE:-}"
@@ -85,13 +86,14 @@ Usage() {
 Usage: tools/deployment/release-rollout.sh --release-manifest <file> [options]
 
 This is the only supported production rollout entry. It serializes and persists:
-  immutable manifest -> capacity/backup/Expand -> isolated candidate -> assets/smoke/compatibility
+  immutable manifest -> capacity/backup/Expand -> assets -> isolated candidate/smoke/compatibility
   -> provisional gateway switch -> source drain + legacy cutover -> active fence activation -> public verification -> source stop -> evidence seal
 
 Required evidence/configuration:
   --release-manifest <file>           Immutable CI release manifest.
   --backup-restore-evidence <file>    Recent successful real restore drill.
   --migration-server-dll <file>       Exact target FsusBlog.Server.dll migration runner.
+  --production-build-receipt <file>   Exact sealed CI receipt beside its immutable artifact domains.
   --traffic-scenario <file>           Full HTTP scenario including auth/write/upload/admin read.
   --traffic-binding-key-file <file>   Mode 0400/0600 key for final traffic evidence HMAC verification.
   --notification-evidence <file>      Cross-switch guest/auth event reconciliation evidence.
@@ -174,6 +176,11 @@ while [[ $# -gt 0 ]]; do
         --migration-server-dll)
             [[ $# -ge 2 ]] || RolloutFail "--migration-server-dll requires a path"
             MIGRATION_SERVER_DLL="$2"
+            shift 2
+            ;;
+        --production-build-receipt)
+            [[ $# -ge 2 ]] || RolloutFail "--production-build-receipt requires a path"
+            PRODUCTION_BUILD_RECEIPT="$2"
             shift 2
             ;;
         --traffic-scenario)
@@ -598,7 +605,7 @@ PrintDryRun() {
         --argjson sourceGeneration "$SOURCE_GENERATION" \
         --argjson targetGeneration "$plannedGeneration" \
         --argjson noSwitch "$([[ "$NO_SWITCH" == "1" ]] && printf true || printf false)" \
-        --argjson stages "$(printf '%s\n' manifest-validate capacity-preflight backup-restore-gate expand-migration candidate-start candidate-readiness asset-materialize candidate-smoke compatibility-smoke gateway-switch source-drain active-fence public-verify source-stop release-evidence | jq -R . | jq -s .)" '
+        --argjson stages "$(printf '%s\n' manifest-validate capacity-preflight backup-restore-gate expand-migration asset-materialize candidate-start candidate-readiness candidate-smoke compatibility-smoke gateway-switch source-drain active-fence public-verify source-stop release-evidence | jq -R . | jq -s .)" '
     {
       schema: "fsusblog.release-rollout-plan.v1",
       status: "dry-run",
@@ -618,6 +625,7 @@ RequireRuntimeInputs() {
     for entry in \
         "backup restore evidence:$BACKUP_RESTORE_EVIDENCE" \
         "migration server DLL:$MIGRATION_SERVER_DLL" \
+        "production build receipt:$PRODUCTION_BUILD_RECEIPT" \
         "traffic scenario:$TRAFFIC_SCENARIO" \
         "traffic binding key:$TRAFFIC_BINDING_KEY_FILE" \
         "asset compatibility scenario:$ASSET_COMPATIBILITY_SCENARIO" \
@@ -1212,7 +1220,7 @@ RunStage() {
 
 StageIndex() {
     local wanted="$1" index=0 stage
-    for stage in manifest-validate capacity-preflight backup-restore-gate expand-migration candidate-start candidate-readiness asset-materialize candidate-smoke compatibility-smoke gateway-switch source-drain active-fence public-verify source-stop release-evidence; do
+    for stage in manifest-validate capacity-preflight backup-restore-gate expand-migration asset-materialize candidate-start candidate-readiness candidate-smoke compatibility-smoke gateway-switch source-drain active-fence public-verify source-stop release-evidence; do
         [[ "$stage" == "$wanted" ]] && {
             printf '%s\n' "$index"
             return
@@ -1332,6 +1340,7 @@ StageExpandMigration() {
 StageCandidateStart() {
     "$ROOT_DIR/tools/deployment/slot-start.sh" \
         --slot "$TARGET_SLOT" --release-manifest "$RELEASE_MANIFEST" \
+        --production-build-receipt "$ASSET_STORE/releases/$TARGET_RELEASE/production-build-receipt.json" \
         --env-file "$PRODUCTION_ENV_FILE" --state-file "$SLOT_STATE_FILE" \
         --deployment-generation "$TARGET_GENERATION"
 }
@@ -1348,7 +1357,9 @@ StageCandidateReadiness() {
 StageAssetMaterialize() {
     node "$ROOT_DIR/tools/storage/materialize-release-assets.mjs" \
         --release-manifest "$RELEASE_MANIFEST" --slot "$TARGET_SLOT" \
-        --store "$ASSET_STORE" --out "$EVIDENCE_DIR/asset-materialization.json"
+        --store "$ASSET_STORE" --build-receipt "$PRODUCTION_BUILD_RECEIPT" \
+        --runtime-release-asset-root /app/release-assets \
+        --out "$EVIDENCE_DIR/asset-materialization.json"
     node "$ROOT_DIR/tools/storage/prepare-release-retention.mjs" prepare \
         --rollout-state "$ROLLOUT_STATE_FILE" --slot-state "$SLOT_STATE_FILE" \
         --store "$ASSET_STORE" --state "$RETENTION_STATE" \
@@ -1639,6 +1650,8 @@ if [[ "$DRY_RUN" == "1" ]]; then
 fi
 
 RequireRuntimeInputs
+PRODUCTION_BUILD_RECEIPT="$(realpath "$PRODUCTION_BUILD_RECEIPT")"
+export FSUSBLOG_PRODUCTION_BUILD_RECEIPT_HOST_PATH="$PRODUCTION_BUILD_RECEIPT"
 export FSUSBLOG_RELEASE_ASSET_STORE="$ASSET_STORE"
 CreateOrResumeState
 if RolloutStageCompleted source-drain; then
@@ -1654,9 +1667,9 @@ RunStage manifest-validate immutable-manifest StageManifestValidate
 RunStage capacity-preflight host-capacity StageCapacityPreflight
 RunStage backup-restore-gate backup-restore-evidence StageBackupRestoreGate
 RunStage expand-migration online-expand StageExpandMigration
+RunStage asset-materialize immutable-assets StageAssetMaterialize
 RunStage candidate-start isolated-candidate StageCandidateStart
 RunStage candidate-readiness release-aware-readiness StageCandidateReadiness
-RunStage asset-materialize immutable-assets StageAssetMaterialize
 RunStage candidate-smoke direct-candidate-smoke StageCandidateSmoke
 RunStage compatibility-smoke n-nminus1-compatibility StageCompatibilitySmoke
 

@@ -136,6 +136,7 @@ export FSUSBLOG_GATEWAY_PUBLIC_PROBE_URL=https://fsus.blog/health/ready
   --evidence-root /var/lib/fsusblog/deployment/rollouts \
   --backup-restore-evidence .tmp/operations/backup-restore-drill.json \
   --migration-server-dll /app/FsusBlog.Server.dll \
+  --production-build-receipt .tmp/ci-production-build/receipt.json \
   --traffic-scenario /run/fsus/release-traffic-scenario.json \
   --notification-auth-storage-state /run/fsus/notification-auth-state.json \
   --asset-compatibility-scenario /run/fsus/asset-compatibility-scenario.json \
@@ -154,7 +155,7 @@ Dry-run 必须显示 exact source/target release、digest、slot、generation、
 
 完整顺序固定为：
 
-`manifest-validate -> capacity-preflight -> backup-restore-gate -> expand-migration -> candidate-start -> candidate-readiness -> asset-materialize -> candidate-smoke -> compatibility-smoke -> gateway-switch -> source-drain -> active-fence -> public-verify -> source-stop -> release-evidence`
+`manifest-validate -> capacity-preflight -> backup-restore-gate -> expand-migration -> asset-materialize -> candidate-start -> candidate-readiness -> candidate-smoke -> compatibility-smoke -> gateway-switch -> source-drain -> active-fence -> public-verify -> source-stop -> release-evidence`
 
 每次 attempt 的 command stdout/stderr、开始/结束时间、exit code、SHA-256 和 bytes 都写入 mode-0600 stage evidence。已成功阶段不可重复；失败阶段先进入 `recovery_required` 并执行 stage-specific compensation。安全关键 gate 没有 skip 参数。
 
@@ -180,7 +181,7 @@ Gateway stage 使用 `--defer-source-drain`：先 CAS-activate target、atomic r
 
 Public verification 同时运行持续 12-class traffic、notification reconnect/replay、N/N-1 asset/Service Worker、resource budget probes。Source drain 先发送 1012 restart，再并行排空 HTTP、notification、background claims、article-view、hot-stats、audit/admin-audit、visit、RUM、security/challenge audit、public-hot、ArticleDetail AEDS、PublicAOT backfill 与 upload cleanup。任一 pending、timeout 或 error 都保留在 blockers，不能手写 success。
 
-`asset-materialize` 把 manifest-selected frontend/Wasm/font 文件写入 append-only `<asset-store>/releases/<releaseId>`；同路径不同 hash fail closed。`UseReleaseScopedStaticAssets` 在 SPA fallback 前服务 `/release-assets/<releaseId>/...` 与 `/release-derived/<releaseId>/...`，Production 缺 root setting 会拒绝启动。Applied GC 必须先持久化 retention state，保护 N-1 `retention-window`，再由 old-asset probe 于 GC 后复读所有旧 URL。Release-derived writers 只写自己的 release subtree，并通过 generation publisher 原子更新 pointer；不得 clear shared root 或另一个 release。
+`asset-materialize` 在 candidate start 前验证 sealed CI receipt 的完整 schema、source/worktree、producer/toolchain、input、domain、path/size/SHA-256 与 seal，并在首次写 store 前要求 image-extracted source 与 receipt frontend domain 精确同集，再把 manifest-selected frontend/Wasm/font 文件写入 append-only `<asset-store>/releases/<releaseId>`；同路径不同 hash fail closed。它生成 inventory，要求 receipt frontend artifact、inventory 与实际 materialization 精确同集，并安装只读 `spa-manifest-descriptor.json` 与 `production-build-receipt.json`。Compose 和 `slot-start.sh` 只接受当前 release 下这两个 canonical authority 路径。`UseReleaseScopedStaticAssets` 在 SPA fallback 前服务 `/release-assets/<releaseId>/...` 与 `/release-derived/<releaseId>/...`，Production 缺 root setting 会拒绝启动。Applied GC 必须先持久化 retention state，保护 N-1 `retention-window`，再由 old-asset probe 于 GC 后复读所有旧 URL。Release-derived writers 只写自己的 release subtree，并通过 generation publisher 原子更新 pointer；不得 clear shared root 或另一个 release。
 
 这里的运行时接线不能手工拆开：manifest 校验生成 `FSUSBLOG_RELEASE_ID`，主机侧 manifest 路径只暂存在 `FSUSBLOG_RELEASE_MANIFEST_HOST_PATH` 供 Compose 只读挂载；容器内固定读取 `FSUSBLOG_RELEASE_MANIFEST_PATH=/app/release-manifest.json`，并以 `FSUSBLOG_RELEASE_DERIVED_ROOT=/app/release-derived` 访问 shared derived volume。三者必须指向同一 release identity；不要把它们写死在 `.env.production`，也不要让容器读取另一个 manifest 或 derived root。
 

@@ -109,7 +109,13 @@ function scenario(overrides = {}) {
 }
 
 function moveToOverlap(data) {
-  const stages = ['manifest-validate', 'capacity-preflight', 'backup-restore-gate', 'expand-migration']
+  const stages = [
+    'manifest-validate',
+    'capacity-preflight',
+    'backup-restore-gate',
+    'expand-migration',
+    'asset-materialize'
+  ]
   for (let index = 0; index < stages.length; index += 1) {
     const stage = stages[index]
     startRolloutStage(data.state, stage, `2026-07-11T00:0${index}:00.000Z`)

@@ -23,26 +23,29 @@ Required production identity:
 The candidate sequence is:
 
 1. Verify the immutable image and release manifest.
-2. Materialize the image's `/app/wwwroot` under its release ID.
-3. Verify append-only hashes and retention state.
-4. Mount the materialized `releases` directory read-only and expose `/release-assets`; expose the derived root at `/release-derived` through `UseFsusReleaseDerivedArtifacts`.
-5. Build candidate-derived generations under the candidate release ID; never clear the active release.
-6. Run the compatibility matrix and warm/read smoke checks.
-7. Switch the gateway only after all gates pass.
-8. Persist active/previous/draining retention state before any GC.
+2. Verify the sealed CI production receipt and materialize the image's `/app/wwwroot` under its release ID.
+3. Create the immutable SPA descriptor and retained receipt before starting the candidate.
+4. Verify append-only hashes and retention state.
+5. Mount the materialized `releases` directory read-only and expose `/release-assets`; expose the derived root at `/release-derived` through `UseFsusReleaseDerivedArtifacts`.
+6. Build candidate-derived generations under the candidate release ID; never clear the active release.
+7. Run the compatibility matrix and warm/read smoke checks.
+8. Switch the gateway only after all gates pass.
+9. Persist active/previous/draining retention state before any GC.
 
 The materialization host entry is:
 
 ```bash
 bash tools/storage/materialize-release-assets.sh \
   --release-manifest build/releases/<release-id>/release-manifest.json \
+  --build-receipt .tmp/ci-production-build/receipt.json \
   --slot green \
   --store /var/lib/fsusblog/release-assets \
+  --runtime-release-asset-root /app/release-assets \
   --out .tmp/release-assets-materialization.json
 ```
 
-Use `--source <wwwroot>` for an already extracted tree. Otherwise the tool creates a temporary container from the manifest's digest-pinned `imageRef`, copies `/app/wwwroot`, and removes the container. `--dry-run` performs collision discovery but does not mutate the asset store.
+Use `--source <wwwroot>` for an already extracted tree. Otherwise the tool creates a temporary container from the manifest's digest-pinned `imageRef`, copies `/app/wwwroot`, and removes the container. Receipt schema, source identity, producer, toolchain, inputs, domains, exact artifact paths/sizes/digests, digest table, and immutable seal are validated before asset-store mutation. The extracted source must be the exact receipted `frontend-dist` path/size/digest set before the first install. `--dry-run` performs the same receipt/source validation and collision discovery but does not mutate the asset store.
 
-The output schema is `fsusblog.release-assets.materialization.v1`. `status=ok` or `dry-run` is required; `status=fail` exits non-zero. Stable fields include `releaseId`, `slot`, `dryRun`, `assetManifestSha256`, `assets`, `actions`, and `errors`.
+The output schema is `fsusblog.release-assets.materialization.v1`. `status=ok` or `dry-run` is required; `status=fail` exits non-zero. Stable fields include `releaseId`, `slot`, `dryRun`, `assetManifestSha256`, `spaManifestDescriptor`, `spaManifestDescriptorSha256`, `productionBuildReceipt`, `productionBuildReceiptSha256`, `assets`, `actions`, and `errors`. The four SPA authority fields are `null` only for a successful dry-run.
 
 Risk and no-restart fallback: do not repoint a mutable entry to the candidate until candidate assets and compatibility pass. If a post-switch issue occurs, switch traffic to the previous slot and previous build ID; its static and derived state remains retained. DataProtection and uploads remain shared, so sessions and durable user content do not require a restart or copy.

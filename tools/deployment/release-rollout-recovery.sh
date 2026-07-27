@@ -130,8 +130,12 @@ if [[ "$active_before" != "$source_slot" ]]; then
             --state "$SLOT_STATE_FILE" --slot "$source_slot")" ||
             SlotFail "unable to reserve a fresh rollback runtime generation"
         source_rollback_generation="$(jq -r '.generation' <<<"$reservation")"
+        source_build_receipt="${FSUSBLOG_RELEASE_ASSET_STORE:-}/releases/$source_release/production-build-receipt.json"
+        [[ -f "$source_build_receipt" ]] ||
+            SlotFail "rollback source retained production build receipt is missing"
         "$ROOT_DIR/tools/deployment/slot-start.sh" \
             --slot "$source_slot" --release-manifest "$SOURCE_MANIFEST" \
+            --production-build-receipt "$source_build_receipt" \
             --env-file "$PRODUCTION_ENV_FILE" --state-file "$SLOT_STATE_FILE" \
             --deployment-generation "$source_rollback_generation" >/dev/null ||
             SlotFail "unable to restart rollback source as a fresh candidate"

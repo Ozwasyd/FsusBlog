@@ -5,6 +5,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/slot-common.sh"
 
 SLOT=""
 RELEASE_MANIFEST=""
+PRODUCTION_BUILD_RECEIPT=""
 PRE_RESERVED_GENERATION=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -16,6 +17,11 @@ while [[ $# -gt 0 ]]; do
         --release-manifest)
             [[ $# -ge 2 ]] || SlotFail "--release-manifest requires a path"
             RELEASE_MANIFEST="$2"
+            shift 2
+            ;;
+        --production-build-receipt)
+            [[ $# -ge 2 ]] || SlotFail "--production-build-receipt requires a path"
+            PRODUCTION_BUILD_RECEIPT="$2"
             shift 2
             ;;
         --env-file)
@@ -39,6 +45,8 @@ done
 
 SlotRequire "$SLOT"
 [[ -n "$RELEASE_MANIFEST" ]] || SlotFail "--release-manifest is required"
+[[ -f "$PRODUCTION_BUILD_RECEIPT" ]] ||
+    SlotFail "--production-build-receipt is required and must name the sealed CI receipt"
 SlotRequireCommand curl
 SlotRequireCommand docker
 SlotRequireCommand jq
@@ -46,6 +54,29 @@ SlotRequireCommand node
 SlotAcquireDeploymentLock
 SlotConfigure "$SLOT"
 SlotLoadManifest "$RELEASE_MANIFEST" "$SLOT"
+release_asset_store="${FSUSBLOG_RELEASE_ASSET_STORE:-}"
+[[ -n "$release_asset_store" ]] ||
+    SlotFail "FSUSBLOG_RELEASE_ASSET_STORE is required for SPA authority validation"
+release_asset_store="$(realpath "$release_asset_store")"
+release_asset_root="$release_asset_store/releases"
+asset_root="$release_asset_root/$FSUSBLOG_RELEASE_ID"
+spa_manifest_descriptor="$asset_root/spa-manifest-descriptor.json"
+retained_production_build_receipt="$asset_root/production-build-receipt.json"
+PRODUCTION_BUILD_RECEIPT="$(realpath "$PRODUCTION_BUILD_RECEIPT")"
+[[ "$PRODUCTION_BUILD_RECEIPT" == "$retained_production_build_receipt" ]] ||
+    SlotFail "--production-build-receipt must use the current retained release authority"
+node "$ROOT_DIR/tools/storage/create-spa-manifest-descriptor.mjs" verify-retained \
+    --release-manifest "$RELEASE_MANIFEST" \
+    --build-receipt "$PRODUCTION_BUILD_RECEIPT" \
+    --release-asset-root "$release_asset_root" \
+    --asset-root "$asset_root" \
+    --runtime-asset-root "/app/release-assets/$FSUSBLOG_RELEASE_ID" \
+    --descriptor "$spa_manifest_descriptor" ||
+    SlotFail "SPA manifest descriptor or production build receipt authority is invalid"
+[[ -f "$spa_manifest_descriptor" && ! -L "$spa_manifest_descriptor" ]] ||
+    SlotFail "canonical SPA manifest descriptor is missing or symbolic"
+[[ -f "$retained_production_build_receipt" && ! -L "$retained_production_build_receipt" ]] ||
+    SlotFail "retained production build receipt is missing or symbolic"
 deployment_state="$(SlotStateReadCurrent)"
 [[ "$(jq -r '.status' <<<"$deployment_state")" == "stable" ]] ||
     SlotFail "gateway state must be stable before starting a candidate"
@@ -126,6 +157,8 @@ fi
 deploy_args=(
     --env-file "$PRODUCTION_ENV_FILE"
     --release-manifest "$RELEASE_MANIFEST"
+    --spa-manifest-descriptor "$spa_manifest_descriptor"
+    --production-build-receipt "$retained_production_build_receipt"
     --release-id "$FSUSBLOG_RELEASE_ID"
     --image-ref "$FSUSBLOG_IMAGE_REF"
     --slot "$SLOT"

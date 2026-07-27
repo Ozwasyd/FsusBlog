@@ -60,6 +60,7 @@ if [[ "$STATE_FILE_EXPLICIT" == "0" && -z "${FSUSBLOG_REHEARSAL_SLOT_STATE_FILE:
 fi
 work_identity="$(node -e 'const { createHash } = require("node:crypto"); process.stdout.write(createHash("sha256").update(process.argv[1]).digest("hex").slice(0, 16))' "$WORK_DIR")"
 release_asset_store="${FSUSBLOG_REHEARSAL_RELEASE_ASSET_STORE:-$WORK_DIR/release-assets}"
+production_build_receipt="${FSUSBLOG_PRODUCTION_BUILD_RECEIPT_HOST_PATH:-}"
 release_derived_volume="${FSUSBLOG_REHEARSAL_RELEASE_DERIVED_VOLUME:-fsusblog-zdt-derived-$work_identity}"
 gateway_dir="$WORK_DIR/gateway"
 gateway_config="$gateway_dir/openresty.conf"
@@ -89,6 +90,8 @@ case "$ACTION" in
     up)
         [[ -f "$PRODUCTION_ENV_FILE" ]] || SlotFail "rehearsal env file is missing"
         [[ -f "$SOURCE_MANIFEST" ]] || SlotFail "source manifest is required"
+        [[ -f "$production_build_receipt" ]] ||
+            SlotFail "FSUSBLOG_PRODUCTION_BUILD_RECEIPT_HOST_PATH must name the sealed source build receipt"
         [[ "$WORK_DIR" == "$ROOT_DIR/.tmp/"* ]] || SlotFail "rehearsal work dir must stay under repository .tmp"
         [[ "$(SlotEnvOptionalValue SITE_BASEURL "$PRODUCTION_ENV_FILE")" =~ ^http://(127\.0\.0\.1|localhost):$PUBLIC_PORT$ ]] ||
             SlotFail "rehearsal SITE_BASEURL must be the local public port"
@@ -114,6 +117,8 @@ case "$ACTION" in
             --release-manifest "$SOURCE_MANIFEST" \
             --slot "$SOURCE_SLOT" \
             --store "$release_asset_store" \
+            --build-receipt "$production_build_receipt" \
+            --runtime-release-asset-root /app/release-assets \
             --out "$WORK_DIR/source-asset-materialization.json" >/dev/null
         jq -e --arg slot "$SOURCE_SLOT" '
       .schema == "fsusblog.release-assets.materialization.v1"
@@ -125,7 +130,9 @@ case "$ACTION" in
       and (.errors | type == "array" and length == 0)
     ' "$WORK_DIR/source-asset-materialization.json" >/dev/null ||
             SlotFail "source release asset materialization failed"
+        source_retained_receipt="$(jq -r '.productionBuildReceipt' "$WORK_DIR/source-asset-materialization.json")"
         FSUSBLOG_DEPLOYMENT_BOOTSTRAP=1 "$ROOT_DIR/tools/deployment/slot-start.sh" --slot "$SOURCE_SLOT" --release-manifest "$SOURCE_MANIFEST" \
+            --production-build-receipt "$source_retained_receipt" \
             --env-file "$PRODUCTION_ENV_FILE" --state-file "$SLOT_STATE_FILE" >/dev/null
         source_state="$(SlotStateRead --slot "$SOURCE_SLOT")"
         source_generation="$(jq -r '.record.deploymentGeneration' <<<"$source_state")"

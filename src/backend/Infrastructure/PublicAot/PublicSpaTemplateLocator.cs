@@ -23,8 +23,18 @@ internal static class PublicSpaTemplateLocator
     private static readonly ConcurrentDictionary<string, string> s_assetPathCache = new(StringComparer.Ordinal);
     private static readonly ConcurrentDictionary<string, TemplateSnapshot> s_templateCache = new(StringComparer.Ordinal);
 
-    internal static string ResolveIndexTemplatePath(IWebHostEnvironment env, bool preferSourceTemplate = false)
+    internal static string ResolveIndexTemplatePath(
+        IWebHostEnvironment env,
+        bool preferSourceTemplate = false,
+        string boundIndexPath = "")
     {
+        if (!env.IsDevelopment())
+        {
+            return !string.IsNullOrWhiteSpace(boundIndexPath) && File.Exists(boundIndexPath)
+                ? Path.GetFullPath(boundIndexPath)
+                : string.Empty;
+        }
+
         string contentRoot = env.ContentRootPath;
         string contentRootParent = Path.GetFullPath(Path.Combine(contentRoot, ".."));
         string appBase = AppContext.BaseDirectory;
@@ -68,17 +78,32 @@ internal static class PublicSpaTemplateLocator
         return string.Empty;
     }
 
-    internal static async Task<string> ReadIndexTemplateAsync(IWebHostEnvironment env, CancellationToken cancellationToken, bool preferSourceTemplate = false)
-        => (await GetTemplateSnapshotAsync(env, cancellationToken, preferSourceTemplate)).Text;
+    internal static async Task<string> ReadIndexTemplateAsync(
+        IWebHostEnvironment env,
+        CancellationToken cancellationToken,
+        bool preferSourceTemplate = false,
+        string boundIndexPath = "")
+        => (await GetTemplateSnapshotAsync(env, cancellationToken, preferSourceTemplate, boundIndexPath)).Text;
 
-    internal static async Task<ReadOnlyMemory<byte>> ReadIndexTemplateBytesAsync(IWebHostEnvironment env, CancellationToken cancellationToken, bool preferSourceTemplate = false)
-        => (await GetTemplateSnapshotAsync(env, cancellationToken, preferSourceTemplate)).Bytes;
+    internal static async Task<ReadOnlyMemory<byte>> ReadIndexTemplateBytesAsync(
+        IWebHostEnvironment env,
+        CancellationToken cancellationToken,
+        bool preferSourceTemplate = false,
+        string boundIndexPath = "")
+        => (await GetTemplateSnapshotAsync(env, cancellationToken, preferSourceTemplate, boundIndexPath)).Bytes;
 
-    internal static async Task<string> ReadFrontendAssetVersionAsync(IWebHostEnvironment env, CancellationToken cancellationToken, bool preferSourceTemplate = false)
-        => (await GetTemplateSnapshotAsync(env, cancellationToken, preferSourceTemplate)).AssetVersion;
+    internal static async Task<string> ReadFrontendAssetVersionAsync(
+        IWebHostEnvironment env,
+        CancellationToken cancellationToken,
+        bool preferSourceTemplate = false,
+        string boundIndexPath = "")
+        => (await GetTemplateSnapshotAsync(env, cancellationToken, preferSourceTemplate, boundIndexPath)).AssetVersion;
 
     internal static string ResolveAssetPath(IWebHostEnvironment env, string prefix, string extension)
     {
+        if (!env.IsDevelopment())
+            return string.Empty;
+
         string assetsRoot = Path.Combine(env.WebRootPath ?? string.Empty, "assets");
         if (!Directory.Exists(assetsRoot))
             return string.Empty;
@@ -105,14 +130,22 @@ internal static class PublicSpaTemplateLocator
         s_assetPathCache.Clear();
     }
 
-    private static async Task<TemplateSnapshot> GetTemplateSnapshotAsync(IWebHostEnvironment env, CancellationToken cancellationToken, bool preferSourceTemplate)
+    private static async Task<TemplateSnapshot> GetTemplateSnapshotAsync(
+        IWebHostEnvironment env,
+        CancellationToken cancellationToken,
+        bool preferSourceTemplate,
+        string boundIndexPath)
     {
         bool isDevelopment = env.IsDevelopment();
         bool canUseCachedTemplate = !preferSourceTemplate || !isDevelopment;
-        string indexPath = ResolveIndexTemplatePath(env, preferSourceTemplate);
+        string indexPath = ResolveIndexTemplatePath(env, preferSourceTemplate, boundIndexPath);
 
         if (string.IsNullOrWhiteSpace(indexPath))
         {
+            if (!isDevelopment)
+            {
+                throw new InvalidOperationException("spa_index_template_unavailable");
+            }
             string minimalKey = string.Concat("minimal|", Path.GetFullPath(env.ContentRootPath), '|', preferSourceTemplate ? "source" : "dist");
             return canUseCachedTemplate
                 ? s_templateCache.GetOrAdd(minimalKey, static _ => TemplateSnapshot.Minimal)

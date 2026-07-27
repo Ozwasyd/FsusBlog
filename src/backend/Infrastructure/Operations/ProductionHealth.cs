@@ -14,6 +14,7 @@ using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Infrastructure.Spa;
 using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Background;
@@ -374,6 +375,8 @@ public sealed class ProductionReadinessProbe(
                 configuration,
                 environment,
                 releaseIdentity.Current),
+            ["spaAssets"] = serviceProvider.GetService<ISpaAssetManifestService>()?.GetReadiness()
+                ?? SpaAssetManifestReadiness.Failed("spa_manifest_service_missing"),
             ["observability"] = CheckObservability(),
             ["resources"] = CheckResources()
         };

@@ -28,6 +28,37 @@ Uploads use a shared final directory. Direct uploads and chunk completion write 
 
 An existing destination is accepted only when its SHA-256 is identical. Mutable entry documents receive `no-store,max-age=0,must-revalidate`; all other files receive `public,max-age=31536000,immutable`. `ReleaseAssetStaticFileExtensions.UseFsusReleaseAssets` exposes the retained release directories and emits `X-Fsus-Frontend-Build` without falling back to a different release.
 
+The CI production build receipt is sealed before release materialization. Its
+read-only `frontend-dist` domain binds the original `.vite/manifest.json` and every
+other frontend file by exact receipt-relative path, size, and SHA-256. The later
+`asset-manifest.json` is intentionally absent from that receipt. Materialization
+first validates the complete CI receipt and requires the extracted image source to
+match that exact path/size/digest set before writing the asset store. It then creates
+the release inventory from the copied file set and retains the receipt as
+`releases/<releaseId>/production-build-receipt.json` and creates
+`spa-manifest-descriptor.json`; neither authority may be replaced by a handwritten
+subset.
+
+Production SPA loading does not discover a `dist` directory. The runtime receives
+`FSUSBLOG_SPA_MANIFEST_DESCRIPTOR` and
+`FSUSBLOG_PRODUCTION_BUILD_RECEIPT`, both fixed to the current retained release. The
+descriptor binds `releaseId`, `sourceCommit`, `worktreeFingerprint`,
+`buildReceiptDigest`, `assetRoot`, `manifestPath`, `manifestDigest`, and
+`assetInventoryDigest`, plus its canonical `contentDigest`. Validation requires the
+receipt's `frontend-dist` artifacts, the inventory entries, and the materialized
+release files to be the same set with identical paths, sizes, and digests. The
+descriptor rejects missing, duplicate, extra, or undeclared fields, and `assetRoot`
+must equal the current release directory below `FSUSBLOG_RELEASE_ASSET_ROOT`. Both
+authority paths and every traversed component must stay inside the current release
+root without symlinks.
+
+A missing or mismatched descriptor, receipt, inventory, `index.html`, or Vite
+manifest is a readiness failure. Readiness publishes the validated descriptor,
+receipt, source/worktree, release, manifest, and inventory paths and digests; failure
+publishes those fields as explicit `null` values plus the stable error. Production
+template and stylesheet resolution consume only that validated snapshot; they never
+search another `dist`, webroot asset directory, mtime, or latest candidate.
+
 The frontend uses the generated canonical ReleaseId contract to normalize
 `VITE_FSUSBLOG_BUILD_ID` once for bootstrap import recovery, Service Worker
 query/cache identity, release-derived search paths, and Wasm release assets.

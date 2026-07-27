@@ -12,6 +12,11 @@ import {
   writeJsonAtomic
 } from './release-assets.mjs'
 import { createReleaseCompatibilityMetadata } from './release-compatibility.mjs'
+import {
+  createSpaManifestDescriptor,
+  verifySpaProductionBuildReceipt,
+  verifySpaSourceDirectory
+} from './create-spa-manifest-descriptor.mjs'
 
 let options = {}
 try {
@@ -24,6 +29,12 @@ try {
   })
   const storeDirectory = path.resolve(options.store ?? process.env.FSUSBLOG_RELEASE_ASSET_STORE ?? '/var/lib/fsusblog/release-assets')
   const dryRun = options['dry-run'] === true
+  const buildReceipt = requiredPath(options, 'build-receipt')
+  const runtimeReleaseAssetRoot = path.resolve(options['runtime-release-asset-root'] ?? '/app/release-assets')
+  const receiptBinding = verifySpaProductionBuildReceipt({
+    buildReceiptPath: buildReceipt,
+    expectedCommit: releaseManifest.commitSha
+  })
   const compatibility = createReleaseCompatibilityMetadata({
     releaseId: releaseManifest.releaseId,
     frontendBuildId: releaseManifest.releaseId,
@@ -32,6 +43,7 @@ try {
 
   const { sourceDirectory, cleanup } = resolveSourceDirectory(options.source, releaseManifest.imageRef)
   try {
+    verifySpaSourceDirectory({ sourceDirectory, receiptBinding })
     const { report } = materializeReleaseAssets({
       releaseId: releaseManifest.releaseId,
       slot,
@@ -40,11 +52,25 @@ try {
       compatibility,
       dryRun
     })
+    const descriptor = dryRun
+      ? null
+      : createSpaManifestDescriptor({
+          releaseManifestPath: manifestFile,
+          buildReceiptPath: buildReceipt,
+          releaseAssetRoot: path.join(storeDirectory, 'releases'),
+          assetRoot: path.join(storeDirectory, 'releases', releaseManifest.releaseId),
+          runtimeAssetRoot: path.join(runtimeReleaseAssetRoot, releaseManifest.releaseId),
+          out: path.join(storeDirectory, 'releases', releaseManifest.releaseId, 'spa-manifest-descriptor.json')
+        })
     const output = {
       ...report,
       releaseManifest: manifestFile,
       imageRef: releaseManifest.imageRef,
-      source: options.source ? path.resolve(options.source) : `docker://${releaseManifest.imageRef}/app/wwwroot`
+      source: options.source ? path.resolve(options.source) : `docker://${releaseManifest.imageRef}/app/wwwroot`,
+      spaManifestDescriptor: descriptor?.descriptorPath ?? null,
+      spaManifestDescriptorSha256: descriptor?.descriptorDigest ?? null,
+      productionBuildReceipt: descriptor?.retainedReceiptPath ?? null,
+      productionBuildReceiptSha256: descriptor?.retainedReceiptDigest ?? null
     }
     emit(output, options.out)
   } finally {

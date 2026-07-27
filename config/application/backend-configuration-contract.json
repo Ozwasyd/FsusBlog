@@ -2574,6 +2574,34 @@
       "deprecation": null
     },
     {
+      "key": "FSUSBLOG_PRODUCTION_BUILD_RECEIPT",
+      "owner": "release-lifecycle",
+      "purpose": "Canonical retained production build receipt for SPA asset validation",
+      "valueType": "path",
+      "environments": [
+        "Production"
+      ],
+      "allowedSources": [
+        "environment"
+      ],
+      "environmentVariables": [
+        "FSUSBLOG_PRODUCTION_BUILD_RECEIPT"
+      ],
+      "secret": false,
+      "requiredStatus": "optional",
+      "requiredWhen": "optional",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "consumer",
+        "owner": "SpaAssetManifestService"
+      },
+      "documentation": "docs/architecture/release-storage-lifecycle.md",
+      "consumer": "src/backend/Infrastructure/Spa/SpaAssetManifestService.cs",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
       "key": "FSUSBLOG_RELEASE_ASSET_ROOT",
       "owner": "release-lifecycle",
       "purpose": "Release and deployment lifecycle setting: FSUSBLOG_RELEASE_ASSET_ROOT",
@@ -2712,6 +2740,34 @@
       },
       "documentation": "docs/production.md",
       "consumer": "src/backend/Infrastructure/Operations",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
+      "key": "FSUSBLOG_SPA_MANIFEST_DESCRIPTOR",
+      "owner": "release-lifecycle",
+      "purpose": "Canonical immutable SPA manifest descriptor for the current release",
+      "valueType": "path",
+      "environments": [
+        "Production"
+      ],
+      "allowedSources": [
+        "environment"
+      ],
+      "environmentVariables": [
+        "FSUSBLOG_SPA_MANIFEST_DESCRIPTOR"
+      ],
+      "secret": false,
+      "requiredStatus": "optional",
+      "requiredWhen": "optional",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "consumer",
+        "owner": "SpaAssetManifestService"
+      },
+      "documentation": "docs/architecture/release-storage-lifecycle.md",
+      "consumer": "src/backend/Infrastructure/Spa/SpaAssetManifestService.cs",
       "runtimeOnly": false,
       "deprecation": null
     },
@@ -7976,6 +8032,31 @@
       "deprecation": null
     },
     {
+      "name": "FSUSBLOG_PRODUCTION_BUILD_RECEIPT",
+      "category": "application-configuration",
+      "owner": "release-lifecycle",
+      "secret": false,
+      "mapsTo": [
+        "FSUSBLOG_PRODUCTION_BUILD_RECEIPT"
+      ],
+      "sources": [
+        "ops/docker/docker-compose.production.yml"
+      ],
+      "deprecation": null
+    },
+    {
+      "name": "FSUSBLOG_PRODUCTION_BUILD_RECEIPT_HOST_PATH",
+      "category": "deployment-control",
+      "owner": "release-lifecycle",
+      "secret": false,
+      "mapsTo": [],
+      "sources": [
+        "tools/deployment/release-rollout.sh",
+        "tools/deployment/zero-downtime-topology.sh"
+      ],
+      "deprecation": null
+    },
+    {
       "name": "FSUSBLOG_PRODUCTION_COMPOSE_FILE",
       "category": "deployment-control",
       "owner": "release-lifecycle",
@@ -8199,7 +8280,9 @@
       "sources": [
         ".env.production.example",
         "ops/docker/docker-compose.production.yml",
-        "tools/deployment/release-rollout.sh"
+        "tools/deployment/release-rollout-recovery.sh",
+        "tools/deployment/release-rollout.sh",
+        "tools/deployment/slot-start.sh"
       ],
       "deprecation": null
     },
@@ -8865,6 +8948,19 @@
         "tools/deployment/gateway-rollback.sh",
         "tools/deployment/slot-common.sh",
         "tools/deployment/slot-state.mjs"
+      ],
+      "deprecation": null
+    },
+    {
+      "name": "FSUSBLOG_SPA_MANIFEST_DESCRIPTOR",
+      "category": "application-configuration",
+      "owner": "release-lifecycle",
+      "secret": false,
+      "mapsTo": [
+        "FSUSBLOG_SPA_MANIFEST_DESCRIPTOR"
+      ],
+      "sources": [
+        "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
     },

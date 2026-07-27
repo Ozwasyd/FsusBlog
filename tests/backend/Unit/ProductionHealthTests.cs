@@ -11,10 +11,12 @@ using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Infrastructure.Spa;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Shared.Contracts.Outputs;
 using FsusBlog.Shared.Contracts.Security;
 
 using Microsoft.AspNetCore.Authorization;
@@ -32,6 +34,130 @@ namespace FsusBlog.Server.Tests;
 
 public sealed class ProductionHealthTests
 {
+    [Fact]
+    public async Task ReadinessProbe_ExposesStableSpaAssetsFailureSnapshot()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "fsusblog-spa-health-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(root, "wwwroot"));
+        File.WriteAllText(Path.Combine(root, "wwwroot", "index.html"), "<html></html>");
+        try
+        {
+            var spaReadiness = new SpaAssetManifestReadiness(
+                "failed",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "spa_manifest_descriptor_invalid_json");
+            using ServiceProvider services = new ServiceCollection()
+                .AddSingleton<ISpaAssetManifestService>(new FixedSpaAssetManifestService(spaReadiness))
+                .BuildServiceProvider();
+            IConfiguration configuration = new ConfigurationBuilder().Build();
+            var environment = new TestWebHostEnvironment(root, Environments.Development);
+            var probe = new ProductionReadinessProbe(
+                configuration,
+                environment,
+                services,
+                CreateConfigurationSnapshot(configuration, environment, services),
+                NullLogger<ProductionReadinessProbe>.Instance);
+
+            ProductionHealthReport report = await probe.CheckAsync(CancellationToken.None);
+
+            SpaAssetManifestReadiness snapshot = Assert.IsType<SpaAssetManifestReadiness>(report.Checks["spaAssets"]);
+            Assert.Equal("failed", snapshot.Status);
+            Assert.Equal("spa_manifest_descriptor_invalid_json", snapshot.Error);
+            Assert.Null(snapshot.DescriptorPath);
+            Assert.Null(snapshot.DescriptorContentDigest);
+            Assert.Null(snapshot.BuildReceiptPath);
+            Assert.Null(snapshot.BuildReceiptDigest);
+            Assert.Null(snapshot.SourceCommit);
+            Assert.Null(snapshot.WorktreeFingerprint);
+            Assert.Null(snapshot.ReleaseId);
+            Assert.Null(snapshot.AssetRoot);
+            Assert.Null(snapshot.IndexPath);
+            Assert.Null(snapshot.ManifestPath);
+            Assert.Null(snapshot.ManifestDigest);
+            Assert.Null(snapshot.AssetInventoryPath);
+            Assert.Null(snapshot.AssetInventoryDigest);
+            Assert.Equal("not_ready", report.Status);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ReadinessProbe_ExposesCompleteResolvedSpaAssetsSnapshot()
+    {
+        string digest = "sha256:" + new string('a', 64);
+        var spaReadiness = new SpaAssetManifestReadiness(
+            "ok",
+            "/app/release-assets/release/spa-manifest-descriptor.json",
+            digest,
+            "/app/release-assets/release/production-build-receipt.json",
+            "sha256:" + new string('b', 64),
+            new string('c', 40),
+            "sha256:" + new string('d', 64),
+            "release",
+            "/app/release-assets/release",
+            "/app/release-assets/release/index.html",
+            "/app/release-assets/release/.vite/manifest.json",
+            "sha256:" + new string('e', 64),
+            "/app/release-assets/release/asset-manifest.json",
+            "sha256:" + new string('f', 64),
+            null);
+        using ServiceProvider services = new ServiceCollection()
+            .AddSingleton<ISpaAssetManifestService>(new FixedSpaAssetManifestService(spaReadiness))
+            .BuildServiceProvider();
+        string root = Path.Combine(Path.GetTempPath(), "fsusblog-spa-health-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(root, "wwwroot"));
+        File.WriteAllText(Path.Combine(root, "wwwroot", "index.html"), "<html></html>");
+        try
+        {
+            IConfiguration configuration = new ConfigurationBuilder().Build();
+            var environment = new TestWebHostEnvironment(root, Environments.Development);
+            var probe = new ProductionReadinessProbe(
+                configuration,
+                environment,
+                services,
+                CreateConfigurationSnapshot(configuration, environment, services),
+                NullLogger<ProductionReadinessProbe>.Instance);
+
+            ProductionHealthReport report = await probe.CheckAsync(CancellationToken.None);
+
+            SpaAssetManifestReadiness snapshot = Assert.IsType<SpaAssetManifestReadiness>(report.Checks["spaAssets"]);
+            Assert.Equal(spaReadiness, snapshot);
+            Assert.Equal("/app/release-assets/release/spa-manifest-descriptor.json", snapshot.DescriptorPath);
+            Assert.Equal(digest, snapshot.DescriptorContentDigest);
+            Assert.Equal("/app/release-assets/release/production-build-receipt.json", snapshot.BuildReceiptPath);
+            Assert.Equal("sha256:" + new string('b', 64), snapshot.BuildReceiptDigest);
+            Assert.Equal(new string('c', 40), snapshot.SourceCommit);
+            Assert.Equal("sha256:" + new string('d', 64), snapshot.WorktreeFingerprint);
+            Assert.Equal("release", snapshot.ReleaseId);
+            Assert.Equal("/app/release-assets/release", snapshot.AssetRoot);
+            Assert.Equal("/app/release-assets/release/index.html", snapshot.IndexPath);
+            Assert.Equal("/app/release-assets/release/.vite/manifest.json", snapshot.ManifestPath);
+            Assert.Equal("sha256:" + new string('e', 64), snapshot.ManifestDigest);
+            Assert.Equal("/app/release-assets/release/asset-manifest.json", snapshot.AssetInventoryPath);
+            Assert.Equal("sha256:" + new string('f', 64), snapshot.AssetInventoryDigest);
+            Assert.Null(snapshot.Error);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     [Fact]
     public void LivenessReport_ReturnsLiveWithoutReadinessDependencies()
     {
@@ -844,6 +970,18 @@ public sealed class ProductionHealthTests
         }
 
         Assert.True(predicate(), "Condition was not met before timeout.");
+    }
+
+    private sealed class FixedSpaAssetManifestService(SpaAssetManifestReadiness readiness) : ISpaAssetManifestService
+    {
+        public IReadOnlyList<string> GetPreloadsForPath(string path, HttpContext? context = null) => [];
+
+        public SpaAssetSet GetPublicAssetSet(HttpContext? context = null, PublicPageId? pageId = null)
+            => new("/assets/fsus-spa-entry.js", [], [], "missing-manifest", UsesSourceAssets: false);
+
+        public string GetFrontendAssetVersion(HttpContext? context = null) => "missing-manifest";
+
+        public SpaAssetManifestReadiness GetReadiness() => readiness;
     }
 
     private sealed class FixedRiskPolicyProvider(SecurityRiskPolicySnapshotV2 policy) : ISecurityRiskPolicyProvider

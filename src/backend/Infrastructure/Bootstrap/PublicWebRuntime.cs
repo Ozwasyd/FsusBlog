@@ -714,7 +714,11 @@ internal static partial class PublicWebRuntime
             ctx.Response.Headers["Clear-Site-Data"] = "\"cache\"";
         }
 
-        ReadOnlyMemory<byte> templateBytes = await PublicSpaTemplateLocator.ReadIndexTemplateBytesAsync(env, ct, preferSourceTemplate);
+        ReadOnlyMemory<byte> templateBytes = await PublicSpaTemplateLocator.ReadIndexTemplateBytesAsync(
+            env,
+            ct,
+            preferSourceTemplate,
+            assetService.GetIndexTemplatePath());
         SeoConfigReadModel seo = await systemService.GetSeoConfigAsync();
         ReadOnlyMemory<byte> seoHeadInjection = BuildSeoBrandHeadInjection(seo);
         if (isSearchRoute)

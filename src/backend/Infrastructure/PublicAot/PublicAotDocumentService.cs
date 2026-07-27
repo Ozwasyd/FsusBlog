@@ -148,7 +148,11 @@ public sealed class PublicAotDocumentService(
 
     private async Task<PreparedTemplateCacheEntry> GetPreparedTemplateAsync(SpaAssetSet assetSet, CancellationToken cancellationToken)
     {
-        string rawTemplate = await PublicSpaTemplateLocator.ReadIndexTemplateAsync(env, cancellationToken, assetSet.UsesSourceAssets);
+        string rawTemplate = await PublicSpaTemplateLocator.ReadIndexTemplateAsync(
+            env,
+            cancellationToken,
+            assetSet.UsesSourceAssets,
+            assetManifest.GetIndexTemplatePath());
         string templateHash = ComputeStableHash(rawTemplate);
         string cacheKey = string.Concat(
             Path.GetFullPath(env.ContentRootPath),

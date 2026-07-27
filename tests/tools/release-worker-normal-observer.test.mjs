@@ -186,7 +186,13 @@ function rolloutAtCandidateStart(fixture) {
     target,
     createdAtUtc: '2026-07-11T00:00:00.000Z'
   })
-  const stages = ['manifest-validate', 'capacity-preflight', 'backup-restore-gate', 'expand-migration']
+  const stages = [
+    'manifest-validate',
+    'capacity-preflight',
+    'backup-restore-gate',
+    'expand-migration',
+    'asset-materialize'
+  ]
   for (let index = 0; index < stages.length; index += 1) {
     const stage = stages[index]
     startRolloutStage(state, stage, `2026-07-11T00:0${index}:00.000Z`)
