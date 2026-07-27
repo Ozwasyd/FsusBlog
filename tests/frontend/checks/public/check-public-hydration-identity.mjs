@@ -20,7 +20,17 @@ async function collectSourceFiles(rootDir, extensions) {
     for (const entry of entries) {
       const fullPath = join(dir, entry.name)
       if (entry.isDirectory()) {
-        if (entry.name === 'node_modules' || entry.name === 'dist' || entry.name === 'generated') {
+        // Skip vendor/build trees. Vue and Element Plus legitimately emit
+        // data-allow-mismatch for controlled style/class mismatches; that is not
+        // the Blog-owned public AOT suppression path banned by #1702.
+        if (
+          entry.name === 'node_modules'
+          || entry.name === 'dist'
+          || entry.name === 'generated'
+          || entry.name === 'wwwroot'
+          || entry.name === 'bin'
+          || entry.name === 'obj'
+        ) {
           continue
         }
         await walk(fullPath)
