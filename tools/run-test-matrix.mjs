@@ -1423,6 +1423,31 @@ function writeSummaryOnlyEvidence(profileId, profile, runId, sourceState, artifa
   return evidence
 }
 
+function readDeclaredExternalEvidenceReceipts(profileId) {
+  const raw = process.env.FSUSBLOG_EXTERNAL_EVIDENCE_RECEIPTS
+  if (!raw) return {}
+  let declarations
+  try { declarations = JSON.parse(raw) } catch { throw new Error('FSUSBLOG_EXTERNAL_EVIDENCE_RECEIPTS must be JSON') }
+  if (!declarations || typeof declarations !== 'object' || Array.isArray(declarations)) {
+    throw new Error('FSUSBLOG_EXTERNAL_EVIDENCE_RECEIPTS must map tier ids to receipt paths')
+  }
+  const resolved = {}
+  for (const [tierId, paths] of Object.entries(declarations)) {
+    if (!Array.isArray(paths)) throw new Error(`${tierId} external receipt declarations must be an array`)
+    resolved[tierId] = paths.map((receiptPath) => {
+      if (typeof receiptPath !== 'string' || !receiptPath.trim() || path.isAbsolute(receiptPath)) {
+        throw new Error(`${tierId} external receipt path must be repository-relative`)
+      }
+      const file = path.resolve(root, receiptPath)
+      if (!file.startsWith(`${root}${path.sep}`) || !fs.existsSync(file) || !fs.lstatSync(file).isFile() || fs.lstatSync(file).isSymbolicLink()) {
+        throw new Error(`${tierId} external receipt file is missing or invalid: ${receiptPath}`)
+      }
+      return { receiptPath, receipt: JSON.parse(fs.readFileSync(file, 'utf8')) }
+    })
+  }
+  return resolved
+}
+
 function projectLocalBundleSummaries(matrix, profileId, profile, runId, completedTierIds) {
   const byId = tierMap(matrix)
   const projected = []
@@ -1608,6 +1633,7 @@ function emitProductionResourceUtilization({ profileId, profile, result, detecte
 
 export async function runLocalProfile(matrix, profileId, options, runtime = {}) {
   const profile = matrix.localProfiles[profileId]
+  const externalEvidenceReceipts = readDeclaredExternalEvidenceReceipts(profileId)
   const profileRoot = path.resolve(runtime.root ?? root)
   const detectResources = () => runtime.detectedResources ?? localProfileSystemResources(profile, {
     cpuCount: os.availableParallelism?.() ?? os.cpus().length,
@@ -1651,13 +1677,15 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
             tiers: resolvedLogicalMatrix.tiers,
             checkpoint: successfulCheckpoint,
             bundleSummaries: projectionInput.bundleSummaries,
-            summaryOnlyEvidence
+            summaryOnlyEvidence,
+            externalEvidenceReceipts
           })
         }
       }, { root })
       const summaryFile = path.join(root, `.tmp/local-${profileId}/summary.json`)
       const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8'))
-      summary.status = 'success'
+      summary.status = checkpoint.logicalTierProjection.status
+      summary.qualificationEligible = checkpoint.logicalTierProjection.qualificationEligible
       summary.executionSource = 'fresh-projection-resume'
       summary.projectedTierIds = checkpoint.logicalTierProjection.logicalTierIds
       summary.failure = null
@@ -1887,6 +1915,7 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
             checkpoint: lockedCheckpoint,
             bundleSummaries: projectionInput.bundleSummaries,
             summaryOnlyEvidence,
+            externalEvidenceReceipts,
             artifactDigestTable
           })
           return { logicalTierProjection }
@@ -1915,9 +1944,18 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
     })
     const summaryFile = path.join(root, `.tmp/local-${profileId}/summary.json`)
     fs.mkdirSync(path.dirname(summaryFile), { recursive: true })
+    const projection = result.checkpoint.logicalTierProjection
+    const externalEntries = Object.values(projection?.entries ?? {}).filter((entry) => entry.evidenceKind === 'external-executed')
+    if (projection?.status === 'complete-success'
+      && (!projection.qualificationEligible || Object.values(projection.entries ?? {}).some((entry) => entry.evidenceKind === 'summary-only')
+        || externalEntries.some((entry) => !entry.authorityId || !entry.buildIdentity || !entry.blockedPlaceholder))) {
+      throw new Error('quality summary refuses an unqualified or summary-only complete-success projection')
+    }
     const summary = {
       schema: 'fsusblog.local-production.run.v1',
-      status: result.status,
+      status: projection?.status
+        ?? (result.status === 'success' ? 'complete-success' : 'complete-failure'),
+      qualificationEligible: projection?.qualificationEligible ?? false,
       executionSource: options.resume ? 'resume' : 'fresh',
       schedulerRunId: runId,
       budgetMs: profile.budgetMs,

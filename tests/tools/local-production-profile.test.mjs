@@ -547,6 +547,8 @@ test('production checkpoint projection binds every logical tier to one fresh run
     assert.equal(projection.logicalTierCount, expectedLogicalTierCount);
     assert.equal(projection.executedTierCount, expectedLogicalTierCount);
     assert.equal(projection.summaryOnlyTierCount, 0);
+    assert.equal(projection.status, 'complete-success');
+    assert.equal(projection.qualificationEligible, true);
     assert.equal(Object.keys(projection.entries).length, expectedLogicalTierCount);
     assert.equal(projection.entries['production-build-artifacts'].physicalBundleId, 'build-static');
     assert.equal(projection.entries.integration.physicalBundleId, 'runtime-browser');
@@ -671,7 +673,7 @@ test('local production runner attaches the logical projection only after fresh p
 {
     const localProfileRunner = matrixRunner.slice(
         matrixRunner.indexOf('function writeSummaryOnlyEvidence('),
-        matrixRunner.indexOf('\nfunction resetFreshJobSummaries(')
+        matrixRunner.indexOf('\nasync function runCiJob(')
     );
     const freshProjectionRunner = localProfileRunner.slice(localProfileRunner.indexOf('await runDag({'));
     const orderedMarkers = [
@@ -708,7 +710,7 @@ test('local production runner attaches the logical projection only after fresh p
     assert.match(localProfileRunner, /collectFailures: true/u);
     assert.match(localProfileRunner, /failures: result\.checkpoint\.failures/u);
     assert.match(localProfileRunner, /independent failure\(s\) collected/u);
-    assert.match(localProfileRunner, /const cleanupSource = await \(runtime\.snapshotSourceState \?\? snapshotSourceState\)\(profileRoot\)[\s\S]*?executeProductionFreshPreflight\(\{[\s\S]*?receiptDirectory: runtime\.receiptDirectory[\s\S]*?fsusblog-runtime-cleanup-receipts[\s\S]*?additionalCleanup: runtime\.additionalCleanup \?\? \(\(\) => cleanupOrphanDotnetBuildServers/u);
+    assert.match(localProfileRunner, /const cleanupSource = await \(runtime\.snapshotSourceState \?\? snapshotSourceState\)\(profileRoot\)[\s\S]*?executeProductionFreshPreflight\(\{[\s\S]*?receiptDirectory: runtime\.receiptDirectory[\s\S]*?fsusblog-runtime-cleanup-receipts[\s\S]*?additionalCleanup: runtime\.additionalCleanup,/u);
     assert.match(localProfileRunner, /executeProductionFreshPreflight\(\{[\s\S]*?assertFreshRuntimeCleanupReceipt\(preflightReceipt\.receipt\)[\s\S]*?cleanLocalProductionOutputs[\s\S]*?bindFreshRuntimeCleanupReceipt\(\{ root: profileRoot, receipt: preflightReceipt \}\)[\s\S]*?recordSchedulerResult\(await runDag/u);
     assert.match(localProfileRunner, /catch \(error\) \{[\s\S]*?runError = error[\s\S]*?throw error[\s\S]*?finally \{[\s\S]*?if \(runError !== null \|\| !result\)[\s\S]*?recordCheckpointFailure\(/u);
     assert.doesNotMatch(localProfileRunner, /fs\.writeFileSync\(result\.checkpointPath/u);

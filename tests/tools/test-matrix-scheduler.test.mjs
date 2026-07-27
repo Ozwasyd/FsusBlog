@@ -12,7 +12,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createArtifactDigestTable } from '../../tools/test-matrix/artifact-digest-table.mjs';
 import {
     artifactSubstitutionBindingDigest,
-    digestDeclaredOutputs
+    digestDeclaredOutputs,
+    externalEvidenceReceiptDigest,
+    resolveExternalEvidenceReceipts
 } from '../../tools/test-matrix/local-profile.mjs';
 import { parseMatrix } from '../../tools/test-matrix/parse-matrix.mjs';
 import {
@@ -295,10 +297,12 @@ async function createCheckpointEvidenceFixture(runDag, name = 'scheduler-checkpo
         runId: 'production-fresh',
         sourceState: result.checkpoint.sourceState,
         executionSource: 'fresh',
-        status: 'success',
+        status: 'incomplete-external-evidence',
+        qualificationEligible: false,
         logicalTierCount: 2,
         executedTierCount: 1,
         summaryOnlyTierCount: 1,
+        requiredSummaryOnlyTierIds: ['external-operations-evidence'],
         logicalTierIds: ['external-operations-evidence', 'production'],
         entries: {
             production: {
@@ -556,7 +560,7 @@ test('real subprocess failure blocks the production correctness consumer and pre
 
 test('checkpoint evidence attach is atomic, run-bound, and preserves physical scheduler tiers', async () =>
 {
-    const { attachCheckpointEvidence, runDag } = await loadScheduler();
+    const { attachCheckpointEvidence, runDag, validateLocalProfileCheckpointEvidence } = await loadScheduler();
     assert.equal(typeof attachCheckpointEvidence, 'function');
     const { result, projection, attachOptions } = await createCheckpointEvidenceFixture(runDag);
 
@@ -581,6 +585,152 @@ test('checkpoint evidence attach is atomic, run-bound, and preserves physical sc
         /checkpoint revision .* does not match expected revision/u
     );
     assert.equal(JSON.parse(fs.readFileSync(result.checkpointPath, 'utf8')).status, 'success');
+});
+
+test('external correctness receipts replace only their bound placeholder and fail closed', async () =>
+{
+    const { attachCheckpointEvidence, runDag, validateLocalProfileCheckpointEvidence } = await loadScheduler();
+    const fixture = await createCheckpointEvidenceFixture(runDag, 'external-receipt-binding');
+    const placeholderPath = '.tmp/local-production/summary-only/external-operations-evidence.json';
+    const receiptPath = '.tmp/external-receipts/external-operations-evidence.json';
+    const placeholderDocument = {
+        schema: 'fsusblog.local-production.summary-only.v1',
+        tierId: 'external-operations-evidence', status: 'collected-blocked', executionSource: 'external-environment',
+        schedulerRunId: fixture.result.runId, sourceState: fixture.result.checkpoint.sourceState
+    };
+    fs.writeFileSync(path.join(fixture.temp, placeholderPath), `${JSON.stringify(placeholderDocument)}\n`);
+    const receipt = {
+        schema: 'fsusblog.external-correctness-receipt.v1',
+        tierId: 'external-operations-evidence',
+        authorityId: 'external-production-authority',
+        schedulerRunId: fixture.result.runId,
+        sourceState: fixture.result.checkpoint.sourceState,
+        buildIdentity: {
+            schedulerRunId: fixture.result.runId,
+            sourceState: fixture.result.checkpoint.sourceState,
+            artifactDigestTableDigest: `sha256:${'1'.repeat(64)}`
+        },
+        testIds: ['external:operation'],
+        coverageIds: ['coverage:external-operation'],
+        assertionIds: ['assertion:external-operation'],
+        status: 'success'
+    };
+    receipt.contentDigest = externalEvidenceReceiptDigest(receipt);
+    fs.mkdirSync(path.dirname(path.join(fixture.temp, receiptPath)), { recursive: true });
+    fs.writeFileSync(path.join(fixture.temp, receiptPath), `${JSON.stringify(receipt)}\n`);
+    const placeholder = {
+        ...placeholderDocument,
+        evidencePath: placeholderPath,
+        artifactDigest: digestFile(path.join(fixture.temp, placeholderPath))
+    };
+    const resolved = resolveExternalEvidenceReceipts({
+        summaryOnlyEvidence: { 'external-operations-evidence': placeholder },
+        externalEvidenceReceipts: { 'external-operations-evidence': [{ receiptPath, receipt }] },
+        checkpoint: fixture.result.checkpoint,
+        canonicalAuthorities: { 'external-operations-evidence': 'external-production-authority' },
+        buildIdentity: receipt.buildIdentity
+    });
+    fixture.projection.entries['external-operations-evidence'] = resolved['external-operations-evidence'];
+    fixture.projection.summaryOnlyTierCount = 0;
+    fixture.projection.executedTierCount = 2;
+    fixture.projection.status = 'complete-success';
+    fixture.projection.qualificationEligible = true;
+    const attached = await attachCheckpointEvidence(fixture.result.checkpointPath, fixture.result.runId, {
+        logicalTierProjection: fixture.projection
+    }, fixture.attachOptions);
+    assert.equal(attached.logicalTierProjection.entries['external-operations-evidence'].evidenceKind, 'external-executed');
+    assert.deepEqual(attached.logicalTierProjection.entries['external-operations-evidence'].blockedPlaceholder, placeholder);
+    fs.writeFileSync(path.join(fixture.temp, placeholderPath), '{"tampered":true}\n');
+    assert.throws(() => validateLocalProfileCheckpointEvidence(attached, fixture.temp), /blocked placeholder/u);
+
+    for (const mutate of [
+        (candidate) => { candidate.schedulerRunId = 'old-run'; },
+        (candidate) => { candidate.status = 'failed'; },
+        (candidate) => { candidate.status = 'cancelled'; },
+        (candidate) => { candidate.authorityId = 'forged-authority'; },
+        (candidate) => { candidate.buildIdentity.buildId = 'forged-build'; },
+        (candidate) => { candidate.contentDigest = `sha256:${'0'.repeat(64)}`; }
+    ])
+    {
+        const invalid = structuredClone(receipt);
+        mutate(invalid);
+        assert.throws(() => resolveExternalEvidenceReceipts({
+            summaryOnlyEvidence: { 'external-operations-evidence': placeholder },
+            externalEvidenceReceipts: { 'external-operations-evidence': [{ receiptPath, receipt: invalid }] },
+            checkpoint: fixture.result.checkpoint,
+            canonicalAuthorities: { 'external-operations-evidence': 'external-production-authority' },
+            buildIdentity: receipt.buildIdentity
+        }));
+    }
+    for (const field of ['testIds', 'coverageIds', 'assertionIds'])
+    {
+        const invalid = structuredClone(receipt);
+        invalid[field] = [];
+        invalid.contentDigest = externalEvidenceReceiptDigest(invalid);
+        assert.throws(() => resolveExternalEvidenceReceipts({
+            summaryOnlyEvidence: { 'external-operations-evidence': placeholder },
+            externalEvidenceReceipts: { 'external-operations-evidence': [{ receiptPath, receipt: invalid }] },
+            checkpoint: fixture.result.checkpoint,
+            canonicalAuthorities: { 'external-operations-evidence': 'external-production-authority' },
+            buildIdentity: receipt.buildIdentity
+        }), new RegExp(`${field} must be non-empty`, 'u'));
+    }
+    assert.deepEqual(resolveExternalEvidenceReceipts({
+        summaryOnlyEvidence: { 'external-operations-evidence': placeholder }, externalEvidenceReceipts: {},
+        checkpoint: fixture.result.checkpoint, canonicalAuthorities: { 'external-operations-evidence': 'external-production-authority' },
+        buildIdentity: receipt.buildIdentity
+    }), {});
+    assert.throws(() => resolveExternalEvidenceReceipts({
+        summaryOnlyEvidence: { 'external-operations-evidence': placeholder },
+        externalEvidenceReceipts: { 'external-operations-evidence': [{ receiptPath, receipt }, { receiptPath, receipt }] },
+        checkpoint: fixture.result.checkpoint,
+        canonicalAuthorities: { 'external-operations-evidence': 'external-production-authority' },
+        buildIdentity: receipt.buildIdentity
+    }), /exact-one/u);
+    assert.throws(() => resolveExternalEvidenceReceipts({
+        summaryOnlyEvidence: { 'external-operations-evidence': placeholder },
+        externalEvidenceReceipts: {
+            'external-operations-evidence': [{ receiptPath, receipt }],
+            'extra-tier': []
+        },
+        checkpoint: fixture.result.checkpoint,
+        canonicalAuthorities: { 'external-operations-evidence': 'external-production-authority' },
+        buildIdentity: receipt.buildIdentity
+    }), /exactly match/u);
+});
+
+test('checkpoint projection rejects deleting a blocked entry to forge complete-success', async () =>
+{
+    const { attachCheckpointEvidence, runDag } = await loadScheduler();
+    const fixture = await createCheckpointEvidenceFixture(runDag, 'deleted-summary-only-entry');
+    delete fixture.projection.entries['external-operations-evidence'];
+    fixture.projection.logicalTierIds = ['production'];
+    fixture.projection.logicalTierCount = 1;
+    fixture.projection.summaryOnlyTierCount = 0;
+    fixture.projection.executedTierCount = 1;
+    fixture.projection.status = 'complete-success';
+    fixture.projection.qualificationEligible = true;
+    await assert.rejects(() => attachCheckpointEvidence(fixture.result.checkpointPath, fixture.result.runId, {
+        logicalTierProjection: fixture.projection
+    }, fixture.attachOptions), /logical tier projection|summary-only|logicalTierIds/u);
+});
+
+test('projection-only resume cannot promote an incomplete external-evidence projection', async () =>
+{
+    const { resumeCheckpointEvidence, runDag } = await loadScheduler();
+    const fixture = await createCheckpointEvidenceFixture(runDag, 'resume-incomplete-external-evidence');
+    const checkpoint = JSON.parse(fs.readFileSync(fixture.result.checkpointPath, 'utf8'));
+    checkpoint.status = 'failure';
+    checkpoint.authoritative = true;
+    checkpoint.failure = { reason: 'checkpoint evidence finalization failed: incomplete external evidence' };
+    checkpoint.ungeneratedEvidence = [{ tierId: 'production', declaration: 'logicalTierProjection' }];
+    fs.writeFileSync(fixture.result.checkpointPath, `${JSON.stringify(checkpoint)}\n`);
+    await assert.rejects(() => resumeCheckpointEvidence(
+        fixture.result.checkpointPath,
+        fixture.result.runId,
+        () => ({ logicalTierProjection: fixture.projection }),
+        { root: fixture.temp, snapshotWorktree: stableSnapshot }
+    ), /qualification-eligible complete-success/u);
 });
 
 test('checkpoint projection validates logical artifact refs through one final run-bound digest table', async () =>
@@ -629,6 +779,23 @@ test('checkpoint evidence attach rejects deep projection entry tampering and per
 {
     const { attachCheckpointEvidence, runDag } = await loadScheduler();
     const cases = [
+        {
+            name: 'summary-only-success',
+            mutate: (projection) =>
+            {
+                projection.status = 'complete-success';
+                projection.qualificationEligible = false;
+            },
+            pattern: /summary-only entries must be incomplete or failed and unqualified/u
+        },
+        {
+            name: 'summary-only-qualification',
+            mutate: (projection) =>
+            {
+                projection.qualificationEligible = true;
+            },
+            pattern: /qualificationEligible must match summary-only entries/u
+        },
         {
             name: 'tier-id',
             mutate: (projection) =>
@@ -900,7 +1067,7 @@ test('projection-only resume rejects physical evidence from a different source s
     assert.equal(JSON.parse(fs.readFileSync(fixture.result.checkpointPath, 'utf8')).status, 'failure');
 });
 
-test('projection-only resume reuses fresh successful physical evidence from the same source', async () =>
+test('projection-only resume refuses same-source physical evidence when its projection remains incomplete', async () =>
 {
     const {
         attachCheckpointEvidence,
@@ -918,7 +1085,7 @@ test('projection-only resume reuses fresh successful physical evidence from the 
         /logicalTierCount must match its entries/u
     );
 
-    const recovered = await resumeCheckpointEvidence(
+    await assert.rejects(() => resumeCheckpointEvidence(
         fixture.result.checkpointPath,
         'production-fresh',
         (successfulCheckpoint) =>
@@ -930,16 +1097,8 @@ test('projection-only resume reuses fresh successful physical evidence from the 
             root: fixture.temp,
             snapshotWorktree: stableSnapshot
         }
-    );
-
-    assert.equal(recovered.status, 'success');
-    assert.equal(recovered.failure, null);
-    assert.equal(recovered.sourceState.worktreeFingerprint, 'stable');
-    assert.equal(recovered.logicalTierProjection.logicalTierCount, 2);
-    assert.equal(recovered.evidenceFinalization.mode, 'projection-resume');
-    assert.equal(recovered.evidenceFinalization.finalizerSource.worktreeFingerprint, 'stable');
-    assert.equal(recovered.tiers['local-production-build-static'].reused, false);
-    assert.equal(isProjectionOnlyCheckpointFailure(recovered), false);
+    ), /qualification-eligible complete-success/u);
+    assert.equal(isProjectionOnlyCheckpointFailure(JSON.parse(fs.readFileSync(fixture.result.checkpointPath, 'utf8'))), true);
 });
 
 test('checkpoint evidence generation and attach reject a concurrent writer for the same run', async () =>

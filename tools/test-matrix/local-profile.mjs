@@ -1081,6 +1081,96 @@ function sortedUnique(values) {
   return [...new Set(values)].sort()
 }
 
+function canonicalReceiptValue(value) {
+  if (Array.isArray(value)) return value.map(canonicalReceiptValue)
+  if (plainRecord(value)) return Object.fromEntries(Object.keys(value).sort()
+    .map((key) => [key, canonicalReceiptValue(value[key])]))
+  return value
+}
+
+export function externalEvidenceReceiptDigest(receipt) {
+  const { contentDigest, ...unsigned } = receipt ?? {}
+  return `sha256:${createHash('sha256').update(JSON.stringify(canonicalReceiptValue(unsigned))).digest('hex')}`
+}
+
+function requiredReceiptIds(receipt, field, tierId, errors) {
+  const values = receipt?.[field]
+  if (!Array.isArray(values) || values.length === 0
+    || values.some((value) => typeof value !== 'string' || !value.trim())
+    || new Set(values).size !== values.length) {
+    errors.push(`${tierId} external receipt ${field} must be non-empty unique strings`)
+    return []
+  }
+  return sortedUnique(values)
+}
+
+export function resolveExternalEvidenceReceipts({ summaryOnlyEvidence, externalEvidenceReceipts, checkpoint, canonicalAuthorities = {}, buildIdentity = null }) {
+  const resolved = {}
+  const declaredTierIds = Object.keys(externalEvidenceReceipts ?? {}).sort()
+  const expectedTierIds = Object.keys(summaryOnlyEvidence ?? {}).sort()
+  if (declaredTierIds.length > 0 && (declaredTierIds.length !== expectedTierIds.length
+    || declaredTierIds.some((tierId, index) => tierId !== expectedTierIds[index]))) {
+    throw new Error('external receipt declarations must exactly match summary-only tiers')
+  }
+  for (const [tierId, placeholder] of Object.entries(summaryOnlyEvidence ?? {})) {
+    const candidates = collectionEntry(externalEvidenceReceipts, tierId) ?? []
+    if (!Array.isArray(candidates)) throw new Error(`${tierId} external receipts must be an array`)
+    if (candidates.length === 0) continue
+    if (candidates.length !== 1) throw new Error(`${tierId} external receipts are ambiguous; exact-one is required`)
+    const candidate = candidates[0]
+    const receipt = candidate?.receipt
+    const receiptPath = normalizeDeclaration(candidate?.receiptPath)
+    const errors = []
+    if (!plainRecord(receipt)) errors.push(`${tierId} external receipt must be an object`)
+    if (!safeRepositoryDeclaration(receiptPath)) errors.push(`${tierId} external receipt path is invalid`)
+    if (receipt?.schema !== 'fsusblog.external-correctness-receipt.v1') errors.push(`${tierId} external receipt schema is invalid`)
+    if (receipt?.tierId !== tierId) errors.push(`${tierId} external receipt tierId must match`)
+    if (typeof canonicalAuthorities?.[tierId] !== 'string' || !canonicalAuthorities[tierId]) {
+      errors.push(`${tierId} has no unique canonical external authority`)
+    } else if (receipt?.authorityId !== canonicalAuthorities[tierId]) {
+      errors.push(`${tierId} external receipt authorityId does not match canonical authority`)
+    }
+    if (receipt?.schedulerRunId !== checkpoint.runId) errors.push(`${tierId} external receipt schedulerRunId must match current run`)
+    if (!buildIdentity || JSON.stringify(canonicalReceiptValue(receipt?.buildIdentity)) !== JSON.stringify(canonicalReceiptValue(buildIdentity))
+      || !sameSourceState(receipt?.sourceState, checkpoint.sourceState)) {
+      errors.push(`${tierId} external receipt source/worktree/build identity must match current run`)
+    }
+    const testIds = requiredReceiptIds(receipt, 'testIds', tierId, errors)
+    const coverageIds = requiredReceiptIds(receipt, 'coverageIds', tierId, errors)
+    const assertionIds = requiredReceiptIds(receipt, 'assertionIds', tierId, errors)
+    if (receipt?.status !== 'success') errors.push(`${tierId} external receipt status must be success`)
+    if (receipt?.contentDigest !== externalEvidenceReceiptDigest(receipt)) errors.push(`${tierId} external receipt contentDigest is invalid`)
+    if (errors.length > 0) throw new Error(errors.join('; '))
+    resolved[tierId] = {
+      tierId,
+      evidenceKind: 'external-executed',
+      physicalBundleId: null,
+      status: 'success',
+      executionSource: 'external-environment',
+      durationMs: null,
+      testIds,
+      coverageIds,
+      assertionIds,
+      authorityId: receipt.authorityId,
+      schedulerRunId: receipt.schedulerRunId,
+      sourceState: { ...receipt.sourceState },
+      buildIdentity: { ...receipt.buildIdentity, sourceState: { ...receipt.buildIdentity.sourceState } },
+      blockedPlaceholder: {
+        schema: placeholder.schema,
+        tierId: placeholder.tierId,
+        status: placeholder.status,
+        executionSource: placeholder.executionSource,
+        evidencePath: placeholder.evidencePath,
+        artifactDigest: placeholder.artifactDigest,
+        schedulerRunId: placeholder.schedulerRunId,
+        sourceState: { ...placeholder.sourceState }
+      },
+      artifactDigests: { [receiptPath]: receipt.contentDigest }
+    }
+  }
+  return resolved
+}
+
 function validateSummaryOnlyEvidence(evidence, tierId, checkpoint) {
   const errors = []
   if (!evidence) return [`missing summary-only evidence: ${tierId}`]
@@ -1110,6 +1200,7 @@ export function buildLocalProfileProjection({
   checkpoint,
   bundleSummaries,
   summaryOnlyEvidence,
+  externalEvidenceReceipts = null,
   artifactDigestTable = null
 }) {
   const errors = []
@@ -1213,6 +1304,23 @@ export function buildLocalProfileProjection({
     }
   }
 
+  let externalEntries = {}
+  let externalEvidenceFailure = null
+  try {
+    externalEntries = resolveExternalEvidenceReceipts({
+      summaryOnlyEvidence,
+      externalEvidenceReceipts,
+      checkpoint,
+      canonicalAuthorities: profile?.externalAuthorities ?? {},
+      buildIdentity: artifactDigestTable === null ? null : {
+        schedulerRunId: checkpoint.runId,
+        sourceState: { ...checkpoint.sourceState },
+        artifactDigestTableDigest: artifactDigestTable.contentDigest
+      }
+    })
+  } catch (error) {
+    externalEvidenceFailure = error instanceof Error ? error.message : String(error)
+  }
   for (const tierId of profile?.summaryOnly ?? []) {
     if (entries[tierId]) {
       errors.push(`logical tier projected more than once: ${tierId}`)
@@ -1224,7 +1332,7 @@ export function buildLocalProfileProjection({
       errors.push(...summaryErrors)
       continue
     }
-    entries[tierId] = {
+    entries[tierId] = externalEntries[tierId] ?? {
       tierId,
       evidenceKind: 'summary-only',
       physicalBundleId: null,
@@ -1252,16 +1360,25 @@ export function buildLocalProfileProjection({
   const orderedEntries = Object.fromEntries(logicalTierIds.map((tierId) => [tierId, entries[tierId]]))
   const summaryOnlyTierCount = Object.values(orderedEntries)
     .filter((entry) => entry.evidenceKind === 'summary-only').length
+  const qualificationEligible = summaryOnlyTierCount === 0 && externalEvidenceFailure === null
   return {
     schema: logicalProjectionSchema,
     profileId,
     runId: checkpoint.runId,
     sourceState: { ...checkpoint.sourceState },
     executionSource: 'fresh',
-    status: 'success',
+    // A summary-only placeholder records a required external execution, not a
+    // successful correctness result.  Keep this distinction at the projection
+    // boundary so every consumer has a fail-closed qualification signal.
+    status: externalEvidenceFailure === null
+      ? (qualificationEligible ? 'complete-success' : 'incomplete-external-evidence')
+      : 'complete-failure',
+    qualificationEligible,
+    ...(externalEvidenceFailure === null ? {} : { failure: { kind: 'external-evidence', reason: externalEvidenceFailure } }),
     logicalTierCount: logicalTierIds.length,
     executedTierCount: logicalTierIds.length - summaryOnlyTierCount,
     summaryOnlyTierCount,
+    requiredSummaryOnlyTierIds: [...(profile?.summaryOnly ?? [])].sort(),
     logicalTierIds,
     ...(artifactDigestTable !== null ? { artifactDigestTable } : {}),
     entries: orderedEntries
@@ -1434,6 +1551,15 @@ export function validateLocalProfiles(localProfiles, tiers) {
       const owners = mapped.get(tierId) ?? []
       owners.push('summaryOnly')
       mapped.set(tierId, owners)
+    }
+    const summaryOnlyTierIds = [...(profile.summaryOnly ?? [])].sort()
+    if (summaryOnlyTierIds.length > 0) {
+      const authorityIds = Object.keys(profile.externalAuthorities ?? {}).sort()
+      if (authorityIds.length !== summaryOnlyTierIds.length
+        || authorityIds.some((tierId, index) => tierId !== summaryOnlyTierIds[index])
+        || authorityIds.some((tierId) => !String(profile.externalAuthorities[tierId] ?? '').trim())) {
+        errors.push(`localProfiles.${profileId}.externalAuthorities must exactly declare one canonical authority per summary-only tier`)
+      }
     }
 
     for (const bundle of profile.bundles) {

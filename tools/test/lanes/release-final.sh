@@ -20,4 +20,8 @@ for authority in \
     community-governance; do
     "$NODE_BIN" "$ROOT_DIR/tools/governance/repository-governance-authority.mjs" verify "$authority"
 done
-"$NODE_BIN" "$ROOT_DIR/tools/release/check-release-final.mjs"
+releaseFinalArgs=()
+if [[ -n "${FSUSBLOG_LOCAL_PROFILE_CHECKPOINT:-}" ]]; then
+    releaseFinalArgs+=(--local-profile-checkpoint "$FSUSBLOG_LOCAL_PROFILE_CHECKPOINT")
+fi
+"$NODE_BIN" "$ROOT_DIR/tools/release/check-release-final.mjs" "${releaseFinalArgs[@]}"

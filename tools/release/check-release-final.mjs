@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 import { validateReleaseRuntimeMatrix } from '../runtime-profiles/release-runtime-matrix.mjs';
 import { readEvidenceDocument } from '../test-matrix/content-addressed-evidence-store.mjs';
+import { validateLocalProfileCheckpointEvidence } from '../test-matrix/scheduler.mjs';
 
 import { requirePublicPreviewReleaseEvidence } from './public-preview-release-evidence.mjs';
 import { validateFontLicenseEvidence } from './font-license-evidence.mjs';
@@ -452,6 +453,48 @@ function validateManifest(manifest, manifestFile)
     return errors;
 }
 
+export function validateQualifiedLocalProfile(checkpointFile, manifest, checkpointRoot = root)
+{
+    const errors = [];
+    if (!checkpointFile || !fs.existsSync(checkpointFile) || !fs.statSync(checkpointFile).isFile())
+    {
+        return ['qualified local-profile checkpoint is missing'];
+    }
+    let checkpoint;
+    try { checkpoint = readJson(checkpointFile); }
+    catch { return ['qualified local-profile checkpoint is invalid JSON']; }
+    const projection = checkpoint?.logicalTierProjection;
+    if (!projection || typeof projection !== 'object')
+    {
+        return ['qualified local-profile checkpoint has no logicalTierProjection'];
+    }
+    try { validateLocalProfileCheckpointEvidence(checkpoint, checkpointRoot); }
+    catch (error) { errors.push(`local-profile projection sealed validation failed: ${error.message}`); }
+    if (projection.status !== 'complete-success' || projection.qualificationEligible !== true)
+    {
+        errors.push('local-profile projection is not qualification-eligible complete-success');
+    }
+    if (projection.sourceState?.commit !== manifest.commitSha)
+    {
+        errors.push('local-profile projection commit does not match release manifest');
+    }
+    for (const [tierId, entry] of Object.entries(projection.entries ?? {}))
+    {
+        if (entry?.evidenceKind === 'summary-only' || entry?.status !== 'success')
+        {
+            errors.push(`local-profile projection entry ${tierId} is not executed success`);
+            continue;
+        }
+        if (entry.evidenceKind === 'external-executed'
+            && (!entry.authorityId || entry.schedulerRunId !== projection.runId
+                || !entry.buildIdentity?.artifactDigestTableDigest || !entry.blockedPlaceholder))
+        {
+            errors.push(`local-profile projection entry ${tierId} external receipt binding is invalid`);
+        }
+    }
+    return errors;
+}
+
 async function runSelfTest()
 {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'fsus-release-final-'));
@@ -792,6 +835,7 @@ function sha256Hex(file)
     return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 }
 
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
 const args = process.argv.slice(2);
 if (args.includes('--self-test'))
 {
@@ -799,7 +843,13 @@ if (args.includes('--self-test'))
     process.exit(0);
 }
 
-const manifestArg = args.find((arg) => !arg.startsWith('--'));
+const checkpointOption = args.indexOf('--local-profile-checkpoint');
+const localProfileCheckpoint = checkpointOption >= 0 ? path.resolve(args[checkpointOption + 1] ?? '') : null;
+if (checkpointOption >= 0 && !args[checkpointOption + 1])
+{
+    fail(['--local-profile-checkpoint requires a path']);
+}
+const manifestArg = args.find((arg, index) => !arg.startsWith('--') && index !== checkpointOption + 1);
 const manifestFile = manifestArg ? path.resolve(manifestArg) : latestManifest();
 if (!manifestFile)
 {
@@ -810,6 +860,10 @@ const bindingFile = path.join(root, '.tmp/release-evidence/release-final-test-ev
 fs.rmSync(bindingFile, { force: true });
 const manifest = readJson(manifestFile);
 const errors = validateManifest(manifest, manifestFile);
+if (localProfileCheckpoint)
+{
+    errors.push(...validateQualifiedLocalProfile(localProfileCheckpoint, manifest));
+}
 let testEvidenceBinding = null;
 let publicPreviewEvidence = null;
 try
@@ -833,3 +887,4 @@ const publicPreviewImages = Object.entries(publicPreviewEvidence.images)
     .join(',');
 console.log(`[release-final] public-preview commit=${publicPreviewEvidence.sourceCommit} releaseId=${publicPreviewEvidence.releaseId} images=${publicPreviewImages}`);
 console.log(`[release-final] ok file=${path.relative(root, manifestFile)}`);
+}

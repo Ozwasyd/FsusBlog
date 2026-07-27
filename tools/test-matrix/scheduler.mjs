@@ -15,6 +15,7 @@ import {
 import { RunEvidenceObjectStore } from './content-addressed-evidence-store.mjs'
 import {
   artifactSubstitutionBindingDigest,
+  externalEvidenceReceiptDigest,
   resolveRunBoundArtifactDeclaration
 } from './local-profile.mjs'
 import { createProductionResourceEnforcer } from './production-resource-enforcement.mjs'
@@ -1863,12 +1864,13 @@ function validateProjectionEntry(entry, tierId, projection, checkpoint, root, ar
   if (!tierId || entry.tierId !== tierId) {
     throw new Error(`logicalTierProjection entry ${tierId} tierId must match its key`)
   }
-  if (!['executed', 'summary-only'].includes(entry.evidenceKind)) {
+  if (!['executed', 'summary-only', 'external-executed'].includes(entry.evidenceKind)) {
     throw new Error(`logicalTierProjection entry ${tierId} evidenceKind is invalid`)
   }
   const summaryOnly = entry.evidenceKind === 'summary-only'
+  const externalExecuted = entry.evidenceKind === 'external-executed'
   const expectedStatus = summaryOnly ? 'collected-blocked' : 'success'
-  const expectedSource = summaryOnly ? 'external-environment' : 'fresh'
+  const expectedSource = (summaryOnly || externalExecuted) ? 'external-environment' : 'fresh'
   if (entry.status !== expectedStatus) {
     throw new Error(`logicalTierProjection entry ${tierId} status must be ${expectedStatus}`)
   }
@@ -1881,21 +1883,21 @@ function validateProjectionEntry(entry, tierId, projection, checkpoint, root, ar
     || entry.testIds.some((testId, index) => index > 0 && entry.testIds[index - 1] > testId)) {
     throw new Error(`logicalTierProjection entry ${tierId} testIds must be sorted unique non-empty strings`)
   }
-  if ((!summaryOnly && entry.testIds.length === 0) || (summaryOnly && entry.testIds.length !== 0)) {
+  if ((entry.evidenceKind === 'executed' && entry.testIds.length === 0) || (summaryOnly && entry.testIds.length !== 0)) {
     throw new Error(`logicalTierProjection entry ${tierId} testIds do not match its evidenceKind`)
   }
   if (!plainObject(entry.artifactDigests) || Object.keys(entry.artifactDigests).length === 0) {
     throw new Error(`logicalTierProjection entry ${tierId} artifactDigests must be a non-empty object`)
   }
-  if (artifactTable) validateArtifactRefs(entry.artifactDigests, entry.artifactRefs, artifactTable)
-  const sealedBundle = summaryOnly
+  if (artifactTable && !externalExecuted) validateArtifactRefs(entry.artifactDigests, entry.artifactRefs, artifactTable)
+  const sealedBundle = (summaryOnly || externalExecuted)
     ? null
     : bundleSummaryOutput(checkpoint, root, entry.physicalBundleId)
   const sealedMember = sealedBundle?.summary?.members?.[tierId]
-  if (!summaryOnly && !plainObject(sealedMember)) {
+  if (!summaryOnly && !externalExecuted && !plainObject(sealedMember)) {
     throw new Error(`logicalTierProjection entry ${tierId} has no sealed member evidence in ${sealedBundle.summaryPath}`)
   }
-  const substitutionCanonicalPaths = summaryOnly
+  const substitutionCanonicalPaths = (summaryOnly || externalExecuted)
     ? new Set()
     : validateArtifactSubstitutionProofs(entry, tierId, artifactTable)
   for (const [artifactPath, digest] of Object.entries(entry.artifactDigests)) {
@@ -1908,6 +1910,17 @@ function validateProjectionEntry(entry, tierId, projection, checkpoint, root, ar
     let currentDigest
     if (substitutionCanonicalPaths.has(artifactPath)) {
       currentDigest = digest
+    } else if (externalExecuted) {
+      const absoluteArtifact = path.resolve(root, artifactPath)
+      if (!absoluteArtifact.startsWith(`${root}${path.sep}`) || !fs.existsSync(absoluteArtifact)
+        || !fs.lstatSync(absoluteArtifact).isFile() || fs.lstatSync(absoluteArtifact).isSymbolicLink()) {
+        throw new Error(`logicalTierProjection entry ${tierId} external receipt artifact is missing or invalid: ${artifactPath}`)
+      }
+      let receipt
+      try { receipt = JSON.parse(fs.readFileSync(absoluteArtifact, 'utf8')) } catch {
+        throw new Error(`logicalTierProjection entry ${tierId} external receipt artifact is not JSON`)
+      }
+      currentDigest = externalEvidenceReceiptDigest(receipt)
     } else if (summaryOnly && !artifactTable) {
       const absoluteArtifact = path.resolve(root, artifactPath)
       if (artifactPath.includes('*')
@@ -1928,12 +1941,57 @@ function validateProjectionEntry(entry, tierId, projection, checkpoint, root, ar
       throw new Error(`logicalTierProjection entry ${tierId} artifact digest does not match: ${artifactPath}`)
     }
   }
-  if (summaryOnly) {
+  if (summaryOnly || externalExecuted) {
     if (entry.physicalBundleId !== null) {
       throw new Error(`logicalTierProjection entry ${tierId} physicalBundleId must be null`)
     }
     if (entry.durationMs !== null) {
       throw new Error(`logicalTierProjection entry ${tierId} durationMs must be null`)
+    }
+    if (externalExecuted) {
+      if (!plainObject(entry.blockedPlaceholder) || typeof entry.authorityId !== 'string' || !entry.authorityId
+        || entry.schedulerRunId !== checkpoint.runId || !plainObject(entry.buildIdentity)
+        || !Array.isArray(entry.coverageIds) || entry.coverageIds.length === 0
+        || !Array.isArray(entry.assertionIds) || entry.assertionIds.length === 0) {
+        throw new Error(`logicalTierProjection entry ${tierId} external receipt binding is invalid`)
+      }
+      const placeholder = entry.blockedPlaceholder
+      const placeholderPath = placeholder.evidencePath
+      const absolutePlaceholder = typeof placeholderPath === 'string' ? path.resolve(root, placeholderPath) : null
+      if (!absolutePlaceholder || !absolutePlaceholder.startsWith(`${root}${path.sep}`) || !fs.existsSync(absolutePlaceholder)
+        || !fs.lstatSync(absolutePlaceholder).isFile() || fs.lstatSync(absolutePlaceholder).isSymbolicLink()) {
+        throw new Error(`logicalTierProjection entry ${tierId} blocked placeholder is missing or invalid`)
+      }
+      let placeholderDocument
+      try { placeholderDocument = JSON.parse(fs.readFileSync(absolutePlaceholder, 'utf8')) } catch {
+        throw new Error(`logicalTierProjection entry ${tierId} blocked placeholder is not JSON`)
+      }
+      if (placeholder.schema !== 'fsusblog.local-production.summary-only.v1' || placeholder.tierId !== tierId
+        || placeholder.status !== 'collected-blocked' || placeholder.executionSource !== 'external-environment'
+        || placeholder.schedulerRunId !== checkpoint.runId
+        || placeholderDocument.schema !== placeholder.schema || placeholderDocument.tierId !== tierId
+        || placeholderDocument.status !== 'collected-blocked' || placeholderDocument.executionSource !== 'external-environment'
+        || placeholderDocument.schedulerRunId !== checkpoint.runId
+        || String(placeholderDocument.sourceState?.commit ?? '') !== String(checkpoint.sourceState?.commit ?? '')
+        || String(placeholderDocument.sourceState?.worktreeFingerprint ?? '') !== String(checkpoint.sourceState?.worktreeFingerprint ?? '')
+        || placeholder.artifactDigest !== `sha256:${sha256(fs.readFileSync(absolutePlaceholder))}`) {
+        throw new Error(`logicalTierProjection entry ${tierId} blocked placeholder binding is invalid`)
+      }
+      const receiptPath = Object.keys(entry.artifactDigests)[0]
+      let receipt
+      try { receipt = JSON.parse(fs.readFileSync(path.resolve(root, receiptPath), 'utf8')) } catch {
+        throw new Error(`logicalTierProjection entry ${tierId} external receipt is not JSON`)
+      }
+      if (receipt.contentDigest !== entry.artifactDigests[receiptPath]
+        || receipt.authorityId !== entry.authorityId || receipt.schedulerRunId !== entry.schedulerRunId
+        || JSON.stringify(receipt.testIds?.toSorted?.() ?? []) !== JSON.stringify(entry.testIds)
+        || JSON.stringify(receipt.coverageIds?.toSorted?.() ?? []) !== JSON.stringify(entry.coverageIds)
+        || JSON.stringify(receipt.assertionIds?.toSorted?.() ?? []) !== JSON.stringify(entry.assertionIds)
+        || JSON.stringify(receipt.sourceState) !== JSON.stringify(entry.sourceState)
+        || JSON.stringify(receipt.buildIdentity) !== JSON.stringify(entry.buildIdentity)
+        || receipt.contentDigest !== externalEvidenceReceiptDigest(receipt)) {
+        throw new Error(`logicalTierProjection entry ${tierId} external receipt does not match its binding`)
+      }
     }
   } else {
     if (!Number.isFinite(entry.durationMs) || entry.durationMs < 0) {
@@ -1986,8 +2044,9 @@ function validateCheckpointEvidence(checkpoint, evidence, root) {
   if (projection.executionSource !== 'fresh') {
     throw new Error('logicalTierProjection executionSource must be fresh')
   }
-  if (projection.profileId !== checkpoint.targetTierId || projection.status !== 'success') {
-    throw new Error('logicalTierProjection profileId/status must match a successful checkpoint target')
+  if (projection.profileId !== checkpoint.targetTierId
+    || !['complete-success', 'complete-failure', 'incomplete-external-evidence'].includes(projection.status)) {
+    throw new Error('logicalTierProjection profileId/status is invalid for the checkpoint target')
   }
   let artifactTable = null
   if (projection.artifactDigestTable !== undefined) {
@@ -2028,6 +2087,11 @@ function validateCheckpointEvidence(checkpoint, evidence, root) {
     || declaredTierIds.some((tierId, index) => tierId !== entryIds[index])) {
     throw new Error('logicalTierProjection logicalTierIds must exactly match its entries')
   }
+  if (!Array.isArray(projection.requiredSummaryOnlyTierIds)
+    || projection.requiredSummaryOnlyTierIds.some((tierId) => typeof tierId !== 'string' || !tierId)
+    || projection.requiredSummaryOnlyTierIds.some((tierId) => !Object.hasOwn(projection.entries, tierId))) {
+    throw new Error('logicalTierProjection required summary-only entries must remain present')
+  }
   const summaryOnlyTierCount = Object.values(projection.entries)
     .filter((entry) => entry?.evidenceKind === 'summary-only').length
   if (!Number.isInteger(projection.summaryOnlyTierCount)
@@ -2036,6 +2100,19 @@ function validateCheckpointEvidence(checkpoint, evidence, root) {
     || projection.executedTierCount !== entryIds.length - summaryOnlyTierCount) {
     throw new Error('logicalTierProjection executed/summary-only counts must match its entries')
   }
+  const qualificationEligible = summaryOnlyTierCount === 0
+  if (typeof projection.qualificationEligible !== 'boolean'
+    || projection.qualificationEligible !== qualificationEligible) {
+    throw new Error('logicalTierProjection qualificationEligible must match summary-only entries')
+  }
+  if (summaryOnlyTierCount > 0
+    && (!['incomplete-external-evidence', 'complete-failure'].includes(projection.status) || projection.qualificationEligible)) {
+    throw new Error('logicalTierProjection summary-only entries must be incomplete or failed and unqualified')
+  }
+  if (summaryOnlyTierCount === 0
+    && (projection.status !== 'complete-success' || !projection.qualificationEligible)) {
+    throw new Error('logicalTierProjection complete-success requires no summary-only entries and qualification eligibility')
+  }
   if (String(projection.sourceState?.commit ?? '') !== String(checkpoint.sourceState?.commit ?? '')
     || String(projection.sourceState?.worktreeFingerprint ?? '') !== String(checkpoint.sourceState?.worktreeFingerprint ?? '')) {
     throw new Error('logicalTierProjection sourceState must match the checkpoint')
@@ -2043,6 +2120,14 @@ function validateCheckpointEvidence(checkpoint, evidence, root) {
   for (const tierId of entryIds) {
     validateProjectionEntry(projection.entries[tierId], tierId, projection, checkpoint, root, artifactTable)
   }
+}
+
+export function validateLocalProfileCheckpointEvidence(checkpoint, root) {
+  if (!plainObject(checkpoint) || !plainObject(checkpoint.logicalTierProjection)) {
+    throw new Error('qualified local-profile checkpoint has no logicalTierProjection')
+  }
+  validateCheckpointEvidence(checkpoint, { logicalTierProjection: checkpoint.logicalTierProjection }, root)
+  return checkpoint.logicalTierProjection
 }
 
 async function validateCurrentCheckpointSource(checkpoint, root, snapshotWorktree) {
@@ -2176,6 +2261,10 @@ export async function resumeCheckpointEvidence(checkpointFileValue, expectedRunI
     const finalizerSource = await validateCurrentCheckpointSource(checkpoint, root, options.snapshotWorktree)
     validateCheckpointBundleSummaries(checkpoint, root)
     validateCheckpointEvidence(successfulCheckpoint, evidence, root)
+    if (evidence.logicalTierProjection.status !== 'complete-success'
+      || evidence.logicalTierProjection.qualificationEligible !== true) {
+      throw new Error('projection-only resume requires a qualification-eligible complete-success projection')
+    }
     checkpoint.status = 'success'
     checkpoint.failure = null
     delete checkpoint.failurePoint
