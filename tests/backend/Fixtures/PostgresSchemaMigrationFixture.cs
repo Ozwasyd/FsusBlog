@@ -373,12 +373,30 @@ public sealed class PostgresSchemaMigrationFixture : IAsyncLifetime
         string? memoryHighRaw = Environment.GetEnvironmentVariable("FSUSBLOG_DOCKER_MEMORY_HIGH_BYTES");
         string? memoryMaxRaw = Environment.GetEnvironmentVariable("FSUSBLOG_DOCKER_MEMORY_MAX_BYTES");
         string? pidsRaw = Environment.GetEnvironmentVariable("FSUSBLOG_DOCKER_PIDS_MAX");
+        string bundleId = Environment.GetEnvironmentVariable("FSUSBLOG_PHYSICAL_BUNDLE_ID") ?? "backend-tests";
+        string stepId = Environment.GetEnvironmentVariable("FSUSBLOG_STEP_ID") ?? "dotnet-production-union";
+        string testNamespace = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_NAMESPACE") ?? "local";
+        string? repositoryRootDigest = Environment.GetEnvironmentVariable("FSUSBLOG_REPOSITORY_ROOT_DIGEST");
+        List<string> arguments =
+        [
+            "--label", $"io.fsusblog.test.run-id={runId}",
+            "--label", $"io.fsusblog.test.bundle-id={bundleId}",
+            "--label", $"io.fsusblog.test.step-id={stepId}",
+            "--label", $"io.fsusblog.test.namespace={testNamespace}"
+        ];
+        if (!string.IsNullOrWhiteSpace(repositoryRootDigest))
+        {
+            arguments.AddRange(
+            [
+                "--label", $"io.fsusblog.test.repository-root-digest={repositoryRootDigest}"
+            ]);
+        }
         if (string.IsNullOrWhiteSpace(cpuRaw)
             && string.IsNullOrWhiteSpace(memoryHighRaw)
             && string.IsNullOrWhiteSpace(memoryMaxRaw)
             && string.IsNullOrWhiteSpace(pidsRaw))
         {
-            return [];
+            return [.. arguments];
         }
 
         if (!double.TryParse(cpuRaw, System.Globalization.NumberStyles.AllowDecimalPoint,
@@ -390,22 +408,18 @@ public sealed class PostgresSchemaMigrationFixture : IAsyncLifetime
             throw new InvalidOperationException("Docker resource grant is incomplete or invalid.");
         }
 
-        string bundleId = Environment.GetEnvironmentVariable("FSUSBLOG_PHYSICAL_BUNDLE_ID") ?? "backend-tests";
-        string stepId = Environment.GetEnvironmentVariable("FSUSBLOG_STEP_ID") ?? "dotnet-production-union";
-        return
+        arguments.AddRange(
         [
             "--cpus", cpu.ToString(System.Globalization.CultureInfo.InvariantCulture),
             "--memory-reservation", memoryHigh.ToString(System.Globalization.CultureInfo.InvariantCulture),
             "--memory", memoryMax.ToString(System.Globalization.CultureInfo.InvariantCulture),
             "--pids-limit", pids.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            "--label", $"io.fsusblog.test.run-id={runId}",
-            "--label", $"io.fsusblog.test.bundle-id={bundleId}",
-            "--label", $"io.fsusblog.test.step-id={stepId}",
             "--label", $"io.fsusblog.test.cpu-units={cpu.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
             "--label", $"io.fsusblog.test.memory-high-bytes={memoryHigh.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
             "--label", $"io.fsusblog.test.memory-max-bytes={memoryMax.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
             "--label", $"io.fsusblog.test.pids-max={pids.ToString(System.Globalization.CultureInfo.InvariantCulture)}"
-        ];
+        ]);
+        return [.. arguments];
     }
 
     private static Task<string> TryRunDockerAsync(params string[] args)

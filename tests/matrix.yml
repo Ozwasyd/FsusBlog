@@ -373,6 +373,8 @@ tiers:
               tests/coverage-registry.json,
               config/testing/runtime-state-domain-catalog.json,
               config/testing/runtime-state-domain-registry.json,
+              config/testing/correctness-budget-policy.json,
+              config/testing/physical-execution-process-policy.json,
               config/schemas/runtime-state-domain-catalog.schema.json,
               config/schemas/runtime-state-domain-registry.schema.json,
               tests/tools,
@@ -390,6 +392,12 @@ tiers:
               tools/test/run-matrix-governance-once.sh,
               tools/test/run-deterministic-command.mjs,
               tools/test/run-once.mjs,
+              tools/test/physical-execution-process-tree.mjs,
+              tools/test/physical-execution-linux-systemd-adapter.mjs,
+              tools/test/physical-execution-linux-systemd-bootstrap.mjs,
+              tools/test/physical-execution-unix-bootstrap.mjs,
+              tools/test/physical-execution-windows-job-adapter.mjs,
+              tools/test/physical-execution-windows-job.ps1,
               .github/workflows,
           ]
       executionDependsOn: []
@@ -1590,6 +1598,15 @@ tiers:
           - tests/tools/backend-build-lock-behavior.test.mjs
           - tests/tools/runtime-worker-admission.test.mjs
           - tests/tools/security-worker-admission.test.mjs
+          - config/testing/physical-execution-process-policy.json
+          - tools/test/physical-execution-process-tree.mjs
+          - tools/test/physical-execution-linux-systemd-adapter.mjs
+          - tools/test/physical-execution-linux-systemd-bootstrap.mjs
+          - tools/test/physical-execution-unix-bootstrap.mjs
+          - tools/test/physical-execution-windows-job-adapter.mjs
+          - tools/test/physical-execution-windows-job.ps1
+          - tests/tools/physical-execution-process-tree.test.mjs
+          - .github/workflows/physical-execution-platforms.yml
           - .tmp/release-evidence/flaky/registry.json
           - .tmp/docs/integrity-proof-docs.json
           - .tmp/release-evidence/backend-physical-topology.json

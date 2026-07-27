@@ -1012,9 +1012,11 @@ export async function runBoundExecution({
     const startedAtMs = Date.now()
     let status = 'success'
     let failure = null
+    let physicalExecution = null
     try {
-      await operation()
+      physicalExecution = await operation()
     } catch (error) {
+      physicalExecution = error?.physicalExecution ?? null
       status = error?.name === 'AbortError' || error?.signal ? 'cancelled' : 'failure'
       failure = {
         name: error?.name ?? 'Error',
@@ -1046,6 +1048,7 @@ export async function runBoundExecution({
       startedAt,
       completedAt: new Date().toISOString(),
       durationMs: Date.now() - startedAtMs,
+      physicalExecution,
       failure
     }
     const receipt = { ...payload, receiptDigest: digestValue(payload) }

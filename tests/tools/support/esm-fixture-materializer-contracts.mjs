@@ -72,7 +72,9 @@ export function assertAllowedRootBoundary()
 export function materializeTestMatrixRunner(repositoryRoot, fixtureRoot)
 {
     const workflowDirectory = path.join(fixtureRoot, '.github/workflows');
+    const testingConfigDirectory = path.join(fixtureRoot, 'config/testing');
     fs.mkdirSync(workflowDirectory, { recursive: true });
+    fs.mkdirSync(testingConfigDirectory, { recursive: true });
     const fixture = materializeEsmFixture({
         repositoryRoot,
         fixtureRoot,
@@ -86,5 +88,15 @@ export function materializeTestMatrixRunner(repositoryRoot, fixtureRoot)
         path.join(repositoryRoot, '.github/workflows/quality-gate.yml'),
         path.join(workflowDirectory, 'quality-gate.yml')
     );
+    for (const file of [
+        'correctness-budget-policy.json',
+        'physical-execution-process-policy.json'
+    ])
+    {
+        fs.copyFileSync(
+            path.join(repositoryRoot, 'config/testing', file),
+            path.join(testingConfigDirectory, file)
+        );
+    }
     return fixture.entryFiles[0];
 }

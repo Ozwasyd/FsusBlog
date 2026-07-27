@@ -67,6 +67,8 @@ export function runProductionFreshRuntimeCleanupPhase({
   phase,
   source,
   preflightSource = source,
+  currentRunId = '',
+  runsRoot = null,
   cleanupOptions = {},
   cleanupRuntime = cleanupStaleLocalRuntimes
 }) {
@@ -76,6 +78,9 @@ export function runProductionFreshRuntimeCleanupPhase({
   const cleanup = captureFreshRuntimeCleanup(() => cleanupRuntime({
     ...cleanupOptions,
     root,
+    currentRunId,
+    schedulerRunsRoot: runsRoot,
+    sourceState: source,
     discoverUntracked: true
   }), { stage: `${phase}-inventory-cleanup` })
   return {
@@ -232,6 +237,8 @@ export function executeProductionFreshPreflight({
     root,
     phase: 'preflight',
     source: sourceState,
+    currentRunId: runId,
+    runsRoot,
     cleanupOptions,
     cleanupRuntime
   })

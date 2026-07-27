@@ -1,0 +1,35 @@
+name: Physical execution platforms
+
+on:
+    pull_request:
+        paths:
+            - .github/workflows/physical-execution-platforms.yml
+            - config/testing/physical-execution-process-policy.json
+            - tools/test/physical-execution-**
+            - tools/test/process-identity.mjs
+            - tests/tools/physical-execution-process-tree.test.mjs
+    push:
+        branches:
+            - master
+        paths:
+            - .github/workflows/physical-execution-platforms.yml
+            - config/testing/physical-execution-process-policy.json
+            - tools/test/physical-execution-**
+            - tools/test/process-identity.mjs
+            - tests/tools/physical-execution-process-tree.test.mjs
+
+permissions:
+    contents: read
+
+jobs:
+    windows-job-object:
+        runs-on: windows-latest
+        timeout-minutes: 10
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version-file: .nvmrc
+            - name: Compile and execute native Job Object containment
+              shell: pwsh
+              run: node --test tests/tools/physical-execution-process-tree.test.mjs

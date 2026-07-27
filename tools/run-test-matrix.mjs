@@ -66,6 +66,13 @@ import {
 import { validateEvidenceExecutionDeclaration, validateReleaseDomainMatrix } from './test-matrix/projection-declaration.mjs'
 import { buildReleaseFinalizerPlan } from './test-matrix/release-final-evidence-contract.mjs'
 import {
+    applyCorrectnessBudgetPolicy,
+    bindBudgetPolicy,
+    correctnessBudgetPolicyDigest,
+    loadCorrectnessBudgetPolicy,
+    validateCorrectnessBudgetPolicy
+} from './test-matrix/correctness-budget-policy.mjs'
+import {
     measureResourceCollectorOverhead,
     writeResourceUtilizationEvidence
 } from './test-matrix/resource-utilization.mjs'
@@ -156,6 +163,9 @@ export function managedProductionBuildGcTier(runId, { outputRoot = null } = {}) 
     cpuWeight: 1,
     memoryWeight: 0.5,
     minCpuUnits: 1,
+    cpuUnits: 1,
+    memoryGiB: 0.1,
+    resourceGrantMode: 'static',
     requiresBootstrap: 'none',
     requiresNode: true,
     requiresDotnet: false,
@@ -328,17 +338,8 @@ function resolveLogicalTierResources(tiers, resources = logicalTierSystemResourc
   })
 }
 
-const observeOnlyCorrectnessTargets = new Set([
-  'production',
-  'production-correctness',
-  'release-final'
-])
-
 function applyDirectCorrectnessBudgetPolicy(tiers, targetTierId) {
-  if (!observeOnlyCorrectnessTargets.has(targetTierId)) return tiers
-  return tiers.map((tier) => tier.id === 'browser-contract'
-    ? tier
-    : { ...tier, budgetMs: null })
+  return tiers
 }
 
 function normalizeTierId(id) {
@@ -601,6 +602,8 @@ function validateMatrix(matrix) {
   const errors = []
   const ids = new Set()
   const byId = tierMap(matrix)
+  errors.push(...validateCorrectnessBudgetPolicy(loadCorrectnessBudgetPolicy(), matrix)
+    .map((error) => `correctnessBudgetPolicy: ${error}`))
 
   function hasBootstrapDependencyPath(tierId, seen = new Set()) {
     if (seen.has(tierId)) return false
@@ -1116,6 +1119,17 @@ function resourceEnvironmentForTier(tier, baseEnv = {}) {
   if (Number.isFinite(Number(tier.budgetMs)) && Number(tier.budgetMs) > 0) {
     env.FSUSBLOG_TIER_DEADLINE_MS = String(tier.budgetMs)
   }
+  if (tier.correctnessBudget) {
+    const budget = tier.correctnessBudget
+    env.FSUSBLOG_CORRECTNESS_BUDGET_POLICY_DIGEST = correctnessBudgetPolicyDigest(loadCorrectnessBudgetPolicy())
+    env.FSUSBLOG_CORRECTNESS_BUDGET_TIER_ID = budget.tierId
+    env.FSUSBLOG_PRODUCER_EXECUTION_BUDGET_MS = String(budget.producerExecutionBudgetMs)
+    env.FSUSBLOG_TIER_SCHEDULER_BUDGET_MS = String(budget.tierSchedulerBudgetMs)
+    env.FSUSBLOG_TERMINATION_GRACE_MS = String(budget.terminationGraceMs)
+    env.FSUSBLOG_PROFILE_GLOBAL_BUDGET_MS = String(budget.profileGlobalBudgetMs)
+    env.FSUSBLOG_MEASUREMENT_WINDOW_MS =
+      budget.measurementWindowMs === 'not-applicable' ? 'not-applicable' : String(budget.measurementWindowMs)
+  }
   return env
 }
 
@@ -1483,6 +1497,8 @@ function writeJobSummary(matrix, tier, status, startedAt, details = {}) {
     runId: process.env.GITHUB_RUN_ID ?? 'local',
     attempt: process.env.GITHUB_RUN_ATTEMPT ?? '0',
     schedulerRunId,
+    budgetPolicyDigest: details.budgetPolicyDigest ?? existing?.budgetPolicyDigest ?? null,
+    timeoutPhase: details.timeoutPhase ?? existing?.timeoutPhase ?? null,
     physicalBundleId: details.physicalBundleId ?? existing?.physicalBundleId ?? null,
     executionSource: details.executionSource ?? existing?.executionSource ?? 'fresh',
     testIds: [...new Set([...(existing?.testIds ?? []), ...(details.testIds ?? [])])].sort(),
@@ -1769,6 +1785,9 @@ function emitProductionResourceUtilization({ profileId, profile, result, detecte
 
 export async function runLocalProfile(matrix, profileId, options, runtime = {}) {
   const profile = matrix.localProfiles[profileId]
+  const correctnessBudgetPolicy = loadCorrectnessBudgetPolicy()
+  const profileCorrectnessBudget = correctnessBudgetPolicy.policies
+    .find((entry) => entry.tierId === profileId) ?? null
   const externalEvidenceReceipts = readDeclaredExternalEvidenceReceipts(profileId)
   const profileRoot = path.resolve(runtime.root ?? root)
   const resolveRunIdentity = runtime.schedulerRunIdentity ?? schedulerRunIdentity
@@ -1780,7 +1799,10 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
       root: profileRoot,
       runId: leaseRunIdentity.runId,
       targetTierId: profileId,
-      sourceState: leaseSourceState
+      sourceState: leaseSourceState,
+      budgetPolicyDigest: profileCorrectnessBudget
+        ? correctnessBudgetPolicyDigest(correctnessBudgetPolicy)
+        : null
     })
     let terminalState = 'failed'
     try {
@@ -1935,6 +1957,25 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
   const resolvedProfile = resolveLocalProfileResources(profile, detectedResources)
   const launchParallelism = Math.min(options.maxParallel ?? detectedResources.launchParallelism, detectedResources.launchParallelism)
   const physicalTiers = createLocalBundleTiers(profileId, resolvedProfile, { maxParallel: launchParallelism })
+  if (profileCorrectnessBudget) {
+    for (const tier of physicalTiers) {
+      if (!Number.isFinite(Number(tier.budgetMs)) || Number(tier.budgetMs) <= 0) {
+        throw new Error(`${tier.id} has no bounded scheduler deadline`)
+      }
+      tier.producerExecutionBudgetMs = Number(tier.budgetMs)
+      tier.terminationGraceMs = profileCorrectnessBudget.terminationGraceMs
+      tier.producerTimeoutPhase = 'termination'
+      tier.correctnessBudget = {
+        ...profileCorrectnessBudget,
+        tierId: tier.id,
+        producer: tier.command,
+        measurementWindowMs: 'not-applicable',
+        notApplicableReason: 'local-production-bundle',
+        producerExecutionBudgetMs: Number(tier.budgetMs),
+        tierSchedulerBudgetMs: Number(tier.budgetMs)
+      }
+    }
+  }
   for (const bundle of resolvedProfile.bundles) {
     console.error(`[matrix:${profileId}] resolved bundle=${bundle.id} cpu=${bundle.cpuUnits} memory=${bundle.memoryGiB.toFixed(2)}GiB deadline=${bundle.budgetMs}ms stepMaxParallel=${bundle.stepMaxParallel}`)
   }
@@ -1954,7 +1995,8 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
   const runNamespace = namespaceFor({ id: profileId, ciJob: `local-${profileId}` }, null, runId)
   const runtimeCleanupOptions = {
     legacyContainerMinimumAgeMs: profile.budgetMs * 2,
-    orphanTerminationGraceMs: Math.ceil(profile.budgetMs / 100)
+    orphanTerminationGraceMs: profileCorrectnessBudget?.terminationGraceMs
+      ?? Math.ceil(profile.budgetMs / 100)
   }
   const preflightCleanup = executeProductionFreshPreflight({
     root: profileRoot,
@@ -2095,10 +2137,13 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
       runId,
       runtimeNamespace: runNamespace,
       targetTierId: profileId,
+      budgetPolicyDigest: profileCorrectnessBudget ? correctnessBudgetPolicyDigest(correctnessBudgetPolicy) : null,
       mode: options.resume ? 'resume' : 'fresh',
       resume: options.resume,
       maxParallel: launchParallelism,
-      wallClockBudgetMs: options.resume || profile.enforceBudget === false ? null : profile.budgetMs,
+      wallClockBudgetMs: options.resume
+        ? null
+        : profileCorrectnessBudget?.profileGlobalBudgetMs ?? profile.budgetMs,
       wallClockStartedAtMs,
       collectFailures: true,
       reuseAcrossSourceChanges: false,
@@ -2331,6 +2376,8 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
         phase: 'postflight',
         source: cleanupSource,
         preflightSource: cleanupSource,
+        currentRunId: runId,
+        runsRoot,
         cleanupOptions: runtimeCleanupOptions
       })
       if (sensitiveFixtureFailure !== null) {
@@ -2606,10 +2653,12 @@ async function runTier(matrix, tierId, args) {
         : planTier(matrix, tierId)
     if (declaredTiers.some((tier) => !tier)) throw new Error(`unknown tier: ${tierId}`)
     const systemResources = logicalTierSystemResources()
-    const all = applyDirectCorrectnessBudgetPolicy(
+    const budgetPolicy = loadCorrectnessBudgetPolicy()
+    const budgetPolicyBinding = bindBudgetPolicy({}, {}, budgetPolicy)
+    const all = applyCorrectnessBudgetPolicy(applyDirectCorrectnessBudgetPolicy(
         resolveLogicalTierResources(declaredTiers, systemResources),
         targetTierId
-    )
+    ), budgetPolicy)
 
     if (options.shard) {
         const target = all[all.length - 1]
@@ -2636,6 +2685,9 @@ async function runTier(matrix, tierId, args) {
         },
         async execute({ buildLayout, recordSchedulerResult, setFinalization, throwIfInterrupted }) {
             const scheduledTiers = prependManagedProductionBuildGc(all, runId, { enabled: !options.resume })
+            const profileGlobalBudgetMs = Math.max(...all
+                .map((tier) => Number(tier.correctnessBudget?.profileGlobalBudgetMs))
+                .filter((value) => Number.isFinite(value) && value > 0), 0)
             throwIfInterrupted()
             prepareNamespaceEnvironmentIfNeeded(all, runNamespace)
             if (options.fresh) resetFreshJobSummaries(all.map((tier) => [tier, {}]))
@@ -2650,6 +2702,8 @@ async function runTier(matrix, tierId, args) {
                     runsRoot,
                     runId,
                     targetTierId,
+                    budgetPolicyDigest: budgetPolicyBinding.identity.budgetPolicyDigest,
+                    wallClockBudgetMs: profileGlobalBudgetMs || undefined,
                     mode: options.resume ? 'resume' : 'fresh',
                     resume: options.resume,
                     supersedesUniverse: matrix.tiers,
@@ -2697,10 +2751,20 @@ async function runTier(matrix, tierId, args) {
                     onTierComplete(tier, tierResult) {
                         const startedAt = Date.now() - tierResult.durationMs
                         if (tierResult.status === 'success') {
-                            writeJobSummary(matrix, tier, 'success', startedAt, { schedulerRunId: runId })
+                            writeJobSummary(matrix, tier, 'success', startedAt, {
+                                schedulerRunId: runId,
+                                budgetPolicyDigest: tier.correctnessBudget
+                                    ? budgetPolicyBinding.receipt.budgetPolicyDigest
+                                    : null,
+                                timeoutPhase: tierResult.timeoutPhase
+                            })
                         } else {
                             writeJobSummary(matrix, tier, 'failure', startedAt, {
                                 schedulerRunId: runId,
+                                budgetPolicyDigest: tier.correctnessBudget
+                                    ? budgetPolicyBinding.receipt.budgetPolicyDigest
+                                    : null,
+                                timeoutPhase: tierResult.timeoutPhase,
                                 failureStage: stageForTier(tier),
                                 rootCause: tierResult.reason
                             })

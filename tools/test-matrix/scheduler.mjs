@@ -7,6 +7,10 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 import { collectProcessIdentity } from '../test/process-identity.mjs'
+import {
+  loadPhysicalExecutionProcessPolicy,
+  terminatePhysicalExecutionAuthoritySync
+} from '../test/physical-execution-process-tree.mjs'
 import { createAsyncLogPipeline } from './async-log-pipeline.mjs'
 import {
   readAndValidateArtifactDigestTable,
@@ -75,6 +79,14 @@ const orchestrationOnlyFingerprintEnvironmentKeys = new Set([
   'FSUSBLOG_CGROUP_EFFECTIVE_PIDS_MAX'
 ])
 const checkpointPersistence = new Map()
+const timeoutPhases = new Set([
+  'preparation',
+  'measurement',
+  'post-measurement',
+  'termination',
+  'scheduler',
+  'global'
+])
 function sha256(value) {
   return crypto.createHash('sha256').update(value).digest('hex')
 }
@@ -883,8 +895,14 @@ function beginSubprocess(
     let settled = false
     let budgetExpired = false
     let terminationStarted = false
+    let terminationAuthority = null
     const tierBudgetMs =
-        Number.isFinite(Number(tier.budgetMs)) && Number(tier.budgetMs) > 0 ? Number(tier.budgetMs) : null
+        Number.isFinite(Number(tier.producerExecutionBudgetMs)) &&
+        Number(tier.producerExecutionBudgetMs) > 0
+            ? Number(tier.producerExecutionBudgetMs)
+            : Number.isFinite(Number(tier.budgetMs)) && Number(tier.budgetMs) > 0
+              ? Number(tier.budgetMs)
+              : null
     let budgetTimer = null
     let escalationTimer = null
     let forcedSettleTimer = null
@@ -906,17 +924,80 @@ function beginSubprocess(
     const timeoutResult = () => ({
         code: 124,
         signal: null,
+        timeoutPhase: tier.producerTimeoutPhase ?? 'termination',
         error: new Error(`bundle budget exceeded (${tierBudgetMs}ms)`)
     })
     const beginTermination = () => {
         if (settled || terminationStarted) return
         terminationStarted = true
-        if (durableSpec?.authority?.kind === 'systemd-transient-service') {
-            spawnSync('systemctl', ['--user', 'stop', durableSpec.authority.unitName], {
-                encoding: 'utf8',
-                timeout: Math.max(1_000, terminationGraceMs),
-                windowsHide: true
+        if (process.platform !== 'win32') {
+            const leader = collectProcessIdentity(child.pid)
+            const authority = durableSpec?.authority ?? (
+                leader.status === 'verified'
+                    ? {
+                        schema: 'fsusblog.process-group-or-job-identity.v1',
+                        platform: process.platform,
+                        kind: 'process-group',
+                        groupId: child.pid,
+                        leaderPid: child.pid,
+                        leaderProcessStartIdentity: leader.processStartIdentity
+                    }
+                    : null
+            )
+            terminationAuthority = authority
+            if (durableSpec?.authority?.kind !== 'systemd-transient-service') {
+                signalProcessTree(child, 'SIGTERM')
+                escalationTimer = setTimeout(() => {
+                    signalProcessTree(child, 'SIGKILL')
+                    closePipes()
+                    forcedSettleTimer = setTimeout(() => {
+                        const termination = terminatePhysicalExecutionAuthoritySync({
+                            authority: terminationAuthority,
+                            reason: budgetExpired ? 'producer-deadline' : 'scheduler-cancel',
+                            policy: {
+                                ...loadPhysicalExecutionProcessPolicy(),
+                                gracefulTerminationMs: 0
+                            }
+                        })
+                        settle({
+                            ...(budgetExpired ? timeoutResult() : { code: 1, signal: 'SIGKILL' }),
+                            physicalExecutionTermination: termination,
+                            logComplete: false,
+                            logTruncationReason: 'forced-pipe-close-after-sigkill',
+                            ...(termination.terminated
+                                ? {}
+                                : {
+                                    error: new Error(
+                                        `physical execution termination failed closed: ${termination.reason}`
+                                    )
+                                })
+                        })
+                    }, Math.max(25, Math.min(250, terminationGraceMs || 25)))
+                }, terminationGraceMs)
+                return
+            }
+            const physicalPolicy = {
+                ...loadPhysicalExecutionProcessPolicy(),
+                gracefulTerminationMs: terminationGraceMs
+            }
+            const termination = terminatePhysicalExecutionAuthoritySync({
+                authority,
+                reason: budgetExpired ? 'producer-deadline' : 'scheduler-cancel',
+                policy: physicalPolicy
             })
+            closePipes()
+            settle({
+                ...(budgetExpired ? timeoutResult() : { code: 1, signal: 'SIGTERM' }),
+                physicalExecutionTermination: termination,
+                ...(termination.terminated
+                    ? {}
+                    : {
+                        error: new Error(
+                            `physical execution termination failed closed: ${termination.reason}`
+                        )
+                    })
+            })
+            return
         }
         signalProcessTree(child, 'SIGTERM')
         escalationTimer = setTimeout(() => {
@@ -941,6 +1022,28 @@ function beginSubprocess(
             settle({ code: 1, signal: null, error })
         })
         child.once('close', (code, signal) => {
+            if (terminationStarted && process.platform !== 'win32' && terminationAuthority) {
+                const termination = terminatePhysicalExecutionAuthoritySync({
+                    authority: terminationAuthority,
+                    reason: budgetExpired ? 'producer-deadline' : 'scheduler-cancel',
+                    policy: {
+                        ...loadPhysicalExecutionProcessPolicy(),
+                        gracefulTerminationMs: 0
+                    }
+                })
+                settle({
+                    ...(budgetExpired ? timeoutResult() : { code: code ?? 1, signal }),
+                    physicalExecutionTermination: termination,
+                    ...(termination.terminated
+                        ? {}
+                        : {
+                            error: new Error(
+                                `physical execution termination failed closed: ${termination.reason}`
+                            )
+                        })
+                })
+                return
+            }
             settle(budgetExpired ? timeoutResult() : { code: code ?? 1, signal })
         })
         if (tierBudgetMs !== null) {
@@ -2374,6 +2477,10 @@ async function runDagUnlocked(options) {
   if (!['fresh', 'resume'].includes(mode)) throw new Error(`invalid scheduler mode: ${mode}`)
   if (options.resume === true && mode !== 'resume') throw new Error('resume=true requires mode=resume')
   const resume = mode === 'resume'
+  const budgetPolicyDigest = options.budgetPolicyDigest ?? null
+  if (budgetPolicyDigest !== null && !/^sha256:[a-f0-9]{64}$/u.test(budgetPolicyDigest)) {
+    throw new Error('scheduler budget policy digest is invalid')
+  }
   const supersedesUniverse = options.supersedesUniverse ?? options.tiers ?? []
   const supersedesErrors = validateSupersedesRules(supersedesUniverse, options.coverageRegistry)
   if (supersedesErrors.length > 0) throw new Error(`invalid supersedes metadata: ${supersedesErrors.join('; ')}`)
@@ -2439,6 +2546,8 @@ async function runDagUnlocked(options) {
   const resumeSourceChanged = Boolean(previous)
     && (previous.sourceState?.commit !== sourceState.commit
       || previous.sourceState?.worktreeFingerprint !== sourceState.worktreeFingerprint)
+  const resumeBudgetPolicyChanged = Boolean(previous) &&
+    previous.budgetPolicyDigest !== budgetPolicyDigest
   const requestedWallClockStartedAtMs = options.wallClockStartedAtMs === undefined
     ? Date.now()
     : Number(options.wallClockStartedAtMs)
@@ -2464,6 +2573,7 @@ async function runDagUnlocked(options) {
     updatedAt: new Date().toISOString(),
     resourceBudget: budget,
     budgetMs: wallClockBudgetMs,
+    budgetPolicyDigest,
     timedOut: false,
     resourcePeaks: {
       load1: Math.max(0, Number(os.loadavg()[0]) || 0),
@@ -2497,6 +2607,7 @@ async function runDagUnlocked(options) {
     ...(options.runtimeNamespace ? { runtimeNamespace: options.runtimeNamespace } : {}),
     resumePolicy: resume ? {
       sourceChanged: resumeSourceChanged,
+      budgetPolicyChanged: resumeBudgetPolicyChanged,
       reuseAcrossSourceChanges: options.reuseAcrossSourceChanges !== false
     } : null,
     // A resume attempt may fail before it reaches otherwise reusable tiers.
@@ -2820,7 +2931,28 @@ async function runDagUnlocked(options) {
         budgetTimer = setTimeout(() => resolve({ budgetExpired: true }), remainingWallClockBudgetMs)
         budgetTimer.unref?.()
       })
-  let deadlineExpired = false
+  let deadlineExpired = remainingWallClockBudgetMs === 0
+  if (deadlineExpired) {
+    budgetPromise = null
+    const timedOutTierId = pending[0]?.id ?? checkpoint.targetTierId
+    firstFailure = {
+      tierId: timedOutTierId,
+      exitCode: 124,
+      signal: null,
+      timeoutPhase: 'global',
+      reason: `wall-clock budget exceeded (${wallClockBudgetMs}ms)`,
+      changedPaths: []
+    }
+    checkpoint.timedOut = true
+    checkpoint.failure = firstFailure
+    checkpoint.failurePoint = timedOutTierId
+    checkpoint.failures.push(firstFailure)
+    writeCheckpoint(checkpointFile, checkpoint, {
+      eventType: 'run-timed-out',
+      tier: timedOutTierId,
+      step: 'scheduler'
+    })
+  }
 
   const dependenciesReady = (tier) => tierExecutionDependencies(tier).every((dependencyId) => completed.has(dependencyId) || !byId.has(dependencyId))
   const failedDependencies = (tier) => tierExecutionDependencies(tier).filter((dependencyId) => failed.has(dependencyId))
@@ -3093,7 +3225,8 @@ async function runDagUnlocked(options) {
     const previousTier = candidate?.tierResult
     const currentOutputs = snapshotTierOutputs(root, tier, tierEnvironment)
     if (
-      (options.reuseAcrossSourceChanges === false && !sameCheckpointSource(candidate?.sourceState, sourceState))
+      resumeBudgetPolicyChanged
+      || (options.reuseAcrossSourceChanges === false && !sameCheckpointSource(candidate?.sourceState, sourceState))
       || previousTier?.status !== 'success'
       || previousTier.inputFingerprint !== inputFingerprint
       || previousTier.dependencyFingerprint !== dependencyFingerprintValue
@@ -3208,7 +3341,10 @@ async function runDagUnlocked(options) {
             root,
             env: tierEnvironment,
             outputPipeline,
-            terminationGraceMs,
+            terminationGraceMs: Number.isFinite(Number(tier.terminationGraceMs)) &&
+                Number(tier.terminationGraceMs) > 0
+                ? Number(tier.terminationGraceMs)
+                : terminationGraceMs,
             suspendForAttach: resourceEnforcer.mode === 'enforced' || Boolean(options.registerManagedProcess),
             durableContainment: Boolean(options.registerManagedProcess)
         })
@@ -3352,6 +3488,14 @@ async function runDagUnlocked(options) {
       logEvidenceFile,
       logEvidence
     } = settled
+    if (executionResult.code === 124) {
+      const expectedTimeoutPhase = tier.producerTimeoutPhase ?? null
+      if (!timeoutPhases.has(executionResult.timeoutPhase)
+        || (expectedTimeoutPhase !== null && executionResult.timeoutPhase !== expectedTimeoutPhase)) {
+        executionResult.code = 1
+        executionResult.error = new Error(`timeout phase is missing or invalid for ${tier.id}`)
+      }
+    }
     const commandFailed = executionResult.code !== 0 || executionResult.signal || executionResult.error
     const polluted = changedPaths.length > 0
     const cancelled = entry.cancelRequested && firstFailure !== null
@@ -3418,6 +3562,8 @@ async function runDagUnlocked(options) {
       dependencyFingerprint: dependencyFingerprintValue,
       resultFingerprint,
       durationMs,
+      timeoutPhase: executionResult.timeoutPhase ?? null,
+      physicalExecutionTermination: executionResult.physicalExecutionTermination ?? null,
       exitCode: executionResult.code,
       signal: executionResult.signal,
       changedPaths,
@@ -3597,6 +3743,7 @@ async function runDagUnlocked(options) {
         tierId: timedOutTierId,
         exitCode: 124,
         signal: null,
+        timeoutPhase: 'global',
         reason: `wall-clock budget exceeded (${wallClockBudgetMs}ms)`,
         changedPaths: []
       }
@@ -3628,6 +3775,7 @@ async function runDagUnlocked(options) {
         tierId,
         exitCode: recorded.executionResult.code ?? 1,
         signal: recorded.executionResult.signal ?? null,
+        timeoutPhase: recorded.executionResult.timeoutPhase ?? null,
         reason: recorded.reason,
         changedPaths: recorded.changedPaths
       }
@@ -3645,6 +3793,7 @@ async function runDagUnlocked(options) {
         tierId,
         exitCode: recorded.executionResult.code ?? 1,
         signal: recorded.executionResult.signal ?? null,
+        timeoutPhase: recorded.executionResult.timeoutPhase ?? null,
         reason: recorded.reason,
         changedPaths: recorded.changedPaths
       }
@@ -3718,7 +3867,8 @@ function runLockIsActive(runsRoot, runId) {
       runId,
       targetTierId: checkpoint.targetTierId,
       namespace: checkpoint.namespace,
-      sourceState: checkpoint.sourceState
+      sourceState: checkpoint.sourceState,
+      budgetPolicyDigest: checkpoint.budgetPolicyDigest ?? null
     })
     if (candidateIdentityDigest !== checkpoint.schedulerCandidateIdentityDigest) {
       throw new Error(`scheduler lock owner-unverifiable: candidate checkpoint identity is invalid for ${runId}`)
@@ -3738,6 +3888,7 @@ function acquireRunLock(
       sourceState = null,
       namespace = 'test-matrix',
       targetTierId = 'scheduler-coordination',
+      budgetPolicyDigest = null,
       beforeStaleLockDelete = null
     } = {}
 ) {
@@ -3749,12 +3900,14 @@ function acquireRunLock(
       runId,
       targetTierId,
       namespace,
-      sourceState: normalizedSourceState
+      sourceState: normalizedSourceState,
+      budgetPolicyDigest
     })
     const controller = acquireSchedulerRunLock({
       runsRoot,
       runId,
       candidateIdentityDigest,
+      budgetPolicyDigest,
       targetTierId,
       beforeStaleLockDelete
     })
@@ -3791,10 +3944,12 @@ export async function runDag(options) {
   }
   const namespace = options.namespace ?? 'test-matrix'
   const targetTierId = options.targetTierId ?? options.tiers?.at(-1)?.id ?? 'matrix'
+  const budgetPolicyDigest = options.budgetPolicyDigest ?? null
   const releaseLock = acquireRunLock(runsRoot, runId, {
     sourceState,
     namespace,
     targetTierId,
+    budgetPolicyDigest,
     beforeStaleLockDelete: options.beforeStaleLockDelete
   })
   const schedulerFinalizers = []

@@ -365,7 +365,9 @@ export function processGroupMemberIdentities(
                         .slice(close + 2)
                         .trim()
                         .split(/\s+/u)
-                    if (Number(fields[2]) === group.groupId) memberPids.push(Number(entry.name))
+                    if (fields[0] !== 'Z' && Number(fields[2]) === group.groupId) {
+                        memberPids.push(Number(entry.name))
+                    }
                 } catch (error) {
                     if (error.code !== 'ENOENT') throw error
                 }

@@ -3,6 +3,14 @@ set -euo pipefail
 umask 077
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+FSUSBLOG_REPOSITORY_ROOT_DIGEST="$(
+    if command -v sha256sum >/dev/null 2>&1; then
+        printf '%s' "$ROOT_DIR" | sha256sum | awk '{printf "sha256:%s", $1}'
+    else
+        printf '%s' "$ROOT_DIR" | shasum -a 256 | awk '{printf "sha256:%s", $1}'
+    fi
+)"
+export FSUSBLOG_REPOSITORY_ROOT_DIGEST
 CLIENT_DIR="$ROOT_DIR/src/frontend"
 SERVER_WWWROOT_DIR="${FSUSBLOG_BACKEND_WEBROOT:-$ROOT_DIR/src/backend/wwwroot}"
 FSUSBLOG_TEST_NAMESPACE="${FSUSBLOG_TEST_NAMESPACE:-local}"
@@ -1281,6 +1289,7 @@ BuildDockerResourceArgs() {
         --label "io.fsusblog.test.bundle-id=$bundleIdentity"
         --label "io.fsusblog.test.step-id=$stepIdentity"
         --label "io.fsusblog.test.namespace=$NS_SLUG"
+        --label "io.fsusblog.test.repository-root-digest=$FSUSBLOG_REPOSITORY_ROOT_DIGEST"
     )
     if [[ -n "$preparationIdentity" ]]; then
         DOCKER_RESOURCE_ARGS+=(--label "io.fsusblog.test.preparation-id=$preparationIdentity")

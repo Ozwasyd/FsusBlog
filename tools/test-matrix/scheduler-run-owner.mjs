@@ -30,6 +30,7 @@ export const schedulerRunOwnerFields = Object.freeze([
   'schema',
   'runId',
   'candidateIdentityDigest',
+  'budgetPolicyDigest',
   'targetTierId',
   'ownerToken',
   'pid',
@@ -85,7 +86,8 @@ export function schedulerCandidateIdentityDigest({
   runId,
   targetTierId,
   namespace,
-  sourceState
+  sourceState,
+  budgetPolicyDigest = null
 }) {
   const normalizedNamespace = String(namespace ?? '').trim()
   if (!String(runId ?? '').trim() || !String(targetTierId ?? '').trim() || !normalizedNamespace) {
@@ -96,12 +98,16 @@ export function schedulerCandidateIdentityDigest({
   if (!commit || !worktreeFingerprint) {
     throw new Error('scheduler candidate identity requires source commit and worktree fingerprint')
   }
+  if (budgetPolicyDigest !== null && !validDigest(budgetPolicyDigest)) {
+    throw new Error('scheduler candidate identity budget policy digest is invalid')
+  }
   return contentDigest({
     schema: 'fsusblog.scheduler-candidate-identity.v1',
     runId,
     targetTierId,
     namespace: normalizedNamespace,
-    sourceState: { commit, worktreeFingerprint }
+    sourceState: { commit, worktreeFingerprint },
+    budgetPolicyDigest
   })
 }
 
@@ -180,6 +186,7 @@ const schedulerCurrentProcessGroupOrJobIdentity = collectSchedulerProcessGroupOr
 export function createSchedulerRunOwner({
   runId,
   candidateIdentityDigest,
+  budgetPolicyDigest = null,
   targetTierId,
   ownerToken = randomUUID(),
   identity = schedulerCurrentProcessIdentity,
@@ -188,6 +195,9 @@ export function createSchedulerRunOwner({
   state = 'starting',
   now = new Date()
 }) {
+  if (budgetPolicyDigest !== null && !validDigest(budgetPolicyDigest)) {
+    throw new Error('scheduler run owner budget policy digest is invalid')
+  }
   const groupOrJob = processGroupOrJobIdentity
     ? { status: 'verified', value: processGroupOrJobIdentity }
     : identity === schedulerCurrentProcessIdentity
@@ -203,6 +213,7 @@ export function createSchedulerRunOwner({
     schema: schedulerRunOwnerSchema,
     runId,
     candidateIdentityDigest,
+    budgetPolicyDigest,
     targetTierId,
     ownerToken,
     pid: identity.pid,
@@ -227,6 +238,7 @@ export function schedulerRunOwnerIsComplete(owner, nowMs = Date.now()) {
     typeof owner.runId === 'string' &&
     owner.runId.length > 0 &&
     validDigest(owner.candidateIdentityDigest) &&
+    (owner.budgetPolicyDigest === null || validDigest(owner.budgetPolicyDigest)) &&
     typeof owner.targetTierId === 'string' &&
     owner.targetTierId.length > 0 &&
     typeof owner.ownerToken === 'string' &&
@@ -255,6 +267,7 @@ export function schedulerRunOwnerIdentityMatches(expected, actual) {
     expected.schema === actual.schema &&
     expected.runId === actual.runId &&
     expected.candidateIdentityDigest === actual.candidateIdentityDigest &&
+    expected.budgetPolicyDigest === actual.budgetPolicyDigest &&
     expected.targetTierId === actual.targetTierId &&
     expected.ownerToken === actual.ownerToken &&
     expected.pid === actual.pid &&
@@ -726,6 +739,7 @@ export function acquireSchedulerRunLock({
   runsRoot,
   runId,
   candidateIdentityDigest,
+  budgetPolicyDigest = null,
   targetTierId,
   identity = schedulerCurrentProcessIdentity,
   processGroupOrJobIdentity = null,
@@ -745,6 +759,7 @@ export function acquireSchedulerRunLock({
       const owner = createSchedulerRunOwner({
         runId,
         candidateIdentityDigest,
+        budgetPolicyDigest,
         targetTierId,
         identity,
         processGroupOrJobIdentity,

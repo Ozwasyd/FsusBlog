@@ -612,7 +612,7 @@ export function createLocalBundleTiers(profileId, profile, { maxParallel = null 
       startupMinCpuUnits: bundle.startupMinCpuUnits,
       startupMemoryWeight: bundle.startupMemoryWeight,
       startupPriority: bundle.startupPriority,
-      ...(profile.enforceBudget === false ? {} : { budgetMs: bundle.budgetMs }),
+      budgetMs: bundle.budgetMs,
       cacheInputs: [
         'tests/matrix.yml',
         'tools/test/bundles',

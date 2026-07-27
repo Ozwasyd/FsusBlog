@@ -34,6 +34,7 @@ const requiredFields = Object.freeze([
   'schema',
   'leaseId',
   'ownerToken',
+  'runId',
   'canonicalRepositoryRoot',
   'profile',
   'candidateIdentityDigest',
@@ -93,6 +94,8 @@ export function productionFreshLeaseOwnerIsComplete(owner, nowMs = Date.now()) {
     owner.leaseId.length > 0 &&
     typeof owner.ownerToken === 'string' &&
     owner.ownerToken.length > 0 &&
+    typeof owner.runId === 'string' &&
+    owner.runId.length > 0 &&
     typeof owner.canonicalRepositoryRoot === 'string' &&
     owner.canonicalRepositoryRoot.length > 0 &&
     owner.profile === productionFreshLeaseProfile &&
@@ -149,7 +152,8 @@ function commonGitDirectory(root) {
 export function productionFreshLeaseIdentity({
   runId,
   targetTierId,
-  sourceState
+  sourceState,
+  budgetPolicyDigest = null
 }) {
   const commit = String(sourceState?.commit ?? '').trim()
   const worktreeFingerprint = String(sourceState?.worktreeFingerprint ?? '').trim()
@@ -166,8 +170,64 @@ export function productionFreshLeaseIdentity({
     runId,
     targetTierId,
     namespace: productionFreshLeaseNamespace,
-    sourceState: { commit, worktreeFingerprint }
+    sourceState: { commit, worktreeFingerprint },
+    budgetPolicyDigest
   })
+}
+
+function productionFreshLeaseLocation(root) {
+  const canonicalRepositoryRoot = fs.realpathSync(root)
+  const leaseKey = digest(JSON.stringify({
+    canonicalRepositoryRoot,
+    profile: productionFreshLeaseProfile
+  }))
+  const leaseRoot = path.join(
+    commonGitDirectory(canonicalRepositoryRoot),
+    'production-fresh-exclusive-leases'
+  )
+  const leasePath = path.join(leaseRoot, leaseKey.slice('sha256:'.length))
+  return {
+    canonicalRepositoryRoot,
+    leaseRoot,
+    leasePath,
+    ownerFile: path.join(leasePath, 'owner.json')
+  }
+}
+
+export function observeProductionFreshExclusiveLease({
+  root,
+  runId,
+  verifyAuthority = verifySchedulerProcessAuthority,
+  now = () => Date.now()
+}) {
+  const location = productionFreshLeaseLocation(root)
+  if (!fs.existsSync(location.leasePath)) {
+    return { status: 'inactive', reason: 'production-fresh-lease-absent', owner: null }
+  }
+  const owner = readOwner(location.ownerFile)
+  if (!productionFreshLeaseOwnerIsComplete(owner, now())) {
+    return {
+      status: 'unverifiable',
+      reason: 'production-fresh-lease-owner-unverifiable',
+      owner
+    }
+  }
+  if (owner.runId !== runId) {
+    return {
+      status: 'inactive',
+      reason: 'production-fresh-lease-owned-by-different-run',
+      owner
+    }
+  }
+  if (terminalStates.has(owner.state)) {
+    return {
+      status: 'inactive',
+      reason: 'production-fresh-lease-owner-terminal',
+      owner
+    }
+  }
+  const authority = verifyAuthority(owner)
+  return { ...authority, owner }
 }
 
 function acquireCasMarker(leasePath, owner, operation) {
@@ -339,7 +399,13 @@ export function acquireProductionFreshExclusiveLease({
   runId,
   targetTierId,
   sourceState,
-  candidateIdentityDigest = productionFreshLeaseIdentity({ runId, targetTierId, sourceState }),
+  budgetPolicyDigest = null,
+  candidateIdentityDigest = productionFreshLeaseIdentity({
+    runId,
+    targetTierId,
+    sourceState,
+    budgetPolicyDigest
+  }),
   identity = currentProcessIdentity(),
   processGroupOrJobIdentity = null,
   collectGroupOrJobIdentity = collectSchedulerProcessGroupOrJobIdentity,
@@ -351,14 +417,12 @@ export function acquireProductionFreshExclusiveLease({
   heartbeatEveryMs = 1_000,
   now = () => Date.now()
 }) {
-  const canonicalRepositoryRoot = fs.realpathSync(root)
-  const leaseKey = digest(JSON.stringify({
+  const {
     canonicalRepositoryRoot,
-    profile: productionFreshLeaseProfile
-  }))
-  const leaseRoot = path.join(commonGitDirectory(canonicalRepositoryRoot), 'production-fresh-exclusive-leases')
-  const leasePath = path.join(leaseRoot, leaseKey.slice('sha256:'.length))
-  const ownerFile = path.join(leasePath, 'owner.json')
+    leaseRoot,
+    leasePath,
+    ownerFile
+  } = productionFreshLeaseLocation(root)
   const groupOrJob = processGroupOrJobIdentity
     ? { status: 'verified', value: processGroupOrJobIdentity }
     : collectGroupOrJobIdentity(identity)
@@ -377,6 +441,7 @@ export function acquireProductionFreshExclusiveLease({
     schema: productionFreshLeaseSchema,
     leaseId: randomUUID(),
     ownerToken: randomUUID(),
+    runId,
     canonicalRepositoryRoot,
     profile: productionFreshLeaseProfile,
     candidateIdentityDigest,

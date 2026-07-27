@@ -2200,6 +2200,7 @@ test('resume can require one coherent source state instead of reusing otherwise 
     assert.deepEqual(resumed.reusedTiers, []);
     assert.deepEqual(resumed.checkpoint.resumePolicy, {
         sourceChanged: true,
+        budgetPolicyChanged: false,
         reuseAcrossSourceChanges: false
     });
 });

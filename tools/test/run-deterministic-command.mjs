@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { spawn, execFileSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -12,8 +12,10 @@ import {
   validateRunBoundConsumerEvidence,
   validateRunBoundProjection
 } from './run-once.mjs'
+import { runPhysicalExecution } from './physical-execution-process-tree.mjs'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+const physicalExecutionPolicy = 'config/testing/physical-execution-process-policy.json'
 
 function parse(argv) {
   const options = { paths: [], environmentNames: [], outputs: [], testIds: [] }
@@ -84,25 +86,7 @@ function git(args) {
 }
 
 async function spawnCommand(command, cwd, signal) {
-  await new Promise((resolve, reject) => {
-    const child = spawn(command[0], command.slice(1), {
-      cwd,
-      env: process.env,
-      stdio: 'inherit',
-      signal
-    })
-    child.on('error', reject)
-    child.on('exit', (code, childSignal) => {
-      if (code === 0) {
-        resolve()
-        return
-      }
-      const error = new Error(`command failed (${childSignal ? `signal ${childSignal}` : `exit ${code}`}): ${command.join(' ')}`)
-      error.exitCode = code
-      error.signal = childSignal
-      reject(error)
-    })
-  })
+  return await runPhysicalExecution({ command, cwd, signal })
 }
 
 async function main(argv) {
@@ -137,7 +121,8 @@ async function main(argv) {
   }
 
   const commit = git(['rev-parse', 'HEAD'])
-  const inputDigest = await fingerprintPaths(options.paths, {
+  const inputPaths = [...new Set([...options.paths, physicalExecutionPolicy])]
+  const inputDigest = await fingerprintPaths(inputPaths, {
     root: repoRoot,
     values: [
       'run-bound-physical-execution-v3',
@@ -156,7 +141,7 @@ async function main(argv) {
   const worktreeFingerprint = digest({
     commit,
     inputDigest,
-    status: git(['status', '--porcelain=v1', '--untracked-files=all', '--', ...options.paths])
+    status: git(['status', '--porcelain=v1', '--untracked-files=all', '--', ...inputPaths])
   })
   const consumerId = producerId
   const controller = new AbortController()

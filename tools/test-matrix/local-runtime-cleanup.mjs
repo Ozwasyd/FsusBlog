@@ -5,6 +5,7 @@ import path from 'node:path'
 
 import { finalizeResidentLeaseCleanup } from './resident-resource-leases.mjs'
 import { recordCheckpointResidentLeaseCleanup } from './scheduler.mjs'
+import { discoverClassifyAndCleanupOrphanRuntimes } from './production-fresh-orphan-runtime-discovery.mjs'
 
 function namespaceSlug(value) {
   const normalized = String(value ?? '')
@@ -28,10 +29,10 @@ const runtimeContainerNamespaceLabel = 'io.fsusblog.test.namespace'
 const runtimeContainerPreparationIdLabel = 'io.fsusblog.test.preparation-id'
 const runtimeProcessIdentitySchema = 'fsusblog.local-runtime-process-identity.v1'
 const cleanupReceiptSchema = 'fsusblog.production-fresh.runtime-cleanup-receipt.v1'
-const containerActions = new Set(['skipped-external-name', 'already-absent', 'blocked-ownership-mismatch', 'blocked-identity-incomplete', 'removed', 'remove-failed'])
-const containerPostObservations = new Set(['not-observed', 'name-absent', 'not-removed', 'name-and-id-absent', 'id-still-present', 'name-still-present', 'removal-unconfirmed'])
-const processActions = new Set(['blocked', 'terminated', 'already-absent', 'termination-unconfirmed'])
-const processPostObservations = new Set(['not-observed', 'group-still-live', 'leader-and-group-absent', 'not-terminated', 'leader-or-group-still-live'])
+const containerActions = new Set(['skipped-external-name', 'retained-external', 'blocked-active-owner', 'already-absent', 'blocked-ownership-mismatch', 'blocked-identity-incomplete', 'removed', 'remove-failed'])
+const containerPostObservations = new Set(['not-observed', 'retained', 'name-absent', 'not-removed', 'name-and-id-absent', 'id-still-present', 'name-still-present', 'removal-unconfirmed'])
+const processActions = new Set(['retained-external', 'blocked-active-owner', 'blocked', 'terminated', 'already-absent', 'termination-unconfirmed'])
+const processPostObservations = new Set(['retained', 'not-observed', 'group-still-live', 'leader-and-group-absent', 'not-terminated', 'leader-or-group-still-live'])
 
 function canonicalJson(value) {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`
@@ -832,14 +833,18 @@ export function cleanupStaleLocalRuntimes({
   removeContainer = defaultRemoveContainer,
   containerExists = null,
   discoverUntracked = false,
-  discoverOrphanProcesses = discoverOrphanProductionViteProcesses,
+  discoverOrphanProcesses = () => [],
   killOrphanProcess = defaultKillOrphanProcess,
   observeOrphanProcess = readProcProcess,
   orphanProcessGroupExists = defaultProcessGroupExists,
-  listSchemaContainers = defaultListSchemaContainers,
+  listSchemaContainers = () => [],
   inspectContainer = defaultInspectContainer,
   legacyContainerMinimumAgeMs = null,
   orphanTerminationGraceMs = null,
+  currentRunId = '',
+  schedulerRunsRoot = null,
+  sourceState = null,
+  discoverOwnedOrphanRuntimes = discoverClassifyAndCleanupOrphanRuntimes,
   nowMs = Date.now(),
   detectActiveBackendTesthost = hasActiveBackendTesthost,
   cleanupRuntime = cleanupLocalRuntime
@@ -936,6 +941,32 @@ export function cleanupStaleLocalRuntimes({
     }
     if (!Number.isFinite(legacyContainerMinimumAgeMs) || legacyContainerMinimumAgeMs <= 0) {
       throw new Error('untracked runtime cleanup requires a positive legacy container minimum age')
+    }
+    const generalized = currentRunId && fs.existsSync(path.join(resolvedRoot, '.git'))
+      ? discoverOwnedOrphanRuntimes({
+          root: resolvedRoot,
+          currentRunId,
+          runsRoot: schedulerRunsRoot,
+          sourceState,
+          terminationGraceMs: orphanTerminationGraceMs
+        })
+      : { processRecords: [], containerRecords: [] }
+    orphanProcessRecords.push(...generalized.processRecords)
+    untrackedContainerRecords.push(...generalized.containerRecords)
+    for (const record of generalized.processRecords) {
+      if (record.action === 'terminated') orphanProcesses.push(record.pid)
+      else if (record.action === 'already-absent') orphanAlreadyExitedPids.push(record.pid)
+      else if (record.action !== 'retained-external') {
+        orphanSkippedProcesses.push({
+          pid: record.pid,
+          reason: record.classificationReason ?? record.action
+        })
+      }
+    }
+    for (const record of generalized.containerRecords) {
+      if (record.action === 'removed') untrackedContainers.push(record.name)
+      else if (record.action === 'already-absent') untrackedAlreadyAbsentContainers.push(record.name)
+      else if (record.action !== 'retained-external') untrackedSkippedContainers.push(record.name)
     }
     for (const record of discoverOrphanProcesses(resolvedRoot)) {
       const pid = positiveInteger(record?.pid)
@@ -1123,7 +1154,7 @@ export function verifyFreshRuntimeCleanup(cleanup) {
   const verifyResourceRecords = (record) => {
     for (const container of record.containerRecords ?? []) {
       if (!container.name || !container.action || !container.postObservation) failures.push(`${record.namespace}: container receipt is incomplete`)
-      if (['remove-failed', 'blocked-ownership-mismatch', 'blocked-identity-incomplete'].includes(container.action)
+      if (['remove-failed', 'blocked-active-owner', 'blocked-ownership-mismatch', 'blocked-identity-incomplete'].includes(container.action)
         || /still-present|not-removed/u.test(container.postObservation)) failures.push(`${record.namespace}: container post-observation blocks Fresh`)
       if (container.action === 'removed' && container.postObservation !== 'name-and-id-absent') {
         failures.push(`${record.namespace}: removed container name and ID absence is unconfirmed`)
@@ -1135,7 +1166,7 @@ export function verifyFreshRuntimeCleanup(cleanup) {
     }
     for (const process of record.processRecords ?? []) {
       if (!process.action || !process.postObservation || !process.identityResult) failures.push(`${record.namespace}: process receipt is incomplete`)
-      if (['blocked', 'termination-unconfirmed'].includes(process.action)
+      if (['blocked', 'blocked-active-owner', 'termination-unconfirmed'].includes(process.action)
         || /still-live|not-observed|not-terminated/u.test(process.postObservation)) failures.push(`${record.namespace}: process post-observation blocks Fresh`)
       if (['terminated', 'already-absent'].includes(process.action)
         && process.postObservation !== 'leader-and-group-absent') {
@@ -1235,7 +1266,13 @@ export function verifyFreshRuntimeCleanupReceipt(receipt) {
       if (!(process.pid === null || (Number.isInteger(process.pid) && process.pid > 1))
         || !(process.processGroupId === null || (Number.isInteger(process.processGroupId) && process.processGroupId > 1))
         || !(process.startTimeTicks === null || /^\d+$/u.test(process.startTimeTicks))
-        || !(process.role === null || ['backend', 'debug-frontend', 'release-preview'].includes(process.role))
+        || !(process.role === null || [
+          'backend',
+          'debug-frontend',
+          'release-preview',
+          'public-aot-worker',
+          'production-descendant'
+        ].includes(process.role))
         || typeof process.identityResult !== 'string' || !process.identityResult
         || !processActions.has(process.action)
         || !processPostObservations.has(process.postObservation)) {

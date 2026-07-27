@@ -645,7 +645,8 @@ export function bindProductionBuildLayoutSource(layout, sourceState) {
         runId: layout.runId,
         targetTierId: schedulerOwner.targetTierId,
         namespace: manifest.owner.namespace,
-        sourceState: { commit, worktreeFingerprint }
+        sourceState: { commit, worktreeFingerprint },
+        budgetPolicyDigest: schedulerOwner.budgetPolicyDigest ?? null
     })
     const schedulerActivity = schedulerRunLockActivity({
         runsRoot,
