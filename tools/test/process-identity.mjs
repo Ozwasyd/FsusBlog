@@ -222,16 +222,30 @@ export function collectProcessGroupOrJobIdentity(
 }
 
 export function processGroupOrJobIdentityMatches(expected, actual) {
-    return Boolean(
-        expected &&
-            actual &&
-            expected.schema === 'fsusblog.process-group-or-job-identity.v1' &&
-            actual.schema === expected.schema &&
-            expected.platform === actual.platform &&
-            expected.kind === actual.kind &&
-            expected.groupId === actual.groupId &&
-            expected.leaderPid === actual.leaderPid &&
-            expected.leaderProcessStartIdentity === actual.leaderProcessStartIdentity
+    if (
+        !expected ||
+        !actual ||
+        expected.schema !== 'fsusblog.process-group-or-job-identity.v1' ||
+        actual.schema !== expected.schema ||
+        expected.platform !== actual.platform ||
+        expected.kind !== actual.kind
+    ) {
+        return false
+    }
+    if (expected.kind === 'windows-job-object') {
+        return (
+            expected.platform === 'win32' &&
+            expected.authorityId === actual.authorityId &&
+            expected.jobName === actual.jobName &&
+            expected.supervisorProcessStartIdentity === actual.supervisorProcessStartIdentity &&
+            expected.ownerProcessStartIdentity === actual.ownerProcessStartIdentity
+        )
+    }
+    return (
+        expected.kind === 'process-group' &&
+        expected.groupId === actual.groupId &&
+        expected.leaderPid === actual.leaderPid &&
+        expected.leaderProcessStartIdentity === actual.leaderProcessStartIdentity
     )
 }
 

@@ -6,7 +6,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
-import { collectProcessIdentity, currentProcessIdentity, processIdentityStatus } from '../test/process-identity.mjs'
+import { collectProcessIdentity } from '../test/process-identity.mjs'
 import { createAsyncLogPipeline } from './async-log-pipeline.mjs'
 import {
   readAndValidateArtifactDigestTable,
@@ -35,6 +35,19 @@ import {
   resolveResourceSampleIntervalMs,
   startupAdmissionOrder
 } from './scheduler-admission-support.mjs'
+import {
+  acquireSchedulerRunLock,
+  reclaimSchedulerRunLock,
+  schedulerCandidateIdentityDigest,
+  schedulerRunLockActivity,
+  schedulerRunLockIsActive
+} from './scheduler-run-owner.mjs'
+
+export {
+  reclaimSchedulerRunLock,
+  schedulerRunLockActivity,
+  schedulerRunLockIsActive
+} from './scheduler-run-owner.mjs'
 
 const checkpointSchema = 'fsusblog.test-matrix.checkpoint.v1'
 const runtimeCleanupAttemptLedgerSchema = 'fsusblog.production-fresh.runtime-cleanup-attempt-ledger.v1'
@@ -2133,7 +2146,7 @@ export function validateLocalProfileCheckpointEvidence(checkpoint, root) {
 async function validateCurrentCheckpointSource(checkpoint, root, snapshotWorktree) {
   const snapshot = await (snapshotWorktree ?? (() => snapshotGitWorktree(root)))()
   const current = {
-    commit: gitHead(root),
+    commit: gitHead(root) || 'unversioned',
     worktreeFingerprint: snapshot?.fingerprint
   }
   if (!String(current.worktreeFingerprint ?? '').trim() || !sameCheckpointSource(current, checkpoint.sourceState)) {
@@ -2442,6 +2455,8 @@ async function runDagUnlocked(options) {
     schema: checkpointSchema,
     runId,
     targetTierId: options.targetTierId ?? tiers.at(-1)?.id ?? null,
+    namespace: options.namespace,
+    schedulerCandidateIdentityDigest: options.schedulerCandidateIdentityDigest,
     mode,
     authoritative: mode === 'fresh',
     status: 'running',
@@ -3682,256 +3697,136 @@ async function runDagUnlocked(options) {
   }
 }
 
-export function schedulerRunLockActivity({
-    runsRoot,
-    runId,
-    identityStatus = processIdentityStatus
-}) {
-    const normalizedRunId = safeRunId(runId)
-    const lockPath = path.join(path.resolve(runsRoot), '.locks', `${normalizedRunId}.lock`)
-    const ownerFile = path.join(lockPath, 'owner.json')
-    if (!fs.existsSync(lockPath)) return { status: 'inactive', reason: 'lock-missing', owner: null }
-    let owner
-    try {
-        owner = JSON.parse(fs.readFileSync(ownerFile, 'utf8'))
-    } catch (error) {
-        return {
-            status: 'unverifiable',
-            reason: `owner-read-failed:${error instanceof Error ? error.message : String(error)}`,
-            owner: null
-        }
-    }
-    if (
-        !schedulerLockOwnerIsComplete(owner) ||
-        owner.schedulerRunId !== normalizedRunId ||
-        owner.executionKey !== normalizedRunId
-    ) {
-        return { status: 'unverifiable', reason: 'owner-identity-incomplete', owner }
-    }
-    let observed
-    try {
-        observed = identityStatus(owner)
-    } catch (error) {
-        return {
-            status: 'unverifiable',
-            reason: `owner-identity-check-failed:${error instanceof Error ? error.message : String(error)}`,
-            owner
-        }
-    }
-    if (observed.status === 'live') return { status: 'active', reason: null, owner }
-    if (['dead', 'mismatch'].includes(observed.status)) {
-        return { status: 'inactive', reason: `owner-${observed.status}`, owner }
-    }
-    return {
-        status: 'unverifiable',
-        reason: `owner-${observed.status}:${observed.actual?.reason ?? 'identity unavailable'}`,
-        owner
-    }
-}
-
-export function schedulerRunLockIsActive(options) {
-    const activity = schedulerRunLockActivity(options)
-    if (activity.status === 'unverifiable') {
-        throw new Error(`scheduler lock owner-unverifiable: ${activity.reason}`)
-    }
-    return activity.status === 'active'
-}
-
 function runLockIsActive(runsRoot, runId) {
-    return schedulerRunLockIsActive({ runsRoot, runId })
-}
-
-function schedulerLockOwnerMatches(expected, actual) {
-    return Boolean(
-        expected &&
-            actual &&
-            expected.schema === actual.schema &&
-            expected.ownerToken === actual.ownerToken &&
-            expected.pid === actual.pid &&
-            expected.processStartIdentity === actual.processStartIdentity &&
-            expected.executablePath === actual.executablePath &&
-            expected.executableDigest === actual.executableDigest &&
-            expected.commandDigest === actual.commandDigest &&
-            expected.schedulerRunId === actual.schedulerRunId &&
-            expected.namespace === actual.namespace &&
-            expected.executionKey === actual.executionKey &&
-            expected.sourceCommit === actual.sourceCommit &&
-            expected.worktreeFingerprint === actual.worktreeFingerprint
-    )
-}
-
-function schedulerLockOwnerExactMatches(expected, actual) {
-    return schedulerLockOwnerMatches(expected, actual) && fingerprint(expected) === fingerprint(actual)
-}
-
-function schedulerLockOwnerIsComplete(owner) {
-    return Boolean(
-        owner &&
-            owner.schema === 'fsusblog.scheduler-lock-owner.v2' &&
-            typeof owner.ownerToken === 'string' &&
-            owner.ownerToken.length > 0 &&
-            Number.isInteger(owner.pid) &&
-            owner.pid > 0 &&
-            owner.processStartIdentity &&
-            owner.executablePath &&
-            owner.executableDigest &&
-            owner.commandDigest &&
-            typeof owner.schedulerRunId === 'string' &&
-            owner.schedulerRunId.length > 0 &&
-            typeof owner.namespace === 'string' &&
-            owner.namespace.length > 0 &&
-            typeof owner.executionKey === 'string' &&
-            owner.executionKey.length > 0 &&
-            Object.hasOwn(owner, 'sourceCommit') &&
-            Object.hasOwn(owner, 'worktreeFingerprint')
-    )
-}
-
-export function reclaimSchedulerRunLock(lockPath, expectedOwner, { beforeDelete = null } = {}) {
-    if (!schedulerLockOwnerIsComplete(expectedOwner)) {
-        throw new Error('test matrix run owner-unverifiable: owner metadata is incomplete')
+    const checkpoint = readCheckpoint(path.join(runsRoot, runId, 'checkpoint.json'))
+    if (
+      !checkpoint ||
+      checkpoint.runId !== runId ||
+      typeof checkpoint.targetTierId !== 'string' ||
+      !checkpoint.targetTierId ||
+      typeof checkpoint.sourceState?.commit !== 'string' ||
+      !checkpoint.sourceState.commit ||
+      typeof checkpoint.sourceState?.worktreeFingerprint !== 'string' ||
+      !checkpoint.sourceState.worktreeFingerprint ||
+      typeof checkpoint.namespace !== 'string' ||
+      !checkpoint.namespace ||
+      !/^sha256:[a-f0-9]{64}$/u.test(checkpoint.schedulerCandidateIdentityDigest ?? '')
+    ) {
+      throw new Error(`scheduler lock owner-unverifiable: candidate checkpoint identity is incomplete for ${runId}`)
     }
-    const ownerFile = path.join(lockPath, 'owner.json')
-    const markerFile = path.join(lockPath, 'reclaim.json')
-    try {
-        fs.writeFileSync(
-            markerFile,
-            `${JSON.stringify({
-                schema: 'fsusblog.scheduler-lock-reclaim.v1',
-                ownerToken: expectedOwner.ownerToken,
-                processStartIdentity: expectedOwner.processStartIdentity
-            })}\n`,
-            { mode: 0o600, flag: 'wx' }
-        )
-    } catch (error) {
-        if (['EEXIST', 'ENOENT'].includes(error?.code)) return false
-        throw error
+    const candidateIdentityDigest = schedulerCandidateIdentityDigest({
+      runId,
+      targetTierId: checkpoint.targetTierId,
+      namespace: checkpoint.namespace,
+      sourceState: checkpoint.sourceState
+    })
+    if (candidateIdentityDigest !== checkpoint.schedulerCandidateIdentityDigest) {
+      throw new Error(`scheduler lock owner-unverifiable: candidate checkpoint identity is invalid for ${runId}`)
     }
-    beforeDelete?.({ lockPath, ownerFile, expectedOwner })
-    let confirmedOwner
-    try {
-        confirmedOwner = JSON.parse(fs.readFileSync(ownerFile, 'utf8'))
-    } catch (error) {
-        if (error?.code !== 'ENOENT') throw error
-    }
-    if (!schedulerLockOwnerExactMatches(expectedOwner, confirmedOwner)) {
-        try {
-            fs.rmSync(markerFile, { force: true })
-        } catch {}
-        return false
-    }
-    const tombstone = `${lockPath}.reclaimed-${expectedOwner.ownerToken}-${crypto.randomUUID()}`
-    try {
-        fs.renameSync(lockPath, tombstone)
-    } catch (error) {
-        if (error?.code === 'ENOENT') return false
-        throw error
-    }
-    fs.rmSync(tombstone, { recursive: true, force: true })
-    return true
+    return schedulerRunLockIsActive({
+      runsRoot,
+      runId,
+      targetTierId: checkpoint.targetTierId,
+      candidateIdentityDigest
+    })
 }
 
 function acquireRunLock(
     runsRoot,
     runId,
-    { sourceState = null, namespace = 'test-matrix', beforeStaleLockDelete = null } = {}
+    {
+      sourceState = null,
+      namespace = 'test-matrix',
+      targetTierId = 'scheduler-coordination',
+      beforeStaleLockDelete = null
+    } = {}
 ) {
-    const lockDirectory = path.join(runsRoot, '.locks')
-    const lockPath = path.join(lockDirectory, `${runId}.lock`)
-    const ownerFile = path.join(lockPath, 'owner.json')
-    fs.mkdirSync(lockDirectory, { recursive: true })
-    const ownerToken = crypto.randomUUID()
-    const identity = currentProcessIdentity()
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-        try {
-            fs.mkdirSync(lockPath, { mode: 0o700 })
-            const owner = {
-                schema: 'fsusblog.scheduler-lock-owner.v2',
-                ownerToken,
-                pid: identity.pid,
-                processStartIdentity: identity.processStartIdentity,
-                executablePath: identity.executablePath,
-                executableDigest: identity.executableDigest,
-                commandDigest: identity.commandDigest,
-                schedulerRunId: runId,
-                namespace,
-                executionKey: runId,
-                sourceCommit: sourceState?.commit ?? null,
-                worktreeFingerprint: sourceState?.worktreeFingerprint ?? null,
-                createdAt: new Date().toISOString(),
-                heartbeatAt: new Date().toISOString()
-            }
-            fs.writeFileSync(ownerFile, `${JSON.stringify(owner)}\n`, { mode: 0o600 })
-            return () => {
-                try {
-                    const currentOwner = JSON.parse(fs.readFileSync(ownerFile, 'utf8'))
-                    if (
-                        schedulerLockOwnerMatches(owner, currentOwner) &&
-                        processIdentityStatus(identity).status === 'live'
-                    ) {
-                        fs.rmSync(lockPath, { recursive: true, force: true })
-                    }
-                } catch (error) {
-                    if (error.code !== 'ENOENT') throw error
-                }
-            }
-        } catch (error) {
-            if (error.code !== 'EEXIST') throw error
-            let owner = null
-            try {
-                owner = JSON.parse(fs.readFileSync(ownerFile, 'utf8'))
-            } catch {}
-            if (!schedulerLockOwnerIsComplete(owner)) {
-                throw new Error(`test matrix run ${runId} owner-unverifiable: owner metadata is incomplete`)
-            }
-            const status = processIdentityStatus(owner)
-            if (status.status === 'live') {
-                throw new Error(`test matrix run ${runId} is already active (pid ${owner.pid})`)
-            }
-            if (status.status === 'unverifiable')
-                throw new Error(
-                    `test matrix run ${runId} owner-unverifiable: ${status.actual?.reason ?? 'identity unavailable'}`
-                )
-            reclaimSchedulerRunLock(lockPath, owner, { beforeDelete: beforeStaleLockDelete })
-        }
+    const normalizedSourceState = {
+      commit: String(sourceState?.commit ?? 'unversioned'),
+      worktreeFingerprint: String(sourceState?.worktreeFingerprint ?? 'unbound')
     }
-    throw new Error(`unable to acquire test matrix run lock for ${runId}`)
+    const candidateIdentityDigest = schedulerCandidateIdentityDigest({
+      runId,
+      targetTierId,
+      namespace,
+      sourceState: normalizedSourceState
+    })
+    const controller = acquireSchedulerRunLock({
+      runsRoot,
+      runId,
+      candidateIdentityDigest,
+      targetTierId,
+      beforeStaleLockDelete
+    })
+    const release = (state = 'complete') => {
+      if (!controller.finalize(state)) {
+        throw new Error(`unable to finalize scheduler run owner for ${runId}`)
+      }
+    }
+    release.markRunning = () => {
+      if (!controller.markRunning()) {
+        throw new Error(`unable to start scheduler run owner heartbeat for ${runId}`)
+      }
+    }
+    release.markFinalizing = () => {
+      if (!controller.markFinalizing()) {
+        throw new Error(`unable to enter scheduler run owner finalizing state for ${runId}`)
+      }
+    }
+    release.owner = controller.owner
+    return release
 }
 
 export async function runDag(options) {
   const root = path.resolve(options.root)
   const runsRoot = resolveRealOrAncestralPath(options.runsRoot ?? path.join(root, '.tmp/test-runs'))
   const runId = safeRunId(options.runId ?? createRunId(options.targetTierId ?? 'matrix'))
-    const snapshotWorktree = options.snapshotWorktree ?? (() => snapshotGitWorktree(root))
-    const runSourceSnapshot = await snapshotWorktree()
-    const envCommit = String(process.env.FSUSBLOG_TEST_SOURCE_COMMIT ?? '').trim()
-    const envFingerprint = String(process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT ?? '').trim()
-    const sourceState = options.sourceState ?? {
-        commit: envCommit || gitHead(root),
-        worktreeFingerprint: envFingerprint || runSourceSnapshot.fingerprint
-    }
-    const releaseLock = acquireRunLock(runsRoot, runId, {
-        sourceState,
-        namespace: options.namespace ?? 'test-matrix',
-        beforeStaleLockDelete: options.beforeStaleLockDelete
-    })
+  const snapshotWorktree = options.snapshotWorktree ?? (() => snapshotGitWorktree(root))
+  const runSourceSnapshot = await snapshotWorktree()
+  const envCommit = String(process.env.FSUSBLOG_TEST_SOURCE_COMMIT ?? '').trim()
+  const envFingerprint = String(process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT ?? '').trim()
+  const sourceState = options.sourceState ?? {
+    commit: envCommit || gitHead(root) || 'unversioned',
+    worktreeFingerprint: envFingerprint || runSourceSnapshot.fingerprint || 'unbound'
+  }
+  const namespace = options.namespace ?? 'test-matrix'
+  const targetTierId = options.targetTierId ?? options.tiers?.at(-1)?.id ?? 'matrix'
+  const releaseLock = acquireRunLock(runsRoot, runId, {
+    sourceState,
+    namespace,
+    targetTierId,
+    beforeStaleLockDelete: options.beforeStaleLockDelete
+  })
   const schedulerFinalizers = []
+  let schedulerOwnerTerminalState = 'failed'
   try {
-    return await runDagUnlocked({
+    releaseLock.markRunning()
+    const result = await runDagUnlocked({
       ...options,
       root,
       runsRoot,
       runId,
-        sourceState,
-        runSourceSnapshot,
+      targetTierId,
+      namespace,
+      schedulerCandidateIdentityDigest: releaseLock.owner.candidateIdentityDigest,
+      sourceState,
+      runSourceSnapshot,
       registerSchedulerFinalizer(finalizer) {
         schedulerFinalizers.push(finalizer)
       }
     })
+    schedulerOwnerTerminalState = result.status === 'success' ? 'complete' : 'failed'
+    return result
+  } catch (error) {
+    schedulerOwnerTerminalState = ['AbortError', 'CancellationError'].includes(error?.name)
+      ? 'cancelled'
+      : 'failed'
+    throw error
   } finally {
+    releaseLock.markFinalizing()
     for (const finalizer of schedulerFinalizers.reverse()) {
       try { await finalizer() } catch {}
     }
-    releaseLock()
+    releaseLock(schedulerOwnerTerminalState)
   }
 }

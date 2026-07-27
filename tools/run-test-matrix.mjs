@@ -67,7 +67,6 @@ import {
     recordCheckpointRuntimeCleanup,
     resumeCheckpointEvidence,
     runDag,
-    schedulerRunLockIsActive,
     snapshotGitWorktree,
     snapshotSourceState,
     tierResourceUnits,
@@ -1181,13 +1180,6 @@ function bindScheduledBuildLayoutSource(layout, sourceState) {
     // authoritative repository preflight rejects that mode before Production.
     commit: sourceState?.commit ?? 'unversioned'
   })
-}
-
-function schedulerRunIsActive(runId) {
-    return schedulerRunLockIsActive({
-        runId,
-        runsRoot: path.join(root, '.tmp/test-runs')
-    })
 }
 
 function applyUxViewportResumeEnvironment(env, tier, resume) {

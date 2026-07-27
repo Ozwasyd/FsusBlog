@@ -14,6 +14,14 @@ import {
     processIdentitySchema,
     processIdentityStatus
 } from '../test/process-identity.mjs'
+import {
+    schedulerCandidateIdentityDigest,
+    schedulerProcessGroupOrJobIdentityIsComplete,
+    schedulerRunLockActivity,
+    schedulerRunOwnerIdentityMatches,
+    schedulerRunOwnerIsComplete,
+    schedulerRunOwnerSchema
+} from './scheduler-run-owner.mjs'
 
 const defaultRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 export const productionBuildLayoutSchema = 'fsusblog.production-build-layout.v2'
@@ -267,18 +275,18 @@ function completeContainmentAuthority(authority) {
 function completeSchedulerLockIdentity(identity, owner) {
     return Boolean(
         identity &&
-            identity.schema === 'fsusblog.scheduler-lock-owner.v2' &&
+            identity.schema === schedulerRunOwnerSchema &&
+            schedulerRunOwnerIsComplete(identity) &&
             identity.ownerToken &&
-            identity.schedulerRunId === owner.schedulerRunId &&
-            identity.namespace === owner.namespace &&
-            identity.executionKey === owner.runId &&
-            identity.sourceCommit === owner.sourceCommit &&
-            identity.worktreeFingerprint === owner.worktreeFingerprint &&
+            identity.runId === owner.schedulerRunId &&
+            /^sha256:[a-f0-9]{64}$/u.test(identity.candidateIdentityDigest) &&
+            typeof identity.targetTierId === 'string' &&
+            identity.targetTierId.length > 0 &&
             identity.pid === owner.ownerPid &&
             identity.processStartIdentity === owner.ownerProcessStartIdentity &&
-            identity.executablePath === owner.ownerIdentity.executablePath &&
             identity.executableDigest === owner.ownerExecutableDigest &&
-            identity.commandDigest === owner.ownerCommandDigest
+            identity.commandDigest === owner.ownerCommandDigest &&
+            schedulerProcessGroupOrJobIdentityIsComplete(identity.processGroupOrJobIdentity)
     )
 }
 
@@ -626,22 +634,33 @@ export function bindProductionBuildLayoutSource(layout, sourceState) {
         `${layout.runId}.lock`,
         'owner.json'
     )
+    const runsRoot = path.join(layout.repositoryRoot, '.tmp/test-runs')
     let schedulerOwner
     try {
         schedulerOwner = JSON.parse(fs.readFileSync(lockOwnerFile, 'utf8'))
     } catch {
         throw new Error('production build scheduler lock owner is required before building')
     }
+    const candidateIdentityDigest = schedulerCandidateIdentityDigest({
+        runId: layout.runId,
+        targetTierId: schedulerOwner.targetTierId,
+        namespace: manifest.owner.namespace,
+        sourceState: { commit, worktreeFingerprint }
+    })
+    const schedulerActivity = schedulerRunLockActivity({
+        runsRoot,
+        runId: layout.runId,
+        candidateIdentityDigest,
+        targetTierId: schedulerOwner.targetTierId
+    })
     if (
-        schedulerOwner.schema !== 'fsusblog.scheduler-lock-owner.v2' ||
-        schedulerOwner.schedulerRunId !== layout.runId ||
-        schedulerOwner.executionKey !== layout.runId ||
-        schedulerOwner.namespace !== manifest.owner.namespace ||
-        schedulerOwner.sourceCommit !== commit ||
-        schedulerOwner.worktreeFingerprint !== worktreeFingerprint ||
+        schedulerActivity.status !== 'active' ||
+        schedulerActivity.owner?.contentDigest !== schedulerOwner.contentDigest ||
+        !schedulerRunOwnerIsComplete(schedulerOwner) ||
+        schedulerOwner.runId !== layout.runId ||
+        schedulerOwner.candidateIdentityDigest !== candidateIdentityDigest ||
         schedulerOwner.pid !== manifest.owner.ownerPid ||
         schedulerOwner.processStartIdentity !== manifest.owner.ownerProcessStartIdentity ||
-        schedulerOwner.executablePath !== manifest.owner.ownerIdentity.executablePath ||
         schedulerOwner.executableDigest !== manifest.owner.ownerExecutableDigest ||
         schedulerOwner.commandDigest !== manifest.owner.ownerCommandDigest ||
         !schedulerOwner.ownerToken
@@ -649,18 +668,7 @@ export function bindProductionBuildLayoutSource(layout, sourceState) {
         throw new Error('production build manifest and scheduler lock do not exact-match')
     }
     const schedulerLockIdentity = {
-        schema: schedulerOwner.schema,
-        ownerToken: schedulerOwner.ownerToken,
-        schedulerRunId: schedulerOwner.schedulerRunId,
-        namespace: schedulerOwner.namespace,
-        executionKey: schedulerOwner.executionKey,
-        sourceCommit: schedulerOwner.sourceCommit,
-        worktreeFingerprint: schedulerOwner.worktreeFingerprint,
-        pid: schedulerOwner.pid,
-        processStartIdentity: schedulerOwner.processStartIdentity,
-        executablePath: schedulerOwner.executablePath,
-        executableDigest: schedulerOwner.executableDigest,
-        commandDigest: schedulerOwner.commandDigest
+        ...schedulerOwner
     }
     const bound = {
         ...manifest,
@@ -737,29 +745,33 @@ export function productionBuildRunIsActive(root, runId) {
     if (descendants.status === 'unverifiable') {
         throw new Error(`production build descendant identity is unverifiable: ${descendants.reason}`)
     }
-    const lockPath = path.join(path.resolve(root), '.tmp/test-runs/.locks', `${safeRunId}.lock`, 'owner.json')
-    if (fs.existsSync(lockPath)) {
-        let schedulerOwner
-        try {
-            schedulerOwner = JSON.parse(fs.readFileSync(lockPath, 'utf8'))
-        } catch {
-            throw new Error('production build scheduler owner is missing or invalid')
-        }
+    const runsRoot = path.join(path.resolve(root), '.tmp/test-runs')
+    const schedulerLockPath = path.join(runsRoot, '.locks', `${safeRunId}.lock`)
+    if (fs.existsSync(schedulerLockPath)) {
         const stored = owner.schedulerLockIdentity
+        const schedulerActivity = schedulerRunLockActivity({
+            runsRoot,
+            runId: safeRunId,
+            targetTierId: stored?.targetTierId,
+            candidateIdentityDigest: stored?.targetTierId
+                ? schedulerCandidateIdentityDigest({
+                    runId: safeRunId,
+                    targetTierId: stored.targetTierId,
+                    namespace: owner.namespace,
+                    sourceState: {
+                        commit: owner.sourceCommit,
+                        worktreeFingerprint: owner.worktreeFingerprint
+                    }
+                })
+                : null
+        })
+        if (schedulerActivity.status === 'unverifiable') {
+            throw new Error(`production build scheduler owner-unverifiable: ${schedulerActivity.reason}`)
+        }
         if (
             !stored ||
-            schedulerOwner.schema !== stored.schema ||
-            schedulerOwner.ownerToken !== stored.ownerToken ||
-            schedulerOwner.schedulerRunId !== stored.schedulerRunId ||
-            schedulerOwner.namespace !== stored.namespace ||
-            schedulerOwner.executionKey !== stored.executionKey ||
-            schedulerOwner.sourceCommit !== stored.sourceCommit ||
-            schedulerOwner.worktreeFingerprint !== stored.worktreeFingerprint ||
-            schedulerOwner.pid !== stored.pid ||
-            schedulerOwner.processStartIdentity !== stored.processStartIdentity ||
-            schedulerOwner.executablePath !== stored.executablePath ||
-            schedulerOwner.executableDigest !== stored.executableDigest ||
-            schedulerOwner.commandDigest !== stored.commandDigest
+            !schedulerActivity.owner ||
+            !schedulerRunOwnerIdentityMatches(stored, schedulerActivity.owner)
         ) {
             throw new Error('production build manifest and scheduler owner do not exact-match')
         }

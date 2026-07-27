@@ -17,6 +17,11 @@ import {
     sealProductionBuildProcessTreeReceipt,
     verifyProductionBuildRootIntegrity
 } from '../../tools/test-matrix/production-build-layout.mjs'
+import {
+    createSchedulerRunOwner,
+    schedulerCandidateIdentityDigest,
+    sealSchedulerRunOwner
+} from '../../tools/test-matrix/scheduler-run-owner.mjs'
 import { collectProcessIdentity, currentProcessIdentity } from '../../tools/test/process-identity.mjs'
 
 function fixture(t) {
@@ -51,22 +56,18 @@ function prepareBoundLayout(t, runId) {
     fs.mkdirSync(lock, { recursive: true })
     fs.writeFileSync(
         path.join(lock, 'owner.json'),
-        `${JSON.stringify({
-            schema: 'fsusblog.scheduler-lock-owner.v2',
+        `${JSON.stringify(createSchedulerRunOwner({
+            runId,
+            targetTierId: 'fixture',
+            candidateIdentityDigest: schedulerCandidateIdentityDigest({
+                runId,
+                targetTierId: 'fixture',
+                namespace,
+                sourceState
+            }),
             ownerToken: `token-${runId}`,
-            pid: identity.pid,
-            processStartIdentity: identity.processStartIdentity,
-            executablePath: identity.executablePath,
-            executableDigest: identity.executableDigest,
-            commandDigest: identity.commandDigest,
-            schedulerRunId: runId,
-            namespace,
-            executionKey: runId,
-            sourceCommit: sourceState.commit,
-            worktreeFingerprint: sourceState.worktreeFingerprint,
-            createdAt: new Date().toISOString(),
-            heartbeatAt: new Date().toISOString()
-        })}\n`
+            identity
+        }))}\n`
     )
     bindProductionBuildLayoutSource(layout, sourceState)
     return layout
@@ -100,13 +101,16 @@ test('PID reuse does not retain an active build owner', (t) => {
             ...owner,
             ownerProcessStartIdentity: reusedStartIdentity,
             ownerIdentity: { ...owner.ownerIdentity, processStartIdentity: reusedStartIdentity },
-            schedulerLockIdentity: { ...owner.schedulerLockIdentity, processStartIdentity: reusedStartIdentity }
+            schedulerLockIdentity: sealSchedulerRunOwner({
+                ...owner.schedulerLockIdentity,
+                processStartIdentity: reusedStartIdentity
+            })
         }
     })
     const lockFile = path.join(layout.repositoryRoot, '.tmp/test-runs/.locks', `${layout.runId}.lock/owner.json`)
     const lockOwner = JSON.parse(fs.readFileSync(lockFile, 'utf8'))
     lockOwner.processStartIdentity = reusedStartIdentity
-    fs.writeFileSync(lockFile, `${JSON.stringify(lockOwner)}\n`)
+    fs.writeFileSync(lockFile, `${JSON.stringify(sealSchedulerRunOwner(lockOwner))}\n`)
     assert.equal(productionBuildRunIsActive(layout.repositoryRoot, layout.runId), false)
 })
 
@@ -149,25 +153,23 @@ test('a reused owner PID cannot inherit unrelated live descendants', async (t) =
         ownerExecutableDigest: wrapperIdentity.executableDigest,
         ownerCommandDigest: wrapperIdentity.commandDigest,
         ownerIdentity: { ...wrapperIdentity, processStartIdentity: reusedStartIdentity },
-        schedulerLockIdentity: {
+        schedulerLockIdentity: sealSchedulerRunOwner({
             ...owner.schedulerLockIdentity,
             pid: wrapperIdentity.pid,
             processStartIdentity: reusedStartIdentity,
-            executablePath: wrapperIdentity.executablePath,
             executableDigest: wrapperIdentity.executableDigest,
             commandDigest: wrapperIdentity.commandDigest
-        }
+        })
     }))
     const lockFile = path.join(layout.repositoryRoot, '.tmp/test-runs/.locks', `${layout.runId}.lock/owner.json`)
     const lockOwner = JSON.parse(fs.readFileSync(lockFile, 'utf8'))
     Object.assign(lockOwner, {
         pid: wrapperIdentity.pid,
         processStartIdentity: reusedStartIdentity,
-        executablePath: wrapperIdentity.executablePath,
         executableDigest: wrapperIdentity.executableDigest,
         commandDigest: wrapperIdentity.commandDigest
     })
-    fs.writeFileSync(lockFile, `${JSON.stringify(lockOwner)}\n`)
+    fs.writeFileSync(lockFile, `${JSON.stringify(sealSchedulerRunOwner(lockOwner))}\n`)
     assert.equal(productionBuildRunIsActive(layout.repositoryRoot, layout.runId), false)
 })
 
@@ -222,7 +224,10 @@ test('scheduler exit keeps a reparented child writer active through persisted gr
             ...owner,
             ownerProcessStartIdentity: processStartIdentity,
             ownerIdentity: { ...owner.ownerIdentity, processStartIdentity },
-            schedulerLockIdentity: { ...owner.schedulerLockIdentity, processStartIdentity }
+            schedulerLockIdentity: sealSchedulerRunOwner({
+                ...owner.schedulerLockIdentity,
+                processStartIdentity
+            })
         }
     })
     fs.rmSync(path.join(layout.repositoryRoot, '.tmp/test-runs/.locks', `${layout.runId}.lock`), {
@@ -349,11 +354,11 @@ test('scheduler lock source mismatch and process-group leader reuse fail closed'
         `${sourceMismatch.runId}.lock/owner.json`
     )
     const lockOwner = JSON.parse(fs.readFileSync(lockFile, 'utf8'))
-    lockOwner.sourceCommit = 'c'.repeat(40)
-    fs.writeFileSync(lockFile, `${JSON.stringify(lockOwner)}\n`)
+    lockOwner.candidateIdentityDigest = `sha256:${'c'.repeat(64)}`
+    fs.writeFileSync(lockFile, `${JSON.stringify(sealSchedulerRunOwner(lockOwner))}\n`)
     assert.throws(
         () => productionBuildRunIsActive(sourceMismatch.repositoryRoot, sourceMismatch.runId),
-        /scheduler owner do not exact-match/u
+        /scheduler owner-unverifiable/u
     )
 
     const runMismatch = prepareBoundLayout(t, 'run-mismatch')
@@ -363,10 +368,25 @@ test('scheduler lock source mismatch and process-group leader reuse fail closed'
         `${runMismatch.runId}.lock/owner.json`
     )
     const runLockOwner = JSON.parse(fs.readFileSync(runLockFile, 'utf8'))
-    runLockOwner.schedulerRunId = 'other-run'
-    fs.writeFileSync(runLockFile, `${JSON.stringify(runLockOwner)}\n`)
+    runLockOwner.runId = 'other-run'
+    fs.writeFileSync(runLockFile, `${JSON.stringify(sealSchedulerRunOwner(runLockOwner))}\n`)
     assert.throws(
         () => productionBuildRunIsActive(runMismatch.repositoryRoot, runMismatch.runId),
+        /scheduler owner-unverifiable/u
+    )
+
+    const terminalMismatch = prepareBoundLayout(t, 'terminal-mismatch')
+    const terminalLockFile = path.join(
+        terminalMismatch.repositoryRoot,
+        '.tmp/test-runs/.locks',
+        `${terminalMismatch.runId}.lock/owner.json`
+    )
+    const terminalLockOwner = JSON.parse(fs.readFileSync(terminalLockFile, 'utf8'))
+    terminalLockOwner.ownerToken = 'replacement-terminal-owner'
+    terminalLockOwner.state = 'complete'
+    fs.writeFileSync(terminalLockFile, `${JSON.stringify(sealSchedulerRunOwner(terminalLockOwner))}\n`)
+    assert.throws(
+        () => productionBuildRunIsActive(terminalMismatch.repositoryRoot, terminalMismatch.runId),
         /scheduler owner do not exact-match/u
     )
 
@@ -402,7 +422,10 @@ test('exited compiler with expired scheduler owner becomes stale', async (t) => 
             ...owner,
             ownerProcessStartIdentity: processStartIdentity,
             ownerIdentity: { ...owner.ownerIdentity, processStartIdentity },
-            schedulerLockIdentity: { ...owner.schedulerLockIdentity, processStartIdentity }
+            schedulerLockIdentity: sealSchedulerRunOwner({
+                ...owner.schedulerLockIdentity,
+                processStartIdentity
+            })
         }
     })
     fs.rmSync(path.join(layout.repositoryRoot, '.tmp/test-runs/.locks', `${layout.runId}.lock`), {

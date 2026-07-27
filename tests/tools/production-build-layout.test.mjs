@@ -25,6 +25,10 @@ import {
     resolveProductionBuildLayout
 } from '../../tools/test-matrix/production-build-layout.mjs'
 import { snapshotTierOutputs } from '../../tools/test-matrix/scheduler.mjs'
+import {
+    createSchedulerRunOwner,
+    schedulerCandidateIdentityDigest
+} from '../../tools/test-matrix/scheduler-run-owner.mjs'
 import { currentProcessIdentity } from '../../tools/test/process-identity.mjs'
 
 function repositoryFixture(t) {
@@ -41,22 +45,18 @@ function prepareBoundLayout(root, runId, sourceState) {
     fs.mkdirSync(lock, { recursive: true })
     fs.writeFileSync(
         path.join(lock, 'owner.json'),
-        `${JSON.stringify({
-            schema: 'fsusblog.scheduler-lock-owner.v2',
+        `${JSON.stringify(createSchedulerRunOwner({
+            runId,
+            targetTierId: 'fixture',
+            candidateIdentityDigest: schedulerCandidateIdentityDigest({
+                runId,
+                targetTierId: 'fixture',
+                namespace,
+                sourceState
+            }),
             ownerToken: `token-${runId}`,
-            pid: identity.pid,
-            processStartIdentity: identity.processStartIdentity,
-            executablePath: identity.executablePath,
-            executableDigest: identity.executableDigest,
-            commandDigest: identity.commandDigest,
-            schedulerRunId: runId,
-            namespace,
-            executionKey: runId,
-            sourceCommit: sourceState.commit,
-            worktreeFingerprint: sourceState.worktreeFingerprint,
-            createdAt: new Date().toISOString(),
-            heartbeatAt: new Date().toISOString()
-        })}\n`
+            identity
+        }))}\n`
     )
     bindProductionBuildLayoutSource(layout, sourceState)
     return layout

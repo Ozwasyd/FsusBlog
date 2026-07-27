@@ -76,7 +76,10 @@ export function materializeTestMatrixRunner(repositoryRoot, fixtureRoot)
     const fixture = materializeEsmFixture({
         repositoryRoot,
         fixtureRoot,
-        entries: ['tools/run-test-matrix.mjs'],
+        entries: [
+            'tools/run-test-matrix.mjs',
+            'tools/test-matrix/production-build-gc.mjs'
+        ],
         allowedRoots: ['tools']
     });
     fs.copyFileSync(

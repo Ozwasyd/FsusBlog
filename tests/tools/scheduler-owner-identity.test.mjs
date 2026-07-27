@@ -14,11 +14,25 @@ import {
     registerProductionBuildCompiler
 } from '../../tools/test-matrix/production-build-layout.mjs'
 import {
+    findLatestRunId,
     reclaimSchedulerRunLock,
     runDag,
     schedulerRunLockActivity,
     schedulerRunLockIsActive
 } from '../../tools/test-matrix/scheduler.mjs'
+import {
+    collectSchedulerProcessGroupOrJobIdentity,
+    createSchedulerRunOwner,
+    finalizeSchedulerRunOwner,
+    heartbeatSchedulerRunOwner,
+    schedulerCandidateIdentityDigest,
+    schedulerProcessGroupOrJobIdentityIsComplete,
+    schedulerRunOwnerFields,
+    schedulerRunOwnerSchema,
+    sealSchedulerRunOwner,
+    verifySchedulerProcessAuthority,
+    verifySchedulerRunOwner
+} from '../../tools/test-matrix/scheduler-run-owner.mjs'
 import {
     runWindowsJobSupervisorStateMachine,
     windowsJobSupervisorStateSchema
@@ -36,19 +50,20 @@ function fixture(t, name) {
 
 function schedulerOwner(runId, overrides = {}) {
     const identity = currentProcessIdentity()
-    return {
-        ...identity,
-        schema: 'fsusblog.scheduler-lock-owner.v2',
+    const sourceState = { commit: 'a'.repeat(40), worktreeFingerprint: 'stable' }
+    const owner = createSchedulerRunOwner({
+        runId,
+        candidateIdentityDigest: schedulerCandidateIdentityDigest({
+            runId,
+            targetTierId: 'fixture',
+            namespace: 'test-matrix',
+            sourceState
+        }),
+        targetTierId: 'fixture',
         ownerToken: `token-${runId}`,
-        schedulerRunId: runId,
-        namespace: 'test-matrix',
-        executionKey: runId,
-        sourceCommit: null,
-        worktreeFingerprint: 'stable',
-        createdAt: new Date().toISOString(),
-        heartbeatAt: new Date().toISOString(),
-        ...overrides
-    }
+        identity
+    })
+    return sealSchedulerRunOwner({ ...owner, ...overrides })
 }
 
 function tier(id, command) {
@@ -144,6 +159,290 @@ test('scheduler activity verification rejects PID reuse and fails closed on unre
     assert.throws(
         () => schedulerRunLockIsActive({ runsRoot, runId: 'identity' }),
         /owner-unverifiable/u
+    )
+})
+
+test('scheduler owner schema binds candidate, target, process group, lifecycle state, and content digest', () => {
+    const owner = schedulerOwner('schema')
+    assert.equal(owner.schema, schedulerRunOwnerSchema)
+    assert.deepEqual(Object.keys(owner).sort(), [...schedulerRunOwnerFields].sort())
+    assert.match(owner.candidateIdentityDigest, /^sha256:[a-f0-9]{64}$/u)
+    assert.equal(owner.targetTierId, 'fixture')
+    assert.equal(owner.state, 'starting')
+    assert.match(owner.contentDigest, /^sha256:[a-f0-9]{64}$/u)
+    assert.equal(schedulerProcessGroupOrJobIdentityIsComplete(owner.processGroupOrJobIdentity), true)
+    assert.equal(verifySchedulerRunOwner(owner).status, 'active')
+})
+
+test('scheduler candidate identity separates namespaces and resume cannot omit the candidate binding', (t) => {
+    const sourceState = { commit: 'a'.repeat(40), worktreeFingerprint: 'stable' }
+    const first = schedulerCandidateIdentityDigest({
+        runId: 'candidate',
+        targetTierId: 'fixture',
+        namespace: 'first',
+        sourceState
+    })
+    const second = schedulerCandidateIdentityDigest({
+        runId: 'candidate',
+        targetTierId: 'fixture',
+        namespace: 'second',
+        sourceState
+    })
+    assert.notEqual(first, second)
+
+    const root = fixture(t, 'scheduler-resume-candidate')
+    const runsRoot = path.join(root, 'runs')
+    const runDirectory = path.join(runsRoot, 'candidate')
+    const lock = path.join(runsRoot, '.locks/candidate.lock')
+    fs.mkdirSync(runDirectory, { recursive: true })
+    fs.mkdirSync(lock, { recursive: true })
+    fs.writeFileSync(path.join(runDirectory, 'checkpoint.json'), `${JSON.stringify({
+        schema: 'fsusblog.test-matrix.checkpoint.v1',
+        runId: 'candidate',
+        targetTierId: 'fixture',
+        sourceState,
+        status: 'running',
+        updatedAt: new Date().toISOString()
+    })}\n`)
+    fs.writeFileSync(path.join(lock, 'owner.json'), `${JSON.stringify(schedulerOwner('candidate'))}\n`)
+    assert.throws(
+        () => findLatestRunId(runsRoot, 'fixture'),
+        /candidate checkpoint identity is incomplete/u
+    )
+})
+
+test('scheduler heartbeat and finalize require exact token plus identity and terminal owners reject heartbeat', (t) => {
+    const root = fixture(t, 'scheduler-heartbeat-finalize')
+    const lock = path.join(root, 'runs/.locks/heartbeat.lock')
+    const ownerFile = path.join(lock, 'owner.json')
+    fs.mkdirSync(lock, { recursive: true })
+    const owner = schedulerOwner('heartbeat')
+    fs.writeFileSync(ownerFile, `${JSON.stringify(owner)}\n`)
+
+    const originalHeartbeat = owner.heartbeatAt
+    assert.equal(heartbeatSchedulerRunOwner({ lockPath: lock, expectedOwner: owner }), true)
+    const heartbeated = JSON.parse(fs.readFileSync(ownerFile, 'utf8'))
+    assert.equal(heartbeated.state, 'running')
+    assert.ok(Date.parse(heartbeated.heartbeatAt) >= Date.parse(originalHeartbeat))
+    assert.notEqual(heartbeated.contentDigest, undefined)
+
+    const wrongToken = sealSchedulerRunOwner({ ...owner, ownerToken: 'replacement' })
+    assert.equal(heartbeatSchedulerRunOwner({ lockPath: lock, expectedOwner: wrongToken }), false)
+    assert.equal(heartbeatSchedulerRunOwner({
+        lockPath: lock,
+        expectedOwner: owner,
+        state: 'finalizing'
+    }), true)
+    assert.equal(JSON.parse(fs.readFileSync(ownerFile, 'utf8')).state, 'finalizing')
+    assert.equal(heartbeatSchedulerRunOwner({
+        lockPath: lock,
+        expectedOwner: owner,
+        state: 'running'
+    }), false)
+    assert.equal(finalizeSchedulerRunOwner({
+        lockPath: lock,
+        expectedOwner: owner,
+        state: 'complete',
+        processStatus: () => ({ status: 'mismatch', actual: null })
+    }), false)
+    assert.equal(JSON.parse(fs.readFileSync(ownerFile, 'utf8')).state, 'finalizing')
+    assert.equal(finalizeSchedulerRunOwner({ lockPath: lock, expectedOwner: owner, state: 'complete' }), true)
+    assert.equal(fs.existsSync(lock), false)
+    const terminalReceipt = JSON.parse(fs.readFileSync(
+        path.join(root, 'runs/.locks/.terminal/heartbeat', `${owner.ownerToken}.json`),
+        'utf8'
+    ))
+    assert.equal(terminalReceipt.state, 'complete')
+    assert.equal(heartbeatSchedulerRunOwner({ lockPath: lock, expectedOwner: owner }), false)
+    assert.equal(
+        schedulerRunLockActivity({ runsRoot: path.join(root, 'runs'), runId: 'heartbeat' }).status,
+        'inactive'
+    )
+})
+
+test('scheduler executable and command mismatch cannot impersonate a live owner', (t) => {
+    const root = fixture(t, 'scheduler-command-mismatch')
+    const runsRoot = path.join(root, 'runs')
+    const lock = path.join(runsRoot, '.locks/identity.lock')
+    const ownerFile = path.join(lock, 'owner.json')
+    fs.mkdirSync(lock, { recursive: true })
+    for (const field of ['executableDigest', 'commandDigest']) {
+        const mismatched = sealSchedulerRunOwner({
+            ...schedulerOwner('identity'),
+            [field]: `sha256:${field === 'executableDigest' ? '1' : '2'}`.padEnd(71, field === 'executableDigest' ? '1' : '2')
+        })
+        fs.writeFileSync(ownerFile, `${JSON.stringify(mismatched)}\n`)
+        assert.equal(schedulerRunLockActivity({ runsRoot, runId: 'identity' }).status, 'inactive')
+    }
+})
+
+test('scheduler corrupt owner uses content-bound observation grace and never lock mtime', (t) => {
+    const root = fixture(t, 'scheduler-corrupt-owner-grace')
+    const runsRoot = path.join(root, 'runs')
+    const lock = path.join(runsRoot, '.locks/corrupt.lock')
+    const ownerFile = path.join(lock, 'owner.json')
+    fs.mkdirSync(lock, { recursive: true })
+    fs.writeFileSync(ownerFile, '{')
+    fs.utimesSync(lock, new Date(0), new Date(0))
+    fs.utimesSync(ownerFile, new Date(0), new Date(0))
+    const first = schedulerRunLockActivity({ runsRoot, runId: 'corrupt', nowMs: 1_000 })
+    assert.equal(first.status, 'unverifiable')
+    assert.match(first.reason, /within-grace/u)
+    const expired = schedulerRunLockActivity({ runsRoot, runId: 'corrupt', nowMs: 31_001 })
+    assert.equal(expired.status, 'unverifiable')
+    assert.match(expired.reason, /grace-expired/u)
+    assert.equal(fs.existsSync(lock), true)
+})
+
+test('scheduler owner content digest tamper fails before process liveness can be consulted', (t) => {
+    const root = fixture(t, 'scheduler-content-tamper')
+    const runsRoot = path.join(root, 'runs')
+    const lock = path.join(runsRoot, '.locks/tamper.lock')
+    fs.mkdirSync(lock, { recursive: true })
+    const tampered = schedulerOwner('tamper')
+    tampered.targetTierId = 'different'
+    fs.writeFileSync(path.join(lock, 'owner.json'), `${JSON.stringify(tampered)}\n`)
+    let processChecks = 0
+    const activity = schedulerRunLockActivity({
+        runsRoot,
+        runId: 'tamper',
+        processStatus() {
+            processChecks += 1
+            return { status: 'live' }
+        }
+    })
+    assert.equal(activity.status, 'unverifiable')
+    assert.match(activity.reason, /content-digest/u)
+    assert.equal(processChecks, 0)
+})
+
+test('scheduler verifier covers Unix process groups and explicit Windows Job Object identity', () => {
+    const unixOwner = schedulerOwner('unix-group')
+    assert.equal(unixOwner.processGroupOrJobIdentity.kind, 'process-group')
+    assert.equal(verifySchedulerRunOwner(unixOwner).status, 'active')
+    assert.equal(verifySchedulerProcessAuthority({
+        pid: unixOwner.pid,
+        processStartIdentity: unixOwner.processStartIdentity,
+        executableDigest: unixOwner.executableDigest,
+        commandDigest: unixOwner.commandDigest,
+        processGroupOrJobIdentity: unixOwner.processGroupOrJobIdentity
+    }).status, 'active')
+
+    const identity = {
+        pid: 42,
+        processStartIdentity: 'windows:20260727000000.000000+000',
+        executableDigest: `sha256:${'3'.repeat(64)}`,
+        commandDigest: `sha256:${'4'.repeat(64)}`
+    }
+    const jobIdentity = {
+        schema: 'fsusblog.process-group-or-job-identity.v1',
+        platform: 'win32',
+        kind: 'windows-job-object',
+        authorityId: 'job-authority',
+        jobName: 'Local\\FsusBlog-Scheduler',
+        supervisorProcessStartIdentity: identity.processStartIdentity,
+        ownerProcessStartIdentity: identity.processStartIdentity
+    }
+    assert.deepEqual(
+        collectSchedulerProcessGroupOrJobIdentity(identity, {
+            platform: 'win32',
+            env: {
+                FSUSBLOG_SCHEDULER_JOB_AUTHORITY_ID: jobIdentity.authorityId,
+                FSUSBLOG_SCHEDULER_JOB_NAME: jobIdentity.jobName,
+                FSUSBLOG_SCHEDULER_JOB_SUPERVISOR_START_IDENTITY:
+                    jobIdentity.supervisorProcessStartIdentity
+            }
+        }),
+        { status: 'verified', value: jobIdentity }
+    )
+    const windowsOwner = createSchedulerRunOwner({
+        runId: 'windows-job',
+        candidateIdentityDigest: `sha256:${'5'.repeat(64)}`,
+        targetTierId: 'fixture',
+        identity,
+        processGroupOrJobIdentity: jobIdentity
+    })
+    assert.equal(schedulerProcessGroupOrJobIdentityIsComplete(jobIdentity), true)
+    assert.equal(verifySchedulerRunOwner(windowsOwner, {
+        processStatus: () => ({ status: 'live', actual: identity }),
+        groupOrJobStatus: () => ({ status: 'verified', value: jobIdentity })
+    }).status, 'active')
+})
+
+test('scheduler reclaim archives a terminal owner receipt before releasing the lock', (t) => {
+    const root = fixture(t, 'scheduler-terminal-archive')
+    const lock = path.join(root, 'runs/.locks/archive.lock')
+    fs.mkdirSync(lock, { recursive: true })
+    const stale = schedulerOwner('archive', {
+        processStartIdentity: `${currentProcessIdentity().processStartIdentity}:exited`
+    })
+    fs.writeFileSync(path.join(lock, 'owner.json'), `${JSON.stringify(stale)}\n`)
+    assert.equal(reclaimSchedulerRunLock(lock, stale), true)
+    assert.equal(fs.existsSync(lock), false)
+    const archive = path.join(root, 'runs/.locks/.terminal/archive', `${stale.ownerToken}.json`)
+    assert.equal(JSON.parse(fs.readFileSync(archive, 'utf8')).state, 'failed')
+})
+
+test('scheduler, build owner, GC, cleanup, and resume expose only the shared owner verifier', () => {
+    const authority = fs.readFileSync(
+        path.join(repositoryRoot, 'tools/test-matrix/scheduler-run-owner.mjs'),
+        'utf8'
+    )
+    const scheduler = fs.readFileSync(path.join(repositoryRoot, 'tools/test-matrix/scheduler.mjs'), 'utf8')
+    const buildOwner = fs.readFileSync(
+        path.join(repositoryRoot, 'tools/test-matrix/production-build-layout.mjs'),
+        'utf8'
+    )
+    const runner = fs.readFileSync(path.join(repositoryRoot, 'tools/run-test-matrix.mjs'), 'utf8')
+    assert.equal((authority.match(/function schedulerRunLockActivity/gu) ?? []).length, 1)
+    assert.equal((scheduler.match(/function schedulerRunLockActivity/gu) ?? []).length, 0)
+    assert.match(scheduler, /from '\.\/scheduler-run-owner\.mjs'/u)
+    assert.match(buildOwner, /schedulerRunLockActivity[\s\S]*from '\.\/scheduler-run-owner\.mjs'/u)
+    assert.match(runner, /productionBuildRunIsActive/u)
+    assert.doesNotMatch(authority, /statSync\([^)]*lock|mtime/u)
+    assert.doesNotMatch(authority, /process\.kill\([^,]+,\s*0/u)
+})
+
+test('runDag retains terminal owner receipts and archives them before same-run reacquisition', async (t) => {
+    const root = fixture(t, 'scheduler-run-terminal-lifecycle')
+    const runsRoot = path.join(root, 'runs')
+    const options = {
+        tiers: [tier('fixture', `${process.execPath} -e "process.exit(0)"`)],
+        root,
+        runsRoot,
+        runId: 'terminal-run',
+        targetTierId: 'fixture',
+        mode: 'fresh',
+        snapshotWorktree: stableSnapshot,
+        executeTier: async () => ({ code: 0, signal: null })
+    }
+    assert.equal((await runDag(options)).status, 'success')
+    const lockPath = path.join(runsRoot, '.locks/terminal-run.lock')
+    const archiveDirectory = path.join(runsRoot, '.locks/.terminal/terminal-run')
+    assert.equal(fs.existsSync(lockPath), false)
+    const firstReceipts = fs.readdirSync(archiveDirectory)
+    assert.equal(firstReceipts.length, 1)
+    const firstOwner = JSON.parse(fs.readFileSync(path.join(archiveDirectory, firstReceipts[0]), 'utf8'))
+    assert.equal(firstOwner.state, 'complete')
+    assert.equal(schedulerRunLockActivity({
+        runsRoot,
+        runId: 'terminal-run',
+        targetTierId: 'fixture',
+        candidateIdentityDigest: firstOwner.candidateIdentityDigest
+    }).status, 'inactive')
+
+    assert.equal((await runDag({ ...options, mode: 'resume', resume: true })).status, 'success')
+    assert.equal(fs.existsSync(lockPath), false)
+    const secondReceipts = fs.readdirSync(archiveDirectory)
+    assert.equal(secondReceipts.length, 2)
+    const secondOwner = secondReceipts
+        .map((file) => JSON.parse(fs.readFileSync(path.join(archiveDirectory, file), 'utf8')))
+        .find((owner) => owner.ownerToken !== firstOwner.ownerToken)
+    assert.equal(secondOwner.state, 'complete')
+    assert.notEqual(secondOwner.ownerToken, firstOwner.ownerToken)
+    assert.equal(
+        fs.existsSync(path.join(archiveDirectory, `${firstOwner.ownerToken}.json`)),
+        true
     )
 })
 

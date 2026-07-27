@@ -18,6 +18,11 @@ import {
 } from '../../tools/test-matrix/local-profile.mjs';
 import { parseMatrix } from '../../tools/test-matrix/parse-matrix.mjs';
 import {
+    createSchedulerRunOwner,
+    schedulerCandidateIdentityDigest,
+    sealSchedulerRunOwner
+} from '../../tools/test-matrix/scheduler-run-owner.mjs';
+import {
     bindResidentLeaseEnforcement,
     consumeResidentLeaseHandoff,
     createResidentLeaseInventory,
@@ -2472,22 +2477,33 @@ test('stale running checkpoints are resumable when their lock owner is dead', as
         status: 'running',
         startedAt: new Date(Date.now() - 60_000).toISOString(),
         updatedAt: new Date(Date.now() - 60_000).toISOString(),
+        namespace: 'test-matrix',
+        schedulerCandidateIdentityDigest: schedulerCandidateIdentityDigest({
+            runId: 'stale',
+            targetTierId: 'fixture',
+            namespace: 'test-matrix',
+            sourceState: { commit: 'unversioned', worktreeFingerprint: 'stable' }
+        }),
+        sourceState: { commit: 'unversioned', worktreeFingerprint: 'stable' },
         tiers: {}
     })}\n`);
     const staleIdentity = currentProcessIdentity();
-    fs.writeFileSync(path.join(lockDirectory, 'owner.json'), `${JSON.stringify({
-        ...staleIdentity,
-        schema: 'fsusblog.scheduler-lock-owner.v2',
+    fs.writeFileSync(path.join(lockDirectory, 'owner.json'), `${JSON.stringify(sealSchedulerRunOwner({
+        ...createSchedulerRunOwner({
+            runId: 'stale',
+            candidateIdentityDigest: schedulerCandidateIdentityDigest({
+                runId: 'stale',
+                targetTierId: 'fixture',
+                namespace: 'test-matrix',
+                sourceState: { commit: 'unversioned', worktreeFingerprint: 'stable' }
+            }),
+            targetTierId: 'fixture',
+            ownerToken: 'dead',
+            identity: staleIdentity
+        }),
         ownerToken: 'dead',
-        processStartIdentity: `${staleIdentity.processStartIdentity}:exited`,
-        schedulerRunId: 'stale',
-        namespace: 'test-matrix',
-        executionKey: 'stale',
-        sourceCommit: null,
-        worktreeFingerprint: 'stable',
-        createdAt: new Date(Date.now() - 60_000).toISOString(),
-        heartbeatAt: new Date(Date.now() - 60_000).toISOString()
-    })}\n`);
+        processStartIdentity: `${staleIdentity.processStartIdentity}:exited`
+    }))}\n`);
     assert.equal(findLatestRunId(runsRoot, 'fixture'), 'stale');
     let executions = 0;
     const result = await runDag({
