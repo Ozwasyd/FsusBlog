@@ -1,4 +1,4 @@
-<!-- Generated from config/contracts/behavior-contracts.json; digest e16dd58f23870168616513b56e746e14f767ad5d277fca89fe60d0fcf5abe267; do not edit by hand. -->
+<!-- Generated from config/contracts/behavior-contracts.json; digest ad4a33a3de926d1007bf95c3c137b7e722e5514f9f898d29ad8c38bd37e57ecc; do not edit by hand. -->
 
 # Behavior Contract Index
 
@@ -13,3 +13,4 @@
 | `browserless-production-correctness` | testing | critical | active | `test-matrix-fact-extractor` | positive, negative, concurrency | required | yes |
 | `authentication-session-permission` | security | critical | active | `auth-session-permission-fact-extractor` | positive, negative, migration | required | yes |
 | `configuration-error-security-policy` | security | critical | active | `config-error-security-policy-fact-extractor` | positive, negative, boundary | required | yes |
+| `article-comment-lifecycle-outbox` | content | critical | active | `content-lifecycle-fact-extractor` | positive, negative | required | yes |

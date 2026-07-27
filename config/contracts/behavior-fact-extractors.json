@@ -1,132 +1,156 @@
 {
-    "schema": "fsusblog.behavior-fact-extractor-registry.v1",
-    "digestAlgorithm": "sha256",
-    "canonicalSerialization": "json-utf8-v1",
-    "extractors": [
-        {
-            "id": "test-asset-audit-fact-extractor",
-            "kind": "canonical-catalog",
-            "entrypoint": "tools/fact-extractors/seeds/test-asset-audit-seed.mjs",
-            "consumedInputs": [
-                "tests/coverage-registry.json"
-            ],
-            "outputSchema": "fsusblog.fact-observation-receipt.v1",
-            "requiredBuildArtifact": null,
-            "hermeticPolicy": "declared-inputs",
-            "ownedBehaviorIds": [
-                "test-asset-audit-reconciliation"
-            ]
-        },
-        {
-            "id": "code-intent-fact-extractor",
-            "kind": "canonical-catalog",
-            "entrypoint": "tools/fact-extractors/seeds/code-intent-seed.mjs",
-            "consumedInputs": [
-                "tests/governance/code-intent-registry.json"
-            ],
-            "outputSchema": "fsusblog.fact-observation-receipt.v1",
-            "requiredBuildArtifact": null,
-            "hermeticPolicy": "declared-inputs",
-            "ownedBehaviorIds": [
-                "code-intent-governance"
-            ]
-        },
-        {
-            "id": "document-lifecycle-fact-extractor",
-            "kind": "canonical-catalog",
-            "entrypoint": "tools/fact-extractors/seeds/document-lifecycle-seed.mjs",
-            "consumedInputs": [
-                "config/development/document-lifecycle.json"
-            ],
-            "outputSchema": "fsusblog.fact-observation-receipt.v1",
-            "requiredBuildArtifact": null,
-            "hermeticPolicy": "declared-inputs",
-            "ownedBehaviorIds": [
-                "document-lifecycle-governance"
-            ]
-        },
-        {
-            "id": "test-matrix-fact-extractor",
-            "kind": "matrix-projection",
-            "entrypoint": "tools/fact-extractors/seeds/test-matrix-seed.mjs",
-            "consumedInputs": [
-                "tests/matrix.yml"
-            ],
-            "outputSchema": "fsusblog.fact-observation-receipt.v1",
-            "requiredBuildArtifact": null,
-            "hermeticPolicy": "declared-inputs",
-            "ownedBehaviorIds": [
-                "browserless-production-correctness"
-            ]
-        },
-        {
-            "id": "openapi-aeds-fact-extractor",
-            "kind": "compiled-assembly",
-            "entrypoint": "tools/fact-extractors/openapi-aeds/extract.mjs",
-            "consumedInputs": [
-                "src/shared/Contracts/Validation/aeds-endpoint-contracts.json",
-                "src/shared/Contracts/Validation/aeds-protocol.json",
-                "tools/contracts/FsusBlog.OpenApiObservation/Program.cs"
-            ],
-            "outputSchema": "fsusblog.fact-observation-receipt.v1",
-            "requiredBuildArtifact": "openapi-aeds-observation",
-            "hermeticPolicy": "exact-build-receipt",
-            "ownedBehaviorIds": [
-                "binary-api-aeds-contract"
-            ]
-        },
-        {
-            "id": "auth-session-permission-fact-extractor",
-            "kind": "compiled-assembly",
-            "entrypoint": "tools/fact-extractors/auth-session-permission/extract.mjs",
-            "consumedInputs": [
-                "src/backend/Entities/UserSessionAuthenticationContext.cs",
-                "src/backend/Infrastructure/Auth/AdminPermissions.cs",
-                "src/backend/Services/Security/MfaChallengeService.cs",
-                "src/backend/Services/UserLoginWorkflowService.cs",
-                "src/backend/Services/UserSessionCommandService.cs",
-                "src/backend/Services/Security/AdminPrincipalService.cs",
-                "src/backend/Infrastructure/Helpers/JwtHelper.cs",
-                "src/backend/Infrastructure/Auth/AuthCookieService.cs",
-                "tools/contracts/FsusBlog.AuthSessionObservation/Program.cs"
-            ],
-            "outputSchema": "fsusblog.fact-observation-receipt.v1",
-            "requiredBuildArtifact": "auth-session-permission-observation",
-            "hermeticPolicy": "exact-build-receipt",
-            "ownedBehaviorIds": [
-                "authentication-session-permission"
-            ]
-        },
-        {
-            "id": "config-error-security-policy-fact-extractor",
-            "kind": "compiled-assembly",
-            "entrypoint": "tools/fact-extractors/config-error-security-policy/extract.mjs",
-            "consumedInputs": [
-                "src/core/Common/ErrorCode.cs",
-                "src/backend/Infrastructure/Results/ApiErrorSemanticMapper.cs",
-                "src/shared/Contracts/Security/SecurityChallengeContracts.cs",
-                "src/shared/Contracts/Security/SecurityChallengeCapabilityCatalog.cs",
-                "src/backend/Infrastructure/Cache/CachePolicyRegistry.cs",
-                "src/backend/Infrastructure/Bootstrap/ServiceCollectionExtensions.cs",
-                "src/backend/Services/Security/SecurityAdminPolicyService.cs",
-                "src/backend/Services/Security/SecurityChallengeVerifyRateLimiter.cs",
-                "src/backend/Services/Security/MfaChallengeService.cs",
-                "src/backend/Entities/AnonymousCommentPolicy.cs",
-                "src/backend/Models/Security/SecurityAdminModels.cs",
-                "src/backend/appsettings.json",
-                "config/application/backend-configuration-contract.json",
-                "src/frontend/src/utils/appError.ts",
-                "src/frontend/src/contracts/binaryApi.ts",
-                "src/frontend/src/security/challenge-kind-wire.ts",
-                "src/frontend/src/security/challenge-capability-registry.ts",
-                "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/Program.cs"
-            ],
-            "outputSchema": "fsusblog.fact-observation-receipt.v1",
-            "requiredBuildArtifact": "config-error-security-policy-observation",
-            "hermeticPolicy": "exact-build-receipt",
-            "ownedBehaviorIds": [
-                "configuration-error-security-policy"
-            ]
-        }
-    ]
+  "schema": "fsusblog.behavior-fact-extractor-registry.v1",
+  "digestAlgorithm": "sha256",
+  "canonicalSerialization": "json-utf8-v1",
+  "extractors": [
+    {
+      "id": "test-asset-audit-fact-extractor",
+      "kind": "canonical-catalog",
+      "entrypoint": "tools/fact-extractors/seeds/test-asset-audit-seed.mjs",
+      "consumedInputs": [
+        "tests/coverage-registry.json"
+      ],
+      "outputSchema": "fsusblog.fact-observation-receipt.v1",
+      "requiredBuildArtifact": null,
+      "hermeticPolicy": "declared-inputs",
+      "ownedBehaviorIds": [
+        "test-asset-audit-reconciliation"
+      ]
+    },
+    {
+      "id": "code-intent-fact-extractor",
+      "kind": "canonical-catalog",
+      "entrypoint": "tools/fact-extractors/seeds/code-intent-seed.mjs",
+      "consumedInputs": [
+        "tests/governance/code-intent-registry.json"
+      ],
+      "outputSchema": "fsusblog.fact-observation-receipt.v1",
+      "requiredBuildArtifact": null,
+      "hermeticPolicy": "declared-inputs",
+      "ownedBehaviorIds": [
+        "code-intent-governance"
+      ]
+    },
+    {
+      "id": "document-lifecycle-fact-extractor",
+      "kind": "canonical-catalog",
+      "entrypoint": "tools/fact-extractors/seeds/document-lifecycle-seed.mjs",
+      "consumedInputs": [
+        "config/development/document-lifecycle.json"
+      ],
+      "outputSchema": "fsusblog.fact-observation-receipt.v1",
+      "requiredBuildArtifact": null,
+      "hermeticPolicy": "declared-inputs",
+      "ownedBehaviorIds": [
+        "document-lifecycle-governance"
+      ]
+    },
+    {
+      "id": "test-matrix-fact-extractor",
+      "kind": "matrix-projection",
+      "entrypoint": "tools/fact-extractors/seeds/test-matrix-seed.mjs",
+      "consumedInputs": [
+        "tests/matrix.yml"
+      ],
+      "outputSchema": "fsusblog.fact-observation-receipt.v1",
+      "requiredBuildArtifact": null,
+      "hermeticPolicy": "declared-inputs",
+      "ownedBehaviorIds": [
+        "browserless-production-correctness"
+      ]
+    },
+    {
+      "id": "openapi-aeds-fact-extractor",
+      "kind": "compiled-assembly",
+      "entrypoint": "tools/fact-extractors/openapi-aeds/extract.mjs",
+      "consumedInputs": [
+        "src/shared/Contracts/Validation/aeds-endpoint-contracts.json",
+        "src/shared/Contracts/Validation/aeds-protocol.json",
+        "tools/contracts/FsusBlog.OpenApiObservation/Program.cs"
+      ],
+      "outputSchema": "fsusblog.fact-observation-receipt.v1",
+      "requiredBuildArtifact": "openapi-aeds-observation",
+      "hermeticPolicy": "exact-build-receipt",
+      "ownedBehaviorIds": [
+        "binary-api-aeds-contract"
+      ]
+    },
+    {
+      "id": "auth-session-permission-fact-extractor",
+      "kind": "compiled-assembly",
+      "entrypoint": "tools/fact-extractors/auth-session-permission/extract.mjs",
+      "consumedInputs": [
+        "src/backend/Entities/UserSessionAuthenticationContext.cs",
+        "src/backend/Infrastructure/Auth/AdminPermissions.cs",
+        "src/backend/Services/Security/MfaChallengeService.cs",
+        "src/backend/Services/UserLoginWorkflowService.cs",
+        "src/backend/Services/UserSessionCommandService.cs",
+        "src/backend/Services/Security/AdminPrincipalService.cs",
+        "src/backend/Infrastructure/Helpers/JwtHelper.cs",
+        "src/backend/Infrastructure/Auth/AuthCookieService.cs",
+        "tools/contracts/FsusBlog.AuthSessionObservation/Program.cs"
+      ],
+      "outputSchema": "fsusblog.fact-observation-receipt.v1",
+      "requiredBuildArtifact": "auth-session-permission-observation",
+      "hermeticPolicy": "exact-build-receipt",
+      "ownedBehaviorIds": [
+        "authentication-session-permission"
+      ]
+    },
+    {
+      "id": "config-error-security-policy-fact-extractor",
+      "kind": "compiled-assembly",
+      "entrypoint": "tools/fact-extractors/config-error-security-policy/extract.mjs",
+      "consumedInputs": [
+        "src/core/Common/ErrorCode.cs",
+        "src/backend/Infrastructure/Results/ApiErrorSemanticMapper.cs",
+        "src/shared/Contracts/Security/SecurityChallengeContracts.cs",
+        "src/shared/Contracts/Security/SecurityChallengeCapabilityCatalog.cs",
+        "src/backend/Infrastructure/Cache/CachePolicyRegistry.cs",
+        "src/backend/Infrastructure/Bootstrap/ServiceCollectionExtensions.cs",
+        "src/backend/Services/Security/SecurityAdminPolicyService.cs",
+        "src/backend/Services/Security/SecurityChallengeVerifyRateLimiter.cs",
+        "src/backend/Services/Security/MfaChallengeService.cs",
+        "src/backend/Entities/AnonymousCommentPolicy.cs",
+        "src/backend/Models/Security/SecurityAdminModels.cs",
+        "src/backend/appsettings.json",
+        "config/application/backend-configuration-contract.json",
+        "src/frontend/src/utils/appError.ts",
+        "src/frontend/src/contracts/binaryApi.ts",
+        "src/frontend/src/security/challenge-kind-wire.ts",
+        "src/frontend/src/security/challenge-capability-registry.ts",
+        "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/Program.cs"
+      ],
+      "outputSchema": "fsusblog.fact-observation-receipt.v1",
+      "requiredBuildArtifact": "config-error-security-policy-observation",
+      "hermeticPolicy": "exact-build-receipt",
+      "ownedBehaviorIds": [
+        "configuration-error-security-policy"
+      ]
+    },
+    {
+      "id": "content-lifecycle-fact-extractor",
+      "kind": "compiled-assembly",
+      "entrypoint": "tools/fact-extractors/content-lifecycle/extract.mjs",
+      "consumedInputs": [
+        "src/core/Services/Articles/ArticleStatusTransitionPolicy.cs",
+        "src/backend/Entities/Article.cs",
+        "src/backend/Entities/Comment.cs",
+        "src/backend/Entities/CommentMutationOutbox.cs",
+        "src/backend/Services/Moderation/CommentModerationTransitions.cs",
+        "src/backend/Services/ArticleMutationSideEffects.cs",
+        "src/backend/Services/ArticlePublicationTransition.cs",
+        "src/backend/Services/Background/CommentMutationOutboxWorker.cs",
+        "src/backend/Services/CommentService.cs",
+        "src/backend/Models/Moderation/AntiSpamModerationModels.cs",
+        "tools/contracts/FsusBlog.ContentLifecycleObservation/Program.cs"
+      ],
+      "outputSchema": "fsusblog.fact-observation-receipt.v1",
+      "requiredBuildArtifact": "content-lifecycle-observation",
+      "hermeticPolicy": "exact-build-receipt",
+      "ownedBehaviorIds": [
+        "article-comment-lifecycle-outbox"
+      ]
+    }
+  ]
 }

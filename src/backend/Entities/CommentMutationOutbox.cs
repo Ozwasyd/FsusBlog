@@ -234,6 +234,67 @@ public static class CommentMutationEventTypes
     public const string Edited = "CommentEdited";
     public const string ReplyNotificationRequested = "CommentReplyNotificationRequested";
     public const string VisibilityChanged = "CommentVisibilityChanged";
+
+    public static readonly IReadOnlyList<string> All =
+    [
+        Created,
+        ModerationChanged,
+        Deleted,
+        Edited,
+        ReplyNotificationRequested,
+        VisibilityChanged
+    ];
+}
+
+/// <summary>
+/// Pure catalog of comment mutation outbox consumers and required edges per event type.
+/// Dispatcher and observation hosts must share this authority; do not re-branch in callers.
+/// </summary>
+public static class CommentMutationOutboxConsumers
+{
+    public const string ModelModeration = "model-moderation";
+    public const string CacheVersion = "cache-version";
+    public const string RealtimeStream = "realtime-stream";
+    public const string AuditProjection = "audit-projection";
+    public const string SiteNotification = "site-notification";
+
+    public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.Ordinal)
+    {
+        ModelModeration,
+        CacheVersion,
+        RealtimeStream,
+        AuditProjection,
+        SiteNotification
+    };
+
+    public static IReadOnlyList<string> RequiredFor(string eventType)
+    {
+        var consumers = new List<string>(5);
+        if (string.Equals(eventType, CommentMutationEventTypes.Created, StringComparison.Ordinal))
+        {
+            consumers.Add(ModelModeration);
+        }
+
+        if (eventType is CommentMutationEventTypes.Created
+            or CommentMutationEventTypes.ModerationChanged
+            or CommentMutationEventTypes.Deleted
+            or CommentMutationEventTypes.Edited
+            or CommentMutationEventTypes.VisibilityChanged)
+        {
+            consumers.Add(CacheVersion);
+            consumers.Add(RealtimeStream);
+            consumers.Add(AuditProjection);
+        }
+
+        if (eventType is CommentMutationEventTypes.ReplyNotificationRequested
+            or CommentMutationEventTypes.Deleted
+            or CommentMutationEventTypes.ModerationChanged)
+        {
+            consumers.Add(SiteNotification);
+        }
+
+        return consumers;
+    }
 }
 
 public static class CommentMutationOutboxStatus

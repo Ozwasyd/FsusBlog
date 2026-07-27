@@ -62,23 +62,33 @@ public static class ArticleMutationReplayEdges
         PublicArtifactRevocation,
         PublicHotRead
     };
+
+    public static readonly IReadOnlySet<string> Optional = new HashSet<string>(StringComparer.Ordinal)
+    {
+        IntegrityProof,
+        Notification
+    };
+
+    public static readonly IReadOnlySet<string> All = new HashSet<string>(
+        Required.Concat(Optional),
+        StringComparer.Ordinal);
 }
 
-internal static class ArticleMutationEventTypes
+public static class ArticleMutationEventTypes
 {
-    internal const string Created = "created";
-    internal const string Updated = "updated";
-    internal const string Deleted = "deleted";
-    internal const string Restored = "restored";
-    internal const string PermanentlyDeleted = "permanently-deleted";
-    internal const string TrashCleared = "trash-cleared";
-    internal const string ScheduledPublished = "scheduled-published";
-    internal const string CategoryUpdated = "category-updated";
-    internal const string TagUpdated = "tag-updated";
-    internal const string RightsProofUpdated = "rights-proof-updated";
-    internal const string ResponsibilityUpdated = "responsibility-updated";
+    public const string Created = "created";
+    public const string Updated = "updated";
+    public const string Deleted = "deleted";
+    public const string Restored = "restored";
+    public const string PermanentlyDeleted = "permanently-deleted";
+    public const string TrashCleared = "trash-cleared";
+    public const string ScheduledPublished = "scheduled-published";
+    public const string CategoryUpdated = "category-updated";
+    public const string TagUpdated = "tag-updated";
+    public const string RightsProofUpdated = "rights-proof-updated";
+    public const string ResponsibilityUpdated = "responsibility-updated";
 
-    internal static readonly IReadOnlySet<string> s_supported = new HashSet<string>(StringComparer.Ordinal)
+    public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.Ordinal)
     {
         Created,
         Updated,
@@ -92,6 +102,8 @@ internal static class ArticleMutationEventTypes
         RightsProofUpdated,
         ResponsibilityUpdated
     };
+
+    internal static readonly IReadOnlySet<string> s_supported = All;
 }
 
 public static class ArticleMutationDeliveryKey
@@ -144,20 +156,9 @@ public sealed record ArticleMutationReplayResult(
         string reason = "superseded-by-newer-publication",
         IReadOnlySet<string>? completedDuringReplay = null)
     {
-        var skippedEdges = ArticleMutationReplayEdges.Required
+        var skippedEdges = ArticleMutationReplayEdges.All
             .Where(edge => !terminalEdges.Contains(edge))
             .ToHashSet(StringComparer.Ordinal);
-        foreach (string optionalEdge in new[]
-        {
-            ArticleMutationReplayEdges.IntegrityProof,
-            ArticleMutationReplayEdges.Notification
-        })
-        {
-            if (!terminalEdges.Contains(optionalEdge))
-            {
-                skippedEdges.Add(optionalEdge);
-            }
-        }
 
         return new ArticleMutationReplayResult(
             true,

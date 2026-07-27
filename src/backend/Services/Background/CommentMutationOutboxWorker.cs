@@ -232,27 +232,18 @@ public sealed class CommentMutationOutboxWorker(
         ClaimState claim,
         CancellationToken cancellationToken)
     {
-        if (item.EventType == CommentMutationEventTypes.Created)
+        foreach (string consumer in CommentMutationOutboxConsumers.RequiredFor(item.EventType))
         {
-            await RunConsumerAsync(db, item, claim, "model-moderation", ct => ApplyModerationAsync(services, db, item, ct), cancellationToken);
-        }
-
-        if (item.EventType is CommentMutationEventTypes.Created
-            or CommentMutationEventTypes.ModerationChanged
-            or CommentMutationEventTypes.Deleted
-            or CommentMutationEventTypes.Edited
-            or CommentMutationEventTypes.VisibilityChanged)
-        {
-            await RunConsumerAsync(db, item, claim, "cache-version", ct => InvalidateCacheAsync(services, db, item, ct), cancellationToken);
-            await RunConsumerAsync(db, item, claim, "realtime-stream", ct => PublishRealtimeAsync(services, db, item, ct), cancellationToken);
-            await RunConsumerAsync(db, item, claim, "audit-projection", ct => VerifyAuditProjectionAsync(db, item, ct), cancellationToken);
-        }
-
-        if (item.EventType is CommentMutationEventTypes.ReplyNotificationRequested
-            or CommentMutationEventTypes.Deleted
-            or CommentMutationEventTypes.ModerationChanged)
-        {
-            await RunConsumerAsync(db, item, claim, "site-notification", ct => DeliverNotificationAsync(services, db, item, ct), cancellationToken);
+            Func<CancellationToken, Task> action = consumer switch
+            {
+                CommentMutationOutboxConsumers.ModelModeration => ct => ApplyModerationAsync(services, db, item, ct),
+                CommentMutationOutboxConsumers.CacheVersion => ct => InvalidateCacheAsync(services, db, item, ct),
+                CommentMutationOutboxConsumers.RealtimeStream => ct => PublishRealtimeAsync(services, db, item, ct),
+                CommentMutationOutboxConsumers.AuditProjection => ct => VerifyAuditProjectionAsync(db, item, ct),
+                CommentMutationOutboxConsumers.SiteNotification => ct => DeliverNotificationAsync(services, db, item, ct),
+                _ => throw new CommentMutationOutboxTerminalDeliveryException($"comment_outbox_consumer_unknown:{consumer}")
+            };
+            await RunConsumerAsync(db, item, claim, consumer, action, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -549,14 +540,7 @@ public sealed class CommentMutationOutboxWorker(
         }
     }
 
-    private static readonly HashSet<string> s_consumerRegistry = new(StringComparer.Ordinal)
-    {
-        "model-moderation",
-        "cache-version",
-        "realtime-stream",
-        "audit-projection",
-        "site-notification"
-    };
+    private static readonly IReadOnlySet<string> s_consumerRegistry = CommentMutationOutboxConsumers.All;
 
     internal static string BuildDeliveryResultDigest(CommentMutationOutboxEvent item, string consumer)
         => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
@@ -893,16 +877,7 @@ public sealed class CommentMutationOutboxWorker(
     }
 
     private static IReadOnlyList<string> GetRequiredConsumers(CommentMutationOutboxEvent item)
-    {
-        var consumers = new List<string>(5);
-        if (item.EventType == CommentMutationEventTypes.Created)
-            consumers.Add("model-moderation");
-        if (item.EventType is CommentMutationEventTypes.Created or CommentMutationEventTypes.ModerationChanged or CommentMutationEventTypes.Deleted or CommentMutationEventTypes.Edited or CommentMutationEventTypes.VisibilityChanged)
-            consumers.AddRange(["cache-version", "realtime-stream", "audit-projection"]);
-        if (item.EventType is CommentMutationEventTypes.ReplyNotificationRequested or CommentMutationEventTypes.Deleted or CommentMutationEventTypes.ModerationChanged)
-            consumers.Add("site-notification");
-        return consumers;
-    }
+        => CommentMutationOutboxConsumers.RequiredFor(item.EventType);
 
     private async Task EnsureClaimOwnedAsync(ISqlSugarClient db, ClaimState claim, CancellationToken cancellationToken, bool heartbeat = false)
     {

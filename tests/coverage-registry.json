@@ -4528,6 +4528,24 @@
       "tierIds": [
         "static-governance"
       ]
+    },
+    {
+      "id": "article-comment-lifecycle-outbox",
+      "description": "Article and comment lifecycle, visibility and outbox facts are observed from compiled production catalogs; handwritten state/transition/edge lists are not authority.",
+      "owner": "ContentAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tools/contracts/FsusBlog.ContentLifecycleObservation/Program.cs",
+        "tools/fact-extractors/content-lifecycle/extract.mjs",
+        "tools/contracts/lib/content-lifecycle-observation.mjs",
+        "tests/tools/content-lifecycle-observation.test.mjs"
+      ],
+      "assertionType": "contract",
+      "failClosedRule": "Observation must fail when entity/policy/projection diverge, public/admin visibility collapse, required/optional outbox edges overlap, producer/dispatcher consumer sets diverge, max-depth loses units/boundaries, privacy forbidden fields leave the formal contract, or docs/yaml expected tables are treated as authority.",
+      "minimumRequirement": "Focused tests cover added outbox required edge, removed transition, public reader/Hidden conflict, max-depth change, privacy forbidden field addition, restore publication semantics, producer/dispatcher edge mismatch, and refusal to read test expected transition tables.",
+      "tierIds": [
+        "static-governance"
+      ]
     }
   ]
 }

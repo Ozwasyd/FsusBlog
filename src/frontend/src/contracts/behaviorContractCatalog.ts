@@ -1,6 +1,6 @@
-// Generated from config/contracts/behavior-contracts.json; digest e16dd58f23870168616513b56e746e14f767ad5d277fca89fe60d0fcf5abe267; do not edit by hand.
+// Generated from config/contracts/behavior-contracts.json; digest ad4a33a3de926d1007bf95c3c137b7e722e5514f9f898d29ad8c38bd37e57ecc; do not edit by hand.
 
-export const BEHAVIOR_CONTRACT_CATALOG_DIGEST = 'e16dd58f23870168616513b56e746e14f767ad5d277fca89fe60d0fcf5abe267' as const
+export const BEHAVIOR_CONTRACT_CATALOG_DIGEST = 'ad4a33a3de926d1007bf95c3c137b7e722e5514f9f898d29ad8c38bd37e57ecc' as const
 export const BEHAVIOR_CONTRACTS = [
   {
     "id": "test-asset-audit-reconciliation",
@@ -192,6 +192,35 @@ export const BEHAVIOR_CONTRACTS = [
       "docs/configuration-layout.md",
       "docs/configuration/appsettings-authority.md",
       "docs/api/schemas-and-errors.md"
+    ]
+  },
+  {
+    "id": "article-comment-lifecycle-outbox",
+    "domain": "content",
+    "risk": "critical",
+    "status": "active",
+    "implementationOwnerCardinality": "one",
+    "allowedImplementationOwnerRoles": [],
+    "factExtractorId": "content-lifecycle-fact-extractor",
+    "requiredTestKinds": [
+      "positive",
+      "negative"
+    ],
+    "documentationPolicy": "required",
+    "documentationRationale": "Current article/comment documentation states lifecycle, visibility and outbox edge contracts.",
+    "allowedClaimTypes": [
+      "behavioral",
+      "safety"
+    ],
+    "releaseQualification": true,
+    "coverageIds": [
+      "article-comment-lifecycle-outbox"
+    ],
+    "documents": [
+      "docs/api/design.md",
+      "docs/api/contracts.md",
+      "docs/api/article-publication-revisions.md",
+      "docs/moderation.md"
     ]
   }
 ] as const
