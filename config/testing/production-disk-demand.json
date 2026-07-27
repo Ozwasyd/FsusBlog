@@ -1,0 +1,224 @@
+{
+    "schema": "fsusblog.production-disk-demand-catalog.v1",
+    "estimatorVersion": "production-disk-demand-2026-07",
+    "safetyBytes": 536870912,
+    "rootBindings": {
+        "run-output": "productionFreshOutputRoot",
+        "production-build": "productionBuildRoot",
+        "os-temp": "osTempRoot",
+        "docker-storage": "dockerStorageRoot",
+        "dependency-cache": "dependencyCacheRoot"
+    },
+    "producers": [
+        {
+            "producerId": "build-static",
+            "demands": [
+                {
+                    "rootId": "production-build",
+                    "peakAdditionalBytes": 2147483648,
+                    "terminalRetainedBytes": 805306368,
+                    "rollbackOrRecoveryBytes": 268435456,
+                    "concurrencyClass": "build-output",
+                    "uncertaintyBytes": 536870912,
+                    "sourceOfEstimate": "measured Release frontend/WASM/build intermediate high-water plus retained immutable artifacts"
+                },
+                {
+                    "rootId": "run-output",
+                    "peakAdditionalBytes": 268435456,
+                    "terminalRetainedBytes": 134217728,
+                    "rollbackOrRecoveryBytes": 67108864,
+                    "concurrencyClass": "run-evidence",
+                    "uncertaintyBytes": 67108864,
+                    "sourceOfEstimate": "run-bound build summaries, logs and release evidence"
+                },
+                {
+                    "rootId": "dependency-cache",
+                    "peakAdditionalBytes": 536870912,
+                    "terminalRetainedBytes": 536870912,
+                    "rollbackOrRecoveryBytes": 134217728,
+                    "concurrencyClass": "dependency-cache-growth",
+                    "uncertaintyBytes": 134217728,
+                    "sourceOfEstimate": "current-run package and compiler cache growth only"
+                },
+                {
+                    "rootId": "os-temp",
+                    "peakAdditionalBytes": 268435456,
+                    "terminalRetainedBytes": 0,
+                    "rollbackOrRecoveryBytes": 67108864,
+                    "concurrencyClass": "os-temp",
+                    "uncertaintyBytes": 67108864,
+                    "sourceOfEstimate": "native linker and manifest self-test temporary files"
+                }
+            ]
+        },
+        {
+            "producerId": "backend-tests",
+            "demands": [
+                {
+                    "rootId": "production-build",
+                    "peakAdditionalBytes": 3221225472,
+                    "terminalRetainedBytes": 1610612736,
+                    "rollbackOrRecoveryBytes": 536870912,
+                    "concurrencyClass": "backend-build",
+                    "uncertaintyBytes": 805306368,
+                    "sourceOfEstimate": "Release server/test assemblies, obj trees and coverage instrumentation"
+                },
+                {
+                    "rootId": "run-output",
+                    "peakAdditionalBytes": 1610612736,
+                    "terminalRetainedBytes": 1073741824,
+                    "rollbackOrRecoveryBytes": 268435456,
+                    "concurrencyClass": "backend-test-results",
+                    "uncertaintyBytes": 402653184,
+                    "sourceOfEstimate": "TRX, merged coverage, logs and partial-failure evidence"
+                },
+                {
+                    "rootId": "dependency-cache",
+                    "peakAdditionalBytes": 536870912,
+                    "terminalRetainedBytes": 536870912,
+                    "rollbackOrRecoveryBytes": 134217728,
+                    "concurrencyClass": "dependency-cache-growth",
+                    "uncertaintyBytes": 134217728,
+                    "sourceOfEstimate": "current-run NuGet and compiler cache growth only"
+                },
+                {
+                    "rootId": "os-temp",
+                    "peakAdditionalBytes": 536870912,
+                    "terminalRetainedBytes": 0,
+                    "rollbackOrRecoveryBytes": 134217728,
+                    "concurrencyClass": "os-temp",
+                    "uncertaintyBytes": 134217728,
+                    "sourceOfEstimate": "testhost, compiler and coverage temporary files"
+                }
+            ]
+        },
+        {
+            "producerId": "frontend-tests",
+            "demands": [
+                {
+                    "rootId": "production-build",
+                    "peakAdditionalBytes": 1073741824,
+                    "terminalRetainedBytes": 536870912,
+                    "rollbackOrRecoveryBytes": 134217728,
+                    "concurrencyClass": "frontend-build",
+                    "uncertaintyBytes": 268435456,
+                    "sourceOfEstimate": "frontend transforms and generated contract intermediates"
+                },
+                {
+                    "rootId": "run-output",
+                    "peakAdditionalBytes": 2147483648,
+                    "terminalRetainedBytes": 1073741824,
+                    "rollbackOrRecoveryBytes": 268435456,
+                    "concurrencyClass": "frontend-test-results",
+                    "uncertaintyBytes": 536870912,
+                    "sourceOfEstimate": "Vitest rolling hosts, coverage and rendered structure evidence"
+                },
+                {
+                    "rootId": "dependency-cache",
+                    "peakAdditionalBytes": 536870912,
+                    "terminalRetainedBytes": 536870912,
+                    "rollbackOrRecoveryBytes": 134217728,
+                    "concurrencyClass": "dependency-cache-growth",
+                    "uncertaintyBytes": 134217728,
+                    "sourceOfEstimate": "current-run package transform cache growth only"
+                },
+                {
+                    "rootId": "os-temp",
+                    "peakAdditionalBytes": 268435456,
+                    "terminalRetainedBytes": 0,
+                    "rollbackOrRecoveryBytes": 67108864,
+                    "concurrencyClass": "os-temp",
+                    "uncertaintyBytes": 67108864,
+                    "sourceOfEstimate": "Vitest worker temporary files"
+                }
+            ]
+        },
+        {
+            "producerId": "runtime-browser",
+            "demands": [
+                {
+                    "rootId": "run-output",
+                    "peakAdditionalBytes": 3221225472,
+                    "terminalRetainedBytes": 2147483648,
+                    "rollbackOrRecoveryBytes": 536870912,
+                    "concurrencyClass": "browser-runtime",
+                    "uncertaintyBytes": 805306368,
+                    "sourceOfEstimate": "Playwright traces/screenshots, runtime logs, fixtures and partial evidence"
+                },
+                {
+                    "rootId": "docker-storage",
+                    "peakAdditionalBytes": 4294967296,
+                    "terminalRetainedBytes": 1073741824,
+                    "rollbackOrRecoveryBytes": 1073741824,
+                    "concurrencyClass": "docker-runtime",
+                    "uncertaintyBytes": 1073741824,
+                    "sourceOfEstimate": "current-run PostgreSQL/Redis image, layer and writable-volume growth"
+                },
+                {
+                    "rootId": "os-temp",
+                    "peakAdditionalBytes": 536870912,
+                    "terminalRetainedBytes": 0,
+                    "rollbackOrRecoveryBytes": 134217728,
+                    "concurrencyClass": "os-temp",
+                    "uncertaintyBytes": 134217728,
+                    "sourceOfEstimate": "browser profile and runtime socket temporary files"
+                }
+            ]
+        },
+        {
+            "producerId": "performance-evidence",
+            "demands": [
+                {
+                    "rootId": "production-build",
+                    "peakAdditionalBytes": 2147483648,
+                    "terminalRetainedBytes": 1073741824,
+                    "rollbackOrRecoveryBytes": 536870912,
+                    "concurrencyClass": "benchmark-build",
+                    "uncertaintyBytes": 536870912,
+                    "sourceOfEstimate": "BenchmarkDotNet Release binaries and benchmark intermediates"
+                },
+                {
+                    "rootId": "run-output",
+                    "peakAdditionalBytes": 4294967296,
+                    "terminalRetainedBytes": 3221225472,
+                    "rollbackOrRecoveryBytes": 1073741824,
+                    "concurrencyClass": "performance-evidence",
+                    "uncertaintyBytes": 1073741824,
+                    "sourceOfEstimate": "BenchmarkDotNet, load, scale, mutation and release-final evidence"
+                },
+                {
+                    "rootId": "docker-storage",
+                    "peakAdditionalBytes": 2147483648,
+                    "terminalRetainedBytes": 536870912,
+                    "rollbackOrRecoveryBytes": 536870912,
+                    "concurrencyClass": "docker-runtime",
+                    "uncertaintyBytes": 536870912,
+                    "sourceOfEstimate": "performance database writable-volume growth"
+                },
+                {
+                    "rootId": "os-temp",
+                    "peakAdditionalBytes": 536870912,
+                    "terminalRetainedBytes": 0,
+                    "rollbackOrRecoveryBytes": 134217728,
+                    "concurrencyClass": "os-temp",
+                    "uncertaintyBytes": 134217728,
+                    "sourceOfEstimate": "benchmark and load-tool temporary files"
+                }
+            ]
+        },
+        {
+            "producerId": "managed-production-build-gc",
+            "demands": [
+                {
+                    "rootId": "run-output",
+                    "peakAdditionalBytes": 67108864,
+                    "terminalRetainedBytes": 16777216,
+                    "rollbackOrRecoveryBytes": 16777216,
+                    "concurrencyClass": "build-root-gc",
+                    "uncertaintyBytes": 16777216,
+                    "sourceOfEstimate": "managed GC inventory, journal and sealed receipt"
+                }
+            ]
+        }
+    ]
+}

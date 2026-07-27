@@ -28,6 +28,30 @@ Production Fresh 的 backend test partitions 只保留 Coverlet JSON 作为 cano
 
 不重启降级路径是停止当前验收轮次、保留全部 raw shard evidence 并切回上一已验证 commit 重新运行 Fresh；不得在运行中跳过 sidecar/universe 校验，也不得用旧 Summary 冒充当前 source 的 evidence。该 coverage 工具链不修改应用 runtime、API、鉴权、notification stream 或 binary transport。
 
+## Production Fresh 磁盘 admission
+
+Production Fresh 在获取 repository exclusive lease 后，先从
+`config/testing/production-disk-demand.json` 解析 selected physical DAG 的磁盘需求。需求按
+canonical filesystem identity 合并，不按路径重复使用 free bytes；run output、production
+build、OS temp、Docker storage/volume 和本轮 dependency-cache growth 必须全部可解析。Docker
+volume 或 filesystem identity 不可确认时 fail closed。
+
+host-local reservation authority 位于 repository `.tmp`、run output、build root 与 cache holding
+root 之外。receipt 绑定 run/candidate、repository lease owner、完整 process start/command
+identity、plan digest 和 producer declaration digest。同一 filesystem 上的并发 Production run
+先扣除已有 active reservation；PID 存在、mtime 变旧或未来 GC 可释放空间都不能回收或抵扣
+reservation。
+
+reservation seal 之前不得终止 runtime/container、删除 output/checkpoint/log、迁移 cache、创建
+build root、启动 managed GC 或 physical producer。每个 producer 启动前重新检查 live headroom；
+external capacity loss 或实际增长超过声明会停止后续 admission、终止本轮 process tree并保留
+partial evidence。success、failure、timeout 与 cancel 都必须写 release receipt；释放失败使本轮
+不合格。`--plan-only` 只打印 demand plan，不获取 reservation或执行 mutation。
+
+不重启回退路径是停止当前 Fresh、封存 failure/release receipt并保留旧 evidence；修正容量或
+estimator declaration 后用新 run ID 重跑。不得通过删除历史 evidence、cache 或临时启动 GC
+让失败中的同一 run 续命。
+
 PostgreSQL, Redis, uploads, DataProtection and the read-only ZK host mounts are controlled shared inputs. Release-derived output may share one volume only because every writer is confined to its immutable `releaseId` subtree and publishes multi-file generations through staging + atomic pointer replacement; deleting the shared root or another release is forbidden. Instance temp/runtime/log state stays slot-local. Materialized assets are append-only and are served as `/release-assets/<releaseId>/...`; derived output is served as `/release-derived/<releaseId>/...`. `UseReleaseScopedStaticAssets` registers `UseFsusReleaseAssets` and `UseFsusReleaseDerivedArtifacts` before the generic SPA fallback, and Production startup fails when either root setting is missing. This serving boundary does not prove that a release was materialized or retained: rollout compatibility, applied GC and N/N-1 probes must still gate closeout independently. Neither slot publishes a wildcard/public host port.
 
 The generic static middleware and the Release SPA template locator bind directly to the configured physical `WebRootPath`. This keeps `index.html`, its hashed assets, local Release acceptance and container runtime readers on the same root as mutable search-index writers even when the host environment is named Development; a source-tree dist or source-first static-web-assets composite provider must never shadow or cross-version a newly published bundle, `index.bin` or `index.manifest.aeds`. Explicit source-template preference remains a development-only path.

@@ -602,3 +602,18 @@ authentication、admin、notification stream 与 binary API 继续按各自策�
 spoken atlas 的可复现输入是 `perception-character-v3-spoken-atlas-source.json` 与仓库内 `tests/fixtures/security/perception-character-v3-spoken-atlas-source-wav/*.wav`：逐 symbol 固定 SSML、spoken label、eSpeak source-WAV hash、resampled PCM hash/length；独立 golden 文件再绑定 source manifest 与最终 atlas 的 SHA-256。常规验收执行 `node tools/contracts/generate-perception-character-v3-spoken-atlas.mjs --check`，完全离线读取受控 WAV，重新 trim/resample 并逐层比对 PCM 与最终 atlas，不要求本机安装 TTS。只有明确更新权威语音源时才使用 eSpeak NG **1.51** 执行 `--regenerate-source --espeak-ng <path>`；脚本固定 `-m -v en-us -s 135 -p 45 -a 150` 并重写 WAV/source/output/golden，随后必须审阅所有 binary/hash 变化。
 
 本地验收先运行 `tools/test/perception-character-v3-redis-fixture.sh`，它使用一次性 Redis 7 container 验证并发 correct/incorrect、两次上限、replay、expiry、revoke、binding substitution 与 unavailable fail-closed；随后运行 targeted backend suite 和 protocol vector generator `--check`。
+## Host-local Production capacity reservation
+
+FsusBlog 与同主机上的 FsusUI Production run 必须配置同一个
+`FSUS_PRODUCTION_CAPACITY_AUTHORITY_ROOT`。该目录必须位于各 repository、`.tmp`、run output、
+build root 和 cache holding root 之外，并由当前操作账号独占。authority unavailable、journal
+digest 不符、owner identity 不完整或 filesystem identity 不明确时，不得先清理现场再重试。
+
+恢复 unfinished reservation 时核验 PID start identity、executable/command digest、run/candidate、
+repository lease以及完整 process tree/Windows Job Object。owner 已终止但仍有 descendant 时继续
+阻塞；只有完整 tree 零残留时才能原子归档为 aborted。不得按 PID、进程名或 mtime 猜测回收。
+
+容量故障不需要重启应用：停止当前 Production Fresh，保留 checkpoint、logs、partial evidence
+和 host-local failure/release receipt，补充主机容量或修正 authoritative estimator，然后用新
+run ID 执行。禁止删除历史 evidence/cache、启动 GC 或扩大 reservation 来延续已经发生
+external-capacity-loss / estimator-under-declared 的 run。

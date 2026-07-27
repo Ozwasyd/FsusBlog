@@ -4,9 +4,6 @@ import path from 'node:path'
 
 import { runProductionFreshCacheTransaction } from './production-fresh-cache-transaction.mjs'
 
-const gibibyte = 1024 ** 3
-const defaultMinimumFreeBytes = 4 * gibibyte
-
 function forceRmSync(target) {
   try {
     fs.rmSync(target, { recursive: true, force: true })
@@ -51,7 +48,7 @@ export function localProductionGeneratedDirectories() {
   return [...generatedDirectories]
 }
 
-function dockerRootDirectory() {
+export function dockerRootDirectory() {
   const result = spawnSync('docker', ['info', '--format', '{{.DockerRootDir}}'], {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe']
@@ -61,39 +58,6 @@ function dockerRootDirectory() {
     throw new Error(`unable to resolve DockerRootDir: ${String(result.stderr ?? '').trim() || `exit ${result.status ?? 'unknown'}`}`)
   }
   return directory
-}
-
-function availableBytes(directory) {
-  const stats = fs.statfsSync(directory)
-  return Number(stats.bavail) * Number(stats.bsize)
-}
-
-export function assertLocalProductionCapacity({
-  root,
-  minimumFreeBytes = defaultMinimumFreeBytes,
-  resolveDockerRootDirectory = dockerRootDirectory,
-  measureAvailableBytes = availableBytes
-}) {
-  const resolvedRoot = path.resolve(root)
-  const resolvedDockerRoot = path.resolve(resolveDockerRootDirectory())
-  const localTempRoot = path.join(resolvedRoot, '.tmp')
-  const resolvedLocalTempRoot = fs.existsSync(localTempRoot)
-    ? fs.realpathSync(localTempRoot)
-    : resolvedRoot
-  const targets = [...new Set([resolvedRoot, resolvedLocalTempRoot, resolvedDockerRoot])]
-  const measurements = targets.map((directory) => ({
-    directory,
-    availableBytes: measureAvailableBytes(directory)
-  }))
-  const shortages = measurements.filter((measurement) => measurement.availableBytes < minimumFreeBytes)
-  if (shortages.length > 0) {
-    const requiredGiB = (minimumFreeBytes / gibibyte).toFixed(1)
-    const details = shortages
-      .map(({ directory, availableBytes: bytes }) => `${directory} has ${(bytes / gibibyte).toFixed(1)} GiB`)
-      .join('; ')
-    throw new Error(`fresh production requires at least ${requiredGiB} GiB free on repository and Docker data filesystems: ${details}`)
-  }
-  return { minimumFreeBytes, measurements }
 }
 
 export function cleanLocalProductionOutputs(root, {

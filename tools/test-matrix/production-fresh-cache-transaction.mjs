@@ -705,6 +705,26 @@ export function recoverProductionFreshCacheTransactions(root, options = {}) {
   }))
 }
 
+export function inspectProductionFreshCacheTransactions(root, options = {}) {
+  const layout = transactionLayout(root, options)
+  const contexts = scanTransactions(layout, options)
+  validateHoldingInventory(layout, contexts)
+  return contexts.map((context) => {
+    if (context.journal.state === 'recovery-required') {
+      throw new Error(`production fresh cache transaction requires operator recovery: ${context.journalFile}`)
+    }
+    const observedEntryStates = terminalStates.has(context.journal.state)
+      ? []
+      : context.journal.entries.map(reconcileEntry)
+    return {
+      transactionId: context.journal.transactionId,
+      candidateIdentityDigest: context.journal.candidateIdentityDigest,
+      journalState: context.journal.state,
+      observedEntryStates
+    }
+  })
+}
+
 function registeredEntry(layout, transactionId, declaration) {
   const originalPath = path.join(layout.sourceRoot, declaration.relativePath)
   if (!fs.existsSync(originalPath)) return null

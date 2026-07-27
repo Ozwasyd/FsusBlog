@@ -1600,6 +1600,49 @@ export function recordCheckpointRuntimeCleanup(
   }
 }
 
+export function recordCheckpointProductionCapacityReservation(
+  checkpointFileValue,
+  expectedRunId,
+  evidence,
+  failure = null,
+  options = {}
+) {
+  if (!evidence
+    || typeof evidence.reservationId !== 'string'
+    || typeof evidence.planDigest !== 'string'
+    || !/^sha256:[a-f0-9]{64}$/u.test(evidence.planDigest)
+    || typeof evidence.producerDeclarationDigest !== 'string'
+    || !/^sha256:[a-f0-9]{64}$/u.test(evidence.producerDeclarationDigest)
+    || typeof evidence.releaseReceiptFile !== 'string'
+    || !path.isAbsolute(evidence.releaseReceiptFile)
+    || !/^sha256:[a-f0-9]{64}$/u.test(evidence.releaseReceiptDigest ?? '')
+    || !['released', 'aborted'].includes(evidence.status)) {
+    throw new Error('checkpoint Production capacity reservation evidence is invalid')
+  }
+  const checkpointFile = path.resolve(checkpointFileValue)
+  const runsRoot = path.dirname(path.dirname(checkpointFile))
+  const releaseLock = acquireRunLock(runsRoot, expectedRunId)
+  try {
+    const checkpoint = readOrCreateFailureCheckpoint(
+      checkpointFile,
+      expectedRunId,
+      failure,
+      options)
+    checkpoint.productionCapacityReservation = structuredClone(evidence)
+    if (failure !== null) appendCheckpointFailure(checkpoint, failure)
+    writeCheckpoint(checkpointFile, checkpoint, {
+      boundary: true,
+      stage: failure === null ? 'capacity-reservation-released' : 'capacity-reservation-release-failed',
+      eventType: failure === null ? 'capacity-reservation-released' : 'capacity-reservation-release-failed',
+      tier: checkpoint.targetTierId,
+      step: 'capacity-reservation'
+    })
+    return checkpoint
+  } finally {
+    releaseLock()
+  }
+}
+
 function runtimeCleanupAttemptLedger(checkpoint, {
   expectedRunId,
   targetTierId,
@@ -2681,6 +2724,7 @@ async function runDagUnlocked(options) {
   const readyAges = new Map()
   let priorityWaveNumber = 0
   let firstFailure = null
+  let producerAdmissionClosed = false
   let residentState = null
   let lastResidentSampleAtMs = 0
   const residentSampleIntervalMs = Math.max(
@@ -3287,6 +3331,48 @@ async function runDagUnlocked(options) {
     })
     const dependencyFingerprintValue = dependencyFingerprint(tier)
     if (resume && completeReusedTier(tier, inputFingerprint, dependencyFingerprintValue, tierEnvironment)) return false
+    // The capacity authority must re-observe live headroom after scheduling
+    // admission but before output retirement, cleanup, log creation or spawn.
+    // A rejection at this hook therefore has a producer spawn count of zero.
+    try {
+      await options.beforeTierStart?.(tier, {
+        runId,
+        sourceState,
+        activeTierIds: [...active.keys()].sort()
+      })
+    } catch (error) {
+      producerAdmissionClosed = true
+      const failure = {
+        tierId: tier.id,
+        exitCode: 1,
+        signal: null,
+        reason: error?.message ?? 'producer admission failed',
+        changedPaths: [],
+        producerSpawnCount: 0
+      }
+      firstFailure ??= failure
+      failed.add(tier.id)
+      checkpoint.tiers[tier.id] = {
+        status: 'failure',
+        durationMs: 0,
+        reason: failure.reason,
+        producerSpawnCount: 0,
+        reused: false
+      }
+      checkpoint.failures.push(failure)
+      checkpoint.failure = firstFailure
+      checkpoint.failurePoint = firstFailure.tierId
+      for (const entry of active.values()) {
+        entry.cancelRequested = true
+        entry.terminate()
+      }
+      writeCheckpoint(checkpointFile, checkpoint, {
+        eventType: 'producer-admission-blocked',
+        tier: tier.id,
+        step: 'capacity-live-guard'
+      })
+      return false
+    }
 
     // Once execution is about to begin, the old success is no longer a safe
     // fallback: the command may mutate its outputs before failing or being
@@ -3616,7 +3702,7 @@ async function runDagUnlocked(options) {
         }
       }
     }
-    if ((!firstFailure || collectFailures) && !deadlineExpired) {
+    if ((!firstFailure || collectFailures) && !deadlineExpired && !producerAdmissionClosed) {
       const wave = admissionWave()
       const waveIds = new Set(wave.map((tier) => tier.id))
       const activeEntries = [...active.values()]
@@ -3677,6 +3763,17 @@ async function runDagUnlocked(options) {
     }
 
     if (active.size === 0) {
+      if (producerAdmissionClosed) {
+        for (const tier of pending.splice(0)) {
+          checkpoint.tiers[tier.id] = {
+            status: 'blocked',
+            durationMs: 0,
+            reason: `blocked by capacity admission failure: ${firstFailure?.tierId ?? 'unknown'}`,
+            reused: false
+          }
+        }
+        break
+      }
       if (deadlineExpired) break
       if (pending.length > 0 && (!firstFailure || collectFailures)) {
         const barrierPhase = Math.min(...pending.map(tierPhase))
@@ -3762,9 +3859,22 @@ async function runDagUnlocked(options) {
       }
       continue
     }
-    const { tierId, settled } = outcome
+    const { tierId } = outcome
+    let { settled } = outcome
     const entry = active.get(tierId)
     active.delete(tierId)
+    try {
+      await options.afterTierSettled?.(entry.tier, settled)
+    } catch (error) {
+      settled = {
+        ...settled,
+        executionResult: {
+          ...settled.executionResult,
+          code: 1,
+          error
+        }
+      }
+    }
     const recorded = recordSettled(entry, settled)
     // A producer may have converted part of its released grant into resident
     // leases. Contract active elastic grants immediately, before another

@@ -17,7 +17,7 @@ import {
     discoverOrphanDotnetBuildServers,
     dotnetBuildServerInventory
 } from './test-matrix/dotnet-build-server-cleanup.mjs'
-import { assertLocalProductionCapacity, cleanLocalProductionOutputs } from './test-matrix/fresh-production.mjs'
+import { cleanLocalProductionOutputs, dockerRootDirectory } from './test-matrix/fresh-production.mjs'
 import {
     buildLocalProfileProjection,
     createLocalBundleTiers,
@@ -42,7 +42,14 @@ import {
     runtimeCleanupReceiptReference
 } from './test-matrix/production-fresh-runtime-evidence.mjs'
 import { runProductionBuildLifecycle } from './test-matrix/production-build-lifecycle.mjs'
+import { inspectProductionFreshCacheTransactions } from './test-matrix/production-fresh-cache-transaction.mjs'
 import { acquireProductionFreshExclusiveLease } from './test-matrix/production-fresh-exclusive-lease.mjs'
+import { acquireProductionCapacityReservation } from './test-matrix/production-capacity-reservation.mjs'
+import {
+    buildProductionDiskDemandPlan,
+    defaultProductionDiskRoots,
+    readProductionDiskDemandCatalog
+} from './test-matrix/production-disk-demand.mjs'
 import {
     assertProductionFreshProducerConfiguration,
     assertProductionFreshSchedulerProducerWiring,
@@ -86,6 +93,7 @@ import {
     isProjectionOnlyCheckpointFailure,
     markCheckpointWallClockTimeout,
     recordCheckpointFailure,
+    recordCheckpointProductionCapacityReservation,
     recordCheckpointRuntimeCleanup,
     resumeCheckpointEvidence,
     runDag,
@@ -1976,6 +1984,25 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
       }
     }
   }
+  const capacityOutputRoot = path.join(profileRoot, '.tmp', 'test-runs', runId, 'outputs')
+  const capacityTiers = prependManagedProductionBuildGc(physicalTiers, runId, {
+    enabled: !options.resume,
+    outputRoot: capacityOutputRoot
+  })
+  const resolveCapacityPlan = () => (runtime.buildProductionDiskDemandPlan ?? buildProductionDiskDemandPlan)({
+    root: profileRoot,
+    tiers: capacityTiers,
+    maxParallel: launchParallelism,
+    catalog: runtime.productionDiskDemandCatalog
+      ?? readProductionDiskDemandCatalog(root),
+    roots: (runtime.defaultProductionDiskRoots ?? defaultProductionDiskRoots)(profileRoot, {
+      resolveDockerRoot: runtime.resolveDockerRoot ?? dockerRootDirectory,
+      outputRoot: capacityOutputRoot,
+      buildRoot: path.join(profileRoot, '.tmp', 'build', runId),
+      dependencyCacheRoot: path.join(profileRoot, '.tmp', 'dependency-cache')
+    }),
+    ...(runtime.resolveFilesystem ? { resolveFilesystem: runtime.resolveFilesystem } : {})
+  })
   for (const bundle of resolvedProfile.bundles) {
     console.error(`[matrix:${profileId}] resolved bundle=${bundle.id} cpu=${bundle.cpuUnits} memory=${bundle.memoryGiB.toFixed(2)}GiB deadline=${bundle.budgetMs}ms stepMaxParallel=${bundle.stepMaxParallel}`)
   }
@@ -1988,8 +2015,48 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
       shardable: false,
       defaultShards: 1
     })))
+    const diskPlan = resolveCapacityPlan()
+    console.log(JSON.stringify({
+      schema: diskPlan.schema,
+      planDigest: diskPlan.planDigest,
+      producerDeclarationDigest: diskPlan.producerDeclarationDigest,
+      filesystems: diskPlan.filesystems,
+      rootDemandPeaks: diskPlan.rootDemandPeaks,
+      producerDeclarations: diskPlan.producerDeclarations
+    }))
     return
   }
+  if (productionFresh && runtime.productionCapacityReservationHeld !== true) {
+    const cacheInspection = (runtime.inspectProductionFreshCacheTransactions
+      ?? inspectProductionFreshCacheTransactions)(profileRoot)
+    console.error(`[matrix:${profileId}] cache transaction read-only inspection journals=${cacheInspection.length}`)
+    const plan = resolveCapacityPlan()
+    const acquireReservation = runtime.acquireProductionCapacityReservation
+      ?? acquireProductionCapacityReservation
+    const reservation = acquireReservation({
+      plan,
+      runId,
+      candidateIdentityDigest: runtime.productionFreshLeaseOwner?.candidateIdentityDigest,
+      repositoryRoot: profileRoot,
+      repositoryLeaseOwner: runtime.productionFreshLeaseOwner,
+      ...(runtime.capacityAuthorityRoot ? { authorityRoot: runtime.capacityAuthorityRoot } : {})
+    })
+    let completed = false
+    try {
+      const result = await runLocalProfile(matrix, profileId, options, {
+        ...runtime,
+        productionCapacityReservationHeld: true,
+        productionCapacityReservation: reservation,
+        productionCapacityPlan: plan
+      })
+      completed = result?.status === 'success'
+      return result
+    } finally {
+      reservation.release(completed ? 'released' : 'aborted')
+    }
+  }
+  const currentCapacityPlan = resolveCapacityPlan()
+  runtime.productionCapacityReservation?.assertPlan(currentCapacityPlan)
 
   const { runsRoot } = preflightRunIdentity
   const runNamespace = namespaceFor({ id: profileId, ciJob: `local-${profileId}` }, null, runId)
@@ -2101,10 +2168,7 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
       throwIfInterrupted
     }) {
   const preparedBuildSourceState = buildLayout.manifest.sourceState
-  const scheduledPhysicalTiers = prependManagedProductionBuildGc(physicalTiers, runId, {
-    enabled: !options.resume,
-    outputRoot: runOutputs.outputRoot
-  })
+  const scheduledPhysicalTiers = capacityTiers
     throwIfInterrupted()
   if (options.resume) {
     console.error(`[matrix:${profileId}] physical resume run=${runId} buildRoot=${path.relative(root, buildLayout.runRoot)}`)
@@ -2112,8 +2176,7 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
     console.error(`[matrix:${profileId}] fresh cleanup duration=${freshCleanup.durationMs}ms traversed=${freshCleanup.traversedEntryCount} buildRoot=${path.relative(root, buildLayout.runRoot)}`)
     console.error(`[matrix:${profileId}] managed stale build GC is a preflight scheduler step currentRun=${runId}`)
   }
-  const capacity = assertLocalProductionCapacity({ root })
-  console.error(`[matrix:${profileId}] capacity preflight=${capacity.measurements.map(({ directory, availableBytes }) => `${directory}:${(availableBytes / (1024 ** 3)).toFixed(1)}GiB`).join(',')}`)
+  console.error(`[matrix:${profileId}] capacity reservation=${runtime.productionCapacityReservation?.receipt.reservationId} plan=${currentCapacityPlan.planDigest}`)
   console.error(`[matrix:${profileId}] dynamic resources cpu=${detectedResources.availableCpuUnits}/${detectedResources.cpuCount} memory=${detectedResources.availableMemoryGiB.toFixed(1)}GiB reserve=${detectedResources.memoryReserveGiB.toFixed(1)}GiB load1=${detectedResources.load1.toFixed(2)} launchParallelism=${launchParallelism}`)
   const target = physicalTiers.at(-1)
   target.selfBootstraps = true
@@ -2146,6 +2209,12 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
         : profileCorrectnessBudget?.profileGlobalBudgetMs ?? profile.budgetMs,
       wallClockStartedAtMs,
       collectFailures: true,
+      beforeTierStart: async (tier) => {
+        runtime.productionCapacityReservation?.assertPlan(resolveCapacityPlan())
+        return runtime.productionCapacityReservation?.guardProducer(tier.id)
+      },
+      afterTierSettled: async (tier) =>
+        runtime.productionCapacityReservation?.completeProducer(tier.id),
       reuseAcrossSourceChanges: false,
       resourceEnforcementMode: process.env.FSUSBLOG_CGROUP_ENFORCEMENT ?? 'auto',
       systemResources: detectedResources,
@@ -2494,6 +2563,41 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
     if (finalizationError !== null && runError === null) throw finalizationError
   }
 
+  try {
+    const release = runtime.productionCapacityReservation.release(
+      result.status === 'success' ? 'released' : 'aborted')
+    result.checkpoint = recordCheckpointProductionCapacityReservation(
+      result.checkpointPath,
+      runId,
+      {
+        reservationId: runtime.productionCapacityReservation.receipt.reservationId,
+        planDigest: currentCapacityPlan.planDigest,
+        producerDeclarationDigest: currentCapacityPlan.producerDeclarationDigest,
+        releaseReceiptFile: path.resolve(release.file),
+        releaseReceiptDigest: fileDigest(release.file),
+        status: release.receipt.state
+      })
+  } catch (error) {
+    const capacityFailure = {
+      tierId: profileId,
+      exitCode: 1,
+      reason: `Production capacity reservation release failed: ${error.message}`
+    }
+    result.status = 'failure'
+    result.failure ??= capacityFailure
+    result.checkpoint = recordCheckpointFailure(
+      result.checkpointPath,
+      runId,
+      capacityFailure,
+      {
+        targetTierId: profileId,
+        sourceState: cleanupSource,
+        runtimeNamespace: runNamespace,
+        stage: 'capacity-reservation-release-failed',
+        eventType: 'capacity-reservation-release-failed',
+        step: 'capacity-reservation'
+      })
+  }
   const completedAtMs = Date.now()
   const fullScriptDurationMs = Math.max(0, completedAtMs - wallClockStartedAtMs)
   const summaryFile = localRunSummaryFile(profileId, runOutputs)
@@ -2518,6 +2622,7 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
     summary.status = result.status
     summary.failure = result.failure ?? null
     summary.failures = result.checkpoint.failures ?? (result.failure ? [result.failure] : [])
+    summary.productionCapacityReservation = result.checkpoint.productionCapacityReservation ?? null
     if (postflightReceipt !== null) {
       summary.runtimeCleanup.postflight = {
         path: relativeToRoot(postflightReceipt.file),

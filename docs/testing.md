@@ -91,7 +91,7 @@ UX risk matrix 已退出 Production，并成为 diagnostics-only probe。runner 
 
 Public HTML production/acceptance 门禁把未知路由、无效动态 identity、不存在或不可公开的 article/category/tag 验证为首响应真实 404；provider/DB gate 临时故障验证为 503 + `Retry-After`，仅有明确永久删除语义时才允许 410。负响应必须 GET/HEAD 状态与关键头一致、noindex/no-store、无成功 canonical/OG/BlogPosting/SPA script，并证明没有 AOT backfill。尾斜杠只允许 301 到无尾斜杠 canonical。测试矩阵与回退边界见 [`testing/issue-1085-public-route-real-status.md`](testing/issue-1085-public-route-real-status.md)。
 
-fresh local production 在删除 `.tmp` 前先从 PID/env、run-once 以及 `.tmp/test-runs/*/checkpoint.json` 的 scheduler run/namespace tracking 清理旧 acceptance namespace，并向 setsid 进程组发送终止信号，避免中断运行遗留 backend/Vite 子进程。即使所有 tracking 文件已丢失，同一 preflight/postflight pipeline 仍按 canonical repository root、executable/command/start identity、process group/Job/cgroup、environment/build root、open port 与 container ownership labels 发现 backend、release preview/Vite、Public AOT/SSR/HotRead worker、production descendant 和 compiler/server descendant。每个候选只分类为 `owned-orphan`、`active-owned-other-run`、`external-not-owned` 或 `identity-unverifiable`；active 判断先读取 #1675 Production Fresh lease，再复用 scheduler owner verifier，且只按完整 live identity 排除当前 lease controller。只有 `owned-orphan` 进入统一 physical termination，其他 active/unverifiable 候选在 producer spawn 前 fail closed，外部资源保留。容器必须具有 canonical repository digest、run/namespace、bundle/step、完整 ID 和 created time；名称匹配没有删除 authority。preflight 和 postflight 以相同参数复用该 pipeline，并在动作后重新扫描；任何 owned/unverifiable runtime 残留、collector/inspect 异常、tracked group 未清空、container label/ID 漂移或 resident lease cleanup 未完成都会阻止 Fresh。每项 receipt 保留完整观察字段、分类理由、动作和 post-observation，后续 output cleanup 不会抹掉首次失败证据。
+fresh local production 先只读解析 source/candidate 与 selected physical DAG，获取 repository lease，并按 canonical filesystem 获取 host-local capacity reservation；reservation seal 前 runtime/container/output/cache/build-root/GC/producer mutation count 必须全部为零。seal 后才从 PID/env、run-once 以及 `.tmp/test-runs/*/checkpoint.json` 的 scheduler run/namespace tracking 清理旧 acceptance namespace，并向 setsid 进程组发送终止信号。即使所有 tracking 文件已丢失，同一 preflight/postflight pipeline 仍按 canonical repository root、executable/command/start identity、process group/Job/cgroup、environment/build root、open port 与 container ownership labels 发现 backend、release preview/Vite、Public AOT/SSR/HotRead worker、production descendant 和 compiler/server descendant。每个候选只分类为 `owned-orphan`、`active-owned-other-run`、`external-not-owned` 或 `identity-unverifiable`；active 判断先读取 #1675 Production Fresh lease，再复用 scheduler owner verifier，且只按完整 live identity 排除当前 lease controller。只有 `owned-orphan` 进入统一 physical process-tree termination，其他 active/unverifiable 候选在 producer spawn 前 fail closed，外部资源保留。容器必须具有 canonical repository digest、run/namespace、bundle/step、完整 ID 和 created time；名称匹配没有删除 authority。preflight 和 postflight 以相同参数复用该 pipeline，并在动作后重新扫描；任何 owned/unverifiable runtime 残留、collector/inspect 异常、tracked process tree 未确认零残留、container label/ID 漂移或 resident lease cleanup 未完成都会阻止 Fresh。每项 receipt 保留完整观察字段、分类理由、动作和 post-observation，后续 output cleanup 不会抹掉首次失败证据。容量不再使用固定 4 GiB 阈值，而是绑定 producer declarations、并行 peak、terminal retention、rollback/recovery 与 uncertainty；每个 high-disk producer spawn 前重新测量 live headroom。managed acceptance 进程继承 256 MiB 单文件写入上限，schema-migration PostgreSQL fixture 删除容器时同时删除匿名 volume。五类 acceptance 服务使用低于 Linux 默认 ephemeral range 的互斥 `20000–29999` 端口区间；Vite 使用 `--strictPort`，禁止 Docker 随机映射竞态导致 preview 静默漂移到未声明端口。
 
 Acceptance public fixture 通过 author cache action 执行逐 article output-cache invalidation 与 `public-hot-rebuild`，不得对共享 runtime Redis 执行 `FLUSHDB`。同一 Redis 同时承载 active-release fence、Public AOT worker lease、run-bound coordination 与业务缓存；全库清空会让 fixture 后失效的公开壳层失去重建 worker，并把正常安全头检查误报为 503。fixture bootstrap 必须保留这些运行期租约，只刷新自身写入影响的缓存域。
 
@@ -1024,6 +1024,17 @@ ZK contract/provenance 分类与 hash bindings、静态 evidence classification�
 ## Production correctness 风险清单
 
 `production-correctness`（以及兼容别名 `production`）必须同时满足：
+
+- Production Fresh 的 physical producer 必须在
+  `config/testing/production-disk-demand.json` 拥有 root-bound demand declaration；selected DAG
+  inventory、并行 peak、terminal retention、rollback/recovery 与 uncertainty 由
+  `tools/test-matrix/production-disk-demand.mjs` 统一计算。
+- capacity reservation 必须先于 runtime/output/cache/build-root/GC mutation。聚焦负向门禁为
+  `node --test tests/tools/production-disk-demand.test.mjs
+  tests/tools/production-capacity-reservation.test.mjs
+  tests/tools/production-capacity-preflight-order.test.mjs`，覆盖同 filesystem 合并、Docker unknown、
+  多 run 仲裁、PID reuse/process-tree recovery、plan drift、external loss、under-declaration 与
+  plan-only 零 mutation。
 
 - 编译、类型检查、Vite build 均为 0 warning / 0 error。
 - 所有运行时 API 响应均为 AEDS frame；错误、鉴权拒绝和异常兜底统一为 `ApiError`。

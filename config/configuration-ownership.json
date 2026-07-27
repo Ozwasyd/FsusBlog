@@ -311,6 +311,21 @@
             "status": "manual"
         },
         {
+            "id": "production-disk-demand-catalog",
+            "owner": "test-governance",
+            "canonicalPath": "config/testing/production-disk-demand.json",
+            "pathType": "file",
+            "purpose": "Canonical per-physical-producer disk demand and filesystem-root declarations for Production Fresh",
+            "consumers": [
+                "tools/test-matrix/production-disk-demand.mjs",
+                "tools/run-test-matrix.mjs",
+                "tests/tools/production-disk-demand.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/production-disk-demand.test.mjs",
+            "changePolicy": "manual-update-with-production-capacity-validation",
+            "status": "manual"
+        },
+        {
             "id": "release-domain-assertion-dispositions",
             "owner": "test-governance",
             "canonicalPath": "config/testing/release-domain-assertion-dispositions.json",

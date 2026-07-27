@@ -9,7 +9,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const { buildMixedWindowPlan } = await import(
     pathToFileURL(path.join(root, 'tools/test/run-mixed-performance-window.mjs')).href
 );
-const { assertLocalProductionCapacity, cleanLocalProductionOutputs } = await import(
+const { cleanLocalProductionOutputs } = await import(
     pathToFileURL(path.join(root, 'tools/test-matrix/fresh-production.mjs')).href
 );
 const {
@@ -35,6 +35,9 @@ const { parseMatrix } = await import(pathToFileURL(path.join(root, 'tools/test-m
 const { runLocalProfile } = await import(pathToFileURL(path.join(root, 'tools/run-test-matrix.mjs')).href);
 const { acquireProductionFreshExclusiveLease } = await import(
     pathToFileURL(path.join(root, 'tools/test-matrix/production-fresh-exclusive-lease.mjs')).href
+);
+const { acquireProductionCapacityReservation } = await import(
+    pathToFileURL(path.join(root, 'tools/test-matrix/production-capacity-reservation.mjs')).href
 );
 
 function cacheTransactionOwner(repositoryRoot)
@@ -858,6 +861,17 @@ test('local production run keeps a blocked invocation sealed after its run direc
             launchParallelism: 8,
             memoryReserveGiB: 1
         },
+        resolveDockerRoot: () => directory,
+        resolveFilesystem: (candidate) => ({
+            filesystemIdentity: 'fixture:production-capacity',
+            canonicalPath: path.resolve(candidate),
+            availableBytes: 128 * 1024 ** 3
+        }),
+        acquireProductionCapacityReservation: (reservationOptions) =>
+            acquireProductionCapacityReservation({
+                ...reservationOptions,
+                measureAvailable: (filesystem) => filesystem.observedFreeBytes
+            }),
         cleanupRuntime: () =>
         {
             cleanupAttempts += 1;
@@ -1218,30 +1232,6 @@ test('fresh production cleanup preserves an external temp root and its dependenc
     assert.equal(fs.existsSync(path.join(externalTempRoot, 'stale')), false);
     assert.equal(fs.existsSync(path.join(externalTempRoot, 'dependency-cache/dotnet/cache.txt')), true);
     assert.equal(fs.existsSync(path.join(externalTempRoot, 'emscripten-cache/sysroot/cache.txt')), true);
-});
-
-test('fresh production capacity preflight checks the real Docker data filesystem', () =>
-{
-    const measured = [];
-    const result = assertLocalProductionCapacity({
-        root: '/workspace/fsusblog',
-        minimumFreeBytes: 4 * 1024 ** 3,
-        resolveDockerRootDirectory: () => '/mnt/docker-data',
-        measureAvailableBytes: (directory) =>
-        {
-            measured.push(directory);
-            return 8 * 1024 ** 3;
-        }
-    });
-    assert.deepEqual(measured, ['/workspace/fsusblog', '/mnt/docker-data']);
-    assert.equal(result.measurements.length, 2);
-
-    assert.throws(() => assertLocalProductionCapacity({
-        root: '/workspace/fsusblog',
-        minimumFreeBytes: 4 * 1024 ** 3,
-        resolveDockerRootDirectory: () => '/mnt/docker-data',
-        measureAvailableBytes: (directory) => directory === '/mnt/docker-data' ? 0 : 8 * 1024 ** 3
-    }), /Docker data filesystems: \/mnt\/docker-data has 0\.0 GiB/u);
 });
 
 test('acceptance services enforce a bounded log file size', () =>
