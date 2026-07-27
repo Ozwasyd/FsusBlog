@@ -1,4 +1,4 @@
-import { loadBundledFonts } from '@/bootstrap/fontLoadingPlanner';
+import { prepareCodeFonts } from '@/bootstrap/codeFontPreparation';
 
 type IdleWindow = Window & {
     requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number;
@@ -6,25 +6,12 @@ type IdleWindow = Window & {
 
 let hasScheduled = false;
 
-function loadContextualFonts(): void
+function prepareVisibleCodeFonts(): void
 {
-    const pathname = window.location.pathname;
-    const locale = document.documentElement.lang || window.navigator.language;
-    void loadBundledFonts({ pathname, locale, trigger: 'route' });
-    void loadBundledFonts({ pathname, locale, trigger: 'locale' });
     if (document.querySelector('pre, code'))
     {
-        void loadBundledFonts({ pathname, locale, trigger: 'content', hasCode: true });
+        void prepareCodeFonts().catch(() => undefined);
     }
-}
-
-async function loadNonCriticalFonts(): Promise<void>
-{
-    await loadBundledFonts({
-        pathname: window.location.pathname,
-        locale: document.documentElement.lang || window.navigator.language,
-        trigger: 'idle'
-    });
 }
 
 export function scheduleNonCriticalResources(): void
@@ -35,11 +22,10 @@ export function scheduleNonCriticalResources(): void
     }
 
     hasScheduled = true;
-    loadContextualFonts();
+    prepareVisibleCodeFonts();
 
     const load = () =>
     {
-        void loadNonCriticalFonts();
         void import('@/services/telemetryService').then(({ initTelemetryService }) =>
         {
             initTelemetryService();

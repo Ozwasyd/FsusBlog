@@ -15,9 +15,22 @@ export function assertExactKeys(name, actualKeys) {
 }
 
 const extractObjectKeys = (source, symbol) => {
-  const match = source.match(new RegExp(`(?:const|export const)\\s+${symbol}[\\s\\S]*?\\s=\\s*\\{([\\s\\S]*?)\\}\\s+as const`, 'u'))
+  const match = source.match(new RegExp(
+    `(?:const|export const)\\s+${symbol}\\s*=\\s*(?:Object\\.freeze\\()?\\{([\\s\\S]*?)\\}\\s*(?:\\)\\s*)?as const`,
+    'u'
+  ))
   if (!match) throw new Error(`cannot locate ${symbol}`)
-  return [...match[1].matchAll(/^\s*'([^']+)'\s*:/gmu)].map((item) => item[1])
+  // Prefer shallowest object entries (`    "zh-CN": {` / `  'zh-CN': {`); fall back to flat maps.
+  const nestedMatches = [...match[1].matchAll(/^[ \t]*(?:'([^']+)'|"([^"]+)")\s*:\s*\{/gmu)]
+  if (nestedMatches.length > 0)
+  {
+    const minIndent = Math.min(...nestedMatches.map((item) => item[0].match(/^[ \t]*/u)[0].length))
+    return nestedMatches
+      .filter((item) => item[0].match(/^[ \t]*/u)[0].length === minIndent)
+      .map((item) => item[1] ?? item[2])
+  }
+  return [...match[1].matchAll(/^[ \t]*(?:'([^']+)'|"([^"]+)")\s*:/gmu)]
+    .map((item) => item[1] ?? item[2])
 }
 
 const assertIncludes = (source, token, message) => { if (!source.includes(token)) throw new Error(message) }
@@ -114,20 +127,48 @@ const assertNoForcedSupportedLocale = async () => {
 
 export async function checkLocaleCatalog() {
   execFileSync('node', ['tools/contracts/generate-locale-catalog.mjs', '--check'], { cwd: root, stdio: 'inherit' })
-  const [loaders, domains, fonts, runtime, metadata, serverFonts, serverAot, keys] = await Promise.all([
+  const [loaders, domains, fonts, runtime, metadata, serverFonts, serverAot, keys, fontPort, nonCritical] = await Promise.all([
     readFile(path.join(root, 'src/frontend/src/locales/localeDomainBundleStore.ts'), 'utf8'),
     readFile(path.join(root, 'src/frontend/src/locales/localeDomains.ts'), 'utf8'),
-    readFile(path.join(root, 'src/frontend/src/bootstrap/fontLoadingPlanner.ts'), 'utf8'),
+    readFile(path.join(root, 'src/frontend/src/locales/localeFontCatalog.ts'), 'utf8'),
     readFile(path.join(root, 'src/frontend/src/locales/index.ts'), 'utf8'),
     readFile(path.join(root, 'src/frontend/src/locales/documentMetadata.ts'), 'utf8'),
     readFile(path.join(root, 'src/backend/Infrastructure/Fonts/FontLoadingPlanner.cs'), 'utf8'),
     readFile(path.join(root, 'src/backend/Infrastructure/PublicAot/PublicAotDocumentComposer.cs'), 'utf8'),
-    readFile(path.join(root, 'src/frontend/src/locales/keys.ts'), 'utf8')
+    readFile(path.join(root, 'src/frontend/src/locales/keys.ts'), 'utf8'),
+    readFile(path.join(root, 'src/frontend/src/bootstrap/fontPreparationPort.ts'), 'utf8'),
+    readFile(path.join(root, 'src/frontend/src/bootstrap/nonCriticalResources.ts'), 'utf8')
   ])
   const expectedDomainList = extractLocaleDomains(domains)
   assertLocaleDomainLoaders(loaders, expectedDomainList)
   await assertLocaleDomainFiles(expectedDomainList)
-  assertExactKeys('locale font mapping', extractObjectKeys(fonts, 'LOCALE_FACES'))
+  assertExactKeys('locale font mapping', extractObjectKeys(fonts, 'LOCALE_FONT_CATALOG'))
+  if (fonts.includes("'zh-TW'") || fonts.includes('"zh-TW"') || fonts.includes('zh-TW:')) {
+    throw new Error('locale font catalog must not declare zh-TW')
+  }
+  for (const [locale, script, family] of [
+    ['zh-CN', 'Hans', 'Noto Sans SC'],
+    ['zh-Hant', 'Hant', 'Noto Sans TC'],
+    ['ja-JP', 'Jpan', 'Noto Sans JP'],
+    ['ko-KR', 'Kore', 'Noto Sans KR'],
+    ['en-US', 'Latn', 'Google Sans'],
+    ['ru-RU', 'Cyrl', 'Google Sans']
+  ]) {
+    assertIncludes(fonts, `"locale": "${locale}"`, `locale font catalog missing ${locale}`)
+    assertIncludes(fonts, `"script": "${script}"`, `locale font catalog ${locale} must use script ${script}`)
+    assertIncludes(fonts, `"family": "${family}"`, `locale font catalog ${locale} must use family ${family}`)
+  }
+  assertIncludes(fontPort, 'prepareLocaleFonts', 'fontPreparationPort must expose prepareLocaleFonts')
+  assertIncludes(fontPort, 'peekPreparedLocaleFonts', 'fontPreparationPort must expose peekPreparedLocaleFonts')
+  if (/from\s+['"]@\/locales(?:\/index)?['"]/u.test(fontPort) || /prepareLocaleDomains|syncLocaleDocumentMetadata|vue-router|localStorage|sessionStorage/u.test(fontPort)) {
+    throw new Error('fontPreparationPort must remain independent of locale runtime, router, vue, and storage')
+  }
+  if (/fsus:font-loading-evidence|BUNDLED_FONT_LOADING_PLAN|loadBundledFonts|LOCALE_FACES|trigger\s*[:=]\s*['"]idle['"]/u.test(`${fontPort}\n${nonCritical}\n${fonts}`)) {
+    throw new Error('legacy font planner / idle full-locale preload / CustomEvent evidence surfaces must remain deleted')
+  }
+  if (/prepareLocaleFonts|hans\.css|hant\.css|jpan\.css|kore\.css/u.test(nonCritical)) {
+    throw new Error('nonCriticalResources idle path must not prepare locale CJK fonts')
+  }
   assertIncludes(runtime, "export { ENABLED_LOCALES } from './localeCatalog'", 'locale selector inventory must project catalog enabled locales')
   if (/from\s+['"]\.\/zh-CN\//u.test(runtime)) {
     throw new Error('locale runtime must not statically import zh-CN initial domains')

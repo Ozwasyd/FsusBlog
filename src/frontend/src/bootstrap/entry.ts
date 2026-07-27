@@ -1,4 +1,3 @@
-import '@/bootstrap/criticalFonts';
 import {
     createBootstrapImportRecovery,
     runBootstrapImport

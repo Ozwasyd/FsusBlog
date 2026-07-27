@@ -56,6 +56,9 @@ test('real consumer mutations fail closed', async () => {
   await checkerRejectsMutation('src/shared/Contracts/Localization/LocaleCatalog.g.cs', (source) => source.replace('public const string Digest', 'public const string CatalogDigest'))
   await checkerRejectsMutation('src/frontend/src/locales/index.ts', (source) => `${source}\nconst untrustedLocale = 'x-test' as SupportedLocale\nvoid untrustedLocale\n`)
   await checkerRejectsMutation('src/backend/Infrastructure/Fonts/FontLoadingPlanner.cs', (source) => source.replace('LocaleCatalog.Enabled.ToDictionary(', 'new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal).ToDictionary('))
+  await checkerRejectsMutation('src/frontend/src/locales/localeFontCatalog.ts', (source) => source.replace('"zh-Hant"', '"zh-TW"').replace('"Hant"', '"Hans"'))
+  await checkerRejectsMutation('src/frontend/src/bootstrap/fontPreparationPort.ts', (source) => source.replace("from '@/locales/localeFontCatalog'", "from '@/locales'\nimport { getLocaleFontDescriptor, LOCALE_FONT_CATALOG_DIGEST, LOCALE_FONT_WEIGHTS, type LocaleFontScript, type LocaleFontWeight } from '@/locales/localeFontCatalog'"))
+  await checkerRejectsMutation('src/frontend/src/bootstrap/nonCriticalResources.ts', (source) => `${source}\nvoid import('@/assets/fonts/hant.css')\n`)
 })
 
 const compileFixture = async (source) => {

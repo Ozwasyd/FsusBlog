@@ -11,7 +11,7 @@ The planner emits:
 
 - critical faces for the active UI and CJK roles;
 - deferred faces selected by `shell`, `article`, or `admin` route, by
-  `Hans` / `Hant` / `Jpan`, and by bounded code/emoji content signals;
+  `Hans` / `Hant` / `Jpan` / `Kore`, and by bounded code/emoji content signals;
 - content-addressed local URLs in
   `/font-assets/<sha256>.woff2` form for installed `.fsfont` faces;
 - the manifest `font-display` value, Unicode range, size, weight, and style;
@@ -32,55 +32,78 @@ admin activation are separate boundaries; this issue adds no HTTP endpoint.
 Themes may supply semantic font-token preferences, but cannot supply an asset
 URL, raw family declaration, or remote font.
 
-## Existing frontend bootstrap
+## Frontend locale font preparation
 
-`BUNDLED_FONT_LOADING_PLAN` is the declarative companion for the checked-in
-Fontsource bootstrap. It preserves the existing split:
+Frontend locale fonts no longer use a second hand-written locale map, idle
+full-language preload, or a global `fsus:font-loading-evidence` CustomEvent.
+
+`tools/contracts/generate-locale-catalog.mjs` projects the enabled locale
+catalog into `src/frontend/src/locales/localeFontCatalog.ts`. Script roles map
+to bundled Fontsource artifacts only:
 
 ```text
-critical:
-  Google Sans 400 / 500 / 700
-  Noto Sans SC 400 / 500
-
-deferred:
-  Noto Sans SC 700
-  Noto Sans TC 400 / 500 / 700
-  Noto Sans JP 400 / 500 / 700
-  JetBrains Mono 400 / 500 / 700
+Hans -> Noto Sans SC
+Hant -> Noto Sans TC
+Jpan -> Noto Sans JP
+Kore -> Noto Sans KR
+Latn -> Google Sans (Latin / Latin Extended representative glyphs)
+Cyrl -> Google Sans (Cyrillic representative glyphs)
 ```
 
-Only Google Sans 400/500 and Noto Sans SC 400/500 are preload candidates, so
-the preload budget remains four even though Google Sans 700 stays in the
-existing critical CSS path. Vite owns the content hashes for bundled CSS and
-Fontsource WOFF2 build assets. Installed `.fsfont` assets use the registry
-SHA-256 directly.
+Weights are the fixed set `400` / `500` / `700`. Catalog keys are exactly the
+enabled locale codes; `zh-Hant` remains Traditional Han and never aliases to
+`zh-TW`.
 
-The idle path still schedules all previously deferred fonts through
-`requestIdleCallback` (with the existing timeout fallback). The same planner
-can select route, locale, or code-triggered subsets earlier. Loaded and
-in-flight faces are deduplicated. A rejected dynamic CSS import emits a
-`fallback` receipt, remains retryable, and never removes the checked-in
-system/CJK/monospace fallback variables.
+`src/frontend/src/bootstrap/fontPreparationPort.ts` is the pure preparation
+port:
+
+```text
+prepareLocaleFonts(locale, weights, signal?)
+peekPreparedLocaleFonts(locale)
+```
+
+The port selects faces from the catalog, loads only the target script CSS
+entry under `src/frontend/src/assets/fonts/`, validates representative glyphs
+through `document.fonts`, deduplicates concurrent face loads, and returns a
+receipt bound to locale, script, face ids, weights, catalog digest, and a
+monotonic generation. It does not mutate active locale, document metadata,
+cookies, router state, Vue component state, storage, or API clients. Failure
+and abort leave no successful receipt and remain retryable; callers must not
+commit a locale transaction after a preparation failure.
+
+Code fonts are independent: `codeFontPreparation.ts` loads JetBrains Mono when
+a code surface is present. `scheduleNonCriticalResources()` may prepare those
+code fonts and telemetry on idle, but must not request other-locale CJK faces.
+
+Locale-generation callers (for example a later locale transaction port) may
+prepare domain bundles and fonts in parallel and commit only when both succeed.
+Server-resolved first-paint critical faces remain owned by the public asset /
+AOT plan, not by a client-side all-language preload.
+
+Vite owns content hashes for bundled CSS and Fontsource WOFF2 build assets.
+Installed `.fsfont` assets continue to use the registry SHA-256 directly.
 
 ## Evidence and release boundary
 
 Backend consumers serialize the bounded receipt with
-`FontLoadingPlanner.SerializeEvidence`. The frontend dispatches
-`fsus:font-loading-evidence` with the same status vocabulary and the requested,
-loaded, failed, and deduplicated face IDs. Receipts contain no font bytes,
-family names, filesystem paths, credentials, or remote URLs.
+`FontLoadingPlanner.SerializeEvidence`. Frontend locale preparation returns a
+typed receipt from `fontPreparationPort` instead of broadcasting a global DOM
+event. Receipts contain no font bytes, filesystem paths, credentials, or remote
+URLs.
 
 These receipts are issue-level machine evidence. The three-round
 Production Fresh / release-final run remains the final release acceptance and
 is intentionally not executed by the planner implementation. Asset-byte and
-CLS policy belongs to the later Font Asset Budget / CLS gate.
+CLS policy belongs to the later Font Asset Budget / CLS gate; preparation must
+not hide CLS by shrinking type or truncating representative text.
 
 ## Failure and no-restart rollback
 
 Invalid route or preload policy fails before returning a plan. Missing scopes,
 disabled fonts, category mismatches, or invalid stored manifests fall back to
-the built-in role and set `usedSafeFallback`. Dynamic frontend load failures
-keep the fallback stack and may be retried.
+the built-in role and set `usedSafeFallback`. Frontend locale preparation
+failures reject the prepare call and keep the previous locale transaction
+state at the caller.
 
 Rollback does not require a restart:
 

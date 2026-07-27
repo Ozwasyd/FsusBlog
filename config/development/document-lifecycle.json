@@ -802,7 +802,8 @@
             "status": "current",
             "owner": "frontend",
             "relatedIssues": [
-                149
+                149,
+                1540
             ],
             "supersedes": [],
             "supersededBy": null

@@ -445,7 +445,7 @@ test('registry covers visible authorities and binds the resolved FsusUI identity
         'src/frontend/package-lock.json',
         'src/frontend/vite.config.ts',
         'src/frontend/src/assets/main.css',
-        'src/frontend/src/bootstrap/criticalFonts.ts',
+        'src/frontend/src/bootstrap/fontPreparationPort.ts',
         'src/frontend/src/components/public/PublicComplianceFooter.vue',
         'src/frontend/src/components/public/pages/PublicArticleDetailPageContent.vue',
         'src/frontend/src/ui-tokens/themeTokens.ts',

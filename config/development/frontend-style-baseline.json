@@ -3,8 +3,8 @@
     "generatedFrom": "source-state:eff760c96daa43fde5fac4c0721ddc61c1951689573731e82ae54e35b4eefafb",
     "sourceStateSha256": "eff760c96daa43fde5fac4c0721ddc61c1951689573731e82ae54e35b4eefafb",
     "configurationSha256": "178ff83b1d2e9e0fbb167309754c7a7db206085a41f2f106ce0460c248918f26",
-    "violationCount": 304288,
-    "fileCount": 1055,
+    "violationCount": 304283,
+    "fileCount": 1054,
     "files": [
         {
             "path": "src/frontend/public/sw.js",
@@ -834,15 +834,6 @@
                 "eslint/@stylistic/semi": 29,
                 "eslint/@typescript-eslint/no-base-to-string": 1,
                 "eslint/curly": 1
-            }
-        },
-        {
-            "path": "src/frontend/src/bootstrap/criticalFonts.ts",
-            "sourceSha256": "435dfa6c2959c51dab2f1082fa4fa84db2b45c225107a644493bc3669361bd81",
-            "violationCount": 5,
-            "violationDigest": "125ffd602ce62882e5fca5973d833f5c6de133f3e09ff7357803f036fbe0c22d",
-            "rules": {
-                "eslint/@stylistic/semi": 5
             }
         },
         {
