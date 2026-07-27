@@ -53,6 +53,7 @@ Allman braces 适用于 C# 和仓库手写 C++。TS/JS/Vue、CSS、Shell、CMake
 - `using` 位于统一的文件级位置，`System` 组优先，随后第三方和 `FsusBlog`，组内稳定排序。
 - public cross-assembly contract、协议/codec extension point、安全与 lifecycle 类型写有效 XML documentation；internal helper 不生成空洞注释。
 - record、primary constructor、collection expression 和 pattern matching 仍遵守同一命名、缩进与一行一声明规则。
+- `CancellationTokenSource` 的创建者拥有释放责任：timeout 或 linked token 必须在同一操作 scope 中 `using`/`Dispose`，不得返回或缓存丢失 owner 的裸 `.Token`。需要区分 caller cancellation 与 timeout 时使用 `TimeoutCancellationScope`；不得用 `CancellationToken.None`、static 延迟清理或 GC 代替 owner disposal。
 
 ## TypeScript, JavaScript, and Vue
 

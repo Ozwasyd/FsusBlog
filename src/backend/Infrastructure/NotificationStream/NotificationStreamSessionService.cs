@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Net.WebSockets;
 using System.Threading.Channels;
 
+using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Shared.Contracts.NotificationStream;
 
@@ -30,8 +31,7 @@ internal sealed class NotificationStreamSessionService(
     private const int DefaultDrillQueueCapacity = 32;
     private const int MinDrillQueueCapacity = 32;
     private const int MaxDrillQueueCapacity = 4096;
-    private static readonly CancellationToken s_closeTimeout
-        = new CancellationTokenSource(TimeSpan.FromSeconds(5)).Token;
+    private static readonly TimeSpan s_closeTimeout = TimeSpan.FromSeconds(5);
 
     public async Task RunAsync(HttpContext context, NotificationStreamHandshake handshake, CancellationToken cancellationToken)
     {
@@ -291,7 +291,8 @@ internal sealed class NotificationStreamSessionService(
         SemaphoreSlim sendGate,
         NotificationStreamCloseInstruction closeInstruction)
     {
-        await sendGate.WaitAsync(s_closeTimeout);
+        using var timeout = TimeoutCancellationScope.Create(s_closeTimeout);
+        await sendGate.WaitAsync(timeout.Token);
         try
         {
             if (socket.State == WebSocketState.Open || socket.State == WebSocketState.CloseReceived)
@@ -299,7 +300,7 @@ internal sealed class NotificationStreamSessionService(
                 await socket.CloseAsync(
                     NotificationStreamRestartProtocol.ToWebSocketCloseStatus(closeInstruction),
                     closeInstruction.Reason,
-                    s_closeTimeout);
+                    timeout.Token);
             }
         }
         finally

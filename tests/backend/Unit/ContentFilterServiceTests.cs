@@ -279,7 +279,13 @@ public sealed class ContentFilterServiceTests
         try
         {
             var service = new ContentFilterService(new TestWebHostEnvironment(root), NullLogger<ContentFilterService>.Instance);
+            var reloadOwner = Assert.IsType<CancellationTokenSource>(typeof(ContentFilterService)
+                .GetField("_reloadCts", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .GetValue(service));
+            WaitHandle reloadHandle = reloadOwner.Token.WaitHandle;
+
             service.Dispose();
+            Assert.True(reloadHandle.SafeWaitHandle.IsClosed);
             service.Dispose(); // second dispose should not throw
         }
         finally

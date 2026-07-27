@@ -43,8 +43,7 @@ public partial class CommentCommandService(
     private const int DefaultMaxChildrenPerNode = 500;
     private const int DefaultMutationTtlHours = 24;
 
-    private static CancellationToken ShortCancellationToken
-        => new CancellationTokenSource(TimeSpan.FromSeconds(5)).Token;
+    private static readonly TimeSpan s_shortOperationTimeout = TimeSpan.FromSeconds(5);
 
     private sealed record CommentMutationCommand(
         int? AccountId,
@@ -83,12 +82,14 @@ public partial class CommentCommandService(
             return false;
         }
 
+        using var timeout = TimeoutCancellationScope.Create(s_shortOperationTimeout);
+
         CommentActor? actor = await commentAttribution.ResolvePublicActorAsync(
             userId,
             dto,
             normalizedContent,
             regionDecision.SubmitRegion,
-            ShortCancellationToken);
+            timeout.Token);
         if (actor is null)
         {
             return false;
@@ -102,7 +103,7 @@ public partial class CommentCommandService(
             dto.ReplyToCommentId,
             actor,
             regionDecision,
-            ShortCancellationToken);
+            timeout.Token);
         return result.Created;
     }
 
@@ -828,12 +829,14 @@ public partial class CommentCommandService(
             return CommentCreateResult.Failed;
         }
 
+        using var timeout = TimeoutCancellationScope.Create(s_shortOperationTimeout);
+
         CommentActor? actor = await commentAttribution.ResolvePublicActorAsync(
             userId,
             dto,
             normalizedContent,
             regionDecision.SubmitRegion,
-            ShortCancellationToken);
+            timeout.Token);
         return actor is null
             ? CommentCreateResult.Failed
             : await CreateResolvedCommentAsync(
@@ -844,7 +847,7 @@ public partial class CommentCommandService(
                 dto.ReplyToCommentId,
                 actor,
                 regionDecision,
-                ShortCancellationToken,
+                timeout.Token,
                 mutation);
     }
 
