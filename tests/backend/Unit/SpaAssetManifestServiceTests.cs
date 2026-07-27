@@ -209,6 +209,269 @@ public sealed class SpaAssetManifestServiceTests
     }
 
     [Fact]
+    public void Production_MissingManifestRecoversAfterBoundedRetryWithoutPublishingFallbackAssets()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
+            File.Delete(Path.Combine(GetReleaseAssetRoot(root), ".vite", "manifest.json"));
+            var service = CreateService(root, new TestWebHostEnvironment(root, Environments.Production), retryIntervalMilliseconds: 50);
+
+            Assert.Equal("failed", service.GetReadiness().Status);
+            Assert.Equal("retryable-failed", service.GetReadiness().State);
+            SpaAssetSet nonreadyAssets = service.GetPublicAssetSet(pageId: PublicPageId.Home);
+            Assert.Empty(nonreadyAssets.EntryScript);
+            Assert.Empty(nonreadyAssets.Stylesheets);
+            Assert.Empty(nonreadyAssets.ModulePreloads);
+            Assert.Equal(FullAppTakeoverAssetSet.Empty, nonreadyAssets.FullAppTakeover);
+
+            WriteManifest(root, "public-page-b.css", s_updatedManifestVersionUtc);
+            Assert.True(SpinWait.SpinUntil(
+                () => service.GetReadiness().State == "ready",
+                TimeSpan.FromSeconds(1)));
+            Assert.Contains("/assets/public-page-b.css", service.GetPublicAssetSet(pageId: PublicPageId.Home).Stylesheets);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Production_TerminalDigestFailureWaitsForNewDescriptorGeneration()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
+            File.AppendAllText(Path.Combine(GetReleaseAssetRoot(root), ".vite", "manifest.json"), "\n");
+            var service = CreateService(root, new TestWebHostEnvironment(root, Environments.Production), retryIntervalMilliseconds: 50);
+            SpaAssetManifestReadiness failed = service.GetReadiness();
+
+            Assert.Equal("terminal-failed", failed.State);
+            Assert.Equal("spa_manifest_digest_mismatch", failed.Error);
+            Assert.False(SpinWait.SpinUntil(
+                () => service.GetReadiness().Attempts != failed.Attempts,
+                TimeSpan.FromMilliseconds(120)));
+            Assert.Equal(failed.Attempts, service.GetReadiness().Attempts);
+
+            WriteManifest(root, "public-page-b.css", s_updatedManifestVersionUtc);
+            Assert.True(SpinWait.SpinUntil(
+                () => service.GetReadiness().State == "ready",
+                TimeSpan.FromSeconds(1)));
+            SpaAssetManifestReadiness ready = service.GetReadiness();
+            Assert.Equal("ready", ready.State);
+            Assert.NotEqual(failed.DescriptorGeneration, ready.DescriptorGeneration);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Production_ParseFailureRecoversAfterDescriptorIsAtomicallyReplaced()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
+            string manifestPath = Path.Combine(GetReleaseAssetRoot(root), ".vite", "manifest.json");
+            File.WriteAllText(manifestPath, "{");
+            ResealManifestMutation(root);
+            var service = CreateService(
+                root,
+                new TestWebHostEnvironment(root, Environments.Production),
+                retryIntervalMilliseconds: 50);
+
+            Assert.Equal("retryable-failed", service.GetReadiness().State);
+
+            WriteManifest(root, "public-page-b.css", s_updatedManifestVersionUtc);
+
+            Assert.True(SpinWait.SpinUntil(
+                () => service.GetReadiness().State == "ready",
+                TimeSpan.FromSeconds(1)));
+            Assert.Contains(
+                "/assets/public-page-b.css",
+                service.GetPublicAssetSet(pageId: PublicPageId.Home).Stylesheets);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Production_SameGenerationReloadFailureKeepsCompleteReadySnapshot()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
+            var service = CreateService(
+                root,
+                new TestWebHostEnvironment(root, Environments.Production),
+                retryIntervalMilliseconds: 50);
+            SpaAssetSet readyAssets = service.GetPublicAssetSet(pageId: PublicPageId.Home);
+            string readyVersion = readyAssets.FrontendAssetVersion;
+            string? readyDigest = service.GetReadiness().LoadedDigest;
+            File.Delete(Path.Combine(GetReleaseAssetRoot(root), ".vite", "manifest.json"));
+
+            Assert.True(SpinWait.SpinUntil(
+                () => service.GetReadiness().State == "retryable-failed",
+                TimeSpan.FromSeconds(1)));
+
+            SpaAssetManifestReadiness failed = service.GetReadiness();
+            SpaAssetSet retained = service.GetPublicAssetSet(pageId: PublicPageId.Home);
+            Assert.Equal(readyVersion, retained.FrontendAssetVersion);
+            Assert.Equal(readyAssets.Stylesheets, retained.Stylesheets);
+            Assert.Equal(
+                readyAssets.FullAppTakeover.ModulePreloads,
+                retained.FullAppTakeover.ModulePreloads);
+            Assert.Equal(
+                readyAssets.FullAppTakeover.Stylesheets,
+                retained.FullAppTakeover.Stylesheets);
+            Assert.Equal(readyDigest, failed.LoadedDigest);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Production_CrossReleaseMissingManifestDropsOldReadySnapshot()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
+            var service = CreateService(
+                root,
+                new TestWebHostEnvironment(root, Environments.Production),
+                retryIntervalMilliseconds: 50);
+            string oldVersion = service.GetFrontendAssetVersion();
+
+            string descriptorPath = GetDescriptorPath(root);
+            JsonNode descriptor = JsonNode.Parse(File.ReadAllText(descriptorPath))!;
+            descriptor["releaseId"] = "next-release";
+            File.WriteAllText(descriptorPath, descriptor.ToJsonString());
+            ResealDescriptorDigest(root);
+            File.Delete(Path.Combine(GetReleaseAssetRoot(root), ".vite", "manifest.json"));
+
+            Assert.True(SpinWait.SpinUntil(
+                () => service.GetReadiness().State == "terminal-failed",
+                TimeSpan.FromSeconds(1)));
+            Assert.Equal(
+                "spa_manifest_release_identity_mismatch",
+                service.GetReadiness().Error);
+            SpaAssetSet assets = service.GetPublicAssetSet(pageId: PublicPageId.Home);
+            Assert.Equal("missing-manifest", assets.FrontendAssetVersion);
+            Assert.NotEqual(oldVersion, assets.FrontendAssetVersion);
+            Assert.Empty(assets.EntryScript);
+            Assert.Empty(assets.Stylesheets);
+            Assert.Empty(assets.ModulePreloads);
+            Assert.Null(service.GetReadiness().LoadedDigest);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Production_SameGenerationLoadingServesOldSnapshotWithoutBlockingReaders()
+    {
+        string root = CreateTempDirectory();
+        using var loading = new ManualResetEventSlim();
+        using var releaseLoad = new ManualResetEventSlim();
+        int loadCount = 0;
+        try
+        {
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
+            var service = CreateService(
+                root,
+                new TestWebHostEnvironment(root, Environments.Production),
+                retryIntervalMilliseconds: 50,
+                onLoadStartedForTests: () =>
+                {
+                    if (Interlocked.Increment(ref loadCount) == 2)
+                    {
+                        loading.Set();
+                        releaseLoad.Wait(TimeSpan.FromSeconds(2));
+                    }
+                });
+            string readyVersion = service.GetFrontendAssetVersion();
+
+            Thread.Sleep(60);
+            Task<SpaAssetManifestReadiness> reload = Task.Run(service.GetReadiness);
+            Assert.True(loading.Wait(TimeSpan.FromSeconds(1)));
+
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            SpaAssetSet duringLoad = service.GetPublicAssetSet(pageId: PublicPageId.Home);
+            SpaAssetManifestReadiness loadingReadiness = service.GetReadiness();
+            stopwatch.Stop();
+
+            Assert.Equal("loading", loadingReadiness.State);
+            Assert.Equal(readyVersion, duringLoad.FrontendAssetVersion);
+            Assert.True(stopwatch.Elapsed < TimeSpan.FromMilliseconds(200));
+            Assert.False(reload.IsCompleted);
+
+            releaseLoad.Set();
+            Assert.Equal("ready", reload.GetAwaiter().GetResult().State);
+        }
+        finally
+        {
+            releaseLoad.Set();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Production_RetryPolicyBoundsPollingAndAdmission()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
+            File.Delete(Path.Combine(GetReleaseAssetRoot(root), ".vite", "manifest.json"));
+            var service = CreateService(
+                root,
+                new TestWebHostEnvironment(root, Environments.Production),
+                retryIntervalMilliseconds: 50,
+                admissionDeadlineMilliseconds: 100);
+            int firstAttempts = service.GetReadiness().Attempts;
+
+            for (int index = 0; index < 20; index++)
+            {
+                _ = service.GetReadiness();
+            }
+            Assert.Equal(firstAttempts, service.GetReadiness().Attempts);
+
+            Thread.Sleep(60);
+            int admittedAttempts = service.GetReadiness().Attempts;
+            Assert.True(admittedAttempts > firstAttempts);
+
+            Thread.Sleep(60);
+            for (int index = 0; index < 20; index++)
+            {
+                _ = service.GetReadiness();
+            }
+            Assert.Equal(admittedAttempts, service.GetReadiness().Attempts);
+
+            WriteManifest(root, "public-page-b.css", s_updatedManifestVersionUtc);
+            Assert.True(SpinWait.SpinUntil(
+                () => service.GetReadiness().State == "ready",
+                TimeSpan.FromSeconds(1)));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void Production_MissingDescriptorManifestDoesNotFallBackToOldDist()
     {
         string root = CreateTempDirectory();
@@ -682,7 +945,10 @@ public sealed class SpaAssetManifestServiceTests
             WriteDescriptor(root);
             AssertReadinessFailure(root, "spa_manifest_required_entry_invalid");
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -698,7 +964,10 @@ public sealed class SpaAssetManifestServiceTests
             WriteDescriptor(root);
             AssertReadinessFailure(root, "spa_manifest_required_entry_invalid");
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -714,7 +983,10 @@ public sealed class SpaAssetManifestServiceTests
             WriteDescriptor(root);
             AssertReadinessFailure(root, "spa_manifest_import_missing");
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -730,7 +1002,10 @@ public sealed class SpaAssetManifestServiceTests
             WriteDescriptor(root);
             AssertReadinessFailure(root, "spa_manifest_import_cycle");
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -768,7 +1043,10 @@ public sealed class SpaAssetManifestServiceTests
                 "spa_manifest_schema_invalid",
                 CreateService(root, new TestWebHostEnvironment(root, Environments.Development)).GetReadiness().Error);
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -786,7 +1064,10 @@ public sealed class SpaAssetManifestServiceTests
                 "spa_manifest_schema_invalid",
                 CreateService(root, new TestWebHostEnvironment(root, Environments.Development)).GetReadiness().Error);
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -812,7 +1093,10 @@ public sealed class SpaAssetManifestServiceTests
                 "spa_manifest_schema_invalid",
                 CreateService(root, new TestWebHostEnvironment(root, Environments.Development)).GetReadiness().Error);
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -837,7 +1121,10 @@ public sealed class SpaAssetManifestServiceTests
             ResealManifestMutation(root);
             AssertReadinessFailure(root, "spa_manifest_asset_path_invalid");
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -866,7 +1153,10 @@ public sealed class SpaAssetManifestServiceTests
             ResealDescriptor(root);
             AssertReadinessFailure(root, "spa_asset_inventory_file_digest_mismatch");
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -889,7 +1179,10 @@ public sealed class SpaAssetManifestServiceTests
             WriteDescriptor(root);
             Assert.Equal(first, CreateService(root, new TestWebHostEnvironment(root, Environments.Production)).GetFrontendAssetVersion());
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     private static string CreateTempDirectory()
@@ -966,7 +1259,10 @@ public sealed class SpaAssetManifestServiceTests
         TestWebHostEnvironment env,
         string? descriptorPath = null,
         string? receiptPath = null,
-        string? releaseId = null)
+        string? releaseId = null,
+        int? retryIntervalMilliseconds = null,
+        int? admissionDeadlineMilliseconds = null,
+        Action? onLoadStartedForTests = null)
     {
         IConfiguration configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -974,11 +1270,24 @@ public sealed class SpaAssetManifestServiceTests
                 ["FSUSBLOG_SPA_MANIFEST_DESCRIPTOR"] = descriptorPath ?? GetDescriptorPath(root),
                 ["FSUSBLOG_PRODUCTION_BUILD_RECEIPT"] = receiptPath ?? GetReceiptPath(root),
                 ["FSUSBLOG_RELEASE_ASSET_ROOT"] = root,
-                ["FSUSBLOG_RELEASE_ID"] = releaseId
+                ["FSUSBLOG_RELEASE_ID"] = releaseId,
+                ["FSUSBLOG_SPA_MANIFEST_RETRY_INTERVAL_MS"] = retryIntervalMilliseconds?.ToString(),
+                ["FSUSBLOG_SPA_MANIFEST_RETRY_ADMISSION_DEADLINE_MS"] = admissionDeadlineMilliseconds?.ToString()
             })
             .Build();
         var releaseIdentity = new ReleaseIdentityProvider(configuration);
-        return new SpaAssetManifestService(env, configuration, releaseIdentity, NullLogger<SpaAssetManifestService>.Instance);
+        return onLoadStartedForTests is null
+            ? new SpaAssetManifestService(
+                env,
+                configuration,
+                releaseIdentity,
+                NullLogger<SpaAssetManifestService>.Instance)
+            : new SpaAssetManifestService(
+                env,
+                configuration,
+                releaseIdentity,
+                NullLogger<SpaAssetManifestService>.Instance,
+                onLoadStartedForTests);
     }
 
     private static void AssertReadinessFailure(string root, string expectedError)

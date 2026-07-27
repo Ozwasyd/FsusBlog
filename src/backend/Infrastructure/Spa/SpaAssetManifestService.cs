@@ -39,7 +39,12 @@ public sealed record SpaAssetManifestReadiness(
     string? ManifestDigest,
     string? AssetInventoryPath,
     string? AssetInventoryDigest,
-    string? Error) : IProductionHealthCheck
+    string? Error,
+    string State = "uninitialized",
+    string? DescriptorGeneration = null,
+    string? LastFailureKind = null,
+    int Attempts = 0,
+    string? LoadedDigest = null) : IProductionHealthCheck
 {
     internal static SpaAssetManifestReadiness Failed(string error)
         => new(
@@ -56,6 +61,9 @@ public sealed record SpaAssetManifestReadiness(
             null,
             null,
             null,
+            null,
+            error,
+            "retryable-failed",
             null,
             error);
 
@@ -75,13 +83,19 @@ public sealed record SpaAssetManifestReadiness(
             descriptor.ManifestDigest,
             descriptor.AssetInventoryPath,
             descriptor.AssetInventoryDigest,
-            null);
+            null,
+            "ready",
+            descriptor.DescriptorContentDigest,
+            null,
+            0,
+            descriptor.ManifestDigest);
 }
 
 public sealed class SpaAssetManifestService : ISpaAssetManifestService
 {
     public const string DevSourceAssetVersion = "dev-source-assets";
     private const string StableSpaEntry = "/assets/fsus-spa-entry.js";
+    private const int MaxFailureDiagnostics = 8;
     private static readonly string[] s_publicBaseCssNames =
     [
         "public-shell-critical",
@@ -142,41 +156,57 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
     private readonly IConfiguration _configuration;
     private readonly IReleaseIdentityProvider _releaseIdentity;
     private readonly ILogger<SpaAssetManifestService> _logger;
+    private readonly Action? _onLoadStartedForTests;
     private readonly Lock _loadLock = new();
-    private bool _manifestLoaded;
-    private FrozenDictionary<string, List<string>> _routeAssetMap = FrozenDictionary<string, List<string>>.Empty;
-    private FrozenDictionary<string, ManifestAsset> _manifestByKey = FrozenDictionary<string, ManifestAsset>.Empty;
-    private DateTime _lastManifestWriteTime = DateTime.MinValue;
-    private string _manifestPath = string.Empty;
-    private string _indexTemplatePath = string.Empty;
-    private string _frontendAssetVersion = "missing-manifest";
-    private SpaAssetManifestReadiness _readiness = SpaAssetManifestReadiness.Failed("spa_manifest_not_loaded");
-    private SpaAssetSet _publicAssetSet = new(
-        StableSpaEntry,
-        [],
-        [],
-        "missing-manifest",
-        UsesSourceAssets: false);
+    private ManifestRuntimeSnapshot _runtimeSnapshot = null!;
+    private bool _loadInProgress;
+    private bool _admissionInitialized;
+    private string? _admissionGeneration;
+    private DateTime _admissionDeadlineUtc;
+    private int _loadAttempts;
+    private DateTime _nextProductionProbeUtc;
 
     public SpaAssetManifestService(
         IWebHostEnvironment env,
         IConfiguration configuration,
         IReleaseIdentityProvider releaseIdentity,
         ILogger<SpaAssetManifestService> logger)
+        : this(env, configuration, releaseIdentity, logger, onLoadStartedForTests: null)
+    {
+    }
+
+    internal SpaAssetManifestService(
+        IWebHostEnvironment env,
+        IConfiguration configuration,
+        IReleaseIdentityProvider releaseIdentity,
+        ILogger<SpaAssetManifestService> logger,
+        Action? onLoadStartedForTests)
     {
         _env = env;
         _configuration = configuration;
         _releaseIdentity = releaseIdentity;
         _logger = logger;
+        _onLoadStartedForTests = onLoadStartedForTests;
+        ManifestAssetSnapshot emptyAssets = CreateEmptyAssetSnapshot();
+        _runtimeSnapshot = new ManifestRuntimeSnapshot(
+            emptyAssets,
+            SpaAssetManifestReadiness.Failed("spa_manifest_not_loaded") with
+            {
+                State = "uninitialized"
+            });
         LoadManifest();
     }
 
-    public SpaAssetManifestReadiness GetReadiness() => _readiness;
+    public SpaAssetManifestReadiness GetReadiness()
+    {
+        LoadManifest();
+        return Volatile.Read(ref _runtimeSnapshot).Readiness;
+    }
 
     public string GetIndexTemplatePath()
     {
         LoadManifest();
-        return _indexTemplatePath;
+        return Volatile.Read(ref _runtimeSnapshot).Assets.IndexTemplatePath;
     }
 
     public IReadOnlyList<string> GetPreloadsForPath(string path, HttpContext? context = null)
@@ -187,6 +217,7 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         }
 
         LoadManifest();
+        ManifestAssetSnapshot snapshot = Volatile.Read(ref _runtimeSnapshot).Assets;
 
         if (string.IsNullOrWhiteSpace(path))
         {
@@ -195,24 +226,24 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
 
         if (path.StartsWith("/user/", StringComparison.OrdinalIgnoreCase))
         {
-            return GetAssets("route-user");
+            return GetAssets(snapshot, "route-user");
         }
 
         if (path.StartsWith("/admin/", StringComparison.OrdinalIgnoreCase))
         {
-            return GetAssets("route-admin");
+            return GetAssets(snapshot, "route-admin");
         }
 
         if (path.StartsWith("/login", StringComparison.OrdinalIgnoreCase) ||
             path.StartsWith("/register", StringComparison.OrdinalIgnoreCase))
         {
-            return GetAssets("route-auth");
+            return GetAssets(snapshot, "route-auth");
         }
 
         if (path.StartsWith("/403", StringComparison.OrdinalIgnoreCase) ||
             path.StartsWith("/404", StringComparison.OrdinalIgnoreCase))
         {
-            return GetAssets("route-error");
+            return GetAssets(snapshot, "route-error");
         }
 
         return [];
@@ -244,9 +275,10 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         }
 
         LoadManifest();
-        return pageId is null
-            ? _publicAssetSet
-            : CreatePublicAssetSet(_manifestByKey, _frontendAssetVersion, pageId);
+        ManifestAssetSnapshot snapshot = Volatile.Read(ref _runtimeSnapshot).Assets;
+        return pageId is null || !snapshot.IsReady
+            ? snapshot.PublicAssetSet
+            : CreatePublicAssetSet(snapshot.ManifestByKey, snapshot.FrontendAssetVersion, pageId);
     }
 
     public string GetFrontendAssetVersion(HttpContext? context = null)
@@ -257,11 +289,11 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         }
 
         LoadManifest();
-        return _frontendAssetVersion;
+        return Volatile.Read(ref _runtimeSnapshot).Assets.FrontendAssetVersion;
     }
 
-    private List<string> GetAssets(string key)
-        => _routeAssetMap.TryGetValue(key, out var assets) ? assets : [];
+    private static IReadOnlyList<string> GetAssets(ManifestAssetSnapshot snapshot, string key)
+        => snapshot.RouteAssetMap.TryGetValue(key, out var assets) ? assets : [];
 
     private bool ShouldUseSourceAssets(HttpContext? context)
     {
@@ -282,112 +314,237 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
     private void LoadManifest()
     {
         bool isDevelopment = _env.IsDevelopment();
-        if (!isDevelopment && Volatile.Read(ref _manifestLoaded))
-        {
-            return;
-        }
-
+        DateTime now = DateTime.UtcNow;
+        ManifestRuntimeSnapshot beforeLoad;
         lock (_loadLock)
         {
-            if (!isDevelopment && _manifestLoaded)
+            if (!isDevelopment && now < _nextProductionProbeUtc)
+            {
+                return;
+            }
+            if (_loadInProgress)
             {
                 return;
             }
 
-            string manifestPath;
-            SpaManifestDescriptor? descriptor = null;
-            try
+            _loadInProgress = true;
+            beforeLoad = Volatile.Read(ref _runtimeSnapshot);
+        }
+
+        string? observedGeneration = isDevelopment ? null : TryReadDescriptorGeneration();
+        string? effectiveGeneration = observedGeneration ?? beforeLoad.Assets.DescriptorGeneration;
+        int attempts;
+        lock (_loadLock)
+        {
+            if (!isDevelopment)
             {
-                descriptor = ResolveDescriptor();
-                manifestPath = descriptor.ManifestPath;
-            }
-            catch (Exception exception) when (exception is IOException
-                or UnauthorizedAccessException
-                or JsonException
-                or InvalidOperationException
-                or ArgumentException
-                or NotSupportedException
-                or PathTooLongException)
-            {
-                SetManifestFailure(ToStableFailureCode(exception));
-                return;
-            }
-            if (string.IsNullOrWhiteSpace(manifestPath) || !File.Exists(manifestPath))
-            {
-                SetManifestFailure("spa_manifest_missing");
-                return;
+                if (!_admissionInitialized
+                    || !string.Equals(effectiveGeneration, _admissionGeneration, StringComparison.Ordinal))
+                {
+                    _admissionInitialized = true;
+                    _admissionGeneration = effectiveGeneration;
+                    _admissionDeadlineUtc = now.Add(GetAdmissionWindow());
+                    _loadAttempts = 0;
+                }
+                else if (beforeLoad.Readiness.State == "ready")
+                {
+                    _admissionDeadlineUtc = now.Add(GetAdmissionWindow());
+                    _loadAttempts = 0;
+                }
+
+                if (beforeLoad.Readiness.State == "terminal-failed"
+                    && (observedGeneration is null
+                        || string.Equals(observedGeneration, beforeLoad.Readiness.DescriptorGeneration, StringComparison.Ordinal)))
+                {
+                    ScheduleNextProductionProbe(now);
+                    _loadInProgress = false;
+                    return;
+                }
+
+                if (beforeLoad.Readiness.State == "retryable-failed"
+                    && now > _admissionDeadlineUtc)
+                {
+                    _admissionDeadlineUtc = now.Add(GetAdmissionWindow());
+                    ScheduleNextProductionProbe(now);
+                    _loadInProgress = false;
+                    return;
+                }
             }
 
-            DateTime lastWrite = isDevelopment
-                ? File.GetLastWriteTimeUtc(manifestPath)
-                : DateTime.MaxValue;
-            if (isDevelopment
-                && lastWrite <= _lastManifestWriteTime
-                && string.Equals(manifestPath, _manifestPath, StringComparison.Ordinal))
+            attempts = ++_loadAttempts;
+            bool generationChanged = beforeLoad.Assets.IsReady
+                && observedGeneration is not null
+                && !string.Equals(
+                    observedGeneration,
+                    beforeLoad.Assets.DescriptorGeneration,
+                    StringComparison.Ordinal);
+            ManifestAssetSnapshot servingAssets = generationChanged
+                ? CreateEmptyAssetSnapshot()
+                : beforeLoad.Assets;
+            var loadingReadiness = SpaAssetManifestReadiness.Failed("spa_manifest_loading") with
             {
-                return;
+                State = "loading",
+                DescriptorGeneration = effectiveGeneration,
+                LastFailureKind = beforeLoad.Readiness.LastFailureKind,
+                Attempts = attempts,
+                LoadedDigest = servingAssets.LoadedDigest
+            };
+            Volatile.Write(
+                ref _runtimeSnapshot,
+                new ManifestRuntimeSnapshot(servingAssets, loadingReadiness));
+        }
+
+        try
+        {
+            _onLoadStartedForTests?.Invoke();
+            ManifestAssetSnapshot? candidate = BuildManifestCandidate(
+                isDevelopment,
+                effectiveGeneration,
+                beforeLoad.Assets);
+            lock (_loadLock)
+            {
+                if (candidate is null)
+                {
+                    Volatile.Write(ref _runtimeSnapshot, beforeLoad);
+                }
+                else
+                {
+                    SpaManifestDescriptor descriptor = candidate.Descriptor;
+                    var readiness = SpaAssetManifestReadiness.Ready(descriptor) with
+                    {
+                        DescriptorGeneration = candidate.DescriptorGeneration,
+                        Attempts = attempts,
+                        LoadedDigest = candidate.LoadedDigest
+                    };
+                    Volatile.Write(
+                        ref _runtimeSnapshot,
+                        new ManifestRuntimeSnapshot(candidate, readiness));
+                    _logger.LogInformation(
+                        "SPA manifest loaded from {ManifestPath}. chunks={ChunkCount}",
+                        candidate.ManifestPath,
+                        candidate.ManifestByKey.Count);
+                }
+                ScheduleNextProductionProbe(DateTime.UtcNow);
             }
-
-            try
+        }
+        catch (Exception exception) when (exception is IOException
+            or UnauthorizedAccessException
+            or JsonException
+            or InvalidOperationException
+            or ArgumentException
+            or NotSupportedException
+            or PathTooLongException)
+        {
+            string failure = exception is SpaManifestValidationException validation
+                ? validation.Code
+                : exception is ManifestParseException
+                    ? "spa_manifest_parse_failed"
+                    : ToStableFailureCode(exception);
+            if (attempts <= MaxFailureDiagnostics)
             {
-                using JsonDocument manifestDocument = JsonDocument.Parse(
-                    File.ReadAllBytes(manifestPath),
-                    new JsonDocumentOptions { AllowTrailingCommas = false, CommentHandling = JsonCommentHandling.Disallow });
-                var newRouteMap = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-                var newManifest = new Dictionary<string, ManifestAsset>(StringComparer.OrdinalIgnoreCase);
+                _logger.LogError(exception, "Failed to load SPA asset manifest. generation={DescriptorGeneration}", effectiveGeneration);
+            }
+            else
+            {
+                _logger.LogDebug(
+                    "SPA manifest reload remains failed after bounded diagnostics. kind={FailureKind}",
+                    exception.GetType().Name);
+            }
+            PublishManifestFailure(failure, effectiveGeneration, exception, attempts);
+        }
+        finally
+        {
+            lock (_loadLock)
+            {
+                _loadInProgress = false;
+            }
+        }
+    }
 
-                if (manifestDocument.RootElement.ValueKind != JsonValueKind.Object)
+    private ManifestAssetSnapshot? BuildManifestCandidate(
+        bool isDevelopment,
+        string? descriptorGeneration,
+        ManifestAssetSnapshot previousAssets)
+    {
+        SpaManifestDescriptor descriptor = ResolveDescriptor();
+        string manifestPath = descriptor.ManifestPath;
+        if (string.IsNullOrWhiteSpace(manifestPath) || !File.Exists(manifestPath))
+        {
+            throw new SpaManifestValidationException("spa_manifest_missing");
+        }
+
+        DateTime lastWrite = isDevelopment
+            ? File.GetLastWriteTimeUtc(manifestPath)
+            : DateTime.MaxValue;
+        if (isDevelopment
+            && lastWrite <= previousAssets.LastManifestWriteTime
+            && string.Equals(manifestPath, previousAssets.ManifestPath, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        try
+        {
+            using JsonDocument manifestDocument = JsonDocument.Parse(
+                File.ReadAllBytes(manifestPath),
+                new JsonDocumentOptions { AllowTrailingCommas = false, CommentHandling = JsonCommentHandling.Disallow });
+            var newRouteMap = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            var newManifest = new Dictionary<string, ManifestAsset>(StringComparer.OrdinalIgnoreCase);
+
+            if (manifestDocument.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                throw new SpaManifestValidationException("spa_manifest_schema_invalid");
+            }
+            foreach (JsonProperty entry in manifestDocument.RootElement.EnumerateObject())
+            {
+                string key = RequireManifestString(entry.Name, "key");
+                ManifestAsset asset = ParseManifestAsset(key, entry.Value);
+
+                if (!newManifest.TryAdd(key, asset))
                 {
                     throw new SpaManifestValidationException("spa_manifest_schema_invalid");
                 }
-                foreach (JsonProperty entry in manifestDocument.RootElement.EnumerateObject())
+                if (!string.IsNullOrWhiteSpace(asset.Name))
                 {
-                    string key = RequireManifestString(entry.Name, "key");
-                    ManifestAsset asset = ParseManifestAsset(key, entry.Value);
-
-                    if (!newManifest.TryAdd(key, asset))
+                    if (!newRouteMap.TryGetValue(asset.Name, out List<string>? routeAssets))
                     {
-                        throw new SpaManifestValidationException("spa_manifest_schema_invalid");
+                        routeAssets = [];
+                        newRouteMap[asset.Name] = routeAssets;
                     }
-                    if (!string.IsNullOrWhiteSpace(asset.Name))
+
+                    if (!string.IsNullOrWhiteSpace(asset.File))
                     {
-                        if (!newRouteMap.TryGetValue(asset.Name, out List<string>? routeAssets))
-                        {
-                            routeAssets = [];
-                            newRouteMap[asset.Name] = routeAssets;
-                        }
-
-                        if (!string.IsNullOrWhiteSpace(asset.File))
-                        {
-                            routeAssets.Add(asset.File);
-                        }
-
-                        routeAssets.AddRange(asset.Css);
+                        routeAssets.Add(asset.File);
                     }
+
+                    routeAssets.AddRange(asset.Css);
                 }
+            }
 
-                FrozenDictionary<string, ManifestAsset> manifestSnapshot = newManifest.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
-                ValidateRequiredEntryCatalog(manifestSnapshot);
-                ValidateImportGraph(manifestSnapshot);
-                ValidateManifestAssetBindings(manifestSnapshot, descriptor);
-                _manifestByKey = manifestSnapshot;
-                _routeAssetMap = newRouteMap.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
-                _manifestPath = manifestPath;
-                _indexTemplatePath = descriptor.IndexPath;
-                _lastManifestWriteTime = lastWrite;
-                _frontendAssetVersion = ComputeSemanticAssetVersion(manifestSnapshot, descriptor.IndexPath);
-                _publicAssetSet = CreatePublicAssetSet(manifestSnapshot, _frontendAssetVersion, pageId: null);
-                _manifestLoaded = !isDevelopment;
-                _readiness = SpaAssetManifestReadiness.Ready(descriptor);
-                _logger.LogInformation("SPA manifest loaded from {ManifestPath}. chunks={ChunkCount}", manifestPath, _manifestByKey.Count);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to load SPA asset manifest from {ManifestPath}", manifestPath);
-                SetManifestFailure(ex is SpaManifestValidationException validation
-                    ? validation.Code
-                    : "spa_manifest_parse_failed");
-            }
+            FrozenDictionary<string, ManifestAsset> manifestSnapshot = newManifest.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
+            ValidateRequiredEntryCatalog(manifestSnapshot);
+            ValidateImportGraph(manifestSnapshot);
+            ValidateManifestAssetBindings(manifestSnapshot, descriptor);
+            string frontendAssetVersion = ComputeSemanticAssetVersion(manifestSnapshot, descriptor.IndexPath);
+            return new ManifestAssetSnapshot(
+                newRouteMap.ToFrozenDictionary(
+                    static pair => pair.Key,
+                    static pair => (IReadOnlyList<string>)pair.Value.ToArray(),
+                    StringComparer.OrdinalIgnoreCase),
+                manifestSnapshot,
+                lastWrite,
+                manifestPath,
+                descriptor.IndexPath,
+                frontendAssetVersion,
+                CreatePublicAssetSet(manifestSnapshot, frontendAssetVersion, pageId: null),
+                descriptorGeneration ?? descriptor.DescriptorContentDigest,
+                descriptor.ManifestDigest,
+                descriptor,
+                IsReady: true);
+        }
+        catch (JsonException exception)
+        {
+            throw new ManifestParseException(exception);
         }
     }
 
@@ -475,19 +632,147 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         return candidates.FirstOrDefault(File.Exists) ?? string.Empty;
     }
 
-    private void SetManifestFailure(string error)
+    private void PublishManifestFailure(
+        string error,
+        string? descriptorGeneration,
+        Exception exception,
+        int attempts)
     {
-        _manifestByKey = FrozenDictionary<string, ManifestAsset>.Empty;
-        _routeAssetMap = FrozenDictionary<string, List<string>>.Empty;
-        _manifestPath = string.Empty;
-        _indexTemplatePath = string.Empty;
-        _frontendAssetVersion = _env.IsDevelopment()
+        lock (_loadLock)
+        {
+            ManifestAssetSnapshot servingAssets = Volatile.Read(ref _runtimeSnapshot).Assets;
+            string state = IsTerminalFailure(error, exception)
+                ? "terminal-failed"
+                : "retryable-failed";
+            var readiness = SpaAssetManifestReadiness.Failed(error) with
+            {
+                State = state,
+                DescriptorGeneration = descriptorGeneration,
+                LastFailureKind = error,
+                Attempts = attempts,
+                LoadedDigest = servingAssets.LoadedDigest
+            };
+            Volatile.Write(
+                ref _runtimeSnapshot,
+                new ManifestRuntimeSnapshot(servingAssets, readiness));
+            ScheduleNextProductionProbe(DateTime.UtcNow);
+        }
+    }
+
+    private ManifestAssetSnapshot CreateEmptyAssetSnapshot()
+    {
+        FrozenDictionary<string, ManifestAsset> emptyManifest = FrozenDictionary<string, ManifestAsset>.Empty;
+        string version = _env.IsDevelopment()
             ? ComputeFallbackAssetVersion()
             : "missing-manifest";
-        _publicAssetSet = CreatePublicAssetSet(_manifestByKey, _frontendAssetVersion, pageId: null);
-        _manifestLoaded = !_env.IsDevelopment();
-        _readiness = SpaAssetManifestReadiness.Failed(error);
+        SpaAssetSet emptyPublicAssets = _env.IsDevelopment()
+            ? CreatePublicAssetSet(emptyManifest, version, pageId: null)
+            : new SpaAssetSet(
+                string.Empty,
+                [],
+                [],
+                version,
+                UsesSourceAssets: false);
+        return new ManifestAssetSnapshot(
+            FrozenDictionary<string, IReadOnlyList<string>>.Empty,
+            emptyManifest,
+            DateTime.MinValue,
+            string.Empty,
+            string.Empty,
+            version,
+            emptyPublicAssets,
+            DescriptorGeneration: null,
+            LoadedDigest: null,
+            Descriptor: new SpaManifestDescriptor(
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                null,
+                null,
+                null),
+            IsReady: false);
     }
+
+    private TimeSpan GetAdmissionWindow()
+    {
+        int configuredMilliseconds = _configuration.GetValue<int?>(
+            "FSUSBLOG_SPA_MANIFEST_RETRY_ADMISSION_DEADLINE_MS") ?? 30_000;
+        return TimeSpan.FromMilliseconds(Math.Clamp(configuredMilliseconds, 100, 600_000));
+    }
+
+    private void ScheduleNextProductionProbe(DateTime now)
+    {
+        if (_env.IsDevelopment())
+        {
+            return;
+        }
+
+        int configuredMilliseconds = _configuration.GetValue<int?>("FSUSBLOG_SPA_MANIFEST_RETRY_INTERVAL_MS") ?? 1_000;
+        int boundedMilliseconds = Math.Clamp(configuredMilliseconds, 50, 30_000);
+        _nextProductionProbeUtc = now.AddMilliseconds(boundedMilliseconds);
+    }
+
+    private string? TryReadDescriptorGeneration()
+    {
+        try
+        {
+            string descriptorPath = _configuration["FSUSBLOG_SPA_MANIFEST_DESCRIPTOR"]
+                ?? Environment.GetEnvironmentVariable("FSUSBLOG_SPA_MANIFEST_DESCRIPTOR")
+                ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(descriptorPath) || !File.Exists(descriptorPath))
+            {
+                return null;
+            }
+
+            byte[] descriptorBytes = File.ReadAllBytes(descriptorPath);
+            try
+            {
+                using JsonDocument descriptor = JsonDocument.Parse(descriptorBytes);
+                if (descriptor.RootElement.ValueKind == JsonValueKind.Object
+                    && descriptor.RootElement.TryGetProperty("contentDigest", out JsonElement digest)
+                    && digest.ValueKind == JsonValueKind.String
+                    && !string.IsNullOrWhiteSpace(digest.GetString()))
+                {
+                    return digest.GetString();
+                }
+            }
+            catch (JsonException)
+            {
+                // A malformed descriptor still needs a stable observation so an
+                // atomically replaced descriptor can reopen admission.
+            }
+
+            return "sha256:" + Convert.ToHexStringLower(SHA256.HashData(descriptorBytes));
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    private static bool IsTerminalFailure(string error, Exception? exception)
+        => error is not (
+                "spa_manifest_missing"
+                or "spa_manifest_descriptor_missing"
+                or "spa_build_receipt_missing"
+                or "spa_asset_inventory_file_missing")
+            && exception is not (IOException or JsonException)
+            && (error.Contains("schema", StringComparison.Ordinal)
+            || error.Contains("identity", StringComparison.Ordinal)
+            || error.Contains("digest", StringComparison.Ordinal)
+            || error.Contains("authority", StringComparison.Ordinal)
+            || exception is SpaManifestValidationException);
 
     private static string ToStableFailureCode(Exception exception)
         => exception switch
@@ -915,4 +1200,24 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         IReadOnlyList<string> Imports,
         IReadOnlyList<string> DynamicImports,
         IReadOnlyList<string> Assets);
+
+    private sealed record ManifestAssetSnapshot(
+        FrozenDictionary<string, IReadOnlyList<string>> RouteAssetMap,
+        FrozenDictionary<string, ManifestAsset> ManifestByKey,
+        DateTime LastManifestWriteTime,
+        string ManifestPath,
+        string IndexTemplatePath,
+        string FrontendAssetVersion,
+        SpaAssetSet PublicAssetSet,
+        string? DescriptorGeneration,
+        string? LoadedDigest,
+        SpaManifestDescriptor Descriptor,
+        bool IsReady);
+
+    private sealed record ManifestRuntimeSnapshot(
+        ManifestAssetSnapshot Assets,
+        SpaAssetManifestReadiness Readiness);
+
+    private sealed class ManifestParseException(JsonException innerException)
+        : IOException("SPA manifest parse failed.", innerException);
 }
