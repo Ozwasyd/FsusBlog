@@ -5,8 +5,8 @@
 
 ASP.NET Core precedence remains: base appsettings < Production overlay < environment/Compose < explicit command line.
 
-- Application settings: 224
-- Tracked environment variables: 239
+- Application settings: 226
+- Tracked environment variables: 241
 - Mounted file classes: 4
 
 ## Application settings
@@ -96,6 +96,7 @@ ASP.NET Core precedence remains: base appsettings < Production overlay < environ
 | `FSUSBLOG_DRAIN_TIMEOUT_SECONDS` | `FSUSBLOG_DRAIN_TIMEOUT_SECONDS` | Release and deployment lifecycle setting: FSUSBLOG_DRAIN_TIMEOUT_SECONDS | `integer` | Production | optional: optional | no | environment; safe-non-secret-default | consumer: release identity and lifecycle validator | `<integer>` |
 | `FSUSBLOG_IMAGE_DIGEST` | `FSUSBLOG_IMAGE_DIGEST` | Release and deployment lifecycle setting: FSUSBLOG_IMAGE_DIGEST | `sha256` | Production | optional: optional | no | environment; safe-non-secret-default | consumer: release identity and lifecycle validator | `<64 lowercase hex characters>` |
 | `FSUSBLOG_IMAGE_REF` | `FSUSBLOG_IMAGE_REF` | Release and deployment lifecycle setting: FSUSBLOG_IMAGE_REF | `string` | Production | optional: optional | no | environment; safe-non-secret-default | consumer: release identity and lifecycle validator | `<value matching the declared type>` |
+| `FSUSBLOG_INSTANCE_STORAGE_ROOT` | `FSUSBLOG_INSTANCE_STORAGE_ROOT` | Release and deployment lifecycle setting: FSUSBLOG_INSTANCE_STORAGE_ROOT | `path` | Production | optional: optional | no | environment, mounted-file; safe-non-secret-default | consumer: release identity and lifecycle validator | `/mounted/operator/path` |
 | `FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE` | `FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE` | Release and deployment lifecycle setting: FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE | `string` | Production | optional: optional | no | environment; safe-non-secret-default | consumer: release identity and lifecycle validator | `<value matching the declared type>` |
 | `FSUSBLOG_PRODUCTION_BUILD_RECEIPT` | `FSUSBLOG_PRODUCTION_BUILD_RECEIPT` | Canonical retained production build receipt for SPA asset validation | `path` | Production | optional: optional | no | environment; safe-non-secret-default | consumer: SpaAssetManifestService | `/mounted/operator/path` |
 | `FSUSBLOG_RELEASE_ASSET_ROOT` | `FSUSBLOG_RELEASE_ASSET_ROOT` | Release and deployment lifecycle setting: FSUSBLOG_RELEASE_ASSET_ROOT | `path` | Production | optional: optional | no | environment, mounted-file; safe-non-secret-default | consumer: release identity and lifecycle validator | `/mounted/operator/path` |
@@ -103,6 +104,7 @@ ASP.NET Core precedence remains: base appsettings < Production overlay < environ
 | `FSUSBLOG_RELEASE_ID` | `FSUSBLOG_RELEASE_ID` | Release and deployment lifecycle setting: FSUSBLOG_RELEASE_ID | `string` | Production | optional: optional | no | environment; safe-non-secret-default | consumer: release identity and lifecycle validator | `<value matching the declared type>` |
 | `FSUSBLOG_RELEASE_MANIFEST_PATH` | `FSUSBLOG_RELEASE_MANIFEST_PATH` | Release and deployment lifecycle setting: FSUSBLOG_RELEASE_MANIFEST_PATH | `path` | Production | optional: optional | no | environment; safe-non-secret-default | consumer: release identity and lifecycle validator | `/mounted/operator/path` |
 | `FSUSBLOG_RELEASE_SLOT` | `FSUSBLOG_RELEASE_SLOT` | Release and deployment lifecycle setting: FSUSBLOG_RELEASE_SLOT | `string` | Production | optional: optional | no | environment; safe-non-secret-default | consumer: release identity and lifecycle validator | `<value matching the declared type>` |
+| `FSUSBLOG_SHARED_STORAGE_ROOT` | `FSUSBLOG_SHARED_STORAGE_ROOT` | Release and deployment lifecycle setting: FSUSBLOG_SHARED_STORAGE_ROOT | `path` | Production | optional: optional | no | environment, mounted-file; safe-non-secret-default | consumer: release identity and lifecycle validator | `/mounted/operator/path` |
 | `FSUSBLOG_SPA_MANIFEST_DESCRIPTOR` | `FSUSBLOG_SPA_MANIFEST_DESCRIPTOR` | Canonical immutable SPA manifest descriptor for the current release | `path` | Production | optional: optional | no | environment; safe-non-secret-default | consumer: SpaAssetManifestService | `/mounted/operator/path` |
 | `HumanReadProof:Dedup:CurrentKey` | `HumanReadProof__Dedup__CurrentKey` | Privacy-preserving read and visit controls setting: CurrentKey | `secret-string` | Development, Production | required: Production | yes | environment, repository-base, repository-production-overlay, secret-store; known-development-fixture-only; Production overlay must be empty | startup: ProductionStartupValidator | `<external secret; never a usable tracked value>` |
 | `HumanReadProof:Dedup:CurrentKeyEpoch` | `HumanReadProof__Dedup__CurrentKeyEpoch` | Privacy-preserving read and visit controls setting: CurrentKeyEpoch | `integer` | Development, Production | required: Production | no | environment, repository-base, repository-production-overlay; safe-non-secret-default | startup: ProductionStartupValidator | `<integer>` |
@@ -337,6 +339,7 @@ ASP.NET Core precedence remains: base appsettings < Production overlay < environ
 | `FSUSBLOG_GREEN_PORT` | deployment-control | release-lifecycle | None | no | `.env.production.example`, `tools/deploy-production.sh`, `tools/deployment/release-rollout-recovery.sh`, `tools/deployment/release-rollout.sh`, `tools/deployment/slot-common.sh`, `tools/deployment/zero-downtime-rehearsal.sh`, `tools/deployment/zero-downtime-topology.sh` |
 | `FSUSBLOG_IMAGE_DIGEST` | release-identity | release-lifecycle | `FSUSBLOG_IMAGE_DIGEST` | no | `ops/docker/docker-compose.production.yml` |
 | `FSUSBLOG_IMAGE_REF` | release-identity | release-lifecycle | `FSUSBLOG_IMAGE_REF` | no | `ops/docker/docker-compose.production.yml`, `tools/deploy-production.sh` |
+| `FSUSBLOG_INSTANCE_STORAGE_ROOT` | application-configuration | release-lifecycle | `FSUSBLOG_INSTANCE_STORAGE_ROOT` | no | `ops/docker/docker-compose.production.yml` |
 | `FSUSBLOG_INTERNAL_SLOT_OPERATION` | deployment-control | release-lifecycle | None | no | `tools/deploy-production.sh` |
 | `FSUSBLOG_MIGRATION_SERVER_DLL` | deployment-control | release-lifecycle | None | no | `tools/deployment/release-rollout.sh` |
 | `FSUSBLOG_OPENRESTY_BIN` | deployment-control | release-lifecycle | None | no | `tools/deployment/gateway-recover.sh`, `tools/deployment/gateway-switch.sh`, `tools/deployment/zero-downtime-rehearsal.sh` |
@@ -410,8 +413,9 @@ ASP.NET Core precedence remains: base appsettings < Production overlay < environ
 | `FSUSBLOG_ROLLOUT_WORKER_RECONCILIATION_EVIDENCE` | deployment-control | release-lifecycle | None | no | `tools/deployment/release-rollout.sh` |
 | `FSUSBLOG_SCHEMA_QUALIFICATION_ENABLED` | deployment-control | release-lifecycle | `SchemaMigration:QualificationEnabled` | no | `ops/docker/docker-compose.production.yml` |
 | `FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME` | deployment-control | release-lifecycle | None | no | `.env.production.example`, `ops/docker/docker-compose.production.yml` |
+| `FSUSBLOG_SHARED_PUBLIC_ASSETS_VOLUME` | deployment-control | release-lifecycle | None | no | `.env.production.example`, `ops/docker/docker-compose.production.yml` |
 | `FSUSBLOG_SHARED_RELEASE_DERIVED_VOLUME` | deployment-control | release-lifecycle | None | no | `.env.production.example`, `ops/docker/docker-compose.production.yml` |
-| `FSUSBLOG_SHARED_UPLOADS_VOLUME` | deployment-control | release-lifecycle | None | no | `.env.production.example`, `ops/docker/docker-compose.production.yml` |
+| `FSUSBLOG_SHARED_STORAGE_ROOT` | application-configuration | release-lifecycle | `FSUSBLOG_SHARED_STORAGE_ROOT` | no | `ops/docker/docker-compose.production.yml` |
 | `FSUSBLOG_SLOT_AOT_CACHE_VOLUME` | deployment-control | release-lifecycle | None | no | `ops/docker/docker-compose.production.yml` |
 | `FSUSBLOG_SLOT_CPU_LIMIT` | deployment-control | release-lifecycle | None | no | `ops/docker/docker-compose.production.yml` |
 | `FSUSBLOG_SLOT_CPU_RESERVATION` | deployment-control | release-lifecycle | None | no | `ops/docker/docker-compose.production.yml` |

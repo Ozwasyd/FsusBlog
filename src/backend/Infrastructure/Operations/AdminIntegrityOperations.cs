@@ -5,6 +5,7 @@ using System.Text;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Models.Dtos;
 
 using SqlSugar;
@@ -22,7 +23,7 @@ public interface IAdminIntegrityOperations
 
 internal sealed class AdminIntegrityOperations(
     ISqlSugarClient db,
-    IWebHostEnvironment environment) : IAdminIntegrityOperations
+    ReleaseStoragePaths storagePaths) : IAdminIntegrityOperations
 {
     private const string IntegrityFixPhrase = "APPLY_SAFE_FIXES";
     private const int MaxUntrackedUploadScanFiles = 10_000;
@@ -267,7 +268,7 @@ internal sealed class AdminIntegrityOperations(
     private async Task<IntegrityCheckSample> BuildUntrackedUploadsCheckAsync(CancellationToken cancellationToken)
     {
         long started = Stopwatch.GetTimestamp();
-        string uploadRoot = Path.Combine(ResolveWebRoot(), "uploads");
+        string uploadRoot = storagePaths.PublicAssetRoot;
         if (!Directory.Exists(uploadRoot))
         {
             IntegrityCheckSample empty = new(0, []);
@@ -308,13 +309,13 @@ internal sealed class AdminIntegrityOperations(
             .Where(asset => asset.Url.StartsWith("/uploads/"))
             .Select(asset => new IntegrityAssetRow { Id = asset.Id, Url = asset.Url })
             .ToListAsync(cancellationToken);
-        string webRoot = ResolveWebRoot();
+        string publicAssetRoot = storagePaths.PublicAssetRoot;
         var samples = new List<string>(10);
         int count = 0;
         foreach (IntegrityAssetRow asset in assets)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryResolveUploadPath(webRoot, asset.Url, out string path) || !File.Exists(path))
+            if (!TryResolveUploadPath(publicAssetRoot, asset.Url, out string path) || !File.Exists(path))
             {
                 count++;
                 if (samples.Count < 10)
@@ -410,7 +411,7 @@ internal sealed class AdminIntegrityOperations(
         List<IntegritySessionRow> sessions = await sessionsTask;
         List<IntegrityAssetRow> assets = await assetsTask;
 
-        string webRoot = ResolveWebRoot();
+        string publicAssetRoot = storagePaths.PublicAssetRoot;
 
         return new IntegrityData(
             articles,
@@ -423,7 +424,7 @@ internal sealed class AdminIntegrityOperations(
             users,
             sessions,
             assets,
-            webRoot);
+            publicAssetRoot);
     }
 
     private static IReadOnlyList<string> MissingBody(IntegrityData data)
@@ -478,13 +479,13 @@ internal sealed class AdminIntegrityOperations(
     private static IReadOnlyList<string> MissingAssetFiles(IntegrityData data)
         => data.Assets
             .Where(asset => IsUploadUrl(asset.Url) &&
-                (!TryResolveUploadPath(data.WebRoot, asset.Url, out string path) || !File.Exists(path)))
+                (!TryResolveUploadPath(data.PublicAssetRoot, asset.Url, out string path) || !File.Exists(path)))
             .Select(asset => $"asset:{asset.Id}:{asset.Url}")
             .ToArray();
 
     private static IReadOnlyList<string> UntrackedUploads(IntegrityData data)
     {
-        string uploadRoot = Path.Combine(data.WebRoot, "uploads");
+        string uploadRoot = data.PublicAssetRoot;
         if (!Directory.Exists(uploadRoot))
         {
             return [];
@@ -729,7 +730,7 @@ internal sealed class AdminIntegrityOperations(
         }
     }
 
-    private static bool TryResolveUploadPath(string webRoot, string url, out string path)
+    private static bool TryResolveUploadPath(string publicAssetRoot, string url, out string path)
     {
         path = string.Empty;
         if (string.IsNullOrWhiteSpace(url))
@@ -744,17 +745,11 @@ internal sealed class AdminIntegrityOperations(
             return false;
         }
 
-        string uploadRoot = Path.GetFullPath(Path.Combine(webRoot, "uploads"));
         return CanonicalPathBoundary.TryResolveRelative(
-            uploadRoot,
+            publicAssetRoot,
             normalizedUrl[UploadPrefix.Length..],
             out path);
     }
-
-    private string ResolveWebRoot()
-        => string.IsNullOrWhiteSpace(environment.WebRootPath)
-            ? Path.Combine(AppContext.BaseDirectory, "wwwroot")
-            : environment.WebRootPath;
 
     private sealed record IntegrityData(
         List<IntegrityArticleRow> Articles,
@@ -767,7 +762,7 @@ internal sealed class AdminIntegrityOperations(
         List<IntegrityUserRow> Users,
         List<IntegritySessionRow> Sessions,
         List<IntegrityAssetRow> Assets,
-        string WebRoot)
+        string PublicAssetRoot)
     {
         public HashSet<int> ArticleIds { get; } = Articles.Select(static item => item.Id).ToHashSet();
         public HashSet<int> BodyArticleIds { get; } = Bodies.Select(static item => item.ArticleId).ToHashSet();

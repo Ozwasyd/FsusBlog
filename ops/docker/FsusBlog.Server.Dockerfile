@@ -32,8 +32,8 @@ USER root
 RUN apk add --no-cache curl icu-data-full icu-libs krb5-libs libstdc++
 COPY --from=node-runtime-musl /usr/local/bin/node /usr/local/bin/node
 RUN test "$(node --version)" = "v${NODE_VERSION}" && ! command -v npm
-RUN mkdir -p /app/wwwroot/uploads /app/Dictionaries /app/release-assets /app/release-derived && \
-    chown -R $APP_UID:$APP_UID /app/wwwroot/uploads /app/Dictionaries /app/release-assets /app/release-derived
+RUN mkdir -p /app/storage/shared/assets /app/storage/instances /app/Dictionaries /app/release-assets /app/release-derived && \
+    chown -R $APP_UID:$APP_UID /app/storage /app/Dictionaries /app/release-assets /app/release-derived
 
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 ENV PATH="${PATH}:/usr/bin:/usr/share/dotnet"
@@ -61,8 +61,8 @@ USER root
 RUN apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates curl libatomic1 libicu74 libkrb5-3 libstdc++6 && \
     rm -rf /var/lib/apt/lists/* && \
-    mkdir -p /app/wwwroot/uploads /app/Dictionaries /app/release-assets /app/release-derived && \
-    chown -R $APP_UID:$APP_UID /app/wwwroot/uploads /app/Dictionaries /app/release-assets /app/release-derived
+    mkdir -p /app/storage/shared/assets /app/storage/instances /app/Dictionaries /app/release-assets /app/release-derived && \
+    chown -R $APP_UID:$APP_UID /app/storage /app/Dictionaries /app/release-assets /app/release-derived
 COPY --from=node-runtime-glibc /usr/local/bin/node /usr/local/bin/node
 RUN test "$(node --version)" = "v${NODE_VERSION}" && ! command -v npm
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false

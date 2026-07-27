@@ -32,23 +32,23 @@ public sealed partial class FileService : IFileService
     private const int ManifestFlushPartInterval = 8;
     private const string WorkingUploadFileName = "upload.tmp";
     private const string UploadPartBitmapFileName = "parts.bitmap";
-    private const string UploadCommitTempDirectoryName = ".incoming";
     private const string ExpirationIndexDirectoryName = "expires";
+    private const string ExpirationIndexOwnerFileName = "expiration.bucket";
     private const string ExpirationBucketFormat = "yyyyMMddHH";
     private static readonly TimeSpan s_sessionTtl = TimeSpan.FromHours(6);
     private static readonly TimeSpan s_sessionLockTtl = TimeSpan.FromHours(6);
     private static readonly TimeSpan s_uploadCommitTempRetention = TimeSpan.FromHours(24);
     private static readonly TimeSpan s_uploadCommitTempCleanupLeaseTtl = TimeSpan.FromMinutes(2);
 
-    private readonly IWebHostEnvironment _env;
     private readonly ILogger<FileService> _logger;
-    private readonly string _subFolder;
+    private readonly ReleaseStoragePaths _storagePaths;
     private readonly string _folderPath;
     private readonly string _cleanSubFolderWeb;
     private readonly string _sandboxAbsolutePath;
     private readonly string _sessionRootPath;
     private readonly string _sessionRootAbsolutePath;
     private readonly string _expirationIndexRootPath;
+    private readonly string _uploadCommitRootPath;
     private readonly UploadSessionCleanupQueue? _cleanupQueue;
 
     private static readonly string[] s_allowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".ico"];
@@ -56,21 +56,20 @@ public sealed partial class FileService : IFileService
     private static readonly ConcurrentDictionary<string, SessionLockEntry> s_sessionLocks = new(StringComparer.Ordinal);
 
     public FileService(
-        IWebHostEnvironment env,
+        ReleaseStoragePaths storagePaths,
         ILogger<FileService> logger,
         UploadSessionCleanupQueue? cleanupQueue = null)
     {
-        _env = env;
+        ArgumentNullException.ThrowIfNull(storagePaths);
+        _storagePaths = storagePaths;
         _logger = logger;
         _cleanupQueue = cleanupQueue;
-        _subFolder = Path.Combine("uploads", "illustration");
-
-        string webRoot = _env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
-        _folderPath = Path.Combine(webRoot, _subFolder);
-        _sessionRootPath = Path.GetFullPath(Path.Combine(_env.ContentRootPath, ".upload-sessions"));
+        _folderPath = Path.Combine(storagePaths.PublicAssetRoot, "illustration");
+        _sessionRootPath = storagePaths.UploadSessionRoot;
+        _uploadCommitRootPath = storagePaths.UploadCommitRoot;
         _expirationIndexRootPath = Path.Combine(_sessionRootPath, ExpirationIndexDirectoryName);
 
-        string absPath = Path.GetFullPath(_folderPath);
+        string absPath = _folderPath;
         _sandboxAbsolutePath = absPath.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal)
             ? absPath
             : absPath + Path.DirectorySeparatorChar;
@@ -78,12 +77,14 @@ public sealed partial class FileService : IFileService
             ? _sessionRootPath
             : _sessionRootPath + Path.DirectorySeparatorChar;
 
-        _cleanSubFolderWeb = "/" + _subFolder.Trim('/', '\\').Replace('\\', '/');
+        _cleanSubFolderWeb = "/uploads/illustration";
 
         Directory.CreateDirectory(_folderPath);
         EnsureRestrictedDirectory(_sessionRootPath);
         EnsureRestrictedDirectory(_expirationIndexRootPath);
     }
+
+    internal ReleaseStoragePaths StoragePaths => _storagePaths;
 
     public async Task<FileUploadResult> UploadImageAsync(IFormFile file)
     {
@@ -551,7 +552,7 @@ public sealed partial class FileService : IFileService
                 return commit;
             }
 
-            await DeleteSessionDirectoryAsync(normalizedUploadId);
+            await DeleteSessionDirectoryAsync(normalizedUploadId, record.ExpiresAt);
             return commit;
         }
         finally
@@ -684,24 +685,7 @@ public sealed partial class FileService : IFileService
     }
 
     private string GetUploadCommitTempRoot()
-    {
-        string slot = NormalizeStorageIdentity(Environment.GetEnvironmentVariable("FSUSBLOG_RELEASE_SLOT"), "local");
-        string release = NormalizeStorageIdentity(Environment.GetEnvironmentVariable("FSUSBLOG_RELEASE_ID"), "development");
-        string generation = NormalizeStorageIdentity(
-            Environment.GetEnvironmentVariable("FSUSBLOG_DEPLOYMENT_GENERATION"),
-            Environment.ProcessId.ToString(CultureInfo.InvariantCulture));
-        return Path.Combine(_folderPath, UploadCommitTempDirectoryName, $"{slot}-{release}-{generation}-{Environment.ProcessId}");
-    }
-
-    private static string NormalizeStorageIdentity(string? value, string fallback)
-    {
-        string candidate = string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
-        return candidate.Length <= 128
-            && candidate.All(static character => char.IsAsciiLetterOrDigit(character)
-                || character is '.' or '_' or '-')
-            ? candidate
-            : fallback;
-    }
+        => Path.Combine(_uploadCommitRootPath, "current");
 
     private static string MimeTypeForExtension(string extension)
         => extension.ToLowerInvariant() switch
@@ -933,9 +917,22 @@ public sealed partial class FileService : IFileService
         return sessionPath;
     }
 
-    private string GetExpirationBucketPath(DateTime expiresAtUtc)
+    private static string GetExpirationBucketName(DateTime expiresAtUtc)
+        => expiresAtUtc.ToUniversalTime().ToString(ExpirationBucketFormat, CultureInfo.InvariantCulture);
+
+    private string GetExpirationBucketPath(string bucket)
     {
-        string bucket = expiresAtUtc.ToUniversalTime().ToString(ExpirationBucketFormat, CultureInfo.InvariantCulture);
+        if (!DateTime.TryParseExact(
+                bucket,
+                ExpirationBucketFormat,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                out DateTime parsed)
+            || !string.Equals(bucket, GetExpirationBucketName(parsed), StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Upload expiration bucket owner is invalid.");
+        }
+
         string bucketPath = Path.GetFullPath(Path.Combine(_expirationIndexRootPath, bucket));
         if (!IsPathUnderSessionRoot(bucketPath))
         {
@@ -944,6 +941,9 @@ public sealed partial class FileService : IFileService
 
         return bucketPath;
     }
+
+    private string GetExpirationBucketPath(DateTime expiresAtUtc)
+        => GetExpirationBucketPath(GetExpirationBucketName(expiresAtUtc));
 
     private string GetExpirationIndexPath(string uploadId, DateTime expiresAtUtc)
     {
@@ -964,35 +964,108 @@ public sealed partial class FileService : IFileService
 
     private async Task WriteExpirationIndexAsync(UploadSessionRecord record, CancellationToken cancellationToken)
     {
+        string bucket = GetExpirationBucketName(record.ExpiresAt);
+        _ = TryReadExpirationIndexOwner(record.UploadId, out string? previousBucket);
         string indexPath = GetExpirationIndexPath(record.UploadId, record.ExpiresAt);
         EnsureRestrictedDirectory(Path.GetDirectoryName(indexPath)!);
         await File.WriteAllBytesAsync(indexPath, Array.Empty<byte>(), cancellationToken);
         RestrictFile(indexPath);
+        await WriteExpirationIndexOwnerAsync(record.UploadId, bucket, cancellationToken);
+        if (previousBucket is not null && !string.Equals(previousBucket, bucket, StringComparison.Ordinal))
+        {
+            File.Delete(GetExpirationIndexPath(record.UploadId, previousBucket));
+        }
     }
 
-    private void DeleteExpirationIndexes(string uploadId)
+    private string GetExpirationIndexPath(string uploadId, string bucket)
     {
-        if (!Directory.Exists(_expirationIndexRootPath)
-            || !TryNormalizeUploadId(uploadId, out string normalizedUploadId))
+        if (!TryNormalizeUploadId(uploadId, out string normalizedUploadId)
+            || !string.Equals(uploadId, normalizedUploadId, StringComparison.Ordinal))
         {
+            throw new InvalidOperationException("Upload session id is invalid.");
+        }
+
+        string indexPath = Path.GetFullPath(Path.Combine(GetExpirationBucketPath(bucket), normalizedUploadId));
+        if (!IsPathUnderSessionRoot(indexPath))
+        {
+            throw new InvalidOperationException("upload expiration index path escaped sandbox.");
+        }
+
+        return indexPath;
+    }
+
+    private string GetExpirationIndexOwnerPath(string uploadId)
+        => GetSessionChildPath(uploadId, ExpirationIndexOwnerFileName);
+
+    private bool TryReadExpirationIndexOwner(string uploadId, out string? bucket)
+    {
+        bucket = null;
+        string ownerPath = GetExpirationIndexOwnerPath(uploadId);
+        if (!File.Exists(ownerPath))
+        {
+            return false;
+        }
+
+        try
+        {
+            string candidate = File.ReadAllText(ownerPath).Trim();
+            _ = GetExpirationBucketPath(candidate);
+            bucket = candidate;
+            return true;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    private async Task WriteExpirationIndexOwnerAsync(
+        string uploadId,
+        string bucket,
+        CancellationToken cancellationToken)
+    {
+        string ownerPath = GetExpirationIndexOwnerPath(uploadId);
+        string tempPath = Path.Combine(
+            Path.GetDirectoryName(ownerPath)!,
+            $"{ExpirationIndexOwnerFileName}.{Path.GetRandomFileName()}.tmp");
+        byte[] payload = Encoding.ASCII.GetBytes(bucket);
+        try
+        {
+            await using (var stream = new FileStream(tempPath, CreatePrivateWriteOptions(FileMode.CreateNew)))
+            {
+                await stream.WriteAsync(payload, cancellationToken);
+                await stream.FlushAsync(cancellationToken);
+                stream.Flush(flushToDisk: true);
+            }
+
+            if (File.Exists(ownerPath))
+            {
+                File.Replace(tempPath, ownerPath, null);
+            }
+            else
+            {
+                File.Move(tempPath, ownerPath);
+            }
+
+            RestrictFile(ownerPath);
+        }
+        finally
+        {
+            File.Delete(tempPath);
+        }
+    }
+
+    private void DeleteOwnedExpirationIndex(string uploadId, DateTime? knownExpiresAtUtc)
+    {
+        if (TryReadExpirationIndexOwner(uploadId, out string? bucket))
+        {
+            File.Delete(GetExpirationIndexPath(uploadId, bucket!));
             return;
         }
 
-        foreach (string bucketPath in Directory.EnumerateDirectories(_expirationIndexRootPath))
+        if (knownExpiresAtUtc.HasValue)
         {
-            string fullBucketPath = Path.GetFullPath(bucketPath);
-            if (!IsPathUnderSessionRoot(fullBucketPath))
-            {
-                continue;
-            }
-
-            string indexPath = Path.Combine(fullBucketPath, normalizedUploadId);
-            if (File.Exists(indexPath))
-            {
-                File.Delete(indexPath);
-            }
-
-            DeleteDirectoryIfEmpty(fullBucketPath);
+            File.Delete(GetExpirationIndexPath(uploadId, knownExpiresAtUtc.Value));
         }
     }
 
@@ -1201,7 +1274,7 @@ public sealed partial class FileService : IFileService
             || !string.Equals(recordUploadId, uploadId, StringComparison.Ordinal)
             || record.ExpiresAt <= DateTime.UtcNow)
         {
-            await DeleteSessionDirectoryAsync(uploadId);
+            await DeleteSessionDirectoryAsync(uploadId, record?.ExpiresAt);
             return null;
         }
 
@@ -1622,7 +1695,6 @@ public sealed partial class FileService : IFileService
         long started = Stopwatch.GetTimestamp();
         long scannedSessions = 0;
         long deletedSessions = 0;
-        var deletedUploadIds = new List<string>();
         if (!Directory.Exists(_sessionRootPath))
         {
             await CleanupUploadCommitTempsAsync(beforeCommit, cancellationToken).ConfigureAwait(false);
@@ -1666,9 +1738,12 @@ public sealed partial class FileService : IFileService
                     $"cleanup-upload-session:{sessionPath}");
                 if (shouldDelete)
                 {
+                    // Owner file (and optional known expiry) gives O(1) exact index delete before
+                    // the session directory is removed. Also drop the current bucket entry when
+                    // the owner pointed at a different bucket (stale multi-bucket residue).
                     await DeleteSessionDirectoryAsync(
                         normalizedUploadId,
-                        deleteIndexes: false,
+                        deleteExpirationIndex: true,
                         beforeCommit: beforeCommit,
                         cancellationToken: cancellationToken);
                     if (File.Exists(indexPath))
@@ -1677,7 +1752,6 @@ public sealed partial class FileService : IFileService
                         File.Delete(indexPath);
                     }
 
-                    deletedUploadIds.Add(normalizedUploadId);
                     deletedSessions++;
                     continue;
                 }
@@ -1695,12 +1769,6 @@ public sealed partial class FileService : IFileService
 
             await EnsureCleanupCommitBoundaryAsync(beforeCommit, cancellationToken).ConfigureAwait(false);
             DeleteDirectoryIfEmpty(bucketPath);
-        }
-
-        foreach (string uploadId in deletedUploadIds)
-        {
-            await EnsureCleanupCommitBoundaryAsync(beforeCommit, cancellationToken).ConfigureAwait(false);
-            DeleteExpirationIndexes(uploadId);
         }
 
         FsusObservability.RecordUploadSessionCleanup(scannedSessions, deletedSessions, Stopwatch.GetElapsedTime(started));
@@ -1721,11 +1789,10 @@ public sealed partial class FileService : IFileService
         Func<CancellationToken, Task>? beforeCommit,
         CancellationToken cancellationToken)
     {
-        string incomingRoot = Path.Combine(_folderPath, UploadCommitTempDirectoryName);
-        string currentInstanceDirectoryName = Path.GetFileName(GetUploadCommitTempRoot());
+        const string CurrentInstanceDirectoryName = "current";
         await using UploadCommitTempCleanupLease? lease = await UploadCommitTempCleanupLease.TryAcquireAsync(
-            incomingRoot,
-            currentInstanceDirectoryName,
+            _uploadCommitRootPath,
+            CurrentInstanceDirectoryName,
             s_uploadCommitTempCleanupLeaseTtl,
             cancellationToken).ConfigureAwait(false);
         if (lease is null)
@@ -1734,7 +1801,7 @@ public sealed partial class FileService : IFileService
         }
 
         await lease.ExecuteAsync(
-            currentInstanceDirectoryName,
+            CurrentInstanceDirectoryName,
             DateTimeOffset.UtcNow.Subtract(s_uploadCommitTempRetention),
             dryRun: false,
             beforeDelete: async (_, commitToken) =>
@@ -1792,7 +1859,8 @@ public sealed partial class FileService : IFileService
 
     private async Task DeleteSessionDirectoryAsync(
         string uploadId,
-        bool deleteIndexes = true,
+        DateTime? knownExpiresAtUtc = null,
+        bool deleteExpirationIndex = true,
         Func<CancellationToken, Task>? beforeCommit = null,
         CancellationToken cancellationToken = default)
     {
@@ -1803,10 +1871,10 @@ public sealed partial class FileService : IFileService
 
         uploadId = normalizedUploadId;
         string sessionPath = GetSessionPath(uploadId);
-        if (deleteIndexes)
+        if (deleteExpirationIndex)
         {
             await EnsureCleanupCommitBoundaryAsync(beforeCommit, cancellationToken).ConfigureAwait(false);
-            DeleteExpirationIndexes(uploadId);
+            DeleteOwnedExpirationIndex(uploadId, knownExpiresAtUtc);
         }
 
         if (Directory.Exists(sessionPath))

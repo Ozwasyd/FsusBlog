@@ -14,7 +14,10 @@ public enum ReleaseStorageClass
 
 public sealed record ReleaseStoragePaths(
     string SharedRoot,
-    string UploadsRoot,
+    string PublicAssetRoot,
+    string PrivateAssetRoot,
+    string UploadSessionRoot,
+    string UploadCommitRoot,
     string DataProtectionKeyRingRoot,
     string ReleaseDerivedRoot,
     string PublicAotRoot,
@@ -58,7 +61,8 @@ public sealed class ReleaseStorageLayout
         string instanceBase,
         string releaseId,
         string slot,
-        string instanceId)
+        string instanceId,
+        string? webRoot = null)
     {
         ReleaseId = NormalizeReleaseId(releaseId, nameof(releaseId));
         Slot = NormalizeIdentity(slot, nameof(slot));
@@ -72,10 +76,16 @@ public sealed class ReleaseStorageLayout
         string releaseDerivedRoot = Descendant(_releaseDerivedBase, ReleaseId);
         string immutableAssetRoot = Descendant(normalizedImmutableAssetBase, ReleaseId);
         string instanceRoot = Descendant(normalizedInstanceBase, Slot, ReleaseId, InstanceId);
+        string normalizedWebRoot = NormalizeRoot(
+            webRoot ?? Path.Combine(AppContext.BaseDirectory, "wwwroot"),
+            nameof(webRoot));
 
         Paths = new ReleaseStoragePaths(
             normalizedSharedRoot,
-            Descendant(normalizedSharedRoot, "uploads"),
+            Descendant(normalizedSharedRoot, "assets", "public"),
+            Descendant(normalizedSharedRoot, "assets", "private"),
+            Descendant(instanceRoot, "upload-sessions"),
+            Descendant(instanceRoot, "upload-commit"),
             Descendant(normalizedSharedRoot, "data-protection", "keyring"),
             releaseDerivedRoot,
             Descendant(releaseDerivedRoot, "public-aot"),
@@ -90,7 +100,11 @@ public sealed class ReleaseStorageLayout
             Descendant(instanceRoot, "tmp"),
             Descendant(instanceRoot, "runtime-snapshots"));
 
-        EnsureDisjointRoots(Paths);
+        EnsureDisjointRoots(
+            Paths,
+            normalizedWebRoot,
+            normalizedImmutableAssetBase,
+            _releaseDerivedBase);
     }
 
     public string ReleaseId
@@ -244,11 +258,20 @@ public sealed class ReleaseStorageLayout
     private static bool IsDescendantOf(string candidate, string root)
     {
         string normalizedRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
-        string prefix = normalizedRoot + Path.DirectorySeparatorChar;
-        return candidate.StartsWith(prefix, PathComparison);
+        string normalizedCandidate = Path.TrimEndingDirectorySeparator(Path.GetFullPath(candidate));
+        string relative = Path.GetRelativePath(normalizedRoot, normalizedCandidate);
+        return relative.Length > 0
+            && !string.Equals(relative, ".", StringComparison.Ordinal)
+            && !string.Equals(relative, "..", StringComparison.Ordinal)
+            && !relative.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+            && !Path.IsPathRooted(relative);
     }
 
-    private static void EnsureDisjointRoots(ReleaseStoragePaths paths)
+    private static void EnsureDisjointRoots(
+        ReleaseStoragePaths paths,
+        string webRoot,
+        string immutableAssetBase,
+        string releaseDerivedBase)
     {
         string[] roots =
         [
@@ -270,7 +293,47 @@ public sealed class ReleaseStorageLayout
                 }
             }
         }
+
+        string[] assetRoots =
+        [
+            paths.PublicAssetRoot,
+            paths.PrivateAssetRoot,
+            paths.UploadSessionRoot,
+            paths.UploadCommitRoot
+        ];
+        string[] protectedRoots = [webRoot, immutableAssetBase, releaseDerivedBase];
+        EnsurePairwiseDisjoint(assetRoots, "Public, private, upload-session and upload-commit roots must not overlap.");
+        foreach (string assetRoot in assetRoots)
+        {
+            foreach (string protectedRoot in protectedRoots)
+            {
+                if (PathsOverlap(assetRoot, protectedRoot))
+                {
+                    throw new InvalidOperationException(
+                        "Asset storage roots must not overlap WebRoot, release-assets or release-derived storage.");
+                }
+            }
+        }
     }
+
+    private static void EnsurePairwiseDisjoint(string[] roots, string message)
+    {
+        for (int left = 0; left < roots.Length; left++)
+        {
+            for (int right = left + 1; right < roots.Length; right++)
+            {
+                if (PathsOverlap(roots[left], roots[right]))
+                {
+                    throw new InvalidOperationException(message);
+                }
+            }
+        }
+    }
+
+    private static bool PathsOverlap(string left, string right)
+        => string.Equals(left, right, PathComparison)
+            || IsDescendantOf(left, right)
+            || IsDescendantOf(right, left);
 
     private static string NormalizeSha256(string value, string parameterName)
     {

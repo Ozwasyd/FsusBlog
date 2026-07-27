@@ -326,8 +326,8 @@ public sealed class AuthorizationAccessControlHardeningTests
             "TryNormalizeImageDeletePath",
             BindingFlags.Static | BindingFlags.NonPublic)!;
 
-        AssertNormalized(normalize, "/uploads/illustration/example.webp", "wwwroot/uploads/illustration/example.webp");
-        AssertNormalized(normalize, "https://example.test/uploads/illustration/example.webp", "wwwroot/uploads/illustration/example.webp");
+        AssertNormalized(normalize, "/uploads/illustration/example.webp", "/uploads/illustration/example.webp");
+        AssertNormalized(normalize, "https://example.test/uploads/illustration/example.webp", "/uploads/illustration/example.webp");
         AssertRejected(normalize, "/uploads/illustration\\example.webp");
         AssertRejected(normalize, "/uploads/illustration/example:alternate.webp");
         AssertRejected(normalize, "/uploads/avatar/example.webp");

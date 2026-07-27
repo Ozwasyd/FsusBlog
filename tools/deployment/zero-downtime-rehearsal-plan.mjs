@@ -1150,7 +1150,7 @@ function assertTestEnvironment(file, publicUrl) {
   for (const name of ['FSUSBLOG_REHEARSAL_POSTGRES_IMAGE', 'FSUSBLOG_REHEARSAL_REDIS_IMAGE', 'FSUSBLOG_REHEARSAL_OPENRESTY_IMAGE']) {
     if (!/^[^\s@]+@sha256:[0-9a-f]{64}$/u.test(entries.get(name) ?? '')) fail(`envFile ${name} must be an immutable repository digest`)
   }
-  for (const name of ['FSUSBLOG_REHEARSAL_POSTGRES_VOLUME', 'FSUSBLOG_REHEARSAL_REDIS_VOLUME', 'FSUSBLOG_SHARED_UPLOADS_VOLUME', 'FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME']) {
+  for (const name of ['FSUSBLOG_REHEARSAL_POSTGRES_VOLUME', 'FSUSBLOG_REHEARSAL_REDIS_VOLUME', 'FSUSBLOG_SHARED_PUBLIC_ASSETS_VOLUME', 'FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME']) {
     const value = entries.get(name)
     if (value !== undefined && !/^fsusblog-zdt-[A-Za-z0-9_.-]{1,80}$/u.test(value)) fail(`envFile ${name} must use an isolated fsusblog-zdt-* volume`)
   }

@@ -100,7 +100,7 @@ function createDeploymentFixture(t) {
     'APP_ALLOWED_HOSTS=example.com',
     'FIDO2_SERVER_DOMAIN=example.com',
     'REVERSE_PROXY_KNOWN_PROXIES=127.0.0.1',
-    'FSUSBLOG_SHARED_UPLOADS_VOLUME=fsusblog-uploads-fixture',
+    'FSUSBLOG_SHARED_PUBLIC_ASSETS_VOLUME=fsusblog-public-assets-fixture',
     'FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME=fsusblog-data-protection-fixture',
     `FSUSBLOG_RELEASE_ASSET_STORE=${assetStore}`,
     'FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1',

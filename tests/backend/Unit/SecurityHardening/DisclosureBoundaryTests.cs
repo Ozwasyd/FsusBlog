@@ -127,7 +127,7 @@ public sealed class DisclosureBoundaryTests
         try
         {
             var logger = new StructuredLogger<FileService>();
-            var service = new FileService(new TestWebHostEnvironment(root), logger);
+            var service = new FileService(ReleaseStorageTestPaths.Create(root), logger);
 
             bool deleted = await service.DeleteImageAsync("/outside\r\nINJECT\u001b[31m");
 

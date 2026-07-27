@@ -41,5 +41,5 @@ public sealed class AdminOperationsBehaviorTests
     private static AdminIntegrityOperations CreateServiceWithoutDependencies()
         => new(
             db: null!,
-            environment: null!);
+            storagePaths: null!);
 }

@@ -6,7 +6,7 @@ TMP_ROOT="$(mktemp -d)"
 trap 'rm -rf "$TMP_ROOT"' EXIT
 
 WEBROOT="$TMP_ROOT/src/backend/wwwroot"
-UPLOAD_ASSETS="$WEBROOT/uploads/illustration"
+UPLOAD_ASSETS="$TMP_ROOT/storage/shared/assets/public/illustration"
 OUT_DIR="$TMP_ROOT/.tmp/operations"
 mkdir -p \
     "$UPLOAD_ASSETS" \
@@ -14,7 +14,6 @@ mkdir -p \
     "$TMP_ROOT/.tmp/security" \
     "$TMP_ROOT/.tmp/release-evidence" \
     "$TMP_ROOT/artifacts/coverage" \
-    "$TMP_ROOT/src/backend/.upload-sessions" \
     "$WEBROOT/aot-cache" \
     "$WEBROOT/search"
 
@@ -32,11 +31,10 @@ FSUSBLOG_RETENTION_DRY_RUN=0 \
     FSUSBLOG_RETENTION_SECURITY_DIR="$TMP_ROOT/.tmp/security" \
     FSUSBLOG_RETENTION_RELEASE_EVIDENCE_DIR="$TMP_ROOT/.tmp/release-evidence" \
     FSUSBLOG_RETENTION_COVERAGE_DIR="$TMP_ROOT/artifacts/coverage" \
-    FSUSBLOG_RETENTION_UPLOAD_SESSION_DIR="$TMP_ROOT/src/backend/.upload-sessions" \
     FSUSBLOG_RETENTION_WEBROOT_DIR="$WEBROOT" \
     FSUSBLOG_RETENTION_AOT_CACHE_DIR="$WEBROOT/aot-cache" \
     FSUSBLOG_RETENTION_SEARCH_DIR="$WEBROOT/search" \
-    FSUSBLOG_RETENTION_UPLOAD_ASSET_DIR="$UPLOAD_ASSETS" \
+    FSUSBLOG_RETENTION_PUBLIC_ASSET_DIR="$UPLOAD_ASSETS" \
     FSUSBLOG_RETENTION_SCAN_UPLOAD_ASSETS=1 \
     FSUSBLOG_RETENTION_REFERENCED_ASSETS="$references" \
     FSUSBLOG_RETENTION_UPLOAD_ASSET_DAYS=1 \

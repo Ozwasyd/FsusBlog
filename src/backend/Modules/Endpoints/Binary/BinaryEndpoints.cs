@@ -168,7 +168,7 @@ public static partial class BinaryEndpoints
             return false;
         }
 
-        ioRelativePath = $"wwwroot/{relativeWebPath.TrimStart('/')}";
+        ioRelativePath = relativeWebPath;
         return true;
     }
 

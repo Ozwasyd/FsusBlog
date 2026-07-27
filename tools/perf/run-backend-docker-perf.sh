@@ -197,7 +197,6 @@ WaitForDiagnosticSocket() {
 PrepareRuntimeWritableOverlays() {
     mkdir -p "$DIAG_DIR/aot-cache"
     mkdir -p "$DIAG_DIR/data"
-    mkdir -p "$DIAG_DIR/upload-sessions"
     rm -rf "$DIAG_DIR/search"
     mkdir -p "$DIAG_DIR/search"
     local seedContainer
@@ -207,7 +206,6 @@ PrepareRuntimeWritableOverlays() {
     touch "$DIAG_DIR/auto-imports.d.ts" "$DIAG_DIR/components.d.ts"
     chmod 0777 "$DIAG_DIR/aot-cache"
     chmod -R u+rwX,go+rwX "$DIAG_DIR/data"
-    chmod -R u+rwX,go+rwX "$DIAG_DIR/upload-sessions"
     chmod -R u+rwX,go+rwX "$DIAG_DIR/search"
     chmod 0666 "$DIAG_DIR/auto-imports.d.ts" "$DIAG_DIR/components.d.ts"
 }
@@ -229,7 +227,6 @@ StartContainer() {
         -v "$DIAG_DIR:/diag" \
         -v "$DIAG_DIR/aot-cache:/app/wwwroot/aot-cache" \
         -v "$DIAG_DIR/data:/diag/data" \
-        -v "$DIAG_DIR/upload-sessions:/app/.upload-sessions" \
         -v "$DIAG_DIR/search:/app/wwwroot/search" \
         -v "$DIAG_DIR/auto-imports.d.ts:/app/FsusBlog.ClientRuntime/auto-imports.d.ts" \
         -v "$DIAG_DIR/components.d.ts:/app/FsusBlog.ClientRuntime/components.d.ts" \

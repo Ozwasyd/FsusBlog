@@ -371,7 +371,7 @@ function createFixture(t, { continuationOnly = false } = {}) {
     `FSUSBLOG_REHEARSAL_OPENRESTY_IMAGE=openresty@sha256:${'c'.repeat(64)}`,
     'FSUSBLOG_REHEARSAL_POSTGRES_VOLUME=fsusblog-zdt-postgres-fixture',
     'FSUSBLOG_REHEARSAL_REDIS_VOLUME=fsusblog-zdt-redis-fixture',
-    'FSUSBLOG_SHARED_UPLOADS_VOLUME=fsusblog-zdt-uploads-fixture',
+    'FSUSBLOG_SHARED_PUBLIC_ASSETS_VOLUME=fsusblog-zdt-public-assets-fixture',
     'FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME=fsusblog-zdt-data-protection-fixture',
     ''
   ].join('\n'), { mode: 0o600 })

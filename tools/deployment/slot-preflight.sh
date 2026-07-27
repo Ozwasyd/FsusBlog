@@ -47,7 +47,7 @@ node "$ROOT_DIR/tools/deployment/slot-state.mjs" ensure --state "$SLOT_STATE_FIL
 
 docker_root="$(docker info --format '{{.DockerRootDir}}' 2>/dev/null)" || SlotFail "Docker daemon is unavailable"
 [[ -d "$docker_root" ]] || SlotFail "Docker root directory is unavailable: $docker_root"
-uploads_volume="$(SlotEnvValue FSUSBLOG_SHARED_UPLOADS_VOLUME "$PRODUCTION_ENV_FILE")"
+public_assets_volume="$(SlotEnvValue FSUSBLOG_SHARED_PUBLIC_ASSETS_VOLUME "$PRODUCTION_ENV_FILE")"
 data_protection_volume="$(SlotEnvValue FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME "$PRODUCTION_ENV_FILE")"
 drain_timeout_value="${FSUSBLOG_DRAIN_TIMEOUT_SECONDS:-$(SlotEnvOptionalValue FSUSBLOG_DRAIN_TIMEOUT_SECONDS "$PRODUCTION_ENV_FILE")}"
 stop_grace_value="${FSUSBLOG_STOP_GRACE_PERIOD:-$(SlotEnvOptionalValue FSUSBLOG_STOP_GRACE_PERIOD "$PRODUCTION_ENV_FILE")}"
@@ -62,7 +62,7 @@ stop_grace_seconds="$(SlotDurationSeconds "$stop_grace_value")" ||
     SlotFail "FSUSBLOG_DRAIN_TIMEOUT_SECONDS must be between 5 and 300"
 ((stop_grace_seconds > drain_timeout_seconds)) ||
     SlotFail "FSUSBLOG_STOP_GRACE_PERIOD must be greater than the application drain timeout"
-docker volume inspect "$uploads_volume" >/dev/null 2>&1 || SlotFail "shared uploads volume does not exist: $uploads_volume"
+docker volume inspect "$public_assets_volume" >/dev/null 2>&1 || SlotFail "shared public-assets volume does not exist: $public_assets_volume"
 docker volume inspect "$data_protection_volume" >/dev/null 2>&1 || SlotFail "shared DataProtection volume does not exist: $data_protection_volume"
 docker network inspect fsus-infra-network >/dev/null 2>&1 || SlotFail "external infrastructure network does not exist: fsus-infra-network"
 
@@ -147,7 +147,7 @@ jq -cn \
     --arg activeSlot "$active_slot" \
     --arg releaseId "$FSUSBLOG_RELEASE_ID" \
     --arg imageRef "$FSUSBLOG_IMAGE_REF" \
-    --arg uploadsVolume "$uploads_volume" \
+    --arg publicAssetsVolume "$public_assets_volume" \
     --arg dataProtectionVolume "$data_protection_volume" \
     --argjson port "$FSUSBLOG_SLOT_PORT" \
     --argjson memoryAvailableMb "$memory_available_mb" \
@@ -166,7 +166,7 @@ jq -cn \
     activeSlot: (if $activeSlot == "" then null else $activeSlot end),
     releaseId: $releaseId,
     imageRef: $imageRef,
-    sharedState: {uploadsVolume: $uploadsVolume, dataProtectionVolume: $dataProtectionVolume, infrastructureNetwork: "fsus-infra-network"},
+    sharedState: {publicAssetsVolume: $publicAssetsVolume, dataProtectionVolume: $dataProtectionVolume, infrastructureNetwork: "fsus-infra-network"},
     endpoint: {host: "127.0.0.1", port: $port},
     resources: {
       memoryAvailableMb: $memoryAvailableMb,

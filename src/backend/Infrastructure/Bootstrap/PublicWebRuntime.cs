@@ -206,6 +206,18 @@ internal static partial class PublicWebRuntime
 
         UseReleaseScopedStaticAssets(app);
 
+        ReleaseStoragePaths storagePaths = app.Services.GetRequiredService<ReleaseStoragePaths>();
+        var publicAssetProvider = new PhysicalFileProvider(storagePaths.PublicAssetRoot);
+        app.Lifetime.ApplicationStopped.Register(publicAssetProvider.Dispose);
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            RequestPath = "/uploads",
+            FileProvider = publicAssetProvider,
+            ContentTypeProvider = provider,
+            ServeUnknownFileTypes = false,
+            OnPrepareResponse = PrepareStaticAssetResponse
+        });
+
         PhysicalFileProvider authoritativeWebRoot = CreateAuthoritativeWebRootFileProvider(app.Environment);
         app.Lifetime.ApplicationStopped.Register(authoritativeWebRoot.Dispose);
         app.UseStaticFiles(new StaticFileOptions

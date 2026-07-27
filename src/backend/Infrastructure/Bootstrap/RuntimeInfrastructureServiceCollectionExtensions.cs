@@ -36,6 +36,10 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
 {
     public static IServiceCollection AddFsusRuntimeInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
     {
+        services.TryAddSingleton(sp => ReleaseStorageComposition.Create(
+            configuration,
+            sp.GetRequiredService<IWebHostEnvironment>()));
+        services.TryAddSingleton(sp => sp.GetRequiredService<ReleaseStorageLayout>().Paths);
         services.AddSingleton<StartupRuntimeState>();
         services.AddSingleton<DeploymentRuntimeState>();
         services.AddSingleton<DeploymentDrainCoordinator>();
@@ -209,8 +213,8 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
     private static IServiceCollection AddFileAndAuthRuntime(this IServiceCollection services)
     {
         services.AddSingleton<UploadSessionCleanupQueue>();
-        services.AddScoped<FileService>();
-        services.AddScoped<IFileService>(sp => sp.GetRequiredService<FileService>());
+        services.AddSingleton<FileService>();
+        services.AddSingleton<IFileService>(sp => sp.GetRequiredService<FileService>());
         if (!OpenApiExportMode.IsEnabled())
         {
             services.AddHostedService<UploadSessionCleanupWorker>();

@@ -107,7 +107,7 @@ case "$ACTION" in
             "$ROOT_DIR/ops/gateway/zero-downtime-openresty.conf.template" >"$gateway_config"
         docker network inspect fsus-infra-network >/dev/null 2>&1 || docker network create fsus-infra-network >/dev/null
         for volume in \
-            "$(SlotEnvValue FSUSBLOG_SHARED_UPLOADS_VOLUME "$PRODUCTION_ENV_FILE")" \
+            "$(SlotEnvValue FSUSBLOG_SHARED_PUBLIC_ASSETS_VOLUME "$PRODUCTION_ENV_FILE")" \
             "$(SlotEnvValue FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME "$PRODUCTION_ENV_FILE")"; do
             docker volume inspect "$volume" >/dev/null 2>&1 || docker volume create "$volume" >/dev/null
         done

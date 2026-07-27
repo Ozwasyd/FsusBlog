@@ -111,7 +111,7 @@ public sealed class UploadBoundaryTests
         string root = CreateTempDirectory();
         try
         {
-            var service = new FileService(new TestWebHostEnvironment(root), NullLogger<FileService>.Instance);
+            var service = new FileService(ReleaseStorageTestPaths.Create(root), NullLogger<FileService>.Instance);
 
             Result<UploadInitDto> avif = await service.InitUploadSessionAsync(new UploadInitRequestDto
             {
@@ -140,7 +140,7 @@ public sealed class UploadBoundaryTests
         string root = CreateTempDirectory();
         try
         {
-            var service = new FileService(new TestWebHostEnvironment(root), NullLogger<FileService>.Instance);
+            var service = new FileService(ReleaseStorageTestPaths.Create(root), NullLogger<FileService>.Instance);
             Result<UploadInitDto> init = await service.InitUploadSessionAsync(new UploadInitRequestDto
             {
                 FileName = "payload.png",
@@ -174,7 +174,7 @@ public sealed class UploadBoundaryTests
             Result<UploadStatusDto> status = await service.GetUploadStatusAsync(initialized.UploadId);
             Assert.True(status.IsSuccess);
             Assert.Equal(0, status.Value!.UploadedBytes);
-            string incoming = Path.Combine(root, "wwwroot", "uploads", "illustration", ".incoming");
+            string incoming = ReleaseStorageTestPaths.Create(root).UploadCommitRoot;
             Assert.False(Directory.Exists(incoming) && Directory.EnumerateFileSystemEntries(incoming).Any());
         }
         finally

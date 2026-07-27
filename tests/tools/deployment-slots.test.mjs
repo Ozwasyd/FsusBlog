@@ -455,7 +455,9 @@ test('production Compose keeps fixed slots on distinct loopback ports with share
   const compose = fs.readFileSync(path.join(root, 'ops/docker/docker-compose.production.yml'), 'utf8')
   assert.match(compose, /container_name: \$\{FSUSBLOG_CONTAINER_NAME:\?/u)
   assert.match(compose, /127\.0\.0\.1:\$\{FSUSBLOG_SLOT_PORT:\?[^}]+\}:8080/u)
-  assert.match(compose, /FSUSBLOG_SHARED_UPLOADS_VOLUME/u)
+  assert.match(compose, /FSUSBLOG_SHARED_PUBLIC_ASSETS_VOLUME/u)
+  assert.doesNotMatch(compose, /\/app\/wwwroot\/uploads/u)
+  assert.doesNotMatch(compose, /FSUSBLOG_SHARED_UPLOADS_VOLUME/u)
   assert.match(compose, /FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME/u)
   assert.match(compose, /FSUSBLOG_SLOT_AOT_CACHE_VOLUME/u)
   assert.match(compose, /FSUSBLOG_SLOT_LOGS_VOLUME/u)
@@ -580,7 +582,7 @@ function createProductionEnv(directory, assetStore) {
     'Jwt__KeyVersion=v2-2026-07', 'Jwt__RotationWindowDays=30',
     'SITE_BASEURL=https://example.com', 'CORS_ALLOWED_HOSTS=https://example.com', 'APP_ALLOWED_HOSTS=example.com',
     'FIDO2_SERVER_DOMAIN=example.com', 'REVERSE_PROXY_KNOWN_PROXIES=127.0.0.1',
-    'FSUSBLOG_SHARED_UPLOADS_VOLUME=fsusblog-uploads-fixture',
+    'FSUSBLOG_SHARED_PUBLIC_ASSETS_VOLUME=fsusblog-public-assets-fixture',
     'FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME=fsusblog-data-protection-fixture',
     `FSUSBLOG_RELEASE_ASSET_STORE=${assetStore}`,
     'FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1', 'FSUSBLOG_ZK_PROD_ENABLED=true',

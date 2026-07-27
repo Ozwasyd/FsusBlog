@@ -42,8 +42,12 @@ RequireFile "$ENV_TEMPLATE"
 if [[ -f "$COMPOSE_FILE" ]]; then
     RequirePattern "$COMPOSE_FILE" '127\.0\.0\.1:\$\{FSUSBLOG_SLOT_PORT:\?[^}]+\}:8080' 'slot-parameterized loopback-only Kestrel port binding'
     RequirePattern "$COMPOSE_FILE" 'container_name:[[:space:]]+\$\{FSUSBLOG_CONTAINER_NAME:\?' 'slot-specific container identity'
-    RequirePattern "$COMPOSE_FILE" 'FSUSBLOG_SHARED_UPLOADS_VOLUME:\?' 'explicit shared uploads volume'
+    RequirePattern "$COMPOSE_FILE" 'FSUSBLOG_SHARED_PUBLIC_ASSETS_VOLUME:\?' 'explicit shared public-assets volume'
+    RequirePattern "$COMPOSE_FILE" 'FSUSBLOG_SHARED_STORAGE_ROOT=/app/storage/shared' 'shared storage root outside WebRoot'
+    RequirePattern "$COMPOSE_FILE" 'FSUSBLOG_INSTANCE_STORAGE_ROOT=/app/storage/instances' 'instance storage root outside WebRoot'
     RequirePattern "$COMPOSE_FILE" 'FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME:\?' 'explicit shared DataProtection volume'
+    RejectPattern "$COMPOSE_FILE" '/app/wwwroot/uploads' 'legacy WebRoot uploads mount'
+    RejectPattern "$COMPOSE_FILE" 'FSUSBLOG_SHARED_UPLOADS_VOLUME' 'retired shared uploads volume variable'
     RejectPattern "$COMPOSE_FILE" '127\.0\.0\.1:8080:8080' 'retired single-slot Kestrel binding'
     RejectPattern "$COMPOSE_FILE" '(^|["[:space:]])8080:8080(["[:space:]]|$)' 'public Kestrel 8080 binding'
     RejectPattern "$COMPOSE_FILE" '(^|["[:space:]])6379:6379(["[:space:]]|$)' 'public Redis port binding'
@@ -99,7 +103,7 @@ if [[ -f "$ENV_TEMPLATE" ]]; then
     RequirePattern "$ENV_TEMPLATE" '^FSUSBLOG_GATEWAY_CONFIG_FILE=/etc/openresty/nginx\.conf$' 'complete OpenResty config path'
     RequirePattern "$ENV_TEMPLATE" '^FSUSBLOG_GATEWAY_PUBLIC_PROBE_URL=https://' 'HTTPS public release probe URL'
     RequirePattern "$ENV_TEMPLATE" '^FSUSBLOG_GATEWAY_EVIDENCE_DIR=/var/lib/fsusblog/deployment/evidence$' 'durable gateway evidence path'
-    RequirePattern "$ENV_TEMPLATE" '^FSUSBLOG_SHARED_UPLOADS_VOLUME=' 'explicit shared uploads volume variable'
+    RequirePattern "$ENV_TEMPLATE" '^FSUSBLOG_SHARED_PUBLIC_ASSETS_VOLUME=' 'explicit shared public-assets volume variable'
     RequirePattern "$ENV_TEMPLATE" '^FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME=' 'explicit shared DataProtection volume variable'
 fi
 

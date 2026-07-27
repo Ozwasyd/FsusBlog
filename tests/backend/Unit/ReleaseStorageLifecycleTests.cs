@@ -40,7 +40,16 @@ public sealed class ReleaseStorageLifecycleTests
                 "green",
                 "generation-43");
 
-            Assert.EndsWith(Path.Combine("shared", "uploads"), layout.Paths.UploadsRoot, StringComparison.Ordinal);
+            Assert.EndsWith(Path.Combine("shared", "assets", "public"), layout.Paths.PublicAssetRoot, StringComparison.Ordinal);
+            Assert.EndsWith(Path.Combine("shared", "assets", "private"), layout.Paths.PrivateAssetRoot, StringComparison.Ordinal);
+            Assert.EndsWith(
+                Path.Combine("instances", "green", layout.ReleaseId, "generation-42", "upload-sessions"),
+                layout.Paths.UploadSessionRoot,
+                StringComparison.Ordinal);
+            Assert.EndsWith(
+                Path.Combine("instances", "green", layout.ReleaseId, "generation-42", "upload-commit"),
+                layout.Paths.UploadCommitRoot,
+                StringComparison.Ordinal);
             Assert.EndsWith(Path.Combine("shared", "data-protection", "keyring"), layout.Paths.DataProtectionKeyRingRoot, StringComparison.Ordinal);
             Assert.EndsWith(Path.Combine("derived", layout.ReleaseId, "search"), layout.Paths.SearchRoot, StringComparison.Ordinal);
             Assert.EndsWith(Path.Combine("assets", layout.ReleaseId), layout.Paths.ImmutableAssetRoot, StringComparison.Ordinal);
@@ -49,7 +58,10 @@ public sealed class ReleaseStorageLifecycleTests
                 layout.Paths.TempRoot,
                 StringComparison.Ordinal);
             Assert.Equal(layout.Paths.SearchRoot, siblingInstance.Paths.SearchRoot);
-            Assert.Equal(layout.Paths.UploadsRoot, siblingInstance.Paths.UploadsRoot);
+            Assert.Equal(layout.Paths.PublicAssetRoot, siblingInstance.Paths.PublicAssetRoot);
+            Assert.Equal(layout.Paths.PrivateAssetRoot, siblingInstance.Paths.PrivateAssetRoot);
+            Assert.NotEqual(layout.Paths.UploadSessionRoot, siblingInstance.Paths.UploadSessionRoot);
+            Assert.NotEqual(layout.Paths.UploadCommitRoot, siblingInstance.Paths.UploadCommitRoot);
             Assert.NotEqual(layout.Paths.LogRoot, siblingInstance.Paths.LogRoot);
             Assert.NotEqual(layout.Paths.TempRoot, siblingInstance.Paths.TempRoot);
             Assert.NotEqual(layout.Paths.RuntimeSnapshotRoot, siblingInstance.Paths.RuntimeSnapshotRoot);
@@ -646,9 +658,13 @@ public sealed class ReleaseStorageLifecycleTests
             Assert.True(first.IsSuccess);
             Assert.True(retry.IsSuccess);
             Assert.Equal(first.Value!.RelativeUrl, retry.Value!.RelativeUrl);
-            Assert.Equal(payload, await File.ReadAllBytesAsync(first.Value.RelativeUrl is not null
-                ? Path.Combine(root, "wwwroot", first.Value.RelativeUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar))
-                : throw new InvalidOperationException()));
+            Assert.Equal(
+                payload,
+                await File.ReadAllBytesAsync(
+                    Path.Combine(
+                        ReleaseStorageTestPaths.Create(root).PublicAssetRoot,
+                        "illustration",
+                        Path.GetFileName(first.Value.RelativeUrl))));
         }
         finally
         {
@@ -663,6 +679,7 @@ public sealed class ReleaseStorageLifecycleTests
         try
         {
             var service = CreateFileService(root);
+            ReleaseStoragePaths paths = ReleaseStorageTestPaths.Create(root);
             byte[] payload = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 4, 3, 2, 1];
 
             FileUploadResult result = await service.UploadImageAsync(CreateFormFile(payload, "sample.png"));
@@ -670,12 +687,17 @@ public sealed class ReleaseStorageLifecycleTests
             Assert.True(result.Success);
             Assert.NotNull(result.PhysicalPath);
             Assert.Equal(payload, await File.ReadAllBytesAsync(result.PhysicalPath!));
-            string illustrationRoot = Path.Combine(root, "wwwroot", "uploads", "illustration");
+            string illustrationRoot = Path.Combine(paths.PublicAssetRoot, "illustration");
             Assert.Single(Directory.EnumerateFiles(illustrationRoot, "*.png", SearchOption.TopDirectoryOnly));
             Assert.Empty(Directory.EnumerateFiles(
-                Path.Combine(illustrationRoot, ".incoming"),
+                paths.UploadCommitRoot,
                 "*.tmp",
                 SearchOption.AllDirectories));
+            Assert.False(Directory.Exists(Path.Combine(illustrationRoot, ".incoming")));
+            Assert.DoesNotContain(
+                Path.GetFullPath(paths.PublicAssetRoot),
+                Path.GetFullPath(paths.UploadCommitRoot),
+                StringComparison.Ordinal);
         }
         finally
         {
@@ -711,7 +733,11 @@ public sealed class ReleaseStorageLifecycleTests
                 sha256);
             Assert.True(upload.IsSuccess);
 
-            string finalPath = Path.Combine(root, "wwwroot", "uploads", "illustration", init.Value.UploadId + ".png");
+            string finalPath = Path.Combine(
+                ReleaseStorageTestPaths.Create(root).PublicAssetRoot,
+                "illustration",
+                init.Value.UploadId + ".png");
+            Directory.CreateDirectory(Path.GetDirectoryName(finalPath)!);
             await File.WriteAllBytesAsync(finalPath, existing);
             Result<UploadCompleteDto> complete = await service.CompleteUploadAsync(init.Value.UploadId, sha256);
 
@@ -726,7 +752,7 @@ public sealed class ReleaseStorageLifecycleTests
     }
 
     private static FileService CreateFileService(string root)
-        => new(new TestWebHostEnvironment(root), NullLogger<FileService>.Instance);
+        => new(ReleaseStorageTestPaths.Create(root), NullLogger<FileService>.Instance);
 
     private static FormFile CreateFormFile(byte[] bytes, string fileName)
         => new(new MemoryStream(bytes), 0, bytes.Length, "file", fileName);

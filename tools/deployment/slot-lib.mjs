@@ -30,7 +30,7 @@ export function resolveSlotConfig(slotValue, environment = process.env) {
     aotCacheVolume: `fsusblog-aot-cache-${slot}`,
     logsVolume: `fsusblog-logs-${slot}`,
     dataVolume: `fsusblog-data-${slot}`,
-    sharedUploadsVolume: environment.FSUSBLOG_SHARED_UPLOADS_VOLUME ?? 'fsusblog-uploads',
+    sharedPublicAssetsVolume: environment.FSUSBLOG_SHARED_PUBLIC_ASSETS_VOLUME ?? 'fsusblog-public-assets',
     sharedDataProtectionVolume: environment.FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME ?? 'fsusblog-data-protection'
   })
 }

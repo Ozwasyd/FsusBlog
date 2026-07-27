@@ -6,18 +6,31 @@ Release storage is classified by lifecycle, not by the container that first wrot
 
 | Class | Contents | Ownership | Mutation rule |
 | --- | --- | --- | --- |
-| Durable shared | PostgreSQL, Redis, uploads, DataProtection key ring, runtime secrets | environment | shared by both slots; backed up and access controlled |
+| Durable shared | PostgreSQL, Redis, public/private content assets, DataProtection key ring, runtime secrets | environment | shared by both slots; backed up and access controlled |
 | Release-derived | Public AOT, public-hot projections, search, SSR, precompressed output, generated manifests | release ID | stage a generation, rename atomically, retain old generation and old release |
 | Immutable cross-release | hashed JS/CSS/Wasm/fonts and asset manifests | release ID plus SHA-256 object | append only; same path/same hash is idempotent, same path/different hash fails closed |
-| Instance-scoped | logs, upload staging, temporary files, runtime snapshots | slot/release/instance | never shared as mutable state; lease-protected cleanup |
+| Instance-scoped | logs, upload sessions, upload commit temps, temporary files, runtime snapshots | slot/release/instance | never shared as long-lived content; lease-protected cleanup |
 
-`ReleaseStorageLayout` is the path authority. It validates release, slot and instance identity; constructs non-overlapping roots; and rejects cleanup outside the current release. `ReleaseDerivedArtifactPublisher` writes every search or renderer generation to a same-filesystem staging directory, fsyncs it, renames it to `generations/<generation>`, and only then atomically updates `current.json`. It does not delete prior generations.
+`ReleaseStorageLayout` is the path authority. The composition root constructs it once into a singleton `ReleaseStoragePaths` value. Asset services receive that immutable object through DI and must not reread `WebRootPath`, `ContentRootPath`, or asset-related environment variables. The layout validates release, slot and instance identity; constructs non-overlapping roots; rejects cleanup outside the current release; and fail-closes when `PublicAssetRoot`, `PrivateAssetRoot`, `UploadSessionRoot`, or `UploadCommitRoot` overlap each other or land under WebRoot, release-assets, or release-derived bases.
+
+Canonical roots:
+
+```text
+SharedRoot/assets/public          → PublicAssetRoot   (served at /uploads)
+SharedRoot/assets/private         → PrivateAssetRoot
+InstanceRoot/.../upload-sessions  → UploadSessionRoot
+InstanceRoot/.../upload-commit    → UploadCommitRoot
+```
+
+`ReleaseDerivedArtifactPublisher` writes every search or renderer generation to a same-filesystem staging directory, fsyncs it, renames it to `generations/<generation>`, and only then atomically updates `current.json`. It does not delete prior generations.
 
 ## Shared security state
 
 Production uses one controlled DataProtection ring and the exact application discriminator `FsusBlog`. Both slots must mount the same key-ring path read/write. `DataProtectionKeyRingProbe` reports only directory/read/write/application-name state; it never returns key names or contents. Cross-slot conformance protects with the old provider and unprotects with the new provider, then performs the reverse direction.
 
-Uploads use a shared final directory. Direct uploads and chunk completion write an instance-namespaced `.incoming` file on the final filesystem, flush it, and rename with `overwrite: false`. Chunked final names are deterministic from `uploadId`, so a retry returns the same result after validating signature, length, and SHA-256. A pre-existing different payload fails closed. `UploadCommitTempCleanupLease` combines an exclusive handle with a random CAS token; cleanup protects the current instance and the retention window.
+Public illustrations live under `PublicAssetRoot/illustration` and are exposed only through the dedicated `/uploads` static provider bound to `PublicAssetRoot`, not the generic WebRoot static pipeline. Direct uploads and chunk completion stage into instance-scoped `UploadCommitRoot/current`, fsync, and rename onto the public final path with `overwrite: false`. Chunked final names are deterministic from `uploadId`, so a retry returns the same result after validating signature, length, and SHA-256. A pre-existing different payload fails closed. `UploadCommitTempCleanupLease` combines an exclusive handle with a random CAS token; cleanup protects the current instance and the retention window. Upload sessions and their expiration index live under `UploadSessionRoot`; request hot paths delete expiration index entries through an O(1) per-session `expiration.bucket` owner file and must not scan expiration buckets.
+
+One-time migration from the retired `/app/wwwroot/uploads/illustration` layout is owned by `tools/storage/migrate-public-assets.mjs`. It requires an explicit stop-writes confirmation, verifies relative path/length/SHA-256 inventories, installs through same-filesystem rename, is idempotent when already complete, and never dual-reads or falls back to the legacy root. Startup fails closed when the legacy WebRoot uploads directory still contains entries.
 
 ## Static assets
 

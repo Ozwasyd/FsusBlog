@@ -49,6 +49,8 @@ services:
             - FSUSBLOG_SPA_MANIFEST_DESCRIPTOR=/app/release-assets/${FSUSBLOG_RELEASE_ID:?Set releaseId from release-manifest.json}/spa-manifest-descriptor.json
             - FSUSBLOG_PRODUCTION_BUILD_RECEIPT=/app/release-assets/${FSUSBLOG_RELEASE_ID:?Set releaseId from release-manifest.json}/production-build-receipt.json
             - FSUSBLOG_RELEASE_DERIVED_ROOT=/app/release-derived
+            - FSUSBLOG_SHARED_STORAGE_ROOT=/app/storage/shared
+            - FSUSBLOG_INSTANCE_STORAGE_ROOT=/app/storage/instances
             - Deployment__NotificationStreamDrillEnabled=${FSUSBLOG_DEPLOYMENT_NOTIFICATION_DRILL_ENABLED:-false}
             - SchemaMigration__QualificationEnabled=${FSUSBLOG_SCHEMA_QUALIFICATION_ENABLED:-false}
             - FSUSBLOG_DATA_ROOT=/app/data
@@ -102,7 +104,7 @@ services:
             - fsus-app-network
             - fsus-infra-network
         volumes:
-            - fsus-uploads:/app/wwwroot/uploads
+            - fsus-storage:/app/storage
             - fsus-aot-cache:/app/wwwroot/aot-cache
             - fsus-logs:/app/Logs
             - fsus-slot-data:/app/data
@@ -148,8 +150,8 @@ networks:
 
 # 定义具名卷，确保持久化数据由 Docker 引擎统一管理权限映射
 volumes:
-    fsus-uploads:
-        name: ${FSUSBLOG_SHARED_UPLOADS_VOLUME:?Set the existing shared uploads volume explicitly}
+    fsus-storage:
+        name: ${FSUSBLOG_SHARED_PUBLIC_ASSETS_VOLUME:?Set the migrated shared public-assets volume explicitly}
     fsus-aot-cache:
         name: ${FSUSBLOG_SLOT_AOT_CACHE_VOLUME:?Set slot-specific AOT cache volume}
     fsus-logs:
