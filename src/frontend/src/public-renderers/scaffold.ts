@@ -43,8 +43,7 @@ export function renderPublicAotShell(assembly: PublicAotShellAssembly): VNode {
       siteWordmarkUrl: assembly.siteWordmarkUrl ?? null,
       renderYear: assembly.renderYear ?? null,
       compliance: assembly.compliance ?? null,
-      spaSearch: false,
-      showRuntime: false
+      spaSearch: false
     }),
     initialLocale: assembly.renderLocale
   }, {

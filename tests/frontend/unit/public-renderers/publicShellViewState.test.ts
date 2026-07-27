@@ -69,18 +69,17 @@ describe('createPublicShellViewState', () => {
       authHref: '/login',
       searchAction: 'search',
       initialSearchQuery: '',
-      spaSearch: false,
-      showRuntime: false
+      spaSearch: false
     })
     expect(state).not.toHaveProperty('authLabel')
     expect(state).not.toHaveProperty('searchPlaceholder')
+    expect(state).not.toHaveProperty('showRuntime')
   })
 
   it('switches auth actions only after runtime-auth state is resolved', () => {
     expect(createPublicShellViewState({
       hydrationKind: 'About',
       siteTitle: 'Fsu',
-      showRuntime: true,
       isRuntimeAuthResolved: false,
       isLoggedIn: true,
       isAdmin: true
@@ -92,7 +91,6 @@ describe('createPublicShellViewState', () => {
     expect(createPublicShellViewState({
       hydrationKind: 'About',
       siteTitle: 'Fsu',
-      showRuntime: true,
       isRuntimeAuthResolved: true,
       isLoggedIn: true,
       isAdmin: false
@@ -104,7 +102,6 @@ describe('createPublicShellViewState', () => {
     expect(createPublicShellViewState({
       hydrationKind: 'About',
       siteTitle: 'Fsu',
-      showRuntime: true,
       isRuntimeAuthResolved: true,
       isLoggedIn: true,
       isAdmin: true
@@ -119,14 +116,12 @@ describe('createPublicShellViewState', () => {
       siteTitle: 'Fsu',
       isSearchRoute: true,
       initialSearchQuery: 'vue hydration',
-      spaSearch: true,
-      showRuntime: true
+      spaSearch: true
     })
 
     expect(state.searchAction).toBe('search-shortcut')
     expect(state.initialSearchQuery).toBe('vue hydration')
     expect(state.spaSearch).toBe(true)
-    expect(state.showRuntime).toBe(true)
   })
 })
 

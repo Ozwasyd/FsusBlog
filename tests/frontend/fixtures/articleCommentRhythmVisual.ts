@@ -151,7 +151,6 @@ const app = createApp({
     activeNav: 'none',
     authLabel: isLoggedIn ? 'Reader' : '登录',
     authHref: isLoggedIn ? '/user/profile' : '/login',
-    showRuntime: false,
     renderYear: 2026
   }, {
     default: () => h(PublicArticleDetailPageContent, {

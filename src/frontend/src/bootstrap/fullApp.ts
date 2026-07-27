@@ -1,4 +1,4 @@
-import { createApp, h, type Component, type VNode } from 'vue'
+import { createApp, defineAsyncComponent, defineComponent, Fragment, h, type Component, type VNode } from 'vue'
 import { createPinia } from 'pinia'
 import { createHead } from '@unhead/vue/client'
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
@@ -15,7 +15,7 @@ import PublicBlogLayoutShell from '@/components/public/PublicBlogLayoutShell.vue
 import { provideFsusUiAppContext } from '@/fsusui/appContext'
 import { installFsusUiLoading } from '@/fsusui/feedback'
 import { scheduleNonCriticalResources } from '@/bootstrap/nonCriticalResources'
-import { runtimeReady, scheduleFullAppRuntime } from '@/bootstrap/runtimeGate'
+import { runtimeActive, scheduleRuntimeActivation } from '@/bootstrap/runtimeActivation'
 import { removeGlobalLoader } from '@/bootstrap/publicShellPrimitives'
 import {
   getPublicHydrationTakeoverHandle,
@@ -43,11 +43,26 @@ import { authSessionRuntime } from '@/services/authSessionRuntime'
 import '@/assets/main.css'
 
 export type BootstrapFullAppOptions = {
-  deferRuntime?: boolean
   hydrate?: boolean
   takeover?: 'public-shell' | 'direct'
   getPublicActivationOwner?: () => 'aot' | 'full-app'
 }
+
+const FullAppRuntime = defineAsyncComponent(() => import('@/components/runtime/AppRuntime.vue'))
+
+function renderFullAppComposition(content: VNode): VNode {
+  return h(Fragment, null, [
+    content,
+    runtimeActive.value ? h(FullAppRuntime) : null
+  ])
+}
+
+const FullAppCompositionRoot = defineComponent({
+  name: 'FullAppCompositionRoot',
+  setup() {
+    return () => renderFullAppComposition(h(App))
+  }
+})
 
 export type FullAppNavigationIntent = Readonly<{
   to: string
@@ -199,7 +214,7 @@ function createPublicTakeoverRenderer(payload: PublicHydrationPayload): () => VN
   return (): VNode => {
     const route = router.currentRoute.value
     if (!isPublicShellRouteName(route.name)) {
-      return h(App)
+      return renderFullAppComposition(h(App))
     }
 
     const hydrationKind = resolvePublicPageKind(route.name) ?? payload.pageKind
@@ -214,11 +229,10 @@ function createPublicTakeoverRenderer(payload: PublicHydrationPayload): () => VN
       renderYear: shellSeed.renderYear,
       isSearchRoute: isPublicSearchRouteName(route.name),
       initialSearchQuery: isPublicSearchRouteName(route.name) ? String(route.query.q ?? '') : '',
-      spaSearch: runtimeReady.value,
-      showRuntime: runtimeReady.value
+      spaSearch: runtimeActive.value
     })
 
-    return h(PublicBlogLayoutShell, {
+    return renderFullAppComposition(h(PublicBlogLayoutShell, {
       ...shellState,
       spaNavigation: true,
       onNavigate: handleNavigate,
@@ -226,7 +240,7 @@ function createPublicTakeoverRenderer(payload: PublicHydrationPayload): () => VN
       onSearchFocus: handleSearchFocus
     }, {
       default: renderPublicRouteComponent
-    })
+    }))
   }
 }
 
@@ -267,7 +281,7 @@ export function prepareFullApp(options: BootstrapFullAppOptions = {}): PreparedF
     throw new Error('public takeover requires the mounted hydration app')
   }
   const prepared: PreparedFullApp = {
-    app: publicTakeover?.app ?? createApp(App),
+    app: publicTakeover?.app ?? createApp(FullAppCompositionRoot),
     pinia: publicTakeover?.pinia ?? createPinia(),
     head: createHead(),
     router: ensureAppRouter(options),
@@ -325,10 +339,13 @@ export async function commitPreparedFullApp(
       prepared.app.mount('#app')
     }
     markStartup('full-app-bootstrap:mounted')
-    scheduleFullAppRuntime(Boolean(prepared.options.deferRuntime), {
-      allowIdleActivation: !prepared.isPublicShellTakeover,
-      allowScrollActivation: !prepared.isPublicShellTakeover
-    })
+    // Composition root owns runtime policy after FullApp is interactive:
+    // public takeover inherits the first intent; direct SPA uses after-first-paint.
+    if (prepared.isPublicShellTakeover) {
+      scheduleRuntimeActivation('takeover')
+    } else {
+      scheduleRuntimeActivation('after-first-paint')
+    }
     installDeferredFsusMotion(prepared)
     scheduleNonCriticalResources()
 

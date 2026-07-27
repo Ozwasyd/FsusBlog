@@ -55,7 +55,6 @@ export function useSessionBootstrap() {
 
   const ensurePublicShell = async (force = false): Promise<void> => {
     await appShellStore.bootstrap(force)
-    appShellStore.setRuntimePhase('shell-visible')
   }
 
   const ensureSiteInfo = async (force = false): Promise<void> => {
@@ -131,7 +130,6 @@ export function useSessionBootstrap() {
     ensureUserInfoFresh,
     syncDocumentTitle,
     syncAuthPhase: appShellStore.syncAuthPhase,
-    setRuntimePhase: appShellStore.setRuntimePhase,
     markSessionRefreshing: appShellStore.markSessionRefreshing,
     markSessionActive: appShellStore.markSessionActive,
     markSessionExpired: appShellStore.markSessionExpired,

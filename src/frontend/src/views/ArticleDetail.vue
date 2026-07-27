@@ -149,7 +149,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { runtimeReady } from '@/bootstrap/runtimeGate'
+import { runtimeActive } from '@/bootstrap/runtimeActivation'
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue'
 import ArticleCommentComposer from '@/components/article/ArticleCommentComposer.vue'
 import ArticleCommentsVirtualList from '@/components/article/ArticleCommentsVirtualList.vue'
@@ -284,7 +284,7 @@ const pageDetailView = computed(() => (
 
 // Hydration invariant: runtime-only article widgets stay out of SSR and initial hydration until Vue owns the route.
 const canRenderBodyRuntime = ref(false)
-const canRenderCommentsRuntime = computed(() => spaReady.value && runtimeReady.value)
+const canRenderCommentsRuntime = computed(() => spaReady.value && runtimeActive.value)
 const tocMobileOpen = ref(false)
 
 const isCommentsAtEnd = computed(() => (

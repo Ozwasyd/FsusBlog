@@ -104,7 +104,6 @@
       >
         <slot />
       </div>
-      <FullAppRuntime v-if="shouldShowRuntime" />
 
       <template #footer>
         <PublicComplianceFooter
@@ -118,7 +117,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import ThemeModeToggle from '@/components/ui/ThemeModeToggle.vue'
 import PublicComplianceFooter from '@/components/public/PublicComplianceFooter.vue'
 import { useI18nText } from '@/composables/useI18nText'
@@ -160,7 +159,6 @@ const SHELL_DEFAULTS = {
   initialSearchQuery: '',
   spaSearch: false,
   spaNavigation: false,
-  showRuntime: false,
   compliance: null,
   renderYear: null,
 } satisfies {
@@ -174,7 +172,6 @@ const SHELL_DEFAULTS = {
   initialSearchQuery: string
   spaSearch: boolean
   spaNavigation: boolean
-  showRuntime: boolean
   compliance: SiteComplianceConfigPublic | null
   renderYear: number | null
 }
@@ -195,7 +192,6 @@ const props = withDefaults(
     initialSearchQuery?: string
     spaSearch?: boolean
     spaNavigation?: boolean
-    showRuntime?: boolean
     compliance?: SiteComplianceConfigPublic | null
     renderYear?: number | null
   }>(),
@@ -214,7 +210,6 @@ const props = withDefaults(
     initialSearchQuery: '',
     spaSearch: false,
     spaNavigation: false,
-    showRuntime: false,
     compliance: null,
     renderYear: null,
   },
@@ -235,11 +230,6 @@ const siteDescriptionText = computed(() =>
 const compliance = computed(() => props.compliance ?? null)
 const searchQuery = ref(props.initialSearchQuery)
 const shellRootRef = ref<HTMLElement>()
-const clientRuntimeEnabled = ref(false)
-let hydrationObserver: MutationObserver | null = null
-const FullAppRuntime = defineAsyncComponent(
-  () => import('@/components/runtime/AppRuntime.vue'),
-)
 const PUBLIC_THEME_MODE_LABELS = computed(() => ({
   light: layoutCopy.value.light,
   dark: layoutCopy.value.dark,
@@ -280,7 +270,6 @@ const shouldUseRuntimeAuthState = computed(() =>
   props.authAction === SHELL_DEFAULTS.authAction
   && (props.authHref?.trim() || SHELL_DEFAULTS.authHref) === SHELL_DEFAULTS.authHref
 )
-const shouldShowRuntime = computed(() => props.showRuntime || clientRuntimeEnabled.value)
 const resolvedAuthHref = computed(() =>
   shouldUseRuntimeAuthState.value
     ? publicShellRuntimeAuthState.value.authHref
@@ -351,49 +340,12 @@ function handleSearch(query: string): void {
   emit('search', query)
 }
 
-function enableRuntimeAfterHydration(): void {
-  if (props.showRuntime || clientRuntimeEnabled.value) {
-    return
-  }
-
-  const shell = shellRootRef.value
-  if (!shell) {
-    return
-  }
-
-  if (shell.dataset.publicHydrated === 'true') {
-    clientRuntimeEnabled.value = true
-    return
-  }
-
-  hydrationObserver?.disconnect()
-  hydrationObserver = new MutationObserver(() => {
-    if (shell.dataset.publicHydrated !== 'true') {
-      return
-    }
-
-    hydrationObserver?.disconnect()
-    hydrationObserver = null
-    clientRuntimeEnabled.value = true
-  })
-  hydrationObserver.observe(shell, { attributes: true, attributeFilter: ['data-public-hydrated'] })
-}
-
 watch(
   () => props.initialSearchQuery,
   (value) => {
     searchQuery.value = value
   },
 )
-
-onMounted(() => {
-  enableRuntimeAfterHydration()
-})
-
-onBeforeUnmount(() => {
-  hydrationObserver?.disconnect()
-  hydrationObserver = null
-})
 </script>
 
 <style scoped>

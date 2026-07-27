@@ -6,12 +6,10 @@ import { getKnownErrorInfo } from '@/utils/errorKinds'
 
 export type BootstrapPhase = 'idle' | 'bootstrapping' | 'ready' | 'error'
 export type AuthPhase = 'unknown' | 'guest' | 'authenticated'
-export type RuntimePhase = 'shell-visible' | 'runtime-loading' | 'runtime-ready'
 
 export const useAppShellStore = defineStore('app-shell', () => {
   const bootstrapPhase = ref<BootstrapPhase>('idle')
   const authPhase = ref<AuthPhase>('unknown')
-  const runtimePhase = ref<RuntimePhase>('shell-visible')
   const riskPhase = ref<'normal' | 'elevated'>('normal')
   const sessionPhase = ref<'active' | 'refreshing' | 'expired'>('active')
 
@@ -51,10 +49,6 @@ export const useAppShellStore = defineStore('app-shell', () => {
     return bootstrapPromise
   }
 
-  const setRuntimePhase = (phase: RuntimePhase) => {
-    runtimePhase.value = phase
-  }
-
   const markSessionExpired = () => {
     sessionPhase.value = 'expired'
     authPhase.value = 'guest'
@@ -75,14 +69,12 @@ export const useAppShellStore = defineStore('app-shell', () => {
   return {
     bootstrapPhase,
     authPhase,
-    runtimePhase,
     sessionPhase,
     riskPhase,
     bootstrapError,
     isReady,
     bootstrap,
     syncAuthPhase,
-    setRuntimePhase,
     markSessionExpired,
     markSessionRefreshing,
     markSessionActive,

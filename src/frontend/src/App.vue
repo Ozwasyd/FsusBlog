@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, onMounted, onUnmounted, watch } from 'vue'
+import { computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useHead } from '@unhead/vue'
 
@@ -8,7 +8,7 @@ import { useWindowEvents } from '@/composables/useWindowEvents'
 import { handleRootAotClick } from '@/bootstrap/aotActionBridge'
 import { createSessionExpiredNavigationHandler, SESSION_EXPIRED_EVENT } from '@/bootstrap/sessionExpiryBridge'
 import { ADMIN_LOGOUT_EVENT, createAdminLogoutNavigationHandler } from '@/bootstrap/adminLogoutBridge'
-import { runtimePhase, runtimeReady } from '@/bootstrap/runtimeGate'
+import { runtimeActive } from '@/bootstrap/runtimeActivation'
 import { isPublicShellRouteName } from '@/public-renderers/publicPageModel'
 import { useThemeRuntime } from '@/services/themeRuntime'
 import { privateSurfaceRuntime, type PrivateSurfaceTransition } from '@/services/privateSurfaceRuntime'
@@ -25,8 +25,7 @@ import {
 
 const router = useRouter()
 const route = useRoute()
-const { userStore, siteStore, syncAuthPhase, setRuntimePhase, syncDocumentTitle } = useSessionBootstrap()
-const FullAppRuntime = defineAsyncComponent(() => import('@/components/runtime/AppRuntime.vue'))
+const { userStore, siteStore, syncAuthPhase, syncDocumentTitle } = useSessionBootstrap()
 const { mode } = useThemeRuntime()
 const routeCleanup = useMotionRouteCleanup()
 const securityChallengeCoordinator = getRiskChallengeCoordinator()
@@ -83,7 +82,7 @@ const handleSessionExpired = createSessionExpiredNavigationHandler(router, () =>
 const handleAdminLogout = createAdminLogoutNavigationHandler(router, () => userStore.isLoggedIn)
 
 function shouldHandleSpaAnchor(anchor: HTMLAnchorElement): boolean {
-  if (!runtimeReady.value || !isPublicShellRoute.value) {
+  if (!runtimeActive.value || !isPublicShellRoute.value) {
     return false
   }
 
@@ -114,7 +113,7 @@ function shouldHandleSpaAnchor(anchor: HTMLAnchorElement): boolean {
 }
 
 const onDocumentClick = (event: MouseEvent): void => {
-  if (!runtimeReady.value) {
+  if (!runtimeActive.value) {
     void handleRootAotClick(event, router)
   }
 
@@ -197,14 +196,6 @@ watch(
 )
 
 watch(
-  () => runtimePhase.value,
-  (phase) => {
-    setRuntimePhase(phase)
-  },
-  { immediate: true }
-)
-
-watch(
   () => route.fullPath,
   () => {
     routeCleanup.cleanup()
@@ -268,7 +259,6 @@ onUnmounted(() => {
         </Transition>
       </router-view>
     </div>
-    <FullAppRuntime v-if="runtimeReady" />
     <SecurityChallengeDialogHost />
   </el-config-provider>
 </template>

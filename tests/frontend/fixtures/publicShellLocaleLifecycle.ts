@@ -38,7 +38,6 @@ const Root = defineComponent({
         isLoggedIn: session === 'user',
         isAdmin: false,
         spaSearch: phase.value === 'spa',
-        showRuntime: false,
       })
       return h(PublicBlogLayoutShell, {
         ...shellState,

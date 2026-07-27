@@ -17,7 +17,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useSessionBootstrap } from '@/composables/useSessionBootstrap'
 import { readPublicHydrationPayload } from '@/bootstrap/publicHydrationBootstrap'
-import { runtimeReady } from '@/bootstrap/runtimeGate'
+import { runtimeActive } from '@/bootstrap/runtimeActivation'
 import { publicActivationState } from '@/bootstrap/publicActivationRuntime'
 import PublicBlogLayoutShell from '@/components/public/PublicBlogLayoutShell.vue'
 import {
@@ -76,8 +76,7 @@ const shellState = computed(() => createPublicShellViewState({
   renderYear: activeSiteIdentity.value.renderYear,
   isSearchRoute: isSearchRoute.value,
   initialSearchQuery: isSearchRoute.value ? String(route.query.q || '') : '',
-  spaSearch: isMounted.value && runtimeReady.value,
-  showRuntime: isMounted.value && runtimeReady.value,
+  spaSearch: isMounted.value && runtimeActive.value,
 }))
 
 function syncPublicDocumentHead(): void {

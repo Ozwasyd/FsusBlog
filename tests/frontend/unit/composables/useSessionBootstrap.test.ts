@@ -3,7 +3,6 @@ import { setActivePinia, createPinia } from 'pinia'
 import { useSessionBootstrap } from '@/composables/useSessionBootstrap'
 
 const bootstrap = vi.fn().mockResolvedValue(undefined)
-const setRuntimePhase = vi.fn()
 const syncAuthPhase = vi.fn()
 const fetchSiteInfo = vi.fn().mockResolvedValue(undefined)
 const fetchUserInfo = vi.fn().mockResolvedValue(undefined)
@@ -14,7 +13,6 @@ vi.mock('@/store/appShell', () => ({
   useAppShellStore: vi.fn(() => ({
     isReady: false,
     bootstrap,
-    setRuntimePhase,
     syncAuthPhase,
     markSessionRefreshing: vi.fn(),
     markSessionActive: vi.fn(),
@@ -60,7 +58,6 @@ describe('useSessionBootstrap', () => {
     await bootstrapper.ensurePublicShell()
 
     expect(bootstrap).toHaveBeenCalledTimes(1)
-    expect(setRuntimePhase).toHaveBeenCalledWith('shell-visible')
     expect(fetchUserInfo).not.toHaveBeenCalled()
   })
 

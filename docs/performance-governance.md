@@ -53,7 +53,7 @@ High-frequency info telemetry must not write to the production console by defaul
 
 ## Full app takeover
 
-Public shell takeover must keep non-first-frame plugins out of the mount window. `FsuMotion` is dynamically installed after mount through an idle/timer gate, while `scheduleFullAppRuntime` remains responsible for runtime activation. New full app plugins should either be required for first paint or follow the same deferred installation pattern.
+Public shell takeover must keep non-first-frame plugins out of the mount window. `FsuMotion` is dynamically installed after mount through an idle/timer gate. AppRuntime ownership lives solely in `bootstrap/runtimeActivation.ts` (`dormant` → `scheduled` → `active`); the FullApp composition root schedules activation after interactive takeover (inheriting the first intent) or after-first-paint for direct SPA boots. Public AOT hydration must not mount AppRuntime. New full app plugins should either be required for first paint or follow the same deferred installation pattern.
 
 ## Perception-sealed v2 security budget
 

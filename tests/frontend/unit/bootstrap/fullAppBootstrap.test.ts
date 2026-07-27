@@ -38,7 +38,7 @@ const createApp = vi.fn(() => fakeApp)
 const fakePinia = { use: vi.fn() }
 const createPinia = vi.fn(() => fakePinia)
 const createHead = vi.fn(() => ({}))
-const scheduleFullAppRuntime = vi.fn()
+const scheduleRuntimeActivation = vi.fn()
 const scheduleNonCriticalResources = vi.fn()
 const removeGlobalLoader = vi.fn()
 const activatePublicTakeover = vi.fn(async () => {})
@@ -78,6 +78,9 @@ vi.mock('vue', () => ({
     }
   })),
   createApp,
+  defineAsyncComponent: vi.fn((loader: unknown) => loader),
+  defineComponent: vi.fn((options: { setup?: () => unknown }) => options),
+  Fragment: Symbol('Fragment'),
   h: vi.fn(),
   readonly: vi.fn((value) => value),
   ref: vi.fn((value) => ({ value })),
@@ -104,7 +107,10 @@ vi.mock('@/fsusui/appContext', () => ({ provideFsusUiAppContext: vi.fn() }))
 vi.mock('@/fsusui/feedback', () => ({ installFsusUiLoading: vi.fn() }))
 vi.mock('@/fsusui/motion', () => ({ FsuMotion: {} }))
 vi.mock('@/bootstrap/nonCriticalResources', () => ({ scheduleNonCriticalResources }))
-vi.mock('@/bootstrap/runtimeGate', () => ({ runtimeReady: { value: true }, scheduleFullAppRuntime }))
+vi.mock('@/bootstrap/runtimeActivation', () => ({
+  runtimeActive: { value: true },
+  scheduleRuntimeActivation
+}))
 vi.mock('@/bootstrap/publicShellPrimitives', () => ({ removeGlobalLoader }))
 vi.mock('@/public-renderers/clientHydrate', () => ({ getPublicHydrationTakeoverHandle }))
 vi.mock('@/bootstrap/publicShellLifetime', () => ({ abortPublicShellLifetime }))
@@ -133,7 +139,7 @@ describe('full app bootstrap prepare/commit', () => {
   it('prepares the app without clearing or mounting over the public shell', async () => {
     const { prepareFullApp } = await import('@/bootstrap/fullApp')
 
-    const prepared = prepareFullApp({ takeover: 'public-shell', deferRuntime: true })
+    const prepared = prepareFullApp({ takeover: 'public-shell' })
 
     expect(prepared.router).toBe(fakeRouter)
     expect(createAppRouter).toHaveBeenCalledWith({
@@ -157,7 +163,7 @@ describe('full app bootstrap prepare/commit', () => {
 
   it('commits a prepared public takeover and replays a captured router intent after mount', async () => {
     const { prepareFullApp, commitPreparedFullApp } = await import('@/bootstrap/fullApp')
-    const prepared = prepareFullApp({ takeover: 'public-shell', deferRuntime: true })
+    const prepared = prepareFullApp({ takeover: 'public-shell' })
     const currentRoute = `${window.location.pathname}${window.location.search}${window.location.hash}` || '/'
     await commitPreparedFullApp(prepared, {
       navigationIntent: {
@@ -181,10 +187,7 @@ describe('full app bootstrap prepare/commit', () => {
       timeoutMs: 5000
     })
     expect(authSessionRuntimeInit).toHaveBeenCalledTimes(1)
-    expect(scheduleFullAppRuntime).toHaveBeenCalledWith(true, {
-      allowIdleActivation: false,
-      allowScrollActivation: false
-    })
+    expect(scheduleRuntimeActivation).toHaveBeenCalledWith('takeover')
   })
 
   it('leaves the public shell intact when prepare fails', async () => {
@@ -236,6 +239,7 @@ describe('full app bootstrap prepare/commit', () => {
       .toBeLessThan(appMount.mock.invocationCallOrder[0]!)
     expect(appMount).toHaveBeenCalledWith('#app')
     expect(removeGlobalLoader).toHaveBeenCalledTimes(1)
+    expect(scheduleRuntimeActivation).toHaveBeenCalledWith('after-first-paint')
   })
 
   it('clears failed bootstrap ownership so a later call can retry', async () => {

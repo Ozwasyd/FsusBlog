@@ -65,7 +65,6 @@ const coordinator = new PublicActivationCoordinator<PreparedFullApp>({
       }
       const module = await loadFullApp()
       preparedCandidate = module.prepareFullApp({
-        deferRuntime: true,
         getPublicActivationOwner: getFullAppActivationOwner,
         takeover: 'public-shell'
       })

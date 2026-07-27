@@ -18,7 +18,6 @@ export type PublicShellViewInput = Readonly<{
   isSearchRoute?: boolean
   initialSearchQuery?: string | null
   spaSearch?: boolean
-  showRuntime?: boolean
   compliance?: SiteComplianceConfigPublic | null
   renderYear?: number | null
   isRuntimeAuthResolved?: boolean
@@ -62,7 +61,6 @@ export function createPublicShellViewState(input: PublicShellViewInput = {}): Pu
     searchAction: isSearchRoute ? 'search-shortcut' : PUBLIC_SHELL_DEFAULTS.searchAction,
     initialSearchQuery: isSearchRoute ? String(input.initialSearchQuery ?? '') : '',
     spaSearch: Boolean(input.spaSearch),
-    showRuntime: Boolean(input.showRuntime),
     compliance: normalizePublicComplianceConfig(input.compliance),
     renderYear: Number.isInteger(input.renderYear) ? Number(input.renderYear) : null,
     ...resolveAuthState(input)

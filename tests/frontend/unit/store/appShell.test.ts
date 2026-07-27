@@ -26,10 +26,11 @@ describe('useAppShellStore', () => {
     const store = useAppShellStore()
     expect(store.bootstrapPhase).toBe('idle')
     expect(store.authPhase).toBe('unknown')
-    expect(store.runtimePhase).toBe('shell-visible')
     expect(store.sessionPhase).toBe('active')
     expect(store.riskPhase).toBe('normal')
     expect(store.isReady).toBe(false)
+    expect(store).not.toHaveProperty('runtimePhase')
+    expect(store).not.toHaveProperty('setRuntimePhase')
   })
 
   it('bootstrap transitions to ready', async () => {
@@ -72,14 +73,6 @@ describe('useAppShellStore', () => {
     await store.bootstrap()
     expect(store.bootstrapPhase).toBe('error')
     expect(store.bootstrapError).toBeTruthy()
-  })
-
-  it('setRuntimePhase updates runtimePhase', () => {
-    const store = useAppShellStore()
-    store.setRuntimePhase('runtime-loading')
-    expect(store.runtimePhase).toBe('runtime-loading')
-    store.setRuntimePhase('runtime-ready')
-    expect(store.runtimePhase).toBe('runtime-ready')
   })
 
   it('markSessionExpired sets session expired and authPhase to guest', () => {
