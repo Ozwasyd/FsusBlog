@@ -27,6 +27,13 @@ const ThemeModeToggleStub = defineComponent({
   template: '<button type="button">主题</button>',
 })
 
+const LocaleSelectorRuntimeAdapterStub = defineComponent({
+  props: {
+    compact: Boolean,
+  },
+  template: '<div data-locale-selector-runtime-adapter :data-compact="compact ? \'true\' : \'false\'"></div>',
+})
+
 function mountShell() {
   return mount(PublicBlogLayoutShell, {
     attachTo: document.body,
@@ -40,6 +47,7 @@ function mountShell() {
     global: {
       stubs: {
         ThemeModeToggle: ThemeModeToggleStub,
+        LocaleSelectorRuntimeAdapter: LocaleSelectorRuntimeAdapterStub,
         PublicComplianceFooter: true,
       },
     },
@@ -75,7 +83,15 @@ describe('PublicBlogLayoutShell PublicShell delegation', () => {
     expect(html).toContain('href="/user/profile"')
     expect(html).toContain('data-public-nav="auth"')
     expect(html).toContain('is-csp-hidden')
-    expect(html).not.toMatch(/\sstyle=/u)
+    // LocaleSelector keeps closed menus with v-show (display:none). Strip only that
+    // contract-owned closed state before asserting the public shell stays CSP-safe.
+    const withoutLocaleMenuClosedStyle = html.replace(
+      /(<div[^>]*data-locale-selector-menu[^>]*?)\sstyle="display:none;"/gu,
+      '$1',
+    )
+    expect(withoutLocaleMenuClosedStyle).not.toMatch(/\sstyle=/u)
+    expect(html).toContain('data-locale-selector-runtime-adapter')
+    expect(html).toContain('data-locale-selector-item')
   })
 
   it.each([
@@ -162,6 +178,17 @@ describe('PublicBlogLayoutShell PublicShell delegation', () => {
 
     await wrapper.setProps({ hydrationKind: 'Home' })
     expect(content.attributes('data-public-content-flow')).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('places LocaleSelectorRuntimeAdapter in desktop actions and mobile menu utilities', () => {
+    const wrapper = mountShell()
+    const adapters = wrapper.findAll('[data-locale-selector-runtime-adapter]')
+    expect(adapters).toHaveLength(2)
+    expect(adapters.some((node) => node.attributes('data-compact') === 'true')).toBe(true)
+    expect(adapters.some((node) => node.attributes('data-compact') !== 'true')).toBe(true)
+    expect(wrapper.find('.fsusblog-public-mobile-menu-utilities [data-locale-selector-runtime-adapter]').exists())
+      .toBe(true)
     wrapper.unmount()
   })
 })

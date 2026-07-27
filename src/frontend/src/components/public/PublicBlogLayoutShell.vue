@@ -79,6 +79,7 @@
       </template>
 
       <template #desktop-actions>
+        <LocaleSelectorRuntimeAdapter />
         <ThemeModeToggle visibility="desktop" variant="menu-button" />
       </template>
 
@@ -88,6 +89,7 @@
           role="group"
           :aria-label="layoutCopy.mobileUtilities"
         >
+          <LocaleSelectorRuntimeAdapter compact />
           <ThemeModeToggle
             visibility="mobile"
             variant="menu-button"
@@ -118,6 +120,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import LocaleSelectorRuntimeAdapter from '@/components/i18n/LocaleSelectorRuntimeAdapter.vue'
 import ThemeModeToggle from '@/components/ui/ThemeModeToggle.vue'
 import PublicComplianceFooter from '@/components/public/PublicComplianceFooter.vue'
 import { useI18nText } from '@/composables/useI18nText'
