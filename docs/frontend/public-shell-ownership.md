@@ -6,6 +6,18 @@
 规则见 [`internal-selector-governance.md`](internal-selector-governance.md)；
 PublicShell 在该治理中仍是零豁免边界。
 
+## 文档级 viewport
+
+FsusBlog 只负责 **document-level viewport**：`src/frontend/index.html` 是唯一 authoring source，内容固定为
+
+```html
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+```
+
+Vite dist、public AOT 与 SPA fallback 均消费该模板产物；`App.vue` / bootstrap / router 不得通过 `useHead` 或 DOM 补丁改写 viewport；后端不得合成第二份最小 HTML。组件内部 safe-area 几何（Dialog、Lightbox、PublicShell 控件贴边等）由 FsusUI contract 所有，不在 Blog 文档 viewport 契约内。
+
+静态门禁：`check:document-viewport-source`。
+
 ## 组件与交互所有权
 
 `PublicBlogLayoutShell.vue` 通过 alias 使用真实的 FsusUI `ElPublicShell`，并显式选择 `mobileNavMode="menu"` 与 `desktop-search-mode="trigger"`。FsusUI 拥有 header/main/footer DOM 布局、desktop 40px 与 mobile 44px 控件几何、原生 `details/summary` 菜单、search/auth/theme 的 open/closed、focus、Escape、outside-pointer、reduced-motion 与 safe-area 行为；Blog 只传入导航文案、鉴权目标、搜索 query/action 与 SPA 路由选择。
@@ -54,6 +66,7 @@ Archive 年份 section 以 `--fsusblog-public-anchor-offset` 提供 hash clearan
 
 ## 验收与降级
 
+- `check:document-viewport-source` 验证唯一 document viewport 来源、`viewport-fit=cover`、无 runtime/后端副本，并对 reintroduce 路径做 mutation 拒绝。
 - `check:public-shell-css-ownership` 验证 CSS 分层、delegated search/auth 与 emergency 生成来源。
 - `check:visual-density-governance` 拒绝旧触控高度、固定 archive offset 和内部选择器。
 - `usePublicStickyGeometry.test.ts` 覆盖初始测量、observer 更新、viewport resize、元素替换与卸载清理。

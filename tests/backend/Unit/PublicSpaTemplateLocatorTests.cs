@@ -113,6 +113,35 @@ public sealed class PublicSpaTemplateLocatorTests
     }
 
     [Fact]
+    public async Task Development_MissingTemplateFailsFastWithoutMinimalHtml()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            string contentRoot = Path.Combine(root, "src", "backend");
+            Directory.CreateDirectory(contentRoot);
+            // Empty wwwroot and no frontend/dist or frontend/index.html candidates.
+            var env = new TestWebHostEnvironment(root, Environments.Development)
+            {
+                ContentRootPath = contentRoot,
+                WebRootPath = Path.Combine(root, "empty-wwwroot")
+            };
+            Directory.CreateDirectory(env.WebRootPath);
+            PublicSpaTemplateLocator.ResetCacheForTests();
+
+            InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                PublicSpaTemplateLocator.ReadIndexTemplateAsync(env, CancellationToken.None));
+
+            Assert.Equal("spa_index_template_unavailable", exception.Message);
+        }
+        finally
+        {
+            PublicSpaTemplateLocator.ResetCacheForTests();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task Development_ReloadsTemplateAfterFileChanges()
     {
         string root = CreateTempDirectory();

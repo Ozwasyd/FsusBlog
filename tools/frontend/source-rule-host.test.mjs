@@ -238,7 +238,7 @@ test('repository migration registry binds the full static inventory and speciali
     assert.deepEqual(validateFrontendStaticOwnerRegistry(registry), []);
     assert.equal(registry.summary.sharedHost, 2);
     assert.equal(registry.commands.filter(({ owner }) => owner === 'shared-host').length, 2);
-    assert.equal(registry.specializedGovernance.commandCount, 202);
+    assert.equal(registry.specializedGovernance.commandCount, 207);
     assert.equal(
         registry.summary.commandCount,
         registry.summary.sharedHost

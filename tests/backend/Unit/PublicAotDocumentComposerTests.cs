@@ -36,6 +36,32 @@ public sealed class PublicAotDocumentComposerTests
         Assert.Contains("<html lang=\"ja-JP\" dir=\"ltr\">", html, StringComparison.Ordinal);
         Assert.Contains("<main>ホーム</main>", html, StringComparison.Ordinal);
         Assert.Contains("property=\"og:locale\" content=\"ja_JP\"", html, StringComparison.Ordinal);
+        AssertUniqueCanonicalViewport(html);
+    }
+
+    [Fact]
+    public void ComposeDocument_PreservesSingleCanonicalViewportFromTemplate()
+    {
+        string template = Template();
+        string prepared = PublicAotDocumentComposer.PreparePublicDocumentTemplate(template);
+
+        string html = PublicAotDocumentComposer.ComposeDocument(new PublicAotDocumentModel(
+            PublicPageKind.ArticleDetail,
+            template,
+            prepared,
+            "文章",
+            "FsusBlog",
+            "摘要",
+            "https://example.com/a/1",
+            "<main>文章</main>",
+            AedsPayload(("pageKind", "ArticleDetail")),
+            AedsPayload(("pageKind", "ArticleDetail")),
+            string.Empty,
+            string.Empty,
+            string.Empty));
+
+        AssertUniqueCanonicalViewport(html);
+        Assert.DoesNotContain("name=\"viewport\" data-fsus-aot-head", html, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -624,6 +650,25 @@ public sealed class PublicAotDocumentComposerTests
         return html[start..end];
     }
 
+    private const string CanonicalViewportContent = "width=device-width, initial-scale=1.0, viewport-fit=cover";
+    private const string CanonicalViewportMeta =
+        """<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />""";
+
+    private static void AssertUniqueCanonicalViewport(string html)
+    {
+        int count = 0;
+        int index = 0;
+        while ((index = html.IndexOf("name=\"viewport\"", index, StringComparison.OrdinalIgnoreCase)) >= 0)
+        {
+            count++;
+            index += "name=\"viewport\"".Length;
+        }
+
+        Assert.Equal(1, count);
+        Assert.Contains(CanonicalViewportMeta, html, StringComparison.Ordinal);
+        Assert.Contains($"content=\"{CanonicalViewportContent}\"", html, StringComparison.Ordinal);
+    }
+
     private static string Template(
         string title = "Loading...",
         string bodyAttributes = "",
@@ -634,7 +679,7 @@ public sealed class PublicAotDocumentComposerTests
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    {CanonicalViewportMeta}
     {headMarkup}
     <!--fsus:aot:head-start-->
     <title>{title}</title>

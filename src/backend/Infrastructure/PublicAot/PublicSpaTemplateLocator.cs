@@ -6,20 +6,6 @@ namespace FsusBlog.Server.Infrastructure.PublicAot;
 
 internal static class PublicSpaTemplateLocator
 {
-    private const string MinimalIndexTemplate = """
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Loading...</title>
-</head>
-<body>
-    <div id="app"></div>
-</body>
-</html>
-""";
-    private static readonly byte[] s_minimalIndexTemplateBytes = Encoding.UTF8.GetBytes(MinimalIndexTemplate);
     private static readonly ConcurrentDictionary<string, string> s_assetPathCache = new(StringComparer.Ordinal);
     private static readonly ConcurrentDictionary<string, TemplateSnapshot> s_templateCache = new(StringComparer.Ordinal);
 
@@ -122,8 +108,6 @@ internal static class PublicSpaTemplateLocator
         return file != null ? $"/assets/{file}" : string.Empty;
     }
 
-    internal static string BuildMinimalIndexHtml() => MinimalIndexTemplate;
-
     internal static void ResetCacheForTests()
     {
         s_templateCache.Clear();
@@ -142,14 +126,10 @@ internal static class PublicSpaTemplateLocator
 
         if (string.IsNullOrWhiteSpace(indexPath))
         {
-            if (!isDevelopment)
-            {
-                throw new InvalidOperationException("spa_index_template_unavailable");
-            }
-            string minimalKey = string.Concat("minimal|", Path.GetFullPath(env.ContentRootPath), '|', preferSourceTemplate ? "source" : "dist");
-            return canUseCachedTemplate
-                ? s_templateCache.GetOrAdd(minimalKey, static _ => TemplateSnapshot.Minimal)
-                : TemplateSnapshot.Minimal;
+            // Development and production both fail closed. There is no synthetic
+            // minimal HTML fallback: the real source/dist/bound index.html is the
+            // only SPA document template and the sole viewport authoring source.
+            throw new InvalidOperationException("spa_index_template_unavailable");
         }
 
         DateTime lastWriteTimeUtc = isDevelopment
@@ -190,15 +170,6 @@ internal static class PublicSpaTemplateLocator
 
     private sealed record TemplateSnapshot(string Path, DateTime LastWriteTimeUtc, byte[] Bytes, string AssetVersion)
     {
-        public static TemplateSnapshot Minimal
-        {
-            get;
-        } = new(
-            string.Empty,
-            DateTime.MinValue,
-            s_minimalIndexTemplateBytes,
-            ComputeAssetVersion(s_minimalIndexTemplateBytes));
-
         private string? _lazyText;
 
         public string Text => _lazyText ??= Encoding.UTF8.GetString(Bytes);

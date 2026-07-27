@@ -1,10 +1,10 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:eff760c96daa43fde5fac4c0721ddc61c1951689573731e82ae54e35b4eefafb",
-    "sourceStateSha256": "eff760c96daa43fde5fac4c0721ddc61c1951689573731e82ae54e35b4eefafb",
-    "configurationSha256": "178ff83b1d2e9e0fbb167309754c7a7db206085a41f2f106ce0460c248918f26",
-    "violationCount": 304240,
-    "fileCount": 1053,
+    "generatedFrom": "source-state:545a5ff954186aaad0a6b9546023938ca59d1d527bf7fe840362b5706bb8956e",
+    "sourceStateSha256": "545a5ff954186aaad0a6b9546023938ca59d1d527bf7fe840362b5706bb8956e",
+    "configurationSha256": "4115e0ee7d6a3e37b82ea4046179af026a8a73bab51f1ac2b0c7bdf26b0f83b5",
+    "violationCount": 304282,
+    "fileCount": 1054,
     "files": [
         {
             "path": "src/frontend/public/sw.js",
@@ -101,25 +101,24 @@
         },
         {
             "path": "src/frontend/src/App.vue",
-            "sourceSha256": "0a0794c76f2a25bbccf43584d4a1a0539ed9a496ada05aa6f7a8667a4c8f6520",
-            "violationCount": 364,
-            "violationDigest": "6c35a8dcacf1e8dff7c7dd4e398ef236938e36a435840d0572c0253dc4dae5ee",
+            "sourceSha256": "ac0b0984bf34b6725619be3e533450ad02699883db83e1708cb9b698c05f5453",
+            "violationCount": 406,
+            "violationDigest": "34c7a73973b6a5bbf4cb620096c86d29209e970cb6c4f90f6851e91c9b4e6a6a",
             "rules": {
-                "eslint/@stylistic/brace-style": 35,
-                "eslint/@stylistic/semi": 103,
+                "eslint/@stylistic/semi": 95,
+                "eslint/import-x/order": 11,
+                "eslint/vue/script-indent": 119,
+                "eslint/@typescript-eslint/no-unsafe-assignment": 20,
+                "eslint/@typescript-eslint/no-unsafe-call": 30,
+                "eslint/@typescript-eslint/no-unsafe-member-access": 39,
+                "eslint/@stylistic/brace-style": 31,
+                "eslint/@typescript-eslint/no-unsafe-return": 7,
                 "eslint/@typescript-eslint/no-empty-function": 1,
                 "eslint/@typescript-eslint/no-unsafe-argument": 1,
-                "eslint/@typescript-eslint/no-unsafe-assignment": 5,
-                "eslint/@typescript-eslint/no-unsafe-call": 7,
-                "eslint/@typescript-eslint/no-unsafe-member-access": 5,
-                "eslint/import-x/order": 13,
                 "eslint/vue/block-order": 1,
+                "eslint/vue/html-indent": 41,
                 "eslint/vue/component-name-in-template-casing": 4,
-                "eslint/vue/html-indent": 42,
-                "eslint/vue/max-attributes-per-line": 6,
-                "eslint/vue/script-indent": 133,
-                "stylelint/@stylistic/block-opening-brace-newline-before": 2,
-                "stylelint/@stylistic/indentation": 6
+                "eslint/vue/max-attributes-per-line": 6
             }
         },
         {
@@ -8039,6 +8038,13 @@
                 "eslint/@stylistic/indent": 76,
                 "eslint/@stylistic/semi": 31
             }
+        },
+        {
+            "path": "tests/frontend/checks/static/check-document-viewport-source.mjs",
+            "sourceSha256": "6b0827b3517e5ded18264eb3de808cb2b8e9eb960f64aa789f169a5fd2c619fd",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/frontend/checks/static/check-dom-depth-static.mjs",

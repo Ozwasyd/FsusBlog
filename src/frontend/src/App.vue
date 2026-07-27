@@ -34,12 +34,9 @@ const headConfig = computed(() => ({
     const siteTitle = siteStore.siteInfo.title
     return titleChunk ? `${titleChunk} - ${siteTitle}` : siteTitle
   },
-  meta: [
-    { name: 'viewport', content: 'width=device-width, initial-scale=1.0' },
-    ...(isPublicShellRouteName(route.name) ? [] : [
-      { name: 'description', content: siteStore.siteInfo.description }
-    ])
-  ]
+  meta: isPublicShellRouteName(route.name)
+    ? []
+    : [{ name: 'description', content: siteStore.siteInfo.description }]
 }))
 
 useHead(headConfig)
