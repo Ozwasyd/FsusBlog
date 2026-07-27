@@ -7,11 +7,15 @@
 - `single` 只注册 `SingleNodeDistributedInvalidationPublisher`。本地失效完成后返回 `LocalOnly`，不创建 Redis subscriber，也不启动总线后台服务。
 - `static-role` 与 `adaptive` 注册 Redis Pub/Sub transport 和 `DistributedInvalidationBus`。channel 经 `IRuntimeKeyScope` 隔离，默认逻辑名为 `fsus:distributed-invalidation:v1`。
 
+多节点模式还必须在 `Runtime:DistributedInvalidation:Topology:SubscriberNodeIds` 提供当前部署的 machine-readable subscriber manifest。它是 publish delivery expectation 的唯一 authority，包含来源节点自身（若该节点订阅此 channel），并与逻辑 channel 一起 canonicalize 为 SHA-256 topology digest。缺失 manifest、重复/空节点 ID，或 publisher node 不在 manifest 中，都会在启动注册阶段 fail closed；不得由当前进程数、环境变量或 Redis publish ACK 推测 topology。
+
 节点 ID 默认是 `machine:process-id`，也可由 `FSUSBLOG_NODE_ID` 或 `Runtime:DistributedInvalidation:NodeId` 显式配置。多节点部署必须给每个节点提供稳定且唯一的 ID；runtime scope、channel 和 node identity 必须同时匹配当前部署拓扑。
 
 ## Publish and apply ordering
 
-写节点先完成原有本地与共享缓存失效，再发布分布式事件。Redis 发布失败不能把已成功的业务 mutation 改写成失败；publisher 返回 `Degraded`，并把稳定错误类别写入结构化日志、`DistributedInvalidationRuntimeState` 和 `CacheInvalidationRuntimeState.LastKind/LastDetail`。
+写节点先完成原有本地与共享缓存失效，再发布分布式事件。transport receipt 固定保存 `channel`、Redis 返回的 `subscriberCount`、manifest 的 `expectedMinimumSubscribers`、`publisherNodeSubscribed`、`observedAt` 和 `transportStatus`（`delivered`、`under-delivered` 或 `transport-failed`）。只有 `subscriberCount >= expectedMinimumSubscribers` 才记录 `Published`；零、null、负 count 与不足 count 都是 `under-delivered`，Redis exception 是 `transport-failed`。因此 `count > 0` 从不构成远端交付证明：来源节点自己订阅时也必须计入 topology expectation。
+
+每次 publish receipt 的 channel/count/expected/topology digest 都进入 `DistributedInvalidationRuntimeSnapshot`；非 delivered receipt 同时进入 cache runtime 的 degraded detail。Redis 异常或 delivery 不足不能把已成功的业务 mutation 改写成失败，但 publisher 必须返回 `Degraded`，不能把它记为 `Published` 或降级为 debug 日志。
 
 接收节点按以下顺序收敛本地派生状态：
 
@@ -37,4 +41,4 @@ Redis 暂时不可用时，节点继续完成本地失效，并让读请求回�
 
 ## Verification ownership
 
-`DistributedInvalidationBusTests` 使用两个独立总线实例验证对端 L1、Public AOT 与 PublicHotRead 收敛、自源过滤、重复投递幂等、无发布回环、apply 重试，以及 Redis 不可用时的本地优先行为。该测试属于 `distributed-contract-fast`，不依赖真实网络或双进程 fixture。
+`DistributedInvalidationBusTests` 使用两个独立总线实例验证对端 L1、Public AOT 与 PublicHotRead 收敛、自源过滤、重复投递幂等、无发布回环、apply 重试，以及 Redis 不可用时的本地优先行为。它还固定验证 expected=2/actual=2 才发布、expected=2/actual=1（仅来源 subscriber）为 degraded、零/null/负 count fail closed，及 distributed mode 缺 topology manifest 启动失败。该测试属于 `distributed-contract-fast`，不依赖真实网络或双进程 fixture。

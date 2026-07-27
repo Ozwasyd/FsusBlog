@@ -10,15 +10,44 @@ namespace FsusBlog.Server.Infrastructure.Distributed;
 public sealed class RedisDistributedInvalidationTransport(
     IConnectionMultiplexer redis,
     IRuntimeKeyScope runtimeKeyScope,
-    DistributedInvalidationOptions options) : IDistributedInvalidationTransport
+    DistributedInvalidationOptions options,
+    TimeProvider timeProvider) : IDistributedInvalidationTransport
 {
+    private readonly DistributedInvalidationTopologyManifest _topology = options.Topology
+        ?? throw new InvalidOperationException("distributed_invalidation_topology_manifest_required");
     private readonly RedisChannel _channel = RedisChannel.Literal(
         runtimeKeyScope.PrefixKey(options.Channel));
 
-    public async Task PublishAsync(string payload, CancellationToken cancellationToken = default)
+    public async Task<DistributedInvalidationTransportPublishResult> PublishAsync(
+        string payload,
+        CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        _ = await redis.GetSubscriber().PublishAsync(_channel, payload).ConfigureAwait(false);
+        try
+        {
+            long subscriberCount = await redis.GetSubscriber()
+                .PublishAsync(_channel, payload)
+                .ConfigureAwait(false);
+            return DistributedInvalidationTransportPublishResult.Observe(
+                _channel.ToString(),
+                subscriberCount,
+                _topology,
+                _topology.SubscriberNodeIds.Contains(options.NodeId, StringComparer.Ordinal),
+                timeProvider);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            return DistributedInvalidationTransportPublishResult.Failed(
+                _channel.ToString(),
+                _topology,
+                _topology.SubscriberNodeIds.Contains(options.NodeId, StringComparer.Ordinal),
+                timeProvider,
+                exception.GetType().Name);
+        }
     }
 
     public async IAsyncEnumerable<string> ReadAllAsync(

@@ -30,8 +30,31 @@ public sealed class DistributedInvalidationBus(
         try
         {
             string payload = JsonSerializer.Serialize(invalidation, s_jsonOptions);
-            await transport.PublishAsync(payload, cancellationToken).ConfigureAwait(false);
-            runtimeState.RecordPublished(invalidation);
+            DistributedInvalidationTransportPublishResult receipt = await transport
+                .PublishAsync(payload, cancellationToken)
+                .ConfigureAwait(false);
+            if (receipt.TransportStatus != DistributedInvalidationTransportStatus.Delivered)
+            {
+                string detail = CreatePublishDetail(receipt, invalidation);
+                runtimeState.RecordDegraded(invalidation, detail, receipt);
+                cacheRuntimeState.Record("distributed_degraded", detail);
+                logger.LogWarning(
+                    "distributed-invalidation-under-delivered {EventId} {Kind} {SourceNodeId} {TraceId} {Channel} {SubscriberCount} {ExpectedMinimumSubscribers} {TopologyDigest} {TransportStatus}",
+                    invalidation.EventId,
+                    invalidation.Kind,
+                    invalidation.SourceNodeId,
+                    invalidation.TraceId,
+                    receipt.Channel,
+                    receipt.SubscriberCount,
+                    receipt.ExpectedMinimumSubscribers,
+                    receipt.TopologyDigest,
+                    receipt.TransportStatus);
+                return new DistributedInvalidationPublishResult(
+                    DistributedInvalidationPublishStatus.Degraded,
+                    invalidation.EventId,
+                    detail);
+            }
+            runtimeState.RecordPublished(invalidation, receipt);
             logger.LogInformation(
                 "distributed-invalidation-published {EventId} {Kind} {SourceNodeId} {TraceId}",
                 invalidation.EventId,
@@ -65,6 +88,11 @@ public sealed class DistributedInvalidationBus(
                 detail);
         }
     }
+
+    private static string CreatePublishDetail(
+        DistributedInvalidationTransportPublishResult receipt,
+        DistributedInvalidationEvent invalidation)
+        => $"publish:{receipt.TransportStatus};reason:{receipt.FailureReason ?? "under-delivered"};channel:{receipt.Channel};count:{receipt.SubscriberCount?.ToString() ?? "null"};expected:{receipt.ExpectedMinimumSubscribers};topology:{receipt.TopologyDigest};event:{invalidation.EventId};trace:{invalidation.TraceId}";
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {

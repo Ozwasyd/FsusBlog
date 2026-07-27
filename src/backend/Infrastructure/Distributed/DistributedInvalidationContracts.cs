@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text;
 
 using FsusBlog.Server.Infrastructure.Cache;
 
@@ -32,9 +34,105 @@ public interface IDistributedInvalidationPublisher
 
 public interface IDistributedInvalidationTransport
 {
-    Task PublishAsync(string payload, CancellationToken cancellationToken = default);
+    Task<DistributedInvalidationTransportPublishResult> PublishAsync(
+        string payload,
+        CancellationToken cancellationToken = default);
 
     IAsyncEnumerable<string> ReadAllAsync(CancellationToken cancellationToken = default);
+}
+
+public enum DistributedInvalidationTransportStatus
+{
+    Delivered = 0,
+    UnderDelivered = 1,
+    TransportFailed = 2
+}
+
+public sealed record DistributedInvalidationTopologyManifest(
+    string Channel,
+    IReadOnlyList<string> SubscriberNodeIds,
+    string Digest)
+{
+    public static DistributedInvalidationTopologyManifest Create(
+        string? channel,
+        IEnumerable<string>? subscriberNodeIds)
+    {
+        if (string.IsNullOrWhiteSpace(channel))
+        {
+            throw new InvalidOperationException("distributed_invalidation_topology_channel_required");
+        }
+
+        string[] nodes = subscriberNodeIds?
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Select(static value => value.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToArray()
+            ?? [];
+        if (nodes.Length == 0)
+        {
+            throw new InvalidOperationException("distributed_invalidation_topology_manifest_required");
+        }
+        if (subscriberNodeIds is not null && subscriberNodeIds.Count() != nodes.Length)
+        {
+            throw new InvalidOperationException("distributed_invalidation_topology_subscribers_invalid");
+        }
+
+        string canonical = string.Join('\n', new[] { channel.Trim() }.Concat(nodes));
+        string digest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)))
+            .ToLowerInvariant();
+        return new DistributedInvalidationTopologyManifest(channel.Trim(), nodes, digest);
+    }
+}
+
+public sealed record DistributedInvalidationTransportPublishResult(
+    string Channel,
+    long? SubscriberCount,
+    int ExpectedMinimumSubscribers,
+    bool PublisherNodeSubscribed,
+    DateTimeOffset ObservedAt,
+    DistributedInvalidationTransportStatus TransportStatus,
+    string? TopologyDigest,
+    string? FailureReason)
+{
+    public static DistributedInvalidationTransportPublishResult Observe(
+        string channel,
+        long? subscriberCount,
+        DistributedInvalidationTopologyManifest topology,
+        bool publisherNodeSubscribed,
+        TimeProvider timeProvider)
+    {
+        ArgumentNullException.ThrowIfNull(topology);
+        ArgumentNullException.ThrowIfNull(timeProvider);
+        bool delivered = subscriberCount is >= 0 && subscriberCount >= topology.SubscriberNodeIds.Count;
+        return new DistributedInvalidationTransportPublishResult(
+            channel,
+            subscriberCount,
+            topology.SubscriberNodeIds.Count,
+            publisherNodeSubscribed,
+            timeProvider.GetUtcNow(),
+            delivered
+                ? DistributedInvalidationTransportStatus.Delivered
+                : DistributedInvalidationTransportStatus.UnderDelivered,
+            topology.Digest,
+            subscriberCount is null or < 0 ? "invalid-subscriber-count" : null);
+    }
+
+    public static DistributedInvalidationTransportPublishResult Failed(
+        string channel,
+        DistributedInvalidationTopologyManifest topology,
+        bool publisherNodeSubscribed,
+        TimeProvider timeProvider,
+        string reason)
+        => new(
+            channel,
+            null,
+            topology.SubscriberNodeIds.Count,
+            publisherNodeSubscribed,
+            timeProvider.GetUtcNow(),
+            DistributedInvalidationTransportStatus.TransportFailed,
+            topology.Digest,
+            reason);
 }
 
 public interface IDistributedInvalidationLocalApplier
@@ -59,6 +157,10 @@ public sealed class DistributedInvalidationOptions
     public int ApplyRetryCount { get; init; } = 3;
     public TimeSpan ApplyRetryDelay { get; init; } = TimeSpan.FromMilliseconds(25);
     public int DedupeCapacity { get; init; } = 4096;
+    public DistributedInvalidationTopologyManifest? Topology
+    {
+        get; init;
+    }
 
     public bool Enabled => RuntimeMode != RuntimeModeKind.Single;
 
@@ -78,11 +180,22 @@ public sealed class DistributedInvalidationOptions
             section["NodeId"],
             $"{Environment.MachineName}:{Environment.ProcessId}");
         string channel = FirstNonEmpty(section["Channel"], DefaultChannel);
+        RuntimeModeKind runtimeMode = runtime.ResolveMode();
+        DistributedInvalidationTopologyManifest? topology = runtimeMode == RuntimeModeKind.Single
+            ? null
+            : DistributedInvalidationTopologyManifest.Create(
+                channel,
+                section.GetSection("Topology:SubscriberNodeIds").Get<string[]?>());
+        if (topology is not null && !topology.SubscriberNodeIds.Contains(nodeId, StringComparer.Ordinal))
+        {
+            throw new InvalidOperationException("distributed_invalidation_topology_publisher_not_subscribed");
+        }
         return new DistributedInvalidationOptions
         {
-            RuntimeMode = runtime.ResolveMode(),
+            RuntimeMode = runtimeMode,
             NodeId = nodeId,
             Channel = channel,
+            Topology = topology,
             ApplyRetryCount = Math.Clamp(section.GetValue("ApplyRetryCount", 3), 1, 10),
             ApplyRetryDelay = TimeSpan.FromMilliseconds(
                 Math.Clamp(section.GetValue("ApplyRetryDelayMilliseconds", 25), 1, 5000)),
@@ -131,7 +244,11 @@ public sealed record DistributedInvalidationRuntimeSnapshot(
     string? LastKind,
     string? LastSourceNodeId,
     string? LastTraceId,
-    string? LastDetail);
+    string? LastDetail,
+    string? LastChannel,
+    long? LastSubscriberCount,
+    int? LastExpectedMinimumSubscribers,
+    string? LastTopologyDigest);
 
 public sealed class DistributedInvalidationRuntimeState(TimeProvider timeProvider)
 {
@@ -148,6 +265,10 @@ public sealed class DistributedInvalidationRuntimeState(TimeProvider timeProvide
         null,
         null,
         null,
+        null,
+        null,
+        null,
+        null,
         null);
 
     public DistributedInvalidationRuntimeSnapshot Snapshot()
@@ -158,8 +279,10 @@ public sealed class DistributedInvalidationRuntimeState(TimeProvider timeProvide
         }
     }
 
-    public void RecordPublished(DistributedInvalidationEvent invalidation)
-        => Update("published", invalidation, published: 1);
+    public void RecordPublished(
+        DistributedInvalidationEvent invalidation,
+        DistributedInvalidationTransportPublishResult receipt)
+        => Update("published", invalidation, published: 1, receipt: receipt);
 
     public void RecordApplied(DistributedInvalidationEvent invalidation)
         => Update("applied", invalidation, applied: 1);
@@ -170,8 +293,11 @@ public sealed class DistributedInvalidationRuntimeState(TimeProvider timeProvide
     public void RecordSelfIgnored(DistributedInvalidationEvent invalidation)
         => Update("self-ignored", invalidation, selfIgnored: 1);
 
-    public void RecordDegraded(DistributedInvalidationEvent? invalidation, string detail)
-        => Update("degraded", invalidation, degraded: 1, detail: detail);
+    public void RecordDegraded(
+        DistributedInvalidationEvent? invalidation,
+        string detail,
+        DistributedInvalidationTransportPublishResult? receipt = null)
+        => Update("degraded", invalidation, degraded: 1, detail: detail, receipt: receipt);
 
     private void Update(
         string status,
@@ -181,7 +307,8 @@ public sealed class DistributedInvalidationRuntimeState(TimeProvider timeProvide
         long duplicate = 0,
         long selfIgnored = 0,
         long degraded = 0,
-        string? detail = null)
+        string? detail = null,
+        DistributedInvalidationTransportPublishResult? receipt = null)
     {
         lock (_gate)
         {
@@ -198,7 +325,11 @@ public sealed class DistributedInvalidationRuntimeState(TimeProvider timeProvide
                 LastKind = invalidation?.Kind,
                 LastSourceNodeId = invalidation?.SourceNodeId,
                 LastTraceId = invalidation?.TraceId,
-                LastDetail = detail
+                LastDetail = detail,
+                LastChannel = receipt?.Channel,
+                LastSubscriberCount = receipt?.SubscriberCount,
+                LastExpectedMinimumSubscribers = receipt?.ExpectedMinimumSubscribers,
+                LastTopologyDigest = receipt?.TopologyDigest
             };
         }
     }

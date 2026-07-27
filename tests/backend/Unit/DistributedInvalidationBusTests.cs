@@ -103,7 +103,156 @@ public sealed class DistributedInvalidationBusTests
         Assert.Equal(DistributedInvalidationPublishStatus.Degraded, result.Status);
         Assert.Equal("degraded", bus.RuntimeSnapshotForTests().LastStatus);
         Assert.Equal("distributed_degraded", bus.CacheRuntimeSnapshotForTests().LastKind);
-        Assert.Contains("publish:InvalidOperationException", result.Detail, StringComparison.Ordinal);
+        Assert.Contains("publish:TransportFailed", result.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Publish_RecordsPublishedOnlyWhenSubscriberCountMeetsTopologyExpectation()
+    {
+        using DistributedInvalidationBus bus = CreateBus(
+            "node-a",
+            new StaticReceiptTransport(CreateReceipt(2)),
+            new RecordingLocalApplier());
+
+        DistributedInvalidationPublishResult result = await bus.PublishAsync(CreateRequest());
+        DistributedInvalidationRuntimeSnapshot snapshot = bus.RuntimeSnapshotForTests();
+
+        Assert.Equal(DistributedInvalidationPublishStatus.Published, result.Status);
+        Assert.Equal(1, snapshot.PublishedCount);
+        Assert.Equal(2, snapshot.LastSubscriberCount);
+        Assert.Equal(2, snapshot.LastExpectedMinimumSubscribers);
+        Assert.Equal(DistributedInvalidationOptions.DefaultChannel, snapshot.LastChannel);
+        Assert.NotNull(snapshot.LastTopologyDigest);
+    }
+
+    [Fact]
+    public async Task Publish_FailsClosedWhenOnlySourceSubscriberIsObservedButTopologyRequiresRemote()
+    {
+        using DistributedInvalidationBus bus = CreateBus(
+            "node-a",
+            new StaticReceiptTransport(CreateReceipt(1)),
+            new RecordingLocalApplier());
+
+        DistributedInvalidationPublishResult result = await bus.PublishAsync(CreateRequest());
+
+        Assert.Equal(DistributedInvalidationPublishStatus.Degraded, result.Status);
+        Assert.Equal(0, bus.RuntimeSnapshotForTests().PublishedCount);
+        Assert.Contains("count:1;expected:2", result.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Publish_FailsClosedForZeroOrInvalidSubscriberCount()
+    {
+        foreach (long? count in new long?[] { 0, null, -1 })
+        {
+            using DistributedInvalidationBus bus = CreateBus(
+                "node-a",
+                new StaticReceiptTransport(CreateReceipt(count)),
+                new RecordingLocalApplier());
+
+            DistributedInvalidationPublishResult result = await bus.PublishAsync(CreateRequest());
+
+            Assert.Equal(DistributedInvalidationPublishStatus.Degraded, result.Status);
+            Assert.Equal(0, bus.RuntimeSnapshotForTests().PublishedCount);
+        }
+    }
+
+    [Fact]
+    public void DistributedMode_RejectsMissingTopologyManifest()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Runtime:Mode"] = "static-role",
+                ["Runtime:DistributedInvalidation:NodeId"] = "node-a"
+            })
+            .Build();
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
+            () => DistributedInvalidationOptions.FromConfiguration(configuration));
+
+        Assert.Equal("distributed_invalidation_topology_manifest_required", exception.Message);
+    }
+
+    [Theory]
+    [InlineData(2, DistributedInvalidationTransportStatus.Delivered)]
+    [InlineData(1, DistributedInvalidationTransportStatus.UnderDelivered)]
+    [InlineData(0, DistributedInvalidationTransportStatus.UnderDelivered)]
+    public async Task RedisTransport_PreservesRawSubscriberCountAndClassifiesAgainstTopology(
+        long subscriberCount,
+        DistributedInvalidationTransportStatus expectedStatus)
+    {
+        var redis = Substitute.For<IConnectionMultiplexer>();
+        var subscriber = Substitute.For<ISubscriber>();
+        redis.GetSubscriber().Returns(subscriber);
+        subscriber.PublishAsync(
+                Arg.Any<RedisChannel>(),
+                Arg.Any<RedisValue>(),
+                Arg.Any<CommandFlags>())
+            .Returns(Task.FromResult(subscriberCount));
+        DistributedInvalidationTopologyManifest topology = DistributedInvalidationTopologyManifest.Create(
+            DistributedInvalidationOptions.DefaultChannel,
+            ["node-a", "node-b"]);
+        var options = new DistributedInvalidationOptions
+        {
+            RuntimeMode = RuntimeModeKind.StaticRole,
+            NodeId = "node-a",
+            Topology = topology
+        };
+        var transport = new RedisDistributedInvalidationTransport(
+            redis,
+            new DefaultRuntimeKeyScope(),
+            options,
+            TimeProvider.System);
+
+        DistributedInvalidationTransportPublishResult receipt = await transport.PublishAsync("payload");
+
+        Assert.Equal(subscriberCount, receipt.SubscriberCount);
+        Assert.Equal(2, receipt.ExpectedMinimumSubscribers);
+        Assert.Equal(DistributedInvalidationOptions.DefaultChannel, receipt.Channel);
+        Assert.Equal(topology.Digest, receipt.TopologyDigest);
+        Assert.True(receipt.PublisherNodeSubscribed);
+        Assert.Equal(expectedStatus, receipt.TransportStatus);
+        await subscriber.Received(1).PublishAsync(
+            RedisChannel.Literal(DistributedInvalidationOptions.DefaultChannel),
+            "payload",
+            CommandFlags.None);
+    }
+
+    [Fact]
+    public async Task RedisTransport_ConvertsRedisExceptionToTransportFailedReceipt()
+    {
+        var redis = Substitute.For<IConnectionMultiplexer>();
+        var subscriber = Substitute.For<ISubscriber>();
+        redis.GetSubscriber().Returns(subscriber);
+        subscriber.PublishAsync(
+                Arg.Any<RedisChannel>(),
+                Arg.Any<RedisValue>(),
+                Arg.Any<CommandFlags>())
+            .Returns(Task.FromException<long>(new InvalidOperationException("redis-unavailable")));
+        DistributedInvalidationTopologyManifest topology = DistributedInvalidationTopologyManifest.Create(
+            DistributedInvalidationOptions.DefaultChannel,
+            ["node-a", "node-b"]);
+        var transport = new RedisDistributedInvalidationTransport(
+            redis,
+            new DefaultRuntimeKeyScope(),
+            new DistributedInvalidationOptions
+            {
+                RuntimeMode = RuntimeModeKind.StaticRole,
+                NodeId = "node-a",
+                Topology = topology
+            },
+            TimeProvider.System);
+
+        DistributedInvalidationTransportPublishResult receipt = await transport.PublishAsync("payload");
+
+        Assert.Equal(DistributedInvalidationTransportStatus.TransportFailed, receipt.TransportStatus);
+        Assert.Null(receipt.SubscriberCount);
+        Assert.Equal(2, receipt.ExpectedMinimumSubscribers);
+        Assert.Equal(DistributedInvalidationOptions.DefaultChannel, receipt.Channel);
+        Assert.Equal(topology.Digest, receipt.TopologyDigest);
+        Assert.True(receipt.PublisherNodeSubscribed);
+        Assert.Equal("InvalidOperationException", receipt.FailureReason);
     }
 
     [Fact]
@@ -191,6 +340,9 @@ public sealed class DistributedInvalidationBusTests
         {
             RuntimeMode = RuntimeModeKind.StaticRole,
             NodeId = nodeId,
+            Topology = DistributedInvalidationTopologyManifest.Create(
+                DistributedInvalidationOptions.DefaultChannel,
+                ["node-a", "node-b"]),
             ApplyRetryCount = applyRetryCount,
             ApplyRetryDelay = TimeSpan.FromMilliseconds(1),
             DedupeCapacity = 128
@@ -312,11 +464,17 @@ public sealed class DistributedInvalidationBusTests
         public Task RepublishLastAsync()
             => BroadcastAsync(LastPayload ?? throw new InvalidOperationException("No payload was published."));
 
-        private Task PublishAsync(string payload)
+        private Task<DistributedInvalidationTransportPublishResult> PublishAsync(string payload)
         {
             LastPayload = payload;
             OriginalPublishCount++;
-            return BroadcastAsync(payload);
+            return PublishAndObserveAsync(payload);
+        }
+
+        private async Task<DistributedInvalidationTransportPublishResult> PublishAndObserveAsync(string payload)
+        {
+            await BroadcastAsync(payload);
+            return CreateReceipt(_subscribers.Count);
         }
 
         private Task BroadcastAsync(string payload)
@@ -331,7 +489,7 @@ public sealed class DistributedInvalidationBusTests
         private sealed class HubTransport(InMemoryTransportHub hub, Channel<string> channel)
             : IDistributedInvalidationTransport
         {
-            public Task PublishAsync(string payload, CancellationToken cancellationToken = default)
+            public Task<DistributedInvalidationTransportPublishResult> PublishAsync(string payload, CancellationToken cancellationToken = default)
                 => hub.PublishAsync(payload);
 
             public async IAsyncEnumerable<string> ReadAllAsync(
@@ -347,8 +505,22 @@ public sealed class DistributedInvalidationBusTests
 
     private sealed class CapturingTransport : IDistributedInvalidationTransport
     {
-        public Task PublishAsync(string payload, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
+        public Task<DistributedInvalidationTransportPublishResult> PublishAsync(string payload, CancellationToken cancellationToken = default)
+            => Task.FromResult(CreateReceipt(2));
+
+        public async IAsyncEnumerable<string> ReadAllAsync(
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            await Task.CompletedTask;
+            yield break;
+        }
+    }
+
+    private sealed class StaticReceiptTransport(DistributedInvalidationTransportPublishResult receipt)
+        : IDistributedInvalidationTransport
+    {
+        public Task<DistributedInvalidationTransportPublishResult> PublishAsync(string payload, CancellationToken cancellationToken = default)
+            => Task.FromResult(receipt);
 
         public async IAsyncEnumerable<string> ReadAllAsync(
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -360,8 +532,15 @@ public sealed class DistributedInvalidationBusTests
 
     private sealed class ThrowingTransport : IDistributedInvalidationTransport
     {
-        public Task PublishAsync(string payload, CancellationToken cancellationToken = default)
-            => throw new InvalidOperationException("redis-unavailable");
+        public Task<DistributedInvalidationTransportPublishResult> PublishAsync(string payload, CancellationToken cancellationToken = default)
+            => Task.FromResult(DistributedInvalidationTransportPublishResult.Failed(
+                DistributedInvalidationOptions.DefaultChannel,
+                DistributedInvalidationTopologyManifest.Create(
+                    DistributedInvalidationOptions.DefaultChannel,
+                    ["node-a", "node-b"]),
+                publisherNodeSubscribed: true,
+                TimeProvider.System,
+                "InvalidOperationException"));
 
         public async IAsyncEnumerable<string> ReadAllAsync(
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -370,6 +549,16 @@ public sealed class DistributedInvalidationBusTests
             yield break;
         }
     }
+
+    private static DistributedInvalidationTransportPublishResult CreateReceipt(long? count)
+        => DistributedInvalidationTransportPublishResult.Observe(
+            DistributedInvalidationOptions.DefaultChannel,
+            count,
+            DistributedInvalidationTopologyManifest.Create(
+                DistributedInvalidationOptions.DefaultChannel,
+                ["node-a", "node-b"]),
+            publisherNodeSubscribed: true,
+            TimeProvider.System);
 
     private sealed class OrderingPublisher(Func<bool> localInvalidationComplete)
         : IDistributedInvalidationPublisher
