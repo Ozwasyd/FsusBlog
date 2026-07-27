@@ -69,6 +69,18 @@ esac
 namespace="${FSUSBLOG_TEST_NAMESPACE:-local}"
 postgres_container="${FSUSBLOG_POSTGRES_CONTAINER_NAME:-${FSUSBLOG_PG_CONTAINER:-fsusblog-dev-postgres}}"
 fixture_prefix="data-scale:$namespace:$TIER"
+# Canonical business wall clock for correctness fields. Measurement duration still
+# uses the session measurement clock; generatedAt remains artifact metadata only.
+business_epoch_utc="${FSUSBLOG_TEST_BUSINESS_EPOCH_UTC:-2024-02-29T23:59:59.000Z}"
+if [[ ! "$business_epoch_utc" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,7})?Z$ ]]; then
+    printf '[data-scale:seed] FSUSBLOG_TEST_BUSINESS_EPOCH_UTC must be RFC3339 UTC (…Z)\n' >&2
+    exit 1
+fi
+postgres_timezone="${FSUSBLOG_TEST_POSTGRES_TIMEZONE:-UTC}"
+if [[ "$postgres_timezone" != "UTC" ]]; then
+    printf '[data-scale:seed] FSUSBLOG_TEST_POSTGRES_TIMEZONE must be UTC for qualification correctness\n' >&2
+    exit 1
+fi
 
 if ! docker exec "$postgres_container" pg_isready -U fsusblog -d fsusblog >/dev/null 2>&1; then
     printf '[data-scale:seed] postgres container is not ready: %s\n' "$postgres_container" >&2
@@ -83,8 +95,11 @@ summary="$(
         -v namespace="$namespace" \
         -v tier="$TIER" \
         -v article_count="$articles" \
-        -v comment_count="$comments" <<'SQL'
+        -v comment_count="$comments" \
+        -v business_epoch="$business_epoch_utc" \
+        -v postgres_timezone="$postgres_timezone" <<'SQL'
 BEGIN;
+SELECT set_config('TimeZone', :'postgres_timezone', true);
 
 CREATE TEMP TABLE data_scale_context(
   namespace text NOT NULL,
@@ -93,10 +108,11 @@ CREATE TEMP TABLE data_scale_context(
   article_count integer NOT NULL,
   comment_count integer NOT NULL,
   comment_id_base bigint NOT NULL,
+  business_now timestamptz NOT NULL,
   started_at timestamp NOT NULL
 ) ON COMMIT DROP;
 
-INSERT INTO data_scale_context(namespace, tier, prefix, article_count, comment_count, comment_id_base, started_at)
+INSERT INTO data_scale_context(namespace, tier, prefix, article_count, comment_count, comment_id_base, business_now, started_at)
 VALUES (
   :'namespace',
   :'tier',
@@ -104,6 +120,7 @@ VALUES (
   :article_count,
   :comment_count,
   (SELECT COALESCE(MAX(id), 0) FROM comment),
+  :'business_epoch'::timestamptz,
   clock_timestamp()
 );
 
@@ -220,13 +237,13 @@ inserted AS (
     '/uploads/data-scale/' || ctx.namespace || '/' || ctx.tier || '/' || source.seed || '.webp',
     category.id,
     (source.seed % 1000),
-    (clock_timestamp() - (source.seed || ' seconds')::interval),
-    clock_timestamp(),
+    (ctx.business_now - (source.seed || ' seconds')::interval),
+    ctx.business_now,
     source.status,
-    CASE WHEN source.status = 1 THEN clock_timestamp() + interval '7 days' ELSE NULL END,
-    CASE WHEN source.status = 2 THEN clock_timestamp() - interval '1 day' ELSE NULL END,
-    CASE WHEN source.status = 3 THEN clock_timestamp() - interval '1 hour' ELSE NULL END,
-    CASE WHEN source.status = 4 THEN clock_timestamp() - interval '1 minute' ELSE NULL END,
+    CASE WHEN source.status = 1 THEN ctx.business_now + interval '7 days' ELSE NULL END,
+    CASE WHEN source.status = 2 THEN ctx.business_now - interval '1 day' ELSE NULL END,
+    CASE WHEN source.status = 3 THEN ctx.business_now - interval '1 hour' ELSE NULL END,
+    CASE WHEN source.status = 4 THEN ctx.business_now - interval '1 minute' ELSE NULL END,
     source.status = 4
   FROM source
   CROSS JOIN data_scale_context ctx
@@ -244,7 +261,7 @@ SELECT
     'Namespace fixture: ' || (SELECT namespace FROM data_scale_context) || E'\n\n' ||
     'Search token: data-scale-search-' || seed || E'\n\n' ||
     'Comment cursor and public detail fixture body.',
-  clock_timestamp()
+  (SELECT business_now FROM data_scale_context)
 FROM tmp_data_scale_articles;
 
 INSERT INTO article_tag(articleid, tagid)
@@ -313,7 +330,7 @@ SELECT
   root.comment_id,
   root.article_id,
   ctx.prefix || ':comment:' || root.seq || ':root',
-  clock_timestamp() - (root.seq || ' seconds')::interval,
+  ctx.business_now - (root.seq || ' seconds')::interval,
   'zk_anonymous',
   NULL,
   'scale-root-' || root.seq,
@@ -391,7 +408,7 @@ SELECT
   nested.comment_id,
   nested.article_id,
   ctx.prefix || ':comment:' || nested.seq || ':nested',
-  clock_timestamp() - (nested.seq || ' seconds')::interval,
+  ctx.business_now - (nested.seq || ' seconds')::interval,
   'zk_anonymous',
   NULL,
   'scale-nested-' || nested.seq,
@@ -456,6 +473,8 @@ SELECT jsonb_pretty(jsonb_build_object(
   'tier', tier,
   'namespace', namespace,
   'strategy', 'postgres-generate-series-namespace-fixture',
+  'businessEpochUtc', to_char(business_now AT TIME ZONE 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+  'postgresTimezone', current_setting('TimeZone'),
   'declared', jsonb_build_object(
     'articles', article_count,
     'comments', comment_count

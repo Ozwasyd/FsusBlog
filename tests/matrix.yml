@@ -1531,6 +1531,7 @@ tiers:
           - test-retention-classification
           - test-asset-audit-reconciliation
           - node-governance-policy-convergence
+          - test-temporal-authority
           - integrity-proof-docs-consistency
           - immutable-release-identity
           - wasm-release-artifact-ownership
@@ -1622,6 +1623,21 @@ tiers:
           - tools/test/governance-suite-plan.mjs
           - tools/test/run-governance-suites.mjs
           - tests/tools/governance-suite-plan.test.mjs
+          - config/testing/temporal-policy.json
+          - config/testing/temporal-context.schema.json
+          - config/testing/temporal-callsite-dispositions.json
+          - tools/test/temporal-context.mjs
+          - tools/test/produce-temporal-qualification.mjs
+          - tools/test/check-wall-clock-governance.mjs
+          - tools/test/verify-temporal-replay.mjs
+          - tools/data-scale/seed.sh
+          - tools/data-scale/cleanup.sh
+          - tests/frontend/support/session-fixtures.mjs
+          - tests/tools/test-temporal-context.test.mjs
+          - tests/tools/test-wall-clock-governance.test.mjs
+          - tests/backend/Helpers/TestInfrastructure/TestTemporalContext.cs
+          - tests/backend/Unit/TestTemporalContextTests.cs
+          - tests/backend/Unit/JwtHelperTests.cs
           - .tmp/test-governance/suite-plan.json
           - docs/testing.md
           - tests/backend/runtime-fallback-milestones.json

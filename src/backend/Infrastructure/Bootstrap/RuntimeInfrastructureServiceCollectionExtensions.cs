@@ -401,7 +401,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         {
             services.AddHostedService<VisitLogProcessorService>();
         }
-        services.AddSingleton(TimeProvider.System);
+        services.TryAddSingleton<TimeProvider>(TimeProvider.System);
         if (!OpenApiExportMode.IsEnabled())
         {
             services.AddHostedService<LogCleanupService>();

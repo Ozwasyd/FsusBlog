@@ -223,9 +223,33 @@ function signJwt(payload)
     return `${encodedHeader}.${encodedPayload}.${base64Url(signature)}`;
 }
 
+// Canonical business wall clock for fixture JWT/session rows. Matches
+// config/testing/temporal-policy.json qualification defaults and data-scale seed.
+// Host wall clock is never used for correctness fields.
+const CANONICAL_BUSINESS_EPOCH_UTC = '2024-02-29T23:59:59.000Z';
+
+function resolveBusinessEpochUtc()
+{
+    const businessEpochUtc = String(
+        process.env.FSUSBLOG_TEST_BUSINESS_EPOCH_UTC ?? CANONICAL_BUSINESS_EPOCH_UTC
+    ).trim();
+    const businessMs = Date.parse(businessEpochUtc);
+    if (!Number.isFinite(businessMs))
+    {
+        throw new Error('FSUSBLOG_TEST_BUSINESS_EPOCH_UTC must be a parseable RFC3339 UTC instant');
+    }
+    return new Date(businessMs).toISOString().replace(/\.(\d{3})\d*Z$/u, '.$1Z');
+}
+
 function nowEpochSeconds()
 {
-    return Math.floor(Date.now() / 1000);
+    return Math.floor(Date.parse(resolveBusinessEpochUtc()) / 1000);
+}
+
+function businessNowSql()
+{
+    // Injected business wall clock as a timestamptz literal (never session wall clock).
+    return `timestamptz '${resolveBusinessEpochUtc()}'`;
 }
 
 function expiresAtEpochSeconds()
@@ -377,11 +401,11 @@ inserted AS (
     ${sqlString(accountSubjectHashValue)},
     false,
     false,
-    now(),
+    ${businessNowSql()},
     'basic',
     'active',
     0,
-    now(),
+    ${businessNowSql()},
     false,
     0
   WHERE NOT EXISTS (SELECT 1 FROM existing)
@@ -442,7 +466,7 @@ WHERE user_id = ${userId};
 
     runPsql(`
 UPDATE sys_user_session
-SET revokedat = now(),
+SET revokedat = ${businessNowSql()},
     revokereason = 'login_replaced'
 WHERE userid = ${userId}
   AND sessionid <> ${sqlString(sessionId)}
@@ -562,8 +586,8 @@ VALUES (
   'active',
   false,
   ${sqlString(permissions)},
-  now(),
-  now(),
+  ${businessNowSql()},
+  ${businessNowSql()},
   false,
   NULL,
   NULL
@@ -572,7 +596,7 @@ ON CONFLICT (handle) DO UPDATE SET
   displayname = EXCLUDED.displayname,
   status = 'active',
   permissions = EXCLUDED.permissions,
-  lastloginatutc = now()
+  lastloginatutc = ${businessNowSql()}
 RETURNING id;
 `, `fixture admin ${normalizedHandle}`);
 
@@ -622,10 +646,10 @@ VALUES (
   ${sqlString(deviceFingerprint)},
   '127.0.0.1',
   'fsusblog-test-session-fixture',
-  now(),
-  now(),
-  now() + interval '${rememberMe ? '24 hours' : '2 hours'}',
-  now() + interval '${rememberMe ? '30 days' : '12 hours'}',
+  ${businessNowSql()},
+  ${businessNowSql()},
+  ${businessNowSql()} + interval '${rememberMe ? '24 hours' : '2 hours'}',
+  ${businessNowSql()} + interval '${rememberMe ? '30 days' : '12 hours'}',
   NULL,
   NULL,
   true
@@ -636,7 +660,7 @@ ON CONFLICT (sessionid) DO UPDATE SET
   devicefingerprint = EXCLUDED.devicefingerprint,
   lastip = EXCLUDED.lastip,
   useragent = EXCLUDED.useragent,
-  lastseenatutc = now(),
+  lastseenatutc = ${businessNowSql()},
   idleexpiresatutc = EXCLUDED.idleexpiresatutc,
   absoluteexpiresatutc = EXCLUDED.absoluteexpiresatutc,
   revokedatutc = NULL,

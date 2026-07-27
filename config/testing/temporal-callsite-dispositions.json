@@ -1,0 +1,143 @@
+{
+  "schema": "fsusblog.temporal-callsite-ledger.v1",
+  "authorityKind": "immutable-ledger",
+  "governedSources": [
+    "tools/test/temporal-context.mjs",
+    "tools/test/produce-temporal-qualification.mjs",
+    "tools/data-scale/seed.sh",
+    "tools/data-scale/cleanup.sh",
+    "tests/frontend/support/session-fixtures.mjs"
+  ],
+  "entries": [
+    {
+      "callSiteId": "node.temporal-context.performance-now",
+      "path": "tools/test/temporal-context.mjs",
+      "symbol": "monotonicNow",
+      "sourceAnchor": "if (normalized === 'performance-now') return performance.now()",
+      "api": "performance.now",
+      "clockKind": "monotonic-measurement",
+      "authorityKind": "runtime-monotonic",
+      "disposition": "monotonic-measurement",
+      "ingress": "runtime-monotonic",
+      "owner": "test-governance",
+      "semanticEffect": "excluded"
+    },
+    {
+      "callSiteId": "node.temporal-context.hrtime-bigint",
+      "path": "tools/test/temporal-context.mjs",
+      "symbol": "monotonicNow",
+      "sourceAnchor": "if (normalized === 'process-hrtime-bigint') return Number(process.hrtime.bigint()) / 1_000_000",
+      "api": "process.hrtime.bigint",
+      "clockKind": "monotonic-measurement",
+      "authorityKind": "runtime-monotonic",
+      "disposition": "monotonic-measurement",
+      "ingress": "runtime-monotonic",
+      "owner": "test-governance",
+      "semanticEffect": "excluded"
+    },
+    {
+      "callSiteId": "node.temporal-qualification.generated-at",
+      "path": "tools/test/produce-temporal-qualification.mjs",
+      "symbol": "main",
+      "sourceAnchor": "generatedAt: new Date().toISOString()",
+      "api": "new Date()",
+      "clockKind": "artifact-metadata",
+      "authorityKind": "artifact-observation",
+      "disposition": "artifact-metadata",
+      "ingress": "artifact-only",
+      "owner": "test-governance",
+      "semanticEffect": "excluded"
+    },
+    {
+      "callSiteId": "data-scale.seed.started-at-measurement",
+      "path": "tools/data-scale/seed.sh",
+      "symbol": "seed_measurement_window",
+      "sourceAnchor": "  :'business_epoch'::timestamptz,\n  clock_timestamp()\n);",
+      "api": "clock_timestamp",
+      "clockKind": "monotonic-measurement",
+      "authorityKind": "runtime-monotonic",
+      "disposition": "monotonic-measurement",
+      "ingress": "runtime-monotonic",
+      "owner": "data-scale",
+      "semanticEffect": "excluded"
+    },
+    {
+      "callSiteId": "data-scale.seed.duration-ms",
+      "path": "tools/data-scale/seed.sh",
+      "symbol": "seed_measurement_window",
+      "sourceAnchor": "'durationMs', round((extract(epoch FROM (clock_timestamp() - started_at)) * 1000)::numeric, 3),",
+      "api": "clock_timestamp",
+      "clockKind": "monotonic-measurement",
+      "authorityKind": "runtime-monotonic",
+      "disposition": "monotonic-measurement",
+      "ingress": "runtime-monotonic",
+      "owner": "data-scale",
+      "semanticEffect": "excluded"
+    },
+    {
+      "callSiteId": "data-scale.seed.generated-at",
+      "path": "tools/data-scale/seed.sh",
+      "symbol": "seed_artifact_metadata",
+      "sourceAnchor": "'generatedAt', to_char(clock_timestamp() AT TIME ZONE 'utc', 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"')",
+      "api": "clock_timestamp",
+      "clockKind": "artifact-metadata",
+      "authorityKind": "artifact-observation",
+      "disposition": "artifact-metadata",
+      "ingress": "artifact-only",
+      "owner": "data-scale",
+      "semanticEffect": "excluded"
+    },
+    {
+      "callSiteId": "data-scale.cleanup.started-at-measurement",
+      "path": "tools/data-scale/cleanup.sh",
+      "symbol": "cleanup_measurement_window",
+      "sourceAnchor": "VALUES (:'namespace', :'tier', concat('data-scale:', :'namespace', ':', :'tier'), clock_timestamp());",
+      "api": "clock_timestamp",
+      "clockKind": "monotonic-measurement",
+      "authorityKind": "runtime-monotonic",
+      "disposition": "monotonic-measurement",
+      "ingress": "runtime-monotonic",
+      "owner": "data-scale",
+      "semanticEffect": "excluded"
+    },
+    {
+      "callSiteId": "data-scale.cleanup.duration-ms",
+      "path": "tools/data-scale/cleanup.sh",
+      "symbol": "cleanup_measurement_window",
+      "sourceAnchor": "'durationMs', round((extract(epoch FROM (clock_timestamp() - started_at)) * 1000)::numeric, 3),",
+      "api": "clock_timestamp",
+      "clockKind": "monotonic-measurement",
+      "authorityKind": "runtime-monotonic",
+      "disposition": "monotonic-measurement",
+      "ingress": "runtime-monotonic",
+      "owner": "data-scale",
+      "semanticEffect": "excluded"
+    },
+    {
+      "callSiteId": "data-scale.cleanup.generated-at",
+      "path": "tools/data-scale/cleanup.sh",
+      "symbol": "cleanup_artifact_metadata",
+      "sourceAnchor": "'generatedAt', to_char(clock_timestamp() AT TIME ZONE 'utc', 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"')",
+      "api": "clock_timestamp",
+      "clockKind": "artifact-metadata",
+      "authorityKind": "artifact-observation",
+      "disposition": "artifact-metadata",
+      "ingress": "artifact-only",
+      "owner": "data-scale",
+      "semanticEffect": "excluded"
+    },
+    {
+      "callSiteId": "session-fixtures.auth-manifest.generated-at",
+      "path": "tests/frontend/support/session-fixtures.mjs",
+      "symbol": "persistAuthFixtureManifest",
+      "sourceAnchor": "generatedAt: new Date().toISOString(),",
+      "api": "new Date()",
+      "clockKind": "artifact-metadata",
+      "authorityKind": "artifact-observation",
+      "disposition": "artifact-metadata",
+      "ingress": "artifact-only",
+      "owner": "session-fixtures",
+      "semanticEffect": "excluded"
+    }
+  ]
+}

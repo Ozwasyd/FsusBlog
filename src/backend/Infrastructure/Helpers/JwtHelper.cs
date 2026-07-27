@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Infrastructure;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
@@ -63,6 +64,7 @@ public class JwtHelper : IJwtHelper
 {
     private readonly JwtSettings _settings;
     private readonly IConfiguration? _configuration;
+    private readonly TimeProvider _timeProvider;
 
     // OWNERSHIP: The singleton reuses immutable signing credentials for one configured key version.
     private readonly SigningCredentials _credentials;
@@ -70,10 +72,14 @@ public class JwtHelper : IJwtHelper
     // OWNERSHIP: One immutable handler configuration is shared by all token issuances.
     private static readonly JwtSecurityTokenHandler s_tokenHandler = new();
 
-    public JwtHelper(IOptions<JwtSettings> options, IConfiguration? configuration = null)
+    public JwtHelper(
+        IOptions<JwtSettings> options,
+        IConfiguration? configuration = null,
+        TimeProvider? timeProvider = null)
     {
         _settings = options.Value;
         _configuration = configuration;
+        _timeProvider = timeProvider ?? TimeProvider.System;
 
         // The configured key material is parsed once during singleton construction.
         SymmetricSecurityKey key = JwtSigningKeyRing.CreateKey(_settings.KeyVersion, _settings.SecretKey);
@@ -134,7 +140,7 @@ public class JwtHelper : IJwtHelper
                 .ToUnixTimeSeconds()
                 .ToString(System.Globalization.CultureInfo.InvariantCulture)));
 
-        DateTimeOffset issuedAtUtc = TruncateToUnixSecond(DateTimeOffset.UtcNow);
+        DateTimeOffset issuedAtUtc = TruncateToUnixSecond(_timeProvider.GetUtcNow());
         DateTimeOffset expiresAtUtc = issuedAtUtc.AddMinutes(ResolveAccessTokenExpiresMinutes());
         var tokenDescriptor = new SecurityTokenDescriptor
         {
@@ -175,7 +181,7 @@ public class JwtHelper : IJwtHelper
             claims.Add(new Claim(AdminPermissions.PermissionClaimType, permission));
         }
 
-        DateTimeOffset issuedAtUtc = TruncateToUnixSecond(DateTimeOffset.UtcNow);
+        DateTimeOffset issuedAtUtc = TruncateToUnixSecond(_timeProvider.GetUtcNow());
         DateTimeOffset expiresAtUtc = issuedAtUtc.AddMinutes(ResolveAccessTokenExpiresMinutes());
         var tokenDescriptor = new SecurityTokenDescriptor
         {
@@ -219,8 +225,13 @@ public static class JwtServiceExtensions
     private const string AdminCookiePathDecisionItemKey = "Fsus.AdminCookiePathDecision";
     private const string AdminAccessTokenItemKey = "Fsus.AdminAccessToken";
 
-    public static void AddJwtAuthentication(this IServiceCollection services, IConfiguration configuration)
+    public static void AddJwtAuthentication(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        TimeProvider? businessTimeProvider = null)
     {
+        TimeProvider timeProvider = businessTimeProvider ?? TimeProvider.System;
+        services.TryAddSingleton(timeProvider);
         var jwtSection = configuration.GetSection("Jwt");
         services.Configure<JwtSettings>(jwtSection);
 
@@ -238,7 +249,7 @@ public static class JwtServiceExtensions
         IReadOnlyList<string> keyRingErrors = JwtSigningKeyRing.Validate(
             settings,
             enforceProductionRules: false,
-            DateTimeOffset.UtcNow);
+            timeProvider.GetUtcNow());
         if (keyRingErrors.Count > 0)
         {
             throw new InvalidOperationException("JWT key ring configuration is invalid: " + string.Join("; ", keyRingErrors));
@@ -264,8 +275,16 @@ public static class JwtServiceExtensions
                 RequireSignedTokens = true,
                 TryAllIssuerSigningKeys = false,
                 ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
+                // Business wall clock is injectable for correctness tests via the
+                // registration-time TimeProvider (see AddFsusApiFoundation).
                 IssuerSigningKeyResolver = (_, _, kid, _) =>
-                    JwtSigningKeyRing.ResolveValidationKeys(settings, kid, DateTimeOffset.UtcNow),
+                    JwtSigningKeyRing.ResolveValidationKeys(settings, kid, timeProvider.GetUtcNow()),
+                LifetimeValidator = (notBefore, expires, _, validationParameters) =>
+                    ValidateLifetimeAgainstBusinessClock(
+                        notBefore,
+                        expires,
+                        timeProvider,
+                        validationParameters.ClockSkew),
 
                 ValidateIssuer = true,
                 ValidIssuer = settings.Issuer,
@@ -427,6 +446,30 @@ public static class JwtServiceExtensions
                 (requirement.AllowedValues == null ||
                     requirement.AllowedValues.Contains(AnonymousIdentityRuntime.AdminPrincipalKind, StringComparer.Ordinal)) ||
             string.Equals(requirement.ClaimType, AdminPermissions.PermissionClaimType, StringComparison.Ordinal));
+
+    /// <summary>
+    /// Lifetime validation against the injected business wall clock so expiry tests
+    /// can advance time without sleeping. ClockSkew remains hard-bounded by caller.
+    /// </summary>
+    private static bool ValidateLifetimeAgainstBusinessClock(
+        DateTime? notBefore,
+        DateTime? expires,
+        TimeProvider timeProvider,
+        TimeSpan clockSkew)
+    {
+        DateTime now = timeProvider.GetUtcNow().UtcDateTime;
+        if (notBefore.HasValue && now + clockSkew < notBefore.Value)
+        {
+            return false;
+        }
+
+        if (expires.HasValue && now - clockSkew >= expires.Value)
+        {
+            return false;
+        }
+
+        return notBefore.HasValue || expires.HasValue;
+    }
 }
 
 internal static class JwtSigningKeyRing

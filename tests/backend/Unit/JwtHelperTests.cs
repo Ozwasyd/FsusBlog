@@ -27,7 +27,8 @@ public sealed class JwtHelperTests
         string secretKey = TestSecrets.JwtSigningKey,
         string issuer = "test-issuer",
         string audience = "test-audience",
-        int expiresMinutes = 15)
+        int expiresMinutes = 15,
+        TimeProvider? timeProvider = null)
     {
         var settings = new JwtSettings
         {
@@ -37,7 +38,7 @@ public sealed class JwtHelperTests
             Audience = audience,
             AccessTokenExpiresMinutes = expiresMinutes
         };
-        return new JwtHelper(Options.Create(settings));
+        return new JwtHelper(Options.Create(settings), configuration: null, timeProvider: timeProvider);
     }
 
     private static User TestUser(int id = 1, string role = "admin")
@@ -56,6 +57,29 @@ public sealed class JwtHelperTests
         var helper = CreateHelper();
         string token = helper.GenerateAccessToken(TestUser());
         Assert.False(string.IsNullOrWhiteSpace(token));
+    }
+
+    [Fact]
+    public void GenerateAccessToken_UsesInjectedBusinessWallClockWithoutHostUtcNow()
+    {
+        TestTemporalContext temporal = TestTemporalContext.CreateCanonical();
+        var helper = CreateHelper(expiresMinutes: 15, timeProvider: temporal.BusinessClock);
+
+        IssuedAccessToken first = helper.GenerateAccessToken(TestUser());
+        var firstJwt = new JwtSecurityTokenHandler().ReadJwtToken(first.Token);
+        DateTimeOffset firstIssued = new(
+            DateTime.SpecifyKind(firstJwt.Payload.IssuedAt, DateTimeKind.Utc));
+        Assert.Equal(
+            DateTimeOffset.FromUnixTimeSeconds(temporal.BusinessEpochUtc.ToUnixTimeSeconds()),
+            firstIssued);
+
+        temporal.Advance(TimeSpan.FromHours(2));
+        IssuedAccessToken second = helper.GenerateAccessToken(TestUser());
+        var secondJwt = new JwtSecurityTokenHandler().ReadJwtToken(second.Token);
+        DateTimeOffset secondIssued = new(
+            DateTime.SpecifyKind(secondJwt.Payload.IssuedAt, DateTimeKind.Utc));
+        Assert.Equal(firstIssued.AddHours(2), secondIssued);
+        Assert.Equal(first.ExpiresAtUtc.AddHours(2), second.ExpiresAtUtc);
     }
 
     [Fact]

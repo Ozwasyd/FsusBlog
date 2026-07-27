@@ -25,7 +25,8 @@ public sealed partial class UserSessionCommandService(
     ILogger<UserSessionCommandService> logger,
     IJwtHelper jwt,
     IUserSessionValidationCache sessionValidation,
-    IMessageNotificationStreamPort? notificationStream = null) : IUserSessionCommandService
+    IMessageNotificationStreamPort? notificationStream = null,
+    TimeProvider? timeProvider = null) : IUserSessionCommandService
 {
     private const int UserStatusNormal = 0;
     private const int UserStatusBanned = 1;
@@ -34,6 +35,8 @@ public sealed partial class UserSessionCommandService(
     private static readonly TimeSpan s_rememberMeSessionIdleTtl = TimeSpan.FromDays(30);
     private static readonly TimeSpan s_refreshConcurrencyGrace = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan s_refreshTombstoneRetention = TimeSpan.FromDays(30);
+    private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
+    private DateTime UtcNow => _timeProvider.GetUtcNow().UtcDateTime;
 
     private static TimeSpan ResolveIdleSessionTtl(string durationPolicy)
         => UserSessionDurationPolicies.IsPersistent(durationPolicy)
@@ -72,7 +75,7 @@ public sealed partial class UserSessionCommandService(
         }
 
         string currentHash = HashToken(refreshToken);
-        DateTime now = DateTime.UtcNow;
+        DateTime now = UtcNow;
         await DeleteExpiredRefreshTombstonesAsync(now).ConfigureAwait(false);
 
         UserSession? session = await db.Queryable<UserSession>()
@@ -256,7 +259,7 @@ public sealed partial class UserSessionCommandService(
         int revoked = await CompromiseRefreshFamilyAsync(
             ResolveRefreshFamilyId(session),
             "refresh_token_delivery_failure",
-            DateTime.UtcNow,
+            UtcNow,
             cancellationToken).ConfigureAwait(false);
         FsusObservability.RecordAuthRefreshDeliveryFailure(revoked > 0 ? "family-revoked" : "family-already-inactive");
         return revoked > 0;
@@ -270,7 +273,7 @@ public sealed partial class UserSessionCommandService(
             new KeyValuePair<string, object?>("AuditAction", "refresh.failed"),
             new KeyValuePair<string, object?>("Reason", reason));
         LogTokenRefreshFailure();
-        return new RefreshTokenRotationResult(outcome, null, DateTime.UtcNow, null);
+        return new RefreshTokenRotationResult(outcome, null, UtcNow, null);
     }
 
     private async Task DeleteExpiredRefreshTombstonesAsync(DateTime now)
@@ -372,8 +375,8 @@ public sealed partial class UserSessionCommandService(
         cancellationToken.ThrowIfCancellationRequested();
         var result = await RefreshTokenAsync(refreshToken, sessionId, cancellationToken);
         return result.Success && result.Data.HasValue
-            ? (true, result.Data, result.Data.Value.RefreshTokenExpiresAt ?? DateTime.UtcNow.AddDays(7))
-            : (false, null, DateTime.UtcNow);
+            ? (true, result.Data, result.Data.Value.RefreshTokenExpiresAt ?? UtcNow.AddDays(7))
+            : (false, null, UtcNow);
     }
 
     public async Task<bool> RevokeRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
@@ -383,7 +386,7 @@ public sealed partial class UserSessionCommandService(
             return false;
 
         string hash = HashToken(refreshToken);
-        DateTime revokedAt = DateTime.UtcNow;
+        DateTime revokedAt = UtcNow;
         List<UserSessionValidationCacheState> revokedSessions = [];
         bool publicationAttempted = false;
         var transaction = await db.Ado.UseTranAsync(async () =>
@@ -466,8 +469,8 @@ public sealed partial class UserSessionCommandService(
             .Where((session, credential) =>
                 session.UserId == userId &&
                 session.RevokedAt == null &&
-                session.IdleExpiresAt > DateTime.UtcNow &&
-                session.AbsoluteExpiresAt > DateTime.UtcNow)
+                session.IdleExpiresAt > UtcNow &&
+                session.AbsoluteExpiresAt > UtcNow)
             .OrderByDescending((session, credential) => session.LastSeenAt)
             .Take(50)
             .Select((session, credential) => new UserSessionSummaryRow
@@ -559,7 +562,7 @@ public sealed partial class UserSessionCommandService(
             return false;
         }
 
-        DateTime revokedAt = DateTime.UtcNow;
+        DateTime revokedAt = UtcNow;
         UserSessionValidationCacheState? revokedSession = null;
         bool publicationAttempted = false;
         var transaction = await db.Ado.UseTranAsync(async () =>
@@ -623,7 +626,7 @@ public sealed partial class UserSessionCommandService(
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        DateTime requestedAt = DateTime.UtcNow;
+        DateTime requestedAt = UtcNow;
         DateTime revokedAt = requestedAt;
         List<UserSessionValidationCacheState> revokedSessions = [];
         bool publicationAttempted = false;
@@ -688,7 +691,7 @@ public sealed partial class UserSessionCommandService(
             return 0;
         }
 
-        DateTime revokedAt = DateTime.UtcNow;
+        DateTime revokedAt = UtcNow;
         List<UserSessionValidationCacheState> revokedSessions = [];
         bool publicationAttempted = false;
         var transaction = await db.Ado.UseTranAsync(async () =>
@@ -755,7 +758,7 @@ public sealed partial class UserSessionCommandService(
             normalizedReason = normalizedReason[..128];
         }
 
-        DateTime revokedAt = DateTime.UtcNow;
+        DateTime revokedAt = UtcNow;
         List<UserSessionValidationCacheState> revokedSessions = [];
         bool publicationAttempted = false;
         var transaction = await db.Ado.UseTranAsync(async () =>
@@ -820,7 +823,7 @@ public sealed partial class UserSessionCommandService(
             await notificationStream.PublishToUserAsync(
                 NotificationStreamEventType.SessionRevoked,
                 userId,
-                new SessionRevokedPayload(reason, revokedSessionCount, DateTime.UtcNow),
+                new SessionRevokedPayload(reason, revokedSessionCount, UtcNow),
                 "user-session-revoked");
         }
         catch (Exception ex)
@@ -869,7 +872,7 @@ public sealed partial class UserSessionCommandService(
         }
 
         string hash = HashToken(refreshToken);
-        DateTime now = DateTime.UtcNow;
+        DateTime now = UtcNow;
         var query = db.Queryable<UserSession>()
             .Where(s => s.RefreshTokenHash == hash && s.RevokedAt == null && s.IdleExpiresAt > now && s.AbsoluteExpiresAt > now);
         if (!string.IsNullOrWhiteSpace(sessionId))
@@ -882,7 +885,7 @@ public sealed partial class UserSessionCommandService(
         {
             if (!string.IsNullOrWhiteSpace(sessionId))
             {
-                if (await IsRecentConcurrentRefreshRotationHashAsync(hash, sessionId, DateTime.UtcNow, cancellationToken))
+                if (await IsRecentConcurrentRefreshRotationHashAsync(hash, sessionId, UtcNow, cancellationToken))
                 {
                     LogTokenRefreshFailure();
                     return (false, null);
@@ -956,7 +959,7 @@ public sealed partial class UserSessionCommandService(
 
         if (rotated != 1)
         {
-            if (await IsRecentConcurrentRefreshRotationHashAsync(hash, session.SessionId, DateTime.UtcNow, cancellationToken))
+            if (await IsRecentConcurrentRefreshRotationHashAsync(hash, session.SessionId, UtcNow, cancellationToken))
             {
                 LogTokenRefreshFailure();
                 return (false, null);
@@ -995,7 +998,7 @@ public sealed partial class UserSessionCommandService(
         }
 
         string hash = HashToken(refreshToken);
-        DateTime now = DateTime.UtcNow;
+        DateTime now = UtcNow;
         int matches = await db.Queryable<UserSession>()
             .Where(session => session.SessionId == sessionId
                 && session.RefreshTokenHash == hash
@@ -1020,7 +1023,7 @@ public sealed partial class UserSessionCommandService(
         return IsRecentConcurrentRefreshRotationHashAsync(
             HashToken(refreshToken),
             sessionId,
-            DateTime.UtcNow,
+            UtcNow,
             cancellationToken);
     }
 
@@ -1056,7 +1059,7 @@ public sealed partial class UserSessionCommandService(
         }
 
         const string Reason = "refresh_token_reuse_family_revoke";
-        DateTime revokedAt = DateTime.UtcNow;
+        DateTime revokedAt = UtcNow;
         List<UserSessionValidationCacheState> revokedSessions = [];
         bool publicationAttempted = false;
         var transaction = await db.Ado.UseTranAsync(async () =>

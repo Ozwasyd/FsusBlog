@@ -11,6 +11,7 @@ StaticPerceptionCharacterV3Cutover() {
 }
 StaticBackgroundServices() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-background-service-classification.mjs"; }
 StaticSuiteConvergence() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-suite-convergence.mjs"; }
+StaticWallClockGovernance() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/check-wall-clock-governance.mjs"; }
 StaticBackendPhysicalTopology() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/architecture/check-backend-physical-topology.mjs" --out "${FSUSBLOG_RELEASE_EVIDENCE_DIR:-$ROOT_DIR/.tmp/release-evidence}/backend-physical-topology.json"; }
 StaticBrowserTestMigration() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-browser-test-migration.mjs"; }
 StaticTestLifecycle() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-lifecycle.mjs"; Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/native-test-governance.mjs"; }
@@ -81,6 +82,7 @@ RunTestAssetGovernancePhase() {
     RunCollectParallel test-asset-governance \
         evidence-plan StaticEvidencePlan \
         suite-convergence StaticSuiteConvergence \
+        wall-clock-governance StaticWallClockGovernance \
         browser-test-migration StaticBrowserTestMigration \
         test-lifecycle StaticTestLifecycle \
         canonical-node-behavior StaticTestAssetBehavior \

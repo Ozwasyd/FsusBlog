@@ -18,14 +18,20 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.ResponseCompression;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace FsusBlog.Server.Infrastructure.Bootstrap;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddFsusApiFoundation(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddFsusApiFoundation(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        TimeProvider? businessTimeProvider = null)
     {
         var origins = ResolveCorsOrigins(configuration);
+        TimeProvider timeProvider = businessTimeProvider ?? TimeProvider.System;
+        services.TryAddSingleton(timeProvider);
 
         services.AddCors(options =>
         {
@@ -55,7 +61,7 @@ public static class ServiceCollectionExtensions
 
         services.AddRedis(configuration);
         services.AddSqlSugar();
-        services.AddJwtAuthentication(configuration);
+        services.AddJwtAuthentication(configuration, timeProvider);
         services.AddAuthorization();
         services.AddFsusBlogCore(configuration);
         services.AddPowServices();

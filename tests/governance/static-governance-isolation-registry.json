@@ -630,6 +630,18 @@
             "physicalOwner": "host:temporary-repository",
             "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/frontend-render-structure-receipts",
             "output": ".tmp/test-governance/results/{checkId}/frontend-render-structure-receipts.json"
+        },
+        {
+            "id": "test-temporal-context",
+            "file": "tests/tools/test-temporal-context.test.mjs",
+            "category": "pure-file-validation",
+            "physicalOwner": "host:pure-file"
+        },
+        {
+            "id": "test-wall-clock-governance",
+            "file": "tests/tools/test-wall-clock-governance.test.mjs",
+            "category": "pure-file-validation",
+            "physicalOwner": "host:pure-file"
         }
     ],
     "destructiveRehearsal": {
