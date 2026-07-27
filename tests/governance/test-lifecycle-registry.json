@@ -1940,6 +1940,17 @@
             ]
         },
         {
+            "file": "tests/tools/run-once-fixture-reuse.test.mjs",
+            "owner": "repository-governance:test-asset-behavior",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
             "file": "tests/tools/runtime-fixture-readiness.test.mjs",
             "owner": "manual-diagnostic:tests/tools/runtime-fixture-readiness.test.mjs",
             "executionCategory": "manual-diagnostic",

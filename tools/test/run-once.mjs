@@ -532,6 +532,82 @@ async function acquireLock(lockDirectory, timeoutMs, { staleAfterMs, heartbeatEv
     }
 }
 
+/**
+ * Optional reusable-state verifier contract (injectable; run-once stays pure).
+ *
+ * verifyReusableState(state, context) -> {
+ *   reusable: boolean,
+ *   observationDigest?: string | null,
+ *   reasonCode?: string | null,
+ *   detail?: unknown
+ * }
+ *
+ * When reusable is false, run-once records the reason and re-executes the producer.
+ * When the verifier throws, run-once fails closed (never treats the fault as a
+ * silent cache miss). Ordinary build/test callers omit the verifier and keep
+ * fingerprint + required-output digest reuse only.
+ */
+async function evaluateReusableState(state, {
+    namespace,
+    executionKey,
+    fingerprint,
+    requiredOutputs,
+    verifyReusableState
+}) {
+    if (
+        !reusableRunOnceState(state, { namespace, executionKey }) ||
+        state?.status !== 'success' ||
+        state?.fingerprint !== fingerprint ||
+        !(await outputsMatchState(requiredOutputs, state.requiredOutputStates))
+    ) {
+        return {
+            reusable: false,
+            reasonCode: 'run-once.base-mismatch',
+            observationDigest: null,
+            detail: null
+        }
+    }
+
+    if (typeof verifyReusableState !== 'function') {
+        return {
+            reusable: true,
+            reasonCode: 'run-once.output-match',
+            observationDigest: null,
+            detail: null
+        }
+    }
+
+    let verdict
+    try {
+        verdict = await verifyReusableState(state, {
+            namespace,
+            executionKey,
+            fingerprint,
+            requiredOutputs,
+            requiredOutputStates: state.requiredOutputStates
+        })
+    } catch (error) {
+        // Fail closed: verifier faults are not cache misses.
+        const fault = error instanceof Error ? error : new Error(String(error))
+        if (!fault.reasonCode) fault.reasonCode = 'run-once.verifier-fault'
+        fault.runOnceStateFile = state?.key ?? executionKey
+        throw fault
+    }
+
+    if (!verdict || typeof verdict !== 'object' || typeof verdict.reusable !== 'boolean') {
+        const fault = new Error('verifyReusableState must return { reusable: boolean, reasonCode?, observationDigest? }')
+        fault.reasonCode = 'run-once.verifier-fault'
+        throw fault
+    }
+
+    return {
+        reusable: verdict.reusable === true,
+        reasonCode: verdict.reasonCode == null ? null : String(verdict.reasonCode),
+        observationDigest: verdict.observationDigest == null ? null : String(verdict.observationDigest),
+        detail: verdict.detail ?? null
+    }
+}
+
 export async function runOnce(
     {
         root = defaultStateRoot,
@@ -541,32 +617,50 @@ export async function runOnce(
         requiredOutputs = [],
         lockTimeoutMs = defaultLockTimeoutMs,
         staleLockMs = defaultStaleLockMs,
-        heartbeatMs = defaultHeartbeatMs
+        heartbeatMs = defaultHeartbeatMs,
+        verifyReusableState = null,
+        buildSuccessState = null
     },
     operation
 ) {
     if (!String(key ?? '').trim()) throw new Error('run-once key is required')
     if (!String(fingerprint ?? '').trim()) throw new Error('run-once fingerprint is required')
     if (typeof operation !== 'function') throw new Error('run-once operation must be a function')
+    if (verifyReusableState != null && typeof verifyReusableState !== 'function') {
+        throw new Error('run-once verifyReusableState must be a function when provided')
+    }
+    if (buildSuccessState != null && typeof buildSuccessState !== 'function') {
+        throw new Error('run-once buildSuccessState must be a function when provided')
+    }
 
     const namespaceDirectory = path.join(root, sanitizeSegment(namespace, 'local'))
+    const normalizedNamespace = sanitizeSegment(namespace, 'local')
     const normalizedKey = sanitizeSegment(key, 'operation')
     const stateFile = path.join(namespaceDirectory, `${normalizedKey}.json`)
     const lockDirectory = path.join(namespaceDirectory, `${normalizedKey}.lock`)
     const normalizedOutputs = requiredOutputs.map((output) => path.resolve(output)).sort()
     await mkdir(namespaceDirectory, { recursive: true })
 
+    const reuseContextBase = {
+        namespace: normalizedNamespace,
+        executionKey: normalizedKey,
+        fingerprint,
+        requiredOutputs: normalizedOutputs,
+        verifyReusableState
+    }
+
     const current = await readState(stateFile)
-    if (
-        reusableRunOnceState(current, {
-            namespace: sanitizeSegment(namespace, 'local'),
-            executionKey: normalizedKey
-        }) &&
-        current.status === 'success' &&
-        current.fingerprint === fingerprint &&
-        (await outputsMatchState(normalizedOutputs, current.requiredOutputStates))
-    ) {
-        return { status: 'shared-current-run', stateFile }
+    const currentReuse = await evaluateReusableState(current, reuseContextBase)
+    if (currentReuse.reusable) {
+        return {
+            status: 'shared-current-run',
+            stateFile,
+            reuse: {
+                reasonCode: currentReuse.reasonCode,
+                observationDigest: currentReuse.observationDigest,
+                detail: currentReuse.detail
+            }
+        }
     }
 
     const lock = await acquireLock(lockDirectory, lockTimeoutMs, {
@@ -575,17 +669,26 @@ export async function runOnce(
     })
     try {
         const lockedCurrent = await readState(stateFile)
-        if (
-            reusableRunOnceState(lockedCurrent, {
-                namespace: sanitizeSegment(namespace, 'local'),
-                executionKey: normalizedKey
-            }) &&
-            lockedCurrent.status === 'success' &&
-            lockedCurrent.fingerprint === fingerprint &&
-            (await outputsMatchState(normalizedOutputs, lockedCurrent.requiredOutputStates))
-        ) {
-            return { status: 'shared-current-run', stateFile }
+        const lockedReuse = await evaluateReusableState(lockedCurrent, reuseContextBase)
+        if (lockedReuse.reusable) {
+            return {
+                status: 'shared-current-run',
+                stateFile,
+                reuse: {
+                    reasonCode: lockedReuse.reasonCode,
+                    observationDigest: lockedReuse.observationDigest,
+                    detail: lockedReuse.detail
+                }
+            }
         }
+
+        const reuseRejection = lockedCurrent || current
+            ? {
+                reasonCode: lockedReuse.reasonCode ?? currentReuse.reasonCode,
+                observationDigest: lockedReuse.observationDigest ?? currentReuse.observationDigest,
+                detail: lockedReuse.detail ?? currentReuse.detail
+            }
+            : null
 
         await operation()
         const requiredOutputStates = await captureOutputStates(normalizedOutputs)
@@ -593,9 +696,9 @@ export async function runOnce(
             throw new Error(`run-once command succeeded without required outputs: ${normalizedOutputs.join(', ')}`)
         }
 
-        const nextState = {
+        let nextState = {
             schema: 'fsusblog.test-run-once.v3',
-            namespace: sanitizeSegment(namespace, 'local'),
+            namespace: normalizedNamespace,
             key: normalizedKey,
             fingerprint,
             status: 'success',
@@ -604,10 +707,35 @@ export async function runOnce(
             lockLifecycleReceipt: lock.lockLifecycleReceipt,
             completedAt: new Date().toISOString()
         }
+        if (typeof buildSuccessState === 'function') {
+            const enrichment = await buildSuccessState({
+                state: nextState,
+                requiredOutputs: normalizedOutputs,
+                requiredOutputStates,
+                reuseRejection
+            })
+            if (enrichment && typeof enrichment === 'object') {
+                nextState = { ...nextState, ...enrichment, schema: 'fsusblog.test-run-once.v3' }
+            }
+        }
+        if (reuseRejection) {
+            nextState = {
+                ...nextState,
+                lastReuseRejection: {
+                    reasonCode: reuseRejection.reasonCode,
+                    observationDigest: reuseRejection.observationDigest,
+                    rejectedAt: new Date().toISOString()
+                }
+            }
+        }
         const temporaryState = `${stateFile}.${process.pid}.tmp`
         await writeFile(temporaryState, `${JSON.stringify(nextState, null, 2)}\n`, 'utf8')
         await rename(temporaryState, stateFile)
-        return { status: 'executed', stateFile }
+        return {
+            status: 'executed',
+            stateFile,
+            reuseRejection
+        }
     } finally {
         await lock.release()
     }

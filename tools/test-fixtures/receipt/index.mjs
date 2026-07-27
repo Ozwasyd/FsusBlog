@@ -74,3 +74,13 @@ export {
   writeFixtureIdProjection,
   assertNotAuthoritativeReceipt
 } from './projection.mjs'
+
+export {
+  FIXTURE_REUSE_REASON_CODES,
+  FIXTURE_RUN_ONCE_REUSE_CONTRACT,
+  assertFixtureReuseBypassForbidden,
+  verifyFixtureReusableState,
+  createFixtureReceiptReuseVerifier,
+  buildFixtureReuseContract,
+  isFixtureReuseVerifierRegistered
+} from './reuse-verifier.mjs'

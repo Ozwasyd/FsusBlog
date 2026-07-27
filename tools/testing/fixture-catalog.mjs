@@ -697,6 +697,10 @@ export function validateFixtureCatalogs({
       errors.push(`producer ${item.id} implementationPaths must be non-empty, sorted and unique`)
     }
     if (!['transaction-fixture', 'public-api-scenario', 'deterministic-generator'].includes(item.strategy)) errors.push(`producer ${item.id} has invalid strategy`)
+    // #1711: every catalog producer must register FixtureReceipt run-once reuse verifier.
+    if (item.reuseVerifier !== 'fixture-receipt') {
+      errors.push(`producer ${item.id} must register reuseVerifier=fixture-receipt (#1711); omission fails closed`)
+    }
     validateReferences(item.provides, capabilityIds, `producer ${item.id}.provides`, errors)
     validateReferences(item.consumes, capabilityIds, `producer ${item.id}.consumes`, errors)
     validateReferences(item.stateDomains, domains, `producer ${item.id}.stateDomains`, errors)
