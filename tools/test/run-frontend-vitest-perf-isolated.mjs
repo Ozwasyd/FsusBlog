@@ -16,10 +16,15 @@ import {
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const frontendRoot = path.join(root, 'src/frontend')
-const reportFile = path.join(root, '.tmp/test-results/vitest/production/perf-isolated.json')
-const ordinaryReportFile = path.join(root, '.tmp/test-results/vitest/production-rolling/merged.json')
-const timingEvidenceFile = path.join(root, '.tmp/test-results/vitest/production/perf-isolated-timing.json')
-const coverageRoot = path.join(frontendRoot, 'coverage/unit')
+const testResultsRoot = path.resolve(process.env.FSUSBLOG_TEST_RESULTS_ROOT
+  ?? path.join(root, '.tmp/test-results'))
+const reportFile = path.join(testResultsRoot, 'vitest/production/perf-isolated.json')
+const ordinaryReportFile = path.join(testResultsRoot, 'vitest/production-rolling/merged.json')
+const timingEvidenceFile = path.join(testResultsRoot, 'vitest/production/perf-isolated-timing.json')
+const coverageRoot = path.resolve(
+  process.env.FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT
+    ? path.join(process.env.FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT, 'coverage', 'vitest', 'unit')
+    : path.join(frontendRoot, 'coverage/unit'))
 let activeChild = null
 
 function sha256(value) {

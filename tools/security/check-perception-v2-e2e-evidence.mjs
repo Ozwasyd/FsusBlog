@@ -3,9 +3,15 @@ import fs from 'node:fs';
 import path from 'node:path'
 
 const root = path.resolve(path.join(path.dirname(new URL(import.meta.url).pathname), '..', '..'))
-const runtimeEvidencePath = path.join(root, '.tmp/security/perception-v2-e2e-runtime.json')
-const matrixSummaryPath = path.join(root, '.tmp/security/perception-v2-test-matrix.json')
-const releaseEvidencePath = path.join(root, '.tmp/release-evidence/perception-v2-release-evidence.json')
+const runtimeEvidencePath = process.env.FSUSBLOG_PERCEPTION_RUNTIME_EVIDENCE_FILE
+  ? path.resolve(process.env.FSUSBLOG_PERCEPTION_RUNTIME_EVIDENCE_FILE)
+  : path.join(root, '.tmp/security/perception-v2-e2e-runtime.json')
+const matrixSummaryPath = process.env.FSUSBLOG_PERCEPTION_MATRIX_SUMMARY_FILE
+  ? path.resolve(process.env.FSUSBLOG_PERCEPTION_MATRIX_SUMMARY_FILE)
+  : path.join(root, '.tmp/security/perception-v2-test-matrix.json')
+const releaseEvidencePath = process.env.FSUSBLOG_PERCEPTION_RELEASE_EVIDENCE_FILE
+  ? path.resolve(process.env.FSUSBLOG_PERCEPTION_RELEASE_EVIDENCE_FILE)
+  : path.join(root, '.tmp/release-evidence/perception-v2-release-evidence.json')
 
 const requiredWorkflowPath = ['issue', 'render', 'verify', 'proof', 'business-action-resume']
 const requiredFailureCases = ['wrong-answer', 'expired', 'duplicate-submit', 'action-mismatch', 'route-mismatch']

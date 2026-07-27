@@ -38,8 +38,8 @@ if [[ "${FSUSBLOG_DATA_SCALE_OUT_DIR+x}" == "x" ]]; then
     fi
     summary_reference="$OUT_DIR/summary.json"
 else
-    OUT_DIR="$ROOT_DIR/.tmp/scale/$TIER"
-    summary_reference=".tmp/scale/$TIER/summary.json"
+    OUT_DIR="${FSUSBLOG_DATA_SCALE_ROOT:-$ROOT_DIR/.tmp/scale}/$TIER"
+    summary_reference="${OUT_DIR#"$ROOT_DIR/"}/summary.json"
 fi
 mkdir -p "$OUT_DIR"
 

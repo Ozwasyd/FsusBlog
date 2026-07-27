@@ -11,8 +11,12 @@ const require = createRequire(import.meta.url)
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
 const frontendDir = path.join(root, 'src/frontend')
 const { chromium } = require(require.resolve('@playwright/test', { paths: [frontendDir] }))
-const outFile = path.join(root, '.tmp/frontend/route-render-pressure.json')
-const releaseSummaryFile = path.join(root, '.tmp/release-evidence/frontend-render-pressure-summary.json')
+const outFile = path.join(
+  process.env.FSUSBLOG_FRONTEND_OUTPUT_ROOT ?? path.join(root, '.tmp/frontend'),
+  'route-render-pressure.json')
+const releaseSummaryFile = path.join(
+  process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR ?? path.join(root, '.tmp/release-evidence'),
+  'frontend-render-pressure-summary.json')
 const baseUrl = process.env.PLAYWRIGHT_BASE_URL || process.env.FSUSBLOG_PUBLIC_BASE_URL || 'http://127.0.0.1:3000'
 const strict = process.env.FSUSBLOG_ROUTE_RENDER_PRESSURE_STRICT === '1'
 

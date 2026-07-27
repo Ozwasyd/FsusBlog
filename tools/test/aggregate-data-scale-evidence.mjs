@@ -11,6 +11,15 @@ export const dataScaleEvidenceSources = Object.freeze([
   { tier: 'scale-s', path: '.tmp/scale/release-summaries/scale-s.json' }
 ])
 
+function currentDataScaleEvidenceSources(root) {
+  const scaleRoot = path.resolve(process.env.FSUSBLOG_DATA_SCALE_ROOT ?? path.join(root, '.tmp/scale'))
+  return ['scale-xs', 'scale-s'].map((tier) => ({
+    tier,
+    path: path.relative(root, path.join(scaleRoot, 'release-summaries', `${tier}.json`))
+      .replaceAll(path.sep, '/')
+  }))
+}
+
 function parseArgs(argv) {
   const options = { root: repositoryRoot }
   for (let index = 0; index < argv.length; index += 1) {
@@ -77,15 +86,18 @@ function aggregateStatus(entries) {
 
 export function aggregateDataScaleEvidence(rootValue = repositoryRoot) {
   const root = path.resolve(rootValue)
-  const tiers = dataScaleEvidenceSources.map((source) => readSummary(root, source))
+  const sources = currentDataScaleEvidenceSources(root)
+  const tiers = sources.map((source) => readSummary(root, source))
   const summary = {
     schema: 'fsusblog.data-scale-evidence-summary.v1',
     status: aggregateStatus(tiers),
-    requiredTiers: dataScaleEvidenceSources.map((source) => source.tier),
+    requiredTiers: sources.map((source) => source.tier),
     tiers,
     generatedAt: new Date().toISOString()
   }
-  const output = path.join(root, '.tmp/release-evidence/data-scale-summary.json')
+  const output = path.join(
+    path.resolve(process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR ?? path.join(root, '.tmp/release-evidence')),
+    'data-scale-summary.json')
   fs.mkdirSync(path.dirname(output), { recursive: true })
   const temporary = `${output}.next-${process.pid}`
   fs.writeFileSync(temporary, `${JSON.stringify(summary, null, 2)}\n`)

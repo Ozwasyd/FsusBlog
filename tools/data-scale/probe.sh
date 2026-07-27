@@ -37,7 +37,7 @@ if [[ "${FSUSBLOG_DATA_SCALE_OUT_DIR+x}" == "x" ]]; then
         exit 1
     fi
 else
-    OUT_DIR="$ROOT_DIR/.tmp/scale/$TIER"
+    OUT_DIR="${FSUSBLOG_DATA_SCALE_ROOT:-$ROOT_DIR/.tmp/scale}/$TIER"
 fi
 mkdir -p "$OUT_DIR"
 

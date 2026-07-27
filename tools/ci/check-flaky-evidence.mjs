@@ -261,7 +261,8 @@ function checkEvidence({ releaseFinal, roots }) {
 
 function defaultRoots() {
   return [
-    path.join(root, '.tmp/release-evidence/flaky'),
+    path.join(path.resolve(process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR
+      ?? path.join(root, '.tmp/release-evidence')), 'flaky'),
     path.join(root, '.tmp/downloaded-artifacts')
   ]
 }

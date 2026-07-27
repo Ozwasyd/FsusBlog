@@ -24,6 +24,18 @@ export const performanceEvidenceSources = Object.freeze([
   }
 ])
 
+function currentPerformanceEvidenceSources(root) {
+  const performanceRoot = path.resolve(
+    process.env.FSUSBLOG_PERFORMANCE_OUTPUT_ROOT ?? path.join(root, '.tmp/perf'))
+  return performanceEvidenceSources.map((source) => ({
+    ...source,
+    path: path.relative(
+      root,
+      path.join(performanceRoot, 'release-summaries', path.basename(source.path))
+    ).replaceAll(path.sep, '/')
+  }))
+}
+
 function parseArgs(argv) {
   const options = { root: repositoryRoot }
   for (let index = 0; index < argv.length; index += 1) {
@@ -166,15 +178,19 @@ function expectedCommitForRoot(root) {
 
 export async function aggregatePerformanceEvidence(rootValue = repositoryRoot) {
   const root = path.resolve(rootValue)
-  const entries = await readAllSummaries(root, performanceEvidenceSources, downloadedArtifactDirectories(root))
+  const sources = currentPerformanceEvidenceSources(root)
+  const entries = await readAllSummaries(root, sources, downloadedArtifactDirectories(root))
   const summary = {
     schema: 'fsusblog.performance-evidence-summary.v1',
     status: aggregateStatus(entries),
-    requiredEvidenceIds: performanceEvidenceSources.map((source) => source.id),
+    requiredEvidenceIds: sources.map((source) => source.id),
     entries,
     generatedAt: new Date().toISOString()
   }
-  const output = path.join(root, '.tmp/release-evidence/perf-summary.json')
+  const output = path.join(
+    path.resolve(process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR
+      ?? path.join(root, '.tmp/release-evidence')),
+    'perf-summary.json')
   await fs.promises.mkdir(path.dirname(output), { recursive: true })
   const temporary = `${output}.next-${process.pid}`
   await fs.promises.writeFile(temporary, `${JSON.stringify(summary, null, 2)}\n`)

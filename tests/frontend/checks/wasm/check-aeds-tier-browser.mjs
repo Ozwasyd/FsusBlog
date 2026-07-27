@@ -11,8 +11,12 @@ const frontendRoot = path.join(root, 'src/frontend')
 const playwright = await import(pathToFileURL(path.join(frontendRoot, 'node_modules/playwright/index.mjs')).href)
 const requested = (process.env.FSUSBLOG_AEDS_BROWSERS || 'chromium,firefox,webkit').split(',').map(value => value.trim()).filter(Boolean)
 const diagnosticMode = process.env.FSUSBLOG_BROWSER_DIAGNOSTICS === '1'
-const outFile = path.join(root, '.tmp/frontend/aeds-wasm-browser/summary.json')
-const releaseFile = path.join(root, '.tmp/release-evidence/aeds-wasm-browser-summary.json')
+const outFile = path.join(
+  process.env.FSUSBLOG_FRONTEND_OUTPUT_ROOT ?? path.join(root, '.tmp/frontend'),
+  'aeds-wasm-browser/summary.json')
+const releaseFile = path.join(
+  process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR ?? path.join(root, '.tmp/release-evidence'),
+  'aeds-wasm-browser-summary.json')
 const commitSha = resolveCommitSha()
 const port = await freePort()
 const origin = `http://127.0.0.1:${port}`

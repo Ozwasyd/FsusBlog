@@ -8,13 +8,17 @@ import { fileURLToPath } from 'node:url'
 import { writeFrontendStructureProducerForArtifact } from '../../../../tools/test/frontend-render-structure-receipts.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
+const frontendOutputRoot = path.resolve(
+  process.env.FSUSBLOG_FRONTEND_OUTPUT_ROOT ?? path.join(root, '.tmp/frontend'))
 const adapterFile = path.join(root, 'src/frontend/src/components/ui/MarkdownEditorAdapter.vue')
 const rendererFile = path.join(root, 'src/frontend/src/components/ui/MarkdownRenderer.vue')
 const fsusuiMarkdownFile = path.join(root, 'src/frontend/src/fsusui/markdown.ts')
 const packageFile = path.join(root, 'src/frontend/package.json')
-const outFile = path.join(root, '.tmp/frontend/markdown-render-budget.json')
-const receiptFile = path.join(root, '.tmp/frontend/receipts/markdown-render-budget.json')
-const releaseSummaryFile = path.join(root, '.tmp/release-evidence/frontend-render-pressure-summary.json')
+const outFile = path.join(frontendOutputRoot, 'markdown-render-budget.json')
+const receiptFile = path.join(frontendOutputRoot, 'receipts/markdown-render-budget.json')
+const releaseSummaryFile = path.join(
+  process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR ?? path.join(root, '.tmp/release-evidence'),
+  'frontend-render-pressure-summary.json')
 
 const corpus = {
   headings: Array.from({ length: 100 }, (_, index) => `# Heading ${index}`).join('\n'),

@@ -3,7 +3,9 @@ set -euo pipefail
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_lane-collect-support.sh"
 
-STAGE_DIR="$ROOT_DIR/.tmp/security/privacy-zk-comment-matrix-stages"
+SECURITY_OUTPUT_ROOT="${FSUSBLOG_SECURITY_OUTPUT_ROOT:-$ROOT_DIR/.tmp/security}"
+STAGE_DIR="$SECURITY_OUTPUT_ROOT/privacy-zk-comment-matrix-stages"
+PREBUILD_PROJECTION="$SECURITY_OUTPUT_ROOT/privacy-zk-comment-prebuild.json"
 
 WriteStageReceipt() {
     local stage="$1"
@@ -98,7 +100,7 @@ RunPrivacyPrebuildContract() {
     node "$ROOT_DIR/tools/test/lanes/run-privacy-zk-prebuild-projection.mjs" \
         --root "$ROOT_DIR" \
         --registry tests/governance/privacy-zk-prebuild-ownership.json \
-        --output .tmp/security/privacy-zk-comment-prebuild.json \
+        --output "$PREBUILD_PROJECTION" \
         --commit "${FSUSBLOG_TEST_SOURCE_COMMIT:?missing test source commit}" \
         --worktree-fingerprint "${FSUSBLOG_TEST_SOURCE_FINGERPRINT:?missing test source fingerprint}" \
         --run-id "${FSUSBLOG_TEST_RUN_ID:?missing test run ID}"
@@ -132,7 +134,7 @@ RunContractPrebuildStage() {
     RunCollect privacy-matrix-contract RunPrivacyMatrixContract
     RunCollect privacy-prebuild-contract RunPrivacyPrebuildContract
     FinishCollect
-    STAGE_PROJECTION=".tmp/security/privacy-zk-comment-prebuild.json" \
+    STAGE_PROJECTION="$PREBUILD_PROJECTION" \
         WriteStageReceipt contract-prebuild 'unique privacy/ZK assertions plus canonical current-run receipt projection'
 }
 
@@ -172,8 +174,8 @@ RunProjectedFunctionalStage() {
 FinalizePrivacyMatrix() {
     RequireStageReceipt contract
     RequireStageReceipt functional
-    mkdir -p "$ROOT_DIR/.tmp/security"
-    cat >"$ROOT_DIR/.tmp/security/privacy-zk-comment-matrix.json" <<'JSON'
+    mkdir -p "$SECURITY_OUTPUT_ROOT"
+    cat >"$SECURITY_OUTPUT_ROOT/privacy-zk-comment-matrix.json" <<'JSON'
 {
   "schema": "fsusblog.privacy-zk-comment-matrix.v1",
   "status": "ok",

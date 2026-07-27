@@ -42,7 +42,7 @@ test('public hot-read residency profiler emits physical-memory and hit-rate gate
   }
   assert.match(profiler, /PublicHotReadBinaryArtifactFactory\.FromPayload/u)
   assert.doesNotMatch(profiler, /candidates\[id\] = new PublicBinaryArtifact/u)
-  assert.match(lane, /\.tmp\/release-evidence\/public-hot-read-residency-profile\.json/u)
+  assert.match(lane, /FSUSBLOG_RELEASE_EVIDENCE_DIR[\s\S]*?public-hot-read-residency-profile\.json/u)
   assert.match(releaseLane, /public-hot-read-residency-profile\.sh/u)
   assert.match(matrix, /coverage: \[aeds-hot-read-precompression, public-hot-read-residency-budget\]/u)
 })

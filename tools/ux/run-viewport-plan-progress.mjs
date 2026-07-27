@@ -6,7 +6,9 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-const outputFile = path.join(root, '.tmp/ux/viewport-plan-progress.json')
+const outputFile = path.join(
+  process.env.FSUSBLOG_UX_OUTPUT_ROOT ?? path.join(root, '.tmp/ux'),
+  'viewport-plan-progress.json')
 
 export const viewportPlanProgressTestFiles = Object.freeze([
   'tests/tools/ux-viewport-plan.test.mjs',

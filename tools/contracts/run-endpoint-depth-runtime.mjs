@@ -7,8 +7,12 @@ import { fileURLToPath } from 'node:url'
 import { readPublicFixtureIds } from '../../tests/frontend/support/public-fixtures.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
-const matrixFile = path.join(root, '.tmp/contracts/endpoint-depth-matrix.json')
-const outFile = path.join(root, '.tmp/release-evidence/endpoint-depth-summary.json')
+const matrixFile = path.join(
+  process.env.FSUSBLOG_CONTRACT_OUTPUT_ROOT ?? path.join(root, '.tmp/contracts'),
+  'endpoint-depth-matrix.json')
+const outFile = path.join(
+  process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR ?? path.join(root, '.tmp/release-evidence'),
+  'endpoint-depth-summary.json')
 const baseUrl = (process.env.FSUSBLOG_BASE_URL || process.env.FSUSBLOG_DEBUG_BACKEND_URL || 'http://127.0.0.1:7568').replace(/\/$/, '')
 const maxCases = positiveInt(process.env.FSUSBLOG_ENDPOINT_DEPTH_RUNTIME_CASES, 48)
 const timeoutMs = positiveInt(process.env.FSUSBLOG_ENDPOINT_DEPTH_TIMEOUT_MS, 15000)
@@ -296,7 +300,7 @@ async function main() {
     runtimeCaseCount: results.length,
     failureCount: failures.length,
     scenarios: [...new Set(results.map((item) => item.scenario))].sort(),
-    artifact: '.tmp/contracts/endpoint-depth-matrix.json',
+    artifact: path.relative(root, matrixFile).replaceAll(path.sep, '/'),
     results
   }
   fs.mkdirSync(path.dirname(outFile), { recursive: true })

@@ -11,9 +11,10 @@ import { detectAuditPreflight } from './test-asset-audit/preflight.mjs'
 
 const root = path.resolve(new URL('../..', import.meta.url).pathname)
 const profilePath = path.join(root, 'config/testing/test-asset-audit-profile.json')
+const auditRoot = path.resolve(process.env.FSUSBLOG_TEST_ASSET_AUDIT_DIR || path.join(root, '.tmp/test-asset-audit'))
 
 function parseArgs(argv) {
-  const options = { phase: 'full', out: path.join(root, '.tmp/test-asset-audit/report.json'), baseline: null, layers: null }
+  const options = { phase: 'full', out: path.join(auditRoot, 'report.json'), baseline: null, layers: null }
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index]
     if (argument === '--phase') options.phase = argv[++index]
@@ -32,7 +33,7 @@ function writeJson(file, value) {
 }
 
 function runDiscovery(runId) {
-  const out = path.join(root, '.tmp/test-asset-audit/retention.json')
+  const out = path.join(auditRoot, 'retention.json')
   const result = spawnSync(process.execPath, [
     path.join(root, 'tools/check-test-retention.mjs'),
     '--out', out,
@@ -62,7 +63,7 @@ function main() {
   validateSelectedLayers(profile, options.layers)
   const preflight = detectAuditPreflight(root)
   const preflightSummary = preflightOutcome(preflight)
-  writeJson(path.join(root, '.tmp/test-asset-audit/preflight.json'), { ...preflight, ...preflightSummary })
+  writeJson(path.join(auditRoot, 'preflight.json'), { ...preflight, ...preflightSummary })
   if (options.phase === 'preflight') {
     writeJson(options.out, { ...preflight, ...preflightSummary })
     console.log(`[test-asset-audit] preflight ${preflightSummary.outcome}; blocked=${preflightSummary.blocked.join(',') || 'none'}`)
@@ -74,7 +75,7 @@ function main() {
   const retention = runDiscovery(runId)
   const inventory = buildAuditInventory(root, retention, profile)
   if (inventory.errors.length > 0) throw new Error(`audit inventory failed:\n${inventory.errors.join('\n')}`)
-  writeJson(path.join(root, '.tmp/test-asset-audit/inventory.json'), inventory)
+  writeJson(path.join(auditRoot, 'inventory.json'), inventory)
 
   let comparisonErrors = []
   if (options.baseline) {

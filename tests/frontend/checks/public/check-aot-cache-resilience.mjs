@@ -7,8 +7,12 @@ import path from 'node:path'
 import process from 'node:process'
 
 const root = path.resolve(new URL('../../../..', import.meta.url).pathname)
-const outFile = path.join(root, '.tmp/release-evidence/aot-cache-resilience-summary.json')
-const sessionBase = path.join(root, '.tmp/public-aot-cache-resilience')
+const outFile = path.join(
+  process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR ?? path.join(root, '.tmp/release-evidence'),
+  'aot-cache-resilience-summary.json')
+const sessionBase = path.join(
+  process.env.FSUSBLOG_RUNTIME_OUTPUT_ROOT ?? path.join(root, '.tmp/public-aot-cache-resilience'),
+  'public-aot-cache-resilience')
 const schema = 'fsusblog.public-aot-cache-resilience.v1'
 const documentMagic = 'FSUSBLOG_AOT_DOCUMENT_V1\n'
 const rendererVersion = 'public-aot-cache-resilience-fixture-v1'

@@ -71,6 +71,12 @@ export function verifyPrivacyZkPerformanceInputs({
     const resolvedRoot = path.resolve(repositoryRoot);
     const resolvedExpectedStages = expectedFrontendBuildStages
     ?? currentFrontendBuildStages(path.join(resolvedRoot, 'src/frontend'));
+    const coverageRoot = path.resolve(
+      process.env.FSUSBLOG_COVERAGE_ROOT ?? path.join(resolvedRoot, '.tmp/coverage')
+    )
+    const securityOutputRoot = path.resolve(
+      process.env.FSUSBLOG_SECURITY_OUTPUT_ROOT ?? path.join(resolvedRoot, '.tmp/security')
+    )
     const productionLayout = resolveProductionBuildLayout({ root: resolvedRoot, runId: normalizedRunId });
     const failures = [];
     const collect = (relativeFile, validate) =>
@@ -89,13 +95,13 @@ export function verifyPrivacyZkPerformanceInputs({
       'backend-coverage-ready',
       'backend-tests',
       'backend-coverage-summary',
-      '.tmp/coverage/backend-merged/Summary.json'
+      path.join(coverageRoot, 'backend-merged', 'Summary.json')
     ],
     [
       'frontend-coverage-ready',
       'frontend-tests',
       'frontend-coverage-summary',
-      '.tmp/coverage/frontend/Summary.json'
+      path.join(coverageRoot, 'frontend', 'Summary.json')
     ]
   ].map(([markerId, producerBundleId, producerStepId, artifact]) => {
     const relativeFile = `.tmp/test-runs/${normalizedRunId}/${markerId}.json`
@@ -107,7 +113,7 @@ export function verifyPrivacyZkPerformanceInputs({
         sourceState,
         producerBundleId,
         producerStepId,
-        artifacts: [path.join(resolvedRoot, artifact)]
+        artifacts: [artifact]
       })
       return readBoundJson(resolvedRoot, relativeFile, () => {})
     } catch (error) {
@@ -153,7 +159,10 @@ export function verifyPrivacyZkPerformanceInputs({
         }
     );
     const stages = ['contract', 'functional'].map((stage) => collect(
-    `.tmp/security/privacy-zk-comment-matrix-stages/${stage}.json`,
+    path.relative(
+      resolvedRoot,
+      path.join(securityOutputRoot, 'privacy-zk-comment-matrix-stages', `${stage}.json`)
+    ).replaceAll(path.sep, '/'),
     (receipt, relativeFile) => {
       if (receipt?.schema !== 'fsusblog.privacy-zk-comment-matrix-stage.v1'
         || receipt.status !== 'ok'

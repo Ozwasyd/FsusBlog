@@ -3,8 +3,9 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 TIER="${FSUSBLOG_SCALE_TIER:-${1:-scale-xs}}"
-OUT_DIR="$ROOT_DIR/.tmp/scale/$TIER"
-RELEASE_SUMMARY_DIR="$ROOT_DIR/.tmp/scale/release-summaries"
+DATA_SCALE_ROOT="${FSUSBLOG_DATA_SCALE_ROOT:-$ROOT_DIR/.tmp/scale}"
+OUT_DIR="$DATA_SCALE_ROOT/$TIER"
+RELEASE_SUMMARY_DIR="$DATA_SCALE_ROOT/release-summaries"
 mkdir -p "$OUT_DIR"
 export FSUSBLOG_POSTGRES_CONTAINER_NAME="${FSUSBLOG_POSTGRES_CONTAINER_NAME:-${FSUSBLOG_PG_CONTAINER:-fsusblog-dev-postgres}}"
 
@@ -51,7 +52,7 @@ mkdir -p "$RELEASE_SUMMARY_DIR"
 jq -n \
     --arg status "$release_status" \
     --arg tier "$TIER" \
-    --arg file ".tmp/scale/$TIER/summary.json" \
+    --arg file "$(realpath --relative-to="$ROOT_DIR" "$OUT_DIR/summary.json")" \
     --argjson articles "$articles" \
     --argjson comments "$comments" \
     --slurpfile seed "$OUT_DIR/seed.json" \

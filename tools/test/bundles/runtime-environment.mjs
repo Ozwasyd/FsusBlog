@@ -171,16 +171,21 @@ export function parseRuntimeEnvironment(contents, expectedNamespace)
 export function readRuntimeEnvironment(root, expectedNamespace)
 {
     const namespace = String(expectedNamespace ?? '').trim();
-    const environmentFile = path.join(root, '.tmp', 'env', `${namespace}.env`);
     const resolvedRoot = path.resolve(root);
+    const configuredEnvironmentRoot = String(process.env.FSUSBLOG_ACCEPTANCE_ENV_ROOT ?? '').trim();
+    const environmentRoot = configuredEnvironmentRoot
+        ? path.resolve(configuredEnvironmentRoot)
+        : path.join(resolvedRoot, '.tmp', 'env');
+    const environmentFile = path.join(environmentRoot, `${namespace}.env`);
     const resolvedFile = path.resolve(environmentFile);
-    if (path.dirname(resolvedFile) !== path.join(resolvedRoot, '.tmp', 'env'))
+    if ((environmentRoot !== resolvedRoot && !environmentRoot.startsWith(`${resolvedRoot}${path.sep}`))
+        || path.dirname(resolvedFile) !== environmentRoot)
     {
         throw new Error('runtime environment path escapes the repository namespace directory');
     }
     if (!fs.existsSync(resolvedFile))
     {
-        throw new Error(`runtime environment file is missing: .tmp/env/${namespace}.env`);
+        throw new Error(`runtime environment file is missing: ${path.relative(resolvedRoot, resolvedFile)}`);
     }
     return parseRuntimeEnvironment(fs.readFileSync(resolvedFile, 'utf8'), namespace);
 }

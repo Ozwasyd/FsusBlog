@@ -3,7 +3,9 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 const root = path.resolve(new URL('../../../..', import.meta.url).pathname)
-const outFile = path.join(root, '.tmp/release-evidence/hydration-long-smoke-summary.json')
+const outFile = path.join(
+  process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR ?? path.join(root, '.tmp/release-evidence'),
+  'hydration-long-smoke-summary.json')
 fs.mkdirSync(path.dirname(outFile), { recursive: true })
 fs.writeFileSync(outFile, `${JSON.stringify({
   status: 'ok',

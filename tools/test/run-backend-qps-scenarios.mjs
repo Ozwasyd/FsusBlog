@@ -7,9 +7,13 @@ import { fileURLToPath } from 'node:url'
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const catalogPath = path.join(repositoryRoot, 'config/testing/backend-qps-scenario-catalog.json')
-const defaultOutDir = path.join(repositoryRoot, '.tmp/perf/backend-qps')
-const defaultSummaryFile = path.join(repositoryRoot, '.tmp/release-evidence/backend-qps-summary.json')
-const defaultRuntimeSequentialSummaryFile = path.join(repositoryRoot, '.tmp/release-evidence/backend-qps-runtime-sequential-summary.json')
+const defaultOutDir = path.join(
+  process.env.FSUSBLOG_PERFORMANCE_OUTPUT_ROOT ?? path.join(repositoryRoot, '.tmp/perf'),
+  'backend-qps')
+const releaseEvidenceRoot = process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR
+  ?? path.join(repositoryRoot, '.tmp/release-evidence')
+const defaultSummaryFile = path.join(releaseEvidenceRoot, 'backend-qps-summary.json')
+const defaultRuntimeSequentialSummaryFile = path.join(releaseEvidenceRoot, 'backend-qps-runtime-sequential-summary.json')
 
 export const EXPECTED_BACKEND_QPS_MODES = [
   'view-count-flush',
@@ -135,7 +139,7 @@ export function aggregateSummary(options = {}) {
     generatedAt,
     performance_baseline: results.find((item) => item.performance_baseline != null)?.performance_baseline ?? null,
     optional_deployment_layer: results.find((item) => item.optional_deployment_layer != null)?.optional_deployment_layer ?? null,
-    artifactDir: '.tmp/perf/backend-qps',
+    artifactDir: path.relative(repositoryRoot, defaultOutDir).replaceAll(path.sep, '/'),
     expectedModes: EXPECTED_BACKEND_QPS_MODES,
     resultCount: results.length,
     evidenceModel: 'static-implementation-plus-runtime-measurement',

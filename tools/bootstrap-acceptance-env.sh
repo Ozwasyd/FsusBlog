@@ -9,9 +9,9 @@ FSUSBLOG_TEST_NAMESPACE="${FSUSBLOG_TEST_NAMESPACE:-local}"
 NS_SLUG="$(printf '%s' "$FSUSBLOG_TEST_NAMESPACE" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9_.-' '-' | sed -E 's/^-+|-+$//g')"
 [[ -n "$NS_SLUG" && "$NS_SLUG" != "." && "$NS_SLUG" != ".." ]] || NS_SLUG="local"
 FSUSBLOG_TEST_NAMESPACE="$NS_SLUG"
-TMP_DIR="$ROOT_DIR/.tmp/acceptance/$NS_SLUG"
-ENV_DIR="$ROOT_DIR/.tmp/env"
-FIXTURE_DIR="$ROOT_DIR/.tmp/fixtures/$NS_SLUG"
+TMP_DIR="${FSUSBLOG_ACCEPTANCE_OUTPUT_ROOT:-$ROOT_DIR/.tmp/acceptance}/$NS_SLUG"
+ENV_DIR="${FSUSBLOG_ACCEPTANCE_ENV_ROOT:-$ROOT_DIR/.tmp/env}"
+FIXTURE_DIR="${FSUSBLOG_ACCEPTANCE_FIXTURE_ROOT:-$ROOT_DIR/.tmp/fixtures}/$NS_SLUG"
 mkdir -p "$TMP_DIR"
 mkdir -p "$ENV_DIR" "$FIXTURE_DIR"
 
@@ -263,7 +263,7 @@ NODE
         --expected-receipt-digest "${FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST:?FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST is required}"
         --consumer-run-id "${FSUSBLOG_TEST_RUN_ID:?FSUSBLOG_TEST_RUN_ID is required for CI artifact consumer leases}"
         --consumer-id "$NS_SLUG"
-        --evidence "$ROOT_DIR/.tmp/release-evidence/jobs/ci-build-materialization-${NS_SLUG}.json"
+        --evidence "${FSUSBLOG_RELEASE_EVIDENCE_DIR:-$ROOT_DIR/.tmp/release-evidence}/jobs/ci-build-materialization-${NS_SLUG}.json"
     )
     local domain
     for domain in "${domains[@]}"; do

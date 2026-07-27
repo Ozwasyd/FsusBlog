@@ -11,7 +11,7 @@ const brotliCompressAsync = promisify(brotliCompress)
 
 const repoRoot = resolve(process.cwd(), '../..')
 const distDir = resolve(process.env.FSUSBLOG_FRONTEND_DIST_ROOT || resolve(repoRoot, 'src/frontend/dist'))
-const evidenceDir = resolve(repoRoot, '.tmp/frontend')
+const evidenceDir = resolve(process.env.FSUSBLOG_FRONTEND_OUTPUT_ROOT || resolve(repoRoot, '.tmp/frontend'))
 const budgets = {
   totalBytes: Number(process.env.FSUSBLOG_ASSET_TOTAL_BUDGET_BYTES || 80 * 1024 * 1024),
   jsBytes: Number(process.env.FSUSBLOG_ASSET_JS_BUDGET_BYTES || 900 * 1024),

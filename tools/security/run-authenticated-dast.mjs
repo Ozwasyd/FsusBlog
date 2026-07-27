@@ -13,7 +13,9 @@ import { readRuntimeEnvironment } from '../test/bundles/runtime-environment.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const frontendRoot = path.join(root, 'src', 'frontend')
-const defaultOutputDirectory = path.join(root, '.tmp', 'security', 'authenticated-dast')
+const defaultOutputDirectory = path.join(
+  process.env.FSUSBLOG_SECURITY_OUTPUT_ROOT ?? path.join(root, '.tmp', 'security'),
+  'authenticated-dast')
 const deniedStatuses = new Set([400, 401, 403, 404, 405, 409, 413, 415, 422, 428, 429])
 const fixedFailureCategories = new Set([
   'backend-invalid-origin',

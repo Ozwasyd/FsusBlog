@@ -352,6 +352,7 @@ export async function executeRuntimeScenarioHost({
     }
     const sharedRuntime = await initializeSharedRuntime();
     const evidenceBase = evidenceRoot
+        ?? process.env.FSUSBLOG_RUNTIME_SCENARIO_OUTPUT_ROOT
         ?? path.join(repositoryRoot, '.tmp/runtime-scenario-host', identity.runId);
     const outputRoot = path.join(evidenceBase, phase);
     const progressFile = path.join(outputRoot, 'partial.json');

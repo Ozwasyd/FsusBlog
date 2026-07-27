@@ -115,8 +115,17 @@ export function cleanLocalProductionOutputs(root, {
     journalRoot,
     crashAt,
     onCrashBoundary,
-    removeFreshRoot(sourceRoot) {
-      forceRmSync(sourceRoot)
+    removeFreshRoot(sourceRoot, { protectedPaths = [] } = {}) {
+      const protectedSet = new Set(protectedPaths.map((candidate) => path.resolve(candidate)))
+      if (protectedSet.size === 0) {
+        forceRmSync(sourceRoot)
+        return
+      }
+      for (const name of fs.readdirSync(sourceRoot)) {
+        const candidate = path.join(sourceRoot, name)
+        if (protectedSet.has(path.resolve(candidate))) continue
+        forceRmSync(candidate)
+      }
     }
   })
   for (const relativeDirectory of generatedDirectories.filter((entry) => entry !== '.tmp')) {

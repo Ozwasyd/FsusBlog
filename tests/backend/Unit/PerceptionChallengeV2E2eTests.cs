@@ -175,7 +175,10 @@ public sealed class PerceptionChallengeV2E2eTests
 
     private static void WriteEvidence(PerceptionE2eEvidence evidence)
     {
-        string outputPath = BackendTestPaths.FromRoot(".tmp", "security", "perception-v2-e2e-runtime.json");
+        string? configuredOutput = Environment.GetEnvironmentVariable("FSUSBLOG_PERCEPTION_RUNTIME_EVIDENCE_FILE");
+        string outputPath = string.IsNullOrWhiteSpace(configuredOutput)
+            ? BackendTestPaths.FromRoot(".tmp", "security", "perception-v2-e2e-runtime.json")
+            : Path.GetFullPath(configuredOutput);
         Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
         File.WriteAllText(
             outputPath,

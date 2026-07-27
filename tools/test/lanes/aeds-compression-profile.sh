@@ -2,9 +2,10 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-OUT_DIR="$ROOT_DIR/.tmp/perf/aeds-compression-profile"
+OUT_DIR="${FSUSBLOG_PERFORMANCE_OUTPUT_ROOT:-$ROOT_DIR/.tmp/perf}/aeds-compression-profile"
 SUMMARY_FILE="$OUT_DIR/summary.json"
-RELEASE_SUMMARY="$ROOT_DIR/.tmp/release-evidence/aeds-compression-profile-summary.json"
+RELEASE_EVIDENCE_DIR="${FSUSBLOG_RELEASE_EVIDENCE_DIR:-$ROOT_DIR/.tmp/release-evidence}"
+RELEASE_SUMMARY="$RELEASE_EVIDENCE_DIR/aeds-compression-profile-summary.json"
 
 mkdir -p "$OUT_DIR" "$(dirname "$RELEASE_SUMMARY")"
 

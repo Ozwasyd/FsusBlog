@@ -733,6 +733,8 @@ test('local production runner attaches the logical projection only after fresh p
     assert.match(localProfileRunner, /const leaseSourceState = await \(runtime\.snapshotSourceState \?\? snapshotSourceState\)\(profileRoot\)[\s\S]*?acquireProductionFreshExclusiveLease\(\{[\s\S]*?sourceState: leaseSourceState[\s\S]*?const cleanupSource = runtime\.productionFreshSourceState[\s\S]*?executeProductionFreshPreflight\(\{[\s\S]*?receiptDirectory: runtime\.receiptDirectory[\s\S]*?fsusblog-runtime-cleanup-receipts[\s\S]*?additionalCleanup: runtime\.additionalCleanup,/u);
     assert.match(localProfileRunner, /productionFreshLeaseOwner: lease\.owner[\s\S]*?cleanLocalProductionOutputs\)\(profileRoot, \{[\s\S]*?runId,[\s\S]*?ownerIdentity: runtime\.productionFreshLeaseOwner/u);
     assert.match(localProfileRunner, /executeProductionFreshPreflight\(\{[\s\S]*?assertFreshRuntimeCleanupReceipt\(preflightReceipt\.receipt\)[\s\S]*?cleanLocalProductionOutputs[\s\S]*?bindFreshRuntimeCleanupReceipt\(\{ root: profileRoot, receipt: preflightReceipt \}\)[\s\S]*?recordSchedulerResult\(await runDag/u);
+    assert.match(localProfileRunner, /cleanLocalProductionOutputs[\s\S]*?bindFreshRuntimeCleanupReceipt\(\{ root: profileRoot, receipt: preflightReceipt \}\)[\s\S]*?createProductionFreshOutputRoot\(\{ root: profileRoot, runId, resume: options\.resume \}\)[\s\S]*?recordSchedulerResult\(await runDag/u);
+    assert.match(localProfileRunner, /envForTier\(tier\)[\s\S]*?productionFreshOutputEnvironment\(runOutputs, tier\.id\)/u);
     assert.match(localProfileRunner, /catch \(error\) \{[\s\S]*?runError = error[\s\S]*?throw error[\s\S]*?finally \{[\s\S]*?if \(runError !== null \|\| !result\)[\s\S]*?recordCheckpointFailure\(/u);
     assert.doesNotMatch(localProfileRunner, /fs\.writeFileSync\(result\.checkpointPath/u);
     assert.match(localProfileRunner, /runProductionFreshRuntimeCleanupPhase\(\{[\s\S]*?phase: 'postflight'[\s\S]*?preflightSource: cleanupSource,[\s\S]*?cleanupOptions: runtimeCleanupOptions/u);
@@ -960,7 +962,7 @@ test('backend bundle exposes run-bound readiness and exact-union contracts', () 
     const benchmarkReadyVerifier = fs.readFileSync(path.join(root, 'tools/test/verify-benchmark-build-ready.mjs'), 'utf8');
     assert.match(benchmarkReadyVerifier, /FSUSBLOG_TEST_RUN_ID[\s\S]*?benchmark-build-ready\.json[\s\S]*?digestDeclaredOutputs/u);
     assert.doesNotMatch(backendBundleRunner, /await executeStep\(commandStep\('perception-matrix'/u);
-    assert.match(backendBundleRunner, /commandStep\('perception-evidence-finalize',[\s\S]*?perception-v2-e2e-runtime\.json[\s\S]*?perception-v2-release-evidence\.json[\s\S]*?perception-v2-test-matrix\.json/u);
+    assert.match(backendBundleRunner, /commandStep\('perception-evidence-finalize',[\s\S]*?FSUSBLOG_PERCEPTION_RUNTIME_EVIDENCE_FILE[\s\S]*?FSUSBLOG_PERCEPTION_RELEASE_EVIDENCE_FILE[\s\S]*?FSUSBLOG_PERCEPTION_MATRIX_SUMMARY_FILE/u);
     assert.match(localBundleRunner, /readPerceptionUnionProjection[\s\S]*?schedulerRunId\(\)[\s\S]*?testDll[\s\S]*?unionSummary[\s\S]*?expectedTrxDigests[\s\S]*?outcome !== 'Passed'/u);
     assert.match(backendBundleRunner, /writeIntegrityProofProducer\(/u);
     assert.match(backendBundleRunner, /projectEvidence\(/u);

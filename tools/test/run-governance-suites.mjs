@@ -20,6 +20,7 @@ const reporterFile = path.join(root, 'tools/test/static-governance-reporter.mjs'
 const registry = loadStaticGovernanceIsolationRegistry(registryFile, root)
 const plan = buildStaticGovernanceExecutionPlan(registry)
 const testCatalog = buildStaticGovernanceTestCatalog(root, registry)
+const governanceRoot = path.resolve(process.env.FSUSBLOG_TEST_GOVERNANCE_DIR || path.join(root, '.tmp/test-governance'))
 
 const historicalDurationMs = new Map([
   ['gateway-switch.test.mjs', 36_000],
@@ -36,7 +37,7 @@ function hostCommand(host) {
   return [node, '--test', `--test-reporter=${reporterFile}`, ...options, ...host.checks.map((check) => path.join(root, check.file))]
 }
 
-const planFile = path.join(root, '.tmp/test-governance/suite-plan.json')
+const planFile = path.join(governanceRoot, 'suite-plan.json')
 fs.mkdirSync(path.dirname(planFile), { recursive: true })
 fs.writeFileSync(planFile, `${JSON.stringify({
   ...plan,
@@ -44,7 +45,7 @@ fs.writeFileSync(planFile, `${JSON.stringify({
   registry: path.relative(root, registryFile).split(path.sep).join('/')
 }, null, 2)}\n`)
 
-const hostResultDirectory = path.join(root, '.tmp/test-governance/host-results')
+const hostResultDirectory = path.join(governanceRoot, 'host-results')
 fs.rmSync(hostResultDirectory, { recursive: true, force: true })
 fs.mkdirSync(hostResultDirectory, { recursive: true })
 const hostResultFiles = plan.hosts.map((_, index) => path.join(hostResultDirectory, `${index}.json`))
@@ -80,7 +81,7 @@ await runWeightedCommandManifest({
   orchestrationWorkersPerCpu: 1,
   orchestrationMemoryGiBPerWorker: process.memoryUsage().rss / 1024 ** 3,
   signal: controller.signal,
-  evidenceFile: path.join(root, '.tmp/test-governance/live-grant.json')
+  evidenceFile: path.join(governanceRoot, 'live-grant.json')
 })
 const elapsed = process.hrtime.bigint() - startedAt
 const cpu = process.cpuUsage(cpuStarted)
@@ -106,5 +107,5 @@ const evidence = buildStaticGovernanceHostEvidence({
     )
   }
 })
-const evidenceFile = path.join(root, '.tmp/test-governance/host-evidence.json')
+const evidenceFile = path.join(governanceRoot, 'host-evidence.json')
 fs.writeFileSync(evidenceFile, `${JSON.stringify(evidence, null, 2)}\n`)

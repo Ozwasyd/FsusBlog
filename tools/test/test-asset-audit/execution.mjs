@@ -74,6 +74,7 @@ function discoveryLayer(layer, records) {
 }
 
 export function executeAuditLayers({ root, profile, preflight, inventory, runId, selectedLayers = null, executor = defaultExecutor, env = process.env }) {
+  const auditRoot = path.resolve(env.FSUSBLOG_TEST_ASSET_AUDIT_DIR || path.join(root, '.tmp/test-asset-audit'))
   const receipts = []
   const selected = selectedLayers ? new Set(selectedLayers) : null
   const executionEnv = {
@@ -102,7 +103,7 @@ export function executeAuditLayers({ root, profile, preflight, inventory, runId,
     const result = executor(root, layer.command, executionEnv)
     const passed = result.status === 0
     const { executable, outsideProducer, inactive } = splitRecords(records, layer.producerTier)
-    const logPath = path.join(root, '.tmp/test-asset-audit/logs', `${layer.id}.log`)
+    const logPath = path.join(auditRoot, 'logs', `${layer.id}.log`)
     fs.mkdirSync(path.dirname(logPath), { recursive: true })
     fs.writeFileSync(logPath, redactAuditText(result.output, env))
     receipts.push({

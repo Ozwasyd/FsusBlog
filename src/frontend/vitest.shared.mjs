@@ -1,11 +1,21 @@
 import os from 'node:os'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
-const reportRoot = new URL('../../.tmp/test-results/vitest/', import.meta.url)
 const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url))
+const productionFreshOutputRoot = String(process.env.FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT ?? '').trim()
+const reportRoot = productionFreshOutputRoot
+  ? pathToFileURL(`${path.join(path.resolve(productionFreshOutputRoot), 'reports', 'vitest')}${path.sep}`)
+  : new URL('../../.tmp/test-results/vitest/', import.meta.url)
 
 export const frontendTestSupportRoot = path.join(repositoryRoot, 'tests/frontend/support')
+
+export function resolveVitestCoverageDirectory(relativeDirectory) {
+  const normalized = String(relativeDirectory ?? '').replace(/^coverage\/?/u, '')
+  return productionFreshOutputRoot
+    ? path.join(path.resolve(productionFreshOutputRoot), 'coverage', 'vitest', normalized)
+    : relativeDirectory
+}
 
 export function resolveFrontendTestSupportFile(relativeFile) {
   if (typeof relativeFile !== 'string' || relativeFile.trim() === '' || path.isAbsolute(relativeFile)) {

@@ -3,7 +3,7 @@
 import { availableParallelism } from 'node:os'
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
@@ -15,9 +15,13 @@ const decoderVariants = ['basic', 'speed'].map((tier) => ({
   modulePath: join(decoderDirectory, `aeds_decoder_${tier}.js`),
   wasmPath: join(decoderDirectory, `aeds_decoder_${tier}.wasm`)
 }))
-const outputDirectory = resolve(root, '.tmp/fuzz/wasm')
+const outputDirectory = join(
+  resolve(process.env.FSUSBLOG_FUZZ_EVIDENCE_DIR ?? resolve(root, '.tmp/fuzz')),
+  'wasm')
 const crashDirectory = join(outputDirectory, 'crashes')
-const releaseEvidenceDirectory = resolve(root, '.tmp/release-evidence')
+const releaseEvidenceDirectory = resolve(
+  process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR ?? resolve(root, '.tmp/release-evidence'))
+const relativeOutputDirectory = relative(root, outputDirectory).replaceAll(sep, '/')
 const namespace = process.env.FSUSBLOG_TEST_NAMESPACE || 'local'
 
 function positiveInteger(value, fallback) {
@@ -129,7 +133,7 @@ async function writeEvidence(summary) {
   await writeFile(join(outputDirectory, 'summary.json'), `${JSON.stringify(summary, null, 2)}\n`)
   await writeFile(join(releaseEvidenceDirectory, 'fuzz-seeds.json'), `${JSON.stringify({
     status: summary.status,
-    wasm: '.tmp/fuzz/wasm/summary.json',
+    wasm: `${relativeOutputDirectory}/summary.json`,
     seeds: summary.seedPlan,
     seedsRun: summary.seedsRun,
     replayCommand: './tools/test.sh wasm-fuzz-regression',
@@ -258,7 +262,7 @@ try {
     seedsRun,
     seedsPerCorpus,
     seedPlan: corpus.map((entry, corpusIndex) => ({ corpus: entry.id, firstSeed: seedFor(corpusIndex, 0), count: seedsPerCorpus })),
-    crashes: [`.tmp/fuzz/wasm/crashes/${crashName}`],
+    crashes: [`${relativeOutputDirectory}/crashes/${crashName}`],
     sanitizerOutput: null,
     decoder: { sha256: decoderDigest || null, abi: 'fsusblog.aeds.v4', tiers: decoderEvidence },
     blocker: 'wasm-fuzz-execution-failed',

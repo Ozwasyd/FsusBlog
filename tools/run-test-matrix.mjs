@@ -44,6 +44,21 @@ import {
 import { runProductionBuildLifecycle } from './test-matrix/production-build-lifecycle.mjs'
 import { acquireProductionFreshExclusiveLease } from './test-matrix/production-fresh-exclusive-lease.mjs'
 import {
+    assertProductionFreshProducerConfiguration,
+    assertProductionFreshSchedulerProducerWiring,
+    beginProductionFreshForbiddenOutputObservation,
+    captureProductionFreshOutputInventory,
+    createProductionFreshOutputRoot,
+    finalizeProductionFreshAttempt,
+    finishProductionFreshForbiddenOutputObservation,
+    productionFreshGovernanceOutputs,
+    productionFreshProducerInventory,
+    productionFreshOutputEnvironment,
+    resolveProductionFreshOutputAttempt,
+    verifyProducerOutputDelta,
+    verifyProductionFreshReceiptInventory
+} from './test-matrix/production-fresh-run-bound-outputs.mjs'
+import {
     bindProductionBuildLayoutSource,
     productionBuildEnvironment,
     registerProductionBuildCompiler
@@ -121,9 +136,12 @@ const summaryInvocationId = `${process.env.GITHUB_RUN_ID ?? 'local'}-${process.e
 const ciSummaryAuthorityId = process.env.GITHUB_RUN_ID && process.env.GITHUB_JOB
   ? `gha-${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT ?? '1'}-${process.env.GITHUB_JOB}`
   : null
+let activeProductionFreshOutputRoot = null
 
-export function managedProductionBuildGcTier(runId) {
-  const receipt = `.tmp/release-evidence/build-gc/${runId}.json`
+export function managedProductionBuildGcTier(runId, { outputRoot = null } = {}) {
+  const receipt = outputRoot
+    ? relativeToRoot(path.join(outputRoot, 'release-evidence', 'build-gc', `${runId}.json`))
+    : `.tmp/release-evidence/build-gc/${runId}.json`
   return {
     id: 'managed-production-build-gc',
     owner: 'governance',
@@ -160,9 +178,9 @@ export function managedProductionBuildGcTier(runId) {
   }
 }
 
-function prependManagedProductionBuildGc(tiers, runId, { enabled = true } = {}) {
+function prependManagedProductionBuildGc(tiers, runId, { enabled = true, outputRoot = null } = {}) {
   if (!enabled) return tiers
-  const gc = managedProductionBuildGcTier(runId)
+  const gc = managedProductionBuildGcTier(runId, { outputRoot })
   return [gc, ...tiers.map((tier) => ({
     ...tier,
     executionDependsOn: [gc.id, ...tierExecutionDependencies(tier)]
@@ -1028,8 +1046,19 @@ function namespaceSlug(value) {
   return !normalized || normalized === '.' || normalized === '..' ? 'local' : normalized
 }
 
-function loadNamespaceEnv(namespace) {
-  const envFile = path.join(root, '.tmp/env', `${namespaceSlug(namespace)}.env`)
+function namespaceEnvironmentRoot(environment = {}) {
+  const configured = String(
+    environment.FSUSBLOG_ACCEPTANCE_ENV_ROOT
+      ?? process.env.FSUSBLOG_ACCEPTANCE_ENV_ROOT
+      ?? (activeProductionFreshOutputRoot
+        ? path.join(activeProductionFreshOutputRoot, 'runtime', 'acceptance-env')
+        : path.join(root, '.tmp/env'))
+  ).trim()
+  return path.resolve(configured)
+}
+
+function loadNamespaceEnv(namespace, environment = {}) {
+  const envFile = path.join(namespaceEnvironmentRoot(environment), `${namespaceSlug(namespace)}.env`)
   if (!fs.existsSync(envFile)) return {}
   const values = {}
   for (const line of fs.readFileSync(envFile, 'utf8').split(/\r?\n/)) {
@@ -1041,13 +1070,13 @@ function loadNamespaceEnv(namespace) {
   return values
 }
 
-function prepareNamespaceEnvironmentIfNeeded(tiers, namespace) {
+function prepareNamespaceEnvironmentIfNeeded(tiers, namespace, environment = {}) {
   if (!tiers.some((tier) => tier.selfBootstraps === true)) return
-  const envFile = path.join(root, '.tmp/env', `${namespaceSlug(namespace)}.env`)
+  const envFile = path.join(namespaceEnvironmentRoot(environment), `${namespaceSlug(namespace)}.env`)
   if (fs.existsSync(envFile)) return
   const result = spawnSync('bash', [path.join(root, 'tools/bootstrap-acceptance-env.sh'), '--prepare-env-only'], {
     cwd: root,
-    env: { ...process.env, FSUSBLOG_TEST_NAMESPACE: namespace },
+    env: { ...process.env, ...environment, FSUSBLOG_TEST_NAMESPACE: namespace },
     encoding: 'utf8'
   })
   if (result.stdout) process.stderr.write(result.stdout)
@@ -1090,9 +1119,16 @@ function resourceEnvironmentForTier(tier, baseEnv = {}) {
   return env
 }
 
-function cleanupSensitiveFixtures(namespace, namespaceEnv = {}) {
+export function cleanupSensitiveFixtures(namespace, namespaceEnv = {}) {
   const configuredRoot = namespaceEnv.FSUSBLOG_FIXTURE_ROOT ?? process.env.FSUSBLOG_FIXTURE_ROOT
-  const evidenceFile = path.join(root, '.tmp/release-evidence/sensitive-fixture-cleanup.json')
+  const releaseEvidenceRoot = String(
+    namespaceEnv.FSUSBLOG_RELEASE_EVIDENCE_DIR
+      ?? process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR
+      ?? (activeProductionFreshOutputRoot
+        ? path.join(activeProductionFreshOutputRoot, 'release-evidence')
+        : path.join(root, '.tmp/release-evidence'))
+  ).trim()
+  const evidenceFile = path.join(path.resolve(releaseEvidenceRoot), 'sensitive-fixture-cleanup.json')
   ensureOutputDirectory(evidenceFile)
   if (configuredRoot) {
     fs.writeFileSync(evidenceFile, `${JSON.stringify({
@@ -1105,7 +1141,14 @@ function cleanupSensitiveFixtures(namespace, namespaceEnv = {}) {
     return
   }
 
-  const fixtureRoot = path.join(root, '.tmp/fixtures', namespaceSlug(namespace))
+  const fixtureBase = String(
+    namespaceEnv.FSUSBLOG_ACCEPTANCE_FIXTURE_ROOT
+      ?? process.env.FSUSBLOG_ACCEPTANCE_FIXTURE_ROOT
+      ?? (activeProductionFreshOutputRoot
+        ? path.join(activeProductionFreshOutputRoot, 'runtime', 'acceptance-fixtures')
+        : path.join(root, '.tmp/fixtures'))
+  ).trim()
+  const fixtureRoot = path.join(path.resolve(fixtureBase), namespaceSlug(namespace))
   const authDirectory = path.join(fixtureRoot, 'auth')
   const existed = fs.existsSync(authDirectory)
   fs.rmSync(authDirectory, { recursive: true, force: true })
@@ -1205,7 +1248,90 @@ function ciJobReproductionCommand(jobId, matrix = null) {
 }
 
 function jobSummaryPath(jobId) {
-  return path.join(root, '.tmp/release-evidence/jobs', `${jobId}.json`)
+  return path.join(
+    activeProductionFreshOutputRoot
+      ? path.join(activeProductionFreshOutputRoot, 'release-evidence')
+      : path.join(root, '.tmp/release-evidence'),
+    'jobs',
+    `${jobId}.json`)
+}
+
+function verifyProductionFreshPhysicalOutputs(runOutputs) {
+  const receiptRoot = path.join(runOutputs.outputRoot, 'artifacts', 'producer-receipts')
+  const receipts = []
+  if (fs.existsSync(receiptRoot)) {
+    for (const bundleId of fs.readdirSync(receiptRoot).sort()) {
+      const bundleRoot = path.join(receiptRoot, bundleId)
+      if (!fs.lstatSync(bundleRoot).isDirectory() || fs.lstatSync(bundleRoot).isSymbolicLink()) {
+        throw new Error(`producer receipt bundle root is invalid: ${relativeToRoot(bundleRoot)}`)
+      }
+      for (const name of fs.readdirSync(bundleRoot).filter((entry) => entry.endsWith('.json')).sort()) {
+        receipts.push(JSON.parse(fs.readFileSync(path.join(bundleRoot, name), 'utf8')))
+      }
+    }
+  }
+  return verifyProductionFreshReceiptInventory({
+    layout: runOutputs,
+    receipts,
+    governanceOutputs: productionFreshGovernanceOutputs(runOutputs)
+  })
+}
+
+function writeSchedulerProducerReceipts(runOutputs, before) {
+  const inventory = captureProductionFreshOutputInventory(runOutputs)
+  const relativeOutputs = Object.keys(inventory)
+  const declarations = {
+    'managed-production-build-gc': relativeOutputs.filter((relative) => /^release-evidence\/build-gc\/[^/]+\.json$/u.test(relative)),
+    'logical-tier-projection': relativeOutputs.filter((relative) => (
+      /^summary\/summary-only\/[^/]+\.json$/u.test(relative)
+      || /^release-evidence\/jobs\/[^/]+\.json$/u.test(relative)
+      || relative === 'release-evidence/production-artifact-digest-table.json'
+    )),
+    'production-resource-utilization': relativeOutputs.filter((relative) => relative === 'release-evidence/production-resource-utilization.json'),
+    'production-build-layout': relativeOutputs.filter((relative) => relative === 'release-evidence/production-build-layout.json'),
+    'forbidden-output-observation': relativeOutputs.filter((relative) => relative === 'runtime/forbidden-output-observation.json'),
+    'runtime-cleanup': relativeOutputs.filter((relative) => relative === 'runtime/runtime-cleanup.json'),
+    'sensitive-fixture-cleanup': relativeOutputs.filter(
+      (relative) => relative === 'release-evidence/sensitive-fixture-cleanup.json'),
+    'run-summary': relativeOutputs.filter((relative) => relative === 'summary/run.json')
+  }
+  const expected = productionFreshProducerInventory.schedulerProducers
+  assertProductionFreshSchedulerProducerWiring(declarations)
+  const allDeclared = Object.values(declarations).flat()
+  const receipts = expected.map((producerId) => verifyProducerOutputDelta({
+    layout: runOutputs,
+    producerId: `scheduler/${producerId}`,
+    before,
+    relativeOutputs: declarations[producerId],
+    allowedConcurrentOutputs: relativeOutputs.filter((relative) => !declarations[producerId].includes(relative))
+  }))
+  const receiptRoot = path.join(runOutputs.outputRoot, 'artifacts', 'producer-receipts', 'scheduler')
+  fs.mkdirSync(receiptRoot, { recursive: true })
+  for (const receipt of receipts) {
+    const producerId = receipt.producerId.slice('scheduler/'.length)
+    fs.writeFileSync(
+      path.join(receiptRoot, `${producerId}.json`),
+      `${JSON.stringify({ ...receipt, schema: 'fsusblog.production-fresh.producer-receipt.v1' }, null, 2)}\n`,
+      { flag: 'wx' })
+  }
+  return allDeclared
+}
+
+function writeProjectionResumeProducerReceipt(runOutputs, before) {
+  const relativeOutputs = Object.keys(captureProductionFreshOutputInventory(runOutputs)).sort()
+  if (relativeOutputs.length === 0) throw new Error('projection resume produced no run-bound outputs')
+  const receipt = verifyProducerOutputDelta({
+    layout: runOutputs,
+    producerId: 'scheduler/projection-resume',
+    before,
+    relativeOutputs
+  })
+  const receiptRoot = path.join(runOutputs.outputRoot, 'artifacts', 'producer-receipts', 'scheduler')
+  fs.mkdirSync(receiptRoot, { recursive: true })
+  fs.writeFileSync(
+    path.join(receiptRoot, 'projection-resume.json'),
+    `${JSON.stringify({ ...receipt, schema: 'fsusblog.production-fresh.producer-receipt.v1' }, null, 2)}\n`,
+    { flag: 'wx' })
 }
 
 function readExistingJobSummary(jobId) {
@@ -1391,7 +1517,9 @@ function fileDigest(file) {
 function writeSummaryOnlyEvidence(profileId, profile, runId, sourceState, artifactTable = null) {
   const evidence = {}
   for (const tierId of profile.summaryOnly ?? []) {
-    const outFile = path.join(root, `.tmp/local-${profileId}/summary-only/${tierId}.json`)
+    const outFile = activeProductionFreshOutputRoot
+      ? path.join(activeProductionFreshOutputRoot, 'summary', 'summary-only', `${tierId}.json`)
+      : path.join(root, `.tmp/local-${profileId}/summary-only/${tierId}.json`)
     const payload = {
       schema: 'fsusblog.local-production.summary-only.v1',
       tierId,
@@ -1442,14 +1570,16 @@ function readDeclaredExternalEvidenceReceipts(profileId) {
   return resolved
 }
 
-function projectLocalBundleSummaries(matrix, profileId, profile, runId, completedTierIds) {
+function projectLocalBundleSummaries(matrix, profileId, profile, runId, completedTierIds, runOutputs = null) {
   const byId = tierMap(matrix)
   const projected = []
   const bundleSummaries = {}
   for (const bundle of profile.bundles) {
     const physicalTierId = `local-${profileId}-${bundle.id}`
     if (!completedTierIds.has(physicalTierId)) continue
-    const summaryFile = path.join(root, localBundleSummaryPath(profileId, bundle.id))
+    const summaryFile = runOutputs
+      ? path.join(runOutputs.outputRoot, 'bundles', bundle.id, 'summary.json')
+      : path.join(root, localBundleSummaryPath(profileId, bundle.id))
     const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8'))
     const errors = validateLocalBundleSummary(summary, bundle, { expectedRunId: runId })
     if (errors.length > 0) throw new Error(`${bundle.id} bundle evidence invalid: ${errors.join('; ')}`)
@@ -1471,13 +1601,23 @@ function projectLocalBundleSummaries(matrix, profileId, profile, runId, complete
   return { projectedTierIds: projected, bundleSummaries }
 }
 
-function emitProductionResourceUtilization({ profileId, profile, result, detectedResources, durationMs }) {
+function localRunSummaryFile(profileId, runOutputs = null) {
+  return runOutputs
+    ? path.join(runOutputs.outputRoot, 'summary', 'run.json')
+    : path.join(root, `.tmp/local-${profileId}/summary.json`)
+}
+
+function emitProductionResourceUtilization({ profileId, profile, result, detectedResources, durationMs, runOutputs = null }) {
   const checkpointFile = result.checkpointPath
   const checkpoint = JSON.parse(fs.readFileSync(checkpointFile, 'utf8'))
   result.checkpoint = checkpoint
   const bundles = Object.fromEntries(profile.bundles.map((bundle) => {
-    const resourceFile = path.join(root, `.tmp/local-${profileId}`, bundle.id, 'resource-utilization.json')
-    const summaryFile = path.join(root, localBundleSummaryPath(profileId, bundle.id))
+    const resourceFile = runOutputs
+      ? path.join(runOutputs.outputRoot, 'bundles', bundle.id, 'resource-utilization.json')
+      : path.join(root, `.tmp/local-${profileId}`, bundle.id, 'resource-utilization.json')
+    const summaryFile = runOutputs
+      ? path.join(runOutputs.outputRoot, 'bundles', bundle.id, 'summary.json')
+      : path.join(root, localBundleSummaryPath(profileId, bundle.id))
     let resourceUtilization = null
     try { resourceUtilization = JSON.parse(fs.readFileSync(resourceFile, 'utf8')) } catch {}
     if (resourceUtilization && (resourceUtilization.schedulerRunId !== result.runId
@@ -1565,7 +1705,9 @@ function emitProductionResourceUtilization({ profileId, profile, result, detecte
     && Object.values(bundles).every((entry) => entry.resourceUtilization?.status === 'complete')
   const expected = { runId: result.runId, sourceState: checkpoint.sourceState, checkpoint: { revision: checkpoint.revision } }
   const evidence = writeResourceUtilizationEvidence(
-    path.join(root, '.tmp/release-evidence/production-resource-utilization.json'),
+    runOutputs
+      ? path.join(runOutputs.outputRoot, 'release-evidence', 'production-resource-utilization.json')
+      : path.join(root, '.tmp/release-evidence/production-resource-utilization.json'),
     {
       status: complete ? 'complete' : 'partial',
       incomplete: !complete,
@@ -1675,51 +1817,101 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
       resumeCheckpoint = JSON.parse(fs.readFileSync(checkpointPath, 'utf8'))
     } catch {}
     if (isProjectionOnlyCheckpointFailure(resumeCheckpoint)) {
-      const detectedResources = detectResources()
-      const resolvedLogicalMatrix = {
-        ...matrix,
-        tiers: resolveLogicalTierResources(matrix.tiers, detectedResources)
+      const previousOutputs = resolveProductionFreshOutputAttempt({
+        root,
+        runId: resumeIdentity.runId,
+        attemptId: resumeCheckpoint?.productionFreshOutputAttemptId
+      })
+      const resumeOutputs = createProductionFreshOutputRoot({
+        root,
+        runId: resumeIdentity.runId,
+        resume: true
+      })
+      const projectionOutputBefore = captureProductionFreshOutputInventory(resumeOutputs)
+      let forbiddenOutputObservation
+      try {
+        forbiddenOutputObservation = beginProductionFreshForbiddenOutputObservation({
+          repositoryRoot: resumeOutputs.repositoryRoot
+        })
+      } catch (error) {
+        await finalizeProductionFreshAttempt(resumeOutputs, async () => { throw error })
       }
-      const checkpoint = await resumeCheckpointEvidence(checkpointPath, resumeIdentity.runId, (successfulCheckpoint) => {
-        if (successfulCheckpoint.logicalTierProjection) {
-          return { logicalTierProjection: successfulCheckpoint.logicalTierProjection }
+      let forbiddenOutputObservationFinished = false
+      activeProductionFreshOutputRoot = resumeOutputs.outputRoot
+      try {
+        const detectedResources = detectResources()
+        const resolvedLogicalMatrix = {
+          ...matrix,
+          tiers: resolveLogicalTierResources(matrix.tiers, detectedResources)
         }
-        const completedTierIds = new Set(successfulCheckpoint.completedTiers ?? [])
-        const projectionInput = projectLocalBundleSummaries(
-          resolvedLogicalMatrix,
-          profileId,
-          profile,
-          resumeIdentity.runId,
-          completedTierIds)
-        const summaryOnlyEvidence = writeSummaryOnlyEvidence(
-          profileId,
-          profile,
-          resumeIdentity.runId,
-          successfulCheckpoint.sourceState)
-        return {
-          logicalTierProjection: buildLocalProfileProjection({
+        const checkpoint = await resumeCheckpointEvidence(checkpointPath, resumeIdentity.runId, (successfulCheckpoint) => {
+          if (successfulCheckpoint.logicalTierProjection) {
+            return { logicalTierProjection: successfulCheckpoint.logicalTierProjection }
+          }
+          const completedTierIds = new Set(successfulCheckpoint.completedTiers ?? [])
+          const projectionInput = projectLocalBundleSummaries(
+            resolvedLogicalMatrix,
             profileId,
             profile,
-            tiers: resolvedLogicalMatrix.tiers,
-            checkpoint: successfulCheckpoint,
-            bundleSummaries: projectionInput.bundleSummaries,
-            summaryOnlyEvidence,
-            externalEvidenceReceipts
+            resumeIdentity.runId,
+            completedTierIds,
+            previousOutputs)
+          const summaryOnlyEvidence = writeSummaryOnlyEvidence(
+            profileId,
+            profile,
+            resumeIdentity.runId,
+            successfulCheckpoint.sourceState)
+          return {
+            logicalTierProjection: buildLocalProfileProjection({
+              profileId,
+              profile,
+              tiers: resolvedLogicalMatrix.tiers,
+              checkpoint: successfulCheckpoint,
+              bundleSummaries: projectionInput.bundleSummaries,
+              summaryOnlyEvidence,
+              externalEvidenceReceipts
+            })
+          }
+        }, { root })
+        const summaryFile = localRunSummaryFile(profileId, resumeOutputs)
+        const summary = JSON.parse(fs.readFileSync(localRunSummaryFile(profileId, previousOutputs), 'utf8'))
+        summary.status = checkpoint.logicalTierProjection.status
+        summary.qualificationEligible = checkpoint.logicalTierProjection.qualificationEligible
+        summary.executionSource = 'fresh-projection-resume'
+        summary.projectedTierIds = checkpoint.logicalTierProjection.logicalTierIds
+        summary.failure = null
+        summary.failures = []
+        summary.generatedAt = new Date().toISOString()
+        fs.mkdirSync(path.dirname(summaryFile), { recursive: true })
+        fs.writeFileSync(summaryFile, `${JSON.stringify(summary, null, 2)}\n`)
+        try {
+          finishProductionFreshForbiddenOutputObservation({
+            observation: forbiddenOutputObservation,
+            layout: resumeOutputs,
+            receiptFile: 'runtime/forbidden-output-observation.json'
           })
+        } finally {
+          forbiddenOutputObservationFinished = true
         }
-      }, { root })
-      const summaryFile = path.join(root, `.tmp/local-${profileId}/summary.json`)
-      const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8'))
-      summary.status = checkpoint.logicalTierProjection.status
-      summary.qualificationEligible = checkpoint.logicalTierProjection.qualificationEligible
-      summary.executionSource = 'fresh-projection-resume'
-      summary.projectedTierIds = checkpoint.logicalTierProjection.logicalTierIds
-      summary.failure = null
-      summary.failures = []
-      summary.generatedAt = new Date().toISOString()
-      fs.writeFileSync(summaryFile, `${JSON.stringify(summary, null, 2)}\n`)
-      console.error(`[matrix:${profileId}] resumed projection run=${resumeIdentity.runId} tiers=${summary.projectedTierIds.length} checkpoint=${relativeToRoot(checkpointPath)}`)
-      return
+        writeProjectionResumeProducerReceipt(resumeOutputs, projectionOutputBefore)
+        verifyProductionFreshPhysicalOutputs(resumeOutputs)
+        console.error(`[matrix:${profileId}] resumed projection run=${resumeIdentity.runId} tiers=${summary.projectedTierIds.length} checkpoint=${relativeToRoot(checkpointPath)}`)
+        return
+      } finally {
+        try {
+          await finalizeProductionFreshAttempt(resumeOutputs, async () => {
+            if (!forbiddenOutputObservationFinished) {
+              finishProductionFreshForbiddenOutputObservation({
+                observation: forbiddenOutputObservation,
+                layout: resumeOutputs,
+                receiptFile: 'runtime/forbidden-output-observation.json'
+              })
+            }
+          })
+        } finally {
+          activeProductionFreshOutputRoot = null
+        }
+      }
     }
   }
   const wallClockStartedAtMs = Number(
@@ -1819,8 +2011,39 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
     })
     throw error
   }
+  // Fresh cleanup owns .tmp, so create the immutable output root only after
+  // cleanup completes.  Creating it earlier would let cleanup delete the very
+  // root passed to producers below.
+  // Logical artifact declarations remain stable while every physical producer
+  // receives the attempt-bound locations below.
+  const runOutputs = createProductionFreshOutputRoot({ root: profileRoot, runId, resume: options.resume })
+  const schedulerOutputBefore = captureProductionFreshOutputInventory(runOutputs)
+  let forbiddenOutputObservation
+  try {
+    forbiddenOutputObservation = beginProductionFreshForbiddenOutputObservation({
+      repositoryRoot: runOutputs.repositoryRoot
+    })
+  } catch (error) {
+    await finalizeProductionFreshAttempt(runOutputs, async () => { throw error })
+  }
+  let forbiddenOutputObservationFinished = false
+  const finishForbiddenOutputObservation = () => {
+    if (forbiddenOutputObservationFinished) return
+    try {
+      return finishProductionFreshForbiddenOutputObservation({
+        observation: forbiddenOutputObservation,
+        layout: runOutputs,
+        receiptFile: 'runtime/forbidden-output-observation.json'
+      })
+    } finally {
+      forbiddenOutputObservationFinished = true
+    }
+  }
+  activeProductionFreshOutputRoot = runOutputs.outputRoot
   const { sourceState: buildSourceState } = await collectSchedulerSourceState(root)
-  const lifecycle = await runProductionBuildLifecycle({
+  let lifecycle
+  try {
+    lifecycle = await runProductionBuildLifecycle({
     prepareOptions: {
       root,
       runId,
@@ -1836,7 +2059,10 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
       throwIfInterrupted
     }) {
   const preparedBuildSourceState = buildLayout.manifest.sourceState
-  const scheduledPhysicalTiers = prependManagedProductionBuildGc(physicalTiers, runId, { enabled: !options.resume })
+  const scheduledPhysicalTiers = prependManagedProductionBuildGc(physicalTiers, runId, {
+    enabled: !options.resume,
+    outputRoot: runOutputs.outputRoot
+  })
     throwIfInterrupted()
   if (options.resume) {
     console.error(`[matrix:${profileId}] physical resume run=${runId} buildRoot=${path.relative(root, buildLayout.runRoot)}`)
@@ -1849,7 +2075,10 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
   console.error(`[matrix:${profileId}] dynamic resources cpu=${detectedResources.availableCpuUnits}/${detectedResources.cpuCount} memory=${detectedResources.availableMemoryGiB.toFixed(1)}GiB reserve=${detectedResources.memoryReserveGiB.toFixed(1)}GiB load1=${detectedResources.load1.toFixed(2)} launchParallelism=${launchParallelism}`)
   const target = physicalTiers.at(-1)
   target.selfBootstraps = true
-  prepareNamespaceEnvironmentIfNeeded(physicalTiers, runNamespace)
+  prepareNamespaceEnvironmentIfNeeded(
+    physicalTiers,
+    runNamespace,
+    productionFreshOutputEnvironment(runOutputs, 'namespace-prepare'))
 
   let result
   let runError = null
@@ -1887,6 +2116,8 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
         bindScheduledBuildLayoutSource(buildLayout, sourceState)
       },
       envForTier(tier) {
+        const outputEnvironment = productionFreshOutputEnvironment(runOutputs, tier.id)
+        assertProductionFreshProducerConfiguration(runOutputs, outputEnvironment)
         const env = applyNamespaceBuildEnvironment(tier, productionBuildEnvironment(buildLayout, {
           ...loadNamespaceEnv(runNamespace),
           CURRENT_TIER: tier.id,
@@ -1895,6 +2126,7 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
           FSUSBLOG_TEST_RUN_ID: runId,
           FSUSBLOG_TEST_EXECUTION_SOURCE: options.resume ? 'resume' : 'fresh',
           FSUSBLOG_LOCAL_PROFILE: profileId,
+          ...outputEnvironment,
           FSUSBLOG_PHYSICAL_BUNDLE_ID: tier.physicalBundleId,
           FSUSBLOG_DOTNET_BUILD_PARALLELISM: 'auto',
           FSUSBLOG_BACKEND_COVERAGE_LINE_THRESHOLD: '80.3998',
@@ -1925,7 +2157,8 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
             profileId,
             profile,
             runId,
-            lockedCompletedTierIds)
+            lockedCompletedTierIds,
+            runOutputs)
           const artifactTable = createArtifactDigestTable({
             root,
             file: path.join(buildLayout.generatedRoot, 'artifact-digest-table.json'),
@@ -1939,7 +2172,7 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
             lockedCheckpoint.sourceState,
             artifactTable)
           const artifactDigestTable = artifactTable.finalize(
-            path.join(root, '.tmp/release-evidence/production-artifact-digest-table.json'))
+            path.join(runOutputs.outputRoot, 'release-evidence', 'production-artifact-digest-table.json'))
           const logicalTierProjection = buildLocalProfileProjection({
             profileId,
             profile,
@@ -1974,7 +2207,7 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
         digest: preflightReceipt.receipt.contentDigest
       }
     })
-    const summaryFile = path.join(root, `.tmp/local-${profileId}/summary.json`)
+    const summaryFile = localRunSummaryFile(profileId, runOutputs)
     fs.mkdirSync(path.dirname(summaryFile), { recursive: true })
     const projection = result.checkpoint.logicalTierProjection
     const externalEntries = Object.values(projection?.entries ?? {}).filter((entry) => entry.evidenceKind === 'external-executed')
@@ -2051,10 +2284,13 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
         runId
       }
     }
-    const cleanupFile = path.join(root, `.tmp/local-${profileId}/runtime-cleanup.json`)
+    const cleanupFile = path.join(runOutputs.outputRoot, 'runtime', 'runtime-cleanup.json')
     let postflightCleanup = null
     try {
-      const namespaceEnvironment = loadNamespaceEnv(runNamespace)
+      const namespaceEnvironment = {
+        ...loadNamespaceEnv(runNamespace),
+        ...productionFreshOutputEnvironment(runOutputs, profileId)
+      }
       let sensitiveFixtureFailure = null
       try {
         cleanupSensitiveFixtures(runNamespace, namespaceEnvironment)
@@ -2181,7 +2417,7 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
       })
     }
     if (runError !== null || finalizationError !== null) {
-      const summaryFile = path.join(root, `.tmp/local-${profileId}/summary.json`)
+      const summaryFile = localRunSummaryFile(profileId, runOutputs)
       const summary = {
         schema: 'fsusblog.local-production.run.v1',
         status: 'failure',
@@ -2213,7 +2449,7 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
 
   const completedAtMs = Date.now()
   const fullScriptDurationMs = Math.max(0, completedAtMs - wallClockStartedAtMs)
-  const summaryFile = path.join(root, `.tmp/local-${profileId}/summary.json`)
+  const summaryFile = localRunSummaryFile(profileId, runOutputs)
   if (!options.resume && profile.enforceBudget !== false && fullScriptDurationMs > profile.budgetMs) {
     const wallClockFailure = {
       tierId: profileId,
@@ -2256,8 +2492,8 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
             })
             afterFinalize((buildManifest) => {
                 const buildEvidenceFile = options.resume
-                    ? path.join(root, `.tmp/local-${profileId}/resume-build-layout.json`)
-                    : path.join(root, '.tmp/release-evidence/production-build-layout.json')
+                    ? path.join(runOutputs.outputRoot, 'summary', 'resume-build-layout.json')
+                    : path.join(runOutputs.outputRoot, 'release-evidence', 'production-build-layout.json')
                 fs.mkdirSync(path.dirname(buildEvidenceFile), { recursive: true })
                 fs.writeFileSync(buildEvidenceFile, `${JSON.stringify(buildManifest, null, 2)}\n`)
 
@@ -2281,15 +2517,24 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
                         profile: resolvedProfile,
                         result,
                         detectedResources,
-                        durationMs: fullScriptDurationMs
+                        durationMs: fullScriptDurationMs,
+                        runOutputs
                     })
                     if (fs.existsSync(summaryFile)) {
                         const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8'))
                         summary.resourceUtilization = {
-                            path: '.tmp/release-evidence/production-resource-utilization.json',
+                            path: relativeToRoot(path.join(
+                                runOutputs.outputRoot,
+                                'release-evidence',
+                                'production-resource-utilization.json'
+                            )),
                             status: resourceUtilizationEvidence.status,
                             digest: fileDigest(
-                                path.join(root, '.tmp/release-evidence/production-resource-utilization.json')
+                                path.join(
+                                    runOutputs.outputRoot,
+                                    'release-evidence',
+                                    'production-resource-utilization.json'
+                                )
                             )
                         }
                         fs.writeFileSync(summaryFile, `${JSON.stringify(summary, null, 2)}\n`)
@@ -2299,7 +2544,26 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
             return result
         }
     })
+  } catch (error) {
+    try {
+      await finalizeProductionFreshAttempt(runOutputs, async () => {
+        finishForbiddenOutputObservation()
+        throw error
+      })
+    } finally {
+      activeProductionFreshOutputRoot = null
+    }
+  }
     const result = lifecycle.operationResult
+    try {
+      await finalizeProductionFreshAttempt(runOutputs, async () => {
+        finishForbiddenOutputObservation()
+        writeSchedulerProducerReceipts(runOutputs, schedulerOutputBefore)
+        verifyProductionFreshPhysicalOutputs(runOutputs)
+      })
+    } finally {
+      activeProductionFreshOutputRoot = null
+    }
     if (result.status !== 'success') {
         const failures =
             result.checkpoint.failures?.length > 0

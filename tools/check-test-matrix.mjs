@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url'
 import { parseMatrix, tierExecutionDependencies } from './test-matrix/parse-matrix.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
+const docsOutputRoot = path.resolve(process.env.FSUSBLOG_DOCS_EVIDENCE_DIR || path.join(root, '.tmp/docs'))
+const docsEvidence = (name) => path.join(docsOutputRoot, name)
 const matrixSourceText = fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8')
 const structuredMatrix = parseMatrix(matrixSourceText)
 const structuredTiers = new Map(structuredMatrix.tiers.map((tier) => [tier.id, tier]))
@@ -35,7 +37,7 @@ function requireCondition(condition, message) {
 }
 
 function readJsonFile(file) {
-  return JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'))
+  return JSON.parse(fs.readFileSync(path.resolve(root, file), 'utf8'))
 }
 
 function validateStructuredToolWiring() {
@@ -478,9 +480,9 @@ run(['plan', 'production'])
     process.exit(1)
   }
 }
-run(['ci-job-matrix', 'fast-backend', '--out', '.tmp/docs/fast-backend-matrix.json'])
-run(['ci-job-matrix', 'fast-frontend-unit', '--out', '.tmp/docs/fast-frontend-unit-matrix.json'])
-run(['ci-job-matrix', 'browser-contract', '--out', '.tmp/docs/browser-contract-matrix.json'])
+run(['ci-job-matrix', 'fast-backend', '--out', docsEvidence('fast-backend-matrix.json')])
+run(['ci-job-matrix', 'fast-frontend-unit', '--out', docsEvidence('fast-frontend-unit-matrix.json')])
+run(['ci-job-matrix', 'browser-contract', '--out', docsEvidence('browser-contract-matrix.json')])
 for (const tierId of [
   'frontend-build',
   'frontend-unit-shard',
@@ -496,7 +498,7 @@ for (const tierId of [
   )
 }
 {
-  const matrix = readJsonFile('.tmp/docs/fast-frontend-unit-matrix.json').matrix
+  const matrix = readJsonFile(docsEvidence('fast-frontend-unit-matrix.json')).matrix
   const shardCount = matrix.resource_resolution.defaultShards
   const tierIds = matrix.include.map((entry) => entry.tier).sort()
   const expectedTierIds = [
@@ -520,7 +522,7 @@ for (const tierId of [
   )
 }
 {
-  const matrix = readJsonFile('.tmp/docs/browser-contract-matrix.json').matrix
+  const matrix = readJsonFile(docsEvidence('browser-contract-matrix.json')).matrix
   requireCondition(
     matrix.include.length === 1
       && matrix.include[0].tier === 'browser-contract'
@@ -532,10 +534,10 @@ for (const tierId of [
     'browser-contract CI matrix must remain one unsharded, single-worker, ten-minute Chromium contract'
   )
 }
-run(['aggregate', 'fast-summary', '--dry-run', '--out', '.tmp/docs/fast-summary-aggregate-plan.json'])
+run(['aggregate', 'fast-summary', '--dry-run', '--out', docsEvidence('fast-summary-aggregate-plan.json')])
 {
-  const aggregatePlan = readJsonFile('.tmp/docs/fast-summary-aggregate-plan.json')
-  const frontendMatrix = readJsonFile('.tmp/docs/fast-frontend-unit-matrix.json').matrix
+  const aggregatePlan = readJsonFile(docsEvidence('fast-summary-aggregate-plan.json'))
+  const frontendMatrix = readJsonFile(docsEvidence('fast-frontend-unit-matrix.json')).matrix
   const shardCount = frontendMatrix.resource_resolution.defaultShards
   for (const summaryId of [
     'frontend-build',
@@ -566,7 +568,7 @@ run(['ci-tier', 'backend-fast', '--plan-only'])
 {
   const frontendPlan = output(['ci-job', 'fast-frontend-unit', '--plan-only'])
   process.stdout.write(frontendPlan)
-  const shardCount = readJsonFile('.tmp/docs/fast-frontend-unit-matrix.json').matrix.resource_resolution.defaultShards
+  const shardCount = readJsonFile(docsEvidence('fast-frontend-unit-matrix.json')).matrix.resource_resolution.defaultShards
   if (!frontendPlan.includes(`./tools/test.sh ci-tier frontend-unit-shard --no-deps --shard 1/${shardCount}`)
       || !frontendPlan.includes('./tools/test.sh ci-tier coverage-frontend --no-deps')
       || !frontendPlan.includes('./tools/test.sh ci-tier frontend-property-model-perf --no-deps')) {
@@ -576,14 +578,14 @@ run(['ci-tier', 'backend-fast', '--plan-only'])
 }
 run(['ci-fast', '--plan-only'])
 run(['ci-production', '--plan-only'])
-run(['ci-plan', '--format', 'github-actions', '--out', '.tmp/docs/run-test-matrix-ci-plan-compat.json'])
-runTestSh(['ci-plan', '--out', '.tmp/docs/test-sh-ci-plan-compat.json'])
-run(['docs', '--out', '.tmp/docs/run-test-matrix-docs-compat.md'])
+run(['ci-plan', '--format', 'github-actions', '--out', docsEvidence('run-test-matrix-ci-plan-compat.json')])
+runTestSh(['ci-plan', '--out', docsEvidence('test-sh-ci-plan-compat.json')])
+run(['docs', '--out', docsEvidence('run-test-matrix-docs-compat.md')])
 
 {
   const result = spawnSync('node', [
     'tools/check-workflow-matrix-sync.mjs',
-    '.tmp/docs/run-test-matrix-ci-plan-compat.json',
+    docsEvidence('run-test-matrix-ci-plan-compat.json'),
     '.github/workflows/quality-gate.yml'
   ], {
     cwd: root,
@@ -595,13 +597,14 @@ run(['docs', '--out', '.tmp/docs/run-test-matrix-docs-compat.md'])
 }
 
 {
-  const workflowPath = '.tmp/docs/quality-gate-hidden-artifact-regression.yml'
+  const workflowPath = docsEvidence('quality-gate-hidden-artifact-regression.yml')
   const workflow = fs.readFileSync(path.join(root, '.github/workflows/quality-gate.yml'), 'utf8')
     .replace(/\n\s+include-hidden-files: true/u, '')
-  fs.writeFileSync(path.join(root, workflowPath), workflow)
+  fs.mkdirSync(path.dirname(workflowPath), { recursive: true })
+  fs.writeFileSync(workflowPath, workflow)
   const result = spawnSync('node', [
     'tools/check-workflow-matrix-sync.mjs',
-    '.tmp/docs/run-test-matrix-ci-plan-compat.json',
+    docsEvidence('run-test-matrix-ci-plan-compat.json'),
     workflowPath
   ], { cwd: root, encoding: 'utf8' })
   requireCondition(

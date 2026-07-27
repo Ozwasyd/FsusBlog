@@ -6,7 +6,8 @@ import { createFsusUiAliases, resolveLocalFsusUiRoot } from './scripts/fsusui-lo
 import {
   createVitestRuntimeOptions,
   frontendTestDependencyDedupe,
-  frontendUnitSetupFile
+  frontendUnitSetupFile,
+  resolveVitestCoverageDirectory
 } from './vitest.shared.mjs'
 const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url))
 const frontendNodeModules = fileURLToPath(new URL('./node_modules/', import.meta.url))
@@ -50,7 +51,7 @@ export default defineConfig({
       provider: 'v8',
       allowExternal: true,
       reporter: ['text', 'json-summary', 'html', 'lcov'],
-      reportsDirectory: 'coverage/unit',
+      reportsDirectory: resolveVitestCoverageDirectory('coverage/unit'),
       include: ['src/**/*.ts', 'src/**/*.vue', 'tests/frontend/support/playwright/testSession.ts'],
       exclude: [
         'src/**/*.d.ts',

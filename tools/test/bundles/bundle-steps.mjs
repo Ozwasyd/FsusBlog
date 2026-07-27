@@ -1150,6 +1150,9 @@ export function runtimeSteps()
         }),
         step('bootstrap', 'FSUSBLOG_RUNTIME_NO_BUILD=1 tools/bootstrap-acceptance-env.sh', ['bootstrap'], {
             dependsOn: [...runtimeBuildReadiness, 'security-static'],
+            artifacts: [
+                `${process.env.FSUSBLOG_ACCEPTANCE_FIXTURE_ROOT ?? '.tmp/fixtures'}/${process.env.FSUSBLOG_TEST_NAMESPACE ?? 'local'}/manifest.json`
+            ],
             resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1 }
         }),
         // This is the sole production-runtime writer to the mutable preview overlay.
@@ -1163,6 +1166,9 @@ export function runtimeSteps()
         }),
         step('security-runtime-core', 'FSUSBLOG_LOCAL_RUNTIME_EXPOSURE_IN_DAG=1 FSUSBLOG_SKIP_ZAP=1 tools/test/lanes/security-runtime-core.sh', [], {
             dependsOn: needsRuntime,
+            artifacts: [
+                `${process.env.FSUSBLOG_RUNTIME_SCENARIO_OUTPUT_ROOT ?? '.tmp/runtime-scenario-host'}/security`
+            ],
             resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1 }
         }),
         // This lane creates dedicated identities in a private fixture directory,
@@ -1170,10 +1176,16 @@ export function runtimeSteps()
         // checks without revoking or overwriting any sibling fixture session.
         step('authenticated-dast', 'tools/test/lanes/security-authenticated-dast.sh', ['security-authenticated-dast'], {
             dependsOn: ['security-runtime-core'],
+            artifacts: [`${process.env.FSUSBLOG_SECURITY_OUTPUT_ROOT ?? '.tmp/security'}/authenticated-dast`],
             resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
         }),
         step('runtime-integration', 'tools/test/lanes/runtime-integration.sh', ['integration'], {
             dependsOn: ['security-runtime-core'],
+            artifacts: [
+                process.env.FSUSBLOG_BACKEND_TRX_DIR ?? '.tmp/test-results/backend',
+                `${process.env.FSUSBLOG_RUNTIME_SCENARIO_OUTPUT_ROOT ?? '.tmp/runtime-scenario-host'}/integration`,
+                `${process.env.FSUSBLOG_RUNTIME_OUTPUT_ROOT ?? '.tmp/runtime'}/integration.json`
+            ],
             resources: { cpuWeight: 1.5, memoryWeight: 1.5, minCpuUnits: 1 }
         }),
         step('release-public', 'FSUSBLOG_RELEASE_HYDRATION_PREPARED_BY_DAG=1 tools/test/lanes/release-public.sh', ['release'], {
@@ -1185,6 +1197,10 @@ export function runtimeSteps()
         }),
         step('endpoint-depth', 'tools/test/lanes/endpoint-depth.sh', ['endpoint-depth'], {
             dependsOn: needsStableReleaseHydration,
+            artifacts: [
+                `${process.env.FSUSBLOG_CONTRACT_OUTPUT_ROOT ?? '.tmp/contracts'}/endpoint-depth-matrix.json`,
+                `${process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR ?? '.tmp/release-evidence'}/endpoint-depth-summary.json`
+            ],
             resources: { cpuWeight: 1.5, memoryWeight: 1.5, minCpuUnits: 1 }
         }),
         // Starting/stopping the ZAP container changes the host network topology.
@@ -1197,7 +1213,8 @@ export function runtimeSteps()
                 'release-public',
                 'resilience',
                 'cross-stack-runtime'
-            ]
+            ],
+            artifacts: [`${process.env.FSUSBLOG_SECURITY_OUTPUT_ROOT ?? '.tmp/security'}/zap`]
         }),
         // Canonical OpenAPI generation and parity/coherence checks are source-based,
         // but delaying their seven-second CPU window lets bootstrap claim the full
@@ -1216,6 +1233,11 @@ export function runtimeSteps()
         }),
         step('resilience', 'tools/test/lanes/resilience-runtime.sh', ['resilience'], {
             dependsOn: ['release-public'],
+            artifacts: [
+                `${process.env.FSUSBLOG_RUNTIME_SCENARIO_OUTPUT_ROOT ?? '.tmp/runtime-scenario-host'}/resilience`,
+                `${process.env.FSUSBLOG_RUNTIME_OUTPUT_ROOT ?? '.tmp/runtime'}/resilience.json`,
+                `${process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR ?? '.tmp/release-evidence'}/aot-cache-resilience-summary.json`
+            ],
             resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1 }
         }),
         step('local-runtime-exposure', 'node tools/security/check-local-runtime-exposure.mjs', [], {
@@ -1238,7 +1260,9 @@ export function runtimeSteps()
             dependsOn: ['cross-stack', 'cross-stack-runtime'],
             runAfterSettled: true,
             joinDependencies: true,
-            artifacts: ['.tmp/release-evidence/cross-stack-contract.json'],
+            artifacts: [process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR
+                ? `${process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR}/cross-stack-contract.json`
+                : '.tmp/release-evidence/cross-stack-contract.json'],
             testIds: [
                 'command:cross-stack',
                 'command:cross-stack-runtime',
@@ -1295,6 +1319,7 @@ export function performanceSteps()
         ].map((id) => step(id, null, [], { resources: { coordinationOnly: true } })),
         step('privacy-zk-project-functional', 'tools/test/lanes/privacy-zk-comment-matrix.sh project-functional', [], {
             dependsOn: ['backend-coverage-ready', 'frontend-coverage-ready', 'frontend-build-ready'],
+            artifacts: [`${process.env.FSUSBLOG_SECURITY_OUTPUT_ROOT ?? '.tmp/security'}/privacy-zk-comment-matrix-stages/functional.json`],
             resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
         }),
         step('coverage-merge', 'tools/coverage/merge-coverage.sh', ['coverage-merge'], {
@@ -1307,16 +1332,26 @@ export function performanceSteps()
             dependsOn: ['privacy-zk-project-functional']
         }),
         step('data-scale-xs', 'tools/test/lanes/data-scale.sh scale-xs', ['data-scale-xs'], {
-            dependsOn: ['runtime-state-ready', 'resident-handoff-ready']
+            dependsOn: ['runtime-state-ready', 'resident-handoff-ready'],
+            artifacts: [
+                `${process.env.FSUSBLOG_DATA_SCALE_ROOT ?? '.tmp/scale'}/scale-xs`,
+                `${process.env.FSUSBLOG_DATA_SCALE_ROOT ?? '.tmp/scale'}/release-summaries/scale-xs.json`
+            ]
         }),
         step('data-scale-s', 'tools/test/lanes/data-scale.sh scale-s', ['data-scale-s'], {
-            dependsOn: ['runtime-state-ready', 'resident-handoff-ready']
+            dependsOn: ['runtime-state-ready', 'resident-handoff-ready'],
+            artifacts: [
+                `${process.env.FSUSBLOG_DATA_SCALE_ROOT ?? '.tmp/scale'}/scale-s`,
+                `${process.env.FSUSBLOG_DATA_SCALE_ROOT ?? '.tmp/scale'}/release-summaries/scale-s.json`
+            ]
         }),
         step('data-scale-summary', dataScaleEvidenceSummaryCommand, ['data-scale-evidence-summary'], {
-            dependsOn: ['data-scale-xs', 'data-scale-s']
+            dependsOn: ['data-scale-xs', 'data-scale-s'],
+            artifacts: [`${process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR ?? '.tmp/release-evidence'}/data-scale-summary.json`]
         }),
         step('fault-injection', 'tools/test/lanes/fault-injection.sh', ['fault-injection'], {
-            dependsOn: ['runtime-state-ready', 'resident-handoff-ready', 'data-scale-xs', 'data-scale-s']
+            dependsOn: ['runtime-state-ready', 'resident-handoff-ready', 'data-scale-xs', 'data-scale-s'],
+            artifacts: [process.env.FSUSBLOG_FAULT_EVIDENCE_DIR ?? '.tmp/fault-injection']
         }),
         step(measurementBarrier, null, [], {
             dependsOn: [
@@ -1345,20 +1380,36 @@ export function performanceSteps()
             'backend-benchmark-regression'
         ], {
             dependsOn: [measurementBarrier],
+            artifacts: [
+                `${process.env.FSUSBLOG_PERFORMANCE_OUTPUT_ROOT ?? '.tmp/perf'}/mixed-window`,
+                `${process.env.FSUSBLOG_PERFORMANCE_OUTPUT_ROOT ?? '.tmp/perf'}/release-summaries`,
+                `${process.env.FSUSBLOG_BENCHMARK_ARTIFACT_ROOT ?? 'BenchmarkDotNet.Artifacts'}`
+            ],
             resources: benchmarkResources
         }),
         step('aeds-frame-cost', 'tools/test/lanes/aeds-frame-cost.sh', ['aeds-frame-cost'], {
             dependsOn: [measurementBarrier],
+            artifacts: [
+                `${process.env.FSUSBLOG_PERFORMANCE_OUTPUT_ROOT ?? '.tmp/perf'}/aeds-frame-cost`,
+                `${process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR ?? '.tmp/release-evidence'}/aeds-frame-cost-summary.json`
+            ],
             resources: benchmarkResources
         }),
         // Compression profiling records deterministic bytes, ratios, ETags, and
         // status only. Run it with the other non-measurement preparation, then
         // keep every timed profiler behind it so its CPU work cannot add noise.
         step('aeds-compression', 'tools/test/lanes/aeds-compression-profile.sh', ['aeds-compression-profile'], {
-            dependsOn: ['frontend-build-ready', 'benchmark-build-ready']
+            dependsOn: ['frontend-build-ready', 'benchmark-build-ready'],
+            artifacts: [
+                `${process.env.FSUSBLOG_PERFORMANCE_OUTPUT_ROOT ?? '.tmp/perf'}/aeds-compression-profile`,
+                `${process.env.FSUSBLOG_PERFORMANCE_OUTPUT_ROOT ?? '.tmp/perf'}/public-hot-read-residency-profile`,
+                `${process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR ?? '.tmp/release-evidence'}/aeds-compression-profile-summary.json`,
+                `${process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR ?? '.tmp/release-evidence'}/public-hot-read-residency-profile.json`
+            ]
         }),
         step('performance-summary', 'node tools/test/aggregate-performance-evidence.mjs', ['performance-evidence-summary'], {
-            dependsOn: ['coverage-threshold', ...measurements]
+            dependsOn: ['coverage-threshold', ...measurements],
+            artifacts: [`${process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR ?? '.tmp/release-evidence'}/perf-summary.json`]
         }),
         step('release-evidence', 'tools/test/lanes/release-evidence.sh', ['release-evidence'], {
             dependsOn: ['performance-summary']

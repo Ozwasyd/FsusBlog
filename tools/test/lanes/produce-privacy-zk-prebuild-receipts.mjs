@@ -9,7 +9,17 @@ import { pathToFileURL } from 'node:url';
 import { createPrivacyPrebuildProducerReceipt } from './project-privacy-zk-prebuild.mjs';
 
 const root = path.resolve(import.meta.dirname, '../../..');
-const outputDirectory = path.join(root, '.tmp/security/privacy-zk-canonical');
+const freshOutputRoot = process.env.FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT
+    ? path.resolve(process.env.FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT)
+    : null;
+const projectionDirectory = path.resolve(
+    process.env.FSUSBLOG_PHYSICAL_EXECUTION_PROJECTION_DIR
+        ?? path.join(root, '.tmp/physical-execution-projections'));
+const outputDirectory = freshOutputRoot
+    ? path.join(freshOutputRoot, 'artifacts/privacy-zk-canonical')
+    : path.join(
+        process.env.FSUSBLOG_SECURITY_OUTPUT_ROOT ?? path.join(root, '.tmp/security'),
+        'privacy-zk-canonical');
 const { verifyConsumerEvidenceFile } = await import(pathToFileURL(path.join(
     root,
     'tools/test/check-physical-execution-consumer-evidence.mjs'
@@ -52,8 +62,10 @@ function sourceState()
 }
 
 export async function producePrivacyZkPrebuildReceipts({
-    matrixEvidenceFile = path.join(root, '.tmp/physical-execution-projections/validate-matrix-matrix-governance.json'),
-    staticEvidenceFile = path.join(root, '.tmp/local-production/frontend-tests/frontend-static-concurrent.json'),
+    matrixEvidenceFile = path.join(projectionDirectory, 'validate-matrix-matrix-governance.json'),
+    staticEvidenceFile = freshOutputRoot
+        ? path.join(freshOutputRoot, 'bundles/frontend-tests/frontend-static-concurrent.json')
+        : path.join(root, '.tmp/local-production/frontend-tests/frontend-static-concurrent.json'),
     runId = process.env.FSUSBLOG_TEST_RUN_ID,
     expectedSourceState = sourceState()
 } = {})

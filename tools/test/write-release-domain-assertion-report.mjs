@@ -46,9 +46,11 @@ function visitJsonFiles(directory, files) {
 
 function collectStructuredDocuments(root) {
     const files = [];
+    const testResultsRoot = path.resolve(process.env.FSUSBLOG_TEST_RESULTS_ROOT
+        ?? path.join(root, '.tmp/test-results'));
     for (const directory of [
-        path.join(root, '.tmp/test-results/vitest'),
-        path.join(root, '.tmp/test-results/live-grant'),
+        path.join(testResultsRoot, 'vitest'),
+        path.join(testResultsRoot, 'live-grant'),
         path.join(root, '.tmp/downloaded-artifacts')
     ]) {
         visitJsonFiles(directory, files);
@@ -175,7 +177,8 @@ try {
         status: 'success'
     });
     const output = path.resolve(root, option('output',
-        `.tmp/test-results/release-domain-assertions/${producerId}/${runId}.json`));
+        path.join(process.env.FSUSBLOG_TEST_RESULTS_ROOT ?? '.tmp/test-results',
+            'release-domain-assertions', producerId, `${runId}.json`)));
     writeJsonAtomic(output, report);
     process.stdout.write(`[release-domain-assertions] producer=${producerId} assertions=${assertions.length} sources=${allSourcePaths.length} output=${relative(root, output)}\n`);
 } catch (error) {

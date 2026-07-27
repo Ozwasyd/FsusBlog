@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-OUT_DIR="$ROOT_DIR/.tmp/fault-injection"
+OUT_DIR="${FSUSBLOG_FAULT_EVIDENCE_DIR:-$ROOT_DIR/.tmp/fault-injection}"
 mkdir -p "$OUT_DIR"
 
 # Fault recovery may restart the managed backend, so bind it to the exact

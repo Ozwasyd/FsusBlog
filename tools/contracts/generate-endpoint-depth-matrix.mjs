@@ -3,7 +3,9 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { loadOpenApi, operationsFromOpenApi, root } from './lib/openapi-contracts.mjs'
 
-const outFile = path.join(root, '.tmp/contracts/endpoint-depth-matrix.json')
+const outFile = path.join(
+  process.env.FSUSBLOG_CONTRACT_OUTPUT_ROOT ?? path.join(root, '.tmp/contracts'),
+  'endpoint-depth-matrix.json')
 const check = process.argv.includes('--check')
 const operations = operationsFromOpenApi(loadOpenApi())
 const expectedUnavailablePublicChecks = new Set([

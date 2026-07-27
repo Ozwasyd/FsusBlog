@@ -57,6 +57,13 @@ import {
     waitForRunBoundMarker
 } from '../../test-matrix/run-bound-marker.mjs';
 import {
+  assertProductionFreshBundleProducerWiring,
+  captureProductionFreshOutputInventory,
+  productionFreshGovernanceOutputs,
+  productionFreshProducerInventory,
+  verifyProducerOutputDelta
+} from '../../test-matrix/production-fresh-run-bound-outputs.mjs'
+import {
     publishFrontendBuildTerminalMarker,
     validateFrontendBuildStageReceiptBinding,
     validateFrontendBuildStageReceiptIdentity
@@ -83,7 +90,89 @@ const matrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 
 const profile = matrix.localProfiles?.[profileId]
 const bundle = profile?.bundles?.find((entry) => entry.id === bundleId)
 const matrixTiers = new Map(matrix.tiers.map((tier) => [tier.id, tier]))
-const outDir = path.join(root, `.tmp/local-${profileId}`, bundleId || 'unknown')
+const productionFreshOutputRoot = String(process.env.FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT ?? '').trim()
+const runOutputRoot = productionFreshOutputRoot ? path.resolve(productionFreshOutputRoot) : null
+const productionFreshLayout = runOutputRoot
+  ? {
+      repositoryRoot: root,
+      runId: String(process.env.FSUSBLOG_TEST_RUN_ID ?? ''),
+      attemptId: String(process.env.FSUSBLOG_PRODUCTION_FRESH_ATTEMPT_ID ?? ''),
+      runOutputRoot: path.resolve(runOutputRoot, '..', '..'),
+      outputRoot: runOutputRoot,
+      relativeOutputRoot: path.relative(root, runOutputRoot).replaceAll(path.sep, '/')
+    }
+  : null
+
+function outputDirectory(partition, ...segments) {
+  if (runOutputRoot) return path.join(runOutputRoot, partition, ...segments)
+  return null
+}
+
+function bundleDirectory(...segments) {
+  return outputDirectory('bundles', bundleId || 'unknown', ...segments)
+    ?? path.join(root, `.tmp/local-${profileId}`, bundleId || 'unknown', ...segments)
+}
+
+function reportDirectory(...segments) {
+  return outputDirectory('reports', ...segments)
+    ?? path.join(root, '.tmp/test-results', ...segments)
+}
+
+function backendTrxDirectory(...segments) {
+  const configured = String(process.env.FSUSBLOG_BACKEND_TRX_DIR ?? '').trim()
+  return configured ? path.join(path.resolve(configured), ...segments) : reportDirectory('backend', ...segments)
+}
+
+function coverageDirectory(...segments) {
+  return outputDirectory('coverage', ...segments)
+    ?? path.join(root, '.tmp/coverage', ...segments)
+}
+
+function releaseEvidenceFile(...segments) {
+  return outputDirectory('release-evidence', ...segments)
+    ?? path.join(root, '.tmp/release-evidence', ...segments)
+}
+
+function physicalArtifactPath(canonicalPath) {
+  const normalized = String(canonicalPath).replaceAll('\\', '/')
+  const mappings = [
+    ['.tmp/frontend/', process.env.FSUSBLOG_FRONTEND_OUTPUT_ROOT],
+    ['.tmp/security/', process.env.FSUSBLOG_SECURITY_OUTPUT_ROOT],
+    ['.tmp/perf/', process.env.FSUSBLOG_PERFORMANCE_OUTPUT_ROOT],
+    ['.tmp/scale/', process.env.FSUSBLOG_DATA_SCALE_ROOT],
+    ['.tmp/ux/', process.env.FSUSBLOG_UX_OUTPUT_ROOT],
+    ['.tmp/physical-execution-projections/', process.env.FSUSBLOG_PHYSICAL_EXECUTION_PROJECTION_DIR],
+    ['.tmp/docs/', process.env.FSUSBLOG_DOCS_EVIDENCE_DIR],
+    ['.tmp/test-asset-audit/', process.env.FSUSBLOG_TEST_ASSET_AUDIT_DIR],
+    ['.tmp/test-governance/', process.env.FSUSBLOG_TEST_GOVERNANCE_DIR]
+  ]
+  for (const [prefix, configuredRoot] of mappings) {
+    const rootPath = prefix.slice(0, -1)
+    if (configuredRoot && (normalized === rootPath || normalized.startsWith(prefix))) {
+      return normalized === rootPath
+        ? path.resolve(configuredRoot)
+        : path.join(configuredRoot, normalized.slice(prefix.length))
+    }
+  }
+  return path.isAbsolute(canonicalPath) ? canonicalPath : path.join(root, canonicalPath)
+}
+
+function perceptionRuntimeEvidenceFile() {
+  return String(process.env.FSUSBLOG_PERCEPTION_RUNTIME_EVIDENCE_FILE ?? '').trim()
+    || path.join(root, '.tmp/security/perception-v2-e2e-runtime.json')
+}
+
+function perceptionMatrixSummaryFile() {
+  return String(process.env.FSUSBLOG_PERCEPTION_MATRIX_SUMMARY_FILE ?? '').trim()
+    || path.join(root, '.tmp/security/perception-v2-test-matrix.json')
+}
+
+function perceptionReleaseEvidenceFile() {
+  return String(process.env.FSUSBLOG_PERCEPTION_RELEASE_EVIDENCE_FILE ?? '').trim()
+    || releaseEvidenceFile('perception-v2-release-evidence.json')
+}
+
+const outDir = bundleDirectory()
 const summaryFile = path.join(outDir, 'summary.json')
 const logDir = path.join(outDir, 'steps')
 const startedAt = Date.now()
@@ -102,6 +191,8 @@ const frontendWasmRoot = productionBuildLayout.frontendWasm
 const backendWebRoot = productionBuildLayout.backendWebRoot
 const activeStepChildren = new Map()
 const stepExecutionResults = new Map()
+const stepDeclarations = new Map()
+const producerBeforeInventories = new Map()
 const stepResourceMetrics = new Map()
 const stepEffectiveLimits = new Map()
 const waitLedger = createWaitLedger()
@@ -367,10 +458,12 @@ function resetReceiptArtifactsProducedByStep(catalog, stepId) {
 
 function currentRunMarkerArtifacts(markerId) {
   const namespace = String(process.env.FSUSBLOG_TEST_NAMESPACE ?? '').trim()
+  const environmentRoot = path.resolve(
+    process.env.FSUSBLOG_ACCEPTANCE_ENV_ROOT ?? path.join(root, '.tmp/env'))
   return {
-    'backend-coverage-ready': [path.join(root, '.tmp/coverage/backend-merged/Summary.json')],
-    'frontend-coverage-ready': [path.join(root, '.tmp/coverage/frontend/Summary.json')],
-    'runtime-state-ready': [path.join(root, `.tmp/env/${namespace}.env`)],
+    'backend-coverage-ready': [coverageDirectory('backend-merged', 'Summary.json')],
+    'frontend-coverage-ready': [coverageDirectory('frontend', 'Summary.json')],
+    'runtime-state-ready': [path.join(environmentRoot, `${namespace}.env`)],
     'backend-quiet-ready': [runMarkerFile('backend-coverage-ready')],
     'frontend-quiet-ready': [runMarkerFile('frontend-coverage-ready')],
     'build-static-quiet-ready': [frontendBuildReadyFile()]
@@ -529,7 +622,9 @@ function publishFrontendBuildReady()
         'comment-privacy-prover.js',
         ...(productionZkRequested() ? ['comment-privacy-prover.zkey', 'comment-privacy-prover.manifest.json'] : [])
     ].map((file) => relative(path.join(frontendWasmRoot, file)));
-    const summaryPath = '.tmp/frontend/frontend-build.json';
+    const summaryPath = relative(path.join(
+      process.env.FSUSBLOG_FRONTEND_OUTPUT_ROOT ?? path.join(root, '.tmp/frontend'),
+      'frontend-build.json'));
     const stageReceiptFile = frontendBuildStageReceiptFile();
     const stageReceiptPath = relative(stageReceiptFile);
     const requiredArtifacts = [artifactPath, ...privacyWasmPaths];
@@ -823,6 +918,8 @@ function loadExistingMemberExecutionReceipts() {
 }
 
 async function executeStep(step) {
+  stepDeclarations.set(step.id, step)
+  beginPhysicalProducer(step)
   if (shutdownPromise) throw new Error(`cannot start ${step.id} while bundle shutdown is in progress`)
   const logFile = path.join(logDir, `${step.id}.log`)
   const started = Date.now()
@@ -1083,6 +1180,83 @@ async function executeStep(step) {
   return result
 }
 
+function beginPhysicalProducer(step) {
+  stepDeclarations.set(step.id, step)
+  if (productionFreshLayout && !producerBeforeInventories.has(step.id)) {
+    producerBeforeInventories.set(step.id, captureProductionFreshOutputInventory(productionFreshLayout))
+  }
+}
+
+function collectRegularOutputFiles(candidate, files = []) {
+  if (!fs.existsSync(candidate)) return files
+  const stat = fs.lstatSync(candidate)
+  if (stat.isSymbolicLink()) throw new Error(`producer output must not be a symlink: ${relative(candidate)}`)
+  if (stat.isFile()) {
+    files.push(candidate)
+    return files
+  }
+  if (!stat.isDirectory()) throw new Error(`producer output must be regular: ${relative(candidate)}`)
+  for (const name of fs.readdirSync(candidate)) collectRegularOutputFiles(path.join(candidate, name), files)
+  return files
+}
+
+function writePhysicalProducerReceipts() {
+  if (!runOutputRoot) return
+  const declaredProducers = new Set(productionFreshProducerInventory.bundles[bundleId] ?? [])
+  assertProductionFreshBundleProducerWiring(bundleId, stepExecutionResults.keys())
+  const declarations = new Map()
+  for (const [stepId, result] of [...stepExecutionResults.entries()].sort(([left], [right]) => left.localeCompare(right))) {
+    const declaration = stepDeclarations.get(stepId)
+    if (!declaration) throw new Error(`physical producer declaration is missing: ${bundleId}/${stepId}`)
+    const candidates = [
+      result.logFile,
+      result.logIndexFile,
+      result.logEvidenceFile,
+      path.join(logDir, `${stepId}.resource-time.txt`),
+      ...(declaration.artifacts ?? []).map((artifact) => path.isAbsolute(artifact) ? artifact : path.join(root, artifact))
+    ].filter(Boolean)
+    const files = [...new Set(candidates.flatMap((candidate) => collectRegularOutputFiles(candidate)))]
+      .filter((file) => file === runOutputRoot || file.startsWith(`${runOutputRoot}${path.sep}`))
+      .sort()
+    if (files.length === 0) throw new Error(`physical producer ${bundleId}/${stepId} recorded no run-bound outputs`)
+    const before = producerBeforeInventories.get(stepId)
+    if (!before) throw new Error(`physical producer start inventory is missing: ${bundleId}/${stepId}`)
+    const relativeOutputs = files
+      .map((file) => path.relative(runOutputRoot, file).replaceAll(path.sep, '/'))
+      .filter((relativeOutput) => before[relativeOutput] !== fileContentDigest(path.join(runOutputRoot, relativeOutput)))
+    if (relativeOutputs.length === 0) throw new Error(`physical producer ${bundleId}/${stepId} changed no run-bound outputs`)
+    declarations.set(stepId, { before, relativeOutputs })
+  }
+  const allDeclaredOutputs = [...declarations.values()].flatMap(({ relativeOutputs }) => relativeOutputs)
+  const governanceOutputs = Object.keys(productionFreshGovernanceOutputs(productionFreshLayout))
+  const receipts = []
+  for (const [stepId, { before, relativeOutputs }] of declarations) {
+    const receipt = verifyProducerOutputDelta({
+      layout: productionFreshLayout,
+      producerId: `${bundleId}/${stepId}`,
+      before,
+      relativeOutputs,
+      allowedConcurrentOutputs: [
+        ...allDeclaredOutputs.filter((relativeOutput) => !relativeOutputs.includes(relativeOutput)),
+        ...governanceOutputs
+      ]
+    })
+    receipts.push({ ...receipt, schema: 'fsusblog.production-fresh.producer-receipt.v1' })
+  }
+  const receiptRoot = outputDirectory('artifacts', 'producer-receipts', bundleId)
+  fs.mkdirSync(receiptRoot, { recursive: true })
+  for (const receipt of receipts) {
+    const stepId = receipt.producerId.slice(bundleId.length + 1)
+    const receiptFile = path.join(receiptRoot, `${stepId}.json`)
+    fs.writeFileSync(receiptFile, `${JSON.stringify(receipt, null, 2)}\n`, { flag: 'wx' })
+  }
+  const missing = [...declaredProducers].filter((producerId) => (
+    !stepExecutionResults.has(producerId)
+    || !fs.existsSync(path.join(receiptRoot, `${producerId}.json`))
+  ))
+  if (missing.length > 0) throw new Error(`physical producer receipts are missing: ${missing.join(', ')}`)
+}
+
 async function executeWave(steps) {
   try {
     const execution = await executeWeightedStepDag(steps, bundleDagCapacity, executeStep)
@@ -1239,9 +1413,11 @@ function buildStaticSteps() {
     commandStep('validate-matrix', 'tools/test/run-matrix-governance-once.sh validate-matrix', ['validate-matrix']),
     commandStep('public-hydration-fast', 'tools/test/lanes/public-hydration-fast.sh', ['public-hydration-fast']),
     commandStep('perception-redteam', 'tools/test/lanes/perception-v2-redteam.sh pr', ['perception-v2-redteam-pr']),
-    commandStep('risk-control', 'tools/test/lanes/risk-control-test-matrix.sh', ['risk-control-test-matrix']),
+    commandStep('risk-control', 'tools/test/lanes/risk-control-test-matrix.sh', ['risk-control-test-matrix'], {
+      artifacts: [path.join(process.env.FSUSBLOG_SECURITY_OUTPUT_ROOT ?? path.join(root, '.tmp/security'), 'risk-control-test-matrix.json')]
+    }),
     commandStep('viewport-plan-progress', 'node tools/ux/run-viewport-plan-progress.mjs', ['ux-viewport-plan-progress'], {
-      artifacts: [path.join(root, '.tmp/ux/viewport-plan-progress.json')]
+      artifacts: [path.join(process.env.FSUSBLOG_UX_OUTPUT_ROOT ?? path.join(root, '.tmp/ux'), 'viewport-plan-progress.json')]
     }),
     commandStep('sync-static-assets', [
       'rm -rf "$FSUSBLOG_BACKEND_WEBROOT"',
@@ -1254,11 +1430,19 @@ function buildStaticSteps() {
       ['production-build-artifacts'],
       {
         dependsOn: ['frontend-build', 'backend-tests-ready'],
-        artifacts: [path.join(root, '.tmp/ci-production-build/receipt.json')]
+        artifacts: [path.join(
+          process.env.FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT ?? path.join(root, '.tmp/ci-production-build'),
+          'receipt.json')]
       }
     ),
     commandStep('frontend-runtime-contracts', 'cd src/frontend && FSUSBLOG_COMMAND_MANIFEST_WORKERS="$FSUSBLOG_STEP_CPU_BUDGET" node ../../tools/test/run-command-manifest.mjs --matrix-group frontend-runtime-contracts', ['frontend-runtime-contracts'], { dependsOn: ['sync-static-assets'] }),
-    commandStep('wasm-fuzz', 'tools/test/lanes/wasm-fuzz-regression.sh', ['wasm-fuzz-regression'], { dependsOn: ['frontend-build'] })
+    commandStep('wasm-fuzz', 'tools/test/lanes/wasm-fuzz-regression.sh', ['wasm-fuzz-regression'], {
+      dependsOn: ['frontend-build'],
+      artifacts: [
+        path.join(process.env.FSUSBLOG_FUZZ_EVIDENCE_DIR ?? path.join(root, '.tmp/fuzz'), 'wasm'),
+        releaseEvidenceFile('fuzz-seeds.json')
+      ]
+    })
   ]
 }
 
@@ -1290,7 +1474,7 @@ function parseTrx(file) {
 }
 
 function readPerceptionUnionProjection(trxFiles, shardSummary) {
-  const projectionFile = path.join(root, '.tmp/test-results/backend/production/perception-v2-union-projection.json')
+  const projectionFile = backendTrxDirectory('production', 'perception-v2-union-projection.json')
   if (!fs.existsSync(projectionFile)) throw new Error('perception-v2 union projection is missing')
   const projection = JSON.parse(fs.readFileSync(projectionFile, 'utf8'))
   if (projection.schema !== 'fsusblog.perception-v2.union-projection.v1' || projection.status !== 'success') {
@@ -1334,9 +1518,9 @@ function readPerceptionUnionProjection(trxFiles, shardSummary) {
 }
 
 async function runBackendTests() {
-  const trxRoot = path.join(root, '.tmp/test-results/backend/production')
+  const trxRoot = backendTrxDirectory('production')
   const shardSummary = path.join(trxRoot, 'summary.json')
-  const coverageDir = path.join(root, '.tmp/coverage/backend/production')
+  const coverageDir = coverageDirectory('backend', 'production')
   fs.mkdirSync(trxRoot, { recursive: true })
   fs.mkdirSync(coverageDir, { recursive: true })
   await executeWave([
@@ -1391,19 +1575,19 @@ async function runBackendTests() {
     commandStep('perception-matrix',
       'tools/test/lanes/perception-v2-test-matrix.sh', [], {
         dependsOn: ['dotnet-production-union'],
-        artifacts: [path.join(root, '.tmp/test-results/backend/production/perception-v2-union-projection.json')]
+        artifacts: [backendTrxDirectory('production', 'perception-v2-union-projection.json')]
       }),
     commandStep('perception-evidence-finalize',
-      'test -s .tmp/security/perception-v2-e2e-runtime.json -a -s .tmp/release-evidence/perception-v2-release-evidence.json -a -s .tmp/security/perception-v2-test-matrix.json', [], {
+      'test -s "$FSUSBLOG_PERCEPTION_RUNTIME_EVIDENCE_FILE" -a -s "$FSUSBLOG_PERCEPTION_RELEASE_EVIDENCE_FILE" -a -s "$FSUSBLOG_PERCEPTION_MATRIX_SUMMARY_FILE"', [], {
         dependsOn: ['perception-matrix'],
         artifacts: [
-          path.join(root, '.tmp/security/perception-v2-e2e-runtime.json'),
-          path.join(root, '.tmp/release-evidence/perception-v2-release-evidence.json'),
-          path.join(root, '.tmp/security/perception-v2-test-matrix.json')
+          perceptionRuntimeEvidenceFile(),
+          perceptionReleaseEvidenceFile(),
+          perceptionMatrixSummaryFile()
         ]
       }),
     commandStep('backend-coverage-summary',
-      'node tools/coverage/backend-coverage-pipeline.mjs merge --manifest .tmp/coverage/backend/production/universe.json --out .tmp/coverage/backend-merged', [], {
+      'node tools/coverage/backend-coverage-pipeline.mjs merge --manifest "$FSUSBLOG_COVERAGE_ROOT/backend/production/universe.json" --out "$FSUSBLOG_COVERAGE_ROOT/backend-merged"', [], {
         dependsOn: ['dotnet-production-union']
       })
   ], bundleDagCapacity, async (step) => {
@@ -1420,9 +1604,9 @@ async function runBackendTests() {
   validateShardSummaryArtifacts(shardReport, trxFiles, { repositoryRoot: root })
   const tests = trxFiles.flatMap(parseTrx)
     const integrityCatalogFile = path.join(root, 'tests/fixtures/evidence-projection/integrity-proof-verification.json');
-    const integrityProducerFile = path.join(root, '.tmp/test-results/backend/evidence-producers/backend-unit.json');
-    const integritySourceFile = path.join(root, '.tmp/test-results/backend/integrity-proof-source.json');
-    const integrityProjectionFile = path.join(root, '.tmp/release-evidence/integrity-proof-verification.json');
+    const integrityProducerFile = reportDirectory('backend', 'evidence-producers', 'backend-unit.json');
+    const integritySourceFile = reportDirectory('backend', 'integrity-proof-source.json');
+    const integrityProjectionFile = releaseEvidenceFile('integrity-proof-verification.json');
     const integrityCatalog = JSON.parse(fs.readFileSync(integrityCatalogFile, 'utf8'));
     const integrityProduced = writeIntegrityProofProducer({
         catalog: integrityCatalog,
@@ -1459,9 +1643,9 @@ async function runBackendTests() {
       shardSummary,
       backendTestDll,
       ...trxFiles,
-      path.join(root, '.tmp/security/perception-v2-e2e-runtime.json'),
-      path.join(root, '.tmp/release-evidence/perception-v2-release-evidence.json'),
-      path.join(root, '.tmp/security/perception-v2-test-matrix.json')
+      perceptionRuntimeEvidenceFile(),
+      perceptionReleaseEvidenceFile(),
+      perceptionMatrixSummaryFile()
     ])
   const categoryMembers = new Map([
     ['backend-api-integration', 'ApiIntegration'],
@@ -1501,7 +1685,7 @@ async function runBackendTests() {
     register({ id: 'dotnet-production-union', members: [tierId] }, result, selected.map((entry) => `xunit:${entry.id}`), [
       shardSummary,
       ...trxFiles,
-      path.join(root, '.tmp/coverage/backend-merged/Summary.json')
+      coverageDirectory('backend-merged', 'Summary.json')
     ])
   }
 /* eslint-enable @stylistic/brace-style, @stylistic/indent, @stylistic/semi, curly */
@@ -1534,7 +1718,7 @@ function parseVitestReports(files) {
 
 async function waitForBackendProductionSummaryReady(timeoutMs = resolveExecutionWaitTimeoutMs(['backend-tests'])) {
   const expectedRunId = schedulerRunId()
-  const summaryFile = path.join(root, '.tmp/test-results/backend/production/summary.json')
+  const summaryFile = backendTrxDirectory('production', 'summary.json')
   const checkpointFile = path.join(root, '.tmp/test-runs', expectedRunId, 'checkpoint.json')
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
@@ -1843,6 +2027,7 @@ async function waitForFrontendTestCapacity(targetCpuUnits, timeoutMs = bundleDea
 }
 
 async function executeRuntimeStepBody(step) {
+  beginPhysicalProducer(step)
   const readinessWait = step.id === 'backend-build-ready'
     ? waitForBackendBuildReady
     : step.id === 'backend-tests-ready'
@@ -2022,6 +2207,7 @@ async function waitForResidentHandoff() {
 }
 
 async function executePerformanceStep(step) {
+  beginPhysicalProducer(step)
   const markerId = {
     'backend-coverage-ready': 'backend-coverage-ready',
     'frontend-coverage-ready': 'frontend-coverage-ready',
@@ -2099,6 +2285,7 @@ async function executePerformanceStep(step) {
 }
 
 async function executeFrontendStep(step) {
+  beginPhysicalProducer(step)
   if (step.id === 'frontend-build-ready') {
     const logFile = path.join(logDir, `${step.id}.log`)
     const startedAtMs = Date.now()
@@ -2177,7 +2364,10 @@ async function runFrontendTests() {
     ['frontend-static-governance'],
     {
       ...options,
-      artifacts: [staticEvidence[stage]],
+      artifacts: [
+        staticEvidence[stage],
+        ...staticPlan[stage].flatMap((entry) => (entry.ownedOutputs ?? []).map(physicalArtifactPath))
+      ],
       testIds: staticTestIds(staticPlan[stage])
     }
   )
@@ -2239,15 +2429,24 @@ async function runFrontendTests() {
             [],
             {
                 dependsOn: ['frontend-static-concurrent'],
+                artifacts: [runOutputRoot
+                  ? path.join(runOutputRoot, 'artifacts/privacy-zk-canonical')
+                  : path.join(root, '.tmp/security/privacy-zk-canonical')],
                 resources: { cpuWeight: 0.25, memoryWeight: 0.25, minCpuUnits: 1 }
             }
         ),
     commandStep('privacy-zk-contract-prebuild', 'tools/test/lanes/privacy-zk-comment-matrix.sh contract-prebuild', [], {
       dependsOn: ['privacy-zk-canonical-receipts'],
+      artifacts: [path.join(
+        process.env.FSUSBLOG_SECURITY_OUTPUT_ROOT ?? path.join(root, '.tmp/security'),
+        'privacy-zk-comment-matrix-stages/contract-prebuild.json')],
       resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
     }),
     commandStep('privacy-zk-contract', 'tools/test/lanes/privacy-zk-comment-matrix.sh contract-postbuild', [], {
       dependsOn: ['frontend-build-ready', 'privacy-zk-contract-prebuild'],
+      artifacts: [path.join(
+        process.env.FSUSBLOG_SECURITY_OUTPUT_ROOT ?? path.join(root, '.tmp/security'),
+        'privacy-zk-comment-matrix-stages/contract.json')],
       resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
     }),
     staticStageStep('postbuild', {
@@ -2321,11 +2520,11 @@ async function runFrontendTests() {
             {
                 dependsOn: ['frontend-static-final'],
                 artifacts: [
-                    path.join(root, '.tmp/frontend/markdown-render-budget.json'),
-                    path.join(root, '.tmp/frontend/dom-depth-static.json'),
-                    path.join(root, '.tmp/frontend/receipts/markdown-render-budget.json'),
-                    path.join(root, '.tmp/frontend/receipts/dom-depth-static.json'),
-                    path.join(root, '.tmp/release-evidence/frontend-render-structure-summary.json')
+                    path.join(process.env.FSUSBLOG_FRONTEND_OUTPUT_ROOT ?? path.join(root, '.tmp/frontend'), 'markdown-render-budget.json'),
+                    path.join(process.env.FSUSBLOG_FRONTEND_OUTPUT_ROOT ?? path.join(root, '.tmp/frontend'), 'dom-depth-static.json'),
+                    path.join(process.env.FSUSBLOG_FRONTEND_OUTPUT_ROOT ?? path.join(root, '.tmp/frontend'), 'receipts/markdown-render-budget.json'),
+                    path.join(process.env.FSUSBLOG_FRONTEND_OUTPUT_ROOT ?? path.join(root, '.tmp/frontend'), 'receipts/dom-depth-static.json'),
+                    releaseEvidenceFile('frontend-render-structure-summary.json')
                 ],
                 resources: {
                     cpuWeight: 0.5,
@@ -2391,15 +2590,15 @@ async function runFrontendTests() {
     waitsForBuildStaticSummary: false
   }
   const reports = [
-    path.join(root, '.tmp/test-results/vitest/production-rolling/merged.json'),
-    path.join(root, '.tmp/test-results/vitest/production-rolling/summary.json'),
-    path.join(root, '.tmp/test-results/vitest/production/perf-isolated.json'),
-    path.join(root, '.tmp/test-results/vitest/production/perf-isolated-timing.json')
+    reportDirectory('vitest', 'production-rolling', 'merged.json'),
+    reportDirectory('vitest', 'production-rolling', 'summary.json'),
+    reportDirectory('vitest', 'production', 'perf-isolated.json'),
+    reportDirectory('vitest', 'production', 'perf-isolated-timing.json')
   ]
   if (reports.some((file) => !fs.existsSync(file))) throw new Error('current-run Vitest report is missing')
   const tests = parseVitestReports(reports)
   if (tests.length === 0 || tests.some((entry) => entry.status !== 'passed')) throw new Error('Vitest report is empty or contains non-passing tests')
-  const summary = path.join(root, '.tmp/coverage/frontend/Summary.json')
+  const summary = coverageDirectory('frontend', 'Summary.json')
   const perfTests = tests.filter((entry) => entry.file.includes('/benchmarks/'))
   const nonPerfTests = tests.filter((entry) => !entry.file.includes('/benchmarks/'))
   if (perfTests.length === 0) throw new Error('isolated frontend perf report is empty')
@@ -2454,7 +2653,10 @@ async function run() {
     )
   }
 
-  if (!finalizeExisting) writeMemberExecutionReceipts()
+  if (!finalizeExisting) {
+    writePhysicalProducerReceipts()
+    writeMemberExecutionReceipts()
+  }
   bindMatrixRuntimeArtifacts()
   artifactDigestTable.registerConsumers(Object.fromEntries(
     [...memberEvidence.entries()].map(([tierId, evidence]) => [tierId, evidence.artifactRefs])))
@@ -2473,7 +2675,10 @@ async function run() {
       }
     })
     const mixedStepDurationMs = steps.find((step) => step.id === 'mixed-performance-window')?.durationMs
-    const mixedSummaryFile = path.join(root, '.tmp/perf/mixed-window/summary.json')
+    const mixedSummaryFile = path.join(
+      process.env.FSUSBLOG_PERFORMANCE_OUTPUT_ROOT ?? path.join(root, '.tmp/perf'),
+      'mixed-window',
+      'summary.json')
     const mixedSummaryDurationMs = fs.existsSync(mixedSummaryFile)
       ? Number(JSON.parse(fs.readFileSync(mixedSummaryFile, 'utf8')).elapsedMs)
       : 0

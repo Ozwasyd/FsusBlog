@@ -38,7 +38,10 @@ function identity()
 
 function ownerDirectory(runId)
 {
-    return path.join(repositoryRoot, '.tmp/test-results/cross-stack', runId, 'owners');
+    return path.join(
+        path.resolve(process.env.FSUSBLOG_TEST_RESULTS_ROOT
+            ?? path.join(repositoryRoot, '.tmp/test-results')),
+        'cross-stack', runId, 'owners');
 }
 
 export function writeCurrentRunOwnerReceipt(owner)
@@ -100,7 +103,10 @@ async function main(argv)
             repositoryRoot,
             ...current
         });
-        const output = path.join(repositoryRoot, '.tmp/release-evidence/cross-stack-contract.json');
+        const output = path.join(
+            path.resolve(process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR
+                ?? path.join(repositoryRoot, '.tmp/release-evidence')),
+            'cross-stack-contract.json');
         writeJsonAtomic(output, receipt);
         process.stdout.write(`[cross-stack-join] assertions=${receipt.assertions.length} owners=${receipt.ownerReceipts.length} receipt=${path.relative(repositoryRoot, output)}\n`);
         return;

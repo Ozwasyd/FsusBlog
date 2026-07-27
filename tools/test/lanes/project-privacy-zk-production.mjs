@@ -125,11 +125,21 @@ function requireRunBinding(document, expectedRunId, source) {
 
 export function projectPrivacyFunctionalEvidence({
   repositoryRoot = root,
-  contractReceipt = path.join(repositoryRoot, '.tmp/security/privacy-zk-comment-matrix-stages/contract.json'),
-  backendSummary = path.join(repositoryRoot, '.tmp/test-results/backend/production/summary.json'),
-  vitestRoot = path.join(repositoryRoot, '.tmp/test-results/vitest'),
-  smokeEvidence = path.join(repositoryRoot, '.tmp/security/privacy-zk-prod-smoke.json'),
-  output = path.join(repositoryRoot, '.tmp/security/privacy-zk-comment-matrix-stages/functional.json'),
+  contractReceipt = path.join(
+    process.env.FSUSBLOG_SECURITY_OUTPUT_ROOT ?? path.join(repositoryRoot, '.tmp/security'),
+    'privacy-zk-comment-matrix-stages/contract.json'),
+  backendSummary = path.join(
+    process.env.FSUSBLOG_BACKEND_TRX_DIR ?? path.join(repositoryRoot, '.tmp/test-results/backend'),
+    'production/summary.json'),
+  vitestRoot = path.join(
+    process.env.FSUSBLOG_TEST_RESULTS_ROOT ?? path.join(repositoryRoot, '.tmp/test-results'),
+    'vitest'),
+  smokeEvidence = path.join(
+    process.env.FSUSBLOG_SECURITY_OUTPUT_ROOT ?? path.join(repositoryRoot, '.tmp/security'),
+    'privacy-zk-prod-smoke.json'),
+  output = path.join(
+    process.env.FSUSBLOG_SECURITY_OUTPUT_ROOT ?? path.join(repositoryRoot, '.tmp/security'),
+    'privacy-zk-comment-matrix-stages/functional.json'),
   expectedRunId = process.env.FSUSBLOG_TEST_RUN_ID ?? ''
 } = {}) {
   const contract = readJson(contractReceipt, 'privacy contract receipt')

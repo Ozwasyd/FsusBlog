@@ -311,7 +311,9 @@ function writeReleaseSummary({ root, matrix, corpus, mode, artifact, summary }) 
     skippedExtremeCases: summary.skippedExtremeCases,
     artifacts
   }
-  const outFile = path.join(root, '.tmp/release-evidence/ux-viewport-summary.json')
+  const outFile = path.join(
+    process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR ?? path.join(root, '.tmp/release-evidence'),
+    'ux-viewport-summary.json')
   writeJson(outFile, releaseSummary)
   return outFile
 }

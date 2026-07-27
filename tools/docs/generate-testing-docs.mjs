@@ -296,7 +296,7 @@ export function renderTestingDocs(matrix) {
 }
 
 function writeSummary(status, outFile, errors = []) {
-  const summaryFile = path.join(root, '.tmp/docs/generated-testing-docs.json')
+  const summaryFile = path.join(path.resolve(process.env.FSUSBLOG_DOCS_EVIDENCE_DIR || path.join(root, '.tmp/docs')), 'generated-testing-docs.json')
   fs.mkdirSync(path.dirname(summaryFile), { recursive: true })
   fs.writeFileSync(summaryFile, `${JSON.stringify({
     status,

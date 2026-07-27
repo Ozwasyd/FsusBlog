@@ -9,7 +9,7 @@ const openapiFile = path.join(root, 'src/shared/Contracts/Validation/fsusblog.op
 const protocolFile = path.join(root, 'src/shared/Contracts/Validation/aeds-protocol.json')
 const overviewFile = path.join(root, 'docs/api.md')
 const quickReferenceFile = path.join(root, 'docs/api/quick-reference.md')
-const outFile = path.join(root, '.tmp/docs/generated-api-docs.json')
+const outFile = path.join(path.resolve(process.env.FSUSBLOG_DOCS_EVIDENCE_DIR || path.join(root, '.tmp/docs')), 'generated-api-docs.json')
 
 function relative(file) {
   return path.relative(root, file).replaceAll(path.sep, '/')

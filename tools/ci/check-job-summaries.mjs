@@ -5,8 +5,10 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
-const summariesDir = path.join(root, '.tmp/release-evidence/jobs')
-const planFile = path.join(root, '.tmp/release-evidence/test-plan.json')
+const releaseEvidenceRoot = path.resolve(process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR
+  ?? path.join(root, '.tmp/release-evidence'))
+const summariesDir = path.join(releaseEvidenceRoot, 'jobs')
+const planFile = path.join(releaseEvidenceRoot, 'test-plan.json')
 const downloadedArtifactsDir = path.join(root, '.tmp/downloaded-artifacts')
 const allowedFailureStages = ['setup', 'restore', 'install', 'bootstrap', 'test', 'artifact', 'summary']
 const releaseBrowsers = ['chromium', 'firefox', 'webkit']

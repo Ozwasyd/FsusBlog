@@ -4,7 +4,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { loadMatrix, root } from './lib/matrix.mjs'
 
-const outFile = path.join(root, '.tmp/docs/time-budget-sync.json')
+const outFile = path.join(path.resolve(process.env.FSUSBLOG_DOCS_EVIDENCE_DIR || path.join(root, '.tmp/docs')), 'time-budget-sync.json')
 const matrix = loadMatrix()
 const errors = []
 const ids = new Set()

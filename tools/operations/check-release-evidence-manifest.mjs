@@ -1268,7 +1268,8 @@ function publicAotCacheResilienceOk(manifest, context) {
 }
 
 function latestManifest() {
-  const baseDir = path.join(rootDir, '.tmp', 'release-evidence')
+  const baseDir = path.resolve(process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR
+    ?? path.join(rootDir, '.tmp', 'release-evidence'))
   if (!fs.existsSync(baseDir)) {
     return null
   }
@@ -2370,7 +2371,7 @@ if (args.includes('--self-test')) {
 const manifestArg = args.find((arg) => !arg.startsWith('--'))
 const manifestPath = manifestArg ? path.resolve(manifestArg) : latestManifest()
 if (!manifestPath) {
-  fail('manifest path is required, or .tmp/release-evidence must contain at least one manifest.json')
+  fail('manifest path is required, or the configured release-evidence directory must contain at least one manifest.json')
 }
 
 const manifest = readJson(manifestPath)

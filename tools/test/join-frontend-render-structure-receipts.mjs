@@ -9,9 +9,11 @@ import {
 } from './frontend-render-structure-receipts.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const frontendOutputRoot = path.resolve(
+    process.env.FSUSBLOG_FRONTEND_OUTPUT_ROOT ?? path.join(root, '.tmp/frontend'));
 const receiptFiles = [
-    path.join(root, '.tmp/frontend/receipts/dom-depth-static.json'),
-    path.join(root, '.tmp/frontend/receipts/markdown-render-budget.json')
+    path.join(frontendOutputRoot, 'receipts/dom-depth-static.json'),
+    path.join(frontendOutputRoot, 'receipts/markdown-render-budget.json')
 ];
 const receipts = receiptFiles.map((file) =>
 {
@@ -26,7 +28,10 @@ const summary = joinFrontendRenderStructureReceipts({
     receipts,
     root
 });
-const output = path.join(root, '.tmp/release-evidence/frontend-render-structure-summary.json');
+const output = path.join(
+    path.resolve(process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR
+        ?? path.join(root, '.tmp/release-evidence')),
+    'frontend-render-structure-summary.json');
 fs.mkdirSync(path.dirname(output), { recursive: true });
 const temporary = `${output}.next-${process.pid}`;
 fs.writeFileSync(temporary, `${JSON.stringify(summary, null, 2)}\n`);

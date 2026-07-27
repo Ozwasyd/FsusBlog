@@ -6,8 +6,10 @@ import { spawnSync } from 'node:child_process'
 import { loadMatrix, planTier, relative, root } from './docs/lib/matrix.mjs'
 import { tierExecutionDependencies } from './test-matrix/parse-matrix.mjs'
 
-const outFile = path.join(root, '.tmp/docs/doc-implementation-drift.json')
-const releaseSummaryFile = path.join(root, '.tmp/release-evidence/doc-sync-summary.json')
+const outFile = path.join(path.resolve(process.env.FSUSBLOG_DOCS_EVIDENCE_DIR || path.join(root, '.tmp/docs')), 'doc-implementation-drift.json')
+const releaseSummaryFile = path.join(
+  process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR || path.join(root, '.tmp/release-evidence'),
+  'doc-sync-summary.json')
 
 function read(rel) {
   return fs.readFileSync(path.join(root, rel), 'utf8')

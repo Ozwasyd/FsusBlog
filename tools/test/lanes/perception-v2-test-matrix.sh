@@ -14,7 +14,10 @@ const root = path.resolve(process.argv[2])
 const runId = String(process.env.FSUSBLOG_TEST_RUN_ID ?? '').trim()
 if (!runId) throw new Error('Perception union projection requires FSUSBLOG_TEST_RUN_ID')
 
-const trxRoot = path.join(root, '.tmp/test-results/backend/production')
+const configuredTrxRoot = String(process.env.FSUSBLOG_BACKEND_TRX_DIR ?? '').trim()
+const trxRoot = configuredTrxRoot
+  ? path.join(path.resolve(configuredTrxRoot), 'production')
+  : path.join(root, '.tmp/test-results/backend/production')
 const summaryFile = path.join(trxRoot, 'summary.json')
 const markerFile = path.join(root, '.tmp/test-runs', runId, 'backend-tests-ready.json')
 const projectionFile = path.join(trxRoot, 'perception-v2-union-projection.json')

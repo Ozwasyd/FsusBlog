@@ -45,8 +45,9 @@ try {
         .filter((catalog) => catalog.projectFrom === producerId)
         .sort((left, right) => left.tierId.localeCompare(right.tierId));
     if (catalogs.length === 0) throw new Error(`no release-domain catalog belongs to ${producerId}`);
+    const testResultsRoot = process.env.FSUSBLOG_TEST_RESULTS_ROOT ?? '.tmp/test-results';
     const reportPath = path.resolve(root, option('report',
-        `.tmp/test-results/release-domain-assertions/${producerId}/${runId}.json`));
+        path.join(testResultsRoot, 'release-domain-assertions', producerId, `${runId}.json`)));
     const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
     const policyIdentity = releasePolicyIdentity(ledgerPath);
     const buildIdentities = [...new Set(catalogs.map((catalog) => releaseBuildIdentity(root, catalog)))];
@@ -96,7 +97,8 @@ try {
             assertions,
             artifacts
         });
-        const output = path.resolve(root, option('output-directory', '.tmp/test-results/evidence-producers'),
+        const output = path.resolve(root, option('output-directory',
+            path.join(testResultsRoot, 'evidence-producers')),
             producerId, runId, `${catalog.tierId}.json`);
         fs.mkdirSync(path.dirname(output), { recursive: true });
         fs.writeFileSync(output, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 });

@@ -6,7 +6,7 @@ import { relative, root } from './lib/matrix.mjs'
 
 const packageFile = path.join(root, 'src/frontend/package.json')
 const readmeFile = path.join(root, 'README.md')
-const outFile = path.join(root, '.tmp/docs/version-table-check.json')
+const outFile = path.join(path.resolve(process.env.FSUSBLOG_DOCS_EVIDENCE_DIR || path.join(root, '.tmp/docs')), 'version-table-check.json')
 
 function dependencyVersion(pkg, name) {
   return pkg.dependencies?.[name] ?? pkg.devDependencies?.[name] ?? null

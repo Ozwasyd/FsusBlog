@@ -38,7 +38,10 @@ export function parseManagedBuildGcArgs(args) {
 }
 
 function writeReport(root, runId, report) {
-  const reportDirectory = path.join(root, '.tmp/release-evidence/build-gc')
+  const reportDirectory = path.join(
+    path.resolve(process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR
+      ?? path.join(root, '.tmp/release-evidence')),
+    'build-gc')
   fs.mkdirSync(reportDirectory, { recursive: true })
   const reportFile = path.join(reportDirectory, `${runId}.json`)
   const temporary = `${reportFile}.next-${process.pid}`

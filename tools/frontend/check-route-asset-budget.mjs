@@ -10,7 +10,9 @@ const distRoot = resolve(process.env.FSUSBLOG_FRONTEND_DIST_ROOT || resolve(repo
 const manifestPath = process.env.FSUSBLOG_VITE_MANIFEST
   ? resolve(repoRoot, process.env.FSUSBLOG_VITE_MANIFEST)
   : resolve(distRoot, '.vite/manifest.json')
-const evidencePath = resolve(repoRoot, '.tmp/frontend/route-asset-budget.json')
+const evidencePath = resolve(
+  process.env.FSUSBLOG_FRONTEND_OUTPUT_ROOT ?? resolve(repoRoot, '.tmp/frontend'),
+  'route-asset-budget.json')
 
 const routeBudgets = {
   public: {

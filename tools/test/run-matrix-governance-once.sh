@@ -3,6 +3,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CONSUMER_ID="${1:-${FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID:-matrix-governance}}"
+PROJECTION_DIR="${FSUSBLOG_PHYSICAL_EXECUTION_PROJECTION_DIR:-.tmp/physical-execution-projections}"
+DOCS_EVIDENCE_DIR="${FSUSBLOG_DOCS_EVIDENCE_DIR:-.tmp/docs}"
 
 exec "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-deterministic-command.mjs" \
     --key matrix-governance \
@@ -10,7 +12,7 @@ exec "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-deterministic-command.mj
     --producer-id "$CONSUMER_ID" \
     --consumer "$CONSUMER_ID" \
     --cwd "$ROOT_DIR" \
-    --projection-directory .tmp/physical-execution-projections \
+    --projection-directory "$PROJECTION_DIR" \
     --path tests/matrix.yml \
     --path tests/coverage-registry.json \
     --path config/testing/runtime-state-domain-catalog.json \
@@ -33,10 +35,10 @@ exec "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-deterministic-command.mj
     --path tools/test/run-deterministic-command.mjs \
     --path tools/test/run-once.mjs \
     --path .github/workflows \
-    --output .tmp/release-evidence/test-plan.json \
-    --output .tmp/docs/fast-backend-matrix.json \
-    --output .tmp/docs/fast-frontend-unit-matrix.json \
-    --output .tmp/docs/browser-contract-matrix.json \
+    --output "${FSUSBLOG_RELEASE_EVIDENCE_DIR:-.tmp/release-evidence}/test-plan.json" \
+    --output "$DOCS_EVIDENCE_DIR/fast-backend-matrix.json" \
+    --output "$DOCS_EVIDENCE_DIR/fast-frontend-unit-matrix.json" \
+    --output "$DOCS_EVIDENCE_DIR/browser-contract-matrix.json" \
     --test-id matrix-validate \
     --test-id matrix-preflight \
     --test-id matrix-evidence-plan \

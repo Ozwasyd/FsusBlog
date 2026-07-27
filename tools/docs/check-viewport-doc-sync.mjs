@@ -6,7 +6,7 @@ import { relative, root } from './lib/matrix.mjs'
 
 const matrixFile = path.join(root, 'tests/frontend/fixtures/ux-viewport-matrix.json')
 const docsFile = path.join(root, 'docs/testing.md')
-const outFile = path.join(root, '.tmp/docs/viewport-doc-sync.json')
+const outFile = path.join(path.resolve(process.env.FSUSBLOG_DOCS_EVIDENCE_DIR || path.join(root, '.tmp/docs')), 'viewport-doc-sync.json')
 const matrix = JSON.parse(fs.readFileSync(matrixFile, 'utf8'))
 const docs = fs.readFileSync(docsFile, 'utf8')
 const errors = []

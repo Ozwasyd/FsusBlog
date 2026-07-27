@@ -1726,7 +1726,7 @@ test('backend bundle delegates shard sizing to the runtime CPU budget without fa
   assert.match(source, /perception-evidence-finalize[\s\S]*?dependsOn: \['perception-matrix'\]/u)
   const backendFinalizer = source.match(/commandStep\('perception-evidence-finalize',[\s\S]*?\}\),/u)?.[0] ?? ''
   assert.doesNotMatch(backendFinalizer, /check-perception-v2-e2e-evidence\.mjs/u)
-  assert.match(backendFinalizer, /test -s \.tmp\/security\/perception-v2-e2e-runtime\.json/u)
+  assert.match(backendFinalizer, /FSUSBLOG_PERCEPTION_RUNTIME_EVIDENCE_FILE/u)
   assert.match(source, /integrity-proof[\s\S]*?dependsOn: \['perception-matrix'\]/u)
   assert.match(source, /backend-coverage-summary[\s\S]*?dependsOn: \['dotnet-production-union'\]/u)
   assert.match(source, /readPerceptionUnionProjection[\s\S]*?perception-v2\.union-projection\.v1[\s\S]*?schedulerRunId\(\)[\s\S]*?expectedDllDigest[\s\S]*?expectedTrxDigests/u)

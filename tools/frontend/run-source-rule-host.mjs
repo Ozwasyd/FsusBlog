@@ -24,7 +24,9 @@ import {
 } from './source-rule-host.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const defaultEvidenceRoot = path.join(repoRoot, '.tmp/frontend/source-rule-host');
+const defaultEvidenceRoot = path.join(
+    process.env.FSUSBLOG_FRONTEND_OUTPUT_ROOT ?? path.join(repoRoot, '.tmp/frontend'),
+    'source-rule-host');
 const rules = [fontSizeContractRule, fontWeightContractRule];
 const legacyCommands = new Map([
     ['font-size-contract', 'tests/frontend/checks/static/check-font-size-contract.mjs'],

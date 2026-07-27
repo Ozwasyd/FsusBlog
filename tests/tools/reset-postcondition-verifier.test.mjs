@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -87,6 +87,65 @@ test('real bootstrap postcondition produces and consumes a run/source-bound rece
     ])
   } finally {
     rmSync(context.root, { recursive: true, force: true })
+  }
+})
+
+test('Production Fresh bootstrap postcondition binds only attempt-root environment, fixture, and log files', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'reset-receipt-fresh-'))
+  const outputRoot = path.join(root, '.tmp/test-runs/run-reset-test/outputs/attempts/attempt-0001')
+  const environmentRoot = path.join(outputRoot, 'runtime/acceptance-env')
+  const fixtureRoot = path.join(outputRoot, 'runtime/acceptance-fixtures')
+  const logFile = path.join(outputRoot, 'bundles/runtime-browser/steps/bootstrap.log')
+  const previous = {
+    outputRoot: process.env.FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT,
+    environmentRoot: process.env.FSUSBLOG_ACCEPTANCE_ENV_ROOT,
+    fixtureRoot: process.env.FSUSBLOG_ACCEPTANCE_FIXTURE_ROOT
+  }
+  try {
+    process.env.FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT = outputRoot
+    process.env.FSUSBLOG_ACCEPTANCE_ENV_ROOT = environmentRoot
+    process.env.FSUSBLOG_ACCEPTANCE_FIXTURE_ROOT = fixtureRoot
+    for (const file of [
+      path.join(environmentRoot, 'reset-test.env'),
+      path.join(fixtureRoot, 'reset-test/manifest.json'),
+      logFile
+    ]) mkdirSync(path.dirname(file), { recursive: true })
+    writeFileSync(
+      path.join(environmentRoot, 'reset-test.env'),
+      'FSUSBLOG_TEST_NAMESPACE=reset-test\nFSUSBLOG_TEST_RUN_ID=run-reset-test\n')
+    writeFileSync(path.join(fixtureRoot, 'reset-test/manifest.json'), '{"status":"ready"}\n')
+    writeFileSync(logFile, 'acceptance environment ready\n')
+
+    const produced = produceResetPostconditionReceipt({
+      root,
+      assertionId: 'bootstrap-runtime-ready',
+      producerStep,
+      result: { code: 0, signal: null, finishedAtMs: Date.now(), logFile },
+      runIdentity: identity
+    })
+    assert.deepEqual(produced.receipt.observations.map((entry) => entry.path), [
+      '.tmp/test-runs/run-reset-test/outputs/attempts/attempt-0001/bundles/runtime-browser/steps/bootstrap.log',
+      '.tmp/test-runs/run-reset-test/outputs/attempts/attempt-0001/runtime/acceptance-env/reset-test.env',
+      '.tmp/test-runs/run-reset-test/outputs/attempts/attempt-0001/runtime/acceptance-fixtures/reset-test/manifest.json'
+    ])
+    assert.equal(
+      produced.file,
+      path.join(outputRoot, 'runtime/runtime-state-reset/bootstrap/bootstrap-runtime-ready.json'))
+    assert.equal(consumeResetPostconditionReceipt({
+      root,
+      reset,
+      producerStep,
+      runIdentity: identity
+    }).receipt.status, 'ok')
+    assert.equal(existsSync(path.join(root, '.tmp/env')), false)
+  } finally {
+    if (previous.outputRoot == null) delete process.env.FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT
+    else process.env.FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT = previous.outputRoot
+    if (previous.environmentRoot == null) delete process.env.FSUSBLOG_ACCEPTANCE_ENV_ROOT
+    else process.env.FSUSBLOG_ACCEPTANCE_ENV_ROOT = previous.environmentRoot
+    if (previous.fixtureRoot == null) delete process.env.FSUSBLOG_ACCEPTANCE_FIXTURE_ROOT
+    else process.env.FSUSBLOG_ACCEPTANCE_FIXTURE_ROOT = previous.fixtureRoot
+    rmSync(root, { recursive: true, force: true })
   }
 })
 

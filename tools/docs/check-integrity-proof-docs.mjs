@@ -5,7 +5,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
-const outFile = resolve(root, '.tmp/docs/integrity-proof-docs.json')
+const outFile = resolve(process.env.FSUSBLOG_DOCS_EVIDENCE_DIR || resolve(root, '.tmp/docs'), 'integrity-proof-docs.json')
 const errors = []
 
 function read(path) {

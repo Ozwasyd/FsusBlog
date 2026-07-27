@@ -13,6 +13,8 @@ import {
 import { resolveManifestChildEnvironment } from './run-command-manifest.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+const performanceOutputRoot = path.resolve(
+  process.env.FSUSBLOG_PERFORMANCE_OUTPUT_ROOT ?? path.join(root, '.tmp/perf'))
 const qpsModes = Object.freeze([
   'view-count-flush', 'visitlog-invalidation', 'cache-hit', 'comment-cursor', 'hotread',
   'cache-miss-singleflight', 'risk-filter', 'related-reading', 'list-pagination',
@@ -211,9 +213,15 @@ function readBenchmarkContract() {
 
 export function collectBenchmarkEvidence({
   startedAtMs,
-  aggregateReports = path.join(root, 'BenchmarkDotNet.Artifacts/results'),
+  aggregateReports = path.join(
+    process.env.FSUSBLOG_BENCHMARK_ARTIFACT_ROOT ?? path.join(root, 'BenchmarkDotNet.Artifacts'),
+    'results'),
   checkerFile = path.join(aggregateReports, 'fsusblog-benchmark-regression.json'),
-  releaseSummaryFile = path.join(root, '.tmp/perf/release-summaries/backend-benchmark-regression.json'),
+  releaseSummaryFile = path.join(
+    process.env.FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT
+      ? path.join(process.env.FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT, 'reports')
+      : performanceOutputRoot,
+    'release-summaries/backend-benchmark-regression.json'),
   contract = readBenchmarkContract()
 }) {
   const reportFiles = fs.readdirSync(aggregateReports)
@@ -326,7 +334,7 @@ export function resolveAdaptiveLoadRounds(summary, remainingDurationMs) {
 
 async function runRepeatedCohort(name, declaration, resource) {
   const cohortStartedAt = Date.now()
-  const sampleRoot = path.join(root, `.tmp/perf/mixed-window/${name}`)
+  const sampleRoot = path.join(performanceOutputRoot, 'mixed-window', name)
   fs.rmSync(sampleRoot, { recursive: true, force: true })
   fs.mkdirSync(sampleRoot, { recursive: true })
   let adaptiveRounds = null
@@ -338,7 +346,7 @@ async function runRepeatedCohort(name, declaration, resource) {
       if (adaptiveRounds !== null) sampleEnv.FSUSBLOG_LOAD_PROFILE_ROUNDS = String(adaptiveRounds)
       await command(declaration.command, { env: sampleEnv })
       const profile = name === 'peak' ? 'expected-peak' : name
-      const summaryFile = path.join(root, `.tmp/perf/load-${profile}/summary.json`)
+      const summaryFile = path.join(performanceOutputRoot, `load-${profile}`, 'summary.json')
       if (!fs.existsSync(summaryFile)) throw new Error(`${name} did not produce ${path.relative(root, summaryFile)}`)
       const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8'))
       fs.copyFileSync(summaryFile, path.join(sampleRoot, `${String(sampleIndex + 1).padStart(4, '0')}.json`))
@@ -362,11 +370,11 @@ async function runRepeatedCohort(name, declaration, resource) {
 async function runLoadWarmup(declaration, resource) {
   const startedAt = Date.now()
   await command(declaration.command, { env: cohortEnvironment(resource) })
-  const summaryFile = path.join(root, '.tmp/perf/load-baseline/summary.json')
+  const summaryFile = path.join(performanceOutputRoot, 'load-baseline', 'summary.json')
   if (!fs.existsSync(summaryFile)) throw new Error('baseline warmup did not produce load evidence')
   const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8'))
   if (summary.status !== 'ok') throw new Error(`baseline warmup status is ${String(summary.status)}`)
-  const evidenceFile = path.join(root, '.tmp/perf/mixed-window/baseline-warmup.json')
+  const evidenceFile = path.join(performanceOutputRoot, 'mixed-window', 'baseline-warmup.json')
   fs.mkdirSync(path.dirname(evidenceFile), { recursive: true })
   fs.copyFileSync(summaryFile, evidenceFile)
   return {
@@ -380,7 +388,7 @@ async function runLoadWarmup(declaration, resource) {
 
 async function runPublicApi(commandName, securityResetCommand, env) {
   const cohortStartedAt = Date.now()
-  const evidenceFile = path.join(root, '.tmp/perf/load-public-api.json')
+  const evidenceFile = path.join(performanceOutputRoot, 'load-public-api.json')
   await command(securityResetCommand, { env })
   await command(commandName, {
     cwd: path.join(root, 'src/frontend'),
@@ -407,7 +415,7 @@ async function runPublicApi(commandName, securityResetCommand, env) {
 async function runNotification(declaration, resource) {
   const cohortStartedAt = Date.now()
   const frontend = path.join(root, 'src/frontend')
-  const evidenceFile = path.join(root, '.tmp/perf/notification-stream-pressure.json')
+  const evidenceFile = path.join(performanceOutputRoot, 'notification-stream-pressure.json')
   await command(declaration.securityResetCommand, { env: cohortEnvironment(resource) })
   await command(declaration.command, {
     cwd: frontend,
@@ -636,7 +644,7 @@ async function main() {
   process.env.FSUSBLOG_BASE_URL ||= process.env.FSUSBLOG_DEBUG_BACKEND_URL
   process.env.FSUSBLOG_PUBLIC_BASE_URL ||= process.env.FSUSBLOG_RELEASE_PREVIEW_URL
   process.env.PLAYWRIGHT_BASE_URL ||= process.env.FSUSBLOG_RELEASE_PREVIEW_URL
-  const outFile = path.join(root, '.tmp/perf/mixed-window/summary.json')
+  const outFile = path.join(performanceOutputRoot, 'mixed-window', 'summary.json')
   if (process.argv.includes('--reuse-passed') && fs.existsSync(outFile)) {
     const previous = JSON.parse(fs.readFileSync(outFile, 'utf8'))
     const expectedCohorts = ['baseline', 'benchmark', 'burst', 'notification', 'peak', 'publicApi', 'qps']
@@ -689,7 +697,7 @@ async function main() {
     if (summary.status !== 'ok') throw new Error('mixed performance resumed cohort still failed')
     return
   }
-  const resourceFile = path.join(root, '.tmp/perf/mixed-window/resources.json')
+  const resourceFile = path.join(performanceOutputRoot, 'mixed-window', 'resources.json')
   const resourceRunId = process.env.FSUSBLOG_TEST_RUN_ID || process.env.FSUSBLOG_TEST_NAMESPACE || `local-${startedAt}`
   const benchmarkResources = {
     total: { ...resources.total },

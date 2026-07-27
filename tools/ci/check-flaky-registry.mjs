@@ -7,7 +7,8 @@ import { parseYamlDocument } from '../yaml/parse-document.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const registryPath = path.join(root, 'tests/flaky.yml')
-const summaryPath = path.join(root, '.tmp/release-evidence/flaky/registry.json')
+const summaryPath = path.join(path.resolve(process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR
+  ?? path.join(root, '.tmp/release-evidence')), 'flaky/registry.json')
 const allowedModes = new Set(['retry-and-report', 'allow-failure-but-report', 'skip-with-evidence'])
 const allowedClassifications = new Set(['known-flaky', 'unknown-flaky', 'infra-transient', 'benchmark-noise'])
 

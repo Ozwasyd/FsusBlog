@@ -18,9 +18,13 @@ import {
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const frontendRoot = path.join(root, 'src/frontend');
-const outputRoot = path.join(root, '.tmp/test-results/vitest/production-rolling');
+const testResultsRoot = path.resolve(process.env.FSUSBLOG_TEST_RESULTS_ROOT
+    ?? path.join(root, '.tmp/test-results'));
+const coverageRoot = path.resolve(process.env.FSUSBLOG_COVERAGE_ROOT
+    ?? path.join(root, '.tmp/coverage'));
+const outputRoot = path.join(testResultsRoot, 'vitest/production-rolling');
 const blobRoot = path.join(outputRoot, 'blobs');
-const coverageShardRoot = path.join(root, '.tmp/coverage/frontend-vitest-shards');
+const coverageShardRoot = path.join(coverageRoot, 'frontend-vitest-shards');
 const rawCatalogFile = path.join(outputRoot, 'catalog.raw.json');
 const catalogFile = path.join(outputRoot, 'catalog.json');
 const mergedJson = path.join(outputRoot, 'merged.json');
@@ -1084,7 +1088,9 @@ export function canonicalCoverageHitMap(coverage)
 }
 
 export function mergeAuthoritativeCoverageMaps(universeFile, shardFiles, {
-    reportsDirectory = path.join(frontendRoot, 'coverage/unit'),
+    reportsDirectory = process.env.FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT
+        ? path.join(coverageRoot, 'vitest/unit')
+        : path.join(frontendRoot, 'coverage/unit'),
     repositoryRoot = root,
     frontendDirectory = frontendRoot
 } = {})
@@ -1362,7 +1368,8 @@ async function main()
                 catalog: path.relative(root, catalogFile).replaceAll(path.sep, '/'),
                 mergedJson: path.relative(root, mergedJson).replaceAll(path.sep, '/'),
                 mergedJunit: path.relative(root, mergedJunit).replaceAll(path.sep, '/'),
-                coverageSummary: 'src/frontend/coverage/unit/coverage-summary.json'
+                coverageSummary: path.relative(root,
+                    path.join(coverageRoot, 'vitest/unit/coverage-summary.json')).replaceAll(path.sep, '/')
             }
         };
         if (failures.length > 0)

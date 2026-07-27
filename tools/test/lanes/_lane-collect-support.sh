@@ -92,7 +92,7 @@ WriteCollectLiveGrantEvidence() {
     if [[ -z "$evidenceFile" ]]; then
         local runSlug
         runSlug="$(NamespaceSlug "${FSUSBLOG_TEST_RUN_ID:-direct}")"
-        evidenceFile="$ROOT_DIR/.tmp/test-results/live-grant/$runSlug/collect-$(NamespaceSlug "$group").json"
+        evidenceFile="${FSUSBLOG_TEST_RESULTS_ROOT:-$ROOT_DIR/.tmp/test-results}/live-grant/$runSlug/collect-$(NamespaceSlug "$group").json"
     fi
     "${FSUSBLOG_NODE:-node}" --input-type=module - "$statusDir" "$evidenceFile" "$group" "$finalStatus" <<'NODE'
 import fs from 'node:fs'

@@ -13,7 +13,11 @@ BUILD_ENV_RUNNER="$ROOT_DIR/tools/build-with-data-env.sh"
 export FSUSBLOG_REPO_ROOT="${FSUSBLOG_REPO_ROOT:-$ROOT_DIR}"
 COVERAGE_ROOT="${FSUSBLOG_COVERAGE_ROOT:-$ROOT_DIR/.tmp/coverage}"
 BACKEND_TRX_DIR="${FSUSBLOG_BACKEND_TRX_DIR:-$ROOT_DIR/.tmp/test-results/backend}"
+TEST_RESULTS_ROOT="${FSUSBLOG_TEST_RESULTS_ROOT:-$ROOT_DIR/.tmp/test-results}"
 GATE_LOG_DIR="${FSUSBLOG_GATE_LOG_DIR:-$ROOT_DIR/.tmp/gate-logs}"
+FRONTEND_OUTPUT_ROOT="${FSUSBLOG_FRONTEND_OUTPUT_ROOT:-$ROOT_DIR/.tmp/frontend}"
+RUNTIME_SCENARIO_OUTPUT_ROOT="${FSUSBLOG_RUNTIME_SCENARIO_OUTPUT_ROOT:-$ROOT_DIR/.tmp/runtime-scenario-host/${FSUSBLOG_TEST_RUN_ID:-local}}"
+RUNTIME_OUTPUT_ROOT="${FSUSBLOG_RUNTIME_OUTPUT_ROOT:-$ROOT_DIR/.tmp/runtime}"
 FRONTEND_FAST_GROUP_TIMINGS_JSONL="${FSUSBLOG_FRONTEND_FAST_GROUP_TIMINGS_JSONL:-}"
 FRONTEND_FAST_GROUP_TIMINGS_JSON="${FSUSBLOG_FRONTEND_FAST_GROUP_TIMINGS_JSON:-}"
 
@@ -527,8 +531,8 @@ PrepareFrontendFastGroupTimings() {
     timingScope="${FSUSBLOG_FRONTEND_FAST_TIMING_SCOPE:-${CURRENT_TIER:-frontend-fast}}"
     timingScope="$(printf '%s' "$timingScope" | tr -cs 'A-Za-z0-9_.-' '-' | sed -E 's/^-+|-+$//g')"
     [[ -n "$timingScope" && "$timingScope" != "." && "$timingScope" != ".." ]] || timingScope="frontend-fast"
-    FRONTEND_FAST_GROUP_TIMINGS_JSONL="${FSUSBLOG_FRONTEND_FAST_GROUP_TIMINGS_JSONL:-$ROOT_DIR/.tmp/frontend/timings/$timingScope.jsonl}"
-    FRONTEND_FAST_GROUP_TIMINGS_JSON="${FSUSBLOG_FRONTEND_FAST_GROUP_TIMINGS_JSON:-$ROOT_DIR/.tmp/frontend/timings/$timingScope.json}"
+        FRONTEND_FAST_GROUP_TIMINGS_JSONL="${FSUSBLOG_FRONTEND_FAST_GROUP_TIMINGS_JSONL:-$FRONTEND_OUTPUT_ROOT/timings/$timingScope.jsonl}"
+        FRONTEND_FAST_GROUP_TIMINGS_JSON="${FSUSBLOG_FRONTEND_FAST_GROUP_TIMINGS_JSON:-$FRONTEND_OUTPUT_ROOT/timings/$timingScope.json}"
     mkdir -p "$(dirname "$FRONTEND_FAST_GROUP_TIMINGS_JSONL")"
     : >"$FRONTEND_FAST_GROUP_TIMINGS_JSONL"
     rm -f "$FRONTEND_FAST_GROUP_TIMINGS_JSON"
@@ -1030,8 +1034,8 @@ RunBackendUnitLane() {
         --worktree-fingerprint "${FSUSBLOG_TEST_SOURCE_FINGERPRINT:?FSUSBLOG_TEST_SOURCE_FINGERPRINT is required}" \
         --run-id "${FSUSBLOG_TEST_RUN_ID:?FSUSBLOG_TEST_RUN_ID is required}" \
         --namespace "${FSUSBLOG_TEST_NAMESPACE:?FSUSBLOG_TEST_NAMESPACE is required}" \
-        --producer-output "$ROOT_DIR/.tmp/test-results/backend/evidence-producers/backend-unit.json" \
-        --source-output "$ROOT_DIR/.tmp/test-results/backend/integrity-proof-source.json"
+        --producer-output "$TEST_RESULTS_ROOT/backend/evidence-producers/backend-unit.json" \
+        --source-output "$TEST_RESULTS_ROOT/backend/integrity-proof-source.json"
 }
 
 RunDistributedContractFastOnly() {
@@ -1506,7 +1510,7 @@ RunFrontendFastBuildGroup() {
 
 WriteFrontendSplitSummary() {
     local lane="$1"
-    local outFile="$ROOT_DIR/.tmp/frontend/${lane}.json"
+    local outFile="$FRONTEND_OUTPUT_ROOT/${lane}.json"
     mkdir -p "$(dirname "$outFile")"
     node - "$outFile" "$lane" <<'NODE'
 const fs = require('node:fs')
@@ -1525,7 +1529,7 @@ NODE
 
 WriteRuntimeLaneSummary() {
     local lane="$1"
-    local outFile="$ROOT_DIR/.tmp/runtime/$lane.json"
+    local outFile="$RUNTIME_OUTPUT_ROOT/$lane.json"
     mkdir -p "$(dirname "$outFile")"
     node - "$outFile" "$lane" <<'NODE'
 const fs = require('node:fs')
@@ -1652,7 +1656,7 @@ BeginLegacyRuntimeScenarioObservation() {
     FSUSBLOG_RUNTIME_SCENARIO_OBSERVATION_ACTIVE=1
     FSUSBLOG_RUNTIME_SCENARIO_OBSERVATION_PHASE="$phase"
     FSUSBLOG_RUNTIME_SCENARIO_OBSERVATION_STARTED_MS="$(date +%s%3N)"
-    FSUSBLOG_RUNTIME_SCENARIO_OBSERVATION_DIR="$ROOT_DIR/.tmp/runtime-scenario-host/$FSUSBLOG_TEST_RUN_ID/$phase/before-processes"
+    FSUSBLOG_RUNTIME_SCENARIO_OBSERVATION_DIR="$RUNTIME_SCENARIO_OUTPUT_ROOT/$phase/before-processes"
     FSUSBLOG_RUNTIME_SCENARIO_ORIGINAL_NODE_OPTIONS="${NODE_OPTIONS:-}"
     rm -rf "$FSUSBLOG_RUNTIME_SCENARIO_OBSERVATION_DIR"
     mkdir -p "$FSUSBLOG_RUNTIME_SCENARIO_OBSERVATION_DIR"
@@ -1674,7 +1678,7 @@ EndLegacyRuntimeScenarioObservation() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/aggregate-runtime-scenario-processes.mjs" \
         --phase "$FSUSBLOG_RUNTIME_SCENARIO_OBSERVATION_PHASE" \
         --input "$FSUSBLOG_RUNTIME_SCENARIO_OBSERVATION_DIR" \
-        --output "$ROOT_DIR/.tmp/runtime-scenario-host/$FSUSBLOG_TEST_RUN_ID/$FSUSBLOG_RUNTIME_SCENARIO_OBSERVATION_PHASE/before-summary.json" \
+        --output "$RUNTIME_SCENARIO_OUTPUT_ROOT/$FSUSBLOG_RUNTIME_SCENARIO_OBSERVATION_PHASE/before-summary.json" \
         --status "$status" \
         --started-at-ms "$FSUSBLOG_RUNTIME_SCENARIO_OBSERVATION_STARTED_MS"
     unset FSUSBLOG_RUNTIME_SCENARIO_OBSERVATION_ACTIVE

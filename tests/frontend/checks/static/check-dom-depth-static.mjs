@@ -8,9 +8,11 @@ import { fileURLToPath } from 'node:url'
 import { writeFrontendStructureProducerForArtifact } from '../../../../tools/test/frontend-render-structure-receipts.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
+const frontendOutputRoot = path.resolve(
+  process.env.FSUSBLOG_FRONTEND_OUTPUT_ROOT ?? path.join(root, '.tmp/frontend'))
 const srcDir = path.join(root, 'src/frontend/src')
-const outFile = path.join(root, '.tmp/frontend/dom-depth-static.json')
-const receiptFile = path.join(root, '.tmp/frontend/receipts/dom-depth-static.json')
+const outFile = path.join(frontendOutputRoot, 'dom-depth-static.json')
+const receiptFile = path.join(frontendOutputRoot, 'receipts/dom-depth-static.json')
 
 const routeFiles = new Set([
   'src/frontend/src/views/admin/article/Write.vue',

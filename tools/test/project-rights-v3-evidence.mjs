@@ -5,25 +5,35 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const root = path.resolve(import.meta.dirname, '../..');
+const outputRoot = process.env.FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT
+    ? path.resolve(process.env.FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT)
+    : null;
+const testResultsRoot = outputRoot ? path.join(outputRoot, 'reports') : path.join(root, '.tmp/test-results');
+const frontendBundleRoot = outputRoot
+    ? path.join(outputRoot, 'bundles/frontend-tests')
+    : path.join(root, '.tmp/local-production/frontend-tests');
+const releaseEvidenceRoot = outputRoot
+    ? path.join(outputRoot, 'release-evidence')
+    : path.join(root, '.tmp/release-evidence');
 const {
     projectRightsV3Evidence,
     readTrxResults
 } = await import(pathToFileURL(path.join(root, 'tools/test-matrix/rights-v3-projection.mjs')).href);
 
-const readJson = (file) => JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'));
+const readJson = (file) => JSON.parse(fs.readFileSync(path.isAbsolute(file) ? file : path.join(root, file), 'utf8'));
 const digest = (value) => `sha256:${crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex')}`;
 const expectedRunId = process.env.FSUSBLOG_TEST_RUN_ID;
 const boundInputs = [
-    ['.tmp/test-results/backend/production/summary.json', (value) => value.producer?.runId],
-    ['.tmp/test-results/vitest/production-rolling/summary.json', (value) => value.schedulerRunId],
-    ['.tmp/test-results/backend/rights-v3-integration-producer.json', (value) => value.runId],
+    [path.join(testResultsRoot, 'trx/backend/production/summary.json'), (value) => value.producer?.runId],
+    [path.join(testResultsRoot, 'vitest/production-rolling/summary.json'), (value) => value.schedulerRunId],
+    [path.join(testResultsRoot, 'backend/rights-v3-integration-producer.json'), (value) => value.runId],
     ...[
         'frontend-static-blocking-prebuild.json',
         'frontend-static-concurrent.json',
         'frontend-static-postbuild.json',
         'frontend-static-isolated.json',
         'frontend-static-final.json'
-    ].map((file) => [`.tmp/local-production/frontend-tests/${file}`, (value) => value.schedulerRunId])
+    ].map((file) => [path.join(frontendBundleRoot, file), (value) => value.schedulerRunId])
 ];
 const deadline = Date.now() + Number(process.env.FSUSBLOG_STEP_DEADLINE_MS ?? 900_000);
 while (true)
@@ -49,8 +59,8 @@ while (true)
     }
     await new Promise((resolve) => setTimeout(resolve, 100));
 }
-const backendSummary = readJson('.tmp/test-results/backend/production/summary.json');
-const frontendSummary = readJson('.tmp/test-results/vitest/production-rolling/summary.json');
+const backendSummary = readJson(path.join(testResultsRoot, 'trx/backend/production/summary.json'));
+const frontendSummary = readJson(path.join(testResultsRoot, 'vitest/production-rolling/summary.json'));
 const frontendCatalog = readJson(frontendSummary.artifacts.catalog);
 const frontendReport = readJson(frontendSummary.artifacts.mergedJson);
 const staticReceiptFiles = [
@@ -59,7 +69,7 @@ const staticReceiptFiles = [
     'frontend-static-postbuild.json',
     'frontend-static-isolated.json',
     'frontend-static-final.json'
-].map((file) => `.tmp/local-production/frontend-tests/${file}`);
+].map((file) => path.join(frontendBundleRoot, file));
 const staticReceipts = staticReceiptFiles.map(readJson);
 const backendTrxFiles = backendSummary.partitions.map((partition) => path.join(root, partition.trx));
 const canonicalVitestId = (file, assertion) =>
@@ -93,9 +103,9 @@ const receipt = projectRightsV3Evidence({
         results: frontendResults
     },
     staticGovernance: { receipts: staticReceipts, digests: staticReceipts.map(digest) },
-    integration: { receipt: readJson('.tmp/test-results/backend/rights-v3-integration-producer.json') }
+    integration: { receipt: readJson(path.join(testResultsRoot, 'backend/rights-v3-integration-producer.json')) }
 });
-const output = path.join(root, '.tmp/release-evidence/rights-v3-test-matrix.json');
+const output = path.join(releaseEvidenceRoot, 'rights-v3-test-matrix.json');
 fs.mkdirSync(path.dirname(output), { recursive: true });
 fs.writeFileSync(`${output}.next-${process.pid}`, `${JSON.stringify(receipt, null, 2)}\n`);
 fs.renameSync(`${output}.next-${process.pid}`, output);

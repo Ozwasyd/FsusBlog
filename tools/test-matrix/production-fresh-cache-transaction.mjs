@@ -20,7 +20,12 @@ export const productionFreshCacheEntries = Object.freeze([
   Object.freeze({ logicalCacheId: 'emscripten', relativePath: 'emscripten-cache' }),
   Object.freeze({ logicalCacheId: 'dependencies', relativePath: 'dependency-cache' }),
   Object.freeze({ logicalCacheId: 'dotnet', relativePath: 'data-root/cache' }),
-  Object.freeze({ logicalCacheId: 'builds', relativePath: 'build' })
+  Object.freeze({ logicalCacheId: 'builds', relativePath: 'build' }),
+  Object.freeze({
+    logicalCacheId: 'terminal-test-runs',
+    relativePath: 'test-runs',
+    preservationMode: 'in-place'
+  })
 ])
 export const productionFreshCacheCrashBoundaries = Object.freeze([
   'after-prepared',
@@ -33,7 +38,7 @@ export const productionFreshCacheCrashBoundaries = Object.freeze([
 ])
 
 const terminalStates = new Set(['committed', 'aborted'])
-const entryStates = new Set(['registered', 'evacuated', 'restored'])
+const entryStates = new Set(['registered', 'protected', 'evacuated', 'restored'])
 const requiredOwnerFields = Object.freeze([
   'leaseId',
   'ownerToken',
@@ -306,6 +311,16 @@ function assertExactEntryPaths(entry, journal, layout) {
   if (!declaration) throw new Error(`unknown production fresh cache ID: ${entry.logicalCacheId}`)
   const expectedOriginal = path.join(journal.sourceRoot, declaration.relativePath)
   const expectedHolding = path.join(layout.holdingRoot, journal.transactionId, declaration.logicalCacheId)
+  if (declaration.preservationMode === 'in-place') {
+    if (
+      entry.originalPath !== expectedOriginal ||
+      entry.holdingPath !== null ||
+      !pathWithin(journal.sourceRoot, entry.originalPath)
+    ) {
+      throw new Error(`production fresh protected root path mismatch: ${entry.logicalCacheId}`)
+    }
+    return
+  }
   if (
     entry.originalPath !== expectedOriginal ||
     entry.holdingPath !== expectedHolding ||
@@ -366,6 +381,10 @@ function snapshotTree(root) {
   return {
     digest: digestValue(records.map(({ mode: _mode, uid: _uid, gid: _gid, ...record }) => record)),
     mode: Number(rootMetadata.mode & 0o7777n),
+    rootIdentity: {
+      device: String(rootMetadata.dev),
+      inode: String(rootMetadata.ino)
+    },
     owner: { uid: Number(rootMetadata.uid), gid: Number(rootMetadata.gid) },
     metadataDigest: digestValue(records.map(({ digest: _digest, size: _size, ...record }) => record))
   }
@@ -381,6 +400,10 @@ function verifyEntryAt(entry, location, label) {
   }
   if (actual.mode !== entry.mode || actual.metadataDigest !== entry.metadataDigest) {
     throw new Error(`${label} mode changed for ${entry.logicalCacheId}`)
+  }
+  if (actual.rootIdentity.device !== entry.rootIdentity.device
+    || actual.rootIdentity.inode !== entry.rootIdentity.inode) {
+    throw new Error(`${label} directory identity changed for ${entry.logicalCacheId}`)
   }
   if (actual.owner.uid !== entry.owner.uid || actual.owner.gid !== entry.owner.gid) {
     throw new Error(`${label} owner changed for ${entry.logicalCacheId}`)
@@ -432,6 +455,8 @@ function journalIsComplete(journal, layout) {
         !validDigest(entry.preDigest) ||
         !validDigest(entry.metadataDigest) ||
         !Number.isInteger(entry.mode) ||
+        !/^\d+$/u.test(entry.rootIdentity?.device) ||
+        !/^\d+$/u.test(entry.rootIdentity?.inode) ||
         !Number.isInteger(entry.owner?.uid) ||
         !Number.isInteger(entry.owner?.gid)
       ) {
@@ -511,6 +536,13 @@ function invokeCrashBoundary(context, boundary) {
 }
 
 function reconcileEntry(entry) {
+  const declaration = productionFreshCacheEntries.find(
+    (candidate) => candidate.logicalCacheId === entry.logicalCacheId
+  )
+  if (declaration?.preservationMode === 'in-place') {
+    verifyEntryAt(entry, entry.originalPath, 'protected entry')
+    return 'protected'
+  }
   const originalExists = fs.existsSync(entry.originalPath)
   const holdingExists = fs.existsSync(entry.holdingPath)
   if (originalExists && holdingExists) {
@@ -543,7 +575,7 @@ function restoreEntries(context, terminalState) {
       candidateIndex === index ? { ...candidate, state: 'restored' } : candidate
     ))
     updateJournal(context, { entries }, {
-      type: 'restore',
+      type: actualState === 'protected' ? 'verify-protected' : 'restore',
       logicalCacheId: entry.logicalCacheId,
       preDigest: entry.preDigest,
       postDigest: snapshotTree(entry.originalPath).digest
@@ -688,9 +720,12 @@ function registeredEntry(layout, transactionId, declaration) {
   return {
     logicalCacheId: declaration.logicalCacheId,
     originalPath,
-    holdingPath: path.join(layout.holdingRoot, transactionId, declaration.logicalCacheId),
+    holdingPath: declaration.preservationMode === 'in-place'
+      ? null
+      : path.join(layout.holdingRoot, transactionId, declaration.logicalCacheId),
     preDigest: snapshot.digest,
     mode: snapshot.mode,
+    rootIdentity: snapshot.rootIdentity,
     owner: snapshot.owner,
     metadataDigest: snapshot.metadataDigest,
     state: 'registered'
@@ -753,6 +788,21 @@ export function runProductionFreshCacheTransaction(root, {
     durableMkdir(path.join(layout.holdingRoot, transactionId))
     for (let index = 0; index < context.journal.entries.length; index += 1) {
       const entry = context.journal.entries[index]
+      const declaration = productionFreshCacheEntries.find(
+        (candidate) => candidate.logicalCacheId === entry.logicalCacheId
+      )
+      if (declaration?.preservationMode === 'in-place') {
+        verifyEntryAt(entry, entry.originalPath, 'protected entry')
+        const updatedEntries = context.journal.entries.map((candidate, candidateIndex) => (
+          candidateIndex === index ? { ...candidate, state: 'protected' } : candidate
+        ))
+        updateJournal(context, { entries: updatedEntries }, {
+          type: 'protect-in-place',
+          logicalCacheId: entry.logicalCacheId,
+          preDigest: entry.preDigest
+        })
+        continue
+      }
       if (fs.existsSync(entry.holdingPath)) {
         throw new Error(`holding path already exists for ${entry.logicalCacheId}`)
       }
@@ -772,10 +822,25 @@ export function runProductionFreshCacheTransaction(root, {
     }
     updateJournal(context, { state: 'evacuated' }, { type: 'state', state: 'evacuated' })
     invokeCrashBoundary(context, 'after-all-evacuated')
-    for (const entry of context.journal.entries) verifyEntryAt(entry, entry.holdingPath, 'holding entry')
-    removeFreshRoot(layout.sourceRoot)
-    if (fs.existsSync(layout.sourceRoot)) {
+    for (const entry of context.journal.entries) {
+      const declaration = productionFreshCacheEntries.find(
+        (candidate) => candidate.logicalCacheId === entry.logicalCacheId
+      )
+      verifyEntryAt(
+        entry,
+        declaration?.preservationMode === 'in-place' ? entry.originalPath : entry.holdingPath,
+        declaration?.preservationMode === 'in-place' ? 'protected entry' : 'holding entry')
+    }
+    const protectedPaths = context.journal.entries
+      .filter((entry) => productionFreshCacheEntries.find(
+        (candidate) => candidate.logicalCacheId === entry.logicalCacheId)?.preservationMode === 'in-place')
+      .map((entry) => entry.originalPath)
+    removeFreshRoot(layout.sourceRoot, { protectedPaths })
+    if (protectedPaths.length === 0 && fs.existsSync(layout.sourceRoot)) {
       throw new Error(`Fresh root remover left the source root present: ${layout.sourceRoot}`)
+    }
+    for (const entry of context.journal.entries.filter((candidate) => protectedPaths.includes(candidate.originalPath))) {
+      verifyEntryAt(entry, entry.originalPath, 'protected entry after Fresh cleanup')
     }
     fsyncDirectory(path.dirname(layout.sourceRoot))
     updateJournal(context, {

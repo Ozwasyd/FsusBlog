@@ -3,8 +3,12 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { root } from '../support/crossStackMatrix.mjs'
 
-const matrixFile = path.join(root, '.tmp/contracts/endpoint-depth-matrix.json')
-const outFile = path.join(root, '.tmp/release-evidence/endpoint-depth-summary.json')
+const matrixFile = path.join(
+  process.env.FSUSBLOG_CONTRACT_OUTPUT_ROOT ?? path.join(root, '.tmp/contracts'),
+  'endpoint-depth-matrix.json')
+const outFile = path.join(
+  process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR ?? path.join(root, '.tmp/release-evidence'),
+  'endpoint-depth-summary.json')
 
 if (!fs.existsSync(matrixFile)) {
   console.error('[endpoint-depth-runtime] missing generated endpoint depth matrix')

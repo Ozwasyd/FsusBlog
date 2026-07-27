@@ -78,8 +78,8 @@ test('frontend bundle gates Vitest on only explicit blocking checks and schedule
   assert.match(dagDeclaration, /commandStep\('frontend-static-final-ready',[\s\S]*?frontend-static-concurrent[\s\S]*?frontend-static-postbuild[\s\S]*?frontend-static-isolated[\s\S]*?runAfterSettled: true,[\s\S]*?coordinationOnly: true/u)
   assert.match(dagDeclaration, /staticStageStep\('final',[\s\S]*?dependsOn: \['frontend-static-final-ready'\]/u)
     assert.match(dagDeclaration, /commandStep\([\s\S]*?'frontend-render-structure',[\s\S]*?frontend-render-structure\.sh[\s\S]*?\['frontend-render-structure'\][\s\S]*?dependsOn: \['frontend-static-final'\]/u);
-    assert.match(dagDeclaration, /\.tmp\/frontend\/receipts\/dom-depth-static\.json[\s\S]*?frontend-render-structure-summary\.json/u);
-    assert.match(dagDeclaration, /\.tmp\/frontend\/receipts\/markdown-render-budget\.json/u);
+    assert.match(dagDeclaration, /FSUSBLOG_FRONTEND_OUTPUT_ROOT[\s\S]*?receipts\/dom-depth-static\.json[\s\S]*?frontend-render-structure-summary\.json/u);
+    assert.match(dagDeclaration, /FSUSBLOG_FRONTEND_OUTPUT_ROOT[\s\S]*?receipts\/markdown-render-budget\.json/u);
   assert.match(dagDeclaration, /commandStep\('vitest-settled',[\s\S]*?runAfterSettled: true/u)
   assert.match(dagDeclaration, /perfStep,[\s\S]*?commandStep\('static-governance-post-vitest'[\s\S]*?ensure test-asset-governance/u);
     assert.match(dagDeclaration, /commandStep\('frontend-tests-join',[\s\S]*?'vitest-production-projects'[\s\S]*?'frontend-static-concurrent'[\s\S]*?'frontend-static-postbuild'[\s\S]*?'frontend-static-isolated'[\s\S]*?'frontend-static-final'[\s\S]*?'frontend-render-structure'[\s\S]*?'frontend-coverage-summary'[\s\S]*?runAfterSettled: true/u);
@@ -354,7 +354,7 @@ test('concurrent privacy and static work cannot write Vitest reports, coverage, 
     'src/frontend/src/generated'
   ]
   assert.match(vitestSharedSource, /\.tmp\/test-results\/vitest\//u)
-  assert.match(vitestUnitSource, /reportsDirectory: 'coverage\/unit'/u)
+  assert.match(vitestUnitSource, /reportsDirectory: resolveVitestCoverageDirectory\('coverage\/unit'\)/u)
 
   const concurrentStatic = sourceSection(
     staticLaneSource,
@@ -377,7 +377,7 @@ test('concurrent privacy and static work cannot write Vitest reports, coverage, 
   assert.match(privacyPrebuild, /check-zk-artifact-ownership\.mjs/u)
   assert.doesNotMatch(privacyPrebuild, /\bvitest\b/u)
   assert.doesNotMatch(privacyPostbuild, /\bvitest\b/u)
-  assert.match(privacyLaneSource, /STAGE_DIR="\$ROOT_DIR\/\.tmp\/security\/privacy-zk-comment-matrix-stages"/u)
+  assert.match(privacyLaneSource, /SECURITY_OUTPUT_ROOT="\$\{FSUSBLOG_SECURITY_OUTPUT_ROOT:-\$ROOT_DIR\/\.tmp\/security\}"[\s\S]*?STAGE_DIR="\$SECURITY_OUTPUT_ROOT\/privacy-zk-comment-matrix-stages"/u)
 
   const concurrentSources = [
     staticLaneSource,

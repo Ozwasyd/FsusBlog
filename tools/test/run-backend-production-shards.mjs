@@ -33,6 +33,26 @@ import {
 } from '../coverage/backend-coverage-pipeline.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+const productionFreshOutputRoot = String(process.env.FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT ?? '').trim()
+
+function productionFreshOutputPath(partition, ...segments) {
+  if (productionFreshOutputRoot) return path.join(path.resolve(productionFreshOutputRoot), partition, ...segments)
+  return null
+}
+
+function productionTrxRoot() {
+  const configured = String(process.env.FSUSBLOG_BACKEND_TRX_DIR ?? '').trim()
+  return configured ? path.join(path.resolve(configured), 'production')
+    : productionFreshOutputPath('reports', 'trx', 'backend', 'production')
+    ?? path.join(root, '.tmp/test-results/backend/production')
+}
+
+function productionCoverageRoot() {
+  const configured = String(process.env.FSUSBLOG_COVERAGE_ROOT ?? '').trim()
+  return configured ? path.join(path.resolve(configured), 'backend', 'production')
+    : productionFreshOutputPath('coverage', 'backend', 'production')
+    ?? path.join(root, '.tmp/coverage/backend/production')
+}
 const project = 'tests/backend/FsusBlog.Server.Tests.csproj'
 const productionBuildLayout = process.env.FSUSBLOG_TEST_RUN_ID
   ? resolveProductionBuildLayout({ root })
@@ -2290,8 +2310,8 @@ async function runBackendProductionShardsCore({
   const schedulerPlannedProcessCount = initialSchedulerGrant
     ? Math.min(initialSchedulerGrant.cpuUnits, schedulerGlobalPotentialProcessCount)
     : null
-  const testResultsRoot = path.join(root, '.tmp/test-results/backend/production')
-  const coverageRoot = path.join(root, '.tmp/coverage/backend/production')
+  const testResultsRoot = productionTrxRoot()
+  const coverageRoot = productionCoverageRoot()
   const summaryFile = path.join(testResultsRoot, 'summary.json')
   fs.rmSync(testResultsRoot, { recursive: true, force: true })
   fs.rmSync(coverageRoot, { recursive: true, force: true })
@@ -2303,10 +2323,12 @@ async function runBackendProductionShardsCore({
   const mainCoverageRoot = path.join(coverageRoot, 'main')
   fs.mkdirSync(mainCoverageRoot, { recursive: true })
   for (const staleEvidence of [
-    '.tmp/security/perception-v2-e2e-runtime.json',
-    '.tmp/security/perception-v2-test-matrix.json',
-    '.tmp/release-evidence/perception-v2-release-evidence.json'
-  ]) fs.rmSync(path.join(root, staleEvidence), { force: true })
+    process.env.FSUSBLOG_PERCEPTION_RUNTIME_EVIDENCE_FILE ?? path.join(root, '.tmp/security/perception-v2-e2e-runtime.json'),
+    process.env.FSUSBLOG_PERCEPTION_MATRIX_SUMMARY_FILE ?? path.join(root, '.tmp/security/perception-v2-test-matrix.json'),
+    process.env.FSUSBLOG_PERCEPTION_RELEASE_EVIDENCE_FILE
+      ?? productionFreshOutputPath('release-evidence', 'perception-v2-release-evidence.json')
+      ?? path.join(root, '.tmp/release-evidence/perception-v2-release-evidence.json')
+  ]) fs.rmSync(path.resolve(staleEvidence), { force: true })
   const mainDatabaseNamespace = backendProductionDatabaseNamespace('main')
   const resourceHygiene = await reclaimBackendTestResources()
   const uninstallSignalCleanup = installBackendPostgresSignalCleanup(
@@ -2516,8 +2538,8 @@ async function runExpandableBackendProductionShards({
   })
   const initialProcessCount = Math.min(parallelism.maxConcurrentProcesses, initialGrant.cpuUnits)
   const potentialProcessCount = Math.max(initialProcessCount, globalPotential)
-  const testResultsRoot = path.join(root, '.tmp/test-results/backend/production')
-  const coverageRoot = path.join(root, '.tmp/coverage/backend/production')
+  const testResultsRoot = productionTrxRoot()
+  const coverageRoot = productionCoverageRoot()
   const summaryFile = path.join(testResultsRoot, 'summary.json')
   const discoveryRoot = path.join(testResultsRoot, 'discovery')
   fs.rmSync(testResultsRoot, { recursive: true, force: true })

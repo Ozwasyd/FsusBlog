@@ -9,7 +9,9 @@ const DEFAULT_CONFIGS = [
   'src/backend/appsettings.json',
   'src/backend/appsettings.Production.json'
 ]
-const DEFAULT_SUMMARY = '.tmp/security/privacy-zk-prod-smoke.json'
+const DEFAULT_SUMMARY = path.join(
+  process.env.FSUSBLOG_SECURITY_OUTPUT_ROOT ?? '.tmp/security',
+  'privacy-zk-prod-smoke.json')
 const DEFAULT_PROVER_MANIFEST = process.env.FSUSBLOG_FRONTEND_WASM_ROOT
   ? path.join(process.env.FSUSBLOG_FRONTEND_WASM_ROOT, 'comment-privacy-prover.manifest.json')
   : 'src/frontend/public/wasm/comment-privacy-prover.manifest.json'

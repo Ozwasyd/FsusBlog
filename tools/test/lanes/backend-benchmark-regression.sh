@@ -2,9 +2,9 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-OUT_DIR="$ROOT_DIR/BenchmarkDotNet.Artifacts/results"
-ARTIFACT_ROOT="$ROOT_DIR/BenchmarkDotNet.Artifacts"
-RELEASE_SUMMARY_DIR="$ROOT_DIR/.tmp/perf/release-summaries"
+ARTIFACT_ROOT="${FSUSBLOG_BENCHMARK_ARTIFACT_ROOT:-$ROOT_DIR/BenchmarkDotNet.Artifacts}"
+OUT_DIR="$ARTIFACT_ROOT/results"
+RELEASE_SUMMARY_DIR="${FSUSBLOG_PERFORMANCE_OUTPUT_ROOT:-$ROOT_DIR/.tmp/perf}/release-summaries"
 mkdir -p "$OUT_DIR" "$RELEASE_SUMMARY_DIR"
 
 "$ROOT_DIR/tools/test/ensure-benchmark-release-build.sh"

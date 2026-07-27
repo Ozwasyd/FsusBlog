@@ -5,7 +5,7 @@ import model from './vitest.model.config'
 import perf from './vitest.perf.config'
 import property from './vitest.property.config'
 import unit from './vitest.config'
-import { createVitestRuntimeOptions } from './vitest.shared.mjs'
+import { createVitestRuntimeOptions, resolveVitestCoverageDirectory } from './vitest.shared.mjs'
 
 const unitCoverage = (unit as Record<string, any>).test.coverage
 const rollingHost = process.env.FSUSBLOG_VITEST_ROLLING_HOST === '1'
@@ -35,7 +35,7 @@ const productionCoverage = perfTransformCacheConsumer
       provider: 'custom' as const,
       enabled: true,
       customProviderModule: fileURLToPath(new URL('./vitest.transform-cache-coverage.mjs', import.meta.url)),
-      reportsDirectory: '.tmp/perf-transform-cache-no-coverage',
+      reportsDirectory: resolveVitestCoverageDirectory('coverage/perf-transform-cache-no-coverage'),
       reporter: [],
       clean: false,
       cleanOnRerun: false,

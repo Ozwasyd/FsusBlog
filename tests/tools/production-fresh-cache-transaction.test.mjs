@@ -7,6 +7,12 @@ import test from 'node:test'
 
 import { cleanLocalProductionOutputs } from '../../tools/test-matrix/fresh-production.mjs'
 import {
+  createProductionFreshOutputRoot,
+  outputPath,
+  sealTerminalProductionFreshOutputs,
+  verifyTerminalProductionFreshOutputs
+} from '../../tools/test-matrix/production-fresh-run-bound-outputs.mjs'
+import {
   productionFreshCacheEntries,
   productionFreshCacheTransactionSchema,
   runProductionFreshCacheTransaction
@@ -45,8 +51,17 @@ function writeCache(root, relativePath, content = relativePath) {
   return file
 }
 
-function removeFreshRoot(sourceRoot) {
-  fs.rmSync(sourceRoot, { recursive: true, force: true })
+function removeFreshRoot(sourceRoot, { protectedPaths = [] } = {}) {
+  const protectedSet = new Set(protectedPaths.map((candidate) => path.resolve(candidate)))
+  if (protectedSet.size === 0) {
+    fs.rmSync(sourceRoot, { recursive: true, force: true })
+    return
+  }
+  for (const name of fs.readdirSync(sourceRoot)) {
+    const candidate = path.join(sourceRoot, name)
+    if (protectedSet.has(path.resolve(candidate))) continue
+    fs.rmSync(candidate, { recursive: true, force: true })
+  }
 }
 
 test('cache transaction journals outside .tmp and durably restores only the fixed cache allowlist', (t) => {
@@ -120,6 +135,52 @@ test('local cleanup never registers correctness outputs as preserved cache entri
   assert.deepEqual(cleanup.preservedRoots, ['.tmp/dependency-cache'])
   for (const relativePath of correctnessFiles) {
     assert.equal(fs.existsSync(path.join(root, relativePath)), false, relativePath)
+  }
+})
+
+test('a later Fresh cleanup preserves and verifies earlier terminal run outputs', (t) => {
+  const root = fixtureRoot(t)
+  const earlier = createProductionFreshOutputRoot({ root, runId: 'run-a' })
+  const resultFile = outputPath(earlier, 'summary/result.json')
+  fs.writeFileSync(resultFile, 'run-a')
+  sealTerminalProductionFreshOutputs(earlier)
+  const terminalIdentityBefore = fs.lstatSync(earlier.runOutputRoot, { bigint: true })
+
+  const cleanup = cleanLocalProductionOutputs(root, {
+    runId: 'run-b',
+    ownerIdentity: ownerIdentity(root, 'run-b')
+  })
+
+  assert.equal(fs.readFileSync(resultFile, 'utf8'), 'run-a')
+  assert.equal(verifyTerminalProductionFreshOutputs(earlier).attempts.length, 1)
+  const terminalIdentityAfter = fs.lstatSync(earlier.runOutputRoot, { bigint: true })
+  assert.deepEqual(
+    {
+      dev: terminalIdentityAfter.dev,
+      ino: terminalIdentityAfter.ino,
+      mode: terminalIdentityAfter.mode,
+      mtimeNs: terminalIdentityAfter.mtimeNs,
+      ctimeNs: terminalIdentityAfter.ctimeNs
+    },
+    {
+      dev: terminalIdentityBefore.dev,
+      ino: terminalIdentityBefore.ino,
+      mode: terminalIdentityBefore.mode,
+      mtimeNs: terminalIdentityBefore.mtimeNs,
+      ctimeNs: terminalIdentityBefore.ctimeNs
+    })
+  assert.ok(cleanup.preservedRoots.includes('.tmp/test-runs'))
+  for (const directory of [
+    ...productionFreshCacheEntries.map(({ relativePath }) => path.join(root, '.tmp', relativePath)),
+    earlier.outputRoot
+  ]) {
+    if (!fs.existsSync(directory)) continue
+    for (const entry of fs.readdirSync(directory, { recursive: true }).reverse()) {
+      const candidate = path.join(directory, entry)
+      if (fs.existsSync(candidate) && fs.lstatSync(candidate).isDirectory()) fs.chmodSync(candidate, 0o755)
+      else if (fs.existsSync(candidate)) fs.chmodSync(candidate, 0o644)
+    }
+    fs.chmodSync(directory, 0o755)
   }
 })
 

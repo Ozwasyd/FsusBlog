@@ -11,8 +11,11 @@ const {
     sha256File
 } = await import(pathToFileURL(path.join(root, 'tools/test-matrix/rights-v3-projection.mjs')).href);
 
-const trx = path.join(root, '.tmp/test-results/backend/integration.trx');
-const output = path.join(root, '.tmp/test-results/backend/rights-v3-integration-producer.json');
+const backendTrxRoot = path.resolve(
+    process.env.FSUSBLOG_BACKEND_TRX_DIR ?? path.join(root, '.tmp/test-results/backend')
+);
+const trx = path.join(backendTrxRoot, 'integration.trx');
+const output = path.join(backendTrxRoot, 'rights-v3-integration-producer.json');
 const receipt = createRightsV3IntegrationProducer({
     sourceState: {
         commit: process.env.FSUSBLOG_TEST_SOURCE_COMMIT,

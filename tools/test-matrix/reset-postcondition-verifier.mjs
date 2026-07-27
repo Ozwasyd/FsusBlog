@@ -34,12 +34,12 @@ function normalizeRunIdentity(identity) {
 }
 
 export function resetPostconditionReceiptFile(root, { runId, producer, assertionId }) {
+  const outputRoot = String(process.env.FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT ?? '').trim()
+  const receiptRoot = outputRoot
+    ? path.join(path.resolve(outputRoot), 'runtime', 'runtime-state-reset')
+    : path.join(path.resolve(root), '.tmp', 'test-runs', safeSegment(runId, 'run id'), 'runtime-state-reset')
   return path.join(
-    path.resolve(root),
-    '.tmp',
-    'test-runs',
-    safeSegment(runId, 'run id'),
-    'runtime-state-reset',
+    receiptRoot,
     safeSegment(producer, 'producer'),
     `${safeSegment(assertionId, 'assertion id')}.json`
   )
@@ -64,7 +64,22 @@ function exactKeys(value, expected) {
 }
 
 function producerLogFile(root, identity, producerStepId) {
-  return path.join(root, `.tmp/local-${identity.profileId}/runtime-browser/steps/${producerStepId}.log`)
+  const outputRoot = String(process.env.FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT ?? '').trim()
+  return outputRoot
+    ? path.join(path.resolve(outputRoot), 'bundles', 'runtime-browser', 'steps', `${producerStepId}.log`)
+    : path.join(root, `.tmp/local-${identity.profileId}/runtime-browser/steps/${producerStepId}.log`)
+}
+
+function runtimeEnvironmentFile(root, namespace) {
+  const environmentRoot = path.resolve(
+    process.env.FSUSBLOG_ACCEPTANCE_ENV_ROOT ?? path.join(root, '.tmp/env'))
+  return path.join(environmentRoot, `${namespace}.env`)
+}
+
+function runtimeFixtureManifest(root, namespace) {
+  const fixtureRoot = path.resolve(
+    process.env.FSUSBLOG_ACCEPTANCE_FIXTURE_ROOT ?? path.join(root, '.tmp/fixtures'))
+  return path.join(fixtureRoot, namespace, 'manifest.json')
 }
 
 function requireFileObservation(root, file, label, expectedFile) {
@@ -115,14 +130,14 @@ function observePostcondition({ root, assertionId, runIdentity, producerStep, re
   if (assertionId === 'bootstrap-runtime-ready') {
     if (producerStep.id !== 'bootstrap') throw new Error('bootstrap reset assertion has the wrong producer')
     const namespace = runIdentity.namespace
-    const environmentFile = path.join(root, '.tmp', 'env', `${namespace}.env`)
+    const environmentFile = runtimeEnvironmentFile(root, namespace)
     const environment = parseEnvironment(fs.readFileSync(environmentFile, 'utf8'))
     if (environment.FSUSBLOG_TEST_RUN_ID !== runIdentity.runId
       || environment.FSUSBLOG_TEST_NAMESPACE !== namespace) {
       throw new Error('bootstrap runtime environment is not bound to the current run')
     }
     observations.push(requireFileObservation(root, environmentFile, 'runtime-environment', environmentFile))
-    const fixtureManifest = path.join(root, '.tmp', 'fixtures', namespace, 'manifest.json')
+    const fixtureManifest = runtimeFixtureManifest(root, namespace)
     observations.push(requireFileObservation(root, fixtureManifest, 'fixture-manifest', fixtureManifest))
   } else if (assertionId === 'release-public-hydration-ready') {
     if (producerStep.id !== 'release-public-hydration') throw new Error('release hydration assertion has the wrong producer')
@@ -199,8 +214,12 @@ function expectedFileObservations(root, assertionId, identity, producerStep) {
   if (assertionId === 'bootstrap-runtime-ready') {
     return [
       ['producer-log', producerLog],
-      ['runtime-environment', `.tmp/env/${identity.namespace}.env`],
-      ['fixture-manifest', `.tmp/fixtures/${identity.namespace}/manifest.json`]
+      ['runtime-environment', path.relative(
+        root,
+        runtimeEnvironmentFile(root, identity.namespace)).replaceAll(path.sep, '/')],
+      ['fixture-manifest', path.relative(
+        root,
+        runtimeFixtureManifest(root, identity.namespace)).replaceAll(path.sep, '/')]
     ]
   }
   if (assertionId === 'release-public-hydration-ready') {
@@ -235,7 +254,8 @@ function validateObservationContract({ root, receipt, identity, producerStep, co
     }
   })
   if (assertionId === 'bootstrap-runtime-ready') {
-    const environment = parseEnvironment(fs.readFileSync(path.join(root, `.tmp/env/${identity.namespace}.env`), 'utf8'))
+    const environmentPath = expectedFiles.find(([label]) => label === 'runtime-environment')?.[1]
+    const environment = parseEnvironment(fs.readFileSync(path.resolve(root, environmentPath), 'utf8'))
     if (environment.FSUSBLOG_TEST_RUN_ID !== identity.runId
       || environment.FSUSBLOG_TEST_NAMESPACE !== identity.namespace) {
       throw new Error('bootstrap runtime environment is not bound to the current run')

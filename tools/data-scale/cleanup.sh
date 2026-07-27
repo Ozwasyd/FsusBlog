@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TIER="${1:-scale-xs}"
-OUT_DIR="$ROOT_DIR/.tmp/scale/$TIER"
+OUT_DIR="${FSUSBLOG_DATA_SCALE_ROOT:-$ROOT_DIR/.tmp/scale}/$TIER"
 mkdir -p "$OUT_DIR"
 
 namespace="${FSUSBLOG_TEST_NAMESPACE:-local}"
