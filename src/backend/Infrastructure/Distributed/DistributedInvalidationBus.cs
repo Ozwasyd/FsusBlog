@@ -160,6 +160,7 @@ public sealed class DistributedInvalidationBus(
             runtimeState.RecordSelfIgnored(invalidation);
             return;
         }
+        runtimeState.RecordReceived(invalidation);
         if (!_deduplicator.TryBegin(invalidation.ReplayIdentity))
         {
             runtimeState.RecordDuplicate(invalidation);
@@ -170,7 +171,29 @@ public sealed class DistributedInvalidationBus(
         {
             try
             {
-                await localApplier.ApplyAsync(invalidation, cancellationToken).ConfigureAwait(false);
+                DistributedInvalidationLocalApplyResult? result = await localApplier
+                    .ApplyAsync(invalidation, cancellationToken)
+                    .ConfigureAwait(false);
+                if (result is null)
+                {
+                    throw new InvalidOperationException("distributed_invalidation_local_apply_result_not_applied");
+                }
+                if (result.HasCompletedLocalInvalidation)
+                {
+                    runtimeState.RecordLocalInvalidated(invalidation, result);
+                }
+                if (result.HasRebuildObligation)
+                {
+                    runtimeState.RecordRebuildObligated(invalidation, result);
+                }
+                if (result.LocalApplyStatus == DistributedInvalidationLocalApplyStatus.FailedTerminal)
+                {
+                    throw new DistributedInvalidationLocalApplyTerminalException();
+                }
+                if (!result.IsApplied)
+                {
+                    throw new InvalidOperationException("distributed_invalidation_local_apply_result_not_applied");
+                }
                 runtimeState.RecordApplied(invalidation);
                 logger.LogInformation(
                     "distributed-invalidation-applied {EventId} {Kind} {SourceNodeId} {TraceId}",
@@ -184,6 +207,20 @@ public sealed class DistributedInvalidationBus(
             {
                 _deduplicator.Abandon(invalidation.ReplayIdentity);
                 throw;
+            }
+            catch (DistributedInvalidationLocalApplyTerminalException ex)
+            {
+                _deduplicator.Abandon(invalidation.ReplayIdentity);
+                string detail = $"apply:{ex.GetType().Name};event:{invalidation.EventId};trace:{invalidation.TraceId}";
+                runtimeState.RecordDegraded(invalidation, detail);
+                cacheRuntimeState.Record("distributed_degraded", detail);
+                logger.LogWarning(
+                    "distributed-invalidation-apply-terminal {EventId} {Kind} {SourceNodeId} {TraceId}",
+                    invalidation.EventId,
+                    invalidation.Kind,
+                    invalidation.SourceNodeId,
+                    invalidation.TraceId);
+                return;
             }
             catch (Exception ex) when (attempt < options.ApplyRetryCount)
             {
@@ -212,5 +249,9 @@ public sealed class DistributedInvalidationBus(
                 return;
             }
         }
+    }
+
+    private sealed class DistributedInvalidationLocalApplyTerminalException : Exception
+    {
     }
 }

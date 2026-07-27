@@ -91,6 +91,85 @@ public sealed class DistributedInvalidationBusTests
     }
 
     [Fact]
+    public async Task RejectedRebuildWithoutDurableMarker_DoesNotRecordAppliedAndCanReplay()
+    {
+        var applier = new ResultLocalApplier(DegradedRetryableResult());
+        using DistributedInvalidationBus bus = CreateBus("node-b", new CapturingTransport(), applier, applyRetryCount: 1);
+        DistributedInvalidationEvent invalidation = CreateEvent("node-a", "rejected-without-marker");
+        string payload = JsonSerializer.Serialize(invalidation);
+
+        await bus.HandlePayloadAsync(payload, CancellationToken.None);
+        await bus.HandlePayloadAsync(payload, CancellationToken.None);
+
+        DistributedInvalidationRuntimeSnapshot snapshot = bus.RuntimeSnapshotForTests();
+        Assert.Equal(2, applier.ApplyAttempts);
+        Assert.Equal(0, snapshot.AppliedCount);
+        Assert.Equal(0, snapshot.DuplicateCount);
+        Assert.Equal(2, snapshot.DegradedCount);
+    }
+
+    [Fact]
+    public async Task DurableRebuildMarker_RecordsAppliedWithObligationIdentity()
+    {
+        var applier = new ResultLocalApplier(DurableAppliedResult());
+        using DistributedInvalidationBus bus = CreateBus("node-b", new CapturingTransport(), applier);
+        DistributedInvalidationEvent invalidation = CreateEvent("node-a", "durable-marker");
+
+        await bus.HandlePayloadAsync(JsonSerializer.Serialize(invalidation), CancellationToken.None);
+
+        DistributedInvalidationRuntimeSnapshot snapshot = bus.RuntimeSnapshotForTests();
+        Assert.Equal(1, snapshot.ReceivedCount);
+        Assert.Equal(1, snapshot.LocalInvalidatedCount);
+        Assert.Equal(1, snapshot.RebuildObligatedCount);
+        Assert.Equal(1, snapshot.AppliedCount);
+        Assert.Equal(DistributedInvalidationRebuildObligationStatus.Durable, snapshot.LastRebuildObligationStatus);
+        Assert.Equal("obligation-42", snapshot.LastRebuildObligationId);
+        Assert.Equal(42, snapshot.LastRebuildGeneration);
+    }
+
+    [Theory]
+    [MemberData(nameof(NonAppliedResults))]
+    public async Task IncompleteOrUnknownLocalApplyResult_FailsClosedAndReleasesDedupe(
+        DistributedInvalidationLocalApplyResult? result)
+    {
+        var applier = new ResultLocalApplier(result);
+        using DistributedInvalidationBus bus = CreateBus("node-b", new CapturingTransport(), applier, applyRetryCount: 1);
+        DistributedInvalidationEvent invalidation = CreateEvent("node-a", Guid.NewGuid().ToString("N"));
+        string payload = JsonSerializer.Serialize(invalidation);
+
+        await bus.HandlePayloadAsync(payload, CancellationToken.None);
+        await bus.HandlePayloadAsync(payload, CancellationToken.None);
+
+        Assert.Equal(2, applier.ApplyAttempts);
+        Assert.Equal(0, bus.RuntimeSnapshotForTests().AppliedCount);
+    }
+
+    public static IEnumerable<object?[]> NonAppliedResults()
+    {
+        yield return [null];
+        yield return [new DistributedInvalidationLocalApplyResult(
+            true, false, true, true,
+            DistributedInvalidationRebuildObligationStatus.Durable,
+            DistributedInvalidationLocalApplyStatus.Applied,
+            "obligation-42", 42)];
+        yield return [new DistributedInvalidationLocalApplyResult(
+            true, true, true, false,
+            DistributedInvalidationRebuildObligationStatus.Durable,
+            DistributedInvalidationLocalApplyStatus.Applied,
+            "obligation-42", 42)];
+        yield return [new DistributedInvalidationLocalApplyResult(
+            true, true, true, true,
+            DistributedInvalidationRebuildObligationStatus.Failed,
+            DistributedInvalidationLocalApplyStatus.FailedTerminal,
+            null, null)];
+        yield return [new DistributedInvalidationLocalApplyResult(
+            true, true, true, true,
+            (DistributedInvalidationRebuildObligationStatus)99,
+            DistributedInvalidationLocalApplyStatus.Applied,
+            "obligation-42", 42)];
+    }
+
+    [Fact]
     public async Task RedisPublicationFailure_IsObservableAndDoesNotThrow()
     {
         using DistributedInvalidationBus bus = CreateBus(
@@ -269,11 +348,30 @@ public sealed class DistributedInvalidationBusTests
                 return Task.CompletedTask;
             });
         var publisher = new OrderingPublisher(() => localInvalidationComplete);
+        var obligations = Substitute.For<IDistributedInvalidationObligationStore>();
+        obligations.UpsertAsync(
+                Arg.Any<DistributedInvalidationPublishResult>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new DistributedInvalidationConvergenceObligation(
+                "test-obligation",
+                "test-event",
+                DistributedInvalidationEventKinds.ArticleMutation,
+                "node-a",
+                "test",
+                "test-mutation",
+                "test-topology",
+                DistributedInvalidationPublishStatus.Degraded,
+                DistributedInvalidationTransportStatus.UnderDelivered,
+                DateTimeOffset.UtcNow,
+                DistributedInvalidationConvergenceState.PendingRedelivery,
+                0,
+                null)));
         var dispatcher = new CacheInvalidationDispatcher(
             cache,
             cache,
             httpInvalidator,
-            distributedInvalidationPublisher: publisher);
+            distributedInvalidationPublisher: publisher,
+            distributedInvalidationObligations: obligations);
 
         await dispatcher.InvalidateArticleMutationAsync(42);
 
@@ -302,10 +400,11 @@ public sealed class DistributedInvalidationBusTests
             publicArtifactStorage: Substitute.For<IPublicArtifactStorage>());
         var tracker = new PublicAotInvalidationTracker();
         var hotRead = new PublicHotReadStore();
+        var deliveryState = new InMemoryPublicHotArtifactDeliveryStateStore();
         var queue = new PublicHotArtifactUpdateQueue(Options.Create(new PublicHotReadOptions
         {
-            UpdateQueueCapacity = 4
-        }), new InMemoryPublicHotArtifactDeliveryStateStore());
+            UpdateQueueCapacity = 1
+        }), deliveryState, deliveryState);
         var cacheRuntime = new CacheInvalidationRuntimeState();
         var applier = new DistributedInvalidationLocalApplier(
             localCache,
@@ -318,7 +417,11 @@ public sealed class DistributedInvalidationBusTests
             cacheRuntime,
             NullLogger<DistributedInvalidationLocalApplier>.Instance);
 
-        await applier.ApplyAsync(CreateEvent("node-a", "real-local-state"));
+        await queue.EnqueueAsync(
+            PublicHotArtifactDeliveryClass.FullRebuildMarker,
+            null,
+            "pre-fill-durable-marker");
+        DistributedInvalidationLocalApplyResult? result = await applier.ApplyAsync(CreateEvent("node-a", "real-local-state"));
 
         Assert.Equal(1, localCache.DistributedInvalidationGenerationForTests);
         Assert.Equal(1, publicAotCache.DistributedMemoryInvalidationGenerationForTests);
@@ -326,6 +429,11 @@ public sealed class DistributedInvalidationBusTests
         Assert.Equal(1, tracker.Snapshot().CurrentVersion);
         Assert.False(hotRead.IsReady);
         Assert.Equal(1, queue.QueuedCount);
+        Assert.NotNull(result);
+        Assert.True(result.IsApplied);
+        Assert.Equal(DistributedInvalidationRebuildObligationStatus.Durable, result.RebuildObligationStatus);
+        Assert.False(string.IsNullOrWhiteSpace(result.RebuildObligationId));
+        Assert.True(result.RebuildGeneration > 0);
         Assert.Equal("distributed:article_mutation", cacheRuntime.Snapshot().LastKind);
         Assert.Contains("source:node-a", cacheRuntime.Snapshot().LastDetail, StringComparison.Ordinal);
     }
@@ -333,7 +441,7 @@ public sealed class DistributedInvalidationBusTests
     private static DistributedInvalidationBus CreateBus(
         string nodeId,
         IDistributedInvalidationTransport transport,
-        RecordingLocalApplier applier,
+        IDistributedInvalidationLocalApplier applier,
         int applyRetryCount = 2)
     {
         var options = new DistributedInvalidationOptions
@@ -422,7 +530,7 @@ public sealed class DistributedInvalidationBusTests
             get; private set;
         }
 
-        public Task ApplyAsync(
+        public Task<DistributedInvalidationLocalApplyResult?> ApplyAsync(
             DistributedInvalidationEvent invalidation,
             CancellationToken cancellationToken = default)
         {
@@ -437,9 +545,44 @@ public sealed class DistributedInvalidationBusTests
             PublicAotGeneration++;
             PublicHotReadGeneration++;
             _applied?.TrySetResult(invalidation);
-            return Task.CompletedTask;
+            return Task.FromResult<DistributedInvalidationLocalApplyResult?>(QueuedAppliedResult());
         }
     }
+
+    private sealed class ResultLocalApplier(DistributedInvalidationLocalApplyResult? result)
+        : IDistributedInvalidationLocalApplier
+    {
+        public int ApplyAttempts
+        {
+            get; private set;
+        }
+
+        public Task<DistributedInvalidationLocalApplyResult?> ApplyAsync(
+            DistributedInvalidationEvent invalidation,
+            CancellationToken cancellationToken = default)
+        {
+            ApplyAttempts++;
+            return Task.FromResult(result);
+        }
+    }
+
+    private static DistributedInvalidationLocalApplyResult QueuedAppliedResult()
+        => new(true, true, true, true,
+            DistributedInvalidationRebuildObligationStatus.Queued,
+            DistributedInvalidationLocalApplyStatus.Applied,
+            null, 1);
+
+    private static DistributedInvalidationLocalApplyResult DurableAppliedResult()
+        => new(true, true, true, true,
+            DistributedInvalidationRebuildObligationStatus.Durable,
+            DistributedInvalidationLocalApplyStatus.Applied,
+            "obligation-42", 42);
+
+    private static DistributedInvalidationLocalApplyResult DegradedRetryableResult()
+        => new(true, true, true, true,
+            DistributedInvalidationRebuildObligationStatus.Rejected,
+            DistributedInvalidationLocalApplyStatus.DegradedRetryable,
+            null, null);
 
     private sealed class InMemoryTransportHub
     {

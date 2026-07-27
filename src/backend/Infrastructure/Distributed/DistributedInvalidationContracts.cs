@@ -199,7 +199,57 @@ public sealed record DistributedInvalidationTransportPublishResult(
 
 public interface IDistributedInvalidationLocalApplier
 {
-    Task ApplyAsync(DistributedInvalidationEvent invalidation, CancellationToken cancellationToken = default);
+    Task<DistributedInvalidationLocalApplyResult?> ApplyAsync(
+        DistributedInvalidationEvent invalidation,
+        CancellationToken cancellationToken = default);
+}
+
+public enum DistributedInvalidationRebuildObligationStatus
+{
+    Durable = 0,
+    Queued = 1,
+    Rejected = 2,
+    Failed = 3
+}
+
+public enum DistributedInvalidationLocalApplyStatus
+{
+    Applied = 0,
+    DegradedRetryable = 1,
+    FailedTerminal = 2
+}
+
+public sealed record DistributedInvalidationLocalApplyResult(
+    bool MemoryInvalidated,
+    bool AotMemoryInvalidated,
+    bool AotGenerationMarked,
+    bool HotSnapshotRetired,
+    DistributedInvalidationRebuildObligationStatus RebuildObligationStatus,
+    DistributedInvalidationLocalApplyStatus LocalApplyStatus,
+    string? RebuildObligationId,
+    long? RebuildGeneration)
+{
+    public bool IsApplied
+        => MemoryInvalidated
+            && AotMemoryInvalidated
+            && AotGenerationMarked
+            && HotSnapshotRetired
+            && (RebuildObligationStatus is DistributedInvalidationRebuildObligationStatus.Durable
+                or DistributedInvalidationRebuildObligationStatus.Queued)
+            && LocalApplyStatus == DistributedInvalidationLocalApplyStatus.Applied
+            && RebuildGeneration is > 0
+            && (RebuildObligationStatus != DistributedInvalidationRebuildObligationStatus.Durable
+                || !string.IsNullOrWhiteSpace(RebuildObligationId));
+
+    public bool HasCompletedLocalInvalidation
+        => MemoryInvalidated && AotMemoryInvalidated && AotGenerationMarked && HotSnapshotRetired;
+
+    public bool HasRebuildObligation
+        => (RebuildObligationStatus is DistributedInvalidationRebuildObligationStatus.Durable
+            or DistributedInvalidationRebuildObligationStatus.Queued)
+            && RebuildGeneration is > 0
+            && (RebuildObligationStatus != DistributedInvalidationRebuildObligationStatus.Durable
+                || !string.IsNullOrWhiteSpace(RebuildObligationId));
 }
 
 public sealed class DistributedInvalidationOptions
@@ -296,6 +346,9 @@ public sealed class DistributedInvalidationEventFactory(
 
 public sealed record DistributedInvalidationRuntimeSnapshot(
     long PublishedCount,
+    long ReceivedCount,
+    long LocalInvalidatedCount,
+    long RebuildObligatedCount,
     long AppliedCount,
     long DuplicateCount,
     long SelfIgnoredCount,
@@ -310,7 +363,11 @@ public sealed record DistributedInvalidationRuntimeSnapshot(
     string? LastChannel,
     long? LastSubscriberCount,
     int? LastExpectedMinimumSubscribers,
-    string? LastTopologyDigest);
+    string? LastTopologyDigest,
+    DistributedInvalidationLocalApplyStatus? LastLocalApplyStatus,
+    DistributedInvalidationRebuildObligationStatus? LastRebuildObligationStatus,
+    string? LastRebuildObligationId,
+    long? LastRebuildGeneration);
 
 public sealed class DistributedInvalidationRuntimeState(TimeProvider timeProvider)
 {
@@ -321,6 +378,13 @@ public sealed class DistributedInvalidationRuntimeState(TimeProvider timeProvide
         0,
         0,
         0,
+        0,
+        0,
+        0,
+        null,
+        null,
+        null,
+        null,
         null,
         null,
         null,
@@ -349,6 +413,19 @@ public sealed class DistributedInvalidationRuntimeState(TimeProvider timeProvide
     public void RecordApplied(DistributedInvalidationEvent invalidation)
         => Update("applied", invalidation, applied: 1);
 
+    public void RecordReceived(DistributedInvalidationEvent invalidation)
+        => Update("received", invalidation, received: 1);
+
+    public void RecordLocalInvalidated(
+        DistributedInvalidationEvent invalidation,
+        DistributedInvalidationLocalApplyResult result)
+        => Update("local-invalidated", invalidation, localInvalidated: 1, result: result);
+
+    public void RecordRebuildObligated(
+        DistributedInvalidationEvent invalidation,
+        DistributedInvalidationLocalApplyResult result)
+        => Update("rebuild-obligated", invalidation, rebuildObligated: 1, result: result);
+
     public void RecordDuplicate(DistributedInvalidationEvent invalidation)
         => Update("duplicate", invalidation, duplicate: 1);
 
@@ -365,18 +442,25 @@ public sealed class DistributedInvalidationRuntimeState(TimeProvider timeProvide
         string status,
         DistributedInvalidationEvent? invalidation,
         long published = 0,
+        long received = 0,
+        long localInvalidated = 0,
+        long rebuildObligated = 0,
         long applied = 0,
         long duplicate = 0,
         long selfIgnored = 0,
         long degraded = 0,
         string? detail = null,
-        DistributedInvalidationTransportPublishResult? receipt = null)
+        DistributedInvalidationTransportPublishResult? receipt = null,
+        DistributedInvalidationLocalApplyResult? result = null)
     {
         lock (_gate)
         {
             _snapshot = _snapshot with
             {
                 PublishedCount = _snapshot.PublishedCount + published,
+                ReceivedCount = _snapshot.ReceivedCount + received,
+                LocalInvalidatedCount = _snapshot.LocalInvalidatedCount + localInvalidated,
+                RebuildObligatedCount = _snapshot.RebuildObligatedCount + rebuildObligated,
                 AppliedCount = _snapshot.AppliedCount + applied,
                 DuplicateCount = _snapshot.DuplicateCount + duplicate,
                 SelfIgnoredCount = _snapshot.SelfIgnoredCount + selfIgnored,
@@ -391,7 +475,11 @@ public sealed class DistributedInvalidationRuntimeState(TimeProvider timeProvide
                 LastChannel = receipt?.Channel,
                 LastSubscriberCount = receipt?.SubscriberCount,
                 LastExpectedMinimumSubscribers = receipt?.ExpectedMinimumSubscribers,
-                LastTopologyDigest = receipt?.TopologyDigest
+                LastTopologyDigest = receipt?.TopologyDigest,
+                LastLocalApplyStatus = result?.LocalApplyStatus ?? _snapshot.LastLocalApplyStatus,
+                LastRebuildObligationStatus = result?.RebuildObligationStatus ?? _snapshot.LastRebuildObligationStatus,
+                LastRebuildObligationId = result?.RebuildObligationId ?? _snapshot.LastRebuildObligationId,
+                LastRebuildGeneration = result?.RebuildGeneration ?? _snapshot.LastRebuildGeneration
             };
         }
     }

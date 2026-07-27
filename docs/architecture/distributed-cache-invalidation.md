@@ -29,7 +29,7 @@
 
 ## Replay, retry, and loop prevention
 
-总线以 `runtimeScope:eventId` 作为 replay identity。来源节点忽略自己的消息；接收侧直接调用 local applier，不再次进入 dispatcher 或 publish 路径，因此不会产生发布回环。重复事件只 apply 一次。
+总线以 `runtimeScope:eventId` 作为 replay identity。来源节点忽略自己的消息；接收侧直接调用 local applier，不再次进入 dispatcher 或 publish 路径，因此不会产生发布回环。重复事件只在完整 local apply 已记录 `Applied` 后才保留 replay identity。local applier 返回结构化结果，明确记录 memory invalidation、AOT memory invalidation、AOT generation mark、HotRead snapshot retirement、rebuild obligation（`durable`、`queued`、`rejected` 或 `failed`）和 local apply terminal status。只有前四个阶段全部成功且 rebuild obligation 为 `durable`（携带 obligation ID 与 generation）或 `queued` 时，总线才记录 `Applied`；`rejected` 是可重试降级，`failed` 或 unknown/null/incomplete result fail closed，都会释放 identity 以便同一事件重放。runtime snapshot 分别计数 `received`、`local-invalidated`、`rebuild-obligated` 和 `applied`，不以日志 detail 代替这些阶段字段。
 
 局部 apply 失败按 `ApplyRetryCount` 重试。最终失败会释放 replay identity，使同一事件后续重投仍能重新收敛；成功或已处理事件保持幂等。日志与 runtime state 对 publish、receive、duplicate、self-ignore、retry 和 degraded 使用同一 `eventId`、`kind`、`sourceNodeId`、`traceId` 关联。
 

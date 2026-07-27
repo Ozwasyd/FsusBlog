@@ -43,7 +43,8 @@ public readonly record struct PublicHotArtifactEnqueueResult(
     PublicHotArtifactDeliveryStatus Status,
     string Reason,
     PublicHotArtifactDirtyReason DirtyReason,
-    long DeliveryGeneration = 0);
+    long DeliveryGeneration = 0,
+    string? ObligationId = null);
 
 public static class PublicHotArtifactDeliveryReceipt
 {
@@ -108,6 +109,7 @@ public sealed class PublicHotArtifactUpdateQueue
         }
 
         long generation;
+        string? obligationId = null;
         try
         {
             // The obligation is written before the channel wake-up. Production never
@@ -118,6 +120,7 @@ public sealed class PublicHotArtifactUpdateQueue
                     new PublicHotArtifactUpdate(articleId, normalized, dirtyReason, expectedReleaseId, 0, deliveryClass),
                     cancellationToken).ConfigureAwait(false);
                 generation = obligation.TargetGeneration;
+                obligationId = obligation.ObligationId;
             }
             else
             {
@@ -135,7 +138,7 @@ public sealed class PublicHotArtifactUpdateQueue
 
         if (cancellationToken.IsCancellationRequested)
         {
-            return new(PublicHotArtifactDeliveryStatus.Cancelled, normalized, dirtyReason, generation);
+            return new(PublicHotArtifactDeliveryStatus.Cancelled, normalized, dirtyReason, generation, obligationId);
         }
 
         var update = new PublicHotArtifactUpdate(
@@ -147,13 +150,13 @@ public sealed class PublicHotArtifactUpdateQueue
             deliveryClass);
         if (_channel.Writer.TryWrite(update))
         {
-            return new(PublicHotArtifactDeliveryStatus.Accepted, normalized, dirtyReason, generation);
+            return new(PublicHotArtifactDeliveryStatus.Accepted, normalized, dirtyReason, generation, obligationId);
         }
 
         ValueTask<bool> waitToWrite = _channel.Writer.WaitToWriteAsync(CancellationToken.None);
         if (waitToWrite.IsCompletedSuccessfully && !waitToWrite.Result)
         {
-            return new(PublicHotArtifactDeliveryStatus.Closed, normalized, dirtyReason, generation);
+            return new(PublicHotArtifactDeliveryStatus.Closed, normalized, dirtyReason, generation, obligationId);
         }
 
         // A full bounded channel never changes the durable outcome into a drop.
@@ -162,7 +165,7 @@ public sealed class PublicHotArtifactUpdateQueue
             deliveryClass == PublicHotArtifactDeliveryClass.FullRebuildMarker
                 ? PublicHotArtifactDeliveryStatus.Coalesced
                 : PublicHotArtifactDeliveryStatus.PersistedDirty;
-        return new(status, normalized, dirtyReason, generation);
+        return new(status, normalized, dirtyReason, generation, obligationId);
     }
 
     internal ChannelReader<PublicHotArtifactUpdate> Reader => _channel.Reader;
