@@ -804,6 +804,26 @@ function normalizeMutant({
     }
 }
 
+function semanticMutantIdentity(mutant) {
+    return {
+        sourceFile: mutant.sourceFile,
+        sourceFileDigest: mutant.sourceFileDigest,
+        operator: mutant.operator,
+        startLine: mutant.startLine,
+        startColumn: mutant.startColumn,
+        endLine: mutant.endLine,
+        endColumn: mutant.endColumn,
+        originalDigest: mutant.originalDigest,
+        replacementDigest: mutant.replacementDigest
+    }
+}
+
+function semanticMutantInventoryDigest(inventory) {
+    return sha256(canonicalJson(inventory
+        .map(semanticMutantIdentity)
+        .sort((left, right) => canonicalJson(left).localeCompare(canonicalJson(right)))))
+}
+
 function validateDurationContracts(inventory) {
     for (const mutant of inventory) {
         if (executedStatuses.has(mutant.status)) {
@@ -1122,6 +1142,9 @@ export function createStrykerAuthority({
         commandAlias: normalizedTierId === 'release-mutation-critical-slice'
             ? 'backend-mutation-critical'
             : normalizedTierId,
+        evidenceClass: normalizedTierId === 'release-mutation-critical-slice'
+            ? 'source-level'
+            : 'unclassified',
         score,
         mutantCount: Object.values(summary.statuses).reduce((total, count) => total + count, 0),
         executedMutants: summary.executedMutants,
@@ -1130,7 +1153,9 @@ export function createStrykerAuthority({
         testIdentities: referencedTestIdentities(inventory),
         ...collections,
         inventoryDigest: sha256(canonicalJson(inventory)),
+        semanticMutantIdentityDigest: semanticMutantInventoryDigest(inventory),
         executionMatrixDigest: sha256(canonicalJson(executionMatrix(inventory))),
+        sourceRoot: sourceRoot ?? null,
         scope,
         testCaseFilter,
         thresholds: {
@@ -1178,6 +1203,14 @@ function validateStrykerAuthorityShape(authority) {
     validateInventoryCollections(authority.inventory, authority)
     if (authority.inventoryDigest !== sha256(canonicalJson(authority.inventory))) {
         throw new Error('Stryker authority inventoryDigest mismatch')
+    }
+    for (const mutant of authority.inventory) {
+        if (mutant.mutantId !== sha256(canonicalJson(semanticMutantIdentity(mutant)))) {
+            throw new Error(`Stryker authority mutant ${mutant.mutantId} semantic identity mismatch`)
+        }
+    }
+    if (authority.semanticMutantIdentityDigest !== semanticMutantInventoryDigest(authority.inventory)) {
+        throw new Error('Stryker authority semanticMutantIdentityDigest mismatch')
     }
     if (authority.executionMatrixDigest !== sha256(canonicalJson(executionMatrix(authority.inventory)))) {
         throw new Error('Stryker authority executionMatrixDigest mismatch')

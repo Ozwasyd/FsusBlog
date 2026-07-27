@@ -164,7 +164,10 @@
                 "args": [
                     "tools/test/lanes/backend-mutation-critical.sh"
                 ],
-                "env": {},
+                "env": {
+                    "FSUSBLOG_RELEASE_MUTATION_PARITY": "1",
+                    "FSUSBLOG_MUTATION_RELEASE_SUBSET_POLICY": "config/testing/mutation/release-parity-subset.json"
+                },
                 "cwd": "."
             },
             "resourceClass": "cpu",

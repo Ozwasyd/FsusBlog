@@ -880,6 +880,42 @@ tools/operations/check-release-evidence-manifest.mjs --require-ok
 - AEDS Wasm cross-stack：普通 `aeds-frame-cost` 在 `frontend-build` 后串行绑定 server frame cost 与 basic/speed artifact/compile/decode/copy/memory budget；server summary 必须同时具有独立 structural copy reduction 与同 SHA/Release artifact 的 authoritative allocation/mean/p95 结论，缺 identity、超噪声带回退或字段驱动结论不一致时保持 blocked/failed。这些 browserless summary 缺失或不满足预算时保持 blocked。真实浏览器的 speed 选择、basic 故障回退、transferable Worker 与 load/long-task 指标属于 diagnostics，只作独立可观测 evidence，不阻断或放行 correctness manifest。
 - test-quality lint：`tools/ci/check-test-quality.mjs` 阻断无断言测试、HTTP 200-only 弱断言和关键路径 snapshot-only 测试。
 
+#### Critical mutation 的 Debug / Release parity
+
+`release-mutation-critical-slice` 的 Debug Stryker authority 只属于
+`source-level` evidence，不能直接满足 release artifact coverage。该 lane
+继续从真实 `src/core/FsusBlog.Core.csproj` production project context
+变异 `AedsEncoder.cs`，并由真实 backend test project 执行 canonical
+affected tests；禁止另建只编译目标文件的瘦 project。Debug authority
+绑定完整结果 inventory，同时用 `semanticMutantIdentityDigest` 绑定
+source digest、operator、精确位置及 original/replacement digest，而不是
+只绑定 Stryker raw ID 或 ID 字符串集合。
+
+release-final 随后按
+`config/testing/mutation/release-parity-subset.json` 的固定
+operator/source-region policy，在同一真实 Core project 上运行 Release Stryker。
+Release config 固定单 runner 和显式额外超时，所有 `bin`/`obj`、Stryker
+physical output 与最终 assembly 都写入
+`.tmp/mutation/backend-critical/release-parity/<run-id>/`。receipt 绑定 Debug
+与 Release config digest、实际 MSBuild `Optimize`/`DefineConstants`/
+target framework/language version、稳定 semantic mutant identity digest、
+两次完整 compiler identity 与结果 inventory digest、Debug/Release
+assembly-byte 分类、Release
+`FsusBlog.Core.dll` digest 和实际 `dotnet test --no-build` AEDS
+encode/decode smoke。smoke receipt 绑定被加载 assembly 和 selected killed
+mutant IDs；普通 Release test 成功字符串不能替代 mutation producer 结果。
+任一 selected mutant 在 Debug 或 Release 未 killed、两边 mutant identity
+不同、Release 含 `DEBUG` 或缺 `RELEASE`、未优化、artifact 不在 run-bound
+root，都会 fail closed。
+
+该双层执行以 66 个 `AedsEncoder` planned mutants 和固定代表 subset 控制
+成本；required operators 是本 authority 中可执行的七类 operator，
+Stryker 4.14.2 自身标为 `Ignored` 的 block-removal 和唯一
+`CompileError` 不伪装成可执行 parity。policy 不是百分比抽样，也不允许
+运行时随机选择。即时回退是把
+`FSUSBLOG_RELEASE_MUTATION_PARITY` 设为 `0`，这只用于本地诊断或紧急
+回退，并会使 release-final 缺 required parity receipt，不能获得发布资格。
+
 `production-correctness`（以及兼容别名 `production`）可以证明 browserless PR/CI 风险矩阵没有已知阻断；`release-closeout` 可以证明当前 manifest 已收口；只有同时包含单 Browser Contract 的 `release-final` 可以作为发布候选通过的最终凭据。
 
 ---

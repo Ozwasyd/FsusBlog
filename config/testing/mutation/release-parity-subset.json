@@ -1,0 +1,47 @@
+{
+    "schema": "fsusblog.release-mutation-parity-subset.v1",
+    "selection": "fixed-required-operator-region-representative",
+    "requiredOperators": [
+        "Arithmetic mutation",
+        "Equality mutation",
+        "Logical mutation",
+        "LogicalNotExpression to un-LogicalNotExpression mutation",
+        "Negate expression",
+        "Statement mutation",
+        "String mutation"
+    ],
+    "requiredSourceRegions": [
+        "src/core/Algorithms/AedsEncoder.cs"
+    ],
+    "subset": [
+        {
+            "operator": "Arithmetic mutation",
+            "sourceRegion": "src/core/Algorithms/AedsEncoder.cs"
+        },
+        {
+            "operator": "Equality mutation",
+            "sourceRegion": "src/core/Algorithms/AedsEncoder.cs"
+        },
+        {
+            "operator": "Logical mutation",
+            "sourceRegion": "src/core/Algorithms/AedsEncoder.cs"
+        },
+        {
+            "operator": "LogicalNotExpression to un-LogicalNotExpression mutation",
+            "sourceRegion": "src/core/Algorithms/AedsEncoder.cs"
+        },
+        {
+            "operator": "Negate expression",
+            "sourceRegion": "src/core/Algorithms/AedsEncoder.cs"
+        },
+        {
+            "operator": "Statement mutation",
+            "sourceRegion": "src/core/Algorithms/AedsEncoder.cs"
+        },
+        {
+            "operator": "String mutation",
+            "sourceRegion": "src/core/Algorithms/AedsEncoder.cs"
+        }
+    ],
+    "subsetDigest": "sha256:6705c0ae19b9468ff0d2acdb10ea8d98914ba3fc9a4faa0e3b60d4d29352b342"
+}

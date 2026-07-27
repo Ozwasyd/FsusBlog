@@ -203,6 +203,7 @@ export function createChangedCriticalMutationAuthority({
 
     return {
         schema: 'fsusblog.changed-critical-mutation-authority.v1',
+        evidenceClass: 'source-level',
         status: 'success',
         runId,
         generatedAt,

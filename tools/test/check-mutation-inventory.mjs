@@ -85,7 +85,8 @@ function validateAuthority(authority, repositoryRoot, authorityInputs) {
     const rawConfig = readFileSync(configPath)
     const report = JSON.parse(rawReport)
     const config = JSON.parse(rawConfig)
-    const sourceRoot = authority?.tierId === 'release-mutation-critical-slice' ? 'src/core' : undefined
+    const sourceRoot = authority?.sourceRoot
+        ?? (authority?.tierId === 'release-mutation-critical-slice' ? 'src/core' : undefined)
     validateStrykerAuthority({
         authority,
         report,
