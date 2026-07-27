@@ -79,6 +79,14 @@ Host runtime tuning、Serilog、OpenTelemetry、ForwardedHeaders、rate limiting
 
 `UseFsusEndpointPipeline` 的常规端点链路顺序必须保持 `UseResponseCompression()` -> `UseOutputCache()` -> `UseCors()` -> `UseAntiforgery()` -> `UseFsusCsrfOriginGuard()` -> `AnonymousGatewayHeaderGuardMiddleware` -> `UseAuthentication()` -> `UseRateLimiter()` -> `BannedUserMiddleware` -> `UseAuthorization()` -> `RequestAuditContextMiddleware`。`PublicHotReadCrossCuttingControlCatalog` 把两条链的控制分为 `global-before-branch`、`early-replayed`、`endpoint-only/not-applicable`：release/security headers、deployment tracking、Shield/exception/binary 与 correlation 位于分叉前；`public_read` limiter 和轻量 request audit context 在 early branch 重放，并分别通过 `RateLimitEvaluated`/`RequestAuditContextEvaluated` 阻止 miss fallback 重复执行；CORS、antiforgery/CSRF、gateway header guard、authentication、banned-user 和 authorization 只有在 classifier 已证明匿名、无 Origin、安全方法的精确公开 artifact 时才可声明 L0 不适用。启动在注册任何 stage 前校验 required set、唯一 stage/guard、route policy、synthetic metadata，并对每个 probe path 实际执行 anonymous allow、credential/principal/Origin/unsafe-method fallback；任一失败中止启动。CI 的 `tools/check-public-hot-read-cross-cutting-controls.mjs --self-test` 同时检查 catalog、application pipeline 与 endpoint pipeline，新增控制若未同时声明覆盖与行为证据会失败。
 
+Public AOT 文件、Redis registry 与 transaction pointer 通过 durable journal
+顺序提交；只有 `complete` 且 pointer、payload digest、invalidation generation
+一致的 artifact 才能进入读取路径。启动恢复幂等补齐未完成 registry/pointer
+或隔离不可恢复 artifact；prefix invalidation 在 Redis registry 缺失时读取
+transaction index/orphan ledger，而不是假定无文件或执行日常全盘扫描。完整
+状态机、GC 引用规则与无重启回退见
+[Public AOT artifact storage boundary](architecture/public-aot-artifact-storage-boundary.md)。
+
 classifier 的公开 allowlist 只由 `PublicHotReadRouteSecurityCatalog` 中逐项登记的 article/category/tag AEDS route 与 Public AOT page 构成；`/api`、`/api/binary` 下 auth/admin/author/manage/internal/billing/audit、已认证 principal、Authorization/Cookie/CSRF header、`Origin`、非 `GET`/`HEAD`、notification stream 与未登记 dynamic binary 都强制回常规管线。snapshot publication 必须携带 `published-visible-at-cutoff-v1`、`sourceVisibility=public`、与 candidate 相同的 source version、cutoff 及 published-only/deleted/future exclusion；只允许 `Published` 且到期、未删除输入进入真实 frame materializer，evidence 漂移时保留旧 snapshot。专用 gate 与 `RiskAwarePublicReadFilter` 共用同一实现；artifact miss 复用已允许结果，避免重复 risk score/PoW。主要风险是未来公开 namespace 未登记时只走较慢常规管线。无重启回退通过 reload-capable 配置源把 `PublicHotRead:Enabled=false`：classifier 立即停止附加 feature，匿名、登录、admin、notification stream 与 binary 请求全部恢复原 routing/endpoint 链；revocation、PoW、RiskControl、安全头和 notification stream 不关闭。重新启用前必须运行 catalog checker/focused parity 与 visibility 负例，并确认 readiness snapshot 为 Ready。
 
 新增控制、focused 验证命令、启动失败处置和无重启回退步骤见 [PublicHotRead 横切控制与回退手册](security/public-hot-read-cross-cutting-controls.md)。

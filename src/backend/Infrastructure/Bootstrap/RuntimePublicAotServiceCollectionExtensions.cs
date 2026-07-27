@@ -32,8 +32,12 @@ internal static class RuntimePublicAotServiceCollectionExtensions
         }
         services.AddSingleton(PublicAotBackfillLeaseOptions.FromEnvironment());
         services.AddSingleton<IPublicAotBackfillLease, PublicAotBackfillLease>();
+        services.AddSingleton<PublicAotFileShellCache>();
+        services.AddSingleton<IPublicAotShellCache>(sp => sp.GetRequiredService<PublicAotFileShellCache>());
         if (!OpenApiExportMode.IsEnabled())
         {
+            services.AddHostedService<PublicAotArtifactRecoveryService>();
+            services.AddHostedService<PublicAotFileShellCacheInvalidationSubscriber>();
             services.AddHostedService<PublicAotBackfillWorker>();
         }
 
@@ -48,12 +52,6 @@ internal static class RuntimePublicAotServiceCollectionExtensions
         if (!OpenApiExportMode.IsEnabled())
         {
             services.AddHostedService<ConfigurationHealthSnapshotRefreshWorker>();
-        }
-        services.AddSingleton<PublicAotFileShellCache>();
-        services.AddSingleton<IPublicAotShellCache>(sp => sp.GetRequiredService<PublicAotFileShellCache>());
-        if (!OpenApiExportMode.IsEnabled())
-        {
-            services.AddHostedService<PublicAotFileShellCacheInvalidationSubscriber>();
         }
         services.AddScoped<IPublicAotCacheWriter, PublicAotCacheWriter>();
         services.AddScoped<IPublicAotArtifactStore, PublicAotArtifactStore>();

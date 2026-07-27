@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
 
+using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Services.Background;
@@ -8,12 +9,36 @@ using FsusBlog.Server.Services.Background;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 using NSubstitute;
+
 namespace FsusBlog.Server.Tests;
 
 public sealed class PublicAotBackfillSchedulerTests
 {
+    [Fact]
+    public void RuntimeRegistration_RecoversArtifactsBeforeSubscriberAndBackfillStart()
+    {
+        var services = new ServiceCollection();
+        services.AddFsusRuntimePublicAotServices();
+        Type?[] hostedServices = services
+            .Where(static descriptor => descriptor.ServiceType == typeof(IHostedService))
+            .Select(static descriptor => descriptor.ImplementationType)
+            .ToArray();
+
+        int recovery = Array.IndexOf(hostedServices, typeof(PublicAotArtifactRecoveryService));
+        int subscriber = Array.IndexOf(
+            hostedServices,
+            typeof(PublicAotFileShellCacheInvalidationSubscriber));
+        int backfill = Array.IndexOf(hostedServices, typeof(PublicAotBackfillWorker));
+
+        Assert.True(recovery >= 0);
+        Assert.True(subscriber > recovery);
+        Assert.True(backfill > subscriber);
+    }
+
     [Fact]
     public void TrySchedule_WhenQueueIsFull_ReturnsFalse_AndDoesNotLeakInFlight()
     {
@@ -198,8 +223,18 @@ public sealed class PublicAotBackfillSchedulerTests
     {
         MethodInfo moveNext = StateMachineMoveNext(typeof(PublicAotFileShellCache), nameof(PublicAotFileShellCache.SetAsync));
         IReadOnlyList<(int Offset, MethodBase Method)> calls = ReadCalledMethods(moveNext);
-        int tempWrite = FindCallOffset(calls, typeof(File), nameof(File.WriteAllBytesAsync));
-        int atomicMove = FindCallOffset(calls, typeof(File), nameof(File.Move));
+        int stageWrite = FindCallOffset(
+            calls,
+            typeof(PublicAotArtifactCommitJournal),
+            nameof(PublicAotArtifactCommitJournal.WriteStagingPayloadAsync));
+        int journalPersist = FindCallOffset(
+            calls,
+            typeof(PublicAotArtifactCommitJournal),
+            nameof(PublicAotArtifactCommitJournal.PersistAsync));
+        int artifactCommit = FindCallOffset(
+            calls,
+            typeof(PublicAotFileShellCache),
+            "CommitArtifactAsync");
         int memoryPublish = calls
             .Where(static call => call.Method.Name == "set_Item"
                 && call.Method.DeclaringType == typeof(PublicAotBoundedMemoryCache))
@@ -207,9 +242,10 @@ public sealed class PublicAotBackfillSchedulerTests
             .DefaultIfEmpty(-1)
             .First();
 
-        Assert.True(tempWrite >= 0);
-        Assert.True(atomicMove > tempWrite);
-        Assert.True(memoryPublish > atomicMove);
+        Assert.True(journalPersist >= 0);
+        Assert.True(stageWrite > journalPersist);
+        Assert.True(artifactCommit > stageWrite);
+        Assert.True(memoryPublish > artifactCommit);
     }
 
     [Fact]

@@ -19,6 +19,9 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
     private const int InvalidationBatchSize = 256;
     private readonly IConnectionMultiplexer _redis;
     private readonly IDatabase _db;
+    private readonly PublicAotArtifactCommitJournal _commitJournal;
+    private readonly Func<PublicAotArtifactCommitState, CancellationToken, Task>? _commitObserver;
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _commitLocks = new(StringComparer.Ordinal);
     private readonly string _cacheRoot;
     private readonly ReleaseDerivedArtifactPublisher? _derivedPublisher;
     private readonly ILogger<PublicAotFileShellCache> _logger;
@@ -38,6 +41,27 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
         IConfiguration? configuration = null,
         TimeProvider? timeProvider = null,
         IPublicArtifactStorage? publicArtifactStorage = null)
+        : this(
+            env,
+            redis,
+            logger,
+            derivedPublisher,
+            configuration,
+            timeProvider,
+            publicArtifactStorage,
+            commitObserver: null)
+    {
+    }
+
+    internal PublicAotFileShellCache(
+        IWebHostEnvironment env,
+        IConnectionMultiplexer redis,
+        ILogger<PublicAotFileShellCache> logger,
+        ReleaseDerivedArtifactPublisher? derivedPublisher,
+        IConfiguration? configuration,
+        TimeProvider? timeProvider,
+        IPublicArtifactStorage? publicArtifactStorage,
+        Func<PublicAotArtifactCommitState, CancellationToken, Task>? commitObserver = null)
     {
         _redis = redis;
         _db = redis.GetDatabase();
@@ -45,6 +69,8 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
         _cacheRoot = _derivedPublisher?.GetKindRoot("public-aot") ?? ResolveCacheRoot(env);
         _timeProvider = timeProvider ?? TimeProvider.System;
         _publicArtifactStorage = publicArtifactStorage ?? new LocalPublicArtifactStorage(env);
+        _commitJournal = new PublicAotArtifactCommitJournal(_cacheRoot, _timeProvider);
+        _commitObserver = commitObserver;
         var cacheOptions = new PublicAotFileShellCacheOptions();
         configuration?.GetSection("PublicAot").Bind(cacheOptions);
         _memoryCache = new PublicAotBoundedMemoryCache(
@@ -84,39 +110,59 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
     {
         cancellationToken.ThrowIfCancellationRequested();
         string targetPath = GetEntryPath(entry.CacheKey, entry.FrontendAssetVersion, entry.PageId);
-        string directory = Path.GetDirectoryName(targetPath)!;
-        Directory.CreateDirectory(directory);
-
         byte[] payload = SerializeEntryBytes(entry);
-        if (_derivedPublisher is not null)
+        string relativePath = _commitJournal.GetRelativePath(targetPath);
+        string[] registryKeys = ResolveRegistryKeys(entry.CacheKey);
+        PublicAotArtifactTransaction transaction = _commitJournal.Create(
+            entry.CacheKey,
+            relativePath,
+            payload,
+            registryKeys);
+        SemaphoreSlim commitLock = _commitLocks.GetOrAdd(
+            transaction.ArtifactId,
+            static _ => new SemaphoreSlim(1, 1));
+        await commitLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            string relativePath = Path.GetRelativePath(_cacheRoot, targetPath);
-            string generation = BuildPublicationGeneration(entry.CacheKey, payload);
-            await _derivedPublisher.PublishArtifactAndProjectAsync(
-                "public-aot",
-                relativePath,
-                generation,
-                payload,
+            await using FileStream transactionLock = await _commitJournal.AcquireLockAsync(
+                transaction.ArtifactId,
                 cancellationToken).ConfigureAwait(false);
-        }
-        else
-        {
-            string tempPath = Path.Combine(directory, $"{Path.GetFileName(targetPath)}.{Guid.NewGuid():N}.tmp");
-            try
-            {
-                await File.WriteAllBytesAsync(tempPath, payload, cancellationToken).ConfigureAwait(false);
-                File.Move(tempPath, targetPath, overwrite: true);
-            }
-            finally
-            {
-                File.Delete(tempPath);
-            }
-        }
-        _memoryCache[entry.CacheKey] = CreateMemoryCacheEntry(entry);
-        UpdateFileMetadataEntry(targetPath, entry);
+            await _commitJournal.PersistAsync(transaction, cancellationToken).ConfigureAwait(false);
+            await _commitJournal.WriteStagingPayloadAsync(transaction, payload, cancellationToken)
+                .ConfigureAwait(false);
+            await ObserveCommitStateAsync(transaction.State, cancellationToken).ConfigureAwait(false);
 
-        await RegisterKeyAsync(entry.CacheKey).ConfigureAwait(false);
-        DeleteSupersededVersions(entry.CacheKey, targetPath);
+            await CommitArtifactAsync(transaction, payload, cancellationToken).ConfigureAwait(false);
+            transaction = await AdvanceAndObserveAsync(
+                transaction,
+                PublicAotArtifactCommitState.ArtifactCommitted,
+                cancellationToken).ConfigureAwait(false);
+
+            await RegisterTransactionAsync(transaction, cancellationToken).ConfigureAwait(false);
+            transaction = await AdvanceAndObserveAsync(
+                transaction,
+                PublicAotArtifactCommitState.RegistryCommitted,
+                cancellationToken).ConfigureAwait(false);
+
+            await _commitJournal.WritePointerAsync(transaction, cancellationToken).ConfigureAwait(false);
+            transaction = await AdvanceAndObserveAsync(
+                transaction,
+                PublicAotArtifactCommitState.PointerAdvanced,
+                cancellationToken).ConfigureAwait(false);
+            transaction = await AdvanceAndObserveAsync(
+                transaction,
+                PublicAotArtifactCommitState.Complete,
+                cancellationToken).ConfigureAwait(false);
+
+            _memoryCache[entry.CacheKey] = CreateMemoryCacheEntry(entry);
+            UpdateFileMetadataEntry(targetPath, entry);
+            File.Delete(_commitJournal.GetStagingPath(transaction.ArtifactId));
+            DeleteSupersededVersions(entry.CacheKey, targetPath);
+        }
+        finally
+        {
+            commitLock.Release();
+        }
     }
 
     public async Task RemoveAsync(string cacheKey, CancellationToken cancellationToken = default)
@@ -174,14 +220,21 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
             {
                 stats = stats.Add(await RemoveRegisteredKeysBatchAsync(PublicAotCacheRegistry.GlobalRegistryKey, prefix, requiresPrefixFilter: true, cancellationToken).ConfigureAwait(false));
             }
-
-            if (stats.InvalidatedKeys == 0)
-            {
-                _logger.LogInformation(
-                    "public-aot-prefix-invalidation-registry-missing {Prefix}; skipped disk scan",
-                    prefix);
-            }
         }
+
+        string[] indexedKeys = _commitJournal.EnumerateTransactions()
+            .Where(transaction => transaction.CacheKey.StartsWith(prefix, StringComparison.Ordinal))
+            .Select(static transaction => transaction.CacheKey)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        stats = stats.Add(await RemoveManyLocalAsync(indexedKeys, cancellationToken).ConfigureAwait(false));
+        int removedOrphans = _commitJournal.RemoveOrphansByPrefix(prefix);
+        stats = stats.Add(new PublicAotBatchInvalidationStats(removedOrphans, removedOrphans, 0, 0));
+        _logger.LogInformation(
+            "public-aot-prefix-invalidation-checked-durable-index {Prefix} {IndexedKeyCount} {OrphanCount}",
+            prefix,
+            indexedKeys.Length,
+            removedOrphans);
 
         await PublishInvalidationAsync(PublicAotInvalidationMessage.Prefix(prefix)).ConfigureAwait(false);
         RecordInvalidation("prefix", stats.WithPublish(), Stopwatch.GetElapsedTime(started));
@@ -223,6 +276,45 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
     {
         foreach (string path in ResolveCandidateEntryPaths(cacheKey, frontendAssetVersion))
         {
+            string relativePath = _commitJournal.GetRelativePath(path);
+            if (!_commitJournal.TryReadTransactionForCacheKey(
+                    cacheKey,
+                    out PublicAotArtifactTransaction? transaction))
+            {
+                if (File.Exists(path))
+                {
+                    await _commitJournal.QuarantineAsync(
+                        cacheKey,
+                        relativePath,
+                        "missing-or-incomplete-transaction",
+                        cancellationToken).ConfigureAwait(false);
+                }
+
+                continue;
+            }
+
+            if (transaction!.State != PublicAotArtifactCommitState.Complete)
+            {
+                continue;
+            }
+
+            if (!File.Exists(path))
+            {
+                continue;
+            }
+
+            byte[] payload = await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false);
+            if (!_commitJournal.AuthorizesRead(cacheKey, relativePath, payload))
+            {
+                await _commitJournal.QuarantineAsync(
+                    cacheKey,
+                    relativePath,
+                    "pointer-or-digest-mismatch",
+                    cancellationToken).ConfigureAwait(false);
+                _fileMetadataCache.TryRemove(path, out _);
+                continue;
+            }
+
             PublicAotCacheEntry? entry = await TryReadEntryAsync(path, cancellationToken).ConfigureAwait(false);
             if (entry is null)
             {
@@ -664,6 +756,10 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
             Path.TrimEndingDirectorySeparator(Path.GetFullPath(Path.Combine(_cacheRoot, "generations")))
                 + Path.DirectorySeparatorChar,
             Path.TrimEndingDirectorySeparator(Path.GetFullPath(Path.Combine(_cacheRoot, ".artifacts")))
+                + Path.DirectorySeparatorChar,
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(Path.Combine(_cacheRoot, ".orphan-artifacts")))
+                + Path.DirectorySeparatorChar,
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(Path.Combine(_cacheRoot, ".transaction-stage")))
                 + Path.DirectorySeparatorChar
         ];
         StringComparison comparison = OperatingSystem.IsWindows()
@@ -741,6 +837,13 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
                     continue;
                 }
 
+                string relativePath = _commitJournal.GetRelativePath(path);
+                if (_commitJournal.IsActiveTransactionForPath(relativePath)
+                    || _commitJournal.IsPointerTarget(relativePath))
+                {
+                    continue;
+                }
+
                 if (DeleteCompatibilityEntryFile(path, CancellationToken.None))
                 {
                     _fileMetadataCache.TryRemove(path, out _);
@@ -808,6 +911,284 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
         return $"public-aot-{keyHash[..16]}-{payloadHash}";
     }
 
+    internal async Task RecoverArtifactTransactionsAsync(CancellationToken cancellationToken)
+    {
+        foreach (PublicAotArtifactTransaction candidate in _commitJournal.EnumerateTransactions())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            SemaphoreSlim commitLock = _commitLocks.GetOrAdd(
+                candidate.ArtifactId,
+                static _ => new SemaphoreSlim(1, 1));
+            await commitLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await using FileStream transactionLock = await _commitJournal.AcquireLockAsync(
+                    candidate.ArtifactId,
+                    cancellationToken).ConfigureAwait(false);
+                if (!_commitJournal.TryReadTransaction(
+                        candidate.ArtifactId,
+                        out PublicAotArtifactTransaction? current))
+                {
+                    continue;
+                }
+
+                await RecoverTransactionAsync(current!, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                commitLock.Release();
+            }
+        }
+
+        foreach (string path in EnumerateEntryFiles().ToArray())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            PublicAotCacheEntry? entry = await TryReadEntryAsync(path, cancellationToken).ConfigureAwait(false);
+            if (entry is null)
+            {
+                continue;
+            }
+
+            string relativePath = _commitJournal.GetRelativePath(path);
+            if (!_commitJournal.TryReadTransactionForCacheKey(
+                    entry.CacheKey,
+                    out PublicAotArtifactTransaction? transaction)
+                || transaction!.State != PublicAotArtifactCommitState.Complete
+                || !string.Equals(transaction.RelativePath, relativePath, StringComparison.Ordinal))
+            {
+                await _commitJournal.QuarantineAsync(
+                    entry.CacheKey,
+                    relativePath,
+                    "startup-unindexed-artifact",
+                    cancellationToken).ConfigureAwait(false);
+                _fileMetadataCache.TryRemove(path, out _);
+            }
+        }
+    }
+
+    private async Task RecoverTransactionAsync(
+        PublicAotArtifactTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        if (transaction.State == PublicAotArtifactCommitState.Complete)
+        {
+            string completedPath = _commitJournal.ResolveRelativePath(transaction.RelativePath);
+            if (!File.Exists(completedPath))
+            {
+                await _commitJournal.QuarantineAsync(
+                    transaction.CacheKey,
+                    transaction.RelativePath,
+                    "recovery-complete-artifact-missing",
+                    cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            byte[] completedPayload = await File.ReadAllBytesAsync(completedPath, cancellationToken)
+                .ConfigureAwait(false);
+            if (!_commitJournal.AuthorizesRead(
+                    transaction.CacheKey,
+                    transaction.RelativePath,
+                    completedPayload))
+            {
+                await _commitJournal.QuarantineAsync(
+                    transaction.CacheKey,
+                    transaction.RelativePath,
+                    "recovery-complete-transaction-mismatch",
+                    cancellationToken).ConfigureAwait(false);
+                await _commitJournal.AdvanceAsync(
+                    transaction,
+                    PublicAotArtifactCommitState.RollbackRequired,
+                    cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            File.Delete(_commitJournal.GetStagingPath(transaction.ArtifactId));
+            return;
+        }
+
+        string targetPath = _commitJournal.ResolveRelativePath(transaction.RelativePath);
+        if (transaction.State == PublicAotArtifactCommitState.Staged)
+        {
+            string stagingPath = _commitJournal.GetStagingPath(transaction.ArtifactId);
+            if (!File.Exists(stagingPath))
+            {
+                await _commitJournal.AdvanceAsync(
+                    transaction,
+                    PublicAotArtifactCommitState.RollbackRequired,
+                    cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            byte[] stagingPayload = await File.ReadAllBytesAsync(stagingPath, cancellationToken).ConfigureAwait(false);
+            if (!string.Equals(
+                    transaction.PayloadDigest,
+                    Convert.ToHexStringLower(SHA256.HashData(stagingPayload)),
+                    StringComparison.Ordinal))
+            {
+                await _commitJournal.AdvanceAsync(
+                    transaction,
+                    PublicAotArtifactCommitState.RollbackRequired,
+                    cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            await CommitArtifactAsync(transaction, stagingPayload, cancellationToken).ConfigureAwait(false);
+            transaction = await _commitJournal.AdvanceAsync(
+                transaction,
+                PublicAotArtifactCommitState.ArtifactCommitted,
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        if (transaction.State == PublicAotArtifactCommitState.ArtifactCommitted)
+        {
+            if (!await ArtifactMatchesTransactionAsync(transaction, targetPath, cancellationToken).ConfigureAwait(false))
+            {
+                if (File.Exists(targetPath))
+                {
+                    await _commitJournal.QuarantineAsync(
+                        transaction.CacheKey,
+                        transaction.RelativePath,
+                        "recovery-artifact-digest-mismatch",
+                        cancellationToken).ConfigureAwait(false);
+                }
+
+                await _commitJournal.AdvanceAsync(
+                    transaction,
+                    PublicAotArtifactCommitState.RollbackRequired,
+                    cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            await RegisterTransactionAsync(transaction, cancellationToken).ConfigureAwait(false);
+            transaction = await _commitJournal.AdvanceAsync(
+                transaction,
+                PublicAotArtifactCommitState.RegistryCommitted,
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        if (transaction.State == PublicAotArtifactCommitState.RegistryCommitted)
+        {
+            await _commitJournal.WritePointerAsync(transaction, cancellationToken).ConfigureAwait(false);
+            transaction = await _commitJournal.AdvanceAsync(
+                transaction,
+                PublicAotArtifactCommitState.PointerAdvanced,
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        if (transaction.State == PublicAotArtifactCommitState.PointerAdvanced)
+        {
+            if (!_commitJournal.PointerMatches(transaction))
+            {
+                await _commitJournal.WritePointerAsync(transaction, cancellationToken).ConfigureAwait(false);
+            }
+
+            transaction = await _commitJournal.AdvanceAsync(
+                transaction,
+                PublicAotArtifactCommitState.Complete,
+                cancellationToken).ConfigureAwait(false);
+            File.Delete(_commitJournal.GetStagingPath(transaction.ArtifactId));
+        }
+    }
+
+    private async Task CommitArtifactAsync(
+        PublicAotArtifactTransaction transaction,
+        ReadOnlyMemory<byte> payload,
+        CancellationToken cancellationToken)
+    {
+        string targetPath = _commitJournal.ResolveRelativePath(transaction.RelativePath);
+        if (_derivedPublisher is not null)
+        {
+            string generation = BuildPublicationGeneration(transaction.CacheKey, payload.Span);
+            await _derivedPublisher.PublishArtifactAndProjectAsync(
+                "public-aot",
+                transaction.RelativePath,
+                generation,
+                payload,
+                cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        string directory = Path.GetDirectoryName(targetPath)!;
+        Directory.CreateDirectory(directory);
+        string tempPath = Path.Combine(directory, $"{Path.GetFileName(targetPath)}.{Guid.NewGuid():N}.tmp");
+        try
+        {
+            await using (var stream = new FileStream(
+                tempPath,
+                FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None,
+                64 * 1024,
+                FileOptions.Asynchronous | FileOptions.WriteThrough))
+            {
+                await stream.WriteAsync(payload, cancellationToken).ConfigureAwait(false);
+                await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+                stream.Flush(flushToDisk: true);
+            }
+            File.Move(tempPath, targetPath, overwrite: true);
+        }
+        finally
+        {
+            File.Delete(tempPath);
+        }
+    }
+
+    private static async Task<bool> ArtifactMatchesTransactionAsync(
+        PublicAotArtifactTransaction transaction,
+        string path,
+        CancellationToken cancellationToken)
+    {
+        if (!File.Exists(path))
+        {
+            return false;
+        }
+
+        byte[] payload = await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false);
+        return string.Equals(
+            transaction.PayloadDigest,
+            Convert.ToHexStringLower(SHA256.HashData(payload)),
+            StringComparison.Ordinal);
+    }
+
+    private async Task<PublicAotArtifactTransaction> AdvanceAndObserveAsync(
+        PublicAotArtifactTransaction transaction,
+        PublicAotArtifactCommitState state,
+        CancellationToken cancellationToken)
+    {
+        PublicAotArtifactTransaction advanced = await _commitJournal.AdvanceAsync(
+            transaction,
+            state,
+            cancellationToken).ConfigureAwait(false);
+        await ObserveCommitStateAsync(state, cancellationToken).ConfigureAwait(false);
+        return advanced;
+    }
+
+    private Task ObserveCommitStateAsync(
+        PublicAotArtifactCommitState state,
+        CancellationToken cancellationToken)
+        => _commitObserver?.Invoke(state, cancellationToken) ?? Task.CompletedTask;
+
+    private static string[] ResolveRegistryKeys(string cacheKey)
+    {
+        if (PublicAotCacheRegistry.TryParseCacheKey(cacheKey, out PublicPageId pageId, out string routeKey))
+        {
+            return [.. PublicAotCacheRegistry.GetRegistryKeys(pageId, routeKey)];
+        }
+
+        return [PublicAotCacheRegistry.GlobalRegistryKey];
+    }
+
+    private async Task RegisterTransactionAsync(
+        PublicAotArtifactTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        foreach (string registryKey in transaction.RegistryKeys)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            _ = await _db.SetAddAsync(registryKey, transaction.CacheKey).ConfigureAwait(false);
+        }
+    }
+
     internal static string ResolveVersionedEntryPathForTests(string webRoot, string cacheKey, string frontendAssetVersion, PublicPageId pageId)
         => ResolveVersionedEntryPathInCacheRootForTests(
             Path.Combine(webRoot, "aot-cache"),
@@ -824,6 +1205,9 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
         string hash = ToHash(cacheKey);
         return Path.Combine(cacheRoot, "frontend", SanitizePathSegment(frontendAssetVersion), pageId.ToString(), hash[..2], $"{hash}.aeds");
     }
+
+    internal void CollectSupersededVersionsForTests(string cacheKey, string currentPath)
+        => DeleteSupersededVersions(cacheKey, currentPath);
 
     private async Task<PublicAotBatchInvalidationStats> RemoveRegisteredKeysBatchAsync(
         string registryKey,
@@ -912,6 +1296,7 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
             }
         }
 
+        _commitJournal.DeleteMetadata(cacheKey);
         return deleted;
     }
 
@@ -975,27 +1360,6 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
         }
 
         members.Add(cacheKey);
-    }
-
-    private async Task RegisterKeyAsync(string cacheKey)
-    {
-        if (PublicAotCacheRegistry.TryParseCacheKey(cacheKey, out PublicPageId pageId, out string routeKey))
-        {
-            foreach (string registryKey in PublicAotCacheRegistry.GetRegistryKeys(pageId, routeKey))
-            {
-                await BoundaryExecutor.ExecuteAsync(
-                    async () => _ = await _db.SetAddAsync(registryKey, cacheKey).ConfigureAwait(false),
-                    _logger,
-                    $"public-aot-register:{registryKey}:{cacheKey}");
-            }
-
-            return;
-        }
-
-        await BoundaryExecutor.ExecuteAsync(
-            async () => _ = await _db.SetAddAsync(PublicAotCacheRegistry.GlobalRegistryKey, cacheKey).ConfigureAwait(false),
-            _logger,
-            $"public-aot-register:{cacheKey}");
     }
 
     private async Task<PublicAotRegistryCleanupResult> ClearRegistryAsync(CancellationToken cancellationToken)
@@ -1093,12 +1457,28 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
             stats = stats.Add(DeleteRegisteredEntryFilesByPrefix(PublicAotCacheRegistry.GlobalRegistryKey, prefix, requiresPrefixFilter: true));
         }
 
-        if (stats.InvalidatedKeys == 0)
+        string[] indexedKeys = _commitJournal.EnumerateTransactions()
+            .Where(transaction => transaction.CacheKey.StartsWith(prefix, StringComparison.Ordinal))
+            .Select(static transaction => transaction.CacheKey)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        foreach (string cacheKey in indexedKeys)
         {
-            _logger.LogInformation(
-                "public-aot-remote-prefix-invalidation-registry-missing {Prefix}; skipped disk scan",
-                prefix);
+            _memoryCache.TryRemove(cacheKey, out _);
+            deletedMemoryFiles += DeleteEntryFilesForKey(cacheKey, CancellationToken.None);
         }
+
+        int removedOrphans = _commitJournal.RemoveOrphansByPrefix(prefix);
+        _logger.LogInformation(
+            "public-aot-remote-prefix-invalidation-checked-durable-index {Prefix} {IndexedKeyCount} {OrphanCount}",
+            prefix,
+            indexedKeys.Length,
+            removedOrphans);
+        stats = stats.Add(new PublicAotBatchInvalidationStats(
+            indexedKeys.Length + removedOrphans,
+            0,
+            0,
+            0));
 
         return new PublicAotBatchInvalidationStats(
             stats.InvalidatedKeys + removedMemory,

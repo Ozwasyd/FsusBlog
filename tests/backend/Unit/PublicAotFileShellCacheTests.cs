@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -20,9 +21,12 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
 using StackExchange.Redis;
+
+using Xunit.Abstractions;
+
 namespace FsusBlog.Server.Tests;
 
-public sealed class PublicAotFileShellCacheTests
+public sealed class PublicAotFileShellCacheTests(ITestOutputHelper output)
 {
     private const string TestReleaseId = "20260721000000-cafebabe0001";
 
@@ -181,20 +185,30 @@ public sealed class PublicAotFileShellCacheTests
     {
         using var temp = new TempDirectory();
         var entry = CreateEntry("public:aot:v2:doc:2:article:42");
-        string path = ResolveEntryPath(
-            ResolveTestCacheRoot(temp.Root, Environments.Development),
-            entry.CacheKey);
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        await File.WriteAllBytesAsync(path, PublicAotFileShellCache.SerializeEntryBytes(entry));
-
+        await BuildCache(temp.Root, Environments.Development).SetAsync(entry);
         var cache = BuildCache(temp.Root, Environments.Development);
+        string cacheRoot = ResolveTestCacheRoot(temp.Root, Environments.Development);
+        string path = ResolveVersionedEntryPath(cacheRoot, entry);
+        var journal = new PublicAotArtifactCommitJournal(cacheRoot, TimeProvider.System);
+        Assert.True(journal.TryReadTransactionForCacheKey(
+            entry.CacheKey,
+            out PublicAotArtifactTransaction? transaction));
+        Assert.True(journal.PointerMatches(transaction!));
+        Assert.True(journal.AuthorizesRead(
+            entry.CacheKey,
+            journal.GetRelativePath(path),
+            await File.ReadAllBytesAsync(path)));
 
-        PublicAotCacheEntry? fileHit = await cache.TryGetEntryAsync(entry.CacheKey);
+        PublicAotCacheEntry? fileHit = await cache.TryGetEntryAsync(
+            entry.CacheKey,
+            entry.FrontendAssetVersion);
         Assert.NotNull(fileHit);
         Assert.Equal(entry.Value, fileHit.Value);
 
         File.Delete(path);
-        PublicAotCacheEntry? memoryHit = await cache.TryGetEntryAsync(entry.CacheKey);
+        PublicAotCacheEntry? memoryHit = await cache.TryGetEntryAsync(
+            entry.CacheKey,
+            entry.FrontendAssetVersion);
 
         Assert.NotNull(memoryHit);
         Assert.Equal(entry.Value, memoryHit.Value);
@@ -250,6 +264,281 @@ public sealed class PublicAotFileShellCacheTests
         Assert.True(File.Exists(ResolveVersionedEntryPath(
             ResolveTestCacheRoot(temp.Root, Environments.Development),
             entry)));
+    }
+
+    [Fact]
+    public async Task Recovery_ArtifactCommittedBeforeRegistry_CompletesWithoutEarlyRead()
+    {
+        using var fixture = new JournalFixture(PublicAotArtifactCommitState.ArtifactCommitted);
+        PublicAotCacheEntry entry = CreateEntry("public:aot:v2:doc:2:article:crash-artifact:iv:7");
+
+        await Assert.ThrowsAsync<SimulatedCommitCrashException>(() => fixture.CrashingCache.SetAsync(entry));
+        string targetPath = ResolveVersionedEntryPath(fixture.CacheRoot, entry);
+        Assert.True(File.Exists(targetPath));
+        Assert.Null(await fixture.RestartedCache.TryGetEntryAsync(entry.CacheKey, entry.FrontendAssetVersion));
+
+        fixture.RestartedCache = fixture.CreateCache();
+        await fixture.RestartedCache.RecoverArtifactTransactionsAsync(CancellationToken.None);
+
+        PublicAotCacheEntry? recovered = await fixture.RestartedCache.TryGetEntryAsync(
+            entry.CacheKey,
+            entry.FrontendAssetVersion);
+        Assert.NotNull(recovered);
+        Assert.Equal(entry.Value, recovered.Value);
+    }
+
+    [Fact]
+    public async Task Recovery_RegistryCommittedBeforePointer_AdvancesPointerAndCompletes()
+    {
+        using var fixture = new JournalFixture(PublicAotArtifactCommitState.RegistryCommitted);
+        PublicAotCacheEntry entry = CreateEntry("public:aot:v2:doc:2:article:crash-pointer:iv:9");
+
+        await Assert.ThrowsAsync<SimulatedCommitCrashException>(() => fixture.CrashingCache.SetAsync(entry));
+        fixture.RestartedCache = fixture.CreateCache();
+        await fixture.RestartedCache.RecoverArtifactTransactionsAsync(CancellationToken.None);
+
+        PublicAotCacheEntry? recovered = await fixture.RestartedCache.TryGetEntryAsync(
+            entry.CacheKey,
+            entry.FrontendAssetVersion);
+        Assert.NotNull(recovered);
+        Assert.Contains(
+            "\"state\": \"complete\"",
+            await File.ReadAllTextAsync(fixture.GetTransactionPath(entry.CacheKey)),
+            StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(nameof(PublicAotArtifactCommitState.Staged))]
+    [InlineData(nameof(PublicAotArtifactCommitState.ArtifactCommitted))]
+    [InlineData(nameof(PublicAotArtifactCommitState.RegistryCommitted))]
+    [InlineData(nameof(PublicAotArtifactCommitState.PointerAdvanced))]
+    [InlineData(nameof(PublicAotArtifactCommitState.Complete))]
+    public async Task Recovery_RealProcessCrashAtDurableState_RestartsIdempotently(
+        string crashStateValue)
+    {
+        PublicAotArtifactCommitState crashState = Enum.Parse<PublicAotArtifactCommitState>(crashStateValue);
+        using var temp = new TempDirectory();
+        const string CacheKey = "public:aot:v2:doc:2:article:process-crash:iv:17";
+        using var process = Process.Start(CreateCrashWorkerStartInfo(temp.Root, crashState));
+        Assert.NotNull(process);
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await process.WaitForExitAsync(timeout.Token);
+        string childOutput = string.Concat(
+            await process.StandardOutput.ReadToEndAsync(timeout.Token),
+            "\n",
+            await process.StandardError.ReadToEndAsync(timeout.Token));
+        Assert.NotEqual(0, process.ExitCode);
+
+        PublicAotFileShellCache cache = BuildJournalCache(temp.Root);
+        bool readableBeforeRecovery =
+            await cache.TryGetEntryAsync(CacheKey, "frontend-v2") is not null;
+        Assert.Equal(
+            crashState == PublicAotArtifactCommitState.Complete,
+            readableBeforeRecovery);
+        await cache.RecoverArtifactTransactionsAsync(CancellationToken.None);
+        await cache.RecoverArtifactTransactionsAsync(CancellationToken.None);
+
+        PublicAotCacheEntry? recovered = await cache.TryGetEntryAsync(CacheKey, "frontend-v2");
+        Assert.NotNull(recovered);
+        Assert.Equal("<main>process crash</main>", recovered.Value);
+        var journal = new PublicAotArtifactCommitJournal(
+            ResolveTestCacheRoot(temp.Root, Environments.Development),
+            TimeProvider.System);
+        bool stagingRemoved = !File.Exists(journal.GetStagingPath(journal.GetArtifactId(CacheKey)));
+        Assert.True(stagingRemoved);
+        output.WriteLine(
+            "public-aot-crash-recovery-receipt {0}",
+            JsonSerializer.Serialize(new
+            {
+                schema = "fsusblog.public-aot-crash-recovery-test-receipt.v1",
+                crashState = crashStateValue,
+                childExitCode = process.ExitCode,
+                childOutputSha256 = Convert.ToHexStringLower(
+                    SHA256.HashData(Encoding.UTF8.GetBytes(childOutput))),
+                readableBeforeRecovery,
+                recoveryPasses = 2,
+                recovered = true,
+                stagingRemoved
+            }));
+    }
+
+    [Fact]
+    public async Task Recovery_RealProcessCrashWorker()
+    {
+        string? root = Environment.GetEnvironmentVariable("FSUSBLOG_PUBLIC_AOT_CRASH_TEST_ROOT");
+        string? stateValue = Environment.GetEnvironmentVariable("FSUSBLOG_PUBLIC_AOT_CRASH_TEST_STATE");
+        if (string.IsNullOrWhiteSpace(root)
+            || !Enum.TryParse(stateValue, ignoreCase: false, out PublicAotArtifactCommitState crashState))
+        {
+            return;
+        }
+
+        PublicAotFileShellCache cache = BuildJournalCache(
+            root,
+            (state, _) =>
+            {
+                if (state == crashState)
+                {
+                    Process.GetCurrentProcess().Kill();
+                }
+
+                return Task.CompletedTask;
+            });
+        PublicAotCacheEntry entry = CreateEntry(
+            "public:aot:v2:doc:2:article:process-crash:iv:17") with
+        {
+            Value = "<main>process crash</main>"
+        };
+        await cache.SetAsync(entry);
+        Assert.Fail("The crash worker reached the end of SetAsync.");
+    }
+
+    [Fact]
+    public async Task Lookup_PointerDigestDoesNotMatchArtifact_FailsClosedAndQuarantines()
+    {
+        using var fixture = new JournalFixture();
+        PublicAotCacheEntry entry = CreateEntry("public:aot:v2:doc:2:article:digest:iv:3");
+        await fixture.RestartedCache.SetAsync(entry);
+        string targetPath = ResolveVersionedEntryPath(fixture.CacheRoot, entry);
+        byte[] tampered = await File.ReadAllBytesAsync(targetPath);
+        tampered[^1] ^= 0x01;
+        await File.WriteAllBytesAsync(targetPath, tampered);
+
+        fixture.RestartedCache = fixture.CreateCache();
+        PublicAotCacheEntry? result = await fixture.RestartedCache.TryGetEntryAsync(
+            entry.CacheKey,
+            entry.FrontendAssetVersion);
+
+        Assert.Null(result);
+        Assert.False(File.Exists(targetPath));
+        Assert.True(File.Exists(fixture.GetOrphanLedgerPath(entry.CacheKey)));
+    }
+
+    [Fact]
+    public async Task Lookup_PointerTransactionDigestDoesNotBindJournal_FailsClosed()
+    {
+        using var fixture = new JournalFixture();
+        PublicAotCacheEntry entry = CreateEntry("public:aot:v2:doc:2:article:pointer-binding:iv:3");
+        await fixture.RestartedCache.SetAsync(entry);
+        string pointerPath = fixture.GetPointerPath(entry.CacheKey);
+        PublicAotArtifactPointer pointer = JsonSerializer.Deserialize<PublicAotArtifactPointer>(
+            await File.ReadAllBytesAsync(pointerPath),
+            new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+        PublicAotArtifactPointer mismatched = SealPointerForTest(pointer with
+        {
+            TransactionDigest = new string('0', 64),
+            ContentDigest = string.Empty
+        });
+        await File.WriteAllBytesAsync(
+            pointerPath,
+            JsonSerializer.SerializeToUtf8Bytes(
+                mismatched,
+                new JsonSerializerOptions(JsonSerializerDefaults.Web)
+                {
+                    WriteIndented = true
+                }));
+
+        fixture.RestartedCache = fixture.CreateCache();
+        PublicAotCacheEntry? result = await fixture.RestartedCache.TryGetEntryAsync(
+            entry.CacheKey,
+            entry.FrontendAssetVersion);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task PrefixInvalidation_RegistryMissingButTransactionIndexed_RemovesArtifact()
+    {
+        using var fixture = new JournalFixture();
+        PublicAotCacheEntry entry = CreateEntry("public:aot:v2:doc:2:article:indexed:iv:4");
+        await fixture.RestartedCache.SetAsync(entry);
+        string targetPath = ResolveVersionedEntryPath(fixture.CacheRoot, entry);
+        ConfigureSetScan(
+            fixture.Database,
+            PublicAotCacheRegistry.BuildRouteRegistryKey(PublicPageId.ArticleDetail, "article"));
+        ConfigureSetScan(fixture.Database, PublicAotCacheRegistry.GlobalRegistryKey);
+
+        await fixture.RestartedCache.RemoveByPrefixAsync(
+            "public:aot:v2:doc:2:article:",
+            CancellationToken.None);
+
+        Assert.False(File.Exists(targetPath));
+        Assert.False(File.Exists(fixture.GetTransactionPath(entry.CacheKey)));
+    }
+
+    [Fact]
+    public async Task Lookup_JournalMissingBareFile_IsQuarantinedAndNeverRead()
+    {
+        using var fixture = new JournalFixture();
+        PublicAotCacheEntry entry = CreateEntry("public:aot:v2:doc:2:article:bare:iv:1");
+        string targetPath = ResolveVersionedEntryPath(fixture.CacheRoot, entry);
+        Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
+        await File.WriteAllBytesAsync(targetPath, PublicAotFileShellCache.SerializeEntryBytes(entry));
+
+        PublicAotCacheEntry? result = await fixture.RestartedCache.TryGetEntryAsync(
+            entry.CacheKey,
+            entry.FrontendAssetVersion);
+
+        Assert.Null(result);
+        Assert.False(File.Exists(targetPath));
+        Assert.True(File.Exists(fixture.GetOrphanLedgerPath(entry.CacheKey)));
+    }
+
+    [Fact]
+    public async Task Recovery_RepeatedTwice_IsIdempotent()
+    {
+        using var fixture = new JournalFixture(PublicAotArtifactCommitState.RegistryCommitted);
+        PublicAotCacheEntry entry = CreateEntry("public:aot:v2:doc:2:article:idempotent:iv:11");
+        await Assert.ThrowsAsync<SimulatedCommitCrashException>(() => fixture.CrashingCache.SetAsync(entry));
+        fixture.RestartedCache = fixture.CreateCache();
+
+        await fixture.RestartedCache.RecoverArtifactTransactionsAsync(CancellationToken.None);
+        string firstJournal = await File.ReadAllTextAsync(fixture.GetTransactionPath(entry.CacheKey));
+        string firstPointer = await File.ReadAllTextAsync(fixture.GetPointerPath(entry.CacheKey));
+        await fixture.RestartedCache.RecoverArtifactTransactionsAsync(CancellationToken.None);
+
+        Assert.Equal(firstJournal, await File.ReadAllTextAsync(fixture.GetTransactionPath(entry.CacheKey)));
+        Assert.Equal(firstPointer, await File.ReadAllTextAsync(fixture.GetPointerPath(entry.CacheKey)));
+        Assert.NotNull(await fixture.RestartedCache.TryGetEntryAsync(entry.CacheKey, entry.FrontendAssetVersion));
+    }
+
+    [Fact]
+    public async Task GarbageCollection_ActiveTransactionGeneration_IsRetained()
+    {
+        using var fixture = new JournalFixture(PublicAotArtifactCommitState.Staged);
+        PublicAotCacheEntry entry = CreateEntry("public:aot:v2:doc:2:article:active:iv:5") with
+        {
+            FrontendAssetVersion = "frontend-active"
+        };
+        await Assert.ThrowsAsync<SimulatedCommitCrashException>(() => fixture.CrashingCache.SetAsync(entry));
+        string activePath = ResolveVersionedEntryPath(fixture.CacheRoot, entry);
+        Directory.CreateDirectory(Path.GetDirectoryName(activePath)!);
+        await File.WriteAllBytesAsync(activePath, PublicAotFileShellCache.SerializeEntryBytes(entry));
+        string differentCurrentPath = PublicAotFileShellCache.ResolveVersionedEntryPathInCacheRootForTests(
+            fixture.CacheRoot,
+            entry.CacheKey,
+            "frontend-next",
+            entry.PageId);
+
+        fixture.RestartedCache.CollectSupersededVersionsForTests(entry.CacheKey, differentCurrentPath);
+
+        Assert.True(File.Exists(activePath));
+    }
+
+    [Fact]
+    public async Task Lookup_CompleteTransactionAndPointer_ReadsArtifact()
+    {
+        using var fixture = new JournalFixture();
+        PublicAotCacheEntry entry = CreateEntry("public:aot:v2:doc:2:article:complete:iv:6");
+        await fixture.RestartedCache.SetAsync(entry);
+        fixture.RestartedCache = fixture.CreateCache();
+
+        PublicAotCacheEntry? result = await fixture.RestartedCache.TryGetEntryAsync(
+            entry.CacheKey,
+            entry.FrontendAssetVersion);
+
+        Assert.NotNull(result);
+        Assert.Equal(entry.Value, result.Value);
     }
 
     [Fact]
@@ -355,7 +644,10 @@ public sealed class PublicAotFileShellCacheTests
             firstUpdatedGeneration)));
         Assert.Equal(secondPointer, await File.ReadAllTextAsync(secondPointerPath));
         Assert.Equal(secondPayload, await File.ReadAllBytesAsync(secondTargetPath));
-        Assert.Equal(first.Value, (await oldInstance.TryGetEntryAsync(first.CacheKey, first.FrontendAssetVersion))?.Value);
+        Assert.Equal(
+            first.Value,
+            (await oldInstance.TryGetEntryAsync(first.CacheKey, first.FrontendAssetVersion))?.Value);
+        Assert.Equal(firstPayload, await File.ReadAllBytesAsync(firstTargetPath));
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => publisher.PublishArtifactAndProjectAsync(
             "public-aot",
@@ -992,6 +1284,146 @@ public sealed class PublicAotFileShellCacheTests
         {
             Temp.Dispose();
         }
+    }
+
+    private sealed class JournalFixture : IDisposable
+    {
+        private readonly TempDirectory _temp = new();
+        private readonly IConnectionMultiplexer _redis;
+        private readonly PublicAotArtifactCommitState? _crashState;
+        private bool _crashed;
+
+        public JournalFixture(PublicAotArtifactCommitState? crashState = null)
+        {
+            _crashState = crashState;
+            Database = Substitute.For<IDatabase>();
+            var subscriber = Substitute.For<ISubscriber>();
+            _redis = Substitute.For<IConnectionMultiplexer>();
+            _redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(Database);
+            _redis.GetSubscriber(Arg.Any<object?>()).Returns(subscriber);
+            Database.SetAddAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<CommandFlags>())
+                .Returns(Task.FromResult(true));
+            Database.SetRemoveAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue[]>(), Arg.Any<CommandFlags>())
+                .Returns(call => Task.FromResult((long)call.ArgAt<RedisValue[]>(1).Length));
+            subscriber.PublishAsync(Arg.Any<RedisChannel>(), Arg.Any<RedisValue>(), Arg.Any<CommandFlags>())
+                .Returns(Task.FromResult(1L));
+            CacheRoot = ResolveTestCacheRoot(_temp.Root, Environments.Development);
+            CrashingCache = CreateCache(CrashAtStateAsync);
+            RestartedCache = CreateCache();
+        }
+
+        public string CacheRoot
+        {
+            get;
+        }
+        public IDatabase Database
+        {
+            get;
+        }
+        public PublicAotFileShellCache CrashingCache
+        {
+            get;
+        }
+        public PublicAotFileShellCache RestartedCache
+        {
+            get; set;
+        }
+
+        public PublicAotFileShellCache CreateCache(
+            Func<PublicAotArtifactCommitState, CancellationToken, Task>? observer = null)
+            => new(
+                new TestWebHostEnvironment(_temp.Root, Environments.Development),
+                _redis,
+                NullLogger<PublicAotFileShellCache>.Instance,
+                derivedPublisher: null,
+                configuration: null,
+                timeProvider: null,
+                publicArtifactStorage: null,
+                observer);
+
+        public string GetTransactionPath(string cacheKey)
+            => Path.Combine(CacheRoot, ".transactions", $"{PublicAotFileShellCache.ToHashForTests(cacheKey)}.json");
+
+        public string GetPointerPath(string cacheKey)
+            => Path.Combine(CacheRoot, ".transaction-pointers", $"{PublicAotFileShellCache.ToHashForTests(cacheKey)}.json");
+
+        public string GetOrphanLedgerPath(string cacheKey)
+            => Path.Combine(CacheRoot, ".orphan-ledger", $"{PublicAotFileShellCache.ToHashForTests(cacheKey)}.json");
+
+        public void Dispose() => _temp.Dispose();
+
+        private Task CrashAtStateAsync(
+            PublicAotArtifactCommitState state,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!_crashed && state == _crashState)
+            {
+                _crashed = true;
+                throw new SimulatedCommitCrashException();
+            }
+
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class SimulatedCommitCrashException : Exception
+    {
+    }
+
+    private static ProcessStartInfo CreateCrashWorkerStartInfo(
+        string root,
+        PublicAotArtifactCommitState crashState)
+    {
+        string assemblyPath = typeof(PublicAotFileShellCacheTests).Assembly.Location;
+        var startInfo = new ProcessStartInfo(
+            "dotnet",
+            $"vstest \"{assemblyPath}\" --Tests:{typeof(PublicAotFileShellCacheTests).FullName}.Recovery_RealProcessCrashWorker")
+        {
+            RedirectStandardError = true,
+            RedirectStandardOutput = true,
+            UseShellExecute = false
+        };
+        startInfo.Environment["FSUSBLOG_PUBLIC_AOT_CRASH_TEST_ROOT"] = root;
+        startInfo.Environment["FSUSBLOG_PUBLIC_AOT_CRASH_TEST_STATE"] = crashState.ToString();
+        return startInfo;
+    }
+
+    private static PublicAotFileShellCache BuildJournalCache(
+        string root,
+        Func<PublicAotArtifactCommitState, CancellationToken, Task>? observer = null)
+    {
+        IDatabase database = Substitute.For<IDatabase>();
+        var subscriber = Substitute.For<ISubscriber>();
+        var redis = Substitute.For<IConnectionMultiplexer>();
+        redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(database);
+        redis.GetSubscriber(Arg.Any<object?>()).Returns(subscriber);
+        database.SetAddAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<CommandFlags>())
+            .Returns(Task.FromResult(true));
+        database.SetRemoveAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue[]>(), Arg.Any<CommandFlags>())
+            .Returns(call => Task.FromResult((long)call.ArgAt<RedisValue[]>(1).Length));
+        subscriber.PublishAsync(Arg.Any<RedisChannel>(), Arg.Any<RedisValue>(), Arg.Any<CommandFlags>())
+            .Returns(Task.FromResult(1L));
+        return new PublicAotFileShellCache(
+            new TestWebHostEnvironment(root, Environments.Development),
+            redis,
+            NullLogger<PublicAotFileShellCache>.Instance,
+            derivedPublisher: null,
+            configuration: null,
+            timeProvider: null,
+            publicArtifactStorage: null,
+            observer);
+    }
+
+    private static PublicAotArtifactPointer SealPointerForTest(PublicAotArtifactPointer pointer)
+    {
+        MethodInfo seal = typeof(PublicAotArtifactCommitJournal).GetMethod(
+            "Seal",
+            BindingFlags.NonPublic | BindingFlags.Static,
+            binder: null,
+            [typeof(PublicAotArtifactPointer)],
+            modifiers: null)!;
+        return (PublicAotArtifactPointer)seal.Invoke(null, [pointer])!;
     }
 
     private sealed class TestWebHostEnvironment(string root, string environmentName) : IWebHostEnvironment
