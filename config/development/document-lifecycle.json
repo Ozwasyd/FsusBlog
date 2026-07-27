@@ -761,6 +761,16 @@
             "supersededBy": null
         },
         {
+            "path": "docs/development/doc-claim-protocol.md",
+            "status": "current",
+            "owner": "governance",
+            "relatedIssues": [
+                1738
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
             "path": "docs/development/document-lifecycle.md",
             "status": "current",
             "owner": "governance",

@@ -12,7 +12,7 @@ The lifecycle statuses are:
 - `generated`: producer-owned output that must not be edited by hand.
 - `retired`: content kept only behind an explicit replacement or redirect.
 
-Every inventory entry records an owner, status, source-of-truth flag, verification commit, reciprocal supersession fields, related issues, and the producer for generated content. None of those values is inferred from a filename. The lifecycle verification commit binds the classification pass, not a claim that every paragraph was rewritten at that commit.
+Every inventory entry records an owner, status, source-of-truth flag, verification commit, reciprocal supersession fields, related issues, and the producer for generated content. None of those values is inferred from a filename. The lifecycle verification commit binds the classification pass, not a claim that every paragraph was rewritten at that commit. Executable paragraph-level behavior claims are owned by the [DocClaim protocol](doc-claim-protocol.md); `lastVerifiedCommit` must not enter DocClaim pass/fail inputs or receipt digests.
 
 ## Ownership
 

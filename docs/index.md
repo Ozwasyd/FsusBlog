@@ -240,6 +240,7 @@
 - [C# style enforcement](development/csharp-style-enforcement.md)
 - [Custom rule platform](development/custom-rule-platform.md)
 - [Demo Data](development/demo-data.md)
+- [DocClaim protocol](development/doc-claim-protocol.md)
 - [Documentation Lifecycle](development/document-lifecycle.md)
 - [Frontend style enforcement](development/frontend-style-enforcement.md)
 - [Native and tooling style enforcement](development/native-tooling-style-enforcement.md)

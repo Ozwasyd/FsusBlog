@@ -1,0 +1,244 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "fsusblog.doc-claim.v1",
+    "title": "FsusBlog executable document claim",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "claimId",
+        "behaviorId",
+        "claimType",
+        "render"
+    ],
+    "properties": {
+        "claimId": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+        },
+        "behaviorId": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "claimType": {
+            "enum": [
+                "scalar",
+                "boolean",
+                "enum-set",
+                "ordered-set",
+                "map",
+                "transition-set",
+                "failure-mode",
+                "generated-section",
+                "rationale"
+            ]
+        },
+        "factPath": {
+            "type": "string",
+            "pattern": "^[a-z][a-zA-Z0-9]*(?:\\.[a-z][a-zA-Z0-9]*)*$"
+        },
+        "generatedSectionId": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+        },
+        "render": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "anchor": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "projection": {
+            "type": "string",
+            "minLength": 1
+        },
+        "orderPolicy": {
+            "type": "string",
+            "minLength": 1
+        },
+        "emptyPolicy": {
+            "type": "string",
+            "minLength": 1
+        }
+    },
+    "allOf": [
+        {
+            "if": {
+                "properties": {
+                    "claimType": {
+                        "const": "generated-section"
+                    }
+                },
+                "required": [
+                    "claimType"
+                ]
+            },
+            "then": {
+                "required": [
+                    "generatedSectionId"
+                ],
+                "not": {
+                    "required": [
+                        "factPath"
+                    ]
+                }
+            },
+            "else": {
+                "required": [
+                    "factPath"
+                ],
+                "not": {
+                    "required": [
+                        "generatedSectionId"
+                    ]
+                }
+            }
+        }
+    ],
+    "$defs": {
+        "forbiddenFields": {
+            "description": "These keys are always rejected. They must never appear on a claim or in a DocClaim receipt.",
+            "enum": [
+                "verified",
+                "approved",
+                "lastVerifiedCommit",
+                "expectedValue",
+                "baselineValue",
+                "ignoreDifference",
+                "waiver",
+                "allowStaleUntil"
+            ]
+        },
+        "claimTypes": {
+            "enum": [
+                "scalar",
+                "boolean",
+                "enum-set",
+                "ordered-set",
+                "map",
+                "transition-set",
+                "failure-mode",
+                "generated-section",
+                "rationale"
+            ]
+        },
+        "parseReceipt": {
+            "$id": "fsusblog.doc-claim-parse-receipt.v1",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "schema",
+                "digestAlgorithm",
+                "canonicalSerialization",
+                "behaviorCatalogDigest",
+                "claims",
+                "contentDigest"
+            ],
+            "properties": {
+                "schema": {
+                    "const": "fsusblog.doc-claim-parse-receipt.v1"
+                },
+                "digestAlgorithm": {
+                    "const": "sha256"
+                },
+                "canonicalSerialization": {
+                    "const": "json-utf8-v1"
+                },
+                "behaviorCatalogDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                },
+                "claims": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/locatedClaim"
+                    }
+                },
+                "contentDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                }
+            }
+        },
+        "locatedClaim": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "declaration",
+                "location"
+            ],
+            "properties": {
+                "declaration": {
+                    "$ref": "#"
+                },
+                "location": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "documentPath",
+                        "claimStartLine",
+                        "claimEndLine",
+                        "documentStatus",
+                        "headingPath",
+                        "bodyKind",
+                        "bodyStartLine",
+                        "bodyEndLine",
+                        "bodyText"
+                    ],
+                    "properties": {
+                        "documentPath": {
+                            "type": "string",
+                            "pattern": "^docs/"
+                        },
+                        "claimStartLine": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "claimEndLine": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "documentStatus": {
+                            "enum": [
+                                "current",
+                                "historical",
+                                "proposed",
+                                "generated",
+                                "retired"
+                            ]
+                        },
+                        "headingPath": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "bodyKind": {
+                            "enum": [
+                                "paragraph",
+                                "list",
+                                "table",
+                                "none"
+                            ]
+                        },
+                        "bodyStartLine": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ]
+                        },
+                        "bodyEndLine": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ]
+                        },
+                        "bodyText": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
