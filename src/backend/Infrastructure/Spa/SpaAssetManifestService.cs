@@ -1,7 +1,6 @@
 using System.Collections.Frozen;
 using System.Security.Cryptography;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -119,12 +118,25 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         "index",
         "main"
     ];
-    private static readonly Regex s_stringPropertyRegex = new(
-        "\"(?<name>[^\"]+)\"\\s*:\\s*\"(?<value>[^\"]*)\"",
-        RegexOptions.Compiled | RegexOptions.CultureInvariant);
-    private static readonly Regex s_arrayStringRegex = new(
-        "\"(?<value>[^\"]*)\"",
-        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    private static readonly FrozenSet<string> s_supportedManifestProperties =
+    new[]
+    {
+        "file",
+        "name",
+        "src",
+        "css",
+        "imports",
+        "dynamicImports",
+        "assets",
+        "isEntry",
+        "isDynamicEntry"
+    }.ToFrozenSet(StringComparer.Ordinal);
+
+    // Machine-readable catalog: each owner must occur exactly once as a manifest entry name.
+    private const string RequiredEntryCatalogJson = """
+        {"owners":["route-public","entry-runtime","public-page-runtime","public-shell-critical","tailwind","public-page","full-app-core","route-user","route-admin","route-auth","route-error"]}
+        """;
 
     private readonly IWebHostEnvironment _env;
     private readonly IConfiguration _configuration;
@@ -318,32 +330,31 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
 
             try
             {
-                string manifestText = File.ReadAllText(manifestPath);
+                using JsonDocument manifestDocument = JsonDocument.Parse(
+                    File.ReadAllBytes(manifestPath),
+                    new JsonDocumentOptions { AllowTrailingCommas = false, CommentHandling = JsonCommentHandling.Disallow });
                 var newRouteMap = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
                 var newManifest = new Dictionary<string, ManifestAsset>(StringComparer.OrdinalIgnoreCase);
 
-                foreach ((string key, string body) in EnumerateManifestEntries(manifestText))
+                if (manifestDocument.RootElement.ValueKind != JsonValueKind.Object)
                 {
-                    string file = TryReadString(body, "file");
-                    string name = TryReadString(body, "name");
-                    string src = TryReadString(body, "src");
-                    string[] css = ReadStringArray(body, "css");
-                    string[] imports = ReadStringArray(body, "imports");
+                    throw new SpaManifestValidationException("spa_manifest_schema_invalid");
+                }
+                foreach (JsonProperty entry in manifestDocument.RootElement.EnumerateObject())
+                {
+                    string key = RequireManifestString(entry.Name, "key");
+                    ManifestAsset asset = ParseManifestAsset(key, entry.Value);
 
-                    var asset = new ManifestAsset(
-                        key,
-                        name,
-                        src,
-                        ToAssetHref(file),
-                        [.. css.Select(ToAssetHref).Where(static href => href.Length > 0)],
-                        [.. imports]);
-                    newManifest[key] = asset;
-                    if (!string.IsNullOrWhiteSpace(name))
+                    if (!newManifest.TryAdd(key, asset))
                     {
-                        if (!newRouteMap.TryGetValue(name, out List<string>? routeAssets))
+                        throw new SpaManifestValidationException("spa_manifest_schema_invalid");
+                    }
+                    if (!string.IsNullOrWhiteSpace(asset.Name))
+                    {
+                        if (!newRouteMap.TryGetValue(asset.Name, out List<string>? routeAssets))
                         {
                             routeAssets = [];
-                            newRouteMap[name] = routeAssets;
+                            newRouteMap[asset.Name] = routeAssets;
                         }
 
                         if (!string.IsNullOrWhiteSpace(asset.File))
@@ -356,12 +367,15 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
                 }
 
                 FrozenDictionary<string, ManifestAsset> manifestSnapshot = newManifest.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
+                ValidateRequiredEntryCatalog(manifestSnapshot);
+                ValidateImportGraph(manifestSnapshot);
+                ValidateManifestAssetBindings(manifestSnapshot, descriptor);
                 _manifestByKey = manifestSnapshot;
                 _routeAssetMap = newRouteMap.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
                 _manifestPath = manifestPath;
                 _indexTemplatePath = descriptor.IndexPath;
                 _lastManifestWriteTime = lastWrite;
-                _frontendAssetVersion = ComputeAssetVersion(manifestPath);
+                _frontendAssetVersion = ComputeSemanticAssetVersion(manifestSnapshot, descriptor.IndexPath);
                 _publicAssetSet = CreatePublicAssetSet(manifestSnapshot, _frontendAssetVersion, pageId: null);
                 _manifestLoaded = !isDevelopment;
                 _readiness = SpaAssetManifestReadiness.Ready(descriptor);
@@ -370,7 +384,9 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to load SPA asset manifest from {ManifestPath}", manifestPath);
-                SetManifestFailure("spa_manifest_parse_failed");
+                SetManifestFailure(ex is SpaManifestValidationException validation
+                    ? validation.Code
+                    : "spa_manifest_parse_failed");
             }
         }
     }
@@ -609,18 +625,26 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
             : "missing-manifest";
     }
 
-    private string ComputeAssetVersion(string manifestPath)
+    private static string ComputeSemanticAssetVersion(
+        IReadOnlyDictionary<string, ManifestAsset> manifest,
+        string indexPath)
     {
         using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        string? manifestDirectory = Path.GetDirectoryName(manifestPath);
-        string? distRoot = manifestDirectory is null ? null : Path.GetFullPath(Path.Combine(manifestDirectory, ".."));
-        string? indexPath = distRoot is null ? null : Path.Combine(distRoot, "index.html");
-        if (indexPath is not null && File.Exists(indexPath))
+        if (File.Exists(indexPath))
         {
             sha.AppendData(File.ReadAllBytes(indexPath));
         }
-
-        sha.AppendData(File.ReadAllBytes(manifestPath));
+        foreach (ManifestAsset asset in manifest.Values.OrderBy(static asset => asset.Key, StringComparer.Ordinal))
+        {
+            sha.AppendData(System.Text.Encoding.UTF8.GetBytes(string.Join('\n', new[]
+            {
+                asset.Key, asset.Name, asset.Src, asset.File,
+                string.Join(',', asset.Css),
+                string.Join(',', asset.Imports),
+                string.Join(',', asset.DynamicImports),
+                string.Join(',', asset.Assets)
+            })));
+        }
         return Convert.ToHexStringLower(sha.GetHashAndReset());
     }
 
@@ -631,181 +655,255 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         return Convert.ToHexStringLower(hash);
     }
 
-    private static IEnumerable<(string Key, string Body)> EnumerateManifestEntries(string text)
+    private static ManifestAsset ParseManifestAsset(string key, JsonElement entry)
     {
-        int offset = 0;
-        while (TryReadQuotedString(text, offset, out string key, out int keyEnd))
+        if (entry.ValueKind != JsonValueKind.Object || HasDuplicateProperties(entry))
         {
-            int colon = text.IndexOf(':', keyEnd);
-            if (colon < 0)
+            throw new SpaManifestValidationException("spa_manifest_schema_invalid");
+        }
+        string file = RequireManifestProperty(entry, "file");
+        string name = OptionalManifestProperty(entry, "name");
+        string src = OptionalManifestProperty(entry, "src");
+        string[] css = ReadManifestStringArray(entry, "css");
+        string[] imports = ReadManifestStringArray(entry, "imports");
+        string[] dynamicImports = ReadManifestStringArray(entry, "dynamicImports");
+        string[] assets = ReadManifestStringArray(entry, "assets");
+        ValidateManifestProperties(entry);
+        return new ManifestAsset(
+            key,
+            name,
+            src,
+            ToAssetHref(file),
+            [.. css.Select(ToAssetHref)],
+            imports,
+            dynamicImports,
+            [.. assets.Select(ToAssetHref)]);
+    }
+
+    private static bool HasDuplicateProperties(JsonElement entry)
+    {
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        return entry.EnumerateObject().Any(property => !names.Add(property.Name));
+    }
+
+    private static void ValidateManifestProperties(JsonElement entry)
+    {
+        foreach (JsonProperty property in entry.EnumerateObject())
+        {
+            if (!s_supportedManifestProperties.Contains(property.Name))
             {
-                yield break;
+                throw new SpaManifestValidationException("spa_manifest_schema_invalid");
             }
 
-            int objectStart = text.IndexOf('{', colon);
-            if (objectStart < 0)
+            if (property.Name is "isEntry" or "isDynamicEntry"
+                && property.Value.ValueKind != JsonValueKind.True
+                && property.Value.ValueKind != JsonValueKind.False)
             {
-                yield break;
+                throw new SpaManifestValidationException("spa_manifest_schema_invalid");
             }
-
-            int objectEnd = FindMatchingBrace(text, objectStart);
-            if (objectEnd < 0)
-            {
-                yield break;
-            }
-
-            yield return (key, text[(objectStart + 1)..objectEnd]);
-            offset = objectEnd + 1;
         }
     }
 
-    private static string TryReadString(string body, string propertyName)
+    private static string RequireManifestProperty(JsonElement entry, string propertyName)
     {
-        foreach (Match match in s_stringPropertyRegex.Matches(body))
-        {
-            if (string.Equals(match.Groups["name"].Value, propertyName, StringComparison.Ordinal))
-            {
-                return Regex.Unescape(match.Groups["value"].Value);
-            }
-        }
-
-        return string.Empty;
+        if (!entry.TryGetProperty(propertyName, out JsonElement value))
+            throw new SpaManifestValidationException("spa_manifest_schema_invalid");
+        return RequireManifestString(
+            value.ValueKind == JsonValueKind.String ? value.GetString() : null,
+            propertyName,
+            value.ValueKind);
     }
 
-    private static string[] ReadStringArray(string body, string propertyName)
+    private static string OptionalManifestProperty(JsonElement entry, string propertyName)
     {
-        string token = $"\"{propertyName}\"";
-        int propertyIndex = body.IndexOf(token, StringComparison.Ordinal);
-        if (propertyIndex < 0)
+        return entry.TryGetProperty(propertyName, out JsonElement value)
+            ? RequireManifestString(
+                value.ValueKind == JsonValueKind.String ? value.GetString() : null,
+                propertyName,
+                value.ValueKind)
+            : string.Empty;
+    }
+
+    private static string[] ReadManifestStringArray(JsonElement entry, string propertyName)
+    {
+        if (!entry.TryGetProperty(propertyName, out JsonElement value))
         {
             return [];
         }
-
-        int arrayStart = body.IndexOf('[', propertyIndex);
-        if (arrayStart < 0)
+        if (value.ValueKind != JsonValueKind.Array)
         {
-            return [];
+            throw new SpaManifestValidationException("spa_manifest_schema_invalid");
         }
-
-        int arrayEnd = body.IndexOf(']', arrayStart);
-        if (arrayEnd < 0)
-        {
-            return [];
-        }
-
-        return s_arrayStringRegex.Matches(body[(arrayStart + 1)..arrayEnd])
-            .Select(static match => Regex.Unescape(match.Groups["value"].Value))
-            .Where(static value => value.Length > 0)
-            .ToArray();
+        return value.EnumerateArray().Select(item => RequireManifestString(
+            item.ValueKind == JsonValueKind.String ? item.GetString() : null,
+            propertyName,
+            item.ValueKind)).ToArray();
     }
 
-    private static bool TryReadQuotedString(string text, int offset, out string value, out int end)
+    private static string RequireManifestString(string? value, string propertyName, JsonValueKind? kind = null)
     {
-        value = string.Empty;
-        end = offset;
-        int start = text.IndexOf('"', offset);
-        if (start < 0)
+        if (kind is not null && kind != JsonValueKind.String || string.IsNullOrWhiteSpace(value))
         {
-            return false;
+            throw new SpaManifestValidationException("spa_manifest_schema_invalid");
         }
-
-        var builder = new System.Text.StringBuilder();
-        bool escaped = false;
-        for (int i = start + 1; i < text.Length; i++)
-        {
-            char current = text[i];
-            if (escaped)
-            {
-                builder.Append(current);
-                escaped = false;
-                continue;
-            }
-
-            if (current == '\\')
-            {
-                escaped = true;
-                continue;
-            }
-
-            if (current == '"')
-            {
-                value = Regex.Unescape(builder.ToString());
-                end = i + 1;
-                return true;
-            }
-
-            builder.Append(current);
-        }
-
-        return false;
+        return value.Trim();
     }
 
-    private static int FindMatchingBrace(string text, int start)
+    private static void ValidateRequiredEntryCatalog(IReadOnlyDictionary<string, ManifestAsset> manifest)
     {
-        int depth = 0;
-        bool inString = false;
-        bool escaped = false;
-        for (int i = start; i < text.Length; i++)
+        using JsonDocument catalog = JsonDocument.Parse(RequiredEntryCatalogJson);
+        JsonElement owners = catalog.RootElement.GetProperty("owners");
+        if (owners.ValueKind != JsonValueKind.Array)
+            throw new SpaManifestValidationException("spa_manifest_required_catalog_invalid");
+        foreach (JsonElement ownerElement in owners.EnumerateArray())
         {
-            char current = text[i];
-            if (inString)
+            string owner = RequireManifestString(ownerElement.GetString(), "owner", ownerElement.ValueKind);
+            int matches = manifest.Values.Count(asset => string.Equals(asset.Name, owner, StringComparison.Ordinal));
+            if (matches != 1)
+                throw new SpaManifestValidationException("spa_manifest_required_entry_invalid");
+        }
+    }
+
+    private static void ValidateImportGraph(IReadOnlyDictionary<string, ManifestAsset> manifest)
+    {
+        var visiting = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string key in manifest.Keys)
+        {
+            Visit(key);
+        }
+        return;
+
+        void Visit(string key)
+        {
+            if (visited.Contains(key))
             {
-                if (escaped)
-                {
-                    escaped = false;
-                    continue;
-                }
+                return;
+            }
+            if (!manifest.ContainsKey(key))
+            {
+                throw new SpaManifestValidationException("spa_manifest_import_missing");
+            }
+            if (!visiting.Add(key))
+            {
+                throw new SpaManifestValidationException("spa_manifest_import_cycle");
+            }
+            foreach (string import in manifest[key].Imports)
+            {
+                Visit(import);
+            }
+            visiting.Remove(key);
+            visited.Add(key);
+        }
+    }
 
-                if (current == '\\')
-                {
-                    escaped = true;
-                    continue;
-                }
+    private static void ValidateManifestAssetBindings(
+        IReadOnlyDictionary<string, ManifestAsset> manifest,
+        SpaManifestDescriptor descriptor)
+    {
+        // Development manifests have no immutable release inventory. Production
+        // reaches this point only after the descriptor has authenticated it.
+        if (string.IsNullOrWhiteSpace(descriptor.AssetInventoryPath))
+        {
+            return;
+        }
 
-                if (current == '"')
-                {
-                    inString = false;
-                }
+        var inventory = new Dictionary<string, string>(StringComparer.Ordinal);
+        using JsonDocument document = JsonDocument.Parse(File.ReadAllBytes(descriptor.AssetInventoryPath));
+        if (document.RootElement.ValueKind != JsonValueKind.Object
+            || !document.RootElement.TryGetProperty("files", out JsonElement files)
+            || files.ValueKind != JsonValueKind.Array)
+        {
+            throw new SpaManifestValidationException("spa_asset_inventory_invalid");
+        }
 
-                continue;
+        foreach (JsonElement entry in files.EnumerateArray())
+        {
+            if (entry.ValueKind != JsonValueKind.Object
+                || !entry.TryGetProperty("path", out JsonElement path)
+                || !entry.TryGetProperty("sha256", out JsonElement digest)
+                || path.ValueKind != JsonValueKind.String
+                || digest.ValueKind != JsonValueKind.String)
+            {
+                throw new SpaManifestValidationException("spa_asset_inventory_invalid");
             }
 
-            if (current == '"')
+            string relativePath = NormalizeInventoryPath(path.GetString());
+            string expectedDigest = digest.GetString() ?? string.Empty;
+            if (!expectedDigest.StartsWith("sha256:", StringComparison.Ordinal)
+                || !inventory.TryAdd(relativePath, expectedDigest))
             {
-                inString = true;
-                continue;
-            }
-
-            if (current == '{')
-            {
-                depth++;
-                continue;
-            }
-
-            if (current == '}')
-            {
-                depth--;
-                if (depth == 0)
-                {
-                    return i;
-                }
+                throw new SpaManifestValidationException("spa_asset_inventory_invalid");
             }
         }
 
-        return -1;
+        foreach (ManifestAsset asset in manifest.Values)
+        {
+            ValidateReference(asset.File);
+            foreach (string css in asset.Css)
+            {
+                ValidateReference(css);
+            }
+            foreach (string referencedAsset in asset.Assets)
+            {
+                ValidateReference(referencedAsset);
+            }
+        }
+
+        return;
+
+        void ValidateReference(string href)
+        {
+            string relativePath = NormalizeManifestAssetPath(href.TrimStart('/'));
+            if (!inventory.TryGetValue(relativePath, out string? expectedDigest))
+            {
+                throw new SpaManifestValidationException("spa_manifest_asset_missing_from_inventory");
+            }
+
+            string physicalPath = Path.GetFullPath(Path.Combine(
+                descriptor.AssetRoot,
+                relativePath.Replace('/', Path.DirectorySeparatorChar)));
+            if (!physicalPath.StartsWith(
+                    Path.TrimEndingDirectorySeparator(descriptor.AssetRoot) + Path.DirectorySeparatorChar,
+                    OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal)
+                || !File.Exists(physicalPath)
+                || !string.Equals("sha256:" + ComputeSha256(File.ReadAllBytes(physicalPath)), expectedDigest, StringComparison.Ordinal))
+            {
+                throw new SpaManifestValidationException("spa_manifest_asset_digest_mismatch");
+            }
+        }
     }
 
     private static string ToAssetHref(string path)
     {
-        if (string.IsNullOrWhiteSpace(path))
+        return "/" + NormalizeManifestAssetPath(path);
+    }
+
+    private static string NormalizeManifestAssetPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)
+            || Path.IsPathRooted(path)
+            || path.Contains('\\')
+            || path.Split('/').Any(static segment => string.IsNullOrEmpty(segment) || segment is "." or "..")
+            || !path.StartsWith("assets/", StringComparison.Ordinal))
         {
-            return string.Empty;
+            throw new SpaManifestValidationException("spa_manifest_asset_path_invalid");
         }
 
-        string normalized = path.Replace('\\', '/').TrimStart('/');
-        return normalized.StartsWith("assets/", StringComparison.OrdinalIgnoreCase)
-            ? "/" + normalized
-            : "/assets/" + Path.GetFileName(normalized);
+        return path;
+    }
+
+    private static string NormalizeInventoryPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)
+            || Path.IsPathRooted(path)
+            || path.Contains('\\')
+            || path.Split('/').Any(static segment => string.IsNullOrEmpty(segment) || segment is "." or ".."))
+        {
+            throw new SpaManifestValidationException("spa_asset_inventory_invalid");
+        }
+
+        return path;
     }
 
     private sealed record ManifestAsset(
@@ -814,5 +912,7 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         string Src,
         string File,
         IReadOnlyList<string> Css,
-        IReadOnlyList<string> Imports);
+        IReadOnlyList<string> Imports,
+        IReadOnlyList<string> DynamicImports,
+        IReadOnlyList<string> Assets);
 }

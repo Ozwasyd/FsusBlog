@@ -669,6 +669,229 @@ public sealed class SpaAssetManifestServiceTests
         }
     }
 
+    [Fact]
+    public void Production_RejectsMissingRequiredManifestOwner()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
+            string manifest = Path.Combine(root, "wwwroot", ".vite", "manifest.json");
+            File.WriteAllText(manifest, File.ReadAllText(manifest).Replace(
+                "\"name\": \"route-auth\"", "\"name\": \"removed-owner\"", StringComparison.Ordinal));
+            WriteDescriptor(root);
+            AssertReadinessFailure(root, "spa_manifest_required_entry_invalid");
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public void Production_RejectsAmbiguousRequiredManifestOwner()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
+            string manifest = Path.Combine(root, "wwwroot", ".vite", "manifest.json");
+            File.WriteAllText(manifest, File.ReadAllText(manifest).Replace(
+                "\"name\": \"route-auth\"", "\"name\": \"route-admin\"", StringComparison.Ordinal));
+            WriteDescriptor(root);
+            AssertReadinessFailure(root, "spa_manifest_required_entry_invalid");
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public void Production_RejectsMissingManifestImportTarget()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
+            string manifest = Path.Combine(root, "wwwroot", ".vite", "manifest.json");
+            File.WriteAllText(manifest, File.ReadAllText(manifest).Replace(
+                "\"name\": \"route-error\"", "\"name\": \"route-error\", \"imports\": [\"missing\"]", StringComparison.Ordinal));
+            WriteDescriptor(root);
+            AssertReadinessFailure(root, "spa_manifest_import_missing");
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public void Production_RejectsManifestImportCycle()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
+            string manifest = Path.Combine(root, "wwwroot", ".vite", "manifest.json");
+            File.WriteAllText(manifest, File.ReadAllText(manifest).Replace(
+                "\"name\": \"route-error\"", "\"name\": \"route-error\", \"imports\": [\"error\"]", StringComparison.Ordinal));
+            WriteDescriptor(root);
+            AssertReadinessFailure(root, "spa_manifest_import_cycle");
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public void Production_RejectsTruncatedInvalidEscapeAndDuplicateManifestEntriesWithoutPartialResult()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
+            string manifestPath = Path.Combine(root, "wwwroot", ".vite", "manifest.json");
+            string completeFirstEntry = File.ReadAllText(manifestPath);
+            int secondEntry = completeFirstEntry.IndexOf("  \"_entry-runtime-a.js\":", StringComparison.Ordinal);
+            Assert.True(secondEntry > 0);
+            File.WriteAllText(manifestPath, completeFirstEntry[..(secondEntry + 20)]);
+            Assert.Equal(
+                "spa_manifest_parse_failed",
+                CreateService(root, new TestWebHostEnvironment(root, Environments.Development)).GetReadiness().Error);
+
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
+            manifestPath = Path.Combine(root, "wwwroot", ".vite", "manifest.json");
+            File.WriteAllText(manifestPath, "{ \"entry\": \"\\q\" }");
+            Assert.Equal(
+                "spa_manifest_parse_failed",
+                CreateService(root, new TestWebHostEnvironment(root, Environments.Development)).GetReadiness().Error);
+
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
+            manifestPath = Path.Combine(root, "wwwroot", ".vite", "manifest.json");
+            string original = File.ReadAllText(manifestPath);
+            File.WriteAllText(
+                manifestPath,
+                original.Insert(
+                    original.IndexOf('\n') + 1,
+                    "  \"src/bootstrap/entry.ts\": { \"file\": \"assets/index-abc.js\", \"name\": \"route-public\" },\n"));
+            Assert.Equal(
+                "spa_manifest_schema_invalid",
+                CreateService(root, new TestWebHostEnvironment(root, Environments.Development)).GetReadiness().Error);
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public void Production_RejectsManifestEntryFieldTypeMismatch()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
+            string manifestPath = Path.Combine(root, "wwwroot", ".vite", "manifest.json");
+            JsonObject manifest = JsonNode.Parse(File.ReadAllText(manifestPath))!.AsObject();
+            manifest["src/bootstrap/entry.ts"]!["css"] = "assets/public-page-a.css";
+            File.WriteAllText(manifestPath, manifest.ToJsonString());
+            Assert.Equal(
+                "spa_manifest_schema_invalid",
+                CreateService(root, new TestWebHostEnvironment(root, Environments.Development)).GetReadiness().Error);
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public void Production_RejectsUnknownManifestFieldAndBooleanTypeMismatch()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
+            string manifestPath = Path.Combine(root, "wwwroot", ".vite", "manifest.json");
+            JsonObject manifest = JsonNode.Parse(File.ReadAllText(manifestPath))!.AsObject();
+            manifest["src/bootstrap/entry.ts"]!["unrecognized"] = "ignored-before";
+            File.WriteAllText(manifestPath, manifest.ToJsonString());
+            Assert.Equal(
+                "spa_manifest_schema_invalid",
+                CreateService(root, new TestWebHostEnvironment(root, Environments.Development)).GetReadiness().Error);
+
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
+            manifest = JsonNode.Parse(File.ReadAllText(manifestPath))!.AsObject();
+            manifest["src/bootstrap/entry.ts"]!["isEntry"] = "true";
+            File.WriteAllText(manifestPath, manifest.ToJsonString());
+            Assert.Equal(
+                "spa_manifest_schema_invalid",
+                CreateService(root, new TestWebHostEnvironment(root, Environments.Development)).GetReadiness().Error);
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public void Production_RejectsManifestFileAndCssOutsideAssetRoot()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
+            string manifestPath = Path.Combine(root, "local-unversioned", ".vite", "manifest.json");
+            JsonObject manifest = JsonNode.Parse(File.ReadAllText(manifestPath))!.AsObject();
+            manifest["src/bootstrap/entry.ts"]!["file"] = "../escaped.js";
+            File.WriteAllText(manifestPath, manifest.ToJsonString());
+            ResealManifestMutation(root);
+            AssertReadinessFailure(root, "spa_manifest_asset_path_invalid");
+
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
+            manifestPath = Path.Combine(root, "local-unversioned", ".vite", "manifest.json");
+            manifest = JsonNode.Parse(File.ReadAllText(manifestPath))!.AsObject();
+            manifest["src/bootstrap/entry.ts"]!["css"] = new JsonArray("/assets/absolute.css");
+            File.WriteAllText(manifestPath, manifest.ToJsonString());
+            ResealManifestMutation(root);
+            AssertReadinessFailure(root, "spa_manifest_asset_path_invalid");
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public void Production_RejectsManifestReferenceMissingFromInventoryOrWithTamperedDigest()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
+            string manifestPath = Path.Combine(root, "local-unversioned", ".vite", "manifest.json");
+            JsonObject manifest = JsonNode.Parse(File.ReadAllText(manifestPath))!.AsObject();
+            manifest["src/bootstrap/entry.ts"]!["file"] = "assets/not-in-inventory.js";
+            File.WriteAllText(manifestPath, manifest.ToJsonString());
+            File.WriteAllText(Path.Combine(GetReleaseAssetRoot(root), "assets", "not-in-inventory.js"), "not-in-inventory");
+            ResealManifestMutation(root);
+            AssertReadinessFailure(root, "spa_asset_inventory_materialization_mismatch");
+
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
+            string inventoryPath = Path.Combine(root, "local-unversioned", "asset-manifest.json");
+            JsonObject inventory = JsonNode.Parse(File.ReadAllText(inventoryPath))!.AsObject();
+            JsonObject entry = inventory["files"]!.AsArray()
+                .Select(static item => item!.AsObject())
+                .Single(static item => item["path"]!.GetValue<string>() == "assets/index-abc.js");
+            entry["sha256"] = "sha256:" + new string('f', 64);
+            File.WriteAllText(inventoryPath, inventory.ToJsonString());
+            ResealDescriptor(root);
+            AssertReadinessFailure(root, "spa_asset_inventory_file_digest_mismatch");
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public void Production_SemanticDigestIsIndependentOfManifestEntryOrder()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
+            var env = new TestWebHostEnvironment(root, Environments.Production);
+            string first = CreateService(root, env).GetFrontendAssetVersion();
+            string manifest = Path.Combine(root, "wwwroot", ".vite", "manifest.json");
+            JsonObject source = JsonNode.Parse(File.ReadAllText(manifest))!.AsObject();
+            var reversed = new JsonObject();
+            foreach ((string key, JsonNode? value) in source.Reverse())
+            {
+                reversed[key] = value?.DeepClone();
+            }
+            File.WriteAllText(manifest, reversed.ToJsonString());
+            WriteDescriptor(root);
+            Assert.Equal(first, CreateService(root, new TestWebHostEnvironment(root, Environments.Production)).GetFrontendAssetVersion());
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
     private static string CreateTempDirectory()
     {
         string path = Path.Combine(Path.GetTempPath(), "fsus-manifest-tests", Guid.NewGuid().ToString("N"));
@@ -723,7 +946,14 @@ public sealed class SpaAssetManifestServiceTests
     "file": "assets/admin-a.js",
     "name": "route-admin",
     "css": ["assets/admin-a.css"]
-  }
+  },
+  "public-runtime": { "file": "assets/public-runtime.js", "name": "public-page-runtime" },
+  "public-critical": { "file": "assets/public-critical.css", "name": "public-shell-critical" },
+  "tailwind": { "file": "assets/tailwind.css", "name": "tailwind" },
+  "public-page": { "file": "assets/public-page.css", "name": "public-page" },
+  "user": { "file": "assets/user.js", "name": "route-user" },
+  "auth": { "file": "assets/auth.js", "name": "route-auth" },
+  "error": { "file": "assets/error.js", "name": "route-error" }
 }
 """);
         File.SetLastWriteTimeUtc(manifestPath, versionUtc);
@@ -921,6 +1151,34 @@ public sealed class SpaAssetManifestServiceTests
         descriptor["assetInventoryDigest"] = Digest(inventoryPath);
         File.WriteAllText(descriptorPath, descriptor.ToJsonString());
         ResealDescriptorDigest(root);
+    }
+
+    private static void ResealManifestMutation(string root)
+    {
+        string assetRoot = GetReleaseAssetRoot(root);
+        string manifestPath = Path.Combine(assetRoot, ".vite", "manifest.json");
+        string inventoryPath = Path.Combine(assetRoot, "asset-manifest.json");
+        JsonObject inventory = JsonNode.Parse(File.ReadAllText(inventoryPath))!.AsObject();
+        JsonObject inventoryManifest = inventory["files"]!.AsArray()
+            .Select(static item => item!.AsObject())
+            .Single(static item => item["path"]!.GetValue<string>() == ".vite/manifest.json");
+        inventoryManifest["sha256"] = Digest(manifestPath);
+        inventoryManifest["bytes"] = new FileInfo(manifestPath).Length;
+        File.WriteAllText(inventoryPath, inventory.ToJsonString());
+
+        string receiptPath = GetReceiptPath(root);
+        JsonObject receipt = JsonNode.Parse(File.ReadAllText(receiptPath))!.AsObject();
+        JsonObject receiptManifest = receipt["artifacts"]!.AsArray()
+            .Select(static item => item!.AsObject())
+            .Single(static item => item["path"]!.GetValue<string>() == "frontend-dist/.vite/manifest.json");
+        receiptManifest["sha256"] = Digest(manifestPath);
+        receiptManifest["size"] = new FileInfo(manifestPath).Length;
+        receipt["metrics"]!["artifactBytes"] = receipt["artifacts"]!.AsArray()
+            .Select(static item => item!.AsObject()["size"]!.GetValue<long>())
+            .Sum();
+        File.WriteAllText(receiptPath, receipt.ToJsonString());
+        ResealReceiptDigest(root, updateDescriptor: true);
+        ResealDescriptor(root);
     }
 
     private static void ResealReceiptDigest(string root, bool updateDescriptor)

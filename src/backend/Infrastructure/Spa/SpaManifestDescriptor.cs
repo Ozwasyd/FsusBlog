@@ -635,7 +635,7 @@ internal sealed record SpaManifestDescriptor(
                 if (value.ValueKind == JsonValueKind.String
                     && !string.IsNullOrWhiteSpace(value.GetString()))
                 {
-                    yield return value.GetString()!;
+                    yield return NormalizeManifestAssetReference(value.GetString()!);
                 }
                 else if (value.ValueKind == JsonValueKind.Array)
                 {
@@ -644,12 +644,23 @@ internal sealed record SpaManifestDescriptor(
                         if (item.ValueKind == JsonValueKind.String
                             && !string.IsNullOrWhiteSpace(item.GetString()))
                         {
-                            yield return item.GetString()!;
+                            yield return NormalizeManifestAssetReference(item.GetString()!);
                         }
                     }
                 }
             }
         }
+    }
+
+    private static string NormalizeManifestAssetReference(string value)
+    {
+        string relative = NormalizeRelative(value, "spa_manifest_asset_path_invalid");
+        if (!relative.StartsWith("assets/", StringComparison.Ordinal))
+        {
+            throw new SpaManifestValidationException("spa_manifest_asset_path_invalid");
+        }
+
+        return relative;
     }
 
     private static string NormalizeRelative(string value, string error)

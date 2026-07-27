@@ -59,6 +59,23 @@ publishes those fields as explicit `null` values plus the stable error. Producti
 template and stylesheet resolution consume only that validated snapshot; they never
 search another `dist`, webroot asset directory, mtime, or latest candidate.
 
+The Vite manifest is parsed as strict UTF-8 JSON into a typed model; a truncated
+or partially readable document never supplies a usable subset. The required-entry
+catalog is machine-readable and each owner must match exactly one entry. Every
+`file` and `css` reference must be a relative `assets/` path, exist in the sealed
+inventory, and resolve to a file whose SHA-256 equals that inventory entry. Imports
+must resolve to an entry in the same validated manifest graph, which rejects cycles.
+Production readiness remains failed until all of these checks, including the
+descriptor/receipt/inventory binding, succeed.
+
+Recovery is release-scoped: correct a rejected manifest by producing and sealing a
+new release inventory and descriptor, then switch the runtime's descriptor and
+receipt configuration together. Do not edit the retained release in place, copy an
+asset from another release, or select a fallback file from a `dist` directory;
+those actions break the immutable path-plus-digest contract and are intentionally
+rejected. Rolling back means selecting the prior complete release descriptor whose
+readiness is `ok`.
+
 The frontend uses the generated canonical ReleaseId contract to normalize
 `VITE_FSUSBLOG_BUILD_ID` once for bootstrap import recovery, Service Worker
 query/cache identity, release-derived search paths, and Wasm release assets.
