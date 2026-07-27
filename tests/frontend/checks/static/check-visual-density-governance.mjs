@@ -687,7 +687,17 @@ function checkIssueDensityContracts()
     assertNotContains(accountRouteFramePath, /account-sidebar-scroll|\.account-sidebar-frame\s*\{[^}]*overflow-y:\s*auto;/s, 'desktop account sidebar must not create an internal scrollbar from leaf navigation');
     assertContains(accountHeaderMenuPath, /打开账号菜单[\s\S]*使用规范[\s\S]*隐私政策[\s\S]*command="logout"/, 'account menu must own policy and logout actions');
     assertNotContains(accountLayoutPath, /account-header-locale-action/, 'account chrome must not keep a temporary locale action');
-    assertContains(accountShellBasePath, /\.account-site-header__actions \.account-header-link,[\s\S]*?\.account-header-theme-action > button,[\s\S]*?\.account-header-menu__trigger\.account-header-menu__trigger[\s\S]*?height:\s*var\(--fsus-control-height-compact\);[\s\S]*?border:\s*1px solid var\(--fsusblog-panel-border\);/, 'account desktop actions must share the 40px bordered paper treatment');
+    assertContains(accountLayoutPath, /<LocaleSelectorRuntimeAdapter \/>[\s\S]*?<LocaleSelectorRuntimeAdapter compact \/>/, 'account chrome must mount the shared ten-language selector on desktop and mobile');
+    assertNotContains(
+        accountLayoutPath,
+        new RegExp([
+            'Locale' + 'PreferenceHeaderSelector',
+            'Locale' + 'Toggle',
+            'initialize' + 'LocaleRuntime'
+        ].join('|')),
+        'account chrome must not keep preference-header or binary locale owners'
+    );
+    assertContains(accountShellBasePath, /\.account-site-header__actions \.account-header-link,[\s\S]*?\.account-header-theme-action > button,[\s\S]*?\.locale-selector__trigger,[\s\S]*?\.account-header-menu__trigger\.account-header-menu__trigger[\s\S]*?height:\s*var\(--fsus-control-height-compact\);[\s\S]*?border:\s*1px solid var\(--fsusblog-panel-border\);/, 'account desktop actions must share the 40px bordered paper treatment');
     assertContains(accountShellBasePath, /\.account-site-header__actions \.account-header-link:hover,[\s\S]*?border-color:\s*var\(--fsusblog-color-primary\);[\s\S]*?background:\s*var\(--fsusblog-page-bg-soft\);/, 'account desktop actions must share the restrained hover treatment');
     assertContains(accountShellBasePath, /@media \(min-width: 1024px\)[\s\S]*?\.account-route-frame\s*\{[\s\S]*?gap:\s*var\(--fsus-space-8\);[\s\S]*?padding-inline:\s*var\(--fsus-space-6\);/, 'account desktop frame must use the 32px gap and 24px horizontal inset');
     assertNotContains(accountShellBasePath, /calc\(var\(--fsus-space-5\) \* 2\)/, 'account desktop frame must not restore the non-tokenized 40px calculation');

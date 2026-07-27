@@ -50,6 +50,7 @@ export const admin = {
     nav: {
         identityCenter: 'アイデンティティセンター',
         messages: 'メッセージ',
+        languageAndRegion: '言語と地域',
         passkeys: 'パスキー',
         recoveryKey: 'Recovery Key',
         publicProfile: '公開プロフィール',

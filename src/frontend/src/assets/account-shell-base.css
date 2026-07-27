@@ -47,6 +47,7 @@
 
 .account-site-header__actions .account-header-link,
 .account-site-header__actions .account-header-theme-action > button,
+.account-site-header__actions .locale-selector__trigger,
 .account-site-header__actions .account-header-menu__trigger.account-header-menu__trigger
  {
     box-sizing: border-box;
@@ -63,6 +64,8 @@
 
 .account-site-header__actions .account-header-link:hover,
 .account-site-header__actions .account-header-theme-action > button:hover,
+.account-site-header__actions .locale-selector__trigger:hover,
+.account-site-header__actions .locale-selector__trigger[aria-expanded="true"],
 .account-site-header__actions .account-header-menu__trigger.account-header-menu__trigger:hover,
 .account-site-header__actions .account-header-menu__trigger.account-header-menu__trigger[aria-expanded="true"]
  {
@@ -73,6 +76,7 @@
 
 .account-site-header__actions .account-header-link:focus-visible,
 .account-site-header__actions .account-header-theme-action > button:focus-visible,
+.account-site-header__actions .locale-selector__trigger:focus-visible,
 .account-site-header__actions .account-header-menu__trigger.account-header-menu__trigger:focus-visible
  {
     box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
@@ -85,7 +89,8 @@
     min-height: var(--fsus-control-height);
 }
 
-.account-header-theme-action--mobile > button
+.account-header-theme-action--mobile > button,
+.account-site-header__mobile-actions .locale-selector__trigger
  {
     min-width: var(--fsus-control-height);
     min-height: var(--fsus-control-height);

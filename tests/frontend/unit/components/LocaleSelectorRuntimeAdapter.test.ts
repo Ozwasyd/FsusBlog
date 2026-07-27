@@ -211,37 +211,39 @@ describe('PublicBlogLayoutShell locale entry cutover', () => {
   })
 })
 
-describe('PublicAuthLayout locale entry cutover', () => {
-  it('mounts the shared LocaleSelectorRuntimeAdapter on desktop and mobile auth chrome', () => {
+describe('AccountLayout locale entry cutover', () => {
+  it('uses only LocaleSelectorRuntimeAdapter in shared account/admin chrome', () => {
     const layout = readFileSync(
-      resolve(process.cwd(), 'src/layouts/PublicAuthLayout.vue'),
+      resolve(process.cwd(), 'src/layouts/AccountLayout.vue'),
       'utf8'
     )
+    const shellCss = readFileSync(
+      resolve(process.cwd(), 'src/assets/account-shell-base.css'),
+      'utf8'
+    )
+    const nav = readFileSync(
+      resolve(process.cwd(), 'src/layouts/accountNav.ts'),
+      'utf8'
+    )
+
     expect(layout).toMatch(/LocaleSelectorRuntimeAdapter/u)
     expect(layout.match(/LocaleSelectorRuntimeAdapter/gu)?.length).toBeGreaterThanOrEqual(2)
-    expect(layout).toMatch(/#desktop-actions[\s\S]*LocaleSelectorRuntimeAdapter/u)
-    expect(layout).toMatch(/#mobile-primary-actions[\s\S]*LocaleSelectorRuntimeAdapter compact/u)
-    expect(layout).toMatch(/<router-view\s*\/>/u)
-    expect(layout).not.toMatch(/:key=.*locale|key=.*activeLocale|v-if=.*activeLocale/u)
-
+    expect(layout).toMatch(/<LocaleSelectorRuntimeAdapter compact \/>/u)
     const retired = [
+      'Locale' + 'PreferenceHeaderSelector',
       'Locale' + 'Toggle',
-      'locale' + 'Override',
-      'locale' + 'RuntimeReady',
-      'get' + 'LocaleMessages',
-      'initialize' + 'LocaleRuntime',
-      'onMounted'
+      'initialize' + 'LocaleRuntime'
     ]
     for (const symbol of retired) {
       expect(layout.includes(symbol)).toBe(false)
     }
-    expect(layout).not.toMatch(
-      /\brequestLocale\b|requestLocalePreference|localeRuntimeState|ENABLED_LOCALES|projectLocaleSelectorItems/u
-    )
+    expect(layout).not.toMatch(/\brequestLocale\b|requestLocalePreference|localeRuntimeState|ENABLED_LOCALES/u)
     expect(layout).not.toMatch(/from\s+['"]@\/locales(?:\/runtime)?['"]/u)
     expect(layout).not.toMatch(/from\s+['"]@\/services\/localePreference/u)
     expect(layout).not.toMatch(/from\s+['"]@\/locales\/localeDomainBundleStore/u)
-    expect(layout).not.toMatch(/localStorage|sessionStorage|document\.cookie|window\.location\.reload/u)
-    expect(layout).not.toMatch(/AuthLocale|localeSelectorAdapter|featureFlag|full.?reload/iu)
+    expect(layout).not.toMatch(/from\s+['"]@\/locales\/localeCatalog/u)
+    expect(shellCss).toMatch(/\.account-site-header__actions \.locale-selector__trigger/u)
+    expect(nav).toMatch(/\/user\/preferences\/language/u)
+    expect(nav).toMatch(/languageAndRegion/u)
   })
 })

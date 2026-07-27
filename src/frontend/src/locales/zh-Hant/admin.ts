@@ -50,6 +50,7 @@ export const admin = {
     nav: {
         identityCenter: '身份中心',
         messages: '我的訊息',
+        languageAndRegion: '語言與區域',
         passkeys: '通行金鑰',
         recoveryKey: 'Recovery Key',
         publicProfile: '公開資料',

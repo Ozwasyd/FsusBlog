@@ -156,7 +156,9 @@ const accountNavItems: readonly AccountNavItem[] = [
 ];
 
 const navLabelKeys = {
-    '/user/identity': 'identityCenter', '/user/messagebox': 'messages', '/user/identity/passkeys': 'passkeys',
+    '/user/identity': 'identityCenter', '/user/messagebox': 'messages',
+    '/user/preferences/language': 'languageAndRegion',
+    '/user/identity/passkeys': 'passkeys',
     '/user/identity/recovery-key': 'recoveryKey', '/user/identity/public-profile': 'publicProfile',
     '/user/identity/comment-records': 'publicComments', '/user/identity/sessions': 'sessions', '/user/identity/mfa': 'mfa',
     '/user/manage': 'dashboard', '/user/manage/article/list': 'articles', '/user/manage/article/trash': 'trash',

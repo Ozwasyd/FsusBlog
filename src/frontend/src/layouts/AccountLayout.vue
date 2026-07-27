@@ -36,7 +36,7 @@
                     class="account-header-theme-action"
                     variant="menu-button"
                 />
-                <LocalePreferenceHeaderSelector />
+                <LocaleSelectorRuntimeAdapter />
                 <AccountHeaderMenu
                     :can-manage="workspaceContext.canManage"
                     :current-area="currentArea"
@@ -57,7 +57,7 @@
                     class="account-header-theme-action account-header-theme-action--mobile"
                     variant="menu-button"
                 />
-                <LocalePreferenceHeaderSelector />
+                <LocaleSelectorRuntimeAdapter compact />
                 <AccountHeaderMenu
                     :can-manage="workspaceContext.canManage"
                     compact
@@ -83,7 +83,7 @@
 import { computed, ref } from 'vue';
 
 import AccountHeaderMenu from '@/components/account/AccountHeaderMenu.vue';
-import LocalePreferenceHeaderSelector from '@/components/account/LocalePreferenceHeaderSelector.vue';
+import LocaleSelectorRuntimeAdapter from '@/components/i18n/LocaleSelectorRuntimeAdapter.vue';
 import SiteChromeHeaderAdapter from '@/components/layout/SiteChromeHeaderAdapter.vue';
 import PolicyModal from '@/components/PolicyModal.vue';
 import ThemeModeToggle from '@/components/ui/ThemeModeToggle.vue';

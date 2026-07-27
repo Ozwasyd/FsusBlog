@@ -50,6 +50,7 @@ export const admin = {
     nav: {
         identityCenter: '신원 센터',
         messages: '메시지',
+        languageAndRegion: '언어 및 지역',
         passkeys: '패스키',
         recoveryKey: '복구 키',
         publicProfile: '공개 프로필',

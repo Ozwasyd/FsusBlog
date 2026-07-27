@@ -120,6 +120,29 @@ for (const relativePath of [
     }
 }
 
+const accountLayoutPath = 'src/frontend/src/layouts/AccountLayout.vue'
+const accountLayout = readFileSync(resolve(root, accountLayoutPath), 'utf8')
+if (!/LocaleSelectorRuntimeAdapter/u.test(accountLayout)) {
+    violations.push(`${accountLayoutPath}: account/admin chrome must mount LocaleSelectorRuntimeAdapter`)
+}
+const accountRetiredOwners = [
+    'Locale' + 'PreferenceHeaderSelector',
+    'localePreferenceCommandPort',
+    'ENABLED_LOCALES'
+]
+for (const symbol of accountRetiredOwners) {
+    if (accountLayout.includes(symbol)) {
+        violations.push(`${accountLayoutPath}: account/admin chrome must not own ${symbol}`)
+    }
+}
+const retiredPreferenceHeader = resolve(
+    root,
+    'src/frontend/src/components/account/' + ('Locale' + 'PreferenceHeaderSelector') + '.vue'
+)
+if (existsSync(retiredPreferenceHeader)) {
+    violations.push(`${relative(root, retiredPreferenceHeader)}: temporary account preference header selector must be deleted`)
+}
+
 const hydrationPath = 'src/frontend/src/public-renderers/clientHydrate.ts'
 const hydration = readFileSync(resolve(root, hydrationPath), 'utf8')
 const hydrationInitialization = hydration.indexOf('await activateLocaleRuntime(')

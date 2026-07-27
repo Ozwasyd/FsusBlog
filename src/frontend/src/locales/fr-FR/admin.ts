@@ -50,6 +50,7 @@ export const admin = {
     nav: {
         identityCenter: "Centre d'identité",
         messages: 'Mes messages',
+        languageAndRegion: 'Langue et région',
         passkeys: "Clés d'accès",
         recoveryKey: 'Clé de récupération',
         publicProfile: 'Profil public',

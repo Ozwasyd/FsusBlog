@@ -173,4 +173,31 @@ describe('account navigation module IA', () => {
     expect(selfGroups.flatMap((group) => group.items).map((item) => item.to))
       .not.toContain('/user/manage')
   })
+
+  it('exposes the language preference page on the self surface without admin permission', () => {
+    const selfGroups = getAccountNavGroups({
+      surface: 'self',
+      canManage: false,
+      permissions: [],
+      features: {
+        anonymousCommentsEnabled: false,
+        zkAnonymousEnabled: false,
+        publicSendOptionEnabled: false
+      },
+      policies: {
+        anonymousCommentGovernanceAvailable: false,
+        zkAnonymousConfigurable: false
+      }
+    })
+
+    const selfItems = selfGroups.find((group) => group.key === 'self')?.items ?? []
+    expect(selfItems.map((item) => item.to)).toEqual([
+      '/user/identity',
+      '/user/messagebox',
+      '/user/preferences/language'
+    ])
+    expect(selfItems.map((item) => item.label)).toContain('语言与区域')
+    expect(selfGroups.find((group) => group.key === 'identity')?.items.map((item) => item.to))
+      .not.toContain('/user/preferences/language')
+  })
 })
