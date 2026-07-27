@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   createSSRAppMock,
   normalizePublicHydrationPayloadMock,
-  initializeLocaleRuntimeMock,
+  activateLocaleRuntimeMock,
   captureHydrationIdentityMock,
   verifyHydrationIdentityMock,
   beginHydrationMetricsMock,
@@ -18,7 +18,7 @@ const {
 } = vi.hoisted(() => ({
   createSSRAppMock: vi.fn(),
   normalizePublicHydrationPayloadMock: vi.fn((payload) => payload),
-  initializeLocaleRuntimeMock: vi.fn(async () => undefined),
+  activateLocaleRuntimeMock: vi.fn(async () => undefined),
   captureHydrationIdentityMock: vi.fn(() => ({ identityMarker: 'Home:home' })),
   verifyHydrationIdentityMock: vi.fn(),
   beginHydrationMetricsMock: vi.fn(() => ({})),
@@ -77,7 +77,7 @@ vi.mock('@/public-renderers/publicStaticRouterLink', () => ({
 }))
 
 vi.mock('@/locales', () => ({
-  initializeLocaleRuntime: initializeLocaleRuntimeMock,
+  activateLocaleRuntime: activateLocaleRuntimeMock,
   isSupportedLocale: isSupportedLocaleMock
 }))
 
