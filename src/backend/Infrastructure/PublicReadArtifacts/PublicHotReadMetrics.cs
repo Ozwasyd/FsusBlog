@@ -362,6 +362,21 @@ internal static class PublicHotReadRouteKeys
     internal static string HtmlPath(string routeKey)
         => string.Concat(HtmlPrefix, HtmlPathKey(routeKey), HtmlSuffix);
 
+    internal static string LocalizeHtmlPath(string htmlPath, string locale)
+    {
+        if (!htmlPath.StartsWith(HtmlPrefix, StringComparison.Ordinal)
+            || !htmlPath.EndsWith(HtmlSuffix, StringComparison.Ordinal))
+        {
+            return string.Empty;
+        }
+
+        return string.Concat(
+            htmlPath.AsSpan(0, htmlPath.Length - HtmlSuffix.Length),
+            "-locale-",
+            locale.ToLowerInvariant(),
+            HtmlSuffix);
+    }
+
     internal static string HtmlPathKey(string routeKey)
     {
         string trimmed = routeKey.Trim();

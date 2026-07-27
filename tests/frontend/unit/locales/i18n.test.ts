@@ -8,6 +8,7 @@ import {
   formatNumber,
   initializeLocaleRuntime,
   locale,
+  prepareLocaleRuntime,
   resetLocaleRuntimeForTests,
   setLocale,
   translate,
@@ -28,22 +29,36 @@ describe('locale runtime', () => {
     resetLocaleRuntimeForTests()
   })
 
-  it('keeps the server-compatible Chinese default until client initialization', () => {
+  it('keeps the server render locale authoritative during client initialization', () => {
     localStorage.setItem(LOCALE_PREFERENCE_STORAGE_KEY, 'en-US')
     expect(locale.value).toBe(DEFAULT_LOCALE)
     expect(translate('common.routeTitles.login')).toBe('登录')
 
-    initializeLocaleRuntime()
+    initializeLocaleRuntime('zh-CN')
 
-    expect(locale.value).toBe('en-US')
-    expect(document.documentElement.lang).toBe('en-US')
-    expect(document.querySelector('meta[property="og:locale"]')?.getAttribute('content')).toBe('en_US')
+    expect(locale.value).toBe('zh-CN')
+    expect(document.documentElement.lang).toBe('zh-CN')
+    expect(document.querySelector('meta[property="og:locale"]')?.getAttribute('content')).toBe('zh_CN')
   })
 
   it('persists a supported preference and translates typed keys', () => {
     setLocale('en-US')
     expect(localStorage.getItem(LOCALE_PREFERENCE_STORAGE_KEY)).toBe('en-US')
     expect(translate('article.metadata.longRead')).toBe('Long read')
+  })
+
+  it('fails closed instead of rendering another language before its bundle is loaded', () => {
+    initializeLocaleRuntime('ja-JP')
+
+    expect(() => translate('public.shell.home')).toThrowError('i18n_bundle_not_loaded:ja-JP')
+  })
+
+  it('loads the negotiated domain bundle before Japanese first render', async () => {
+    await prepareLocaleRuntime('ja-JP')
+
+    expect(locale.value).toBe('ja-JP')
+    expect(translate('public.shell.home')).toBe('ホーム')
+    expect(formatNumber(12345)).toBe(new Intl.NumberFormat('ja-JP').format(12345))
   })
 
   it('fails closed when the active locale is missing a message key', () => {

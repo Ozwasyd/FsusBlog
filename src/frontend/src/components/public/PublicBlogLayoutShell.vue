@@ -4,6 +4,7 @@
     ref="shellRootRef"
     class="fsusblog-public-shell-runtime"
     :data-public-hydration-kind="hydrationKind || undefined"
+    :data-public-render-locale="initialLocale || undefined"
     data-public-mobile-menu-message-key="public.shell.mobileMenu"
     data-public-search-message-key="public.shell.search"
     :data-public-auth-message-key="resolvedAuthMessageKey"
@@ -78,7 +79,7 @@
       </template>
 
       <template #desktop-actions>
-        <LocaleToggle :locale-override="localeRuntimeReady ? null : initialLocale" />
+        <LocaleToggle />
         <ThemeModeToggle visibility="desktop" variant="menu-button" />
       </template>
 
@@ -93,7 +94,7 @@
             variant="menu-button"
             :labels="PUBLIC_THEME_MODE_LABELS"
           />
-          <LocaleToggle :locale-override="localeRuntimeReady ? null : initialLocale" />
+          <LocaleToggle />
         </div>
       </template>
 
@@ -112,7 +113,6 @@
           :site-title="shellIdentity.siteTitle"
           :compliance="shellIdentity.compliance"
           :render-year="shellIdentity.renderYear"
-          :locale-override="localeRuntimeReady ? null : initialLocale"
         />
       </template>
     </FsusUiPublicShell>
@@ -146,15 +146,10 @@ import {
 import { normalizePublicSiteDescription } from '@/public-renderers/publicSiteIdentity'
 import { publicShellRuntimeAuthState } from '@/public-renderers/publicShellRuntimeState'
 import type { SiteComplianceConfigPublic } from '@/api/system'
-import { getLocaleMessages, type SupportedLocale } from '@/locales'
+import type { SupportedLocale } from '@/locales'
 
-const { initializeLocaleRuntime, messages } = useI18nText()
-const localeRuntimeReady = ref(false)
-const layoutCopy = computed(() => (
-  !localeRuntimeReady.value && props.initialLocale
-    ? getLocaleMessages(props.initialLocale).public.shell
-    : messages.value.public.shell
-))
+const { messages } = useI18nText()
+const layoutCopy = computed(() => messages.value.public.shell)
 const PUBLIC_MOBILE_NAV_MODE = FSUSBLOG_PUBLIC_MOBILE_NAV_MODE
 
 const SHELL_DEFAULTS = {
@@ -395,8 +390,6 @@ watch(
 )
 
 onMounted(() => {
-  initializeLocaleRuntime(props.initialLocale ?? undefined)
-  localeRuntimeReady.value = true
   enableRuntimeAfterHydration()
 })
 

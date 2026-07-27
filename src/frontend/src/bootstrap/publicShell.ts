@@ -12,6 +12,7 @@ import { ensureThemeRuntime, setThemeMode, type ThemeMode } from '@/services/the
 import { resetPublicShellRuntimeAuthState } from '@/public-renderers/publicShellRuntimeState'
 import { putPublicRouteSeed, type PublicRouteSeedKind } from '@/public-renderers/publicRouteSeedStore'
 import type { PublicPageSeed } from '@/public-renderers/pageSeed'
+import { hasCanonicalPublicSeedRenderTimestamp } from '@/public-renderers/publicRenderClock'
 import {
   addPublicShellEventListener,
   onPublicShellLifetimeAbort,
@@ -526,6 +527,9 @@ function requestPublicAnchorPrewarm(event: Event, reason: Extract<PublicRoutePre
 }
 
 function storeInitialPublicRouteSeed(payload: PublicHydrationPayload): void {
+  if (!hasCanonicalPublicSeedRenderTimestamp(payload)) {
+    throw new Error('public_aot_hydration_render_timestamp_invalid')
+  }
   const kind = payload.pageKind as PublicRouteSeedKind
   putPublicRouteSeed({
     kind,

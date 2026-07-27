@@ -1,3 +1,5 @@
+using FsusBlog.Shared.Contracts.Localization;
+
 namespace FsusBlog.Server.Infrastructure.PublicAot;
 
 public sealed record class PublicAotBackfillRequest(
@@ -23,4 +25,5 @@ public sealed record class PublicAotBackfillRequest(
     {
         get; init;
     } = string.Empty;
+    public string Locale { get; init; } = LocaleCatalog.Default.Code;
 }

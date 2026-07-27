@@ -6,6 +6,8 @@ import {
 } from '@/public-renderers/publicSiteIdentity'
 import { PUBLIC_SITE_IDENTITY_DEFAULTS } from '@/public-renderers/publicSiteIdentityDefaults'
 import { PUBLIC_SHELL_DEFAULTS } from '@/public-renderers/publicShellState'
+import { LOCALE_CATALOG_DIGEST } from '@/locales/localeCatalog'
+import type { PublicHydrationPayload } from '@/public-renderers/types'
 import {
   beginPublicTakeoverCommit,
   beginPublicTakeoverPrewarm,
@@ -62,6 +64,8 @@ describe('public takeover site identity', () => {
       pageKind: 'Home',
       routeKey: 'home',
       rendererVersion: 'test',
+      renderLocale: 'zh-CN',
+      localeCatalogDigest: LOCALE_CATALOG_DIGEST,
       title: '',
       siteTitle: '',
       siteDescription: '  seeded description  ',
@@ -100,6 +104,17 @@ describe('public takeover site identity', () => {
         copyrightOwner: 'Seed Owner'
       }
     })
+  })
+
+  it('rejects a takeover payload whose render locale is missing or invalid', () => {
+    const invalid = {
+      pageKind: 'Home',
+      routeKey: 'home',
+      rendererVersion: 'test',
+      localeCatalogDigest: LOCALE_CATALOG_DIGEST
+    } as unknown as PublicHydrationPayload
+
+    expect(createPublicTakeoverSeed(invalid)).toBeNull()
   })
 
 })

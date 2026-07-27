@@ -10,9 +10,9 @@ import { renderPublicAotShell, type PublicAotPageAssembly } from '@/public-rende
 import { registerPublicStaticRouterLink } from '@/public-renderers/publicStaticRouterLink'
 import { renderMarkdownWithFsusRuntime } from '@/fsusui/markdown'
 import { sanitizeMarkdownRuntimeHtml } from '@/utils/safeHtml'
-import { DEFAULT_LOCALE, type SupportedLocale } from '@/locales'
+import { isSupportedLocale, type SupportedLocale } from '@/locales'
 
-export const PUBLIC_RENDERER_VERSION = 'public-app-ssr@2026-06-03-fsusui-boundary-3'
+export const PUBLIC_RENDERER_VERSION = 'public-app-ssr@2026-07-27-locale-cutover-4'
 
 export type RenderedPublicEntry = Readonly<{
   pageId: number
@@ -25,6 +25,7 @@ export type RenderedPublicEntry = Readonly<{
   islandsPayload?: string | null
   title?: string | null
   baseUrl?: string | null
+  renderLocale: SupportedLocale
 }>
 
 export type RenderResult = Readonly<{
@@ -319,16 +320,19 @@ export async function renderShell(
   kind: PublicPageKind,
   siteTitle: string,
   page: PublicAotPageAssembly,
-  compliance: SiteComplianceConfigPublic | null = null,
+  compliance: SiteComplianceConfigPublic | null,
   brand: Readonly<{
     siteDescription?: string | null
     siteLogoUrl?: string | null
     siteLogoDarkUrl?: string | null
     siteWordmarkUrl?: string | null
     renderYear?: number | null
-    renderLocale?: SupportedLocale
-  }> = {}
+    renderLocale: SupportedLocale
+  }>
 ): Promise<string> {
+  if (!isSupportedLocale(brand.renderLocale)) {
+    throw new Error('public_aot_shell_render_locale_invalid')
+  }
   const Root: Component = {
     render() {
       return renderPublicAotShell({
@@ -339,7 +343,7 @@ export async function renderShell(
         siteLogoDarkUrl: brand.siteLogoDarkUrl ?? null,
         siteWordmarkUrl: brand.siteWordmarkUrl ?? null,
         renderYear: brand.renderYear ?? null,
-        renderLocale: brand.renderLocale ?? DEFAULT_LOCALE,
+        renderLocale: brand.renderLocale,
         compliance,
         page
       })
@@ -357,6 +361,10 @@ export function createEntry(kind: PublicPageKind, routeKey: string, html: string
   title?: string | null
   baseUrl?: string | null
 } = {}): RenderResult {
+  if (!isSupportedLocale(hydration.renderLocale)) {
+    throw new Error('public_aot_hydration_render_locale_missing')
+  }
+
   return {
     entry: {
       pageId: getSharedPublicPageManifestEntry(kind).pageId,
@@ -368,7 +376,8 @@ export function createEntry(kind: PublicPageKind, routeKey: string, html: string
       rendererVersion: PUBLIC_RENDERER_VERSION,
       islandsPayload: null,
       title: options.title ?? toText(hydration.title, ''),
-      baseUrl: options.baseUrl ?? toText(hydration.baseUrl, '')
+      baseUrl: options.baseUrl ?? toText(hydration.baseUrl, ''),
+      renderLocale: hydration.renderLocale
     }
   }
 }

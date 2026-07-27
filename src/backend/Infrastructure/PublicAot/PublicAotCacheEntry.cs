@@ -1,5 +1,6 @@
 using System.Text;
 
+using FsusBlog.Shared.Contracts.Localization;
 using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
@@ -118,6 +119,7 @@ public sealed record class PublicAotCacheEntry
     }
     public string RendererVersion { get; init; } = string.Empty;
     public string FrontendAssetVersion { get; init; } = string.Empty;
+    public string Locale { get; init; } = LocaleCatalog.Default.Code;
     public string Value { get; init; } = string.Empty;
     public PublicAotHtmlArtifact? Document
     {

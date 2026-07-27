@@ -1,7 +1,7 @@
 import type { SiteComplianceConfigPublic } from '@/api/system'
 import type { PublicHydrationPayload } from '@/public-renderers/publicPayloadTypes'
 import { PUBLIC_SITE_IDENTITY_DEFAULTS } from '@/public-renderers/publicSiteIdentityDefaults'
-import { DEFAULT_LOCALE, isSupportedLocale, type SupportedLocale } from '@/locales'
+import { isSupportedLocale, type SupportedLocale } from '@/locales'
 
 export type PublicTakeoverSeed = Readonly<{
   siteTitle: string
@@ -61,6 +61,9 @@ export function createPublicTakeoverSeed(payload: PublicHydrationPayload | null 
   if (!payload) {
     return null
   }
+  if (!isSupportedLocale(payload.renderLocale)) {
+    return null
+  }
 
   const compliance = normalizePublicComplianceConfig(payload.compliance)
   return Object.freeze({
@@ -71,6 +74,6 @@ export function createPublicTakeoverSeed(payload: PublicHydrationPayload | null 
     siteWordmarkUrl: text(payload.siteWordmarkUrl),
     compliance: compliance ? Object.freeze(compliance) : null,
     renderYear: Number.isInteger(payload.renderYear) ? Number(payload.renderYear) : null,
-    renderLocale: isSupportedLocale(payload.renderLocale) ? payload.renderLocale : DEFAULT_LOCALE
+    renderLocale: payload.renderLocale
   })
 }

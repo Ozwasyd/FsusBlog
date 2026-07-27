@@ -1,7 +1,10 @@
 import { decodePublicAotPayload, decodePublicAotPayloadBytes } from '@/bootstrap/publicAotBinaryPayload'
 import { getPublicShellLifetimeSignal } from '@/bootstrap/publicShellLifetime'
+import { isLocaleRuntimePrepared, isSupportedLocale, prepareLocaleRuntime } from '@/locales'
+import { getLocaleDescriptor, LOCALE_CATALOG_DIGEST } from '@/locales/localeCatalog'
 import { emitTelemetry as emitRuntimeTelemetry } from '@/services/telemetryBus'
 import type { PublicPageSeed } from '@/public-renderers/pageSeed'
+import { hasCanonicalPublicSeedRenderTimestamp } from '@/public-renderers/publicRenderClock'
 import type {
   PublicAotBootstrapPayloadFor,
   PublicHydrationPayloadFor
@@ -10,6 +13,7 @@ import {
   putPublicRouteSeed,
   type PublicRouteSeedKind
 } from '@/public-renderers/publicRouteSeedStore'
+import { getSharedPublicPageManifestEntry } from '@/public-renderers/generated/publicPageManifest'
 import {
   PUBLIC_ROUTE_PRELOAD_DEFINITIONS,
   type PublicRoutePreloadDefinition
@@ -33,6 +37,8 @@ export type PublicNavigationSnapshotEnvelope = Readonly<{
   canonicalPath: string
   rendererVersion: string
   frontendAssetVersion: string
+  renderLocale: string
+  localeCatalogDigest: string
   payloadHash: string
   generatedAtUtc: string
   bootstrapPayload: string
@@ -83,6 +89,7 @@ type NormalizedPrewarmTarget = Readonly<{
 
 const NAVIGATION_SNAPSHOT_MEDIA_TYPE = 'application/vnd.fsus.aeds'
 const DEFAULT_PREWARM_TIMEOUT_MS = 5_000
+const snapshotHashEncoder = new TextEncoder()
 
 function normalizeTarget(target: string | URL): NormalizedPrewarmTarget | null {
   if (typeof window === 'undefined') {
@@ -242,7 +249,19 @@ function decodeSnapshotSeed(envelope: PublicNavigationSnapshotEnvelope): PublicP
   const hydration = decodePublicAotPayload<PublicHydrationPayloadFor<PublicRouteSeedKind>>(
     envelope.hydrationPropsPayload
   )
-  if (!bootstrap && !hydration) {
+  if (!bootstrap || !hydration ||
+      bootstrap.kind !== envelope.pageKind ||
+      bootstrap.pageKind !== envelope.pageKind ||
+      hydration.pageKind !== envelope.pageKind ||
+      bootstrap.routeKey !== envelope.routeKey ||
+      hydration.routeKey !== envelope.routeKey ||
+      bootstrap.rendererVersion !== envelope.rendererVersion ||
+      hydration.rendererVersion !== envelope.rendererVersion ||
+      bootstrap.renderLocale !== envelope.renderLocale ||
+      hydration.renderLocale !== envelope.renderLocale ||
+      bootstrap.localeCatalogDigest !== envelope.localeCatalogDigest ||
+      hydration.localeCatalogDigest !== envelope.localeCatalogDigest ||
+      !hasCanonicalPublicSeedRenderTimestamp(bootstrap, hydration)) {
     return null
   }
 
@@ -250,6 +269,36 @@ function decodeSnapshotSeed(envelope: PublicNavigationSnapshotEnvelope): PublicP
     bootstrap,
     hydration
   }
+}
+
+export async function computePublicNavigationSnapshotPayloadHash(
+  envelope: Omit<PublicNavigationSnapshotEnvelope, 'payloadHash' | 'generatedAtUtc'>
+): Promise<string> {
+  const values = [
+    envelope.pageKind,
+    envelope.pageKind,
+    envelope.routeKey,
+    envelope.path,
+    envelope.queryString,
+    envelope.canonicalPath,
+    envelope.rendererVersion,
+    envelope.frontendAssetVersion,
+    envelope.localeCatalogDigest,
+    envelope.renderLocale,
+    envelope.bootstrapPayload,
+    envelope.hydrationPropsPayload,
+    envelope.seoHead.digest
+  ]
+  const chunks = values.flatMap((value) => [new Uint8Array([0]), snapshotHashEncoder.encode(value)])
+  const byteLength = chunks.reduce((total, chunk) => total + chunk.byteLength, 0)
+  const payload = new Uint8Array(byteLength)
+  let offset = 0
+  for (const chunk of chunks) {
+    payload.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', payload)
+  return Array.from(new Uint8Array(digest), (value) => value.toString(16).padStart(2, '0')).join('')
 }
 
 function isModifiedMouseEvent(event: Event | null | undefined): boolean {
@@ -369,9 +418,26 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
         const frame = await fetchNavigationSnapshot(normalized.url, linked.controller.signal)
         throwIfAborted(linked.controller.signal)
         const envelope = decodePublicAotPayloadBytes<PublicNavigationSnapshotEnvelope>(frame)
-        const seed = envelope ? decodeSnapshotSeed(envelope) : null
-        if (!envelope || !seed) {
+        const expectedPageId = getSharedPublicPageManifestEntry(route.kind).pageId
+        if (!envelope ||
+            envelope.pageKind !== route.kind ||
+            envelope.pageId !== expectedPageId) {
           throw new Error('invalid navigation snapshot')
+        }
+        const seed = decodeSnapshotSeed(envelope)
+        if (!seed) {
+          throw new Error('invalid navigation snapshot')
+        }
+        const descriptor = isSupportedLocale(envelope.renderLocale)
+          ? getLocaleDescriptor(envelope.renderLocale)
+          : null
+        const expectedPayloadHash = await computePublicNavigationSnapshotPayloadHash(envelope)
+        if (!descriptor ||
+            envelope.localeCatalogDigest !== LOCALE_CATALOG_DIGEST ||
+            envelope.payloadHash !== expectedPayloadHash ||
+            envelope.seoHead.locale !== descriptor.documentLanguage ||
+            envelope.seoHead.openGraph.locale !== descriptor.openGraphLocale) {
+          throw new Error('invalid navigation snapshot locale identity')
         }
 
         const envelopeFullPath = envelope.fullPath || `${envelope.path}${envelope.queryString}`
@@ -384,6 +450,11 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
           throw new Error('invalid navigation snapshot SEO head')
         }
 
+        await prepareLocaleRuntime(descriptor.code)
+        throwIfAborted(linked.controller.signal)
+        if (!isLocaleRuntimePrepared(descriptor.code)) {
+          throw new Error('navigation snapshot locale runtime not prepared')
+        }
         putPublicRouteSeed({
           kind: envelope.pageKind,
           fullPath: envelopeFullPath,

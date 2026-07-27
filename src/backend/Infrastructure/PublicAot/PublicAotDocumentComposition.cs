@@ -19,13 +19,15 @@ public interface IPublicAotDocumentComposition
 
     Task<Result<PublicAotBackfillDocument>> BuildBackfillDocumentAsync(
         PublicAotBackfillRequest request,
+        DateTimeOffset renderTimestampUtc,
         CancellationToken cancellationToken);
 }
 
 public sealed record PublicAotBackfillDocument(
     PublicAotRouteMatch Match,
     string Html,
-    string RendererVersion);
+    string RendererVersion,
+    DateTimeOffset RenderTimestampUtc);
 
 internal sealed class PublicAotDocumentComposition(
     IDbConcurrencyGate dbConcurrencyGate,
@@ -129,7 +131,7 @@ internal sealed class PublicAotDocumentComposition(
         }
 
         Result<PublicAotShellEntryContract> entry = await entryRenderer.BuildEntryAsync(
-            new PublicAotRenderRequest(match, snapshotValue),
+            new PublicAotRenderRequest(match, snapshotValue, generatedAtUtc),
             cancellationToken);
         if (entry.IsFailure || entry.Value is null)
         {
@@ -137,7 +139,8 @@ internal sealed class PublicAotDocumentComposition(
         }
 
         PublicAotShellEntryContract renderedEntry = entry.Value;
-        if (!PublicAotShellContractRules.TryValidateEntry(
+        if (!TryValidateRendererOutput(
+            match,
             renderedEntry,
             out string normalizedRouteKey,
             out string normalizedHtml,
@@ -173,6 +176,7 @@ internal sealed class PublicAotDocumentComposition(
 
     public async Task<Result<PublicAotBackfillDocument>> BuildBackfillDocumentAsync(
         PublicAotBackfillRequest request,
+        DateTimeOffset renderTimestampUtc,
         CancellationToken cancellationToken)
     {
         PublicAotRouteMatch match = routeIdentity.ResolveBackfillMatch(request);
@@ -197,7 +201,7 @@ internal sealed class PublicAotDocumentComposition(
         }
 
         Result<PublicAotShellEntryContract> entry = await entryRenderer.BuildEntryAsync(
-            new PublicAotRenderRequest(match, snapshot.Value!),
+            new PublicAotRenderRequest(match, snapshot.Value!, renderTimestampUtc),
             cancellationToken);
         if (entry.IsFailure)
         {
@@ -205,7 +209,8 @@ internal sealed class PublicAotDocumentComposition(
         }
 
         PublicAotShellEntryContract renderedEntry = entry.Value!;
-        if (!PublicAotShellContractRules.TryValidateEntry(
+        if (!TryValidateRendererOutput(
+            match,
             renderedEntry,
             out string normalizedRouteKey,
             out string normalizedHtml,
@@ -231,7 +236,33 @@ internal sealed class PublicAotDocumentComposition(
                 RouteKey = normalizedRouteKey
             },
             document.Value!,
-            normalizedEntry.RendererVersion ?? PublicAotConstants.RendererVersion));
+            normalizedEntry.RendererVersion ?? PublicAotConstants.RendererVersion,
+            renderTimestampUtc));
+    }
+
+    private static bool TryValidateRendererOutput(
+        PublicAotRouteMatch match,
+        PublicAotShellEntryContract entry,
+        out string normalizedRouteKey,
+        out string normalizedHtml,
+        out string error)
+    {
+        if (!string.Equals(
+                entry.RenderLocale,
+                match.LocaleResolution.Locale.Code,
+                StringComparison.Ordinal))
+        {
+            normalizedRouteKey = string.Empty;
+            normalizedHtml = string.Empty;
+            error = "public_aot_renderer_request_locale_mismatch";
+            return false;
+        }
+
+        return PublicAotShellContractRules.TryValidateEntry(
+            entry,
+            out normalizedRouteKey,
+            out normalizedHtml,
+            out error);
     }
 
     private static IReadOnlyDictionary<PublicPageKind, IPublicAotBootstrapProvider> BuildBootstrapProviderMap(

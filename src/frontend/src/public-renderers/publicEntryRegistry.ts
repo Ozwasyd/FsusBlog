@@ -58,10 +58,9 @@ import {
   buildPublicPrivacyRouteKey
 } from '@/public-renderers/publicRouteIdentity'
 import {
+  createAuthoritativePublicRenderClock,
   createPublicLocaleContext,
-  createPublicRenderClock,
   createPublicRenderTimeOptions,
-  type Clock,
   type PublicRenderClock
 } from '@/public-renderers/publicRenderClock'
 import {
@@ -70,7 +69,8 @@ import {
   normalizePublicSiteTitle
 } from '@/public-renderers/publicSiteIdentity'
 import type { TimeRenderOptions } from '@/utils/time'
-import { DEFAULT_LOCALE, isSupportedLocale, type SupportedLocale } from '@/locales'
+import { isSupportedLocale, prepareLocaleRuntime, type SupportedLocale } from '@/locales'
+import { LOCALE_CATALOG_DIGEST } from '@/locales/localeCatalog'
 
 export type PublicEntryBuilder = (options: PublicEntryBuildOptions) => Promise<RenderResult>
 
@@ -92,6 +92,7 @@ type PublicEntryScope<K extends PublicPageKind = PublicPageKind> = Readonly<{
   renderClock: PublicRenderClock
   renderTimeOptions: TimeRenderOptions
   renderLocale: SupportedLocale
+  localeCatalogDigest: string
   baseModel: PublicRenderBase
   renderShell: (page: PublicAotPageAssembly) => Promise<string>
   createEntry: (
@@ -137,19 +138,19 @@ function createPublicEntryScope<K extends PublicPageKind>(kind: K, options: Publ
   const compliance = normalizePublicComplianceConfig(options.compliance)
   const baseUrlInput = options.baseUrl
   const baseUrlText = toText(baseUrlInput, '')
-  const injectedClock = options.clock && typeof options.clock === 'object' && typeof (options.clock as Clock).now === 'function'
-    ? options.clock as Clock
-    : undefined
-  const renderClock = injectedClock
-    ? createPublicRenderClock(options.renderTimestamp ?? options.generatedAt, injectedClock)
-    : createPublicRenderClock(options.renderTimestamp ?? options.generatedAt)
+  const renderClock = createAuthoritativePublicRenderClock(options.renderTimestamp)
+  if (!renderClock) {
+    throw new Error('public_aot_render_timestamp_invalid')
+  }
   const localeContext = createPublicLocaleContext({
     locale: toText(options.renderLocale ?? options.locale, ''),
     timeZone: toText(options.renderDisplayTimeZone ?? options.timeZone, '')
   })
-  const renderLocale = isSupportedLocale(localeContext.locale)
-    ? localeContext.locale
-    : DEFAULT_LOCALE
+  if (!isSupportedLocale(localeContext.locale)) {
+    throw new Error(`public_aot_render_locale_invalid:${localeContext.locale}`)
+  }
+  const renderLocale = localeContext.locale
+  const localeCatalogDigest = toText(options.localeCatalogDigest, '')
   const renderTimeOptions = createPublicRenderTimeOptions(renderClock, localeContext)
   const baseModel = createPublicRenderBase(kind, routeKey, {
     rendererVersion: PUBLIC_RENDERER_VERSION,
@@ -163,7 +164,8 @@ function createPublicEntryScope<K extends PublicPageKind>(kind: K, options: Publ
     loginIconUrl,
     compliance,
     renderClock,
-    renderLocale
+    renderLocale,
+    localeCatalogDigest
   })
 
   return {
@@ -182,6 +184,7 @@ function createPublicEntryScope<K extends PublicPageKind>(kind: K, options: Publ
     renderClock,
     renderTimeOptions,
     renderLocale,
+    localeCatalogDigest,
     baseModel,
     renderShell: async (page) => await renderShell(kind, siteTitle, page, compliance, {
       siteDescription,
@@ -605,5 +608,12 @@ export const renderPublicArchiveEntry = archiveEntryDefinition.build
 export const renderPublicFilterEntry = filterEntryDefinition.build
 
 export async function buildPublicEntry(pageKind: PublicPageKind, options: PublicEntryBuildOptions): Promise<RenderResult> {
+  if (!isSupportedLocale(options.renderLocale)) {
+    throw new Error('public_aot_render_locale_missing')
+  }
+  if (options.localeCatalogDigest !== LOCALE_CATALOG_DIGEST) {
+    throw new Error('public_aot_locale_catalog_digest_mismatch')
+  }
+  await prepareLocaleRuntime(options.renderLocale)
   return await PUBLIC_ENTRY_BUILDERS[pageKind](options)
 }

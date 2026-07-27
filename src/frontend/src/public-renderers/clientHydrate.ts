@@ -18,6 +18,8 @@ import {
   type PublicHydrationTakeoverController
 } from './publicHydrationRoot';
 import { registerPublicStaticRouterLink } from './publicStaticRouterLink';
+import { isSupportedLocale, prepareLocaleRuntime } from '@/locales';
+import { hasCanonicalPublicSeedRenderTimestamp } from './publicRenderClock';
 
 const APP_SELECTOR = '#app';
 const SHELL_SELECTOR = '#fsus-aot-shell';
@@ -95,6 +97,9 @@ function markPublicAotMismatchBoundaries(container: HTMLElement): void {
  * public route tree stays structurally identical across first paint and takeover.
  */
 export async function hydratePublicPage(payload: PublicHydrationPayload): Promise<void> {
+  if (!hasCanonicalPublicSeedRenderTimestamp(payload)) {
+    throw new Error('public_aot_hydration_render_timestamp_invalid');
+  }
   const container = document.querySelector<HTMLElement>(APP_SELECTOR);
   if (!container) {
     return;
@@ -104,6 +109,13 @@ export async function hydratePublicPage(payload: PublicHydrationPayload): Promis
   if (!shell || shell.dataset.publicHydrationKind !== payload.pageKind) {
     return;
   }
+
+  if (!isSupportedLocale(payload.renderLocale)
+    || shell.dataset.publicRenderLocale !== payload.renderLocale
+    || document.documentElement.lang !== payload.renderLocale) {
+    throw new Error('public_aot_hydration_locale_mismatch');
+  }
+  await prepareLocaleRuntime(payload.renderLocale);
 
   // Hydration invariant: strip whitespace-only SSR text nodes before Vue compares the public shell tree.
   removeWhitespaceTextNodes(container);

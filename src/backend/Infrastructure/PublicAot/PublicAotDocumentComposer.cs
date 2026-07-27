@@ -30,6 +30,8 @@ internal sealed record class PublicAotDocumentModel(
     bool UsesSourceAssets = false,
     string FrontendBuildIdentity = "missing-manifest")
 {
+    public LocaleDescriptor Locale { get; init; } = LocaleCatalog.Default;
+
     public FullAppTakeoverAssetSet FullAppTakeover { get; init; } = FullAppTakeoverAssetSet.Empty;
 
     public PublicAotArticleSeoMetadata? ArticleSeo
@@ -69,6 +71,12 @@ internal static class PublicAotDocumentComposer
     private static readonly Regex s_bodyTagRegex = new(
         "<body\\b(?<attrs>[^>]*)>",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+    private static readonly Regex s_htmlTagRegex = new(
+        "<html\\b(?<attrs>[^>]*)>",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+    private static readonly Regex s_localeAttributeRegex = new(
+        "\\s+(?:lang|dir)\\s*=\\s*(?:\"[^\"]*\"|'[^']*'|[^\\s>]+)",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
     internal static string BuildSeoHeadTags(
         PublicPageKind kind,
@@ -87,8 +95,10 @@ internal static class PublicAotDocumentComposer
         string canonicalUrl,
         PublicAotArticleSeoMetadata? articleSeo = null,
         string? defaultImageUrl = null,
-        string robots = "index,follow")
+        string robots = "index,follow",
+        LocaleDescriptor? locale = null)
     {
+        LocaleDescriptor resolvedLocale = locale ?? LocaleCatalog.Default;
         string ogType = kind == PublicPageKind.ArticleDetail ? "article" : "website";
         string fullTitle = string.IsNullOrWhiteSpace(siteTitle) || string.Equals(title, siteTitle, StringComparison.Ordinal)
             ? title
@@ -109,7 +119,7 @@ internal static class PublicAotDocumentComposer
             CanonicalUrl = canonicalUrl,
             PublicOrigin = new Uri(canonicalUrl, UriKind.Absolute).GetLeftPart(UriPartial.Authority),
             Robots = robots,
-            Locale = LocaleCatalog.Default.DocumentLanguage,
+            Locale = resolvedLocale.DocumentLanguage,
             PageType = kind.ToString(),
             PageEntityId = canonicalUrl,
             OpenGraph = new PublicSeoOpenGraphModel
@@ -118,7 +128,7 @@ internal static class PublicAotDocumentComposer
                 Description = description,
                 Type = ogType,
                 Url = canonicalUrl,
-                Locale = LocaleCatalog.Default.OpenGraphLocale,
+                Locale = resolvedLocale.OpenGraphLocale,
                 ImageUrl = imageUrl
             },
             Twitter = new PublicSeoTwitterCardModel
@@ -571,7 +581,7 @@ internal static class PublicAotDocumentComposer
     {
         ValidateSentinels(model.PreparedTemplate);
 
-        string html = EnsureBodyAttributes(model.PreparedTemplate);
+        string html = EnsureDocumentLocale(EnsureBodyAttributes(model.PreparedTemplate), model.Locale);
         html = ReplaceBetween(
             html,
             AotHeadStartSentinel,
@@ -610,6 +620,33 @@ internal static class PublicAotDocumentComposer
             : html + payloadScripts + publicBootMarkup;
     }
 
+    private static string EnsureDocumentLocale(string html, LocaleDescriptor locale)
+    {
+        int replacements = 0;
+        string localized = s_htmlTagRegex.Replace(
+            html,
+            match =>
+            {
+                replacements++;
+                string attrs = s_localeAttributeRegex.Replace(match.Groups["attrs"].Value, string.Empty);
+                return string.Concat(
+                    "<html",
+                    attrs,
+                    " lang=\"",
+                    Encode(locale.DocumentLanguage),
+                    "\" dir=\"",
+                    Encode(locale.Direction),
+                    "\">");
+            },
+            1);
+        if (replacements != 1)
+        {
+            throw new InvalidOperationException("public_aot_document_html_root_missing");
+        }
+
+        return localized;
+    }
+
     private static string BuildAotManagedHead(PublicAotDocumentModel model)
     {
         PublicSeoHeadModel seoHead = model.SeoHead ?? BuildSeoHeadModel(
@@ -618,7 +655,8 @@ internal static class PublicAotDocumentComposer
             model.SiteTitle,
             model.Description,
             model.CanonicalUrl,
-            model.ArticleSeo);
+            model.ArticleSeo,
+            locale: model.Locale);
         return $"""
 {BuildThemeBootstrapScript()}
     <title data-fsus-aot-head>{Encode(seoHead.DocumentTitle)}</title>

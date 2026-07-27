@@ -14,6 +14,7 @@ using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Middlewares;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Shared.Contracts.Localization;
 using FsusBlog.Shared.Contracts.Outputs;
 
 using Microsoft.AspNetCore.Hosting;
@@ -103,6 +104,8 @@ public readonly record struct PublicHtmlArtifact(
     PublicArtifactIntegrityTag IntegrityTag = default,
     PublicArtifactIntegrityTag TemplateIntegrityTag = default)
 {
+    public string Locale { get; init; } = string.Empty;
+
     public bool RequiresCspNonceMutation => CspNonceTemplate is not null;
 
     public long ResidentBytes => Bytes.Length + (CspNonceTemplate?.ResidentBytes ?? 0);
@@ -869,8 +872,26 @@ public class PublicHotReadStore
             return;
         }
 
+        string locale = string.IsNullOrWhiteSpace(html.Locale)
+            ? LocaleCatalog.Default.Code
+            : html.Locale;
+        html = html with
+        {
+            Locale = locale
+        };
         PublicHtmlRouteIndex route = PublicHotReadRouteKeys.CreateHtmlIndex(routeKey, pageId);
-        Publish(Current.WithHtml(PublicHotReadRouteKeys.HtmlPath(route.PathKey), html));
+        string basePath = PublicHotReadRouteKeys.HtmlPath(route.PathKey);
+        string localizedPath = PublicHotReadRouteKeys.LocalizeHtmlPath(basePath, locale);
+        PublicHotReadSnapshot next = Current.WithHtml(localizedPath, html);
+        if (string.Equals(
+                locale,
+                LocaleCatalog.Default.Code,
+                StringComparison.Ordinal))
+        {
+            next = next.WithHtml(basePath, html);
+        }
+
+        Publish(next);
     }
 
     public void PublishHtml(string routeKey, PublicHtmlArtifact html)
@@ -896,7 +917,15 @@ public class PublicHotReadStore
             return;
         }
 
-        Publish(current.WithoutHtml(PublicHotReadRouteKeys.HtmlPath(routeKey)));
+        PublicHotReadSnapshot next = current.WithoutHtml(PublicHotReadRouteKeys.HtmlPath(routeKey));
+        foreach (LocaleDescriptor locale in LocaleCatalog.Enabled)
+        {
+            next = next.WithoutHtml(PublicHotReadRouteKeys.LocalizeHtmlPath(
+                PublicHotReadRouteKeys.HtmlPath(routeKey),
+                locale.Code));
+        }
+
+        Publish(next);
     }
 
     public void ClearHtml()

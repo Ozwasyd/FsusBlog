@@ -25,7 +25,7 @@ public sealed class PublicAotShellServiceTests
     public async Task RenderAsync_WhenCacheHit_ReturnsAotDocument_AndDoesNotQueueBackfill()
     {
         var match = HomeMatch();
-        string cacheKey = CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey);
+        string cacheKey = LocalizedDocumentKey(match);
         var cache = new RecordingAotCache
         {
             Entry = new PublicAotCacheEntry
@@ -74,9 +74,32 @@ public sealed class PublicAotShellServiceTests
         PublicAotBackfillRequest request = Assert.Single(scheduler.Requests);
         Assert.Equal(match.Kind, request.Kind);
         Assert.Equal(match.RouteKey, request.RouteKey);
-        Assert.Equal(VersionedListKey(CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey)), request.CacheKey);
+        Assert.Equal(VersionedListKey(LocalizedDocumentKey(match)), request.CacheKey);
         Assert.Equal(CacheKeyBuilder.PublicAotDocument(match.PageId, string.Empty), request.PagePrefixKey);
         Assert.Empty(cache.RemovedKeys);
+    }
+
+    [Fact]
+    public async Task RenderAsync_ResolvesRequestLocaleBeforeCacheLookupAndBackfill()
+    {
+        var match = HomeMatch();
+        var cache = new RecordingAotCache();
+        var scheduler = new RecordingBackfillScheduler();
+        PublicAotShellService sut = CreateService(match, cache, scheduler);
+        var context = new DefaultHttpContext();
+        context.Request.Headers.AcceptLanguage = "ja-JP";
+
+        PublicAotCacheEntry? rendered = await sut.RenderAsync(context, match);
+
+        Assert.Null(rendered);
+        string localizedKey = CacheKeyBuilder.PublicAotDocument(
+            match.PageId,
+            match.RouteKey,
+            "ja-JP");
+        Assert.Contains(VersionedListKey(localizedKey), cache.RequestedKeys);
+        PublicAotBackfillRequest request = Assert.Single(scheduler.Requests);
+        Assert.Equal("ja-JP", request.Locale);
+        Assert.Equal(VersionedListKey(localizedKey), request.CacheKey);
     }
 
     [Fact]
@@ -137,6 +160,9 @@ public sealed class PublicAotShellServiceTests
         await sut.GenerateAndStoreAsync(request);
         await sut.GenerateAndStoreAsync(request);
 
+        Assert.Equal(2, renderer.Requests.Count);
+        Assert.All(renderer.Requests, static renderRequest =>
+            Assert.NotEqual(default, renderRequest.RenderTimestampUtc));
         PublicAotRouteQuarantineSnapshot quarantine = Assert.Single(runtimeState.CreateSnapshot(0, 32).RouteQuarantines);
         Assert.Equal(match.Kind, quarantine.Kind);
         Assert.Equal(match.RouteKey, quarantine.RouteKey);
@@ -157,7 +183,7 @@ public sealed class PublicAotShellServiceTests
 
         PublicAotBackfillRequest request = Assert.Single(scheduler.Requests);
         Assert.Equal("pw-0", request.TestSessionId);
-        Assert.Equal(VersionedListKey($"e2e:pw-0:{CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey)}"), request.CacheKey);
+        Assert.Equal(VersionedListKey($"e2e:pw-0:{LocalizedDocumentKey(match)}"), request.CacheKey);
         Assert.Equal($"e2e:pw-0:{CacheKeyBuilder.PublicAotDocument(match.PageId, string.Empty)}", request.PagePrefixKey);
     }
 
@@ -165,7 +191,7 @@ public sealed class PublicAotShellServiceTests
     public async Task RenderAsync_WhenCacheEntryIsNotRenderable_RemovesEntry_ReturnsSpaFallback_AndQueuesBackfill()
     {
         var match = HomeMatch();
-        string cacheKey = CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey);
+        string cacheKey = LocalizedDocumentKey(match);
         var cache = new RecordingAotCache
         {
             Entry = new PublicAotCacheEntry
@@ -197,7 +223,7 @@ public sealed class PublicAotShellServiceTests
     public async Task RenderAsync_DevelopmentViteProxy_DoesNotServeProductionManifestAotCache()
     {
         var match = HomeMatch();
-        string cacheKey = CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey);
+        string cacheKey = LocalizedDocumentKey(match);
         var cache = new RecordingAotCache
         {
             Entry = new PublicAotCacheEntry
@@ -236,7 +262,7 @@ public sealed class PublicAotShellServiceTests
     public async Task RenderAsync_WhenCacheEntryIsExpiredButCompatible_RemovesEntry_ReturnsSpaFallback_AndQueuesBackfill()
     {
         var match = HomeMatch();
-        string cacheKey = CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey);
+        string cacheKey = LocalizedDocumentKey(match);
         var cache = new RecordingAotCache
         {
             Entry = new PublicAotCacheEntry
@@ -269,7 +295,7 @@ public sealed class PublicAotShellServiceTests
     public async Task RenderAsync_WhenListVersionBumps_UsesVersionedDocumentKeyInsteadOfOldKey()
     {
         var match = HomeMatch();
-        string baseCacheKey = CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey);
+        string baseCacheKey = LocalizedDocumentKey(match);
         var cache = new RecordingAotCache
         {
             EntriesByKey =
@@ -288,7 +314,7 @@ public sealed class PublicAotShellServiceTests
             }
         };
         var tracker = new PublicAotInvalidationTracker();
-        tracker.MarkKey(baseCacheKey);
+        tracker.MarkKey(CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey));
         var scheduler = new RecordingBackfillScheduler();
         PublicAotShellService sut = CreateService(match, cache, scheduler, invalidationTracker: tracker);
         var context = new DefaultHttpContext();
@@ -571,7 +597,7 @@ public sealed class PublicAotShellServiceTests
         {
             RequiresPaginationRedirect = true
         };
-        string cacheKey = CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey);
+        string cacheKey = LocalizedDocumentKey(match);
         var cache = new RecordingAotCache
         {
             Entry = new PublicAotCacheEntry
@@ -675,17 +701,22 @@ public sealed class PublicAotShellServiceTests
         Assert.Equal("/archive", snapshot.CanonicalPath);
         Assert.Equal(PublicAotShellService.PublicRendererVersion, snapshot.RendererVersion);
         Assert.Equal("frontend-v1", snapshot.FrontendAssetVersion);
+        Assert.Equal("zh-CN", snapshot.RenderLocale);
+        Assert.Equal(FsusBlog.Shared.Contracts.Localization.LocaleCatalog.Digest, snapshot.LocaleCatalogDigest);
         Assert.NotEmpty(snapshot.PayloadHash);
         Assert.NotEmpty(snapshot.BootstrapPayload);
         Assert.NotEmpty(snapshot.HydrationPropsPayload);
         Assert.True(snapshot.SeoHead.HasValidContractAndDigest());
-        Assert.Single(renderer.Requests);
+        PublicAotRenderRequest renderRequest = Assert.Single(renderer.Requests);
+        Assert.Equal(snapshot.GeneratedAtUtc, renderRequest.RenderTimestampUtc);
 
         byte[] frame = snapshot.EncodeFrame();
         Assert.True(PublicAotBinaryPayload.TryDecodeObject(frame, out Dictionary<string, object?> payload));
         Assert.Equal("public-navigation-snapshot", payload["kind"]);
         Assert.Equal("Archive", payload["pageKind"]);
         Assert.Equal("archive", payload["routeKey"]);
+        Assert.Equal(snapshot.RenderLocale, payload["renderLocale"]);
+        Assert.Equal(snapshot.LocaleCatalogDigest, payload["localeCatalogDigest"]);
         Assert.Equal(snapshot.PayloadHash, payload["payloadHash"]);
         IReadOnlyDictionary<string, object?> seoHead = Assert.IsAssignableFrom<IReadOnlyDictionary<string, object?>>(payload["seoHead"]);
         Assert.Equal(PublicSeoHeadContract.Schema, seoHead["schema"]);
@@ -725,6 +756,25 @@ public sealed class PublicAotShellServiceTests
         Assert.NotEqual(
             PublicAotNavigationSnapshot.CreateEntityTag(first.EncodeFrame()),
             PublicAotNavigationSnapshot.CreateEntityTag(second.EncodeFrame()));
+    }
+
+    [Fact]
+    public async Task BuildNavigationSnapshotAsync_RejectsInternallyConsistentWrongRendererLocale()
+    {
+        PublicAotRouteMatch match = HomeMatch();
+        PublicAotShellService service = CreateService(
+            match,
+            new RecordingAotCache(),
+            new RecordingBackfillScheduler(),
+            entryRenderer: new NavigationSnapshotRenderer("en-US"),
+            dbConcurrencyGate: new ImmediateDbConcurrencyGate());
+        var context = new DefaultHttpContext();
+        context.Request.Headers.AcceptLanguage = "ja-JP";
+
+        Result<PublicAotNavigationSnapshot> result = await service.BuildNavigationSnapshotAsync(context, match);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("public_aot_renderer_request_locale_mismatch", result.Error.Message);
     }
 
     private static PublicAotRouteMatch HomeMatch()
@@ -787,6 +837,7 @@ public sealed class PublicAotShellServiceTests
             artifactStore,
             new PublicAotRuntimeState(
                 runtimeState ?? new PublicAotSsrRuntimeState(new ConfigurationBuilder().Build())),
+            new LocaleResolver(),
             NullLogger<PublicAotShellService>.Instance);
     }
 
@@ -806,7 +857,13 @@ public sealed class PublicAotShellServiceTests
     }
 
     private static string VersionedListKey(string cacheKey, long version = 0)
-        => string.Concat(cacheKey, ":lv:", version.ToString());
+        => string.Concat(cacheKey, ":iv:", version.ToString());
+
+    private static string LocalizedDocumentKey(PublicAotRouteMatch match)
+        => CacheKeyBuilder.PublicAotDocument(
+            match.PageId,
+            match.RouteKey,
+            match.LocaleResolution.Locale.Code);
 
     private static IEnumerable<IPublicAotBootstrapProvider> CreateBootstrapProviders()
     {
@@ -973,16 +1030,21 @@ public sealed class PublicAotShellServiceTests
 
     private sealed class FailingRenderer(string message) : IPublicAotEntryRenderer
     {
+        public List<PublicAotRenderRequest> Requests { get; } = [];
+
         public Task<Result<PublicAotShellEntryContract>> BuildEntryAsync(
             PublicAotRenderRequest request,
             CancellationToken cancellationToken = default)
-            => Task.FromResult(Result<PublicAotShellEntryContract>.Failure(ErrorCode.InfraFailure, message));
+        {
+            Requests.Add(request);
+            return Task.FromResult(Result<PublicAotShellEntryContract>.Failure(ErrorCode.InfraFailure, message));
+        }
 
         public Task<Result> ValidateBundleAsync(PublicAotShellBundleContract bundle, CancellationToken cancellationToken = default)
             => Task.FromResult(Result.Failure(ErrorCode.InfraFailure, message));
     }
 
-    private sealed class NavigationSnapshotRenderer : IPublicAotEntryRenderer
+    private sealed class NavigationSnapshotRenderer(string? localeOverride = null) : IPublicAotEntryRenderer
     {
         public List<PublicAotRenderRequest> Requests { get; } = [];
 
@@ -991,18 +1053,23 @@ public sealed class PublicAotShellServiceTests
             CancellationToken cancellationToken = default)
         {
             Requests.Add(request);
+            string renderLocale = localeOverride ?? request.Match.LocaleResolution.Locale.Code;
             var bootstrapPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>(StringComparer.Ordinal)
             {
                 ["kind"] = request.Match.Kind.ToString(),
                 ["pageKind"] = request.Match.Kind.ToString(),
                 ["routeKey"] = request.Match.RouteKey,
-                ["rendererVersion"] = PublicAotShellService.PublicRendererVersion
+                ["rendererVersion"] = PublicAotShellService.PublicRendererVersion,
+                ["renderLocale"] = renderLocale,
+                ["localeCatalogDigest"] = request.Match.LocaleResolution.CatalogDigest
             });
             var hydrationPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>(StringComparer.Ordinal)
             {
                 ["pageKind"] = request.Match.Kind.ToString(),
                 ["routeKey"] = request.Match.RouteKey,
                 ["rendererVersion"] = PublicAotShellService.PublicRendererVersion,
+                ["renderLocale"] = renderLocale,
+                ["localeCatalogDigest"] = request.Match.LocaleResolution.CatalogDigest,
                 ["title"] = request.Match.Kind.ToString()
             });
 
@@ -1010,11 +1077,12 @@ public sealed class PublicAotShellServiceTests
             {
                 PageId = request.Match.PageId,
                 RouteKey = request.Match.RouteKey,
-                Html = """<div id="fsus-aot-shell">snapshot</div>""",
+                Html = $"""<div id="fsus-aot-shell" data-public-render-locale="{renderLocale}">snapshot</div>""",
                 BootstrapPayload = bootstrapPayload,
                 HydrationPropsPayload = hydrationPayload,
                 RendererVersion = PublicAotShellService.PublicRendererVersion,
-                Title = request.Match.Kind.ToString()
+                Title = request.Match.Kind.ToString(),
+                RenderLocale = renderLocale
             }));
         }
 

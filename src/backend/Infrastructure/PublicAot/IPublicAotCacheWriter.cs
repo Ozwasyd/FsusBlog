@@ -10,6 +10,7 @@ public interface IPublicAotCacheWriter
         string routeKey,
         string rendererVersion,
         string frontendAssetVersion,
+        string locale,
         string html,
         PublicAotWriteSource source,
         DateTimeOffset? generatedAtUtc = null,

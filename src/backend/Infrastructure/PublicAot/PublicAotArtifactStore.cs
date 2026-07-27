@@ -5,6 +5,7 @@ using FsusBlog.Core.Cache;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Spa;
 using FsusBlog.Server.Infrastructure.Testing;
+using FsusBlog.Shared.Contracts.Localization;
 using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
@@ -19,7 +20,7 @@ public interface IPublicAotArtifactStore
 
     Task RemoveAsync(PublicAotArtifactLookup lookup, CancellationToken cancellationToken);
 
-    bool IsRenderable(PublicAotCacheEntry? entry, string frontendAssetVersion);
+    bool IsRenderable(PublicAotCacheEntry? entry, PublicAotArtifactLookup lookup);
 
     bool TryScheduleBackfill(
         HttpContext context,
@@ -41,7 +42,8 @@ public sealed record PublicAotArtifactLookup(
     string DocumentCacheKey,
     string PagePrefixKey,
     string FrontendAssetVersion,
-    string AssetMode)
+    string AssetMode,
+    string ExpectedLocale)
 {
     public bool UsesDevelopmentSourceAssets
         => string.Equals(
@@ -60,20 +62,27 @@ internal sealed class PublicAotArtifactStore(
 {
     public PublicAotArtifactLookup CreateLookup(HttpContext context, PublicAotRouteMatch match)
     {
-        string baseDocumentCacheKey = runtimeKeyScope.PrefixKey(
+        string invalidationKey = runtimeKeyScope.PrefixKey(
             CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey));
+        string baseDocumentCacheKey = runtimeKeyScope.PrefixKey(
+            CacheKeyBuilder.PublicAotDocument(
+                match.PageId,
+                match.RouteKey,
+                match.LocaleResolution.Locale.Code));
         string pagePrefixKey = runtimeKeyScope.PrefixKey(
             CacheKeyBuilder.PublicAotDocument(match.PageId, string.Empty));
         string documentCacheKey = ResolveVersionedDocumentCacheKey(
             match.PageId,
             baseDocumentCacheKey,
+            invalidationKey,
             pagePrefixKey);
         string frontendAssetVersion = assetManifest.GetFrontendAssetVersion(context);
         return new PublicAotArtifactLookup(
             documentCacheKey,
             pagePrefixKey,
             frontendAssetVersion,
-            ResolveAssetMode(frontendAssetVersion));
+            ResolveAssetMode(frontendAssetVersion),
+            match.LocaleResolution.Locale.Code);
     }
 
     public Task<PublicAotCacheEntry?> TryGetEntryAsync(
@@ -87,8 +96,9 @@ internal sealed class PublicAotArtifactStore(
     public Task RemoveAsync(PublicAotArtifactLookup lookup, CancellationToken cancellationToken)
         => cache.RemoveAsync(lookup.DocumentCacheKey, cancellationToken);
 
-    public bool IsRenderable(PublicAotCacheEntry? entry, string frontendAssetVersion)
-        => IsRenderableCacheEntry(entry, frontendAssetVersion);
+    public bool IsRenderable(PublicAotCacheEntry? entry, PublicAotArtifactLookup lookup)
+        => IsRenderableCacheEntry(entry, lookup.FrontendAssetVersion)
+            && string.Equals(entry!.Locale, lookup.ExpectedLocale, StringComparison.Ordinal);
 
     public bool TryScheduleBackfill(
         HttpContext context,
@@ -108,7 +118,8 @@ internal sealed class PublicAotArtifactStore(
                 runtimeKeyScope.PrefixKey(CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey)),
                 lookup.PagePrefixKey),
             TestSessionId = ResolveTestSessionId(context),
-            FrontendAssetVersion = lookup.FrontendAssetVersion
+            FrontendAssetVersion = lookup.FrontendAssetVersion,
+            Locale = match.LocaleResolution.Locale.Code
         });
 
     public bool IsCurrentBackfill(PublicAotBackfillRequest request)
@@ -152,9 +163,10 @@ internal sealed class PublicAotArtifactStore(
                     document.Match.RouteKey,
                     document.RendererVersion,
                     request.FrontendAssetVersion,
+                    request.Locale,
                     document.Html,
                     PublicAotWriteSource.ServerSsrBackfill,
-                    DateTimeOffset.UtcNow,
+                    document.RenderTimestampUtc,
                     TimeSpan.FromDays(30),
                     cancellationToken).ConfigureAwait(false);
                 long publishedInvalidationVersion = invalidationTracker.GetCurrentVersion(request);
@@ -200,6 +212,10 @@ internal sealed class PublicAotArtifactStore(
 
         return string.Equals(entry.RendererVersion, PublicAotConstants.RendererVersion, StringComparison.Ordinal)
             && string.Equals(entry.FrontendAssetVersion, frontendAssetVersion, StringComparison.Ordinal)
+            && FsusBlog.Shared.Contracts.Localization.LocaleCatalog.TryParse(
+                entry.Locale,
+                out FsusBlog.Shared.Contracts.Localization.LocaleDescriptor cacheLocale)
+            && string.Equals(entry.Locale, cacheLocale.Code, StringComparison.Ordinal)
             && !entry.GetDocument().Utf8Bytes.IsEmpty;
     }
 
@@ -211,9 +227,10 @@ internal sealed class PublicAotArtifactStore(
     private string ResolveVersionedDocumentCacheKey(
         PublicPageId pageId,
         string cacheKey,
+        string invalidationKey,
         string pagePrefixKey)
     {
-        long version = invalidationTracker.GetCurrentVersion(cacheKey, pagePrefixKey);
+        long version = invalidationTracker.GetCurrentVersion(invalidationKey, pagePrefixKey);
         return string.Concat(cacheKey, ":iv:", version.ToString());
     }
 

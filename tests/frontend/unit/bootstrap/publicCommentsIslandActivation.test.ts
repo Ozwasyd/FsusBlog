@@ -1,6 +1,7 @@
 import { Window as HappyDomWindow } from 'happy-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { articleRightsFixture } from '../fixtures/articleRights'
+import { LOCALE_CATALOG_DIGEST } from '@/locales/localeCatalog'
 
 const mountArticleCommentsIsland = vi.fn<(...args: unknown[]) => Promise<void>>()
 const unmountArticleCommentsIsland = vi.fn()
@@ -10,6 +11,12 @@ const prewarmPublicRoute = vi.fn<(...args: unknown[]) => Promise<{ status: 'read
 const prepareFullApp = vi.fn<(...args: unknown[]) => unknown>()
 const commitPreparedFullApp = vi.fn<(...args: unknown[]) => Promise<void>>()
 const bootstrapFullApp = vi.fn<(...args: unknown[]) => Promise<void>>()
+const RENDER_TIMESTAMP = '2026-06-18T00:00:00.000Z'
+const PUBLIC_PAYLOAD_IDENTITY = {
+  renderTimestamp: RENDER_TIMESTAMP,
+  renderLocale: 'zh-CN',
+  localeCatalogDigest: LOCALE_CATALOG_DIGEST
+} as const
 
 const originalGlobals = {
   window: globalThis.window,
@@ -68,6 +75,7 @@ class FakeIntersectionObserver {
 }
 
 const articlePayload = {
+  ...PUBLIC_PAYLOAD_IDENTITY,
   pageKind: 'ArticleDetail',
   routeKey: 'article:101',
   rendererVersion: 'test-renderer',
@@ -83,6 +91,7 @@ const articlePayload = {
 }
 
 const homePayload = {
+  ...PUBLIC_PAYLOAD_IDENTITY,
   pageKind: 'Home',
   routeKey: 'home',
   rendererVersion: 'test-renderer',
@@ -116,10 +125,12 @@ function resetDocument(url = 'http://127.0.0.1:7568/article/101'): void {
   document.body.setAttribute('data-fsusblog-public-shell', 'true')
 }
 
-async function importPublicShell(): Promise<typeof import('@/bootstrap/publicShell')> {
+async function importPublicShell(
+  hydrationPayload: Record<string, unknown> = articlePayload
+): Promise<typeof import('@/bootstrap/publicShell')> {
   vi.resetModules()
   vi.doMock('@/bootstrap/publicHydrationBootstrap', () => ({
-    readPublicHydrationPayloadAsync: vi.fn(async () => articlePayload),
+    readPublicHydrationPayloadAsync: vi.fn(async () => hydrationPayload),
     readPublicHydrationPayloadFromUrl: vi.fn(),
     replacePublicHydrationPayloadBinary: vi.fn(() => homePayload),
     replacePublicHydrationPayloadSnapshot: vi.fn()
@@ -255,6 +266,18 @@ describe.sequential('public comments island activation', () => {
 
     vi.advanceTimersByTime(2_500)
     expect(mountArticleCommentsIsland).toHaveBeenCalledTimes(1)
+
+    const invalidPayload: Record<string, unknown> = { ...articlePayload }
+    delete invalidPayload.renderTimestamp
+    delete invalidPayload.renderLocale
+    delete invalidPayload.localeCatalogDigest
+    hydratePublicPage.mockClear()
+    resetDocument()
+    const { bootstrapPublicShell } = await importPublicShell(invalidPayload)
+    const invalidBootstrap = bootstrapPublicShell()
+    vi.advanceTimersByTime(1_000)
+    await invalidBootstrap
+    expect(hydratePublicPage).not.toHaveBeenCalled()
   }, 10_000)
 
   it('cancels a scheduled no-IntersectionObserver fallback when SPA takeover aborts the public shell lifetime', async () => {

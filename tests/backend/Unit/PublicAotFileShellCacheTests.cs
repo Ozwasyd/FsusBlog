@@ -49,6 +49,7 @@ public sealed class PublicAotFileShellCacheTests(ITestOutputHelper output)
             ExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(10),
             RendererVersion = "renderer-v1",
             FrontendAssetVersion = "frontend-v1",
+            Locale = "ja-JP",
             Value = html,
             Document = document,
             HydrationSidecar = CreateSidecarReference()
@@ -64,6 +65,7 @@ public sealed class PublicAotFileShellCacheTests(ITestOutputHelper output)
         Assert.Equal(entry.Source, restored.Source);
         Assert.Equal(entry.RendererVersion, restored.RendererVersion);
         Assert.Equal(entry.FrontendAssetVersion, restored.FrontendAssetVersion);
+        Assert.Equal(entry.Locale, restored.Locale);
         Assert.Equal(entry.Value, restored.Value);
         Assert.NotNull(restored.Document);
         Assert.Equal(document.ETag, restored.Document.Value.ETag);
@@ -76,7 +78,7 @@ public sealed class PublicAotFileShellCacheTests(ITestOutputHelper output)
         Assert.Equal(entry.HydrationSidecar.Sha256Hex, restored.HydrationSidecar.Sha256Hex);
         Assert.Equal(entry.HydrationSidecar.RelativePath, restored.HydrationSidecar.RelativePath);
         Assert.Equal("PACE", Encoding.ASCII.GetString(payload, 0, 4));
-        Assert.Equal(3u, BinaryPrimitives.ReadUInt32LittleEndian(payload.AsSpan(4, 4)));
+        Assert.Equal(4u, BinaryPrimitives.ReadUInt32LittleEndian(payload.AsSpan(4, 4)));
     }
 
     [Fact]

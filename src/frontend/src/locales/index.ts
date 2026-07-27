@@ -27,12 +27,16 @@ let runtimeInitialized = false
 let storageListener: ((event: StorageEvent) => void) | null = null
 
 export { localeState as locale }
-export const messages = computed<LocaleMessages>(() =>
-    localeMessages.get(localeState.value) ?? localeMessages.get(DEFAULT_LOCALE)!
-)
+export const messages = computed<LocaleMessages>(() => requireLocaleMessages(localeState.value))
 
 export function getLocaleMessages(value: SupportedLocale): LocaleMessages {
-    return localeMessages.get(value) ?? localeMessages.get(DEFAULT_LOCALE)!
+    return requireLocaleMessages(value)
+}
+
+function requireLocaleMessages(value: SupportedLocale): LocaleMessages {
+    const bundle = localeMessages.get(value)
+    if (!bundle) throw new Error(`i18n_bundle_not_loaded:${value}`)
+    return bundle
 }
 
 function resolveMessage(dictionary: LocaleMessages, key: string): string | null {
@@ -117,10 +121,7 @@ export function initializeLocaleRuntime(initialLocale?: SupportedLocale): Suppor
     }
 
     runtimeInitialized = true
-    const storedLocale = typeof localStorage === 'undefined'
-        ? null
-        : localStorage.getItem(LOCALE_PREFERENCE_STORAGE_KEY)
-    const resolvedLocale = initialLocale ?? (isSupportedLocale(storedLocale) ? storedLocale : DEFAULT_LOCALE)
+    const resolvedLocale = initialLocale ?? localeState.value
 
     if (typeof window !== 'undefined') {
         storageListener = (event: StorageEvent) => {
@@ -132,6 +133,18 @@ export function initializeLocaleRuntime(initialLocale?: SupportedLocale): Suppor
     }
 
     return applyLocale(resolvedLocale, false)
+}
+
+export async function prepareLocaleRuntime(value: SupportedLocale): Promise<SupportedLocale> {
+    if (!localeMessages.has(value)) {
+        localeMessages.set(value, await loadBundle(value))
+    }
+    localeState.value = value
+    return value
+}
+
+export function isLocaleRuntimePrepared(value: SupportedLocale): boolean {
+    return localeMessages.has(value) && localeState.value === value
 }
 
 function applyLocale(value: SupportedLocale, persist: boolean): SupportedLocale {

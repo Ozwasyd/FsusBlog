@@ -5,6 +5,7 @@ import {
   encodePublicAotPayload
 } from '@/bootstrap/publicAotBinaryPayload'
 import { PUBLIC_RENDERER_VERSION } from '@/public-renderers/publicEntryCore'
+import { LOCALE_CATALOG_DIGEST } from '@/locales/localeCatalog'
 import type { PublicPageSeed } from '@/public-renderers/pageSeed'
 import type {
   PublicAotBootstrapPayloadFor,
@@ -27,6 +28,8 @@ type PublicNavigationSnapshotEnvelope = Readonly<{
   canonicalPath: string
   rendererVersion: string
   frontendAssetVersion: string
+  renderLocale: string
+  localeCatalogDigest: string
   payloadHash: string
   generatedAtUtc: string
   bootstrapPayload: string
@@ -52,6 +55,8 @@ describe('public navigation snapshot contract', () => {
       pageKind: 'Archive',
       routeKey: 'archive',
       rendererVersion: PUBLIC_RENDERER_VERSION,
+      renderLocale: 'zh-CN',
+      localeCatalogDigest: LOCALE_CATALOG_DIGEST,
       articles: [],
       total: 0
     } as PublicAotBootstrapPayloadFor<'Archive'>
@@ -59,6 +64,8 @@ describe('public navigation snapshot contract', () => {
       pageKind: 'Archive',
       routeKey: 'archive',
       rendererVersion: PUBLIC_RENDERER_VERSION,
+      renderLocale: 'zh-CN',
+      localeCatalogDigest: LOCALE_CATALOG_DIGEST,
       title: 'Archive'
     } as PublicHydrationPayloadFor<'Archive'>
     const encodedEnvelope = encodePublicAotPayload({
@@ -72,6 +79,8 @@ describe('public navigation snapshot contract', () => {
       canonicalPath: '/archive',
       rendererVersion: PUBLIC_RENDERER_VERSION,
       frontendAssetVersion: 'test-assets',
+      renderLocale: 'zh-CN',
+      localeCatalogDigest: LOCALE_CATALOG_DIGEST,
       payloadHash: 'sha256-test',
       generatedAtUtc: '2026-06-18T00:00:00.0000000Z',
       bootstrapPayload: encodePublicAotPayload(bootstrap),

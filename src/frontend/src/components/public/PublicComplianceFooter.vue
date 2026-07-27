@@ -83,19 +83,15 @@ import {
   normalizePublicComplianceConfig,
   normalizePublicSiteTitle
 } from '@/public-renderers/publicSiteIdentity'
-import { getLocaleMessages, type SupportedLocale } from '@/locales'
 
 const props = defineProps<{
   siteTitle: string
   compliance?: SiteComplianceConfigPublic | null
   renderYear?: number | null
-  localeOverride?: SupportedLocale | null
 }>()
 
 const { messages } = useI18nText()
-const copy = computed(() => props.localeOverride
-  ? getLocaleMessages(props.localeOverride).public.footer
-  : messages.value.public.footer)
+const copy = computed(() => messages.value.public.footer)
 
 const currentYear = computed(() => {
   const renderYear = Number(props.renderYear)

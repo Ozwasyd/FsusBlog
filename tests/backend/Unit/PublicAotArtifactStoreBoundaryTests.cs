@@ -53,17 +53,58 @@ public sealed class PublicAotArtifactStoreBoundaryTests
 
         string baseKey = string.Concat(
             "test-session:",
+            CacheKeyBuilder.PublicAotDocument(PublicPageId.Home, "home", "zh-CN"));
+        string invalidationKey = string.Concat(
+            "test-session:",
             CacheKeyBuilder.PublicAotDocument(PublicPageId.Home, "home"));
         Assert.Equal(string.Concat(baseKey, ":iv:0"), lookup.DocumentCacheKey);
         Assert.Equal("frontend-v1", lookup.FrontendAssetVersion);
         Assert.Equal("prod-manifest", lookup.AssetMode);
+        Assert.Equal("zh-CN", lookup.ExpectedLocale);
         Assert.True(queued);
         Assert.NotNull(scheduled);
         Assert.Equal(lookup.DocumentCacheKey, scheduled.CacheKey);
-        Assert.Equal(baseKey, scheduled.InvalidationKey);
+        Assert.Equal(invalidationKey, scheduled.InvalidationKey);
         Assert.Equal(lookup.PagePrefixKey, scheduled.PagePrefixKey);
         Assert.Equal(0, scheduled.ScheduledInvalidationVersion);
         Assert.Equal("frontend-v1", scheduled.FrontendAssetVersion);
+    }
+
+    [Fact]
+    public void IsRenderable_RejectsCacheEntryWhoseLocaleDiffersFromLookup()
+    {
+        var manifest = Substitute.For<ISpaAssetManifestService>();
+        manifest.GetFrontendAssetVersion(Arg.Any<HttpContext>()).Returns("frontend-v1");
+        var store = new PublicAotArtifactStore(
+            Substitute.For<IPublicAotShellCache>(),
+            Substitute.For<IPublicAotCacheWriter>(),
+            Substitute.For<IPublicAotBackfillScheduler>(),
+            manifest,
+            new PrefixRuntimeKeyScope(string.Empty),
+            new PublicAotInvalidationTracker());
+        PublicAotArtifactLookup lookup = store.CreateLookup(new DefaultHttpContext(), new PublicAotRouteMatch(
+            PublicPageKind.Home,
+            PublicPageId.Home,
+            "home",
+            "/",
+            "/",
+            string.Empty));
+        const string Html = "<!doctype html><html><body>wrong locale</body></html>";
+        PublicAotHtmlArtifact document = PublicAotHtmlArtifactFactory.FromHtml(
+            Html,
+            PublicAotConstants.RendererVersion,
+            "frontend-v1");
+        var entry = new PublicAotCacheEntry
+        {
+            RendererVersion = PublicAotConstants.RendererVersion,
+            FrontendAssetVersion = "frontend-v1",
+            Locale = "ja-JP",
+            ExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(5),
+            Value = Html,
+            Document = document
+        };
+
+        Assert.False(store.IsRenderable(entry, lookup));
     }
 
     [Fact]
@@ -86,7 +127,7 @@ public sealed class PublicAotArtifactStoreBoundaryTests
         PublicAotArtifactLookup lookup = store.CreateLookup(new DefaultHttpContext(), match);
 
         Assert.Equal(
-            string.Concat(CacheKeyBuilder.PublicAotDocument(PublicPageId.ArticleDetail, "article:42"), ":iv:0"),
+            string.Concat(CacheKeyBuilder.PublicAotDocument(PublicPageId.ArticleDetail, "article:42", "zh-CN"), ":iv:0"),
             lookup.DocumentCacheKey);
     }
 
@@ -174,7 +215,7 @@ public sealed class PublicAotArtifactStoreBoundaryTests
 
         bool written = await store.WriteBackfillAsync(
             request,
-            new PublicAotBackfillDocument(match, "<html></html>", PublicAotConstants.RendererVersion),
+            new PublicAotBackfillDocument(match, "<html></html>", PublicAotConstants.RendererVersion, DateTimeOffset.UnixEpoch),
             _ =>
             {
                 assetVersion = "frontend-v2";
@@ -228,7 +269,7 @@ public sealed class PublicAotArtifactStoreBoundaryTests
 
         bool written = await store.WriteBackfillAsync(
             request,
-            new PublicAotBackfillDocument(match, "<html></html>", PublicAotConstants.RendererVersion),
+            new PublicAotBackfillDocument(match, "<html></html>", PublicAotConstants.RendererVersion, DateTimeOffset.UnixEpoch),
             beforeCommit: null,
             CancellationToken.None);
 
@@ -270,11 +311,13 @@ public sealed class PublicAotArtifactStoreBoundaryTests
 
         bool written = await store.WriteBackfillAsync(
             request,
-            new PublicAotBackfillDocument(match, "<html>receipt</html>", PublicAotConstants.RendererVersion),
+            new PublicAotBackfillDocument(match, "<html>receipt</html>", PublicAotConstants.RendererVersion, DateTimeOffset.UnixEpoch),
             beforeCommit: null,
             CancellationToken.None);
 
         Assert.True(written);
+        object?[] writeArguments = Assert.Single(writer.ReceivedCalls()).GetArguments();
+        Assert.Equal(DateTimeOffset.UnixEpoch, writeArguments[8]);
         Assert.True(tracker.TryGetCommitReceipt(cacheKey, out PublicAotBackfillCommitReceipt? receipt));
         Assert.NotNull(receipt);
         Assert.Equal(0, receipt.ScheduledInvalidationVersion);
@@ -328,7 +371,7 @@ public sealed class PublicAotArtifactStoreBoundaryTests
 
         bool written = await store.WriteBackfillAsync(
             request,
-            new PublicAotBackfillDocument(match, "<html>stale-render</html>", PublicAotConstants.RendererVersion),
+            new PublicAotBackfillDocument(match, "<html>stale-render</html>", PublicAotConstants.RendererVersion, DateTimeOffset.UnixEpoch),
             beforeCommit: null,
             CancellationToken.None);
 
@@ -352,7 +395,7 @@ public sealed class PublicAotArtifactStoreBoundaryTests
 
         Task<bool> publication = store.WriteBackfillAsync(
             request,
-            new PublicAotBackfillDocument(match, "<html>old</html>", PublicAotConstants.RendererVersion),
+            new PublicAotBackfillDocument(match, "<html>old</html>", PublicAotConstants.RendererVersion, DateTimeOffset.UnixEpoch),
             beforeCommit: null,
             CancellationToken.None);
         await writer.FirstWriteEntered.Task;
@@ -387,7 +430,7 @@ public sealed class PublicAotArtifactStoreBoundaryTests
 
         Task<bool> oldPublication = store.WriteBackfillAsync(
             oldRequest,
-            new PublicAotBackfillDocument(match, "<html>old</html>", PublicAotConstants.RendererVersion),
+            new PublicAotBackfillDocument(match, "<html>old</html>", PublicAotConstants.RendererVersion, DateTimeOffset.UnixEpoch),
             beforeCommit: null,
             CancellationToken.None);
         await writer.FirstWriteEntered.Task;
@@ -405,7 +448,7 @@ public sealed class PublicAotArtifactStoreBoundaryTests
         PublicAotBackfillRequest currentRequest = CreateRequest(match, 1);
         Assert.True(await store.WriteBackfillAsync(
             currentRequest,
-            new PublicAotBackfillDocument(match, "<html>current</html>", PublicAotConstants.RendererVersion),
+            new PublicAotBackfillDocument(match, "<html>current</html>", PublicAotConstants.RendererVersion, DateTimeOffset.UnixEpoch),
             beforeCommit: null,
             CancellationToken.None));
 
@@ -429,7 +472,7 @@ public sealed class PublicAotArtifactStoreBoundaryTests
 
         Task<bool> write = store.WriteBackfillAsync(
             request,
-            new PublicAotBackfillDocument(match, "<html>staged</html>", PublicAotConstants.RendererVersion),
+            new PublicAotBackfillDocument(match, "<html>staged</html>", PublicAotConstants.RendererVersion, DateTimeOffset.UnixEpoch),
             async token =>
             {
                 stageEntered.SetResult();
@@ -581,6 +624,7 @@ public sealed class PublicAotArtifactStoreBoundaryTests
             string routeKey,
             string rendererVersion,
             string frontendAssetVersion,
+            string locale,
             string html,
             PublicAotWriteSource source,
             DateTimeOffset? generatedAtUtc = null,
@@ -592,6 +636,7 @@ public sealed class PublicAotArtifactStoreBoundaryTests
             _ = routeKey;
             _ = rendererVersion;
             _ = frontendAssetVersion;
+            _ = locale;
             _ = source;
             _ = generatedAtUtc;
             _ = ttl;

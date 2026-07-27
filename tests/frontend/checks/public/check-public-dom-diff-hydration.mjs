@@ -231,7 +231,11 @@ function countNodes(node) {
 }
 
 async function runCase(bundle, fixture) {
-  const result = await bundle.buildPublicEntry(fixture.kind, fixture.options)
+  const result = await bundle.buildPublicEntry(fixture.kind, {
+    renderLocale: 'zh-CN',
+    localeCatalogDigest: bundle.LOCALE_CATALOG_DIGEST,
+    ...fixture.options
+  })
   const entry = result.entry
   const hydrationPayload = decodePublicAotPayload(entry.hydrationPropsPayload)
   const hydrationHtml = await bundle.renderPublicHydrationSnapshot(hydrationPayload)

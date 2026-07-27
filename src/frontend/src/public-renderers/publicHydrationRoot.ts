@@ -14,7 +14,7 @@ import {
   normalizePublicSiteDescription,
   normalizePublicSiteTitle
 } from '@/public-renderers/publicSiteIdentity'
-import { DEFAULT_LOCALE, isSupportedLocale } from '@/locales'
+import { isSupportedLocale } from '@/locales'
 
 function getSiteTitle(payload: PublicHydrationPayload): string {
   return normalizePublicSiteTitle(payload.siteTitle ?? payload.title)
@@ -83,6 +83,9 @@ function createHydrationPageAssembly(payload: PublicHydrationPayload): PublicAot
 }
 
 export function createPublicHydrationRoot(payload: PublicHydrationPayload): VNode {
+  if (!isSupportedLocale(payload.renderLocale)) {
+    throw new Error('public_aot_hydration_render_locale_invalid')
+  }
   const page = createHydrationPageAssembly(payload)
   return renderPublicAotShell({
     kind: payload.pageKind,
@@ -93,7 +96,7 @@ export function createPublicHydrationRoot(payload: PublicHydrationPayload): VNod
     siteWordmarkUrl: payload.siteWordmarkUrl ?? null,
     renderYear: payload.renderYear ?? null,
     compliance: normalizePublicComplianceConfig(payload.compliance),
-    renderLocale: isSupportedLocale(payload.renderLocale) ? payload.renderLocale : DEFAULT_LOCALE,
+    renderLocale: payload.renderLocale,
     page
   })
 }

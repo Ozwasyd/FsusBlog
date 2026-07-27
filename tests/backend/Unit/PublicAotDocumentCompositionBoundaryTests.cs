@@ -42,6 +42,7 @@ public sealed class PublicAotDocumentCompositionBoundaryTests
             composition,
             Substitute.For<IPublicAotArtifactStore>(),
             Substitute.For<IPublicAotRuntimeState>(),
+            new LocaleResolver(),
             NullLogger<PublicAotShellService>.Instance);
 
         Result<PublicAotNavigationSnapshot> actual = await service.BuildNavigationSnapshotAsync(

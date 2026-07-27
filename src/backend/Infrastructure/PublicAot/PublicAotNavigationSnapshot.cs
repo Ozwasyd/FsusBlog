@@ -42,6 +42,8 @@ public sealed record PublicAotNavigationSnapshot
     {
         get; init;
     }
+    public string RenderLocale { get; init; } = string.Empty;
+    public string LocaleCatalogDigest { get; init; } = string.Empty;
     public required string BootstrapPayload
     {
         get; init;
@@ -98,6 +100,8 @@ public sealed record PublicAotNavigationSnapshot
             CanonicalPath = match.CanonicalPathAndQuery,
             RendererVersion = rendererVersion,
             FrontendAssetVersion = frontendAssetVersion,
+            RenderLocale = entry.RenderLocale,
+            LocaleCatalogDigest = match.LocaleResolution.CatalogDigest,
             BootstrapPayload = bootstrapPayload,
             HydrationPropsPayload = hydrationPropsPayload,
             SeoHead = seoHead,
@@ -122,6 +126,8 @@ public sealed record PublicAotNavigationSnapshot
             ["canonicalPath"] = CanonicalPath,
             ["rendererVersion"] = RendererVersion,
             ["frontendAssetVersion"] = FrontendAssetVersion,
+            ["renderLocale"] = RenderLocale,
+            ["localeCatalogDigest"] = LocaleCatalogDigest,
             ["payloadHash"] = PayloadHash,
             ["generatedAtUtc"] = GeneratedAtUtc.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture),
             ["bootstrapPayload"] = BootstrapPayload,
@@ -146,9 +152,11 @@ public sealed record PublicAotNavigationSnapshot
         Append(incremental, match.RouteKey);
         Append(incremental, match.Path);
         Append(incremental, match.QueryString);
-        Append(incremental, match.CanonicalPath);
+        Append(incremental, match.CanonicalPathAndQuery);
         Append(incremental, rendererVersion);
         Append(incremental, frontendAssetVersion);
+        Append(incremental, match.LocaleResolution.CatalogDigest);
+        Append(incremental, match.LocaleResolution.Locale.Code);
         Append(incremental, bootstrapPayload);
         Append(incremental, hydrationPropsPayload);
         Append(incremental, seoHeadDigest);

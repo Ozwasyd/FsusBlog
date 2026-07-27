@@ -1103,6 +1103,53 @@ public sealed class PublicHotReadFastPathTests
         AssertHtmlSecurityHeaders(context);
     }
 
+    [Fact]
+    public async Task TryServeAsync_PublicHtml_UsesNormalizedLocaleAndCookiePrecedence()
+    {
+        var store = CreateReadyEmptyStore();
+        PublicHtmlArtifact japanese = CreateHtmlArtifact("japanese") with
+        {
+            Locale = "ja-JP"
+        };
+        PublicHtmlArtifact english = CreateHtmlArtifact("english") with
+        {
+            Locale = "en-US"
+        };
+        store.PublishHtml("home", PublicPageId.Home, japanese);
+        store.PublishHtml("home", PublicPageId.Home, english);
+
+        var japaneseContext = CreateContext("/");
+        japaneseContext.Request.Headers.Accept = "text/html";
+        japaneseContext.Request.Headers.AcceptLanguage = "ja-JP";
+        await PublicHotReadFastPath.TryServeAsync(
+            japaneseContext,
+            _ => throw new InvalidOperationException("next should not run"),
+            store,
+            new PublicHotReadOptions(),
+            new PublicHotReadCounters());
+
+        Assert.Equal(StatusCodes.Status200OK, japaneseContext.Response.StatusCode);
+        Assert.Equal("ja-JP", japaneseContext.Response.Headers["Content-Language"]);
+        Assert.Contains("Accept-Language", japaneseContext.Response.Headers.Vary.ToString(), StringComparison.Ordinal);
+        Assert.Contains("Cookie", japaneseContext.Response.Headers.Vary.ToString(), StringComparison.Ordinal);
+        Assert.Equal(japanese.Bytes.ToArray(), ((MemoryStream)japaneseContext.Response.Body).ToArray());
+
+        var cookieContext = CreateContext("/");
+        cookieContext.Request.Headers.Accept = "text/html";
+        cookieContext.Request.Headers.AcceptLanguage = "ja-JP";
+        cookieContext.Request.Headers.Cookie = $"{PublicLocaleRequest.CookieName}=en-US";
+        await PublicHotReadFastPath.TryServeAsync(
+            cookieContext,
+            _ => throw new InvalidOperationException("next should not run"),
+            store,
+            new PublicHotReadOptions(),
+            new PublicHotReadCounters());
+
+        Assert.Equal(StatusCodes.Status200OK, cookieContext.Response.StatusCode);
+        Assert.Equal("en-US", cookieContext.Response.Headers["Content-Language"]);
+        Assert.Equal(english.Bytes.ToArray(), ((MemoryStream)cookieContext.Response.Body).ToArray());
+    }
+
     [Theory]
     [InlineData(true, false)]
     [InlineData(false, true)]

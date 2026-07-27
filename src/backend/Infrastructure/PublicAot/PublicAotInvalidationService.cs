@@ -3,6 +3,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Spa;
 using FsusBlog.Server.Infrastructure.Testing;
+using FsusBlog.Shared.Contracts.Localization;
 using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
@@ -251,8 +252,12 @@ public sealed class PublicAotInvalidationService(
     private void ScheduleRoute(PublicAotRouteDescriptor route)
     {
         string baseCacheKey = ScopeKey(CacheKeyBuilder.PublicAotDocument(route.PageId, route.RouteKey));
+        string localizedCacheKey = ScopeKey(CacheKeyBuilder.PublicAotDocument(
+            route.PageId,
+            route.RouteKey,
+            LocaleCatalog.Default.Code));
         string pagePrefixKey = ScopeKey(CacheKeyBuilder.PublicAotDocument(route.PageId, string.Empty));
-        string cacheKey = ResolveVersionedDocumentCacheKey(route.PageId, baseCacheKey, pagePrefixKey);
+        string cacheKey = ResolveVersionedDocumentCacheKey(localizedCacheKey, baseCacheKey, pagePrefixKey);
         bool scheduled = backfillScheduler.TrySchedule(new PublicAotBackfillRequest(
             route.Kind,
             route.RouteKey,
@@ -264,7 +269,8 @@ public sealed class PublicAotInvalidationService(
             PagePrefixKey = pagePrefixKey,
             ScheduledInvalidationVersion = invalidationTracker.GetCurrentVersion(baseCacheKey, pagePrefixKey),
             TestSessionId = testSessionKeyScope.SessionId,
-            FrontendAssetVersion = assetManifest.GetFrontendAssetVersion()
+            FrontendAssetVersion = assetManifest.GetFrontendAssetVersion(),
+            Locale = LocaleCatalog.Default.Code
         });
 
         logger.LogDebug(
@@ -274,9 +280,12 @@ public sealed class PublicAotInvalidationService(
             scheduled);
     }
 
-    private string ResolveVersionedDocumentCacheKey(PublicPageId pageId, string cacheKey, string pagePrefixKey)
+    private string ResolveVersionedDocumentCacheKey(
+        string cacheKey,
+        string invalidationKey,
+        string pagePrefixKey)
     {
-        long version = invalidationTracker.GetCurrentVersion(cacheKey, pagePrefixKey);
+        long version = invalidationTracker.GetCurrentVersion(invalidationKey, pagePrefixKey);
         return string.Concat(cacheKey, ":iv:", version.ToString());
     }
 

@@ -14,7 +14,7 @@ public class PublicAotShellContractRulesTests
     private static PublicAotShellEntryContract MakeEntry(
         PublicPageId pageId = PublicPageId.Home,
         string routeKey = "home",
-        string html = "<html>test</html>",
+        string html = """<html><main data-public-render-locale="zh-CN">test</main></html>""",
         string? bootstrap = DefaultPayload,
         string? hydration = DefaultPayload,
         string? rendererVersion = "public-app-ssr@1.0.0",
@@ -25,11 +25,12 @@ public class PublicAotShellContractRulesTests
             PageId = pageId,
             RouteKey = routeKey,
             Html = html,
-            BootstrapPayload = bootstrap == DefaultPayload ? Payload(("kind", "Home")) : bootstrap,
-            HydrationPropsPayload = hydration == DefaultPayload ? Payload(("pageKind", "Home"), ("routeKey", "home")) : hydration,
+            BootstrapPayload = bootstrap == DefaultPayload ? Payload(("kind", "Home"), ("renderLocale", "zh-CN")) : bootstrap,
+            HydrationPropsPayload = hydration == DefaultPayload ? Payload(("pageKind", "Home"), ("routeKey", "home"), ("renderLocale", "zh-CN")) : hydration,
             RendererVersion = rendererVersion,
             ArticleId = articleId,
-            IslandsPayload = islands
+            IslandsPayload = islands,
+            RenderLocale = "zh-CN"
         };
 
     // ─── TryValidateEntry ───────────────────────────────────────────────────
@@ -42,6 +43,23 @@ public class PublicAotShellContractRulesTests
         Assert.True(ok);
         Assert.Equal(string.Empty, err);
         Assert.Equal("home", route);
+    }
+
+    [Fact]
+    public void TryValidate_HtmlAndPayloadLocaleMismatch_ReturnsFalse()
+    {
+        PublicAotShellEntryContract entry = MakeEntry() with
+        {
+            HydrationPropsPayload = Payload(
+                ("pageKind", "Home"),
+                ("routeKey", "home"),
+                ("renderLocale", "ja-JP"))
+        };
+
+        bool ok = PublicAotShellContractRules.TryValidateEntry(entry, out _, out _, out string error);
+
+        Assert.False(ok);
+        Assert.Contains("renderLocale", error, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -295,7 +313,11 @@ public class PublicAotShellContractRulesTests
 
     private static string Payload(params (string Key, object? Value)[] values)
     {
-        var payload = new Dictionary<string, object?>(StringComparer.Ordinal);
+        var payload = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["renderLocale"] = "zh-CN",
+            ["localeCatalogDigest"] = FsusBlog.Shared.Contracts.Localization.LocaleCatalog.Digest
+        };
         foreach ((string key, object? value) in values)
         {
             payload[key] = value;

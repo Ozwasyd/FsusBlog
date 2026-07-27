@@ -1,3 +1,5 @@
+using FsusBlog.Shared.Contracts.Localization;
+
 namespace FsusBlog.Shared.Contracts.Outputs;
 
 /// <summary>
@@ -76,6 +78,16 @@ public static class PublicAotShellContractRules
 
         PublicAotEntryPayloadView view = payloadView!;
         {
+            if (!LocaleCatalog.TryParse(entry.RenderLocale, out LocaleDescriptor entryLocale)
+                || !string.Equals(entry.RenderLocale, entryLocale.Code, StringComparison.Ordinal)
+                || !normalizedHtml.Contains(
+                    string.Concat("data-public-render-locale=\"", entry.RenderLocale, "\""),
+                    StringComparison.Ordinal))
+            {
+                error = "AOT entry renderLocale 与 visible HTML 不一致";
+                return false;
+            }
+
             if (!TryValidateBootstrapPayload(entry, normalizedRouteKey, view, out error))
             {
                 return false;
@@ -152,6 +164,8 @@ public static class PublicAotShellContractRules
         string? pageKind = TryGetString(root, "pageKind");
         string? routeKey = TryGetString(root, "routeKey");
         string? rendererVersion = TryGetString(root, "rendererVersion");
+        string? renderLocale = TryGetString(root, "renderLocale");
+        string? localeCatalogDigest = TryGetString(root, "localeCatalogDigest");
 
         string expectedPageKind = entry.PageId.ToString();
         if (!string.IsNullOrWhiteSpace(kind) && !string.Equals(kind, expectedPageKind, StringComparison.Ordinal))
@@ -176,6 +190,17 @@ public static class PublicAotShellContractRules
             !string.Equals(rendererVersion, entry.RendererVersion, StringComparison.Ordinal))
         {
             error = "AOT bootstrap.rendererVersion 与 entry 不一致";
+            return false;
+        }
+
+        if (!string.Equals(renderLocale, entry.RenderLocale, StringComparison.Ordinal))
+        {
+            error = "AOT bootstrap.renderLocale 与 entry 不一致";
+            return false;
+        }
+        if (!string.Equals(localeCatalogDigest, LocaleCatalog.Digest, StringComparison.Ordinal))
+        {
+            error = "AOT bootstrap.localeCatalogDigest 与 catalog 不一致";
             return false;
         }
 
@@ -207,6 +232,8 @@ public static class PublicAotShellContractRules
         string? pageKind = TryGetString(root, "pageKind");
         string? routeKey = TryGetString(root, "routeKey");
         string? rendererVersion = TryGetString(root, "rendererVersion");
+        string? renderLocale = TryGetString(root, "renderLocale");
+        string? localeCatalogDigest = TryGetString(root, "localeCatalogDigest");
 
         string expectedPageKind = entry.PageId.ToString();
         if (!string.Equals(pageKind, expectedPageKind, StringComparison.Ordinal))
@@ -225,6 +252,17 @@ public static class PublicAotShellContractRules
             !string.Equals(rendererVersion, entry.RendererVersion, StringComparison.Ordinal))
         {
             error = "AOT hydration.rendererVersion 与 entry 不一致";
+            return false;
+        }
+
+        if (!string.Equals(renderLocale, entry.RenderLocale, StringComparison.Ordinal))
+        {
+            error = "AOT hydration.renderLocale 与 entry 不一致";
+            return false;
+        }
+        if (!string.Equals(localeCatalogDigest, LocaleCatalog.Digest, StringComparison.Ordinal))
+        {
+            error = "AOT hydration.localeCatalogDigest 与 catalog 不一致";
             return false;
         }
 

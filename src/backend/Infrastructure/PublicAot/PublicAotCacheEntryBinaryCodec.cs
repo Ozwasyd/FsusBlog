@@ -14,7 +14,8 @@ internal static class PublicAotCacheEntryBinaryCodec
     private const uint Magic = 0x45434150; // PACE
     private const uint LegacyStringVersion = 1;
     private const uint ArtifactVersion = 2;
-    private const uint Version = 3;
+    private const uint HydrationSidecarVersion = 3;
+    private const uint Version = 4;
     private const int DecodedCacheCapacity = 256;
     private const int MaxStringBytes = 8 * 1024 * 1024;
     private const int MaxBlobBytes = 32 * 1024 * 1024;
@@ -35,6 +36,7 @@ internal static class PublicAotCacheEntryBinaryCodec
         WriteString(writer, entry.RouteKey);
         WriteString(writer, entry.RendererVersion);
         WriteString(writer, entry.FrontendAssetVersion);
+        WriteString(writer, entry.Locale);
         WriteString(writer, document.ContentType);
         WriteString(writer, document.CacheControl);
         WriteString(writer, document.ETag);
@@ -123,7 +125,7 @@ internal static class PublicAotCacheEntryBinaryCodec
                 out entry);
         }
 
-        if (version != ArtifactVersion && version != Version)
+        if (version != ArtifactVersion && version != HydrationSidecarVersion && version != Version)
         {
             return false;
         }
@@ -134,6 +136,7 @@ internal static class PublicAotCacheEntryBinaryCodec
             source,
             generatedTicks,
             expiresTicks,
+            version >= HydrationSidecarVersion,
             version >= Version,
             out entry);
     }
@@ -226,17 +229,28 @@ internal static class PublicAotCacheEntryBinaryCodec
         long generatedTicks,
         long expiresTicks,
         bool includesHydrationSidecar,
+        bool includesLocale,
         out PublicAotCacheEntry? entry)
     {
         entry = null;
         string sidecarUrl = string.Empty;
         string sidecarHash = string.Empty;
         string sidecarRelativePath = string.Empty;
+        string locale = string.Empty;
         if (!reader.TryReadString(out string cacheKey)
             || !reader.TryReadString(out string routeKey)
             || !reader.TryReadString(out string rendererVersion)
-            || !reader.TryReadString(out string frontendAssetVersion)
-            || !reader.TryReadString(out string contentType)
+            || !reader.TryReadString(out string frontendAssetVersion))
+        {
+            return false;
+        }
+
+        if (includesLocale && !reader.TryReadString(out locale))
+        {
+            return false;
+        }
+
+        if (!reader.TryReadString(out string contentType)
             || !reader.TryReadString(out string cacheControl)
             || !reader.TryReadString(out string etag)
             || !reader.TryReadString(out string brotliEtag)
@@ -321,6 +335,7 @@ internal static class PublicAotCacheEntryBinaryCodec
                 RouteKey = routeKey,
                 RendererVersion = rendererVersion,
                 FrontendAssetVersion = frontendAssetVersion,
+                Locale = locale,
                 Value = html,
                 Document = document,
                 HydrationSidecar = sidecar

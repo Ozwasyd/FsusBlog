@@ -66,6 +66,23 @@ public static partial class PublicHotReadFastPath
         response.Headers["X-Fsus-Public-Aot-Backfill"] = "none";
         response.Headers["X-Fsus-Public-Aot-Version"] = html.RendererVersion;
         response.Headers["X-Fsus-Public-Aot-Frontend-Asset-Version"] = html.FrontendAssetVersion;
+        response.Headers["Content-Language"] = html.Locale;
+        AppendVary(response.Headers, "Accept-Language");
+        AppendVary(response.Headers, "Cookie");
+    }
+
+    private static void AppendVary(IHeaderDictionary headers, string value)
+    {
+        string existing = headers.Vary.ToString();
+        if (existing.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Any(segment => string.Equals(segment, value, StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        headers["Vary"] = string.IsNullOrWhiteSpace(existing)
+            ? value
+            : string.Concat(existing, ", ", value);
     }
 
     private static string PublicListArtifactKind(PublicListKind kind)
@@ -99,9 +116,13 @@ public static partial class PublicHotReadFastPath
     private static bool HasCredentialBearingInput(HttpContext context)
     {
         IHeaderDictionary headers = context.Request.Headers;
+        bool hasNonLocaleCookie = headers.ContainsKey("Cookie")
+            && (context.Request.Cookies.Count == 0
+                || context.Request.Cookies.Keys.Any(static key =>
+                    !string.Equals(key, PublicLocaleRequest.CookieName, StringComparison.Ordinal)));
         if (context.User.Identity?.IsAuthenticated == true
             || headers.ContainsKey("Authorization")
-            || headers.ContainsKey("Cookie")
+            || hasNonLocaleCookie
             || headers.ContainsKey("RequestVerificationToken")
             || headers.ContainsKey("X-CSRF-TOKEN")
             || headers.ContainsKey("X-XSRF-TOKEN"))

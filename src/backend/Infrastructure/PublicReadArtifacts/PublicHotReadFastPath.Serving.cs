@@ -65,6 +65,7 @@ public static partial class PublicHotReadFastPath
     private const string HtmlContentType = "text/html; charset=utf-8";
     private const string ServerSsrAotSource = "server-ssr";
     private static readonly Task s_completed = Task.CompletedTask;
+    private static readonly ILocaleResolver s_localeResolver = new LocaleResolver();
     private static readonly string[] s_sensitiveApiPrefixes =
     [
         "/api/binary/auth",
@@ -667,13 +668,19 @@ public static partial class PublicHotReadFastPath
         PublicHotReadOptions options,
         bool isDevelopment)
     {
-        if (!snapshot.TryGetHtml(routeKey, out _))
+        LocaleResolutionResult resolution = PublicLocaleRequest.Resolve(ctx, s_localeResolver);
+        string localizedRouteKey = PublicHotReadRouteKeys.LocalizeHtmlPath(
+            routeKey,
+            resolution.Locale.Code);
+        if (string.IsNullOrEmpty(localizedRouteKey)
+            || !snapshot.TryGetHtml(localizedRouteKey, out PublicHtmlArtifact html)
+            || !string.Equals(html.Locale, resolution.Locale.Code, StringComparison.Ordinal))
         {
             counters.HtmlMiss();
             return next(ctx);
         }
 
-        return ServeHtml(ctx, next, snapshot, counters, routeKey, options, isDevelopment);
+        return ServeHtml(ctx, next, snapshot, counters, localizedRouteKey, options, isDevelopment);
     }
 
     private static Task WriteBinaryFrame(

@@ -235,6 +235,8 @@ async function loadSsrBundle() {
 
 async function buildEntryWithContext(bundle, clockCase, kind, timestampCase) {
   const result = await bundle.buildPublicEntry(kind, {
+    renderLocale: 'zh-CN',
+    localeCatalogDigest: bundle.LOCALE_CATALOG_DIGEST,
     ...createEntryOptions(clockCase, kind, timestampCase),
     clock: { now: () => new Date(clockCase.ssrClock) },
     renderLocale: clockCase.locale,

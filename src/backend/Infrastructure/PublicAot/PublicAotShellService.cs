@@ -13,6 +13,7 @@ public sealed class PublicAotShellService(
     IPublicAotDocumentComposition documentComposition,
     IPublicAotArtifactStore artifactStore,
     IPublicAotRuntimeState runtimeState,
+    ILocaleResolver localeResolver,
     ILogger<PublicAotShellService> logger) : IPublicAotShellService, IPublicAotBackfillGenerator
 {
     public const string PublicRendererVersion = PublicAotConstants.RendererVersion;
@@ -46,6 +47,7 @@ public sealed class PublicAotShellService(
         PublicAotRouteMatch match,
         CancellationToken cancellationToken = default)
     {
+        match = ResolveLocale(context, match);
         DateTimeOffset generatedAtUtc = DateTimeOffset.UtcNow;
         return await dbConcurrencyGate.ExecuteAsync(
             "public-aot-navigation-snapshot",
@@ -69,6 +71,7 @@ public sealed class PublicAotShellService(
         bool classifyColdMiss,
         CancellationToken cancellationToken)
     {
+        match = ResolveLocale(context, match);
         PublicAotArtifactLookup lookup = artifactStore.CreateLookup(context, match);
         runtimeState.SetAssetMode(context, lookup.AssetMode);
         if (classifyColdMiss && PublicTagUrlIdentity.IsNameRouteKey(match.RouteKey))
@@ -130,7 +133,7 @@ public sealed class PublicAotShellService(
             return PublicAotRenderOutcome.TransientFailure(
                 ErrorDetail.Create(ErrorCode.InfraFailure, "public_aot_cache_read_failed"));
         }
-        if (artifactStore.IsRenderable(entry, lookup.FrontendAssetVersion))
+        if (artifactStore.IsRenderable(entry, lookup))
         {
             runtimeState.SetFresh(context, entry!);
             return PublicAotRenderOutcome.Success(entry);
@@ -227,9 +230,10 @@ public sealed class PublicAotShellService(
         CancellationToken cancellationToken = default,
         Func<CancellationToken, Task>? beforeCommit = null)
     {
+        DateTimeOffset renderTimestampUtc = DateTimeOffset.UtcNow;
         Result<PublicAotBackfillDocument> document = await dbConcurrencyGate.ExecuteAsync(
             "public-aot-backfill",
-            gateCt => documentComposition.BuildBackfillDocumentAsync(request, gateCt),
+            gateCt => documentComposition.BuildBackfillDocumentAsync(request, renderTimestampUtc, gateCt),
             _ =>
             {
                 logger.LogWarning("db-gate-timeout public-aot-backfill {Kind} {RouteKey}", request.Kind, request.RouteKey);
@@ -292,6 +296,12 @@ public sealed class PublicAotShellService(
             throw;
         }
     }
+
+    private PublicAotRouteMatch ResolveLocale(HttpContext context, PublicAotRouteMatch match)
+        => match with
+        {
+            LocaleResolution = PublicLocaleRequest.Resolve(context, localeResolver)
+        };
 
     public async Task<Result> InvalidateAllAsync(CancellationToken cancellationToken = default)
     {

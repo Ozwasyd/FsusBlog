@@ -8,6 +8,7 @@ import { registerPublicStaticRouterLink } from '@/public-renderers/publicStaticR
 
 export { decodePublicAotPayload, encodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload'
 export { PUBLIC_RENDERER_VERSION } from '@/public-renderers/publicEntryCore'
+export { LOCALE_CATALOG_DIGEST } from '@/locales/localeCatalog'
 export { projectPublicBrowserEnvironment } from '@/public-renderers/publicBrowserEnvironment'
 export {
   buildPublicEntry,

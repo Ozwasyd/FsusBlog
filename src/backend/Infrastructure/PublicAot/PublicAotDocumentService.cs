@@ -12,6 +12,7 @@ using FsusBlog.Server.Infrastructure.Spa;
 using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.ReadModels;
+using FsusBlog.Shared.Contracts.Localization;
 using FsusBlog.Shared.Contracts.Outputs;
 
 using Microsoft.AspNetCore.Http;
@@ -104,7 +105,8 @@ public sealed class PublicAotDocumentService(
             {
                 FullAppTakeover = assetSet.FullAppTakeover,
                 ArticleSeo = seoContext.ArticleSeo,
-                SeoHead = seoContext.Head
+                SeoHead = seoContext.Head,
+                Locale = ResolveEntryLocale(entry)
             }));
         }
         catch (Exception ex)
@@ -122,6 +124,7 @@ public sealed class PublicAotDocumentService(
         SeoConfigReadModel seo = await systemService.GetSeoConfigAsync().ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         DecodedEntryPayloads payloads = DecodeEntryPayloads(entry);
+        LocaleDescriptor locale = ResolveEntryLocale(entry);
         string title = ResolveTitle(entry, payloads, seo.Title);
         string siteTitle = ResolvePayloadString(payloads.Hydration, "siteTitle", seo.Title);
         PublicPageKind kind = ResolvePageKind(entry.PageId);
@@ -144,8 +147,20 @@ public sealed class PublicAotDocumentService(
             description,
             canonicalUrl,
             articleSeo,
-            seo.OgImage);
+            seo.OgImage,
+            locale: locale);
         return new SeoDocumentContext(seo, kind, title, siteTitle, description, canonicalUrl, articleSeo, head);
+    }
+
+    private static LocaleDescriptor ResolveEntryLocale(PublicAotShellEntryContract entry)
+    {
+        if (!LocaleCatalog.TryParse(entry.RenderLocale, out LocaleDescriptor locale)
+            || !string.Equals(entry.RenderLocale, locale.Code, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("public_aot_entry_locale_invalid");
+        }
+
+        return locale;
     }
 
     private async Task<PreparedTemplateCacheEntry> GetPreparedTemplateAsync(SpaAssetSet assetSet, CancellationToken cancellationToken)

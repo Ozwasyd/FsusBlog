@@ -121,6 +121,8 @@
 
 400/404/410/503 HTML 固定 `Cache-Control: no-store`、`X-Robots-Tag: noindex, follow`、`X-Fsus-Public-Aot-Backfill: none`；503 额外带 `Retry-After: 5`。负响应不含成功页 canonical、Open Graph URL、`BlogPosting` 或 hydration script。SPA-only `/search`、认证入口与 `/user/**` 不属于此 SEO 成功页集合；搜索成功壳层也不输出 canonical、JSON-LD 或 AOT entry。
 
+Public AOT 成功 HTML 按有效 `fsusblog.locale` cookie > `Accept-Language` > `zh-CN` 协商，只使用共享 catalog 的 canonical code。响应 `Content-Language`、HTML lang/dir、OG、visible copy、payload `renderLocale` 与 cache identity 必须一致，并声明 `Vary: Accept-Language, Cookie`；其它 cookie 仍使 PublicHotRead L0 回常规管线。
+
 ## 文章
 
 > 已迁移至 [Binary 端点 — `/api/binary`](#binary-端点--apibinary) 下的 `/api/binary/article/**` AEDS v2 frame。旧 `/api/Article/**` JSON 路径不再注册。

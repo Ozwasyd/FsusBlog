@@ -102,6 +102,7 @@ public sealed class PublicAotDocumentServiceTests
                 PageId = PublicPageId.Home,
                 RouteKey = "home",
                 Html = "<main>Home</main>",
+                RenderLocale = "zh-CN",
                 Title = "Home",
                 BootstrapPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>
                 {
@@ -201,6 +202,7 @@ public sealed class PublicAotDocumentServiceTests
                 RouteKey = PublicRouteIdentity.BuildArticleRouteKey(42),
                 ArticleId = 42,
                 Html = "<article>Article</article>",
+                RenderLocale = "zh-CN",
                 Title = "Article",
                 BaseUrl = "https://example.com",
                 BootstrapPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>
@@ -267,6 +269,7 @@ public sealed class PublicAotDocumentServiceTests
                 RouteKey = PublicRouteIdentity.BuildArticleRouteKey(42),
                 ArticleId = 42,
                 Html = "<article>Article</article>",
+                RenderLocale = "zh-CN",
                 Title = "Article",
                 BootstrapPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>
                 {
@@ -331,6 +334,7 @@ public sealed class PublicAotDocumentServiceTests
                     RouteKey = routeKey,
                     Title = title,
                     Html = "<main />",
+                    RenderLocale = "zh-CN",
                     HydrationPropsPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>
                     {
                         ["siteTitle"] = "Fsus Blog",
@@ -372,6 +376,7 @@ public sealed class PublicAotDocumentServiceTests
                 RouteKey = "about",
                 Title = "关于",
                 Html = "<main />",
+                RenderLocale = "zh-CN",
                 HydrationPropsPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>
                 {
                     ["siteTitle"] = "Fsus Blog",
@@ -415,6 +420,7 @@ public sealed class PublicAotDocumentServiceTests
                 PageId = PublicPageId.Home,
                 RouteKey = "home",
                 Html = "<main>Home</main>",
+                RenderLocale = "zh-CN",
                 Title = "Home",
                 BootstrapPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>
                 {
@@ -470,6 +476,7 @@ public sealed class PublicAotDocumentServiceTests
                 RouteKey = PublicRouteIdentity.BuildArticleRouteKey(42),
                 ArticleId = 42,
                 Html = "<article><p>Article body</p></article>",
+                RenderLocale = "zh-CN",
                 Title = "Article",
                 BootstrapPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>
                 {
@@ -560,6 +567,7 @@ public sealed class PublicAotDocumentServiceTests
             PageId = PublicPageId.Home,
             RouteKey = "home",
             Html = "<main>Home</main>",
+            RenderLocale = "zh-CN",
             Title = "Home",
             BootstrapPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>
             {

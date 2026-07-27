@@ -104,6 +104,7 @@ public sealed record class PublicAotShellEntryContract
     {
         get; init;
     }
+    public string RenderLocale { get; init; } = string.Empty;
 }
 
 /// <summary>

@@ -309,7 +309,8 @@ public sealed class PublicAotInvalidationGenerationIntegrationTests(
                 new PublicAotBackfillDocument(
                     match,
                     "<html>stale</html>",
-                    PublicAotConstants.RendererVersion),
+                    PublicAotConstants.RendererVersion,
+                    DateTimeOffset.UnixEpoch),
                 _ =>
                 {
                     secondAuthority.Mark("key", invalidationKey);

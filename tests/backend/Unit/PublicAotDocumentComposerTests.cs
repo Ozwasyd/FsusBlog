@@ -1,12 +1,43 @@
 using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Shared.Contracts.Localization;
 using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Server.Tests;
 
 public sealed class PublicAotDocumentComposerTests
 {
+    [Fact]
+    public void ComposeDocument_BindsResolvedLocaleToDocumentAndOpenGraph()
+    {
+        string template = Template();
+        string prepared = PublicAotDocumentComposer.PreparePublicDocumentTemplate(template);
+        LocaleDescriptor locale = LocaleCatalog.Enabled.Single(static candidate => candidate.Code == "ja-JP");
+
+        string html = PublicAotDocumentComposer.ComposeDocument(new PublicAotDocumentModel(
+            PublicPageKind.Home,
+            template,
+            prepared,
+            "ホーム",
+            "FsusBlog",
+            "説明",
+            "https://example.com/",
+            "<main>ホーム</main>",
+            AedsPayload(("pageKind", "Home"), ("renderLocale", "ja-JP")),
+            AedsPayload(("pageKind", "Home"), ("renderLocale", "ja-JP")),
+            string.Empty,
+            string.Empty,
+            string.Empty)
+        {
+            Locale = locale
+        });
+
+        Assert.Contains("<html lang=\"ja-JP\" dir=\"ltr\">", html, StringComparison.Ordinal);
+        Assert.Contains("<main>ホーム</main>", html, StringComparison.Ordinal);
+        Assert.Contains("property=\"og:locale\" content=\"ja_JP\"", html, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void ComposeDocument_UsesManifestEntryOverrideAndHeadLinks()
     {

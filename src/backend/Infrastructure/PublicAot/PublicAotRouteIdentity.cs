@@ -1,3 +1,5 @@
+using FsusBlog.Shared.Contracts.Localization;
+
 namespace FsusBlog.Server.Infrastructure.PublicAot;
 
 public interface IPublicAotRouteIdentity
@@ -15,6 +17,17 @@ internal sealed class PublicAotRouteIdentity(
 
     public PublicAotRouteMatch ResolveBackfillMatch(PublicAotBackfillRequest request)
     {
+        if (!LocaleCatalog.TryParse(request.Locale, out LocaleDescriptor locale)
+            || !string.Equals(request.Locale, locale.Code, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("public_aot_backfill_locale_invalid");
+        }
+
+        var localeResolution = new LocaleResolutionResult(
+            locale,
+            LocaleResolutionSource.Default,
+            locale.Code,
+            LocaleCatalog.Digest);
         var context = new DefaultHttpContext();
         context.Request.Path = string.IsNullOrWhiteSpace(request.Path) ? "/" : request.Path;
         context.Request.QueryString = string.IsNullOrWhiteSpace(request.QueryString)
@@ -23,7 +36,10 @@ internal sealed class PublicAotRouteIdentity(
 
         if (routeRegistry.TryResolve(context, out PublicAotRouteMatch match))
         {
-            return match;
+            return match with
+            {
+                LocaleResolution = localeResolution
+            };
         }
 
         PublicAotPageDescriptor descriptor = PublicAotPageCatalog.GetRequired(request.Kind);
@@ -35,7 +51,8 @@ internal sealed class PublicAotRouteIdentity(
             request.Path,
             request.QueryString)
         {
-            Page = PublicRouteIdentity.ParsePageRouteKey(request.RouteKey)
+            Page = PublicRouteIdentity.ParsePageRouteKey(request.RouteKey),
+            LocaleResolution = localeResolution
         };
     }
 }

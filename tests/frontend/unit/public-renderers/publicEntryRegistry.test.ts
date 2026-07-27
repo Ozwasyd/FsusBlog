@@ -62,11 +62,21 @@ vi.mock('@/components/ui/MarkdownRenderer.vue', () => ({
 
 import { decodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload'
 import { getSharedPublicPageManifestEntry, PUBLIC_PAGE_MANIFEST } from '@/public-renderers/generated/publicPageManifest'
-import { renderShell } from '@/public-renderers/publicEntryCore'
+import { PUBLIC_RENDERER_VERSION, renderShell } from '@/public-renderers/publicEntryCore'
 import { createPublicHydrationRoot } from '@/public-renderers/publicHydrationRoot'
-import { buildPublicEntry } from '@/public-renderers/publicEntryRegistry'
+import { buildPublicEntry as buildPublicEntryRaw } from '@/public-renderers/publicEntryRegistry'
 import { renderPublicAotShell } from '@/public-renderers/scaffold'
 import { articleRightsFixture } from '../fixtures/articleRights'
+import { LOCALE_CATALOG_DIGEST } from '@/locales/localeCatalog'
+import type { PublicHydrationPayload } from '@/public-renderers/types'
+
+const buildPublicEntry: typeof buildPublicEntryRaw = async (pageKind, options) =>
+  await buildPublicEntryRaw(pageKind, {
+    renderTimestamp: '2026-07-27T00:00:00.000Z',
+    renderLocale: 'zh-CN',
+    localeCatalogDigest: LOCALE_CATALOG_DIGEST,
+    ...options
+  })
 
 describe('publicEntryRegistry shared coverage', () => {
   it('builds entries for every shared SEO page kind', async () => {
@@ -100,6 +110,74 @@ describe('publicEntryRegistry shared coverage', () => {
       const hydration = decodePublicAotPayload<{ pageKind?: string }>(result.entry.hydrationPropsPayload)
       expect(hydration?.pageKind).toBe(cases[index].kind)
     })
+  })
+
+  it('binds the negotiated Japanese locale before the first public render', async () => {
+    const renderShellMock = vi.mocked(renderShell)
+    renderShellMock.mockClear()
+
+    const result = await buildPublicEntryRaw('Home', {
+      renderTimestamp: '2026-07-27T00:00:00.000Z',
+      renderLocale: 'ja-JP',
+      localeCatalogDigest: LOCALE_CATALOG_DIGEST,
+      siteTitle: 'FsusBlog',
+      siteDescription: 'desc',
+      pageIndex: 1,
+      pageSize: 10,
+      total: 0,
+      articles: [],
+      featuredArticles: [],
+      hotArticles: []
+    })
+    const bootstrap = decodePublicAotPayload<{ renderLocale?: string; localeCatalogDigest?: string }>(result.entry.bootstrapPayload)
+    const hydration = decodePublicAotPayload<{ renderLocale?: string; localeCatalogDigest?: string }>(result.entry.hydrationPropsPayload)
+
+    expect(result.entry.renderLocale).toBe('ja-JP')
+    expect(bootstrap?.renderLocale).toBe('ja-JP')
+    expect(hydration?.renderLocale).toBe('ja-JP')
+    expect(bootstrap?.localeCatalogDigest).toBe(LOCALE_CATALOG_DIGEST)
+    expect(hydration?.localeCatalogDigest).toBe(LOCALE_CATALOG_DIGEST)
+    expect(renderShellMock.mock.calls.at(-1)?.[4]?.renderLocale).toBe('ja-JP')
+  })
+
+  it('rejects a renderer request whose locale catalog digest is missing', async () => {
+    await expect(buildPublicEntryRaw('Home', {
+      renderTimestamp: '2026-07-27T00:00:00.000Z',
+      renderLocale: 'ja-JP',
+      siteTitle: 'FsusBlog',
+      siteDescription: 'desc',
+      pageIndex: 1,
+      pageSize: 10,
+      total: 0,
+      articles: [],
+      featuredArticles: [],
+      hotArticles: []
+    })).rejects.toThrowError('public_aot_locale_catalog_digest_mismatch')
+  })
+
+  it.each([
+    ['missing', undefined],
+    ['blank', ''],
+    ['invalid', 'not-a-date'],
+    ['noncanonical', '2026-07-27T00:00:00Z']
+  ])('rejects a %s authoritative render timestamp before SSR', async (_label, renderTimestamp) => {
+    const renderShellMock = vi.mocked(renderShell)
+    renderShellMock.mockClear()
+
+    await expect(buildPublicEntryRaw('Home', {
+      renderTimestamp,
+      renderLocale: 'ja-JP',
+      localeCatalogDigest: LOCALE_CATALOG_DIGEST,
+      siteTitle: 'FsusBlog',
+      siteDescription: 'desc',
+      pageIndex: 1,
+      pageSize: 10,
+      total: 0,
+      articles: [],
+      featuredArticles: [],
+      hotArticles: []
+    })).rejects.toThrowError('public_aot_render_timestamp_invalid')
+    expect(renderShellMock).not.toHaveBeenCalled()
   })
 
   it('emits the shared staticPage payload for About when options omit slug', async () => {
@@ -372,7 +450,7 @@ describe('publicEntryRegistry shared coverage', () => {
       siteTitle: 'FsusBlog',
       siteDescription: 'desc',
       createTime: '2026-01-01T00:00:30Z',
-      renderTimestamp: '2026-01-01T00:01:00Z',
+      renderTimestamp: '2026-01-01T00:01:00.000Z',
       relatedReading: {
         related: [
           {
@@ -415,7 +493,7 @@ describe('publicEntryRegistry shared coverage', () => {
       siteTitle: 'FsusBlog',
       siteDescription: 'desc',
       content: 'About content',
-      renderTimestamp: '2025-12-31T23:59:30Z'
+      renderTimestamp: '2025-12-31T23:59:30.000Z'
     })
 
     const hydration = decodePublicAotPayload<{
@@ -434,7 +512,7 @@ describe('publicEntryRegistry shared coverage', () => {
       siteTitle: 'FsusBlog',
       siteDescription: 'desc',
       content: 'About content',
-      renderTimestamp: '2025-12-31T23:59:30Z',
+      renderTimestamp: '2025-12-31T23:59:30.000Z',
       renderLocale: 'en-US'
     })
     const hydration = decodePublicAotPayload<Parameters<typeof createPublicHydrationRoot>[0]>(result.entry.hydrationPropsPayload)
@@ -447,6 +525,15 @@ describe('publicEntryRegistry shared coverage', () => {
     expect(renderShellMock.mock.calls[0]?.[0].renderYear).toBe(2025)
     expect(renderShellMock.mock.calls[0]?.[0].renderLocale).toBe('en-US')
     expect(renderShellMock.mock.calls[0]?.[0].siteDescription).toBe('desc')
+  })
+
+  it('rejects hydration when renderLocale is missing instead of defaulting', () => {
+    expect(() => createPublicHydrationRoot({
+      pageKind: 'Home',
+      routeKey: 'home',
+      rendererVersion: PUBLIC_RENDERER_VERSION,
+      localeCatalogDigest: LOCALE_CATALOG_DIGEST
+    } as unknown as PublicHydrationPayload)).toThrowError('public_aot_hydration_render_locale_invalid')
   })
 
   it('derives filter search-sort visibility from shared filter semantics', async () => {

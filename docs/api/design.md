@@ -551,6 +551,10 @@ tooling contract，不进入 AEDS runtime API，也不能被公开客户端或�
 
 公开页（首页、文章详情、分类、标签、归档、关于、隐私政策、用户守则、版权声明）优先从 AOT 卷命中静态 HTML + AEDS payload。Bundle 格式遵循 [`PublicAotShellEntryContract`](contracts.md#aot-公开页契约)；SPA 接管后由 hydration 层用同一份 Bundle 数据初始化状态，无需二次网络请求。
 
+每个公开 HTML 请求在 renderer、backfill 和 cache key 之前由纯 `ILocaleResolver` 一次解析：有效 `fsusblog.locale` cookie > `Accept-Language` 中 q 最高且受 catalog 支持的 range > `zh-CN`。resolver 只消费共享 locale catalog，不查询账户、数据库或网络画像。canonical locale 原子绑定 SSR bundle/visible copy、payload `renderLocale`、document lang/dir、`Content-Language`、OpenGraph/Intl 与 Public AOT/PublicHotRead key；缺失或任一不一致拒绝发布。缓存只允许十个 canonical locale 分区，原始 header 和用户 identity 不进入 key。成功 HTML 声明 `Vary: Accept-Language, Cookie`；携带其它 cookie 的请求仍退出 L0。
+
+同一次 Public AOT render 在读取 snapshot 前捕获唯一权威 UTC instant，并以 canonical `renderTimestamp` 同时传入 Node/Vue renderer、bootstrap 与 hydration；backfill artifact 的 `GeneratedAtUtc` 必须复用该 instant。renderer request 缺失、空白、非法或非 canonical UTC timestamp 时，必须在 SSR、seed 写入和任何日期格式化之前失败，不得回退到进程时钟、Unix epoch、`generatedAt` 别名或默认 locale。
+
 首页、分类和标签的规范页码同时进入 AOT `routeKey`（第 N 页后缀 `:page:N`）、document cache key、navigation snapshot `fullPath/canonicalPath`、hydration route seed、payload hash 与 ETag。`scope=all` manifest 枚举全部有效分页；文章可见性或 taxonomy 归属变化按 Home/Filter 页面前缀失效全部页码，再优先回填第一页，防止深分页继续返回旧列表。运行时紧急回退可禁用 Public AOT/SPA micro-navigation，让真实 `<a href>` 直接整页导航；不需要重启或恢复按钮分页。
 
 代码证据：[`PublicAotDocumentComposer.cs`](../../src/backend/Infrastructure/PublicAot/PublicAotDocumentComposer.cs)、[`PublicHotReadFastPath.cs`](../../src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs)、[`PublicAotEndpoints.cs`](../../src/backend/Modules/Endpoints/PublicAotEndpoints.cs)。
@@ -569,7 +573,7 @@ tooling contract，不进入 AEDS runtime API，也不能被公开客户端或�
 
 公开页结构的 SSR 入口是 [`src/frontend/src/public-renderers/renderPublicPage.ts`](../../src/frontend/src/public-renderers/renderPublicPage.ts)，该入口向 server SSR worker 暴露 `buildPublicEntry`、payload codec 与 renderer version；具体页面组合由 `publicEntryRegistry.ts`、`pageAssemblies.ts` 与 `scaffold.ts` 维护。文档和实现不得再引入额外 helper 作为公开页结构真相源。服务端 AOT provider 只提供数据型 options，不手写 hydration props、不渲染 Markdown、不拼页面内部 HTML；Node/Vue SSR worker 负责生成 `html / bootstrapPayload / hydrationPropsPayload`，服务端只做文档包装、hydration `.aeds` sidecar 写出、缓存与降级。hydration sidecar 是 content-hash URL，使用 `application/vnd.fsus.aeds` 与 immutable cache；运行时 `/api/binary/**` 仍使用 `application/octet-stream`。
 
-`GET /api/public/navigation-snapshot.aeds?path={publicPath}` 是公开 SPA micro-navigation 的原子接管快照端点。它只接受长度不超过 512 字符的同站相对路径，并通过 Public AOT route registry fail closed 校验首页、归档、文章详情、分类、标签和固定静态页；账号、搜索、admin、协议相对 URL 和绝对外链不进入快照链路。该端点挂 `public_read` 限流，响应使用 `application/vnd.fsus.aeds`，AEDS frame 复用 `PublicAotBootstrap`，外层 envelope 的 `kind` 固定为 `public-navigation-snapshot`，内层 `bootstrapPayload` / `hydrationPropsPayload` 仍由同一个 Node/Vue SSR worker `buildEntry` 生成，避免 HTML、bootstrap 与 hydration 分裂为三套真相源。快照携带内容相关 ETag，并使用 `Cache-Control: no-cache` 要求每次导航重验证；不得使用 `max-age` 或 `stale-while-revalidate` 让文章更新后的旧快照继续可用。响应 `Vary` 同时包含 `Accept` 与测试会话头，避免隔离运行时的不同 schema 共用代理缓存条目。
+`GET /api/public/navigation-snapshot.aeds?path={publicPath}` 是公开 SPA micro-navigation 的原子接管快照端点。它只接受长度不超过 512 字符的同站相对路径，并通过 Public AOT route registry fail closed 校验首页、归档、文章详情、分类、标签和固定静态页；账号、搜索、admin、协议相对 URL 和绝对外链不进入快照链路。该端点挂 `public_read` 限流，响应使用 `application/vnd.fsus.aeds`，AEDS frame 复用 `PublicAotBootstrap`，外层 envelope 的 `kind` 固定为 `public-navigation-snapshot`，内层 `bootstrapPayload` / `hydrationPropsPayload` 仍由同一个 Node/Vue SSR worker `buildEntry` 生成，避免 HTML、bootstrap 与 hydration 分裂为三套真相源。快照携带内容相关 ETag，并使用 `Cache-Control: no-cache` 要求每次导航重验证；不得使用 `max-age` 或 `stale-while-revalidate` 让文章更新后的旧快照继续可用。响应 `Content-Language` 与 payload `renderLocale` 一致，`Vary` 包含 `Accept`、`Accept-Language`、`Cookie` 与测试会话头，避免不同 locale 或隔离运行时 schema 共用代理缓存条目。
 
 ### feed / sitemap / robots 缓存约束
 

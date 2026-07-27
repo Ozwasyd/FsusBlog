@@ -889,7 +889,7 @@ internal static partial class PublicWebRuntime
         CancellationToken cancellationToken)
     {
         PublicAotHtmlArtifact document = entry.GetDocument();
-        SetPublicAotHtmlHeaders(ctx, document, source, version, backfill, state, assetMode);
+        SetPublicAotHtmlHeaders(ctx, document, entry.Locale, source, version, backfill, state, assetMode);
         EnsureHtmlCspHeader(ctx, env);
 
         if (document.RequiresCspNonceMutation)
@@ -963,6 +963,7 @@ internal static partial class PublicWebRuntime
         response.Headers.Remove("Content-Encoding");
         response.Headers.Remove("ETag");
         response.Headers.Remove("Vary");
+        EnsureLocaleVary(response.Headers);
         if (!PublicAotHtmlResponseNegotiation.AcceptsIdentity(ctx.Request.Headers.AcceptEncoding))
         {
             response.StatusCode = StatusCodes.Status406NotAcceptable;
@@ -988,6 +989,7 @@ internal static partial class PublicWebRuntime
     private static void SetPublicAotHtmlHeaders(
         HttpContext ctx,
         PublicAotHtmlArtifact document,
+        string locale,
         string source,
         string version,
         string backfill,
@@ -1001,13 +1003,35 @@ internal static partial class PublicWebRuntime
         headers["X-Fsus-Public-Aot-Backfill"] = backfill;
         headers["X-Fsus-Public-Aot-State"] = state;
         headers["X-Fsus-Public-Aot-Asset-Mode"] = string.IsNullOrWhiteSpace(assetMode) ? "unknown" : assetMode;
+        headers["Content-Language"] = locale;
 
         headers["Cache-Control"] = string.IsNullOrWhiteSpace(document.CacheControl)
             ? PublicAotHtmlArtifactOptions.DefaultCacheControl
             : document.CacheControl;
         EnsureAcceptEncodingVary(headers);
+        EnsureLocaleVary(headers);
         headers["Accept-Ranges"] = "none";
         headers.Remove("Last-Modified");
+    }
+
+    private static void EnsureLocaleVary(IHeaderDictionary headers)
+    {
+        EnsureVary(headers, "Accept-Language");
+        EnsureVary(headers, "Cookie");
+    }
+
+    private static void EnsureVary(IHeaderDictionary headers, string value)
+    {
+        string existing = headers.Vary.ToString();
+        if (existing.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Any(segment => string.Equals(segment, value, StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        headers["Vary"] = string.IsNullOrWhiteSpace(existing)
+            ? value
+            : string.Concat(existing, ", ", value);
     }
 
     private static bool ShouldApplyHtmlCsp(HttpContext ctx)

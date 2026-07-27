@@ -1788,7 +1788,7 @@ Public AOT 冷 miss 的分类结果固定为 `Success`、`NotFound`、`Gone`、`
 
 ### Public Navigation Snapshot
 
-`GET /api/public/navigation-snapshot.aeds?path={publicPath}` 返回公开路由的原子接管快照，供 SPA 在路由切换前预取并写入 `PublicRouteSeedStore`。该端点匿名可读，`Accept` 允许空值、`*/*`、`application/octet-stream` 或 `application/vnd.fsus.aeds`；成功响应固定为 `Content-Type: application/vnd.fsus.aeds`，AEDS frame type 复用 `PublicAotBootstrap`。成功帧使用内容 ETag 与 `Cache-Control: no-cache`，缓存可以保存响应但每次使用前必须向源站重验证；`Vary` 固定包含 `Accept, X-Fsus-Test-Session`。内容突变后的 micro-navigation 不允许命中旧 `max-age` / `stale-while-revalidate` 快照。
+`GET /api/public/navigation-snapshot.aeds?path={publicPath}` 返回公开路由的原子接管快照，供 SPA 在路由切换前预取并写入 `PublicRouteSeedStore`。该端点匿名可读，`Accept` 允许空值、`*/*`、`application/octet-stream` 或 `application/vnd.fsus.aeds`；成功响应固定为 `Content-Type: application/vnd.fsus.aeds`，AEDS frame type 复用 `PublicAotBootstrap`。成功帧使用内容 ETag 与 `Cache-Control: no-cache`，缓存可以保存响应但每次使用前必须向源站重验证；`Content-Language` 绑定快照的 canonical `renderLocale`，`Vary` 固定包含 `Accept, Accept-Language, Cookie, X-Fsus-Test-Session`。内容突变后的 micro-navigation 不允许命中旧 `max-age` / `stale-while-revalidate` 快照。
 
 `path` 必须是同站相对 URL、长度不超过 512 字符，可包含 query；服务端会丢弃 fragment，并通过 Public AOT route registry 校验目标。允许范围与 SEO/AOT 公开页一致：`/`、`/archive`、`/article/{id}`、`/category/{id}`、`/tag/{id}`、`/about`、`/privacy`、`/guidelines`、`/copyright`。兼容名称 `/tag/{name}` 会先解析为稳定 ID，成功 snapshot 的 `path`、`canonicalPath`、`routeKey` 和内部 payload 均改写为 `/tag/{id}` / `tag:{id}`，不得发出 name self-canonical snapshot。`/account`、`/search`、`/admin`、空 path、协议相对 URL 和绝对外链必须 fail closed。端点受 `public_read` 限流。
 
@@ -1806,6 +1806,8 @@ Public AOT 冷 miss 的分类结果固定为 `Success`、`NotFound`、`Gone`、`
   "canonicalPath": "/archive",
   "rendererVersion": "public-app-ssr@2026-05-01-1",
   "frontendAssetVersion": "manifest-sha256",
+  "renderLocale": "zh-CN",
+  "localeCatalogDigest": "sha256-hex",
   "payloadHash": "sha256-hex",
   "generatedAtUtc": "2026-06-18T00:00:00.0000000Z",
   "bootstrapPayload": "<base64url AEDS frame>",
@@ -1833,9 +1835,9 @@ Public AOT 冷 miss 的分类结果固定为 `Success`、`NotFound`、`Gone`、`
 }
 ```
 
-`bootstrapPayload`、`hydrationPropsPayload` 与 `seoHead` 必须来自 `PublicAotRenderRequest` -> `PublicAotShellEntryContract` -> document service 的同一条输出，不能由 endpoint 或客户端自行重建。`PublicSeoHeadModel` 的 digest 对除 digest 本身以外的字段按固定顺序做 UTF-8 byte-length-prefix 编码后计算 SHA-256；snapshot 的 `payloadHash` 也覆盖该 digest。客户端只接受当前 schema/version，且必须验证 digest、public origin、canonical path、OG URL 与 page entity origin。任一检查失败不得写入 route seed 或局部改写 head，而是退回同 URL 整页导航。
+`bootstrapPayload`、`hydrationPropsPayload` 与 `seoHead` 必须来自 `PublicAotRenderRequest` -> `PublicAotShellEntryContract` -> document service 的同一条输出，不能由 endpoint 或客户端自行重建。服务端在一次 render 开始时捕获权威 `generatedAtUtc`，并把同一 instant 作为 canonical UTC `options.renderTimestamp` 传入真实 Node/Vue renderer；bootstrap、hydration、navigation envelope 与 backfill artifact 不得各自读取时钟。缺失、空白、非法或非 canonical timestamp 必须在 SSR、seed 写入和日期格式化前 fail closed，不得回退到 `SYSTEM_CLOCK`、Unix epoch、`generatedAt` 别名或默认 locale。envelope、bootstrap 与 hydration 的 `renderLocale` / `localeCatalogDigest` 必须逐项一致，并分别等于当前 canonical request locale 与共享 catalog digest。`PublicSeoHeadModel` 的 digest 对除 digest 本身以外的字段按固定顺序做 UTF-8 byte-length-prefix 编码后计算 SHA-256；snapshot 的 `payloadHash` 覆盖 locale identity、两个 payload 与该 SEO digest。客户端在提交 route seed 前必须重新计算 hash、验证 page/locale/catalog/SEO identity，并先准备该精确 locale runtime/bundle。任一检查失败不得写入 route seed 或局部改写 head，而是退回同 URL 整页导航。
 
-成功响应写入 `ETag`、`Cache-Control: no-cache`、`Vary: Accept, X-Fsus-Test-Session`，并暴露 `X-Fsus-Public-Aot-Route-Key`、`X-Fsus-Public-Aot-Renderer-Version`、`X-Fsus-Public-Aot-Frontend-Asset-Version`。`If-None-Match` 命中返回 `304`。path 语法错误返回 `400`，不支持或不可公开的 route 返回 `404`，内容协商失败返回 `406`，renderer/provider/gate 失败返回 `503`；所有负响应固定 `Cache-Control: no-store`。
+成功响应写入 `ETag`、`Cache-Control: no-cache`、canonical `Content-Language`、`Vary: Accept, Accept-Language, Cookie, X-Fsus-Test-Session`，并暴露 `X-Fsus-Public-Aot-Route-Key`、`X-Fsus-Public-Aot-Renderer-Version`、`X-Fsus-Public-Aot-Frontend-Asset-Version`。`If-None-Match` 命中返回 `304`。path 语法错误返回 `400`，不支持或不可公开的 route 返回 `404`，内容协商失败返回 `406`，renderer/provider/gate 失败返回 `503`；所有负响应固定 `Cache-Control: no-store`。
 
 hydration payload sidecar 的 URL 只允许解析到 web root 内的静态文件路径。AOT cache 读取持久化 entry、document service 写入 sidecar、Node SSR worker script 启动前都必须使用 canonical full path + relative path 校验确认目标没有逃逸各自 root；越界 sidecar 视为 cache entry 无效或跳过写入，越界 worker script 直接 fail closed，不尝试执行。
 
@@ -1848,6 +1850,7 @@ hydration payload sidecar 的 URL 只允许解析到 web root 内的静态文件
   "pageId": 2,
   "routeKey": "article:42",
   "rendererVersion": "public-app-ssr@2026-05-01-1",
+  "renderLocale": "ja-JP",
   "bootstrapPayload": "<base64url AEDS frame>",
   "hydrationPropsPayload": "<base64url AEDS frame>",
   "html": "<div id=\"fsus-aot-shell\">...</div>",
@@ -1859,6 +1862,9 @@ hydration payload sidecar 的 URL 只允许解析到 web root 内的静态文件
 - `bootstrapPayload`：页面初始数据 AEDS payload，供 SPA 直接初始化 Pinia store
 - `hydrationPropsPayload`：hydration props AEDS payload，服务端 compose 时写为 `/aot-cache/payloads/{bucket}/{sha256}.aeds` raw frame，并通过 HTML marker 的 `data-aeds-src` 传递给客户端渲染器；该 sidecar 使用 `application/vnd.fsus.aeds` 与 immutable hash URL 缓存
 - `html`：Vue SSR 产出的页面 shell HTML；上传模板仍可含占位符（如 `{{articleId}}`），写入前会规范化
+- `renderLocale`：共享 catalog 中的 canonical locale code；entry、bootstrap、hydration、visible shell marker、document lang/dir、SEO locale 和响应 `Content-Language` 必须一致
+
+Public AOT HTML 的 representation identity 是 `(pageId, routeKey, renderLocale, invalidationVersion, frontendAssetVersion, rendererVersion)`。`renderLocale` 只能是 catalog 的十项 enabled code；原始 `Accept-Language`、cookie 原文、account/session/user identity 均不得进入公共 key。响应携带 `Content-Language` 与 `Vary: Accept-Language, Cookie`（压缩实体再包含 `Accept-Encoding`）。payload/HTML locale mismatch、未知 locale 或缺失目标 bundle 均 fail closed，不允许 hydration 使用浏览器语言修正。
 
 `islandsPayload` 已退役。文章评论区接管统一使用 `hydrationPropsPayload.commentsIsland.articleId`。
 

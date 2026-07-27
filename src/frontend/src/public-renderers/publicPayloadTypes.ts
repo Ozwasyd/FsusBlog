@@ -50,7 +50,8 @@ type BaseBootstrapPayload<K extends PublicAotBootstrapKind> = Readonly<{
   renderTimestamp?: string
   renderYear?: number
   renderTimeZone?: string
-  renderLocale?: SupportedLocale
+  renderLocale: SupportedLocale
+  localeCatalogDigest: string
 }>
 
 export type PublicAotBootstrapPayloadByKind = {
@@ -142,7 +143,8 @@ type BaseHydrationPayload<K extends PublicPageKind> = Readonly<{
   renderTimestamp?: string
   renderYear?: number
   renderTimeZone?: string
-  renderLocale?: SupportedLocale
+  renderLocale: SupportedLocale
+  localeCatalogDigest: string
 }>
 
 export type PublicHydrationPayloadByKind = {

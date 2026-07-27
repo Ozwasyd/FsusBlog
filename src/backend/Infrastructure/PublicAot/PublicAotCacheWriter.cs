@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+using FsusBlog.Shared.Contracts.Localization;
 using FsusBlog.Shared.Contracts.Outputs;
 
 using Microsoft.Extensions.Options;
@@ -18,12 +19,19 @@ public sealed class PublicAotCacheWriter(
         string routeKey,
         string rendererVersion,
         string frontendAssetVersion,
+        string locale,
         string html,
         PublicAotWriteSource source,
         DateTimeOffset? generatedAtUtc = null,
         TimeSpan? ttl = null,
         CancellationToken cancellationToken = default)
     {
+        if (!LocaleCatalog.TryParse(locale, out LocaleDescriptor descriptor)
+            || !string.Equals(locale, descriptor.Code, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("public_aot_cache_locale_invalid");
+        }
+
         DateTimeOffset generatedAt = generatedAtUtc ?? DateTimeOffset.UtcNow;
         PublicAotHtmlArtifactOptions options = htmlArtifactOptions.Value;
         PublicAotHtmlArtifact document = PublicAotHtmlArtifactFactory.FromHtml(
@@ -43,6 +51,7 @@ public sealed class PublicAotCacheWriter(
             ExpiresAtUtc = generatedAt.Add(ttl ?? s_defaultTtl),
             RendererVersion = rendererVersion,
             FrontendAssetVersion = frontendAssetVersion,
+            Locale = locale,
             Value = html,
             Document = document,
             HydrationSidecar = PublicAotHydrationSidecarReference.TryFromHtml(html, out PublicAotHydrationSidecarReference sidecar)
@@ -54,6 +63,9 @@ public sealed class PublicAotCacheWriter(
         hotReadStore.PublishHtml(
             routeKey,
             pageId,
-            PublicHotReadHtmlArtifactFactory.FromDocument(document, "public,max-age=60"));
+            PublicHotReadHtmlArtifactFactory.FromDocument(document, "public,max-age=60") with
+            {
+                Locale = locale
+            });
     }
 }

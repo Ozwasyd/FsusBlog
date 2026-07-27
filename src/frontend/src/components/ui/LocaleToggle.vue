@@ -14,20 +14,15 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useI18nText } from '@/composables/useI18nText';
-import { getLocaleMessages, type SupportedLocale } from '@/locales';
 
 const props = withDefaults(defineProps<{
     bordered?: boolean;
-    localeOverride?: SupportedLocale | null;
 }>(), {
-    bordered: false,
-    localeOverride: null
+    bordered: false
 });
 
 const { t, toggleLocale } = useI18nText();
-const toggleLabel = computed(() => props.localeOverride
-    ? getLocaleMessages(props.localeOverride).common.locale.toggleLabel
-    : t('common.locale.toggleLabel'));
+const toggleLabel = computed(() => t('common.locale.toggleLabel'));
 </script>
 
 <style scoped>

@@ -23,6 +23,7 @@ export type PublicRenderBase = Readonly<{
     renderYear: number
     renderTimeZone: string
     renderLocale: SupportedLocale
+    localeCatalogDigest: string
   }>
   bootstrapBase: Readonly<{
     kind: PublicPageKind
@@ -41,6 +42,7 @@ export type PublicRenderBase = Readonly<{
     renderYear: number
     renderTimeZone: string
     renderLocale: SupportedLocale
+    localeCatalogDigest: string
   }>
 }>
 
@@ -60,6 +62,7 @@ export function createPublicRenderBase(
     compliance?: SiteComplianceConfigPublic | null
     renderClock: PublicRenderClock
     renderLocale: SupportedLocale
+    localeCatalogDigest: string
   }>
 ): PublicRenderBase {
   return {
@@ -79,7 +82,8 @@ export function createPublicRenderBase(
       renderTimestamp: options.renderClock.renderTimestamp,
       renderYear: options.renderClock.renderYear,
       renderTimeZone: options.renderClock.renderTimeZone,
-      renderLocale: options.renderLocale
+      renderLocale: options.renderLocale,
+      localeCatalogDigest: options.localeCatalogDigest
     },
     bootstrapBase: {
       kind,
@@ -97,7 +101,8 @@ export function createPublicRenderBase(
       renderTimestamp: options.renderClock.renderTimestamp,
       renderYear: options.renderClock.renderYear,
       renderTimeZone: options.renderClock.renderTimeZone,
-      renderLocale: options.renderLocale
+      renderLocale: options.renderLocale,
+      localeCatalogDigest: options.localeCatalogDigest
     }
   }
 }

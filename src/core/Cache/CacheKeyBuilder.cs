@@ -8,4 +8,7 @@ public static class CacheKeyBuilder
 
     public static string PublicAotDocument(PublicPageId pageId, string routeKey)
         => string.Concat(PublicAotPrefix, "doc:", ((int)pageId).ToString(), ":", routeKey);
+
+    public static string PublicAotDocument(PublicPageId pageId, string routeKey, string localeCode)
+        => string.Concat(PublicAotDocument(pageId, routeKey), ":locale:", localeCode);
 }

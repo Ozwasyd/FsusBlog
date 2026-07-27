@@ -25,6 +25,9 @@ internal static class PublicAotRendererPayloadMapper
     {
         Dictionary<string, object?> common = CreateCommonOptions(request.Snapshot.Seo);
         common["routeKey"] = request.Match.RouteKey;
+        common["renderTimestamp"] = PublicAotUtcTime.Format(request.RenderTimestampUtc.UtcDateTime);
+        common["renderLocale"] = request.Match.LocaleResolution.Locale.Code;
+        common["localeCatalogDigest"] = request.Match.LocaleResolution.CatalogDigest;
         switch (request.Snapshot)
         {
             case PublicHomePageSnapshot home:

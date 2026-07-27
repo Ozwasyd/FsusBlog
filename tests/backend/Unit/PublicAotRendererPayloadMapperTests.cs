@@ -5,6 +5,9 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class PublicAotRendererPayloadMapperTests
 {
+    private static readonly DateTimeOffset s_renderTimestamp =
+        new(2026, 7, 27, 12, 34, 56, TimeSpan.Zero);
+
     [Fact]
     public void HomeOptions_UseFlatBootstrapShape()
     {
@@ -39,12 +42,14 @@ public sealed class PublicAotRendererPayloadMapperTests
                 HotArticles:
                 [
                     new PublicAotHotArticleSnapshot(10, "Home article", 7)
-                ])));
+                ]),
+            s_renderTimestamp));
 
         IReadOnlyDictionary<string, object?> options = GetOptions(payload);
 
         Assert.False(options.ContainsKey("response"));
         Assert.Equal("home:page:2", options["routeKey"]);
+        Assert.Equal("2026-07-27T12:34:56.0000000Z", options["renderTimestamp"]);
         Assert.Equal(1, options["total"]);
         Assert.Single(Assert.IsType<Dictionary<string, object?>[]>(options["articles"]));
         Assert.Single(Assert.IsType<Dictionary<string, object?>[]>(options["featuredArticles"]));
@@ -75,7 +80,8 @@ public sealed class PublicAotRendererPayloadMapperTests
                     new PublicAotResponsiblePersonSnapshot("Alice", "https://example.test/alice"),
                     new PublicAotResponsiblePersonSnapshot("Bob", null)
                 ]
-            }));
+            },
+            s_renderTimestamp));
 
         IReadOnlyDictionary<string, object?> options = GetOptions(payload);
 
@@ -107,7 +113,8 @@ public sealed class PublicAotRendererPayloadMapperTests
             {
                 PublishedAt = databaseTimestamp,
                 UpdatedAt = databaseTimestamp
-            }));
+            },
+            s_renderTimestamp));
 
         IReadOnlyDictionary<string, object?> options = GetOptions(payload);
         const string Expected = "2026-07-17T00:56:33.0000000Z";
@@ -134,7 +141,8 @@ public sealed class PublicAotRendererPayloadMapperTests
                 Category: new PublicAotArticleCategorySnapshot(2, "Category"),
                 Tags: [],
                 Rights: Rights(),
-                RelatedReading: null)));
+                RelatedReading: null),
+            s_renderTimestamp));
 
         IReadOnlyDictionary<string, object?> options = GetOptions(payload);
         IReadOnlyDictionary<string, object?> rights = Assert.IsAssignableFrom<IReadOnlyDictionary<string, object?>>(options["rights"]);
@@ -162,7 +170,8 @@ public sealed class PublicAotRendererPayloadMapperTests
                 PageSize: 10,
                 Total: 0,
                 Articles: [],
-                Title: "Category")));
+                Title: "Category"),
+            s_renderTimestamp));
 
         IReadOnlyDictionary<string, object?> options = GetOptions(payload);
         IReadOnlyDictionary<string, object?> filter = Assert.IsAssignableFrom<IReadOnlyDictionary<string, object?>>(options["filter"]);

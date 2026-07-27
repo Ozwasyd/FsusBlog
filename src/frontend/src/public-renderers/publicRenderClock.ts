@@ -1,20 +1,12 @@
 import { TimeUtils, type TimeRenderOptions } from '@/utils/time'
+import { DEFAULT_LOCALE, isSupportedLocale } from '@/locales/keys'
 
 export const PUBLIC_AOT_RENDER_TIME_ZONE = 'UTC'
-export const PUBLIC_AOT_RENDER_LOCALE = 'zh-CN'
-
-export interface Clock {
-  now(): Date
-}
 
 export interface LocaleContext {
   locale: string
   timeZone: string
 }
-
-export const SYSTEM_CLOCK: Clock = Object.freeze({
-  now: () => new Date()
-})
 
 export type PublicRenderClock = Readonly<{
   renderTimestamp: string
@@ -24,27 +16,20 @@ export type PublicRenderClock = Readonly<{
 
 type PublicRenderTimeOptionsSource = Readonly<{
   renderTimestamp?: string | null
-  generatedAt?: string | null
   renderTimeZone?: string | null
   renderLocale?: string | null
 }>
 
-function normalizeClockInput(value: unknown): string | Date | number | null {
-  return typeof value === 'string' || typeof value === 'number' || value instanceof Date ? value : null
-}
-
-function readClockNow(clock: Clock): Date {
-  const value = clock.now()
-  return value instanceof Date && Number.isFinite(value.getTime()) ? value : new Date(0)
-}
+const CANONICAL_PUBLIC_RENDER_TIMESTAMP =
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})\.(\d{3,7})Z$/
 
 function normalizeLocale(value: unknown): string {
   const locale = typeof value === 'string' ? value.trim() : ''
-  if (!locale) return PUBLIC_AOT_RENDER_LOCALE
+  if (!locale) return DEFAULT_LOCALE
   try {
-    return Intl.getCanonicalLocales(locale)[0] ?? PUBLIC_AOT_RENDER_LOCALE
+    return Intl.getCanonicalLocales(locale)[0] ?? DEFAULT_LOCALE
   } catch {
-    return PUBLIC_AOT_RENDER_LOCALE
+    return DEFAULT_LOCALE
   }
 }
 
@@ -66,9 +51,42 @@ export function createPublicLocaleContext(input: Partial<LocaleContext> = {}): L
   })
 }
 
-export function createPublicRenderClock(input?: unknown, clock: Clock = SYSTEM_CLOCK): PublicRenderClock {
-  const parsed = TimeUtils._parse(normalizeClockInput(input) ?? readClockNow(clock)) ?? TimeUtils._parse(new Date(0))!
-  const renderTime = parsed.utc()
+export function createPublicRenderClock(input: unknown): PublicRenderClock {
+  const renderClock = createAuthoritativePublicRenderClock(input)
+  if (!renderClock) {
+    throw new Error('public_aot_render_timestamp_invalid')
+  }
+  return renderClock
+}
+
+export function createAuthoritativePublicRenderClock(input: unknown): PublicRenderClock | undefined {
+  if (typeof input !== 'string' || input !== input.trim()) {
+    return undefined
+  }
+
+  const match = CANONICAL_PUBLIC_RENDER_TIMESTAMP.exec(input)
+  if (!match) {
+    return undefined
+  }
+
+  const [, year, month, day, hour, minute, second, fraction] = match
+  const instant = new Date(
+    `${year}-${month}-${day}T${hour}:${minute}:${second}.${fraction.slice(0, 3)}Z`
+  )
+  if (!Number.isFinite(instant.getTime()) ||
+      instant.getUTCFullYear() !== Number(year) ||
+      instant.getUTCMonth() + 1 !== Number(month) ||
+      instant.getUTCDate() !== Number(day) ||
+      instant.getUTCHours() !== Number(hour) ||
+      instant.getUTCMinutes() !== Number(minute) ||
+      instant.getUTCSeconds() !== Number(second)) {
+    return undefined
+  }
+
+  const renderTime = TimeUtils._parse(input)?.utc()
+  if (!renderTime) {
+    return undefined
+  }
 
   return {
     renderTimestamp: renderTime.toISOString(),
@@ -91,14 +109,21 @@ export function createPublicRenderTimeOptions(
 export function createPublicSeedRenderTimeOptions(
   ...sources: readonly (PublicRenderTimeOptionsSource | null | undefined)[]
 ): TimeRenderOptions | undefined {
-  const source = sources.find((candidate) => Boolean(candidate?.renderTimestamp || candidate?.generatedAt))
+  const source = sources.find((candidate) => candidate != null)
   if (!source) {
     return undefined
   }
 
-  const clock = createPublicRenderClock(source.renderTimestamp ?? source.generatedAt)
+  if (!isSupportedLocale(source.renderLocale)) {
+    return undefined
+  }
+
+  const clock = createAuthoritativePublicRenderClock(source.renderTimestamp)
+  if (!clock) {
+    return undefined
+  }
   const localeContext = createPublicLocaleContext({
-    locale: source.renderLocale ?? PUBLIC_AOT_RENDER_LOCALE,
+    locale: source.renderLocale,
     timeZone: source.renderTimeZone ?? clock.renderTimeZone
   })
   return {
@@ -106,4 +131,26 @@ export function createPublicSeedRenderTimeOptions(
     timeZone: localeContext.timeZone,
     locale: localeContext.locale
   }
+}
+
+export function hasCanonicalPublicSeedRenderTimestamp(
+  ...sources: readonly (PublicRenderTimeOptionsSource | null | undefined)[]
+): boolean {
+  const presentSources = sources.filter(
+    (source): source is PublicRenderTimeOptionsSource => source != null
+  )
+  if (presentSources.length === 0) {
+    return false
+  }
+
+  const renderTimestamp = presentSources[0]?.renderTimestamp
+  if (!createAuthoritativePublicRenderClock(renderTimestamp)) {
+    return false
+  }
+
+  return presentSources.every((source) =>
+    source.renderTimestamp === renderTimestamp &&
+    isSupportedLocale(source.renderLocale) &&
+    createAuthoritativePublicRenderClock(source.renderTimestamp) != null
+  )
 }

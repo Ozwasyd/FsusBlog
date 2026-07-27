@@ -225,4 +225,5 @@ public sealed record PublicArchivePageSnapshot(
 
 public sealed record PublicAotRenderRequest(
     PublicAotRouteMatch Match,
-    PublicPageSnapshot Snapshot);
+    PublicPageSnapshot Snapshot,
+    DateTimeOffset RenderTimestampUtc);
