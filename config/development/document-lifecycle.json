@@ -697,6 +697,17 @@
             "supersededBy": null
         },
         {
+            "path": "docs/development/behavior-contracts.generated.md",
+            "status": "generated",
+            "owner": "governance",
+            "relatedIssues": [
+                1737
+            ],
+            "supersedes": [],
+            "supersededBy": null,
+            "producer": "tools/contracts/generate-behavior-contract-catalog.mjs"
+        },
+        {
             "path": "docs/development/code-intent-governance.md",
             "status": "current",
             "owner": "governance",

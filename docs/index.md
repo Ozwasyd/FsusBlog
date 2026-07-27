@@ -284,6 +284,7 @@
 ## Generated
 
 - [Backend configuration reference (generated)](configuration/backend-configuration-reference.generated.md) - owner `backend`; producer `tools/configuration/check-backend-configuration-contract.mjs`
+- [Behavior Contract Index](development/behavior-contracts.generated.md) - owner `governance`; issues #1737; producer `tools/contracts/generate-behavior-contract-catalog.mjs`
 - [Generated Test Matrix](testing.generated.md) - owner `release`; producer `tools/docs/generate-testing-docs.mjs`
 
 ## Retired

@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v2",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:d7bab518a78f1c6de082edb7774f5dac3ba27695ab684c5cefabd2100110c5fe",
+    "policyDigest": "sha256:654cdcf680f87dd2c6e83952a8b20c7ad23af110154d98776ff4b71971af3ef8",
     "documents": [
         {
             "path": "docs/active-release-fenced-commits.md",
@@ -1151,6 +1151,21 @@
             "supersededBy": null,
             "relatedIssues": [],
             "producer": null
+        },
+        {
+            "path": "docs/development/behavior-contracts.generated.md",
+            "title": "Behavior Contract Index",
+            "kind": "markdown",
+            "status": "generated",
+            "owner": "governance",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "65089dbcdaff10e01b2af79bdb5d3fcb14c9b94b",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1737
+            ],
+            "producer": "tools/contracts/generate-behavior-contract-catalog.mjs"
         },
         {
             "path": "docs/development/change-contract.md",

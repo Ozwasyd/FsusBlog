@@ -1,0 +1,187 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "fsusblog.behavior-contract-catalog.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "digestAlgorithm",
+        "canonicalSerialization",
+        "domains",
+        "extractors",
+        "contracts"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.behavior-contract-catalog.v1"
+        },
+        "digestAlgorithm": {
+            "const": "sha256"
+        },
+        "canonicalSerialization": {
+            "const": "json-utf8-v1"
+        },
+        "domains": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$"
+            }
+        },
+        "extractors": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "$ref": "#/$defs/extractor"
+            }
+        },
+        "contracts": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "$ref": "#/$defs/contract"
+            }
+        }
+    },
+    "$defs": {
+        "extractor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "path"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]*$"
+                },
+                "path": {
+                    "type": "string",
+                    "pattern": "^(?:config|tests|tools|src)/"
+                }
+            }
+        },
+        "contract": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "domain",
+                "risk",
+                "status",
+                "implementationOwnerCardinality",
+                "implementationOwners",
+                "factExtractorId",
+                "requiredTestKinds",
+                "documentationPolicy",
+                "documentationRationale",
+                "allowedClaimTypes",
+                "releaseQualification",
+                "coverageIds",
+                "documents"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]*$"
+                },
+                "domain": {
+                    "type": "string"
+                },
+                "risk": {
+                    "enum": [
+                        "low",
+                        "medium",
+                        "high",
+                        "critical"
+                    ]
+                },
+                "status": {
+                    "enum": [
+                        "active",
+                        "migration-only",
+                        "retired"
+                    ]
+                },
+                "implementationOwnerCardinality": {
+                    "enum": [
+                        "one",
+                        "many"
+                    ]
+                },
+                "implementationOwners": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "string",
+                        "pattern": "^(?:config|tests|tools|src|ops)/"
+                    }
+                },
+                "factExtractorId": {
+                    "type": "string"
+                },
+                "requiredTestKinds": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                        "enum": [
+                            "positive",
+                            "boundary",
+                            "negative",
+                            "concurrency",
+                            "migration",
+                            "mutation"
+                        ]
+                    }
+                },
+                "documentationPolicy": {
+                    "enum": [
+                        "required",
+                        "not-public",
+                        "rationale-only"
+                    ]
+                },
+                "documentationRationale": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "allowedClaimTypes": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "enum": [
+                            "behavioral",
+                            "safety",
+                            "operational"
+                        ]
+                    }
+                },
+                "releaseQualification": {
+                    "type": "boolean"
+                },
+                "coverageIds": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9-]*$"
+                    }
+                },
+                "documents": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "string",
+                        "pattern": "^docs/"
+                    }
+                }
+            }
+        }
+    }
+}
