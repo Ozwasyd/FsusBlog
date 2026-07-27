@@ -40,5 +40,9 @@ export const common = {
         settings: 'システム設定',
         forbidden: 'アクセス拒否',
         notFound: 'ページが見つかりません'
+    },
+    loading: {
+        status: '読み込み中',
+        statusWithSite: '{siteTitle} を読み込み中'
     }
 } as const satisfies LocaleSchema<typeof zhCNCommon>

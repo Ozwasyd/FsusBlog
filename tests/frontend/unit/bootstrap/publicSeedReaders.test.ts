@@ -162,14 +162,32 @@ describe('public seed readers', () => {
     })
     document.body.appendChild(hydration)
 
-    const { showGlobalLoader } = await import('@/bootstrap/publicShellPrimitives')
+    document.documentElement.lang = 'zh-CN'
+    document.body.insertAdjacentHTML('afterbegin', '<div id="app"></div>')
+    const { showGlobalLoader, removeGlobalLoader, markGlobalLoaderBusy } = await import('@/bootstrap/publicShellPrimitives')
+    markGlobalLoaderBusy()
+    expect(document.getElementById('app')?.getAttribute('aria-busy')).toBe('true')
+    expect((document.getElementById('global-loader') as HTMLElement | null)?.hidden).toBe(true)
+
     showGlobalLoader()
 
+    const loader = document.getElementById('global-loader') as HTMLElement
+    const status = document.querySelector('[data-fsus-loader-status]') as HTMLElement
     expect(document.title).toBe('Hydration Blog')
     expect(document.querySelector('[data-fsus-loader-title]')?.textContent).toBe('Hydration Blog')
-    expect(document.querySelector('[data-fsus-loader-status]')?.textContent).toBe('正在加载 Hydration Blog')
+    expect(status.textContent).toBe('正在加载 Hydration Blog')
+    expect(status.dataset.localeKey).toBe('common.loading.statusWithSite')
+    expect(status.getAttribute('role')).toBe('status')
+    expect(status.getAttribute('aria-live')).toBe('polite')
+    expect(loader.hidden).toBe(false)
+    expect(loader.getAttribute('aria-hidden')).toBe('false')
+    expect(document.getElementById('app')?.getAttribute('aria-busy')).toBe('true')
     expect(document.querySelector<HTMLMetaElement>('meta[name="description"]')?.content).toBe('Hydration description')
-    expect((document.getElementById('global-loader') as HTMLElement | null)?.hidden).toBe(false)
+
+    removeGlobalLoader()
+    expect(loader.hidden).toBe(true)
+    expect(loader.getAttribute('aria-hidden')).toBe('true')
+    expect(document.getElementById('app')?.hasAttribute('aria-busy')).toBe(false)
   })
 
   it('fetches hydration payloads from an AEDS sidecar marker before falling back to inline text', async () => {

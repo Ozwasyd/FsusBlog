@@ -40,5 +40,9 @@ export const common = {
         settings: '설정',
         forbidden: '접근 거부',
         notFound: '페이지를 찾을 수 없음'
+    },
+    loading: {
+        status: '로드 중',
+        statusWithSite: '{siteTitle} 로드 중'
     }
 } as const satisfies LocaleSchema<typeof zhCNCommon>;

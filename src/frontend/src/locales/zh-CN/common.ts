@@ -37,5 +37,9 @@ export const common = {
         settings: '系统设置',
         forbidden: '无权访问',
         notFound: '页面不存在'
+    },
+    loading: {
+        status: '正在加载',
+        statusWithSite: '正在加载 {siteTitle}'
     }
 } as const;

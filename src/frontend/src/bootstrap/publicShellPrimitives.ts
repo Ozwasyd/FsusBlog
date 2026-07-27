@@ -1,4 +1,8 @@
 import { decodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload'
+import {
+  GLOBAL_LOADER_STATUS_KEY,
+  resolveGlobalLoaderStatus
+} from '@/bootstrap/globalLoaderCopy'
 import { PUBLIC_SITE_IDENTITY_DEFAULTS } from '@/public-renderers/publicSiteIdentityDefaults'
 import {
   normalizePublicSiteDescription,
@@ -17,6 +21,8 @@ const PUBLIC_SEO_PATH_PATTERNS = [
   /^\/tag\/\d+\/?$/,
   /^\/tag\/[^/]+\/?$/
 ]
+
+const BUSY_OWNER_SELECTOR = '#app'
 
 export function isPublicSeoPath(pathname: string): boolean {
   return PUBLIC_SEO_PATH_PATTERNS.some((pattern) => pattern.test(pathname))
@@ -103,17 +109,42 @@ function syncLoaderDocumentHead(identity: LoaderSiteIdentity): void {
   descriptionMeta.setAttribute('content', identity.siteDescription)
 }
 
-export function removeGlobalLoader(): void {
-  const loader = document.getElementById('global-loader')
-  if (!loader) {
+function getBusyOwner(): HTMLElement | null {
+  return document.querySelector<HTMLElement>(BUSY_OWNER_SELECTOR)
+}
+
+function setShellBusy(busy: boolean): void {
+  const owner = getBusyOwner()
+  if (!owner) {
     return
   }
+  if (busy) {
+    owner.setAttribute('aria-busy', 'true')
+  } else {
+    owner.removeAttribute('aria-busy')
+  }
+}
 
-  loader.hidden = true
+function getGlobalLoader(): HTMLElement | null {
+  return document.getElementById('global-loader')
+}
+
+/** Immediate wait ownership; does not reveal the visual loader. */
+export function markGlobalLoaderBusy(): void {
+  setShellBusy(true)
+}
+
+export function removeGlobalLoader(): void {
+  const loader = getGlobalLoader()
+  if (loader) {
+    loader.hidden = true
+    loader.setAttribute('aria-hidden', 'true')
+  }
+  setShellBusy(false)
 }
 
 export function showGlobalLoader(): void {
-  const loader = document.getElementById('global-loader')
+  const loader = getGlobalLoader()
   if (!loader) {
     return
   }
@@ -129,8 +160,13 @@ export function showGlobalLoader(): void {
 
   const statusEl = loader.querySelector<HTMLElement>('[data-fsus-loader-status], .loader-text')
   if (statusEl) {
-    statusEl.textContent = `正在加载 ${title}`
+    statusEl.dataset.localeKey = GLOBAL_LOADER_STATUS_KEY
+    statusEl.setAttribute('role', 'status')
+    statusEl.setAttribute('aria-live', 'polite')
+    statusEl.textContent = resolveGlobalLoaderStatus(title)
   }
 
   loader.hidden = false
+  loader.setAttribute('aria-hidden', 'false')
+  setShellBusy(true)
 }

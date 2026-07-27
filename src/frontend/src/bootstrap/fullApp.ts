@@ -46,6 +46,8 @@ export type BootstrapFullAppOptions = {
   hydrate?: boolean
   takeover?: 'public-shell' | 'direct'
   getPublicActivationOwner?: () => 'aot' | 'full-app'
+  /** Coordinator-owned AOT takeover injects suppress-until-interactive. */
+  shouldSuppressNavigationProgress?: () => boolean
 }
 
 const FullAppRuntime = defineAsyncComponent(() => import('@/components/runtime/AppRuntime.vue'))
@@ -95,7 +97,8 @@ function ensureAppRouter(options: BootstrapFullAppOptions): AppRouter {
   router ??= createAppRouter({
     prepareLocaleDomains: beginLocaleRouteTransaction,
     prewarmPublicRoute,
-    getPublicActivationOwner: options.getPublicActivationOwner ?? (() => 'full-app')
+    getPublicActivationOwner: options.getPublicActivationOwner ?? (() => 'full-app'),
+    shouldSuppressNavigationProgress: options.shouldSuppressNavigationProgress
   })
   return router
 }

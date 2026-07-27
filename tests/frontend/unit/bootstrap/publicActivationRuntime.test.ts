@@ -21,9 +21,10 @@ vi.mock('@/bootstrap/publicActivationCoordinator', () => ({
 vi.mock('@/router/publicRoutePreload', () => ({
   prewarmPublicRoute: vi.fn()
 }))
-vi.mock('@/services/navigationProgress', () => ({
-  hideNavigationProgress: vi.fn(),
-  showNavigationProgress: vi.fn()
+vi.mock('@/bootstrap/publicShellPrimitives', () => ({
+  markGlobalLoaderBusy: vi.fn(),
+  removeGlobalLoader: vi.fn(),
+  showGlobalLoader: vi.fn()
 }))
 vi.mock('@/services/telemetryBus', () => ({
   emitTelemetry: vi.fn()

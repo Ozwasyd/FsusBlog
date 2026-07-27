@@ -10,8 +10,12 @@ import {
   type PublicActivationState
 } from '@/bootstrap/publicActivationCoordinator'
 import type { PublicBootIntent } from '@/bootstrap/publicBootHandoff'
+import {
+  markGlobalLoaderBusy,
+  removeGlobalLoader,
+  showGlobalLoader
+} from '@/bootstrap/publicShellPrimitives'
 import { prewarmPublicRoute } from '@/router/publicRoutePreload'
-import { hideNavigationProgress, showNavigationProgress } from '@/services/navigationProgress'
 import { emitTelemetry } from '@/services/telemetryBus'
 
 type FullAppModule = typeof import('@/bootstrap/fullApp')
@@ -92,6 +96,7 @@ const coordinator = new PublicActivationCoordinator<PreparedFullApp>({
       // requesting any public route navigation snapshot.
       preparedCandidate = module.prepareFullApp({
         getPublicActivationOwner: getFullAppActivationOwner,
+        shouldSuppressNavigationProgress: () => state.value.phase !== 'interactive',
         takeover: 'public-shell'
       })
       return preparedCandidate
@@ -112,8 +117,9 @@ const coordinator = new PublicActivationCoordinator<PreparedFullApp>({
     }
   },
   feedbackPort: {
-    show: () => showNavigationProgress(),
-    hide: () => hideNavigationProgress()
+    markBusy: () => markGlobalLoaderBusy(),
+    show: () => showGlobalLoader(),
+    hide: () => removeGlobalLoader()
   },
   fallbackPort: {
     navigate: (intent) => window.location.assign(toAbsoluteHref(intent.target))

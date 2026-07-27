@@ -40,5 +40,9 @@ export const common = {
         settings: 'Configuración',
         forbidden: 'Acceso denegado',
         notFound: 'Página no encontrada'
+    },
+    loading: {
+        status: 'Cargando',
+        statusWithSite: 'Cargando {siteTitle}'
     }
 } as const satisfies LocaleSchema<typeof zhCNCommon>

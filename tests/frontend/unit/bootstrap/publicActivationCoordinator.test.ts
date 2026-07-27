@@ -38,6 +38,7 @@ function createHarness(overrides: Partial<PublicActivationPorts<Prepared>> = {})
   const commit = vi.fn(async () => {})
   const navigate = vi.fn(async () => {})
   const fallback = vi.fn()
+  const markBusy = vi.fn()
   const show = vi.fn()
   const hide = vi.fn()
   const terminal = vi.fn()
@@ -55,10 +56,11 @@ function createHarness(overrides: Partial<PublicActivationPorts<Prepared>> = {})
     terminal,
     prepareTiming
   }
+  const defaultFeedbackPort = { markBusy, show, hide }
   const ports: PublicActivationPorts<Prepared> = {
     routePreparationPort: { prepare: prepareRoute },
     fullAppPort: defaultFullAppPort,
-    feedbackPort: { show, hide },
+    feedbackPort: defaultFeedbackPort,
     fallbackPort: { navigate: fallback },
     telemetryPort: defaultTelemetryPort,
     clock: {
@@ -86,6 +88,10 @@ function createHarness(overrides: Partial<PublicActivationPorts<Prepared>> = {})
       ...defaultTelemetryPort,
       ...overrides.telemetryPort
     },
+    feedbackPort: {
+      ...defaultFeedbackPort,
+      ...overrides.feedbackPort
+    },
     routePreparationPort: overrides.routePreparationPort ?? { prepare: prepareRoute }
   }
   const coordinator = new PublicActivationCoordinator(ports)
@@ -97,18 +103,25 @@ function createHarness(overrides: Partial<PublicActivationPorts<Prepared>> = {})
     coordinator,
     fallback,
     flushFeedback: () => {
-      now += 120
-      for (const callback of [...timers.values()]) callback()
-      timers.clear()
       for (const callback of [...frames.values()]) callback()
       frames.clear()
     },
+    flushOneFrame: () => {
+      const first = frames.entries().next().value as [number, () => void] | undefined
+      if (!first) return false
+      frames.delete(first[0])
+      first[1]()
+      return true
+    },
     illegalTransition,
+    markBusy,
     navigate: ports.fullAppPort.navigate as typeof navigate,
+    pendingFrames: () => frames.size,
     prepareFullApp: ports.fullAppPort.prepare as typeof prepareFullApp,
     prepareRoute: ports.routePreparationPort.prepare as typeof prepareRoute,
     prepareTiming: (ports.telemetryPort.prepareTiming ?? prepareTiming) as typeof prepareTiming,
     show,
+    hide,
     terminal: (ports.telemetryPort.terminal ?? terminal) as typeof terminal,
     warmFullApp: ports.fullAppPort.warm as typeof warmFullApp
   }
@@ -728,7 +741,7 @@ describe('PublicActivationCoordinator', () => {
     )
   })
 
-  it('shows foreground feedback only while a slow replaceable preparation is current', async () => {
+  it('marks busy immediately and shows loader only after one frame while waiting', async () => {
     const route = deferred<PublicRoutePreparationResult>()
     const harness = createHarness({
       routePreparationPort: {
@@ -738,13 +751,124 @@ describe('PublicActivationCoordinator', () => {
     const outcome = harness.coordinator.submitIntent(activation('/slow'))
     await Promise.resolve()
 
+    expect(harness.markBusy).toHaveBeenCalledTimes(1)
+    expect(harness.show).not.toHaveBeenCalled()
+    expect(harness.coordinator.snapshot()).toMatchObject({
+      foregroundFeedbackVisible: false,
+      phase: 'foreground-wait'
+    })
+
+    expect(harness.flushOneFrame()).toBe(true)
+    expect(harness.show).toHaveBeenCalledTimes(1)
+    expect(harness.coordinator.snapshot()).toMatchObject({
+      foregroundFeedbackVisible: true,
+      phase: 'foreground-wait'
+    })
+
+    // Extra frames must not re-show.
     harness.flushFeedback()
     expect(harness.show).toHaveBeenCalledTimes(1)
+
     route.resolve({ ready: true })
+    await outcome
+    expect(harness.hide).toHaveBeenCalled()
+    expect(harness.coordinator.snapshot()).toMatchObject({
+      foregroundFeedbackVisible: false,
+      phase: 'interactive'
+    })
+  })
+
+  it('never shows the loader when takeover finishes before the feedback frame', async () => {
+    const harness = createHarness()
+    const outcome = harness.coordinator.submitIntent(activation('/fast'))
+    expect(harness.markBusy).toHaveBeenCalledTimes(1)
+    expect(harness.pendingFrames()).toBe(1)
+
+    await outcome
+    expect(harness.coordinator.snapshot().phase).toBe('interactive')
+    expect(harness.show).not.toHaveBeenCalled()
+    expect(harness.pendingFrames()).toBe(0)
+
+    // Late frame callback cannot re-show after terminal clear.
+    harness.flushFeedback()
+    expect(harness.show).not.toHaveBeenCalled()
+  })
+
+  it('keeps a visible loader through prepared/committing without first showing at commit', async () => {
+    const route = deferred<PublicRoutePreparationResult>()
+    const core = deferred<Prepared>()
+    let resolveCommit!: () => void
+    const commitGate = new Promise<void>((resolve) => {
+      resolveCommit = resolve
+    })
+    const harness = createHarness({
+      routePreparationPort: {
+        prepare: vi.fn(() => route.promise)
+      },
+      fullAppPort: {
+        warm: vi.fn(async () => {}),
+        prepare: vi.fn(() => core.promise),
+        commit: vi.fn(async () => {
+          await commitGate
+        }),
+        navigate: vi.fn(async () => {})
+      }
+    })
+    const outcome = harness.coordinator.submitIntent(activation('/hold'))
+    await Promise.resolve()
+    harness.flushOneFrame()
+    expect(harness.show).toHaveBeenCalledTimes(1)
+    expect(harness.coordinator.snapshot().foregroundFeedbackVisible).toBe(true)
+
+    route.resolve({ ready: true })
+    core.resolve({ target: '/hold' })
+    await vi.waitFor(() => {
+      expect(harness.coordinator.snapshot().phase).toBe('committing')
+    })
+    expect(harness.coordinator.snapshot().foregroundFeedbackVisible).toBe(true)
+    expect(harness.show).toHaveBeenCalledTimes(1)
+
+    resolveCommit()
     await outcome
     expect(harness.coordinator.snapshot()).toMatchObject({
       foregroundFeedbackVisible: false,
       phase: 'interactive'
     })
+  })
+
+  it('does not arm feedback during silent warming', async () => {
+    const harness = createHarness()
+    await harness.coordinator.warm('/archive', 'pointerenter')
+    expect(harness.markBusy).not.toHaveBeenCalled()
+    expect(harness.show).not.toHaveBeenCalled()
+    expect(harness.pendingFrames()).toBe(0)
+  })
+
+  it('clears busy feedback on preparation failure fallback', async () => {
+    const harness = createHarness({
+      routePreparationPort: {
+        prepare: vi.fn(async () => ({ ready: false, reason: 'snapshot-failed' }))
+      }
+    })
+    const outcome = await harness.coordinator.submitIntent(activation('/fail'))
+    expect(outcome).toMatchObject({ status: 'fallback', reason: 'snapshot-failed' })
+    expect(harness.markBusy).toHaveBeenCalledTimes(1)
+    expect(harness.hide).toHaveBeenCalled()
+    expect(harness.coordinator.snapshot().foregroundFeedbackVisible).toBe(false)
+    expect(harness.fallback).toHaveBeenCalledOnce()
+  })
+
+  it('does not re-show AOT feedback after interactive SPA navigation', async () => {
+    const harness = createHarness()
+    await harness.coordinator.submitIntent(activation('/home'))
+    expect(harness.coordinator.snapshot().phase).toBe('interactive')
+    harness.show.mockClear()
+    harness.markBusy.mockClear()
+
+    await harness.coordinator.submitIntent(activation('/archive'))
+    harness.flushFeedback()
+    expect(harness.markBusy).not.toHaveBeenCalled()
+    expect(harness.show).not.toHaveBeenCalled()
+    expect(harness.navigate).toHaveBeenCalledWith(expect.objectContaining({ target: '/archive' }))
   })
 })

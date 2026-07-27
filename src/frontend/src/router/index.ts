@@ -107,6 +107,11 @@ export type RouterFactoryOptions = Readonly<{
   prewarmPublicRoute?: PublicRoutePrewarmPort
   prepareLocaleDomains?: LocaleRoutePreparationPort
   getPublicActivationOwner?: () => 'aot' | 'full-app'
+  /**
+   * Injected progress policy for coordinator-owned Public AOT takeover.
+   * Router must not import the activation composition root.
+   */
+  shouldSuppressNavigationProgress?: () => boolean
 }>
 
 function readRouteRequiredPermissions(route: RouteLocationNormalized): string[] {
@@ -237,7 +242,13 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
       }
     }
 
-    if (!options.ssr && !shouldDeferPublicBootstrap && !isSameAccountShellChildSwitch(to, from)) {
+    const suppressCoordinatorProgress = options.shouldSuppressNavigationProgress?.() === true
+    if (
+      !options.ssr
+      && !shouldDeferPublicBootstrap
+      && !suppressCoordinatorProgress
+      && !isSameAccountShellChildSwitch(to, from)
+    ) {
       scheduleProgressForSlowNavigation()
     }
 

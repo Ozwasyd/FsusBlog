@@ -14,7 +14,7 @@ The complete activation phase set and its owner mapping are:
 | --- | --- | --- |
 | `static-visible` | AOT DOM | The static document remains readable and interactive before work begins. |
 | `silent-warming` | AOT DOM | Route resources may prepare without foreground feedback. |
-| `foreground-wait` | AOT DOM | An activation intent is pending and delayed foreground feedback may appear. |
+| `foreground-wait` | AOT DOM | An activation intent is pending; frame-gated global-loader feedback may appear. |
 | `prepared` | AOT DOM | Route preparation succeeded, but document ownership has not transferred. |
 | `committing` | FullApp | FullApp ownership transfer has started and is no longer abortable. |
 | `interactive` | FullApp | FullApp owns subsequent public route navigation. |
@@ -63,7 +63,11 @@ injected ports:
   for navigation-snapshot fetch and never write route seed/head stores;
 - `fullAppPort.commit` / `navigate` transfer ownership and own interactive
   Router navigation after commit;
-- `feedbackPort` enters and leaves foreground waiting feedback;
+- `feedbackPort` owns foreground waiting feedback only:
+  `markBusy` immediately, `show` after one animation frame while the generation
+  is still non-terminal, and `hide` on clear. The port drives `#global-loader`
+  with `aria-hidden` / shell `aria-busy` / status live semantics; it does not
+  create `#nprogress`;
 - `fallbackPort` performs document navigation;
 - `telemetryPort` records phase transitions, durations, illegal transitions,
   terminal outcomes, and prepare timings
@@ -71,6 +75,17 @@ injected ports:
   `activation_prepare_wall_ms`);
 - `clock` supplies microtask, frame, timer, and time operations for deterministic
   tests.
+
+Silent warming never arms feedback. Same-frame completions cancel the pending
+frame so the loader never flashes. `prepared` / `committing` keep a loader that
+already became visible; they must not be the first moment feedback is scheduled.
+Takeover visual snapshots stay outside this port: they only preserve DOM
+ownership transfer continuity at commit time and never act as loading UI.
+
+Router `#nprogress` is independent SPA navigation feedback. The composition root
+injects `shouldSuppressNavigationProgress` so coordinator-owned AOT takeover
+never schedules nprogress; ordinary interactive SPA navigations may still use it.
+The Router must not import the coordinator or browser composition root.
 
 ### Core warming vs intent route preparation
 

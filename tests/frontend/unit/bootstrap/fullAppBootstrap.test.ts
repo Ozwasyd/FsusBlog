@@ -145,7 +145,8 @@ describe('full app bootstrap prepare/commit', () => {
     expect(createAppRouter).toHaveBeenCalledWith({
       getPublicActivationOwner: expect.any(Function),
       prepareLocaleDomains: beginLocaleRouteTransaction,
-      prewarmPublicRoute
+      prewarmPublicRoute,
+      shouldSuppressNavigationProgress: undefined
     })
     await createAppRouter.mock.calls[0]?.[0].prepareLocaleDomains(
       ['common'],

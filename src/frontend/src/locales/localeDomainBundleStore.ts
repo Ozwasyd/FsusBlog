@@ -46,7 +46,7 @@ const EXPORT_NAMES: Readonly<Record<LocaleDomain, string>> = Object.freeze({
 // These digests describe property names and leaf kinds, not translated values.
 // The focused locale-domain contract test regenerates and checks this table.
 export const LOCALE_DOMAIN_SCHEMA_DIGESTS: Readonly<Record<LocaleDomain, string>> = Object.freeze({
-  common: 'fnv1a64:f5f20b6d1ecac61f',
+  common: 'fnv1a64:5e095c10692fa690',
   public: 'fnv1a64:4d3917b2cfcdec05',
   article: 'fnv1a64:0417548869290be5',
   auth: 'fnv1a64:ab80b75ceb4d74f2',

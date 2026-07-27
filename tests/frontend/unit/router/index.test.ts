@@ -64,6 +64,13 @@ vi.mock('@/bootstrap/publicShellPrimitives', () => ({
   hasServerAotShell: () => hasServerAotShellResult
 }))
 
+const showNavigationProgress = vi.fn()
+const hideNavigationProgress = vi.fn()
+vi.mock('@/services/navigationProgress', () => ({
+  showNavigationProgress: (...args: unknown[]) => showNavigationProgress(...args),
+  hideNavigationProgress: (...args: unknown[]) => hideNavigationProgress(...args)
+}))
+
 const routeComponentStub = { template: '<div />' }
 
 vi.mock('@/layouts/BlogLayout.vue', () => ({ default: routeComponentStub }))
@@ -131,6 +138,8 @@ describe('account router meta and guards', () => {
     ensureAccountSession.mockClear()
     ensureAdminSession.mockClear()
     syncDocumentTitle.mockClear()
+    showNavigationProgress.mockClear()
+    hideNavigationProgress.mockClear()
     hasServerAotShellResult = false
     publicRuntimeOwner = 'aot'
     document.body.innerHTML = ''
@@ -672,6 +681,43 @@ describe('account router meta and guards', () => {
     expect(ensureAdminSession).toHaveBeenCalledTimes(1)
     expect(adminPermissionCheck).toHaveBeenCalledWith('system.config')
     expect(router.currentRoute.value.path).toBe('/403')
+  })
+
+  it('suppresses SPA nprogress when the injected takeover progress policy requests it', async () => {
+    publicRuntimeOwner = 'full-app'
+    hasServerAotShellResult = false
+    userStore.isLoggedIn = false
+    const setTimeoutSpy = vi.spyOn(window, 'setTimeout')
+    const router = createAppRouter({
+      history: createMemoryHistory(),
+      ssr: false,
+      getPublicActivationOwner: () => publicRuntimeOwner,
+      shouldSuppressNavigationProgress: () => true
+    })
+
+    await router.push('/login')
+
+    expect(setTimeoutSpy.mock.calls.some((call) => call[1] === 120)).toBe(false)
+    expect(showNavigationProgress).not.toHaveBeenCalled()
+    expect(document.getElementById('nprogress')).toBeNull()
+    setTimeoutSpy.mockRestore()
+  })
+
+  it('allows SPA nprogress scheduling after interactive ownership without suppress policy', async () => {
+    publicRuntimeOwner = 'full-app'
+    hasServerAotShellResult = false
+    userStore.isLoggedIn = false
+    const setTimeoutSpy = vi.spyOn(window, 'setTimeout')
+    const router = createAppRouter({
+      history: createMemoryHistory(),
+      ssr: false,
+      getPublicActivationOwner: () => publicRuntimeOwner
+    })
+
+    await router.push('/login')
+
+    expect(setTimeoutSpy.mock.calls.some((call) => call[1] === 120)).toBe(true)
+    setTimeoutSpy.mockRestore()
   })
 
 })

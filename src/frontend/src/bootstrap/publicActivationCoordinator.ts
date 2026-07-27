@@ -80,6 +80,8 @@ export type PublicActivationPorts<PreparedApp = unknown> = Readonly<{
     navigate: (intent: PublicActivationIntent) => Promise<void>
   }
   feedbackPort: {
+    /** Immediate wait ownership for assistive tech; visual loader waits for one frame. */
+    markBusy: (intent: PublicActivationIntent) => void
     show: (intent: PublicActivationIntent) => void
     hide: () => void
   }
@@ -105,7 +107,6 @@ export type PublicActivationPorts<PreparedApp = unknown> = Readonly<{
     requestFrame: (callback: () => void) => number
     cancelFrame: (handle: number) => void
   }
-  foregroundDelayMs?: number
   onStateChange?: (state: PublicActivationState) => void
 }>
 
@@ -188,8 +189,8 @@ export class PublicActivationCoordinator<PreparedApp = unknown> {
   private warmingOwnership: PublicWarmOwnership | null = null
   private warmedTarget: string | null = null
   private warmedResult: PublicRoutePreparationResult | null = null
-  private feedbackTimer: number | null = null
   private feedbackFrame: number | null = null
+  private feedbackBusy = false
   private queuedIntent: PublicActivationIntent | null = null
   private terminalGenerations = new Set<number>()
 
@@ -577,35 +578,43 @@ export class PublicActivationCoordinator<PreparedApp = unknown> {
     return this.state.generation === generation
   }
 
+  /**
+   * Frame-gated foreground feedback:
+   * 1. mark busy immediately on the intent task;
+   * 2. schedule one animation frame;
+   * 3. show the loader only if this generation is still non-terminal;
+   * 4. cancel before that frame when activation finishes in the same frame.
+   */
   private scheduleForegroundFeedback(generation: number, intent: PublicActivationIntent): void {
     this.clearFeedback()
-    this.feedbackTimer = this.ports.clock.setTimer(() => {
-      this.feedbackTimer = null
-      this.feedbackFrame = this.ports.clock.requestFrame(() => {
-        this.feedbackFrame = null
-        if (!this.isCurrentGeneration(generation) || this.state.phase !== 'foreground-wait') {
-          return
-        }
-        this.ports.feedbackPort.show(intent)
-        this.state = { ...this.state, foregroundFeedbackVisible: true }
-        this.ports.onStateChange?.(this.state)
-      })
-    }, this.ports.foregroundDelayMs ?? 120)
+    this.feedbackBusy = true
+    this.ports.feedbackPort.markBusy(intent)
+    this.feedbackFrame = this.ports.clock.requestFrame(() => {
+      this.feedbackFrame = null
+      if (!this.isCurrentGeneration(generation)) {
+        return
+      }
+      if (this.state.phase === 'interactive' || this.state.phase === 'fallback') {
+        return
+      }
+      this.ports.feedbackPort.show(intent)
+      this.state = { ...this.state, foregroundFeedbackVisible: true }
+      this.ports.onStateChange?.(this.state)
+    })
   }
 
   private clearFeedback(): void {
-    if (this.feedbackTimer !== null) {
-      this.ports.clock.clearTimer(this.feedbackTimer)
-      this.feedbackTimer = null
-    }
     if (this.feedbackFrame !== null) {
       this.ports.clock.cancelFrame(this.feedbackFrame)
       this.feedbackFrame = null
     }
-    if (this.state.foregroundFeedbackVisible) {
+    if (this.feedbackBusy || this.state.foregroundFeedbackVisible) {
       this.ports.feedbackPort.hide()
-      this.state = { ...this.state, foregroundFeedbackVisible: false }
-      this.ports.onStateChange?.(this.state)
+      this.feedbackBusy = false
+      if (this.state.foregroundFeedbackVisible) {
+        this.state = { ...this.state, foregroundFeedbackVisible: false }
+        this.ports.onStateChange?.(this.state)
+      }
     }
   }
 }

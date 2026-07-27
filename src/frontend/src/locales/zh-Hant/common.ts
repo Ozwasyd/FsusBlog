@@ -40,5 +40,9 @@ export const common = {
         settings: '系統設定',
         forbidden: '無權存取',
         notFound: '頁面不存在'
+    },
+    loading: {
+        status: '正在載入',
+        statusWithSite: '正在載入 {siteTitle}'
     }
 } as const satisfies LocaleSchema<typeof zhCNCommon>

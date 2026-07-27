@@ -97,8 +97,10 @@ if (!router.includes("import type { PublicRoutePrewarmPort } from '@/router/publ
 for (const token of [
   'prewarmPublicRoute?: PublicRoutePrewarmPort',
   "getPublicActivationOwner?: () => 'aot' | 'full-app'",
+  'shouldSuppressNavigationProgress?: () => boolean',
   'options.prewarmPublicRoute',
-  'options.getPublicActivationOwner?.()'
+  'options.getPublicActivationOwner?.()',
+  'options.shouldSuppressNavigationProgress?.()'
 ]) {
   if (!router.includes(token)) {
     fail(routerPath, `router factory prewarm port contract missing: ${token}`)
@@ -108,6 +110,9 @@ for (const token of [
 if (router.includes('@/bootstrap/publicActivationRuntime')) {
   fail(routerPath, 'router must consume an injected owner getter instead of importing browser composition')
 }
+if (router.includes('@/bootstrap/publicActivationCoordinator')) {
+  fail(routerPath, 'router must not import the pure coordinator')
+}
 
 if (router.includes('export default router')) {
   fail(routerPath, 'router module must not recreate a global router singleton outside FullApp composition')
@@ -116,7 +121,8 @@ if (router.includes('export default router')) {
 for (const token of [
   'createAppRouter({',
   'prewarmPublicRoute',
-  'getPublicActivationOwner: options.getPublicActivationOwner'
+  'getPublicActivationOwner: options.getPublicActivationOwner',
+  'shouldSuppressNavigationProgress: options.shouldSuppressNavigationProgress'
 ]) {
   if (!fullApp.includes(token)) {
     fail(fullAppPath, `FullApp router/prewarm composition contract missing: ${token}`)
@@ -178,7 +184,10 @@ for (const token of [
   "import('@/bootstrap/fullApp')",
   'new PublicActivationCoordinator',
   'prewarmPublicRoute',
-  'showNavigationProgress',
+  'showGlobalLoader',
+  'markGlobalLoaderBusy',
+  'removeGlobalLoader',
+  'shouldSuppressNavigationProgress',
   'window.location.assign',
   'warmPublicFullAppCore',
   'prepareTiming'
@@ -186,6 +195,17 @@ for (const token of [
   if (!runtime.includes(token)) {
     fail(runtimePath, `browser composition contract missing: ${token}`)
   }
+}
+
+if (runtime.includes('showNavigationProgress') || runtime.includes('hideNavigationProgress')) {
+  fail(runtimePath, 'AOT feedbackPort must use global-loader, not #nprogress')
+}
+
+if (!coordinator.includes('markBusy') || !coordinator.includes('requestFrame')) {
+  fail(coordinatorPath, 'foreground feedback must mark busy and use a single animation frame')
+}
+if (/foregroundDelayMs|feedbackTimer/u.test(coordinator)) {
+  fail(coordinatorPath, 'foreground feedback must not use arbitrary delay timers')
 }
 
 // Core warm/prepare must not import route seed/head stores.
