@@ -933,6 +933,7 @@ export function evaluatePerformanceClaim(intent, receipt = {}, expectedCommit = 
         : { status: 'blocked', measured: false, reasons }
 }
 
+// BEHAVIOR-OWNER: code-intent-governance
 /**
  * Checks repository comment policy, public documentation, and registered source/evidence references.
  * Returns every discovered error so independent debt remains visible in one run.

@@ -44,18 +44,36 @@ reject('rejects migration-only behavior without exactly one migration proof kind
 })
 reject('rejects issue-number behavior IDs', (catalog) => { catalog.contracts[0].id = 'issue-1234-coverage' })
 reject('rejects unknown coverage IDs', (catalog) => { catalog.contracts[0].coverageIds = ['missing-coverage'] })
+reject('rejects path-based implementationOwners residue in catalog', (catalog) => {
+  catalog.contracts[0].implementationOwners = ['tools/test.sh']
+  delete catalog.contracts[0].allowedImplementationOwnerRoles
+})
+reject('rejects roles on one-owner behaviors', (catalog) => {
+  catalog.contracts[0].allowedImplementationOwnerRoles = ['primary']
+})
+reject('rejects many-owner behaviors without at least two roles', (catalog) => {
+  catalog.contracts[0].implementationOwnerCardinality = 'many'
+  catalog.contracts[0].allowedImplementationOwnerRoles = ['only']
+})
+
 test('schema and loader enums cannot drift independently', () => {
   const schema = structuredClone(loadSchema())
   schema.$defs.contract.properties.status.enum.push('compat-active')
   assert.throws(() => validateSchemaContract(schema), /status enum drifted/u)
 })
+
+test('schema rejects path-based implementationOwners field', () => {
+  const schema = structuredClone(loadSchema())
+  schema.$defs.contract.properties.implementationOwners = { type: 'array' }
+  assert.throws(() => validateSchemaContract(schema), /path-based implementationOwners/u)
+})
+
 test('rejects coverage registry behavior-field copies', () => {
   const registry = JSON.parse(readFileSync(path.join(root, 'tests/coverage-registry.json'), 'utf8'))
   registry.entries[0].requiredTestKinds = ['positive']
   const target = path.join(root, 'tests/coverage-registry.json'); const original = readFileSync(target, 'utf8')
   try { writeFileSync(target, `${JSON.stringify(registry)}\n`); const result = spawnSync('node', ['tools/contracts/check-behavior-contract-catalog.mjs'], { cwd: root, encoding: 'utf8' }); assert.notEqual(result.status, 0) } finally { writeFileSync(target, original) }
 })
-reject('rejects two owners when cardinality is one', (catalog) => { catalog.contracts[0].implementationOwners.push('tools/test.sh') })
 
 test('rejects a free-string behavior reference outside the catalog', () => {
   const target = path.join(root, 'tests/fixtures/behavior-free-string-reference.json')

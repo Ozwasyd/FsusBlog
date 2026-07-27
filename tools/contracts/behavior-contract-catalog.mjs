@@ -10,6 +10,22 @@ export const allowedTestKinds = new Set(['positive', 'boundary', 'negative', 'co
 export const allowedStatuses = new Set(['active', 'migration-only', 'retired'])
 export const allowedDocumentationPolicies = new Set(['required', 'not-public', 'rationale-only'])
 export const allowedClaimTypes = new Set(['behavioral', 'safety', 'operational'])
+export const contractFieldKeys = [
+  'id',
+  'domain',
+  'risk',
+  'status',
+  'implementationOwnerCardinality',
+  'allowedImplementationOwnerRoles',
+  'factExtractorId',
+  'requiredTestKinds',
+  'documentationPolicy',
+  'documentationRationale',
+  'allowedClaimTypes',
+  'releaseQualification',
+  'coverageIds',
+  'documents'
+]
 
 const fail = (message) => { throw new Error(`[behavior-contract-catalog] ${message}`) }
 const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -41,11 +57,13 @@ export function validateSchemaContract(schema) {
   if (contract?.additionalProperties !== false || extractor?.additionalProperties !== false) fail('schema records must reject unknown fields')
   exactEnum(schema.required, ['schema', 'digestAlgorithm', 'canonicalSerialization', 'domains', 'extractors', 'contracts'], 'catalog required fields')
   exactEnum(extractor.required, ['id', 'path'], 'extractor required fields')
-  exactEnum(contract.required, ['id', 'domain', 'risk', 'status', 'implementationOwnerCardinality', 'implementationOwners', 'factExtractorId', 'requiredTestKinds', 'documentationPolicy', 'documentationRationale', 'allowedClaimTypes', 'releaseQualification', 'coverageIds', 'documents'], 'contract required fields')
+  exactEnum(contract.required, contractFieldKeys, 'contract required fields')
   exactEnum(contract?.properties?.status?.enum, allowedStatuses, 'status')
   exactEnum(contract?.properties?.requiredTestKinds?.items?.enum, allowedTestKinds, 'requiredTestKinds')
   exactEnum(contract?.properties?.documentationPolicy?.enum, allowedDocumentationPolicies, 'documentationPolicy')
   exactEnum(contract?.properties?.allowedClaimTypes?.items?.enum, allowedClaimTypes, 'allowedClaimTypes')
+  if (contract?.properties?.implementationOwners !== undefined) fail('schema must not declare path-based implementationOwners')
+  if (contract?.properties?.allowedImplementationOwnerRoles?.type !== 'array') fail('schema must declare allowedImplementationOwnerRoles')
 }
 
 export function validateCatalog(catalog, repositoryRoot = root) {
@@ -67,15 +85,22 @@ export function validateCatalog(catalog, repositoryRoot = root) {
   if (!Array.isArray(catalog.contracts) || catalog.contracts.length === 0) fail('contracts must be a non-empty list')
   const ids = new Set()
   for (const contract of catalog.contracts) {
-    exactKeys(contract, ['id', 'domain', 'risk', 'status', 'implementationOwnerCardinality', 'implementationOwners', 'factExtractorId', 'requiredTestKinds', 'documentationPolicy', 'documentationRationale', 'allowedClaimTypes', 'releaseQualification', 'coverageIds', 'documents'], `contract ${contract.id ?? '<unknown>'}`)
+    exactKeys(contract, contractFieldKeys, `contract ${contract.id ?? '<unknown>'}`)
+    if (Object.prototype.hasOwnProperty.call(contract, 'implementationOwners')) fail(`${contract.id ?? '<unknown>'} still declares path-based implementationOwners`)
     if (!isId(contract.id) || ids.has(contract.id)) fail(`invalid or duplicate behavior ID ${contract.id ?? '<unknown>'}`)
     ids.add(contract.id)
     if (!catalog.domains.includes(contract.domain)) fail(`${contract.id} references unknown domain ${contract.domain}`)
     if (!['low', 'medium', 'high', 'critical'].includes(contract.risk) || !allowedStatuses.has(contract.status)) fail(`${contract.id} has invalid risk or status`)
     if (!['one', 'many'].includes(contract.implementationOwnerCardinality)) fail(`${contract.id} has invalid implementation owner cardinality`)
-    uniqueStrings(contract.implementationOwners, `${contract.id}.implementationOwners`, { min: 1 })
-    if (contract.implementationOwners.some((owner) => !/^(?:config|tests|tools|src|ops)\//u.test(owner) || !fileExists(repositoryRoot, owner))) fail(`${contract.id} has an unknown implementation owner`)
-    if ((contract.implementationOwnerCardinality === 'one') !== (contract.implementationOwners.length === 1)) fail(`${contract.id} implementation owner cardinality mismatch`)
+    if (!Array.isArray(contract.allowedImplementationOwnerRoles) || contract.allowedImplementationOwnerRoles.some((role) => !isId(role)) || new Set(contract.allowedImplementationOwnerRoles).size !== contract.allowedImplementationOwnerRoles.length) {
+      fail(`${contract.id} allowedImplementationOwnerRoles must be a unique stable role ID list`)
+    }
+    if (contract.implementationOwnerCardinality === 'one' && contract.allowedImplementationOwnerRoles.length !== 0) {
+      fail(`${contract.id} one-owner behaviors must use an empty allowedImplementationOwnerRoles list`)
+    }
+    if (contract.implementationOwnerCardinality === 'many' && contract.allowedImplementationOwnerRoles.length < 2) {
+      fail(`${contract.id} many-owner behaviors must declare at least two allowed roles`)
+    }
     if (!extractors.has(contract.factExtractorId)) fail(`${contract.id} references unknown fact extractor ${contract.factExtractorId}`)
     uniqueStrings(contract.requiredTestKinds, `${contract.id}.requiredTestKinds`)
     if (contract.requiredTestKinds.some((kind) => !allowedTestKinds.has(kind))) fail(`${contract.id} has unknown required test kind`)
@@ -116,8 +141,29 @@ export function validateBehaviorReferences(catalog, repositoryRoot = root) {
   validateCatalog(catalog, repositoryRoot)
   const contracts = new Map(catalog.contracts.map((contract) => [contract.id, contract]))
   const lifecycle = new Map(readJson('config/development/document-lifecycle.json', repositoryRoot).documents.map((document) => [document.path, document]))
-  const forbiddenAuthorityFields = new Set(['behaviorId', 'behaviorIds', 'behaviorAliases', 'factExtractorId', 'requiredTestKinds', 'documentationPolicy', 'allowedClaimTypes', 'releaseQualification', 'implementationOwnerCardinality', 'implementationOwners'])
-  const catalogOnlyFields = new Set(['factExtractorId', 'requiredTestKinds', 'documentationPolicy', 'allowedClaimTypes', 'releaseQualification', 'implementationOwnerCardinality', 'implementationOwners'])
+  const forbiddenAuthorityFields = new Set([
+    'behaviorId',
+    'behaviorIds',
+    'behaviorAliases',
+    'factExtractorId',
+    'requiredTestKinds',
+    'documentationPolicy',
+    'allowedClaimTypes',
+    'releaseQualification',
+    'implementationOwnerCardinality',
+    'allowedImplementationOwnerRoles',
+    'implementationOwners'
+  ])
+  const catalogOnlyFields = new Set([
+    'factExtractorId',
+    'requiredTestKinds',
+    'documentationPolicy',
+    'allowedClaimTypes',
+    'releaseQualification',
+    'implementationOwnerCardinality',
+    'allowedImplementationOwnerRoles',
+    'implementationOwners'
+  ])
   const assertNoBehaviorFields = (value, relative) => {
     if (Array.isArray(value)) return value.forEach((item) => assertNoBehaviorFields(item, relative))
     if (!isPlainObject(value)) return
@@ -132,7 +178,10 @@ export function validateBehaviorReferences(catalog, repositoryRoot = root) {
     'src/shared/Contracts/Governance/BehaviorContractCatalog.g.cs',
     'config/schemas/behavior-contract-catalog.schema.json',
     'tests/tools/behavior-contract-catalog.test.mjs',
+    'tests/tools/behavior-owner-binding.test.mjs',
     'tools/contracts/behavior-contract-catalog.mjs',
+    'tools/contracts/behavior-owner-binding.mjs',
+    'tools/contracts/check-behavior-owner-binding.mjs',
     'tools/contracts/generate-behavior-contract-catalog.mjs'
   ])
   const validateReference = (id, relative) => {
@@ -177,6 +226,7 @@ export function validateBehaviorReferences(catalog, repositoryRoot = root) {
             }
             assertNoCatalogFields(document)
             if (typeof document.schema === 'string' && document.schema.startsWith('fsusblog.behavior-contract-catalog.')) fail(`${relative} declares a second behavior catalog`)
+            if (typeof document.schema === 'string' && /behavior[_-]?owner/iu.test(document.schema)) fail(`${relative} declares a second owner registry`)
           }
           parsedJson = true
         }
@@ -194,7 +244,9 @@ export function validateBehaviorReferences(catalog, repositoryRoot = root) {
           literals.forEach((id) => validateReference(id, relative))
         }
       }
-      if (/\b(?:behavior[_-]?aliases|deprecated[_-]?behavior[_-]?id|compat(?:ibility)?[_-]?behavior[_-]?catalog|legacy[_-]?behavior[_-]?catalog)\b/iu.test(source)) fail(`${relative} contains forbidden behavior compatibility surface`)
+      if (/\b(?:behavior[_-]?aliases|deprecated[_-]?behavior[_-]?id|compat(?:ibility)?[_-]?behavior[_-]?catalog|legacy[_-]?behavior[_-]?catalog|path[_-]?based[_-]?owner|owner[_-]?inference|compat(?:ibility)?[_-]?behavior[_-]?owner|legacy[_-]?behavior[_-]?owner|deprecated[_-]?behavior[_-]?owner)\b/iu.test(source)) {
+        fail(`${relative} contains forbidden behavior compatibility surface`)
+      }
     }
   }
   for (const relative of ['tests/matrix.yml']) {

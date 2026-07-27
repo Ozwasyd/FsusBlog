@@ -73,7 +73,7 @@
                 "risk",
                 "status",
                 "implementationOwnerCardinality",
-                "implementationOwners",
+                "allowedImplementationOwnerRoles",
                 "factExtractorId",
                 "requiredTestKinds",
                 "documentationPolicy",
@@ -112,13 +112,12 @@
                         "many"
                     ]
                 },
-                "implementationOwners": {
+                "allowedImplementationOwnerRoles": {
                     "type": "array",
-                    "minItems": 1,
                     "uniqueItems": true,
                     "items": {
                         "type": "string",
-                        "pattern": "^(?:config|tests|tools|src|ops)/"
+                        "pattern": "^[a-z][a-z0-9-]*$"
                     }
                 },
                 "factExtractorId": {

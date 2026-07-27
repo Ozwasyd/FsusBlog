@@ -447,6 +447,7 @@ function ValidatePolicy(root, policy, inventory, errors, options)
     }
 }
 
+// BEHAVIOR-OWNER: document-lifecycle-governance
 export function ValidateDocumentLifecycle(root, policy, inventory, expectedIndex, options = {})
 {
     const errors = [];

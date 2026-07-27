@@ -57,6 +57,7 @@ function preflightOutcome(preflight) {
   return { outcome: blocked.length === 0 ? 'passed' : 'blocked', blocked }
 }
 
+// BEHAVIOR-OWNER: test-asset-audit-reconciliation
 function main() {
   const options = parseArgs(process.argv.slice(2))
   const profile = JSON.parse(fs.readFileSync(profilePath, 'utf8'))
