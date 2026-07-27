@@ -74,6 +74,14 @@ function validateStructuredToolWiring() {
 
 validateStructuredToolWiring()
 
+const executionClassContract = spawnSync(process.execPath, ['tools/test/check-producer-execution-class-contract.mjs'], {
+  cwd: root,
+  encoding: 'utf8'
+})
+if (executionClassContract.stdout) process.stdout.write(executionClassContract.stdout)
+if (executionClassContract.stderr) process.stderr.write(executionClassContract.stderr)
+requireCondition(executionClassContract.status === 0, 'matrix producer execution-class contract must remain complete')
+
 function run(args) {
   const result = spawnSync('node', ['tools/run-test-matrix.mjs', ...args], {
     cwd: root,

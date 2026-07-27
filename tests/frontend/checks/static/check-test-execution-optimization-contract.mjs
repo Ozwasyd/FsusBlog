@@ -416,6 +416,10 @@ requireIncludes('tools/test/run-once.mjs', [
 ])
 requireIncludes('tools/test/run-deterministic-command.mjs', [
   'FSUSBLOG_TEST_RUN_ID',
+  'FSUSBLOG_TEST_SOURCE_COMMIT',
+  'FSUSBLOG_TEST_SOURCE_FINGERPRINT',
+  'contract.missing-run-identity',
+  'qualificationEligible=false',
   'inputDigest',
   'environmentDigest',
   'worktreeFingerprint',
@@ -423,6 +427,8 @@ requireIncludes('tools/test/run-deterministic-command.mjs', [
 ])
 requireIncludes('tools/test/run-matrix-governance-once.sh', [
   '--key matrix-governance',
+  '--execution-class correctness',
+  '--producer-id "$CONSUMER_ID"',
   '--test-id matrix-validate',
   '--test-id matrix-preflight',
   '--test-id matrix-evidence-plan'

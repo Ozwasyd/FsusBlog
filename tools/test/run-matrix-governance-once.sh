@@ -6,6 +6,8 @@ CONSUMER_ID="${1:-${FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID:-matrix-governance
 
 exec "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-deterministic-command.mjs" \
     --key matrix-governance \
+    --execution-class correctness \
+    --producer-id "$CONSUMER_ID" \
     --consumer "$CONSUMER_ID" \
     --cwd "$ROOT_DIR" \
     --projection-directory .tmp/physical-execution-projections \

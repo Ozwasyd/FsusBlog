@@ -109,10 +109,30 @@ async function main(argv) {
   const { options, command } = parse(argv)
   if (!String(options.key ?? '').trim()) throw new Error('--key is required')
   const cwd = path.resolve(options.cwd ?? process.cwd())
+  const executionClass = String(options.executionClass ?? '').trim()
+  const producerId = String(options.producerId ?? '').trim()
   const runId = String(process.env.FSUSBLOG_TEST_RUN_ID ?? '').trim()
-  if (!runId) {
+  const sourceCommit = String(process.env.FSUSBLOG_TEST_SOURCE_COMMIT ?? '').trim()
+  const sourceFingerprint = String(process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT ?? '').trim()
+  if (!['correctness', 'diagnostic'].includes(executionClass)) {
+    throw new Error('contract.missing-run-identity: executionClass must be correctness or diagnostic')
+  }
+  if (executionClass === 'correctness') {
+    const missing = [
+      !producerId ? 'producerId' : null,
+      !runId ? 'schedulerRunId' : null,
+      !sourceCommit || !sourceFingerprint ? 'sourceIdentity' : null
+    ].filter(Boolean)
+    if (missing.length > 0) {
+      throw new Error(`contract.missing-run-identity: ${missing.join(',')}`)
+    }
+  }
+  if (executionClass === 'diagnostic') {
+    if (options.projectionDirectory) {
+      throw new Error('diagnostic execution cannot publish a correctness projection')
+    }
     await spawnCommand(command, cwd)
-    console.log(`[physical-execution] direct key=${options.key} (no scheduler run ID; dedup disabled)`)
+    console.log(`[physical-execution] diagnostic-direct key=${options.key} qualificationEligible=false`)
     return
   }
 
@@ -138,10 +158,7 @@ async function main(argv) {
     inputDigest,
     status: git(['status', '--porcelain=v1', '--untracked-files=all', '--', ...options.paths])
   })
-  const consumerId = String(options.consumer
-    ?? process.env.FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID
-    ?? process.env.FSUSBLOG_CURRENT_TIER
-    ?? `${options.key}-consumer`)
+  const consumerId = producerId
   const controller = new AbortController()
   const abort = (signal) => controller.abort(Object.assign(new Error(`received ${signal}`), { name: 'AbortError', signal }))
   const onSigint = () => abort('SIGINT')

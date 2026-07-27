@@ -1345,7 +1345,7 @@
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
                 "mode": "delegated-command",
-                "command": "node ../../tools/test/run-deterministic-command.mjs --key cross-stack-runtime-coherence --path tests/frontend/checks/runtime/runtime-coherence-matrix.mjs --path src/backend --path src/shared/Contracts --path src/frontend/src --test-id runtime-coherence-matrix -- node ../../tests/frontend/checks/runtime/runtime-coherence-matrix.mjs",
+                "command": "node ../../tools/test/run-deterministic-command.mjs --key cross-stack-runtime-coherence --execution-class correctness --producer-id cross-stack-runtime-coherence --path tests/frontend/checks/runtime/runtime-coherence-matrix.mjs --path src/backend --path src/shared/Contracts --path src/frontend/src --test-id runtime-coherence-matrix -- node ../../tests/frontend/checks/runtime/runtime-coherence-matrix.mjs",
                 "implementation": "tools/test/run-deterministic-command.mjs",
                 "executionKey": "governance:check:coherence:runtime-matrix",
                 "receiptCompatible": true
@@ -1551,7 +1551,7 @@
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
                 "mode": "delegated-command",
-                "command": "node ../../tools/test/run-deterministic-command.mjs --key cross-stack-api-parity --path tests/frontend/checks/static/check-frontend-backend-api-parity.mjs --path src/frontend/src/api --path src/shared/Contracts --path docs/api --test-id frontend-backend-api-parity -- node ../../tests/frontend/checks/static/check-frontend-backend-api-parity.mjs",
+                "command": "node ../../tools/test/run-deterministic-command.mjs --key cross-stack-api-parity --execution-class correctness --producer-id cross-stack-api-parity --path tests/frontend/checks/static/check-frontend-backend-api-parity.mjs --path src/frontend/src/api --path src/shared/Contracts --path docs/api --test-id frontend-backend-api-parity -- node ../../tests/frontend/checks/static/check-frontend-backend-api-parity.mjs",
                 "implementation": "tools/test/run-deterministic-command.mjs",
                 "executionKey": "governance:check:contract:api-parity",
                 "receiptCompatible": true
@@ -1581,7 +1581,7 @@
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
                 "mode": "delegated-command",
-                "command": "node ../../tools/test/run-deterministic-command.mjs --key cross-stack-binary-matrix --path tests/frontend/checks/runtime/binary-contract-matrix.mjs --path src/core/Algorithms --path src/shared/Contracts --path src/frontend/src --test-id binary-contract-matrix -- node ../../tests/frontend/checks/runtime/binary-contract-matrix.mjs",
+                "command": "node ../../tools/test/run-deterministic-command.mjs --key cross-stack-binary-matrix --execution-class correctness --producer-id cross-stack-binary-matrix --path tests/frontend/checks/runtime/binary-contract-matrix.mjs --path src/core/Algorithms --path src/shared/Contracts --path src/frontend/src --test-id binary-contract-matrix -- node ../../tests/frontend/checks/runtime/binary-contract-matrix.mjs",
                 "implementation": "tools/test/run-deterministic-command.mjs",
                 "executionKey": "governance:check:contract:binary-matrix",
                 "receiptCompatible": true
@@ -1611,7 +1611,7 @@
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
                 "mode": "delegated-command",
-                "command": "node ../../tools/test/run-deterministic-command.mjs --key cross-stack-frame-schema --path tools/frontend/generate-aeds-protocol.mjs --path tests/frontend/checks/static/check-generated-frame-schema-sync.mjs --path tests/frontend/fixtures/aeds-protocol-cpp-contract.cpp --path src/core/Algorithms --path src/shared --path src/frontend/wasm/aeds/include --path src/frontend/wasm/aeds/src --path src/frontend/wasm/web/protocol/frame.ts --test-id generated-frame-schema-sync -- node ../../tests/frontend/checks/static/check-generated-frame-schema-sync.mjs",
+                "command": "node ../../tools/test/run-deterministic-command.mjs --key cross-stack-frame-schema --execution-class correctness --producer-id cross-stack-frame-schema --path tools/frontend/generate-aeds-protocol.mjs --path tests/frontend/checks/static/check-generated-frame-schema-sync.mjs --path tests/frontend/fixtures/aeds-protocol-cpp-contract.cpp --path src/core/Algorithms --path src/shared --path src/frontend/wasm/aeds/include --path src/frontend/wasm/aeds/src --path src/frontend/wasm/web/protocol/frame.ts --test-id generated-frame-schema-sync -- node ../../tests/frontend/checks/static/check-generated-frame-schema-sync.mjs",
                 "implementation": "tools/test/run-deterministic-command.mjs",
                 "executionKey": "governance:check:contract:frame-schema",
                 "receiptCompatible": true
@@ -1641,7 +1641,7 @@
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
                 "mode": "delegated-command",
-                "command": "node ../../tools/test/run-deterministic-command.mjs --key cross-stack-negative-matrix --path tests/frontend/checks/security/check-binary-negative-matrix.mjs --path src/core/Algorithms --path src/shared/Contracts --path src/frontend/src --test-id binary-negative-matrix -- node ../../tests/frontend/checks/security/check-binary-negative-matrix.mjs",
+                "command": "node ../../tools/test/run-deterministic-command.mjs --key cross-stack-negative-matrix --execution-class correctness --producer-id cross-stack-negative-matrix --path tests/frontend/checks/security/check-binary-negative-matrix.mjs --path src/core/Algorithms --path src/shared/Contracts --path src/frontend/src --test-id binary-negative-matrix -- node ../../tests/frontend/checks/security/check-binary-negative-matrix.mjs",
                 "implementation": "tools/test/run-deterministic-command.mjs",
                 "executionKey": "governance:check:contract:negative-matrix",
                 "receiptCompatible": true
@@ -1935,7 +1935,7 @@
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
                 "mode": "delegated-command",
-                "command": "node ../../tools/test/run-deterministic-command.mjs --key cross-stack-test-governance --path tests/frontend/checks/static/check-cross-stack-test-governance.mjs --path tests/frontend --path tests/backend --path src/shared/Contracts --test-id cross-stack-test-governance -- node ../../tests/frontend/checks/static/check-cross-stack-test-governance.mjs",
+                "command": "node ../../tools/test/run-deterministic-command.mjs --key cross-stack-test-governance --execution-class correctness --producer-id cross-stack-test-governance --path tests/frontend/checks/static/check-cross-stack-test-governance.mjs --path tests/frontend --path tests/backend --path src/shared/Contracts --test-id cross-stack-test-governance -- node ../../tests/frontend/checks/static/check-cross-stack-test-governance.mjs",
                 "implementation": "tools/test/run-deterministic-command.mjs",
                 "executionKey": "governance:check:cross-stack-test-governance",
                 "receiptCompatible": true
@@ -3010,7 +3010,7 @@
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
                 "mode": "delegated-command",
-                "command": "node ../../tools/test/run-deterministic-command.mjs --key cross-stack-openapi-sync --consumer frontend-openapi-sync --cwd ../.. --projection-directory .tmp/physical-execution-projections --path tools/contracts --path tests/contracts/openapi-policy.yml --path src/backend --path src/shared/Contracts --path src/frontend/src/generated --test-id openapi-sync -- node tools/contracts/check-openapi-sync.mjs",
+                "command": "node ../../tools/test/run-deterministic-command.mjs --key cross-stack-openapi-sync --execution-class correctness --producer-id frontend-openapi-sync --consumer frontend-openapi-sync --cwd ../.. --projection-directory .tmp/physical-execution-projections --path tools/contracts --path tests/contracts/openapi-policy.yml --path src/backend --path src/shared/Contracts --path src/frontend/src/generated --test-id openapi-sync -- node tools/contracts/check-openapi-sync.mjs",
                 "implementation": "tools/test/run-deterministic-command.mjs",
                 "executionKey": "governance:check:openapi-sync",
                 "receiptCompatible": true
@@ -5001,7 +5001,7 @@
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
                 "mode": "delegated-command",
-                "command": "node ../../tools/test/run-deterministic-command.mjs --key security-matrices --consumer security-matrices --cwd ../.. --projection-directory .tmp/physical-execution-projections --path tools/security/check-security-matrices.mjs --path security/matrices --test-id security-matrix-schema -- node tools/security/check-security-matrices.mjs",
+                "command": "node ../../tools/test/run-deterministic-command.mjs --key security-matrices --execution-class correctness --producer-id security-matrices --consumer security-matrices --cwd ../.. --projection-directory .tmp/physical-execution-projections --path tools/security/check-security-matrices.mjs --path security/matrices --test-id security-matrix-schema -- node tools/security/check-security-matrices.mjs",
                 "implementation": "tools/test/run-deterministic-command.mjs",
                 "executionKey": "governance:check:security:matrices",
                 "receiptCompatible": true

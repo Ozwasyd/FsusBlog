@@ -1,0 +1,39 @@
+{
+  "schema": "fsusblog.test-producer-execution-class.v1",
+  "matrixField": "evidenceClass",
+  "classes": {
+    "correctness": { "executionClass": "correctness", "requires": ["producerId", "schedulerRunId", "sourceIdentity"] },
+    "browser-contract": { "executionClass": "correctness", "requires": ["producerId", "schedulerRunId", "sourceIdentity"] },
+    "diagnostic": { "executionClass": "diagnostic", "qualificationEligible": false }
+  },
+  "canonicalRunnerInvocations": {
+    "config/governance/custom-rule-registry.json": [
+      "cross-stack-api-parity",
+      "cross-stack-binary-matrix",
+      "cross-stack-frame-schema",
+      "cross-stack-negative-matrix",
+      "cross-stack-openapi-sync",
+      "cross-stack-runtime-coherence",
+      "cross-stack-test-governance",
+      "security-matrices"
+    ],
+    "src/frontend/package.json": [
+      "cross-stack-api-parity",
+      "cross-stack-binary-matrix",
+      "cross-stack-frame-schema",
+      "cross-stack-negative-matrix",
+      "cross-stack-openapi-sync",
+      "cross-stack-runtime-coherence",
+      "cross-stack-test-governance",
+      "security-matrices"
+    ],
+    "tools/test/lanes/_suite-support.sh": [
+      "backend-source-file-size",
+      "backend-test-governance",
+      "postgres-test-collections"
+    ],
+    "tools/test/run-matrix-governance-once.sh": [
+      "matrix-governance"
+    ]
+  }
+}

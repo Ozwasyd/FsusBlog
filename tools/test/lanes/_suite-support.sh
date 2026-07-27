@@ -1229,6 +1229,8 @@ RunBackendDotnetFilterWithCoverage() {
 RunBackendTestGovernanceCheckOnce() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-deterministic-command.mjs" \
         --key backend-test-governance \
+        --execution-class correctness \
+        --producer-id backend-test-governance \
         --path tools/check-backend-test-governance.mjs \
         --path tests/backend \
         --path tests/matrix.yml \
@@ -1239,6 +1241,8 @@ RunBackendTestGovernanceCheckOnce() {
 RunPostgresTestCollectionsCheckOnce() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-deterministic-command.mjs" \
         --key postgres-test-collections \
+        --execution-class correctness \
+        --producer-id postgres-test-collections \
         --path tools/check-postgres-test-collections.mjs \
         --path tests/backend \
         --test-id postgres-test-collections \
@@ -1248,6 +1252,8 @@ RunPostgresTestCollectionsCheckOnce() {
 RunBackendSourceFileSizeCheckOnce() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-deterministic-command.mjs" \
         --key backend-source-file-size \
+        --execution-class correctness \
+        --producer-id backend-source-file-size \
         --path tools/architecture/check-backend-source-file-size.mjs \
         --path src/backend/Infrastructure/Bootstrap \
         --path src/backend/Infrastructure/PublicReadArtifacts \
