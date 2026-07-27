@@ -119,6 +119,7 @@
     "check:internal-selector-governance": "node ../../tests/frontend/checks/static/check-internal-selector-governance.mjs",
     "check:messages-inbox-governance": "node ../../tests/frontend/checks/static/check-messages-inbox-governance.mjs",
     "check:public-reading-motion": "node ../../tests/frontend/checks/static/check-public-reading-motion.mjs",
+    "check:article-image-lightbox-overlay": "node ../../tests/frontend/checks/static/check-article-image-lightbox-overlay.mjs",
     "check:radius-scale-contract": "node ../../tests/frontend/checks/static/check-radius-scale-contract.mjs",
     "check:public-header-material": "node ../../tests/frontend/checks/public/check-public-header-material.mjs",
     "check:public-anti-ai-visual": "node ../../tests/frontend/checks/static/check-public-anti-ai-visual.mjs",

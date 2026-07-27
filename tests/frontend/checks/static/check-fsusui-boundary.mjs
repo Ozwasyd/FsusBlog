@@ -352,6 +352,7 @@ function checkRequiredAdapters()
         'theme.ts',
         'feedback.ts',
         'dialog.ts',
+        'overlay.ts',
         'result.ts',
         'icons.ts',
         'markdown.ts',

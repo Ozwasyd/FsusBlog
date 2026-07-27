@@ -1,55 +1,60 @@
 <template>
   <Teleport to="body">
     <FsuTransition :name="fsusBlogMotionPresets.mediaOverlay">
-      <div
+      <FsusUiOverlay
         v-if="open && activeImage"
-        ref="dialogRef"
-        class="article-image-lightbox"
-        data-article-lightbox="true"
-        data-fsus-material="glass"
-        role="dialog"
-        aria-modal="true"
-        :aria-label="messages.article.actions.viewImage"
-        tabindex="-1"
-        @click.self="emit('close')"
-        @keydown.esc.prevent="emit('close')"
+        :z-index="1000"
+        mask
+        @click="emit('close')"
       >
-        <button
-          type="button"
-          class="article-image-lightbox__close"
-          :aria-label="messages.article.actions.closeImage"
-          @click="emit('close')"
+        <div
+          ref="dialogRef"
+          class="article-image-lightbox"
+          data-article-lightbox="true"
+          data-fsus-material="glass"
+          role="dialog"
+          aria-modal="true"
+          :aria-label="messages.article.actions.viewImage"
+          tabindex="-1"
+          @keydown.esc.prevent="emit('close')"
         >
-          {{ messages.common.actions.close }}
-        </button>
+          <button
+            type="button"
+            class="article-image-lightbox__close"
+            :aria-label="messages.article.actions.closeImage"
+            @click="emit('close')"
+          >
+            {{ messages.common.actions.close }}
+          </button>
 
-        <button
-          v-if="images.length > 1"
-          type="button"
-          class="article-image-lightbox__nav article-image-lightbox__nav--prev"
-          :aria-label="messages.article.actions.previousImage"
-          @click.stop="emit('previous')"
-        >
-          {{ messages.article.actions.previousImage }}
-        </button>
+          <button
+            v-if="images.length > 1"
+            type="button"
+            class="article-image-lightbox__nav article-image-lightbox__nav--prev"
+            :aria-label="messages.article.actions.previousImage"
+            @click.stop="emit('previous')"
+          >
+            {{ messages.article.actions.previousImage }}
+          </button>
 
-        <figure class="article-image-lightbox__figure">
-          <img :src="activeImage.src" :alt="activeImage.alt" />
-          <figcaption v-if="activeImage.alt">
-            {{ activeImage.alt }}
-          </figcaption>
-        </figure>
+          <figure class="article-image-lightbox__figure">
+            <img :src="activeImage.src" :alt="activeImage.alt" />
+            <figcaption v-if="activeImage.alt">
+              {{ activeImage.alt }}
+            </figcaption>
+          </figure>
 
-        <button
-          v-if="images.length > 1"
-          type="button"
-          class="article-image-lightbox__nav article-image-lightbox__nav--next"
-          :aria-label="messages.article.actions.nextImage"
-          @click.stop="emit('next')"
-        >
-          {{ messages.article.actions.nextImage }}
-        </button>
-      </div>
+          <button
+            v-if="images.length > 1"
+            type="button"
+            class="article-image-lightbox__nav article-image-lightbox__nav--next"
+            :aria-label="messages.article.actions.nextImage"
+            @click.stop="emit('next')"
+          >
+            {{ messages.article.actions.nextImage }}
+          </button>
+        </div>
+      </FsusUiOverlay>
     </FsuTransition>
   </Teleport>
 </template>
@@ -59,6 +64,7 @@ import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import type { ArticleLightboxImage } from '@/composables/article/useArticleImageLightbox'
 import { useI18nText } from '@/composables/useI18nText'
 import { fsusBlogMotionPresets } from '@/fsusui/blogMotion'
+import { FsusUiOverlay } from '@/fsusui/overlay'
 import { FsuTransition } from '@ozwasyd/element-plus/motion'
 
 const props = defineProps<{
@@ -100,20 +106,29 @@ onUnmounted(() => {
 
 <style scoped>
 .article-image-lightbox {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--fsus-viewport-block-size);
   display: grid;
   place-items: center;
-  background: var(--fsusblog-overlay-scrim);
-  padding: 1.5rem;
+  padding:
+    max(1.5rem, var(--fsus-safe-area-inset-top))
+    max(1.5rem, var(--fsus-safe-area-inset-right))
+    max(1.5rem, var(--fsus-safe-area-inset-bottom))
+    max(1.5rem, var(--fsus-safe-area-inset-left));
 }
 
 .article-image-lightbox__figure {
   display: grid;
   gap: 0.75rem;
   max-width: min(92vw, 72rem);
-  max-height: 88vh;
+  max-height: calc(
+    var(--fsus-viewport-block-size)
+    - max(1.5rem, var(--fsus-safe-area-inset-top))
+    - max(1.5rem, var(--fsus-safe-area-inset-bottom))
+    - 3rem
+  );
   margin: 0;
   color: white;
   text-align: center;
@@ -121,7 +136,12 @@ onUnmounted(() => {
 
 .article-image-lightbox__figure img {
   max-width: 100%;
-  max-height: 80vh;
+  max-height: calc(
+    var(--fsus-viewport-block-size)
+    - max(1.5rem, var(--fsus-safe-area-inset-top))
+    - max(1.5rem, var(--fsus-safe-area-inset-bottom))
+    - 5rem
+  );
   object-fit: contain;
 }
 
@@ -132,7 +152,8 @@ onUnmounted(() => {
 
 .article-image-lightbox__close,
 .article-image-lightbox__nav {
-  position: fixed;
+  position: absolute;
+  z-index: 1;
   min-height: 2.75rem;
   border: 1px solid var(--fsusblog-overlay-button-border);
   background: var(--fsusblog-overlay-button-bg);
@@ -142,18 +163,21 @@ onUnmounted(() => {
 }
 
 .article-image-lightbox__close {
-  top: 1rem;
-  right: 1rem;
+  top: max(1rem, var(--fsus-safe-area-inset-top));
+  right: max(1rem, var(--fsus-safe-area-inset-right));
 }
 
 .article-image-lightbox__nav--prev {
-  left: 1rem;
+  left: max(1rem, var(--fsus-safe-area-inset-left));
+  top: 50%;
+  margin-top: -1.375rem;
 }
 
 .article-image-lightbox__nav--next {
-  right: 1rem;
+  right: max(1rem, var(--fsus-safe-area-inset-right));
+  top: 50%;
+  margin-top: -1.375rem;
 }
-
 </style>
 
 <style>

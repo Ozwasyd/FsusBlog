@@ -8,6 +8,7 @@ export * from '@/fsusui/keyValueGrid'
 export * from '@/fsusui/dangerZone';
 export * from '@/fsusui/dataList';
 export * from '@/fsusui/dialog';
+export * from '@/fsusui/overlay';
 export * from '@/fsusui/taskPageHeader';
 export * from '@/fsusui/primitiveAdapters';
 export * from '@/fsusui/publicShell';

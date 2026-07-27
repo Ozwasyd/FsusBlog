@@ -18,6 +18,7 @@ export function useArticleImageLightbox(contentRoot: MaybeRefOrGetter<HTMLElemen
   const images = ref<ArticleLightboxImage[]>([])
   const activeIndex = ref(0)
   const open = ref(false)
+  const triggerImage = ref<HTMLImageElement | null>(null)
   const listeners: ListenerRecord[] = []
   const revealControls = useScrollReveal({ ...fsusBlogScrollRevealOptions })
 
@@ -34,8 +35,9 @@ export function useArticleImageLightbox(contentRoot: MaybeRefOrGetter<HTMLElemen
     }
   }
 
-  const show = (index: number): void => {
+  const show = (index: number, trigger?: HTMLImageElement | null): void => {
     activeIndex.value = index
+    triggerImage.value = trigger ?? listeners[index]?.image ?? null
     open.value = true
   }
 
@@ -64,14 +66,14 @@ export function useArticleImageLightbox(contentRoot: MaybeRefOrGetter<HTMLElemen
     candidates.forEach((image, index) => {
       const click = (event: MouseEvent): void => {
         event.preventDefault()
-        show(index)
+        show(index, image)
       }
       const keydown = (event: KeyboardEvent): void => {
         if (event.key !== 'Enter' && event.key !== ' ') {
           return
         }
         event.preventDefault()
-        show(index)
+        show(index, image)
       }
 
       image.classList.add('fsus-article-preview-image')
@@ -90,6 +92,13 @@ export function useArticleImageLightbox(contentRoot: MaybeRefOrGetter<HTMLElemen
 
   const close = (): void => {
     open.value = false
+    const target = triggerImage.value
+    triggerImage.value = null
+    if (target && typeof document !== 'undefined' && document.contains(target)) {
+      void nextTick(() => {
+        target.focus()
+      })
+    }
   }
 
   const next = (): void => {
