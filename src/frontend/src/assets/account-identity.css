@@ -8,7 +8,7 @@
 .account-identity-frame .account-frame-outlet--takeover
  {
     display: flex;
-    min-height: calc(100dvh - 9rem);
+    min-height: calc(var(--fsus-viewport-block-size) - 9rem);
     max-width: none;
     flex-direction: column;
 }
@@ -31,6 +31,6 @@
  {
     .account-identity-frame .account-frame-outlet--takeover
  {
-        min-height: calc(100dvh - 8rem);
+        min-height: calc(var(--fsus-viewport-block-size) - 8rem);
     }
 }

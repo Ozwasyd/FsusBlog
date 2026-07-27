@@ -126,7 +126,7 @@ for (const required of [
   'width: fsusDialogWidths.default',
   '--el-dialog-padding-primary: var(--fsus-space-6);',
   'max-width: var(--fsus-dialog-mobile-max-width);',
-  'max-height: calc(100dvh - var(--fsus-space-8));'
+  'max-height: calc(var(--fsus-viewport-block-size) - var(--fsus-space-8));'
 ]) {
   if (!dialogWrapper.includes(required)) errors.push(`components/ui/FsusDialog.vue: missing ${required}`)
 }

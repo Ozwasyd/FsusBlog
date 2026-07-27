@@ -702,8 +702,11 @@ function checkIssueDensityContracts()
     assertContains(accountShellBasePath, /@media \(min-width: 1024px\)[\s\S]*?\.account-route-frame\s*\{[\s\S]*?gap:\s*var\(--fsus-space-8\);[\s\S]*?padding-inline:\s*var\(--fsus-space-6\);/, 'account desktop frame must use the 32px gap and 24px horizontal inset');
     assertNotContains(accountShellBasePath, /calc\(var\(--fsus-space-5\) \* 2\)/, 'account desktop frame must not restore the non-tokenized 40px calculation');
     assertContains(accountShellBasePath, /\.account-shell\s*\{[\s\S]*?--fsusblog-account-header-height:\s*5\.5625rem;/, 'account shell must expose the measured 89px header token');
-    assertContains(accountShellBasePath, /max-height:\s*calc\(100dvh - var\(--fsusblog-account-header-height\) - var\(--fsus-space-8\) - var\(--fsus-space-8\)\);/, 'account desktop scroll region must derive from measured header and tokenized insets');
-    assertNotContains(accountShellBasePath, /max-height:\s*calc\(100dvh - 7rem\);/, 'account desktop scroll region must not restore the hard-coded offset');
+    assertContains(accountShellBasePath, /max-height:\s*calc\(var\(--fsus-viewport-block-size\) - var\(--fsusblog-account-header-height\) - var\(--fsus-space-8\) - var\(--fsus-space-8\)\);/, 'account desktop scroll region must derive from measured header and FsusUI viewport token');
+    assertNotContains(accountShellBasePath, /max-height:\s*calc\(100(?:vh|dvh) - 7rem\);/, 'account desktop scroll region must not restore the hard-coded offset');
+    assertNotContains(accountShellBasePath, /height:\s*100vh\s*;\s*height:\s*100dvh/, 'account mobile drawer must not dual-write 100vh/100dvh');
+    assertContains(accountShellBasePath, /height:\s*var\(--fsus-viewport-block-size\);/, 'account mobile drawer block-size must consume FsusUI viewport token');
+    assertContains(accountShellBasePath, /padding-bottom:\s*var\(--fsus-safe-area-inset-bottom\);/, 'account mobile drawer nav must consume FsusUI safe-area token');
     assertContains(accountRouteFramePath, /<template #header="\{ titleId, titleClass \}">[\s\S]*?\[titleClass, 'account-mobile-drawer__title'\]/, 'account drawer must own its title through the public header slot');
     assertContains(accountShellBasePath, /\.account-mobile-drawer__title\s*\{[\s\S]*?margin:\s*0;[\s\S]*?color:\s*var\(--fsusblog-text-primary\);[\s\S]*?font-size:\s*16px;[\s\S]*?font-weight:\s*700;/, 'account drawer title must retain its explicit hierarchy');
     assertContains(accountShellBasePath, /\.account-mobile-drawer\s*\{[\s\S]*?--el-drawer-padding-primary:\s*var\(--fsus-space-5\);/, 'account drawer must configure its 20px inset through the public token');

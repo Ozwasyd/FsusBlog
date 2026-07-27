@@ -16,7 +16,14 @@ FsusBlog 只负责 **document-level viewport**：`src/frontend/index.html` 是�
 
 Vite dist、public AOT 与 SPA fallback 均消费该模板产物；`App.vue` / bootstrap / router 不得通过 `useHead` 或 DOM 补丁改写 viewport；后端不得合成第二份最小 HTML。组件内部 safe-area 几何（Dialog、Lightbox、PublicShell 控件贴边等）由 FsusUI contract 所有，不在 Blog 文档 viewport 契约内。
 
-静态门禁：`check:document-viewport-source`。
+Blog runtime 作为 consumer 只消费 FsusUI 暴露的：
+
+- `--fsus-safe-area-inset-top/right/bottom/left`
+- `--fsus-viewport-block-size`
+
+不得再直接读取 `env(safe-area-inset-*)`、声明 `--fsusblog-safe-*` 等同义变量，或保留 `100vh`/`100dvh` 双写兼容。业务 surface 只组合业务间距与上述 token。
+
+静态门禁：`check:document-viewport-source`、`check:canonical-viewport-safe-area`。
 
 ## 组件与交互所有权
 
@@ -67,6 +74,7 @@ Archive 年份 section 以 `--fsusblog-public-anchor-offset` 提供 hash clearan
 ## 验收与降级
 
 - `check:document-viewport-source` 验证唯一 document viewport 来源、`viewport-fit=cover`、无 runtime/后端副本，并对 reintroduce 路径做 mutation 拒绝。
+- `check:canonical-viewport-safe-area` 验证 Blog runtime 只消费 FsusUI canonical safe-area / viewport 变量，拒绝直接 `env()`、同义 token、`100vh`/`100dvh` 双写与裸 viewport 单位，并覆盖 toast / account drawer / editor action bar / TOC drawer 公式与 mutation。
 - `check:public-shell-css-ownership` 验证 CSS 分层、delegated search/auth 与 emergency 生成来源。
 - `check:visual-density-governance` 拒绝旧触控高度、固定 archive offset 和内部选择器。
 - `usePublicStickyGeometry.test.ts` 覆盖初始测量、observer 更新、viewport resize、元素替换与卸载清理。

@@ -103,7 +103,7 @@ Article reading aids must not move the article body layout. Reading progress use
 
 Article titles, body images and code blocks appear statically and never use scroll reveal. Copy controls use text feedback plus toast feedback. Runtime code block copy buttons use `blog-motion-reading-control` and a copied state class, so the label change remains visible on touch devices and screen readers.
 
-Lightbox overlay enter/leave uses `--blog-motion-overlay`; the figure uses `--blog-motion-panel`. Reduced motion disables transitions and must not introduce zoom or scale. Mobile reading actions use `blog-motion-mobile-bar`, respect `safe-area-inset-bottom`, and limit translate to 4px. Hash and comments navigation should call the shared reading target helper so smooth scroll becomes auto under reduced motion and the destination gets a short `blog-motion-reading-target` highlight.
+Lightbox overlay enter/leave uses `--blog-motion-overlay`; the figure uses `--blog-motion-panel`. Reduced motion disables transitions and must not introduce zoom or scale. Mobile reading actions use `blog-motion-mobile-bar`, respect `var(--fsus-safe-area-inset-bottom)`, and limit translate to 4px. Toast viewport-bottom placement also consumes the same FsusUI inset token rather than a direct `env()` read. Hash and comments navigation should call the shared reading target helper so smooth scroll becomes auto under reduced motion and the destination gets a short `blog-motion-reading-target` highlight.
 
 ## Row State Motion
 

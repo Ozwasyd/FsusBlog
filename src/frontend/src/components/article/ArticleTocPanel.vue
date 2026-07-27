@@ -89,7 +89,7 @@ const handleDrawerNavigate = (id: string): void => {
   right: max(1.5rem, calc((100vw - 72rem) / 2));
   z-index: 20;
   width: 12rem;
-  max-height: calc(100vh - 11rem);
+  max-height: calc(var(--fsus-viewport-block-size) - 11rem);
   overflow: auto;
   border-left: 1px solid var(--fsusblog-panel-border);
   padding-left: 0.875rem;
@@ -145,6 +145,6 @@ const handleDrawerNavigate = (id: string): void => {
 }
 
 .article-toc-drawer__nav {
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
+  padding-bottom: calc(var(--fsus-safe-area-inset-bottom) + 1rem);
 }
 </style>

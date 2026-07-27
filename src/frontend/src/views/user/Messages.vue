@@ -557,7 +557,7 @@ const formatTime = (input: string): string => {
   .messages-inbox-layout {
     grid-template-columns: minmax(20rem, 24rem) minmax(0, 1fr);
     gap: var(--fsus-space-8);
-    min-height: calc(100dvh - 8rem);
+    min-height: calc(var(--fsus-viewport-block-size) - 8rem);
   }
 }
 

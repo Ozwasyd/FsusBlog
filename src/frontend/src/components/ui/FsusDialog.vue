@@ -92,7 +92,7 @@ const resolvedModalClass = computed(() =>
   display: flex;
   flex-direction: column;
   max-width: var(--fsus-dialog-mobile-max-width);
-  max-height: calc(100dvh - var(--fsus-space-8));
+  max-height: calc(var(--fsus-viewport-block-size) - var(--fsus-space-8));
   margin: 0 !important;
   overflow: hidden;
 }

@@ -608,7 +608,7 @@ const formatTime = (input: string): string => {
 }
 
 .admin-message-center__layout {
-  min-height: calc(100dvh - 15rem);
+  min-height: calc(var(--fsus-viewport-block-size) - 15rem);
 }
 
 .admin-message-center__list,

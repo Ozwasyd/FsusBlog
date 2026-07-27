@@ -102,7 +102,7 @@
   position: fixed !important;
   left: 50%;
   top: auto !important;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
+  bottom: calc(var(--fsus-safe-area-inset-bottom) + 1rem);
   box-sizing: border-box;
   max-inline-size: calc(100vw - 2rem);
   transform: translate3d(-50%, calc(var(--el-message-stack-y, 0px) * -1), 0);

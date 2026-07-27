@@ -154,9 +154,8 @@
     --el-drawer-padding-primary: var(--fsus-space-5);
 
     display: flex;
-    height: 100vh;
-    height: 100dvh;
-    max-height: 100dvh;
+    height: var(--fsus-viewport-block-size);
+    max-height: var(--fsus-viewport-block-size);
     flex-direction: column;
     overflow: hidden;
 }
@@ -173,7 +172,7 @@
 .account-mobile-drawer-nav
  {
     flex: 0 0 auto;
-    padding-bottom: env(safe-area-inset-bottom, 0);
+    padding-bottom: var(--fsus-safe-area-inset-bottom);
 }
 
 .account-route-frame
@@ -248,8 +247,7 @@
 
     .account-main-scroll
  {
-        max-height: calc(100vh - var(--fsusblog-account-header-height) - var(--fsus-space-8) - var(--fsus-space-8));
-        max-height: calc(100dvh - var(--fsusblog-account-header-height) - var(--fsus-space-8) - var(--fsus-space-8));
+        max-height: calc(var(--fsus-viewport-block-size) - var(--fsusblog-account-header-height) - var(--fsus-space-8) - var(--fsus-space-8));
         overflow-y: auto;
         overscroll-behavior: contain;
         scrollbar-gutter: stable;

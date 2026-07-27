@@ -166,7 +166,7 @@ defineEmits<{
 
 @media (max-width: 767px) {
   :global(.write-workspace) {
-    padding-bottom: calc(var(--fsus-space-8) + env(safe-area-inset-bottom));
+    padding-bottom: calc(var(--fsus-space-8) + var(--fsus-safe-area-inset-bottom));
   }
 
   .article-write-command-bar {
@@ -191,12 +191,12 @@ defineEmits<{
     right: 0;
     bottom: 0;
     left: 0;
-    height: calc(var(--fsus-space-8) + env(safe-area-inset-bottom));
+    height: calc(var(--fsus-space-8) + var(--fsus-safe-area-inset-bottom));
     justify-content: flex-end;
     gap: var(--fsus-space-2);
     border-top: 1px solid var(--fsusblog-panel-border);
     background: var(--fsusblog-page-bg);
-    padding: var(--fsus-space-3) var(--fsus-space-4) calc(var(--fsus-space-3) + env(safe-area-inset-bottom));
+    padding: var(--fsus-space-3) var(--fsus-space-4) calc(var(--fsus-space-3) + var(--fsus-safe-area-inset-bottom));
   }
 
   .article-write-command-bar__save-status {

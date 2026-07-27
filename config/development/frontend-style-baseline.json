@@ -1,10 +1,10 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:545a5ff954186aaad0a6b9546023938ca59d1d527bf7fe840362b5706bb8956e",
-    "sourceStateSha256": "545a5ff954186aaad0a6b9546023938ca59d1d527bf7fe840362b5706bb8956e",
-    "configurationSha256": "4115e0ee7d6a3e37b82ea4046179af026a8a73bab51f1ac2b0c7bdf26b0f83b5",
+    "generatedFrom": "source-state:45e6b7abe4c3095a7547b318ca9cc7f3f029d864035fa1549560feb40206341e",
+    "sourceStateSha256": "45e6b7abe4c3095a7547b318ca9cc7f3f029d864035fa1549560feb40206341e",
+    "configurationSha256": "a154e0dd08f274b732e005c5a9e4991bae0a38c2b2273e96fa3d16c46c78fa16",
     "violationCount": 304282,
-    "fileCount": 1054,
+    "fileCount": 1059,
     "files": [
         {
             "path": "src/frontend/public/sw.js",
@@ -97,28 +97,6 @@
             "rules": {
                 "eslint/@stylistic/indent": 3,
                 "eslint/@stylistic/semi": 1
-            }
-        },
-        {
-            "path": "src/frontend/src/App.vue",
-            "sourceSha256": "ac0b0984bf34b6725619be3e533450ad02699883db83e1708cb9b698c05f5453",
-            "violationCount": 406,
-            "violationDigest": "34c7a73973b6a5bbf4cb620096c86d29209e970cb6c4f90f6851e91c9b4e6a6a",
-            "rules": {
-                "eslint/@stylistic/semi": 95,
-                "eslint/import-x/order": 11,
-                "eslint/vue/script-indent": 119,
-                "eslint/@typescript-eslint/no-unsafe-assignment": 20,
-                "eslint/@typescript-eslint/no-unsafe-call": 30,
-                "eslint/@typescript-eslint/no-unsafe-member-access": 39,
-                "eslint/@stylistic/brace-style": 31,
-                "eslint/@typescript-eslint/no-unsafe-return": 7,
-                "eslint/@typescript-eslint/no-empty-function": 1,
-                "eslint/@typescript-eslint/no-unsafe-argument": 1,
-                "eslint/vue/block-order": 1,
-                "eslint/vue/html-indent": 41,
-                "eslint/vue/component-name-in-template-casing": 4,
-                "eslint/vue/max-attributes-per-line": 6
             }
         },
         {
@@ -664,14 +642,50 @@
             }
         },
         {
+            "path": "src/frontend/src/App.vue",
+            "sourceSha256": "ac0b0984bf34b6725619be3e533450ad02699883db83e1708cb9b698c05f5453",
+            "violationCount": 406,
+            "violationDigest": "34c7a73973b6a5bbf4cb620096c86d29209e970cb6c4f90f6851e91c9b4e6a6a",
+            "rules": {
+                "eslint/@stylistic/semi": 95,
+                "eslint/import-x/order": 11,
+                "eslint/vue/script-indent": 119,
+                "eslint/@typescript-eslint/no-unsafe-assignment": 20,
+                "eslint/@typescript-eslint/no-unsafe-call": 30,
+                "eslint/@typescript-eslint/no-unsafe-member-access": 39,
+                "eslint/@stylistic/brace-style": 31,
+                "eslint/@typescript-eslint/no-unsafe-return": 7,
+                "eslint/@typescript-eslint/no-empty-function": 1,
+                "eslint/@typescript-eslint/no-unsafe-argument": 1,
+                "eslint/vue/block-order": 1,
+                "eslint/vue/html-indent": 41,
+                "eslint/vue/component-name-in-template-casing": 4,
+                "eslint/vue/max-attributes-per-line": 6
+            }
+        },
+        {
+            "path": "src/frontend/src/assets/account-identity.css",
+            "sourceSha256": "64eb51169efa28a5ffba55affecf97aefdcb29d72422e1f9f694d95b7fa7d48d",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
+        },
+        {
             "path": "src/frontend/src/assets/account-shell-base.css",
-            "sourceSha256": "e2e87173384f95df820bd0200768dbc09adebb4cc4a0622d8aad966ffd15eee7",
+            "sourceSha256": "127ebb36b16ef818721eb27d8af9234fe3e17e13aaf875e70fcadd3ad54ad300",
             "violationCount": 2,
             "violationDigest": "b7592594b14ec4455f1cc33bd2660511a9fbb8e747b1d59dd368fa94210426ae",
             "rules": {
                 "stylelint/@stylistic/block-opening-brace-newline-before": 1,
                 "stylelint/media-feature-range-notation": 1
             }
+        },
+        {
+            "path": "src/frontend/src/assets/admin-workspace.css",
+            "sourceSha256": "0299d376a8a819a24d23e887f1c248a650706e31010823f414810f5b0eef8dab",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "src/frontend/src/assets/admin/taxonomy.css",
@@ -710,7 +724,7 @@
         },
         {
             "path": "src/frontend/src/assets/motion.css",
-            "sourceSha256": "2bd643a716d7fd568aec2fb3d0c10f62eb93adce80c158acdc3b96b7c7ae8eb7",
+            "sourceSha256": "433676aebf8339f89dc92ec5528e99935eb1804ddbdfeda23e59c5ba27590b78",
             "violationCount": 149,
             "violationDigest": "f10078cc45820028b0e64f8e6a2c0ed94e853b06f81512c4e6426c75946ad84c",
             "rules": {
@@ -758,7 +772,7 @@
         },
         {
             "path": "src/frontend/src/assets/public-shell-foundation.css",
-            "sourceSha256": "4057c22e59552a67e7df8a39ef5ba2c1374371cd9228eafbeb8a48b5a734534a",
+            "sourceSha256": "8d401f0fd49f4b082c15096943809b056307b11d529dde1c199e1afd5a1eb74c",
             "violationCount": 403,
             "violationDigest": "86ece77094db076144156858f1b9d0e92c26e226ea9210e152288f20fd4715ae",
             "rules": {
@@ -1090,35 +1104,6 @@
             }
         },
         {
-            "path": "src/frontend/src/components/PolicyModal.vue",
-            "sourceSha256": "22a3fb269aee94e17946a9d8df753a69cd8b44a1f31d23d2b30bacfca583b34b",
-            "violationCount": 273,
-            "violationDigest": "3de10143e9889af4387e4e5625ca1c478457ca8b1235b7c0879586a99a722aa5",
-            "rules": {
-                "eslint/@stylistic/brace-style": 17,
-                "eslint/@stylistic/member-delimiter-style": 2,
-                "eslint/@stylistic/semi": 45,
-                "eslint/@typescript-eslint/no-explicit-any": 3,
-                "eslint/@typescript-eslint/no-floating-promises": 1,
-                "eslint/@typescript-eslint/no-unsafe-assignment": 2,
-                "eslint/@typescript-eslint/no-unsafe-member-access": 3,
-                "eslint/@typescript-eslint/prefer-nullish-coalescing": 2,
-                "eslint/curly": 3,
-                "eslint/import-x/order": 1,
-                "eslint/vue/component-name-in-template-casing": 4,
-                "eslint/vue/html-indent": 44,
-                "eslint/vue/max-attributes-per-line": 8,
-                "eslint/vue/script-indent": 40,
-                "stylelint/@stylistic/block-closing-brace-newline-before": 1,
-                "stylelint/@stylistic/block-opening-brace-newline-after": 1,
-                "stylelint/@stylistic/block-opening-brace-newline-before": 18,
-                "stylelint/@stylistic/indentation": 57,
-                "stylelint/rule-empty-line-before": 1,
-                "stylelint/scss/at-rule-no-unknown": 1,
-                "stylelint/selector-pseudo-class-no-unknown": 19
-            }
-        },
-        {
             "path": "src/frontend/src/components/account/AccountHeaderMenu.vue",
             "sourceSha256": "727006ccea59e6d0672ac47d87324c2fee73b687b6056ad0792bfe82d7465995",
             "violationCount": 0,
@@ -1274,57 +1259,6 @@
             }
         },
         {
-            "path": "src/frontend/src/components/admin/AuditActionLabel.vue",
-            "sourceSha256": "15b090d03ef6778ecd0d0e9e8b0d40fdb436ac4163b1d7cad866da0b34fadb03",
-            "violationCount": 37,
-            "violationDigest": "f29ea113c9db489fa9291701a30ed5dd7d22a3f7550014ad0056b88309c09b0f",
-            "rules": {
-                "eslint/@stylistic/member-delimiter-style": 1,
-                "eslint/@stylistic/semi": 4,
-                "eslint/import-x/order": 1,
-                "eslint/vue/html-indent": 6,
-                "eslint/vue/max-attributes-per-line": 4,
-                "eslint/vue/script-indent": 1,
-                "stylelint/@stylistic/block-opening-brace-newline-before": 4,
-                "stylelint/@stylistic/indentation": 16
-            }
-        },
-        {
-            "path": "src/frontend/src/components/admin/DashboardAuthorAnalyticsList.vue",
-            "sourceSha256": "b6a21b6740670e07cffa36db0ccd34e624057659679ad5537302910075865cb6",
-            "violationCount": 94,
-            "violationDigest": "128a294ca646deccdf64c8d6eb8928880dd9766fc685d80be731c2ac9983425f",
-            "rules": {
-                "eslint/@stylistic/member-delimiter-style": 3,
-                "eslint/@stylistic/semi": 2,
-                "eslint/vue/html-indent": 20,
-                "eslint/vue/max-attributes-per-line": 2,
-                "eslint/vue/script-indent": 3,
-                "stylelint/@stylistic/block-opening-brace-newline-before": 12,
-                "stylelint/@stylistic/indentation": 51,
-                "stylelint/media-feature-range-notation": 1
-            }
-        },
-        {
-            "path": "src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue",
-            "sourceSha256": "fd294058f29dffe393a3827e931c6163d9b3fcda1e57600b1c64fb9dfcc134f0",
-            "violationCount": 280,
-            "violationDigest": "f90e1839c2910504c82c5c290ec450496a300f50d33311e258aa06e121f92c86",
-            "rules": {
-                "eslint/@stylistic/brace-style": 2,
-                "eslint/@stylistic/member-delimiter-style": 9,
-                "eslint/@stylistic/semi": 24,
-                "eslint/@typescript-eslint/consistent-type-definitions": 2,
-                "eslint/import-x/order": 2,
-                "eslint/vue/html-indent": 90,
-                "eslint/vue/max-attributes-per-line": 12,
-                "eslint/vue/script-indent": 63,
-                "stylelint/@stylistic/block-opening-brace-newline-before": 19,
-                "stylelint/@stylistic/indentation": 56,
-                "stylelint/media-feature-range-notation": 1
-            }
-        },
-        {
             "path": "src/frontend/src/components/admin/article/AdminArticleCompactCard.vue",
             "sourceSha256": "2f76987262bd1a4e6b69a70964427c21181f05e8a060ffb64055360ba5736ba7",
             "violationCount": 144,
@@ -1429,8 +1363,15 @@
             }
         },
         {
+            "path": "src/frontend/src/components/admin/article/ArticleWriteCommandBar.vue",
+            "sourceSha256": "b13b1cb3c2e6c1b27f303187d62966cb77a281635d4dc93e4f31b5546f6151ab",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
+        },
+        {
             "path": "src/frontend/src/components/admin/article/ArticleWriteEditor.vue",
-            "sourceSha256": "f3f4eceeda5693fad7c4f650bce0cddc31fcb41de541ab775bda8345387cdc19",
+            "sourceSha256": "4a66e201ee75b6b95c0d573844302567e2b6335ad5bc238426f680f56a8f834c",
             "violationCount": 72,
             "violationDigest": "166eb724f2b11616b9de81e28fcd30520d9873735fe14efa2cf52588ca46f8de",
             "rules": {
@@ -1461,6 +1402,22 @@
                 "stylelint/media-feature-range-notation": 1,
                 "stylelint/selector-pseudo-class-no-unknown": 3,
                 "stylelint/value-keyword-case": 2
+            }
+        },
+        {
+            "path": "src/frontend/src/components/admin/AuditActionLabel.vue",
+            "sourceSha256": "15b090d03ef6778ecd0d0e9e8b0d40fdb436ac4163b1d7cad866da0b34fadb03",
+            "violationCount": 37,
+            "violationDigest": "f29ea113c9db489fa9291701a30ed5dd7d22a3f7550014ad0056b88309c09b0f",
+            "rules": {
+                "eslint/@stylistic/member-delimiter-style": 1,
+                "eslint/@stylistic/semi": 4,
+                "eslint/import-x/order": 1,
+                "eslint/vue/html-indent": 6,
+                "eslint/vue/max-attributes-per-line": 4,
+                "eslint/vue/script-indent": 1,
+                "stylelint/@stylistic/block-opening-brace-newline-before": 4,
+                "stylelint/@stylistic/indentation": 16
             }
         },
         {
@@ -1527,6 +1484,41 @@
                 "eslint/vue/script-indent": 39,
                 "stylelint/@stylistic/block-opening-brace-newline-before": 8,
                 "stylelint/@stylistic/indentation": 32
+            }
+        },
+        {
+            "path": "src/frontend/src/components/admin/DashboardAuthorAnalyticsList.vue",
+            "sourceSha256": "b6a21b6740670e07cffa36db0ccd34e624057659679ad5537302910075865cb6",
+            "violationCount": 94,
+            "violationDigest": "128a294ca646deccdf64c8d6eb8928880dd9766fc685d80be731c2ac9983425f",
+            "rules": {
+                "eslint/@stylistic/member-delimiter-style": 3,
+                "eslint/@stylistic/semi": 2,
+                "eslint/vue/html-indent": 20,
+                "eslint/vue/max-attributes-per-line": 2,
+                "eslint/vue/script-indent": 3,
+                "stylelint/@stylistic/block-opening-brace-newline-before": 12,
+                "stylelint/@stylistic/indentation": 51,
+                "stylelint/media-feature-range-notation": 1
+            }
+        },
+        {
+            "path": "src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue",
+            "sourceSha256": "fd294058f29dffe393a3827e931c6163d9b3fcda1e57600b1c64fb9dfcc134f0",
+            "violationCount": 280,
+            "violationDigest": "f90e1839c2910504c82c5c290ec450496a300f50d33311e258aa06e121f92c86",
+            "rules": {
+                "eslint/@stylistic/brace-style": 2,
+                "eslint/@stylistic/member-delimiter-style": 9,
+                "eslint/@stylistic/semi": 24,
+                "eslint/@typescript-eslint/consistent-type-definitions": 2,
+                "eslint/import-x/order": 2,
+                "eslint/vue/html-indent": 90,
+                "eslint/vue/max-attributes-per-line": 12,
+                "eslint/vue/script-indent": 63,
+                "stylelint/@stylistic/block-opening-brace-newline-before": 19,
+                "stylelint/@stylistic/indentation": 56,
+                "stylelint/media-feature-range-notation": 1
             }
         },
         {
@@ -1645,6 +1637,30 @@
             }
         },
         {
+            "path": "src/frontend/src/components/article/ArticleCommentsVirtualList.vue",
+            "sourceSha256": "ebfab7bfa7e0a59467c91782d460990e86d2a010762ea6a147f86ff7c98bb84b",
+            "violationCount": 101,
+            "violationDigest": "96e21fd25e0b673fb0de3d84a20547beb54d948d3c7a53afe04900757c8e9fff",
+            "rules": {
+                "eslint/@stylistic/brace-style": 3,
+                "eslint/@stylistic/max-statements-per-line": 1,
+                "eslint/@stylistic/member-delimiter-style": 13,
+                "eslint/@stylistic/semi": 16,
+                "eslint/@typescript-eslint/consistent-type-definitions": 3,
+                "eslint/import-x/order": 1,
+                "eslint/vue/html-indent": 21,
+                "eslint/vue/max-attributes-per-line": 5,
+                "eslint/vue/script-indent": 10,
+                "stylelint/@stylistic/block-closing-brace-newline-before": 4,
+                "stylelint/@stylistic/block-opening-brace-newline-after": 4,
+                "stylelint/@stylistic/block-opening-brace-newline-before": 6,
+                "stylelint/@stylistic/declaration-block-semicolon-newline-after": 2,
+                "stylelint/@stylistic/indentation": 8,
+                "stylelint/declaration-block-single-line-max-declarations": 2,
+                "stylelint/rule-empty-line-before": 2
+            }
+        },
+        {
             "path": "src/frontend/src/components/article/ArticleCommentTreeNode.vue",
             "sourceSha256": "fd9f75d45f46ef9e2e09ba43fc81d85c1e7bb69b1a1aa8ffc628a5979da096d6",
             "violationCount": 355,
@@ -1667,30 +1683,6 @@
                 "stylelint/declaration-block-single-line-max-declarations": 7,
                 "stylelint/media-feature-range-notation": 1,
                 "stylelint/rule-empty-line-before": 3
-            }
-        },
-        {
-            "path": "src/frontend/src/components/article/ArticleCommentsVirtualList.vue",
-            "sourceSha256": "ebfab7bfa7e0a59467c91782d460990e86d2a010762ea6a147f86ff7c98bb84b",
-            "violationCount": 101,
-            "violationDigest": "96e21fd25e0b673fb0de3d84a20547beb54d948d3c7a53afe04900757c8e9fff",
-            "rules": {
-                "eslint/@stylistic/brace-style": 3,
-                "eslint/@stylistic/max-statements-per-line": 1,
-                "eslint/@stylistic/member-delimiter-style": 13,
-                "eslint/@stylistic/semi": 16,
-                "eslint/@typescript-eslint/consistent-type-definitions": 3,
-                "eslint/import-x/order": 1,
-                "eslint/vue/html-indent": 21,
-                "eslint/vue/max-attributes-per-line": 5,
-                "eslint/vue/script-indent": 10,
-                "stylelint/@stylistic/block-closing-brace-newline-before": 4,
-                "stylelint/@stylistic/block-opening-brace-newline-after": 4,
-                "stylelint/@stylistic/block-opening-brace-newline-before": 6,
-                "stylelint/@stylistic/declaration-block-semicolon-newline-after": 2,
-                "stylelint/@stylistic/indentation": 8,
-                "stylelint/declaration-block-single-line-max-declarations": 2,
-                "stylelint/rule-empty-line-before": 2
             }
         },
         {
@@ -1804,7 +1796,7 @@
         },
         {
             "path": "src/frontend/src/components/article/ArticleTocPanel.vue",
-            "sourceSha256": "86926b4d493be9f16727d888755b9b137d051583426e4a1f5a8c5b0bac3f565d",
+            "sourceSha256": "f9df591c3ce594f38cbef67b6abed4c6c71dec81ff72aaacfc7f44b0c39782f8",
             "violationCount": 121,
             "violationDigest": "e6882ea62a79ba671e5919c0af22e59fce0a55202b2b8ad4da9ed9fc6d36a8ec",
             "rules": {
@@ -1943,6 +1935,35 @@
             }
         },
         {
+            "path": "src/frontend/src/components/PolicyModal.vue",
+            "sourceSha256": "22a3fb269aee94e17946a9d8df753a69cd8b44a1f31d23d2b30bacfca583b34b",
+            "violationCount": 273,
+            "violationDigest": "3de10143e9889af4387e4e5625ca1c478457ca8b1235b7c0879586a99a722aa5",
+            "rules": {
+                "eslint/@stylistic/brace-style": 17,
+                "eslint/@stylistic/member-delimiter-style": 2,
+                "eslint/@stylistic/semi": 45,
+                "eslint/@typescript-eslint/no-explicit-any": 3,
+                "eslint/@typescript-eslint/no-floating-promises": 1,
+                "eslint/@typescript-eslint/no-unsafe-assignment": 2,
+                "eslint/@typescript-eslint/no-unsafe-member-access": 3,
+                "eslint/@typescript-eslint/prefer-nullish-coalescing": 2,
+                "eslint/curly": 3,
+                "eslint/import-x/order": 1,
+                "eslint/vue/component-name-in-template-casing": 4,
+                "eslint/vue/html-indent": 44,
+                "eslint/vue/max-attributes-per-line": 8,
+                "eslint/vue/script-indent": 40,
+                "stylelint/@stylistic/block-closing-brace-newline-before": 1,
+                "stylelint/@stylistic/block-opening-brace-newline-after": 1,
+                "stylelint/@stylistic/block-opening-brace-newline-before": 18,
+                "stylelint/@stylistic/indentation": 57,
+                "stylelint/rule-empty-line-before": 1,
+                "stylelint/scss/at-rule-no-unknown": 1,
+                "stylelint/selector-pseudo-class-no-unknown": 19
+            }
+        },
+        {
             "path": "src/frontend/src/components/public/ArticleCommentsEmptyState.vue",
             "sourceSha256": "957f618f6f59dd7e0110321d90722918372d7f35cdc4e5420a73328287f28f05",
             "violationCount": 79,
@@ -1989,58 +2010,6 @@
                 "eslint/vue/html-indent": 17,
                 "eslint/vue/max-attributes-per-line": 1,
                 "eslint/vue/script-indent": 2
-            }
-        },
-        {
-            "path": "src/frontend/src/components/public/PublicBlogLayoutShell.vue",
-            "sourceSha256": "2f218695bb9a4d5032ae4199e8ce8f4c382cea0fb5b090c73feab9496af14c07",
-            "violationCount": 442,
-            "violationDigest": "b4e636e82463bea4ebc792dbe1e256b046adf5bbc8724c0eeff3bef3f1e4413c",
-            "rules": {
-                "eslint/@stylistic/brace-style": 20,
-                "eslint/@stylistic/comma-dangle": 16,
-                "eslint/@stylistic/member-delimiter-style": 32,
-                "eslint/@stylistic/semi": 76,
-                "eslint/@typescript-eslint/array-type": 1,
-                "eslint/@typescript-eslint/no-unsafe-assignment": 1,
-                "eslint/@typescript-eslint/prefer-nullish-coalescing": 1,
-                "eslint/import-x/order": 8,
-                "eslint/vue/html-indent": 108,
-                "eslint/vue/max-attributes-per-line": 2,
-                "eslint/vue/script-indent": 169,
-                "stylelint/@stylistic/block-opening-brace-newline-before": 2,
-                "stylelint/@stylistic/indentation": 6
-            }
-        },
-        {
-            "path": "src/frontend/src/components/public/PublicComplianceFooter.vue",
-            "sourceSha256": "14a58d6167616c72d977879545ff73499cb43703e9b0895b9d1f02b0f06a08e2",
-            "violationCount": 191,
-            "violationDigest": "4a4239615f9b74a9b634072060bac7e146a0ae70a98d886c30af4388e9984653",
-            "rules": {
-                "eslint/@stylistic/brace-style": 11,
-                "eslint/@stylistic/member-delimiter-style": 8,
-                "eslint/@stylistic/semi": 39,
-                "eslint/@typescript-eslint/array-type": 1,
-                "eslint/@typescript-eslint/prefer-nullish-coalescing": 1,
-                "eslint/import-x/order": 1,
-                "eslint/vue/html-indent": 69,
-                "eslint/vue/max-attributes-per-line": 8,
-                "eslint/vue/script-indent": 53
-            }
-        },
-        {
-            "path": "src/frontend/src/components/public/PublicReadingPageFrame.vue",
-            "sourceSha256": "f6819a9bd295a8a2fb29ced1aa218e045e35caf4819cf30edc0fb4f591acf205",
-            "violationCount": 32,
-            "violationDigest": "38143c7303cd9012bfa140aaf275f666bda488ed014e58c107816a249f4b3e73",
-            "rules": {
-                "eslint/@stylistic/member-delimiter-style": 3,
-                "eslint/@stylistic/semi": 1,
-                "eslint/vue/html-indent": 10,
-                "eslint/vue/script-indent": 6,
-                "stylelint/@stylistic/block-opening-brace-newline-before": 3,
-                "stylelint/@stylistic/indentation": 9
             }
         },
         {
@@ -2134,6 +2103,58 @@
                 "eslint/vue/html-indent": 46,
                 "eslint/vue/max-attributes-per-line": 1,
                 "eslint/vue/script-indent": 11
+            }
+        },
+        {
+            "path": "src/frontend/src/components/public/PublicBlogLayoutShell.vue",
+            "sourceSha256": "2f218695bb9a4d5032ae4199e8ce8f4c382cea0fb5b090c73feab9496af14c07",
+            "violationCount": 442,
+            "violationDigest": "b4e636e82463bea4ebc792dbe1e256b046adf5bbc8724c0eeff3bef3f1e4413c",
+            "rules": {
+                "eslint/@stylistic/brace-style": 20,
+                "eslint/@stylistic/comma-dangle": 16,
+                "eslint/@stylistic/member-delimiter-style": 32,
+                "eslint/@stylistic/semi": 76,
+                "eslint/@typescript-eslint/array-type": 1,
+                "eslint/@typescript-eslint/no-unsafe-assignment": 1,
+                "eslint/@typescript-eslint/prefer-nullish-coalescing": 1,
+                "eslint/import-x/order": 8,
+                "eslint/vue/html-indent": 108,
+                "eslint/vue/max-attributes-per-line": 2,
+                "eslint/vue/script-indent": 169,
+                "stylelint/@stylistic/block-opening-brace-newline-before": 2,
+                "stylelint/@stylistic/indentation": 6
+            }
+        },
+        {
+            "path": "src/frontend/src/components/public/PublicComplianceFooter.vue",
+            "sourceSha256": "14a58d6167616c72d977879545ff73499cb43703e9b0895b9d1f02b0f06a08e2",
+            "violationCount": 191,
+            "violationDigest": "4a4239615f9b74a9b634072060bac7e146a0ae70a98d886c30af4388e9984653",
+            "rules": {
+                "eslint/@stylistic/brace-style": 11,
+                "eslint/@stylistic/member-delimiter-style": 8,
+                "eslint/@stylistic/semi": 39,
+                "eslint/@typescript-eslint/array-type": 1,
+                "eslint/@typescript-eslint/prefer-nullish-coalescing": 1,
+                "eslint/import-x/order": 1,
+                "eslint/vue/html-indent": 69,
+                "eslint/vue/max-attributes-per-line": 8,
+                "eslint/vue/script-indent": 53
+            }
+        },
+        {
+            "path": "src/frontend/src/components/public/PublicReadingPageFrame.vue",
+            "sourceSha256": "f6819a9bd295a8a2fb29ced1aa218e045e35caf4819cf30edc0fb4f591acf205",
+            "violationCount": 32,
+            "violationDigest": "38143c7303cd9012bfa140aaf275f666bda488ed014e58c107816a249f4b3e73",
+            "rules": {
+                "eslint/@stylistic/member-delimiter-style": 3,
+                "eslint/@stylistic/semi": 1,
+                "eslint/vue/html-indent": 10,
+                "eslint/vue/script-indent": 6,
+                "stylelint/@stylistic/block-opening-brace-newline-before": 3,
+                "stylelint/@stylistic/indentation": 9
             }
         },
         {
@@ -2269,7 +2290,7 @@
         },
         {
             "path": "src/frontend/src/components/ui/FsusDialog.vue",
-            "sourceSha256": "abaa1fc3811820d863f7ac45ee2e7e096ca02012b57c026d40861bede2882560",
+            "sourceSha256": "feb9550ff755d9dcc00a30814b0e995a9f4e9f925615b1b3b6e4f2fa9c744bab",
             "violationCount": 102,
             "violationDigest": "b15cd009b50e49f6c11b648835eaa1e8c1d67cbdb0cf5af21bae6b8174beac77",
             "rules": {
@@ -2309,6 +2330,31 @@
             }
         },
         {
+            "path": "src/frontend/src/components/ui/markdown-editor/commands.ts",
+            "sourceSha256": "55ebb9dbf0c300349874873bb5da69301f099555e4088cb4fd49bc56019f02cf",
+            "violationCount": 63,
+            "violationDigest": "9a1de8e085d28ce1dada68e9cf443b42fa89aaf16bd4b065b707d191c9b769c9",
+            "rules": {
+                "eslint/@stylistic/brace-style": 3,
+                "eslint/@stylistic/indent": 49,
+                "eslint/@stylistic/member-delimiter-style": 1,
+                "eslint/@stylistic/semi": 9,
+                "eslint/import-x/order": 1
+            }
+        },
+        {
+            "path": "src/frontend/src/components/ui/markdown-editor/selection.ts",
+            "sourceSha256": "bca48b7d4f349984b0853587a7365ed029056cf2342cad5ccac3aba878971d33",
+            "violationCount": 166,
+            "violationDigest": "4340cfcbde2604e134796028d0c2d5ba67b6a64c5d837234c009f06534255a50",
+            "rules": {
+                "eslint/@stylistic/brace-style": 14,
+                "eslint/@stylistic/indent": 98,
+                "eslint/@stylistic/member-delimiter-style": 11,
+                "eslint/@stylistic/semi": 43
+            }
+        },
+        {
             "path": "src/frontend/src/components/ui/MarkdownEditorAdapter.vue",
             "sourceSha256": "d1d5b9531d56f0bf7d057fc1cb65300d81fcd5c2dc32fd571735beea019814e3",
             "violationCount": 381,
@@ -2328,6 +2374,19 @@
                 "stylelint/media-feature-range-notation": 1,
                 "stylelint/property-no-deprecated": 1,
                 "stylelint/scss/at-rule-no-unknown": 1
+            }
+        },
+        {
+            "path": "src/frontend/src/components/ui/markdownEditorProvider.ts",
+            "sourceSha256": "2ef847c04489c2ef972365746d73f3c8304fa03999de909aea4d7ccd40ea647e",
+            "violationCount": 15,
+            "violationDigest": "b0246204fd326be44a70728dd165a65786b5ca4acf95a87f30eef395b3601ca8",
+            "rules": {
+                "eslint/@stylistic/brace-style": 1,
+                "eslint/@stylistic/indent": 7,
+                "eslint/@stylistic/semi": 4,
+                "eslint/@typescript-eslint/no-unsafe-assignment": 2,
+                "eslint/import-x/order": 1
             }
         },
         {
@@ -2387,7 +2446,7 @@
         },
         {
             "path": "src/frontend/src/components/ui/PasskeyRegisterModal.vue",
-            "sourceSha256": "c848083034bd3f41640597b4b9998850e81caf6ecbb30384088874478df776fb",
+            "sourceSha256": "f2f5f25a8ab0a944c73e2c5f176dddc0ed9c11733e9c9f41cb3115757f70dd6b",
             "violationCount": 458,
             "violationDigest": "0ad81fd70c1c92a63c9d994fbc4602671759df52516ad0a8813ee76b2b021f77",
             "rules": {
@@ -2429,6 +2488,18 @@
             }
         },
         {
+            "path": "src/frontend/src/components/ui/themeModeLabels.ts",
+            "sourceSha256": "aea47b6d388cedad841417ecb9101f57e38f6f43c05978d62de6ca5a19a4330d",
+            "violationCount": 21,
+            "violationDigest": "b3e6ac83b301858ffc7cb9075204ce17789b5b0cbc8d2e07428a2a0c05acebe8",
+            "rules": {
+                "eslint/@stylistic/comma-dangle": 1,
+                "eslint/@stylistic/indent": 12,
+                "eslint/@stylistic/member-delimiter-style": 6,
+                "eslint/@stylistic/semi": 2
+            }
+        },
+        {
             "path": "src/frontend/src/components/ui/ThemeModeToggle.vue",
             "sourceSha256": "5ce6370e4bb4cb52a7bc6a83f80b4833018b6bf81451e61287cbe2d5adf136a8",
             "violationCount": 44,
@@ -2445,53 +2516,78 @@
             }
         },
         {
-            "path": "src/frontend/src/components/ui/markdown-editor/commands.ts",
-            "sourceSha256": "55ebb9dbf0c300349874873bb5da69301f099555e4088cb4fd49bc56019f02cf",
-            "violationCount": 63,
-            "violationDigest": "9a1de8e085d28ce1dada68e9cf443b42fa89aaf16bd4b065b707d191c9b769c9",
+            "path": "src/frontend/src/components/user/messages/MessagesComposePanel.vue",
+            "sourceSha256": "52eed424cf7e3a3fddc9a5d0f9e81244b0134c1e336f3312b1954ab94bd232af",
+            "violationCount": 157,
+            "violationDigest": "9f6214cf4def4fedfe4f95d95e29da9717e9b5ef608fc72a4567e891c334d967",
             "rules": {
-                "eslint/@stylistic/brace-style": 3,
-                "eslint/@stylistic/indent": 49,
-                "eslint/@stylistic/member-delimiter-style": 1,
-                "eslint/@stylistic/semi": 9,
-                "eslint/import-x/order": 1
+                "eslint/@stylistic/member-delimiter-style": 14,
+                "eslint/@stylistic/semi": 6,
+                "eslint/import-x/order": 1,
+                "eslint/vue/component-name-in-template-casing": 13,
+                "eslint/vue/html-indent": 66,
+                "eslint/vue/max-attributes-per-line": 7,
+                "eslint/vue/script-indent": 20,
+                "stylelint/@stylistic/block-opening-brace-newline-before": 7,
+                "stylelint/@stylistic/indentation": 22,
+                "stylelint/scss/at-rule-no-unknown": 1
             }
         },
         {
-            "path": "src/frontend/src/components/ui/markdown-editor/selection.ts",
-            "sourceSha256": "bca48b7d4f349984b0853587a7365ed029056cf2342cad5ccac3aba878971d33",
-            "violationCount": 166,
-            "violationDigest": "4340cfcbde2604e134796028d0c2d5ba67b6a64c5d837234c009f06534255a50",
+            "path": "src/frontend/src/components/user/messages/MessagesConversationList.vue",
+            "sourceSha256": "d2fc0018e1add2afaa114f8fbda16e96d45e3f8db53d06a319baca2af1326d5f",
+            "violationCount": 384,
+            "violationDigest": "e0024197bca7ef1001bf8f4497d32eea851721118eefc307de9d31af42a16e1c",
             "rules": {
-                "eslint/@stylistic/brace-style": 14,
-                "eslint/@stylistic/indent": 98,
-                "eslint/@stylistic/member-delimiter-style": 11,
-                "eslint/@stylistic/semi": 43
+                "eslint/@stylistic/brace-style": 2,
+                "eslint/@stylistic/member-delimiter-style": 21,
+                "eslint/@stylistic/semi": 18,
+                "eslint/import-x/order": 4,
+                "eslint/vue/component-name-in-template-casing": 10,
+                "eslint/vue/html-indent": 106,
+                "eslint/vue/max-attributes-per-line": 19,
+                "eslint/vue/script-indent": 40,
+                "stylelint/@stylistic/block-opening-brace-newline-before": 35,
+                "stylelint/@stylistic/indentation": 123,
+                "stylelint/at-rule-empty-line-before": 1,
+                "stylelint/media-feature-range-notation": 4,
+                "stylelint/scss/at-rule-no-unknown": 1
             }
         },
         {
-            "path": "src/frontend/src/components/ui/markdownEditorProvider.ts",
-            "sourceSha256": "2ef847c04489c2ef972365746d73f3c8304fa03999de909aea4d7ccd40ea647e",
-            "violationCount": 15,
-            "violationDigest": "b0246204fd326be44a70728dd165a65786b5ca4acf95a87f30eef395b3601ca8",
+            "path": "src/frontend/src/components/user/messages/MessagesEmptyState.vue",
+            "sourceSha256": "7ceef4c1856c2112989c9342f6cfe2ab113d1a98f76fb12c3058c815d6533010",
+            "violationCount": 38,
+            "violationDigest": "8986f9145f84d5fe76acc916899ed2c343d54280275ebdddc74ff7b77307b9fb",
             "rules": {
-                "eslint/@stylistic/brace-style": 1,
-                "eslint/@stylistic/indent": 7,
-                "eslint/@stylistic/semi": 4,
-                "eslint/@typescript-eslint/no-unsafe-assignment": 2,
-                "eslint/import-x/order": 1
+                "eslint/@stylistic/member-delimiter-style": 2,
+                "eslint/@stylistic/semi": 1,
+                "eslint/vue/html-indent": 7,
+                "eslint/vue/max-attributes-per-line": 4,
+                "eslint/vue/script-indent": 2,
+                "stylelint/@stylistic/block-opening-brace-newline-before": 4,
+                "stylelint/@stylistic/indentation": 17,
+                "stylelint/scss/at-rule-no-unknown": 1
             }
         },
         {
-            "path": "src/frontend/src/components/ui/themeModeLabels.ts",
-            "sourceSha256": "aea47b6d388cedad841417ecb9101f57e38f6f43c05978d62de6ca5a19a4330d",
-            "violationCount": 21,
-            "violationDigest": "b3e6ac83b301858ffc7cb9075204ce17789b5b0cbc8d2e07428a2a0c05acebe8",
+            "path": "src/frontend/src/components/user/messages/MessagesThreadPanel.vue",
+            "sourceSha256": "f97730ae142ac03a9a7633c922177984ee5f400f62162677faeb2e9c4ee988a4",
+            "violationCount": 368,
+            "violationDigest": "3164f4280367e819207602293e9403a80b2a56e1f47c5cad4da971c4149680d5",
             "rules": {
-                "eslint/@stylistic/comma-dangle": 1,
-                "eslint/@stylistic/indent": 12,
-                "eslint/@stylistic/member-delimiter-style": 6,
-                "eslint/@stylistic/semi": 2
+                "eslint/@stylistic/brace-style": 2,
+                "eslint/@stylistic/member-delimiter-style": 26,
+                "eslint/@stylistic/semi": 16,
+                "eslint/import-x/order": 4,
+                "eslint/vue/component-name-in-template-casing": 14,
+                "eslint/vue/html-indent": 121,
+                "eslint/vue/max-attributes-per-line": 21,
+                "eslint/vue/script-indent": 33,
+                "stylelint/@stylistic/block-opening-brace-newline-before": 26,
+                "stylelint/@stylistic/indentation": 103,
+                "stylelint/media-feature-range-notation": 1,
+                "stylelint/scss/at-rule-no-unknown": 1
             }
         },
         {
@@ -2551,81 +2647,6 @@
                 "eslint/vue/script-indent": 8,
                 "stylelint/@stylistic/block-opening-brace-newline-before": 1,
                 "stylelint/@stylistic/indentation": 3
-            }
-        },
-        {
-            "path": "src/frontend/src/components/user/messages/MessagesComposePanel.vue",
-            "sourceSha256": "52eed424cf7e3a3fddc9a5d0f9e81244b0134c1e336f3312b1954ab94bd232af",
-            "violationCount": 157,
-            "violationDigest": "9f6214cf4def4fedfe4f95d95e29da9717e9b5ef608fc72a4567e891c334d967",
-            "rules": {
-                "eslint/@stylistic/member-delimiter-style": 14,
-                "eslint/@stylistic/semi": 6,
-                "eslint/import-x/order": 1,
-                "eslint/vue/component-name-in-template-casing": 13,
-                "eslint/vue/html-indent": 66,
-                "eslint/vue/max-attributes-per-line": 7,
-                "eslint/vue/script-indent": 20,
-                "stylelint/@stylistic/block-opening-brace-newline-before": 7,
-                "stylelint/@stylistic/indentation": 22,
-                "stylelint/scss/at-rule-no-unknown": 1
-            }
-        },
-        {
-            "path": "src/frontend/src/components/user/messages/MessagesConversationList.vue",
-            "sourceSha256": "a1e7fd5d8f3a8e2892e62b0312bc4eee7c4c7842f3c69f29fe457a0915404a55",
-            "violationCount": 384,
-            "violationDigest": "e0024197bca7ef1001bf8f4497d32eea851721118eefc307de9d31af42a16e1c",
-            "rules": {
-                "eslint/@stylistic/brace-style": 2,
-                "eslint/@stylistic/member-delimiter-style": 21,
-                "eslint/@stylistic/semi": 18,
-                "eslint/import-x/order": 4,
-                "eslint/vue/component-name-in-template-casing": 10,
-                "eslint/vue/html-indent": 106,
-                "eslint/vue/max-attributes-per-line": 19,
-                "eslint/vue/script-indent": 40,
-                "stylelint/@stylistic/block-opening-brace-newline-before": 35,
-                "stylelint/@stylistic/indentation": 123,
-                "stylelint/at-rule-empty-line-before": 1,
-                "stylelint/media-feature-range-notation": 4,
-                "stylelint/scss/at-rule-no-unknown": 1
-            }
-        },
-        {
-            "path": "src/frontend/src/components/user/messages/MessagesEmptyState.vue",
-            "sourceSha256": "7ceef4c1856c2112989c9342f6cfe2ab113d1a98f76fb12c3058c815d6533010",
-            "violationCount": 38,
-            "violationDigest": "8986f9145f84d5fe76acc916899ed2c343d54280275ebdddc74ff7b77307b9fb",
-            "rules": {
-                "eslint/@stylistic/member-delimiter-style": 2,
-                "eslint/@stylistic/semi": 1,
-                "eslint/vue/html-indent": 7,
-                "eslint/vue/max-attributes-per-line": 4,
-                "eslint/vue/script-indent": 2,
-                "stylelint/@stylistic/block-opening-brace-newline-before": 4,
-                "stylelint/@stylistic/indentation": 17,
-                "stylelint/scss/at-rule-no-unknown": 1
-            }
-        },
-        {
-            "path": "src/frontend/src/components/user/messages/MessagesThreadPanel.vue",
-            "sourceSha256": "7d5c3a6c707a915c727318920fa4ec28115969b7609b9d8d4583e37bbcbe774a",
-            "violationCount": 368,
-            "violationDigest": "3164f4280367e819207602293e9403a80b2a56e1f47c5cad4da971c4149680d5",
-            "rules": {
-                "eslint/@stylistic/brace-style": 2,
-                "eslint/@stylistic/member-delimiter-style": 26,
-                "eslint/@stylistic/semi": 16,
-                "eslint/import-x/order": 4,
-                "eslint/vue/component-name-in-template-casing": 14,
-                "eslint/vue/html-indent": 121,
-                "eslint/vue/max-attributes-per-line": 21,
-                "eslint/vue/script-indent": 33,
-                "stylelint/@stylistic/block-opening-brace-newline-before": 26,
-                "stylelint/@stylistic/indentation": 103,
-                "stylelint/media-feature-range-notation": 1,
-                "stylelint/scss/at-rule-no-unknown": 1
             }
         },
         {
@@ -3694,6 +3715,13 @@
             }
         },
         {
+            "path": "src/frontend/src/layouts/accountFrameContext.ts",
+            "sourceSha256": "32f27011b7c7d2545eb59a11c8a63b3e17b98eb70bf8d5105d1c9bdb41a7f5f6",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
+        },
+        {
             "path": "src/frontend/src/layouts/AccountFrameMobileAction.vue",
             "sourceSha256": "919e9fba90d1f7101167e6a5005b65637df7f52412fdc9b437086d244cd73827",
             "violationCount": 0,
@@ -3717,11 +3745,46 @@
             }
         },
         {
+            "path": "src/frontend/src/layouts/accountNav.ts",
+            "sourceSha256": "d25b1ce04720fea73cd19272e04880ef8d3ffc5a6766731f0b084fea6cb6868f",
+            "violationCount": 201,
+            "violationDigest": "b08894b4e4601d4b07a5b68708153300c33f24b5f5c3819ee2853f4da19bf87c",
+            "rules": {
+                "eslint/@stylistic/brace-style": 13,
+                "eslint/@stylistic/indent": 138,
+                "eslint/@stylistic/member-delimiter-style": 27,
+                "eslint/@stylistic/semi": 22,
+                "eslint/import-x/order": 1
+            }
+        },
+        {
             "path": "src/frontend/src/layouts/AccountRouteFrame.vue",
             "sourceSha256": "2eb9035c79624840b5550fa6cf7dc1e9aa95fa403bf5a5891b4aa5007d982aa1",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
+        },
+        {
+            "path": "src/frontend/src/layouts/accountRouteMotion.ts",
+            "sourceSha256": "c7ee474391cf1aa29f981d043b31c1de3b8d76b153620c7c69acf6b5803c8402",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
+        },
+        {
+            "path": "src/frontend/src/layouts/accountWorkspaceContext.ts",
+            "sourceSha256": "0a11345a04e2ec70e744ace66075998fa59e017667a808f11df66b12a83ada02",
+            "violationCount": 93,
+            "violationDigest": "38356cc7a8930e26b8c46db7720087504e8504ea8cb5a480ddebed64f04c79aa",
+            "rules": {
+                "eslint/@stylistic/brace-style": 2,
+                "eslint/@stylistic/comma-dangle": 1,
+                "eslint/@stylistic/indent": 54,
+                "eslint/@stylistic/member-delimiter-style": 19,
+                "eslint/@stylistic/semi": 15,
+                "eslint/@typescript-eslint/no-unnecessary-type-assertion": 1,
+                "eslint/import-x/order": 1
+            }
         },
         {
             "path": "src/frontend/src/layouts/AdminWorkspaceFrame.vue",
@@ -3749,7 +3812,7 @@
         },
         {
             "path": "src/frontend/src/layouts/PublicAuthLayout.vue",
-            "sourceSha256": "bdafc5001ac0078992ccbd8cc4f0619cde5f8edd16f64b0b968b10cbf9e7f1cf",
+            "sourceSha256": "0cadbe5fc3e8c327675c9eb3e2128171cfa1c97780dd474c8386b936b43e92e0",
             "violationCount": 117,
             "violationDigest": "c4c407c7ff7fece1905bd5a44b0731195686963c07eb268c3bc2abc43e362736",
             "rules": {
@@ -3765,48 +3828,6 @@
                 "stylelint/@stylistic/indentation": 30,
                 "stylelint/scss/at-rule-no-unknown": 1,
                 "stylelint/selector-pseudo-class-no-unknown": 2
-            }
-        },
-        {
-            "path": "src/frontend/src/layouts/accountFrameContext.ts",
-            "sourceSha256": "32f27011b7c7d2545eb59a11c8a63b3e17b98eb70bf8d5105d1c9bdb41a7f5f6",
-            "violationCount": 0,
-            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-            "rules": {}
-        },
-        {
-            "path": "src/frontend/src/layouts/accountNav.ts",
-            "sourceSha256": "d25b1ce04720fea73cd19272e04880ef8d3ffc5a6766731f0b084fea6cb6868f",
-            "violationCount": 201,
-            "violationDigest": "b08894b4e4601d4b07a5b68708153300c33f24b5f5c3819ee2853f4da19bf87c",
-            "rules": {
-                "eslint/@stylistic/brace-style": 13,
-                "eslint/@stylistic/indent": 138,
-                "eslint/@stylistic/member-delimiter-style": 27,
-                "eslint/@stylistic/semi": 22,
-                "eslint/import-x/order": 1
-            }
-        },
-        {
-            "path": "src/frontend/src/layouts/accountRouteMotion.ts",
-            "sourceSha256": "c7ee474391cf1aa29f981d043b31c1de3b8d76b153620c7c69acf6b5803c8402",
-            "violationCount": 0,
-            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-            "rules": {}
-        },
-        {
-            "path": "src/frontend/src/layouts/accountWorkspaceContext.ts",
-            "sourceSha256": "0a11345a04e2ec70e744ace66075998fa59e017667a808f11df66b12a83ada02",
-            "violationCount": 93,
-            "violationDigest": "38356cc7a8930e26b8c46db7720087504e8504ea8cb5a480ddebed64f04c79aa",
-            "rules": {
-                "eslint/@stylistic/brace-style": 2,
-                "eslint/@stylistic/comma-dangle": 1,
-                "eslint/@stylistic/indent": 54,
-                "eslint/@stylistic/member-delimiter-style": 19,
-                "eslint/@stylistic/semi": 15,
-                "eslint/@typescript-eslint/no-unnecessary-type-assertion": 1,
-                "eslint/import-x/order": 1
             }
         },
         {
@@ -4030,22 +4051,6 @@
             }
         },
         {
-            "path": "src/frontend/src/public-renderers/PublicArticleCommentsIsland.vue",
-            "sourceSha256": "974941a042fc3496c5e71262fdd2f59d1cfe5e3b66787033e068333d7da32b20",
-            "violationCount": 99,
-            "violationDigest": "f9f3c18ecd203ef1745a824e37082188b920ccc218a5713e0b643549c2e611c8",
-            "rules": {
-                "eslint/@stylistic/brace-style": 18,
-                "eslint/@stylistic/member-delimiter-style": 1,
-                "eslint/import-x/order": 1,
-                "eslint/vue/component-name-in-template-casing": 1,
-                "eslint/vue/html-indent": 40,
-                "eslint/vue/max-attributes-per-line": 2,
-                "eslint/vue/script-indent": 35,
-                "eslint/vue/valid-v-memo": 1
-            }
-        },
-        {
             "path": "src/frontend/src/public-renderers/clientHydrate.ts",
             "sourceSha256": "8d69dc06898d24b8f39d8aaf9f591c5c96944e28e1b5da0098c2c2509ea73e04",
             "violationCount": 126,
@@ -4158,6 +4163,22 @@
                 "eslint/@typescript-eslint/no-unnecessary-type-assertion": 2,
                 "eslint/@typescript-eslint/prefer-optional-chain": 1,
                 "eslint/import-x/order": 2
+            }
+        },
+        {
+            "path": "src/frontend/src/public-renderers/PublicArticleCommentsIsland.vue",
+            "sourceSha256": "974941a042fc3496c5e71262fdd2f59d1cfe5e3b66787033e068333d7da32b20",
+            "violationCount": 99,
+            "violationDigest": "f9f3c18ecd203ef1745a824e37082188b920ccc218a5713e0b643549c2e611c8",
+            "rules": {
+                "eslint/@stylistic/brace-style": 18,
+                "eslint/@stylistic/member-delimiter-style": 1,
+                "eslint/import-x/order": 1,
+                "eslint/vue/component-name-in-template-casing": 1,
+                "eslint/vue/html-indent": 40,
+                "eslint/vue/max-attributes-per-line": 2,
+                "eslint/vue/script-indent": 35,
+                "eslint/vue/valid-v-memo": 1
             }
         },
         {
@@ -5631,87 +5652,6 @@
             }
         },
         {
-            "path": "src/frontend/src/views/Archive.vue",
-            "sourceSha256": "642c2c334bfcb436f893c0b2b34b166e4e702949dc20638dd9a95c6112c27d93",
-            "violationCount": 25,
-            "violationDigest": "9204388df5b286ac3f1cd3e60f8114b35f4e223379b529c3f5350993d96601df",
-            "rules": {
-                "eslint/@stylistic/brace-style": 1,
-                "eslint/@stylistic/semi": 12,
-                "eslint/import-x/order": 1,
-                "eslint/vue/html-indent": 6,
-                "eslint/vue/multi-word-component-names": 1,
-                "eslint/vue/script-indent": 4
-            }
-        },
-        {
-            "path": "src/frontend/src/views/ArticleDetail.vue",
-            "sourceSha256": "3aafd1c469a102c07a6544cfd47687339a8a2e79a041838c94941a4ee358d891",
-            "violationCount": 409,
-            "violationDigest": "4e450607def2877b2aabe5dce846dd4dcf7cd34d25baccfa89446ab4a1b78d05",
-            "rules": {
-                "eslint/@stylistic/brace-style": 20,
-                "eslint/@stylistic/member-delimiter-style": 1,
-                "eslint/@stylistic/semi": 89,
-                "eslint/@typescript-eslint/no-unsafe-assignment": 1,
-                "eslint/@typescript-eslint/no-unsafe-member-access": 1,
-                "eslint/@typescript-eslint/prefer-nullish-coalescing": 2,
-                "eslint/import-x/order": 4,
-                "eslint/vue/component-name-in-template-casing": 1,
-                "eslint/vue/html-indent": 135,
-                "eslint/vue/max-attributes-per-line": 7,
-                "eslint/vue/script-indent": 129,
-                "stylelint/@stylistic/block-opening-brace-newline-before": 6,
-                "stylelint/@stylistic/indentation": 11,
-                "stylelint/rule-empty-line-before": 1,
-                "stylelint/scss/at-rule-no-unknown": 1
-            }
-        },
-        {
-            "path": "src/frontend/src/views/FilterView.vue",
-            "sourceSha256": "16807a886cf24ec9f9f28185147fe26f2f2caca82bb8f40e6f618a94e5b295f5",
-            "violationCount": 67,
-            "violationDigest": "313c33c2cb4609acb731d7bdc85cc3cc18dbeefebcd033c90dfe65ffe512d58f",
-            "rules": {
-                "eslint/@stylistic/brace-style": 3,
-                "eslint/@stylistic/semi": 18,
-                "eslint/@typescript-eslint/no-unsafe-assignment": 1,
-                "eslint/curly": 1,
-                "eslint/import-x/order": 2,
-                "eslint/vue/html-indent": 13,
-                "eslint/vue/script-indent": 29
-            }
-        },
-        {
-            "path": "src/frontend/src/views/Home.vue",
-            "sourceSha256": "8d10d1edf393dd0237e216d882e19e68397f1bcf0333759900b5e16b3c61c89f",
-            "violationCount": 68,
-            "violationDigest": "3bef5ca10edcff57ce5508bef6ceedeab9d77d5681a8cf1de9b0a637e416dcbb",
-            "rules": {
-                "eslint/@stylistic/brace-style": 1,
-                "eslint/@stylistic/semi": 21,
-                "eslint/import-x/order": 1,
-                "eslint/vue/html-indent": 28,
-                "eslint/vue/multi-word-component-names": 1,
-                "eslint/vue/script-indent": 16
-            }
-        },
-        {
-            "path": "src/frontend/src/views/PublicDynamicPage.vue",
-            "sourceSha256": "a8930e33469f26f0038a9380aafb5683dd4f226bf4f8097d1c6892c928dd7c90",
-            "violationCount": 60,
-            "violationDigest": "b2aa0d3b846d59fd77edb0f033ea5d9e145d3e3884edba5839018b89407d9939",
-            "rules": {
-                "eslint/@stylistic/brace-style": 2,
-                "eslint/@stylistic/member-delimiter-style": 3,
-                "eslint/@stylistic/semi": 14,
-                "eslint/import-x/order": 2,
-                "eslint/vue/html-indent": 14,
-                "eslint/vue/script-indent": 24,
-                "stylelint/scss/at-rule-no-unknown": 1
-            }
-        },
-        {
             "path": "src/frontend/src/views/admin/Analytics.vue",
             "sourceSha256": "7ffe5b3c2327b046f7f75bc34330e61faeff7d0b33e0672976668cfcc75bef58",
             "violationCount": 147,
@@ -5728,6 +5668,71 @@
                 "eslint/vue/script-indent": 29,
                 "stylelint/@stylistic/block-opening-brace-newline-before": 2,
                 "stylelint/@stylistic/indentation": 10
+            }
+        },
+        {
+            "path": "src/frontend/src/views/admin/article/List.vue",
+            "sourceSha256": "c24517ad083843df495e07cda3dec75d4a36e104076afc18037e19bc071e535c",
+            "violationCount": 548,
+            "violationDigest": "70d7547c2f5c5c673ced9d281a7a8af640c072acd947dc84083b87d349f8ef10",
+            "rules": {
+                "eslint/@stylistic/brace-style": 5,
+                "eslint/@stylistic/member-delimiter-style": 11,
+                "eslint/@stylistic/semi": 34,
+                "eslint/curly": 1,
+                "eslint/import-x/order": 6,
+                "eslint/vue/component-name-in-template-casing": 40,
+                "eslint/vue/html-indent": 263,
+                "eslint/vue/max-attributes-per-line": 35,
+                "eslint/vue/multi-word-component-names": 1,
+                "eslint/vue/script-indent": 40,
+                "stylelint/@stylistic/block-opening-brace-newline-before": 28,
+                "stylelint/@stylistic/indentation": 75,
+                "stylelint/media-feature-range-notation": 2,
+                "stylelint/selector-pseudo-class-no-unknown": 7
+            }
+        },
+        {
+            "path": "src/frontend/src/views/admin/article/Trash.vue",
+            "sourceSha256": "f39a1c65d81dc10bd7467d044d34c408c110db29c860228c5ffeb7fdb355a3aa",
+            "violationCount": 251,
+            "violationDigest": "9f366d176d56bb0cd7bfb98d2821a8a1cb711753cc202e66a10156e16431f4e2",
+            "rules": {
+                "eslint/@stylistic/brace-style": 1,
+                "eslint/@stylistic/member-delimiter-style": 3,
+                "eslint/@stylistic/semi": 17,
+                "eslint/import-x/order": 5,
+                "eslint/vue/component-name-in-template-casing": 16,
+                "eslint/vue/html-indent": 152,
+                "eslint/vue/max-attributes-per-line": 28,
+                "eslint/vue/multi-word-component-names": 1,
+                "eslint/vue/script-indent": 14,
+                "stylelint/@stylistic/block-opening-brace-newline-before": 4,
+                "stylelint/@stylistic/indentation": 9,
+                "stylelint/selector-pseudo-class-no-unknown": 1
+            }
+        },
+        {
+            "path": "src/frontend/src/views/admin/article/Write.vue",
+            "sourceSha256": "67e1682b7f544780d4596488485c7414c34f5d8746fdb706e3b9d21769a6ce9d",
+            "violationCount": 1387,
+            "violationDigest": "fc7fd34d3d6f8436b3ef310e45a863c1ce87898abd9f0bee2c59f2f6de54aa05",
+            "rules": {
+                "eslint/@stylistic/brace-style": 36,
+                "eslint/@stylistic/member-delimiter-style": 4,
+                "eslint/@stylistic/semi": 116,
+                "eslint/@typescript-eslint/array-type": 1,
+                "eslint/import-x/order": 12,
+                "eslint/vue/component-name-in-template-casing": 55,
+                "eslint/vue/html-indent": 641,
+                "eslint/vue/max-attributes-per-line": 78,
+                "eslint/vue/multi-word-component-names": 1,
+                "eslint/vue/script-indent": 203,
+                "stylelint/@stylistic/block-opening-brace-newline-before": 53,
+                "stylelint/@stylistic/indentation": 170,
+                "stylelint/media-feature-range-notation": 2,
+                "stylelint/selector-pseudo-class-no-unknown": 13,
+                "stylelint/value-keyword-case": 2
             }
         },
         {
@@ -5893,7 +5898,7 @@
         },
         {
             "path": "src/frontend/src/views/admin/MessageCenter.vue",
-            "sourceSha256": "7d640a7eeaa7d0f74585dcfeeedde730c602c6659225fa1245f21be190cacefe",
+            "sourceSha256": "0d92b8c860f0d227c0ea30aec58e8c97829c650bf77264d12910bd0d8823c234",
             "violationCount": 793,
             "violationDigest": "4ce7e77ce52c39926639ea50e45e94b2c37429756a05f6720d1d56675e32f55a",
             "rules": {
@@ -5911,140 +5916,6 @@
                 "stylelint/@stylistic/indentation": 76,
                 "stylelint/media-feature-range-notation": 1,
                 "stylelint/scss/at-rule-no-unknown": 1
-            }
-        },
-        {
-            "path": "src/frontend/src/views/admin/OpsHealth.vue",
-            "sourceSha256": "899b0f388e0daaa589131df5bee108c7e3ec86a624e77348367f9f8b05fd72a2",
-            "violationCount": 337,
-            "violationDigest": "e94df3f4d431dc4fff3233b6955654235a6cfd93c05fc8c1e20cfe8288f56438",
-            "rules": {
-                "eslint/@stylistic/brace-style": 13,
-                "eslint/@stylistic/semi": 31,
-                "eslint/curly": 1,
-                "eslint/import-x/no-duplicates": 2,
-                "eslint/import-x/order": 2,
-                "eslint/vue/component-name-in-template-casing": 18,
-                "eslint/vue/first-attribute-linebreak": 5,
-                "eslint/vue/html-closing-bracket-newline": 5,
-                "eslint/vue/html-indent": 140,
-                "eslint/vue/max-attributes-per-line": 27,
-                "eslint/vue/script-indent": 55,
-                "stylelint/@stylistic/block-opening-brace-newline-before": 7,
-                "stylelint/@stylistic/indentation": 31
-            }
-        },
-        {
-            "path": "src/frontend/src/views/admin/Settings.vue",
-            "sourceSha256": "00f809aebff6a08555593d437f7c50fc034d2d63af18d1fbcdfbcd295ada4f13",
-            "violationCount": 1015,
-            "violationDigest": "d278eb6e20ebcd9bd78f43494c97d02eaf3b2fa0930352e67c5e2aa60744a558",
-            "rules": {
-                "eslint/@stylistic/brace-style": 13,
-                "eslint/@stylistic/semi": 51,
-                "eslint/import-x/order": 4,
-                "eslint/vue/component-name-in-template-casing": 70,
-                "eslint/vue/html-indent": 574,
-                "eslint/vue/max-attributes-per-line": 125,
-                "eslint/vue/multi-word-component-names": 1,
-                "eslint/vue/script-indent": 143,
-                "stylelint/@stylistic/block-opening-brace-newline-before": 11,
-                "stylelint/@stylistic/indentation": 17,
-                "stylelint/scss/at-rule-no-unknown": 1,
-                "stylelint/selector-pseudo-class-no-unknown": 5
-            }
-        },
-        {
-            "path": "src/frontend/src/views/admin/Tag.vue",
-            "sourceSha256": "98961b625412be0cc6bf46177143022dc17cecef0588c5bfc4691adf82270298",
-            "violationCount": 73,
-            "violationDigest": "c44d31d336411862b75a4cae4f95375a3377401267cafe70390f2159c6a34af1",
-            "rules": {
-                "eslint/@stylistic/semi": 7,
-                "eslint/vue/html-indent": 1,
-                "eslint/vue/max-attributes-per-line": 1,
-                "eslint/vue/multi-word-component-names": 1,
-                "eslint/vue/script-indent": 63
-            }
-        },
-        {
-            "path": "src/frontend/src/views/admin/UserManage.vue",
-            "sourceSha256": "53e1ddb70ad8e72d33a450cd01f416981bad67fa7c512bbfcef972b69ebf5eba",
-            "violationCount": 96,
-            "violationDigest": "2019b78cad45265897bbeb0e9f88578dfea9d5dbd0d0d3b88fc244d0f8fe6826",
-            "rules": {
-                "eslint/@stylistic/semi": 10,
-                "eslint/import-x/order": 3,
-                "eslint/vue/html-indent": 52,
-                "eslint/vue/script-indent": 28,
-                "stylelint/@stylistic/block-opening-brace-newline-before": 1,
-                "stylelint/@stylistic/indentation": 1,
-                "stylelint/scss/at-rule-no-unknown": 1
-            }
-        },
-        {
-            "path": "src/frontend/src/views/admin/article/List.vue",
-            "sourceSha256": "c24517ad083843df495e07cda3dec75d4a36e104076afc18037e19bc071e535c",
-            "violationCount": 548,
-            "violationDigest": "70d7547c2f5c5c673ced9d281a7a8af640c072acd947dc84083b87d349f8ef10",
-            "rules": {
-                "eslint/@stylistic/brace-style": 5,
-                "eslint/@stylistic/member-delimiter-style": 11,
-                "eslint/@stylistic/semi": 34,
-                "eslint/curly": 1,
-                "eslint/import-x/order": 6,
-                "eslint/vue/component-name-in-template-casing": 40,
-                "eslint/vue/html-indent": 263,
-                "eslint/vue/max-attributes-per-line": 35,
-                "eslint/vue/multi-word-component-names": 1,
-                "eslint/vue/script-indent": 40,
-                "stylelint/@stylistic/block-opening-brace-newline-before": 28,
-                "stylelint/@stylistic/indentation": 75,
-                "stylelint/media-feature-range-notation": 2,
-                "stylelint/selector-pseudo-class-no-unknown": 7
-            }
-        },
-        {
-            "path": "src/frontend/src/views/admin/article/Trash.vue",
-            "sourceSha256": "f39a1c65d81dc10bd7467d044d34c408c110db29c860228c5ffeb7fdb355a3aa",
-            "violationCount": 251,
-            "violationDigest": "9f366d176d56bb0cd7bfb98d2821a8a1cb711753cc202e66a10156e16431f4e2",
-            "rules": {
-                "eslint/@stylistic/brace-style": 1,
-                "eslint/@stylistic/member-delimiter-style": 3,
-                "eslint/@stylistic/semi": 17,
-                "eslint/import-x/order": 5,
-                "eslint/vue/component-name-in-template-casing": 16,
-                "eslint/vue/html-indent": 152,
-                "eslint/vue/max-attributes-per-line": 28,
-                "eslint/vue/multi-word-component-names": 1,
-                "eslint/vue/script-indent": 14,
-                "stylelint/@stylistic/block-opening-brace-newline-before": 4,
-                "stylelint/@stylistic/indentation": 9,
-                "stylelint/selector-pseudo-class-no-unknown": 1
-            }
-        },
-        {
-            "path": "src/frontend/src/views/admin/article/Write.vue",
-            "sourceSha256": "67e1682b7f544780d4596488485c7414c34f5d8746fdb706e3b9d21769a6ce9d",
-            "violationCount": 1387,
-            "violationDigest": "fc7fd34d3d6f8436b3ef310e45a863c1ce87898abd9f0bee2c59f2f6de54aa05",
-            "rules": {
-                "eslint/@stylistic/brace-style": 36,
-                "eslint/@stylistic/member-delimiter-style": 4,
-                "eslint/@stylistic/semi": 116,
-                "eslint/@typescript-eslint/array-type": 1,
-                "eslint/import-x/order": 12,
-                "eslint/vue/component-name-in-template-casing": 55,
-                "eslint/vue/html-indent": 641,
-                "eslint/vue/max-attributes-per-line": 78,
-                "eslint/vue/multi-word-component-names": 1,
-                "eslint/vue/script-indent": 203,
-                "stylelint/@stylistic/block-opening-brace-newline-before": 53,
-                "stylelint/@stylistic/indentation": 170,
-                "stylelint/media-feature-range-notation": 2,
-                "stylelint/selector-pseudo-class-no-unknown": 13,
-                "stylelint/value-keyword-case": 2
             }
         },
         {
@@ -6267,6 +6138,27 @@
             }
         },
         {
+            "path": "src/frontend/src/views/admin/OpsHealth.vue",
+            "sourceSha256": "899b0f388e0daaa589131df5bee108c7e3ec86a624e77348367f9f8b05fd72a2",
+            "violationCount": 337,
+            "violationDigest": "e94df3f4d431dc4fff3233b6955654235a6cfd93c05fc8c1e20cfe8288f56438",
+            "rules": {
+                "eslint/@stylistic/brace-style": 13,
+                "eslint/@stylistic/semi": 31,
+                "eslint/curly": 1,
+                "eslint/import-x/no-duplicates": 2,
+                "eslint/import-x/order": 2,
+                "eslint/vue/component-name-in-template-casing": 18,
+                "eslint/vue/first-attribute-linebreak": 5,
+                "eslint/vue/html-closing-bracket-newline": 5,
+                "eslint/vue/html-indent": 140,
+                "eslint/vue/max-attributes-per-line": 27,
+                "eslint/vue/script-indent": 55,
+                "stylelint/@stylistic/block-opening-brace-newline-before": 7,
+                "stylelint/@stylistic/indentation": 31
+            }
+        },
+        {
             "path": "src/frontend/src/views/admin/security/SecurityChallenges.vue",
             "sourceSha256": "4e6af6274eaeed98dcff1a665915580d864b13ff6b27f9190995b477d164c07c",
             "violationCount": 233,
@@ -6371,22 +6263,6 @@
             }
         },
         {
-            "path": "src/frontend/src/views/admin/security/SecurityPoSpace.vue",
-            "sourceSha256": "24dc0e147c3f8659e36c28450617f7da28f1ccd7a051265a8908f0f9571b43d8",
-            "violationCount": 165,
-            "violationDigest": "10b46bfb1724648fea702eb274ba258738ae6cce8322bc4656e422959ebcc024",
-            "rules": {
-                "eslint/@stylistic/brace-style": 12,
-                "eslint/@stylistic/semi": 41,
-                "eslint/curly": 1,
-                "eslint/import-x/order": 1,
-                "eslint/vue/component-name-in-template-casing": 2,
-                "eslint/vue/html-indent": 35,
-                "eslint/vue/max-attributes-per-line": 9,
-                "eslint/vue/script-indent": 64
-            }
-        },
-        {
             "path": "src/frontend/src/views/admin/security/SecurityPolicies.vue",
             "sourceSha256": "3d8759364a688d8c7c7cb7bd09d10619cc94be407ce177751d7ae314f6045d49",
             "violationCount": 267,
@@ -6400,6 +6276,22 @@
                 "eslint/vue/html-indent": 71,
                 "eslint/vue/max-attributes-per-line": 9,
                 "eslint/vue/script-indent": 100
+            }
+        },
+        {
+            "path": "src/frontend/src/views/admin/security/SecurityPoSpace.vue",
+            "sourceSha256": "24dc0e147c3f8659e36c28450617f7da28f1ccd7a051265a8908f0f9571b43d8",
+            "violationCount": 165,
+            "violationDigest": "10b46bfb1724648fea702eb274ba258738ae6cce8322bc4656e422959ebcc024",
+            "rules": {
+                "eslint/@stylistic/brace-style": 12,
+                "eslint/@stylistic/semi": 41,
+                "eslint/curly": 1,
+                "eslint/import-x/order": 1,
+                "eslint/vue/component-name-in-template-casing": 2,
+                "eslint/vue/html-indent": 35,
+                "eslint/vue/max-attributes-per-line": 9,
+                "eslint/vue/script-indent": 64
             }
         },
         {
@@ -6453,6 +6345,91 @@
                 "eslint/vue/script-indent": 96,
                 "stylelint/@stylistic/block-opening-brace-newline-before": 4,
                 "stylelint/@stylistic/indentation": 26
+            }
+        },
+        {
+            "path": "src/frontend/src/views/admin/Settings.vue",
+            "sourceSha256": "00f809aebff6a08555593d437f7c50fc034d2d63af18d1fbcdfbcd295ada4f13",
+            "violationCount": 1015,
+            "violationDigest": "d278eb6e20ebcd9bd78f43494c97d02eaf3b2fa0930352e67c5e2aa60744a558",
+            "rules": {
+                "eslint/@stylistic/brace-style": 13,
+                "eslint/@stylistic/semi": 51,
+                "eslint/import-x/order": 4,
+                "eslint/vue/component-name-in-template-casing": 70,
+                "eslint/vue/html-indent": 574,
+                "eslint/vue/max-attributes-per-line": 125,
+                "eslint/vue/multi-word-component-names": 1,
+                "eslint/vue/script-indent": 143,
+                "stylelint/@stylistic/block-opening-brace-newline-before": 11,
+                "stylelint/@stylistic/indentation": 17,
+                "stylelint/scss/at-rule-no-unknown": 1,
+                "stylelint/selector-pseudo-class-no-unknown": 5
+            }
+        },
+        {
+            "path": "src/frontend/src/views/admin/Tag.vue",
+            "sourceSha256": "98961b625412be0cc6bf46177143022dc17cecef0588c5bfc4691adf82270298",
+            "violationCount": 73,
+            "violationDigest": "c44d31d336411862b75a4cae4f95375a3377401267cafe70390f2159c6a34af1",
+            "rules": {
+                "eslint/@stylistic/semi": 7,
+                "eslint/vue/html-indent": 1,
+                "eslint/vue/max-attributes-per-line": 1,
+                "eslint/vue/multi-word-component-names": 1,
+                "eslint/vue/script-indent": 63
+            }
+        },
+        {
+            "path": "src/frontend/src/views/admin/UserManage.vue",
+            "sourceSha256": "53e1ddb70ad8e72d33a450cd01f416981bad67fa7c512bbfcef972b69ebf5eba",
+            "violationCount": 96,
+            "violationDigest": "2019b78cad45265897bbeb0e9f88578dfea9d5dbd0d0d3b88fc244d0f8fe6826",
+            "rules": {
+                "eslint/@stylistic/semi": 10,
+                "eslint/import-x/order": 3,
+                "eslint/vue/html-indent": 52,
+                "eslint/vue/script-indent": 28,
+                "stylelint/@stylistic/block-opening-brace-newline-before": 1,
+                "stylelint/@stylistic/indentation": 1,
+                "stylelint/scss/at-rule-no-unknown": 1
+            }
+        },
+        {
+            "path": "src/frontend/src/views/Archive.vue",
+            "sourceSha256": "642c2c334bfcb436f893c0b2b34b166e4e702949dc20638dd9a95c6112c27d93",
+            "violationCount": 25,
+            "violationDigest": "9204388df5b286ac3f1cd3e60f8114b35f4e223379b529c3f5350993d96601df",
+            "rules": {
+                "eslint/@stylistic/brace-style": 1,
+                "eslint/@stylistic/semi": 12,
+                "eslint/import-x/order": 1,
+                "eslint/vue/html-indent": 6,
+                "eslint/vue/multi-word-component-names": 1,
+                "eslint/vue/script-indent": 4
+            }
+        },
+        {
+            "path": "src/frontend/src/views/ArticleDetail.vue",
+            "sourceSha256": "3aafd1c469a102c07a6544cfd47687339a8a2e79a041838c94941a4ee358d891",
+            "violationCount": 409,
+            "violationDigest": "4e450607def2877b2aabe5dce846dd4dcf7cd34d25baccfa89446ab4a1b78d05",
+            "rules": {
+                "eslint/@stylistic/brace-style": 20,
+                "eslint/@stylistic/member-delimiter-style": 1,
+                "eslint/@stylistic/semi": 89,
+                "eslint/@typescript-eslint/no-unsafe-assignment": 1,
+                "eslint/@typescript-eslint/no-unsafe-member-access": 1,
+                "eslint/@typescript-eslint/prefer-nullish-coalescing": 2,
+                "eslint/import-x/order": 4,
+                "eslint/vue/component-name-in-template-casing": 1,
+                "eslint/vue/html-indent": 135,
+                "eslint/vue/max-attributes-per-line": 7,
+                "eslint/vue/script-indent": 129,
+                "stylelint/@stylistic/block-opening-brace-newline-before": 6,
+                "stylelint/@stylistic/indentation": 11,
+                "stylelint/rule-empty-line-before": 1,
+                "stylelint/scss/at-rule-no-unknown": 1
             }
         },
         {
@@ -6554,6 +6531,50 @@
             }
         },
         {
+            "path": "src/frontend/src/views/FilterView.vue",
+            "sourceSha256": "16807a886cf24ec9f9f28185147fe26f2f2caca82bb8f40e6f618a94e5b295f5",
+            "violationCount": 67,
+            "violationDigest": "313c33c2cb4609acb731d7bdc85cc3cc18dbeefebcd033c90dfe65ffe512d58f",
+            "rules": {
+                "eslint/@stylistic/brace-style": 3,
+                "eslint/@stylistic/semi": 18,
+                "eslint/@typescript-eslint/no-unsafe-assignment": 1,
+                "eslint/curly": 1,
+                "eslint/import-x/order": 2,
+                "eslint/vue/html-indent": 13,
+                "eslint/vue/script-indent": 29
+            }
+        },
+        {
+            "path": "src/frontend/src/views/Home.vue",
+            "sourceSha256": "8d10d1edf393dd0237e216d882e19e68397f1bcf0333759900b5e16b3c61c89f",
+            "violationCount": 68,
+            "violationDigest": "3bef5ca10edcff57ce5508bef6ceedeab9d77d5681a8cf1de9b0a637e416dcbb",
+            "rules": {
+                "eslint/@stylistic/brace-style": 1,
+                "eslint/@stylistic/semi": 21,
+                "eslint/import-x/order": 1,
+                "eslint/vue/html-indent": 28,
+                "eslint/vue/multi-word-component-names": 1,
+                "eslint/vue/script-indent": 16
+            }
+        },
+        {
+            "path": "src/frontend/src/views/PublicDynamicPage.vue",
+            "sourceSha256": "a8930e33469f26f0038a9380aafb5683dd4f226bf4f8097d1c6892c928dd7c90",
+            "violationCount": 60,
+            "violationDigest": "b2aa0d3b846d59fd77edb0f033ea5d9e145d3e3884edba5839018b89407d9939",
+            "rules": {
+                "eslint/@stylistic/brace-style": 2,
+                "eslint/@stylistic/member-delimiter-style": 3,
+                "eslint/@stylistic/semi": 14,
+                "eslint/import-x/order": 2,
+                "eslint/vue/html-indent": 14,
+                "eslint/vue/script-indent": 24,
+                "stylelint/scss/at-rule-no-unknown": 1
+            }
+        },
+        {
             "path": "src/frontend/src/views/user/Comments.vue",
             "sourceSha256": "17137471cca7cfa417ca681729dbd53e0b86d7cae97b2bfe910267012da63359",
             "violationCount": 148,
@@ -6603,7 +6624,7 @@
         },
         {
             "path": "src/frontend/src/views/user/Messages.vue",
-            "sourceSha256": "e4e9bf5f4fb222186775b30b38c7c868d74f6a4920fa77e17f22a9699e3b8141",
+            "sourceSha256": "cb7bfcf1d3f4a73b2aa5027d0d3de2623ca75710e69816cea935459415cc81f5",
             "violationCount": 634,
             "violationDigest": "79e9ddf6b5777fee8f30e30407c32f99be6c07eec86fda89321ad351ca480f86",
             "rules": {
@@ -7865,7 +7886,7 @@
         },
         {
             "path": "tests/frontend/checks/static/check-article-editor-workspace-governance.mjs",
-            "sourceSha256": "31c2ee569e47a1bf869c53fb2373c59dfeff076c2cdcdd30275a9a12c96ea907",
+            "sourceSha256": "352a73b87f7aaa7e713f609b6c633bbfd5e4a84e82505a136b3c582b938ae640",
             "violationCount": 132,
             "violationDigest": "6d3c64b367b1682baf3419da721d6205e37025eb5556ce2fbd59d1c60213f543",
             "rules": {
@@ -7954,6 +7975,13 @@
                 "eslint/@stylistic/semi": 24,
                 "eslint/curly": 2
             }
+        },
+        {
+            "path": "tests/frontend/checks/static/check-canonical-viewport-safe-area.mjs",
+            "sourceSha256": "9f57b3bb5ab0358993634034066097ee4acd5cce4f4c456874c693d1722d839c",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/frontend/checks/static/check-challenge-capability-registry.mjs",
@@ -8624,7 +8652,7 @@
         },
         {
             "path": "tests/frontend/checks/static/check-task-surface-geometry.mjs",
-            "sourceSha256": "d7bd2f81c61122f62b797b4105bce35c09096405194a3a0a4c6b9fd26ac10e4d",
+            "sourceSha256": "49ab5437c9aa12d7f15892547f99bd9ab59782c61913fde788691b54cdc0c2d7",
             "violationCount": 163,
             "violationDigest": "fa155a33b4b3f5343fa42f8e6ad9bb29db286bb757670bf41e8c82df097d4fa4",
             "rules": {
@@ -8720,7 +8748,7 @@
         },
         {
             "path": "tests/frontend/checks/static/check-visual-density-governance.mjs",
-            "sourceSha256": "07ebb1ac01a4983b8cf7e1fc24fc494ab177575266b876707073af8edaed2824",
+            "sourceSha256": "c1d209d1793555a6ce6cae196571c0d68ef20f28eb41af8c0eaa5f28aede1c99",
             "violationCount": 2,
             "violationDigest": "69b006db2a791485550e1f7dbdba9fae78810ea11d38f24e942f97498e7a1924",
             "rules": {
@@ -9011,6 +9039,13 @@
                 "eslint/@stylistic/brace-style": 8,
                 "eslint/@stylistic/indent": 42
             }
+        },
+        {
+            "path": "tests/frontend/unit/viewport/canonicalViewportSafeArea.test.ts",
+            "sourceSha256": "a0690dc6a70974152a5d79625656c4a0b02cb6c1dd645df4430fb2adea157aac",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/security/anonymous-credential-root-bootstrap.test.mjs",

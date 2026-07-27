@@ -341,7 +341,7 @@ html[data-theme-resolved='dark'] body {
   --fsusblog-public-header-height-current: var(--fsusblog-public-header-height, 4rem);
   --fsusblog-public-sticky-top: var(--fsusblog-public-header-height-current);
   --fsusblog-public-anchor-offset: calc(var(--fsusblog-public-sticky-top) + 0.75rem);
-  min-height: 100vh;
+  min-height: var(--fsus-viewport-block-size);
   display: flex;
   flex-direction: column;
   background: var(--fsusblog-page-bg, Canvas);

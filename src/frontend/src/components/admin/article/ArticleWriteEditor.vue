@@ -57,14 +57,14 @@ const content = computed({
 
 const editorSizingClass = computed(() => {
   if (props.layoutMode === 'fullscreen') {
-    return 'h-[min(980px,calc(100dvh-190px))] min-h-[720px] max-lg:h-[760px] max-lg:min-h-[560px] max-sm:h-[620px] max-sm:min-h-[460px]'
+    return 'h-[min(980px,calc(var(--fsus-viewport-block-size)-190px))] min-h-[720px] max-lg:h-[760px] max-lg:min-h-[560px] max-sm:h-[620px] max-sm:min-h-[460px]'
   }
 
   if (props.layoutMode === 'focus') {
-    return 'h-[min(900px,calc(100dvh-250px))] min-h-[640px] max-lg:h-[700px] max-lg:min-h-[520px] max-sm:h-[580px] max-sm:min-h-[440px]'
+    return 'h-[min(900px,calc(var(--fsus-viewport-block-size)-250px))] min-h-[640px] max-lg:h-[700px] max-lg:min-h-[520px] max-sm:h-[580px] max-sm:min-h-[440px]'
   }
 
-  return 'h-[min(760px,calc(100dvh-310px))] min-h-[520px] max-lg:h-[620px] max-lg:min-h-[460px] max-sm:h-[560px] max-sm:min-h-[420px]'
+  return 'h-[min(760px,calc(var(--fsus-viewport-block-size)-310px))] min-h-[520px] max-lg:h-[620px] max-lg:min-h-[460px] max-sm:h-[560px] max-sm:min-h-[420px]'
 })
 const previewSizingClass = computed(() => `preview-panel ${editorSizingClass.value}`)
 

@@ -116,11 +116,11 @@ for (const token of [
   'min-height: 3.5rem;',
   'min-height: 2.75rem;',
   'height: calc(',
-  'env(safe-area-inset-bottom));',
+  'var(--fsus-safe-area-inset-bottom));',
   'border-top: 1px solid var(--fsusblog-panel-border);',
   'background: var(--fsusblog-page-bg);',
   'padding: ',
-  'env(safe-area-inset-bottom));',
+  'var(--fsus-safe-area-inset-bottom));',
   'article-write-command-bar__save-status',
   'article-write-command-bar__save-draft',
   'article-write-command-bar__primary',
@@ -131,7 +131,7 @@ for (const token of [
     fail(commandBarPath, 1, `Article editor command bar contract is missing ${token}`)
   }
 }
-for (const forbidden of [/gradient/iu, /backdrop-filter/iu, /box-shadow/iu, /border-radius:\s*999/iu]) {
+for (const forbidden of [/gradient/iu, /backdrop-filter/iu, /box-shadow/iu, /border-radius:\s*999/iu, /env\(\s*safe-area-inset-/iu]) {
   if (forbidden.test(commandBar)) {
     fail(commandBarPath, 1, `Article editor command bar must not use decorative emphasis matching ${forbidden}`)
   }
@@ -141,8 +141,8 @@ for (const token of ['.el-form-item.is-error', 'target.focus({ preventScroll: tr
     fail(accessibilityPath, 1, `Article editor validation focus contract is missing ${token}`)
   }
 }
-if (!/padding-bottom:\s*calc\(.+env\(safe-area-inset-bottom\)\);/u.test(commandBar)) {
-  fail(commandBarPath, 1, 'Article editor body must reserve mobile action bar height plus safe-area inset')
+if (!/padding-bottom:\s*calc\(.+var\(--fsus-safe-area-inset-bottom\)\);/u.test(commandBar)) {
+  fail(commandBarPath, 1, 'Article editor body must reserve mobile action bar height plus canonical safe-area inset')
 }
 
 for (const token of [

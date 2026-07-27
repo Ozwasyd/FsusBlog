@@ -372,7 +372,7 @@ defineExpose({
 
 @media (max-width: 1023px) {
   .messages-flat-pane {
-    min-height: calc(100dvh - 10rem);
+    min-height: calc(var(--fsus-viewport-block-size) - 10rem);
   }
 }
 </style>

@@ -303,7 +303,7 @@ const runCeremony = async (mfaProofToken: string | undefined) => {
 
 <style scoped>
 :global(.fsusblog-dialog.passkey-register-dialog) {
-  max-height: min(82dvh, 34rem);
+  max-height: min(calc(var(--fsus-viewport-block-size) * 0.82), 34rem);
 }
 
 .passkey-register-modal__header {
@@ -335,7 +335,7 @@ const runCeremony = async (mfaProofToken: string | undefined) => {
 @media (max-width: 639px) {
   :global(.fsusblog-dialog.passkey-register-dialog) {
     width: calc(100vw - 2rem);
-    max-height: calc(100dvh - 2rem);
+    max-height: calc(var(--fsus-viewport-block-size) - 2rem);
   }
 
   .passkey-register-modal__body {

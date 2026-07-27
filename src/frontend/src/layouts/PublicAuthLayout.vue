@@ -40,7 +40,7 @@
     </SiteChromeHeaderAdapter>
 
     <main
-      class="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-6xl items-start px-5 pb-16 pt-10 sm:px-8 sm:pb-24 sm:pt-16"
+      class="mx-auto flex min-h-[calc(var(--fsus-viewport-block-size)-5rem)] w-full max-w-6xl items-start px-5 pb-16 pt-10 sm:px-8 sm:pb-24 sm:pt-16"
     >
       <router-view />
     </main>
