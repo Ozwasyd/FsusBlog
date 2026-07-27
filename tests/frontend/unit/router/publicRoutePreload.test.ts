@@ -8,6 +8,8 @@ import type {
 } from '@/public-renderers/publicPayloadTypes'
 import {
   consumePublicRouteSeed,
+  peekPublicRouteSeed,
+  putPublicRouteSeed,
   resetPublicRouteSeedStoreForTests
 } from '@/public-renderers/publicRouteSeedStore'
 import {
@@ -357,7 +359,7 @@ describe('public route prewarm', () => {
     expect(consumePublicRouteSeed('Home', { fullPath: '/' })).toBeNull()
   })
 
-  it('deduplicates route component and snapshot seed work for the same target', async () => {
+  it('deduplicates route component and snapshot seed work for the same target while in-flight', async () => {
     const events: string[] = []
     const loadArchiveComponent = vi.fn(async () => ({ default: {} }))
     const envelope = await createArchiveEnvelope()
@@ -391,7 +393,7 @@ describe('public route prewarm', () => {
     expect(fetchSnapshot).toHaveBeenCalledTimes(1)
     expect(events).toEqual([
       'public_route_prewarm_start',
-      'public_route_prewarm_hit',
+      'public_route_prewarm_inflight_hit',
       'public_route_prewarm_ready'
     ])
 
@@ -400,6 +402,272 @@ describe('public route prewarm', () => {
       bootstrap: decodePublicAotPayload(envelope.bootstrapPayload),
       hydration: decodePublicAotPayload(envelope.hydrationPropsPayload)
     } satisfies PublicPageSeed<'Archive'>)
+  })
+
+  it('reuses currently consumable seed/head as artifact-ready without a historical ready Promise', async () => {
+    const events: string[] = []
+    const loadArchiveComponent = vi.fn(async () => ({ default: {} }))
+    const envelope = await createArchiveEnvelope()
+    const fetchSnapshot = vi.fn(async () => snapshotBytes(envelope))
+    const prewarm = createPublicRoutePrewarmer({
+      routePreloads: [{
+        kind: 'Archive',
+        name: 'Archive',
+        match: (url) => url.pathname === '/archive',
+        preloadComponent: loadArchiveComponent
+      }],
+      fetchNavigationSnapshot: fetchSnapshot,
+      preloadStyle: vi.fn(async () => {}),
+      emitTelemetry: (name) => events.push(name),
+      lifetimeSignal: () => new AbortController().signal
+    })
+
+    const firstResult = await prewarm.prewarm('/archive', { reason: 'pointerenter', nowMs: 1_000 })
+    expect(firstResult.status).toBe('ready')
+    expect(fetchSnapshot).toHaveBeenCalledTimes(1)
+
+    const secondResult = await prewarm.prewarm('/archive', { reason: 'focus', nowMs: 1_001 })
+    expect(secondResult).toMatchObject({
+      status: 'ready',
+      seedReady: true,
+      routeComponentReady: true
+    })
+    expect(secondResult).not.toBe(firstResult)
+    expect(fetchSnapshot).toHaveBeenCalledTimes(1)
+    expect(loadArchiveComponent).toHaveBeenCalledTimes(1)
+    expect(events).toContain('public_route_prewarm_artifact_ready')
+    expect(events).not.toContain('public_route_prewarm_hit')
+    expect(peekPublicRouteSeed('Archive', { fullPath: '/archive' }, { nowMs: 1_002 })).not.toBeNull()
+  })
+
+  it('re-runs the snapshot producer after the one-shot seed is consumed', async () => {
+    const events: string[] = []
+    const loadArchiveComponent = vi.fn(async () => ({ default: {} }))
+    const firstEnvelope = await createArchiveEnvelope()
+    const secondEnvelope = {
+      ...firstEnvelope,
+      generatedAtUtc: '2026-06-18T00:00:01.0000000Z',
+      payloadHash: ''
+    }
+    secondEnvelope.payloadHash = await computePublicNavigationSnapshotPayloadHash(secondEnvelope)
+    const fetchSnapshot = vi.fn()
+      .mockResolvedValueOnce(snapshotBytes(firstEnvelope))
+      .mockResolvedValueOnce(snapshotBytes(secondEnvelope))
+    const prewarm = createPublicRoutePrewarmer({
+      routePreloads: [{
+        kind: 'Archive',
+        name: 'Archive',
+        match: (url) => url.pathname === '/archive',
+        preloadComponent: loadArchiveComponent
+      }],
+      fetchNavigationSnapshot: fetchSnapshot,
+      preloadStyle: vi.fn(async () => {}),
+      emitTelemetry: (name) => events.push(name),
+      lifetimeSignal: () => new AbortController().signal
+    })
+
+    const firstResult = await prewarm.prewarm('/archive', { reason: 'pointerenter', nowMs: 1_000 })
+    expect(firstResult.status).toBe('ready')
+    const firstSeed = consumePublicRouteSeed('Archive', { fullPath: '/archive' }, { nowMs: 1_001 })
+    expect(firstSeed).not.toBeNull()
+    expect(peekPublicRouteSeed('Archive', { fullPath: '/archive' }, { nowMs: 1_001 })).toBeNull()
+
+    const secondResult = await prewarm.prewarm('/archive', { reason: 'atomic-navigation', nowMs: 1_002 })
+    expect(secondResult).toMatchObject({
+      status: 'ready',
+      seedReady: true
+    })
+    expect(secondResult).not.toBe(firstResult)
+    expect(fetchSnapshot).toHaveBeenCalledTimes(2)
+    expect(loadArchiveComponent).toHaveBeenCalledTimes(2)
+    expect(events.filter((name) => name === 'public_route_prewarm_start')).toHaveLength(2)
+    expect(events).not.toContain('public_route_prewarm_artifact_ready')
+
+    const secondSeed = consumePublicRouteSeed('Archive', { fullPath: '/archive' }, { nowMs: 1_003 })
+    expect(secondSeed).not.toBeNull()
+    expect(secondSeed).not.toBe(firstSeed)
+  })
+
+  it('does not treat expired seed TTL as historical ready', async () => {
+    const loadArchiveComponent = vi.fn(async () => ({ default: {} }))
+    const envelope = await createArchiveEnvelope()
+    const fetchSnapshot = vi.fn(async () => snapshotBytes(envelope))
+    const prewarm = createPublicRoutePrewarmer({
+      routePreloads: [{
+        kind: 'Archive',
+        name: 'Archive',
+        match: (url) => url.pathname === '/archive',
+        preloadComponent: loadArchiveComponent
+      }],
+      fetchNavigationSnapshot: fetchSnapshot,
+      preloadStyle: vi.fn(async () => {}),
+      lifetimeSignal: () => new AbortController().signal
+    })
+
+    await expect(prewarm.prewarm('/archive', { reason: 'pointerenter', nowMs: 1_000 })).resolves.toMatchObject({
+      status: 'ready'
+    })
+    expect(fetchSnapshot).toHaveBeenCalledTimes(1)
+
+    // Default seed TTL is 5 minutes; read past expiry must re-fetch.
+    await expect(prewarm.prewarm('/archive', {
+      reason: 'focus',
+      nowMs: 1_000 + (5 * 60 * 1_000) + 1
+    })).resolves.toMatchObject({
+      status: 'ready',
+      seedReady: true
+    })
+    expect(fetchSnapshot).toHaveBeenCalledTimes(2)
+    expect(loadArchiveComponent).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not treat a renderer-version mismatched seed as historical ready', async () => {
+    const loadArchiveComponent = vi.fn(async () => ({ default: {} }))
+    const envelope = await createArchiveEnvelope()
+    const fetchSnapshot = vi.fn(async () => snapshotBytes(envelope))
+    const prewarm = createPublicRoutePrewarmer({
+      routePreloads: [{
+        kind: 'Archive',
+        name: 'Archive',
+        match: (url) => url.pathname === '/archive',
+        preloadComponent: loadArchiveComponent
+      }],
+      fetchNavigationSnapshot: fetchSnapshot,
+      preloadStyle: vi.fn(async () => {}),
+      lifetimeSignal: () => new AbortController().signal
+    })
+
+    await expect(prewarm.prewarm('/archive', { reason: 'pointerenter', nowMs: 1_000 })).resolves.toMatchObject({
+      status: 'ready'
+    })
+    expect(fetchSnapshot).toHaveBeenCalledTimes(1)
+
+    // Simulate a build/renderer identity cutover leaving a stale seed entry.
+    const staleSeed = consumePublicRouteSeed('Archive', { fullPath: '/archive' }, { nowMs: 1_001 })
+    expect(staleSeed).not.toBeNull()
+    putPublicRouteSeed({
+      kind: 'Archive',
+      fullPath: '/archive',
+      routeKey: 'archive',
+      seed: staleSeed!,
+      rendererVersion: 'stale-renderer@test',
+      nowMs: 1_001
+    })
+
+    await expect(prewarm.prewarm('/archive', { reason: 'focus', nowMs: 1_002 })).resolves.toMatchObject({
+      status: 'ready',
+      seedReady: true
+    })
+    expect(fetchSnapshot).toHaveBeenCalledTimes(2)
+  })
+
+  it('allows immediate retry after cancel without resurrecting a consumed attempt', async () => {
+    const events: string[] = []
+    const envelope = await createArchiveEnvelope()
+    let attempt = 0
+    let markFetchParked!: () => void
+    const fetchParked = new Promise<void>((resolve) => {
+      markFetchParked = resolve
+    })
+    const fetchSnapshot = vi.fn((_target: URL, signal: AbortSignal) => {
+      attempt += 1
+      if (attempt === 1) {
+        markFetchParked()
+        return new Promise<Uint8Array>((_resolve, reject) => {
+          signal.addEventListener('abort', () => {
+            reject(new DOMException('aborted', 'AbortError'))
+          }, { once: true })
+        })
+      }
+
+      return Promise.resolve(snapshotBytes(envelope))
+    })
+    const prewarm = createPublicRoutePrewarmer({
+      routePreloads: [{
+        kind: 'Archive',
+        name: 'Archive',
+        match: (url) => url.pathname === '/archive',
+        preloadComponent: vi.fn(async () => ({ default: {} }))
+      }],
+      fetchNavigationSnapshot: fetchSnapshot,
+      preloadStyle: vi.fn(async () => {}),
+      emitTelemetry: (name) => events.push(name),
+      lifetimeSignal: () => new AbortController().signal
+    })
+
+    const controller = new AbortController()
+    const first = prewarm.prewarm('/archive', {
+      reason: 'pointerenter',
+      signal: controller.signal,
+      nowMs: 1_000
+    })
+    await fetchParked
+    controller.abort('test-cancel')
+    await expect(first).resolves.toMatchObject({
+      status: 'cancelled',
+      seedReady: false
+    })
+    expect(consumePublicRouteSeed('Archive', { fullPath: '/archive' }, { nowMs: 1_001 })).toBeNull()
+
+    await expect(prewarm.prewarm('/archive', { reason: 'focus', nowMs: 1_002 })).resolves.toMatchObject({
+      status: 'ready',
+      seedReady: true
+    })
+    expect(fetchSnapshot).toHaveBeenCalledTimes(2)
+    expect(events).toContain('public_route_prewarm_cancel')
+    expect(events).toContain('public_route_prewarm_ready')
+  })
+
+  it('does not commit seed/head when a late snapshot arrives after abort', async () => {
+    const envelope = await createArchiveEnvelope()
+    let resolveComponent!: () => void
+    let resolveSnapshot!: (value: Uint8Array) => void
+    const componentStarted = deferredMarker()
+    const snapshotStarted = deferredMarker()
+    const prewarm = createPublicRoutePrewarmer({
+      routePreloads: [{
+        kind: 'Archive',
+        name: 'Archive',
+        match: (url) => url.pathname === '/archive',
+        preloadComponent: vi.fn(() => {
+          componentStarted.mark()
+          return new Promise((resolve) => {
+            resolveComponent = () => resolve({ default: {} })
+          })
+        })
+      }],
+      fetchNavigationSnapshot: vi.fn((_target, signal) => {
+        snapshotStarted.mark()
+        return new Promise<Uint8Array>((resolve, reject) => {
+          resolveSnapshot = resolve
+          signal.addEventListener('abort', () => {
+            reject(new DOMException('aborted', 'AbortError'))
+          }, { once: true })
+        })
+      }),
+      preloadStyle: vi.fn(async () => {}),
+      lifetimeSignal: () => new AbortController().signal
+    })
+
+    const controller = new AbortController()
+    const task = prewarm.prewarm('/archive', {
+      reason: 'atomic-navigation',
+      signal: controller.signal,
+      nowMs: 1_000
+    })
+    await Promise.all([componentStarted.promise, snapshotStarted.promise])
+
+    // Snapshot network returns first; abort before component finishes so commit is skipped.
+    resolveSnapshot(snapshotBytes(envelope))
+    await Promise.resolve()
+    controller.abort('late-abort')
+    resolveComponent()
+
+    await expect(task).resolves.toMatchObject({
+      status: 'cancelled',
+      seedReady: false
+    })
+    expect(consumePublicRouteSeed('Archive', { fullPath: '/archive' }, { nowMs: 1_001 })).toBeNull()
   })
 
   it('cancels pending work when the public shell lifetime is aborted', async () => {

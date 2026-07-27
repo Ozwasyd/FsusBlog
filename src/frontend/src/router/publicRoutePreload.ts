@@ -10,7 +10,9 @@ import type {
   PublicAotBootstrapPayloadFor,
   PublicHydrationPayloadFor
 } from '@/public-renderers/publicPayloadTypes'
+import { PUBLIC_RENDERER_VERSION } from '@/public-renderers/publicEntryCore'
 import {
+  peekPublicRouteSeed,
   putPublicRouteSeed,
   type PublicRouteSeedKind
 } from '@/public-renderers/publicRouteSeedStore'
@@ -20,6 +22,7 @@ import {
   type PublicRoutePreloadDefinition
 } from '@/public-renderers/publicRouteRegistry'
 import {
+  hasPreparedPublicSeoHead,
   validateAndPreparePublicSeoHead,
   type PublicSeoHeadModel
 } from '@/router/publicSeoHead'
@@ -333,6 +336,8 @@ export function resolvePublicRoutePrewarmTarget(anchor: HTMLAnchorElement, event
 }
 
 export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDependencies = {}) {
+  // In-flight only: settled promises are never retained as artifact validity.
+  // Seed/head stores own consumable/TTL-bound readiness independently.
   const tasks = new Map<string, Promise<PublicRoutePrewarmResult>>()
   const routePreloads = dependencies.routePreloads ?? PUBLIC_ROUTE_PRELOAD_DEFINITIONS
   const fetchNavigationSnapshot = dependencies.fetchNavigationSnapshot ?? defaultFetchNavigationSnapshot
@@ -379,6 +384,28 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
     return error instanceof Error ? error.message : String(error)
   }
 
+  function hasUsableRouteArtifacts(
+    route: PublicRoutePreloadCandidate,
+    target: NormalizedPrewarmTarget,
+    nowMs?: number
+  ): boolean {
+    const seed = peekPublicRouteSeed(route.kind, { fullPath: target.fullPath }, {
+      nowMs,
+      rendererVersion: PUBLIC_RENDERER_VERSION
+    })
+    if (!seed) {
+      return false
+    }
+
+    return hasPreparedPublicSeoHead(target.fullPath, nowMs ?? Date.now())
+  }
+
+  function releaseInFlightTask(key: string, task: Promise<PublicRoutePrewarmResult>): void {
+    if (tasks.get(key) === task) {
+      tasks.delete(key)
+    }
+  }
+
   function prewarm(target: string | URL, options: PublicRoutePrewarmOptions): Promise<PublicRoutePrewarmResult> {
     const normalized = normalizeTarget(target)
     if (!normalized) {
@@ -394,12 +421,33 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
 
     const existing = tasks.get(normalized.key)
     if (existing) {
-      emit('public_route_prewarm_hit', normalized, options)
+      emit('public_route_prewarm_inflight_hit', normalized, options)
       return existing
     }
 
-    emit('public_route_prewarm_start', normalized, options)
     const route = findRoutePreload(normalized.url, routePreloads)
+    if (!route) {
+      emit('public_route_prewarm_miss', normalized, options)
+      return Promise.resolve(createResult('miss', normalized, options, null, {
+        routeComponentReady: false,
+        seedReady: false
+      }))
+    }
+
+    // Reuse currently valid seed/head without resurrecting a historical ready Promise.
+    // Component chunks remain the browser module cache's responsibility.
+    if (hasUsableRouteArtifacts(route, normalized, options.nowMs)) {
+      const artifactResult = createResult('ready', normalized, options, route, {
+        routeComponentReady: true,
+        seedReady: true
+      })
+      emit('public_route_prewarm_artifact_ready', normalized, options, {
+        routeKind: route.kind
+      })
+      return Promise.resolve(artifactResult)
+    }
+
+    emit('public_route_prewarm_start', normalized, options)
     const linked = createLinkedAbortController([
       options.signal,
       lifetimeSignal()
@@ -421,11 +469,6 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
     const matchedRoute = route
     const task = (async (): Promise<PublicRoutePrewarmResult> => {
       try {
-        if (!matchedRoute) {
-          emit('public_route_prewarm_miss', normalized, options)
-          return createResult('miss', normalized, options, null, state)
-        }
-
         await Promise.all((matchedRoute.criticalStyleHrefs ?? []).map((href) => preloadStyle(href, linked.controller.signal)))
         throwIfAborted(linked.controller.signal)
 
@@ -581,10 +624,8 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
     })()
 
     tasks.set(normalized.key, task)
-    void task.then((result) => {
-      if (result.status !== 'ready' && result.status !== 'miss') {
-        tasks.delete(normalized.key)
-      }
+    void task.finally(() => {
+      releaseInFlightTask(normalized.key, task)
     })
     return task
   }

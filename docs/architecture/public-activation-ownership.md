@@ -102,6 +102,33 @@ in parallel. SEO/seed commit happens only after both producers succeed and the
 generation/signal is still current. A later intent aborts the previous
 generation before a late snapshot can write seed/head.
 
+### Route prewarm Promise cache vs seed/head artifact lifecycle
+
+These are deliberately separate:
+
+| Mechanism | Owner | Lifetime | Responsibility |
+| --- | --- | --- | --- |
+| In-flight task map (`createPublicRoutePrewarmer` `tasks`) | `publicRoutePreload.ts` | Only while the producer is unsettled | Deduplicate concurrent prepare for the same target (pointerenter/focus/click) |
+| Route seed store | `publicRouteSeedStore.ts` | Default TTL (5 minutes) **and** one-shot `consume` | Consumable navigation seed for the next Router render |
+| Prepared SEO head store | `publicSeoHead.ts` | Default TTL (5 minutes) until committed/expired | Staged head for the next public navigation |
+
+Rules:
+
+- Settled prewarm outcomes (`ready`, `miss`, `cancelled`, `timeout`, `failure`)
+  always leave the in-flight map. A historical resolved Promise is never kept as
+  readiness evidence.
+- Returning `ready` requires **currently usable** artifacts: loadable route
+  component (browser/ESM module cache), unconsumed and unexpired route seed with
+  matching renderer identity, and a prepared SEO head. A prior call that once
+  returned `ready` is not enough.
+- After Router `consumePublicRouteSeed`, the next prepare for the same path must
+  re-run the snapshot producer (or another path that writes a fresh seed). It
+  must not revive the consumed seed object or skip freshness/renderer checks.
+- Telemetry distinguishes `public_route_prewarm_inflight_hit` (join unsettled
+  producer) from `public_route_prewarm_artifact_ready` (reuse still-valid
+  seed/head without starting producers). Do not collapse both into a single
+  `prewarm-hit`.
+
 The coordinator does not import DOM APIs, Vue, Router, Pinia, FsusUI,
 `fullApp.ts`, `publicShell.ts`, or their implementations.
 `publicActivationRuntime.ts` binds route preparation to
