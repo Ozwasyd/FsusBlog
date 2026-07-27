@@ -55,14 +55,52 @@ fallback.
 `PublicActivationCoordinator` calls external behavior only through these
 injected ports:
 
-- `routePreparationPort` prepares the target component, seed, and SEO head;
-- `fullAppPort` prepares and commits FullApp, then owns interactive navigation;
+- `routePreparationPort` prepares the target component, seed, and SEO head for a
+  concrete navigation intent; it never creates or mounts a Vue app and never
+  imports the FullApp composition root;
+- `fullAppPort.warm` / `fullAppPort.prepare` load and construct FullApp core,
+  Router composition, and required plugins only; they never accept a route URL
+  for navigation-snapshot fetch and never write route seed/head stores;
+- `fullAppPort.commit` / `navigate` transfer ownership and own interactive
+  Router navigation after commit;
 - `feedbackPort` enters and leaves foreground waiting feedback;
 - `fallbackPort` performs document navigation;
 - `telemetryPort` records phase transitions, durations, illegal transitions,
-  and terminal outcomes;
+  terminal outcomes, and prepare timings
+  (`core_prepare_ms`, `route_component_ms`, `route_snapshot_ms`,
+  `activation_prepare_wall_ms`);
 - `clock` supplies microtask, frame, timer, and time operations for deterministic
   tests.
+
+### Core warming vs intent route preparation
+
+These are independent concepts and must not be recombined into a single
+`prewarmFullAppRoute(currentPath)` style API:
+
+| Concept | Trigger | Port | May fetch current-page navigation snapshot? |
+| --- | --- | --- | --- |
+| FullApp **core warming** | idle public boot | `fullAppPort.warm()` | No |
+| Intent **route preparation** | pointerenter / focus / activation intent | `routePreparationPort.prepare(intent)` | Only for the **target** intent URL |
+| Foreground activation | click / boot handoff | both ports in parallel, then one commit | Target only |
+
+Idle public boot may warm SPA entry/core modules so the browser can cache them.
+It must not request `/api/public/navigation-snapshot.aeds` for the already AOT
+hydrated current URL, must not create a one-shot seed for that current route,
+and must not prepare admin/auth/editor resources.
+
+On a foreground intent of one generation the coordinator starts:
+
+```text
+fullAppPrepared = fullAppPort.prepare(intent)
+routePrepared   = routePreparationPort.prepare(intent, signal)
+await Promise.all([fullAppPrepared, routePrepared])
+commit only when both belong to the same generation
+```
+
+Inside `routePreparationPort`, component preload and snapshot fetch also start
+in parallel. SEO/seed commit happens only after both producers succeed and the
+generation/signal is still current. A later intent aborts the previous
+generation before a late snapshot can write seed/head.
 
 The coordinator does not import DOM APIs, Vue, Router, Pinia, FsusUI,
 `fullApp.ts`, `publicShell.ts`, or their implementations.
@@ -70,8 +108,9 @@ The coordinator does not import DOM APIs, Vue, Router, Pinia, FsusUI,
 `publicRoutePreload.ts`, loads the FullApp implementation, connects feedback
 and telemetry, and implements document fallback.
 
-`publicShell.ts` may warm a route or submit a typed activation intent; it does
-not own a cross-phase promise, generation token, or abort controller.
+`publicShell.ts` may idle-warm FullApp core, warm a concrete route intent, or
+submit a typed activation intent; it does not own a cross-phase promise,
+generation token, or abort controller.
 `fullApp.ts` owns application and Router construction plus prepare/commit
 mechanics, but it does not select the top-level activation phase. The Router
 receives an activation-owner getter and does not import the browser activation

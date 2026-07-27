@@ -34,6 +34,23 @@ export type PublicActivationState = Readonly<{
 export type PublicRoutePreparationResult = Readonly<{
   ready: boolean
   reason?: string
+  routeComponentMs?: number
+  routeSnapshotMs?: number
+}>
+
+export type PublicCoreWarmResult = Readonly<{
+  ready: boolean
+  reason?: string
+}>
+
+export type PublicActivationPrepareTiming = Readonly<{
+  generation: number
+  target: string
+  source: string
+  core_prepare_ms: number
+  route_component_ms: number | null
+  route_snapshot_ms: number | null
+  activation_prepare_wall_ms: number
 }>
 
 export type PublicActivationOutcome =
@@ -42,11 +59,22 @@ export type PublicActivationOutcome =
   | Readonly<{ generation: number, status: 'queued' }>
   | Readonly<{ generation: number, status: 'rejected', reason: string }>
 
+/**
+ * Injected ports for PublicActivationCoordinator.
+ *
+ * - `routePreparationPort` prepares a target route component/snapshot/SEO seed only.
+ * - `fullAppPort.warm/prepare` load and construct FullApp core only; they never
+ *   request a public route navigation snapshot.
+ * Core warming and intent route preparation are independent concepts.
+ */
 export type PublicActivationPorts<PreparedApp = unknown> = Readonly<{
   routePreparationPort: {
     prepare: (intent: PublicActivationIntent, signal: AbortSignal) => Promise<PublicRoutePreparationResult>
   }
   fullAppPort: {
+    /** Idle/core-only warm: load SPA entry modules. Must not accept a route URL. */
+    warm: () => Promise<void>
+    /** Construct FullApp core/router/plugins without mounting or fetching route snapshots. */
     prepare: (intent: PublicActivationIntent) => Promise<PreparedApp>
     commit: (prepared: PreparedApp, intent: PublicActivationIntent) => Promise<void>
     navigate: (intent: PublicActivationIntent) => Promise<void>
@@ -67,6 +95,7 @@ export type PublicActivationPorts<PreparedApp = unknown> = Readonly<{
     ) => void
     illegalTransition: (from: PublicActivationPhase, to: PublicActivationPhase, reason: string) => void
     terminal: (outcome: Extract<PublicActivationOutcome, { status: 'interactive' | 'fallback' }>) => void
+    prepareTiming?: (timing: PublicActivationPrepareTiming) => void
   }
   clock: {
     now: () => number
@@ -122,6 +151,15 @@ export function createPublicBootActivationIntent(
 
 function failureReason(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+function isAbortLike(error: unknown): boolean {
+  return (error as { name?: string } | null)?.name === 'AbortError'
+}
+
+function preferProducerFailure(errors: readonly unknown[]): unknown {
+  const nonAbort = errors.find((error) => error !== undefined && !isAbortLike(error))
+  return nonAbort ?? errors.find((error) => error !== undefined) ?? new Error('activation-prepare-failed')
 }
 
 export function canTransitionPublicActivation(
@@ -185,7 +223,30 @@ export class PublicActivationCoordinator<PreparedApp = unknown> {
     return true
   }
 
-  async warm(target: string, source = 'idle'): Promise<PublicRoutePreparationResult> {
+  /**
+   * Idle FullApp core warming only.
+   * Must not accept a route URL, request navigation snapshots, or create route seeds.
+   */
+  async warmCore(source = 'idle'): Promise<PublicCoreWarmResult> {
+    if (this.activationPromise) {
+      return { ready: false, reason: 'activation-in-progress' }
+    }
+    if (this.state.phase === 'interactive' || this.state.phase === 'committing' || this.state.phase === 'fallback') {
+      return { ready: false, reason: 'activation-not-replaceable' }
+    }
+    try {
+      await this.ports.fullAppPort.warm()
+      return { ready: true }
+    } catch (error) {
+      return { ready: false, reason: failureReason(error) }
+    }
+  }
+
+  /**
+   * Intent-targeted route preparation (pointerenter/focus).
+   * Prepares component/snapshot/SEO seed only; never commits FullApp.
+   */
+  async warm(target: string, source = 'pointerenter'): Promise<PublicRoutePreparationResult> {
     const normalized = normalizeIntent({ target, source, kind: 'activate' })
     if (this.activationPromise) {
       return { ready: false, reason: 'activation-in-progress' }
@@ -326,29 +387,77 @@ export class PublicActivationCoordinator<PreparedApp = unknown> {
     reusableWarmingPromise: Promise<PublicRoutePreparationResult> | null
   ): Promise<PublicActivationOutcome> {
     await new Promise<void>((resolve) => this.ports.clock.queueMicrotask(resolve))
+    const prepareWallStartedAt = this.ports.clock.now()
+    let corePrepareMs = 0
+    let routeResult: PublicRoutePreparationResult | null = null
     try {
-      let routeResult: PublicRoutePreparationResult
-      if (this.warmedTarget === intent.target && this.warmedResult?.ready === true) {
-        routeResult = this.warmedResult
-      } else if (reusableWarmingPromise) {
-        routeResult = await reusableWarmingPromise
-      } else {
-        this.warmedTarget = intent.target
-        routeResult = await this.ports.routePreparationPort.prepare(intent, controller.signal)
+      // FullApp core prepare and target route preparation start in the same generation
+      // before either producer resolves. Commit only when both succeed for this generation.
+      const routeTask = (async (): Promise<PublicRoutePreparationResult> => {
+        try {
+          if (this.warmedTarget === intent.target && this.warmedResult?.ready === true) {
+            return this.warmedResult
+          }
+          if (reusableWarmingPromise) {
+            return await reusableWarmingPromise
+          }
+          this.warmedTarget = intent.target
+          return await this.ports.routePreparationPort.prepare(intent, controller.signal)
+        } catch (error) {
+          if (!controller.signal.aborted) {
+            controller.abort(error)
+          }
+          throw error
+        }
+      })()
+
+      const coreTask = (async (): Promise<PreparedApp> => {
+        const startedAt = this.ports.clock.now()
+        try {
+          const prepared = await this.ports.fullAppPort.prepare(intent)
+          corePrepareMs = Math.max(0, this.ports.clock.now() - startedAt)
+          return prepared
+        } catch (error) {
+          corePrepareMs = Math.max(0, this.ports.clock.now() - startedAt)
+          if (!controller.signal.aborted) {
+            controller.abort(error)
+          }
+          throw error
+        }
+      })()
+
+      let prepared: PreparedApp
+      const settled = await Promise.allSettled([routeTask, coreTask])
+      const routeSettled = settled[0]
+      const coreSettled = settled[1]
+      if (routeSettled.status === 'fulfilled') {
+        routeResult = routeSettled.value
       }
+      if (routeSettled.status === 'rejected' || coreSettled.status === 'rejected') {
+        this.emitPrepareTiming(generation, intent, prepareWallStartedAt, corePrepareMs, routeResult)
+        throw preferProducerFailure([
+          coreSettled.status === 'rejected' ? coreSettled.reason : undefined,
+          routeSettled.status === 'rejected' ? routeSettled.reason : undefined
+        ])
+      }
+      prepared = coreSettled.value
+
+      const wallMs = Math.max(0, this.ports.clock.now() - prepareWallStartedAt)
+      this.emitPrepareTiming(generation, intent, prepareWallStartedAt, corePrepareMs, routeResult, wallMs)
+
       if (!this.isCurrent(generation, controller)) {
         return this.replaced(generation)
       }
       if (!routeResult.ready) {
-        return this.fallback(generation, intent, routeResult.reason ?? 'route-preparation-not-ready')
+        return this.fallback(
+          generation,
+          intent,
+          routeResult.reason ?? 'route-preparation-not-ready'
+        )
       }
 
       if (this.state.phase !== 'prepared') {
-        this.transition('prepared', 'route-prepared')
-      }
-      const prepared = await this.ports.fullAppPort.prepare(intent)
-      if (!this.isCurrent(generation, controller)) {
-        return this.replaced(generation)
+        this.transition('prepared', 'core-and-route-prepared')
       }
 
       this.preparationController = null
@@ -366,11 +475,41 @@ export class PublicActivationCoordinator<PreparedApp = unknown> {
       }
       return outcome
     } catch (error) {
-      if (this.activationWasReplaced(generation, controller)) {
+      // A newer intent increments generation before aborting this controller.
+      // Self-abort of a sibling producer for the current generation must fall
+      // back with the producer failure reason, not "replaced".
+      if (!this.isCurrentGeneration(generation)) {
+        return this.replaced(generation)
+      }
+      if (
+        this.state.phase !== 'committing' &&
+        this.preparationController !== null &&
+        this.preparationController !== controller
+      ) {
         return this.replaced(generation)
       }
       return this.fallback(generation, intent, failureReason(error))
     }
+  }
+
+  private emitPrepareTiming(
+    generation: number,
+    intent: PublicActivationIntent,
+    prepareWallStartedAt: number,
+    corePrepareMs: number,
+    routeResult: PublicRoutePreparationResult | null,
+    wallMs = Math.max(0, this.ports.clock.now() - prepareWallStartedAt)
+  ): void {
+    this.ports.telemetryPort.prepareTiming?.({
+      generation,
+      target: intent.target,
+      source: intent.source,
+      core_prepare_ms: corePrepareMs,
+      route_component_ms: routeResult?.routeComponentMs ?? null,
+      route_snapshot_ms: routeResult?.routeSnapshotMs ?? null,
+      // Wall time is the parallel barrier duration, not the sum of producer times.
+      activation_prepare_wall_ms: wallMs
+    })
   }
 
   private async navigateInteractive(intent: PublicActivationIntent): Promise<PublicActivationOutcome> {
@@ -436,15 +575,6 @@ export class PublicActivationCoordinator<PreparedApp = unknown> {
 
   private isCurrentGeneration(generation: number): boolean {
     return this.state.generation === generation
-  }
-
-  private activationWasReplaced(generation: number, controller: AbortController): boolean {
-    if (!this.isCurrentGeneration(generation) || controller.signal.aborted) {
-      return true
-    }
-
-    return this.state.phase !== 'committing'
-      && this.preparationController !== controller
   }
 
   private scheduleForegroundFeedback(generation: number, intent: PublicActivationIntent): void {

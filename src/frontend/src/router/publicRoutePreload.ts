@@ -55,6 +55,8 @@ export type PublicRoutePrewarmResult = Readonly<{
   routeComponentReady: boolean
   seedReady: boolean
   error?: string
+  routeComponentMs?: number
+  routeSnapshotMs?: number
 }>
 
 export type PublicRoutePreloadCandidate = Readonly<{
@@ -352,7 +354,12 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
     target: NormalizedPrewarmTarget,
     options: PublicRoutePrewarmOptions,
     route: PublicRoutePreloadCandidate | null,
-    state: { routeComponentReady: boolean, seedReady: boolean },
+    state: {
+      routeComponentReady: boolean
+      seedReady: boolean
+      routeComponentMs?: number
+      routeSnapshotMs?: number
+    },
     error?: unknown
   ): PublicRoutePrewarmResult {
     return {
@@ -362,8 +369,14 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
       routeKind: route?.kind ?? null,
       routeComponentReady: state.routeComponentReady,
       seedReady: state.seedReady,
+      routeComponentMs: state.routeComponentMs,
+      routeSnapshotMs: state.routeSnapshotMs,
       error: error instanceof Error ? error.message : error === undefined ? undefined : String(error)
     }
+  }
+
+  function failureMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error)
   }
 
   function prewarm(target: string | URL, options: PublicRoutePrewarmOptions): Promise<PublicRoutePrewarmResult> {
@@ -400,34 +413,85 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
 
     const state = {
       routeComponentReady: false,
-      seedReady: false
+      seedReady: false,
+      routeComponentMs: undefined as number | undefined,
+      routeSnapshotMs: undefined as number | undefined
     }
 
+    const matchedRoute = route
     const task = (async (): Promise<PublicRoutePrewarmResult> => {
       try {
-        if (!route) {
+        if (!matchedRoute) {
           emit('public_route_prewarm_miss', normalized, options)
           return createResult('miss', normalized, options, null, state)
         }
 
-        await Promise.all((route.criticalStyleHrefs ?? []).map((href) => preloadStyle(href, linked.controller.signal)))
-        throwIfAborted(linked.controller.signal)
-        await route.preloadComponent()
-        state.routeComponentReady = true
+        await Promise.all((matchedRoute.criticalStyleHrefs ?? []).map((href) => preloadStyle(href, linked.controller.signal)))
         throwIfAborted(linked.controller.signal)
 
-        const frame = await fetchNavigationSnapshot(normalized.url, linked.controller.signal)
+        // Component chunk and navigation snapshot are independent producers.
+        // Start both before either resolves; abort the sibling on hard failure.
+        let producerFailure: { stage: 'component' | 'snapshot', error: unknown } | null = null
+        const nowMs = () => (typeof performance !== 'undefined' ? performance.now() : Date.now())
+
+        const componentTask = (async () => {
+          const startedAt = nowMs()
+          try {
+            await matchedRoute.preloadComponent()
+            state.routeComponentReady = true
+            state.routeComponentMs = Math.max(0, nowMs() - startedAt)
+          } catch (error) {
+            state.routeComponentMs = Math.max(0, nowMs() - startedAt)
+            if (!isAbortError(error)) {
+              producerFailure ??= { stage: 'component', error }
+              if (!linked.controller.signal.aborted) {
+                linked.controller.abort(error)
+              }
+            }
+            throw error
+          }
+        })()
+
+        const snapshotTask = (async () => {
+          const startedAt = nowMs()
+          try {
+            const frame = await fetchNavigationSnapshot(normalized.url, linked.controller.signal)
+            state.routeSnapshotMs = Math.max(0, nowMs() - startedAt)
+            return frame
+          } catch (error) {
+            state.routeSnapshotMs = Math.max(0, nowMs() - startedAt)
+            if (!isAbortError(error) && !linked.controller.signal.aborted) {
+              producerFailure ??= { stage: 'snapshot', error }
+              linked.controller.abort(error)
+            }
+            throw error
+          }
+        })()
+
+        let frame: Uint8Array | ArrayBuffer
+        try {
+          ;[, frame] = await Promise.all([componentTask, snapshotTask])
+        } catch (error) {
+          if (producerFailure?.stage === 'component') {
+            throw new Error(`route-component-failed: ${failureMessage(producerFailure.error)}`)
+          }
+          if (producerFailure?.stage === 'snapshot') {
+            throw new Error(`route-snapshot-failed: ${failureMessage(producerFailure.error)}`)
+          }
+          throw error
+        }
+
         throwIfAborted(linked.controller.signal)
         const envelope = decodePublicAotPayloadBytes<PublicNavigationSnapshotEnvelope>(frame)
-        const expectedPageId = getSharedPublicPageManifestEntry(route.kind).pageId
+        const expectedPageId = getSharedPublicPageManifestEntry(matchedRoute.kind).pageId
         if (!envelope ||
-            envelope.pageKind !== route.kind ||
+            envelope.pageKind !== matchedRoute.kind ||
             envelope.pageId !== expectedPageId) {
-          throw new Error('invalid navigation snapshot')
+          throw new Error('route-snapshot-decode-failed: invalid navigation snapshot')
         }
         const seed = decodeSnapshotSeed(envelope)
         if (!seed) {
-          throw new Error('invalid navigation snapshot')
+          throw new Error('route-snapshot-decode-failed: invalid navigation snapshot seed')
         }
         const descriptor = isSupportedLocale(envelope.renderLocale)
           ? getLocaleDescriptor(envelope.renderLocale)
@@ -438,7 +502,7 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
             envelope.payloadHash !== expectedPayloadHash ||
             envelope.seoHead.locale !== descriptor.documentLanguage ||
             envelope.seoHead.openGraph.locale !== descriptor.openGraphLocale) {
-          throw new Error('invalid navigation snapshot locale identity')
+          throw new Error('route-snapshot-decode-failed: invalid navigation snapshot locale identity')
         }
 
         const envelopeFullPath = envelope.fullPath || `${envelope.path}${envelope.queryString}`
@@ -448,21 +512,23 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
               envelopeFullPath,
               envelope.canonicalPath,
               options.nowMs)) {
-          throw new Error('invalid navigation snapshot SEO head')
+          throw new Error('route-seo-validation-failed: invalid navigation snapshot SEO head')
         }
 
         const preparedLocale = await initializeLocaleRuntime(
           descriptor.code,
           requiredLocaleDomainsForRoute({
-            name: route.name,
+            name: matchedRoute.name,
             path: normalized.url.pathname,
             meta: { routeState: 'public-shareable' }
           })
         )
         throwIfAborted(linked.controller.signal)
         if (preparedLocale !== descriptor.code) {
-          throw new Error('navigation snapshot locale runtime not prepared')
+          throw new Error('route-snapshot-decode-failed: navigation snapshot locale runtime not prepared')
         }
+        // Seed/head commit only after component + snapshot + validation all succeed
+        // and the intent generation is still current.
         putPublicRouteSeed({
           kind: envelope.pageKind,
           fullPath: envelopeFullPath,
@@ -472,23 +538,42 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
           nowMs: options.nowMs
         })
         state.seedReady = true
-        emit('public_route_prewarm_ready', normalized, options, { routeKind: envelope.pageKind })
-        return createResult('ready', normalized, options, route, state)
+        emit('public_route_prewarm_ready', normalized, options, {
+          routeKind: envelope.pageKind,
+          route_component_ms: state.routeComponentMs,
+          route_snapshot_ms: state.routeSnapshotMs
+        })
+        return createResult('ready', normalized, options, matchedRoute, state)
       } catch (error) {
         if (timedOut) {
-          emit('public_route_prewarm_timeout', normalized, options, {}, 'warn')
-          return createResult('timeout', normalized, options, route, state, error)
+          emit('public_route_prewarm_timeout', normalized, options, {
+            route_component_ms: state.routeComponentMs,
+            route_snapshot_ms: state.routeSnapshotMs
+          }, 'warn')
+          return createResult('timeout', normalized, options, matchedRoute, state, error)
         }
 
-        if (isAbortError(error) || linked.controller.signal.aborted) {
-          emit('public_route_prewarm_cancel', normalized, options)
-          return createResult('cancelled', normalized, options, route, state, error)
+        if (isAbortError(error) ||
+            (linked.controller.signal.aborted &&
+              !(error instanceof Error && (
+                error.message.startsWith('route-component-failed:') ||
+                error.message.startsWith('route-snapshot-failed:') ||
+                error.message.startsWith('route-snapshot-decode-failed:') ||
+                error.message.startsWith('route-seo-validation-failed:')
+              )))) {
+          emit('public_route_prewarm_cancel', normalized, options, {
+            route_component_ms: state.routeComponentMs,
+            route_snapshot_ms: state.routeSnapshotMs
+          })
+          return createResult('cancelled', normalized, options, matchedRoute, state, error)
         }
 
         emit('public_route_prewarm_failure', normalized, options, {
-          error: error instanceof Error ? error.message : String(error)
+          error: error instanceof Error ? error.message : String(error),
+          route_component_ms: state.routeComponentMs,
+          route_snapshot_ms: state.routeSnapshotMs
         }, 'warn')
-        return createResult('failure', normalized, options, route, state, error)
+        return createResult('failure', normalized, options, matchedRoute, state, error)
       } finally {
         window.clearTimeout(timeoutId)
         linked.dispose()

@@ -17,7 +17,7 @@ import {
   type PublicNavigationSnapshotEnvelope
 } from '@/router/publicRoutePreload'
 import { getLocaleDescriptor, LOCALE_CATALOG_DIGEST } from '@/locales/localeCatalog'
-import { locale, resetLocaleRuntimeForTests, type SupportedLocale } from '@/locales'
+import { activeLocale, resetLocaleRuntimeForTests, type SupportedLocale } from '@/locales'
 import {
   computePublicSeoHeadDigest,
   resetPublicSeoHeadForTests,
@@ -25,6 +25,24 @@ import {
 } from '@/router/publicSeoHead'
 
 const RENDER_TIMESTAMP = '2026-06-18T00:00:00.000Z'
+
+function deferredMarker() {
+  let mark!: () => void
+  let started = false
+  const promise = new Promise<void>((resolve) => {
+    mark = () => {
+      started = true
+      resolve()
+    }
+  })
+  return {
+    get started() {
+      return started
+    },
+    mark: () => mark(),
+    promise
+  }
+}
 
 function snapshotBytes(envelope: PublicNavigationSnapshotEnvelope): Uint8Array {
   return base64UrlToBytes(encodePublicAotPayload(envelope))
@@ -234,7 +252,7 @@ describe('public route prewarm', () => {
       status: 'ready',
       seedReady: true
     })
-    expect(locale.value).toBe('ja-JP')
+    expect(activeLocale.value).toBe('ja-JP')
   })
 
   it('rejects a tampered locale identity before committing a route seed', async () => {
@@ -258,7 +276,7 @@ describe('public route prewarm', () => {
       status: 'failure',
       seedReady: false
     })
-    expect(locale.value).toBe('zh-CN')
+    expect(activeLocale.value).toBe('zh-CN')
     expect(consumePublicRouteSeed('Archive', { fullPath: '/archive' })).toBeNull()
   })
 
@@ -444,15 +462,111 @@ describe('public route prewarm', () => {
       status: 'failure',
       routeComponentReady: false,
       seedReady: false,
-      error: 'chunk unavailable'
+      error: 'route-component-failed: chunk unavailable'
     })
+    expect(consumePublicRouteSeed('Archive', { fullPath: '/archive' })).toBeNull()
     await expect(prewarm.prewarm('/archive', { reason: 'focus' })).resolves.toMatchObject({
       status: 'ready',
       routeComponentReady: true,
       seedReady: true
     })
     expect(loadArchiveComponent).toHaveBeenCalledTimes(2)
-    expect(fetchSnapshot).toHaveBeenCalledTimes(1)
+    // Component and snapshot start in parallel, so a failed first attempt still
+    // starts a snapshot fetch (often aborted) and the retry starts another.
+    expect(fetchSnapshot.mock.calls.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('starts component import and snapshot fetch before either resolves', async () => {
+    const events: string[] = []
+    let resolveComponent!: () => void
+    let resolveSnapshot!: (value: Uint8Array) => void
+    const componentStarted = deferredMarker()
+    const snapshotStarted = deferredMarker()
+    const envelope = await createArchiveEnvelope()
+    const prewarm = createPublicRoutePrewarmer({
+      routePreloads: [{
+        kind: 'Archive',
+        name: 'Archive',
+        match: (url) => url.pathname === '/archive',
+        preloadComponent: vi.fn(() => {
+          componentStarted.mark()
+          return new Promise((resolve) => {
+            resolveComponent = () => resolve({ default: {} })
+          })
+        })
+      }],
+      fetchNavigationSnapshot: vi.fn(() => {
+        snapshotStarted.mark()
+        return new Promise<Uint8Array>((resolve) => {
+          resolveSnapshot = resolve
+        })
+      }),
+      preloadStyle: vi.fn(async () => {}),
+      emitTelemetry: (name) => events.push(name),
+      lifetimeSignal: () => new AbortController().signal
+    })
+
+    const task = prewarm.prewarm('/archive', { reason: 'atomic-navigation', nowMs: 1_000 })
+    await Promise.all([componentStarted.promise, snapshotStarted.promise])
+    // Promise barrier: both producers must have started before either resolves.
+    expect(componentStarted.started && snapshotStarted.started).toBe(true)
+
+    resolveComponent()
+    resolveSnapshot(snapshotBytes(envelope))
+    await expect(task).resolves.toMatchObject({
+      status: 'ready',
+      routeComponentReady: true,
+      seedReady: true
+    })
+    expect(events).toContain('public_route_prewarm_ready')
+  })
+
+  it('does not leave a consumable seed when the component producer fails after snapshot starts', async () => {
+    const envelope = await createArchiveEnvelope()
+    const prewarm = createPublicRoutePrewarmer({
+      routePreloads: [{
+        kind: 'Archive',
+        name: 'Archive',
+        match: (url) => url.pathname === '/archive',
+        preloadComponent: vi.fn(async () => {
+          throw new Error('chunk-broken')
+        })
+      }],
+      fetchNavigationSnapshot: vi.fn(async () => snapshotBytes(envelope)),
+      preloadStyle: vi.fn(async () => {}),
+      lifetimeSignal: () => new AbortController().signal
+    })
+
+    await expect(prewarm.prewarm('/archive', { reason: 'pointerenter', nowMs: 1_000 })).resolves.toMatchObject({
+      status: 'failure',
+      seedReady: false,
+      error: 'route-component-failed: chunk-broken'
+    })
+    expect(consumePublicRouteSeed('Archive', { fullPath: '/archive' }, { nowMs: 1_001 })).toBeNull()
+  })
+
+  it('does not return ready when snapshot fails after the component is cached', async () => {
+    const prewarm = createPublicRoutePrewarmer({
+      routePreloads: [{
+        kind: 'Archive',
+        name: 'Archive',
+        match: (url) => url.pathname === '/archive',
+        preloadComponent: vi.fn(async () => ({ default: {} }))
+      }],
+      fetchNavigationSnapshot: vi.fn(async () => {
+        throw new Error('snapshot-http-500')
+      }),
+      preloadStyle: vi.fn(async () => {}),
+      lifetimeSignal: () => new AbortController().signal
+    })
+
+    await expect(prewarm.prewarm('/archive', { reason: 'atomic-navigation' })).resolves.toMatchObject({
+      status: 'failure',
+      routeComponentReady: true,
+      seedReady: false,
+      error: 'route-snapshot-failed: snapshot-http-500'
+    })
+    expect(consumePublicRouteSeed('Archive', { fullPath: '/archive' })).toBeNull()
   })
 
   it('resolves only same-origin unmodified public route anchors', () => {

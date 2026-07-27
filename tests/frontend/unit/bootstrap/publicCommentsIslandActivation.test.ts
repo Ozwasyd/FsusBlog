@@ -174,7 +174,8 @@ async function importPublicShell(
     adoptPublicBootIntent: vi.fn(),
     getPublicActivationOwner: vi.fn(() => 'aot'),
     submitPublicActivationIntent: vi.fn(async () => ({ status: 'interactive' })),
-    warmPublicActivation: prewarmPublicRoute
+    warmPublicActivation: prewarmPublicRoute,
+    warmPublicFullAppCore: vi.fn(async () => ({ ready: true }))
   }))
   vi.doMock('@/bootstrap/publicNavigationIntent', () => ({
     classifyPublicNavigationIntent: vi.fn(() => ({ kind: 'comments-island' }))

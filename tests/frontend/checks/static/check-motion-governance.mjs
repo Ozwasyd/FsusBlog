@@ -232,7 +232,12 @@ const publicShell = expectIncludes(
   'submitPublicActivationIntent',
   'public route activation coordinator submission'
 )
-for (const token of ['submitPublicActivationIntent', 'warmPublicActivation', 'navigateWithDocumentRequest']) {
+for (const token of [
+  'submitPublicActivationIntent',
+  'warmPublicActivation',
+  'warmPublicFullAppCore',
+  'navigateWithDocumentRequest'
+]) {
   if (!publicShell.includes(token)) {
     errors.push(`src/frontend/src/bootstrap/publicShell.ts: missing ${token}`)
   }

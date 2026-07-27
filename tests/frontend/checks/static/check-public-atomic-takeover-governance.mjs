@@ -56,11 +56,30 @@ for (const token of [
 for (const token of [
   'submitPublicActivationIntent',
   'warmPublicActivation',
+  'warmPublicFullAppCore',
   'navigateWithDocumentRequest'
 ]) {
   if (!publicShell.includes(token)) {
     fail(publicShellPath, `atomic takeover navigation contract missing: ${token}`)
   }
+}
+
+// Idle public boot must warm FullApp core only — never prewarm(currentFullPath)
+// into a navigation-snapshot fetch for the already-hydrated AOT page.
+if (!publicShell.includes('schedulePublicCoreIdleWarm') || !publicShell.includes('warmPublicFullAppCore')) {
+  fail(publicShellPath, 'idle public boot must schedule FullApp core warm via warmPublicFullAppCore')
+}
+if (publicShell.includes('schedulePublicRouteIdlePrewarm')) {
+  fail(publicShellPath, 'retired idle route prewarm scheduler must not return')
+}
+if (/requestPublicRoutePrewarm\(\s*currentPublicShellFullPath\(\)/u.test(publicShell)) {
+  fail(publicShellPath, 'idle must not call requestPublicRoutePrewarm(currentPublicShellFullPath())')
+}
+if (/warmPublicActivation\(\s*currentPublicShellFullPath\(\)/u.test(publicShell)) {
+  fail(publicShellPath, 'idle must not call warmPublicActivation(currentPublicShellFullPath())')
+}
+if (/prewarmFullAppRoute\s*\(/u.test(publicShell) || /prewarmFullAppRoute\s*\(/u.test(runtime)) {
+  fail(publicShellPath, 'composite prewarmFullAppRoute API must not return')
 }
 
 if (publicShell.includes("@/bootstrap/fullApp")) {
@@ -110,11 +129,35 @@ for (const token of [
   'feedbackPort',
   'fallbackPort',
   'telemetryPort',
-  'clock'
+  'clock',
+  'warmCore',
+  'Promise.all'
 ]) {
   if (!coordinator.includes(token)) {
     fail(coordinatorPath, `coordinator port contract missing: ${token}`)
   }
+}
+
+if (!coordinator.includes('fullAppPort.warm') && !/warm:\s*\(\)\s*=>\s*Promise<void>/u.test(coordinator)) {
+  fail(coordinatorPath, 'fullAppPort.warm core-only contract missing')
+}
+
+// Serial prepare (route then core) is forbidden; both must start before either resolves.
+if (/routeResult\s*=\s*await[\s\S]*?fullAppPort\.prepare/u.test(coordinator) &&
+    !/Promise\.all\(\[routeTask,\s*coreTask\]\)/u.test(coordinator)) {
+  fail(coordinatorPath, 'activation must Promise.all core prepare with route preparation')
+}
+
+if (!publicRoutePreload.includes('Promise.all([componentTask, snapshotTask])') &&
+    !publicRoutePreload.includes('Promise.all([componentTask, snapshotTask]') &&
+    !/Promise\.all\(\[componentTask,\s*snapshotTask\]\)/u.test(publicRoutePreload)) {
+  fail(publicRoutePreloadPath, 'route preparation must start component and snapshot in parallel')
+}
+
+// Serial component-then-snapshot without a parallel barrier is forbidden.
+if (/await route\.preloadComponent\(\)[\s\S]*?await fetchNavigationSnapshot/u.test(publicRoutePreload) &&
+    !/componentTask/u.test(publicRoutePreload)) {
+  fail(publicRoutePreloadPath, 'serial component-then-snapshot preload must not return')
 }
 
 for (const forbiddenImport of [
@@ -136,11 +179,29 @@ for (const token of [
   'new PublicActivationCoordinator',
   'prewarmPublicRoute',
   'showNavigationProgress',
-  'window.location.assign'
+  'window.location.assign',
+  'warmPublicFullAppCore',
+  'prepareTiming'
 ]) {
   if (!runtime.includes(token)) {
     fail(runtimePath, `browser composition contract missing: ${token}`)
   }
+}
+
+// Core warm/prepare must not import route seed/head stores.
+for (const forbidden of [
+  "from '@/public-renderers/publicRouteSeedStore'",
+  'putPublicRouteSeed',
+  'fetchNavigationSnapshot',
+  'navigation-snapshot.aeds'
+]) {
+  if (runtime.includes(forbidden)) {
+    fail(runtimePath, `FullApp core composition must not touch route snapshot/seed: ${forbidden}`)
+  }
+}
+
+if (publicRoutePreload.includes('@/bootstrap/fullApp') || publicRoutePreload.includes('createApp(')) {
+  fail(publicRoutePreloadPath, 'route preparation must not create/mount Vue app or import FullApp')
 }
 
 const retiredTokens = [

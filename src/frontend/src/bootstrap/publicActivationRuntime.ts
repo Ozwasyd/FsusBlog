@@ -5,6 +5,7 @@ import {
   type PublicActivationIntent,
   type PublicActivationOutcome,
   type PublicActivationOwner,
+  type PublicCoreWarmResult,
   type PublicRoutePreparationResult,
   type PublicActivationState
 } from '@/bootstrap/publicActivationCoordinator'
@@ -28,6 +29,7 @@ const initialState: PublicActivationState = {
 const state = shallowRef<PublicActivationState>(initialState)
 let preparedFullApp: PreparedFullApp | null = null
 let preparedCandidate: PreparedFullApp | null = null
+let coreModulePromise: Promise<FullAppModule> | null = null
 let bootIntentAdopted = false
 
 function currentTarget(): string {
@@ -44,26 +46,50 @@ function getFullAppActivationOwner(): FullAppActivationOwner {
   return state.value.owner === 'full-app' ? 'full-app' : 'aot'
 }
 
+/**
+ * FullApp core warm: dynamic-import the SPA entry only.
+ * Does not accept a route URL and must not touch route seed/head stores.
+ */
 async function loadFullApp(): Promise<FullAppModule> {
-  return await import('@/bootstrap/fullApp')
+  if (!coreModulePromise) {
+    coreModulePromise = import('@/bootstrap/fullApp').catch((error) => {
+      coreModulePromise = null
+      throw error
+    })
+  }
+  return await coreModulePromise
 }
 
 const coordinator = new PublicActivationCoordinator<PreparedFullApp>({
   routePreparationPort: {
+    // Intent route preparation only: component + snapshot + SEO seed.
+    // Never creates/mounts a Vue app or imports FullApp composition root.
     prepare: async (intent, signal) => {
       const result = await prewarmPublicRoute(intent.target, {
-        reason: intent.kind === 'navigate' ? 'atomic-navigation' : 'idle',
+        reason: intent.kind === 'navigate' ? 'atomic-navigation' : intent.source === 'idle' ? 'idle' : 'pointerenter',
         signal
       })
-      return { ready: result.status === 'ready', reason: result.status }
+      return {
+        ready: result.status === 'ready',
+        reason: result.status === 'ready'
+          ? undefined
+          : (result.error ?? result.status),
+        routeComponentMs: result.routeComponentMs,
+        routeSnapshotMs: result.routeSnapshotMs
+      }
     }
   },
   fullAppPort: {
+    warm: async () => {
+      await loadFullApp()
+    },
     prepare: async () => {
       if (preparedCandidate) {
         return preparedCandidate
       }
       const module = await loadFullApp()
+      // prepareFullApp constructs app/router/plugins without mounting and without
+      // requesting any public route navigation snapshot.
       preparedCandidate = module.prepareFullApp({
         getPublicActivationOwner: getFullAppActivationOwner,
         takeover: 'public-shell'
@@ -107,7 +133,8 @@ const coordinator = new PublicActivationCoordinator<PreparedFullApp>({
       reason,
       to
     }, 'warn'),
-    terminal: (outcome) => emitTelemetry('public_activation_terminal', outcome, outcome.status === 'fallback' ? 'warn' : 'info')
+    terminal: (outcome) => emitTelemetry('public_activation_terminal', outcome, outcome.status === 'fallback' ? 'warn' : 'info'),
+    prepareTiming: (timing) => emitTelemetry('public_activation_prepare_timing', timing, 'info')
   },
   clock: {
     now: () => performance.now(),
@@ -128,9 +155,15 @@ export function getPublicActivationOwner(): PublicActivationState['owner'] {
   return state.value.owner
 }
 
+/** Idle FullApp core warming — no route URL, no navigation snapshot. */
+export function warmPublicFullAppCore(source = 'idle'): Promise<PublicCoreWarmResult> {
+  return coordinator.warmCore(source)
+}
+
+/** Intent-targeted route preparation (pointerenter/focus). Does not commit FullApp. */
 export function warmPublicActivation(
   target = currentTarget(),
-  source = 'idle'
+  source = 'pointerenter'
 ): Promise<PublicRoutePreparationResult> {
   return coordinator.warm(target, source)
 }

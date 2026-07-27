@@ -22,7 +22,8 @@ import {
   adoptPublicBootIntent,
   getPublicActivationOwner,
   submitPublicActivationIntent,
-  warmPublicActivation
+  warmPublicActivation,
+  warmPublicFullAppCore
 } from '@/bootstrap/publicActivationRuntime'
 import type { PublicBootIntent } from '@/bootstrap/publicBootHandoff'
 import {
@@ -492,19 +493,29 @@ function requestPublicRoutePrewarm(target: string | null, reason: PublicRoutePre
     return
   }
 
+  // Intent-targeted route preparation only. Idle core warming is a separate port.
   void warmPublicActivation(target, reason)
     .catch((e: unknown) => { if (import.meta.env.DEV) { console.warn('[publicShell] unmount failed', e) } })
 }
 
-function schedulePublicRouteIdlePrewarm(): void {
-  clearPublicRouteIdlePrewarm()
+/**
+ * Idle public boot warms FullApp core modules only.
+ * Must not prewarm the current URL or fetch /api/public/navigation-snapshot.aeds
+ * for the already-hydrated AOT page.
+ */
+function schedulePublicCoreIdleWarm(): void {
+  clearPublicCoreIdleWarm()
   publicRoutePrewarmIdleTask = scheduleIdleTask(() => {
     publicRoutePrewarmIdleTask = null
-    requestPublicRoutePrewarm(currentPublicShellFullPath(), 'idle')
+    if (getPublicActivationOwner() === 'full-app') {
+      return
+    }
+    void warmPublicFullAppCore('idle')
+      .catch((e: unknown) => { if (import.meta.env.DEV) { console.warn('[publicShell] core warm failed', e) } })
   })
 }
 
-function clearPublicRouteIdlePrewarm(): void {
+function clearPublicCoreIdleWarm(): void {
   clearIdleTask(publicRoutePrewarmIdleTask)
   publicRoutePrewarmIdleTask = null
 }
@@ -955,7 +966,7 @@ export async function bootstrapPublicShell(options: BootstrapPublicShellOptions 
   resetPublicShellLifetime()
   resetPublicShellRuntimeAuthState()
   onPublicShellLifetimeAbort(() => {
-    clearPublicRouteIdlePrewarm()
+    clearPublicCoreIdleWarm()
     clearDynamicIslands()
     preBootstrapNavigationBound = false
   })
@@ -966,7 +977,7 @@ export async function bootstrapPublicShell(options: BootstrapPublicShellOptions 
   }
   bindPreBootstrapNavigation()
   bindPublicActivationTriggers()
-  schedulePublicRouteIdlePrewarm()
+  schedulePublicCoreIdleWarm()
   adoptPublicBootIntent(options.bootIntent ?? null)
   const hydrateTask = (async () => {
     await waitForDocumentInteractive()

@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const submitIntent = vi.fn(async () => ({ generation: 1, status: 'interactive' as const }))
+const warm = vi.fn(async () => ({ ready: true }))
+const warmCore = vi.fn(async () => ({ ready: true }))
 const createPublicBootActivationIntent = vi.fn((intent: { type: string }, target: string) => ({
   kind: 'activate' as const,
   source: `boot-${intent.type}`,
@@ -11,7 +13,8 @@ vi.mock('@/bootstrap/publicActivationCoordinator', () => ({
   PublicActivationCoordinator: class {
     constructor() {}
     submitIntent = submitIntent
-    warm = vi.fn()
+    warm = warm
+    warmCore = warmCore
   },
   createPublicBootActivationIntent
 }))
@@ -46,5 +49,18 @@ describe('public activation browser composition', () => {
       '/article/7?from=boot#comments'
     )
     expect(submitIntent).toHaveBeenCalledOnce()
+  })
+
+  it('exposes idle core warm separately from route warm', async () => {
+    const {
+      warmPublicActivation,
+      warmPublicFullAppCore
+    } = await import('@/bootstrap/publicActivationRuntime')
+
+    await warmPublicFullAppCore('idle')
+    await warmPublicActivation('/archive', 'pointerenter')
+
+    expect(warmCore).toHaveBeenCalledWith('idle')
+    expect(warm).toHaveBeenCalledWith('/archive', 'pointerenter')
   })
 })

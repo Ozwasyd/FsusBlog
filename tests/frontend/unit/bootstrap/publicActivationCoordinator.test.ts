@@ -31,6 +31,7 @@ function createHarness(overrides: Partial<PublicActivationPorts<Prepared>> = {})
   const timers = new Map<number, () => void>()
   const frames = new Map<number, () => void>()
   const prepareRoute = vi.fn(async (): Promise<PublicRoutePreparationResult> => ({ ready: true }))
+  const warmFullApp = vi.fn(async () => {})
   const prepareFullApp = vi.fn(async (intent: PublicActivationIntent): Promise<Prepared> => ({
     target: intent.target
   }))
@@ -41,16 +42,25 @@ function createHarness(overrides: Partial<PublicActivationPorts<Prepared>> = {})
   const hide = vi.fn()
   const terminal = vi.fn()
   const illegalTransition = vi.fn()
+  const prepareTiming = vi.fn()
+  const defaultFullAppPort = {
+    warm: warmFullApp,
+    prepare: prepareFullApp,
+    commit,
+    navigate
+  }
+  const defaultTelemetryPort = {
+    phase: vi.fn(),
+    illegalTransition,
+    terminal,
+    prepareTiming
+  }
   const ports: PublicActivationPorts<Prepared> = {
     routePreparationPort: { prepare: prepareRoute },
-    fullAppPort: { prepare: prepareFullApp, commit, navigate },
+    fullAppPort: defaultFullAppPort,
     feedbackPort: { show, hide },
     fallbackPort: { navigate: fallback },
-    telemetryPort: {
-      phase: vi.fn(),
-      illegalTransition,
-      terminal
-    },
+    telemetryPort: defaultTelemetryPort,
     clock: {
       now: () => now,
       queueMicrotask: (callback) => queueMicrotask(callback),
@@ -67,11 +77,23 @@ function createHarness(overrides: Partial<PublicActivationPorts<Prepared>> = {})
       },
       cancelFrame: (handle) => frames.delete(handle)
     },
-    ...overrides
+    ...overrides,
+    fullAppPort: {
+      ...defaultFullAppPort,
+      ...overrides.fullAppPort
+    },
+    telemetryPort: {
+      ...defaultTelemetryPort,
+      ...overrides.telemetryPort
+    },
+    routePreparationPort: overrides.routePreparationPort ?? { prepare: prepareRoute }
   }
   const coordinator = new PublicActivationCoordinator(ports)
   return {
-    commit,
+    advance: (ms: number) => {
+      now += ms
+    },
+    commit: ports.fullAppPort.commit as typeof commit,
     coordinator,
     fallback,
     flushFeedback: () => {
@@ -82,11 +104,13 @@ function createHarness(overrides: Partial<PublicActivationPorts<Prepared>> = {})
       frames.clear()
     },
     illegalTransition,
-    navigate,
-    prepareFullApp,
-    prepareRoute,
+    navigate: ports.fullAppPort.navigate as typeof navigate,
+    prepareFullApp: ports.fullAppPort.prepare as typeof prepareFullApp,
+    prepareRoute: ports.routePreparationPort.prepare as typeof prepareRoute,
+    prepareTiming: (ports.telemetryPort.prepareTiming ?? prepareTiming) as typeof prepareTiming,
     show,
-    terminal
+    terminal: (ports.telemetryPort.terminal ?? terminal) as typeof terminal,
+    warmFullApp: ports.fullAppPort.warm as typeof warmFullApp
   }
 }
 
@@ -97,7 +121,40 @@ const activation = (target: string, source = 'click'): PublicActivationIntent =>
 })
 
 describe('PublicActivationCoordinator', () => {
-  it('warms an idle route without creating a FullApp or changing DOM ownership', async () => {
+  it('idle core warm does not prepare a route or commit FullApp', async () => {
+    const fetchSpy = vi.fn(async () => {
+      throw new Error('fetch must not run during idle core warm')
+    })
+    vi.stubGlobal('fetch', fetchSpy)
+    const harness = createHarness({
+      routePreparationPort: {
+        prepare: vi.fn(async () => {
+          await fetch('/api/public/navigation-snapshot.aeds?path=%2F')
+          return { ready: true }
+        })
+      }
+    })
+
+    await expect(harness.coordinator.warmCore('idle')).resolves.toEqual({ ready: true })
+
+    expect(harness.warmFullApp).toHaveBeenCalledOnce()
+    expect(harness.prepareRoute).not.toHaveBeenCalled()
+    expect(harness.prepareFullApp).not.toHaveBeenCalled()
+    expect(harness.commit).not.toHaveBeenCalled()
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(
+      fetchSpy.mock.calls.filter((call) => String(call[0]).includes('navigation-snapshot.aeds'))
+    ).toHaveLength(0)
+    expect(harness.coordinator.snapshot()).toMatchObject({
+      generation: 0,
+      intent: null,
+      owner: 'aot',
+      phase: 'static-visible'
+    })
+    vi.unstubAllGlobals()
+  })
+
+  it('warms a pointerenter route without creating a FullApp or changing DOM ownership', async () => {
     const route = deferred<PublicRoutePreparationResult>()
     const harness = createHarness({
       routePreparationPort: {
@@ -131,6 +188,106 @@ describe('PublicActivationCoordinator', () => {
       phase: 'prepared'
     })
     expect(harness.prepareFullApp).not.toHaveBeenCalled()
+    expect(harness.warmFullApp).not.toHaveBeenCalled()
+  })
+
+  it('starts FullApp prepare and route preparation before either resolves', async () => {
+    const route = deferred<PublicRoutePreparationResult>()
+    const core = deferred<Prepared>()
+    let routeStarted = false
+    let coreStarted = false
+    const harness = createHarness({
+      routePreparationPort: {
+        prepare: vi.fn(() => {
+          routeStarted = true
+          return route.promise
+        })
+      },
+      fullAppPort: {
+        warm: vi.fn(async () => {}),
+        prepare: vi.fn(() => {
+          coreStarted = true
+          return core.promise
+        }),
+        commit: vi.fn(async () => {}),
+        navigate: vi.fn(async () => {})
+      }
+    })
+
+    const outcome = harness.coordinator.submitIntent(activation('/archive'))
+    await vi.waitFor(() => {
+      expect(routeStarted).toBe(true)
+      expect(coreStarted).toBe(true)
+    })
+    // Barrier: both producers must already be running before either resolves.
+    expect(routeStarted && coreStarted).toBe(true)
+
+    harness.advance(40)
+    route.resolve({ ready: true, routeComponentMs: 30, routeSnapshotMs: 12 })
+    harness.advance(10)
+    core.resolve({ target: '/archive' })
+
+    await expect(outcome).resolves.toMatchObject({ status: 'interactive' })
+    expect(harness.commit).toHaveBeenCalledOnce()
+    expect(harness.prepareTiming).toHaveBeenCalledWith(expect.objectContaining({
+      activation_prepare_wall_ms: expect.any(Number),
+      core_prepare_ms: expect.any(Number),
+      route_component_ms: 30,
+      route_snapshot_ms: 12,
+      target: '/archive'
+    }))
+    const timing = harness.prepareTiming.mock.calls[0]?.[0] as {
+      activation_prepare_wall_ms: number
+      core_prepare_ms: number
+      route_component_ms: number | null
+      route_snapshot_ms: number | null
+    }
+    // Wall time is the parallel barrier, not the arithmetic sum of producers.
+    const producerSum = timing.core_prepare_ms
+      + (timing.route_component_ms ?? 0)
+      + (timing.route_snapshot_ms ?? 0)
+    expect(timing.activation_prepare_wall_ms).not.toBe(producerSum)
+  })
+
+  it.each([
+    {
+      label: 'core fast, component slow, snapshot fast',
+      routeDelay: 50,
+      coreDelay: 5
+    },
+    {
+      label: 'core slow, component fast, snapshot fast',
+      routeDelay: 5,
+      coreDelay: 50
+    },
+    {
+      label: 'snapshot slow but component cached (route still ready)',
+      routeDelay: 40,
+      coreDelay: 10
+    }
+  ])('commits once after parallel producers settle ($label)', async ({ routeDelay, coreDelay }) => {
+    const harness = createHarness({
+      routePreparationPort: {
+        prepare: vi.fn(async () => {
+          await new Promise((resolve) => setTimeout(resolve, routeDelay))
+          return { ready: true, routeComponentMs: routeDelay, routeSnapshotMs: 1 }
+        })
+      },
+      fullAppPort: {
+        warm: vi.fn(async () => {}),
+        prepare: vi.fn(async (intent) => {
+          await new Promise((resolve) => setTimeout(resolve, coreDelay))
+          return { target: intent.target }
+        }),
+        commit: vi.fn(async () => {}),
+        navigate: vi.fn(async () => {})
+      }
+    })
+
+    await expect(harness.coordinator.submitIntent(activation('/archive'))).resolves.toMatchObject({
+      status: 'interactive'
+    })
+    expect(harness.commit).toHaveBeenCalledOnce()
   })
 
   it('converts a BootKernel handoff into one normalized activation intent', () => {
@@ -322,6 +479,7 @@ describe('PublicActivationCoordinator', () => {
       label: 'FullApp preparation',
       overrides: (): Partial<PublicActivationPorts<Prepared>> => ({
         fullAppPort: {
+          warm: vi.fn(async () => {}),
           prepare: vi.fn(async () => { throw abortError('full-app-prepare-aborted') }),
           commit: vi.fn(),
           navigate: vi.fn()
@@ -332,6 +490,7 @@ describe('PublicActivationCoordinator', () => {
       label: 'commit',
       overrides: (): Partial<PublicActivationPorts<Prepared>> => ({
         fullAppPort: {
+          warm: vi.fn(async () => {}),
           prepare: vi.fn(async (intent) => ({ target: intent.target })),
           commit: vi.fn(async () => { throw abortError('commit-aborted') }),
           navigate: vi.fn()
@@ -407,6 +566,7 @@ describe('PublicActivationCoordinator', () => {
   it('falls back once for prepare and commit failures', async () => {
     const prepareFailure = createHarness({
       fullAppPort: {
+        warm: vi.fn(async () => {}),
         prepare: vi.fn(async () => { throw new Error('prepare-failed') }),
         commit: vi.fn(),
         navigate: vi.fn()
@@ -420,6 +580,7 @@ describe('PublicActivationCoordinator', () => {
 
     const commitFailure = createHarness({
       fullAppPort: {
+        warm: vi.fn(async () => {}),
         prepare: vi.fn(async (intent) => ({ target: intent.target })),
         commit: vi.fn(async () => { throw new Error('commit-failed') }),
         navigate: vi.fn()
@@ -432,12 +593,87 @@ describe('PublicActivationCoordinator', () => {
     expect(commitFailure.fallback).toHaveBeenCalledTimes(1)
   })
 
+  it('aborts route preparation when FullApp core prepare fails', async () => {
+    const signals: AbortSignal[] = []
+    let lateRouteWrite = false
+    const harness = createHarness({
+      routePreparationPort: {
+        prepare: vi.fn((_intent, signal) => new Promise<PublicRoutePreparationResult>((resolve, reject) => {
+          signals.push(signal)
+          signal.addEventListener('abort', () => {
+            // A cancelled producer must not surface a ready seed/head artifact.
+            lateRouteWrite = true
+            reject(abortError('route-aborted-by-core-failure'))
+          }, { once: true })
+        }))
+      },
+      fullAppPort: {
+        warm: vi.fn(async () => {}),
+        prepare: vi.fn(async () => { throw new Error('core-failed') }),
+        commit: vi.fn(),
+        navigate: vi.fn()
+      }
+    })
+
+    const outcome = harness.coordinator.submitIntent(activation('/archive'))
+    await vi.waitFor(() => expect(signals[0]).toBeDefined())
+    await expect(outcome).resolves.toMatchObject({
+      reason: 'core-failed',
+      status: 'fallback'
+    })
+    expect(signals[0]?.aborted).toBe(true)
+    expect(lateRouteWrite).toBe(true)
+    expect(harness.commit).not.toHaveBeenCalled()
+  })
+
+  it('does not write a successful commit when a superseded generation finishes late', async () => {
+    const firstRoute = deferred<PublicRoutePreparationResult>()
+    const firstCore = deferred<Prepared>()
+    const prepare = vi.fn((intent: PublicActivationIntent, signal: AbortSignal) => {
+      if (intent.target === '/first') {
+        return firstRoute.promise
+      }
+      return Promise.resolve({ ready: true })
+    })
+    const prepareFullApp = vi.fn((intent: PublicActivationIntent) => {
+      if (intent.target === '/first') {
+        return firstCore.promise
+      }
+      return Promise.resolve({ target: intent.target })
+    })
+    const harness = createHarness({
+      routePreparationPort: { prepare },
+      fullAppPort: {
+        warm: vi.fn(async () => {}),
+        prepare: prepareFullApp,
+        commit: vi.fn(async () => {}),
+        navigate: vi.fn(async () => {})
+      }
+    })
+
+    const stale = harness.coordinator.submitIntent(activation('/first'))
+    await Promise.resolve()
+    const latest = harness.coordinator.submitIntent(activation('/latest'))
+
+    firstRoute.resolve({ ready: true })
+    firstCore.resolve({ target: '/first' })
+
+    await expect(stale).resolves.toMatchObject({
+      reason: 'replaced-by-newer-intent',
+      status: 'fallback'
+    })
+    await expect(latest).resolves.toMatchObject({ status: 'interactive' })
+    expect(harness.commit).toHaveBeenCalledTimes(1)
+    expect(harness.commit.mock.calls[0]?.[1]).toMatchObject({ target: '/latest' })
+  })
+
   it('never aborts commit and queues a later intent into the interactive router', async () => {
     const commitGate = deferred<void>()
     const commit = vi.fn(() => commitGate.promise)
     const navigate = vi.fn(async () => {})
     const harness = createHarness({
       fullAppPort: {
+        warm: vi.fn(async () => {}),
         prepare: vi.fn(async (intent) => ({ target: intent.target })),
         commit,
         navigate
@@ -461,6 +697,7 @@ describe('PublicActivationCoordinator', () => {
     const navigate = vi.fn(async () => { throw new Error('router-rejected') })
     const harness = createHarness({
       fullAppPort: {
+        warm: vi.fn(async () => {}),
         prepare: vi.fn(async (intent) => ({ target: intent.target })),
         commit: vi.fn(() => commitGate.promise),
         navigate
