@@ -1,3 +1,5 @@
+export const localeDomainIdentity = Object.freeze({ locale: 'zh-CN', domain: 'identity' } as const)
+
 export const identity = {
     overview: {
         passkeyLabel: 'Passkey',

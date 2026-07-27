@@ -44,8 +44,13 @@ test('catalog generator rejects duplicate and incomplete metadata', async () => 
 
 test('real consumer mutations fail closed', async () => {
   execFileSync('node', [checker], { cwd: root, stdio: 'inherit' })
-  await checkerRejectsMutation('src/frontend/src/locales/bundleLoader.ts', (source) => source.replace("    'ru-RU': () => import('./ru-RU').then(m => m.ruRU)\n", ''))
-  await checkerRejectsMutation('src/frontend/src/locales/bundleLoader.ts', (source) => source.replace("    'ru-RU': () => import('./ru-RU').then(m => m.ruRU)\n", "    'ru-RU': () => import('./ru-RU').then(m => m.ruRU),\n    'x-test': () => import('./ru-RU').then(m => m.ruRU)\n"))
+  await checkerRejectsMutation('src/frontend/src/locales/localeDomainBundleStore.ts', (source) => source.replace("  'ru-RU': loadersFor('ru-RU', {", "  'ru-RU-removed': loadersFor('ru-RU', {"))
+  await checkerRejectsMutation('src/frontend/src/locales/localeDomainBundleStore.ts', (source) => source.replace("    errors: () => import('./ru-RU/errors')", "    errors: () => import('./en-US/errors')"))
+  await checkerRejectsMutation('src/frontend/src/locales/localeDomainBundleStore.ts', (source) => source.replace(
+    "import { ENABLED_LOCALES, isSupportedLocale, type SupportedLocale } from './localeCatalog'",
+    "import { ENABLED_LOCALES, isSupportedLocale, type SupportedLocale } from './localeCatalog'\nvoid import('./ru-RU')"
+  ))
+  await checkerRejectsMutation('src/frontend/src/locales/localeDomains.ts', (source) => source.replace("  'errors'\n", "  'errors',\n  'future'\n"))
   await checkerRejectsMutation('src/frontend/src/locales/documentMetadata.ts', (source) => source.replace('descriptor.openGraphLocale', "locale.replace('-', '_')"))
   await checkerRejectsMutation('src/frontend/src/locales/localeCatalog.ts', (source) => source.replace('LOCALE_CATALOG_DIGEST =', 'LOCALE_CATALOG_DIGEST_MUTATED ='))
   await checkerRejectsMutation('src/shared/Contracts/Localization/LocaleCatalog.g.cs', (source) => source.replace('public const string Digest', 'public const string CatalogDigest'))
@@ -69,6 +74,13 @@ test('real TypeScript consumers accept the catalog union and reject an eleventh 
   assert.notEqual(eleventh.status, 0, 'the TypeScript compiler accepted an eleventh locale')
 })
 
+test('LocaleDomain is the exact catalog union and rejects an eleventh domain', async () => {
+  const positive = await compileFixture(`import { LOCALE_DOMAINS, type LocaleDomain } from '../src/locales/localeDomains.js'\nconst values: readonly LocaleDomain[] = LOCALE_DOMAINS\nvoid values\n`)
+  assert.equal(positive.status, 0, `${positive.stdout}\n${positive.stderr}`)
+  const eleventh = await compileFixture(`import type { LocaleDomain } from '../src/locales/localeDomains.js'\nconst invalid: LocaleDomain = 'future'\nvoid invalid\n`)
+  assert.notEqual(eleventh.status, 0, 'the TypeScript compiler accepted an eleventh locale domain')
+})
+
 test('TranslationKey is exact for the current zh-CN tree and rejects arbitrary strings', async () => {
   const positive = await compileFixture(`import type { TranslationKey } from '../src/locales/keys.js'\nconst known: TranslationKey = 'common.actions.save'\nvoid known\n`)
   assert.equal(positive.status, 0, `${positive.stdout}\n${positive.stderr}`)
@@ -76,13 +88,26 @@ test('TranslationKey is exact for the current zh-CN tree and rejects arbitrary s
   assert.notEqual(arbitrary.status, 0, 'the TypeScript compiler accepted an arbitrary translation key')
 })
 
-test('PluralTranslationKey is exactly never for the current zh-CN tree and DeepStringShape preserves plural leaves', async () => {
-  const exactCurrentCatalog = await compileFixture(`import type { PluralTranslationKey } from '../src/locales/keys.js'\ntype Assert<T extends true> = T\ntype IsExactly<Left, Right> = (<T>() => T extends Left ? 1 : 2) extends (<T>() => T extends Right ? 1 : 2) ? ((<T>() => T extends Right ? 1 : 2) extends (<T>() => T extends Left ? 1 : 2) ? true : false) : false\ntype CurrentCatalogHasNoPluralLeaves = Assert<IsExactly<PluralTranslationKey, never>>\nvoid (null as unknown as CurrentCatalogHasNoPluralLeaves)\n`)
+test('ordinary and plural keys plus parameter maps are exact and mutually exclusive', async () => {
+  const exactCurrentCatalog = await compileFixture(`import type { PluralParamsByKey, PluralTranslationKey, TranslationKey, TranslationParamsByKey } from '../src/locales/keys.js'\ntype Assert<T extends true> = T\ntype IsExactly<Left, Right> = (<T>() => T extends Left ? 1 : 2) extends (<T>() => T extends Right ? 1 : 2) ? ((<T>() => T extends Right ? 1 : 2) extends (<T>() => T extends Left ? 1 : 2) ? true : false) : false\ntype PluralKey = Assert<IsExactly<PluralTranslationKey, 'public.archive.publishedCount'>>\ntype OrdinaryDoesNotContainPlural = Assert<'public.archive.publishedCount' extends TranslationKey ? false : true>\ntype PluralDoesNotContainOrdinary = Assert<'common.actions.save' extends PluralTranslationKey ? false : true>\ntype OrdinaryNoParams = Assert<IsExactly<TranslationParamsByKey['common.actions.save'], undefined>>\ntype OrdinaryNamedParams = Assert<IsExactly<TranslationParamsByKey['article.actions.viewImageNamed'], Readonly<{ title: string | number }>>>\ntype PluralCountParams = Assert<IsExactly<PluralParamsByKey['public.archive.publishedCount'], Readonly<{ count: string | number }>>>\nvoid (null as unknown as PluralKey | OrdinaryDoesNotContainPlural | PluralDoesNotContainOrdinary | OrdinaryNoParams | OrdinaryNamedParams | PluralCountParams)\n`)
   assert.equal(exactCurrentCatalog.status, 0, `${exactCurrentCatalog.stdout}\n${exactCurrentCatalog.stderr}`)
   const arbitrary = await compileFixture(`import type { PluralTranslationKey } from '../src/locales/keys.js'\nconst impossible: PluralTranslationKey = 'untrusted.plural.key'\nvoid impossible\n`)
   assert.notEqual(arbitrary.status, 0, 'the TypeScript compiler accepted an arbitrary plural translation key')
-  const positive = await compileFixture(`import type { DeepStringShape, PluralMessage } from '../src/locales/keys.js'\ntype Fixture = { ordinary: 'ordinary'; plural: PluralMessage }\nconst translated: DeepStringShape<Fixture> = { ordinary: 'translated', plural: { zero: '0', one: '1', two: '2', few: 'few', many: 'many', other: 'other' } }\nvoid translated\n`)
+  const validCalls = await compileFixture(`import { translate } from '../src/locales/index.js'\ntranslate('common.actions.save')\ntranslate('article.actions.viewImageNamed', { title: 'cover' })\n`)
+  assert.equal(validCalls.status, 0, `${validCalls.stdout}\n${validCalls.stderr}`)
+  const missingParams = await compileFixture(`import { translate } from '../src/locales/index.js'\ntranslate('article.actions.viewImageNamed')\n`)
+  assert.notEqual(missingParams.status, 0, 'translate accepted a parameterized key without its exact parameters')
+  const extraParams = await compileFixture(`import { translate } from '../src/locales/index.js'\ntranslate('common.actions.save', { count: 1 })\n`)
+  assert.notEqual(extraParams.status, 0, 'translate accepted parameters for a parameterless key')
+  const pluralThroughOrdinary = await compileFixture(`import { translate } from '../src/locales/index.js'\ntranslate('public.archive.publishedCount', { count: 1 })\n`)
+  assert.notEqual(pluralThroughOrdinary.status, 0, 'ordinary translate accepted a plural key')
+})
+
+test('LocaleSchema preserves the discriminated plural kind and required other form', async () => {
+  const positive = await compileFixture(`import type { LocaleSchema, PluralNode } from '../src/locales/keys.js'\ntype Fixture = { ordinary: 'ordinary'; plural: PluralNode }\nconst translated: LocaleSchema<Fixture> = { ordinary: 'translated', plural: { kind: 'plural', forms: { other: '{count}' } } }\nvoid translated\n`)
   assert.equal(positive.status, 0, `${positive.stdout}\n${positive.stderr}`)
-  const ordinaryPlural = await compileFixture(`import type { DeepStringShape } from '../src/locales/keys.js'\ntype Fixture = { ordinary: 'ordinary' }\nconst invalid: DeepStringShape<Fixture> = { ordinary: { zero: '0', one: '1', two: '2', few: 'few', many: 'many', other: 'other' } }\nvoid invalid\n`)
-  assert.notEqual(ordinaryPlural.status, 0, 'the TypeScript compiler accepted a plural message for an ordinary leaf')
+  const ordinaryPlural = await compileFixture(`import type { LocaleSchema } from '../src/locales/keys.js'\ntype Fixture = { ordinary: 'ordinary' }\nconst invalid: LocaleSchema<Fixture> = { ordinary: { kind: 'plural', forms: { other: '{count}' } } }\nvoid invalid\n`)
+  assert.notEqual(ordinaryPlural.status, 0, 'the TypeScript compiler accepted a plural node for an ordinary leaf')
+  const missingOther = await compileFixture(`import type { LocaleSchema, PluralNode } from '../src/locales/keys.js'\ntype Fixture = { plural: PluralNode }\nconst invalid: LocaleSchema<Fixture> = { plural: { kind: 'plural', forms: { one: '{count}' } } }\nvoid invalid\n`)
+  assert.notEqual(missingOther.status, 0, 'the TypeScript compiler accepted a plural node without other')
 })

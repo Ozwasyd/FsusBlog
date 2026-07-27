@@ -1,3 +1,5 @@
+export const localeDomainIdentity = Object.freeze({ locale: 'zh-CN', domain: 'auth' } as const)
+
 export const auth = {
     register: {
         title: '创建匿名账号',

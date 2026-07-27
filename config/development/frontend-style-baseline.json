@@ -2345,13 +2345,6 @@
             }
         },
         {
-            "path": "src/frontend/src/components/ui/LocaleToggle.vue",
-            "sourceSha256": "a29d1860a51119fef98515348ab9db38e210f949318c3033127d0f13805c6e9a",
-            "violationCount": 0,
-            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-            "rules": {}
-        },
-        {
             "path": "src/frontend/src/components/ui/MarkdownEditorAdapter.vue",
             "sourceSha256": "d1d5b9531d56f0bf7d057fc1cb65300d81fcd5c2dc32fd571735beea019814e3",
             "violationCount": 381,

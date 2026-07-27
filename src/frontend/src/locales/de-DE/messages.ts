@@ -1,4 +1,6 @@
-import type { DeepStringShape } from '../keys'
+export const localeDomainIdentity = Object.freeze({ locale: 'de-DE', domain: 'messages' } as const)
+
+import type { LocaleSchema } from '../keys'
 import type { messages as zhCNMessages } from '../zh-CN/messages'
 
 export const messages = {
@@ -74,4 +76,4 @@ export const messages = {
         loadFailed: 'Laden der Nachrichten fehlgeschlagen',
         sendFailed: 'Senden fehlgeschlagen'
     }
-} as const satisfies DeepStringShape<typeof zhCNMessages>
+} as const satisfies LocaleSchema<typeof zhCNMessages>

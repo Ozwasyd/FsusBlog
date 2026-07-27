@@ -1,4 +1,6 @@
-import type { DeepStringShape } from '../keys';
+export const localeDomainIdentity = Object.freeze({ locale: 'en-US', domain: 'errors' } as const)
+
+import type { LocaleSchema } from '../keys';
 import type { errors as zhCNErrors } from '../zh-CN/errors';
 
 export const errors = {
@@ -17,4 +19,4 @@ export const errors = {
         searchCta: 'Search posts',
         archiveCta: 'Archive'
     }
-} as const satisfies DeepStringShape<typeof zhCNErrors>;
+} as const satisfies LocaleSchema<typeof zhCNErrors>;

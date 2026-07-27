@@ -14,6 +14,10 @@ import { getPublicRuntimeOwner } from '@/bootstrap/publicTakeoverState'
 import { isPublicSearchRouteName, isPublicSeoRouteName, isPublicShellRouteName } from '@/public-renderers/publicPageModel'
 import { PUBLIC_SEARCH_ROUTE_NAME } from '@/public-renderers/publicRouteRegistry'
 import { normalizePublicSearchQuery } from '@/public-renderers/publicSearchRoutePolicy'
+import {
+  prepareLocaleRoute,
+  type LocaleRoutePreparationPort
+} from '@/locales/routeLocaleDomains'
 import { APP_ROUTE_RECORDS } from '@/router/appRouteRecords'
 import type { PublicRoutePrewarmPort } from '@/router/publicRoutePreload'
 import {
@@ -21,6 +25,7 @@ import {
   type ManageMetaOptions,
   type SelfMetaOptions
 } from '@/router/accountRouteMeta'
+import { assertRouteTitleContracts } from '@/router/routeTitleContract'
 import {
   clearPublicSearchNoIndexHead,
   clearPublicSeoHead,
@@ -94,12 +99,14 @@ export { APP_ROUTE_RECORDS } from '@/router/appRouteRecords'
 
 if (import.meta.env.DEV) {
   assertAccountLeafRouteMeta(APP_ROUTE_RECORDS)
+  assertRouteTitleContracts(APP_ROUTE_RECORDS)
 }
 
 export type RouterFactoryOptions = Readonly<{
   history?: RouterHistory
   ssr?: boolean
   prewarmPublicRoute?: PublicRoutePrewarmPort
+  prepareLocaleDomains?: LocaleRoutePreparationPort
 }>
 
 function readRouteRequiredPermissions(route: RouteLocationNormalized): string[] {
@@ -134,7 +141,13 @@ function isSameAccountShellChildSwitch(to: RouteLocationNormalized, from: RouteL
 }
 
 function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): void {
-  router.beforeEach(async (to, from) => {
+  type LocaleTransaction = Awaited<ReturnType<LocaleRoutePreparationPort>>
+  let acceptedLocaleTransaction: LocaleTransaction | null = null
+
+  const runApplicationRouteGuard = async (
+    to: RouteLocationNormalized,
+    from: RouteLocationNormalized
+  ) => {
     if (isPublicSearchRouteName(to.name)) {
       const normalized = normalizePublicSearchQuery(to.query)
       if (normalized.invalidKeyword || normalized.shouldRedirect) {
@@ -148,7 +161,7 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
     }
 
     const sessionBootstrap = useSessionBootstrap()
-    const { userStore, siteStore } = sessionBootstrap
+    const { userStore } = sessionBootstrap
     const adminStore = useAdminStore()
     const accountRoute = to.meta.requiresAccountSession === true || to.meta.requiresAuth === true
     const manageRoute = to.meta.requiresAdminSession === true
@@ -234,10 +247,6 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
       await sessionBootstrap.ensureBootstrap()
     }
 
-    if (!publicSeoRoute && (!shouldDeferPublicBootstrap || siteStore.isLoaded)) {
-      sessionBootstrap.syncDocumentTitle(to)
-    }
-
     if (publicShellRoute) {
       return true
     }
@@ -298,22 +307,50 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
     }
 
     return true
+  }
+
+  router.beforeEach(async (to, from) => {
+    if (!options.prepareLocaleDomains) {
+      return await runApplicationRouteGuard(to, from)
+    }
+
+    const transaction = await prepareLocaleRoute(options.prepareLocaleDomains, to)
+    try {
+      const result = await runApplicationRouteGuard(to, from)
+      if (result !== true && result !== undefined) {
+        transaction.rollback()
+        return result
+      }
+      acceptedLocaleTransaction = transaction
+      return result
+    } catch (error) {
+      transaction.rollback()
+      throw error
+    }
   })
 
   if (options.ssr) {
     return
   }
 
-  router.afterEach((to, from) => {
+  router.afterEach((to, from, failure) => {
+    const localeTransaction = acceptedLocaleTransaction
+    if (localeTransaction) {
+      acceptedLocaleTransaction = null
+      if (failure) localeTransaction.rollback()
+      else localeTransaction.commit()
+    }
+
     if (isPublicSeoRouteName(to.name)) {
       if (hasPreparedPublicSeoHead(to.fullPath)) {
         commitPreparedPublicSeoHead(to.fullPath, from.fullPath)
       }
     } else if (isPublicSearchRouteName(to.name)) {
       commitPublicSearchNoIndexHead(isPublicSeoRouteName(from.name) ? from.fullPath : undefined)
-      useSessionBootstrap().syncDocumentTitle(to)
     } else if (isPublicSeoRouteName(from.name)) {
       clearPublicSeoHead(from.fullPath)
+    }
+    if (!failure && !isPublicSeoRouteName(to.name)) {
       useSessionBootstrap().syncDocumentTitle(to)
     }
     if (!isPublicSearchRouteName(to.name)) {
@@ -323,6 +360,8 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
   })
 
   router.onError(() => {
+    acceptedLocaleTransaction?.rollback()
+    acceptedLocaleTransaction = null
     finishProgressNavigation()
   })
 }

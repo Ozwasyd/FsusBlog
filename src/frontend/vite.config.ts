@@ -13,6 +13,31 @@ import { assertProductionFrontendBuildId } from './src/config/releaseStorage'
 
 const FRONTEND_ROOT = fileURLToPath(new URL('./', import.meta.url))
 const REPO_ROOT = path.resolve(FRONTEND_ROOT, '../..')
+const localeCatalog = JSON.parse(fs.readFileSync(
+    path.join(REPO_ROOT, 'src/shared/Contracts/Localization/locale-catalog.json'),
+    'utf8'
+)) as { locales?: Array<{ code?: string; status?: string }> }
+const localeCodes = (localeCatalog.locales ?? [])
+    .filter((locale) => locale.status === 'enabled' && typeof locale.code === 'string')
+    .map((locale) => locale.code as string)
+const localeDomainSource = fs.readFileSync(
+    path.join(FRONTEND_ROOT, 'src/locales/localeDomains.ts'),
+    'utf8'
+)
+const localeDomainMatch = localeDomainSource.match(
+    /export const LOCALE_DOMAINS = Object\.freeze\(\[([\s\S]*?)\]\s+as const\)/u
+)
+const localeDomains = localeDomainMatch
+    ? [...localeDomainMatch[1].matchAll(/'([^']+)'/gu)].map((item) => item[1])
+    : []
+if (localeCodes.length === 0 || localeDomains.length === 0) {
+    throw new Error('locale/domain catalogs must be available before Vite chunk planning')
+}
+const localeDomainChunkPattern = new RegExp(
+    `[\\\\/]src[\\\\/]locales[\\\\/](${localeCodes.map(escapeRegExp).join('|')})`
+    + `[\\\\/](${localeDomains.map(escapeRegExp).join('|')})\\.ts$`,
+    'u'
+)
 
 function resolveAdminManualChunk(id: string): string | undefined {
     if (
@@ -73,6 +98,11 @@ function resolveAdminManualChunk(id: string): string | undefined {
     }
 
     return undefined
+}
+
+function resolveLocaleDomainChunk(id: string): string | undefined {
+    const localeDomain = localeDomainChunkPattern.exec(id)
+    return localeDomain ? `locale-${localeDomain[1]}-${localeDomain[2]}` : undefined
 }
 
 function resolveManualChunk(id: string): string | undefined {
@@ -729,6 +759,13 @@ export default defineConfig(({ command, mode }) => {
                                         test: /node_modules[\\/]@unhead[\\/]/,
                                         priority: 70,
                                         minSize: 4096
+                                    },
+                                    {
+                                        name(moduleId: string) {
+                                            return resolveLocaleDomainChunk(moduleId) ?? null
+                                        },
+                                        priority: 20,
+                                        minSize: 0
                                     },
                                     {
                                         name(moduleId: string) {

@@ -5,6 +5,11 @@ import type { PublicHydrationPayload } from '@/public-renderers/types'
 import { createPublicHydrationRootComponent } from '@/public-renderers/publicHydrationRoot'
 import { normalizePublicHydrationPayload } from '@/public-renderers/publicPayloadNormalizer'
 import { registerPublicStaticRouterLink } from '@/public-renderers/publicStaticRouterLink'
+import {
+  prepareLocaleDomains,
+  provideLocaleTextContext
+} from '@/locales'
+import { requiredLocaleDomainsForPublicPage } from '@/locales/routeLocaleDomains'
 
 export { decodePublicAotPayload, encodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload'
 export { PUBLIC_RENDERER_VERSION } from '@/public-renderers/publicEntryCore'
@@ -24,7 +29,12 @@ export {
 
 export async function renderPublicHydrationSnapshot(payload: PublicHydrationPayload): Promise<string> {
   const normalizedPayload = normalizePublicHydrationPayload(payload)
+  const localeSnapshot = await prepareLocaleDomains(
+    normalizedPayload.renderLocale,
+    requiredLocaleDomainsForPublicPage(normalizedPayload.pageKind)
+  )
   const app = createSSRApp(createPublicHydrationRootComponent(normalizedPayload))
+  provideLocaleTextContext(app, localeSnapshot)
   provideFsusUiAppContext(app)
   registerPublicStaticRouterLink(app)
   return await renderToString(app)

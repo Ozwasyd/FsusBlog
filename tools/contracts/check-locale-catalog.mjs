@@ -22,6 +22,78 @@ const extractObjectKeys = (source, symbol) => {
 
 const assertIncludes = (source, token, message) => { if (!source.includes(token)) throw new Error(message) }
 
+const extractLocaleDomains = (source) => {
+  const match = source.match(/export const LOCALE_DOMAINS = Object\.freeze\(\[([\s\S]*?)\]\s+as const\)/u)
+  if (!match) throw new Error('cannot locate LOCALE_DOMAINS')
+  const domains = [...match[1].matchAll(/'([^']+)'/gu)].map((item) => item[1])
+  if (domains.length === 0 || domains.length !== new Set(domains).size) {
+    throw new Error('LOCALE_DOMAINS must be a non-empty exact union')
+  }
+  return domains
+}
+
+const assertLocaleDomainLoaders = (source, expectedDomainList) => {
+  const expectedDomains = new Set(expectedDomainList)
+  const localeKeys = [...source.matchAll(/^\s*'([^']+)':\s*loadersFor\('\1',\s*\{/gmu)].map((item) => item[1])
+  assertExactKeys('locale domain loader', localeKeys)
+  if (localeKeys.length !== expectedKeys.size) {
+    throw new Error(`locale domain loader count drift: expected=${expectedKeys.size} actual=${localeKeys.length}`)
+  }
+  for (const locale of localeKeys) {
+    const start = source.indexOf(`'${locale}': loadersFor('${locale}', {`)
+    const end = source.indexOf('\n  })', start)
+    if (start < 0 || end < 0) throw new Error(`cannot locate locale domain loaders: ${locale}`)
+    const block = source.slice(start, end)
+    const domains = [...block.matchAll(/^\s{4}([a-z]+):\s*\(\)\s*=>\s*import\('\.\/([^/]+)\/([^']+)'\)/gmu)]
+    const actualDomains = new Set(domains.map((item) => item[1]))
+    const missing = [...expectedDomains].filter((domain) => !actualDomains.has(domain))
+    const extra = [...actualDomains].filter((domain) => !expectedDomains.has(domain))
+    if (missing.length || extra.length || domains.length !== expectedDomainList.length) {
+      throw new Error(`locale domain loader drift for ${locale}: missing=[${missing}] extra=[${extra}]`)
+    }
+    for (const [, domain, importLocale, importDomain] of domains) {
+      if (locale !== importLocale || domain !== importDomain) {
+        throw new Error(`locale domain loader identity drift: ${locale}/${domain} -> ${importLocale}/${importDomain}`)
+      }
+    }
+  }
+  const pairCount = localeKeys.length * expectedDomainList.length
+  const importCount = [...source.matchAll(/\(\)\s*=>\s*import\('\.\/[^/]+\/[^']+'\)/gu)].length
+  if (importCount !== pairCount) {
+    throw new Error(`locale domain import count drift: expected=${pairCount} actual=${importCount}`)
+  }
+  if (/import\('\.\/[^/'"]+'\)/u.test(source)) {
+    throw new Error('whole-locale dynamic import is forbidden')
+  }
+}
+
+const assertLocaleDomainFiles = async (expectedDomainList) => {
+  const localeRoot = path.join(root, 'src/frontend/src/locales')
+  const localeDirectories = (await readdir(localeRoot, { withFileTypes: true }))
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+  assertExactKeys('locale domain directories', localeDirectories)
+  for (const locale of localeDirectories) {
+    const files = (await readdir(path.join(localeRoot, locale), { withFileTypes: true }))
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+      .map((entry) => entry.name.slice(0, -3))
+    const actual = new Set(files)
+    const missing = expectedDomainList.filter((domain) => !actual.has(domain))
+    const extra = files.filter((domain) => !expectedDomainList.includes(domain))
+    if (missing.length || extra.length || files.length !== expectedDomainList.length) {
+      throw new Error(`locale domain file drift for ${locale}: missing=[${missing}] extra=[${extra}]`)
+    }
+    for (const domain of expectedDomainList) {
+      const source = await readFile(path.join(localeRoot, locale, `${domain}.ts`), 'utf8')
+      const expectedIdentity =
+        `export const localeDomainIdentity = Object.freeze({ locale: '${locale}', domain: '${domain}' } as const)`
+      if (!source.includes(expectedIdentity)) {
+        throw new Error(`locale domain module identity drift: ${locale}/${domain}`)
+      }
+    }
+  }
+}
+
 const productionLocaleAssertionFiles = async (directory) => {
   const entries = await readdir(directory, { withFileTypes: true })
   const children = await Promise.all(entries.map(async (entry) => {
@@ -42,8 +114,9 @@ const assertNoForcedSupportedLocale = async () => {
 
 export async function checkLocaleCatalog() {
   execFileSync('node', ['tools/contracts/generate-locale-catalog.mjs', '--check'], { cwd: root, stdio: 'inherit' })
-  const [loaders, fonts, runtime, metadata, serverFonts, serverAot, keys] = await Promise.all([
-    readFile(path.join(root, 'src/frontend/src/locales/bundleLoader.ts'), 'utf8'),
+  const [loaders, domains, fonts, runtime, metadata, serverFonts, serverAot, keys] = await Promise.all([
+    readFile(path.join(root, 'src/frontend/src/locales/localeDomainBundleStore.ts'), 'utf8'),
+    readFile(path.join(root, 'src/frontend/src/locales/localeDomains.ts'), 'utf8'),
     readFile(path.join(root, 'src/frontend/src/bootstrap/fontLoadingPlanner.ts'), 'utf8'),
     readFile(path.join(root, 'src/frontend/src/locales/index.ts'), 'utf8'),
     readFile(path.join(root, 'src/frontend/src/locales/documentMetadata.ts'), 'utf8'),
@@ -51,9 +124,14 @@ export async function checkLocaleCatalog() {
     readFile(path.join(root, 'src/backend/Infrastructure/PublicAot/PublicAotDocumentComposer.cs'), 'utf8'),
     readFile(path.join(root, 'src/frontend/src/locales/keys.ts'), 'utf8')
   ])
-  assertExactKeys('locale bundle loader', extractObjectKeys(loaders, 'LOCALE_BUNDLE_LOADERS'))
+  const expectedDomainList = extractLocaleDomains(domains)
+  assertLocaleDomainLoaders(loaders, expectedDomainList)
+  await assertLocaleDomainFiles(expectedDomainList)
   assertExactKeys('locale font mapping', extractObjectKeys(fonts, 'LOCALE_FACES'))
   assertIncludes(runtime, "export { ENABLED_LOCALES } from './localeCatalog'", 'locale selector inventory must project catalog enabled locales')
+  if (/from\s+['"]\.\/zh-CN\//u.test(runtime)) {
+    throw new Error('locale runtime must not statically import zh-CN initial domains')
+  }
   assertIncludes(serverAot, 'resolvedLocale.DocumentLanguage', 'server document language must consume resolved generated catalog metadata')
   assertIncludes(serverAot, 'resolvedLocale.OpenGraphLocale', 'server OpenGraph locale must consume resolved generated catalog metadata')
   assertIncludes(metadata, 'descriptor.openGraphLocale', 'document metadata must consume descriptor OpenGraph locale')
@@ -65,7 +143,9 @@ export async function checkLocaleCatalog() {
   const forbidden = [
     ['LOCALE', 'REGISTRY'].join('_'), ['REGISTRY', 'BY', 'CODE'].join('_'), ['ACTIVE', 'LOCALES'].join('_'),
     ['AVAILABLE', 'LOCALES'].join('_'), ['cast', 'Supported'].join(''), ['Deep', 'LocaleShape'].join(''),
-    ['TranslationKey', 'string'].join(' = '), ['LocaleMessages', 'Record<string, unknown>'].join(' = ')
+    ['TranslationKey', 'string'].join(' = '), ['LocaleMessages', 'Record<string, unknown>'].join(' = '),
+    ['Plural', 'Message'].join(''), ['isPlural', 'Message'].join(''), ['translate', 'Unsafe'].join(''),
+    ['domains', 'ByLocale'].join('')
   ]
   const haystack = `${loaders}\n${runtime}\n${metadata}\n${keys}`
   for (const token of forbidden) if (haystack.includes(token)) throw new Error(`forbidden legacy locale surface: ${token}`)

@@ -1,4 +1,6 @@
-import type { DeepStringShape } from '../keys';
+export const localeDomainIdentity = Object.freeze({ locale: 'ko-KR', domain: 'layout' } as const)
+
+import type { LocaleSchema } from '../keys';
 import type { layout as zhCNLayout } from '../zh-CN/layout';
 
 export const layout = {
@@ -30,4 +32,4 @@ export const layout = {
     themeMode: {
         label: '테마 모드'
     }
-} as const satisfies DeepStringShape<typeof zhCNLayout>;
+} as const satisfies LocaleSchema<typeof zhCNLayout>;

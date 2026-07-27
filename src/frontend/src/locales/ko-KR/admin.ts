@@ -1,4 +1,6 @@
-import type { DeepStringShape } from '../keys';
+export const localeDomainIdentity = Object.freeze({ locale: 'ko-KR', domain: 'admin' } as const)
+
+import type { LocaleSchema } from '../keys';
 import type { admin as zhCNAdmin } from '../zh-CN/admin';
 
 export const admin = {
@@ -141,4 +143,4 @@ export const admin = {
         metricRemovedRiskLabels: '제거된 위험 라벨',
         errorToastFallback: '정책 리플레이 미리보기 실패'
     }
-} as const satisfies DeepStringShape<typeof zhCNAdmin>;
+} as const satisfies LocaleSchema<typeof zhCNAdmin>;

@@ -187,9 +187,10 @@ export async function collectPublicPreviewQualityDom(page, normalizedScenario, p
         const chromeElements = uniqueElements(currentPolicy.uiChromeSelectors ?? [])
             .filter((element) => !isExcludedUserContent(element));
         const chromeText = chromeElements.map((element) => element.textContent?.trim() ?? '').filter(Boolean).join('\n');
-        const oppositeLocale = currentScenario.locale === 'zh-CN' ? 'en-US' : 'zh-CN';
-        const oppositeTokens = currentPolicy.localeTokens?.[oppositeLocale] ?? [];
-        const localeFindings = oppositeTokens.filter((token) => chromeText.includes(token));
+        const foreignLocaleTokens = Object.entries(currentPolicy.localeTokens ?? {})
+            .filter(([locale]) => locale !== currentScenario.locale)
+            .flatMap(([, tokens]) => tokens);
+        const localeFindings = foreignLocaleTokens.filter((token) => chromeText.includes(token));
         const documentLocale = document.documentElement.lang;
         if (documentLocale !== currentScenario.locale)
         {
@@ -198,7 +199,6 @@ export async function collectPublicPreviewQualityDom(page, normalizedScenario, p
         const localeCoherence = {
             status: localeFindings.length === 0 ? 'pass' : 'fail',
             expectedLocale: currentScenario.locale,
-            oppositeLocale,
             findings: localeFindings
         };
 

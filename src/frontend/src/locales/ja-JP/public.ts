@@ -1,4 +1,6 @@
-import type { DeepStringShape } from '../keys'
+export const localeDomainIdentity = Object.freeze({ locale: 'ja-JP', domain: 'public' } as const)
+
+import type { LocaleSchema } from '../keys'
 import type { publicMessages as zhCNPublicMessages } from '../zh-CN/public'
 
 export const publicMessages = {
@@ -53,7 +55,12 @@ export const publicMessages = {
     },
     archive: {
         title: 'アーカイブ',
-        publishedCount: '{count} 件の記事を公開',
+        publishedCount: {
+            kind: 'plural',
+            forms: {
+                other: '{count} 件の記事を公開'
+            }
+        },
         yearNavigation: '年別クイックナビゲーション',
         emptyDescription: '公開されたコンテンツはここに表示されます。'
     },
@@ -71,4 +78,4 @@ export const publicMessages = {
         unavailable: '検索対象は利用できません',
         backHome: 'ホームに戻る'
     }
-} as const satisfies DeepStringShape<typeof zhCNPublicMessages>
+} as const satisfies LocaleSchema<typeof zhCNPublicMessages>

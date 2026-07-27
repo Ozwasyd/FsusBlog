@@ -1,3 +1,5 @@
+export const localeDomainIdentity = Object.freeze({ locale: 'zh-CN', domain: 'layout' } as const)
+
 export const layout = {
     siteHeader: {
         ariaLabel: '站点导航',

@@ -16,7 +16,7 @@ Navigation labels use the current compact hierarchy: 11px bold uppercase group l
 
 ## Header actions
 
-Shared desktop chrome contains brand, Main-site switch, theme, locale and account-menu actions. The bordered action family uses the compact 40px control height. Mobile uses the 44px control tier and additionally exposes the single Drawer trigger with `aria-controls` and `aria-expanded`.
+Shared desktop chrome contains brand, Main-site switch, theme and account-menu actions. Until the catalog-backed selector is introduced, account chrome intentionally exposes no locale action; it must not restore a binary toggle. The bordered action family uses the compact 40px control height. Mobile uses the 44px control tier and additionally exposes the single Drawer trigger with `aria-controls` and `aria-expanded`.
 
 The account menu owns account/admin surface switching when authorized, usage guidelines, privacy policy and logout. Logout keeps its loading/disabled state. An identity-only principal never receives a management switch. The header does not duplicate local navigation, page actions or dashboard tasks.
 

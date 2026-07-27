@@ -5,6 +5,12 @@ import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import App from '@/App.vue'
 import { createAppRouter } from '@/router'
 import {
+  beginLocaleRouteTransaction,
+  initializeLocaleRuntime,
+  isSupportedLocale
+} from '@/locales'
+import { requiredLocaleDomainsForRoute } from '@/locales/routeLocaleDomains'
+import {
   prewarmPublicRoute,
   type PublicRoutePrewarmOptions,
   type PublicRoutePrewarmResult
@@ -46,6 +52,7 @@ import { authSessionRuntime } from '@/services/authSessionRuntime'
 import '@/assets/main.css'
 
 const router = createAppRouter({
+  prepareLocaleDomains: beginLocaleRouteTransaction,
   prewarmPublicRoute
 })
 
@@ -99,6 +106,17 @@ function markDirectPublicShellReady(): void {
 
 function readCurrentBrowserRoute(): string {
   return `${window.location.pathname}${window.location.search}${window.location.hash}` || '/'
+}
+
+async function prepareInitialLocaleForFullApp(options: BootstrapFullAppOptions): Promise<void> {
+  const route = router.resolve(readCurrentBrowserRoute())
+  const takeoverLocale = options.takeover === 'public-shell'
+    ? getPublicHydrationTakeoverHandle()?.payload.renderLocale
+    : undefined
+  await initializeLocaleRuntime(
+    isSupportedLocale(takeoverLocale) ? takeoverLocale : undefined,
+    requiredLocaleDomainsForRoute(route)
+  )
 }
 
 async function syncRouterToCurrentLocationForClientMount(): Promise<void> {
@@ -209,7 +227,6 @@ function createPublicTakeoverRenderer(payload: PublicHydrationPayload): () => VN
 
     return h(PublicBlogLayoutShell, {
       ...shellState,
-      initialLocale: shellSeed.renderLocale,
       spaNavigation: true,
       onNavigate: handleNavigate,
       onSearch: handleSearch,
@@ -365,6 +382,7 @@ export function bootstrapFullApp(options?: BootstrapFullAppOptions): Promise<typ
   }
 
   bootstrapPromise = (async () => {
+    await prepareInitialLocaleForFullApp(options ?? {})
     const prepared = prepareFullApp(options)
     return await commitPreparedFullApp(prepared)
   })().catch((error) => {

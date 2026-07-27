@@ -20,7 +20,6 @@
       :show-mobile-theme-toggle="false"
     >
       <template #desktop-actions>
-        <LocaleToggle />
         <ThemeModeToggle visibility="desktop" />
         <router-link :to="authAction.to" class="auth-header-action">
           {{ authAction.label }}
@@ -28,7 +27,6 @@
       </template>
 
       <template #mobile-primary-actions>
-        <LocaleToggle />
         <ThemeModeToggle visibility="mobile" variant="menu-button" />
         <router-link
           :to="authAction.to"
@@ -48,10 +46,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import SiteChromeHeaderAdapter from '@/components/layout/SiteChromeHeaderAdapter.vue'
-import LocaleToggle from '@/components/ui/LocaleToggle.vue'
 import ThemeModeToggle from '@/components/ui/ThemeModeToggle.vue'
 import { useI18nText } from '@/composables/useI18nText'
 import { PUBLIC_FIXED_PATHS } from '@/public-renderers/publicRoutePaths'
@@ -59,9 +56,7 @@ import { useSiteStore } from '@/store/site'
 
 const route = useRoute()
 const siteStore = useSiteStore()
-const { initializeLocaleRuntime, messages } = useI18nText()
-
-onMounted(initializeLocaleRuntime)
+const { messages } = useI18nText()
 
 const authAction = computed(() => {
   if (route.name === 'Register') {

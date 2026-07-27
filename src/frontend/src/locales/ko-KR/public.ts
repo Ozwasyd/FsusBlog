@@ -1,4 +1,6 @@
-import type { DeepStringShape } from '../keys';
+export const localeDomainIdentity = Object.freeze({ locale: 'ko-KR', domain: 'public' } as const)
+
+import type { LocaleSchema } from '../keys';
 import type { publicMessages as zhCNPublicMessages } from '../zh-CN/public';
 
 export const publicMessages = {
@@ -53,7 +55,12 @@ export const publicMessages = {
     },
     archive: {
         title: '아카이브',
-        publishedCount: '{count}개 게시글이 게시되었습니다',
+        publishedCount: {
+            kind: 'plural',
+            forms: {
+                other: '{count}개 게시글이 게시되었습니다'
+            }
+        },
         yearNavigation: '연도별 탐색',
         emptyDescription: '발행된 글은 여기에 표시됩니다.'
     },
@@ -71,4 +78,4 @@ export const publicMessages = {
         unavailable: '검색 대상을 사용할 수 없습니다',
         backHome: '홈'
     }
-} as const satisfies DeepStringShape<typeof zhCNPublicMessages>;
+} as const satisfies LocaleSchema<typeof zhCNPublicMessages>;

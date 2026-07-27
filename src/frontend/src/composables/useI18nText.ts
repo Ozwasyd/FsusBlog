@@ -1,35 +1,34 @@
-import { computed } from 'vue';
-
+import { hasInjectionContext, inject } from 'vue';
 import {
     ENABLED_LOCALES,
     formatDate,
     formatNumber,
     formatRelativeTime,
     initializeLocaleRuntime,
-    locale,
+    activeLocale,
     messages,
-    setLocale,
-    toggleLocale,
+    LOCALE_TEXT_CONTEXT_KEY,
+    requestLocale,
     translate,
+    type TranslationArguments,
     type TranslationKey,
-    type TranslationParams
 } from '@/locales';
 
 export function useI18nText()
 {
-    const isEnglish = computed(() => locale.value === 'en-US');
-
+    const scoped = hasInjectionContext()
+        ? inject(LOCALE_TEXT_CONTEXT_KEY, null)
+        : null;
     return {
         enabledLocales: ENABLED_LOCALES,
-        locale,
-        messages,
-        isEnglish,
+        activeLocale: scoped?.activeLocale ?? activeLocale,
+        messages: scoped?.messages ?? messages,
         initializeLocaleRuntime,
-        setLocale,
-        toggleLocale,
-        t: (key: TranslationKey, params?: TranslationParams) => translate(key, params),
-        formatDate,
-        formatNumber,
-        formatRelativeTime
+        requestLocale,
+        t: <Key extends TranslationKey>(key: Key, ...params: TranslationArguments<Key>) =>
+            scoped ? scoped.translate(key, ...params) : translate(key, ...params),
+        formatDate: scoped?.formatDate ?? formatDate,
+        formatNumber: scoped?.formatNumber ?? formatNumber,
+        formatRelativeTime: scoped?.formatRelativeTime ?? formatRelativeTime
     };
 }

@@ -79,7 +79,6 @@
       </template>
 
       <template #desktop-actions>
-        <LocaleToggle />
         <ThemeModeToggle visibility="desktop" variant="menu-button" />
       </template>
 
@@ -94,7 +93,6 @@
             variant="menu-button"
             :labels="PUBLIC_THEME_MODE_LABELS"
           />
-          <LocaleToggle />
         </div>
       </template>
 
@@ -122,7 +120,6 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ThemeModeToggle from '@/components/ui/ThemeModeToggle.vue'
-import LocaleToggle from '@/components/ui/LocaleToggle.vue'
 import PublicComplianceFooter from '@/components/public/PublicComplianceFooter.vue'
 import { useI18nText } from '@/composables/useI18nText'
 import { usePublicStickyGeometry } from '@/components/public/usePublicStickyGeometry'

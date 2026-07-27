@@ -1,7 +1,8 @@
 import { decodePublicAotPayload, decodePublicAotPayloadBytes } from '@/bootstrap/publicAotBinaryPayload'
 import { getPublicShellLifetimeSignal } from '@/bootstrap/publicShellLifetime'
-import { isLocaleRuntimePrepared, isSupportedLocale, prepareLocaleRuntime } from '@/locales'
+import { initializeLocaleRuntime, isSupportedLocale } from '@/locales'
 import { getLocaleDescriptor, LOCALE_CATALOG_DIGEST } from '@/locales/localeCatalog'
+import { requiredLocaleDomainsForRoute } from '@/locales/routeLocaleDomains'
 import { emitTelemetry as emitRuntimeTelemetry } from '@/services/telemetryBus'
 import type { PublicPageSeed } from '@/public-renderers/pageSeed'
 import { hasCanonicalPublicSeedRenderTimestamp } from '@/public-renderers/publicRenderClock'
@@ -450,9 +451,16 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
           throw new Error('invalid navigation snapshot SEO head')
         }
 
-        await prepareLocaleRuntime(descriptor.code)
+        const preparedLocale = await initializeLocaleRuntime(
+          descriptor.code,
+          requiredLocaleDomainsForRoute({
+            name: route.name,
+            path: normalized.url.pathname,
+            meta: { routeState: 'public-shareable' }
+          })
+        )
         throwIfAborted(linked.controller.signal)
-        if (!isLocaleRuntimePrepared(descriptor.code)) {
+        if (preparedLocale !== descriptor.code) {
           throw new Error('navigation snapshot locale runtime not prepared')
         }
         putPublicRouteSeed({

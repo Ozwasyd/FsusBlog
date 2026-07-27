@@ -1,4 +1,6 @@
-import type { DeepStringShape } from '../keys'
+export const localeDomainIdentity = Object.freeze({ locale: 'ru-RU', domain: 'common' } as const)
+
+import type { LocaleSchema } from '../keys'
 import type { common as zhCNCommon } from '../zh-CN/common'
 
 export const common = {
@@ -12,12 +14,6 @@ export const common = {
         publish: 'Опубликовать',
         close: 'Закрыть',
         backHome: 'На главную'
-    },
-    locale: {
-        toggleLabel: 'Switch to English',
-        compactLabel: 'RU / EN',
-        chinese: 'Китайский',
-        english: 'English'
     },
     time: {
         unknown: 'Время неизвестно',
@@ -45,4 +41,4 @@ export const common = {
         forbidden: 'Доступ запрещён',
         notFound: 'Страница не найдена'
     }
-} as const satisfies DeepStringShape<typeof zhCNCommon>
+} as const satisfies LocaleSchema<typeof zhCNCommon>

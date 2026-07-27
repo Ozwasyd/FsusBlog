@@ -69,8 +69,9 @@ import {
   normalizePublicSiteTitle
 } from '@/public-renderers/publicSiteIdentity'
 import type { TimeRenderOptions } from '@/utils/time'
-import { isSupportedLocale, prepareLocaleRuntime, type SupportedLocale } from '@/locales'
+import { isSupportedLocale, prepareLocaleDomains, type SupportedLocale } from '@/locales'
 import { LOCALE_CATALOG_DIGEST } from '@/locales/localeCatalog'
+import { requiredLocaleDomainsForPublicPage } from '@/locales/routeLocaleDomains'
 
 export type PublicEntryBuilder = (options: PublicEntryBuildOptions) => Promise<RenderResult>
 
@@ -614,6 +615,9 @@ export async function buildPublicEntry(pageKind: PublicPageKind, options: Public
   if (options.localeCatalogDigest !== LOCALE_CATALOG_DIGEST) {
     throw new Error('public_aot_locale_catalog_digest_mismatch')
   }
-  await prepareLocaleRuntime(options.renderLocale)
+  await prepareLocaleDomains(
+    options.renderLocale,
+    requiredLocaleDomainsForPublicPage(pageKind)
+  )
   return await PUBLIC_ENTRY_BUILDERS[pageKind](options)
 }

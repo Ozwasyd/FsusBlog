@@ -1,4 +1,6 @@
-import type { DeepStringShape } from '../keys'
+export const localeDomainIdentity = Object.freeze({ locale: 'de-DE', domain: 'auth' } as const)
+
+import type { LocaleSchema } from '../keys'
 import type { auth as zhCNAuth } from '../zh-CN/auth'
 
 export const auth = {
@@ -79,4 +81,4 @@ export const auth = {
         acknowledgementCta: 'Ich habe dies gelesen',
         bodyAriaLabel: 'Richtlinieninhalt'
     }
-} as const satisfies DeepStringShape<typeof zhCNAuth>
+} as const satisfies LocaleSchema<typeof zhCNAuth>

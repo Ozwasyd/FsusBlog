@@ -1,5 +1,10 @@
 import { createSSRApp, type Component } from 'vue'
 import { renderToString } from '@vue/server-renderer'
+import {
+  prepareLocaleDomains,
+  provideLocaleTextContext
+} from '@/locales'
+import { requiredLocaleDomainsForPublicPage } from '@/locales/routeLocaleDomains'
 import type { ArticleDetailResponse, ArticleListItemResponse, ArticleRightsResponse, Tag } from '@/api/article'
 import type { SiteComplianceConfigPublic } from '@/api/system'
 import { encodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload'
@@ -333,6 +338,10 @@ export async function renderShell(
   if (!isSupportedLocale(brand.renderLocale)) {
     throw new Error('public_aot_shell_render_locale_invalid')
   }
+  const localeSnapshot = await prepareLocaleDomains(
+    brand.renderLocale,
+    requiredLocaleDomainsForPublicPage(kind)
+  )
   const Root: Component = {
     render() {
       return renderPublicAotShell({
@@ -351,6 +360,7 @@ export async function renderShell(
   }
 
   const app = createSSRApp(Root)
+  provideLocaleTextContext(app, localeSnapshot)
   provideFsusUiAppContext(app)
   registerPublicStaticRouterLink(app)
   return await renderToString(app)

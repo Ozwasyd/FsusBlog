@@ -1,42 +1,164 @@
-import { computed, shallowRef } from 'vue'
-import { DEFAULT_LOCALE, LOCALE_PREFERENCE_STORAGE_KEY, isSupportedLocale, getLocaleDescriptor } from './keys'
-import type { LocaleMessages, SupportedLocale } from './keys'
-import { loadBundle, getCachedBundle } from './bundleLoader'
+import {
+    computed,
+    shallowRef,
+    type App,
+    type ComputedRef,
+    type InjectionKey,
+    type ShallowRef
+} from 'vue'
+import {
+    DEFAULT_LOCALE,
+    LOCALE_PREFERENCE_STORAGE_KEY,
+    getLocaleDescriptor,
+    isSupportedLocale
+} from './keys'
+import type {
+    LocaleMessages,
+    SupportedLocale,
+    TranslationArguments,
+    TranslationKey
+} from './keys'
+import {
+    loadLocaleDomains,
+    peekLocaleDomain
+} from './localeDomainBundleStore'
+import type {
+    LocaleDomain,
+    LocaleDomainArtifact
+} from './localeDomains'
 import { syncLocaleDocumentMetadata } from './documentMetadata'
-
-import { zhCN } from './zh-CN'
-import { enUS } from './en-US'
-import { frFR } from './fr-FR'
-import { ptBR } from './pt-BR'
 
 export { isSupportedLocale, parseSupportedLocale } from './keys'
 export { DEFAULT_LOCALE, LOCALE_PREFERENCE_STORAGE_KEY } from './keys'
 export { ENABLED_LOCALES } from './localeCatalog'
+export { LOCALE_DOMAINS, isLocaleDomain, type LocaleDomain } from './localeDomains'
+export {
+    loadLocaleDomain,
+    loadLocaleDomains,
+    peekLocaleDomain,
+    LocaleDomainBundleStore
+} from './localeDomainBundleStore'
 
-const BOOTSTRAP_BUNDLES: Partial<Record<SupportedLocale, LocaleMessages>> = {
-    'zh-CN': zhCN,
-    'en-US': enUS,
-    'fr-FR': frFR,
-    'pt-BR': ptBR
-}
+export const PUBLIC_SHELL_LOCALE_DOMAINS = Object.freeze([
+    'common',
+    'layout',
+    'public'
+] as const satisfies readonly LocaleDomain[])
 
-const localeMessages = new Map<SupportedLocale, LocaleMessages>(Object.entries(BOOTSTRAP_BUNDLES) as [SupportedLocale, LocaleMessages][])
+const EMPTY_MESSAGES = Object.freeze({}) as LocaleMessages
 
-const localeState = shallowRef<SupportedLocale>(DEFAULT_LOCALE)
-let runtimeInitialized = false
+export type PreparedLocaleDomains = Readonly<{
+    locale: SupportedLocale
+    domains: readonly LocaleDomain[]
+    messages: LocaleMessages
+    identities: readonly Readonly<{
+        locale: SupportedLocale
+        domain: LocaleDomain
+    }>[]
+}>
+
+type LocaleProjection = Readonly<{
+    initialized: boolean
+    locale: SupportedLocale
+    domains: readonly LocaleDomain[]
+    messages: LocaleMessages
+    revision: number
+}>
+
+export type PreparedLocaleRouteTransaction = Readonly<{
+    snapshot: PreparedLocaleDomains
+    commit: () => void
+    rollback: () => void
+}>
+
+export type LocaleTextContext = Readonly<{
+    activeLocale: ComputedRef<SupportedLocale>
+    messages: ComputedRef<LocaleMessages>
+    translate: <Key extends TranslationKey>(
+        key: Key,
+        ...args: TranslationArguments<Key>
+    ) => string
+    formatDate: (
+        value: string | number | Date,
+        options?: Intl.DateTimeFormatOptions
+    ) => string
+    formatNumber: (value: number, options?: Intl.NumberFormatOptions) => string
+    formatRelativeTime: (value: number, unit: Intl.RelativeTimeFormatUnit) => string
+}>
+
+export const LOCALE_TEXT_CONTEXT_KEY: InjectionKey<LocaleTextContext> =
+    Symbol('fsusblog.locale-text-context')
+
+const projectionState: ShallowRef<LocaleProjection> = shallowRef(Object.freeze({
+    initialized: false,
+    locale: DEFAULT_LOCALE,
+    domains: PUBLIC_SHELL_LOCALE_DOMAINS,
+    messages: EMPTY_MESSAGES,
+    revision: 0
+}))
+const localeState = computed(() => projectionState.value.locale)
+const messagesState = computed(() => projectionState.value.messages)
 let storageListener: ((event: StorageEvent) => void) | null = null
+let transactionTail: Promise<void> = Promise.resolve()
 
-export { localeState as locale }
-export const messages = computed<LocaleMessages>(() => requireLocaleMessages(localeState.value))
+export { localeState as activeLocale }
+export { messagesState as messages }
 
-export function getLocaleMessages(value: SupportedLocale): LocaleMessages {
-    return requireLocaleMessages(value)
+function abortError(): DOMException {
+    return new DOMException('Locale transaction aborted', 'AbortError')
 }
 
-function requireLocaleMessages(value: SupportedLocale): LocaleMessages {
-    const bundle = localeMessages.get(value)
-    if (!bundle) throw new Error(`i18n_bundle_not_loaded:${value}`)
-    return bundle
+function normalizeDomains(domains: readonly LocaleDomain[]): readonly LocaleDomain[] {
+    return Object.freeze([...new Set(domains)])
+}
+
+function assertPreparedSnapshot(snapshot: PreparedLocaleDomains): void {
+    if (snapshot.domains.length !== snapshot.identities.length) {
+        throw new Error(`i18n_snapshot_identity_count_drift:${snapshot.locale}`)
+    }
+    for (let index = 0; index < snapshot.domains.length; index += 1) {
+        const domain = snapshot.domains[index]
+        const identity = snapshot.identities[index]
+        if (
+            !domain
+            || identity?.locale !== snapshot.locale
+            || identity.domain !== domain
+            || !(domain in snapshot.messages)
+        ) {
+            throw new Error(`i18n_snapshot_identity_drift:${snapshot.locale}:${String(domain)}`)
+        }
+    }
+}
+
+/**
+ * Pure preparation boundary. Loading and validation may populate the bundle
+ * store's artifact cache, but no active locale, message projection, metadata,
+ * preference, or event is changed here.
+ */
+export async function prepareLocaleDomains(
+    value: SupportedLocale,
+    domains: readonly LocaleDomain[],
+    signal?: AbortSignal
+): Promise<PreparedLocaleDomains> {
+    if (!isSupportedLocale(value)) throw new Error(`unsupported_locale:${String(value)}`)
+    if (signal?.aborted) throw abortError()
+
+    const normalizedDomains = normalizeDomains(domains)
+    const artifacts = await loadLocaleDomains(value, normalizedDomains, signal)
+    const entries = normalizedDomains.map((domain) => {
+        const artifact = artifacts[domain]
+        if (!artifact) throw new Error(`i18n_unprepared_domain:${value}:${domain}`)
+        return [domain, artifact] as const
+    })
+    const snapshot = Object.freeze({
+        locale: value,
+        domains: normalizedDomains,
+        messages: Object.freeze(Object.fromEntries(entries)) as LocaleMessages,
+        identities: Object.freeze(normalizedDomains.map((domain) =>
+            Object.freeze({ locale: value, domain })))
+    })
+    assertPreparedSnapshot(snapshot)
+    return snapshot
 }
 
 function resolveMessage(dictionary: LocaleMessages, key: string): string | null {
@@ -53,125 +175,264 @@ function interpolate(message: string, params: Record<string, string | number> = 
         Object.prototype.hasOwnProperty.call(params, key) ? String(params[key]) : token)
 }
 
-export function translate(key: import('./keys').TranslationKey, params?: Record<string, string | number>): string {
-    return translateUnsafe(key, params)
+function translateFrom<Key extends TranslationKey>(
+    snapshot: Pick<LocaleProjection, 'locale' | 'messages'>,
+    key: Key,
+    ...args: TranslationArguments<Key>
+): string {
+    const localized = resolveMessage(snapshot.messages, key)
+    if (localized !== null) return interpolate(localized, args[0])
+    throw new Error(`i18n_missing_message:${snapshot.locale}:${key}`)
 }
 
-export function translateUnsafe(key: string, params?: Record<string, string | number>): string {
-    const requestedLocale = localeState.value
-    const localized = resolveMessage(messages.value, key)
-    if (localized !== null) return interpolate(localized, params)
-    throw new Error(`i18n_missing_message:${requestedLocale}:${key}`)
+export function translate<Key extends TranslationKey>(
+    key: Key,
+    ...args: TranslationArguments<Key>
+): string {
+    return translateFrom(projectionState.value, key, ...args)
 }
 
-let activeSwitch: Promise<SupportedLocale> | null = null
-
-export async function setLocale(value: SupportedLocale): Promise<SupportedLocale> {
-    if (activeSwitch) {
-        try { await activeSwitch } catch { /* superseded */ }
-    }
-    activeSwitch = performSwitch(value)
-    try {
-        return await activeSwitch
-    } finally {
-        activeSwitch = null
-    }
-}
-
-async function performSwitch(value: SupportedLocale): Promise<SupportedLocale> {
-    const prev = localeState.value
-    if (value === prev) return value
-
-    if (!localeMessages.has(value)) {
-        const bundle = await loadBundle(value)
-        localeMessages.set(value, bundle)
-    }
-
-    localeState.value = value
-    syncLocaleDocumentMetadata(value)
-    if (typeof localStorage !== 'undefined') localStorage.setItem(LOCALE_PREFERENCE_STORAGE_KEY, value)
-    if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('fsus:locale-change', {
-            detail: { locale: value, previousLocale: prev }
-        }))
-    }
-    return value
-}
-
-export function toggleLocale(): SupportedLocale {
-    const next = localeState.value === 'zh-CN' ? 'en-US' : 'zh-CN'
-    localeState.value = next
-    syncLocaleDocumentMetadata(next)
-    if (typeof localStorage !== 'undefined') localStorage.setItem(LOCALE_PREFERENCE_STORAGE_KEY, next)
-    if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('fsus:locale-change', {
-            detail: { locale: next, previousLocale: localeState.value }
-        }))
-    }
-    return next
-}
-
-export function initializeLocaleRuntime(initialLocale?: SupportedLocale): SupportedLocale {
-    if (runtimeInitialized) {
-        if (initialLocale && initialLocale !== localeState.value) {
-            applyLocale(initialLocale, false)
-        }
-        syncLocaleDocumentMetadata(localeState.value)
-        return localeState.value
-    }
-
-    runtimeInitialized = true
-    const resolvedLocale = initialLocale ?? localeState.value
-
-    if (typeof window !== 'undefined') {
-        storageListener = (event: StorageEvent) => {
-            if (event.key === LOCALE_PREFERENCE_STORAGE_KEY && isSupportedLocale(event.newValue)) {
-                applyLocale(event.newValue, false)
-            }
-        }
-        window.addEventListener('storage', storageListener)
-    }
-
-    return applyLocale(resolvedLocale, false)
-}
-
-export async function prepareLocaleRuntime(value: SupportedLocale): Promise<SupportedLocale> {
-    if (!localeMessages.has(value)) {
-        localeMessages.set(value, await loadBundle(value))
-    }
-    localeState.value = value
-    return value
-}
-
-export function isLocaleRuntimePrepared(value: SupportedLocale): boolean {
-    return localeMessages.has(value) && localeState.value === value
-}
-
-function applyLocale(value: SupportedLocale, persist: boolean): SupportedLocale {
-    localeState.value = value
-    if (persist && typeof localStorage !== 'undefined') localStorage.setItem(LOCALE_PREFERENCE_STORAGE_KEY, value)
-    syncLocaleDocumentMetadata(value)
-    if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('fsus:locale-change', { detail: { locale: value } }))
-    }
-    return value
-}
-
-export function formatDate(
+function formatDateForLocale(
+    snapshot: Pick<LocaleProjection, 'locale' | 'messages'>,
     value: string | number | Date,
     options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: 'numeric' }
 ): string {
     const date = value instanceof Date ? value : new Date(value)
-    if (Number.isNaN(date.getTime())) return translate('common.time.invalid')
-    return new Intl.DateTimeFormat(getLocaleDescriptor(localeState.value).intlLocale, options).format(date)
+    if (Number.isNaN(date.getTime())) {
+        return translateFrom(snapshot, 'common.time.invalid')
+    }
+    return new Intl.DateTimeFormat(
+        getLocaleDescriptor(snapshot.locale).intlLocale,
+        options
+    ).format(date)
+}
+
+function commitProjection(
+    snapshot: PreparedLocaleDomains,
+    options: Readonly<{
+        persist: boolean
+        emit: boolean
+    }>
+): SupportedLocale {
+    assertPreparedSnapshot(snapshot)
+
+    // DOM metadata has no asynchronous observer point here. Publish the one
+    // projection ref only after metadata is complete so Vue watchers can never
+    // observe a new locale with old messages or document identity.
+    syncLocaleDocumentMetadata(snapshot.locale)
+    projectionState.value = Object.freeze({
+        initialized: true,
+        locale: snapshot.locale,
+        domains: snapshot.domains,
+        messages: snapshot.messages,
+        revision: projectionState.value.revision + 1
+    })
+
+    if (options.persist && typeof localStorage !== 'undefined') {
+        try {
+            localStorage.setItem(LOCALE_PREFERENCE_STORAGE_KEY, snapshot.locale)
+        } catch {
+            // Persistence is best effort; the in-memory transaction is valid.
+        }
+    }
+    if (options.emit && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('fsus:locale-change', {
+            detail: { locale: snapshot.locale }
+        }))
+    }
+    return snapshot.locale
+}
+
+function commitRouteProjection(snapshot: PreparedLocaleDomains): void {
+    assertPreparedSnapshot(snapshot)
+    if (projectionState.value.locale !== snapshot.locale) {
+        throw new Error(
+            `i18n_route_snapshot_locale_stale:${snapshot.locale}:${projectionState.value.locale}`
+        )
+    }
+    projectionState.value = Object.freeze({
+        ...projectionState.value,
+        domains: snapshot.domains,
+        messages: snapshot.messages,
+        revision: projectionState.value.revision + 1
+    })
+}
+
+async function acquireLocaleTransaction(signal?: AbortSignal): Promise<() => void> {
+    let releaseCurrent!: () => void
+    const current = new Promise<void>((resolve) => {
+        releaseCurrent = resolve
+    })
+    const previous = transactionTail
+    transactionTail = previous.then(() => current)
+    await previous
+    if (signal?.aborted) {
+        releaseCurrent()
+        throw abortError()
+    }
+    let released = false
+    return () => {
+        if (released) return
+        released = true
+        releaseCurrent()
+    }
+}
+
+/**
+ * Stages an immutable route projection while holding the locale transaction
+ * lease. Router owns the final commit/rollback after navigation succeeds or
+ * fails, so redirects and guard failures cannot publish candidate domains.
+ */
+export async function beginLocaleRouteTransaction(
+    domains: readonly LocaleDomain[],
+    signal?: AbortSignal
+): Promise<PreparedLocaleRouteTransaction> {
+    const release = await acquireLocaleTransaction(signal)
+    try {
+        const snapshot = await prepareLocaleDomains(
+            projectionState.value.locale,
+            domains,
+            signal
+        )
+        let settled = false
+        const settle = (commit: boolean): void => {
+            if (settled) return
+            settled = true
+            try {
+                if (commit) commitRouteProjection(snapshot)
+            } finally {
+                release()
+            }
+        }
+        return Object.freeze({
+            snapshot,
+            commit: () => settle(true),
+            rollback: () => settle(false)
+        })
+    } catch (error) {
+        release()
+        throw error
+    }
+}
+
+/**
+ * Requests one explicit catalog locale. The immutable domain set is captured
+ * only after the transaction lease is acquired, so a concurrent successful
+ * route commit is included and a failed domain load leaves the old projection
+ * and metadata untouched.
+ */
+export async function requestLocale(value: SupportedLocale): Promise<SupportedLocale> {
+    if (!isSupportedLocale(value)) throw new Error(`unsupported_locale:${String(value)}`)
+    const release = await acquireLocaleTransaction()
+    try {
+        const current = projectionState.value
+        if (current.initialized && value === current.locale) return value
+        const snapshot = await prepareLocaleDomains(value, current.domains)
+        return commitProjection(snapshot, { persist: true, emit: true })
+    } finally {
+        release()
+    }
+}
+
+function resolveInitialLocale(initialLocale?: SupportedLocale): SupportedLocale {
+    if (initialLocale) return initialLocale
+    const storedLocale = typeof localStorage === 'undefined'
+        ? null
+        : localStorage.getItem(LOCALE_PREFERENCE_STORAGE_KEY)
+    if (isSupportedLocale(storedLocale)) return storedLocale
+    const documentLocale = typeof document === 'undefined'
+        ? null
+        : document.documentElement.lang
+    return isSupportedLocale(documentLocale) ? documentLocale : DEFAULT_LOCALE
+}
+
+function installStorageListener(): void {
+    if (storageListener || typeof window === 'undefined') return
+    storageListener = (event: StorageEvent) => {
+        if (event.key === LOCALE_PREFERENCE_STORAGE_KEY && isSupportedLocale(event.newValue)) {
+            void requestLocale(event.newValue)
+        }
+    }
+    window.addEventListener('storage', storageListener)
+}
+
+export async function initializeLocaleRuntime(
+    initialLocale?: SupportedLocale,
+    domains: readonly LocaleDomain[] = PUBLIC_SHELL_LOCALE_DOMAINS
+): Promise<SupportedLocale> {
+    const release = await acquireLocaleTransaction()
+    try {
+        const resolvedLocale = resolveInitialLocale(initialLocale)
+        const snapshot = await prepareLocaleDomains(resolvedLocale, domains)
+        const locale = commitProjection(snapshot, { persist: false, emit: false })
+        installStorageListener()
+        return locale
+    } finally {
+        release()
+    }
+}
+
+export function createLocaleTextContext(snapshot: PreparedLocaleDomains): LocaleTextContext {
+    assertPreparedSnapshot(snapshot)
+    const scopedProjection = shallowRef(Object.freeze({
+        initialized: true,
+        locale: snapshot.locale,
+        domains: snapshot.domains,
+        messages: snapshot.messages,
+        revision: 1
+    }))
+    const scopedLocale = computed(() => scopedProjection.value.locale)
+    const scopedMessages = computed(() => scopedProjection.value.messages)
+    return Object.freeze({
+        activeLocale: scopedLocale,
+        messages: scopedMessages,
+        translate: <Key extends TranslationKey>(
+            key: Key,
+            ...args: TranslationArguments<Key>
+        ) => translateFrom(scopedProjection.value, key, ...args),
+        formatDate: (
+            value: string | number | Date,
+            options?: Intl.DateTimeFormatOptions
+        ) => formatDateForLocale(scopedProjection.value, value, options),
+        formatNumber: (value: number, options?: Intl.NumberFormatOptions) =>
+            new Intl.NumberFormat(
+                getLocaleDescriptor(scopedProjection.value.locale).intlLocale,
+                options
+            ).format(value),
+        formatRelativeTime: (value: number, unit: Intl.RelativeTimeFormatUnit) =>
+            new Intl.RelativeTimeFormat(
+                getLocaleDescriptor(scopedProjection.value.locale).intlLocale,
+                { numeric: 'auto' }
+            ).format(value, unit)
+    })
+}
+
+export function provideLocaleTextContext(
+    app: Pick<App, 'provide'>,
+    snapshot: PreparedLocaleDomains
+): void {
+    app.provide(LOCALE_TEXT_CONTEXT_KEY, createLocaleTextContext(snapshot))
+}
+
+export function formatDate(
+    value: string | number | Date,
+    options?: Intl.DateTimeFormatOptions
+): string {
+    return formatDateForLocale(projectionState.value, value, options)
 }
 
 export function formatNumber(value: number, options?: Intl.NumberFormatOptions): string {
-    return new Intl.NumberFormat(getLocaleDescriptor(localeState.value).intlLocale, options).format(value)
+    return new Intl.NumberFormat(
+        getLocaleDescriptor(projectionState.value.locale).intlLocale,
+        options
+    ).format(value)
 }
 
 export function formatRelativeTime(value: number, unit: Intl.RelativeTimeFormatUnit): string {
-    return new Intl.RelativeTimeFormat(getLocaleDescriptor(localeState.value).intlLocale, { numeric: 'auto' }).format(value, unit)
+    return new Intl.RelativeTimeFormat(
+        getLocaleDescriptor(projectionState.value.locale).intlLocale,
+        { numeric: 'auto' }
+    ).format(value, unit)
 }
 
 export function resetLocaleRuntimeForTests(): void {
@@ -179,6 +440,11 @@ export function resetLocaleRuntimeForTests(): void {
         window.removeEventListener('storage', storageListener)
     }
     storageListener = null
-    runtimeInitialized = false
-    localeState.value = DEFAULT_LOCALE
+    projectionState.value = Object.freeze({
+        initialized: false,
+        locale: DEFAULT_LOCALE,
+        domains: PUBLIC_SHELL_LOCALE_DOMAINS,
+        messages: EMPTY_MESSAGES,
+        revision: projectionState.value.revision + 1
+    })
 }

@@ -5,10 +5,15 @@ import { resolve } from 'node:path'
 import { mount } from '@vue/test-utils'
 import { createSSRApp, defineComponent, h, nextTick } from 'vue'
 import { ElThemeModeToggle } from '@ozwasyd/element-plus'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import PublicBlogLayoutShell from '@/components/public/PublicBlogLayoutShell.vue'
 import { FsusUiPublicShell } from '@/fsusui/publicShell'
-import { resetLocaleRuntimeForTests, setLocale } from '@/locales'
+import {
+  initializeLocaleRuntime,
+  prepareLocaleDomains,
+  provideLocaleTextContext,
+  resetLocaleRuntimeForTests
+} from '@/locales'
 
 const frontendRequire = createRequire(resolve(process.cwd(), 'package.json'))
 const { renderToString } = frontendRequire('@vue/server-renderer') as typeof import('@vue/server-renderer')
@@ -48,13 +53,19 @@ afterEach(() => {
 })
 
 describe('PublicBlogLayoutShell PublicShell delegation', () => {
+  beforeEach(async () => {
+    await initializeLocaleRuntime('zh-CN', ['common', 'layout', 'public'])
+  })
+
   it('keeps native auth and search fallbacks in CSP-safe server output', async () => {
+    const localeSnapshot = await prepareLocaleDomains('zh-CN', ['common', 'layout', 'public'])
     const app = createSSRApp({
       render: () => h(PublicBlogLayoutShell, {
         authAction: 'account',
         authHref: '/user/profile',
       }),
     })
+    provideLocaleTextContext(app, localeSnapshot)
     app.component('ElThemeModeToggle', ElThemeModeToggle)
 
     const html = await renderToString(app)
@@ -77,14 +88,17 @@ describe('PublicBlogLayoutShell PublicShell delegation', () => {
     searchLabel,
     foreignChrome,
   ) => {
-    setLocale(initialLocale === 'en-US' ? 'zh-CN' : 'en-US')
+    const localeSnapshot = await prepareLocaleDomains(
+      initialLocale,
+      ['common', 'layout', 'public']
+    )
     const app = createSSRApp({
       render: () => h(PublicBlogLayoutShell, {
         authAction: 'login',
-        authHref: '/login',
-        initialLocale,
+        authHref: '/login'
       }),
     })
+    provideLocaleTextContext(app, localeSnapshot)
     app.component('ElThemeModeToggle', ElThemeModeToggle)
 
     const html = await renderToString(app)
@@ -119,6 +133,7 @@ describe('PublicBlogLayoutShell PublicShell delegation', () => {
     expect(wrapper.findAll('a[data-public-nav="auth"]')).toSatisfy(
       (links) => links.every((link) => link.attributes('href') === '/user/profile'),
     )
+    wrapper.unmount()
   })
 
   it('keeps the query controlled and forwards product search intent', async () => {
@@ -133,6 +148,7 @@ describe('PublicBlogLayoutShell PublicShell delegation', () => {
     await nextTick()
     expect(wrapper.emitted('search')).toEqual([[' delegated ']])
     expect(shell.props('searchQuery')).toBe('delegated')
+    wrapper.unmount()
   })
 
   it('marks only ArticleDetail content as content-driven', async () => {
@@ -146,5 +162,6 @@ describe('PublicBlogLayoutShell PublicShell delegation', () => {
 
     await wrapper.setProps({ hydrationKind: 'Home' })
     expect(content.attributes('data-public-content-flow')).toBeUndefined()
+    wrapper.unmount()
   })
 })

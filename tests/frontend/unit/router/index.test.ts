@@ -414,6 +414,59 @@ describe('account router meta and guards', () => {
     expect(router.currentRoute.value.query.redirect).toBe('/user/messagebox?filter=unread')
   })
 
+  it('rolls back staged locale domains for a redirected guard and commits only the final route', async () => {
+    userStore.isLoggedIn = false
+    const transactions: Array<{
+      domains: readonly string[]
+      commit: ReturnType<typeof vi.fn>
+      rollback: ReturnType<typeof vi.fn>
+    }> = []
+    const prepareLocaleDomains = vi.fn(async (domains: readonly string[]) => {
+      const transaction = {
+        domains,
+        snapshot: { locale: 'en-US', domains },
+        commit: vi.fn(),
+        rollback: vi.fn()
+      }
+      transactions.push(transaction)
+      return transaction
+    })
+    const router = createAppRouter({
+      history: createMemoryHistory(),
+      ssr: false,
+      prepareLocaleDomains: prepareLocaleDomains as never
+    })
+
+    await router.push('/user/messagebox?filter=unread')
+
+    expect(router.currentRoute.value.path).toBe('/login')
+    expect(transactions).toHaveLength(2)
+    expect(transactions[0]?.rollback).toHaveBeenCalledOnce()
+    expect(transactions[0]?.commit).not.toHaveBeenCalled()
+    expect(transactions[1]?.commit).toHaveBeenCalledOnce()
+    expect(transactions[1]?.rollback).not.toHaveBeenCalled()
+  })
+
+  it('rolls back staged locale domains when a later guard fails', async () => {
+    userStore.isLoggedIn = false
+    ensureAccountSession.mockRejectedValueOnce(new Error('session-probe-failed'))
+    const transaction = {
+      snapshot: { locale: 'en-US', domains: ['common', 'layout', 'auth'] },
+      commit: vi.fn(),
+      rollback: vi.fn()
+    }
+    const router = createAppRouter({
+      history: createMemoryHistory(),
+      ssr: false,
+      prepareLocaleDomains: vi.fn(async () => transaction)
+    })
+
+    await expect(router.push('/login')).rejects.toThrow('session-probe-failed')
+
+    expect(transaction.commit).not.toHaveBeenCalled()
+    expect(transaction.rollback).toHaveBeenCalled()
+  })
+
   it('removes malicious login redirect details before committing auth history', async () => {
     userStore.isLoggedIn = false
     const router = await createTestRouter()

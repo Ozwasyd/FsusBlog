@@ -141,7 +141,6 @@ test.describe('PublicShell locale lifecycle', () => {
                 '[data-public-shell-header] .el-public-shell__mobile-search-trigger',
                 '[data-public-shell-header] [data-mobile-nav-menu-trigger]',
                 '[data-public-shell-header] .el-public-shell__auth-link',
-                '[data-public-shell-header] .fsusblog-locale-toggle',
                 '[data-public-shell-header] .el-theme-mode-toggle__menu-button',
               ].join(','),
             ).evaluateAll((elements) => elements
@@ -154,7 +153,7 @@ test.describe('PublicShell locale lifecycle', () => {
                   height: element.getBoundingClientRect().height,
                 }
               }))
-            expect(visibleActionGeometry).toHaveLength(width < 768 ? 2 : 4)
+            expect(visibleActionGeometry).toHaveLength(width < 768 ? 2 : 3)
             expect(visibleActionGeometry.every(({ fontSize }) => fontSize === 14)).toBe(true)
             expect(visibleActionGeometry.every(({ fontWeight }) => fontWeight === 500)).toBe(true)
             expect(visibleActionGeometry.every(({ height }) => Math.abs(height - 44) <= 1)).toBe(true)

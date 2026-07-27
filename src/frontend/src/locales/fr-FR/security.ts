@@ -1,4 +1,6 @@
-import type { DeepStringShape } from '../keys'
+export const localeDomainIdentity = Object.freeze({ locale: 'fr-FR', domain: 'security' } as const)
+
+import type { LocaleSchema } from '../keys'
 import type { security as zhCNSecurity } from '../zh-CN/security'
 
 export const security = {
@@ -112,4 +114,4 @@ export const security = {
         verifyCta: 'Vérifier',
         verifying: 'Vérification en cours'
     }
-} as const satisfies DeepStringShape<typeof zhCNSecurity>
+} as const satisfies LocaleSchema<typeof zhCNSecurity>

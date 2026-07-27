@@ -5,12 +5,36 @@ import HomeTextFirstRecommendations from '@/components/home/HomeTextFirstRecomme
 import PublicHomePageContent from '@/components/public/pages/PublicHomePageContent.vue'
 import type { FeaturedArticleItem, PopularArticleSummaryResponse } from '@/api/article'
 import type { ArticleListCardViewContract, ArticleListViewContract } from '@/view-contracts/articleList'
+import { initializeLocaleRuntime } from '@/locales'
 import contract from './public-home-editorial-contract.json'
 import './public-home-editorial-fixture.css'
 
 type FixtureLocale = keyof typeof contract.articles
 type FixtureTheme = 'light' | 'dark'
 type FixtureCoverMode = 'with-cover' | 'without-cover'
+
+const FIXTURE_COPY: Readonly<Record<FixtureLocale, {
+  readonly tag: string
+  readonly previous: string
+  readonly next: string
+  readonly empty: string
+  readonly ariaLabel: string
+}>> = {
+  'zh-CN': {
+    tag: '#证据',
+    previous: '上一页',
+    next: '下一页',
+    empty: '这里还没有文章',
+    ariaLabel: '公开首页编辑层级 fixture'
+  },
+  'en-US': {
+    tag: '#Evidence',
+    previous: 'Previous',
+    next: 'Next',
+    empty: 'No articles yet',
+    ariaLabel: 'Public home editorial fixture'
+  }
+}
 
 const params = new URL(window.location.href).searchParams
 const locale: FixtureLocale = params.get('locale') === 'en-US' ? 'en-US' : 'zh-CN'
@@ -21,6 +45,9 @@ const coverMode: FixtureCoverMode = params.get('cover') === 'without-cover'
 const requestedCount = Number(params.get('count'))
 const articleCount = requestedCount === 3 ? 3 : 10
 const articles = contract.articles[locale].slice(0, articleCount)
+const copy = FIXTURE_COPY[locale]
+
+await initializeLocaleRuntime(locale, ['common', 'layout', 'public'])
 
 document.documentElement.lang = locale
 document.documentElement.classList.toggle('dark', theme === 'dark')
@@ -67,18 +94,18 @@ const feedArticles: ArticleListCardViewContract[] = articles.map((article, index
       categoryName: article.category,
       categoryHref: `/filter?category=${id}`
     },
-    tags: [{ label: locale === 'zh-CN' ? '#证据' : '#Evidence', href: `/filter?tag=${id}` }]
+    tags: [{ label: copy.tag, href: `/filter?tag=${id}` }]
   }
 })
 const view: ArticleListViewContract = {
   items: feedArticles,
   pagination: {
-    previous: { label: locale === 'zh-CN' ? '上一页' : 'Previous', disabled: true },
-    next: { label: locale === 'zh-CN' ? '下一页' : 'Next', disabled: true },
+    previous: { label: copy.previous, disabled: true },
+    next: { label: copy.next, disabled: true },
     indicator: '1 / 1'
   },
   showPagination: false,
-  emptyState: { title: locale === 'zh-CN' ? '这里还没有文章' : 'No articles yet' },
+  emptyState: { title: copy.empty },
   searchKeyword: ''
 }
 
@@ -101,7 +128,7 @@ const RouterLinkFixture = defineComponent({
 const app = createApp({
   render: () => h('main', {
     class: 'public-home-editorial-fixture',
-    'aria-label': locale === 'zh-CN' ? '公开首页编辑层级 fixture' : 'Public home editorial fixture'
+    'aria-label': copy.ariaLabel
   }, [
     h(PublicHomePageContent, {
       view,

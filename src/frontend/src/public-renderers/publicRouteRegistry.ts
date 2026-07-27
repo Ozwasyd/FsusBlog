@@ -6,6 +6,7 @@ import {
   type SharedSeoEligiblePublicPageKind
 } from '@/public-renderers/generated/publicPageManifest'
 import { PUBLIC_ROUTE_PATH_PATTERNS } from '@/public-renderers/publicRoutePaths'
+import { siteOnlyRouteTitle, staticRouteTitle } from '@/router/routeTitleContract'
 
 export const PUBLIC_SEARCH_ROUTE_NAME = 'Search' as const
 export const PUBLIC_FILTER_ROUTE_NAMES = Object.freeze({
@@ -71,21 +72,21 @@ const PUBLIC_SEO_ROUTE_DEFINITIONS = Object.freeze([
     kind: 'Home',
     path: PUBLIC_ROUTE_PATH_PATTERNS.home,
     component: () => import('@/views/Home.vue'),
-    meta: { title: '首页' }
+    meta: staticRouteTitle('common.routeTitles.home')
   },
   {
     name: PUBLIC_SEO_ROUTE_NAMES.articleDetail,
     kind: 'ArticleDetail',
     path: PUBLIC_ROUTE_PATH_PATTERNS.articleDetail,
     component: () => import('@/views/ArticleDetail.vue'),
-    meta: { title: '文章详情', localFixtureCredentialBootstrap: true }
+    meta: { ...siteOnlyRouteTitle(), localFixtureCredentialBootstrap: true }
   },
   {
     name: PUBLIC_SEO_ROUTE_NAMES.archive,
     kind: 'Archive',
     path: PUBLIC_ROUTE_PATH_PATTERNS.archive,
     component: () => import('@/views/Archive.vue'),
-    meta: { title: '归档' }
+    meta: staticRouteTitle('common.routeTitles.archive')
   },
   {
     name: PUBLIC_SEO_ROUTE_NAMES.about,
@@ -93,7 +94,7 @@ const PUBLIC_SEO_ROUTE_DEFINITIONS = Object.freeze([
     path: PUBLIC_ROUTE_PATH_PATTERNS.about,
     component: () => import('@/views/PublicDynamicPage.vue'),
     props: { pageKind: 'About', slug: 'about', title: '关于' },
-    meta: { title: '关于' }
+    meta: staticRouteTitle('common.routeTitles.about')
   },
   {
     name: PUBLIC_SEO_ROUTE_NAMES.privacy,
@@ -101,7 +102,7 @@ const PUBLIC_SEO_ROUTE_DEFINITIONS = Object.freeze([
     path: PUBLIC_ROUTE_PATH_PATTERNS.privacy,
     component: () => import('@/views/PublicDynamicPage.vue'),
     props: { pageKind: 'Privacy', slug: 'privacy', title: '隐私政策' },
-    meta: { title: '隐私政策' }
+    meta: staticRouteTitle('common.routeTitles.privacy')
   },
   {
     name: PUBLIC_SEO_ROUTE_NAMES.guidelines,
@@ -109,7 +110,7 @@ const PUBLIC_SEO_ROUTE_DEFINITIONS = Object.freeze([
     path: PUBLIC_ROUTE_PATH_PATTERNS.guidelines,
     component: () => import('@/views/PublicDynamicPage.vue'),
     props: { pageKind: 'Guidelines', slug: 'guidelines', title: '用户守则' },
-    meta: { title: '用户守则' }
+    meta: staticRouteTitle('common.routeTitles.guidelines')
   },
   {
     name: PUBLIC_SEO_ROUTE_NAMES.copyright,
@@ -117,28 +118,28 @@ const PUBLIC_SEO_ROUTE_DEFINITIONS = Object.freeze([
     path: PUBLIC_ROUTE_PATH_PATTERNS.copyright,
     component: () => import('@/views/PublicDynamicPage.vue'),
     props: { pageKind: 'Copyright', slug: 'copyright', title: '版权声明' },
-    meta: { title: '版权声明' }
+    meta: staticRouteTitle('common.routeTitles.copyright')
   },
   {
     name: PUBLIC_FILTER_ROUTE_NAMES.category,
     kind: 'Filter',
     path: PUBLIC_ROUTE_PATH_PATTERNS.category,
     component: () => import('@/views/FilterView.vue'),
-    meta: { requiresAuth: false }
+    meta: { ...siteOnlyRouteTitle(), requiresAuth: false }
   },
   {
     name: PUBLIC_FILTER_ROUTE_NAMES.tagById,
     kind: 'Filter',
     path: PUBLIC_ROUTE_PATH_PATTERNS.tagById,
     component: () => import('@/views/FilterView.vue'),
-    meta: { requiresAuth: false }
+    meta: { ...siteOnlyRouteTitle(), requiresAuth: false }
   },
   {
     name: PUBLIC_FILTER_ROUTE_NAMES.tag,
     kind: 'Filter',
     path: PUBLIC_ROUTE_PATH_PATTERNS.tag,
     component: () => import('@/views/FilterView.vue'),
-    meta: { requiresAuth: false }
+    meta: { ...siteOnlyRouteTitle(), requiresAuth: false }
   }
 ] as const satisfies readonly PublicSeoRouteDefinition[])
 
@@ -147,7 +148,7 @@ const PUBLIC_SHELL_ONLY_ROUTE_DEFINITIONS = Object.freeze([
     name: PUBLIC_SEARCH_ROUTE_NAME,
     path: PUBLIC_ROUTE_PATH_PATTERNS.search,
     component: () => import('@/views/FilterView.vue'),
-    meta: { title: '搜索结果', requiresAuth: false }
+    meta: { ...staticRouteTitle('common.routeTitles.search'), requiresAuth: false }
   }
 ] as const satisfies readonly PublicShellOnlyRouteDefinition[])
 

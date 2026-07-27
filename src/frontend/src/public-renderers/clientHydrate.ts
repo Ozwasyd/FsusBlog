@@ -18,7 +18,8 @@ import {
   type PublicHydrationTakeoverController
 } from './publicHydrationRoot';
 import { registerPublicStaticRouterLink } from './publicStaticRouterLink';
-import { isSupportedLocale, prepareLocaleRuntime } from '@/locales';
+import { initializeLocaleRuntime, isSupportedLocale } from '@/locales'
+import { requiredLocaleDomainsForPublicPage } from '@/locales/routeLocaleDomains'
 import { hasCanonicalPublicSeedRenderTimestamp } from './publicRenderClock';
 
 const APP_SELECTOR = '#app';
@@ -115,7 +116,6 @@ export async function hydratePublicPage(payload: PublicHydrationPayload): Promis
     || document.documentElement.lang !== payload.renderLocale) {
     throw new Error('public_aot_hydration_locale_mismatch');
   }
-  await prepareLocaleRuntime(payload.renderLocale);
 
   // Hydration invariant: strip whitespace-only SSR text nodes before Vue compares the public shell tree.
   removeWhitespaceTextNodes(container);
@@ -126,6 +126,10 @@ export async function hydratePublicPage(payload: PublicHydrationPayload): Promis
   markHydrationStep('hydrate:start');
 
   const normalizedPayload = normalizePublicHydrationPayload(payload);
+  await initializeLocaleRuntime(
+    normalizedPayload.renderLocale,
+    requiredLocaleDomainsForPublicPage(normalizedPayload.pageKind)
+  )
   markHydrationStep('hydrate:component-ready');
 
   if (!mountedPublicShellApp) {

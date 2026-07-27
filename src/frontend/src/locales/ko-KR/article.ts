@@ -1,4 +1,6 @@
-import type { DeepStringShape } from '../keys';
+export const localeDomainIdentity = Object.freeze({ locale: 'ko-KR', domain: 'article' } as const)
+
+import type { LocaleSchema } from '../keys';
 import type { article as zhCNArticle } from '../zh-CN/article';
 
 export const article = {
@@ -53,4 +55,4 @@ export const article = {
         relatedAria: '관련 글',
         coverAlt: '{title} — 표지 이미지'
     }
-} as const satisfies DeepStringShape<typeof zhCNArticle>;
+} as const satisfies LocaleSchema<typeof zhCNArticle>;

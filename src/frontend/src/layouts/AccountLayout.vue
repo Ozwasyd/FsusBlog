@@ -36,10 +36,6 @@
                     class="account-header-theme-action"
                     variant="menu-button"
                 />
-                <LocaleToggle
-                    class="account-header-locale-action"
-                    bordered
-                />
                 <AccountHeaderMenu
                     :can-manage="workspaceContext.canManage"
                     :current-area="currentArea"
@@ -60,7 +56,6 @@
                     class="account-header-theme-action account-header-theme-action--mobile"
                     variant="menu-button"
                 />
-                <LocaleToggle />
                 <AccountHeaderMenu
                     :can-manage="workspaceContext.canManage"
                     compact
@@ -83,13 +78,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, ref } from 'vue';
 
 import AccountHeaderMenu from '@/components/account/AccountHeaderMenu.vue';
 import SiteChromeHeaderAdapter from '@/components/layout/SiteChromeHeaderAdapter.vue';
 import PolicyModal from '@/components/PolicyModal.vue';
 import ThemeModeToggle from '@/components/ui/ThemeModeToggle.vue';
-import LocaleToggle from '@/components/ui/LocaleToggle.vue';
 import { useI18nText } from '@/composables/useI18nText';
 import { provideAccountFrameDrawerState } from '@/layouts/accountFrameContext';
 import type { AccountArea } from '@/layouts/accountNav';
@@ -97,8 +91,7 @@ import { useAccountWorkspaceContext } from '@/layouts/accountWorkspaceContext';
 import { showErrorToast } from '@/utils/errorPresentation';
 
 const workspaceContext = useAccountWorkspaceContext();
-const { initializeLocaleRuntime, messages } = useI18nText();
-onMounted(initializeLocaleRuntime);
+const { messages } = useI18nText();
 
 const showPolicy = ref(false);
 const policyType = ref<'privacy' | 'guidelines'>('guidelines');

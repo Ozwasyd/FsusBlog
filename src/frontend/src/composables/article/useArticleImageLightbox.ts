@@ -1,6 +1,6 @@
 import { nextTick, onUnmounted, ref, type MaybeRefOrGetter, toValue, watch } from 'vue'
 import { fsusBlogScrollRevealOptions } from '@/fsusui/blogMotion'
-import { locale, translate } from '@/locales'
+import { activeLocale, translate } from '@/locales'
 import { useScrollReveal } from '@ozwasyd/element-plus/motion'
 
 export type ArticleLightboxImage = Readonly<{
@@ -106,7 +106,7 @@ export function useArticleImageLightbox(contentRoot: MaybeRefOrGetter<HTMLElemen
     activeIndex.value = (activeIndex.value + images.value.length - 1) % images.value.length
   }
 
-  watch(() => [toValue(contentRoot), locale.value] as const, () => {
+  watch(() => [toValue(contentRoot), activeLocale.value] as const, () => {
     void scan()
   }, { flush: 'post' })
 

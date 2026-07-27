@@ -1,3 +1,5 @@
+export const localeDomainIdentity = Object.freeze({ locale: 'zh-CN', domain: 'errors' } as const)
+
 export const errors = {
     forbidden: {
         codePrefix: '403',

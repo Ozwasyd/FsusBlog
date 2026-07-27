@@ -1,7 +1,9 @@
 import { Window } from 'happy-dom'
-import { afterAll, vi } from 'vitest'
+import { afterAll, beforeAll, vi } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
 import { createUnitAnimationFrameEnvironment } from './animationFrameEnvironment'
+import { LOCALE_DOMAINS } from '@/locales/localeDomains'
+import { initializeLocaleRuntime } from '@/locales'
 
 const unitWindow = new Window({ url: 'https://fsusblog.test/' })
 const animationFrames = createUnitAnimationFrameEnvironment()
@@ -26,6 +28,10 @@ unitWindow.cancelAnimationFrame = animationFrames.cancel
 
 afterAll(() => {
   animationFrames.dispose()
+})
+
+beforeAll(async () => {
+  await initializeLocaleRuntime('zh-CN', LOCALE_DOMAINS)
 })
 
 // ---------------------------------------------------------------------------

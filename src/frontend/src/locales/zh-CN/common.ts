@@ -1,3 +1,5 @@
+export const localeDomainIdentity = Object.freeze({ locale: 'zh-CN', domain: 'common' } as const)
+
 export const common = {
     actions: {
         save: '保存',
@@ -9,12 +11,6 @@ export const common = {
         publish: '发布',
         close: '关闭',
         backHome: '回到主页'
-    },
-    locale: {
-        toggleLabel: '切换到英文',
-        compactLabel: '中 / EN',
-        chinese: '中文',
-        english: 'English'
     },
     time: {
         unknown: '时间未知',

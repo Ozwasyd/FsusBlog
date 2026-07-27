@@ -1,3 +1,5 @@
+export const localeDomainIdentity = Object.freeze({ locale: 'zh-CN', domain: 'article' } as const)
+
 export const article = {
     actions: {
         toc: '目录',

@@ -3,7 +3,7 @@ import { createSSRApp, defineComponent, h, nextTick, ref } from 'vue'
 import '@/assets/main.css'
 import PublicBlogLayoutShell from '@/components/public/PublicBlogLayoutShell.vue'
 import { provideFsusUiAppContext } from '@/fsusui/appContext'
-import { isSupportedLocale, setLocale, type SupportedLocale } from '@/locales'
+import { isSupportedLocale, requestLocale, type SupportedLocale } from '@/locales'
 import { createPublicShellViewState } from '@/public-renderers/publicShellViewState'
 
 type FixturePhase = 'aot' | 'hydrated' | 'spa'
@@ -18,7 +18,7 @@ const fixtureLocale: SupportedLocale = localeValue
 const session: FixtureSession = params.get('session') === 'user' ? 'user' : 'anonymous'
 const phase = ref<FixturePhase>('aot')
 
-setLocale(fixtureLocale)
+await requestLocale(fixtureLocale)
 document.documentElement.lang = fixtureLocale
 document.body.className = 'public-shell-locale-fixture'
 
@@ -42,7 +42,6 @@ const Root = defineComponent({
       })
       return h(PublicBlogLayoutShell, {
         ...shellState,
-        initialLocale: fixtureLocale,
         spaNavigation: phase.value === 'spa',
       }, {
         default: () => h('main', {

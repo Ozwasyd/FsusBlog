@@ -1,12 +1,12 @@
 // @vitest-environment happy-dom
 
 import { flushPromises, mount } from '@vue/test-utils'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 
 import PolicyModal from '@/components/PolicyModal.vue'
 import { getPageData } from '@/api/system'
-import { resetLocaleRuntimeForTests, setLocale } from '@/locales'
+import { initializeLocaleRuntime, requestLocale, resetLocaleRuntimeForTests } from '@/locales'
 
 vi.mock('@/api/system', () => ({
   getPageData: vi.fn()
@@ -56,7 +56,11 @@ afterEach(() => {
 })
 
 describe('PolicyModal localized title', () => {
-  it('renders the registry-owned Chinese titles for both policy kinds', () => {
+  beforeEach(async () => {
+    await initializeLocaleRuntime('zh-CN', ['common', 'layout', 'public', 'auth', 'errors'])
+  })
+
+  it('renders the registry-owned Chinese titles for both policy kinds', async () => {
     const privacy = mountPolicyModal('privacy')
     const guidelines = mountPolicyModal('guidelines')
 
@@ -69,15 +73,14 @@ describe('PolicyModal localized title', () => {
 
   it('updates the mounted title when the runtime locale and policy kind change', async () => {
     const wrapper = mountPolicyModal('privacy')
-
-    setLocale('en-US')
+    await requestLocale('en-US')
     await nextTick()
     expect(wrapper.get('[data-test="dialog-title"]').text()).toBe('Privacy policy')
 
     await wrapper.setProps({ type: 'guidelines' })
     expect(wrapper.get('[data-test="dialog-title"]').text()).toBe('Site guidelines')
 
-    setLocale('zh-CN')
+    await requestLocale('zh-CN')
     await nextTick()
     expect(wrapper.get('[data-test="dialog-title"]').text()).toBe('用户守则')
 
@@ -86,6 +89,10 @@ describe('PolicyModal localized title', () => {
 })
 
 describe('PolicyModal document style ownership', () => {
+  beforeEach(async () => {
+    await initializeLocaleRuntime('zh-CN', ['common', 'layout', 'public', 'auth', 'errors'])
+  })
+
   it('renders fetched policy copy through the stable consumer-owned document surface', async () => {
     vi.mocked(getPageData).mockResolvedValue({
       data: {

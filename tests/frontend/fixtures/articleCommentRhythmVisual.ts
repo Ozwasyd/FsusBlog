@@ -6,6 +6,7 @@ import ArticleCommentsEmptyState from '@/components/public/ArticleCommentsEmptyS
 import ArticleDetailCommentsPlaceholder from '@/components/public/ArticleDetailCommentsPlaceholder.vue'
 import PublicArticleDetailPageContent from '@/components/public/pages/PublicArticleDetailPageContent.vue'
 import PublicBlogLayoutShell from '@/components/public/PublicBlogLayoutShell.vue'
+import { initializeLocaleRuntime } from '@/locales'
 import type { CommentTreeViewNode } from '@/composables/useArticleCommentStream'
 import {
   emptyArticleDetailPageView,
@@ -26,6 +27,8 @@ const requestedCount = Number(params.get('count'))
 const count = state === 'populated' && [1, 5].includes(requestedCount) ? requestedCount : 0
 const isLoggedIn = params.get('auth') === 'logged-in'
 const theme = params.get('theme') === 'dark' ? 'dark' : 'light'
+
+await initializeLocaleRuntime('zh-CN', ['common', 'layout', 'public', 'article'])
 
 document.documentElement.classList.toggle('dark', theme === 'dark')
 document.documentElement.dataset.themeMode = theme

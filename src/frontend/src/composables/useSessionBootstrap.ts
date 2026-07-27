@@ -1,12 +1,11 @@
-import { computed } from 'vue'
+import { computed, watch, type Ref, type WatchStopHandle } from 'vue'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import { useAppShellStore } from '@/store/appShell'
 import { useAdminStore } from '@/store/admin'
 import { useSiteStore } from '@/store/site'
 import { useUserStore } from '@/store/user'
 import { useI18nText } from '@/composables/useI18nText'
-import { translate } from '@/locales'
-import { resolveRouteTitleKey } from '@/locales/routeTitles'
+import { activeLocale, translate } from '@/locales'
 import {
   createLocalFixtureAccountSnapshot,
   createLocalFixtureAdminPrincipal,
@@ -24,6 +23,17 @@ export interface AccountSessionEnsureOptions {
 export interface AdminSessionEnsureOptions {
   force?: boolean
   reason?: 'bootstrap' | 'route' | 'interaction' | 'runtime'
+}
+
+export function syncStaticDocumentTitleOnLocaleChange(
+  route: Ref<RouteLocationNormalizedLoaded>,
+  syncDocumentTitle: (route: RouteLocationNormalizedLoaded) => string
+): WatchStopHandle {
+  return watch(activeLocale, () => {
+    if (route.value.meta.titleKey) {
+      syncDocumentTitle(route.value)
+    }
+  })
 }
 
 export function useSessionBootstrap() {
@@ -93,14 +103,10 @@ export function useSessionBootstrap() {
     await ensureAccountSession({ ...options, reason: 'runtime' })
   }
 
-  const syncDocumentTitle = (routeOrTitle?: RouteLocationNormalizedLoaded | string | null): string => {
-    const rawPageTitle = typeof routeOrTitle === 'string'
-      ? routeOrTitle
-      : typeof routeOrTitle?.meta?.title === 'string'
-        ? routeOrTitle.meta.title
-        : ''
-    const titleKey = rawPageTitle ? resolveRouteTitleKey(rawPageTitle) : undefined
-    const pageTitle = titleKey ? translate(titleKey) : rawPageTitle
+  const syncDocumentTitle = (route?: RouteLocationNormalizedLoaded | null): string => {
+    const pageTitle = route?.meta.titleKey
+      ? translate(route.meta.titleKey)
+      : ''
 
     const title = pageTitle ? `${pageTitle} - ${baseTitle.value}` : baseTitle.value
     if (typeof document !== 'undefined') {

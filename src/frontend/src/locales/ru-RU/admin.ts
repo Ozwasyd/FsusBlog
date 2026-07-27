@@ -1,4 +1,6 @@
-import type { DeepStringShape } from '../keys'
+export const localeDomainIdentity = Object.freeze({ locale: 'ru-RU', domain: 'admin' } as const)
+
+import type { LocaleSchema } from '../keys'
 import type { admin as zhCNAdmin } from '../zh-CN/admin'
 
 export const admin = {
@@ -141,4 +143,4 @@ export const admin = {
         metricRemovedRiskLabels: 'Удалено меток риска',
         errorToastFallback: 'Ошибка предпросмотра повторного применения политики'
     }
-} as const satisfies DeepStringShape<typeof zhCNAdmin>
+} as const satisfies LocaleSchema<typeof zhCNAdmin>

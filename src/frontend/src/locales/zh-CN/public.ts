@@ -1,3 +1,5 @@
+export const localeDomainIdentity = Object.freeze({ locale: 'zh-CN', domain: 'public' } as const)
+
 export const publicMessages = {
     shell: {
         skipToMain: '跳到主要内容',
@@ -50,7 +52,12 @@ export const publicMessages = {
     },
     archive: {
         title: '归档',
-        publishedCount: '已发布 {count} 篇',
+        publishedCount: {
+            kind: 'plural',
+            forms: {
+                other: '已发布 {count} 篇'
+            }
+        },
         yearNavigation: '年份快速导航',
         emptyDescription: '发布后的内容会显示在这里。'
     },

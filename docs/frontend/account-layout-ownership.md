@@ -6,7 +6,7 @@ The account surface has one shared chrome and two deliberately separate workspac
 
 | Owner | Stable responsibility | Excluded responsibility |
 | --- | --- | --- |
-| `AccountLayout.vue` | shared brand chrome, Main-site/theme/locale/account actions, one drawer state and named mobile-action outlet | identity/admin navigation data, page width, page-kind styling or route motion |
+| `AccountLayout.vue` | shared brand chrome, Main-site/theme/account actions, one drawer state and named mobile-action outlet; locale selection remains absent until the catalog-backed selector owns it | identity/admin navigation data, page width, page-kind styling or route motion |
 | `AccountIdentityFrame.vue` | self-service navigation context, identity width/content mode and identity page-kind policy | admin permissions, workbench composition or admin status surfaces |
 | `AdminWorkspaceFrame.vue` | permission-filtered admin navigation context, admin width/content mode and admin page-kind policy | identity settings/inbox composition or self-service navigation |
 | `AccountRouteFrame.vue` | shared desktop rail, content scroll, one mobile Drawer, direct-frame-child route key and main-content focus target | area selection, permission policy or page-specific content |

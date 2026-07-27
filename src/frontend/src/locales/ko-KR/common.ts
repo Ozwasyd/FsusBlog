@@ -1,4 +1,6 @@
-import type { DeepStringShape } from '../keys';
+export const localeDomainIdentity = Object.freeze({ locale: 'ko-KR', domain: 'common' } as const)
+
+import type { LocaleSchema } from '../keys';
 import type { common as zhCNCommon } from '../zh-CN/common';
 
 export const common = {
@@ -12,12 +14,6 @@ export const common = {
         publish: '게시',
         close: '닫기',
         backHome: '홈'
-    },
-    locale: {
-        toggleLabel: '영어로 전환',
-        compactLabel: '中 / EN',
-        chinese: '中文',
-        english: 'English'
     },
     time: {
         unknown: '시간 알 수 없음',
@@ -45,4 +41,4 @@ export const common = {
         forbidden: '접근 거부',
         notFound: '페이지를 찾을 수 없음'
     }
-} as const satisfies DeepStringShape<typeof zhCNCommon>;
+} as const satisfies LocaleSchema<typeof zhCNCommon>;

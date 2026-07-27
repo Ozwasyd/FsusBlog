@@ -1,9 +1,13 @@
 // @vitest-environment happy-dom
 
 import { mount } from '@vue/test-utils'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import ArticleReadingNotice from '@/components/article/ArticleReadingNotice.vue'
-import { resetLocaleRuntimeForTests, setLocale } from '@/locales'
+import { initializeLocaleRuntime, requestLocale, resetLocaleRuntimeForTests } from '@/locales'
+
+beforeEach(async () => {
+  await initializeLocaleRuntime('zh-CN', ['common', 'layout', 'public', 'article'])
+})
 
 afterEach(() => {
   document.body.replaceChildren()
@@ -45,8 +49,8 @@ describe('ArticleReadingNotice hierarchy', () => {
     wrapper.unmount()
   })
 
-  it('keeps the numeric hierarchy while localizing the surrounding English copy', () => {
-    setLocale('en-US')
+  it('keeps the numeric hierarchy while localizing the surrounding English copy', async () => {
+    await requestLocale('en-US')
     const wrapper = mount(ArticleReadingNotice, {
       props: {
         notice: {

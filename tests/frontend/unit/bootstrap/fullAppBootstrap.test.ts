@@ -17,10 +17,23 @@ const fakeRouter = {
   },
   replace: vi.fn(async () => {}),
   push: vi.fn(async () => {}),
-  isReady: vi.fn(async () => {})
+  isReady: vi.fn(async () => {}),
+  resolve: vi.fn(() => ({
+    name: 'Home',
+    path: '/',
+    meta: { routeState: 'public-shareable' }
+  }))
 }
 const createAppRouter = vi.fn(() => fakeRouter)
 const prewarmPublicRoute = vi.fn()
+const beginLocaleRouteTransaction = vi.fn(async () => ({
+  snapshot: { locale: 'zh-CN', domains: ['common'] },
+  commit: vi.fn(),
+  rollback: vi.fn()
+}))
+const initializeLocaleRuntime = vi.fn(async () => 'zh-CN')
+const isSupportedLocale = (value: unknown): value is string =>
+  typeof value === 'string' && value.length > 0
 const createApp = vi.fn(() => fakeApp)
 const fakePinia = { use: vi.fn() }
 const createPinia = vi.fn(() => fakePinia)
@@ -43,7 +56,8 @@ const getPublicHydrationTakeoverHandle = vi.fn(() => ({
     view: {},
     currentPage: 1,
     pageSize: 10,
-    total: 0
+    total: 0,
+    renderLocale: 'en-US'
   },
   activate: activatePublicTakeover
 }))
@@ -79,6 +93,15 @@ vi.mock('pinia-plugin-persistedstate', () => ({ default: vi.fn() }))
 vi.mock('@/App.vue', () => ({ default: {} }))
 vi.mock('@/components/public/PublicBlogLayoutShell.vue', () => ({ default: {} }))
 vi.mock('@/router', () => ({ createAppRouter }))
+vi.mock('@/locales', () => ({
+  DEFAULT_LOCALE: 'zh-CN',
+  isSupportedLocale,
+  beginLocaleRouteTransaction,
+  initializeLocaleRuntime
+}))
+vi.mock('@/locales/routeLocaleDomains', () => ({
+  requiredLocaleDomainsForRoute: vi.fn(() => ['common', 'layout', 'public'])
+}))
 vi.mock('@/router/publicRoutePreload', () => ({ prewarmPublicRoute }))
 vi.mock('@/fsusui/appContext', () => ({ provideFsusUiAppContext: vi.fn() }))
 vi.mock('@/fsusui/feedback', () => ({ installFsusUiLoading: vi.fn() }))
@@ -121,7 +144,15 @@ describe('full app bootstrap prepare/commit', () => {
     const prepared = prepareFullApp({ takeover: 'public-shell', deferRuntime: true })
 
     expect(prepared.router).toBe(fakeRouter)
-    expect(createAppRouter).toHaveBeenCalledWith({ prewarmPublicRoute })
+    expect(createAppRouter).toHaveBeenCalledWith({
+      prepareLocaleDomains: beginLocaleRouteTransaction,
+      prewarmPublicRoute
+    })
+    await createAppRouter.mock.calls[0]?.[0].prepareLocaleDomains(
+      ['common'],
+      undefined
+    )
+    expect(beginLocaleRouteTransaction).toHaveBeenCalledWith(['common'], undefined)
     expect(createApp).not.toHaveBeenCalled()
     expect(document.querySelector('#app > #fsus-aot-shell')).not.toBeNull()
     expect(appMount).not.toHaveBeenCalled()
@@ -211,6 +242,12 @@ describe('full app bootstrap prepare/commit', () => {
     await expect(first).resolves.toBe(fakeRouter)
 
     expect(createApp).toHaveBeenCalledTimes(1)
+    expect(initializeLocaleRuntime).toHaveBeenCalledWith(
+      undefined,
+      ['common', 'layout', 'public']
+    )
+    expect(initializeLocaleRuntime.mock.invocationCallOrder[0])
+      .toBeLessThan(appMount.mock.invocationCallOrder[0]!)
     expect(beginPublicTakeoverCommit).toHaveBeenCalledWith({ reason: 'direct-spa-bootstrap' })
     expect(completePublicTakeoverCommit).toHaveBeenCalledWith({ reason: 'direct-spa-mounted' })
     expect(appMount).toHaveBeenCalledWith('#app')

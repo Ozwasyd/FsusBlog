@@ -1,3 +1,5 @@
+export const localeDomainIdentity = Object.freeze({ locale: 'zh-CN', domain: 'admin' } as const)
+
 export const admin = {
     shell: {
         skipToMain: '跳到主要内容',

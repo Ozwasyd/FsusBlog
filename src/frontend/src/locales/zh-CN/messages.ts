@@ -1,3 +1,5 @@
+export const localeDomainIdentity = Object.freeze({ locale: 'zh-CN', domain: 'messages' } as const)
+
 export const messages = {
     conversationList: {
         titleAccount: '消息列表',

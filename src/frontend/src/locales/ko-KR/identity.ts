@@ -1,4 +1,6 @@
-import type { DeepStringShape } from '../keys';
+export const localeDomainIdentity = Object.freeze({ locale: 'ko-KR', domain: 'identity' } as const)
+
+import type { LocaleSchema } from '../keys';
 import type { identity as zhCNIdentity } from '../zh-CN/identity';
 
 export const identity = {
@@ -286,4 +288,4 @@ export const identity = {
         recoveryKeyCreatedSuccess: '복구 키 생성됨',
         recoveryKeyRotatedSuccess: '복구 키가 회전됨'
     }
-} as const satisfies DeepStringShape<typeof zhCNIdentity>;
+} as const satisfies LocaleSchema<typeof zhCNIdentity>;

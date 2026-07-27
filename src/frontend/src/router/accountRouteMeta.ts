@@ -1,4 +1,5 @@
 import type { RouteStateClass } from '@/security/privateNavigationPolicy';
+import type { RouteTitleKey } from '@/router/routeTitleContract';
 
 import type { RouteRecordRaw } from 'vue-router';
 
@@ -20,14 +21,14 @@ export type AccountArea = 'self' | 'manage';
 export type AccountPrivateRouteState = Exclude<RouteStateClass, 'public-shareable'>;
 
 export type SelfMetaOptions = Readonly<{
-    title: string;
+    titleKey: RouteTitleKey;
     pageKind: AccountPageKind;
     contentMode?: Extract<AccountContentMode, 'standard' | 'takeover'>;
     routeState?: AccountPrivateRouteState;
 }>;
 
 export type ManageMetaOptions = Readonly<{
-    title: string;
+    titleKey: RouteTitleKey;
     permissions: readonly string[];
     pageKind: AccountPageKind;
     contentMode?: Extract<AccountContentMode, 'wide' | 'takeover'>;
