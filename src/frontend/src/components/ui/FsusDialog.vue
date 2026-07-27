@@ -6,8 +6,6 @@
     :destroy-on-close="destroyOnClose"
     :close-on-click-modal="closeOnClickModal"
     :show-close="showClose"
-    :modal-class="resolvedModalClass"
-    :class="fsusDialogClass"
     align-center
     append-to-body
     @close="emit('close')"
@@ -29,8 +27,6 @@
 import { computed } from 'vue'
 import {
   FsusUiDialog,
-  fsusDialogClass,
-  fsusDialogModalClass,
   fsusDialogWidths,
   isFsusDialogWidth,
   type FsusDialogWidth
@@ -43,14 +39,12 @@ const props = withDefaults(defineProps<{
   destroyOnClose?: boolean
   closeOnClickModal?: boolean
   showClose?: boolean
-  modalClass?: string
 }>(), {
   title: '',
   width: fsusDialogWidths.default,
   destroyOnClose: false,
   closeOnClickModal: true,
-  showClose: true,
-  modalClass: ''
+  showClose: true
 })
 
 const emit = defineEmits<{
@@ -68,35 +62,9 @@ const visible = computed({
 const resolvedWidth = computed<FsusDialogWidth>(() =>
   isFsusDialogWidth(props.width) ? props.width : fsusDialogWidths.default
 )
-
-const resolvedModalClass = computed(() =>
-  [fsusDialogModalClass, props.modalClass].filter(Boolean).join(' ')
-)
 </script>
 
 <style scoped>
-:global(.fsusblog-dialog-overlay) {
-  box-sizing: border-box;
-}
-
-:global(.fsusblog-dialog-overlay) {
-  display: grid;
-  place-items: center;
-  box-sizing: border-box;
-  padding: var(--fsus-space-4);
-  overflow: auto;
-}
-
-:global(.fsusblog-dialog-overlay .fsusblog-dialog) {
-  --el-dialog-padding-primary: var(--fsus-space-6);
-  display: flex;
-  flex-direction: column;
-  max-width: var(--fsus-dialog-mobile-max-width);
-  max-height: calc(var(--fsus-viewport-block-size) - var(--fsus-space-8));
-  margin: 0 !important;
-  overflow: hidden;
-}
-
 .fsus-dialog__content {
   min-width: 0;
 }

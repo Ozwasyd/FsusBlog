@@ -12,7 +12,7 @@ CSS 中的 `gap`、`padding` 与 `margin` 必须选择当前 FsusUI 基线公开
 
 ## Dialog
 
-`src/frontend/src/fsusui/dialog.ts` 只选择并命名当前 FsusUI 公共契约提供的 documented variants。Wrapper 负责产品语义和 viewport containment；Dialog width、padding、header、body、footer、focus 与 motion geometry 继续由 FsusUI 所有。移动端不得覆盖调用方宽度，也不得新增页面级 Dialog breakpoint。
+`src/frontend/src/fsusui/dialog.ts` 只选择并命名当前 FsusUI 公共契约提供的 documented width presets，并 type-preserving 导出 `FsusUiDialog`。`FsusDialog` shell 只转发 Blog workflow props/emits/slots；overlay、viewport、safe-area、居中、max-height 与通用 padding 唯一由 FsusUI Dialog contract（#261）所有。Blog 不得通过 `modal-class`、私有 overlay class bridge、全局 selector 或 `.el-*` 内部 selector 再实现一套几何。移动端不得覆盖调用方宽度，也不得新增页面级 Dialog breakpoint。
 
 ## Responsive tiers
 

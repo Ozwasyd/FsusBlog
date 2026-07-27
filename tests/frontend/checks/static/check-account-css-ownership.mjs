@@ -146,8 +146,8 @@ expectIncludes(adminFramePath, adminFrame, 'frame-class="admin-workspace-frame"'
     'admin frame root is missing');
 expectIncludes(pageKindPath, pageKind, "inbox: 'identity-page-shell identity-page-shell--inbox'",
     'identity inbox page-kind ownership is missing');
-expectIncludes(userBanDialogPath, userBanDialog, 'modal-class="admin-workspace-frame"',
-    'teleported admin dialog must retain the admin frame root');
+expectIncludes(userBanDialogPath, userBanDialog, 'class="admin-workspace-frame"',
+    'teleported admin dialog must retain the admin frame root on the dialog surface');
 
 for (const token of [
     'Account style ownership',

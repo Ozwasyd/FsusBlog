@@ -3,7 +3,6 @@
     :model-value="visible"
     :title="copy.dialogTitle"
     class="passkey-register-dialog"
-    modal-class="passkey-register-overlay"
     width="min(92vw, 28rem)"
     destroy-on-close
     :show-close="false"
@@ -302,10 +301,6 @@ const runCeremony = async (mfaProofToken: string | undefined) => {
 </script>
 
 <style scoped>
-:global(.fsusblog-dialog.passkey-register-dialog) {
-  max-height: min(calc(var(--fsus-viewport-block-size) * 0.82), 34rem);
-}
-
 .passkey-register-modal__header {
   padding: var(--fsus-space-5) var(--fsus-space-6) var(--fsus-space-3);
   border-bottom: 1px solid var(--fsusblog-panel-border);
@@ -333,11 +328,6 @@ const runCeremony = async (mfaProofToken: string | undefined) => {
 }
 
 @media (max-width: 639px) {
-  :global(.fsusblog-dialog.passkey-register-dialog) {
-    width: calc(100vw - 2rem);
-    max-height: calc(var(--fsus-viewport-block-size) - 2rem);
-  }
-
   .passkey-register-modal__body {
     padding: var(--fsus-space-4);
   }

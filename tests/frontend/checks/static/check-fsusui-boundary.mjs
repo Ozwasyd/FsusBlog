@@ -56,17 +56,7 @@ const allowedInternalSelectors = new Map([
         '.el-markdown-editor__action',
         '.el-markdown-editor__command'
     ])],
-    ['src/frontend/src/components/ui/FsusDialog.vue', new Set([
-        '.el-dialog__body',
-        '.el-dialog__footer',
-        '.el-dialog__header',
-        '.el-overlay-dialog'
-    ])],
-    ['src/frontend/src/components/ui/PasskeyRegisterModal.vue', new Set([
-        '.el-dialog__body',
-        '.el-dialog__footer',
-        '.el-dialog__header'
-    ])],
+
     ['src/frontend/src/public-renderers/clientHydrate.ts', new Set([
         '.el-input',
         '.el-input__inner',

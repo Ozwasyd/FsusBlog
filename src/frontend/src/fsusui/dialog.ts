@@ -1,8 +1,5 @@
 export { ElDialog as FsusUiDialog } from '@ozwasyd/element-plus'
 
-export const fsusDialogClass = 'fsusblog-dialog'
-export const fsusDialogModalClass = 'fsusblog-dialog-overlay'
-
 export const fsusDialogWidths = {
   default: '50%',
   compact: 'min(92vw, 28rem)',

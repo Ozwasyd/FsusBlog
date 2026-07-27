@@ -226,7 +226,7 @@ async function main() {
       const createButton = adminPage.getByRole('button', { name: /新增|创建|新建/ }).first();
       if (await createButton.isVisible()) {
         await createButton.click();
-        const dialog = adminPage.locator('.fsusblog-dialog:visible').first();
+        const dialog = adminPage.locator('.el-dialog:visible, [role="dialog"]:visible').first();
         await dialog.waitFor({ state: 'visible', timeout: 5000 });
         const dialogTitle = await dialog.locator('.el-dialog__title,[aria-level],h2,h3').first().textContent();
         assert(String(dialogTitle || '').trim().length > 0, 'category dialog should expose a title');
