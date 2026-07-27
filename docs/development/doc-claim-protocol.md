@@ -55,13 +55,18 @@ ordered-set
 map
 transition-set
 failure-mode
+binary-relation
+implication
+preservation-rule
 generated-section
 rationale
 ```
 
 - `generated-section` declares `generatedSectionId` only; it does not embed expected values and does not bind prose.
-- `rationale` does not participate in fact equality and must not contain unregistered precise quantities, paths, or absolute behavior commitments.
+- `rationale` does not participate in fact equality and must not contain unregistered precise quantities, paths, or absolute behavior commitments without a neighboring executable claim.
 - `failure-mode` uses stable reason/semantic IDs; free prose is not compared as a mode set.
+- `binary-relation`, `implication`, and `preservation-rule` are prose-verifiable subject/predicate/object or scope claims; large sets still require generated sections.
+- `enum-set`, `ordered-set`, `map`, and `transition-set` must use `generated-section` for exact tabular facts; free-prose fuzzy comparison is rejected.
 - Unknown `claimType` values fail; they are never defaulted to `scalar`.
 
 ## Location rules
@@ -82,7 +87,69 @@ The parser emits declarations and source locations only. Parse receipts use `fsu
 - pass/fail or qualification flags
 - `lastVerifiedCommit` or any self-proving baseline field
 
-Updating lifecycle `lastVerifiedCommit` alone cannot create DocClaim pass evidence. Observation comparison and prose verification are later consumers of this protocol; they are not part of the parse gate. Precise tabular facts use generated sections (below).
+Updating lifecycle `lastVerifiedCommit` alone cannot create DocClaim pass evidence. Observation comparison and prose verification are separate consumers of this protocol; they are not part of the parse gate. Precise tabular facts use generated sections (below).
+
+## Prose claim verification
+
+Explanatory prose that still carries scalar, boolean, failure-policy, relation, implication, or preservation facts is verified by a single `ProseClaimVerifier`. It consumes only DocClaim located claims and sealed `FactObservationReceipt` values (via the public receipt reader). It does not read business source, tests, network, embeddings, LLM judges, human `reviewed` flags, or baseline allowlists.
+
+### Authority
+
+- Verifier / bound-block parser / unique render registry: [`tools/docs/prose-claim-verifier/`](../../tools/docs/prose-claim-verifier/)
+- CLI gate: [`tools/docs/check-prose-claims.mjs`](../../tools/docs/check-prose-claims.mjs)
+- Focused tests: [`tests/tools/prose-claim-verifier.test.mjs`](../../tests/tools/prose-claim-verifier.test.mjs)
+
+### Admitted prose renders
+
+```text
+integer-minutes
+integer-bytes
+integer-layers
+integer-count
+integer-scalar
+boolean-affirmed
+boolean-negated
+boolean-extends
+failure-mode-code
+failure-policy
+relation-subject-predicate-object
+implication-if-then
+preserves-fields
+revokes-only-scope
+rationale-prose
+```
+
+Each render builds a deterministic plan from the typed observation: required token groups, forbidden conflicting tokens, unit/boundary semantics, and relation direction IDs. The parser checks only the claim-bound body block.
+
+### Scalar / boolean / failure rules
+
+- Exact rendered value and unit must appear; same-dimension conflicting numbers in the body fail unless an interval projection is explicit on the claim.
+- Unit equivalence (for example `5` minutes vs `300` seconds) is fixed by the renderer policy and is never converted by the parser.
+- Inclusive/exclusive and default/max/min roles must be explicitly rendered when present on the observation.
+- Boolean and failure-policy phrases come from a single controlled phrase registry; simultaneous affirmative and negative phrases fail.
+
+### Relation / preservation rules
+
+- Subject-predicate-object triples must map with direction: object-before-subject wording fails even when all three tokens appear.
+- `revokes-only-scope` requires controlled “only revokes” phrasing and rejects “revokes all” conflicts.
+- Large preserve/permission/transition sets must use generated sections, not free prose.
+
+### Rationale boundary
+
+- Precise numbers, paths, and absolute commitments in `rationale` require a neighboring executable claim (same heading or same `behaviorId`).
+- Unbound absolute language fails closed; there is no LLM judgment path.
+
+### Non-goals / forbidden surfaces
+
+- Claim marker presence alone is never pass evidence.
+- No fuzzy whole-document keyword scan, `reviewed=true`, baseline allowlist, compat/loose parser, warning-only mode, or feature flag.
+- No second `ProseRenderRegistry` or alternate verifier entrypoint.
+
+```bash
+node tools/docs/check-prose-claims.mjs --governance-only
+node tools/docs/check-prose-claims.mjs --receipt path/to/receipt.json
+node --test tests/tools/prose-claim-verifier.test.mjs
+```
 
 ## Generated fact sections
 
@@ -145,4 +212,6 @@ node tools/docs/check-doc-claim.mjs
 node --test tests/tools/doc-claim.test.mjs
 node tools/docs/generate-fact-sections.mjs --check
 node --test tests/tools/generated-fact-sections.test.mjs
+node tools/docs/check-prose-claims.mjs --governance-only
+node --test tests/tools/prose-claim-verifier.test.mjs
 ```

@@ -20,6 +20,9 @@ export const allowedClaimTypes = Object.freeze([
     'map',
     'transition-set',
     'failure-mode',
+    'binary-relation',
+    'implication',
+    'preservation-rule',
     'generated-section',
     'rationale'
 ])
