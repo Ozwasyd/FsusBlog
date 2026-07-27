@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v2",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:3a423bfbcb28b0858d4d080415c1f97add05eab61af8414be2193dc2d14f56a4",
+    "policyDigest": "sha256:20020b7d2d696204f5bb24c33d019495f1af0723389073d43fb7791ca8ccc5b2",
     "documents": [
         {
             "path": "docs/active-release-fenced-commits.md",
@@ -1261,6 +1261,21 @@
             "supersedes": [],
             "supersededBy": null,
             "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/development/doc-claim-protocol.md",
+            "title": "DocClaim protocol",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "governance",
+            "sourceOfTruth": true,
+            "lastVerifiedCommit": "65089dbcdaff10e01b2af79bdb5d3fcb14c9b94b",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1738
+            ],
             "producer": null
         },
         {
