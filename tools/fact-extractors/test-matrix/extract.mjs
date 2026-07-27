@@ -1,0 +1,882 @@
+import { createHash } from 'node:crypto'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import path from 'node:path'
+import { parseMatrix, tierExecutionDependencies } from '../../test-matrix/parse-matrix.mjs'
+import { digestText, digestValue } from '../lib/canonicalize.mjs'
+
+const requiredFactKeys = Object.freeze([
+  'test.topology.profiles',
+  'test.topology.tiers',
+  'test.topology.bundles',
+  'test.topology.dependencies',
+  'test.topology.command-groups',
+  'test.topology.blocking-stages',
+  'test.execution-classes',
+  'test.evidence-classes',
+  'test.static-governance.membership',
+  'test.candidate-admission-predecessors',
+  'release-final.finalizer-authority',
+  'release-final.required-input-schemas',
+  'release-final.output-schema',
+  'release-final.summary-tiers',
+  'production-fresh.bundle-ordering'
+])
+
+const declaredFactSources = Object.freeze([
+  'tests/matrix.yml',
+  'tests/matrix.schema.json',
+  'tests/coverage-registry.json',
+  'config/testing/producer-execution-class-contract.json'
+])
+
+const consumerInputs = Object.freeze([
+  'tools/test/lanes',
+  'src/frontend/package.json',
+  'tools/docs/generate-testing-docs.mjs',
+  'tools/test/lanes/release-final.sh'
+])
+
+function failResult(reasons)
+{
+  return {
+    status: 'failed',
+    failureReasons: reasons.map(String),
+    observations: {}
+  }
+}
+
+function sortedUniqueStrings(values)
+{
+  return [...new Set(values.map(String).filter((value) => value.length > 0))].sort((left, right) =>
+    (left < right ? -1 : left > right ? 1 : 0))
+}
+
+function compareText(left, right)
+{
+  return left < right ? -1 : left > right ? 1 : 0
+}
+
+function isSortedUniqueStrings(values)
+{
+  if (!Array.isArray(values)) return false
+  if (values.some((value) => typeof value !== 'string' || value.length === 0)) return false
+  if (new Set(values).size !== values.length) return false
+  const sorted = [...values].sort(compareText)
+  return sorted.every((value, index) => value === values[index])
+}
+
+function allowedInputSet(extractor)
+{
+  return new Set((extractor.consumedInputs ?? []).map((entry) => String(entry).replaceAll(path.sep, '/')))
+}
+
+function assertAllowed(relative, allowed)
+{
+  const normalized = relative.replaceAll(path.sep, '/')
+  if (!allowed.has(normalized))
+  {
+    throw new Error(`test-matrix-fact-extractor attempted to read undeclared input ${normalized}`)
+  }
+  return normalized
+}
+
+function readText(repositoryRoot, relative, allowed)
+{
+  const normalized = assertAllowed(relative, allowed)
+  const absolute = path.join(repositoryRoot, normalized)
+  if (!existsSync(absolute) || !statSync(absolute).isFile())
+  {
+    throw new Error(`missing declared input file ${normalized}`)
+  }
+  return readFileSync(absolute, 'utf8')
+}
+
+function readJson(repositoryRoot, relative, allowed)
+{
+  return JSON.parse(readText(repositoryRoot, relative, allowed))
+}
+
+function fileExists(repositoryRoot, relative)
+{
+  const absolute = path.join(repositoryRoot, relative)
+  return existsSync(absolute) && statSync(absolute).isFile()
+}
+
+function directoryExists(repositoryRoot, relative)
+{
+  const absolute = path.join(repositoryRoot, relative)
+  return existsSync(absolute) && statSync(absolute).isDirectory()
+}
+
+function commandEntrypoint(command)
+{
+  const text = String(command ?? '').trim()
+  if (!text) return null
+  const tokens = text.split(/\s+/u).filter(Boolean)
+  for (const token of tokens)
+  {
+    if (token.startsWith('tools/') || token.startsWith('./tools/') || token.endsWith('.sh') || token.endsWith('.mjs'))
+    {
+      return token.replace(/^\.\//u, '')
+    }
+  }
+  return tokens[0] ?? null
+}
+
+function commandDigest(command)
+{
+  return digestText(String(command ?? '').trim())
+}
+
+function detectDependencyCycles(nodes, edges)
+{
+  const adjacency = new Map(nodes.map((id) => [id, []]))
+  for (const edge of edges)
+  {
+    const [from, to] = edge.split('->')
+    if (!adjacency.has(from) || !adjacency.has(to)) continue
+    adjacency.get(from).push(to)
+  }
+  const visiting = new Set()
+  const visited = new Set()
+  const cycles = []
+
+  function visit(node, stack)
+  {
+    if (visiting.has(node))
+    {
+      const start = stack.indexOf(node)
+      cycles.push([...stack.slice(start), node].join('->'))
+      return
+    }
+    if (visited.has(node)) return
+    visiting.add(node)
+    stack.push(node)
+    for (const next of adjacency.get(node) ?? []) visit(next, stack)
+    stack.pop()
+    visiting.delete(node)
+    visited.add(node)
+  }
+
+  for (const node of nodes) visit(node, [])
+  return sortedUniqueStrings(cycles)
+}
+
+function topoOrderConstraintIds(nodes, edges)
+{
+  // Emit stable predecessor constraints as "after:X requires:Y" for non-empty edges only.
+  return sortedUniqueStrings(edges.map((edge) =>
+  {
+    const [from, to] = edge.split('->')
+    return `after:${to}|requires:${from}`
+  })).filter((entry) =>
+  {
+    const match = entry.match(/^after:([^|]+)\|requires:(.+)$/u)
+    return match && nodes.includes(match[1]) && nodes.includes(match[2])
+  })
+}
+
+function collectCoverageIds(coverageRegistry)
+{
+  const entries = Array.isArray(coverageRegistry?.entries) ? coverageRegistry.entries : []
+  return sortedUniqueStrings(entries.map((entry) => entry?.id).filter(Boolean))
+}
+
+function walkFiles(directory, out = [])
+{
+  if (!existsSync(directory)) return out
+  for (const entry of readdirSync(directory, { withFileTypes: true }))
+  {
+    if (entry.name === '.' || entry.name === '..') continue
+    const absolute = path.join(directory, entry.name)
+    if (entry.isDirectory()) walkFiles(absolute, out)
+    else if (entry.isFile()) out.push(absolute)
+  }
+  return out
+}
+
+/**
+ * Bidirectional consumer checks. Consumers may not define topology;
+ * inconsistency fails closed (never silently prefer matrix over stale consumers).
+ */
+function validateConsumers({
+  repositoryRoot,
+  allowed,
+  matrix,
+  tierIds,
+  profileIds,
+  retiredFromIds,
+  finalizer
+})
+{
+  const errors = []
+  const publicEntryTargets = new Set([...tierIds, ...profileIds, 'help', 'list', 'validate', 'plan', 'run', 'docs'])
+
+  // Lane entrypoints declared by matrix must exist; lanes must not host a second tier DAG.
+  if (allowed.has('tools/test/lanes') && directoryExists(repositoryRoot, 'tools/test/lanes'))
+  {
+    for (const tier of matrix.tiers)
+    {
+      const entrypoint = commandEntrypoint(tier.command)
+      if (!entrypoint) continue
+      if (!entrypoint.startsWith('tools/test/lanes/')) continue
+      if (!fileExists(repositoryRoot, entrypoint))
+      {
+        errors.push(`matrix tier ${tier.id} declares missing lane entrypoint ${entrypoint}`)
+      }
+    }
+
+    const laneRoot = path.join(repositoryRoot, 'tools/test/lanes')
+    for (const absolute of walkFiles(laneRoot))
+    {
+      const relative = path.relative(repositoryRoot, absolute).replaceAll(path.sep, '/')
+      const base = path.posix.basename(relative)
+      if (base.startsWith('_')) continue
+      if (!relative.endsWith('.sh') && !relative.endsWith('.mjs')) continue
+      const source = readFileSync(absolute, 'utf8')
+      // Source-only libraries must refuse direct execution.
+      if (source.includes('source-only') && /is source-only/u.test(source)) continue
+
+      // Second tier dispatch only when case switches on matrix tier identity variables.
+      const tierCasePattern = new RegExp(
+        String.raw`case\s+["']?\$\{?(?:TIER|MATRIX_JOB|CURRENT_TIER|FSUSBLOG_TEST_TIER)\}?["']?\s+in([\s\S]*?)\nesac`,
+        'gu'
+      )
+      const tierDispatchBlocks = [...source.matchAll(tierCasePattern)]
+      for (const block of tierDispatchBlocks)
+      {
+        const caseArms = [...block[1].matchAll(/^\s*([a-z][a-z0-9-]*)\)\s*$/gmu)].map((match) => match[1])
+        const tierArms = caseArms.filter((arm) => tierIds.includes(arm) || retiredFromIds.has(arm))
+        if (tierArms.length >= 2)
+        {
+          errors.push(`${relative} maintains second tier dispatch (${tierArms.slice(0, 8).join(',')})`)
+        }
+      }
+      for (const retired of retiredFromIds)
+      {
+        // Direct retired-tier lane filenames or tools/test.sh retired targets.
+        if (new RegExp(`tools/test\\.sh\\s+${retired}\\b`, 'u').test(source)
+          || new RegExp(`lanes/${retired}\\.sh`, 'u').test(source))
+        {
+          errors.push(`${relative} references retired tier alias ${retired}`)
+        }
+      }
+    }
+  }
+  else if (allowed.has('tools/test/lanes'))
+  {
+    errors.push('declared consumer input tools/test/lanes is missing')
+  }
+
+  // Package script aliases for matrix profiles/tiers must use the public shell entry.
+  if (allowed.has('src/frontend/package.json') && fileExists(repositoryRoot, 'src/frontend/package.json'))
+  {
+    const packageJson = JSON.parse(readText(repositoryRoot, 'src/frontend/package.json', allowed))
+    const scripts = packageJson?.scripts && typeof packageJson.scripts === 'object' ? packageJson.scripts : {}
+    for (const [name, body] of Object.entries(scripts))
+    {
+      const text = String(body ?? '')
+      const isMatrixAlias = /^test:(?:fast|integration|ci|release|acceptance|visual|production)$/u.test(name)
+        || /^test:[a-z0-9-]+$/u.test(name) && /tools\/test\.sh/u.test(text)
+      if (isMatrixAlias)
+      {
+        const directLane = text.match(/(?:bash\s+)?(?:\.\.\/)*tools\/test\/lanes\/([a-z0-9-]+)\.sh/u)
+        if (directLane)
+        {
+          errors.push(`package script ${name} bypasses matrix public entry via direct lane ${directLane[1]}`)
+        }
+      }
+      const testSh = [...text.matchAll(/(?:bash\s+)?(?:\.\.\/)*tools\/test\.sh\s+([a-z0-9-]+)/gu)]
+      for (const match of testSh)
+      {
+        const target = match[1]
+        if (retiredFromIds.has(target))
+        {
+          errors.push(`package script ${name} points to retired tier alias ${target}`)
+        }
+        else if (!publicEntryTargets.has(target)
+          && !tierIds.includes(target)
+          && !profileIds.includes(target))
+        {
+          errors.push(`package script ${name} points to undeclared matrix target ${target}`)
+        }
+      }
+      // Any script that still targets a retired lane path fails closed.
+      for (const retired of retiredFromIds)
+      {
+        if (new RegExp(`lanes/${retired}\\.sh`, 'u').test(text)
+          || new RegExp(`tools/test\\.sh\\s+${retired}\\b`, 'u').test(text))
+        {
+          errors.push(`package script ${name} points to retired tier alias ${retired}`)
+        }
+      }
+    }
+  }
+  else if (allowed.has('src/frontend/package.json'))
+  {
+    errors.push('declared consumer input src/frontend/package.json is missing')
+  }
+
+  // Generated testing docs must consume matrix observation sources, never docs topology prose.
+  if (allowed.has('tools/docs/generate-testing-docs.mjs')
+    && fileExists(repositoryRoot, 'tools/docs/generate-testing-docs.mjs'))
+  {
+    const source = readText(repositoryRoot, 'tools/docs/generate-testing-docs.mjs', allowed)
+    if (/docs\/testing\.md|docs\/testing\.generated\.md/u.test(source)
+      && /readFileSync|loadMatrix|parseMatrix/u.test(source))
+    {
+      // Reading generated/hand docs as topology authority is forbidden.
+      if (/readFileSync\([^)]*docs\/testing/u.test(source)
+        || /from\s+['"][^'"]*docs\/testing/u.test(source))
+      {
+        errors.push('generate-testing-docs reads docs/testing as topology authority')
+      }
+    }
+    if (!/tests\/matrix\.yml|loadMatrix/u.test(source))
+    {
+      errors.push('generate-testing-docs must consume matrix observation source tests/matrix.yml')
+    }
+    if (/expectedBundleOrder|legacyTierAlias|compatBundle|topologyBaseline/u.test(source))
+    {
+      errors.push('generate-testing-docs embeds second topology baseline/alias tables')
+    }
+  }
+  else if (allowed.has('tools/docs/generate-testing-docs.mjs'))
+  {
+    errors.push('declared consumer input tools/docs/generate-testing-docs.mjs is missing')
+  }
+
+  // release-final script must match matrix finalizer authority.
+  if (allowed.has('tools/test/lanes/release-final.sh')
+    && fileExists(repositoryRoot, 'tools/test/lanes/release-final.sh'))
+  {
+    const script = readText(repositoryRoot, 'tools/test/lanes/release-final.sh', allowed)
+    if (finalizer?.command && !fileExists(repositoryRoot, finalizer.command))
+    {
+      errors.push(`release-final finalizer command missing: ${finalizer.command}`)
+    }
+    if (!/check-release-final\.mjs/u.test(script))
+    {
+      errors.push('release-final lane does not invoke check-release-final authority')
+    }
+    if (finalizer?.outputReceiptSchema
+      && !script.includes('release-final')
+      && !script.includes('check-release-final'))
+    {
+      errors.push('release-final lane diverges from matrix finalizer authority')
+    }
+  }
+  else if (allowed.has('tools/test/lanes/release-final.sh'))
+  {
+    errors.push('declared consumer input tools/test/lanes/release-final.sh is missing')
+  }
+
+  return errors
+}
+
+function buildObservations({
+  matrix,
+  matrixSchema,
+  coverageRegistry,
+  executionClassContract
+})
+{
+  const errors = []
+  const profileIds = sortedUniqueStrings(Object.keys(matrix.localProfiles ?? {}))
+  const tiers = Array.isArray(matrix.tiers) ? matrix.tiers : []
+  const tierIds = sortedUniqueStrings(tiers.map((tier) => tier?.id).filter(Boolean))
+  if (tierIds.length === 0) errors.push('matrix exposes no tier identifiers')
+  if (tiers.length !== tierIds.length) errors.push('matrix tier ids must be unique')
+
+  const tierById = new Map(tiers.map((tier) => [tier.id, tier]))
+  const dependencyEdges = []
+  const missingNodes = []
+  for (const tier of tiers)
+  {
+    if (Object.hasOwn(tier ?? {}, 'dependsOn'))
+    {
+      errors.push(`tier ${tier.id} uses retired dependsOn; executionDependsOn is required`)
+    }
+    const deps = tierExecutionDependencies(tier)
+    if (!Array.isArray(deps))
+    {
+      errors.push(`tier ${tier.id} executionDependsOn must be an array`)
+      continue
+    }
+    for (const dep of deps)
+    {
+      if (!tierById.has(dep)) missingNodes.push(`${tier.id}->${dep}`)
+      dependencyEdges.push(`${dep}->${tier.id}`)
+    }
+  }
+  if (missingNodes.length > 0)
+  {
+    errors.push(`dependency graph references missing nodes: ${sortedUniqueStrings(missingNodes).join(',')}`)
+  }
+  const cycles = detectDependencyCycles(tierIds, sortedUniqueStrings(dependencyEdges))
+  if (cycles.length > 0)
+  {
+    errors.push(`dependency graph cycle: ${cycles.join(' | ')}`)
+  }
+
+  // Bundle projection: map keys only (receipt forbids arrays of objects / empty lists).
+  const bundleIdsByProfile = {}
+  const bundleMembers = {}
+  const bundleDependsOn = {}
+  const bundleCommandEntrypoints = {}
+  const bundleCommandDigests = {}
+  const productionFreshOrdering = {
+    profileId: 'production',
+    hasDependencyEdges: false
+  }
+  let productionBundleIds = []
+  let productionBundleEdges = []
+  let productionTopoConstraints = []
+
+  for (const profileId of profileIds)
+  {
+    const profile = matrix.localProfiles[profileId]
+    const bundles = Array.isArray(profile?.bundles) ? profile.bundles : []
+    const bundleIds = sortedUniqueStrings(bundles.map((bundle) => bundle?.id).filter(Boolean))
+    const bundleEdges = []
+    if (bundleIds.length > 0) bundleIdsByProfile[profileId] = bundleIds
+    for (const bundle of bundles)
+    {
+      if (!bundle?.id) continue
+      const key = `${profileId}.${bundle.id}`
+      const dependsOn = sortedUniqueStrings(bundle.dependsOn ?? [])
+      for (const dep of dependsOn)
+      {
+        if (!bundleIds.includes(dep) && !bundles.some((entry) => entry.id === dep))
+        {
+          errors.push(`profile ${profileId} bundle ${bundle.id} depends on missing bundle ${dep}`)
+        }
+        bundleEdges.push(`${dep}->${bundle.id}`)
+      }
+      const members = sortedUniqueStrings(bundle.members ?? [])
+      for (const member of members)
+      {
+        if (!tierById.has(member))
+        {
+          errors.push(`profile ${profileId} bundle ${bundle.id} member ${member} is not a matrix tier`)
+        }
+      }
+      if (members.length > 0) bundleMembers[key] = members
+      if (dependsOn.length > 0) bundleDependsOn[key] = dependsOn
+      const entrypoint = commandEntrypoint(bundle.command)
+      if (entrypoint) bundleCommandEntrypoints[key] = entrypoint
+      bundleCommandDigests[key] = commandDigest(bundle.command)
+    }
+    const bundleCycles = detectDependencyCycles(bundleIds, sortedUniqueStrings(bundleEdges))
+    if (bundleCycles.length > 0)
+    {
+      errors.push(`profile ${profileId} bundle dependency cycle: ${bundleCycles.join(' | ')}`)
+    }
+    if (profileId === 'production')
+    {
+      productionBundleIds = bundleIds
+      productionBundleEdges = sortedUniqueStrings(bundleEdges)
+      productionTopoConstraints = topoOrderConstraintIds(bundleIds, productionBundleEdges)
+      productionFreshOrdering.hasDependencyEdges = productionBundleEdges.length > 0
+    }
+  }
+
+  const commandGroupLanes = {}
+  const commandGroupSchemas = {}
+  const commandGroupCommandIds = {}
+  const commandGroupStages = {}
+  const commandGroupDependencyEdges = {}
+  const blockingStages = {}
+  for (const [groupId, group] of Object.entries(matrix.commandGroups ?? {}))
+  {
+    const commands = Array.isArray(group?.commands) ? group.commands : []
+    const commandIds = sortedUniqueStrings(commands.map((command) => command?.id).filter(Boolean))
+    commandGroupLanes[groupId] = group.lane ?? groupId
+    if (group.schema) commandGroupSchemas[groupId] = group.schema
+    if (commandIds.length > 0) commandGroupCommandIds[groupId] = commandIds
+    const commandDeps = []
+    for (const command of commands)
+    {
+      if (!command?.id) continue
+      const stage = command.stage == null ? 'unspecified' : String(command.stage)
+      commandGroupStages[`${groupId}.${command.id}`] = stage
+      if (stage === 'blocking-prebuild' || stage === 'blocking')
+      {
+        if (!blockingStages[stage]) blockingStages[stage] = []
+        blockingStages[stage].push(`${groupId}::${command.id}`)
+      }
+      for (const dep of command.dependsOn ?? [])
+      {
+        commandDeps.push(`${dep}->${command.id}`)
+      }
+    }
+    const sortedDeps = sortedUniqueStrings(commandDeps)
+    if (sortedDeps.length > 0) commandGroupDependencyEdges[groupId] = sortedDeps
+  }
+  for (const stage of Object.keys(blockingStages))
+  {
+    blockingStages[stage] = sortedUniqueStrings(blockingStages[stage])
+  }
+
+  if (executionClassContract?.schema !== 'fsusblog.test-producer-execution-class.v1')
+  {
+    errors.push('producer execution-class contract schema is invalid')
+  }
+  const executionClassByEvidence = {}
+  const executionClassRequires = {}
+  const executionClassQualification = {}
+  for (const [evidenceClass, mapping] of Object.entries(executionClassContract?.classes ?? {}))
+  {
+    executionClassByEvidence[evidenceClass] = mapping.executionClass
+    if (Array.isArray(mapping.requires) && mapping.requires.length > 0)
+    {
+      executionClassRequires[evidenceClass] = [...mapping.requires]
+    }
+    executionClassQualification[evidenceClass] = mapping.qualificationEligible !== false
+  }
+  const evidenceClasses = {}
+  for (const tier of tiers)
+  {
+    const evidenceClass = tier.evidenceClass ?? 'correctness'
+    if (!evidenceClasses[evidenceClass]) evidenceClasses[evidenceClass] = []
+    evidenceClasses[evidenceClass].push(tier.id)
+    if (!executionClassByEvidence[evidenceClass])
+    {
+      errors.push(`tier ${tier.id} evidenceClass ${evidenceClass} lacks execution-class mapping`)
+    }
+  }
+  for (const key of Object.keys(evidenceClasses))
+  {
+    evidenceClasses[key] = sortedUniqueStrings(evidenceClasses[key])
+  }
+
+  // Coverage registry contributes ID references only — no topology fields, no DocClaim prose.
+  const coverageIds = collectCoverageIds(coverageRegistry)
+  const matrixCoverageIds = sortedUniqueStrings(
+    tiers.flatMap((tier) => (Array.isArray(tier.coverage) ? tier.coverage : []))
+  )
+  const coverageIdSet = new Set(coverageIds)
+  const matrixCoverageRefs = matrixCoverageIds.filter((id) => coverageIdSet.has(id))
+
+  const staticGovernanceTier = tiers.filter((tier) => tier.id === 'static-governance'
+    || tier.id === 'frontend-static-governance')
+  const membershipBundles = []
+  for (const [key, members] of Object.entries(bundleMembers))
+  {
+    if (members.includes('static-governance') || members.includes('frontend-static-governance'))
+    {
+      membershipBundles.push(key)
+    }
+  }
+  const staticGovernancePredecessors = {}
+  for (const tier of staticGovernanceTier)
+  {
+    const deps = sortedUniqueStrings(tierExecutionDependencies(tier))
+    if (deps.length > 0) staticGovernancePredecessors[tier.id] = deps
+  }
+  const staticGovernanceMembership = {
+    tierIds: sortedUniqueStrings(staticGovernanceTier.map((tier) => tier.id)),
+    hasBundleMemberships: membershipBundles.length > 0,
+    predecessorCount: Object.keys(staticGovernancePredecessors).length
+  }
+  if (membershipBundles.length > 0)
+  {
+    staticGovernanceMembership.bundleMemberships = sortedUniqueStrings(membershipBundles)
+  }
+  if (Object.keys(staticGovernancePredecessors).length > 0)
+  {
+    staticGovernanceMembership.predecessors = staticGovernancePredecessors
+  }
+
+  const candidateTargets = ['production-correctness', 'production', 'release-final', 'fast', 'ci']
+  const candidateExecutionDependsOn = {}
+  const candidateEvidenceFrom = {}
+  for (const targetId of candidateTargets)
+  {
+    const tier = tierById.get(targetId)
+    if (!tier) continue
+    const deps = sortedUniqueStrings(tierExecutionDependencies(tier))
+    const evidence = sortedUniqueStrings(tier.requiresEvidenceFrom ?? [])
+    if (deps.length > 0) candidateExecutionDependsOn[targetId] = deps
+    if (evidence.length > 0) candidateEvidenceFrom[targetId] = evidence
+  }
+  const candidateAdmissionPredecessors = {
+    targets: sortedUniqueStrings(Object.keys(candidateExecutionDependsOn).concat(Object.keys(candidateEvidenceFrom)))
+  }
+  if (Object.keys(candidateExecutionDependsOn).length > 0)
+  {
+    candidateAdmissionPredecessors.executionDependsOn = candidateExecutionDependsOn
+  }
+  if (Object.keys(candidateEvidenceFrom).length > 0)
+  {
+    candidateAdmissionPredecessors.requiresEvidenceFrom = candidateEvidenceFrom
+  }
+
+  const finalizer = matrix.finalizerAuthorities?.['release-final'] ?? null
+  if (!finalizer)
+  {
+    errors.push('matrix missing finalizerAuthorities.release-final')
+  }
+  const releaseFinalTiers = sortedUniqueStrings(finalizer?.summaryTierIds ?? [])
+  const releaseFinalRequiredInputSchemas = sortedUniqueStrings(
+    [finalizer?.inputContractSchema].filter(Boolean)
+  )
+  const releaseFinalOutputSchema = finalizer?.outputReceiptSchema ?? null
+  const releaseFinalTierRecord = tierById.get('release-final')
+  if (releaseFinalTierRecord)
+  {
+    const evidence = sortedUniqueStrings(releaseFinalTierRecord.requiresEvidenceFrom ?? [])
+    if (evidence.length === 0)
+    {
+      errors.push('release-final requiresEvidenceFrom must declare evidence input tier ids')
+    }
+  }
+
+  if (matrixSchema?.title !== 'FsusBlog Test Matrix' && matrixSchema?.$schema == null)
+  {
+    errors.push('matrix schema projection is not the canonical test matrix schema')
+  }
+
+  const sortedDependencyEdges = sortedUniqueStrings(dependencyEdges)
+  const dependencyProjection = {
+    edgeCount: sortedDependencyEdges.length,
+    hasCycles: cycles.length > 0,
+    hasMissingNodes: missingNodes.length > 0
+  }
+  if (sortedDependencyEdges.length > 0) dependencyProjection.edges = sortedDependencyEdges
+  const topoConstraints = topoOrderConstraintIds(tierIds, sortedDependencyEdges)
+  if (topoConstraints.length > 0) dependencyProjection.topoOrderConstraints = topoConstraints
+
+  const facts = {
+    'test.topology.profiles': profileIds.length > 0 ? profileIds : ['none'],
+    'test.topology.tiers': tierIds,
+    'test.topology.bundles': {
+      idsByProfile: Object.keys(bundleIdsByProfile).length > 0
+        ? bundleIdsByProfile
+        : { none: ['none'] },
+      members: Object.keys(bundleMembers).length > 0 ? bundleMembers : { none: ['none'] },
+      dependsOn: Object.keys(bundleDependsOn).length > 0
+        ? bundleDependsOn
+        : { none: ['none'] },
+      commandEntrypoints: Object.keys(bundleCommandEntrypoints).length > 0
+        ? bundleCommandEntrypoints
+        : { none: 'none' },
+      commandDigests: Object.keys(bundleCommandDigests).length > 0
+        ? bundleCommandDigests
+        : { none: digestText('none') }
+    },
+    'test.topology.dependencies': dependencyProjection,
+    'test.topology.command-groups': {
+      lanes: Object.keys(commandGroupLanes).length > 0 ? commandGroupLanes : { none: 'none' },
+      schemas: Object.keys(commandGroupSchemas).length > 0 ? commandGroupSchemas : { none: 'none' },
+      commandIds: Object.keys(commandGroupCommandIds).length > 0
+        ? commandGroupCommandIds
+        : { none: ['none'] },
+      stages: Object.keys(commandGroupStages).length > 0 ? commandGroupStages : { none: 'none' },
+      dependencyEdges: Object.keys(commandGroupDependencyEdges).length > 0
+        ? commandGroupDependencyEdges
+        : { none: ['none'] }
+    },
+    'test.topology.blocking-stages': Object.keys(blockingStages).length > 0
+      ? blockingStages
+      : { none: ['none'] },
+    'test.execution-classes': {
+      byEvidenceClass: Object.keys(executionClassByEvidence).length > 0
+        ? executionClassByEvidence
+        : { none: 'none' },
+      requires: Object.keys(executionClassRequires).length > 0
+        ? executionClassRequires
+        : { none: ['none'] },
+      qualificationEligible: Object.keys(executionClassQualification).length > 0
+        ? executionClassQualification
+        : { none: false }
+    },
+    'test.evidence-classes': Object.keys(evidenceClasses).length > 0
+      ? evidenceClasses
+      : { none: ['none'] },
+    'test.static-governance.membership': staticGovernanceMembership,
+    'test.candidate-admission-predecessors': candidateAdmissionPredecessors,
+    'release-final.finalizer-authority': finalizer
+      ? {
+          id: finalizer.id,
+          commandKind: finalizer.commandKind,
+          commandEntrypoint: commandEntrypoint(finalizer.command) ?? finalizer.command,
+          commandDigest: commandDigest(finalizer.command)
+        }
+      : {
+          id: 'missing',
+          commandKind: 'missing',
+          commandEntrypoint: 'missing',
+          commandDigest: digestText('missing')
+        },
+    'release-final.required-input-schemas': releaseFinalRequiredInputSchemas.length > 0
+      ? releaseFinalRequiredInputSchemas
+      : ['missing'],
+    'release-final.output-schema': releaseFinalOutputSchema ?? 'missing',
+    'release-final.summary-tiers': releaseFinalTiers.length > 0 ? releaseFinalTiers : ['missing'],
+    'production-fresh.bundle-ordering': {
+      profileId: productionFreshOrdering.profileId,
+      hasDependencyEdges: productionFreshOrdering.hasDependencyEdges,
+      bundleIds: productionBundleIds.length > 0 ? productionBundleIds : ['none'],
+      edges: productionBundleEdges.length > 0 ? productionBundleEdges : ['none'],
+      topoOrderConstraints: productionTopoConstraints.length > 0
+        ? productionTopoConstraints
+        : ['none']
+    }
+  }
+
+  const topologyDigest = digestValue(
+    Object.fromEntries(requiredFactKeys.map((key) => [key, facts[key]]))
+  )
+
+  // Top-level observation keys must be [A-Za-z_][A-Za-z0-9_]*; dotted fact IDs live under facts.
+  const observations = {
+    facts,
+    topologyDigest,
+    matrixVersion: matrix.version ?? 'unknown',
+    coverageIdCount: coverageIds.length,
+    matrixCoverageRefCount: matrixCoverageRefs.length,
+    observationSource: 'tests_matrix_yml_producer_execution_class_coverage_ids'
+  }
+  if (matrixCoverageRefs.length > 0)
+  {
+    observations.matrixCoverageRefs = matrixCoverageRefs
+  }
+
+  return { observations, errors, tierIds, profileIds, finalizer, facts }
+}
+
+/**
+ * matrix-projection extractor for browserless-production-correctness.
+ * Projects test/release topology facts from the formal matrix and governance catalogs only.
+ * Never reads docs/testing, historical generated docs, fixture baselines, or expected tables.
+ */
+// BEHAVIOR-OWNER: browserless-production-correctness
+export function extract(context)
+{
+  const extractor = context?.extractor
+  if (!extractor || extractor.id !== 'test-matrix-fact-extractor')
+  {
+    return failResult(['test-matrix-fact-extractor requires registered extractor context'])
+  }
+
+  const allowed = allowedInputSet(extractor)
+  for (const source of declaredFactSources)
+  {
+    if (!allowed.has(source))
+    {
+      return failResult([`registry must declare fact source ${source}`])
+    }
+  }
+
+  // Refuse docs/testing or historical generated docs as inputs.
+  for (const input of allowed)
+  {
+    if (/^docs\/testing(?:\.|\/)/u.test(input) || /testing\.generated\.md$/u.test(input))
+    {
+      return failResult([`refuses docs/testing authority input ${input}`])
+    }
+    if (/(?:^|\/)(?:fixtures?|golden|baselines?)(?:\/|$)/iu.test(input))
+    {
+      return failResult([`refuses fixture/baseline authority input ${input}`])
+    }
+  }
+
+  let matrixText
+  let matrixSchema
+  let coverageRegistry
+  let executionClassContract
+  try
+  {
+    matrixText = readText(context.repositoryRoot, 'tests/matrix.yml', allowed)
+    matrixSchema = readJson(context.repositoryRoot, 'tests/matrix.schema.json', allowed)
+    coverageRegistry = readJson(context.repositoryRoot, 'tests/coverage-registry.json', allowed)
+    executionClassContract = readJson(
+      context.repositoryRoot,
+      'config/testing/producer-execution-class-contract.json',
+      allowed
+    )
+  }
+  catch (error)
+  {
+    return failResult([error instanceof Error ? error.message : String(error)])
+  }
+
+  // Guard against reverse generation from generated testing docs.
+  if (matrixText.includes('generated by tools/docs/generate-testing-docs')
+    || matrixText.includes('# Generated Test Matrix'))
+  {
+    return failResult(['matrix source must not be reverse-loaded from generated testing docs'])
+  }
+
+  let matrix
+  try
+  {
+    matrix = parseMatrix(matrixText, { validateDependencyFields: true })
+  }
+  catch (error)
+  {
+    return failResult([`matrix parse failed: ${error instanceof Error ? error.message : String(error)}`])
+  }
+
+  const built = buildObservations({
+    matrix,
+    matrixSchema,
+    coverageRegistry,
+    executionClassContract
+  })
+
+  const retiredFromIds = new Set(
+    (matrix.governance?.retiredTiers ?? []).map((entry) => entry?.from).filter(Boolean)
+  )
+
+  const consumerErrors = validateConsumers({
+    repositoryRoot: context.repositoryRoot,
+    allowed,
+    matrix,
+    tierIds: built.tierIds,
+    profileIds: built.profileIds,
+    retiredFromIds,
+    finalizer: built.finalizer
+  })
+
+  const failureReasons = [...built.errors, ...consumerErrors]
+  if (failureReasons.length > 0)
+  {
+    return failResult(failureReasons)
+  }
+
+  const facts = built.facts ?? built.observations?.facts
+  if (facts == null || typeof facts !== 'object')
+  {
+    return failResult(['topology facts map missing'])
+  }
+  for (const key of requiredFactKeys)
+  {
+    if (!Object.hasOwn(facts, key))
+    {
+      return failResult([`missing required fact ${key}`])
+    }
+  }
+  if (!isSortedUniqueStrings(facts['test.topology.tiers']))
+  {
+    return failResult(['test.topology.tiers must be a sorted unique ID set'])
+  }
+  if (!isSortedUniqueStrings(facts['test.topology.profiles'])
+    && !(Array.isArray(facts['test.topology.profiles'])
+      && facts['test.topology.profiles'].length === 1
+      && facts['test.topology.profiles'][0] === 'none'))
+  {
+    return failResult(['test.topology.profiles must be a sorted unique ID set'])
+  }
+
+  return {
+    status: 'ok',
+    failureReasons: [],
+    observations: built.observations
+  }
+}
+
+export const TEST_MATRIX_REQUIRED_FACT_KEYS = requiredFactKeys
+export const TEST_MATRIX_DECLARED_FACT_SOURCES = declaredFactSources
+export const TEST_MATRIX_CONSUMER_INPUTS = consumerInputs

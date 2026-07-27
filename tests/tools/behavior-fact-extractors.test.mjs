@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, cpSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, cpSync, existsSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
@@ -52,6 +52,13 @@ function fixtureRoot()
         'tests/governance/code-intent-registry.json',
         'config/development/document-lifecycle.json',
         'tests/matrix.yml',
+        'tests/matrix.schema.json',
+        'config/testing/producer-execution-class-contract.json',
+        'src/frontend/package.json',
+        'tools/docs/generate-testing-docs.mjs',
+        'tools/test/lanes',
+        'tools/test-matrix/parse-matrix.mjs',
+        'tools/yaml/parse-document.mjs',
         'src/shared/Contracts/Validation/aeds-endpoint-contracts.json',
         'src/shared/Contracts/Validation/aeds-protocol.json',
         'tools/contracts/FsusBlog.OpenApiObservation/Program.cs',
@@ -85,7 +92,7 @@ function fixtureRoot()
     {
         const target = path.join(directory, relative)
         mkdirSync(path.dirname(target), { recursive: true })
-        cpSync(path.join(root, relative), target)
+        cpSync(path.join(root, relative), target, { recursive: true })
     }
     // Copy framework + seeds so entrypoints resolve inside the fixture repo.
     for (const relative of [
@@ -101,17 +108,35 @@ function fixtureRoot()
         'tools/fact-extractors/seeds/test-asset-audit-seed.mjs',
         'tools/fact-extractors/seeds/code-intent-seed.mjs',
         'tools/fact-extractors/seeds/document-lifecycle-seed.mjs',
-        'tools/fact-extractors/seeds/test-matrix-seed.mjs',
+        'tools/fact-extractors/test-matrix/extract.mjs',
         'tools/fact-extractors/openapi-aeds/extract.mjs',
         'tools/fact-extractors/auth-session-permission/extract.mjs',
         'tools/fact-extractors/config-error-security-policy/extract.mjs',
+        'tools/fact-extractors/content-lifecycle/extract.mjs',
         'tools/contracts/behavior-contract-catalog.mjs'
     ])
     {
         const target = path.join(directory, relative)
         mkdirSync(path.dirname(target), { recursive: true })
-        cpSync(path.join(root, relative), target)
+        cpSync(path.join(root, relative), target, { recursive: true })
     }
+    // Isolation fixtures only need extractors whose declared inputs were copied.
+    const registryPath = path.join(directory, 'config/contracts/behavior-fact-extractors.json')
+    const registry = JSON.parse(readFileSync(registryPath, 'utf8'))
+    registry.extractors = registry.extractors.filter((extractor) =>
+        extractor.consumedInputs.every((input) => existsSync(path.join(directory, input)))
+        && existsSync(path.join(directory, extractor.entrypoint)))
+    writeFileSync(registryPath, `${JSON.stringify(registry, null, 2)}\n`)
+
+    // Keep BehaviorContractCatalog extractors aligned with the reduced fixture registry.
+    const catalogPath = path.join(directory, 'config/contracts/behavior-contracts.json')
+    const catalog = JSON.parse(readFileSync(catalogPath, 'utf8'))
+    const keptIds = new Set(registry.extractors.map((extractor) => extractor.id))
+    catalog.extractors = (catalog.extractors ?? []).filter((entry) => keptIds.has(entry.id))
+    catalog.contracts = (catalog.contracts ?? []).filter((contract) =>
+        contract.status !== 'active' || keptIds.has(contract.factExtractorId))
+    writeFileSync(catalogPath, `${JSON.stringify(catalog, null, 2)}\n`)
+
     // Git identity for source commit / worktree fingerprint.
     spawnSync('git', ['init'], { cwd: directory, encoding: 'utf8' })
     spawnSync('git', ['config', 'user.email', 'test@example.com'], { cwd: directory, encoding: 'utf8' })
@@ -168,7 +193,7 @@ test('repository registry owns each active behavior exactly once', () =>
     const registry = loadRegistry()
     const result = validateOwnershipAgainstBehaviorCatalog(registry, loadCatalog(), root)
     assert.match(result.digest, /^[a-f0-9]{64}$/u)
-    assert.equal(result.behaviorOwners.size, 7)
+    assert.equal(result.behaviorOwners.size, 8)
     const check = spawnSync(process.execPath, [checker], { cwd: root, encoding: 'utf8' })
     assert.equal(check.status, 0, check.stderr || check.stdout)
     assert.match(check.stdout, /registry, ownership, receipt schema/u)

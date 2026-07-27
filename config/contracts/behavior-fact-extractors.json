@@ -48,9 +48,16 @@
     {
       "id": "test-matrix-fact-extractor",
       "kind": "matrix-projection",
-      "entrypoint": "tools/fact-extractors/seeds/test-matrix-seed.mjs",
+      "entrypoint": "tools/fact-extractors/test-matrix/extract.mjs",
       "consumedInputs": [
-        "tests/matrix.yml"
+        "tests/matrix.yml",
+        "tests/matrix.schema.json",
+        "tests/coverage-registry.json",
+        "config/testing/producer-execution-class-contract.json",
+        "tools/test/lanes",
+        "src/frontend/package.json",
+        "tools/docs/generate-testing-docs.mjs",
+        "tools/test/lanes/release-final.sh"
       ],
       "outputSchema": "fsusblog.fact-observation-receipt.v1",
       "requiredBuildArtifact": null,
