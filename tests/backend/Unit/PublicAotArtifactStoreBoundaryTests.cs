@@ -48,15 +48,40 @@ public sealed class PublicAotArtifactStoreBoundaryTests
         string baseKey = string.Concat(
             "test-session:",
             CacheKeyBuilder.PublicAotDocument(PublicPageId.Home, "home"));
-        Assert.Equal(string.Concat(baseKey, ":lv:0"), lookup.DocumentCacheKey);
+        Assert.Equal(string.Concat(baseKey, ":iv:0"), lookup.DocumentCacheKey);
         Assert.Equal("frontend-v1", lookup.FrontendAssetVersion);
         Assert.Equal("prod-manifest", lookup.AssetMode);
         Assert.True(queued);
         Assert.NotNull(scheduled);
         Assert.Equal(lookup.DocumentCacheKey, scheduled.CacheKey);
+        Assert.Equal(baseKey, scheduled.InvalidationKey);
         Assert.Equal(lookup.PagePrefixKey, scheduled.PagePrefixKey);
         Assert.Equal(0, scheduled.ScheduledInvalidationVersion);
         Assert.Equal("frontend-v1", scheduled.FrontendAssetVersion);
+    }
+
+    [Fact]
+    public void Lookup_UsesAnInvalidationGenerationForNonListRoutes()
+    {
+        var cache = Substitute.For<IPublicAotShellCache>();
+        var writer = Substitute.For<IPublicAotCacheWriter>();
+        var scheduler = Substitute.For<IPublicAotBackfillScheduler>();
+        var manifest = Substitute.For<ISpaAssetManifestService>();
+        manifest.GetFrontendAssetVersion(Arg.Any<HttpContext>()).Returns("frontend-v1");
+        var store = new PublicAotArtifactStore(
+            cache,
+            writer,
+            scheduler,
+            manifest,
+            new PrefixRuntimeKeyScope(string.Empty),
+            new PublicAotInvalidationTracker());
+        PublicAotRouteMatch match = ArticleMatch();
+
+        PublicAotArtifactLookup lookup = store.CreateLookup(new DefaultHttpContext(), match);
+
+        Assert.Equal(
+            string.Concat(CacheKeyBuilder.PublicAotDocument(PublicPageId.ArticleDetail, "article:42"), ":iv:0"),
+            lookup.DocumentCacheKey);
     }
 
     [Fact]
@@ -102,6 +127,298 @@ public sealed class PublicAotArtifactStoreBoundaryTests
     }
 
     [Fact]
+    public async Task WriteBackfill_RejectsInvalidationThatHappensAfterTheInitialCurrentCheck()
+    {
+        var cache = Substitute.For<IPublicAotShellCache>();
+        var writer = Substitute.For<IPublicAotCacheWriter>();
+        var scheduler = Substitute.For<IPublicAotBackfillScheduler>();
+        var manifest = Substitute.For<ISpaAssetManifestService>();
+        manifest.GetFrontendAssetVersion().Returns("frontend-v1");
+        var tracker = new PublicAotInvalidationTracker();
+        var store = new PublicAotArtifactStore(
+            cache,
+            writer,
+            scheduler,
+            manifest,
+            new PrefixRuntimeKeyScope(string.Empty),
+            tracker);
+        var match = new PublicAotRouteMatch(
+            PublicPageKind.ArticleDetail,
+            PublicPageId.ArticleDetail,
+            "article:42",
+            "/article/42",
+            "/article/42",
+            string.Empty);
+        string cacheKey = CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey) + ":iv:0";
+        string pagePrefixKey = CacheKeyBuilder.PublicAotDocument(match.PageId, string.Empty);
+        var request = new PublicAotBackfillRequest(match.Kind, match.RouteKey, match.Path, match.QueryString, cacheKey)
+        {
+            InvalidationKey = CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey),
+            PagePrefixKey = pagePrefixKey,
+            ScheduledInvalidationVersion = 0,
+            FrontendAssetVersion = "frontend-v1"
+        };
+
+        Assert.True(store.IsCurrentBackfill(request));
+        await tracker.WithInvalidationLockAsync([pagePrefixKey], () =>
+        {
+            tracker.MarkPrefix(pagePrefixKey);
+            return Task.CompletedTask;
+        }, CancellationToken.None);
+
+        bool written = await store.WriteBackfillAsync(
+            request,
+            new PublicAotBackfillDocument(match, "<html></html>", PublicAotConstants.RendererVersion),
+            beforeCommit: null,
+            CancellationToken.None);
+
+        Assert.False(written);
+        Assert.Empty(writer.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task WriteBackfill_RecordsGenerationAndDigestReceiptForThePublishedArtifact()
+    {
+        var cache = Substitute.For<IPublicAotShellCache>();
+        var writer = Substitute.For<IPublicAotCacheWriter>();
+        var scheduler = Substitute.For<IPublicAotBackfillScheduler>();
+        var manifest = Substitute.For<ISpaAssetManifestService>();
+        manifest.GetFrontendAssetVersion().Returns("frontend-v1");
+        var tracker = new PublicAotInvalidationTracker();
+        var store = new PublicAotArtifactStore(
+            cache,
+            writer,
+            scheduler,
+            manifest,
+            new PrefixRuntimeKeyScope(string.Empty),
+            tracker);
+        var match = new PublicAotRouteMatch(
+            PublicPageKind.About,
+            PublicPageId.About,
+            "about",
+            "/about",
+            "/about",
+            string.Empty);
+        string cacheKey = CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey) + ":iv:0";
+        var request = new PublicAotBackfillRequest(match.Kind, match.RouteKey, match.Path, match.QueryString, cacheKey)
+        {
+            InvalidationKey = CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey),
+            PagePrefixKey = CacheKeyBuilder.PublicAotDocument(match.PageId, string.Empty),
+            ScheduledInvalidationVersion = 0,
+            FrontendAssetVersion = "frontend-v1"
+        };
+
+        bool written = await store.WriteBackfillAsync(
+            request,
+            new PublicAotBackfillDocument(match, "<html>receipt</html>", PublicAotConstants.RendererVersion),
+            beforeCommit: null,
+            CancellationToken.None);
+
+        Assert.True(written);
+        Assert.True(tracker.TryGetCommitReceipt(cacheKey, out PublicAotBackfillCommitReceipt? receipt));
+        Assert.NotNull(receipt);
+        Assert.Equal(0, receipt.ScheduledInvalidationVersion);
+        Assert.Equal(0, receipt.CurrentInvalidationVersion);
+        Assert.Equal(0, receipt.PublishedInvalidationVersion);
+        Assert.Equal(64, receipt.PayloadDigest.Length);
+        Assert.Equal(receipt.PayloadDigest, receipt.ArtifactDigest);
+        Assert.Equal(receipt.PayloadDigest, receipt.HotReadDigest);
+    }
+
+    [Theory]
+    [InlineData("route")]
+    [InlineData("page")]
+    [InlineData("global")]
+    public async Task WriteBackfill_RejectsAnInvalidationThatOccursDuringRendering(string invalidationScope)
+    {
+        var cache = Substitute.For<IPublicAotShellCache>();
+        var writer = Substitute.For<IPublicAotCacheWriter>();
+        var scheduler = Substitute.For<IPublicAotBackfillScheduler>();
+        var manifest = Substitute.For<ISpaAssetManifestService>();
+        manifest.GetFrontendAssetVersion().Returns("frontend-v1");
+        var tracker = new PublicAotInvalidationTracker();
+        var store = new PublicAotArtifactStore(cache, writer, scheduler, manifest, new PrefixRuntimeKeyScope(string.Empty), tracker);
+        PublicAotRouteMatch match = ArticleMatch();
+        PublicAotBackfillRequest request = CreateRequest(match, generation: 0);
+
+        Assert.True(store.IsCurrentBackfill(request));
+        if (string.Equals(invalidationScope, "global", StringComparison.Ordinal))
+        {
+            await tracker.WithGlobalInvalidationLockAsync(() =>
+            {
+                tracker.MarkAll();
+                return Task.CompletedTask;
+            }, CancellationToken.None);
+        }
+        else
+        {
+            await tracker.WithInvalidationLockAsync([request.PagePrefixKey], () =>
+            {
+                if (string.Equals(invalidationScope, "route", StringComparison.Ordinal))
+                {
+                    tracker.MarkKey(request.InvalidationKey);
+                }
+                else
+                {
+                    tracker.MarkPrefix(request.PagePrefixKey);
+                }
+                return Task.CompletedTask;
+            }, CancellationToken.None);
+        }
+
+        bool written = await store.WriteBackfillAsync(
+            request,
+            new PublicAotBackfillDocument(match, "<html>stale-render</html>", PublicAotConstants.RendererVersion),
+            beforeCommit: null,
+            CancellationToken.None);
+
+        Assert.False(written);
+        Assert.Empty(writer.ReceivedCalls());
+        Assert.False(tracker.TryGetCommitReceipt(request.CacheKey, out _));
+    }
+
+    [Fact]
+    public async Task PublicationLock_BlocksInvalidationThroughArtifactAndHotReadPublication()
+    {
+        var cache = Substitute.For<IPublicAotShellCache>();
+        var scheduler = Substitute.For<IPublicAotBackfillScheduler>();
+        var manifest = Substitute.For<ISpaAssetManifestService>();
+        manifest.GetFrontendAssetVersion().Returns("frontend-v1");
+        var tracker = new PublicAotInvalidationTracker();
+        var writer = new BlockingWriter();
+        var store = new PublicAotArtifactStore(cache, writer, scheduler, manifest, new PrefixRuntimeKeyScope(string.Empty), tracker);
+        PublicAotRouteMatch match = ArticleMatch();
+        PublicAotBackfillRequest request = CreateRequest(match, generation: 0);
+
+        Task<bool> publication = store.WriteBackfillAsync(
+            request,
+            new PublicAotBackfillDocument(match, "<html>old</html>", PublicAotConstants.RendererVersion),
+            beforeCommit: null,
+            CancellationToken.None);
+        await writer.FirstWriteEntered.Task;
+
+        Task invalidation = tracker.WithInvalidationLockAsync([request.PagePrefixKey], () =>
+        {
+            tracker.MarkPrefix(request.PagePrefixKey);
+            return Task.CompletedTask;
+        }, CancellationToken.None);
+
+        Assert.False(invalidation.IsCompleted);
+        writer.ReleaseFirstWrite.SetResult();
+        Assert.True(await publication);
+        await invalidation;
+
+        Assert.Equal(["<html>old</html>"], writer.PublishedHtml);
+        Assert.True(tracker.WasInvalidatedAfter(request));
+    }
+
+    [Fact]
+    public async Task ConcurrentBackfills_OlderGenerationCannotPublishLastAfterInvalidation()
+    {
+        var cache = Substitute.For<IPublicAotShellCache>();
+        var scheduler = Substitute.For<IPublicAotBackfillScheduler>();
+        var manifest = Substitute.For<ISpaAssetManifestService>();
+        manifest.GetFrontendAssetVersion().Returns("frontend-v1");
+        var tracker = new PublicAotInvalidationTracker();
+        var writer = new BlockingWriter();
+        var store = new PublicAotArtifactStore(cache, writer, scheduler, manifest, new PrefixRuntimeKeyScope(string.Empty), tracker);
+        PublicAotRouteMatch match = ArticleMatch();
+        PublicAotBackfillRequest oldRequest = CreateRequest(match, 0);
+
+        Task<bool> oldPublication = store.WriteBackfillAsync(
+            oldRequest,
+            new PublicAotBackfillDocument(match, "<html>old</html>", PublicAotConstants.RendererVersion),
+            beforeCommit: null,
+            CancellationToken.None);
+        await writer.FirstWriteEntered.Task;
+        Task invalidation = tracker.WithInvalidationLockAsync([oldRequest.PagePrefixKey], () =>
+        {
+            tracker.MarkPrefix(oldRequest.PagePrefixKey);
+            return Task.CompletedTask;
+        }, CancellationToken.None);
+        Assert.False(invalidation.IsCompleted);
+
+        writer.ReleaseFirstWrite.SetResult();
+        Assert.True(await oldPublication);
+        await invalidation;
+
+        PublicAotBackfillRequest currentRequest = CreateRequest(match, 1);
+        Assert.True(await store.WriteBackfillAsync(
+            currentRequest,
+            new PublicAotBackfillDocument(match, "<html>current</html>", PublicAotConstants.RendererVersion),
+            beforeCommit: null,
+            CancellationToken.None));
+
+        Assert.Equal(["<html>old</html>", "<html>current</html>"], writer.PublishedHtml);
+        Assert.Equal("<html>current</html>", writer.PublishedHtml[^1]);
+    }
+
+    [Fact]
+    public async Task BackfillStage_InvalidationRejectsBeforeAnyStagingOrPublication()
+    {
+        var cache = Substitute.For<IPublicAotShellCache>();
+        var writer = new BlockingWriter();
+        var manifest = Substitute.For<ISpaAssetManifestService>();
+        manifest.GetFrontendAssetVersion().Returns("frontend-v1");
+        var tracker = new PublicAotInvalidationTracker();
+        var store = new PublicAotArtifactStore(cache, writer, Substitute.For<IPublicAotBackfillScheduler>(), manifest, new PrefixRuntimeKeyScope(string.Empty), tracker);
+        PublicAotRouteMatch match = ArticleMatch();
+        PublicAotBackfillRequest request = CreateRequest(match, 0);
+        var stageEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseStage = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        Task<bool> write = store.WriteBackfillAsync(
+            request,
+            new PublicAotBackfillDocument(match, "<html>staged</html>", PublicAotConstants.RendererVersion),
+            async token =>
+            {
+                stageEntered.SetResult();
+                await releaseStage.Task.WaitAsync(token);
+            },
+            CancellationToken.None);
+        await stageEntered.Task;
+        await tracker.WithInvalidationLockAsync([request.PagePrefixKey], () =>
+        {
+            tracker.MarkPrefix(request.PagePrefixKey);
+            return Task.CompletedTask;
+        }, CancellationToken.None);
+        releaseStage.SetResult();
+
+        Assert.False(await write);
+        Assert.Empty(writer.PublishedHtml);
+        Assert.False(tracker.TryGetCommitReceipt(request.CacheKey, out _));
+    }
+
+    [Fact]
+    public void CommitReceipt_RejectsMissingGenerationOrDigestFields()
+    {
+        var tracker = new PublicAotInvalidationTracker();
+        var incomplete = new PublicAotBackfillCommitReceipt(
+            "cache:article:42",
+            "cache:article:",
+            0,
+            0,
+            0,
+            "frontend-v1",
+            PublicAotConstants.RendererVersion,
+            string.Empty,
+            string.Empty,
+            string.Empty);
+
+        Assert.Throws<InvalidOperationException>(() => tracker.RecordCommitReceipt(incomplete));
+
+        var generationMismatch = incomplete with
+        {
+            PayloadDigest = new string('a', 64),
+            ArtifactDigest = new string('b', 64),
+            HotReadDigest = new string('c', 64),
+            CurrentInvalidationVersion = 1,
+            PublishedInvalidationVersion = 1
+        };
+        Assert.Throws<InvalidOperationException>(() => tracker.RecordCommitReceipt(generationMismatch));
+    }
+
+    [Fact]
     public void DependencyGraph_MovesStoragePortsOutOfShellWithoutCallback()
     {
         Type[] shellDependencies = Assert.Single(typeof(PublicAotShellService).GetConstructors(
@@ -131,5 +448,69 @@ public sealed class PublicAotArtifactStoreBoundaryTests
     private sealed class PrefixRuntimeKeyScope(string prefix) : IRuntimeKeyScope
     {
         public string PrefixKey(string key) => string.Concat(prefix, key);
+    }
+
+    private static PublicAotRouteMatch ArticleMatch()
+        => new(
+            PublicPageKind.ArticleDetail,
+            PublicPageId.ArticleDetail,
+            "article:42",
+            "/article/42",
+            "/article/42",
+            string.Empty);
+
+    private static PublicAotBackfillRequest CreateRequest(PublicAotRouteMatch match, long generation)
+    {
+        string invalidationKey = CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey);
+        return new PublicAotBackfillRequest(
+            match.Kind,
+            match.RouteKey,
+            match.Path,
+            match.QueryString,
+            string.Concat(invalidationKey, ":iv:", generation.ToString()))
+        {
+            InvalidationKey = invalidationKey,
+            PagePrefixKey = CacheKeyBuilder.PublicAotDocument(match.PageId, string.Empty),
+            ScheduledInvalidationVersion = generation,
+            FrontendAssetVersion = "frontend-v1"
+        };
+    }
+
+    private sealed class BlockingWriter : IPublicAotCacheWriter
+    {
+        private int _writes;
+
+        public TaskCompletionSource FirstWriteEntered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource ReleaseFirstWrite { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public List<string> PublishedHtml { get; } = [];
+
+        public async Task WriteAsync(
+            string cacheKey,
+            PublicPageId pageId,
+            string routeKey,
+            string rendererVersion,
+            string frontendAssetVersion,
+            string html,
+            PublicAotWriteSource source,
+            DateTimeOffset? generatedAtUtc = null,
+            TimeSpan? ttl = null,
+            CancellationToken cancellationToken = default)
+        {
+            _ = cacheKey;
+            _ = pageId;
+            _ = routeKey;
+            _ = rendererVersion;
+            _ = frontendAssetVersion;
+            _ = source;
+            _ = generatedAtUtc;
+            _ = ttl;
+            cancellationToken.ThrowIfCancellationRequested();
+            if (Interlocked.Increment(ref _writes) == 1)
+            {
+                FirstWriteEntered.SetResult();
+                await ReleaseFirstWrite.Task.WaitAsync(cancellationToken);
+            }
+            PublishedHtml.Add(html);
+        }
     }
 }

@@ -1,3 +1,6 @@
+using System.Security.Cryptography;
+using System.Text;
+
 using FsusBlog.Core.Cache;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Spa;
@@ -98,9 +101,11 @@ internal sealed class PublicAotArtifactStore(
             match.QueryString,
             lookup.DocumentCacheKey)
         {
+            InvalidationKey = runtimeKeyScope.PrefixKey(
+                CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey)),
             PagePrefixKey = lookup.PagePrefixKey,
             ScheduledInvalidationVersion = invalidationTracker.GetCurrentVersion(
-                lookup.DocumentCacheKey,
+                runtimeKeyScope.PrefixKey(CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey)),
                 lookup.PagePrefixKey),
             TestSessionId = ResolveTestSessionId(context),
             FrontendAssetVersion = lookup.FrontendAssetVersion
@@ -112,7 +117,7 @@ internal sealed class PublicAotArtifactStore(
                 request.FrontendAssetVersion,
                 assetManifest.GetFrontendAssetVersion(),
                 StringComparison.Ordinal)
-            && !invalidationTracker.WasInvalidatedAfter(request);
+            && invalidationTracker.GetCurrentVersion(request) == request.ScheduledInvalidationVersion;
 
     public async Task<bool> WriteBackfillAsync(
         PublicAotBackfillRequest request,
@@ -120,32 +125,61 @@ internal sealed class PublicAotArtifactStore(
         Func<CancellationToken, Task>? beforeCommit,
         CancellationToken cancellationToken)
     {
+        var commitRequest = new PublicAotBackfillCommitRequest(
+            request.CacheKey,
+            request.PagePrefixKey,
+            request.ScheduledInvalidationVersion,
+            request.FrontendAssetVersion,
+            document.RendererVersion,
+            Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(document.Html))));
         if (beforeCommit is not null)
         {
             await beforeCommit(cancellationToken).ConfigureAwait(false);
         }
 
-        if (!IsCurrentBackfill(request))
-        {
-            return false;
-        }
+        return await invalidationTracker.WithPublicationLockAsync(
+            request.PagePrefixKey,
+            async () =>
+            {
+                if (!IsCurrentBackfill(request))
+                {
+                    return false;
+                }
 
-        await cacheWriter.WriteAsync(
-            request.CacheKey,
-            document.Match.PageId,
-            document.Match.RouteKey,
-            document.RendererVersion,
-            request.FrontendAssetVersion,
-            document.Html,
-            PublicAotWriteSource.ServerSsrBackfill,
-            DateTimeOffset.UtcNow,
-            TimeSpan.FromDays(30),
-            cancellationToken);
-        return true;
+                await cacheWriter.WriteAsync(
+                    request.CacheKey,
+                    document.Match.PageId,
+                    document.Match.RouteKey,
+                    document.RendererVersion,
+                    request.FrontendAssetVersion,
+                    document.Html,
+                    PublicAotWriteSource.ServerSsrBackfill,
+                    DateTimeOffset.UtcNow,
+                    TimeSpan.FromDays(30),
+                    cancellationToken).ConfigureAwait(false);
+                long publishedInvalidationVersion = invalidationTracker.GetCurrentVersion(request);
+                invalidationTracker.RecordCommitReceipt(new PublicAotBackfillCommitReceipt(
+                    commitRequest.CacheKey,
+                    commitRequest.PagePrefixKey,
+                    commitRequest.ScheduledInvalidationVersion,
+                    publishedInvalidationVersion,
+                    publishedInvalidationVersion,
+                    commitRequest.FrontendAssetVersion,
+                    commitRequest.RendererVersion,
+                    commitRequest.PayloadDigest,
+                    commitRequest.PayloadDigest,
+                    commitRequest.PayloadDigest));
+                return true;
+            },
+            cancellationToken).ConfigureAwait(false);
     }
 
     public Task InvalidateAllAsync(CancellationToken cancellationToken)
-        => cache.InvalidateAllAsync(cancellationToken);
+        => invalidationTracker.WithGlobalInvalidationLockAsync(async () =>
+        {
+            invalidationTracker.MarkAll();
+            await cache.InvalidateAllAsync(cancellationToken).ConfigureAwait(false);
+        }, cancellationToken);
 
     internal static bool IsRenderableCacheEntry(PublicAotCacheEntry? entry, string frontendAssetVersion)
         => IsCompatibleCacheEntry(entry, frontendAssetVersion)
@@ -179,17 +213,9 @@ internal sealed class PublicAotArtifactStore(
         string cacheKey,
         string pagePrefixKey)
     {
-        if (!UsesListVersion(pageId))
-        {
-            return cacheKey;
-        }
-
         long version = invalidationTracker.GetCurrentVersion(cacheKey, pagePrefixKey);
-        return string.Concat(cacheKey, ":lv:", version.ToString());
+        return string.Concat(cacheKey, ":iv:", version.ToString());
     }
-
-    private static bool UsesListVersion(PublicPageId pageId)
-        => pageId is PublicPageId.Home or PublicPageId.Archive or PublicPageId.Filter;
 
     private static string? ResolveTestSessionId(HttpContext context)
     {
@@ -203,3 +229,11 @@ internal sealed class PublicAotArtifactStore(
         return HttpTestSessionKeyScope.IsValidSessionId(normalized) ? normalized : null;
     }
 }
+
+public sealed record PublicAotBackfillCommitRequest(
+    string CacheKey,
+    string PagePrefixKey,
+    long ScheduledInvalidationVersion,
+    string FrontendAssetVersion,
+    string RendererVersion,
+    string PayloadDigest);

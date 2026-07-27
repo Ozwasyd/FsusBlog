@@ -7,6 +7,9 @@ public sealed record class PublicAotBackfillRequest(
     string QueryString,
     string CacheKey)
 {
+    // The immutable artifact key includes the scheduled generation. Invalidation
+    // is coordinated on the stable route identity instead.
+    public string InvalidationKey { get; init; } = string.Empty;
     public string PagePrefixKey { get; init; } = string.Empty;
     public long ScheduledInvalidationVersion
     {

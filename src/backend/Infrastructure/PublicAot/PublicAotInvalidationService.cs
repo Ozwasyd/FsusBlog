@@ -21,19 +21,25 @@ public sealed class PublicAotInvalidationService(
 {
     public async Task InvalidateAllAsync(CancellationToken cancellationToken = default)
     {
-        invalidationTracker.MarkAll();
-        ssrRuntimeState.ClearAllRouteQuarantines();
-        await cache.InvalidateAllAsync(cancellationToken);
-        hotReadStore.ClearHtml();
+        await invalidationTracker.WithGlobalInvalidationLockAsync(async () =>
+        {
+            invalidationTracker.MarkAll();
+            ssrRuntimeState.ClearAllRouteQuarantines();
+            await cache.InvalidateAllAsync(cancellationToken).ConfigureAwait(false);
+            hotReadStore.ClearHtml();
+        }, cancellationToken).ConfigureAwait(false);
         await ScheduleManifestRoutesAsync(PublicAotRouteManifestScope.All, cancellationToken);
     }
 
     public async Task InvalidatePageAsync(PublicPageId pageId, CancellationToken cancellationToken = default)
     {
         string prefix = ScopeKey(CacheKeyBuilder.PublicAotDocument(pageId, string.Empty));
-        invalidationTracker.MarkPrefix(prefix);
-        await cache.RemoveByPrefixAsync(prefix, cancellationToken);
-        hotReadStore.ClearHtml();
+        await invalidationTracker.WithInvalidationLockAsync([prefix], async () =>
+        {
+            invalidationTracker.MarkPrefix(prefix);
+            await cache.RemoveByPrefixAsync(prefix, cancellationToken).ConfigureAwait(false);
+            hotReadStore.ClearHtml();
+        }, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task InvalidateRouteAsync(PublicPageId pageId, string routeKey, CancellationToken cancellationToken = default)
@@ -80,10 +86,13 @@ public sealed class PublicAotInvalidationService(
 
     public async Task InvalidateSeoAsync(CancellationToken cancellationToken = default)
     {
-        invalidationTracker.MarkAll();
-        ssrRuntimeState.ClearAllRouteQuarantines();
-        await cache.InvalidateAllAsync(cancellationToken);
-        hotReadStore.ClearHtml();
+        await invalidationTracker.WithGlobalInvalidationLockAsync(async () =>
+        {
+            invalidationTracker.MarkAll();
+            ssrRuntimeState.ClearAllRouteQuarantines();
+            await cache.InvalidateAllAsync(cancellationToken).ConfigureAwait(false);
+            hotReadStore.ClearHtml();
+        }, cancellationToken).ConfigureAwait(false);
         await ScheduleManifestRoutesAsync(PublicAotRouteManifestScope.All, cancellationToken);
     }
 
@@ -110,7 +119,7 @@ public sealed class PublicAotInvalidationService(
             _ => 50
         };
 
-    private Task InvalidateListingsAsync(
+    private async Task InvalidateListingsAsync(
         IEnumerable<int>? categoryIds,
         IEnumerable<int>? tagIds,
         CancellationToken cancellationToken)
@@ -124,17 +133,20 @@ public sealed class PublicAotInvalidationService(
             PublicPageId.Archive,
             PublicPageId.Filter
         ];
-        foreach (PublicPageId pageId in listingPageIds)
+        string[] prefixes = [.. listingPageIds.Select(pageId => ScopeKey(CacheKeyBuilder.PublicAotDocument(pageId, string.Empty)))];
+        await invalidationTracker.WithInvalidationLockAsync(prefixes, () =>
         {
-            string prefix = ScopeKey(CacheKeyBuilder.PublicAotDocument(pageId, string.Empty));
-            invalidationTracker.MarkPrefix(prefix);
-        }
+            foreach (string prefix in prefixes)
+            {
+                invalidationTracker.MarkPrefix(prefix);
+            }
 
-        ssrRuntimeState.ClearAllRouteQuarantines();
-        hotReadStore.ClearHtml();
+            ssrRuntimeState.ClearAllRouteQuarantines();
+            hotReadStore.ClearHtml();
+            return Task.CompletedTask;
+        }, cancellationToken).ConfigureAwait(false);
 
         logger.LogDebug("Public AOT listing versions bumped.");
-        return Task.CompletedTask;
     }
 
     private async Task InvalidateRoutesAsync(
@@ -154,20 +166,29 @@ public sealed class PublicAotInvalidationService(
         }
 
         string[] cacheKeys = new string[normalizedRoutes.Length];
+        string[] pagePrefixKeys = new string[normalizedRoutes.Length];
         for (int i = 0; i < normalizedRoutes.Length; i++)
         {
             RouteInvalidation route = normalizedRoutes[i];
             string cacheKey = ScopeKey(CacheKeyBuilder.PublicAotDocument(route.PageId, route.RouteKey));
             cacheKeys[i] = cacheKey;
-            invalidationTracker.MarkKey(cacheKey);
-            ssrRuntimeState.ClearRouteQuarantine(PublicAotPageCatalog.GetRequired(route.PageId).Kind, route.RouteKey);
+            pagePrefixKeys[i] = ScopeKey(CacheKeyBuilder.PublicAotDocument(route.PageId, string.Empty));
         }
-
-        await cache.RemoveManyAsync(cacheKeys, cancellationToken).ConfigureAwait(false);
-        foreach (RouteInvalidation route in normalizedRoutes)
+        await invalidationTracker.WithInvalidationLockAsync(pagePrefixKeys, async () =>
         {
-            hotReadStore.RemoveHtml(route.RouteKey);
-        }
+            foreach (RouteInvalidation route in normalizedRoutes)
+            {
+                string cacheKey = ScopeKey(CacheKeyBuilder.PublicAotDocument(route.PageId, route.RouteKey));
+                invalidationTracker.MarkKey(cacheKey);
+                ssrRuntimeState.ClearRouteQuarantine(PublicAotPageCatalog.GetRequired(route.PageId).Kind, route.RouteKey);
+            }
+
+            await cache.RemoveManyAsync(cacheKeys, cancellationToken).ConfigureAwait(false);
+            foreach (RouteInvalidation route in normalizedRoutes)
+            {
+                hotReadStore.RemoveHtml(route.RouteKey);
+            }
+        }, cancellationToken).ConfigureAwait(false);
     }
 
     private void ScheduleArticleMutationRoutes(int? articleId, IReadOnlyList<int> categoryIds, IReadOnlyList<int> tagIds)
@@ -239,8 +260,9 @@ public sealed class PublicAotInvalidationService(
             PublicRouteIdentity.BuildPaginationQueryString(PublicRouteIdentity.ParsePageRouteKey(route.RouteKey)),
             cacheKey)
         {
+            InvalidationKey = baseCacheKey,
             PagePrefixKey = pagePrefixKey,
-            ScheduledInvalidationVersion = invalidationTracker.GetCurrentVersion(cacheKey, pagePrefixKey),
+            ScheduledInvalidationVersion = invalidationTracker.GetCurrentVersion(baseCacheKey, pagePrefixKey),
             TestSessionId = testSessionKeyScope.SessionId,
             FrontendAssetVersion = assetManifest.GetFrontendAssetVersion()
         });
@@ -254,17 +276,9 @@ public sealed class PublicAotInvalidationService(
 
     private string ResolveVersionedDocumentCacheKey(PublicPageId pageId, string cacheKey, string pagePrefixKey)
     {
-        if (!UsesListVersion(pageId))
-        {
-            return cacheKey;
-        }
-
         long version = invalidationTracker.GetCurrentVersion(cacheKey, pagePrefixKey);
-        return string.Concat(cacheKey, ":lv:", version.ToString());
+        return string.Concat(cacheKey, ":iv:", version.ToString());
     }
-
-    private static bool UsesListVersion(PublicPageId pageId)
-        => pageId is PublicPageId.Home or PublicPageId.Archive or PublicPageId.Filter;
 
     private static IEnumerable<int> NormalizeIds(IEnumerable<int>? ids)
     {
