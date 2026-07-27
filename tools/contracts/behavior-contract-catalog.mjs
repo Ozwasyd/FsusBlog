@@ -179,10 +179,15 @@ export function validateBehaviorReferences(catalog, repositoryRoot = root) {
     'config/schemas/behavior-contract-catalog.schema.json',
     'tests/tools/behavior-contract-catalog.test.mjs',
     'tests/tools/behavior-owner-binding.test.mjs',
+    'tests/tools/doc-claim.test.mjs',
     'tools/contracts/behavior-contract-catalog.mjs',
     'tools/contracts/behavior-owner-binding.mjs',
     'tools/contracts/check-behavior-owner-binding.mjs',
-    'tools/contracts/generate-behavior-contract-catalog.mjs'
+    'tools/contracts/generate-behavior-contract-catalog.mjs',
+    'tools/docs/doc-claim.mjs',
+    'tools/docs/check-doc-claim.mjs',
+    'config/schemas/doc-claim.schema.json',
+    'docs/development/doc-claim-protocol.md'
   ])
   const validateReference = (id, relative) => {
     const contract = contracts.get(id)
@@ -196,12 +201,26 @@ export function validateBehaviorReferences(catalog, repositoryRoot = root) {
     if (!isPlainObject(value)) return
     for (const [key, nested] of Object.entries(value)) {
       if (key === 'behaviorId') {
-        if (typeof nested !== 'string') fail(`${relative} behaviorId must be one registered string`)
-        validateReference(nested, relative)
+        // Live references must be registered strings. JSON Schema property
+        // definitions (objects under config/schemas/*.json) are not references.
+        if (typeof nested === 'string') validateReference(nested, relative)
+        else if (isPlainObject(nested) && relative.startsWith('config/schemas/')) {
+          // schema field definition — ignore
+        }
+        else fail(`${relative} behaviorId must be one registered string`)
       }
       else if (key === 'behaviorIds') {
-        uniqueStrings(nested, `${relative}.behaviorIds`)
-        nested.forEach((id) => validateReference(id, relative))
+        if (Array.isArray(nested)) {
+          uniqueStrings(nested, `${relative}.behaviorIds`)
+          nested.forEach((id) => validateReference(id, relative))
+        }
+        else if (isPlainObject(nested) && relative.startsWith('config/schemas/')) {
+          // schema field definition — ignore
+        }
+        else {
+          uniqueStrings(nested, `${relative}.behaviorIds`)
+          nested.forEach((id) => validateReference(id, relative))
+        }
       }
       inspectJsonReferences(nested, relative)
     }
