@@ -76,14 +76,17 @@ export function validateLeafValue(value: unknown, path: string): string | null {
     if (typeof value !== 'string') {
         return `Leaf node "${path}" is not a string (type: ${typeof value})`
     }
+    if (value.startsWith(MIGRATION_PLACEHOLDER_PREFIX)) {
+        return `Leaf node "${path}" contains migration placeholder (forbidden in fail-closed gate)`
+    }
     for (const forbidden of FORBIDDEN_PLACEHOLDER_SUBSTRINGS) {
         if (value.includes(forbidden)) {
             return `Leaf node "${path}" contains forbidden placeholder phrase "${forbidden}"`
         }
     }
     const placeholder = parseMigrationPlaceholder(value, path)
-    if (placeholder.isPlaceholder && !placeholder.isValid) {
-        return `Leaf node "${path}" has invalid placeholder: ${placeholder.error}`
+    if (placeholder.isPlaceholder) {
+        return `Leaf node "${path}" contains migration placeholder (forbidden in fail-closed gate)`
     }
     return null
 }
@@ -91,11 +94,34 @@ export function validateLeafValue(value: unknown, path: string): string | null {
 export interface LocaleValidationContext {
     locale: string
     file: string
+    domain?: string
 }
 
 export interface LocaleValidationResult {
     isValid: boolean
     errors: string[]
+}
+
+export interface StructuredLocaleDiagnostic {
+    locale: string
+    domain: string
+    key: string
+    file: string
+    rule: string
+    expected: string
+    actual: string
+}
+
+export function formatStructuredLocaleDiagnostic(item: StructuredLocaleDiagnostic): string {
+    return [
+        `locale=${item.locale || '-'}`,
+        `domain=${item.domain || '-'}`,
+        `key=${item.key || '<root>'}`,
+        `source file=${item.file || '-'}`,
+        `rule=${item.rule}`,
+        `expected=${item.expected}`,
+        `actual=${item.actual}`
+    ].join(' ')
 }
 
 type NodeKind = 'string' | 'plural' | 'object' | 'array' | 'null' | 'undefined' | 'number' | 'boolean' | 'function' | 'symbol' | 'bigint'
@@ -128,9 +154,18 @@ function diagnostic(
     key: string,
     expectedKind: NodeKind,
     actualKind: NodeKind,
-    message: string
+    message: string,
+    rule = 'node-kind'
 ): string {
-    return `locale=${context.locale} file=${context.file} key=${key || '<root>'} expectedKind=${expectedKind} actualKind=${actualKind}: ${message}`
+    return formatStructuredLocaleDiagnostic({
+        locale: context.locale,
+        domain: context.domain ?? '',
+        key: key || '<root>',
+        file: context.file,
+        rule,
+        expected: expectedKind,
+        actual: `${actualKind}: ${message}`
+    })
 }
 
 function sameParameters(left: readonly string[], right: readonly string[]): boolean {
@@ -161,14 +196,14 @@ function validatePluralNode(
     const actualCategories = Object.keys(candidateForms)
     for (const category of expectedCategories) {
         if (!Object.prototype.hasOwnProperty.call(candidateForms, category)) {
-            errors.push(diagnostic(context, key, 'plural', 'plural', `missing plural category "${category}"`))
+            errors.push(diagnostic(context, key, 'plural', 'plural', `missing plural category "${category}"`, 'plural-category'))
         }
     }
     for (const category of actualCategories) {
         if (!PLURAL_CATEGORIES.includes(category as PluralCategory)) {
-            errors.push(diagnostic(context, key, 'plural', 'plural', `unknown plural category "${category}"`))
+            errors.push(diagnostic(context, key, 'plural', 'plural', `unknown plural category "${category}"`, 'plural-category'))
         } else if (!expectedCategories.has(category as PluralCategory)) {
-            errors.push(diagnostic(context, key, 'plural', 'plural', `unexpected plural category "${category}" for target locale`))
+            errors.push(diagnostic(context, key, 'plural', 'plural', `unexpected plural category "${category}" for target locale`, 'plural-category'))
         }
     }
 
@@ -229,7 +264,14 @@ function validateNode(
         const expectedParameters = extractInterpolationParams(schema as string)
         const actualParameters = extractInterpolationParams(candidate as string)
         if (!sameParameters(expectedParameters, actualParameters)) {
-            errors.push(diagnostic(context, key, 'string', 'string', `interpolation parameters [${actualParameters.join(', ')}] do not match zh-CN [${expectedParameters.join(', ')}]`))
+            errors.push(diagnostic(
+                context,
+                key,
+                'string',
+                'string',
+                `interpolation parameters [${actualParameters.join(', ')}] do not match zh-CN [${expectedParameters.join(', ')}]`,
+                'interpolation-params'
+            ))
         }
         return
     }
@@ -273,8 +315,15 @@ export function validateLocaleMessages(
         return {
             isValid: false,
             errors: [
-                `locale=${context.locale} file=${context.file} key=<root> `
-                + 'expectedKind=object actualKind=object: unsupported locale is not enabled by locale catalog'
+                formatStructuredLocaleDiagnostic({
+                    locale: context.locale,
+                    domain: context.domain ?? '',
+                    key: '<root>',
+                    file: context.file,
+                    rule: 'catalog-enabled-locale',
+                    expected: 'locale enabled by locale catalog',
+                    actual: 'unsupported locale is not enabled by locale catalog'
+                })
             ]
         }
     }

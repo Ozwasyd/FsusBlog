@@ -52,7 +52,7 @@
     "check:worker-contracts": "node ../../tests/frontend/checks/runtime/check-worker-contracts.mjs",
     "check:a11y:deep": "node ../../tests/frontend/checks/runtime/check-a11y-deep.mjs",
     "check:ux-semantics": "node ../../tests/frontend/checks/ux/check-ux-semantics.mjs",
-    "check:frontend-test-governance": "npm run check:locale-catalog && npm run check:plural-consumer-inventory && node ../../tests/frontend/checks/static/check-frontend-test-governance.mjs",
+    "check:frontend-test-governance": "npm run check:locale-catalog && npm run check:locale-domain-static && npm run check:plural-consumer-inventory && node ../../tests/frontend/checks/static/check-frontend-test-governance.mjs",
     "check:layout-archetype-governance": "node ../../tests/frontend/checks/static/check-layout-archetype-governance.mjs",
     "check:frontend-test-layout": "node ../../tools/test/check-frontend-test-layout.mjs",
     "check:csharp-entrypoint-ownership": "node ../../tools/check-csharp-entrypoint-ownership.mjs",
@@ -264,7 +264,9 @@
     "check:a11y:smoke": "node ../../tests/frontend/checks/runtime/check-a11y-smoke.mjs",
     "build": "npm run build:release",
     "preview": "vite preview --host 0.0.0.0 --port 8080",
-    "check:auth-zero-probe": "node ../../tests/frontend/checks/runtime/zero-auth-probe-matrix.mjs"
+    "check:auth-zero-probe": "node ../../tests/frontend/checks/runtime/zero-auth-probe-matrix.mjs",
+    "check:locale-domain-static": "node ../../tools/frontend/check-locale-domain-static.mjs",
+    "check:locale-domain-bundles": "node ../../tools/frontend/check-locale-domain-bundles.mjs"
   },
   "dependencies": {
     "@ctrl/tinycolor": "3.6.1",

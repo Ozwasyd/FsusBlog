@@ -42,6 +42,26 @@ function fail(message) {
   process.exit(1)
 }
 
+if (process.env.SKIP_I18N_GATE === '1' || process.env.SKIP_LOCALE_DOMAIN_BUNDLES === '1') {
+  fail('skip/bypass environment variables are forbidden')
+}
+
+/**
+ * Structured initial-graph diagnostic for fixtures and evidence consumers.
+ * @param {{ locale: string, domain: string, file?: string }} entry
+ */
+export function initialGraphDiagnostic(entry) {
+  return {
+    locale: entry.locale,
+    domain: entry.domain,
+    key: '',
+    file: entry.file ?? `locale-${entry.locale}-${entry.domain}`,
+    rule: 'initial-entry-locale-static',
+    expected: 'locale domain chunk resolved before render, not static initial',
+    actual: 'present in initial entry graph'
+  }
+}
+
 if (!existsSync(manifestPath)) fail(`manifest not found: ${manifestPath}`)
 const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
 const entries = []
@@ -100,10 +120,8 @@ for (const locale of locales) {
     const isInitial = initialFiles.has(entry.file)
     if (isInitial) {
       violations.push({
-        locale,
-        domain,
-        reason: 'locale_domain_must_be_resolved_before_render_not_statically_initial',
-        file: entry.file
+        ...initialGraphDiagnostic({ locale, domain, file: entry.file }),
+        reason: 'locale_domain_must_be_resolved_before_render_not_statically_initial'
       })
     }
     const bytes = await readFile(resolve(distRoot, entry.file))

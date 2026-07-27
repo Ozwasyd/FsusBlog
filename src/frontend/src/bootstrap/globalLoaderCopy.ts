@@ -1,30 +1,60 @@
 import { DEFAULT_LOCALE, isSupportedLocale, type SupportedLocale } from '@/locales/localeCatalog'
-import { common as deDE } from '@/locales/de-DE/common'
-import { common as enUS } from '@/locales/en-US/common'
-import { common as es419 } from '@/locales/es-419/common'
-import { common as frFR } from '@/locales/fr-FR/common'
-import { common as jaJP } from '@/locales/ja-JP/common'
-import { common as koKR } from '@/locales/ko-KR/common'
-import { common as ptBR } from '@/locales/pt-BR/common'
-import { common as ruRU } from '@/locales/ru-RU/common'
-import { common as zhCN } from '@/locales/zh-CN/common'
-import { common as zhHant } from '@/locales/zh-Hant/common'
 
 /** Semantic key used by the global loader status live region. */
 export const GLOBAL_LOADER_STATUS_KEY = 'common.loading.statusWithSite' as const
 
-const LOADING_COPY: Readonly<Record<SupportedLocale, Readonly<{ status: string, statusWithSite: string }>>> = {
-  'zh-CN': zhCN.loading,
-  'en-US': enUS.loading,
-  'zh-Hant': zhHant.loading,
-  'ja-JP': jaJP.loading,
-  'ko-KR': koKR.loading,
-  'es-419': es419.loading,
-  'fr-FR': frFR.loading,
-  'de-DE': deDE.loading,
-  'pt-BR': ptBR.loading,
-  'ru-RU': ruRU.loading
-}
+/**
+ * Bootstrap-only loading copy table.
+ *
+ * Must not statically import locale domain modules: that would pull every
+ * catalog×common dictionary into the initial client graph. Values are kept
+ * byte-equal to each locale's `common.loading.*` leaves and are fail-closed
+ * by `tools/frontend/check-locale-domain-static.mjs`.
+ */
+export const GLOBAL_LOADER_COPY: Readonly<
+  Record<SupportedLocale, Readonly<{ status: string, statusWithSite: string }>>
+> = Object.freeze({
+  'zh-CN': Object.freeze({
+    status: '正在加载',
+    statusWithSite: '正在加载 {siteTitle}'
+  }),
+  'en-US': Object.freeze({
+    status: 'Loading',
+    statusWithSite: 'Loading {siteTitle}'
+  }),
+  'zh-Hant': Object.freeze({
+    status: '正在載入',
+    statusWithSite: '正在載入 {siteTitle}'
+  }),
+  'ja-JP': Object.freeze({
+    status: '読み込み中',
+    statusWithSite: '{siteTitle} を読み込み中'
+  }),
+  'ko-KR': Object.freeze({
+    status: '로드 중',
+    statusWithSite: '{siteTitle} 로드 중'
+  }),
+  'es-419': Object.freeze({
+    status: 'Cargando',
+    statusWithSite: 'Cargando {siteTitle}'
+  }),
+  'fr-FR': Object.freeze({
+    status: 'Chargement',
+    statusWithSite: 'Chargement de {siteTitle}'
+  }),
+  'de-DE': Object.freeze({
+    status: 'Wird geladen',
+    statusWithSite: '{siteTitle} wird geladen'
+  }),
+  'pt-BR': Object.freeze({
+    status: 'Carregando',
+    statusWithSite: 'Carregando {siteTitle}'
+  }),
+  'ru-RU': Object.freeze({
+    status: 'Загрузка',
+    statusWithSite: 'Загрузка {siteTitle}'
+  })
+})
 
 function resolveDocumentLocale(): SupportedLocale {
   if (typeof document === 'undefined') {
@@ -38,6 +68,6 @@ function resolveDocumentLocale(): SupportedLocale {
 }
 
 export function resolveGlobalLoaderStatus(siteTitle: string): string {
-  const copy = LOADING_COPY[resolveDocumentLocale()] ?? LOADING_COPY[DEFAULT_LOCALE]
+  const copy = GLOBAL_LOADER_COPY[resolveDocumentLocale()] ?? GLOBAL_LOADER_COPY[DEFAULT_LOCALE]
   return copy.statusWithSite.replace(/\{siteTitle\}/gu, siteTitle)
 }

@@ -84,10 +84,10 @@ describe('locale schema and plural contract (#1533)', () => {
 
             expect(result.isValid).toBe(false)
             expect(result.errors).toEqual([
-                expect.stringContaining(
-                    'locale=en-GB file=src/frontend/src/locales/en-GB/fixture.ts'
-                )
+                expect.stringContaining('locale=en-GB')
             ])
+            expect(result.errors[0]).toContain('source file=src/frontend/src/locales/en-GB/fixture.ts')
+            expect(result.errors[0]).toContain('rule=catalog-enabled-locale')
             expect(result.errors[0]).toContain('unsupported locale is not enabled by locale catalog')
             expect(pluralRules).not.toHaveBeenCalled()
         } finally {
@@ -102,13 +102,16 @@ describe('locale schema and plural contract (#1533)', () => {
         })
         expect(ordinaryBecamePlural.errors[0]).toContain('locale=de-DE')
         expect(ordinaryBecamePlural.errors[0]).toContain('key=ordinary')
-        expect(ordinaryBecamePlural.errors[0]).toContain('expectedKind=string actualKind=plural')
+        expect(ordinaryBecamePlural.errors[0]).toContain('rule=node-kind')
+        expect(ordinaryBecamePlural.errors[0]).toContain('expected=string')
+        expect(ordinaryBecamePlural.errors[0]).toContain('actual=plural:')
 
         const pluralBecameString = validate('ja-JP', pluralSchema, {
             ordinary: '普通 {name}',
             plural: '{count} items for {name}'
         })
-        expect(pluralBecameString.errors).toContainEqual(expect.stringContaining('expectedKind=plural actualKind=string'))
+        expect(pluralBecameString.errors).toContainEqual(expect.stringContaining('expected=plural'))
+        expect(pluralBecameString.errors).toContainEqual(expect.stringContaining('actual=string:'))
     })
 
     it('rejects missing other and Russian few/many categories', () => {
@@ -158,7 +161,8 @@ describe('locale schema and plural contract (#1533)', () => {
         const result = validate('de-DE', { ordinary: '普通' }, {
             ordinary: { one: 'eins', other: 'andere' }
         })
-        expect(result.errors[0]).toContain('expectedKind=string actualKind=object')
+        expect(result.errors[0]).toContain('expected=string')
+        expect(result.errors[0]).toContain('actual=object:')
     })
 
     it('rejects an unknown plural category with contextual diagnostics', () => {
@@ -175,9 +179,11 @@ describe('locale schema and plural contract (#1533)', () => {
         })
         const error = result.errors.find((item) => item.includes('unknown plural category'))!
         expect(error).toContain('locale=en-US')
-        expect(error).toContain('file=src/frontend/src/locales/en-US/fixture.ts')
+        expect(error).toContain('source file=src/frontend/src/locales/en-US/fixture.ts')
         expect(error).toContain('key=plural')
-        expect(error).toContain('expectedKind=plural actualKind=plural')
+        expect(error).toContain('rule=plural-category')
+        expect(error).toContain('expected=plural')
+        expect(error).toContain('actual=plural:')
     })
 })
 

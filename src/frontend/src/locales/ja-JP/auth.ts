@@ -76,7 +76,7 @@ export const auth = {
         loadingStatus: 'コンテンツを読み込み中',
         loadError: '規約内容を読み込めませんでした',
         retryCta: '再試行',
-        emptyStatePrefix: '',
+        emptyStatePrefix: '現在、',
         emptyStateSuffix: 'の内容はまだ設定されていません。',
         acknowledgementCta: '確認しました',
         bodyAriaLabel: '規約本文'
