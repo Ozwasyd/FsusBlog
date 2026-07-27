@@ -22,7 +22,6 @@ import {
 } from './backend-production-topology.mjs'
 import {
   productionDotnetArtifacts,
-  productionBuildRunIsActive,
   resolveProductionBuildLayout
 } from '../test-matrix/production-build-layout.mjs'
 import { resolveCgroupLimits } from '../test-matrix/production-resource-enforcement.mjs'
@@ -133,14 +132,18 @@ export function staleBackendBuildServerPids(processes, {
   repositoryRoot = root,
   currentRunId = process.env.FSUSBLOG_TEST_RUN_ID ?? '',
   currentNamespace = process.env.FSUSBLOG_TEST_NAMESPACE ?? '',
-  isRunActive = () => true
+  currentStartSource = process.env.FSUSBLOG_TEST_EXECUTION_SOURCE ?? '',
+  runsRoot = path.join(repositoryRoot, '.tmp/test-runs'),
+  runActivity
 } = {}) {
   return selectOrphanDotnetBuildServers(processes, {
     root: repositoryRoot,
     currentRunId,
     currentNamespace,
+    currentStartSource,
     includeCurrentBinding: true,
-    isRunActive
+    runsRoot,
+    runActivity
   }).map(({ pid }) => pid)
 }
 
@@ -1892,17 +1895,13 @@ function installBackendPostgresSignalCleanup(baselineContainerNames, databaseNam
   }
 }
 
-function backendSchedulerRunIsActive(runId) {
-  return productionBuildRunIsActive(root, runId)
-}
-
 function cleanupBackendBuildServers() {
   return cleanupOrphanDotnetBuildServers({
     root,
     currentRunId: process.env.FSUSBLOG_TEST_RUN_ID ?? '',
     currentNamespace: process.env.FSUSBLOG_TEST_NAMESPACE ?? '',
+    currentStartSource: process.env.FSUSBLOG_TEST_EXECUTION_SOURCE ?? '',
     includeCurrentBinding: true,
-    isRunActive: backendSchedulerRunIsActive,
     terminationGraceMs: 250
   })
 }

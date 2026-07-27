@@ -1,6 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
+import { schedulerRunLockActivity } from './scheduler-run-owner.mjs'
+
 const msbuildFlags = new Set(['/noautoresponse', '/nologo', '/nodemode:1', '/nodeReuse:true', '/low:false'])
 
 function serverKind(args) {
@@ -59,14 +61,26 @@ function dotnetBuildServerShape(record) {
     && serverKind(Array.isArray(record?.args) ? record.args : []) !== null
 }
 
+function schedulerOwnerActivity(runsRoot, runId) {
+  if (!runId) return { status: 'unverifiable', reason: 'build-server-run-id-missing' }
+  return schedulerRunLockActivity({ runsRoot, runId })
+}
+
+function buildServerStartSource(record) {
+  const source = String(record?.env?.FSUSBLOG_TEST_EXECUTION_SOURCE ?? '')
+  return ['fresh', 'resume'].includes(source) ? source : null
+}
+
 export function dotnetBuildServerInventory(records, {
   root,
   currentRunId = '',
   currentNamespace = '',
-  isRunActive = () => false
+  currentStartSource = '',
+  runsRoot = path.join(path.resolve(root), '.tmp/test-runs'),
+  runActivity = ({ runId }) => schedulerOwnerActivity(runsRoot, runId)
 }) {
   if (!Array.isArray(records)) throw new Error('dotnet build-server inventory requires a process array')
-  if (typeof isRunActive !== 'function') throw new Error('dotnet build-server inventory requires a run activity probe')
+  if (typeof runActivity !== 'function') throw new Error('dotnet build-server inventory requires a scheduler run-owner activity probe')
   const expectedBuildRoot = currentRunId ? path.join(path.resolve(root), '.tmp/build', currentRunId) : ''
   return records
     .filter(dotnetBuildServerShape)
@@ -75,15 +89,23 @@ export function dotnetBuildServerInventory(records, {
       const runId = String(env.FSUSBLOG_TEST_RUN_ID ?? '')
       const namespace = String(env.FSUSBLOG_TEST_NAMESPACE ?? '')
       const buildRoot = String(env.FSUSBLOG_PRODUCTION_BUILD_ROOT ?? '')
+      const startSource = buildServerStartSource(record)
       const startedByCurrentRun = runId === currentRunId && namespace === currentNamespace
-        && buildRoot === expectedBuildRoot
+        && buildRoot === expectedBuildRoot && startSource === currentStartSource
+      const ownerActivity = startedByCurrentRun || !runId
+        ? null
+        : runActivity({ runId, namespace, buildRoot, startSource })
       const ownerState = startedByCurrentRun
         ? 'current'
         : (!runId || !namespace
           ? 'external-unknown'
           : (runId === currentRunId
             ? 'unknown-current-run'
-            : (isRunActive(runId) ? 'active-other-run' : 'inactive-or-unknown')))
+            : (ownerActivity?.status === 'active'
+              ? 'active-other-run'
+              : ownerActivity?.status === 'inactive'
+                ? 'inactive-or-unknown'
+                : 'owner-unverifiable')))
       return {
         processIdentity: {
           pid: record.pid,
@@ -96,6 +118,7 @@ export function dotnetBuildServerInventory(records, {
         runId,
         namespace,
         buildRoot,
+        startSource,
         pipeOrSocketIdentity: serverKind(record.args) === 'roslyn-compiler' ? record.args[3] : null,
         startedByCurrentRun,
         sharedWithOtherRun: ownerState !== 'current',
@@ -109,16 +132,20 @@ export function selectOrphanDotnetBuildServers(records, {
   root,
   currentRunId = '',
   currentNamespace = '',
+  currentStartSource = '',
   includeCurrentBinding = false,
-  isRunActive = () => true
+  runsRoot = path.join(path.resolve(root), '.tmp/test-runs'),
+  runActivity = ({ runId }) => schedulerOwnerActivity(runsRoot, runId)
 }) {
   if (!Array.isArray(records)) throw new Error('dotnet build-server cleanup requires a process array')
-  if (typeof isRunActive !== 'function') throw new Error('dotnet build-server cleanup requires a run activity probe')
+  if (typeof runActivity !== 'function') throw new Error('dotnet build-server cleanup requires a scheduler run-owner activity probe')
   return dotnetBuildServerInventory(records, {
     root,
     currentRunId,
     currentNamespace,
-    isRunActive
+    currentStartSource,
+    runsRoot,
+    runActivity
   }).filter((entry) => (
     includeCurrentBinding && entry.startedByCurrentRun
   )).map((entry) => entry.record)
@@ -168,14 +195,17 @@ function sameProcessIdentity(expected, observed = readProcProcess(expected.pid))
     && observed.env.FSUSBLOG_TEST_RUN_ID === expected.env.FSUSBLOG_TEST_RUN_ID
     && observed.env.FSUSBLOG_TEST_NAMESPACE === expected.env.FSUSBLOG_TEST_NAMESPACE
     && observed.env.FSUSBLOG_PRODUCTION_BUILD_ROOT === expected.env.FSUSBLOG_PRODUCTION_BUILD_ROOT
+    && observed.env.FSUSBLOG_TEST_EXECUTION_SOURCE === expected.env.FSUSBLOG_TEST_EXECUTION_SOURCE
 }
 
 export function terminateOrphanDotnetBuildServers(records, {
   root,
   currentRunId = '',
   currentNamespace = '',
+  currentStartSource = '',
   includeCurrentBinding = false,
-  isRunActive = () => true,
+  runsRoot = path.join(path.resolve(root), '.tmp/test-runs'),
+  runActivity = ({ runId }) => schedulerOwnerActivity(runsRoot, runId),
   terminationGraceMs = 250,
   readProcess = readProcProcess,
   signalProcess = process.kill,
@@ -188,8 +218,10 @@ export function terminateOrphanDotnetBuildServers(records, {
     root,
     currentRunId,
     currentNamespace,
+    currentStartSource,
     includeCurrentBinding,
-    isRunActive
+    runsRoot,
+    runActivity
   })
   const signalled = []
   for (const record of selected) {

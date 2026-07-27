@@ -394,11 +394,16 @@ test('scheduler, build owner, GC, cleanup, and resume expose only the shared own
         'utf8'
     )
     const runner = fs.readFileSync(path.join(repositoryRoot, 'tools/run-test-matrix.mjs'), 'utf8')
+    const buildServerCleanup = fs.readFileSync(
+        path.join(repositoryRoot, 'tools/test-matrix/dotnet-build-server-cleanup.mjs'),
+        'utf8'
+    )
     assert.equal((authority.match(/function schedulerRunLockActivity/gu) ?? []).length, 1)
     assert.equal((scheduler.match(/function schedulerRunLockActivity/gu) ?? []).length, 0)
     assert.match(scheduler, /from '\.\/scheduler-run-owner\.mjs'/u)
     assert.match(buildOwner, /schedulerRunLockActivity[\s\S]*from '\.\/scheduler-run-owner\.mjs'/u)
-    assert.match(runner, /productionBuildRunIsActive/u)
+    assert.match(buildServerCleanup, /schedulerRunLockActivity/u)
+    assert.doesNotMatch(runner, /productionBuildRunIsActive/u)
     assert.doesNotMatch(authority, /statSync\([^)]*lock|mtime/u)
     assert.doesNotMatch(authority, /process\.kill\([^,]+,\s*0/u)
 })

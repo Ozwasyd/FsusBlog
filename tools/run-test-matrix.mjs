@@ -46,7 +46,6 @@ import { acquireProductionFreshExclusiveLease } from './test-matrix/production-f
 import {
     bindProductionBuildLayoutSource,
     productionBuildEnvironment,
-    productionBuildRunIsActive,
     registerProductionBuildCompiler
 } from './test-matrix/production-build-layout.mjs'
 import { validateEvidenceExecutionDeclaration, validateReleaseDomainMatrix } from './test-matrix/projection-declaration.mjs'
@@ -2062,25 +2061,28 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
       // current run's identity-bound compiler servers are eligible; a global
       // dotnet build-server shutdown would also stop IDEs and sibling repos.
       let dotnetBuildServerPostflightPids = []
+      let dotnetBuildServerPostflightInventoryBeforeCleanup = []
       let dotnetBuildServerPostflightInventory = []
       let dotnetBuildServerPostflightFailure = null
       try {
-        dotnetBuildServerPostflightPids = cleanupOrphanDotnetBuildServers({
+        const inventoryOptions = {
           root,
           currentRunId: runId,
           currentNamespace: runNamespace,
+          currentStartSource: options.resume ? 'resume' : 'fresh',
+          runsRoot
+        }
+        dotnetBuildServerPostflightInventoryBeforeCleanup = dotnetBuildServerInventory(
+          discoverOrphanDotnetBuildServers({ root }),
+          inventoryOptions)
+        dotnetBuildServerPostflightPids = cleanupOrphanDotnetBuildServers({
+          ...inventoryOptions,
           includeCurrentBinding: true,
-          isRunActive: (candidateRunId) => productionBuildRunIsActive(root, candidateRunId),
           terminationGraceMs: Math.ceil(profile.budgetMs / 100)
         })
         dotnetBuildServerPostflightInventory = dotnetBuildServerInventory(
           discoverOrphanDotnetBuildServers({ root }),
-          {
-            root,
-            currentRunId: runId,
-            currentNamespace: runNamespace,
-            isRunActive: (candidateRunId) => productionBuildRunIsActive(root, candidateRunId)
-          })
+          inventoryOptions)
       } catch (error) {
         dotnetBuildServerPostflightFailure = error
       }
@@ -2150,6 +2152,8 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
           error: dotnetBuildServerPostflightFailure?.message ?? null,
           preflightOrphanPids: dotnetBuildServerPreflightPids,
           postflightOrphanPids: dotnetBuildServerPostflightPids,
+          postflightInventoryBeforeCleanup: dotnetBuildServerPostflightInventoryBeforeCleanup
+            .map(({ record: _record, ...entry }) => entry),
           postflightInventory: dotnetBuildServerPostflightInventory.map(({ record: _record, ...entry }) => entry)
         },
         generatedAt: new Date().toISOString()

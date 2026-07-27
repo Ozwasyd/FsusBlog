@@ -15,7 +15,7 @@ Fresh 不再递归删除每个项目的 `bin/obj`、frontend dist、Wasm build �
 
 旧 build roots 由 detached GC 独立回收，不计入当前关键路径。GC 只接受 `.tmp/build` 的直接、非 symlink 子目录，并检查 `.tmp/test-runs/.locks/<run-id>.lock` 的 owner PID；当前 run 和仍存活的 run 必须保留。`..`、仓库根、文件系统根、仓库外路径、build base 本身与 symlink 一律 fail closed。正常成功、失败或 cancellation 会移除 `.active.json` 并把 inode、写入字节、Fresh 遍历量、清理耗时与 wall-clock 写回 `layout.json`；硬中断留下的根由下一次 GC 回收。
 
-MSBuild node reuse 在物理 bundle 子进程中保持关闭。Production postflight 只盘点并终止同时匹配本轮 `runId`、namespace、build root 和完整 process identity 的 orphan Roslyn/MSBuild server；其他 run、IDE、其他仓库及 owner 无法证明的 server 都记录为 external/shared 并保留。不得由 qualification 调用全局 `dotnet build-server shutdown`；如需人工维护，操作员可在 Production qualification 之外显式运行该 .NET CLI 命令，且它不会生成或满足任何 receipt。
+MSBuild node reuse 在物理 bundle 子进程中保持关闭。Production postflight 为每个 Roslyn/MSBuild server 维护包含完整 process identity、server kind、`runId`、namespace、build root 与 `fresh`/`resume` start source 的 owner inventory；只终止与本轮所有字段完全匹配的 orphan，并在 signal 前重新核验全部字段。其他 run 的活跃性只经共享的 `scheduler-run-owner` verifier 分类；active、inactive 或 unverifiable 的其他 owner 都保留。IDE、其他仓库及 owner 无法证明的 server 同样记录为 external/shared 并保留。不得由 qualification 调用全局 `dotnet build-server shutdown`；如需人工维护，操作员可在 Production qualification 之外显式运行该 .NET CLI 命令，且它不会生成或满足任何 receipt。
 
 ## 风险与回退
 

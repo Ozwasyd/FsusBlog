@@ -486,7 +486,8 @@ test('backend production build-server cleanup is limited to the current schedule
     env: {
       FSUSBLOG_TEST_RUN_ID: runId,
       FSUSBLOG_TEST_NAMESPACE: namespace,
-      FSUSBLOG_PRODUCTION_BUILD_ROOT: `${root}/.tmp/build/${runId}`
+      FSUSBLOG_PRODUCTION_BUILD_ROOT: `${root}/.tmp/build/${runId}`,
+      FSUSBLOG_TEST_EXECUTION_SOURCE: 'fresh'
     },
     ...overrides
   })
@@ -510,7 +511,8 @@ test('backend production build-server cleanup is limited to the current schedule
     repositoryRoot: root,
     currentRunId,
     currentNamespace: 'current-tier',
-    isRunActive: (runId) => runId === activeRunId
+    currentStartSource: 'fresh',
+    runActivity: ({ runId }) => ({ status: runId === activeRunId ? 'active' : 'inactive' })
   }), [100])
   const source = fs.readFileSync(path.join(root, 'tools/test-matrix/dotnet-build-server-cleanup.mjs'), 'utf8')
   assert.match(source, /observed\.ppid === expected\.ppid/u)
