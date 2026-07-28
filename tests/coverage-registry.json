@@ -4222,6 +4222,31 @@
       ]
     },
     {
+      "id": "behavior-document-static-admission",
+      "description": "One unconditional source-bound static admission validates BehaviorCatalog, DocClaim, implementation owners, every fact extractor, generated sections, prose claims and staleness mutation fixtures before any candidate bundle, build, service, container or browser can start.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tools/docs/behavior-doc-static-admission.mjs",
+        "tools/docs/behavior-doc-minimal-contract-build.mjs",
+        "tools/test-matrix/behavior-doc-static-admission-contract.mjs",
+        ".github/actions/consume-behavior-doc-admission/action.yml",
+        "config/schemas/behavior-doc-static-admission-receipt.schema.json",
+        "tests/tools/behavior-doc-static-admission.test.mjs",
+        "tests/matrix.yml",
+        ".github/workflows/quality-gate.yml",
+        "tools/run-test-matrix.mjs",
+        "tools/test-matrix/local-profile.mjs",
+        "docs/testing.md"
+      ],
+      "assertionType": "static",
+      "failClosedRule": "Reject a missing, duplicated, bypassed, stale, warning, partial, source-drifted or unsealed admission receipt; any candidate spawn, container/service/browser preheat or candidate output mutation before successful receipt verification; an ambient bin/obj observation; and docs-only or source-only smart-gate omission.",
+      "minimumRequirement": "The unconditional tier must use fixtureProfile=none and no services or browser, execute all current static BehaviorDoc authorities plus an exact minimal contract build, seal zero candidate spawns and all authority/fact/result digests, and exercise stale prose with lastVerifiedCommit change, missing generated content, duplicate owners, ambient binary reuse, docs/source smart-gate selection, backend parallel start, scheduler container preheat, package alias bypass and warning mutation outcomes.",
+      "tierIds": [
+        "behavior-doc-static-admission"
+      ]
+    },
+    {
       "id": "document-lifecycle-governance",
       "description": "Every docs file has explicit status, owner, issue and supersession metadata; current authority, semantic naming, generated producers, links and path migrations are fail-closed.",
       "owner": "ServerContractAgent",

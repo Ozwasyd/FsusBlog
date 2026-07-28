@@ -11,6 +11,7 @@ import {
 } from '../../tools/fact-extractors/registry.mjs'
 import { loadCatalog } from '../../tools/contracts/behavior-contract-catalog.mjs'
 import { extract as extractAuthSession } from '../../tools/fact-extractors/auth-session-permission/extract.mjs'
+import { validateObservations } from '../../tools/fact-extractors/receipt.mjs'
 import { produceAuthSessionObservation } from '../../tools/contracts/lib/auth-session-observation.mjs'
 
 const observationRelative = '.tmp/contracts/auth-session/auth-session-permission-observation.json'
@@ -209,11 +210,12 @@ test('positive sample observation extracts typed auth/session/admin facts', () =
   {
     const result = runExtract(directory, sampleObservation())
     assert.equal(result.status, 'ok', result.failureReasons?.join('\n'))
-    assert.ok(result.observations['admin.permissions.all'].includes('audit.investigate'))
-    assert.equal(result.observations['auth.step-up.freshness'].default.unit, 'minutes')
-    assert.equal(result.observations['auth.step-up.consume-once'], true)
-    assert.equal(result.observations['auth.authentication-strengths'].legacy.writeAllowed, false)
-    assert.equal(result.observations['auth.authentication-strengths'].legacy.readMigrationOnly, true)
+    validateObservations(result.observations)
+    assert.ok(result.observations.facts['admin.permissions.all'].includes('audit.investigate'))
+    assert.equal(result.observations.facts['auth.step-up.freshness'].default.unit, 'minutes')
+    assert.equal(result.observations.facts['auth.step-up.consume-once'], true)
+    assert.equal(result.observations.facts['auth.authentication-strengths'].legacy.writeAllowed, false)
+    assert.equal(result.observations.facts['auth.authentication-strengths'].legacy.readMigrationOnly, true)
   }
   finally
   {
@@ -266,11 +268,11 @@ test('2) freshness minutes change alters observation digest surface', () =>
     const ten = runExtract(directory, tenObservation)
     assert.equal(ten.status, 'ok')
     assert.notEqual(
-      JSON.stringify(five.observations['auth.step-up.freshness']),
-      JSON.stringify(ten.observations['auth.step-up.freshness'])
+      JSON.stringify(five.observations.facts['auth.step-up.freshness']),
+      JSON.stringify(ten.observations.facts['auth.step-up.freshness'])
     )
-    assert.equal(ten.observations['auth.step-up.freshness'].default.value, 10)
-    assert.equal(ten.observations['auth.step-up.freshness'].default.unit, 'minutes')
+    assert.equal(ten.observations.facts['auth.step-up.freshness'].default.value, 10)
+    assert.equal(ten.observations.facts['auth.step-up.freshness'].default.unit, 'minutes')
   }
   finally
   {
@@ -496,8 +498,9 @@ test('compiled observation host produces sealed production facts (live)', { time
     buildIdentity: produced.buildIdentity
   })
   assert.equal(extracted.status, 'ok', extracted.failureReasons?.join('\n'))
+  validateObservations(extracted.observations)
   assert.deepEqual(
-    extracted.observations['admin.permissions.all'],
+    extracted.observations.facts['admin.permissions.all'],
     produced.observation.facts['admin.permissions.all']
   )
 })

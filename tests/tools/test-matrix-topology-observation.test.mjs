@@ -52,6 +52,7 @@ function fixtureRepository(options = {})
     'config/testing/producer-execution-class-contract.json',
     'src/frontend/package.json',
     'tools/docs/generate-testing-docs.mjs',
+    'tools/test-matrix/behavior-doc-static-admission-contract.mjs',
     'tools/test/lanes'
   ])
   {
@@ -227,22 +228,26 @@ test('live matrix projects typed topology / release-final / production-fresh fac
     facts['test.candidate-admission-predecessors'].executionDependsOn['production-correctness'].includes('fast')
   )
   assert.ok(
+    facts['test.candidate-admission-predecessors'].executionDependsOn['production-correctness']
+      .includes('behavior-doc-static-admission')
+  )
+  assert.ok(
     facts['test.candidate-admission-predecessors'].requiresEvidenceFrom['release-final'].includes('browser-contract')
   )
 })
 
-test('1) static-governance has no mechanical predecessor edge to backend', () =>
+test('1) static-governance follows BehaviorDoc admission with no backend predecessor edge', () =>
 {
   const result = extractFrom(root)
   assert.equal(result.status, 'ok', result.failureReasons?.join('\n'))
   const membership = result.observations.facts['test.static-governance.membership']
   const predecessors = membership.predecessors?.['static-governance'] ?? []
-  assert.deepEqual(predecessors, ['validate-matrix'])
+  assert.deepEqual(predecessors, ['behavior-doc-static-admission'])
   assert.ok(!predecessors.includes('backend-unit'))
-  // Bundle membership places static-governance in frontend-tests with empty bundle dependsOn.
+  // The physical frontend bundle is released only by the external static admission.
   assert.ok(membership.bundleMemberships.includes('production.frontend-tests'))
   const frontendDepends = result.observations.facts['test.topology.bundles'].dependsOn['production.frontend-tests']
-  assert.equal(frontendDepends, undefined)
+  assert.deepEqual(frontendDepends, ['behavior-doc-static-admission'])
 })
 
 test('2) lane second tier dispatch fails closed', () =>

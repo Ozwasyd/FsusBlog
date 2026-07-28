@@ -1,0 +1,35 @@
+name: Verify BehaviorDoc static admission
+description: Download and fail-closed verify the current workflow run's BehaviorDoc admission receipt.
+inputs:
+    source-fingerprint:
+        description: Exact producer worktree fingerprint.
+        required: true
+    receipt-digest:
+        description: Exact receipt content digest exported by the producer job.
+        required: true
+runs:
+    using: composite
+    steps:
+        - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+          with:
+              name: behavior-doc-static-admission
+              path: .tmp/behavior-doc-static-admission
+        - name: Verify BehaviorDoc admission receipt
+          shell: bash
+          run: |
+              admission_run_id="behavior-doc-admission-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+              node tools/docs/behavior-doc-static-admission.mjs \
+                --verify .tmp/behavior-doc-static-admission/receipt.json \
+                --run-id "$admission_run_id"
+              node --input-type=module -e '
+                import fs from "node:fs";
+                const receipt = JSON.parse(fs.readFileSync(".tmp/behavior-doc-static-admission/receipt.json", "utf8"));
+                if (receipt.source.commit !== process.env.GITHUB_SHA) throw new Error("BehaviorDoc admission source commit mismatch");
+                if (receipt.source.worktreeFingerprint !== process.argv[1]) throw new Error("BehaviorDoc admission worktree fingerprint mismatch");
+                if (receipt.contentDigest !== process.argv[2]) throw new Error("BehaviorDoc admission digest mismatch");
+              ' "${{ inputs.source-fingerprint }}" "${{ inputs.receipt-digest }}"
+              {
+                echo "FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RECEIPT=$GITHUB_WORKSPACE/.tmp/behavior-doc-static-admission/receipt.json"
+                echo "FSUSBLOG_BEHAVIOR_DOC_ADMISSION_DIGEST=${{ inputs.receipt-digest }}"
+                echo "FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RUN_ID=$admission_run_id"
+              } >> "$GITHUB_ENV"

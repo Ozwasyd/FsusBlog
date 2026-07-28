@@ -65,6 +65,51 @@ function isRangeBoundary(value)
     && typeof value.bound === 'string'
 }
 
+function receiptMapKey(key)
+{
+  if (/^[A-Za-z_][A-Za-z0-9_.-]*$/u.test(key)) return key
+  return `key_${Buffer.from(key, 'utf8').toString('hex')}`
+}
+
+function toReceiptObservationValue(value)
+{
+  if (value === null || value === undefined) return { state: 'null' }
+  if (typeof value === 'string') return value.length > 0 ? value : { state: 'empty-string' }
+  if (typeof value === 'number' || typeof value === 'boolean') return value
+  if (Array.isArray(value))
+  {
+    if (value.length === 0) return { count: 0 }
+    if (value.every((entry) =>
+      (typeof entry === 'string' && entry.length > 0)
+      || typeof entry === 'number'
+      || typeof entry === 'boolean'))
+    {
+      return [...value]
+    }
+    return {
+      count: value.length,
+      items: Object.fromEntries(value.map((entry, index) => [
+        `item_${String(index).padStart(4, '0')}`,
+        toReceiptObservationValue(entry)
+      ]))
+    }
+  }
+  if (value != null && typeof value === 'object')
+  {
+    const entries = Object.entries(value)
+    if (entries.length === 0) return { state: 'empty-map' }
+    return Object.fromEntries(entries.map(([key, entry]) =>
+    {
+      const projectedKey = receiptMapKey(key)
+      const projectedValue = toReceiptObservationValue(entry)
+      return projectedKey === key
+        ? [key, projectedValue]
+        : [projectedKey, { identity: key, value: projectedValue }]
+    }))
+  }
+  throw new Error(`unsupported configuration observation value type ${typeof value}`)
+}
+
 function parseTsConstObjectKeys(source, exportName)
 {
   const match = source.match(new RegExp(`export const ${exportName} = \\{([\\s\\S]*?)\\n\\} as const`, 'u'))
@@ -467,7 +512,7 @@ export function extract(context)
 
   if (failureReasons.length > 0) return failResult(failureReasons)
 
-  const observations = {
+  const observationFacts = {
     'configuration.keys': facts['configuration.keys'],
     'configuration.defaults': facts['configuration.defaults'],
     'configuration.allowed-values': facts['configuration.allowed-values'],
@@ -480,7 +525,10 @@ export function extract(context)
     'security.cache-policy-classes': facts['security.cache-policy-classes'],
     'security.fail-open-closed-modes': facts['security.fail-open-closed-modes'],
     'security.numeric-boundaries': facts['security.numeric-boundaries'],
-    'frontend.projection': frontendProjection,
+    'frontend.projection': frontendProjection
+  }
+  const observations = {
+    facts: toReceiptObservationValue(observationFacts),
     observationDigest: String(observation.observationDigest),
     artifactDigest,
     source: String(observation.source ?? 'compiled-production-constants')

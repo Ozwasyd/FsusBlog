@@ -329,6 +329,13 @@
                     "owner": {
                         "type": "string"
                     },
+                    "executionClass": {
+                        "type": "string",
+                        "enum": ["static-governance"]
+                    },
+                    "qualificationEligible": {
+                        "type": "boolean"
+                    },
                     "executionMode": {
                         "type": "string",
                         "enum": ["execute", "projection", "summary"],

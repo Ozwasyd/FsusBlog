@@ -374,38 +374,41 @@ export function extract(context)
 
   if (failureReasons.length > 0) return failResult(failureReasons)
 
-  const observations = {}
+  const observationFacts = {}
   for (const key of requiredFactKeys)
   {
-    observations[key] = facts[key]
+    observationFacts[key] = facts[key]
   }
   if (facts['article.admin-visibility.states'] != null)
   {
-    observations['article.admin-visibility.states'] = facts['article.admin-visibility.states']
+    observationFacts['article.admin-visibility.states'] = facts['article.admin-visibility.states']
   }
   if (facts['comment.admin-visibility.states'] != null)
   {
-    observations['comment.admin-visibility.states'] = facts['comment.admin-visibility.states']
+    observationFacts['comment.admin-visibility.states'] = facts['comment.admin-visibility.states']
   }
   if (facts['comment.outbox.consumer-registry'] != null)
   {
-    observations['comment.outbox.consumer-registry'] = facts['comment.outbox.consumer-registry']
+    observationFacts['comment.outbox.consumer-registry'] = facts['comment.outbox.consumer-registry']
   }
   if (facts['comment.outbox.terminal-states'] != null)
   {
-    observations['comment.outbox.terminal-states'] = facts['comment.outbox.terminal-states']
+    observationFacts['comment.outbox.terminal-states'] = facts['comment.outbox.terminal-states']
   }
   if (facts['article.outbox.event-types'] != null)
   {
-    observations['article.outbox.event-types'] = facts['article.outbox.event-types']
+    observationFacts['article.outbox.event-types'] = facts['article.outbox.event-types']
   }
   if (facts['comment.moderation.forbidden-transitions'] != null)
   {
-    observations['comment.moderation.forbidden-transitions'] = facts['comment.moderation.forbidden-transitions']
+    observationFacts['comment.moderation.forbidden-transitions'] = facts['comment.moderation.forbidden-transitions']
   }
-  observations.observationDigest = String(observation.observationDigest)
-  observations.artifactDigest = artifactDigest
-  observations.source = String(observation.source ?? 'compiled-production-constants')
+  const observations = {
+    facts: observationFacts,
+    observationDigest: String(observation.observationDigest),
+    artifactDigest,
+    source: String(observation.source ?? 'compiled-production-constants')
+  }
   if (facts.coherence != null)
   {
     observations.coherence = facts.coherence

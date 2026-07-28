@@ -11,12 +11,27 @@ import {
 } from '../../tools/fact-extractors/registry.mjs'
 import { loadCatalog } from '../../tools/contracts/behavior-contract-catalog.mjs'
 import { extract as extractConfigErrorSecurity } from '../../tools/fact-extractors/config-error-security-policy/extract.mjs'
+import { validateObservations } from '../../tools/fact-extractors/receipt.mjs'
 
 const observationRelative = '.tmp/contracts/config-error-security/config-error-security-policy-observation.json'
 
 function sha256(buffer)
 {
   return createHash('sha256').update(buffer).digest('hex')
+}
+
+function observationFact(result, factId)
+{
+  return result.observations.facts[factId]
+}
+
+function observationMapEntry(map, identity)
+{
+  const key = /^[A-Za-z_][A-Za-z0-9_.-]*$/u.test(identity)
+    ? identity
+    : `key_${Buffer.from(identity, 'utf8').toString('hex')}`
+  const entry = map[key]
+  return key === identity ? entry : entry?.value
 }
 
 function writeObservation(repositoryRoot, observation)
@@ -315,11 +330,12 @@ test('positive sample observation extracts typed config/error/security facts', (
     writeFrontendProjection(directory)
     const result = runExtract(directory, sampleObservation())
     assert.equal(result.status, 'ok', result.failureReasons?.join('\n'))
-    assert.ok(result.observations['error-codes.public'].includes('Validation'))
-    assert.equal(result.observations['security.rate-limit-policies'].fixed_ip.window.unit, 'minutes')
-    assert.equal(result.observations['frontend.projection']['error-codes'].status, 'exact')
-    assert.equal(result.observations['frontend.projection']['challenge-kinds'].status, 'exact')
-    assert.equal(result.observations['security.fail-open-closed-modes']['rate-limiter-rejection'], 'fail-closed')
+    validateObservations(result.observations)
+    assert.ok(observationFact(result, 'error-codes.public').includes('Validation'))
+    assert.equal(observationFact(result, 'security.rate-limit-policies').fixed_ip.window.unit, 'minutes')
+    assert.equal(observationFact(result, 'frontend.projection')['error-codes'].status, 'exact')
+    assert.equal(observationFact(result, 'frontend.projection')['challenge-kinds'].status, 'exact')
+    assert.equal(observationFact(result, 'security.fail-open-closed-modes')['rate-limiter-rejection'], 'fail-closed')
   }
   finally
   {
@@ -406,11 +422,14 @@ test('2) configuration default change from 5 to 10 changes receipt surface', () 
     const ten = runExtract(directory, tenObservation)
     assert.equal(ten.status, 'ok', ten.failureReasons?.join('\n'))
     assert.notEqual(
-      JSON.stringify(five.observations['configuration.defaults']['Jwt:AccessTokenExpiresMinutes']),
-      JSON.stringify(ten.observations['configuration.defaults']['Jwt:AccessTokenExpiresMinutes'])
+      JSON.stringify(observationMapEntry(observationFact(five, 'configuration.defaults'), 'Jwt:AccessTokenExpiresMinutes')),
+      JSON.stringify(observationMapEntry(observationFact(ten, 'configuration.defaults'), 'Jwt:AccessTokenExpiresMinutes'))
     )
     assert.equal(
-      ten.observations['configuration.defaults']['Jwt:AccessTokenExpiresMinutes'].layers['code-default'].value,
+      observationMapEntry(
+        observationFact(ten, 'configuration.defaults'),
+        'Jwt:AccessTokenExpiresMinutes'
+      ).layers['code-default'].value,
       10
     )
   }
@@ -537,11 +556,11 @@ test('5) rate-limit unit change seconds→minutes with same bare number fails va
     const seconds = runExtract(directory, secondsObservation)
     assert.equal(seconds.status, 'ok')
     assert.notEqual(
-      minutes.observations['security.rate-limit-policies'].fixed_ip.window.unit,
-      seconds.observations['security.rate-limit-policies'].fixed_ip.window.unit
+      observationFact(minutes, 'security.rate-limit-policies').fixed_ip.window.unit,
+      observationFact(seconds, 'security.rate-limit-policies').fixed_ip.window.unit
     )
-    assert.equal(seconds.observations['security.rate-limit-policies'].fixed_ip.window.value, 1)
-    assert.equal(seconds.observations['security.rate-limit-policies'].fixed_ip.window.unit, 'seconds')
+    assert.equal(observationFact(seconds, 'security.rate-limit-policies').fixed_ip.window.value, 1)
+    assert.equal(observationFact(seconds, 'security.rate-limit-policies').fixed_ip.window.unit, 'seconds')
   }
   finally
   {
@@ -588,15 +607,15 @@ test('6) inclusive upper bound becoming exclusive changes observation without ba
     const exclusive = runExtract(directory, exclusiveObservation)
     assert.equal(exclusive.status, 'ok')
     assert.equal(
-      inclusive.observations['security.numeric-boundaries']['security.step-up.freshness-minutes'].maximum.value,
-      exclusive.observations['security.numeric-boundaries']['security.step-up.freshness-minutes'].maximum.value
+      observationFact(inclusive, 'security.numeric-boundaries')['security.step-up.freshness-minutes'].maximum.value,
+      observationFact(exclusive, 'security.numeric-boundaries')['security.step-up.freshness-minutes'].maximum.value
     )
     assert.notEqual(
-      inclusive.observations['security.numeric-boundaries']['security.step-up.freshness-minutes'].maximum.bound,
-      exclusive.observations['security.numeric-boundaries']['security.step-up.freshness-minutes'].maximum.bound
+      observationFact(inclusive, 'security.numeric-boundaries')['security.step-up.freshness-minutes'].maximum.bound,
+      observationFact(exclusive, 'security.numeric-boundaries')['security.step-up.freshness-minutes'].maximum.bound
     )
     assert.equal(
-      exclusive.observations['security.numeric-boundaries']['security.step-up.freshness-minutes'].maximum.inclusiveMax,
+      observationFact(exclusive, 'security.numeric-boundaries')['security.step-up.freshness-minutes'].maximum.inclusiveMax,
       false
     )
   }

@@ -11,6 +11,7 @@ const groupDefinitions = [
     title: 'Primary Release Tiers',
     match: (tier) => new Set([
       'validate-matrix',
+      'behavior-doc-static-admission',
       'frontend-build',
       'frontend-unit-shard',
       'frontend-runtime-contracts',

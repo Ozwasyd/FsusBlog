@@ -1,0 +1,629 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "fsusblog.behavior-doc-static-admission-receipt.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "run",
+        "source",
+        "worktree",
+        "toolchain",
+        "authorityDigests",
+        "implementationOwner",
+        "factObservations",
+        "minimalContractBuild",
+        "generated",
+        "prose",
+        "mutationFixtures",
+        "candidateSpawnCountBeforeReceipt",
+        "status",
+        "failureReasons",
+        "durationMs",
+        "contentDigest"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.behavior-doc-static-admission-receipt.v1"
+        },
+        "run": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "minLength": 1
+                }
+            }
+        },
+        "source": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "commit",
+                "worktreeFingerprint"
+            ],
+            "properties": {
+                "commit": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{40}$"
+                },
+                "worktreeFingerprint": {
+                    "$ref": "#/$defs/digest"
+                }
+            }
+        },
+        "worktree": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "root"
+            ],
+            "properties": {
+                "root": {
+                    "type": "string",
+                    "minLength": 1
+                }
+            }
+        },
+        "toolchain": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "node",
+                "dotnet",
+                "platform",
+                "architecture",
+                "directoryBuildPropsDigest"
+            ],
+            "properties": {
+                "node": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "dotnet": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "platform": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "architecture": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "directoryBuildPropsDigest": {
+                    "$ref": "#/$defs/digest"
+                }
+            }
+        },
+        "authorityDigests": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "catalog": {
+                    "$ref": "#/$defs/digest"
+                },
+                "claim": {
+                    "$ref": "#/$defs/digest"
+                },
+                "extractorRegistry": {
+                    "$ref": "#/$defs/digest"
+                },
+                "generatedSectionCatalog": {
+                    "$ref": "#/$defs/digest"
+                },
+                "generatedRenderer": {
+                    "$ref": "#/$defs/digest"
+                },
+                "proseRenderer": {
+                    "$ref": "#/$defs/digest"
+                },
+                "mutationCatalog": {
+                    "$ref": "#/$defs/digest"
+                }
+            }
+        },
+        "implementationOwner": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "status",
+                "bindingCount",
+                "contentDigest"
+            ],
+            "properties": {
+                "status": {
+                    "enum": [
+                        "ok",
+                        "failed"
+                    ]
+                },
+                "bindingCount": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "contentDigest": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/digest"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                }
+            }
+        },
+        "factObservations": {
+            "type": "object",
+            "additionalProperties": {
+                "$ref": "#/$defs/factObservation"
+            }
+        },
+        "minimalContractBuild": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/minimalContractBuild"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "generated": {
+            "$ref": "#/$defs/generatedResult"
+        },
+        "prose": {
+            "$ref": "#/$defs/proseResult"
+        },
+        "mutationFixtures": {
+            "$ref": "#/$defs/mutationResult"
+        },
+        "candidateSpawnCountBeforeReceipt": {
+            "type": "integer",
+            "minimum": 0
+        },
+        "status": {
+            "enum": [
+                "ok",
+                "failed"
+            ]
+        },
+        "failureReasons": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "minLength": 1
+            }
+        },
+        "durationMs": {
+            "type": "integer",
+            "minimum": 0
+        },
+        "contentDigest": {
+            "$ref": "#/$defs/digest"
+        }
+    },
+    "allOf": [
+        {
+            "if": {
+                "properties": {
+                    "status": {
+                        "const": "ok"
+                    }
+                },
+                "required": [
+                    "status"
+                ]
+            },
+            "then": {
+                "properties": {
+                    "authorityDigests": {
+                        "type": "object",
+                        "required": [
+                            "catalog",
+                            "claim",
+                            "extractorRegistry",
+                            "generatedSectionCatalog",
+                            "generatedRenderer",
+                            "proseRenderer",
+                            "mutationCatalog"
+                        ]
+                    },
+                    "implementationOwner": {
+                        "type": "object",
+                        "properties": {
+                            "status": {
+                                "const": "ok"
+                            },
+                            "bindingCount": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "contentDigest": {
+                                "type": "string",
+                                "$ref": "#/$defs/digest"
+                            }
+                        }
+                    },
+                    "factObservations": {
+                        "type": "object",
+                        "minProperties": 1
+                    },
+                    "minimalContractBuild": {
+                        "$ref": "#/$defs/minimalContractBuild"
+                    },
+                    "generated": {
+                        "$ref": "#/$defs/successfulGeneratedResult"
+                    },
+                    "prose": {
+                        "$ref": "#/$defs/successfulProseResult"
+                    },
+                    "mutationFixtures": {
+                        "$ref": "#/$defs/successfulMutationResult"
+                    },
+                    "candidateSpawnCountBeforeReceipt": {
+                        "type": "integer",
+                        "const": 0
+                    },
+                    "failureReasons": {
+                        "type": "array",
+                        "maxItems": 0
+                    }
+                }
+            },
+            "else": {
+                "properties": {
+                    "failureReasons": {
+                        "type": "array",
+                        "minItems": 1
+                    }
+                }
+            }
+        }
+    ],
+    "$defs": {
+        "digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+        },
+        "factObservation": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "status",
+                "extractorDigest",
+                "semanticDigest",
+                "contentDigest"
+            ],
+            "properties": {
+                "status": {
+                    "const": "ok"
+                },
+                "extractorDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "semanticDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "contentDigest": {
+                    "$ref": "#/$defs/digest"
+                }
+            }
+        },
+        "minimalContractBuild": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "schema",
+                "runId",
+                "sourceCommit",
+                "worktreeFingerprint",
+                "toolchain",
+                "buildKey",
+                "buildRoot",
+                "sourceClosureDigests",
+                "artifacts",
+                "status",
+                "failureReasons",
+                "contentDigest"
+            ],
+            "properties": {
+                "schema": {
+                    "const": "fsusblog.behavior-doc-minimal-contract-build-receipt.v1"
+                },
+                "runId": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "sourceCommit": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{40}$"
+                },
+                "worktreeFingerprint": {
+                    "$ref": "#/$defs/digest"
+                },
+                "toolchain": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "dotnet",
+                        "configuration",
+                        "targetFramework"
+                    ],
+                    "properties": {
+                        "dotnet": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "configuration": {
+                            "const": "Release"
+                        },
+                        "targetFramework": {
+                            "const": "net10.0"
+                        }
+                    }
+                },
+                "buildKey": {
+                    "$ref": "#/$defs/digest"
+                },
+                "buildRoot": {
+                    "type": "string",
+                    "pattern": "^\\.tmp/behavior-doc-contract-builds/[a-f0-9]{64}$"
+                },
+                "sourceClosureDigests": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "path",
+                            "digest"
+                        ],
+                        "properties": {
+                            "path": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "digest": {
+                                "$ref": "#/$defs/digest"
+                            }
+                        }
+                    }
+                },
+                "artifacts": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "openapi-aeds-observation",
+                        "auth-session-permission-observation",
+                        "config-error-security-policy-observation",
+                        "content-lifecycle-observation"
+                    ],
+                    "properties": {
+                        "openapi-aeds-observation": {
+                            "$ref": "#/$defs/minimalArtifact"
+                        },
+                        "auth-session-permission-observation": {
+                            "$ref": "#/$defs/minimalArtifact"
+                        },
+                        "config-error-security-policy-observation": {
+                            "$ref": "#/$defs/minimalArtifact"
+                        },
+                        "content-lifecycle-observation": {
+                            "$ref": "#/$defs/minimalArtifact"
+                        }
+                    }
+                },
+                "status": {
+                    "const": "ok"
+                },
+                "failureReasons": {
+                    "type": "array",
+                    "maxItems": 0
+                },
+                "contentDigest": {
+                    "$ref": "#/$defs/digest"
+                }
+            }
+        },
+        "minimalArtifact": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "project",
+                "projectDigest",
+                "path",
+                "artifactDigest"
+            ],
+            "properties": {
+                "project": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "projectDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "path": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "artifactDigest": {
+                    "$ref": "#/$defs/digest"
+                }
+            }
+        },
+        "generatedResult": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "status",
+                "contentDigest"
+            ],
+            "properties": {
+                "status": {
+                    "enum": [
+                        "ok",
+                        "failed"
+                    ]
+                },
+                "documentCount": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "contentDigest": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/digest"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                }
+            }
+        },
+        "successfulGeneratedResult": {
+            "allOf": [
+                {
+                    "$ref": "#/$defs/generatedResult"
+                },
+                {
+                    "type": "object",
+                    "required": [
+                        "documentCount"
+                    ],
+                    "properties": {
+                        "status": {
+                            "const": "ok"
+                        },
+                        "documentCount": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "contentDigest": {
+                            "type": "string",
+                            "$ref": "#/$defs/digest"
+                        }
+                    }
+                }
+            ]
+        },
+        "proseResult": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "status",
+                "contentDigest"
+            ],
+            "properties": {
+                "status": {
+                    "enum": [
+                        "ok",
+                        "failed"
+                    ]
+                },
+                "verifiedClaimCount": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "contentDigest": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/digest"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                }
+            }
+        },
+        "successfulProseResult": {
+            "allOf": [
+                {
+                    "$ref": "#/$defs/proseResult"
+                },
+                {
+                    "type": "object",
+                    "required": [
+                        "verifiedClaimCount"
+                    ],
+                    "properties": {
+                        "status": {
+                            "const": "ok"
+                        },
+                        "verifiedClaimCount": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "contentDigest": {
+                            "type": "string",
+                            "$ref": "#/$defs/digest"
+                        }
+                    }
+                }
+            ]
+        },
+        "mutationResult": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "status",
+                "caseCount",
+                "contentDigest"
+            ],
+            "properties": {
+                "status": {
+                    "enum": [
+                        "ok",
+                        "failed"
+                    ]
+                },
+                "caseCount": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "contentDigest": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/digest"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                }
+            }
+        },
+        "successfulMutationResult": {
+            "allOf": [
+                {
+                    "$ref": "#/$defs/mutationResult"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "status": {
+                            "const": "ok"
+                        },
+                        "caseCount": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "contentDigest": {
+                            "type": "string",
+                            "$ref": "#/$defs/digest"
+                        }
+                    }
+                }
+            ]
+        }
+    }
+}

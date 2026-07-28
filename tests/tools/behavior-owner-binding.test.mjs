@@ -21,6 +21,48 @@ import {
 } from '../../tools/contracts/behavior-owner-binding.mjs'
 
 const root = path.resolve(import.meta.dirname, '../..')
+const expectedRepositoryOwners = Object.freeze([
+  {
+    behaviorId: 'article-comment-lifecycle-outbox',
+    sourcePath: 'tools/fact-extractors/content-lifecycle/extract.mjs',
+    symbol: 'extract'
+  },
+  {
+    behaviorId: 'authentication-session-permission',
+    sourcePath: 'tools/fact-extractors/auth-session-permission/extract.mjs',
+    symbol: 'extract'
+  },
+  {
+    behaviorId: 'binary-api-aeds-contract',
+    sourcePath: 'tools/fact-extractors/openapi-aeds/extract.mjs',
+    symbol: 'extract'
+  },
+  {
+    behaviorId: 'browserless-production-correctness',
+    sourcePath: 'tools/run-test-matrix.mjs',
+    symbol: 'main'
+  },
+  {
+    behaviorId: 'code-intent-governance',
+    sourcePath: 'tools/governance/check-code-intent.mjs',
+    symbol: 'checkCodeIntent'
+  },
+  {
+    behaviorId: 'configuration-error-security-policy',
+    sourcePath: 'tools/fact-extractors/config-error-security-policy/extract.mjs',
+    symbol: 'extract'
+  },
+  {
+    behaviorId: 'document-lifecycle-governance',
+    sourcePath: 'tools/docs/document-lifecycle.mjs',
+    symbol: 'ValidateDocumentLifecycle'
+  },
+  {
+    behaviorId: 'test-asset-audit-reconciliation',
+    sourcePath: 'tools/test/run-test-asset-audit.mjs',
+    symbol: 'main'
+  }
+])
 
 function fixtureRoot() {
   const directory = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-behavior-owner-'))
@@ -33,6 +75,12 @@ function fixtureRoot() {
     const target = path.join(directory, relative)
     mkdirSync(path.dirname(target), { recursive: true })
     cpSync(path.join(root, relative), target)
+  }
+  const catalog = loadFixtureCatalog(directory)
+  for (const extractor of catalog.extractors) {
+    const target = path.join(directory, extractor.path)
+    mkdirSync(path.dirname(target), { recursive: true })
+    cpSync(path.join(root, extractor.path), target)
   }
   return directory
 }
@@ -51,6 +99,13 @@ function seedRequiredOwners(repositoryRoot) {
   write(repositoryRoot, 'tools/run-test-matrix.mjs', '// BEHAVIOR-OWNER: browserless-production-correctness\nasync function main() {}\n')
 }
 
+function seedOwnerEntrypointsWithoutMarkers(repositoryRoot) {
+  for (const owner of expectedRepositoryOwners) {
+    const asyncPrefix = owner.symbol === 'main' ? 'async ' : ''
+    write(repositoryRoot, owner.sourcePath, `${asyncPrefix}function ${owner.symbol}() {}\n`)
+  }
+}
+
 function loadFixtureCatalog(repositoryRoot) {
   return JSON.parse(readFileSync(path.join(repositoryRoot, 'config/contracts/behavior-contracts.json'), 'utf8'))
 }
@@ -59,16 +114,20 @@ test('repository active behaviors have exact one-owner marker bindings and recei
   const report = formatOwnerBindingReport(scanBehaviorOwnerBindings({ repositoryRoot: root }))
   assert.equal(report.errors.length, 0, report.errors.join('\n'))
   assert.equal(report.status, 'ok')
-  assert.equal(report.bindingCount, 4)
+  assert.equal(report.bindingCount, expectedRepositoryOwners.length)
   assert.match(report.catalogDigest, /^[a-f0-9]{64}$/u)
   assert.ok(report.worktreeDigest)
   const byId = new Map(report.bindings.map((binding) => [binding.behaviorId, binding]))
-  assert.equal(byId.get('code-intent-governance')?.symbol, 'checkCodeIntent')
+  assert.deepEqual(
+    report.bindings.map(({ behaviorId, sourcePath, symbol }) => ({
+      behaviorId,
+      sourcePath,
+      symbol
+    })),
+    expectedRepositoryOwners
+  )
   assert.equal(byId.get('code-intent-governance')?.bindingKind, 'marker')
   assert.equal(byId.get('code-intent-governance')?.language, 'javascript')
-  assert.equal(byId.get('document-lifecycle-governance')?.symbol, 'ValidateDocumentLifecycle')
-  assert.equal(byId.get('test-asset-audit-reconciliation')?.symbol, 'main')
-  assert.equal(byId.get('browserless-production-correctness')?.symbol, 'main')
   for (const binding of report.bindings) {
     assert.equal(binding.status, 'ok')
     assert.match(binding.sourceDigest, /^[a-f0-9]{64}$/u)
@@ -211,10 +270,7 @@ test('8) does not guess owners from coverage evidencePaths', () => {
   const directory = fixtureRoot()
   try {
     // Extractor files exist (as coverage evidencePaths would) but carry no owner markers.
-    write(directory, 'tools/test/run-test-asset-audit.mjs', 'function main() {}\n')
-    write(directory, 'tools/governance/check-code-intent.mjs', 'export function checkCodeIntent() {}\n')
-    write(directory, 'tools/docs/document-lifecycle.mjs', 'export function ValidateDocumentLifecycle() {}\n')
-    write(directory, 'tools/run-test-matrix.mjs', 'async function main() {}\n')
+    seedOwnerEntrypointsWithoutMarkers(directory)
     const catalog = loadFixtureCatalog(directory)
     const report = scanBehaviorOwnerBindings({ repositoryRoot: directory, catalog })
     assert.ok(report.errors.some((error) => /no implementation owner/u.test(error)))
@@ -273,5 +329,5 @@ test('assertBehaviorOwnerBindings throws on repository failures only when broken
   assert.equal(result.status, 0, result.stderr)
   const payload = JSON.parse(result.stdout)
   assert.equal(payload.status, 'ok')
-  assert.equal(payload.bindingCount, 4)
+  assert.equal(payload.bindingCount, expectedRepositoryOwners.length)
 })

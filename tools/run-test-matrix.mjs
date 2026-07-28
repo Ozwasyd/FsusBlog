@@ -13,6 +13,16 @@ import {
 } from './test-matrix/aggregate-plan.mjs'
 import { createArtifactDigestTable } from './test-matrix/artifact-digest-table.mjs'
 import {
+    validateBehaviorDocStaticAdmissionMatrix
+} from './test-matrix/behavior-doc-static-admission-contract.mjs'
+import {
+    behaviorDocAdmissionTierId,
+    defaultBehaviorDocAdmissionReceipt,
+    readBehaviorDocStaticAdmissionReceipt,
+    runBehaviorDocStaticAdmission
+} from './docs/behavior-doc-static-admission.mjs'
+import { sealSourceIdentity } from './fact-extractors/identity.mjs'
+import {
     cleanupOrphanDotnetBuildServers,
     discoverOrphanDotnetBuildServers,
     dotnetBuildServerInventory
@@ -123,10 +133,10 @@ const coverageRegistryFile = process.env.FSUSBLOG_COVERAGE_REGISTRY_FILE
 const preflightLogFile = path.join(root, '.tmp/gate-logs/preflight.json')
 const prSmartGateSummaryFile = path.join(root, '.tmp/release-evidence/pr-smart-gate-summary.json')
 const summaryStages = ['setup', 'restore', 'install', 'bootstrap', 'test', 'artifact', 'summary']
-const coverageAssertionTypes = ['static', 'unit', 'integration', 'runtime', 'browser', 'perf', 'fuzz', 'mutation']
+const coverageAssertionTypes = ['static', 'unit', 'integration', 'contract', 'runtime', 'browser', 'perf', 'fuzz', 'mutation']
 const runtimeLikeCoverageAssertionTypes = new Set(['runtime', 'browser', 'perf', 'fuzz', 'mutation'])
 const coverageTemplateDescriptionPattern = /^Coverage contract for\b/i
-const genericCoverageMinimumRequirementPattern = /^(static|unit|integration|runtime|browser|perf|fuzz|mutation) evidence declared by tier\b/i
+const genericCoverageMinimumRequirementPattern = /^(static|unit|integration|contract|runtime|browser|perf|fuzz|mutation) evidence declared by tier\b/i
 const cadenceValues = ['pr', 'push', 'nightly', 'release-manual']
 const requiredForValues = ['fast', 'production', 'release-final', 'none']
 const smartGateModeValues = ['always', 'conditional', 'full-only']
@@ -910,6 +920,7 @@ function validateMatrix(matrix) {
 
   errors.push(...validateFrontendFastSplit(matrix, byId))
   errors.push(...validateReleaseDomainMatrix(root, matrix))
+  errors.push(...validateBehaviorDocStaticAdmissionMatrix(matrix, { repositoryRoot: root }))
   errors.push(...validateLocalProfiles(matrix.localProfiles, matrix.tiers))
   errors.push(...validateCoverageRegistry(matrix))
   errors.push(...validateSupersedesRules(matrix.tiers, loadCoverageRegistry().entries))
@@ -1549,6 +1560,110 @@ function isCiEnvironment() {
   return process.env.CI === 'true' || process.env.CI === '1' || process.env.GITHUB_ACTIONS === 'true'
 }
 
+function githubBehaviorDocAdmissionRunId() {
+  const runId = String(process.env.GITHUB_RUN_ID ?? '').trim()
+  const runAttempt = String(process.env.GITHUB_RUN_ATTEMPT ?? '').trim()
+  return runId && runAttempt ? `behavior-doc-admission-${runId}-${runAttempt}` : null
+}
+
+function expectedBehaviorDocAdmissionRunId(fallbackRunId) {
+  return String(
+    process.env.FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RUN_ID
+      ?? githubBehaviorDocAdmissionRunId()
+      ?? fallbackRunId
+  )
+}
+
+function behaviorDocAdmissionReceiptFile(repositoryRoot = root) {
+  return path.resolve(
+    repositoryRoot,
+    process.env.FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RECEIPT
+      ?? defaultBehaviorDocAdmissionReceipt
+  )
+}
+
+function verifyBehaviorDocAdmissionState(state, repositoryRoot = root) {
+  if (!state?.receiptFile || !state.runId || !state.contentDigest) {
+    throw new Error('BehaviorDoc static admission state is incomplete')
+  }
+  const sourceIdentity = sealSourceIdentity(repositoryRoot)
+  const receipt = readBehaviorDocStaticAdmissionReceipt(state.receiptFile, {
+    expectedRunId: state.runId,
+    expectedSourceIdentity: sourceIdentity,
+    expectedWorktree: repositoryRoot
+  })
+  if (receipt.contentDigest !== state.contentDigest) {
+    throw new Error('BehaviorDoc static admission receipt digest drifted')
+  }
+  return receipt
+}
+
+export async function establishBehaviorDocAdmission({
+  repositoryRoot = root,
+  runId,
+  outputFile = null,
+  requireExisting = process.env.GITHUB_ACTIONS === 'true'
+    || Boolean(process.env.FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RECEIPT)
+}) {
+  const expectedRunId = expectedBehaviorDocAdmissionRunId(runId)
+  const receiptFile = outputFile ?? behaviorDocAdmissionReceiptFile(repositoryRoot)
+  let receipt
+  if (requireExisting) {
+    receipt = readBehaviorDocStaticAdmissionReceipt(receiptFile, {
+      expectedRunId,
+      expectedSourceIdentity: sealSourceIdentity(repositoryRoot),
+      expectedWorktree: repositoryRoot
+    })
+    const expectedDigest = String(
+      process.env.FSUSBLOG_BEHAVIOR_DOC_ADMISSION_DIGEST ?? ''
+    ).trim()
+    if (!expectedDigest || receipt.contentDigest !== expectedDigest) {
+      throw new Error('existing BehaviorDoc admission receipt digest mismatch')
+    }
+  } else {
+    const result = await runBehaviorDocStaticAdmission({
+      repositoryRoot,
+      runId: expectedRunId,
+      outputFile: receiptFile,
+      candidateSpawnCountBeforeReceipt: 0
+    })
+    receipt = result.receipt
+  }
+  const state = {
+    receiptFile,
+    runId: expectedRunId,
+    contentDigest: receipt.contentDigest
+  }
+  verifyBehaviorDocAdmissionState(state, repositoryRoot)
+  return state
+}
+
+function bindBehaviorDocAdmissionVerification(tiers, state) {
+  const verifyCommand = [
+    'node tools/docs/behavior-doc-static-admission.mjs',
+    '--verify', JSON.stringify(state.receiptFile),
+    '--run-id', JSON.stringify(state.runId)
+  ].join(' ')
+  return tiers.map((tier) => tier.id === behaviorDocAdmissionTierId
+    ? { ...tier, command: verifyCommand }
+    : tier)
+}
+
+function executeStaticMatrixPrerequisite(tier) {
+  const result = spawnSync(tier.command, {
+    cwd: root,
+    env: process.env,
+    shell: true,
+    stdio: 'inherit'
+  })
+  if (result.error) {
+    throw new Error(`${tier.id} prerequisite failed to start: ${result.error.message}`)
+  }
+  if (result.status !== 0) {
+    throw new Error(`${tier.id} prerequisite failed with exit ${result.status}`)
+  }
+}
+
 function shouldUseLocalProfile(matrix, tierId, options) {
   const targetTierId = normalizeTierId(tierId)
   return !isCiEnvironment()
@@ -1822,9 +1937,56 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
   const externalEvidenceReceipts = readDeclaredExternalEvidenceReceipts(profileId)
   const profileRoot = path.resolve(runtime.root ?? root)
   const resolveRunIdentity = runtime.schedulerRunIdentity ?? schedulerRunIdentity
+  const admissionRunIdentity = runtime.productionFreshRunIdentity
+    ?? resolveRunIdentity(profileId, options)
+  if (!options.planOnly && runtime.behaviorDocStaticAdmission == null) {
+    const admissionReceiptFile = runtime.behaviorDocStaticAdmissionReceiptFile
+      ?? path.join(
+        os.tmpdir(),
+        'fsusblog-behavior-doc-static-admission',
+        createHash('sha256')
+          .update(`${profileRoot}\0${admissionRunIdentity.runId}`)
+          .digest('hex'),
+        'receipt.json'
+      )
+    const runAdmission = runtime.runBehaviorDocStaticAdmission
+      ?? runBehaviorDocStaticAdmission
+    const admission = await runAdmission({
+      repositoryRoot: profileRoot,
+      runId: admissionRunIdentity.runId,
+      outputFile: admissionReceiptFile,
+      candidateSpawnCountBeforeReceipt: 0
+    })
+    return runLocalProfile(matrix, profileId, options, {
+      ...runtime,
+      productionFreshRunIdentity: admissionRunIdentity,
+      behaviorDocStaticAdmission: {
+        receiptFile: admission.receiptFile,
+        runId: admissionRunIdentity.runId,
+        contentDigest: admission.receipt.contentDigest
+      }
+    })
+  }
+  if (!options.planOnly) {
+    const admissionState = runtime.behaviorDocStaticAdmission
+    if (!admissionState?.receiptFile || admissionState.runId !== admissionRunIdentity.runId) {
+      throw new Error('local profile has no run-bound BehaviorDoc static admission receipt')
+    }
+    const currentSourceState = (runtime.behaviorDocSourceIdentity ?? sealSourceIdentity)(profileRoot)
+    const readAdmission = runtime.readBehaviorDocStaticAdmissionReceipt
+      ?? readBehaviorDocStaticAdmissionReceipt
+    const receipt = readAdmission(admissionState.receiptFile, {
+      expectedRunId: admissionRunIdentity.runId,
+      expectedSourceIdentity: currentSourceState,
+      expectedWorktree: profileRoot
+    })
+    if (receipt.contentDigest !== admissionState.contentDigest) {
+      throw new Error('local profile BehaviorDoc admission receipt digest drifted')
+    }
+  }
   const productionFresh = ['production-correctness', 'production'].includes(profileId)
   if (productionFresh && !options.planOnly && runtime.productionFreshLeaseHeld !== true) {
-    const leaseRunIdentity = resolveRunIdentity(profileId, options)
+    const leaseRunIdentity = admissionRunIdentity
     const leaseSourceState = await (runtime.snapshotSourceState ?? snapshotSourceState)(profileRoot)
     const lease = acquireProductionFreshExclusiveLease({
       root: profileRoot,
@@ -2233,6 +2395,19 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
       wallClockStartedAtMs,
       collectFailures: true,
       beforeTierStart: async (tier) => {
+        const admissionState = runtime.behaviorDocStaticAdmission
+        const readAdmission = runtime.readBehaviorDocStaticAdmissionReceipt
+          ?? readBehaviorDocStaticAdmissionReceipt
+        const currentSourceIdentity = (runtime.behaviorDocSourceIdentity
+          ?? sealSourceIdentity)(profileRoot)
+        const receipt = readAdmission(admissionState.receiptFile, {
+          expectedRunId: admissionState.runId,
+          expectedSourceIdentity: currentSourceIdentity,
+          expectedWorktree: profileRoot
+        })
+        if (receipt.contentDigest !== admissionState.contentDigest) {
+          throw new Error('local profile BehaviorDoc admission receipt digest drifted before spawn')
+        }
         runtime.productionCapacityReservation?.assertPlan(resolveCapacityPlan())
         return runtime.productionCapacityReservation?.guardProducer(tier.id)
       },
@@ -2263,6 +2438,9 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
           FSUSBLOG_TEST_RUN_ID: runId,
           FSUSBLOG_TEST_EXECUTION_SOURCE: options.resume ? 'resume' : 'fresh',
           FSUSBLOG_LOCAL_PROFILE: profileId,
+          FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RECEIPT: runtime.behaviorDocStaticAdmission.receiptFile,
+          FSUSBLOG_BEHAVIOR_DOC_ADMISSION_DIGEST: runtime.behaviorDocStaticAdmission.contentDigest,
+          FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RUN_ID: runtime.behaviorDocStaticAdmission.runId,
           ...outputEnvironment,
           FSUSBLOG_PHYSICAL_BUNDLE_ID: tier.physicalBundleId,
           FSUSBLOG_DOTNET_BUILD_PARALLELISM: 'auto',
@@ -2783,7 +2961,7 @@ async function runTier(matrix, tierId, args) {
     const systemResources = logicalTierSystemResources()
     const budgetPolicy = loadCorrectnessBudgetPolicy()
     const budgetPolicyBinding = bindBudgetPolicy({}, {}, budgetPolicy)
-    const all = applyCorrectnessBudgetPolicy(applyDirectCorrectnessBudgetPolicy(
+    let all = applyCorrectnessBudgetPolicy(applyDirectCorrectnessBudgetPolicy(
         resolveLogicalTierResources(declaredTiers, systemResources),
         targetTierId
     ), budgetPolicy)
@@ -2801,6 +2979,34 @@ async function runTier(matrix, tierId, args) {
 
     const target = all[all.length - 1]
     const { runsRoot, runId } = schedulerRunIdentity(targetTierId, options)
+    if (targetTierId === 'validate-matrix') {
+        executeStaticMatrixPrerequisite(target)
+        return
+    }
+    if (targetTierId === behaviorDocAdmissionTierId) {
+        if (!options.noDeps) {
+            executeStaticMatrixPrerequisite(tierMap(matrix).get('validate-matrix'))
+        }
+        const admission = await establishBehaviorDocAdmission({
+            repositoryRoot: root,
+            runId,
+            outputFile: path.join(root, defaultBehaviorDocAdmissionReceipt),
+            requireExisting: false
+        })
+        console.error(
+            `[matrix:${behaviorDocAdmissionTierId}] receipt=${relativeToRoot(admission.receiptFile)}`
+            + ` digest=${admission.contentDigest}`
+        )
+        return
+    }
+    if (!options.noDeps && all.some((tier) => tier.id === 'validate-matrix')) {
+        executeStaticMatrixPrerequisite(tierMap(matrix).get('validate-matrix'))
+    }
+    const behaviorDocAdmission = await establishBehaviorDocAdmission({
+        repositoryRoot: root,
+        runId
+    })
+    all = bindBehaviorDocAdmissionVerification(all, behaviorDocAdmission)
     const runNamespace = namespaceFor(target, options.shard, runId)
     const { sourceState: buildSourceState } = await collectSchedulerSourceState(root)
     const lifecycle = await runProductionBuildLifecycle({
@@ -2842,6 +3048,9 @@ async function runTier(matrix, tierId, args) {
                     ),
                     systemResources,
                     teeOutput: true,
+                    beforeTierStart() {
+                        verifyBehaviorDocAdmissionState(behaviorDocAdmission, root)
+                    },
                     onSourceState(sourceState) {
                         bindScheduledBuildLayoutSource(buildLayout, sourceState)
                     },
@@ -2854,7 +3063,13 @@ async function runTier(matrix, tierId, args) {
                                 CURRENT_TIER: tier.id,
                                 MATRIX_JOB: tier.ciJob,
                                 FSUSBLOG_TEST_NAMESPACE: runNamespace,
-                                FSUSBLOG_TEST_RUN_ID: runId
+                                FSUSBLOG_TEST_RUN_ID: runId,
+                                FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RECEIPT:
+                                    behaviorDocAdmission.receiptFile,
+                                FSUSBLOG_BEHAVIOR_DOC_ADMISSION_DIGEST:
+                                    behaviorDocAdmission.contentDigest,
+                                FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RUN_ID:
+                                    behaviorDocAdmission.runId
                             })
                         )
                         Object.assign(env, resourceEnvironmentForTier(tier, env))
@@ -3154,6 +3369,11 @@ function printCiJobPlan(matrix, jobId) {
 async function runCiJobScheduled(matrix, jobId, tiers, options) {
     const targetTierId = `ci-job/${jobId}`
     const { runsRoot, runId } = schedulerRunIdentity(targetTierId, options)
+    const behaviorDocAdmission = await establishBehaviorDocAdmission({
+        repositoryRoot: root,
+        runId
+    })
+    tiers = bindBehaviorDocAdmissionVerification(tiers, behaviorDocAdmission)
     const buildNamespace = namespaceFor({ id: targetTierId, ciJob: jobId }, options.shard, runId)
     const { sourceState: buildSourceState } = await collectSchedulerSourceState(root)
     const schedulerMode = options.forceSerial ? 'serial' : 'parallel'
@@ -3208,6 +3428,9 @@ async function runCiJobScheduled(matrix, jobId, tiers, options) {
                     maxParallel,
                     systemResources: options.systemResources,
                     teeOutput: true,
+                    beforeTierStart() {
+                        verifyBehaviorDocAdmissionState(behaviorDocAdmission, root)
+                    },
                     onSourceState(sourceState) {
                         bindScheduledBuildLayoutSource(buildLayout, sourceState)
                     },
@@ -3222,7 +3445,13 @@ async function runCiJobScheduled(matrix, jobId, tiers, options) {
                                 FSUSBLOG_TEST_NAMESPACE: runNamespace,
                                 FSUSBLOG_TEST_RUN_ID: runId,
                                 FSUSBLOG_CI_JOB_ID: options.forceSerial ? jobId : `${jobId}-${tier.id}`,
-                                FSUSBLOG_CI_JOB_SCHEDULER: schedulerMode
+                                FSUSBLOG_CI_JOB_SCHEDULER: schedulerMode,
+                                FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RECEIPT:
+                                    behaviorDocAdmission.receiptFile,
+                                FSUSBLOG_BEHAVIOR_DOC_ADMISSION_DIGEST:
+                                    behaviorDocAdmission.contentDigest,
+                                FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RUN_ID:
+                                    behaviorDocAdmission.runId
                             })
                         )
                         Object.assign(env, resourceEnvironmentForTier(tier, env))
@@ -3279,6 +3508,14 @@ async function runCiJob(matrix, jobId, args) {
   if (options.shard && !/^\d+\/\d+$/.test(options.shard)) throw new Error('--shard must use i/n format')
   if (options.planOnly) {
     printCiJobPlan(matrix, jobId)
+    return
+  }
+  if (jobId === 'validate-matrix') {
+    executeStaticMatrixPrerequisite(declaredTiers[0])
+    return
+  }
+  if (jobId === behaviorDocAdmissionTierId) {
+    await runTier(matrix, behaviorDocAdmissionTierId, args)
     return
   }
 
@@ -3916,10 +4153,15 @@ async function ciPrSmart(matrix, args) {
     const declaredTiers = plan.selectedTierIds.map((tierId) => byId.get(tierId)).filter(Boolean)
     if (declaredTiers.length === 0) return
     const systemResources = logicalTierSystemResources()
-    const tiers = resolveLogicalTierResources(declaredTiers, systemResources)
+    let tiers = resolveLogicalTierResources(declaredTiers, systemResources)
     const targetTierId = 'ci-pr-smart'
     const schedulerOptions = { resume: false }
     const { runsRoot, runId } = schedulerRunIdentity(targetTierId, schedulerOptions)
+    const behaviorDocAdmission = await establishBehaviorDocAdmission({
+        repositoryRoot: root,
+        runId
+    })
+    tiers = bindBehaviorDocAdmissionVerification(tiers, behaviorDocAdmission)
     const runNamespace = namespaceFor({ ciJob: targetTierId, id: targetTierId }, null, runId)
     const { sourceState: buildSourceState } = await collectSchedulerSourceState(root)
     const lifecycle = await runProductionBuildLifecycle({
@@ -3952,6 +4194,9 @@ async function ciPrSmart(matrix, args) {
                     maxParallel: systemResources.availableCpuUnits,
                     systemResources,
                     teeOutput: true,
+                    beforeTierStart() {
+                        verifyBehaviorDocAdmissionState(behaviorDocAdmission, root)
+                    },
                     onSourceState(sourceState) {
                         bindScheduledBuildLayoutSource(buildLayout, sourceState)
                     },
@@ -3965,7 +4210,13 @@ async function ciPrSmart(matrix, args) {
                                 FSUSBLOG_TEST_NAMESPACE: runNamespace,
                                 FSUSBLOG_TEST_RUN_ID: runId,
                                 FSUSBLOG_CI_JOB_ID: tier.ciJob,
-                                FSUSBLOG_CI_JOB_SCHEDULER: 'dag'
+                                FSUSBLOG_CI_JOB_SCHEDULER: 'dag',
+                                FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RECEIPT:
+                                    behaviorDocAdmission.receiptFile,
+                                FSUSBLOG_BEHAVIOR_DOC_ADMISSION_DIGEST:
+                                    behaviorDocAdmission.contentDigest,
+                                FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RUN_ID:
+                                    behaviorDocAdmission.runId
                             })
                         )
                         Object.assign(env, resourceEnvironmentForTier(tier, env))

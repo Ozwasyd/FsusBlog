@@ -1,6 +1,9 @@
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
+import {
+  isExternalBehaviorDocAdmissionDependency
+} from '../../test-matrix/behavior-doc-static-admission-contract.mjs'
 import { parseMatrix, tierExecutionDependencies } from '../../test-matrix/parse-matrix.mjs'
 import { digestText, digestValue } from '../lib/canonicalize.mjs'
 
@@ -26,7 +29,8 @@ const declaredFactSources = Object.freeze([
   'tests/matrix.yml',
   'tests/matrix.schema.json',
   'tests/coverage-registry.json',
-  'config/testing/producer-execution-class-contract.json'
+  'config/testing/producer-execution-class-contract.json',
+  'tools/test-matrix/behavior-doc-static-admission-contract.mjs'
 ])
 
 const consumerInputs = Object.freeze([
@@ -447,11 +451,16 @@ function buildObservations({
       const dependsOn = sortedUniqueStrings(bundle.dependsOn ?? [])
       for (const dep of dependsOn)
       {
-        if (!bundleIds.includes(dep) && !bundles.some((entry) => entry.id === dep))
+        if (!bundleIds.includes(dep)
+          && !bundles.some((entry) => entry.id === dep)
+          && !isExternalBehaviorDocAdmissionDependency(dep))
         {
           errors.push(`profile ${profileId} bundle ${bundle.id} depends on missing bundle ${dep}`)
         }
-        bundleEdges.push(`${dep}->${bundle.id}`)
+        if (!isExternalBehaviorDocAdmissionDependency(dep))
+        {
+          bundleEdges.push(`${dep}->${bundle.id}`)
+        }
       }
       const members = sortedUniqueStrings(bundle.members ?? [])
       for (const member of members)

@@ -3,6 +3,11 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import { createArtifactDigestTable } from './artifact-digest-table.mjs'
+import {
+  behaviorDocStaticAdmissionTierId,
+  isExternalBehaviorDocAdmissionDependency,
+  localBehaviorDocCandidateBundleIds
+} from './behavior-doc-static-admission-contract.mjs'
 import { productionResidentServiceIds } from './resident-resource-leases.mjs'
 
 function profileEntries(localProfiles) {
@@ -590,7 +595,9 @@ export function createLocalBundleTiers(profileId, profile, { maxParallel = null 
       residentLeaseConsumer: bundle.id === 'performance-evidence',
       logicalMembers: [...(bundle.members ?? [])],
       command: bundle.command,
-      executionDependsOn: (bundle.dependsOn ?? []).map((dependencyId) => `${prefix}${dependencyId}`),
+      executionDependsOn: (bundle.dependsOn ?? [])
+        .filter((dependencyId) => !isExternalBehaviorDocAdmissionDependency(dependencyId))
+        .map((dependencyId) => `${prefix}${dependencyId}`),
       services: [...(bundle.services ?? [])],
       parallelizable: true,
       exclusiveResources: [...(bundle.exclusiveResources ?? [])],
@@ -1395,11 +1402,13 @@ export function collectLogicalTierIds(tiers, targetTierId) {
     summariesByAuthority.set(tier.summaryAuthority, siblings)
   }
   const collected = new Set()
+  const expanded = new Set()
   const visit = (tierId) => {
-    if (collected.has(tierId)) return
+    if (expanded.has(tierId)) return
+    expanded.add(tierId)
     const tier = byId.get(tierId)
     if (!tier) return
-    collected.add(tierId)
+    if (tierId !== behaviorDocStaticAdmissionTierId) collected.add(tierId)
     for (const siblingId of summariesByAuthority.get(tier.summaryAuthority) ?? []) visit(siblingId)
     for (const dependencyId of [
       ...tierExecutionDependencies(tier),
@@ -1420,7 +1429,12 @@ export function localProfileBudgetCriticalPath(profile, costForBundle = (bundle)
     const bundle = bundles.get(bundleId)
     if (!bundle) return Number.POSITIVE_INFINITY
     visiting.add(bundleId)
-    const dependencyBudget = Math.max(0, ...(bundle.dependsOn ?? []).map(visit))
+    const dependencyBudget = Math.max(
+      0,
+      ...(bundle.dependsOn ?? [])
+        .filter((dependencyId) => !isExternalBehaviorDocAdmissionDependency(dependencyId))
+        .map(visit)
+    )
     visiting.delete(bundleId)
     const ownCost = Number(costForBundle(bundle))
     if (!Number.isFinite(ownCost) || ownCost <= 0) return Number.POSITIVE_INFINITY
@@ -1457,10 +1471,10 @@ export function validateLocalProfiles(localProfiles, tiers) {
     }
     if (profileId === 'production') {
       const productionBundleContract = new Map([
-        ['build-static', []],
-        ['backend-tests', []],
-        ['frontend-tests', []],
-        ['runtime-browser', []],
+        ...localBehaviorDocCandidateBundleIds.map((bundleId) => [
+          bundleId,
+          [behaviorDocStaticAdmissionTierId]
+        ]),
         ['performance-evidence', ['build-static', 'backend-tests', 'frontend-tests', 'runtime-browser']]
       ])
       for (const [bundleId, expected] of productionBundleContract) {
@@ -1535,7 +1549,8 @@ export function validateLocalProfiles(localProfiles, tiers) {
       }
     }
 
-    const t0Bundles = profile.bundles.filter((bundle) => (bundle.dependsOn ?? []).length === 0)
+    const t0Bundles = profile.bundles.filter((bundle) =>
+      (bundle.dependsOn ?? []).every(isExternalBehaviorDocAdmissionDependency))
     // The scheduler admits a priority-ordered subset when more t0 bundles are
     // ready than the machine can host. Requiring their aggregate minimum to
     // fit would forbid useful early-start wait/coordination bundles.
@@ -1564,7 +1579,8 @@ export function validateLocalProfiles(localProfiles, tiers) {
 
     for (const bundle of profile.bundles) {
       for (const dependencyId of bundle.dependsOn ?? []) {
-        if (!bundleIds.has(dependencyId)) {
+        if (!bundleIds.has(dependencyId)
+          && !isExternalBehaviorDocAdmissionDependency(dependencyId)) {
           errors.push(`localProfiles.${profileId}.${bundle.id} depends on unknown bundle: ${dependencyId}`)
         }
       }

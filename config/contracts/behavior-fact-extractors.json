@@ -54,6 +54,7 @@
         "tests/matrix.schema.json",
         "tests/coverage-registry.json",
         "config/testing/producer-execution-class-contract.json",
+        "tools/test-matrix/behavior-doc-static-admission-contract.mjs",
         "tools/test/lanes",
         "src/frontend/package.json",
         "tools/docs/generate-testing-docs.mjs",

@@ -1000,6 +1000,7 @@ export function assertNoLegacyClaimSurfaces(source, documentPath = '<input>')
 const governanceScanRoots = ['tools', 'tests', 'config', 'docs', 'src']
 const governanceAllowRelative = new Set([
     'config/schemas/doc-claim.schema.json',
+    'tools/contracts/behavior-graph-join.mjs',
     'tools/docs/doc-claim.mjs',
     'tools/docs/check-doc-claim.mjs',
     'tests/tools/doc-claim.test.mjs',

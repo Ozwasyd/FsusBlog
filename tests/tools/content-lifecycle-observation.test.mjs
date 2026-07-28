@@ -11,6 +11,7 @@ import {
 } from '../../tools/fact-extractors/registry.mjs'
 import { loadCatalog } from '../../tools/contracts/behavior-contract-catalog.mjs'
 import { extract as extractContentLifecycle } from '../../tools/fact-extractors/content-lifecycle/extract.mjs'
+import { validateObservations } from '../../tools/fact-extractors/receipt.mjs'
 import { produceContentLifecycleObservation } from '../../tools/contracts/lib/content-lifecycle-observation.mjs'
 
 const observationRelative = '.tmp/contracts/content-lifecycle/content-lifecycle-observation.json'
@@ -321,10 +322,11 @@ test('positive sample observation extracts typed lifecycle/visibility/outbox fac
   {
     const result = runExtract(directory, sampleObservation())
     assert.equal(result.status, 'ok', result.failureReasons?.join('\n'))
-    assert.ok(result.observations['article.outbox.required-edges'].includes('public-hot-read'))
-    assert.equal(result.observations['comment.public-visibility.states'].Approved, true)
-    assert.equal(result.observations['comment.public-visibility.states'].Hidden, false)
-    assert.equal(result.observations['comment.thread.max-depth'].default.unit, 'levels')
+    validateObservations(result.observations)
+    assert.ok(result.observations.facts['article.outbox.required-edges'].includes('public-hot-read'))
+    assert.equal(result.observations.facts['comment.public-visibility.states'].Approved, true)
+    assert.equal(result.observations.facts['comment.public-visibility.states'].Hidden, false)
+    assert.equal(result.observations.facts['comment.thread.max-depth'].default.unit, 'levels')
   }
   finally
   {
@@ -355,10 +357,10 @@ test('1) adding article outbox required edge changes observation', () =>
     }))
     assert.equal(withEdge.status, 'ok')
     assert.notEqual(
-      JSON.stringify(base.observations['article.outbox.required-edges']),
-      JSON.stringify(withEdge.observations['article.outbox.required-edges'])
+      JSON.stringify(base.observations.facts['article.outbox.required-edges']),
+      JSON.stringify(withEdge.observations.facts['article.outbox.required-edges'])
     )
-    assert.ok(withEdge.observations['article.outbox.required-edges'].includes('new-required-edge'))
+    assert.ok(withEdge.observations.facts['article.outbox.required-edges'].includes('new-required-edge'))
   }
   finally
   {
@@ -375,13 +377,13 @@ test('2) removing Published→Archived transition from allowed set is reflected'
     assert.equal(base.status, 'ok')
     const without = runExtract(directory, sampleObservation({
       facts: {
-        'article.lifecycle.allowed-transitions': base.observations['article.lifecycle.allowed-transitions']
+        'article.lifecycle.allowed-transitions': base.observations.facts['article.lifecycle.allowed-transitions']
           .filter((edge) => edge !== 'Update:Published->Archived')
       }
     }))
     assert.equal(without.status, 'ok')
-    assert.ok(base.observations['article.lifecycle.allowed-transitions'].includes('Update:Published->Archived'))
-    assert.ok(!without.observations['article.lifecycle.allowed-transitions'].includes('Update:Published->Archived'))
+    assert.ok(base.observations.facts['article.lifecycle.allowed-transitions'].includes('Update:Published->Archived'))
+    assert.ok(!without.observations.facts['article.lifecycle.allowed-transitions'].includes('Update:Published->Archived'))
   }
   finally
   {
@@ -434,11 +436,11 @@ test('4) max-depth default change from 32 to 16 alters observation', () =>
     }))
     assert.equal(sixteen.status, 'ok')
     assert.notEqual(
-      JSON.stringify(thirtyTwo.observations['comment.thread.max-depth']),
-      JSON.stringify(sixteen.observations['comment.thread.max-depth'])
+      JSON.stringify(thirtyTwo.observations.facts['comment.thread.max-depth']),
+      JSON.stringify(sixteen.observations.facts['comment.thread.max-depth'])
     )
-    assert.equal(sixteen.observations['comment.thread.max-depth'].default.value, 16)
-    assert.equal(sixteen.observations['comment.thread.max-depth'].default.unit, 'levels')
+    assert.equal(sixteen.observations.facts['comment.thread.max-depth'].default.value, 16)
+    assert.equal(sixteen.observations.facts['comment.thread.max-depth'].default.unit, 'levels')
   }
   finally
   {
@@ -454,7 +456,7 @@ test('5) privacy forbidden field addition is mechanical', () =>
     const base = runExtract(directory, sampleObservation())
     assert.equal(base.status, 'ok')
     const extended = [
-      ...base.observations['comment.privacy.forbidden-exact-fields'],
+      ...base.observations.facts['comment.privacy.forbidden-exact-fields'],
       'raw_ip_address'
     ].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
     const updated = runExtract(directory, sampleObservation({
@@ -463,10 +465,10 @@ test('5) privacy forbidden field addition is mechanical', () =>
       }
     }))
     assert.equal(updated.status, 'ok')
-    assert.ok(updated.observations['comment.privacy.forbidden-exact-fields'].includes('raw_ip_address'))
+    assert.ok(updated.observations.facts['comment.privacy.forbidden-exact-fields'].includes('raw_ip_address'))
     assert.notEqual(
-      JSON.stringify(base.observations['comment.privacy.forbidden-exact-fields']),
-      JSON.stringify(updated.observations['comment.privacy.forbidden-exact-fields'])
+      JSON.stringify(base.observations.facts['comment.privacy.forbidden-exact-fields']),
+      JSON.stringify(updated.observations.facts['comment.privacy.forbidden-exact-fields'])
     )
   }
   finally
@@ -633,12 +635,13 @@ test('compiled observation host produces sealed production facts (live)', { time
     buildIdentity: produced.buildIdentity
   })
   assert.equal(extracted.status, 'ok', extracted.failureReasons?.join('\n'))
+  validateObservations(extracted.observations)
   assert.deepEqual(
-    extracted.observations['article.outbox.required-edges'],
+    extracted.observations.facts['article.outbox.required-edges'],
     produced.observation.facts['article.outbox.required-edges']
   )
   assert.deepEqual(
-    extracted.observations['comment.moderation.allowed-transitions'],
+    extracted.observations.facts['comment.moderation.allowed-transitions'],
     produced.observation.facts['comment.moderation.allowed-transitions']
   )
 })

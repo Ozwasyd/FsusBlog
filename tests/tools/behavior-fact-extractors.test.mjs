@@ -396,7 +396,7 @@ test('5) rejects two extractors claiming the same behavior', () =>
     assert.throws(() => validateRegistry(registry), /dual extractor owners/u)
 })
 
-test('6) rejects warning/partial/empty observations with status=ok', () =>
+test('6) rejects warning/partial/null-or-empty observations with status=ok', () =>
 {
     assert.throws(
         () => buildReceipt(baseReceiptFields({ status: 'ok', failureReasons: ['warning: soft'], observations: { coverageEntryCount: 1, coverageEntryIds: ['x'], catalogSchema: 's' } })),
@@ -416,6 +416,16 @@ test('6) rejects warning/partial/empty observations with status=ok', () =>
         })),
         /forbidden field partial|reserved/u
     )
+    for (const [label, observations, pattern] of [
+        ['null fact', { fact: null }, /must not be null\/undefined/u],
+        ['empty string fact', { fact: '' }, /string scalar must be non-empty/u],
+        ['empty array fact', { fact: [] }, /set\/list must be non-empty/u],
+        ['empty map fact', { fact: {} }, /map must be non-empty/u],
+        ['object array fact', { fact: [{ x: null }] }, /set members must be scalar\/boolean/u]
+    ])
+    {
+        assert.throws(() => validateObservations(observations), pattern, label)
+    }
 })
 
 test('7) rejects non-deterministic timestamps inside observations and semantic digest', () =>

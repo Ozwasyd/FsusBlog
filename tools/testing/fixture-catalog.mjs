@@ -305,6 +305,7 @@ export function validateFixtureAuthoritySources({ repositoryRoot = root, sourceO
     'docs/testing/fixture-capability-catalog.md',
     'tests/matrix.yml',
     'tests/tools/fixture-catalog.test.mjs',
+    'tools/test-matrix/behavior-doc-static-admission-contract.mjs',
     'tools/testing/fixture-catalog.mjs',
     'tools/testing/generate-fixture-catalog-artifacts.mjs'
   ])
@@ -782,11 +783,16 @@ export function validateFixtureCatalogs({
     const expectedMatrixConsumers = matrix.tiers.filter(isFixtureMatrixConsumer)
     for (const tier of matrix.tiers) {
       const isConsumer = isFixtureMatrixConsumer(tier)
+      const explicitStaticNone = tier.executionClass === 'static-governance'
+        && tier.fixtureProfile === 'none'
+        && Array.isArray(tier.fixtureCapabilities)
+        && tier.fixtureCapabilities.length === 0
       if (isConsumer && (!Object.hasOwn(tier, 'fixtureProfile') || !Object.hasOwn(tier, 'fixtureCapabilities'))) {
         errors.push(`matrix data consumer ${tier.id} must bind fixtureProfile and fixtureCapabilities`)
         continue
       }
-      if (!isConsumer && (Object.hasOwn(tier, 'fixtureProfile') || Object.hasOwn(tier, 'fixtureCapabilities'))) {
+      if (!isConsumer && !explicitStaticNone
+        && (Object.hasOwn(tier, 'fixtureProfile') || Object.hasOwn(tier, 'fixtureCapabilities'))) {
         errors.push(`matrix non-consumer ${tier.id} must not declare fixture data`)
       }
       if (!Object.hasOwn(tier, 'fixtureProfile')) continue

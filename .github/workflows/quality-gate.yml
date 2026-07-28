@@ -67,6 +67,49 @@ jobs:
                       .tmp/docs/generated-testing-docs.json
                       docs/testing.generated.md
 
+    behavior-doc-static-admission:
+        name: BehaviorDoc Static Admission
+        runs-on: ubuntu-latest
+        needs: validate-matrix
+        timeout-minutes: 20
+        env:
+            FSUSBLOG_TEST_RUN_ID: behavior-doc-admission-${{ github.run_id }}-${{ github.run_attempt }}
+        outputs:
+            receipt_digest: ${{ steps.receipt.outputs.receipt_digest }}
+            source_commit: ${{ steps.receipt.outputs.source_commit }}
+            source_fingerprint: ${{ steps.receipt.outputs.source_fingerprint }}
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+            - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+              with:
+                  dotnet-version: 10.0.x
+            - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+              with:
+                  path: ~/.nuget/packages
+                  key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
+            - run: ./tools/test.sh ci-tier behavior-doc-static-admission --no-deps
+            - id: receipt
+              name: Export sealed admission identity
+              run: |
+                  node --input-type=module -e '
+                    import fs from "node:fs";
+                    const receipt = JSON.parse(fs.readFileSync(".tmp/behavior-doc-static-admission/receipt.json", "utf8"));
+                    fs.appendFileSync(process.env.GITHUB_OUTPUT, `receipt_digest=${receipt.contentDigest}\nsource_commit=${receipt.source.commit}\nsource_fingerprint=${receipt.source.worktreeFingerprint}\n`);
+                  '
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: behavior-doc-static-admission
+                  if-no-files-found: error
+                  retention-days: 14
+                  include-hidden-files: true
+                  path: .tmp/behavior-doc-static-admission/receipt.json
+
     plan-pr-risk:
         name: Plan PR Smart Gate
         runs-on: ubuntu-latest
@@ -138,7 +181,7 @@ jobs:
     production-build-artifacts:
         name: Immutable Production Build Artifacts
         runs-on: ubuntu-latest
-        needs: [validate-matrix, plan-pr-risk]
+        needs: [validate-matrix, behavior-doc-static-admission, plan-pr-risk]
         if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.production_build_artifacts == 'true'
         timeout-minutes: 35
         outputs:
@@ -151,6 +194,10 @@ jobs:
                   node-version: 24.x
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
+            - uses: ./.github/actions/consume-behavior-doc-admission
+              with:
+                  source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
               with:
                   dotnet-version: 10.0.x
@@ -185,7 +232,7 @@ jobs:
     coverage-merge-threshold:
         name: Coverage Merge Threshold
         runs-on: ubuntu-latest
-        needs: [plan-pr-risk, fast-backend, fast-frontend-unit]
+        needs: [behavior-doc-static-admission, plan-pr-risk, fast-backend, fast-frontend-unit]
         if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.coverage_merge_threshold == 'true'
         timeout-minutes: 10
         env:
@@ -203,6 +250,10 @@ jobs:
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
+            - uses: ./.github/actions/consume-behavior-doc-admission
+              with:
+                  source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
               with:
                   name: fast-backend
@@ -227,14 +278,18 @@ jobs:
     coverage-summary:
         name: Coverage Summary
         runs-on: ubuntu-latest
-        needs: [coverage-merge-threshold]
-        if: always() && needs.coverage-merge-threshold.result == 'success'
+        needs: [behavior-doc-static-admission, coverage-merge-threshold]
+        if: always() && needs.behavior-doc-static-admission.result == 'success' && needs.coverage-merge-threshold.result == 'success'
         timeout-minutes: 90
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
+            - uses: ./.github/actions/consume-behavior-doc-admission
+              with:
+                  source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
               with:
                   name: coverage-merge-threshold
@@ -255,13 +310,17 @@ jobs:
     fast-backend:
         name: Fast Backend DAG
         runs-on: ubuntu-latest
-        needs: validate-matrix
+        needs: [validate-matrix, behavior-doc-static-admission]
         timeout-minutes: 45
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
+            - uses: ./.github/actions/consume-behavior-doc-admission
+              with:
+                  source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
               with:
                   dotnet-version: 10.0.x
@@ -301,7 +360,7 @@ jobs:
     frontend-build:
         name: Frontend Build
         runs-on: ubuntu-latest
-        needs: validate-matrix
+        needs: [validate-matrix, behavior-doc-static-admission]
         timeout-minutes: 20
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -310,6 +369,10 @@ jobs:
                   node-version: 24.x
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
+            - uses: ./.github/actions/consume-behavior-doc-admission
+              with:
+                  source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
             - run: ./tools/test.sh ci-tier frontend-build --no-deps
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -328,7 +391,7 @@ jobs:
     fast-frontend-unit:
         name: Fast Frontend Unit DAG
         runs-on: ubuntu-latest
-        needs: validate-matrix
+        needs: [validate-matrix, behavior-doc-static-admission]
         timeout-minutes: 45
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -337,6 +400,10 @@ jobs:
                   node-version: 24.x
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
+            - uses: ./.github/actions/consume-behavior-doc-admission
+              with:
+                  source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
             - run: ./tools/test.sh ci-job fast-frontend-unit --fresh
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -360,7 +427,7 @@ jobs:
     frontend-runtime-contracts:
         name: Frontend Runtime Contracts
         runs-on: ubuntu-latest
-        needs: validate-matrix
+        needs: [validate-matrix, behavior-doc-static-admission]
         timeout-minutes: 20
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -369,6 +436,10 @@ jobs:
                   node-version: 24.x
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
+            - uses: ./.github/actions/consume-behavior-doc-admission
+              with:
+                  source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
             - run: ./tools/test.sh ci-tier frontend-runtime-contracts --no-deps
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -385,7 +456,7 @@ jobs:
     frontend-static-governance:
         name: Frontend Static Governance
         runs-on: ubuntu-latest
-        needs: [validate-matrix, frontend-build]
+        needs: [validate-matrix, behavior-doc-static-admission, frontend-build]
         timeout-minutes: 20
         env:
             FSUSBLOG_LOCAL_FSUSUI_ROOT: ${{ github.workspace }}/.tmp/local-fsusui
@@ -403,6 +474,10 @@ jobs:
                   node-version: 24.x
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
+            - uses: ./.github/actions/consume-behavior-doc-admission
+              with:
+                  source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
               with:
                   name: frontend-build
@@ -429,13 +504,17 @@ jobs:
     fast-static-governance:
         name: Fast Static Governance
         runs-on: ubuntu-latest
-        needs: validate-matrix
+        needs: [validate-matrix, behavior-doc-static-admission]
         timeout-minutes: 10
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
+            - uses: ./.github/actions/consume-behavior-doc-admission
+              with:
+                  source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - run: node tools/db/migration-doc-lint.mjs
             - run: ./tools/test.sh static-governance --no-deps
@@ -471,6 +550,7 @@ jobs:
         runs-on: ubuntu-latest
         needs:
             [
+                behavior-doc-static-admission,
                 fast-backend,
                 frontend-build,
                 fast-frontend-unit,
@@ -484,6 +564,10 @@ jobs:
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
+            - uses: ./.github/actions/consume-behavior-doc-admission
+              with:
+                  source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
               with:
                   name: fast-backend
@@ -530,7 +614,7 @@ jobs:
     cross-stack-contract:
         name: Cross Stack Contract
         runs-on: ubuntu-latest
-        needs: [plan-pr-risk, fast-frontend-unit, fast-static-governance]
+        needs: [behavior-doc-static-admission, plan-pr-risk, fast-frontend-unit, fast-static-governance]
         if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.cross_stack_contract == 'true'
         timeout-minutes: 20
         steps:
@@ -540,6 +624,10 @@ jobs:
                   node-version: 24.x
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
+            - uses: ./.github/actions/consume-behavior-doc-admission
+              with:
+                  source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
             - run: ./tools/test.sh cross-stack-contract --no-deps
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -564,6 +652,7 @@ jobs:
         needs:
             [
                 validate-matrix,
+                behavior-doc-static-admission,
                 plan-pr-risk,
                 production-build-artifacts,
                 fast-backend,
@@ -586,6 +675,10 @@ jobs:
                   node-version: 24.x
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
+            - uses: ./.github/actions/consume-behavior-doc-admission
+              with:
+                  source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
             - uses: ./.github/actions/consume-production-build
               with:
@@ -606,6 +699,7 @@ jobs:
                       .tmp/acceptance/**
                       .tmp/fixtures/*/homogeneous-two-node/**
                       .tmp/runtime/integration.json
+                      .tmp/runtime-scenario-host/**
                       .tmp/scale/**
                       .tmp/release-evidence/rights-v3-test-matrix.json
                       .tmp/release-evidence/jobs/**
@@ -613,14 +707,18 @@ jobs:
     ci-summary:
         name: CI Summary
         runs-on: ubuntu-latest
-        needs: [fast-summary, integration-runtime]
-        if: always() && github.event_name != 'pull_request'
+        needs: [behavior-doc-static-admission, fast-summary, integration-runtime]
+        if: always() && needs.behavior-doc-static-admission.result == 'success' && github.event_name != 'pull_request'
         timeout-minutes: 70
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
+            - uses: ./.github/actions/consume-behavior-doc-admission
+              with:
+                  source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
               with:
                   name: fast-summary
@@ -645,7 +743,7 @@ jobs:
     endpoint-depth-runtime:
         name: Endpoint Depth Runtime
         runs-on: ubuntu-latest
-        needs: [plan-pr-risk, production-build-artifacts, integration-runtime]
+        needs: [behavior-doc-static-admission, plan-pr-risk, production-build-artifacts, integration-runtime]
         if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.endpoint_depth_runtime == 'true'
         timeout-minutes: 35
         env:
@@ -664,6 +762,10 @@ jobs:
                   node-version: 24.x
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
+            - uses: ./.github/actions/consume-behavior-doc-admission
+              with:
+                  source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
             - uses: ./.github/actions/consume-production-build
               with:
@@ -687,7 +789,7 @@ jobs:
     release-public:
         name: Release Public
         runs-on: ubuntu-latest
-        needs: [plan-pr-risk, production-build-artifacts, integration-runtime]
+        needs: [behavior-doc-static-admission, plan-pr-risk, production-build-artifacts, integration-runtime]
         if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.release_public == 'true'
         timeout-minutes: 25
         steps:
@@ -704,6 +806,10 @@ jobs:
                   node-version: 24.x
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
+            - uses: ./.github/actions/consume-behavior-doc-admission
+              with:
+                  source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
             - uses: ./.github/actions/consume-production-build
               with:
@@ -732,7 +838,7 @@ jobs:
     security-runtime:
         name: Security Runtime
         runs-on: ubuntu-latest
-        needs: [plan-pr-risk, production-build-artifacts, integration-runtime]
+        needs: [behavior-doc-static-admission, plan-pr-risk, production-build-artifacts, integration-runtime]
         if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.security_runtime == 'true'
         timeout-minutes: 40
         steps:
@@ -749,6 +855,10 @@ jobs:
                   node-version: 24.x
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
+            - uses: ./.github/actions/consume-behavior-doc-admission
+              with:
+                  source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
             - uses: ./.github/actions/consume-production-build
               with:
@@ -774,25 +884,34 @@ jobs:
                       .tmp/release-evidence/security-depth-summary.json
                       .tmp/release-evidence/perception-v2-release-evidence.json
                       .tmp/release-evidence/jobs/**
+                      .tmp/runtime-scenario-host/**
                       .tmp/security/**
 
     security-static-fuzz:
         name: Security Static Fuzz
         runs-on: ubuntu-latest
-        needs: [plan-pr-risk, frontend-build]
+        needs: [behavior-doc-static-admission, plan-pr-risk, frontend-build]
         if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.security_static_fuzz == 'true'
-        timeout-minutes: 20
+        timeout-minutes: 30
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+              with:
+                  dotnet-version: 10.0.x
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
+            - uses: ./.github/actions/consume-behavior-doc-admission
+              with:
+                  source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
               with:
                   name: frontend-build
                   path: .
             - run: ./tools/test.sh wasm-fuzz-regression --no-deps
             - run: ./tools/test.sh perception-v2-redteam-pr --no-deps
+            - run: ./tools/test.sh perception-character-v3-release-gate --no-deps
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
               if: always()
               with:
@@ -802,6 +921,7 @@ jobs:
                   include-hidden-files: true
                   path: |
                       .tmp/fuzz/**
+                      .tmp/security/perception-character-v3/release-gate/**
                       .tmp/security/perception-v2/**
                       .tmp/release-evidence/fuzz-seeds.json
                       .tmp/release-evidence/jobs/**
@@ -812,7 +932,7 @@ jobs:
     browser-contract:
         name: Browser Contract
         runs-on: ubuntu-latest
-        needs: [validate-matrix, plan-pr-risk, production-build-artifacts]
+        needs: [validate-matrix, behavior-doc-static-admission, plan-pr-risk, production-build-artifacts]
         if: >-
             github.event_name == 'workflow_dispatch' ||
             (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) ||
@@ -846,6 +966,10 @@ jobs:
                   node-version: 24.x
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
+            - uses: ./.github/actions/consume-behavior-doc-admission
+              with:
+                  source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
             - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
               with:
@@ -905,7 +1029,7 @@ jobs:
     resilience-runtime:
         name: Resilience Runtime
         runs-on: ubuntu-latest
-        needs: [plan-pr-risk, production-build-artifacts, integration-runtime]
+        needs: [behavior-doc-static-admission, plan-pr-risk, production-build-artifacts, integration-runtime]
         if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.resilience_runtime == 'true'
         timeout-minutes: 35
         steps:
@@ -922,6 +1046,10 @@ jobs:
                   node-version: 24.x
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
+            - uses: ./.github/actions/consume-behavior-doc-admission
+              with:
+                  source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
             - uses: ./.github/actions/consume-production-build
               with:
@@ -940,13 +1068,14 @@ jobs:
                   path: |
                       .tmp/fault-injection/**
                       .tmp/runtime/resilience.json
+                      .tmp/runtime-scenario-host/**
                       .tmp/release-evidence/aot-cache-resilience-summary.json
                       .tmp/release-evidence/jobs/**
 
     load-smoke:
         name: Load Smoke
         runs-on: ubuntu-latest
-        needs: [plan-pr-risk, production-build-artifacts, integration-runtime]
+        needs: [behavior-doc-static-admission, plan-pr-risk, production-build-artifacts, integration-runtime]
         if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.load_smoke == 'true'
         timeout-minutes: 35
         steps:
@@ -963,6 +1092,10 @@ jobs:
                   node-version: 24.x
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
+            - uses: ./.github/actions/consume-behavior-doc-admission
+              with:
+                  source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
             - uses: ./.github/actions/consume-production-build
               with:
@@ -986,7 +1119,7 @@ jobs:
     backend-qps-collectors:
         name: Backend QPS Collector ${{ matrix.shard_id }}
         runs-on: ubuntu-latest
-        needs: [plan-pr-risk, production-build-artifacts]
+        needs: [behavior-doc-static-admission, plan-pr-risk, production-build-artifacts]
         if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.backend_qps_collectors == 'true'
         timeout-minutes: 45
         strategy:
@@ -1009,6 +1142,10 @@ jobs:
                   node-version: 24.x
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
+            - uses: ./.github/actions/consume-behavior-doc-admission
+              with:
+                  source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
             - uses: ./.github/actions/consume-production-build
               with:
@@ -1033,7 +1170,7 @@ jobs:
     backend-qps:
         name: Backend QPS Aggregate
         runs-on: ubuntu-latest
-        needs: [plan-pr-risk, integration-runtime, backend-qps-collectors]
+        needs: [behavior-doc-static-admission, plan-pr-risk, integration-runtime, backend-qps-collectors]
         if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.backend_qps == 'true'
         timeout-minutes: 45
         steps:
@@ -1041,6 +1178,10 @@ jobs:
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
+            - uses: ./.github/actions/consume-behavior-doc-admission
+              with:
+                  source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
               with:
                   pattern: backend-qps-collectors-*
@@ -1065,6 +1206,7 @@ jobs:
         runs-on: ubuntu-latest
         needs:
             [
+                behavior-doc-static-admission,
                 plan-pr-risk,
                 validate-matrix,
                 production-build-artifacts,
@@ -1086,6 +1228,10 @@ jobs:
                   node-version: 24.x
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
+            - uses: ./.github/actions/consume-behavior-doc-admission
+              with:
+                  source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
             - uses: ./.github/actions/consume-production-build
               with:
@@ -1126,6 +1272,7 @@ jobs:
         name: Release Evidence
         runs-on: ubuntu-latest
         needs:
+            - behavior-doc-static-admission
             - coverage-summary
             - fast-backend
             - frontend-build
@@ -1144,13 +1291,17 @@ jobs:
             - load-smoke
             - backend-qps
             - perf-regression
-        if: always()
+        if: always() && needs.behavior-doc-static-admission.result == 'success'
         timeout-minutes: 10
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
+            - uses: ./.github/actions/consume-behavior-doc-admission
+              with:
+                  source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
               with:
                   path: .tmp/downloaded-artifacts
@@ -1176,6 +1327,7 @@ jobs:
         name: Production Summary
         runs-on: ubuntu-latest
         needs:
+            - behavior-doc-static-admission
             - plan-pr-risk
             - validate-matrix
             - production-build-artifacts
@@ -1198,13 +1350,17 @@ jobs:
             - backend-qps
             - perf-regression
             - release-evidence
-        if: always() && (github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.production_summary == 'true')
+        if: always() && needs.behavior-doc-static-admission.result == 'success' && (github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.production_summary == 'true')
         timeout-minutes: 120
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
+            - uses: ./.github/actions/consume-behavior-doc-admission
+              with:
+                  source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
               with:
                   path: .tmp/downloaded-artifacts

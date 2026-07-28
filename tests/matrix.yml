@@ -147,7 +147,7 @@ localProfiles:
               command: tools/test/bundles/build-static.sh
               deadlineWeight: 18
               minimumDeadlineShare: 0.32
-              dependsOn: []
+              dependsOn: [behavior-doc-static-admission]
               members:
                   [
                       frontend-build,
@@ -181,7 +181,7 @@ localProfiles:
               command: tools/test/bundles/backend-tests.sh
               deadlineWeight: 48
               minimumDeadlineShare: 0.7333333333
-              dependsOn: []
+              dependsOn: [behavior-doc-static-admission]
               members:
                   [
                       backend-build-governance,
@@ -231,7 +231,7 @@ localProfiles:
               command: tools/test/bundles/frontend-tests.sh
               deadlineWeight: 34
               minimumDeadlineShare: 0.7333333333
-              dependsOn: []
+              dependsOn: [behavior-doc-static-admission]
               members:
                   [
                       frontend-unit-shard,
@@ -278,7 +278,7 @@ localProfiles:
               command: tools/test/bundles/runtime-browser.sh
               deadlineWeight: 70
               minimumDeadlineShare: 0.7333333333
-              dependsOn: []
+              dependsOn: [behavior-doc-static-admission]
               members:
                   [
                       bootstrap,
@@ -444,6 +444,97 @@ tiers:
       localOnly: false
       nightlyOnly: false
 
+    - id: behavior-doc-static-admission
+      owner: ServerContractAgent
+      executionClass: static-governance
+      qualificationEligible: true
+      command: node tools/docs/behavior-doc-static-admission.mjs
+      outputReceiptSchema: fsusblog.behavior-doc-static-admission-receipt.v1
+      executionDependsOn: [validate-matrix]
+      services: []
+      parallelizable: false
+      exclusiveResources: [behavior-doc-static-admission]
+      phase: 1
+      cost: high
+      resourceClass: cpu
+      cpuWeight: 2
+      memoryWeight: 2
+      minCpuUnits: 1
+      maxParallel: 1
+      executionKey: behavior-doc-static-admission
+      executionVariant: ordinary
+      cacheInputs:
+          [
+              Directory.Build.props,
+              FsusBlog.slnx,
+              config/contracts/behavior-contracts.json,
+              config/contracts/behavior-fact-extractors.json,
+              config/contracts/generated-fact-sections.json,
+              config/development/document-lifecycle.json,
+              config/schemas/doc-claim.schema.json,
+              config/schemas/behavior-doc-static-admission-receipt.schema.json,
+              docs,
+              src/backend,
+              src/core,
+              src/shared,
+              tests/coverage-registry.json,
+              tests/matrix.yml,
+              tools/contracts,
+              tools/docs,
+              tools/fact-extractors,
+              tools/test-matrix/behavior-doc-static-admission-contract.mjs,
+          ]
+      requiresBootstrap: none
+      fixtureProfile: none
+      fixtureCapabilities: []
+      requiresNode: true
+      requiresDotnet: true
+      requiresPlaywright: none
+      cacheProfile: backend
+      timeoutMinutes: 20
+      shardable: false
+      defaultShards: 1
+      risk: critical
+      cadence: pr
+      requiredFor: fast
+      coverage:
+          [
+              behavior-document-static-admission,
+          ]
+      artifacts: [.tmp/behavior-doc-static-admission/receipt.json]
+      evidence:
+          [
+              .tmp/behavior-doc-static-admission/receipt.json,
+              config/contracts,
+              config/schemas,
+              docs,
+              src/backend,
+              src/core,
+              src/shared,
+              tests/tools,
+              tools/contracts,
+              tools/docs,
+              tools/fact-extractors,
+              tools/docs/behavior-doc-static-admission.mjs,
+              tools/docs/behavior-doc-minimal-contract-build.mjs,
+              tools/test-matrix/behavior-doc-static-admission-contract.mjs,
+              tools/test-matrix/local-profile.mjs,
+              tools/run-test-matrix.mjs,
+              .github/actions/consume-behavior-doc-admission/action.yml,
+              config/schemas/behavior-doc-static-admission-receipt.schema.json,
+              tests/tools/behavior-doc-static-admission.test.mjs,
+              tests/matrix.yml,
+              .github/workflows/quality-gate.yml,
+              docs/testing.md,
+          ]
+      ciJob: behavior-doc-static-admission
+      localOnly: false
+      nightlyOnly: false
+      prDefault: true
+      smartGateMode: always
+      retentionClass: must-keep
+      triggerReason: every candidate requires a source-bound BehaviorDoc static admission receipt before any candidate process or output mutation
+
     - id: pr-smart-gate-plan
       owner: ServerContractAgent
       command: node tools/run-test-matrix.mjs ci-pr-plan --out .tmp/pr-plan.json
@@ -483,7 +574,7 @@ tiers:
     - id: production-build-artifacts
       owner: ServerContractAgent
       command: bash tools/test/lanes/production-build-artifacts.sh
-      executionDependsOn: [validate-matrix]
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: false
       exclusiveResources: [build-output, static-web-assets]
@@ -565,7 +656,7 @@ tiers:
       owner: InteropGlueAgent
       command: tools/test/lanes/frontend-build.sh
       outputReceiptSchema: fsusblog.ci.job-result.v1
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: [static-web-assets]
@@ -622,7 +713,7 @@ tiers:
       owner: InteropGlueAgent
       command: tools/test/lanes/frontend-unit-shard.sh
       outputReceiptSchema: fsusblog.ci.job-result.v1
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: [frontend-vitest-unit]
@@ -740,7 +831,7 @@ tiers:
       owner: InteropGlueAgent
       command: tools/test/lanes/frontend-property-model-perf.sh
       outputReceiptSchema: fsusblog.ci.job-result.v1
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -800,7 +891,7 @@ tiers:
       owner: InteropGlueAgent
       command: tools/test/lanes/frontend-runtime-contracts.sh
       outputReceiptSchema: fsusblog.ci.job-result.v1
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -902,6 +993,7 @@ tiers:
               frontend-public-typography,
               frontend-source-index-rule-host,
               csharp-entrypoint-ownership-governance,
+              binary-api-aeds-contract,
           ]
       artifacts:
           [
@@ -939,6 +1031,10 @@ tiers:
               tests/matrix.yml,
               src/frontend/package.json,
               docs/testing/issue-1174-csharp-entrypoint-ownership.md,
+              tools/contracts/FsusBlog.OpenApiObservation/Program.cs,
+              tools/fact-extractors/openapi-aeds/extract.mjs,
+              tools/contracts/check-openapi-sync.mjs,
+              tests/tools/openapi-aeds-observation.test.mjs,
           ]
       ciJob: frontend-static-governance
       localOnly: false
@@ -992,7 +1088,7 @@ tiers:
     - id: backend-build-governance
       owner: ServerContractAgent
       command: tools/test/lanes/backend-build-governance.sh
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: [static-web-assets]
@@ -1511,7 +1607,7 @@ tiers:
       owner: ServerContractAgent
       command: tools/test/lanes/static-governance.sh
       outputReceiptSchema: fsusblog.ci.job-result.v1
-      executionDependsOn: [validate-matrix]
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -1582,6 +1678,10 @@ tiers:
           - per-test-observation-ledger
           - isolated-flaky-observation-lane
           - native-test-governance
+          - behavior-test-evidence-binding
+          - authentication-session-permission
+          - configuration-error-security-policy
+          - article-comment-lifecycle-outbox
       artifacts:
           [
               .tmp/gate-logs,
@@ -2006,6 +2106,31 @@ tiers:
           - tests/backend/Unit/PodBinaryCodecBatchAllocationTests.cs
           - benchmarks/core/PodBinaryCodecBatchProfiler.cs
           - docs/performance-pod-binary-codec-batch.md
+          - src/shared/Contracts/Governance/BehaviorTestKind.cs
+          - src/shared/Contracts/Governance/CoversBehaviorAttribute.cs
+          - tools/contracts/behavior-test.mjs
+          - tools/contracts/behavior-test-binding.mjs
+          - tools/contracts/check-behavior-test-evidence.mjs
+          - config/schemas/behavior-test-evidence.schema.json
+          - tools/test-retention/audit.mjs
+          - tests/tools/behavior-test-binding.test.mjs
+          - tests/tools/test-asset-audit.test.mjs
+          - tests/tools/code-intent.test.mjs
+          - tests/tools/document-lifecycle.test.mjs
+          - tests/tools/test-matrix-topology.test.mjs
+          - config/contracts/behavior-contracts.json
+          - tools/contracts/FsusBlog.AuthSessionObservation/Program.cs
+          - tools/fact-extractors/auth-session-permission/extract.mjs
+          - tools/contracts/lib/auth-session-observation.mjs
+          - tests/tools/auth-session-permission-observation.test.mjs
+          - tools/contracts/FsusBlog.ConfigErrorSecurityObservation/Program.cs
+          - tools/fact-extractors/config-error-security-policy/extract.mjs
+          - tools/contracts/lib/config-error-security-observation.mjs
+          - tests/tools/config-error-security-policy-observation.test.mjs
+          - tools/contracts/FsusBlog.ContentLifecycleObservation/Program.cs
+          - tools/fact-extractors/content-lifecycle/extract.mjs
+          - tools/contracts/lib/content-lifecycle-observation.mjs
+          - tests/tools/content-lifecycle-observation.test.mjs
       ciJob: fast-static-governance
       localOnly: false
       nightlyOnly: false
@@ -2014,7 +2139,7 @@ tiers:
       owner: ServerContractAgent
       command: node --test tests/tools/app-config-local-tuner.test.mjs
       outputReceiptSchema: fsusblog.ci.job-result.v1
-      executionDependsOn: [validate-matrix]
+      executionDependsOn: [validate-matrix, behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -2073,7 +2198,7 @@ tiers:
       owner: ServerContractAgent
       command: tools/test/lanes/public-hydration-fast.sh
       outputReceiptSchema: fsusblog.ci.job-result.v1
-      executionDependsOn: [validate-matrix]
+      executionDependsOn: [validate-matrix, behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -2233,7 +2358,7 @@ tiers:
     - id: coverage-frontend
       owner: InteropGlueAgent
       command: tools/coverage/collect-frontend-coverage.sh
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: [frontend-vitest-unit]
@@ -2453,7 +2578,7 @@ tiers:
       command: tools/test/lanes/bootstrap-acceptance-env.sh
       fixtureProfile: acceptance-representative
       fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend, preview]
       runtimeMode: single
       nodeCount: 1
@@ -2499,7 +2624,7 @@ tiers:
       command: tools/test/lanes/homogeneous-two-node-fixture.sh
       fixtureProfile: acceptance-representative
       fixtureCapabilities: [auth.user.active, public.article.published, session.single-device]
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend]
       runtimeMode: static-role
       nodeCount: 2
@@ -2689,7 +2814,7 @@ tiers:
       command: tools/test/lanes/release-public.sh
       fixtureProfile: public-content-lifecycle
       fixtureCapabilities: [public.article.published]
-      executionDependsOn: [bootstrap]
+      executionDependsOn: [behavior-doc-static-admission, bootstrap]
       services: [backend, preview]
       parallelizable: false
       exclusiveResources: [release-preview]
@@ -2776,7 +2901,7 @@ tiers:
     - id: public-hydration-nightly
       owner: InteropGlueAgent
       command: tools/test/lanes/public-hydration-nightly.sh
-      executionDependsOn: [validate-matrix]
+      executionDependsOn: [validate-matrix, behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -3594,7 +3719,7 @@ tiers:
     - id: ux-viewport-plan-progress
       owner: InteropGlueAgent
       command: node tools/ux/run-viewport-plan-progress.mjs
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -4000,7 +4125,7 @@ tiers:
       command: tools/test/lanes/backend-qps.sh view-count-flush
       fixtureProfile: public-content-lifecycle
       fixtureCapabilities: [public.article.published]
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
       exclusiveResources: []
@@ -4045,7 +4170,7 @@ tiers:
       command: tools/test/lanes/backend-qps.sh visitlog-invalidation
       fixtureProfile: public-content-lifecycle
       fixtureCapabilities: [public.article.published]
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
       exclusiveResources: []
@@ -4089,7 +4214,7 @@ tiers:
       command: tools/test/lanes/backend-qps.sh cache-hit
       fixtureProfile: public-content-lifecycle
       fixtureCapabilities: [public.article.published]
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
       exclusiveResources: []
@@ -4134,7 +4259,7 @@ tiers:
       command: tools/test/lanes/backend-qps.sh comment-cursor
       fixtureProfile: comments-moderation
       fixtureCapabilities: [comment.threaded, public.article.published]
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
       exclusiveResources: []
@@ -4178,7 +4303,7 @@ tiers:
       command: tools/test/lanes/backend-qps.sh hotread
       fixtureProfile: public-content-lifecycle
       fixtureCapabilities: [public.article.published, public.home.featured-hot]
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
       exclusiveResources: []
@@ -4223,7 +4348,7 @@ tiers:
       command: tools/test/lanes/backend-qps.sh cache-miss-singleflight
       fixtureProfile: public-content-lifecycle
       fixtureCapabilities: [public.article.published]
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
       exclusiveResources: []
@@ -4268,7 +4393,7 @@ tiers:
       command: tools/test/lanes/backend-qps.sh risk-filter
       fixtureProfile: auth-security-matrix
       fixtureCapabilities: [auth.user.active, security.risk-escalated]
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
       exclusiveResources: []
@@ -4312,7 +4437,7 @@ tiers:
       command: tools/test/lanes/backend-qps.sh related-reading
       fixtureProfile: public-content-lifecycle
       fixtureCapabilities: [public.article.published]
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
       exclusiveResources: []
@@ -4356,7 +4481,7 @@ tiers:
       command: tools/test/lanes/backend-qps.sh list-pagination
       fixtureProfile: public-content-lifecycle
       fixtureCapabilities: [public.article.published]
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
       exclusiveResources: []
@@ -4399,7 +4524,7 @@ tiers:
       command: tools/test/lanes/backend-qps.sh article-detail-miss
       fixtureProfile: public-content-lifecycle
       fixtureCapabilities: [public.article.published]
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
       exclusiveResources: []
@@ -4444,7 +4569,7 @@ tiers:
       command: tools/test/lanes/backend-qps.sh cache-registry
       fixtureProfile: public-content-lifecycle
       fixtureCapabilities: [public.article.published]
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
       exclusiveResources: []
@@ -4484,7 +4609,7 @@ tiers:
       command: tools/test/lanes/backend-qps.sh cache-invalidation-batch
       fixtureProfile: public-content-lifecycle
       fixtureCapabilities: [public.article.published]
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
       exclusiveResources: []
@@ -4528,7 +4653,7 @@ tiers:
       command: tools/test/lanes/backend-qps.sh index-plan
       fixtureProfile: public-content-lifecycle
       fixtureCapabilities: [public.article.published]
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
       exclusiveResources: []
@@ -4731,7 +4856,7 @@ tiers:
     - id: aeds-compression-profile
       owner: ServerContractAgent
       command: tools/test/lanes/aeds-compression-profile.sh
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -5178,7 +5303,7 @@ tiers:
     - id: backend-perf
       owner: ServerContractAgent
       command: tools/test/lanes/perf-regression.sh
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: false
       exclusiveResources: [benchmark-window]
@@ -5230,7 +5355,7 @@ tiers:
     - id: backend-benchmark-regression
       owner: ServerContractAgent
       command: tools/test/lanes/backend-benchmark-regression.sh
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: false
       exclusiveResources: [benchmark-window]
@@ -5297,7 +5422,7 @@ tiers:
     - id: browser-performance-regression
       owner: InteropGlueAgent
       command: tools/test/lanes/browser-performance-regression.sh
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -5453,7 +5578,7 @@ tiers:
     - id: soak-long-scheduled
       owner: ServerContractAgent
       command: FSUSBLOG_SOAK_MODE=72h tools/test/lanes/soak.sh
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -5484,7 +5609,7 @@ tiers:
     - id: soak-long-evidence-import
       owner: ServerContractAgent
       command: FSUSBLOG_SOAK_MODE=72h FSUSBLOG_SOAK_REQUIRE_IMPORTED_EVIDENCE=1 tools/test/lanes/soak.sh
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -5518,7 +5643,7 @@ tiers:
       command: tools/test/lanes/security-authenticated-dast.sh
       fixtureProfile: auth-security-matrix
       fixtureCapabilities: [auth.user.active, security.risk-escalated, session.multi-device]
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: [backend, frontend]
       parallelizable: false
       exclusiveResources: [dast-target, database-writes]
@@ -5553,7 +5678,7 @@ tiers:
       command: npm --prefix src/frontend run check:security:csrf-browser-matrix
       fixtureProfile: auth-security-matrix
       fixtureCapabilities: [auth.user.active, session.multi-device]
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: [frontend, backend]
       parallelizable: true
       exclusiveResources: []
@@ -5585,7 +5710,7 @@ tiers:
     - id: risk-control-test-matrix
       owner: ServerContractAgent
       command: tools/test/lanes/risk-control-test-matrix.sh
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -5628,7 +5753,7 @@ tiers:
     - id: perception-v2-test-matrix
       owner: ServerContractAgent
       command: tools/test/lanes/perception-v2-test-matrix.sh
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -5675,7 +5800,7 @@ tiers:
     - id: privacy-zk-comment-matrix
       owner: ServerContractAgent
       command: tools/test/lanes/privacy-zk-comment-matrix.sh
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: false
       exclusiveResources: [benchmark-window]
@@ -5789,7 +5914,7 @@ tiers:
     - id: perception-v2-redteam-pr
       owner: ServerContractAgent
       command: tools/test/lanes/perception-v2-redteam.sh pr
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -5824,7 +5949,7 @@ tiers:
     - id: perception-character-v3-release-gate
       owner: ServerContractAgent
       command: tools/test/lanes/perception-character-v3-release-gate.sh
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: [perception-character-v3-release-corpus]
@@ -6453,7 +6578,7 @@ tiers:
       owner: ServerContractAgent
       executionMode: execute
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-soak-min
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -6486,7 +6611,7 @@ tiers:
       owner: ServerContractAgent
       executionMode: execute
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-load-peak
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -6523,7 +6648,7 @@ tiers:
       owner: ServerContractAgent
       executionMode: execute
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-load-burst
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -6560,7 +6685,7 @@ tiers:
       owner: ServerContractAgent
       executionMode: execute
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-data-scale-m
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -6597,7 +6722,7 @@ tiers:
       owner: ServerContractAgent
       executionMode: execute
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-mutation-critical-slice
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -6642,7 +6767,7 @@ tiers:
       owner: ServerContractAgent
       executionMode: execute
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-memory-leak-budget
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -6675,7 +6800,7 @@ tiers:
       owner: ServerContractAgent
       executionMode: execute
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-open-handle-budget
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -6707,7 +6832,7 @@ tiers:
     - id: release-final-flaky-governance
       owner: ServerContractAgent
       command: node tools/ci/check-flaky-registry.mjs --release-final
-      executionDependsOn: [validate-matrix]
+      executionDependsOn: [validate-matrix, behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -6780,7 +6905,7 @@ tiers:
     - id: test-quality-lint
       owner: ServerContractAgent
       command: tools/test/lanes/test-quality-lint.sh
-      executionDependsOn: [validate-matrix]
+      executionDependsOn: [validate-matrix, behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -6822,7 +6947,7 @@ tiers:
     - id: native-smoke
       owner: WasmEngineAgent
       command: node tools/test/run-native-tests.mjs --profile smoke
-      executionDependsOn: [validate-matrix]
+      executionDependsOn: [validate-matrix, behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: [native-cmake-build]
@@ -6862,7 +6987,7 @@ tiers:
     - id: native-fuzz-sanitizer
       owner: WasmEngineAgent
       command: node tools/test/run-native-tests.mjs --profile fuzz-sanitizer
-      executionDependsOn: [validate-matrix]
+      executionDependsOn: [validate-matrix, behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: [native-cmake-build]
@@ -7021,6 +7146,7 @@ tiers:
       fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
       executionDependsOn:
           [
+              behavior-doc-static-admission,
               fast,
               coverage-gate,
               production-build-artifacts,
@@ -7559,7 +7685,7 @@ tiers:
     - id: backend-test-governance
       owner: ServerContractAgent
       command: tools/test/lanes/backend-test-governance.sh
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -7597,7 +7723,7 @@ tiers:
     - id: backend-mutation
       owner: ServerContractAgent
       command: tools/test/lanes/backend-mutation.sh
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: false
       exclusiveResources: [stryker]
@@ -7639,7 +7765,7 @@ tiers:
     - id: backend-mutation-changed-critical
       owner: ServerContractAgent
       command: tools/test/lanes/backend-mutation-changed-critical.sh
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: false
       serialReason: one generated closure owns the repository Stryker process and run-bound authority
@@ -7725,7 +7851,7 @@ tiers:
     - id: perception-v2-redteam-nightly
       owner: ServerContractAgent
       command: tools/test/lanes/perception-v2-redteam.sh nightly
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -7760,7 +7886,7 @@ tiers:
     - id: cross-stack-contract
       owner: ServerContractAgent
       command: tools/test/lanes/cross-stack-contract.sh static
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: []

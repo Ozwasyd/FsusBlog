@@ -7,7 +7,8 @@ import { fileURLToPath } from 'node:url'
 import { parseMatrix, tierExecutionDependencies } from './test-matrix/parse-matrix.mjs'
 import { buildAggregatePlan } from './test-matrix/aggregate-plan.mjs'
 
-const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
+const directFile = fileURLToPath(import.meta.url)
+const root = path.resolve(path.join(path.dirname(directFile), '..'))
 const defaultPlanPath = path.join(root, '.tmp/ci-plan.json')
 const defaultWorkflowPath = path.join(root, '.github/workflows/quality-gate.yml')
 const matrixPath = process.env.FSUSBLOG_MATRIX_FILE
@@ -65,14 +66,62 @@ function usesAction(text, action, majorVersion) {
   return new RegExp(`uses:\\s*${escapedAction}@(?:${escapedVersion}|[a-f0-9]{40}\\s*#\\s*${escapedVersion})(?:\\s|$)`, 'u').test(text)
 }
 
+function parseActionSteps(lines) {
+  const steps = []
+  for (let index = 0; index < lines.length; index += 1) {
+    const stepMatch = lines[index].match(/^(\s*)-\s+uses:\s*([^\s#]+)(?:\s+#.*)?$/u)
+    if (!stepMatch) continue
+
+    const stepIndent = stepMatch[1].length
+    const step = { uses: stepMatch[2], inputs: [] }
+    for (let nestedIndex = index + 1; nestedIndex < lines.length; nestedIndex += 1) {
+      const line = lines[nestedIndex]
+      if (line.trim() === '') continue
+      const indent = line.match(/^(\s*)/u)?.[1].length ?? 0
+      if (indent <= stepIndent) break
+
+      const withMatch = line.match(/^(\s*)with:\s*$/u)
+      if (!withMatch) continue
+      const withIndent = withMatch[1].length
+      let inputIndent = null
+      for (let inputIndex = nestedIndex + 1; inputIndex < lines.length; inputIndex += 1) {
+        const inputLine = lines[inputIndex]
+        if (inputLine.trim() === '') continue
+        const currentIndent = inputLine.match(/^(\s*)/u)?.[1].length ?? 0
+        if (currentIndent <= withIndent) break
+        const inputMatch = inputLine.match(/^\s*([A-Za-z0-9_-]+):\s*(.*?)\s*$/u)
+        if (!inputMatch) continue
+        if (inputIndent == null) inputIndent = currentIndent
+        if (currentIndent !== inputIndent) continue
+        step.inputs.push({
+          key: inputMatch[1],
+          value: normalizeYamlScalar(inputMatch[2])
+        })
+      }
+      break
+    }
+    steps.push(step)
+  }
+  return steps
+}
+
 function annotateWorkflowJob(job) {
   const text = job.lines.join('\n')
+  const actionSteps = parseActionSteps(job.lines)
+  const setupNodeSteps = actionSteps.filter((step) => step.uses.startsWith('actions/setup-node@'))
   job.uploadArtifactCount = [...text.matchAll(/uses:\s*actions\/upload-artifact@/g)].length
   job.hiddenUploadArtifactCount = [...text.matchAll(/include-hidden-files:\s*true/g)].length
-  job.hasSetupNode = /uses:\s*actions\/setup-node@/.test(text)
+  job.hasSetupNode = setupNodeSteps.length > 0
   job.hasSetupDotnet = /uses:\s*actions\/setup-dotnet@/.test(text)
-  job.nodeCacheDependencyPaths = new Set([...text.matchAll(/cache-dependency-path:\s*(.*?)\s*$/gm)].map((match) => normalizeYamlScalar(match[1])))
-  job.hasNpmLockCache = /cache:\s*npm/.test(text) && job.nodeCacheDependencyPaths.has('src/frontend/package-lock.json')
+  job.nodeCacheDependencyPaths = new Set(setupNodeSteps.flatMap((step) =>
+    step.inputs
+      .filter((input) => input.key === 'cache-dependency-path')
+      .map((input) => input.value)))
+  job.hasNpmLockCache = setupNodeSteps.some((step) => {
+    const inputs = new Map(step.inputs.map((input) => [input.key, input.value]))
+    return inputs.get('cache') === 'npm'
+      && inputs.get('cache-dependency-path') === 'src/frontend/package-lock.json'
+  })
   job.hasNugetCache = usesAction(text, 'actions/cache', 'v4')
     && /path:\s*~\/\.nuget\/packages/.test(text)
     && /key:\s*nuget-\$\{\{\s*runner\.os\s*\}\}-\$\{\{\s*hashFiles\(/.test(text)
@@ -114,6 +163,21 @@ function annotateWorkflowJob(job) {
     && [...job.uploadPaths].some(value => normalizeArtifactPath(value).startsWith('.tmp/ci-production-build'))
   job.exportsProductionReceiptIdentity = /source_fingerprint:[\s\S]*receipt_digest:/u.test(text)
   job.referencesValidateMatrixOutputs = /needs\.validate-matrix\.outputs\./.test(text)
+  job.behaviorDocAdmissionConsumerSteps = actionSteps.filter((step) =>
+    step.uses === './.github/actions/consume-behavior-doc-admission')
+  const behaviorDocConsumer = job.behaviorDocAdmissionConsumerSteps[0]
+  const behaviorDocConsumerInputs = behaviorDocConsumer?.inputs ?? []
+  const behaviorDocConsumerInputMap = new Map(
+    behaviorDocConsumerInputs.map((input) => [input.key, input.value])
+  )
+  job.behaviorDocAdmissionConsumerInputKeys = behaviorDocConsumerInputs.map((input) => input.key)
+  job.consumesBehaviorDocAdmission =
+    job.behaviorDocAdmissionConsumerSteps.length === 1
+    && behaviorDocConsumerInputs.length === 2
+    && behaviorDocConsumerInputMap.get('source-fingerprint')
+      === '${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}'
+    && behaviorDocConsumerInputMap.get('receipt-digest')
+      === '${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}'
   return job
 }
 
@@ -145,7 +209,7 @@ function validateMatrixCoverageDimensions(tiers, errors) {
   }
 }
 
-function parseWorkflow(text) {
+export function parseWorkflow(text) {
   const jobs = new Map()
   let inJobs = false
   let jobsIndent = null
@@ -709,6 +773,71 @@ function validateBrowserWorkflowTopology(workflowJobs, errors) {
   }
 }
 
+export function validateBehaviorDocStaticAdmissionTopology(workflowJobs, errors) {
+  const admissionId = 'behavior-doc-static-admission'
+  const admission = workflowJobs.get(admissionId)
+  if (!admission) {
+    errors.push('workflow is missing the unconditional behavior-doc-static-admission job')
+    return
+  }
+  if (admission.needs.size !== 1 || !admission.needs.has('validate-matrix')) {
+    errors.push('behavior-doc-static-admission must depend only on validate-matrix')
+  }
+  const admissionCommand = admission.runs.filter((command) =>
+    /(?:^|\s)(?:\.\/)?tools\/test\.sh\s+ci-tier\s+behavior-doc-static-admission\s+--no-deps(?:\s|$)/u
+      .test(command))
+  if (admissionCommand.length !== 1) {
+    errors.push('behavior-doc-static-admission must execute its unique matrix tier exactly once')
+  }
+  if (![...admission.uploadPaths].some((uploadPath) =>
+    pathPatternCovers(uploadPath, '.tmp/behavior-doc-static-admission/receipt.json'))) {
+    errors.push('behavior-doc-static-admission must upload its sealed receipt')
+  }
+  const forbiddenAdmissionOperations = admission.runs.filter((command) =>
+    /(?:docker|podman|playwright\s+install|npm\s+--prefix\s+src\/frontend\s+ci|bootstrap-acceptance-env|tools\/test\/bundles\/)/u
+      .test(command))
+  if (forbiddenAdmissionOperations.length > 0) {
+    errors.push(
+      `behavior-doc-static-admission must remain static and fixture-free: ${forbiddenAdmissionOperations.join('; ')}`
+    )
+  }
+
+  const nonCandidates = new Set(['validate-matrix', 'plan-pr-risk', admissionId])
+  for (const [jobId, job] of workflowJobs) {
+    if (nonCandidates.has(jobId)) continue
+    const source = job.lines.join('\n')
+    if (!job.needs.has(admissionId)) {
+      errors.push(`workflow candidate job ${jobId} must depend on ${admissionId}`)
+    }
+    if (!job.consumesBehaviorDocAdmission) {
+      errors.push(`workflow candidate job ${jobId} must verify the sealed ${admissionId} receipt`)
+    }
+    const consumerInputKeys = [...job.behaviorDocAdmissionConsumerInputKeys].sort()
+    if (job.behaviorDocAdmissionConsumerSteps.length === 1
+      && (consumerInputKeys.length !== 2
+        || consumerInputKeys[0] !== 'receipt-digest'
+        || consumerInputKeys[1] !== 'source-fingerprint')) {
+      errors.push(
+        `workflow candidate job ${jobId} BehaviorDoc consumer must pass exactly`
+        + ` receipt-digest and source-fingerprint; found ${consumerInputKeys.join(', ') || 'none'}`
+      )
+    }
+    if (job.npmCiCommands.length > 0 && !job.hasNpmLockCache) {
+      errors.push(
+        `workflow candidate job ${jobId} must keep the frontend npm cache inputs`
+        + ' on its actions/setup-node step'
+      )
+    }
+    if (/^        if:\s*always\(\)/mu.test(source)
+      && !/needs\.behavior-doc-static-admission\.result\s*==\s*'success'/u.test(source)) {
+      errors.push(
+        `workflow candidate job ${jobId} uses always() without requiring`
+        + ' behavior-doc-static-admission result success'
+      )
+    }
+  }
+}
+
 function main() {
   const planPath = path.resolve(root, process.argv[2] ?? defaultPlanPath)
   const workflowPath = path.resolve(root, process.argv[3] ?? defaultWorkflowPath)
@@ -724,6 +853,7 @@ function main() {
   }
   validateProductionBuildFanout(workflowText, workflowJobs, errors)
   validateBrowserWorkflowTopology(workflowJobs, errors)
+  validateBehaviorDocStaticAdmissionTopology(workflowJobs, errors)
   validateMatrixCoverageDimensions(matrix.tiers, errors)
 
   const isWorkflowRequiredTier = (tierId) => {
@@ -854,9 +984,11 @@ function main() {
   console.log(`[workflow-matrix-sync] ok (${requiredPlanJobs.length} required jobs)`)
 }
 
-try {
-  main()
-} catch (error) {
-  console.error(`[workflow-matrix-sync] ${error.message}`)
-  process.exit(1)
+if (process.argv[1] && path.resolve(process.argv[1]) === directFile) {
+  try {
+    main()
+  } catch (error) {
+    console.error(`[workflow-matrix-sync] ${error.message}`)
+    process.exit(1)
+  }
 }

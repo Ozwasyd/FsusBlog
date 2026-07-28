@@ -310,8 +310,10 @@ export function extract(context)
 
   if (failureReasons.length > 0) return failResult(failureReasons)
 
-  // Project facts as top-level observations with stable keys matching required fact IDs.
-  const observations = {
+  const transitions = Object.fromEntries(
+    revocation.transitions.map(({ id, ...transition }) => [id, transition])
+  )
+  const observationFacts = {
     'auth.authentication-methods': facts['auth.authentication-methods'],
     'auth.authentication-strengths': facts['auth.authentication-strengths'],
     'auth.session.duration-modes': facts['auth.session.duration-modes'],
@@ -324,11 +326,17 @@ export function extract(context)
     'auth.passkey.states': facts['auth.passkey.states'],
     'auth.mfa.states': facts['auth.mfa.states'],
     'auth.recovery.states': facts['auth.recovery.states'],
-    'auth.credential-session-revocation': facts['auth.credential-session-revocation'],
+    'auth.credential-session-revocation': {
+      transitions,
+      failureModes: revocation.failureModes
+    },
     'admin.permissions.all': facts['admin.permissions.all'],
     'admin.permissions.read-only': facts['admin.permissions.read-only'],
     'admin.permissions.partial-policy': facts['admin.permissions.partial-policy'],
-    'admin.disabled-access': facts['admin.disabled-access'],
+    'admin.disabled-access': facts['admin.disabled-access']
+  }
+  const observations = {
+    facts: observationFacts,
     observationDigest: String(observation.observationDigest),
     artifactDigest,
     source: String(observation.source ?? 'compiled-production-constants')
