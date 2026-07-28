@@ -27,8 +27,6 @@ const files = {
   demoData: read('docs/development/demo-data.md'),
   troubleshooting: read('docs/troubleshooting.md'),
   start: read('tools/dev/start.sh'),
-  seed: read('tools/dev/seed-demo-data.sh'),
-  seedSql: read('tools/dev/demo-seed.sql'),
   compose: read('ops/development/dependencies.compose.yml'),
   env: read('.env.example'),
   appsettingsDev: read('src/backend/appsettings.Development.example.json'),
@@ -67,21 +65,6 @@ if (files.start.includes('--seed-demo') || files.start.includes('SEED_DEMO')) {
 }
 if (!/FIXTURE_PROFILE="none"|FIXTURE_PROFILE=none/u.test(files.start)) {
   errors.push('tools/dev/start.sh default fixture profile must be none')
-}
-
-for (const token of [
-  'demo-admin',
-  'demo-reader',
-  'anonymous_account',
-  'admin_principal',
-  'article_revision',
-  'article_rights_policy',
-  'article_rights_snapshot',
-  'Public Preview Walkthrough',
-  'pending moderation',
-  'demo-security-event'
-]) {
-  includes('tools/dev/demo-seed.sql', files.seedSql, token)
 }
 
 for (const token of [
@@ -144,9 +127,6 @@ for (const token of [
   includes('docs/configuration/appsettings-authority.md', files.configurationAuthority, token)
 }
 
-if (/(gmail|qq\.com|163\.com|outlook\.com|fsus\.blog|ozwasyd\.com|192\.168\.|10\.0\.|172\.16\.)/i.test(files.seedSql)) {
-  errors.push('tools/dev/demo-seed.sql appears to contain real-looking contact, domain, or IP data')
-}
 
 if (errors.length > 0) {
   for (const error of errors) {

@@ -47,6 +47,7 @@ export function buildPublicContentPlan(capabilities = []) {
   return Object.freeze({
     strategy: STRATEGY,
     producerId: PRODUCER_ID,
+    enforceVariantEvidence: true,
     capabilities: Object.freeze(sorted),
     mode: has('public.empty')
       ? 'public-empty'
@@ -108,6 +109,14 @@ export async function preparePublicContent(context, signal) {
     throw new Error('public-content producer invoked with zero public capabilities')
   }
   const plan = buildPublicContentPlan(capabilities)
+  const selectedVariants = context.variantPlan?.variants ?? []
+  const nonCanonical = selectedVariants.filter((item) => item.validityClass !== 'canonical-positive')
+  if (nonCanonical.length) {
+    if (nonCanonical.length !== selectedVariants.length) {
+      throw new Error('public-content cannot mix canonical and non-canonical fixture variants')
+    }
+    return prepareNonCanonicalPublicContent(context, nonCanonical)
+  }
 
   // Cover assets for featured/hot (static fixtures only — not data authority).
   await materializeCoverAssets(context).catch(() => undefined)
@@ -155,7 +164,8 @@ export async function preparePublicContent(context, signal) {
     }
   }
 
-  const observations = normalizeObservations(raw.observations ?? raw.Observations)
+  const observations = normalizeObservations(raw.observations ?? raw.Observations, context)
+  assertVariantSemantics(observations.database?.entities ?? [], context)
   // Stamp execution namespace onto observations so receipt merge never sees a mismatch.
   const ns = context?.namespace ?? context?.plan?.executionIdentity?.namespace ?? null
   if (ns) {
@@ -166,21 +176,93 @@ export async function preparePublicContent(context, signal) {
 
   return {
     producerId: PRODUCER_ID,
+    enforceVariantEvidence: true,
     strategy: STRATEGY,
     implementation: adapter
       ? 'injected-publicContentAdapter'
       : 'src/backend/Services/Fixtures/PublicContentFixtureSeeder.cs',
     plan,
-    entityIdentities: normalizeEntityIdentities(raw.entityIdentities ?? raw.EntityIdentities),
+    variantIds: Object.freeze(context.variantPlan.variants.map((item) => item.id).sort()),
+    producerVariantPlanDigest: context.variantPlan.producerVariantPlanDigest,
+    entityIdentities: normalizeEntityIdentities(
+      raw.entityIdentities ?? raw.EntityIdentities,
+      context,
+      observations.database?.entities ?? []
+    ),
     observations,
     databaseObservation: observations.database,
     redisObservation: observations.redis,
     cacheObservation: observations.cache,
     projection: raw.projection ?? raw.Projection ?? null,
     providedCapabilities: plan.capabilities,
+    variantEvidence: buildPublicVariantEvidence(observations, context),
     postconditions: [],
     cleanupContract: { kind: 'owned-namespace', ownerPrefix: buildOwnerPrefix(context) }
   }
+}
+
+function buildPublicVariantEvidence(observations, context) {
+  const entities = observations.database?.entities ?? []
+  const articleIds = entities.filter((item) => item.kind === 'article').map((item) => String(item.id))
+  return Object.freeze({
+    variants: Object.freeze((context.variantPlan?.variants ?? []).map((variant) => {
+      const direct = entities.filter((item) => item.variantId === variant.id).map((item) => String(item.id))
+      // A public projection/revision/search capability is observed against the
+      // same live article rows; receipt still carries the variant-specific proof.
+      const entityIds = direct.length ? direct : (variant.capabilityId.startsWith('public.') ? articleIds : [])
+      return Object.freeze({
+        variantId: variant.id,
+        source: 'live-service',
+        entityIds: Object.freeze(entityIds),
+        emptyVerified: variant.capabilityId === 'public.empty' && entities.length === 0,
+        expectedBoundary: variant.expectedBoundary
+      })
+    }))
+  })
+}
+
+/**
+ * Legacy and negative fixtures have no write fallback. Their owner must supply a
+ * dedicated boundary adapter with live evidence; this prevents capability-only
+ * relabelling of canonical rows while #1713/#1718 own their concrete generators.
+ */
+async function prepareNonCanonicalPublicContent(context, variants) {
+  const adapter = context.handles?.publicContentVariantAdapter
+  if (!adapter || typeof adapter.prepare !== 'function') {
+    throw new Error('non-canonical public-content fixture requires a dedicated variant adapter')
+  }
+  const evidence = await adapter.prepare({ context, variants: Object.freeze([...variants]) })
+  if (!evidence || typeof evidence !== 'object' || evidence.source !== 'live-service') {
+    throw new Error('non-canonical public-content variant adapter requires live-service evidence')
+  }
+  for (const variant of variants) {
+    const item = evidence.variants?.find((candidate) => candidate?.variantId === variant.id)
+    if (!item) throw new Error(`non-canonical variant ${variant.id} has no dedicated evidence`)
+    if (variant.validityClass === 'negative-invalid'
+      && (item.rejected !== true
+        || item.injectedSentinelId !== variant.injectedSentinelId
+        || item.injectedSentinelValue !== variant.injectedSentinelValue
+        || !Array.isArray(item.invariantIds)
+        || item.invariantIds.length !== 1
+        || item.invariantIds[0] !== variant.expectedInvariantId)) {
+      throw new Error(`negative variant ${variant.id} requires exact rejected invariant ${variant.expectedInvariantId}`)
+    }
+    if (variant.validityClass === 'migration-legacy'
+      && (!Array.isArray(item.entityIdentities) || item.entityIdentities.length === 0)) {
+      throw new Error(`migration variant ${variant.id} requires observed legacy entities`)
+    }
+  }
+  return Object.freeze({
+    producerId: PRODUCER_ID,
+    strategy: STRATEGY,
+    implementation: 'dedicated-public-content-variant-adapter',
+    variantIds: Object.freeze(variants.map((item) => item.id).sort()),
+    producerVariantPlanDigest: context.variantPlan.producerVariantPlanDigest,
+    entityIdentities: Object.freeze(evidence.variants.flatMap((item) => item.entityIdentities ?? [])),
+    observations: evidence.observations ?? null,
+    providedCapabilities: Object.freeze(variants.map((item) => item.capabilityId).sort()),
+    variantEvidence: evidence
+  })
 }
 
 export async function verifyPublicContent(context, producerReceipt) {
@@ -316,13 +398,13 @@ async function invokeLocalCompositionRoot(context, plan, signal) {
       const detail = payload?.detail ?? payload?.title ?? payload?.message ?? text.slice(0, 400)
       throw new Error(`public-content composition root failed HTTP ${response.status}: ${detail}`)
     }
-    return normalizeCompositionPayload(payload)
+    return normalizeCompositionPayload(payload, context)
   } finally {
     signal?.removeEventListener?.('abort', onAbort)
   }
 }
 
-function normalizeCompositionPayload(payload) {
+function normalizeCompositionPayload(payload, context) {
   if (!payload || typeof payload !== 'object') return payload
   // Accept both camelCase (default System.Text.Json) and PascalCase.
   const observations = payload.observations ?? payload.Observations
@@ -331,23 +413,62 @@ function normalizeCompositionPayload(payload) {
     strategy: payload.strategy ?? payload.Strategy ?? STRATEGY,
     mode: payload.mode ?? payload.Mode,
     entityIdentities,
-    observations: normalizeObservations(observations),
+    observations: normalizeObservations(observations, context),
     projection: payload.projection ?? payload.Projection ?? null,
     providedCapabilities: payload.providedCapabilities ?? payload.ProvidedCapabilities ?? []
   }
 }
 
-function normalizeEntityIdentities(items) {
-  // Receipt validator (producer-receipt.mjs) only allows kind/id/handle/digest.
-  // capabilityHint lives in observations.database.entities where postconditions use it.
+function resolveEntityVariantId(item, context) {
+  const explicit = item.variantId ?? item.VariantId ?? null
+  const hint = item.capabilityHint ?? item.CapabilityHint ?? item.postconditionId ?? item.PostconditionId ?? null
+  const variants = context?.variantPlan?.variants ?? []
+  const matches = explicit
+    ? variants.filter((variant) => variant.id === explicit)
+    : variants.filter((variant) => variant.capabilityId === hint || variant.postconditionIds.includes(hint))
+  if (matches.length !== 1) {
+    throw new Error(`public-content entity ${item.id ?? item.Id ?? '<missing>'} must map to exactly one typed fixture variant`)
+  }
+  return matches[0].id
+}
+
+/** The catalog is a data-validity contract, not a receipt label. */
+function assertVariantSemantics(entities, context) {
+  const variants = new Map((context?.variantPlan?.variants ?? []).map((item) => [item.id, item]))
+  const sentinels = new Map((context?.catalogs?.variant?.sentinels ?? []).map((item) => [item.id, item.value]))
+  for (const entity of entities) {
+    const variantId = entity.variantId
+    const variant = variants.get(variantId)
+    if (!variant) throw new Error(`public-content entity ${entity.id ?? '<missing>'} has no typed fixture variant`)
+    const serializedFields = JSON.stringify(entity.fields ?? {})
+    if (variant.validityClass === 'canonical-positive') {
+      for (const sentinelId of variant.forbiddenSentinelIds ?? []) {
+        const value = sentinels.get(sentinelId)
+        if (value && serializedFields.includes(value)) {
+          throw new Error(`canonical-positive entity ${entity.id ?? '<missing>'} contains forbidden sentinel ${sentinelId}`)
+        }
+      }
+    }
+    if (variant.validityClass !== 'canonical-positive') {
+      throw new Error(`public-content canonical writer cannot claim non-canonical variant ${variantId}`)
+    }
+  }
+}
+
+function normalizeEntityIdentities(items, context, observedEntities) {
   return (items ?? []).map((item) => ({
     kind: String(item.kind ?? item.Kind ?? 'other'),
     id: String(item.id ?? item.Id ?? ''),
-    handle: item.handle ?? item.Handle ?? null
+    handle: item.handle ?? item.Handle ?? null,
+    variantId: resolveEntityVariantId(
+      (observedEntities ?? []).find((entity) => String(entity.id) === String(item.id ?? item.Id ?? '')
+        && String(entity.kind) === String(item.kind ?? item.Kind ?? 'other')) ?? item,
+      context
+    )
   })).filter((item) => item.id)
 }
 
-function normalizeObservations(raw) {
+function normalizeObservations(raw, context) {
   if (!raw || typeof raw !== 'object') {
     return { source: 'service', database: null, redis: null, cache: null }
   }
@@ -365,6 +486,7 @@ function normalizeObservations(raw) {
           id: String(entity.id ?? entity.Id ?? ''),
           owned: entity.owned ?? entity.Owned ?? true,
           capabilityHint: entity.capabilityHint ?? entity.CapabilityHint ?? null,
+          variantId: resolveEntityVariantId(entity, context),
           projection: entity.projection ?? entity.Projection ?? null,
           postconditionId: entity.postconditionId ?? entity.PostconditionId ?? null,
           fields: entity.fields ?? entity.Fields ?? {}

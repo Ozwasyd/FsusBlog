@@ -19,14 +19,18 @@ import {
   verify
 } from './orchestrator.mjs'
 import {
+  digestCanonical,
   FIXTURE_PREPARE_STATE_SCHEMA,
   FIXTURE_RECEIPT_SCHEMA,
-  fileContentDigest,
   readFixtureReceipt,
   writeFixtureReceipt,
   writePrivateJson
 } from './receipt/index.mjs'
 import { createDefaultProducerPorts, createPortsForProducerIds } from './producers/catalog-ports.mjs'
+import {
+  resolveSourceCommit,
+  resolveWorktreeFingerprint
+} from '../fact-extractors/identity.mjs'
 
 function parseArgs(argv) {
   const options = { _: [] }
@@ -65,20 +69,47 @@ function writePrepareState(file, value) {
   return writePrivateJson(file, value, { label: 'fixture-prepare-state' })
 }
 
+function parseVariantIds(value, label) {
+  if (value == null || value === '') return null
+  if (Array.isArray(value)) return value.map(String)
+  const text = String(value).trim()
+  if (!text) return null
+  if (text.startsWith('[')) {
+    const parsed = JSON.parse(text)
+    if (!Array.isArray(parsed)) throw new Error(`${label} must be a JSON array or comma-separated ids`)
+    return parsed.map(String)
+  }
+  return text.split(',').map((item) => item.trim()).filter(Boolean)
+}
+
 function buildProfileIdentity(options) {
   const profileId = options.profile ?? options['profile-id']
   if (!profileId) throw new Error('--profile is required')
   const profileSource = options.source ?? options['profile-source'] ?? 'dev-cli'
   const executionClass = options['execution-class'] ?? null
+  const requestedVariantIds = parseVariantIds(options['variant-ids'], '--variant-ids')
+  const sealedVariantIds = parseVariantIds(
+    options['sealed-variant-ids'] ?? process.env.FSUSBLOG_SEALED_FIXTURE_VARIANT_IDS,
+    '--sealed-variant-ids'
+  )
   const sealed = profileSource === 'matrix'
     ? {
       fixtureProfileId: options['sealed-profile-id'] ?? profileId,
       fixtureCatalogDigest: options['sealed-catalog-digest'],
       expandedCapabilityDigest: options['sealed-capability-digest'],
+      fixtureVariantIds: sealedVariantIds,
+      fixtureVariantPlanDigest: options['sealed-variant-plan-digest']
+        ?? process.env.FSUSBLOG_SEALED_FIXTURE_VARIANT_PLAN_DIGEST,
       executionClass: options['sealed-execution-class'] ?? executionClass
     }
     : null
-  return { profileId, profileSource, executionClass, sealed }
+  return {
+    profileId,
+    profileSource,
+    executionClass,
+    variantIds: requestedVariantIds ?? sealedVariantIds,
+    sealed
+  }
 }
 
 function buildExecutionIdentity(options) {
@@ -105,6 +136,54 @@ function buildExecutionIdentity(options) {
   }
 }
 
+function comparableExecutionIdentity(value) {
+  return {
+    runId: value?.runId ?? null,
+    namespace: value?.namespace ?? null,
+    source: value?.source ?? value?.sourceIdentity ?? null,
+    serviceGeneration: value?.serviceGeneration ?? value?.handles?.serviceGeneration ?? null
+  }
+}
+
+export function classifyDevFixtureReceiptTransition(previousReceipt, {
+  profileId,
+  executionIdentity
+} = {}) {
+  if (typeof profileId !== 'string' || !profileId.trim()) {
+    throw new Error('dev demo transition requires the selected profile id')
+  }
+  const currentIdentity = comparableExecutionIdentity(executionIdentity)
+  if (!currentIdentity.runId
+    || !currentIdentity.namespace
+    || !/^[a-f0-9]{40}$/u.test(String(currentIdentity.source?.commit ?? ''))
+    || !/^(?:sha256:)?[a-f0-9]{64}$/u.test(String(currentIdentity.source?.worktreeFingerprint ?? ''))
+    || !/^sha256:[a-f0-9]{64}$/u.test(String(currentIdentity.serviceGeneration ?? ''))) {
+    throw new Error('dev demo transition requires exact run, namespace, source, and service generation identity')
+  }
+  if (previousReceipt == null) {
+    return Object.freeze({ action: 'none', reason: 'no-previous-demo-receipt' })
+  }
+  if (previousReceipt.schema !== FIXTURE_RECEIPT_SCHEMA
+    || previousReceipt.terminalStatus !== 'verified'
+    || previousReceipt.profileIdentity?.profileId !== 'demo-public') {
+    throw new Error('dev demo transition requires a verified demo-public FixtureReceipt v2')
+  }
+  if (profileId === 'demo-public'
+    && previousReceipt.profileIdentity?.executionClass === 'development'
+    && digestCanonical(comparableExecutionIdentity(previousReceipt.executionIdentity))
+      === digestCanonical(currentIdentity)) {
+    return Object.freeze({ action: 'reuse', reason: 'same-execution-identity' })
+  }
+  return Object.freeze({
+    action: 'cleanup',
+    reason: profileId !== 'demo-public'
+      ? 'profile-changed'
+      : previousReceipt.profileIdentity?.executionClass !== 'development'
+        ? 'profile-evidence-changed'
+        : 'execution-identity-changed'
+  })
+}
+
 function resolvePorts(planDocument, options) {
   if (options['ports-module']) {
     throw new Error('--ports-module is not supported; inject ports in-process or use default catalog ports')
@@ -112,7 +191,11 @@ function resolvePorts(planDocument, options) {
   if (Object.keys(options).some((key) => key.startsWith('legacy-'))) {
     throw new Error('dual/legacy receipt paths were deleted; FixtureReceipt v2 is the sole authority (#1710)')
   }
-  const ids = planDocument.producers ?? planDocument.order ?? []
+  const ids = planDocument.producers
+    ?? planDocument.order
+    ?? planDocument.producerIds
+    ?? planDocument.producerReceipts?.map((item) => item.producerId)
+    ?? []
   if (ids.length === 0) return []
   if (options['all-ports'] === true) return createDefaultProducerPorts()
   return createPortsForProducerIds(ids)
@@ -136,13 +219,36 @@ async function main(argv = process.argv.slice(2)) {
   const command = options._[0]
   if (!command || command === 'help' || options.help === true) {
     process.stdout.write(`Usage:
-  node tools/test-fixtures/cli.mjs plan --profile <id> --source dev-cli|matrix [sealed opts] [--out plan.json]
-  node tools/test-fixtures/cli.mjs prepare --plan plan.json [--out prepare-state.json] [--fixture-receipt path]
+  node tools/test-fixtures/cli.mjs plan --profile <id> --source dev-cli|matrix [--variant-ids <ids>] [sealed opts] [--out plan.json]
+  node tools/test-fixtures/cli.mjs prepare --plan plan.json [--out prepare-state.json] [--previous-fixture-receipt path]
   node tools/test-fixtures/cli.mjs verify --receipt prepare-state.json [--out fixture-receipt.json]
   node tools/test-fixtures/cli.mjs cleanup --receipt prepare-state|fixture-receipt.json [--out out.json]
-  node tools/test-fixtures/cli.mjs run --profile <id> --source ... [--out fixture-receipt.json]
+  node tools/test-fixtures/cli.mjs run --profile <id> --source ... [--out fixture-receipt.json] [--previous-fixture-receipt path]
+  node tools/test-fixtures/cli.mjs dev-transition --receipt fixture-receipt.json --profile <id> [execution identity opts]
+  node tools/test-fixtures/cli.mjs source-identity [--repository-root path]
   node tools/test-fixtures/cli.mjs receipt-digest --file fixture-receipt.json
 `)
+    return
+  }
+
+  if (command === 'source-identity') {
+    const repositoryRoot = path.resolve(options['repository-root'] ?? process.cwd())
+    process.stdout.write(`${JSON.stringify({
+      commit: resolveSourceCommit(repositoryRoot),
+      worktreeFingerprint: `sha256:${resolveWorktreeFingerprint(repositoryRoot)}`
+    })}\n`)
+    return
+  }
+
+  if (command === 'dev-transition') {
+    const receiptFile = options.receipt ?? options['receipt-file']
+    if (!receiptFile) throw new Error('dev-transition requires --receipt')
+    const previousReceipt = readFixtureReceipt(receiptFile, { requireVerified: true })
+    const transition = classifyDevFixtureReceiptTransition(previousReceipt, {
+      profileId: options.profile ?? options['profile-id'],
+      executionIdentity: buildExecutionIdentity(options)
+    })
+    process.stdout.write(`${JSON.stringify(transition)}\n`)
     return
   }
 
@@ -156,6 +262,8 @@ async function main(argv = process.argv.slice(2)) {
         profileSource: planDocument.profileIdentity.profileSource,
         catalogDigest: planDocument.catalogDigest,
         expandedCapabilityDigest: planDocument.expandedCapabilityDigest,
+        variantIds: planDocument.variantIds,
+        variantPlanDigest: planDocument.variantPlanDigest,
         capabilities: planDocument.capabilities,
         producers: planDocument.producers,
         mutationPolicy: planDocument.mutationPolicy,
@@ -176,12 +284,19 @@ async function main(argv = process.argv.slice(2)) {
     if (!planFile) throw new Error('prepare requires --plan')
     const planDocument = readJson(planFile)
     const ports = resolvePorts(planDocument, options)
+    const previousFixtureReceipt = options['previous-fixture-receipt']
+      ? readFixtureReceipt(options['previous-fixture-receipt'])
+      : null
     const controller = new AbortController()
     const onSignal = () => controller.abort(new Error('fixture prepare cancelled'))
     process.once('SIGINT', onSignal)
     process.once('SIGTERM', onSignal)
     try {
-      const prepareState = await prepare(planDocument, ports, controller.signal)
+      const prepareState = await prepare(
+        planDocument,
+        ports,
+        controller.signal,
+        { previousFixtureReceipt })
       if (options.out) writeAuthoritativeOut(options.out, prepareState)
       // Optional explicit prepare-state path alias.
       if (options['prepare-state']) writeAuthoritativeOut(options['prepare-state'], prepareState)
@@ -218,15 +333,24 @@ async function main(argv = process.argv.slice(2)) {
   if (command === 'cleanup') {
     const receiptFile = options.receipt ?? options['receipt-file']
     if (!receiptFile) throw new Error('cleanup requires --receipt')
-    const receipt = readJson(receiptFile)
+    const rawReceipt = readJson(receiptFile)
+    const receipt = rawReceipt.schema === FIXTURE_RECEIPT_SCHEMA
+      ? readFixtureReceipt(receiptFile)
+      : rawReceipt
     const ports = resolvePorts(receipt.plan ?? receipt, options)
     const controller = new AbortController()
     const onSignal = () => controller.abort(new Error('fixture cleanup cancelled'))
     process.once('SIGINT', onSignal)
     process.once('SIGTERM', onSignal)
     try {
-      const next = await cleanup(receipt, ports, controller.signal)
-      if (options.out) writeAuthoritativeOut(options.out, next)
+      const next = await cleanup(
+        receipt,
+        ports,
+        controller.signal,
+        { handles: buildExecutionIdentity(options).handles })
+      if (options.out) {
+        writePrivateJson(options.out, next, { label: 'fixture-cleanup-state' })
+      }
       process.stdout.write(`${JSON.stringify(next)}\n`)
     } finally {
       process.removeListener('SIGINT', onSignal)
@@ -244,6 +368,8 @@ async function main(argv = process.argv.slice(2)) {
         profileSource: planDocument.profileIdentity.profileSource,
         catalogDigest: planDocument.catalogDigest,
         expandedCapabilityDigest: planDocument.expandedCapabilityDigest,
+        variantIds: planDocument.variantIds,
+        variantPlanDigest: planDocument.variantPlanDigest,
         capabilities: planDocument.capabilities,
         producers: planDocument.producers,
         mutationPolicy: planDocument.mutationPolicy,
@@ -262,8 +388,16 @@ async function main(argv = process.argv.slice(2)) {
     process.once('SIGTERM', onSignal)
     const prepareOut = options['prepare-state'] ?? options['prepare-out'] ?? null
     const fixtureReceiptOut = options['fixture-receipt'] ?? options.out ?? null
+    const previousFixtureReceiptFile = options['previous-fixture-receipt'] ?? null
+    const previousFixtureReceipt = previousFixtureReceiptFile
+      ? readFixtureReceipt(previousFixtureReceiptFile)
+      : null
     try {
-      let prepareState = await prepare(planDocument, ports, controller.signal)
+      let prepareState = await prepare(
+        planDocument,
+        ports,
+        controller.signal,
+        { previousFixtureReceipt })
       if (prepareOut) writeAuthoritativeOut(prepareOut, prepareState)
 
       const skipVerify = options.verify === false || options['skip-verify'] === true
@@ -285,7 +419,10 @@ async function main(argv = process.argv.slice(2)) {
       process.stdout.write(`${JSON.stringify(fixtureReceipt)}\n`)
     } catch (error) {
       if (error?.receipt && prepareOut) writeAuthoritativeOut(prepareOut, error.receipt)
-      if (error?.fixtureReceipt && fixtureReceiptOut) {
+      const fixtureOutputReplacesPrevious = fixtureReceiptOut
+        && previousFixtureReceiptFile
+        && path.resolve(fixtureReceiptOut) === path.resolve(previousFixtureReceiptFile)
+      if (error?.fixtureReceipt && fixtureReceiptOut && !fixtureOutputReplacesPrevious) {
         writeAuthoritativeOut(fixtureReceiptOut, error.fixtureReceipt)
       } else if (error?.receipt && options.out && !fixtureReceiptOut) {
         writeAuthoritativeOut(options.out, error.receipt)
@@ -301,13 +438,8 @@ async function main(argv = process.argv.slice(2)) {
   if (command === 'receipt-digest') {
     const file = options.file ?? options._[1]
     if (!file) throw new Error('receipt-digest requires --file')
-    // Prefer validated FixtureReceipt digest; fall back to content digest of private file.
-    try {
-      const receipt = readFixtureReceipt(file)
-      process.stdout.write(`${receipt.receiptDigest}\n`)
-    } catch {
-      process.stdout.write(`${fileContentDigest(file)}\n`)
-    }
+    const receipt = readFixtureReceipt(file)
+    process.stdout.write(`${receipt.receiptDigest}\n`)
     return
   }
 

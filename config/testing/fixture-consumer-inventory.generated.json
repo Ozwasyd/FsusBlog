@@ -19,6 +19,12 @@
                 "public.article.published",
                 "session.single-device"
             ],
+            "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.public.article.published",
+                "canonical.session.single-device"
+            ],
             "producerOwners": [
                 "auth-session",
                 "public-content"
@@ -38,6 +44,9 @@
             "requiredCapabilities": [
                 "public.article.published"
             ],
+            "requiredVariantIds": [
+                "canonical.public.article.published"
+            ],
             "producerOwners": [
                 "public-content"
             ]
@@ -55,6 +64,9 @@
             ],
             "requiredCapabilities": [
                 "public.article.published"
+            ],
+            "requiredVariantIds": [
+                "canonical.public.article.published"
             ],
             "producerOwners": [
                 "public-content"
@@ -74,6 +86,9 @@
             "requiredCapabilities": [
                 "public.article.published"
             ],
+            "requiredVariantIds": [
+                "canonical.public.article.published"
+            ],
             "producerOwners": [
                 "public-content"
             ]
@@ -91,6 +106,9 @@
             ],
             "requiredCapabilities": [
                 "public.article.published"
+            ],
+            "requiredVariantIds": [
+                "canonical.public.article.published"
             ],
             "producerOwners": [
                 "public-content"
@@ -110,6 +128,9 @@
             "requiredCapabilities": [
                 "public.article.published"
             ],
+            "requiredVariantIds": [
+                "canonical.public.article.published"
+            ],
             "producerOwners": [
                 "public-content"
             ]
@@ -128,6 +149,10 @@
             "requiredCapabilities": [
                 "comment.threaded",
                 "public.article.published"
+            ],
+            "requiredVariantIds": [
+                "canonical.comment.threaded",
+                "canonical.public.article.published"
             ],
             "producerOwners": [
                 "comment-moderation",
@@ -149,6 +174,10 @@
                 "public.article.published",
                 "public.home.featured-hot"
             ],
+            "requiredVariantIds": [
+                "canonical.public.article.published",
+                "canonical.public.home.featured-hot"
+            ],
             "producerOwners": [
                 "public-content"
             ]
@@ -166,6 +195,9 @@
             ],
             "requiredCapabilities": [
                 "public.article.published"
+            ],
+            "requiredVariantIds": [
+                "canonical.public.article.published"
             ],
             "producerOwners": [
                 "public-content"
@@ -185,6 +217,9 @@
             "requiredCapabilities": [
                 "public.article.published"
             ],
+            "requiredVariantIds": [
+                "canonical.public.article.published"
+            ],
             "producerOwners": [
                 "public-content"
             ]
@@ -202,6 +237,9 @@
             ],
             "requiredCapabilities": [
                 "public.article.published"
+            ],
+            "requiredVariantIds": [
+                "canonical.public.article.published"
             ],
             "producerOwners": [
                 "public-content"
@@ -221,6 +259,10 @@
             "requiredCapabilities": [
                 "auth.user.active",
                 "security.risk-escalated"
+            ],
+            "requiredVariantIds": [
+                "canonical.auth.user.active",
+                "canonical.security.risk-escalated"
             ],
             "producerOwners": [
                 "auth-session",
@@ -243,6 +285,11 @@
                 "public.article.published",
                 "session.single-device"
             ],
+            "requiredVariantIds": [
+                "canonical.auth.user.active",
+                "canonical.public.article.published",
+                "canonical.session.single-device"
+            ],
             "producerOwners": [
                 "auth-session",
                 "public-content"
@@ -262,6 +309,9 @@
             "requiredCapabilities": [
                 "public.article.published"
             ],
+            "requiredVariantIds": [
+                "canonical.public.article.published"
+            ],
             "producerOwners": [
                 "public-content"
             ]
@@ -279,6 +329,9 @@
             ],
             "requiredCapabilities": [
                 "public.article.published"
+            ],
+            "requiredVariantIds": [
+                "canonical.public.article.published"
             ],
             "producerOwners": [
                 "public-content"
@@ -300,6 +353,12 @@
                 "auth.user.active",
                 "public.article.published",
                 "session.single-device"
+            ],
+            "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.public.article.published",
+                "canonical.session.single-device"
             ],
             "producerOwners": [
                 "auth-session",
@@ -324,6 +383,13 @@
                 "public.article.published",
                 "session.single-device"
             ],
+            "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.comment.threaded",
+                "canonical.public.article.published",
+                "canonical.session.single-device"
+            ],
             "producerOwners": [
                 "auth-session",
                 "comment-moderation",
@@ -347,6 +413,12 @@
                 "public.article.published",
                 "session.single-device"
             ],
+            "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.public.article.published",
+                "canonical.session.single-device"
+            ],
             "producerOwners": [
                 "auth-session",
                 "public-content"
@@ -368,6 +440,12 @@
                 "auth.user.active",
                 "public.article.published",
                 "session.single-device"
+            ],
+            "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.public.article.published",
+                "canonical.session.single-device"
             ],
             "producerOwners": [
                 "auth-session",
@@ -391,6 +469,12 @@
                 "public.article.published",
                 "session.single-device"
             ],
+            "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.public.article.published",
+                "canonical.session.single-device"
+            ],
             "producerOwners": [
                 "auth-session",
                 "public-content"
@@ -408,6 +492,7 @@
                 "none"
             ],
             "requiredCapabilities": [],
+            "requiredVariantIds": [],
             "producerOwners": []
         },
         {
@@ -424,6 +509,10 @@
             "requiredCapabilities": [
                 "auth.user.active",
                 "session.multi-device"
+            ],
+            "requiredVariantIds": [
+                "canonical.auth.user.active",
+                "canonical.session.multi-device"
             ],
             "producerOwners": [
                 "auth-session"
@@ -443,6 +532,10 @@
             "requiredCapabilities": [
                 "public.article.published",
                 "scale.article-comment.m"
+            ],
+            "requiredVariantIds": [
+                "canonical.public.article.published",
+                "scale.scale.article-comment.m"
             ],
             "producerOwners": [
                 "public-content",
@@ -464,6 +557,10 @@
                 "public.article.published",
                 "scale.article-comment.l"
             ],
+            "requiredVariantIds": [
+                "canonical.public.article.published",
+                "scale.scale.article-comment.l"
+            ],
             "producerOwners": [
                 "public-content",
                 "scale-data"
@@ -484,6 +581,10 @@
                 "public.article.published",
                 "scale.article-comment.s"
             ],
+            "requiredVariantIds": [
+                "canonical.public.article.published",
+                "scale.scale.article-comment.s"
+            ],
             "producerOwners": [
                 "public-content",
                 "scale-data"
@@ -503,6 +604,10 @@
             "requiredCapabilities": [
                 "public.article.published",
                 "scale.article-comment.xs"
+            ],
+            "requiredVariantIds": [
+                "canonical.public.article.published",
+                "scale.scale.article-comment.xs"
             ],
             "producerOwners": [
                 "public-content",
@@ -526,6 +631,12 @@
                 "public.article.published",
                 "session.single-device"
             ],
+            "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.public.article.published",
+                "canonical.session.single-device"
+            ],
             "producerOwners": [
                 "auth-session",
                 "public-content"
@@ -547,6 +658,11 @@
                 "public.article.published",
                 "session.single-device"
             ],
+            "requiredVariantIds": [
+                "canonical.auth.user.active",
+                "canonical.public.article.published",
+                "canonical.session.single-device"
+            ],
             "producerOwners": [
                 "auth-session",
                 "public-content"
@@ -567,6 +683,11 @@
                 "auth.user.active",
                 "public.article.published",
                 "session.single-device"
+            ],
+            "requiredVariantIds": [
+                "canonical.auth.user.active",
+                "canonical.public.article.published",
+                "canonical.session.single-device"
             ],
             "producerOwners": [
                 "auth-session",
@@ -590,6 +711,12 @@
                 "public.article.published",
                 "session.single-device"
             ],
+            "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.public.article.published",
+                "canonical.session.single-device"
+            ],
             "producerOwners": [
                 "auth-session",
                 "public-content"
@@ -609,6 +736,10 @@
             "requiredCapabilities": [
                 "public.article.published",
                 "scale.article-comment.xs"
+            ],
+            "requiredVariantIds": [
+                "canonical.public.article.published",
+                "scale.scale.article-comment.xs"
             ],
             "producerOwners": [
                 "public-content",
@@ -630,6 +761,10 @@
                 "public.article.published",
                 "scale.article-comment.m"
             ],
+            "requiredVariantIds": [
+                "canonical.public.article.published",
+                "scale.scale.article-comment.m"
+            ],
             "producerOwners": [
                 "public-content",
                 "scale-data"
@@ -649,6 +784,10 @@
             "requiredCapabilities": [
                 "public.article.published",
                 "scale.article-comment.xs"
+            ],
+            "requiredVariantIds": [
+                "canonical.public.article.published",
+                "scale.scale.article-comment.xs"
             ],
             "producerOwners": [
                 "public-content",
@@ -670,6 +809,10 @@
                 "public.article.published",
                 "scale.article-comment.m"
             ],
+            "requiredVariantIds": [
+                "canonical.public.article.published",
+                "scale.scale.article-comment.m"
+            ],
             "producerOwners": [
                 "public-content",
                 "scale-data"
@@ -689,6 +832,10 @@
             "requiredCapabilities": [
                 "public.article.published",
                 "scale.article-comment.s"
+            ],
+            "requiredVariantIds": [
+                "canonical.public.article.published",
+                "scale.scale.article-comment.s"
             ],
             "producerOwners": [
                 "public-content",
@@ -712,6 +859,12 @@
                 "public.article.published",
                 "session.single-device"
             ],
+            "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.public.article.published",
+                "canonical.session.single-device"
+            ],
             "producerOwners": [
                 "auth-session",
                 "public-content"
@@ -730,6 +883,9 @@
             ],
             "requiredCapabilities": [
                 "public.article.published"
+            ],
+            "requiredVariantIds": [
+                "canonical.public.article.published"
             ],
             "producerOwners": [
                 "public-content"
@@ -750,6 +906,11 @@
                 "auth.user.active",
                 "public.article.published",
                 "session.single-device"
+            ],
+            "requiredVariantIds": [
+                "canonical.auth.user.active",
+                "canonical.public.article.published",
+                "canonical.session.single-device"
             ],
             "producerOwners": [
                 "auth-session",
@@ -772,6 +933,11 @@
                 "security.risk-escalated",
                 "security.subject.banned"
             ],
+            "requiredVariantIds": [
+                "canonical.auth.user.active",
+                "canonical.security.risk-escalated",
+                "canonical.security.subject.banned"
+            ],
             "producerOwners": [
                 "auth-session",
                 "security-state"
@@ -793,6 +959,11 @@
                 "security.risk-escalated",
                 "session.multi-device"
             ],
+            "requiredVariantIds": [
+                "canonical.auth.user.active",
+                "canonical.security.risk-escalated",
+                "canonical.session.multi-device"
+            ],
             "producerOwners": [
                 "auth-session",
                 "security-state"
@@ -812,6 +983,10 @@
             "requiredCapabilities": [
                 "public.article.published",
                 "scale.article-comment.s"
+            ],
+            "requiredVariantIds": [
+                "canonical.public.article.published",
+                "scale.scale.article-comment.s"
             ],
             "producerOwners": [
                 "public-content",
@@ -835,6 +1010,12 @@
                 "public.article.published",
                 "session.single-device"
             ],
+            "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.public.article.published",
+                "canonical.session.single-device"
+            ],
             "producerOwners": [
                 "auth-session",
                 "public-content"
@@ -856,6 +1037,12 @@
                 "auth.user.active",
                 "public.article.published",
                 "session.single-device"
+            ],
+            "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.public.article.published",
+                "canonical.session.single-device"
             ],
             "producerOwners": [
                 "auth-session",
@@ -879,6 +1066,12 @@
                 "public.article.published",
                 "session.single-device"
             ],
+            "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.public.article.published",
+                "canonical.session.single-device"
+            ],
             "producerOwners": [
                 "auth-session",
                 "public-content"
@@ -901,6 +1094,12 @@
                 "public.article.published",
                 "session.single-device"
             ],
+            "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.public.article.published",
+                "canonical.session.single-device"
+            ],
             "producerOwners": [
                 "auth-session",
                 "public-content"
@@ -920,6 +1119,10 @@
             "requiredCapabilities": [
                 "public.article.published",
                 "public.home.featured-hot"
+            ],
+            "requiredVariantIds": [
+                "canonical.public.article.published",
+                "canonical.public.home.featured-hot"
             ],
             "producerOwners": [
                 "public-content"
@@ -949,6 +1152,19 @@
                 "public.home.featured-hot",
                 "session.single-device"
             ],
+            "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.comment.moderation-matrix",
+                "canonical.comment.threaded",
+                "canonical.messages.thread",
+                "canonical.notifications.unread",
+                "canonical.public.article.draft",
+                "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.home.featured-hot",
+                "canonical.session.single-device"
+            ],
             "producerOwners": [
                 "account-messaging",
                 "auth-session",
@@ -972,6 +1188,11 @@
                 "auth.user.active",
                 "session.single-device"
             ],
+            "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.session.single-device"
+            ],
             "producerOwners": [
                 "auth-session"
             ]
@@ -991,6 +1212,11 @@
                 "auth.admin.full-permission",
                 "auth.user.active",
                 "session.single-device"
+            ],
+            "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.session.single-device"
             ],
             "producerOwners": [
                 "auth-session"
@@ -1019,6 +1245,19 @@
                 "public.article.revision-history",
                 "public.home.featured-hot",
                 "session.single-device"
+            ],
+            "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.comment.moderation-matrix",
+                "canonical.comment.threaded",
+                "canonical.messages.thread",
+                "canonical.notifications.unread",
+                "canonical.public.article.draft",
+                "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.home.featured-hot",
+                "canonical.session.single-device"
             ],
             "producerOwners": [
                 "account-messaging",
@@ -1051,6 +1290,19 @@
                 "public.home.featured-hot",
                 "session.single-device"
             ],
+            "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.comment.moderation-matrix",
+                "canonical.comment.threaded",
+                "canonical.messages.thread",
+                "canonical.notifications.unread",
+                "canonical.public.article.draft",
+                "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.home.featured-hot",
+                "canonical.session.single-device"
+            ],
             "producerOwners": [
                 "account-messaging",
                 "auth-session",
@@ -1081,6 +1333,19 @@
                 "public.article.revision-history",
                 "public.home.featured-hot",
                 "session.single-device"
+            ],
+            "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.comment.moderation-matrix",
+                "canonical.comment.threaded",
+                "canonical.messages.thread",
+                "canonical.notifications.unread",
+                "canonical.public.article.draft",
+                "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.home.featured-hot",
+                "canonical.session.single-device"
             ],
             "producerOwners": [
                 "account-messaging",
@@ -1113,6 +1378,19 @@
                 "public.home.featured-hot",
                 "session.single-device"
             ],
+            "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.comment.moderation-matrix",
+                "canonical.comment.threaded",
+                "canonical.messages.thread",
+                "canonical.notifications.unread",
+                "canonical.public.article.draft",
+                "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.home.featured-hot",
+                "canonical.session.single-device"
+            ],
             "producerOwners": [
                 "account-messaging",
                 "auth-session",
@@ -1141,27 +1419,16 @@
                 "scale.article-comment.s",
                 "scale.article-comment.xs"
             ],
+            "requiredVariantIds": [
+                "canonical.public.article.published",
+                "scale.scale.article-comment.l",
+                "scale.scale.article-comment.m",
+                "scale.scale.article-comment.s",
+                "scale.scale.article-comment.xs"
+            ],
             "producerOwners": [
                 "public-content",
                 "scale-data"
-            ]
-        },
-        {
-            "consumerId": "source:development-demo",
-            "executionClass": "diagnostic",
-            "source": "tools/dev/seed-demo-data.sh",
-            "requiredBusinessFact": "development.demo.dataset",
-            "implicitSource": "fixture-catalog consumer declaration in tools/dev/seed-demo-data.sh",
-            "currentFallback": "development demo dataset is applied via tools/dev demo seed; not a runtime acceptance producer",
-            "profileId": "demo-public",
-            "profileIds": [
-                "demo-public"
-            ],
-            "requiredCapabilities": [
-                "development.demo.dataset"
-            ],
-            "producerOwners": [
-                "development-demo"
             ]
         },
         {
@@ -1179,6 +1446,11 @@
                 "auth.admin.full-permission",
                 "auth.user.active",
                 "session.single-device"
+            ],
+            "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.session.single-device"
             ],
             "producerOwners": [
                 "auth-session"
@@ -1199,6 +1471,11 @@
                 "auth.admin.full-permission",
                 "auth.user.active",
                 "session.single-device"
+            ],
+            "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.session.single-device"
             ],
             "producerOwners": [
                 "auth-session"
@@ -1228,7 +1505,15 @@
         },
         {
             "producerId": "development-demo",
-            "source": "tools/dev/demo-seed.sql"
+            "source": "src/backend/Modules/Endpoints/LocalDemoFixtureEndpoints.cs"
+        },
+        {
+            "producerId": "development-demo",
+            "source": "src/backend/Services/Fixtures/DemoFixtureSeeder.cs"
+        },
+        {
+            "producerId": "development-demo",
+            "source": "tools/test-fixtures/producers/demo-public-producer.mjs"
         },
         {
             "producerId": "public-content",

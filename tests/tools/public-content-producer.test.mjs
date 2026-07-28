@@ -11,11 +11,35 @@ import {
   prepare,
   verify
 } from '../../tools/test-fixtures/orchestrator.mjs'
-import { readFixtureCatalogs } from '../../tools/testing/fixture-catalog.mjs'
+import {
+  buildFixtureVariantPlan,
+  buildProducerFixtureVariantPlan,
+  readFixtureCatalogs,
+  resolveFixtureVariants
+} from '../../tools/testing/fixture-catalog.mjs'
 import {
   runPostcondition,
   assertPostconditionRegistryComplete
 } from '../../tools/test-fixtures/receipt/postconditions.mjs'
+
+const catalogs = readFixtureCatalogs()
+
+function producerVariantContext(capabilities) {
+  const ids = resolveFixtureVariants(capabilities, 'runtime', catalogs)
+  const typed = buildFixtureVariantPlan(ids, catalogs)
+  const variantPlan = buildProducerFixtureVariantPlan({
+    producerId: 'public-content',
+    variantIds: typed.byProducer
+      .find((item) => item.producerId === 'public-content')?.variants.map((item) => item.id) ?? [],
+    fixtureVariantIds: typed.variants.map((item) => item.id),
+    fixtureVariantPlanDigest: typed.variantPlanDigest,
+    catalogs
+  })
+  return {
+    variantPlan,
+    catalogs
+  }
+}
 
 function minimalObservations({ empty = false } = {}) {
   if (empty) {
@@ -43,8 +67,8 @@ function minimalObservations({ empty = false } = {}) {
       namespace: 'ns',
       schemaIdentity: 'public',
       entities: [
-        { kind: 'category', id: '11', fields: { name: 'fxpc:ns:run:category' } },
-        { kind: 'tag', id: '22', fields: { name: 'fxpc:ns:run:tag' } },
+        { kind: 'category', id: '11', capabilityHint: 'taxonomy-category-tag', fields: { name: 'fxpc:ns:run:category' } },
+        { kind: 'tag', id: '22', capabilityHint: 'taxonomy-category-tag', fields: { name: 'fxpc:ns:run:tag' } },
         {
           kind: 'article',
           id: '101',
@@ -217,7 +241,15 @@ test('prepare uses injected domain-port adapter and forbids strategy env overrid
     delete process.env.FSUSBLOG_FORCE_DIRECT_DB_SEED
   }
 
+  const variantContext = producerVariantContext([
+    'public.article.published',
+    'public.article.revision-history',
+    'public.home.featured-hot',
+    'public.search.indexed',
+    'public.taxonomy.category-tag'
+  ])
   const result = await preparePublicContent({
+    ...variantContext,
     plan: {
       capabilities: [
         'public.article.published',
@@ -250,6 +282,12 @@ test('prepare uses injected domain-port adapter and forbids strategy env overrid
   assert.equal(result.strategy, 'transaction-fixture')
   assert.equal(result.entityIdentities.filter((item) => item.kind === 'article').length, 3)
   assert.equal(result.observations.database.entities.filter((item) => item.kind === 'article').length, 3)
+  assert.equal(result.entityIdentities.every((item) => Boolean(item.variantId)), true)
+  assert.equal(result.observations.database.entities.every((item) => Boolean(item.variantId)), true)
+  assert.equal(
+    result.producerVariantPlanDigest,
+    variantContext.variantPlan.producerVariantPlanDigest
+  )
 })
 
 test('prepare fails closed without baseUrl when adapter missing (no env discovery)', async () => {
@@ -302,6 +340,79 @@ test('prepare rejects local-fallback and incomplete published set', async () => 
     }),
     /exactly 3 published/
   )
+})
+
+test('canonical public-content rejects a real rights recompute sentinel in observed entity fields', async () => {
+  const capabilities = ['public.article.published', 'public.taxonomy.category-tag']
+  const context = producerVariantContext(capabilities)
+  await assert.rejects(
+    () => preparePublicContent({
+      ...context,
+      plan: { capabilities },
+      handles: {
+        publicContentAdapter: {
+          async prepare() {
+            const observations = minimalObservations()
+            observations.database.entities.find((item) => item.id === '101').fields.policyHash = 'rights-v3:policy-hash:recompute'
+            return { strategy: 'transaction-fixture', observations, entityIdentities: [{ kind: 'article', id: '101' }] }
+          }
+        }
+      }
+    }),
+    /contains forbidden sentinel rights-v3-policy-hash-recompute/
+  )
+})
+
+test('negative and migration public variants cannot relabel canonical producer output', async () => {
+  const negative = buildProducerFixtureVariantPlan({
+    producerId: 'public-content',
+    variantIds: ['negative.public-article-published-rights-recompute'],
+    fixtureVariantIds: ['negative.public-article-published-rights-recompute'],
+    fixtureVariantPlanDigest: buildFixtureVariantPlan(['negative.public-article-published-rights-recompute'], catalogs).variantPlanDigest,
+    catalogs
+  })
+  await assert.rejects(
+    () => preparePublicContent({ plan: { capabilities: ['public.article.published'] }, variantPlan: negative, catalogs, handles: {} }),
+    /requires a dedicated variant adapter/
+  )
+  await assert.rejects(
+    () => preparePublicContent({
+      plan: { capabilities: ['public.article.published'] }, variantPlan: negative, catalogs,
+      handles: {
+        publicContentVariantAdapter: {
+          async prepare() {
+            return {
+              source: 'live-service',
+              variants: [{ variantId: 'negative.public-article-published-rights-recompute', rejected: false, invariantIds: [] }]
+            }
+          }
+        }
+      }
+    }),
+    /requires exact rejected invariant rights-policy-hash-ready/
+  )
+  const result = await preparePublicContent({
+    plan: { capabilities: ['public.article.published'] }, variantPlan: negative, catalogs,
+    handles: {
+      publicContentVariantAdapter: {
+        async prepare({ variants }) {
+          const [variant] = variants
+          return {
+            source: 'live-service',
+            variants: [{
+              variantId: variant.id,
+              rejected: true,
+              injectedSentinelId: variant.injectedSentinelId,
+              injectedSentinelValue: variant.injectedSentinelValue,
+              invariantIds: [variant.expectedInvariantId]
+            }]
+          }
+        }
+      }
+    }
+  })
+  assert.equal(result.variantEvidence.variants[0].injectedSentinelId, 'rights-v3-policy-hash-recompute')
+  assert.equal(result.variantEvidence.variants[0].injectedSentinelValue, 'rights-v3:policy-hash:recompute')
 })
 
 test('postconditions: published, taxonomy, search, empty, multi rev/pub', () => {
@@ -381,6 +492,35 @@ test('orchestrator public-minimal verify with injected adapter yields verified r
   assert.equal(verified.terminalStatus, 'verified')
   assert.equal(verified.producerReceipts[0].strategy, 'transaction-fixture')
   assert.ok(verified.producerReceipts[0].entityIdentities.some((item) => item.kind === 'article'))
+})
+
+test('default public-empty profile proves an observed empty set without inventing an entity', async () => {
+  const planned = plan({ profileId: 'public-empty', profileSource: 'dev-cli' }, {
+    runId: 'run-public-empty',
+    namespace: 'ns-public-empty',
+    handles: { serviceGeneration: 'gen-empty' }
+  })
+  const port = createPublicContentPort()
+  const prepared = await prepare(planned, [port], undefined, {
+    handles: {
+      publicContentAdapter: {
+        async prepare() {
+          return {
+            strategy: 'transaction-fixture',
+            entityIdentities: [],
+            observations: minimalObservations({ empty: true })
+          }
+        }
+      }
+    }
+  })
+  assert.deepEqual(prepared.producerResults[0].entityIdentities, [])
+  assert.equal(prepared.producerResults[0].variantEvidence.variants[0].emptyVerified, true)
+  const verified = await verify(prepared, [port], {
+    handles: { publicContentAdapter: { async verify() { return { ok: true } } } }
+  })
+  assert.equal(verified.terminalStatus, 'verified')
+  assert.deepEqual(verified.producerReceipts[0].entityIdentities, [])
 })
 
 test('verify rejects strategy drift and missing observations', async () => {

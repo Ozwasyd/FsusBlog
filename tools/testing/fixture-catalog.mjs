@@ -6,6 +6,7 @@ import { parseMatrix } from '../test-matrix/parse-matrix.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const config = (name) => path.join(root, 'config/testing', name)
+const fixtureVariantSchemaFile = path.join(root, 'config/schemas/fixture-variant-catalog.schema.json')
 const stableId = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/u
 const sortedUnique = (values) => Array.isArray(values) && values.every((value, index) => typeof value === 'string' && stableId.test(value) && (!index || values[index - 1] < value))
 const readJson = (file) => JSON.parse(fs.readFileSync(file, 'utf8'))
@@ -37,8 +38,6 @@ const requiredFixtureSourceFiles = Object.freeze([
   'tools/data-scale/cleanup.sh',
   'tools/data-scale/probe.sh',
   'tools/data-scale/seed.sh',
-  'tools/dev/demo-seed.sql',
-  'tools/dev/seed-demo-data.sh',
   'tools/test/lanes/data-scale.sh'
 ])
 
@@ -62,8 +61,483 @@ export const fixtureCatalogFiles = Object.freeze({
   capability: config('fixture-capability-catalog.json'),
   profile: config('fixture-profile-catalog.json'),
   producer: config('fixture-producer-registry.json'),
-  inventory: config('fixture-consumer-inventory.generated.json')
+  inventory: config('fixture-consumer-inventory.generated.json'),
+  variant: config('fixture-variant-catalog.json')
 })
+
+
+/**
+ * Closed validity vocabulary. This must remain independent from the candidate
+ * catalog being validated so a whole-catalog rename cannot validate itself.
+ */
+export const FIXTURE_VALIDITY_CLASSES = Object.freeze([
+  'canonical-positive',
+  'diagnostic-only',
+  'migration-legacy',
+  'negative-invalid',
+  'scale-synthetic'
+])
+
+const fixtureExecutionClasses = Object.freeze([
+  'acceptance',
+  'browser',
+  'development',
+  'diagnostic',
+  'load',
+  'runtime',
+  'security'
+])
+const nonQualificationExecutionClasses = new Set(['acceptance', 'browser', 'runtime'])
+
+function sortedStableIds(values) {
+  return Array.isArray(values) && values.length > 0 && sortedUnique(values)
+}
+
+function idsFrom(catalog, property) {
+  return new Set((catalog[property] ?? []).map((item) => item.id))
+}
+
+function validateExactReferences(values, known, label, errors, { required = true } = {}) {
+  if (!Array.isArray(values) || (required && values.length === 0)) {
+    errors.push(`${label} must be a ${required ? 'non-empty ' : ''}array`)
+    return
+  }
+  if (!sortedUnique(values)) errors.push(`${label} must be sorted unique stable IDs`)
+  validateReferences(values, known, label, errors)
+}
+
+function resolveSchemaReference(schemaRoot, reference) {
+  if (typeof reference !== 'string' || !reference.startsWith('#/')) return null
+  return reference
+    .slice(2)
+    .split('/')
+    .map((part) => part.replaceAll('~1', '/').replaceAll('~0', '~'))
+    .reduce((current, part) => current?.[part], schemaRoot)
+}
+
+function validateJsonSchemaValue(schemaRoot, schema, value, location = '$') {
+  if (!schema || typeof schema !== 'object' || Array.isArray(schema)) {
+    return [`${location} has an invalid schema definition`]
+  }
+  if (schema.$ref) {
+    const target = resolveSchemaReference(schemaRoot, schema.$ref)
+    return target
+      ? validateJsonSchemaValue(schemaRoot, target, value, location)
+      : [`${location} has unresolved schema ref ${schema.$ref}`]
+  }
+  if (schema.anyOf) {
+    const matches = schema.anyOf
+      .map((candidate) => validateJsonSchemaValue(schemaRoot, candidate, value, location))
+      .filter((candidateErrors) => candidateErrors.length === 0)
+    return matches.length > 0 ? [] : [`${location} must match at least one schema variant`]
+  }
+  if (schema.oneOf) {
+    const matches = schema.oneOf
+      .map((candidate) => validateJsonSchemaValue(schemaRoot, candidate, value, location))
+      .filter((candidateErrors) => candidateErrors.length === 0)
+    return matches.length === 1 ? [] : [`${location} must match exactly one schema variant`]
+  }
+
+  const errors = []
+  if (schema.const !== undefined && stableStringify(value) !== stableStringify(schema.const)) {
+    errors.push(`${location} must equal ${JSON.stringify(schema.const)}`)
+  }
+  if (Array.isArray(schema.enum)
+    && !schema.enum.some((candidate) => stableStringify(candidate) === stableStringify(value))) {
+    errors.push(`${location} has invalid enum value ${JSON.stringify(value)}`)
+  }
+
+  if (schema.type === 'object') {
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+      return [`${location} must be an object`]
+    }
+    for (const key of schema.required ?? []) {
+      if (!Object.hasOwn(value, key)) errors.push(`${location} missing required property ${key}`)
+    }
+    if (schema.additionalProperties === false) {
+      for (const key of Object.keys(value)) {
+        if (!Object.hasOwn(schema.properties ?? {}, key)) {
+          errors.push(`${location} has additional property ${key}`)
+        }
+      }
+    }
+    for (const [key, childSchema] of Object.entries(schema.properties ?? {})) {
+      if (Object.hasOwn(value, key)) {
+        errors.push(...validateJsonSchemaValue(schemaRoot, childSchema, value[key], `${location}.${key}`))
+      }
+    }
+  } else if (schema.type === 'array') {
+    if (!Array.isArray(value)) return [`${location} must be an array`]
+    if (schema.minItems != null && value.length < schema.minItems) {
+      errors.push(`${location} requires at least ${schema.minItems} items`)
+    }
+    if (schema.uniqueItems === true
+      && new Set(value.map((item) => stableStringify(item))).size !== value.length) {
+      errors.push(`${location} must contain unique items`)
+    }
+    value.forEach((item, index) => {
+      errors.push(...validateJsonSchemaValue(schemaRoot, schema.items ?? {}, item, `${location}[${index}]`))
+    })
+  } else if (schema.type === 'string') {
+    if (typeof value !== 'string') return [`${location} must be a string`]
+    if (schema.minLength != null && value.length < schema.minLength) {
+      errors.push(`${location} requires at least ${schema.minLength} characters`)
+    }
+    if (schema.pattern && !new RegExp(schema.pattern, 'u').test(value)) {
+      errors.push(`${location} does not match ${schema.pattern}`)
+    }
+  } else if (schema.type === 'boolean') {
+    if (typeof value !== 'boolean') errors.push(`${location} must be a boolean`)
+  } else if (schema.type === 'null') {
+    if (value !== null) errors.push(`${location} must be null`)
+  } else if (schema.type === 'integer') {
+    if (!Number.isInteger(value)) errors.push(`${location} must be an integer`)
+  } else if (schema.type === 'number') {
+    if (typeof value !== 'number' || !Number.isFinite(value)) errors.push(`${location} must be a finite number`)
+  }
+  return errors
+}
+
+/** Validate the sole semantic variant authority and all references it owns. */
+export function validateFixtureVariantCatalog({
+  variantFile = fixtureCatalogFiles.variant,
+  capabilityFile = fixtureCatalogFiles.capability,
+  producerFile = fixtureCatalogFiles.producer,
+  profileFile = fixtureCatalogFiles.profile,
+  schemaFile = fixtureVariantSchemaFile
+} = {}) {
+  const errors = []
+  let catalog
+  let schema
+  try { catalog = JSON.parse(fs.readFileSync(variantFile, 'utf8')) } catch (error) { return [`fixture variant catalog is unreadable: ${error.message}`] }
+  try {
+    schema = JSON.parse(fs.readFileSync(schemaFile, 'utf8'))
+    if (schema.$id !== 'fsusblog.fixture-variant-catalog.v1') errors.push('fixture variant schema identity is invalid')
+    if (schema.additionalProperties !== false) errors.push('fixture variant schema root must reject additional properties')
+  } catch (error) { errors.push(`fixture variant schema is unreadable: ${error.message}`) }
+  if (schema) {
+    errors.push(...validateJsonSchemaValue(schema, schema, catalog)
+      .map((error) => `fixture variant schema: ${error}`))
+  }
+  if (catalog.schema !== 'fsusblog.fixture-variant-catalog.v1') errors.push('variant catalog schema identity is invalid')
+  if (!Array.isArray(catalog.validityClasses)) errors.push('variant catalog validityClasses must be an array')
+  const classes = catalog.validityClasses ?? []
+  if (classes.length !== FIXTURE_VALIDITY_CLASSES.length) errors.push(`variant catalog must declare exactly ${FIXTURE_VALIDITY_CLASSES.length} validity classes`)
+  const classIds = classes.map((item) => item.id)
+  if (JSON.stringify([...classIds].sort()) !== JSON.stringify([...FIXTURE_VALIDITY_CLASSES].sort())) {
+    errors.push(`variant catalog validity classes must exactly match ${FIXTURE_VALIDITY_CLASSES.join(', ')}`)
+  }
+  for (const expected of FIXTURE_VALIDITY_CLASSES) {
+    if (!classIds.includes(expected)) errors.push(`variant catalog missing required validity class ${expected}`)
+  }
+  if (new Set(classIds).size !== classIds.length) errors.push('variant catalog has duplicate validity class ids')
+  for (const item of classes) {
+    if (!item.semantics || typeof item.semantics !== 'string') errors.push(`validity class ${item.id} must declare semantics`)
+    if (!Array.isArray(item.allowedExecutionClasses) || !item.allowedExecutionClasses.length) errors.push(`validity class ${item.id} must declare catalog execution policy`)
+  }
+  const writerContracts = idsFrom(catalog, 'writerContracts')
+  const contentShapes = idsFrom(catalog, 'contentShapes')
+  const temporalShapes = idsFrom(catalog, 'temporalShapes')
+  const mediaShapes = idsFrom(catalog, 'mediaShapes')
+  const distributionShapes = idsFrom(catalog, 'distributionShapes')
+  const derivedStates = idsFrom(catalog, 'derivedStates')
+  const sentinels = catalog.sentinels ?? []
+  const sentinelIds = new Set(sentinels.map((item) => item.id))
+  for (const [label, entries] of Object.entries({ writerContracts: catalog.writerContracts, contentShapes: catalog.contentShapes, temporalShapes: catalog.temporalShapes, mediaShapes: catalog.mediaShapes, distributionShapes: catalog.distributionShapes, derivedStates: catalog.derivedStates })) {
+    const ids = (entries ?? []).map((item) => item.id)
+    if (!Array.isArray(entries) || !entries.length || !sortedUnique(ids)) errors.push(`${label} must declare sorted unique stable IDs`)
+  }
+  let profiles = []
+  try { profiles = (JSON.parse(fs.readFileSync(profileFile, 'utf8')).profiles ?? []) } catch { errors.push('fixture profile catalog is unreadable') }
+  const profileIds = new Set(profiles.map((item) => item.id))
+  for (const sentinel of sentinels) {
+    const id = sentinel.id ?? '<missing>'
+    if (!stableId.test(id)) errors.push(`sentinel has unstable id ${id}`)
+    if (typeof sentinel.value !== 'string' || !sentinel.value) errors.push(`sentinel ${id} must declare value`)
+    validateExactReferences(sentinel.allowedValidityClasses, new Set(FIXTURE_VALIDITY_CLASSES), `sentinel ${id}.allowedValidityClasses`, errors)
+    if (!Array.isArray(sentinel.allowedProfiles) || !sortedUnique(sentinel.allowedProfiles)) errors.push(`sentinel ${id}.allowedProfiles must be sorted unique stable profile IDs`)
+    validateReferences(sentinel.allowedProfiles, profileIds, `sentinel ${id}.allowedProfiles`, errors)
+    if (sentinel.profileScope === 'registered-profiles' && sentinel.allowedProfiles.length === 0) errors.push(`sentinel ${id} registered-profiles scope requires profile references`)
+    if (sentinel.profileScope === 'unbound-retired' && sentinel.allowedProfiles.length !== 0) errors.push(`sentinel ${id} unbound-retired scope must not bind profiles`)
+    if (sentinel.profileScope !== 'registered-profiles' && sentinel.profileScope !== 'unbound-retired') errors.push(`sentinel ${id} must declare a controlled profileScope`)
+    if (sentinel.profileScope === 'unbound-retired' && !sentinel.allowedValidityClasses.every((item) => item === 'migration-legacy' || item === 'negative-invalid')) errors.push(`sentinel ${id} unbound-retired scope may only serve migration-legacy or negative-invalid variants`)
+    if (typeof sentinel.forbiddenInCanonicalPositive !== 'boolean') errors.push(`sentinel ${id} must declare forbiddenInCanonicalPositive`)
+    if (!stableId.test(sentinel.retirementOwner ?? '')) errors.push(`sentinel ${id} must declare retirementOwner`)
+  }
+
+  const variants = catalog.variants ?? []
+  const variantIds = variants.map((item) => item.id)
+  const duplicateVariantIds = variantIds.filter((value, index) => variantIds.indexOf(value) !== index)
+  if (duplicateVariantIds.length) errors.push(`duplicate variant id ${duplicateVariantIds.sort().join(', ')}`)
+  let capabilities = []
+  let producers = []
+  try { capabilities = (JSON.parse(fs.readFileSync(capabilityFile, 'utf8')).capabilities ?? []) } catch { errors.push('fixture capability catalog is unreadable') }
+  try { producers = (JSON.parse(fs.readFileSync(producerFile, 'utf8')).producers ?? []) } catch { errors.push('fixture producer registry is unreadable') }
+  const capabilityById = new Map(capabilities.map((item) => [item.id, item]))
+  const producerIds = new Set(producers.map((item) => item.id))
+  const canonicalByCapability = new Map()
+  for (const variant of variants) {
+    const id = variant.id ?? '<missing>'
+    if (!stableId.test(id)) errors.push(`variant has unstable id ${id}`)
+    if (!FIXTURE_VALIDITY_CLASSES.includes(variant.validityClass)) errors.push(`variant ${id} has invalid validityClass ${variant.validityClass}`)
+    const capability = capabilityById.get(variant.capabilityId)
+    if (!capability) errors.push(`variant ${id} references unknown capability ${variant.capabilityId}`)
+    if (!producerIds.has(variant.ownerProducerId)) errors.push(`variant ${id} references unknown producer ${variant.ownerProducerId}`)
+    if (capability && capability.ownerProducerId !== variant.ownerProducerId) errors.push(`variant ${id} ownerProducerId must match capability owner ${capability.ownerProducerId}`)
+    if (!writerContracts.has(variant.writerContractId)) errors.push(`variant ${id} references unknown writer contract ${variant.writerContractId}`)
+    validateExactReferences(variant.contentShapeIds, contentShapes, `variant ${id}.contentShapeIds`, errors)
+    if (!temporalShapes.has(variant.temporalShapeId)) errors.push(`variant ${id} references unknown temporal shape ${variant.temporalShapeId}`)
+    validateExactReferences(variant.mediaShapeIds, mediaShapes, `variant ${id}.mediaShapeIds`, errors, { required: false })
+    if (variant.distributionShapeId !== null && !distributionShapes.has(variant.distributionShapeId)) errors.push(`variant ${id} references unknown distribution shape ${variant.distributionShapeId}`)
+    validateExactReferences(variant.requiredDerivedStateIds, derivedStates, `variant ${id}.requiredDerivedStateIds`, errors, { required: false })
+    validateExactReferences(variant.forbiddenSentinelIds, sentinelIds, `variant ${id}.forbiddenSentinelIds`, errors, { required: false })
+    if (typeof variant.expectedBoundary !== 'string' || !variant.expectedBoundary) errors.push(`variant ${id} must declare expectedBoundary`)
+    validateExactReferences(variant.allowedExecutionClasses, new Set(fixtureExecutionClasses), `variant ${id}.allowedExecutionClasses`, errors)
+    validateExactReferences(variant.defaultExecutionClasses, new Set(fixtureExecutionClasses), `variant ${id}.defaultExecutionClasses`, errors, { required: false })
+    for (const executionClass of variant.defaultExecutionClasses ?? []) {
+      if (!variant.allowedExecutionClasses.includes(executionClass)) {
+        errors.push(`variant ${id} default execution class ${executionClass} is not allowed`)
+      }
+    }
+    if (variant.validityClass !== 'canonical-positive' && variant.allowedExecutionClasses?.some((item) => nonQualificationExecutionClasses.has(item))) errors.push(`non-canonical variant ${id} cannot be consumed by qualification execution classes`)
+    if (variant.validityClass !== 'canonical-positive') {
+      const declared = classes.find((item) => item.id === variant.validityClass)?.allowedExecutionClasses ?? []
+      if (JSON.stringify(variant.allowedExecutionClasses) !== JSON.stringify(declared)) {
+        errors.push(`variant ${id} validity class ${variant.validityClass} must exactly match catalog execution policy ${declared.join(', ')}`)
+      }
+    }
+    if (variant.validityClass === 'negative-invalid' && variant.requiredDerivedStateIds.length !== 1) errors.push(`negative-invalid variant ${id} must violate exactly one invariant`)
+    if (variant.validityClass === 'negative-invalid' && !stableId.test(variant.expectedInvariantId ?? '')) errors.push(`negative-invalid variant ${id} must declare its exact expected invariant ID`)
+    if (variant.validityClass === 'negative-invalid' && !sentinelIds.has(variant.injectedSentinelId ?? '')) errors.push(`negative-invalid variant ${id} must declare its exact injected sentinel ID`)
+    if (variant.validityClass === 'negative-invalid' && !sentinels.find((item) => item.id === variant.injectedSentinelId)?.allowedValidityClasses?.includes('negative-invalid')) errors.push(`negative-invalid variant ${id} injected sentinel ${variant.injectedSentinelId} must allow negative-invalid`)
+    if (variant.validityClass !== 'negative-invalid' && variant.expectedInvariantId != null) errors.push(`non-negative variant ${id} must not declare expectedInvariantId`)
+    if (variant.validityClass !== 'negative-invalid' && variant.injectedSentinelId != null) errors.push(`non-negative variant ${id} must not declare injectedSentinelId`)
+    if (variant.validityClass === 'scale-synthetic' && (!variant.expectedBoundary.includes('equivalent:') || !variant.expectedBoundary.includes('not-equivalent:'))) errors.push(`scale-synthetic variant ${id} must declare production graph equivalence boundary`)
+    if (variant.validityClass === 'canonical-positive') {
+      if (canonicalByCapability.has(variant.capabilityId)) errors.push(`capability ${variant.capabilityId} has multiple canonical variants`)
+      canonicalByCapability.set(variant.capabilityId, variant)
+      const requiredSentinels = sentinels.filter((item) => item.forbiddenInCanonicalPositive).map((item) => item.id).sort()
+      if (JSON.stringify(variant.forbiddenSentinelIds) !== JSON.stringify(requiredSentinels)) errors.push(`canonical-positive variant ${id} must reject every registered canonical-forbidden sentinel`)
+    }
+    const allowedFields = new Set(['id', 'capabilityId', 'validityClass', 'ownerProducerId', 'writerContractId', 'contentShapeIds', 'temporalShapeId', 'mediaShapeIds', 'distributionShapeId', 'requiredDerivedStateIds', 'forbiddenSentinelIds', 'expectedBoundary', 'expectedInvariantId', 'injectedSentinelId', 'allowedExecutionClasses', 'defaultExecutionClasses'])
+    for (const key of Object.keys(variant)) {
+      if (!allowedFields.has(key)) errors.push(`variant ${id} has unexpected field ${key}`)
+    }
+  }
+  for (const capability of capabilities) {
+    const hasAllowedVariant = variants.some((item) => item.capabilityId === capability.id)
+    if (!hasAllowedVariant) errors.push(`capability ${capability.id} has no registered fixture variant`)
+    if (!canonicalByCapability.has(capability.id) && !/^(?:development\.demo\.dataset|scale\.)/u.test(capability.id)) {
+      errors.push(`capability ${capability.id} has no canonical-positive variant`)
+    }
+  }
+  for (const capability of capabilities) {
+    for (const executionClass of fixtureExecutionClasses) {
+      const permitted = variants.filter((item) => item.capabilityId === capability.id
+        && item.allowedExecutionClasses?.includes(executionClass))
+      if (!permitted.length) continue
+      const defaults = permitted.filter((item) => item.defaultExecutionClasses?.includes(executionClass))
+      if (defaults.length !== 1) {
+        errors.push(`capability ${capability.id} execution class ${executionClass} must have exactly one catalog default variant`)
+      }
+    }
+  }
+  return errors
+}
+
+function freezeVariantEntry(variant, catalogs) {
+  const capability = catalogs.capability.capabilities.find((item) => item.id === variant.capabilityId)
+  if (!capability) throw new Error(`fixture variant ${variant.id} references unknown capability ${variant.capabilityId}`)
+  return Object.freeze({
+    id: variant.id,
+    capabilityId: variant.capabilityId,
+    postconditionIds: Object.freeze([...(capability.postconditionIds ?? [])]),
+    validityClass: variant.validityClass,
+    ownerProducerId: variant.ownerProducerId,
+    writerContractId: variant.writerContractId,
+    contentShapeIds: Object.freeze([...variant.contentShapeIds]),
+    temporalShapeId: variant.temporalShapeId,
+    mediaShapeIds: Object.freeze([...variant.mediaShapeIds]),
+    distributionShapeId: variant.distributionShapeId,
+    requiredDerivedStateIds: Object.freeze([...variant.requiredDerivedStateIds]),
+    forbiddenSentinelIds: Object.freeze([...variant.forbiddenSentinelIds]),
+    expectedBoundary: variant.expectedBoundary,
+    expectedInvariantId: variant.expectedInvariantId ?? null,
+    injectedSentinelId: variant.injectedSentinelId ?? null,
+    injectedSentinelValue: variant.injectedSentinelId == null
+      ? null
+      : catalogs.variant.sentinels.find((item) => item.id === variant.injectedSentinelId)?.value ?? null,
+    allowedExecutionClasses: Object.freeze([...variant.allowedExecutionClasses])
+  })
+}
+
+/**
+ * Resolve an exact consumer requirement. When requestedVariantIds is supplied,
+ * every capability must name exactly one permitted catalog variant. Otherwise,
+ * the sole catalog-owned default for that capability/execution class is used.
+ */
+export function resolveFixtureVariants(capabilityIds, executionClass, catalogs = readFixtureCatalogs(), {
+  requestedVariantIds = null
+} = {}) {
+  const variants = catalogs.variant?.variants ?? []
+  const capabilities = [...capabilityIds].sort()
+  const requested = requestedVariantIds == null ? null : [...requestedVariantIds].sort()
+  const requestedEntries = requested == null
+    ? null
+    : requested.map((variantId) => {
+      const variant = variants.find((item) => item.id === variantId)
+      if (!variant) throw new Error(`requested fixture variant ${variantId} is not registered`)
+      return variant
+    })
+  if (requested && new Set(requested).size !== requested.length) {
+    throw new Error('requested fixture variant IDs must be sorted and unique')
+  }
+  if (requestedEntries) {
+    const requestedCapabilities = requestedEntries.map((item) => item.capabilityId).sort()
+    if (JSON.stringify(requestedCapabilities) !== JSON.stringify(capabilities)) {
+      throw new Error('requested fixture variants must map one-to-one with required capabilities')
+    }
+  }
+  return Object.freeze(capabilities.map((capabilityId) => {
+    const matches = requestedEntries
+      ? requestedEntries.filter((item) => item.capabilityId === capabilityId)
+      : variants.filter((item) => item.capabilityId === capabilityId
+        && item.defaultExecutionClasses?.includes(executionClass))
+    if (matches.length !== 1) {
+      throw new Error(`capability ${capabilityId} must resolve to exactly one fixture variant for ${executionClass}`)
+    }
+    const variant = matches[0]
+    if (!variant.allowedExecutionClasses.includes(executionClass)) {
+      throw new Error(`fixture variant ${variant.id} rejects execution class ${executionClass}`)
+    }
+    return variant.id
+  }).sort())
+}
+
+/** Immutable runtime projection; producers receive only their own typed slice. */
+export function buildFixtureVariantPlan(variantIds, catalogs = readFixtureCatalogs()) {
+  const ids = [...variantIds].sort()
+  if (new Set(ids).size !== ids.length) throw new Error('fixture variant plan IDs must be unique')
+  const entries = ids.map((id) => {
+    const variant = catalogs.variant?.variants?.find((item) => item.id === id)
+    if (!variant) throw new Error(`fixture variant plan references unregistered variant ${id}`)
+    return freezeVariantEntry(variant, catalogs)
+  })
+  const producerIds = [...new Set(entries.map((item) => item.ownerProducerId))].sort()
+  const byProducer = producerIds.map((producerId) => Object.freeze({
+    producerId,
+    variants: Object.freeze(entries.filter((item) => item.ownerProducerId === producerId))
+  }))
+  const body = {
+    schema: 'fsusblog.fixture-variant-plan.v1',
+    catalogDigest: fixtureCatalogDigest(catalogs),
+    variants: Object.freeze(entries),
+    byProducer: Object.freeze(byProducer)
+  }
+  return Object.freeze({
+    ...body,
+    variantPlanDigest: sha256Json(body)
+  })
+}
+
+/** Immutable producer-owned slice whose digest is bound to the complete fixture plan. */
+export function buildProducerFixtureVariantPlan({
+  producerId,
+  variantIds,
+  fixtureVariantIds,
+  fixtureVariantPlanDigest,
+  catalogs = readFixtureCatalogs()
+} = {}) {
+  const id = String(producerId ?? '').trim()
+  if (!stableId.test(id)) throw new Error('producer fixture variant plan requires a stable producerId')
+  if (typeof fixtureVariantPlanDigest !== 'string' || !/^sha256:[a-f0-9]{64}$/u.test(fixtureVariantPlanDigest)) {
+    throw new Error(`producer ${id} fixture variant plan requires the complete fixture plan digest`)
+  }
+  const completePlan = buildFixtureVariantPlan(fixtureVariantIds ?? [], catalogs)
+  if (fixtureVariantPlanDigest !== completePlan.variantPlanDigest) {
+    throw new Error(`producer ${id} fixture variant plan digest is forged or does not match the complete registered plan`)
+  }
+  const expectedIds = (completePlan.byProducer.find((item) => item.producerId === id)?.variants ?? [])
+    .map((item) => item.id)
+    .sort()
+  const requestedIds = [...(variantIds ?? [])].sort()
+  if (JSON.stringify(requestedIds) !== JSON.stringify(expectedIds)) {
+    throw new Error(`producer ${id} fixture variant slice does not exactly match the complete registered plan`)
+  }
+  const variants = completePlan.variants.filter((variant) => variant.ownerProducerId === id)
+  const body = {
+    schema: 'fsusblog.fixture-producer-variant-plan.v1',
+    catalogDigest: fixtureCatalogDigest(catalogs),
+    fixtureVariantPlanDigest,
+    producerId: id,
+    variants
+  }
+  return Object.freeze({
+    ...body,
+    producerVariantPlanDigest: sha256Json(body)
+  })
+}
+
+/**
+ * Validate producer evidence against the sealed data variant, rather than merely
+ * accepting a matching ID in a receipt. This is intentionally adapter-neutral so
+ * #1713/#1718 producers must meet the same live evidence contract.
+ */
+export function validateFixtureVariantEvidence({ result, variantIds, catalogs = readFixtureCatalogs() } = {}) {
+  if (result?.enforceVariantEvidence !== true) return []
+  const errors = []
+  const expected = [...(variantIds ?? [])].sort()
+  const variants = new Map((catalogs.variant?.variants ?? []).map((item) => [item.id, item]))
+  const sentinels = new Map((catalogs.variant?.sentinels ?? []).map((item) => [item.id, item.value]))
+  const entities = result?.observations?.database?.entities ?? result?.databaseObservation?.entities ?? []
+  const identities = result?.entityIdentities ?? []
+  for (const entity of [...entities, ...identities]) {
+    if (!entity?.variantId || !expected.includes(entity.variantId)) errors.push(`fixture entity ${entity?.id ?? '<missing>'} has no exact planned variantId`)
+  }
+  for (const id of expected) {
+    const variant = variants.get(id)
+    if (!variant) { errors.push(`fixture evidence references unknown variant ${id}`); continue }
+    const boundEntities = entities.filter((item) => item?.variantId === id)
+    const evidence = result?.variantEvidence?.variants?.find((item) => item?.variantId === id)
+    const observedIds = new Set(entities.map((item) => String(item?.id ?? '')))
+    const hasLiveEvidence = evidence?.source === 'live-service'
+      && Array.isArray(evidence.entityIds)
+      && ((evidence.entityIds.length > 0
+        && evidence.entityIds.every((entityId) => observedIds.has(String(entityId))))
+        || (variant.capabilityId === 'public.empty'
+          && evidence.emptyVerified === true
+          && evidence.entityIds.length === 0
+          && entities.length === 0))
+    if (variant.validityClass === 'negative-invalid') {
+      if (boundEntities.length !== 0) errors.push(`negative variant ${id} must not publish fixture entities`)
+      const expectedSentinelValue = sentinels.get(variant.injectedSentinelId)
+      if (evidence?.source !== 'live-service' || evidence?.rejected !== true || evidence?.injectedSentinelId !== variant.injectedSentinelId || evidence?.injectedSentinelValue !== expectedSentinelValue || !Array.isArray(evidence.invariantIds) || evidence.invariantIds.length !== 1 || evidence.invariantIds[0] !== variant.expectedInvariantId) errors.push(`negative variant ${id} requires its exact live rejected invariant ${variant.expectedInvariantId}`)
+      continue
+    }
+    if (boundEntities.length === 0 && !hasLiveEvidence) errors.push(`variant ${id} has no exact entity binding or live evidence`)
+    const mediaEntities = boundEntities.length
+      ? boundEntities
+      : entities.filter((item) => evidence?.entityIds?.map(String).includes(String(item?.id ?? '')))
+    const hasCover = mediaEntities.some((entity) => entity?.fields?.hasCover === true || String(entity?.fields?.coverImageUrl ?? '').trim())
+    const hasNoCover = mediaEntities.some((entity) => !(entity?.fields?.hasCover === true || String(entity?.fields?.coverImageUrl ?? '').trim()))
+    if (variant.mediaShapeIds?.includes('no-media') && hasCover) errors.push(`no-media variant ${id} observed a cover entity`)
+    if (variant.mediaShapeIds?.includes('cover-and-no-cover') && (!hasCover || !hasNoCover)) errors.push(`cover-and-no-cover variant ${id} requires live cover and no-cover observations`)
+    for (const entity of mediaEntities) {
+      const fields = JSON.stringify(entity.fields ?? {})
+      if (variant.validityClass === 'canonical-positive') {
+        for (const sentinelId of variant.forbiddenSentinelIds ?? []) {
+          const value = sentinels.get(sentinelId)
+          if (value && fields.includes(value)) errors.push(`canonical-positive variant ${id} contains forbidden sentinel ${sentinelId}`)
+        }
+      }
+    }
+    if (variant.validityClass === 'migration-legacy'
+      && ((boundEntities.length === 0 && !hasLiveEvidence) || evidence?.legacyRead !== true)) errors.push(`migration variant ${id} requires observed live legacy-read evidence`)
+    if (variant.validityClass === 'scale-synthetic'
+      && evidence?.expectedBoundary !== variant.expectedBoundary) errors.push(`scale variant ${id} must prove its exact production boundary`)
+  }
+  return errors
+}
 
 export function readFixtureCatalogs(files = fixtureCatalogFiles) {
   return Object.fromEntries(Object.entries(files).map(([key, file]) => [key, readJson(file)]))
@@ -75,6 +549,43 @@ function duplicate(values) {
 
 function validateReferences(values, known, label, errors) {
   for (const value of values ?? []) if (!known.has(value)) errors.push(`${label} references unknown id ${value}`)
+}
+
+function normalizedSentinelValue(value) {
+  return String(value).trim().toLowerCase().replace(/\s*=\s*/gu, '=')
+}
+
+export function validateFixtureSentinelRegistry({
+  catalogs = readFixtureCatalogs(),
+  repositoryRoot = root,
+  sourceOverrides = new Map()
+} = {}) {
+  const errors = []
+  const registered = new Set((catalogs.variant.sentinels ?? [])
+    .map((item) => normalizedSentinelValue(item.value)))
+  const candidatePatterns = [
+    /\blegacy_[a-z0-9_]+\b/giu,
+    /\brights-v3:[a-z0-9-]+:recompute\b/giu,
+    /\bcreated_by_admin_principal_id\s*=\s*0\b/giu,
+    /\bunknown audit action\b/giu,
+    /\bunverified local fallback object\b/giu
+  ]
+  const sources = new Set((catalogs.producer.producers ?? [])
+    .flatMap((item) => item.implementationPaths ?? []))
+  for (const source of sourceOverrides.keys()) sources.add(source)
+  for (const source of [...sources].sort()) {
+    const file = path.join(repositoryRoot, source)
+    const content = sourceOverrides.get(source)
+      ?? (fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '')
+    for (const pattern of candidatePatterns) {
+      for (const match of content.matchAll(pattern)) {
+        if (!registered.has(normalizedSentinelValue(match[0]))) {
+          errors.push(`${source}: fixture sentinel ${match[0]} is not registered in FixtureVariantCatalog`)
+        }
+      }
+    }
+  }
+  return [...new Set(errors)]
 }
 
 /**
@@ -294,6 +805,7 @@ export function validateFixtureAuthoritySources({ repositoryRoot = root, sourceO
   const errors = []
   const forbidden = [
     [/fixtureProfileAlias(?:es)?|legacyFixtureProfiles?/u, 'fixture profile alias is forbidden'],
+    [/fixtureVariantAlias(?:es)?|legacyFixtureVariants?|variantAliases?/u, 'fixture variant alias is forbidden'],
     [/\bfixtureProfiles?\s*[:=]\s*\[/u, 'second fixture profile list is forbidden'],
     [/\b[A-Za-z0-9_]*fixture[A-Za-z0-9_]*capabilit(?:y|ies)\s*[:=]\s*\[/iu, 'free-string fixture capability list is forbidden']
   ]
@@ -302,6 +814,7 @@ export function validateFixtureAuthoritySources({ repositoryRoot = root, sourceO
     'config/testing/fixture-consumer-inventory.generated.json',
     'config/testing/fixture-producer-registry.json',
     'config/testing/fixture-profile-catalog.json',
+    'config/testing/fixture-variant-catalog.json',
     'docs/testing/fixture-capability-catalog.md',
     'tests/matrix.yml',
     'tests/tools/fixture-catalog.test.mjs',
@@ -365,7 +878,8 @@ export function fixtureCatalogDigest(catalogs = readFixtureCatalogs()) {
   return sha256Json({
     capability: catalogs.capability,
     profile: catalogs.profile,
-    producer: catalogs.producer
+    producer: catalogs.producer,
+    variant: catalogs.variant
   })
 }
 
@@ -428,6 +942,7 @@ export function resolveFixtureProfile({
   profileId,
   profileSource,
   executionClass = null,
+  requestedVariantIds = null,
   sealed = null,
   catalogs = readFixtureCatalogs(),
   allowFreeProfileEnv = false,
@@ -455,6 +970,17 @@ export function resolveFixtureProfile({
       throw new Error(`fixture profile ${requestedId} rejects execution class ${executionClass}`)
     }
   }
+  const resolvedExecutionClass = executionClass
+    || (profileSource === 'matrix' ? (sealed?.executionClass ?? null) : null)
+    || (profileSource === 'dev-cli'
+      ? (plan.allowedExecutionClasses.includes('diagnostic')
+        ? 'diagnostic'
+        : plan.allowedExecutionClasses[0] ?? null)
+      : null)
+  const variantIds = resolvedExecutionClass == null
+    ? Object.freeze([])
+    : resolveFixtureVariants(plan.capabilities, resolvedExecutionClass, catalogs, { requestedVariantIds })
+  const variantPlan = buildFixtureVariantPlan(variantIds, catalogs)
   const catalogDigest = fixtureCatalogDigest(catalogs)
   const capabilityDigest = expandedCapabilityDigest(plan.capabilities)
   if (profileSource === 'matrix') {
@@ -464,6 +990,8 @@ export function resolveFixtureProfile({
     const sealedId = String(sealed.fixtureProfileId ?? '').trim()
     const sealedCatalogDigest = String(sealed.fixtureCatalogDigest ?? '').trim()
     const sealedCapabilityDigest = String(sealed.expandedCapabilityDigest ?? '').trim()
+    const sealedVariantIds = sealed.fixtureVariantIds
+    const sealedVariantPlanDigest = String(sealed.fixtureVariantPlanDigest ?? '').trim()
     const sealedExecutionClass = sealed.executionClass == null || sealed.executionClass === ''
       ? null
       : String(sealed.executionClass)
@@ -473,11 +1001,19 @@ export function resolveFixtureProfile({
     }
     if (!sealedCatalogDigest) throw new Error('sealed fixtureCatalogDigest is missing')
     if (!sealedCapabilityDigest) throw new Error('sealed expandedCapabilityDigest is missing')
+    if (!Array.isArray(sealedVariantIds)) throw new Error('sealed fixtureVariantIds are missing')
+    if (!sealedVariantPlanDigest) throw new Error('sealed fixtureVariantPlanDigest is missing')
     if (sealedCatalogDigest !== catalogDigest) {
       throw new Error('fixture catalog digest drifted after matrix seal; refusing mutation')
     }
     if (sealedCapabilityDigest !== capabilityDigest) {
       throw new Error('expanded capability digest drifted after matrix seal; refusing mutation')
+    }
+    if (JSON.stringify(sealedVariantIds) !== JSON.stringify(variantIds)) {
+      throw new Error('fixture variant IDs drifted after matrix seal; refusing mutation')
+    }
+    if (sealedVariantPlanDigest !== variantPlan.variantPlanDigest) {
+      throw new Error('fixture variant plan digest drifted after matrix seal; refusing mutation')
     }
     if (sealedExecutionClass != null) {
       if (!plan.allowedExecutionClasses.includes(sealedExecutionClass)) {
@@ -490,12 +1026,6 @@ export function resolveFixtureProfile({
   } else if (sealed != null) {
     throw new Error('dev-cli fixture profile must not carry matrix sealed identity')
   }
-  const resolvedExecutionClass = executionClass
-    || (profileSource === 'dev-cli'
-      ? (plan.allowedExecutionClasses.includes('diagnostic')
-        ? 'diagnostic'
-        : plan.allowedExecutionClasses[0] ?? null)
-      : null)
   return Object.freeze({
     schema: 'fsusblog.fixture-profile-plan.v1',
     profileId: requestedId,
@@ -504,6 +1034,9 @@ export function resolveFixtureProfile({
     catalogDigest,
     expandedCapabilityDigest: capabilityDigest,
     capabilities: plan.capabilities,
+    variantIds,
+    variantPlan,
+    variantPlanDigest: variantPlan.variantPlanDigest,
     producers: plan.producers,
     mutationPolicy: plan.mutationPolicy,
     isDestructive: plan.isDestructive,
@@ -519,6 +1052,8 @@ export function resolveFixtureProfile({
         fixtureProfileId: requestedId,
         fixtureCatalogDigest: catalogDigest,
         expandedCapabilityDigest: capabilityDigest,
+        fixtureVariantIds: variantIds,
+        fixtureVariantPlanDigest: variantPlan.variantPlanDigest,
         executionClass: resolvedExecutionClass
       })
       : null
@@ -550,6 +1085,8 @@ export function sealMatrixFixtureProfile(tier, catalogs = readFixtureCatalogs())
   }
   const catalogDigest = fixtureCatalogDigest(catalogs)
   const capabilityDigest = expandedCapabilityDigest(plan.capabilities)
+  const variantIds = resolveFixtureVariants(plan.capabilities, executionClass, catalogs)
+  const variantPlan = buildFixtureVariantPlan(variantIds, catalogs)
   return resolveFixtureProfile({
     profileId: tier.fixtureProfile,
     profileSource: 'matrix',
@@ -558,6 +1095,8 @@ export function sealMatrixFixtureProfile(tier, catalogs = readFixtureCatalogs())
       fixtureProfileId: tier.fixtureProfile,
       fixtureCatalogDigest: catalogDigest,
       expandedCapabilityDigest: capabilityDigest,
+      fixtureVariantIds: variantIds,
+      fixtureVariantPlanDigest: variantPlan.variantPlanDigest,
       executionClass
     },
     catalogs,
@@ -572,6 +1111,7 @@ export function writeFixtureProfileReceipt(file, plan, {
   fixtureReceiptPath = null,
   fixtureReceiptDigest = null,
   fixtureReceiptTerminalStatus = null,
+  fixtureReceiptDocument = null,
   extra = null
 } = {}) {
   if (!file) throw new Error('fixture profile receipt path is required')
@@ -583,6 +1123,41 @@ export function writeFixtureProfileReceipt(file, plan, {
   }
   if (kind !== 'planned-profile' && kind !== 'environment-ready') {
     throw new Error(`unsupported fixture profile receipt kind: ${kind}`)
+  }
+  if (kind === 'environment-ready' && fixtureReceiptPath != null) {
+    if (!fixtureReceiptDocument || typeof fixtureReceiptDocument !== 'object') {
+      throw new Error('environment-ready requires a validated FixtureReceipt document when a receipt path is present')
+    }
+    const comparisons = [
+      ['profile id', fixtureReceiptDocument.profileIdentity?.profileId, plan.profileId],
+      ['profile source', fixtureReceiptDocument.profileIdentity?.profileSource, plan.profileSource],
+      ['execution class', fixtureReceiptDocument.profileIdentity?.executionClass ?? null, plan.executionClass ?? null],
+      ['catalog digest', fixtureReceiptDocument.catalogDigest, plan.catalogDigest],
+      ['capability digest', fixtureReceiptDocument.expandedCapabilityDigest, plan.expandedCapabilityDigest],
+      ['variant ids', fixtureReceiptDocument.fixtureVariantIds, plan.variantIds ?? plan.fixtureVariantIds ?? []],
+      ['variant plan digest', fixtureReceiptDocument.variantPlanDigest, plan.variantPlanDigest ?? plan.fixtureVariantPlanDigest]
+    ]
+    for (const [label, actual, expected] of comparisons) {
+      if (stableStringify(actual) !== stableStringify(expected)) {
+        throw new Error(`environment-ready FixtureReceipt ${label} does not match the planned profile`)
+      }
+    }
+    if (fixtureReceiptDocument.schema !== 'fsusblog.fixture-receipt.v2'
+      || fixtureReceiptDocument.terminalStatus !== 'verified') {
+      throw new Error('environment-ready requires a verified FixtureReceipt v2')
+    }
+    if (!/^sha256:[a-f0-9]{64}$/u.test(String(fixtureReceiptDocument.receiptDigest ?? ''))) {
+      throw new Error('environment-ready requires the validated FixtureReceipt digest')
+    }
+    if (fixtureReceiptTerminalStatus !== 'verified') {
+      throw new Error('environment-ready verified FixtureReceipt must declare terminal status verified')
+    }
+    if (fixtureReceiptDigest != null && fixtureReceiptDigest !== fixtureReceiptDocument.receiptDigest) {
+      throw new Error('environment-ready FixtureReceipt digest does not match the validated receipt')
+    }
+    fixtureReceiptDigest = fixtureReceiptDocument.receiptDigest
+  } else if (kind === 'environment-ready' && fixtureReceiptTerminalStatus === 'verified') {
+    throw new Error('environment-ready cannot claim verified without a validated FixtureReceipt')
   }
   const capabilityIds = plan.capabilityIds ?? plan.capabilities ?? []
   const producerIds = plan.producerIds ?? plan.producers ?? []
@@ -597,6 +1172,8 @@ export function writeFixtureProfileReceipt(file, plan, {
     profileSource: plan.profileSource,
     catalogDigest: plan.catalogDigest,
     expandedCapabilityDigest: plan.expandedCapabilityDigest,
+    fixtureVariantIds: plan.variantIds ?? plan.fixtureVariantIds ?? [],
+    fixtureVariantPlanDigest: plan.variantPlanDigest ?? plan.fixtureVariantPlanDigest,
     capabilityIds,
     producerIds,
     // Preserve plan-shaped aliases so later receipt writers can rehydrate.
@@ -632,6 +1209,8 @@ export function applySealedFixtureProfileEnvironment(env, plan) {
   next.FSUSBLOG_SEALED_FIXTURE_PROFILE_ID = plan.profileId
   next.FSUSBLOG_SEALED_FIXTURE_CATALOG_DIGEST = plan.catalogDigest
   next.FSUSBLOG_SEALED_EXPANDED_CAPABILITY_DIGEST = plan.expandedCapabilityDigest
+  next.FSUSBLOG_SEALED_FIXTURE_VARIANT_IDS = JSON.stringify(plan.variantIds ?? [])
+  next.FSUSBLOG_SEALED_FIXTURE_VARIANT_PLAN_DIGEST = plan.variantPlanDigest ?? ''
   next.FSUSBLOG_SEALED_FIXTURE_EXECUTION_CLASS = plan.executionClass ?? ''
   next.FSUSBLOG_FIXTURE_PROFILE_SOURCE = plan.profileSource
   // Overwrite ambient free-profile env so process.env inheritance cannot smuggle overrides.
@@ -741,7 +1320,7 @@ export function validateFixtureCatalogs({
   }
   for (const item of profiles) {
     if (!stableId.test(item.id ?? '') || !sortedUnique(item.capabilities)) errors.push(`profile ${item.id} capabilities must be sorted and unique stable IDs`)
-    if (!sortedUnique(item.allowedExecutionClasses) || item.allowedExecutionClasses.length === 0 || item.allowedExecutionClasses.some((value) => !['acceptance', 'browser', 'diagnostic', 'load', 'runtime', 'security'].includes(value))) {
+    if (!sortedUnique(item.allowedExecutionClasses) || item.allowedExecutionClasses.length === 0 || item.allowedExecutionClasses.some((value) => !['acceptance', 'browser', 'development', 'diagnostic', 'load', 'runtime', 'security'].includes(value))) {
       errors.push(`profile ${item.id} allowedExecutionClasses must be non-empty, sorted, unique and known`)
     }
     if (typeof item.isDestructive !== 'boolean' || typeof item.requiresFreshNamespace !== 'boolean') errors.push(`profile ${item.id} mutation and namespace flags must be boolean`)
@@ -777,6 +1356,17 @@ export function validateFixtureCatalogs({
         errors.push(`consumer ${consumer.consumerId} profile expansion failed: ${error.message}`)
       }
     }
+    try {
+      const expectedVariants = resolveFixtureVariants(
+        consumer.requiredCapabilities,
+        consumer.executionClass,
+        catalogs,
+        { requestedVariantIds: consumer.requiredVariantIds }
+      )
+      if (JSON.stringify(consumer.requiredVariantIds) !== JSON.stringify(expectedVariants)) {
+        errors.push(`consumer ${consumer.consumerId} variant requirements must exactly match FixtureVariantCatalog`)
+      }
+    } catch (error) { errors.push(`consumer ${consumer.consumerId} variant resolution failed: ${error.message}`) }
   }
   try {
     const matrix = parseMatrix(fs.readFileSync(matrixFile, 'utf8'))
@@ -814,7 +1404,13 @@ export function validateFixtureCatalogs({
     const inventoryById = new Map((inventory.consumers ?? []).map((item) => [item.consumerId, item]))
     for (const tier of expectedMatrixConsumers) {
       const entry = inventoryById.get(`matrix:${tier.id}`)
-      if (entry && (entry.profileId !== tier.fixtureProfile || JSON.stringify(entry.requiredCapabilities) !== JSON.stringify(tier.fixtureCapabilities))) {
+      const expectedVariants = resolveFixtureVariants(
+        tier.fixtureCapabilities,
+        entry?.executionClass ?? inferFixtureExecutionClass(tier, catalogs),
+        catalogs,
+        { requestedVariantIds: entry?.requiredVariantIds }
+      )
+      if (entry && (entry.profileId !== tier.fixtureProfile || JSON.stringify(entry.requiredCapabilities) !== JSON.stringify(tier.fixtureCapabilities) || JSON.stringify(entry.requiredVariantIds) !== JSON.stringify(expectedVariants))) {
         errors.push(`matrix tier ${tier.id} and generated inventory declaration differ`)
       }
       if (entry) {
@@ -861,6 +1457,13 @@ export function validateFixtureCatalogs({
     }
   } catch (error) { errors.push(error.message) }
   if (validateRepositoryAuthority) errors.push(...validateFixtureAuthoritySources({ repositoryRoot }))
+  // Variant catalog validation (#1722)
+  errors.push(...validateFixtureVariantCatalog({
+    variantFile: files.variant ?? fixtureCatalogFiles.variant,
+    capabilityFile: files.capability ?? fixtureCatalogFiles.capability,
+    producerFile: files.producer ?? fixtureCatalogFiles.producer
+  }))
+  errors.push(...validateFixtureSentinelRegistry({ catalogs, repositoryRoot }))
   return errors
 }
 
@@ -893,7 +1496,19 @@ function parseCliArgs(argv) {
   return options
 }
 
-function runCli(argv = process.argv.slice(2)) {
+function parseVariantIdsOption(value, label) {
+  if (value == null || value === '') return null
+  const text = String(value).trim()
+  if (!text) return null
+  if (text.startsWith('[')) {
+    const parsed = JSON.parse(text)
+    if (!Array.isArray(parsed)) throw new Error(`${label} must be a JSON array or comma-separated ids`)
+    return parsed.map(String)
+  }
+  return text.split(',').map((item) => item.trim()).filter(Boolean)
+}
+
+async function runCli(argv = process.argv.slice(2)) {
   const options = parseCliArgs(argv)
   const command = options._[0] ?? 'validate'
   if (command === 'validate') {
@@ -911,11 +1526,19 @@ function runCli(argv = process.argv.slice(2)) {
     const executionClass = options['execution-class'] ?? null
     const out = options.out ?? options.output ?? null
     const kind = options.kind ?? 'planned-profile'
+    const requestedVariantIds = parseVariantIdsOption(options['variant-ids'], '--variant-ids')
+    const sealedVariantIds = parseVariantIdsOption(
+      options['sealed-variant-ids'] ?? process.env.FSUSBLOG_SEALED_FIXTURE_VARIANT_IDS,
+      '--sealed-variant-ids'
+    )
     const sealed = profileSource === 'matrix'
       ? {
         fixtureProfileId: options['sealed-profile-id'] ?? profileId,
         fixtureCatalogDigest: options['sealed-catalog-digest'],
         expandedCapabilityDigest: options['sealed-capability-digest'],
+        fixtureVariantIds: sealedVariantIds,
+        fixtureVariantPlanDigest: options['sealed-variant-plan-digest']
+          ?? process.env.FSUSBLOG_SEALED_FIXTURE_VARIANT_PLAN_DIGEST,
         executionClass: options['sealed-execution-class'] ?? executionClass
       }
       : null
@@ -923,6 +1546,7 @@ function runCli(argv = process.argv.slice(2)) {
       profileId,
       profileSource,
       executionClass,
+      requestedVariantIds: requestedVariantIds ?? sealedVariantIds,
       sealed,
       allowFreeProfileEnv: profileSource === 'dev-cli',
       freeProfileEnv: profileSource === 'dev-cli' ? '' : process.env.FSUSBLOG_FIXTURE_PROFILE
@@ -957,15 +1581,22 @@ function runCli(argv = process.argv.slice(2)) {
     if (!planFile || !out) throw new Error('write-receipt requires --plan and --out')
     const plan = JSON.parse(fs.readFileSync(planFile, 'utf8'))
     const fixtureReceiptPath = options['fixture-receipt'] ?? null
-    const fixtureReceiptDigest = fixtureReceiptPath
-      ? fixtureReceiptDigestFromFile(fixtureReceiptPath)
-      : (options['fixture-receipt-digest'] ?? null)
     const fixtureReceiptTerminalStatus = options['fixture-receipt-terminal-status'] ?? null
+    let fixtureReceiptDocument = null
+    if (fixtureReceiptPath) {
+      const { readFixtureReceipt } = await import('../test-fixtures/receipt/fixture-receipt.mjs')
+      fixtureReceiptDocument = readFixtureReceipt(fixtureReceiptPath, {
+        requireVerified: fixtureReceiptTerminalStatus === 'verified'
+      })
+    }
+    const fixtureReceiptDigest = fixtureReceiptDocument?.receiptDigest
+      ?? (options['fixture-receipt-digest'] ?? null)
     const receipt = writeFixtureProfileReceipt(out, plan, {
       kind: options.kind ?? 'environment-ready',
       fixtureReceiptPath,
       fixtureReceiptDigest,
-      fixtureReceiptTerminalStatus
+      fixtureReceiptTerminalStatus,
+      fixtureReceiptDocument
     })
     process.stdout.write(`${JSON.stringify(receipt)}\n`)
     return
@@ -974,10 +1605,8 @@ function runCli(argv = process.argv.slice(2)) {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  try {
-    runCli()
-  } catch (error) {
+  runCli().catch((error) => {
     process.stderr.write(`${error?.message ?? error}\n`)
     process.exit(1)
-  }
+  })
 }

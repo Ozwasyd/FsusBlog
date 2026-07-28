@@ -21,6 +21,8 @@ import {
   writeFixtureReceipt
 } from '../../tools/test-fixtures/index.mjs'
 import {
+  buildFixtureVariantPlan,
+  buildProducerFixtureVariantPlan,
   fixtureCatalogDigest,
   readFixtureCatalogs,
   validateFixtureCatalogs
@@ -29,6 +31,15 @@ import {
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const catalogs = readFixtureCatalogs()
 const catalogDigest = fixtureCatalogDigest(catalogs)
+const articleVariantIds = Object.freeze(['canonical.public.article.published'])
+const articleVariantPlan = buildFixtureVariantPlan(articleVariantIds, catalogs)
+const articleProducerVariantPlan = buildProducerFixtureVariantPlan({
+  producerId: 'public-content',
+  variantIds: articleVariantIds,
+  fixtureVariantIds: articleVariantIds,
+  fixtureVariantPlanDigest: articleVariantPlan.variantPlanDigest,
+  catalogs
+})
 
 function articleObservations(overrides = {}) {
   const namespace = overrides.namespace ?? 'run-a'
@@ -41,6 +52,7 @@ function articleObservations(overrides = {}) {
       entities: [{
         kind: 'article',
         id: '101',
+        variantId: articleVariantIds[0],
         owned: true,
         fields: {
           status: 'published',
@@ -79,6 +91,10 @@ function buildVerifiedReceipt(observations, extra = {}) {
     fixtureCatalogDigest: catalogDigest,
     profileId: 'public-minimal',
     expandedCapabilityDigest: digestCanonical(['public.article.published']),
+    fixtureVariantIds: articleVariantIds,
+    variantPlanDigest: articleVariantPlan.variantPlanDigest,
+    producerVariantPlanDigest: articleProducerVariantPlan.producerVariantPlanDigest,
+    producedVariantIds: articleVariantIds,
     serviceGeneration: 'gen-1',
     providedCapabilities: ['public.article.published'],
     ownedStateDomains: [
@@ -87,7 +103,7 @@ function buildVerifiedReceipt(observations, extra = {}) {
       'postgres.outbox',
       'redis.cache.public'
     ],
-    entityIdentities: [{ kind: 'article', id: '101' }],
+    entityIdentities: [{ kind: 'article', id: '101', variantId: articleVariantIds[0] }],
     postconditionObservations: [{
       capabilityId: 'public.article.published',
       postconditionId: 'article-published',
@@ -114,6 +130,8 @@ function buildVerifiedReceipt(observations, extra = {}) {
     },
     catalogDigest,
     expandedCapabilityDigest: digestCanonical(['public.article.published']),
+    fixtureVariantIds: articleVariantIds,
+    variantPlanDigest: articleVariantPlan.variantPlanDigest,
     orderedProducerReceiptDigests: [producer.producerReceiptDigest],
     producerReceipts: [producer],
     capabilityMap: [{

@@ -974,6 +974,18 @@ public static class ProductionStartupValidator
         {
             errors.Add("fsus:allowLocalPublicContentFixture must be false outside Development.");
         }
+
+        if (enforceProductionRules
+            && configuration.GetValue<bool>(LocalDemoFixtureEndpoints.AllowLocalDemoFixtureConfigurationKey))
+        {
+            errors.Add("fsus:allowLocalDemoFixture must be false outside Development.");
+        }
+
+        if (enforceProductionRules
+            && configuration.GetValue<bool>(LocalDemoFixtureEndpoints.AllowLocalDemoFixtureCleanupConfigurationKey))
+        {
+            errors.Add("fsus:allowLocalDemoFixtureCleanup must be false outside Development.");
+        }
     }
 
     private static void ValidateCrawlerRangeUrl(IConfiguration configuration, string key, List<string> errors)

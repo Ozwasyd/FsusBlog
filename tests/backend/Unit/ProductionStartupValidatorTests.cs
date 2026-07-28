@@ -8,6 +8,7 @@ using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.Privacy;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.CommentIdentity;
+using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Security;
@@ -104,6 +105,23 @@ public sealed class ProductionStartupValidatorTests
         IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
 
         Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void ValidateCore_RejectsLocalDemoPrepareAndCleanupGatesOutsideDevelopment()
+    {
+        IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
+        {
+            [LocalDemoFixtureEndpoints.AllowLocalDemoFixtureConfigurationKey] = "true",
+            [LocalDemoFixtureEndpoints.AllowLocalDemoFixtureCleanupConfigurationKey] = "true"
+        });
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(
+            configuration,
+            enforceProductionRules: true);
+
+        Assert.Contains("fsus:allowLocalDemoFixture must be false outside Development.", errors);
+        Assert.Contains("fsus:allowLocalDemoFixtureCleanup must be false outside Development.", errors);
     }
 
     [Fact]

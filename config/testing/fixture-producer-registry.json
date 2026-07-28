@@ -101,7 +101,9 @@
             "strategy": "transaction-fixture",
             "reuseVerifier": "fixture-receipt",
             "implementationPaths": [
-                "tools/dev/demo-seed.sql"
+                "src/backend/Modules/Endpoints/LocalDemoFixtureEndpoints.cs",
+                "src/backend/Services/Fixtures/DemoFixtureSeeder.cs",
+                "tools/test-fixtures/producers/demo-public-producer.mjs"
             ],
             "provides": [
                 "development.demo.dataset"

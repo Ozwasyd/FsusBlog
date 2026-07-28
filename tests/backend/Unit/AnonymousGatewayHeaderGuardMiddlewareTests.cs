@@ -70,6 +70,7 @@ public sealed class AnonymousGatewayHeaderGuardMiddlewareTests
     [InlineData("X-Fsus-Notification-Stream-Protocol")]
     [InlineData("X-Fsus-Test-Session")]
     [InlineData("X-Fsus-Local-Auth-Fixture-Secret")]
+    [InlineData("X-Fsus-Local-Demo-Fixture-Secret")]
     public async Task InvokeAsync_AllowsAnonymousProfileAndRuntimeHeaders(string headerName)
     {
         bool nextCalled = false;

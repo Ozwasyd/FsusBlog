@@ -3,6 +3,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 using FsusBlog.Server.Services.Fixtures;
 
@@ -20,6 +21,11 @@ public static class LocalPublicContentFixtureEndpoints
     internal const string AllowLocalPublicContentFixtureConfigurationKey = "fsus:allowLocalPublicContentFixture";
     internal const string LocalPublicContentFixtureSecretConfigurationKey = "fsus:localPublicContentFixtureSecret";
     private const string LocalPublicContentFixtureSecretHeaderName = "X-Fsus-Local-Public-Content-Fixture-Secret";
+    internal static readonly JsonSerializerOptions s_requestJsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow
+    };
 
     public static void MapLocalPublicContentFixtureEndpoints(this WebApplication app)
     {
@@ -35,31 +41,39 @@ public static class LocalPublicContentFixtureEndpoints
             [FromServices] IPublicContentFixtureSeeder seeder,
             CancellationToken cancellationToken) =>
         {
-            PublicContentFixtureHttpRequest? body;
+            PublicContentFixtureRequest? body;
             try
             {
-                body = await JsonSerializer.DeserializeAsync<PublicContentFixtureHttpRequest>(
+                body = await JsonSerializer.DeserializeAsync<PublicContentFixtureRequest>(
                     context.Request.Body,
-                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true },
+                    s_requestJsonOptions,
                     cancellationToken).ConfigureAwait(false);
             }
             catch (JsonException ex)
             {
-                return Results.BadRequest(new { message = "invalid public content fixture request", detail = ex.Message });
+                return Results.BadRequest(new
+                {
+                    message = "invalid public content fixture request",
+                    detail = ex.Message
+                });
             }
 
             if (body is null || body.Capabilities is null || body.Capabilities.Count == 0)
             {
-                return Results.BadRequest(new { message = "capabilities are required" });
+                return Results.BadRequest(new
+                {
+                    message = "capabilities are required"
+                });
             }
 
             try
             {
                 PublicContentFixtureResult result = await seeder.PrepareAsync(
-                    new PublicContentFixtureRequest(
-                        body.Capabilities,
-                        body.Namespace ?? context.Request.Headers["X-Fsus-Test-Namespace"].ToString(),
-                        body.RunId ?? context.Request.Headers["X-Fsus-Test-Run-Id"].ToString()),
+                    body with
+                    {
+                        Namespace = body.Namespace ?? context.Request.Headers["X-Fsus-Test-Namespace"].ToString(),
+                        RunId = body.RunId ?? context.Request.Headers["X-Fsus-Test-Run-Id"].ToString()
+                    },
                     cancellationToken).ConfigureAwait(false);
                 return Results.Json(result);
             }
@@ -131,10 +145,4 @@ public static class LocalPublicContentFixtureEndpoints
             && CryptographicOperations.FixedTimeEquals(expectedBytes, actualBytes);
     }
 
-    private sealed class PublicContentFixtureHttpRequest
-    {
-        public List<string>? Capabilities { get; set; }
-        public string? Namespace { get; set; }
-        public string? RunId { get; set; }
-    }
 }

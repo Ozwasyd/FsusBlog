@@ -104,6 +104,12 @@ export function buildProducerChildEnv(context, extra = {}) {
   if (handles.pgDb) env.FSUSBLOG_PG_DB = String(handles.pgDb)
   if (context.namespace) env.FSUSBLOG_TEST_NAMESPACE = String(context.namespace)
   if (context.runIdentity) env.FSUSBLOG_TEST_RUN_ID = String(context.runIdentity)
+  if (context.variantPlan?.schema === 'fsusblog.fixture-producer-variant-plan.v1') {
+    env.FSUSBLOG_FIXTURE_VARIANT_PLAN_JSON = JSON.stringify(context.variantPlan)
+    env.FSUSBLOG_FIXTURE_VARIANT_PLAN_DIGEST = String(context.variantPlan.producerVariantPlanDigest)
+  } else {
+    throw new Error('producer child requires a sealed typed fixture variant plan')
+  }
   if (handles.jwt) {
     for (const [key, value] of Object.entries(handles.jwt)) {
       if (value != null && value !== '') env[key] = String(value)

@@ -35,6 +35,8 @@ import {
   verify
 } from '../../tools/test-fixtures/index.mjs'
 import {
+  buildFixtureVariantPlan,
+  buildProducerFixtureVariantPlan,
   fixtureCatalogDigest,
   readFixtureCatalogs
 } from '../../tools/testing/fixture-catalog.mjs'
@@ -42,6 +44,15 @@ import {
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const catalogs = readFixtureCatalogs()
 const catalogDigest = fixtureCatalogDigest(catalogs)
+const articleVariantIds = Object.freeze(['canonical.public.article.published'])
+const articleVariantPlan = buildFixtureVariantPlan(articleVariantIds, catalogs)
+const articleProducerVariantPlan = buildProducerFixtureVariantPlan({
+  producerId: 'public-content',
+  variantIds: articleVariantIds,
+  fixtureVariantIds: articleVariantIds,
+  fixtureVariantPlanDigest: articleVariantPlan.variantPlanDigest,
+  catalogs
+})
 
 function articlePublishedObservations(overrides = {}) {
   const namespace = overrides.namespace ?? 'run-a'
@@ -53,6 +64,7 @@ function articlePublishedObservations(overrides = {}) {
       entities: [{
         kind: 'article',
         id: '101',
+        variantId: articleVariantIds[0],
         owned: true,
         fields: {
           status: 'published',
@@ -92,6 +104,10 @@ function baseProducerReceiptInput(extra = {}) {
     fixtureCatalogDigest: catalogDigest,
     profileId: 'public-minimal',
     expandedCapabilityDigest: digestCanonical(['public.article.published']),
+    fixtureVariantIds: articleVariantIds,
+    variantPlanDigest: articleVariantPlan.variantPlanDigest,
+    producerVariantPlanDigest: articleProducerVariantPlan.producerVariantPlanDigest,
+    producedVariantIds: articleVariantIds,
     serviceGeneration: 'gen-1',
     providedCapabilities: ['public.article.published'],
     ownedStateDomains: [
@@ -100,7 +116,7 @@ function baseProducerReceiptInput(extra = {}) {
       'postgres.outbox',
       'redis.cache.public'
     ],
-    entityIdentities: [{ kind: 'article', id: '101' }],
+    entityIdentities: [{ kind: 'article', id: '101', variantId: articleVariantIds[0] }],
     postconditionObservations: [{
       capabilityId: 'public.article.published',
       postconditionId: 'article-published',
@@ -171,7 +187,38 @@ test('ProducerReceipt and FixtureReceipt have unique schemas, validators, and di
   assert.ok(fixture.databaseObservationDigest.startsWith('sha256:'))
   assert.ok(fixture.redisObservationDigest.startsWith('sha256:'))
   assert.ok(fixture.cacheObservationDigest.startsWith('sha256:'))
+  assert.deepEqual(fixture.fixtureVariantIds, ['canonical.public.article.published'])
   validateFixtureReceipt(fixture, { catalogs, requireVerified: true })
+})
+
+test('ProducerReceipt canonical identity binds owner and catalog variant into its digest', () => {
+  const identity = {
+    kind: 'article',
+    id: '101',
+    handle: 'public-preview',
+    variantId: articleVariantIds[0],
+    owner: 'demo-fixture:0123456789abcdef01234567'
+  }
+  const receipt = buildProducerReceipt(baseProducerReceiptInput({
+    entityIdentities: [identity]
+  }))
+  assert.equal(receipt.entityIdentities[0].variantId, identity.variantId)
+  assert.equal(receipt.entityIdentities[0].owner, identity.owner)
+
+  const differentOwner = buildProducerReceipt(baseProducerReceiptInput({
+    entityIdentities: [{
+      ...identity,
+      owner: 'demo-fixture:89abcdef0123456701234567'
+    }]
+  }))
+  assert.notEqual(receipt.producerReceiptDigest, differentOwner.producerReceiptDigest)
+
+  const tampered = structuredClone(receipt)
+  tampered.entityIdentities[0].owner = differentOwner.entityIdentities[0].owner
+  assert.throws(
+    () => validateProducerReceipt(tampered, { catalogs }),
+    /digest mismatch/
+  )
 })
 
 test('none receipt proves zero business fixture mutation', async () => {
@@ -243,6 +290,47 @@ test('counterexample: producer provides undeclared capability', () => {
   )
 })
 
+test('counterexample: producer receipt rejects unregistered variants and unbound entities', () => {
+  assert.throws(
+    () => buildProducerReceipt(baseProducerReceiptInput({
+      fixtureCatalogDigest: `sha256:${'0'.repeat(64)}`
+    })),
+    /catalog digest does not match/
+  )
+  assert.throws(
+    () => buildProducerReceipt(baseProducerReceiptInput({
+      variantPlanDigest: `sha256:${'0'.repeat(64)}`
+    })),
+    /digest is forged/
+  )
+  assert.throws(
+    () => buildProducerReceipt(baseProducerReceiptInput({
+      producedVariantIds: ['unregistered.fixture.variant']
+    })),
+    /unregistered variant/
+  )
+  assert.throws(
+    () => buildProducerReceipt(baseProducerReceiptInput({
+      producerVariantPlanDigest: `sha256:${'0'.repeat(64)}`
+    })),
+    /typed variant plan digest does not match/
+  )
+  assert.throws(
+    () => buildProducerReceipt(baseProducerReceiptInput({
+      entityIdentities: [{ kind: 'article', id: '101' }]
+    })),
+    /variantId is required/
+  )
+  const observations = articlePublishedObservations()
+  delete observations.database.entities[0].variantId
+  assert.throws(
+    () => buildProducerReceipt(baseProducerReceiptInput({
+      databaseObservation: observations.database
+    })),
+    /references no produced variant/
+  )
+})
+
 test('counterexample: receipt profile digest inconsistent with catalog capabilities', () => {
   const producer = buildProducerReceipt(baseProducerReceiptInput())
   const fixture = buildFixtureReceipt({
@@ -304,12 +392,14 @@ test('counterexample: partial producer success cannot be verified', async () => 
     strategy: spec.strategy,
     providedCapabilities: [...spec.provides],
     consumedCapabilities: [...spec.consumes],
-    async prepare() {
+    async prepare(context) {
       if (spec.id === 'scale-data') throw new Error('scale partial failure')
       return {
         ok: true,
         producerId: spec.id,
         strategy: spec.strategy,
+        variantIds: context.variantPlan.variants.map((item) => item.id),
+        producerVariantPlanDigest: context.variantPlan.producerVariantPlanDigest,
         observations: articlePublishedObservations()
       }
     },
@@ -534,9 +624,9 @@ test('atomic private write enforces 0600, integrity, and no dual v1 adapter', ()
 test('narrow ID projection derives from verified receipt and is not authoritative', () => {
   const producer = buildProducerReceipt(baseProducerReceiptInput({
     entityIdentities: [
-      { kind: 'article', id: '101' },
-      { kind: 'category', id: '11' },
-      { kind: 'tag', id: '22' }
+      { kind: 'article', id: '101', variantId: articleVariantIds[0] },
+      { kind: 'category', id: '11', variantId: articleVariantIds[0] },
+      { kind: 'tag', id: '22', variantId: articleVariantIds[0] }
     ]
   }))
   const fixture = buildFixtureReceipt({

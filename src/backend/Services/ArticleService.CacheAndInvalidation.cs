@@ -43,10 +43,10 @@ public partial class ArticleService
         DateTime now = DateTime.UtcNow;
         var topFromDb = await _db.Queryable<Article>()
             .InnerJoin<ArticlePublicationRecord>((article, publication) => article.CurrentPublicationId == publication.Id)
-            .Where(a => !a.IsDeleted
-                && a.Status == ArticleStatus.Published
-                && (a.PublishedAt == null || a.PublishedAt <= now)
-                && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= now))
+            .Where(article => !article.IsDeleted
+                && article.Status == ArticleStatus.Published
+                && (article.PublishedAt == null || article.PublishedAt <= now)
+                && (article.ScheduledPublishAt == null || article.ScheduledPublishAt <= now))
             .OrderByDescending((article, publication) => article.Views)
             .Take(count)
             .Select((article, publication) => new { article.Id, article.Views })

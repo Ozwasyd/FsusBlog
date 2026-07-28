@@ -97,12 +97,19 @@ fi
 # Resolve/validate profile before any service or data mutation.
 mkdir -p "$RECEIPT_ROOT"
 PLANNED_RECEIPT="$RECEIPT_ROOT/planned-profile.json"
+DEMO_FIXTURE_RECEIPT="$RECEIPT_ROOT/fixture-receipt-demo-public.json"
+PLAN_RESOLVE_ARGS=(
+    resolve
+    --profile "$FIXTURE_PROFILE"
+    --source dev-cli
+    --out "$PLANNED_RECEIPT"
+    --kind planned-profile
+)
+if [[ "$FIXTURE_PROFILE" == "demo-public" ]]; then
+    PLAN_RESOLVE_ARGS+=(--execution-class development)
+fi
 PLAN_JSON="$(
-    node "${FIXTURE_CATALOG_CLI[@]}" resolve \
-        --profile "$FIXTURE_PROFILE" \
-        --source dev-cli \
-        --out "$PLANNED_RECEIPT" \
-        --kind planned-profile
+    node "${FIXTURE_CATALOG_CLI[@]}" "${PLAN_RESOLVE_ARGS[@]}"
 )"
 PROFILE_ID="$(node -e 'const p=JSON.parse(process.argv[1]); process.stdout.write(p.profileId)' "$PLAN_JSON")"
 CATALOG_DIGEST="$(node -e 'const p=JSON.parse(process.argv[1]); process.stdout.write(p.catalogDigest)' "$PLAN_JSON")"
@@ -151,6 +158,41 @@ if ! docker exec fsusblog-dev-redis redis-cli ping >/dev/null 2>&1; then
     echo "[dev-start] Redis did not become ready. Check: docker logs fsusblog-dev-redis" >&2
     exit 1
 fi
+
+POSTGRES_CONTAINER_ID="$(docker inspect --format '{{.Id}}' fsusblog-dev-postgres)"
+REDIS_CONTAINER_ID="$(docker inspect --format '{{.Id}}' fsusblog-dev-redis)"
+SERVICE_GENERATION_HEX="$(
+    node -e 'const {createHash}=require("node:crypto"); const value=JSON.stringify({postgres:process.argv[1],redis:process.argv[2]}); process.stdout.write(createHash("sha256").update(value).digest("hex"))' \
+        "$POSTGRES_CONTAINER_ID" \
+        "$REDIS_CONTAINER_ID"
+)"
+SERVICE_GENERATION="sha256:${SERVICE_GENERATION_HEX}"
+DEV_RUN_ID="dev-${SERVICE_GENERATION_HEX:0:24}"
+DEV_NAMESPACE="dev-${SERVICE_GENERATION_HEX:0:24}"
+SOURCE_IDENTITY_JSON="$(
+    node "$ROOT_DIR/tools/test-fixtures/cli.mjs" source-identity --repository-root "$ROOT_DIR"
+)"
+SOURCE_COMMIT="$(node -e 'const p=JSON.parse(process.argv[1]); process.stdout.write(p.commit)' "$SOURCE_IDENTITY_JSON")"
+SOURCE_FINGERPRINT="$(node -e 'const p=JSON.parse(process.argv[1]); process.stdout.write(p.worktreeFingerprint)' "$SOURCE_IDENTITY_JSON")"
+
+DEMO_TRANSITION_ACTION="none"
+DEMO_TRANSITION_REASON="no-previous-demo-receipt"
+if [[ -f "$DEMO_FIXTURE_RECEIPT" ]]; then
+    DEMO_TRANSITION_JSON="$(
+        node "$ROOT_DIR/tools/test-fixtures/cli.mjs" dev-transition \
+            --receipt "$DEMO_FIXTURE_RECEIPT" \
+            --profile "$PROFILE_ID" \
+            --run-id "$DEV_RUN_ID" \
+            --namespace "$DEV_NAMESPACE" \
+            --source-commit "$SOURCE_COMMIT" \
+            --source-fingerprint "$SOURCE_FINGERPRINT" \
+            --service-generation "$SERVICE_GENERATION"
+    )"
+    DEMO_TRANSITION_ACTION="$(node -e 'const p=JSON.parse(process.argv[1]); process.stdout.write(p.action)' "$DEMO_TRANSITION_JSON")"
+    DEMO_TRANSITION_REASON="$(node -e 'const p=JSON.parse(process.argv[1]); process.stdout.write(p.reason)' "$DEMO_TRANSITION_JSON")"
+fi
+echo "[dev-start] execution identity run=${DEV_RUN_ID} namespace=${DEV_NAMESPACE} serviceGeneration=${SERVICE_GENERATION}"
+echo "[dev-start] demo transition action=${DEMO_TRANSITION_ACTION} reason=${DEMO_TRANSITION_REASON}"
 
 if [[ ! -d "$FRONTEND_DIR/node_modules" ]]; then
     if [[ "$INSTALL_DEPS" != "1" ]]; then
@@ -213,6 +255,27 @@ else
     unset VITE_FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET || true
 fi
 
+# Demo prepare is opt-in. Receipt-authorized cleanup has a separate gate so
+# switching to none cannot expose the demo prepare composition root.
+if [[ "$REQUIRES_DEMO_SEED" == "1" ]]; then
+    export fsus__allowLocalDemoFixture=true
+else
+    export fsus__allowLocalDemoFixture=false
+fi
+if [[ "$DEMO_TRANSITION_ACTION" == "cleanup" ]]; then
+    export fsus__allowLocalDemoFixtureCleanup=true
+else
+    export fsus__allowLocalDemoFixtureCleanup=false
+fi
+if [[ "$REQUIRES_DEMO_SEED" == "1" || "$DEMO_TRANSITION_ACTION" == "cleanup" ]]; then
+    LOCAL_DEMO_FIXTURE_SECRET="${FSUSBLOG_LOCAL_DEMO_FIXTURE_SECRET:-local-development-demo-fixture-secret-change-before-shared-use-2026}"
+    export fsus__localDemoFixtureSecret="$LOCAL_DEMO_FIXTURE_SECRET"
+    export FSUSBLOG_LOCAL_DEMO_FIXTURE_SECRET="$LOCAL_DEMO_FIXTURE_SECRET"
+else
+    unset fsus__localDemoFixtureSecret || true
+    unset FSUSBLOG_LOCAL_DEMO_FIXTURE_SECRET || true
+fi
+
 backend_pid=""
 frontend_pid=""
 CleanupChildren() {
@@ -250,11 +313,28 @@ else
 fi
 
 # Unique FixtureOrchestrator (#1709 + #1710 FixtureReceipt). Profile → DAG → producer ports only.
-FIXTURE_RECEIPT="$RECEIPT_ROOT/fixture-receipt.json"
+FIXTURE_RECEIPT="$RECEIPT_ROOT/fixture-receipt-${PROFILE_ID}.json"
 ORCHESTRATOR_PLAN="$RECEIPT_ROOT/orchestrator-plan.json"
 PREPARE_STATE="$RECEIPT_ROOT/prepare-state.json"
+CLEANUP_STATE="$RECEIPT_ROOT/demo-cleanup-state.json"
+
+if [[ "$DEMO_TRANSITION_ACTION" == "cleanup" ]]; then
+    echo "[dev-start] cleaning exact identities from prior demo-public receipt..."
+    node "$ROOT_DIR/tools/test-fixtures/cli.mjs" cleanup \
+        --receipt "$DEMO_FIXTURE_RECEIPT" \
+        --out "$CLEANUP_STATE" \
+        --base-url "http://127.0.0.1:7568" \
+        --debug-backend-url "http://127.0.0.1:7568" \
+        --pg-container "fsusblog-dev-postgres" \
+        --redis-container "fsusblog-dev-redis" \
+        --service-generation "$SERVICE_GENERATION"
+    node -e 'require("node:fs").unlinkSync(process.argv[1])' "$DEMO_FIXTURE_RECEIPT"
+    echo "[dev-start] prior demo-public receipt retired after verified cleanup."
+fi
+
 echo "[dev-start] invoking unique fixture orchestrator for profile ${PROFILE_ID}..."
-# Default dev profile is none → verified zero-mutation FixtureReceipt. Other profiles prepare only until #1712+.
+# The none and demo-public profiles publish verified FixtureReceipts. A repeated
+# demo-public run first cleans the exact identities sealed by its prior receipt.
 DEV_FIXTURE_ARGS=(
     run
     --profile "$PROFILE_ID"
@@ -266,9 +346,22 @@ DEV_FIXTURE_ARGS=(
     --frontend-url "http://localhost:3000"
     --pg-container "fsusblog-dev-postgres"
     --redis-container "fsusblog-dev-redis"
+    --run-id "$DEV_RUN_ID"
+    --namespace "$DEV_NAMESPACE"
+    --source-commit "$SOURCE_COMMIT"
+    --source-fingerprint "$SOURCE_FINGERPRINT"
+    --service-generation "$SERVICE_GENERATION"
 )
-if [[ "$PROFILE_ID" == "none" ]]; then
+if [[ "$PROFILE_ID" == "demo-public" ]]; then
+    DEV_FIXTURE_ARGS+=(--execution-class development)
+    if [[ "$DEMO_TRANSITION_ACTION" == "reuse" ]]; then
+        DEV_FIXTURE_ARGS+=(--previous-fixture-receipt "$DEMO_FIXTURE_RECEIPT")
+    fi
+fi
+FIXTURE_RECEIPT_PUBLISHED=0
+if [[ "$PROFILE_ID" == "none" || "$PROFILE_ID" == "demo-public" ]]; then
     DEV_FIXTURE_ARGS+=(--fixture-receipt "$FIXTURE_RECEIPT")
+    FIXTURE_RECEIPT_PUBLISHED=1
 else
     DEV_FIXTURE_ARGS+=(--skip-verify --out "$PREPARE_STATE")
 fi
@@ -283,7 +376,7 @@ FSUSBLOG_BASE_URL="http://127.0.0.1:7568" \
 
 FIXTURE_RECEIPT_DIGEST=""
 FIXTURE_RECEIPT_TERMINAL_STATUS="prepared-unverified"
-if [[ -f "$FIXTURE_RECEIPT" ]]; then
+if [[ "$FIXTURE_RECEIPT_PUBLISHED" == "1" && -f "$FIXTURE_RECEIPT" ]]; then
     FIXTURE_RECEIPT_DIGEST="$(node "$ROOT_DIR/tools/test-fixtures/cli.mjs" receipt-digest --file "$FIXTURE_RECEIPT")"
     FIXTURE_RECEIPT_TERMINAL_STATUS="verified"
 fi
@@ -295,7 +388,7 @@ READY_ARGS=(
     --kind environment-ready
     --fixture-receipt-terminal-status "$FIXTURE_RECEIPT_TERMINAL_STATUS"
 )
-if [[ -f "$FIXTURE_RECEIPT" ]]; then
+if [[ "$FIXTURE_RECEIPT_PUBLISHED" == "1" && -f "$FIXTURE_RECEIPT" ]]; then
     READY_ARGS+=(--fixture-receipt "$FIXTURE_RECEIPT")
 fi
 node "${FIXTURE_CATALOG_CLI[@]}" "${READY_ARGS[@]}" >/dev/null

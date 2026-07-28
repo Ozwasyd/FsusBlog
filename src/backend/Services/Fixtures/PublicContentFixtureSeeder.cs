@@ -33,12 +33,30 @@ public sealed record PublicContentFixtureRequest(
 
 public sealed class PublicContentFixtureResult
 {
-    public required string Strategy { get; init; }
-    public required string Mode { get; init; }
-    public required IReadOnlyList<PublicContentEntityIdentity> EntityIdentities { get; init; }
-    public required PublicContentObservations Observations { get; init; }
-    public required PublicContentProjectionHints Projection { get; init; }
-    public required IReadOnlyList<string> ProvidedCapabilities { get; init; }
+    public required string Strategy
+    {
+        get; init;
+    }
+    public required string Mode
+    {
+        get; init;
+    }
+    public required IReadOnlyList<PublicContentEntityIdentity> EntityIdentities
+    {
+        get; init;
+    }
+    public required PublicContentObservations Observations
+    {
+        get; init;
+    }
+    public required PublicContentProjectionHints Projection
+    {
+        get; init;
+    }
+    public required IReadOnlyList<string> ProvidedCapabilities
+    {
+        get; init;
+    }
 }
 
 public sealed record PublicContentEntityIdentity(
@@ -50,33 +68,69 @@ public sealed record PublicContentEntityIdentity(
 public sealed class PublicContentObservations
 {
     public string Source { get; init; } = "service";
-    public PublicContentDatabaseObservation? Database { get; init; }
-    public PublicContentRedisObservation? Redis { get; init; }
-    public PublicContentCacheObservation? Cache { get; init; }
+    public PublicContentDatabaseObservation? Database
+    {
+        get; init;
+    }
+    public PublicContentRedisObservation? Redis
+    {
+        get; init;
+    }
+    public PublicContentCacheObservation? Cache
+    {
+        get; init;
+    }
 }
 
 public sealed class PublicContentDatabaseObservation
 {
-    public string? Namespace { get; init; }
+    public string? Namespace
+    {
+        get; init;
+    }
     public string SchemaIdentity { get; init; } = "public";
-    public required IReadOnlyList<PublicContentObservedEntity> Entities { get; init; }
+    public required IReadOnlyList<PublicContentObservedEntity> Entities
+    {
+        get; init;
+    }
 }
 
 public sealed class PublicContentObservedEntity
 {
-    public required string Kind { get; init; }
-    public required string Id { get; init; }
+    public required string Kind
+    {
+        get; init;
+    }
+    public required string Id
+    {
+        get; init;
+    }
     public bool Owned { get; init; } = true;
-    public string? CapabilityHint { get; init; }
-    public string? Projection { get; init; }
-    public string? PostconditionId { get; init; }
+    public string? CapabilityHint
+    {
+        get; init;
+    }
+    public string? Projection
+    {
+        get; init;
+    }
+    public string? PostconditionId
+    {
+        get; init;
+    }
     public Dictionary<string, object?> Fields { get; init; } = new();
 }
 
 public sealed class PublicContentRedisObservation
 {
-    public string? Namespace { get; init; }
-    public required IReadOnlyList<PublicContentRedisKey> Keys { get; init; }
+    public string? Namespace
+    {
+        get; init;
+    }
+    public required IReadOnlyList<PublicContentRedisKey> Keys
+    {
+        get; init;
+    }
 }
 
 public sealed record PublicContentRedisKey(
@@ -87,29 +141,71 @@ public sealed record PublicContentRedisKey(
 
 public sealed class PublicContentCacheObservation
 {
-    public string? Namespace { get; init; }
-    public long? Generation { get; init; }
-    public required IReadOnlyList<PublicContentCacheEntry> Entries { get; init; }
+    public string? Namespace
+    {
+        get; init;
+    }
+    public long? Generation
+    {
+        get; init;
+    }
+    public required IReadOnlyList<PublicContentCacheEntry> Entries
+    {
+        get; init;
+    }
 }
 
 public sealed class PublicContentCacheEntry
 {
     public string Domain { get; init; } = "redis.cache.public";
-    public string? Endpoint { get; init; }
-    public bool MatchesDb { get; init; }
-    public bool RequireOwnedVisible { get; init; }
-    public IReadOnlyList<string>? VisibleEntityIds { get; init; }
-    public string? SearchToken { get; init; }
-    public bool SearchHit { get; init; }
+    public string? Endpoint
+    {
+        get; init;
+    }
+    public bool MatchesDb
+    {
+        get; init;
+    }
+    public bool RequireOwnedVisible
+    {
+        get; init;
+    }
+    public IReadOnlyList<string>? VisibleEntityIds
+    {
+        get; init;
+    }
+    public string? SearchToken
+    {
+        get; init;
+    }
+    public bool SearchHit
+    {
+        get; init;
+    }
 }
 
 public sealed class PublicContentProjectionHints
 {
-    public string? ArticleId { get; init; }
-    public string? CategoryId { get; init; }
-    public string? TagId { get; init; }
-    public string? ArticleTitle { get; init; }
-    public string? SearchKeyword { get; init; }
+    public string? ArticleId
+    {
+        get; init;
+    }
+    public string? CategoryId
+    {
+        get; init;
+    }
+    public string? TagId
+    {
+        get; init;
+    }
+    public string? ArticleTitle
+    {
+        get; init;
+    }
+    public string? SearchKeyword
+    {
+        get; init;
+    }
     public IReadOnlyList<string> PublishedArticleIds { get; init; } = [];
     public IReadOnlyList<string> HotOrder { get; init; } = [];
 }
@@ -167,11 +263,24 @@ public sealed class PublicContentFixtureSeeder(
 
         Category category = await EnsureCategoryAsync($"{ownerPrefix}:category", cancellationToken).ConfigureAwait(false);
         Tag tag = await EnsureTagAsync($"{ownerPrefix}:tag", cancellationToken).ConfigureAwait(false);
+        string taxonomyCapabilityHint = capabilities.Contains(
+            "public.taxonomy.category-tag",
+            StringComparer.Ordinal)
+            ? "taxonomy-category-tag"
+            : "article-published";
 
         var entityIdentities = new List<PublicContentEntityIdentity>
         {
-            new("category", category.Id.ToString(System.Globalization.CultureInfo.InvariantCulture), category.Name),
-            new("tag", tag.Id.ToString(System.Globalization.CultureInfo.InvariantCulture), tag.Name)
+            new(
+                "category",
+                category.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                category.Name,
+                taxonomyCapabilityHint),
+            new(
+                "tag",
+                tag.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                tag.Name,
+                taxonomyCapabilityHint)
         };
         var observed = new List<PublicContentObservedEntity>
         {
@@ -179,12 +288,14 @@ public sealed class PublicContentFixtureSeeder(
             {
                 Kind = "category",
                 Id = category.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                CapabilityHint = taxonomyCapabilityHint,
                 Fields = new Dictionary<string, object?> { ["name"] = category.Name }
             },
             new()
             {
                 Kind = "tag",
                 Id = tag.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                CapabilityHint = taxonomyCapabilityHint,
                 Fields = new Dictionary<string, object?> { ["name"] = tag.Name }
             }
         };

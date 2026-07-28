@@ -8,10 +8,12 @@ import {
 } from '../../tools/test-fixtures/dag.mjs'
 import {
   cleanup,
+  createProducerContext,
   plan,
   prepare,
   verify
 } from '../../tools/test-fixtures/orchestrator.mjs'
+import { classifyDevFixtureReceiptTransition } from '../../tools/test-fixtures/cli.mjs'
 import { createTerminalState } from '../../tools/test-fixtures/terminal-state.mjs'
 import {
   fixtureCatalogDigest,
@@ -31,9 +33,23 @@ function mockPort(spec, hooks = {}) {
     async prepare(context, signal) {
       calls.prepare += 1
       calls.prepareOrder.push(spec.id)
-      if (hooks.onPrepare) return hooks.onPrepare(context, signal, calls)
+      if (hooks.onPrepare) {
+        const result = await hooks.onPrepare(context, signal, calls)
+        return {
+          ...result,
+          variantIds: result?.variantIds ?? context.variantPlan.variants.map((item) => item.id),
+          producerVariantPlanDigest: result?.producerVariantPlanDigest
+            ?? context.variantPlan.producerVariantPlanDigest
+        }
+      }
       if (signal?.aborted) throw signal.reason ?? new Error('aborted')
-      return { producerId: spec.id, strategy: spec.strategy, ok: true }
+      return {
+        producerId: spec.id,
+        strategy: spec.strategy,
+        ok: true,
+        variantIds: context.variantPlan.variants.map((item) => item.id),
+        producerVariantPlanDigest: context.variantPlan.producerVariantPlanDigest
+      }
     },
     async verify(context, receipt) {
       calls.verify += 1
@@ -137,6 +153,67 @@ test('producer cannot return a fallback strategy', async () => {
   await assert.rejects(() => prepare(planned, ports), /cannot fallback|strategy/)
 })
 
+test('producer output must exactly declare registered planned variants and entity bindings', async () => {
+  const planned = plan({ profileId: 'public-minimal', profileSource: 'dev-cli' })
+  const unregistered = portsForPlan(planned, {
+    'public-content': {
+      onPrepare: async () => ({
+        ok: true,
+        strategy: 'transaction-fixture',
+        variantIds: ['unregistered.fixture.variant']
+      })
+    }
+  })
+  await assert.rejects(
+    () => prepare(planned, unregistered),
+    /output variant IDs must exactly match/
+  )
+
+  const missingVariantEvidence = portsForPlan(planned, {
+    'public-content': {
+      onPrepare: async (context) => ({
+        ok: true,
+        enforceVariantEvidence: true,
+        strategy: 'transaction-fixture',
+        variantIds: context.variantPlan.variants.map((item) => item.id),
+        entityIdentities: [{ kind: 'article', id: '101', variantId: context.variantPlan.variants[0].id }],
+        observations: { database: { entities: [{ kind: 'article', id: '101', variantId: context.variantPlan.variants[0].id, fields: {} }] } }
+      })
+    }
+  })
+  await assert.rejects(() => prepare(planned, missingVariantEvidence), /has no exact entity binding or live evidence/)
+
+  const missingEntityBinding = portsForPlan(planned, {
+    'public-content': {
+      onPrepare: async (context) => ({
+        ok: true,
+        strategy: 'transaction-fixture',
+        variantIds: context.variantPlan.variants.map((item) => item.id),
+        entityIdentities: [{ kind: 'article', id: '101' }]
+      })
+    }
+  })
+  await assert.rejects(
+    () => prepare(planned, missingEntityBinding),
+    /has no registered planned variant/
+  )
+
+  const wrongDigest = portsForPlan(planned, {
+    'public-content': {
+      onPrepare: async (context) => ({
+        ok: true,
+        strategy: 'transaction-fixture',
+        variantIds: context.variantPlan.variants.map((item) => item.id),
+        producerVariantPlanDigest: `sha256:${'0'.repeat(64)}`
+      })
+    }
+  })
+  await assert.rejects(
+    () => prepare(planned, wrongDigest),
+    /typed variant plan digest does not match/
+  )
+})
+
 test('AbortSignal stops prepare and runs reverse-topo cleanup of successes', async () => {
   const planned = plan({ profileId: 'scale-xs', profileSource: 'dev-cli' })
   const controller = new AbortController()
@@ -210,6 +287,23 @@ test('producer env strategy override is rejected by default ports', async () => 
   }
 })
 
+test('default structural port keeps pre-cutover profiles preparable without claiming typed entity evidence', async () => {
+  const planned = plan({ profileId: 'account-messaging', profileSource: 'dev-cli' })
+  const { createAccountMessagingPort } = await import('../../tools/test-fixtures/producers/catalog-ports.mjs')
+  const port = createAccountMessagingPort()
+  const context = createProducerContext({
+    plan: planned,
+    producerId: 'account-messaging',
+    producerOutputs: {
+      'auth-session': { producerId: 'auth-session', postconditions: ['user-active'] }
+    }
+  })
+  const result = await port.prepare(context)
+  assert.equal(result.structuralOnly, true)
+  assert.equal(result.enforceVariantEvidence, undefined)
+  assert.deepEqual(result.variantIds, context.variantPlan.variants.map((item) => item.id).sort())
+})
+
 test('state-domain conflicting producers are not scheduled in the same wave', () => {
   const dag = buildProducerDag('acceptance-representative')
   // account-messaging and comment-moderation share postgres.settings → not same wave.
@@ -233,6 +327,7 @@ test('partial result cannot be published as prepared', () => {
 
 test('matrix sealed digests fail closed on catalog drift', () => {
   const digest = fixtureCatalogDigest()
+  const live = plan({ profileId: 'none', profileSource: 'dev-cli' })
   assert.throws(
     () => plan({
       profileId: 'none',
@@ -241,6 +336,8 @@ test('matrix sealed digests fail closed on catalog drift', () => {
         fixtureProfileId: 'none',
         fixtureCatalogDigest: 'sha256:deadbeef',
         expandedCapabilityDigest: digest,
+        fixtureVariantIds: [],
+        fixtureVariantPlanDigest: live.variantPlanDigest,
         executionClass: 'runtime'
       }
     }),
@@ -257,18 +354,18 @@ test('verify and cleanup succeed for prepared mock plan with observations', asyn
         producerId: 'auth-session',
         strategy: 'transaction-fixture',
         entityIdentities: [
-          { kind: 'user', id: 'u1' },
-          { kind: 'admin', id: 'a1' },
-          { kind: 'session', id: 's1' }
+          { kind: 'user', id: 'u1', variantId: 'canonical.auth.user.active' },
+          { kind: 'admin', id: 'a1', variantId: 'canonical.auth.admin.full-permission' },
+          { kind: 'session', id: 's1', variantId: 'canonical.session.single-device' }
         ],
         observations: {
           database: {
             namespace: null,
             schemaIdentity: 'public',
             entities: [
-              { kind: 'user', id: 'u1', fields: { status: 'active', deleted: false } },
-              { kind: 'admin', id: 'a1', fields: { permission: 'full' } },
-              { kind: 'session', id: 's1', fields: { active: true } }
+              { kind: 'user', id: 'u1', variantId: 'canonical.auth.user.active', fields: { status: 'active', deleted: false } },
+              { kind: 'admin', id: 'a1', variantId: 'canonical.auth.admin.full-permission', fields: { permission: 'full' } },
+              { kind: 'session', id: 's1', variantId: 'canonical.session.single-device', fields: { active: true } }
             ]
           },
           redis: {
@@ -328,6 +425,86 @@ test('shell dual paths and prepare package scripts are gone', () => {
   assert.match(publicProducer, /transaction-fixture/)
 })
 
+test('dev receipt transition reuses only the exact run and cleans profile or service drift', () => {
+  const executionIdentity = {
+    runId: 'dev-0123456789abcdef',
+    namespace: 'dev-0123456789abcdef',
+    sourceIdentity: {
+      commit: 'a'.repeat(40),
+      worktreeFingerprint: `sha256:${'b'.repeat(64)}`
+    },
+    handles: {
+      serviceGeneration: `sha256:${'c'.repeat(64)}`
+    }
+  }
+  const receipt = {
+    schema: 'fsusblog.fixture-receipt.v2',
+    terminalStatus: 'verified',
+    profileIdentity: {
+      profileId: 'demo-public',
+      profileSource: 'dev-cli',
+      executionClass: 'development'
+    },
+    executionIdentity: {
+      runId: executionIdentity.runId,
+      namespace: executionIdentity.namespace,
+      source: executionIdentity.sourceIdentity,
+      serviceGeneration: executionIdentity.handles.serviceGeneration
+    }
+  }
+  assert.deepEqual(
+    classifyDevFixtureReceiptTransition(receipt, {
+      profileId: 'demo-public',
+      executionIdentity
+    }),
+    { action: 'reuse', reason: 'same-execution-identity' }
+  )
+  assert.deepEqual(
+    classifyDevFixtureReceiptTransition(receipt, {
+      profileId: 'none',
+      executionIdentity
+    }),
+    { action: 'cleanup', reason: 'profile-changed' }
+  )
+  assert.deepEqual(
+    classifyDevFixtureReceiptTransition({
+      ...receipt,
+      profileIdentity: {
+        ...receipt.profileIdentity,
+        executionClass: 'diagnostic'
+      }
+    }, {
+      profileId: 'demo-public',
+      executionIdentity
+    }),
+    { action: 'cleanup', reason: 'profile-evidence-changed' }
+  )
+  assert.deepEqual(
+    classifyDevFixtureReceiptTransition(receipt, {
+      profileId: 'demo-public',
+      executionIdentity: {
+        ...executionIdentity,
+        handles: { serviceGeneration: `sha256:${'d'.repeat(64)}` }
+      }
+    }),
+    { action: 'cleanup', reason: 'execution-identity-changed' }
+  )
+  assert.deepEqual(
+    classifyDevFixtureReceiptTransition(null, {
+      profileId: 'demo-public',
+      executionIdentity
+    }),
+    { action: 'none', reason: 'no-previous-demo-receipt' }
+  )
+  assert.throws(
+    () => classifyDevFixtureReceiptTransition(receipt, {
+      profileId: 'demo-public',
+      executionIdentity: {}
+    }),
+    /requires exact run, namespace, source, and service generation identity/
+  )
+})
+
 test('acceptance orchestrator waves run auth and public before dependents', async () => {
   const planned = plan({ profileId: 'acceptance-representative', profileSource: 'dev-cli' })
   const order = []
@@ -341,4 +518,71 @@ test('acceptance orchestrator waves run auth and public before dependents', asyn
   assert.equal(receipt.terminalState, 'prepared')
   assert.ok(order.indexOf('auth-session') < order.indexOf('account-messaging'))
   assert.ok(order.indexOf('public-content') < order.indexOf('comment-moderation'))
+})
+
+test('prepare passes only a verified exact-run prior FixtureReceipt to its producer', async () => {
+  const planned = plan(
+    { profileId: 'demo-public', profileSource: 'dev-cli', executionClass: 'development' },
+    { runId: 'demo-run', namespace: 'demo-namespace' }
+  )
+  const demoResult = {
+    producerId: 'development-demo',
+    strategy: 'transaction-fixture',
+    entityIdentities: [{
+      kind: 'article',
+      id: '101',
+      variantId: 'diagnostic.development.demo.dataset',
+      owner: 'demo-fixture:0123456789abcdef01234567',
+      digest: `sha256:${'a'.repeat(64)}`
+    }],
+    observations: {
+      source: 'service',
+      database: {
+        namespace: 'demo-namespace',
+        schemaIdentity: 'public',
+        entities: [{
+          kind: 'article',
+          id: '101',
+          owned: true,
+          variantId: 'diagnostic.development.demo.dataset',
+          owner: 'demo-fixture:0123456789abcdef01234567'
+        }]
+      },
+      redis: { namespace: 'demo-namespace', keys: [] },
+      cache: { namespace: 'demo-namespace', entries: [] }
+    },
+    providedCapabilities: ['development.demo.dataset'],
+    cleanupContract: { kind: 'receipt-exact-identities' }
+  }
+  const firstPorts = portsForPlan(planned, {
+    'development-demo': {
+      onPrepare: async () => demoResult,
+      onVerify: async () => ({ ok: true })
+    }
+  })
+  const firstPrepared = await prepare(planned, firstPorts)
+  const verified = await verify(firstPrepared, firstPorts)
+
+  let receivedPrevious = null
+  const secondPorts = portsForPlan(planned, {
+    'development-demo': {
+      onPrepare: async (context) => {
+        receivedPrevious = context.previousProducerReceipt
+        return demoResult
+      }
+    }
+  })
+  await prepare(planned, secondPorts, undefined, { previousFixtureReceipt: verified })
+  assert.deepEqual(receivedPrevious, verified.producerReceipts[0])
+
+  const crossRun = plan(
+    { profileId: 'demo-public', profileSource: 'dev-cli', executionClass: 'development' },
+    { runId: 'other-run', namespace: 'demo-namespace' }
+  )
+  const crossRunPorts = portsForPlan(crossRun)
+  await assert.rejects(
+    prepare(crossRun, crossRunPorts, undefined, { previousFixtureReceipt: verified }),
+    /execution identity mismatch|cross-run/
+  )
+  assert.equal(crossRunPorts[0].calls.prepare, 0)
 })

@@ -5,7 +5,13 @@
  * capability postconditions pass with bound observation digests.
  */
 
-import { readFixtureCatalogs } from '../../testing/fixture-catalog.mjs'
+import {
+  buildFixtureVariantPlan,
+  expandedCapabilityDigest as currentExpandedCapabilityDigest,
+  fixtureCatalogDigest as currentFixtureCatalogDigest,
+  readFixtureCatalogs,
+  resolveFixtureVariants
+} from '../../testing/fixture-catalog.mjs'
 import {
   assertDigest,
   digestCanonical,
@@ -123,6 +129,23 @@ function normalizeProducerReceiptDigests(digests) {
   return Object.freeze(digests.map((item, index) => assertDigest(String(item), `orderedProducerReceiptDigests[${index}]`)))
 }
 
+function resolveReceiptExecutionClass(profile, catalogs) {
+  if (profile.executionClass) return profile.executionClass
+  return catalogs.profile.profiles.find((item) => item.id === profile.profileId)
+    ?.allowedExecutionClasses?.[0] ?? null
+}
+
+function resolveReceiptVariantIds(capabilityMap, profile, catalogs, requestedVariantIds = null) {
+  const executionClass = resolveReceiptExecutionClass(profile, catalogs)
+  if (!executionClass) {
+    if (capabilityMap.length === 0) return Object.freeze([])
+    throw new Error('FixtureReceipt variant resolution requires an execution class')
+  }
+  return resolveFixtureVariants(capabilityMap.map((item) => item.capabilityId), executionClass, catalogs, {
+    requestedVariantIds
+  })
+}
+
 /**
  * Build a FixtureReceipt. terminalStatus must be one of FIXTURE_TERMINAL_STATUSES.
  * Only terminalStatus === 'verified' is publishable success evidence.
@@ -133,6 +156,8 @@ export function buildFixtureReceipt({
   profileIdentity,
   catalogDigest,
   expandedCapabilityDigest,
+  fixtureVariantIds = null,
+  variantPlanDigest = null,
   orderedProducerReceiptDigests = [],
   producerReceipts = [],
   capabilityMap = [],
@@ -153,10 +178,35 @@ export function buildFixtureReceipt({
   const profile = normalizeProfileIdentity(profileIdentity)
   const execution = normalizeExecutionIdentity(executionIdentity)
   const catalog = assertDigest(catalogDigest, 'catalogDigest')
+  if (catalog !== currentFixtureCatalogDigest(catalogs)) {
+    throw new Error('FixtureReceipt catalog digest does not match FixtureVariantCatalog')
+  }
   const capabilityDigest = assertDigest(expandedCapabilityDigest, 'expandedCapabilityDigest')
+  const normalizedCapabilityMap = normalizeCapabilityMap(capabilityMap)
+  if (capabilityDigest !== currentExpandedCapabilityDigest(
+    normalizedCapabilityMap.map((item) => item.capabilityId)
+  )) {
+    throw new Error('FixtureReceipt expanded capability digest does not exactly match capabilityMap')
+  }
+  const resolvedVariantIds = resolveReceiptVariantIds(
+    normalizedCapabilityMap,
+    profile,
+    catalogs,
+    fixtureVariantIds
+  )
+  if (fixtureVariantIds != null) {
+    const declaredVariantIds = Object.freeze([...fixtureVariantIds].map(String).sort())
+    if (JSON.stringify(declaredVariantIds) !== JSON.stringify(resolvedVariantIds)) {
+      throw new Error('FixtureReceipt variant IDs do not exactly match the sealed typed variant plan')
+    }
+  }
+  const resolvedVariantPlan = buildFixtureVariantPlan(resolvedVariantIds, catalogs)
+  if (variantPlanDigest != null && variantPlanDigest !== resolvedVariantPlan.variantPlanDigest) {
+    throw new Error('FixtureReceipt variant plan digest does not match the typed variant plan')
+  }
 
   // Bind sealed catalog producers for capability map completeness on verified.
-  const profileCapabilities = capabilityMap.map((item) => item.capabilityId)
+  const profileCapabilities = normalizedCapabilityMap.map((item) => item.capabilityId)
   if (terminalStatus === 'verified') {
     assertProfilePostconditionsBound(profileCapabilities, catalogs)
     // none profile: zero producers and zero capabilities.
@@ -164,12 +214,16 @@ export function buildFixtureReceipt({
       if (orderedProducerReceiptDigests.length !== 0 || producerReceipts.length !== 0) {
         throw new Error('none profile verified receipt must have zero producer receipts')
       }
-      if (capabilityMap.length !== 0) {
+      if (normalizedCapabilityMap.length !== 0 || resolvedVariantIds.length !== 0) {
         throw new Error('none profile verified receipt must have zero capability map entries')
       }
     }
     for (const receipt of producerReceipts) {
       validateProducerReceipt(receipt, { catalogs })
+    }
+    const producedVariantIds = producerReceipts.flatMap((item) => item.producedVariantIds ?? []).sort()
+    if (JSON.stringify(producedVariantIds) !== JSON.stringify(resolvedVariantIds)) {
+      throw new Error('FixtureReceipt producer outputs and typed variant plan are not bidirectionally exact')
     }
     const digests = producerReceipts.map((item) => item.producerReceiptDigest)
     if (JSON.stringify(digests) !== JSON.stringify([...orderedProducerReceiptDigests])) {
@@ -245,8 +299,10 @@ export function buildFixtureReceipt({
     profileIdentity: profile,
     catalogDigest: catalog,
     expandedCapabilityDigest: capabilityDigest,
+    fixtureVariantIds: resolvedVariantIds,
+    variantPlanDigest: resolvedVariantPlan.variantPlanDigest,
     orderedProducerReceiptDigests: normalizeProducerReceiptDigests(orderedProducerReceiptDigests),
-    capabilityMap: normalizeCapabilityMap(capabilityMap),
+    capabilityMap: normalizedCapabilityMap,
     serviceIdentity: normalizeServiceIdentity(serviceIdentity),
     outputArtifacts: normalizeOutputArtifacts(outputArtifacts),
     databaseObservationDigest,
@@ -297,6 +353,27 @@ export function validateFixtureReceipt(document, {
   assertDigest(document.receiptDigest, 'receiptDigest')
   assertDigest(document.catalogDigest, 'catalogDigest')
   assertDigest(document.expandedCapabilityDigest, 'expandedCapabilityDigest')
+  if (document.catalogDigest !== currentFixtureCatalogDigest(catalogs)) {
+    throw new Error('FixtureReceipt catalog digest does not match FixtureVariantCatalog')
+  }
+  const expectedVariantIds = resolveReceiptVariantIds(
+    normalizeCapabilityMap(document.capabilityMap ?? []),
+    normalizeProfileIdentity(document.profileIdentity),
+    catalogs,
+    document.fixtureVariantIds
+  )
+  if (document.expandedCapabilityDigest !== currentExpandedCapabilityDigest(
+    (document.capabilityMap ?? []).map((item) => item.capabilityId)
+  )) {
+    throw new Error('FixtureReceipt expanded capability digest does not exactly match capabilityMap')
+  }
+  if (JSON.stringify(document.fixtureVariantIds) !== JSON.stringify(expectedVariantIds)) {
+    throw new Error('FixtureReceipt variant IDs do not exactly match FixtureVariantCatalog')
+  }
+  const expectedVariantPlan = buildFixtureVariantPlan(expectedVariantIds, catalogs)
+  if (document.variantPlanDigest !== expectedVariantPlan.variantPlanDigest) {
+    throw new Error('FixtureReceipt variant plan digest does not match FixtureVariantCatalog')
+  }
 
   reverifyObservationDigests({
     databaseObservation: document.databaseObservation,
@@ -324,6 +401,12 @@ export function validateFixtureReceipt(document, {
   if (document.terminalStatus === 'verified') {
     for (const producerReceipt of document.producerReceipts ?? []) {
       validateProducerReceipt(producerReceipt, { catalogs })
+    }
+    const producedVariantIds = (document.producerReceipts ?? [])
+      .flatMap((item) => item.producedVariantIds ?? [])
+      .sort()
+    if (JSON.stringify(producedVariantIds) !== JSON.stringify(expectedVariantIds)) {
+      throw new Error('FixtureReceipt producer outputs and typed variant plan are not bidirectionally exact')
     }
     if (document.profileIdentity?.profileId === 'none') {
       if ((document.databaseObservation?.entities ?? []).length !== 0
@@ -387,6 +470,12 @@ export function aggregateVerifiedFixtureReceipt({
       postconditionIds: [...(capability.postconditionIds ?? [])]
     }
   })
+  for (const receipt of producerReceipts) {
+    if (receipt.fixtureCatalogDigest !== plan.catalogDigest
+      || receipt.variantPlanDigest !== plan.variantPlanDigest) {
+      throw new Error(`ProducerReceipt ${receipt.producerId} variant identity does not match orchestrator plan`)
+    }
+  }
 
   // Every profile capability must appear exactly once.
   assertProfilePostconditionsBound(capabilities, catalogs)
@@ -409,6 +498,8 @@ export function aggregateVerifiedFixtureReceipt({
     },
     catalogDigest: plan.catalogDigest,
     expandedCapabilityDigest: plan.expandedCapabilityDigest,
+    fixtureVariantIds: plan.variantIds,
+    variantPlanDigest: plan.variantPlanDigest,
     orderedProducerReceiptDigests: producerReceipts.map((item) => item.producerReceiptDigest),
     producerReceipts,
     capabilityMap,
@@ -440,6 +531,18 @@ export function buildTerminalFailureReceipt({
   if (!['partial', 'failed', 'cleanup-failed'].includes(terminalStatus)) {
     throw new Error(`invalid failure terminalStatus ${terminalStatus}`)
   }
+  const capabilityById = new Map(
+    (catalogs.capability.capabilities ?? []).map((item) => [item.id, item])
+  )
+  const capabilityMap = (plan.capabilities ?? []).map((capabilityId) => {
+    const capability = capabilityById.get(capabilityId)
+    if (!capability) throw new Error(`unknown capability ${capabilityId}`)
+    return {
+      capabilityId,
+      producerId: capability.ownerProducerId,
+      postconditionIds: [...(capability.postconditionIds ?? [])]
+    }
+  })
   return buildFixtureReceipt({
     terminalStatus,
     executionIdentity: {
@@ -456,9 +559,11 @@ export function buildTerminalFailureReceipt({
     },
     catalogDigest: plan.catalogDigest,
     expandedCapabilityDigest: plan.expandedCapabilityDigest,
+    fixtureVariantIds: plan.variantIds ?? [],
+    variantPlanDigest: plan.variantPlanDigest,
     orderedProducerReceiptDigests: producerReceipts.map((item) => item.producerReceiptDigest),
     producerReceipts,
-    capabilityMap: [],
+    capabilityMap,
     serviceIdentity: {
       databaseSchema: 'public',
       databaseInstance: plan.executionIdentity?.handles?.pgContainer ?? null,

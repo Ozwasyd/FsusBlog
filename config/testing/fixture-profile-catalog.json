@@ -96,6 +96,7 @@
                 "development.demo.dataset"
             ],
             "allowedExecutionClasses": [
+                "development",
                 "diagnostic"
             ],
             "isDestructive": true,

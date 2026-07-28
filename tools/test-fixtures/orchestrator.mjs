@@ -13,10 +13,13 @@
  */
 
 import {
+  buildFixtureVariantPlan,
+  buildProducerFixtureVariantPlan,
   fixtureCatalogDigest,
   planFixtureMutation,
   readFixtureCatalogs,
-  resolveFixtureProfile
+  resolveFixtureProfile,
+  validateFixtureVariantEvidence
 } from '../testing/fixture-catalog.mjs'
 import { buildProducerDag, reverseTopo } from './dag.mjs'
 import { createProducerContext, indexProducerPorts, requireProducerPorts } from './producer-port.mjs'
@@ -27,6 +30,7 @@ import {
   buildTerminalFailureReceipt,
   FIXTURE_PREPARE_STATE_SCHEMA,
   FIXTURE_RECEIPT_SCHEMA,
+  validateFixtureReceipt,
   verifyCapabilityPostconditions
 } from './receipt/index.mjs'
 import { createTerminalState } from './terminal-state.mjs'
@@ -73,6 +77,7 @@ export function plan(profileIdentity, executionIdentity = {}, { catalogs = readF
     profileId,
     profileSource,
     executionClass: profileIdentity.executionClass ?? null,
+    requestedVariantIds: profileIdentity.variantIds ?? null,
     sealed: profileIdentity.sealed ?? null,
     catalogs,
     allowFreeProfileEnv: profileSource === 'dev-cli',
@@ -116,6 +121,11 @@ export function plan(profileIdentity, executionIdentity = {}, { catalogs = readF
     catalogDigest: resolved.catalogDigest,
     expandedCapabilityDigest: resolved.expandedCapabilityDigest,
     capabilities: resolved.capabilities,
+    // #1722: ports consume this sealed typed plan; they may not infer variant
+    // validity from capability/profile names or introduce a local default.
+    variantIds: resolved.variantIds,
+    variantPlan: resolved.variantPlan,
+    variantPlanDigest: resolved.variantPlanDigest,
     producers: Object.freeze(dag.producers.map((item) => item.id)),
     producerSpecs: dag.producers,
     edges: dag.edges,
@@ -138,7 +148,8 @@ export function plan(profileIdentity, executionIdentity = {}, { catalogs = readF
  */
 export async function prepare(planDocument, injectedPorts, signal = undefined, {
   catalogs = readFixtureCatalogs(),
-  handles = null
+  handles = null,
+  previousFixtureReceipt = null
 } = {}) {
   if (!planDocument || planDocument.schema !== 'fsusblog.fixture-orchestrator-plan.v1') {
     throw new Error('prepare requires an orchestrator plan')
@@ -153,6 +164,44 @@ export async function prepare(planDocument, injectedPorts, signal = undefined, {
     ?? (catalogs.producer.producers ?? []).filter((item) => producerIds.includes(item.id))
   const portMap = indexProducerPorts(injectedPorts ?? [], { catalogProducers })
   requireProducerPorts(producerIds, portMap)
+
+  let previousReceiptByProducer = new Map()
+  if (previousFixtureReceipt != null) {
+    const expectedExecutionIdentity = {
+      runId: planDocument.executionIdentity?.runId ?? null,
+      namespace: planDocument.executionIdentity?.namespace ?? null,
+      source: planDocument.executionIdentity?.sourceIdentity ?? null,
+      serviceGeneration: planDocument.executionIdentity?.handles?.serviceGeneration ?? null
+    }
+    const previous = validateFixtureReceipt(previousFixtureReceipt, {
+      catalogs,
+      requireVerified: true,
+      expectedCatalogDigest: planDocument.catalogDigest,
+      expectedProfileId: planDocument.profileIdentity.profileId,
+      expectedExecutionIdentity
+    })
+    if (previous.expandedCapabilityDigest !== planDocument.expandedCapabilityDigest) {
+      throw new Error('previous FixtureReceipt capability digest does not match the current plan')
+    }
+
+    previousReceiptByProducer = new Map()
+    for (const producerReceipt of previous.producerReceipts ?? []) {
+      if (!producerIds.includes(producerReceipt.producerId)
+          || previousReceiptByProducer.has(producerReceipt.producerId)
+          || producerReceipt.runId !== expectedExecutionIdentity.runId
+          || producerReceipt.namespace !== expectedExecutionIdentity.namespace
+          || producerReceipt.profileId !== planDocument.profileIdentity.profileId
+          || producerReceipt.fixtureCatalogDigest !== planDocument.catalogDigest
+          || producerReceipt.expandedCapabilityDigest !== planDocument.expandedCapabilityDigest
+          || producerReceipt.serviceGeneration !== expectedExecutionIdentity.serviceGeneration) {
+        throw new Error('previous FixtureReceipt producer identity does not match the current plan')
+      }
+      previousReceiptByProducer.set(producerReceipt.producerId, producerReceipt)
+    }
+    if (previousReceiptByProducer.size !== producerIds.length) {
+      throw new Error('previous FixtureReceipt does not cover every producer in the current plan')
+    }
+  }
 
   // Fail closed if caller injects ports for producers outside the plan AND profile is none.
   if (planDocument.profileIdentity.profileId === 'none' && portMap.size > 0 && producerIds.length === 0) {
@@ -191,7 +240,9 @@ export async function prepare(planDocument, injectedPorts, signal = undefined, {
           sourceIdentity: planDocument.executionIdentity?.sourceIdentity,
           profileIdentity: planDocument.profileIdentity,
           producerOutputs,
-          handles: baseHandles
+          handles: baseHandles,
+          catalogs,
+          previousProducerReceipt: previousReceiptByProducer.get(producerId) ?? null
         })
         const result = await port.prepare(context, signal)
         throwIfAborted(signal)
@@ -207,6 +258,7 @@ export async function prepare(planDocument, injectedPorts, signal = undefined, {
         if (result.producerReceiptDigest || result.schema === 'fsusblog.fixture-producer-receipt.v1') {
           throw new Error(`producer ${producerId} must not publish ProducerReceipt during prepare`)
         }
+        assertProducerVariantOutput(result, planDocument, producerId, catalogs)
         return {
           producerId,
           strategy: port.strategy,
@@ -274,7 +326,8 @@ export async function prepare(planDocument, injectedPorts, signal = undefined, {
             sourceIdentity: planDocument.executionIdentity?.sourceIdentity,
             profileIdentity: planDocument.profileIdentity,
             producerOutputs,
-            handles: baseHandles
+            handles: baseHandles,
+            catalogs
           })
           await port.cleanup(context, producerOutputs[producerId], signal)
         } catch (cleanupError) {
@@ -372,6 +425,48 @@ function observationsFromProducerResult(result) {
   }
 }
 
+function expectedProducerVariantIds(planDocument, producerId) {
+  return Object.freeze((planDocument.variantPlan?.byProducer
+    ?.find((item) => item.producerId === producerId)?.variants ?? [])
+    .map((item) => item.id)
+    .sort())
+}
+
+function assertProducerVariantOutput(result, planDocument, producerId, catalogs) {
+  const expected = expectedProducerVariantIds(planDocument, producerId)
+  const producerPlan = buildProducerFixtureVariantPlan({
+    producerId,
+    variantIds: expected,
+    fixtureVariantIds: planDocument.variantIds,
+    fixtureVariantPlanDigest: planDocument.variantPlanDigest,
+    catalogs
+  })
+  const actual = Array.isArray(result.variantIds) ? [...result.variantIds].map(String).sort() : null
+  if (actual == null || JSON.stringify(actual) !== JSON.stringify(expected)) {
+    throw new Error(`producer ${producerId} output variant IDs must exactly match its typed variant plan`)
+  }
+  if (result.producerVariantPlanDigest !== producerPlan.producerVariantPlanDigest) {
+    throw new Error(`producer ${producerId} output typed variant plan digest does not match its immutable plan`)
+  }
+  const allowed = new Set(expected)
+  for (const identity of result.entityIdentities ?? []) {
+    if (!identity?.variantId || !allowed.has(identity.variantId)) {
+      throw new Error(`producer ${producerId} entity ${identity?.id ?? '<missing>'} has no registered planned variant`)
+    }
+  }
+  const databaseEntities = result.observations?.database?.entities
+    ?? result.databaseObservation?.entities
+    ?? []
+  for (const entity of databaseEntities) {
+    if (!entity?.variantId || !allowed.has(entity.variantId)) {
+      throw new Error(`producer ${producerId} database entity ${entity?.id ?? '<missing>'} has no registered planned variant`)
+    }
+  }
+  const evidenceErrors = validateFixtureVariantEvidence({ result, variantIds: expected, catalogs })
+  if (evidenceErrors.length) throw new Error(`producer ${producerId} variant evidence rejected: ${evidenceErrors.join('; ')}`)
+  return expected
+}
+
 /**
  * Verify prepare-state into a FixtureReceipt.
  * Only terminalStatus=verified is success evidence; missing postconditions fail closed.
@@ -432,6 +527,7 @@ export async function verify(prepareState, injectedVerifiers = {}, {
       }
       const rawResult = prepareState.producerOutputs[producerId]
       if (!rawResult) throw new Error(`missing prepare result for producer ${producerId}`)
+      const producedVariantIds = assertProducerVariantOutput(rawResult, planDocument, producerId, catalogs)
 
       const context = createProducerContext({
         plan: planDocument,
@@ -441,7 +537,8 @@ export async function verify(prepareState, injectedVerifiers = {}, {
         sourceIdentity: planDocument.executionIdentity?.sourceIdentity,
         profileIdentity: planDocument.profileIdentity,
         producerOutputs: prepareState.producerOutputs,
-        handles: planDocument.executionIdentity?.handles
+        handles: planDocument.executionIdentity?.handles,
+        catalogs
       })
       const portVerify = await port.verify(context, rawResult)
       const portOk = portVerify === true
@@ -515,6 +612,10 @@ export async function verify(prepareState, injectedVerifiers = {}, {
         fixtureCatalogDigest: planDocument.catalogDigest,
         profileId: planDocument.profileIdentity.profileId,
         expandedCapabilityDigest: planDocument.expandedCapabilityDigest,
+        fixtureVariantIds: planDocument.variantIds,
+        variantPlanDigest: planDocument.variantPlanDigest,
+        producerVariantPlanDigest: rawResult.producerVariantPlanDigest,
+        producedVariantIds,
         serviceGeneration: planDocument.executionIdentity?.handles?.serviceGeneration ?? null,
         providedCapabilities,
         ownedStateDomains: catalogProducer.stateDomains,
@@ -581,6 +682,12 @@ export async function verify(prepareState, injectedVerifiers = {}, {
 function planFromState(state) {
   if (state?.plan) return state.plan
   if (state?.schema === FIXTURE_RECEIPT_SCHEMA) {
+    const catalogs = readFixtureCatalogs()
+    const variantPlan = buildFixtureVariantPlan(state.fixtureVariantIds ?? [], catalogs)
+    if (variantPlan.catalogDigest !== state.catalogDigest
+      || variantPlan.variantPlanDigest !== state.variantPlanDigest) {
+      throw new Error('cleanup FixtureReceipt variant plan drifted from the live catalog')
+    }
     // Cleanup may receive a FixtureReceipt; reconstruct a minimal plan handle via producer ids.
     return {
       producerSpecs: (state.producerReceipts ?? []).map((item) => ({
@@ -593,7 +700,10 @@ function planFromState(state) {
       executionIdentity: state.executionIdentity,
       profileIdentity: state.profileIdentity,
       catalogDigest: state.catalogDigest,
-      expandedCapabilityDigest: state.expandedCapabilityDigest
+      expandedCapabilityDigest: state.expandedCapabilityDigest,
+      variantIds: state.fixtureVariantIds,
+      variantPlan,
+      variantPlanDigest: state.variantPlanDigest
     }
   }
   return null
@@ -677,7 +787,8 @@ export async function cleanup(state, injectedPorts, signal = undefined, {
           ?? state.executionIdentity?.source,
         profileIdentity: planDocument?.profileIdentity ?? state.profileIdentity,
         producerOutputs: state.producerOutputs ?? {},
-        handles: baseHandles
+        handles: baseHandles,
+        catalogs
       })
       await port.cleanup(
         context,

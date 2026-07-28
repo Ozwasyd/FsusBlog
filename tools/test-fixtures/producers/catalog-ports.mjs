@@ -20,7 +20,17 @@ function basePort(producer, handlers) {
     strategy: producer.strategy,
     providedCapabilities: [...producer.provides],
     consumedCapabilities: [...producer.consumes],
-    prepare: handlers.prepare,
+    prepare: async (context, signal) => {
+      const result = await handlers.prepare(context, signal)
+      if (result?.enforceVariantEvidence === true) {
+        const entities = result?.entityIdentities
+        const observed = result?.observations?.database?.entities ?? result?.databaseObservation?.entities
+        if (!Array.isArray(entities) || !Array.isArray(observed)) {
+          throw new Error(`producer ${producer.id} opted into typed variant evidence but did not return entity identity and database observation arrays`)
+        }
+      }
+      return result
+    },
     // Default verify fails closed without service observations (#1710).
     verify: handlers.verify ?? (async (_context, producerResult) => {
       if (producerResult?.observations || producerResult?.databaseObservation
@@ -51,6 +61,21 @@ function assertNoStrategyEnv() {
   }
 }
 
+function variantIdsFromTypedPlan(context, producerId) {
+  if (context?.variantPlan?.schema !== 'fsusblog.fixture-producer-variant-plan.v1'
+    || context.variantPlan.producerId !== producerId) {
+    throw new Error(`producer ${producerId} requires its sealed typed variant plan`)
+  }
+  return Object.freeze(context.variantPlan.variants.map((item) => item.id).sort())
+}
+
+function variantOutputFromTypedPlan(context, producerId) {
+  return {
+    variantIds: variantIdsFromTypedPlan(context, producerId),
+    producerVariantPlanDigest: context.variantPlan.producerVariantPlanDigest
+  }
+}
+
 export function createAuthSessionPort(catalogs = readFixtureCatalogs()) {
   const producer = catalogProducer('auth-session', catalogs)
   const script = path.join(repositoryRoot, 'tests/frontend/fixtures/prepare-auth-smoke-users.mjs')
@@ -65,6 +90,7 @@ export function createAuthSessionPort(catalogs = readFixtureCatalogs()) {
         producerId: producer.id,
         strategy: producer.strategy,
         implementation: 'tests/frontend/fixtures/prepare-auth-smoke-users.mjs',
+        ...variantOutputFromTypedPlan(context, producer.id),
         postconditions: [...producer.receiptPostconditions]
       }
     },
@@ -108,20 +134,26 @@ export function createPublicContentPort(catalogs = readFixtureCatalogs()) {
 
 export function createDevelopmentDemoPort(catalogs = readFixtureCatalogs()) {
   const producer = catalogProducer('development-demo', catalogs)
-  const script = path.join(repositoryRoot, 'tools/dev/seed-demo-data.sh')
   return basePort(producer, {
     async prepare(context, signal) {
       assertNoStrategyEnv()
-      await runProcess('bash', [script], {
-        env: buildProducerChildEnv(context),
-        signal
-      })
+      const { prepareDemoPublic } = await import('./demo-public-producer.mjs')
+      const result = await prepareDemoPublic(context, signal)
       return {
+        ...result,
         producerId: producer.id,
         strategy: producer.strategy,
-        implementation: 'tools/dev/seed-demo-data.sh',
+        ...variantOutputFromTypedPlan(context, producer.id),
         postconditions: [...producer.receiptPostconditions]
       }
+    },
+    async verify(context, producerResult) {
+      const { verifyDemoPublic } = await import('./demo-public-producer.mjs')
+      return verifyDemoPublic(context, producerResult)
+    },
+    async cleanup(context, receipt, signal) {
+      const { cleanupDemoPublic } = await import('./demo-public-producer.mjs')
+      await cleanupDemoPublic(context, receipt, signal)
     }
   })
 }
@@ -145,6 +177,7 @@ export function createScaleDataPort(catalogs = readFixtureCatalogs()) {
         strategy: producer.strategy,
         implementation: 'tools/data-scale/seed.sh',
         scaleTier: tier,
+        ...variantOutputFromTypedPlan(context, producer.id),
         postconditions: [...producer.receiptPostconditions]
       }
     },
@@ -203,6 +236,7 @@ function createStructuralBusinessPort(producer, adapterHandleName) {
           implementation: `injected-${adapterHandleName}`,
           structuralOnly: false,
           ...(result && typeof result === 'object' ? result : {}),
+          ...variantOutputFromTypedPlan(context, producer.id),
           postconditions: [...producer.receiptPostconditions]
         }
       }
@@ -212,6 +246,7 @@ function createStructuralBusinessPort(producer, adapterHandleName) {
         strategy: producer.strategy,
         implementation: 'structural-port',
         structuralOnly: true,
+        ...variantOutputFromTypedPlan(context, producer.id),
         postconditions: [...producer.receiptPostconditions]
       }
     },

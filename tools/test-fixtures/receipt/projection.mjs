@@ -29,7 +29,9 @@ export function projectFixtureIds(receipt, {
         producerId: producerReceipt.producerId,
         kind: entity.kind,
         id: entity.id,
-        handle: entity.handle ?? null
+        handle: entity.handle ?? null,
+        variantId: entity.variantId ?? null,
+        owner: entity.owner ?? null
       })
     }
   }

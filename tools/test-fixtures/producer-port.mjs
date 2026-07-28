@@ -1,5 +1,7 @@
 /** Narrow producer port contract for FixtureOrchestrator (#1709). */
 
+import { buildProducerFixtureVariantPlan } from '../testing/fixture-catalog.mjs'
+
 const STRATEGIES = new Set(['transaction-fixture', 'public-api-scenario', 'deterministic-generator'])
 
 /**
@@ -105,8 +107,20 @@ export function createProducerContext({
   sourceIdentity = null,
   profileIdentity = null,
   producerOutputs = null,
-  handles = null
+  handles = null,
+  catalogs = undefined,
+  previousProducerReceipt = null
 } = {}) {
+  const producerVariantIds = (plan?.variantPlan?.byProducer
+    ?.find((item) => item.producerId === producerId)?.variants ?? [])
+    .map((item) => item.id)
+  const variantPlan = buildProducerFixtureVariantPlan({
+    producerId,
+    variantIds: producerVariantIds,
+    fixtureVariantIds: plan?.variantIds,
+    fixtureVariantPlanDigest: plan?.variantPlanDigest,
+    ...(catalogs ? { catalogs } : {})
+  })
   return Object.freeze({
     plan,
     producerId,
@@ -114,8 +128,10 @@ export function createProducerContext({
     runIdentity: runIdentity ?? plan?.executionIdentity?.runId ?? null,
     sourceIdentity: sourceIdentity ?? plan?.executionIdentity?.sourceIdentity ?? null,
     profileIdentity: profileIdentity ?? plan?.profileIdentity ?? null,
+    variantPlan,
     producerOutputs: Object.freeze({ ...(producerOutputs ?? {}) }),
     handles: Object.freeze({ ...(handles ?? {}) }),
+    previousProducerReceipt,
     ports: ports ?? null
   })
 }
