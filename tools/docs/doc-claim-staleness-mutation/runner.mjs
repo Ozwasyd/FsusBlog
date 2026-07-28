@@ -47,11 +47,9 @@ import {
     materializeFixtureRepository,
     matchingProseBodies,
     readFixtureDocument,
-    readLifecycle,
     replaceGeneratedInterior,
     sampleSectionCatalog,
-    writeFixtureDocument,
-    writeLifecycle
+    writeFixtureDocument
 } from './fixture.mjs'
 import { getMutationCase, mutationCases } from './catalog.mjs'
 
@@ -218,26 +216,6 @@ export function applySingleMutation(fixture, mutation)
 
     if (kind === 'none')
     {
-        return { collateral, observationOverride: null }
-    }
-
-    if (kind === 'lifecycle-field')
-    {
-        const lifecycle = readLifecycle(fixture.directory)
-        if (mutation.field === 'lastVerifiedCommit')
-        {
-            lifecycle.lastVerifiedCommit = mutation.value
-        }
-        else if (mutation.field === 'reviewDate')
-        {
-            lifecycle.reviewDate = mutation.value
-        }
-        else
-        {
-            throw new Error(`unsupported lifecycle field ${mutation.field}`)
-        }
-        writeLifecycle(fixture.directory, lifecycle)
-        collateral.push(`lifecycle:${mutation.field}`)
         return { collateral, observationOverride: null }
     }
 
@@ -1005,9 +983,9 @@ export function validateMutationCaseSchema(entry)
     {
         errors.push('singleMutation must be one atomic mutation')
     }
-    if (entry.singleMutation?.kind === 'lifecycle-field' && entry.singleMutation.alsoBreakLinks)
+    if (entry.singleMutation?.alsoBreakLinks)
     {
-        errors.push('baseline-only case must not also break links (non-single)')
+        errors.push('single-mutation case must not also break links')
     }
     if (typeof entry.singleMutation?.markInvalid === 'function' || entry.singleMutation?.kind === 'internal-hook')
     {
@@ -1145,19 +1123,15 @@ export function runMutationCase(caseIdOrEntry)
                 }
             }
             const hit = result.diagnostics.find((entryDiag) => entryDiag.code === entry.expectedReasonCode)
-            // Baseline-only must not fail solely as "verification commit stale".
-            const commitStaleOnly = result.diagnostics.length > 0
-                && result.diagnostics.every((diag) => /commit.*stale|verification distance/iu.test(diag.message ?? ''))
             return {
                 id: entry.id,
-                ok: Boolean(hit) && !result.ok && !commitStaleOnly,
+                ok: Boolean(hit) && !result.ok,
                 layer: MutationLayers.PROSE_VERIFIER,
                 reasonCode: hit?.code ?? result.diagnostics[0]?.code ?? null,
                 expectedReasonCode: entry.expectedReasonCode,
                 expectPass: false,
                 sourceValidFixtureDigest: sourceDigest,
-                diagnostics: result.diagnostics,
-                commitStaleOnly
+                diagnostics: result.diagnostics
             }
         }
 

@@ -351,13 +351,10 @@ export function sampleSectionCatalog()
     }
 }
 
-export function validLifecycle({ lastVerifiedCommit = 'a'.repeat(40), reviewDate = '2026-01-01' } = {})
+export function validLifecycle()
 {
     return {
-        schema: 'fsusblog.document-lifecycle-policy.v2',
-        lastVerifiedCommit,
-        maximumVerificationDistance: 100,
-        reviewDate,
+        schema: 'fsusblog.document-lifecycle-policy.v3',
         documents: [
             {
                 path: DOC_PATH,

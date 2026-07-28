@@ -35,8 +35,6 @@ function Fixture(t)
     Write(fixtureRoot, 'tools/generate.mjs', 'export {};\n');
     const policy = {
         schema: DocumentLifecycleSchema,
-        lastVerifiedCommit: 'a'.repeat(40),
-        maximumVerificationDistance: 100,
         documents: [
             'docs/index.md',
             'docs/current.md',
@@ -90,9 +88,35 @@ behaviorTest('document-lifecycle-governance', 'positive', 'repository document l
     const inventory = BuildDocumentInventory(root, policy);
     assert.equal(ValidateDocumentLifecycle(root, policy, inventory, RenderDocumentIndex(inventory)).length, 0);
     assert.ok(inventory.documents.length >= 300);
-    assert.ok(inventory.documents.every((document) => document.owner && document.status && document.lastVerifiedCommit));
+    assert.ok(inventory.documents.every((document) => document.owner && document.status));
     assert.equal(policy.closedIssues, undefined);
     assert.equal(policy.statusRules, undefined);
+});
+
+test('lifecycle rejects unknown qualification metadata while historical Markdown may narrate commits', (t) =>
+{
+    const { fixtureRoot, policy } = Fixture(t);
+    for (const [description, mutate, expectedPath] of [
+        ['top-level review timestamp', (candidate) => { candidate.reviewedAt = '2099-12-31'; }, 'policy.reviewedAt'],
+        ['document review commit', (candidate) => { candidate.documents[0].reviewCommit = 'f'.repeat(40); }, 'policy.documents[0].reviewCommit'],
+        ['nested manual qualification', (candidate) => { candidate.qualification = { manualApproval: true }; }, 'policy.qualification']
+    ])
+    {
+        const candidate = structuredClone(policy);
+        mutate(candidate);
+        WriteDocumentLifecycle(fixtureRoot, candidate);
+        assert.ok(Validate(fixtureRoot, candidate).some((error) => error.includes(`${expectedPath} is not allowed by the document lifecycle schema`)), description);
+    }
+
+    const retiredSchema = structuredClone(policy);
+    retiredSchema.schema = 'fsusblog.document-lifecycle-policy.v2';
+    assert.throws(() => WriteDocumentLifecycle(fixtureRoot, retiredSchema), /document lifecycle schema must be fsusblog\.document-lifecycle-policy\.v3/u);
+    Write(fixtureRoot, 'config/development/retired-document-lifecycle.json', `${JSON.stringify(retiredSchema, null, 4)}\n`);
+    assert.throws(() => ReadDocumentLifecyclePolicy(fixtureRoot, 'config/development/retired-document-lifecycle.json'), /document lifecycle schema must be fsusblog\.document-lifecycle-policy\.v3/u);
+
+    Write(fixtureRoot, 'docs/history/retired-migration-record.md', '# Historical\n\nCommit `0123456789abcdef` recorded this migration.\n');
+    WriteDocumentLifecycle(fixtureRoot, policy);
+    assert.deepEqual(Validate(fixtureRoot, policy), []);
 });
 
 test('explicit issue metadata does not derive authority from a filename and generated documents require a live producer', (t) =>

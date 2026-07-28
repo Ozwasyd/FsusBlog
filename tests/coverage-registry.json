@@ -4241,7 +4241,7 @@
       ],
       "assertionType": "static",
       "failClosedRule": "Reject a missing, duplicated, bypassed, stale, warning, partial, source-drifted or unsealed admission receipt; any candidate spawn, container/service/browser preheat or candidate output mutation before successful receipt verification; an ambient bin/obj observation; and docs-only or source-only smart-gate omission.",
-      "minimumRequirement": "The unconditional tier must use fixtureProfile=none and no services or browser, execute all current static BehaviorDoc authorities plus an exact minimal contract build, seal zero candidate spawns and all authority/fact/result digests, and exercise stale prose with lastVerifiedCommit change, missing generated content, duplicate owners, ambient binary reuse, docs/source smart-gate selection, backend parallel start, scheduler container preheat, package alias bypass and warning mutation outcomes.",
+      "minimumRequirement": "The unconditional tier must use fixtureProfile=none and no services or browser, execute all current static BehaviorDoc authorities plus an exact minimal contract build, seal zero candidate spawns and all authority/fact/result digests, and exercise stale prose without lifecycle self-certification, missing generated content, duplicate owners, ambient binary reuse, docs/source smart-gate selection, backend parallel start, scheduler container preheat, package alias bypass and warning mutation outcomes.",
       "tierIds": [
         "behavior-doc-static-admission"
       ]
@@ -4278,7 +4278,7 @@
         "docs/index.md"
       ],
       "assertionType": "integration",
-      "failClosedRule": "Reject incomplete or stale inventory/index output, duplicate source-of-truth claims, unregistered or legacy-named documents, invalid supersession graphs, missing generated producers, broken internal links, retired references, invalid path migrations, and stale verification commits.",
+      "failClosedRule": "Reject incomplete inventory/index output, self-certification metadata, duplicate source-of-truth claims, unregistered or legacy-named documents, invalid supersession graphs, missing generated producers, broken internal links, retired references, and invalid path migrations.",
       "minimumRequirement": "Static governance must project every docs file into the lifecycle inventory and exercise positive and negative metadata, link, producer, retired-reference and redirect fixtures.",
       "tierIds": [
         "static-governance"

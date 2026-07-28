@@ -48,20 +48,18 @@ test('catalog schema: every case declares exact layer + reasonCode; no vague exi
         assert.ok(entry.singleMutation && typeof entry.singleMutation === 'object')
         assert.ok(Array.isArray(entry.forbiddenCollateralChanges))
     }
-    assert.equal(requiredMutationIds.length, 32)
+    assert.equal(requiredMutationIds.length, 31)
     assert.equal(requiredPositiveControlIds.length, 4)
     assert.ok(listMutationCases({ includeControls: false }).every((entry) => !entry.expectPass))
 })
 
-test('suite rejects non-single baseline-only case that also breaks links', () =>
+test('suite rejects a single-mutation case that also breaks links', () =>
 {
     const errors = validateMutationCaseSchema({
         id: 'cheat-baseline-and-links',
-        targetInvariantId: 'prose.baseline-only-cannot-mask-stale-body',
+        targetInvariantId: 'prose.lifecycle-metadata-cannot-qualify-stale-body',
         singleMutation: {
-            kind: 'lifecycle-field',
-            field: 'lastVerifiedCommit',
-            value: 'f'.repeat(40),
+            kind: 'none',
             alsoBreakLinks: true
         },
         expectedReasonCode: ProseClaimErrorCode.CONFLICTING_VALUE,
@@ -133,13 +131,12 @@ for (const entry of mutationCases)
     })
 }
 
-test('baseline-only lastVerifiedCommit fails at prose layer, not commit-distance substitute', () =>
+test('stale prose fails without lifecycle self-certification metadata', () =>
 {
-    const result = runMutationCase('only-update-lastVerifiedCommit')
+    const result = runMutationCase('stale-body-without-lifecycle-self-certification')
     assertCaseResult(result)
     assert.equal(result.layer, MutationLayers.PROSE_VERIFIER)
     assert.equal(result.reasonCode, ProseClaimErrorCode.CONFLICTING_VALUE)
-    assert.equal(result.commitStaleOnly, false)
 })
 
 test('scalar-old-value proves body/observation mismatch code, not missing file', () =>

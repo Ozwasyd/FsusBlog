@@ -242,11 +242,11 @@ export function assertCaseSchemaHygiene(cases = mutationCases)
                 message: `case ${entry.id} declares multi-mutation payload`
             })
         }
-        if (entry.singleMutation?.kind === 'lifecycle-field' && entry.singleMutation?.alsoBreakLinks)
+        if (entry.singleMutation?.alsoBreakLinks)
         {
             violations.push({
                 code: 'CASE_BASELINE_WITH_LINK_BREAK',
-                message: `case ${entry.id} baseline-only mutation also breaks links`
+                message: `case ${entry.id} single mutation also breaks links`
             })
         }
     }

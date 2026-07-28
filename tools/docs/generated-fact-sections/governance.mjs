@@ -128,14 +128,13 @@ export function scanGeneratedFactSectionGovernance(repositoryRoot = root)
                 })
             }
         }
-        if (/document-lifecycle\.json|lastVerifiedCommit/u.test(generatorSource)
-            && /writeFileSync/u.test(generatorSource)
-            && /lastVerifiedCommit/u.test(generatorSource))
+        if (/document-lifecycle\.json/u.test(generatorSource)
+            && /writeFileSync/u.test(generatorSource))
         {
             violations.push({
                 code: GeneratedSectionErrorCode.LIFECYCLE_MUTATION,
                 documentPath: 'tools/docs/generated-fact-sections/generator.mjs',
-                message: 'generator must not update lastVerifiedCommit or lifecycle metadata'
+                message: 'generator must not update document lifecycle metadata'
             })
         }
         if (/fact-extractors\/(?:runner|seeds)\//u.test(generatorSource)

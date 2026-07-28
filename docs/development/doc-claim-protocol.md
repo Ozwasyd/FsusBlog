@@ -35,7 +35,7 @@ Forbidden fields (unknown keys also fail closed):
 ```text
 verified
 approved
-lastVerifiedCommit
+self-certification metadata
 expectedValue
 baselineValue
 ignoreDifference
@@ -85,9 +85,9 @@ The parser emits declarations and source locations only. Parse receipts use `fsu
 - implementation observations
 - test results
 - pass/fail or qualification flags
-- `lastVerifiedCommit` or any self-proving baseline field
+- self-certifying lifecycle metadata or any self-proving baseline field
 
-Updating lifecycle `lastVerifiedCommit` alone cannot create DocClaim pass evidence. Observation comparison and prose verification are separate consumers of this protocol; they are not part of the parse gate. Precise tabular facts use generated sections (below).
+Lifecycle metadata cannot create DocClaim pass evidence. Observation comparison and prose verification are separate consumers of this protocol; they are not part of the parse gate. Precise tabular facts use generated sections (below).
 
 ## Prose claim verification
 
@@ -196,7 +196,7 @@ Renderers format only. They do not import business source, extractors, or tests.
 - Every run re-renders from current receipts; old section bodies are never inputs.
 - `--check` compares repository bytes and performs zero writes. Any drift fails.
 - Observation `sourceCommit` / `worktreeFingerprint` / build identity must match the current worktree before generate writes.
-- Generate replaces only owned marker ranges and never mutates `lastVerifiedCommit` or document-lifecycle metadata.
+- Generate replaces only owned marker ranges and never mutates document-lifecycle metadata.
 - No section digest baselines, allowlists, warning-only modes, or feature flags.
 
 ```bash

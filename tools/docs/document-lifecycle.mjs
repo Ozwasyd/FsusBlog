@@ -1,10 +1,35 @@
-import { execFileSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
-export const DocumentLifecycleSchema = 'fsusblog.document-lifecycle-policy.v2';
-export const DocumentInventorySchema = 'fsusblog.document-inventory.v2';
+export const DocumentLifecycleSchema = 'fsusblog.document-lifecycle-policy.v3';
+export const DocumentInventorySchema = 'fsusblog.document-inventory.v3';
+
+const PolicyFields = new Set([
+    'schema',
+    'documents',
+    'legacyNamingCompatibility',
+    'authorityClaims',
+    'retiredReferences',
+    'brokenLinkExceptions',
+    'pathMigrations'
+]);
+const DocumentMetadataFields = new Set([
+    'path',
+    'status',
+    'owner',
+    'relatedIssues',
+    'supersedes',
+    'supersededBy',
+    'producer'
+]);
+const NestedPolicyFields = new Map([
+    ['legacyNamingCompatibility', new Set(['path', 'reason', 'removalIssue'])],
+    ['authorityClaims', new Set(['id', 'path'])],
+    ['retiredReferences', new Set(['token'])],
+    ['brokenLinkExceptions', new Set(['source', 'target'])],
+    ['pathMigrations', new Set(['from', 'to', 'issue'])]
+]);
 
 function CompareOrdinal(left, right)
 {
@@ -82,7 +107,17 @@ function DocumentKind(file)
 
 export function ReadDocumentLifecyclePolicy(root, relative = 'config/development/document-lifecycle.json')
 {
-    return JSON.parse(fs.readFileSync(path.join(root, relative), 'utf8'));
+    const policy = JSON.parse(fs.readFileSync(path.join(root, relative), 'utf8'));
+    AssertDocumentLifecycleSchema(policy);
+    return policy;
+}
+
+function AssertDocumentLifecycleSchema(policy)
+{
+    if (policy?.schema !== DocumentLifecycleSchema)
+    {
+        throw new Error(`document lifecycle schema must be ${DocumentLifecycleSchema}`);
+    }
 }
 
 export function BuildDocumentInventory(root, policy)
@@ -102,7 +137,6 @@ export function BuildDocumentInventory(root, policy)
             status,
             owner,
             sourceOfTruth,
-            lastVerifiedCommit: policy.lastVerifiedCommit,
             supersedes: metadata.supersedes ?? [],
             supersededBy: metadata.supersededBy ?? null,
             relatedIssues: metadata.relatedIssues ?? [],
@@ -276,7 +310,7 @@ function ValidateMarkdown(root, document, errors, linkExceptions)
     }
 }
 
-function ValidatePolicy(root, policy, inventory, errors, options)
+function ValidatePolicy(root, policy, inventory, errors)
 {
     if (policy.schema !== DocumentLifecycleSchema)
     {
@@ -284,6 +318,39 @@ function ValidatePolicy(root, policy, inventory, errors, options)
     }
     const allowedStatuses = new Set(['current', 'proposed', 'historical', 'generated', 'retired']);
     const allowedOwners = new Set(['backend', 'frontend', 'security', 'release', 'governance']);
+    const ValidateObjectProperties = (value, allowedFields, valuePath) =>
+    {
+        if (!value || typeof value !== 'object' || Array.isArray(value))
+        {
+            errors.push(`${valuePath} must be an object`);
+            return;
+        }
+        for (const field of Object.keys(value))
+        {
+            if (!allowedFields.has(field))
+            {
+                errors.push(`${valuePath}.${field} is not allowed by the document lifecycle schema`);
+            }
+        }
+    };
+    ValidateObjectProperties(policy, PolicyFields, 'policy');
+    if (Array.isArray(policy.documents))
+    {
+        policy.documents.forEach((entry, index) => ValidateObjectProperties(entry, DocumentMetadataFields, `policy.documents[${index}]`));
+    }
+    else
+    {
+        errors.push('policy.documents must be an array');
+    }
+    for (const [field, allowedFields] of NestedPolicyFields)
+    {
+        if (policy[field] !== undefined && !Array.isArray(policy[field]))
+        {
+            errors.push(`policy.${field} must be an array`);
+            continue;
+        }
+        policy[field]?.forEach((entry, index) => ValidateObjectProperties(entry, allowedFields, `policy.${field}[${index}]`));
+    }
     const paths = new Set();
     const metadataPaths = new Set();
     for (const metadata of policy.documents ?? [])
@@ -404,22 +471,6 @@ function ValidatePolicy(root, policy, inventory, errors, options)
             current = documentByPath.get(current.supersededBy);
         }
     }
-    if (options.validateGit !== false)
-    {
-        try
-        {
-            execFileSync('git', ['-C', root, 'merge-base', '--is-ancestor', policy.lastVerifiedCommit, 'HEAD'], { stdio: 'ignore' });
-            const distance = Number(execFileSync('git', ['-C', root, 'rev-list', '--count', `${policy.lastVerifiedCommit}..HEAD`], { encoding: 'utf8' }).trim());
-            if (!Number.isInteger(distance) || distance > policy.maximumVerificationDistance)
-            {
-                errors.push(`document lifecycle verification commit is stale by ${distance} commits`);
-            }
-        }
-        catch
-        {
-            errors.push(`document lifecycle lastVerifiedCommit is not an ancestor of HEAD: ${policy.lastVerifiedCommit}`);
-        }
-    }
     const currentMarkdown = inventory.documents.filter((entry) => entry.kind === 'markdown' && entry.status === 'current');
     for (const document of currentMarkdown)
     {
@@ -451,7 +502,7 @@ function ValidatePolicy(root, policy, inventory, errors, options)
 export function ValidateDocumentLifecycle(root, policy, inventory, expectedIndex, options = {})
 {
     const errors = [];
-    ValidatePolicy(root, policy, inventory, errors, options);
+    ValidatePolicy(root, policy, inventory, errors);
     const linkExceptions = new Set((policy.brokenLinkExceptions ?? []).map((entry) => `${entry.source} -> ${entry.target}`));
     for (const document of inventory.documents.filter((entry) => entry.kind === 'markdown'))
     {
@@ -473,6 +524,7 @@ export function ValidateDocumentLifecycle(root, policy, inventory, expectedIndex
 
 export function WriteDocumentLifecycle(root, policy)
 {
+    AssertDocumentLifecycleSchema(policy);
     const inventory = BuildDocumentInventory(root, policy);
     fs.writeFileSync(
         path.join(root, 'config/development/document-inventory.generated.json'),

@@ -2,7 +2,7 @@
 
 ## Authority
 
-`config/development/document-lifecycle.json` is the machine-readable lifecycle policy for every file under `docs/`. Its v2 `documents` registry explicitly records every path's status, owner, related issues, supersession edges, and producer. `config/development/document-inventory.generated.json` is the complete projection over the current repository tree. A document is not a current source of truth merely because it is newer, has an open issue, or is easy to find.
+`config/development/document-lifecycle.json` is the machine-readable lifecycle policy for every file under `docs/`. Its v3 `documents` registry explicitly records every path's status, owner, related issues, supersession edges, and producer. `config/development/document-inventory.generated.json` is the complete projection over the current repository tree. A document is not a current source of truth merely because it is newer, has an open issue, or is easy to find.
 
 The lifecycle statuses are:
 
@@ -12,7 +12,9 @@ The lifecycle statuses are:
 - `generated`: producer-owned output that must not be edited by hand.
 - `retired`: content kept only behind an explicit replacement or redirect.
 
-Every inventory entry records an owner, status, source-of-truth flag, verification commit, reciprocal supersession fields, related issues, and the producer for generated content. None of those values is inferred from a filename. The lifecycle verification commit binds the classification pass, not a claim that every paragraph was rewritten at that commit. Executable paragraph-level behavior claims are owned by the [DocClaim protocol](doc-claim-protocol.md); `lastVerifiedCommit` must not enter DocClaim pass/fail inputs or receipt digests.
+Every inventory entry records an owner, status, source-of-truth flag, reciprocal supersession fields, related issues, and the producer for generated content. None of those values is inferred from a filename. Lifecycle status identifies the current authority location only; it does not certify paragraph correctness, implementation/test synchronization, performance freshness, human review, or release qualification. Executable paragraph-level behavior claims are owned by the [DocClaim protocol](doc-claim-protocol.md).
+
+The v3 policy is a strict allowlist: the top-level policy, each document metadata record, and every nested lifecycle record accept only their schema-defined structural fields. Unknown review, approval, qualification, baseline, or waiver properties fail closed rather than being interpreted as optional metadata. A historical document may narrate a past commit in its Markdown body, but active lifecycle metadata cannot convert such narration into qualification evidence.
 
 ## Ownership
 
@@ -57,7 +59,8 @@ The authoritative development-doc checker validates entirely from local reposito
 - live, reciprocal, acyclic supersession relationships;
 - generated producer existence and exact inventory/index projections;
 - internal links, fenced-code languages, retired references, and path migration records;
-- a reachable, bounded-age lifecycle verification commit.
+- no self-certification or manual qualification metadata; and
+- no Git ancestry, distance, date, review, or waiver check for document content.
 
 Focused tests include duplicate authority, explicit issue metadata, missing producer, semantic-name positive/negative fixtures, supersession target/reciprocity/cycle failures, historical asset aggregation, retired references, broken internal links, and path-migration positive/negative cases. The checker requires neither GitHub API nor network access. Markdown formatting, headings, anchors, and code fences remain additionally governed by the repository Markdownlint gate.
 

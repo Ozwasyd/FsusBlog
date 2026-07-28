@@ -348,9 +348,8 @@ test('sealed receipt rejects every fail-open static result and candidate spawn',
 
   const mutations = [
     ['missing generated line', (value) => { value.generated.status = 'failed' }],
-    ['stale prose with lastVerifiedCommit update', (value) => {
+    ['stale prose without lifecycle self-certification', (value) => {
       value.prose.status = 'failed'
-      value.prose.lastVerifiedCommit = value.source.commit
     }],
     ['double implementation owner', (value) => { value.implementationOwner.status = 'failed' }],
     ['warning mutation result', (value) => { value.mutationFixtures.status = 'warning' }],

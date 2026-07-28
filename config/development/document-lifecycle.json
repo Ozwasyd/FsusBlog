@@ -1,7 +1,5 @@
 {
-    "schema": "fsusblog.document-lifecycle-policy.v2",
-    "lastVerifiedCommit": "65089dbcdaff10e01b2af79bdb5d3fcb14c9b94b",
-    "maximumVerificationDistance": 100,
+    "schema": "fsusblog.document-lifecycle-policy.v3",
     "documents": [
         {
             "path": "docs/active-release-fenced-commits.md",

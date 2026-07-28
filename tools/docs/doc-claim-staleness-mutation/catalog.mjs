@@ -1,5 +1,5 @@
 /**
- * Fixed single-mutation case catalog for docs-governance body staleness + baseline-only cheats.
+ * Fixed single-mutation case catalog for docs-governance body staleness without lifecycle self-certification.
  * Each case: id, source fixture kind, targetInvariantId, singleMutation, expectedReasonCode,
  * expectedLayer, forbiddenCollateralChanges[].
  */
@@ -70,9 +70,8 @@ function transitionTable(rows)
 
 /** Required mutation ids from issue #1750 (failure cases). */
 export const requiredMutationIds = Object.freeze([
-    // Baseline/self-certification
-    'only-update-lastVerifiedCommit',
-    'only-update-review-date',
+    // A stale body is rejected without a lifecycle baseline or review-date escape hatch.
+    'stale-body-without-lifecycle-self-certification',
     'add-verified-true',
     'add-approved-observed-value',
     'add-ignore-difference',
@@ -133,7 +132,7 @@ export const targetInvariants = Object.freeze([
     'prose.relation.direction',
     'prose.preservation.fields',
     'prose.preservation.revokes-only-scope',
-    'prose.baseline-only-cannot-mask-stale-body',
+    'prose.lifecycle-metadata-cannot-qualify-stale-body',
     'claim.schema.forbidden-self-proving-fields',
     'generated.enum-set.complete-members',
     'generated.map.values-match',
@@ -221,32 +220,17 @@ const match = matchingProseBodies()
 const stale = staleProseBodies()
 
 export const mutationCases = Object.freeze([
-    // ── Baseline / self-certification ──────────────────────────────────────
+    // ── Lifecycle self-certification removal ────────────────────────────────
     caseDef({
-        id: 'only-update-lastVerifiedCommit',
+        id: 'stale-body-without-lifecycle-self-certification',
         sourceFixtureKind: 'stale-body-valid-lifecycle',
-        targetInvariantId: 'prose.baseline-only-cannot-mask-stale-body',
+        targetInvariantId: 'prose.lifecycle-metadata-cannot-qualify-stale-body',
         singleMutation: {
-            kind: 'lifecycle-field',
-            field: 'lastVerifiedCommit',
-            value: 'f'.repeat(40)
+            kind: 'none'
         },
         expectedReasonCode: ProseClaimErrorCode.CONFLICTING_VALUE,
         expectedLayer: MutationLayers.PROSE_VERIFIER,
         forbiddenCollateralChanges: ['document-body', 'observation', 'generated-section', 'broken-link']
-    }),
-    caseDef({
-        id: 'only-update-review-date',
-        sourceFixtureKind: 'stale-body-valid-lifecycle',
-        targetInvariantId: 'prose.baseline-only-cannot-mask-stale-body',
-        singleMutation: {
-            kind: 'lifecycle-field',
-            field: 'reviewDate',
-            value: '2099-12-31'
-        },
-        expectedReasonCode: ProseClaimErrorCode.CONFLICTING_VALUE,
-        expectedLayer: MutationLayers.PROSE_VERIFIER,
-        forbiddenCollateralChanges: ['document-body', 'observation', 'broken-link']
     }),
     caseDef({
         id: 'add-verified-true',
@@ -599,7 +583,7 @@ export const mutationCases = Object.freeze([
     caseDef({
         id: 'valid-control-body-fix-without-baseline',
         sourceFixtureKind: 'stale-body-valid-lifecycle',
-        targetInvariantId: 'prose.baseline-only-cannot-mask-stale-body',
+        targetInvariantId: 'prose.lifecycle-metadata-cannot-qualify-stale-body',
         singleMutation: {
             kind: 'fix-all-prose-bodies',
             bodies: match
