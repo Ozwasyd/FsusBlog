@@ -1,24 +1,67 @@
 #!/usr/bin/env node
-import { readFileSync } from 'node:fs'
+import {
+  existsSync,
+  readFileSync,
+  readdirSync
+} from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { readTemporalLedger, TemporalContractError } from './temporal-context.mjs'
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+const producerBindingsPath = path.join(
+  repositoryRoot,
+  'config/testing/temporal-producer-bindings.json'
+)
+const fixtureInventoryPath = path.join(
+  repositoryRoot,
+  'config/testing/fixture-consumer-inventory.generated.json'
+)
 
 export const clockApiPatterns = Object.freeze([
   ['Date.now', /\bDate\.now\s*\(\s*\)/gu],
   ['new Date()', /\bnew\s+Date\s*\(\s*\)/gu],
+  ['new Date(value)', /\bnew\s+Date\s*\(\s*[^)\s][^)]*\)/gu],
+  ['Temporal.Now', /\bTemporal\.Now\.[A-Za-z]+\s*\(/gu],
   ['DateTime.UtcNow', /\bDateTime\.UtcNow\b/gu],
+  ['DateTime.Now', /\bDateTime\.Now\b/gu],
+  ['DateTime.Today', /\bDateTime\.Today\b/gu],
   ['DateTimeOffset.UtcNow', /\bDateTimeOffset\.UtcNow\b/gu],
+  ['DateTimeOffset.Now', /\bDateTimeOffset\.Now\b/gu],
   ['TimeProvider.System', /\bTimeProvider\.System\b/gu],
   ['clock_timestamp', /\bclock_timestamp\s*\(\s*\)/giu],
+  ['statement_timestamp', /\bstatement_timestamp\s*\(\s*\)/giu],
+  ['transaction_timestamp', /\btransaction_timestamp\s*\(\s*\)/giu],
+  ['timeofday', /\btimeofday\s*\(\s*\)/giu],
   ['postgres.now', /(?<![.\w])now\s*\(\s*\)/giu],
   ['CURRENT_TIMESTAMP', /\bCURRENT_TIMESTAMP\b/giu],
-  ['mtime', /\.(?:mtime|mtimeMs|mtimeNs)\b/gu],
+  ['CURRENT_DATE_TIME', /\b(?:CURRENT_DATE|CURRENT_TIME|LOCALTIME|LOCALTIMESTAMP)\b/giu],
+  ['file-timestamp', /\.(?:mtime|mtimeMs|mtimeNs|ctime|ctimeMs|birthtime|birthtimeMs)\b/gu],
   ['performance.now', /\bperformance\.now\s*\(\s*\)/gu],
+  ['performance.timeOrigin', /\bperformance\.timeOrigin\b/gu],
   ['process.hrtime.bigint', /\bprocess\.hrtime\.bigint\s*\(\s*\)/gu],
-  ['Stopwatch', /\bStopwatch\.(?:StartNew|GetTimestamp)\s*\(/gu]
+  ['process.hrtime', /\bprocess\.hrtime\s*\(\s*[^)]*\)/gu],
+  ['process.uptime', /\bprocess\.uptime\s*\(\s*\)/gu],
+  ['Environment.TickCount64', /\bEnvironment\.TickCount64\b/gu],
+  ['Stopwatch', /\bStopwatch\.(?:StartNew|GetTimestamp|GetElapsedTime)\s*\(/gu],
+  ['setTimeout', /\bsetTimeout\s*\(/gu],
+  ['AbortSignal.timeout', /\bAbortSignal\.timeout\s*\(/gu],
+  ['pg_sleep', /\bpg_sleep\s*\(/giu],
+  ['shell.date', /(?:^|[;&|][ \t]*)date(?:[ \t]+[^()\n]*)?(?=$|[;&|])/gmu],
+  ['shell.epoch-seconds', /\$(?:EPOCHREALTIME|EPOCHSECONDS|SECONDS)\b/gu],
+  ['shell.sleep', /(?:^|[;&|][ \t]*)sleep[ \t]+[0-9]+(?:\.[0-9]+)?(?=$|[;&|])/gmu]
+])
+
+const repositoryScanRoots = Object.freeze(['src', 'tests', 'tools'])
+const repositoryScanExtension = /\.(?:c|cc|cjs|cpp|cs|cxx|js|mjs|ps1|sh|sql|ts|tsx|vue)$/u
+const repositoryScanExcludedDirectories = new Set([
+  '.git',
+  '.tmp',
+  'artifacts',
+  'bin',
+  'dist',
+  'node_modules',
+  'obj'
 ])
 
 function fail(reasonCode, message, details = {}) {
@@ -34,6 +77,59 @@ function occurrences(source) {
     }
   }
   return found.sort((left, right) => left.index - right.index || left.api.localeCompare(right.api))
+}
+
+function isCorrectnessTemporalCandidate(sourcePath, source) {
+  const producerDeclaration = /fixture-catalog:[ \t]+producer\b/u.test(source)
+  if ((/\.test\.[cm]?[jt]s$/u.test(sourcePath)
+      || sourcePath.startsWith('tests/backend/Unit/')
+      || sourcePath.startsWith('tests/tools/'))
+      && !producerDeclaration) {
+    return false
+  }
+  if (sourcePath === 'tools/test/check-wall-clock-governance.mjs') {
+    return false
+  }
+  return producerDeclaration
+    || sourcePath.startsWith('tools/test-fixtures/')
+    || sourcePath.startsWith('tools/data-scale/')
+    || (sourcePath.startsWith('tests/browser-contract/')
+      && !/\.test\.[cm]?[jt]s$/u.test(sourcePath))
+    || sourcePath === 'tests/frontend/support/session-fixtures.mjs'
+    || /(?:FSUSBLOG_TEMPORAL_CONTEXT_JSON|bindCorrectnessProducerTemporalArtifacts|TestTemporal(?:Runtime)?Context)/u
+      .test(source)
+}
+
+export function discoverRepositoryTemporalSources({
+  root = repositoryRoot,
+  sourceOverrides = new Map()
+} = {}) {
+  const sources = new Map()
+  const visit = (relative) => {
+    const absolute = path.join(root, relative)
+    if (!existsSync(absolute)) return
+    for (const entry of readdirSync(absolute, { withFileTypes: true })) {
+      const child = path.posix.join(relative, entry.name)
+      if (entry.isDirectory()) {
+        if (!repositoryScanExcludedDirectories.has(entry.name)) visit(child)
+      } else if (repositoryScanExtension.test(entry.name)) {
+        const source = sourceOverrides.get(child)
+          ?? readFileSync(path.join(root, child), 'utf8')
+        if (isCorrectnessTemporalCandidate(child, source)
+            && occurrences(source).length > 0) {
+          sources.set(child, source)
+        }
+      }
+    }
+  }
+  for (const scanRoot of repositoryScanRoots) visit(scanRoot)
+  for (const [sourcePath, source] of sourceOverrides) {
+    if (isCorrectnessTemporalCandidate(sourcePath, source)
+        && occurrences(source).length > 0) {
+      sources.set(sourcePath, source)
+    }
+  }
+  return sources
 }
 
 export function validateWallClockGovernance({ ledger, sources }) {
@@ -63,7 +159,7 @@ export function validateWallClockGovernance({ ledger, sources }) {
         && (entry.authorityKind !== 'runtime-monotonic' || entry.ingress !== 'runtime-monotonic')) {
       fail('temporal.mixed-clock', `${entry.callSiteId} measurement clock is not runtime monotonic`)
     }
-    if (entry.api === 'mtime' && entry.ingress !== 'operability-only') {
+    if (entry.api === 'file-timestamp' && entry.ingress !== 'operability-only') {
       fail('temporal.context-invalid', `${entry.callSiteId} mtime may only support operability`)
     }
   }
@@ -116,11 +212,33 @@ export function validateWallClockGovernance({ ledger, sources }) {
   }
 }
 
-export function verifyRepositoryWallClockGovernance() {
+export function verifyRepositoryWallClockGovernance({
+  independentlyDiscoveredSources = discoverRepositoryTemporalSources()
+} = {}) {
   const { document } = readTemporalLedger()
+  const bindings = JSON.parse(readFileSync(producerBindingsPath, 'utf8'))
+  const inventory = JSON.parse(readFileSync(fixtureInventoryPath, 'utf8'))
+  const requiredClosure = new Set([
+    ...inventory.producerImplementations.map((row) => row.source),
+    ...(bindings.executionBoundarySources ?? []),
+    ...independentlyDiscoveredSources.keys(),
+    'tools/test/temporal-context.mjs',
+    'tools/test/produce-temporal-qualification.mjs',
+    'tools/test/run-deterministic-command.mjs'
+  ])
+  const governed = new Set(document.governedSources)
+  const missing = [...requiredClosure].filter((source) => !governed.has(source)).sort()
+  const unexpected = [...governed].filter((source) => !requiredClosure.has(source)).sort()
+  if (missing.length > 0 || unexpected.length > 0) {
+    fail('temporal.ledger-source-mismatch', 'temporal ledger does not exact-match producer execution closure', {
+      missing,
+      unexpected
+    })
+  }
   const sources = new Map(document.governedSources.map((sourcePath) => [
     sourcePath,
-    readFileSync(path.join(repositoryRoot, sourcePath), 'utf8')
+    independentlyDiscoveredSources.get(sourcePath)
+      ?? readFileSync(path.join(repositoryRoot, sourcePath), 'utf8')
   ]))
   return validateWallClockGovernance({ ledger: document, sources })
 }

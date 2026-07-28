@@ -117,6 +117,25 @@ function normalizeCleanupContract(value) {
   })
 }
 
+function normalizeTemporalBinding(value) {
+  if (value == null) return null
+  if (!plainObject(value) || value.qualificationEligible !== true) {
+    throw new Error('temporalBinding must be a qualification-eligible object')
+  }
+  return freezeDeep({
+    planDigest: assertDigest(value.planDigest, 'temporalBinding.planDigest'),
+    actualDigest: assertDigest(value.actualDigest, 'temporalBinding.actualDigest'),
+    receiptDigest: assertDigest(value.receiptDigest, 'temporalBinding.receiptDigest'),
+    contextDigest: assertDigest(value.contextDigest, 'temporalBinding.contextDigest'),
+    semanticOutcomeDigest: assertDigest(
+      value.semanticOutcomeDigest,
+      'temporalBinding.semanticOutcomeDigest'
+    ),
+    bindingDigest: assertDigest(value.bindingDigest, 'temporalBinding.bindingDigest'),
+    qualificationEligible: true
+  })
+}
+
 function normalizeSource(source) {
   if (source == null) return null
   if (!plainObject(source)) throw new Error('source must be an object')
@@ -158,6 +177,7 @@ export function buildProducerReceipt({
   databaseObservation = null,
   redisObservation = null,
   cacheObservation = null,
+  temporalBinding = null,
   catalogs = readFixtureCatalogs()
 } = {}) {
   const id = requireText(String(producerId ?? ''), 'producerId')
@@ -241,6 +261,7 @@ export function buildProducerReceipt({
     entityIdentities: normalizeEntityIdentities(entityIdentities, new Set(producedVariants)),
     postconditionObservations: normalizePostconditionObservations(postconditionObservations),
     cleanupContract: normalizeCleanupContract(cleanupContract),
+    temporalBinding: normalizeTemporalBinding(temporalBinding),
     observationDigests: freezeDeep({
       database: observations.database ? digestDatabaseObservation(observations.database) : null,
       redis: observations.redis ? digestRedisObservation(observations.redis) : null,
@@ -288,6 +309,7 @@ export function validateProducerReceipt(document, { catalogs = readFixtureCatalo
   if (document.fixtureCatalogDigest !== currentFixtureCatalogDigest(catalogs)) {
     throw new Error('ProducerReceipt fixture catalog digest does not match FixtureVariantCatalog')
   }
+  if (document.temporalBinding != null) normalizeTemporalBinding(document.temporalBinding)
 
   const catalogProducer = (catalogs.producer.producers ?? []).find((item) => item.id === document.producerId)
   if (!catalogProducer) throw new Error(`ProducerReceipt producer ${document.producerId} not in catalog`)

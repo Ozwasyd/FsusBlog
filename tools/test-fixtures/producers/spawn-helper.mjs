@@ -3,6 +3,10 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 export const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
+const temporalChildObserver = path.join(
+  repositoryRoot,
+  'tools/test-fixtures/producers/temporal-child-observer.mjs'
+)
 
 /**
  * Run a child process bound to AbortSignal. On abort, SIGTERM then SIGKILL.
@@ -65,6 +69,25 @@ export function runProcess(command, args, {
   })
 }
 
+export async function runTemporalProcess(command, args, options = {}) {
+  const result = await runProcess(
+    process.execPath,
+    [temporalChildObserver, '--', command, ...args],
+    options
+  )
+  const encoded = result.stdout.match(/^FSUSBLOG_TEMPORAL_ACTUAL_JSON=([A-Za-z0-9_-]+)$/mu)?.[1]
+  if (!encoded) {
+    throw new Error(`producer child did not return a temporal actual observation: ${command}`)
+  }
+  let temporalObservation
+  try {
+    temporalObservation = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'))
+  } catch {
+    throw new Error(`producer child returned an invalid temporal actual observation: ${command}`)
+  }
+  return { ...result, temporalObservation }
+}
+
 function killTree(child, sig) {
   if (!child?.pid) return
   try {
@@ -109,6 +132,19 @@ export function buildProducerChildEnv(context, extra = {}) {
     env.FSUSBLOG_FIXTURE_VARIANT_PLAN_DIGEST = String(context.variantPlan.producerVariantPlanDigest)
   } else {
     throw new Error('producer child requires a sealed typed fixture variant plan')
+  }
+  if (context.temporalContext) {
+    delete env.FSUSBLOG_TEMPORAL_CONTEXT_FILE
+    delete env.FSUSBLOG_TEMPORAL_CONTEXT_JSON
+    env.FSUSBLOG_TEMPORAL_CONTEXT_JSON = JSON.stringify(context.temporalContext)
+    env.FSUSBLOG_TEST_BUSINESS_EPOCH_UTC = context.temporalContext.businessEpochUtc
+    env.FSUSBLOG_TEST_BACKEND_CULTURE = context.temporalContext.backendCulture
+    env.FSUSBLOG_TEST_POSTGRES_TIMEZONE = context.temporalContext.postgresTimezone
+    env.FSUSBLOG_TEST_NODE_TIMEZONE = context.temporalContext.nodeTimezone
+    env.FSUSBLOG_TEST_UI_LOCALE = context.temporalContext.uiLocale
+    env.FSUSBLOG_TEST_LOCALE = context.temporalContext.locale
+    env.FSUSBLOG_TEST_TIMEZONE = context.temporalContext.timezone
+    env.TZ = context.temporalContext.nodeTimezone
   }
   if (handles.jwt) {
     for (const [key, value] of Object.entries(handles.jwt)) {

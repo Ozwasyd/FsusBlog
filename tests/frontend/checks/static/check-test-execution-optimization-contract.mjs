@@ -157,9 +157,10 @@ requireIncludes('tests/frontend/support/playwright/testSession.ts', [
   'resolveSessionFixtureFile',
   'resolveWorkerTestSession'
 ])
-requireIncludes('tests/frontend/support/session-fixtures.mjs', [
-  'resolveAuthFixtureDirectory',
-  'kid: jwtKeyVersion'
+requireIncludes('tests/frontend/support/auth-fixture-projection.mjs', [
+  'readPrivateJson',
+  'sourceReceiptDigest',
+  'createAdminStepUpProofToken'
 ])
 requireIncludes('src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs', [
   'FSUSBLOG_FIXTURE_ROOT',

@@ -67,7 +67,6 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
     public async Task MappedAuthFlows_EmitExactIssuedAccessTokenExpiry(AuthExpiryFlow flow)
     {
         using HttpResponseMessage response = await fixture.SendSuccessAsync(flow);
-
         Assert.Equal(
             flow == AuthExpiryFlow.LocalAuthFixture ? HttpStatusCode.Found : HttpStatusCode.OK,
             response.StatusCode);
@@ -372,6 +371,8 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
             IMfaChallengeService mfaChallenges = Substitute.For<IMfaChallengeService>();
             IPasskeyService passkeys = Substitute.For<IPasskeyService>();
             IAdminPrincipalService adminPrincipals = Substitute.For<IAdminPrincipalService>();
+            IUserLocalePreferenceReader localePreferences =
+                Substitute.For<IUserLocalePreferenceReader>();
             IPowService pow = Substitute.For<IPowService>();
             IUnifiedCache cache = Substitute.For<IUnifiedCache>();
             IHotArticlesCacheVersionProvider hotArticlesVersion =
@@ -418,6 +419,14 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
             mfaChallenges.GetChallengeAsync("mfa-ticket")
                 .Returns(Task.FromResult<MfaChallengeTicket?>(mfaTicket));
             mfaChallenges.ConsumeChallengeAsync("mfa-ticket").Returns(Task.CompletedTask);
+            localePreferences.GetAsync(
+                    Arg.Any<int>(),
+                    Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(new UserLocalePreferenceDto(
+                    LocalePreferenceModes.Auto,
+                    null,
+                    0,
+                    DateTime.UnixEpoch)));
 
             var passkeyUser = new User
             {
@@ -449,6 +458,7 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
                 mfaChallenges.ClearReceivedCalls();
                 passkeys.ClearReceivedCalls();
                 adminPrincipals.ClearReceivedCalls();
+                localePreferences.ClearReceivedCalls();
                 pow.ClearReceivedCalls();
                 cache.ClearReceivedCalls();
                 hotArticlesVersion.ClearReceivedCalls();
@@ -502,6 +512,13 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
                         refreshTokens,
                         s_userAccessTokenExpiresAtUtc.UtcDateTime.AddDays(7),
                         UserSessionDurationPolicies.Persistent30Days)));
+                sessions.GetSessionByRefreshTokenAsync(
+                        $"rotated-user-refresh-{testId}",
+                        Arg.Any<CancellationToken>())
+                    .Returns(Task.FromResult<UserSession?>(new UserSession
+                    {
+                        UserId = account.Id
+                    }));
                 sessions.VerifyRefreshRotationAsync(
                         Arg.Any<string>(),
                         Arg.Any<string>(),
@@ -577,6 +594,7 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
             builder.Services.AddSingleton(mfaChallenges);
             builder.Services.AddSingleton(passkeys);
             builder.Services.AddSingleton(adminPrincipals);
+            builder.Services.AddSingleton(localePreferences);
             builder.Services.AddSingleton(pow);
             builder.Services.AddSingleton(cache);
             builder.Services.AddSingleton(new AdaptivePowGovernor(cache, builder.Configuration));
@@ -754,6 +772,7 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
         {
             var payload = new
             {
+                receiptDigest = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 cookies = cookies.Select(cookie => new
                 {
                     name = cookie.Name,

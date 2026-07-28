@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -14,6 +15,7 @@ public sealed class TestTemporalContext
     public const string BackendCultureEnvironmentVariable = "FSUSBLOG_TEST_BACKEND_CULTURE";
     public const string PostgresTimezoneEnvironmentVariable = "FSUSBLOG_TEST_POSTGRES_TIMEZONE";
     public const string NodeTimezoneEnvironmentVariable = "FSUSBLOG_TEST_NODE_TIMEZONE";
+    public const string TemporalContextEnvironmentVariable = "FSUSBLOG_TEMPORAL_CONTEXT_JSON";
     /// <summary>
     /// Policy token matching config/testing/temporal-policy.json backendCulture.
     /// Maps to <see cref="CultureInfo.InvariantCulture"/> at runtime.
@@ -65,7 +67,24 @@ public sealed class TestTemporalContext
 
     public static TestTemporalContext FromEnvironment()
     {
-        string? epochRaw = Environment.GetEnvironmentVariable(BusinessEpochEnvironmentVariable);
+        string? contextRaw = Environment.GetEnvironmentVariable(
+            TemporalContextEnvironmentVariable);
+        using JsonDocument? document = string.IsNullOrWhiteSpace(contextRaw)
+            ? null
+            : JsonDocument.Parse(contextRaw);
+        JsonElement? root = document?.RootElement;
+        if (root is JsonElement context)
+        {
+            RequireJsonValue(context, "schema", "fsusblog.test-temporal-context.v1");
+            RequireJsonValue(context, "businessClockMode", "fixed");
+            RequireJsonValue(context, "businessClockStepPolicy", "explicit-only");
+            RequireJsonValue(context, "backendCulture", CanonicalBackendCulture);
+            RequireJsonValue(context, "postgresTimezone", CanonicalPostgresTimezone);
+            RequireJsonValue(context, "nodeTimezone", CanonicalNodeTimezone);
+            RequireJsonValue(context, "timezone", CanonicalTimezone);
+        }
+        string? epochRaw = root?.GetProperty("businessEpochUtc").GetString()
+            ?? Environment.GetEnvironmentVariable(BusinessEpochEnvironmentVariable);
         DateTimeOffset epoch = string.IsNullOrWhiteSpace(epochRaw)
             ? CanonicalBusinessEpochUtc
             : ParseUtcEpoch(epochRaw);
@@ -81,15 +100,30 @@ public sealed class TestTemporalContext
             NodeTimezoneEnvironmentVariable,
             CanonicalNodeTimezone,
             allowMissing: true);
+        CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+        CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
+        CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+        CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
         return new TestTemporalContext(epoch);
     }
 
     public void ConfigureServices(IServiceCollection services)
     {
+        CultureInfo.DefaultThreadCurrentCulture = BackendCulture;
+        CultureInfo.DefaultThreadCurrentUICulture = BackendCulture;
         services.RemoveAll<TimeProvider>();
         services.RemoveAll<TestTemporalContext>();
         services.AddSingleton(this);
         services.AddSingleton<TimeProvider>(BusinessClock);
+    }
+
+    public void AssertRuntimeContext()
+    {
+        if (!Equals(CultureInfo.CurrentCulture, BackendCulture)
+            || !Equals(CultureInfo.CurrentUICulture, BackendCulture))
+        {
+            throw new InvalidOperationException("Backend runtime culture does not match the temporal context.");
+        }
     }
 
     public void Advance(TimeSpan delta) => BusinessClock.Advance(delta);
@@ -98,9 +132,9 @@ public sealed class TestTemporalContext
     {
         if (!DateTimeOffset.TryParseExact(
                 raw,
-                "O",
+                ["yyyy-MM-dd'T'HH:mm:ss.fff'Z'", "O"],
                 CultureInfo.InvariantCulture,
-                DateTimeStyles.RoundtripKind,
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
                 out DateTimeOffset parsed)
             || parsed.Offset != TimeSpan.Zero)
         {
@@ -126,6 +160,19 @@ public sealed class TestTemporalContext
         {
             throw new InvalidOperationException(
                 $"{environmentVariable} must be {expected} for correctness tests.");
+        }
+    }
+
+    private static void RequireJsonValue(
+        JsonElement context,
+        string property,
+        string expected)
+    {
+        string? actual = context.GetProperty(property).GetString();
+        if (!string.Equals(actual, expected, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"{TemporalContextEnvironmentVariable}.{property} must be {expected}.");
         }
     }
 }

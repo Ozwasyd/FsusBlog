@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   checkWasmArtifactOwnership,
+  validateProductionWasmStagingContract,
   validateGeneratedPackageFreshness,
     validateGeneratedWasmPackage
 } from '../../tools/check-wasm-artifact-ownership.mjs';
@@ -148,6 +149,75 @@ test('Option B keeps the generated WASM release package outside Git', async () =
   const result = await checkWasmArtifactOwnership({ repoRoot });
   assert.equal(result.ownership, 'generated-ci-output');
   assert.deepEqual(result.trackedPaths, []);
+});
+
+test('production staging contract rejects source mutation, stale checksums and seal-before-write ordering', async (t) => {
+  const productionBuilder = await readFile(
+    path.join(repoRoot, 'tools/test/lanes/production-build-artifacts.sh'),
+    'utf8'
+  );
+  const receiptTool = await readFile(path.join(repoRoot, 'tools/frontend/wasm-build-receipt.mjs'), 'utf8');
+  assert.doesNotThrow(() => validateProductionWasmStagingContract({ productionBuilder, receiptTool }));
+
+  const cases = [
+    {
+      name: 'adopt source',
+      productionBuilder: productionBuilder.replace(
+        'node "$ROOT_DIR/tools/frontend/wasm-build-receipt.mjs" stage-envelope',
+        'AdoptDirectory "$WASM_SOURCE" "$PAYLOAD_ROOT/wasm"\n'
+          + '    node "$ROOT_DIR/tools/frontend/wasm-build-receipt.mjs" stage-envelope'
+      ),
+      receiptTool,
+      expected: /must not adopt or move/u
+    },
+    {
+      name: 'outer seal before checksum staging',
+      productionBuilder: productionBuilder.replace(
+        'node "$ROOT_DIR/tools/frontend/wasm-build-receipt.mjs" stage-envelope',
+        'node "$ROOT_DIR/tools/ci/production-build-artifacts-cli.mjs" "${CREATE_ARGS[@]}"\n'
+          + '    node "$ROOT_DIR/tools/frontend/wasm-build-receipt.mjs" stage-envelope'
+      ),
+      receiptTool,
+      expected: /before the outer immutable artifact seal/u
+    },
+    {
+      name: 'copy stale checksum',
+      productionBuilder,
+      receiptTool: receiptTool.replace(
+        "if (entry.name === 'SHA256SUMS')",
+        "if (entry.name === 'not-SHA256SUMS')"
+      ),
+      expected: /missing required ownership step/u
+    },
+    {
+      name: 'chmod unseal',
+      productionBuilder,
+      receiptTool: receiptTool.replace(
+        'const sourceIdentity = artifactDirectoryIdentity(sourceArtifactDir);',
+        'const sourceIdentity = artifactDirectoryIdentity(sourceArtifactDir);\n'
+          + '    fs.chmodSync(path.join(sourceArtifactDir, "SHA256SUMS"), 0o644);'
+      ),
+      expected: /must not chmod/u
+    },
+    {
+      name: 'move source',
+      productionBuilder,
+      receiptTool: receiptTool.replace(
+        'const sourceIdentity = artifactDirectoryIdentity(sourceArtifactDir);',
+        'const sourceIdentity = artifactDirectoryIdentity(sourceArtifactDir);\n'
+          + '    fs.renameSync(sourceArtifactDir, destinationArtifactDir);'
+      ),
+      expected: /without moving/u
+    }
+  ];
+  for (const entry of cases) {
+    await t.test(entry.name, () => {
+      assert.throws(
+        () => validateProductionWasmStagingContract(entry),
+        entry.expected
+      );
+    });
+  }
 });
 
 test('ensure-wasm exposes the current schema v3, ABI v4 and complete output contract', () => {

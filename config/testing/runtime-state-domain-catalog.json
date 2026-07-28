@@ -87,7 +87,10 @@
       "reads": [
         "artifact.public-aot-overlay",
         "artifact.static-web-assets",
+        "fixture.auth-identities",
+        "fixture.public-content",
         "fixture.runtime-config",
+        "fixture.security-state",
         "postgres.auth",
         "postgres.schema",
         "postgres.security",
@@ -102,6 +105,7 @@
         "runtime.release-preview"
       ],
       "deletes": [
+        "fixture.public-content",
         "postgres.schema",
         "postgres.security",
         "redis.cache.public",
@@ -132,7 +136,32 @@
       ],
       "operationOverlaps": [
         {
+          "domain": "fixture.auth-identities",
+          "operations": [
+            "creates",
+            "reads"
+          ],
+          "testId": "bootstrap"
+        },
+        {
+          "domain": "fixture.public-content",
+          "operations": [
+            "creates",
+            "deletes",
+            "reads"
+          ],
+          "testId": "bootstrap"
+        },
+        {
           "domain": "fixture.runtime-config",
+          "operations": [
+            "creates",
+            "reads"
+          ],
+          "testId": "bootstrap"
+        },
+        {
+          "domain": "fixture.security-state",
           "operations": [
             "creates",
             "reads"
@@ -310,6 +339,7 @@
       "stepId": "security-runtime-core",
       "stateAccess": "declared",
       "reads": [
+        "fixture.public-content",
         "fixture.runtime-config",
         "postgres.security",
         "redis.rate-limit",
@@ -443,6 +473,7 @@
       "stateAccess": "declared",
       "reads": [
         "fixture.auth-identities",
+        "fixture.public-content",
         "fixture.runtime-config",
         "runtime.backend-process"
       ],
@@ -479,7 +510,16 @@
         "ready"
       ],
       "evidence": [{"proofKind":"structured-test","operation":"all","domain":"all-declared-access","assertionId":"integration","verifier":"tools/test/bundles/bundle-steps.mjs"}],
-      "operationOverlaps": []
+      "operationOverlaps": [
+        {
+          "domain": "fixture.public-content",
+          "operations": [
+            "creates",
+            "reads"
+          ],
+          "testId": "integration"
+        }
+      ]
     },
     {
       "stepId": "release-public-hydration",
@@ -733,6 +773,7 @@
       "stepId": "resilience",
       "stateAccess": "declared",
       "reads": [
+        "fixture.public-content",
         "fixture.runtime-config",
         "postgres.security",
         "redis.rate-limit",

@@ -109,7 +109,8 @@ export function createProducerContext({
   producerOutputs = null,
   handles = null,
   catalogs = undefined,
-  previousProducerReceipt = null
+  previousProducerReceipt = null,
+  temporalContext = null
 } = {}) {
   const producerVariantIds = (plan?.variantPlan?.byProducer
     ?.find((item) => item.producerId === producerId)?.variants ?? [])
@@ -132,6 +133,7 @@ export function createProducerContext({
     producerOutputs: Object.freeze({ ...(producerOutputs ?? {}) }),
     handles: Object.freeze({ ...(handles ?? {}) }),
     previousProducerReceipt,
+    temporalContext,
     ports: ports ?? null
   })
 }

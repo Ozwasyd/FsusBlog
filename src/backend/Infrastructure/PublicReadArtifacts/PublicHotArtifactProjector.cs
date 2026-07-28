@@ -66,6 +66,7 @@ public sealed class PublicHotArtifactProjector(
     IDbConcurrencyGate dbConcurrencyGate,
     IOptions<PublicHotReadOptions> options,
     ArticleBodyRepairQueue articleBodyRepairQueue,
+    TimeProvider timeProvider,
     ILogger<PublicHotArtifactProjector> logger)
     : IPublicHotArtifactProjector, IVersionedPublicHotArtifactProjector
 {
@@ -127,7 +128,7 @@ public sealed class PublicHotArtifactProjector(
         CancellationToken ct)
     {
         PublicHotReadOptions value = options.Value;
-        DateTimeOffset projectionCutoff = DateTimeOffset.UtcNow;
+        DateTimeOffset projectionCutoff = timeProvider.GetUtcNow();
         DateTime utcNow = projectionCutoff.UtcDateTime;
         long version = projectionCutoff.ToUnixTimeMilliseconds();
         PublicArticleFrameSelection selection = await QueryPublicArticleIdsAsync(utcNow, value, ct).ConfigureAwait(false);
@@ -157,7 +158,7 @@ public sealed class PublicHotArtifactProjector(
     {
         long started = Stopwatch.GetTimestamp();
         PublicHotReadOptions value = options.Value;
-        DateTimeOffset projectionCutoff = DateTimeOffset.UtcNow;
+        DateTimeOffset projectionCutoff = timeProvider.GetUtcNow();
         DateTime visibilityCutoff = projectionCutoff.UtcDateTime;
         long version = projectionCutoff.ToUnixTimeMilliseconds();
         var articleFrames = current.ArticleArtifacts.ToDictionary(static pair => pair.Key, static pair => pair.Value);
@@ -227,7 +228,7 @@ public sealed class PublicHotArtifactProjector(
     {
         long started = Stopwatch.GetTimestamp();
         PublicHotReadOptions value = options.Value;
-        DateTimeOffset projectionCutoff = DateTimeOffset.UtcNow;
+        DateTimeOffset projectionCutoff = timeProvider.GetUtcNow();
         DateTime visibilityCutoff = projectionCutoff.UtcDateTime;
         long version = projectionCutoff.ToUnixTimeMilliseconds();
         int[] normalizedArticleIds = NormalizeIds(articleIds);
@@ -725,7 +726,7 @@ public sealed class PublicHotArtifactProjector(
         [
             new("@IsDeleted", false),
             new("@PublishedStatus", (int)ArticleStatus.Published),
-            new("@Now", DateTime.UtcNow),
+            new("@Now", timeProvider.GetUtcNow().UtcDateTime),
             new("@Limit", limit)
         ];
 
@@ -869,7 +870,7 @@ public sealed class PublicHotArtifactProjector(
             return [];
         }
 
-        DateTime utcNow = DateTime.UtcNow;
+        DateTime utcNow = timeProvider.GetUtcNow().UtcDateTime;
         var query = db.Queryable<Article>()
             .InnerJoin<ArticlePublicationRecord>((article, publication) => article.CurrentPublicationId == publication.Id)
             .InnerJoin<ArticleRevision>((article, publication, revision) => publication.ArticleRevisionId == revision.Id)
@@ -998,7 +999,7 @@ public sealed class PublicHotArtifactProjector(
     private async Task<IReadOnlyList<PopularArticleCoreModel>> LoadHotArticlesFromDbAsync(int count, CancellationToken ct)
     {
         count = Math.Clamp(count, 1, MaxHotArticlesCount);
-        DateTime now = DateTime.UtcNow;
+        DateTime now = timeProvider.GetUtcNow().UtcDateTime;
         // SqlSugar multi-table Where must use the join aliases (`article`…).
         // A discarded single-table `a` alias throws at ToSql, is swallowed by
         // AddHotFrameAsync, and leaves public hot-read without /hot/{size}.aeds.
@@ -1027,7 +1028,7 @@ public sealed class PublicHotArtifactProjector(
     {
         count = Math.Clamp(count, 1, 20);
         int candidateLimit = MaxHotArticlesCount;
-        DateTime now = DateTime.UtcNow;
+        DateTime now = timeProvider.GetUtcNow().UtcDateTime;
         var rows = await db.Queryable<Article>()
             .InnerJoin<ArticlePublicationRecord>((article, publication) => article.CurrentPublicationId == publication.Id)
             .InnerJoin<ArticleRevision>((article, publication, revision) => publication.ArticleRevisionId == revision.Id)

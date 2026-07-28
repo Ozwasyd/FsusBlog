@@ -13,9 +13,23 @@ import {
   validateRunBoundProjection
 } from './run-once.mjs'
 import { runPhysicalExecution } from './physical-execution-process-tree.mjs'
+import {
+  createTemporalActual,
+  createTemporalPlan,
+  createTemporalReceipt,
+  defaultTimeoutPolicyDigest,
+  digestCanonical,
+  materializeTemporalEnvironment,
+  qualificationTemporalContext,
+  verifyTemporalReplay
+} from './temporal-context.mjs'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const physicalExecutionPolicy = 'config/testing/physical-execution-process-policy.json'
+const temporalChildObserver = path.join(
+  repoRoot,
+  'tools/test-fixtures/producers/temporal-child-observer.mjs'
+)
 
 function parse(argv) {
   const options = { paths: [], environmentNames: [], outputs: [], testIds: [] }
@@ -85,6 +99,78 @@ function git(args) {
   return execFileSync('git', args, { cwd: repoRoot, encoding: 'utf8' }).trim()
 }
 
+function writePrivateJson(file, value) {
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  const temporary = `${file}.next-${process.pid}`
+  fs.writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 })
+  fs.renameSync(temporary, file)
+}
+
+function createRunnerTemporalContext({ producerId, runId, sourceCommit, sourceFingerprint }) {
+  return qualificationTemporalContext({
+    sourceCommit,
+    sourceFingerprint: sourceFingerprint.startsWith('sha256:')
+      ? sourceFingerprint
+      : `sha256:${sourceFingerprint}`,
+    producerId,
+    schedulerRunId: runId,
+    businessEpochUtc: String(
+      process.env.FSUSBLOG_TEST_BUSINESS_EPOCH_UTC
+      ?? '2024-02-29T23:59:59.000Z'
+    ).trim(),
+    locale: String(process.env.FSUSBLOG_TEST_LOCALE ?? 'en-US').trim(),
+    uiLocale: String(
+      process.env.FSUSBLOG_TEST_UI_LOCALE
+      ?? process.env.FSUSBLOG_TEST_LOCALE
+      ?? 'en-US'
+    ).trim(),
+    timeoutPolicyDigest: process.env.FSUSBLOG_TIMEOUT_POLICY_DIGEST?.trim()
+      || defaultTimeoutPolicyDigest()
+  })
+}
+
+function publishRunnerTemporalArtifacts({ context, result, key }) {
+  const runBoundReceipt = JSON.parse(fs.readFileSync(result.receiptFile, 'utf8'))
+  const runBoundProjection = JSON.parse(fs.readFileSync(result.projectionFile, 'utf8'))
+  const encodedObservation = String(runBoundReceipt.physicalExecution?.stdout ?? '')
+    .match(/^FSUSBLOG_TEMPORAL_ACTUAL_JSON=([A-Za-z0-9_-]+)$/mu)?.[1]
+  if (!encodedObservation) {
+    throw new Error('correctness child did not return an actual temporal observation')
+  }
+  const observations = JSON.parse(
+    Buffer.from(encodedObservation, 'base64url').toString('utf8')
+  )
+  const plan = createTemporalPlan(context)
+  const actual = createTemporalActual(context, observations)
+  const receipt = createTemporalReceipt({
+    plan,
+    actual,
+    outcome: {
+      status: result.status,
+      producerId: context.producerId,
+      schedulerRunId: context.schedulerRunId,
+      executionKey: key,
+      runBoundContractDigest: runBoundReceipt.contractDigest,
+      runBoundReceiptDigest: runBoundReceipt.receiptDigest,
+      runBoundProjectionReceiptDigest: runBoundProjection.physicalExecutionReceiptDigest,
+      requiredOutputStates: runBoundReceipt.requiredOutputStates
+    },
+    generatedAt: new Date().toISOString()
+  })
+  verifyTemporalReplay({ plan, actual, receipt })
+  const directory = path.dirname(result.receiptFile)
+  const prefix = sanitizeSegment(key, 'execution')
+  const files = {
+    plan: path.join(directory, `${prefix}-temporal-plan.json`),
+    actual: path.join(directory, `${prefix}-temporal-actual.json`),
+    receipt: path.join(directory, `${prefix}-temporal-receipt.json`)
+  }
+  writePrivateJson(files.plan, plan)
+  writePrivateJson(files.actual, actual)
+  writePrivateJson(files.receipt, receipt)
+  return files
+}
+
 async function spawnCommand(command, cwd, signal) {
   return await runPhysicalExecution({ command, cwd, signal })
 }
@@ -120,15 +206,37 @@ async function main(argv) {
     return
   }
 
+  const temporalContext = createRunnerTemporalContext({
+    producerId,
+    runId,
+    sourceCommit,
+    sourceFingerprint
+  })
+  Object.assign(process.env, materializeTemporalEnvironment(temporalContext))
+  const observedCommand = [
+    process.execPath,
+    temporalChildObserver,
+    '--',
+    ...command
+  ]
   const commit = git(['rev-parse', 'HEAD'])
-  const inputPaths = [...new Set([...options.paths, physicalExecutionPolicy])]
+  const inputPaths = [...new Set([
+    ...options.paths,
+    physicalExecutionPolicy,
+    'tools/test/temporal-context.mjs',
+    'tools/test-fixtures/producers/temporal-child-handshake.bash',
+    'tools/test-fixtures/producers/temporal-child-handshake.cjs',
+    'tools/test-fixtures/producers/temporal-child-handshake-emitter.cjs',
+    'tools/test-fixtures/producers/temporal-child-observer.mjs'
+  ])]
   const inputDigest = await fingerprintPaths(inputPaths, {
     root: repoRoot,
     values: [
       'run-bound-physical-execution-v3',
       cwd,
       JSON.stringify(command),
-      JSON.stringify([...options.outputs].sort())
+      JSON.stringify([...options.outputs].sort()),
+      digestCanonical(temporalContext)
     ]
   })
   const environment = Object.fromEntries([...new Set(options.environmentNames)].sort().map((name) => [name, process.env[name] ?? '']))
@@ -165,7 +273,7 @@ async function main(argv) {
       testIds: options.testIds,
       consumerId,
       signal: controller.signal
-    }, async () => spawnCommand(command, cwd, controller.signal))
+    }, async () => spawnCommand(observedCommand, cwd, controller.signal))
     const consumerEvidenceFile = options.projectionDirectory
       ? await publishConsumerProjection({
           result,
@@ -176,7 +284,12 @@ async function main(argv) {
           consumerId
         })
       : null
-    console.log(`[physical-execution] ${result.status} key=${options.key} receipt=${result.receiptFile} projection=${result.projectionFile}${consumerEvidenceFile ? ` consumer-evidence=${consumerEvidenceFile}` : ''}`)
+    const temporalFiles = publishRunnerTemporalArtifacts({
+      context: temporalContext,
+      result,
+      key: options.key
+    })
+    console.log(`[physical-execution] ${result.status} key=${options.key} receipt=${result.receiptFile} projection=${result.projectionFile}${consumerEvidenceFile ? ` consumer-evidence=${consumerEvidenceFile}` : ''} temporal-receipt=${temporalFiles.receipt}`)
   } finally {
     process.off('SIGINT', onSigint)
     process.off('SIGTERM', onSigterm)

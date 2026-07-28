@@ -34,6 +34,14 @@ import {
   verifyCapabilityPostconditions
 } from './receipt/index.mjs'
 import { createTerminalState } from './terminal-state.mjs'
+import {
+  bindCorrectnessProducerTemporalArtifacts,
+  resolveCorrectnessProducerTemporalContext
+} from '../test/temporal-producer-bindings.mjs'
+import {
+  semanticOutcomeDigest,
+  verifyTemporalReplay
+} from '../test/temporal-context.mjs'
 
 export { buildProducerDag } from './dag.mjs'
 export { createTerminalState, FIXTURE_TERMINAL_STATES } from './terminal-state.mjs'
@@ -56,6 +64,61 @@ function serializeError(error) {
   return {
     name: error instanceof Error ? error.name : 'Error',
     message: error instanceof Error ? error.message : String(error)
+  }
+}
+
+function temporalContextForProducer(planDocument, producerId) {
+  if (!process.env.FSUSBLOG_TEMPORAL_CONTEXT_JSON
+      && !process.env.FSUSBLOG_TEMPORAL_CONTEXT_FILE) {
+    return null
+  }
+  const source = planDocument.executionIdentity?.sourceIdentity
+  return resolveCorrectnessProducerTemporalContext({
+    producerId,
+    schedulerRunId: planDocument.executionIdentity?.runId,
+    sourceCommit: source?.commit,
+    sourceFingerprint: source?.worktreeFingerprint
+  })
+}
+
+function bindProducerResultTemporalArtifacts(producerId, temporalContext, result) {
+  if (!temporalContext) return null
+  const { temporalObservation, temporalArtifacts: _ignored, ...outcome } = result
+  return bindCorrectnessProducerTemporalArtifacts({
+    producerId,
+    contextInput: temporalContext,
+    outcome,
+    observations: temporalObservation,
+    generatedAt: new Date().toISOString()
+  })
+}
+
+function verifyProducerResultTemporalArtifacts(producerId, result) {
+  const temporalArtifacts = result?.temporalArtifacts
+  if (!temporalArtifacts) {
+    if (process.env.FSUSBLOG_TEMPORAL_CONTEXT_JSON
+        || process.env.FSUSBLOG_TEMPORAL_CONTEXT_FILE) {
+      throw new Error(`producer ${producerId} is missing bound temporal artifacts`)
+    }
+    return null
+  }
+  const verification = verifyTemporalReplay(temporalArtifacts)
+  const {
+    temporalObservation: _observation,
+    temporalArtifacts: _artifacts,
+    ...outcome
+  } = result
+  if (temporalArtifacts.receipt.semanticOutcomeDigest !== semanticOutcomeDigest(outcome)) {
+    throw new Error(`producer ${producerId} temporal receipt does not bind its exact output`)
+  }
+  return {
+    planDigest: temporalArtifacts.plan.digest,
+    actualDigest: temporalArtifacts.actual.digest,
+    receiptDigest: temporalArtifacts.receipt.digest,
+    contextDigest: temporalArtifacts.receipt.temporalContextDigest,
+    semanticOutcomeDigest: temporalArtifacts.receipt.semanticOutcomeDigest,
+    bindingDigest: temporalArtifacts.bindingDigest,
+    qualificationEligible: verification.qualificationEligible
   }
 }
 
@@ -242,13 +305,22 @@ export async function prepare(planDocument, injectedPorts, signal = undefined, {
           producerOutputs,
           handles: baseHandles,
           catalogs,
-          previousProducerReceipt: previousReceiptByProducer.get(producerId) ?? null
+          previousProducerReceipt: previousReceiptByProducer.get(producerId) ?? null,
+          temporalContext: temporalContextForProducer(planDocument, producerId)
         })
-        const result = await port.prepare(context, signal)
+        const rawResult = await port.prepare(context, signal)
         throwIfAborted(signal)
-        if (!result || typeof result !== 'object') {
+        if (!rawResult || typeof rawResult !== 'object') {
           throw new Error(`producer ${producerId} prepare must return a producerResult object`)
         }
+        const temporalArtifacts = bindProducerResultTemporalArtifacts(
+          producerId,
+          context.temporalContext,
+          rawResult
+        )
+        const result = temporalArtifacts
+          ? { ...rawResult, temporalArtifacts }
+          : rawResult
         if (result.strategy && result.strategy !== port.strategy) {
           throw new Error(
             `producer ${producerId} returned strategy ${result.strategy}; cannot fallback from ${port.strategy}`
@@ -538,7 +610,8 @@ export async function verify(prepareState, injectedVerifiers = {}, {
         profileIdentity: planDocument.profileIdentity,
         producerOutputs: prepareState.producerOutputs,
         handles: planDocument.executionIdentity?.handles,
-        catalogs
+        catalogs,
+        temporalContext: temporalContextForProducer(planDocument, producerId)
       })
       const portVerify = await port.verify(context, rawResult)
       const portOk = portVerify === true
@@ -602,6 +675,7 @@ export async function verify(prepareState, injectedVerifiers = {}, {
         entityIdentities: rawResult.entityIdentities ?? portVerify?.entityIdentities ?? [],
         catalogs
       })
+      const temporalBinding = verifyProducerResultTemporalArtifacts(producerId, rawResult)
 
       const producerReceipt = buildProducerReceipt({
         producerId,
@@ -625,6 +699,7 @@ export async function verify(prepareState, injectedVerifiers = {}, {
         databaseObservation: observations.database,
         redisObservation: observations.redis,
         cacheObservation: observations.cache,
+        temporalBinding,
         catalogs
       })
       sealedProducerReceipts.push(producerReceipt)

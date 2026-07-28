@@ -150,6 +150,7 @@ public sealed class ArticleDetailAedsArtifactStoreBehaviorTests
                 Substitute.For<IServiceScopeFactory>(),
                 Substitute.For<IArticleDetailAedsArtifactProjector>(),
                 Substitute.For<IDbConcurrencyGate>(),
+                TimeProvider.System,
                 NullLogger<ArticleDetailAedsArtifactMaintenanceService>.Instance);
 
             ArticleDetailAedsArtifactMaintenanceResult result = await service.ClearLegacyPublicArtifactsAsync();

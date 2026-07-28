@@ -100,7 +100,16 @@ summary="$(
         -v business_epoch="$business_epoch_utc" \
         -v postgres_timezone="$postgres_timezone" <<'SQL'
 BEGIN;
-SELECT set_config('TimeZone', :'postgres_timezone', true);
+SELECT set_config('TimeZone', :'postgres_timezone', true) AS configured_timezone \gset
+SELECT set_config('fsusblog.test_business_epoch_utc', :'business_epoch', true) AS configured_epoch \gset
+DO $temporal$
+BEGIN
+  IF current_setting('TimeZone') <> 'UTC'
+     OR current_setting('fsusblog.test_business_epoch_utc', true) IS NULL THEN
+    RAISE EXCEPTION 'data-scale temporal session mismatch';
+  END IF;
+END
+$temporal$;
 
 CREATE TEMP TABLE data_scale_context(
   namespace text NOT NULL,
@@ -121,7 +130,7 @@ VALUES (
   :article_count,
   :comment_count,
   (SELECT COALESCE(MAX(id), 0) FROM comment),
-  :'business_epoch'::timestamptz,
+  current_setting('fsusblog.test_business_epoch_utc')::timestamptz,
   clock_timestamp()
 );
 
@@ -303,6 +312,7 @@ INSERT INTO comment(
   article_id,
   content,
   create_time,
+  current_version,
   author_mode,
   public_handle,
   anonymous_handle,
@@ -332,6 +342,7 @@ SELECT
   root.article_id,
   ctx.prefix || ':comment:' || root.seq || ':root',
   ctx.business_now - (root.seq || ' seconds')::interval,
+  1,
   'zk_anonymous',
   NULL,
   'scale-root-' || root.seq,
@@ -381,6 +392,7 @@ INSERT INTO comment(
   article_id,
   content,
   create_time,
+  current_version,
   author_mode,
   public_handle,
   anonymous_handle,
@@ -410,6 +422,7 @@ SELECT
   nested.article_id,
   ctx.prefix || ':comment:' || nested.seq || ':nested',
   ctx.business_now - (nested.seq || ' seconds')::interval,
+  1,
   'zk_anonymous',
   NULL,
   'scale-nested-' || nested.seq,
@@ -519,6 +532,10 @@ SELECT jsonb_pretty(jsonb_build_object(
   'searchArtifactRebuild', jsonb_build_object(
     'status', 'unsupported',
     'reason', 'search rebuild requires an explicit runtime hook outside the PostgreSQL seed step'
+  ),
+  'temporal', jsonb_build_object(
+    'postgresTimezone', current_setting('TimeZone'),
+    'businessEpochUtc', current_setting('fsusblog.test_business_epoch_utc', true)
   ),
   'durationMs', round((extract(epoch FROM (clock_timestamp() - started_at)) * 1000)::numeric, 3),
   'generatedAt', to_char(clock_timestamp() AT TIME ZONE 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')

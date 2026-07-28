@@ -3,7 +3,8 @@
   "generatedFrom": "src/core/Algorithms/AedsFrameType.cs",
   "defaultEvidence": [
     "tests/backend/Unit/BackendGoldenCatalogTests.cs",
-    "tests/backend/Unit/PodBinaryCodecTests.cs"
+    "tests/backend/Unit/PodBinaryCodecTests.cs",
+    "tests/backend/Unit/UserLocalePreferenceCodecAndNormalizeTests.cs"
   ],
   "retiredFrameValues": [
     { "value": 40, "reason": "legacy-admin-password-reset" },
@@ -229,6 +230,7 @@
     { "name": "ClusterNodeStateRequest", "value": 236, "family": "cluster-runtime-request" },
     { "name": "ClusterSchedulerStateRequest", "value": 237, "family": "cluster-runtime-request" },
     { "name": "ClusterLeaseReleaseRequest", "value": 238, "family": "cluster-runtime-request" },
+    { "name": "UserLocalePreference", "value": 239, "family": "locale-preference-response" },
     { "name": "AnonymousCommentCreateRequest", "value": 182, "family": "anonymous-comment-request" },
     { "name": "AnonymousPrivacyStateSnapshot", "value": 183, "family": "anonymous-privacy-response" },
     { "name": "PerceptionSealedChallengeV2", "value": 184, "family": "security-challenge-response" },
@@ -247,6 +249,7 @@
     { "name": "AnonymousCredentialRevocationDelta", "value": 197, "family": "anonymous-privacy-response" },
     { "name": "EmptySuccess", "value": 240, "family": "common-response" },
     { "name": "MutationId", "value": 241, "family": "common-response" },
+    { "name": "UserLocalePreferenceUpdateRequest", "value": 242, "family": "locale-preference-request" },
     { "name": "ApiError", "value": 251, "family": "error-response" }
   ]
 }

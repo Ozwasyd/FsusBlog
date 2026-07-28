@@ -103,6 +103,7 @@ RISK_PUBLIC_READ_CHALLENGE_ENABLED="${FSUSBLOG_ACCEPTANCE_PUBLIC_READ_CHALLENGE_
 PUBLIC_READ_PERMIT_LIMIT="${FSUSBLOG_ACCEPTANCE_PUBLIC_READ_PERMIT_LIMIT:-100000}"
 PUBLIC_READ_QUEUE_LIMIT="${FSUSBLOG_ACCEPTANCE_PUBLIC_READ_QUEUE_LIMIT:-10000}"
 NOTIFICATION_STREAM_MAX_CONNECTIONS_PER_ACCOUNT="${FSUSBLOG_ACCEPTANCE_NOTIFICATION_STREAM_MAX_CONNECTIONS_PER_ACCOUNT:-50}"
+LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET="${FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET:-fsusblog-local-public-content-fixture-secret-${NS_SLUG}-${FSUSBLOG_TEST_RUN_ID:-local}}"
 ACCEPTANCE_LOG_MAX_KIB="${FSUSBLOG_ACCEPTANCE_LOG_MAX_KIB:-262144}"
 if [[ ! "$ACCEPTANCE_LOG_MAX_KIB" =~ ^[0-9]+$ ]] || ((ACCEPTANCE_LOG_MAX_KIB < 1024)); then
     printf '[acceptance:bootstrap] FSUSBLOG_ACCEPTANCE_LOG_MAX_KIB must be an integer >= 1024\n' >&2
@@ -301,7 +302,7 @@ NODE
                 ;;
             frontend-dist)
                 materializeArgs+=(--map "frontend-dist=$(RepositoryRelativePath "${FSUSBLOG_FRONTEND_DIST_ROOT:?FSUSBLOG_FRONTEND_DIST_ROOT is required}")")
-                materializeArgs+=(--map "frontend-dist=$(RepositoryRelativePath "$SERVER_WWWROOT_DIR")")
+                materializeArgs+=(--map "frontend-dist:copy-before-write=$(RepositoryRelativePath "$SERVER_WWWROOT_DIR")")
                 ;;
             wasm)
                 materializeArgs+=(--map "wasm=$(RepositoryRelativePath "${FSUSBLOG_FRONTEND_WASM_ROOT:?FSUSBLOG_FRONTEND_WASM_ROOT is required}")")
@@ -1603,6 +1604,8 @@ InvokeFixtureOrchestrator() {
         --prepare-state "$prepareStateFile"
         --namespace "${FSUSBLOG_TEST_NAMESPACE:-}"
         --run-id "${FSUSBLOG_TEST_RUN_ID:-}"
+        --source-commit "${FSUSBLOG_TEST_SOURCE_COMMIT:?fixture orchestrator source commit is required}"
+        --source-fingerprint "${FSUSBLOG_TEST_SOURCE_FINGERPRINT:?fixture orchestrator source fingerprint is required}"
         --base-url "$DEBUG_BACKEND_URL"
         --debug-backend-url "$DEBUG_BACKEND_URL"
         --frontend-url "$DEBUG_FRONTEND_URL"
@@ -1668,6 +1671,19 @@ InvokeFixtureOrchestrator() {
         FIXTURE_RECEIPT_TERMINAL_STATUS="prepared-unverified"
         Log "fixture prepare-state: ${prepareStateFile} (FixtureReceipt verified deferred; profile=${FIXTURE_PROFILE_ID})"
     fi
+}
+
+ConfigureLocalPublicContentFixture() {
+    if [[ "$FIXTURE_REQUIRES_PUBLIC" != "1" ]]; then
+        unset FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET || true
+        unset fsus__allowLocalPublicContentFixture || true
+        unset fsus__localPublicContentFixtureSecret || true
+        return
+    fi
+
+    export FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET="$LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET"
+    export fsus__allowLocalPublicContentFixture=true
+    export fsus__localPublicContentFixtureSecret="$LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET"
 }
 
 PublishEnvironmentReadyReceipt() {
@@ -2125,6 +2141,7 @@ Main() {
     else
         # Order: resolve/validate profile → planned receipt → schema/services/runtime → orchestrator → receipts.
         ResolveFixtureProfilePlan full
+        ConfigureLocalPublicContentFixture
         READINESS_PHASES_REMAINING=2
         ConfigureManagedBackendRuntimeReader
     fi

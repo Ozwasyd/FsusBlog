@@ -306,7 +306,7 @@ async function findPublishedArticle(page, title) {
 }
 
 async function articlePublishPersistence({ page, fixture, audit }) {
-  const title = `Browser Contract ${fixture.namespace.slice(-20)} ${Date.now().toString(36)}`
+  const title = `Browser Contract ${fixture.namespace.slice(-20)}`
   const path = '/user/manage/article/write'
   const response = await page.goto(path, { waitUntil: 'domcontentloaded', timeout: RESPONSE_TIMEOUT_MS })
   productAssert(response?.ok(), `article write route failed: ${response?.status() ?? 'no response'}`)
@@ -379,7 +379,7 @@ async function webauthnVirtualAuthenticator({ context, page, fixture, audit }) {
     productAssert(response?.ok(), `passkey route failed: ${response?.status() ?? 'no response'}`)
     await waitForPath(page, path)
     await waitForAppReady(page)
-    const name = `Contract key ${fixture.namespace.slice(-16)} ${Date.now().toString(36)}`
+    const name = `Contract key ${fixture.namespace.slice(-16)}`
     await requireVisible(page.getByRole('button', { name: '添加通行密钥' }).first(), 'add passkey action')
     await page.getByRole('button', { name: '添加通行密钥' }).first().click()
     const dialog = await requireVisible(page.getByRole('dialog', { name: '添加通行密钥' }), 'passkey registration dialog')

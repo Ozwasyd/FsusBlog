@@ -642,6 +642,12 @@
             "file": "tests/tools/test-wall-clock-governance.test.mjs",
             "category": "pure-file-validation",
             "physicalOwner": "host:pure-file"
+        },
+        {
+            "id": "test-temporal-producer-bindings",
+            "file": "tests/tools/test-temporal-producer-bindings.test.mjs",
+            "category": "pure-file-validation",
+            "physicalOwner": "host:pure-file"
         }
     ],
     "destructiveRehearsal": {

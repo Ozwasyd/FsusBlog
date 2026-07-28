@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using System.Text;
 
 using FsusBlog.Server.Services.Fixtures;
+using FsusBlog.Server.Infrastructure.Testing;
 
 using Microsoft.AspNetCore.Mvc;
 
@@ -56,10 +57,25 @@ public static class LocalDemoFixtureEndpoints
 
                 try
                 {
+                    TestTemporalRuntimeContext? temporal =
+                        context.RequestServices.GetService<TestTemporalRuntimeContext>();
+                    if (body?.TemporalContext is JsonElement requestTemporalContext)
+                    {
+                        if (temporal is null)
+                        {
+                            throw new InvalidOperationException("backend temporal context is missing");
+                        }
+                        temporal.RequireExactRequest(requestTemporalContext);
+                    }
+                    else if (temporal is not null)
+                    {
+                        throw new InvalidOperationException("demo fixture temporal context is required");
+                    }
                     DemoFixtureResult result = await seeder.PrepareAsync(
                         new DemoFixtureRequest(
                             body?.Namespace,
-                            body?.RunId),
+                            body?.RunId,
+                            body?.TemporalContext),
                         cancellationToken).ConfigureAwait(false);
 
                     return Results.Json(result);
@@ -119,6 +135,10 @@ public static class LocalDemoFixtureEndpoints
             get; init;
         }
         public string? RunId
+        {
+            get; init;
+        }
+        public JsonElement? TemporalContext
         {
             get; init;
         }

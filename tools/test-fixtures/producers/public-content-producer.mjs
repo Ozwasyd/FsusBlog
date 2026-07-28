@@ -166,6 +166,10 @@ export async function preparePublicContent(context, signal) {
 
   const observations = normalizeObservations(raw.observations ?? raw.Observations, context)
   assertVariantSemantics(observations.database?.entities ?? [], context)
+  const temporalObservation = raw.temporalObservation ?? raw.TemporalObservation ?? null
+  if (context.temporalContext && !temporalObservation) {
+    throw new Error('public-content backend did not return a temporal actual observation')
+  }
   // Stamp execution namespace onto observations so receipt merge never sees a mismatch.
   const ns = context?.namespace ?? context?.plan?.executionIdentity?.namespace ?? null
   if (ns) {
@@ -197,7 +201,8 @@ export async function preparePublicContent(context, signal) {
     providedCapabilities: plan.capabilities,
     variantEvidence: buildPublicVariantEvidence(observations, context),
     postconditions: [],
-    cleanupContract: { kind: 'owned-namespace', ownerPrefix: buildOwnerPrefix(context) }
+    cleanupContract: { kind: 'owned-namespace', ownerPrefix: buildOwnerPrefix(context) },
+    ...(temporalObservation ? { temporalObservation } : {})
   }
 }
 
@@ -383,7 +388,8 @@ async function invokeLocalCompositionRoot(context, plan, signal) {
       body: JSON.stringify({
         capabilities: plan.capabilities,
         namespace: context.namespace ?? null,
-        runId: context.runIdentity ?? null
+        runId: context.runIdentity ?? null,
+        temporalContext: context.temporalContext ?? null
       }),
       signal: controller.signal
     })
@@ -415,7 +421,8 @@ function normalizeCompositionPayload(payload, context) {
     entityIdentities,
     observations: normalizeObservations(observations, context),
     projection: payload.projection ?? payload.Projection ?? null,
-    providedCapabilities: payload.providedCapabilities ?? payload.ProvidedCapabilities ?? []
+    providedCapabilities: payload.providedCapabilities ?? payload.ProvidedCapabilities ?? [],
+    temporalObservation: payload.temporalObservation ?? payload.TemporalObservation ?? null
   }
 }
 

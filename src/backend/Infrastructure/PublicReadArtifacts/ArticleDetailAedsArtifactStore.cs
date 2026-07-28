@@ -287,6 +287,7 @@ public sealed class ArticleDetailAedsArtifactMaintenanceService(
     IServiceScopeFactory scopeFactory,
     IArticleDetailAedsArtifactProjector projector,
     IDbConcurrencyGate dbGate,
+    TimeProvider timeProvider,
     ILogger<ArticleDetailAedsArtifactMaintenanceService> logger) : IArticleDetailAedsArtifactMaintenanceService
 {
     private const int RightsRecomputeBatchSize = 128;
@@ -448,7 +449,7 @@ public sealed class ArticleDetailAedsArtifactMaintenanceService(
 
     private async Task<IReadOnlyList<int>> LoadPublicArticleIdsPageAsync(int afterArticleId, int limit, CancellationToken ct)
     {
-        DateTime utcNow = DateTime.UtcNow;
+        DateTime utcNow = timeProvider.GetUtcNow().UtcDateTime;
         var rows = await db.Queryable<Article>()
             .Where(article => article.Id > afterArticleId
                 && !article.IsDeleted
@@ -773,7 +774,7 @@ public sealed class ArticleDetailAedsArtifactMaintenanceService(
                 NullableStringParameter("@CanonicalUrl", candidate.CanonicalUrl),
                 new SugarParameter("@PolicyHash", policyHash),
                 new SugarParameter("@ContentCanonicalHash", contentCanonicalHash),
-                new SugarParameter("@CreatedAt", DateTime.UtcNow))
+                new SugarParameter("@CreatedAt", timeProvider.GetUtcNow().UtcDateTime))
             .ConfigureAwait(false);
     }
 
@@ -810,7 +811,7 @@ public sealed class ArticleDetailAedsArtifactMaintenanceService(
                 RETURNING id;
                 """,
                 new SugarParameter("@ArticleId", articleId),
-                new SugarParameter("@Now", DateTime.UtcNow))
+                new SugarParameter("@Now", timeProvider.GetUtcNow().UtcDateTime))
             .ConfigureAwait(false);
         if (await reader.ReadAsync(ct).ConfigureAwait(false))
         {
@@ -1012,6 +1013,7 @@ public sealed class ArticleDetailAedsArtifactProjector(
     IPublicArticleProjectionStore publicProjection,
     IDbConcurrencyGate dbGate,
     ArticleBodyRepairQueue articleBodyRepairQueue,
+    TimeProvider timeProvider,
     ILogger<ArticleDetailAedsArtifactProjector> logger)
     : IArticleDetailAedsArtifactProjector, IVersionedArticleDetailAedsArtifactProjector
 {
@@ -1078,7 +1080,7 @@ public sealed class ArticleDetailAedsArtifactProjector(
                 string etag = PublicArticleProjectionStore.CreateETag(frame);
                 await ArticleDetailProjectionCommitSequence.PublishAsync(
                     () => publicProjection.UpsertAsync(
-                        new PublicArticleProjectionWrite(articleId, frame, etag, contentHash, DateTimeOffset.UtcNow),
+                        new PublicArticleProjectionWrite(articleId, frame, etag, contentHash, timeProvider.GetUtcNow()),
                         ct),
                     () => publicProjection.VerifyShadowParityAsync(articleId, frame, ct),
                     () => store.WriteAsync(articleId, frame, ct)).ConfigureAwait(false);
@@ -1099,7 +1101,7 @@ public sealed class ArticleDetailAedsArtifactProjector(
         ArticleMutationVersionReference version,
         CancellationToken ct)
     {
-        DateTime utcNow = DateTime.UtcNow;
+        DateTime utcNow = timeProvider.GetUtcNow().UtcDateTime;
         string sql = $$"""
             SELECT
                 a.id AS "Id",
@@ -1220,10 +1222,22 @@ public sealed class ArticleDetailAedsArtifactProjector(
         using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             sql,
             new SugarParameter("@Id", id),
-            new SugarParameter("@ReleaseId", version.ReleaseId.HasValue ? version.ReleaseId.Value : DBNull.Value),
-            new SugarParameter("@RevisionId", version.RevisionId.HasValue ? version.RevisionId.Value : DBNull.Value),
-            new SugarParameter("@RevisionNo", version.RevisionNo.HasValue ? version.RevisionNo.Value : DBNull.Value),
-            new SugarParameter("@RightsSnapshotId", version.RightsSnapshotId.HasValue ? version.RightsSnapshotId.Value : DBNull.Value),
+            new SugarParameter(
+                "@ReleaseId",
+                version.ReleaseId.HasValue ? version.ReleaseId.Value : DBNull.Value,
+                System.Data.DbType.Int64),
+            new SugarParameter(
+                "@RevisionId",
+                version.RevisionId.HasValue ? version.RevisionId.Value : DBNull.Value,
+                System.Data.DbType.Int64),
+            new SugarParameter(
+                "@RevisionNo",
+                version.RevisionNo.HasValue ? version.RevisionNo.Value : DBNull.Value,
+                System.Data.DbType.Int32),
+            new SugarParameter(
+                "@RightsSnapshotId",
+                version.RightsSnapshotId.HasValue ? version.RightsSnapshotId.Value : DBNull.Value,
+                System.Data.DbType.Int64),
             new SugarParameter("@Now", utcNow),
             new SugarParameter("@PublishedStatus", (int)ArticleStatus.Published)))
         {

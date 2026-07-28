@@ -157,15 +157,11 @@ if HasDomain frontend-dist; then
 fi
 if HasDomain wasm; then
     WASM_SOURCE="${FSUSBLOG_FRONTEND_WASM_ROOT:-$ROOT_DIR/src/frontend/public/wasm}"
-    AdoptDirectory "$WASM_SOURCE" "$PAYLOAD_ROOT/wasm"
-    node "$ROOT_DIR/tools/frontend/wasm-build-receipt.mjs" verify \
+    node "$ROOT_DIR/tools/frontend/wasm-build-receipt.mjs" stage-envelope \
         --root "$ROOT_DIR" \
         --client-root "$ROOT_DIR/src/frontend" \
-        --artifact-dir "$PAYLOAD_ROOT/wasm"
-    node "$ROOT_DIR/tools/frontend/wasm-build-receipt.mjs" write-checksums \
-        --root "$ROOT_DIR" \
-        --client-root "$ROOT_DIR/src/frontend" \
-        --artifact-dir "$PAYLOAD_ROOT/wasm"
+        --artifact-dir "$WASM_SOURCE" \
+        --destination-artifact-dir "$PAYLOAD_ROOT/wasm"
     node "$ROOT_DIR/tools/check-wasm-artifact-ownership.mjs"
 fi
 if HasDomain generated-contracts; then

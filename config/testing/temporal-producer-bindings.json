@@ -1,0 +1,113 @@
+{
+    "schema": "fsusblog.temporal-producer-bindings.v1",
+    "inventory": "config/testing/fixture-consumer-inventory.generated.json",
+    "contextAuthority": "config/testing/temporal-context.schema.json",
+    "cutoverExcludedImplementations": [],
+    "executionBoundarySources": [
+        "src/backend/Infrastructure/Helpers/Initializer/SqlSugarInitializer.cs",
+        "src/backend/Infrastructure/Testing/TestTemporalRuntimeContext.cs",
+        "src/backend/Program.cs",
+        "tests/browser-contract/run.mjs",
+        "tools/test-fixtures/orchestrator.mjs",
+        "tools/test-fixtures/producer-port.mjs",
+        "tools/test-fixtures/producers/catalog-ports.mjs",
+        "src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs",
+        "src/backend/Modules/Endpoints/LocalAuthFixtureRefreshRunner.cs",
+        "tests/frontend/support/session-fixtures.mjs",
+        "tools/test-fixtures/producers/demo-public-producer.mjs",
+        "tools/test-fixtures/producers/public-content-producer.mjs",
+        "tools/test-fixtures/producers/spawn-helper.mjs",
+        "tools/test-fixtures/producers/temporal-child-handshake.bash",
+        "tools/test-fixtures/producers/temporal-child-handshake.cjs",
+        "tools/test-fixtures/producers/temporal-child-handshake-emitter.cjs",
+        "tools/test-fixtures/producers/temporal-child-observer.mjs",
+        "tools/test-fixtures/receipt/producer-receipt.mjs"
+    ],
+    "producerBindings": [
+        {
+            "producerId": "account-messaging",
+            "implementations": [
+                "tests/backend/Integration/MessageCenterPersistenceIntegrationTests.cs"
+            ],
+            "contextIngress": "backend-test-temporal-context",
+            "actualObservation": "injected-adapter-owned-runtime-or-database-observation",
+            "planCarrier": "FSUSBLOG_TEMPORAL_CONTEXT_JSON",
+            "receiptCarrier": "temporal-receipt.json",
+            "clockDisposition": "canonical-business-epoch"
+        },
+        {
+            "producerId": "auth-session",
+            "implementations": [
+                "src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs",
+                "src/backend/Modules/Endpoints/LocalAuthFixtureRefreshRunner.cs",
+                "tests/frontend/support/session-fixtures.mjs"
+            ],
+            "contextIngress": "time-provider-and-fixture-business-epoch",
+            "actualObservation": "target-node-process-and-injected-backend-business-epoch",
+            "planCarrier": "FSUSBLOG_TEMPORAL_CONTEXT_JSON",
+            "receiptCarrier": "temporal-receipt.json",
+            "clockDisposition": "canonical-business-epoch"
+        },
+        {
+            "producerId": "comment-moderation",
+            "implementations": [
+                "tests/browser-contract/default-fixture-provider.mjs"
+            ],
+            "contextIngress": "browser-contract-request-context",
+            "actualObservation": "browser-locale-timezone-postgres-session-business-epoch",
+            "planCarrier": "FSUSBLOG_TEMPORAL_CONTEXT_JSON",
+            "receiptCarrier": "temporal-receipt.json",
+            "clockDisposition": "canonical-business-epoch"
+        },
+        {
+            "producerId": "development-demo",
+            "implementations": [
+                "src/backend/Modules/Endpoints/LocalDemoFixtureEndpoints.cs",
+                "src/backend/Services/Fixtures/DemoFixtureSeeder.cs",
+                "tools/test-fixtures/producers/demo-public-producer.mjs"
+            ],
+            "contextIngress": "postgres-session-guc",
+            "actualObservation": "target-bash-process-postgres-session-business-epoch",
+            "planCarrier": "FSUSBLOG_TEMPORAL_CONTEXT_JSON",
+            "receiptCarrier": "temporal-receipt.json",
+            "clockDisposition": "canonical-business-epoch"
+        },
+        {
+            "producerId": "public-content",
+            "implementations": [
+                "src/backend/Modules/Endpoints/LocalPublicContentFixtureEndpoints.cs",
+                "src/backend/Services/Fixtures/PublicContentFixtureSeeder.cs",
+                "tools/test-fixtures/producers/public-content-producer.mjs"
+            ],
+            "contextIngress": "time-provider-and-producer-context",
+            "actualObservation": "backend-culture-postgres-session-business-epoch",
+            "planCarrier": "FSUSBLOG_TEMPORAL_CONTEXT_JSON",
+            "receiptCarrier": "temporal-receipt.json",
+            "clockDisposition": "canonical-business-epoch"
+        },
+        {
+            "producerId": "scale-data",
+            "implementations": [
+                "tools/data-scale/cleanup.sh",
+                "tools/data-scale/probe.sh",
+                "tools/data-scale/seed.sh"
+            ],
+            "contextIngress": "postgres-session-guc",
+            "actualObservation": "target-bash-process-postgres-session-business-epoch",
+            "planCarrier": "FSUSBLOG_TEMPORAL_CONTEXT_JSON",
+            "receiptCarrier": "temporal-receipt.json",
+            "clockDisposition": "canonical-business-epoch"
+        },
+        {
+            "producerId": "security-state",
+            "implementations": [
+                "tests/frontend/support/session-fixtures.mjs"
+            ],
+            "contextIngress": "fixture-orchestrator-producer-port",
+            "actualObservation": "injected-adapter-owned-runtime-or-database-observation",
+            "planCarrier": "FSUSBLOG_TEMPORAL_CONTEXT_JSON",
+            "receiptCarrier": "temporal-receipt.json",
+            "clockDisposition": "canonical-business-epoch"
+        }
+    ]
+}

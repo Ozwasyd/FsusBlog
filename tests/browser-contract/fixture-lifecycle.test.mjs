@@ -6,6 +6,10 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { createProductionBuildReceipt } from '../../tools/ci/production-build-artifacts.mjs';
+import {
+    defaultTimeoutPolicyDigest,
+    qualificationTemporalContext
+} from '../../tools/test/temporal-context.mjs';
 
 import {
     createBrowserContractReceipt,
@@ -26,6 +30,16 @@ const commit = 'a'.repeat(40);
 const sourceState = { commit, worktreeFingerprint: 'b'.repeat(64) };
 const build = { receiptContentDigest: `sha256:${'c'.repeat(64)}`, profile: 'production' };
 const repositoryRoot = path.resolve(import.meta.dirname, '../..');
+const browserTemporalContext = qualificationTemporalContext({
+    sourceCommit: commit,
+    sourceFingerprint: `sha256:${sourceState.worktreeFingerprint}`,
+    producerId: 'comment-moderation',
+    schedulerRunId: 'run-42-attempt-1',
+    businessEpochUtc: '2024-02-29T23:59:59.000Z',
+    locale: 'en-US',
+    uiLocale: 'en-US',
+    timeoutPolicyDigest: defaultTimeoutPolicyDigest()
+});
 
 const providerSource = String.raw`#!/usr/bin/env node
 import { access, appendFile, mkdir, symlink, writeFile } from 'node:fs/promises'
@@ -136,6 +150,9 @@ async function harness(context, overrides = {})
             FSUSBLOG_BROWSER_CONTRACT_FIXTURE_ROOT: path.join(directory, 'fixtures'),
             PLAYWRIGHT_BASE_URL: 'http://127.0.0.1:3000',
             FSUSBLOG_BASE_URL: 'http://127.0.0.1:7568',
+            FSUSBLOG_TEMPORAL_CONTEXT_JSON: JSON.stringify(browserTemporalContext),
+            FSUSBLOG_TEMPORAL_CONTEXT_FILE: '',
+            TZ: 'UTC',
             FAKE_PROVIDER_LOG: log,
             ...overrides
         }

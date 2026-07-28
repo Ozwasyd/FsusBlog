@@ -17,7 +17,7 @@ import { isDirectExecution, reportDirectFailure } from '../../support/direct-exe
 import { fetchWithTimeout } from '../../support/http.mjs';
 import { readPublicFixtureIds } from '../../support/public-fixtures.mjs';
 import { resolveRuntimeBrowserTimeoutPlan } from '../../support/runtime-browser-timeout.mjs';
-import { createAdminStepUpProofToken } from '../../support/session-fixtures.mjs';
+import { createAdminStepUpProofToken } from '../../support/auth-fixture-projection.mjs';
 import { resolveTestSession } from '../../support/test-session.mjs';
 
 const adminUsername = process.env.FSUSBLOG_ADMIN_USERNAME || 'binaryadmin';
@@ -554,10 +554,7 @@ async function updateArticle(session, articleId, categoryId, tagId, title, marke
 
 async function mutateArticle(session, path, method, operation, marker)
 {
-    const proofToken = createAdminStepUpProofToken({
-        adminId: session.adminId,
-        sessionId: session.sessionId
-    });
+    const proofToken = await createAdminStepUpProofToken({ session });
     let { response } = await authBinary(path, {
         method,
         cookieHeader: session.cookieHeader,
@@ -568,10 +565,7 @@ async function mutateArticle(session, path, method, operation, marker)
     if (response.status === 428)
     {
         await resetAndWaitForMutationBudget(`distribution ${operation}`);
-        const retryProofToken = createAdminStepUpProofToken({
-            adminId: session.adminId,
-            sessionId: session.sessionId
-        });
+        const retryProofToken = await createAdminStepUpProofToken({ session });
         ({ response } = await authBinary(path, {
             method,
             cookieHeader: session.cookieHeader,

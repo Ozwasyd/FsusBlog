@@ -3,7 +3,7 @@
 import { createRequire } from 'node:module';
 import { authBinary, baseUrl, loginWithFixtureSessionBypass } from '../../support/auth-helpers.mjs';
 import { buildMarkdownExtremeCorpus, fnv1a32, normalizeMarkdownExtremeSize } from '../../support/markdown-extreme-corpus.mjs';
-import { createAdminStepUpProofToken } from '../../support/session-fixtures.mjs';
+import { createAdminStepUpProofToken } from '../../support/auth-fixture-projection.mjs';
 import { readPublicFixtures } from '../../support/public-fixtures.mjs';
 import { systemChromiumLaunchOptions } from '../../support/system-chromium.mjs';
 import { testSessionHeaders } from '../../support/test-session.mjs';
@@ -235,10 +235,7 @@ async function createExtremeArticle(session) {
 }
 
 async function cleanupExtremeArticle(session, id) {
-  const trashProofToken = createAdminStepUpProofToken({
-    adminId: session.adminId,
-    sessionId: session.sessionId
-  });
+  const trashProofToken = await createAdminStepUpProofToken({ session });
   await authBinary(`/api/Article/${id}`, {
     method: 'DELETE',
     cookieHeader: session.cookieHeader,
@@ -247,10 +244,7 @@ async function cleanupExtremeArticle(session, id) {
     headers: { Origin: trustedOrigin, 'X-Fsus-Mfa-Proof': trashProofToken },
     timeoutMs: 60_000
   }).catch(() => null);
-  const permanentProofToken = createAdminStepUpProofToken({
-    adminId: session.adminId,
-    sessionId: session.sessionId
-  });
+  const permanentProofToken = await createAdminStepUpProofToken({ session });
   await authBinary(`/api/Article/permanent/${id}`, {
     method: 'DELETE',
     cookieHeader: session.cookieHeader,

@@ -5,8 +5,14 @@
  */
 
 import path from 'node:path'
+import { readFileSync } from 'node:fs'
 import { readFixtureCatalogs } from '../../testing/fixture-catalog.mjs'
-import { buildProducerChildEnv, repositoryRoot, runProcess } from './spawn-helper.mjs'
+import {
+  buildProducerChildEnv,
+  repositoryRoot,
+  runProcess,
+  runTemporalProcess
+} from './spawn-helper.mjs'
 
 function catalogProducer(id, catalogs = readFixtureCatalogs()) {
   const producer = (catalogs.producer.producers ?? []).find((item) => item.id === id)
@@ -76,6 +82,43 @@ function variantOutputFromTypedPlan(context, producerId) {
   }
 }
 
+async function observeBackendTemporalContext(context, signal) {
+  const baseUrl = context.handles?.debugBackendUrl
+    ?? context.handles?.baseUrl
+    ?? process.env.FSUSBLOG_DEBUG_BACKEND_URL
+    ?? process.env.FSUSBLOG_BASE_URL
+    ?? ''
+  const secret = context.handles?.localPublicContentFixtureSecret
+    ?? context.handles?.localAuthFixtureSecret
+    ?? context.handles?.localDemoFixtureSecret
+    ?? process.env.FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET
+    ?? process.env.FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET
+    ?? process.env.FSUSBLOG_LOCAL_DEMO_FIXTURE_SECRET
+    ?? ''
+  if (!baseUrl || !secret) {
+    throw new Error(
+      'backend temporal observation requires the actual backend URL and local fixture secret'
+    )
+  }
+  const response = await fetch(`${baseUrl}/__local/temporal-observation`, {
+    headers: {
+      'X-Fsus-Local-Temporal-Fixture-Secret': secret
+    },
+    signal
+  })
+  const text = await response.text()
+  if (!response.ok) {
+    throw new Error(
+      `backend temporal observation failed HTTP ${response.status}: ${text.slice(0, 400)}`
+    )
+  }
+  try {
+    return JSON.parse(text)
+  } catch {
+    throw new Error('backend temporal observation returned invalid JSON')
+  }
+}
+
 export function createAuthSessionPort(catalogs = readFixtureCatalogs()) {
   const producer = catalogProducer('auth-session', catalogs)
   const script = path.join(repositoryRoot, 'tests/frontend/fixtures/prepare-auth-smoke-users.mjs')
@@ -139,12 +182,23 @@ export function createDevelopmentDemoPort(catalogs = readFixtureCatalogs()) {
       assertNoStrategyEnv()
       const { prepareDemoPublic } = await import('./demo-public-producer.mjs')
       const result = await prepareDemoPublic(context, signal)
+      const backendObservation = context.temporalContext
+        ? await observeBackendTemporalContext(context, signal)
+        : null
       return {
         ...result,
         producerId: producer.id,
         strategy: producer.strategy,
         ...variantOutputFromTypedPlan(context, producer.id),
-        postconditions: [...producer.receiptPostconditions]
+        postconditions: [...producer.receiptPostconditions],
+        ...(backendObservation
+          ? {
+              temporalObservation: {
+                ...backendObservation,
+                observationBoundary: 'server-owned-demo-backend-and-postgres-session'
+              }
+            }
+          : {})
       }
     },
     async verify(context, producerResult) {
@@ -168,17 +222,44 @@ export function createScaleDataPort(catalogs = readFixtureCatalogs()) {
       const tier = context.handles?.scaleTier
         ?? context.plan?.profileIdentity?.profileId
         ?? 'scale-xs'
-      await runProcess('bash', [script, tier], {
-        env: buildProducerChildEnv(context),
-        signal
-      })
+      const execution = context.temporalContext
+        ? await runTemporalProcess('bash', [script, tier], {
+            env: buildProducerChildEnv(context),
+            signal
+          })
+        : await runProcess('bash', [script, tier], {
+            env: buildProducerChildEnv(context),
+            signal
+          })
+      const outputRoot = process.env.FSUSBLOG_DATA_SCALE_OUT_DIR
+        ?? path.join(
+          process.env.FSUSBLOG_DATA_SCALE_ROOT ?? path.join(repositoryRoot, '.tmp/scale'),
+          tier
+        )
+      const seedSummary = JSON.parse(readFileSync(path.join(outputRoot, 'seed.json'), 'utf8'))
+      const {
+        generatedAt: _generatedAt,
+        durationMs: _durationMs,
+        ...seedOutcome
+      } = seedSummary
       return {
         producerId: producer.id,
         strategy: producer.strategy,
         implementation: 'tools/data-scale/seed.sh',
         scaleTier: tier,
         ...variantOutputFromTypedPlan(context, producer.id),
-        postconditions: [...producer.receiptPostconditions]
+        seedOutcome,
+        postconditions: [...producer.receiptPostconditions],
+        ...(execution.temporalObservation
+          ? {
+              temporalObservation: {
+                ...execution.temporalObservation,
+                businessEpochUtc: seedSummary.temporal?.businessEpochUtc,
+                postgresTimezone: seedSummary.temporal?.postgresTimezone,
+                observationBoundary: 'producer-child-and-postgres-session'
+              }
+            }
+          : {})
       }
     },
     async cleanup(context, receipt, signal) {

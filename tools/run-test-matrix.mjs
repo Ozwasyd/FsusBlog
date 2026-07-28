@@ -1097,15 +1097,59 @@ function loadNamespaceEnv(namespace, environment = {}) {
   return values
 }
 
-function prepareNamespaceEnvironmentIfNeeded(tiers, namespace, environment = {}) {
-  if (!tiers.some((tier) => tier.selfBootstraps === true)) return
-  const envFile = path.join(namespaceEnvironmentRoot(environment), `${namespaceSlug(namespace)}.env`)
+export function prepareNamespaceEnvironmentIfNeeded(tiers, namespace, {
+  runId,
+  sourceState,
+  buildLayout,
+  environment = {},
+  ambientEnvironment = process.env,
+  repositoryRoot = root,
+  spawn = spawnSync
+} = {}) {
+  const bootstrapTier = tiers.find((tier) => tier.selfBootstraps === true)
+  if (!bootstrapTier) return
+  const normalizedRunId = String(runId ?? '').trim()
+  const normalizedSourceState = {
+    commit: String(sourceState?.commit ?? '').trim(),
+    worktreeFingerprint: String(sourceState?.worktreeFingerprint ?? '').trim()
+  }
+  if (!normalizedRunId
+    || !normalizedSourceState.commit
+    || !normalizedSourceState.worktreeFingerprint
+    || !buildLayout) {
+    throw new Error('namespace pre-bootstrap requires scheduler run source and production build identity')
+  }
+  if (buildLayout.manifest?.sourceState?.commit !== normalizedSourceState.commit
+    || buildLayout.manifest?.sourceState?.worktreeFingerprint !== normalizedSourceState.worktreeFingerprint) {
+    throw new Error('namespace pre-bootstrap source does not exact-match production build identity')
+  }
+  const bootstrapEnvironment = applyMatrixFixtureProfileEnvironment(
+    bootstrapTier,
+    productionBuildEnvironment(buildLayout, {
+      ...ambientEnvironment,
+      ...environment,
+      CURRENT_TIER: bootstrapTier.id,
+      MATRIX_JOB: bootstrapTier.ciJob,
+      FSUSBLOG_TEST_NAMESPACE: namespace,
+      FSUSBLOG_TEST_RUN_ID: normalizedRunId,
+      FSUSBLOG_TEST_SOURCE_COMMIT: normalizedSourceState.commit,
+      FSUSBLOG_TEST_SOURCE_FINGERPRINT: normalizedSourceState.worktreeFingerprint
+    })
+  )
+  const envFile = path.join(
+    namespaceEnvironmentRoot(bootstrapEnvironment),
+    `${namespaceSlug(namespace)}.env`
+  )
   if (fs.existsSync(envFile)) return
-  const result = spawnSync('bash', [path.join(root, 'tools/bootstrap-acceptance-env.sh'), '--prepare-env-only'], {
-    cwd: root,
-    env: { ...process.env, ...environment, FSUSBLOG_TEST_NAMESPACE: namespace },
-    encoding: 'utf8'
-  })
+  const result = spawn(
+    'bash',
+    [path.join(repositoryRoot, 'tools/bootstrap-acceptance-env.sh'), '--prepare-env-only'],
+    {
+      cwd: repositoryRoot,
+      env: bootstrapEnvironment,
+      encoding: 'utf8'
+    }
+  )
   if (result.stdout) process.stderr.write(result.stdout)
   if (result.stderr) process.stderr.write(result.stderr)
   if (result.status !== 0) throw new Error(`failed to prepare namespace environment for ${namespace}`)
@@ -2368,7 +2412,12 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {}) 
   prepareNamespaceEnvironmentIfNeeded(
     physicalTiers,
     runNamespace,
-    productionFreshOutputEnvironment(runOutputs, 'namespace-prepare'))
+    {
+      runId,
+      sourceState: buildSourceState,
+      buildLayout,
+      environment: productionFreshOutputEnvironment(runOutputs, 'namespace-prepare')
+    })
 
   let result
   let runError = null
@@ -3023,7 +3072,11 @@ async function runTier(matrix, tierId, args) {
                 .map((tier) => Number(tier.correctnessBudget?.profileGlobalBudgetMs))
                 .filter((value) => Number.isFinite(value) && value > 0), 0)
             throwIfInterrupted()
-            prepareNamespaceEnvironmentIfNeeded(all, runNamespace)
+            prepareNamespaceEnvironmentIfNeeded(all, runNamespace, {
+                runId,
+                sourceState: buildSourceState,
+                buildLayout
+            })
             if (options.fresh) resetFreshJobSummaries(all.map((tier) => [tier, {}]))
             const result = recordSchedulerResult(
                 await runDag({
@@ -3397,7 +3450,12 @@ async function runCiJobScheduled(matrix, jobId, tiers, options) {
             if (bootstrapTier)
                 prepareNamespaceEnvironmentIfNeeded(
                     tiers,
-                    namespaceFor(bootstrapTier, options.shard, runId)
+                    namespaceFor(bootstrapTier, options.shard, runId),
+                    {
+                        runId,
+                        sourceState: buildSourceState,
+                        buildLayout
+                    }
                 )
             if (options.fresh) {
                 resetFreshJobSummaries(
@@ -4174,7 +4232,11 @@ async function ciPrSmart(matrix, args) {
         async execute({ buildLayout, recordSchedulerResult, setFinalization, throwIfInterrupted }) {
             const scheduledTiers = prependManagedProductionBuildGc(tiers, runId)
             throwIfInterrupted()
-            prepareNamespaceEnvironmentIfNeeded(tiers, runNamespace)
+            prepareNamespaceEnvironmentIfNeeded(tiers, runNamespace, {
+                runId,
+                sourceState: buildSourceState,
+                buildLayout
+            })
             resetFreshJobSummaries(tiers.map((tier) => [tier, {}]))
             const result = recordSchedulerResult(
                 await runDag({

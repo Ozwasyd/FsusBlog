@@ -29,6 +29,17 @@ if [[ -z "${FSUSBLOG_BROWSER_CONTRACT_RUN_ID:-}" ]]; then
         export FSUSBLOG_BROWSER_CONTRACT_RUN_ID
     fi
 fi
+export FSUSBLOG_TEST_RUN_ID="${FSUSBLOG_TEST_RUN_ID:-$FSUSBLOG_BROWSER_CONTRACT_RUN_ID}"
+export FSUSBLOG_TEST_BUSINESS_EPOCH_UTC="${FSUSBLOG_TEST_BUSINESS_EPOCH_UTC:-2024-02-29T23:59:59.000Z}"
+export FSUSBLOG_TEST_POSTGRES_TIMEZONE="UTC"
+export FSUSBLOG_TEST_BACKEND_CULTURE="Invariant"
+export FSUSBLOG_TEST_NODE_TIMEZONE="UTC"
+export TZ="UTC"
+TEMPORAL_CONTEXT_FILE="${FSUSBLOG_BROWSER_CONTRACT_OUTPUT:-$ROOT_DIR/.tmp/browser-contract}/temporal-context.json"
+"$NODE_BIN" "$ROOT_DIR/tools/test/write-temporal-context.mjs" \
+    --producer comment-moderation \
+    --output "$TEMPORAL_CONTEXT_FILE" >/dev/null
+export FSUSBLOG_TEMPORAL_CONTEXT_FILE="$TEMPORAL_CONTEXT_FILE"
 
 if [[ ! "$CONTRACT_TIMEOUT" =~ ^([1-9][0-9]*)(s|m)$ ]]; then
     printf '[browser-contract] FSUSBLOG_BROWSER_CONTRACT_TIMEOUT must be a positive s/m duration\n' >&2

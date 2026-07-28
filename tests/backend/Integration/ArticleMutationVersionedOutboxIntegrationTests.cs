@@ -336,6 +336,7 @@ public sealed class ArticleMutationVersionedOutboxIntegrationTests(PostgresSchem
                 NullLogger<DbConcurrencyGate>.Instance),
             Options.Create(new PublicHotReadOptions()),
             new ArticleBodyRepairQueue(),
+            TimeProvider.System,
             NullLogger<PublicHotArtifactProjector>.Instance);
         PublicHotReadSnapshot currentSnapshot = PublicHotReadSnapshot.Empty;
         PublicHotReadSnapshot staleResult = await hotProjector.RebuildAfterArticleMutationAsync(

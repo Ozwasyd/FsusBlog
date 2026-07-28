@@ -160,8 +160,10 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `226`: CommentAppealDecisionRequest
 - `227`: CommentAppealDecisionResult
 - `222`: CommentRevisionList
+- `239`: UserLocalePreference
 - `240`: EmptySuccess
 - `241`: MutationId
+- `242`: UserLocalePreferenceUpdateRequest
 - `251`: ApiError
 
 `CommentArticleCursor`, `CommentThreadReplyCursor`, and `CommentUserCursor` records do not carry fixed legacy display-name slots. Each item blob stores the content slice first, then appends two length-prefixed `CommentAuthorView` payloads: required `author` and optional `replyToAuthor`. Decoders must reject missing author payloads instead of reconstructing display authors from legacy identity strings.
@@ -176,6 +178,8 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `CommentPermalinkContext` payload: 32-byte `CommentPermalinkContextPod` followed by ordered ancestor nodes, optional target node, and sibling nodes. Status `unavailable` has no target and zero node counts; deleted, hidden, region-blocked, and absent targets intentionally share this shape.
 - `CommentTreeNodePod` is 60 bytes and carries 64-bit `id/parentId/rootId/replyToCommentId`, `depth`, batch-derived `childCount`, tombstone/more flags, timestamp, and a content slice. IDs remain signed 64-bit values across C#/C++/TypeScript and TypeScript exposes them as decimal strings.
 - `MutationId` payload: `MutationIdPod` (`int64 Id`).
+- `UserLocalePreference` payload: 24-byte `UserLocalePreferencePod` (`int64 revision`, `int64 updatedAtUnixMs`, `uint8 mode`, `uint8 hasFixedLocale`, `uint8 fixedLocale`, one reserved zero byte, four reserved zero bytes). `mode=1` is `auto` and requires `hasFixedLocale/fixedLocale=0/0`; `mode=2` is `fixed` and requires `hasFixedLocale=1` plus an enabled canonical locale id.
+- `UserLocalePreferenceUpdateRequest` payload: 16-byte `UserLocalePreferenceUpdateRequestPod` with the same mode/locale/reserved rules and `int64 expectedRevision`; device-scoped writes require revision zero, while account-scoped writes use optimistic revision matching.
 - `ApiError` payload: `ApiErrorPod` (`byte Code`, `byte Category`, `int32 HttpStatus`, fixed UTF-8 `Message`, `Details`, `TraceId`).
 - `CategoryWriteRequest` / `TagWriteRequest` payload: `NameMutationRequestPod` (`Utf8Fixed128 Name`).
 - `SeoConfigUpdateRequest` payload: same layout as `SeoConfig`.

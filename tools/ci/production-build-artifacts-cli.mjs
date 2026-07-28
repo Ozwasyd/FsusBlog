@@ -78,7 +78,11 @@ function mappings(values) {
   return values.map(value => {
     const index = value.indexOf('=')
     if (index < 1 || index === value.length - 1) throw new Error(`--map must use name=destination: ${value}`)
-    return { name: value.slice(0, index), destination: value.slice(index + 1) }
+    const rawName = value.slice(0, index)
+    const writable = rawName.endsWith(':copy-before-write')
+    const name = rawName.replace(/:copy-before-write$/u, '')
+    if (!name) throw new Error(`--map must name a production artifact domain: ${value}`)
+    return { name, destination: value.slice(index + 1), writable }
   })
 }
 

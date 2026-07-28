@@ -623,6 +623,112 @@ export function writeWasmReceiptChecksums({
     return { fileCount: lines.length, outputHashReads: 0 };
 }
 
+function artifactDirectoryIdentity(artifactDir)
+{
+    return fs.readdirSync(artifactDir, { withFileTypes: true })
+        .sort((left, right) => left.name.localeCompare(right.name))
+        .map((entry) =>
+        {
+            if (!entry.isFile() || entry.isSymbolicLink())
+            {
+                throw new Error(`WASM artifact staging requires regular files: ${entry.name}`);
+            }
+            return {
+                name: entry.name,
+                identity: fileIdentity(path.join(artifactDir, entry.name), {
+                    expectedRoot: artifactDir,
+                    label: `WASM artifact ${entry.name}`
+                })
+            };
+        });
+}
+
+export function stageWasmReceiptEnvelope({
+    repositoryRoot: repositoryRootValue = defaultRepositoryRoot,
+    clientRoot: clientRootValue = defaultClientRoot,
+    sourceArtifactDir: sourceArtifactDirValue,
+    destinationArtifactDir: destinationArtifactDirValue,
+    manifest,
+    contract,
+    env = process.env
+})
+{
+    const repositoryRoot = fs.realpathSync(path.resolve(repositoryRootValue));
+    const clientRoot = fs.realpathSync(assertInside(repositoryRoot, path.resolve(clientRootValue), 'frontend root'));
+    const sourceArtifactDir = fs.realpathSync(path.resolve(sourceArtifactDirValue));
+    const destinationArtifactDir = path.resolve(destinationArtifactDirValue);
+    if (destinationArtifactDir === sourceArtifactDir
+        || destinationArtifactDir.startsWith(`${sourceArtifactDir}${path.sep}`)
+        || sourceArtifactDir.startsWith(`${destinationArtifactDir}${path.sep}`))
+    {
+        throw new Error('WASM artifact staging source and destination must be disjoint');
+    }
+    if (fs.existsSync(destinationArtifactDir) || fs.lstatSync(path.dirname(destinationArtifactDir)).isSymbolicLink())
+    {
+        throw new Error(`WASM artifact staging destination already exists or has a symlink parent: ${destinationArtifactDir}`);
+    }
+
+    validateWasmBuildReceipt({
+        repositoryRoot,
+        clientRoot,
+        artifactDir: sourceArtifactDir,
+        manifest,
+        contract,
+        env
+    });
+    const sourceIdentity = artifactDirectoryIdentity(sourceArtifactDir);
+    fs.mkdirSync(destinationArtifactDir);
+    try
+    {
+        for (const entry of sourceIdentity)
+        {
+            if (entry.name === 'SHA256SUMS')
+            {
+                continue;
+            }
+            const source = path.join(sourceArtifactDir, entry.name);
+            const destination = path.join(destinationArtifactDir, entry.name);
+            fs.copyFileSync(source, destination, fs.constants.COPYFILE_FICLONE);
+        }
+        const checksumEvidence = writeWasmReceiptChecksums({
+            artifactDir: destinationArtifactDir,
+            manifest,
+            contract,
+            env
+        });
+        validateWasmBuildReceipt({
+            repositoryRoot,
+            clientRoot,
+            artifactDir: sourceArtifactDir,
+            manifest,
+            contract,
+            env
+        });
+        if (JSON.stringify(artifactDirectoryIdentity(sourceArtifactDir)) !== JSON.stringify(sourceIdentity))
+        {
+            throw new Error('WASM source artifact identity changed during payload staging');
+        }
+        const staged = validateWasmBuildReceiptEnvelope({
+            artifactDir: destinationArtifactDir,
+            manifest,
+            contract,
+            env
+        });
+        return {
+            sourceValidationMode: 'exact-immutable-identity',
+            destinationValidationMode: staged.validationMode,
+            sourceUnchanged: true,
+            stagedFileCount: artifactDirectoryIdentity(destinationArtifactDir).length,
+            ...checksumEvidence
+        };
+    }
+    catch (error)
+    {
+        fs.rmSync(destinationArtifactDir, { recursive: true, force: true });
+        throw error;
+    }
+}
+
 function parseCli(args)
 {
     const options = {
@@ -630,6 +736,7 @@ function parseCli(args)
         repositoryRoot: defaultRepositoryRoot,
         clientRoot: defaultClientRoot,
         artifactDir: null,
+        destinationArtifactDir: null,
         buildCount: 0,
         trustProducerValidation: false
     };
@@ -653,6 +760,10 @@ function parseCli(args)
         {
             options.artifactDir = path.resolve(value);
         }
+        else if (argument === '--destination-artifact-dir')
+        {
+            options.destinationArtifactDir = path.resolve(value);
+        }
         else if (argument === '--build-count')
         {
             options.buildCount = Number(value);
@@ -669,6 +780,10 @@ function parseCli(args)
     if (!options.artifactDir)
     {
         throw new Error('--artifact-dir is required');
+    }
+    if (options.command === 'stage-envelope' && !options.destinationArtifactDir)
+    {
+        throw new Error('--destination-artifact-dir is required for stage-envelope');
     }
     return options;
 }
@@ -695,6 +810,22 @@ async function main()
     }
     if (options.command !== 'verify')
     {
+        if (options.command === 'stage-envelope')
+        {
+            const result = stageWasmReceiptEnvelope({
+                ...options,
+                sourceArtifactDir: options.artifactDir,
+                manifest,
+                contract: wasmArtifactContract
+            });
+            console.log(
+                `[wasm-build-receipt] staged envelope files=${result.stagedFileCount}`
+                + ` checksums=${result.fileCount}`
+                + ` sourceUnchanged=${result.sourceUnchanged}`
+                + ` destinationMode=${result.destinationValidationMode}`
+            );
+            return;
+        }
         if (options.command === 'verify-envelope')
         {
             const result = validateWasmBuildReceiptEnvelope({

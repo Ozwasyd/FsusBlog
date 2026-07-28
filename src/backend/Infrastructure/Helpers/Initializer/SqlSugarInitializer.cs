@@ -60,7 +60,10 @@ public static class SqlSugarInitializer
         private readonly string _connectionString;
         private readonly ILogger<SqlSugarClient> _logger;
 
-        public SqlSugarClientFactory(IConfiguration config, ILogger<SqlSugarClient> logger)
+        public SqlSugarClientFactory(
+            IConfiguration config,
+            ILogger<SqlSugarClient> logger,
+            TestTemporalRuntimeContext? temporalContext = null)
         {
             _logger = logger;
             string? configuredConnectionString = config.GetConnectionString("DefaultConnection");
@@ -69,7 +72,14 @@ public static class SqlSugarInitializer
                 throw new InvalidOperationException("致命错误：未配置数据库连接字符串 DefaultConnection。");
             }
 
-            _connectionString = NormalizeConnectionString(configuredConnectionString);
+            var builder = new NpgsqlConnectionStringBuilder(configuredConnectionString);
+            if (temporalContext is not null)
+            {
+                builder.Options = string.IsNullOrWhiteSpace(builder.Options)
+                    ? temporalContext.PostgresSessionOptions
+                    : $"{builder.Options} {temporalContext.PostgresSessionOptions}";
+            }
+            _connectionString = builder.ConnectionString;
         }
 
         public ISqlSugarClient CreateClient(ITestSessionContext? testSession)

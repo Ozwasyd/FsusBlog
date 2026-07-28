@@ -3,7 +3,7 @@
   "collections": [
     {
       "id": "SchemaMigrationPostgresCollectionA",
-      "estimatedFacts": 180,
+      "estimatedFacts": 211,
       "tests": [
         {
           "path": "Integration/SchemaMigrationIntegrationTests.cs",
@@ -88,12 +88,28 @@
         {
           "path": "Unit/CommentModerationQueueStoreTests.cs",
           "class": "CommentModerationQueueStoreTests"
+        },
+        {
+          "path": "Integration/DemoFixtureSeederCleanupIntegrationTests.cs",
+          "class": "DemoFixtureSeederCleanupIntegrationTests"
+        },
+        {
+          "path": "Integration/TemporalContextPostgresIntegrationTests.cs",
+          "class": "TemporalContextPostgresIntegrationTests"
+        },
+        {
+          "path": "Integration/PublicHotDeliveryIntegrationTests.cs",
+          "class": "PublicHotDeliveryIntegrationTests"
+        },
+        {
+          "path": "Integration/DistributedInvalidationDeliveryLedgerIntegrationTests.cs",
+          "class": "DistributedInvalidationDeliveryLedgerIntegrationTests"
         }
       ]
     },
     {
       "id": "SchemaMigrationPostgresCollectionB",
-      "estimatedFacts": 284,
+      "estimatedFacts": 333,
       "tests": [
         {
           "path": "Integration/AccountEnrollmentIntegrationTests.cs",
@@ -174,10 +190,6 @@
         {
           "path": "Unit/RecoveryKeyAttemptLimiterContractTests.cs",
           "class": "RecoveryKeyAttemptLimiterContractTests"
-        },
-        {
-          "path": "Unit/DevSeedSqlContractTests.cs",
-          "class": "DevSeedSqlContractTests"
         },
         {
           "path": "Integration/RecoveryPasskeyCompletionIntegrationTests.cs",
@@ -310,6 +322,10 @@
         {
           "path": "Unit/CommentGovernanceServiceTests.cs",
           "class": "CommentGovernanceServiceTests"
+        },
+        {
+          "path": "Unit/DistributedInvalidationConvergenceObligationStoreTests.cs",
+          "class": "DistributedInvalidationConvergenceObligationStoreTests"
         }
       ]
     }

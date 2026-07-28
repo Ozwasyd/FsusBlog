@@ -231,6 +231,21 @@ export function qualificationTemporalContext(input) {
   })
 }
 
+export function perturbationTemporalContext(input) {
+  const ledger = readTemporalLedger()
+  return validateTemporalContext({
+    schema: TEMPORAL_CONTEXT_SCHEMA,
+    ...policy.qualificationDefaults,
+    ...input,
+    temporalPolicyDigest: digestCanonical(policy),
+    ledgerSource: {
+      authorityKind: 'immutable-ledger',
+      path: ledger.path,
+      digest: ledger.digest
+    }
+  }, { requireQualificationDefaults: false })
+}
+
 export function loadTemporalContext(env = process.env) {
   const inline = String(env.FSUSBLOG_TEMPORAL_CONTEXT_JSON ?? '').trim()
   const file = String(env.FSUSBLOG_TEMPORAL_CONTEXT_FILE ?? '').trim()
@@ -342,8 +357,55 @@ export function createTemporalActual(context, observations = {}) {
 
 export function semanticOutcomeDigest(outcome) {
   if (!plainObject(outcome)) return digestCanonical(outcome)
-  const { generatedAt, artifactMetadata, ...semantic } = outcome
+  const {
+    generatedAt,
+    artifactMetadata,
+    ...semantic
+  } = outcome
+  if (generatedAt !== undefined) {
+    validateArtifactGeneratedAt(generatedAt, 'generatedAt')
+  }
+  if (artifactMetadata !== undefined) {
+    if (!plainObject(artifactMetadata)) {
+      fail(
+        'temporal.context-invalid',
+        'artifactMetadata must use the strict non-business metadata schema'
+      )
+    }
+    const unknown = Object.keys(artifactMetadata)
+      .filter((field) => field !== 'generatedAt')
+      .sort()
+    if (unknown.length > 0) {
+      fail(
+        'temporal.context-invalid',
+        `artifactMetadata contains unclassified fields: ${unknown.join(', ')}`,
+        { unknown }
+      )
+    }
+    if ('generatedAt' in artifactMetadata) {
+      validateArtifactGeneratedAt(
+        artifactMetadata.generatedAt,
+        'artifactMetadata.generatedAt'
+      )
+    }
+  }
   return digestCanonical(semantic)
+}
+
+function validateArtifactGeneratedAt(value, field) {
+  const normalized = requiredText(
+    value,
+    field,
+    'temporal.context-invalid'
+  )
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,7})?Z$/u
+    .test(normalized)
+      || !Number.isFinite(Date.parse(normalized))) {
+    fail(
+      'temporal.context-invalid',
+      `${field} must be an RFC3339 UTC artifact timestamp`
+    )
+  }
 }
 
 export function createTemporalReceipt({ plan, actual, outcome, generatedAt }) {
@@ -456,9 +518,33 @@ export function materializeTemporalEnvironment(context) {
     FSUSBLOG_TEST_BACKEND_CULTURE: normalized.backendCulture,
     FSUSBLOG_TEST_POSTGRES_TIMEZONE: normalized.postgresTimezone,
     FSUSBLOG_TEST_NODE_TIMEZONE: normalized.nodeTimezone,
+    FSUSBLOG_TEST_UI_LOCALE: normalized.uiLocale,
+    FSUSBLOG_TEST_LOCALE: normalized.locale,
+    FSUSBLOG_TEST_TIMEZONE: normalized.timezone,
     TZ: normalized.nodeTimezone,
     FSUSBLOG_TEMPORAL_CONTEXT_JSON: JSON.stringify(normalized)
   })
+}
+
+export function playwrightTemporalContextOptions(context) {
+  const normalized = validateTemporalContext(context, { requireQualificationDefaults: false })
+  return Object.freeze({
+    locale: normalized.uiLocale,
+    timezoneId: normalized.timezone
+  })
+}
+
+export function formatTemporalLocalDate(context) {
+  const normalized = validateTemporalContext(context, { requireQualificationDefaults: false })
+  const parts = new Intl.DateTimeFormat(normalized.locale, {
+    calendar: normalized.calendar,
+    timeZone: normalized.timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(new Date(normalized.businessEpochUtc))
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]))
+  return `${values.year}-${values.month}-${values.day}`
 }
 
 export function resolveDataScaleTierCounts(tier) {

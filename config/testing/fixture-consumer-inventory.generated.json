@@ -397,6 +397,34 @@
             ]
         },
         {
+            "consumerId": "matrix:browser-diagnostics",
+            "executionClass": "browser",
+            "source": "tools/test/lanes/browser-runtime-risk-diagnostics.sh",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, public.article.published, session.single-device",
+            "implicitSource": "tests/matrix.yml tier browser-diagnostics; command tools/test/lanes/browser-runtime-risk-diagnostics.sh",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; lane may reset security runtime state around execution (not a business-data fallback)",
+            "profileId": "acceptance-representative",
+            "profileIds": [
+                "acceptance-representative"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "public.article.published",
+                "session.single-device"
+            ],
+            "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.public.article.published",
+                "canonical.session.single-device"
+            ],
+            "producerOwners": [
+                "auth-session",
+                "public-content"
+            ]
+        },
+        {
             "consumerId": "matrix:browser-diagnostics-manual",
             "executionClass": "browser",
             "source": "tools/test/lanes/browser-diagnostics.sh",
@@ -840,6 +868,34 @@
             "producerOwners": [
                 "public-content",
                 "scale-data"
+            ]
+        },
+        {
+            "consumerId": "matrix:production",
+            "executionClass": "runtime",
+            "source": "tools/test/lanes/production-correctness-receipt.sh",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, public.article.published, session.single-device",
+            "implicitSource": "tests/matrix.yml tier production; command tools/test/lanes/production-correctness-receipt.sh",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "profileId": "acceptance-representative",
+            "profileIds": [
+                "acceptance-representative"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "public.article.published",
+                "session.single-device"
+            ],
+            "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.public.article.published",
+                "canonical.session.single-device"
+            ],
+            "producerOwners": [
+                "auth-session",
+                "public-content"
             ]
         },
         {

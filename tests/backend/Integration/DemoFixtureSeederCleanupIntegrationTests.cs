@@ -378,7 +378,8 @@ public sealed class DemoFixtureSeederCleanupIntegrationTests(PostgresSchemaMigra
             redisConnection,
             runtimeKeyScope,
             environment,
-            configuration);
+            configuration,
+            new FixedDemoTimeProvider());
     }
 
     private static async Task<IReadOnlyList<PopularArticleCoreModel>> ObserveHotArticlesAsync(
@@ -479,6 +480,12 @@ public sealed class DemoFixtureSeederCleanupIntegrationTests(PostgresSchemaMigra
             FOR EACH ROW EXECUTE FUNCTION fsus_test_reject_comment_moderation_event_mutation();
             """);
         return db;
+    }
+
+    private sealed class FixedDemoTimeProvider : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow()
+            => new(2024, 2, 29, 23, 59, 59, TimeSpan.Zero);
     }
 
     private static async Task<SeededDemo> SeedDemoAsync(ISqlSugarClient db)

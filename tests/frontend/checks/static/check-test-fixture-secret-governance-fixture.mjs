@@ -9,9 +9,8 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../
 const checkerPath = path.join(repoRoot, 'tests/frontend/checks/static/check-test-fixture-secret-governance.mjs')
 
 const requiredMarkerFixture = {
-  'tests/frontend/support/session-fixtures.mjs': `
-export function assertSafeFixtureContainer() {}
-export const secretName = 'FSUSBLOG_TEST_SESSION_SECRET'
+  'tests/frontend/support/auth-fixture-projection.mjs': `
+export function readPrivateJson() {}
 `,
   'tests/frontend/support/auth-helpers.mjs': `
 export function loginWithFixtureSessionBypass() {}

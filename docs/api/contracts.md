@@ -98,6 +98,14 @@ Ready and superseded publish proof manifests contain `articleId`, `articleRevisi
 | `MutationId` (`241`) | `MutationIdPod` / `ArticleMutationResultPod` | 通用写操作返回 8B `int64 Id`；文章 create/update/rollback 返回 48B 强类型 mutation 坐标 |
 | `ApiError` (`251`) | `ApiErrorPod` | Binary 错误响应，包含 `Code`、`Category`、`HttpStatus`、`Message`、`Details`、`TraceId`；非业务错误不得回显内部 exception/message |
 
+### 语言偏好 binary contract
+
+`GET /api/binary/locale-preference` 返回 `UserLocalePreference` (`239`)；`PUT /api/binary/locale-preference` 只接受 `UserLocalePreferenceUpdateRequest` (`242`) 并返回提交后的 `UserLocalePreference`。两条路径均允许匿名访问、使用 `fixed_ip` 限流并返回 `no-store`；登录主体仅允许普通匿名账户，admin principal 或其它主体返回 `403 locale_preference_unavailable`。
+
+`UserLocalePreferencePod` 固定为 24B：`revision:int64`、`updatedAtUnixMs:int64`、`mode:uint8`、`hasFixedLocale:uint8`、`fixedLocale:uint8`、一个保留零字节和四个保留零字节。`UserLocalePreferenceUpdateRequestPod` 固定为 16B，以 `expectedRevision:int64` 替代前两个时间/版本字段，其余 mode/locale/reserved 布局一致。`mode=1` 表示 `auto`，必须携带 `hasFixedLocale=0/fixedLocale=0`；`mode=2` 表示 `fixed`，必须携带 `hasFixedLocale=1` 和 locale catalog 中启用的 canonical locale id。未知 mode、alias、禁用 locale、字段组合错误、非零保留位、截断或尾随字节均 fail closed。
+
+匿名设备偏好只写规范 `fsusblog.locale` cookie，`expectedRevision` 必须为零，响应 revision 也为零；`auto` 清除 cookie。普通账户偏好以数据库 revision 做 optimistic CAS，成功后同步 cookie；revision conflict 不得覆盖已提交偏好。该 contract 不使用 `localStorage` 作为事实源，也不新增 JSON fallback。
+
 ### AEDS v2 payload layout
 
 AEDS v2 frame header 固定 16 字节，字段顺序为 `Magic:uint32`、`Version:uint8`、`HeaderLength:uint8`、`Flags:uint16`、`FrameType:uint16`、`PayloadLength:uint32`、`PayloadCrc16:uint16`。服务端、TypeScript adapter、Worker 与 Wasm decoder 只接受 v2；v1 frame 不再兼容。当前运行时不采用 `NoPayloadCrc` 或协议内 `PayloadCompressed` flag；request frame 的非零 flags 会被拒绝，response 默认写 `0`，后续 flags 必须先进入 contract matrix negative/downgrade case。`check:aeds-protocol` 对所有生成目标执行 fail-closed drift 检查；cross-stack frame-schema check 会编译真实 C++ decoder、验证 manifest 中每个活动 frame type 均可识别，并把 C# golden frame 交给 C++ decoder 校验类型与 payload。header layout、frame 名称或数值任一侧漂移都会使 CI 失败。

@@ -298,7 +298,10 @@ test('workflow runs coverage and CI aggregates only after external producer jobs
     const coverageSummary = workflow.slice(coverageSummaryStart, fastBackendStart);
     assert.match(coverageProducer, /\.\/tools\/test\.sh coverage-threshold --no-deps/u);
     assert.doesNotMatch(coverageProducer, /aggregate coverage-merge-threshold/u);
-    assert.match(coverageSummary, /needs: \[coverage-merge-threshold\]/u);
+    assert.match(
+        coverageSummary,
+        /needs: \[behavior-doc-static-admission, coverage-merge-threshold\]/u
+    );
     assert.match(coverageSummary, /aggregate coverage-merge-threshold/u);
 
     const integrationStart = workflow.indexOf('    integration-runtime:\n');
@@ -307,7 +310,10 @@ test('workflow runs coverage and CI aggregates only after external producer jobs
     assert.ok(integrationStart >= 0 && ciSummaryStart > integrationStart);
     assert.ok(endpointStart > ciSummaryStart);
     const ciSummary = workflow.slice(ciSummaryStart, endpointStart);
-    assert.match(ciSummary, /needs: \[fast-summary, integration-runtime\]/u);
+    assert.match(
+        ciSummary,
+        /needs: \[behavior-doc-static-admission, fast-summary, integration-runtime\]/u
+    );
     assert.match(ciSummary, /aggregate ci-summary/u);
 });
 
@@ -320,8 +326,8 @@ test('workflow checker fails closed when an aggregate external dependency job is
             'utf8'
         );
         const invalidWorkflow = workflowSource.replace(
-            '        needs: [fast-summary, integration-runtime]\n',
-            '        needs: [fast-summary]\n'
+            '        needs: [behavior-doc-static-admission, fast-summary, integration-runtime]\n',
+            '        needs: [behavior-doc-static-admission, fast-summary]\n'
         );
         assert.notEqual(invalidWorkflow, workflowSource);
         const workflowFile = path.join(directory, 'quality-gate.yml');

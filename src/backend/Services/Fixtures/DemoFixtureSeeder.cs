@@ -3,6 +3,7 @@ using System.Data.Common;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
 using FsusBlog.Core.Integrity;
 using FsusBlog.Core.Mapping.Models;
@@ -39,7 +40,8 @@ public interface IDemoFixtureSeeder
 
 public sealed record DemoFixtureRequest(
     string? Namespace,
-    string? RunId);
+    string? RunId,
+    JsonElement? TemporalContext = null);
 
 public sealed class DemoFixtureResult
 {
@@ -134,7 +136,8 @@ public sealed class DemoFixtureSeeder(
     IConnectionMultiplexer redisConnection,
     IRuntimeKeyScope runtimeKeyScope,
     IHostEnvironment hostEnvironment,
-    IConfiguration configuration) : IDemoFixtureSeeder
+    IConfiguration configuration,
+    TimeProvider timeProvider) : IDemoFixtureSeeder
 {
     private const string Strategy = "transaction-fixture";
     private const string DiagnosticVariantId = "diagnostic.development.demo.dataset";
@@ -500,7 +503,7 @@ public sealed class DemoFixtureSeeder(
                     Cache = new PublicContentCacheObservation
                     {
                         Namespace = ns,
-                        Generation = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                        Generation = timeProvider.GetUtcNow().ToUnixTimeMilliseconds(),
                         Entries =
                         [
                             new PublicContentCacheEntry

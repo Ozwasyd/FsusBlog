@@ -14,14 +14,32 @@ import {
 import { fixtureReceiptView, loadBrowserContractFixture } from '../browser-contract/fixture.mjs'
 import {
   compensateVerifiedContainerCleanup,
+  deriveLocalPublicContentFixtureSecret,
   derivePendingCommentPrivacyIdentity,
   removeVerifiedContainerById,
+  resolveDedicatedRuntimeRunId,
   validateDefaultFixtureProviderState
 } from '../browser-contract/default-fixture-provider.mjs'
 
 const commit = 'a'.repeat(40)
 const fingerprint = 'b'.repeat(64)
 const buildDigest = `sha256:${'c'.repeat(64)}`
+
+test('dedicated local public-content fixture secret is deterministic and bound to target ingress', () => {
+  const request = {
+    identity: { namespace: 'bc-aaaaaaaa-bbbbbbbbbb-cccccc' },
+    preparation: { id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd' },
+    sourceState: { worktreeFingerprint: fingerprint }
+  }
+  const secret = deriveLocalPublicContentFixtureSecret(request, 'run-42')
+  assert.match(secret, /^[A-Za-z0-9_-]{43}$/u)
+  assert.equal(deriveLocalPublicContentFixtureSecret(request, 'run-42'), secret)
+  assert.notEqual(deriveLocalPublicContentFixtureSecret(request, 'run-43'), secret)
+  assert.notEqual(deriveLocalPublicContentFixtureSecret({
+    ...request,
+    preparation: { id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee' }
+  }, 'run-42'), secret)
+})
 
 async function createHarness(context, extraEnv = {}) {
   const root = await mkdtemp(path.join(os.tmpdir(), 'fsus-browser-contract-fixture-'))
@@ -654,6 +672,7 @@ test('default provider state is bound to current source, build, namespace, and o
     phase: 'prepared',
     namespace: identity.namespace,
     preparation,
+    runtimeRunId: 'browser-contract-scheduler-run',
     runtime: {
       frontendUrl: 'http://127.0.0.1:39101',
       backendUrl: 'http://127.0.0.1:39102',
@@ -685,6 +704,8 @@ test('default provider state is bound to current source, build, namespace, and o
   stalePreparationStartedAt.preparation.startedAt = '2026-07-17T23:59:59.000Z'
   const wrongSource = clone()
   wrongSource.sourceState.worktreeFingerprint = 'f'.repeat(64)
+  const wrongRuntimeRun = clone()
+  wrongRuntimeRun.runtimeRunId = ''
   const wrongBuild = clone()
   wrongBuild.buildIdentity.receiptContentDigest = `sha256:${'0'.repeat(64)}`
   const wrongDatabase = clone()
@@ -698,6 +719,7 @@ test('default provider state is bound to current source, build, namespace, and o
     stalePreparationId,
     stalePreparationStartedAt,
     wrongSource,
+    wrongRuntimeRun,
     wrongBuild,
     wrongDatabase,
     wrongRedis,
@@ -708,6 +730,22 @@ test('default provider state is bound to current source, build, namespace, and o
       /identity|ownership|state/iu
     )
   }
+})
+
+test('default provider preserves the temporal scheduler run for its target runtime', () => {
+  const context = { schedulerRunId: 'browser-contract-scheduler-run' }
+  assert.equal(
+    resolveDedicatedRuntimeRunId(context, { FSUSBLOG_TEST_RUN_ID: 'browser-contract-scheduler-run' }),
+    'browser-contract-scheduler-run'
+  )
+  assert.throws(
+    () => resolveDedicatedRuntimeRunId(context, { FSUSBLOG_TEST_RUN_ID: 'mutated-target-run' }),
+    /run ingress.*temporal context/iu
+  )
+  assert.throws(
+    () => resolveDedicatedRuntimeRunId({}, { FSUSBLOG_TEST_RUN_ID: 'browser-contract-scheduler-run' }),
+    /run ingress.*temporal context/iu
+  )
 })
 
 test('prepare seals identity/entities/receipt and provider failure is fail closed', async (context) => {

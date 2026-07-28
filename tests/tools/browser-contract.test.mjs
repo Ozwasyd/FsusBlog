@@ -274,7 +274,11 @@ test('runner source enforces one managed launch, one context factory, and proces
     assert.match(defaultProvider, /io\.fsusblog\.test\.preparation-id/u);
     assert.match(defaultProvider, /phase:\s*'preparing'/u);
     assert.match(defaultProvider, /phase:\s*'prepared'/u);
-    assert.match(defaultProvider, /now\(\),\s*(?:NULL,\s*)?'zk_anonymous'/u);
+    assert.match(defaultProvider, /SET fsusblog\.test_business_epoch_utc/u);
+    assert.match(
+        defaultProvider,
+        /current_setting\('fsusblog\.test_business_epoch_utc'\)::timestamptz,\s*(?:NULL,\s*)?'zk_anonymous'/u
+    );
     assert.match(defaultProvider, /retainedRuntimeState/u);
     assert.doesNotMatch(defaultProvider, /os\.(?:loadavg|freemem)|FSUSBLOG_POSTGRES_PID_HEADROOM/u);
     assert.match(runner, /extraHTTPHeaders:\s*fixture\.testSession\s*\?\s*\{ 'X-Fsus-Test-Session': fixture\.testSession \}\s*:\s*(?:undefined|\{\})/u);

@@ -94,6 +94,12 @@ test('acceptance bootstrap materializes verified domains into its current run-bo
   assert.equal(fs.readFileSync(path.join(targetRoot, 'tests/FsusBlog.Server.Tests.dll'), 'utf8'), 'tests')
   assert.equal(fs.readFileSync(path.join(targetRoot, 'frontend/dist/index.html'), 'utf8'), '<main>immutable</main>')
   assert.equal(fs.readFileSync(path.join(targetRoot, 'backend-wwwroot/index.html'), 'utf8'), '<main>immutable</main>')
+  assert.notEqual(
+    fs.realpathSync(path.join(targetRoot, 'frontend/dist')),
+    fs.realpathSync(path.join(targetRoot, 'backend-wwwroot'))
+  )
+  fs.writeFileSync(path.join(targetRoot, 'backend-wwwroot/runtime-generated.txt'), 'runtime')
+  assert.equal(fs.existsSync(path.join(temporary, 'payload/frontend-dist/runtime-generated.txt')), false)
   assert.equal(fs.readFileSync(path.join(targetRoot, 'frontend/wasm/aeds.wasm'), 'utf8'), 'wasm')
   assert.equal(fs.readFileSync(path.join(targetRoot, 'generated/ci-contracts/fsusblog.openapi.json'), 'utf8'), '{}')
   const runtimeEnvironment = fs.readFileSync(envFile, 'utf8')
@@ -109,6 +115,11 @@ test('acceptance bootstrap materializes verified domains into its current run-bo
   assert.equal(evidence.status, 'success')
   assert.equal(evidence.consumerLease.status, 'active')
   assert.ok(evidence.materialized.some(value => value.endsWith('backend/FsusBlog.Server.dll')))
+  const frontendMaterializations = evidence.materialization.domains
+    .filter((domain) => domain.name === 'frontend-dist')
+    .map((domain) => domain.method)
+  assert.equal(frontendMaterializations[0], 'reference')
+  assert.ok(['reflink', 'copy-fallback'].includes(frontendMaterializations[1]))
 })
 
 test('CI bootstrap source keeps backend-only consumers free of frontend startup and forbids rebuild fallback', () => {
@@ -117,6 +128,15 @@ test('CI bootstrap source keeps backend-only consumers free of frontend startup 
   assert.match(source, /FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT[\s\S]*vite preview/u)
   assert.match(source, /runtimeArgs="-c \$runtimeConfiguration --no-build --no-restore"/u)
   assert.match(source, /local -x PublicAot__SsrClientRoot="\$PUBLIC_AOT_SSR_CLIENT_ROOT"/u)
+  assert.match(
+    source,
+    /--run-id "\$\{FSUSBLOG_TEST_RUN_ID:-\}"[\s\S]*--source-commit "\$\{FSUSBLOG_TEST_SOURCE_COMMIT:\?fixture orchestrator source commit is required\}"[\s\S]*--source-fingerprint "\$\{FSUSBLOG_TEST_SOURCE_FINGERPRINT:\?fixture orchestrator source fingerprint is required\}"/u
+  )
+  assert.match(
+    source,
+    /ConfigureLocalPublicContentFixture\(\)[\s\S]*FIXTURE_REQUIRES_PUBLIC[\s\S]*export FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET="\$LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET"[\s\S]*export fsus__allowLocalPublicContentFixture=true[\s\S]*export fsus__localPublicContentFixtureSecret="\$LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET"/u
+  )
+  assert.doesNotMatch(source, /runArgs\+=\([^)]*localPublicContentFixtureSecret/su)
   assert.match(source, /currentFingerprint" == "\$nextFingerprint"[\s\S]*debug backend already healthy/u)
   assert.doesNotMatch(source, /CI production[^\n]*fallback[^\n]*build/iu)
 })

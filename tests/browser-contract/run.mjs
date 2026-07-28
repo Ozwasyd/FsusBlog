@@ -15,6 +15,11 @@ import {
     sha256File,
     validateBrowserContractReceipt
 } from '../../tools/release/test-evidence-receipts.mjs';
+import {
+    bindCorrectnessProducerTemporalArtifacts,
+    observeBrowserTemporalContext
+} from '../../tools/test/temporal-producer-bindings.mjs';
+import { loadTemporalContext } from '../../tools/test/temporal-context.mjs';
 
 import {
     BrowserContractFailure,
@@ -49,7 +54,8 @@ let screenshotRoot = null;
 const buildReceiptFile = path.resolve(
     process.env.FSUSBLOG_BROWSER_CONTRACT_BUILD_RECEIPT || path.join(root, '.tmp/ci-production-build/receipt.json')
 );
-const startedAtMs = Date.now();
+const startedAtEpochMs = Date.now();
+const startedAtMonotonicMs = performance.now();
 const require = createRequire(import.meta.url);
 
 let browser = null;
@@ -61,6 +67,8 @@ let preparedFixture = null;
 let verifiedBuild = null;
 let plannedRunIdentity = null;
 let outputValidated = false;
+let browserTemporalObservation = null;
+const temporalContext = loadTemporalContext();
 const terminationController = new AbortController();
 
 function relative(value)
@@ -227,7 +235,8 @@ function contextOptions(scenario, fixture)
         serviceWorkers: scenario.serviceWorkers,
         viewport: { width: 1280, height: 800 },
         colorScheme: 'light',
-        locale: 'zh-CN',
+        locale: temporalContext.uiLocale,
+        timezoneId: temporalContext.timezone,
         userAgent: `FsusBlog-Release-Browser-Contract/${scenario.id}`,
         extraHTTPHeaders: fixture.testSession
             ? { 'X-Fsus-Test-Session': fixture.testSession }
@@ -277,7 +286,7 @@ async function main()
         env: process.env,
         sourceState: build.sourceState,
         repoRoot: root,
-        now: startedAtMs
+        now: startedAtEpochMs
     });
     plannedRunIdentity = plannedIdentity;
     const runningReceipt = createBrowserContractReceipt({
@@ -295,7 +304,7 @@ async function main()
                 status: 'preparing'
             }
         },
-        startedAt: new Date(startedAtMs).toISOString()
+        startedAt: new Date(startedAtEpochMs).toISOString()
     });
     await writeAuditedBrowserContractReceipt(receiptFile, runningReceipt);
     preparedFixture = await prepareSingleBrowserContractFixture({
@@ -304,7 +313,7 @@ async function main()
         sourceState: build.sourceState,
         build,
         signal: terminationController.signal,
-        now: startedAtMs
+        now: startedAtEpochMs
     });
     const runOutputRoot = path.join(outputRoot, 'runs', preparedFixture.identity.namespace);
     traceRoot = path.join(runOutputRoot, 'traces');
@@ -367,9 +376,9 @@ async function main()
             }
 
             const scenarioReceipt = receipt.scenarios.find((entry) => entry.id === scenario.id);
-            const scenarioStartedAtMs = Date.now();
+            const scenarioStartedAtMs = performance.now();
             scenarioReceipt.status = 'running';
-            scenarioReceipt.startedAt = new Date(scenarioStartedAtMs).toISOString();
+            scenarioReceipt.startedAt = new Date().toISOString();
             activeScenario = scenarioReceipt;
             let context = null;
             let page = null;
@@ -388,6 +397,31 @@ async function main()
                     await context.tracing.start({ screenshots: true, snapshots: true, sources: false, title: scenario.id });
                 }
                 page = await context.newPage();
+                if (browserTemporalObservation === null)
+                {
+                    const browserObservation = await page.evaluate(() => ({
+                        locale: navigator.language,
+                        timezoneId: Intl.DateTimeFormat().resolvedOptions().timeZone
+                    }));
+                    const runtimeObservation =
+                        preparedFixture.lifecycle?.runtime?.temporalObservation;
+                    if (!runtimeObservation)
+                    {
+                        throw new BrowserContractFailure(
+                            'browser contract backend/PostgreSQL temporal observation is missing',
+                            'contract'
+                        );
+                    }
+                    browserTemporalObservation = observeBrowserTemporalContext(
+                        temporalContext,
+                        {
+                            ...runtimeObservation,
+                            locale: browserObservation.locale,
+                            timezoneId: browserObservation.timezoneId,
+                            nodeTimezone: process.env.TZ
+                        }
+                    );
+                }
                 page.setDefaultTimeout(browserContractAppReadyTimeoutMs);
                 page.setDefaultNavigationTimeout(browserContractAppReadyTimeoutMs);
                 audit = createPageAudit(page);
@@ -445,7 +479,7 @@ async function main()
                     {});
                 }
                 scenarioReceipt.finishedAt = new Date().toISOString();
-                scenarioReceipt.durationMs = Date.now() - scenarioStartedAtMs;
+                scenarioReceipt.durationMs = performance.now() - scenarioStartedAtMs;
                 activeScenario = null;
             }
         }
@@ -535,8 +569,24 @@ async function main()
             cleanup,
             signal: receivedSignal,
             finishedAt: new Date().toISOString(),
-            wallClockMs: Date.now() - startedAtMs
+            wallClockMs: performance.now() - startedAtMonotonicMs
         });
+        if (browserTemporalObservation)
+        {
+            const temporal = bindCorrectnessProducerTemporalArtifacts({
+                producerId: 'comment-moderation',
+                contextInput: temporalContext,
+                observations: browserTemporalObservation,
+                outcome: receipt,
+                generatedAt: receipt.finishedAt
+            });
+            receipt.temporalBinding = {
+                plan: temporal.plan,
+                actual: temporal.actual,
+                receipt: temporal.receipt,
+                bindingDigest: temporal.bindingDigest
+            };
+        }
         await persistFinalBrowserContractReceipt(
             receipt,
             (terminalReceipt) => writeAuditedBrowserContractReceipt(receiptFile, terminalReceipt)
@@ -611,7 +661,7 @@ main()
                 sourceState: verifiedBuild?.sourceState ?? null,
                 build: verifiedBuild,
                 fixture: fallbackFixture,
-                startedAt: new Date(startedAtMs).toISOString()
+                startedAt: new Date(startedAtEpochMs).toISOString()
             });
             finalizeBrowserContractReceipt(fallback, {
                 primary: {
@@ -627,7 +677,7 @@ main()
                 cleanupAttempts,
                 signal: receivedSignal,
                 finishedAt: new Date().toISOString(),
-                wallClockMs: Date.now() - startedAtMs
+                wallClockMs: performance.now() - startedAtMonotonicMs
             });
             if (outputValidated)
             {

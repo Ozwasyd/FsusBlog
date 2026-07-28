@@ -82,6 +82,7 @@
             "extensions": [
                 ".ts",
                 ".mts",
+                ".cjs",
                 ".js",
                 ".mjs",
                 ".vue"
@@ -134,6 +135,7 @@
             "id": "shell",
             "owner": "ToolingStyleOwner",
             "extensions": [
+                ".bash",
                 ".ps1",
                 ".sh"
             ],

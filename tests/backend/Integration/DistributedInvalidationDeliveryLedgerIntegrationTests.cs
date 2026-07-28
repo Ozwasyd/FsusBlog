@@ -16,12 +16,12 @@ using StackExchange.Redis;
 
 namespace FsusBlog.Server.Tests;
 
-[Collection(nameof(PublicHotDeliveryIntegrationCollection))]
+[Collection(nameof(SchemaMigrationPostgresCollectionA))]
 [Trait("Category", "Integration")]
 [Trait("Dependency", "Docker")]
 public sealed class DistributedInvalidationDeliveryLedgerIntegrationTests(
     PostgresSchemaMigrationFixture postgres,
-    PublicHotDeliveryRedisFixture redis)
+    PublicHotDeliveryRedisFixture redis) : IClassFixture<PublicHotDeliveryRedisFixture>
 {
     [Fact]
     public async Task OnlineExpand_ExecutesAgainstLegacyTableWithoutRewritingLegacyState()

@@ -6,6 +6,8 @@ import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
 import { createArtifactDigestTable } from '../../tools/test-matrix/artifact-digest-table.mjs'
+import { prepareNamespaceEnvironmentIfNeeded } from '../../tools/run-test-matrix.mjs'
+import { resolveFixtureProfile } from '../../tools/testing/fixture-catalog.mjs'
 import {
     digestDeclaredOutputs,
     resolveRunBoundArtifactDeclaration
@@ -63,6 +65,99 @@ function prepareBoundLayout(root, runId, sourceState) {
 }
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+
+test('official namespace pre-bootstrap binds scheduler run source build and sealed fixture identity without ambient run id', t => {
+  const root = repositoryFixture(t)
+  const runId = 'browser-contract-scheduler-run'
+  const namespace = 'browser-contract-scheduler-namespace'
+  const sourceState = {
+    commit: 'a'.repeat(40),
+    worktreeFingerprint: 'b'.repeat(64)
+  }
+  const layout = prepareProductionBuildLayout({
+    root,
+    runId,
+    sourceState,
+    namespace
+  })
+  const environmentRoot = path.join(root, 'acceptance-env')
+  const artifactRoot = path.join(root, 'canonical-production-build')
+  const receiptDigest = `sha256:${'c'.repeat(64)}`
+  const fixturePlan = resolveFixtureProfile({
+    profileId: 'acceptance-representative',
+    profileSource: 'dev-cli',
+    freeProfileEnv: ''
+  })
+  let invocation = null
+  const tier = {
+    id: 'browser-contract',
+    ciJob: 'browser-contract',
+    fixtureProfile: fixturePlan.profileId,
+    resourceClass: 'browser',
+    requiresBootstrap: 'full',
+    selfBootstraps: true
+  }
+
+  prepareNamespaceEnvironmentIfNeeded([tier], namespace, {
+    runId,
+    sourceState,
+    buildLayout: layout,
+    environment: {
+      FSUSBLOG_ACCEPTANCE_ENV_ROOT: environmentRoot,
+      FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT: artifactRoot,
+      FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST: receiptDigest
+    },
+    ambientEnvironment: {
+      FSUSBLOG_TEST_RUN_ID: 'ambient-run-must-not-win',
+      FSUSBLOG_TEST_SOURCE_COMMIT: 'd'.repeat(40),
+      FSUSBLOG_TEST_SOURCE_FINGERPRINT: 'e'.repeat(64),
+      FSUSBLOG_SEALED_FIXTURE_PROFILE_ID: 'ambient-profile-must-not-win'
+    },
+    repositoryRoot: root,
+    spawn(command, args, options) {
+      invocation = { command, args, options }
+      return { status: 0, stdout: '', stderr: '' }
+    }
+  })
+
+  assert.ok(invocation)
+  assert.equal(invocation.command, 'bash')
+  assert.deepEqual(invocation.args, [
+    path.join(root, 'tools/bootstrap-acceptance-env.sh'),
+    '--prepare-env-only'
+  ])
+  assert.equal(invocation.options.env.FSUSBLOG_TEST_RUN_ID, runId)
+  assert.equal(invocation.options.env.FSUSBLOG_TEST_NAMESPACE, namespace)
+  assert.equal(invocation.options.env.FSUSBLOG_TEST_SOURCE_COMMIT, sourceState.commit)
+  assert.equal(
+    invocation.options.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT,
+    sourceState.worktreeFingerprint
+  )
+  assert.equal(invocation.options.env.FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT, artifactRoot)
+  assert.equal(invocation.options.env.FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST, receiptDigest)
+  assert.equal(invocation.options.env.FSUSBLOG_PRODUCTION_BUILD_ROOT, layout.runRoot)
+  assert.equal(invocation.options.env.FSUSBLOG_BACKEND_SERVER_DLL, layout.artifacts.serverDll)
+  assert.equal(invocation.options.env.FSUSBLOG_BACKEND_TEST_BIN_DIR, layout.artifacts.tests.outputDirectory)
+  assert.equal(invocation.options.env.FSUSBLOG_FRONTEND_DIST_ROOT, layout.frontendDist)
+  assert.equal(invocation.options.env.FSUSBLOG_FRONTEND_WASM_ROOT, layout.frontendWasm)
+  assert.equal(invocation.options.env.FSUSBLOG_BACKEND_WEBROOT, layout.backendWebRoot)
+  assert.equal(invocation.options.env.FSUSBLOG_GENERATED_OUTPUT_ROOT, layout.generatedRoot)
+  assert.equal(
+    invocation.options.env.FSUSBLOG_SEALED_FIXTURE_PROFILE_ID,
+    fixturePlan.profileId
+  )
+  assert.equal(invocation.options.env.FSUSBLOG_FIXTURE_PROFILE_SOURCE, 'matrix')
+  assert.equal(invocation.options.env.FSUSBLOG_SEALED_FIXTURE_EXECUTION_CLASS, 'browser')
+  assert.match(
+    invocation.options.env.FSUSBLOG_SEALED_FIXTURE_CATALOG_DIGEST,
+    /^sha256:[a-f0-9]{64}$/u
+  )
+  assert.match(
+    invocation.options.env.FSUSBLOG_SEALED_EXPANDED_CAPABILITY_DIGEST,
+    /^sha256:[a-f0-9]{64}$/u
+  )
+  assert.equal(invocation.options.env.FSUSBLOG_FIXTURE_PROFILE, '')
+})
 
 test('MSBuild policy excludes legacy project-tree bin/obj after relocating the SDK intermediate root', () => {
   const props = fs.readFileSync(path.join(repositoryRoot, 'Directory.Build.props'), 'utf8')

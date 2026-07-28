@@ -28,6 +28,9 @@ namespace FsusBlog.Server.Tests.Integration;
 [Collection(nameof(SchemaMigrationPostgresCollectionB))]
 public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigrationFixture fixture)
 {
+    private static DateTime BusinessNowUtc =>
+        TestTemporalContext.FromEnvironment().BusinessEpochUtc.UtcDateTime;
+
     [Fact]
     public async Task CreateAccountTicketAsync_CommitsConversationMessageParticipantAndOutboxAtomically()
     {
@@ -227,7 +230,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             typeof(MessageMutationOutbox));
         int activeAccountId = await InsertAccountAsync(setup, 0);
         int restrictedAccountId = await InsertAccountAsync(setup, 1);
-        int deletedAccountId = await InsertAccountAsync(setup, 2, DateTime.UtcNow);
+        int deletedAccountId = await InsertAccountAsync(setup, 2, BusinessNowUtc);
         int replayAccountId = await InsertAccountAsync(setup, 0);
         int concurrentlyDeletedAccountId = await InsertAccountAsync(setup, 0);
         MessageCenterService service = CreateService(
@@ -310,7 +313,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         Assert.True(first.IsSuccess, first.Error.Message);
         await setup.Updateable<User>()
             .SetColumns(account => account.Status == 2)
-            .SetColumns(account => account.DeletedAt == DateTime.UtcNow)
+            .SetColumns(account => account.DeletedAt == BusinessNowUtc)
             .Where(account => account.Id == replayAccountId)
             .ExecuteCommandAsync();
         Result<ConversationDetailResponse> replay = await service.SendSystemMessageAsync(
@@ -331,7 +334,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             deleteConnection,
             deleteTransaction))
         {
-            deleteCommand.Parameters.AddWithValue("deletedAt", DateTime.UtcNow);
+            deleteCommand.Parameters.AddWithValue("deletedAt", BusinessNowUtc);
             deleteCommand.Parameters.AddWithValue("accountId", concurrentlyDeletedAccountId);
             Assert.Equal(1, await deleteCommand.ExecuteNonQueryAsync());
         }
@@ -708,7 +711,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         {
             Status = 1,
             IdentityKind = "anonymous_account",
-            CreateTime = DateTime.UtcNow
+            CreateTime = BusinessNowUtc
         }).ExecuteReturnIdentityAsync();
         IMessageNotificationStreamPort notifications = Substitute.For<IMessageNotificationStreamPort>();
         MessageCenterService service = CreateService(db, CreatePermissiveUnifiedCache(), notifications);
@@ -838,7 +841,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             typeof(AdminConversationQueueState),
             typeof(MessageMutationOutbox));
         const long ConversationId = 8_800;
-        DateTime now = DateTime.UtcNow;
+        DateTime now = BusinessNowUtc;
         await db.Insertable(new MessageConversation
         {
             Id = ConversationId,
@@ -935,7 +938,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             typeof(ConversationParticipantState),
             typeof(AdminConversationQueueState),
             typeof(MessageMutationOutbox));
-        DateTime now = DateTime.UtcNow;
+        DateTime now = BusinessNowUtc;
         await db.Insertable(new[]
         {
             new MessageConversation
@@ -1019,10 +1022,10 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             ALTER TABLE msg_participant_state DISABLE TRIGGER USER;
             ALTER TABLE msg_admin_queue_state DISABLE TRIGGER USER;
             UPDATE msg_participant_state
-            SET lastreadmessageid = 9201, lastreadat = now() AT TIME ZONE 'utc', unreadcount = 77
+            SET lastreadmessageid = 9201, lastreadat = current_setting('fsusblog.test_business_epoch_utc')::timestamptz AT TIME ZONE 'utc', unreadcount = 77
             WHERE conversationid = 9100 AND accountid = 42;
             UPDATE msg_admin_queue_state
-            SET lastreadmessageid = 9201, lastreadat = now() AT TIME ZONE 'utc', unreadcount = 88
+            SET lastreadmessageid = 9201, lastreadat = current_setting('fsusblog.test_business_epoch_utc')::timestamptz AT TIME ZONE 'utc', unreadcount = 88
             WHERE conversationid = 9100;
             ALTER TABLE msg_participant_state ENABLE TRIGGER USER;
             ALTER TABLE msg_admin_queue_state ENABLE TRIGGER USER;
@@ -1106,7 +1109,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             closeTransaction))
         {
             closeCommand.Parameters.AddWithValue("status", (int)ConversationStatus.Closed);
-            closeCommand.Parameters.AddWithValue("now", DateTime.UtcNow);
+            closeCommand.Parameters.AddWithValue("now", BusinessNowUtc);
             closeCommand.Parameters.AddWithValue("id", conversationId);
             Assert.Equal(1, await closeCommand.ExecuteNonQueryAsync());
         }
@@ -1265,7 +1268,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         const long ConversationId = 1000;
         const long AccountMessageId = 1100;
         const long SnapshotMessageId = 1200;
-        DateTime now = DateTime.UtcNow.AddMinutes(-5);
+        DateTime now = BusinessNowUtc.AddMinutes(-5);
         await setup.Insertable(new MessageConversation
         {
             Id = ConversationId,
@@ -1374,7 +1377,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             SenderAdminSessionAuditReference = "admin-internal",
             Body = "internal only",
             IsInternalNote = true,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = BusinessNowUtc
         }).ExecuteCommandAsync();
         Result internalRead = await first.MarkConversationReadAsync(AccountId, ConversationId, internalMessageId);
         Assert.False(internalRead.IsSuccess);
@@ -1713,7 +1716,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         int adminPrincipalId)
     {
         long messageId = SnowFlakeSingle.Instance.NextId();
-        DateTime now = DateTime.UtcNow;
+        DateTime now = BusinessNowUtc;
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
             int conversationUpdated = await db.Ado.ExecuteCommandAsync(
@@ -1785,7 +1788,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             Status = status,
             DeletedAt = deletedAt,
             IdentityKind = "anonymous_account",
-            CreateTime = DateTime.UtcNow
+            CreateTime = BusinessNowUtc
         }).ExecuteReturnIdentityAsync();
 
     private static async Task ApplyMessageUnreadAuthorityMigrationAsync(SqlSugarClient db)

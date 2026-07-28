@@ -257,7 +257,7 @@ public sealed class ReleaseStorageTopologyTests
             Path.Combine("src", "backend", "Infrastructure", "Operations", "AdminIntegrityOperations.cs")
         ];
 
-        string repositoryRoot = FindRepositoryRoot();
+        string repositoryRoot = BackendTestPaths.RepositoryRoot;
         foreach (string relative in assetServiceSources)
         {
             string source = File.ReadAllText(Path.Combine(repositoryRoot, relative));
@@ -301,20 +301,4 @@ public sealed class ReleaseStorageTopologyTests
         return path;
     }
 
-    private static string FindRepositoryRoot()
-    {
-        string? current = AppContext.BaseDirectory;
-        while (!string.IsNullOrEmpty(current))
-        {
-            if (File.Exists(Path.Combine(current, "FsusBlog.slnx"))
-                || File.Exists(Path.Combine(current, "AGENTS.md")))
-            {
-                return current;
-            }
-
-            current = Directory.GetParent(current)?.FullName;
-        }
-
-        throw new InvalidOperationException("Unable to locate repository root from test base directory.");
-    }
 }

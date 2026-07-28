@@ -7,9 +7,11 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+import { createProductionBuildReceipt } from '../../tools/ci/production-build-artifacts.mjs';
 import {
     classifyWasmReceiptFallback,
     createWasmBuildReceipt,
+    stageWasmReceiptEnvelope,
     validateWasmBuildReceipt,
     validateWasmBuildReceiptEnvelope,
     wasmBuildProducerId,
@@ -49,6 +51,27 @@ function sourceDigest(clientRoot, sourceFiles)
         hash.update('\0');
     }
     return hash.digest('hex');
+}
+
+function directorySnapshot(directory)
+{
+    return fs.readdirSync(directory, { withFileTypes: true })
+        .sort((left, right) => left.name.localeCompare(right.name))
+        .map((entry) =>
+        {
+            const file = path.join(directory, entry.name);
+            const stat = fs.lstatSync(file, { bigint: true });
+            return {
+                name: entry.name,
+                mode: Number(stat.mode),
+                dev: stat.dev.toString(),
+                ino: stat.ino.toString(),
+                size: Number(stat.size),
+                mtimeNs: stat.mtimeNs.toString(),
+                ctimeNs: stat.ctimeNs.toString(),
+                sha256: sha256(fs.readFileSync(file))
+            };
+        });
 }
 
 function fixture()
@@ -179,6 +202,95 @@ test('canonical producer seals one source-bound receipt and consumers perform no
         encoding: 'utf8'
     });
     assert.equal(portable.status, 0, portable.stderr || portable.stdout);
+});
+
+test('readonly source stages deterministic checksums before the outer immutable seal without source mutation', (t) =>
+{
+    const value = fixture();
+    t.after(value.cleanup);
+    fs.chmodSync(path.join(value.artifactDir, 'decoder.wasm'), 0o444);
+    fs.chmodSync(path.join(value.artifactDir, 'wasm-manifest.aeds'), 0o444);
+    value.create();
+    writeWasmReceiptChecksums({
+        artifactDir: value.artifactDir,
+        manifest: value.manifest,
+        contract: value.contract,
+        env: value.env
+    });
+    fs.chmodSync(path.join(value.artifactDir, wasmBuildReceiptName), 0o444);
+    fs.chmodSync(path.join(value.artifactDir, 'SHA256SUMS'), 0o444);
+    const sourceBefore = directorySnapshot(value.artifactDir);
+    const packageRoots = ['first', 'second'].map((name) => path.join(value.root, `package-${name}`));
+    const outerReceipts = [];
+    for (const packageRoot of packageRoots)
+    {
+        const destinationArtifactDir = path.join(packageRoot, 'payload/wasm');
+        fs.mkdirSync(path.dirname(destinationArtifactDir), { recursive: true });
+        const staged = stageWasmReceiptEnvelope({
+            repositoryRoot: value.root,
+            clientRoot: value.clientRoot,
+            sourceArtifactDir: value.artifactDir,
+            destinationArtifactDir,
+            manifest: value.manifest,
+            contract: value.contract,
+            env: value.env
+        });
+        assert.equal(staged.sourceUnchanged, true);
+        assert.equal(staged.destinationValidationMode, 'artifact-envelope');
+        assert.notEqual(
+            fs.statSync(path.join(destinationArtifactDir, 'SHA256SUMS')).ino,
+            fs.statSync(path.join(value.artifactDir, 'SHA256SUMS')).ino
+        );
+        assert.notEqual(fs.statSync(path.join(destinationArtifactDir, 'SHA256SUMS')).mode & 0o200, 0);
+        const portable = spawnSync('sha256sum', ['-c', 'SHA256SUMS'], {
+            cwd: destinationArtifactDir,
+            encoding: 'utf8'
+        });
+        assert.equal(portable.status, 0, portable.stderr || portable.stdout);
+        const outerReceipt = createProductionBuildReceipt({
+            root: value.root,
+            artifactRoot: packageRoot,
+            sourceState: {
+                commit: value.env.FSUSBLOG_TEST_SOURCE_COMMIT,
+                worktreeFingerprint: 'b'.repeat(64)
+            },
+            producer: {
+                workflow: 'Quality Gate',
+                runId: 'readonly-source-fixture',
+                runAttempt: 1,
+                job: 'production-build-artifacts'
+            },
+            toolchain: {
+                node: 'v24',
+                npm: '11',
+                dotnet: '10',
+                vite: '8',
+                vitest: '4',
+                playwright: '1.58',
+                emsdk: '4.0.13'
+            },
+            inputPaths: [policyFiles[0]],
+            domains: [{ name: 'wasm', path: 'payload/wasm' }],
+            build: {
+                profile: 'production-release-fresh',
+                command: 'tools/test/lanes/production-build-artifacts.sh',
+                startedAt: '2026-01-01T00:00:00.000Z',
+                finishedAt: '2026-01-01T00:00:01.000Z',
+                durationMs: 1000
+            },
+            now: () => new Date('2026-01-01T00:00:01.000Z')
+        });
+        assert.equal(fs.statSync(path.join(destinationArtifactDir, 'SHA256SUMS')).mode & 0o222, 0);
+        outerReceipts.push({
+            contentDigest: outerReceipt.contentDigest,
+            staged: directorySnapshot(destinationArtifactDir).map(({ name, sha256: fileDigest }) => ({
+                name,
+                sha256: fileDigest
+            }))
+        });
+    }
+    assert.deepEqual(outerReceipts[0], outerReceipts[1]);
+    assert.deepEqual(directorySnapshot(value.artifactDir), sourceBefore);
 });
 
 test('portable image boundary reuses receipt checksums and detects copied-output tampering', (t) =>

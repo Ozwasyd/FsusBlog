@@ -724,6 +724,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             backfillServices.GetRequiredService<IServiceScopeFactory>(),
             backfillProjector,
             gate,
+            TimeProvider.System,
             NullLogger<ArticleDetailAedsArtifactMaintenanceService>.Instance);
         await maintenance.PausePublicProjectionBackfillAsync();
         Assert.Equal("paused", (await maintenance.GetPublicProjectionBackfillStateAsync()).State);

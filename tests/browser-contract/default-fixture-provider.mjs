@@ -10,11 +10,47 @@ import process from 'node:process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { cleanupLocalRuntime } from '../../tools/test-matrix/local-runtime-cleanup.mjs'
+import { loadTemporalContext } from '../../tools/test/temporal-context.mjs'
 
 const responseSchema = 'fsusblog.browser-contract-fixture-provider-response.v1'
 const requestSchema = 'fsusblog.browser-contract-fixture-provider-request.v1'
 const here = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(here, '../..')
+
+function temporalEnvironment(env = process.env) {
+  const context = loadTemporalContext(env)
+  if (process.env.TZ !== context.nodeTimezone) {
+    fail('browser contract Node timezone does not exact-match temporal context')
+  }
+  return {
+    context,
+    businessEpochUtc: context.businessEpochUtc,
+    postgresTimezone: context.postgresTimezone,
+    backendCulture: context.backendCulture,
+    nodeTimezone: context.nodeTimezone
+  }
+}
+
+export function resolveDedicatedRuntimeRunId(context, env = process.env) {
+  const plannedRunId = String(context?.schedulerRunId ?? '').trim()
+  const ingressRunId = String(env.FSUSBLOG_TEST_RUN_ID ?? '').trim()
+  if (!plannedRunId || ingressRunId !== plannedRunId) {
+    fail('browser contract target run ingress does not exact-match temporal context')
+  }
+  return plannedRunId
+}
+
+export function deriveLocalPublicContentFixtureSecret(request, runtimeRunId) {
+  return createHash('sha256')
+    .update([
+      'fsusblog.browser-contract.local-public-content-fixture-secret.v1',
+      request.identity.namespace,
+      request.preparation.id,
+      request.sourceState.worktreeFingerprint,
+      runtimeRunId
+    ].join('\0'))
+    .digest('base64url')
+}
 
 function fail(message) {
   throw new Error(message)
@@ -123,6 +159,7 @@ export function validateDefaultFixtureProviderState(state, request) {
     || state.namespace !== request.identity.namespace
     || state.preparation?.id !== request.preparation?.id
     || state.preparation?.startedAt !== request.preparation?.startedAt
+    || !/^[A-Za-z0-9][A-Za-z0-9_.-]*$/u.test(String(state.runtimeRunId ?? ''))
     || state.sourceState?.commit !== request.sourceState?.commit
     || state.sourceState?.worktreeFingerprint !== request.sourceState?.worktreeFingerprint
     || state.buildIdentity?.receiptContentDigest !== request.build?.receiptContentDigest
@@ -357,9 +394,9 @@ export function compensateVerifiedContainerCleanup(observedContainers, {
   })
 }
 
-function expectedContainerBinding(request) {
+function expectedContainerBinding(request, runtimeRunId) {
   return {
-    runId: `browser-contract-${request.identity.runId}`,
+    runId: runtimeRunId,
     bundleId: 'browser-contract',
     stepId: 'browser-contract-fixture',
     namespace: request.identity.namespace,
@@ -367,8 +404,8 @@ function expectedContainerBinding(request) {
   }
 }
 
-function assertOwnedContainer(container, request, expectedId = null) {
-  const expected = expectedContainerBinding(request)
+function assertOwnedContainer(container, request, expectedId = null, runtimeRunId = null) {
+  const expected = expectedContainerBinding(request, runtimeRunId)
   if ((expectedId && container.id !== expectedId)
     || Object.entries(expected).some(([key, value]) => container.labels?.[key] !== value)) {
     fail(`refusing cleanup after ${container.name} ownership changed`)
@@ -456,7 +493,7 @@ async function cleanupOwnedRuntime(request, state = null) {
     const observed = await inspectContainerOptional(expected.name)
     if (observed) {
       if (!state) fail(`refusing cleanup of ${expected.name} without sealed provider state`)
-      assertOwnedContainer(observed, request, expected.id)
+      assertOwnedContainer(observed, request, expected.id, state.runtimeRunId)
       observedBefore.set(expected.name, observed)
     }
   }
@@ -538,6 +575,10 @@ async function cleanupOwnedRuntime(request, state = null) {
 }
 
 async function bootstrapDedicatedRuntime(request) {
+  const temporal = temporalEnvironment()
+  const runtimeRunId = resolveDedicatedRuntimeRunId(temporal.context)
+  const localPublicContentFixtureSecret =
+    deriveLocalPublicContentFixtureSecret(request, runtimeRunId)
   const buildEnvironment = await immutableBuildEnvironment(request)
   await assertNamespaceVacant(request)
   await mkdir(request.resources.fixtureRoot, { recursive: true, mode: 0o700 })
@@ -547,6 +588,7 @@ async function bootstrapDedicatedRuntime(request) {
     phase: 'preparing',
     namespace: request.identity.namespace,
     preparation: request.preparation,
+    runtimeRunId,
     runtime: null,
     containers: {
       postgres: { name: request.resources.databaseInstance, id: null, image: 'postgres:16-alpine' },
@@ -571,12 +613,16 @@ async function bootstrapDedicatedRuntime(request) {
     'FSUSBLOG_POSTGRES_CONTAINER_NAME',
     'FSUSBLOG_REDIS_CONTAINER_NAME',
     'FSUSBLOG_DATA_ROOT',
-    'FSUSBLOG_TEST_SESSION'
+    'FSUSBLOG_TEST_SESSION',
+    'FSUSBLOG_TEMPORAL_CONTEXT_FILE',
+    'FSUSBLOG_TEMPORAL_CONTEXT_JSON',
+    'FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET',
+    'FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET'
   ]) delete env[key]
   Object.assign(env, {
     ...buildEnvironment,
     FSUSBLOG_TEST_NAMESPACE: request.identity.namespace,
-    FSUSBLOG_TEST_RUN_ID: `browser-contract-${request.identity.runId}`,
+    FSUSBLOG_TEST_RUN_ID: runtimeRunId,
     FSUSBLOG_PHYSICAL_BUNDLE_ID: 'browser-contract',
     FSUSBLOG_STEP_ID: 'browser-contract-fixture',
     FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID: request.preparation.id,
@@ -589,7 +635,14 @@ async function bootstrapDedicatedRuntime(request) {
     FSUSBLOG_PUBLIC_AOT_BACKFILL_CONCURRENCY: '1',
     FSUSBLOG_PUBLIC_AOT_SSR_WORKER_COUNT: '1',
     FSUSBLOG_FORCE_BOOTSTRAP: '1',
-    FSUSBLOG_PERSIST_AUTH_FIXTURES: '1'
+    FSUSBLOG_PERSIST_AUTH_FIXTURES: '1',
+    FSUSBLOG_TEST_BUSINESS_EPOCH_UTC: temporal.businessEpochUtc,
+    FSUSBLOG_TEST_POSTGRES_TIMEZONE: temporal.postgresTimezone,
+    FSUSBLOG_TEST_BACKEND_CULTURE: temporal.backendCulture,
+    FSUSBLOG_TEST_NODE_TIMEZONE: temporal.nodeTimezone,
+    FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET: localPublicContentFixtureSecret,
+    TZ: temporal.nodeTimezone,
+    FSUSBLOG_TEMPORAL_CONTEXT_JSON: JSON.stringify(temporal.context)
   })
   await run('bash', [path.join(repoRoot, 'tools', 'bootstrap-acceptance-env.sh')], { env })
   const environment = await parseEnvFile(path.join(repoRoot, '.tmp', 'env', `${request.identity.namespace}.env`))
@@ -600,14 +653,26 @@ async function bootstrapDedicatedRuntime(request) {
   }
   const postgres = await inspectContainer(request.resources.databaseInstance)
   const redis = await inspectContainer(request.resources.redisInstance)
-  assertOwnedContainer(postgres, request)
-  assertOwnedContainer(redis, request)
+  assertOwnedContainer(postgres, request, null, runtimeRunId)
+  assertOwnedContainer(redis, request, null, runtimeRunId)
   const runtime = {
     backendUrl: environment.FSUSBLOG_DEBUG_BACKEND_URL,
     frontendUrl: environment.FSUSBLOG_RELEASE_PREVIEW_URL || environment.FSUSBLOG_DEBUG_FRONTEND_URL,
     debugFrontendUrl: environment.FSUSBLOG_DEBUG_FRONTEND_URL,
     isolatedDatabase: true,
-    testSessionHeader: false
+    testSessionHeader: false,
+    temporalObservation: await fetch(
+      `${environment.FSUSBLOG_DEBUG_BACKEND_URL}/__local/temporal-observation`,
+      {
+        headers: {
+          'X-Fsus-Local-Temporal-Fixture-Secret':
+            localPublicContentFixtureSecret
+        }
+      }
+    ).then(async (response) => {
+      if (!response.ok) fail(`backend temporal observation failed HTTP ${response.status}`)
+      return response.json()
+    })
   }
   for (const [label, value] of Object.entries(runtime)) {
     if (label.endsWith('Url') && !/^http:\/\/127\.0\.0\.1:\d+$/u.test(String(value ?? ''))) {
@@ -695,7 +760,10 @@ async function pendingComment(request) {
   const article = await publishedArticle(request)
   const commentId = String(800_000_000_000_000n + BigInt(`0x${createHash('sha256').update(request.identity.namespace).digest('hex').slice(0, 12)}`))
   const privacy = derivePendingCommentPrivacyIdentity(request.identity.namespace, article.id)
+  const temporal = temporalEnvironment()
   const sql = `
+SET TIME ZONE '${temporal.postgresTimezone}';
+SET fsusblog.test_business_epoch_utc = '${temporal.businessEpochUtc}';
 INSERT INTO comment (
   id, article_id, content, create_time, user_id, author_mode, public_handle,
   anonymous_handle, anonymous_display_name, anonymous_display_language,
@@ -706,7 +774,8 @@ INSERT INTO comment (
   depth, is_deleted, delete_reason, delete_time,
   moderation_status, moderation_reason, moderated_by_admin_principal_id, moderated_at
 ) VALUES (
-  ${commentId}, ${article.id}, 'Browser Contract pending comment', now(), NULL, 'zk_anonymous', NULL,
+  ${commentId}, ${article.id}, 'Browser Contract pending comment',
+  current_setting('fsusblog.test_business_epoch_utc')::timestamptz, NULL, 'zk_anonymous', NULL,
   '${privacy.anonymousHandle}', 'Browser Contract Reader', 'en',
   '${privacy.nullifierHash}', 'browser-contract:${article.id}', '${privacy.moderationSubjectHash}',
   NULL, NULL, NULL, 'common', true,

@@ -1,5 +1,7 @@
 using FsusBlog.Server.Infrastructure.Helpers.Initializer;
 
+using Npgsql;
+
 using SqlSugar;
 
 using DbType = SqlSugar.DbType;
@@ -63,11 +65,18 @@ internal static class PostgresSqlSugarTestClient
     public static async Task<string> CreateConnectionStringAsync(PostgresSchemaMigrationFixture fixture)
     {
         string databaseName = await fixture.CreateDatabaseAsync().ConfigureAwait(false);
-        return fixture.BuildDatabaseConnectionString(databaseName);
+        var connection = new NpgsqlConnectionStringBuilder(
+            fixture.BuildDatabaseConnectionString(databaseName));
+        TestTemporalContext temporal = TestTemporalContext.FromEnvironment();
+        connection.Options = string.IsNullOrWhiteSpace(connection.Options)
+            ? temporal.PostgresSessionOptions
+            : $"{connection.Options} {temporal.PostgresSessionOptions}";
+        return connection.ConnectionString;
     }
 
     public static SqlSugarClient Create(string connectionString)
-        => new(new ConnectionConfig
+    {
+        var client = new SqlSugarClient(new ConnectionConfig
         {
             DbType = DbType.PostgreSQL,
             ConnectionString = SqlSugarInitializer.NormalizeConnectionString(connectionString),
@@ -79,6 +88,49 @@ internal static class PostgresSqlSugarTestClient
                 PgSqlIsAutoToLowerCodeFirst = true
             }
         });
+        TestTemporalContext temporal = TestTemporalContext.FromEnvironment();
+        temporal.AssertRuntimeContext();
+        client.Ado.Open();
+        try
+        {
+            System.Data.DataTable observation = client.Ado.GetDataTable(
+                """
+                SELECT
+                    current_setting('TimeZone') AS timezone,
+                    current_setting('fsusblog.test_business_epoch_utc', true) AS business_epoch
+                """);
+            string timezone = Convert.ToString(
+                observation.Rows[0]["timezone"],
+                System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
+            string epochRaw = Convert.ToString(
+                observation.Rows[0]["business_epoch"],
+                System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
+            VerifyTemporalObservation(temporal, timezone, epochRaw);
+        }
+        finally
+        {
+            client.Ado.Close();
+        }
+        return client;
+    }
+
+    internal static void VerifyTemporalObservation(
+        TestTemporalContext temporal,
+        string timezone,
+        string epochRaw)
+    {
+        if (!string.Equals(timezone, temporal.PostgresTimezone, StringComparison.Ordinal)
+            || !DateTimeOffset.TryParse(
+                epochRaw,
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.RoundtripKind,
+                out DateTimeOffset epoch)
+            || epoch != temporal.BusinessEpochUtc)
+        {
+            throw new InvalidOperationException(
+                "PostgreSQL session temporal context does not exact-match the backend plan.");
+        }
+    }
 
     public static void InitTables(SqlSugarClient db, params Type[] entityTypes)
         => db.CodeFirst.InitTables(entityTypes);

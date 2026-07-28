@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
+  discoverRepositoryTemporalSources,
   validateWallClockGovernance,
   verifyRepositoryWallClockGovernance
 } from '../../tools/test/check-wall-clock-governance.mjs'
@@ -33,12 +34,31 @@ function ledger(entries) {
 
 test('repository temporal ledger has finite closure over real correctness producers', () => {
   assert.deepEqual(verifyRepositoryWallClockGovernance(), {
-    callSiteCount: 10,
+    callSiteCount: 51,
     mixedClockCount: 0,
     pendingCount: 0,
     unknownCount: 0,
-    governedSourceCount: 5
+    governedSourceCount: 35
   })
+})
+
+test('independent full-repository discovery rejects a hidden temporal producer callsite', () => {
+  const hiddenSource = 'tools/test-fixtures/producers/hidden-temporal-producer.mjs'
+  const independentlyDiscoveredSources = discoverRepositoryTemporalSources({
+    sourceOverrides: new Map([[
+      hiddenSource,
+      [
+        '/* fixture-catalog:',
+        ' producer=scale-data */\nconst hiddenWallClock = DateTime.Now\n'
+      ].join('')
+    ]])
+  })
+  assert.equal(independentlyDiscoveredSources.has(hiddenSource), true)
+  assert.throws(
+    () => verifyRepositoryWallClockGovernance({ independentlyDiscoveredSources }),
+    (error) => error.reasonCode === 'temporal.ledger-source-mismatch'
+      && error.details.missing.includes(hiddenSource)
+  )
 })
 
 test('unknown and requires-explicit both block closure', () => {
@@ -91,7 +111,7 @@ test('mtime cannot select correctness receipts', () => {
   assert.throws(
     () => validateWallClockGovernance({
       ledger: ledger([entry({
-        api: 'mtime',
+        api: 'file-timestamp',
         authorityKind: 'artifact-observation',
         clockKind: 'artifact-metadata',
         disposition: 'artifact-metadata',
@@ -112,6 +132,17 @@ test('unowned PostgreSQL clock_timestamp on a governed correctness source fails 
     }),
     (error) => error.reasonCode === 'temporal.ledger-unresolved'
       && String(error.message).includes('unowned clock calls')
+  )
+})
+
+test('real correctness sleep on a governed source fails closed', () => {
+  assert.throws(
+    () => validateWallClockGovernance({
+      ledger: ledger([]),
+      sources: new Map([['fixture.mjs', 'sleep 60']])
+    }),
+    (error) => error.reasonCode === 'temporal.ledger-unresolved'
+      && error.details.uncovered.some((call) => call.api === 'shell.sleep')
   )
 })
 

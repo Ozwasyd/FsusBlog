@@ -11,6 +11,19 @@ const uxViewportMode = process.env.FSUSBLOG_UX_VIEWPORT_MODE
 const resumesUxViewportRun = process.env.FSUSBLOG_UX_VIEWPORT_RESUME === '1'
 const traceMode = process.env.FSUSBLOG_PLAYWRIGHT_TRACE === 'off' ? 'off' : 'retain-on-failure'
 const configuredOutputDir = path.resolve(process.cwd(), process.env.PLAYWRIGHT_OUTPUT_DIR || 'test-results/playwright')
+const temporalContext = process.env.FSUSBLOG_TEMPORAL_CONTEXT_JSON
+  ? JSON.parse(process.env.FSUSBLOG_TEMPORAL_CONTEXT_JSON)
+  : (process.env.FSUSBLOG_TEMPORAL_CONTEXT_FILE
+      ? JSON.parse(readFileSync(process.env.FSUSBLOG_TEMPORAL_CONTEXT_FILE, 'utf8'))
+      : null)
+if (temporalContext && (
+  temporalContext.schema !== 'fsusblog.test-temporal-context.v1'
+  || !temporalContext.uiLocale
+  || !temporalContext.timezone
+  || process.env.TZ !== temporalContext.nodeTimezone
+)) {
+  throw new Error('Playwright temporal context is incomplete or does not match Node TZ')
+}
 
 if (uxViewportMode) {
   if (resumesUxViewportRun && !process.env.FSUSBLOG_UX_VIEWPORT_RUN_ID) {
@@ -181,7 +194,13 @@ export default defineConfig({
     ignoreHTTPSErrors: true,
     trace: traceMode,
     screenshot: 'only-on-failure',
-    video: 'off'
+    video: 'off',
+    ...(temporalContext
+      ? {
+          locale: temporalContext.uiLocale,
+          timezoneId: temporalContext.timezone
+        }
+      : {})
   },
   projects
 })

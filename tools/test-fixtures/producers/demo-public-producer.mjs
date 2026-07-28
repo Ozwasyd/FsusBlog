@@ -71,7 +71,11 @@ export async function prepareDemoPublic(context, signal) {
       'X-Fsus-Local-Demo-Fixture-Secret': secret,
       'X-Fsus-Test-Session': testSession(context)
     },
-    body: JSON.stringify({ namespace: context.namespace ?? null, runId: context.runIdentity ?? null }),
+    body: JSON.stringify({
+      namespace: context.namespace ?? null,
+      runId: context.runIdentity ?? null,
+      temporalContext: context.temporalContext ?? null
+    }),
     signal
   })
   const payload = await response.json().catch(() => null)

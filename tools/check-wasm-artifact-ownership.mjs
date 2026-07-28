@@ -58,6 +58,49 @@ function requireOrderedSubset(source, needles, label) {
   }
 }
 
+export function validateProductionWasmStagingContract({ productionBuilder, receiptTool }) {
+  const stageCommand = 'tools/frontend/wasm-build-receipt.mjs" stage-envelope';
+  const outerSealCommand = 'tools/ci/production-build-artifacts-cli.mjs" "${CREATE_ARGS[@]}"';
+  const stageCommandIndex = productionBuilder.indexOf(stageCommand);
+  const outerSealCommandIndex = productionBuilder.indexOf(outerSealCommand);
+  requireOrderedSubset(productionBuilder, [
+    'npm --prefix "$ROOT_DIR/src/frontend" run ensure:wasm',
+    stageCommand,
+    '--artifact-dir "$WASM_SOURCE"',
+    '--destination-artifact-dir "$PAYLOAD_ROOT/wasm"',
+    outerSealCommand
+  ], 'tools/test/lanes/production-build-artifacts.sh');
+  if (stageCommandIndex < 0 || outerSealCommandIndex < 0 || stageCommandIndex >= outerSealCommandIndex) {
+    fail('production WASM checksum staging must complete before the outer immutable artifact seal');
+  }
+  if (/AdoptDirectory\s+"\$WASM_SOURCE"|\bmv\s+--?\s+"\$WASM_SOURCE"/u.test(productionBuilder)) {
+    fail('production WASM staging must not adopt or move the immutable source artifact');
+  }
+
+  const stageStart = receiptTool.indexOf('export function stageWasmReceiptEnvelope({');
+  const stageEnd = receiptTool.indexOf('\nfunction parseCli', stageStart);
+  if (stageStart < 0 || stageEnd < 0) {
+    fail('tools/frontend/wasm-build-receipt.mjs is missing the bounded stageWasmReceiptEnvelope implementation');
+  }
+  const stageSource = receiptTool.slice(stageStart, stageEnd);
+  requireOrderedSubset(stageSource, [
+    'validateWasmBuildReceipt({',
+    'const sourceIdentity = artifactDirectoryIdentity(sourceArtifactDir);',
+    "if (entry.name === 'SHA256SUMS')",
+    'continue;',
+    'fs.copyFileSync(source, destination, fs.constants.COPYFILE_FICLONE);',
+    'writeWasmReceiptChecksums({',
+    'validateWasmBuildReceipt({',
+    'artifactDirectoryIdentity(sourceArtifactDir)'
+  ], 'stageWasmReceiptEnvelope');
+  if (stageSource.includes('fs.chmodSync(')) {
+    fail('stageWasmReceiptEnvelope must not chmod an immutable source or copied checksum');
+  }
+  if (stageSource.includes('fs.renameSync(') || stageSource.includes('fs.cpSync(sourceArtifactDir')) {
+    fail('stageWasmReceiptEnvelope must copy declared files without moving or recursively copying the source artifact');
+  }
+}
+
 export async function checkWasmArtifactOwnership({ repoRoot = defaultRepoRoot } = {}) {
   const tracked = run('git', ['ls-files', '--', generatedArtifactRelativePath], repoRoot);
   if (tracked.status !== 0) {
@@ -115,12 +158,10 @@ export async function checkWasmArtifactOwnership({ repoRoot = defaultRepoRoot } 
   const productionBuilder = await readFile(path.join(repoRoot, 'tools/test/lanes/production-build-artifacts.sh'), 'utf8');
   requireOrderedSubset(productionBuilder, [
     'tests/tools/wasm-artifact-ownership.test.mjs',
-    'tools/check-wasm-artifact-ownership.mjs',
-    'npm --prefix "$ROOT_DIR/src/frontend" run ensure:wasm',
-    'AdoptDirectory "$WASM_SOURCE" "$PAYLOAD_ROOT/wasm"',
-    'tools/frontend/wasm-build-receipt.mjs" verify',
-    'tools/frontend/wasm-build-receipt.mjs" write-checksums'
+    'tools/check-wasm-artifact-ownership.mjs'
   ], 'tools/test/lanes/production-build-artifacts.sh');
+  const receiptTool = await readFile(path.join(repoRoot, 'tools/frontend/wasm-build-receipt.mjs'), 'utf8');
+  validateProductionWasmStagingContract({ productionBuilder, receiptTool });
 
   const dockerfile = await readFile(path.join(repoRoot, 'ops/docker/FsusBlog.Server.Dockerfile'), 'utf8');
   requireOrderedSubset(dockerfile, [

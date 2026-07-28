@@ -119,6 +119,42 @@ test('artifact metadata does not alter semantic outcome digest', () => {
   assert.equal(first, second)
 })
 
+test('artifact metadata schema rejects unknown and business-bearing fields', () => {
+  assert.equal(
+    semanticOutcomeDigest({
+      rows: 3,
+      artifactMetadata: {
+        generatedAt: '2026-07-28T00:00:00.000Z'
+      }
+    }),
+    semanticOutcomeDigest({
+      rows: 3,
+      artifactMetadata: {
+        generatedAt: '2030-01-01T00:00:00.000Z'
+      }
+    })
+  )
+  assert.throws(
+    () => semanticOutcomeDigest({
+      rows: 3,
+      artifactMetadata: {
+        generatedAt: '2026-07-28T00:00:00.000Z',
+        exporterVersion: 'unclassified'
+      }
+    }),
+    (error) => error.reasonCode === 'temporal.context-invalid'
+  )
+  assert.throws(
+    () => semanticOutcomeDigest({
+      rows: 3,
+      artifactMetadata: {
+        scheduledPublishAt: '2024-03-01T00:00:00.000Z'
+      }
+    }),
+    (error) => error.reasonCode === 'temporal.context-invalid'
+  )
+})
+
 test('business fields remain in semantic outcome digest', () => {
   assert.notEqual(
     semanticOutcomeDigest({ scheduledPublishAt: '2024-03-01T00:00:00.000Z' }),

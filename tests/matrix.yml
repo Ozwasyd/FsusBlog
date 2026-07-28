@@ -1734,16 +1734,36 @@ tiers:
           - config/testing/temporal-policy.json
           - config/testing/temporal-context.schema.json
           - config/testing/temporal-callsite-dispositions.json
+          - config/testing/temporal-producer-bindings.json
+          - config/testing/temporal-perturbation-cases.json
           - tools/test/temporal-context.mjs
+          - tools/test/temporal-producer-bindings.mjs
           - tools/test/produce-temporal-qualification.mjs
+          - tools/test/write-temporal-context.mjs
           - tools/test/check-wall-clock-governance.mjs
           - tools/test/verify-temporal-replay.mjs
+          - tools/test/verify-temporal-producers.mjs
+          - tools/test-fixtures/orchestrator.mjs
+          - tools/test-fixtures/producers/catalog-ports.mjs
+          - tools/test-fixtures/producers/temporal-child-observer.mjs
+          - tools/test-fixtures/producers/temporal-child-handshake.cjs
+          - tools/test-fixtures/producers/temporal-child-handshake.bash
+          - tools/test-fixtures/producers/temporal-child-handshake-emitter.cjs
           - tools/data-scale/seed.sh
           - tools/data-scale/cleanup.sh
-          - tests/frontend/support/session-fixtures.mjs
+          - tools/dev/seed-demo-data.sh
+          - src/backend/Infrastructure/Middlewares/AnonymousGatewayHeaderGuardMiddleware.cs
+          - src/backend/Modules/Endpoints/LocalPublicContentFixtureEndpoints.cs
+          - tests/browser-contract/default-fixture-provider.mjs
+          - tests/tools/data-scale-temporal-replay.integration.test.mjs
           - tests/tools/test-temporal-context.test.mjs
+          - tests/tools/test-temporal-producer-bindings.test.mjs
           - tests/tools/test-wall-clock-governance.test.mjs
           - tests/backend/Helpers/TestInfrastructure/TestTemporalContext.cs
+          - src/backend/Infrastructure/Testing/TestTemporalRuntimeContext.cs
+          - tests/backend/Integration/TemporalContextPostgresIntegrationTests.cs
+          - tests/backend/Unit/AnonymousGatewayHeaderGuardMiddlewareTests.cs
+          - tests/browser-contract/run.mjs
           - tests/backend/Unit/TestTemporalContextTests.cs
           - tests/backend/Unit/JwtHelperTests.cs
           - .tmp/test-governance/suite-plan.json
@@ -3398,8 +3418,11 @@ tiers:
 
     - id: browser-diagnostics
       owner: InteropGlueAgent
-      executionMode: summary
+      executionMode: execute
+      commandKind: producer
       command: tools/test/lanes/browser-runtime-risk-diagnostics.sh
+      fixtureProfile: acceptance-representative
+      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
       executionDependsOn: [browser-diagnostics-manual]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false
@@ -7229,8 +7252,11 @@ tiers:
 
     - id: production
       owner: ServerContractAgent
-      executionMode: summary
+      executionMode: execute
+      commandKind: producer
       command: tools/test/lanes/production-correctness-receipt.sh
+      fixtureProfile: acceptance-representative
+      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
       executionDependsOn: [production-correctness]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false
@@ -7673,8 +7699,10 @@ tiers:
           [
               .tmp/backend-golden/summary.json,
               tests/backend/Fixtures/aeds-golden-catalog.json,
+              tests/backend/Unit/BackendGoldenCatalogTests.cs,
               tests/backend/Unit/PodBinaryCodecTests.cs,
               tests/backend/Unit/AedsFrameNamingTests.cs,
+              tests/backend/Unit/UserLocalePreferenceCodecAndNormalizeTests.cs,
               docs/passkey-test-governance.md,
               docs/testing/issue-1047-projection-serialization-handoff.md,
           ]

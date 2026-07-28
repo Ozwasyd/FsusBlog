@@ -29,7 +29,8 @@ public interface IPublicContentFixtureSeeder
 public sealed record PublicContentFixtureRequest(
     IReadOnlyList<string> Capabilities,
     string? Namespace,
-    string? RunId);
+    string? RunId,
+    JsonElement? TemporalContext = null);
 
 public sealed class PublicContentFixtureResult
 {
@@ -56,6 +57,10 @@ public sealed class PublicContentFixtureResult
     public required IReadOnlyList<string> ProvidedCapabilities
     {
         get; init;
+    }
+    public object? TemporalObservation
+    {
+        get; set;
     }
 }
 
@@ -214,9 +219,11 @@ public sealed class PublicContentFixtureSeeder(
     IArticleCoreGateway articles,
     ISqlSugarClient db,
     IAdminArtifactOperations artifactOperations,
-    ISearchIndexService searchIndex) : IPublicContentFixtureSeeder
+    ISearchIndexService searchIndex,
+    TimeProvider timeProvider) : IPublicContentFixtureSeeder
 {
     private const string Strategy = "transaction-fixture";
+    internal const string RevisionHistoryFixtureAppendix = "\n\nSecond edition body for history checks.";
     private static readonly JsonSerializerOptions s_json = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -395,7 +402,7 @@ public sealed class PublicContentFixtureSeeder(
                     null,
                     0,
                     ArticleStatus.Scheduled,
-                    ScheduledPublishAt: DateTime.UtcNow.AddDays(7)),
+                    ScheduledPublishAt: timeProvider.GetUtcNow().UtcDateTime.AddDays(7)),
                 category.Id,
                 tag.Id,
                 entityIdentities,
@@ -418,6 +425,9 @@ public sealed class PublicContentFixtureSeeder(
                 category.Id,
                 tag.Id,
                 cancellationToken).ConfigureAwait(false);
+            long archivedBaseRevisionId = await RequireCurrentRevisionIdAsync(
+                archivedId,
+                cancellationToken).ConfigureAwait(false);
             bool archived = await articles.UpdateAsync(
                 new UpdateArticleCommand(
                     archivedId,
@@ -428,7 +438,8 @@ public sealed class PublicContentFixtureSeeder(
                         null,
                         category.Id,
                         tag.Id,
-                        ArticleStatus.Archived)),
+                        ArticleStatus.Archived,
+                        baseRevisionId: archivedBaseRevisionId)),
                 cancellationToken).ConfigureAwait(false);
             if (!archived)
             {
@@ -485,17 +496,21 @@ public sealed class PublicContentFixtureSeeder(
             || capabilities.Contains("public.article.revision-history", StringComparer.Ordinal))
         {
             multiRevisionId = publishedIds[0];
+            long multiRevisionBaseRevisionId = await RequireCurrentRevisionIdAsync(
+                multiRevisionId,
+                cancellationToken).ConfigureAwait(false);
             bool updated = await articles.UpdateAsync(
                 new UpdateArticleCommand(
                     multiRevisionId,
                     BuildWriteRequest(
                         publishedPlan[0].Title,
-                        publishedPlan[0].Markdown + "\n\nRevision 2 body for multiple revisions.",
+                        publishedPlan[0].Markdown + RevisionHistoryFixtureAppendix,
                         publishedPlan[0].Summary,
                         publishedPlan[0].CoverImageUrl,
                         category.Id,
                         tag.Id,
-                        ArticleStatus.Published)),
+                        ArticleStatus.Published,
+                        baseRevisionId: multiRevisionBaseRevisionId)),
                 cancellationToken).ConfigureAwait(false);
             if (!updated)
             {
@@ -537,6 +552,9 @@ public sealed class PublicContentFixtureSeeder(
         if (capabilities.Contains("public.article.multiple-publications", StringComparer.Ordinal))
         {
             int multiPubId = publishedIds[1];
+            long archiveBaseRevisionId = await RequireCurrentRevisionIdAsync(
+                multiPubId,
+                cancellationToken).ConfigureAwait(false);
             bool archived = await articles.UpdateAsync(
                 new UpdateArticleCommand(
                     multiPubId,
@@ -547,7 +565,8 @@ public sealed class PublicContentFixtureSeeder(
                         publishedPlan[1].CoverImageUrl,
                         category.Id,
                         tag.Id,
-                        ArticleStatus.Archived)),
+                        ArticleStatus.Archived,
+                        baseRevisionId: archiveBaseRevisionId)),
                 cancellationToken).ConfigureAwait(false);
             if (!archived)
             {
@@ -555,6 +574,9 @@ public sealed class PublicContentFixtureSeeder(
             }
 
             // Re-publish through domain update (creates another publication transition).
+            long republishBaseRevisionId = await RequireCurrentRevisionIdAsync(
+                multiPubId,
+                cancellationToken).ConfigureAwait(false);
             bool republished = await articles.UpdateAsync(
                 new UpdateArticleCommand(
                     multiPubId,
@@ -565,7 +587,8 @@ public sealed class PublicContentFixtureSeeder(
                         publishedPlan[1].CoverImageUrl,
                         category.Id,
                         tag.Id,
-                        ArticleStatus.Published)),
+                        ArticleStatus.Published,
+                        baseRevisionId: republishBaseRevisionId)),
                 cancellationToken).ConfigureAwait(false);
             if (!republished)
             {
@@ -744,7 +767,7 @@ public sealed class PublicContentFixtureSeeder(
                 Cache = new PublicContentCacheObservation
                 {
                     Namespace = ns,
-                    Generation = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                    Generation = timeProvider.GetUtcNow().ToUnixTimeMilliseconds(),
                     Entries = cacheEntries
                 }
             }
@@ -910,7 +933,8 @@ public sealed class PublicContentFixtureSeeder(
         int categoryId,
         int tagId,
         ArticleStatus status,
-        DateTime? scheduledPublishAt = null)
+        DateTime? scheduledPublishAt = null,
+        long? baseRevisionId = null)
         => new(
             title,
             markdown,
@@ -919,7 +943,18 @@ public sealed class PublicContentFixtureSeeder(
             categoryId,
             new[] { tagId },
             (int)status,
-            scheduledPublishAt);
+            scheduledPublishAt,
+            BaseRevisionId: baseRevisionId);
+
+    private async Task<long> RequireCurrentRevisionIdAsync(
+        int articleId,
+        CancellationToken cancellationToken)
+    {
+        Article row = await LoadArticleAsync(articleId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException($"owned article {articleId} missing before update");
+        return row.CurrentRevisionId
+            ?? throw new InvalidOperationException($"owned article {articleId} has no current revision before update");
+    }
 
     private async Task SetViewsAsync(int articleId, int views, CancellationToken cancellationToken)
     {

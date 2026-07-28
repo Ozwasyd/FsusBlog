@@ -39,6 +39,7 @@ public static class LocalAuthFixtureEndpoints
             HttpContext context,
             IWebHostEnvironment environment,
             [FromServices] AuthCookieService authCookieService,
+            [FromServices] TimeProvider timeProvider,
             string? redirect,
             CancellationToken cancellationToken) =>
         {
@@ -75,7 +76,7 @@ public static class LocalAuthFixtureEndpoints
                 userAccessTokenExpiresAtUtc,
                 refreshToken,
                 userSessionId,
-                DateTime.UtcNow.AddDays(30));
+                timeProvider.GetUtcNow().UtcDateTime.AddDays(30));
 
             authCookieService.SetAdminSessionCookies(
                 context,
@@ -83,7 +84,7 @@ public static class LocalAuthFixtureEndpoints
                 adminAccessToken,
                 adminAccessTokenExpiresAtUtc,
                 adminSessionId,
-                DateTime.UtcNow.AddHours(24));
+                timeProvider.GetUtcNow().UtcDateTime.AddHours(24));
 
             return Results.Redirect(SanitizeRedirectPath(redirect));
         };

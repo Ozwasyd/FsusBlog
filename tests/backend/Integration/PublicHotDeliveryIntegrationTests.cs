@@ -25,17 +25,12 @@ using SqlSugar;
 using StackExchange.Redis;
 namespace FsusBlog.Server.Tests;
 
-[CollectionDefinition(nameof(PublicHotDeliveryIntegrationCollection))]
-public sealed class PublicHotDeliveryIntegrationCollection :
-    ICollectionFixture<PostgresSchemaMigrationFixture>,
-    ICollectionFixture<PublicHotDeliveryRedisFixture>;
-
-[Collection(nameof(PublicHotDeliveryIntegrationCollection))]
+[Collection(nameof(SchemaMigrationPostgresCollectionA))]
 [Trait("Category", "Integration")]
 [Trait("Dependency", "Docker")]
 public sealed class PublicHotDeliveryIntegrationTests(
     PostgresSchemaMigrationFixture postgres,
-    PublicHotDeliveryRedisFixture redis)
+    PublicHotDeliveryRedisFixture redis) : IClassFixture<PublicHotDeliveryRedisFixture>
 {
     [Fact]
     public async Task RedisDeliveryState_LuaAndBothCrashWindowsSurviveFreshConnections()

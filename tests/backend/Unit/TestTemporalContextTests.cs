@@ -1,9 +1,13 @@
 using System.Globalization;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 using FsusBlog.Server.Tests.Fixtures;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
 using Microsoft.Extensions.DependencyInjection;
+
+using RuntimeTemporalContext = FsusBlog.Server.Infrastructure.Testing.TestTemporalRuntimeContext;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -61,6 +65,7 @@ public sealed class TestTemporalContextTests
         Assert.Same(context, provider.GetRequiredService<TestTemporalContext>());
         Assert.Same(context.BusinessClock, provider.GetRequiredService<TimeProvider>());
         Assert.Equal(context.BusinessEpochUtc, provider.GetRequiredService<TimeProvider>().GetUtcNow());
+        context.AssertRuntimeContext();
     }
 
     [Fact]
@@ -111,5 +116,111 @@ public sealed class TestTemporalContextTests
     {
         TestTemporalContext context = TestTemporalContext.CreateCanonical();
         Assert.Throws<ArgumentOutOfRangeException>(() => context.Advance(TimeSpan.FromSeconds(-1)));
+    }
+
+    [Fact]
+    public void FromEnvironment_ParsesFullTemporalContextAndRejectsBackendMismatch()
+    {
+        string? previous = Environment.GetEnvironmentVariable(
+            TestTemporalContext.TemporalContextEnvironmentVariable);
+        try
+        {
+            const string Context =
+                """
+                {
+                  "schema": "fsusblog.test-temporal-context.v1",
+                  "businessEpochUtc": "2024-02-29T23:59:59.000Z",
+                  "businessClockMode": "fixed",
+                  "businessClockStepPolicy": "explicit-only",
+                  "timezone": "UTC",
+                  "backendCulture": "Invariant",
+                  "postgresTimezone": "UTC",
+                  "nodeTimezone": "UTC"
+                }
+                """;
+            Environment.SetEnvironmentVariable(
+                TestTemporalContext.TemporalContextEnvironmentVariable,
+                Context);
+            Assert.Equal(
+                TestTemporalContext.CanonicalBusinessEpochUtc,
+                TestTemporalContext.FromEnvironment().BusinessEpochUtc);
+
+            Environment.SetEnvironmentVariable(
+                TestTemporalContext.TemporalContextEnvironmentVariable,
+                Context.Replace(
+                    "\"backendCulture\": \"Invariant\"",
+                    "\"backendCulture\": \"zh-CN\"",
+                    StringComparison.Ordinal));
+            Assert.Throws<InvalidOperationException>(
+                TestTemporalContext.FromEnvironment);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(
+                TestTemporalContext.TemporalContextEnvironmentVariable,
+                previous);
+        }
+    }
+
+    [Fact]
+    public void RuntimeContext_RequiresExactSharedFieldsAndExplicitProducerIdentity()
+    {
+        const string Context =
+            """
+            {
+              "schema": "fsusblog.test-temporal-context.v1",
+              "sourceCommit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "sourceFingerprint": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "producerId": "comment-moderation",
+              "schedulerRunId": "runtime-context-test",
+              "businessEpochUtc": "2024-02-29T23:59:59.000Z",
+              "businessClockMode": "fixed",
+              "businessClockStepPolicy": "explicit-only",
+              "timezone": "UTC",
+              "locale": "en-US",
+              "uiLocale": "en-US",
+              "backendCulture": "Invariant",
+              "postgresTimezone": "UTC",
+              "nodeTimezone": "UTC",
+              "calendar": "gregory",
+              "firstDayOfWeek": "monday",
+              "monotonicClockSource": "performance-now",
+              "timeoutPolicyDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "temporalPolicyDigest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "ledgerSource": {
+                "authorityKind": "immutable-ledger",
+                "path": "config/testing/temporal-callsite-dispositions.json",
+                "digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+              }
+            }
+            """;
+
+        ScopedEnvironmentVariables.Run(
+            [RuntimeTemporalContext.EnvironmentVariable],
+            environment =>
+            {
+                environment.Set(RuntimeTemporalContext.EnvironmentVariable, Context);
+                RuntimeTemporalContext runtime =
+                    Assert.IsType<RuntimeTemporalContext>(
+                        RuntimeTemporalContext.LoadOptional());
+                var request = Assert.IsType<JsonObject>(JsonNode.Parse(Context));
+                request["producerId"] = "public-content";
+                runtime.RequireExactRequest(
+                    JsonNode.Parse(request.ToJsonString())!.AsObject()
+                        .Deserialize<JsonElement>());
+
+                request["businessEpochUtc"] = "2030-01-01T00:00:00.000Z";
+                Assert.Throws<InvalidOperationException>(() =>
+                    runtime.RequireExactRequest(
+                        JsonNode.Parse(request.ToJsonString())!.AsObject()
+                            .Deserialize<JsonElement>()));
+
+                request["businessEpochUtc"] = "2024-02-29T23:59:59.000Z";
+                request.Remove("producerId");
+                Assert.Throws<InvalidOperationException>(() =>
+                    runtime.RequireExactRequest(
+                        JsonNode.Parse(request.ToJsonString())!.AsObject()
+                            .Deserialize<JsonElement>()));
+            });
     }
 }

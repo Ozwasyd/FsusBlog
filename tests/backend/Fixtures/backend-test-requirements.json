@@ -128,7 +128,8 @@
       "evidencePaths": [
         "tests/backend/Fixtures/aeds-golden-catalog.json",
         "tests/backend/Unit/BackendGoldenCatalogTests.cs",
-        "tests/backend/Unit/PodBinaryCodecTests.cs"
+        "tests/backend/Unit/PodBinaryCodecTests.cs",
+        "tests/backend/Unit/UserLocalePreferenceCodecAndNormalizeTests.cs"
       ]
     },
     {
@@ -476,7 +477,7 @@
         "tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs",
         "tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs",
         "tests/backend/Unit/SubscriptionEndpointsContractTests.cs",
-        "tests/backend/Unit/DevSeedSqlContractTests.cs",
+        "tests/backend/Integration/DemoFixtureSeederCleanupIntegrationTests.cs",
         "tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs",
         "tests/backend/Unit/ArticleDestructiveMutationBehaviorTests.cs",
         "tests/backend/Unit/CommentMutationPostgresConcurrencyTests.cs",
@@ -507,7 +508,8 @@
       "evidencePaths": [
         "tests/backend/Fixtures/aeds-golden-catalog.json",
         "tests/backend/Unit/BackendGoldenCatalogTests.cs",
-        "tests/backend/Unit/PodBinaryCodecTests.cs"
+        "tests/backend/Unit/PodBinaryCodecTests.cs",
+        "tests/backend/Unit/UserLocalePreferenceCodecAndNormalizeTests.cs"
       ]
     },
     {
@@ -595,7 +597,7 @@
         "tests/backend/Unit/BackendApiIntegrationContractTests.cs",
         "tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs",
         "tests/backend/Unit/SubscriptionEndpointsContractTests.cs",
-        "tests/backend/Unit/DevSeedSqlContractTests.cs",
+        "tests/backend/Integration/DemoFixtureSeederCleanupIntegrationTests.cs",
         "tests/backend/Unit/HumanReadProofRequestBindingTests.cs",
         "tests/backend/Unit/HumanReadProofPersistencePrivacyTests.cs",
         "tests/backend/Unit/AdminOperationsBehaviorTests.cs",
@@ -697,7 +699,7 @@
         "tests/backend/legacy-identity-retirement-evidence.json",
         "tests/backend/Unit/ProductionHealthTests.cs",
         "tests/backend/online-schema-migration-evidence.json",
-        "tests/backend/Unit/DevSeedSqlContractTests.cs"
+        "tests/backend/Integration/DemoFixtureSeederCleanupIntegrationTests.cs"
       ]
     },
     {
@@ -908,7 +910,7 @@
         "tests/backend/Unit/ReleaseStorageLifecycleTests.cs",
         "tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs",
         "tests/backend/Unit/SubscriptionEndpointsContractTests.cs",
-        "tests/backend/Unit/DevSeedSqlContractTests.cs",
+        "tests/backend/Integration/DemoFixtureSeederCleanupIntegrationTests.cs",
         "tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs",
         "tests/backend/Unit/ArticleDestructiveMutationBehaviorTests.cs",
         "tests/backend/Unit/CommentMutationPostgresConcurrencyTests.cs",

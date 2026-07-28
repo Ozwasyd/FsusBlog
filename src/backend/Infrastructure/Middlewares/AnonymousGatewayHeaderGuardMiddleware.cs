@@ -80,7 +80,7 @@ public sealed partial class AnonymousGatewayHeaderGuardMiddleware
             }
 
             string? reason = ResolveRejectionReason(headerName);
-            if (reason is null)
+            if (reason is null || IsDevelopmentOnlyHeaderAllowed(context, headerName))
             {
                 continue;
             }
@@ -111,6 +111,20 @@ public sealed partial class AnonymousGatewayHeaderGuardMiddleware
     public static bool IsAllowedHeader(string headerName)
         => headerName.StartsWith("X-Fsus-", StringComparison.OrdinalIgnoreCase)
             && ResolveRejectionReason(headerName) is null;
+
+    private static bool IsDevelopmentOnlyHeaderAllowed(HttpContext context, string headerName)
+    {
+        DevelopmentOnlyFsusHeaderMetadata? metadata =
+            context.GetEndpoint()?.Metadata.GetMetadata<DevelopmentOnlyFsusHeaderMetadata>();
+        if (metadata is null || !metadata.Allows(headerName))
+        {
+            return false;
+        }
+
+        IWebHostEnvironment? environment =
+            context.RequestServices?.GetService<IWebHostEnvironment>();
+        return environment?.IsDevelopment() == true;
+    }
 
     private static string? ResolveRejectionReason(string headerName)
     {
@@ -153,4 +167,30 @@ public sealed partial class AnonymousGatewayHeaderGuardMiddleware
         string path,
         string headerName,
         string reason);
+}
+
+public sealed class DevelopmentOnlyFsusHeaderMetadata
+{
+    private readonly HashSet<string> _headerNames;
+
+    public DevelopmentOnlyFsusHeaderMetadata(params string[] headerNames)
+    {
+        ArgumentNullException.ThrowIfNull(headerNames);
+        if (headerNames.Length == 0
+            || headerNames.Any(static headerName =>
+                string.IsNullOrWhiteSpace(headerName)
+                || !headerName.StartsWith("X-Fsus-", StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new ArgumentException(
+                "Development-only Fsus endpoint metadata requires one or more X-Fsus-* header names.",
+                nameof(headerNames));
+        }
+
+        _headerNames = new HashSet<string>(
+            headerNames,
+            StringComparer.OrdinalIgnoreCase);
+    }
+
+    public bool Allows(string headerName)
+        => _headerNames.Contains(headerName);
 }
