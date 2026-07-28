@@ -38,6 +38,13 @@ export function bodyIncludesToken(body, token)
             from = index + lowerNeedle.length
             continue
         }
+        // Reject when negation char precedes with connector/space gap (e.g. "不是 optional").
+        const beforeExtended = haystack.slice(Math.max(0, index - 4), index)
+        if (/(?:不|未|非|无)[是为会]?\s*$/u.test(beforeExtended))
+        {
+            from = index + lowerNeedle.length
+            continue
+        }
         // Also reject when the match is the tail of a longer negative phrase token site.
         const windowStart = Math.max(0, index - 4)
         const window = haystack.slice(windowStart, index + lowerNeedle.length)

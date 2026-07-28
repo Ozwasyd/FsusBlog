@@ -20,6 +20,13 @@ export const frameworkFiles = Object.freeze([
     'tools/docs/prose-claim-verifier/governance.mjs',
     'tools/docs/check-prose-claims.mjs',
     'tests/tools/prose-claim-verifier.test.mjs',
+    'tests/tools/doc-claim-staleness-mutation.test.mjs',
+    'tools/docs/doc-claim-staleness-mutation/layers.mjs',
+    'tools/docs/doc-claim-staleness-mutation/fixture.mjs',
+    'tools/docs/doc-claim-staleness-mutation/catalog.mjs',
+    'tools/docs/doc-claim-staleness-mutation/runner.mjs',
+    'tools/docs/doc-claim-staleness-mutation/governance.mjs',
+    'tools/docs/doc-claim-staleness-mutation/index.mjs',
     'docs/development/doc-claim-protocol.md',
     'config/schemas/doc-claim.schema.json',
     'tools/docs/doc-claim.mjs'

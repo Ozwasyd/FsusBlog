@@ -19,6 +19,13 @@ export const frameworkFiles = Object.freeze([
     catalogRelative,
     catalogSchemaRelative,
     'tests/tools/generated-fact-sections.test.mjs',
+    'tests/tools/doc-claim-staleness-mutation.test.mjs',
+    'tools/docs/doc-claim-staleness-mutation/layers.mjs',
+    'tools/docs/doc-claim-staleness-mutation/fixture.mjs',
+    'tools/docs/doc-claim-staleness-mutation/catalog.mjs',
+    'tools/docs/doc-claim-staleness-mutation/runner.mjs',
+    'tools/docs/doc-claim-staleness-mutation/governance.mjs',
+    'tools/docs/doc-claim-staleness-mutation/index.mjs',
     'docs/development/doc-claim-protocol.md'
 ])
 
