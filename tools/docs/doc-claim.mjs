@@ -1003,6 +1003,13 @@ const governanceAllowRelative = new Set([
     'tools/docs/doc-claim.mjs',
     'tools/docs/check-doc-claim.mjs',
     'tests/tools/doc-claim.test.mjs',
+    'tests/tools/doc-claim-staleness-mutation.test.mjs',
+    'tools/docs/doc-claim-staleness-mutation/layers.mjs',
+    'tools/docs/doc-claim-staleness-mutation/fixture.mjs',
+    'tools/docs/doc-claim-staleness-mutation/catalog.mjs',
+    'tools/docs/doc-claim-staleness-mutation/runner.mjs',
+    'tools/docs/doc-claim-staleness-mutation/governance.mjs',
+    'tools/docs/doc-claim-staleness-mutation/index.mjs',
     'docs/development/doc-claim-protocol.md'
 ])
 
