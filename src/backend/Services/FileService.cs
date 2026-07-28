@@ -1382,8 +1382,8 @@ public sealed partial class FileService : IFileService
 
     private static UploadSessionRecord? DecodeSession(byte[] bytes)
     {
-        const int headerLength = 53 + SHA256.HashSizeInBytes;
-        if (bytes.Length < headerLength ||
+        const int HeaderLength = 53 + SHA256.HashSizeInBytes;
+        if (bytes.Length < HeaderLength ||
             BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(0, 4)) != UploadSessionMagic ||
             bytes[4] != UploadSessionVersion)
         {
@@ -1397,7 +1397,7 @@ public sealed partial class FileService : IFileService
         }
 
         byte[] uploadTokenSha256 = bytes.AsSpan(53, SHA256.HashSizeInBytes).ToArray();
-        int offset = headerLength;
+        int offset = HeaderLength;
 
         try
         {
