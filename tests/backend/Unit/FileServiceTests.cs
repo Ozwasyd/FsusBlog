@@ -240,9 +240,11 @@ public sealed class FileServiceTests
             Task<Result<UploadStatusDto>> query = service.GetUploadStatusAsync(otherAdmin);
             Task<Result<bool>> abort = service.AbortUploadAsync(otherAdmin);
             await Task.WhenAll(query, abort);
+            Result<UploadStatusDto> queryResult = await query;
+            Result<bool> abortResult = await abort;
 
-            Assert.Equal(ErrorCode.NotFound, query.Result.Error.Code);
-            Assert.Equal(ErrorCode.NotFound, abort.Result.Error.Code);
+            Assert.Equal(ErrorCode.NotFound, queryResult.Error.Code);
+            Assert.Equal(ErrorCode.NotFound, abortResult.Error.Code);
             Assert.True((await service.GetUploadStatusAsync(owner)).IsSuccess);
         }
         finally

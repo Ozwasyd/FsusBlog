@@ -541,7 +541,7 @@ public sealed class SpaAssetManifestServiceTests
     }
 
     [Fact]
-    public void Production_SameGenerationLoadingServesOldSnapshotWithoutBlockingReaders()
+    public async Task Production_SameGenerationLoadingServesOldSnapshotWithoutBlockingReaders()
     {
         string root = CreateTempDirectory();
         using var loading = new ManualResetEventSlim();
@@ -579,7 +579,7 @@ public sealed class SpaAssetManifestServiceTests
             Assert.False(reload.IsCompleted);
 
             releaseLoad.Set();
-            Assert.Equal("ready", reload.GetAwaiter().GetResult().State);
+            Assert.Equal("ready", (await reload).State);
         }
         finally
         {
