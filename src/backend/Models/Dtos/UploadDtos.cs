@@ -22,6 +22,8 @@ public sealed record class UploadInitRequestDto
 internal sealed record class UploadSessionRecord
 {
     public string UploadId { get; init; } = string.Empty;
+    public long OwnerAdminPrincipalId { get; init; }
+    public byte[] UploadTokenSha256 { get; init; } = [];
     public string FileName { get; init; } = string.Empty;
     public string MimeType { get; init; } = string.Empty;
     public string TargetFormat { get; init; } = string.Empty;
@@ -37,7 +39,6 @@ internal sealed record class UploadSessionRecord
     {
         get; init;
     }
-    public string UploadToken { get; init; } = string.Empty;
     public string? Sha256
     {
         get; init;
@@ -66,3 +67,8 @@ internal sealed record class UploadSessionRecord
         get; set;
     }
 }
+
+public readonly record struct UploadSessionAccess(
+    string UploadId,
+    long OwnerAdminPrincipalId,
+    string? UploadToken);

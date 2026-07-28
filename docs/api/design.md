@@ -368,7 +368,7 @@ TOTP 在匿名身份模式下只作为敏感操作 step-up。TOTP issuer account
 | 安全强制 | `X-Fsus-Subscription-Proof` | 请求 | 公开站点订阅退订的一次性 opaque proof；必须由服务端 proof API 签发并绑定 `SHA256(normalizedEmail)` 与归一化 channel，`DELETE /api/binary/subscriptions` 消费，缺失、重放、过期或绑定不匹配返回 428。 |
 | 安全强制 | `X-Fsus-Device-Fp` | 请求 | 认证、HumanReadProof、审计和风险信号使用的设备指纹；不得包含可逆身份信息。 |
 | 安全强制 | `X-Fsus-Csrf-Token` | 请求 | ASP.NET antiforgery header 名；cookie 凭据的状态变更请求同时受同源 `Origin` / `Referer` guard 保护。 |
-| 上传会话 | `X-Fsus-Upload-Token` | 请求 | `/api/binary/upload/{uploadId}/part` 与 `/complete` 必须提交的会话 token，由 `/init` 响应返回并绑定 upload session。 |
+| 上传会话 | `X-Fsus-Upload-Token` | 请求 | 除 `/init` 外的所有 `/api/binary/upload/{uploadId}` 操作都必须提交的会话 capability token；它只由 `/init` 响应返回一次，并与创建该会话的 admin principal 共同授权。 |
 | 通知通道 | `X-Fsus-Notification-Stream-Protocol` | 请求 | notification preflight fallback 协议头；正式 WebSocket 仍使用 `Sec-WebSocket-Protocol: fsus-aeds.v2`。 |
 | 通知通道 | `X-Fsus-Notification-Stream-Error-Code` | 响应 | notification preflight / WebSocket 握手失败业务码，例如 `account_blocked`、`auth_failed`、`pow_failed`、`risk_challenge_required`。 |
 | 通知通道 | `X-Fsus-Notification-Stream-Status-Code` | 响应 | notification preflight / WebSocket 握手失败映射的 HTTP status。 |
@@ -751,7 +751,7 @@ SEO 预览是作者工作台内的发布前质量门，不是新路由模型：�
 
 资产库是作者工作台内的复用索引，不是公开文件浏览 API。索引只记录 `/uploads/illustration/*` 的正文图片和文章封面、alt text、来源文章、hash 与引用计数；重建操作先把失去引用的行标成 `referenceCount=0`，作者确认后再通过孤儿清理删除资产库记录。孤儿清理不删除上传文件本体；物理删除必须通过独立的文件删除动作和二次确认完成。
 
-分片上传会话的 `uploadId` 是服务端分配的会话 id，不是客户端可构造路径；`UploadInit` 还会返回 `uploadToken`，后续 `part` 和 `complete` 必须用 `X-Fsus-Upload-Token` 提交该 token。所有 `/api/binary/upload/{uploadId}` 后续动作只接受可规范化为 32 位 GUID `N` 格式的值；服务层在进入 session lock、manifest、parts 和 abort cleanup 前统一规范化，并用 `.upload-sessions` full path containment 作为最终文件系统边界。非法 `uploadId` 或缺失/错误 upload token 只能得到 validation/not found/forbidden，不得触发目录遍历、递归删除或物理路径泄露。上传 allow-list 只覆盖 jpg/jpeg/png/gif/webp 和 favicon ICO 成品；SVG 上传必须等独立 sanitizer 设计完成后才能加入。
+分片上传是唯一的上传协议；`uploadId` 是服务端分配的会话 id，不是客户端可构造路径。`UploadInit` 只返回一次 `uploadToken`，而后 status、part map、part、complete 与 abort 都必须以 `X-Fsus-Upload-Token` 和创建者 admin principal 同时授权。所有 `/api/binary/upload/{uploadId}` 后续动作只接受可规范化为 32 位 GUID `N` 格式的值；服务层在 session lock 内只读取一次 v4 manifest，统一校验 owner 和 token hash，并用 `.upload-sessions` full path containment 作为最终文件系统边界。非法 `uploadId` 返回 validation error；不存在、过期、旧/损坏会话、owner 不符和缺失/错误 token 一律返回 `404 UPLOAD_SESSION_NOT_FOUND`，不得触发目录遍历、递归删除或物理路径泄露。manifest 仅存 token 的 SHA-256，比较使用固定时间字节比较；旧会话不迁移且首次发现即删除。上传 allow-list 只覆盖 jpg/jpeg/png/gif/webp 和 favicon ICO 成品；SVG 上传必须等独立 sanitizer 设计完成后才能加入。
 
 ### 评论治理
 

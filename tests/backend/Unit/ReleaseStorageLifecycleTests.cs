@@ -673,39 +673,6 @@ public sealed class ReleaseStorageLifecycleTests
     }
 
     [Fact]
-    public async Task DirectUpload_CommitsFromInstanceTempWithoutPartialOrDuplicateFinalFile()
-    {
-        string root = CreateTempDirectory();
-        try
-        {
-            var service = CreateFileService(root);
-            ReleaseStoragePaths paths = ReleaseStorageTestPaths.Create(root);
-            byte[] payload = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 4, 3, 2, 1];
-
-            FileUploadResult result = await service.UploadImageAsync(CreateFormFile(payload, "sample.png"));
-
-            Assert.True(result.Success);
-            Assert.NotNull(result.PhysicalPath);
-            Assert.Equal(payload, await File.ReadAllBytesAsync(result.PhysicalPath!));
-            string illustrationRoot = Path.Combine(paths.PublicAssetRoot, "illustration");
-            Assert.Single(Directory.EnumerateFiles(illustrationRoot, "*.png", SearchOption.TopDirectoryOnly));
-            Assert.Empty(Directory.EnumerateFiles(
-                paths.UploadCommitRoot,
-                "*.tmp",
-                SearchOption.AllDirectories));
-            Assert.False(Directory.Exists(Path.Combine(illustrationRoot, ".incoming")));
-            Assert.DoesNotContain(
-                Path.GetFullPath(paths.PublicAssetRoot),
-                Path.GetFullPath(paths.UploadCommitRoot),
-                StringComparison.Ordinal);
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
-        }
-    }
-
-    [Fact]
     public async Task ChunkCompletion_DifferentExistingHashFailsClosedWithoutOverwrite()
     {
         string root = CreateTempDirectory();

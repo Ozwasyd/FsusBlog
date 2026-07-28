@@ -1513,7 +1513,7 @@ generatedAt=UTC ticks encoded by the SearchIndexUpdated POD
 
 源码：`src/shared/Contracts/Outputs/ServerResponseContracts.cs`
 
-所有上传端点在 `/api/binary/upload/` 路径下，需要 admin principal + `article.write` 权限。`uploadId` 由服务端生成并返回，wire 格式固定为 32 位 GUID `N` 格式；status、part map、part upload、complete 和 abort 路由只接受该形态并规范化为小写 canonical 值，非法值返回 validation error，不会被当作文件系统路径继续解析。`/part` 和 `/complete` 还必须携带 `X-Fsus-Upload-Token`，其值来自初始化响应的 `uploadToken`。`/part` 必须携带明确 `Content-Length`，chunked transfer-encoding 返回 411；上传总大小上限为 20 MiB，Kestrel request body limit 必须覆盖该上限和协议开销。允许的目标图片格式为 jpg/jpeg/png/gif/webp，品牌图标生成允许额外上传 `ico` favicon 成品；AVIF 与 SVG 在具备像素维度、metadata bomb、decoder 风险防护和 SVG 清洗前不属于 upload allow-list。`.upload-sessions` manifest 和 part 文件只允许 owner read/write，manifest 使用随机 sibling temp path 后原子发布。
+所有上传端点在 `/api/binary/upload/` 路径下，需要 admin principal + `article.write` 权限。分片上传是唯一入口，`uploadId` 由服务端生成并返回，wire 格式固定为 32 位 GUID `N` 格式；status、part map、part upload、complete 和 abort 路由都必须携带 `X-Fsus-Upload-Token`，并与创建会话的 admin principal 同时匹配。非法 id 返回 validation error；不存在、过期、旧/损坏 manifest、owner 不符以及缺失或错误 token 都返回同一个 `404 UPLOAD_SESSION_NOT_FOUND`。服务层在 session lock 内读取一次且仅接受 v4 manifest；manifest 保存 token 的 SHA-256 而非原 token，使用固定时间哈希比较。旧版本与损坏会话会删除而不迁移。`/part` 必须携带明确 `Content-Length`，chunked transfer-encoding 返回 411；上传总大小上限为 20 MiB，Kestrel request body limit 必须覆盖该上限和协议开销。允许的目标图片格式为 jpg/jpeg/png/gif/webp，品牌图标生成允许额外上传 `ico` favicon 成品；AVIF 与 SVG 在具备像素维度、metadata bomb、decoder 风险防护和 SVG 清洗前不属于 upload allow-list。`.upload-sessions` manifest 和 part 文件只允许 owner read/write，manifest 使用随机 sibling temp path 后原子发布。
 
 ### `UploadInitDto`（初始化响应）
 

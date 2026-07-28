@@ -134,6 +134,7 @@ public sealed class UploadSessionCleanupWorker : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         using PeriodicTimer timer = new(s_scanInterval, _timeProvider);
+        await RunCleanupUntilSignalsFlushedAsync(stoppingToken).ConfigureAwait(false);
         Task<bool> timerTask = timer.WaitForNextTickAsync(stoppingToken).AsTask();
         Task<bool> signalTask = _queue.Reader.WaitToReadAsync(stoppingToken).AsTask();
 

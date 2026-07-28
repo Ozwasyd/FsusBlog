@@ -49,19 +49,13 @@ public sealed class UploadBoundaryTests
         using HttpResponseMessage response = await client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        await files.DidNotReceiveWithAnyArgs().ValidateUploadSessionTokenAsync(default!, default, default);
-        await files.DidNotReceiveWithAnyArgs().UploadPartAsync(default!, default, default, default!, default, default);
+        await files.DidNotReceiveWithAnyArgs().UploadPartAsync(default, default, default, default!, default, default);
     }
 
     [Fact]
     public async Task UploadPartTestServer_RequiresLengthAndRejectsChunkedTransfer()
     {
         IFileService files = Substitute.For<IFileService>();
-        files.ValidateUploadSessionTokenAsync(
-                Arg.Any<string>(),
-                Arg.Any<string?>(),
-                Arg.Any<CancellationToken>())
-            .Returns(true);
         await using WebApplication server = await CreateServerAsync(files);
         using HttpClient client = server.GetTestClient();
         using var content = new StreamContent(new NonSeekableReadStream([1, 2, 3]));
@@ -72,18 +66,13 @@ public sealed class UploadBoundaryTests
         using HttpResponseMessage response = await client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.LengthRequired, response.StatusCode);
-        await files.DidNotReceiveWithAnyArgs().UploadPartAsync(default!, default, default, default!, default, default);
+        await files.DidNotReceiveWithAnyArgs().UploadPartAsync(default, default, default, default!, default, default);
     }
 
     [Fact]
     public async Task UploadPartHandler_RejectsDeclaredBodyAboveLimitBeforeStorage()
     {
         IFileService files = Substitute.For<IFileService>();
-        files.ValidateUploadSessionTokenAsync(
-                Arg.Any<string>(),
-                Arg.Any<string?>(),
-                Arg.Any<CancellationToken>())
-            .Returns(true);
         var context = new DefaultHttpContext();
         context.Request.ContentType = "application/octet-stream";
         context.Request.ContentLength = FileService.UploadRequestBodyLimitBytes + 1;
@@ -102,7 +91,7 @@ public sealed class UploadBoundaryTests
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status413PayloadTooLarge, context.Response.StatusCode);
-        await files.DidNotReceiveWithAnyArgs().UploadPartAsync(default!, default, default, default!, default, default);
+        await files.DidNotReceiveWithAnyArgs().UploadPartAsync(default, default, default, default!, default, default);
     }
 
     [Fact]
@@ -121,7 +110,7 @@ public sealed class UploadBoundaryTests
                 TotalBytes = 1024,
                 ChunkSize = 1024
             });
-            Result<bool> traversal = await service.AbortUploadAsync("..%2foutside");
+            Result<bool> traversal = await service.AbortUploadAsync(new UploadSessionAccess("..%2foutside", 1, "token"));
 
             Assert.False(avif.IsSuccess);
             Assert.Equal(ErrorCode.Validation, avif.Error.Code);
@@ -141,7 +130,7 @@ public sealed class UploadBoundaryTests
         try
         {
             var service = new FileService(ReleaseStorageTestPaths.Create(root), NullLogger<FileService>.Instance);
-            Result<UploadInitDto> init = await service.InitUploadSessionAsync(new UploadInitRequestDto
+            Result<UploadInitDto> init = await service.InitUploadSessionAsync(1, new UploadInitRequestDto
             {
                 FileName = "payload.png",
                 MimeType = "image/png",
@@ -158,7 +147,7 @@ public sealed class UploadBoundaryTests
             try
             {
                 Result<UploadPartAckDto> canceled = await service.UploadPartAsync(
-                    initialized.UploadId,
+                    new UploadSessionAccess(initialized.UploadId, 1, initialized.UploadToken),
                     0,
                     0,
                     part,
@@ -171,7 +160,7 @@ public sealed class UploadBoundaryTests
                 // The service is also allowed to preserve the cancellation signal.
             }
 
-            Result<UploadStatusDto> status = await service.GetUploadStatusAsync(initialized.UploadId);
+            Result<UploadStatusDto> status = await service.GetUploadStatusAsync(new UploadSessionAccess(initialized.UploadId, 1, initialized.UploadToken));
             Assert.True(status.IsSuccess);
             Assert.Equal(0, status.Value!.UploadedBytes);
             string incoming = ReleaseStorageTestPaths.Create(root).UploadCommitRoot;

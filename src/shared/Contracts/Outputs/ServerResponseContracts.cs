@@ -1402,33 +1402,6 @@ public readonly record struct CommentRemovedPayload(
 #pragma warning restore IDE1006
 
 /// <summary>
-/// Defines the API output contract represented by <c>FileUploadResult</c>.
-/// </summary>
-public record struct FileUploadResult
-{
-    public bool Success
-    {
-        get; set;
-    }
-    public string Message { get; set; } = string.Empty;
-    public string? RelativeUrl
-    {
-        get; set;
-    }
-    public string? Url
-    {
-        get; set;
-    }
-    public string? PhysicalPath
-    {
-        get; set;
-    }
-    public FileUploadResult()
-    {
-    }
-}
-
-/// <summary>
 /// Defines the API output contract represented by <c>FileUploadOutputDto</c>.
 /// </summary>
 public readonly record struct FileUploadOutputDto(string Url, string RelativeUrl, string Message);

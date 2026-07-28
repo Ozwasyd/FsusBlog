@@ -54,27 +54,34 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "上传初始化请求非法"), aeds);
             }
 
-            var result = await fileService.InitUploadSessionAsync(ToServerDto(dto), cancellationToken);
+            if (!httpContext.User.TryGetAdminPrincipalId(out long adminPrincipalId))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "UNAUTHORIZED"), aeds, StatusCodes.Status401Unauthorized);
+            }
+
+            var result = await fileService.InitUploadSessionAsync(adminPrincipalId, ToServerDto(dto), cancellationToken);
             return BinaryResults.FromResult(result, aeds, AedsFrameType.UploadInit, static (value, writer) => PodBinaryCodec.WriteUploadInit(value, writer));
         });
 
         uploadGroup.MapGet("/{uploadId}/status", static async Task<BinaryFrameResult> (
             string uploadId,
+            HttpContext httpContext,
             IFileService fileService,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
-            var result = await fileService.GetUploadStatusAsync(uploadId, cancellationToken);
+            var result = await fileService.GetUploadStatusAsync(CreateUploadAccess(uploadId, httpContext), cancellationToken);
             return BinaryResults.FromResult(result, aeds, AedsFrameType.UploadStatus, static (value, writer) => PodBinaryCodec.WriteUploadStatus(value, writer));
         });
 
         uploadGroup.MapGet("/{uploadId}/status/parts", static async Task<BinaryFrameResult> (
             string uploadId,
+            HttpContext httpContext,
             IFileService fileService,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
-            var result = await fileService.GetUploadPartMapAsync(uploadId, cancellationToken);
+            var result = await fileService.GetUploadPartMapAsync(CreateUploadAccess(uploadId, httpContext), cancellationToken);
             return BinaryResults.FromResult(result, aeds, AedsFrameType.UploadPartMap, static (value, writer) => PodBinaryCodec.WriteUploadPartMap(value, writer));
         });
 
@@ -99,28 +106,23 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(payload.Error, aeds);
             }
 
-            string uploadToken = ReadUploadToken(httpContext);
-            if (!await fileService.ValidateUploadSessionTokenAsync(uploadId, uploadToken, cancellationToken))
-            {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Forbidden, "UPLOAD_TOKEN_REQUIRED"), aeds, StatusCodes.Status403Forbidden);
-            }
-
             if (!PodBinaryCodec.TryDecodeUploadCompleteRequest(payload.Payload, out var dto))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "上传完成请求非法"), aeds);
             }
 
-            var result = await fileService.CompleteUploadAsync(uploadId, dto.Sha256, cancellationToken);
+            var result = await fileService.CompleteUploadAsync(CreateUploadAccess(uploadId, httpContext), dto.Sha256, cancellationToken);
             return BinaryResults.FromResult(result, aeds, AedsFrameType.UploadComplete, static (value, writer) => PodBinaryCodec.WriteUploadComplete(value, writer));
         });
 
         uploadGroup.MapDelete("/{uploadId}", static async Task<BinaryFrameResult> (
             string uploadId,
+            HttpContext httpContext,
             IFileService fileService,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
-            var result = await fileService.AbortUploadAsync(uploadId, cancellationToken);
+            var result = await fileService.AbortUploadAsync(CreateUploadAccess(uploadId, httpContext), cancellationToken);
             return result.IsSuccess
                 ? BinaryResults.Frame(
                     aeds,
@@ -142,12 +144,6 @@ public static partial class BinaryEndpoints
         if (!IsBinaryContentType(httpContext.Request.ContentType))
         {
             return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "上传分片必须使用 application/octet-stream"), aeds);
-        }
-
-        string uploadToken = ReadUploadToken(httpContext);
-        if (!await fileService.ValidateUploadSessionTokenAsync(uploadId, uploadToken, cancellationToken))
-        {
-            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Forbidden, "UPLOAD_TOKEN_REQUIRED"), aeds, StatusCodes.Status403Forbidden);
         }
 
         if (!int.TryParse(httpContext.Request.Headers[UploadPartHeader], out int partNumber))
@@ -185,9 +181,15 @@ public static partial class BinaryEndpoints
             ContentType = BinaryContentType
         };
 
-        var result = await fileService.UploadPartAsync(uploadId, partNumber, offset, file, payloadHash, cancellationToken);
+        var result = await fileService.UploadPartAsync(CreateUploadAccess(uploadId, httpContext), partNumber, offset, file, payloadHash, cancellationToken);
         return BinaryResults.FromResult(result, aeds, AedsFrameType.UploadPartAck, static (value, writer) => PodBinaryCodec.WriteUploadPartAck(value, writer));
     }
+
+    private static UploadSessionAccess CreateUploadAccess(string uploadId, HttpContext httpContext)
+        => new(
+            uploadId,
+            httpContext.User.TryGetAdminPrincipalId(out long adminPrincipalId) ? adminPrincipalId : 0,
+            ReadUploadToken(httpContext));
 
     private static string NormalizeUploadIdForResponse(string uploadId)
         => Guid.TryParseExact(uploadId.Trim(), "N", out Guid parsed)

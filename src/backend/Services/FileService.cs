@@ -28,7 +28,7 @@ public sealed partial class FileService : IFileService
     public const long MaxUploadBytes = 20 * 1024 * 1024;
     public const long UploadRequestBodyLimitBytes = MaxUploadBytes + 1024 * 1024;
     private const uint UploadSessionMagic = 0x53505546; // FUPS
-    private const byte UploadSessionVersion = 3;
+    private const byte UploadSessionVersion = 4;
     private const int ManifestFlushPartInterval = 8;
     private const string WorkingUploadFileName = "upload.tmp";
     private const string UploadPartBitmapFileName = "parts.bitmap";
@@ -86,67 +86,14 @@ public sealed partial class FileService : IFileService
 
     internal ReleaseStoragePaths StoragePaths => _storagePaths;
 
-    public async Task<FileUploadResult> UploadImageAsync(IFormFile file)
-    {
-        if (file == null || file.Length == 0)
-        {
-            return new FileUploadResult { Success = false, Message = "文件为空" };
-        }
-
-        string extension = NormalizeExtension(Path.GetExtension(file.FileName));
-        if (!IsAllowedExtension(extension))
-        {
-            return new FileUploadResult { Success = false, Message = "格式不支持" };
-        }
-
-        if (!await ValidateImageSignatureAsync(file, extension))
-        {
-            return new FileUploadResult { Success = false, Message = "图片签名不匹配" };
-        }
-
-        string fileName = $"{Guid.NewGuid():N}{extension}";
-        string filePath = Path.Combine(_folderPath, fileName);
-        string relativeUrl = $"{_cleanSubFolderWeb}/{fileName}";
-        string commitTempRoot = GetUploadCommitTempRoot();
-        string tempPath = Path.Combine(commitTempRoot, $"{fileName}.{Path.GetRandomFileName()}.tmp");
-
-        return await BoundaryExecutor.ExecuteValueAsync(
-            async () =>
-            {
-                EnsureRestrictedDirectory(commitTempRoot);
-                try
-                {
-                    await using (var stream = new FileStream(tempPath, CreatePrivateWriteOptions(FileMode.CreateNew)))
-                    {
-                        await file.CopyToAsync(stream);
-                        await stream.FlushAsync();
-                        stream.Flush(flushToDisk: true);
-                    }
-
-                    File.Move(tempPath, filePath, overwrite: false);
-
-                    return new FileUploadResult
-                    {
-                        Success = true,
-                        Url = relativeUrl,
-                        RelativeUrl = relativeUrl,
-                        PhysicalPath = filePath
-                    };
-                }
-                finally
-                {
-                    TryDeleteFile(tempPath);
-                }
-            },
-            _ => new FileUploadResult { Success = false, Message = "写入失败" },
-            _logger,
-            $"file-upload:{filePath}",
-            LogLevel.Error);
-    }
-
-    public async Task<Result<UploadInitDto>> InitUploadSessionAsync(UploadInitRequestDto dto, CancellationToken cancellationToken = default)
+    public async Task<Result<UploadInitDto>> InitUploadSessionAsync(long ownerAdminPrincipalId, UploadInitRequestDto dto, CancellationToken cancellationToken = default)
     {
         RequestUploadSessionCleanup();
+
+        if (ownerAdminPrincipalId <= 0)
+        {
+            return Result<UploadInitDto>.Failure(ErrorCode.Unauthorized, "管理员主体非法");
+        }
 
         if (string.IsNullOrWhiteSpace(dto.FileName))
         {
@@ -183,7 +130,8 @@ public sealed partial class FileService : IFileService
         var record = new UploadSessionRecord
         {
             UploadId = uploadId,
-            UploadToken = uploadToken,
+            OwnerAdminPrincipalId = ownerAdminPrincipalId,
+            UploadTokenSha256 = SHA256.HashData(Encoding.UTF8.GetBytes(uploadToken)),
             FileName = Path.GetFileName(dto.FileName),
             MimeType = string.IsNullOrWhiteSpace(dto.MimeType) ? $"image/{targetFormat}" : dto.MimeType.Trim(),
             TargetFormat = targetFormat,
@@ -232,23 +180,24 @@ public sealed partial class FileService : IFileService
             ChunkSize = record.ChunkSize,
             TotalParts = record.TotalParts,
             ExpiresAt = record.ExpiresAt,
-            UploadToken = record.UploadToken
+            UploadToken = uploadToken
         });
     }
 
-    public async Task<Result<UploadStatusDto>> GetUploadStatusAsync(string uploadId, CancellationToken cancellationToken = default)
+    public async Task<Result<UploadStatusDto>> GetUploadStatusAsync(UploadSessionAccess access, CancellationToken cancellationToken = default)
     {
         RequestUploadSessionCleanup();
 
-        if (!TryNormalizeUploadId(uploadId, out string normalizedUploadId))
+        if (!TryNormalizeUploadId(access.UploadId, out string normalizedUploadId))
         {
             return Result<UploadStatusDto>.Failure(ErrorCode.Validation, "上传会话标识非法");
         }
 
-        var record = await LoadSessionAsync(normalizedUploadId, cancellationToken);
+        await using SessionLockLease sessionLock = await AcquireSessionLockAsync(normalizedUploadId, cancellationToken);
+        var record = await LoadAuthorizedSessionAsync(access with { UploadId = normalizedUploadId }, cancellationToken);
         if (record is null)
         {
-            return Result<UploadStatusDto>.Failure(ErrorCode.NotFound, "上传会话不存在或已过期");
+            return Result<UploadStatusDto>.Failure(ErrorCode.NotFound, "UPLOAD_SESSION_NOT_FOUND");
         }
 
         long uploadedBytes = await ResolveUploadedBytesAsync(normalizedUploadId, record, cancellationToken);
@@ -272,19 +221,20 @@ public sealed partial class FileService : IFileService
         });
     }
 
-    public async Task<Result<UploadPartMapDto>> GetUploadPartMapAsync(string uploadId, CancellationToken cancellationToken = default)
+    public async Task<Result<UploadPartMapDto>> GetUploadPartMapAsync(UploadSessionAccess access, CancellationToken cancellationToken = default)
     {
         RequestUploadSessionCleanup();
 
-        if (!TryNormalizeUploadId(uploadId, out string normalizedUploadId))
+        if (!TryNormalizeUploadId(access.UploadId, out string normalizedUploadId))
         {
             return Result<UploadPartMapDto>.Failure(ErrorCode.Validation, "上传会话标识非法");
         }
 
-        var record = await LoadSessionAsync(normalizedUploadId, cancellationToken);
+        await using SessionLockLease sessionLock = await AcquireSessionLockAsync(normalizedUploadId, cancellationToken);
+        var record = await LoadAuthorizedSessionAsync(access with { UploadId = normalizedUploadId }, cancellationToken);
         if (record is null)
         {
-            return Result<UploadPartMapDto>.Failure(ErrorCode.NotFound, "上传会话不存在或已过期");
+            return Result<UploadPartMapDto>.Failure(ErrorCode.NotFound, "UPLOAD_SESSION_NOT_FOUND");
         }
 
         return Result<UploadPartMapDto>.Success(new UploadPartMapDto
@@ -294,27 +244,8 @@ public sealed partial class FileService : IFileService
         });
     }
 
-    public async Task<bool> ValidateUploadSessionTokenAsync(string uploadId, string? uploadToken, CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(uploadToken) ||
-            !TryNormalizeUploadId(uploadId, out string normalizedUploadId))
-        {
-            return false;
-        }
-
-        var record = await LoadSessionAsync(normalizedUploadId, cancellationToken);
-        if (record is null || string.IsNullOrWhiteSpace(record.UploadToken))
-        {
-            return false;
-        }
-
-        byte[] expected = Encoding.UTF8.GetBytes(record.UploadToken);
-        byte[] provided = Encoding.UTF8.GetBytes(uploadToken.Trim());
-        return expected.Length == provided.Length && CryptographicOperations.FixedTimeEquals(expected, provided);
-    }
-
     public async Task<Result<UploadPartAckDto>> UploadPartAsync(
-        string uploadId,
+        UploadSessionAccess access,
         int partNumber,
         long offset,
         IFormFile part,
@@ -326,7 +257,7 @@ public sealed partial class FileService : IFileService
             return Result<UploadPartAckDto>.Failure(ErrorCode.Validation, "上传分片为空");
         }
 
-        if (!TryNormalizeUploadId(uploadId, out string normalizedUploadId))
+        if (!TryNormalizeUploadId(access.UploadId, out string normalizedUploadId))
         {
             return Result<UploadPartAckDto>.Failure(ErrorCode.Validation, "上传会话标识非法");
         }
@@ -334,11 +265,11 @@ public sealed partial class FileService : IFileService
         await using SessionLockLease sessionLock = await AcquireSessionLockAsync(normalizedUploadId, cancellationToken);
         try
         {
-            var record = await LoadSessionAsync(normalizedUploadId, cancellationToken);
+            var record = await LoadAuthorizedSessionAsync(access with { UploadId = normalizedUploadId }, cancellationToken);
             if (record is null)
             {
                 RetireSessionLock(normalizedUploadId);
-                return Result<UploadPartAckDto>.Failure(ErrorCode.NotFound, "上传会话不存在或已过期");
+                return Result<UploadPartAckDto>.Failure(ErrorCode.NotFound, "UPLOAD_SESSION_NOT_FOUND");
             }
 
             if (partNumber < 0 || partNumber >= record.TotalParts)
@@ -440,9 +371,9 @@ public sealed partial class FileService : IFileService
         }
     }
 
-    public async Task<Result<UploadCompleteDto>> CompleteUploadAsync(string uploadId, string? sha256, CancellationToken cancellationToken = default)
+    public async Task<Result<UploadCompleteDto>> CompleteUploadAsync(UploadSessionAccess access, string? sha256, CancellationToken cancellationToken = default)
     {
-        if (!TryNormalizeUploadId(uploadId, out string normalizedUploadId))
+        if (!TryNormalizeUploadId(access.UploadId, out string normalizedUploadId))
         {
             return Result<UploadCompleteDto>.Failure(ErrorCode.Validation, "上传会话标识非法");
         }
@@ -450,20 +381,11 @@ public sealed partial class FileService : IFileService
         await using SessionLockLease sessionLock = await AcquireSessionLockAsync(normalizedUploadId, cancellationToken);
         try
         {
-            var record = await LoadSessionAsync(normalizedUploadId, cancellationToken);
+            var record = await LoadAuthorizedSessionAsync(access with { UploadId = normalizedUploadId }, cancellationToken);
             if (record is null)
             {
-                CommittedUploadResolution committed = await TryResolveCommittedUploadAsync(
-                    normalizedUploadId,
-                    NormalizeHash(sha256),
-                    cancellationToken);
                 RetireSessionLock(normalizedUploadId);
-                if (committed.Found)
-                {
-                    return committed.Result;
-                }
-
-                return Result<UploadCompleteDto>.Failure(ErrorCode.NotFound, "上传会话不存在或已过期");
+                return Result<UploadCompleteDto>.Failure(ErrorCode.NotFound, "UPLOAD_SESSION_NOT_FOUND");
             }
 
             IReadOnlyList<int> uploadedParts = UploadedParts(record);
@@ -552,7 +474,10 @@ public sealed partial class FileService : IFileService
                 return commit;
             }
 
-            await DeleteSessionDirectoryAsync(normalizedUploadId, record.ExpiresAt);
+            record.Status = "completed";
+            record.ExpiresAt = DateTime.UtcNow.Add(s_sessionTtl);
+            UpdateManifestCheckpoint(record);
+            await SaveSessionAsync(record, cancellationToken);
             return commit;
         }
         finally
@@ -796,19 +721,19 @@ public sealed partial class FileService : IFileService
         return ranges;
     }
 
-    public async Task<Result<bool>> AbortUploadAsync(string uploadId, CancellationToken cancellationToken = default)
+    public async Task<Result<bool>> AbortUploadAsync(UploadSessionAccess access, CancellationToken cancellationToken = default)
     {
-        if (!TryNormalizeUploadId(uploadId, out string normalizedUploadId))
+        if (!TryNormalizeUploadId(access.UploadId, out string normalizedUploadId))
         {
             return Result<bool>.Failure(ErrorCode.Validation, "上传会话标识非法");
         }
 
         await using SessionLockLease sessionLock = await AcquireSessionLockAsync(normalizedUploadId, cancellationToken);
-        string sessionPath = GetSessionPath(normalizedUploadId);
-        if (!Directory.Exists(sessionPath))
+        UploadSessionRecord? record = await LoadAuthorizedSessionAsync(access with { UploadId = normalizedUploadId }, cancellationToken);
+        if (record is null)
         {
             RetireSessionLock(normalizedUploadId);
-            return Result<bool>.Failure(ErrorCode.NotFound, "上传会话不存在");
+            return Result<bool>.Failure(ErrorCode.NotFound, "UPLOAD_SESSION_NOT_FOUND");
         }
 
         await DeleteSessionDirectoryAsync(normalizedUploadId);
@@ -1280,10 +1205,38 @@ public sealed partial class FileService : IFileService
 
         if (UsesRandomAccessWorkingFile(record))
         {
-            await RefreshUploadedPartsFromBitmapSidecarAsync(uploadId, record, cancellationToken);
+            if (!await RefreshUploadedPartsFromBitmapSidecarAsync(uploadId, record, cancellationToken))
+            {
+                await DeleteSessionDirectoryAsync(uploadId, record.ExpiresAt);
+                return null;
+            }
         }
 
         return record;
+    }
+
+    private async Task<UploadSessionRecord?> LoadAuthorizedSessionAsync(
+        UploadSessionAccess access,
+        CancellationToken cancellationToken)
+    {
+        UploadSessionRecord? record = await LoadSessionAsync(access.UploadId, cancellationToken);
+        if (record is null ||
+            access.OwnerAdminPrincipalId <= 0 ||
+            string.IsNullOrWhiteSpace(access.UploadToken) ||
+            record.UploadTokenSha256.Length != SHA256.HashSizeInBytes)
+        {
+            return null;
+        }
+
+        Span<byte> expectedOwner = stackalloc byte[sizeof(long)];
+        Span<byte> suppliedOwner = stackalloc byte[sizeof(long)];
+        BinaryPrimitives.WriteInt64LittleEndian(expectedOwner, record.OwnerAdminPrincipalId);
+        BinaryPrimitives.WriteInt64LittleEndian(suppliedOwner, access.OwnerAdminPrincipalId);
+        byte[] suppliedTokenHash = SHA256.HashData(Encoding.UTF8.GetBytes(access.UploadToken.Trim()));
+        return CryptographicOperations.FixedTimeEquals(expectedOwner, suppliedOwner)
+            && CryptographicOperations.FixedTimeEquals(record.UploadTokenSha256, suppliedTokenHash)
+            ? record
+            : null;
     }
 
     private async Task SaveSessionAsync(UploadSessionRecord record, CancellationToken cancellationToken)
@@ -1349,26 +1302,33 @@ public sealed partial class FileService : IFileService
 
     private async Task<UploadSessionRecord?> ReadSessionAsync(string manifestPath, CancellationToken cancellationToken)
     {
-        byte[] payload = await File.ReadAllBytesAsync(manifestPath, cancellationToken);
-        return DecodeSession(payload);
+        try
+        {
+            byte[] payload = await File.ReadAllBytesAsync(manifestPath, cancellationToken);
+            return DecodeSession(payload);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     private static byte[] EncodeSession(UploadSessionRecord record)
     {
-        IReadOnlyList<int> uploadedParts = UsesRandomAccessWorkingFile(record)
-            ? Array.Empty<int>()
-            : UploadedParts(record);
         byte[] uploadId = Encoding.UTF8.GetBytes(record.UploadId);
         byte[] fileName = Encoding.UTF8.GetBytes(record.FileName);
         byte[] mimeType = Encoding.UTF8.GetBytes(record.MimeType);
         byte[] targetFormat = Encoding.UTF8.GetBytes(record.TargetFormat);
         byte[] sha256 = Encoding.UTF8.GetBytes(record.Sha256 ?? string.Empty);
         byte[] status = Encoding.UTF8.GetBytes(record.Status);
-        byte[] uploadToken = Encoding.UTF8.GetBytes(record.UploadToken);
         byte[] workingFileName = Encoding.UTF8.GetBytes(record.WorkingFileName);
         byte[] uploadedPartBitmap = Encoding.UTF8.GetBytes(record.UploadedPartBitmapBase64);
-        int length = 4 + 1 + 8 + 4 + 4 + 8 + 8 + 8 + 4
-            + uploadedParts.Count * sizeof(int)
+        if (record.UploadTokenSha256.Length != SHA256.HashSizeInBytes)
+        {
+            throw new InvalidOperationException("Upload session token hash is invalid.");
+        }
+
+        int length = 4 + 1 + 8 + 4 + 4 + 8 + 8 + 8 + 8 + SHA256.HashSizeInBytes
             + sizeof(int)
             + (2 + uploadId.Length)
             + (2 + fileName.Length)
@@ -1376,7 +1336,6 @@ public sealed partial class FileService : IFileService
             + (2 + targetFormat.Length)
             + (2 + sha256.Length)
             + (2 + status.Length)
-            + (2 + uploadToken.Length)
             + (2 + workingFileName.Length)
             + (2 + uploadedPartBitmap.Length);
         byte[] bytes = new byte[length];
@@ -1389,13 +1348,9 @@ public sealed partial class FileService : IFileService
         BinaryPrimitives.WriteInt64LittleEndian(span[21..29], record.CreatedAt.ToUniversalTime().Ticks);
         BinaryPrimitives.WriteInt64LittleEndian(span[29..37], record.ExpiresAt.ToUniversalTime().Ticks);
         BinaryPrimitives.WriteInt64LittleEndian(span[37..45], record.UploadedBytes);
-        BinaryPrimitives.WriteInt32LittleEndian(span[45..49], uploadedParts.Count);
-        int offset = 49;
-        foreach (int part in uploadedParts)
-        {
-            BinaryPrimitives.WriteInt32LittleEndian(span[offset..(offset + sizeof(int))], part);
-            offset += sizeof(int);
-        }
+        BinaryPrimitives.WriteInt64LittleEndian(span[45..53], record.OwnerAdminPrincipalId);
+        record.UploadTokenSha256.CopyTo(span[53..(53 + SHA256.HashSizeInBytes)]);
+        int offset = 53 + SHA256.HashSizeInBytes;
 
         WriteSessionString(bytes, ref offset, uploadId);
         WriteSessionString(bytes, ref offset, fileName);
@@ -1403,7 +1358,6 @@ public sealed partial class FileService : IFileService
         WriteSessionString(bytes, ref offset, targetFormat);
         WriteSessionString(bytes, ref offset, sha256);
         WriteSessionString(bytes, ref offset, status);
-        WriteSessionString(bytes, ref offset, uploadToken);
         BinaryPrimitives.WriteInt32LittleEndian(span[offset..(offset + sizeof(int))], record.ManifestCheckpointPartCount);
         offset += sizeof(int);
         WriteSessionString(bytes, ref offset, workingFileName);
@@ -1413,26 +1367,22 @@ public sealed partial class FileService : IFileService
 
     private static UploadSessionRecord? DecodeSession(byte[] bytes)
     {
-        if (bytes.Length < 49 ||
+        const int headerLength = 53 + SHA256.HashSizeInBytes;
+        if (bytes.Length < headerLength ||
             BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(0, 4)) != UploadSessionMagic ||
-            (bytes[4] < 1 || bytes[4] > UploadSessionVersion))
+            bytes[4] != UploadSessionVersion)
         {
             return null;
         }
 
-        int partCount = BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(45, 4));
-        if (partCount < 0 || bytes.Length < 49 + partCount * sizeof(int))
+        long ownerAdminPrincipalId = BinaryPrimitives.ReadInt64LittleEndian(bytes.AsSpan(45, 8));
+        if (ownerAdminPrincipalId <= 0)
         {
             return null;
         }
 
-        int offset = 49;
-        List<int>? parts = partCount == 0 ? null : new List<int>(partCount);
-        for (int i = 0; i < partCount; i++)
-        {
-            parts!.Add(BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(offset, sizeof(int))));
-            offset += sizeof(int);
-        }
+        byte[] uploadTokenSha256 = bytes.AsSpan(53, SHA256.HashSizeInBytes).ToArray();
+        int offset = headerLength;
 
         try
         {
@@ -1442,22 +1392,16 @@ public sealed partial class FileService : IFileService
             string targetFormat = ReadSessionString(bytes, ref offset);
             string sha256 = ReadSessionString(bytes, ref offset);
             string status = ReadSessionString(bytes, ref offset);
-            string uploadToken = bytes[4] >= 2 ? ReadSessionString(bytes, ref offset) : string.Empty;
-            int manifestCheckpointPartCount = 0;
-            string workingFileName = string.Empty;
-            string uploadedPartBitmap = string.Empty;
-            if (bytes[4] >= 3)
+            int manifestCheckpointPartCount;
+            if (offset + sizeof(int) > bytes.Length)
             {
-                if (offset + sizeof(int) > bytes.Length)
-                {
-                    return null;
-                }
-
-                manifestCheckpointPartCount = BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(offset, sizeof(int)));
-                offset += sizeof(int);
-                workingFileName = ReadSessionString(bytes, ref offset);
-                uploadedPartBitmap = ReadSessionString(bytes, ref offset);
+                return null;
             }
+
+            manifestCheckpointPartCount = BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(offset, sizeof(int)));
+            offset += sizeof(int);
+            string workingFileName = ReadSessionString(bytes, ref offset);
+            string uploadedPartBitmap = ReadSessionString(bytes, ref offset);
 
             if (offset != bytes.Length || string.IsNullOrWhiteSpace(uploadId))
             {
@@ -1467,6 +1411,8 @@ public sealed partial class FileService : IFileService
             return new UploadSessionRecord
             {
                 UploadId = uploadId,
+                OwnerAdminPrincipalId = ownerAdminPrincipalId,
+                UploadTokenSha256 = uploadTokenSha256,
                 FileName = fileName,
                 MimeType = mimeType,
                 TargetFormat = targetFormat,
@@ -1476,8 +1422,7 @@ public sealed partial class FileService : IFileService
                 CreatedAt = new DateTime(BinaryPrimitives.ReadInt64LittleEndian(bytes.AsSpan(21, 8)), DateTimeKind.Utc),
                 ExpiresAt = new DateTime(BinaryPrimitives.ReadInt64LittleEndian(bytes.AsSpan(29, 8)), DateTimeKind.Utc),
                 UploadedBytes = BinaryPrimitives.ReadInt64LittleEndian(bytes.AsSpan(37, 8)),
-                UploadedParts = parts,
-                UploadToken = uploadToken,
+                UploadedParts = null,
                 Sha256 = string.IsNullOrWhiteSpace(sha256) ? null : sha256,
                 Status = string.IsNullOrWhiteSpace(status) ? "pending" : status,
                 WorkingFileName = workingFileName,
@@ -1569,32 +1514,30 @@ public sealed partial class FileService : IFileService
         bitmap[byteIndex] = (byte)(bitmap[byteIndex] | (1 << bitIndex));
     }
 
-    private static byte[] DecodePartBitmap(UploadSessionRecord record)
+    private static bool TryDecodePartBitmap(UploadSessionRecord record, out byte[] bitmap)
     {
         int bitmapLength = CreatePartBitmapBytes(record.TotalParts).Length;
-        byte[] bitmap = CreatePartBitmapBytes(record.TotalParts);
-        if (!string.IsNullOrWhiteSpace(record.UploadedPartBitmapBase64))
+        bitmap = CreatePartBitmapBytes(record.TotalParts);
+        if (string.IsNullOrWhiteSpace(record.UploadedPartBitmapBase64))
         {
-            try
-            {
-                byte[] decoded = Convert.FromBase64String(record.UploadedPartBitmapBase64);
-                decoded.AsSpan(0, Math.Min(decoded.Length, bitmapLength)).CopyTo(bitmap);
-            }
-            catch (FormatException)
-            {
-                // Corrupt v3 bitmap snapshots fall back to the legacy uploaded-parts list below.
-            }
+            return bitmapLength == 0;
         }
 
-        foreach (int partNumber in UploadedParts(record))
+        try
         {
-            if (partNumber >= 0 && partNumber < record.TotalParts)
+            byte[] decoded = Convert.FromBase64String(record.UploadedPartBitmapBase64);
+            if (decoded.Length != bitmapLength)
             {
-                SetPartBit(bitmap, partNumber);
+                return false;
             }
-        }
 
-        return bitmap;
+            decoded.CopyTo(bitmap, 0);
+            return true;
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
     }
 
     private static List<int> PartsFromBitmap(ReadOnlySpan<byte> bitmap, int totalParts)
@@ -1611,18 +1554,29 @@ public sealed partial class FileService : IFileService
         return parts;
     }
 
-    private async Task RefreshUploadedPartsFromBitmapSidecarAsync(
+    private async Task<bool> RefreshUploadedPartsFromBitmapSidecarAsync(
         string uploadId,
         UploadSessionRecord record,
         CancellationToken cancellationToken)
     {
-        byte[] bitmap = DecodePartBitmap(record);
-        string bitmapPath = GetPartBitmapPath(uploadId);
-        if (File.Exists(bitmapPath))
+        if (!TryDecodePartBitmap(record, out byte[] bitmap))
         {
-            byte[] sidecar = await File.ReadAllBytesAsync(bitmapPath, cancellationToken);
-            sidecar.AsSpan(0, Math.Min(sidecar.Length, bitmap.Length)).CopyTo(bitmap);
+            return false;
         }
+
+        string bitmapPath = GetPartBitmapPath(uploadId);
+        if (!File.Exists(bitmapPath))
+        {
+            return false;
+        }
+
+        byte[] sidecar = await File.ReadAllBytesAsync(bitmapPath, cancellationToken);
+        if (sidecar.Length != bitmap.Length)
+        {
+            return false;
+        }
+
+        sidecar.CopyTo(bitmap, 0);
 
         record.UploadedParts = PartsFromBitmap(bitmap, record.TotalParts);
         record.UploadedPartBitmapBase64 = Convert.ToBase64String(bitmap);
@@ -1634,6 +1588,8 @@ public sealed partial class FileService : IFileService
         {
             record.Status = "uploading";
         }
+
+        return true;
     }
 
     private async Task PersistUploadedPartBitAsync(
@@ -1642,7 +1598,10 @@ public sealed partial class FileService : IFileService
         int partNumber,
         CancellationToken cancellationToken)
     {
-        byte[] bitmap = DecodePartBitmap(record);
+        if (!TryDecodePartBitmap(record, out byte[] bitmap))
+        {
+            throw new InvalidOperationException("Upload session bitmap is invalid.");
+        }
         SetPartBit(bitmap, partNumber);
         record.UploadedPartBitmapBase64 = Convert.ToBase64String(bitmap);
         string bitmapPath = GetPartBitmapPath(uploadId);
@@ -1675,7 +1634,10 @@ public sealed partial class FileService : IFileService
             return;
         }
 
-        byte[] bitmap = DecodePartBitmap(record);
+        if (!TryDecodePartBitmap(record, out byte[] bitmap))
+        {
+            throw new InvalidOperationException("Upload session bitmap is invalid.");
+        }
         record.UploadedPartBitmapBase64 = Convert.ToBase64String(bitmap);
         record.ManifestCheckpointPartCount = UploadedParts(record).Count;
     }
@@ -1703,6 +1665,7 @@ public sealed partial class FileService : IFileService
         }
 
         DateTime nowUtc = DateTime.UtcNow;
+        deletedSessions += await DeleteInvalidSessionResidueAsync(beforeCommit, cancellationToken).ConfigureAwait(false);
         foreach (string bucketPath in EnumerateExpiredExpirationBuckets(nowUtc))
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -1783,6 +1746,44 @@ public sealed partial class FileService : IFileService
             Stopwatch.GetElapsedTime(lockStarted));
 
         await CleanupUploadCommitTempsAsync(beforeCommit, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<long> DeleteInvalidSessionResidueAsync(
+        Func<CancellationToken, Task>? beforeCommit,
+        CancellationToken cancellationToken)
+    {
+        long deleted = 0;
+        foreach (string sessionPath in Directory.EnumerateDirectories(_sessionRootPath))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            string name = Path.GetFileName(sessionPath);
+            if (string.Equals(name, ExpirationIndexDirectoryName, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (!TryNormalizeUploadId(name, out string uploadId))
+            {
+                await EnsureCleanupCommitBoundaryAsync(beforeCommit, cancellationToken).ConfigureAwait(false);
+                Directory.Delete(sessionPath, recursive: true);
+                deleted++;
+                continue;
+            }
+
+            string manifestPath = GetManifestPath(uploadId);
+            UploadSessionRecord? record = File.Exists(manifestPath)
+                ? await ReadSessionAsync(manifestPath, cancellationToken)
+                : null;
+            if (record is not null)
+            {
+                continue;
+            }
+
+            await DeleteSessionDirectoryAsync(uploadId, beforeCommit: beforeCommit, cancellationToken: cancellationToken).ConfigureAwait(false);
+            deleted++;
+        }
+
+        return deleted;
     }
 
     private async Task CleanupUploadCommitTempsAsync(

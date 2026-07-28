@@ -87,7 +87,7 @@ public sealed class AuthorizationAccessControlHardeningTests
 
     [Fact]
     [Trait("ShardAffinity", "EndpointContractApplication")]
-    public async Task UploadPartAndComplete_RequireUploadSessionToken()
+    public async Task UploadSessionOperations_UseOwnerBoundAccessWithoutEndpointPrevalidation()
     {
         FieldInfo uploadTokenHeader = typeof(BinaryEndpoints).GetField(
             "UploadTokenHeader",
@@ -95,14 +95,16 @@ public sealed class AuthorizationAccessControlHardeningTests
         Assert.Equal("X-Fsus-Upload-Token", uploadTokenHeader.GetRawConstantValue());
         Assert.NotNull(typeof(UploadInitDto).GetProperty(nameof(UploadInitDto.UploadToken)));
         Type uploadSessionRecord = typeof(UploadInitRequestDto).Assembly.GetType("FsusBlog.Server.Models.Dtos.UploadSessionRecord")!;
-        Assert.NotNull(uploadSessionRecord.GetProperty("UploadToken"));
+        Assert.NotNull(uploadSessionRecord.GetProperty("OwnerAdminPrincipalId"));
+        Assert.NotNull(uploadSessionRecord.GetProperty("UploadTokenSha256"));
+        Assert.Null(uploadSessionRecord.GetProperty("UploadToken"));
 
         string fileService = RuntimeMetadataInspection.DescribeMethods(
             typeof(FileService),
             "CreateUploadSessionToken",
-            nameof(FileService.ValidateUploadSessionTokenAsync));
+            "LoadAuthorizedSessionAsync");
         Assert.Contains("CreateUploadSessionToken", fileService, StringComparison.Ordinal);
-        Assert.Contains("ValidateUploadSessionTokenAsync", fileService, StringComparison.Ordinal);
+        Assert.Contains("LoadAuthorizedSessionAsync", fileService, StringComparison.Ordinal);
 
         await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
         RouteEndpoint part = EndpointContractApplication.Find(app, "/api/binary/upload/{uploadId}/part", HttpMethods.Put);
@@ -116,13 +118,10 @@ public sealed class AuthorizationAccessControlHardeningTests
             nameof(BinaryEndpoints.HandleUploadPartAsync));
         string completeHandler = RuntimeMetadataInspection.DescribeMethodClosureContaining(
             typeof(BinaryEndpoints),
-            "ReadUploadToken",
-            "ValidateUploadSessionTokenAsync",
+            "CreateUploadAccess",
             "CompleteUploadAsync");
-        Assert.Contains("ReadUploadToken", partHandler, StringComparison.Ordinal);
-        Assert.Contains("ValidateUploadSessionTokenAsync", partHandler, StringComparison.Ordinal);
-        Assert.Contains("ReadUploadToken", completeHandler, StringComparison.Ordinal);
-        Assert.Contains("ValidateUploadSessionTokenAsync", completeHandler, StringComparison.Ordinal);
+        Assert.Contains("CreateUploadAccess", partHandler, StringComparison.Ordinal);
+        Assert.Contains("CreateUploadAccess", completeHandler, StringComparison.Ordinal);
     }
 
     [Fact]

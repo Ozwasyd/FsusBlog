@@ -7,6 +7,28 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class UploadSessionCleanupWorkerBehaviorTests
 {
     [Fact]
+    public async Task ExecuteAsync_RunsCleanupAtStartupBeforeWaitingForTheFirstInterval()
+    {
+        var queue = new UploadSessionCleanupQueue(minSignalInterval: TimeSpan.Zero);
+        int cleanupRuns = 0;
+        var cleanupStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var worker = CreateWorker(queue, new RecordingLease(), _ =>
+        {
+            Interlocked.Increment(ref cleanupRuns);
+            cleanupStarted.TrySetResult();
+            return Task.CompletedTask;
+        });
+        using var cancellation = new CancellationTokenSource();
+
+        await worker.StartAsync(cancellation.Token);
+        await cleanupStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await cancellation.CancelAsync();
+        await worker.StopAsync(CancellationToken.None);
+
+        Assert.True(cleanupRuns >= 1);
+    }
+
+    [Fact]
     public async Task RunCleanupUntilSignalsFlushedAsync_OverflowRequestsASecondScan()
     {
         var queue = new UploadSessionCleanupQueue(minSignalInterval: TimeSpan.Zero);

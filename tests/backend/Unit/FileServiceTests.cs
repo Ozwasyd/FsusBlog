@@ -46,6 +46,227 @@ public sealed class FileServiceTests
     }
 
     [Fact]
+    public async Task UploadSessionAccess_RequiresMatchingOwnerAndCapabilityForEveryOperation()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            var service = CreateService(root);
+            Result<UploadInitDto> init = await service.InitUploadSessionAsync(41, CreatePngUploadRequest(8));
+            Assert.True(init.IsSuccess);
+            UploadInitDto session = init.Value!;
+            var valid = new UploadSessionAccess(session.UploadId, 41, session.UploadToken);
+            var wrongOwner = valid with { OwnerAdminPrincipalId = 42 };
+            var wrongToken = valid with { UploadToken = "wrong-token" };
+            var missingToken = valid with { UploadToken = null };
+            var unknown = valid with { UploadId = Guid.NewGuid().ToString("N") };
+            var part = CreateFormFile([0x89, 0x50, 0x4E, 0x47, 1, 2, 3, 4], "part");
+
+            Assert.True((await service.GetUploadStatusAsync(valid)).IsSuccess);
+            Assert.True((await service.GetUploadPartMapAsync(valid)).IsSuccess);
+            Assert.False((await service.CompleteUploadAsync(valid, null)).IsSuccess);
+
+            foreach (UploadSessionAccess denied in new[] { wrongOwner, wrongToken, missingToken, unknown })
+            {
+                Assert.Equal(ErrorCode.NotFound, (await service.GetUploadStatusAsync(denied)).Error.Code);
+                Assert.Equal(ErrorCode.NotFound, (await service.GetUploadPartMapAsync(denied)).Error.Code);
+                Assert.Equal(ErrorCode.NotFound, (await service.UploadPartAsync(denied, 0, 0, part, null)).Error.Code);
+                Assert.Equal(ErrorCode.NotFound, (await service.CompleteUploadAsync(denied, null)).Error.Code);
+                Assert.Equal(ErrorCode.NotFound, (await service.AbortUploadAsync(denied)).Error.Code);
+            }
+
+            Assert.True((await service.AbortUploadAsync(valid)).IsSuccess);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task UploadSessionAccess_ExpiresAndDeletesSessionWithoutDistinguishingFailure()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            var service = CreateService(root);
+            Result<UploadInitDto> init = await service.InitUploadSessionAsync(41, CreatePngUploadRequest(8));
+            UploadInitDto session = Assert.IsType<UploadInitDto>(init.Value);
+            await WriteManifestAsync(GetManifestPath(root, session.UploadId), (await ReadManifestAsync(root, session.UploadId)) with
+            {
+                ExpiresAt = DateTime.UtcNow.AddMinutes(-1)
+            });
+
+            Result<UploadStatusDto> result = await service.GetUploadStatusAsync(new UploadSessionAccess(session.UploadId, 41, session.UploadToken));
+
+            Assert.Equal(ErrorCode.NotFound, result.Error.Code);
+            Assert.Equal("UPLOAD_SESSION_NOT_FOUND", result.Error.Message);
+            Assert.False(Directory.Exists(GetSessionPath(root, session.UploadId)));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task UploadSessionManifest_V4RoundTripsAndNeverPersistsRawToken()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            var service = CreateService(root);
+            Result<UploadInitDto> init = await service.InitUploadSessionAsync(41, CreatePngUploadRequest(8));
+            UploadInitDto session = Assert.IsType<UploadInitDto>(init.Value);
+            byte[] manifest = await File.ReadAllBytesAsync(GetManifestPath(root, session.UploadId));
+            UploadSessionRecord record = await ReadManifestAsync(root, session.UploadId);
+
+            Assert.Equal(4, manifest[4]);
+            Assert.Equal(41, record.OwnerAdminPrincipalId);
+            Assert.Equal(SHA256.HashSizeInBytes, record.UploadTokenSha256.Length);
+            Assert.Equal(-1, manifest.AsSpan().IndexOf(Encoding.UTF8.GetBytes(session.UploadToken)));
+            Assert.Equal(SHA256.HashData(Encoding.UTF8.GetBytes(session.UploadToken)), record.UploadTokenSha256);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData((byte)1)]
+    [InlineData((byte)2)]
+    [InlineData((byte)3)]
+    [InlineData((byte)5)]
+    public async Task UploadSessionManifest_NonV4IsRejectedAndDeleted(byte version)
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            var service = CreateService(root);
+            Result<UploadInitDto> init = await service.InitUploadSessionAsync(41, CreatePngUploadRequest(8));
+            UploadInitDto session = Assert.IsType<UploadInitDto>(init.Value);
+            string manifestPath = GetManifestPath(root, session.UploadId);
+            byte[] manifest = await File.ReadAllBytesAsync(manifestPath);
+            manifest[4] = version;
+            await File.WriteAllBytesAsync(manifestPath, manifest);
+
+            Result<UploadStatusDto> result = await service.GetUploadStatusAsync(new UploadSessionAccess(session.UploadId, 41, session.UploadToken));
+
+            Assert.Equal(ErrorCode.NotFound, result.Error.Code);
+            Assert.False(Directory.Exists(GetSessionPath(root, session.UploadId)));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task UploadSessionManifest_CorruptBitmapFailsClosedAndDeletesSession()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            var service = CreateService(root);
+            Result<UploadInitDto> init = await service.InitUploadSessionAsync(41, CreatePngUploadRequest(8));
+            UploadInitDto session = Assert.IsType<UploadInitDto>(init.Value);
+            await WriteManifestAsync(GetManifestPath(root, session.UploadId), (await ReadManifestAsync(root, session.UploadId)) with
+            {
+                UploadedPartBitmapBase64 = "not-base64"
+            });
+
+            Result<UploadPartMapDto> result = await service.GetUploadPartMapAsync(new UploadSessionAccess(session.UploadId, 41, session.UploadToken));
+
+            Assert.Equal(ErrorCode.NotFound, result.Error.Code);
+            Assert.False(Directory.Exists(GetSessionPath(root, session.UploadId)));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task UploadSessionAccess_DenialDoesNotLogRawToken()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            var logger = new CapturingLogger<FileService>();
+            var service = CreateService(root, logger);
+            Result<UploadInitDto> init = await service.InitUploadSessionAsync(41, CreatePngUploadRequest(8));
+            UploadInitDto session = Assert.IsType<UploadInitDto>(init.Value);
+            string token = session.UploadToken;
+
+            Result<UploadStatusDto> result = await service.GetUploadStatusAsync(new UploadSessionAccess(session.UploadId, 42, token));
+
+            Assert.Equal(ErrorCode.NotFound, result.Error.Code);
+            Assert.DoesNotContain(logger.Messages, message => message.Contains(token, StringComparison.Ordinal));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task UploadSessionAccess_ConcurrentOtherAdminCannotQueryOrTerminateOwnersSession()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            var service = CreateService(root);
+            Result<UploadInitDto> init = await service.InitUploadSessionAsync(41, CreatePngUploadRequest(8));
+            UploadInitDto session = Assert.IsType<UploadInitDto>(init.Value);
+            var owner = new UploadSessionAccess(session.UploadId, 41, session.UploadToken);
+            var otherAdmin = owner with { OwnerAdminPrincipalId = 42 };
+
+            Task<Result<UploadStatusDto>> query = service.GetUploadStatusAsync(otherAdmin);
+            Task<Result<bool>> abort = service.AbortUploadAsync(otherAdmin);
+            await Task.WhenAll(query, abort);
+
+            Assert.Equal(ErrorCode.NotFound, query.Result.Error.Code);
+            Assert.Equal(ErrorCode.NotFound, abort.Result.Error.Code);
+            Assert.True((await service.GetUploadStatusAsync(owner)).IsSuccess);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task UploadSessionAccess_CompletedUploadRetriesOnlyForMatchingOwnerAndToken()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            var service = CreateService(root);
+            byte[] payload = [0x89, 0x50, 0x4E, 0x47, 1, 2, 3, 4];
+            string sha256 = Convert.ToHexStringLower(SHA256.HashData(payload));
+            Result<UploadInitDto> init = await service.InitUploadSessionAsync(41, CreatePngUploadRequest(payload.Length));
+            UploadInitDto session = Assert.IsType<UploadInitDto>(init.Value);
+            var owner = new UploadSessionAccess(session.UploadId, 41, session.UploadToken);
+            var otherAdmin = owner with { OwnerAdminPrincipalId = 42 };
+
+            Assert.True((await service.UploadPartAsync(owner, 0, 0, CreateFormFile(payload, "part"), sha256)).IsSuccess);
+            Result<UploadCompleteDto> first = await service.CompleteUploadAsync(owner, sha256);
+            Result<UploadCompleteDto> deniedRetry = await service.CompleteUploadAsync(otherAdmin, sha256);
+            Result<UploadCompleteDto> ownerRetry = await CreateService(root).CompleteUploadAsync(owner, sha256);
+
+            Assert.True(first.IsSuccess);
+            Assert.Equal(ErrorCode.NotFound, deniedRetry.Error.Code);
+            Assert.True(ownerRetry.IsSuccess);
+            Assert.Equal(first.Value!.RelativeUrl, ownerRetry.Value!.RelativeUrl);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task CompleteUploadAsync_ReleasesSessionLockAfterCompletion()
     {
         ResetSessionLocks();
@@ -451,7 +672,7 @@ public sealed class FileServiceTests
     }
 
     [Fact]
-    public async Task CleanupExpiredSessionsAsync_PreservesFreshManifestlessSessionDirectory()
+    public async Task CleanupExpiredSessionsAsync_RemovesManifestlessPartsResidue()
     {
         ResetSessionLocks();
         string root = CreateTempDirectory();
@@ -464,7 +685,7 @@ public sealed class FileServiceTests
 
             await service.CleanupExpiredSessionsAsync(CancellationToken.None);
 
-            Assert.True(Directory.Exists(sessionPath));
+            Assert.False(Directory.Exists(sessionPath));
         }
         finally
         {
@@ -474,7 +695,7 @@ public sealed class FileServiceTests
     }
 
     [Fact]
-    public async Task CleanupExpiredSessionsAsync_IgnoresLegacyManifestlessRootDirectory()
+    public async Task CleanupExpiredSessionsAsync_RemovesLegacyManifestlessRootDirectory()
     {
         ResetSessionLocks();
         string root = CreateTempDirectory();
@@ -490,11 +711,41 @@ public sealed class FileServiceTests
 
             await service.CleanupExpiredSessionsAsync(CancellationToken.None);
 
-            Assert.True(Directory.Exists(sessionPath));
+            Assert.False(Directory.Exists(sessionPath));
         }
         finally
         {
             ResetSessionLocks();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task CleanupExpiredSessionsAsync_RemovesInvalidManifestsAndOrphanResidue()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            var service = CreateService(root);
+            string sessionRoot = CreateStoragePaths(root).UploadSessionRoot;
+            string oldSessionId = Guid.NewGuid().ToString("N");
+            string corruptSessionId = Guid.NewGuid().ToString("N");
+            Directory.CreateDirectory(Path.Combine(sessionRoot, oldSessionId, "parts"));
+            Directory.CreateDirectory(Path.Combine(sessionRoot, corruptSessionId, "parts"));
+            await File.WriteAllBytesAsync(Path.Combine(sessionRoot, oldSessionId, "manifest.aeds"), [0x46, 0x55, 0x50, 0x53, 3]);
+            await File.WriteAllBytesAsync(Path.Combine(sessionRoot, corruptSessionId, "manifest.aeds"), [0x00, 0x01]);
+            string incoming = Path.Combine(sessionRoot, ".incoming");
+            Directory.CreateDirectory(incoming);
+            await File.WriteAllTextAsync(Path.Combine(incoming, "partial"), "residue");
+
+            await service.CleanupExpiredSessionsAsync(CancellationToken.None);
+
+            Assert.False(Directory.Exists(Path.Combine(sessionRoot, oldSessionId)));
+            Assert.False(Directory.Exists(Path.Combine(sessionRoot, corruptSessionId)));
+            Assert.False(Directory.Exists(incoming));
+        }
+        finally
+        {
             Directory.Delete(root, recursive: true);
         }
     }
@@ -629,6 +880,16 @@ public sealed class FileServiceTests
 
     private static FileService CreateService(string root, ILogger<FileService> logger)
         => new(CreateStoragePaths(root), logger);
+
+    private static UploadInitRequestDto CreatePngUploadRequest(int totalBytes)
+        => new()
+        {
+            FileName = "sample.png",
+            MimeType = "image/png",
+            TargetFormat = "png",
+            TotalBytes = totalBytes,
+            ChunkSize = totalBytes
+        };
 
     private static ReleaseStoragePaths CreateStoragePaths(string root)
         => ReleaseStorageTestPaths.Create(root);
@@ -820,34 +1081,6 @@ public sealed class FileServiceTests
     }
 
     [Fact]
-    public async Task ValidateUploadSessionTokenAsync_RequiresInitToken()
-    {
-        string root = CreateTempDirectory();
-        try
-        {
-            var svc = CreateService(root);
-            Result<UploadInitDto> init = await svc.InitUploadSessionAsync(new UploadInitRequestDto
-            {
-                FileName = "photo.png",
-                MimeType = "image/png",
-                TargetFormat = "png",
-                TotalBytes = 200,
-                ChunkSize = 200
-            });
-
-            Assert.True(init.IsSuccess);
-            Assert.False(string.IsNullOrWhiteSpace(init.Value!.UploadToken));
-            Assert.True(await svc.ValidateUploadSessionTokenAsync(init.Value.UploadId, init.Value.UploadToken));
-            Assert.False(await svc.ValidateUploadSessionTokenAsync(init.Value.UploadId, "wrong-token"));
-            Assert.False(await svc.ValidateUploadSessionTokenAsync(init.Value.UploadId, null));
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
-        }
-    }
-
-    [Fact]
     public async Task GetUploadStatusAsync_UnknownId_ReturnsFail()
     {
         string root = CreateTempDirectory();
@@ -957,120 +1190,6 @@ public sealed class FileServiceTests
         finally
         {
             ResetSessionLocks();
-            Directory.Delete(root, recursive: true);
-        }
-    }
-
-    [Fact]
-    public async Task UploadImageAsync_NullFile_ReturnsFail()
-    {
-        string root = CreateTempDirectory();
-        try
-        {
-            var svc = CreateService(root);
-            var result = await svc.UploadImageAsync(null!);
-            Assert.False(result.Success);
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
-        }
-    }
-
-    [Fact]
-    public async Task UploadImageAsync_EmptyFile_ReturnsFail()
-    {
-        string root = CreateTempDirectory();
-        try
-        {
-            var svc = CreateService(root);
-            var emptyFile = CreateFormFile([], "empty");
-            var result = await svc.UploadImageAsync(emptyFile);
-            Assert.False(result.Success);
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
-        }
-    }
-
-    [Fact]
-    public async Task UploadImageAsync_DisallowedExtension_ReturnsFail()
-    {
-        string root = CreateTempDirectory();
-        try
-        {
-            var svc = CreateService(root);
-            var stream = new MemoryStream([0x01, 0x02, 0x03]);
-            var file = new FormFile(stream, 0, stream.Length, "file", "malware.exe");
-            var result = await svc.UploadImageAsync(file);
-            Assert.False(result.Success);
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
-        }
-    }
-
-    [Fact]
-    public async Task UploadImageAsync_RejectsJpegExtensionWithHtmlPayload()
-    {
-        string root = CreateTempDirectory();
-        try
-        {
-            var svc = CreateService(root);
-            byte[] payload = Encoding.UTF8.GetBytes("<script>alert(1)</script>");
-            var file = new FormFile(new MemoryStream(payload), 0, payload.Length, "file", "attack.jpg");
-
-            FileUploadResult result = await svc.UploadImageAsync(file);
-
-            Assert.False(result.Success);
-            Assert.Empty(Directory.GetFiles(GetIllustrationFolder(root)));
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
-        }
-    }
-
-    [Fact]
-    public async Task UploadImageAsync_RejectsPngExtensionWithGifHeader()
-    {
-        string root = CreateTempDirectory();
-        try
-        {
-            var svc = CreateService(root);
-            byte[] payload = Encoding.ASCII.GetBytes("GIF89a<script>alert(1)</script>");
-            var file = new FormFile(new MemoryStream(payload), 0, payload.Length, "file", "polyglot.png");
-
-            FileUploadResult result = await svc.UploadImageAsync(file);
-
-            Assert.False(result.Success);
-            Assert.Empty(Directory.GetFiles(GetIllustrationFolder(root)));
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
-        }
-    }
-
-    [Fact]
-    public async Task UploadImageAsync_RejectsGifPolyglotPayload()
-    {
-        string root = CreateTempDirectory();
-        try
-        {
-            var svc = CreateService(root);
-            byte[] payload = Encoding.ASCII.GetBytes("GIF89a<script>alert(1)</script>");
-            var file = new FormFile(new MemoryStream(payload), 0, payload.Length, "file", "polyglot.gif");
-
-            FileUploadResult result = await svc.UploadImageAsync(file);
-
-            Assert.False(result.Success);
-            Assert.Empty(Directory.GetFiles(GetIllustrationFolder(root)));
-        }
-        finally
-        {
             Directory.Delete(root, recursive: true);
         }
     }
@@ -1529,17 +1648,37 @@ public sealed class FileServiceTests
                     0,
                     CreateFormFile(payload, "chunk"),
                     sha256)).IsSuccess,
-                "expired-token" => !await service.ValidateUploadSessionTokenAsync(
-                    uploadId,
-                    init.Value.UploadToken),
+                "expired-token" => !(await service.GetUploadStatusAsync(uploadId)).IsSuccess,
                 _ => throw new ArgumentOutOfRangeException(nameof(operation), operation, null)
             };
 
             Assert.True(expectedOutcome);
             File.SetUnixFileMode(expirationRoot, originalMode.Value);
             originalMode = null;
-            Assert.False(Directory.Exists(GetSessionPath(root, uploadId)));
-            Assert.Empty(GetExpirationIndexFiles(root, uploadId));
+            if (operation == "complete")
+            {
+                UploadSessionRecord completed = await ReadManifestAsync(root, uploadId);
+                var owner = new UploadSessionAccess(uploadId, 1, init.Value.UploadToken);
+                Result<UploadCompleteDto> retry = await service.CompleteUploadAsync(owner, sha256);
+                Result<UploadCompleteDto> wrongOwner = await service.CompleteUploadAsync(
+                    owner with { OwnerAdminPrincipalId = 2 }, sha256);
+                Result<UploadCompleteDto> wrongToken = await service.CompleteUploadAsync(
+                    owner with { UploadToken = "wrong-token" }, sha256);
+
+                Assert.Equal("completed", completed.Status);
+                Assert.Equal(1, completed.OwnerAdminPrincipalId);
+                Assert.Equal(SHA256.HashSizeInBytes, completed.UploadTokenSha256.Length);
+                Assert.True(retry.IsSuccess);
+                Assert.Equal(ErrorCode.NotFound, wrongOwner.Error.Code);
+                Assert.Equal(ErrorCode.NotFound, wrongToken.Error.Code);
+                Assert.True(Directory.Exists(GetSessionPath(root, uploadId)));
+                Assert.Single(GetExpirationIndexFiles(root, uploadId));
+            }
+            else
+            {
+                Assert.False(Directory.Exists(GetSessionPath(root, uploadId)));
+                Assert.Empty(GetExpirationIndexFiles(root, uploadId));
+            }
         }
         finally
         {
