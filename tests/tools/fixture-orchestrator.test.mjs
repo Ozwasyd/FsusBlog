@@ -124,14 +124,14 @@ test('API producer failure does not run later DB-style producers and records one
   const scalePort = ports.find((item) => item.id === 'scale-data')
   assert.equal(publicPort.calls.prepare, 1)
   assert.equal(scalePort.calls.prepare, 0)
-  assert.equal(publicPort.strategy, 'public-api-scenario')
+  assert.equal(publicPort.strategy, 'transaction-fixture')
 })
 
 test('producer cannot return a fallback strategy', async () => {
   const planned = plan({ profileId: 'public-minimal', profileSource: 'dev-cli' })
   const ports = portsForPlan(planned, {
     'public-content': {
-      onPrepare: async () => ({ strategy: 'transaction-fixture', ok: true })
+      onPrepare: async () => ({ strategy: 'public-api-scenario', ok: true })
     }
   })
   await assert.rejects(() => prepare(planned, ports), /cannot fallback|strategy/)
@@ -142,7 +142,7 @@ test('AbortSignal stops prepare and runs reverse-topo cleanup of successes', asy
   const controller = new AbortController()
   const ports = portsForPlan(planned, {
     'public-content': {
-      onPrepare: async () => ({ ok: true, producerId: 'public-content', strategy: 'public-api-scenario' })
+      onPrepare: async () => ({ ok: true, producerId: 'public-content', strategy: 'transaction-fixture' })
     },
     'scale-data': {
       onPrepare: async (_context, signal) => {
@@ -162,7 +162,7 @@ test('cleanup failure does not overwrite primary failure', async () => {
   const planned = plan({ profileId: 'scale-xs', profileSource: 'dev-cli' })
   const ports = portsForPlan(planned, {
     'public-content': {
-      onPrepare: async () => ({ ok: true, producerId: 'public-content', strategy: 'public-api-scenario' }),
+      onPrepare: async () => ({ ok: true, producerId: 'public-content', strategy: 'transaction-fixture' }),
       onCleanup: async () => {
         throw new Error('cleanup boom')
       }
@@ -308,7 +308,7 @@ test('shell dual paths and prepare package scripts are gone', () => {
   const start = readFileSync(path.join(root, 'tools/dev/start.sh'), 'utf8')
   const suite = readFileSync(path.join(root, 'tools/test/lanes/_suite-support.sh'), 'utf8')
   const pkg = JSON.parse(readFileSync(path.join(root, 'src/frontend/package.json'), 'utf8'))
-  const discover = readFileSync(path.join(root, 'tests/frontend/fixtures/discover-playwright-fixtures.mjs'), 'utf8')
+  const publicProducer = readFileSync(path.join(root, 'tools/test-fixtures/producers/public-content-producer.mjs'), 'utf8')
 
   for (const source of [bootstrap, start, suite]) {
     assert.match(source, /tools\/test-fixtures\/cli\.mjs/)
@@ -324,8 +324,8 @@ test('shell dual paths and prepare package scripts are gone', () => {
   assert.equal(pkg.scripts['prepare:binary-smoke:auth-users'], undefined)
   assert.equal(pkg.scripts['prepare:playwright:fixtures'], undefined)
   assert.equal(pkg.scripts['prepare:playwright:sessions'], undefined)
-  assert.doesNotMatch(discover, /using direct DB seed/)
-  assert.doesNotMatch(discover, /admin API seeding unavailable; using direct DB seed/)
+  assert.doesNotMatch(publicProducer, /using direct DB seed|seedPublicFixturesViaApi|buildSeededArticleFallback/)
+  assert.match(publicProducer, /transaction-fixture/)
 })
 
 test('acceptance orchestrator waves run auth and public before dependents', async () => {
@@ -333,7 +333,7 @@ test('acceptance orchestrator waves run auth and public before dependents', asyn
   const order = []
   const ports = portsForPlan(planned, {
     'auth-session': { onPrepare: async () => { order.push('auth-session'); return { ok: true, strategy: 'transaction-fixture', producerId: 'auth-session' } } },
-    'public-content': { onPrepare: async () => { order.push('public-content'); return { ok: true, strategy: 'public-api-scenario', producerId: 'public-content' } } },
+    'public-content': { onPrepare: async () => { order.push('public-content'); return { ok: true, strategy: 'transaction-fixture', producerId: 'public-content' } } },
     'account-messaging': { onPrepare: async () => { order.push('account-messaging'); return { ok: true, strategy: 'transaction-fixture', producerId: 'account-messaging' } } },
     'comment-moderation': { onPrepare: async () => { order.push('comment-moderation'); return { ok: true, strategy: 'transaction-fixture', producerId: 'comment-moderation' } } }
   })

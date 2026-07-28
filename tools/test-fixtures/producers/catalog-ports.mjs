@@ -76,23 +76,32 @@ export function createAuthSessionPort(catalogs = readFixtureCatalogs()) {
 
 export function createPublicContentPort(catalogs = readFixtureCatalogs()) {
   const producer = catalogProducer('public-content', catalogs)
-  const script = path.join(repositoryRoot, 'tests/frontend/fixtures/discover-playwright-fixtures.mjs')
   return basePort(producer, {
     async prepare(context, signal) {
       assertNoStrategyEnv()
-      // public-api-scenario only — discover-playwright-fixtures must not fall back to DB.
-      await runProcess(process.execPath, [script], {
-        env: buildProducerChildEnv(context, {
-          FSUSBLOG_PUBLIC_FIXTURE_MODE: 'public-api-scenario'
-        }),
-        signal
-      })
+      // transaction-fixture only (#1712): domain-port composition root, no API/DB fallback.
+      const {
+        preparePublicContent
+      } = await import('./public-content-producer.mjs')
+      const result = await preparePublicContent(context, signal)
       return {
+        ...result,
         producerId: producer.id,
         strategy: producer.strategy,
-        implementation: 'tests/frontend/fixtures/discover-playwright-fixtures.mjs',
         postconditions: [...producer.receiptPostconditions]
       }
+    },
+    async verify(context, producerReceipt) {
+      const {
+        verifyPublicContent
+      } = await import('./public-content-producer.mjs')
+      return verifyPublicContent(context, producerReceipt)
+    },
+    async cleanup(context, receipt, signal) {
+      const {
+        cleanupPublicContent
+      } = await import('./public-content-producer.mjs')
+      await cleanupPublicContent(context, receipt, signal)
     }
   })
 }

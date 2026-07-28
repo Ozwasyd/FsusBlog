@@ -26,7 +26,9 @@ const requiredFixtureSourceFiles = Object.freeze([
   'tests/browser-contract/fixture.mjs',
   'tests/browser-contract/prepare-fixture.mjs',
   'tests/browser-contract/run.mjs',
-  'tests/frontend/fixtures/discover-playwright-fixtures.mjs',
+  'src/backend/Modules/Endpoints/LocalPublicContentFixtureEndpoints.cs',
+  'src/backend/Services/Fixtures/PublicContentFixtureSeeder.cs',
+  'tools/test-fixtures/producers/public-content-producer.mjs',
   'tests/frontend/fixtures/prepare-auth-smoke-users.mjs',
   'tests/frontend/fixtures/prepare-playwright-sessions.mjs',
   'tests/frontend/support/playwright/global-setup.ts',
@@ -98,7 +100,14 @@ export function observeFixtureConsumerSource(sourcePath, content) {
     observations.add('direct-DB public seed reuses existing article rows by title when present')
   }
 
-  if (/waitForPublicFixtureSnapshot|fetchPublicArticlePage/u.test(text) && /page\?\.items/u.test(text)) {
+  if (/transaction-fixture/u.test(text)
+    && /public-content|PublicContentFixtureSeeder|LocalPublicContentFixture/u.test(text + pathHint)
+    && /domain.?port|composition root|IPublicContentFixtureSeeder|IArticleCoreGateway/u.test(text)) {
+    observations.add('public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery)')
+  }
+
+  if (/waitForPublicFixtureSnapshot|fetchPublicArticlePage/u.test(text) && /page\?\.items/u.test(text)
+    && !/refusing env discovery|forbids fallback/u.test(text)) {
     observations.add('reuses public content already present in the running env when list/home discovery succeeds')
   }
 
@@ -163,8 +172,8 @@ export function observeFixtureImplicitSource(sourcePath, content, { kind = 'sour
   if (/fixture-catalog:\s+consumer/u.test(text)) {
     return `fixture-catalog consumer declaration in ${pathHint}`
   }
-  if (/discover-playwright-fixtures/u.test(pathHint)) {
-    return `${pathHint} discovers live public article/taxonomy facts and writes the public fixture file`
+  if (/public-content-producer|LocalPublicContentFixture|PublicContentFixtureSeeder/u.test(pathHint)) {
+    return `${pathHint} materialises public content via transaction-fixture composition root and FixtureReceipt projection`
   }
   if (/session-fixtures/u.test(pathHint)) {
     return `${pathHint} prepares auth/session identities via local fixture endpoints and SQL upserts`
@@ -194,7 +203,7 @@ export function matrixConsumerObservationContent(tier, { repositoryRoot = root }
     chunks.push(readOptionalSource(repositoryRoot, 'tools/bootstrap-acceptance-env.sh'))
   }
   if (/discover-playwright|playwright|browser-contract|acceptance|visual|ux-viewport|csrf-browser/u.test(`${tier.id} ${tier.command ?? ''}`)) {
-    chunks.push(readOptionalSource(repositoryRoot, 'tests/frontend/fixtures/discover-playwright-fixtures.mjs'))
+    chunks.push(readOptionalSource(repositoryRoot, 'tools/test-fixtures/producers/public-content-producer.mjs'))
     chunks.push(readOptionalSource(repositoryRoot, 'tests/frontend/support/session-fixtures.mjs'))
   }
   if (/browser-contract/u.test(`${tier.id} ${tier.command ?? ''}`)) {

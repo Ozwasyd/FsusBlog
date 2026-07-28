@@ -108,11 +108,11 @@ for (const relativePath of [
   read(relativePath)
 }
 
-requireIncludes('tests/frontend/fixtures/discover-playwright-fixtures.mjs', [
-  'resolvePublicFixtureFile',
-  'resolveFixtureAssetDirectory',
-  'buildDirectDbSeedCacheActions',
-  'refreshDirectDbSeedCaches'
+requireIncludes('tools/test-fixtures/producers/public-content-producer.mjs', [
+  'transaction-fixture',
+  'preparePublicContent',
+  'buildPublicContentPlan',
+  'refusing env discovery'
 ])
 requireIncludes('tests/frontend/fixtures/prepare-playwright-sessions.mjs', [
   'resolveSessionFixtureDirectory',

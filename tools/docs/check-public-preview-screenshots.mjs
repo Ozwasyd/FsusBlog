@@ -280,16 +280,16 @@ catch (error)
     errors.push(`${coverManifestPath} is invalid JSON: ${error instanceof Error ? error.message : String(error)}`);
 }
 
-const fixtureDiscovery = read('tests/frontend/fixtures/discover-playwright-fixtures.mjs');
-for (const token of ['copyFile', 'checkedInCoverFixtureDir', 'managedCoverFiles'])
+const publicContentProducer = read('tools/test-fixtures/producers/public-content-producer.mjs');
+for (const token of ['copyFile', 'COVER_ASSETS', 'materializeCoverAssets', 'transaction-fixture'])
 {
-    includes('tests/frontend/fixtures/discover-playwright-fixtures.mjs', fixtureDiscovery, token);
+    includes('tools/test-fixtures/producers/public-content-producer.mjs', publicContentProducer, token);
 }
-for (const forbidden of ['function buildCoverSvg', '<linearGradient', 'FsusBlog public fixture</text>'])
+for (const forbidden of ['function buildCoverSvg', '<linearGradient', 'FsusBlog public fixture</text>', 'seedPublicFixturesViaApi', 'buildSeededArticleFallback'])
 {
-    if (fixtureDiscovery.includes(forbidden))
+    if (publicContentProducer.includes(forbidden))
     {
-        errors.push(`tests/frontend/fixtures/discover-playwright-fixtures.mjs contains retired cover template ${forbidden}`);
+        errors.push(`tools/test-fixtures/producers/public-content-producer.mjs contains retired public seed path ${forbidden}`);
     }
 }
 

@@ -13,8 +13,9 @@ The machine authorities are `config/testing/fixture-capability-catalog.json`, `f
 | `comments-moderation` | `auth.admin.full-permission`<br>`auth.user.active`<br>`comment.moderation-matrix`<br>`comment.threaded`<br>`moderation.policy-matrix`<br>`public.article.published` | `browser`, `load`, `runtime` | no | yes |
 | `demo-public` | `development.demo.dataset` | `diagnostic` | yes | yes |
 | `none` | none | `browser`, `diagnostic`, `load`, `runtime`, `security` | no | no |
-| `public-content-lifecycle` | `public.article.archived`<br>`public.article.deleted`<br>`public.article.draft`<br>`public.article.published`<br>`public.article.revision-history`<br>`public.article.scheduled`<br>`public.home.featured-hot` | `browser`, `load`, `runtime` | no | yes |
-| `public-minimal` | `public.article.published` | `browser`, `load`, `runtime` | no | yes |
+| `public-content-lifecycle` | `public.article.archived`<br>`public.article.deleted`<br>`public.article.draft`<br>`public.article.multiple-publications`<br>`public.article.multiple-revisions`<br>`public.article.published`<br>`public.article.revision-history`<br>`public.article.scheduled`<br>`public.home.featured-hot`<br>`public.search.indexed`<br>`public.taxonomy.category-tag` | `browser`, `load`, `runtime` | no | yes |
+| `public-empty` | `public.empty` | `browser`, `load`, `runtime` | no | yes |
+| `public-minimal` | `public.article.published`<br>`public.article.revision-history`<br>`public.home.featured-hot`<br>`public.search.indexed`<br>`public.taxonomy.category-tag` | `browser`, `load`, `runtime` | no | yes |
 | `scale-l-nightly` | `public.article.published`<br>`scale.article-comment.l` | `load` | yes | yes |
 | `scale-m` | `public.article.published`<br>`scale.article-comment.m` | `load` | yes | yes |
 | `scale-s` | `public.article.published`<br>`scale.article-comment.s` | `load` | yes | yes |

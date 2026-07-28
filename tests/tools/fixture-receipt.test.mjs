@@ -85,7 +85,7 @@ function baseProducerReceiptInput(extra = {}) {
   const observations = articlePublishedObservations({ namespace })
   return {
     producerId: 'public-content',
-    strategy: 'public-api-scenario',
+    strategy: 'transaction-fixture',
     runId: extra.runId ?? 'run-a',
     namespace,
     source: { commit: 'a'.repeat(40), worktreeFingerprint: `sha256:${'b'.repeat(64)}` },
@@ -610,15 +610,15 @@ test('observation digests are stable and sensitive to field drift not mtime', ()
 test('code search: retired dual receipt adapters and local fallback success evidence are gone', () => {
   const cli = readFileSync(path.join(root, 'tools/test-fixtures/cli.mjs'), 'utf8')
   const catalog = readFileSync(path.join(root, 'tools/testing/fixture-catalog.mjs'), 'utf8')
-  const discover = readFileSync(path.join(root, 'tests/frontend/fixtures/discover-playwright-fixtures.mjs'), 'utf8')
+  const publicProducer = readFileSync(path.join(root, 'tools/test-fixtures/producers/public-content-producer.mjs'), 'utf8')
   const bootstrap = readFileSync(path.join(root, 'tools/bootstrap-acceptance-env.sh'), 'utf8')
   assert.doesNotMatch(cli, /toLegacyFixtureReceipt|function toLegacy/)
   assert.doesNotMatch(cli, /fsusblog\.fixture-receipt\.v1/)
   assert.match(cli, /dual\/legacy receipt paths were deleted|FixtureReceipt v2 is the sole authority/)
   assert.match(catalog, /kind=fixture-receipt was deleted|FixtureReceipt v2/)
-  assert.doesNotMatch(discover, /function buildSeededArticleFallback|function seedPublicFixtures\(|function runPsql\(/)
-  assert.doesNotMatch(discover, /using direct DB seed|admin API seeding unavailable; using direct DB seed/)
-  assert.match(discover, /projection-not-receipt|notAuthoritative/)
+  assert.doesNotMatch(publicProducer, /function buildSeededArticleFallback|function seedPublicFixtures\(|function runPsql\(|seedPublicFixturesViaApi/)
+  assert.doesNotMatch(publicProducer, /using direct DB seed|admin API seeding unavailable; using direct DB seed/)
+  assert.match(publicProducer, /transaction-fixture/)
   assert.doesNotMatch(bootstrap, /--legacy-|toLegacyFixtureReceipt/)
   assert.match(bootstrap, /notFixtureCompletenessEvidence|runtime-topology-only|FixtureReceipt/)
 })

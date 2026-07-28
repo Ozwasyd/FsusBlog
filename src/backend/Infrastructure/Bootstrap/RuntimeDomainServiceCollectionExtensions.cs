@@ -69,6 +69,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IArticleMutationSideEffectCoordinator, ArticleMutationSideEffectCoordinator>();
         services.AddScoped<IArticleMutationCommandService>(sp => sp.GetRequiredService<ArticleService>());
         services.AddScoped<IArticleEndpointService, ArticleEndpointService>();
+        services.AddScoped<FsusBlog.Server.Services.Fixtures.IPublicContentFixtureSeeder, FsusBlog.Server.Services.Fixtures.PublicContentFixtureSeeder>();
         services.AddScoped<ICommentQueryService, CommentQueryService>();
         services.AddScoped<ICommentEndpointService>(sp => sp.GetRequiredService<CommentCommandService>());
         services.AddScoped<ICommentCommandService>(sp => sp.GetRequiredService<CommentCommandService>());

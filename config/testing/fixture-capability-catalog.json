@@ -339,6 +339,44 @@
             "mutability": "immutable"
         },
         {
+            "id": "public.article.multiple-publications",
+            "ownerProducerId": "public-content",
+            "stateDomains": [
+                "fixture.public-content",
+                "postgres.article",
+                "postgres.outbox"
+            ],
+            "dependsOn": [
+                "public.article.published"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "article-multiple-publications"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "public.article.multiple-revisions",
+            "ownerProducerId": "public-content",
+            "stateDomains": [
+                "fixture.public-content",
+                "postgres.article",
+                "postgres.outbox"
+            ],
+            "dependsOn": [
+                "public.article.published"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "article-multiple-revisions"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
             "id": "public.article.published",
             "ownerProducerId": "public-content",
             "stateDomains": [
@@ -391,6 +429,35 @@
             "mutability": "immutable"
         },
         {
+            "id": "public.empty",
+            "ownerProducerId": "public-content",
+            "stateDomains": [
+                "fixture.public-content",
+                "postgres.article",
+                "redis.cache.public"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [
+                "public.article.archived",
+                "public.article.deleted",
+                "public.article.draft",
+                "public.article.multiple-publications",
+                "public.article.multiple-revisions",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.article.scheduled",
+                "public.home.featured-hot",
+                "public.search.indexed",
+                "public.taxonomy.category-tag"
+            ],
+            "postconditionIds": [
+                "public-empty"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
             "id": "public.home.featured-hot",
             "ownerProducerId": "public-content",
             "stateDomains": [
@@ -404,6 +471,41 @@
             "conflictsWith": [],
             "postconditionIds": [
                 "home-featured-hot"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "public.search.indexed",
+            "ownerProducerId": "public-content",
+            "stateDomains": [
+                "fixture.public-content",
+                "postgres.article",
+                "redis.cache.public"
+            ],
+            "dependsOn": [
+                "public.article.published"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "search-indexed"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
+            "id": "public.taxonomy.category-tag",
+            "ownerProducerId": "public-content",
+            "stateDomains": [
+                "fixture.public-content",
+                "postgres.article"
+            ],
+            "dependsOn": [],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "taxonomy-category-tag"
             ],
             "resetContractId": "owned-namespace",
             "scope": "namespace",

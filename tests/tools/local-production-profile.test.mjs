@@ -1254,8 +1254,7 @@ test('acceptance backend derives thread-pool capacity from machine CPUs and burs
 test('acceptance bootstrap starts independent services within dynamic CPU and memory grants', () =>
 {
     const source = fs.readFileSync(path.join(root, 'tools/bootstrap-acceptance-env.sh'), 'utf8');
-    const publicFixtureSource = fs.readFileSync(path.join(root, 'tests/frontend/fixtures/discover-playwright-fixtures.mjs'), 'utf8');
-    const cachePlanSource = fs.readFileSync(path.join(root, 'tests/frontend/fixtures/direct-db-seed-cache-plan.mjs'), 'utf8');
+    const publicFixtureSource = fs.readFileSync(path.join(root, 'tools/test-fixtures/producers/public-content-producer.mjs'), 'utf8');
     assert.match(source, /ResolveBootstrapParallelWorkers/u);
     assert.match(source, /resolveManifestLiveCapacity\(\{ env: process\.env, workload: 'scheduler-admitted' \}\)/u);
     assert.match(source, /readManifestSchedulerResourceGrant\(\{ env: process\.env \}\)/u);
@@ -1268,9 +1267,9 @@ test('acceptance bootstrap starts independent services within dynamic CPU and me
     assert.doesNotMatch(source, /PrepareAuthFixturesOnce|PreparePublicFixturesOnce|PrepareRuntimeFixturesOnce|PrepareFixtures\s*\(/u);
     assert.doesNotMatch(source, /RunParallel "bootstrap-runtime-fixtures"/u);
     assert.doesNotMatch(source, /FLUSHDB|RefreshAcceptanceCacheAfterFixtures/u);
-    assert.match(publicFixtureSource, /refreshDirectDbSeedCaches/u);
-    assert.match(cachePlanSource, /action: 'output-cache-clear'/u);
-    assert.match(cachePlanSource, /action: 'public-hot-rebuild'/u);
+    assert.match(publicFixtureSource, /transaction-fixture/u);
+    assert.match(publicFixtureSource, /public-content-fixture\/prepare/u);
+    assert.doesNotMatch(publicFixtureSource, /seedPublicFixturesViaApi|buildSeededArticleFallback|seedPublicFixtures\s*\(/u);
     assert.match(source, /failures\+=\("\$\{labels\[\$index\]\} \(exit \$\{childStatus\}\)"\)/u);
     assert.doesNotMatch(source, /FSUSBLOG_BOOTSTRAP_(?:WORKERS|CPU|MEMORY)=[0-9]/u);
 });

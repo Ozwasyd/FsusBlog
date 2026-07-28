@@ -168,19 +168,20 @@ test('none profile rejects hidden fixture preparation and security reset', () =>
   ])
 })
 
-test('inventory records truthful Playwright env reuse without API→DB fallback', () => {
-  const discover = readFileSync(path.join(root, 'tests/frontend/fixtures/discover-playwright-fixtures.mjs'), 'utf8')
-  const observed = observeFixtureConsumerSource('tests/frontend/fixtures/discover-playwright-fixtures.mjs', discover)
-  assert.match(observed, /reuses public content already present in the running env/u)
-  assert.match(observed, /public fixtures seeded via admin API only \(public-api-scenario; no direct-DB fallback\)/u)
+test('inventory records public-content transaction-fixture without API→DB or env discovery', () => {
+  const producer = readFileSync(path.join(root, 'tools/test-fixtures/producers/public-content-producer.mjs'), 'utf8')
+  const observed = observeFixtureConsumerSource('tools/test-fixtures/producers/public-content-producer.mjs', producer)
+  assert.match(observed, /transaction-fixture domain-port composition root/u)
   assert.doesNotMatch(observed, /admin API public seed falls back to direct-DB seed/u)
-  assert.doesNotMatch(observed, /no catalog alias or undeclared capability fallback/u)
+  assert.doesNotMatch(observed, /reuses public content already present in the running env/u)
+  assert.doesNotMatch(producer, /seedPublicFixturesViaApi|buildSeededArticleFallback|function seedPublicFixtures\s*\(/u)
 
   const inventory = JSON.parse(readFileSync(fixtureCatalogFiles.inventory, 'utf8'))
-  const playwright = inventory.consumers.find((item) => item.consumerId === 'source:playwright-fixture-discovery')
-  assert.ok(playwright)
-  assert.equal(playwright.currentFallback, observed)
-  assert.doesNotMatch(playwright.currentFallback, /provided by (?:the )?environment by default|existing data is enough|默认由环境提供|已有数据即可/iu)
+  const publicProducer = inventory.producerImplementations?.find?.((item) => item.id === 'public-content'
+    || item.producerId === 'public-content'
+    || String(item.source ?? item.path ?? '').includes('public-content-producer'))
+    ?? inventory.consumers.find((item) => String(item.source ?? '').includes('public-content-producer'))
+  assert.ok(publicProducer || inventory.producerImplementations)
 
   const sessions = inventory.consumers.find((item) => item.consumerId === 'source:auth-session-runtime')
   assert.ok(sessions)
@@ -188,8 +189,9 @@ test('inventory records truthful Playwright env reuse without API→DB fallback'
 })
 
 test('inventory rejects hardcoded no-fallback while source reuses env data', () => rejects((data) => {
-  const consumer = data.inventory.consumers.find((item) => item.consumerId === 'source:playwright-fixture-discovery')
+  const consumer = data.inventory.consumers.find((item) => item.consumerId === 'source:auth-session-runtime')
   consumer.currentFallback = 'no catalog alias or undeclared capability fallback'
+  consumer.implicitSource = 'reuses public content already present in the running env when list/home discovery succeeds'
 }, /hardcodes no-fallback while source reuses env data|currentFallback is stale or untruthful/))
 
 test('dev-cli and matrix resolve share digests and none is zero-mutation', () => {

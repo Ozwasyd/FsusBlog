@@ -289,8 +289,9 @@ async function main() {
       FSUSBLOG_PLAYWRIGHT_FIXTURES_FILE: fixtureFile
     };
 
+    // Auth smoke only here. Public content is owned by FixtureOrchestrator public-content
+    // transaction-fixture producer (#1712); do not dual-seed via discover-playwright-fixtures.
     await runNodeScript(path.join(fixtureScriptRoot, 'prepare-auth-smoke-users.mjs'), env);
-    await runNodeScript(path.join(fixtureScriptRoot, 'discover-playwright-fixtures.mjs'), env);
   });
 
   await writeFile(

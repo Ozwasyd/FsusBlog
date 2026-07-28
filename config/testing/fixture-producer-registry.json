@@ -121,19 +121,26 @@
         },
         {
             "id": "public-content",
-            "strategy": "public-api-scenario",
+            "strategy": "transaction-fixture",
             "reuseVerifier": "fixture-receipt",
             "implementationPaths": [
-                "tests/frontend/fixtures/discover-playwright-fixtures.mjs"
+                "src/backend/Modules/Endpoints/LocalPublicContentFixtureEndpoints.cs",
+                "src/backend/Services/Fixtures/PublicContentFixtureSeeder.cs",
+                "tools/test-fixtures/producers/public-content-producer.mjs"
             ],
             "provides": [
                 "public.article.archived",
                 "public.article.deleted",
                 "public.article.draft",
+                "public.article.multiple-publications",
+                "public.article.multiple-revisions",
                 "public.article.published",
                 "public.article.revision-history",
                 "public.article.scheduled",
-                "public.home.featured-hot"
+                "public.empty",
+                "public.home.featured-hot",
+                "public.search.indexed",
+                "public.taxonomy.category-tag"
             ],
             "consumes": [],
             "stateDomains": [
@@ -146,10 +153,15 @@
                 "article-archived",
                 "article-deleted",
                 "article-draft",
+                "article-multiple-publications",
+                "article-multiple-revisions",
                 "article-published",
                 "article-revision-history",
                 "article-scheduled",
-                "home-featured-hot"
+                "home-featured-hot",
+                "public-empty",
+                "search-indexed",
+                "taxonomy-category-tag"
             ]
         },
         {

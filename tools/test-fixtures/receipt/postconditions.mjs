@@ -312,6 +312,102 @@ function verifyRevisionHistory(ctx) {
   return pass(id)
 }
 
+function verifyMultipleRevisions(ctx) {
+  const id = 'article-multiple-revisions'
+  const db = ctx.observations?.database
+  if (!db) return fail(id, 'database observation required')
+  const scoped = entitiesOf(db, 'article').filter((item) => item.capabilityHint === id
+    || item.postconditionId === id
+    || item.fields?.multipleRevisions === true
+    || (Array.isArray(item.fields?.revisionIds) && item.fields.revisionIds.length >= 2))
+  const owned = requireOwnedIds(scoped.length ? scoped : entitiesOf(db, 'article'), id)
+  if (!owned.ok) return fail(id, owned.reason)
+  const ok = (scoped.length ? scoped : entitiesOf(db, 'article')).some((item) => {
+    const count = Number(item.fields?.revisionCount ?? item.fields?.revisionIds?.length ?? 0)
+    return count >= 2 || item.fields?.multipleRevisions === true
+  })
+  if (!ok) return fail(id, 'no owned article has multiple revisions')
+  return pass(id, { articleIds: owned.ids })
+}
+
+function verifyMultiplePublications(ctx) {
+  const id = 'article-multiple-publications'
+  const db = ctx.observations?.database
+  if (!db) return fail(id, 'database observation required')
+  const scoped = entitiesOf(db, 'article').filter((item) => item.capabilityHint === id
+    || item.postconditionId === id
+    || item.fields?.multiplePublications === true
+    || Number(item.fields?.publicationCount ?? 0) >= 2)
+  const owned = requireOwnedIds(scoped, id)
+  if (!owned.ok) return fail(id, owned.reason)
+  for (const article of scoped) {
+    if (Number(article.fields?.publicationCount ?? 0) < 2 && article.fields?.multiplePublications !== true) {
+      return fail(id, `article ${article.id} missing multiple publications`)
+    }
+  }
+  return pass(id, { articleIds: owned.ids })
+}
+
+function verifyTaxonomyCategoryTag(ctx) {
+  const id = 'taxonomy-category-tag'
+  const db = ctx.observations?.database
+  if (!db) return fail(id, 'database observation required')
+  const categories = entitiesOf(db, 'category')
+  const tags = entitiesOf(db, 'tag')
+  const cat = requireOwnedIds(categories, `${id}:category`)
+  const tag = requireOwnedIds(tags, `${id}:tag`)
+  if (!cat.ok) return fail(id, cat.reason)
+  if (!tag.ok) return fail(id, tag.reason)
+  return pass(id, { categoryIds: cat.ids, tagIds: tag.ids })
+}
+
+function verifySearchIndexed(ctx) {
+  const id = 'search-indexed'
+  const cache = ctx.observations?.cache
+  const db = ctx.observations?.database
+  if (!db) return fail(id, 'database observation required')
+  if (!cache) return fail(id, 'cache observation required for search index')
+  const articles = entitiesOf(db, 'article').filter((item) => String(item.fields?.status ?? '') === 'published')
+  const owned = requireOwnedIds(articles.length ? articles : entitiesOf(db, 'article'), id)
+  if (!owned.ok) return fail(id, owned.reason)
+  const searchEntries = (cache.entries ?? []).filter((item) => /search/i.test(String(item.domain ?? item.endpoint ?? ''))
+    || item.searchHit === true
+    || item.searchToken)
+  if (searchEntries.length === 0) return fail(id, 'search index observation missing')
+  if (!searchEntries.some((item) => item.searchHit === true || item.matchesDb === true)) {
+    return fail(id, 'search token did not hit owned entity')
+  }
+  return pass(id, { articleIds: owned.ids })
+}
+
+function verifyPublicEmpty(ctx) {
+  const id = 'public-empty'
+  const db = ctx.observations?.database
+  const redis = ctx.observations?.redis
+  const cache = ctx.observations?.cache
+  if (!db) return fail(id, 'database observation required')
+  const articles = entitiesOf(db, 'article')
+  const categories = entitiesOf(db, 'category')
+  const tags = entitiesOf(db, 'tag')
+  if (articles.length || categories.length || tags.length) {
+    return fail(id, 'public-empty namespace still has owned content entities')
+  }
+  if (redis) {
+    const residual = (redis.keys ?? []).filter((item) => item.present === true
+      && (/hot|featured|top_articles/i.test(String(item.key ?? '')) || /hot|featured/i.test(String(item.domain ?? '')))
+      && Array.isArray(item.memberIds) && item.memberIds.length > 0)
+    if (residual.length) return fail(id, 'public-empty still has residual hot/featured redis members')
+  }
+  if (cache) {
+    for (const entry of cache.entries ?? []) {
+      if (Array.isArray(entry.visibleEntityIds) && entry.visibleEntityIds.length > 0) {
+        return fail(id, 'public-empty cache still exposes visible entities')
+      }
+    }
+  }
+  return pass(id)
+}
+
 function verifyDemoDataset(ctx) {
   const id = 'development-demo-dataset'
   const db = ctx.observations?.database
@@ -391,6 +487,11 @@ export const POSTCONDITION_VERIFIERS = Object.freeze({
   'article-draft': verifyArticleStatus('article-draft', 'draft', { allowMissingPublication: true }),
   'article-scheduled': verifyArticleStatus('article-scheduled', 'scheduled', { allowMissingPublication: true }),
   'article-revision-history': verifyRevisionHistory,
+  'article-multiple-revisions': verifyMultipleRevisions,
+  'article-multiple-publications': verifyMultiplePublications,
+  'taxonomy-category-tag': verifyTaxonomyCategoryTag,
+  'search-indexed': verifySearchIndexed,
+  'public-empty': verifyPublicEmpty,
   'home-featured-hot': verifyHomeFeaturedHot,
   'user-active': verifyAuthUser('user-active'),
   'user-deleted': verifyAuthUser('user-deleted', { deleted: true }),

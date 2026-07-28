@@ -72,7 +72,7 @@ function articleObservations(overrides = {}) {
 function buildVerifiedReceipt(observations, extra = {}) {
   const producer = buildProducerReceipt({
     producerId: 'public-content',
-    strategy: 'public-api-scenario',
+    strategy: 'transaction-fixture',
     runId: 'run-a',
     namespace: 'run-a',
     source: { commit: 'a'.repeat(40), worktreeFingerprint: `sha256:${'b'.repeat(64)}` },

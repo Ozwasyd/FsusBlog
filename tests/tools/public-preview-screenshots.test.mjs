@@ -450,7 +450,7 @@ test('registry covers visible authorities and binds the resolved FsusUI identity
         'src/frontend/src/components/public/pages/PublicArticleDetailPageContent.vue',
         'src/frontend/src/ui-tokens/themeTokens.ts',
         'tests/frontend/e2e/manual/manual-layout-screenshots.spec.ts',
-        'tests/frontend/fixtures/discover-playwright-fixtures.mjs'
+        'tools/test-fixtures/producers/public-content-producer.mjs'
     ])
     {
         assert.ok(files.has(expected), `visual input registry must cover ${expected}`);

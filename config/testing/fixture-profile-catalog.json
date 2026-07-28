@@ -120,10 +120,27 @@
                 "public.article.archived",
                 "public.article.deleted",
                 "public.article.draft",
+                "public.article.multiple-publications",
+                "public.article.multiple-revisions",
                 "public.article.published",
                 "public.article.revision-history",
                 "public.article.scheduled",
-                "public.home.featured-hot"
+                "public.home.featured-hot",
+                "public.search.indexed",
+                "public.taxonomy.category-tag"
+            ],
+            "allowedExecutionClasses": [
+                "browser",
+                "load",
+                "runtime"
+            ],
+            "isDestructive": false,
+            "requiresFreshNamespace": true
+        },
+        {
+            "id": "public-empty",
+            "capabilities": [
+                "public.empty"
             ],
             "allowedExecutionClasses": [
                 "browser",
@@ -136,7 +153,11 @@
         {
             "id": "public-minimal",
             "capabilities": [
-                "public.article.published"
+                "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
+                "public.search.indexed",
+                "public.taxonomy.category-tag"
             ],
             "allowedExecutionClasses": [
                 "browser",
