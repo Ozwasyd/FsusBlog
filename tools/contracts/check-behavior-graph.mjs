@@ -9,6 +9,7 @@
  *   --doc-claim-parse
  *   --doc-claim-verification
  *   --generated-section-check
+ *   --mutation-evidence
  *   --fact-observation (repeatable)
  *
  * Optional:
@@ -35,6 +36,7 @@ function parseArgs (argv)
     docClaimParse: null,
     docClaimVerification: null,
     generatedSectionCheck: null,
+    mutationEvidence: null,
     factObservations: [],
     out: null,
     json: false,
@@ -56,6 +58,7 @@ function parseArgs (argv)
     else if (argument === '--doc-claim-parse') options.docClaimParse = next()
     else if (argument === '--doc-claim-verification') options.docClaimVerification = next()
     else if (argument === '--generated-section-check') options.generatedSectionCheck = next()
+    else if (argument === '--mutation-evidence') options.mutationEvidence = next()
     else if (argument === '--fact-observation') options.factObservations.push(next())
     else if (argument === '--out') options.out = next()
     else if (argument === '--json') options.json = true
@@ -80,6 +83,7 @@ Options:
   --doc-claim-parse <path>
   --doc-claim-verification <path>
   --generated-section-check <path>
+  --mutation-evidence <path>
   --fact-observation <path>   (repeatable)
   --out <path>
   --json
@@ -110,6 +114,9 @@ try
     docClaimParseReceipt: requirePath(options.docClaimParse, '--doc-claim-parse'),
     docClaimVerificationReceipt: requirePath(options.docClaimVerification, '--doc-claim-verification'),
     generatedSectionCheckReceipt: requirePath(options.generatedSectionCheck, '--generated-section-check'),
+    ...(options.mutationEvidence != null
+      ? { mutationEvidenceReceipt: requirePath(options.mutationEvidence, '--mutation-evidence') }
+      : {}),
     factObservationReceipts: options.factObservations.map((entry, index) =>
       requirePath(entry, `--fact-observation[${index}]`))
   })

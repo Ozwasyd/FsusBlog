@@ -751,7 +751,6 @@ function buildObservations({
  * Projects test/release topology facts from the formal matrix and governance catalogs only.
  * Never reads docs/testing, historical generated docs, fixture baselines, or expected tables.
  */
-// BEHAVIOR-OWNER: browserless-production-correctness
 export function extract(context)
 {
   const extractor = context?.extractor

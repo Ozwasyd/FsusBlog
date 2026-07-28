@@ -1,151 +1,26 @@
 {
-  "schema": "fsusblog.changed-critical-mutation-catalog.v1",
-  "version": 1,
-  "criticalSourcePatterns": [
-    "src/backend/Infrastructure/Auth/**/*.cs",
-    "src/backend/Infrastructure/Execution/**/*.cs",
-    "src/backend/Infrastructure/Integrity/**/*.cs",
-    "src/backend/Infrastructure/Privacy/**/*.cs",
-    "src/backend/Infrastructure/Security/**/*.cs",
-    "src/backend/Services/**/*Outbox*.cs",
-    "src/backend/Services/*Session*.cs",
-    "src/backend/Services/Security/**/*.cs",
-    "src/core/Integrity/**/*.cs"
-  ],
-  "defaults": {
-    "configuration": "Debug",
-    "mutationLevel": "Complete",
-    "thresholds": {
-      "high": 85,
-      "low": 70,
-      "break": 70
+    "schema": "fsusblog.changed-critical-mutation-tool-policy.v2",
+    "version": 2,
+    "description": "Tool policy only. Mutate targets derive from ImplementationOwner receipt; test filters derive from BehaviorTestBinding receipt. No hand-written source-pattern-to-test-owner mappings.",
+    "defaults": {
+        "configuration": "Debug",
+        "mutationLevel": "Complete",
+        "thresholds": {
+            "high": 85,
+            "low": 70,
+            "break": 70
+        },
+        "ignoreMethods": [
+            "ToString",
+            "GetHashCode"
+        ]
     },
-    "ignoreMethods": [
-      "ToString",
-      "GetHashCode"
-    ]
-  },
-  "domains": [
-    {
-      "id": "authentication-session-passkey",
-      "risk": "critical",
-      "sourcePatterns": [
-        "src/backend/Infrastructure/Auth/**/*.cs",
-        "src/backend/Services/*Session*.cs",
-        "src/backend/Services/Security/*Passkey*.cs",
-        "src/backend/Services/Security/AccountEnrollmentService.cs",
-        "src/backend/Services/Security/RecoveryKeyService.cs"
-      ],
-      "testOwners": [
-        {
-          "id": "account-subject-hasher-mutation-oracle",
-          "filter": "FullyQualifiedName~AccountSubjectHasherMutationTests"
-        },
-        {
-          "id": "account-subject-hash",
-          "filter": "FullyQualifiedName~AccountSubjectHashProjectionTests"
-        },
-        {
-          "id": "auth-cookie",
-          "filter": "FullyQualifiedName~AuthCookieServiceSecurityTests"
-        },
-        {
-          "id": "passkey-state",
-          "filter": "FullyQualifiedName~PasskeyServiceTests"
-        },
-        {
-          "id": "session-state",
-          "filter": "FullyQualifiedName~UserSessionRefreshBoundaryTests"
-        }
-      ],
-      "mutationPolicy": {
-        "sourceProjects": [
-          "src/backend"
-        ],
-        "requireExecutedMutants": true
-      }
-    },
-    {
-      "id": "article-rights-canonicalization",
-      "risk": "critical",
-      "sourcePatterns": [
-        "src/core/Integrity/*Canonical*.cs",
-        "src/backend/Infrastructure/Integrity/ArticleRights*.cs"
-      ],
-      "testOwners": [
-        {
-          "id": "article-rights-canonical-hash",
-          "filter": "FullyQualifiedName~ArticleRightsCanonicalHashTests"
-        },
-        {
-          "id": "article-rights-proof",
-          "filter": "FullyQualifiedName~ArticleRightsProofModelTests"
-        }
-      ],
-      "mutationPolicy": {
-        "sourceProjects": [
-          "src/backend",
-          "src/core"
-        ],
-        "requireExecutedMutants": true
-      }
-    },
-    {
-      "id": "outbox-transaction-finalization",
-      "risk": "critical",
-      "sourcePatterns": [
-        "src/backend/Infrastructure/Execution/**/*.cs",
-        "src/backend/Services/**/*Outbox*.cs"
-      ],
-      "testOwners": [
-        {
-          "id": "article-outbox-envelope",
-          "filter": "FullyQualifiedName~ArticleMutationOutboxEnvelopeTests"
-        },
-        {
-          "id": "article-outbox-failure",
-          "filter": "FullyQualifiedName~ArticleMutationOutboxFailurePropagationTests"
-        },
-        {
-          "id": "transaction-side-effect-guard",
-          "filter": "FullyQualifiedName~TransactionSideEffectGuardTests"
-        }
-      ],
-      "mutationPolicy": {
-        "sourceProjects": [
-          "src/backend"
-        ],
-        "requireExecutedMutants": true
-      }
-    },
-    {
-      "id": "rights-privacy-security-boundaries",
-      "risk": "critical",
-      "sourcePatterns": [
-        "src/backend/Infrastructure/Privacy/**/*.cs",
-        "src/backend/Infrastructure/Security/**/*.cs",
-        "src/backend/Services/Security/*.cs"
-      ],
-      "testOwners": [
-        {
-          "id": "canonical-path-boundary",
-          "filter": "FullyQualifiedName~CanonicalPathBoundaryTests"
-        },
-        {
-          "id": "read-analytics-privacy",
-          "filter": "FullyQualifiedName~ReadAnalyticsPrivacyPolicyTests"
-        },
-        {
-          "id": "security-policy-snapshot",
-          "filter": "FullyQualifiedName~SecurityPolicySnapshotPersistenceTests"
-        }
-      ],
-      "mutationPolicy": {
-        "sourceProjects": [
-          "src/backend"
-        ],
-        "requireExecutedMutants": true
-      }
+    "sourceProjects": [
+        "src/backend",
+        "src/core"
+    ],
+    "executionLimits": {
+        "maxConcurrentTestRunners": 4,
+        "timeoutMs": 600000
     }
-  ]
 }

@@ -26,6 +26,7 @@ export const contractFieldKeys = [
   'coverageIds',
   'documents'
 ]
+export const optionalContractFieldKeys = ['mutationPolicy']
 
 const fail = (message) => { throw new Error(`[behavior-contract-catalog] ${message}`) }
 const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -85,7 +86,10 @@ export function validateCatalog(catalog, repositoryRoot = root) {
   if (!Array.isArray(catalog.contracts) || catalog.contracts.length === 0) fail('contracts must be a non-empty list')
   const ids = new Set()
   for (const contract of catalog.contracts) {
-    exactKeys(contract, contractFieldKeys, `contract ${contract.id ?? '<unknown>'}`)
+    exactKeys(contract, [
+      ...contractFieldKeys,
+      ...(Object.hasOwn(contract, 'mutationPolicy') ? optionalContractFieldKeys : [])
+    ], `contract ${contract.id ?? '<unknown>'}`)
     if (Object.prototype.hasOwnProperty.call(contract, 'implementationOwners')) fail(`${contract.id ?? '<unknown>'} still declares path-based implementationOwners`)
     if (!isId(contract.id) || ids.has(contract.id)) fail(`invalid or duplicate behavior ID ${contract.id ?? '<unknown>'}`)
     ids.add(contract.id)
@@ -123,6 +127,18 @@ export function validateCatalog(catalog, repositoryRoot = root) {
     }
     else if (contract.status === 'migration-only' && (contract.releaseQualification || contract.requiredTestKinds.length !== 1 || contract.requiredTestKinds[0] !== 'migration')) fail(`${contract.id} migration-only behavior requires migration proof and cannot qualify a release`)
     else if (contract.status === 'retired' && (contract.releaseQualification || contract.requiredTestKinds.length !== 0)) fail(`${contract.id} retired behavior cannot qualify a release or require ordinary proof`)
+    if (Object.hasOwn(contract, 'mutationPolicy')) {
+      const policy = contract.mutationPolicy
+      if (!isPlainObject(policy) || Object.keys(policy).sort().join('\0') !== ['allowedEquivalentMutantPolicy', 'minimumMutationScore', 'mutationRequired', 'requireExecutedMutants'].join('\0')) {
+        fail(`${contract.id} mutationPolicy must use the canonical four-field shape`)
+      }
+      if (typeof policy.mutationRequired !== 'boolean' || typeof policy.requireExecutedMutants !== 'boolean' || !Number.isFinite(policy.minimumMutationScore) || policy.minimumMutationScore < 0 || policy.minimumMutationScore > 100 || !['none', 'documented'].includes(policy.allowedEquivalentMutantPolicy)) {
+        fail(`${contract.id} mutationPolicy is invalid`)
+      }
+      if (!policy.mutationRequired && (policy.requireExecutedMutants || policy.minimumMutationScore !== 0 || policy.allowedEquivalentMutantPolicy !== 'none')) {
+        fail(`${contract.id} non-required mutationPolicy must not declare a qualifying fallback`)
+      }
+    }
   }
   return { digest: digestCatalog(catalog), ids }
 }
@@ -180,21 +196,36 @@ export function validateBehaviorReferences(catalog, repositoryRoot = root) {
     'src/shared/Contracts/Governance/CoversBehaviorAttribute.cs',
     'config/schemas/behavior-contract-catalog.schema.json',
     'config/schemas/behavior-test-evidence.schema.json',
+    'config/schemas/behavior-graph-receipt.schema.json',
     'tests/tools/behavior-contract-catalog.test.mjs',
     'tests/tools/behavior-owner-binding.test.mjs',
     'tests/tools/behavior-test-binding.test.mjs',
+    'tests/tools/behavior-graph-join.test.mjs',
+    'tests/tools/changed-critical-mutation.test.mjs',
     'tests/tools/doc-claim.test.mjs',
     'tests/tools/behavior-fact-extractors.test.mjs',
+    'tests/tools/generated-fact-sections.test.mjs',
     'tests/tools/test-matrix-topology-observation.test.mjs',
     'tools/contracts/behavior-contract-catalog.mjs',
     'tools/contracts/behavior-owner-binding.mjs',
     'tools/contracts/behavior-test.mjs',
     'tools/contracts/behavior-test-binding.mjs',
+    'tools/contracts/behavior-graph-join.mjs',
+    'tools/contracts/check-behavior-graph.mjs',
+    'tools/test/changed-critical-mutation.mjs',
+    'tools/test/changed-critical-mutation-attribution.mjs',
+    'tools/test/changed-critical-mutation-evidence.mjs',
+    'tools/test/mutation-evidence-receipt.mjs',
+    'tools/test/run-changed-critical-mutation.mjs',
     'tools/contracts/check-behavior-test-evidence.mjs',
     'tools/contracts/check-behavior-owner-binding.mjs',
     'tools/contracts/generate-behavior-contract-catalog.mjs',
     'tools/docs/doc-claim.mjs',
     'tools/docs/check-doc-claim.mjs',
+    'tools/docs/doc-claim-staleness-mutation/fixture.mjs',
+    'tools/docs/doc-claim-staleness-mutation/runner.mjs',
+    'tools/docs/generated-fact-sections/generator.mjs',
+    'tools/docs/prose-claim-verifier/verifier.mjs',
     'tools/fact-extractors/registry.mjs',
     'tools/fact-extractors/receipt.mjs',
     'tools/fact-extractors/runner.mjs',

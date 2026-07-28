@@ -1,50 +1,31 @@
 #!/usr/bin/env node
+/**
+ * Changed-critical mutation selection — receipt-driven.
+ *
+ * Fixed selection chain:
+ *   changed paths → ImplementationOwner receipt → Behavior IDs
+ *   → BehaviorCatalog mutationPolicy → BehaviorTestBinding receipt → test filters
+ *   → Stryker tool policy
+ *
+ * No hand-written source-pattern→test-owner glob mappings.
+ */
 import {
   canonicalJson,
   requireChangedCriticalSourceState,
   sha256
 } from './changed-critical-mutation-identity.mjs'
 import {
-  matchesChangedPath,
   normalizeChangedPath,
   resolveChangedCriticalSourceProject
 } from './changed-critical-mutation-support.mjs'
 
-export function validateChangedCriticalCatalog(catalog) {
-  if (catalog?.schema !== 'fsusblog.changed-critical-mutation-catalog.v1' || catalog.version !== 1) {
-    throw new Error('changed-critical mutation catalog must use schema version 1')
+const TOOL_POLICY_SCHEMA = 'fsusblog.changed-critical-mutation-tool-policy.v2'
+
+export function validateToolPolicy(toolPolicy) {
+  if (toolPolicy?.schema !== TOOL_POLICY_SCHEMA || toolPolicy.version !== 2) {
+    throw new Error('changed-critical mutation tool policy must use schema v2')
   }
-  if (!Array.isArray(catalog.criticalSourcePatterns) || catalog.criticalSourcePatterns.length === 0) {
-    throw new Error('catalog criticalSourcePatterns must be non-empty')
-  }
-  if (!Array.isArray(catalog.domains) || catalog.domains.length < 4) {
-    throw new Error('catalog must declare at least four critical domains')
-  }
-  const ids = new Set()
-  for (const domain of catalog.domains) {
-    if (!domain?.id || ids.has(domain.id)) throw new Error(`catalog domain id is missing or duplicated: ${domain?.id}`)
-    ids.add(domain.id)
-    if (!domain.risk) throw new Error(`catalog domain ${domain.id} is missing risk`)
-    if (!Array.isArray(domain.sourcePatterns) || domain.sourcePatterns.length === 0) {
-      throw new Error(`catalog domain ${domain.id} is missing sourcePatterns`)
-    }
-    if (!Array.isArray(domain.testOwners) || domain.testOwners.length === 0) {
-      throw new Error(`catalog domain ${domain.id} is missing testOwners`)
-    }
-    for (const owner of domain.testOwners) {
-      if (!owner?.id || !owner?.filter) {
-        throw new Error(`catalog domain ${domain.id} has an incomplete test owner`)
-      }
-    }
-    if (
-      !Array.isArray(domain.mutationPolicy?.sourceProjects)
-      || domain.mutationPolicy.sourceProjects.length === 0
-      || domain.mutationPolicy.requireExecutedMutants !== true
-    ) {
-      throw new Error(`catalog domain ${domain.id} has an incomplete mutationPolicy`)
-    }
-  }
-  const defaults = catalog.defaults
+  const defaults = toolPolicy.defaults
   if (
     !defaults?.configuration
     || !defaults?.mutationLevel
@@ -52,111 +33,183 @@ export function validateChangedCriticalCatalog(catalog) {
     || !Number.isFinite(defaults?.thresholds?.low)
     || !Number.isFinite(defaults?.thresholds?.break)
   ) {
-    throw new Error('catalog defaults must declare configuration, mutationLevel, and thresholds')
+    throw new Error('tool policy defaults must declare configuration, mutationLevel, and thresholds')
   }
-  return catalog
+  if (!Array.isArray(toolPolicy.sourceProjects) || toolPolicy.sourceProjects.length === 0) {
+    throw new Error('tool policy sourceProjects must be non-empty')
+  }
+  return toolPolicy
 }
 
+/**
+ * Select changed-critical mutation closure from receipts.
+ *
+ * @param {object} options
+ * @param {object} options.toolPolicy - Tool policy (thresholds, source projects, execution limits)
+ * @param {Buffer|string} options.rawToolPolicy - Raw bytes of tool policy for digest
+ * @param {string[]} options.changedPaths - Changed file paths (repo-relative)
+ * @param {object} options.sourceState - { commit, worktreeFingerprint }
+ * @param {object} options.ownerReceipt - Sealed ImplementationOwner receipt with bindings[]
+ * @param {object} options.behaviorCatalog - behavior-contracts.json with mutationPolicy per contract
+ * @param {object} options.testBindingScan - BehaviorTestBinding scan with bindings[]
+ * @param {Buffer|string} [options.rawTestBindingScan] - Raw scan bytes for identity
+ */
 export function selectChangedCriticalMutation({
-  catalog,
-  rawCatalog,
+  toolPolicy,
+  rawToolPolicy,
   changedPaths,
-  sourceState
+  sourceState,
+  ownerReceipt,
+  behaviorCatalog,
+  testBindingScan,
+  rawTestBindingScan
 }) {
-  validateChangedCriticalCatalog(catalog)
+  validateToolPolicy(toolPolicy)
   const normalizedSourceState = requireChangedCriticalSourceState(sourceState)
   const uniquePaths = [...new Set(changedPaths.map(normalizeChangedPath))].sort()
-  const catalogBytes = rawCatalog ?? Buffer.from(`${JSON.stringify(catalog, null, 2)}\n`)
-  const catalogDigest = sha256(catalogBytes)
-  const selectedDomains = new Map()
+  const policyBytes = rawToolPolicy ?? Buffer.from(`${JSON.stringify(toolPolicy, null, 2)}\n`)
+  const policyDigest = sha256(policyBytes)
+
+  // Step 1: changed paths → ImplementationOwner receipt → Behavior IDs
+  const ownerBindings = ownerReceipt?.bindings ?? []
+  const pathToBehaviors = new Map()
+  for (const binding of ownerBindings) {
+    if (binding.status === 'error') continue
+    const normalizedSource = String(binding.sourcePath ?? '').replaceAll('\\', '/')
+    if (uniquePaths.includes(normalizedSource)) {
+      if (!pathToBehaviors.has(normalizedSource)) pathToBehaviors.set(normalizedSource, [])
+      pathToBehaviors.get(normalizedSource).push(binding)
+    }
+  }
+
+  // Step 2: Filter to behaviors with mutationRequired in BehaviorCatalog
+  const contractsById = new Map(
+    (behaviorCatalog?.contracts ?? []).map((c) => [c.id, c])
+  )
+  const selectedBehaviors = new Map()
   const unmappedCriticalPaths = []
 
-  for (const path of uniquePaths) {
-    const domains = catalog.domains.filter((domain) => matchesChangedPath(path, domain.sourcePatterns))
-    if (matchesChangedPath(path, catalog.criticalSourcePatterns) && domains.length === 0) {
-      unmappedCriticalPaths.push(path)
-      continue
-    }
-    for (const domain of domains) {
-      const current = selectedDomains.get(domain.id) ?? {
-        id: domain.id,
-        risk: domain.risk,
-        reasons: [],
-        mutateFiles: [],
-        sourceMappings: [],
-        testOwners: domain.testOwners.map(({ id, filter }) => ({ id, filter }))
+  for (const [changedPath, bindings] of pathToBehaviors) {
+    let hasMutationRequired = false
+    for (const binding of bindings) {
+      const contract = contractsById.get(binding.behaviorId)
+      if (contract?.mutationPolicy?.mutationRequired === true && contract.status === 'active') {
+        hasMutationRequired = true
+        if (!selectedBehaviors.has(binding.behaviorId)) {
+          selectedBehaviors.set(binding.behaviorId, {
+            behaviorId: binding.behaviorId,
+            contract,
+            owners: [],
+            reasons: []
+          })
+        }
+        const entry = selectedBehaviors.get(binding.behaviorId)
+        entry.owners.push(binding)
+        entry.reasons.push(`changed:${changedPath}`)
       }
-      const sourceProject = resolveChangedCriticalSourceProject(path, domain.mutationPolicy.sourceProjects)
-      current.reasons.push(`changed:${path}`)
-      current.mutateFiles.push(path)
-      current.sourceMappings.push({
-        path,
-        sourceProject,
-        mutateFile: path.slice(sourceProject.length + 1)
-      })
-      selectedDomains.set(domain.id, current)
     }
+    // If path matched an owner but no behavior has mutationRequired, it is not critical
+    // (no fail-closed for non-mutation behaviors)
   }
 
-  if (unmappedCriticalPaths.length > 0) {
-    throw new Error(
-      `critical changed source is missing domain/test mapping: ${unmappedCriticalPaths.join(', ')}; missing fields: domain, testOwners, mutationPolicy`
-    )
-  }
+  // Check for changed paths that match owner bindings but have no mutation-required behavior
+  // These are not errors — only mutation-required behaviors trigger Stryker.
 
-  const domains = [...selectedDomains.values()]
-    .map((domain) => ({
-      ...domain,
-      reasons: [...new Set(domain.reasons)].sort(),
-      mutateFiles: [...new Set(domain.mutateFiles)].sort(),
-      sourceMappings: [...new Map(
-        domain.sourceMappings.map((mapping) => [`${mapping.sourceProject}:${mapping.path}`, mapping])
-      ).values()].sort((left, right) => left.path.localeCompare(right.path)),
-      testOwners: [...domain.testOwners].sort((left, right) => left.id.localeCompare(right.id))
-    }))
-    .sort((left, right) => left.id.localeCompare(right.id))
-  const mutateFiles = [...new Set(domains.flatMap((domain) => domain.mutateFiles))].sort()
-  const testOwners = [...new Map(
-    domains.flatMap((domain) => domain.testOwners).map((owner) => [owner.id, owner])
-  ).values()].sort((left, right) => left.id.localeCompare(right.id))
-  const testFilter = [...new Set(testOwners.map((owner) => owner.filter))].sort().join('|')
+  // Step 3: BehaviorTestBinding receipt → exact test filters
+  const testBindings = testBindingScan?.bindings ?? []
+  const behaviors = [...selectedBehaviors.values()]
+    .map((entry) => {
+      const behaviorTestBindings = testBindings.filter(
+        (b) => b.behaviorId === entry.behaviorId
+      )
+      // Derive FullyQualifiedName~ filters from test binding class names
+      const testFilters = [...new Set(
+        behaviorTestBindings.map((b) => {
+          const fqn = String(b.fullyQualifiedName ?? '')
+          const testId = String(b.canonicalTestId ?? '')
+          const canonicalClass = testId.match(/^xunit-trx:([^#]+)#/u)?.[1]
+          const className = canonicalClass ?? fqn.split('.').at(-2) ?? ''
+          return className.trim()
+        }).filter(Boolean)
+      )].sort()
+      const filterExpression = testFilters
+        .map((cls) => `FullyQualifiedName~${cls}`)
+        .join('|')
+      const mutateFiles = [...new Set(
+        entry.owners.map((o) => String(o.sourcePath).replaceAll('\\', '/'))
+      )].sort()
+      return {
+        behaviorId: entry.behaviorId,
+        risk: entry.contract.risk,
+        mutationPolicy: entry.contract.mutationPolicy,
+        reasons: [...new Set(entry.reasons)].sort(),
+        owners: entry.owners.map((o) => ({
+          sourcePath: String(o.sourcePath).replaceAll('\\', '/'),
+          symbol: o.symbol,
+          language: o.language
+        })),
+        mutateFiles,
+        testBindings: behaviorTestBindings.map((b) => ({
+          canonicalTestId: b.canonicalTestId,
+          fullyQualifiedName: b.fullyQualifiedName,
+          testKind: b.testKind
+        })),
+        testFilters,
+        testFilter: filterExpression
+      }
+    })
+    .sort((left, right) => left.behaviorId.localeCompare(right.behaviorId))
+
+  const mutateFiles = [...new Set(behaviors.flatMap((b) => b.mutateFiles))].sort()
+  const testFilter = [...new Set(
+    behaviors.flatMap((b) => b.testFilters)
+  )].sort().map((cls) => `FullyQualifiedName~${cls}`).join('|')
+
+  // Source project closures
   const sourceProjects = [...new Set(
-    domains.flatMap((domain) => domain.sourceMappings.map(({ sourceProject }) => sourceProject))
+    mutateFiles
+      .map((file) => resolveChangedCriticalSourceProject(file, toolPolicy.sourceProjects))
   )].sort()
   const projectClosures = sourceProjects.map((sourceProject) => {
-    const projectDomains = domains.filter((domain) =>
-      domain.sourceMappings.some((mapping) => mapping.sourceProject === sourceProject))
-    const projectTestOwners = [...new Map(
-      projectDomains.flatMap((domain) => domain.testOwners).map((owner) => [owner.id, owner])
-    ).values()].sort((left, right) => left.id.localeCompare(right.id))
+    const projectBehaviors = behaviors.filter((b) =>
+      b.mutateFiles.some((f) => f.startsWith(`${sourceProject}/`)))
+    const projectMutateFiles = [...new Set(
+      projectBehaviors.flatMap((b) =>
+        b.mutateFiles
+          .filter((f) => f.startsWith(`${sourceProject}/`))
+          .map((f) => f.slice(sourceProject.length + 1))
+      )
+    )].sort()
+    const projectTestFilters = [...new Set(
+      projectBehaviors.flatMap((b) => b.testFilters)
+    )].sort()
     return {
       sourceProject,
-      domains: projectDomains.map(({ id, risk }) => ({ id, risk })),
-      mutateFiles: [...new Set(
-        projectDomains.flatMap((domain) => domain.sourceMappings
-          .filter((mapping) => mapping.sourceProject === sourceProject)
-          .map(({ mutateFile }) => mutateFile))
-      )].sort(),
-      testOwners: projectTestOwners,
-      testFilter: [...new Set(projectTestOwners.map((owner) => owner.filter))].sort().join('|')
+      behaviors: projectBehaviors.map(({ behaviorId, risk }) => ({ behaviorId, risk })),
+      mutateFiles: projectMutateFiles,
+      testFilters: projectTestFilters,
+      testFilter: projectTestFilters.map((cls) => `FullyQualifiedName~${cls}`).join('|')
     }
   })
+
   const base = {
-    schema: 'fsusblog.changed-critical-mutation-selection.v1',
-    status: domains.length === 0 ? 'empty' : 'selected',
+    schema: 'fsusblog.changed-critical-mutation-selection.v2',
+    status: behaviors.length === 0 ? 'empty' : 'selected',
     sourceState: normalizedSourceState,
-    catalog: {
+    toolPolicy: {
       path: 'config/testing/mutation/changed-critical-domains.v1.json',
-      sha256: catalogDigest,
-      version: catalog.version
+      sha256: policyDigest,
+      version: toolPolicy.version
     },
+    ownerReceiptDigest: ownerReceipt?.contentDigest ?? null,
+    behaviorCatalogDigest: behaviorCatalog?.digest ?? sha256(canonicalJson(behaviorCatalog)),
+    testBindingScanDigest: sha256(rawTestBindingScan ?? canonicalJson(testBindingScan)),
     changedPaths: uniquePaths,
-    domains,
+    behaviors,
     mutateFiles,
-    testOwners,
     testFilter,
     projectClosures,
-    reasons: domains.flatMap((domain) => domain.reasons).sort()
+    reasons: behaviors.flatMap((b) => b.reasons).sort()
   }
   return {
     ...base,
@@ -164,26 +217,26 @@ export function selectChangedCriticalMutation({
   }
 }
 
-export function createChangedCriticalStrykerConfig(selection, catalog, sourceProject = null) {
+export function createChangedCriticalStrykerConfig(selection, toolPolicy, sourceProject = null) {
   if (selection.status !== 'selected' || selection.mutateFiles.length === 0 || !selection.testFilter) {
     throw new Error('cannot generate Stryker config for an empty critical closure')
   }
-  validateChangedCriticalCatalog(catalog)
+  validateToolPolicy(toolPolicy)
   const selectedProject = sourceProject ?? selection.projectClosures[0]?.sourceProject
   const closure = selection.projectClosures.find((entry) => entry.sourceProject === selectedProject)
   if (!closure) throw new Error(`selection has no source-project closure for ${selectedProject}`)
   return {
     'stryker-config': {
       'test-projects': ['../../tests/backend/FsusBlog.Server.Tests.csproj'],
-      configuration: catalog.defaults.configuration,
+      configuration: toolPolicy.defaults.configuration,
       'test-case-filter': closure.testFilter,
-      'mutation-level': catalog.defaults.mutationLevel,
-      thresholds: catalog.defaults.thresholds,
+      'mutation-level': toolPolicy.defaults.mutationLevel,
+      thresholds: toolPolicy.defaults.thresholds,
       'break-on-initial-test-failure': true,
       reporters: ['progress', 'html', 'json'],
       'report-file-name': 'changed-critical-mutation',
       mutate: closure.mutateFiles,
-      'ignore-methods': catalog.defaults.ignoreMethods
+      'ignore-methods': toolPolicy.defaults.ignoreMethods
     }
   }
 }

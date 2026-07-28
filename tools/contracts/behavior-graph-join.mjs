@@ -28,6 +28,7 @@ export const factObservationSchema = 'fsusblog.fact-observation-receipt.v1'
 export const docClaimParseSchema = 'fsusblog.doc-claim-parse-receipt.v1'
 export const docClaimVerificationSchema = 'fsusblog.doc-claim-verification-receipt.v1'
 export const generatedSectionCheckSchema = 'fsusblog.generated-section-check-receipt.v1'
+export const mutationEvidenceSchema = 'fsusblog.mutation-evidence-receipt.v1'
 export const catalogSchema = 'fsusblog.behavior-contract-catalog.v1'
 
 export const forbiddenJoinFields = Object.freeze([
@@ -281,6 +282,61 @@ export function sealGeneratedSectionCheckReceipt ({
   })
 }
 
+
+function validateMutationEvidenceReceipt (receipt)
+{
+  if (!isPlainObject(receipt)) fail('mutation evidence receipt must be an object')
+  if (receipt.schema !== mutationEvidenceSchema)
+  {
+    fail(`mutation evidence schema must be ${mutationEvidenceSchema}`)
+  }
+  assertNoForbiddenKeys(receipt, 'mutationEvidence')
+  if (typeof receipt.contentDigest !== 'string') fail('mutation evidence missing contentDigest')
+  const expected = digestValue(Object.fromEntries(Object.entries(receipt).filter(([key]) => key !== 'contentDigest')))
+  if (receipt.contentDigest !== expected && receipt.contentDigest !== `sha256:${expected}`)
+  {
+    fail('mutation evidence contentDigest mismatch')
+  }
+  if (!commitPattern.test(receipt.sourceCommit)) fail('mutation evidence sourceCommit invalid')
+  if (!normalizeFingerprint(receipt.worktreeFingerprint)) fail('mutation evidence worktreeFingerprint invalid')
+  if (!digestPattern.test(receipt.catalogDigest)) fail('mutation evidence catalogDigest invalid')
+  if (!Array.isArray(receipt.attributions) || !Array.isArray(receipt.qualifications))
+  {
+    fail('mutation evidence receipt incomplete')
+  }
+  if (receipt.status !== 'ok' && receipt.status !== 'failed') fail('mutation evidence status invalid')
+  for (const field of ['selectionDigest', 'ownerReceiptDigest', 'testBindingScanDigest', 'rawReportDigest', 'rawTraceDigest'])
+  {
+    if (!digestPattern.test(String(receipt[field] ?? ''))) fail(`mutation evidence ${field} invalid`)
+  }
+  if (!Number.isInteger(receipt.blockedCount) || receipt.blockedCount < 0) fail('mutation evidence blockedCount invalid')
+  const qualifications = new Set()
+  for (const qualification of receipt.qualifications)
+  {
+    if (!behaviorIdPattern.test(String(qualification.behaviorId ?? '')) || qualifications.has(qualification.behaviorId))
+    {
+      fail('mutation evidence qualifications must have unique behavior IDs')
+    }
+    qualifications.add(qualification.behaviorId)
+    if (qualification.mutationRequired !== true || !Number.isFinite(qualification.score) || !Array.isArray(qualification.failures) || typeof qualification.qualified !== 'boolean')
+    {
+      fail(`mutation evidence qualification for ${qualification.behaviorId} is incomplete`)
+    }
+  }
+  for (const attribution of receipt.attributions)
+  {
+    if (!behaviorIdPattern.test(String(attribution.behaviorId ?? '')) || !['Killed', 'Survived', 'Timeout', 'NoCoverage', 'CompileError', 'Ignored'].includes(attribution.status))
+    {
+      fail('mutation evidence attribution is invalid')
+    }
+  }
+  if (receipt.status === 'ok' && (receipt.blockedCount !== 0 || receipt.qualifications.some((entry) => !entry.qualified)))
+  {
+    fail('mutation evidence status=ok cannot conceal blocked or unqualified mutations')
+  }
+  return receipt
+}
+
 function validateCatalog (catalog)
 {
   if (!isPlainObject(catalog)) fail('catalog must be an object')
@@ -303,6 +359,20 @@ function validateCatalog (catalog)
       && (typeof contract.documentationRationale !== 'string' || contract.documentationRationale.length === 0))
     {
       fail(`${contract.id} not-public requires documentationRationale`)
+    }
+    if (contract.mutationPolicy != null)
+    {
+      const mp = contract.mutationPolicy
+      if (typeof mp.mutationRequired !== 'boolean') fail(`${contract.id} mutationPolicy.mutationRequired must be boolean`)
+      if (mp.mutationRequired)
+      {
+        if (!Number.isFinite(mp.minimumMutationScore)) fail(`${contract.id} mutationPolicy.minimumMutationScore required`)
+        if (typeof mp.requireExecutedMutants !== 'boolean') fail(`${contract.id} mutationPolicy.requireExecutedMutants required`)
+        if (!['none', 'documented'].includes(mp.allowedEquivalentMutantPolicy))
+        {
+          fail(`${contract.id} mutationPolicy.allowedEquivalentMutantPolicy must be none or documented`)
+        }
+      }
     }
   }
   return digestValue(catalog)
@@ -558,6 +628,15 @@ export function joinBehaviorGraph (options = {})
     loadJsonInput(options.generatedSectionCheckReceipt, 'generatedSectionCheckReceipt')
   )
 
+  // Mutation evidence is optional; when present it must be valid and identity-consistent.
+  let mutationReceipt = null
+  if (options.mutationEvidenceReceipt != null)
+  {
+    mutationReceipt = validateMutationEvidenceReceipt(
+      loadJsonInput(options.mutationEvidenceReceipt, 'mutationEvidenceReceipt')
+    )
+  }
+
   const factInputs = options.factObservationReceipts
   if (!Array.isArray(factInputs) || factInputs.length === 0)
   {
@@ -626,6 +705,36 @@ export function joinBehaviorGraph (options = {})
     {
       const reason = `${label} source identity does not match this-round source (old run/build/worktree refused)`
       pushLocator(conflicts, 'identity-mismatch', null, label, reason)
+      failureReasons.push(reason)
+    }
+  }
+
+  // Mutation evidence identity must match this-round source.
+  if (mutationReceipt != null)
+  {
+    if (mutationReceipt.sourceCommit !== sourceCommit
+      || normalizeFingerprint(mutationReceipt.worktreeFingerprint) !== worktreeFingerprint)
+    {
+      const reason = 'mutation evidence source identity does not match this-round source (old run refused)'
+      pushLocator(conflicts, 'identity-mismatch', null, 'mutationEvidenceReceipt', reason)
+      failureReasons.push(reason)
+    }
+    if (normalizeDigest(mutationReceipt.catalogDigest) !== catalogDigest)
+    {
+      const reason = 'mutationEvidenceReceipt catalogDigest does not match catalog (identity exact match)'
+      pushLocator(conflicts, 'identity-mismatch', null, 'mutationEvidenceReceipt', reason)
+      failureReasons.push(reason)
+    }
+    if (normalizeDigest(mutationReceipt.ownerReceiptDigest) !== normalizeDigest(ownerReceipt.contentDigest))
+    {
+      const reason = 'mutation evidence ownerReceiptDigest does not match owner receipt'
+      pushLocator(conflicts, 'identity-mismatch', null, 'mutationEvidenceReceipt', reason)
+      failureReasons.push(reason)
+    }
+    if (mutationReceipt.status === 'failed')
+    {
+      const reason = `mutation evidence failed closed: ${mutationReceipt.failureReasons.join('; ') || 'failed'}`
+      pushLocator(missing, 'input-failed', null, 'mutationEvidenceReceipt', reason)
       failureReasons.push(reason)
     }
   }
@@ -778,6 +887,7 @@ export function joinBehaviorGraph (options = {})
   const factEdges = []
   const testEdges = []
   const documentClaimEdges = []
+  const mutationEdges = []
   const behaviorNodes = []
 
   const contracts = [...catalog.contracts].sort((left, right) => left.id.localeCompare(right.id))
@@ -1162,7 +1272,61 @@ export function joinBehaviorGraph (options = {})
       }
     }
 
-    if (ownerStatus === 'failed' || factStatus === 'failed' || testStatus === 'failed' || docStatus === 'failed')
+    // Mutation evidence: per-behavior qualification
+    let mutationStatus = 'not-applicable'
+    if (mutationReceipt != null)
+    {
+      const behaviorQualification = mutationReceipt.qualifications.find(
+        (q) => q.behaviorId === behaviorId)
+      if (behaviorQualification != null)
+      {
+        if (!behaviorQualification.qualified)
+        {
+          mutationStatus = 'failed'
+          for (const failure of behaviorQualification.failures)
+          {
+            pushLocator(conflicts, 'mutation-failed', behaviorId, `mutation:${behaviorId}`, failure)
+            nodeFailures.push(failure)
+          }
+        }
+        else
+        {
+          mutationStatus = 'ok'
+        }
+        // Add mutation edges for this behavior's attributions
+        const behaviorAttributions = mutationReceipt.attributions.filter(
+          (a) => a.behaviorId === behaviorId)
+        for (const attr of behaviorAttributions)
+        {
+          mutationEdges.push({
+            behaviorId,
+            mutantId: attr.mutantId,
+            sourcePath: attr.sourcePath,
+            symbol: attr.symbol,
+            mutator: attr.mutator,
+            status: attr.status === 'Killed' ? 'ok' : 'failed',
+            reason: attr.status
+          })
+        }
+      }
+      else if (contract.mutationPolicy?.mutationRequired === true)
+      {
+        mutationStatus = 'failed'
+        const reason = `${behaviorId} mutationRequired but no mutation evidence qualification`
+        pushLocator(missing, 'missing-mutation', behaviorId, `mutation:${behaviorId}`, reason)
+        nodeFailures.push(reason)
+      }
+    }
+    else if (contract.mutationPolicy?.mutationRequired === true)
+    {
+      // No mutation receipt provided but behavior requires it
+      mutationStatus = 'failed'
+      const reason = `${behaviorId} mutationRequired but no mutation evidence receipt provided`
+      pushLocator(missing, 'missing-mutation', behaviorId, `mutation:${behaviorId}`, reason)
+      nodeFailures.push(reason)
+    }
+
+    if (ownerStatus === 'failed' || factStatus === 'failed' || testStatus === 'failed' || docStatus === 'failed' || mutationStatus === 'failed')
     {
       qualification = 'failed'
     }
@@ -1176,6 +1340,7 @@ export function joinBehaviorGraph (options = {})
       factStatus,
       testStatus,
       docStatus: docStatus === 'not-applicable' ? 'failed' : docStatus,
+      mutationStatus,
       qualification,
       failureReasons: [...new Set(nodeFailures)].sort((left, right) => left.localeCompare(right))
     })
@@ -1285,7 +1450,8 @@ export function joinBehaviorGraph (options = {})
         .sort((left, right) => left.extractorId.localeCompare(right.extractorId)),
       docClaimParseReceipt: normalizeDigest(parseReceipt.contentDigest),
       docClaimVerificationReceipt: normalizeDigest(verificationReceipt.contentDigest),
-      generatedSectionCheckReceipt: normalizeDigest(generatedReceipt.contentDigest)
+      generatedSectionCheckReceipt: normalizeDigest(generatedReceipt.contentDigest),
+      mutationEvidenceReceipt: mutationReceipt != null ? normalizeDigest(mutationReceipt.contentDigest) : null
     },
     behaviorNodes: behaviorNodes.sort((left, right) => left.behaviorId.localeCompare(right.behaviorId)),
     implementationEdges: implementationEdges.sort((left, right) =>
@@ -1296,6 +1462,8 @@ export function joinBehaviorGraph (options = {})
       `${left.behaviorId}\0${left.testKind}\0${left.canonicalTestId}`.localeCompare(`${right.behaviorId}\0${right.testKind}\0${right.canonicalTestId}`)),
     documentClaimEdges: documentClaimEdges.sort((left, right) =>
       `${left.behaviorId}\0${left.claimId}\0${left.documentPath}`.localeCompare(`${right.behaviorId}\0${right.claimId}\0${right.documentPath}`)),
+    mutationEdges: mutationEdges.sort((left, right) =>
+      `${left.behaviorId}\0${left.mutantId}`.localeCompare(`${right.behaviorId}\0${right.mutantId}`)),
     missing: sortLocators(missing),
     orphans: sortLocators(orphans),
     conflicts: sortLocators(conflicts),

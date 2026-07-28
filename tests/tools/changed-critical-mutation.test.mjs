@@ -1,384 +1,343 @@
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
-import { basename, dirname, extname, resolve } from 'node:path'
 import test from 'node:test'
 
 import {
     createChangedCriticalStrykerConfig,
-    selectChangedCriticalMutation
+    selectChangedCriticalMutation,
+    validateToolPolicy
 } from '../../tools/test/changed-critical-mutation.mjs'
 import {
-    createChangedCriticalMutationAuthority,
-    validateChangedCriticalMutationAuthority
-} from '../../tools/test/changed-critical-mutation-evidence.mjs'
+    attributeMutantsToBehaviors,
+    qualifyBehaviorMutations
+} from '../../tools/test/changed-critical-mutation-attribution.mjs'
+import {
+    sealMutationEvidenceReceipt
+} from '../../tools/test/mutation-evidence-receipt.mjs'
 import {
     executeChangedCriticalSelection
 } from '../../tools/test/run-changed-critical-mutation.mjs'
 
-const rawCatalog = readFileSync(
+const rawToolPolicy = readFileSync(
     new URL('../../config/testing/mutation/changed-critical-domains.v1.json', import.meta.url)
 )
-const catalog = JSON.parse(rawCatalog)
-const fixtures = JSON.parse(readFileSync(
-    new URL('./fixtures/changed-critical-mutation-selection.json', import.meta.url),
-    'utf8'
-))
+const toolPolicy = JSON.parse(rawToolPolicy)
+
 const sourceState = {
     commit: 'a'.repeat(40),
     worktreeFingerprint: 'b'.repeat(64)
 }
-const rawTestId = '00000000-0000-0000-0000-000000000002'
-const testName = 'FsusBlog.Server.Tests.Unit.ArticleRightsCanonicalHashTests.Run'
 
-function select(changedPaths, selectedCatalog = catalog, selectedRawCatalog = rawCatalog) {
+// Fixture: behavior catalog with mutationPolicy
+function makeBehaviorCatalog() {
+    return {
+        schema: 'fsusblog.behavior-contract-catalog.v1',
+        digest: 'c'.repeat(64),
+        contracts: [
+            {
+                id: 'authentication-session-permission',
+                domain: 'security',
+                risk: 'critical',
+                status: 'active',
+                mutationPolicy: {
+                    mutationRequired: true,
+                    minimumMutationScore: 70,
+                    requireExecutedMutants: true,
+                    allowedEquivalentMutantPolicy: 'none'
+                }
+            },
+            {
+                id: 'binary-api-aeds-contract',
+                domain: 'api',
+                risk: 'critical',
+                status: 'active',
+                mutationPolicy: {
+                    mutationRequired: true,
+                    minimumMutationScore: 70,
+                    requireExecutedMutants: true,
+                    allowedEquivalentMutantPolicy: 'none'
+                }
+            },
+            {
+                id: 'code-intent-governance',
+                domain: 'governance',
+                risk: 'high',
+                status: 'active'
+                // No mutationPolicy — not mutation-required
+            }
+        ]
+    }
+}
+
+// Fixture: owner receipt with bindings
+function makeOwnerReceipt() {
+    return {
+        schema: 'fsusblog.behavior-owner-binding-receipt.v1',
+        contentDigest: 'd'.repeat(64),
+        bindings: [
+            {
+                behaviorId: 'authentication-session-permission',
+                language: 'csharp',
+                sourcePath: 'src/backend/Infrastructure/Auth/AccountSubjectHasher.cs',
+                symbol: 'AccountSubjectHasher',
+                bindingKind: 'attribute',
+                status: 'ok'
+            },
+            {
+                behaviorId: 'binary-api-aeds-contract',
+                language: 'csharp',
+                sourcePath: 'src/core/Integrity/ArticleRightsCanonicalHashV1.cs',
+                symbol: 'ArticleRightsCanonicalHashV1',
+                bindingKind: 'attribute',
+                status: 'ok'
+            },
+            {
+                behaviorId: 'code-intent-governance',
+                language: 'javascript',
+                sourcePath: 'tools/governance/check-code-intent.mjs',
+                symbol: 'checkCodeIntent',
+                bindingKind: 'marker',
+                status: 'ok'
+            }
+        ],
+        errors: []
+    }
+}
+
+// Fixture: test binding scan
+function makeTestBindingScan() {
+    return {
+        catalogDigest: 'c'.repeat(64),
+        bindings: [
+            {
+                behaviorId: 'authentication-session-permission',
+                testKind: 'positive',
+                fullyQualifiedName: 'AccountSubjectHasherMutationTests.Run',
+                canonicalTestId: 'xunit-trx:AccountSubjectHasherMutationTests#Run'
+            },
+            {
+                behaviorId: 'authentication-session-permission',
+                testKind: 'negative',
+                fullyQualifiedName: 'AuthCookieServiceSecurityTests.RejectsExpired',
+                canonicalTestId: 'xunit-trx:AuthCookieServiceSecurityTests#RejectsExpired'
+            },
+            {
+                behaviorId: 'binary-api-aeds-contract',
+                testKind: 'positive',
+                fullyQualifiedName: 'ArticleRightsCanonicalHashTests.Run',
+                canonicalTestId: 'xunit-trx:ArticleRightsCanonicalHashTests#Run'
+            },
+            {
+                behaviorId: 'code-intent-governance',
+                testKind: 'positive',
+                fullyQualifiedName: 'CodeIntentTests.Valid',
+                canonicalTestId: 'node-tap:tests/tools/code-intent.test.mjs#valid'
+            }
+        ]
+    }
+}
+
+function select(changedPaths) {
     return selectChangedCriticalMutation({
-        catalog: selectedCatalog,
-        rawCatalog: selectedRawCatalog,
+        toolPolicy,
+        rawToolPolicy,
         changedPaths,
-        sourceState
+        sourceState,
+        ownerReceipt: makeOwnerReceipt(),
+        behaviorCatalog: makeBehaviorCatalog(),
+        testBindingScan: makeTestBindingScan()
     })
 }
 
-function report(statuses = ['Killed', 'Killed', 'Killed', 'Survived']) {
-    const source = 'public sealed class Subject {}'
-    return {
-        schemaVersion: '2',
-        thresholds: { high: 85, low: 70 },
-        files: {
-            'src/core/Integrity/ArticleRightsCanonicalHashV1.cs': {
-                language: 'cs',
-                source,
-                mutants: statuses.map((status, index) => ({
-                    id: String(index + 1),
-                    status,
-                    mutatorName: 'Arithmetic mutation',
-                    replacement: `replacement-${index}`,
-                    location: {
-                        start: { line: 1, column: index + 1 },
-                        end: { line: 1, column: index + 2 }
-                    },
-                    coveredBy: ['CompileError', 'Ignored', 'NoCoverage'].includes(status)
-                        ? []
-                        : [rawTestId],
-                    killedBy: status === 'Killed' ? [rawTestId] : []
-                }))
-            }
-        },
-        testFiles: {
-            'tests/backend/Unit/ArticleRightsCanonicalHashTests.cs': {
-                tests: [{ id: rawTestId, name: testName }]
-            }
-        }
-    }
-}
-
-function mutationScore(inputReport) {
-    const mutants = Object.values(inputReport.files).flatMap(({ mutants: values }) => values)
-    const killed = mutants.filter(({ status }) => status === 'Killed').length
-    const scoreable = mutants.filter(({ status }) =>
-        ['Killed', 'NoCoverage', 'Survived', 'Timeout'].includes(status)
-    ).length
-    return Number(((killed / scoreable) * 100).toFixed(2))
-}
-
-function traceFor(inputReport, inputConfig, reportPath) {
-    const reportName = basename(reportPath, extname(reportPath))
-    const mutants = Object.values(inputReport.files).flatMap(({ mutants: values }) => values)
-    const executed = mutants.filter(
-        ({ status }) => ['Killed', 'Survived', 'Timeout'].includes(status)
+test('tool policy validates schema v2 and rejects old v1 catalog', () => {
+    assert.doesNotThrow(() => validateToolPolicy(toolPolicy))
+    assert.throws(
+        () => validateToolPolicy({ schema: 'fsusblog.changed-critical-mutation-catalog.v1', version: 1 }),
+        /schema v2/u
     )
-    const lines = [
-        '2026-07-22T23:59:59.0000000Z  [DBG] '
-        + 'Stryker starting, version: "4.14.2" (e60f399b)',
-        '2026-07-23T00:00:00.0000000Z  [DBG] Stryker started with options: '
-        + `StrykerOptions { ReportPath: "${dirname(reportPath)}", `
-        + `ReportFileName: "${reportName}", `
-        + `TestCaseFilter: "${inputConfig['stryker-config']['test-case-filter']}" } (fac41b16)`
-    ]
-    executed.forEach((mutant, index) => {
-        const start = new Date(Date.parse('2026-07-23T00:00:01.000Z') + index * 100)
-            .toISOString()
-            .replace('.000Z', '.0000000Z')
-        const end = new Date(Date.parse('2026-07-23T00:00:01.025Z') + index * 100)
-            .toISOString()
-            .replace('.025Z', '.0250000Z')
-        const label = `${mutant.id}: mutation`
-        const outcome = mutant.status === 'Killed'
-            ? 'failed'
-            : mutant.status === 'Timeout'
-                ? 'timeout'
-                : 'passed'
-        lines.push(
-            `${start}  [DBG] "Runner 0": Testing ${JSON.stringify([label])} (445b8f48)`
-        )
-        lines.push(
-            `${end}  [DBG] Test run for "${label}" is "${outcome}" (26093294)`
-        )
-    })
-    lines.push(
-        `2026-07-23T00:00:10.0000000Z  [INF] The final mutation score is `
-        + `${mutationScore(inputReport).toFixed(2)} % (2ef58de4)`
-    )
-    return Buffer.from(`${lines.join('\n')}\n`)
-}
-
-function fixtureRun(selection, statuses = ['Killed', 'Killed', 'Killed', 'Survived']) {
-    const config = createChangedCriticalStrykerConfig(selection, catalog)
-    const rawConfig = Buffer.from(`${JSON.stringify(config, null, 2)}\n`)
-    const mutationReport = report(statuses)
-    const rawReport = Buffer.from(`${JSON.stringify(mutationReport, null, 2)}\n`)
-    const paths = {
-        config: '.tmp/mutation/changed-critical/run/configs/src-core.json',
-        report: '.tmp/mutation/changed-critical/run/physical/src-core/reports/changed-critical-mutation.json',
-        trace: '.tmp/mutation/changed-critical/run/physical/src-core/logs/log-20260723.txt'
-    }
-    const reportAbsolutePath = resolve(paths.report)
-    return {
-        sourceProject: 'src/core',
-        config,
-        rawConfig,
-        report: mutationReport,
-        rawReport,
-        reportAbsolutePath,
-        rawTrace: traceFor(mutationReport, config, reportAbsolutePath),
-        paths
-    }
-}
-
-test('single-domain change selects only its exact mutate file and owned test filter', () => {
-    const selection = select(fixtures.singleDomain)
-
-    assert.equal(selection.status, 'selected')
-    assert.deepEqual(
-        selection.domains.map(({ id }) => id),
-        ['article-rights-canonicalization']
-    )
-    assert.deepEqual(
-        selection.mutateFiles,
-        ['src/core/Integrity/ArticleRightsCanonicalHashV1.cs']
-    )
-    assert.match(selection.testFilter, /ArticleRightsCanonicalHashTests/u)
-    assert.doesNotMatch(selection.testFilter, /PasskeyServiceTests/u)
 })
 
-test('cross-domain selection is deterministic, de-duplicated, and source-bound', () => {
-    const forward = select(fixtures.crossDomain)
-    const reverse = select([...fixtures.crossDomain].reverse())
+test('single-behavior change selects only its owner mutate file and binding-derived test filter', () => {
+    const selection = select(['src/core/Integrity/ArticleRightsCanonicalHashV1.cs'])
 
-    assert.equal(forward.closureDigest, reverse.closureDigest)
-    assert.deepEqual(forward.mutateFiles, [
+    assert.equal(selection.status, 'selected')
+    assert.equal(selection.behaviors.length, 1)
+    assert.equal(selection.behaviors[0].behaviorId, 'binary-api-aeds-contract')
+    assert.deepEqual(selection.mutateFiles, ['src/core/Integrity/ArticleRightsCanonicalHashV1.cs'])
+    assert.match(selection.testFilter, /ArticleRightsCanonicalHashTests/u)
+    assert.doesNotMatch(selection.testFilter, /AccountSubjectHasher/u)
+})
+
+test('cross-behavior selection is deterministic and de-duplicated', () => {
+    const forward = select([
         'src/backend/Infrastructure/Auth/AccountSubjectHasher.cs',
         'src/core/Integrity/ArticleRightsCanonicalHashV1.cs'
     ])
-    assert.deepEqual(forward.domains.map(({ id }) => id), [
-        'article-rights-canonicalization',
-        'authentication-session-passkey'
+    const reverse = select([
+        'src/core/Integrity/ArticleRightsCanonicalHashV1.cs',
+        'src/backend/Infrastructure/Auth/AccountSubjectHasher.cs'
     ])
-    assert.equal(
-        new Set(forward.testOwners.map(({ id }) => id)).size,
-        forward.testOwners.length
-    )
+
+    assert.equal(forward.closureDigest, reverse.closureDigest)
+    assert.equal(forward.behaviors.length, 2)
+    assert.deepEqual(forward.behaviors.map((b) => b.behaviorId), [
+        'authentication-session-permission',
+        'binary-api-aeds-contract'
+    ])
 })
 
-test('critical source without a complete domain mapping fails closed with missing fields', () => {
-    const broken = structuredClone(catalog)
-    broken.domains = broken.domains.map((domain) => ({
-        ...domain,
-        sourcePatterns: domain.sourcePatterns.filter(
-            (pattern) => !pattern.includes('Services/Security')
-        )
-    }))
-    const rawBroken = Buffer.from(`${JSON.stringify(broken, null, 2)}\n`)
-
-    assert.throws(
-        () => select(fixtures.unmappedCritical, broken, rawBroken),
-        /NewCriticalBoundary\.cs.*missing fields: domain, testOwners, mutationPolicy/u
-    )
+test('non-mutation-required behavior change produces empty selection', () => {
+    const selection = select(['tools/governance/check-code-intent.mjs'])
+    assert.equal(selection.status, 'empty')
+    assert.deepEqual(selection.behaviors, [])
+    assert.deepEqual(selection.mutateFiles, [])
 })
 
-test('unrelated changes produce a structured empty selection and never start Stryker', () => {
-    const selection = select(fixtures.unrelated)
+test('unrelated changes produce empty selection and never start Stryker', () => {
+    const selection = select(['docs/testing.md', 'src/frontend/src/App.vue'])
     let starts = 0
     const run = executeChangedCriticalSelection({
         selection,
-        spawnStryker: () => {
-            starts += 1
-            return { status: 0 }
-        }
+        spawnStryker: () => { starts += 1; return { status: 0 } }
     })
 
     assert.equal(selection.status, 'empty')
-    assert.deepEqual(selection.domains, [])
-    assert.deepEqual(selection.mutateFiles, [])
-    assert.equal(selection.testFilter, '')
     assert.equal(run.status, 'empty')
     assert.equal(run.strykerStarted, false)
     assert.equal(starts, 0)
 })
 
-test('generated config is run-bound and preserves reviewed mutation semantics', () => {
-    const selection = select(fixtures.singleDomain)
-    const generated = createChangedCriticalStrykerConfig(selection, catalog)
+test('generated config uses binding-derived test filter and owner-derived mutate files', () => {
+    const selection = select(['src/core/Integrity/ArticleRightsCanonicalHashV1.cs'])
+    const generated = createChangedCriticalStrykerConfig(selection, toolPolicy)
 
-    assert.deepEqual(
-        generated['stryker-config']['test-projects'],
-        ['../../tests/backend/FsusBlog.Server.Tests.csproj']
-    )
-    assert.deepEqual(
-        generated['stryker-config'].mutate,
-        ['Integrity/ArticleRightsCanonicalHashV1.cs']
-    )
-    assert.equal(
-        generated['stryker-config']['test-case-filter'],
-        selection.projectClosures[0].testFilter
-    )
-    assert.deepEqual(
-        generated['stryker-config'].thresholds,
-        { high: 85, low: 70, break: 70 }
-    )
+    assert.deepEqual(generated['stryker-config']['test-projects'], ['../../tests/backend/FsusBlog.Server.Tests.csproj'])
+    assert.deepEqual(generated['stryker-config'].mutate, ['Integrity/ArticleRightsCanonicalHashV1.cs'])
+    assert.match(generated['stryker-config']['test-case-filter'], /ArticleRightsCanonicalHashTests/u)
+    assert.deepEqual(generated['stryker-config'].thresholds, { high: 85, low: 70, break: 70 })
     assert.equal(generated['stryker-config']['break-on-initial-test-failure'], true)
 })
 
-test('authority binds source, raw reports, traces, test GUIDs, and mutant outcomes', () => {
-    const selection = select(fixtures.singleDomain)
-    const rawSelection = Buffer.from(`${JSON.stringify(selection, null, 2)}\n`)
-    const runs = [fixtureRun(selection)]
-    const authority = createChangedCriticalMutationAuthority({
-        selection,
-        rawSelection,
-        catalog,
-        rawCatalog,
-        runs,
-        selectionPath: '.tmp/mutation/changed-critical/run/selection.json',
-        runId: 'changed-critical-fixture',
-        generatedAt: '2026-07-23T00:00:00.000Z'
-    })
-
-    assert.equal(authority.sourceState.commit, sourceState.commit)
-    assert.equal(
-        authority.catalog.sha256,
-        createHash('sha256').update(rawCatalog).digest('hex')
-    )
-    assert.deepEqual(authority.mutateFiles, selection.mutateFiles)
-    assert.equal(authority.testFilter, selection.testFilter)
-    assert.deepEqual(authority.mutants, {
-        executed: 4,
-        killed: 3,
-        survived: 1,
-        timeout: 0,
-        noCoverage: 0,
-        compileError: 0,
-        ignored: 0
-    })
-    assert.equal(authority.physicalRuns[0].score, 75)
-    assert.deepEqual(authority.executedTestIds, [testName])
-    assert.deepEqual(authority.testIdentities, [{
-        rawTestId,
-        fullyQualifiedName: testName
-    }])
-    assert.match(authority.rawReportDigest, /^[0-9a-f]{64}$/u)
-    assert.match(authority.rawTraceDigest, /^[0-9a-f]{64}$/u)
-    assert.match(authority.traceBatchDigest, /^[0-9a-f]{64}$/u)
-    assert.equal(authority.physicalRuns[0].traceExecution.strykerVersion, '4.14.2')
-    assert.equal(authority.physicalRuns[0].traceExecution.batches.length, 4)
-})
-
-test('authority validator rejects stale report, source, config, catalog, or zero mutants', () => {
-    const selection = select(fixtures.singleDomain)
-    const rawSelection = Buffer.from(`${JSON.stringify(selection, null, 2)}\n`)
-    const runs = [fixtureRun(selection, ['Killed', 'Killed', 'Killed'])]
-    const authority = createChangedCriticalMutationAuthority({
-        selection,
-        rawSelection,
-        catalog,
-        rawCatalog,
-        runs,
-        selectionPath: 'selection.json',
-        runId: 'current',
-        generatedAt: '2026-07-23T00:00:00.000Z'
-    })
-    const base = {
-        authority,
-        selection,
-        rawSelection,
-        catalog,
-        rawCatalog,
-        runs,
-        expectedSourceState: sourceState
+test('mutant attribution maps each mutant to unique behavior via owner receipt', () => {
+    const selection = select(['src/core/Integrity/ArticleRightsCanonicalHashV1.cs'])
+    const report = {
+        files: {
+            'src/core/Integrity/ArticleRightsCanonicalHashV1.cs': {
+                language: 'cs',
+                mutants: [
+                    { id: '1', status: 'Killed', mutatorName: 'Arithmetic', coveredBy: ['t1'], killedBy: ['t1'] },
+                    { id: '2', status: 'Survived', mutatorName: 'Boolean', coveredBy: ['t1'], killedBy: [] }
+                ]
+            }
+        }
     }
+    const { attributions, blocked } = attributeMutantsToBehaviors({
+        report,
+        sourceProject: 'src/core',
+        ownerReceipt: makeOwnerReceipt(),
+        selection
+    })
 
-    assert.throws(
-        () => validateChangedCriticalMutationAuthority({
-            ...base,
-            runs: [{
-                ...runs[0],
-                rawReport: Buffer.from(
-                    `${JSON.stringify(report(['Killed', 'Survived']), null, 2)}\n`
-                )
-            }]
-        }),
-        /raw Stryker report content|authority content mismatch/u
-    )
-    assert.throws(
-        () => validateChangedCriticalMutationAuthority({
-            ...base,
-            expectedSourceState: { ...sourceState, commit: 'c'.repeat(40) }
-        }),
-        /source commit mismatch/u
-    )
-    assert.throws(
-        () => validateChangedCriticalMutationAuthority({
-            ...base,
-            runs: [{ ...runs[0], rawConfig: Buffer.from('{}') }]
-        }),
-        /raw Stryker config content|authority content mismatch/u
-    )
-    assert.throws(
-        () => validateChangedCriticalMutationAuthority({
-            ...base,
-            rawCatalog: Buffer.from('{}')
-        }),
-        /catalog digest mismatch/u
-    )
-
-    const zeroRun = fixtureRun(selection, ['Ignored', 'CompileError'])
-    assert.throws(
-        () => createChangedCriticalMutationAuthority({
-            selection,
-            rawSelection,
-            catalog,
-            rawCatalog,
-            runs: [zeroRun],
-            selectionPath: 'selection.json',
-            runId: 'zero',
-            generatedAt: '2026-07-23T00:00:00.000Z'
-        }),
-        /must execute at least one mutant/u
-    )
+    assert.equal(attributions.length, 2)
+    assert.equal(blocked.length, 0)
+    assert.equal(attributions[0].behaviorId, 'binary-api-aeds-contract')
+    assert.equal(attributions[0].symbol, 'ArticleRightsCanonicalHashV1')
+    assert.equal(attributions[0].mutator, 'Arithmetic')
+    assert.equal(attributions[0].status, 'Killed')
+    assert.deepEqual(attributions[0].killedTestIds, ['t1'])
+    assert.equal(attributions[1].status, 'Survived')
 })
 
-test('changed-critical runner requires verbose trace production and records trace in manifest', () => {
-    const runner = readFileSync(
-        new URL('../../tools/test/run-changed-critical-mutation.mjs', import.meta.url),
-        'utf8'
-    )
+test('ambiguous multi-owner file reports blocked mutants', () => {
+    const ownerReceipt = {
+        bindings: [
+            { behaviorId: 'authentication-session-permission', sourcePath: 'src/backend/Shared.cs', symbol: 'SharedA', status: 'ok' },
+            { behaviorId: 'binary-api-aeds-contract', sourcePath: 'src/backend/Shared.cs', symbol: 'SharedB', status: 'ok' }
+        ]
+    }
+    const selection = {
+        behaviors: [
+            { behaviorId: 'authentication-session-permission' },
+            { behaviorId: 'binary-api-aeds-contract' }
+        ]
+    }
+    const report = {
+        files: {
+            'src/backend/Shared.cs': {
+                mutants: [{ id: '1', status: 'Killed', mutatorName: 'Arithmetic', coveredBy: [], killedBy: [] }]
+            }
+        }
+    }
+    const { attributions, blocked } = attributeMutantsToBehaviors({
+        report,
+        sourceProject: 'src/backend',
+        ownerReceipt,
+        selection
+    })
 
-    assert.match(runner, /--log-to-file/u)
-    assert.match(runner, /'--verbosity'/u)
-    assert.match(runner, /tracePath/u)
-    assert.match(runner, /trace: physical\.paths\.trace/u)
+    assert.equal(attributions.length, 0)
+    assert.equal(blocked.length, 1)
+    assert.equal(blocked[0].reason, 'ambiguous-owner-boundary')
 })
 
-test('checked-in nightly and fixed release mutation lanes remain present and unchanged in purpose', () => {
+test('per-behavior qualification fails on survived mutants regardless of domain score', () => {
+    const attributions = [
+        { mutantId: 'm1', behaviorId: 'binary-api-aeds-contract', status: 'Killed', sourcePath: 'a.cs', symbol: 'A', mutator: 'Arith', coveredTestIds: ['t1'], killedTestIds: ['t1'] },
+        { mutantId: 'm2', behaviorId: 'binary-api-aeds-contract', status: 'Killed', sourcePath: 'a.cs', symbol: 'A', mutator: 'Arith', coveredTestIds: ['t1'], killedTestIds: ['t1'] },
+        { mutantId: 'm3', behaviorId: 'binary-api-aeds-contract', status: 'Survived', sourcePath: 'a.cs', symbol: 'A', mutator: 'Bool', coveredTestIds: ['t1'], killedTestIds: [] },
+        { mutantId: 'm4', behaviorId: 'authentication-session-permission', status: 'Killed', sourcePath: 'b.cs', symbol: 'B', mutator: 'Arith', coveredTestIds: ['t2'], killedTestIds: ['t2'] }
+    ]
+    const { qualifications, failed } = qualifyBehaviorMutations({
+        attributions,
+        blocked: [],
+        behaviorCatalog: makeBehaviorCatalog()
+    })
+
+    assert.equal(failed, true)
+    const aeds = qualifications.find((q) => q.behaviorId === 'binary-api-aeds-contract')
+    const auth = qualifications.find((q) => q.behaviorId === 'authentication-session-permission')
+    assert.equal(aeds.qualified, false)
+    assert.equal(aeds.survived, 1)
+    assert.ok(aeds.failures.some((f) => /survived/u.test(f)))
+    assert.equal(auth.qualified, true)
+})
+
+test('mutation evidence receipt seals and validates', () => {
+    const receipt = sealMutationEvidenceReceipt({
+        sourceCommit: 'a'.repeat(40),
+        worktreeFingerprint: 'b'.repeat(64),
+        catalogDigest: 'c'.repeat(64),
+        selectionDigest: 'e'.repeat(64),
+        ownerReceiptDigest: 'f'.repeat(64),
+        testBindingScanDigest: '1'.repeat(64),
+        rawReportDigest: '2'.repeat(64),
+        rawTraceDigest: '3'.repeat(64),
+        attributions: [
+            { mutantId: 'm1', behaviorId: 'binary-api-aeds-contract', sourcePath: 'a.cs', symbol: 'A', mutator: 'Arith', status: 'Killed', coveredTestIds: ['t1'], killedTestIds: ['t1'] }
+        ],
+        qualifications: [
+            { behaviorId: 'binary-api-aeds-contract', mutationRequired: true, executed: 1, killed: 1, survived: 0, timeout: 0, noCoverage: 0, score: 100, minimumMutationScore: 70, qualified: true, failures: [] }
+        ],
+        blockedCount: 0,
+        status: 'ok',
+        failureReasons: []
+    })
+
+    assert.equal(receipt.schema, 'fsusblog.mutation-evidence-receipt.v1')
+    assert.match(receipt.contentDigest, /^[a-f0-9]{64}$/u)
+    assert.equal(receipt.status, 'ok')
+    assert.equal(receipt.attributions.length, 1)
+    assert.equal(receipt.qualifications[0].qualified, true)
+})
+
+test('checked-in nightly and fixed release mutation lanes remain present', () => {
     const matrix = readFileSync(new URL('../matrix.yml', import.meta.url), 'utf8')
     const defaults = JSON.parse(readFileSync(
-        new URL('../../config/testing/mutation/default.json', import.meta.url),
-        'utf8'
+        new URL('../../config/testing/mutation/default.json', import.meta.url), 'utf8'
     ))
     const critical = JSON.parse(readFileSync(
-        new URL('../../config/testing/mutation/critical.json', import.meta.url),
-        'utf8'
+        new URL('../../config/testing/mutation/critical.json', import.meta.url), 'utf8'
     ))
 
     assert.match(matrix, /- id: backend-mutation\n/u)

@@ -12,12 +12,18 @@ import { fileURLToPath } from 'node:url'
 
 import {
     createChangedCriticalStrykerConfig,
-    selectChangedCriticalMutation
+    selectChangedCriticalMutation,
+    validateToolPolicy
 } from './changed-critical-mutation.mjs'
 import { readChangedPaths, repoRelative } from './changed-critical-mutation-support.mjs'
 import {
     createChangedCriticalMutationAuthority
 } from './changed-critical-mutation-evidence.mjs'
+import {
+    attributeMutantsToBehaviors,
+    qualifyBehaviorMutations
+} from './changed-critical-mutation-attribution.mjs'
+import { sealMutationEvidenceReceipt } from './mutation-evidence-receipt.mjs'
 
 export function executeChangedCriticalSelection({ selection, spawnStryker }) {
     if (selection.status === 'empty') {
@@ -54,7 +60,10 @@ function parseArguments(args) {
         sourceCommit: null,
         worktreeFingerprint: null,
         outputRoot: null,
-        runId: null
+        runId: null,
+        ownerReceipt: null,
+        behaviorCatalog: null,
+        testBindings: null
     }
     const names = new Map([
         ['--catalog', 'catalog'],
@@ -62,7 +71,10 @@ function parseArguments(args) {
         ['--source-commit', 'sourceCommit'],
         ['--worktree-fingerprint', 'worktreeFingerprint'],
         ['--output-root', 'outputRoot'],
-        ['--run-id', 'runId']
+        ['--run-id', 'runId'],
+        ['--owner-receipt', 'ownerReceipt'],
+        ['--behavior-catalog', 'behaviorCatalog'],
+        ['--test-bindings', 'testBindings']
     ])
     for (let index = 0; index < args.length; index += 2) {
         const key = names.get(args[index])
@@ -94,7 +106,7 @@ function findTraceLog(physicalOutput) {
     return traceFiles[0]
 }
 
-function runPhysicalMutations({ selection, catalog, runDirectory, root, physicalRuns }) {
+function runPhysicalMutations({ selection, toolPolicy, runDirectory, root, physicalRuns }) {
     const restore = spawnSync(
         'dotnet',
         ['tool', 'restore'],
@@ -108,7 +120,7 @@ function runPhysicalMutations({ selection, catalog, runDirectory, root, physical
         const physicalOutput = resolve(runDirectory, 'physical', runName)
         const config = createChangedCriticalStrykerConfig(
             selection,
-            catalog,
+            toolPolicy,
             closure.sourceProject
         )
         const configPath = resolve(runDirectory, 'configs', `${runName}.json`)
@@ -152,17 +164,29 @@ function runPhysicalMutations({ selection, catalog, runDirectory, root, physical
 function main() {
     const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
     const options = parseArguments(process.argv.slice(2))
-    const catalogPath = resolve(options.catalog)
-    const rawCatalog = readFileSync(catalogPath)
-    const catalog = JSON.parse(rawCatalog)
+    const toolPolicyPath = resolve(options.catalog)
+    const rawToolPolicy = readFileSync(toolPolicyPath)
+    const toolPolicy = JSON.parse(rawToolPolicy)
+    validateToolPolicy(toolPolicy)
+    const ownerReceiptPath = resolve(options.ownerReceipt)
+    const ownerReceipt = JSON.parse(readFileSync(ownerReceiptPath))
+    const behaviorCatalogPath = resolve(options.behaviorCatalog)
+    const behaviorCatalog = JSON.parse(readFileSync(behaviorCatalogPath))
+    const testBindingPath = resolve(options.testBindings)
+    const rawTestBindingScan = readFileSync(testBindingPath)
+    const testBindingScan = JSON.parse(rawTestBindingScan)
     const selection = selectChangedCriticalMutation({
-        catalog,
-        rawCatalog,
+        toolPolicy,
+        rawToolPolicy,
         changedPaths: readChangedPaths(resolve(options.changedPaths)),
         sourceState: {
             commit: options.sourceCommit,
             worktreeFingerprint: options.worktreeFingerprint
-        }
+        },
+        ownerReceipt,
+        behaviorCatalog,
+        testBindingScan,
+        rawTestBindingScan
     })
     const runDirectory = resolve(options.outputRoot, options.runId)
     const selectionPath = resolve(runDirectory, 'selection.json')
@@ -174,7 +198,7 @@ function main() {
         selection,
         spawnStryker: () => runPhysicalMutations({
             selection,
-            catalog,
+            toolPolicy,
             runDirectory,
             root,
             physicalRuns
@@ -221,8 +245,8 @@ function main() {
     const authority = createChangedCriticalMutationAuthority({
         selection,
         rawSelection,
-        catalog,
-        rawCatalog,
+        catalog: toolPolicy,
+        rawCatalog: rawToolPolicy,
         runs: authorityRuns,
         selectionPath: repoRelative(root, selectionPath),
         runId: options.runId,
@@ -230,10 +254,44 @@ function main() {
         repositoryRoot: root
     })
     writeJsonAtomic(resolve(runDirectory, 'authority.json'), authority)
+    const attributed = authorityRuns.map((physical) => attributeMutantsToBehaviors({
+        report: physical.report,
+        sourceProject: physical.sourceProject,
+        ownerReceipt,
+        selection
+    }))
+    const attributions = attributed.flatMap(({ attributions }) => attributions)
+    const blocked = attributed.flatMap(({ blocked }) => blocked)
+    const qualification = qualifyBehaviorMutations({
+        attributions,
+        blocked,
+        behaviorCatalog,
+        behaviorIds: selection.behaviors.map(({ behaviorId }) => behaviorId)
+    })
+    const failureReasons = [
+        ...blocked.map((entry) => `${entry.mutantId} attribution blocked: ${entry.reason}`),
+        ...qualification.qualifications.flatMap((entry) => entry.failures)
+    ].sort()
+    const mutationEvidence = sealMutationEvidenceReceipt({
+        sourceCommit: selection.sourceState.commit,
+        worktreeFingerprint: selection.sourceState.worktreeFingerprint,
+        catalogDigest: selection.behaviorCatalogDigest,
+        selectionDigest: selection.closureDigest,
+        ownerReceiptDigest: ownerReceipt.contentDigest,
+        testBindingScanDigest: selection.testBindingScanDigest,
+        rawReportDigest: authority.rawReportDigest,
+        rawTraceDigest: authority.rawTraceDigest,
+        attributions,
+        qualifications: qualification.qualifications,
+        blockedCount: blocked.length,
+        status: qualification.failed ? 'failed' : 'ok',
+        failureReasons
+    })
+    writeJsonAtomic(resolve(runDirectory, 'mutation-evidence.json'), mutationEvidence)
     process.stdout.write(
         `[changed-critical-mutation] ok closure=${selection.closureDigest} `
         + `executed=${authority.mutants.executed} `
-        + `evidence=${repoRelative(root, resolve(runDirectory, 'authority.json'))}\n`
+        + `evidence=${repoRelative(root, resolve(runDirectory, 'mutation-evidence.json'))}\n`
     )
 }
 

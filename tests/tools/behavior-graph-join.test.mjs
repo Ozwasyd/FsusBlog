@@ -17,6 +17,7 @@ import {
   sealOwnerBindingReceipt,
   validateBehaviorGraphReceipt
 } from '../../tools/contracts/behavior-graph-join.mjs'
+import { sealMutationEvidenceReceipt } from '../../tools/test/mutation-evidence-receipt.mjs'
 
 const joinerPath = path.join(root, 'tools/contracts/behavior-graph-join.mjs')
 const checkerPath = path.join(root, 'tools/contracts/check-behavior-graph.mjs')
@@ -444,7 +445,29 @@ function happyBundle (mutators = {})
     docClaimParseReceipt: parseReceipt,
     docClaimVerificationReceipt: verification,
     generatedSectionCheckReceipt: generated
+    , ...(mutators.mutationEvidenceReceipt != null
+      ? { mutationEvidenceReceipt: mutators.mutationEvidenceReceipt }
+      : {})
   }
+}
+
+function makeMutationEvidence ({ catalog, ownerReceipt, status = 'ok', qualified = true, sourceCommit = SOURCE_COMMIT } = {})
+{
+  return sealMutationEvidenceReceipt({
+    sourceCommit,
+    worktreeFingerprint: WORKTREE_FP,
+    catalogDigest: catalogDigest(catalog),
+    selectionDigest: '6'.repeat(64),
+    ownerReceiptDigest: ownerReceipt.contentDigest,
+    testBindingScanDigest: '7'.repeat(64),
+    rawReportDigest: '8'.repeat(64),
+    rawTraceDigest: '9'.repeat(64),
+    attributions: [{ mutantId: 'src:alpha:1', behaviorId: 'alpha-behavior', sourcePath: 'tools/alpha/extract.mjs', symbol: 'extract', mutator: 'Boolean', status: qualified ? 'Killed' : 'Survived', coveredTestIds: ['alpha'], killedTestIds: qualified ? ['alpha'] : [] }],
+    qualifications: [{ behaviorId: 'alpha-behavior', mutationRequired: true, executed: 1, killed: qualified ? 1 : 0, survived: qualified ? 0 : 1, timeout: 0, noCoverage: 0, score: qualified ? 100 : 0, minimumMutationScore: 70, qualified, failures: qualified ? [] : ['alpha-behavior has 1 survived mutant(s)'] }],
+    blockedCount: 0,
+    status,
+    failureReasons: status === 'ok' ? [] : ['alpha-behavior has 1 survived mutant(s)']
+  })
 }
 
 test('joiner source has zero producer/parser/scanner imports and forbidden residual patterns', () =>
@@ -474,6 +497,40 @@ test('happy path seals qualified BehaviorGraph with recomputable digest', () =>
   assert.ok(receipt.behaviorNodes.every((node) => node.qualification === 'qualified'))
   assert.equal(receipt.sourceIdentity.commit, SOURCE_COMMIT)
   assert.equal(receipt.sourceIdentity.worktreeFingerprint, WORKTREE_FP)
+})
+
+test('mutation proof is linked through Behavior ID and strengthens the DocClaim-qualified node', () =>
+{
+  const initial = happyBundle()
+  const catalog = makeCatalog({
+    contracts: initial.catalog.contracts.map((contract) => contract.id === 'alpha-behavior'
+      ? { ...contract, mutationPolicy: { mutationRequired: true, minimumMutationScore: 70, requireExecutedMutants: true, allowedEquivalentMutantPolicy: 'none' } }
+      : contract)
+  })
+  const inputs = happyBundle({ catalog })
+  inputs.mutationEvidenceReceipt = makeMutationEvidence({ catalog, ownerReceipt: inputs.ownerReceipt })
+  const receipt = joinBehaviorGraph(inputs)
+  const alpha = receipt.behaviorNodes.find((node) => node.behaviorId === 'alpha-behavior')
+  assert.equal(receipt.status, 'ok')
+  assert.equal(alpha.mutationStatus, 'ok')
+  assert.equal(receipt.mutationEdges.length, 1)
+  assert.equal(receipt.documentClaimEdges.some((edge) => edge.behaviorId === 'alpha-behavior'), true)
+})
+
+test('survived mutant and stale evidence fail closed without changing DocClaim inputs', () =>
+{
+  const initial = happyBundle()
+  const catalog = makeCatalog({
+    contracts: initial.catalog.contracts.map((contract) => contract.id === 'alpha-behavior'
+      ? { ...contract, mutationPolicy: { mutationRequired: true, minimumMutationScore: 70, requireExecutedMutants: true, allowedEquivalentMutantPolicy: 'none' } }
+      : contract)
+  })
+  const inputs = happyBundle({ catalog })
+  inputs.mutationEvidenceReceipt = makeMutationEvidence({ catalog, ownerReceipt: inputs.ownerReceipt, status: 'failed', qualified: false })
+  const receipt = joinBehaviorGraph(inputs)
+  assert.equal(receipt.status, 'failed')
+  assert.equal(receipt.behaviorNodes.find((node) => node.behaviorId === 'alpha-behavior').mutationStatus, 'failed')
+  assert.ok(receipt.conflicts.some((entry) => entry.kind === 'mutation-failed'))
 })
 
 test('1) implementation value 10 vs verified doc still 5 fails even if lastVerifiedCommit would have passed old gates', () =>

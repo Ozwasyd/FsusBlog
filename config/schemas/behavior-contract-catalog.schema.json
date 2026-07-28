@@ -179,6 +179,35 @@
                         "type": "string",
                         "pattern": "^docs/"
                     }
+                },
+                "mutationPolicy": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "mutationRequired",
+                        "minimumMutationScore",
+                        "requireExecutedMutants",
+                        "allowedEquivalentMutantPolicy"
+                    ],
+                    "properties": {
+                        "mutationRequired": {
+                            "type": "boolean"
+                        },
+                        "minimumMutationScore": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 100
+                        },
+                        "requireExecutedMutants": {
+                            "type": "boolean"
+                        },
+                        "allowedEquivalentMutantPolicy": {
+                            "enum": [
+                                "none",
+                                "documented"
+                            ]
+                        }
+                    }
                 }
             }
         }

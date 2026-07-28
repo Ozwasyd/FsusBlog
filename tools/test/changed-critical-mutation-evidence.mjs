@@ -213,8 +213,8 @@ export function createChangedCriticalMutationAuthority({
             path: selectionPath,
             sha256: sha256(rawSelection)
         },
-        catalog: {
-            path: selection.catalog.path,
+        toolPolicy: {
+            path: selection.toolPolicy.path,
             sha256: sha256(rawCatalog),
             version: catalog.version
         },
@@ -223,7 +223,7 @@ export function createChangedCriticalMutationAuthority({
         )),
         mutateFiles: selection.mutateFiles,
         testFilter: selection.testFilter,
-        domains: selection.domains.map(({ id, risk }) => ({ id, risk })),
+        behaviors: selection.behaviors.map(({ behaviorId, risk }) => ({ behaviorId, risk })),
         mutants: {
             executed,
             killed: statuses.Killed,
