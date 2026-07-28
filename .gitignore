@@ -218,6 +218,7 @@ benchmarks/core/FsusBlog.Core.Benchmarks/BenchmarkDotNet.Artifacts/
 
 # Local-only agent / planning / scratch files
 .codex/
+.qoder/
 .claude/
 .agent/
 .agents/*
