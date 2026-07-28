@@ -17,22 +17,37 @@ public sealed class CoversBehaviorAttribute : Attribute
         TestKind = testKind;
     }
 
-    public string BehaviorId { get; }
+    public string BehaviorId
+    {
+        get;
+    }
 
-    public BehaviorTestKind TestKind { get; }
+    public BehaviorTestKind TestKind
+    {
+        get;
+    }
 
     /// <summary>
     /// Stable invariant ID required for negative/migration kinds when ReasonId is absent.
     /// </summary>
-    public string? InvariantId { get; init; }
+    public string? InvariantId
+    {
+        get; init;
+    }
 
     /// <summary>
     /// Stable expected-reason ID required for negative/migration kinds when InvariantId is absent.
     /// </summary>
-    public string? ReasonId { get; init; }
+    public string? ReasonId
+    {
+        get; init;
+    }
 
     /// <summary>
     /// Real concurrency harness identity. Required for Concurrency; name-based claims are rejected.
     /// </summary>
-    public string? ConcurrencyHarness { get; init; }
+    public string? ConcurrencyHarness
+    {
+        get; init;
+    }
 }

@@ -40,7 +40,10 @@ public sealed class TestTemporalContext
         BusinessClock = new TestBusinessTimeProvider(businessEpochUtc);
     }
 
-    public TestBusinessTimeProvider BusinessClock { get; private set; }
+    public TestBusinessTimeProvider BusinessClock
+    {
+        get; private set;
+    }
 
     public DateTimeOffset BusinessEpochUtc => BusinessClock.GetUtcNow();
 

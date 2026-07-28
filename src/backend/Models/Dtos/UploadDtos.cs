@@ -22,7 +22,10 @@ public sealed record class UploadInitRequestDto
 internal sealed record class UploadSessionRecord
 {
     public string UploadId { get; init; } = string.Empty;
-    public long OwnerAdminPrincipalId { get; init; }
+    public long OwnerAdminPrincipalId
+    {
+        get; init;
+    }
     public byte[] UploadTokenSha256 { get; init; } = [];
     public string FileName { get; init; } = string.Empty;
     public string MimeType { get; init; } = string.Empty;

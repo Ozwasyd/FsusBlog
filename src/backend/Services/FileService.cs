@@ -194,7 +194,10 @@ public sealed partial class FileService : IFileService
         }
 
         await using SessionLockLease sessionLock = await AcquireSessionLockAsync(normalizedUploadId, cancellationToken);
-        var record = await LoadAuthorizedSessionAsync(access with { UploadId = normalizedUploadId }, cancellationToken);
+        var record = await LoadAuthorizedSessionAsync(access with
+        {
+            UploadId = normalizedUploadId
+        }, cancellationToken);
         if (record is null)
         {
             return Result<UploadStatusDto>.Failure(ErrorCode.NotFound, "UPLOAD_SESSION_NOT_FOUND");
@@ -231,7 +234,10 @@ public sealed partial class FileService : IFileService
         }
 
         await using SessionLockLease sessionLock = await AcquireSessionLockAsync(normalizedUploadId, cancellationToken);
-        var record = await LoadAuthorizedSessionAsync(access with { UploadId = normalizedUploadId }, cancellationToken);
+        var record = await LoadAuthorizedSessionAsync(access with
+        {
+            UploadId = normalizedUploadId
+        }, cancellationToken);
         if (record is null)
         {
             return Result<UploadPartMapDto>.Failure(ErrorCode.NotFound, "UPLOAD_SESSION_NOT_FOUND");
@@ -265,7 +271,10 @@ public sealed partial class FileService : IFileService
         await using SessionLockLease sessionLock = await AcquireSessionLockAsync(normalizedUploadId, cancellationToken);
         try
         {
-            var record = await LoadAuthorizedSessionAsync(access with { UploadId = normalizedUploadId }, cancellationToken);
+            var record = await LoadAuthorizedSessionAsync(access with
+            {
+                UploadId = normalizedUploadId
+            }, cancellationToken);
             if (record is null)
             {
                 RetireSessionLock(normalizedUploadId);
@@ -381,7 +390,10 @@ public sealed partial class FileService : IFileService
         await using SessionLockLease sessionLock = await AcquireSessionLockAsync(normalizedUploadId, cancellationToken);
         try
         {
-            var record = await LoadAuthorizedSessionAsync(access with { UploadId = normalizedUploadId }, cancellationToken);
+            var record = await LoadAuthorizedSessionAsync(access with
+            {
+                UploadId = normalizedUploadId
+            }, cancellationToken);
             if (record is null)
             {
                 RetireSessionLock(normalizedUploadId);
@@ -729,7 +741,10 @@ public sealed partial class FileService : IFileService
         }
 
         await using SessionLockLease sessionLock = await AcquireSessionLockAsync(normalizedUploadId, cancellationToken);
-        UploadSessionRecord? record = await LoadAuthorizedSessionAsync(access with { UploadId = normalizedUploadId }, cancellationToken);
+        UploadSessionRecord? record = await LoadAuthorizedSessionAsync(access with
+        {
+            UploadId = normalizedUploadId
+        }, cancellationToken);
         if (record is null)
         {
             RetireSessionLock(normalizedUploadId);

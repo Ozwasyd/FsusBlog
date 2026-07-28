@@ -17,10 +17,16 @@ public sealed class BehaviorOwnerAttribute : Attribute
         BehaviorId = behaviorId;
     }
 
-    public string BehaviorId { get; }
+    public string BehaviorId
+    {
+        get;
+    }
 
     /// <summary>
     /// Required when catalog cardinality is many; must match an allowedImplementationOwnerRoles entry.
     /// </summary>
-    public string? Role { get; init; }
+    public string? Role
+    {
+        get; init;
+    }
 }

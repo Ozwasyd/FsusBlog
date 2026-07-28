@@ -7,19 +7,31 @@ namespace FsusBlog.Server.Entities;
 public sealed class UserLocalePreference
 {
     [SugarColumn(IsPrimaryKey = true, ColumnName = "account_id")]
-    public int AccountId { get; set; }
+    public int AccountId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "mode", Length = 8)]
     public string Mode { get; set; } = LocalePreferenceModes.Auto;
 
     [SugarColumn(ColumnName = "fixed_locale", Length = 16, IsNullable = true)]
-    public string? FixedLocale { get; set; }
+    public string? FixedLocale
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "revision")]
-    public long Revision { get; set; }
+    public long Revision
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "updated_at")]
-    public DateTime UpdatedAt { get; set; }
+    public DateTime UpdatedAt
+    {
+        get; set;
+    }
 }
 
 public static class LocalePreferenceModes

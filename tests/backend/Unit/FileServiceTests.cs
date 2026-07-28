@@ -56,10 +56,22 @@ public sealed class FileServiceTests
             Assert.True(init.IsSuccess);
             UploadInitDto session = init.Value!;
             var valid = new UploadSessionAccess(session.UploadId, 41, session.UploadToken);
-            var wrongOwner = valid with { OwnerAdminPrincipalId = 42 };
-            var wrongToken = valid with { UploadToken = "wrong-token" };
-            var missingToken = valid with { UploadToken = null };
-            var unknown = valid with { UploadId = Guid.NewGuid().ToString("N") };
+            var wrongOwner = valid with
+            {
+                OwnerAdminPrincipalId = 42
+            };
+            var wrongToken = valid with
+            {
+                UploadToken = "wrong-token"
+            };
+            var missingToken = valid with
+            {
+                UploadToken = null
+            };
+            var unknown = valid with
+            {
+                UploadId = Guid.NewGuid().ToString("N")
+            };
             var part = CreateFormFile([0x89, 0x50, 0x4E, 0x47, 1, 2, 3, 4], "part");
 
             Assert.True((await service.GetUploadStatusAsync(valid)).IsSuccess);
@@ -220,7 +232,10 @@ public sealed class FileServiceTests
             Result<UploadInitDto> init = await service.InitUploadSessionAsync(41, CreatePngUploadRequest(8));
             UploadInitDto session = Assert.IsType<UploadInitDto>(init.Value);
             var owner = new UploadSessionAccess(session.UploadId, 41, session.UploadToken);
-            var otherAdmin = owner with { OwnerAdminPrincipalId = 42 };
+            var otherAdmin = owner with
+            {
+                OwnerAdminPrincipalId = 42
+            };
 
             Task<Result<UploadStatusDto>> query = service.GetUploadStatusAsync(otherAdmin);
             Task<Result<bool>> abort = service.AbortUploadAsync(otherAdmin);
@@ -248,7 +263,10 @@ public sealed class FileServiceTests
             Result<UploadInitDto> init = await service.InitUploadSessionAsync(41, CreatePngUploadRequest(payload.Length));
             UploadInitDto session = Assert.IsType<UploadInitDto>(init.Value);
             var owner = new UploadSessionAccess(session.UploadId, 41, session.UploadToken);
-            var otherAdmin = owner with { OwnerAdminPrincipalId = 42 };
+            var otherAdmin = owner with
+            {
+                OwnerAdminPrincipalId = 42
+            };
 
             Assert.True((await service.UploadPartAsync(owner, 0, 0, CreateFormFile(payload, "part"), sha256)).IsSuccess);
             Result<UploadCompleteDto> first = await service.CompleteUploadAsync(owner, sha256);
@@ -1661,9 +1679,15 @@ public sealed class FileServiceTests
                 var owner = new UploadSessionAccess(uploadId, 1, init.Value.UploadToken);
                 Result<UploadCompleteDto> retry = await service.CompleteUploadAsync(owner, sha256);
                 Result<UploadCompleteDto> wrongOwner = await service.CompleteUploadAsync(
-                    owner with { OwnerAdminPrincipalId = 2 }, sha256);
+                    owner with
+                    {
+                        OwnerAdminPrincipalId = 2
+                    }, sha256);
                 Result<UploadCompleteDto> wrongToken = await service.CompleteUploadAsync(
-                    owner with { UploadToken = "wrong-token" }, sha256);
+                    owner with
+                    {
+                        UploadToken = "wrong-token"
+                    }, sha256);
 
                 Assert.Equal("completed", completed.Status);
                 Assert.Equal(1, completed.OwnerAdminPrincipalId);
