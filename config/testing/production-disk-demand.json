@@ -3,6 +3,8 @@
     "estimatorVersion": "production-disk-demand-2026-07",
     "safetyBytes": 536870912,
     "rootBindings": {
+        "behavior-doc-cache": "behaviorDocContractBuildCacheRoot",
+        "behavior-doc-observations": "behaviorDocObservationRoot",
         "run-output": "productionFreshOutputRoot",
         "production-build": "productionBuildRoot",
         "os-temp": "osTempRoot",
@@ -10,6 +12,55 @@
         "dependency-cache": "dependencyCacheRoot"
     },
     "producers": [
+        {
+            "producerId": "behavior-doc-static-admission",
+            "demands": [
+                {
+                    "rootId": "behavior-doc-cache",
+                    "peakAdditionalBytes": 402653184,
+                    "terminalRetainedBytes": 402653184,
+                    "rollbackOrRecoveryBytes": 67108864,
+                    "concurrencyClass": "behavior-doc-contract-build",
+                    "uncertaintyBytes": 134217728,
+                    "reusePolicy": "reserve-worst-case-on-cache-hit-and-cache-miss",
+                    "sourceOfEstimate": "measured 331970264-byte minimal contract build high-water rounded up, including atomic staging recovery and source-bound cache reuse uncertainty"
+                },
+                {
+                    "rootId": "behavior-doc-observations",
+                    "peakAdditionalBytes": 4194304,
+                    "terminalRetainedBytes": 4194304,
+                    "rollbackOrRecoveryBytes": 1048576,
+                    "concurrencyClass": "behavior-doc-observations",
+                    "uncertaintyBytes": 4194304,
+                    "reusePolicy": "reserve-worst-case-on-cache-hit-and-cache-miss",
+                    "sourceOfEstimate": "canonical FactObservation projection measured below one MiB with bounded atomic publication and retention allowance"
+                },
+                {
+                    "rootId": "os-temp",
+                    "peakAdditionalBytes": 1048576,
+                    "terminalRetainedBytes": 1048576,
+                    "rollbackOrRecoveryBytes": 1048576,
+                    "concurrencyClass": "behavior-doc-admission-receipt",
+                    "uncertaintyBytes": 33554432,
+                    "reusePolicy": "reserve-worst-case-on-cache-hit-and-cache-miss",
+                    "sourceOfEstimate": "measured run-bound admission receipt plus process-unique DocClaim staleness mutation fixture repositories, rounded to a 32 MiB transient uncertainty envelope"
+                }
+            ]
+        },
+        {
+            "producerId": "logical-projection-resume",
+            "demands": [
+                {
+                    "rootId": "run-output",
+                    "peakAdditionalBytes": 67108864,
+                    "terminalRetainedBytes": 67108864,
+                    "rollbackOrRecoveryBytes": 16777216,
+                    "concurrencyClass": "logical-projection-resume",
+                    "uncertaintyBytes": 16777216,
+                    "sourceOfEstimate": "projection-only attempt summary, forbidden-output observation, scheduler producer receipt, terminal protection and final atomic scheduler checkpoint commit high-water"
+                }
+            ]
+        },
         {
             "producerId": "build-static",
             "demands": [

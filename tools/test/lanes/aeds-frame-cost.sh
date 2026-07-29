@@ -26,7 +26,11 @@ fi
 
 "$ROOT_DIR/tools/test/ensure-benchmark-release-build.sh"
 
-dotnet run \
+"${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/performance-admission.mjs" \
+    --window-id aeds-frame-cost \
+    --evidence "$OUT_DIR/measurement-noise.json" \
+    -- \
+    dotnet run \
     --project "$ROOT_DIR/benchmarks/core/FsusBlog.Core.Benchmarks.csproj" \
     -c Release \
     --no-build \
@@ -54,6 +58,10 @@ cp "$SUMMARY_FILE" "$RELEASE_SUMMARY"
 # Keep correctness/performance evidence in this ordinary lane browserless.
 # Real engine selection, fallback, long-task and copy evidence belongs to the
 # independently scheduled browser diagnostics catalog.
-node "$ROOT_DIR/tests/frontend/checks/perf/check-aeds-decode-budget.mjs"
+"${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/performance-admission.mjs" \
+    --window-id aeds-decode-budget \
+    --evidence "$ROOT_DIR/.tmp/frontend/aeds-decode-budget/measurement-noise.json" \
+    -- \
+    node "$ROOT_DIR/tests/frontend/checks/perf/check-aeds-decode-budget.mjs"
 
 echo "[aeds-frame-cost] wrote $SUMMARY_FILE and $RELEASE_SUMMARY"

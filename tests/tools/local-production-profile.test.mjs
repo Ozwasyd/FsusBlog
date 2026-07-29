@@ -21,6 +21,7 @@ const {
     localProfileSystemResources,
     localProfileBudgetCriticalPath,
     performanceMixedWindowFloorMs,
+    projectLocalBootstrapFixtureProfile,
     matrixGeneratedRuntimePaths,
     resolveLocalProfileResources,
     resolveArtifactSubstitutions,
@@ -32,7 +33,13 @@ const {
     validateLocalProfiles
 } = await import(pathToFileURL(path.join(root, 'tools/test-matrix/local-profile.mjs')).href);
 const { parseMatrix } = await import(pathToFileURL(path.join(root, 'tools/test-matrix/parse-matrix.mjs')).href);
-const { runLocalProfile } = await import(pathToFileURL(path.join(root, 'tools/run-test-matrix.mjs')).href);
+const {
+    productionFreshEnvironmentForPhysicalTier,
+    runLocalProfile
+} = await import(pathToFileURL(path.join(root, 'tools/run-test-matrix.mjs')).href);
+const { behaviorDocStaticAdmissionTierId } = await import(
+    pathToFileURL(path.join(root, 'tools/test-matrix/behavior-doc-static-admission-contract.mjs')).href
+);
 const { acquireProductionFreshExclusiveLease } = await import(
     pathToFileURL(path.join(root, 'tools/test-matrix/production-fresh-exclusive-lease.mjs')).href
 );
@@ -53,6 +60,23 @@ function cacheTransactionOwner(repositoryRoot)
         executableDigest: `sha256:${'b'.repeat(64)}`,
         commandDigest: `sha256:${'c'.repeat(64)}`,
         processGroupOrJobIdentity: { kind: 'unix-process-group', processGroupId: process.pid }
+    };
+}
+
+function verifiedBehaviorDocAdmissionRuntime(repositoryRoot, runId, sourceState)
+{
+    const contentDigest = `sha256:${'d'.repeat(64)}`;
+    return {
+        behaviorDocStaticAdmission: {
+            receiptFile: path.join(
+                repositoryRoot,
+                '.tmp/behavior-doc-static-admission/receipt.json'
+            ),
+            runId,
+            contentDigest
+        },
+        behaviorDocSourceIdentity: () => sourceState,
+        readBehaviorDocStaticAdmissionReceipt: () => ({ contentDigest })
     };
 }
 
@@ -81,10 +105,10 @@ function profile(overrides = {})
         minimumSupportedCpuUnits: 4,
         memoryReserveShare: 0.05,
         bundles: [
-            { id: 'build-static', command: 'build', deadlineWeight: 18, dependsOn: [], members: ['a'], cpuWeight: 2, memoryWeight: 3, minCpuUnits: 1, startupMinCpuUnits: 1, startupMemoryWeight: 3, startupPriority: 3 },
-            { id: 'backend-tests', command: 'backend', deadlineWeight: 44, dependsOn: [], members: ['b'], cpuWeight: 3, memoryWeight: 4, minCpuUnits: 2, startupMinCpuUnits: 1, startupMemoryWeight: 4, startupPriority: 4 },
-            { id: 'frontend-tests', command: 'frontend', deadlineWeight: 27, dependsOn: [], members: ['c'], cpuWeight: 3, memoryWeight: 2, minCpuUnits: 1, startupMinCpuUnits: 1, startupMemoryWeight: 2, startupPriority: 3 },
-            { id: 'runtime-browser', command: 'runtime', deadlineWeight: 24, dependsOn: [], members: ['d'], cpuWeight: 5, memoryWeight: 5, minCpuUnits: 1, startupMinCpuUnits: 1, startupMemoryWeight: 5, startupPriority: 4 },
+            { id: 'build-static', command: 'build', deadlineWeight: 18, dependsOn: [behaviorDocStaticAdmissionTierId], members: ['a'], cpuWeight: 2, memoryWeight: 3, minCpuUnits: 1, startupMinCpuUnits: 1, startupMemoryWeight: 3, startupPriority: 3 },
+            { id: 'backend-tests', command: 'backend', deadlineWeight: 44, dependsOn: [behaviorDocStaticAdmissionTierId], members: ['b'], cpuWeight: 3, memoryWeight: 4, minCpuUnits: 2, startupMinCpuUnits: 1, startupMemoryWeight: 4, startupPriority: 4 },
+            { id: 'frontend-tests', command: 'frontend', deadlineWeight: 27, dependsOn: [behaviorDocStaticAdmissionTierId], members: ['c'], cpuWeight: 3, memoryWeight: 2, minCpuUnits: 1, startupMinCpuUnits: 1, startupMemoryWeight: 2, startupPriority: 3 },
+            { id: 'runtime-browser', command: 'runtime', deadlineWeight: 24, dependsOn: [behaviorDocStaticAdmissionTierId], members: ['d'], cpuWeight: 5, memoryWeight: 5, minCpuUnits: 1, startupMinCpuUnits: 1, startupMemoryWeight: 5, startupPriority: 4 },
             { id: 'performance-evidence', command: 'performance', deadlineWeight: 36, minimumDeadlineShare: 0.25, dependsOn: ['build-static', 'backend-tests', 'frontend-tests', 'runtime-browser'], members: ['production'], cpuWeight: 8, memoryWeight: 10, minCpuUnits: 1, startupMinCpuUnits: 1, startupMemoryWeight: 10, startupPriority: 1 }
         ],
         summaryOnly: [],
@@ -711,7 +735,10 @@ test('local production runner attaches the logical projection only after fresh p
     assert.deepEqual(orderedMarkers, [...orderedMarkers].sort((left, right) => left - right));
     assert.match(localProfileRunner, /if \(result\.status === 'success' && !options\.resume\)[\s\S]*?attachCheckpointEvidence/u);
     assert.doesNotMatch(localProfileRunner, /fresh-only/u);
-    assert.match(localProfileRunner, /isProjectionOnlyCheckpointFailure\(resumeCheckpoint\)[\s\S]*?resumeCheckpointEvidence\([\s\S]*?fresh-projection-resume/u);
+    assert.match(localProfileRunner, /readProductionResumeCheckpointAuthority\(admissionRunIdentity\)/u);
+    assert.match(localProfileRunner, /capacityIdentity: productionResumeAuthority\.authorityDigest/u);
+    assert.match(localProfileRunner, /assertProductionResumeCheckpointAuthorityStable\(productionResumeAuthority, resumeIdentity\)[\s\S]*?resumeEvidence\(checkpointPath[\s\S]*?fresh-projection-resume/u);
+    assert.match(localProfileRunner, /guardProducer\('logical-projection-resume'\)[\s\S]*?createProductionFreshOutputRoot\([\s\S]*?resumeEvidence\(checkpointPath[\s\S]*?beforeCommit: async[\s\S]*?finalizeProductionFreshAttempt\([\s\S]*?completeProducer\([\s\S]*?'logical-projection-resume'/u);
     assert.match(localProfileRunner, /physical resume run=\$\{runId\}/u);
     assert.match(localProfileRunner, /runProductionBuildLifecycle\(\{[\s\S]*?prepareOptions: \{[\s\S]*?fresh: !options\.resume/u);
     assert.match(localProfileRunner, /mode: options\.resume \? 'resume' : 'fresh'/u);
@@ -726,7 +753,7 @@ test('local production runner attaches the logical projection only after fresh p
     assert.match(localBundleRunner, /executionSource: process\.env\.FSUSBLOG_TEST_EXECUTION_SOURCE === 'resume' \? 'resume' : 'fresh'/u);
     assert.match(localProfileRunner, /resume-build-layout\.json/u);
     assert.match(localProfileRunner, /authoritative: false/u);
-    assert.match(localProfileRunner, /if \(options\.resume\)[\s\S]*?else \{[\s\S]*?emitProductionResourceUtilization/u);
+    assert.match(localProfileRunner, /if \(options\.resume\)\s*\{[\s\S]*?\}\s*else\s*\{[\s\S]*?emitProductionResourceUtilization/u);
     assert.match(localProfileRunner, /const resolvedLogicalMatrix = \{[\s\S]*?tiers: resolveLogicalTierResources\(matrix\.tiers, detectedResources\)[\s\S]*?projectLocalBundleSummaries\([\s\S]*?resolvedLogicalMatrix,[\s\S]*?tiers: resolvedLogicalMatrix\.tiers/u);
     assert.match(localProfileRunner, /writeSummaryOnlyEvidence\([\s\S]*?profileId,[\s\S]*?profile,[\s\S]*?runId,[\s\S]*?lockedCheckpoint\.sourceState,[\s\S]*?artifactTable\)/u);
     assert.match(localProfileRunner, /artifactTable\.finalize\([\s\S]*?production-artifact-digest-table\.json/u);
@@ -735,17 +762,13 @@ test('local production runner attaches the logical projection only after fresh p
     assert.match(localProfileRunner, /independent failure\(s\) collected/u);
     assert.match(localProfileRunner, /const leaseSourceState = await \(runtime\.snapshotSourceState \?\? snapshotSourceState\)\(profileRoot\)[\s\S]*?acquireProductionFreshExclusiveLease\(\{[\s\S]*?sourceState: leaseSourceState[\s\S]*?const cleanupSource = runtime\.productionFreshSourceState[\s\S]*?executeProductionFreshPreflight\(\{[\s\S]*?receiptDirectory: runtime\.receiptDirectory[\s\S]*?fsusblog-runtime-cleanup-receipts[\s\S]*?additionalCleanup: runtime\.additionalCleanup,/u);
     assert.match(localProfileRunner, /productionFreshLeaseOwner: lease\.owner[\s\S]*?cleanLocalProductionOutputs\)\(profileRoot, \{[\s\S]*?runId,[\s\S]*?ownerIdentity: runtime\.productionFreshLeaseOwner/u);
-    assert.match(localProfileRunner, /executeProductionFreshPreflight\(\{[\s\S]*?assertFreshRuntimeCleanupReceipt\(preflightReceipt\.receipt\)[\s\S]*?cleanLocalProductionOutputs[\s\S]*?bindFreshRuntimeCleanupReceipt\(\{ root: profileRoot, receipt: preflightReceipt \}\)[\s\S]*?recordSchedulerResult\(await runDag/u);
-    assert.match(localProfileRunner, /cleanLocalProductionOutputs[\s\S]*?bindFreshRuntimeCleanupReceipt\(\{ root: profileRoot, receipt: preflightReceipt \}\)[\s\S]*?createProductionFreshOutputRoot\(\{ root: profileRoot, runId, resume: options\.resume \}\)[\s\S]*?recordSchedulerResult\(await runDag/u);
-    assert.match(localProfileRunner, /envForTier\(tier\)[\s\S]*?productionFreshOutputEnvironment\(runOutputs, tier\.id\)/u);
-    assert.match(localProfileRunner, /catch \(error\) \{[\s\S]*?runError = error[\s\S]*?throw error[\s\S]*?finally \{[\s\S]*?if \(runError !== null \|\| !result\)[\s\S]*?recordCheckpointFailure\(/u);
+    assert.match(localProfileRunner, /envForTier\(tier\)[\s\S]*?productionFreshEnvironmentForPhysicalTier\(runOutputs, tier\)/u);
+    assert.match(localProfileRunner, /const scheduledPhysicalTiers = prependManagedProductionBuildGc\(physicalTiers, runId, \{[\s\S]*?outputRoot: runOutputs\.outputRoot/u);
+    assert.match(localProfileRunner, /freshRunDirectoryPreservation:[\s\S]*?productionFreshSchedulerRunDirectoryPreservation\(runOutputs\)/u);
+    assert.match(localProfileRunner, /catch \(error\)\s*\{\s*runError = error;[\s\S]*?throw error;[\s\S]*?\}\s*finally\s*\{[\s\S]*?if \(runError !== null \|\| !result\)\s*\{[\s\S]*?recordCheckpointFailure\(/u);
+    assert.match(localProfileRunner, /let postflightReceipt = null[\s\S]*?try\s*\{[\s\S]*?prepareNamespaceEnvironmentIfNeeded\([\s\S]*?runDag\([\s\S]*?finally\s*\{/u);
     assert.doesNotMatch(localProfileRunner, /fs\.writeFileSync\(result\.checkpointPath/u);
-    assert.match(localProfileRunner, /runProductionFreshRuntimeCleanupPhase\(\{[\s\S]*?phase: 'postflight'[\s\S]*?preflightSource: cleanupSource,[\s\S]*?cleanupOptions: runtimeCleanupOptions/u);
-    assert.match(localProfileRunner, /writeFreshRuntimeCleanupReceipt\([\s\S]*?phase: 'postflight'[\s\S]*?source: postflightSource[\s\S]*?bindFreshRuntimeCleanupReceipt\(\{ root, receipt: postflightReceipt \}\)[\s\S]*?postflightReceipt\.verification\.status !== 'complete'[\s\S]*?result\.status = 'failure'/u);
     assert.match(localProfileRunner, /if \(runError !== null \|\| finalizationError !== null\)[\s\S]*?status: 'failure'[\s\S]*?runtimeCleanup: result\.checkpoint\.runtimeCleanup[\s\S]*?fs\.writeFileSync\(summaryFile/u);
-    assert.match(localProfileRunner, /postflightReceipt\.verification\.status !== 'complete'[\s\S]*?postflightFailure = \{[\s\S]*?recordCheckpointRuntimeCleanup\([\s\S]*?postflightFailure\)/u);
-    assert.match(localProfileRunner, /recordCheckpointRuntimeCleanup\(result\.checkpointPath, runId, \{[\s\S]*?preflight:/u);
-    assert.match(localProfileRunner, /recordCheckpointRuntimeCleanup\(result\.checkpointPath, runId, \{[\s\S]*?postflight: runtimeCleanupReceiptReference\(root, postflightReceipt\)[\s\S]*?postflightFailure/u);
 });
 
 test('a rejected second Production Fresh invocation reaches no cleanup, container, port, or producer mutation', async (t) =>
@@ -773,7 +796,14 @@ test('a rejected second Production Fresh invocation reaches no cleanup, containe
     });
     t.after(() =>
     {
-        try { lease.release(); } catch {}
+        try
+        {
+            lease.release();
+        }
+        catch
+        {
+            // The assertion path may already release the lease.
+        }
     });
     const ownerFile = path.join(lease.leasePath, 'owner.json');
     const before = {
@@ -796,15 +826,35 @@ test('a rejected second Production Fresh invocation reaches no cleanup, containe
     await assert.rejects(
         runLocalProfile(matrix, 'production', { resume: false, planOnly: false, maxParallel: null }, {
             root: profileRoot,
+            ...verifiedBehaviorDocAdmissionRuntime(
+                profileRoot,
+                'production-exclusive-b',
+                sourceState
+            ),
             schedulerRunIdentity: () => ({
                 runsRoot: path.join(profileRoot, '.tmp/test-runs'),
                 runId: 'production-exclusive-b'
             }),
             snapshotSourceState: async () => sourceState,
-            cleanupRuntime: () => { mutations.runtimeCleanup += 1; return {} },
-            additionalCleanup: () => { mutations.additionalCleanup += 1; return [] },
-            cleanLocalProductionOutputs: () => { mutations.outputCleanup += 1; return {} },
-            executeTier: () => { mutations.producerSpawn += 1 }
+            cleanupRuntime: () =>
+            {
+                mutations.runtimeCleanup += 1;
+                return {};
+            },
+            additionalCleanup: () =>
+            {
+                mutations.additionalCleanup += 1;
+                return [];
+            },
+            cleanLocalProductionOutputs: () =>
+            {
+                mutations.outputCleanup += 1;
+                return {};
+            },
+            executeTier: () =>
+            {
+                mutations.producerSpawn += 1;
+            }
         }),
         /production fresh lease already active/u
     );
@@ -848,6 +898,7 @@ test('local production run keeps a blocked invocation sealed after its run direc
     let producerStarts = 0;
     const runtime = {
         root: profileRoot,
+        ...verifiedBehaviorDocAdmissionRuntime(profileRoot, runId, sourceState),
         invocationId,
         receiptDirectory,
         wallClockStartedAtMs: Date.now() - 100,
@@ -870,7 +921,7 @@ test('local production run keeps a blocked invocation sealed after its run direc
         acquireProductionCapacityReservation: (reservationOptions) =>
             acquireProductionCapacityReservation({
                 ...reservationOptions,
-                measureAvailable: (filesystem) => filesystem.observedFreeBytes
+                remeasureFilesystem: (filesystem) => filesystem.observedFreeBytes
             }),
         cleanupRuntime: () =>
         {
@@ -931,7 +982,7 @@ test('local production run keeps a blocked invocation sealed after its run direc
     assert.equal(rebuiltCheckpoint.runtimeCleanup.preflight.status, 'blocked');
     assert.equal(fs.existsSync(path.join(runsRoot, runId, 'logs')), false);
     const rebuiltSummary = JSON.parse(fs.readFileSync(
-        path.join(profileRoot, '.tmp/local-production/summary.json'),
+        path.join(runsRoot, runId, 'preflight/summary.json'),
         'utf8'
     ));
     assert.equal(rebuiltSummary.status, 'failure');
@@ -948,13 +999,13 @@ test('backend bundle exposes run-bound readiness and exact-union contracts', () 
     assert.match(backendBundleRunner, /commandStep\('backend-server-build',[\s\S]*?dotnet build src\/backend\/FsusBlog\.Server\.csproj -c Release[^\n]*--no-restore/u);
     assert.match(localBundleRunner, /const liveGrant = schedulerResourceGrant\(\)[\s\S]*?inheritedCpuBudget: liveGrant\?\.cpuUnits \?\? process\.env\.FSUSBLOG_BUNDLE_CPU_BUDGET,[\s\S]*?inheritedMemoryGiB: liveGrant\?\.memoryGiB \?\? process\.env\.FSUSBLOG_BUNDLE_MEMORY_GIB,[\s\S]*?cpuWeight: bundle\.cpuWeight/u);
     assert.match(backendBundleRunner, /dotnet build src\/backend\/FsusBlog\.Server\.csproj[^\n]*\/m:"\$FSUSBLOG_STEP_CPU_BUDGET"/u);
-    assert.match(backendBundleRunner, /await executeStep\(backendBuildStep\)[\s\S]*?publishBackendBuildReady\(\)[\s\S]*?commandStep\('backend-tests-build'[\s\S]*?--no-restore[\s\S]*?commandStep\('backend-benchmark-build'[\s\S]*?--no-restore[\s\S]*?await executeWeightedStepDag/u);
+    assert.match(backendBundleRunner, /await executeStep\(backendBuildStep\)[\s\S]*?publishBackendBuildReady\(\)[\s\S]*?commandStep\('backend-tests-build'[\s\S]*?--no-restore[\s\S]*?commandStep\('backend-benchmark-build'[\s\S]*?--no-restore[\s\S]*?await executeBundleStepDag/u);
     assert.match(backendBundleRunner, /commandStep\('backend-tests-build',[\s\S]*?--no-restore --no-dependencies --no-incremental/u);
     assert.match(backendBundleRunner, /commandStep\('backend-benchmark-build',[\s\S]*?--no-restore --no-dependencies/u);
     assert.match(backendBundleRunner, /await executeStep\(testsBuildStep\)[\s\S]*?await executeStep\(benchmarkBuildStep\)[\s\S]*?const testStep/u);
     assert.match(backendBundleRunner, /commandStep\('backend-tests-build',[\s\S]*?afterSuccess: publishBackendTestsReady/u);
     assert.match(backendBundleRunner, /const testStep = commandStep\('dotnet-production-union',[\s\S]*?afterSuccess: publishBackendTestsReady/u);
-    assert.match(localBundleRunner, /if \(typeof step\.afterSuccess === 'function'\) await step\.afterSuccess\(result\)[\s\S]*?stepExecutionResults\.set\(step\.id/u);
+    assert.match(localBundleRunner, /if \(typeof step\.afterSuccess === 'function'\)\s*\{\s*await step\.afterSuccess\(result\);\s*\}[\s\S]*?stepExecutionResults\.set\(step\.id/u);
     assert.match(backendBundleRunner, /commandStep\('backend-benchmark-build'[\s\S]*?afterSuccess: publishBenchmarkBuildReady/u);
     assert.match(backendBundleRunner, /FSUSBLOG_BACKEND_CPU_BUDGET="\$FSUSBLOG_STEP_CPU_BUDGET" node tools\/test\/run-backend-production-shards\.mjs/u);
     assert.match(backendBundleRunner, /const testStep = commandStep\('dotnet-production-union',[\s\S]*?minCpuUnits: 2,[\s\S]*?minMemoryGiB: backendTopologyDefaults\.memoryGiBPerTesthost \* 2/u);
@@ -965,7 +1016,7 @@ test('backend bundle exposes run-bound readiness and exact-union contracts', () 
     assert.match(backendShardRunner, /executionMode: 'expandable-exact-partitions'/u);
     assert.doesNotMatch(backendShardRunner, /const postludeResult|governance-postlude\.trx/u);
     assert.match(backendBundleRunner, /await executeWave\(\[[\s\S]*?commandStep\('services'[\s\S]*?commandStep\('dotnet-restore'/u);
-    assert.match(backendBundleRunner, /await executeWeightedStepDag\(\[[\s\S]*?testStep,[\s\S]*?commandStep\('perception-matrix'/u);
+    assert.match(backendBundleRunner, /await executeBundleStepDag\(\[[\s\S]*?testStep,[\s\S]*?commandStep\('perception-matrix'/u);
     assert.match(backendBundleRunner, /commandStep\('perception-matrix',[\s\S]*?dependsOn: \['dotnet-production-union'\]/u);
     assert.match(backendBundleRunner, /commandStep\('perception-evidence-finalize',[\s\S]*?dependsOn: \['perception-matrix'\]/u);
     assert.match(backendBundleRunner, /commandStep\('backend-coverage-summary',[\s\S]*?dependsOn: \['dotnet-production-union'\]/u);
@@ -986,7 +1037,7 @@ test('backend bundle exposes run-bound readiness and exact-union contracts', () 
     assert.match(frontendBundleRunner, /vitest-production-projects'[\s\S]*?dependsOn: \['frontend-early-test-capacity-ready'\],[\s\S]*?cpuWeight: 2,[\s\S]*?memoryWeight: 1\.5,[\s\S]*?minCpuUnits: resolvedFrontendVitestAdmissionFloor\(\)/u);
     assert.doesNotMatch(frontendBundleRunner, /FSUSBLOG_VITEST_TARGET_WORKERS/u);
     assert.match(localBundleRunner, /resolveFrontendVitestAdmissionFloor\(\{ cpuCount, eventualFrontendCapacity \}\)/u);
-    assert.match(localBundleRunner, /function resolvedFrontendEarlyTestCpuTarget\(\) \{[\s\S]*?currentCpuUnits >= 3 \? currentCpuUnits - 1 : currentCpuUnits/u);
+    assert.match(localBundleRunner, /function resolvedFrontendEarlyTestCpuTarget\(\)\s*\{[\s\S]*?currentCpuUnits >= 3 \? currentCpuUnits - 1 : currentCpuUnits/u);
     assert.match(frontendBundleRunner, /frontend-early-test-capacity-ready'[\s\S]*?coordinationOnly: true/u);
     assert.doesNotMatch(frontendBundleRunner, /commandStep\('frontend-test-capacity-ready'/u);
     assert.match(frontendBundleRunner, /static-governance-concurrent'[\s\S]*?repository-governance-authority\.mjs run application-static-governance'[\s\S]*?resources: \{ cpuWeight: 1, memoryWeight: 0\.5, minCpuUnits: 1 \}/u);
@@ -1019,8 +1070,9 @@ test('cold frontend static phases move to frontend-tests while build-static rema
     );
     assert.doesNotMatch(buildSteps, /frontend-static-(?:blocking-prebuild|concurrent|postbuild|isolated|final|governance)/u);
     assert.match(buildSteps, /frontend-build[\s\S]*?exclusiveResources: \['build-output'\]/u);
-    assert.match(frontendBundleRunner, /await executeStep\(staticStageStep\('blocking-prebuild',[\s\S]*?executeWeightedStepDag/u);
-    assert.match(frontendBundleRunner, /const frontendSteps = \[[\s\S]*?staticStageStep\('concurrent'[\s\S]*?executeWeightedStepDag\(\s*frontendSteps/u);
+    assert.match(buildSteps, /'production-build-artifacts'[\s\S]*?artifacts: \[[\s\S]*?releaseEvidenceFile\('production-build-cache\.json'\)[\s\S]*?releaseEvidenceFile\('production-build-cache', 'domains'\)/u);
+    assert.match(frontendBundleRunner, /await executeStep\(staticStageStep\('blocking-prebuild',[\s\S]*?executeBundleStepDag/u);
+    assert.match(frontendBundleRunner, /const frontendSteps = \[[\s\S]*?staticStageStep\('concurrent'[\s\S]*?executeBundleStepDag\(\s*frontendSteps/u);
     assert.match(frontendBundleRunner, /staticStageStep\('postbuild',[\s\S]*?dependsOn: \['frontend-build-ready'\]/u);
     assert.match(frontendBundleRunner, /staticStageStep\('isolated',[\s\S]*?dependsOn: \['vitest-settled'\]/u);
     assert.match(frontendBundleRunner, /commandStep\('frontend-static-final-ready',[\s\S]*?runAfterSettled: true,[\s\S]*?coordinationOnly: true/u);
@@ -1032,18 +1084,18 @@ test('cold frontend static phases move to frontend-tests while build-static rema
     assert.match(localBundleRunner, /stageReceipt:[\s\S]*?path: stageReceiptPath[\s\S]*?digest:[\s\S]*?contentDigest:[\s\S]*?artifactRef:[\s\S]*?identity: stageReceiptIdentity/u);
     assert.match(localBundleRunner, /frontendDist:[\s\S]*?path: frontendDistPath[\s\S]*?digest:[\s\S]*?artifactRef:/u);
     assert.match(localBundleRunner, /backendWebRoot:[\s\S]*?path: backendWebRootPath[\s\S]*?digest:[\s\S]*?artifactRef:/u);
-    assert.match(localBundleRunner, /if \(step\.id === 'sync-static-assets'\) publishFrontendBuildReady\(\)/u);
+    assert.match(localBundleRunner, /if \(step\.id === 'sync-static-assets'\)\s*\{\s*publishFrontendBuildReady\(\);\s*\}/u);
     assert.match(localBundleRunner, /async function waitForFrontendBuildReady[\s\S]*?marker\.schedulerRunId !== expectedRunId[\s\S]*?digestArtifacts/u);
     assert.match(localBundleRunner, /async function waitForFrontendBuildReady[\s\S]*?validateFrontendBuildStageReceiptBinding\([\s\S]*?expectedPath: stageReceiptPath[\s\S]*?marker\.stageReceipt\.digest[\s\S]*?marker\.stageReceipt\.artifactRef/u);
     assert.match(localBundleRunner, /producerStepId: 'sync-static-assets'[\s\S]*?publishedAt/u);
     assert.match(localBundleRunner, /function publishFrontendBuildTerminal[\s\S]*?publishFrontendBuildTerminalMarker/u);
     assert.match(localBundleRunner, /function publishFrontendBuildTerminal[\s\S]*?validateExistingSuccess:[\s\S]*?validateFrontendBuildStageReceiptBinding/u);
     assert.match(localBundleRunner, /\['frontend-build', 'sync-static-assets'\]\.includes\(step\.id\)[\s\S]*?publishFrontendBuildTerminal\('failure'/u);
-    assert.match(localBundleRunner, /bundleId === 'build-static'\) publishFrontendBuildTerminal\('cancelled', signal\)/u);
+    assert.match(localBundleRunner, /if \(bundleId === 'build-static'\)\s*\{\s*publishFrontendBuildTerminal\('cancelled', signal\);\s*\}/u);
     assert.match(localBundleRunner, /function resolveMarkerPollIntervalMs\(\)[\s\S]*?bundleCapacity\(\)\.cpuUnits[\s\S]*?Math\.ceil\(1000 \/ cpuUnits\)/u);
 });
 
-test('runtime early start is guarded by run-bound atomic backend and frontend build markers', () =>
+test('runtime early start is guarded by run-bound backend frontend and production artifact markers', () =>
 {
     assert.match(localBundleRunner, /backendBuildReadyFile[\s\S]*?\.tmp\/test-runs[\s\S]*?backend-build-ready\.json/u);
     assert.match(localBundleRunner, /publishBackendBuildReady[\s\S]*?schedulerRunId: runId[\s\S]*?serverDll:[\s\S]*?exists: true[\s\S]*?digest: artifact\.digests[\s\S]*?artifactRef/u);
@@ -1057,12 +1109,20 @@ test('runtime early start is guarded by run-bound atomic backend and frontend bu
     assert.match(localBundleRunner, /writeFileSync\(temporary[\s\S]*?renameSync\(temporary, markerFile\)/u);
     assert.match(localBundleRunner, /async function waitForBackendBuildReady[\s\S]*?marker\.schema !== 'fsusblog\.local-production\.backend-build-ready\.v1'[\s\S]*?marker\.schedulerRunId !== expectedRunId[\s\S]*?digestArtifacts/u);
     assert.match(localBundleRunner, /async function waitForFrontendBuildReady[\s\S]*?marker\.schema !== 'fsusblog\.local-production\.frontend-build-ready\.v1'[\s\S]*?marker\.schedulerRunId !== expectedRunId[\s\S]*?digestArtifacts/u);
+    assert.match(localBundleRunner, /production-build-artifacts-ready[\s\S]*?productionBuildReadyBindings[\s\S]*?repairReadOnlySeal: false/u);
+    assert.match(localBundleRunner, /afterSuccess: \(\) => publishCurrentRunMarker\([\s\S]*?'production-build-artifacts-ready'/u);
     assert.match(localBundleRunner, /function buildLayoutBinding\(\)[\s\S]*?productionBuildLayoutDigest[\s\S]*?sourceFingerprint/u);
     assert.match(localBundleRunner, /benchmarkDll:[\s\S]*?digest: artifact\.digests\[artifactPath\][\s\S]*?contentDigest: fileContentDigest\(benchmarkDll\)[\s\S]*?artifactRef/u);
     assert.match(localBundleRunner, /async function waitForBenchmarkBuildReady[\s\S]*?digestArtifacts\(\[artifactPath\],[\s\S]*?marker\.benchmarkDll\?\.digest !== artifact\.digests\[artifactPath\][\s\S]*?marker\.benchmarkDll\?\.contentDigest !== fileContentDigest\(benchmarkDll\)[\s\S]*?marker\.benchmarkDll\?\.artifactRef !== artifact\.refs\[artifactPath\]/u);
     assert.match(localBundleRunner, /production-frontend-build-contract\.v1[\s\S]*?privacyWasmArtifacts[\s\S]*?generatedContract/u);
     assert.doesNotMatch(localBundleRunner, /generatedProverBundle/u);
-    assert.match(localBundleRunner, /checkpoint\.tiers\?\.\[`local-\$\{profileId\}-backend-tests`\]\?\.status[\s\S]*?failure[\s\S]*?blocked[\s\S]*?cancelled/u);
+    assert.match(localBundleRunner, /function producerFailure[\s\S]*?readSchedulerProducerTerminalFailure\(\{[\s\S]*?runId: schedulerRunId\(\)[\s\S]*?targetTierId: profileId[\s\S]*?sourceState: currentSourceState\(\)/u);
+    assert.doesNotMatch(localBundleRunner, /checkpoint\.tiers\?\.\[`local-\$\{profileId\}-backend-tests`\]\?\.status/u);
+    const backendBuildWait = localBundleRunner.slice(
+        localBundleRunner.indexOf('async function waitForBackendBuildReady'),
+        localBundleRunner.indexOf('\nasync function waitForBackendTestsReady')
+    );
+    assert.ok(backendBuildWait.indexOf('if (fs.existsSync(markerFile))') < backendBuildWait.indexOf("producerFailure('backend-tests')"));
     assert.match(localBundleRunner, /async function executeRuntimeStep[\s\S]*?backend-build-ready[\s\S]*?waitForBackendBuildReady[\s\S]*?frontend-build-ready[\s\S]*?waitForFrontendBuildReady/u);
     assert.match(localBundleRunner, /bundleId === 'runtime-browser' \? executeRuntimeStep : executePerformanceStep/u);
 });
@@ -1072,13 +1132,18 @@ test('performance marker producers are exact and quiet markers publish only afte
     assert.match(localBundleRunner, /function publishCurrentRunMarker\(markerId, actualProducerStepId\)[\s\S]*?bundleId !== producerBundleId[\s\S]*?actualProducerStepId !== producerStepId/u);
     assert.match(localBundleRunner, /function currentRunMarkerArtifacts[\s\S]*?backend-coverage-ready[\s\S]*?frontend-coverage-ready[\s\S]*?runtime-state-ready/u);
     assert.match(localBundleRunner, /async function waitForCurrentRunMarker[\s\S]*?artifacts: currentRunMarkerArtifacts\(markerId\)[\s\S]*?signal: shutdownController\.signal/u);
-    const summaryPublished = localBundleRunner.lastIndexOf('fs.renameSync(temporary, summaryFile)');
-    const quietPublished = localBundleRunner.lastIndexOf('if (quietMarker) publishCurrentRunMarker(...quietMarker)');
+    const summaryPublished = localBundleRunner.lastIndexOf('writeBundleSummaryAtomically(summaryFile, summary)');
+    const quietPublished = [...localBundleRunner.matchAll(
+        /if \(quietMarker\)\s*\{\s*publishCurrentRunMarker\(\.\.\.quietMarker\);\s*\}/gu
+    )].at(-1)?.index ?? -1;
     assert.ok(summaryPublished >= 0 && quietPublished > summaryPublished);
     assert.doesNotMatch(localBundleRunner.slice(localBundleRunner.indexOf('async function run()'), summaryPublished), /quiet-ready.*publishCurrentRunMarker/u);
     assert.match(localBundleRunner, /signal: shutdownController\.signal,[\s\S]*?exclusiveResources: bundle\.exclusiveResources/u);
     assert.match(localBundleRunner, /finalizeBundleResourceUtilization\('partial', new Error\(`bundle cancelled by/u);
     assert.match(localBundleRunner, /coordination:\s*\{[\s\S]*?status: shutdownController\.signal\.aborted \? 'cancelled' : 'failure'/u);
+    assert.match(localBundleRunner, /async function executeBundleStepDag[\s\S]*?execution\.terminalReceipts[\s\S]*?error\?\.terminalReceipts/u);
+    assert.match(localBundleRunner, /run\(\)\.catch[\s\S]*?status: 'partial'[\s\S]*?writeBundleSummaryAtomically\(summaryFile, partialSummary\)[\s\S]*?writePhysicalProducerReceipts\(\{[\s\S]*?status: 'partial'/u);
+    assert.match(localBundleRunner, /producerId: `\$\{bundleId\}\/failure-finalizer`[\s\S]*?status: 'partial'/u);
 });
 
 test('bundle child processes inherit their admitted machine-resolved CPU and memory', () =>
@@ -1307,6 +1372,104 @@ test('physical bundle DAG preserves dependencies and derives deadlines from reso
     assert.ok(localProfileBudgetCriticalPath({ budgetMs: 300_000, bundles }) <= 300_000);
 });
 
+test('logical bootstrap fixture identity is projected only onto runtime-browser', () =>
+{
+    const repositoryMatrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
+    const resolved = resolveLocalProfileResources(
+        repositoryMatrix.localProfiles.production,
+        { availableCpuUnits: 8, availableMemoryGiB: 18 }
+    );
+    const bundles = createLocalBundleTiers('production', resolved);
+    const logical = repositoryMatrix.tiers;
+    projectLocalBootstrapFixtureProfile(bundles, logical);
+    const runtime = bundles.find((bundle) => bundle.physicalBundleId === 'runtime-browser');
+    const bootstrap = logical.find((tier) => tier.id === 'bootstrap');
+    assert.equal(runtime.selfBootstraps, true);
+    assert.equal(runtime.fixtureProfile, bootstrap.fixtureProfile);
+    assert.deepEqual(runtime.fixtureCapabilities, bootstrap.fixtureCapabilities);
+    assert.equal(runtime.requiresBootstrap, bootstrap.requiresBootstrap);
+    assert.equal(bundles.filter((bundle) => bundle.selfBootstraps === true).length, 1);
+    assert.ok(bundles.filter((bundle) => bundle !== runtime)
+        .every((bundle) => !Object.hasOwn(bundle, 'fixtureProfile')));
+});
+
+test('bootstrap projection counts self-bootstrap tiers only inside runtime-browser', () =>
+{
+    const repositoryMatrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
+    const resolved = resolveLocalProfileResources(
+        repositoryMatrix.localProfiles.production,
+        { availableCpuUnits: 8, availableMemoryGiB: 18 }
+    );
+    const logical = repositoryMatrix.tiers;
+    assert.doesNotThrow(() => projectLocalBootstrapFixtureProfile(
+        createLocalBundleTiers('production', resolved),
+        logical
+    ));
+
+    const withoutRuntimeBootstrap = logical.map((tier) =>
+        tier.id === 'bootstrap' ? { ...tier, selfBootstraps: false } : tier);
+    assert.throws(
+        () => projectLocalBootstrapFixtureProfile(
+            createLocalBundleTiers('production', resolved),
+            withoutRuntimeBootstrap
+        ),
+        /found 0/u
+    );
+
+    const runtimeMembers = new Set(resolved.bundles
+        .find((bundle) => bundle.id === 'runtime-browser').members);
+    const extraId = logical.find((tier) => runtimeMembers.has(tier.id) && tier.id !== 'bootstrap').id;
+    const withSecondRuntimeBootstrap = logical.map((tier) =>
+        tier.id === extraId ? { ...tier, selfBootstraps: true } : tier);
+    assert.throws(
+        () => projectLocalBootstrapFixtureProfile(
+            createLocalBundleTiers('production', resolved),
+            withSecondRuntimeBootstrap
+        ),
+        /found 2/u
+    );
+});
+
+test('only physical build-static receives the attempt production artifact root', () =>
+{
+    const layout = {
+        repositoryRoot: root,
+        runId: 'run-1',
+        runOutputRoot: path.join(root, '.tmp/test-runs/run-1/outputs'),
+        outputRoot: path.join(root, '.tmp/test-runs/run-1/outputs/attempt-0001'),
+        relativeOutputRoot: '.tmp/test-runs/run-1/outputs/attempt-0001',
+        attemptId: 'attempt-0001'
+    };
+    const ambientConsumerAuthority = {
+        FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT: '/ambient/must-not-leak',
+        FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST: 'ambient-must-not-leak',
+        FSUSBLOG_CI_PRODUCTION_DOMAINS: 'ambient-must-not-leak'
+    };
+    const build = productionFreshEnvironmentForPhysicalTier(layout, {
+        id: 'local-production-build-static',
+        physicalBundleId: 'build-static'
+    }, ambientConsumerAuthority);
+    assert.match(build.FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT, /artifacts\/production-build$/u);
+    assert.equal(build.FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST, '');
+    assert.equal(build.FSUSBLOG_CI_PRODUCTION_DOMAINS, '');
+    for (const physicalBundleId of [
+        'backend-tests',
+        'frontend-tests',
+        'runtime-browser',
+        'performance-evidence'
+    ])
+    {
+        const environment = productionFreshEnvironmentForPhysicalTier(layout, {
+            id: `local-production-${physicalBundleId}`,
+            physicalBundleId
+        }, ambientConsumerAuthority);
+        assert.equal(environment.FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT, '');
+        assert.equal(environment.FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST, '');
+        assert.equal(environment.FSUSBLOG_CI_PRODUCTION_DOMAINS, '');
+        assert.equal(environment.FSUSBLOG_PRODUCTION_FRESH_ATTEMPT_ID, 'attempt-0001');
+    }
+});
+
 test('bundle evidence must prove every member with executed IDs and digests', () =>
 {
     const valid = {
@@ -1393,7 +1556,7 @@ test('performance deadline evidence binds the mixed floor to same-run measured s
 test('bundle step timing derives duration and finish from one clock sample', () =>
 {
     assert.match(localBundleRunner,
-        /const finishedAtMs = Date\.now\(\)\s+const result = \{\s+\.\.\.finalizedExit,\s+durationMs: finishedAtMs - started,\s+startedAtMs: started,\s+finishedAtMs,/u);
+        /const finishedAtMs = Date\.now\(\);\s+const result = \{\s+\.\.\.finalizedExit,\s+durationMs: finishedAtMs - started,\s+startedAtMs: started,\s+finishedAtMs,/u);
     assert.doesNotMatch(localBundleRunner,
         /durationMs: Date\.now\(\) - started[\s\S]{0,120}finishedAtMs: Date\.now\(\)/u);
 });

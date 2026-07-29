@@ -5,20 +5,14 @@ import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { promisify } from 'node:util';
 
-import { decodePublicAotPayload, readAedsResponse } from '../../support/aeds-envelope.mjs';
-import {
-    authBinary,
-    baseUrl,
-    fetchChallenge,
-    loginWithFixtureSessionBypass,
-    requestTimeoutMs
-} from '../../support/auth-helpers.mjs';
-import { isDirectExecution, reportDirectFailure } from '../../support/direct-execution.mjs';
-import { fetchWithTimeout } from '../../support/http.mjs';
-import { readPublicFixtureIds } from '../../support/public-fixtures.mjs';
-import { resolveRuntimeBrowserTimeoutPlan } from '../../support/runtime-browser-timeout.mjs';
-import { createAdminStepUpProofToken } from '../../support/auth-fixture-projection.mjs';
-import { resolveTestSession } from '../../support/test-session.mjs';
+const { decodePublicAotPayload, readAedsResponse } = await import(new URL("../../support/aeds-envelope.mjs", import.meta.url));
+const { createAdminStepUpProofToken } = await import(new URL("../../support/auth-fixture-projection.mjs", import.meta.url));
+const { authBinary, baseUrl, fetchChallenge, loginWithFixtureSessionBypass, requestTimeoutMs } = await import(new URL("../../support/auth-helpers.mjs", import.meta.url));
+const { isDirectExecution, reportDirectFailure } = await import(new URL("../../support/direct-execution.mjs", import.meta.url));
+const { fetchWithTimeout } = await import(new URL("../../support/http.mjs", import.meta.url));
+const { readPublicFixtureIds } = await import(new URL("../../support/public-fixtures.mjs", import.meta.url));
+const { resolveRuntimeBrowserTimeoutPlan } = await import(new URL("../../support/runtime-browser-timeout.mjs", import.meta.url));
+const { resolveTestSession } = await import(new URL("../../support/test-session.mjs", import.meta.url));
 
 const adminUsername = process.env.FSUSBLOG_ADMIN_USERNAME || 'binaryadmin';
 const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD ?? '';
@@ -121,7 +115,7 @@ async function resetAndWaitForMutationBudget(label)
 async function eventually(label, assertion, timeout = coherenceTimeoutMs, interval = 600)
 {
     const deadline = Date.now() + timeout;
-    let lastError = null;
+    let lastError;
     do
     {
         try
@@ -135,7 +129,9 @@ async function eventually(label, assertion, timeout = coherenceTimeoutMs, interv
         }
     } while (Date.now() < deadline);
 
-    throw new Error(`${label}: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
+    throw new Error(`${label}: ${lastError instanceof Error ? lastError.message : String(lastError)}`, {
+        cause: lastError
+    });
 }
 
 async function fetchText(path, base = publicBaseUrl)
@@ -151,7 +147,9 @@ async function fetchText(path, base = publicBaseUrl)
     }
     catch (error)
     {
-        throw new Error(`${path} request failed: ${error instanceof Error ? error.message : String(error)}`);
+        throw new Error(`${path} request failed: ${error instanceof Error ? error.message : String(error)}`, {
+            cause: error
+        });
     }
     assert(response.status < 500, `${path} returned ${response.status}`);
     return {
@@ -175,7 +173,9 @@ async function fetchNavigationSnapshotText(path)
     }
     catch (error)
     {
-        throw new Error(`${path} navigation snapshot request failed: ${error instanceof Error ? error.message : String(error)}`);
+        throw new Error(`${path} navigation snapshot request failed: ${error instanceof Error ? error.message : String(error)}`, {
+            cause: error
+        });
     }
     assert(response.status < 500, `${path} navigation snapshot failed: ${response.status}`);
     if (!response.ok)
@@ -194,7 +194,9 @@ async function fetchNavigationSnapshotText(path)
         }
         catch (error)
         {
-            throw new Error(`${path} navigation snapshot decode failed: ${error instanceof Error ? error.message : String(error)}`);
+            throw new Error(`${path} navigation snapshot decode failed: ${error instanceof Error ? error.message : String(error)}`, {
+                cause: error
+            });
         }
     })();
     const bootstrap = (() =>
@@ -205,7 +207,9 @@ async function fetchNavigationSnapshotText(path)
         }
         catch (error)
         {
-            throw new Error(`${path} navigation bootstrap decode failed: ${error instanceof Error ? error.message : String(error)}`);
+            throw new Error(`${path} navigation bootstrap decode failed: ${error instanceof Error ? error.message : String(error)}`, {
+                cause: error
+            });
         }
     })();
     const hydration = (() =>
@@ -216,7 +220,9 @@ async function fetchNavigationSnapshotText(path)
         }
         catch (error)
         {
-            throw new Error(`${path} navigation hydration decode failed: ${error instanceof Error ? error.message : String(error)}`);
+            throw new Error(`${path} navigation hydration decode failed: ${error instanceof Error ? error.message : String(error)}`, {
+                cause: error
+            });
         }
     })();
     if (!bootstrap || !hydration)
@@ -238,7 +244,9 @@ async function fetchSearchIndexText()
     }
     catch (error)
     {
-        throw new Error(`/search/index.bin request failed: ${error instanceof Error ? error.message : String(error)}`);
+        throw new Error(`/search/index.bin request failed: ${error instanceof Error ? error.message : String(error)}`, {
+            cause: error
+        });
     }
     assert(response.ok, `search index alias failed: ${response.status}`);
     return Buffer.from(await response.arrayBuffer()).toString('utf8');
@@ -260,7 +268,9 @@ async function fetchArticlePage(cookieHeader, isDeleted = false, status = undefi
         }
         catch (error)
         {
-            throw new Error(`public article list request failed: ${error instanceof Error ? error.message : String(error)}`);
+            throw new Error(`public article list request failed: ${error instanceof Error ? error.message : String(error)}`, {
+                cause: error
+            });
         }
         const payload = await readAedsResponse(response).catch(() => null);
         assert(response.ok, `article list public failed: ${response.status}`);
@@ -300,7 +310,9 @@ async function fetchArticleDetail(articleId, cookieHeader = null)
         }
         catch (error)
         {
-            throw new Error(`public article detail ${articleId} request failed: ${error instanceof Error ? error.message : String(error)}`);
+            throw new Error(`public article detail ${articleId} request failed: ${error instanceof Error ? error.message : String(error)}`, {
+                cause: error
+            });
         }
         const payload = await readAedsResponse(response).catch(() => null);
         return { response, payload };

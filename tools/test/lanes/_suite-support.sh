@@ -277,6 +277,19 @@ RunInClient() {
     )
 }
 
+RunInClientMeasurement() {
+    local windowId="$1"
+    local evidenceFile="$2"
+    shift 2
+    CURRENT_STAGE="measurement:${windowId} (cd src/frontend && $*)"
+    Log "run: ${CURRENT_STAGE}"
+    "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/performance-admission.mjs" \
+        --window-id "$windowId" \
+        --evidence "$evidenceFile" \
+        -- \
+        /usr/bin/env -C "$CLIENT_DIR" "$@"
+}
+
 TestInputFingerprint() {
     "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-once.mjs" fingerprint --root "$ROOT_DIR" "$@"
 }
@@ -308,7 +321,7 @@ FixtureRootPath() {
     "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tests/frontend/support/fixture-paths.mjs"
 }
 
-VerifyWasmReceiptOnce() {
+EnsureWasmReceiptOnce() {
     local fingerprint wasmOutput
     wasmOutput="${FSUSBLOG_FRONTEND_WASM_ROOT:-public/wasm}"
     fingerprint="$(TestInputFingerprint \
@@ -317,13 +330,13 @@ VerifyWasmReceiptOnce() {
         --path tools/frontend/install-wasm-codec-deps.sh \
         --path tools/test/lanes/_suite-support.sh \
         --path tools/frontend/wasm-build-receipt.mjs \
-        --value verify-wasm-receipt-v1)"
+        --value ensure-wasm-receipt-v2)"
     RunOnceCommand \
-        verify-wasm-receipt \
+        ensure-wasm-receipt \
         "$fingerprint" \
         "$CLIENT_DIR" \
         "$wasmOutput" \
-        npm run verify:wasm
+        npm run ensure:wasm
 }
 
 # Session storage-state prep remains lane-local (not a catalog producer). Business
@@ -1523,7 +1536,7 @@ NODE
 }
 
 RunFrontendFastBuildLane() {
-    VerifyWasmReceiptOnce
+    EnsureWasmReceiptOnce
     PrepareFrontendFastGroupTimings
     RunFrontendFastGroup build RunFrontendFastBuildGroup
     WriteFrontendFastGroupSummary
@@ -1552,7 +1565,9 @@ RunFrontendUnitShardLane() {
 RunFrontendPropertyModelPerfGroupBody() {
     RunVitestScriptUnsharded test:property
     RunVitestScriptUnsharded check:frontend-state-machines
-    RunVitestScriptUnsharded check:frontend-perf-regression
+    RunInClientMeasurement frontend-perf-regression \
+        "$ROOT_DIR/.tmp/frontend/frontend-perf-regression.measurement-noise.json" \
+        npm run check:frontend-perf-regression
 }
 
 RunFrontendPropertyModelPerfLane() {
@@ -1573,7 +1588,7 @@ RunFrontendFastRuntimeContractsGroup() {
 }
 
 RunFrontendRuntimeContractsLane() {
-    VerifyWasmReceiptOnce
+    EnsureWasmReceiptOnce
     PrepareFrontendFastGroupTimings
     RunFrontendFastRuntimeContractsGroup
     WriteFrontendFastGroupSummary
@@ -1613,7 +1628,7 @@ RunFastFrontendLane() {
 
 RunFastOnly() {
     Log "tier=fast | no running services required"
-    VerifyWasmReceiptOnce
+    EnsureWasmReceiptOnce
     # The frontend release build syncs hashed assets into the selected backend webroot.
     # Keep it ahead of the .NET StaticWebAssets pass so the manifest and files
     # are read from one coherent generation instead of racing on deleted chunks.
@@ -2098,7 +2113,11 @@ RunLoadOnly() {
     export FSUSBLOG_HTTP_TIMEOUT_MS="$LOAD_HTTP_TIMEOUT_MS"
 
     InvokeLaneFixtureOrchestrator
-    RunInClient npm run check:load:public-api
+    RunInClientMeasurement load-public-api \
+        "$ROOT_DIR/.tmp/perf/load/measurement-noise-public-api.json" \
+        npm run check:load:public-api
     ResetSecurityRuntimeState "pre notification stream pressure"
-    RunInClient npm run check:load:notification-stream-pressure
+    RunInClientMeasurement load-notification-stream-pressure \
+        "$ROOT_DIR/.tmp/perf/load/measurement-noise-notification-stream.json" \
+        npm run check:load:notification-stream-pressure
 }

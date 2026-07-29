@@ -8,6 +8,12 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
+    localFsusUiConsumptionDisabled,
+    resolveLocalFsusUiRepositoryRoot
+// eslint-disable-next-line import-x/no-relative-parent-imports -- The build consumes the frontend-owned local FsusUI repository resolver.
+} from '../../src/frontend/scripts/fsusui-root.mjs';
+
+import {
     runFrontendBuildStageDag
 } from './build-stage-dag.mjs';
 
@@ -68,29 +74,18 @@ const fsusUiMarkdownRuntimeAssets = [
     'markdown_basic.wasm'
 ];
 
-function resolveLocalFsusUiRoot({ env = process.env, root = repositoryRoot } = {})
-{
-    const disabled = env.FSUSBLOG_USE_LOCAL_FSUSUI === '0'
-    || env.FSUSBLOG_USE_LOCAL_FSUSUI?.toLowerCase() === 'false';
-    if (disabled)
-    {
-        return null;
-    }
-    const candidate = resolve(
-        env.FSUSBLOG_LOCAL_FSUSUI_ROOT || join(root, '..', 'FsusUI')
-    );
-    return fs.existsSync(join(candidate, 'vue', 'packages', 'element-plus', 'index.ts'))
-        ? candidate
-        : null;
-}
-
 function fsusUiMarkdownRuntimeSourceDir({
     root = clientRoot,
     repository = repositoryRoot,
     env = process.env
 } = {})
 {
-    const localRoot = resolveLocalFsusUiRoot({ env, root: repository });
+    const localRoot = localFsusUiConsumptionDisabled(env)
+        ? null
+        : resolveLocalFsusUiRepositoryRoot({
+            override: env.FSUSBLOG_LOCAL_FSUSUI_ROOT,
+            repositoryRoot: repository
+        });
     return localRoot
         ? join(localRoot, 'vue', 'packages', 'wasm', 'dist')
         : join(root, 'node_modules', '@ozwasyd', 'element-plus', 'es', 'wasm', 'dist');

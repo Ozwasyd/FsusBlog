@@ -1,23 +1,4 @@
-import {
-    readPublicHydrationPayloadAsync
-} from '@/bootstrap/publicHydrationBootstrap';
-import { hydratePublicPage, type PublicHydrationPayload } from '@/public-renderers';
-import {
-  isPublicSeoPath,
-  removeGlobalLoader
-} from '@/bootstrap/publicShellPrimitives'
-import { dispatchAotActionEvent } from '@/bootstrap/aotActionEvent'
-import { emitRumMetric, emitTelemetry } from '@/services/telemetryBus'
-import { ensureThemeRuntime, setThemeMode, type ThemeMode } from '@/services/themeRuntime'
-import { resetPublicShellRuntimeAuthState } from '@/public-renderers/publicShellRuntimeState'
-import { putPublicRouteSeed, type PublicRouteSeedKind } from '@/public-renderers/publicRouteSeedStore'
-import type { PublicPageSeed } from '@/public-renderers/pageSeed'
-import { hasCanonicalPublicSeedRenderTimestamp } from '@/public-renderers/publicRenderClock'
-import {
-  addPublicShellEventListener,
-  onPublicShellLifetimeAbort,
-  resetPublicShellLifetime
-} from '@/bootstrap/publicShellLifetime'
+import { dispatchAotActionEvent } from '@/bootstrap/aotActionEvent';
 import {
   adoptPublicBootIntent,
   getPublicActivationOwner,
@@ -27,475 +8,588 @@ import {
 } from '@/bootstrap/publicActivationRuntime'
 import type { PublicBootIntent } from '@/bootstrap/publicBootHandoff'
 import {
-  resolvePublicRoutePrewarmTarget,
-  type PublicRoutePrewarmReason
-} from '@/router/publicRoutePreload'
+    readPublicHydrationPayloadAsync
+} from '@/bootstrap/publicHydrationBootstrap';
 import {
-  classifyPublicNavigationIntent
-} from '@/bootstrap/publicNavigationIntent'
+    resolvePublicRoutePrewarmTarget,
+    type PublicRoutePrewarmReason
+} from '@/router/publicRoutePreload';
 import {
-  activateLocalFixtureSession,
-  buildLocalFixtureAdminUrl,
-  ensureLocalFixtureSessionCookies,
-  isLocalFixtureQueryEnabled,
-  isLocalFixtureSessionActive
-} from '@/services/localFixtureSession'
+    classifyPublicNavigationIntent
+} from '@/bootstrap/publicNavigationIntent';
+import {
+  addPublicShellEventListener,
+  onPublicShellLifetimeAbort,
+  resetPublicShellLifetime
+} from '@/bootstrap/publicShellLifetime'
+import {
+    isPublicSeoPath,
+    removeGlobalLoader
+} from '@/bootstrap/publicShellPrimitives';
+import { hydratePublicPage, type PublicHydrationPayload } from '@/public-renderers';
+import type { PublicPageSeed } from '@/public-renderers/pageSeed';
+import { hasCanonicalPublicSeedRenderTimestamp } from '@/public-renderers/publicRenderClock';
+import { putPublicRouteSeed, type PublicRouteSeedKind } from '@/public-renderers/publicRouteSeedStore';
+import { resetPublicShellRuntimeAuthState } from '@/public-renderers/publicShellRuntimeState';
+import {
+    activateLocalFixtureSession,
+    buildLocalFixtureAdminUrl,
+    ensureLocalFixtureSessionCookies,
+    isLocalFixtureQueryEnabled,
+    isLocalFixtureSessionActive
+} from '@/services/localFixtureSession';
+import { emitRumMetric, emitTelemetry } from '@/services/telemetryBus';
+import { ensureThemeRuntime, setThemeMode, type ThemeMode } from '@/services/themeRuntime';
 
-function isModifiedEvent(event: MouseEvent): boolean {
-  return event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
+function isModifiedEvent(event: MouseEvent): boolean
+{
+    return event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
 }
 
-function isInternalAppLink(anchor: HTMLAnchorElement): boolean {
-  if (anchor.target && anchor.target !== '_self') {
-    return false
-  }
+function isInternalAppLink(anchor: HTMLAnchorElement): boolean
+{
+    if (anchor.target && anchor.target !== '_self')
+    {
+        return false;
+    }
 
-  if (anchor.hasAttribute('download')) {
-    return false
-  }
+    if (anchor.hasAttribute('download'))
+    {
+        return false;
+    }
 
-  const rawHref = anchor.getAttribute('href')
-  if (!rawHref || rawHref.startsWith('#')) {
-    return false
-  }
+    const rawHref = anchor.getAttribute('href');
+    if (!rawHref || rawHref.startsWith('#'))
+    {
+        return false;
+    }
 
-  const url = new URL(anchor.href, window.location.origin)
-  if (url.origin !== window.location.origin) {
-    return false
-  }
+    const url = new URL(anchor.href, window.location.origin);
+    if (url.origin !== window.location.origin)
+    {
+        return false;
+    }
 
-  if (url.pathname.startsWith('/api/')) {
-    return false
-  }
+    if (url.pathname.startsWith('/api/'))
+    {
+        return false;
+    }
 
-  return true
+    return true;
 }
 
-type CriticalStyleLink = {
-  key: string
-  href: string | null
-  marker: string
-  readiness: 'critical' | 'markdown' | 'background'
+interface CriticalStyleLink {
+    key: string;
+    href: string | null;
+    marker: string;
+    readiness: 'critical' | 'markdown' | 'background';
 }
 
-const CRITICAL_STYLE_READY_TIMEOUT_MS = 450
-const FULL_STYLESHEET_VALIDATION_TIMEOUT_MS = 1500
-const DOCUMENT_INTERACTIVE_FALLBACK_MS = 250
-const HOME_HOT_ARTICLES_SENTINEL_ID = 'fsus-home-secondary-content-sentinel'
-const HOME_HOT_ARTICLES_ROOT_MARGIN = '600px 0px 600px 0px'
-const HOME_HOT_ARTICLES_FALLBACK_DELAY_MS = 2500
-const COMMENTS_ISLAND_FALLBACK_DELAY_MS = 2500
+const CRITICAL_STYLE_READY_TIMEOUT_MS = 450;
+const FULL_STYLESHEET_VALIDATION_TIMEOUT_MS = 1500;
+const DOCUMENT_INTERACTIVE_FALLBACK_MS = 250;
+const HOME_HOT_ARTICLES_SENTINEL_ID = 'fsus-home-secondary-content-sentinel';
+const HOME_HOT_ARTICLES_ROOT_MARGIN = '600px 0px 600px 0px';
+const HOME_HOT_ARTICLES_FALLBACK_DELAY_MS = 2500;
+const COMMENTS_ISLAND_FALLBACK_DELAY_MS = 2500;
 
 const PUBLIC_STYLE_FALLBACKS: CriticalStyleLink[] = [
-  {
-    key: 'public-shell-critical',
-    href: null,
-    marker: 'public-shell-critical.css',
-    readiness: 'critical'
-  },
-  {
-    key: 'tailwind',
-    href: null,
-    marker: 'tailwind.css',
-    readiness: 'critical'
-  },
-  {
-    key: 'markdown',
-    href: null,
-    marker: 'markdown.css',
-    readiness: 'markdown'
-  },
-  {
-    key: 'motion',
-    href: null,
-    marker: 'motion.css',
-    readiness: 'background'
-  },
-  {
-    key: 'public-page',
-    href: null,
-    marker: 'public-page.css',
-    readiness: 'critical'
-  }
-]
-
-function isFontOnlyStylesheet(link: HTMLLinkElement): boolean {
-  const href = (link.getAttribute('href') ?? '').toLowerCase()
-  const marker = (link.dataset.fsusblogStyle ?? '').toLowerCase()
-  return marker.includes('font') || href.includes('font')
-}
-
-function isRenderableStylesheet(link: HTMLLinkElement): boolean {
-  const rel = (link.getAttribute('rel') ?? '').toLowerCase()
-  if (rel !== 'stylesheet') {
-    return false
-  }
-
-  if ((link.getAttribute('disabled') ?? '') === 'true' || link.disabled) {
-    return false
-  }
-
-  return !isFontOnlyStylesheet(link)
-}
-
-function listRenderableStylesheets(): HTMLLinkElement[] {
-  return Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]'))
-    .filter((link) => isRenderableStylesheet(link))
-}
-
-function dedupeStylesheetLinks(links: HTMLLinkElement[]): HTMLLinkElement[] {
-  const seen = new Set<string>()
-  const ordered: HTMLLinkElement[] = []
-  for (const link of links) {
-    const key = link.dataset.fsusblogStyle?.trim() || link.getAttribute('href') || ''
-    if (!key || seen.has(key)) {
-      continue
+    {
+        key: 'public-shell-critical',
+        href: null,
+        marker: 'public-shell-critical.css',
+        readiness: 'critical'
+    },
+    {
+        key: 'tailwind',
+        href: null,
+        marker: 'tailwind.css',
+        readiness: 'critical'
+    },
+    {
+        key: 'markdown',
+        href: null,
+        marker: 'markdown.css',
+        readiness: 'markdown'
+    },
+    {
+        key: 'motion',
+        href: null,
+        marker: 'motion.css',
+        readiness: 'background'
+    },
+    {
+        key: 'public-page',
+        href: null,
+        marker: 'public-page.css',
+        readiness: 'critical'
     }
-    seen.add(key)
-    ordered.push(link)
-  }
-  return ordered
+];
+
+function isFontOnlyStylesheet(link: HTMLLinkElement): boolean
+{
+    const href = (link.getAttribute('href') ?? '').toLowerCase();
+    const marker = (link.dataset.fsusblogStyle ?? '').toLowerCase();
+    return marker.includes('font') || href.includes('font');
 }
 
-function isMarkdownCriticalPath(pathname = window.location.pathname): boolean {
-  return /^\/article\/\d+\/?$/i.test(pathname)
+function isRenderableStylesheet(link: HTMLLinkElement): boolean
+{
+    const rel = (link.getAttribute('rel') ?? '').toLowerCase();
+    if (rel !== 'stylesheet')
+    {
+        return false;
+    }
+
+    if ((link.getAttribute('disabled') ?? '') === 'true' || link.disabled)
+    {
+        return false;
+    }
+
+    return !isFontOnlyStylesheet(link);
+}
+
+function listRenderableStylesheets(): HTMLLinkElement[]
+{
+    return Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]'))
+        .filter((link) => isRenderableStylesheet(link));
+}
+
+function dedupeStylesheetLinks(links: HTMLLinkElement[]): HTMLLinkElement[]
+{
+    const seen = new Set<string>();
+    const ordered: HTMLLinkElement[] = [];
+    for (const link of links)
+    {
+        const key = link.dataset.fsusblogStyle?.trim() || link.getAttribute('href') || '';
+        if (!key || seen.has(key))
+        {
+            continue;
+        }
+        seen.add(key);
+        ordered.push(link);
+    }
+    return ordered;
+}
+
+function isMarkdownCriticalPath(pathname = window.location.pathname): boolean
+{
+    return /^\/article\/\d+\/?$/i.test(pathname)
     || /^\/about\/?$/i.test(pathname)
     || /^\/privacy\/?$/i.test(pathname)
     || /^\/guidelines\/?$/i.test(pathname)
-    || /^\/copyright\/?$/i.test(pathname)
+    || /^\/copyright\/?$/i.test(pathname);
 }
 
-function shouldWaitForStyleCandidate(candidate: CriticalStyleLink): boolean {
-  return candidate.readiness === 'critical'
-    || (candidate.readiness === 'markdown' && isMarkdownCriticalPath())
+function shouldWaitForStyleCandidate(candidate: CriticalStyleLink): boolean
+{
+    return candidate.readiness === 'critical'
+    || (candidate.readiness === 'markdown' && isMarkdownCriticalPath());
 }
 
-function stylesheetMatchesCandidate(link: HTMLLinkElement, candidate: CriticalStyleLink): boolean {
-  const marker = (link.dataset.fsusblogStyle ?? '').trim()
-  if (marker === candidate.key) {
-    return true
-  }
-
-  const href = link.getAttribute('href') ?? ''
-  return href.includes(candidate.marker)
-}
-
-function listCriticalShellStylesheets(links: HTMLLinkElement[]): HTMLLinkElement[] {
-  const criticalCandidates = PUBLIC_STYLE_FALLBACKS.filter(shouldWaitForStyleCandidate)
-  return dedupeStylesheetLinks(
-    links.filter((link) => criticalCandidates.some((candidate) => stylesheetMatchesCandidate(link, candidate)))
-  )
-}
-
-function ensureFallbackStylesheets(): HTMLLinkElement[] {
-  const head = document.head ?? document.getElementsByTagName('head')[0]
-  if (!head) {
-    return []
-  }
-
-  const presentLinks = listRenderableStylesheets()
-  const requiredLinks = PUBLIC_STYLE_FALLBACKS.map((candidate) => {
-    const existing = document.querySelector<HTMLLinkElement>(
-      `link[rel="stylesheet"][data-fsusblog-style="${candidate.key}"]`
-    )
-    if (existing) {
-      return existing
+function stylesheetMatchesCandidate(link: HTMLLinkElement, candidate: CriticalStyleLink): boolean
+{
+    const marker = (link.dataset.fsusblogStyle ?? '').trim();
+    if (marker === candidate.key)
+    {
+        return true;
     }
 
-    const byHref = document.querySelector<HTMLLinkElement>(
-      `link[rel="stylesheet"][href*="${candidate.marker}"]`
-    )
-    if (byHref) {
-      return byHref
+    const href = link.getAttribute('href') ?? '';
+    return href.includes(candidate.marker);
+}
+
+function listCriticalShellStylesheets(links: HTMLLinkElement[]): HTMLLinkElement[]
+{
+    const criticalCandidates = PUBLIC_STYLE_FALLBACKS.filter(shouldWaitForStyleCandidate);
+    return dedupeStylesheetLinks(
+        links.filter((link) => criticalCandidates.some((candidate) => stylesheetMatchesCandidate(link, candidate)))
+    );
+}
+
+function ensureFallbackStylesheets(): HTMLLinkElement[]
+{
+    const head = document.head ?? document.getElementsByTagName('head')[0];
+    if (!head)
+    {
+        return [];
     }
 
-    if (!candidate.href) {
-      return null
+    const presentLinks = listRenderableStylesheets();
+    const requiredLinks = PUBLIC_STYLE_FALLBACKS.map((candidate) =>
+    {
+        const existing = document.querySelector<HTMLLinkElement>(
+            `link[rel="stylesheet"][data-fsusblog-style="${candidate.key}"]`
+        );
+        if (existing)
+        {
+            return existing;
+        }
+
+        const byHref = document.querySelector<HTMLLinkElement>(
+            `link[rel="stylesheet"][href*="${candidate.marker}"]`
+        );
+        if (byHref)
+        {
+            return byHref;
+        }
+
+        if (!candidate.href)
+        {
+            return null;
+        }
+
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = candidate.href;
+        link.dataset.fsusblogStyle = candidate.key;
+        link.dataset.fsusblogInjected = 'bootstrap';
+        head.appendChild(link);
+        return link;
+    }).filter((link): link is HTMLLinkElement => link instanceof HTMLLinkElement);
+
+    return dedupeStylesheetLinks([...presentLinks, ...requiredLinks]);
+}
+
+function waitForStylesheet(link: HTMLLinkElement, timeoutMs = FULL_STYLESHEET_VALIDATION_TIMEOUT_MS): Promise<boolean>
+{
+    if (link.sheet)
+    {
+        return Promise.resolve(true);
     }
 
-    const link = document.createElement('link')
-    link.rel = 'stylesheet'
-    link.href = candidate.href
-    link.dataset.fsusblogStyle = candidate.key
-    link.dataset.fsusblogInjected = 'bootstrap'
-    head.appendChild(link)
-    return link
-  }).filter((link): link is HTMLLinkElement => link instanceof HTMLLinkElement)
+    return new Promise((resolve) =>
+    {
+        let settled = false;
 
-  return dedupeStylesheetLinks([...presentLinks, ...requiredLinks])
+        const onLoad = () => complete(true);
+        const onError = () => complete(false);
+
+        const complete = (loaded: boolean) =>
+        {
+            if (settled)
+            {
+                return;
+            }
+            settled = true;
+            link.removeEventListener('load', onLoad);
+            link.removeEventListener('error', onError);
+            resolve(loaded || Boolean(link.sheet));
+        };
+
+        link.addEventListener('load', onLoad, { once: true });
+        link.addEventListener('error', onError, { once: true });
+        window.setTimeout(() => complete(false), timeoutMs);
+    });
 }
 
-function waitForStylesheet(link: HTMLLinkElement, timeoutMs = FULL_STYLESHEET_VALIDATION_TIMEOUT_MS): Promise<boolean> {
-  if (link.sheet) {
-    return Promise.resolve(true)
-  }
-
-  return new Promise((resolve) => {
-    let settled = false
-
-    const onLoad = () => complete(true)
-    const onError = () => complete(false)
-
-    const complete = (loaded: boolean) => {
-      if (settled) {
-        return
-      }
-      settled = true
-      link.removeEventListener('load', onLoad)
-      link.removeEventListener('error', onError)
-      resolve(loaded || Boolean(link.sheet))
+function ensureEmergencyPublicShellStyle(): void
+{
+    const styleId = 'fsus-public-emergency-style';
+    if (document.getElementById(styleId))
+    {
+        return;
     }
 
-    link.addEventListener('load', onLoad, { once: true })
-    link.addEventListener('error', onError, { once: true })
-    window.setTimeout(() => complete(false), timeoutMs)
-  })
+    const link = document.createElement('link');
+    link.id = styleId;
+    link.rel = 'stylesheet';
+    link.href = '/public-shell-emergency.css';
+    document.head.appendChild(link);
 }
 
-function ensureEmergencyPublicShellStyle(): void {
-  const styleId = 'fsus-public-emergency-style'
-  if (document.getElementById(styleId)) {
-    return
-  }
+export async function ensurePublicShellStylesReady(): Promise<void>
+{
+    if (typeof document === 'undefined')
+    {
+        return;
+    }
 
-  const link = document.createElement('link')
-  link.id = styleId
-  link.rel = 'stylesheet'
-  link.href = '/public-shell-emergency.css'
-  document.head.appendChild(link)
+    const styleLinks = ensureFallbackStylesheets();
+    if (styleLinks.length === 0)
+    {
+        ensureEmergencyPublicShellStyle();
+        return;
+    }
+
+    await ensureCriticalPublicShellStylesReady(styleLinks);
+    validatePublicShellStylesheetsInBackground(styleLinks);
 }
 
-export async function ensurePublicShellStylesReady(): Promise<void> {
-  if (typeof document === 'undefined') {
-    return
-  }
+async function ensureCriticalPublicShellStylesReady(styleLinks: HTMLLinkElement[]): Promise<void>
+{
+    const criticalLinks = listCriticalShellStylesheets(styleLinks);
+    if (criticalLinks.length === 0)
+    {
+        ensureEmergencyPublicShellStyle();
+        return;
+    }
 
-  const styleLinks = ensureFallbackStylesheets()
-  if (styleLinks.length === 0) {
-    ensureEmergencyPublicShellStyle()
-    return
-  }
-
-  await ensureCriticalPublicShellStylesReady(styleLinks)
-  validatePublicShellStylesheetsInBackground(styleLinks)
+    const loadedStates = await Promise.all(
+        criticalLinks.map((link) => waitForStylesheet(link, CRITICAL_STYLE_READY_TIMEOUT_MS))
+    );
+    const hasRenderableSheet = criticalLinks.some((link) => Boolean(link.sheet));
+    if (!hasRenderableSheet || loadedStates.every((loaded) => !loaded))
+    {
+        ensureEmergencyPublicShellStyle();
+    }
 }
 
-async function ensureCriticalPublicShellStylesReady(styleLinks: HTMLLinkElement[]): Promise<void> {
-  const criticalLinks = listCriticalShellStylesheets(styleLinks)
-  if (criticalLinks.length === 0) {
-    ensureEmergencyPublicShellStyle()
-    return
-  }
-
-  const loadedStates = await Promise.all(
-    criticalLinks.map((link) => waitForStylesheet(link, CRITICAL_STYLE_READY_TIMEOUT_MS))
-  )
-  const hasRenderableSheet = criticalLinks.some((link) => Boolean(link.sheet))
-  if (!hasRenderableSheet || loadedStates.every((loaded) => !loaded)) {
-    ensureEmergencyPublicShellStyle()
-  }
+function validatePublicShellStylesheetsInBackground(styleLinks: HTMLLinkElement[]): void
+{
+    void Promise.all(styleLinks.map((link) => waitForStylesheet(link, FULL_STYLESHEET_VALIDATION_TIMEOUT_MS)))
+        .then((loadedStates) =>
+        {
+            const hasRenderableSheet = listRenderableStylesheets().some((link) => Boolean(link.sheet));
+            if (!hasRenderableSheet || loadedStates.every((loaded) => !loaded))
+            {
+                ensureEmergencyPublicShellStyle();
+            }
+        })
+        .catch(() =>
+        {
+            ensureEmergencyPublicShellStyle();
+        });
 }
 
-function validatePublicShellStylesheetsInBackground(styleLinks: HTMLLinkElement[]): void {
-  void Promise.all(styleLinks.map((link) => waitForStylesheet(link, FULL_STYLESHEET_VALIDATION_TIMEOUT_MS)))
-    .then((loadedStates) => {
-      const hasRenderableSheet = listRenderableStylesheets().some((link) => Boolean(link.sheet))
-      if (!hasRenderableSheet || loadedStates.every((loaded) => !loaded)) {
-        ensureEmergencyPublicShellStyle()
-      }
-    })
-    .catch(() => {
-      ensureEmergencyPublicShellStyle()
-    })
-}
-
-let preBootstrapNavigationBound = false
-let hydratedPayload: PublicHydrationPayload | null = null
-let hotArticlesIdleTask: number | null = null
-let hotArticlesFallbackTimer: number | null = null
-let hotArticlesIntersectionObserver: IntersectionObserver | null = null
-let hotArticlesActivationVersion = 0
-let commentsIdleTask: number | null = null
-let commentsFallbackTimer: number | null = null
-let commentsIntersectionObserver: IntersectionObserver | null = null
-let commentsActivationVersion = 0
-let publicRoutePrewarmIdleTask: number | null = null
-let homeHotArticlesIslandModulePromise: Promise<typeof import('@/public-renderers/homeHotArticlesIsland')> | null = null
-let commentsIslandModulePromise: Promise<typeof import('@/public-renderers/commentsIsland')> | null = null
+let preBootstrapNavigationBound = false;
+let hydratedPayload: PublicHydrationPayload | null = null;
+let hotArticlesIdleTask: number | null = null;
+let hotArticlesFallbackTimer: number | null = null;
+let hotArticlesIntersectionObserver: IntersectionObserver | null = null;
+let hotArticlesActivationVersion = 0;
+let commentsIdleTask: number | null = null;
+let commentsFallbackTimer: number | null = null;
+let commentsIntersectionObserver: IntersectionObserver | null = null;
+let commentsActivationVersion = 0;
+let publicRoutePrewarmIdleTask: number | null = null;
+let homeHotArticlesIslandModulePromise: Promise<typeof import('@/public-renderers/homeHotArticlesIsland')> | null = null;
+let commentsIslandModulePromise: Promise<typeof import('@/public-renderers/commentsIsland')> | null = null;
 
 type IdleWindow = Window & typeof globalThis & {
-  requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
-  cancelIdleCallback?: (handle: number) => void
+    requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number;
+    cancelIdleCallback?: (handle: number) => void;
+};
+
+function scheduleIdleTask(task: () => void): number
+{
+    const idleWindow = window;
+    if (typeof idleWindow.requestIdleCallback === 'function')
+    {
+        return idleWindow.requestIdleCallback(() => task(), { timeout: 800 });
+    }
+
+    return window.setTimeout(task, 180);
 }
 
-function scheduleIdleTask(task: () => void): number {
-  const idleWindow = window as IdleWindow
-  if (typeof idleWindow.requestIdleCallback === 'function') {
-    return idleWindow.requestIdleCallback(() => task(), { timeout: 800 })
-  }
+function clearIdleTask(taskId: number | null): void
+{
+    if (taskId === null)
+    {
+        return;
+    }
 
-  return window.setTimeout(task, 180)
+    const idleWindow = window;
+    if (typeof idleWindow.cancelIdleCallback === 'function')
+    {
+        idleWindow.cancelIdleCallback(taskId);
+        return;
+    }
+
+    window.clearTimeout(taskId);
 }
 
-function clearIdleTask(taskId: number | null): void {
-  if (taskId === null) {
-    return
-  }
-
-  const idleWindow = window as IdleWindow
-  if (typeof idleWindow.cancelIdleCallback === 'function') {
-    idleWindow.cancelIdleCallback(taskId)
-    return
-  }
-
-  window.clearTimeout(taskId)
+function loadCommentsIslandModule(): Promise<typeof import('@/public-renderers/commentsIsland')>
+{
+    commentsIslandModulePromise ??= import('@/public-renderers/commentsIsland');
+    return commentsIslandModulePromise;
 }
 
-function loadCommentsIslandModule(): Promise<typeof import('@/public-renderers/commentsIsland')> {
-  commentsIslandModulePromise ??= import('@/public-renderers/commentsIsland')
-  return commentsIslandModulePromise
-}
-
-function loadHomeHotArticlesIslandModule(): Promise<typeof import('@/public-renderers/homeHotArticlesIsland')> {
-  homeHotArticlesIslandModulePromise ??= import('@/public-renderers/homeHotArticlesIsland')
-  return homeHotArticlesIslandModulePromise
+function loadHomeHotArticlesIslandModule(): Promise<typeof import('@/public-renderers/homeHotArticlesIsland')>
+{
+    homeHotArticlesIslandModulePromise ??= import('@/public-renderers/homeHotArticlesIsland');
+    return homeHotArticlesIslandModulePromise;
 }
 
 async function mountHomeHotArticlesIslandLazy(
-  routeKey: string,
-  reason: 'viewport' | 'fallback',
-  activationVersion = hotArticlesActivationVersion
-): Promise<void> {
-  const module = await loadHomeHotArticlesIslandModule()
-  if (activationVersion !== hotArticlesActivationVersion) {
-    return
-  }
+    routeKey: string,
+    reason: 'viewport' | 'fallback',
+    activationVersion = hotArticlesActivationVersion
+): Promise<void>
+{
+    const module = await loadHomeHotArticlesIslandModule();
+    if (activationVersion !== hotArticlesActivationVersion)
+    {
+        return;
+    }
 
-  await module.mountHomeHotArticlesIsland(routeKey)
-  emitTelemetry('public_home_hot_articles_island_loaded', { reason }, 'info')
+    await module.mountHomeHotArticlesIsland(routeKey);
+    emitTelemetry('public_home_hot_articles_island_loaded', { reason }, 'info');
 }
 
-function unmountHomeHotArticlesIslandLazy(): void {
-  if (!homeHotArticlesIslandModulePromise) {
-    return
-  }
+function unmountHomeHotArticlesIslandLazy(): void
+{
+    if (!homeHotArticlesIslandModulePromise)
+    {
+        return;
+    }
 
-  void homeHotArticlesIslandModulePromise
-    .then((module) => module.unmountHomeHotArticlesIsland())
-    .catch((e: unknown) => { if (import.meta.env.DEV) { console.warn('[publicShell] unmount failed', e) } })
+    void homeHotArticlesIslandModulePromise
+        .then((module) => module.unmountHomeHotArticlesIsland())
+        .catch((e: unknown) =>
+        {
+            if (import.meta.env.DEV)
+            {
+                console.warn('[publicShell] unmount failed', e);
+            }
+        });
 }
 
 async function mountArticleCommentsIslandLazy(
-  articleId: number | string,
-  reason: 'viewport' | 'request' | 'fallback',
-  activationVersion = commentsActivationVersion
-): Promise<void> {
-  const module = await loadCommentsIslandModule()
-  if (activationVersion !== commentsActivationVersion) {
-    return
-  }
+    articleId: number | string,
+    reason: 'viewport' | 'request' | 'fallback',
+    activationVersion = commentsActivationVersion
+): Promise<void>
+{
+    const module = await loadCommentsIslandModule();
+    if (activationVersion !== commentsActivationVersion)
+    {
+        return;
+    }
 
-  await module.mountArticleCommentsIsland(articleId)
-  emitTelemetry('public_comments_island_loaded', { reason }, 'info')
+    await module.mountArticleCommentsIsland(articleId);
+    emitTelemetry('public_comments_island_loaded', { reason }, 'info');
 }
 
-function unmountArticleCommentsIslandLazy(): void {
-  if (!commentsIslandModulePromise) {
-    return
-  }
+function unmountArticleCommentsIslandLazy(): void
+{
+    if (!commentsIslandModulePromise)
+    {
+        return;
+    }
 
-  void commentsIslandModulePromise
-    .then((module) => module.unmountArticleCommentsIsland())
-    .catch((e: unknown) => { if (import.meta.env.DEV) { console.warn('[publicShell] unmount failed', e) } })
+    void commentsIslandModulePromise
+        .then((module) => module.unmountArticleCommentsIsland())
+        .catch((e: unknown) =>
+        {
+            if (import.meta.env.DEV)
+            {
+                console.warn('[publicShell] unmount failed', e);
+            }
+        });
 }
 
-function clearArticleCommentsIslandActivation(): void {
-  commentsActivationVersion += 1
-  commentsIntersectionObserver?.disconnect()
-  commentsIntersectionObserver = null
-  clearIdleTask(commentsIdleTask)
-  commentsIdleTask = null
-  if (commentsFallbackTimer !== null) {
-    window.clearTimeout(commentsFallbackTimer)
-    commentsFallbackTimer = null
-  }
+function clearArticleCommentsIslandActivation(): void
+{
+    commentsActivationVersion += 1;
+    commentsIntersectionObserver?.disconnect();
+    commentsIntersectionObserver = null;
+    clearIdleTask(commentsIdleTask);
+    commentsIdleTask = null;
+    if (commentsFallbackTimer !== null)
+    {
+        window.clearTimeout(commentsFallbackTimer);
+        commentsFallbackTimer = null;
+    }
 }
 
-function clearHomeHotArticlesIslandActivation(): void {
-  hotArticlesActivationVersion += 1
-  hotArticlesIntersectionObserver?.disconnect()
-  hotArticlesIntersectionObserver = null
-  clearIdleTask(hotArticlesIdleTask)
-  hotArticlesIdleTask = null
-  if (hotArticlesFallbackTimer !== null) {
-    window.clearTimeout(hotArticlesFallbackTimer)
-    hotArticlesFallbackTimer = null
-  }
+function clearHomeHotArticlesIslandActivation(): void
+{
+    hotArticlesActivationVersion += 1;
+    hotArticlesIntersectionObserver?.disconnect();
+    hotArticlesIntersectionObserver = null;
+    clearIdleTask(hotArticlesIdleTask);
+    hotArticlesIdleTask = null;
+    if (hotArticlesFallbackTimer !== null)
+    {
+        window.clearTimeout(hotArticlesFallbackTimer);
+        hotArticlesFallbackTimer = null;
+    }
 }
 
-function stopArticleCommentsIslandObserver(): void {
-  commentsIntersectionObserver?.disconnect()
-  commentsIntersectionObserver = null
-  clearIdleTask(commentsIdleTask)
-  commentsIdleTask = null
-  if (commentsFallbackTimer !== null) {
-    window.clearTimeout(commentsFallbackTimer)
-    commentsFallbackTimer = null
-  }
+function stopArticleCommentsIslandObserver(): void
+{
+    commentsIntersectionObserver?.disconnect();
+    commentsIntersectionObserver = null;
+    clearIdleTask(commentsIdleTask);
+    commentsIdleTask = null;
+    if (commentsFallbackTimer !== null)
+    {
+        window.clearTimeout(commentsFallbackTimer);
+        commentsFallbackTimer = null;
+    }
 }
 
-function stopHomeHotArticlesIslandObserver(): void {
-  hotArticlesIntersectionObserver?.disconnect()
-  hotArticlesIntersectionObserver = null
-  clearIdleTask(hotArticlesIdleTask)
-  hotArticlesIdleTask = null
-  if (hotArticlesFallbackTimer !== null) {
-    window.clearTimeout(hotArticlesFallbackTimer)
-    hotArticlesFallbackTimer = null
-  }
+function stopHomeHotArticlesIslandObserver(): void
+{
+    hotArticlesIntersectionObserver?.disconnect();
+    hotArticlesIntersectionObserver = null;
+    clearIdleTask(hotArticlesIdleTask);
+    hotArticlesIdleTask = null;
+    if (hotArticlesFallbackTimer !== null)
+    {
+        window.clearTimeout(hotArticlesFallbackTimer);
+        hotArticlesFallbackTimer = null;
+    }
 }
 
-function clearPublicFirstPaintFlag(): void {
-  document.body.removeAttribute('data-fsusblog-public-first-paint')
+function clearPublicFirstPaintFlag(): void
+{
+    document.body.removeAttribute('data-fsusblog-public-first-paint');
 }
 
-function isPublicShellDocument(): boolean {
-  return document.body.hasAttribute('data-fsusblog-public-shell')
+function isPublicShellDocument(): boolean
+{
+    return document.body.hasAttribute('data-fsusblog-public-shell');
 }
 
-function currentPublicShellFullPath(): string {
-  return `${window.location.pathname}${window.location.search}${window.location.hash}`
+function currentPublicShellFullPath(): string
+{
+    return `${window.location.pathname}${window.location.search}${window.location.hash}`;
 }
 
-function readCurrentPublicShellPath(): string {
-  return currentPublicShellFullPath()
+function readCurrentPublicShellPath(): string
+{
+    return currentPublicShellFullPath();
 }
 
-async function preparePublicShellLocalFixtureSession(): Promise<void> {
-  const searchParams = new URLSearchParams(window.location.search)
-  if (isLocalFixtureQueryEnabled(searchParams.get('fsusLocalFixtureLogin'))) {
-    activateLocalFixtureSession()
-  }
+async function preparePublicShellLocalFixtureSession(): Promise<void>
+{
+    const searchParams = new URLSearchParams(window.location.search);
+    if (isLocalFixtureQueryEnabled(searchParams.get('fsusLocalFixtureLogin')))
+    {
+        activateLocalFixtureSession();
+    }
 
-  if (!isLocalFixtureSessionActive()) {
-    return
-  }
+    if (!isLocalFixtureSessionActive())
+    {
+        return;
+    }
 
-  if (await ensureLocalFixtureSessionCookies(readCurrentPublicShellPath())) {
-    return
-  }
+    if (await ensureLocalFixtureSessionCookies(readCurrentPublicShellPath()))
+    {
+        return;
+    }
 
-  window.location.replace(buildLocalFixtureAdminUrl(readCurrentPublicShellPath()))
+    window.location.replace(buildLocalFixtureAdminUrl(readCurrentPublicShellPath()));
 }
 
-function requestPublicRoutePrewarm(target: string | null, reason: PublicRoutePrewarmReason): void {
-  if (!target || getPublicActivationOwner() === 'full-app') {
-    return
-  }
+function requestPublicRoutePrewarm(target: string | null, reason: PublicRoutePrewarmReason): void
+{
+    if (!target || getPublicActivationOwner() === 'full-app')
+    {
+        return;
+    }
 
-  // Intent-targeted route preparation only. Idle core warming is a separate port.
-  void warmPublicActivation(target, reason)
-    .catch((e: unknown) => { if (import.meta.env.DEV) { console.warn('[publicShell] unmount failed', e) } })
+    // Intent-targeted route preparation only. Idle core warming is a separate port.
+    void warmPublicActivation(target, reason)
+        .catch((e: unknown) =>
+        {
+            if (import.meta.env.DEV)
+            {
+                console.warn('[publicShell] unmount failed', e);
+            }
+        });
 }
 
 /**
@@ -503,470 +597,566 @@ function requestPublicRoutePrewarm(target: string | null, reason: PublicRoutePre
  * Must not prewarm the current URL or fetch /api/public/navigation-snapshot.aeds
  * for the already-hydrated AOT page.
  */
-function schedulePublicCoreIdleWarm(): void {
-  clearPublicCoreIdleWarm()
-  publicRoutePrewarmIdleTask = scheduleIdleTask(() => {
-    publicRoutePrewarmIdleTask = null
-    if (getPublicActivationOwner() === 'full-app') {
-      return
-    }
-    void warmPublicFullAppCore('idle')
-      .catch((e: unknown) => { if (import.meta.env.DEV) { console.warn('[publicShell] core warm failed', e) } })
-  })
+function schedulePublicCoreIdleWarm(): void
+{
+    clearPublicCoreIdleWarm();
+    publicRoutePrewarmIdleTask = scheduleIdleTask(() =>
+    {
+        publicRoutePrewarmIdleTask = null;
+        if (getPublicActivationOwner() === 'full-app')
+        {
+            return;
+        }
+        void warmPublicFullAppCore('idle')
+            .catch((e: unknown) =>
+            {
+                if (import.meta.env.DEV)
+                {
+                    console.warn('[publicShell] core warm failed', e);
+                }
+            });
+    });
 }
 
-function clearPublicCoreIdleWarm(): void {
-  clearIdleTask(publicRoutePrewarmIdleTask)
-  publicRoutePrewarmIdleTask = null
+function clearPublicCoreIdleWarm(): void
+{
+    clearIdleTask(publicRoutePrewarmIdleTask);
+    publicRoutePrewarmIdleTask = null;
 }
 
-function requestPublicAnchorPrewarm(event: Event, reason: Extract<PublicRoutePrewarmReason, 'pointerenter' | 'focus'>): void {
-  if (!(event.target instanceof Element)) {
-    return
-  }
-
-  const anchor = event.target.closest('a')
-  if (!(anchor instanceof HTMLAnchorElement)) {
-    return
-  }
-
-  requestPublicRoutePrewarm(resolvePublicRoutePrewarmTarget(anchor, event), reason)
-}
-
-function storeInitialPublicRouteSeed(payload: PublicHydrationPayload): void {
-  if (!hasCanonicalPublicSeedRenderTimestamp(payload)) {
-    throw new Error('public_aot_hydration_render_timestamp_invalid')
-  }
-  const kind = payload.pageKind as PublicRouteSeedKind
-  putPublicRouteSeed({
-    kind,
-    fullPath: currentPublicShellFullPath(),
-    routeKey: payload.routeKey,
-    seed: {
-      bootstrap: null,
-      hydration: payload
-    } as PublicPageSeed<PublicRouteSeedKind>
-  })
-}
-
-function waitForDocumentInteractive(): Promise<void> {
-  if (document.readyState !== 'loading') {
-    return Promise.resolve()
-  }
-
-  return new Promise((resolve) => {
-    let fallbackTimer: number | null = window.setTimeout(() => {
-      fallbackTimer = null
-      complete()
-    }, DOCUMENT_INTERACTIVE_FALLBACK_MS)
-
-    const complete = (): void => {
-      document.removeEventListener('readystatechange', onReadyStateChange)
-      document.removeEventListener('DOMContentLoaded', complete)
-      if (fallbackTimer !== null) {
-        window.clearTimeout(fallbackTimer)
-        fallbackTimer = null
-      }
-      resolve()
+function requestPublicAnchorPrewarm(event: Event, reason: Extract<PublicRoutePrewarmReason, 'pointerenter' | 'focus'>): void
+{
+    if (!(event.target instanceof Element))
+    {
+        return;
     }
 
-    const onReadyStateChange = (): void => {
-      if (document.readyState !== 'loading') {
-        complete()
-      }
+    const anchor = event.target.closest('a');
+    if (!(anchor instanceof HTMLAnchorElement))
+    {
+        return;
     }
 
-    document.addEventListener('readystatechange', onReadyStateChange)
-    document.addEventListener('DOMContentLoaded', complete, { once: true })
-  })
+    requestPublicRoutePrewarm(resolvePublicRoutePrewarmTarget(anchor, event), reason);
 }
 
-function isPublicMicroRoute(href: string): boolean {
-  const target = new URL(href, window.location.origin)
-  return isPublicSeoPath(target.pathname)
+function storeInitialPublicRouteSeed(payload: PublicHydrationPayload): void
+{
+    if (!hasCanonicalPublicSeedRenderTimestamp(payload))
+    {
+        throw new Error('public_aot_hydration_render_timestamp_invalid');
+    }
+    const kind = payload.pageKind;
+    putPublicRouteSeed({
+        kind,
+        fullPath: currentPublicShellFullPath(),
+        routeKey: payload.routeKey,
+        seed: {
+            bootstrap: null,
+            hydration: payload
+        }
+    });
 }
 
-function navigateWithDocumentRequest(href: string): void {
-  window.location.assign(href)
-}
-
-function resolveShellActionNavigation(actionNode: HTMLElement): string | null {
-  const action = actionNode.dataset.aotAction
-  if (action !== 'page-prev' && action !== 'page-next') {
-    return null
-  }
-
-  if (hydratedPayload?.pageKind === 'Home') {
-    const step = action === 'page-prev' ? -1 : 1
-    const nextPage = hydratedPayload.currentPage + step
-    const totalPages = Math.max(1, Math.ceil(hydratedPayload.total / Math.max(1, hydratedPayload.pageSize)))
-    if (nextPage < 1 || nextPage > totalPages) {
-      return null
+function waitForDocumentInteractive(): Promise<void>
+{
+    if (document.readyState !== 'loading')
+    {
+        return Promise.resolve();
     }
 
-    const target = new URL(window.location.href)
-    if (nextPage <= 1) {
-      target.searchParams.delete('page')
-    } else {
-      target.searchParams.set('page', String(nextPage))
+    return new Promise((resolve) =>
+    {
+        let fallbackTimer: number | null = window.setTimeout(() =>
+        {
+            fallbackTimer = null;
+            complete();
+        }, DOCUMENT_INTERACTIVE_FALLBACK_MS);
+
+        const complete = (): void =>
+        {
+            document.removeEventListener('readystatechange', onReadyStateChange);
+            document.removeEventListener('DOMContentLoaded', complete);
+            if (fallbackTimer !== null)
+            {
+                window.clearTimeout(fallbackTimer);
+                fallbackTimer = null;
+            }
+            resolve();
+        };
+
+        const onReadyStateChange = (): void =>
+        {
+            if (document.readyState !== 'loading')
+            {
+                complete();
+            }
+        };
+
+        document.addEventListener('readystatechange', onReadyStateChange);
+        document.addEventListener('DOMContentLoaded', complete, { once: true });
+    });
+}
+
+function isPublicMicroRoute(href: string): boolean
+{
+    const target = new URL(href, window.location.origin);
+    return isPublicSeoPath(target.pathname);
+}
+
+function navigateWithDocumentRequest(href: string): void
+{
+    window.location.assign(href);
+}
+
+function resolveShellActionNavigation(actionNode: HTMLElement): string | null
+{
+    const action = actionNode.dataset.aotAction;
+    if (action !== 'page-prev' && action !== 'page-next')
+    {
+        return null;
     }
 
-    return target.toString()
-  }
+    if (hydratedPayload?.pageKind === 'Home')
+    {
+        const step = action === 'page-prev' ? -1 : 1;
+        const nextPage = hydratedPayload.currentPage + step;
+        const totalPages = Math.max(1, Math.ceil(hydratedPayload.total / Math.max(1, hydratedPayload.pageSize)));
+        if (nextPage < 1 || nextPage > totalPages)
+        {
+            return null;
+        }
 
-  const pathname = window.location.pathname
-  const isFilterSeoPath = /^\/(category|tag)\/\d+\/?$/.test(pathname)
-  if (!isFilterSeoPath) {
-    return null
-  }
+        const target = new URL(window.location.href);
+        if (nextPage <= 1)
+        {
+            target.searchParams.delete('page');
+        }
+        else
+        {
+            target.searchParams.set('page', String(nextPage));
+        }
 
-  const target = new URL(window.location.href)
-  const currentPageRaw = Number(target.searchParams.get('page') ?? '1')
-  const currentPage = Number.isFinite(currentPageRaw) && currentPageRaw > 0 ? Math.trunc(currentPageRaw) : 1
-  const step = action === 'page-prev' ? -1 : 1
-  const nextPage = currentPage + step
-  if (nextPage < 1) {
-    return null
-  }
-
-  if (nextPage <= 1) {
-    target.searchParams.delete('page')
-  } else {
-    target.searchParams.set('page', String(nextPage))
-  }
-
-  return target.toString()
-}
-
-function clearDynamicIslands(): void {
-  clearHomeHotArticlesIslandActivation()
-  clearArticleCommentsIslandActivation()
-  unmountArticleCommentsIslandLazy()
-  unmountHomeHotArticlesIslandLazy()
-}
-
-function resolveArticleCommentsIslandId(payload: PublicHydrationPayload): number | null {
-  if (payload.pageKind !== 'ArticleDetail') {
-    return null
-  }
-
-  const articleId = Number(payload.articleId)
-  return Number.isFinite(articleId) && articleId > 0 ? Math.trunc(articleId) : null
-}
-
-function resolveHomeHotArticlesTarget(): HTMLElement | null {
-  const slot = document.getElementById('fsus-home-hot-articles-slot-content')
-  if (!(slot instanceof HTMLElement)) {
-    return null
-  }
-
-  const sentinel = document.getElementById(HOME_HOT_ARTICLES_SENTINEL_ID)
-  if (sentinel instanceof HTMLElement) {
-    return sentinel
-  }
-
-  return slot
-}
-
-function scheduleHomeHotArticlesIsland(payload: PublicHydrationPayload): void {
-  if (payload.pageKind !== 'Home') {
-    return
-  }
-
-  const target = resolveHomeHotArticlesTarget()
-  if (!target) {
-    return
-  }
-
-  const activationVersion = ++hotArticlesActivationVersion
-  const activate = (reason: 'viewport' | 'fallback') => {
-    stopHomeHotArticlesIslandObserver()
-    hotArticlesIdleTask = scheduleIdleTask(() => {
-      hotArticlesIdleTask = null
-      void mountHomeHotArticlesIslandLazy(payload.routeKey, reason, activationVersion)
-    })
-  }
-
-  if (typeof IntersectionObserver === 'undefined') {
-    hotArticlesFallbackTimer = window.setTimeout(() => {
-      hotArticlesFallbackTimer = null
-      void mountHomeHotArticlesIslandLazy(payload.routeKey, 'fallback', activationVersion)
-    }, HOME_HOT_ARTICLES_FALLBACK_DELAY_MS)
-    return
-  }
-
-  hotArticlesIntersectionObserver = new IntersectionObserver((entries) => {
-    if (entries.some((entry) => entry.isIntersecting || entry.intersectionRatio > 0)) {
-      activate('viewport')
+        return target.toString();
     }
-  }, {
-    root: null,
-    rootMargin: HOME_HOT_ARTICLES_ROOT_MARGIN,
-    threshold: 0
-  })
-  hotArticlesIntersectionObserver.observe(target)
-}
 
-function scheduleArticleCommentsIsland(payload: PublicHydrationPayload): void {
-  const articleId = resolveArticleCommentsIslandId(payload)
-  if (articleId === null) {
-    return
-  }
-
-  const host = document.getElementById('fsus-comments-island')
-  if (!(host instanceof HTMLElement)) {
-    return
-  }
-
-  const activationVersion = ++commentsActivationVersion
-  const activate = (reason: 'viewport' | 'request' | 'fallback') => {
-    stopArticleCommentsIslandObserver()
-    void mountArticleCommentsIslandLazy(articleId, reason, activationVersion)
-  }
-
-  if (window.location.hash === '#comments') {
-    activate('request')
-    return
-  }
-
-  if (typeof IntersectionObserver === 'undefined') {
-    commentsFallbackTimer = window.setTimeout(() => {
-      commentsFallbackTimer = null
-      activate('fallback')
-    }, COMMENTS_ISLAND_FALLBACK_DELAY_MS)
-    return
-  }
-
-  commentsIntersectionObserver = new IntersectionObserver((entries) => {
-    if (entries.some((entry) => entry.isIntersecting || entry.intersectionRatio > 0)) {
-      activate('viewport')
+    const pathname = window.location.pathname;
+    const isFilterSeoPath = /^\/(category|tag)\/\d+\/?$/.test(pathname);
+    if (!isFilterSeoPath)
+    {
+        return null;
     }
-  }, {
-    root: null,
-    rootMargin: '900px 0px 900px 0px',
-    threshold: 0
-  })
-  commentsIntersectionObserver.observe(host)
+
+    const target = new URL(window.location.href);
+    const currentPageRaw = Number(target.searchParams.get('page') ?? '1');
+    const currentPage = Number.isFinite(currentPageRaw) && currentPageRaw > 0 ? Math.trunc(currentPageRaw) : 1;
+    const step = action === 'page-prev' ? -1 : 1;
+    const nextPage = currentPage + step;
+    if (nextPage < 1)
+    {
+        return null;
+    }
+
+    if (nextPage <= 1)
+    {
+        target.searchParams.delete('page');
+    }
+    else
+    {
+        target.searchParams.set('page', String(nextPage));
+    }
+
+    return target.toString();
 }
 
-function scheduleDynamicIslands(payload: PublicHydrationPayload | null): void {
-  clearHomeHotArticlesIslandActivation()
-  clearArticleCommentsIslandActivation()
+function clearDynamicIslands(): void
+{
+    clearHomeHotArticlesIslandActivation();
+    clearArticleCommentsIslandActivation();
+    unmountArticleCommentsIslandLazy();
+    unmountHomeHotArticlesIslandLazy();
+}
 
-  if (!payload) {
-    return
-  }
+function resolveArticleCommentsIslandId(payload: PublicHydrationPayload): number | null
+{
+    if (payload.pageKind !== 'ArticleDetail')
+    {
+        return null;
+    }
 
-  if (payload.pageKind === 'Home') {
-    scheduleHomeHotArticlesIsland(payload)
-  }
+    const articleId = Number(payload.articleId);
+    return Number.isFinite(articleId) && articleId > 0 ? Math.trunc(articleId) : null;
+}
 
-  if (payload.pageKind === 'ArticleDetail') {
-    scheduleArticleCommentsIsland(payload)
-  }
+function resolveHomeHotArticlesTarget(): HTMLElement | null
+{
+    const slot = document.getElementById('fsus-home-hot-articles-slot-content');
+    if (!(slot instanceof HTMLElement))
+    {
+        return null;
+    }
+
+    const sentinel = document.getElementById(HOME_HOT_ARTICLES_SENTINEL_ID);
+    if (sentinel instanceof HTMLElement)
+    {
+        return sentinel;
+    }
+
+    return slot;
+}
+
+function scheduleHomeHotArticlesIsland(payload: PublicHydrationPayload): void
+{
+    if (payload.pageKind !== 'Home')
+    {
+        return;
+    }
+
+    const target = resolveHomeHotArticlesTarget();
+    if (!target)
+    {
+        return;
+    }
+
+    const activationVersion = ++hotArticlesActivationVersion;
+    const activate = (reason: 'viewport' | 'fallback') =>
+    {
+        stopHomeHotArticlesIslandObserver();
+        hotArticlesIdleTask = scheduleIdleTask(() =>
+        {
+            hotArticlesIdleTask = null;
+            void mountHomeHotArticlesIslandLazy(payload.routeKey, reason, activationVersion);
+        });
+    };
+
+    if (typeof IntersectionObserver === 'undefined')
+    {
+        hotArticlesFallbackTimer = window.setTimeout(() =>
+        {
+            hotArticlesFallbackTimer = null;
+            void mountHomeHotArticlesIslandLazy(payload.routeKey, 'fallback', activationVersion);
+        }, HOME_HOT_ARTICLES_FALLBACK_DELAY_MS);
+        return;
+    }
+
+    hotArticlesIntersectionObserver = new IntersectionObserver((entries) =>
+    {
+        if (entries.some((entry) => entry.isIntersecting || entry.intersectionRatio > 0))
+        {
+            activate('viewport');
+        }
+    }, {
+        root: null,
+        rootMargin: HOME_HOT_ARTICLES_ROOT_MARGIN,
+        threshold: 0
+    });
+    hotArticlesIntersectionObserver.observe(target);
+}
+
+function scheduleArticleCommentsIsland(payload: PublicHydrationPayload): void
+{
+    const articleId = resolveArticleCommentsIslandId(payload);
+    if (articleId === null)
+    {
+        return;
+    }
+
+    const host = document.getElementById('fsus-comments-island');
+    if (!(host instanceof HTMLElement))
+    {
+        return;
+    }
+
+    const activationVersion = ++commentsActivationVersion;
+    const activate = (reason: 'viewport' | 'request' | 'fallback') =>
+    {
+        stopArticleCommentsIslandObserver();
+        void mountArticleCommentsIslandLazy(articleId, reason, activationVersion);
+    };
+
+    if (window.location.hash === '#comments')
+    {
+        activate('request');
+        return;
+    }
+
+    if (typeof IntersectionObserver === 'undefined')
+    {
+        commentsFallbackTimer = window.setTimeout(() =>
+        {
+            commentsFallbackTimer = null;
+            activate('fallback');
+        }, COMMENTS_ISLAND_FALLBACK_DELAY_MS);
+        return;
+    }
+
+    commentsIntersectionObserver = new IntersectionObserver((entries) =>
+    {
+        if (entries.some((entry) => entry.isIntersecting || entry.intersectionRatio > 0))
+        {
+            activate('viewport');
+        }
+    }, {
+        root: null,
+        rootMargin: '900px 0px 900px 0px',
+        threshold: 0
+    });
+    commentsIntersectionObserver.observe(host);
+}
+
+function scheduleDynamicIslands(payload: PublicHydrationPayload | null): void
+{
+    clearHomeHotArticlesIslandActivation();
+    clearArticleCommentsIslandActivation();
+
+    if (!payload)
+    {
+        return;
+    }
+
+    if (payload.pageKind === 'Home')
+    {
+        scheduleHomeHotArticlesIsland(payload);
+    }
+
+    if (payload.pageKind === 'ArticleDetail')
+    {
+        scheduleArticleCommentsIsland(payload);
+    }
 }
 
 async function navigateWithPublicIntent(
-  intent: ReturnType<typeof classifyPublicNavigationIntent>,
-  fallbackHref: string
-): Promise<boolean> {
-  if (intent.kind === 'atomic-public-route') {
-    clearDynamicIslands()
-    await submitPublicActivationIntent({
-      kind: 'navigate',
-      source: intent.source,
-      target: intent.fullPath
-    })
-    return true
-  }
+    intent: ReturnType<typeof classifyPublicNavigationIntent>,
+    fallbackHref: string
+): Promise<boolean>
+{
+    if (intent.kind === 'atomic-public-route')
+    {
+        clearDynamicIslands();
+        await submitPublicActivationIntent({
+            kind: 'navigate',
+            source: intent.source,
+            target: intent.fullPath
+        });
+        return true;
+    }
 
-  if (fallbackHref) {
-    navigateWithDocumentRequest(fallbackHref)
-    return true
-  }
+    if (fallbackHref)
+    {
+        navigateWithDocumentRequest(fallbackHref);
+        return true;
+    }
 
-  return false
+    return false;
 }
 
-async function handleShellAction(actionNode: HTMLElement, anchor: HTMLAnchorElement | null): Promise<void> {
-  const action = actionNode.dataset.aotAction ?? ''
-  if (!action) {
-    return
-  }
-
-  const actionHref = resolveShellActionNavigation(actionNode)
-  if (actionHref) {
-    dispatchAotActionEvent(actionNode)
-    const intent = classifyPublicNavigationIntent({
-      action,
-      currentHref: window.location.href,
-      href: actionHref,
-      source: 'pagination'
-    })
-    await navigateWithPublicIntent(intent, actionHref)
-    return
-  }
-
-  if (action === 'activate-comments') {
-    dispatchAotActionEvent(actionNode)
-    const articleId = hydratedPayload?.pageKind === 'ArticleDetail'
-      ? hydratedPayload.articleId
-      : Number(actionNode.dataset.aotValue ?? actionNode.dataset.aotId ?? '0')
-    clearArticleCommentsIslandActivation()
-    const activationVersion = commentsActivationVersion
-    await mountArticleCommentsIslandLazy(articleId, 'request', activationVersion)
-    return
-  }
-
-  dispatchAotActionEvent(actionNode)
-  if (anchor instanceof HTMLAnchorElement && isInternalAppLink(anchor) && isPublicMicroRoute(anchor.href)) {
-    const intent = classifyPublicNavigationIntent({
-      action,
-      anchor,
-      currentHref: window.location.href,
-      source: 'action'
-    })
-    await navigateWithPublicIntent(intent, anchor.href)
-  }
-}
-
-export function bindPreBootstrapNavigation(): void {
-  if (preBootstrapNavigationBound) {
-    return
-  }
-
-  preBootstrapNavigationBound = true
-  addPublicShellEventListener(document, 'click', (event) => {
-    if (getPublicActivationOwner() === 'full-app') {
-      return
+async function handleShellAction(actionNode: HTMLElement, anchor: HTMLAnchorElement | null): Promise<void>
+{
+    const action = actionNode.dataset.aotAction ?? '';
+    if (!action)
+    {
+        return;
     }
 
-    if (!(event.target instanceof Element) || isModifiedEvent(event)) {
-      return
-    }
-
-    const themeModeNode = event.target.closest('[data-fsusblog-theme-mode]')
-    if (themeModeNode instanceof HTMLElement) {
-      const nextMode = themeModeNode.dataset.fsusblogThemeMode
-      if (nextMode === 'light' || nextMode === 'dark' || nextMode === 'system') {
-        event.preventDefault()
-        setThemeMode(nextMode as ThemeMode)
-      }
-      return
-    }
-
-    const actionNode = event.target.closest('[data-aot-action]')
-    if (actionNode instanceof HTMLElement && !actionNode.hasAttribute('disabled')) {
-      const anchor = actionNode.closest('a')
-
-      const actionHref = resolveShellActionNavigation(actionNode)
-      if (actionHref) {
-        dispatchAotActionEvent(actionNode)
-        event.preventDefault()
+    const actionHref = resolveShellActionNavigation(actionNode);
+    if (actionHref)
+    {
+        dispatchAotActionEvent(actionNode);
         const intent = classifyPublicNavigationIntent({
-          action: actionNode.dataset.aotAction ?? '',
-          currentHref: window.location.href,
-          event,
-          href: actionHref,
-          source: 'pagination'
-        })
-        void navigateWithPublicIntent(intent, actionHref)
-        return
-      }
-
-      event.preventDefault()
-      void handleShellAction(actionNode, anchor instanceof HTMLAnchorElement ? anchor : null)
-      return
+            action,
+            currentHref: window.location.href,
+            href: actionHref,
+            source: 'pagination'
+        });
+        await navigateWithPublicIntent(intent, actionHref);
+        return;
     }
 
-    const anchor = event.target.closest('a')
-    if (!(anchor instanceof HTMLAnchorElement) || !isInternalAppLink(anchor)) {
-      return
+    if (action === 'activate-comments')
+    {
+        dispatchAotActionEvent(actionNode);
+        const articleId = hydratedPayload?.pageKind === 'ArticleDetail'
+            ? hydratedPayload.articleId
+            : Number(actionNode.dataset.aotValue ?? actionNode.dataset.aotId ?? '0');
+        clearArticleCommentsIslandActivation();
+        const activationVersion = commentsActivationVersion;
+        await mountArticleCommentsIslandLazy(articleId, 'request', activationVersion);
+        return;
     }
 
-    if (!isPublicMicroRoute(anchor.href)) {
-      return
+    dispatchAotActionEvent(actionNode);
+    if (anchor instanceof HTMLAnchorElement && isInternalAppLink(anchor) && isPublicMicroRoute(anchor.href))
+    {
+        const intent = classifyPublicNavigationIntent({
+            action,
+            anchor,
+            currentHref: window.location.href,
+            source: 'action'
+        });
+        await navigateWithPublicIntent(intent, anchor.href);
     }
-
-    const intent = classifyPublicNavigationIntent({
-      anchor,
-      currentHref: window.location.href,
-      event,
-      source: 'link'
-    })
-    if (intent.kind !== 'atomic-public-route') {
-      return
-    }
-
-    event.preventDefault()
-    clearDynamicIslands()
-    void submitPublicActivationIntent({
-      kind: 'navigate',
-      source: intent.source,
-      target: intent.fullPath
-    })
-  }, { capture: true, passive: false })
-  addPublicShellEventListener(document, 'pointerenter', (event) => {
-    requestPublicAnchorPrewarm(event, 'pointerenter')
-  }, { capture: true, passive: true })
-  addPublicShellEventListener(document, 'focusin', (event) => {
-    requestPublicAnchorPrewarm(event, 'focus')
-  }, { passive: true })
 }
 
-async function hydratePublicShell(): Promise<void> {
-  const payload = await readPublicHydrationPayloadAsync()
-  if (!payload) {
-    return
-  }
+export function bindPreBootstrapNavigation(): void
+{
+    if (preBootstrapNavigationBound)
+    {
+        return;
+    }
 
-  hydratedPayload = payload
-  storeInitialPublicRouteSeed(payload)
-  const startedAt = performance.now()
-  await hydratePublicPage(payload)
-  scheduleDynamicIslands(payload)
-  const durationMs = Math.round(performance.now() - startedAt)
-  emitRumMetric('hydration_time', {
-    value: durationMs,
-    durationMs
-  })
-  clearPublicFirstPaintFlag()
+    preBootstrapNavigationBound = true;
+    addPublicShellEventListener(document, 'click', (event) =>
+    {
+        if (getPublicActivationOwner() === 'full-app')
+        {
+            return;
+        }
+
+        if (!(event.target instanceof Element) || isModifiedEvent(event))
+        {
+            return;
+        }
+
+        const themeModeNode = event.target.closest('[data-fsusblog-theme-mode]');
+        if (themeModeNode instanceof HTMLElement)
+        {
+            const nextMode = themeModeNode.dataset.fsusblogThemeMode;
+            if (nextMode === 'light' || nextMode === 'dark' || nextMode === 'system')
+            {
+                event.preventDefault();
+                setThemeMode(nextMode);
+            }
+            return;
+        }
+
+        const actionNode = event.target.closest('[data-aot-action]');
+        if (actionNode instanceof HTMLElement && !actionNode.hasAttribute('disabled'))
+        {
+            const anchor = actionNode.closest('a');
+
+            const actionHref = resolveShellActionNavigation(actionNode);
+            if (actionHref)
+            {
+                dispatchAotActionEvent(actionNode);
+                event.preventDefault();
+                const intent = classifyPublicNavigationIntent({
+                    action: actionNode.dataset.aotAction ?? '',
+                    currentHref: window.location.href,
+                    event,
+                    href: actionHref,
+                    source: 'pagination'
+                });
+                void navigateWithPublicIntent(intent, actionHref);
+                return;
+            }
+
+            event.preventDefault();
+            void handleShellAction(actionNode, anchor instanceof HTMLAnchorElement ? anchor : null);
+            return;
+        }
+
+        const anchor = event.target.closest('a');
+        if (!(anchor instanceof HTMLAnchorElement) || !isInternalAppLink(anchor))
+        {
+            return;
+        }
+
+        if (!isPublicMicroRoute(anchor.href))
+        {
+            return;
+        }
+
+        const intent = classifyPublicNavigationIntent({
+            anchor,
+            currentHref: window.location.href,
+            event,
+            source: 'link'
+        });
+        if (intent.kind !== 'atomic-public-route')
+        {
+            return;
+        }
+
+        event.preventDefault();
+        clearDynamicIslands();
+        void submitPublicActivationIntent({
+            kind: 'navigate',
+            source: intent.source,
+            target: intent.fullPath
+        });
+    }, { capture: true, passive: false });
+    addPublicShellEventListener(document, 'pointerenter', (event) =>
+    {
+        requestPublicAnchorPrewarm(event, 'pointerenter');
+    }, { capture: true, passive: true });
+    addPublicShellEventListener(document, 'focusin', (event) =>
+    {
+        requestPublicAnchorPrewarm(event, 'focus');
+    }, { passive: true });
+}
+
+async function hydratePublicShell(): Promise<void>
+{
+    const payload = await readPublicHydrationPayloadAsync();
+    if (!payload)
+    {
+        return;
+    }
+
+    hydratedPayload = payload;
+    storeInitialPublicRouteSeed(payload);
+    const startedAt = performance.now();
+    await hydratePublicPage(payload);
+    scheduleDynamicIslands(payload);
+    const durationMs = Math.round(performance.now() - startedAt);
+    emitRumMetric('hydration_time', {
+        value: durationMs,
+        durationMs
+    });
+    clearPublicFirstPaintFlag();
 }
 
 export type BootstrapPublicShellOptions = Readonly<{
-  bootIntent?: PublicBootIntent | null
-}>
+    bootIntent?: PublicBootIntent | null;
+}>;
 
-export async function bootstrapPublicShell(options: BootstrapPublicShellOptions = {}): Promise<void> {
-  resetPublicShellLifetime()
-  resetPublicShellRuntimeAuthState()
-  onPublicShellLifetimeAbort(() => {
-    clearPublicCoreIdleWarm()
-    clearDynamicIslands()
-    preBootstrapNavigationBound = false
-  })
+export async function bootstrapPublicShell(options: BootstrapPublicShellOptions = {}): Promise<void>
+{
+    resetPublicShellLifetime();
+    resetPublicShellRuntimeAuthState();
+    onPublicShellLifetimeAbort(() =>
+    {
+        clearPublicCoreIdleWarm();
+        clearDynamicIslands();
+        preBootstrapNavigationBound = false;
+    });
 
-  ensureThemeRuntime()
-  if (isPublicShellDocument()) {
-    document.body.setAttribute('data-fsusblog-public-first-paint', 'true')
-  }
-  bindPreBootstrapNavigation()
-  schedulePublicCoreIdleWarm()
-  adoptPublicBootIntent(options.bootIntent ?? null)
-  const hydrateTask = (async () => {
-    await waitForDocumentInteractive()
-    await preparePublicShellLocalFixtureSession()
-    await hydratePublicShell()
-  })()
+    ensureThemeRuntime();
+    if (isPublicShellDocument())
+    {
+        document.body.setAttribute('data-fsusblog-public-first-paint', 'true');
+    }
+    bindPreBootstrapNavigation();
+    schedulePublicCoreIdleWarm();
+    adoptPublicBootIntent(options.bootIntent ?? null);
+    const hydrateTask = (async () =>
+    {
+        await waitForDocumentInteractive();
+        await preparePublicShellLocalFixtureSession();
+        await hydratePublicShell();
+    })();
 
-  await ensurePublicShellStylesReady()
-  removeGlobalLoader()
+    await ensurePublicShellStylesReady();
+    removeGlobalLoader();
 
-  try {
-    await hydrateTask
-  } catch (error) {
-    emitTelemetry('public_shell_hydration_failed', {
-      error: error instanceof Error ? error.message : String(error)
-    }, 'warn')
-  }
+    try
+    {
+        await hydrateTask;
+    }
+    catch (error)
+    {
+        emitTelemetry('public_shell_hydration_failed', {
+            error: error instanceof Error ? error.message : String(error)
+        }, 'warn');
+    }
 }

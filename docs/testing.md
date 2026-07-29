@@ -8,13 +8,13 @@ FsusBlog 采用机器可读测试 DAG。`tests/matrix.yml` 是唯一测试拓扑
 
 `behavior-doc-static-admission` 是所有候选测试、构建、服务、容器和浏览器之前唯一且无条件的 BehaviorDoc 静态准入节点。它使用 `executionClass: static-governance`、`fixtureProfile: none`，不启动数据库、runtime、Vitest 或 Playwright；节点依次复用 BehaviorCatalog、DocClaim schema/parser、ImplementationOwner、当前 extractor registry、generated section checker、prose verifier 和 staleness mutation fixtures 的既有 authority。四个 compiled-assembly extractor 只消费本轮 content-addressed minimal contract build 的精确 receipt，禁止读取 ambient `bin/obj`。同一 source/worktree/toolchain 的并发准入通过原子 owner lock 选出唯一 publisher，在 per-run staging 完整构建后原子发布；后继 run 只有在 receipt、source closure、project 和 observation digest 全部重验通过后才可复用，损坏或遗留 cache 必须重建。任一 missing、duplicate、stale、warning、partial 或 source/build identity 漂移都直接失败。
 
-准入 receipt 绑定 run、commit、FactObservation worktree fingerprint、toolchain、catalog/claim/extractor/renderer digest、owner 结果、全部 fact observation、minimal build、generated/prose/mutation 结果和 `candidateSpawnCountBeforeReceipt: 0`，并以 `contentDigest` 封存。本地 runner 在 production lease、cleanup、capacity reservation、candidate output root 和 scheduler child spawn 前生成并校验该 receipt，随后在每个 physical bundle admission 前重验 source/worktree/digest。GitHub Actions 通过独立 prerequisite job 生成同一 artifact；每个候选 job 必须使用 `.github/actions/consume-behavior-doc-admission` 下载并验证 producer 输出后才可调用 `tools/test.sh`。docs-only、source-only 和其他 smart-gate 计划都不能省略该节点，package script 也不得直接暴露其内部 authority 形成旁路。
+准入 receipt 绑定 run、commit、FactObservation worktree fingerprint、toolchain、catalog/claim/extractor/renderer digest、owner 结果、全部 fact observation、minimal build、generated/prose/mutation 结果和 `candidateSpawnCountBeforeReceipt: 0`，并以 `contentDigest` 封存。本地 Production Fresh runner 先取得同一 candidate/run 的 repository lease 和 capacity reservation，再在 reservation live guard 内生成并校验该 receipt；BehaviorDoc cache 命中与未命中都按 catalog 中的 worst-case build/staging/retention demand 预留，不得消耗 safety headroom，host temp demand 同时覆盖 process-unique DocClaim staleness mutation fixture repositories。admission 完成后必须用 lease 的同一 `snapshotSourceState` authority 重取 commit/worktree fingerprint 并精确匹配，不能直接比较 BehaviorDoc extractor 的另一套 fingerprint；漂移在 cleanup 和 producer 前 fail closed。receipt 仍先于 cleanup、candidate output root 和 scheduler child spawn，随后在每个 physical bundle admission 前重验 source/worktree/digest。非 Fresh 本地 profile 保持无 capacity authority 的静态准入顺序。GitHub Actions 通过独立 prerequisite job 生成同一 artifact；每个候选 job 必须使用 `.github/actions/consume-behavior-doc-admission` 下载并验证 producer 输出后才可调用 `tools/test.sh`。docs-only、source-only 和其他 smart-gate 计划都不能省略该节点，package script 也不得直接暴露其内部 authority 形成旁路。
 
 `production-correctness` 与 `production` 在 scheduler、runtime cleanup、cache/.tmp 清理、磁盘 reservation、namespace 准备或 producer spawn 前，必须取得以 canonical repository root 和 `production-fresh` 为键的仓库级独占 lease。candidate identity 绑定本轮真实 commit、worktree fingerprint、profile target tier 与固定 `production-fresh` namespace；owner process/start/executable/command 与 Unix process group 或 Windows Job Object authority 复用 scheduler verifier。Windows 必须在 acquisition 前证明 named Job member query 可用，release 时对稳定双快照中的每个成员收集完整 process identity，除 owner 外仍有成员或 query 不可验证都不得释放。第二个 Fresh 对可验证 owner fail-fast 且文件、进程、container、port 与 spawn 均零变化；owner 损坏或无法验证时 fail closed。stale reclaim 与 heartbeat/finalize 使用 owner token、content digest CAS；lease 只在 producer descendants、postflight、证据封存和 cache 恢复结束，写入 terminal receipt 后释放。
 
 Fresh cache preservation 在取得上述 lease 后、任何新 `.tmp` cleanup 或 producer spawn 前，先扫描 common Git directory 中、按 canonical repository root 隔离的 durable transaction journal。事务状态只允许 `prepared`、`evacuating`、`evacuated`、`fresh-root-cleared`、`restoring`、`restored`、`committed`、`aborted`、`recovery-required`；每次 journal 写入执行 file fsync、atomic rename 和 parent-directory fsync，每次 cache rename 同步 fsync source/holding parent。holding 固定在物理 `.tmp` 同文件系统的外部 sibling，并只登记现有四项 cache allowlist（Emscripten、dependency、.NET data cache、run-bound build roots）。只读 terminal `test-runs` 不是可复用 cache，不得 rename 到 holding；cleanup 通过 exact path 原地跳过并在删除前后复核 tree digest、mode、uid/gid 与目录 identity，保证 run B 不删除、移动、chmod 或改写 run A 的已封存 correctness evidence。除此以外的 TRX、coverage、summary、checkpoint 与 correctness output 不得登记。恢复只读取 journal 中的 exact original/holding path，不按 PID、mtime 或目录名猜测，并逐项复核 tree digest、mode、uid/gid、symlink/hardlink 边界和 #1675 owner identity；holding tamper、未知/损坏状态、目标重建、条目缺失、跨文件系统 rename、fsync 不可用、磁盘满或权限失败全部写入 `recovery-required` 并在 cleanup/spawn 前 fail closed。`committed`/`aborted` journal 作为 terminal receipt 保留 pre/post digest、动作、crash injection point 和 final state；cache 后续合法变化不会被旧 terminal receipt 冻结。
 
-Production Fresh 的 correctness run root 固定为 `.tmp/test-runs/<runId>/outputs/`，并登记 `bundles`、`reports`、`coverage`、`release-evidence`、`runtime`、`logs`、`artifacts` 与 `summary` 分区。实际 producer 只写 `outputs/attempts/attempt-NNNN/` 下的同名完整分区；Fresh 固定创建 `attempt-0001`，resume 只能追加下一个 attempt，旧 attempt 先只读封存且 digest 不变。每个 physical producer 在执行前后核对 output delta；producer receipt 记录 runId、attemptId、producerId、outputRoot、排序后的 relativeOutputs、逐文件 digest 和 inventory digest，receipt 与 bundle finalizer output 也必须有显式 governance owner。终态 aggregate verifier 遍历完整 attempt，未声明文件、重复 owner、路径逃逸、任一祖先或中间 symlink 及跨 run 引用一律 fail closed。共享诊断/cache 不得保存 correctness 结果、coverage、TRX、summary 或 release evidence。
+Production Fresh 的 correctness run root 固定为 `.tmp/test-runs/<runId>/outputs/`，并登记 `bundles`、`reports`、`coverage`、`release-evidence`、`runtime`、`logs`、`artifacts` 与 `summary` 分区。实际 producer 只写 `outputs/attempts/attempt-NNNN/` 下的同名完整分区；Fresh 固定创建 `attempt-0001`，resume 只能追加下一个 attempt，旧 attempt 先只读封存且 digest 不变。成功 preflight 与 postflight runtime-cleanup receipt 都由 `scheduler/runtime-cleanup` 写入当前 attempt 的 `runtime/runtime-cleanup-receipts/`，并与 `runtime/runtime-cleanup.json` 共同纳入该 owner 的 output inventory；尚未创建 output attempt 的 blocked preflight 则只在 `.tmp/test-runs/<runId>/preflight/runtime-cleanup/` 保存 write-once receipt，并把 early summary 写入同一 run 的 `preflight/summary.json`。Fresh scheduler 启动时仍清除旧 checkpoint、tier log 与其他 scheduler-owned state；一旦本轮 `production-fresh-output-authority.json` 和 `outputs/` 已初始化，reset handshake 必须按精确名称与 file/directory 类型保留这两个 run entry，缺失、symlink、类型漂移或 resume 复用该 handshake 都 fail closed，禁止递归删除整个已初始化 run root。`.tmp/release-evidence` 与 `.tmp/local-production/summary.json` 不得作为 Production Fresh correctness 输出。每个 physical producer 在执行前后只对其声明的精确 owner roots 核对 output delta，并把并发的其他 owner 输出留给各自 receipt 与终态 aggregate；bootstrap parallel wave/status 临时文件只能按精确生命周期路径删除，任意其他 removal 仍 fail closed。producer receipt 记录 runId、attemptId、producerId、outputRoot、排序后的 relativeOutputs、逐文件 digest 和 inventory digest，receipt 与 bundle finalizer output 也必须有显式 governance owner。终态 aggregate verifier 遍历完整 attempt，失败 bundle 的 partial receipt 同样进入完整 inventory；未声明文件、重复 owner、路径逃逸、任一祖先或中间 symlink 及跨 run 引用一律 fail closed。共享诊断/cache 不得保存 correctness 结果、coverage、TRX、summary 或 release evidence。
 
 Scheduler 在任何 physical producer 或 projection-only resume 写入前，为历史全局 correctness 路径建立只读空 guard，并在 terminal inventory 前核对目录 identity、metadata 与空目录状态；因此临时全局写入后搬运、只迁 summary、或为全局 correctness 文件建锁都会失败。guard observation 本身写入当前 attempt 的 producer receipt 链。physical producer、projection、observation 或 aggregate verifier 任一失败和取消都仍通过 `finally` 只读封存当前 attempt；下次 resume 只能创建新 attempt。
 
@@ -121,6 +121,8 @@ bundle 内同一 wave 的独立步骤不会在首个失败后停止调度，而�
 
 Production build artifact 的 canonical 输出目录由 producer 通过同文件系统原子 rename 接管并原位封存，不再执行 build output 到 payload 的目录复制；原路径只保留指向封存 domain 的只读引用。大型 backend runtime、test runtime、frontend dist 与 Wasm 目录因此不读取或重写文件内容；generated contracts 直接写入最终 domain。全部 writer 关闭后，producer 只生成一次 `receipt.artifacts` digest table，以临时文件加 rename 原子发布 receipt，并清除 payload 文件与 receipt 的写权限。
 
+Local Production Fresh 的 namespace `--prepare-env-only` 只规划动态端口和环境，不消费 CI production artifact receipt。attempt-bound `FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT` 只注入物理 `build-static`；其 `production-build-artifacts` 步骤封存唯一 receipt 后，原子发布绑定 run/source/build-layout/attempt/receipt digest/producer 的 `production-build-artifacts-ready` marker。`runtime-browser` 的 bootstrap 必须同时等到 backend、frontend 与该 marker，并只读核验 receipt 和 payload 的 seal；不得 materialize、repair、fallback build 或发布第二份 receipt。
+
 只读 consumer 直接引用封存目录，因此 SPA 与 backend wwwroot 可绑定同一 `frontend-dist` entry，不重复物化 hashed assets、AEDS 或 Wasm。`copy-before-write` domain 依次尝试强制 reflink、预授权 overlay、带 copy-up 的 hardlink writable layer，最后才普通 copy。当前 runtime 没有 mount/copy-up provider 时必须把 overlay 与 hardlink layer 记作 unsupported；禁止用会污染 source 的裸 hardlink。evidence 包含每次尝试、fallback reason、`copiedBytes`、`reflinkedBytes`、`referencedBytes`、digest traversal count 与 materialization wall time。下载边界执行一次物理 tree digest 校验；同一 materialize 调用中的多个 logical mapping 只引用同一 digest table entry，不按 destination 重散列。
 
 consumer lease 原子写入 `<artifact-root>.state/consumers`。相同 run/consumer identity 再次 acquire 是 resume refresh；完成或 cancel 使用 `release` 写明原因。GC 只回收超过 stale threshold 且没有 active lease 的合法 receipted artifact，active lease 不因时间阈值被误删。污染负向 fixture 会修改 writable consumer 并重新读取 immutable source；source/toolchain/build-input 任一 identity 漂移都 fail closed。可审计 lifecycle 命令为 `production-build-artifacts-cli.mjs acquire|release|gc`。
@@ -226,7 +228,7 @@ Matrix 也声明 setup/cache 元数据：`requiresNode`、`requiresDotnet`、`re
 
 ### Resource-aware scheduler 与断点恢复
 
-每次 DAG 执行写入 `.tmp/test-runs/<run-id>/checkpoint.json` 与独立 tier 日志。checkpoint 记录运行模式、权威性、`sourceState`、输入指纹、依赖指纹、耗时、完成 tier 和首个失败点；`--resume` 只复用指纹仍匹配且必需产物未变化的成功 tier，源码、命令、shard 或关键环境变化只让受影响节点及其下游失效。tier 未显式声明 `cacheInputs` 时，runner 会按 backend/frontend/shared 范围推导输入；显式输入也会自动补入 matrix、coverage registry、共享 lane、run-once 与对应 Vitest 配置，避免“声明过窄”造成误复用。`--fresh` 不读取旧进度，checkpoint 标记 `authoritative=true`，是提交、CI 和 release evidence 的唯一有效模式。
+每次 DAG 执行写入 `.tmp/test-runs/<run-id>/checkpoint.json` 与独立 tier 日志。checkpoint 记录运行模式、权威性、`sourceState`、输入指纹、依赖指纹、耗时、完成 tier 和首个失败点；`--resume` 只复用指纹仍匹配且必需产物未变化的成功 tier，源码、命令、shard 或关键环境变化只让受影响节点及其下游失效。每次 resume 都为当前调用重新建立 source/run-bound BehaviorDoc admission；只有这一本次调用的认证 receipt 可以作为专用 current-run preexecuted binding 进入 scheduler，指纹不匹配时仍执行 BehaviorDoc verify command，但不把 verify-only 命令未改写该 receipt 误判为 stale output。其他 preexecuted prerequisite 不得跨 resume，普通 producer 的 stale-output gate 保持不变。tier 未显式声明 `cacheInputs` 时，runner 会按 backend/frontend/shared 范围推导输入；显式输入也会自动补入 matrix、coverage registry、共享 lane、run-once 与对应 Vitest 配置，避免“声明过窄”造成误复用。`--fresh` 不读取旧进度，checkpoint 标记 `authoritative=true`，是提交、CI 和 release evidence 的唯一有效模式。
 
 首个 tier 失败后，scheduler 会终止仍在运行的子进程组并不再启动新节点；每个 tier 前后都比较 tracked worktree 状态、mode 与 index，测试若新增 tracked diff 即失败。fresh 运行会先清理该 tier 所拥有的 `.tmp`/coverage/test-result 产物并验证内容与 mtime provenance，旧文件不能掩盖 no-op producer。测试阶段只能校验 tracked generated manifest；需要更新 tracked 生成物时必须通过显式生成命令在测试前完成，测试本身不得重写。`executionKey` 表示同一测试集合，coverage variant 只有在 coverage ID 为目标普通 tier 的超集时才能通过 `supersedes` 替代普通执行；property、model、performance、runtime、security、protocol、migration、concurrency 与 release evidence 不允许被 coverage 隐式替代。
 
@@ -337,7 +339,77 @@ fallback。集合删除、替换、重复、新增、路径漂移或重封篡改
 
 `load` 与 WebSocket pressure 检查会写入 `.tmp/perf/load-public-api.json` 和 `.tmp/perf/notification-stream-pressure.json`，release evidence 会把 `.tmp/perf/` 作为性能证据归档。默认参数来自 `tests/performance/perf-policy.yml`：HTTP load baseline 为 `concurrency=10`、`rounds=6`、`durationMs=30000`；WebSocket pressure 为 `connections=50`、`durationMs=30000`。
 
+性能、load、soak 与 resource qualification 的 measurement window 统一由
+`tools/test/measurement-noise-envelope.mjs` admission owner 包裹。
+`config/testing/measurement-noise-policy.json` 精确区分有上下限的 blocking
+指标和无资格上限的 diagnostic-only 指标；Linux collector 同时读取宿主
+CPU/run queue/steal、PSI、major fault、disk，以及 current-run
+cgroup/process-tree throttle、memory event 与 I/O。每个已启动 window 都保留
+preflight、during、post 三段宿主与 current-run evidence。collector
+unsupported、缺失或 permission denied 不填零并以
+`infra.measurement-collector-unavailable` fail closed；任一 blocking 指标超限
+以 `infra.noisy-measurement-window` 阻止资格和产品性能结论。preflight
+admission wait 在 measurement 计时开始前完成，不缩短声明的有效窗口；owner
+token 使 mixed/local-production 中的嵌套 lane 只消费外层 envelope，不能双包。
+直接 lane 与 Production physical bundle 的 measurement step 都先创建唯一 transient
+user-systemd task cgroup，并在 workload 启动前完成该 task owner 的 preflight；bundle
+runner 所在 shared cgroup 不具有 measurement authority。
+
+每个已启动 window 把 run/window、attempt/event sequence、前序 receipt digest 和
+content digest 写入独立 authority journal event；Production Fresh journal 位于当前
+attempt 的受保护输出树；run-level content-addressed expected-attempt manifest 绑定
+完整 attempt roster、每个 authority root 的文件清单/digest 和 receipt chain head，
+并由每个 physical attempt 的 `terminal-attempts.json` 记录当时的 manifest head
+digest 与外部 expected-root roster。run 目录中的独立初始化 authority 和
+content-addressed terminal-authority chain 再绑定每版 terminal protection 的原始
+digest；resume 必须同时存在非空 terminal authority/protection，不能从空磁盘重建
+首次 attempt。terminal receipt 缺失、回滚或按当前 inventory 重算，也必须与外部
+authority 和实际 attempt 目录清单比对并 fail closed。resume 不能从当前仍可见的
+root 反推期望集合。
+普通 evidence path 只是 chain head pointer，不是可覆盖的资格事实源。consumer
+必须读取完整 manifest/journal、重算每段 policy evaluation 并验证连续
+sequence/hash chain；缺少整个 prior root、receipt
+改名隐藏、unknown entry、输入重排、event 缺口、pointer 覆盖或只提供 retry 都 fail
+closed。三轮 qualification 还必须分别来自三个
+不同 run ID 且逐轮 clean；noisy first attempt 会保留，不能由 retry 或另两轮覆盖。
+该机制只观察并分类，不 kill 外部进程，也不改变产品性能阈值、并发或 measurement
+duration。matrix 内直接拥有 envelope 的 tier 不与同轮 sibling task 共享执行 wave，
+并保留 `benchmark-window` 排他资源；这只隔离测试调度，不改变被测 workload
+的并发，也不锁定或清理宿主上的外部进程。benchmark build readiness 在 admission
+之前独立复用 run-owned build-server verifier；cleanup receipt 顶层只绑定跨调用稳定的
+run、namespace 与 production build root，每个 append-only event 单独绑定本次
+Fresh/resume source。只有 process 的 invocation source 与当前 event source、PID start
+identity 及 exact argv 全部匹配时，才终止本轮 attached 或 detached compiler server，
+并持久化 cleanup 前后 inventory；qualification
+owner 本身保持纯观察，sibling、IDE、未知 owner 或其他外部进程始终不被清理。
+
+外部 process identity inventory 是诊断字段，不计入 required metric
+`collectorCoverage`；identity 不可读时仍用 host cumulative 减 task-cgroup
+cumulative 判断 external CPU/I/O。单项 cgroup metric 缺失会把对应值记为
+unavailable、降低 metric collector coverage 并保留其余有限 observation。
+collector gap 仍使 preflight fail closed，measurement workload 不得启动；
+存在有限且超限的 CPU/disk/pressure blocker 时同样按 admission noise 处理。
+
+Linux task owner 只有在 `cgroup.procs` 与 measured root process tree
+精确相等时才有 current-run 归因权。shared/incomplete cgroup、任一阶段
+collector failure 或缺失权限都会立即写 terminal fail-closed receipt。task
+environment 保存在 run-local `0600`
+JSON carrier，不能展开进 `systemd-run` argv。完整 owner/disposition 审计见
+`config/testing/measurement-window-inventory.json`。`soak-long-evidence-import`
+必须验证导入 summary 内的 `external-soak/72h` 三阶段 clean receipt；仅有
+`mode`、`status` 或外部文件路径不具有 release-final 权威。
+
 `tests/performance/perf-policy.yml` 是 load profile 的唯一策略源。`tools/test/lanes/load-profile.sh <profile>` 与 `runtime-evidence-probe.mjs load-profile` 必须从该文件读取 baseline / expected-peak / 2x-peak / burst 的 `concurrency`、`rounds`、`durationMs` 与预算阈值；只有显式环境变量 `FSUSBLOG_LOAD_PROFILE_CONCURRENCY`、`FSUSBLOG_LOAD_PROFILE_ROUNDS`、`FSUSBLOG_LOAD_PROFILE_DURATION_MS` 可以覆盖执行参数。每个 load profile summary 必须同时写入 `policy.file`、`profileName`、`declared`、`effective`、`thresholds`、`thresholdEvaluation`、`overrideSource` 与 `overrideSources`，release evidence 校验会拒绝没有解释的 policy/effective 不一致或没有 threshold 对照的 performance profile。`performance-evidence-summary` 只聚合 baseline、expected-peak、backend benchmark 与 capacity saturation reference，不消费 browser performance regression；browser performance 写入自己的 diagnostics summary。聚合状态保留各 ordinary producer 的真实 status，任何 failed 优先于 blocked，不能无条件写 `status:"ok"`。
+
+load profile 与 release resource budget 的 runtime summary 是未资格化的 product
+evidence。task owner 在 workload 结束时绑定其 path/size/SHA-256，并且只有 post
+observation 完成、完整 authority chain 通过语义重算且 terminal receipt 为 clean
+后，consumer 才能发布 `fsusblog.qualified-load-profile-summary.v1` 或
+`fsusblog.qualified-release-resource-budget-summary.v1`。workload nonzero、collector
+失败或 noisy receipt 不得发布 product pass；允许的持久结果只有
+`fsusblog.measurement-product-conclusion.v1` 的 `infra-no-conclusion`，且不能携带
+product metrics、thresholds 或 threshold evaluation，或者完全不产生 product
+conclusion。
 
 ### Performance saturation evidence v2
 
@@ -1041,7 +1113,7 @@ ZK contract/provenance 分类与 hash bindings、静态 evidence classification�
   `config/testing/production-disk-demand.json` 拥有 root-bound demand declaration；selected DAG
   inventory、并行 peak、terminal retention、rollback/recovery 与 uncertainty 由
   `tools/test-matrix/production-disk-demand.mjs` 统一计算。
-- capacity reservation 必须先于 runtime/output/cache/build-root/GC mutation。聚焦负向门禁为
+- capacity reservation 必须先于 BehaviorDoc minimal contract build 以及 runtime/output/cache/build-root/GC mutation；`behavior-doc-static-admission` 的 cache-hit/cache-miss 均绑定同一 worst-case producer declaration。projection-only resume 在 lease 后以 checkpoint path、file identity 和 digest 只读分类，authority digest 进入 capacity plan digest，capacity DAG 只包含 BehaviorDoc 与 `logical-projection-resume`，未选中的 Docker/build/cache roots 不解析也不占 safety；reservation 后、创建新 attempt 前必须重验 authority，projection attempt 也必须经过 live guard。scheduler 在持有 run lock 时先准备并验证成功 checkpoint，再依次写入 projection output、完成 forbidden-output observation、producer receipt、terminal seal 与 estimator accounting，最后才 atomic commit 成功 checkpoint；任一完成步骤失败都保留原 projection-only failure checkpoint，reservation 以 aborted 释放，下次 resume 仍走窄 projection plan。`logical-projection-resume` declaration 显式覆盖上述全部 output 与最后一次 checkpoint commit。普通 Fresh 与 physical resume 仍使用完整 physical plan。聚焦负向门禁为
   `node --test tests/tools/production-disk-demand.test.mjs
   tests/tools/production-capacity-reservation.test.mjs
   tests/tools/production-capacity-preflight-order.test.mjs`，覆盖同 filesystem 合并、Docker unknown、

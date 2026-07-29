@@ -9,7 +9,11 @@ mkdir -p "$OUT_DIR" "$RELEASE_SUMMARY_DIR"
 
 "$ROOT_DIR/tools/test/ensure-benchmark-release-build.sh"
 
-"${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/perf/run-backend-benchmark-regression.mjs" \
+"${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/performance-admission.mjs" \
+    --window-id backend-benchmark-regression \
+    --evidence "$RELEASE_SUMMARY_DIR/backend-benchmark-regression.measurement-noise.json" \
+    -- \
+    "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/perf/run-backend-benchmark-regression.mjs" \
     --project "$ROOT_DIR/benchmarks/core/FsusBlog.Core.Benchmarks.csproj" \
     --program "$ROOT_DIR/benchmarks/core/Program.cs" \
     --artifactRoot "$ARTIFACT_ROOT" \

@@ -127,7 +127,8 @@ function runAggregateCli(matrixSource)
     }
 }
 
-test('aggregate planner resolves a declared artifact-only authority without spawning producers', () => {
+test('aggregate planner resolves a declared artifact-only authority without spawning producers', () =>
+{
     const plan = buildAggregatePlan(fixtureMatrix(), 'release-summary');
     assert.deepEqual(plan.errors, []);
     assert.deepEqual(plan.selectedTierIds, ['release-summary-tier']);
@@ -136,7 +137,8 @@ test('aggregate planner resolves a declared artifact-only authority without spaw
     assert.equal(plan.executesTestCommands, false);
 });
 
-test('aggregate planner and real CLI reject unknown and every filter-empty target', () => {
+test('aggregate planner and real CLI reject unknown and every filter-empty target', () =>
+{
     assert.deepEqual(buildAggregatePlan(fixtureMatrix(), 'release-admin-console').errors, [
         'unknown aggregate authority: release-admin-console'
     ]);
@@ -157,14 +159,16 @@ test('aggregate planner and real CLI reject unknown and every filter-empty targe
     }
 });
 
-test('aggregate declarations reject shell suffixes instead of inferring a command kind from a prefix', () => {
+test('aggregate declarations reject shell suffixes instead of inferring a command kind from a prefix', () =>
+{
     assert.deepEqual(parseAggregateCommand('node tools/run-test-matrix.mjs aggregate release-summary'), {
         kind: 'aggregate', target: 'release-summary'
     });
     assert.equal(parseAggregateCommand('node tools/run-test-matrix.mjs aggregate release-summary && producer'), null);
 });
 
-test('aggregate planner rejects a declared tier with mismatched command, input, or receipt output contract', () => {
+test('aggregate planner rejects a declared tier with mismatched command, input, or receipt output contract', () =>
+{
     const matrix = fixtureMatrix();
     matrix.tiers[1] = {
         ...matrix.tiers[1],
@@ -198,7 +202,8 @@ test('aggregate planner rejects a declared tier with mismatched command, input, 
     assert.match(sameJobCli.stderr, /same aggregate CI job/u);
 });
 
-test('matrix schema makes aggregate authorities and summary receipt declarations machine-readable', () => {
+test('matrix schema makes aggregate authorities and summary receipt declarations machine-readable', () =>
+{
     const schema = JSON.parse(readFileSync(path.join(root, 'tests/matrix.schema.json'), 'utf8'));
     assert.ok(schema.required.includes('aggregateAuthorities'));
     assert.ok(schema.required.includes('finalizerAuthorities'));
@@ -213,7 +218,8 @@ test('matrix schema makes aggregate authorities and summary receipt declarations
     assert.equal(properties.outputReceiptSchema.minLength, 1);
 });
 
-test('generated CI commands come from validated aggregate authorities instead of command heuristics', () => {
+test('generated CI commands come from validated aggregate authorities instead of command heuristics', () =>
+{
     const matrix = parseMatrix(readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
     assert.equal(
         matrix.tiers.find((tier) => tier.id === 'data-scale-evidence-summary')?.command,
@@ -264,21 +270,24 @@ test('generated CI commands come from validated aggregate authorities instead of
     );
 });
 
-test('all four generic summaries consume typed producer receipts without execution dependencies', () => {
+test('all four generic summaries consume typed producer receipts without execution dependencies', () =>
+{
     const matrix = parseMatrix(readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
     const expectedSelections = new Map([
         ['fast-summary', ['fast', 'frontend-fast-summary']],
         ['coverage-merge-threshold', ['coverage-gate']],
         ['ci-summary', ['ci']]
     ]);
-    for (const [authorityId, selectedTierIds] of expectedSelections) {
+    for (const [authorityId, selectedTierIds] of expectedSelections)
+    {
         const plan = buildAggregatePlan(matrix, authorityId);
         assert.deepEqual(plan.errors, [], authorityId);
         assert.deepEqual(plan.selectedTierIds, selectedTierIds);
         assert.ok(plan.dependencyJobs.length > 0, authorityId);
         assert.ok(plan.dependencyReceipts.length > 0, authorityId);
         assert.ok(plan.dependencyReceipts.every((receipt) => receipt.jobId !== plan.ciJob), authorityId);
-        for (const tierId of selectedTierIds) {
+        for (const tierId of selectedTierIds)
+        {
             const tier = matrix.tiers.find((entry) => entry.id === tierId);
             assert.deepEqual(tier.executionDependsOn, [], tierId);
             assert.ok(tier.requiresEvidenceFrom.length > 0, tierId);
@@ -287,7 +296,8 @@ test('all four generic summaries consume typed producer receipts without executi
     assert.equal([...expectedSelections.values()].flat().length, 4);
 });
 
-test('workflow runs coverage and CI aggregates only after external producer jobs', () => {
+test('workflow runs coverage and CI aggregates only after external producer jobs', () =>
+{
     const workflow = readFileSync(path.join(root, '.github/workflows/quality-gate.yml'), 'utf8');
     const coverageProducerStart = workflow.indexOf('    coverage-merge-threshold:\n');
     const coverageSummaryStart = workflow.indexOf('    coverage-summary:\n');
@@ -317,7 +327,8 @@ test('workflow runs coverage and CI aggregates only after external producer jobs
     assert.match(ciSummary, /aggregate ci-summary/u);
 });
 
-test('workflow checker fails closed when an aggregate external dependency job is not ordered first', () => {
+test('workflow checker fails closed when an aggregate external dependency job is not ordered first', () =>
+{
     const directory = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-aggregate-workflow-'));
     try
     {
@@ -363,7 +374,8 @@ test('workflow checker fails closed when an aggregate external dependency job is
     }
 });
 
-test('receipt summary planner accepts allowlisted finalization and rejects producer commands', () => {
+test('receipt summary planner accepts allowlisted finalization and rejects producer commands', () =>
+{
     const commandSource = canonicalReceiptCommandSources['data-scale-evidence-summary'];
     const command = commandSource.command;
     const sourceFixtureRoot = path.join(
@@ -446,7 +458,8 @@ test('receipt summary planner accepts allowlisted finalization and rejects produ
     ));
 
     for (const argument of commandSource.argv.filter((entry) =>
-        entry === '--permission' || entry.startsWith('--allow-fs-'))) {
+        entry === '--permission' || entry.startsWith('--allow-fs-')))
+    {
         const commandToken = argument.includes('*') ? ` '${argument}'` : ` ${argument}`;
         const missingPermission = structuredClone(receiptMatrix);
         missingPermission.receiptAuthorities['receipt-summary'].command =
@@ -478,7 +491,8 @@ test('receipt summary planner accepts allowlisted finalization and rejects produ
     ));
 });
 
-test('Node permission boundary denies computed process execve even when static closure scanning accepts it', () => {
+test('Node permission boundary denies computed process execve even when static closure scanning accepts it', () =>
+{
     const fixtureRoot = path.join(
         root,
         'tests/tools/fixtures/receipt-command-sources/permission-bypass'
@@ -499,10 +513,12 @@ test('Node permission boundary denies computed process execve even when static c
     assert.match(result.stderr, /permission: 'ChildProcess'/u);
 });
 
-test('canonical permission argv grants only the receipt inputs and atomic summary output it needs', () => {
+test('canonical permission argv grants only the receipt inputs and atomic summary output it needs', () =>
+{
     const fixtureRoot = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-receipt-permission-'));
     const commandSource = canonicalReceiptCommandSources['data-scale-evidence-summary'];
-    try {
+    try
+    {
         const script = path.join(fixtureRoot, commandSource.source);
         mkdirSync(path.dirname(script), { recursive: true });
         writeFileSync(
@@ -511,7 +527,8 @@ test('canonical permission argv grants only the receipt inputs and atomic summar
         );
         const inputDirectory = path.join(fixtureRoot, '.tmp/scale/release-summaries');
         mkdirSync(inputDirectory, { recursive: true });
-        for (const tier of ['scale-xs', 'scale-s']) {
+        for (const tier of ['scale-xs', 'scale-s'])
+        {
             writeFileSync(
                 path.join(inputDirectory, `${tier}.json`),
                 `${JSON.stringify({ tier, status: 'ok' })}\n`
@@ -530,12 +547,14 @@ test('canonical permission argv grants only the receipt inputs and atomic summar
         assert.equal(summary.status, 'ok');
         assert.deepEqual(summary.requiredTiers, ['scale-xs', 'scale-s']);
     }
-    finally {
+    finally
+    {
         rmSync(fixtureRoot, { recursive: true, force: true });
     }
 });
 
-test('canonical receipt closure is cycle-safe and fails closed for unsafe or unresolved imports', () => {
+test('canonical receipt closure is cycle-safe and fails closed for unsafe or unresolved imports', () =>
+{
     const fixtureRoot = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-receipt-closure-'));
     const entry = path.join(fixtureRoot, 'tools/test/aggregate-data-scale-evidence.mjs');
     const dependencyDirectory = path.join(fixtureRoot, 'tools/test/lib');
@@ -571,7 +590,8 @@ test('canonical receipt closure is cycle-safe and fails closed for unsafe or unr
     }
 });
 
-test('execute mode rejects summary and projection contract fields or non-producer command kinds', () => {
+test('execute mode rejects summary and projection contract fields or non-producer command kinds', () =>
+{
     const execute = {
         id: 'physical-producer',
         executionMode: 'execute',
@@ -587,7 +607,8 @@ test('execute mode rejects summary and projection contract fields or non-produce
     assert.ok(errors.some((error) => error.includes('projectionCatalog')));
 });
 
-test('summary declarations reject missing inputs, producer modes, invalid targets, and output mismatches', () => {
+test('summary declarations reject missing inputs, producer modes, invalid targets, and output mismatches', () =>
+{
     const matrix = fixtureMatrix();
     const valid = matrix.tiers[1];
     assert.deepEqual(validateEvidenceExecutionDeclaration(valid, matrix), []);
@@ -616,7 +637,8 @@ test('summary declarations reject missing inputs, producer modes, invalid target
         .some((error) => error.includes('reserved for projection tiers')));
 });
 
-test('projection declarations require a catalog, exact IDs, artifact declarations, and projection command kind', () => {
+test('projection declarations require a catalog, exact IDs, artifact declarations, and projection command kind', () =>
+{
     const invalidProjection = {
         id: 'release-projection',
         executionMode: 'projection',

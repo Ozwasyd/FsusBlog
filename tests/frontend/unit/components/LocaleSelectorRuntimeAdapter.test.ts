@@ -1,7 +1,5 @@
 // @vitest-environment happy-dom
 
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent, nextTick } from 'vue'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -153,97 +151,5 @@ describe('LocaleSelectorRuntimeAdapter', () => {
       .toBe('true')
     expect(wrapper.get('[data-locale-selector-trigger]').text()).toContain('ja-JP')
     wrapper.unmount()
-  })
-})
-
-describe('LocaleSelectorRuntimeAdapter source isolation', () => {
-  it('does not know Public/Auth/Account routes or host layout chrome', () => {
-    const adapter = readFileSync(
-      resolve(process.cwd(), 'src/components/i18n/LocaleSelectorRuntimeAdapter.vue'),
-      'utf8'
-    )
-    const composable = readFileSync(
-      resolve(process.cwd(), 'src/components/i18n/useLocaleSelectorRuntime.ts'),
-      'utf8'
-    )
-    // Split retired symbols so this test file itself does not reintroduce them.
-    const retired = [
-      'Locale' + 'Toggle',
-      'locale' + 'Override',
-      'locale' + 'RuntimeReady',
-      'get' + 'LocaleMessages',
-      'initialize' + 'LocaleRuntime'
-    ]
-    for (const source of [adapter, composable]) {
-      expect(source).not.toMatch(/PublicBlogLayoutShell|PublicAuthLayout|AccountLayout|vue-router|@\/router/u)
-      for (const symbol of retired) {
-        expect(source.includes(symbol)).toBe(false)
-      }
-      expect(source).not.toMatch(/localStorage|sessionStorage|document\.cookie/u)
-    }
-    expect(composable).toMatch(/requestLocalePreference/u)
-    expect(composable).toMatch(/projectLocaleSelectorItems/u)
-  })
-})
-
-describe('PublicBlogLayoutShell locale entry cutover', () => {
-  it('uses only LocaleSelectorRuntimeAdapter and erases hydration-era locale switches', () => {
-    const shell = readFileSync(
-      resolve(process.cwd(), 'src/components/public/PublicBlogLayoutShell.vue'),
-      'utf8'
-    )
-    expect(shell).toMatch(/LocaleSelectorRuntimeAdapter/u)
-    expect(shell.match(/LocaleSelectorRuntimeAdapter/gu)?.length).toBeGreaterThanOrEqual(2)
-    const retired = [
-      'Locale' + 'Toggle',
-      'locale' + 'Override',
-      'locale' + 'RuntimeReady',
-      'get' + 'LocaleMessages',
-      'initialize' + 'LocaleRuntime'
-    ]
-    for (const symbol of retired) {
-      expect(shell.includes(symbol)).toBe(false)
-    }
-    expect(shell).not.toMatch(/\brequestLocale\b|requestLocalePreference|localeRuntimeState|ENABLED_LOCALES/u)
-    expect(shell).not.toMatch(/from\s+['"]@\/locales\/runtime/u)
-    expect(shell).not.toMatch(/from\s+['"]@\/services\/localePreference/u)
-    expect(shell).not.toMatch(/from\s+['"]@\/locales\/localeDomainBundleStore/u)
-  })
-})
-
-describe('AccountLayout locale entry cutover', () => {
-  it('uses only LocaleSelectorRuntimeAdapter in shared account/admin chrome', () => {
-    const layout = readFileSync(
-      resolve(process.cwd(), 'src/layouts/AccountLayout.vue'),
-      'utf8'
-    )
-    const shellCss = readFileSync(
-      resolve(process.cwd(), 'src/assets/account-shell-base.css'),
-      'utf8'
-    )
-    const nav = readFileSync(
-      resolve(process.cwd(), 'src/layouts/accountNav.ts'),
-      'utf8'
-    )
-
-    expect(layout).toMatch(/LocaleSelectorRuntimeAdapter/u)
-    expect(layout.match(/LocaleSelectorRuntimeAdapter/gu)?.length).toBeGreaterThanOrEqual(2)
-    expect(layout).toMatch(/<LocaleSelectorRuntimeAdapter compact \/>/u)
-    const retired = [
-      'Locale' + 'PreferenceHeaderSelector',
-      'Locale' + 'Toggle',
-      'initialize' + 'LocaleRuntime'
-    ]
-    for (const symbol of retired) {
-      expect(layout.includes(symbol)).toBe(false)
-    }
-    expect(layout).not.toMatch(/\brequestLocale\b|requestLocalePreference|localeRuntimeState|ENABLED_LOCALES/u)
-    expect(layout).not.toMatch(/from\s+['"]@\/locales(?:\/runtime)?['"]/u)
-    expect(layout).not.toMatch(/from\s+['"]@\/services\/localePreference/u)
-    expect(layout).not.toMatch(/from\s+['"]@\/locales\/localeDomainBundleStore/u)
-    expect(layout).not.toMatch(/from\s+['"]@\/locales\/localeCatalog/u)
-    expect(shellCss).toMatch(/\.account-site-header__actions \.locale-selector__trigger/u)
-    expect(nav).toMatch(/\/user\/preferences\/language/u)
-    expect(nav).toMatch(/languageAndRegion/u)
   })
 })

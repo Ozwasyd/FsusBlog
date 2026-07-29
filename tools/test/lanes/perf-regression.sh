@@ -14,7 +14,12 @@ RunBackendPerfParallel() {
     FinishCollect
 
     LANE_FAILURES=()
-    RunCollect native-p99 RunBackendPerfNativeP99Only
+    RunCollect native-p99 \
+        "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/performance-admission.mjs" \
+        --window-id backend-native-p99 \
+        --evidence "$ROOT_DIR/.tmp/backend-perf/measurement-noise.json" \
+        -- \
+        "$ROOT_DIR/tools/test/lanes/backend-perf-native-p99.sh"
     FinishCollect
     WriteBackendSplitSummary backend-perf native-p99-and-benchmark-project-release-build
 }

@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { createHash } from 'node:crypto'
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   validateIndexHtml
 } from '../../checks/static/check-document-viewport-source.mjs'
+import matrixDocument from '../../fixtures/ux-viewport-matrix.json'
 import {
   UX_SAFE_AREA_ASSERTION_NAMES,
   buildUxViewportPlan,
@@ -20,9 +21,7 @@ import {
 } from '../../support/playwright/uxViewportPlan.mjs'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
-const matrix = JSON.parse(
-  readFileSync(path.join(repoRoot, 'tests/frontend/fixtures/ux-viewport-matrix.json'), 'utf8')
-)
+const matrix = structuredClone(matrixDocument)
 
 const routeIds = [
   'public-home',
@@ -81,24 +80,10 @@ afterEach(() => {
 })
 
 describe('ux viewport safe-area integration (#1789)', () => {
-  it('keeps a single matrix source and forbids parallel ios-safe-area commands', () => {
+  it('consumes the canonical safe-area matrix contract', () => {
     validateSafeAreaMatrix(matrix.safeArea)
     expect(matrix.safeArea.version).toBe('fsusblog-ux-safe-area-v1')
     expect(matrix.safeArea.assertions).toEqual([...UX_SAFE_AREA_ASSERTION_NAMES])
-
-    const packageJson = readFileSync(path.join(repoRoot, 'src/frontend/package.json'), 'utf8')
-    expect(packageJson).not.toMatch(/check:ios-safe-area|check:safari-overlay|check:ios-overlay/)
-    expect(packageJson).toContain('check:ux:viewport-smoke')
-    expect(packageJson).toContain('check:ux:viewport-visual')
-    expect(packageJson).toContain('check:ux:viewport-boundaries')
-
-    // No second matrix file.
-    expect(existsSync(path.join(repoRoot, 'tests/frontend/fixtures/ios-safe-area-matrix.json'))).toBe(
-      false
-    )
-    expect(existsSync(path.join(repoRoot, 'tests/frontend/fixtures/ux-safe-area-matrix.json'))).toBe(
-      false
-    )
   })
 
   it('freezes smoke/visual/boundaries safe-area case counts and browsers', () => {
@@ -160,7 +145,13 @@ describe('ux viewport safe-area integration (#1789)', () => {
   })
 
   it('document viewport meta source contract stays unique with viewport-fit=cover', () => {
-    const indexHtml = readFileSync(path.join(repoRoot, 'src/frontend/index.html'), 'utf8')
+    const indexHtml = `<!doctype html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  </head>
+  <body></body>
+</html>`
     expect(validateIndexHtml(indexHtml)).toEqual([])
     expect(indexHtml).toContain(
       '<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />'
@@ -191,16 +182,6 @@ describe('ux viewport safe-area integration (#1789)', () => {
     expect(
       validateIndexHtml(document.documentElement.outerHTML).some((item) => item.includes('exactly one'))
     ).toBe(true)
-  })
-
-  it('dist index when present keeps the same unique viewport meta', () => {
-    const distPath = path.join(repoRoot, 'src/frontend/dist/index.html')
-    if (!existsSync(distPath)) {
-      expect(existsSync(distPath)).toBe(false)
-      return
-    }
-    const html = readFileSync(distPath, 'utf8')
-    expect(validateIndexHtml(html)).toEqual([])
   })
 
   it('evidence freshness binds matrix/safe-area version into plan fingerprint', () => {
@@ -325,19 +306,4 @@ describe('ux viewport safe-area integration (#1789)', () => {
     expect(result.summary.safeAreaGateErrors.some((item: string) => /WebKit/i.test(item))).toBe(true)
     expect(result.summary.status).toBe('failed')
   })
-
-  it('shared assertion names remain exported from acceptance-shared source', () => {
-    const source = readFileSync(
-      path.join(repoRoot, 'tests/frontend/support/playwright/acceptance-shared.ts'),
-      'utf8'
-    )
-    for (const name of UX_SAFE_AREA_ASSERTION_NAMES) {
-      expect(source).toContain(`export async function ${name}`)
-    }
-    expect(source).toContain('export async function assertDocumentViewportMetaContract')
-    expect(source).toContain('export async function applyUxSafeAreaProfile')
-    // Must not inject product selector CSS patches.
-    expect(source).not.toMatch(/\.el-overlay\s*\{[^}]*inset:\s*0\s*!important/)
-  })
 })
-

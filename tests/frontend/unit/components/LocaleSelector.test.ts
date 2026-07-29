@@ -304,7 +304,14 @@ describe('LocaleSelector source isolation', () => {
     expect(source).not.toMatch(/requestLocale|localeRuntime|localeCatalog|ENABLED_LOCALES/u)
     expect(source).not.toMatch(/@\/router|vue-router|localStorage|sessionStorage|document\.cookie/u)
     expect(source).not.toMatch(/@\/api\/|@\/store\/|@\/services\/localePreference/u)
-    expect(source).not.toMatch(/LocaleToggle|toggleLocale|isEnglish|toggleLabel|localeOverride/u)
+    const deprecatedLocaleResiduePattern = [
+      'Locale' + 'Toggle',
+      'toggle' + 'Locale',
+      'is' + 'English',
+      'toggle' + 'Label',
+      'locale' + 'Override'
+    ].join('|')
+    expect(source).not.toMatch(new RegExp(deprecatedLocaleResiduePattern, 'u'))
     expect(source).not.toMatch(/['"]Aa['"]|中\/EN/u)
     expect(source).not.toMatch(/flag|🏳️|🇨🇳|🇺🇸/iu)
   })

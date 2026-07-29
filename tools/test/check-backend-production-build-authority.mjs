@@ -81,7 +81,9 @@ export function validateBackendProductionBuildAuthority({
     {
         throw new Error('backend exact-union reintroduced a governance postlude or lost its canonical build binding');
     }
-    if (!rightsSource.includes("['.tmp/test-results/backend/production/summary.json'")
+    if (!rightsSource.includes("path.join(testResultsRoot, 'trx/backend/production/summary.json')")
+        || !rightsSource.includes("const testResultsRoot = outputRoot ? path.join(outputRoot, 'reports')")
+        || !rightsSource.includes("const backendTrxFiles = backendSummary.partitions.map((partition) => path.join(root, partition.trx))")
         || !rightsSource.includes('digest: digest(backendSummary)')
         || !rightsSource.includes('readTrxResults(backendTrxFiles)'))
     {

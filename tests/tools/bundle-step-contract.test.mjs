@@ -4,23 +4,11 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import {
-    buildSettledPhaseJoinEvidence,
-    executeWeightedStepDag,
-    performanceSteps,
-    resolveBundleRuntimeCapacity,
-    resolveBundleSteps,
-    resolveConcurrentStepCapacities,
-    resolveMachineExecutionTimeoutMs,
-    resolveStepRuntimeCapacity,
-    runtimeSteps,
-    StepDagExecutionError,
-    validateSettledPhaseJoinConsistency
-} from '../../tools/test/bundles/bundle-steps.mjs';
-import { parseRuntimeEnvironment } from '../../tools/test/bundles/runtime-environment.mjs';
-import { validateLocalBundleSummary } from '../../tools/test-matrix/local-profile.mjs';
-import { writeBundleSummaryAtomically } from '../../tools/test/bundles/terminal-summary.mjs';
-import { resolveWorkerTestSession } from '../frontend/support/test-session.mjs';
+const { buildSettledPhaseJoinEvidence, executeWeightedStepDag, performanceSteps, resolveBundleRuntimeCapacity, resolveBundleSteps, resolveConcurrentStepCapacities, resolveMachineExecutionTimeoutMs, resolveStepRuntimeCapacity, runtimeSteps, StepDagExecutionError, validateSettledPhaseJoinConsistency } = await import(new URL("../../tools/test/bundles/bundle-steps.mjs", import.meta.url));
+const { parseRuntimeEnvironment } = await import(new URL("../../tools/test/bundles/runtime-environment.mjs", import.meta.url));
+const { writeBundleSummaryAtomically } = await import(new URL("../../tools/test/bundles/terminal-summary.mjs", import.meta.url));
+const { validateLocalBundleSummary } = await import(new URL("../../tools/test-matrix/local-profile.mjs", import.meta.url));
+const { resolveWorkerTestSession } = await import(new URL("../frontend/support/test-session.mjs", import.meta.url));
 
 const byId = (steps) => new Map(steps.map((step) => [step.id, step]));
 
@@ -145,7 +133,8 @@ test('runtime bundle loads its generated environment only after bootstrap and be
     const stepEnvironment = source.indexOf('...(step.env ?? {})', runtimeEnvironment);
     assert.ok(processEnvironment >= 0 && runtimeEnvironment > processEnvironment && stepEnvironment > runtimeEnvironment);
 
-    const bootstrapExecution = source.indexOf("if (step.id === 'bootstrap') {\n      const runtimeLayout = prepareProductionRuntimeLayout(productionBuildLayout)");
+    const bootstrapExecution = /if \(step\.id === 'bootstrap'\)\s*\{\s*const runtimeLayout = prepareProductionRuntimeLayout\(productionBuildLayout\)/u
+        .exec(source)?.index ?? -1;
     const environmentRead = source.indexOf('...readRuntimeEnvironment(root, namespace)', bootstrapExecution);
     assert.ok(bootstrapExecution >= 0 && environmentRead > bootstrapExecution);
     assert.doesNotMatch(source.slice(bootstrapExecution, environmentRead), /source\s+[^\n]*\.env/u);
@@ -204,7 +193,7 @@ test('runtime bundle removes artificial serial dependencies while retaining ever
 {
     const steps = runtimeSteps();
     const index = byId(steps);
-    assert.equal(steps.length, 20);
+    assert.equal(steps.length, 21);
     assert.deepEqual(steps.flatMap((step) => step.members).sort(), [
         'bootstrap', 'cross-stack-contract', 'csrf-browser-matrix',
         'endpoint-depth', 'integration', 'release', 'resilience', 'security-authenticated-dast',
@@ -212,6 +201,13 @@ test('runtime bundle removes artificial serial dependencies while retaining ever
     ].sort());
 
     assert.deepEqual(index.get('release-public-hydration').dependsOn, ['runtime-integration']);
+    assert.deepEqual(index.get('bootstrap').dependsOn, [
+        'backend-build-ready',
+        'frontend-build-ready',
+        'production-build-artifacts-ready',
+        'security-static'
+    ]);
+    assert.equal(index.get('production-build-artifacts-ready').resources.coordinationOnly, true);
     assert.deepEqual(index.get('security-runtime-core').dependsOn, ['bootstrap']);
     for (const id of [
         'endpoint-depth',
@@ -237,9 +233,14 @@ test('runtime bundle removes artificial serial dependencies while retaining ever
     assert.deepEqual(index.get('csrf-matrix').dependsOn, ['security-static', 'backend-build-ready']);
 
     assert.deepEqual(index.get('bootstrap').dependsOn, [
-        'backend-build-ready', 'frontend-build-ready', 'security-static'
+        'backend-build-ready', 'frontend-build-ready',
+        'production-build-artifacts-ready', 'security-static'
     ]);
-    for (const id of ['backend-build-ready', 'frontend-build-ready'])
+    for (const id of [
+        'backend-build-ready',
+        'frontend-build-ready',
+        'production-build-artifacts-ready'
+    ])
     {
         assert.deepEqual(index.get(id).dependsOn, []);
         assert.deepEqual(index.get(id).resources, { coordinationOnly: true });
@@ -283,12 +284,13 @@ test('runtime bundle removes artificial serial dependencies while retaining ever
     assert.deepEqual(index.get('zap-baseline').members, []);
     assert.equal(steps[0].id, 'backend-build-ready');
     assert.equal(steps[1].id, 'frontend-build-ready');
-    assert.equal(steps[2].id, 'security-static', 'static security is the sole t0 executable task');
-    assert.equal(steps[3].id, 'bootstrap', 'bootstrap follows markers and all pre-bootstrap source work');
-    assert.equal(steps[4].id, 'release-public-hydration', 'release dist writes must settle before preview readers');
-    assert.equal(steps[5].id, 'security-runtime-core', 'runtime security enters the first post-hydration wave');
-    assert.equal(steps[6].id, 'authenticated-dast', 'authenticated DAST follows runtime security');
-    assert.equal(steps[9].id, 'endpoint-depth', 'browserless endpoint depth follows stable release hydration');
+    assert.equal(steps[2].id, 'production-build-artifacts-ready');
+    assert.equal(steps[3].id, 'security-static', 'static security is the sole t0 executable task');
+    assert.equal(steps[4].id, 'bootstrap', 'bootstrap follows markers and all pre-bootstrap source work');
+    assert.equal(steps[5].id, 'release-public-hydration', 'release dist writes must settle before preview readers');
+    assert.equal(steps[6].id, 'security-runtime-core', 'runtime security enters the first post-hydration wave');
+    assert.equal(steps[7].id, 'authenticated-dast', 'authenticated DAST follows runtime security');
+    assert.equal(steps[10].id, 'endpoint-depth', 'browserless endpoint depth follows stable release hydration');
     assert.equal(index.has('privacy-zk'), false);
     assert.deepEqual(index.get('runtime-state-stable').dependsOn, [
         'runtime-integration', 'release-public', 'endpoint-depth', 'security-runtime-core',
@@ -419,7 +421,10 @@ test('terminal receipts survive atomic summary round-trip and production validat
         { id: 'join', dependsOn: ['dep'], runAfterSettled: true, resources: { coordinationOnly: true } }
     ], { maxParallel: 1, cpuUnits: 1, memoryGiB: 1 }, async (entry) =>
     {
-        if (entry.id === 'dep') return { terminalState: 'success' };
+        if (entry.id === 'dep')
+        {
+            return { terminalState: 'success' };
+        }
         const joined = buildSettledPhaseJoinEvidence({
             stepId: entry.id,
             dependencyIds: entry.dependsOn,
@@ -450,14 +455,40 @@ test('terminal receipts survive atomic summary round-trip and production validat
             expectedRunId: 'fixture-run'
         }), []);
         for (const mutate of [
-            (value) => { delete value.schedulerTerminalReceipts.join; },
-            (value) => { delete value.schedulerTerminalReceipts; delete value.schedulerTerminalReceiptIds; },
-            (value) => { value.schedulerTerminalReceipts.join.terminalState = 'forged-success'; },
-            (value) => { delete value.schedulerTerminalReceipts.join.contentDigest; },
-            (value) => { value.schedulerTerminalReceipts.join.contentDigest = 'a'.repeat(64); },
-            (value) => { value.schedulerTerminalReceipts.join.dependencyOutcomes[0].outcome = 'failed'; },
-            (value) => { value.schedulerTerminalReceipts.join.evidenceRef = null; value.schedulerTerminalReceipts.join.contentDigest = null; },
-            (value) => { delete value.schedulerTerminalReceipts.join.dependencyOutcomeDigest; }
+            (value) =>
+            {
+                delete value.schedulerTerminalReceipts.join;
+            },
+            (value) =>
+            {
+                delete value.schedulerTerminalReceipts;
+                delete value.schedulerTerminalReceiptIds;
+            },
+            (value) =>
+            {
+                value.schedulerTerminalReceipts.join.terminalState = 'forged-success';
+            },
+            (value) =>
+            {
+                delete value.schedulerTerminalReceipts.join.contentDigest;
+            },
+            (value) =>
+            {
+                value.schedulerTerminalReceipts.join.contentDigest = 'a'.repeat(64);
+            },
+            (value) =>
+            {
+                value.schedulerTerminalReceipts.join.dependencyOutcomes[0].outcome = 'failed';
+            },
+            (value) =>
+            {
+                value.schedulerTerminalReceipts.join.evidenceRef = null;
+                value.schedulerTerminalReceipts.join.contentDigest = null;
+            },
+            (value) =>
+            {
+                delete value.schedulerTerminalReceipts.join.dependencyOutcomeDigest;
+            }
         ])
         {
             const tampered = structuredClone(roundTripped);
@@ -574,8 +605,14 @@ test('settled execution rejection is internal-error and blocked descendants rece
         { id: 'join', dependsOn: ['root'], runAfterSettled: true, resources: { coordinationOnly: true } }
     ], { maxParallel: 1, cpuUnits: 1, memoryGiB: 1 }, async (entry) =>
     {
-        if (entry.id === 'root') return { terminalState: 'failed', reasonCode: 'root-failed' };
-        if (entry.id === 'join') throw new Error('evidence-write-failed');
+        if (entry.id === 'root')
+        {
+            return { terminalState: 'failed', reasonCode: 'root-failed' };
+        }
+        if (entry.id === 'join')
+        {
+            throw new Error('evidence-write-failed');
+        }
     }), (error) =>
     {
         assert.equal(error.terminalReceipts.join.terminalState, 'internal-error');
@@ -646,7 +683,8 @@ test('performance bundle folds the complete backend benchmark into the mixed win
     const index = byId(steps);
     const measurements = ['backend-perf', 'mixed-performance-window', 'aeds-frame-cost'];
     const timedMeasurements = [
-        'backend-perf', 'privacy-zk-benchmark', 'mixed-performance-window', 'aeds-frame-cost'
+        'backend-perf', 'privacy-zk-benchmark', 'mixed-performance-window', 'aeds-frame-cost',
+        'aeds-compression'
     ];
     const evidenceInputs = [
         'backend-perf', 'privacy-zk-benchmark', 'privacy-zk-finalize', 'mixed-performance-window',
@@ -664,16 +702,15 @@ test('performance bundle folds the complete backend benchmark into the mixed win
     assert.deepEqual(index.get('privacy-zk-benchmark').resources.exclusiveResources, ['benchmark-window']);
     assert.deepEqual(index.get('privacy-zk-benchmark').members, ['privacy-zk-comment-matrix']);
     assert.deepEqual(index.get('privacy-zk-finalize').dependsOn, [
-        'backend-perf', 'privacy-zk-benchmark', 'mixed-performance-window', 'aeds-frame-cost'
+        'backend-perf', 'privacy-zk-benchmark', 'mixed-performance-window', 'aeds-frame-cost',
+        'aeds-compression'
     ]);
     assert.deepEqual(index.get('privacy-zk-finalize').members, ['privacy-zk-comment-matrix']);
     assert.equal(index.get('privacy-zk-finalize').resources.exclusiveResources, undefined);
     assert.deepEqual(index.get('coverage-merge').dependsOn, ['backend-coverage-ready', 'frontend-coverage-ready']);
     assert.equal(index.get('coverage-threshold').resources.exclusiveResources, undefined);
-    assert.deepEqual(index.get('aeds-compression').dependsOn, [
-        'frontend-build-ready', 'benchmark-build-ready'
-    ]);
-    assert.equal(index.get('aeds-compression').resources.exclusiveResources, undefined);
+    assert.deepEqual(index.get('aeds-compression').dependsOn, ['performance-measurement-ready']);
+    assert.deepEqual(index.get('aeds-compression').resources.exclusiveResources, ['benchmark-window']);
     assert.deepEqual(index.get('performance-summary').dependsOn, ['coverage-threshold', ...evidenceInputs]);
     assert.deepEqual(index.get('release-evidence').dependsOn, ['performance-summary']);
     assert.deepEqual(index.get('production-summary').dependsOn, ['release-evidence']);
@@ -691,7 +728,7 @@ test('performance bundle folds the complete backend benchmark into the mixed win
     && step.resources.exclusiveResources?.includes('benchmark-window')), false);
 });
 
-test('AEDS compression is deterministic preparation rather than a timed profiler', () =>
+test('AEDS compression is deterministic product evidence rather than a duration profiler', () =>
 {
     const source = readFileSync(new URL('../../benchmarks/core/Program.cs', import.meta.url), 'utf8');
     const start = source.indexOf('internal static class AedsCompressionProfiler');
@@ -875,7 +912,6 @@ test('exact performance markers release preparation while unrelated runtime tail
     const backendCoverage = deferred();
     const frontendCoverage = deferred();
     const frontendBuild = deferred();
-    const benchmarkBuild = deferred();
     const runtimeTailActive = true;
     const started = [];
     const index = byId(performanceSteps());
@@ -883,9 +919,8 @@ test('exact performance markers release preparation while unrelated runtime tail
         index.get('backend-coverage-ready'),
         index.get('frontend-coverage-ready'),
         index.get('frontend-build-ready'),
-        index.get('benchmark-build-ready'),
         index.get('coverage-merge'),
-        index.get('aeds-compression')
+        index.get('privacy-zk-project-functional')
     ], { maxParallel: 2, cpuUnits: 2, memoryGiB: 2 }, async (entry) =>
     {
         started.push(entry.id);
@@ -901,17 +936,12 @@ test('exact performance markers release preparation while unrelated runtime tail
         {
             await frontendBuild.promise;
         }
-        if (entry.id === 'benchmark-build-ready')
-        {
-            await benchmarkBuild.promise;
-        }
     });
     await new Promise((resolve) => setImmediate(resolve));
     backendCoverage.resolve();
     frontendCoverage.resolve();
     frontendBuild.resolve();
-    benchmarkBuild.resolve();
-    await waitFor(() => started.includes('coverage-merge') && started.includes('aeds-compression'));
+    await waitFor(() => started.includes('coverage-merge') && started.includes('privacy-zk-project-functional'));
     assert.equal(runtimeTailActive, true);
     await execution;
 });
@@ -923,10 +953,10 @@ test('failed exact producer blocks only its marker descendants while independent
     await assert.rejects(executeWeightedStepDag([
         index.get('backend-coverage-ready'),
         index.get('frontend-coverage-ready'),
-        index.get('frontend-build-ready'),
-        index.get('benchmark-build-ready'),
+        index.get('runtime-state-ready'),
+        index.get('resident-handoff-ready'),
         index.get('coverage-merge'),
-        index.get('aeds-compression')
+        index.get('data-scale-xs')
     ], { maxParallel: 3, cpuUnits: 3, memoryGiB: 3 }, async (entry) =>
     {
         started.push(entry.id);
@@ -935,7 +965,7 @@ test('failed exact producer blocks only its marker descendants while independent
             throw new Error('backend coverage producer failed');
         }
     }), /backend coverage producer failed/u);
-    assert.ok(started.includes('aeds-compression'));
+    assert.ok(started.includes('data-scale-xs'));
     assert.equal(started.includes('coverage-merge'), false);
 });
 
@@ -1123,6 +1153,7 @@ test('t0 static security is followed by cross-stack and CSRF in the backend/fron
 {
     const backend = deferred();
     const frontend = deferred();
+    const productionArtifacts = deferred();
     const staticSecurity = deferred();
     const crossStack = deferred();
     const csrf = deferred();
@@ -1132,6 +1163,7 @@ test('t0 static security is followed by cross-stack and CSRF in the backend/fron
     const selected = [
         index.get('backend-build-ready'),
         index.get('frontend-build-ready'),
+        index.get('production-build-artifacts-ready'),
         index.get('security-static'),
         index.get('bootstrap'),
         index.get('cross-stack'),
@@ -1152,6 +1184,10 @@ test('t0 static security is followed by cross-stack and CSRF in the backend/fron
         {
             await frontend.promise;
         }
+        if (entry.id === 'production-build-artifacts-ready')
+        {
+            await productionArtifacts.promise;
+        }
         if (entry.id === 'security-static')
         {
             await staticSecurity.promise;
@@ -1171,7 +1207,12 @@ test('t0 static security is followed by cross-stack and CSRF in the backend/fron
     });
 
     await new Promise((resolve) => setImmediate(resolve));
-    assert.deepEqual(started, ['backend-build-ready', 'frontend-build-ready', 'security-static']);
+    assert.deepEqual(started, [
+        'backend-build-ready',
+        'frontend-build-ready',
+        'production-build-artifacts-ready',
+        'security-static'
+    ]);
     staticSecurity.resolve();
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(started.includes('cross-stack'), false);
@@ -1185,6 +1226,7 @@ test('t0 static security is followed by cross-stack and CSRF in the backend/fron
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(started.includes('bootstrap'), false);
     frontend.resolve();
+    productionArtifacts.resolve();
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(started.at(-1), 'bootstrap');
     bootstrap.resolve();
@@ -1195,6 +1237,7 @@ test('failed-run timing model gives bootstrap hydration and browser phases the c
 {
     const backend = deferred();
     const frontend = deferred();
+    const productionArtifacts = deferred();
     const staticSecurity = deferred();
     const crossStack = deferred();
     const csrf = deferred();
@@ -1208,6 +1251,7 @@ test('failed-run timing model gives bootstrap hydration and browser phases the c
     const selected = [
         index.get('backend-build-ready'),
         index.get('frontend-build-ready'),
+        index.get('production-build-artifacts-ready'),
         index.get('security-static'),
         index.get('cross-stack'),
         index.get('csrf-matrix'),
@@ -1226,6 +1270,10 @@ test('failed-run timing model gives bootstrap hydration and browser phases the c
         if (entry.id === 'frontend-build-ready')
         {
             await frontend.promise;
+        }
+        if (entry.id === 'production-build-artifacts-ready')
+        {
+            await productionArtifacts.promise;
         }
         if (entry.id === 'security-static')
         {
@@ -1258,7 +1306,12 @@ test('failed-run timing model gives bootstrap hydration and browser phases the c
     });
 
     await new Promise((resolve) => setImmediate(resolve));
-    assert.deepEqual(started.map((entry) => entry.id), ['backend-build-ready', 'frontend-build-ready', 'security-static']);
+    assert.deepEqual(started.map((entry) => entry.id), [
+        'backend-build-ready',
+        'frontend-build-ready',
+        'production-build-artifacts-ready',
+        'security-static'
+    ]);
     assert.equal(started.at(-1).capacity.cpuUnits, 1);
     staticSecurity.resolve();
     await new Promise((resolve) => setImmediate(resolve));
@@ -1276,6 +1329,7 @@ test('failed-run timing model gives bootstrap hydration and browser phases the c
 
     capacity = { maxParallel: 2, cpuUnits: 2, memoryGiB: 4 };
     frontend.resolve();
+    productionArtifacts.resolve();
     await new Promise((resolve) => setImmediate(resolve));
     const bootstrapStart = started.find((entry) => entry.id === 'bootstrap');
     assert.deepEqual(bootstrapStart?.capacity, { maxParallel: 2, cpuUnits: 2, memoryGiB: 4 });
@@ -1855,7 +1909,7 @@ test('memory capacity still delays non-conflicting exclusive work until the acti
         if (entry.id === 'first')
         {
             await first.promise;
-        };
+        }
     });
 
     await waitFor(() => events.length === 1);

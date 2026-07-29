@@ -41,7 +41,9 @@ Corrupt, partial, writable, ambiguous or identity-mismatched objects are moved t
 
 Each domain writes current-run evidence containing decision (`hit`, `miss`, or `race-hit`), reason, key, producer and consumer source identity, reused/built bytes, compiler invocation count, materialization/publication mode, relocation counts and duration. The run summary is complete only when every configured domain has successful evidence and explicitly records `dynamicFactsCached: false`.
 
-The immutable Production artifact producer waits for this summary when it consumes run-bound build outputs. This prevents a partial build-cache run from being sealed as a complete Production artifact.
+During Production Fresh, domain evidence and its mutable summary are coordination state under the current Production build layout at `generated/coordination/production-build-cache`; domain writers never write release evidence. The `production-build-artifacts` step waits for and validates the complete run/source-bound coordination set, successfully verifies or creates its immutable Production artifact receipt, and only then publishes the read-only final summary and exact domain files under the current attempt's `release-evidence/production-build-cache*` paths. Those final files are declared outputs of that sole physical producer. Missing, extra, writable, tampered, foreign-run or foreign-source coordination fails before publication.
+
+Non-Fresh and external CI cache execution retains the configured legacy evidence and summary paths. Production Fresh routing requires exact canonical build and attempt roots and never falls back to an ambient repository path.
 
 ## Local operation
 

@@ -15,6 +15,198 @@
             "pathType": "file"
         },
         {
+            "id": "behavior-contract-catalog",
+            "owner": "behavior-contract-governance",
+            "canonicalPath": "config/contracts/behavior-contracts.json",
+            "pathType": "file"
+        },
+        {
+            "id": "behavior-fact-extractor-registry",
+            "owner": "behavior-contract-governance",
+            "canonicalPath": "config/contracts/behavior-fact-extractors.json",
+            "pathType": "file"
+        },
+        {
+            "id": "generated-fact-section-catalog",
+            "owner": "behavior-contract-governance",
+            "canonicalPath": "config/contracts/generated-fact-sections.json",
+            "pathType": "file"
+        },
+        {
+            "id": "behavior-contract-catalog-schema",
+            "owner": "behavior-contract-governance",
+            "canonicalPath": "config/schemas/behavior-contract-catalog.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "behavior-doc-static-admission-receipt-schema",
+            "owner": "behavior-contract-governance",
+            "canonicalPath": "config/schemas/behavior-doc-static-admission-receipt.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "behavior-fact-extractor-registry-schema",
+            "owner": "behavior-contract-governance",
+            "canonicalPath": "config/schemas/behavior-fact-extractor-registry.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "behavior-graph-receipt-schema",
+            "owner": "behavior-contract-governance",
+            "canonicalPath": "config/schemas/behavior-graph-receipt.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "doc-claim-verification-receipt-schema",
+            "owner": "behavior-contract-governance",
+            "canonicalPath": "config/schemas/doc-claim-verification-receipt.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "doc-claim-schema",
+            "owner": "behavior-contract-governance",
+            "canonicalPath": "config/schemas/doc-claim.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "fact-observation-receipt-schema",
+            "owner": "behavior-contract-governance",
+            "canonicalPath": "config/schemas/fact-observation-receipt.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "generated-fact-section-catalog-schema",
+            "owner": "behavior-contract-governance",
+            "canonicalPath": "config/schemas/generated-fact-section-catalog.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "generated-section-check-receipt-schema",
+            "owner": "behavior-contract-governance",
+            "canonicalPath": "config/schemas/generated-section-check-receipt.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "fixture-variant-catalog-schema",
+            "owner": "test-fixture-catalog",
+            "canonicalPath": "config/schemas/fixture-variant-catalog.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "runtime-state-domain-catalog-schema",
+            "owner": "runtime-state-domain-governance",
+            "canonicalPath": "config/schemas/runtime-state-domain-catalog.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "runtime-state-domain-registry-schema",
+            "owner": "runtime-state-domain-governance",
+            "canonicalPath": "config/schemas/runtime-state-domain-registry.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "correctness-budget-policy",
+            "owner": "production-correctness-budget",
+            "canonicalPath": "config/testing/correctness-budget-policy.json",
+            "pathType": "file"
+        },
+        {
+            "id": "fixture-capability-catalog",
+            "owner": "test-fixture-catalog",
+            "canonicalPath": "config/testing/fixture-capability-catalog.json",
+            "pathType": "file"
+        },
+        {
+            "id": "fixture-consumer-inventory",
+            "owner": "test-fixture-catalog",
+            "canonicalPath": "config/testing/fixture-consumer-inventory.generated.json",
+            "pathType": "file"
+        },
+        {
+            "id": "fixture-producer-registry",
+            "owner": "test-fixture-catalog",
+            "canonicalPath": "config/testing/fixture-producer-registry.json",
+            "pathType": "file"
+        },
+        {
+            "id": "fixture-profile-catalog",
+            "owner": "test-fixture-catalog",
+            "canonicalPath": "config/testing/fixture-profile-catalog.json",
+            "pathType": "file"
+        },
+        {
+            "id": "fixture-variant-catalog",
+            "owner": "test-fixture-catalog",
+            "canonicalPath": "config/testing/fixture-variant-catalog.json",
+            "pathType": "file"
+        },
+        {
+            "id": "physical-execution-process-policy",
+            "owner": "physical-execution-governance",
+            "canonicalPath": "config/testing/physical-execution-process-policy.json",
+            "pathType": "file"
+        },
+        {
+            "id": "producer-execution-class-contract",
+            "owner": "producer-execution-class-governance",
+            "canonicalPath": "config/testing/producer-execution-class-contract.json",
+            "pathType": "file"
+        },
+        {
+            "id": "runtime-state-domain-catalog",
+            "owner": "runtime-state-domain-governance",
+            "canonicalPath": "config/testing/runtime-state-domain-catalog.json",
+            "pathType": "file"
+        },
+        {
+            "id": "runtime-state-domain-registry",
+            "owner": "runtime-state-domain-governance",
+            "canonicalPath": "config/testing/runtime-state-domain-registry.json",
+            "pathType": "file"
+        },
+        {
+            "id": "temporal-callsite-dispositions",
+            "owner": "temporal-qualification-governance",
+            "canonicalPath": "config/testing/temporal-callsite-dispositions.json",
+            "pathType": "file"
+        },
+        {
+            "id": "temporal-context-schema",
+            "owner": "temporal-qualification-governance",
+            "canonicalPath": "config/testing/temporal-context.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "temporal-perturbation-cases",
+            "owner": "temporal-qualification-governance",
+            "canonicalPath": "config/testing/temporal-perturbation-cases.json",
+            "pathType": "file"
+        },
+        {
+            "id": "temporal-policy",
+            "owner": "temporal-qualification-governance",
+            "canonicalPath": "config/testing/temporal-policy.json",
+            "pathType": "file"
+        },
+        {
+            "id": "temporal-producer-bindings",
+            "owner": "temporal-qualification-governance",
+            "canonicalPath": "config/testing/temporal-producer-bindings.json",
+            "pathType": "file"
+        },
+        {
+            "id": "mutation-inventory-retention",
+            "owner": "backend-test-governance",
+            "canonicalPath": "config/testing/mutation/inventory-retention.json",
+            "pathType": "file"
+        },
+        {
+            "id": "mutation-release-parity-subset",
+            "owner": "backend-test-governance",
+            "canonicalPath": "config/testing/mutation/release-parity-subset.json",
+            "pathType": "file"
+        },
+        {
             "id": "cmake-presets",
             "owner": "native-build-tooling",
             "canonicalPath": "CMakePresets.json",
@@ -150,6 +342,35 @@
             ],
             "validationCommand": "node --test tests/tools/runtime-http-route-contract.test.mjs tests/tools/release-load-response-oracle.test.mjs",
             "changePolicy": "manual-update-with-route-oracle-validation",
+            "status": "manual"
+        },
+        {
+            "id": "measurement-noise-policy",
+            "owner": "backend-performance-governance",
+            "canonicalPath": "config/testing/measurement-noise-policy.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/test/measurement-noise-envelope.mjs",
+                "tools/test/performance-admission.mjs",
+                "tools/test/bundles/run-bundle.mjs",
+                "tools/test/calibrate-backend-production-topology.mjs",
+                "tools/test/lanes/runtime-evidence-probe.mjs",
+                "tools/operations/check-evidence-metrics.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/measurement-noise-envelope.test.mjs tests/tools/performance-admission.test.mjs tests/tools/backend-production-topology.test.mjs tests/tools/long-soak-measurement-authority.test.mjs",
+            "changePolicy": "manual-update-with-negative-fixture-validation",
+            "status": "manual"
+        },
+        {
+            "id": "measurement-window-inventory",
+            "owner": "backend-performance-governance",
+            "canonicalPath": "config/testing/measurement-window-inventory.json",
+            "pathType": "file",
+            "consumers": [
+                "tests/tools/measurement-window-inventory.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/measurement-window-inventory.test.mjs",
+            "changePolicy": "manual-update-with-test-matrix-owner-audit",
             "status": "manual"
         },
         {

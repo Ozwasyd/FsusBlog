@@ -143,7 +143,7 @@ public static partial class BinaryEndpoints
                 : BinaryResults.FromError(result.Error, aeds);
         })
         .RequireAnonymousAccountPrincipal()
-        .AddEndpointFilter<RequiresPowFilter>();
+        .AddEndpointFilterWithMetadata<RequiresPowFilter>();
 
         group.MapPost("/messages/conversations/{id:long}/reply", static async Task<BinaryFrameResult> (
             long id,
@@ -205,7 +205,7 @@ public static partial class BinaryEndpoints
                 : BinaryResults.FromError(result.Error, aeds);
         })
         .RequireAnonymousAccountPrincipal()
-        .AddEndpointFilter<RequiresPowFilter>();
+        .AddEndpointFilterWithMetadata<RequiresPowFilter>();
 
         group.MapPost("/messages/conversations/{id:long}/read", static async Task<BinaryFrameResult> (
             long id,
@@ -388,7 +388,7 @@ public static partial class BinaryEndpoints
                 : BinaryResults.FromError(result.Error, aeds);
         })
         .RequireAdminPermission(AdminPermissions.AdminManage)
-        .AddEndpointFilter<RequiresPowFilter>();
+        .AddEndpointFilterWithMetadata<RequiresPowFilter>();
 
         group.MapPost("/admin/messages/conversations/{id:long}/status", static async Task<BinaryFrameResult> (
             long id,
@@ -431,7 +431,7 @@ public static partial class BinaryEndpoints
                 : BinaryResults.FromError(result.Error, aeds);
         })
         .RequireAdminPermission(AdminPermissions.AdminManage)
-        .AddEndpointFilter<RequiresPowFilter>();
+        .AddEndpointFilterWithMetadata<RequiresPowFilter>();
 
         group.MapPost("/admin/messages/system-send", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
@@ -485,7 +485,7 @@ public static partial class BinaryEndpoints
                 : BinaryResults.FromError(result.Error, aeds);
         })
         .RequireAdminPermission(AdminPermissions.AdminManage)
-        .AddEndpointFilter<RequiresPowFilter>();
+        .AddEndpointFilterWithMetadata<RequiresPowFilter>();
     }
 
     private static bool TryResolveAdminMessageActor(HttpContext httpContext, out AdminMessageActor adminActor)

@@ -39,6 +39,12 @@ if [[ "$REUSE_BUILD_OUTPUTS" == "1" \
     node "$ROOT_DIR/tools/test-matrix/content-addressed-build-cache.mjs" wait-summary
 fi
 
+PublishBuildCacheEvidenceIfFresh() {
+    if [[ -n "${FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT:-}" ]]; then
+        node "$ROOT_DIR/tools/test-matrix/content-addressed-build-cache.mjs" publish-summary
+    fi
+}
+
 HasDomain() {
     local expected="$1"
     local domain
@@ -85,6 +91,7 @@ if (JSON.stringify(actual) !== JSON.stringify(expected)) {
   throw new Error(`sealed artifact domains do not match resume request: actual=${actual.join(',')} expected=${expected.join(',')}`)
 }
 NODE
+    PublishBuildCacheEvidenceIfFresh
     printf '[production-build-artifacts] resumed sealed immutable artifact receipt=%s\n' "$ARTIFACT_ROOT/receipt.json"
     exit 0
 fi
@@ -208,9 +215,13 @@ CREATE_ARGS=(
     --input tests/tools/wasm-build-receipt.test.mjs
     --input tests/tools/production-build-artifacts.test.mjs
     --input tests/tools/production-build-materialization-benchmark.test.mjs
+    --input config/testing/content-addressed-build-cache.json
     --input tools/ci/production-build-artifacts.mjs
     --input tools/ci/production-build-artifacts-cli.mjs
     --input tools/ci/benchmark-production-build-materialization.mjs
+    --input tools/test-matrix/content-addressed-build-cache.mjs
+    --input tools/test-matrix/content-addressed-build-cache-contract.mjs
+    --input tools/test-matrix/content-addressed-build-cache-storage.mjs
     --input tools/test/run-with-dotnet-release-build-lock.sh
     --input tools/test/lanes/production-build-artifacts.sh
 )
@@ -261,5 +272,6 @@ for domain in "${DOMAIN_LIST[@]}"; do
     fi
 done
 node "$ROOT_DIR/tools/ci/production-build-artifacts-cli.mjs" "${CREATE_ARGS[@]}"
+PublishBuildCacheEvidenceIfFresh
 
 printf '[production-build-artifacts] receipt=%s files are immutable consumer inputs\n' "$ARTIFACT_ROOT/receipt.json"

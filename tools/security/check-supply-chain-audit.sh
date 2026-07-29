@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CLIENT_DIR="$ROOT_DIR/src/frontend"
-OUT_DIR="${FSUSBLOG_SUPPLY_CHAIN_AUDIT_DIR:-$ROOT_DIR/.tmp/security/supply-chain}"
+OUT_DIR="${FSUSBLOG_SUPPLY_CHAIN_AUDIT_DIR:-${FSUSBLOG_SECURITY_OUTPUT_ROOT:-$ROOT_DIR/.tmp/security}/supply-chain}"
 mkdir -p "$OUT_DIR"
 SUPPLY_CHAIN_ACTIVE_PIDS=()
 SUPPLY_CHAIN_ACTIVE_STATUS_DIR=""

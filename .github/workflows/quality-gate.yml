@@ -1259,8 +1259,11 @@ jobs:
                       .tmp/perf/aeds-frame-cost/**
                       .tmp/perf/aeds-compression-profile/**
                       .tmp/perf/public-hot-read-residency-profile/summary.json
+                      .tmp/perf/public-hot-read-residency-profile/measurement-noise.json
                       .tmp/perf/release-summaries/backend-benchmark-regression.json
+                      .tmp/perf/release-summaries/backend-benchmark-regression.measurement-noise.json
                       .tmp/frontend/aeds-decode-budget/summary.json
+                      .tmp/frontend/aeds-decode-budget/measurement-noise.json
                       .tmp/release-evidence/aeds-frame-cost-summary.json
                       .tmp/release-evidence/aeds-compression-profile-summary.json
                       .tmp/release-evidence/aeds-decode-budget-summary.json

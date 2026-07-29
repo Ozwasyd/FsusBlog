@@ -17,6 +17,15 @@ Fresh 不再递归删除每个项目的 `bin/obj`、frontend dist、Wasm build �
 
 MSBuild node reuse 在物理 bundle 子进程中保持关闭。Production postflight 为每个 Roslyn/MSBuild server 维护包含完整 process identity、server kind、`runId`、namespace、build root 与 `fresh`/`resume` start source 的 owner inventory；只终止与本轮所有字段完全匹配的 orphan，并在 signal 前重新核验全部字段。其他 run 的活跃性只经共享的 `scheduler-run-owner` verifier 分类；active、inactive 或 unverifiable 的其他 owner 都保留。IDE、其他仓库及 owner 无法证明的 server 同样记录为 external/shared 并保留。不得由 qualification 调用全局 `dotnet build-server shutdown`；如需人工维护，操作员可在 Production qualification 之外显式运行该 .NET CLI 命令，且它不会生成或满足任何 receipt。
 
+Benchmark build readiness 在进入任何 measurement admission 前复用同一 exact-current
+owner verifier，回收本轮 benchmark build 遗留的 attached 或 detached
+Roslyn/MSBuild server；旧 postflight orphan 清理仍只处理 `PPID=1`。
+cleanup receipt 位于 `.tmp/run-once/<namespace>/backend-benchmark-release-build.cleanup.json`，
+逐次保留 cleanup 前后完整安全 identity inventory、选中 PID、实际终止 PID 与失败，
+并以 content digest 封存；post inventory 仍含本轮 owner、receipt 损坏或 binding
+不完整时不得启动 measurement。该 producer lifecycle cleanup 不属于 qualification，
+也不授权终止 sibling、IDE、未知 owner 或其他外部进程。
+
 ## 风险与回退
 
 如 run-bound consumer 发现路径、run ID、source fingerprint 或 digest 不一致，应直接终止该 tier，不能退读项目树中的旧 DLL/dist。无需重启即可回退：停止当前 scheduler run，清理其 namespace，再以新 run ID 重跑；依赖 cache 可保留，但不能复制旧编译产物或 test result 到新根。

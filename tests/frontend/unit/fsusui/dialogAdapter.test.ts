@@ -1,8 +1,3 @@
-// @vitest-environment node
-
-import { existsSync, readFileSync } from 'node:fs'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -10,17 +5,6 @@ import {
   fsusDialogWidths,
   isFsusDialogWidth
 } from '@/fsusui/dialog'
-import {
-  findDialogAdapterApiViolations,
-  findDialogBridgeResiduesInSource,
-  findDialogWrapperGeometryViolations,
-  findTaskSurfaceGeometryViolations
-} from '../../checks/static/check-task-surface-geometry.mjs'
-
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
-const dialogAdapterPath = path.join(repoRoot, 'src/frontend/src/fsusui/dialog.ts')
-const dialogWrapperPath = path.join(repoRoot, 'src/frontend/src/components/ui/FsusDialog.vue')
-
 describe('dialog adapter API (#1787)', () => {
   it('exports only component, width presets and type guard', () => {
     expect(FsusUiDialog).toBeTruthy()
@@ -46,78 +30,6 @@ describe('dialog adapter API (#1787)', () => {
     ])
   })
 
-  it('static source has zero CSS class string exports and bridge residues', () => {
-    const source = readFileSync(dialogAdapterPath, 'utf8')
-    expect(findDialogAdapterApiViolations(source)).toEqual([])
-    expect(findDialogBridgeResiduesInSource(source, 'dialog.ts')).toEqual([])
-    expect(source).not.toMatch(/export\s+const\s+fsusDialog(?:Modal)?Class/)
-    expect(source).not.toContain('fsusblog-dialog')
-  })
-
-  it('mutation reintroducing class bridge fails the adapter gate', () => {
-    const clean = readFileSync(dialogAdapterPath, 'utf8')
-    const polluted = `${clean}\nexport const fsusDialogModalClass = 'fsusblog-dialog-overlay'\n`
-    const violations = findDialogAdapterApiViolations(polluted)
-    expect(
-      violations.some(
-        (item) => item.includes('fsusDialogModalClass') || item.includes('CSS class') || item.includes('string-class-bridge')
-      )
-    ).toBe(true)
-  })
-})
-
-describe('FsusDialog wrapper static contract (#1787)', () => {
-  it('keeps workflow width prop contract without Blog overlay geometry', () => {
-    const source = readFileSync(dialogWrapperPath, 'utf8')
-    expect(findDialogWrapperGeometryViolations(source)).toEqual([])
-    expect(source).toContain('width?: FsusDialogWidth')
-    expect(source).toContain("emit('close')")
-    expect(source).toContain("emit('closed')")
-    expect(source).toContain("emit('opened')")
-    expect(source).toContain('#footer')
-    expect(source).not.toContain('modal-class')
-    expect(source).not.toContain('modalClass')
-    expect(source).not.toContain('position: fixed')
-    expect(source).not.toContain('100dvh')
-    expect(source).not.toContain('.el-overlay')
-  })
-
-  it('mutation reintroducing modal-class or viewport geometry fails the wrapper gate', () => {
-    const clean = readFileSync(dialogWrapperPath, 'utf8')
-    const polluted = clean
-      .replace(
-        'align-center',
-        ':modal-class="\'fsusblog-dialog-overlay\'"\n    align-center'
-      )
-      .replace(
-        '.fsus-dialog__content {\n  min-width: 0;\n}',
-        `.fsus-dialog__content {
-  min-width: 0;
-}
-:global(.fsusblog-dialog-overlay) {
-  position: fixed;
-  inset: 0;
-  max-height: calc(var(--fsus-viewport-block-size) - 32px);
-}`
-      )
-    const violations = findDialogWrapperGeometryViolations(polluted)
-    expect(violations.length).toBeGreaterThan(0)
-    expect(
-      violations.some(
-        (item) =>
-          item.includes('modal-class')
-          || item.includes('modalClass')
-          || item.includes('position-fixed')
-          || item.includes('overlay')
-          || item.includes('generic-max-height')
-      )
-    ).toBe(true)
-  })
-
-  it('repository geometry scan is clean after bridge removal', () => {
-    const { errors } = findTaskSurfaceGeometryViolations({ root: repoRoot })
-    expect(errors).toEqual([])
-  })
 })
 
 describe('FsusUI #261 geometry ownership probe (#1787)', () => {
@@ -158,41 +70,5 @@ describe('FsusUI #261 geometry ownership probe (#1787)', () => {
         expected[name as keyof typeof expected]
       )
     }
-
-    const wrapper = readFileSync(dialogWrapperPath, 'utf8')
-    expect(wrapper).not.toMatch(/max-height\s*:/)
-    expect(wrapper).not.toMatch(/max-block-size\s*:/)
-  })
-
-  it('local FsusUI Dialog contract (when present) owns overlay host geometry', () => {
-    // Mirrors src/frontend local alias default: <repo>/../../FsusUI from frontend root,
-    // which is sibling of the worktrees parent for this checkout layout.
-    const candidates = [
-      process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT,
-      path.resolve(repoRoot, '../../FsusUI'),
-      path.resolve(repoRoot, '../FsusUI'),
-      path.resolve(repoRoot, 'FsusUI')
-    ].filter(Boolean).map((root) => String(root))
-
-    const dialogScssPath = candidates
-      .map((root) => path.join(root, 'vue/packages/theme-chalk/src/dialog.scss'))
-      .find((candidate) => existsSync(candidate))
-    const safeAreaPath = candidates
-      .map((root) => path.join(root, 'vue/packages/theme-chalk/src/mixins/safe-area.scss'))
-      .find((candidate) => existsSync(candidate))
-
-    if (!dialogScssPath || !safeAreaPath) {
-      // Packaged-only environments still pass Blog-side ownership checks above.
-      expect(dialogScssPath || safeAreaPath).toBeFalsy()
-      return
-    }
-
-    const dialogScss = readFileSync(dialogScssPath, 'utf8')
-    const safeArea = readFileSync(safeAreaPath, 'utf8')
-    expect(safeArea).toContain('@mixin fsus-viewport-safe-overlay-host')
-    expect(safeArea).toContain('@function fsus-viewport-safe-block-size')
-    expect(dialogScss).toContain('fsus-viewport-safe-overlay-host')
-    expect(dialogScss).toContain('fsus-viewport-safe-block-size')
-    expect(dialogScss).toMatch(/#\{\$namespace\}-overlay-dialog|\.el-overlay-dialog/)
   })
 })

@@ -15,6 +15,7 @@ using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Helpers.Security;
 using FsusBlog.Server.Infrastructure.Pagination;
+using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Interfaces;
@@ -35,7 +36,7 @@ public static partial class BinaryEndpoints
     {
         var uploadGroup = group.MapGroup("/upload")
             .RequireAdminPermission(AdminPermissions.ArticleWrite)
-            .AddEndpointFilter<RequiresPowFilter>();
+            .AddEndpointFilterWithMetadata<RequiresPowFilter>();
 
         uploadGroup.MapPost("/init", static async Task<BinaryFrameResult> (
             HttpContext httpContext,

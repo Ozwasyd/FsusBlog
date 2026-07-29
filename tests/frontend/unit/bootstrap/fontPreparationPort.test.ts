@@ -1,6 +1,3 @@
-import { readFileSync } from 'node:fs'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
 
 import {
@@ -20,8 +17,6 @@ import {
   type LocaleFontScript,
   type LocaleFontWeight
 } from '@/locales/localeFontCatalog'
-
-const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
 
 function createFontFaceSet(
   available: ReadonlySet<string> = new Set(LOCALE_FONT_WEIGHTS.map(String))
@@ -281,51 +276,4 @@ describe('fontPreparationPort', () => {
     vi.unstubAllGlobals()
   })
 
-  it('does not depend on locale runtime, router, vue, storage, or API modules', () => {
-    const source = readFileSync(
-      path.join(repositoryRoot, 'src/frontend/src/bootstrap/fontPreparationPort.ts'),
-      'utf8'
-    )
-    expect(source).not.toMatch(/from ['"]@\/locales(?:\/index)?['"]/u)
-    const retiredRuntime = ['set', 'Locale'].join('')
-    expect(source).not.toMatch(new RegExp(
-      `prepareLocaleDomains|syncLocaleDocumentMetadata|${retiredRuntime}|router|vue|localStorage|sessionStorage|fetch\\(`,
-      'u'
-    ))
-    expect(source).toMatch(/from ['"]@\/locales\/localeFontCatalog['"]/u)
-    expect(source).toMatch(/from ['"]@\/locales\/localeCatalog['"]/u)
-  })
-})
-
-describe('locale font cutover residue', () => {
-  it('removes zh-TW font locale maps, idle all-locale preload, CustomEvent evidence, and compat loaders', () => {
-    const sources = [
-      'src/frontend/src/bootstrap/fontPreparationPort.ts',
-      'src/frontend/src/bootstrap/codeFontPreparation.ts',
-      'src/frontend/src/bootstrap/nonCriticalResources.ts',
-      'src/frontend/src/bootstrap/entry.ts',
-      'src/frontend/src/locales/localeFontCatalog.ts',
-      'tools/contracts/generate-locale-catalog.mjs'
-    ].map((relative) => readFileSync(path.join(repositoryRoot, relative), 'utf8')).join('\n')
-
-    expect(sources).not.toMatch(/zh-TW/u)
-    expect(sources).not.toMatch(/BUNDLED_FONT_LOADING_PLAN|selectBundledDeferredFonts|loadBundledFonts|recordCriticalFontPlan/u)
-    expect(sources).not.toMatch(/fsus:font-loading-evidence/u)
-    expect(sources).not.toMatch(/trigger\s*[:=]\s*['"]idle['"]/u)
-    expect(sources).not.toMatch(/LOCALE_FACES|DEFERRED_FACES/u)
-
-    for (const deleted of [
-      'src/frontend/src/bootstrap/fontLoadingPlanner.ts',
-      'src/frontend/src/bootstrap/criticalFonts.ts'
-    ]) {
-      expect(() => readFileSync(path.join(repositoryRoot, deleted), 'utf8')).toThrow()
-    }
-
-    const idle = readFileSync(
-      path.join(repositoryRoot, 'src/frontend/src/bootstrap/nonCriticalResources.ts'),
-      'utf8'
-    )
-    expect(idle).toMatch(/prepareCodeFonts/u)
-    expect(idle).not.toMatch(/prepareLocaleFonts|hans\.css|hant\.css|jpan\.css|kore\.css/u)
-  })
 })

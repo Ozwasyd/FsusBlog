@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 MODE="${1:-}"
 OUT_DIR="$ROOT_DIR/.tmp/release-resource-budget"
+RELEASE_EVIDENCE_DIR="${FSUSBLOG_RELEASE_EVIDENCE_DIR:-$ROOT_DIR/.tmp/release-evidence}"
 mkdir -p "$OUT_DIR"
 
 case "$MODE" in
@@ -14,21 +15,34 @@ case "$MODE" in
         ;;
 esac
 
+RELEASE_SUMMARY="$RELEASE_EVIDENCE_DIR/$MODE-summary.json"
+rm -f "$OUT_DIR/$MODE.json" "$RELEASE_SUMMARY"
+
 set +e
-"${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/lanes/runtime-evidence-probe.mjs" release-resource-budget "$MODE" "$OUT_DIR/$MODE.json"
+"${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/performance-admission.mjs" \
+    --window-id "release-resource-budget-$MODE" \
+    --evidence "$OUT_DIR/$MODE.measurement-noise.json" \
+    --product-evidence "$OUT_DIR/$MODE.json" \
+    -- \
+    "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/lanes/runtime-evidence-probe.mjs" release-resource-budget "$MODE" "$OUT_DIR/$MODE.json"
 probe_status=$?
 set -e
 
-if [[ ! -f "$OUT_DIR/$MODE.json" ]]; then
+mkdir -p "$RELEASE_EVIDENCE_DIR"
+conclusion_status=0
+"${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/measurement-product-conclusion.mjs" \
+    --kind release-resource-budget \
+    --window-id "release-resource-budget-$MODE" \
+    --evidence "$OUT_DIR/$MODE.measurement-noise.json" \
+    --product "$OUT_DIR/$MODE.json" \
+    --output "$RELEASE_SUMMARY" \
+    --mode "$MODE" \
+    --probe-status "$probe_status" \
+    || conclusion_status=$?
+if [[ -f "$OUT_DIR/$MODE.json" ]]; then
+    printf '[release-resource-budget] wrote %s\n' "$OUT_DIR/$MODE.json"
+fi
+if (( probe_status != 0 )); then
     exit "$probe_status"
 fi
-
-mkdir -p "$ROOT_DIR/.tmp/release-evidence"
-jq -n \
-    --arg mode "$MODE" \
-    --arg file ".tmp/release-resource-budget/$MODE.json" \
-    --slurpfile summary "$OUT_DIR/$MODE.json" \
-    '{status:$summary[0].status, mode:$mode, summary:$file, metrics:($summary[0].metrics // []), unavailableMetrics:($summary[0].unavailableMetrics // []), thresholdEvaluation:$summary[0].thresholdEvaluation, runtime:{sampleCount:$summary[0].runtime.sampleCount, rps:$summary[0].runtime.rps, latencyMs:$summary[0].runtime.latencyMs}, generatedAt: now | todate}' \
-    >"$ROOT_DIR/.tmp/release-evidence/$MODE-summary.json"
-printf '[release-resource-budget] wrote %s\n' "$OUT_DIR/$MODE.json"
-exit "$probe_status"
+exit "$conclusion_status"

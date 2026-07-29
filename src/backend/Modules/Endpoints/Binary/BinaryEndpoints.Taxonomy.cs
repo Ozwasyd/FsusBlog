@@ -17,6 +17,7 @@ using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Helpers.Security;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Pagination;
+using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
@@ -164,7 +165,7 @@ public static partial class BinaryEndpoints
             return BinaryResults.Frame(aeds, AedsFrameType.MutationId, writer => PodBinaryCodec.WriteMutationId(newId, writer));
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
-        .AddEndpointFilter<RequiresPowFilter>();
+        .AddEndpointFilterWithMetadata<RequiresPowFilter>();
 
         group.MapPut("/category/{id:int}", static async Task<BinaryFrameResult> (
             int id,
@@ -222,7 +223,7 @@ public static partial class BinaryEndpoints
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
-        .AddEndpointFilter<RequiresPowFilter>();
+        .AddEndpointFilterWithMetadata<RequiresPowFilter>();
 
         group.MapDelete("/category/{id:int}", static async Task<BinaryFrameResult> (
             int id,
@@ -264,7 +265,7 @@ public static partial class BinaryEndpoints
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
-        .AddEndpointFilter<RequiresPowFilter>();
+        .AddEndpointFilterWithMetadata<RequiresPowFilter>();
 
         group.MapPost("/tag", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
@@ -319,7 +320,7 @@ public static partial class BinaryEndpoints
             return BinaryResults.Frame(aeds, AedsFrameType.MutationId, writer => PodBinaryCodec.WriteMutationId(newId, writer));
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
-        .AddEndpointFilter<RequiresPowFilter>();
+        .AddEndpointFilterWithMetadata<RequiresPowFilter>();
 
         group.MapPut("/tag/{id:int}", static async Task<BinaryFrameResult> (
             int id,
@@ -378,7 +379,7 @@ public static partial class BinaryEndpoints
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
-        .AddEndpointFilter<RequiresPowFilter>();
+        .AddEndpointFilterWithMetadata<RequiresPowFilter>();
 
         group.MapDelete("/tag/{id:int}", static async Task<BinaryFrameResult> (
             int id,
@@ -419,7 +420,7 @@ public static partial class BinaryEndpoints
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
-        .AddEndpointFilter<RequiresPowFilter>();
+        .AddEndpointFilterWithMetadata<RequiresPowFilter>();
     }
 
     internal static async Task<IResult> ReadCategoryAsync(

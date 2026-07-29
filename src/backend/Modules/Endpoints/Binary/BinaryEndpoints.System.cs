@@ -15,6 +15,7 @@ using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Helpers.Security;
 using FsusBlog.Server.Infrastructure.Pagination;
+using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Interfaces;
@@ -108,7 +109,7 @@ public static partial class BinaryEndpoints
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig)
-        .AddEndpointFilter<RequiresPowFilter>();
+        .AddEndpointFilterWithMetadata<RequiresPowFilter>();
 
         group.MapGet("/system/compliance", static async Task<BinaryFrameResult> (
             ISystemService systemService,
@@ -175,7 +176,7 @@ public static partial class BinaryEndpoints
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig)
-        .AddEndpointFilter<RequiresPowFilter>();
+        .AddEndpointFilterWithMetadata<RequiresPowFilter>();
 
         group.MapGet("/system/page/{slug}", static async Task<BinaryFrameResult> (
             string slug,
@@ -263,7 +264,7 @@ public static partial class BinaryEndpoints
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig)
-        .AddEndpointFilter<RequiresPowFilter>();
+        .AddEndpointFilterWithMetadata<RequiresPowFilter>();
 
         group.MapPost("/system/page/refresh/{slug}", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
@@ -292,6 +293,6 @@ public static partial class BinaryEndpoints
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig)
-        .AddEndpointFilter<RequiresPowFilter>();
+        .AddEndpointFilterWithMetadata<RequiresPowFilter>();
     }
 }

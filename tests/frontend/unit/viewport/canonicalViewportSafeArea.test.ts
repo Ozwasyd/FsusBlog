@@ -1,9 +1,8 @@
 // @vitest-environment happy-dom
 
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import {
@@ -11,13 +10,10 @@ import {
   articleTocDrawerPaddingBottomPx,
   articleWriteActionBarHeightPx,
   articleWriteWorkspacePaddingBottomPx,
-  findCanonicalViewportSafeAreaViolations,
-  findRequiredSurfaceFormulaViolations,
   findSourceViolations,
   toastBottomOffsetPx
 } from '../../checks/static/check-canonical-viewport-safe-area.mjs'
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
 const temporaryRoots: string[] = []
 
 afterEach(() => {
@@ -53,11 +49,6 @@ function applyCanonicalVars(
 }
 
 describe('canonical viewport / safe-area consumer contract (#1786)', () => {
-  it('live runtime sources have zero env(), dual-write, and synonymous safe-area residues', () => {
-    expect(findCanonicalViewportSafeAreaViolations({ root: repoRoot })).toEqual([])
-    expect(findRequiredSurfaceFormulaViolations({ root: repoRoot })).toEqual([])
-  })
-
   it('toast bottom inset 0 vs 34 differs by exactly the variable delta', () => {
     const baseRem = 16
     const zero = toastBottomOffsetPx(0, baseRem)
@@ -144,21 +135,6 @@ describe('canonical viewport / safe-area consumer contract (#1786)', () => {
       expect(barHeight - space8).toBe(bottom)
     }
 
-    const commandBarSource = readFileSync(
-      path.join(repoRoot, 'src/frontend/src/components/admin/article/ArticleWriteCommandBar.vue'),
-      'utf8'
-    )
-    expect(commandBarSource).toContain(
-      'padding-bottom: calc(var(--fsus-space-8) + var(--fsus-safe-area-inset-bottom));'
-    )
-    expect(commandBarSource).toContain(
-      'height: calc(var(--fsus-space-8) + var(--fsus-safe-area-inset-bottom));'
-    )
-    expect(commandBarSource).toContain(
-      'calc(var(--fsus-space-3) + var(--fsus-safe-area-inset-bottom))'
-    )
-    expect(commandBarSource).not.toMatch(/env\(\s*safe-area-inset-/)
-
     // Action content box sits above the inset padding region (bar height - inset).
     const buttonBottomEdge = (inset: number) => articleWriteActionBarHeightPx(space8, inset) - inset
     expect(buttonBottomEdge(34)).toBe(32)
@@ -170,18 +146,6 @@ describe('canonical viewport / safe-area consumer contract (#1786)', () => {
     expect(articleTocDrawerPaddingBottomPx(0)).toBe(16)
     expect(articleTocDrawerPaddingBottomPx(34) - articleTocDrawerPaddingBottomPx(0)).toBe(34)
 
-    const tocSource = readFileSync(
-      path.join(repoRoot, 'src/frontend/src/components/article/ArticleTocPanel.vue'),
-      'utf8'
-    )
-    expect(tocSource).toContain(
-      'padding-bottom: calc(var(--fsus-safe-area-inset-bottom) + 1rem);'
-    )
-    expect(tocSource).toContain(
-      'max-height: calc(var(--fsus-viewport-block-size) - 11rem);'
-    )
-    expect(tocSource).not.toMatch(/env\(\s*safe-area-inset-/)
-    expect(tocSource).not.toMatch(/\b100vh\b|\b100dvh\b/)
   })
 
   it('portrait and landscape profiles keep fixed controls inside the safe rectangle formulas', () => {

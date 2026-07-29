@@ -2,17 +2,25 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+NODE_BIN="${FSUSBLOG_NODE:-node}"
+
+PrepareBenchmarkMeasurement()
+{
+    "$ROOT_DIR/tools/test/run-with-dotnet-release-build-lock.sh" \
+        "$NODE_BIN" "$ROOT_DIR/tools/test-matrix/dotnet-build-server-cleanup.mjs" \
+        prepare-benchmark-measurement \
+        --root "$ROOT_DIR"
+}
 
 # The local physical production bundle publishes and verifies this build before
 # admitting benchmark consumers. Standalone logical tiers need the same
-# single-writer boundary, but can still run their read-only measurements in
-# parallel after the producer completes.
+# single-writer boundary before their isolated measurement admission.
 if [[ -n "${FSUSBLOG_LOCAL_PROFILE:-}" ]]; then
-    "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/verify-benchmark-build-ready.mjs"
+    "$NODE_BIN" "$ROOT_DIR/tools/test/verify-benchmark-build-ready.mjs"
+    PrepareBenchmarkMeasurement
     exit 0
 fi
 
-NODE_BIN="${FSUSBLOG_NODE:-node}"
 PROJECT="$ROOT_DIR/benchmarks/core/FsusBlog.Core.Benchmarks.csproj"
 if [[ -n "${FSUSBLOG_BENCHMARK_DLL:-}" ]]; then
     BENCHMARK_DLL="$FSUSBLOG_BENCHMARK_DLL"
@@ -73,3 +81,5 @@ fi
     "$ROOT_DIR/tools/build-with-data-env.sh" dotnet build "$PROJECT" \
     -c Release --no-incremental -warnaserror -v minimal "$msbuild_parallelism" \
     /p:UseSharedCompilation=true /p:NuGetAudit=false
+
+PrepareBenchmarkMeasurement

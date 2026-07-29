@@ -1,3 +1,5 @@
+using System.Net;
+
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Policies;
@@ -100,6 +102,43 @@ public sealed class EndpointPolicyContractTests
                 deleteAccount.Metadata.GetMetadata<RestrictedAccountActionMetadata>()).Action);
         Assert.NotNull(deleteAccount.Metadata.GetMetadata<NoStoreResponseMetadata>());
         AssertFilterOrder(deleteAccount, typeof(RequiresPowFilter));
+    }
+
+    [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
+    public async Task BinaryUploadGroupAndFileHandler_RetainPowFilterAndObservableMetadata()
+    {
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
+        using EndpointSecurityTestServer server = EndpointSecurityTestServer.Create();
+        using HttpClient client = server.CreateClient();
+
+        var routes = new (string Pattern, HttpMethod Method)[]
+        {
+            ("/api/binary/upload/init", HttpMethod.Post),
+            ("/api/binary/upload/{uploadId}/status", HttpMethod.Get),
+            ("/api/binary/upload/{uploadId}/status/parts", HttpMethod.Get),
+            ("/api/binary/upload/{uploadId}/part", HttpMethod.Put),
+            ("/api/binary/upload/{uploadId}/complete", HttpMethod.Post),
+            ("/api/binary/upload/{uploadId}", HttpMethod.Delete),
+            ("/api/binary/file/delete", HttpMethod.Delete)
+        };
+
+        foreach ((string pattern, HttpMethod method) in routes)
+        {
+            RouteEndpoint endpoint = EndpointContractApplication.Find(app, pattern, method.Method);
+            AssertAdminPermission(endpoint, AdminPermissions.ArticleWrite);
+            AssertFilterOrder(endpoint, typeof(RequiresPowFilter));
+
+            string requestPath = pattern.Replace("{uploadId}", "0123456789abcdef0123456789abcdef", StringComparison.Ordinal);
+            using var request = new HttpRequestMessage(method, requestPath);
+            EndpointSecurityTestServer.AddAdminPrincipal(request, AdminPermissions.ArticleWrite);
+            using HttpResponseMessage response = await client.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+            Assert.Equal(
+                "安全校验凭证缺失 (Header)",
+                (await EndpointSecurityTestServer.ReadErrorAsync(response)).Message);
+        }
     }
 
     [Fact]

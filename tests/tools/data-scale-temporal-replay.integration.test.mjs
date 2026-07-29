@@ -1,66 +1,69 @@
-import assert from 'node:assert/strict'
-import { spawnSync } from 'node:child_process'
-import { createHash } from 'node:crypto'
-import { readFileSync, rmSync } from 'node:fs'
-import path from 'node:path'
-import test from 'node:test'
-import { fileURLToPath } from 'node:url'
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { readFileSync, rmSync } from 'node:fs';
+import path from 'node:path';
+import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
-const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-const seedScript = path.join(repositoryRoot, 'tools/data-scale/seed.sh')
-const cleanupScript = path.join(repositoryRoot, 'tools/data-scale/cleanup.sh')
-const enabled = process.env.FSUSBLOG_RUN_DATA_SCALE_TEMPORAL_INTEGRATION === '1'
+const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const seedScript = path.join(repositoryRoot, 'tools/data-scale/seed.sh');
+const cleanupScript = path.join(repositoryRoot, 'tools/data-scale/cleanup.sh');
+const enabled = process.env.FSUSBLOG_RUN_DATA_SCALE_TEMPORAL_INTEGRATION === '1';
 const postgresContainer = process.env.FSUSBLOG_POSTGRES_CONTAINER_NAME
   ?? process.env.FSUSBLOG_PG_CONTAINER
-  ?? 'fsusblog-dev-postgres'
-const businessEpochUtc = '2024-02-29T23:59:59.000Z'
+  ?? 'fsusblog-dev-postgres';
+const businessEpochUtc = '2024-02-29T23:59:59.000Z';
 
-function run(command, args, { env = process.env, input, timeout = 120_000 } = {}) {
-  const result = spawnSync(command, args, {
-    cwd: repositoryRoot,
-    encoding: 'utf8',
-    env,
-    input,
-    maxBuffer: 16 * 1024 * 1024,
-    timeout
-  })
-  assert.equal(
-    result.status,
-    0,
-    [
-      `${command} ${args.join(' ')} failed`,
-      result.error?.message,
-      result.stdout,
-      result.stderr
-    ].filter(Boolean).join('\n')
-  )
-  return result.stdout
+function run(command, args, { env = process.env, input, timeout = 120_000 } = {})
+{
+    const result = spawnSync(command, args, {
+        cwd: repositoryRoot,
+        encoding: 'utf8',
+        env,
+        input,
+        maxBuffer: 16 * 1024 * 1024,
+        timeout
+    });
+    assert.equal(
+        result.status,
+        0,
+        [
+            `${command} ${args.join(' ')} failed`,
+            result.error?.message,
+            result.stdout,
+            result.stderr
+        ].filter(Boolean).join('\n')
+    );
+    return result.stdout;
 }
 
-function postgresJson(prefix, sql) {
-  const stdout = run('docker', [
-    'exec',
-    '-i',
-    postgresContainer,
-    'psql',
-    '-X',
-    '-q',
-    '-t',
-    '-A',
-    '-U',
-    'fsusblog',
-    '-d',
-    'fsusblog',
-    '-v',
-    'ON_ERROR_STOP=1',
-    '-v',
-    `prefix=${prefix}`
-  ], { input: sql })
-  return JSON.parse(stdout.trim())
+function postgresJson(prefix, sql)
+{
+    const stdout = run('docker', [
+        'exec',
+        '-i',
+        postgresContainer,
+        'psql',
+        '-X',
+        '-q',
+        '-t',
+        '-A',
+        '-U',
+        'fsusblog',
+        '-d',
+        'fsusblog',
+        '-v',
+        'ON_ERROR_STOP=1',
+        '-v',
+        `prefix=${prefix}`
+    ], { input: sql });
+    return JSON.parse(stdout.trim());
 }
 
-function businessState(prefix) {
-  return postgresJson(prefix, String.raw`
+function businessState(prefix)
+{
+    return postgresJson(prefix, String.raw`
 SET TIME ZONE 'UTC';
 WITH
 target_articles AS (
@@ -193,58 +196,61 @@ SELECT jsonb_build_object(
   'tags', tags.rows
 )
 FROM articles, article_bodies, article_tags, comments, categories, tags;
-`)
+`);
 }
 
-function digest(value) {
-  return createHash('sha256').update(JSON.stringify(value)).digest('hex')
+function digest(value)
+{
+    return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 
 test('real data-scale PostgreSQL seed replays identical business state', {
-  skip: enabled ? false : 'set FSUSBLOG_RUN_DATA_SCALE_TEMPORAL_INTEGRATION=1',
-  timeout: 300_000
-}, () => {
-  const tier = 'scale-s'
-  const namespace = `temporal-replay-${process.pid}`
-  const prefix = `data-scale:${namespace}:${tier}`
-  const outputDirectory = path.join(
-    repositoryRoot,
-    '.tmp/data-scale-temporal-replay',
-    namespace
-  )
-  const cleanupRoot = path.join(outputDirectory, 'cleanup')
-  const env = {
-    ...process.env,
-    FSUSBLOG_DATA_SCALE_OUT_DIR: outputDirectory,
-    FSUSBLOG_DATA_SCALE_ROOT: cleanupRoot,
-    FSUSBLOG_POSTGRES_CONTAINER_NAME: postgresContainer,
-    FSUSBLOG_TEST_BUSINESS_EPOCH_UTC: businessEpochUtc,
-    FSUSBLOG_TEST_NAMESPACE: namespace,
-    FSUSBLOG_TEST_POSTGRES_TIMEZONE: 'UTC'
-  }
+    skip: enabled ? false : 'set FSUSBLOG_RUN_DATA_SCALE_TEMPORAL_INTEGRATION=1',
+    timeout: 300_000
+}, () =>
+{
+    const tier = 'scale-s';
+    const namespace = `temporal-replay-${process.pid}`;
+    const prefix = `data-scale:${namespace}:${tier}`;
+    const outputDirectory = path.join(
+        repositoryRoot,
+        '.tmp/data-scale-temporal-replay',
+        namespace
+    );
+    const cleanupRoot = path.join(outputDirectory, 'cleanup');
+    const env = {
+        ...process.env,
+        FSUSBLOG_DATA_SCALE_OUT_DIR: outputDirectory,
+        FSUSBLOG_DATA_SCALE_ROOT: cleanupRoot,
+        FSUSBLOG_POSTGRES_CONTAINER_NAME: postgresContainer,
+        FSUSBLOG_TEST_BUSINESS_EPOCH_UTC: businessEpochUtc,
+        FSUSBLOG_TEST_NAMESPACE: namespace,
+        FSUSBLOG_TEST_POSTGRES_TIMEZONE: 'UTC'
+    };
 
-  try {
-    run('bash', [seedScript, tier], { env })
-    const firstSummary = JSON.parse(readFileSync(
-      path.join(outputDirectory, 'seed.json'),
-      'utf8'
-    ))
-    const firstState = businessState(prefix)
+    try
+    {
+        run('bash', [seedScript, tier], { env });
+        const firstSummary = JSON.parse(readFileSync(
+            path.join(outputDirectory, 'seed.json'),
+            'utf8'
+        ));
+        const firstState = businessState(prefix);
 
-    run('bash', [seedScript, tier], { env })
-    const secondSummary = JSON.parse(readFileSync(
-      path.join(outputDirectory, 'seed.json'),
-      'utf8'
-    ))
-    const secondState = businessState(prefix)
+        run('bash', [seedScript, tier], { env });
+        const secondSummary = JSON.parse(readFileSync(
+            path.join(outputDirectory, 'seed.json'),
+            'utf8'
+        ));
+        const secondState = businessState(prefix);
 
-    assert.equal(firstSummary.temporal.businessEpochUtc, businessEpochUtc)
-    assert.equal(firstSummary.temporal.postgresTimezone, 'UTC')
-    assert.equal(secondSummary.temporal.businessEpochUtc, businessEpochUtc)
-    assert.equal(secondSummary.temporal.postgresTimezone, 'UTC')
-    assert.equal(digest(secondState), digest(firstState))
+        assert.equal(firstSummary.temporal.businessEpochUtc, businessEpochUtc);
+        assert.equal(firstSummary.temporal.postgresTimezone, 'UTC');
+        assert.equal(secondSummary.temporal.businessEpochUtc, businessEpochUtc);
+        assert.equal(secondSummary.temporal.postgresTimezone, 'UTC');
+        assert.equal(digest(secondState), digest(firstState));
 
-    postgresJson(prefix, String.raw`
+        postgresJson(prefix, String.raw`
 SET TIME ZONE 'UTC';
 WITH changed AS (
   UPDATE article
@@ -260,28 +266,30 @@ WITH changed AS (
   RETURNING id
 )
 SELECT jsonb_build_object('changed', count(*)) FROM changed;
-`)
-    assert.notEqual(
-      digest(businessState(prefix)),
-      digest(secondState),
-      'business timestamps must remain inside the database state digest'
-    )
-  } finally {
-    run('bash', [cleanupScript, tier], { env })
-    const cleanup = JSON.parse(readFileSync(
-      path.join(
-        cleanupRoot,
-        tier,
-        'cleanup.json'
-      ),
-      'utf8'
-    ))
-    assert.deepEqual(cleanup.remaining, {
-      articles: 0,
-      categories: 0,
-      comments: 0,
-      tags: 0
-    })
-    rmSync(outputDirectory, { recursive: true, force: true })
-  }
-})
+`);
+        assert.notEqual(
+            digest(businessState(prefix)),
+            digest(secondState),
+            'business timestamps must remain inside the database state digest'
+        );
+    }
+    finally
+    {
+        run('bash', [cleanupScript, tier], { env });
+        const cleanup = JSON.parse(readFileSync(
+            path.join(
+                cleanupRoot,
+                tier,
+                'cleanup.json'
+            ),
+            'utf8'
+        ));
+        assert.deepEqual(cleanup.remaining, {
+            articles: 0,
+            categories: 0,
+            comments: 0,
+            tags: 0
+        });
+        rmSync(outputDirectory, { recursive: true, force: true });
+    }
+});

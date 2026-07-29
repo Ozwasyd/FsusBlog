@@ -1837,6 +1837,18 @@ jq -e '.currentStatus.status == "ok" and .currentStatus.blockerCount == 0' "$ret
 jq -e '.evidenceSummary.externalExposure.valid == true and .evidenceSummary.externalExposure.request.currentStatus == "ok" and .evidenceSummary.externalExposure.request.requiredEvidenceCount == 5' "$tmp_dir/returned-ok-release/manifest.json" >/dev/null ||
     Fail "returned evidence verifier did not write ok release manifest"
 
+returned_ambient_collection_dir="$tmp_dir/returned-ambient-collection"
+returned_explicit_out_dir="$tmp_dir/returned-explicit-release"
+FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog \
+    FSUSBLOG_ALLOW_TEMP_EVIDENCE=1 \
+    FSUSBLOG_RELEASE_EVIDENCE_COLLECTION_DIR="$returned_ambient_collection_dir" \
+    FSUSBLOG_PRODUCTION_EXPOSURE_RETURNED_OUT_DIR="$returned_explicit_out_dir" \
+    "$RETURNED_EVIDENCE_SCRIPT" "$returned_ok_dir" >/dev/null
+[[ -f "$returned_explicit_out_dir/manifest.json" ]] ||
+    Fail "returned evidence verifier did not honor its explicit output directory"
+[[ ! -e "$returned_ambient_collection_dir/manifest.json" ]] ||
+    Fail "ambient release evidence collection directory hijacked returned evidence output"
+
 # The rolling groups below treat complete_failed_status, complete_failed_manifest,
 # complete_failed_handoff_bundle, and returned_ok_dir as immutable baselines. Every
 # negative mutation and every successful closeout writes to a group-owned copy.

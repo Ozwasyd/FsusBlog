@@ -26,6 +26,16 @@ case "$MODE" in
         ;;
 esac
 
-"${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/lanes/runtime-evidence-probe.mjs" soak "$MODE" "$OUT_DIR/summary.json"
+if [[ "$MODE" == "short" ]]; then
+    "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/performance-admission.mjs" \
+        --window-id "soak-$MODE" \
+        --evidence "$OUT_DIR/measurement-noise.json" \
+        -- \
+        "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/lanes/runtime-evidence-probe.mjs" soak "$MODE" "$OUT_DIR/summary.json"
+else
+    # Long soak commands only schedule or import evidence produced by the
+    # external measurement host; they are not a local measurement window.
+    "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/lanes/runtime-evidence-probe.mjs" soak "$MODE" "$OUT_DIR/summary.json"
+fi
 
 printf '[soak] wrote %s\n' "$OUT_DIR/summary.json"

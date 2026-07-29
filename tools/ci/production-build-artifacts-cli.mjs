@@ -1,212 +1,276 @@
 #!/usr/bin/env node
-import fs from 'node:fs'
-import path from 'node:path'
-import process from 'node:process'
+import fs from 'node:fs';
+import path from 'node:path';
+import process from 'node:process';
 
 import {
-  collectProductionBuildArtifactStore,
-  collectProductionToolchain,
-  createProductionBuildReceipt,
-  materializeProductionBuildDomains,
-  registerProductionBuildConsumer,
-  releaseProductionBuildConsumer,
-  verifyProductionBuildReceipt
-} from './production-build-artifacts.mjs'
+    collectProductionBuildArtifactStore,
+    collectProductionToolchain,
+    createProductionBuildReceipt,
+    materializeProductionBuildDomains,
+    registerProductionBuildConsumer,
+    releaseProductionBuildConsumer,
+    verifyProductionBuildReceipt
+} from './production-build-artifacts.mjs';
 
-function parseOptions(args) {
-  const options = { artifact: [], input: [], tool: [], map: [] }
-  for (let index = 0; index < args.length; index += 1) {
-    const argument = args[index]
-    if (!argument.startsWith('--')) throw new Error(`unexpected argument: ${argument}`)
-    const equal = argument.indexOf('=')
-    const key = equal < 0 ? argument.slice(2) : argument.slice(2, equal)
-    const value = equal < 0 ? args[++index] : argument.slice(equal + 1)
-    if (value === undefined) throw new Error(`missing value for --${key}`)
-    if (['artifact', 'input', 'tool', 'map'].includes(key)) options[key].push(value)
-    else options[key.replaceAll('-', '_')] = value
-  }
-  return options
+function parseOptions(args)
+{
+    const options = { artifact: [], input: [], tool: [], map: [] };
+    for (let index = 0; index < args.length; index += 1)
+    {
+        const argument = args[index];
+        if (!argument.startsWith('--'))
+        {
+            throw new Error(`unexpected argument: ${argument}`);
+        }
+        const equal = argument.indexOf('=');
+        const key = equal < 0 ? argument.slice(2) : argument.slice(2, equal);
+        const value = equal < 0 ? args[++index] : argument.slice(equal + 1);
+        if (value === undefined)
+        {
+            throw new Error(`missing value for --${key}`);
+        }
+        if (['artifact', 'input', 'tool', 'map'].includes(key))
+        {
+            options[key].push(value);
+        }
+        else
+        {
+            options[key.replaceAll('-', '_')] = value;
+        }
+    }
+    return options;
 }
 
-function pairs(values, label) {
-  return Object.fromEntries(values.map(value => {
-    const index = value.indexOf('=')
-    if (index < 1 || index === value.length - 1) throw new Error(`${label} must use name=value: ${value}`)
-    return [value.slice(0, index), value.slice(index + 1)]
-  }))
+function pairs(values, label)
+{
+    return Object.fromEntries(values.map(value =>
+    {
+        const index = value.indexOf('=');
+        if (index < 1 || index === value.length - 1)
+        {
+            throw new Error(`${label} must use name=value: ${value}`);
+        }
+        return [value.slice(0, index), value.slice(index + 1)];
+    }));
 }
 
-function sourceState(options) {
-  return {
-    commit: options.expected_commit ?? options.source_commit ?? process.env.GITHUB_SHA,
-    worktreeFingerprint: options.expected_fingerprint ?? options.source_fingerprint ?? process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT
-  }
+function sourceState(options)
+{
+    return {
+        commit: options.expected_commit ?? options.source_commit ?? process.env.GITHUB_SHA,
+        worktreeFingerprint: options.expected_fingerprint ?? options.source_fingerprint ?? process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT
+    };
 }
 
-function producer(options) {
-  return {
-    workflow: options.workflow ?? process.env.GITHUB_WORKFLOW,
-    runId: options.expected_run_id ?? options.run_id ?? process.env.GITHUB_RUN_ID,
-    runAttempt: Number(options.expected_run_attempt ?? options.run_attempt ?? process.env.GITHUB_RUN_ATTEMPT),
-    job: options.expected_job ?? options.job ?? process.env.GITHUB_JOB
-  }
+function producer(options)
+{
+    return {
+        workflow: options.workflow ?? process.env.GITHUB_WORKFLOW,
+        runId: options.expected_run_id ?? options.run_id ?? process.env.GITHUB_RUN_ID,
+        runAttempt: Number(options.expected_run_attempt ?? options.run_attempt ?? process.env.GITHUB_RUN_ATTEMPT),
+        job: options.expected_job ?? options.job ?? process.env.GITHUB_JOB
+    };
 }
 
-function expectedProducer(options) {
-  return {
-    ...(options.expected_workflow === undefined ? {} : { workflow: options.expected_workflow }),
-    runId: options.expected_run_id ?? process.env.GITHUB_RUN_ID,
-    job: options.expected_job,
-    ...(options.expected_run_attempt === undefined ? {} : { runAttempt: Number(options.expected_run_attempt) })
-  }
+function expectedProducer(options)
+{
+    return {
+        ...(options.expected_workflow === undefined ? {} : { workflow: options.expected_workflow }),
+        runId: options.expected_run_id ?? process.env.GITHUB_RUN_ID,
+        job: options.expected_job,
+        ...(options.expected_run_attempt === undefined ? {} : { runAttempt: Number(options.expected_run_attempt) })
+    };
 }
 
-function expectedToolchain(options, root) {
-  const current = options.expected_current_toolchain
-  if (current !== undefined && current !== 'true' && current !== 'false') {
-    throw new Error('--expected-current-toolchain must be true or false')
-  }
-  if (current === 'true' && options.tool.length > 0) {
-    throw new Error('--expected-current-toolchain cannot be combined with --tool')
-  }
-  return current === 'true'
-    ? collectProductionToolchain({ root })
-    : options.tool.length > 0 ? pairs(options.tool, '--tool') : null
+function expectedToolchain(options, root)
+{
+    const current = options.expected_current_toolchain;
+    if (current !== undefined && current !== 'true' && current !== 'false')
+    {
+        throw new Error('--expected-current-toolchain must be true or false');
+    }
+    if (current === 'true' && options.tool.length > 0)
+    {
+        throw new Error('--expected-current-toolchain cannot be combined with --tool');
+    }
+    return current === 'true'
+        ? collectProductionToolchain({ root })
+        : options.tool.length > 0 ? pairs(options.tool, '--tool') : null;
 }
 
-function mappings(values) {
-  return values.map(value => {
-    const index = value.indexOf('=')
-    if (index < 1 || index === value.length - 1) throw new Error(`--map must use name=destination: ${value}`)
-    const rawName = value.slice(0, index)
-    const writable = rawName.endsWith(':copy-before-write')
-    const name = rawName.replace(/:copy-before-write$/u, '')
-    if (!name) throw new Error(`--map must name a production artifact domain: ${value}`)
-    return { name, destination: value.slice(index + 1), writable }
-  })
+function mappings(values)
+{
+    return values.map(value =>
+    {
+        const index = value.indexOf('=');
+        if (index < 1 || index === value.length - 1)
+        {
+            throw new Error(`--map must use name=destination: ${value}`);
+        }
+        const rawName = value.slice(0, index);
+        const writable = rawName.endsWith(':copy-before-write');
+        const name = rawName.replace(/:copy-before-write$/u, '');
+        if (!name)
+        {
+            throw new Error(`--map must name a production artifact domain: ${value}`);
+        }
+        return { name, destination: value.slice(index + 1), writable };
+    });
 }
 
-function writeEvidence(file, value) {
-  if (!file) return
-  fs.mkdirSync(path.dirname(path.resolve(file)), { recursive: true })
-  fs.writeFileSync(path.resolve(file), `${JSON.stringify(value, null, 2)}\n`)
+function writeEvidence(file, value)
+{
+    if (!file)
+    {
+        return;
+    }
+    fs.mkdirSync(path.dirname(path.resolve(file)), { recursive: true });
+    fs.writeFileSync(path.resolve(file), `${JSON.stringify(value, null, 2)}\n`);
 }
 
-const [command, ...args] = process.argv.slice(2)
-const options = parseOptions(args)
-const root = path.resolve(options.root ?? process.cwd())
-const artifactRoot = path.resolve(options.artifact_root ?? path.join(root, '.tmp/ci-production-build'))
-const receiptFile = options.receipt ?? 'receipt.json'
-let acquiredConsumerLease = null
+const [command, ...args] = process.argv.slice(2);
+const options = parseOptions(args);
+const root = path.resolve(options.root ?? process.cwd());
+const artifactRoot = path.resolve(options.artifact_root ?? path.join(root, '.tmp/ci-production-build'));
+const receiptFile = options.receipt ?? 'receipt.json';
+let acquiredConsumerLease = null;
 
-try {
-  if (command === 'create') {
-    const toolchain = { ...collectProductionToolchain({ root }), ...pairs(options.tool, '--tool') }
-    const domains = options.artifact.map(value => {
-      const index = value.indexOf('=')
-      if (index < 1 || index === value.length - 1) throw new Error(`--artifact must use domain=path: ${value}`)
-      const rawName = value.slice(0, index)
-      const consumerMode = rawName.endsWith(':copy-before-write') ? 'copy-before-write' : 'read-only'
-      const name = rawName.replace(/:copy-before-write$/u, '')
-      return { name, path: value.slice(index + 1), consumerMode }
-    })
-    const receipt = createProductionBuildReceipt({
-      root,
-      artifactRoot,
-      receiptFile,
-      sourceState: sourceState(options),
-      producer: producer(options),
-      toolchain,
-      inputPaths: options.input,
-      domains,
-      build: {
-        profile: options.profile,
-        command: options.command,
-        startedAt: options.started_at,
-        finishedAt: options.finished_at,
-        durationMs: options.duration_ms
-      }
-    })
-    process.stdout.write(`${JSON.stringify(receipt, null, 2)}\n`)
-  } else if (command === 'verify') {
-    const result = verifyProductionBuildReceipt({
-      artifactRoot,
-      receiptFile,
-      expectedSourceState: sourceState(options),
-      expectedProducer: expectedProducer(options),
-      expectedToolchain: expectedToolchain(options, root),
-      expectedInputRoot: options.expected_input_root ? path.resolve(options.expected_input_root) : null,
-      expectedReceiptDigest: options.expected_receipt_digest,
-      transferStartedAtMs: options.transfer_started_at_ms
-    })
-    writeEvidence(options.evidence, result.evidence)
-    process.stdout.write(`${JSON.stringify(result.evidence, null, 2)}\n`)
-  } else if (command === 'materialize') {
-    acquiredConsumerLease = options.consumer_run_id && options.consumer_id
-      ? registerProductionBuildConsumer({
+try
+{
+    if (command === 'create')
+    {
+        const toolchain = { ...collectProductionToolchain({ root }), ...pairs(options.tool, '--tool') };
+        const domains = options.artifact.map(value =>
+        {
+            const index = value.indexOf('=');
+            if (index < 1 || index === value.length - 1)
+            {
+                throw new Error(`--artifact must use domain=path: ${value}`);
+            }
+            const rawName = value.slice(0, index);
+            const consumerMode = rawName.endsWith(':copy-before-write') ? 'copy-before-write' : 'read-only';
+            const name = rawName.replace(/:copy-before-write$/u, '');
+            return { name, path: value.slice(index + 1), consumerMode };
+        });
+        const receipt = createProductionBuildReceipt({
+            root,
+            artifactRoot,
+            receiptFile,
+            sourceState: sourceState(options),
+            producer: producer(options),
+            toolchain,
+            inputPaths: options.input,
+            domains,
+            build: {
+                profile: options.profile,
+                command: options.command,
+                startedAt: options.started_at,
+                finishedAt: options.finished_at,
+                durationMs: options.duration_ms
+            }
+        });
+        process.stdout.write(`${JSON.stringify(receipt, null, 2)}\n`);
+    }
+    else if (command === 'verify')
+    {
+        const result = verifyProductionBuildReceipt({
+            artifactRoot,
+            receiptFile,
+            expectedSourceState: sourceState(options),
+            expectedProducer: expectedProducer(options),
+            expectedToolchain: expectedToolchain(options, root),
+            expectedInputRoot: options.expected_input_root ? path.resolve(options.expected_input_root) : null,
+            expectedReceiptDigest: options.expected_receipt_digest,
+            transferStartedAtMs: options.transfer_started_at_ms
+        });
+        writeEvidence(options.evidence, result.evidence);
+        process.stdout.write(`${JSON.stringify(result.evidence, null, 2)}\n`);
+    }
+    else if (command === 'materialize')
+    {
+        acquiredConsumerLease = options.consumer_run_id && options.consumer_id
+            ? registerProductionBuildConsumer({
           artifactRoot,
           runId: options.consumer_run_id,
           consumerId: options.consumer_id
         })
-      : null
-    const result = materializeProductionBuildDomains({
-      artifactRoot,
-      receiptFile,
-      destinationRoot: path.resolve(options.destination_root ?? root),
-      mappings: mappings(options.map),
-      verification: {
-        expectedSourceState: sourceState(options),
-        expectedProducer: expectedProducer(options),
-        expectedToolchain: expectedToolchain(options, root),
-        expectedInputRoot: options.expected_input_root ? path.resolve(options.expected_input_root) : null,
-        expectedReceiptDigest: options.expected_receipt_digest,
-        transferStartedAtMs: options.transfer_started_at_ms
-      }
-      })
-    const evidence = { ...result.evidence, materialized: result.copied, consumerLease: acquiredConsumerLease }
-    writeEvidence(options.evidence, evidence)
-    process.stdout.write(`${JSON.stringify(evidence, null, 2)}\n`)
-  } else if (command === 'acquire') {
-    const lease = registerProductionBuildConsumer({
-      artifactRoot,
-      runId: options.consumer_run_id,
-      consumerId: options.consumer_id
-    })
-    writeEvidence(options.evidence, lease)
-    process.stdout.write(`${JSON.stringify(lease, null, 2)}\n`)
-  } else if (command === 'release') {
-    const lease = releaseProductionBuildConsumer({
-      artifactRoot,
-      runId: options.consumer_run_id,
-      consumerId: options.consumer_id,
-      reason: options.reason
-    })
-    writeEvidence(options.evidence, lease)
-    process.stdout.write(`${JSON.stringify(lease, null, 2)}\n`)
-  } else if (command === 'gc') {
-    const result = collectProductionBuildArtifactStore({
-      storeRoot: path.resolve(options.store_root ?? root),
-      staleAfterMs: Number(options.stale_after_ms)
-    })
-    writeEvidence(options.evidence, result)
-    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`)
-  } else {
-    throw new Error('usage: production-build-artifacts-cli.mjs <create|verify|materialize|acquire|release|gc> [options]')
-  }
-} catch (error) {
-  if (acquiredConsumerLease?.status === 'active') {
-    try {
-      releaseProductionBuildConsumer({
-        artifactRoot,
-        runId: acquiredConsumerLease.runId,
-        consumerId: acquiredConsumerLease.consumerId,
-        reason: 'materialization-failed'
-      })
-    } catch {
-      // Preserve the materialization failure; a malformed lease remains visible for operator recovery.
+            : null;
+        const result = materializeProductionBuildDomains({
+            artifactRoot,
+            receiptFile,
+            destinationRoot: path.resolve(options.destination_root ?? root),
+            mappings: mappings(options.map),
+            verification: {
+                expectedSourceState: sourceState(options),
+                expectedProducer: expectedProducer(options),
+                expectedToolchain: expectedToolchain(options, root),
+                expectedInputRoot: options.expected_input_root ? path.resolve(options.expected_input_root) : null,
+                expectedReceiptDigest: options.expected_receipt_digest,
+                transferStartedAtMs: options.transfer_started_at_ms
+            }
+        });
+        const evidence = { ...result.evidence, materialized: result.copied, consumerLease: acquiredConsumerLease };
+        writeEvidence(options.evidence, evidence);
+        process.stdout.write(`${JSON.stringify(evidence, null, 2)}\n`);
     }
-  }
-  if (error?.evidence) writeEvidence(options.evidence, error.evidence)
-  console.error(`[production-build-artifacts] ${error.message}`)
-  process.exit(1)
+    else if (command === 'acquire')
+    {
+        const lease = registerProductionBuildConsumer({
+            artifactRoot,
+            runId: options.consumer_run_id,
+            consumerId: options.consumer_id
+        });
+        writeEvidence(options.evidence, lease);
+        process.stdout.write(`${JSON.stringify(lease, null, 2)}\n`);
+    }
+    else if (command === 'release')
+    {
+        const lease = releaseProductionBuildConsumer({
+            artifactRoot,
+            runId: options.consumer_run_id,
+            consumerId: options.consumer_id,
+            reason: options.reason
+        });
+        writeEvidence(options.evidence, lease);
+        process.stdout.write(`${JSON.stringify(lease, null, 2)}\n`);
+    }
+    else if (command === 'gc')
+    {
+        const result = collectProductionBuildArtifactStore({
+            storeRoot: path.resolve(options.store_root ?? root),
+            staleAfterMs: Number(options.stale_after_ms)
+        });
+        writeEvidence(options.evidence, result);
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    }
+    else
+    {
+        throw new Error('usage: production-build-artifacts-cli.mjs <create|verify|materialize|acquire|release|gc> [options]');
+    }
+}
+catch (error)
+{
+    if (acquiredConsumerLease?.status === 'active')
+    {
+        try
+        {
+            releaseProductionBuildConsumer({
+                artifactRoot,
+                runId: acquiredConsumerLease.runId,
+                consumerId: acquiredConsumerLease.consumerId,
+                reason: 'materialization-failed'
+            });
+        }
+        catch
+        {
+            // Preserve the materialization failure; a malformed lease remains visible for operator recovery.
+        }
+    }
+    if (error?.evidence)
+    {
+        writeEvidence(options.evidence, error.evidence);
+    }
+    console.error(`[production-build-artifacts] ${error.message}`);
+    process.exit(1);
 }

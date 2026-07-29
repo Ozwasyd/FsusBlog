@@ -3,7 +3,7 @@
   "algorithm": "fsu.challenge/perception-character-artifact@v3",
   "wireName": "perceptionCharacterV3",
   "contractDigest": "7206502fb3b558a0f5f1250b18ab0ab8eedf46df74d8449c9ea9b15295a335f4",
-  "aedsSchemaFingerprint": "4bee7e68178873b3086a9d5f4e8e22b66f5619d1ce89d161e7ba6b3dde7a0c81",
+  "aedsSchemaFingerprint": "7e279af324c5265575bccb4128ea412da4070e3338c087c3bd7068d104355403",
   "frames": {
     "issueRequest": 173,
     "verifyRequest": 174,
@@ -25,5 +25,5 @@
       "maximumBytes": 49152
     }
   },
-  "targetFingerprint": "0442397a6aba55bc1ea056019ed77fa20ce25ea4f36687016521fdcf5bcd4ed2"
+  "targetFingerprint": "8b7b263245748fd9066542b1d0e0a0f05ee08aa732ca3a386b25907b69587f1a"
 }

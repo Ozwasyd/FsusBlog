@@ -15,6 +15,7 @@ using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Helpers.Security;
 using FsusBlog.Server.Infrastructure.Pagination;
+using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Interfaces;
@@ -62,6 +63,6 @@ public static partial class BinaryEndpoints
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "文件不存在或已被移除"), aeds);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
-        .AddEndpointFilter<RequiresPowFilter>();
+        .AddEndpointFilterWithMetadata<RequiresPowFilter>();
     }
 }

@@ -1,0 +1,156 @@
+{
+    "schema": "fsusblog.measurement-window-inventory.v1",
+    "selection": "resourceClass=benchmark or tier id names perf/load/soak/resource-budget",
+    "tiers": [
+        {
+            "tierId": "frontend-property-model-perf",
+            "disposition": "enveloped",
+            "receipts": [
+                ".tmp/frontend/frontend-perf-regression.measurement-noise.json"
+            ]
+        },
+        {
+            "tierId": "load",
+            "disposition": "enveloped",
+            "receipts": [
+                ".tmp/perf/load/measurement-noise-public-api.json",
+                ".tmp/perf/load/measurement-noise-notification-stream.json"
+            ]
+        },
+        {
+            "tierId": "aeds-frame-cost",
+            "disposition": "enveloped",
+            "receipts": [
+                ".tmp/perf/aeds-frame-cost/measurement-noise.json",
+                ".tmp/frontend/aeds-decode-budget/measurement-noise.json"
+            ]
+        },
+        {
+            "tierId": "aeds-compression-profile",
+            "disposition": "enveloped",
+            "receipts": [
+                ".tmp/perf/aeds-compression-profile/measurement-noise.json",
+                ".tmp/perf/public-hot-read-residency-profile/measurement-noise.json"
+            ]
+        },
+        {
+            "tierId": "load-baseline",
+            "disposition": "enveloped",
+            "receipts": [
+                ".tmp/perf/load-baseline/measurement-noise.json"
+            ]
+        },
+        {
+            "tierId": "load-peak",
+            "disposition": "enveloped",
+            "receipts": [
+                ".tmp/perf/load-expected-peak/measurement-noise.json"
+            ]
+        },
+        {
+            "tierId": "load-2x-peak",
+            "disposition": "enveloped",
+            "receipts": [
+                ".tmp/perf/load-2x-peak/measurement-noise.json"
+            ]
+        },
+        {
+            "tierId": "load-burst",
+            "disposition": "enveloped",
+            "receipts": [
+                ".tmp/perf/load-burst/measurement-noise.json"
+            ]
+        },
+        {
+            "tierId": "backend-perf",
+            "disposition": "enveloped",
+            "receipts": [
+                ".tmp/backend-perf/measurement-noise.json"
+            ]
+        },
+        {
+            "tierId": "backend-benchmark-regression",
+            "disposition": "enveloped",
+            "receipts": [
+                ".tmp/perf/release-summaries/backend-benchmark-regression.measurement-noise.json"
+            ]
+        },
+        {
+            "tierId": "browser-performance-regression",
+            "disposition": "aggregation-only",
+            "reason": "aggregates the already-recorded browser render-pressure artifact and starts no timed workload"
+        },
+        {
+            "tierId": "performance-evidence-summary",
+            "disposition": "aggregation-only",
+            "reason": "aggregates qualified producer evidence and starts no timed workload"
+        },
+        {
+            "tierId": "soak-short-runtime",
+            "disposition": "enveloped",
+            "receipts": [
+                ".tmp/soak/short/measurement-noise.json"
+            ]
+        },
+        {
+            "tierId": "soak-long-scheduled",
+            "disposition": "scheduler-only",
+            "reason": "schedules the external run and cannot produce a local product conclusion"
+        },
+        {
+            "tierId": "soak-long-evidence-import",
+            "disposition": "external-receipt-required",
+            "reason": "release-final import validates the embedded external-soak/72h envelope receipt"
+        },
+        {
+            "tierId": "perception-v2-redteam-pr",
+            "disposition": "non-performance-security-workload",
+            "reason": "benchmark scheduler class reserves CPU for security corpus execution; no latency or throughput conclusion is produced"
+        },
+        {
+            "tierId": "perception-character-v3-release-gate",
+            "disposition": "non-performance-security-workload",
+            "reason": "benchmark scheduler class reserves CPU for security corpus execution; no latency or throughput conclusion is produced"
+        },
+        {
+            "tierId": "perception-v2-redteam-nightly",
+            "disposition": "non-performance-security-workload",
+            "reason": "benchmark scheduler class reserves CPU for security corpus execution; no latency or throughput conclusion is produced"
+        },
+        {
+            "tierId": "release-soak-min",
+            "disposition": "delegated-to-enveloped-producer",
+            "receipts": [
+                ".tmp/soak/short/measurement-noise.json"
+            ]
+        },
+        {
+            "tierId": "release-load-peak",
+            "disposition": "delegated-to-enveloped-producer",
+            "receipts": [
+                ".tmp/perf/load-expected-peak/measurement-noise.json"
+            ]
+        },
+        {
+            "tierId": "release-load-burst",
+            "disposition": "delegated-to-enveloped-producer",
+            "receipts": [
+                ".tmp/perf/load-burst/measurement-noise.json"
+            ]
+        },
+        {
+            "tierId": "release-memory-leak-budget",
+            "disposition": "delegated-to-enveloped-producer",
+            "receipts": [
+                ".tmp/release-resource-budget/memory-leak.measurement-noise.json"
+            ]
+        },
+        {
+            "tierId": "release-open-handle-budget",
+            "disposition": "delegated-to-enveloped-producer",
+            "receipts": [
+                ".tmp/release-resource-budget/open-handle.measurement-noise.json"
+            ]
+        }
+    ]
+}

@@ -47,7 +47,8 @@ export function assertMissingDependencyDiagnostic()
     fs.writeFileSync(importer, "import './missing.mjs';\n");
     assert.throws(
         () => preflightMaterializedEsmFixture({ fixtureRoot: fixture, entries: ['tools/entry.mjs'], allowedRoots: ['tools'] }),
-        (error) => {
+        (error) =>
+        {
             assert.match(error.message, new RegExp(`importer=${importer.replaceAll('\\', '\\\\')}`, 'u'));
             assert.match(error.message, /specifier=\.\/missing\.mjs/u);
             assert.match(error.message, new RegExp(`resolved=${missing.replaceAll('\\', '\\\\')}`, 'u'));
@@ -80,7 +81,8 @@ export function materializeTestMatrixRunner(repositoryRoot, fixtureRoot)
         fixtureRoot,
         entries: [
             'tools/run-test-matrix.mjs',
-            'tools/test-matrix/production-build-gc.mjs'
+            'tools/test-matrix/production-build-gc.mjs',
+            'tools/test/measurement-noise-envelope.mjs'
         ],
         allowedRoots: ['tools']
     });
@@ -90,7 +92,10 @@ export function materializeTestMatrixRunner(repositoryRoot, fixtureRoot)
     );
     for (const file of [
         'correctness-budget-policy.json',
-        'physical-execution-process-policy.json'
+        'measurement-noise-policy.json',
+        'physical-execution-process-policy.json',
+        'temporal-callsite-dispositions.json',
+        'temporal-policy.json'
     ])
     {
         fs.copyFileSync(

@@ -2,98 +2,100 @@ import {
     renderMarkdownResultWithRuntime,
     type MarkdownRenderResult as FsusMarkdownRenderResult
 } from '@ozwasyd/element-plus/markdown-runtime';
-import type { FsusUiResult } from '@/fsusui/result';
-import { sanitizeMarkdownRuntimeHtml } from '@/utils/safeHtml'
 
-export type MarkdownRenderMode = 'article' | 'about' | 'preview' | 'editor'
-export type MarkdownRenderResult = FsusMarkdownRenderResult
+import type { FsusUiResult } from '@/fsusui/result';
+import { sanitizeMarkdownRuntimeHtml } from '@/utils/safeHtml';
+
+export type MarkdownRenderMode = 'article' | 'about' | 'preview' | 'editor';
+export type MarkdownRenderResult = FsusMarkdownRenderResult;
 
 const unavailable = (message: string, cause?: unknown): FsusUiResult<MarkdownRenderResult> => ({
-  ok: false,
-  error: {
-    code: 'infra',
-    category: 'runtime',
-    message,
-    cause
-  }
-})
+    ok: false,
+    error: {
+        code: 'infra',
+        category: 'runtime',
+        message,
+        cause
+    }
+});
 
 export async function renderMarkdownWithFsusRuntime(input: {
-  source: string
-  mode?: MarkdownRenderMode
-  allowHtml?: boolean
-  allowLatex?: boolean
-  allowMermaid?: boolean
-  baseUrl?: string | null
-}): Promise<FsusUiResult<MarkdownRenderResult>> {
-  try {
-    const result = await renderMarkdownResultWithRuntime({
-      source: input.source,
-      mode: input.mode ?? 'article',
-      allowHtml: input.allowHtml ?? false,
-      allowLatex: input.allowLatex ?? true,
-      allowMermaid: input.allowMermaid ?? true,
-      baseUrl: input.baseUrl ?? null
-    })
-    if (!result.ok || typeof result.value.html !== 'string') {
-      return result
-    }
+    source: string;
+    mode?: MarkdownRenderMode;
+    allowHtml?: boolean;
+    allowLatex?: boolean;
+    allowMermaid?: boolean;
+    baseUrl?: string | null;
+}): Promise<FsusUiResult<MarkdownRenderResult>>
+{
+    try
+    {
+        const result: FsusUiResult<MarkdownRenderResult> = await renderMarkdownResultWithRuntime({
+            source: input.source,
+            mode: input.mode ?? 'article',
+            allowHtml: input.allowHtml ?? false,
+            allowLatex: input.allowLatex ?? true,
+            allowMermaid: input.allowMermaid ?? true,
+            baseUrl: input.baseUrl ?? null
+        });
+        if (!result.ok || typeof result.value.html !== 'string')
+        {
+            return result;
+        }
 
-    return {
-      ...result,
-      value: {
-        ...result.value,
-        html: sanitizeMarkdownRuntimeHtml(result.value.html)
-      }
+        return {
+            ...result,
+            value: {
+                ...result.value,
+                html: sanitizeMarkdownRuntimeHtml(result.value.html)
+            }
+        };
     }
-  } catch (error: unknown) {
-    return unavailable('FsusUI markdown runtime is unavailable.', error)
-  }
+    catch (error: unknown)
+    {
+        return unavailable('FsusUI markdown runtime is unavailable.', error);
+    }
 }
 
 export {
-  MARKDOWN_RENDERER_SURFACE_CLASSES,
-  MARKDOWN_RENDERER_VERSION,
-  MarkdownRuntimeError,
-  activateMarkdownFeatures,
-  buildMarkdownRenderResult,
-  defaultCodeHighlightAdapter,
-  defaultLatexAdapter,
-  defaultMermaidAdapter,
-  detectMarkdownFeatures,
-  detectMarkdownPlaceholders,
-  escapeMarkdownHtml,
-  initMarkdownRuntime,
-  normalizeMarkdownSource,
-  renderMarkdownChunksWithRuntime,
-  renderMarkdownHtmlWithRuntime,
-  renderMarkdownResultWithRuntime,
-  renderMarkdownSummaryWithRuntime,
-  renderMarkdownWithRuntime
-} from '@ozwasyd/element-plus/markdown-runtime'
+    MARKDOWN_RENDERER_SURFACE_CLASSES,
+    MARKDOWN_RENDERER_VERSION,
+    MarkdownRuntimeError,
+    activateMarkdownFeatures,
+    detectMarkdownFeatures,
+    detectMarkdownPlaceholders,
+    escapeMarkdownHtml,
+    initMarkdownRuntime,
+    normalizeMarkdownSource,
+    renderMarkdownChunksWithRuntime,
+    renderMarkdownHtmlWithRuntime,
+    renderMarkdownResultWithRuntime,
+    renderMarkdownSummaryWithRuntime,
+    renderMarkdownWithRuntime
+} from '@ozwasyd/element-plus/markdown-runtime';
 export type {
-  MarkdownFeatureActivationError,
-  MarkdownFeatureActivationFeatureOptions,
-  MarkdownFeatureActivationItem,
-  MarkdownFeatureActivationKind,
-  MarkdownFeatureActivationOptions,
-  MarkdownFeatureActivationResult,
-  MarkdownFeatureAdapter,
-  MarkdownPlaceholderKind,
-  MarkdownRenderChunk,
-  MarkdownRenderChunkKind,
-  MarkdownRenderFeature,
-  MarkdownRenderMetadata,
-  MarkdownRenderPlaceholder,
-  MarkdownRenderRequest,
-  MarkdownRenderTimings,
-  MarkdownRendererSurfaceContract,
-  MarkdownRuntimeChunkResult,
-  MarkdownRuntimeErrorCode,
-  MarkdownRuntimeHtmlResult,
-  MarkdownRuntimeKind,
-  MarkdownRuntimeProfile,
-  MarkdownRuntimeProfilePhase,
-  MarkdownRuntimeRenderResult,
-  MarkdownRuntimeSummaryResult
-} from '@ozwasyd/element-plus/markdown-runtime'
+    MarkdownFeatureActivationError,
+    MarkdownFeatureActivationFeatureOptions,
+    MarkdownFeatureActivationItem,
+    MarkdownFeatureActivationKind,
+    MarkdownFeatureActivationOptions,
+    MarkdownFeatureActivationResult,
+    MarkdownFeatureAdapter,
+    MarkdownPlaceholderKind,
+    MarkdownRenderChunk,
+    MarkdownRenderChunkKind,
+    MarkdownRenderFeature,
+    MarkdownRenderMetadata,
+    MarkdownRenderPlaceholder,
+    MarkdownRenderRequest,
+    MarkdownRenderTimings,
+    MarkdownRendererSurfaceContract,
+    MarkdownRuntimeChunkResult,
+    MarkdownRuntimeErrorCode,
+    MarkdownRuntimeHtmlResult,
+    MarkdownRuntimeKind,
+    MarkdownRuntimeProfile,
+    MarkdownRuntimeProfilePhase,
+    MarkdownRuntimeRenderResult,
+    MarkdownRuntimeSummaryResult
+} from '@ozwasyd/element-plus/markdown-runtime';

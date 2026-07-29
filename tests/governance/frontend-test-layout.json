@@ -34,7 +34,9 @@
                 "tests/frontend/support",
                 "tests/frontend/checks/support"
             ],
-            "files": []
+            "files": [
+                "tests/frontend/helpers/perceptionCharacterV3Media.ts"
+            ]
         },
         "metadata": {
             "roots": [],
@@ -42,7 +44,9 @@
                 "tests/frontend/README.md",
                 "tests/frontend/package.json",
                 "tests/frontend/archive-sticky-geometry-evidence.json",
-                "tests/frontend/archive-sticky-geometry-governance-handoff.json"
+                "tests/frontend/archive-sticky-geometry-governance-handoff.json",
+                "tests/frontend/internal-selector-migration-evidence.json",
+                "tests/frontend/internal-selector-registry.json"
             ]
         }
     },

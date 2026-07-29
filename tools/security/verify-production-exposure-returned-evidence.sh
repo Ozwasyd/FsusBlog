@@ -205,6 +205,7 @@ status_rc=0
 "$ROOT_DIR/tools/security/write-production-exposure-evidence-request.sh" "$REQUEST_FILE" >/dev/null
 
 FSUSBLOG_SECURITY_EVIDENCE_SOURCE_DIR="$RETURNED_DIR" \
+    FSUSBLOG_RELEASE_EVIDENCE_COLLECTION_DIR="$OUT_DIR" \
     FSUSBLOG_RELEASE_EVIDENCE_DIR="$OUT_DIR" \
     "$ROOT_DIR/tools/operations/collect-release-evidence.sh" >/dev/null
 

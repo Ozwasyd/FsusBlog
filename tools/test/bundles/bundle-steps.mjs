@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import { canonicalReceiptCommandSources } from '../../test-matrix/receipt-command-sources.mjs';
+const { canonicalReceiptCommandSources } = await import(new URL("../../test-matrix/receipt-command-sources.mjs", import.meta.url));
 
 const terminalStates = new Set(['success', 'failed', 'timed-out', 'cancelled', 'blocked', 'internal-error']);
 const terminalFailureStates = new Set(['failed', 'timed-out', 'internal-error']);
@@ -316,16 +316,16 @@ export function buildSettledPhaseJoinEvidence({
         ? Math.max(...completedResults.map((result) => result.finishedAtMs))
         : startedAtMs;
     const evidence = {
-            schema: 'fsusblog.local-production.phase-join.v1',
-            status: terminalState,
-            terminalState,
-            reasonCode,
-            primaryFailureRefs,
-            stepId,
-            evidenceRef,
-            canonicalDependencyOrder: [...dependencyIds],
-            dependencies,
-            generatedAt
+        schema: 'fsusblog.local-production.phase-join.v1',
+        status: terminalState,
+        terminalState,
+        reasonCode,
+        primaryFailureRefs,
+        stepId,
+        evidenceRef,
+        canonicalDependencyOrder: [...dependencyIds],
+        dependencies,
+        generatedAt
     };
     evidence.dependencyOutcomeDigest = digest(dependencies.map((dependency) => ({
         id: dependency.id,
@@ -334,15 +334,15 @@ export function buildSettledPhaseJoinEvidence({
         receiptTerminalState: dependency.receiptTerminalState
     })));
     evidence.contentDigest = digest({
-            status: evidence.status,
-            terminalState: evidence.terminalState,
-            reasonCode: evidence.reasonCode,
-            primaryFailureRefs: evidence.primaryFailureRefs,
-            stepId: evidence.stepId,
-            evidenceRef: evidence.evidenceRef,
-            canonicalDependencyOrder: evidence.canonicalDependencyOrder,
-            dependencies: evidence.dependencies,
-            dependencyOutcomeDigest: evidence.dependencyOutcomeDigest
+        status: evidence.status,
+        terminalState: evidence.terminalState,
+        reasonCode: evidence.reasonCode,
+        primaryFailureRefs: evidence.primaryFailureRefs,
+        stepId: evidence.stepId,
+        evidenceRef: evidence.evidenceRef,
+        canonicalDependencyOrder: evidence.canonicalDependencyOrder,
+        dependencies: evidence.dependencies,
+        dependencyOutcomeDigest: evidence.dependencyOutcomeDigest
     });
     return {
         evidence,
@@ -1134,12 +1134,19 @@ export function runtimeSteps()
     ];
     const needsRuntime = ['bootstrap'];
     const needsStableReleaseHydration = ['release-public-hydration'];
-    const runtimeBuildReadiness = ['backend-build-ready', 'frontend-build-ready'];
+    const runtimeBuildReadiness = [
+        'backend-build-ready',
+        'frontend-build-ready',
+        'production-build-artifacts-ready'
+    ];
     return [
         step('backend-build-ready', null, [], {
             resources: { coordinationOnly: true }
         }),
         step('frontend-build-ready', null, [], {
+            resources: { coordinationOnly: true }
+        }),
+        step('production-build-artifacts-ready', null, [], {
             resources: { coordinationOnly: true }
         }),
         // The physical runtime bundle starts at t0 with one CPU. Static security is
@@ -1294,7 +1301,8 @@ export function performanceSteps()
         'backend-perf',
         'privacy-zk-benchmark',
         'mixed-performance-window',
-        'aeds-frame-cost'
+        'aeds-frame-cost',
+        'aeds-compression'
     ];
     const measurements = [
         'backend-perf',
@@ -1355,7 +1363,7 @@ export function performanceSteps()
         }),
         step(measurementBarrier, null, [], {
             dependsOn: [
-                'coverage-threshold', 'aeds-compression', 'privacy-zk-performance-ready',
+                'coverage-threshold', 'privacy-zk-performance-ready',
                 'data-scale-summary', 'fault-injection', 'benchmark-build-ready',
                 'backend-quiet-ready', 'frontend-quiet-ready', 'build-static-quiet-ready',
                 'runtime-state-ready', 'resident-handoff-ready'
@@ -1395,17 +1403,18 @@ export function performanceSteps()
             ],
             resources: benchmarkResources
         }),
-        // Compression profiling records deterministic bytes, ratios, ETags, and
-        // status only. Run it with the other non-measurement preparation, then
-        // keep every timed profiler behind it so its CPU work cannot add noise.
+        // Compression profiling records deterministic product evidence rather
+        // than duration statistics, but its qualification still requires the
+        // same clean host measurement window as the timed profilers.
         step('aeds-compression', 'tools/test/lanes/aeds-compression-profile.sh', ['aeds-compression-profile'], {
-            dependsOn: ['frontend-build-ready', 'benchmark-build-ready'],
+            dependsOn: [measurementBarrier],
             artifacts: [
                 `${process.env.FSUSBLOG_PERFORMANCE_OUTPUT_ROOT ?? '.tmp/perf'}/aeds-compression-profile`,
                 `${process.env.FSUSBLOG_PERFORMANCE_OUTPUT_ROOT ?? '.tmp/perf'}/public-hot-read-residency-profile`,
                 `${process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR ?? '.tmp/release-evidence'}/aeds-compression-profile-summary.json`,
                 `${process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR ?? '.tmp/release-evidence'}/public-hot-read-residency-profile.json`
-            ]
+            ],
+            resources: benchmarkResources
         }),
         step('performance-summary', 'node tools/test/aggregate-performance-evidence.mjs', ['performance-evidence-summary'], {
             dependsOn: ['coverage-threshold', ...measurements],

@@ -30,11 +30,6 @@ fi
 
 "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/contracts/check-openapi-sync.mjs" "${CHECK_ARGS[@]}"
 
-# Materialize generated path for local consumers from the sealed observed projection.
-if [[ -f "$OUT_DIR/fsusblog.openapi.observed.json" ]]; then
-    cp "$OUT_DIR/fsusblog.openapi.observed.json" "$OUT_FILE"
-fi
-
 if [[ "$UPDATE_SNAPSHOT" == "1" ]]; then
     printf '[openapi] wrote observation and updated %s\n' "$SNAPSHOT_FILE"
 elif ! cmp -s "$OUT_FILE" "$SNAPSHOT_FILE"; then

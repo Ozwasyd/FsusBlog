@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-OUT_DIR="${FSUSBLOG_SBOM_DIR:-$ROOT_DIR/.tmp/security/sbom}"
+OUT_DIR="${FSUSBLOG_SBOM_DIR:-${FSUSBLOG_SECURITY_OUTPUT_ROOT:-$ROOT_DIR/.tmp/security}/sbom}"
 mkdir -p "$OUT_DIR"
 
 node - "$ROOT_DIR" "$OUT_DIR" <<'NODE'

@@ -91,6 +91,13 @@ public static class EndpointPolicyMetadataExtensions
         return builder.AddEndpointFilter<TFilter>();
     }
 
+    public static RouteGroupBuilder AddEndpointFilterWithMetadata<TFilter>(this RouteGroupBuilder builder)
+        where TFilter : class, IEndpointFilter
+    {
+        builder.WithMetadata(new EndpointFilterBoundaryMetadata(typeof(TFilter)));
+        return builder.AddEndpointFilter<TFilter>();
+    }
+
     public static RouteHandlerBuilder WithAdminSensitiveStepUp(
         this RouteHandlerBuilder builder,
         bool adminPrincipalBranchOnly = false)

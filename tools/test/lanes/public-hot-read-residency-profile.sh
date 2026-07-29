@@ -13,7 +13,11 @@ if [[ -n "${FSUSBLOG_LOCAL_PROFILE:-}" ]]; then
     dotnet_args+=(--no-build --no-restore)
 fi
 
-dotnet run \
+"${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/performance-admission.mjs" \
+    --window-id public-hot-read-residency-profile \
+    --evidence "$OUT_DIR/measurement-noise.json" \
+    -- \
+    dotnet run \
     --project "$ROOT_DIR/benchmarks/core/FsusBlog.Core.Benchmarks.csproj" \
     -c Release \
     "${dotnet_args[@]}" \

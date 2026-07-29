@@ -12,7 +12,7 @@ FsusBlog has one generic configuration root: `config/`. Framework-discovered fil
 | Development governance manifests | `config/development/**` | Repository governance; authoritative docs and language-style policies |
 | Production SLO | `config/observability/slo.yml` | Operations and observability |
 | Zero-downtime resource policy | `config/deployment/zero-downtime-resource-policy.json` | Operations and deployment qualification |
-| Production Fresh disk demand catalog | `config/testing/production-disk-demand.json` | Test governance; selected physical producer capacity declarations |
+| Production Fresh disk demand catalog | `config/testing/production-disk-demand.json` | Test governance; selected pre-admission authority plus physical and projection/checkpoint producer capacity declarations |
 | Moderation dictionaries and policies | `config/moderation/**` | Backend moderation runtime and server publish output |
 | Default mutation policy | `config/testing/mutation/default.json` | Full backend Stryker lane |
 | Critical mutation policy | `config/testing/mutation/critical.json` | Release-critical Stryker lane |

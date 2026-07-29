@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, URL } from 'node:url'
+import { resolveLocalFsusUiRepositoryRoot } from './fsusui-root.mjs'
 
 export const FSUSUI_PACKAGE_ID = '@ozwasyd/element-plus'
 
@@ -10,7 +11,7 @@ type AliasEntry = {
 }
 
 const frontendRoot = fileURLToPath(new URL('../', import.meta.url))
-const defaultLocalFsusUiRoot = fileURLToPath(new URL('../../../../FsusUI/', import.meta.url))
+const repositoryRoot = path.resolve(frontendRoot, '../..')
 const packagedFsusUiRoot = path.join(frontendRoot, 'node_modules', '@ozwasyd', 'element-plus')
 const requiredWasmAssets = [
   'ep_wasm.mjs',
@@ -44,10 +45,6 @@ const publicShellMotionContracts = [
 ]
 
 const toVitePath = (value: string) => value.replace(/\\/g, '/')
-
-const hasLocalFsusUiSource = (root: string) =>
-  fs.existsSync(path.join(root, 'vue', 'packages', 'element-plus', 'index.ts')) &&
-  fs.existsSync(path.join(root, 'vue', 'packages', 'icons-vue', 'src', 'index.ts'))
 
 const hasLocalWasmAssets = (root: string | null) => {
   if (!root) {
@@ -83,11 +80,10 @@ export function assertLocalFsusUiPublicShellMotionAssets(localFsusUiRoot: string
 }
 
 export function resolveLocalFsusUiRoot(override?: string | null): string | null {
-  const candidate = override?.trim()
-    ? path.resolve(override)
-    : defaultLocalFsusUiRoot
-
-  return hasLocalFsusUiSource(candidate) ? candidate : null
+  return resolveLocalFsusUiRepositoryRoot({
+    override,
+    repositoryRoot,
+  })
 }
 
 export function resolveFsusUiWasmDist(localFsusUiRoot: string | null): string {

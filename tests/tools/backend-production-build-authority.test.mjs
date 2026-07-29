@@ -67,3 +67,21 @@ test('validator rejects loss of the canonical test-DLL receipt digest', () =>
         /test-DLL receipt binding/u
     );
 });
+
+test('validator rejects a legacy ambient Rights V3 backend summary path', () =>
+{
+    const fixture = inputs();
+    fixture.rightsSource = fixture.rightsSource
+        .replace(
+            "path.join(testResultsRoot, 'trx/backend/production/summary.json')",
+            "path.join(root, '.tmp/test-results/backend/production/summary.json')"
+        )
+        .replace(
+            "const testResultsRoot = outputRoot ? path.join(outputRoot, 'reports')",
+            "const testResultsRoot = path.join(root, '.tmp/test-results')"
+        );
+    assert.throws(
+        () => validateBackendProductionBuildAuthority(fixture),
+        /Rights V3 is not projected from the canonical backend summary and TRX artifacts/u
+    );
+});

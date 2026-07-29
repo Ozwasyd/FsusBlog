@@ -11,7 +11,11 @@ mkdir -p "$OUT_DIR" "$(dirname "$RELEASE_SUMMARY")"
 
 "$ROOT_DIR/tools/test/ensure-benchmark-release-build.sh"
 
-dotnet run \
+"${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/performance-admission.mjs" \
+    --window-id aeds-compression-profile \
+    --evidence "$OUT_DIR/measurement-noise.json" \
+    -- \
+    dotnet run \
     --project "$ROOT_DIR/benchmarks/core/FsusBlog.Core.Benchmarks.csproj" \
     -c Release \
     --no-build \

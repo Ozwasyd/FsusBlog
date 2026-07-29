@@ -1,24 +1,25 @@
 #!/usr/bin/env node
 
 import { createRequire } from 'node:module';
+
+import { createAdminStepUpProofToken } from '../../support/auth-fixture-projection.mjs';
 import { authBinary, baseUrl, loginWithFixtureSessionBypass } from '../../support/auth-helpers.mjs';
 import { buildMarkdownExtremeCorpus, fnv1a32, normalizeMarkdownExtremeSize } from '../../support/markdown-extreme-corpus.mjs';
-import { createAdminStepUpProofToken } from '../../support/auth-fixture-projection.mjs';
+import {
+    waitForApplicationReady,
+    waitForNotificationSuppressed,
+    waitForObservableReadiness,
+    waitForVisualFrameReady
+} from '../../support/playwright/readiness.mjs';
 import { readPublicFixtures } from '../../support/public-fixtures.mjs';
+import {
+    attachAudit,
+    selectedRoutes,
+    selectValues,
+    toCookieEntries
+} from '../../support/runtime-resilience-audit.mjs';
 import { systemChromiumLaunchOptions } from '../../support/system-chromium.mjs';
 import { testSessionHeaders } from '../../support/test-session.mjs';
-import {
-  attachAudit,
-  selectedRoutes,
-  selectValues,
-  toCookieEntries
-} from '../../support/runtime-resilience-audit.mjs';
-import {
-  waitForApplicationReady,
-  waitForNotificationSuppressed,
-  waitForObservableReadiness,
-  waitForVisualFrameReady
-} from '../../support/playwright/readiness.mjs';
 
 const frontendBaseUrl = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000';
 const trustedOrigin = process.env.PLAYWRIGHT_BASE_URL || process.env.FSUSBLOG_DEBUG_FRONTEND_URL || process.env.FSUSBLOG_PUBLIC_BASE_URL || baseUrl;
@@ -32,308 +33,365 @@ const require = createRequire(import.meta.url);
 const { chromium } = require(require.resolve('@playwright/test', { paths: [process.cwd()] }));
 
 const resilienceScopes = new Set(selectValues(
-  ['guest', 'user', 'admin', 'mobile'],
-  process.env.FSUSBLOG_RESILIENCE_SCOPES,
-  'runtime resilience scope'
+    ['guest', 'user', 'admin', 'mobile'],
+    process.env.FSUSBLOG_RESILIENCE_SCOPES,
+    'runtime resilience scope'
 ));
 
-function assert(condition, message) {
-  if (!condition) {
-    throw new Error(message);
-  }
-}
-
-async function addRuntimeIsolation(context) {
-  await context.addInitScript(() => {
-    window.__FSUSBLOG_DISABLE_NOTIFICATION_STREAM__ = true;
-    const markNotificationStreamSuppressed = () => {
-      const root = document.documentElement;
-      if (!root) {
-        return false;
-      }
-
-      root.dataset.fsusDisableNotificationStream = 'true';
-      return true;
-    };
-
-    if (!markNotificationStreamSuppressed()) {
-      setTimeout(markNotificationStreamSuppressed, 0);
+function assert(condition, message)
+{
+    if (!condition)
+    {
+        throw new Error(message);
     }
-  });
 }
 
-async function newRuntimeContext(browser, options = {}) {
-  const context = await browser.newContext({
-    baseURL: frontendBaseUrl,
-    extraHTTPHeaders: testSessionHeaders(),
-    ...options
-  });
-  await addRuntimeIsolation(context);
-  return context;
-}
+async function addRuntimeIsolation(context)
+{
+    await context.addInitScript(() =>
+    {
+        window.__FSUSBLOG_DISABLE_NOTIFICATION_STREAM__ = true;
+        const markNotificationStreamSuppressed = () =>
+        {
+            const root = document.documentElement;
+            if (!root)
+            {
+                return false;
+            }
 
-async function waitForApp(page) {
-  await waitForApplicationReady(page, { timeoutMs: Math.max(45_000, hydrationReadyTimeoutMs) });
-  await waitForNotificationSuppressed(page);
-}
+            root.dataset.fsusDisableNotificationStream = 'true';
+            return true;
+        };
 
-async function addSessionCookies(context, session) {
-  const backendHost = new URL(baseUrl).hostname;
-  await context.addCookies(toCookieEntries(session.cookieMap ?? session.cookieHeader).map(([name, value]) => {
-    if (name.startsWith('__Host-')) {
-      return {
-        name,
-        value,
-        url: `https://${backendHost}/`,
-        secure: true,
-        httpOnly: true,
-        sameSite: 'Lax'
-      };
-    }
-
-    return {
-      name,
-      value,
-      url: frontendBaseUrl
-    };
-  }));
-}
-
-async function assertNoHorizontalOverflow(page, label, tolerance = 8) {
-  const metrics = await page.evaluate(() => ({
-    scrollWidth: document.documentElement.scrollWidth,
-    innerWidth: window.innerWidth
-  }));
-  assert(
-    metrics.scrollWidth <= metrics.innerWidth + tolerance,
-    `${label} should not overflow horizontally: scrollWidth=${metrics.scrollWidth}, viewport=${metrics.innerWidth}`
-  );
-}
-
-function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function waitForPublicArticleReadable(id, timeoutMs = 30_000) {
-  const deadline = Date.now() + timeoutMs;
-  let lastStatus = 'unreachable';
-  const publicDetailUrl = `${baseUrl}/api/binary/article/${id}.aeds`;
-
-  while (Date.now() < deadline) {
-    try {
-      const response = await fetch(publicDetailUrl, {
-        headers: {
-          Accept: 'application/octet-stream',
-          ...testSessionHeaders()
+        if (!markNotificationStreamSuppressed())
+        {
+            setTimeout(markNotificationStreamSuppressed, 0);
         }
-      });
-      lastStatus = String(response.status);
-      if (response.ok) {
-        return;
-      }
-    } catch (error) {
-      lastStatus = error instanceof Error ? error.message : String(error);
-    }
-
-    await delay(500);
-  }
-
-  throw new Error(`public article detail ${id} did not become readable; last=${lastStatus}`);
+    });
 }
 
-function loadFixtureArticle() {
-  const fixtures = readPublicFixtures();
-  const id = Number(fixtures.articleId);
-  const title = String(fixtures.articleTitle ?? '').trim();
-  assert(Number.isFinite(id) && id > 0, 'playwright fixture articleId missing');
-  assert(title.length > 0, 'playwright fixture articleTitle missing');
-  return { id, title };
+async function newRuntimeContext(browser, options = {})
+{
+    const context = await browser.newContext({
+        baseURL: frontendBaseUrl,
+        extraHTTPHeaders: testSessionHeaders(),
+        ...options
+    });
+    await addRuntimeIsolation(context);
+    return context;
 }
 
-async function waitForMainText(page, expectedText, label, timeoutMs = 20_000) {
-  await waitForObservableReadiness(page, {
-    description: `${label} main content includes ${JSON.stringify(expectedText)}`,
-    timeoutMs,
-    argument: expectedText,
-    predicate: (text) => document.querySelector('main')?.textContent?.includes(text) === true
-  });
+async function waitForApp(page)
+{
+    await waitForApplicationReady(page, { timeoutMs: Math.max(45_000, hydrationReadyTimeoutMs) });
+    await waitForNotificationSuppressed(page);
 }
 
-async function waitForArticleTitle(page, title) {
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    try {
-      await waitForMainText(page, title, 'public fixture article detail', attempt === 0 ? 12_000 : 20_000);
-      return;
-    } catch (error) {
-      if (attempt > 0) {
-        throw error;
-      }
-      await page.reload({ waitUntil: 'domcontentloaded' });
-      await waitForApp(page);
-    }
-  }
-}
-
-async function visitAuditedRoute(context, path, label, options = {}) {
-  const page = await context.newPage();
-  const audit = attachAudit(page);
-  try {
-    console.log(`[check-runtime-resilience] ${label} ${path}`);
-    await page.goto(path, { waitUntil: 'domcontentloaded' });
-    await waitForApp(page);
-    if (options.waitForVisualFrame) await waitForVisualFrameReady(page);
-
-    await assertNoHorizontalOverflow(page, `${label} ${path}`);
-    if (options.after) {
-      await options.after(page);
-    }
-
-    audit();
-  } finally {
-    await page.close().catch(() => {});
-  }
-}
-
-async function fetchFirstCategoryId(cookieHeader) {
-  const categories = await authBinary('/api/Category', {
-    method: 'GET',
-    cookieHeader,
-    deviceFingerprint: 'runtime-admin-category-list'
-  });
-  assert(categories.response.ok, `category list failed: ${categories.response.status}`);
-  const items = categories.payload?.data ?? categories.payload;
-  const first = Array.isArray(items) ? items.find((item) => Number.isFinite(Number(item?.id))) : null;
-  assert(first?.id, 'runtime resilience requires at least one category fixture');
-  return Number(first.id);
-}
-
-async function createExtremeArticle(session) {
-  const content = buildMarkdownExtremeCorpus(Math.min(markdownExtremeSize, 200_000));
-  const categoryId = await fetchFirstCategoryId(session.cookieHeader);
-  const title = `Runtime Markdown Extreme ${Date.now()}`;
-  const create = await authBinary('/api/Article', {
-    method: 'POST',
-    cookieHeader: session.cookieHeader,
-    deviceFingerprint: 'runtime-admin-article-create',
-    requiresPow: true,
-    headers: { Origin: trustedOrigin },
-    timeoutMs: Math.max(60_000, Number(process.env.FSUSBLOG_HTTP_TIMEOUT_MS || '15000') * 4),
-    body: {
-      title,
-      content,
-      summary: `runtime markdown extreme hash=${fnv1a32(content)}`,
-      categoryId,
-      tagIds: [],
-      aotBundle: null
-    }
-  });
-  assert(create.response.ok, `extreme article create failed: ${create.response.status}`);
-  const data = create.payload?.data ?? create.payload;
-  const id = Number(data?.id ?? data?.Id ?? data);
-  assert(Number.isFinite(id) && id > 0, 'extreme article create missing id');
-  return { id, title };
-}
-
-async function cleanupExtremeArticle(session, id) {
-  const trashProofToken = await createAdminStepUpProofToken({ session });
-  await authBinary(`/api/Article/${id}`, {
-    method: 'DELETE',
-    cookieHeader: session.cookieHeader,
-    deviceFingerprint: 'runtime-admin-article-delete',
-    requiresPow: true,
-    headers: { Origin: trustedOrigin, 'X-Fsus-Mfa-Proof': trashProofToken },
-    timeoutMs: 60_000
-  }).catch(() => null);
-  const permanentProofToken = await createAdminStepUpProofToken({ session });
-  await authBinary(`/api/Article/permanent/${id}`, {
-    method: 'DELETE',
-    cookieHeader: session.cookieHeader,
-    deviceFingerprint: 'runtime-admin-article-permanent-delete',
-    requiresPow: true,
-    headers: { Origin: trustedOrigin, 'X-Fsus-Mfa-Proof': permanentProofToken },
-    timeoutMs: 60_000
-  }).catch(() => null);
-}
-
-async function main() {
-  const browser = await chromium.launch(systemChromiumLaunchOptions({
-    headless: true,
-    // This lane validates DOM/runtime resilience rather than GPU composition.
-    // Keep it off host SwiftShader paths that can terminate a long-running
-    // Chromium process independently of the route under test.
-    args: ['--disable-gpu']
-  }));
-  try {
-    if (resilienceScopes.has('guest')) {
-      const guest = await newRuntimeContext(browser);
-      const extremeQuery = encodeURIComponent('markdown latex mermaid ' + '<script>'.repeat(40) + ' 边界 搜索')
-      for (const path of selectedRoutes('guest', ['/', '/search?q=blog', '/search?q=blog&sort=recent', `/search?q=${extremeQuery}`, '/about', '/archive'])) {
-        await visitAuditedRoute(guest, path, 'guest');
-      }
-      await guest.close();
-    }
-
-    const userSession = await loginWithFixtureSessionBypass(userName, userPassword, false, 'runtime-user');
-    const adminSession = await loginWithFixtureSessionBypass(adminName, adminPassword, false, 'runtime-admin');
-    if (resilienceScopes.has('user')) {
-      const userContext = await newRuntimeContext(browser);
-      await addSessionCookies(userContext, userSession);
-      for (const path of selectedRoutes('user', ['/user/profile', '/user/messagebox', '/user/comments', '/user/profile', '/'])) {
-        await visitAuditedRoute(userContext, path, 'user', { waitForVisualFrame: true });
-      }
-      await userContext.close();
-    }
-
-    if (resilienceScopes.has('admin')) {
-      const adminContext = await newRuntimeContext(browser);
-      await addSessionCookies(adminContext, adminSession);
-      let extremeArticle = null;
-      try {
-        const publicArticle = loadFixtureArticle();
-        await waitForPublicArticleReadable(publicArticle.id);
-        extremeArticle = await createExtremeArticle(adminSession);
-        for (const path of selectedRoutes('admin', [
-          '/user/manage',
-          '/user/manage/users',
-          '/user/manage/settings',
-          '/user/manage/article/trash',
-          '/user/manage/article/write',
-          `/user/manage/article/edit/${extremeArticle.id}`,
-          `/article/${publicArticle.id}`,
-          '/user/manage',
-          '/search?q=blog'
-        ])) {
-          await visitAuditedRoute(adminContext, path, 'admin', {
-            waitForVisualFrame: true,
-            after: path.startsWith('/article/')
-              ? (page) => waitForArticleTitle(page, publicArticle.title)
-              : null
-          });
+async function addSessionCookies(context, session)
+{
+    const backendHost = new URL(baseUrl).hostname;
+    await context.addCookies(toCookieEntries(session.cookieMap ?? session.cookieHeader).map(([name, value]) =>
+    {
+        if (name.startsWith('__Host-'))
+        {
+            return {
+                name,
+                value,
+                url: `https://${backendHost}/`,
+                secure: true,
+                httpOnly: true,
+                sameSite: 'Lax'
+            };
         }
-      } finally {
-        if (extremeArticle) {
-          await cleanupExtremeArticle(adminSession, extremeArticle.id);
-        }
-      }
-      await adminContext.close();
-    }
 
-    if (resilienceScopes.has('mobile')) {
-      const mobileAdminContext = await newRuntimeContext(browser, { viewport: { width: 390, height: 844 } });
-      await addSessionCookies(mobileAdminContext, adminSession);
-      for (const path of selectedRoutes('mobile', ['/user/profile', '/user/messagebox', '/user/manage/article/write', '/user/manage/users'])) {
-        await visitAuditedRoute(mobileAdminContext, path, 'mobile');
-      }
-      await mobileAdminContext.close();
-    }
-
-    console.log(`[check-runtime-resilience] ok | frontend=${frontendBaseUrl}`);
-  } finally {
-    await browser.close();
-  }
+        return {
+            name,
+            value,
+            url: frontendBaseUrl
+        };
+    }));
 }
 
-main().catch((error) => {
-  console.error('[check-runtime-resilience] fatal:', error instanceof Error ? error.message : String(error));
-  process.exit(1);
+async function assertNoHorizontalOverflow(page, label, tolerance = 8)
+{
+    const metrics = await page.evaluate(() => ({
+        scrollWidth: document.documentElement.scrollWidth,
+        innerWidth: window.innerWidth
+    }));
+    assert(
+        metrics.scrollWidth <= metrics.innerWidth + tolerance,
+        `${label} should not overflow horizontally: scrollWidth=${metrics.scrollWidth}, viewport=${metrics.innerWidth}`
+    );
+}
+
+function delay(ms)
+{
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForPublicArticleReadable(id, timeoutMs = 30_000)
+{
+    const deadline = Date.now() + timeoutMs;
+    let lastStatus = 'unreachable';
+    const publicDetailUrl = `${baseUrl}/api/binary/article/${id}.aeds`;
+
+    while (Date.now() < deadline)
+    {
+        try
+        {
+            const response = await fetch(publicDetailUrl, {
+                headers: {
+                    Accept: 'application/octet-stream',
+                    ...testSessionHeaders()
+                }
+            });
+            lastStatus = String(response.status);
+            if (response.ok)
+            {
+                return;
+            }
+        }
+        catch (error)
+        {
+            lastStatus = error instanceof Error ? error.message : String(error);
+        }
+
+        await delay(500);
+    }
+
+    throw new Error(`public article detail ${id} did not become readable; last=${lastStatus}`);
+}
+
+function loadFixtureArticle()
+{
+    const fixtures = readPublicFixtures();
+    const id = Number(fixtures.articleId);
+    const title = String(fixtures.articleTitle ?? '').trim();
+    assert(Number.isFinite(id) && id > 0, 'playwright fixture articleId missing');
+    assert(title.length > 0, 'playwright fixture articleTitle missing');
+    return { id, title };
+}
+
+async function waitForMainText(page, expectedText, label, timeoutMs = 20_000)
+{
+    await waitForObservableReadiness(page, {
+        description: `${label} main content includes ${JSON.stringify(expectedText)}`,
+        timeoutMs,
+        argument: expectedText,
+        predicate: (text) => document.querySelector('main')?.textContent?.includes(text) === true
+    });
+}
+
+async function waitForArticleTitle(page, title)
+{
+    for (let attempt = 0; attempt < 2; attempt += 1)
+    {
+        try
+        {
+            await waitForMainText(page, title, 'public fixture article detail', attempt === 0 ? 12_000 : 20_000);
+            return;
+        }
+        catch (error)
+        {
+            if (attempt > 0)
+            {
+                throw error;
+            }
+            await page.reload({ waitUntil: 'domcontentloaded' });
+            await waitForApp(page);
+        }
+    }
+}
+
+async function visitAuditedRoute(context, path, label, options = {})
+{
+    const page = await context.newPage();
+    const audit = attachAudit(page);
+    try
+    {
+        console.log(`[check-runtime-resilience] ${label} ${path}`);
+        await page.goto(path, { waitUntil: 'domcontentloaded' });
+        await waitForApp(page);
+        if (options.waitForVisualFrame)
+        {
+            await waitForVisualFrameReady(page);
+        }
+
+        await assertNoHorizontalOverflow(page, `${label} ${path}`);
+        if (options.after)
+        {
+            await options.after(page);
+        }
+
+        audit();
+    }
+    finally
+    {
+        await page.close().catch(() =>
+        {});
+    }
+}
+
+async function fetchFirstCategoryId(cookieHeader)
+{
+    const categories = await authBinary('/api/Category', {
+        method: 'GET',
+        cookieHeader,
+        deviceFingerprint: 'runtime-admin-category-list'
+    });
+    assert(categories.response.ok, `category list failed: ${categories.response.status}`);
+    const items = categories.payload?.data ?? categories.payload;
+    const first = Array.isArray(items) ? items.find((item) => Number.isFinite(Number(item?.id))) : null;
+    assert(first?.id, 'runtime resilience requires at least one category fixture');
+    return Number(first.id);
+}
+
+async function createExtremeArticle(session)
+{
+    const content = buildMarkdownExtremeCorpus(Math.min(markdownExtremeSize, 200_000));
+    const categoryId = await fetchFirstCategoryId(session.cookieHeader);
+    const title = `Runtime Markdown Extreme ${Date.now()}`;
+    const create = await authBinary('/api/Article', {
+        method: 'POST',
+        cookieHeader: session.cookieHeader,
+        deviceFingerprint: 'runtime-admin-article-create',
+        requiresPow: true,
+        headers: { Origin: trustedOrigin },
+        timeoutMs: Math.max(60_000, Number(process.env.FSUSBLOG_HTTP_TIMEOUT_MS || '15000') * 4),
+        body: {
+            title,
+            content,
+            summary: `runtime markdown extreme hash=${fnv1a32(content)}`,
+            categoryId,
+            tagIds: [],
+            aotBundle: null
+        }
+    });
+    assert(create.response.ok, `extreme article create failed: ${create.response.status}`);
+    const data = create.payload?.data ?? create.payload;
+    const id = Number(data?.id ?? data?.Id ?? data);
+    assert(Number.isFinite(id) && id > 0, 'extreme article create missing id');
+    return { id, title };
+}
+
+async function cleanupExtremeArticle(session, id)
+{
+    const trashProofToken = await createAdminStepUpProofToken({ session });
+    await authBinary(`/api/Article/${id}`, {
+        method: 'DELETE',
+        cookieHeader: session.cookieHeader,
+        deviceFingerprint: 'runtime-admin-article-delete',
+        requiresPow: true,
+        headers: { Origin: trustedOrigin, 'X-Fsus-Mfa-Proof': trashProofToken },
+        timeoutMs: 60_000
+    }).catch(() => null);
+    const permanentProofToken = await createAdminStepUpProofToken({ session });
+    await authBinary(`/api/Article/permanent/${id}`, {
+        method: 'DELETE',
+        cookieHeader: session.cookieHeader,
+        deviceFingerprint: 'runtime-admin-article-permanent-delete',
+        requiresPow: true,
+        headers: { Origin: trustedOrigin, 'X-Fsus-Mfa-Proof': permanentProofToken },
+        timeoutMs: 60_000
+    }).catch(() => null);
+}
+
+async function main()
+{
+    const browser = await chromium.launch(systemChromiumLaunchOptions({
+        headless: true,
+        // This lane validates DOM/runtime resilience rather than GPU composition.
+        // Keep it off host SwiftShader paths that can terminate a long-running
+        // Chromium process independently of the route under test.
+        args: ['--disable-gpu']
+    }));
+    try
+    {
+        if (resilienceScopes.has('guest'))
+        {
+            const guest = await newRuntimeContext(browser);
+            const extremeQuery = encodeURIComponent('markdown latex mermaid ' + '<script>'.repeat(40) + ' 边界 搜索');
+            for (const path of selectedRoutes('guest', ['/', '/search?q=blog', '/search?q=blog&sort=recent', `/search?q=${extremeQuery}`, '/about', '/archive']))
+            {
+                await visitAuditedRoute(guest, path, 'guest');
+            }
+            await guest.close();
+        }
+
+        const userSession = await loginWithFixtureSessionBypass(userName, userPassword, false, 'runtime-user');
+        const adminSession = await loginWithFixtureSessionBypass(adminName, adminPassword, false, 'runtime-admin');
+        if (resilienceScopes.has('user'))
+        {
+            const userContext = await newRuntimeContext(browser);
+            await addSessionCookies(userContext, userSession);
+            for (const path of selectedRoutes('user', ['/user/profile', '/user/messagebox', '/user/comments', '/user/profile', '/']))
+            {
+                await visitAuditedRoute(userContext, path, 'user', { waitForVisualFrame: true });
+            }
+            await userContext.close();
+        }
+
+        if (resilienceScopes.has('admin'))
+        {
+            const adminContext = await newRuntimeContext(browser);
+            await addSessionCookies(adminContext, adminSession);
+            let extremeArticle = null;
+            try
+            {
+                const publicArticle = loadFixtureArticle();
+                await waitForPublicArticleReadable(publicArticle.id);
+                extremeArticle = await createExtremeArticle(adminSession);
+                for (const path of selectedRoutes('admin', [
+                    '/user/manage',
+                    '/user/manage/users',
+                    '/user/manage/settings',
+                    '/user/manage/article/trash',
+                    '/user/manage/article/write',
+                    `/user/manage/article/edit/${extremeArticle.id}`,
+                    `/article/${publicArticle.id}`,
+                    '/user/manage',
+                    '/search?q=blog'
+                ]))
+                {
+                    await visitAuditedRoute(adminContext, path, 'admin', {
+                        waitForVisualFrame: true,
+                        after: path.startsWith('/article/')
+                            ? (page) => waitForArticleTitle(page, publicArticle.title)
+                            : null
+                    });
+                }
+            }
+            finally
+            {
+                if (extremeArticle)
+                {
+                    await cleanupExtremeArticle(adminSession, extremeArticle.id);
+                }
+            }
+            await adminContext.close();
+        }
+
+        if (resilienceScopes.has('mobile'))
+        {
+            const mobileAdminContext = await newRuntimeContext(browser, { viewport: { width: 390, height: 844 } });
+            await addSessionCookies(mobileAdminContext, adminSession);
+            for (const path of selectedRoutes('mobile', ['/user/profile', '/user/messagebox', '/user/manage/article/write', '/user/manage/users']))
+            {
+                await visitAuditedRoute(mobileAdminContext, path, 'mobile');
+            }
+            await mobileAdminContext.close();
+        }
+
+        console.log(`[check-runtime-resilience] ok | frontend=${frontendBaseUrl}`);
+    }
+    finally
+    {
+        await browser.close();
+    }
+}
+
+main().catch((error) =>
+{
+    console.error('[check-runtime-resilience] fatal:', error instanceof Error ? error.message : String(error));
+    process.exit(1);
 });

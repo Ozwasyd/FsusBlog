@@ -2,8 +2,8 @@
     "schema": "fsusblog.custom-rule-registry.v1",
     "generatedBy": "tools/governance/check-rule-platform.mjs --write-registry",
     "inventory": {
-        "packageScriptCount": 208,
-        "implementationCount": 377
+        "packageScriptCount": 209,
+        "implementationCount": 378
     },
     "rules": [
         {
@@ -764,6 +764,35 @@
                 "command": "node ../../tests/frontend/checks/static/check-article-editor-workspace-governance.mjs",
                 "implementation": "tests/frontend/checks/static/check-article-editor-workspace-governance.mjs",
                 "executionKey": "governance:check:article-editor-workspace-governance",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Command.CheckArticleImageLightboxOverlay",
+            "externalId": "check:article-image-lightbox-overlay",
+            "symbol": "CheckArticleImageLightboxOverlay",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tests/frontend/checks/static/check-article-image-lightbox-overlay.mjs",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": false,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-command",
+                "command": "node ../../tests/frontend/checks/static/check-article-image-lightbox-overlay.mjs",
+                "implementation": "tests/frontend/checks/static/check-article-image-lightbox-overlay.mjs",
+                "executionKey": "governance:check:article-image-lightbox-overlay",
                 "receiptCompatible": true
             }
         },
@@ -7607,6 +7636,35 @@
             }
         },
         {
+            "id": "Implementation.TestsFrontendChecksStaticCheckArticleImageLightboxOverlayMjs",
+            "externalId": "tests/frontend/checks/static/check-article-image-lightbox-overlay.mjs",
+            "symbol": "CheckTestsFrontendChecksStaticCheckArticleImageLightboxOverlay",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "text",
+            "sourceScopes": [
+                "tests/frontend/checks/static/check-article-image-lightbox-overlay.mjs",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/frontend/checks/static/check-article-image-lightbox-overlay.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tests/frontend/checks/static/check-article-image-lightbox-overlay.mjs",
+                "executionKey": "governance:file:tests/frontend/checks/static/check-article-image-lightbox-overlay.mjs",
+                "receiptCompatible": true
+            },
+            "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
+        },
+        {
             "id": "Implementation.TestsFrontendChecksStaticCheckArticleTitleAuthorityMjs",
             "externalId": "tests/frontend/checks/static/check-article-title-authority.mjs",
             "symbol": "CheckTestsFrontendChecksStaticCheckArticleTitleAuthority",
@@ -14314,7 +14372,7 @@
             "symbol": "CheckToolsTestCheckWallClockGovernance",
             "owner": "TestGovernanceOwner",
             "category": "test-governance",
-            "engine": "text",
+            "engine": "parser",
             "sourceScopes": [
                 "tools/test/check-wall-clock-governance.mjs",
                 "tests/**",
@@ -14334,8 +14392,7 @@
                 "implementation": "tools/test/check-wall-clock-governance.mjs",
                 "executionKey": "governance:file:tools/test/check-wall-clock-governance.mjs",
                 "receiptCompatible": true
-            },
-            "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
+            }
         },
         {
             "id": "Implementation.ToolsTestLanesAcceptancePlaywrightSh",

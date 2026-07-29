@@ -4,6 +4,11 @@
   "quarantineRoot": ".tmp/build-cache/quarantine",
   "evidenceRoot": ".tmp/release-evidence/production-build-cache/domains",
   "summaryFile": ".tmp/release-evidence/production-build-cache.json",
+  "productionFresh": {
+    "coordinationRoot": "generated/coordination/production-build-cache",
+    "evidenceRoot": "production-build-cache/domains",
+    "summaryFile": "production-build-cache.json"
+  },
   "lockWaitMs": 120000,
   "environmentAllowlist": [
     "ASPNETCORE_ENVIRONMENT",

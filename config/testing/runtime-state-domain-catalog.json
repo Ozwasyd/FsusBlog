@@ -13,6 +13,10 @@
       "stateAccess": "none"
     },
     {
+      "stepId": "production-build-artifacts-ready",
+      "stateAccess": "none"
+    },
+    {
       "stepId": "security-join",
       "stateAccess": "none"
     },

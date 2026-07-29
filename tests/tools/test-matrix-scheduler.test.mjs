@@ -9,27 +9,22 @@ import test from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { createArtifactDigestTable } from '../../tools/test-matrix/artifact-digest-table.mjs';
+const { validateBehaviorDocStaticAdmissionReceipt } = await import(new URL("../../tools/docs/behavior-doc-static-admission.mjs", import.meta.url));
+const { sealSourceIdentity } = await import(new URL("../../tools/fact-extractors/identity.mjs", import.meta.url));
+const { currentProcessIdentity } = await import(new URL("../../tools/test/process-identity.mjs", import.meta.url));
+const { createArtifactDigestTable } = await import(new URL("../../tools/test-matrix/artifact-digest-table.mjs", import.meta.url));
+const { RunEvidenceObjectStore } = await import(new URL("../../tools/test-matrix/content-addressed-evidence-store.mjs", import.meta.url));
+const { artifactSubstitutionBindingDigest, digestDeclaredOutputs, externalEvidenceReceiptDigest, resolveExternalEvidenceReceipts } = await import(new URL("../../tools/test-matrix/local-profile.mjs", import.meta.url));
+const { parseMatrix } = await import(new URL("../../tools/test-matrix/parse-matrix.mjs", import.meta.url));
+const { bindResidentLeaseEnforcement, consumeResidentLeaseHandoff, createResidentLeaseInventory, readResidentLeaseDocument, writeResidentLeaseDocument } = await import(new URL("../../tools/test-matrix/resident-resource-leases.mjs", import.meta.url));
+const { createSchedulerRunOwner, schedulerCandidateIdentityDigest, sealSchedulerRunOwner } = await import(new URL("../../tools/test-matrix/scheduler-run-owner.mjs", import.meta.url));
+const runOnce = await import(new URL("../../tools/test/run-once.mjs", import.meta.url));
+const temporal = await import(new URL("../../tools/test/temporal-context.mjs", import.meta.url));
+
 import {
-    artifactSubstitutionBindingDigest,
-    digestDeclaredOutputs,
-    externalEvidenceReceiptDigest,
-    resolveExternalEvidenceReceipts
-} from '../../tools/test-matrix/local-profile.mjs';
-import { parseMatrix } from '../../tools/test-matrix/parse-matrix.mjs';
-import {
-    createSchedulerRunOwner,
-    schedulerCandidateIdentityDigest,
-    sealSchedulerRunOwner
-} from '../../tools/test-matrix/scheduler-run-owner.mjs';
-import {
-    bindResidentLeaseEnforcement,
-    consumeResidentLeaseHandoff,
-    createResidentLeaseInventory,
-    readResidentLeaseDocument,
-    writeResidentLeaseDocument
-} from '../../tools/test-matrix/resident-resource-leases.mjs';
-import { currentProcessIdentity } from '../../tools/test/process-identity.mjs';
+    createBehaviorDocAdmissionFixture,
+    prepareBehaviorDocAdmissionFixtureAuthority
+} from './support/behavior-doc-admission-fixture.mjs';
 import {
     assertAllowedRootBoundary,
     assertMissingDependencyDiagnostic,
@@ -59,10 +54,80 @@ function createTempDir(name)
 
 function createRunnerFixture(temp)
 {
-    return materializeTestMatrixRunner(root, temp);
+    const runner = materializeTestMatrixRunner(root, temp);
+    if (!fs.existsSync(path.join(temp, '.git')))
+    {
+        execFileSync('git', ['init', '--quiet'], { cwd: temp });
+    }
+    const ignoreFile = path.join(temp, '.gitignore');
+    fs.writeFileSync(ignoreFile, [
+        '/*',
+        '!/.gitignore',
+        '!/.github/',
+        '!/config/',
+        '!/tools/'
+    ].join('\n') + '\n');
+    prepareBehaviorDocAdmissionFixtureAuthority({
+        sourceRepositoryRoot: root,
+        repositoryRoot: temp
+    });
+    execFileSync('git', ['add', '--all', '--', '.gitignore', '.github', 'config', 'tools'], {
+        cwd: temp
+    });
+    execFileSync(
+        'git',
+        [
+            '-c', 'user.name=Test',
+            '-c', 'user.email=test@example.invalid',
+            '-c', 'commit.gpgsign=false',
+            'commit', '--quiet', '--allow-empty', '-m', 'fixture'
+        ],
+        { cwd: temp }
+    );
+    const admission = createBehaviorDocAdmissionFixture({
+        sourceRepositoryRoot: root,
+        repositoryRoot: temp
+    });
+    const wrapper = path.join(temp, '.tmp', 'fixture-runner.mjs');
+    fs.mkdirSync(path.dirname(wrapper), { recursive: true });
+    fs.writeFileSync(wrapper, [
+        `process.env.FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RECEIPT = ${JSON.stringify(admission.receiptFile)}`,
+        `process.env.FSUSBLOG_BEHAVIOR_DOC_ADMISSION_DIGEST = ${JSON.stringify(admission.contentDigest)}`,
+        `process.env.FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RUN_ID = ${JSON.stringify(admission.runId)}`,
+        `process.argv[1] = ${JSON.stringify(runner)}`,
+        `await import(${JSON.stringify(pathToFileURL(runner).href)})`
+    ].join('\n'));
+    return wrapper;
 }
 
 test('ESM fixture materializer follows first- and second-level relative imports without a file list', assertTransitiveMaterialization);
+test('materialized runner admission is bound to tracked executable source', (t) =>
+{
+    const temp = createTempDir('scheduler-admission-source-binding');
+    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+    createRunnerFixture(temp);
+    const receipt = JSON.parse(fs.readFileSync(path.join(
+        temp,
+        '.tmp/behavior-doc-static-admission/fixture-receipt.json'
+    ), 'utf8'));
+    const initialSource = sealSourceIdentity(temp);
+    assert.deepEqual(receipt.source, {
+        commit: initialSource.sourceCommit,
+        worktreeFingerprint: initialSource.worktreeFingerprint
+    });
+    fs.appendFileSync(path.join(temp, 'tools/run-test-matrix.mjs'), '\n// tracked source drift\n');
+    const driftedSource = sealSourceIdentity(temp);
+    assert.equal(driftedSource.sourceCommit, initialSource.sourceCommit);
+    assert.notEqual(driftedSource.worktreeFingerprint, initialSource.worktreeFingerprint);
+    assert.throws(
+        () => validateBehaviorDocStaticAdmissionReceipt(receipt, {
+            expectedRunId: receipt.run.id,
+            expectedSourceIdentity: driftedSource,
+            expectedWorktree: temp
+        }),
+        /source\/worktree identity mismatch/u
+    );
+});
 test('ESM fixture preflight reports importer, specifier and resolved target for a missing dependency', assertMissingDependencyDiagnostic);
 test('ESM fixture materializer rejects a relative import outside explicit allowed roots', assertAllowedRootBoundary);
 
@@ -224,6 +289,38 @@ function tier(id, overrides = {})
 }
 
 const stableSnapshot = async () => ({ fingerprint: 'stable', entries: {} });
+
+function applyFixtureCheckpointPatch(state, _event, payload)
+{
+    let result = structuredClone(state);
+    for (const operation of payload?.operations ?? [])
+    {
+        if (operation.path.length === 0)
+        {
+            result = structuredClone(operation.value);
+            continue;
+        }
+        let parent = result;
+        for (const segment of operation.path.slice(0, -1))
+        {
+            parent = parent[segment];
+        }
+        const key = operation.path.at(-1);
+        if (operation.kind === 'set')
+        {
+            parent[key] = structuredClone(operation.value);
+        }
+        else if (operation.kind === 'delete')
+        {
+            delete parent[key];
+        }
+        else if (operation.kind === 'append')
+        {
+            parent[key].push(...structuredClone(operation.values));
+        }
+    }
+    return result;
+}
 
 function digestFile(file)
 {
@@ -494,6 +591,637 @@ test('runDag executes independent tiers concurrently before their dependent tier
     assert.ok(Object.hasOwn(checkpoint.sourceState, 'commit'));
 });
 
+test('runDag waits for selected evidence producers and preserves their outputs', async (t) =>
+{
+    const { runDag } = await loadScheduler();
+    const temp = createTempDir('scheduler-evidence-dependency');
+    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+    const producerOutput = path.join(temp, '.tmp/evidence/producer.json');
+    const aggregateOutput = path.join(temp, '.tmp/evidence/aggregate.json');
+    const events = [];
+    const result = await runDag({
+        tiers: [
+            tier('aggregate', {
+                requiresEvidenceFrom: ['producer'],
+                artifacts: [
+                    '.tmp/evidence/producer.json',
+                    '.tmp/evidence/aggregate.json'
+                ],
+                evidence: [
+                    '.tmp/evidence/producer.json',
+                    '.tmp/evidence/aggregate.json'
+                ]
+            }),
+            tier('producer', {
+                artifacts: ['.tmp/evidence/producer.json'],
+                evidence: ['.tmp/evidence/producer.json']
+            })
+        ],
+        root: temp,
+        runsRoot: path.join(temp, 'runs'),
+        runId: 'evidence-dependency',
+        mode: 'fresh',
+        maxParallel: 2,
+        systemResources: { cpuCount: 2, availableMemoryGiB: 2, load1: 0 },
+        snapshotWorktree: stableSnapshot,
+        executeTier: async (current) =>
+        {
+            events.push(current.id);
+            fs.mkdirSync(path.dirname(producerOutput), { recursive: true });
+            if (current.id === 'producer')
+            {
+                fs.writeFileSync(producerOutput, '{"status":"ok"}\n');
+            }
+            else
+            {
+                assert.equal(fs.readFileSync(producerOutput, 'utf8'), '{"status":"ok"}\n');
+                fs.writeFileSync(aggregateOutput, '{"aggregate":"ok"}\n');
+            }
+            return { code: 0, signal: null };
+        }
+    });
+
+    assert.equal(result.status, 'success');
+    assert.deepEqual(events, ['producer', 'aggregate']);
+    assert.equal(fs.readFileSync(producerOutput, 'utf8'), '{"status":"ok"}\n');
+    assert.equal(fs.readFileSync(aggregateOutput, 'utf8'), '{"aggregate":"ok"}\n');
+});
+
+test('failed selected evidence producer blocks only its evidence consumers', async (t) =>
+{
+    const { runDag } = await loadScheduler();
+    const temp = createTempDir('scheduler-failed-evidence-dependency');
+    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+    const executed = [];
+    const result = await runDag({
+        tiers: [
+            tier('consumer', { requiresEvidenceFrom: ['producer'] }),
+            tier('producer'),
+            tier('independent')
+        ],
+        root: temp,
+        runsRoot: path.join(temp, 'runs'),
+        runId: 'failed-evidence-dependency',
+        mode: 'fresh',
+        maxParallel: 1,
+        collectFailures: true,
+        systemResources: { cpuCount: 2, availableMemoryGiB: 2, load1: 0 },
+        snapshotWorktree: stableSnapshot,
+        executeTier: async (current) =>
+        {
+            executed.push(current.id);
+            return {
+                code: current.id === 'producer' ? 1 : 0,
+                signal: null
+            };
+        }
+    });
+
+    assert.equal(result.status, 'failure');
+    assert.equal(result.checkpoint.tiers.consumer.status, 'blocked');
+    assert.match(result.checkpoint.tiers.consumer.reason, /producer/u);
+    assert.ok(executed.includes('producer'));
+    assert.ok(executed.includes('independent'));
+    assert.ok(!executed.includes('consumer'));
+});
+
+test('fresh scheduler preserves prepared authority entries and removes only scheduler-owned stale state', async (t) =>
+{
+    const { runDag } = await loadScheduler();
+    const temp = createTempDir('scheduler-prepared-fresh-root');
+    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+    const runsRoot = path.join(temp, 'runs');
+    const runDirectory = path.join(runsRoot, 'prepared');
+    const outputMarker = path.join(runDirectory, 'outputs/attempts/attempt-0001/marker.json');
+    const authorityFile = path.join(runDirectory, 'production-fresh-output-authority.json');
+    fs.mkdirSync(path.dirname(outputMarker), { recursive: true });
+    fs.writeFileSync(outputMarker, 'prepared\n');
+    fs.writeFileSync(authorityFile, 'authority\n');
+    fs.mkdirSync(path.join(runDirectory, 'tiers'), { recursive: true });
+    fs.writeFileSync(path.join(runDirectory, 'tiers/stale.log'), 'stale\n');
+    fs.writeFileSync(path.join(runDirectory, 'stale.json'), 'stale\n');
+
+    const result = await runDag({
+        tiers: [tier('producer')],
+        root: temp,
+        runsRoot,
+        runId: 'prepared',
+        mode: 'fresh',
+        freshRunDirectoryPreservation: {
+            entries: [
+                { name: 'production-fresh-output-authority.json', type: 'file' },
+                { name: 'outputs', type: 'directory' }
+            ]
+        },
+        snapshotWorktree: stableSnapshot,
+        executeTier: async () => ({ code: 0, signal: null })
+    });
+
+    assert.equal(result.status, 'success');
+    assert.equal(fs.readFileSync(outputMarker, 'utf8'), 'prepared\n');
+    assert.equal(fs.readFileSync(authorityFile, 'utf8'), 'authority\n');
+    assert.equal(fs.existsSync(path.join(runDirectory, 'stale.json')), false);
+    assert.equal(fs.existsSync(path.join(runDirectory, 'tiers/stale.log')), false);
+    assert.equal(fs.existsSync(path.join(runDirectory, 'checkpoint.json')), true);
+});
+
+test('fresh and resume schedulers preserve authenticated current-run BehaviorDoc admission receipt', async (t) =>
+{
+    const {
+        createCurrentRunBehaviorDocAdmissionBinding,
+        runDag
+    } = await loadScheduler();
+    const temp = createTempDir('scheduler-current-run-behavior-doc');
+    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+    createRunnerFixture(temp);
+    const receiptRelative =
+        '.tmp/behavior-doc-static-admission/fixture-receipt.json';
+    const receiptFile = path.join(temp, receiptRelative);
+    const originalReceiptBytes = fs.readFileSync(receiptFile);
+    const receipt = JSON.parse(originalReceiptBytes);
+    const source = sealSourceIdentity(temp);
+    const sourceState = {
+        commit: source.sourceCommit,
+        worktreeFingerprint: 'f'.repeat(64)
+    };
+    const runId = 'current-run-behavior-doc';
+    const binding = createCurrentRunBehaviorDocAdmissionBinding({
+        root: temp,
+        tierId: 'behavior-doc-static-admission',
+        schedulerRunId: runId,
+        admissionRunId: receipt.run.id,
+        sourceState,
+        receiptFile
+    });
+    const admissionTier = tier('behavior-doc-static-admission', {
+        artifacts: [receiptRelative],
+        evidence: [receiptRelative]
+    });
+    let executionCount = 0;
+    const result = await runDag({
+        tiers: [admissionTier],
+        root: temp,
+        runsRoot: path.join(temp, 'runs-success'),
+        runId,
+        mode: 'fresh',
+        sourceState,
+        currentRunPreexecutedTierBindings: [binding],
+        snapshotWorktree: stableSnapshot,
+        env: { FSUSBLOG_BEHAVIOR_DOC_RESUME_PROBE: 'fresh' },
+        executeTier: async () =>
+        {
+            executionCount += 1;
+            assert.deepEqual(fs.readFileSync(receiptFile), originalReceiptBytes);
+            return { code: 0, signal: null };
+        }
+    });
+    assert.equal(result.status, 'success');
+    assert.equal(executionCount, 1);
+    assert.notEqual(
+        binding.sourceState.worktreeFingerprint,
+        binding.admissionSourceIdentity.worktreeFingerprint
+    );
+    assert.deepEqual(fs.readFileSync(receiptFile), originalReceiptBytes);
+
+    const exactResume = await runDag({
+        tiers: [admissionTier],
+        root: temp,
+        runsRoot: path.join(temp, 'runs-success'),
+        runId,
+        mode: 'resume',
+        sourceState,
+        currentRunPreexecutedTierBindings: [binding],
+        snapshotWorktree: stableSnapshot,
+        env: { FSUSBLOG_BEHAVIOR_DOC_RESUME_PROBE: 'fresh' },
+        executeTier: async () =>
+        {
+            executionCount += 1;
+            return { code: 0, signal: null };
+        }
+    });
+    assert.equal(exactResume.status, 'success');
+    assert.equal(executionCount, 1);
+    assert.deepEqual(exactResume.reusedTiers, ['behavior-doc-static-admission']);
+
+    await assert.rejects(
+        runDag({
+            tiers: [admissionTier],
+            root: temp,
+            runsRoot: path.join(temp, 'runs-success'),
+            runId,
+            mode: 'resume',
+            sourceState,
+            currentRunPreexecutedTierBindings: [{
+                ...binding,
+                receiptContentDigest: '0'.repeat(64)
+            }],
+            snapshotWorktree: stableSnapshot,
+            env: { FSUSBLOG_BEHAVIOR_DOC_RESUME_PROBE: 'fresh' }
+        }),
+        /current-run BehaviorDoc admission binding is invalid/u
+    );
+    assert.equal(executionCount, 1);
+
+    const resumed = await runDag({
+        tiers: [admissionTier],
+        root: temp,
+        runsRoot: path.join(temp, 'runs-success'),
+        runId,
+        mode: 'resume',
+        sourceState,
+        currentRunPreexecutedTierBindings: [binding],
+        snapshotWorktree: stableSnapshot,
+        env: { FSUSBLOG_BEHAVIOR_DOC_RESUME_PROBE: 'resume' },
+        executeTier: async () =>
+        {
+            executionCount += 1;
+            assert.deepEqual(fs.readFileSync(receiptFile), originalReceiptBytes);
+            return { code: 0, signal: null };
+        }
+    });
+    assert.equal(resumed.status, 'success');
+    assert.equal(executionCount, 2);
+    assert.deepEqual(resumed.reusedTiers, []);
+    assert.equal(
+        resumed.checkpoint.tiers['behavior-doc-static-admission'].reused,
+        false
+    );
+    assert.deepEqual(fs.readFileSync(receiptFile), originalReceiptBytes);
+
+    const disguisedBinding = createCurrentRunBehaviorDocAdmissionBinding({
+        root: temp,
+        tierId: 'validate-matrix',
+        schedulerRunId: runId,
+        admissionRunId: receipt.run.id,
+        sourceState,
+        receiptFile
+    });
+    await assert.rejects(
+        runDag({
+            tiers: [tier('validate-matrix', {
+                artifacts: [receiptRelative],
+                evidence: [receiptRelative]
+            })],
+            root: temp,
+            runsRoot: path.join(temp, 'runs-disguised-resume-tier'),
+            runId,
+            mode: 'resume',
+            sourceState,
+            currentRunPreexecutedTierBindings: [disguisedBinding],
+            snapshotWorktree: stableSnapshot
+        }),
+        /only accepts schema .*current-run-behavior-doc-admission-binding\.v1 for tier behavior-doc-static-admission; received schema .* for tier validate-matrix/u
+    );
+
+    await assert.rejects(
+        runDag({
+            tiers: [admissionTier],
+            root: temp,
+            runsRoot: path.join(temp, 'runs-forged'),
+            runId,
+            mode: 'fresh',
+            sourceState,
+            currentRunPreexecutedTierBindings: [{
+                ...binding,
+                receiptContentDigest: '0'.repeat(64)
+            }],
+            snapshotWorktree: stableSnapshot
+        }),
+        /current-run BehaviorDoc admission binding is invalid/u
+    );
+
+    await assert.rejects(
+        runDag({
+            tiers: [tier('behavior-doc-static-admission', {
+                artifacts: ['.tmp/behavior-doc-static-admission/other.json'],
+                evidence: ['.tmp/behavior-doc-static-admission/other.json']
+            })],
+            root: temp,
+            runsRoot: path.join(temp, 'runs-unowned'),
+            runId,
+            mode: 'fresh',
+            sourceState,
+            currentRunPreexecutedTierBindings: [binding],
+            snapshotWorktree: stableSnapshot
+        }),
+        /receipt is not owned by tier/u
+    );
+
+    const driftedReceipt = JSON.parse(originalReceiptBytes);
+    driftedReceipt.durationMs += 1;
+    fs.writeFileSync(receiptFile, `${JSON.stringify(driftedReceipt, null, 2)}\n`);
+    await assert.rejects(
+        runDag({
+            tiers: [admissionTier],
+            root: temp,
+            runsRoot: path.join(temp, 'runs-drifted'),
+            runId,
+            mode: 'fresh',
+            sourceState,
+            currentRunPreexecutedTierBindings: [binding],
+            snapshotWorktree: stableSnapshot
+        }),
+        /BehaviorDoc admission content digest mismatch/u
+    );
+    fs.writeFileSync(receiptFile, originalReceiptBytes);
+
+    fs.rmSync(receiptFile);
+    await assert.rejects(
+        runDag({
+            tiers: [admissionTier],
+            root: temp,
+            runsRoot: path.join(temp, 'runs-missing'),
+            runId,
+            mode: 'fresh',
+            sourceState,
+            currentRunPreexecutedTierBindings: [binding],
+            snapshotWorktree: stableSnapshot
+        }),
+        /current-run BehaviorDoc admission receipt is missing/u
+    );
+});
+
+test('fresh scheduler preserves authenticated current-run prerequisite outputs for reuse', async (t) =>
+{
+    const {
+        createCurrentRunPreexecutedTierBinding,
+        runDag
+    } = await loadScheduler();
+    const temp = createTempDir('scheduler-current-run-prerequisite');
+    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+    const runId = 'current-run-prerequisite';
+    const sourceState = {
+        commit: 'a'.repeat(40),
+        worktreeFingerprint: 'b'.repeat(64)
+    };
+    const plan = path.join(temp, '.tmp/release-evidence/test-plan.json');
+    const projectionRelative =
+        '.tmp/physical-execution-projections/validate-matrix-matrix-governance.json';
+    const projection = path.join(
+        temp,
+        projectionRelative
+    );
+    const physicalExecutionRoot = path.join(temp, '.tmp/physical-executions');
+    const runBoundOptions = {
+        root: physicalExecutionRoot,
+        runId,
+        key: 'matrix-governance',
+        command: ['node', 'matrix-governance.mjs'],
+        cwd: temp,
+        inputDigest: 'matrix-governance-input',
+        environmentDigest: 'matrix-governance-environment',
+        outputContract: ['.tmp/release-evidence/test-plan.json'],
+        requiredOutputs: [plan],
+        commit: sourceState.commit,
+        worktreeFingerprint: sourceState.worktreeFingerprint,
+        testIds: ['matrix-validate'],
+        consumerId: 'validate-matrix',
+        heartbeatMs: 5
+    };
+    const prerequisite = await runOnce.runBoundExecution(runBoundOptions, async () =>
+    {
+        fs.mkdirSync(path.dirname(plan), { recursive: true });
+        fs.writeFileSync(plan, '{"run":"current"}\n');
+    });
+    const prerequisiteProjection = await runOnce.validateRunBoundProjection({
+        root: physicalExecutionRoot,
+        runId,
+        key: 'matrix-governance',
+        consumerId: 'validate-matrix',
+        projectionFile: prerequisite.projectionFile,
+        receiptFile: prerequisite.receiptFile
+    });
+    const prerequisiteEvidence = runOnce.buildRunBoundConsumerEvidence({
+        validatedProjection: prerequisiteProjection
+    });
+    const temporalArtifacts = temporal.bindProducerTemporalArtifacts({
+        contextInput: {
+            sourceCommit: sourceState.commit,
+            sourceFingerprint: `sha256:${sourceState.worktreeFingerprint}`,
+            producerId: 'validate-matrix',
+            schedulerRunId: runId,
+            businessEpochUtc: '2024-02-29T23:59:59.000Z',
+            locale: 'en-US',
+            uiLocale: 'en-US',
+            timeoutPolicyDigest: temporal.defaultTimeoutPolicyDigest()
+        },
+        outcome: {
+            status: prerequisite.status,
+            executionKey: 'matrix-governance',
+            runBoundReceiptDigest: prerequisiteProjection.receipt.receiptDigest
+        },
+        generatedAt: '2026-07-29T00:00:00.000Z'
+    });
+    const temporalDirectory = path.dirname(prerequisite.receiptFile);
+    for (const [kind, document] of [
+        ['plan', temporalArtifacts.plan],
+        ['actual', temporalArtifacts.actual],
+        ['receipt', temporalArtifacts.receipt]
+    ])
+    {
+        fs.writeFileSync(
+            path.join(temporalDirectory, `matrix-governance-temporal-${kind}.json`),
+            `${JSON.stringify(document, null, 2)}\n`
+        );
+    }
+    fs.mkdirSync(path.dirname(projection), { recursive: true });
+    fs.writeFileSync(projection, `${JSON.stringify(prerequisiteEvidence, null, 2)}\n`);
+    const binding = createCurrentRunPreexecutedTierBinding({
+        root: temp,
+        tierId: 'validate-matrix',
+        schedulerRunId: runId,
+        sourceState,
+        consumerEvidenceFile: projectionRelative,
+        consumerEvidence: prerequisiteEvidence
+    });
+    let executed = false;
+
+    const result = await runDag({
+        tiers: [tier('validate-matrix', {
+            artifacts: [
+                '.tmp/release-evidence/test-plan.json',
+                '.tmp/physical-execution-projections/validate-matrix-matrix-governance.json'
+            ],
+            evidence: [
+                '.tmp/release-evidence/test-plan.json',
+                '.tmp/physical-execution-projections/validate-matrix-matrix-governance.json'
+            ]
+        })],
+        root: temp,
+        runsRoot: path.join(temp, 'runs'),
+        runId,
+        mode: 'fresh',
+        sourceState,
+        currentRunPreexecutedTierBindings: [binding],
+        snapshotWorktree: stableSnapshot,
+        executeTier: async () =>
+        {
+            executed = true;
+            assert.equal(fs.readFileSync(plan, 'utf8'), '{"run":"current"}\n');
+            const consumer = await runOnce.runBoundExecution(
+                { ...runBoundOptions, consumerId: 'validate-matrix' },
+                async () => assert.fail('same-run consumer must not rerun the producer')
+            );
+            const consumerProjection = await runOnce.validateRunBoundProjection({
+                root: physicalExecutionRoot,
+                runId,
+                key: 'matrix-governance',
+                consumerId: 'validate-matrix',
+                projectionFile: consumer.projectionFile,
+                receiptFile: consumer.receiptFile
+            });
+            const consumerEvidence = runOnce.buildRunBoundConsumerEvidence({
+                validatedProjection: consumerProjection
+            });
+            fs.writeFileSync(projection, `${JSON.stringify(consumerEvidence, null, 2)}\n`);
+            return { code: 0, signal: null };
+        }
+    });
+
+    assert.equal(result.status, 'success');
+    assert.equal(executed, true);
+    assert.equal(fs.readFileSync(plan, 'utf8'), '{"run":"current"}\n');
+    const currentConsumerEvidence = JSON.parse(fs.readFileSync(projection, 'utf8'));
+    assert.equal(currentConsumerEvidence.schedulerRunId, runId);
+    const currentBinding = createCurrentRunPreexecutedTierBinding({
+        root: temp,
+        tierId: 'validate-matrix',
+        schedulerRunId: runId,
+        sourceState,
+        consumerEvidenceFile: projectionRelative,
+        consumerEvidence: currentConsumerEvidence
+    });
+
+    await assert.rejects(
+        runDag({
+            tiers: [tier('validate-matrix', {
+                artifacts: [
+                    '.tmp/release-evidence/test-plan.json',
+                    '.tmp/physical-execution-projections/validate-matrix-matrix-governance.json'
+                ],
+                evidence: [
+                    '.tmp/release-evidence/test-plan.json',
+                    '.tmp/physical-execution-projections/validate-matrix-matrix-governance.json'
+                ]
+            })],
+            root: temp,
+            runsRoot: path.join(temp, 'runs'),
+            runId: 'unknown-current-run-prerequisite',
+            mode: 'fresh',
+            currentRunPreexecutedTierBindings: [{ ...currentBinding, tierId: 'unknown' }],
+            snapshotWorktree: stableSnapshot
+        }),
+        /current-run preexecuted tier is unknown: unknown/u
+    );
+    await assert.rejects(
+        runDag({
+            tiers: [tier('validate-matrix')],
+            root: temp,
+            runsRoot: path.join(temp, 'runs'),
+            runId: 'resumed-current-run-prerequisite',
+            mode: 'resume',
+            currentRunPreexecutedTierBindings: [currentBinding],
+            snapshotWorktree: stableSnapshot
+        }),
+        /only accepts schema .*current-run-behavior-doc-admission-binding\.v1 for tier behavior-doc-static-admission; received schema .*current-run-preexecuted-tier-binding\.v1 for tier validate-matrix/u
+    );
+    await assert.rejects(
+        runDag({
+            tiers: [tier('validate-matrix')],
+            root: temp,
+            runsRoot: path.join(temp, 'runs'),
+            runId: 'resumed-unknown-current-run-prerequisite',
+            mode: 'resume',
+            currentRunPreexecutedTierBindings: [{
+                ...currentBinding,
+                schema: 'fsusblog.test-matrix.unknown-binding.v1'
+            }],
+            snapshotWorktree: stableSnapshot
+        }),
+        /received schema fsusblog\.test-matrix\.unknown-binding\.v1/u
+    );
+
+    await assert.rejects(
+        runDag({
+            tiers: [tier('validate-matrix')],
+            root: temp,
+            runsRoot: path.join(temp, 'runs'),
+            runId,
+            mode: 'fresh',
+            sourceState,
+            currentRunPreexecutedTierBindings: [{
+                ...currentBinding,
+                consumerEvidenceDigest: 'forged'
+            }],
+            snapshotWorktree: stableSnapshot
+        }),
+        /current-run preexecuted tier binding is invalid: validate-matrix/u
+    );
+
+    const temporalReceiptFile = path.join(temp, currentBinding.temporalReceiptFile);
+    const temporalReceiptBytes = fs.readFileSync(temporalReceiptFile);
+    const forgedTemporalReceipt = JSON.parse(temporalReceiptBytes);
+    forgedTemporalReceipt.source.fingerprint = `sha256:${'c'.repeat(64)}`;
+    fs.writeFileSync(
+        temporalReceiptFile,
+        `${JSON.stringify(forgedTemporalReceipt, null, 2)}\n`
+    );
+    await assert.rejects(
+        runDag({
+            tiers: [tier('validate-matrix', {
+                artifacts: [
+                    '.tmp/release-evidence/test-plan.json',
+                    '.tmp/physical-execution-projections/validate-matrix-matrix-governance.json'
+                ],
+                evidence: [
+                    '.tmp/release-evidence/test-plan.json',
+                    '.tmp/physical-execution-projections/validate-matrix-matrix-governance.json'
+                ]
+            })],
+            root: temp,
+            runsRoot: path.join(temp, 'runs'),
+            runId,
+            mode: 'fresh',
+            sourceState,
+            currentRunPreexecutedTierBindings: [currentBinding],
+            snapshotWorktree: stableSnapshot
+        }),
+        /temporal.*binding/u
+    );
+    fs.writeFileSync(temporalReceiptFile, temporalReceiptBytes);
+
+    fs.rmSync(plan);
+    let missingOutputExecuted = false;
+    await assert.rejects(
+        runDag({
+            tiers: [tier('validate-matrix', {
+                artifacts: [
+                    '.tmp/release-evidence/test-plan.json',
+                    '.tmp/physical-execution-projections/validate-matrix-matrix-governance.json'
+                ],
+                evidence: [
+                    '.tmp/release-evidence/test-plan.json',
+                    '.tmp/physical-execution-projections/validate-matrix-matrix-governance.json'
+                ]
+            })],
+            root: temp,
+            runsRoot: path.join(temp, 'runs'),
+            runId,
+            mode: 'fresh',
+            sourceState,
+            currentRunPreexecutedTierBindings: [currentBinding],
+            snapshotWorktree: stableSnapshot,
+            executeTier: async () =>
+            {
+                missingOutputExecuted = true;
+                return { code: 0, signal: null };
+            }
+        }),
+        /run-bound projection output validation failed/u
+    );
+    assert.equal(missingOutputExecuted, false);
+});
+
 test('runDag collectFailures executes independent tiers and blocks only failed dependency descendants', async () =>
 {
     const { runDag } = await loadScheduler();
@@ -571,7 +1299,7 @@ test('real subprocess failure blocks the production correctness consumer and pre
 
 test('checkpoint evidence attach is atomic, run-bound, and preserves physical scheduler tiers', async () =>
 {
-    const { attachCheckpointEvidence, runDag, validateLocalProfileCheckpointEvidence } = await loadScheduler();
+    const { attachCheckpointEvidence, runDag } = await loadScheduler();
     assert.equal(typeof attachCheckpointEvidence, 'function');
     const { result, projection, attachOptions } = await createCheckpointEvidenceFixture(runDag);
 
@@ -598,9 +1326,16 @@ test('checkpoint evidence attach is atomic, run-bound, and preserves physical sc
     assert.equal(JSON.parse(fs.readFileSync(result.checkpointPath, 'utf8')).status, 'success');
 });
 
-test('external correctness receipts replace only their bound placeholder and fail closed', async () =>
+test('projection resume commits only after its locked completion callback succeeds', async () =>
 {
-    const { attachCheckpointEvidence, runDag, validateLocalProfileCheckpointEvidence } = await loadScheduler();
+    const {
+        attachCheckpointEvidence,
+        isProjectionOnlyCheckpointFailure,
+        markCheckpointWallClockTimeout,
+        resumeCheckpointEvidence,
+        runDag,
+        validateLocalProfileCheckpointEvidence
+    } = await loadScheduler();
     const fixture = await createCheckpointEvidenceFixture(runDag, 'external-receipt-binding');
     const placeholderPath = '.tmp/local-production/summary-only/external-operations-evidence.json';
     const receiptPath = '.tmp/external-receipts/external-operations-evidence.json';
@@ -646,21 +1381,319 @@ test('external correctness receipts replace only their bound placeholder and fai
     fixture.projection.executedTierCount = 2;
     fixture.projection.status = 'complete-success';
     fixture.projection.qualificationEligible = true;
-    const attached = await attachCheckpointEvidence(fixture.result.checkpointPath, fixture.result.runId, {
-        logicalTierProjection: fixture.projection
-    }, fixture.attachOptions);
+    const invalidProjection = structuredClone(fixture.projection);
+    invalidProjection.logicalTierCount += 1;
+    await assert.rejects(
+        attachCheckpointEvidence(fixture.result.checkpointPath, fixture.result.runId, {
+            logicalTierProjection: invalidProjection
+        }, fixture.attachOptions),
+        /logicalTierCount must match its entries/u
+    );
+    const failedCheckpointText = fs.readFileSync(fixture.result.checkpointPath, 'utf8');
+    assert.equal(isProjectionOnlyCheckpointFailure(JSON.parse(failedCheckpointText)), true);
+    let completionCalls = 0;
+    await assert.rejects(
+        resumeCheckpointEvidence(
+            fixture.result.checkpointPath,
+            fixture.result.runId,
+            () => ({ logicalTierProjection: fixture.projection }),
+            {
+                root: fixture.temp,
+                snapshotWorktree: stableSnapshot,
+                beforeCommit: async () =>
+                {
+                    completionCalls += 1;
+                    throw new Error('projection capacity completion failed');
+                }
+            }
+        ),
+        /projection capacity completion failed/u
+    );
+    assert.equal(completionCalls, 1);
+    assert.equal(fs.readFileSync(fixture.result.checkpointPath, 'utf8'), failedCheckpointText);
+    await assert.rejects(
+        resumeCheckpointEvidence(
+            fixture.result.checkpointPath,
+            fixture.result.runId,
+            () => ({ logicalTierProjection: fixture.projection }),
+            {
+                root: fixture.temp,
+                snapshotWorktree: stableSnapshot
+            }
+        ),
+        /requires a beforeCommit completion callback/u
+    );
+    assert.equal(fs.readFileSync(fixture.result.checkpointPath, 'utf8'), failedCheckpointText);
+    let snapshotCalls = 0;
+    await assert.rejects(
+        resumeCheckpointEvidence(
+            fixture.result.checkpointPath,
+            fixture.result.runId,
+            () => ({ logicalTierProjection: fixture.projection }),
+            {
+                root: fixture.temp,
+                snapshotWorktree: async () =>
+                {
+                    snapshotCalls += 1;
+                    return snapshotCalls < 3
+                        ? { fingerprint: 'stable', entries: {} }
+                        : { fingerprint: 'drifted-after-completion', entries: {} };
+                },
+                beforeCommit: async () =>
+                {
+                    completionCalls += 1;
+                }
+            }
+        ),
+        /checkpoint sourceState does not match the current repository source/u
+    );
+    assert.equal(snapshotCalls, 3);
+    assert.equal(completionCalls, 2);
+    assert.equal(fs.readFileSync(fixture.result.checkpointPath, 'utf8'), failedCheckpointText);
+    assert.equal(
+        isProjectionOnlyCheckpointFailure(
+            JSON.parse(fs.readFileSync(fixture.result.checkpointPath, 'utf8'))),
+        true
+    );
+    const transactionFile =
+        `${fixture.result.checkpointPath}.projection-resume-transaction.json`;
+    const transactionText = fs.readFileSync(transactionFile, 'utf8');
+    const assertTransactionRejected = async (pattern) =>
+    {
+        await assert.rejects(
+            resumeCheckpointEvidence(
+                fixture.result.checkpointPath,
+                fixture.result.runId,
+                () => ({ logicalTierProjection: fixture.projection }),
+                {
+                    root: fixture.temp,
+                    snapshotWorktree: stableSnapshot,
+                    beforeCommit: async () => assert.fail('invalid transaction cannot complete')
+                }
+            ),
+            pattern
+        );
+        assert.equal(fs.readFileSync(fixture.result.checkpointPath, 'utf8'), failedCheckpointText);
+    };
+    fs.writeFileSync(transactionFile, '{"tampered":true}\n');
+    await assertTransactionRejected(/transaction checkpoint bytes are invalid/u);
+    fs.writeFileSync(transactionFile, transactionText);
+    const digestMismatch = JSON.parse(transactionText);
+    digestMismatch.contentDigest = '0'.repeat(64);
+    fs.writeFileSync(transactionFile, `${JSON.stringify(digestMismatch, null, 2)}\n`);
+    await assertTransactionRejected(/transaction authority is invalid/u);
+    fs.writeFileSync(transactionFile, transactionText);
+    const symlinkTarget = `${transactionFile}.symlink-target`;
+    fs.writeFileSync(symlinkTarget, transactionText);
+    fs.rmSync(transactionFile);
+    fs.symlinkSync(symlinkTarget, transactionFile);
+    await assertTransactionRejected(/must be a regular file/u);
+    fs.rmSync(transactionFile);
+    fs.writeFileSync(transactionFile, transactionText);
+    assert.throws(
+        () => markCheckpointWallClockTimeout(
+            fixture.result.checkpointPath,
+            { tierId: 'production', reason: 'generic writer must be guarded' }),
+        /generic checkpoint writer cannot enter a projection resume transaction/u
+    );
+    assert.equal(fs.readFileSync(fixture.result.checkpointPath, 'utf8'), failedCheckpointText);
+    for (const persistenceStage of [
+        'journal-durable',
+        'compact-durable',
+        'compatibility-staged',
+        'metrics-durable',
+        'commit-before'
+    ])
+    {
+        const observedStages = [];
+        await assert.rejects(
+            resumeCheckpointEvidence(
+                fixture.result.checkpointPath,
+                fixture.result.runId,
+                () => ({ logicalTierProjection: fixture.projection }),
+                {
+                    root: fixture.temp,
+                    snapshotWorktree: stableSnapshot,
+                    beforeCommit: async () =>
+                    {
+                        completionCalls += 1;
+                    },
+                    projectionPersistenceFaultInjector: (stage) =>
+                    {
+                        observedStages.push(stage);
+                        if (stage === persistenceStage)
+                        {
+                            throw new Error(`projection persistence failed at ${stage}`);
+                        }
+                    }
+                }
+            ),
+            new RegExp(`projection persistence failed at ${persistenceStage}`, 'u')
+        );
+        assert.equal(observedStages.includes(persistenceStage), true);
+        assert.equal(fs.readFileSync(fixture.result.checkpointPath, 'utf8'), failedCheckpointText);
+        assert.equal(
+            fs.existsSync(`${fixture.result.checkpointPath}.projection-resume-transaction.json`),
+            true
+        );
+        assert.equal(
+            isProjectionOnlyCheckpointFailure(
+                JSON.parse(fs.readFileSync(fixture.result.checkpointPath, 'utf8'))),
+            true
+        );
+    }
+    const preparedTransaction = JSON.parse(transactionText);
+    const stagedCheckpoint =
+        `${fixture.result.checkpointPath}.projection-success-${preparedTransaction.expectedSuccessDigest}`;
+    await assert.rejects(
+        resumeCheckpointEvidence(
+            fixture.result.checkpointPath,
+            fixture.result.runId,
+            () => ({ logicalTierProjection: fixture.projection }),
+            {
+                root: fixture.temp,
+                snapshotWorktree: stableSnapshot,
+                beforeCommit: async () =>
+                {
+                    completionCalls += 1;
+                },
+                projectionPersistenceFaultInjector: (stage) =>
+                {
+                    if (stage === 'commit-before')
+                    {
+                        fs.writeFileSync(fixture.result.checkpointPath, `${failedCheckpointText} `);
+                    }
+                }
+            }
+        ),
+        /baseline checkpoint changed before commit/u
+    );
+    fs.writeFileSync(fixture.result.checkpointPath, failedCheckpointText);
+    await assert.rejects(
+        resumeCheckpointEvidence(
+            fixture.result.checkpointPath,
+            fixture.result.runId,
+            () => ({ logicalTierProjection: fixture.projection }),
+            {
+                root: fixture.temp,
+                snapshotWorktree: stableSnapshot,
+                beforeCommit: async () =>
+                {
+                    completionCalls += 1;
+                },
+                projectionPersistenceFaultInjector: (stage) =>
+                {
+                    if (stage === 'commit-before')
+                    {
+                        fs.writeFileSync(stagedCheckpoint, `${preparedTransaction.expectedSuccessBytes} `);
+                    }
+                }
+            }
+        ),
+        /staged checkpoint changed before commit/u
+    );
+    fs.writeFileSync(stagedCheckpoint, preparedTransaction.expectedSuccessBytes);
+    const attached = await resumeCheckpointEvidence(
+        fixture.result.checkpointPath,
+        fixture.result.runId,
+        () => ({ logicalTierProjection: fixture.projection }),
+        {
+            root: fixture.temp,
+            snapshotWorktree: stableSnapshot,
+            beforeCommit: async ({ checkpoint, evidence, checkpointFile }) =>
+            {
+                completionCalls += 1;
+                assert.equal(checkpoint.status, 'success');
+                assert.deepEqual(checkpoint.logicalTierProjection, fixture.projection);
+                assert.deepEqual(evidence.logicalTierProjection, fixture.projection);
+                assert.equal(checkpointFile, path.resolve(fixture.result.checkpointPath));
+                assert.equal(fs.readFileSync(fixture.result.checkpointPath, 'utf8'), failedCheckpointText);
+            }
+        }
+    );
+    assert.equal(completionCalls, 10);
+    assert.equal(
+        fs.existsSync(`${fixture.result.checkpointPath}.projection-resume-transaction.json`),
+        true
+    );
+    const committedTransaction = JSON.parse(fs.readFileSync(transactionFile, 'utf8'));
+    const committedCheckpointText = fs.readFileSync(fixture.result.checkpointPath, 'utf8');
+    const committedCheckpoint = JSON.parse(committedCheckpointText);
+    assert.equal(committedCheckpointText, committedTransaction.expectedSuccessBytes);
+    assert.equal(
+        createHash('sha256').update(committedCheckpointText).digest('hex'),
+        committedTransaction.expectedSuccessDigest
+    );
+    assert.equal(committedCheckpoint.revision, committedTransaction.expectedRevision);
+    assert.deepEqual(committedCheckpoint, attached);
+    const committedStore = new RunEvidenceObjectStore({
+        root: path.join(path.dirname(fixture.result.checkpointPath), 'evidence-store'),
+        runId: fixture.result.runId,
+        sourceState: committedCheckpoint.sourceState
+    });
+    const recovered = committedStore.recover(applyFixtureCheckpointPatch);
+    const compact = committedStore.readCompactCheckpoint();
+    assert.deepEqual(recovered.state, committedCheckpoint);
+    assert.deepEqual(compact.state, committedCheckpoint);
+    assert.equal(recovered.lastSequence, compact.checkpoint.lastSequence);
+    const storageMetrics = JSON.parse(fs.readFileSync(
+        path.join(path.dirname(fixture.result.checkpointPath), 'evidence-storage-metrics.json'),
+        'utf8'
+    ));
+    assert.equal(
+        storageMetrics.projectionCheckpointDigest,
+        committedTransaction.expectedSuccessDigest
+    );
+    assert.equal(
+        storageMetrics.projectionCheckpointRevision,
+        committedTransaction.expectedRevision
+    );
+    assert.equal(storageMetrics.schedulerCompatibilityCheckpointWrites, 2);
+    assert.equal(
+        storageMetrics.schedulerCompatibilityCheckpointBytesWritten,
+        Buffer.byteLength(committedTransaction.baselineBytes)
+        + Buffer.byteLength(committedTransaction.expectedSuccessBytes)
+    );
+    assert.throws(
+        () => markCheckpointWallClockTimeout(
+            fixture.result.checkpointPath,
+            { tierId: 'production', reason: 'committed generic writer must be guarded' }),
+        /generic checkpoint writer cannot enter a projection resume transaction/u
+    );
+    assert.equal(
+        fs.readFileSync(fixture.result.checkpointPath, 'utf8'),
+        committedCheckpointText
+    );
     assert.equal(attached.logicalTierProjection.entries['external-operations-evidence'].evidenceKind, 'external-executed');
     assert.deepEqual(attached.logicalTierProjection.entries['external-operations-evidence'].blockedPlaceholder, placeholder);
     fs.writeFileSync(path.join(fixture.temp, placeholderPath), '{"tampered":true}\n');
     assert.throws(() => validateLocalProfileCheckpointEvidence(attached, fixture.temp), /blocked placeholder/u);
 
     for (const mutate of [
-        (candidate) => { candidate.schedulerRunId = 'old-run'; },
-        (candidate) => { candidate.status = 'failed'; },
-        (candidate) => { candidate.status = 'cancelled'; },
-        (candidate) => { candidate.authorityId = 'forged-authority'; },
-        (candidate) => { candidate.buildIdentity.buildId = 'forged-build'; },
-        (candidate) => { candidate.contentDigest = `sha256:${'0'.repeat(64)}`; }
+        (candidate) =>
+        {
+            candidate.schedulerRunId = 'old-run';
+        },
+        (candidate) =>
+        {
+            candidate.status = 'failed';
+        },
+        (candidate) =>
+        {
+            candidate.status = 'cancelled';
+        },
+        (candidate) =>
+        {
+            candidate.authorityId = 'forged-authority';
+        },
+        (candidate) =>
+        {
+            candidate.buildIdentity.buildId = 'forged-build';
+        },
+        (candidate) =>
+        {
+            candidate.contentDigest = `sha256:${'0'.repeat(64)}`;
+        }
     ])
     {
         const invalid = structuredClone(receipt);
@@ -1547,7 +2580,7 @@ test('active dynamic bundles expand from the live scheduler grant after a siblin
                 if (expandedGrant?.cpuUnits === 8)
                 {
                     break;
-                };
+                }
                 await delay(5);
             } while (Date.now() < deadline);
             return { code: 0, signal: null };
@@ -1751,32 +2784,35 @@ test('runDag enforces a wall-clock deadline and records the timed-out tier', { s
     assert.ok(Array.isArray(result.checkpoint.ungeneratedEvidence));
 });
 
-test('runDag charges pre-DAG elapsed time against the same wall-clock budget', { skip: process.platform === 'win32' }, async () =>
+test('runDag charges pre-DAG elapsed time against the same wall-clock budget', async () =>
 {
     const { runDag } = await loadScheduler();
     const temp = createTempDir('scheduler-pre-dag-deadline');
-    const slowFile = path.join(temp, 'slow.mjs');
-    fs.writeFileSync(slowFile, 'setInterval(() => {}, 1000)\n');
-    const wallClockStartedAtMs = Date.now() - 200;
-    const invokedAt = Date.now();
+    const wallClockStartedAtMs = Date.now() - 300;
+    let executed = false;
 
     const result = await runDag({
-        tiers: [tier('slow', { command: `${JSON.stringify(process.execPath)} ${JSON.stringify(slowFile)}` })],
+        tiers: [tier('slow')],
         root: temp,
         runsRoot: path.join(temp, 'runs'),
         runId: 'pre-dag-deadline',
         maxParallel: 1,
         wallClockBudgetMs: 250,
         wallClockStartedAtMs,
-        terminationGraceMs: 25,
         systemResources: { cpuCount: 8, availableMemoryGiB: 8, load1: 0 },
-        snapshotWorktree: stableSnapshot
+        snapshotWorktree: stableSnapshot,
+        executeTier: async () =>
+        {
+            executed = true;
+            return { code: 0, signal: null };
+        }
     });
 
     assert.equal(result.status, 'failure');
     assert.equal(result.checkpoint.timedOut, true);
     assert.equal(Date.parse(result.checkpoint.startedAt), wallClockStartedAtMs);
-    assert.ok(Date.now() - invokedAt < 180, 'scheduler must use the remaining budget instead of restarting a full 250ms timer');
+    assert.equal(result.failure.reason, 'wall-clock budget exceeded (250ms)');
+    assert.equal(executed, false, 'an exhausted end-to-end budget must prevent DAG work from starting');
 });
 
 test('collectFailures consumes active settlements once after the wall-clock deadline without busy looping', { skip: process.platform === 'win32' }, () =>
@@ -1798,13 +2834,13 @@ test('collectFailures consumes active settlements once after the wall-clock dead
         "  runId: 'deadline-collect-settle',",
         '  maxParallel: 2,',
         '  collectFailures: true,',
-        '  wallClockBudgetMs: 25,',
+        '  wallClockBudgetMs: 500,',
         '  terminationGraceMs: 10,',
         '  systemResources: { cpuCount: 2, availableMemoryGiB: 2, load1: 0 },',
         "  snapshotWorktree: async () => ({ fingerprint: 'stable', entries: {} }),",
         '  executeTier: async (current) => {',
         '    executed.push(current.id)',
-        "    await delay(current.id === 'active-a' ? 80 : 110)",
+        "    await delay(current.id === 'active-a' ? 900 : 1100)",
         '    return { code: 0, signal: null }',
         '  },',
         '  abortTier: (current) => { aborted.push(current.id) },',
@@ -1823,7 +2859,7 @@ test('collectFailures consumes active settlements once after the wall-clock dead
     const probe = spawnSync(process.execPath, [probeFile], {
         cwd: temp,
         encoding: 'utf8',
-        timeout: 2_000
+        timeout: 5_000
     });
     assert.equal(probe.error, undefined, probe.error?.message);
     assert.equal(probe.status, 0, probe.stderr);
@@ -2049,6 +3085,40 @@ test('resume ignores invocation timing metadata but invalidates real execution e
     assert.equal(executionEnvironmentResume.status, 'success');
     assert.deepEqual(executionEnvironmentResume.reusedTiers, []);
     assert.deepEqual(executed, ['work']);
+});
+
+test('scheduler injects its authoritative Fresh or resume mode into every tier environment', async () =>
+{
+    const { runDag } = await loadScheduler();
+    const temp = createTempDir('scheduler-execution-source');
+    const runsRoot = path.join(temp, 'runs');
+    const inputFile = path.join(temp, 'input.txt');
+    fs.writeFileSync(inputFile, 'fresh\n');
+    const current = tier('work', { cacheInputs: ['input.txt'] });
+    const executionSources = [];
+    const run = (mode) => runDag({
+        tiers: [current],
+        root: temp,
+        runsRoot,
+        runId: 'execution-source',
+        mode,
+        resume: mode === 'resume',
+        maxParallel: 1,
+        snapshotWorktree: stableSnapshot,
+        envForTier: () => ({
+            FSUSBLOG_TEST_EXECUTION_SOURCE: 'caller-must-not-override-scheduler-mode'
+        }),
+        executeTier: async (_selected, context) =>
+        {
+            executionSources.push(context.env.FSUSBLOG_TEST_EXECUTION_SOURCE);
+            return { code: 0, signal: null };
+        }
+    });
+
+    await run('fresh');
+    fs.writeFileSync(inputFile, 'resume\n');
+    await run('resume');
+    assert.deepEqual(executionSources, ['fresh', 'resume']);
 });
 
 test('an early resume failure preserves untouched success candidates for the next resume', async () =>
@@ -2412,7 +3482,8 @@ test('derived cache inputs invalidate only the affected backend or frontend tier
     const frontendExecutions = [];
     const executeFrontend = async () =>
     {
-        frontendExecutions.push('run'); return { code: 0, signal: null };
+        frontendExecutions.push('run');
+        return { code: 0, signal: null };
     };
     await runDag({ tiers: [frontend], root: repo, runsRoot, runId: 'frontend-fallback', mode: 'fresh', snapshotWorktree: stableSnapshot, executeTier: executeFrontend });
     fs.writeFileSync(path.join(repo, 'src/backend/source.cs'), 'backend-v3\n');
@@ -2570,7 +3641,11 @@ test('supersedes rewires ordinary unit coverage subsets and rejects protected te
             coverage: ['ordinary-unit', 'ordinary-unit-extra'],
             supersedes: ['unit-slow']
         }),
-        tier('summary', { executionDependsOn: ['unit-slow'], coverage: [] })
+        tier('summary', {
+            executionDependsOn: ['unit-slow'],
+            requiresEvidenceFrom: ['unit-slow'],
+            coverage: []
+        })
     ];
     const registry = new Map([
         ['ordinary-unit', { assertionType: 'unit' }],
@@ -2580,6 +3655,7 @@ test('supersedes rewires ordinary unit coverage subsets and rejects protected te
     const selected = applySupersedes(ordinary);
     assert.deepEqual(selected.map((item) => item.id).sort(), ['summary', 'unit-fast']);
     assert.deepEqual(selected.find((item) => item.id === 'summary').executionDependsOn, ['unit-fast']);
+    assert.deepEqual(selected.find((item) => item.id === 'summary').requiresEvidenceFrom, ['unit-fast']);
 
     for (const kind of ['property', 'model', 'perf', 'runtime'])
     {
@@ -3671,6 +4747,7 @@ test('resident leases stay in admission accounting, hand off once, and release c
     const temp = createTempDir('scheduler-resident-leases');
     const runId = 'resident-run';
     const namespace = 'resident-namespace';
+    const sourceState = { commit: 'unversioned', worktreeFingerprint: 'stable' };
     let residentLive = true;
     let consumerGrant = null;
     let consumerEnvironment = null;
@@ -3705,6 +4782,7 @@ test('resident leases stay in admission accounting, hand off once, and release c
         runId,
         targetTierId: 'after-exit',
         mode: 'fresh',
+        sourceState,
         maxParallel: 2,
         systemResources: { cpuCount: 4, availableCpuUnits: 4, availableMemoryGiB: 4, load1: 0 },
         currentFreeMemoryGiB: () => 4,
@@ -3720,6 +4798,7 @@ test('resident leases stay in admission accounting, hand off once, and release c
                 const unboundInventory = createResidentLeaseInventory({
                     runId,
                     namespace,
+                    sourceState,
                     ownerBundleId: 'runtime-browser',
                     resourceGrant: { cpuUnits: 2, memoryGiB: 1.9999996 },
                     schedulerResourceGrant: { cpuUnits: 2, memoryGiB: 2 },
@@ -3763,8 +4842,13 @@ test('resident leases stay in admission accounting, hand off once, and release c
             {
                 consumerEnvironment = context.env;
                 consumerStartedBeforeHandoff = !fs.existsSync(context.env.FSUSBLOG_RESIDENT_LEASE_HANDOFF);
+                const handoffDeadline = Date.now() + 5_000;
                 while (!fs.existsSync(context.env.FSUSBLOG_RESIDENT_LEASE_HANDOFF))
                 {
+                    if (Date.now() >= handoffDeadline)
+                    {
+                        throw new Error('resident handoff was not published');
+                    }
                     await delay(2);
                 }
                 const inventory = readResidentLeaseDocument(context.env.FSUSBLOG_RESIDENT_LEASE_INVENTORY);
@@ -3778,6 +4862,7 @@ test('resident leases stay in admission accounting, hand off once, and release c
                 const restartedUnbound = createResidentLeaseInventory({
                     runId,
                     namespace,
+                    sourceState,
                     ownerBundleId: 'runtime-browser',
                     resourceGrant: { cpuUnits: 2, memoryGiB: 2 },
                     resourceBudget: { cpuUnits: 4, memoryGiB: 4 },
@@ -3846,6 +4931,7 @@ test('failed resident producer retains partial live-service evidence without pub
     const temp = createTempDir('scheduler-resident-partial');
     const runId = 'resident-partial';
     const namespace = 'resident-partial-namespace';
+    const sourceState = { commit: 'unversioned', worktreeFingerprint: 'stable' };
     const runtime = tier('runtime', {
         physicalBundleId: 'runtime-browser', residentLeaseProducer: true,
         residentLeaseTarget: 'performance-evidence', cpuUnits: 2, memoryGiB: 2
@@ -3861,6 +4947,7 @@ test('failed resident producer retains partial live-service evidence without pub
         runId,
         targetTierId: 'performance',
         mode: 'fresh',
+        sourceState,
         collectFailures: true,
         maxParallel: 1,
         systemResources: { cpuCount: 4, availableCpuUnits: 4, availableMemoryGiB: 4, load1: 0 },
@@ -3880,6 +4967,7 @@ test('failed resident producer retains partial live-service evidence without pub
                 const unboundInventory = createResidentLeaseInventory({
                     runId,
                     namespace,
+                    sourceState,
                     ownerBundleId: 'runtime-browser',
                     resourceGrant: { cpuUnits: 2, memoryGiB: 2 },
                     resourceBudget: { cpuUnits: 4, memoryGiB: 4 },

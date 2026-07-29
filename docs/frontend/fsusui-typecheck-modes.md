@@ -12,7 +12,7 @@ Use this mode for release/package-consumption validation. It must not rely on lo
 
 `npm run typecheck:local-fsusui` checks the same export contract against a local FsusUI checkout.
 
-By default it uses the sibling workspace at `../../../FsusUI` from `src/frontend`. Set `FSUSBLOG_LOCAL_FSUSUI_ROOT` to override that path. This is the mode to run during local development before the FsusUI package has been published.
+By default it resolves the `FsusUI` checkout beside the primary FsusBlog checkout, including when the command runs from a linked Git worktree. Set `FSUSBLOG_LOCAL_FSUSUI_ROOT` to select another checkout; an invalid explicit path fails closed instead of falling back to the installed package. This is the mode to run during local development before the FsusUI package has been published.
 
 ## Full App Typecheck
 

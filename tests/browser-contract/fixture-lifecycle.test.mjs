@@ -5,11 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { createProductionBuildReceipt } from '../../tools/ci/production-build-artifacts.mjs';
-import {
-    defaultTimeoutPolicyDigest,
-    qualificationTemporalContext
-} from '../../tools/test/temporal-context.mjs';
+const { createProductionBuildReceipt } = await import(new URL("../../tools/ci/production-build-artifacts.mjs", import.meta.url));
+const { defaultTimeoutPolicyDigest, qualificationTemporalContext } = await import(new URL("../../tools/test/temporal-context.mjs", import.meta.url));
 
 import {
     createBrowserContractReceipt,
