@@ -336,7 +336,7 @@ PublicHot delivery result 为 `cancelled`、`closed` 或 `failed` 时，上述 m
 | POST | `/api/binary/author/drafts` | 👑 | 以 `expectedServerRevision` CAS 保存草稿；返回递增 `serverRevision` 与原始 `baseRevisionId` |
 | GET | `/api/binary/author/drafts/{draftKey}` | 👑 | 读取服务端草稿、`serverRevision` 与原始 `baseRevisionId` |
 | DELETE | `/api/binary/author/drafts/{draftKey}?expectedServerRevision={revision}` | 👑 | 版本前置条件匹配后丢弃；stale 返回 `draft_conflict` |
-| POST | `/api/binary/author/preview` | 👑 | admin-only 私有 Markdown/AOT-like 预览 |
+| POST | `/api/binary/author/preview` | 👑 | admin-only 结构化私有预览（规范化字段 + source identity + issues；无 HTML） |
 | POST | `/api/binary/author/prepublish-check` | 👑 | 发布前 SEO/内容质量检查 |
 | GET | `/api/binary/author/articles/{articleId}/revisions` | 👑 | 文章修订列表 |
 | GET | `/api/binary/author/articles/{articleId}/revisions/{revisionId}` | 👑 | 完整历史版本包：正文、rights、responsibility 与 release 坐标；缺项通过 `packageComplete` 明示 |

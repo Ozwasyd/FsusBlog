@@ -154,6 +154,25 @@ test('release build declares independent prebuild stages and explicit postbuild 
     assert.ok(byId.get('vite-build').producedArtifacts.some((entry) => entry.endsWith('/assets/fsus-spa-entry.js')));
     assert.ok(byId.get('vite-build').producedArtifacts.some((entry) => entry.endsWith('/assets/fsus-public-boot-kernel.js')));
     assert.ok(byId.get('vite-public-ssr-build').producedArtifacts.some((entry) => entry.endsWith('/server/public-shell-emergency.css')));
+    assert.match(
+        byId.get('vite-public-ssr-build').consumedInputs[2],
+        /(?:FsusUI\/vue\/packages\/wasm\/dist|node_modules\/@ozwasyd\/element-plus\/es\/wasm\/dist)$/u
+    );
+    assert.deepEqual(
+        byId.get('vite-public-ssr-build').producedArtifacts
+            .filter((entry) => entry.includes('/server/dist/'))
+            .map((entry) => path.basename(entry))
+            .sort(),
+        [
+            'markdown_basic.js',
+            'markdown_basic.wasm',
+            'markdown_simd.js',
+            'markdown_simd.wasm'
+        ]
+    );
+    assert.deepEqual(byId.get('vite-public-ssr-build').ownedOutputs, [
+        path.join(repositoryRoot, 'src/frontend/dist/server')
+    ]);
     assert.deepEqual(byId.get('sync-backend-wwwroot').dependsOn, [
         'vite-build',
         'vite-public-ssr-build',

@@ -119,6 +119,26 @@ function assertStaticContracts() {
       fail(`production SSR build must emit a dist/server ESM boundary: ${token}`)
     }
   }
+  for (const token of [
+    'localFsusUiConsumptionDisabled',
+    'resolveLocalFsusUiRepositoryRoot',
+    "join(distServerDir, 'dist')",
+    'copyMarkdownRuntimeAssets'
+  ]) {
+    if (!publicSsrBuildScript.includes(token)) {
+      fail(`production SSR build must resolve and copy its FsusUI runtime authority: ${token}`)
+    }
+  }
+  for (const fileName of [
+    'markdown_simd.js',
+    'markdown_simd.wasm',
+    'markdown_basic.js',
+    'markdown_basic.wasm'
+  ]) {
+    if (!publicSsrBuildScript.includes(`'${fileName}'`)) {
+      fail(`production SSR build must own ${fileName}`)
+    }
+  }
   for (const token of ['/internal/public-aot/manifest', '/internal/public-aot/health', 'FSUSBLOG_PUBLIC_AOT_CONCURRENCY', '--concurrency', '--json-report', '--fail-fast']) {
     if (!warmScript.includes(token)) {
       fail(`warm script must consume route manifest and expose bounded warm controls: ${token}`)
@@ -411,7 +431,7 @@ function assertStaticContracts() {
     'aria-',
     'data-public-',
     'data-aot-action',
-    'runtime-only islands are allowlisted explicitly',
+    'runtime-only islands remain the only explicit structural allowlist',
     'public-hydration-dom-diff-summary.json'
   ]) {
     if (!domDiffHydrationCheck.includes(token)) {
@@ -709,6 +729,11 @@ function sendWorkerRequest(bundle, pageKind, options) {
 }
 
 async function assertBundleWorkerSmoke(bundle) {
+  const renderAuthority = {
+    renderTimestamp: '2026-07-31T00:00:00.000Z',
+    renderLocale: 'zh-CN',
+    localeCatalogDigest: bundle.LOCALE_CATALOG_DIGEST
+  }
   const featuredArticle = {
     id: 1,
     title: 'Featured Article',
@@ -773,7 +798,10 @@ async function assertBundleWorkerSmoke(bundle) {
   ]
 
   for (const { kind, options } of cases) {
-    const entry = await sendWorkerRequest(bundle, kind, options)
+    const entry = await sendWorkerRequest(bundle, kind, {
+      ...renderAuthority,
+      ...options
+    })
     if (!entry.rendererVersion || entry.rendererVersion !== bundle.PUBLIC_RENDERER_VERSION) {
       fail(`bundle worker rendererVersion mismatch for ${kind}`)
     }

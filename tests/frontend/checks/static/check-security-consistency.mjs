@@ -1,8 +1,9 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const srcRoot = resolve(process.cwd(), 'src')
-const repoRoot = resolve(process.cwd(), '..', '..')
+const repoRoot = fileURLToPath(new URL('../../../../', import.meta.url))
+const srcRoot = resolve(repoRoot, 'src/frontend/src')
 
 const bannedRules = [
   {
@@ -12,13 +13,14 @@ const bannedRules = [
   {
     label: 'DOMPurify mainline import',
     regex: /from\s+['"]dompurify['"]/g
+  },
+  {
+    label: 'local Markdown or preview HTML sanitizer',
+    regex: /\b(?:sanitizePreviewHtml|sanitizeMarkdownRuntimeHtml|sanitizeHtmlAllowlist|sanitizeHtmlFallback)\b/g
   }
 ]
 
-const vHtmlWhitelist = new Set([
-  'public-renderers/PublicArticleDetailPage.vue',
-  'views/ArticleDetail.vue'
-])
+const vHtmlWhitelist = new Set()
 
 const publicRendererInnerHtmlWhitelist = new Set()
 
@@ -61,6 +63,11 @@ function walk(dir) {
       && !publicRendererInnerHtmlWhitelist.has(relativePath)
     ) {
       violations.push(`${relativePath}: public renderer innerHTML sink is not in the audited whitelist`)
+    }
+
+    if (/(?:markdown|preview|public-renderers)/iu.test(relativePath)
+      && /(?:\bv-html\s*=|\.innerHTML\s*=|\.outerHTML\s*=|insertAdjacentHTML\s*\(|\bsrcdoc\s*=)/u.test(content)) {
+      violations.push(`${relativePath}: Markdown and preview code must not own an HTML sink`)
     }
 
     if (relativePath !== cspRuntimeStyleBoundary) {
@@ -109,14 +116,20 @@ function requireNotContains(file, needle, message) {
 }
 
 const privatePreview = readRepoFile('src/frontend/src/components/admin/article/ArticlePrivatePreviewPanel.vue')
-if (privatePreview.includes('sandbox="allow-scripts"')) {
-  violations.push('src/frontend/src/components/admin/article/ArticlePrivatePreviewPanel.vue: preview iframe must not allow scripts')
+for (const forbidden of ['<iframe', 'srcdoc', '<!doctype', 'sanitizePreviewHtml', 'toTrustedSanitizedHtml']) {
+  if (privatePreview.toLowerCase().includes(forbidden.toLowerCase())) {
+    violations.push(`src/frontend/src/components/admin/article/ArticlePrivatePreviewPanel.vue: structured preview must not contain ${forbidden}`)
+  }
 }
-if (/executableHtmlPattern|eventHandlerAttributePattern|\.replace\(executableHtmlPattern/.test(privatePreview)) {
-  violations.push('src/frontend/src/components/admin/article/ArticlePrivatePreviewPanel.vue: preview sanitizer must not be regex-based')
-}
-if (!privatePreview.includes('sanitizePreviewHtml')) {
-  violations.push('src/frontend/src/components/admin/article/ArticlePrivatePreviewPanel.vue: preview must use audited sanitizePreviewHtml')
+for (const required of [
+  ':src="preview.normalizedCoverImageUrl"',
+  '{{ preview.normalizedTitle }}',
+  '{{ preview.normalizedSummary }}',
+  ':content="preview.normalizedMarkdownSource"'
+]) {
+  if (!privatePreview.includes(required)) {
+    violations.push(`src/frontend/src/components/admin/article/ArticlePrivatePreviewPanel.vue: structured preview must include ${required}`)
+  }
 }
 
 const localFixtureSession = readRepoFile('src/frontend/src/services/localFixtureSession.ts')
@@ -201,7 +214,7 @@ for (const token of [
   'const MARKDOWN_RENDERER_WORKER_PATH =',
   'const APPLICATION_WORKER_PATH =',
   "const SERVICE_WORKER_MODULE_PATH = '/sw.js'",
-  'setSanitizedTemplateHtml',
+  'toTrustedMarkdownHtml',
   'setNonExecutableScriptText',
   'setCommentPrivacyProverScriptUrl',
   'toTrustedMarkdownWorkerScriptUrl',
@@ -225,16 +238,6 @@ requireContains(
   'public shell must expose one explicit runtime geometry owner below library fallback variables'
 )
 requireContains(
-  'src/frontend/src/utils/safeHtml.ts',
-  'setSanitizedTemplateHtml(template, sanitizeHtmlFallback(html))',
-  'HTML parser must use the sanitized TrustedHTML wrapper'
-)
-requireNotContains(
-  'src/frontend/src/utils/safeHtml.ts',
-  'template.innerHTML =',
-  'HTML parser must not assign raw strings to innerHTML'
-)
-requireContains(
   'src/frontend/src/privacy/commentPrivacyWasmProver.ts',
   'setCommentPrivacyProverScriptUrl(script, moduleUrl)',
   'privacy prover module must use the exact-path TrustedScriptURL wrapper'
@@ -248,6 +251,11 @@ requireContains(
   'src/frontend/src/components/ui/MarkdownRenderer.vue',
   ':trusted-script-url-factory="toTrustedMarkdownWorkerScriptUrl"',
   'Markdown worker must use the hashed-asset TrustedScriptURL wrapper'
+)
+requireNotContains(
+  'src/frontend/src/public-renderers/publicHydrationRoot.ts',
+  "from '@/public-renderers/publicEntryCore'",
+  'client hydration must not pull the server/AOT core into its bundle closure'
 )
 requireContains(
   'src/frontend/src/services/serviceWorkerRuntime.ts',
@@ -306,10 +314,40 @@ for (const pattern of [/\bmeta\b[^\n]*\broles\b/u, /to[.]meta[.]roles/u, /meta:\
   }
 }
 
+for (const forbidden of [
+  'sanitizePreviewHtml',
+  'sanitizeMarkdownRuntimeHtml',
+  'sanitizeHtmlAllowlist',
+  'sanitizeHtmlFallback',
+  'toTrustedSanitizedHtml',
+  'setSanitizedTemplateHtml',
+  'initialHtml',
+  'initial-html',
+  'allowHtml',
+  'allow-html'
+]) {
+  for (const sourceFile of [
+    'src/frontend/src/fsusui/markdown.ts',
+    'src/frontend/src/components/ui/MarkdownRenderer.vue',
+    'src/frontend/src/public-renderers/publicEntryCore.ts'
+  ]) {
+    requireNotContains(sourceFile, forbidden, `Markdown safety boundary must not contain legacy ${forbidden}`)
+  }
+}
 requireContains(
   'src/frontend/src/fsusui/markdown.ts',
-  'sanitizeMarkdownRuntimeHtml',
-  'markdown runtime wrapper must apply a second-pass sanitizer'
+  'return result',
+  'Markdown runtime wrapper must preserve the FsusUI result object'
+)
+requireContains(
+  'src/frontend/src/components/ui/MarkdownRenderer.vue',
+  ':initial-render="props.initialRender"',
+  'Markdown renderer must accept only the FsusUI safe initial result'
+)
+requireContains(
+  'src/frontend/src/components/ui/MarkdownRenderer.vue',
+  ':trusted-html-factory="toTrustedMarkdownHtml"',
+  'Markdown renderer must pass the opaque FsusUI HTML brand to the host policy'
 )
 requireNotContains(
   'src/frontend/eslint.config.mjs',

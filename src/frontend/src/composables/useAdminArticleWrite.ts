@@ -15,6 +15,7 @@ import {
 import {
   checkArticlePrepublish,
   cleanupOrphanAssets,
+  createArticlePreviewSourceIdentity,
   discardServerDraft,
   generateAiAssist,
   getArticleRevision,
@@ -68,6 +69,7 @@ import {
   type ArticleRecoveryOperationKind
 } from '@/services/articleRecoveryJournal'
 import { purgeRetiredArticleDraftMetadata } from '@/services/privateStorageRegistry'
+import { useArticlePreviewGeneration } from '@/composables/articlePreviewGeneration'
 
 interface ArticleParams {
   title: string
@@ -778,6 +780,22 @@ export function useAdminArticleWrite() {
       : null,
     rights: { ...snapshot.rights },
     expectedServerRevision: snapshot.serverRevision
+  })
+
+  const articlePreviewGeneration = useArticlePreviewGeneration({
+    target: privatePreview,
+    readRequest: () => buildServerDraftRequest(
+      buildDraftSnapshot(createArticleRecoveryClientRevision(), 'server')
+    ),
+    readCurrentSnapshot: () => ({
+      title: articleForm.title,
+      content: articleForm.content,
+      summary: articleForm.summary,
+      coverImageUrl: articleForm.coverImageUrl
+    }),
+    createIdentity: createArticlePreviewSourceIdentity,
+    requestPreview: (request, signal) =>
+      previewArticleDraft(request, buildSignalConfig(signal))
   })
 
   const snapshotFromServerDraft = (draft: ServerDraftResponse): ArticleDraftSnapshot => {
@@ -1494,13 +1512,11 @@ export function useAdminArticleWrite() {
     taskFeedback.begin('正在生成私有预览', '预览不会发布到公开站点', 'article-preview')
     try {
       await previewTask.run(async (signal) => {
-        const snapshot = buildDraftSnapshot(createArticleRecoveryClientRevision(), 'server')
-        const preview = await previewArticleDraft(buildServerDraftRequest(snapshot), buildSignalConfig(signal))
-        if (signal.aborted) {
+        const preview = await articlePreviewGeneration.generate(signal)
+        if (!preview) {
           return
         }
 
-        privatePreview.value = preview
         const errorCount = preview.issues.filter((issue) => issue.severity.toLowerCase() === 'error').length
         privatePreviewStatusText.value = errorCount > 0
           ? `已生成预览，存在 ${errorCount} 个发布阻断项`

@@ -15,6 +15,7 @@ import {
 import { normalizePublicHydrationPayload } from './publicPayloadNormalizer'
 import {
   createPublicHydrationRootComponent,
+  renderPublicHydrationMarkdown,
   type PublicHydrationTakeoverController
 } from './publicHydrationRoot'
 import { registerPublicStaticRouterLink } from './publicStaticRouterLink'
@@ -138,6 +139,7 @@ export async function hydratePublicPage(payload: PublicHydrationPayload): Promis
   markHydrationStep('hydrate:start')
 
   const normalizedPayload = normalizePublicHydrationPayload(payload)
+  const initialRender = await renderPublicHydrationMarkdown(normalizedPayload)
   await activateLocaleRuntime(
     normalizedPayload.renderLocale,
     requiredLocaleDomainsForPublicPage(normalizedPayload.pageKind)
@@ -150,7 +152,11 @@ export async function hydratePublicPage(payload: PublicHydrationPayload): Promis
         active: ref(false),
         renderer: shallowRef<(() => VNode) | null>(null)
       }
-      const app = createSSRApp(createPublicHydrationRootComponent(normalizedPayload, takeoverController))
+      const app = createSSRApp(createPublicHydrationRootComponent(
+        normalizedPayload,
+        initialRender,
+        takeoverController
+      ))
       const pinia = createPinia()
       pinia.use(piniaPluginPersistedstate)
       app.use(pinia)

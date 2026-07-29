@@ -20,9 +20,9 @@
     </header>
 
     <div class="space-y-4 p-4 bg-[var(--fsusblog-page-bg)]">
-      <div v-if="issues.length > 0" class="preview-issues" aria-label="预览检查结果">
+      <div v-if="preview?.issues.length" class="preview-issues" aria-label="预览检查结果">
         <span
-          v-for="issue in issues"
+          v-for="issue in preview.issues"
           :key="`${issue.severity}:${issue.code}`"
           class="preview-issue"
           :class="`preview-issue--${issue.severity}`"
@@ -31,28 +31,55 @@
         </span>
       </div>
 
-      <iframe
-        v-if="html"
-        class="preview-frame"
-        title="私有预览渲染结果"
-        sandbox=""
-        :srcdoc="previewDocument"
-      ></iframe>
+      <article
+        v-if="preview"
+        class="author-preview"
+        data-preview-only="true"
+        data-fsus-surface="reading"
+        :data-preview-source-identity="preview.sourceIdentity"
+        :data-preview-render-complete="previewRenderComplete
+          ? preview.sourceIdentity
+          : undefined"
+        :data-preview-render-markdown-identity="renderMarkdownIdentity ?? undefined"
+        :data-preview-activation-markdown-identity="activationMarkdownIdentity ?? undefined"
+      >
+        <h1>{{ preview.normalizedTitle }}</h1>
+        <p class="author-preview__summary">{{ preview.normalizedSummary }}</p>
+        <figure v-if="preview.normalizedCoverImageUrl" class="author-preview__cover">
+          <img
+            :src="preview.normalizedCoverImageUrl"
+            alt=""
+            loading="lazy"
+            decoding="async"
+          >
+        </figure>
+        <ArticleBodyMarkdownPreview
+          :key="preview.sourceIdentity"
+          :content="preview.normalizedMarkdownSource"
+          :content-version="preview.sourceIdentity"
+          @features-activated="handleFeaturesActivated"
+          @render-complete="handleRenderComplete"
+          @render-error="handleRenderError"
+        />
+      </article>
       <p v-else class="preview-empty">暂无预览快照。</p>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { View } from '@/fsusui/icons'
-import { sanitizePreviewHtml } from '@/utils/safeHtml'
-import { toTrustedSanitizedHtml } from '@/security/trustedTypesRuntime'
-import type { PrepublishIssue } from '@/api/authoring'
+import ArticleBodyMarkdownPreview from '@/components/admin/article/ArticleBodyMarkdownPreview.vue'
+import type { ArticlePreviewResponse } from '@/api/authoring'
+import type {
+  MarkdownFeatureActivationKind,
+  MarkdownFeatureActivationResult,
+  MarkdownRenderResult
+} from '@/fsusui/markdown'
 
 const props = defineProps<{
-  html: string
-  issues: PrepublishIssue[]
+  preview: ArticlePreviewResponse | null
   loading: boolean
   statusText: string
   canPreview: boolean
@@ -62,35 +89,172 @@ defineEmits<{
   (e: 'preview'): void
 }>()
 
-const sanitizedHtml = computed(() => sanitizePreviewHtml(props.html))
+type MarkdownCompletionObservation = Readonly<{
+  previewIdentity: string
+  markdownIdentity: string
+}>
 
-const previewDocument = computed(() => toTrustedSanitizedHtml(`<!doctype html>
-<html lang="zh-CN">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <base target="_blank">
-  <style>
-    :root { color-scheme: light dark; --fsus-font-ui: "Google Sans", "Noto Sans SC", "Noto Sans TC", "Noto Sans JP", ui-sans-serif, system-ui, sans-serif; --fsus-typography-body-family: var(--fsus-font-ui); font-family: var(--fsus-typography-body-family); --preview-surface: Canvas; --preview-text: CanvasText; --preview-muted: GrayText; --preview-link: LinkText; --preview-border: ButtonBorder; --preview-code-bg: Field; --preview-radius-inline: var(--fsus-radius-control-small, 4px); }
-    body { margin: 0; padding: 24px; background: var(--preview-surface); color: var(--preview-text); line-height: 1.72; }
-    article { max-width: 760px; margin: 0 auto; }
-    h1, h2, h3, h4, h5, h6 { color: var(--preview-text); line-height: 1.3; }
-    h1 { font-size: 2rem; margin: 0 0 0.6rem; }
-    h2 { font-size: 1.45rem; margin-top: 1.8rem; }
-    h3 { font-size: 1.18rem; margin-top: 1.5rem; }
-    p, ul, ol, blockquote, pre, figure { margin: 1rem 0; }
-    a { color: var(--preview-link); text-decoration: underline; text-underline-offset: 0.16em; }
-    img { max-width: 100%; height: auto; border: 1px solid var(--preview-border); }
-    blockquote { border-left: 3px solid var(--preview-border); padding-left: 1rem; color: var(--preview-muted); }
-    code { border-radius: var(--preview-radius-inline); background: var(--preview-code-bg); padding: 0.08rem 0.28rem; font-size: 14px; }
-    pre { overflow: auto; border: 1px solid var(--preview-border); background: CanvasText; color: Canvas; padding: 1rem; }
-    pre code { background: transparent; padding: 0; color: inherit; }
-    .author-preview__summary { color: var(--preview-muted); font-size: 1rem; }
-    .author-preview__cover img, .author-preview__image img { border-radius: 4px; }
-  </style>
-</head>
-<body>${sanitizedHtml.value}</body>
-</html>`))
+const renderObservation = ref<MarkdownCompletionObservation | null>(null)
+const activationObservation = ref<MarkdownCompletionObservation | null>(null)
+const requiredActivationKinds = ref<ReadonlySet<MarkdownFeatureActivationKind>>(
+  new Set()
+)
+const activatedKinds = ref<ReadonlySet<MarkdownFeatureActivationKind>>(new Set())
+const completionFailed = ref(false)
+
+const renderMarkdownIdentity = computed(
+  () => renderObservation.value?.markdownIdentity ?? null
+)
+const activationMarkdownIdentity = computed(
+  () => activationObservation.value?.markdownIdentity ?? null
+)
+const previewRenderComplete = computed(() => {
+  const previewIdentity = props.preview?.sourceIdentity
+  const render = renderObservation.value
+  const activation = activationObservation.value
+  return Boolean(
+    previewIdentity
+    && !completionFailed.value
+    && render?.previewIdentity === previewIdentity
+    && activation?.previewIdentity === previewIdentity
+    && render.markdownIdentity === activation.markdownIdentity
+    && [...requiredActivationKinds.value].every(
+      kind => activatedKinds.value.has(kind)
+    )
+  )
+})
+
+watch(
+  () => [
+    props.preview?.sourceIdentity ?? null,
+    props.preview?.normalizedMarkdownSource ?? null
+  ],
+  resetPreviewCompletion,
+  { flush: 'sync' }
+)
+
+function belongsToCurrentPreview(result: MarkdownRenderResult): boolean {
+  return Boolean(
+    props.preview
+    && result.normalizedSource === props.preview.normalizedMarkdownSource
+  )
+}
+
+function currentObservation(
+  result: MarkdownRenderResult
+): MarkdownCompletionObservation | null {
+  if (!props.preview || !belongsToCurrentPreview(result)) {
+    return null
+  }
+  return {
+    previewIdentity: props.preview.sourceIdentity,
+    markdownIdentity: result.sourceIdentity
+  }
+}
+
+function isCurrentGeneration(contentVersion: number | string | null): boolean {
+  return Boolean(
+    props.preview
+    && contentVersion === props.preview.sourceIdentity
+  )
+}
+
+function requiredKindsFor(
+  result: MarkdownRenderResult
+): ReadonlySet<MarkdownFeatureActivationKind> {
+  const required = new Set<MarkdownFeatureActivationKind>()
+  if (result.features.includes('code_block')) required.add('code-highlight')
+  if (result.features.includes('latex')) required.add('latex')
+  if (result.features.includes('mermaid')) required.add('mermaid')
+  return required
+}
+
+function sameKinds(
+  left: ReadonlySet<MarkdownFeatureActivationKind>,
+  right: ReadonlySet<MarkdownFeatureActivationKind>
+): boolean {
+  return left.size === right.size && [...left].every(kind => right.has(kind))
+}
+
+function observationsMatch(
+  left: MarkdownCompletionObservation | null,
+  right: MarkdownCompletionObservation
+): boolean {
+  return left === null
+    || left.previewIdentity === right.previewIdentity
+      && left.markdownIdentity === right.markdownIdentity
+}
+
+function handleRenderComplete(
+  result: MarkdownRenderResult,
+  contentVersion: number | string | null
+): void {
+  if (!isCurrentGeneration(contentVersion) || completionFailed.value) return
+  const observation = currentObservation(result)
+  const required = requiredKindsFor(result)
+  if (!observation
+    || !observationsMatch(activationObservation.value, observation)
+    || requiredActivationKinds.value.size > 0
+      && !sameKinds(requiredActivationKinds.value, required)) {
+    failPreviewCompletion()
+    return
+  }
+  renderObservation.value = observation
+  requiredActivationKinds.value = required
+}
+
+function handleFeaturesActivated(
+  activation: MarkdownFeatureActivationResult,
+  result: MarkdownRenderResult,
+  contentVersion: number | string | null
+): void {
+  if (!isCurrentGeneration(contentVersion) || completionFailed.value) return
+  const observation = currentObservation(result)
+  const required = requiredKindsFor(result)
+  if (!observation
+    || activation.errors.length > 0
+    || !observationsMatch(renderObservation.value, observation)
+    || !observationsMatch(activationObservation.value, observation)
+    || requiredActivationKinds.value.size > 0
+      && !sameKinds(requiredActivationKinds.value, required)) {
+    failPreviewCompletion()
+    return
+  }
+
+  activationObservation.value = observation
+  requiredActivationKinds.value = required
+  activatedKinds.value = new Set([
+    ...activatedKinds.value,
+    ...activation.activated
+      .filter(item => item.count > 0)
+      .map(item => item.kind)
+  ])
+}
+
+function handleRenderError(
+  _error: unknown,
+  contentVersion: number | string | null
+): void {
+  if (isCurrentGeneration(contentVersion)) failPreviewCompletion()
+}
+
+function failPreviewCompletion(): void {
+  clearPreviewCompletion()
+  completionFailed.value = true
+}
+
+function clearPreviewCompletion(): void {
+  renderObservation.value = null
+  activationObservation.value = null
+  requiredActivationKinds.value = new Set()
+  activatedKinds.value = new Set()
+}
+
+function resetPreviewCompletion(): void {
+  clearPreviewCompletion()
+  completionFailed.value = false
+}
+
 </script>
 
 <style scoped>
@@ -114,11 +278,18 @@ const previewDocument = computed(() => toTrustedSanitizedHtml(`<!doctype html>
   color: var(--fsusblog-color-error-strong);
 }
 
-.preview-frame {
-  width: 100%;
-  min-height: 360px;
-  border: 1px solid var(--fsusblog-panel-border);
-  background: var(--fsusblog-panel-bg);
+.author-preview {
+  min-width: 0;
+}
+
+.author-preview__summary {
+  color: var(--fsusblog-text-secondary);
+}
+
+.author-preview__cover img {
+  display: block;
+  max-width: 100%;
+  height: auto;
 }
 
 .preview-empty {

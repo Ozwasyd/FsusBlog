@@ -8,6 +8,7 @@ import PublicArticleDetailPageContent from '@/components/public/pages/PublicArti
 import PublicFilterPageContent from '@/components/public/pages/PublicFilterPageContent.vue'
 import PublicHomePageContent from '@/components/public/pages/PublicHomePageContent.vue'
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue'
+import type { MarkdownSafeRenderResult } from '@/fsusui/markdown'
 import type { PublicAotPageAssembly } from '@/public-renderers/scaffold'
 import type { AboutPageViewContract } from '@/view-contracts/aboutPage'
 import type { ArchivePageViewContract } from '@/view-contracts/archive'
@@ -78,9 +79,10 @@ export function createPublicArticleDetailPageAssembly(input: {
   responsibilityManifest: ArticleResponsibilityPublicView | null
   articleSummary: string
   canonicalUrl: string | null
+  baseUrl?: string | null
   hasBodyContent: boolean
   bodyContent: string
-  bodyHtml: string
+  initialRender: MarkdownSafeRenderResult
 }): PublicAotPageAssembly {
   return {
     component: PublicArticleDetailPageContent,
@@ -92,9 +94,10 @@ export function createPublicArticleDetailPageAssembly(input: {
       responsibilityManifest: input.responsibilityManifest,
       articleSummary: input.articleSummary,
       canonicalUrl: input.canonicalUrl,
+      baseUrl: input.baseUrl ?? null,
       hasBodyContent: input.hasBodyContent,
       bodyContent: input.bodyContent,
-      bodyHtml: input.bodyHtml,
+      initialRender: input.initialRender,
       linkMode: 'anchor'
     }
   }
@@ -103,7 +106,7 @@ export function createPublicArticleDetailPageAssembly(input: {
 export function createPublicAboutPageAssembly(input: {
   view: AboutPageViewContract
   content: string
-  bodyHtml: string
+  initialRender: MarkdownSafeRenderResult
   baseUrl?: string | null
 }): PublicAotPageAssembly {
   return {
@@ -116,7 +119,7 @@ export function createPublicAboutPageAssembly(input: {
     slots: {
       body: () => h(MarkdownRenderer, {
         content: input.content,
-        initialHtml: input.bodyHtml,
+        initialRender: input.initialRender,
         mode: 'about',
         baseUrl: input.baseUrl ?? null
       })

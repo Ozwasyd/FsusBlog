@@ -3113,6 +3113,62 @@ tiers:
       triggerCoverage: [playwright-acceptance]
       triggerReason: route, auth flow, console flow, public flow, or acceptance fixture changed
 
+    - id: article-private-preview
+      owner: InteropGlueAgent
+      command: tools/test/lanes/article-private-preview.sh
+      fixtureProfile: acceptance-representative
+      fixtureCapabilities: [auth.admin.full-permission, session.single-device]
+      executionDependsOn: [bootstrap]
+      services: [postgres, redis, backend, frontend]
+      parallelizable: false
+      serialReason: one managed Chromium worker owns the admin storage-state session and private preview draft lifecycle
+      exclusiveResources: [playwright-session]
+      phase: 3
+      cost: high
+      resourceClass: browser
+      cpuWeight: 1
+      memoryWeight: 3
+      minCpuUnits: 1
+      maxParallel: 1
+      requiresBootstrap: full
+      workflowBootstraps: true
+      requiresNode: true
+      requiresDotnet: true
+      requiresPlaywright: chromium
+      evidenceClass: diagnostic
+      cacheProfile: full
+      timeoutMinutes: 20
+      shardable: false
+      defaultShards: 1
+      risk: high
+      cadence: nightly
+      requiredFor: none
+      coverage: [article-private-preview-browser]
+      artifacts: [src/frontend/test-results/playwright/article-private-preview]
+      evidence:
+          [
+              src/frontend/test-results/playwright/article-private-preview,
+              tests/frontend/e2e/acceptance/article-private-preview.spec.ts,
+          ]
+      ciJob: browser-diagnostics
+      localOnly: false
+      nightlyOnly: true
+      smartGateMode: full-only
+      retentionClass: conditional
+      triggerPaths:
+          [
+              src/frontend/src/components/admin/article,
+              src/frontend/src/components/ui/MarkdownRenderer.vue,
+              src/frontend/src/composables/articlePreviewGeneration.ts,
+              tests/frontend/e2e/acceptance,
+              tests/frontend/checks/acceptance,
+              tests/frontend/support/playwright,
+              tools/test/lanes/article-private-preview.sh,
+          ]
+      triggerFiles: [src/frontend/package.json, tests/matrix.yml]
+      triggerCoverage: [article-private-preview-browser]
+      triggerReason: private preview rendering, stale generation, admin fixture, rendered evidence, or fixed browser owner changed
+
     - id: browser-contract
       owner: InteropGlueAgent
       command: bash tools/test/lanes/browser-contract.sh
@@ -5545,6 +5601,63 @@ tiers:
       localOnly: false
       nightlyOnly: true
       smartGateMode: full-only
+
+    - id: markdown-preview-release-performance
+      owner: InteropGlueAgent
+      command: tools/test/lanes/markdown-preview-release-performance.sh
+      executionDependsOn: [behavior-doc-static-admission]
+      services: []
+      parallelizable: false
+      serialReason: one admitted measurement window alternates two immutable Release sides on one live machine and one managed Chromium controller
+      exclusiveResources: [benchmark-window, performance-counters, playwright-session]
+      phase: 5
+      cost: high
+      resourceClass: browser
+      cpuWeight: 2
+      memoryWeight: 4
+      minCpuUnits: 1
+      maxParallel: 1
+      requiresBootstrap: none
+      requiresNode: true
+      requiresDotnet: true
+      requiresPlaywright: chromium
+      evidenceClass: diagnostic
+      cacheProfile: none
+      timeoutMinutes: 45
+      shardable: false
+      defaultShards: 1
+      risk: critical
+      cadence: release-manual
+      requiredFor: none
+      coverage: [markdown-preview-release-performance]
+      artifacts: [.tmp/perf/markdown-preview-release-performance]
+      evidence:
+          [
+              .tmp/perf/markdown-preview-release-performance/raw-measurements.json,
+              .tmp/perf/markdown-preview-release-performance/measurement-noise.json,
+              .tmp/perf/markdown-preview-release-performance/summary.json,
+          ]
+      ciJob: browser-diagnostics
+      localOnly: false
+      nightlyOnly: false
+      manualOnly: true
+      retentionClass: conditional
+      triggerPaths:
+          [
+              src/frontend/src/components/admin/article,
+              src/frontend/src/components/ui/MarkdownRenderer.vue,
+              src/frontend/src/fsusui,
+              tests/frontend/checks/perf,
+              tools/test/lanes/markdown-preview-release-performance.sh,
+          ]
+      triggerFiles:
+          [
+              src/frontend/package.json,
+              tests/matrix.yml,
+              docs/performance-governance.md,
+          ]
+      triggerCoverage: [markdown-preview-release-performance]
+      triggerReason: Markdown AOT, client activation, private preview, or paired Release measurement authority changed
 
     - id: performance-evidence-summary
       owner: ServerContractAgent

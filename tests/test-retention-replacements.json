@@ -9060,7 +9060,7 @@
       "id": "xunit:tests/backend/Unit/AuthoringWorkflowServiceTests.cs#ContentExportMetadataResponse.PreviewAsync_RendersMarkdownLikeHtmlAndEscapesExecutableHtml",
       "path": "tests/backend/Unit/AuthoringWorkflowServiceTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/AuthoringWorkflowServiceTests.cs#AuthoringWorkflowServiceTests.PreviewAsync_RendersMarkdownLikeHtmlAndEscapesExecutableHtml"
+        "xunit:tests/backend/Unit/AuthoringWorkflowServiceTests.cs#AuthoringWorkflowServiceTests.PreviewAsync_ReturnsNormalizedNonExecutableDataAndStableIdentity"
       ],
       "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
     },
@@ -10700,7 +10700,7 @@
       "id": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#article-detail-flow-renders-body-comments-and-reading-no-74c0374ffb",
       "path": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
       "replacementTestIds": [
-        "vitest:tests/frontend/unit/public-renderers/publicEntryRegistry.test.ts#keeps article hydration bodyHtml aligned with SSR body markup instead of raw markdown",
+        "vitest:tests/frontend/unit/public-renderers/publicEntryRegistry.test.ts#keeps raw Markdown in hydration without serializing trusted HTML",
         "vitest:tests/frontend/unit/components/PublicArticleCover.test.ts#renders tags, rights, and related reading as a restrained appendix",
         "vitest:tests/frontend/unit/components/ArticleCommentsEmptyState.test.ts#combines the empty message with the guest login action"
       ],

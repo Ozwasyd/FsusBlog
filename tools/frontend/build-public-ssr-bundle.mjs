@@ -3,12 +3,20 @@
 import { spawn } from 'node:child_process';
 import { copyFile, mkdir, stat, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import {
+    localFsusUiConsumptionDisabled,
+    resolveLocalFsusUiRepositoryRoot
+} from '../../src/frontend/scripts/fsusui-root.mjs';
 
 const clientRoot = process.cwd();
+const repositoryRoot = resolve(fileURLToPath(new URL('.', import.meta.url)), '../..');
 const binExtension = process.platform === 'win32' ? '.cmd' : '';
 const viteBin = join(clientRoot, 'node_modules', '.bin', `vite${binExtension}`);
 const distRoot = resolve(process.env.FSUSBLOG_FRONTEND_DIST_ROOT || join(clientRoot, 'dist'));
 const distServerDir = join(distRoot, 'server');
+const markdownRuntimeOutputDir = join(distServerDir, 'dist');
 const sourceEntry = join(distServerDir, 'renderPublicPage.js');
 const stableEntry = join(distServerDir, 'public-ssr.mjs');
 const moduleBoundaryManifest = join(distServerDir, 'package.json');
@@ -19,6 +27,25 @@ const workerScripts = [
     'server-public-ssr.bundle.mjs',
     'server-public-ssr.worker-core.mjs'
 ];
+const markdownRuntimeAssets = [
+    'markdown_simd.js',
+    'markdown_simd.wasm',
+    'markdown_basic.js',
+    'markdown_basic.wasm'
+];
+
+function resolveMarkdownRuntimeSourceDir()
+{
+    const localRoot = localFsusUiConsumptionDisabled(process.env)
+        ? null
+        : resolveLocalFsusUiRepositoryRoot({
+            override: process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT,
+            repositoryRoot
+        });
+    return localRoot
+        ? join(localRoot, 'vue', 'packages', 'wasm', 'dist')
+        : join(clientRoot, 'node_modules', '@ozwasyd', 'element-plus', 'es', 'wasm', 'dist');
+}
 
 function log(message)
 {
@@ -101,6 +128,29 @@ async function copyWorkerScripts()
     log('copied production worker scripts into dist/server');
 }
 
+async function copyMarkdownRuntimeAssets()
+{
+    const sourceDir = resolveMarkdownRuntimeSourceDir();
+    const inputs = markdownRuntimeAssets.map((fileName) => ({
+        fileName,
+        sourcePath: join(sourceDir, fileName)
+    }));
+    for (const input of inputs)
+    {
+        if (!(await pathExists(input.sourcePath)))
+        {
+            throw new Error(`FsusUI markdown runtime asset missing: ${input.sourcePath}`);
+        }
+    }
+
+    await mkdir(markdownRuntimeOutputDir, { recursive: true });
+    for (const input of inputs)
+    {
+        await copyFile(input.sourcePath, join(markdownRuntimeOutputDir, input.fileName));
+    }
+    log('copied FsusUI markdown runtime assets into dist/server/dist');
+}
+
 async function copyPublicShellEmergency()
 {
     await copyFile(publicShellEmergencySource, publicShellEmergencyOutput);
@@ -121,6 +171,7 @@ async function main()
     await finalizeStableEntry();
     await writeModuleBoundaryManifest();
     await copyWorkerScripts();
+    await copyMarkdownRuntimeAssets();
     await copyPublicShellEmergency();
 }
 

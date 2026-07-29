@@ -1924,7 +1924,7 @@ Public AOT HTML 的 representation identity 是 `(pageId, routeKey, renderLocale
 
 ### `ArticleDetail` AOT payload shape
 
-文章详情 hydration 使用 `bodyContent` 承载原始 Markdown，使用 `bodyHtml` 承载 SSR 渲染后的 HTML。`content` 不再是 AOT 契约字段。`rights` 是 ArticleDetail hydration 与 `detailView.rights` 的必填字段，来自冻结 `article_rights_snapshot`；旧的无 rights hydration 合同已废弃，前端 normalizer 必须拒绝。
+文章详情 hydration 只使用 `bodyContent` 承载原始 Markdown，不序列化或信任 SSR HTML。SSR/AOT 在同进程调用当前 FsusUI runtime 获得 opaque `MarkdownSafeRenderResult` 并直接交给 `initialRender`；客户端 hydrate 前必须从 `bodyContent` 重新调用当前 runtime 获得本进程授权结果。runtime 失败或返回非法结果时构建/hydration 明确失败，不生成本地 HTML fallback。`content` 和 `bodyHtml` 均不属于 AOT hydration 契约字段。`rights` 是 ArticleDetail hydration 与 `detailView.rights` 的必填字段，来自冻结 `article_rights_snapshot`；旧的无 rights hydration 合同已废弃，前端 normalizer 必须拒绝。
 
 同一 payload 的 `publishedAt` 表示首次公开时间，`updatedAt` 表示正文最后实质修改时间。`detailView.header.meta.published` 必须来自 `publishedAt`（legacy 空值才回退 `createTime`）；只有 `updatedAt > publishedAt` 时才生成 `meta.modified` 和可见“更新于”。这两个值同时驱动文章 Microdata 与 document service 的 JSON-LD，不得由评论数、浏览量或 shell 生成时间替代。
 
@@ -1934,7 +1934,6 @@ Public AOT HTML 的 representation identity 是 `(pageId, routeKey, renderLocale
   "routeKey": "article:42",
   "articleId": 42,
   "bodyContent": "# Heading",
-  "bodyHtml": "<h1>Heading</h1>",
   "rights": {
     "snapshotId": "901",
     "articleRevisionId": "801",
@@ -2144,7 +2143,7 @@ Rollback request frame `ArticleRevisionRollbackRequest(213)` 的 payload 是 AED
 | POST | `/api/binary/author/drafts` | 保存服务端草稿；payload 包含 `expectedServerRevision`、`baseRevisionId`、`status`、`scheduledPublishAt` 与完整 `rights`。新建用 `null`，已有草稿必须精确匹配；成功原子递增 `serverRevision`，相同 client/content 重试不重复递增 |
 | GET | `/api/binary/author/drafts/{draftKey}` | 读取服务端草稿；不存在时返回 `success=true,data=null`，存在时原样返回 `serverRevision`、`baseRevisionId`、`updatedAt`、`clientRevision`、发布状态与 `rights` |
 | DELETE | `/api/binary/author/drafts/{draftKey}?expectedServerRevision={revision}` | 按服务端版本条件丢弃草稿；stale 版本返回 `409 draft_conflict` 且不删除，成功后编辑器按 identity/article scope 清除未确认正文 journal |
-| POST | `/api/binary/author/preview` | admin-only 私有预览，输出经过转义的 Markdown/AOT-like HTML，根节点带 `data-preview-only=true`、`data-markdown-renderer=server-preview`，不写 PublicAOT cache |
+| POST | `/api/binary/author/preview` | admin-only 私有预览，输出规范化结构数据、source identity 与发布前 issues，不含 HTML，不写 PublicAOT cache |
 | POST | `/api/binary/author/prepublish-check` | 发布前检查标题、SEO 描述、封面 URL、Markdown 结构、链接、图片 alt 与危险 HTML |
 | GET | `/api/binary/author/articles/{articleId}/revisions` | 最近 50 条修订摘要；actor 字段为 `createdByAdminPrincipalId`，rollback revision 额外返回源 revision 与原因 |
 | GET | `/api/binary/author/articles/{articleId}/revisions/{revisionId}` | 可读历史版本包：正文/分类/标签 metadata、rights snapshot、responsibility snapshot、关联 release、rollback provenance 与 `packageComplete` |
@@ -2280,7 +2279,7 @@ Notification deployment drill 请求固定为 `{releaseId,slot,generation,drillI
 
 `AiAssistResponse` 返回 `providerEnabled`、`providerMode`、`externalProviderAllowed`、`auditEvent`、`suggestedSummary`、`suggestedTags`、`titleCandidates`、`translationDraft`、`structureIssues`。前端编辑器只能在 admin 作者工作台内调用该接口；调用结果可用于使用摘要草稿、匹配已有标签、使用标题备选、使用翻译草稿或查看结构检查。外部 provider 必须同时满足 `Authoring:AiAssist:Enabled=true`、非 `local` provider、`AllowExternalProvider=true`、`ExternalProviderReviewed=true`，否则 `externalProviderAllowed=false` 且服务端只返回本地建议。
 
-`ArticlePreviewResponse` 只用于作者工作台内嵌预览：`html` 是服务端按公开阅读页常用 Markdown block/inline 语义生成的安全片段，前端仍必须经过本地 allowlist sanitizer 后放入 `sandbox=""` iframe，不允许 `allow-scripts`，也不允许用户 HTML 中的 `srcdoc`、事件属性、SVG/MathML/iframe/object/embed 或 `javascript:` URL 进入预览文档；`plainText` 用于字数和摘要提示；`issues` 复用发布前检查结果。该响应不得被缓存为公开 AOT、不得进入 feed/sitemap/search/related-reading，也不得被匿名接口返回。
+`ArticlePreviewResponse` 只用于作者工作台内嵌预览，字段固定为 `normalizedTitle`、`normalizedSummary`、`normalizedCoverImageUrl`、`normalizedMarkdownSource`、`plainText`、`sourceIdentity`、`issues`，不包含 HTML。标题使用 256 字符 authoring 归一化；Markdown 使用 200000 字符边界并把 CRLF/CR 规范为 LF；摘要使用 180 字符 `ArticleSummaryProjection`；封面只接受无 userinfo 的 `http/https` absolute URL 或非 protocol-relative 的单斜杠站内路径。`sourceIdentity` 为 `preview:sha256:<lowercase hex>`：SHA-256 输入先写 UTF-8 域 `fsusblog.article-preview.v1\0`，再按 raw title/content/summary/cover 顺序写每字段的 ASCII 十进制 UTF-8 byte length、`:`、原始 UTF-8 bytes、`\0`，null 按空字符串。前端必须在请求前从精确 snapshot 计算 expected identity，并同时核对响应 identity、最新 generation 与当前四字段 snapshot；旧响应或 identity mismatch 必须 fail closed。标题、摘要和 issues 只用 Vue 文本插值，封面只绑定服务端规范化 URL，正文只交给 FsusUI `MarkdownRenderer`；不得恢复 iframe/srcdoc、本地 sanitizer 或服务端 HTML renderer。该响应不得被缓存为公开 AOT、不得进入 feed/sitemap/search/related-reading，也不得被匿名接口返回。
 
 编辑器侧栏必须基于当前表单和 `SeoConfigContract.baseUrl` 实时给出搜索/分享预览：标题、description、canonical URL、OG image 与当前公开路由 slug。提交 `Published` 或 `Scheduled` 前必须调用 `/api/binary/author/prepublish-check`；`severity=error` 阻断提交，`severity=warning` 必须在确认发布弹窗中要求作者填写 `warningOverrideReason` 后才能跳过，服务端写入 `prepublish-warning-override` 审计事件。检查项覆盖标题/摘要/封面、危险 HTML 标签和事件属性、Markdown 未闭合代码块、超大/密集 Markdown 结构、正文图片 alt text、空链接、不安全协议、私有站内路径以及 `/article|category|tag/{id}` 格式错误。当前真实公开文章路由仍以 `/article/{id}` 为准，新文章在落库前只显示 draft-preview slug，不新增持久化 slug 字段。
 

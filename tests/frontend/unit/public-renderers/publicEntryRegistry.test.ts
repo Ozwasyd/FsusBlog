@@ -17,16 +17,25 @@ vi.mock('@/public-renderers/publicEntryCore', async () => {
   }
 })
 
-vi.mock('@/fsusui/markdown', () => ({
-  renderMarkdownWithFsusRuntime: vi.fn(async ({ source }: { source: string }) => ({
-    ok: true,
-    value: {
+vi.mock('@/fsusui/markdown', () => {
+  const render = ({ source }: { source: string }) => ({
       html: source === '# Heading\n\nContent'
         ? '<h1>Heading</h1>\n<p class="markdown-renderer__text">Content</p>'
-        : `<p class="markdown-renderer__text">${source}</p>`
-    }
-  }))
-}))
+        : `<p class="markdown-renderer__text">${source}</p>`,
+      normalizedSource: source,
+      sourceIdentity: `markdown:test:${source}`,
+      rendererVersion: 'test',
+      features: [],
+      placeholders: []
+  })
+  return {
+    renderMarkdownWithFsusRuntime: vi.fn(async (input: { source: string }) => ({
+      ok: true,
+      value: render(input)
+    })),
+    renderMarkdownOrThrow: vi.fn(async (input: { source: string }) => render(input))
+  }
+})
 
 vi.mock('@/components/home/FeaturedArticlesSection.vue', () => ({
   default: { name: 'FeaturedArticlesSectionStub', render: () => null }
@@ -63,6 +72,7 @@ vi.mock('@/components/ui/MarkdownRenderer.vue', () => ({
 import { decodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload'
 import { getSharedPublicPageManifestEntry, PUBLIC_PAGE_MANIFEST } from '@/public-renderers/generated/publicPageManifest'
 import { PUBLIC_RENDERER_VERSION, renderShell } from '@/public-renderers/publicEntryCore'
+import { renderMarkdownOrThrow } from '@/fsusui/markdown'
 import { createPublicHydrationRoot } from '@/public-renderers/publicHydrationRoot'
 import { buildPublicEntry as buildPublicEntryRaw } from '@/public-renderers/publicEntryRegistry'
 import { renderPublicAotShell } from '@/public-renderers/scaffold'
@@ -79,6 +89,20 @@ const buildPublicEntry: typeof buildPublicEntryRaw = async (pageKind, options) =
   })
 
 describe('publicEntryRegistry shared coverage', () => {
+  it('fails before emitting an entry when the FsusUI Markdown runtime fails', async () => {
+    vi.mocked(renderMarkdownOrThrow).mockRejectedValueOnce(new Error('markdown_runtime_failed:unavailable'))
+
+    await expect(buildPublicEntry('ArticleDetail', {
+      id: 1,
+      title: 'Article',
+      bodyContent: 'Body',
+      summary: 'Summary',
+      rights: articleRightsFixture,
+      siteTitle: 'FsusBlog',
+      siteDescription: 'desc'
+    })).rejects.toThrow('markdown_runtime_failed:unavailable')
+  })
+
   it('builds entries for every shared SEO page kind', async () => {
     const cases = [
       { kind: 'Home', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', pageIndex: 1, pageSize: 10, total: 0, articles: [], featuredArticles: [], hotArticles: [] } },
@@ -205,7 +229,7 @@ describe('publicEntryRegistry shared coverage', () => {
     expect(hydration?.staticPage?.slug).toBe(getSharedPublicPageManifestEntry('Privacy').canonicalSlug)
   })
 
-  it('keeps article hydration bodyHtml aligned with SSR body markup instead of raw markdown', async () => {
+  it('keeps raw Markdown in hydration without serializing trusted HTML', async () => {
     const result = await buildPublicEntry('ArticleDetail', {
       id: 1,
       title: 'Article',
@@ -221,10 +245,57 @@ describe('publicEntryRegistry shared coverage', () => {
     expect(result.entry.islandsPayload).toBeNull()
     expect(hydration?.bodyContent).toBe('# Heading\n\nContent')
     expect(hydration?.detailView?.body?.content).toBe('# Heading\n\nContent')
-    expect(hydration?.bodyHtml).toContain('<h1>Heading</h1>')
-    expect(hydration?.bodyHtml).toContain('<p class="markdown-renderer__text">Content</p>')
-    expect(hydration?.bodyHtml).not.toContain('<div class="markdown-body')
-    expect(hydration?.bodyHtml).not.toBe(hydration?.detailView?.body?.content)
+    expect(hydration).not.toHaveProperty('bodyHtml')
+  })
+
+  it('binds the same base URL to the article Markdown result and AOT/hydration component requests', async () => {
+    const baseUrl = 'https://example.test/blog'
+    const markdownResult = {
+      html: '<p>Body</p>',
+      normalizedSource: 'Body',
+      sourceIdentity: 'markdown:test:Body',
+      rendererVersion: 'test',
+      features: [],
+      placeholders: []
+    } as never
+    const renderMarkdownMock = vi.mocked(renderMarkdownOrThrow)
+    const renderShellMock = vi.mocked(renderShell)
+    const hydrationShellMock = vi.mocked(renderPublicAotShell)
+    renderMarkdownMock.mockClear()
+    renderShellMock.mockClear()
+
+    const result = await buildPublicEntry('ArticleDetail', {
+      id: 1,
+      title: 'Article',
+      bodyContent: 'Body',
+      summary: 'Summary',
+      rights: articleRightsFixture,
+      siteTitle: 'FsusBlog',
+      siteDescription: 'desc',
+      baseUrl
+    })
+
+    expect(renderMarkdownMock).toHaveBeenCalledWith(expect.objectContaining({
+      source: 'Body',
+      mode: 'article',
+      baseUrl
+    }))
+    expect((renderShellMock.mock.calls.at(-1)?.[2] as {
+      props?: { baseUrl?: string | null; initialRender?: unknown }
+    }).props).toMatchObject({
+      baseUrl,
+      initialRender: expect.any(Object)
+    })
+
+    const hydration = decodePublicAotPayload<Parameters<typeof createPublicHydrationRoot>[0]>(
+      result.entry.hydrationPropsPayload
+    )
+    hydrationShellMock.mockClear()
+    createPublicHydrationRoot(hydration!, markdownResult)
+    expect(hydrationShellMock.mock.calls[0]?.[0].page.props).toMatchObject({
+      baseUrl,
+      initialRender: markdownResult
+    })
   })
 
   it('emits ArticleDetail rights in bootstrap, hydration and the view contract', async () => {
@@ -519,7 +590,14 @@ describe('publicEntryRegistry shared coverage', () => {
     const renderShellMock = vi.mocked(renderPublicAotShell)
 
     renderShellMock.mockClear()
-    createPublicHydrationRoot(hydration!)
+    createPublicHydrationRoot(hydration!, {
+      html: '<p>About content</p>',
+      normalizedSource: 'About content',
+      sourceIdentity: 'markdown:test:About content',
+      rendererVersion: 'test',
+      features: [],
+      placeholders: []
+    } as never)
 
     expect(renderShellMock).toHaveBeenCalledTimes(1)
     expect(renderShellMock.mock.calls[0]?.[0].renderYear).toBe(2025)

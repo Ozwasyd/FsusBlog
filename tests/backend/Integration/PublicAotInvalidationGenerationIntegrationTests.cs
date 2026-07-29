@@ -1,11 +1,15 @@
 using System.Collections.Concurrent;
 
+using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.Spa;
 
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -26,6 +30,97 @@ public sealed class PublicAotInvalidationGenerationRedisCollection :
 public sealed class PublicAotInvalidationGenerationIntegrationTests(
     PublicHotDeliveryRedisFixture redis)
 {
+    [Fact]
+    public async Task RendererFailure_PreservesVerifiedFileAndRedisArtifacts()
+    {
+        const string FrontendAssetVersion = "frontend-v1";
+        const string VerifiedHtml = "<!doctype html><html><body>verified-before-render-failure</body></html>";
+        using var temp = new TemporaryDirectory();
+        await using ConnectionMultiplexer connection = await redis.ConnectAsync();
+        var match = new PublicAotRouteMatch(
+            PublicPageKind.ArticleDetail,
+            PublicPageId.ArticleDetail,
+            "article:1792",
+            "/article/1792",
+            "/article/1792",
+            string.Empty);
+        string cacheKey = string.Concat(
+            CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey, "zh-CN"),
+            ":iv:0");
+        var entry = new PublicAotCacheEntry
+        {
+            CacheKey = cacheKey,
+            PageId = match.PageId,
+            RouteKey = match.RouteKey,
+            Source = PublicAotWriteSource.ServerSsrBackfill,
+            Value = VerifiedHtml,
+            RendererVersion = PublicAotConstants.RendererVersion,
+            FrontendAssetVersion = FrontendAssetVersion,
+            Locale = "zh-CN",
+            GeneratedAtUtc = DateTimeOffset.UtcNow,
+            ExpiresAtUtc = DateTimeOffset.UtcNow.AddHours(1)
+        };
+
+        var fileCache = new PublicAotFileShellCache(
+            new TestWebHostEnvironment(temp.Root),
+            connection,
+            NullLogger<PublicAotFileShellCache>.Instance);
+        await fileCache.SetAsync(entry);
+        string artifactPath = PublicAotFileShellCache.ResolveVersionedEntryPathForTests(
+            Path.Combine(temp.Root, "wwwroot"),
+            cacheKey,
+            FrontendAssetVersion,
+            match.PageId);
+        byte[] verifiedFileBytes = await File.ReadAllBytesAsync(artifactPath);
+
+        await GenerateFailingBackfillAsync(fileCache, match, cacheKey, FrontendAssetVersion);
+
+        Assert.Equal(verifiedFileBytes, await File.ReadAllBytesAsync(artifactPath));
+        Assert.Equal(
+            VerifiedHtml,
+            (await fileCache.TryGetEntryAsync(cacheKey, FrontendAssetVersion))?.Value);
+        foreach (string registryKey in PublicAotCacheRegistry.GetRegistryKeys(match.PageId, match.RouteKey))
+        {
+            Assert.True(await connection.GetDatabase().SetContainsAsync(registryKey, cacheKey));
+        }
+
+        string redisScopePrefix = $"test:public-aot-preservation:{Guid.CreateVersion7():N}:";
+        var redisScope = new PrefixRuntimeKeyScope(redisScopePrefix);
+        using (var memory = new MemoryCache(new MemoryCacheOptions()))
+        using (var unified = new UnifiedCache(
+            memory,
+            connection,
+            new CachePolicyRegistry(),
+            redisScope,
+            NullLogger<UnifiedCache>.Instance))
+        {
+            var redisCache = new PublicAotShellCache(unified, unified, unified, connection);
+            await redisCache.SetAsync(entry);
+            await GenerateFailingBackfillAsync(redisCache, match, cacheKey, FrontendAssetVersion);
+        }
+
+        using (var restartedMemory = new MemoryCache(new MemoryCacheOptions()))
+        using (var restartedUnified = new UnifiedCache(
+            restartedMemory,
+            connection,
+            new CachePolicyRegistry(),
+            redisScope,
+            NullLogger<UnifiedCache>.Instance))
+        {
+            var restartedRedisCache = new PublicAotShellCache(
+                restartedUnified,
+                restartedUnified,
+                restartedUnified,
+                connection);
+            Assert.Equal(
+                VerifiedHtml,
+                (await restartedRedisCache.TryGetEntryAsync(cacheKey, FrontendAssetVersion))?.Value);
+        }
+
+        await fileCache.RemoveAsync(cacheKey);
+        await redis.DeleteNamespaceAsync(redisScopePrefix);
+    }
+
     [Fact]
     public async Task RedisAuthority_HighConflictAcrossTwoNodesHasNoLostUpdatesAndLiftsStaleNode()
     {
@@ -397,6 +492,58 @@ public sealed class PublicAotInvalidationGenerationIntegrationTests(
                 releaseDerivedBase: null,
                 scope.ScopeToken));
 
+    private static async Task GenerateFailingBackfillAsync(
+        IPublicAotShellCache cache,
+        PublicAotRouteMatch match,
+        string cacheKey,
+        string frontendAssetVersion)
+    {
+        var composition = Substitute.For<IPublicAotDocumentComposition>();
+        composition.BuildBackfillDocumentAsync(
+                Arg.Any<PublicAotBackfillRequest>(),
+                Arg.Any<DateTimeOffset>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Result<PublicAotBackfillDocument>.Failure(
+                ErrorCode.InfraFailure,
+                "public_aot_contract_markdown_runtime_authority_invalid"));
+        var manifest = Substitute.For<ISpaAssetManifestService>();
+        manifest.GetFrontendAssetVersion().Returns(frontendAssetVersion);
+        var tracker = new PublicAotInvalidationTracker();
+        var writer = Substitute.For<IPublicAotCacheWriter>();
+        var store = new PublicAotArtifactStore(
+            cache,
+            writer,
+            Substitute.For<IPublicAotBackfillScheduler>(),
+            manifest,
+            new PrefixRuntimeKeyScope(string.Empty),
+            tracker);
+        var service = new PublicAotShellService(
+            new ImmediateDbConcurrencyGate(),
+            composition,
+            store,
+            new PublicAotRuntimeState(
+                new PublicAotSsrRuntimeState(new ConfigurationBuilder().Build())),
+            new LocaleResolver(),
+            NullLogger<PublicAotShellService>.Instance);
+        var request = new PublicAotBackfillRequest(
+            match.Kind,
+            match.RouteKey,
+            match.Path,
+            match.QueryString,
+            cacheKey)
+        {
+            InvalidationKey = CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey),
+            PagePrefixKey = CacheKeyBuilder.PublicAotDocument(match.PageId, string.Empty),
+            ScheduledInvalidationVersion = 0,
+            FrontendAssetVersion = frontendAssetVersion,
+            Locale = "zh-CN"
+        };
+
+        await service.GenerateAndStoreAsync(request);
+
+        Assert.Empty(writer.ReceivedCalls());
+    }
+
     private static PublicAotArtifactStore CreateStore(
         IPublicAotShellCache cache,
         IRuntimeKeyScope scope,
@@ -442,6 +589,18 @@ public sealed class PublicAotInvalidationGenerationIntegrationTests(
     {
         public string ScopeToken => prefix;
         public string PrefixKey(string key) => string.Concat(prefix, key);
+    }
+
+    private sealed class ImmediateDbConcurrencyGate : IDbConcurrencyGate
+    {
+        public async Task<T> ExecuteAsync<T>(
+            string operation,
+            Func<CancellationToken, Task<T>> action,
+            Func<CancellationToken, Task<T>> onTimeout,
+            CancellationToken cancellationToken = default)
+            => await action(cancellationToken);
+
+        public DbConcurrencyGateSnapshot GetSnapshot() => new(1, 0, 0);
     }
 
     private sealed class TemporaryDirectory : IDisposable

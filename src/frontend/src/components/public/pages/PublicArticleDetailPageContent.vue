@@ -93,7 +93,8 @@
           <MarkdownRenderer
             itemprop="articleBody"
             :content="bodyContent"
-            :initial-html="bodyHtml"
+            :initial-render="initialRender"
+            :base-url="props.baseUrl"
             mode="article"
           />
         </slot>
@@ -243,6 +244,7 @@ import { usePublicSiteTitle } from '@/public-renderers/publicSiteIdentityContext
 import { themeTokens } from '@/ui-tokens/themeTokens'
 import type { ArticleDetailPageViewContract } from '@/view-contracts/articleDetail'
 import type { ArticleResponsibilityPublicView } from '@/view-contracts/articleResponsibility'
+import type { MarkdownSafeRenderResult } from '@/fsusui/markdown'
 import { resolvePublicCoverPresentation } from '@/view-contracts/coverArt'
 
 const props = withDefaults(defineProps<{
@@ -253,14 +255,16 @@ const props = withDefaults(defineProps<{
   responsibilityManifest?: ArticleResponsibilityPublicView | null
   articleSummary: string
   canonicalUrl?: string | null
+  baseUrl?: string | null
   hasBodyContent: boolean
   bodyContent?: string
-  bodyHtml?: string
+  initialRender?: MarkdownSafeRenderResult | null
   linkMode?: 'anchor' | 'router'
 }>(), {
   canonicalUrl: null,
+  baseUrl: null,
   bodyContent: '',
-  bodyHtml: '',
+  initialRender: null,
   linkMode: 'anchor'
 })
 

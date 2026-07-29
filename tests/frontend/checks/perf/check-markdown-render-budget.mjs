@@ -13,6 +13,9 @@ const frontendOutputRoot = path.resolve(
 const adapterFile = path.join(root, 'src/frontend/src/components/ui/MarkdownEditorAdapter.vue');
 const rendererFile = path.join(root, 'src/frontend/src/components/ui/MarkdownRenderer.vue');
 const fsusuiMarkdownFile = path.join(root, 'src/frontend/src/fsusui/markdown.ts');
+const trustedTypesRuntimeFile = path.join(
+    root,
+    'src/frontend/src/security/trustedTypesRuntime.ts');
 const packageFile = path.join(root, 'src/frontend/package.json');
 const outFile = path.join(frontendOutputRoot, 'markdown-render-budget.json');
 const receiptFile = path.join(frontendOutputRoot, 'receipts/markdown-render-budget.json');
@@ -80,6 +83,7 @@ function writeReleaseSummary(summary)
 const adapter = read(adapterFile);
 const renderer = read(rendererFile);
 const fsusuiMarkdown = read(fsusuiMarkdownFile);
+const trustedTypesRuntime = read(trustedTypesRuntimeFile);
 const packageJson = JSON.parse(read(packageFile));
 const combinedCorpus = Object.values(corpus).join('\n\n');
 const requirements = [
@@ -93,12 +97,23 @@ const requirements = [
     ['MarkdownRenderer forwards FsusUI activation events', renderer.includes('@features-activated') && renderer.includes("emit('features-activated'")],
     ['MarkdownRenderer has no downstream activation import', !renderer.includes('markdownActivationService') && !renderer.includes('queueFeatureActivation')],
     [
-        'FsusUI feature activation gateway is the runtime source',
+        'FsusUI safe result runtime is the single render source',
         fsusuiMarkdown.includes('activateMarkdownFeatures')
       && fsusuiMarkdown.includes('renderMarkdownResultWithRuntime')
+      && fsusuiMarkdown.includes('type MarkdownSafeRenderResult')
       && !fsusuiMarkdown.includes('defaultMermaidAdapter')
       && !fsusuiMarkdown.includes('defaultLatexAdapter')
       && !fsusuiMarkdown.includes('defaultCodeHighlightAdapter')
+      && !fsusuiMarkdown.includes('sanitizeMarkdownRuntimeHtml')
+      && !fsusuiMarkdown.includes('renderMarkdownFallbackWithRuntime')
+      && !fsusuiMarkdown.includes('allowHtml')
+    ],
+    [
+        'Markdown TrustedHTML accepts only FsusUI opaque safe HTML',
+        trustedTypesRuntime.includes('safeHtml: MarkdownSafeHtml')
+      && trustedTypesRuntime.includes('createHTML(safeHtml)')
+      && !trustedTypesRuntime.includes('toTrustedMarkdownHtml(safeHtml: string)')
+      && !trustedTypesRuntime.includes('toTrustedSanitizedHtml')
     ]
 ];
 const failures = requirements.filter(([, ok]) => !ok).map(([label]) => label);

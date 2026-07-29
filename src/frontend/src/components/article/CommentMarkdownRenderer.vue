@@ -10,7 +10,6 @@
     <MarkdownRenderer
       :content="content"
       mode="preview"
-      :allow-html="false"
       :allow-latex="false"
       :allow-mermaid="false"
       @render-complete="measureOverflow"

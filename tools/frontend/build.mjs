@@ -646,14 +646,21 @@ export function createFrontendBuildStages(generatedArgs, generatedAction, {
             id: 'vite-public-ssr-build',
             command: [process.execPath, buildPublicSsrBundleScript],
             dependsOn: [`${generatedAction}-public-page-manifest`, `${generatedAction}-public-shell-emergency`],
-            consumedInputs: ['src/public-renderers', 'public/public-shell-emergency.css'],
+            consumedInputs: [
+                'src/public-renderers',
+                'public/public-shell-emergency.css',
+                markdownRuntimeSource
+            ],
             producedArtifacts: [
                 join(stageDistRoot, 'server', 'public-ssr.mjs'),
                 join(stageDistRoot, 'server', 'renderPublicPage.js'),
                 join(stageDistRoot, 'server', 'package.json'),
                 join(stageDistRoot, 'server', 'server-public-ssr.bundle.mjs'),
                 join(stageDistRoot, 'server', 'server-public-ssr.worker-core.mjs'),
-                join(stageDistRoot, 'server', 'public-shell-emergency.css')
+                join(stageDistRoot, 'server', 'public-shell-emergency.css'),
+                ...fsusUiMarkdownRuntimeAssets.map(
+                    (fileName) => join(stageDistRoot, 'server', 'dist', fileName)
+                )
             ],
             ownedOutputs: [join(stageDistRoot, 'server')],
             resources: buildStageResources(3, 3, 1, ['frontend-dist-server']),

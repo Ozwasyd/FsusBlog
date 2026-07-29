@@ -15,6 +15,10 @@ import {
   normalizePublicSiteTitle
 } from '@/public-renderers/publicSiteIdentity'
 import { isSupportedLocale } from '@/locales'
+import {
+  renderMarkdownOrThrow,
+  type MarkdownSafeRenderResult
+} from '@/fsusui/markdown'
 
 function getSiteTitle(payload: PublicHydrationPayload): string {
   return normalizePublicSiteTitle(payload.siteTitle ?? payload.title)
@@ -32,7 +36,10 @@ function requireHydrationView<T>(view: T | null | undefined, pageKind: string): 
   return view
 }
 
-function createHydrationPageAssembly(payload: PublicHydrationPayload): PublicAotPageAssembly {
+function createHydrationPageAssembly(
+  payload: PublicHydrationPayload,
+  initialRender: MarkdownSafeRenderResult | null
+): PublicAotPageAssembly {
   switch (payload.pageKind) {
     case 'Home':
       return createPublicHomePageAssembly({
@@ -41,6 +48,9 @@ function createHydrationPageAssembly(payload: PublicHydrationPayload): PublicAot
         hotArticles: payload.hotArticles
       })
     case 'ArticleDetail': {
+      if (!initialRender) {
+        throw new Error('public_aot_hydration_markdown_render_missing')
+      }
       const articleId = parsePositiveInt(payload.articleId)
       return createPublicArticleDetailPageAssembly({
         detailView: payload.detailView,
@@ -54,19 +64,23 @@ function createHydrationPageAssembly(payload: PublicHydrationPayload): PublicAot
         canonicalUrl: payload.baseUrl
           ? `${String(payload.baseUrl).replace(/\/+$/u, '')}/article/${articleId}`
           : null,
+        baseUrl: payload.baseUrl ?? null,
         hasBodyContent: Boolean(payload.bodyContent?.trim()),
         bodyContent: payload.bodyContent ?? '',
-        bodyHtml: payload.bodyHtml ?? ''
+        initialRender
       })
     }
     case 'About':
     case 'Privacy':
     case 'Guidelines':
     case 'Copyright':
+      if (!initialRender) {
+        throw new Error('public_aot_hydration_markdown_render_missing')
+      }
       return createPublicAboutPageAssembly({
         view: requireHydrationView(payload.view, payload.pageKind),
         content: payload.staticPage?.content ?? '',
-        bodyHtml: payload.bodyHtml ?? '',
+        initialRender,
         baseUrl: payload.baseUrl ?? null
       })
     case 'Archive':
@@ -82,11 +96,14 @@ function createHydrationPageAssembly(payload: PublicHydrationPayload): PublicAot
   }
 }
 
-export function createPublicHydrationRoot(payload: PublicHydrationPayload): VNode {
+export function createPublicHydrationRoot(
+  payload: PublicHydrationPayload,
+  initialRender: MarkdownSafeRenderResult | null = null
+): VNode {
   if (!isSupportedLocale(payload.renderLocale)) {
     throw new Error('public_aot_hydration_render_locale_invalid')
   }
-  const page = createHydrationPageAssembly(payload)
+  const page = createHydrationPageAssembly(payload, initialRender)
   return renderPublicAotShell({
     kind: payload.pageKind,
     siteTitle: getSiteTitle(payload),
@@ -108,12 +125,37 @@ export type PublicHydrationTakeoverController = Readonly<{
 
 export function createPublicHydrationRootComponent(
   payload: PublicHydrationPayload,
+  initialRender: MarkdownSafeRenderResult | null = null,
   takeover?: PublicHydrationTakeoverController
 ): ReturnType<typeof defineComponent> {
   return defineComponent({
     name: 'PublicHydrationRoot',
     render: () => takeover?.active.value && takeover.renderer.value
       ? takeover.renderer.value()
-      : createPublicHydrationRoot(payload)
+      : createPublicHydrationRoot(payload, initialRender)
   })
+}
+
+export async function renderPublicHydrationMarkdown(
+  payload: PublicHydrationPayload
+): Promise<MarkdownSafeRenderResult | null> {
+  switch (payload.pageKind) {
+    case 'ArticleDetail':
+      return renderMarkdownOrThrow({
+        source: payload.bodyContent ?? '',
+        baseUrl: payload.baseUrl ?? null,
+        mode: 'article'
+      })
+    case 'About':
+    case 'Privacy':
+    case 'Guidelines':
+    case 'Copyright':
+      return renderMarkdownOrThrow({
+        source: payload.staticPage?.content ?? '',
+        baseUrl: payload.baseUrl ?? null,
+        mode: 'about'
+      })
+    default:
+      return null
+  }
 }

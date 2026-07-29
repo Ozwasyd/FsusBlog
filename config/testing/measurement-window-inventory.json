@@ -81,6 +81,13 @@
             "reason": "aggregates the already-recorded browser render-pressure artifact and starts no timed workload"
         },
         {
+            "tierId": "markdown-preview-release-performance",
+            "disposition": "enveloped",
+            "receipts": [
+                ".tmp/perf/markdown-preview-release-performance/measurement-noise.json"
+            ]
+        },
+        {
             "tierId": "performance-evidence-summary",
             "disposition": "aggregation-only",
             "reason": "aggregates qualified producer evidence and starts no timed workload"

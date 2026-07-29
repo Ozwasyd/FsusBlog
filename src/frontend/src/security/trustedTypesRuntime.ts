@@ -1,4 +1,5 @@
 import { isCanonicalReleaseId } from '@/generated/releaseIdContract';
+import type { MarkdownSafeHtml } from '@/fsusui/markdown'
 
 type TrustedTypePolicyRules = {
     createHTML?: (value: string) => string;
@@ -29,19 +30,12 @@ const NON_EXECUTABLE_SCRIPT_TYPES = new Set([
     'application/ld+json',
   'application/octet-stream'
 ])
-const UNSAFE_HTML_PATTERN = /<\s*(?:script|iframe|object|embed|form|input|button|textarea|select|option|svg|math|foreignobject|link)\b|\s(?:on[a-z]+|srcdoc)\s*=|\s(?:href|src|xlink:href|formaction)\s*=\s*(?:['"]\s*)?javascript:/iu
-
 let appPolicy: TrustedTypePolicyLike | null = null
 let policyCreationAttempted = false
 
-export function setSanitizedTemplateHtml(template: HTMLTemplateElement, sanitizedHtml: string): void {
-  template.innerHTML = toTrustedSanitizedHtml(sanitizedHtml)
-}
-
-export function toTrustedSanitizedHtml(sanitizedHtml: string): string {
-  assertSanitizedHtml(sanitizedHtml)
+export function toTrustedMarkdownHtml(safeHtml: MarkdownSafeHtml): object {
   const policy = getAppPolicy()
-  return (policy?.createHTML(sanitizedHtml) ?? sanitizedHtml) as string
+  return (policy?.createHTML(safeHtml) ?? safeHtml) as object
 }
 
 export function setNonExecutableScriptText(script: HTMLScriptElement, value: string): void {
@@ -144,12 +138,6 @@ function getAppPolicy(): TrustedTypePolicyLike | null {
     appPolicy = null
   }
   return appPolicy
-}
-
-function assertSanitizedHtml(value: string): void {
-  if (UNSAFE_HTML_PATTERN.test(value)) {
-    throw new Error('trusted_types_unsanitized_html_rejected')
-  }
 }
 
 function resolveApplicationUrl(value: string, invalidArtifactError: string): URL {

@@ -37,6 +37,78 @@ shared/incomplete cgroup 一律 fail closed。command environment 通过 run-loc
 只有在导入并完整验证 `external-soak/72h` envelope receipt 后才能计入
 release-final。
 
+## Markdown preview paired Release diagnostic acceptance
+
+`markdown-preview-release-performance` 比较两份显式、不可变且彼此独立的
+Release side。它不会 checkout、构建、寻找 `latest` 或从一个 artifact root
+复制出两侧；base 与 candidate 必须分别拥有 clean source checkout、production
+build receipt、Release static/backend runtime 和同一份
+`acceptance-representative` fixture。调用方不得手工拼 side manifest，而要为每侧
+先写不含 source identity、artifact digest、machine、browser version、storage-state
+digest 或 identity-probe response 的 declaration，再调用唯一 sealer：
+
+```bash
+npm --prefix src/frontend run seal:markdown-preview-release-side -- \
+  --declaration /evidence/base-declaration.json \
+  --output /evidence/base-side.json
+
+npm --prefix src/frontend run seal:markdown-preview-release-side -- \
+  --declaration /evidence/candidate-declaration.json \
+  --output /evidence/candidate-side.json
+```
+
+declaration schema 是
+`fsusblog.markdown-preview-release-performance-side-declaration.v1`。它只声明
+side、source root、production artifact root/receipt、Release runtime URLs/routes
+与 identity-probe header names，以及 fixture root/profile/identity。sealer
+现场运行 `git rev-parse HEAD`、`git rev-parse HEAD^{tree}` 与 canonical worktree
+fingerprint，要求 checkout clean 并与 production receipt 的 commit/fingerprint
+一致；frontend domain、SSR/client entry digest 从 receipt 派生；machine/cgroup/
+cpuset、managed Chromium version、storage-state digest 与 identity-probe
+status/body/header 都从当前环境实测。probe header 只允许
+`X-Fsus-Release-Id`、`X-Fsus-Build-Identity` 的小写名称，并必须包含
+`x-fsus-release-id`；实测值必须等于 declaration 的 `releaseId`。`releaseId`
+必须通过 canonical release-id contract 且其 commit prefix 与 side source commit
+一致，`buildIdentity` 必须等于 `releaseId`。没有独立 live 或 manifest authority
+的 image digest 不属于此 diagnostic side schema。manifest 和 evidence 不内联
+cookie、authorization、token、key 或 storage state。
+输出以 `0444` 原子封存，并再次经过 measurement consumer 的 exact-schema verifier。
+
+两份 manifest 生成后，唯一测量入口是：
+
+```bash
+FSUSBLOG_MARKDOWN_PREVIEW_BASE_MANIFEST=/evidence/base-side.json \
+FSUSBLOG_MARKDOWN_PREVIEW_CANDIDATE_MANIFEST=/evidence/candidate-side.json \
+npm --prefix src/frontend run check:markdown-preview-release-performance
+```
+
+该入口是 `browser-diagnostics` owner 下的 manual diagnostic acceptance：
+matrix 中 `evidenceClass: diagnostic`、`requiredFor: none`，不进入
+`release-final` authoritative closure。noise receipt 的
+`qualificationEligible: true` 只表示当前测量窗口足以形成这次产品性能结论，
+不改变 evidence class，也不是 release-final 证据。
+
+lane 在启动时只删除其三个固定 output owner，随后由 measurement-noise admission
+包裹真实 runner。执行顺序固定为每侧一次 warmup，再进行五轮 serial retained
+measurement；每轮交替先测 side，最终每侧恰有五个保留样本。AOT 与 client
+Markdown median 的 candidate/base ratio 均不得超过 `1.02`，private preview
+不得超过 `1.03`，每个对应 retained sample 及两侧最大值都不得出现 raw AEDS
+response bytes 增长。比较使用未舍入 median；缺样本、重样本、零值、NaN、顺序
+漂移、feature/placeholder/browser error、runtime/source/machine drift 均 fail closed。
+每个 retained/warmup sample 的 article、about 与 admin write navigation response
+都必须携带与 side 相同的 `x-fsus-release-id`；article/about 还必须从受服务 HTML
+的 `#fsus-public-boot-config.frontendBuildIdentity` 读到同一 identity。该逐次
+navigation evidence 会写入 raw measurement，并由最终 sealer 对 side manifest
+独立复核；admin route 不要求不存在的 public boot config。
+
+private preview 的 `preview:sha256:*` 是后端响应与 DOM completion 的 source
+identity；FsusUI 的 `markdown:*` 只用于 render/activation completion。二者必须
+分别在各自域内相等，不能直接互比。最终
+`.tmp/perf/markdown-preview-release-performance/summary.json` 只有在 raw
+measurement、固定 threshold/schedule 的独立重算和同一 raw file digest 的 clean
+noise receipt 全部通过后才重建；同目录的 `raw-measurements.json` 与
+`measurement-noise.json` 保留完整绑定。
+
 This document records the ongoing frontend performance rules that sit below the public first-screen P0/P1 work.
 
 ## Application configuration experiments

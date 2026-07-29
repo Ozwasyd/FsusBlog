@@ -47,6 +47,19 @@ CPU、Node process 与 connection setup 只用于性能观察，绝不参与 cor
 
 `tests/coverage-registry.json` 是 matrix `coverage[]` 的机器可读索引。每个 coverage id 必须声明 `description`、`owner`、`risk`、`evidencePaths`、`assertionType`、`failClosedRule` 和 `minimumRequirement`；`description` 必须描述实际覆盖语义，不能保留 `Coverage contract for ...` 这类模板句，`minimumRequirement` 必须写明最低可接受断言或 evidence 形态，不能只重复 tier 类型。`tools/run-test-matrix.mjs validate` 会拒绝未注册的 coverage id、未被对应 tier artifact/evidence 声明的 evidence path、未使用的 registry id，拒绝只指向 unit/property 测试文件却标成非 `unit` 的明显 assertionType 错配，也会拒绝 `runtime` / `browser` / `perf` / `fuzz` / `mutation` 类型只指向静态 docs/source 文件的条目。该 registry 不替代测试本体，只把“这个 coverage 标签由什么证据证明”变成 fail-closed 合同。
 
+私有文章预览浏览器验收由 matrix leaf `article-private-preview` 唯一拥有，不再附带在
+`check:spa:routes`。`tools/test/lanes/article-private-preview.sh` 只连接 Debug
+frontend/backend，经 FixtureOrchestrator 准备
+`acceptance-representative` admin/session fixture，并固定 managed Chromium、
+session isolation、一个 worker 和零 retry。package 入口
+`check:article-private-preview` 不能接收 spec、grep、shard 或 worker 参数，只运行
+`tests/frontend/e2e/acceptance/article-private-preview.spec.ts`；artifact 固定写到
+`src/frontend/test-results/playwright/article-private-preview`。该 spec 必须通过真实
+AEDS preview 响应证明 current source completion、在途表单变化后的 stale response
+拒绝、复杂 Markdown activation 与 hostile markup containment，并保留 wide-light 和
+mobile-dark 的 rendered evidence。它属于 scheduled/manual browser diagnostics，
+不能替代 `browser-contract` correctness，也不能被通用 route acceptance 的结果代替。
+
 普通 PR 使用 smart gate：`plan-pr-risk` 始终运行并生成 `.tmp/pr-plan.json` 与 `.tmp/release-evidence/pr-smart-gate-summary.json`，fast lane 与 backend-qps sentinel 默认保留，Production、release、load、resilience 等 correctness lane 只在 changed paths、coverage id 或显式 full gate 命中时运行。backend/frontend coverage 已并入对应 fast `ci-job`，并通过 `supersedes` 替代同一 `executionKey` 的普通 unit 执行；跳过必须写入 skip evidence，不得 silent skip。普通 PR 与 `production-correctness` 的完整依赖闭包固定为零浏览器、零 Playwright、零 browser resource、零 session schema；只有 browser-boundary PR、主分支 push 或显式 release 追加一个 10 分钟、零 retry 的 Chromium `browser-contract`。Acceptance、visual、UX full/risk、cross-browser、geometry/motion/focus、browser a11y/performance/resilience 以及 search/PoW/permission/zero-auth browser probe 只由 scheduled/manual diagnostics 运行。完整拓扑见 [`testing/issue-1150-browserless-ci-topology.md`](testing/issue-1150-browserless-ci-topology.md)，receipt、flaky 与迁移治理见 [`testing/issue-1151-evidence-governance.md`](testing/issue-1151-evidence-governance.md)。
 
 `run-deterministic-command.mjs` invocation 必须显式声明 `--execution-class correctness|diagnostic` 与 `--producer-id`。`config/testing/producer-execution-class-contract.json` 是 matrix `evidenceClass` 到 execution class 的机器可读映射：默认 correctness 与 browser-contract 都要求 producer、scheduler run 和 source identity，diagnostic 恒定不可 qualification。correctness 在 child spawn 前要求 `FSUSBLOG_TEST_RUN_ID`、`FSUSBLOG_TEST_SOURCE_COMMIT`、`FSUSBLOG_TEST_SOURCE_FINGERPRINT`，缺任一字段以 `contract.missing-run-identity` 失败且零执行；它不生成 local、timestamp 或 latest fallback。diagnostic 也必须显式选择，才可 direct 执行，并恒定输出 `qualificationEligible=false`，不得发布 correctness projection。

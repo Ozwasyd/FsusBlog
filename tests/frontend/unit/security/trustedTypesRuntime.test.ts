@@ -1,14 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { sanitizePreviewHtml } from '@/utils/safeHtml'
+import { renderMarkdownResultWithRuntime } from '@ozwasyd/element-plus/markdown-runtime'
 import {
   resetTrustedTypesRuntimeForTests,
   setCommentPrivacyProverScriptUrl,
   setNonExecutableScriptText,
-  setSanitizedTemplateHtml,
+  toTrustedMarkdownHtml,
   toTrustedApplicationWorkerScriptUrl,
   toTrustedMarkdownWorkerScriptUrl,
-  toTrustedServiceWorkerScriptUrl,
-  toTrustedSanitizedHtml
+  toTrustedServiceWorkerScriptUrl
 } from '@/security/trustedTypesRuntime'
 
 const trustedTypeMarker = Symbol('trusted-type')
@@ -24,8 +23,6 @@ describe('trustedTypesRuntime', () => {
     }))
     vi.stubGlobal('trustedTypes', { createPolicy })
     restores.push(
-      enforceTrustedSetter(document.createElement('template'), 'innerHTML', 'html'),
-      enforceTrustedSetter(document.createElement('iframe'), 'srcdoc', 'html'),
       enforceTrustedSetter(document.createElement('script'), 'src', 'script-url'),
       enforceTrustedSetter(document.createElement('script'), 'textContent', 'script')
     )
@@ -37,23 +34,13 @@ describe('trustedTypesRuntime', () => {
     resetTrustedTypesRuntimeForTests()
   })
 
-  it('rejects raw HTML and script URL strings while allowing the audited wrappers', () => {
-    const template = document.createElement('template')
-    expect(() => {
-      template.innerHTML = '<p>raw</p>'
-    }).toThrow('mock_trusted_types_html_required')
-
-    const sanitized = sanitizePreviewHtml('<p onclick="steal()">safe</p><script>steal()</script>')
-    expect(sanitized).toBe('<p>safe</p>')
-    expect(() => setSanitizedTemplateHtml(template, '<img src="x" onerror="steal()">'))
-      .toThrow('trusted_types_unsanitized_html_rejected')
-    const previewFrame = document.createElement('iframe')
-    expect(() => {
-      previewFrame.srcdoc = '<p>raw preview</p>'
-    }).toThrow('mock_trusted_types_html_required')
-    expect(() => {
-      previewFrame.srcdoc = toTrustedSanitizedHtml('<!doctype html><body><p>safe preview</p></body>')
-    }).not.toThrow()
+  it('accepts only the FsusUI opaque Markdown HTML brand and preserves script URL checks', async () => {
+    const safeRender = await requireSafeRender('safe markdown')
+    expect(String(toTrustedMarkdownHtml(safeRender.html))).toContain('safe markdown')
+    if (false) {
+      // @ts-expect-error plain strings cannot enter the Markdown TrustedHTML adapter
+      toTrustedMarkdownHtml('<p>raw</p>')
+    }
 
     const script = document.createElement('script')
     expect(() => {
@@ -152,7 +139,7 @@ describe('trustedTypesRuntime', () => {
       .toThrow('service_worker_artifact_invalid')
   })
 
-  it('fails closed at an enforced sink when the application policy cannot be created', () => {
+  it('does not expose a plain string TrustedHTML conversion when policy creation fails', async () => {
     resetTrustedTypesRuntimeForTests()
     const createPolicy = vi.mocked((globalThis as unknown as {
       trustedTypes: { createPolicy: () => never }
@@ -161,10 +148,16 @@ describe('trustedTypesRuntime', () => {
       throw new TypeError('policy_blocked')
     })
 
-    expect(() => setSanitizedTemplateHtml(document.createElement('template'), '<p>safe</p>'))
-      .toThrow('mock_trusted_types_html_required')
+    const safeRender = await requireSafeRender('safe markdown')
+    expect(toTrustedMarkdownHtml(safeRender.html)).toBe(safeRender.html)
   })
 })
+
+async function requireSafeRender(source: string) {
+  const result = await renderMarkdownResultWithRuntime(source)
+  if (!result.ok) throw new Error(result.error.message)
+  return result.value
+}
 
 type TrustedTypeKind = 'html' | 'script' | 'script-url'
 type TrustedTypeRules = {
@@ -182,7 +175,7 @@ function trustedValue(kind: TrustedTypeKind, value: string) {
 
 function enforceTrustedSetter(
   target: object,
-  property: 'innerHTML' | 'srcdoc' | 'src' | 'textContent',
+  property: 'src' | 'textContent',
   kind: TrustedTypeKind
 ): () => void {
   let owner: object | null = target

@@ -62,28 +62,24 @@ export type PublicAotBootstrapPayloadByKind = {
     hotArticles: readonly PopularArticleSummaryResponse[]
   }>
   About: BaseBootstrapPayload<'About'> & Readonly<{
-    bodyHtml?: string | null
     staticPage?: Readonly<{
       slug?: string
       content?: string
     }>
   }>
   Privacy: BaseBootstrapPayload<'Privacy'> & Readonly<{
-    bodyHtml?: string | null
     staticPage?: Readonly<{
       slug?: string
       content?: string
     }>
   }>
   Guidelines: BaseBootstrapPayload<'Guidelines'> & Readonly<{
-    bodyHtml?: string | null
     staticPage?: Readonly<{
       slug?: string
       content?: string
     }>
   }>
   Copyright: BaseBootstrapPayload<'Copyright'> & Readonly<{
-    bodyHtml?: string | null
     staticPage?: Readonly<{
       slug?: string
       content?: string
@@ -164,7 +160,6 @@ export type PublicHydrationPayloadByKind = {
     responsibilityManifest?: ArticleResponsibilityPublicView | null
     articleSummary?: string | null
     bodyContent: string
-    bodyHtml?: string | null
     rights: ArticleRightsResponse
     detailView: ArticleDetailPageViewContract
     commentsIsland: Readonly<{
@@ -172,7 +167,6 @@ export type PublicHydrationPayloadByKind = {
     }>
   }>
   About: BaseHydrationPayload<'About'> & Readonly<{
-    bodyHtml?: string | null
     view?: AboutPageViewContract
     staticPage?: Readonly<{
       slug?: string | null
@@ -180,7 +174,6 @@ export type PublicHydrationPayloadByKind = {
     }> | null
   }>
   Privacy: BaseHydrationPayload<'Privacy'> & Readonly<{
-    bodyHtml?: string | null
     view?: AboutPageViewContract
     staticPage?: Readonly<{
       slug?: string | null
@@ -188,7 +181,6 @@ export type PublicHydrationPayloadByKind = {
     }> | null
   }>
   Guidelines: BaseHydrationPayload<'Guidelines'> & Readonly<{
-    bodyHtml?: string | null
     view?: AboutPageViewContract
     staticPage?: Readonly<{
       slug?: string | null
@@ -196,7 +188,6 @@ export type PublicHydrationPayloadByKind = {
     }> | null
   }>
   Copyright: BaseHydrationPayload<'Copyright'> & Readonly<{
-    bodyHtml?: string | null
     view?: AboutPageViewContract
     staticPage?: Readonly<{
       slug?: string | null

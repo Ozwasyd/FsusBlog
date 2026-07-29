@@ -3,6 +3,7 @@ import { renderToString } from '@vue/server-renderer'
 import { provideFsusUiAppContext } from '@/fsusui/appContext'
 import type { PublicHydrationPayload } from '@/public-renderers/types'
 import { createPublicHydrationRootComponent } from '@/public-renderers/publicHydrationRoot'
+import { renderPublicHydrationMarkdown } from '@/public-renderers/publicHydrationRoot'
 import { normalizePublicHydrationPayload } from '@/public-renderers/publicPayloadNormalizer'
 import { registerPublicStaticRouterLink } from '@/public-renderers/publicStaticRouterLink'
 import {
@@ -33,7 +34,8 @@ export async function renderPublicHydrationSnapshot(payload: PublicHydrationPayl
     normalizedPayload.renderLocale,
     requiredLocaleDomainsForPublicPage(normalizedPayload.pageKind)
   )
-  const app = createSSRApp(createPublicHydrationRootComponent(normalizedPayload))
+  const initialRender = await renderPublicHydrationMarkdown(normalizedPayload)
+  const app = createSSRApp(createPublicHydrationRootComponent(normalizedPayload, initialRender))
   provideLocaleTextContext(app, localeSnapshot)
   provideFsusUiAppContext(app)
   registerPublicStaticRouterLink(app)

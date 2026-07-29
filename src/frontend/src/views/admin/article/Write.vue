@@ -387,8 +387,7 @@
 
         <template #preview>
           <ArticlePrivatePreviewPanel
-            :html="privatePreview?.html ?? ''"
-            :issues="privatePreview?.issues ?? []"
+            :preview="privatePreview"
             :loading="privatePreviewLoading"
             :status-text="privatePreviewStatusText"
             :can-preview="canGeneratePrivatePreview"

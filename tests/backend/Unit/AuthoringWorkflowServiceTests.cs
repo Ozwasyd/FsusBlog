@@ -680,7 +680,7 @@ fsusMetadataJson: {encodedMetadata}
     }
 
     [Fact]
-    public async Task PreviewAsync_RendersMarkdownLikeHtmlAndEscapesExecutableHtml()
+    public async Task PreviewAsync_ReturnsNormalizedNonExecutableDataAndStableIdentity()
     {
         AuthoringDraftLifecycleService service = BuildDraftService();
 
@@ -688,39 +688,91 @@ fsusMetadataJson: {encodedMetadata}
             "fsus:article-draft:create",
             null,
             "Preview <Title>",
-            """
-## Section
-
-Paragraph with **bold**, *em*, `code`, and [link](https://example.com/docs).
-
-![Cover](/uploads/illustration/cover.png)
-
-```ts
-const value = "<script>alert(1)</script>";
-```
-
-<script>alert(1)</script>
-""",
+            "## Section\r\n正文🙂",
             "Summary <safe>",
-            "/uploads/illustration/cover.png",
+            "/uploads/cover.png",
             1,
             [2],
             "rev-1",
             0,
             null));
 
-        Assert.Contains("data-preview-only=\"true\"", response.Html, StringComparison.Ordinal);
-        Assert.Contains("data-markdown-renderer=\"server-preview\"", response.Html, StringComparison.Ordinal);
-        Assert.Contains("<h2>Section</h2>", response.Html, StringComparison.Ordinal);
-        Assert.Contains("<strong>bold</strong>", response.Html, StringComparison.Ordinal);
-        Assert.Contains("<em>em</em>", response.Html, StringComparison.Ordinal);
-        Assert.Contains("<code>code</code>", response.Html, StringComparison.Ordinal);
-        Assert.Contains("href=\"https://example.com/docs\"", response.Html, StringComparison.Ordinal);
-        Assert.Contains("<figure class=\"author-preview__image\"><img src=\"/uploads/illustration/cover.png\"", response.Html, StringComparison.Ordinal);
-        Assert.Contains("<pre class=\"shiki author-preview__code\"><code class=\"language-ts\">", response.Html, StringComparison.Ordinal);
-        Assert.Contains("&lt;script&gt;alert(1)&lt;/script&gt;", response.Html, StringComparison.Ordinal);
-        Assert.DoesNotContain("<script>", response.Html, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains(response.Issues, static issue => issue.Code == "dangerous_html");
+        Assert.Equal("Preview <Title>", response.NormalizedTitle);
+        Assert.Equal("Summary <safe>", response.NormalizedSummary);
+        Assert.Equal("/uploads/cover.png", response.NormalizedCoverImageUrl);
+        Assert.Equal("## Section\n正文🙂", response.NormalizedMarkdownSource);
+        Assert.Equal(
+            "preview:sha256:7ea4f661c9aa2612d0d105ea0b3078187ac0eb8ec02b33e180dd9b4574257a6b",
+            response.SourceIdentity);
+        Assert.DoesNotContain(
+            typeof(ArticlePreviewResponse).GetProperties(),
+            static property => property.Name.Equals("Html", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Theory]
+    [InlineData("/uploads/cover.png", "/uploads/cover.png")]
+    [InlineData("https://example.com/cover.png", "https://example.com/cover.png")]
+    [InlineData("http://example.com/cover.png", "http://example.com/cover.png")]
+    [InlineData("//example.com/cover.png", null)]
+    [InlineData("javascript:alert(1)", null)]
+    [InlineData("data:image/png;base64,AAAA", null)]
+    [InlineData("https://user:pass@example.com/cover.png", null)]
+    [InlineData("mailto:owner@example.com", null)]
+    [InlineData("ftp://example.com/cover.png", null)]
+    public async Task PreviewAsync_NormalizesCoverUrlWithFailClosedSchemePolicy(
+        string coverImageUrl,
+        string? expected)
+    {
+        AuthoringDraftLifecycleService service = BuildDraftService();
+        ArticlePreviewResponse response = await service.PreviewAsync(new ServerDraftSaveRequest(
+            "fsus:article-draft:create",
+            null,
+            "Title",
+            "Content",
+            null,
+            coverImageUrl,
+            1,
+            [],
+            "rev-1",
+            0,
+            null));
+
+        Assert.Equal(expected, response.NormalizedCoverImageUrl);
+    }
+
+    [Fact]
+    public async Task PreviewAsync_SourceIdentityUsesUtf8ByteLengthsAndNullAsEmpty()
+    {
+        AuthoringDraftLifecycleService service = BuildDraftService();
+        ArticlePreviewResponse withNulls = await service.PreviewAsync(new ServerDraftSaveRequest(
+            "fsus:article-draft:create",
+            null,
+            "é",
+            "🙂",
+            null,
+            null,
+            1,
+            [],
+            "rev-1",
+            0,
+            null));
+        ArticlePreviewResponse withEmptyStrings = await service.PreviewAsync(new ServerDraftSaveRequest(
+            "fsus:article-draft:create",
+            null,
+            "é",
+            "🙂",
+            string.Empty,
+            string.Empty,
+            1,
+            [],
+            "rev-1",
+            0,
+            null));
+
+        Assert.Equal(
+            "preview:sha256:a5211698f205f78847796364f1c2f15285f8946930c85d1c09c13db9f80c8272",
+            withNulls.SourceIdentity);
+        Assert.Equal(withNulls.SourceIdentity, withEmptyStrings.SourceIdentity);
     }
 
     private static AuthoringDraftLifecycleService BuildDraftService()

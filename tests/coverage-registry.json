@@ -1004,6 +1004,21 @@
             ]
         },
         {
+            "id": "markdown-preview-release-performance",
+            "description": "Paired immutable Release sides measure Markdown AOT, client activation, private preview completion, and raw AEDS response size under one admitted serial browser window.",
+            "owner": "InteropGlueAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                ".tmp/perf/markdown-preview-release-performance/summary.json"
+            ],
+            "assertionType": "perf",
+            "failClosedRule": "The gate must reject unverified or mutable side manifests, source, machine, runtime, fixture, toolchain, schedule, sample, threshold, byte-growth, or measurement-noise drift.",
+            "minimumRequirement": "Evidence must bind two explicit Release receipts, one canonical corpus, one warmup plus five alternating retained samples per side, independently recomputed 2/2/3 percent medians, zero AEDS byte growth, and an admitted noise receipt.",
+            "tierIds": [
+                "markdown-preview-release-performance"
+            ]
+        },
+        {
             "id": "cache-invalidation-batch-roundtrip-reduction",
             "description": "Cache Invalidation Batch Roundtrip Reduction is covered by performance summaries that exercise the named behavior.",
             "owner": "ServerContractAgent",
@@ -1779,6 +1794,21 @@
             "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
             "tierIds": [
                 "acceptance"
+            ]
+        },
+        {
+            "id": "article-private-preview-browser",
+            "description": "One fixed managed-Chromium leaf verifies private article preview completion, stale-response rejection, hostile-markup containment, and rendered wide-light/mobile-dark states with an orchestrated admin session.",
+            "owner": "InteropGlueAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "src/frontend/test-results/playwright/article-private-preview"
+            ],
+            "assertionType": "browser",
+            "failClosedRule": "The diagnostic leaf must fail when its exact spec, one-worker zero-retry topology, managed browser, fixture orchestration, admin session, source identity, required Markdown activation, stale-response rejection, hostile-markup containment, or rendered evidence drifts.",
+            "minimumRequirement": "Browser evidence must come from the fixed article-private-preview spec under one managed Chromium worker and contain current-source completion plus wide-light and mobile-dark rendered artifacts.",
+            "tierIds": [
+                "article-private-preview"
             ]
         },
         {

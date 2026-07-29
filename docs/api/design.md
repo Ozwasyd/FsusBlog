@@ -701,7 +701,7 @@ SPA 接管失败时采用 fail-closed：snapshot head 缺失、旧版本、diges
 
 代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringUseCasePorts.cs`](../../src/backend/Services/Authoring/AuthoringUseCasePorts.cs)。
 
-私有预览走 `/api/binary/author/preview`，由服务端把草稿 Markdown 渲染成带 `data-preview-only=true`、`data-markdown-renderer=server-preview` 的 AOT-like HTML，前端只放进 sandboxed iframe，不进入公开路由或缓存。
+私有预览走 `/api/binary/author/preview`。服务端只返回规范化标题、摘要、受控封面 URL、Markdown source、纯文本投影、发布前 issues 和绑定四个原始请求字段的 `sourceIdentity`；不返回 HTML。前端核对 identity 与当前表单 generation 后，以 Vue 文本插值、受控图片绑定和 FsusUI `MarkdownRenderer` 组合预览，不创建 iframe/srcdoc，也不进入公开路由或缓存。
 
 ### 草稿与本地缓存
 

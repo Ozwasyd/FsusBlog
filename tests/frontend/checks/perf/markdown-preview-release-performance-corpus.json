@@ -1,0 +1,18 @@
+{
+  "schema": "fsusblog.markdown-preview-release-performance-corpus.v1",
+  "fixtureIdentity": "markdown-preview-release-performance-v1",
+  "contentDigest": "sha256:bd5b44f428633a8a63c75448bc2877c6c9759f6c218688cdce6c9c3702bc59a3",
+  "preview": {
+    "title": "Release Markdown preview performance",
+    "summary": "A fixed Release-only Markdown preview payload used for paired performance admission.",
+    "coverImageUrl": null,
+    "content": "Release performance paragraph with **emphasis** and a [same-origin link](/about).\n\n| surface | expectation |\n| --- | --- |\n| article | complete |\n| preview | complete |\n\n```ts\nconst releaseMarkdownPerformance = 42\n```\n\n$$E = mc^2$$\n\n```mermaid\ngraph TD; Release-->Measured\n```\n\n<script>globalThis.__fsusPreviewExploit = true</script>\n<img src=x onerror=\"globalThis.__fsusPreviewExploit = true\">\n<iframe srcdoc=\"<script>globalThis.__fsusPreviewExploit = true</script>\"></iframe>"
+  },
+  "aot": {
+    "articleId": 1791001,
+    "aboutSlug": "release-markdown-performance",
+    "renderTimestamp": "2026-07-30T00:00:00.000Z",
+    "renderLocale": "zh-CN",
+    "renderDisplayTimeZone": "UTC"
+  }
+}

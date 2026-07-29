@@ -16,7 +16,6 @@
       :canonical-url="articleCanonicalUrl"
       :has-body-content="hasBodyContent"
       :body-content="pageDetailView.body.content"
-      :body-html="initialArticleBodyHtml"
       link-mode="anchor"
     >
       <template v-if="canRenderBodyRuntime" #header-actions>
@@ -30,7 +29,6 @@
         <MarkdownRenderer
           ref="articleRendererRef"
           :content="pageDetailView.body.content"
-          :initial-html="initialArticleBodyHtml"
           itemprop="articleBody"
           @render-complete="handleArticleRenderComplete"
         />
@@ -336,11 +334,6 @@ const articleCanonicalUrl = computed(() => {
   }
 
   return `${baseUrl.replace(/\/+$/, '')}/article/${articleId}`
-})
-
-const initialArticleBodyHtml = computed(() => {
-  const hydratedHtml = initialArticlePayload?.bodyHtml?.trim()
-  return hydratedHtml || ''
 })
 
 const articleContentRoot = computed<HTMLElement | null>(() => {

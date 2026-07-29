@@ -4,6 +4,7 @@ import { requestBinaryOnly } from '@/composition/binaryTransport'
 import {
   applyIntegrityFix,
   blockAnonymousNullifier,
+  createArticlePreviewSourceIdentity,
   discardServerDraft,
   getServerDraft,
   moderateComment,
@@ -38,6 +39,36 @@ const decoder = new TextDecoder()
 describe('authoring API binary transport', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+  })
+
+  it('matches the cross-stack article preview source identity golden vector', async () => {
+    await expect(createArticlePreviewSourceIdentity({
+      title: 'Preview <Title>',
+      content: '## Section\r\n正文🙂',
+      summary: 'Summary <safe>',
+      coverImageUrl: '/uploads/cover.png'
+    })).resolves.toBe(
+      'preview:sha256:7ea4f661c9aa2612d0d105ea0b3078187ac0eb8ec02b33e180dd9b4574257a6b'
+    )
+  })
+
+  it('uses UTF-8 byte lengths and treats null exactly like an empty identity field', async () => {
+    await expect(createArticlePreviewSourceIdentity({
+      title: 'é',
+      content: '🙂',
+      summary: null,
+      coverImageUrl: null
+    })).resolves.toBe(
+      'preview:sha256:a5211698f205f78847796364f1c2f15285f8946930c85d1c09c13db9f80c8272'
+    )
+    await expect(createArticlePreviewSourceIdentity({
+      title: 'é',
+      content: '🙂',
+      summary: '',
+      coverImageUrl: ''
+    })).resolves.toBe(
+      'preview:sha256:a5211698f205f78847796364f1c2f15285f8946930c85d1c09c13db9f80c8272'
+    )
   })
 
   it('saveServerDraft posts an AEDS author draft request frame', async () => {

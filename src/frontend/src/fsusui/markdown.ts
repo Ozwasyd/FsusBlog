@@ -1,13 +1,12 @@
 import {
     renderMarkdownResultWithRuntime,
-    type MarkdownRenderResult as FsusMarkdownRenderResult
+    type MarkdownSafeRenderResult
 } from '@ozwasyd/element-plus/markdown-runtime';
 
 import type { FsusUiResult } from '@/fsusui/result';
-import { sanitizeMarkdownRuntimeHtml } from '@/utils/safeHtml';
 
 export type MarkdownRenderMode = 'article' | 'about' | 'preview' | 'editor';
-export type MarkdownRenderResult = FsusMarkdownRenderResult;
+export type MarkdownRenderResult = MarkdownSafeRenderResult;
 
 const unavailable = (message: string, cause?: unknown): FsusUiResult<MarkdownRenderResult> => ({
     ok: false,
@@ -22,7 +21,6 @@ const unavailable = (message: string, cause?: unknown): FsusUiResult<MarkdownRen
 export async function renderMarkdownWithFsusRuntime(input: {
     source: string;
     mode?: MarkdownRenderMode;
-    allowHtml?: boolean;
     allowLatex?: boolean;
     allowMermaid?: boolean;
     baseUrl?: string | null;
@@ -33,28 +31,39 @@ export async function renderMarkdownWithFsusRuntime(input: {
         const result: FsusUiResult<MarkdownRenderResult> = await renderMarkdownResultWithRuntime({
             source: input.source,
             mode: input.mode ?? 'article',
-            allowHtml: input.allowHtml ?? false,
             allowLatex: input.allowLatex ?? true,
             allowMermaid: input.allowMermaid ?? true,
             baseUrl: input.baseUrl ?? null
         });
-        if (!result.ok || typeof result.value.html !== 'string')
-        {
-            return result;
-        }
-
-        return {
-            ...result,
-            value: {
-                ...result.value,
-                html: sanitizeMarkdownRuntimeHtml(result.value.html)
-            }
-        };
+        return result;
     }
     catch (error: unknown)
     {
         return unavailable('FsusUI markdown runtime is unavailable.', error);
     }
+}
+
+export async function renderMarkdownOrThrow(input: {
+    source: string;
+    mode?: MarkdownRenderMode;
+    allowLatex?: boolean;
+    allowMermaid?: boolean;
+    baseUrl?: string | null;
+}): Promise<MarkdownSafeRenderResult>
+{
+    const result = await renderMarkdownWithFsusRuntime(input);
+    return unwrapMarkdownRuntimeResult(result);
+}
+
+export function unwrapMarkdownRuntimeResult(
+    result: FsusUiResult<MarkdownRenderResult>
+): MarkdownSafeRenderResult
+{
+    if (!result.ok)
+    {
+        throw new Error(`markdown_runtime_failed:${result.error.code}`);
+    }
+    return result.value;
 }
 
 export {
@@ -88,6 +97,8 @@ export type {
     MarkdownRenderMetadata,
     MarkdownRenderPlaceholder,
     MarkdownRenderRequest,
+    MarkdownSafeHtml,
+    MarkdownSafeRenderResult,
     MarkdownRenderTimings,
     MarkdownRendererSurfaceContract,
     MarkdownRuntimeChunkResult,

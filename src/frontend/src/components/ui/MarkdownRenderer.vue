@@ -11,15 +11,15 @@
     <el-markdown-renderer
       ref="rendererRef"
       :content="props.content"
-      :initial-html="safeInitialHtml"
-      :allow-html="props.allowHtml"
+      :content-version="props.contentVersion"
+      :initial-render="props.initialRender"
       :allow-latex="props.allowLatex"
       :allow-mermaid="props.allowMermaid"
       :mode="props.mode"
       :base-url="props.baseUrl"
-      :trusted-html-factory="toTrustedSanitizedHtml"
+      :trusted-html-factory="toTrustedMarkdownHtml"
       :trusted-script-url-factory="toTrustedMarkdownWorkerScriptUrl"
-      @features-activated="emit('features-activated', $event)"
+      @features-activated="forwardFeaturesActivated"
       @render-complete="emit('render-complete', $event)"
       @render-error="emit('render-error', $event)"
     />
@@ -28,12 +28,15 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import type { MarkdownFeatureActivationResult, MarkdownRenderResult } from '@/fsusui/markdown'
+import type {
+  MarkdownFeatureActivationResult,
+  MarkdownRenderResult,
+  MarkdownSafeRenderResult
+} from '@/fsusui/markdown'
 import {
   toTrustedMarkdownWorkerScriptUrl,
-  toTrustedSanitizedHtml
+  toTrustedMarkdownHtml
 } from '@/security/trustedTypesRuntime'
-import { sanitizeMarkdownRuntimeHtml } from '@/utils/safeHtml'
 import '@/assets/markdown.css'
 
 type MarkdownRenderMode = 'article' | 'about' | 'preview' | 'editor'
@@ -47,29 +50,36 @@ type FsusMarkdownError = {
 
 const props = withDefaults(defineProps<{
   content: string
-  initialHtml?: string
-  allowHtml?: boolean
+  contentVersion?: number | string | null
+  initialRender?: MarkdownSafeRenderResult | null
   allowLatex?: boolean
   allowMermaid?: boolean
   mode?: MarkdownRenderMode
   baseUrl?: string | null
 }>(), {
-  initialHtml: '',
-  allowHtml: false,
+  initialRender: null,
+  contentVersion: null,
   allowLatex: true,
   allowMermaid: true,
   mode: 'article',
   baseUrl: null
 })
 const emit = defineEmits<{
-  (e: 'features-activated', result?: MarkdownFeatureActivationResult): void
-  (e: 'render-complete', result?: MarkdownRenderResult): void
+  (
+    e: 'features-activated',
+    activation: MarkdownFeatureActivationResult,
+    result: MarkdownRenderResult
+  ): void
+  (e: 'render-complete', result: MarkdownRenderResult): void
   (e: 'render-error', error: FsusMarkdownError): void
 }>()
 
+const forwardFeaturesActivated = (
+  activation: MarkdownFeatureActivationResult,
+  result: MarkdownRenderResult
+) => emit('features-activated', activation, result)
+
 const rendererRef = ref<MarkdownRendererExpose | null>(null)
 const rootEl = computed(() => rendererRef.value?.rootEl ?? null)
-const safeInitialHtml = computed(() => sanitizeMarkdownRuntimeHtml(props.initialHtml))
-
 defineExpose({ rootEl })
 </script>

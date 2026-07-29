@@ -40,11 +40,6 @@ export function useStaticPage(options: {
   const initialHydrationView = initialHydrationPayload?.view ?? null
   const initialStaticPage = initialHydrationPayload?.staticPage ?? initialBootstrap?.staticPage
   const hasInitialRouteSeed = Boolean(initialBootstrap || initialHydrationPayload)
-  const initialBodyHtml = typeof initialHydrationPayload?.bodyHtml === 'string'
-    ? initialHydrationPayload.bodyHtml
-    : typeof initialBootstrap?.bodyHtml === 'string'
-      ? initialBootstrap.bodyHtml
-      : ''
   const currentYear = Number.isInteger(initialHydrationPayload?.renderYear)
     ? Number(initialHydrationPayload?.renderYear)
     : Number.isInteger(initialBootstrap?.renderYear)
@@ -118,7 +113,6 @@ export function useStaticPage(options: {
   return {
     staticPageView,
     currentYear,
-    initialBodyHtml,
     rawMarkdown,
     loading,
     error,

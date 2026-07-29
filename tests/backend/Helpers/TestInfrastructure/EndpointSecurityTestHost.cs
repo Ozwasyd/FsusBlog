@@ -180,6 +180,11 @@ public sealed class EndpointSecurityTestServerOptions
         get; init;
     }
 
+    public bool MapAuthoringEndpoints
+    {
+        get; init;
+    }
+
     public int FixedIpPermitLimit { get; init; } = 100;
 
     public RiskDecisionKind RiskDecision { get; init; } = RiskDecisionKind.Challenge;
@@ -553,6 +558,10 @@ public sealed class EndpointSecurityTestServer : IDisposable
         app.UseMiddleware<BannedUserMiddleware>();
         app.UseAuthorization();
         app.MapBinaryEndpoints();
+        if (options.MapAuthoringEndpoints)
+        {
+            app.MapAuthoringEndpoints();
+        }
         app.StartAsync().GetAwaiter().GetResult();
 
         return new EndpointSecurityTestServer(

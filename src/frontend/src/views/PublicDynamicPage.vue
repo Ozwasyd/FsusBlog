@@ -8,7 +8,6 @@
     <template #body>
       <MarkdownRenderer
         :content="rawMarkdown"
-        :initial-html="initialBodyHtml"
         mode="about"
       />
     </template>
@@ -34,7 +33,7 @@ const props = defineProps<{
   title: string
 }>()
 
-const { staticPageView, initialBodyHtml, rawMarkdown, loading, error, fetchData } = useStaticPage({
+const { staticPageView, rawMarkdown, loading, error, fetchData } = useStaticPage({
   kind: props.pageKind,
   slug: props.slug,
   title: props.title

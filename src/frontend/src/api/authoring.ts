@@ -321,9 +321,43 @@ export interface PrepublishIssue {
 }
 
 export interface ArticlePreviewResponse {
-  html: string
+  normalizedTitle: string
+  normalizedSummary: string
+  normalizedCoverImageUrl: string | null
+  normalizedMarkdownSource: string
   plainText: string
+  sourceIdentity: string
   issues: PrepublishIssue[]
+}
+
+export type ArticlePreviewIdentityInput = Pick<
+  ServerDraftSaveRequest,
+  'title' | 'content' | 'summary' | 'coverImageUrl'
+>
+
+export async function createArticlePreviewSourceIdentity(
+  input: ArticlePreviewIdentityInput
+): Promise<string> {
+  const encoder = new TextEncoder()
+  const fields = [input.title, input.content, input.summary ?? '', input.coverImageUrl ?? '']
+  const chunks: Uint8Array[] = [encoder.encode('fsusblog.article-preview.v1\0')]
+  let length = chunks[0].byteLength
+  for (const field of fields) {
+    const bytes = encoder.encode(field)
+    const prefix = encoder.encode(`${bytes.byteLength}:`)
+    chunks.push(prefix, bytes, Uint8Array.of(0))
+    length += prefix.byteLength + bytes.byteLength + 1
+  }
+
+  const payload = new Uint8Array(length)
+  let offset = 0
+  for (const chunk of chunks) {
+    payload.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  const digest = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', payload))
+  const hex = Array.from(digest, byte => byte.toString(16).padStart(2, '0')).join('')
+  return `preview:sha256:${hex}`
 }
 
 export interface AssetLibraryItemResponse {

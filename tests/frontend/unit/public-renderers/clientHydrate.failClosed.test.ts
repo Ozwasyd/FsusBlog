@@ -10,6 +10,7 @@ const {
   finishHydrationMetricsMock,
   markHydrationStepMock,
   createPublicHydrationRootComponentMock,
+  renderPublicHydrationMarkdownMock,
   registerPublicStaticRouterLinkMock,
   provideFsusUiAppContextMock,
   hasCanonicalPublicSeedRenderTimestampMock,
@@ -25,6 +26,7 @@ const {
   finishHydrationMetricsMock: vi.fn(),
   markHydrationStepMock: vi.fn(),
   createPublicHydrationRootComponentMock: vi.fn(() => ({ name: 'PublicHydrationRoot' })),
+  renderPublicHydrationMarkdownMock: vi.fn(async () => null),
   registerPublicStaticRouterLinkMock: vi.fn(),
   provideFsusUiAppContextMock: vi.fn(),
   hasCanonicalPublicSeedRenderTimestampMock: vi.fn(() => true),
@@ -69,7 +71,8 @@ vi.mock('@/public-renderers/publicPayloadNormalizer', () => ({
 }))
 
 vi.mock('@/public-renderers/publicHydrationRoot', () => ({
-  createPublicHydrationRootComponent: createPublicHydrationRootComponentMock
+  createPublicHydrationRootComponent: createPublicHydrationRootComponentMock,
+  renderPublicHydrationMarkdown: renderPublicHydrationMarkdownMock
 }))
 
 vi.mock('@/public-renderers/publicStaticRouterLink', () => ({
@@ -127,6 +130,7 @@ describe('clientHydrate fail-closed suppression erasure', () => {
     hasCanonicalPublicSeedRenderTimestampMock.mockReturnValue(true)
     isSupportedLocaleMock.mockReturnValue(true)
     normalizePublicHydrationPayloadMock.mockImplementation((value) => value)
+    renderPublicHydrationMarkdownMock.mockResolvedValue(null)
     verifyHydrationIdentityMock.mockReset()
     createSSRAppMock.mockImplementation(() => {
       const app = {
@@ -209,6 +213,19 @@ describe('clientHydrate fail-closed suppression erasure', () => {
     await expect(hydratePublicPage(payload())).rejects.toThrow('public_aot_hydration_locale_mismatch')
     expect(shell.dataset.publicHydrated).toBeUndefined()
     expect(createSSRAppMock).not.toHaveBeenCalled()
+    expect(getPublicHydrationTakeoverHandle()).toBeNull()
+  })
+
+  it('does not create or mount the app when the hydration Markdown runtime fails', async () => {
+    const shell = mountDocument()
+    renderPublicHydrationMarkdownMock.mockRejectedValueOnce(
+      new Error('markdown_runtime_authority_invalid')
+    )
+
+    await expect(hydratePublicPage(payload()))
+      .rejects.toThrow('markdown_runtime_authority_invalid')
+    expect(createSSRAppMock).not.toHaveBeenCalled()
+    expect(shell.dataset.publicHydrated).toBeUndefined()
     expect(getPublicHydrationTakeoverHandle()).toBeNull()
   })
 })

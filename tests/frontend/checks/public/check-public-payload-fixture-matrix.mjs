@@ -4,7 +4,18 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'
 import { decodePublicAotPayload } from '../../support/aeds-envelope.mjs'
-import { normalizedText, withBrowserlessDocument } from '../../support/browserless-document.mjs'
+
+const repoRoot = fileURLToPath(new URL('../../../../', import.meta.url))
+const frontendRoot = resolve(repoRoot, 'src/frontend')
+const invocationRoot = process.cwd()
+let browserlessDocument
+try {
+  process.chdir(frontendRoot)
+  browserlessDocument = await import('../../support/browserless-document.mjs')
+} finally {
+  process.chdir(invocationRoot)
+}
+const { normalizedText, withBrowserlessDocument } = browserlessDocument
 
 export const PAYLOAD_FIXTURE_SCHEMA = 'fsusblog.public-hydration-payload-fixture-matrix.v1'
 const PAYLOAD_FIXTURE_SUMMARY_FILE = process.env.FSUSBLOG_PUBLIC_HYDRATION_PAYLOAD_FIXTURE_SUMMARY_FILE
@@ -729,7 +740,8 @@ function assertArticleFixture(fixture, hydrationPayload, bootstrapPayload, domSn
 
   assert(hydrationPayload.articleId === bootstrapPayload.article.id, `${fixture.id} article id drift`)
   assert(hydrationPayload.title === bootstrapPayload.article.title, `${fixture.id} article title drift`)
-  assert(typeof hydrationPayload.bodyHtml === 'string', `${fixture.id} missing bodyHtml`)
+  assert(!Object.hasOwn(hydrationPayload, 'bodyHtml'), `${fixture.id} hydration must not serialize bodyHtml`)
+  assert(!Object.hasOwn(bootstrapPayload, 'bodyHtml'), `${fixture.id} bootstrap must not serialize bodyHtml`)
   assert(hydrationPayload.bodyContent === bootstrapPayload.article.content, `${fixture.id} article body content drift`)
   assert(hydrationPayload.rights?.policyHash === bootstrapPayload.article.rights?.policyHash, `${fixture.id} article rights policy hash drift`)
   assert(hydrationPayload.detailView?.rights?.contentCanonicalHash === bootstrapPayload.article.rights?.contentCanonicalHash, `${fixture.id} article detail rights hash drift`)
@@ -749,10 +761,6 @@ function assertArticleFixture(fixture, hydrationPayload, bootstrapPayload, domSn
     assert(domSnapshot.relatedPreviousCount === 1 && domSnapshot.relatedNextCount === 1, `${fixture.id} previous/next DOM drift`)
   }
   if (fixture.dimensions.includes('article-detail:rich')) {
-    assert(hydrationPayload.bodyHtml !== hydrationPayload.bodyContent, `${fixture.id} payload normalization did not render rich markdown`)
-    for (const token of ['<h1', '<h2', '<table', '<blockquote', '<img']) {
-      assert(hydrationPayload.bodyHtml.includes(token), `${fixture.id} rich body missing token ${token}`)
-    }
     assert(domSnapshot.articleBody.hasMarkdownBody, `${fixture.id} rich article body keeps wrapper, role, class contract: missing markdown body`)
     assert(domSnapshot.articleBody.hasSafeWrap, `${fixture.id} rich article body keeps wrapper, role, class contract: missing safe wrapper`)
     assert(domSnapshot.articleBody.headingCount >= 2, `${fixture.id} rich body heading drift`)
@@ -766,7 +774,7 @@ function assertArticleFixture(fixture, hydrationPayload, bootstrapPayload, domSn
     articleId: hydrationPayload.articleId,
     tagCount: bootstrapPayload.article.tags.length,
     relatedCount: bootstrapPayload.relatedReading.related.length,
-    bodyHtmlLength: hydrationPayload.bodyHtml.length,
+    bodySourceLength: hydrationPayload.bodyContent.length,
   }
 }
 
@@ -826,7 +834,9 @@ function assertStaticFixture(fixture, hydrationPayload, bootstrapPayload, domSna
   if (!['About', 'Privacy', 'Guidelines', 'Copyright'].includes(fixture.kind)) return null
 
   assert(hydrationPayload.title === bootstrapPayload.title, `${fixture.id} static title drift`)
-  assert(hydrationPayload.bodyHtml === bootstrapPayload.bodyHtml, `${fixture.id} static bodyHtml drift`)
+  assert(!Object.hasOwn(hydrationPayload, 'bodyHtml'), `${fixture.id} hydration must not serialize bodyHtml`)
+  assert(!Object.hasOwn(bootstrapPayload, 'bodyHtml'), `${fixture.id} bootstrap must not serialize bodyHtml`)
+  assert(hydrationPayload.staticPage.content === bootstrapPayload.staticPage.content, `${fixture.id} static Markdown source drift`)
   assert(hydrationPayload.staticPage.slug === bootstrapPayload.staticPage.slug, `${fixture.id} static slug drift`)
   if (fixture.dimensions.includes('static:empty-content')) {
     assert(hydrationPayload.staticPage.content === '', `${fixture.id} expected empty static content`)
@@ -840,7 +850,7 @@ function assertStaticFixture(fixture, hydrationPayload, bootstrapPayload, domSna
   return {
     slug: hydrationPayload.staticPage.slug,
     contentLength: hydrationPayload.staticPage.content.length,
-    bodyHtmlLength: hydrationPayload.bodyHtml.length,
+    bodySourceLength: hydrationPayload.staticPage.content.length,
   }
 }
 

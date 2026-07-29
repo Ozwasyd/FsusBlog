@@ -9,7 +9,7 @@ const MarkdownRendererStub = defineComponent({
   name: 'MarkdownRenderer',
   props: {
     content: { type: String, required: true },
-    allowHtml: { type: Boolean, default: true },
+    mode: { type: String, default: 'article' },
     allowLatex: { type: Boolean, default: true },
     allowMermaid: { type: Boolean, default: true }
   },
@@ -42,10 +42,11 @@ describe('CommentMarkdownRenderer consumer-owned style boundary', () => {
     const renderer = wrapper.getComponent(MarkdownRendererStub)
     expect(renderer.props()).toMatchObject({
       content,
-      allowHtml: false,
+      mode: 'preview',
       allowLatex: false,
       allowMermaid: false
     })
+    expect(renderer.props()).not.toHaveProperty('allowHtml')
     expect(wrapper.findAll('pre')).toHaveLength(2)
     expect(wrapper.find('img').exists()).toBe(true)
     expect(wrapper.find('svg').exists()).toBe(true)

@@ -138,6 +138,8 @@ public sealed class PublicAotShellServiceTests
     public async Task GenerateAndStoreAsync_RepeatedRendererContractFailure_QuarantinesRoute()
     {
         var match = HomeMatch();
+        const string CacheKey = "cache:home";
+        const string VerifiedHtml = "<!doctype html><html><body>verified-old-artifact</body></html>";
         IConfiguration configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -147,15 +149,32 @@ public sealed class PublicAotShellServiceTests
             })
             .Build();
         var runtimeState = new PublicAotSsrRuntimeState(configuration);
-        var renderer = new FailingRenderer("public_aot_worker_invalid_aeds");
+        var renderer = new FailingRenderer("public_aot_contract_markdown_runtime_authority_invalid");
+        var cache = new RecordingAotCache();
+        var verifiedEntry = new PublicAotCacheEntry
+        {
+            CacheKey = CacheKey,
+            RouteKey = match.RouteKey,
+            PageId = match.PageId,
+            Source = PublicAotWriteSource.ServerSsrBackfill,
+            RendererVersion = PublicAotShellService.PublicRendererVersion,
+            FrontendAssetVersion = "frontend-v1",
+            Locale = match.LocaleResolution.Locale.Code,
+            ExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(5),
+            Value = VerifiedHtml
+        };
+        cache.EntriesByKey[CacheKey] = verifiedEntry;
+        byte[] verifiedBytes = verifiedEntry.GetDocument().Utf8Bytes.ToArray();
+        IPublicAotCacheWriter writer = Substitute.For<IPublicAotCacheWriter>();
         PublicAotShellService sut = CreateService(
             match,
-            new RecordingAotCache(),
+            cache,
             new RecordingBackfillScheduler(),
             runtimeState: runtimeState,
             entryRenderer: renderer,
-            dbConcurrencyGate: new ImmediateDbConcurrencyGate());
-        var request = new PublicAotBackfillRequest(match.Kind, match.RouteKey, match.Path, match.QueryString, "cache:home");
+            dbConcurrencyGate: new ImmediateDbConcurrencyGate(),
+            cacheWriter: writer);
+        var request = new PublicAotBackfillRequest(match.Kind, match.RouteKey, match.Path, match.QueryString, CacheKey);
 
         await sut.GenerateAndStoreAsync(request);
         await sut.GenerateAndStoreAsync(request);
@@ -166,7 +185,15 @@ public sealed class PublicAotShellServiceTests
         PublicAotRouteQuarantineSnapshot quarantine = Assert.Single(runtimeState.CreateSnapshot(0, 32).RouteQuarantines);
         Assert.Equal(match.Kind, quarantine.Kind);
         Assert.Equal(match.RouteKey, quarantine.RouteKey);
-        Assert.Equal("public_aot_worker_invalid_aeds", quarantine.LastFailureReason);
+        Assert.Equal("public_aot_contract_markdown_runtime_authority_invalid", quarantine.LastFailureReason);
+        Assert.Empty(writer.ReceivedCalls());
+        Assert.Empty(cache.RemovedKeys);
+        PublicAotCacheEntry preserved = cache.EntriesByKey[CacheKey];
+        Assert.Same(verifiedEntry, preserved);
+        Assert.Equal(VerifiedHtml, preserved.Value);
+        Assert.Equal(verifiedBytes, preserved.GetDocument().Utf8Bytes.ToArray());
+        Assert.NotEmpty(preserved.Value);
+        Assert.DoesNotContain("fallback", preserved.Value, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -811,7 +838,8 @@ public sealed class PublicAotShellServiceTests
         IPublicAotEntryRenderer? entryRenderer = null,
         IDbConcurrencyGate? dbConcurrencyGate = null,
         PublicAotInvalidationTracker? invalidationTracker = null,
-        IEnumerable<IPublicAotBootstrapProvider>? bootstrapProviders = null)
+        IEnumerable<IPublicAotBootstrapProvider>? bootstrapProviders = null,
+        IPublicAotCacheWriter? cacheWriter = null)
     {
         IDbConcurrencyGate gate = dbConcurrencyGate ?? Substitute.For<IDbConcurrencyGate>();
         ISpaAssetManifestService manifest = assetManifest ?? new FixedAssetManifestService("frontend-v1");
@@ -826,7 +854,7 @@ public sealed class PublicAotShellServiceTests
             manifest);
         var artifactStore = new PublicAotArtifactStore(
             cache,
-            Substitute.For<IPublicAotCacheWriter>(),
+            cacheWriter ?? Substitute.For<IPublicAotCacheWriter>(),
             scheduler,
             manifest,
             keyScope,

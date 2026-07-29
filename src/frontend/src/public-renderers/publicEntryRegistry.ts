@@ -14,7 +14,7 @@ import {
   normalizeArticleDetail,
   normalizeArticleSummary,
   PUBLIC_RENDERER_VERSION,
-  renderAotBodyHtml,
+  renderAotMarkdown,
   renderShell,
   toNumber,
   toText,
@@ -361,7 +361,7 @@ const articleDetailEntryDefinition = definePublicEntry({
       relatedReading,
       scope.renderTimeOptions
     )
-    const bodyHtml = await renderAotBodyHtml(article.content, scope.baseUrlText || null)
+    const initialRender = await renderAotMarkdown(article.content, scope.baseUrlText || null)
     const hydration = {
       ...scope.baseModel.hydrationBase,
       articleId,
@@ -371,7 +371,6 @@ const articleDetailEntryDefinition = definePublicEntry({
       responsibilityManifest,
       articleSummary: article.summary,
       bodyContent: article.content,
-      bodyHtml,
       rights: article.rights,
       detailView,
       commentsIsland: { articleId }
@@ -392,9 +391,10 @@ const articleDetailEntryDefinition = definePublicEntry({
       canonicalUrl: scope.baseUrlInput
         ? `${String(scope.baseUrlInput).replace(/\/+$/u, '')}${buildPublicArticleHref(articleId)}`
         : null,
+      baseUrl: scope.baseUrlText || null,
       hasBodyContent: article.content.trim().length > 0,
       bodyContent: article.content,
-      bodyHtml
+      initialRender
     }))
     return scope.createEntry(html, bootstrap, hydration, {
       articleId,
@@ -435,7 +435,7 @@ function createStaticPageEntryDefinition<K extends Extract<PublicPageKind, 'Abou
         content,
         title
       })
-      const bodyHtml = await renderAotBodyHtml(content, scope.baseUrlText)
+      const initialRender = await renderAotMarkdown(content, scope.baseUrlText, 'about')
       const staticPage = {
         slug,
         content
@@ -443,20 +443,18 @@ function createStaticPageEntryDefinition<K extends Extract<PublicPageKind, 'Abou
       const hydration = {
         ...scope.baseModel.hydrationBase,
         title,
-        bodyHtml,
         view,
         staticPage
       }
       const bootstrap = {
         ...scope.baseModel.bootstrapBase,
         title: hydration.title,
-        bodyHtml,
         staticPage
       }
       const html = await scope.renderShell(createPublicAboutPageAssembly({
         view,
         content,
-        bodyHtml,
+        initialRender,
         baseUrl: scope.baseUrlText
       }))
       return scope.createEntry(html, bootstrap, hydration, {

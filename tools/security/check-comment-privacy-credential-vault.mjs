@@ -24,7 +24,6 @@ const REQUIRED_FILES = [
   'src/frontend/src/views/admin/moderation/AnonymousGovernancePage.vue',
   'src/frontend/src/composables/useArticleDetailView.ts',
   'src/frontend/src/security/trustedTypesRuntime.ts',
-  'src/frontend/src/utils/safeHtml.ts',
   'src/frontend/src/privacy/commentPrivacyWasmProver.ts',
   'src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs',
   'ops/gateway/production-openresty.conf',
@@ -175,8 +174,9 @@ export function validateCommentPrivacyCredentialVaultSources(sources) {
   expectSource(trustedTypesFile, /MARKDOWN_RENDERER_WORKER_PATH\s*=\s*\/\^\\\/assets\\\/markdown-renderer\\\.worker-[\s\S]*toTrustedMarkdownWorkerScriptUrl[\s\S]*!MARKDOWN_RENDERER_WORKER_PATH\.test\(resolved\.pathname\)[\s\S]*resolved\.search[\s\S]*resolved\.hash/, 'Markdown worker URL is hashed-asset-path, same-origin, and query-free only')
   expectSource(trustedTypesFile, /APPLICATION_WORKER_PATH\s*=\s*\/\^\\\/assets\\\/[\s\S]*toTrustedApplicationWorkerScriptUrl[\s\S]*APPLICATION_WORKER_PATH\.test\(resolved\.pathname\)[\s\S]*APPLICATION_WORKER_DEV_SOURCE_PATH\.test\(resolved\.pathname\)[\s\S]*resolved\.search[\s\S]*resolved\.hash/, 'application worker URLs are named hashed assets, same-origin, and query-free only')
   expectSource(trustedTypesFile, /SERVICE_WORKER_MODULE_PATH\s*=\s*['"]\/sw\.js['"][\s\S]*toTrustedServiceWorkerScriptUrl[\s\S]*searchParams\.getAll\(['"]build['"]\)[\s\S]*IMMUTABLE_BUILD_ID[\s\S]*MUTABLE_BUILD_IDS/, 'service worker URL is exact-path, same-origin, and immutable-build only')
-  expectSource('src/frontend/src/utils/safeHtml.ts', /setSanitizedTemplateHtml\(template,\s*sanitizeHtmlFallback\(html\)\)/, 'HTML parsing enters the audited sanitized TrustedHTML boundary')
-  rejectSource('src/frontend/src/utils/safeHtml.ts', /template\.innerHTML\s*=/, 'HTML sanitizer must not assign a raw string to innerHTML')
+  expectSource(trustedTypesFile, /toTrustedMarkdownHtml\(safeHtml:\s*MarkdownSafeHtml\)/, 'Markdown TrustedHTML adapter accepts only the FsusUI opaque safe HTML brand')
+  rejectSource(trustedTypesFile, /toTrustedMarkdownHtml\([^)]*:\s*string\)/, 'Markdown TrustedHTML adapter must not accept plain strings')
+  expectSource('src/frontend/src/components/ui/MarkdownRenderer.vue', /:initial-render="props\.initialRender"[\s\S]*:trusted-html-factory="toTrustedMarkdownHtml"/, 'Markdown renderer passes only an authorized FsusUI initial result and opaque HTML brand')
   expectSource('src/frontend/src/privacy/commentPrivacyWasmProver.ts', /setCommentPrivacyProverScriptUrl\(script,\s*moduleUrl\)/, 'browser prover script URL enters the audited TrustedScriptURL boundary')
   rejectSource('src/frontend/src/privacy/commentPrivacyWasmProver.ts', /script\.src\s*=/, 'privacy prover must not assign a raw string to script.src')
   expectSource('src/frontend/src/components/ui/MarkdownRenderer.vue', /:trusted-script-url-factory="toTrustedMarkdownWorkerScriptUrl"/, 'Markdown renderer worker enters the audited TrustedScriptURL boundary')
