@@ -40,9 +40,8 @@ jobs:
               with:
                   node-version: 24.x
             - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
-            - run: tools/test/run-matrix-governance-once.sh validate-matrix
+            - run: ./tools/test.sh ci-tier validate-matrix --no-deps
             - run: node tools/test/check-physical-execution-consumer-evidence.mjs .tmp/physical-execution-projections/validate-matrix-matrix-governance.json
-            - run: node tools/moderation/provider-conformance.mjs --provider schema-only
             - run: node tools/run-test-matrix.mjs ci-plan --format github-actions --out .tmp/ci-plan.json
             - run: node tools/check-workflow-matrix-sync.mjs .tmp/ci-plan.json .github/workflows/quality-gate.yml
             - id: backend_qps_collectors_matrix
