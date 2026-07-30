@@ -12,17 +12,11 @@
         "release-auth-flow",
         "release-authoring-flow",
         "release-closeout",
-        "release-data-scale-m",
         "release-error-boundary",
         "release-final-flaky-governance",
         "release-final-shard-completeness",
-        "release-load-burst",
-        "release-load-peak",
-        "release-memory-leak-budget",
-        "release-mutation-critical-slice",
-        "release-open-handle-budget",
         "release-private-preview",
-        "release-soak-min",
+        "release-reliability-fresh",
         "release-static-asset-digest-coherence",
         "test-quality-lint"
     ]

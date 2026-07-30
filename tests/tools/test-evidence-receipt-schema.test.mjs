@@ -155,6 +155,134 @@ function browserContractFixture(build)
     });
 }
 
+function releaseReliabilityBinding(build)
+{
+    const scenarioIds = [
+        'release-data-scale-m',
+        'release-load-burst',
+        'release-load-peak',
+        'release-memory-leak-budget',
+        'release-mutation-critical-slice',
+        'release-open-handle-budget',
+        'release-soak-min'
+    ];
+    return {
+        authorityId: 'release-reliability-fresh',
+        receiptPath:
+            '.tmp/release-reliability/release-fixture/qualified-receipt.json',
+        contentDigest: `sha256:${'1'.repeat(64)}`,
+        sourceIdentity: {
+            invocationId: 'release-fixture',
+            runId: 'release-run',
+            commit: build.sourceState.commit,
+            worktreeFingerprint: build.sourceState.worktreeFingerprint,
+            dirtyPathCount: 0,
+            hashedPathCount: 1
+        },
+        buildIdentity: {
+            terminalReceiptFileDigest: `sha256:${'2'.repeat(64)}`,
+            candidate: {
+                path:
+                    '.tmp/release-reliability/release-fixture/candidate-receipt.json',
+                fileDigest: `sha256:${'b'.repeat(64)}`,
+                contentDigest: `sha256:${'c'.repeat(64)}`
+            },
+            attestation: {
+                path:
+                    '.tmp/release-reliability/release-fixture/verified-attestation.json',
+                fileDigest: `sha256:${'d'.repeat(64)}`,
+                contentDigest: `sha256:${'e'.repeat(64)}`
+            },
+            identity: {
+                path: '.tmp/release-reliability/release-fixture/identity.json',
+                fileDigest: `sha256:${'f'.repeat(64)}`,
+                contentDigest: `sha256:${'1'.repeat(64)}`
+            },
+            build: {
+                path: 'build/receipt.json',
+                fileDigest: `sha256:${'3'.repeat(64)}`,
+                contentDigest: build.receipt.contentDigest,
+                imageDigest: `sha256:${'4'.repeat(64)}`
+            },
+            image: {
+                imageDigest: `sha256:${'4'.repeat(64)}`,
+                revision: build.sourceState.commit
+            },
+            imageAuthority: {
+                imageDigest: `sha256:${'4'.repeat(64)}`,
+                revision: build.sourceState.commit
+            },
+            fixture: {
+                config: {
+                    path: 'fixture/config.env',
+                    fileDigest: `sha256:${'2'.repeat(64)}`
+                },
+                schema: {
+                    path: 'fixture/schema.sql',
+                    fileDigest: `sha256:${'3'.repeat(64)}`
+                },
+                seed: {
+                    path: 'fixture/seed.json',
+                    fileDigest: `sha256:${'4'.repeat(64)}`
+                },
+                auditRetentionPolicy: {
+                    path: 'fixture/AuditRetentionCatalog.cs',
+                    fileDigest: `sha256:${'5'.repeat(64)}`
+                },
+                topology: {
+                    path: 'fixture/topology.json',
+                    fileDigest: `sha256:${'5'.repeat(64)}`,
+                    content: {
+                        contentDigest: `sha256:${'6'.repeat(64)}`
+                    }
+                }
+            },
+            machine: {
+                schedulerPolicy: {
+                    path: 'config/testing/scheduler-resource-policy.json',
+                    fileDigest: `sha256:${'6'.repeat(64)}`
+                }
+            },
+            topology: {
+                path: 'fixture/topology.json',
+                fileDigest: `sha256:${'5'.repeat(64)}`,
+                content: { contentDigest: `sha256:${'6'.repeat(64)}` }
+            },
+            policy: {
+                ...Object.fromEntries([
+                    ['catalog', '7'],
+                    ['threshold', '8'],
+                    ['mutationSubset', '9'],
+                    ['releaseResource', 'a']
+                ].map(([field, digestCharacter]) => [
+                    field,
+                    {
+                        path: `config/testing/${field}.json`,
+                        fileDigest: `sha256:${digestCharacter.repeat(64)}`
+                    }
+                ])),
+                childEnvironment: {
+                    contentDigest: `sha256:${'b'.repeat(64)}`
+                }
+            },
+            tools: [{ id: 'node', version: process.version }],
+            evidence: scenarioIds.map((scenarioId, index) => ({
+                scenarioId,
+                resultPath:
+                    `.tmp/release-reliability/release-fixture/${scenarioId}.json`,
+                resultContentDigest:
+                    `sha256:${String((index % 8) + 1).repeat(64)}`,
+                evidencePath:
+                    `.tmp/release-reliability/release-fixture/evidence/${scenarioId}.json`,
+                evidenceDigest:
+                    `sha256:${String(((index + 1) % 8) + 1).repeat(64)}`
+            }))
+        },
+        scenarioIds,
+        verificationStatus: 'verified'
+    };
+}
+
 test('browserless correctness receipt binds exact tiers and IDs while proving a zero-browser boundary', (context) =>
 {
     const build = buildFixture(context);
@@ -486,6 +614,8 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
     const build = buildFixture(context);
     const correctness = correctnessFixture(build);
     const browserContract = browserContractFixture(build);
+    const releaseReliabilityQualifiedReceipt =
+        releaseReliabilityBinding(build);
     const correctnessFile = path.join(build.directory, 'correctness.json');
     const browserContractFile = path.join(build.directory, 'browser-contract.json');
     fs.writeFileSync(correctnessFile, `${JSON.stringify(correctness, null, 2)}\n`);
@@ -516,6 +646,7 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
         browserContractReceipt: browserContract,
         browserContractReceiptPath: browserContractFile,
         releaseDomainProjectionReceipts,
+        releaseReliabilityQualifiedReceipt,
         now: () => new Date('2026-07-18T00:04:00.000Z')
     });
     assert.deepEqual(validateReleaseFinalTestEvidenceBinding(binding), []);
@@ -525,6 +656,14 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
         binding.receipts.releaseDomains.map((receipt) => receipt.tierId),
         releaseDomainProjectionReceipts.map((receipt) => receipt.tierId)
     );
+    const tamperedReliabilityAttestation = structuredClone(binding);
+    tamperedReliabilityAttestation.receipts.releaseReliability
+        .buildIdentity.attestation.fileDigest = 'sha256:invalid';
+    tamperedReliabilityAttestation.contentDigest =
+        sealDocument(tamperedReliabilityAttestation).contentDigest;
+    assert.ok(validateReleaseFinalTestEvidenceBinding(
+        tamperedReliabilityAttestation
+    ).some((error) => error.includes('attestation')));
     const duplicateReleaseDomain = structuredClone(binding);
     duplicateReleaseDomain.receipts.releaseDomains[1].tierId =
         duplicateReleaseDomain.receipts.releaseDomains[0].tierId;
@@ -571,7 +710,8 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
         correctnessReceiptPath: correctnessFile,
         browserContractReceipt: wrongBuild,
         browserContractReceiptPath: browserContractFile,
-        releaseDomainProjectionReceipts
+        releaseDomainProjectionReceipts,
+        releaseReliabilityQualifiedReceipt
     }), /build receipt digest mismatch|content digest mismatch/u);
 
     const nonAuthoritative = structuredClone(correctness);
@@ -584,6 +724,7 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
         correctnessReceiptPath: correctnessFile,
         browserContractReceipt: browserContract,
         browserContractReceiptPath: browserContractFile,
-        releaseDomainProjectionReceipts
+        releaseDomainProjectionReceipts,
+        releaseReliabilityQualifiedReceipt
     }), /authoritative scheduler correctness checkpoint/u);
 });

@@ -6955,6 +6955,48 @@ tiers:
       nightlyOnly: false
       manualOnly: true
 
+    - id: release-reliability-fresh
+      owner: ServerContractAgent
+      executionMode: execute
+      command: tools/test/run-release-reliability-qualified-local.sh
+      executionDependsOn: [behavior-doc-static-admission]
+      services: []
+      parallelizable: false
+      serialReason: owns the exact-seven qualified release reliability runtime and receipt
+      exclusiveResources: [release-reliability]
+      maxParallel: 1
+      phase: 5
+      cost: high
+      resourceClass: benchmark
+      cpuWeight: 1
+      memoryWeight: 1
+      minCpuUnits: 1
+      requiresBootstrap: none
+      requiresNode: true
+      requiresDotnet: true
+      requiresPlaywright: none
+      cacheProfile: none
+      timeoutMinutes: 120
+      shardable: false
+      defaultShards: 1
+      risk: critical
+      cadence: release-manual
+      requiredFor: release-final
+      coverage: [release-reliability-qualified-receipt]
+      artifacts: [.tmp/release-reliability]
+      evidence:
+          [
+              .tmp/release-reliability,
+              config/testing/release-reliability-scenario-catalog.json,
+              tools/test/verify-release-reliability-receipt.mjs,
+              tools/release/release-reliability-qualified-receipt.mjs,
+          ]
+      ciJob: release-final
+      localOnly: false
+      nightlyOnly: false
+      manualOnly: true
+      retentionClass: must-keep
+
     - id: release-final-flaky-governance
       owner: ServerContractAgent
       command: node tools/ci/check-flaky-registry.mjs --release-final
@@ -7176,17 +7218,11 @@ tiers:
               release-auth-flow,
               release-authoring-flow,
               release-closeout,
-              release-data-scale-m,
               release-error-boundary,
               release-final-flaky-governance,
               release-final-shard-completeness,
-              release-load-burst,
-              release-load-peak,
-              release-memory-leak-budget,
-              release-mutation-critical-slice,
-              release-open-handle-budget,
               release-private-preview,
-              release-soak-min,
+              release-reliability-fresh,
               release-static-asset-digest-coherence,
               test-quality-lint,
           ]
@@ -7238,6 +7274,7 @@ tiers:
               tools/release/release-domain-final-binding.mjs,
               tools/release/release-final-diagnostics.mjs,
               tools/release/release-final-domain-evidence.mjs,
+              tools/release/release-reliability-qualified-receipt.mjs,
               tools/release/public-preview-release-evidence.mjs,
               .tmp/release-evidence/public-preview-screenshots.json,
               tests/fixtures/test-matrix/execution-dependency-contract.json,
@@ -7256,6 +7293,7 @@ tiers:
               tests/tools/release-domain-projections.test.mjs,
               tests/tools/release-final-execution-graph.test.mjs,
               tests/tools/release-final-evidence-binding.test.mjs,
+              tests/tools/release-final-reliability-binding.test.mjs,
               tests/tools/test-evidence-governance.test.mjs,
               docs/testing/release-domain-projection-ledger.md,
               docs/testing/issue-1151-evidence-governance.md,

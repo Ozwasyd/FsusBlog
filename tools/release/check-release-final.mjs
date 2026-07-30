@@ -15,8 +15,7 @@ import { validateFontLicenseEvidence } from './font-license-evidence.mjs';
 import {
     failReleaseFinal as fail,
     isNonBlockingDiagnosticEvidence,
-    isNonBlockingDiagnosticVisualGateSkip,
-    validateReleaseResourceSummary
+    isNonBlockingDiagnosticVisualGateSkip
 } from './release-final-diagnostics.mjs';
 import { createReleaseFinalDomainEvidence } from './release-final-domain-evidence.mjs';
 import { validateReleaseManifest } from './release-manifest.mjs';
@@ -219,17 +218,6 @@ function validateManifest(manifest, manifestFile)
     if (jobSummaries.length > 0 && correctnessJobSummaryCount === 0)
     {
         errors.push('job summary artifact must include at least one correctness result');
-    }
-
-    for (const artifactKey of ['memoryLeakSummary', 'openHandleSummary'])
-    {
-        const file = artifactPath(manifestFile, manifest.artifacts?.[artifactKey]);
-        if (!file || !fs.existsSync(file))
-        {
-            errors.push(`${artifactKey} release resource summary artifact is required`);
-            continue;
-        }
-        errors.push(...validateReleaseResourceSummary(readJson(file), artifactKey));
     }
 
     const themeCssSafetyFile = artifactPath(
@@ -601,42 +589,6 @@ async function runSelfTest()
     }
 
     fs.rmSync(tmp, { recursive: true, force: true });
-
-    const resourceTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'fsus-release-resource-final-'));
-    const resourceJobs = path.join(resourceTmp, 'job-summaries');
-    fs.mkdirSync(resourceJobs, { recursive: true });
-    fs.writeFileSync(path.join(resourceJobs, 'release-final.json'), JSON.stringify({
-        schema: 'fsusblog.ci.job-result.v1',
-        jobId: 'release-final',
-        status: 'success',
-        commit
-    }));
-    fs.writeFileSync(path.join(resourceTmp, 'memory-leak-summary.json'), JSON.stringify({
-        status: 'ok',
-        mode: 'memory-leak',
-        metrics: []
-    }));
-    const resourceManifestFile = path.join(resourceTmp, 'manifest.json');
-    const resourceMatrixFile = path.join(resourceTmp, 'runtime-publish-matrix.json');
-    fs.writeFileSync(resourceMatrixFile, `${JSON.stringify(matrixEvidence)}\n`);
-    const emptyResourceManifest = {
-        ...manifest,
-        artifactDigests: {
-            ...manifest.artifactDigests,
-            runtimePublishMatrix: { algorithm: 'sha256', value: sha256Hex(resourceMatrixFile) }
-        },
-        artifacts: {
-            ...manifest.artifacts,
-            jobSummaries: 'job-summaries',
-            memoryLeakSummary: 'memory-leak-summary.json'
-        }
-    };
-    const resourceErrors = validateManifest(emptyResourceManifest, resourceManifestFile);
-    fs.rmSync(resourceTmp, { recursive: true, force: true });
-    if (!resourceErrors.some((error) => error.includes('memoryLeakSummary')))
-    {
-        fail(['self-test expected release-final to reject empty release resource metrics']);
-    }
     console.log('[release-final] self-test ok');
 }
 

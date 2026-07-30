@@ -11,6 +11,9 @@ import {
 } from '../test-matrix/release-final-evidence-contract.mjs';
 
 import { requirePublicPreviewReleaseEvidence } from './public-preview-release-evidence.mjs';
+import {
+    locateReleaseReliabilityQualifiedReceipt
+} from './release-reliability-qualified-receipt.mjs';
 import { createReleaseFinalTestEvidenceBinding } from './test-evidence-receipts.mjs';
 
 export function createReleaseFinalDomainEvidence({
@@ -103,6 +106,15 @@ export function createReleaseFinalDomainEvidence({
             runId,
             namespace
         });
+    const releaseReliabilityQualifiedReceipt =
+        locateReleaseReliabilityQualifiedReceipt({
+            repositoryRoot,
+            expectedCommit: manifest.commitSha,
+            expectedWorktreeFingerprint:
+                build.receipt.sourceState?.worktreeFingerprint,
+            expectedBuildReceiptContentDigest: build.receipt.contentDigest,
+            expectedImageDigest: manifest.imageDigest
+        });
 
     return {
         binding: createReleaseFinalTestEvidenceBinding({
@@ -113,7 +125,8 @@ export function createReleaseFinalDomainEvidence({
             correctnessReceiptPath: correctness.file,
             browserContractReceipt: browserContract.receipt,
             browserContractReceiptPath: browserContract.file,
-            releaseDomainProjectionReceipts
+            releaseDomainProjectionReceipts,
+            releaseReliabilityQualifiedReceipt
         }),
         publicPreview
     };

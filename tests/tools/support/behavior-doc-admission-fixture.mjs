@@ -57,15 +57,23 @@ export function prepareBehaviorDocAdmissionFixtureAuthority({
 {
     const registryRelative = 'config/contracts/behavior-fact-extractors.json';
     const registryFile = path.join(repositoryRoot, registryRelative);
+    const sourceFile = path.join(sourceRepositoryRoot, registryRelative);
     fs.mkdirSync(path.dirname(registryFile), { recursive: true });
-    fs.copyFileSync(path.join(sourceRepositoryRoot, registryRelative), registryFile);
+    if (path.resolve(sourceFile) !== path.resolve(registryFile))
+    {
+        fs.copyFileSync(sourceFile, registryFile);
+    }
     return registryFile;
 }
 
 export function createBehaviorDocAdmissionFixture({
     sourceRepositoryRoot,
     repositoryRoot,
-    runId = 'materialized-runner-admission'
+    runId = 'materialized-runner-admission',
+    receiptFile = path.join(
+        repositoryRoot,
+        '.tmp/behavior-doc-static-admission/fixture-receipt.json'
+    )
 })
 {
     const registryFile = prepareBehaviorDocAdmissionFixtureAuthority({
@@ -139,10 +147,6 @@ export function createBehaviorDocAdmissionFixture({
         expectedSourceIdentity: source,
         expectedWorktree: repositoryRoot
     });
-    const receiptFile = path.join(
-        repositoryRoot,
-        '.tmp/behavior-doc-static-admission/fixture-receipt.json'
-    );
     fs.mkdirSync(path.dirname(receiptFile), { recursive: true });
     fs.writeFileSync(receiptFile, `${JSON.stringify(receipt, null, 2)}\n`);
     return {

@@ -46,6 +46,22 @@ Immediately before the executor, qualified-local creates a second positive allow
 
 `tools/test/verify-release-reliability-receipt.mjs` is independent of generator success logic. Its live attestation phase resolves exact declared paths under one approved canonical root, rejects traversal and symlinks, rereads and hashes the actual result, producer evidence, lifecycle, build, fixture, topology and policy files, recomputes the current worktree snapshot and tool/cgroup identity, and validates exact schemas, statuses, UTC times, run/invocation equality and sealed references. Finalization accepts only that verifier-produced attestation after owned runtime cleanup; normal `--receipt` verification then uses the attested exact persistent manifest and does not consult Docker or another live service. Neither phase discovers authority by URL, mtime, age or “latest” selection. Validate a finalized receipt with `node tools/test/verify-release-reliability-receipt.mjs --receipt <path>`; `--root <approved-root>` exists for an explicitly selected local repository root.
 
+`release-final` consumes that terminal authority through one exact-one locator,
+not through the seven scenario summaries. The locator scans only canonical
+`.tmp/release-reliability/*/qualified-receipt.json`: zero matches report
+`./tools/test.sh ci-tier release-reliability-fresh` without spawning a producer,
+and multiple matches report every sorted path as ambiguous. It never selects by
+mtime, age, “latest” or first match. For the one match it first runs the
+independent terminal verifier above, then emits exactly seven top-level audit
+fields: `authorityId`, `receiptPath`, `contentDigest`, `sourceIdentity`,
+`buildIdentity`, `scenarioIds` and `verificationStatus`. The nested binding
+preserves source/worktree, production-build, image, fixture, machine, topology,
+catalog/threshold/policy and all seven result/original-evidence digests. Job
+summaries remain transport and completeness records only; memory and open-handle
+metrics can affect correctness only through the verified scenario evidence
+references. Downloaded `release-reliability` artifacts are restored into the same
+canonical `.tmp/release-reliability/` tree before finalization.
+
 The verifier independently rederives the environment contract and checks effective soak duration, load declared/effective/sampling/threshold values, scale-m tier and seed shape, resource sampling and delta thresholds, and mutation subset/parity/planned/executed bindings. Recomputed evidence digests cannot legitimize weakened sampling, loosened thresholds, substituted policies or a different mutation subset. The attested persistent manifest includes all qualification policy files and the run-bound mutation parity receipt.
 
 ## Historical reports

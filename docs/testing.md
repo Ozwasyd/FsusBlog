@@ -966,8 +966,28 @@ tools/operations/check-release-evidence-manifest.mjs --require-ok
 - public-preview screenshot evidence：Browser Contract 只读重捕获完整九图矩阵并绑定当前 commit/ReleaseId、visual input digest、九个图片 hash、三类 audit 结果及本地 JSON 文件 digest；`check-release-final.mjs` 缺少或读到不同 SHA/内容的本地证据时 fail closed，不要求 CI run URL。
 - release runtime lanes：admin console、auth flow、authoring flow、private preview 与 error boundary 使用 Vitest/API/static contract 绑定 release artifact；真实 RBAC browser negative path 已迁入 diagnostics。
 - release AOT lanes：generation 与 static asset digest coherence 作为 browserless release evidence；真实 consumption/browser fallback 属于 diagnostics。
-- release load/scale/stability lanes：peak、burst、scale-m、soak-min、memory leak budget、open handle budget、critical mutation slice。
-- Release Reliability v3 qualification：catalog 同时固定 300 秒 soak、peak/burst 的 concurrency/rounds/duration/threshold、scale-m 的 10,000/100,000 seed 与 12/2 sampling、resource 的 12/2 sampling 和 64 MiB/16 delta limit，以及 mutation fixed subset。executor 不继承整份 caller environment；只允许 catalog 声明的 base/inherited/fixed/internal keys，缺 required key 在 spawn 前失败。run identity 绑定该环境合同及 load/mutation/resource policy 实际文件 digest；独立 verifier 从原始 evidence 重算 effective sampling、threshold 和 policy binding，caller override 或自重算 weakened receipt 均不能放行。
+- Release Reliability v3 qualification：`release-final` 的 load/scale/stability correctness
+  只有一个权威输入 `release-reliability-fresh`，不再直接消费 peak、burst、
+  scale-m、soak-min、memory leak budget、open handle budget 或 critical mutation
+  slice 的独立 tier summary。catalog 同时固定 300 秒 soak、peak/burst 的
+  concurrency/rounds/duration/threshold、scale-m 的 10,000/100,000 seed 与 12/2
+  sampling、resource 的 12/2 sampling 和 64 MiB/16 delta limit，以及 mutation
+  fixed subset。executor 不继承整份 caller environment；只允许 catalog 声明的
+  base/inherited/fixed/internal keys，缺 required key 在 spawn 前失败。run identity
+  绑定该环境合同及 load/mutation/resource policy 实际文件 digest；独立 verifier
+  从原始 evidence 重算 effective sampling、threshold 和 policy binding，caller
+  override 或自重算 weakened receipt 均不能放行。
+- Reliability final binding：finalizer 只在 canonical
+  `.tmp/release-reliability/*/qualified-receipt.json` 查找权威回执，零份报告
+  `./tools/test.sh ci-tier release-reliability-fresh`，多份按排序后的全部路径报告
+  ambiguity；禁止 latest、mtime 或 first-match 选择。恰好一份时，先独立调用
+  `node tools/test/verify-release-reliability-receipt.mjs --receipt <path>`，随后才
+  投影恰好七个顶层字段 `authorityId`、`receiptPath`、`contentDigest`、
+  `sourceIdentity`、`buildIdentity`、`scenarioIds`、`verificationStatus`。投影继续
+  绑定 source/worktree、production build、image、fixture、machine、topology、
+  catalog/threshold/policy 与 exact-seven scenario/result/evidence digest；job
+  summary 只负责 transport/completeness，memory/open-handle summary 只能通过该
+  已验证回执中的原始 evidence reference 参与 correctness，不能旁路放行。
 - PerceptionCharacterV3 independent release gate：同一 physical tier 生成一次 10,000 visual + 2,000 audio corpus、一次 pool-vs-retired benchmark、一次真实 Redis 双 cutover，并生成 implementation 与 independent-review 两份同 commit 回执。它由 `production-correctness` 与 `release-final` 共享 DAG 节点；scheduler 必须去重，禁止复制 corpus/benchmark 来伪造两个独立执行。
 - strict evidence：manifest 必须为 `collected-ok`，live exposure/firewall/DNS evidence 必须存在，backup restore 必须是 real drill，post-deploy smoke 必须是 deployed endpoint 自动覆盖，authenticated DAST/Wasm fuzz/fault injection/short soak 必须真实执行，job summary 必须覆盖 production-correctness 与其他 required correctness jobs。独立 browser diagnostics receipt 不进入该 correctness required-job 集合。
 - artifact binding：`tools/release/check-release-final.mjs` 要求 manifest commit、job summary commit 与 `sha256:` image digest 一致。

@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 DOWNLOADED_DIR="${1:-$ROOT_DIR/.tmp/downloaded-artifacts}"
 RESTORED_TMP_ROOT="${2:-$ROOT_DIR/.tmp}"
-EVIDENCE_NAMES=(gate-logs release-evidence docs frontend ux perf security coverage fault-injection fuzz soak operations)
+EVIDENCE_NAMES=(gate-logs release-evidence release-reliability docs frontend ux perf security coverage fault-injection fuzz soak operations)
 
 [[ -d "$DOWNLOADED_DIR" ]] || exit 0
 

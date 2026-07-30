@@ -2,10 +2,10 @@
     "schema": "fsusblog.test-matrix-execution-dependency-contract.v1",
     "source": "tests/matrix.yml",
     "producer": "node tools/test-matrix/execution-dependency-contract.mjs --write",
-    "tierCount": 130,
-    "executionEdgeCount": 156,
-    "tierGraphDigest": "sha256:e938b53a749dc4b0fa9fc866d33ce2ac9af1e2628db2c1d7466ccd68c13f11b3",
-    "commandCount": 101,
-    "commandEdgeCount": 6,
-    "commandGroupGraphDigest": "sha256:10363248cb96a4cce1d4a16c84837f561b934f936ee13eaa2a144cd962ae3548"
+    "tierCount": 132,
+    "executionEdgeCount": 214,
+    "tierGraphDigest": "sha256:217f73d2b338d1c168dada7fad4eb8a28f9183e9e316abad3d2264463724b79c",
+    "commandCount": 110,
+    "commandEdgeCount": 7,
+    "commandGroupGraphDigest": "sha256:3b51fae0e88ee0a2fc27983d3c8830bea619e45dd42c7998117389cd5403232d"
 }

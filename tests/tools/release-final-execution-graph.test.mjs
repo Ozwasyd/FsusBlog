@@ -7,6 +7,10 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import {
+    createBehaviorDocAdmissionFixture
+} from './support/behavior-doc-admission-fixture.mjs';
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const { parseMatrix } = await import(pathToFileURL(path.join(root, 'tools/test-matrix/parse-matrix.mjs')).href);
 const { buildExecutionDependencyContract } = await import(
@@ -22,7 +26,7 @@ const {
 const contractFile = path.join(root, 'tests/fixtures/test-matrix/execution-dependency-contract.json');
 const evidenceContractFile = path.join(root, 'tests/fixtures/test-matrix/release-final-evidence-contract.json');
 const canonicalEvidenceInputDigest =
-    'sha256:402a8883e923ce24152b8e7a835f1083116c23aeeac3df5daa05e806c02cf7ae';
+    'sha256:32497578d8ac83c88d5ecb137912ab4bd8ae4820c66db16aab593847c5459cef';
 
 function evidenceInputDigest(inputs)
 {
@@ -73,12 +77,12 @@ test('independent release-final evidence contract seals the canonical exact set'
     assert.deepEqual(validateCanonicalReleaseFinalEvidenceInputs(canonical), []);
     assert.equal(canonical.schema, 'fsusblog.release-final-evidence-inputs.v1');
     assert.equal(canonical.targetTier, 'release-final');
-    assert.equal(canonical.inputs.length, 23);
+    assert.equal(canonical.inputs.length, 17);
     assert.deepEqual(canonical.inputs, [...canonical.inputs].sort());
     assert.equal(new Set(canonical.inputs).size, canonical.inputs.length);
     assert.deepEqual(contract, buildReleaseFinalEvidenceContract(canonical));
     assert.equal(contract.source, 'tests/fixtures/test-matrix/release-final-evidence-inputs.json');
-    assert.equal(contract.inputCount, 23);
+    assert.equal(contract.inputCount, 17);
     assert.equal(contract.inputDigest, canonicalEvidenceInputDigest);
     assert.equal(evidenceInputDigest(canonical.inputs), canonicalEvidenceInputDigest);
     assert.doesNotMatch(producerSource, /parseMatrix|tests\/matrix\.yml/u);
@@ -187,7 +191,7 @@ test('release-final exact-set binding rejects deletion, replacement, duplication
                 tier.requiresEvidenceFrom.splice(0, 1);
             },
             diagnostics: [
-                /exactly 23 canonical evidence inputs/u,
+                /exactly 17 canonical evidence inputs/u,
                 /missing canonical evidence inputs: browser-contract/u
             ]
         },
@@ -219,7 +223,7 @@ test('release-final exact-set binding rejects deletion, replacement, duplication
             {
                 tier.requiresEvidenceFrom.push('validate-matrix');
             },
-            diagnostics: [/exactly 23 canonical evidence inputs/u, /unexpected evidence inputs: validate-matrix/u]
+            diagnostics: [/exactly 17 canonical evidence inputs/u, /unexpected evidence inputs: validate-matrix/u]
         }
     ];
 
@@ -282,11 +286,20 @@ test('default and CI execution commands spawn only the finalizer', () =>
             );
             chmodSync(command, 0o755);
         }
+        const admission = createBehaviorDocAdmissionFixture({
+            sourceRepositoryRoot: root,
+            repositoryRoot: root,
+            runId: 'release-final-execution-graph',
+            receiptFile: path.join(fixture, 'behavior-doc-admission.json')
+        });
         const environment = {
             ...process.env,
             PATH: `${bin}:${process.env.PATH}`,
             FSUSBLOG_SPAWN_LOG: log,
-            FSUSBLOG_NODE: process.execPath
+            FSUSBLOG_NODE: process.execPath,
+            FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RECEIPT: admission.receiptFile,
+            FSUSBLOG_BEHAVIOR_DOC_ADMISSION_DIGEST: admission.contentDigest,
+            FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RUN_ID: admission.runId
         };
         const matrix = parseMatrix(readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
         const producerTierIds = matrix.tiers.find((tier) => tier.id === 'release-final').requiresEvidenceFrom;
@@ -310,7 +323,11 @@ test('default and CI execution commands spawn only the finalizer', () =>
                 env: { ...environment, FSUSBLOG_MATRIX_FILE: isolatedMatrixFile }
             });
             const output = `${result.stdout}\n${result.stderr}`;
-            assert.equal(result.status, 0, `${command} ${args.join(' ')} isolated execution graph must succeed`);
+            assert.equal(
+                result.status,
+                0,
+                `${command} ${args.join(' ')} isolated execution graph must succeed\n${output}`
+            );
             for (const producerTierId of producerTierIds)
             {
                 assert.equal(

@@ -228,12 +228,26 @@ test('release-final checker fails closed and seals exact projection-only domain 
         path.join(repositoryRoot, 'tools/release/release-final-domain-evidence.mjs'),
         'utf8'
     );
-    const source = `${checker}\n${domainBinding}`;
+    const reliabilityBinding = fs.readFileSync(
+        path.join(
+            repositoryRoot,
+            'tools/release/release-reliability-qualified-receipt.mjs'
+        ),
+        'utf8'
+    );
+    const source = `${checker}\n${domainBinding}\n${reliabilityBinding}`;
     assert.match(source, /Browser Contract receipt is required; release-final fails closed without it/u);
     assert.match(source, /collectReleaseFinalDomainProjectionReceipts\(\{/u);
     assert.match(source, /expectedTierIds: releaseFinalDomainProjectionTierIds/u);
     assert.match(source, /createReleaseFinalTestEvidenceBinding\(\{/u);
     assert.match(source, /releaseDomainProjectionReceipts/u);
+    assert.match(source, /locateReleaseReliabilityQualifiedReceipt\(\{/u);
+    assert.match(source, /releaseReliabilityQualifiedReceipt/u);
+    assert.match(
+        reliabilityBinding,
+        /verify-release-reliability-receipt\.mjs/u
+    );
+    assert.doesNotMatch(checker, /validateReleaseResourceSummary/u);
     assert.doesNotMatch(source, /evidence-producers|release-domain-assertions/u);
     assert.match(checker, /release-final-test-evidence-binding\.json/u);
 });

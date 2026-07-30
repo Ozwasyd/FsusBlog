@@ -7,6 +7,9 @@ import {
     createReleaseDomainProjectionBindings,
     validateReleaseDomainProjectionBindings
 } from './release-domain-final-binding.mjs';
+import {
+    validateReleaseReliabilityQualifiedBinding
+} from './release-reliability-qualified-receipt.mjs';
 
 export const browserlessCorrectnessReceiptSchema = 'fsusblog.browserless-correctness-receipt.v1';
 export const browserDiagnosticsReceiptSchema = 'fsusblog.browser-diagnostics-receipt.v2';
@@ -1507,6 +1510,7 @@ export function createReleaseFinalTestEvidenceBinding({
     browserContractReceipt,
     browserContractReceiptPath,
     releaseDomainProjectionReceipts,
+    releaseReliabilityQualifiedReceipt,
     now = () => new Date()
 })
 {
@@ -1534,6 +1538,18 @@ export function createReleaseFinalTestEvidenceBinding({
     const releaseDomains = createReleaseDomainProjectionBindings(
         releaseDomainProjectionReceipts
     );
+    const reliabilityErrors = validateReleaseReliabilityQualifiedBinding(
+        releaseReliabilityQualifiedReceipt,
+        {
+            expectedCommit: commitSha,
+            expectedWorktreeFingerprint: build.sourceState.worktreeFingerprint,
+            expectedBuildReceiptContentDigest: build.receiptContentDigest
+        }
+    );
+    if (reliabilityErrors.length > 0)
+    {
+        throw new Error(reliabilityErrors.join('; '));
+    }
     return seal({
         schema: releaseFinalTestEvidenceBindingSchema,
         status: 'ok',
@@ -1553,6 +1569,9 @@ export function createReleaseFinalTestEvidenceBinding({
                 fileDigest: sha256File(browserContractReceiptPath),
                 contentDigest: browserContractReceipt.contentDigest
             },
+            releaseReliability: structuredClone(
+                releaseReliabilityQualifiedReceipt
+            ),
             releaseDomains
         },
         generatedAt: now().toISOString()
@@ -1594,6 +1613,16 @@ export function validateReleaseFinalTestEvidenceBinding(binding)
             errors.push(`release-final binding ${key} content digest is invalid`);
         }
     }
+    errors.push(...validateReleaseReliabilityQualifiedBinding(
+        binding?.receipts?.releaseReliability,
+        {
+            expectedCommit: binding?.releaseCommit,
+            expectedWorktreeFingerprint:
+                binding?.sourceState?.worktreeFingerprint,
+            expectedBuildReceiptContentDigest:
+                binding?.build?.receiptContentDigest
+        }
+    ));
     errors.push(...validateReleaseDomainProjectionBindings(
         binding?.receipts?.releaseDomains
     ));
