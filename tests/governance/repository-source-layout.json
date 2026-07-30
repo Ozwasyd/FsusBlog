@@ -3,6 +3,16 @@
     "canonicalSourceRoot": "src",
     "rootDirectories": [
         {
+            "path": ".agents",
+            "classification": "automation",
+            "architecturalException": "Repository-scoped Codex Skills contain procedural agent workflows only; they are not product source or product contract authority."
+        },
+        {
+            "path": ".codex",
+            "classification": "tool-configuration",
+            "architecturalException": "Project-scoped Codex custom-agent files configure bounded implementation and review roles only; they are not product source or runtime configuration."
+        },
+        {
             "path": ".github",
             "classification": "automation"
         },

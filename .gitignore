@@ -217,7 +217,11 @@ FsusBlog.Core.Benchmarks/BenchmarkDotNet.Artifacts/
 benchmarks/core/FsusBlog.Core.Benchmarks/BenchmarkDotNet.Artifacts/
 
 # Local-only agent / planning / scratch files
-.codex/
+.codex/*
+!.codex/agents/
+.codex/agents/*
+!.codex/agents/issue-implementer.toml
+!.codex/agents/issue-reviewer.toml
 .qoder/
 .claude/
 .agent/
@@ -226,6 +230,8 @@ benchmarks/core/FsusBlog.Core.Benchmarks/BenchmarkDotNet.Artifacts/
 .agents/skills/*
 !.agents/skills/fsusblog-design-conformance/
 !.agents/skills/fsusblog-design-conformance/**
+!.agents/skills/issue-orchestration/
+!.agents/skills/issue-orchestration/**
 .memory/
 Dictionaries/
 AGENTS.MD
