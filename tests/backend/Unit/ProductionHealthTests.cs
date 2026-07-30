@@ -234,7 +234,7 @@ public sealed class ProductionHealthTests
                 ["postgres"] = new ProductionDependencyHealthCheck("failed", Error: "PostgresException"),
                 ["redis"] = new ProductionDependencyHealthCheck("ok", LatencyMs: 1),
                 ["runtime"] = new RuntimeHealthSnapshot("ok", null, 5, 10, null, null, null, null),
-                ["resources"] = new ProductionResourceHealthCheck("failed", false, false, false, new PublicAotSsrWorkerResourceStatus("failed", true, false, null, null, null, "path"))
+                ["resources"] = new ProductionResourceHealthCheck("failed", false, false, new PublicAotSsrWorkerResourceStatus("failed", true, false, null, null, null, "path"))
             });
 
         IReadOnlyDictionary<string, object?> report = ProductionReadinessPublicReport.Create(detailed);
@@ -567,23 +567,57 @@ public sealed class ProductionHealthTests
     }
 
     [Fact]
-    public void ResourcePathResolver_FindsIp2LocationBinUnderWwwrootResources()
+    public async Task ResourceReadiness_RequiresOnlyRuntimeOwnedResources()
     {
         string tempRoot = Path.Combine(Path.GetTempPath(), "fsusblog-health-" + Guid.NewGuid().ToString("N"));
         string resourceDir = Path.Combine(tempRoot, "wwwroot", "resources");
         Directory.CreateDirectory(resourceDir);
-        string binPath = Path.Combine(resourceDir, "IP2LOCATION.BIN");
-        File.WriteAllBytes(binPath, [1, 2, 3]);
+        File.WriteAllText(Path.Combine(tempRoot, "wwwroot", "index.html"), "<html></html>");
 
         try
         {
-            string? resolved = ProductionResourcePaths.ResolveIp2LocationBinPath(tempRoot);
+            using ServiceProvider services = new ServiceCollection().BuildServiceProvider();
+            IConfiguration configuration = new ConfigurationBuilder().Build();
+            var environment = new TestWebHostEnvironment(tempRoot, Environments.Development);
+            var probe = new ProductionReadinessProbe(
+                configuration,
+                environment,
+                services,
+                CreateConfigurationSnapshot(configuration, environment, services),
+                NullLogger<ProductionReadinessProbe>.Instance);
 
-            Assert.Equal(binPath, resolved);
+            ProductionHealthReport report = await probe.CheckAsync(CancellationToken.None);
+            ProductionResourceHealthCheck resources =
+                Assert.IsType<ProductionResourceHealthCheck>(report.Checks["resources"]);
+            string json = System.Text.Json.JsonSerializer.Serialize(resources);
+
+            Assert.Equal("ok", resources.Status);
+            Assert.True(resources.WebRootExists);
+            Assert.True(resources.IndexExists);
+            Assert.DoesNotContain("ip2", json, StringComparison.OrdinalIgnoreCase);
         }
         finally
         {
             Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void RuntimeSourceAndDependencies_HaveNoUnownedIpGeolocationResource()
+    {
+        string backendRoot = Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend");
+        IEnumerable<string> runtimeFiles = Directory
+            .EnumerateFiles(backendRoot, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+                && !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+            .Append(Path.Combine(backendRoot, "FsusBlog.Server.csproj"))
+            .Append(Path.Combine(backendRoot, "packages.lock.json"));
+
+        foreach (string path in runtimeFiles)
+        {
+            string content = File.ReadAllText(path);
+            Assert.DoesNotContain("IP2Location", content, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("IP2LOCATION.BIN", content, StringComparison.OrdinalIgnoreCase);
         }
     }
 

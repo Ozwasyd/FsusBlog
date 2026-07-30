@@ -384,26 +384,6 @@
             "structuralBoundary": "Production keeps sourcemaps disabled because generated Wasm glue URLs are resolved inside a Worker; development remains the only enabled mode."
         },
         {
-            "id": "ip2location-pooled-initialization",
-            "sourcePaths": [
-                "src/backend/Infrastructure/Helpers/IP2LocationPooledObjectPolicy.cs"
-            ],
-            "intentKinds": [
-                "ownership",
-                "lifetime"
-            ],
-            "anchors": [
-                {
-                    "path": "src/backend/Infrastructure/Helpers/IP2LocationPooledObjectPolicy.cs",
-                    "marker": "OWNERSHIP:",
-                    "symbol": "component.Open"
-                }
-            ],
-            "claimLevel": "S",
-            "status": "structural-only",
-            "structuralBoundary": "Each pooled component opens and parses its database before publication, and a caller borrows one initialized instance at a time."
-        },
-        {
             "id": "jwt-singleton-token-material",
             "sourcePaths": [
                 "src/backend/Infrastructure/Helpers/JwtHelper.cs"

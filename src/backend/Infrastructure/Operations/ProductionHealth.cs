@@ -73,7 +73,6 @@ public sealed record ProductionResourceHealthCheck(
     string Status,
     bool WebRootExists,
     bool IndexExists,
-    bool Ip2LocationExists,
     PublicAotSsrWorkerResourceStatus PublicAotSsrWorker) : IProductionHealthCheck;
 
 public sealed record ProductionObservabilityHealthCheck(
@@ -490,10 +489,8 @@ public sealed class ProductionReadinessProbe(
             webRoot = Path.Combine(environment.ContentRootPath, "wwwroot");
         }
 
-        string? ip2Location = ProductionResourcePaths.ResolveIp2LocationBinPath(AppContext.BaseDirectory);
         bool webRootExists = Directory.Exists(webRoot);
         bool indexExists = File.Exists(Path.Combine(webRoot, "index.html"));
-        bool ip2LocationExists = !string.IsNullOrEmpty(ip2Location);
         PublicAotSsrRuntimeState? publicAotSsrRuntime = serviceProvider.GetService<PublicAotSsrRuntimeState>();
         PublicAotSsrWorkerResourceStatus publicAotSsrWorker = publicAotSsrRuntime is not null
             ? publicAotSsrRuntime.GetOrCreateWorkerResourceSnapshot(
@@ -503,10 +500,9 @@ public sealed class ProductionReadinessProbe(
             || string.Equals(publicAotSsrWorker.Status, "ok", StringComparison.Ordinal);
 
         return new ProductionResourceHealthCheck(
-            webRootExists && indexExists && ip2LocationExists && publicAotSsrWorkerReady ? "ok" : "failed",
+            webRootExists && indexExists && publicAotSsrWorkerReady ? "ok" : "failed",
             webRootExists,
             indexExists,
-            ip2LocationExists,
             publicAotSsrWorker);
     }
 

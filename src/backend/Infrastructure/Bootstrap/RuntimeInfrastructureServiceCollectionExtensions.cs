@@ -28,7 +28,6 @@ using FsusBlog.Server.Services.VisitLog;
 
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Extensions.ObjectPool;
 
 namespace FsusBlog.Server.Infrastructure.Bootstrap;
 
@@ -64,7 +63,6 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddFontRuntime(configuration);
         services.AddScoped<IArticleRevisionContentBlockMaintenance, ArticleRevisionContentBlockMaintenance>();
         services.AddSpaRuntime();
-        services.AddObjectPools(configuration);
 
         return services;
     }
@@ -426,22 +424,6 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         return services;
     }
 
-    private static IServiceCollection AddObjectPools(this IServiceCollection services, IConfiguration configuration)
-    {
-        services.TryAddSingleton<ObjectPoolProvider, DefaultObjectPoolProvider>();
-        string? binPath = ProductionResourcePaths.ResolveIp2LocationBinPath(AppContext.BaseDirectory);
-        bool isDevelopment = string.Equals(
-            configuration["ASPNETCORE_ENVIRONMENT"],
-            Environments.Development,
-            StringComparison.OrdinalIgnoreCase);
-        if (!string.IsNullOrEmpty(binPath) || !isDevelopment)
-        {
-            services.AddSingleton(CreateIp2LocationPool);
-        }
-
-        return services;
-    }
-
     private static IServiceCollection AddCustomizationRuntime(this IServiceCollection services)
     {
         services.AddSingleton<InMemoryCustomizationProfileStore>();
@@ -449,20 +431,4 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         return services;
     }
 
-    private static ObjectPool<IP2Location.Component> CreateIp2LocationPool(IServiceProvider sp)
-    {
-        var logger = sp.GetRequiredService<ILogger<IP2LocationPooledObjectPolicy>>();
-
-        string baseDir = AppContext.BaseDirectory;
-        string? binPath = ProductionResourcePaths.ResolveIp2LocationBinPath(baseDir);
-
-        if (string.IsNullOrEmpty(binPath))
-        {
-            string[] allFiles = Directory.GetFiles(baseDir, "IP2LOCATION.BIN", SearchOption.AllDirectories);
-            throw new FileNotFoundException($"[严重] 找不到数据库文件。BaseDir: {baseDir}。 实际发现于: {string.Join(", ", allFiles)}");
-        }
-
-        var policy = new IP2LocationPooledObjectPolicy(binPath, logger);
-        return sp.GetRequiredService<ObjectPoolProvider>().Create(policy);
-    }
 }

@@ -19,16 +19,6 @@
                     "NSec.Cryptography": "25.4.0"
                 }
             },
-            "IP2Location.IPGeolocation": {
-                "type": "Direct",
-                "requested": "[9.1.1, )",
-                "resolved": "9.1.1",
-                "contentHash": "nWr/KUJGpJMW9HtlXYBIu3a/5uflbYEAH1lKHYuO/0Z+F3iJooBR78fnEV06XehaZqZlL7eu6t/LbEo3rVCnuw==",
-                "dependencies": {
-                    "CsvHelper": "33.1.0",
-                    "Newtonsoft.Json": "13.0.4"
-                }
-            },
             "Microsoft.AspNetCore.TestHost": {
                 "type": "Direct",
                 "requested": "[10.0.7, )",
@@ -187,11 +177,6 @@
                 "type": "Transitive",
                 "resolved": "5.1.1",
                 "contentHash": "rpYtIczkzGpf+EkZgDr9CClTdemhsrwA/W5hMoPjLkRFnXzH44zDLoovXeKtmxb1ykXK9aJVODSpiJml8CTw2g=="
-            },
-            "CsvHelper": {
-                "type": "Transitive",
-                "resolved": "33.1.0",
-                "contentHash": "kqfTOZGrn7NarNeXgjh86JcpTHUoeQDMB8t9NVa/ZtlSYiV1rxfRnQ49WaJsob4AiGrbK0XDzpyKkBwai4F8eg=="
             },
             "Fido2.Models": {
                 "type": "Transitive",
@@ -399,8 +384,8 @@
             },
             "Newtonsoft.Json": {
                 "type": "Transitive",
-                "resolved": "13.0.4",
-                "contentHash": "pdgNNMai3zv51W5aq268sujXUyx7SNdE2bj1wZcWjAQrKMFZV260lbqYop1d2GM67JI1huLRwxo9ZqnfF/lC6A=="
+                "resolved": "13.0.3",
+                "contentHash": "HrC5BXdl00IP9zeV+0Z848QWPAoCr9P3bDEZguI+gkLcBKAOxix/tLEAAHC+UvDNPv4a2d18lOReHMOagPa+zQ=="
             },
             "Npgsql.OpenTelemetry": {
                 "type": "Transitive",
@@ -665,7 +650,6 @@
                     "Fido2": "[4.0.1, )",
                     "FsusBlog.Core": "[1.0.0, )",
                     "FsusBlog.Shared": "[1.0.0, )",
-                    "IP2Location.IPGeolocation": "[9.1.1, )",
                     "Jint": "[4.13.0, )",
                     "Konscious.Security.Cryptography.Argon2": "[1.3.1, )",
                     "MessagePack": "[2.5.301, )",

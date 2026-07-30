@@ -66,7 +66,6 @@ FsusBlog 以 `SEO 首访速度 + 运行时一致性 + 工程可维护性` 为核
 | Fido2 | 4.0.1 | WebAuthn / Passkey |
 | BCrypt.Net-Next | 4.1.0 | 密码哈希 |
 | Serilog | 4.3.1 | 结构化日志，异步滚动文件 |
-| IP2Location | — | 地理定位 |
 
 #### 前端
 
