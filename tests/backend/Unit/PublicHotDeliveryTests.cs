@@ -415,11 +415,37 @@ public sealed class PublicHotDeliveryTests
     }
 
     [Fact]
+    public async Task ProcessOnce_ArticleDeltaWithoutPublishedBaselineBuildsInitialSnapshot()
+    {
+        var state = new TrackingStateStore();
+        var queue = CreateQueue(1, state);
+        PublicHotArtifactEnqueueResult receipt = await queue.EnqueueAsync(
+            PublicHotArtifactDeliveryClass.RequiredContent,
+            42,
+            "article-updated");
+        Assert.True(queue.Reader.TryRead(out PublicHotArtifactUpdate pending));
+        var store = new PublicHotReadStore();
+        var projector = new CountingProjector();
+        await using ServiceProvider services = new ServiceCollection()
+            .AddScoped<IPublicHotArtifactProjector>(_ => projector)
+            .BuildServiceProvider();
+        using var worker = CreateWorker(queue, store, services);
+
+        await worker.ProcessOnceAsync(pending, CancellationToken.None);
+
+        Assert.Equal(1, projector.InitialBuildCount);
+        Assert.Equal(0, projector.ArticleBuildCount);
+        Assert.Equal(receipt.DeliveryGeneration, state.LastCompletedGeneration);
+        Assert.Equal(1, store.Current.Version);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_PostPublishRecoveryCompletesLatestOfThousandViewGenerations()
     {
         var state = new TrackingStateStore();
         var queue = CreateQueue(1, state);
         var store = new PublicHotReadStore();
+        store.Publish(CreateSnapshot(1));
         var projector = new BlockingFirstViewProjector();
         await using ServiceProvider services = new ServiceCollection()
             .AddScoped<IPublicHotArtifactProjector>(_ => projector)
@@ -813,8 +839,10 @@ public sealed class PublicHotDeliveryTests
     {
         private int _version;
         private int _initialBuildCount;
+        private int _articleBuildCount;
 
         public int InitialBuildCount => Volatile.Read(ref _initialBuildCount);
+        public int ArticleBuildCount => Volatile.Read(ref _articleBuildCount);
 
         public Task<PublicHotReadSnapshot> BuildInitialSnapshotAsync(CancellationToken cancellationToken)
         {
@@ -826,7 +854,10 @@ public sealed class PublicHotDeliveryTests
             PublicHotReadSnapshot current,
             int articleId,
             CancellationToken cancellationToken)
-            => Task.FromResult(CreateSnapshot(Interlocked.Increment(ref _version)));
+        {
+            Interlocked.Increment(ref _articleBuildCount);
+            return Task.FromResult(CreateSnapshot(Interlocked.Increment(ref _version)));
+        }
 
         public Task<PublicHotReadSnapshot> RebuildAfterViewProjectionAsync(
             PublicHotReadSnapshot current,

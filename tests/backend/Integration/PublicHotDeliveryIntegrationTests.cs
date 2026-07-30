@@ -8,11 +8,18 @@ using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Distributed;
+using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.Taxonomy;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -203,6 +210,152 @@ public sealed class PublicHotDeliveryIntegrationTests(
     }
 
     [Fact]
+    public async Task RedisRestart_LateArticleObligationBuildsCompleteFreshTaxonomySnapshot()
+    {
+        string prefix = $"test:public-hot-restart:{Guid.CreateVersion7():N}:";
+        long lateGeneration;
+        try
+        {
+            await using (ConnectionMultiplexer bootstrapConnection = await redis.ConnectAsync())
+            {
+                var scope = new PrefixRuntimeKeyScope(prefix);
+                var state = new RedisPublicHotArtifactDeliveryStateStore(
+                    bootstrapConnection,
+                    scope);
+                var bootstrapStore = new PublicHotReadStore();
+                var bootstrapQueue = CreateQueue(state);
+                using var memoryCache = new MemoryCache(new MemoryCacheOptions());
+                var localCache = new CacheLocalStore(memoryCache, TimeProvider.System);
+                var environment = Substitute.For<IWebHostEnvironment>();
+                environment.ContentRootPath.Returns(Path.GetTempPath());
+                environment.WebRootPath.Returns(Path.GetTempPath());
+                var publicAotCache = new PublicAotFileShellCache(
+                    environment,
+                    bootstrapConnection,
+                    NullLogger<PublicAotFileShellCache>.Instance,
+                    configuration: new ConfigurationBuilder().Build(),
+                    publicArtifactStorage: Substitute.For<IPublicArtifactStorage>());
+                var generationAuthority =
+                    new InMemoryPublicAotInvalidationGenerationAuthority();
+                var applier = new DistributedInvalidationLocalApplier(
+                    localCache,
+                    publicAotCache,
+                    new PublicAotInvalidationTracker(generationAuthority),
+                    new PublicAotSsrRuntimeState(new ConfigurationBuilder().Build()),
+                    bootstrapStore,
+                    bootstrapQueue,
+                    Substitute.For<IAotSeoConfigSnapshot>(),
+                    new CacheInvalidationRuntimeState(),
+                    NullLogger<DistributedInvalidationLocalApplier>.Instance);
+                DistributedInvalidationEvent taxonomyInvalidation =
+                    DistributedInvalidationEvent.Create(
+                        $"taxonomy-{Guid.CreateVersion7():N}",
+                        DistributedInvalidationEventKinds.TaxonomyMutation,
+                        "bootstrap",
+                        "test",
+                        ["taxonomy"],
+                        ["category", "tag"],
+                        ["public-hot-read"],
+                        $"trace-{Guid.CreateVersion7():N}",
+                        TimeProvider.System);
+
+                DistributedInvalidationLocalApplyResult? applied =
+                    await applier.ApplyAsync(taxonomyInvalidation);
+
+                Assert.NotNull(applied);
+                Assert.True(applied.IsApplied);
+                PublicHotArtifactObligation fullRebuild =
+                    (await state.GetActiveAsync(CancellationToken.None))!;
+                Assert.True(fullRebuild.RequiresFullRebuild);
+                PublicHotArtifactObligation fullClaim =
+                    (await state.ClaimEligibleAsync(
+                        DateTimeOffset.UtcNow,
+                        CancellationToken.None))!;
+                Assert.True(await state.CompletePublishedAsync(
+                    fullClaim.ObligationId,
+                    fullClaim.AttemptNumber,
+                    fullClaim.TargetGeneration,
+                    CancellationToken.None));
+
+                PublicHotArtifactEnqueueResult lateArticle =
+                    await bootstrapQueue.EnqueueAsync(
+                        PublicHotArtifactDeliveryClass.RequiredContent,
+                        42,
+                        "late-article-outbox");
+                Assert.Equal(
+                    PublicHotArtifactDeliveryStatus.PersistedDirty,
+                    lateArticle.Status);
+                PublicHotArtifactObligation pending =
+                    (await state.GetActiveAsync(CancellationToken.None))!;
+                Assert.Equal(PublicHotArtifactObligationState.Pending, pending.State);
+                Assert.False(pending.RequiresFullRebuild);
+                Assert.Contains(42, pending.ArticleIds);
+                lateGeneration = pending.TargetGeneration;
+            }
+
+            await using ConnectionMultiplexer finalConnection = await redis.ConnectAsync();
+            var finalState = new RedisPublicHotArtifactDeliveryStateStore(
+                finalConnection,
+                new PrefixRuntimeKeyScope(prefix));
+            var finalQueue = CreateQueue(finalState);
+            var finalOptions = new PublicHotReadOptions
+            {
+                MaxSnapshotAge = TimeSpan.FromHours(1),
+                UpdateDebounceMilliseconds = 0
+            };
+            var finalStore = new PublicHotReadStore(
+                options: Options.Create(finalOptions));
+            var projector = new RestartTaxonomyProjector();
+            await using ServiceProvider services = new ServiceCollection()
+                .AddScoped<IPublicHotArtifactProjector>(_ => projector)
+                .BuildServiceProvider();
+            using var worker = new PublicHotArtifactUpdateWorker(
+                finalQueue,
+                finalStore,
+                new NoopRevocations(),
+                services.GetRequiredService<IServiceScopeFactory>(),
+                Options.Create(finalOptions),
+                NullLogger<PublicHotArtifactUpdateWorker>.Instance);
+
+            await worker.StartAsync(CancellationToken.None);
+            try
+            {
+                using var timeout =
+                    new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                while ((await finalState.GetActiveAsync(timeout.Token))?.State
+                    != PublicHotArtifactObligationState.Published)
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(20), timeout.Token);
+                }
+            }
+            finally
+            {
+                await worker.StopAsync(CancellationToken.None);
+            }
+
+            PublicHotArtifactObligation published =
+                (await finalState.GetActiveAsync(CancellationToken.None))!;
+            Assert.Equal(lateGeneration, published.PublishedGeneration);
+            Assert.Equal(1, projector.InitialBuildCount);
+            Assert.Equal(0, projector.ArticleDeltaBuildCount);
+            await AssertTaxonomyFrameAsync(
+                finalStore,
+                finalOptions,
+                "/api/binary/category",
+                AedsFrameType.CategoryList);
+            await AssertTaxonomyFrameAsync(
+                finalStore,
+                finalOptions,
+                "/api/binary/tag",
+                AedsFrameType.TagList);
+        }
+        finally
+        {
+            await redis.DeleteNamespaceAsync(prefix);
+        }
+    }
+
+    [Fact]
     public async Task CategoryCreate_AdminBinaryEndpoint_CommitsRowThenReturnsAedsInfraFailure()
     {
         string databaseName = await postgres.CreateDatabaseAsync();
@@ -340,6 +493,37 @@ public sealed class PublicHotDeliveryIntegrationTests(
         return decoded.Value.FrameType;
     }
 
+    private static async Task AssertTaxonomyFrameAsync(
+        PublicHotReadStore store,
+        PublicHotReadOptions options,
+        string path,
+        AedsFrameType expectedFrameType)
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Method = HttpMethods.Get;
+        context.Request.Path = path;
+        context.Request.Headers.Accept = "application/octet-stream";
+        context.Response.Body = new MemoryStream();
+        bool fellThrough = false;
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ =>
+            {
+                fellThrough = true;
+                return Task.CompletedTask;
+            },
+            store,
+            options,
+            new PublicHotReadCounters(Options.Create(options)));
+
+        Assert.False(fellThrough);
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        Result<AedsDecodeResult> decoded = new AedsEncoder().TryDecode(
+            ((MemoryStream)context.Response.Body).ToArray());
+        Assert.True(decoded.IsSuccess, decoded.Error.Message);
+        Assert.Equal(expectedFrameType, decoded.Value.FrameType);
+    }
+
     private static async Task RecoverWithFreshWorkerAsync(
         PublicHotDeliveryRedisFixture fixture,
         string prefix,
@@ -422,6 +606,75 @@ public sealed class PublicHotDeliveryIntegrationTests(
                 default,
                 FrozenDictionary<string, PublicHtmlArtifact>.Empty,
                 PublicHotReadPublicationEvidence.CreateVerified(1, DateTimeOffset.UtcNow));
+    }
+
+    private sealed class RestartTaxonomyProjector : IPublicHotArtifactProjector
+    {
+        private long _version = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        private int _initialBuildCount;
+        private int _articleDeltaBuildCount;
+
+        public int InitialBuildCount => Volatile.Read(ref _initialBuildCount);
+        public int ArticleDeltaBuildCount => Volatile.Read(ref _articleDeltaBuildCount);
+
+        public Task<PublicHotReadSnapshot> BuildInitialSnapshotAsync(
+            CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref _initialBuildCount);
+            long version = Interlocked.Increment(ref _version);
+            var options = new PublicHotReadOptions
+            {
+                EnablePrecompressedBinaryVariants = false
+            };
+            PublicBinaryArtifact category =
+                PublicHotReadBinaryArtifactFactory.FromWriter(
+                    AedsFrameType.CategoryList,
+                    writer => PodBinaryCodec.WriteCategoryList([], writer),
+                    "public,max-age=60",
+                    version,
+                    options);
+            PublicBinaryArtifact tag =
+                PublicHotReadBinaryArtifactFactory.FromWriter(
+                    AedsFrameType.TagList,
+                    writer => PodBinaryCodec.WriteTagWithCountList([], writer),
+                    "public,max-age=60",
+                    version,
+                    options);
+            return Task.FromResult(CreateSnapshot(version, category, tag));
+        }
+
+        public Task<PublicHotReadSnapshot> RebuildAfterArticleMutationAsync(
+            PublicHotReadSnapshot current,
+            int articleId,
+            CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref _articleDeltaBuildCount);
+            return Task.FromResult(CreateSnapshot(
+                Interlocked.Increment(ref _version),
+                current.CategoryFrame,
+                current.TagFrame));
+        }
+
+        public Task<PublicHotReadSnapshot> RebuildAfterViewProjectionAsync(
+            PublicHotReadSnapshot current,
+            IReadOnlyCollection<int> articleIds,
+            CancellationToken cancellationToken)
+            => RebuildAfterArticleMutationAsync(current, 0, cancellationToken);
+
+        private static PublicHotReadSnapshot CreateSnapshot(
+            long version,
+            PublicBinaryArtifact category,
+            PublicBinaryArtifact tag)
+            => new(
+                version,
+                FrozenDictionary<int, PublicBinaryArtifact>.Empty,
+                FrozenDictionary<PublicListKey, PublicBinaryArtifact>.Empty,
+                category,
+                tag,
+                FrozenDictionary<string, PublicHtmlArtifact>.Empty,
+                PublicHotReadPublicationEvidence.CreateVerified(
+                    version,
+                    DateTimeOffset.UtcNow));
     }
 
     private sealed class NoopRevocations : IPublicArtifactRevocationCoordinator

@@ -19,6 +19,7 @@ const {
 } = await import(pathToFileURL(runtimeEnvironmentTool).href);
 const {
     probeReleaseReliabilityRuntimeSmoke,
+    validateAedsFrame,
     validateSeoConfigFrame
 } = await import(pathToFileURL(path.join(root, 'tools/test/probe-release-reliability-runtime-smoke.mjs')).href);
 const {
@@ -102,13 +103,28 @@ function crc16(bytes)
     return value & 0xffff;
 }
 
+function createAedsFrame(frameType, payload = Uint8Array.from([1, 2, 3, 4]))
+{
+    const frame = new Uint8Array(16 + payload.byteLength);
+    const view = new DataView(frame.buffer);
+    view.setUint32(0, 0x53444541, true);
+    view.setUint8(4, 2);
+    view.setUint8(5, 16);
+    view.setUint16(8, frameType, true);
+    view.setUint32(10, payload.byteLength, true);
+    frame.set(payload, 16);
+    view.setUint16(14, crc16(payload), true);
+    return frame;
+}
+
 async function runUserSystemdCarrier({
     fixtureRoot,
     runtimeDirectory,
     userId = process.getuid(),
     createDirectory = true,
     mode = 0o700,
-    prepare = () => {}
+    prepare = () =>
+    {}
 })
 {
     const runtimeRoot = path.join(fixtureRoot, 'run-user');
@@ -535,37 +551,42 @@ test('qualified container environment projection is strict, private, atomic, and
     }
 });
 
-test('qualified runtime smoke validates the canonical SeoConfig AEDS header, length, and CRC', () =>
+test('qualified runtime smoke validates canonical taxonomy and SEO AEDS header, length, CRC, and frame type', () =>
 {
-    const payload = Uint8Array.from([1, 2, 3, 4]);
-    const frame = new Uint8Array(16 + payload.byteLength);
-    const view = new DataView(frame.buffer);
-    view.setUint32(0, 0x53444541, true);
-    view.setUint8(4, 2);
-    view.setUint8(5, 16);
-    view.setUint16(8, 13, true);
-    view.setUint32(10, payload.byteLength, true);
-    frame.set(payload, 16);
-    view.setUint16(14, crc16(payload), true);
+    const category = createAedsFrame(9);
+    const tag = createAedsFrame(10);
+    const seo = createAedsFrame(13);
 
-    assert.deepEqual(validateSeoConfigFrame(frame), { frameType: 13, payloadBytes: 4 });
-    frame[16] ^= 0xff;
-    assert.throws(() => validateSeoConfigFrame(frame), /valid SeoConfig AEDS v2 frame/u);
+    assert.deepEqual(validateAedsFrame(category, 9), { frameType: 9, payloadBytes: 4 });
+    assert.deepEqual(validateAedsFrame(tag, 10), { frameType: 10, payloadBytes: 4 });
+    assert.deepEqual(validateSeoConfigFrame(seo), { frameType: 13, payloadBytes: 4 });
+
+    const invalidHeader = category.slice();
+    invalidHeader[0] ^= 0xff;
+    assert.throws(() => validateAedsFrame(invalidHeader, 9), /valid CategoryList AEDS v2 frame/u);
+
+    const invalidLength = tag.slice();
+    new DataView(invalidLength.buffer).setUint32(10, 5, true);
+    assert.throws(() => validateAedsFrame(invalidLength, 10), /valid TagList AEDS v2 frame/u);
+
+    const invalidCrc = seo.slice();
+    invalidCrc[16] ^= 0xff;
+    assert.throws(() => validateSeoConfigFrame(invalidCrc), /valid SeoConfig AEDS v2 frame/u);
+
+    assert.throws(() => validateAedsFrame(category, 10), /valid TagList AEDS v2 frame/u);
 });
 
-test('qualified runtime smoke requires only live JSON and a valid SeoConfig AEDS v2 canary', async (context) =>
+test('qualified runtime smoke requires live JSON and the exact canonical runtime-load-soak route set', async (context) =>
 {
-    const payload = Uint8Array.from([1, 2, 3, 4]);
-    const frame = new Uint8Array(16 + payload.byteLength);
-    const view = new DataView(frame.buffer);
-    view.setUint32(0, 0x53444541, true);
-    view.setUint8(4, 2);
-    view.setUint8(5, 16);
-    view.setUint16(8, 13, true);
-    view.setUint32(10, payload.byteLength, true);
-    frame.set(payload, 16);
-    view.setUint16(14, crc16(payload), true);
     const requests = [];
+    const routes = new Map([
+        ['/api/binary/system/seo', createAedsFrame(13)],
+        ['/api/binary/article/list/home/1/10.aeds', createAedsFrame(1)],
+        ['/api/binary/category', createAedsFrame(9)],
+        ['/api/binary/tag', createAedsFrame(10)],
+        ['/api/binary/article/hot/5.aeds', createAedsFrame(3)],
+        ['/api/binary/article/featured/4.aeds', createAedsFrame(15)]
+    ]);
     const server = http.createServer((request, response) =>
     {
         requests.push(request.url);
@@ -575,7 +596,8 @@ test('qualified runtime smoke requires only live JSON and a valid SeoConfig AEDS
             response.end('{"status":"live","checkedAt":"2026-07-26T20:00:00.000Z"}');
             return;
         }
-        if (request.url === '/api/binary/system/seo')
+        const frame = routes.get(request.url);
+        if (frame)
         {
             response.writeHead(200, { 'content-type': 'application/octet-stream' });
             response.end(frame);
@@ -594,12 +616,132 @@ test('qualified runtime smoke requires only live JSON and a valid SeoConfig AEDS
     });
     assert.deepEqual(result, {
         live: { status: 200, reportStatus: 'live' },
-        binary: { status: 200, frameType: 13, payloadBytes: 4 }
+        binary: [
+            { routeId: 'system-seo', status: 200, frameType: 13, payloadBytes: 4 },
+            { routeId: 'article-list-home-10', status: 200, frameType: 1, payloadBytes: 4 },
+            { routeId: 'category-list', status: 200, frameType: 9, payloadBytes: 4 },
+            { routeId: 'tag-list', status: 200, frameType: 10, payloadBytes: 4 },
+            { routeId: 'article-hot', status: 200, frameType: 3, payloadBytes: 4 },
+            { routeId: 'article-featured', status: 200, frameType: 15, payloadBytes: 4 }
+        ]
     });
-    assert.deepEqual(requests, ['/health/live', '/api/binary/system/seo']);
+    assert.deepEqual(requests, [
+        '/health/live',
+        '/api/binary/system/seo',
+        '/api/binary/article/list/home/1/10.aeds',
+        '/api/binary/category',
+        '/api/binary/tag',
+        '/api/binary/article/hot/5.aeds',
+        '/api/binary/article/featured/4.aeds'
+    ]);
 });
 
-test('qualified local wrapper uses strict runtime parsing and the two semantic runtime smoke canaries', () =>
+test('qualified runtime smoke blocks every incomplete taxonomy response', async (context) =>
+{
+    const taxonomy = [
+        { path: '/api/binary/category', frameType: 9, name: 'CategoryList' },
+        { path: '/api/binary/tag', frameType: 10, name: 'TagList' }
+    ];
+    const validRoutes = new Map([
+        ['/api/binary/system/seo', createAedsFrame(13)],
+        ['/api/binary/article/list/home/1/10.aeds', createAedsFrame(1)],
+        ['/api/binary/category', createAedsFrame(9)],
+        ['/api/binary/tag', createAedsFrame(10)],
+        ['/api/binary/article/hot/5.aeds', createAedsFrame(3)],
+        ['/api/binary/article/featured/4.aeds', createAedsFrame(15)]
+    ]);
+    let override = null;
+    const server = http.createServer((request, response) =>
+    {
+        if (request.url === '/health/live')
+        {
+            response.writeHead(200, { 'content-type': 'application/json' });
+            response.end('{"status":"live","checkedAt":"2026-07-26T20:00:00.000Z"}');
+            return;
+        }
+        const frame = override?.path === request.url
+            ? override.frame
+            : validRoutes.get(request.url);
+        response.writeHead(
+            override?.path === request.url ? override.status : 200,
+            {
+                'content-type': override?.path === request.url
+                    ? override.contentType
+                    : 'application/octet-stream'
+            }
+        );
+        response.end(frame);
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    context.after(() => server.close());
+    const address = server.address();
+    assert.equal(typeof address, 'object');
+    const invoke = () => probeReleaseReliabilityRuntimeSmoke({
+        baseUrl: `http://127.0.0.1:${address.port}/`,
+        timeoutMs: 1000
+    });
+
+    for (const route of taxonomy)
+    {
+        const invalidHeader = createAedsFrame(route.frameType);
+        invalidHeader[0] ^= 0xff;
+        const invalidLength = createAedsFrame(route.frameType);
+        new DataView(invalidLength.buffer).setUint32(10, 5, true);
+        const invalidCrc = createAedsFrame(route.frameType);
+        invalidCrc[16] ^= 0xff;
+        const cases = [
+            {
+                name: '404',
+                status: 404,
+                contentType: 'application/octet-stream',
+                frame: createAedsFrame(route.frameType),
+                expected: /returned HTTP 404/u
+            },
+            {
+                name: 'content type',
+                status: 200,
+                contentType: 'application/json',
+                frame: createAedsFrame(route.frameType),
+                expected: /did not return application\/octet-stream/u
+            },
+            {
+                name: 'header',
+                status: 200,
+                contentType: 'application/octet-stream',
+                frame: invalidHeader,
+                expected: new RegExp(`valid ${route.name} AEDS v2 frame`, 'u')
+            },
+            {
+                name: 'length',
+                status: 200,
+                contentType: 'application/octet-stream',
+                frame: invalidLength,
+                expected: new RegExp(`valid ${route.name} AEDS v2 frame`, 'u')
+            },
+            {
+                name: 'CRC',
+                status: 200,
+                contentType: 'application/octet-stream',
+                frame: invalidCrc,
+                expected: new RegExp(`valid ${route.name} AEDS v2 frame`, 'u')
+            },
+            {
+                name: 'frame type',
+                status: 200,
+                contentType: 'application/octet-stream',
+                frame: createAedsFrame(route.frameType === 9 ? 10 : 9),
+                expected: new RegExp(`valid ${route.name} AEDS v2 frame`, 'u')
+            }
+        ];
+        for (const candidate of cases)
+        {
+            override = { path: route.path, ...candidate };
+            await assert.rejects(invoke, candidate.expected, `${route.name} ${candidate.name}`);
+        }
+    }
+});
+
+test('qualified local wrapper uses strict runtime parsing and canonical semantic runtime smoke canaries', () =>
 {
     const source = fs.readFileSync(wrapper, 'utf8');
     assert.doesNotMatch(source, /(?:^|[;\s])source\s+[^\n]*\.env/mu);
@@ -615,6 +757,8 @@ test('qualified local wrapper uses strict runtime parsing and the two semantic r
         /qualified_executor_environment[\s\S]*FSUSBLOG_(?:SOAK_SHORT_SECONDS|LOAD_PROFILE_CONCURRENCY|RELEASE_RESOURCE_REQUESTS|DATA_SCALE_REQUESTS)=/u
     );
     assert.match(source, /probe-release-reliability-runtime-smoke\.mjs/u);
+    assert.match(source, /runtime_smoke_deadline=\$\(\(SECONDS \+ 60\)\)/u);
+    assert.match(source, /live\/canonical AEDS route admission/u);
     assert.doesNotMatch(source, /health\/ready/u);
     assert.match(source, /audit-retention-policy/u);
     assert.match(source, /RemoveOwnedContainer "\$backend_container_id"/u);
@@ -806,7 +950,8 @@ test('qualified local production environment export is exact factory parity and 
     ], { encoding: 'utf8', env: { ...process.env, ...env } });
     assert.equal(cli.status, 0, cli.stderr);
     assert.deepEqual(
-        cli.stdout.split('\0').filter(Boolean).map((assignment) => {
+        cli.stdout.split('\0').filter(Boolean).map((assignment) =>
+        {
             const separator = assignment.indexOf('=');
             return [assignment.slice(0, separator), assignment.slice(separator + 1)];
         }),

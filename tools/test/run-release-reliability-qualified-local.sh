@@ -501,7 +501,7 @@ while true; do
                 break
             fi
             if ((SECONDS >= runtime_smoke_deadline)); then
-                printf 'runtime image backend did not satisfy live/AEDS smoke canaries after becoming healthy: %s\n' "$runtime_smoke_observation" >&2
+                printf 'runtime image backend did not satisfy live/canonical AEDS route admission after becoming healthy: %s\n' "$runtime_smoke_observation" >&2
                 exit 1
             fi
             ;;

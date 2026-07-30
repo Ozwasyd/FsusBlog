@@ -308,15 +308,18 @@ public sealed class PublicHotArtifactUpdateWorker(
             await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
             var projector = scope.ServiceProvider.GetRequiredService<IPublicHotArtifactProjector>();
             PublicHotReadSnapshot snapshot = store.Current;
-            if (dirtyReason == PublicHotArtifactDirtyReason.ViewProjection)
+            bool publishesFullSnapshot = requiresFullRebuild
+                || articleIds.Count == 0
+                || RequiresInitialSnapshot(snapshot);
+            if (publishesFullSnapshot)
+            {
+                snapshot = await projector.BuildInitialSnapshotAsync(stoppingToken).ConfigureAwait(false);
+            }
+            else if (dirtyReason == PublicHotArtifactDirtyReason.ViewProjection)
             {
                 snapshot = await projector
                     .RebuildAfterViewProjectionAsync(snapshot, articleIds, stoppingToken)
                     .ConfigureAwait(false);
-            }
-            else if (requiresFullRebuild || articleIds.Count == 0)
-            {
-                snapshot = await projector.BuildInitialSnapshotAsync(stoppingToken).ConfigureAwait(false);
             }
             else
             {
@@ -342,7 +345,7 @@ public sealed class PublicHotArtifactUpdateWorker(
             {
                 await revocations
                     .CompleteRebuildAsync(
-                        requiresFullRebuild ? null : articleIds,
+                        publishesFullSnapshot ? null : articleIds,
                         maximumRevocationGeneration,
                         stoppingToken)
                     .ConfigureAwait(false);
@@ -351,7 +354,7 @@ public sealed class PublicHotArtifactUpdateWorker(
             // The durable generation is the recovery truth. Do not acknowledge
             // it until every publication stage, including revocation completion,
             // has succeeded; a crash or exception here must replay this build.
-            if (requiresFullRebuild || articleIds.Count == 0)
+            if (publishesFullSnapshot)
             {
                 await RecordDistributedReconcileCoverageAsync(
                     scope.ServiceProvider,
@@ -390,13 +393,16 @@ public sealed class PublicHotArtifactUpdateWorker(
             await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
             var projector = scope.ServiceProvider.GetRequiredService<IPublicHotArtifactProjector>();
             PublicHotReadSnapshot snapshot = store.Current;
-            if (obligation.DirtyReasons == PublicHotArtifactDirtyReason.ViewProjection && !obligation.RequiresFullRebuild)
-            {
-                snapshot = await projector.RebuildAfterViewProjectionAsync(snapshot, obligation.ArticleIds, stoppingToken).ConfigureAwait(false);
-            }
-            else if (obligation.RequiresFullRebuild || obligation.ArticleIds.Count == 0)
+            bool publishesFullSnapshot = obligation.RequiresFullRebuild
+                || obligation.ArticleIds.Count == 0
+                || RequiresInitialSnapshot(snapshot);
+            if (publishesFullSnapshot)
             {
                 snapshot = await projector.BuildInitialSnapshotAsync(stoppingToken).ConfigureAwait(false);
+            }
+            else if (obligation.DirtyReasons == PublicHotArtifactDirtyReason.ViewProjection)
+            {
+                snapshot = await projector.RebuildAfterViewProjectionAsync(snapshot, obligation.ArticleIds, stoppingToken).ConfigureAwait(false);
             }
             else
             {
@@ -414,12 +420,12 @@ public sealed class PublicHotArtifactUpdateWorker(
             await obligations.RecordStageSuccessAsync(obligation.ObligationId, obligation.AttemptNumber, PublicHotArtifactAttemptStage.Publish, DateTimeOffset.UtcNow, stoppingToken).ConfigureAwait(false);
             stage = PublicHotArtifactAttemptStage.RevocationCompletion;
             if ((obligation.DirtyReasons & PublicHotArtifactDirtyReason.Content) != 0)
-                await revocations.CompleteRebuildAsync(obligation.RequiresFullRebuild ? null : obligation.ArticleIds, maximumRevocationGeneration, stoppingToken).ConfigureAwait(false);
+                await revocations.CompleteRebuildAsync(publishesFullSnapshot ? null : obligation.ArticleIds, maximumRevocationGeneration, stoppingToken).ConfigureAwait(false);
             await obligations.RecordStageSuccessAsync(obligation.ObligationId, obligation.AttemptNumber, PublicHotArtifactAttemptStage.RevocationCompletion, DateTimeOffset.UtcNow, stoppingToken).ConfigureAwait(false);
             stage = PublicHotArtifactAttemptStage.Completion;
             // A claim can be superseded while its snapshot is building.  CAS the
             // generation claimed by this attempt, so a later merge remains pending.
-            if (obligation.RequiresFullRebuild || obligation.ArticleIds.Count == 0)
+            if (publishesFullSnapshot)
             {
                 await RecordDistributedReconcileCoverageAsync(
                     scope.ServiceProvider,
@@ -453,6 +459,9 @@ public sealed class PublicHotArtifactUpdateWorker(
             }
         }
     }
+
+    private static bool RequiresInitialSnapshot(PublicHotReadSnapshot snapshot)
+        => snapshot.Version <= 0;
 
     private static async Task RecordDistributedReconcileCoverageAsync(
         IServiceProvider serviceProvider,

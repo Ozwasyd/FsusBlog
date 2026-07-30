@@ -5,8 +5,16 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import {
+    producerRouteIds,
+    routeContract
+} from './lanes/runtime-http-route-contract.mjs';
+
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const protocolFile = path.join(repositoryRoot, 'src/shared/Contracts/Validation/aeds-protocol.json');
+const runtimeRouteContracts = Object.freeze(
+    producerRouteIds('runtime-load-soak').map((routeId) => routeContract(routeId))
+);
 
 function crc16(bytes)
 {
@@ -25,44 +33,67 @@ function crc16(bytes)
 function protocolAuthority()
 {
     const protocol = JSON.parse(fs.readFileSync(protocolFile, 'utf8'));
-    const seoConfig = protocol.frameTypes?.find((frame) => frame.name === 'SeoConfig');
+    const frameTypes = new Map(
+        (protocol.frameTypes ?? []).map((frame) => [frame.name, frame.value])
+    );
+    const frameTypeNames = new Map(
+        (protocol.frameTypes ?? []).map((frame) => [frame.value, frame.name])
+    );
     const magic = Number.parseInt(String(protocol.header?.magic ?? ''), 16);
     if (!Number.isInteger(protocol.header?.size) || protocol.header.size < 16
         || !Number.isInteger(protocol.header?.version)
         || !Number.isInteger(magic)
-        || !Number.isInteger(seoConfig?.value))
+        || frameTypes.size === 0
+        || !Number.isInteger(frameTypes.get('SeoConfig'))
+        || [...runtimeRouteContracts]
+            .some((contract) => !Number.isInteger(contract.expectedAedsFrameType)
+                || !frameTypeNames.has(contract.expectedAedsFrameType)))
     {
         throw new Error('canonical AEDS protocol authority is incomplete');
     }
     return {
+        frameTypes,
+        frameTypeNames,
         headerLength: protocol.header.size,
         magic,
         version: protocol.header.version,
-        seoConfigFrameType: seoConfig.value
+        seoConfigFrameType: frameTypes.get('SeoConfig')
     };
 }
 
-export function validateSeoConfigFrame(bytes, authority = protocolAuthority())
+const canonicalProtocolAuthority = protocolAuthority();
+
+export function validateAedsFrame(bytes, expectedFrameType, authority = canonicalProtocolAuthority)
 {
+    const frameName = authority.frameTypeNames?.get(expectedFrameType);
+    if (!Number.isInteger(expectedFrameType) || !frameName)
+    {
+        throw new Error('canonical AEDS frame type is incomplete');
+    }
     if (!(bytes instanceof Uint8Array) || bytes.byteLength < authority.headerLength)
     {
-        throw new Error('binary canary AEDS frame is too short');
+        throw new Error(`binary canary is not one valid ${frameName} AEDS v2 frame`);
     }
     const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     const payloadLength = view.getUint32(10, true);
     if (view.getUint32(0, true) !== authority.magic
         || view.getUint8(4) !== authority.version
         || view.getUint8(5) !== authority.headerLength
-        || view.getUint16(8, true) !== authority.seoConfigFrameType
+        || view.getUint16(8, true) !== expectedFrameType
         || payloadLength !== bytes.byteLength - authority.headerLength
         || view.getUint16(14, true) !== crc16(bytes.subarray(authority.headerLength)))
     {
-        throw new Error('binary canary is not one valid SeoConfig AEDS v2 frame');
+        throw new Error(`binary canary is not one valid ${frameName} AEDS v2 frame`);
     }
     return {
-        frameType: authority.seoConfigFrameType,
+        frameType: expectedFrameType,
         payloadBytes: payloadLength
     };
+}
+
+export function validateSeoConfigFrame(bytes, authority = canonicalProtocolAuthority)
+{
+    return validateAedsFrame(bytes, authority.seoConfigFrameType, authority);
 }
 
 async function fetchResponse(baseUrl, relativePath, accept, signal)
@@ -97,6 +128,38 @@ async function liveStatus(baseUrl, signal)
     return { status: response.status, reportStatus: body.status };
 }
 
+async function binaryRouteStatus(baseUrl, contract, signal)
+{
+    const relativePath = contract.pathTemplate;
+    const response = await fetchResponse(
+        baseUrl,
+        relativePath,
+        contract.expectedContentType[0],
+        signal
+    );
+    const contentType = (response.headers.get('content-type') ?? '')
+        .split(';', 1)[0]
+        .trim()
+        .toLowerCase();
+    if (!contract.expectedContentType.includes(contentType)
+        || contentType !== 'application/octet-stream')
+    {
+        throw new Error(`${relativePath} did not return application/octet-stream`);
+    }
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (bytes.byteLength < contract.minimumBodyBytes
+        || bytes.byteLength > contract.maximumBodyBytes)
+    {
+        throw new Error(`${relativePath} returned an out-of-bounds AEDS frame`);
+    }
+    const frame = validateAedsFrame(bytes, contract.expectedAedsFrameType);
+    return {
+        routeId: contract.routeId,
+        status: response.status,
+        ...frame
+    };
+}
+
 export async function probeReleaseReliabilityRuntimeSmoke({ baseUrl, timeoutMs = 1000 })
 {
     let parsed;
@@ -123,20 +186,14 @@ export async function probeReleaseReliabilityRuntimeSmoke({ baseUrl, timeoutMs =
     try
     {
         const live = await liveStatus(parsed.origin, controller.signal);
-        const binary = await fetchResponse(
-            parsed.origin,
-            '/api/binary/system/seo',
-            'application/octet-stream',
-            controller.signal
-        );
-        if (!(binary.headers.get('content-type') ?? '').toLowerCase().includes('application/octet-stream'))
+        const binary = [];
+        for (const contract of runtimeRouteContracts)
         {
-            throw new Error('binary canary did not return application/octet-stream');
+            binary.push(await binaryRouteStatus(parsed.origin, contract, controller.signal));
         }
-        const frame = validateSeoConfigFrame(new Uint8Array(await binary.arrayBuffer()));
         return {
             live,
-            binary: { status: binary.status, ...frame }
+            binary
         };
     }
     finally
