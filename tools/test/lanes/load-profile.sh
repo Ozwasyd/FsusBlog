@@ -8,10 +8,6 @@ OUT_DIR="$PERFORMANCE_ROOT/load-$PROFILE"
 RELEASE_SUMMARY_DIR="$PERFORMANCE_ROOT/release-summaries"
 RELEASE_SUMMARY="$RELEASE_SUMMARY_DIR/load-$PROFILE.json"
 
-# shellcheck source=_release-reliability-lifecycle.sh
-source "$ROOT_DIR/tools/test/lanes/_release-reliability-lifecycle.sh"
-InitializeReleaseReliabilityLifecycle
-
 mkdir -p "$OUT_DIR" "$RELEASE_SUMMARY_DIR"
 rm -f "$OUT_DIR/summary.json" "$RELEASE_SUMMARY"
 

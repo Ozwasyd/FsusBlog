@@ -62,15 +62,26 @@ const seal = value => {
     document.contentDigest = 'sha256:' + createHash('sha256').update(JSON.stringify(canonicalize(content))).digest('hex');
     return document;
 };
-const [mode, evidencePath, scenarioId, expectedResourcePid, expectedContainerId] = process.argv.slice(2);
-console.log('producer-stdout-sentinel');
-console.error('producer-stderr-sentinel');
+const [
+    kind,
+    mode,
+    receiptPath,
+    scenarioId,
+    expectedResourcePid,
+    expectedContainerId,
+    phase = 'measurement',
+    operationKind = 'run-measurement'
+] = process.argv.slice(2);
+if (kind === 'measurement') {
+    console.log('producer-stdout-sentinel');
+    console.error('producer-stderr-sentinel');
+}
 if (process.env.FSUSBLOG_RELEASE_RELIABILITY_SCENARIO_ID !== scenarioId) process.exit(23);
 if (process.env.FSUSBLOG_RELEASE_RESOURCE_PID !== expectedResourcePid) process.exit(29);
 if (process.env.FSUSBLOG_RELEASE_RESOURCE_CONTAINER_ID !== expectedContainerId) process.exit(31);
-if (mode === 'nonzero') process.exit(19);
-if (mode === 'signal') process.kill(process.pid, 'SIGTERM');
-if (mode === 'missing') process.exit(0);
+if (kind === 'measurement' && mode === 'nonzero') process.exit(19);
+if (kind === 'measurement' && mode === 'signal') process.kill(process.pid, 'SIGTERM');
+if (kind === 'measurement' && mode === 'missing') process.exit(0);
 const identity = JSON.parse(fs.readFileSync(process.env.FSUSBLOG_RELEASE_RELIABILITY_IDENTITY_PATH, 'utf8'));
 const binding = {
     invocationId: process.env.FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID,
@@ -81,39 +92,48 @@ const binding = {
     buildContentDigest: identity.build.contentDigest
 };
 if (mode === 'wrong-invocation') binding.invocationId = 'other-invocation';
-fs.mkdirSync(path.dirname(evidencePath), { recursive: true });
-fs.writeFileSync(evidencePath, JSON.stringify({ status: 'ok', sentinel: 'current', releaseReliability: binding }));
-const lifecycleRoot = process.env.FSUSBLOG_RELEASE_RELIABILITY_LIFECYCLE_ROOT;
-const phases = ['precondition', 'reset', 'measurement', 'postcondition'];
-const declarations = {
-    precondition: 'fixture-precondition',
-    reset: 'fixture-reset',
-    measurement: 'fixture-measurement',
-    postcondition: 'fixture-postcondition'
-};
-fs.mkdirSync(lifecycleRoot, { recursive: true });
-for (let index = 0; index < phases.length; index += 1) {
-    const phase = phases[index];
-    const startedAt = new Date().toISOString();
-    const receipt = {
-        schema: 'fsusblog.release-reliability-lifecycle-action.v1',
-        status: mode === 'failed-lifecycle' && phase === 'reset' ? 'failed' : 'complete',
+fs.mkdirSync(path.dirname(receiptPath), { recursive: true });
+if (kind === 'measurement') {
+    fs.writeFileSync(receiptPath, JSON.stringify({
+        schema: 'fsusblog.fixture-authoritative-evidence.v1',
+        status: 'ok',
+        sentinel: 'current',
+        releaseReliability: binding
+    }));
+} else {
+    const after = { fixtureState: 'observed' };
+    const receipt = seal({
+        schema: 'fsusblog.release-reliability-lifecycle-action-receipt.v2',
+        status: (mode === 'failed-lifecycle' && phase === 'reset-before')
+            || (mode === 'failed-cleanup' && phase === 'reset-after')
+            ? 'failed'
+            : 'passed',
+        actionId: process.env.FSUSBLOG_RELEASE_RELIABILITY_ACTION_ID,
         phase,
         scenarioId,
-        invocationId: binding.invocationId,
+        invocationId: process.env.FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID,
         runId: binding.runId,
         identity: {
             path: process.env.FSUSBLOG_RELEASE_RELIABILITY_IDENTITY_PATH,
             contentDigest: identity.contentDigest
         },
-        declaration: declarations[phase],
         stateDomains: ['fixture-state'],
-        state: { before: phase + '-before', after: phase + '-after' },
-        observations: mode === 'placeholder-lifecycle' ? null : { observed: true },
-        startedAt,
+        operation: { kind: operationKind },
+        observations: mode === 'placeholder-lifecycle' && phase === 'precondition'
+            ? null
+            : {
+                before: { fixtureState: 'before' },
+                after
+            },
+        finalObservation: {
+            status: 'passed',
+            postStateDigest: seal({ state: after }).contentDigest,
+            failures: []
+        },
+        startedAt: new Date().toISOString(),
         finishedAt: new Date().toISOString()
-    };
-    fs.writeFileSync(path.join(lifecycleRoot, phase + '.json'), JSON.stringify(seal(receipt)));
+    });
+    fs.writeFileSync(receiptPath, JSON.stringify(receipt));
 }
 `;
 
@@ -166,13 +186,16 @@ function removeFixture(fixture)
 function catalogFor(fixture, mode = 'success')
 {
     return {
-        schema: 'fsusblog.release-reliability-scenario-catalog.v3',
+        schema: 'fsusblog.release-reliability-scenario-catalog.v4',
         catalogScenarioCount: canonicalIds.length,
         canonicalScenarioIds: canonicalIds,
         identityTools: ['node'],
         childEnvironmentContract: repositoryCatalog.childEnvironmentContract,
         policyBindings: repositoryCatalog.policyBindings,
-        lifecycleSchema: 'fsusblog.release-reliability-lifecycle-action.v1',
+        actionRegistry:
+            'config/testing/release-reliability-lifecycle-action-registry.json',
+        lifecycleSchema:
+            'fsusblog.release-reliability-lifecycle-action-receipt.v2',
         scenarios: canonicalIds.map((id) =>
         {
             const canonicalScenario = repositoryCatalog.scenarios.find(
@@ -185,6 +208,7 @@ function catalogFor(fixture, mode = 'success')
                 executable: process.execPath,
                 args: [
                     fixture.producer,
+                    'measurement',
                     mode,
                     `.tmp/evidence/${id}.json`,
                     id,
@@ -202,22 +226,114 @@ function catalogFor(fixture, mode = 'success')
                 exclusiveResources: ['fixture-state'],
                 countableResources: [],
                 lifecycle: {
-                    precondition: 'fixture-precondition',
-                    reset: 'fixture-reset',
-                    measurement: 'fixture-measurement',
-                    postcondition: 'fixture-postcondition'
+                    preconditions: [`${id}-fixture-precondition`],
+                    resetsBefore: [`${id}-fixture-reset-before`],
+                    measurement: `${id}-fixture-measurement`,
+                    postconditions: [`${id}-fixture-postcondition`],
+                    resetsAfter: [`${id}-fixture-reset-after`]
                 },
                 outputs: [{ id: 'authoritative-evidence', path: `.tmp/evidence/${id}.json` }]
             },
             authoritativeEvidence: {
                 path: `.tmp/evidence/${id}.json`,
                 expectedSchema: {
+                    schema: 'fsusblog.fixture-authoritative-evidence.v1',
                     required: ['status', 'sentinel', 'releaseReliability'],
                     passStatusValues: ['ok']
                 }
             }
         };
         })
+    };
+}
+
+function lifecycleAction({
+    fixture,
+    scenario,
+    actionId,
+    phase,
+    mode
+})
+{
+    const measurement = phase === 'measurement';
+    const expectedReceiptPath = measurement
+        ? scenario.authoritativeEvidence.path
+        : `.tmp/release-reliability/{invocationId}/lifecycle/{scenarioId}/${actionId}.json`;
+    return {
+        actionId,
+        scenarioId: scenario.id,
+        phase,
+        operation: measurement ? 'run-measurement' : 'fixture-observation',
+        executable: measurement ? '$scenario.command' : process.execPath,
+        args: measurement
+            ? []
+            : [
+                fixture.producer,
+                'lifecycle',
+                mode,
+                expectedReceiptPath,
+                scenario.id,
+                String(process.pid),
+                'd'.repeat(64),
+                phase,
+                'fixture-observation'
+            ],
+        env: {},
+        cwd: '.',
+        expectedReceiptPath,
+        expectedReceiptSchema: measurement
+            ? scenario.authoritativeEvidence.expectedSchema.schema
+            : 'fsusblog.release-reliability-lifecycle-action-receipt.v2',
+        requiredFields: measurement
+            ? ['releaseReliability', 'schema', 'sentinel', 'status']
+            : [
+                'actionId',
+                'contentDigest',
+                'finalObservation',
+                'finishedAt',
+                'invocationId',
+                'observations',
+                'operation',
+                'phase',
+                'runId',
+                'scenarioId',
+                'schema',
+                'startedAt',
+                'stateDomains',
+                'status'
+            ],
+        passStatusValues: [measurement ? 'ok' : 'passed'],
+        timeoutPolicy: { timeoutMs: 5000, terminateGraceMs: 10 },
+        stateDomains: ['fixture-state'],
+        safeAfterFailure: phase === 'reset-after'
+    };
+}
+
+function contractsFor(fixture, catalog)
+{
+    const actions = [];
+    for (const scenario of catalog.scenarios)
+    {
+        const mode = scenario.command.args[2];
+        for (const [actionId, phase] of [
+            [scenario.isolation.lifecycle.preconditions[0], 'precondition'],
+            [scenario.isolation.lifecycle.resetsBefore[0], 'reset-before'],
+            [scenario.isolation.lifecycle.measurement, 'measurement'],
+            [scenario.isolation.lifecycle.postconditions[0], 'postcondition'],
+            [scenario.isolation.lifecycle.resetsAfter[0], 'reset-after']
+        ])
+        {
+            actions.push(lifecycleAction({
+                fixture,
+                scenario,
+                actionId,
+                phase,
+                mode
+            }));
+        }
+    }
+    return {
+        actions: new Map(actions.map((action) => [action.actionId, action]))
     };
 }
 
@@ -234,7 +350,8 @@ function executeFixtureScenario(fixture, catalog, options = {})
         identity: options.identity ?? fixture.identity,
         identityReference: fixture.identityReference,
         spawnProcess: options.spawnProcess ?? spawn,
-        ambientEnvironment: options.ambientEnvironment ?? fixtureAmbientEnvironment
+        ambientEnvironment: options.ambientEnvironment ?? fixtureAmbientEnvironment,
+        lifecycleContracts: options.lifecycleContracts ?? contractsFor(fixture, catalog)
     });
 }
 
@@ -252,18 +369,18 @@ function fakeChild(exitCode, signal = null)
     return child;
 }
 
-test('catalog requires canonical IDs and explicit lifecycle/resources/outputs', () =>
+test('catalog requires canonical IDs and structured lifecycle/resources/outputs', () =>
 {
     const fixture = createFixture();
     try
     {
         const catalog = catalogFor(fixture);
         assert.deepEqual(validateCatalog(catalog), []);
-        delete catalog.scenarios[0].isolation.lifecycle.reset;
+        delete catalog.scenarios[0].isolation.lifecycle.resetsBefore;
         catalog.scenarios[1].isolation.outputs = [];
         catalog.scenarios[2].isolation.exclusiveResources = [];
         const errors = validateCatalog(catalog);
-        assert.ok(errors.some((error) => error.includes('lifecycle.reset')));
+        assert.ok(errors.some((error) => error.includes('lifecycle')));
         assert.ok(errors.some((error) => error.includes('outputs')));
         assert.ok(errors.some((error) => error.includes('exclusiveResources')));
     }
@@ -273,7 +390,7 @@ test('catalog requires canonical IDs and explicit lifecycle/resources/outputs', 
     }
 });
 
-test('a successful producer must emit current evidence and four real sealed lifecycle receipts', async () =>
+test('a successful scenario executes five registered actions and binds raw verified receipts', async () =>
 {
     const fixture = createFixture();
     try
@@ -283,8 +400,21 @@ test('a successful producer must emit current evidence and four real sealed life
         assert.equal(result.evidenceClass, 'diagnostic');
         assert.equal(result.qualificationEligible, false);
         assert.match(result.contentDigest, /^sha256:[0-9a-f]{64}$/u);
-        assert.deepEqual(Object.keys(result.lifecycle), ['precondition', 'reset', 'measurement', 'postcondition']);
-        assert.ok(Object.values(result.lifecycle).every((reference) => reference.status === 'complete'));
+        assert.deepEqual(
+            result.lifecycle.actions.map(({ phase }) => phase),
+            [
+                'precondition',
+                'reset-before',
+                'measurement',
+                'postcondition',
+                'reset-after'
+            ]
+        );
+        assert.ok(result.lifecycle.actions.every((record) => record.status === 'passed'));
+        assert.equal(result.lifecycle.verifiedActionReceipts.length, 5);
+        assert.ok(result.lifecycle.verifiedActionReceipts.every(
+            (reference) => /^sha256:[0-9a-f]{64}$/u.test(reference.bytesDigest)
+        ));
         assert.equal(result.outputs[0].digest, result.authoritativeEvidence.digest);
         assert.match(
             fs.readFileSync(path.join(fixture.root, result.producer.stdoutLog), 'utf8'),
@@ -310,7 +440,51 @@ test('placeholder, failed, missing, and wrong-invocation lifecycle/evidence fail
         {
             const result = await executeFixtureScenario(fixture, catalogFor(fixture, mode));
             assert.equal(result.status, 'failed', mode);
-            assert.equal(result.lifecycle, null, mode);
+            assert.ok(result.lifecycle.actions.some(
+                (record) => record.status === 'failed'
+            ), mode);
+            assert.ok(result.firstFailure, mode);
+            assert.equal(result.qualificationEligible, false, mode);
+        }
+        finally
+        {
+            removeFixture(fixture);
+        }
+    }
+});
+
+test('precondition and cleanup failures revoke correctness qualification eligibility', async () =>
+{
+    for (const [mode, expectedPhase] of [
+        ['placeholder-lifecycle', 'precondition'],
+        ['failed-cleanup', 'reset-after']
+    ])
+    {
+        const fixture = createFixture();
+        try
+        {
+            const catalog = catalogFor(fixture, mode);
+            const result = await executeScenario({
+                catalog,
+                scenarioId: canonicalIds[0],
+                evidenceClass: 'correctness',
+                qualificationEligible: true,
+                repositoryRoot: fixture.root,
+                invocationId,
+                runId,
+                identity: fixture.identity,
+                identityReference: fixture.identityReference,
+                ambientEnvironment: fixtureAmbientEnvironment,
+                lifecycleContracts: contractsFor(fixture, catalog)
+            });
+            assert.equal(result.status, 'failed', mode);
+            assert.equal(result.qualificationEligible, false, mode);
+            assert.equal(result.firstFailure.phase, expectedPhase, mode);
+            assert.equal(
+                result.cleanupFailures.length,
+                mode === 'failed-cleanup' ? 1 : 0,
+                mode
+            );
         }
         finally
         {
@@ -406,7 +580,13 @@ test('complete execution stays serial and single-scenario execution produces onl
             child.once('exit', () =>
             {
                 active -= 1;
-                observed.push(args[1].at(-1));
+                if (String(args[2]?.env?.FSUSBLOG_RELEASE_RELIABILITY_ACTION_ID)
+                    .endsWith('-fixture-measurement'))
+                {
+                    observed.push(
+                        args[2].env.FSUSBLOG_RELEASE_RELIABILITY_SCENARIO_ID
+                    );
+                }
             });
             return child;
         };
@@ -420,7 +600,8 @@ test('complete execution stays serial and single-scenario execution produces onl
             identity: fixture.identity,
             identityReference: fixture.identityReference,
             spawnProcess,
-            ambientEnvironment: fixtureAmbientEnvironment
+            ambientEnvironment: fixtureAmbientEnvironment,
+            lifecycleContracts: contractsFor(fixture, catalog)
         });
         assert.equal(complete.length, 7);
         assert.ok(complete.every((result) => result.status === 'passed'));
@@ -437,14 +618,12 @@ test('complete execution stays serial and single-scenario execution produces onl
             evidenceClass: 'diagnostic',
             qualificationEligible: false,
             repositoryRoot: fixture.root,
-            invocationId: 'diagnostic-invocation',
+            invocationId,
             runId,
-            identity: { ...fixture.identity, invocationId: 'diagnostic-invocation' },
-            identityReference: {
-                path: '.tmp/release-reliability/diagnostic-invocation/identity.json',
-                contentDigest: fixture.identity.contentDigest
-            },
-            ambientEnvironment: fixtureAmbientEnvironment
+            identity: fixture.identity,
+            identityReference: fixture.identityReference,
+            ambientEnvironment: fixtureAmbientEnvironment,
+            lifecycleContracts: contractsFor(fixture, catalog)
         });
         assert.equal(diagnostic.length, 1);
         assert.equal(diagnostic[0].scenarioId, canonicalIds[2]);
@@ -481,8 +660,9 @@ test('ambient semantic overrides and undeclared keys never reach any scenario pr
             FSUSBLOG_DATA_SCALE_CONCURRENCY: '1',
             FSUSBLOG_MUTATION_RELEASE_SUBSET_POLICY: 'forged-subset.json'
         };
+        const catalog = catalogFor(fixture);
         const results = await executeScenarios({
-            catalog: catalogFor(fixture),
+            catalog,
             evidenceClass: 'correctness',
             qualificationEligible: true,
             repositoryRoot: fixture.root,
@@ -491,6 +671,7 @@ test('ambient semantic overrides and undeclared keys never reach any scenario pr
             identity: fixture.identity,
             identityReference: fixture.identityReference,
             ambientEnvironment,
+            lifecycleContracts: contractsFor(fixture, catalog),
             spawnProcess: (executable, args, options) =>
             {
                 observed.set(options.env.FSUSBLOG_RELEASE_RELIABILITY_SCENARIO_ID, options.env);
@@ -569,8 +750,9 @@ test('full execution clears old qualification and scenario results before a fail
             invocationId,
             scenarioId: null
         });
+        const catalog = catalogFor(fixture, 'nonzero');
         const failed = await executeScenarios({
-            catalog: catalogFor(fixture, 'nonzero'),
+            catalog,
             evidenceClass: 'correctness',
             qualificationEligible: true,
             repositoryRoot: fixture.root,
@@ -578,11 +760,12 @@ test('full execution clears old qualification and scenario results before a fail
             runId,
             identity: fixture.identity,
             identityReference: fixture.identityReference,
-            ambientEnvironment: fixtureAmbientEnvironment
+            ambientEnvironment: fixtureAmbientEnvironment,
+            lifecycleContracts: contractsFor(fixture, catalog)
         });
 
         assert.ok(failed.every((result) => result.status === 'failed'));
-        assert.ok(failed.every((result) => result.qualificationEligible === true));
+        assert.ok(failed.every((result) => result.qualificationEligible === false));
         for (const name of [
             'candidate-receipt.json',
             'verified-attestation.json',

@@ -105,6 +105,12 @@
             "pathType": "file"
         },
         {
+            "id": "release-reliability-lifecycle-action-registry-schema",
+            "owner": "backend-performance-governance",
+            "canonicalPath": "config/schemas/release-reliability-lifecycle-action-registry.schema.json",
+            "pathType": "file"
+        },
+        {
             "id": "correctness-budget-policy",
             "owner": "production-correctness-budget",
             "canonicalPath": "config/testing/correctness-budget-policy.json",
@@ -537,6 +543,27 @@
                 "tools/test/verify-release-reliability-receipt.mjs",
                 "tests/tools/release-reliability-executor.test.mjs",
                 "tests/tools/release-reliability-receipt.test.mjs",
+                "docs/release-evidence-model.md"
+            ],
+            "validationCommand": "node tools/test/run-release-reliability-scenarios.mjs --validate-catalog",
+            "changePolicy": "manual-update-with-reliability-matrix-validation",
+            "status": "manual"
+        },
+        {
+            "id": "release-reliability-lifecycle-action-registry",
+            "owner": "backend-performance-governance",
+            "canonicalPath": "config/testing/release-reliability-lifecycle-action-registry.json",
+            "pathType": "file",
+            "purpose": "Closed action authority for release reliability lifecycle execution and receipt verification",
+            "consumers": [
+                "config/testing/release-reliability-scenario-catalog.json",
+                "tools/test/release-reliability-lifecycle-actions.mjs",
+                "tools/test/release-reliability-lifecycle.mjs",
+                "tools/test/run-release-reliability-scenarios.mjs",
+                "tools/test/verify-release-reliability-lifecycle-action.mjs",
+                "tools/test/verify-release-reliability-receipt.mjs",
+                "tests/tools/release-reliability-lifecycle-actions.test.mjs",
+                "tests/tools/release-reliability-lifecycle-negative.test.mjs",
                 "docs/release-evidence-model.md"
             ],
             "validationCommand": "node tools/test/run-release-reliability-scenarios.mjs --validate-catalog",

@@ -152,54 +152,45 @@ test('release reliability catalog rejects every weakened canonical qualification
     }
 });
 
-test('release reliability lifecycle declarations describe only producer-owned actions', () => {
+test('release reliability lifecycle declarations reference the closed action registry', () => {
     const catalog = loadCatalog();
-    const lifecycleByScenario = Object.fromEntries(catalog.scenarios.map((scenario) => [
-        scenario.id,
-        scenario.isolation.lifecycle
+    const registry = JSON.parse(fs.readFileSync(
+        path.join(root, catalog.actionRegistry),
+        'utf8'
+    ));
+    const actions = new Map(registry.actions.map((action) => [
+        action.actionId,
+        action
     ]));
-    assert.deepEqual(lifecycleByScenario, {
-        'release-soak-min': {
-            precondition: 'verify-runtime-database-and-resource-counter-readiness',
-            reset: 'delete-short-soak-scenario-output',
-            measurement: 'producer-owned-short-soak-window',
-            postcondition: 'verify-runtime-database-and-resource-counter-stability'
-        },
-        'release-load-peak': {
-            precondition: 'verify-runtime-readiness-before-network-performance-window',
-            reset: 'delete-expected-peak-raw-and-projection-output',
-            measurement: 'producer-owned-expected-peak-window',
-            postcondition: 'verify-runtime-stability-after-network-performance-window'
-        },
-        'release-load-burst': {
-            precondition: 'verify-runtime-readiness-before-network-performance-window',
-            reset: 'delete-burst-raw-and-projection-output',
-            measurement: 'producer-owned-burst-window',
-            postcondition: 'verify-runtime-stability-after-network-performance-window'
-        },
-        'release-data-scale-m': {
-            precondition: 'verify-runtime-and-database-fixture-readiness',
-            reset: 'delete-scale-m-output-and-clean-data-scale-namespace',
-            measurement: 'producer-owned-scale-m-window',
-            postcondition: 'verify-runtime-database-and-data-scale-cleanup-stability'
-        },
-        'release-mutation-critical-slice': {
-            precondition: 'verify-clean-source-and-record-host-cpu-state',
-            reset: 'delete-critical-mutation-scenario-output',
-            measurement: 'producer-owned-critical-mutation-window',
-            postcondition: 'verify-clean-source-and-record-host-cpu-state'
-        },
-        'release-memory-leak-budget': {
-            precondition: 'verify-runtime-database-and-resource-counter-readiness',
-            reset: 'delete-memory-leak-raw-and-projection-output',
-            measurement: 'producer-owned-memory-leak-window',
-            postcondition: 'verify-runtime-database-and-resource-counter-stability'
-        },
-        'release-open-handle-budget': {
-            precondition: 'verify-runtime-database-and-resource-counter-readiness',
-            reset: 'delete-open-handle-raw-and-projection-output',
-            measurement: 'producer-owned-open-handle-window',
-            postcondition: 'verify-runtime-database-and-resource-counter-stability'
+    const referenced = [];
+    for (const scenario of catalog.scenarios) {
+        assert.deepEqual(
+            Object.keys(scenario.isolation.lifecycle).sort(),
+            [
+                'measurement',
+                'postconditions',
+                'preconditions',
+                'resetsAfter',
+                'resetsBefore'
+            ]
+        );
+        for (const [phase, actionIds] of [
+            ['precondition', scenario.isolation.lifecycle.preconditions],
+            ['reset-before', scenario.isolation.lifecycle.resetsBefore],
+            ['measurement', [scenario.isolation.lifecycle.measurement]],
+            ['postcondition', scenario.isolation.lifecycle.postconditions],
+            ['reset-after', scenario.isolation.lifecycle.resetsAfter]
+        ]) {
+            assert.ok(actionIds.length > 0);
+            for (const actionId of actionIds) {
+                const action = actions.get(actionId);
+                assert.equal(action?.scenarioId, scenario.id);
+                assert.equal(action?.phase, phase);
+                referenced.push(actionId);
+            }
         }
-    });
+    }
+    assert.equal(referenced.length, 35);
+    assert.equal(new Set(referenced).size, 35);
+    assert.deepEqual([...referenced].sort(), [...actions.keys()].sort());
 });

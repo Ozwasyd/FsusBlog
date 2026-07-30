@@ -26,10 +26,6 @@ case "$MODE" in
         ;;
 esac
 
-# shellcheck source=_release-reliability-lifecycle.sh
-source "$ROOT_DIR/tools/test/lanes/_release-reliability-lifecycle.sh"
-InitializeReleaseReliabilityLifecycle
-
 if [[ "$MODE" == "short" ]]; then
     "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/performance-admission.mjs" \
         --window-id "soak-$MODE" \

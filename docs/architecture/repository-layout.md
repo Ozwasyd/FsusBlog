@@ -45,6 +45,19 @@ launch profile 因而位于 `ops/docker/Properties/`。根级 `configs/`、无 r
 `tools/configuration/check-configuration-layout.mjs` 拒绝。完整 ownership 表见
 [`docs/configuration-layout.md`](../configuration-layout.md)。
 
+Release Reliability 的场景与动作事实源分离：`config/testing/release-reliability-scenario-catalog.json`
+拥有 exact-seven 场景、命令语义、环境合同和结构化 lifecycle action 引用；
+`config/testing/release-reliability-lifecycle-action-registry.json` 唯一拥有 35 个动作的
+进程调用、timeout、回执、状态域与 failure-safe cleanup 合同，对应 JSON Schema 位于
+`config/schemas/release-reliability-lifecycle-action-registry.schema.json`。
+`config/testing/runtime-state-domain-registry.json` 是 action state domain 的 closed-world
+词表。`tools/test/release-reliability-lifecycle-actions.mjs` 只负责加载和交叉校验这些
+authority，`tools/test/release-reliability-lifecycle.mjs` 执行动作/观察真实状态，
+`tools/test/verify-release-reliability-lifecycle-action.mjs` 独立重读 raw receipt；
+具体 soak/load/data-scale/mutation/resource lane 不拥有 lifecycle receipt，也不得自封
+precondition、reset 或 postcondition。Data-scale lane 只测量 dedicated runtime owner
+准备的 fixture/runtime，seed 与 teardown 分别仍由其专属 owner authority 承担。
+
 ## Operations ownership
 
 运维模板只有一个 top-level root：`ops/`。生产容器/Compose、开发依赖、gateway

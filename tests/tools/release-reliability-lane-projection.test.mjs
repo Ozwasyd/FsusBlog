@@ -39,21 +39,12 @@ function run(file, environment)
     });
 }
 
-function copyLifecycleSupport(fixture)
-{
-    fs.copyFileSync(
-        path.join(root, 'tools/test/lanes/_release-reliability-lifecycle.sh'),
-        path.join(fixture, 'tools/test/lanes/_release-reliability-lifecycle.sh')
-    );
-}
-
 function setupLoadFixture(context)
 {
     const fixture = makeFixture(context);
     const lane = path.join(fixture, 'tools/test/lanes/load-profile.sh');
     fs.mkdirSync(path.dirname(lane), { recursive: true });
     fs.copyFileSync(path.join(root, 'tools/test/lanes/load-profile.sh'), lane);
-    copyLifecycleSupport(fixture);
     writeExecutable(path.join(fixture, 'tools/test/performance-admission.mjs'), `#!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
 const separator = process.argv.indexOf('--');
@@ -101,11 +92,9 @@ function setupScaleFixture(context)
     const lane = path.join(fixture, 'tools/test/lanes/data-scale.sh');
     fs.mkdirSync(path.dirname(lane), { recursive: true });
     fs.copyFileSync(path.join(root, 'tools/test/lanes/data-scale.sh'), lane);
-    copyLifecycleSupport(fixture);
     writeExecutable(path.join(fixture, 'tools/data-scale/seed.sh'), `#!/usr/bin/env bash
-set -euo pipefail
-mkdir -p "$PWD/.tmp/scale/$1"
-printf '{"status":"ok","sentinel":"current-seed"}' > "$PWD/.tmp/scale/$1/seed.json"
+printf 'data-scale lane must not own seed\\n' >&2
+exit 91
 `);
     writeExecutable(path.join(fixture, 'tools/data-scale/probe.sh'), `#!/usr/bin/env bash
 set -euo pipefail
@@ -121,8 +110,8 @@ fi
 exit 7
 `);
     writeExecutable(path.join(fixture, 'tools/data-scale/cleanup.sh'), `#!/usr/bin/env bash
-set -euo pipefail
-printf '{"status":"ok","sentinel":"current-cleanup"}' > "$PWD/.tmp/scale/$1/cleanup.json"
+printf 'data-scale lane must not own teardown\\n' >&2
+exit 92
 `);
     return fixture;
 }

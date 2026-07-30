@@ -1,10 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_lane-collect-support.sh"
-# shellcheck source=_release-reliability-lifecycle.sh
-source "$ROOT_DIR/tools/test/lanes/_release-reliability-lifecycle.sh"
 CURRENT_TIER=backend-mutation-critical
-InitializeReleaseReliabilityLifecycle
 RunTier "$CURRENT_TIER" RunBackendMutationCriticalOnly
 
 # Release-final consumes a second, isolated Release mutation execution.  The

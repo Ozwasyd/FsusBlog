@@ -24,6 +24,12 @@ const {
     snapshotGitWorktree
 } = await import(pathToFileURL(path.join(repositoryRoot, 'tools/test-matrix/scheduler.mjs')).href);
 const {
+    verifyLifecycleActionReceipt
+} = await import(pathToFileURL(path.join(
+    repositoryRoot,
+    'tools/test/verify-release-reliability-lifecycle-action.mjs'
+)).href);
+const {
     projectQualifiedContainerEnvironment,
     releaseReliabilityAuditedContainerOverrides
 } = await import(pathToFileURL(path.join(
@@ -43,7 +49,6 @@ const scenarioIds = [
 ];
 const invocationId = 'receipt-invocation';
 const runId = 'receipt-run';
-const lifecyclePhases = ['precondition', 'reset', 'measurement', 'postcondition'];
 const digest = (character) => `sha256:${character.repeat(64)}`;
 const buildToolchain = {
     node: process.version,
@@ -133,13 +138,16 @@ function canonicalize(value)
 function fixtureCatalog()
 {
     return {
-        schema: 'fsusblog.release-reliability-scenario-catalog.v3',
+        schema: 'fsusblog.release-reliability-scenario-catalog.v4',
         catalogScenarioCount: 7,
         canonicalScenarioIds: scenarioIds,
         identityTools: ['node'],
         childEnvironmentContract: repositoryCatalog.childEnvironmentContract,
         policyBindings: repositoryCatalog.policyBindings,
-        lifecycleSchema: 'fsusblog.release-reliability-lifecycle-action.v1',
+        actionRegistry:
+            'config/testing/release-reliability-lifecycle-action-registry.json',
+        lifecycleSchema:
+            'fsusblog.release-reliability-lifecycle-action-receipt.v2',
         scenarios: scenarioIds.map((id) =>
         {
             const canonicalScenario = repositoryCatalog.scenarios.find(
@@ -162,10 +170,11 @@ function fixtureCatalog()
                 exclusiveResources: ['fixture-state'],
                 countableResources: [],
                 lifecycle: {
-                    precondition: 'fixture-precondition',
-                    reset: 'fixture-reset',
-                    measurement: 'fixture-measurement',
-                    postcondition: 'fixture-postcondition'
+                    preconditions: [`${id}-fixture-precondition`],
+                    resetsBefore: [`${id}-fixture-reset-before`],
+                    measurement: `${id}-fixture-measurement`,
+                    postconditions: [`${id}-fixture-postcondition`],
+                    resetsAfter: [`${id}-fixture-reset-after`]
                 },
                 outputs: [{ id: 'authoritative-evidence', path: `.tmp/evidence/${id}.json` }]
             },
@@ -178,6 +187,110 @@ function fixtureCatalog()
             }
         };
         })
+    };
+}
+
+function fixtureLifecycleContracts(catalog = fixtureCatalog())
+{
+    const actions = [];
+    for (const scenario of catalog.scenarios)
+    {
+        for (const [actionId, phase] of [
+            [scenario.isolation.lifecycle.preconditions[0], 'precondition'],
+            [scenario.isolation.lifecycle.resetsBefore[0], 'reset-before'],
+            [scenario.isolation.lifecycle.measurement, 'measurement'],
+            [scenario.isolation.lifecycle.postconditions[0], 'postcondition'],
+            [scenario.isolation.lifecycle.resetsAfter[0], 'reset-after']
+        ])
+        {
+            const measurement = phase === 'measurement';
+            actions.push({
+                actionId,
+                scenarioId: scenario.id,
+                phase,
+                expectedReceiptPath: measurement
+                    ? scenario.authoritativeEvidence.path
+                    : `.tmp/release-reliability/{invocationId}/lifecycle/{scenarioId}/{actionId}.json`,
+                expectedReceiptSchema: measurement
+                    ? scenario.authoritativeEvidence.expectedSchema.schema
+                        ?? 'catalog-authoritative-evidence'
+                    : catalog.lifecycleSchema,
+                stateDomains: ['fixture-state'],
+                passStatusValues: [measurement ? 'ok' : 'passed']
+            });
+        }
+    }
+    return {
+        authorityBindings: fixtureLifecycleAuthorityBindings(),
+        actions: new Map(actions.map((action) => [action.actionId, action]))
+    };
+}
+
+function fixtureLifecycleRegistry(catalog = fixtureCatalog())
+{
+    const actions = [];
+    for (const scenario of catalog.scenarios)
+    {
+        for (const [actionId, phase] of [
+            [scenario.isolation.lifecycle.preconditions[0], 'precondition'],
+            [scenario.isolation.lifecycle.resetsBefore[0], 'reset-before'],
+            [scenario.isolation.lifecycle.measurement, 'measurement'],
+            [scenario.isolation.lifecycle.postconditions[0], 'postcondition'],
+            [scenario.isolation.lifecycle.resetsAfter[0], 'reset-after']
+        ])
+        {
+            const measurement = phase === 'measurement';
+            actions.push({
+                actionId,
+                scenarioId: scenario.id,
+                phase,
+                operation: measurement ? 'run-measurement' : 'observe-runtime',
+                executable: measurement ? '$scenario.command' : 'node',
+                args: measurement ? [] : ['fixture-action.mjs'],
+                env: {},
+                cwd: '.',
+                expectedReceiptPath: measurement
+                    ? scenario.authoritativeEvidence.path
+                    : `.tmp/release-reliability/{invocationId}/lifecycle/{scenarioId}/{actionId}.json`,
+                expectedReceiptSchema: measurement
+                    ? scenario.authoritativeEvidence.expectedSchema.schema
+                        ?? 'catalog-authoritative-evidence'
+                    : catalog.lifecycleSchema,
+                requiredFields: measurement
+                    ? [...scenario.authoritativeEvidence.expectedSchema.required]
+                        .sort()
+                    : [
+                        'actionId',
+                        'contentDigest',
+                        'finalObservation',
+                        'finishedAt',
+                        'invocationId',
+                        'observations',
+                        'operation',
+                        'phase',
+                        'runId',
+                        'scenarioId',
+                        'schema',
+                        'startedAt',
+                        'stateDomains',
+                        'status'
+                    ],
+                passStatusValues: [measurement ? 'ok' : 'passed'],
+                timeoutPolicy: { timeoutMs: 5000, terminateGraceMs: 10 },
+                stateDomains: ['fixture-state'],
+                safeAfterFailure: phase === 'reset-after'
+            });
+        }
+    }
+    return {
+        schema: 'fsusblog.release-reliability-lifecycle-action-registry.v1',
+        receiptSchema:
+            'fsusblog.release-reliability-lifecycle-action-receipt.v2',
+        scenarioCatalog:
+            'config/testing/release-reliability-scenario-catalog.json',
+        stateDomainRegistry:
+            'config/testing/runtime-state-domain-registry.json',
+        actions
     };
 }
 
@@ -194,6 +307,22 @@ function childEnvironmentIdentity(catalog)
                 env: scenario.command.env
             }))
         })
+    };
+}
+
+function fixtureLifecycleAuthorityBindings()
+{
+    return {
+        lifecycleActionRegistry: {
+            status: 'complete',
+            path: 'config/testing/release-reliability-lifecycle-action-registry.json',
+            fileDigest: digest('b')
+        },
+        stateDomainRegistry: {
+            status: 'complete',
+            path: 'config/testing/runtime-state-domain-registry.json',
+            fileDigest: digest('c')
+        }
     };
 }
 
@@ -317,6 +446,7 @@ function completeIdentity(overrides = {})
                 path: 'config/testing/release-reliability-scenario-catalog.json',
                 fileDigest: digest('6')
             },
+            ...fixtureLifecycleAuthorityBindings(),
             threshold: { status: 'complete', path: 'tests/performance/perf-policy.yml', fileDigest: digest('7') },
             mutationSubset: {
                 status: 'complete',
@@ -329,8 +459,9 @@ function completeIdentity(overrides = {})
                 fileDigest: digest('a')
             },
             childEnvironment: childEnvironmentIdentity(fixtureCatalog()),
-            executorSchema: 'fsusblog.release-reliability-scenario-result.v2',
-            lifecycleSchema: 'fsusblog.release-reliability-lifecycle-action.v1'
+            executorSchema: 'fsusblog.release-reliability-scenario-result.v3',
+            lifecycleSchema:
+                'fsusblog.release-reliability-lifecycle-action-receipt.v2'
         },
         collectedAt: '2026-07-26T00:00:00.000Z',
         collectionErrors: [],
@@ -350,7 +481,8 @@ function producerRecord(scenario, identity)
 {
     const commandToolId = path.basename(scenario.command.executable).replace(/\.exe$/iu, '');
     const executable = identity.tools.find((tool) => tool.id === commandToolId)?.executable;
-    const logRoot = `.tmp/release-reliability/${identity.invocationId}/logs/${scenario.id}`;
+    const logRoot =
+        `.tmp/release-reliability/${identity.invocationId}/logs/lifecycle/${scenario.id}/${scenario.isolation.lifecycle.measurement}`;
     return {
         executable,
         args: scenario.command.args,
@@ -360,6 +492,7 @@ function producerRecord(scenario, identity)
         commandDigest: bytesDigest(Buffer.from(JSON.stringify(scenario.command))),
         exitCode: 0,
         signal: null,
+        timedOut: false,
         stdoutLog: `${logRoot}.stdout.log`,
         stderrLog: `${logRoot}.stderr.log`
     };
@@ -371,30 +504,71 @@ function scenarioResults(identity = completeIdentity())
     return scenarioIds.map((scenarioId) =>
     {
         const scenario = fixtureCatalog().scenarios.find((candidate) => candidate.id === scenarioId);
-        const lifecycle = Object.fromEntries(lifecyclePhases.map((phase, index) => [
-            phase,
-            {
-                path: `.tmp/release-reliability/${identity.invocationId}/lifecycle/${scenarioId}/${phase}.json`,
-                schema: 'fsusblog.release-reliability-lifecycle-action.v1',
+        const actionIds = [
+            [scenario.isolation.lifecycle.preconditions[0], 'precondition'],
+            [scenario.isolation.lifecycle.resetsBefore[0], 'reset-before'],
+            [scenario.isolation.lifecycle.measurement, 'measurement'],
+            [scenario.isolation.lifecycle.postconditions[0], 'postcondition'],
+            [scenario.isolation.lifecycle.resetsAfter[0], 'reset-after']
+        ];
+        const actions = actionIds.map(([actionId, phase], index) =>
+        {
+            const measurement = phase === 'measurement';
+            const finalObservation = measurement
+                ? { status: 'verified-by-authoritative-schema' }
+                : {
+                    status: 'passed',
+                    postStateDigest: digest(String(index + 1)),
+                    failures: []
+                };
+            const receipt = {
+                actionId,
                 phase,
-                scenarioId,
-                runId: identity.runId,
-                invocationId: identity.invocationId,
+                path: measurement
+                    ? scenario.authoritativeEvidence.path
+                    : `.tmp/release-reliability/${identity.invocationId}/lifecycle/${scenarioId}/${actionId}.json`,
+                schema: measurement
+                    ? scenario.authoritativeEvidence.expectedSchema.schema
+                        ?? 'catalog-authoritative-evidence'
+                    : 'fsusblog.release-reliability-lifecycle-action-receipt.v2',
+                status: measurement ? 'ok' : 'passed',
                 stateDomains: ['fixture-state'],
-                status: 'complete',
-                contentDigest: digest(String(index + 1)),
+                bytesDigest: digest(String(index + 1)),
+                contentDigest: measurement ? null : digest(String(index + 2)),
+                finalObservation
+            };
+            return {
+                actionId,
+                phase,
+                status: 'passed',
                 startedAt: `2026-07-26T00:00:0${index * 2}.000Z`,
-                finishedAt: `2026-07-26T00:00:0${index * 2 + 1}.000Z`
-            }
-        ]));
+                finishedAt: `2026-07-26T00:00:0${index * 2 + 1}.000Z`,
+                durationMs: 1000,
+                exitCode: 0,
+                signal: null,
+                timedOut: false,
+                stdoutLog: `.tmp/logs/${actionId}.stdout.log`,
+                stderrLog: `.tmp/logs/${actionId}.stderr.log`,
+                receipt,
+                finalObservation,
+                failure: null
+            };
+        });
+        const lifecycle = {
+            actions,
+            verifiedActionReceipts: actions.map((action) => action.receipt),
+            resetPostObservation: actions[1].finalObservation,
+            finalPostObservation: actions[4].finalObservation
+        };
         const evidence = {
             path: `.tmp/evidence/${scenarioId}.json`,
             digest: digest('8'),
-            schema: null,
+            schema: scenario.authoritativeEvidence.expectedSchema.schema
+                ?? 'catalog-authoritative-evidence',
             status: 'ok'
         };
         return sealDocument({
-            schema: 'fsusblog.release-reliability-scenario-result.v2',
+            schema: 'fsusblog.release-reliability-scenario-result.v3',
             invocationId: identity.invocationId,
             runId: identity.runId,
             scenarioId,
@@ -411,6 +585,8 @@ function scenarioResults(identity = completeIdentity())
             lifecycle,
             authoritativeEvidence: evidence,
             outputs: [{ id: 'authoritative-evidence', path: evidence.path, digest: evidence.digest }],
+            firstFailure: null,
+            cleanupFailures: [],
             failure: null,
             recordedAt: '2026-07-26T00:00:11.000Z'
         });
@@ -439,6 +615,7 @@ function qualifiedReceipt(identity = completeIdentity(), results = scenarioResul
             contentDigest: timeline.contentDigest
         },
         catalog,
+        lifecycleContracts: fixtureLifecycleContracts(catalog),
         createdAt: '2026-07-26T00:00:12.000Z'
     });
     return { receipt, timeline };
@@ -456,7 +633,12 @@ test('aggregate stores only sealed result and original evidence references', () 
             'resultPath',
             'resultContentDigest',
             'evidencePath',
-            'evidenceDigest'
+            'evidenceDigest',
+            'lifecycleActions',
+            'resetPostObservation',
+            'finalPostObservation',
+            'firstFailure',
+            'cleanupFailures'
         ]);
         assert.equal('source' in reference, false);
         assert.equal('isolation' in reference, false);
@@ -570,9 +752,27 @@ test('tampered sealed result and fake lifecycle reference fail qualification', (
     assert.equal(qualifiedReceipt(identity, tampered).receipt.status, 'failed');
 
     const fakeLifecycle = scenarioResults(identity);
-    fakeLifecycle[0].lifecycle.reset.status = 'unverified';
+    fakeLifecycle[0].lifecycle.verifiedActionReceipts[1].status = 'unverified';
     fakeLifecycle[0] = sealDocument(fakeLifecycle[0]);
     assert.equal(qualifiedReceipt(identity, fakeLifecycle).receipt.status, 'failed');
+});
+
+test('candidate rejects lifecycle authority drift after run identity collection', () =>
+{
+    const base = completeIdentity();
+    const drifted = sealDocument({
+        ...base,
+        policy: {
+            ...base.policy,
+            lifecycleActionRegistry: {
+                ...base.policy.lifecycleActionRegistry,
+                fileDigest: digest('d')
+            }
+        }
+    });
+    const { receipt } = qualifiedReceipt(drifted, scenarioResults(drifted));
+    assert.equal(receipt.status, 'failed');
+    assert.match(receipt.failure, /policy identity is incomplete/u);
 });
 
 test('missing tool and unavailable cgroup identities cannot qualify', () =>
@@ -663,6 +863,21 @@ test('identity collector consumes the canonical production build receipt without
     const trackedFiles = {
         '.gitignore': '.tmp/\n',
         'config/testing/release-reliability-scenario-catalog.json': `${JSON.stringify(catalog, null, 2)}\n`,
+        'config/testing/release-reliability-lifecycle-action-registry.json':
+            `${JSON.stringify(fixtureLifecycleRegistry(catalog), null, 2)}\n`,
+        'config/testing/runtime-state-domain-registry.json':
+            `${JSON.stringify({
+                schema: 'fsusblog.runtime-state-domain-registry.v1',
+                domains: ['fixture-state']
+            }, null, 2)}\n`,
+        'config/schemas/release-reliability-lifecycle-action-registry.schema.json':
+            fs.readFileSync(
+                path.join(
+                    repositoryRoot,
+                    'config/schemas/release-reliability-lifecycle-action-registry.schema.json'
+                ),
+                'utf8'
+            ),
         'tests/performance/perf-policy.yml': fs.readFileSync(
             path.join(repositoryRoot, 'tests/performance/perf-policy.yml'),
             'utf8'
@@ -1241,6 +1456,21 @@ async function createCliFixture(context)
     const trackedFiles = {
         '.gitignore': '.tmp/\n',
         'config/testing/release-reliability-scenario-catalog.json': `${JSON.stringify(catalog, null, 2)}\n`,
+        'config/testing/release-reliability-lifecycle-action-registry.json':
+            `${JSON.stringify(fixtureLifecycleRegistry(catalog), null, 2)}\n`,
+        'config/testing/runtime-state-domain-registry.json':
+            `${JSON.stringify({
+                schema: 'fsusblog.runtime-state-domain-registry.v1',
+                domains: ['fixture-state']
+            }, null, 2)}\n`,
+        'config/schemas/release-reliability-lifecycle-action-registry.schema.json':
+            fs.readFileSync(
+                path.join(
+                    repositoryRoot,
+                    'config/schemas/release-reliability-lifecycle-action-registry.schema.json'
+                ),
+                'utf8'
+            ),
         'tests/performance/perf-policy.yml': fs.readFileSync(
             path.join(repositoryRoot, 'tests/performance/perf-policy.yml'),
             'utf8'
@@ -1529,11 +1759,17 @@ const requested = process.argv.at(-1); const entry = state.containers[requested]
         tools: [{ id: 'node', status: 'complete', executable: process.execPath, version: process.version }],
         policy: {
             catalog: binding('config/testing/release-reliability-scenario-catalog.json'),
+            lifecycleActionRegistry: binding(
+                'config/testing/release-reliability-lifecycle-action-registry.json'
+            ),
+            stateDomainRegistry: binding(
+                'config/testing/runtime-state-domain-registry.json'
+            ),
             threshold: binding('tests/performance/perf-policy.yml'),
             mutationSubset: binding('config/testing/mutation/release-parity-subset.json'),
             releaseResource: binding('config/deployment/zero-downtime-resource-policy.json'),
             childEnvironment: childEnvironmentIdentity(catalog),
-            executorSchema: 'fsusblog.release-reliability-scenario-result.v2',
+            executorSchema: 'fsusblog.release-reliability-scenario-result.v3',
             lifecycleSchema: catalog.lifecycleSchema
         },
         collectedAt: '2026-07-26T00:00:00.000Z',
@@ -1557,6 +1793,14 @@ const requested = process.argv.at(-1); const entry = state.containers[requested]
         ),
         topology: path.join(root, '.tmp/topology.json'),
         catalog: path.join(root, 'config/testing/release-reliability-scenario-catalog.json'),
+        lifecycleActionRegistry: path.join(
+            root,
+            'config/testing/release-reliability-lifecycle-action-registry.json'
+        ),
+        stateDomainRegistry: path.join(
+            root,
+            'config/testing/runtime-state-domain-registry.json'
+        ),
         threshold: path.join(root, 'tests/performance/perf-policy.yml'),
         mutationSubset: path.join(root, 'config/testing/mutation/release-parity-subset.json'),
         releaseResource: path.join(root, 'config/deployment/zero-downtime-resource-policy.json'),
@@ -1576,48 +1820,162 @@ const requested = process.argv.at(-1); const entry = state.containers[requested]
         });
         writeJson(path.join(root, evidencePath), evidence);
         const evidenceDigest = bytesDigest(fs.readFileSync(path.join(root, evidencePath)));
-        const lifecycle = {};
-        for (let index = 0; index < lifecyclePhases.length; index += 1)
+        const contracts = fixtureLifecycleContracts(catalog);
+        const registry = fixtureLifecycleRegistry(catalog);
+        contracts.actions = new Map(registry.actions.map((action) => [
+            action.actionId,
+            action
+        ]));
+        const lifecycleActionIds = [
+            scenario.isolation.lifecycle.preconditions[0],
+            scenario.isolation.lifecycle.resetsBefore[0],
+            scenario.isolation.lifecycle.measurement,
+            scenario.isolation.lifecycle.postconditions[0],
+            scenario.isolation.lifecycle.resetsAfter[0]
+        ];
+        const runtimeObservation = {
+            expectedBaseUrl: 'http://127.0.0.1:24501',
+            configuredBaseUrl: 'http://127.0.0.1:24501',
+            backend: {
+                status: 'running',
+                id: containers['fixture-backend'].Id,
+                hostPid: containers['fixture-backend'].State.Pid,
+                startedAt: containers['fixture-backend'].State.StartedAt,
+                image: containers['fixture-backend'].Image
+            },
+            postgres: {
+                status: 'running',
+                id: containers['fixture-postgres'].Id,
+                hostPid: containers['fixture-postgres'].State.Pid,
+                startedAt: containers['fixture-postgres'].State.StartedAt,
+                image: containers['fixture-postgres'].Image
+            },
+            redis: {
+                status: 'running',
+                id: containers['fixture-redis'].Id,
+                hostPid: containers['fixture-redis'].State.Pid,
+                startedAt: containers['fixture-redis'].State.StartedAt,
+                image: containers['fixture-redis'].Image
+            },
+            network: {
+                status: 'bound',
+                id: fixtureNetworkId,
+                memberContainerIds: [
+                    containers['fixture-backend'].Id,
+                    containers['fixture-postgres'].Id,
+                    containers['fixture-redis'].Id
+                ].sort()
+            },
+            live: { status: 'live', httpStatus: 200, reportStatus: 'live' }
+        };
+        const lifecycleActions = [];
+        let baseline = null;
+        for (let index = 0; index < lifecycleActionIds.length; index += 1)
         {
-            const phase = lifecyclePhases[index];
-            const relative = `.tmp/release-reliability/${invocationId}/lifecycle/${scenario.id}/${phase}.json`;
-            const action = sealDocument({
-                schema: catalog.lifecycleSchema,
-                status: 'complete',
-                phase,
-                scenarioId: scenario.id,
-                invocationId,
-                runId,
-                identity: identityRef,
-                declaration: scenario.isolation.lifecycle[phase],
-                stateDomains: scenario.isolation.exclusiveResources,
-                state: { before: `${phase}-before`, after: `${phase}-after` },
-                observations: { observed: true },
-                startedAt: `2026-07-26T00:00:0${index * 2}.000Z`,
-                finishedAt: `2026-07-26T00:00:0${index * 2 + 1}.000Z`
-            });
-            writeJson(path.join(root, relative), action);
-            lifecycle[phase] = {
-                path: relative,
-                schema: action.schema,
-                phase,
-                scenarioId: scenario.id,
-                runId,
-                invocationId,
-                stateDomains: action.stateDomains,
-                status: action.status,
-                contentDigest: action.contentDigest,
-                startedAt: action.startedAt,
-                finishedAt: action.finishedAt
-            };
-            if (scenario.id === scenarioIds[0] && phase === 'reset')
+            const action = contracts.actions.get(lifecycleActionIds[index]);
+            let reference;
+            if (action.phase === 'measurement')
             {
-                files.lifecycle = path.join(root, relative);
+                reference = verifyLifecycleActionReceipt({
+                    repositoryRoot: root,
+                    action,
+                    scenario,
+                    invocationId,
+                    runId,
+                    identity,
+                    identityReference: identityRef
+                });
             }
+            else
+            {
+                const relative = action.expectedReceiptPath
+                    .replaceAll('{actionId}', action.actionId)
+                    .replaceAll('{invocationId}', invocationId)
+                    .replaceAll('{runId}', runId)
+                    .replaceAll('{scenarioId}', scenario.id);
+                const operation = {
+                    kind: action.operation,
+                    ...(baseline === null
+                        ? {}
+                        : {
+                            runtimeBaselineReceipt: {
+                                path: baseline.path,
+                                bytesDigest: baseline.bytesDigest,
+                                contentDigest: baseline.contentDigest
+                            }
+                        })
+                };
+                const actionReceipt = sealDocument({
+                    schema: catalog.lifecycleSchema,
+                    status: 'passed',
+                    actionId: action.actionId,
+                    phase: action.phase,
+                    scenarioId: scenario.id,
+                    invocationId,
+                    runId,
+                    identity: identityRef,
+                    stateDomains: action.stateDomains,
+                    operation,
+                    observations: {
+                        before: runtimeObservation,
+                        after: runtimeObservation
+                    },
+                    finalObservation: {
+                        status: 'passed',
+                        postStateDigest: digestValue({
+                            state: runtimeObservation
+                        }),
+                        failures: []
+                    },
+                    startedAt: `2026-07-26T00:00:0${index * 2}.000Z`,
+                    finishedAt:
+                        `2026-07-26T00:00:0${index * 2 + 1}.000Z`
+                });
+                writeJson(path.join(root, relative), actionReceipt);
+                reference = verifyLifecycleActionReceipt({
+                    repositoryRoot: root,
+                    action,
+                    scenario,
+                    invocationId,
+                    runId,
+                    identity,
+                    identityReference: identityRef
+                });
+                baseline ??= reference;
+                if (scenario.id === scenarioIds[0]
+                    && action.phase === 'reset-before')
+                {
+                    files.lifecycle = path.join(root, relative);
+                }
+            }
+            lifecycleActions.push({
+                actionId: action.actionId,
+                phase: action.phase,
+                status: 'passed',
+                startedAt: `2026-07-26T00:00:0${index * 2}.000Z`,
+                finishedAt: `2026-07-26T00:00:0${index * 2 + 1}.000Z`,
+                durationMs: 1000,
+                exitCode: 0,
+                signal: null,
+                timedOut: false,
+                stdoutLog: `.tmp/logs/${action.actionId}.stdout.log`,
+                stderrLog: `.tmp/logs/${action.actionId}.stderr.log`,
+                receipt: reference,
+                finalObservation: reference.finalObservation,
+                failure: null
+            });
         }
+        const lifecycle = {
+            actions: lifecycleActions,
+            verifiedActionReceipts: lifecycleActions.map(
+                (action) => action.receipt
+            ),
+            resetPostObservation: lifecycleActions[1].finalObservation,
+            finalPostObservation: lifecycleActions[4].finalObservation
+        };
         const resultPath = `.tmp/release-reliability/${invocationId}/scenario-results/${scenario.id}.json`;
         const result = sealDocument({
-            schema: 'fsusblog.release-reliability-scenario-result.v2',
+            schema: 'fsusblog.release-reliability-scenario-result.v3',
             invocationId,
             runId,
             scenarioId: scenario.id,
@@ -1635,10 +1993,12 @@ const requested = process.argv.at(-1); const entry = state.containers[requested]
             authoritativeEvidence: {
                 path: evidencePath,
                 digest: evidenceDigest,
-                schema: null,
+                schema: lifecycleActions[2].receipt.schema,
                 status: 'ok'
             },
             outputs: [{ id: 'authoritative-evidence', path: evidencePath, digest: evidenceDigest }],
+            firstFailure: null,
+            cleanupFailures: [],
             failure: null,
             recordedAt: '2026-07-26T00:00:11.000Z'
         });
@@ -1669,6 +2029,13 @@ const requested = process.argv.at(-1); const entry = state.containers[requested]
         timeline,
         timelineReference: { path: timelinePath, contentDigest: timeline.contentDigest },
         catalog,
+        lifecycleContracts: {
+            ...fixtureLifecycleContracts(catalog),
+            authorityBindings: {
+                lifecycleActionRegistry: identity.policy.lifecycleActionRegistry,
+                stateDomainRegistry: identity.policy.stateDomainRegistry
+            }
+        },
         createdAt: '2026-07-26T00:00:12.000Z'
     });
     assert.equal(receipt.status, 'candidate', receipt.failure);
@@ -1967,26 +2334,51 @@ test('self-recomputed placeholder lifecycle cannot become qualified', async (con
     lifecycle.observations = {};
     const resealedLifecycle = sealDocument(lifecycle);
     writeJson(fixture.files.lifecycle, resealedLifecycle);
+    const resealedBytesDigest = bytesDigest(
+        fs.readFileSync(fixture.files.lifecycle)
+    );
 
     const result = structuredClone(fixture.results[0]);
-    result.lifecycle.reset.contentDigest = resealedLifecycle.contentDigest;
+    for (const reference of [
+        result.lifecycle.verifiedActionReceipts[1],
+        result.lifecycle.actions[1].receipt
+    ])
+    {
+        reference.contentDigest = resealedLifecycle.contentDigest;
+        reference.bytesDigest = resealedBytesDigest;
+    }
     const resealedResult = sealDocument(result);
     writeJson(fixture.files.result, resealedResult);
 
     const timeline = structuredClone(fixture.timeline);
-    timeline.scenarioResults.find((reference) => reference.scenarioId === result.scenarioId).resultContentDigest
-        = resealedResult.contentDigest;
+    const timelineReference = timeline.scenarioResults.find(
+        (reference) => reference.scenarioId === result.scenarioId
+    );
+    timelineReference.resultContentDigest = resealedResult.contentDigest;
+    timelineReference.lifecycleActions[1].receipt.contentDigest =
+        resealedLifecycle.contentDigest;
+    timelineReference.lifecycleActions[1].receipt.bytesDigest =
+        resealedBytesDigest;
     const resealedTimeline = sealDocument(timeline);
     writeJson(fixture.timelineFile, resealedTimeline);
 
     const receipt = structuredClone(fixture.receipt);
-    receipt.scenarios.find((reference) => reference.scenarioId === result.scenarioId).resultContentDigest
-        = resealedResult.contentDigest;
+    const receiptReference = receipt.scenarios.find(
+        (reference) => reference.scenarioId === result.scenarioId
+    );
+    receiptReference.resultContentDigest = resealedResult.contentDigest;
+    receiptReference.lifecycleActions[1].receipt.contentDigest =
+        resealedLifecycle.contentDigest;
+    receiptReference.lifecycleActions[1].receipt.bytesDigest =
+        resealedBytesDigest;
     receipt.timeline.contentDigest = resealedTimeline.contentDigest;
     writeJson(fixture.receiptFile, sealDocument(receipt));
     const verification = verifyCli(fixture);
     assert.notEqual(verification.status, 0);
-    assert.match(verification.stderr, /lacks observed state/u);
+    assert.match(
+        verification.stderr,
+        /operation\/observation contract mismatch/u
+    );
 });
 
 test('self-recomputed build receipt cannot break the immutable identity binding', async (context) =>

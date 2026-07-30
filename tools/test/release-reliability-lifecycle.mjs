@@ -3,54 +3,19 @@
 import { spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import { readReleaseReliabilityEvidenceBinding } from './release-reliability-evidence-binding.mjs';
+import {
+    expandLifecycleTemplate,
+    loadLifecycleActionContracts
+} from './release-reliability-lifecycle-actions.mjs';
 import { digestValue, sealDocument } from './release-reliability-receipt.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const catalogRelativePath = 'config/testing/release-reliability-scenario-catalog.json';
-const lifecycleSchema = 'fsusblog.release-reliability-lifecycle-action.v1';
-const markerSchema = 'fsusblog.release-reliability-measurement-start.v1';
 const safeIdentifierPattern = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/u;
-const digestPattern = /^sha256:[0-9a-f]{64}$/u;
-const runtimeDomains = new Set(['network', 'performance-counters', 'resource-counters', 'runtime-http']);
-const databaseDomains = new Set(['database', 'fixture-data']);
-
-const resetTargetsByScenario = {
-    'release-soak-min': [
-        '.tmp/soak/short/summary.json'
-    ],
-    'release-load-peak': [
-        '.tmp/perf/load-expected-peak/summary.json',
-        '.tmp/perf/release-summaries/load-expected-peak.json'
-    ],
-    'release-load-burst': [
-        '.tmp/perf/load-burst/summary.json',
-        '.tmp/perf/release-summaries/load-burst.json'
-    ],
-    'release-data-scale-m': [
-        '.tmp/scale/scale-m/seed.json',
-        '.tmp/scale/scale-m/summary.json',
-        '.tmp/scale/scale-m/cleanup.json',
-        '.tmp/scale/scale-m/artifact-rebuild.json',
-        '.tmp/scale/release-summaries/scale-m.json'
-    ],
-    'release-mutation-critical-slice': [
-        '.tmp/mutation/backend-critical'
-    ],
-    'release-memory-leak-budget': [
-        '.tmp/release-resource-budget/memory-leak.json',
-        '.tmp/release-evidence/memory-leak-summary.json'
-    ],
-    'release-open-handle-budget': [
-        '.tmp/release-resource-budget/open-handle.json',
-        '.tmp/release-evidence/open-handle-summary.json'
-    ]
-};
 
 function safeIdentifier(value, label)
 {
@@ -62,24 +27,20 @@ function safeIdentifier(value, label)
     return normalized;
 }
 
-function normalizedRelativePath(value, label)
+function repositoryPath(repositoryRoot, value, label)
 {
-    const normalized = String(value ?? '').trim().replaceAll('\\', '/').replace(/^\.\//u, '');
-    const segments = normalized.split('/');
-    if (!normalized || path.posix.isAbsolute(normalized)
-        || path.posix.normalize(normalized) !== normalized
-        || segments.some((segment) => segment === '' || segment === '.' || segment === '..'))
+    const relative = String(value ?? '').trim().replaceAll('\\', '/')
+        .replace(/^\.\//u, '');
+    const segments = relative.split('/');
+    if (!relative || path.posix.isAbsolute(relative)
+        || path.posix.normalize(relative) !== relative
+        || segments.some((segment) => !segment || segment === '.' || segment === '..'))
     {
         throw new Error(`${label} is unsafe`);
     }
-    return normalized;
-}
-
-function repositoryPath(repositoryRoot, value, label)
-{
-    const relative = normalizedRelativePath(value, label);
     const absolute = path.resolve(repositoryRoot, relative);
-    if (absolute === repositoryRoot || !absolute.startsWith(`${repositoryRoot}${path.sep}`))
+    if (absolute === repositoryRoot
+        || !absolute.startsWith(`${repositoryRoot}${path.sep}`))
     {
         throw new Error(`${label} escapes the repository`);
     }
@@ -95,11 +56,6 @@ function repositoryPath(repositoryRoot, value, label)
     return { absolute, relative };
 }
 
-function sha256(bytes)
-{
-    return `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
-}
-
 function writeJsonAtomic(file, value)
 {
     fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
@@ -111,88 +67,14 @@ function writeJsonAtomic(file, value)
     fs.renameSync(temporary, file);
 }
 
-function readCatalog(repositoryRoot)
+function sha256(bytes)
 {
-    const file = repositoryPath(repositoryRoot, catalogRelativePath, 'scenario catalog').absolute;
-    const catalog = JSON.parse(fs.readFileSync(file, 'utf8'));
-    if (catalog?.schema !== 'fsusblog.release-reliability-scenario-catalog.v3'
-        || catalog.lifecycleSchema !== lifecycleSchema
-        || !Array.isArray(catalog.scenarios))
-    {
-        throw new Error('release reliability scenario catalog is invalid');
-    }
-    return catalog;
+    return `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 }
 
-function stateDomains(scenario)
+function inspectPath(repositoryRoot, relativePath)
 {
-    return [...new Set([
-        ...scenario.isolation.exclusiveResources,
-        ...scenario.isolation.countableResources
-    ])].sort();
-}
-
-function lifecycleContext({
-    repositoryRoot = root,
-    environment = process.env
-} = {})
-{
-    const resolvedRoot = path.resolve(repositoryRoot);
-    const binding = readReleaseReliabilityEvidenceBinding({
-        repositoryRoot: resolvedRoot,
-        environment
-    });
-    if (binding === null)
-    {
-        throw new Error('release reliability lifecycle requires a producer binding');
-    }
-    const invocationId = safeIdentifier(binding.invocationId, 'invocationId');
-    const runId = safeIdentifier(binding.runId, 'runId');
-    const scenarioId = safeIdentifier(binding.scenarioId, 'scenarioId');
-    const expectedRoot = `.tmp/release-reliability/${invocationId}/lifecycle/${scenarioId}`;
-    const configuredRoot = normalizedRelativePath(
-        environment.FSUSBLOG_RELEASE_RELIABILITY_LIFECYCLE_ROOT,
-        'lifecycle root'
-    );
-    if (configuredRoot !== expectedRoot)
-    {
-        throw new Error('release reliability lifecycle root is not canonical');
-    }
-    const catalog = readCatalog(resolvedRoot);
-    const scenario = catalog.scenarios.find((candidate) => candidate.id === scenarioId);
-    if (!scenario || !resetTargetsByScenario[scenarioId])
-    {
-        throw new Error('release reliability lifecycle scenario is unavailable');
-    }
-    const lifecycleRoot = repositoryPath(resolvedRoot, configuredRoot, 'lifecycle root').absolute;
-    const identityPath = repositoryPath(
-        resolvedRoot,
-        environment.FSUSBLOG_RELEASE_RELIABILITY_IDENTITY_PATH,
-        'run identity'
-    );
-    const identity = JSON.parse(fs.readFileSync(identityPath.absolute, 'utf8'));
-    return {
-        repositoryRoot: resolvedRoot,
-        environment,
-        invocationId,
-        runId,
-        scenarioId,
-        binding,
-        identity,
-        identityReference: {
-            path: identityPath.relative,
-            contentDigest: binding.identityContentDigest
-        },
-        scenario,
-        stateDomains: stateDomains(scenario),
-        lifecycleRoot,
-        resetTargets: resetTargetsByScenario[scenarioId]
-    };
-}
-
-function inspectOutput(context, relativePath)
-{
-    const resolved = repositoryPath(context.repositoryRoot, relativePath, 'producer output');
+    const resolved = repositoryPath(repositoryRoot, relativePath, 'observed path');
     if (!fs.existsSync(resolved.absolute))
     {
         return { path: resolved.relative, status: 'absent' };
@@ -200,15 +82,15 @@ function inspectOutput(context, relativePath)
     const stat = fs.lstatSync(resolved.absolute);
     if (stat.isSymbolicLink())
     {
-        throw new Error(`producer output is a symlink: ${resolved.relative}`);
+        throw new Error(`observed path is a symlink: ${resolved.relative}`);
     }
     if (stat.isFile())
     {
         return {
             path: resolved.relative,
             status: 'file',
-            sizeBytes: stat.size,
-            fileDigest: sha256(fs.readFileSync(resolved.absolute))
+            bytes: stat.size,
+            bytesDigest: sha256(fs.readFileSync(resolved.absolute))
         };
     }
     if (stat.isDirectory())
@@ -216,107 +98,154 @@ function inspectOutput(context, relativePath)
         return {
             path: resolved.relative,
             status: 'directory',
-            directEntryCount: fs.readdirSync(resolved.absolute).length
+            directEntries: fs.readdirSync(resolved.absolute).sort()
         };
     }
     return { path: resolved.relative, status: 'other' };
 }
 
-function inspectDockerContainer(containerId, spawnProcess, repositoryRoot)
+function inspectContainer(containerId, spawnProcess, repositoryRoot)
 {
     if (!/^[0-9a-f]{64}$/u.test(String(containerId ?? '')))
     {
-        return { status: 'unavailable', reason: 'container identity is unavailable' };
+        return { status: 'failed', reason: 'run-bound container identity is unavailable' };
     }
-    const inspected = spawnProcess('docker', ['inspect', containerId], {
+    const result = spawnProcess('docker', ['inspect', containerId], {
         cwd: repositoryRoot,
         encoding: 'utf8',
         maxBuffer: 4 * 1024 * 1024
     });
-    if (inspected.status !== 0)
+    if (result.status !== 0)
     {
-        return { status: 'unavailable', reason: 'container inspection failed' };
+        return { status: 'failed', reason: 'run-bound container inspection failed' };
     }
     try
     {
-        const [container] = JSON.parse(inspected.stdout || '[]');
-        if (container?.Id !== containerId)
+        const [container] = JSON.parse(result.stdout || '[]');
+        if (container?.Id !== containerId || container.State?.Running !== true)
         {
-            return { status: 'unavailable', reason: 'container identity changed' };
+            return { status: 'failed', reason: 'run-bound container identity changed' };
         }
         return {
-            status: container.State?.Running === true ? 'running' : 'stopped',
+            status: 'running',
             id: container.Id,
-            image: container.Image ?? null,
-            hostPid: Number.isInteger(container.State?.Pid) ? container.State.Pid : null,
-            startedAt: container.State?.StartedAt ?? null,
-            exitCode: Number.isInteger(container.State?.ExitCode) ? container.State.ExitCode : null,
-            oomKilled: container.State?.OOMKilled === true
+            hostPid: container.State.Pid,
+            startedAt: container.State.StartedAt,
+            image: container.Image,
+            labels: container.Config?.Labels ?? {},
+            volumeNames: (container.Mounts ?? [])
+                .filter((mount) => mount.Type === 'volume')
+                .map((mount) => mount.Name)
+                .sort()
         };
     }
     catch
     {
-        return { status: 'unavailable', reason: 'container inspection was not JSON' };
+        return { status: 'failed', reason: 'container inspection was not JSON' };
     }
 }
 
-async function inspectRuntime(context, { spawnProcess, fetchImpl })
+function processStartTicks(pid)
 {
-    const containerId = String(
-        context.environment.FSUSBLOG_RELEASE_RESOURCE_CONTAINER_ID ?? ''
-    ).trim();
-    const expectedHostPid = Number.parseInt(
-        String(context.environment.FSUSBLOG_RELEASE_RESOURCE_PID ?? ''),
-        10
-    );
-    const container = inspectDockerContainer(
-        containerId,
-        spawnProcess,
-        context.repositoryRoot
-    );
-    const baseUrl = String(
-        context.environment.FSUSBLOG_BASE_URL
-        ?? context.environment.FSUSBLOG_DEBUG_BACKEND_URL
-        ?? ''
-    ).trim().replace(/\/$/u, '');
-    let live = { status: 'unavailable', reason: 'runtime base URL is unavailable' };
-    if (baseUrl)
+    try
     {
-        try
-        {
-            const response = await fetchImpl(`${baseUrl}/health/live`, {
-                headers: { Accept: 'application/json' },
-                signal: AbortSignal.timeout(3_000)
-            });
-            const document = response.ok ? await response.json() : null;
-            live = {
-                status: response.ok && document?.status === 'live' ? 'live' : 'failed',
-                httpStatus: response.status,
-                reportStatus: document?.status ?? null
-            };
-        }
-        catch
-        {
-            live = { status: 'unavailable', reason: 'runtime live probe failed' };
-        }
+        const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8');
+        const close = stat.lastIndexOf(')');
+        const fields = stat.slice(close + 2).split(/\s+/u);
+        return fields[19] ?? null;
     }
-    return {
-        expectedContainerId: containerId || null,
-        expectedHostPid: Number.isInteger(expectedHostPid) ? expectedHostPid : null,
-        container,
-        live
-    };
+    catch
+    {
+        return null;
+    }
 }
 
-function inspectResourceCounters(context, spawnProcess)
+export function inspectBackendIdentity(backend, spawnProcess, repositoryRoot)
 {
-    const containerId = String(
-        context.environment.FSUSBLOG_RELEASE_RESOURCE_CONTAINER_ID ?? ''
-    ).trim();
-    if (!/^[0-9a-f]{64}$/u.test(containerId))
+    if (/^[0-9a-f]{64}$/u.test(String(backend.pidOrContainerId)))
     {
-        return { status: 'unavailable', reason: 'resource container identity is unavailable' };
+        const container = inspectContainer(
+            backend.pidOrContainerId,
+            spawnProcess,
+            repositoryRoot
+        );
+        return {
+            ...container,
+            identityKind: 'container',
+            startTicks: container.status === 'running'
+                ? processStartTicks(container.hostPid)
+                : null,
+            executableOrImageDigest: container.image
+        };
     }
+    const pid = Number(backend.pidOrContainerId);
+    if (!Number.isInteger(pid) || pid < 2)
+    {
+        return { status: 'failed', reason: 'data-scale backend identity is invalid' };
+    }
+    try
+    {
+        const executable = fs.readlinkSync(`/proc/${pid}/exe`);
+        const startTicks = processStartTicks(pid);
+        return {
+            status: startTicks ? 'running' : 'failed',
+            identityKind: 'pid',
+            id: pid,
+            hostPid: pid,
+            startTicks,
+            executableOrImageDigest: sha256(fs.readFileSync(executable))
+        };
+    }
+    catch
+    {
+        return { status: 'failed', reason: 'PID-bound data-scale backend is unavailable' };
+    }
+}
+
+function inspectNetwork(topology, spawnProcess, repositoryRoot)
+{
+    const network = topology?.runtime?.network;
+    if (!/^[0-9a-f]{64}$/u.test(String(network?.id ?? '')))
+    {
+        return { status: 'failed', reason: 'run-bound network identity is unavailable' };
+    }
+    const result = spawnProcess('docker', ['network', 'inspect', network.id], {
+        cwd: repositoryRoot,
+        encoding: 'utf8',
+        maxBuffer: 4 * 1024 * 1024
+    });
+    if (result.status !== 0)
+    {
+        return { status: 'failed', reason: 'run-bound network inspection failed' };
+    }
+    try
+    {
+        const [actual] = JSON.parse(result.stdout || '[]');
+        const expectedMembers = [
+            topology.runtime.backendContainer.id,
+            topology.postgres.instance,
+            topology.redis.instance
+        ].sort();
+        const actualMembers = Object.keys(actual?.Containers ?? {}).sort();
+        if (actual?.Id !== network.id
+            || JSON.stringify(actualMembers) !== JSON.stringify(expectedMembers))
+        {
+            return { status: 'failed', reason: 'run-bound network membership changed' };
+        }
+        return {
+            status: 'bound',
+            id: actual.Id,
+            memberContainerIds: actualMembers
+        };
+    }
+    catch
+    {
+        return { status: 'failed', reason: 'network inspection was not JSON' };
+    }
+}
+
+function inspectResourceCounters(containerId, spawnProcess, repositoryRoot)
+{
     const result = spawnProcess('docker', [
         'exec',
         containerId,
@@ -324,14 +253,14 @@ function inspectResourceCounters(context, spawnProcess)
         '-c',
         `rss=$(awk '/^VmRSS:/ { print $2 * 1024; found=1 } END { if (!found) exit 1 }' /proc/1/status) || exit 1; count=0; for descriptor in /proc/1/fd/*; do [ -e "$descriptor" ] || continue; count=$((count + 1)); done; printf '%s %s\\n' "$rss" "$count"`
     ], {
-        cwd: context.repositoryRoot,
+        cwd: repositoryRoot,
         encoding: 'utf8',
         maxBuffer: 1024 * 1024
     });
     const match = String(result.stdout ?? '').trim().match(/^(\d+)\s+(\d+)$/u);
     if (result.status !== 0 || !match)
     {
-        return { status: 'unavailable', reason: 'resource counter read failed' };
+        return { status: 'failed', reason: 'run-bound resource counter read failed' };
     }
     return {
         status: 'observed',
@@ -340,52 +269,392 @@ function inspectResourceCounters(context, spawnProcess)
     };
 }
 
-function inspectSourceState(context, spawnProcess)
+async function inspectRuntime(context, { spawnProcess, fetchImpl })
+{
+    const topology = context.identity.fixture?.topology?.content;
+    const backend = topology?.runtime?.backendContainer;
+    const port = backend?.portBinding;
+    const expectedBaseUrl = Number.isInteger(port?.hostPort)
+        ? `http://${port.hostIp}:${port.hostPort}`
+        : null;
+    const configuredBaseUrl = String(
+        context.environment.FSUSBLOG_DEBUG_BACKEND_URL ?? ''
+    ).replace(/\/$/u, '');
+    let live = {
+        status: 'failed',
+        reason: 'run-bound runtime URL is unavailable'
+    };
+    if (expectedBaseUrl && configuredBaseUrl === expectedBaseUrl)
+    {
+        try
+        {
+            const response = await fetchImpl(`${expectedBaseUrl}/health/live`, {
+                headers: { Accept: 'application/json' },
+                signal: AbortSignal.timeout(3_000)
+            });
+            const document = response.ok ? await response.json() : null;
+            live = {
+                status: response.ok && document?.status === 'live'
+                    ? 'live'
+                    : 'failed',
+                httpStatus: response.status,
+                reportStatus: document?.status ?? null
+            };
+        }
+        catch
+        {
+            live = { status: 'failed', reason: 'run-bound live probe failed' };
+        }
+    }
+    let performanceCounters = null;
+    if (context.action.stateDomains.includes('runtime.performance-counters'))
+    {
+        try
+        {
+            const scenario = context.contracts.catalog.scenarios.find(
+                (candidate) => candidate.id === context.scenarioId
+            );
+            const evidence = repositoryPath(
+                context.repositoryRoot,
+                scenario.authoritativeEvidence.path,
+                'performance counter authority'
+            );
+            const document = JSON.parse(fs.readFileSync(evidence.absolute, 'utf8'));
+            performanceCounters = {
+                status: scenario.authoritativeEvidence.expectedSchema.passStatusValues
+                    .includes(document.status)
+                    && document.metrics && typeof document.metrics === 'object'
+                    ? 'observed'
+                    : 'failed',
+                path: evidence.relative,
+                bytesDigest: sha256(fs.readFileSync(evidence.absolute))
+            };
+        }
+        catch
+        {
+            performanceCounters = {
+                status: 'failed',
+                reason: 'performance counter authority is unavailable'
+            };
+        }
+    }
+    return {
+        expectedBaseUrl,
+        configuredBaseUrl,
+        backend: inspectContainer(
+            backend?.id,
+            spawnProcess,
+            context.repositoryRoot
+        ),
+        postgres: inspectContainer(
+            topology?.postgres?.instance,
+            spawnProcess,
+            context.repositoryRoot
+        ),
+        redis: inspectContainer(
+            topology?.redis?.instance,
+            spawnProcess,
+            context.repositoryRoot
+        ),
+        resourceCounters: context.action.stateDomains.includes(
+            'runtime.backend-resource-counters'
+        )
+            ? inspectResourceCounters(
+                backend?.id,
+                spawnProcess,
+                context.repositoryRoot
+            )
+            : null,
+        performanceCounters,
+        measurementDescendants: context.action.stateDomains.includes(
+            'runtime.measurement-children'
+        )
+            ? {
+                status: 'failed',
+                reason: '#1610 process-tree zero-member receipt is not integrated'
+            }
+            : null,
+        network: inspectNetwork(topology, spawnProcess, context.repositoryRoot),
+        live
+    };
+}
+
+function directoryInventory(repositoryRoot, configuredPath, label)
+{
+    if (!configuredPath)
+    {
+        return { status: 'failed', reason: `${label} is unavailable` };
+    }
+    const rootPath = repositoryPath(repositoryRoot, configuredPath, label);
+    if (!fs.existsSync(rootPath.absolute)
+        || !fs.lstatSync(rootPath.absolute).isDirectory())
+    {
+        return { status: 'failed', reason: `${label} is not a directory` };
+    }
+    const entries = [];
+    const visit = (directory) =>
+    {
+        for (const name of fs.readdirSync(directory).sort())
+        {
+            const absolute = path.join(directory, name);
+            const stat = fs.lstatSync(absolute);
+            if (stat.isSymbolicLink())
+            {
+                throw new Error(`${label} contains a symlink`);
+            }
+            const relative = path.relative(rootPath.absolute, absolute)
+                .replaceAll(path.sep, '/');
+            if (stat.isDirectory())
+            {
+                visit(absolute);
+            }
+            else if (stat.isFile())
+            {
+                entries.push({
+                    path: relative,
+                    bytes: stat.size,
+                    digest: sha256(fs.readFileSync(absolute))
+                });
+            }
+        }
+    };
+    visit(rootPath.absolute);
+    return {
+        status: 'observed',
+        path: rootPath.relative,
+        fileCount: entries.length,
+        inventoryDigest: digestValue({ entries })
+    };
+}
+
+function inspectMutation(context, spawnProcess)
 {
     const commit = spawnProcess('git', ['rev-parse', 'HEAD'], {
         cwd: context.repositoryRoot,
         encoding: 'utf8'
     });
-    const status = spawnProcess('git', ['status', '--porcelain', '--untracked-files=no'], {
-        cwd: context.repositoryRoot,
-        encoding: 'utf8'
-    });
+    const status = spawnProcess(
+        'git',
+        ['status', '--porcelain', '--untracked-files=no'],
+        { cwd: context.repositoryRoot, encoding: 'utf8' }
+    );
     return {
-        commit: commit.status === 0 ? commit.stdout.trim() : null,
-        trackedDirty: status.status === 0 ? status.stdout.trim() !== '' : null
+        source: {
+            status: commit.status === 0 && status.status === 0
+                && commit.stdout.trim() === context.binding.sourceState.commit
+                && status.stdout.trim() === ''
+                ? 'clean'
+                : 'failed',
+            commit: commit.status === 0 ? commit.stdout.trim() : null,
+            trackedDirty: status.status === 0 ? status.stdout.trim() !== '' : null
+        },
+        productionBuild: directoryInventory(
+            context.repositoryRoot,
+            context.environment.FSUSBLOG_PRODUCTION_BUILD_ROOT,
+            'production build root'
+        ),
+        mutationOutput: inspectPath(
+            context.repositoryRoot,
+            '.tmp/mutation/backend-critical'
+        ),
+        measurementDescendants: context.action.stateDomains.includes(
+            'runtime.measurement-children'
+        )
+            ? {
+                status: 'failed',
+                reason: '#1610 process-tree zero-member receipt is not integrated'
+            }
+            : null
     };
 }
 
-function inspectDataScaleCleanup(context)
+function originalReceiptBinding(repositoryRoot, resolved)
 {
-    if (context.scenarioId !== 'release-data-scale-m')
+    const bytes = fs.readFileSync(resolved.absolute);
+    const document = JSON.parse(bytes.toString('utf8'));
+    if (document.contentDigest !== digestValue(document))
+    {
+        throw new Error('baseline action receipt content digest mismatch');
+    }
+    return {
+        path: resolved.relative,
+        bytesDigest: sha256(bytes),
+        contentDigest: document.contentDigest,
+        document
+    };
+}
+
+function mutationBaseline(context)
+{
+    if (context.action.phase === 'precondition')
     {
         return null;
     }
-    const file = repositoryPath(
+    const scenario = context.contracts.catalog.scenarios.find(
+        (candidate) => candidate.id === context.scenarioId
+    );
+    const actionId = scenario.isolation.lifecycle.preconditions[0];
+    const action = context.contracts.actions.get(actionId);
+    const resolved = repositoryPath(
         context.repositoryRoot,
-        '.tmp/scale/scale-m/cleanup.json',
-        'data scale cleanup'
-    ).absolute;
-    if (!fs.existsSync(file) || !fs.lstatSync(file).isFile())
+        expandLifecycleTemplate(action.expectedReceiptPath, {
+            actionId,
+            invocationId: context.invocationId,
+            runId: context.runId,
+            scenarioId: context.scenarioId
+        }),
+        'mutation baseline receipt'
+    );
+    return originalReceiptBinding(context.repositoryRoot, resolved);
+}
+
+function runtimeBaseline(context)
+{
+    if (context.action.phase === 'precondition')
     {
-        return { status: 'absent', remaining: null };
+        return null;
     }
+    const scenario = context.contracts.catalog.scenarios.find(
+        (candidate) => candidate.id === context.scenarioId
+    );
+    const actionId = scenario.isolation.lifecycle.preconditions[0];
+    const action = context.contracts.actions.get(actionId);
+    const resolved = repositoryPath(
+        context.repositoryRoot,
+        expandLifecycleTemplate(action.expectedReceiptPath, {
+            actionId,
+            invocationId: context.invocationId,
+            runId: context.runId,
+            scenarioId: context.scenarioId
+        }),
+        'runtime counter baseline receipt'
+    );
+    return originalReceiptBinding(context.repositoryRoot, resolved);
+}
+
+function dataScaleRuntimeBaseline(context)
+{
+    const scenario = context.contracts.catalog.scenarios.find(
+        (candidate) => candidate.id === context.scenarioId
+    );
+    const actionId = scenario.isolation.lifecycle.preconditions[0];
+    const action = context.contracts.actions.get(actionId);
+    const resolved = repositoryPath(
+        context.repositoryRoot,
+        expandLifecycleTemplate(action.expectedReceiptPath, {
+            actionId,
+            invocationId: context.invocationId,
+            runId: context.runId,
+            scenarioId: context.scenarioId
+        }),
+        'data-scale runtime baseline receipt'
+    );
+    return originalReceiptBinding(context.repositoryRoot, resolved);
+}
+
+async function inspectDataScaleOwner(context, dependencies)
+{
+    const environmentName = context.action.ownerReceipt === 'data-scale-runtime'
+        ? 'FSUSBLOG_DATA_SCALE_RUNTIME_RECEIPT_PATH'
+        : 'FSUSBLOG_DATA_SCALE_TEARDOWN_RECEIPT_PATH';
+    const configuredPath = String(context.environment[environmentName] ?? '').trim();
+    if (!configuredPath)
+    {
+        throw new Error(`${environmentName} is required; no default owner receipt is allowed`);
+    }
+    const { verifyDataScaleOwnerReceipt } = await import(
+        './verify-release-reliability-lifecycle-action.mjs'
+    );
+    const owner = verifyDataScaleOwnerReceipt({
+        repositoryRoot: context.repositoryRoot,
+        ownerReceipt: context.action.ownerReceipt,
+        receiptPath: configuredPath,
+        identity: context.identity,
+        runId: context.runId
+    });
+    if (context.action.ownerReceipt === 'data-scale-teardown')
+    {
+        return {
+            ownerReceipt: owner,
+            teardown: {
+                status: 'observed',
+                resources: owner.document.resources,
+                ports: owner.document.ports,
+                leases: owner.document.leases,
+                roots: owner.document.roots
+            },
+            measurementDescendants: context.action.stateDomains.includes(
+                'runtime.measurement-children'
+            )
+                ? {
+                    status: 'failed',
+                    reason: '#1610 process-tree zero-member receipt is not integrated'
+                }
+                : null
+        };
+    }
+    const runtime = owner.document;
+    const spawnProcess = dependencies.spawnProcess ?? spawnSync;
+    const fetchImpl = dependencies.fetchImpl ?? fetch;
+    const backendContainer = inspectBackendIdentity(
+        runtime.backend,
+        spawnProcess,
+        context.repositoryRoot
+    );
+    let live = { status: 'failed', reason: 'data-scale live probe failed' };
     try
     {
-        const cleanup = JSON.parse(fs.readFileSync(file, 'utf8'));
-        return {
-            status: cleanup.status ?? 'invalid',
-            remaining: cleanup.remaining ?? null
+        const response = await fetchImpl(`${runtime.backend.baseUrl.replace(/\/$/u, '')}/health/live`, {
+            headers: { Accept: 'application/json' },
+            signal: AbortSignal.timeout(3_000)
+        });
+        const document = response.ok ? await response.json() : null;
+        live = {
+            status: response.ok && document?.status === 'live' ? 'live' : 'failed',
+            httpStatus: response.status
         };
     }
     catch
     {
-        return { status: 'invalid', remaining: null };
+        // Preserve the fail-closed observation above.
     }
+    return {
+        ownerReceipt: owner,
+        runtime: {
+            backend: backendContainer,
+            postgres: inspectContainer(
+                runtime.postgres.containerId,
+                spawnProcess,
+                context.repositoryRoot
+            ),
+            redis: inspectContainer(
+                runtime.redis.containerId,
+                spawnProcess,
+                context.repositoryRoot
+            ),
+            live,
+            expected: {
+                backend: runtime.backend,
+                postgres: runtime.postgres,
+                redis: runtime.redis,
+                roots: [
+                    runtime.aotRoot,
+                    runtime.searchRoot,
+                    runtime.hotReadRoot,
+                    runtime.dataRoot
+                ]
+            },
+            roots: [
+                runtime.aotRoot,
+                runtime.searchRoot,
+                runtime.hotReadRoot,
+                runtime.dataRoot
+            ].map((target) => inspectPath(context.repositoryRoot, target))
+        }
+    };
 }
 
-export async function observeLifecycleState(
+export async function observeLifecycleAction(
     context,
     {
         spawnProcess = spawnSync,
@@ -393,379 +662,412 @@ export async function observeLifecycleState(
     } = {}
 )
 {
-    const includesRuntime = context.stateDomains.some((domain) => runtimeDomains.has(domain));
-    const includesDatabase = context.stateDomains.some((domain) => databaseDomains.has(domain));
-    const topology = context.identity.fixture?.topology?.content;
+    if (context.action.operation === 'observe-runtime')
+    {
+        return inspectRuntime(context, { spawnProcess, fetchImpl });
+    }
+    if (context.action.operation === 'observe-mutation'
+        || context.action.operation === 'cleanup-mutation-output')
+    {
+        return inspectMutation(context, spawnProcess);
+    }
+    if (context.action.operation === 'observe-data-scale-runtime'
+        || context.action.operation === 'consume-data-scale-teardown')
+    {
+        return inspectDataScaleOwner(context, { spawnProcess, fetchImpl });
+    }
     return {
-        observedAt: new Date().toISOString(),
-        domains: context.stateDomains,
-        outputs: context.resetTargets.map((target) => inspectOutput(context, target)),
-        ...(includesRuntime
-            ? { runtime: await inspectRuntime(context, { spawnProcess, fetchImpl }) }
-            : {}),
-        ...(includesDatabase
-            ? {
-                database: {
-                    postgres: inspectDockerContainer(
-                        topology?.postgres?.instance,
-                        spawnProcess,
-                        context.repositoryRoot
-                    ),
-                    redis: inspectDockerContainer(
-                        topology?.redis?.instance,
-                        spawnProcess,
-                        context.repositoryRoot
-                    )
-                }
-            }
-            : {}),
-        ...(context.stateDomains.includes('resource-counters')
-            ? { resourceCounters: inspectResourceCounters(context, spawnProcess) }
-            : {}),
-        ...(context.stateDomains.some((domain) => ['build-artifacts', 'cpu'].includes(domain))
-            ? {
-                source: inspectSourceState(context, spawnProcess),
-                cpu: {
-                    logicalProcessors: os.cpus().length,
-                    loadAverage1m: Number(os.loadavg()[0].toFixed(3))
-                }
-            }
-            : {}),
-        dataScaleCleanup: inspectDataScaleCleanup(context)
+        targets: (context.action.targets ?? []).map(
+            (target) => inspectPath(context.repositoryRoot, target)
+        )
     };
 }
 
-function requireReadyState(context, state, phase)
+function observationErrors(action, observation)
 {
     const errors = [];
-    if (context.stateDomains.some((domain) => runtimeDomains.has(domain)))
+    if (action.operation === 'observe-runtime')
     {
-        const runtime = state.runtime;
-        if (runtime?.container?.status !== 'running'
-            || runtime.container.id !== runtime.expectedContainerId
-            || runtime.container.hostPid !== runtime.expectedHostPid
-            || runtime.live?.status !== 'live')
+        if (observation.backend?.status !== 'running'
+            || observation.live?.status !== 'live')
         {
-            errors.push('runtime identity or live probe is unavailable');
+            errors.push('run-bound backend identity/live observation failed');
+        }
+        if (action.stateDomains.some((domain) => domain.startsWith('postgres.'))
+            && observation.postgres?.status !== 'running')
+        {
+            errors.push('run-bound PostgreSQL identity observation failed');
+        }
+        if (action.stateDomains.some((domain) => domain.startsWith('redis.'))
+            && observation.redis?.status !== 'running')
+        {
+            errors.push('run-bound Redis identity observation failed');
+        }
+        if (action.stateDomains.includes('runtime.backend-resource-counters')
+            && observation.resourceCounters?.status !== 'observed')
+        {
+            errors.push('run-bound resource counter observation failed');
+        }
+        if (action.stateDomains.includes('runtime.performance-counters')
+            && observation.performanceCounters?.status !== 'observed')
+        {
+            errors.push('performance counter final observation failed');
+        }
+        if (action.stateDomains.includes('network.host-topology')
+            && observation.network?.status !== 'bound')
+        {
+            errors.push('run-bound network topology observation failed');
+        }
+        if (action.stateDomains.includes('runtime.measurement-children')
+            && observation.measurementDescendants?.status !== 'zero')
+        {
+            errors.push('measurement descendant zero-state is unproved');
         }
     }
-    if (context.stateDomains.some((domain) => databaseDomains.has(domain))
-        && (state.database?.postgres?.status !== 'running'
-            || state.database?.redis?.status !== 'running'))
+    if (action.operation === 'observe-mutation'
+        || action.operation === 'cleanup-mutation-output')
     {
-        errors.push('database fixture containers are unavailable');
-    }
-    if (context.stateDomains.includes('resource-counters')
-        && state.resourceCounters?.status !== 'observed')
-    {
-        errors.push('runtime resource counters are unavailable');
-    }
-    if (context.stateDomains.includes('build-artifacts')
-        && (state.source?.commit !== context.binding.sourceState.commit
-            || state.source?.trackedDirty !== false))
-    {
-        errors.push('build source state is not clean and current');
-    }
-    if (phase === 'postcondition' && context.scenarioId === 'release-data-scale-m')
-    {
-        const cleanup = state.dataScaleCleanup;
-        if (cleanup?.status !== 'ok'
-            || !cleanup.remaining
-            || Object.values(cleanup.remaining).some((value) => value !== 0))
+        if (observation.source?.status !== 'clean')
         {
-            errors.push('data-scale namespace cleanup is incomplete');
+            errors.push('mutation source state is not clean/current');
         }
+        if (observation.productionBuild?.status !== 'observed')
+        {
+            errors.push('mutation production build inventory is unavailable');
+        }
+        if (action.stateDomains.includes('runtime.measurement-children')
+            && observation.measurementDescendants?.status !== 'zero')
+        {
+            errors.push('mutation measurement descendant zero-state is unproved');
+        }
+        if (action.operation === 'cleanup-mutation-output'
+            && observation.mutationOutput?.status !== 'absent')
+        {
+            errors.push('mutation output cleanup final observation is not absent');
+        }
+    }
+    if (action.operation === 'observe-data-scale-runtime'
+        && (observation.runtime?.backend?.status !== 'running'
+            || String(observation.runtime.backend.id)
+                !== String(observation.runtime.expected?.backend?.pidOrContainerId)
+            || String(observation.runtime.backend.startTicks)
+                !== String(observation.runtime.expected?.backend?.startTicks)
+            || observation.runtime.backend.executableOrImageDigest
+                !== observation.runtime.expected?.backend?.executableOrImageDigest
+            || observation.runtime?.postgres?.status !== 'running'
+            || observation.runtime.postgres.id
+                !== observation.runtime.expected?.postgres?.containerId
+            || observation.runtime.postgres.image
+                !== observation.runtime.expected?.postgres?.imageDigest
+            || !observation.runtime.postgres.volumeNames?.includes(
+                observation.runtime.expected?.postgres?.volumeId
+            )
+            || observation.runtime?.redis?.status !== 'running'
+            || observation.runtime.redis.id
+                !== observation.runtime.expected?.redis?.containerId
+            || observation.runtime.redis.image
+                !== observation.runtime.expected?.redis?.imageDigest
+            || !observation.runtime.redis.volumeNames?.includes(
+                observation.runtime.expected?.redis?.volumeId
+            )
+            || observation.runtime?.live?.status !== 'live'
+            || observation.runtime?.roots?.some(
+                (rootObservation) => !['directory', 'file'].includes(
+                    rootObservation.status
+                )
+            )
+            || JSON.stringify(
+                observation.runtime.roots.map((entry) => entry.path)
+            ) !== JSON.stringify(observation.runtime.expected?.roots)))
+    {
+        errors.push('dedicated data-scale runtime final observation failed');
+    }
+    if (action.operation === 'consume-data-scale-teardown')
+    {
+        if (observation.teardown?.status !== 'observed')
+        {
+            errors.push('data-scale teardown final observation failed');
+        }
+        if (action.stateDomains.includes('runtime.measurement-children')
+            && observation.measurementDescendants?.status !== 'zero')
+        {
+            errors.push('data-scale measurement descendant zero-state is unproved');
+        }
+    }
+    if (action.operation === 'prepare-evidence-files'
+        && observation.targets.some((target) => target.status !== 'absent'))
+    {
+        errors.push('evidence-file preparation left an owned output');
     }
     return errors;
 }
 
-function deleteResetTargets(context)
-{
-    const deleted = [];
-    for (const target of context.resetTargets)
-    {
-        const resolved = repositoryPath(context.repositoryRoot, target, 'reset target');
-        const existed = fs.existsSync(resolved.absolute);
-        if (existed)
-        {
-            fs.rmSync(resolved.absolute, { recursive: true, force: true });
-        }
-        deleted.push({ path: resolved.relative, existed });
-    }
-    return deleted;
-}
-
-function dataScaleReset(context, spawnProcess)
-{
-    if (context.scenarioId !== 'release-data-scale-m')
-    {
-        return null;
-    }
-    const result = spawnProcess('bash', ['tools/data-scale/cleanup.sh', 'scale-m'], {
-        cwd: context.repositoryRoot,
-        encoding: 'utf8',
-        maxBuffer: 4 * 1024 * 1024,
-        env: context.environment
-    });
-    const cleanupFile = repositoryPath(
-        context.repositoryRoot,
-        '.tmp/scale/scale-m/cleanup.json',
-        'data scale reset summary'
-    ).absolute;
-    let cleanup = null;
-    if (fs.existsSync(cleanupFile) && fs.lstatSync(cleanupFile).isFile())
-    {
-        cleanup = JSON.parse(fs.readFileSync(cleanupFile, 'utf8'));
-    }
-    if (result.status !== 0 || cleanup?.status !== 'ok'
-        || !cleanup.remaining
-        || Object.values(cleanup.remaining).some((value) => value !== 0))
-    {
-        throw new Error('data-scale namespace reset failed');
-    }
-    fs.rmSync(cleanupFile, { force: true });
-    return {
-        status: cleanup.status,
-        strategy: cleanup.strategy ?? null,
-        remaining: cleanup.remaining
-    };
-}
-
-export async function performDefaultReset(
-    context,
-    { spawnProcess = spawnSync } = {}
-)
-{
-    const deleted = deleteResetTargets(context);
-    const dataScale = dataScaleReset(context, spawnProcess);
-    return {
-        action: 'delete-scenario-owned-output-and-reset-scenario-state',
-        deleted,
-        ...(dataScale === null ? {} : { dataScale })
-    };
-}
-
-function receiptFile(context, phase)
-{
-    return path.join(context.lifecycleRoot, `${phase}.json`);
-}
-
-function measurementMarkerFile(context)
-{
-    return path.join(context.lifecycleRoot, '.measurement-start.json');
-}
-
-function phaseReceipt({
-    context,
-    phase,
-    status,
-    before,
-    after,
-    observations,
-    startedAt,
-    finishedAt
+function lifecycleContext({
+    actionId,
+    repositoryRoot = root,
+    environment = process.env
 })
 {
-    return sealDocument({
-        schema: lifecycleSchema,
-        status,
-        phase,
+    const resolvedRoot = path.resolve(repositoryRoot);
+    const contracts = loadLifecycleActionContracts({
+        repositoryRoot: resolvedRoot
+    });
+    const action = contracts.actions.get(safeIdentifier(actionId, 'actionId'));
+    if (!action || ![
+        'cleanup-mutation-output',
+        'consume-data-scale-teardown',
+        'observe-data-scale-runtime',
+        'observe-mutation',
+        'observe-runtime',
+        'prepare-evidence-files'
+    ]
+        .includes(action.operation))
+    {
+        throw new Error('lifecycle action is not locally executable');
+    }
+    const binding = readReleaseReliabilityEvidenceBinding({
+        repositoryRoot: resolvedRoot,
+        environment
+    });
+    if (binding === null || binding.scenarioId !== action.scenarioId)
+    {
+        throw new Error('lifecycle action requires the exact producer binding');
+    }
+    const invocationId = safeIdentifier(binding.invocationId, 'invocationId');
+    const runId = safeIdentifier(binding.runId, 'runId');
+    const identityPath = repositoryPath(
+        resolvedRoot,
+        environment.FSUSBLOG_RELEASE_RELIABILITY_IDENTITY_PATH,
+        'run identity'
+    );
+    const identity = JSON.parse(fs.readFileSync(identityPath.absolute, 'utf8'));
+    if (identity.contentDigest !== binding.identityContentDigest
+        || identity.contentDigest !== digestValue(identity))
+    {
+        throw new Error('run identity content digest mismatch');
+    }
+    const receiptPath = repositoryPath(
+        resolvedRoot,
+        expandLifecycleTemplate(action.expectedReceiptPath, {
+            actionId: action.actionId,
+            invocationId,
+            runId,
+            scenarioId: action.scenarioId
+        }),
+        'lifecycle receipt'
+    );
+    return {
+        action,
+        binding,
+        contracts,
+        environment,
+        identity,
+        identityReference: {
+            path: identityPath.relative,
+            contentDigest: identity.contentDigest
+        },
+        invocationId,
+        receiptPath,
+        repositoryRoot: resolvedRoot,
+        runId,
+        scenarioId: action.scenarioId
+    };
+}
+
+export async function runLifecycleAction({
+    actionId,
+    repositoryRoot = root,
+    environment = process.env,
+    observeState = observeLifecycleAction,
+    dependencies = {}
+})
+{
+    const context = lifecycleContext({
+        actionId,
+        repositoryRoot,
+        environment
+    });
+    const startedAt = new Date().toISOString();
+    const before = await observeState(context, dependencies);
+    const operation = {
+        kind: context.action.operation,
+        deleted: [],
+        ...(['observe-mutation', 'cleanup-mutation-output']
+            .includes(context.action.operation)
+            && context.action.phase !== 'precondition'
+            ? {
+                baselineReceipt: (() =>
+                {
+                    const baseline = mutationBaseline(context);
+                    return {
+                        path: baseline.path,
+                        bytesDigest: baseline.bytesDigest,
+                        contentDigest: baseline.contentDigest,
+                        inventoryDigest:
+                            baseline.document.observations.after.productionBuild
+                                .inventoryDigest
+                    };
+                })()
+            }
+            : {}),
+        ...(context.action.operation === 'observe-runtime'
+            && context.action.phase !== 'precondition'
+            ? {
+                runtimeBaselineReceipt: (() =>
+                {
+                    const baseline = runtimeBaseline(context);
+                    return {
+                        path: baseline.path,
+                        bytesDigest: baseline.bytesDigest,
+                        contentDigest: baseline.contentDigest,
+                        resourceCounters:
+                            baseline.document.observations.after.resourceCounters,
+                        backend: baseline.document.observations.after.backend,
+                        network: baseline.document.observations.after.network
+                    };
+                })()
+            }
+            : {}),
+        ...(context.action.operation === 'consume-data-scale-teardown'
+            ? {
+                dataScaleRuntimeReceipt: (() =>
+                {
+                    const baseline = dataScaleRuntimeBaseline(context);
+                    return {
+                        path: baseline.path,
+                        bytesDigest: baseline.bytesDigest,
+                        contentDigest: baseline.contentDigest,
+                        dataScaleRunId:
+                            baseline.document.ownerReceipt.dataScaleRunId
+                    };
+                })()
+            }
+            : {})
+    };
+    if (context.action.operation === 'prepare-evidence-files')
+    {
+        for (const target of context.action.targets)
+        {
+            const resolved = repositoryPath(
+                context.repositoryRoot,
+                target,
+                'evidence preparation target'
+            );
+            const existed = fs.existsSync(resolved.absolute);
+            if (existed)
+            {
+                fs.rmSync(resolved.absolute, { recursive: true, force: true });
+            }
+            operation.deleted.push({ path: resolved.relative, existed });
+        }
+    }
+    if (context.action.operation === 'cleanup-mutation-output')
+    {
+        const mutationOutput = repositoryPath(
+            context.repositoryRoot,
+            '.tmp/mutation/backend-critical',
+            'mutation output cleanup target'
+        );
+        const existed = fs.existsSync(mutationOutput.absolute);
+        fs.rmSync(mutationOutput.absolute, { recursive: true, force: true });
+        operation.deleted.push({
+            path: mutationOutput.relative,
+            existed
+        });
+    }
+    const after = await observeState(context, dependencies);
+    const ownerReceipt = after.ownerReceipt
+        ? {
+            path: after.ownerReceipt.path,
+            bytesDigest: after.ownerReceipt.bytesDigest,
+            contentDigest: after.ownerReceipt.contentDigest,
+            schema: after.ownerReceipt.schema,
+            dataScaleRunId: after.ownerReceipt.dataScaleRunId,
+            parentSchedulerRunId: after.ownerReceipt.parentSchedulerRunId
+        }
+        : null;
+    if (after.ownerReceipt)
+    {
+        delete before.ownerReceipt;
+        delete after.ownerReceipt;
+    }
+    const errors = observationErrors(context.action, after);
+    if (operation.baselineReceipt
+        && operation.baselineReceipt.inventoryDigest
+            !== after.productionBuild?.inventoryDigest)
+    {
+        errors.push('mutation production-build inventory changed');
+    }
+    const finalObservation = {
+        status: errors.length === 0 ? 'passed' : 'failed',
+        postStateDigest: digestValue({ state: after }),
+        failures: errors
+    };
+    const receipt = sealDocument({
+        schema: context.contracts.registry.receiptSchema,
+        status: errors.length === 0 ? 'passed' : 'failed',
+        actionId: context.action.actionId,
+        phase: context.action.phase,
         scenarioId: context.scenarioId,
         invocationId: context.invocationId,
         runId: context.runId,
         identity: context.identityReference,
-        declaration: context.scenario.isolation.lifecycle[phase],
-        stateDomains: context.stateDomains,
-        state: {
-            before: digestValue({ state: before }),
-            after: digestValue({ state: after })
-        },
-        observations,
-        startedAt,
-        finishedAt
-    });
-}
-
-export async function runLifecycleCommand({
-    command,
-    phase = null,
-    producerStatus = 0,
-    repositoryRoot = root,
-    environment = process.env,
-    observeState = observeLifecycleState,
-    resetState = performDefaultReset,
-    dependencies = {}
-})
-{
-    const context = lifecycleContext({ repositoryRoot, environment });
-    if (command === 'phase')
-    {
-        if (!['precondition', 'reset', 'postcondition'].includes(phase))
-        {
-            throw new Error('lifecycle phase command is invalid');
-        }
-        const startedAt = new Date().toISOString();
-        const before = await observeState(context, dependencies);
-        let action = { action: `observe-${phase}-state` };
-        let errors = phase === 'reset' ? [] : requireReadyState(context, before, phase);
-        if (phase === 'reset')
-        {
-            action = await resetState(context, dependencies);
-        }
-        const after = await observeState(context, dependencies);
-        if (phase === 'reset')
-        {
-            errors = [
-                ...errors,
-                ...after.outputs
-                    .filter((output) => output.status !== 'absent')
-                    .map((output) => `reset target remains: ${output.path}`),
-                ...requireReadyState(context, after, phase)
-            ];
-        }
-        else if (phase === 'postcondition' && producerStatus !== 0)
-        {
-            errors.push(`producer exited with status ${producerStatus}`);
-        }
-        const status = errors.length === 0 ? 'complete' : 'failed';
-        const receipt = phaseReceipt({
-            context,
-            phase,
-            status,
+        stateDomains: context.action.stateDomains,
+        operation,
+        observations: {
             before,
-            after,
-            observations: {
-                action,
-                checks: errors.length === 0 ? ['state requirements satisfied'] : errors
-            },
-            startedAt,
-            finishedAt: new Date().toISOString()
-        });
-        writeJsonAtomic(receiptFile(context, phase), receipt);
-        return receipt;
-    }
-    if (command === 'start-measurement')
-    {
-        const markerFile = measurementMarkerFile(context);
-        if (fs.existsSync(markerFile))
-        {
-            throw new Error('measurement start marker already exists');
-        }
-        const before = await observeState(context, dependencies);
-        const errors = requireReadyState(context, before, 'measurement');
-        if (errors.length > 0)
-        {
-            throw new Error(`measurement precondition failed: ${errors.join('; ')}`);
-        }
-        const marker = sealDocument({
-            schema: markerSchema,
-            status: 'started',
-            scenarioId: context.scenarioId,
-            invocationId: context.invocationId,
-            runId: context.runId,
-            identity: context.identityReference,
-            stateDomains: context.stateDomains,
-            stateBefore: before,
-            startedAt: new Date().toISOString()
-        });
-        writeJsonAtomic(markerFile, marker);
-        return marker;
-    }
-    if (command === 'finish-measurement')
-    {
-        const markerFile = measurementMarkerFile(context);
-        if (!fs.existsSync(markerFile) || !fs.lstatSync(markerFile).isFile()
-            || fs.lstatSync(markerFile).isSymbolicLink())
-        {
-            throw new Error('measurement start marker is unavailable');
-        }
-        const marker = JSON.parse(fs.readFileSync(markerFile, 'utf8'));
-        if (marker.schema !== markerSchema || marker.status !== 'started'
-            || marker.scenarioId !== context.scenarioId
-            || marker.invocationId !== context.invocationId
-            || marker.runId !== context.runId
-            || marker.contentDigest !== digestValue(marker))
-        {
-            throw new Error('measurement start marker is invalid');
-        }
-        const after = await observeState(context, dependencies);
-        const errors = producerStatus === 0
-            ? requireReadyState(context, after, 'measurement')
-            : [`producer exited with status ${producerStatus}`];
-        const evidence = inspectOutput(context, context.scenario.authoritativeEvidence.path);
-        if (producerStatus === 0 && evidence.status !== 'file')
-        {
-            errors.push('authoritative evidence is unavailable after measurement');
-        }
-        const status = errors.length === 0 ? 'complete' : 'failed';
-        const receipt = phaseReceipt({
-            context,
-            phase: 'measurement',
-            status,
-            before: marker.stateBefore,
-            after,
-            observations: {
-                action: {
-                    action: 'execute-catalog-declared-producer-window',
-                    producerStatus,
-                    evidence
-                },
-                checks: errors.length === 0 ? ['measurement window completed'] : errors
-            },
-            startedAt: marker.startedAt,
-            finishedAt: new Date().toISOString()
-        });
-        writeJsonAtomic(receiptFile(context, 'measurement'), receipt);
-        fs.rmSync(markerFile, { force: true });
-        return receipt;
-    }
-    throw new Error('release reliability lifecycle command is invalid');
+            after
+        },
+        ...(ownerReceipt === null ? {} : { ownerReceipt }),
+        finalObservation,
+        startedAt,
+        finishedAt: new Date().toISOString()
+    });
+    writeJsonAtomic(context.receiptPath.absolute, receipt);
+    return receipt;
 }
 
 function parseArguments(argv)
 {
     const [command, ...rest] = argv;
-    let phase = null;
-    let producerStatus = 0;
+    if (command !== 'execute-action')
+    {
+        throw new Error('release reliability lifecycle command is invalid');
+    }
+    let actionId = null;
     for (let index = 0; index < rest.length; index += 1)
     {
-        const value = rest[index];
-        if (value === '--phase')
+        if (rest[index] === '--action-id')
         {
-            phase = rest[++index];
-        }
-        else if (value === '--producer-status')
-        {
-            producerStatus = Number.parseInt(rest[++index], 10);
+            actionId = rest[++index];
         }
         else
         {
-            throw new Error(`unknown lifecycle argument: ${value}`);
+            throw new Error(`unknown lifecycle argument: ${rest[index]}`);
         }
     }
-    if (!Number.isInteger(producerStatus) || producerStatus < 0 || producerStatus > 255)
-    {
-        throw new Error('producer status is invalid');
-    }
-    return { command, phase, producerStatus };
+    return { actionId };
 }
 
 async function main()
 {
     const options = parseArguments(process.argv.slice(2));
-    const receipt = await runLifecycleCommand(options);
-    if (receipt.status === 'failed')
+    const receipt = await runLifecycleAction(options);
+    if (receipt.status !== 'passed')
     {
         process.exitCode = 1;
     }
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
+if (process.argv[1]
+    && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
 {
     main().catch((error) =>
     {
         console.error(
-            `[release-reliability-lifecycle] ${error instanceof Error ? error.message : String(error)}`
+            `[release-reliability-lifecycle] ${
+                error instanceof Error ? error.message : String(error)
+            }`
         );
         process.exitCode = 1;
     });

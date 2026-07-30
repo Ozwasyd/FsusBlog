@@ -1,5 +1,5 @@
 {
-    "schema": "fsusblog.release-reliability-scenario-catalog.v3",
+    "schema": "fsusblog.release-reliability-scenario-catalog.v4",
     "catalogScenarioCount": 7,
     "canonicalScenarioIds": [
         "release-soak-min",
@@ -39,7 +39,6 @@
             "FSUSBLOG_RELEASE_RELIABILITY_IDENTITY_DIGEST",
             "FSUSBLOG_RELEASE_RELIABILITY_IDENTITY_PATH",
             "FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID",
-            "FSUSBLOG_RELEASE_RELIABILITY_LIFECYCLE_ROOT",
             "FSUSBLOG_RELEASE_RELIABILITY_RUN_ID",
             "FSUSBLOG_RELEASE_RELIABILITY_SCENARIO_ID",
             "FSUSBLOG_RELEASE_RESOURCE_CONTAINER_ID",
@@ -51,7 +50,8 @@
         "mutationSubset": "config/testing/mutation/release-parity-subset.json",
         "releaseResource": "config/deployment/zero-downtime-resource-policy.json"
     },
-    "lifecycleSchema": "fsusblog.release-reliability-lifecycle-action.v1",
+    "actionRegistry": "config/testing/release-reliability-lifecycle-action-registry.json",
+    "lifecycleSchema": "fsusblog.release-reliability-lifecycle-action-receipt.v2",
     "scenarios": [
         {
             "id": "release-soak-min",
@@ -104,16 +104,29 @@
             ],
             "isolation": {
                 "exclusiveResources": [
-                    "database",
-                    "runtime-http",
-                    "resource-counters"
+                    "artifact.release-derived",
+                    "network.host-topology",
+                    "postgres.schema",
+                    "redis.cache.public",
+                    "runtime.backend-process",
+                    "runtime.backend-resource-counters",
+                    "runtime.measurement-children"
                 ],
                 "countableResources": [],
                 "lifecycle": {
-                    "precondition": "verify-runtime-database-and-resource-counter-readiness",
-                    "reset": "delete-short-soak-scenario-output",
-                    "measurement": "producer-owned-short-soak-window",
-                    "postcondition": "verify-runtime-database-and-resource-counter-stability"
+                    "preconditions": [
+                        "soak-observe-runtime-admission"
+                    ],
+                    "resetsBefore": [
+                        "soak-prepare-evidence-files"
+                    ],
+                    "measurement": "soak-run-measurement",
+                    "postconditions": [
+                        "soak-observe-runtime-stability"
+                    ],
+                    "resetsAfter": [
+                        "soak-observe-final-runtime-state"
+                    ]
                 },
                 "outputs": [
                     {
@@ -200,16 +213,30 @@
             ],
             "isolation": {
                 "exclusiveResources": [
-                    "runtime-http",
-                    "network",
-                    "performance-counters"
+                    "artifact.release-derived",
+                    "network.host-topology",
+                    "postgres.schema",
+                    "redis.cache.public",
+                    "runtime.backend-process",
+                    "runtime.backend-resource-counters",
+                    "runtime.measurement-children",
+                    "runtime.performance-counters"
                 ],
                 "countableResources": [],
                 "lifecycle": {
-                    "precondition": "verify-runtime-readiness-before-network-performance-window",
-                    "reset": "delete-expected-peak-raw-and-projection-output",
-                    "measurement": "producer-owned-expected-peak-window",
-                    "postcondition": "verify-runtime-stability-after-network-performance-window"
+                    "preconditions": [
+                        "peak-observe-runtime-admission"
+                    ],
+                    "resetsBefore": [
+                        "peak-prepare-evidence-files"
+                    ],
+                    "measurement": "peak-run-measurement",
+                    "postconditions": [
+                        "peak-observe-runtime-stability"
+                    ],
+                    "resetsAfter": [
+                        "peak-observe-final-runtime-state"
+                    ]
                 },
                 "outputs": [
                     {
@@ -298,16 +325,30 @@
             ],
             "isolation": {
                 "exclusiveResources": [
-                    "runtime-http",
-                    "network",
-                    "performance-counters"
+                    "artifact.release-derived",
+                    "network.host-topology",
+                    "postgres.schema",
+                    "redis.cache.public",
+                    "runtime.backend-process",
+                    "runtime.backend-resource-counters",
+                    "runtime.measurement-children",
+                    "runtime.performance-counters"
                 ],
                 "countableResources": [],
                 "lifecycle": {
-                    "precondition": "verify-runtime-readiness-before-network-performance-window",
-                    "reset": "delete-burst-raw-and-projection-output",
-                    "measurement": "producer-owned-burst-window",
-                    "postcondition": "verify-runtime-stability-after-network-performance-window"
+                    "preconditions": [
+                        "burst-observe-runtime-admission"
+                    ],
+                    "resetsBefore": [
+                        "burst-prepare-evidence-files"
+                    ],
+                    "measurement": "burst-run-measurement",
+                    "postconditions": [
+                        "burst-observe-runtime-stability"
+                    ],
+                    "resetsAfter": [
+                        "burst-observe-final-runtime-state"
+                    ]
                 },
                 "outputs": [
                     {
@@ -398,16 +439,28 @@
             ],
             "isolation": {
                 "exclusiveResources": [
-                    "database",
-                    "fixture-data",
-                    "runtime-http"
+                    "artifact.release-derived",
+                    "fixture.data-scale",
+                    "postgres.data-scale-fixture",
+                    "redis.data-scale-fixture",
+                    "runtime.data-scale-backend",
+                    "runtime.measurement-children"
                 ],
                 "countableResources": [],
                 "lifecycle": {
-                    "precondition": "verify-runtime-and-database-fixture-readiness",
-                    "reset": "delete-scale-m-output-and-clean-data-scale-namespace",
-                    "measurement": "producer-owned-scale-m-window",
-                    "postcondition": "verify-runtime-database-and-data-scale-cleanup-stability"
+                    "preconditions": [
+                        "data-scale-require-dedicated-runtime"
+                    ],
+                    "resetsBefore": [
+                        "data-scale-prepare-evidence-files"
+                    ],
+                    "measurement": "data-scale-run-measurement",
+                    "postconditions": [
+                        "data-scale-observe-dedicated-runtime"
+                    ],
+                    "resetsAfter": [
+                        "data-scale-require-dedicated-runtime-teardown"
+                    ]
                 },
                 "outputs": [
                     {
@@ -427,7 +480,6 @@
                         "expectedSeed",
                         "sampling",
                         "observed",
-                        "cleanup",
                         "releaseReliability"
                     ],
                     "passStatusValues": [
@@ -480,16 +532,25 @@
             ],
             "isolation": {
                 "exclusiveResources": [
-                    "cpu",
-                    "mutation-output",
-                    "build-artifacts"
+                    "artifact.mutation-output",
+                    "artifact.production-build",
+                    "runtime.measurement-children"
                 ],
                 "countableResources": [],
                 "lifecycle": {
-                    "precondition": "verify-clean-source-and-record-host-cpu-state",
-                    "reset": "delete-critical-mutation-scenario-output",
-                    "measurement": "producer-owned-critical-mutation-window",
-                    "postcondition": "verify-clean-source-and-record-host-cpu-state"
+                    "preconditions": [
+                        "mutation-observe-isolated-output-admission"
+                    ],
+                    "resetsBefore": [
+                        "mutation-prepare-isolated-output"
+                    ],
+                    "measurement": "mutation-run-measurement",
+                    "postconditions": [
+                        "mutation-observe-shared-build-unchanged"
+                    ],
+                    "resetsAfter": [
+                        "mutation-observe-final-output-state"
+                    ]
                 },
                 "outputs": [
                     {
@@ -584,16 +645,29 @@
             ],
             "isolation": {
                 "exclusiveResources": [
-                    "runtime-http",
-                    "database",
-                    "resource-counters"
+                    "artifact.release-derived",
+                    "network.host-topology",
+                    "postgres.schema",
+                    "redis.cache.public",
+                    "runtime.backend-process",
+                    "runtime.backend-resource-counters",
+                    "runtime.measurement-children"
                 ],
                 "countableResources": [],
                 "lifecycle": {
-                    "precondition": "verify-runtime-database-and-resource-counter-readiness",
-                    "reset": "delete-memory-leak-raw-and-projection-output",
-                    "measurement": "producer-owned-memory-leak-window",
-                    "postcondition": "verify-runtime-database-and-resource-counter-stability"
+                    "preconditions": [
+                        "memory-observe-runtime-admission"
+                    ],
+                    "resetsBefore": [
+                        "memory-prepare-evidence-files"
+                    ],
+                    "measurement": "memory-run-measurement",
+                    "postconditions": [
+                        "memory-observe-runtime-stability"
+                    ],
+                    "resetsAfter": [
+                        "memory-observe-final-runtime-state"
+                    ]
                 },
                 "outputs": [
                     {
@@ -671,16 +745,29 @@
             ],
             "isolation": {
                 "exclusiveResources": [
-                    "runtime-http",
-                    "database",
-                    "resource-counters"
+                    "artifact.release-derived",
+                    "network.host-topology",
+                    "postgres.schema",
+                    "redis.cache.public",
+                    "runtime.backend-process",
+                    "runtime.backend-resource-counters",
+                    "runtime.measurement-children"
                 ],
                 "countableResources": [],
                 "lifecycle": {
-                    "precondition": "verify-runtime-database-and-resource-counter-readiness",
-                    "reset": "delete-open-handle-raw-and-projection-output",
-                    "measurement": "producer-owned-open-handle-window",
-                    "postcondition": "verify-runtime-database-and-resource-counter-stability"
+                    "preconditions": [
+                        "open-handle-observe-runtime-admission"
+                    ],
+                    "resetsBefore": [
+                        "open-handle-prepare-evidence-files"
+                    ],
+                    "measurement": "open-handle-run-measurement",
+                    "postconditions": [
+                        "open-handle-observe-runtime-stability"
+                    ],
+                    "resetsAfter": [
+                        "open-handle-observe-final-runtime-state"
+                    ]
                 },
                 "outputs": [
                     {

@@ -7003,7 +7003,13 @@ tiers:
       evidence:
           [
               .tmp/release-reliability,
+              config/schemas/release-reliability-lifecycle-action-registry.schema.json,
+              config/testing/release-reliability-lifecycle-action-registry.json,
               config/testing/release-reliability-scenario-catalog.json,
+              config/testing/runtime-state-domain-registry.json,
+              tools/test/release-reliability-lifecycle-actions.mjs,
+              tools/test/release-reliability-lifecycle.mjs,
+              tools/test/verify-release-reliability-lifecycle-action.mjs,
               tools/test/verify-release-reliability-receipt.mjs,
               tools/release/release-reliability-qualified-receipt.mjs,
           ]

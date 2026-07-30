@@ -13,7 +13,6 @@ import { snapshotGitWorktree } from '../test-matrix/scheduler.mjs';
 
 const digestPattern = /^sha256:[0-9a-f]{64}$/u;
 const isoTimePattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u;
-const lifecyclePhases = ['precondition', 'reset', 'measurement', 'postcondition'];
 const productionBuildToolchainKeys = ['dotnet', 'emsdk', 'node', 'npm', 'playwright', 'vite', 'vitest'];
 const auditRetentionPolicyPath = 'src/backend/Infrastructure/Audit/AuditRetentionCatalog.cs';
 
@@ -687,6 +686,33 @@ export async function collectRunIdentity({
     {
         errors.push(error instanceof Error ? error.message : String(error));
     }
+    const collectLifecycleAuthority = (configuredPath, label) =>
+    {
+        try
+        {
+            return {
+                status: 'complete',
+                ...regularFileBinding(repositoryRoot, configuredPath, label)
+            };
+        }
+        catch (error)
+        {
+            errors.push(error instanceof Error ? error.message : String(error));
+            return {
+                status: 'unavailable',
+                path: configuredPath,
+                fileDigest: null
+            };
+        }
+    };
+    const lifecycleActionRegistry = collectLifecycleAuthority(
+        'config/testing/release-reliability-lifecycle-action-registry.json',
+        'lifecycle action registry'
+    );
+    const stateDomainRegistry = collectLifecycleAuthority(
+        'config/testing/runtime-state-domain-registry.json',
+        'runtime state-domain registry'
+    );
     const threshold = collectCatalogPolicyBinding(
         repositoryRoot,
         catalog,
@@ -723,11 +749,13 @@ export async function collectRunIdentity({
                 status: digestPattern.test(catalogBinding.fileDigest) ? 'complete' : 'unavailable',
                 ...catalogBinding
             },
+            lifecycleActionRegistry,
+            stateDomainRegistry,
             threshold,
             mutationSubset,
             releaseResource,
             childEnvironment: collectChildEnvironmentIdentity(catalog),
-            executorSchema: 'fsusblog.release-reliability-scenario-result.v2',
+            executorSchema: 'fsusblog.release-reliability-scenario-result.v3',
             lifecycleSchema: catalog.lifecycleSchema
         },
         collectedAt: now(),
@@ -755,7 +783,7 @@ function validateIdentityReference(reference, invocationId)
     }
 }
 
-function validateCompleteIdentity(identity, catalog)
+function validateCompleteIdentity(identity, catalog, lifecycleContracts)
 {
     if (!isoTimePattern.test(identity.collectedAt) || !Number.isFinite(Date.parse(identity.collectedAt))
         || !Array.isArray(identity.collectionErrors) || identity.collectionErrors.length !== 0)
@@ -864,27 +892,50 @@ function validateCompleteIdentity(identity, catalog)
     }
     const expectedChildEnvironment = collectChildEnvironmentIdentity(catalog);
     if (identity.policy?.catalog?.status !== 'complete'
+        || ['lifecycleActionRegistry', 'stateDomainRegistry'].some((field) => (
+            identity.policy?.[field]?.status !== 'complete'
+            || !digestPattern.test(identity.policy[field]?.fileDigest)
+        ))
         || ['threshold', 'mutationSubset', 'releaseResource'].some((field) => (
             identity.policy?.[field]?.status !== 'complete'
             || !digestPattern.test(identity.policy[field]?.fileDigest)
         ))
         || !digestPattern.test(identity.policy.catalog.fileDigest)
         || identity.policy.catalog.path !== 'config/testing/release-reliability-scenario-catalog.json'
+        || identity.policy.lifecycleActionRegistry.path
+            !== 'config/testing/release-reliability-lifecycle-action-registry.json'
+        || identity.policy.stateDomainRegistry.path
+            !== 'config/testing/runtime-state-domain-registry.json'
+        || JSON.stringify(identity.policy.lifecycleActionRegistry)
+            !== JSON.stringify(
+                lifecycleContracts?.authorityBindings?.lifecycleActionRegistry
+            )
+        || JSON.stringify(identity.policy.stateDomainRegistry)
+            !== JSON.stringify(
+                lifecycleContracts?.authorityBindings?.stateDomainRegistry
+            )
         || identity.policy.threshold.path !== catalog.policyBindings.loadProfile
         || identity.policy.mutationSubset.path !== catalog.policyBindings.mutationSubset
         || identity.policy.releaseResource.path !== catalog.policyBindings.releaseResource
         || JSON.stringify(identity.policy.childEnvironment) !== JSON.stringify(expectedChildEnvironment)
-        || identity.policy.executorSchema !== 'fsusblog.release-reliability-scenario-result.v2'
+        || identity.policy.executorSchema !== 'fsusblog.release-reliability-scenario-result.v3'
         || identity.policy.lifecycleSchema !== catalog.lifecycleSchema)
     {
         throw new Error('policy identity is incomplete');
     }
 }
 
-function validateScenarioForQualification(result, { invocationId, runId, identity, identityReference, catalog })
+function validateScenarioForQualification(result, {
+    invocationId,
+    runId,
+    identity,
+    identityReference,
+    catalog,
+    lifecycleContracts
+})
 {
     const scenario = catalog.scenarios.find((candidate) => candidate.id === result?.scenarioId);
-    if (result?.schema !== 'fsusblog.release-reliability-scenario-result.v2' || result.status !== 'passed')
+    if (result?.schema !== 'fsusblog.release-reliability-scenario-result.v3' || result.status !== 'passed')
     {
         throw new Error(`scenario ${result?.scenarioId ?? '<missing>'} is not passed`);
     }
@@ -950,12 +1001,15 @@ function validateScenarioForQualification(result, { invocationId, runId, identit
         'commandDigest',
         'exitCode',
         'signal',
+        'timedOut',
         'stdoutLog',
         'stderrLog'
     ];
     const commandToolId = path.basename(scenario.command.executable).replace(/\.exe$/iu, '');
     const expectedExecutable = identity.tools.find((tool) => tool.id === commandToolId)?.executable;
-    const expectedLogRoot = `.tmp/release-reliability/${invocationId}/logs/${scenario.id}`;
+    const measurementActionId = scenario.isolation.lifecycle.measurement;
+    const expectedLogRoot =
+        `.tmp/release-reliability/${invocationId}/logs/lifecycle/${scenario.id}/${measurementActionId}`;
     const expectedCommandDigest = `sha256:${createHash('sha256')
         .update(JSON.stringify(scenario.command))
         .digest('hex')}`;
@@ -969,39 +1023,104 @@ function validateScenarioForQualification(result, { invocationId, runId, identit
         || result.producer.cwd !== scenario.command.cwd
         || result.producer.commandDigest !== expectedCommandDigest
         || result.producer.exitCode !== 0 || result.producer.signal !== null
+        || result.producer.timedOut !== false
         || result.producer.stdoutLog !== `${expectedLogRoot}.stdout.log`
         || result.producer.stderrLog !== `${expectedLogRoot}.stderr.log`)
     {
         throw new Error(`scenario ${result.scenarioId} producer invocation mismatch`);
     }
-    const expectedStateDomains = [...new Set([
-        ...scenario.isolation.exclusiveResources,
-        ...scenario.isolation.countableResources
-    ])].sort();
-    let previousFinishedAt = null;
-    for (const phase of lifecyclePhases)
+    const lifecycleReferences = [
+        ...scenario.isolation.lifecycle.preconditions.map((actionId) => ({
+            actionId,
+            phase: 'precondition'
+        })),
+        ...scenario.isolation.lifecycle.resetsBefore.map((actionId) => ({
+            actionId,
+            phase: 'reset-before'
+        })),
+        { actionId: measurementActionId, phase: 'measurement' },
+        ...scenario.isolation.lifecycle.postconditions.map((actionId) => ({
+            actionId,
+            phase: 'postcondition'
+        })),
+        ...scenario.isolation.lifecycle.resetsAfter.map((actionId) => ({
+            actionId,
+            phase: 'reset-after'
+        }))
+    ];
+    if (result.firstFailure !== null
+        || !Array.isArray(result.cleanupFailures)
+        || result.cleanupFailures.length !== 0
+        || !Array.isArray(result.lifecycle?.actions)
+        || !Array.isArray(result.lifecycle?.verifiedActionReceipts)
+        || result.lifecycle.actions.length !== lifecycleReferences.length
+        || result.lifecycle.verifiedActionReceipts.length !== lifecycleReferences.length)
     {
-        const reference = result.lifecycle?.[phase];
-        if (reference?.status !== 'complete' || reference?.schema !== catalog.lifecycleSchema
-            || reference?.runId !== runId || reference?.invocationId !== invocationId
-            || reference?.phase !== phase || reference?.scenarioId !== scenario.id
-            || reference?.path !== `.tmp/release-reliability/${invocationId}/lifecycle/${scenario.id}/${phase}.json`
-            || JSON.stringify(reference?.stateDomains) !== JSON.stringify(expectedStateDomains)
-            || !digestPattern.test(reference?.contentDigest))
+        throw new Error(`scenario ${result.scenarioId} lifecycle result is incomplete`);
+    }
+    const ownedDomains = new Set();
+    let previousFinishedAt = null;
+    for (let index = 0; index < lifecycleReferences.length; index += 1)
+    {
+        const expected = lifecycleReferences[index];
+        const action = lifecycleContracts?.actions?.get(expected.actionId);
+        const record = result.lifecycle.actions[index];
+        const reference = result.lifecycle.verifiedActionReceipts[index];
+        const measurement = expected.phase === 'measurement';
+        const expectedPath = action?.expectedReceiptPath
+            ?.replaceAll('{actionId}', expected.actionId)
+            .replaceAll('{invocationId}', invocationId)
+            .replaceAll('{runId}', runId)
+            .replaceAll('{scenarioId}', scenario.id);
+        for (const domain of reference?.stateDomains ?? [])
         {
-            throw new Error(`scenario ${result.scenarioId} ${phase} reference is incomplete`);
+            if (!measurement)
+            {
+                ownedDomains.add(domain);
+            }
         }
-        if (![reference.startedAt, reference.finishedAt].every(
+        if (record?.actionId !== expected.actionId || record.phase !== expected.phase
+            || record.status !== 'passed' || record.exitCode !== 0
+            || record.signal !== null || record.timedOut !== false
+            || record.failure !== null
+            || JSON.stringify(record.receipt) !== JSON.stringify(reference)
+            || !action || action.scenarioId !== scenario.id
+            || action.phase !== expected.phase
+            || reference?.actionId !== action.actionId
+            || reference?.phase !== action.phase
+            || reference?.path !== expectedPath
+            || (action.expectedReceiptSchema === 'catalog-authoritative-evidence'
+                ? reference?.schema !== result.authoritativeEvidence.schema
+                : reference?.schema !== action.expectedReceiptSchema)
+            || !Array.isArray(reference?.stateDomains)
+            || JSON.stringify(reference.stateDomains)
+                !== JSON.stringify(action.stateDomains)
+            || (!measurement && !digestPattern.test(reference?.contentDigest))
+            || (measurement && reference.contentDigest !== null
+                && !digestPattern.test(reference.contentDigest))
+            || !digestPattern.test(reference?.bytesDigest)
+            || !action.passStatusValues.includes(reference?.status))
+        {
+            throw new Error(`scenario ${result.scenarioId} ${expected.actionId} reference is incomplete`);
+        }
+        if (![record.startedAt, record.finishedAt].every(
             (value) => isoTimePattern.test(value) && Number.isFinite(Date.parse(value))
         )
-            || Date.parse(reference.startedAt) < Date.parse(result.startedAt)
-            || Date.parse(reference.finishedAt) < Date.parse(reference.startedAt)
-            || Date.parse(reference.finishedAt) > Date.parse(result.finishedAt)
-            || previousFinishedAt !== null && Date.parse(reference.startedAt) < previousFinishedAt)
+            || Date.parse(record.startedAt) < Date.parse(result.startedAt)
+            || Date.parse(record.finishedAt) < Date.parse(record.startedAt)
+            || Date.parse(record.finishedAt) > Date.parse(result.finishedAt)
+            || previousFinishedAt !== null && Date.parse(record.startedAt) < previousFinishedAt)
         {
-            throw new Error(`scenario ${result.scenarioId} ${phase} time ordering mismatch`);
+            throw new Error(`scenario ${result.scenarioId} ${expected.actionId} time ordering mismatch`);
         }
-        previousFinishedAt = Date.parse(reference.finishedAt);
+        previousFinishedAt = Date.parse(record.finishedAt);
+    }
+    if (JSON.stringify([...ownedDomains].sort())
+            !== JSON.stringify(scenario.isolation.exclusiveResources)
+        || result.lifecycle.resetPostObservation?.status !== 'passed'
+        || result.lifecycle.finalPostObservation?.status !== 'passed')
+    {
+        throw new Error(`scenario ${result.scenarioId} final lifecycle observations are incomplete`);
     }
 }
 
@@ -1012,7 +1131,23 @@ function scenarioReference(result)
         resultPath: result.resultPath,
         resultContentDigest: result.contentDigest,
         evidencePath: result.authoritativeEvidence?.path ?? null,
-        evidenceDigest: result.authoritativeEvidence?.digest ?? null
+        evidenceDigest: result.authoritativeEvidence?.digest ?? null,
+        lifecycleActions: (result.lifecycle?.actions ?? []).map((action) => ({
+            actionId: action.actionId,
+            phase: action.phase,
+            startedAt: action.startedAt,
+            finishedAt: action.finishedAt,
+            durationMs: action.durationMs,
+            exitCode: action.exitCode,
+            signal: action.signal,
+            timedOut: action.timedOut,
+            status: action.status,
+            receipt: action.receipt
+        })),
+        resetPostObservation: result.lifecycle?.resetPostObservation ?? null,
+        finalPostObservation: result.lifecycle?.finalPostObservation ?? null,
+        firstFailure: result.firstFailure ?? null,
+        cleanupFailures: result.cleanupFailures ?? []
     };
 }
 
@@ -1021,7 +1156,7 @@ export function createTimeline({ invocationId, runId, scenarioResults, identityR
     const references = scenarioResults.map(scenarioReference);
     references.sort((left, right) => left.scenarioId.localeCompare(right.scenarioId));
     return sealDocument({
-        schema: 'fsusblog.release-reliability-timeline.v2',
+        schema: 'fsusblog.release-reliability-timeline.v3',
         invocationId,
         runId,
         status: scenarioResults.every((result) => result.status === 'passed') ? 'complete' : 'partial',
@@ -1040,6 +1175,7 @@ export function createCandidateReceipt({
     timeline,
     timelineReference,
     catalog,
+    lifecycleContracts,
     createdAt
 })
 {
@@ -1065,13 +1201,13 @@ export function createCandidateReceipt({
         {
             throw new Error('run identity is incomplete or mismatched');
         }
-        validateCompleteIdentity(identity, catalog);
+        validateCompleteIdentity(identity, catalog, lifecycleContracts);
         if (timelineReference?.path !== `.tmp/release-reliability/${invocationId}/timeline.json`
             || !digestPattern.test(timelineReference?.contentDigest))
         {
             throw new Error('timeline reference is incomplete');
         }
-        if (timeline?.schema !== 'fsusblog.release-reliability-timeline.v2'
+        if (timeline?.schema !== 'fsusblog.release-reliability-timeline.v3'
             || timeline.status !== 'complete' || timeline.invocationId !== invocationId
             || timeline.runId !== runId || timeline.contentDigest !== digestValue(timeline)
             || timeline.contentDigest !== timelineReference.contentDigest
@@ -1088,7 +1224,8 @@ export function createCandidateReceipt({
                 runId,
                 identity,
                 identityReference,
-                catalog
+                catalog,
+                lifecycleContracts
             });
             receipt.scenarios.push(scenarioReference(result));
         }

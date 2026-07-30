@@ -493,7 +493,8 @@ optional_deployment_layer:
 - Soak 分为三种语义：`soak-short-runtime` / `release-soak-min` 是真实短时 runtime smoke，必须写 `.tmp/soak/short/summary.json`，并包含 `durationSeconds`、`sampleCount`、`latencyMs.p95`、`latencyMs.p99`、`errorRate`、`executionMode:"runtime"`、`countsAsReleaseFinal:true`，以及 `resourceMetricSummary.metrics[]` 或 `resourceMetricSummary.unavailableMetrics[].reason`；`soak-long-scheduled` 只写 72h/7d 计划证据，必须是 `status:"scheduled"`、`executionMode:"scheduled"`、`countsAsReleaseFinal:false`，不得作为 release-final completed evidence；`soak-long-evidence-import` 只有在设置 `FSUSBLOG_SOAK_LONG_EVIDENCE_FILE` 导入外部长跑证据时才允许 `status:"ok"`，否则使用 `FSUSBLOG_SOAK_REQUIRE_IMPORTED_EVIDENCE=1` fail-closed。
 - `release-memory-leak-budget` 与 `release-open-handle-budget` 必须输出真实资源指标，summary 文件分别为 `.tmp/release-evidence/memory-leak-summary.json` 与 `.tmp/release-evidence/open-handle-summary.json`。每个 summary 的 `metrics[]` 不得为空；每个 metric 必须包含 `name`、`startValue`、`endValue`、`maxValue`、`delta`、`threshold`、`thresholdOperator:"<="`、`thresholdField:"delta"` 和 `status`。`status:"ok"` 只有在至少一个真实资源 metric 通过预算且没有 unavailable metric 时才允许写入；缺少指标必须写入 `unavailableMetrics[].reason` 并使 lane failed，阈值超限也必须 failed。默认阈值为 RSS delta `FSUSBLOG_RELEASE_RESOURCE_RSS_DELTA_THRESHOLD_BYTES=67108864`、FD delta `FSUSBLOG_RELEASE_RESOURCE_FD_DELTA_THRESHOLD=16`，本地无法从端口发现后端进程时用 `FSUSBLOG_RELEASE_RESOURCE_PID` 指定。qualified-local final-container 运行同时使用 topology authority 封存的 `FSUSBLOG_RELEASE_RESOURCE_CONTAINER_ID` 与 host PID，重新 inspect 二者后从该容器 `/proc/1` 读取指标；不得用端口猜测另一个进程，也不得把宿主 `/proc` 权限拒绝改写成零值。
 
-- `release-reliability-scenario-catalog.json` 的 lifecycle 标签描述 producer-owned helper 的真实动作：每个 reset 只删除该 scenario 的已声明 raw/projection output，`release-data-scale-m` 另执行 scoped data-scale namespace cleanup；它们不重置共享 runtime、database、network、resource counter 或 build artifact。precondition/postcondition 保留 declared conflict domains，但仅按场景实际记录并校验 live runtime、fixture container、resource counter、clean source 与 host CPU state；network/performance 结果仍由 load producer window 生成，不能把未观察的 domain 或未执行的 reset 写成已经完成。任何未运行、失败或缺失的 producer/lifecycle receipt 仍为 failed，不能因 lifecycle 文本存在而转为通过。
+- `release-reliability-scenario-catalog.json` v4 只声明 exact-seven 场景和结构化 lifecycle action 引用；35 个动作的 executable/args/env/cwd、timeout、receipt path/schema、pass status、state domain 与 failure-safe 属性全部由 `release-reliability-lifecycle-action-registry.json` 唯一拥有，并受对应 schema 与 closed-world `runtime-state-domain-registry.json` 校验。executor 对每个场景严格按 `preconditions → resetsBefore → measurement → postconditions → resetsAfter` 执行真实子进程，启动前清除该动作的期望回执，超时执行 SIGTERM/宽限/SIGKILL，并由独立 verifier 重读原始 bytes；exit code 0、stdout 文本或 stale `passed` 文件都不能代替本轮动作。首个非 cleanup 失败冻结为 `firstFailure` 并阻止后续 measurement/postcondition，只有 registry 标为 `safeAfterFailure` 的 reset-after 可继续；其失败单独进入 `cleanupFailures`，不能覆盖首因。result/timeline 保存每个动作的开始/结束、退出/信号/超时、原始回执路径/bytes digest，以及 reset 后、measurement 后和最终 observation。任何动作未执行、失败、回执缺失/重封或最终 observation 不 clean 都使 `qualificationEligible=false`。
+- 普通 runtime lifecycle 会 exact-match backend/PostgreSQL/Redis identity、namespace、run、base URL、network membership、resource counter 与 final descendant observation。mutation reset-after 只删除 `.tmp/mutation/backend-critical` 并重新观察其缺失，不能删除或替换 immutable production build。`release-data-scale-m` 不在通用 lane 内 seed 或 cleanup：precondition 必须消费显式 `FSUSBLOG_DATA_SCALE_RUNTIME_RECEIPT_PATH` 指向的 dedicated PostgreSQL/Redis/backend/root authority，并把该 authority 的 raw path/bytes digest/content digest 绑定进 adapter receipt；measurement 只使用从该 authority 派生且 exact-match 的 URL、container IDs、namespace、run 与 roots。reset-after 只接受显式 teardown authority，必须与同一 `dataScaleRunId` 绑定并证明资源、端口、lease 与 roots 已清空。缺少 dedicated runtime/teardown owner 或 process-tree zero-descendant authority时保持 fail closed；不得退回共享 qualified-local runtime，也不得由 lifecycle adapter 伪造 owner receipt。
 
 - Release Reliability generator 只写 `candidate-receipt.json`。独立 verifier 必须在 runtime/container 仍存活时写入内容寻址的 `verified-attestation.json`，wrapper 随后清理 owned runtime，再由 verifier finalization 写入绑定 candidate、attestation 与 exact persistent-file manifest 的 `qualified-receipt.json`。清理后的普通 `--receipt` 复验不得依赖 live container，但必须重读 manifest 的每个持久文件和 verifier source；缺 attestation、跨 run、文件集合不完整、digest 篡改或 post-attestation bytes 漂移全部 fail closed。Registry/local image 均必须封存并复验 FsusBlog OCI revision 与 `io.fsusblog.build.fsusui-source` / `io.fsusblog.build.fsusui-commit`，不得仅凭 RepoDigest 把另一 source 的 image 拼入当前 receipt。
 
@@ -966,17 +967,21 @@ tools/operations/check-release-evidence-manifest.mjs --require-ok
 - public-preview screenshot evidence：Browser Contract 只读重捕获完整九图矩阵并绑定当前 commit/ReleaseId、visual input digest、九个图片 hash、三类 audit 结果及本地 JSON 文件 digest；`check-release-final.mjs` 缺少或读到不同 SHA/内容的本地证据时 fail closed，不要求 CI run URL。
 - release runtime lanes：admin console、auth flow、authoring flow、private preview 与 error boundary 使用 Vitest/API/static contract 绑定 release artifact；真实 RBAC browser negative path 已迁入 diagnostics。
 - release AOT lanes：generation 与 static asset digest coherence 作为 browserless release evidence；真实 consumption/browser fallback 属于 diagnostics。
-- Release Reliability v3 qualification：`release-final` 的 load/scale/stability correctness
+- Release Reliability v4 qualification：`release-final` 的 load/scale/stability correctness
   只有一个权威输入 `release-reliability-fresh`，不再直接消费 peak、burst、
   scale-m、soak-min、memory leak budget、open handle budget 或 critical mutation
-  slice 的独立 tier summary。catalog 同时固定 300 秒 soak、peak/burst 的
+  slice 的独立 tier summary。catalog 与独立 lifecycle action registry 同时固定
+  exact-seven 的 35 个 action、phase/order/timeout/receipt/state-domain contract，
+  以及 300 秒 soak、peak/burst 的
   concurrency/rounds/duration/threshold、scale-m 的 10,000/100,000 seed 与 12/2
   sampling、resource 的 12/2 sampling 和 64 MiB/16 delta limit，以及 mutation
   fixed subset。executor 不继承整份 caller environment；只允许 catalog 声明的
   base/inherited/fixed/internal keys，缺 required key 在 spawn 前失败。run identity
-  绑定该环境合同及 load/mutation/resource policy 实际文件 digest；独立 verifier
-  从原始 evidence 重算 effective sampling、threshold 和 policy binding，caller
-  override 或自重算 weakened receipt 均不能放行。
+  绑定该环境合同、catalog/action registry/state-domain registry 及
+  load/mutation/resource policy 实际文件 digest；独立 verifier 从原始 action receipt
+  bytes 与 producer evidence 重算 action order/status、effective sampling、threshold
+  和 policy binding，caller override、stale action receipt 或自重算 weakened receipt
+  均不能放行。
 - Release Reliability 的唯一 qualification 命令是
   `./tools/test.sh ci-tier release-reliability-fresh`。该入口顺序执行 exact-seven，
   写出 `evidenceClass=correctness`、`qualificationEligible=true` 的 scenario

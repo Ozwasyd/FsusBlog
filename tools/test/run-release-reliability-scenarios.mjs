@@ -11,16 +11,16 @@ import {
     collectRunIdentity,
     createCandidateReceipt,
     createTimeline,
-    digestValue,
     sealDocument
 } from './release-reliability-receipt.mjs';
+import {
+    executeLifecycleActionPlan,
+    loadLifecycleActionContracts
+} from './release-reliability-lifecycle-actions.mjs';
 import { readQualifiedRuntimeEnvironment } from './release-reliability-runtime-environment.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const catalogPath = path.join(root, 'config/testing/release-reliability-scenario-catalog.json');
-const lifecyclePhases = ['precondition', 'reset', 'measurement', 'postcondition'];
-const digestPattern = /^sha256:[0-9a-f]{64}$/u;
-const isoTimePattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u;
 const canonicalScenarioIds = [
     'release-soak-min',
     'release-load-peak',
@@ -38,7 +38,6 @@ const canonicalChildEnvironmentContract = {
         'FSUSBLOG_RELEASE_RELIABILITY_IDENTITY_DIGEST',
         'FSUSBLOG_RELEASE_RELIABILITY_IDENTITY_PATH',
         'FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID',
-        'FSUSBLOG_RELEASE_RELIABILITY_LIFECYCLE_ROOT',
         'FSUSBLOG_RELEASE_RELIABILITY_RUN_ID',
         'FSUSBLOG_RELEASE_RELIABILITY_SCENARIO_ID',
         'FSUSBLOG_RELEASE_RESOURCE_CONTAINER_ID',
@@ -398,20 +397,12 @@ export function buildScenarioChildEnvironment({
     return childEnvironment;
 }
 
-function stateDomains(scenario)
-{
-    return [...new Set([
-        ...scenario.isolation.exclusiveResources,
-        ...scenario.isolation.countableResources
-    ])].sort();
-}
-
 export function validateCatalog(catalog)
 {
     const errors = [];
-    if (catalog?.schema !== 'fsusblog.release-reliability-scenario-catalog.v3')
+    if (catalog?.schema !== 'fsusblog.release-reliability-scenario-catalog.v4')
     {
-        errors.push(`catalog schema must be fsusblog.release-reliability-scenario-catalog.v3, found: ${catalog?.schema ?? '<missing>'}`);
+        errors.push(`catalog schema must be fsusblog.release-reliability-scenario-catalog.v4, found: ${catalog?.schema ?? '<missing>'}`);
     }
     if (!uniqueStrings(catalog?.canonicalScenarioIds))
     {
@@ -433,6 +424,11 @@ export function validateCatalog(catalog)
     if (!sameJson(catalog?.policyBindings, canonicalPolicyBindings))
     {
         errors.push('policyBindings must exactly equal the canonical qualification policy files');
+    }
+    if (catalog?.actionRegistry
+        !== 'config/testing/release-reliability-lifecycle-action-registry.json')
+    {
+        errors.push('actionRegistry must bind the canonical lifecycle action registry');
     }
     requireNonEmptyString(catalog?.lifecycleSchema, 'lifecycleSchema', errors);
     if (!Array.isArray(catalog?.scenarios) || catalog.scenarios.length !== catalog?.catalogScenarioCount)
@@ -535,11 +531,37 @@ export function validateCatalog(catalog)
         {
             errors.push(`${prefix} resource cannot be both exclusive and countable`);
         }
-        for (const phase of lifecyclePhases)
+        const lifecycle = scenario?.isolation?.lifecycle;
+        const expectedLifecycleKeys = [
+            'measurement',
+            'postconditions',
+            'preconditions',
+            'resetsAfter',
+            'resetsBefore'
+        ];
+        if (!lifecycle || typeof lifecycle !== 'object' || Array.isArray(lifecycle)
+            || JSON.stringify(Object.keys(lifecycle).sort())
+                !== JSON.stringify(expectedLifecycleKeys))
         {
+            errors.push(`${prefix}.isolation.lifecycle must use the structured v4 action plan`);
+        }
+        else
+        {
+            for (const field of [
+                'preconditions',
+                'resetsBefore',
+                'postconditions',
+                'resetsAfter'
+            ])
+            {
+                if (!sortedUniqueStringArray(lifecycle[field]))
+                {
+                    errors.push(`${prefix}.isolation.lifecycle.${field} must be a sorted unique action array`);
+                }
+            }
             requireNonEmptyString(
-                scenario?.isolation?.lifecycle?.[phase],
-                `${prefix}.isolation.lifecycle.${phase}`,
+                lifecycle.measurement,
+                `${prefix}.isolation.lifecycle.measurement`,
                 errors
             );
         }
@@ -590,6 +612,10 @@ export function loadCatalog({ catalogFile = catalogPath } = {})
     if (errors.length > 0)
     {
         throw new Error(`Invalid release reliability catalog:\n- ${errors.join('\n- ')}`);
+    }
+    if (path.resolve(catalogFile) === path.resolve(catalogPath))
+    {
+        loadLifecycleActionContracts({ repositoryRoot: root, catalog });
     }
     return catalog;
 }
@@ -643,207 +669,9 @@ export function prepareInvocationOutputs({
     fs.rmSync(resultPath(repositoryRoot, invocationId, scenarioId), { force: true });
 }
 
-function lifecyclePath(repositoryRoot, invocationId, scenarioId, phase)
-{
-    return path.join(
-        runRoot(repositoryRoot, invocationId),
-        'lifecycle',
-        safeSegment(scenarioId, 'scenarioId'),
-        `${phase}.json`
-    );
-}
-
 function repositoryRelative(repositoryRoot, file)
 {
     return path.relative(repositoryRoot, file).replaceAll(path.sep, '/');
-}
-
-function validateEvidence(document, expectedSchema, expectedBinding)
-{
-    if (document === null || typeof document !== 'object' || Array.isArray(document))
-    {
-        throw new Error('authoritative evidence must be a JSON object');
-    }
-    for (const field of expectedSchema.required)
-    {
-        if (!(field in document))
-        {
-            throw new Error(`authoritative evidence is missing required field: ${field}`);
-        }
-    }
-    if (!expectedSchema.passStatusValues.includes(document.status))
-    {
-        throw new Error(`authoritative evidence has non-passing status: ${document.status ?? '<missing>'}`);
-    }
-    if (expectedSchema.schema !== undefined && document.schema !== expectedSchema.schema)
-    {
-        throw new Error(`authoritative evidence schema mismatch: expected ${expectedSchema.schema}, found ${document.schema ?? '<missing>'}`);
-    }
-    if (JSON.stringify(document.releaseReliability) !== JSON.stringify(expectedBinding))
-    {
-        throw new Error('authoritative evidence is not bound to the current release reliability invocation');
-    }
-}
-
-function validateIsoTime(value, label)
-{
-    if (!isoTimePattern.test(String(value ?? '')) || !Number.isFinite(Date.parse(value)))
-    {
-        throw new Error(`${label} must be an ISO UTC time`);
-    }
-}
-
-function lifecycleReference({
-    repositoryRoot,
-    file,
-    phase,
-    scenario,
-    catalog,
-    invocationId,
-    runId,
-    identityReference
-})
-{
-    if (!fs.existsSync(file) || !fs.lstatSync(file).isFile() || fs.lstatSync(file).isSymbolicLink())
-    {
-        throw new Error(`${phase} lifecycle receipt is unavailable`);
-    }
-    const receipt = JSON.parse(fs.readFileSync(file, 'utf8'));
-    if (receipt.schema !== catalog.lifecycleSchema || receipt.status !== 'complete'
-        || receipt.phase !== phase || receipt.scenarioId !== scenario.id
-        || receipt.invocationId !== invocationId || receipt.runId !== runId
-        || receipt.identity?.path !== identityReference.path
-        || receipt.identity?.contentDigest !== identityReference.contentDigest)
-    {
-        throw new Error(`${phase} lifecycle receipt identity/schema/status mismatch`);
-    }
-    if (receipt.declaration !== scenario.isolation.lifecycle[phase]
-        || JSON.stringify(receipt.stateDomains) !== JSON.stringify(stateDomains(scenario)))
-    {
-        throw new Error(`${phase} lifecycle receipt state declaration mismatch`);
-    }
-    if (!receipt.state || typeof receipt.state.before !== 'string' || !receipt.state.before
-        || typeof receipt.state.after !== 'string' || !receipt.state.after
-        || !receipt.observations || typeof receipt.observations !== 'object'
-        || Array.isArray(receipt.observations) || Object.keys(receipt.observations).length === 0)
-    {
-        throw new Error(`${phase} lifecycle receipt lacks observed state`);
-    }
-    validateIsoTime(receipt.startedAt, `${phase}.startedAt`);
-    validateIsoTime(receipt.finishedAt, `${phase}.finishedAt`);
-    if (Date.parse(receipt.finishedAt) < Date.parse(receipt.startedAt)
-        || !digestPattern.test(receipt.contentDigest) || receipt.contentDigest !== digestValue(receipt))
-    {
-        throw new Error(`${phase} lifecycle receipt time/contentDigest is invalid`);
-    }
-    return {
-        path: repositoryRelative(repositoryRoot, file),
-        schema: receipt.schema,
-        phase,
-        scenarioId: scenario.id,
-        runId,
-        invocationId,
-        stateDomains: receipt.stateDomains,
-        status: receipt.status,
-        contentDigest: receipt.contentDigest,
-        startedAt: receipt.startedAt,
-        finishedAt: receipt.finishedAt
-    };
-}
-
-function validateLifecycleOrder(lifecycle)
-{
-    for (let index = 1; index < lifecyclePhases.length; index += 1)
-    {
-        const previous = lifecycle[lifecyclePhases[index - 1]];
-        const current = lifecycle[lifecyclePhases[index]];
-        if (Date.parse(current.startedAt) < Date.parse(previous.finishedAt))
-        {
-            throw new Error(`lifecycle phase ${current.phase} overlaps or precedes ${previous.phase}`);
-        }
-    }
-}
-
-function runProcess({ executable, args, cwd, env, stdoutLog, stderrLog, spawnProcess })
-{
-    return new Promise((resolve) =>
-    {
-        const startedAtMs = Date.now();
-        let child;
-        try
-        {
-            child = spawnProcess(executable, args, { cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
-        }
-        catch (error)
-        {
-            resolve({
-                startedAtMs,
-                finishedAtMs: Date.now(),
-                exitCode: null,
-                signal: null,
-                spawnError: error instanceof Error ? error.message : String(error)
-            });
-            return;
-        }
-        if (!child || typeof child.once !== 'function' || !child.stdout || !child.stderr)
-        {
-            resolve({
-                startedAtMs,
-                finishedAtMs: Date.now(),
-                exitCode: null,
-                signal: null,
-                spawnError: 'producer spawn did not return a child process with stdout and stderr streams'
-            });
-            return;
-        }
-        fs.mkdirSync(path.dirname(stdoutLog), { recursive: true });
-        const stdout = fs.createWriteStream(stdoutLog, { flags: 'w' });
-        const stderr = fs.createWriteStream(stderrLog, { flags: 'w' });
-        let logError = null;
-        for (const stream of [stdout, stderr])
-        {
-            stream.on('error', (error) =>
-            {
-                logError ??= error instanceof Error ? error.message : String(error);
-            });
-        }
-        child.stdout.pipe(stdout);
-        child.stderr.pipe(stderr);
-        let completed = false;
-        const complete = async (outcome) =>
-        {
-            if (completed)
-            {
-                return;
-            }
-            completed = true;
-            await Promise.all([stdout, stderr].map((stream) => new Promise((finish) =>
-            {
-                if (stream.writableFinished || stream.destroyed)
-                {
-                    finish();
-                    return;
-                }
-                stream.end(finish);
-            })));
-            resolve({
-                startedAtMs,
-                finishedAtMs: Date.now(),
-                ...outcome,
-                spawnError: outcome.spawnError ?? (logError === null ? null : `producer log capture failed: ${logError}`)
-            });
-        };
-        child.once('error', (error) => complete({
-            exitCode: null,
-            signal: null,
-            spawnError: error instanceof Error ? error.message : String(error)
-        }));
-        child.once('close', (exitCode, signal) => complete({
-            exitCode,
-            signal,
-            spawnError: null
-        }));
-    });
 }
 
 export async function executeScenario({
@@ -858,6 +686,7 @@ export async function executeScenario({
     identityReference,
     spawnProcess = spawn,
     ambientEnvironment = process.env,
+    lifecycleContracts = null,
     now = () => new Date().toISOString()
 })
 {
@@ -873,31 +702,9 @@ export async function executeScenario({
     {
         throw new Error(`Unknown scenario: ${scenarioId}`);
     }
-    const commandCwd = relativePath(repositoryRoot, scenario.command.cwd, 'command cwd', { allowRoot: true });
     const commandToolId = path.basename(scenario.command.executable).replace(/\.exe$/iu, '');
     const resolvedExecutable = identity?.tools?.find((tool) => tool.id === commandToolId)?.executable
         ?? scenario.command.executable;
-    const evidenceFile = relativePath(repositoryRoot, scenario.authoritativeEvidence.path, 'authoritative evidence');
-    const invocationRoot = runRoot(repositoryRoot, invocationId);
-    const stdoutLog = path.join(invocationRoot, 'logs', `${scenario.id}.stdout.log`);
-    const stderrLog = path.join(invocationRoot, 'logs', `${scenario.id}.stderr.log`);
-    const lifecycleFiles = Object.fromEntries(lifecyclePhases.map((phase) => [
-        phase,
-        lifecyclePath(repositoryRoot, invocationId, scenario.id, phase)
-    ]));
-    const cleanupTargets = [evidenceFile, ...Object.values(lifecycleFiles)];
-    let cleanupFailure = null;
-    try
-    {
-        for (const file of cleanupTargets)
-        {
-            fs.rmSync(file, { force: true });
-        }
-    }
-    catch (error)
-    {
-        cleanupFailure = error instanceof Error ? error.message : String(error);
-    }
     const verifiedBackendContainerId = identity?.fixture?.topology?.content
         ?.runtime?.backendContainer?.id;
     const verifiedBackendHostPid = identity?.fixture?.topology?.content
@@ -907,7 +714,7 @@ export async function executeScenario({
     ) && Number.isInteger(verifiedBackendHostPid) && verifiedBackendHostPid > 1;
     let childEnvironment = null;
     let environmentFailure = null;
-    if (cleanupFailure === null && identity?.status === 'complete')
+    if (identity?.status === 'complete')
     {
         try
         {
@@ -926,11 +733,7 @@ export async function executeScenario({
                             FSUSBLOG_RELEASE_RESOURCE_CONTAINER_ID: verifiedBackendContainerId,
                             FSUSBLOG_RELEASE_RESOURCE_PID: String(verifiedBackendHostPid)
                         }
-                        : {}),
-                    FSUSBLOG_RELEASE_RELIABILITY_LIFECYCLE_ROOT: repositoryRelative(
-                        repositoryRoot,
-                        path.dirname(lifecycleFiles.precondition)
-                    )
+                        : {})
                 }
             });
         }
@@ -939,108 +742,73 @@ export async function executeScenario({
             environmentFailure = error instanceof Error ? error.message : String(error);
         }
     }
-    const canRun = cleanupFailure === null && identity?.status === 'complete'
-        && environmentFailure === null;
-    const outcome = canRun
-        ? await runProcess({
-            executable: resolvedExecutable,
-            args: scenario.command.args,
-            cwd: commandCwd,
-            env: childEnvironment,
-            stdoutLog,
-            stderrLog,
+    const contracts = lifecycleContracts ?? loadLifecycleActionContracts({
+        repositoryRoot,
+        catalog
+    });
+    const cannotRun = identity?.status !== 'complete'
+        ? 'run identity is incomplete; lifecycle actions were not executed'
+        : environmentFailure === null
+            ? null
+            : `child environment contract failed: ${environmentFailure}`;
+    const lifecycle = cannotRun === null
+        ? await executeLifecycleActionPlan({
+            contracts,
+            scenario,
+            repositoryRoot,
+            invocationId,
+            runId,
+            identity,
+            identityReference,
+            actionEnvironment: {
+                ...childEnvironment,
+                ...Object.fromEntries([
+                    'FSUSBLOG_DATA_SCALE_RUNTIME_RECEIPT_PATH',
+                    'FSUSBLOG_DATA_SCALE_TEARDOWN_RECEIPT_PATH',
+                    'FSUSBLOG_RELEASE_RELIABILITY_PROCESS_TREE_RECEIPT_PATH'
+                ].filter((key) => ambientEnvironment[key]).map((key) => [
+                    key,
+                    String(ambientEnvironment[key])
+                ]))
+            },
+            measurementEnvironment: childEnvironment,
             spawnProcess
         })
         : {
-            startedAtMs: Date.now(),
-            finishedAtMs: Date.now(),
-            exitCode: null,
-            signal: null,
-            spawnError: null
+            status: 'failed',
+            actions: [],
+            verifiedActionReceipts: [],
+            resetPostObservation: { status: 'failed', postStateDigest: null },
+            finalPostObservation: { status: 'failed', postStateDigest: null },
+            measurementRecord: null,
+            firstFailure: {
+                actionId: null,
+                phase: 'admission',
+                kind: 'verification',
+                message: cannotRun
+            },
+            cleanupFailures: []
         };
-    let failure = null;
-    if (cleanupFailure)
-    {
-        failure = `freshness cleanup failed: ${cleanupFailure}`;
-    }
-    else if (identity?.status !== 'complete')
-    {
-        failure = 'run identity is incomplete; producer was not executed';
-    }
-    else if (environmentFailure)
-    {
-        failure = `child environment contract failed: ${environmentFailure}`;
-    }
-    else if (outcome.spawnError)
-    {
-        failure = `producer spawn failed: ${outcome.spawnError}`;
-    }
-    else if (outcome.signal)
-    {
-        failure = `producer terminated by signal: ${outcome.signal}`;
-    }
-    else if (outcome.exitCode !== 0)
-    {
-        failure = `producer exited with code: ${outcome.exitCode}`;
-    }
-
-    const expectedEvidenceBinding = {
-        invocationId,
-        runId,
-        scenarioId: scenario.id,
-        identityContentDigest: identityReference.contentDigest,
-        sourceState: identity.sourceState,
-        buildContentDigest: identity.build.contentDigest
-    };
-    let evidence = null;
-    let lifecycle = null;
-    if (failure === null)
-    {
-        try
-        {
-            if (!fs.existsSync(evidenceFile) || !fs.lstatSync(evidenceFile).isFile()
-                || fs.lstatSync(evidenceFile).isSymbolicLink())
-            {
-                throw new Error(`authoritative evidence was not produced: ${scenario.authoritativeEvidence.path}`);
-            }
-            const bytes = fs.readFileSync(evidenceFile);
-            const document = JSON.parse(bytes.toString('utf8'));
-            validateEvidence(document, scenario.authoritativeEvidence.expectedSchema, expectedEvidenceBinding);
-            evidence = {
-                path: scenario.authoritativeEvidence.path,
-                digest: sha256(bytes),
-                schema: document.schema ?? null,
-                status: document.status
-            };
-            lifecycle = Object.fromEntries(lifecyclePhases.map((phase) => [
-                phase,
-                lifecycleReference({
-                    repositoryRoot,
-                    file: lifecycleFiles[phase],
-                    phase,
-                    scenario,
-                    catalog,
-                    invocationId,
-                    runId,
-                    identityReference
-                })
-            ]));
-            validateLifecycleOrder(lifecycle);
-            if (Date.parse(lifecycle.precondition.startedAt) < outcome.startedAtMs
-                || Date.parse(lifecycle.postcondition.finishedAt) > outcome.finishedAtMs)
-            {
-                throw new Error('lifecycle receipts escape the producer process window');
-            }
-        }
-        catch (error)
-        {
-            failure = error instanceof Error ? error.message : String(error);
-        }
-    }
+    const measurement = lifecycle.measurementRecord;
+    const evidenceReference = measurement?.receipt ?? null;
+    const evidence = evidenceReference === null
+        ? null
+        : {
+            path: evidenceReference.path,
+            digest: evidenceReference.bytesDigest,
+            schema: evidenceReference.schema,
+            status: evidenceReference.status
+        };
+    const failure = lifecycle.firstFailure?.message ?? null;
+    const actionTimes = lifecycle.actions.filter(
+        (action) => action.startedAt !== null && action.finishedAt !== null
+    );
+    const startedAt = actionTimes[0]?.startedAt ?? now();
+    const finishedAt = actionTimes.at(-1)?.finishedAt ?? startedAt;
 
     const resultFile = resultPath(repositoryRoot, invocationId, scenario.id);
     const result = sealDocument({
-        schema: 'fsusblog.release-reliability-scenario-result.v2',
+        schema: 'fsusblog.release-reliability-scenario-result.v3',
         invocationId,
         runId,
         scenarioId: scenario.id,
@@ -1048,11 +816,11 @@ export async function executeScenario({
         owner: scenario.owner,
         resourceClass: scenario.resourceClass,
         evidenceClass,
-        qualificationEligible,
-        status: failure === null ? 'passed' : 'failed',
+        qualificationEligible: qualificationEligible && lifecycle.status === 'passed',
+        status: lifecycle.status,
         identity: identityReference,
-        startedAt: new Date(outcome.startedAtMs).toISOString(),
-        finishedAt: new Date(outcome.finishedAtMs).toISOString(),
+        startedAt,
+        finishedAt,
         producer: {
             executable: resolvedExecutable,
             args: scenario.command.args,
@@ -1060,12 +828,20 @@ export async function executeScenario({
             environmentContract: scenarioEnvironmentContract(catalog, scenario),
             cwd: scenario.command.cwd,
             commandDigest: sha256(JSON.stringify(scenario.command)),
-            exitCode: outcome.exitCode,
-            signal: outcome.signal,
-            stdoutLog: repositoryRelative(repositoryRoot, stdoutLog),
-            stderrLog: repositoryRelative(repositoryRoot, stderrLog)
+            exitCode: measurement?.exitCode ?? null,
+            signal: measurement?.signal ?? null,
+            timedOut: measurement?.timedOut ?? false,
+            stdoutLog: measurement?.stdoutLog ?? null,
+            stderrLog: measurement?.stderrLog ?? null
         },
-        lifecycle,
+        lifecycle: {
+            actions: lifecycle.actions,
+            verifiedActionReceipts: lifecycle.verifiedActionReceipts,
+            resetPostObservation: lifecycle.resetPostObservation,
+            finalPostObservation: lifecycle.finalPostObservation
+        },
+        firstFailure: lifecycle.firstFailure,
+        cleanupFailures: lifecycle.cleanupFailures,
         authoritativeEvidence: evidence,
         outputs: evidence === null
             ? []
@@ -1089,6 +865,7 @@ export async function executeScenarios({
     identityReference,
     spawnProcess = spawn,
     ambientEnvironment = process.env,
+    lifecycleContracts = null,
     now = () => new Date().toISOString()
 })
 {
@@ -1111,6 +888,8 @@ export async function executeScenarios({
     {
         throw new Error(`Unknown scenario: ${scenarioId}`);
     }
+    const resolvedLifecycleContracts = lifecycleContracts
+        ?? loadLifecycleActionContracts({ repositoryRoot, catalog });
     const results = [];
     for (const scenario of scenarios)
     {
@@ -1126,6 +905,7 @@ export async function executeScenarios({
             identityReference,
             spawnProcess,
             ambientEnvironment,
+            lifecycleContracts: resolvedLifecycleContracts,
             now
         }));
     }
@@ -1197,6 +977,10 @@ async function main()
         path: repositoryRelative(root, identityFile),
         contentDigest: identity.contentDigest
     };
+    const lifecycleContracts = loadLifecycleActionContracts({
+        repositoryRoot: root,
+        catalog
+    });
     const results = await executeScenarios({
         catalog,
         scenarioId: scenario,
@@ -1205,7 +989,8 @@ async function main()
         invocationId,
         runId,
         identity,
-        identityReference
+        identityReference,
+        lifecycleContracts
     });
     for (const result of results)
     {
@@ -1235,6 +1020,7 @@ async function main()
                 contentDigest: timeline.contentDigest
             },
             catalog,
+            lifecycleContracts,
             createdAt
         });
         const receiptFile = path.join(invocationRoot, 'candidate-receipt.json');
