@@ -1,4 +1,4 @@
-import { defineConfig, loadEnv, type ProxyOptions } from 'vite'
+import { defineConfig, loadEnv, type Plugin, type ProxyOptions } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueJsx from '@vitejs/plugin-vue-jsx'
 import tailwindcss from '@tailwindcss/vite'
@@ -133,9 +133,6 @@ function resolveManualChunk(id: string): string | undefined {
         if (id.includes('/src/views/auth/')) {
             return 'route-auth'
         }
-        if (id.includes('/src/bootstrap/publicShellPrimitives.ts')) {
-            return 'entry-runtime'
-        }
         if (
             id.includes('/src/public-renderers/publicRouteRegistry.ts') ||
             id.includes('/src/public-renderers/publicRoutePaths.ts') ||
@@ -165,9 +162,6 @@ function resolveManualChunk(id: string): string | undefined {
         return undefined
     }
 
-    if (id.includes('/node_modules/@ozwasyd/element-plus/es/components/config-provider/src/theme-mode')) {
-        return 'entry-runtime'
-    }
     if (
         id.includes('/node_modules/@ozwasyd/element-plus/') ||
         id.includes('/node_modules/@element-plus/')
@@ -452,6 +446,97 @@ const publicSourceCssDevLinks = [
     }
 ]
 
+const productionManifestStyleOwners = [
+    {
+        owner: 'public-shell-critical',
+        source: '/src/assets/public-shell-critical.css'
+    },
+    {
+        owner: 'tailwind',
+        source: '/src/assets/tailwind.css'
+    },
+    {
+        owner: 'markdown',
+        source: '/src/assets/markdown.css'
+    },
+    {
+        owner: 'public-page',
+        source: '/src/assets/public-page.css'
+    }
+] as const
+const productionManifestOwnerRequestPrefix = '/@fsusblog-manifest-owner/'
+const productionManifestOwnerResolvedPrefix = '\0fsusblog:manifest-owner:'
+
+function productionManifestOwnerModuleId(owner: string): string {
+    return `${productionManifestOwnerResolvedPrefix}${owner}`
+}
+
+function preserveProductionManifestOwners(): Plugin {
+    const styleByOwner = new Map(
+        productionManifestStyleOwners.map((style) => [style.owner, style])
+    )
+    const owners = ['entry-runtime', ...styleByOwner.keys()]
+
+    return {
+        name: 'preserve-production-manifest-owners',
+        apply: 'build' as const,
+        resolveId(source: string) {
+            if (!source.startsWith(productionManifestOwnerRequestPrefix)) {
+                return undefined
+            }
+
+            const owner = source.slice(productionManifestOwnerRequestPrefix.length)
+            return owners.includes(owner)
+                ? productionManifestOwnerModuleId(owner)
+                : undefined
+        },
+        load(id: string) {
+            if (id === productionManifestOwnerModuleId('entry-runtime')) {
+                return `Object.freeze({ owner: 'entry-runtime' })`
+            }
+
+            const owner = id.startsWith(productionManifestOwnerResolvedPrefix)
+                ? id.slice(productionManifestOwnerResolvedPrefix.length)
+                : ''
+            const style = styleByOwner.get(owner as typeof productionManifestStyleOwners[number]['owner'])
+            if (!style) {
+                return undefined
+            }
+
+            // Rolldown removes CSS-only facades. A frozen, discarded owner
+            // marker keeps a non-entry manifest chunk without runtime state.
+            return `
+                import ${JSON.stringify(style.source)}
+                Object.freeze({ owner: ${JSON.stringify(style.owner)} })
+            `
+        },
+        transformIndexHtml: {
+            order: 'pre' as const,
+            handler() {
+                return owners.map((owner) => ({
+                    tag: 'script',
+                    attrs: {
+                        type: 'module',
+                        src: `${productionManifestOwnerRequestPrefix}${owner}`
+                    },
+                    injectTo: 'head' as const
+                }))
+            }
+        },
+        generateBundle(_options, bundle) {
+            // The kernel remains a standalone Rolldown input so build.mjs can
+            // publish its stable alias without creating an index -> kernel ->
+            // index dependency cycle. It is a preload target, not the SPA
+            // document entry, so only index may carry isEntry in the manifest.
+            for (const output of Object.values(bundle)) {
+                if (output.type === 'chunk' && output.name === 'publicBootKernel') {
+                    output.isEntry = false
+                }
+            }
+        }
+    }
+}
+
 function injectPublicSourceCssInDev() {
     return {
         name: 'inject-public-source-css-in-dev',
@@ -618,6 +703,7 @@ export default defineConfig(({ command, mode }) => {
             applyDevelopmentSecurityHeaders(),
             rejectRetiredBrandEntrypoints(),
             injectPublicSourceCssInDev(),
+            preserveProductionManifestOwners(),
             fixViteClientWorkerDocumentGuard(),
             serveFsusUiOptimizedWasmAssets(fsusUiWasmDist),
             servePublicAotHydrationSidecars(),
@@ -718,11 +804,27 @@ export default defineConfig(({ command, mode }) => {
                             codeSplitting: {
                                 includeDependenciesRecursively: false,
                                 groups: [
+                                    ...productionManifestStyleOwners.map(({ owner, source }) => ({
+                                        name: owner,
+                                        test(moduleId: string) {
+                                            return moduleId === productionManifestOwnerModuleId(owner)
+                                                || moduleId.replaceAll('\\', '/').includes(source)
+                                        },
+                                        priority: 120,
+                                        minSize: 0
+                                    })),
                                     {
                                         name: 'entry-runtime',
-                                        test: /node_modules[\\/]@ozwasyd[\\/]element-plus[\\/]es[\\/]components[\\/]config-provider[\\/]src[\\/]theme-mode/,
+                                        test: (moduleId: string) =>
+                                            moduleId === productionManifestOwnerModuleId('entry-runtime'),
                                         priority: 110,
-                                        minSize: 4096
+                                        minSize: 0
+                                    },
+                                    {
+                                        name: 'publicBootKernel',
+                                        test: /[\\/]src[\\/]bootstrap[\\/]publicBootKernel\.ts$/u,
+                                        priority: 105,
+                                        minSize: 0
                                     },
                                     {
                                         name: 'vendor-element-plus',

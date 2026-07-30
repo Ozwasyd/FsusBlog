@@ -145,8 +145,9 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
     }.ToFrozenSet(StringComparer.Ordinal);
 
     // Machine-readable catalog: each owner must occur exactly once as a manifest entry name.
+    // The HTML owner "index" is additionally the manifest's only primary entry.
     private const string RequiredEntryCatalogJson = """
-        {"owners":["route-public","entry-runtime","public-page-runtime","public-shell-critical","tailwind","public-page","full-app-core","route-user","route-admin","route-auth","route-error"]}
+        {"owners":["index","entry-runtime","public-page-runtime","public-shell-critical","tailwind","markdown","public-page","full-app-core","route-user","route-admin","route-auth","route-error"]}
         """;
 
     private readonly IWebHostEnvironment _env;
@@ -528,7 +529,7 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
 
             FrozenDictionary<string, ManifestAsset> manifestSnapshot = newManifest.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
             ValidateRequiredEntryCatalog(manifestSnapshot);
-            ValidateImportGraph(manifestSnapshot);
+            ValidateImportReferences(manifestSnapshot);
             SpaAssetSetReceipt assetSetReceipt = CreateAssetSetReceipt(manifestSnapshot, descriptor);
             string frontendAssetVersion = isDevelopment
                 ? ComputeDevelopmentAssetVersion(manifestSnapshot, descriptor.IndexPath)
@@ -574,7 +575,7 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
             FrontendBuildIdentity = _releaseIdentity.Current.ReleaseId,
             FullAppTakeover = new FullAppTakeoverAssetSet(
                 PickFullAppTakeoverModulePreloads(manifest),
-                PickFullAppTakeoverStylesheets(manifest, publicStylesheets)),
+                PickFullAppTakeoverStylesheets(manifest)),
             AssetSetDigest = assetSetDigest
         };
     }
@@ -832,10 +833,12 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
             .ToArray();
 
     private static IReadOnlyList<string> PickFullAppTakeoverStylesheets(
-        IReadOnlyDictionary<string, ManifestAsset> manifest,
-        IReadOnlyList<string> publicStylesheets)
+        IReadOnlyDictionary<string, ManifestAsset> manifest)
     {
-        var publicSet = publicStylesheets.ToHashSet(StringComparer.Ordinal);
+        HashSet<string> publicSet = s_publicBaseCssOwners
+            .Concat(s_publicMarkdownCssOwners)
+            .SelectMany(owner => GetOwnedCss(manifest, owner))
+            .ToHashSet(StringComparer.Ordinal);
         return s_fullAppTakeoverCssOwners
             .SelectMany(owner => GetOwnedCss(manifest, owner))
             .Where(href => !publicSet.Contains(href))
@@ -1134,6 +1137,7 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         string[] imports = ReadManifestStringArray(entry, "imports");
         string[] dynamicImports = ReadManifestStringArray(entry, "dynamicImports");
         string[] assets = ReadManifestStringArray(entry, "assets");
+        bool isEntry = ReadManifestBoolean(entry, "isEntry");
         ValidateManifestProperties(entry);
         return new ManifestAsset(
             key,
@@ -1143,7 +1147,8 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
             [.. css.Select(ToAssetHref)],
             imports,
             dynamicImports,
-            [.. assets.Select(ToAssetHref)]);
+            [.. assets.Select(ToAssetHref)],
+            isEntry);
     }
 
     private static bool HasDuplicateProperties(JsonElement entry)
@@ -1206,6 +1211,19 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
             item.ValueKind)).ToArray();
     }
 
+    private static bool ReadManifestBoolean(JsonElement entry, string propertyName)
+    {
+        if (!entry.TryGetProperty(propertyName, out JsonElement value))
+        {
+            return false;
+        }
+        if (value.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+        {
+            throw new SpaManifestValidationException("spa_manifest_schema_invalid");
+        }
+        return value.GetBoolean();
+    }
+
     private static string RequireManifestString(string? value, string propertyName, JsonValueKind? kind = null)
     {
         if (kind is not null && kind != JsonValueKind.String || string.IsNullOrWhiteSpace(value))
@@ -1221,45 +1239,39 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         JsonElement owners = catalog.RootElement.GetProperty("owners");
         if (owners.ValueKind != JsonValueKind.Array)
             throw new SpaManifestValidationException("spa_manifest_required_catalog_invalid");
+        ManifestAsset? htmlEntry = null;
         foreach (JsonElement ownerElement in owners.EnumerateArray())
         {
             string owner = RequireManifestString(ownerElement.GetString(), "owner", ownerElement.ValueKind);
-            int matches = manifest.Values.Count(asset => string.Equals(asset.Name, owner, StringComparison.Ordinal));
-            if (matches != 1)
+            ManifestAsset[] matches = manifest.Values
+                .Where(asset => string.Equals(asset.Name, owner, StringComparison.Ordinal))
+                .ToArray();
+            if (matches.Length != 1)
                 throw new SpaManifestValidationException("spa_manifest_required_entry_invalid");
+            if (string.Equals(owner, "index", StringComparison.Ordinal))
+            {
+                htmlEntry = matches[0];
+            }
+        }
+        if (htmlEntry is null
+            || !htmlEntry.IsEntry
+            || manifest.Values.Count(static asset => asset.IsEntry) != 1)
+        {
+            throw new SpaManifestValidationException("spa_manifest_required_entry_invalid");
         }
     }
 
-    private static void ValidateImportGraph(IReadOnlyDictionary<string, ManifestAsset> manifest)
+    private static void ValidateImportReferences(IReadOnlyDictionary<string, ManifestAsset> manifest)
     {
-        var visiting = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (string key in manifest.Keys)
+        foreach (ManifestAsset asset in manifest.Values)
         {
-            Visit(key);
-        }
-        return;
-
-        void Visit(string key)
-        {
-            if (visited.Contains(key))
+            foreach (string import in asset.Imports.Concat(asset.DynamicImports))
             {
-                return;
+                if (!manifest.ContainsKey(import))
+                {
+                    throw new SpaManifestValidationException("spa_manifest_import_missing");
+                }
             }
-            if (!manifest.ContainsKey(key))
-            {
-                throw new SpaManifestValidationException("spa_manifest_import_missing");
-            }
-            if (!visiting.Add(key))
-            {
-                throw new SpaManifestValidationException("spa_manifest_import_cycle");
-            }
-            foreach (string import in manifest[key].Imports)
-            {
-                Visit(import);
-            }
-            visiting.Remove(key);
-            visited.Add(key);
         }
     }
 
@@ -1382,7 +1394,8 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         IReadOnlyList<string> Css,
         IReadOnlyList<string> Imports,
         IReadOnlyList<string> DynamicImports,
-        IReadOnlyList<string> Assets);
+        IReadOnlyList<string> Assets,
+        bool IsEntry);
 
     private sealed record ManifestAssetSnapshot(
         FrozenDictionary<string, IReadOnlyList<string>> RouteAssetMap,

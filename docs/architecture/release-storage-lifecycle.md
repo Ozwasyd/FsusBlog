@@ -74,12 +74,34 @@ search another `dist`, webroot asset directory, mtime, or latest candidate.
 
 The Vite manifest is parsed as strict UTF-8 JSON into a typed model; a truncated
 or partially readable document never supplies a usable subset. The required-entry
-catalog is machine-readable and each owner must match exactly one entry. Every
-`file` and `css` reference must be a relative `assets/` path, exist in the sealed
-inventory, and resolve to a file whose SHA-256 equals that inventory entry. Imports
-must resolve to an entry in the same validated manifest graph, which rejects cycles.
-Production readiness remains failed until all of these checks, including the
-descriptor/receipt/inventory binding, succeed.
+catalog is machine-readable and requires exactly one entry for each of `index`,
+`entry-runtime`, `public-page-runtime`, `public-shell-critical`, `tailwind`,
+`markdown`, `public-page`, `full-app-core`, `route-user`, `route-admin`,
+`route-auth`, and `route-error`. `index` must be the manifest's only `isEntry`
+owner. The standalone Public Boot kernel remains a separately emitted preload
+target but is not a second primary document entry. The four public stylesheet
+owners use explicit build-only owner facades and priority-stable, zero-minimum-size
+chunk groups so each owner retains its own `css` binding instead of collapsing
+into `index`.
+
+Every `file` and `css` reference must be a relative `assets/` path, exist in the
+sealed inventory, and resolve to a file whose SHA-256 equals that inventory entry.
+Every static and dynamic import key must resolve to an entry in the same validated
+manifest. Vite/Rolldown may emit legitimate circular chunk relationships, so the
+runtime traverses those graphs with a visited set and deduplicates assets rather
+than requiring a DAG; dangling references still fail closed. Public stylesheets,
+including the article-only markdown owner, are excluded from the full-app takeover
+stylesheet set even when a circular runtime graph makes them reachable from a
+takeover owner. Production readiness remains failed until all of these checks,
+including the descriptor/receipt/inventory binding, succeed.
+
+`SpaAssetManifestServiceTests.ProductionBuildManifest_SealedRuntimeFixture_IsReadyAndSelectsPublicAndTakeoverAssets`
+runs the production frontend producer into an isolated temporary dist, validates
+the exact owner and primary-entry contract, seals the actual manifest bytes and
+complete file inventory into a receipt and descriptor, and then exercises runtime
+readiness plus public and takeover asset selection. Synthetic fixtures cover each
+missing or duplicate required owner, an invalid primary-entry shape, dangling
+static and dynamic imports, and bounded traversal of a circular graph.
 
 After that validation the runtime derives one canonical asset-set receipt. It
 retains descriptor generation plus raw manifest and inventory digests for audit,
