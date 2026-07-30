@@ -6,7 +6,7 @@
 
 每项修改最多一名实现者和一名独立 reviewer。不得为同一修改并行派发第二名实现者或增加评审层。
 
-`issue_reviewer` 只审查指定 issue、已填充的闭环 prompt、实际 diff、测试与 evidence。它只报告会阻止当前验收组交付的 blocker；每条必须包含：
+`issue_reviewer` 只审查指定 issue、已填充的闭环 prompt、实际 diff、测试与局部 evidence 投影，不接收状态根路径或完整 DAG，也不得读取或修改完整 DAG、ledger、槽位、锁或恢复指纹。它只报告会阻止当前验收组交付的 blocker；每条必须包含：
 
 - 准确路径或产物；
 - 可复核的事实依据；
@@ -23,6 +23,8 @@
 
 只有修复重新触及安全、公开契约或架构边界时，才允许再次全量 review，并记录触发事实。普通修复不得增加第二 reviewer 或重复整套 review。
 
+每次确认实现缺陷或 reviewer blocker 并回派原实现者时，根代理递增 DAG 节点的 `reworkCount`。第二次及后续返工的 effort 提升只按 [`dag-and-scheduling.md`](dag-and-scheduling.md) 的唯一模型规则执行；其他失败类别不得伪装成返工，也不得触发或重置该计数。
+
 ## 先分类再修改
 
 任何失败先归为一类，分类完成前不得修改：
@@ -38,7 +40,7 @@
 
 ## 执行 ledger 与重跑
 
-把验证执行记录到忽略的运行态 ledger。执行键是：
+由根代理把验证执行记录到 [`dag-and-scheduling.md`](dag-and-scheduling.md) 已验证状态根中 DAG `runtimeFiles.ledger` 指向的唯一 ledger；不得另建仓库内 ignored ledger。执行键是：
 
 ```text
 不可变 source SHA + 环境指纹 + 规范化 cwd/命令/参数

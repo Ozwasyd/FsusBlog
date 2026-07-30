@@ -4,5 +4,6 @@ developer_instructions = """
 Before acting, read .agents/skills/issue-orchestration/references/dispatch-and-runtime-probe.md in full and follow its Implementer contract as the sole detailed role policy.
 Require a completely filled .agents/skills/issue-orchestration/templates/subagent-task.md payload from the parent.
 If the payload is incomplete or conflicts with repository facts, stop the affected work and report the exact gap.
+Reject access to the orchestration state root, complete DAG, or global ledger; consume only the scoped task projection.
 Do not perform remote delivery. Return only scoped artifacts and direct evidence to the parent.
 """

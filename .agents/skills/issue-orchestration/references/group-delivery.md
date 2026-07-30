@@ -23,6 +23,41 @@
 
 dry-run 必须生成同样的逐步交付计划，但停在第一个 commit、push、评论或 close 动作之前，并明确标记未执行；不得伪造远端结果。
 
+## CI evidence 与关闭
+
+交付后把自动化结果严格区分为三类：
+
+| 状态 | 语义 | 动作 |
+| --- | --- | --- |
+| CI 实际执行并通过 | 已取得 CI pass evidence | 与其他验收 evidence 一并复核 |
+| CI 未创建或未启动 | 未取得 CI evidence；包括额度、计费、spending limit 或平台自动化不可用 | 不得写成 pass；按下述等价本地门禁判断能否 completed |
+| CI 实际执行并失败 | 已取得真实失败 evidence | 进入实现/测试/环境/调用分类，不得使用未执行例外 |
+
+CI 未创建或未启动时，只有以下条件全部成立，才不得以该外部状态为唯一理由阻止 issue 以 `completed` 关闭：
+
+1. 实现已经提交并推送到目标默认分支，且远端 commit 内容已复读；
+2. 所有可在本地等价执行的必需验收在同一候选基线通过，并记录命令、环境、退出状态和 evidence；
+3. 未执行 CI 与本地验收之间不存在已知语义缺口；存在不可本地替代的强制 CI 专属门禁时不适用；
+4. 当前不存在已知实现、产品、公开契约、安全或测试缺陷；
+5. 完成评论明确列出未执行 checks、外部原因、等价本地命令和结果，且不声称 CI passed。
+
+候选 SHA 漂移、本地等价验收失败、CI 实际失败或存在不可替代 CI 专属门禁时，issue 保持 open 并进入正常失败分类。不得放宽阈值、弱化/删除测试、刷新正确基线或把真实失败改写成计费问题。
+
+workflow 后续恢复并在已关闭候选上暴露真实缺陷时，重新打开原 issue，或在边界已独立时建立引用原 issue 与 commit 的原子缺陷 issue。
+
+关闭前把上述事实写入状态根内 `issue-orchestration.delivery-evidence.v1` JSON，并运行：
+
+```bash
+node .agents/skills/issue-orchestration/scripts/evaluate-delivery-closure.mjs \
+  --state-root <state-root> \
+  --input <state-root>/delivery-evidence.json \
+  --repository <FsusBlog-root> \
+  --repository <FsusUI-root> \
+  --workspace <common-or-launch-workspace>
+```
+
+只有输出 `closeAllowed=true` 才执行 close。该脚本只判定关闭门禁，不评论、不关闭 issue，也不把 `not_started` 转写为 CI pass。
+
 ## 分支与 worktree
 
 可为隔离本地实现使用分支或 worktree，但只有根代理可直接 push `master`/`main`。不得创建或遗留无意义的 `codex/*` 分支、draft PR、worktree、锁或无关提交。验收组交付或放弃后，先核对远端与本地引用，再清理只属于该组的临时资源。
@@ -36,3 +71,5 @@ dry-run 必须生成同样的逐步交付计划，但停在第一个 commit、pu
 ## Terminal 前本地交付
 
 将 issue 转为 terminal candidate 前，完成并推送全部本地可行工作；若这部分与其他 issue 重合，按正常验收组交付。随后回到 [`dag-and-scheduling.md`](dag-and-scheduling.md) 的 Terminal 合同：issue 保持 open，并使用那里唯一规定的证据、评论、恢复条件和重派门禁。
+
+CI 计费、额度或平台侧未启动 job 不能单独成为 terminal blocker。满足本文件等价本地关闭门禁时直接 completed；只有存在不可替代的强制 CI 专属门禁或其他直接外部阻碍时，才可能按 DAG reference 进入 `externally_blocked`。

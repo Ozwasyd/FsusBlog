@@ -48,6 +48,11 @@
             "classification": "documentation"
         },
         {
+            "path": "examples",
+            "classification": "source-exception",
+            "architecturalException": "Plugin authoring examples and their checked-in runtime fixtures remain isolated from product source and shipping assemblies."
+        },
+        {
             "path": "ops",
             "classification": "source-exception",
             "architecturalException": "Operator-owned deployment scripts stay outside application source and are never compiled into the product."

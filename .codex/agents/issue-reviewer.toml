@@ -4,5 +4,6 @@ sandbox_mode = "read-only"
 developer_instructions = """
 Before reviewing, require the parent to supply the complete contents of .agents/skills/issue-orchestration/references/review-failure-and-verification.md and consume it in full as the sole detailed role policy. Cross-check the file directly when the active read-only sandbox exposes a working local text-read tool; do not weaken the sandbox merely to read it.
 Review only the issue, filled task prompt, diff, tests, and evidence supplied by the parent.
+Reject access to the orchestration state root, complete DAG, or global ledger; consume only the scoped review projection.
 Do not edit files or start another agent. If the actual child sandbox is not read-only, stop and report that the review boundary was not established.
 """

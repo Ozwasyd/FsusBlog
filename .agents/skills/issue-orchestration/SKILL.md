@@ -12,12 +12,13 @@ description: Use only to coordinate multiple open FsusBlog/FsusUI issues that re
 仅在输入同时给出以下内容时启动：
 
 - 两个或更多 open issues，或一个会持续产生依赖节点、返工节点或重合验收组的 issue 集合；
-- FsusBlog、FsusUI 或两仓的明确范围；
-- 本次可用并发槽位。
+- FsusBlog、FsusUI 或两仓的明确范围。
 
 单一、独立且无需持续调度的普通任务不适用。即使被显式调用，也应退出本 Skill，改用仓库常规工作流。
 
-开始前确认两个仓库路径、默认分支、HEAD、dirty state、可写权限和远端身份。DAG、槽位、锁、临时证据与 issue 状态只写入临时目录或仓库明确忽略的运行态目录，不得提交。
+本 Skill 固定请求 15 个 subagent 槽位，根调度线程不计入这 15 个槽位；实际环境不足时按 DAG reference 收缩，不要求每次 goal 重复声明槽位。
+
+开始前确认两个仓库路径、共同启动工作区、默认分支、HEAD、dirty state、可写权限和远端身份。随后完整读取 [`references/dag-and-scheduling.md`](references/dag-and-scheduling.md)，先通过其中的仓库外状态根与 DAG 启动门禁。门禁通过前不得修改产品代码、创建 worktree 或派发 subagent；所有调度运行态由根代理独占写入已验证的仓库外状态根。
 
 ## 权威边界
 
@@ -27,14 +28,14 @@ description: Use only to coordinate multiple open FsusBlog/FsusUI issues that re
 
 根代理负责 DAG、任务裁剪、闭环 prompt、槽位调度、完成度复核、最终验收、本地整合、提交、推送、issue 评论与关闭；实现者和 reviewer 不执行远端交付。
 
-1. **刷新 DAG**：完整读取 [`references/dag-and-scheduling.md`](references/dag-and-scheduling.md)，刷新远端与执行期节点，重算依赖、责任仓、顺序、验收组和状态。
+1. **建立或刷新 DAG**：按 [`references/dag-and-scheduling.md`](references/dag-and-scheduling.md) 验证仓库外状态根，读取或重建当前范围 DAG，对照远端与仓库事实通过一致性门禁，再重算受影响节点。
 2. **选择节点**：继续按同一 reference 的 ready、槽位、长任务、模型和 terminal 规则选择下一动作。
 3. **准备任务**：读取 [`references/dispatch-and-runtime-probe.md`](references/dispatch-and-runtime-probe.md)；完成调查，必要时运行最小真实探针，再填写 [`templates/subagent-task.md`](templates/subagent-task.md)。
 4. **派发实现者**：按 dispatch reference 调用项目角色 `issue_implementer`，使用 DAG 阶段选定的模型与 reasoning effort。
 5. **独立 review**：实现者返回产出后，完整读取 [`references/review-failure-and-verification.md`](references/review-failure-and-verification.md)，按其中的只读启动条件调用一次 `issue_reviewer`。
 6. **分类与验证**：按 review reference 分类任何失败、处理 blocker、复用有效 evidence，并从 focused/低成本检查推进到稳定候选所需的高成本检查。
-7. **立即交付验收组**：一组全部通过后，读取 [`references/group-delivery.md`](references/group-delivery.md)，立即完成该组的提交、主分支推送、远端核验和 issue 关闭；dry-run 时停在明确的首个有副作用动作之前。
-8. **回写运行态并继续**：更新 DAG、证据键、槽位和恢复指纹，然后回到步骤 1；不得靠记忆补全尚未读取的阶段规则。
+7. **立即交付验收组**：一组全部通过后，读取 [`references/group-delivery.md`](references/group-delivery.md)，按其中的 CI evidence 分类与关闭门禁完成提交、主分支推送、远端核验和 issue 关闭；dry-run 时停在明确的首个有副作用动作之前。
+8. **回写运行态并继续**：由根代理在已验证的仓库外状态根更新 DAG、证据键、槽位和恢复指纹，然后回到步骤 1；不得靠记忆补全尚未读取的阶段规则。
 
 ## 状态与停止
 
