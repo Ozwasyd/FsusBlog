@@ -6688,13 +6688,15 @@ tiers:
       requiresNode: true
       requiresDotnet: false
       requiresPlaywright: none
+      evidenceClass: diagnostic
+      qualificationEligible: false
       cacheProfile: none
       timeoutMinutes: 5
       shardable: false
       defaultShards: 1
       risk: critical
       cadence: release-manual
-      requiredFor: release-final
+      requiredFor: none
       coverage: [release-soak-min]
       artifacts: [.tmp/soak]
       evidence:
@@ -6725,13 +6727,15 @@ tiers:
       requiresNode: true
       requiresDotnet: false
       requiresPlaywright: none
+      evidenceClass: diagnostic
+      qualificationEligible: false
       cacheProfile: none
       timeoutMinutes: 5
       shardable: false
       defaultShards: 1
       risk: critical
       cadence: release-manual
-      requiredFor: release-final
+      requiredFor: none
       coverage: [release-load-peak]
       artifacts:
           [
@@ -6767,13 +6771,15 @@ tiers:
       requiresNode: true
       requiresDotnet: false
       requiresPlaywright: none
+      evidenceClass: diagnostic
+      qualificationEligible: false
       cacheProfile: none
       timeoutMinutes: 5
       shardable: false
       defaultShards: 1
       risk: critical
       cadence: release-manual
-      requiredFor: release-final
+      requiredFor: none
       coverage: [release-load-burst]
       artifacts:
           [
@@ -6809,13 +6815,15 @@ tiers:
       requiresNode: true
       requiresDotnet: false
       requiresPlaywright: none
+      evidenceClass: diagnostic
+      qualificationEligible: false
       cacheProfile: none
       timeoutMinutes: 5
       shardable: false
       defaultShards: 1
       risk: critical
       cadence: release-manual
-      requiredFor: release-final
+      requiredFor: none
       coverage: [release-data-scale-m]
       artifacts:
           [
@@ -6846,13 +6854,15 @@ tiers:
       requiresNode: true
       requiresDotnet: false
       requiresPlaywright: none
+      evidenceClass: diagnostic
+      qualificationEligible: false
       cacheProfile: none
       timeoutMinutes: 5
       shardable: false
       defaultShards: 1
       risk: critical
       cadence: release-manual
-      requiredFor: release-final
+      requiredFor: none
       coverage: [release-mutation-critical-slice]
       artifacts:
           [
@@ -6891,13 +6901,15 @@ tiers:
       requiresNode: true
       requiresDotnet: false
       requiresPlaywright: none
+      evidenceClass: diagnostic
+      qualificationEligible: false
       cacheProfile: none
       timeoutMinutes: 5
       shardable: false
       defaultShards: 1
       risk: critical
       cadence: release-manual
-      requiredFor: release-final
+      requiredFor: none
       coverage: [release-memory-leak-budget]
       artifacts:
           [
@@ -6932,13 +6944,15 @@ tiers:
       requiresNode: true
       requiresDotnet: false
       requiresPlaywright: none
+      evidenceClass: diagnostic
+      qualificationEligible: false
       cacheProfile: none
       timeoutMinutes: 5
       shardable: false
       defaultShards: 1
       risk: critical
       cadence: release-manual
-      requiredFor: release-final
+      requiredFor: none
       coverage: [release-open-handle-budget]
       artifacts:
           [
@@ -6975,6 +6989,8 @@ tiers:
       requiresNode: true
       requiresDotnet: true
       requiresPlaywright: none
+      evidenceClass: correctness
+      qualificationEligible: true
       cacheProfile: none
       timeoutMinutes: 120
       shardable: false

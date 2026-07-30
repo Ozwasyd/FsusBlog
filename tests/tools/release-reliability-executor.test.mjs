@@ -13,6 +13,7 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 const {
     executeScenario,
     executeScenarios,
+    prepareInvocationOutputs,
     validateCatalog
 } = await import(pathToFileURL(path.join(repositoryRoot, 'tools/test/run-release-reliability-scenarios.mjs')).href);
 const {
@@ -225,6 +226,8 @@ function executeFixtureScenario(fixture, catalog, options = {})
     return executeScenario({
         catalog,
         scenarioId: canonicalIds[0],
+        evidenceClass: 'diagnostic',
+        qualificationEligible: false,
         repositoryRoot: fixture.root,
         invocationId,
         runId,
@@ -277,6 +280,8 @@ test('a successful producer must emit current evidence and four real sealed life
     {
         const result = await executeFixtureScenario(fixture, catalogFor(fixture));
         assert.equal(result.status, 'passed', result.failure);
+        assert.equal(result.evidenceClass, 'diagnostic');
+        assert.equal(result.qualificationEligible, false);
         assert.match(result.contentDigest, /^sha256:[0-9a-f]{64}$/u);
         assert.deepEqual(Object.keys(result.lifecycle), ['precondition', 'reset', 'measurement', 'postcondition']);
         assert.ok(Object.values(result.lifecycle).every((reference) => reference.status === 'complete'));
@@ -407,6 +412,8 @@ test('complete execution stays serial and single-scenario execution produces onl
         };
         const complete = await executeScenarios({
             catalog,
+            evidenceClass: 'correctness',
+            qualificationEligible: true,
             repositoryRoot: fixture.root,
             invocationId,
             runId,
@@ -417,12 +424,18 @@ test('complete execution stays serial and single-scenario execution produces onl
         });
         assert.equal(complete.length, 7);
         assert.ok(complete.every((result) => result.status === 'passed'));
+        assert.ok(complete.every((result) => (
+            result.evidenceClass === 'correctness'
+            && result.qualificationEligible === true
+        )));
         assert.equal(maximumActive, 1);
         assert.equal(observed.length, 7);
 
         const diagnostic = await executeScenarios({
             catalog,
             scenarioId: canonicalIds[2],
+            evidenceClass: 'diagnostic',
+            qualificationEligible: false,
             repositoryRoot: fixture.root,
             invocationId: 'diagnostic-invocation',
             runId,
@@ -435,6 +448,8 @@ test('complete execution stays serial and single-scenario execution produces onl
         });
         assert.equal(diagnostic.length, 1);
         assert.equal(diagnostic[0].scenarioId, canonicalIds[2]);
+        assert.equal(diagnostic[0].evidenceClass, 'diagnostic');
+        assert.equal(diagnostic[0].qualificationEligible, false);
     }
     finally
     {
@@ -468,6 +483,8 @@ test('ambient semantic overrides and undeclared keys never reach any scenario pr
         };
         const results = await executeScenarios({
             catalog: catalogFor(fixture),
+            evidenceClass: 'correctness',
+            qualificationEligible: true,
             repositoryRoot: fixture.root,
             invocationId,
             runId,
@@ -508,6 +525,82 @@ test('ambient semantic overrides and undeclared keys never reach any scenario pr
         assert.ok(results.every(
             (result) => !JSON.stringify(result).includes('must-not-leak')
         ));
+    }
+    finally
+    {
+        removeFixture(fixture);
+    }
+});
+
+test('full execution clears old qualification and scenario results before a failed rerun', async () =>
+{
+    const fixture = createFixture();
+    try
+    {
+        const invocationRoot = path.join(
+            fixture.root,
+            '.tmp/release-reliability',
+            invocationId
+        );
+        const scenarioResultRoot = path.join(invocationRoot, 'scenario-results');
+        fs.mkdirSync(scenarioResultRoot, { recursive: true });
+        for (const scenarioId of canonicalIds)
+        {
+            fs.writeFileSync(
+                path.join(scenarioResultRoot, `${scenarioId}.json`),
+                JSON.stringify({ status: 'passed', stale: true })
+            );
+        }
+        for (const name of [
+            'candidate-receipt.json',
+            'verified-attestation.json',
+            'qualified-receipt.json',
+            'timeline.json'
+        ])
+        {
+            fs.writeFileSync(
+                path.join(invocationRoot, name),
+                JSON.stringify({ status: 'qualified', stale: true })
+            );
+        }
+
+        prepareInvocationOutputs({
+            repositoryRoot: fixture.root,
+            invocationId,
+            scenarioId: null
+        });
+        const failed = await executeScenarios({
+            catalog: catalogFor(fixture, 'nonzero'),
+            evidenceClass: 'correctness',
+            qualificationEligible: true,
+            repositoryRoot: fixture.root,
+            invocationId,
+            runId,
+            identity: fixture.identity,
+            identityReference: fixture.identityReference,
+            ambientEnvironment: fixtureAmbientEnvironment
+        });
+
+        assert.ok(failed.every((result) => result.status === 'failed'));
+        assert.ok(failed.every((result) => result.qualificationEligible === true));
+        for (const name of [
+            'candidate-receipt.json',
+            'verified-attestation.json',
+            'qualified-receipt.json',
+            'timeline.json'
+        ])
+        {
+            assert.equal(fs.existsSync(path.join(invocationRoot, name)), false);
+        }
+        for (const scenarioId of canonicalIds)
+        {
+            const result = JSON.parse(fs.readFileSync(
+                path.join(scenarioResultRoot, `${scenarioId}.json`),
+                'utf8'
+            ));
+            assert.equal(result.status, 'failed');
+            assert.equal(result.stale, undefined);
+        }
     }
     finally
     {

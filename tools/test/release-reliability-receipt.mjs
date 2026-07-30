@@ -892,6 +892,10 @@ function validateScenarioForQualification(result, { invocationId, runId, identit
     {
         throw new Error(`scenario ${result.scenarioId} is not canonical`);
     }
+    if (result.evidenceClass !== 'correctness' || result.qualificationEligible !== true)
+    {
+        throw new Error(`scenario ${result.scenarioId} is not qualification eligible correctness evidence`);
+    }
     if (result.invocationId !== invocationId || result.runId !== runId)
     {
         throw new Error(`scenario ${result.scenarioId} run identity mismatch`);

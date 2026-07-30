@@ -1550,6 +1550,8 @@ function verifyResult(repositoryRoot, aggregateReference, scenario, catalog, ide
         'resultPath',
         'owner',
         'resourceClass',
+        'evidenceClass',
+        'qualificationEligible',
         'status',
         'identity',
         'startedAt',
@@ -1563,6 +1565,7 @@ function verifyResult(repositoryRoot, aggregateReference, scenario, catalog, ide
         'contentDigest'
     ], `scenario ${scenario.id} result`);
     if (result.schema !== 'fsusblog.release-reliability-scenario-result.v2' || result.status !== 'passed'
+        || result.evidenceClass !== 'correctness' || result.qualificationEligible !== true
         || result.scenarioId !== scenario.id || result.runId !== identity.runId
         || result.invocationId !== identity.invocationId || result.resultPath !== expectedPath
         || result.contentDigest !== semanticDigest(result)

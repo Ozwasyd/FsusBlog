@@ -171,6 +171,37 @@ const ciSummaryAuthorityId = process.env.GITHUB_RUN_ID && process.env.GITHUB_JOB
     : null;
 let activeProductionFreshOutputRoot = null;
 
+function isReleaseReliabilityScenarioCommand(command)
+{
+    const tokens = String(command ?? '').trim().split(/\s+/u)
+        .map((token) => token.replaceAll(/['"]/gu, ''));
+    return tokens.some((token) => (
+        token.endsWith(
+            '/run-release-reliability-scenarios.mjs'
+        )
+    )) && tokens.some((token) => (
+        token === '--scenario' || token.startsWith('--scenario=')
+    ));
+}
+
+function isReleaseReliabilityRawDriverCommand(command)
+{
+    const tokens = String(command ?? '').trim().split(/\s+/u)
+        .map((token) => token.replaceAll(/['"]/gu, ''));
+    return tokens.some((token) => (
+        token.endsWith('/run-release-reliability-scenarios.mjs')
+    ));
+}
+
+function isReleaseReliabilityQualifiedAuthorityCommand(command)
+{
+    const tokens = String(command ?? '').trim().split(/\s+/u)
+        .map((token) => token.replaceAll(/['"]/gu, ''));
+    return tokens.some((token) => (
+        token.endsWith('/run-release-reliability-qualified-local.sh')
+    ));
+}
+
 export function managedProductionBuildGcTier(runId, { outputRoot = null } = {})
 {
     const receipt = outputRoot
@@ -1093,6 +1124,45 @@ function validateMatrix(matrix)
         {
             errors.push(`${tier.id}.evidenceClass is invalid: ${tier.evidenceClass}`);
         }
+        const releaseReliabilityScenarioCommand =
+            isReleaseReliabilityScenarioCommand(tier.command);
+        if (releaseReliabilityScenarioCommand && tier.evidenceClass !== 'diagnostic')
+        {
+            errors.push(`${tier.id} single-scenario release reliability command must use evidenceClass=diagnostic`);
+        }
+        if (releaseReliabilityScenarioCommand && tier.qualificationEligible !== false)
+        {
+            errors.push(`${tier.id} single-scenario release reliability command must use qualificationEligible=false`);
+        }
+        if (releaseReliabilityScenarioCommand && tier.requiredFor !== 'none')
+        {
+            errors.push(`${tier.id} single-scenario release reliability command must use requiredFor=none`);
+        }
+        if (releaseReliabilityScenarioCommand && tier.manualOnly !== true)
+        {
+            errors.push(`${tier.id} single-scenario release reliability command must use manualOnly=true`);
+        }
+        const releaseReliabilityRawDriverCommand =
+            isReleaseReliabilityRawDriverCommand(tier.command);
+        if (releaseReliabilityRawDriverCommand && !releaseReliabilityScenarioCommand)
+        {
+            errors.push(
+                `${tier.id} raw release reliability scenario driver cannot be a complete authority; `
+                    + 'use release-reliability-fresh'
+            );
+        }
+        const releaseReliabilityQualifiedAuthorityCommand =
+            isReleaseReliabilityQualifiedAuthorityCommand(tier.command);
+        if (releaseReliabilityQualifiedAuthorityCommand
+            && (tier.evidenceClass !== 'correctness'
+                || tier.qualificationEligible !== true
+                || tier.requiredFor !== 'release-final'))
+        {
+            errors.push(
+                `${tier.id} complete release reliability authority must use evidenceClass=correctness, `
+                    + 'qualificationEligible=true, and requiredFor=release-final'
+            );
+        }
         if (tier.ciJob === 'browser-diagnostics' && tier.evidenceClass !== 'diagnostic')
         {
             errors.push(`${tier.id}.ciJob=browser-diagnostics requires explicit evidenceClass=diagnostic`);
@@ -1439,6 +1509,16 @@ function validateMatrix(matrix)
         {
             errors.push('release-final must be Node-only with no services, bootstrap, .NET, or build/test cache');
         }
+        const releaseReliabilityInputs = releaseFinal.requiresEvidenceFrom.filter((tierId) => (
+            tierId === 'release-reliability-fresh'
+            || isReleaseReliabilityScenarioCommand(byId.get(tierId)?.command)
+            || isReleaseReliabilityRawDriverCommand(byId.get(tierId)?.command)
+            || isReleaseReliabilityQualifiedAuthorityCommand(byId.get(tierId)?.command)
+        ));
+        if (JSON.stringify(releaseReliabilityInputs) !== JSON.stringify(['release-reliability-fresh']))
+        {
+            errors.push('release-final must consume only release-reliability-fresh as its reliability authority');
+        }
         const browserDependencies = [...dependencyClosure('release-final')]
             .filter((id) => byId.get(id)?.requiresPlaywright !== 'none')
             .sort();
@@ -1446,6 +1526,31 @@ function validateMatrix(matrix)
         {
             errors.push(`release-final execution closure must not contain browser tiers: ${browserDependencies.join(', ')}`);
         }
+    }
+
+    const releaseReliabilityFresh = byId.get('release-reliability-fresh');
+    const qualifiedReleaseReliabilityAuthorityIds = matrix.tiers
+        .filter((tier) => isReleaseReliabilityQualifiedAuthorityCommand(tier.command))
+        .map((tier) => tier.id);
+    if (JSON.stringify(qualifiedReleaseReliabilityAuthorityIds)
+        !== JSON.stringify(['release-reliability-fresh']))
+    {
+        errors.push(
+            'matrix must declare exactly one qualified release reliability wrapper authority: '
+                + 'release-reliability-fresh'
+        );
+    }
+    if (!releaseReliabilityFresh
+        || String(releaseReliabilityFresh.command ?? '').trim()
+            !== 'tools/test/run-release-reliability-qualified-local.sh'
+        || releaseReliabilityFresh.evidenceClass !== 'correctness'
+        || releaseReliabilityFresh.qualificationEligible !== true
+        || releaseReliabilityFresh.requiredFor !== 'release-final')
+    {
+        errors.push(
+            'release-reliability-fresh must use tools/test/run-release-reliability-qualified-local.sh '
+                + 'as the release-final correctness/qualification-eligible reliability authority'
+        );
     }
 
     return errors;

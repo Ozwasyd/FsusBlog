@@ -202,6 +202,8 @@ function createFixture(context, invocationId = 'qualified-fixture')
             schema: 'fsusblog.release-reliability-scenario-result.v2',
             status: 'passed',
             scenarioId,
+            evidenceClass: 'correctness',
+            qualificationEligible: true,
             lifecycle: Object.fromEntries(lifecyclePhases.map((phase) => [
                 phase,
                 { status: 'complete', isolationObserved: true }
@@ -357,9 +359,11 @@ function syntheticIndependentVerifier(callCounter)
             const result = JSON.parse(
                 fs.readFileSync(path.join(root, scenario.resultPath), 'utf8')
             );
-            if (result.status !== 'passed')
+            if (result.status !== 'passed'
+                || result.evidenceClass !== 'correctness'
+                || result.qualificationEligible !== true)
             {
-                throw new Error(`scenario ${scenario.scenarioId} is not passed`);
+                throw new Error(`scenario ${scenario.scenarioId} is not qualification eligible`);
             }
             for (const phase of lifecyclePhases)
             {
@@ -556,7 +560,19 @@ test('independent verifier failures for scenario, reset isolation, and evidence 
                 result.status = 'failed';
                 writeJson(file, result);
             },
-            expected: /is not passed/u
+            expected: /not qualification eligible/u
+        },
+        {
+            name: 'diagnostic scenario',
+            mutate(fixture)
+            {
+                const file = fixture.resultFiles.get(releaseReliabilityScenarioIds[0]);
+                const result = JSON.parse(fs.readFileSync(file, 'utf8'));
+                result.evidenceClass = 'diagnostic';
+                result.qualificationEligible = false;
+                writeJson(file, result);
+            },
+            expected: /not qualification eligible/u
         },
         {
             name: 'reset isolation missing',

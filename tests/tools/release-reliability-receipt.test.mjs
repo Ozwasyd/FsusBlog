@@ -401,6 +401,8 @@ function scenarioResults(identity = completeIdentity())
             resultPath: `.tmp/release-reliability/${identity.invocationId}/scenario-results/${scenarioId}.json`,
             owner: 'fixture-owner',
             resourceClass: 'fixture',
+            evidenceClass: 'correctness',
+            qualificationEligible: true,
             status: 'passed',
             identity: reference,
             startedAt: '2026-07-26T00:00:00.000Z',
@@ -535,6 +537,9 @@ test('missing, duplicate, extra, cancelled, partial, and cross-run results canno
             : result),
         scenarioResults(identity).map((result, index) => index === 0
             ? sealDocument({ ...result, runId: 'other-run' })
+            : result),
+        scenarioResults(identity).map((result, index) => index === 0
+            ? sealDocument({ ...result, invocationId: 'other-invocation' })
             : result)
     ];
     for (const results of cases)
@@ -542,6 +547,19 @@ test('missing, duplicate, extra, cancelled, partial, and cross-run results canno
         const { receipt } = qualifiedReceipt(identity, results, catalog);
         assert.equal(receipt.status, 'failed');
     }
+});
+
+test('diagnostic scenario results cannot be promoted into a candidate receipt', () =>
+{
+    const identity = completeIdentity();
+    const results = scenarioResults(identity).map((result) => sealDocument({
+        ...result,
+        evidenceClass: 'diagnostic',
+        qualificationEligible: false
+    }));
+    const { receipt } = qualifiedReceipt(identity, results);
+    assert.equal(receipt.status, 'failed');
+    assert.match(receipt.failure, /not qualification eligible correctness evidence/u);
 });
 
 test('tampered sealed result and fake lifecycle reference fail qualification', () =>
@@ -1606,6 +1624,8 @@ const requested = process.argv.at(-1); const entry = state.containers[requested]
             resultPath,
             owner: scenario.owner,
             resourceClass: scenario.resourceClass,
+            evidenceClass: 'correctness',
+            qualificationEligible: true,
             status: 'passed',
             identity: identityRef,
             startedAt: '2026-07-26T00:00:00.000Z',

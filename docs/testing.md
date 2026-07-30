@@ -977,6 +977,15 @@ tools/operations/check-release-evidence-manifest.mjs --require-ok
   绑定该环境合同及 load/mutation/resource policy 实际文件 digest；独立 verifier
   从原始 evidence 重算 effective sampling、threshold 和 policy binding，caller
   override 或自重算 weakened receipt 均不能放行。
+- Release Reliability 的唯一 qualification 命令是
+  `./tools/test.sh ci-tier release-reliability-fresh`。该入口顺序执行 exact-seven，
+  写出 `evidenceClass=correctness`、`qualificationEligible=true` 的 scenario
+  results，并生成一个由独立 verifier 验证的 qualified receipt。七个独立 scenario
+  tier 只用于定点诊断；它们的 matrix `evidenceClass=diagnostic`、
+  `qualificationEligible=false`、`requiredFor=none`，结果也固定为不可 qualification，
+  不能作为
+  `release-final` 输入或在事后合成 receipt。matrix validator 会拒绝把任何含
+  `--scenario` 的入口重新标成 correctness 或 `requiredFor=release-final`。
 - Reliability final binding：finalizer 只在 canonical
   `.tmp/release-reliability/*/qualified-receipt.json` 查找权威回执，零份报告
   `./tools/test.sh ci-tier release-reliability-fresh`，多份按排序后的全部路径报告

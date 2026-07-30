@@ -616,6 +616,33 @@ function resultPath(repositoryRoot, invocationId, scenarioId)
     return path.join(runRoot(repositoryRoot, invocationId), 'scenario-results', `${safeSegment(scenarioId, 'scenarioId')}.json`);
 }
 
+export function prepareInvocationOutputs({
+    repositoryRoot = root,
+    invocationId,
+    scenarioId
+})
+{
+    const invocationRoot = runRoot(repositoryRoot, invocationId);
+    for (const name of [
+        'candidate-receipt.json',
+        'verified-attestation.json',
+        'qualified-receipt.json',
+        'timeline.json'
+    ])
+    {
+        fs.rmSync(path.join(invocationRoot, name), { force: true });
+    }
+    if (scenarioId === null)
+    {
+        fs.rmSync(path.join(invocationRoot, 'scenario-results'), {
+            recursive: true,
+            force: true
+        });
+        return;
+    }
+    fs.rmSync(resultPath(repositoryRoot, invocationId, scenarioId), { force: true });
+}
+
 function lifecyclePath(repositoryRoot, invocationId, scenarioId, phase)
 {
     return path.join(
@@ -822,6 +849,8 @@ function runProcess({ executable, args, cwd, env, stdoutLog, stderrLog, spawnPro
 export async function executeScenario({
     catalog,
     scenarioId,
+    evidenceClass,
+    qualificationEligible,
     repositoryRoot = root,
     invocationId,
     runId,
@@ -832,6 +861,13 @@ export async function executeScenario({
     now = () => new Date().toISOString()
 })
 {
+    if (!(
+        evidenceClass === 'correctness' && qualificationEligible === true
+        || evidenceClass === 'diagnostic' && qualificationEligible === false
+    ))
+    {
+        throw new Error('scenario execution requires an explicit correctness/true or diagnostic/false classification');
+    }
     const scenario = catalog.scenarios.find((candidate) => candidate.id === scenarioId);
     if (!scenario)
     {
@@ -1011,6 +1047,8 @@ export async function executeScenario({
         resultPath: repositoryRelative(repositoryRoot, resultFile),
         owner: scenario.owner,
         resourceClass: scenario.resourceClass,
+        evidenceClass,
+        qualificationEligible,
         status: failure === null ? 'passed' : 'failed',
         identity: identityReference,
         startedAt: new Date(outcome.startedAtMs).toISOString(),
@@ -1042,6 +1080,8 @@ export async function executeScenario({
 export async function executeScenarios({
     catalog,
     scenarioId = null,
+    evidenceClass,
+    qualificationEligible,
     repositoryRoot = root,
     invocationId,
     runId,
@@ -1052,6 +1092,18 @@ export async function executeScenarios({
     now = () => new Date().toISOString()
 })
 {
+    const expectedClassification = scenarioId === null
+        ? { evidenceClass: 'correctness', qualificationEligible: true }
+        : { evidenceClass: 'diagnostic', qualificationEligible: false };
+    if (evidenceClass !== expectedClassification.evidenceClass
+        || qualificationEligible !== expectedClassification.qualificationEligible)
+    {
+        throw new Error(
+            scenarioId === null
+                ? 'complete scenario execution must be classified as correctness and qualification eligible'
+                : 'single-scenario execution must be classified as diagnostic and qualification ineligible'
+        );
+    }
     const scenarios = scenarioId === null
         ? catalog.scenarios
         : catalog.scenarios.filter((scenario) => scenario.id === scenarioId);
@@ -1065,6 +1117,8 @@ export async function executeScenarios({
         results.push(await executeScenario({
             catalog,
             scenarioId: scenario.id,
+            evidenceClass,
+            qualificationEligible,
             repositoryRoot,
             invocationId,
             runId,
@@ -1113,6 +1167,13 @@ async function main()
     const invocationId = process.env.FSUSBLOG_RELEASE_INVOCATION_ID
         ? safeSegment(process.env.FSUSBLOG_RELEASE_INVOCATION_ID, 'FSUSBLOG_RELEASE_INVOCATION_ID')
         : randomUUID();
+    const evidenceClass = scenario === null ? 'correctness' : 'diagnostic';
+    const qualificationEligible = scenario === null;
+    prepareInvocationOutputs({
+        repositoryRoot: root,
+        invocationId,
+        scenarioId: scenario
+    });
     const runId = safeSegment(process.env.FSUSBLOG_RELEASE_RUN_ID, 'FSUSBLOG_RELEASE_RUN_ID');
     if (process.env.FSUSBLOG_RELEASE_LOAD_RUNTIME_ENVIRONMENT === '1')
     {
@@ -1139,6 +1200,8 @@ async function main()
     const results = await executeScenarios({
         catalog,
         scenarioId: scenario,
+        evidenceClass,
+        qualificationEligible,
         invocationId,
         runId,
         identity,
