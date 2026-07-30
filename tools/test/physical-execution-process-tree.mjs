@@ -25,10 +25,14 @@ function readPolicy(file = policyFile) {
         policy.gracefulTerminationMs < 0 ||
         !Number.isInteger(policy.forceTerminationMs) ||
         policy.forceTerminationMs <= 0 ||
+        !Number.isInteger(policy.pipeCloseTimeoutMs) ||
+        policy.pipeCloseTimeoutMs <= 0 ||
         !Number.isInteger(policy.observationIntervalMs) ||
         policy.observationIntervalMs <= 0 ||
         !Number.isInteger(policy.zeroMemberObservations) ||
         policy.zeroMemberObservations < 2 ||
+        !Number.isInteger(policy.maximumCapturedOutputBytesPerStream) ||
+        policy.maximumCapturedOutputBytesPerStream <= 0 ||
         policy.unixProcessGroupRequired !== true ||
         policy.linuxCgroupRequired !== true ||
         policy.windowsJobObjectRequired !== true
@@ -40,6 +44,182 @@ function readPolicy(file = policyFile) {
 
 function delay(milliseconds) {
     return new Promise((resolve) => setTimeout(resolve, milliseconds))
+}
+
+function boundedWait(promise, milliseconds) {
+    let timer = null
+    return Promise.race([
+        promise.then(() => true),
+        new Promise((resolve) => {
+            timer = setTimeout(() => resolve(false), milliseconds)
+            timer.unref?.()
+        })
+    ]).finally(() => {
+        if (timer !== null) clearTimeout(timer)
+    })
+}
+
+function boundedValue(promise, milliseconds) {
+    let timer = null
+    return Promise.race([
+        promise.then((value) => ({ completed: true, value })),
+        new Promise((resolve) => {
+            timer = setTimeout(() => resolve({ completed: false, value: null }), milliseconds)
+            timer.unref?.()
+        })
+    ]).finally(() => {
+        if (timer !== null) clearTimeout(timer)
+    })
+}
+
+function normalizedOutputChunk(chunk) {
+    if (Buffer.isBuffer(chunk)) return chunk
+    if (ArrayBuffer.isView(chunk)) {
+        return Buffer.from(chunk.buffer, chunk.byteOffset, chunk.byteLength)
+    }
+    return Buffer.from(String(chunk))
+}
+
+export function createPhysicalExecutionOutputTracker({
+    policy,
+    stdout,
+    stderr
+}) {
+    const states = new Map([
+        ['stdout', {
+            identity: 'stdout',
+            sink: stdout,
+            readable: null,
+            chunks: [],
+            bytes: 0,
+            capturedBytes: 0,
+            closed: false,
+            sinkBlocked: false,
+            drainListener: null
+        }],
+        ['stderr', {
+            identity: 'stderr',
+            sink: stderr,
+            readable: null,
+            chunks: [],
+            bytes: 0,
+            capturedBytes: 0,
+            closed: false,
+            sinkBlocked: false,
+            drainListener: null
+        }]
+    ])
+    let firstSinkError = null
+    let closePromise = null
+    let resolvePipesClosed
+    const pipesClosed = new Promise((resolve) => {
+        resolvePipesClosed = resolve
+    })
+    const observeClosed = () => {
+        if ([...states.values()].every((state) => state.closed)) resolvePipesClosed()
+    }
+    const markClosed = (state) => {
+        if (state.closed) return
+        state.closed = true
+        if (state.drainListener) state.sink?.off?.('drain', state.drainListener)
+        state.drainListener = null
+        state.sinkBlocked = false
+        observeClosed()
+    }
+    const recordSinkError = (error) => {
+        firstSinkError ??= error instanceof Error ? error : new Error(String(error))
+    }
+    for (const state of states.values()) {
+        state.sink?.on?.('error', recordSinkError)
+    }
+    const attach = (readable, identity) => {
+        const state = states.get(identity)
+        if (!state) throw new Error(`physical execution output identity is invalid: ${identity}`)
+        if (!readable) {
+            markClosed(state)
+            return
+        }
+        state.readable = readable
+        readable.on('data', (chunk) => {
+            const buffer = normalizedOutputChunk(chunk)
+            state.bytes += buffer.length
+            const available = Math.max(
+                0,
+                policy.maximumCapturedOutputBytesPerStream - state.capturedBytes
+            )
+            if (available > 0) {
+                const captured = available >= buffer.length
+                    ? buffer
+                    : buffer.subarray(0, available)
+                state.chunks.push(Buffer.from(captured))
+                state.capturedBytes += captured.length
+            }
+            if (!state.sink) return
+            try {
+                if (state.sink.write(buffer) === false && !state.sinkBlocked) {
+                    state.sinkBlocked = true
+                    readable.pause?.()
+                    state.drainListener = () => {
+                        state.sinkBlocked = false
+                        state.drainListener = null
+                        if (!state.closed) readable.resume?.()
+                    }
+                    state.sink.once?.('drain', state.drainListener)
+                }
+            } catch (error) {
+                recordSinkError(error)
+            }
+        })
+        readable.once('end', () => markClosed(state))
+        readable.once('close', () => markClosed(state))
+        readable.once('error', (error) => {
+            recordSinkError(new Error(`${identity} pipe failed: ${error.message}`, { cause: error }))
+            markClosed(state)
+        })
+        if (readable.readableEnded || readable.destroyed) markClosed(state)
+    }
+    const close = () => {
+        if (closePromise) return closePromise
+        closePromise = (async () => {
+            let forcedPipeClose = false
+            if (!await boundedWait(pipesClosed, policy.pipeCloseTimeoutMs)) {
+                forcedPipeClose = true
+                for (const state of states.values()) {
+                    if (!state.closed) state.readable?.destroy()
+                }
+                await boundedWait(pipesClosed, policy.observationIntervalMs)
+            }
+            for (const state of states.values()) {
+                if (!state.closed) markClosed(state)
+                state.sink?.off?.('error', recordSinkError)
+            }
+            const logTruncationReason = forcedPipeClose
+                ? 'pipe-close-deadline-exceeded'
+                : firstSinkError
+                    ? 'log-sink-error'
+                    : null
+            return {
+                logComplete: logTruncationReason === null,
+                logTruncationReason,
+                forcedPipeClose,
+                outputCapture: {
+                    maximumBytesPerStream: policy.maximumCapturedOutputBytesPerStream,
+                    stdoutBytes: states.get('stdout').bytes,
+                    stderrBytes: states.get('stderr').bytes,
+                    stdoutCapturedBytes: states.get('stdout').capturedBytes,
+                    stderrCapturedBytes: states.get('stderr').capturedBytes,
+                    stdoutTruncated: states.get('stdout').capturedBytes
+                        < states.get('stdout').bytes,
+                    stderrTruncated: states.get('stderr').capturedBytes
+                        < states.get('stderr').bytes
+                },
+                stdout: Buffer.concat(states.get('stdout').chunks).toString('utf8'),
+                stderr: Buffer.concat(states.get('stderr').chunks).toString('utf8')
+            }
+        })()
+        return closePromise
+    }
+    return { attach, close }
 }
 
 function waitForObservationInterval(milliseconds) {
@@ -404,6 +584,17 @@ function physicalExecutionError(message, evidence, cause = null) {
     if (cause?.name) error.name = cause.name
     if (cause?.signal) error.signal = cause.signal
     if (Number.isInteger(cause?.exitCode)) error.exitCode = cause.exitCode
+    if (cause?.releaseReliabilityCancellation) {
+        error.releaseReliabilityCancellation = cause.releaseReliabilityCancellation
+    }
+    for (const field of [
+        'physicalExecutionContainmentError',
+        'physicalExecutionFinalizeError',
+        'physicalExecutionLogError',
+        'physicalExecutionTerminalError'
+    ]) {
+        if (cause?.[field]) error[field] = cause[field]
+    }
     error.physicalExecution = evidence
     return error
 }
@@ -413,6 +604,38 @@ async function waitForExit(child) {
         child.once('error', reject)
         child.once('exit', (exitCode, signal) => resolve({ exitCode, signal }))
     })
+}
+
+async function rejectUnestablishedUnixAuthority({
+    child,
+    outputTracker,
+    policy,
+    message
+}) {
+    const terminalPromise = child.exitCode !== null || child.signalCode !== null
+        ? Promise.resolve({ exitCode: child.exitCode, signal: child.signalCode })
+        : waitForExit(child).catch((error) => ({ error }))
+    let cleanupError = null
+    try {
+        child.kill('SIGKILL')
+    } catch (error) {
+        if (error?.code !== 'ESRCH') {
+            cleanupError = error
+        }
+    }
+    const terminal = await boundedValue(terminalPromise, policy.forceTerminationMs)
+    const output = await outputTracker.close()
+    const failure = new Error(message)
+    if (cleanupError || !terminal.completed || terminal.value?.error) {
+        failure.physicalExecutionPreflightCleanupError = terminal.completed
+            ? cleanupError?.message ?? terminal.value.error.message
+            : 'unaccepted containment supervisor did not become terminal before the deadline'
+        if (!terminal.completed || terminal.value?.error) child.unref()
+    }
+    if (!output.logComplete) {
+        failure.physicalExecutionPreflightLogError = output.logTruncationReason
+    }
+    throw failure
 }
 
 async function startUnixExecution({
@@ -434,7 +657,7 @@ async function startUnixExecution({
     const lifecycle = ['created']
     const termination = []
     const inventory = new Map()
-    const output = { stdout: '', stderr: '' }
+    const outputTracker = createPhysicalExecutionOutputTracker({ policy, stdout, stderr })
     const encodedCommand = Buffer.from(JSON.stringify(command), 'utf8').toString('base64url')
     const child = spawnProcess(process.execPath, [unixBootstrap, encodedCommand], {
         cwd,
@@ -442,14 +665,8 @@ async function startUnixExecution({
         detached: true,
         stdio: ['inherit', 'pipe', 'pipe', 'ipc']
     })
-    child.stdout?.on('data', (chunk) => {
-        output.stdout += chunk.toString()
-        stdout?.write(chunk)
-    })
-    child.stderr?.on('data', (chunk) => {
-        output.stderr += chunk.toString()
-        stderr?.write(chunk)
-    })
+    outputTracker.attach(child.stdout, 'stdout')
+    outputTracker.attach(child.stderr, 'stderr')
     await new Promise((resolve, reject) => {
         child.on('message', (message) => {
             if (message?.type === 'physical-execution-bootstrap-ready') resolve()
@@ -459,24 +676,30 @@ async function startUnixExecution({
 
     const leader = collectIdentity(child.pid, { platform: process.platform, procRoot })
     if (leader.status !== 'verified') {
-        try {
-            signalGroup(-child.pid, 'SIGKILL')
-        } catch {}
-        throw new Error(`physical execution leader identity is unverifiable: ${leader.reason}`)
+        await rejectUnestablishedUnixAuthority({
+            child,
+            outputTracker,
+            policy,
+            message: `physical execution leader identity is unverifiable: ${leader.reason}`
+        })
     }
     const authorityResult = collectAuthority(child.pid, { platform: process.platform, procRoot })
     if (authorityResult.status !== 'verified' || authorityResult.value.kind !== 'process-group') {
-        try {
-            signalGroup(-child.pid, 'SIGKILL')
-        } catch {}
-        throw new Error(`physical execution process group is unverifiable: ${authorityResult.reason ?? 'incomplete authority'}`)
+        await rejectUnestablishedUnixAuthority({
+            child,
+            outputTracker,
+            policy,
+            message: `physical execution process group is unverifiable: ${authorityResult.reason ?? 'incomplete authority'}`
+        })
     }
     const authority = authorityResult.value
     if (authority.groupId !== child.pid) {
-        try {
-            signalGroup(-child.pid, 'SIGKILL')
-        } catch {}
-        throw new Error('physical execution child did not become its run-owned process-group leader')
+        await rejectUnestablishedUnixAuthority({
+            child,
+            outputTracker,
+            policy,
+            message: 'physical execution child did not become its run-owned process-group leader'
+        })
     }
     recordMembers(inventory, [leader], authority, child.pid, process.platform, procRoot)
     child.send({ type: 'physical-execution-start' })
@@ -513,9 +736,13 @@ async function startUnixExecution({
     if (signal?.aborted) onAbort()
     else signal?.addEventListener('abort', onAbort, { once: true })
 
-    const childExitPromise = waitForExit(child).then((value) => ({ kind: 'exit', ...value }))
+    const childExitPromise = waitForExit(child).then(
+        (value) => ({ kind: 'exit', ...value }),
+        (error) => ({ kind: 'error', error })
+    )
     let first = await Promise.race([childExitPromise, abortPromise])
     let postObservedZero = false
+    let output = null
     const terminateTree = async (reason) => {
         lifecycle.push('mark-cancelling', 'stop-new-spawns')
         const beforeSignal = collectMembers(authority, { platform: process.platform, procRoot })
@@ -561,48 +788,124 @@ async function startUnixExecution({
                 deadlineAt: Date.now() + policy.forceTerminationMs
             })
         }
-        lifecycle.push('post-observe-zero-members')
         if (observed.status !== 'empty') {
             throw new Error(`physical execution left ${observed.members.length} process-group member(s)`)
         }
+        lifecycle.push('bounded-pipe-close')
+        output = await outputTracker.close()
+        observed = await stableMemberObservation({
+            authority,
+            inventory,
+            leaderPid: child.pid,
+            policy,
+            collectMembers,
+            platform: process.platform,
+            procRoot,
+            deadlineAt: Date.now() + policy.forceTerminationMs
+        })
+        if (observed.status !== 'empty') {
+            throw new Error(`physical execution left ${observed.members.length} process-group member(s) after pipe close`)
+        }
+        lifecycle.push('post-observe-zero-members')
         postObservedZero = true
     }
 
     let exit = first.kind === 'exit' ? first : null
-    let failure = null
-    try {
-        if (first.kind === 'cancel') {
-            await terminateTree('cancel')
-            exit = await childExitPromise
-            failure = abortReason instanceof Error ? abortReason : new Error('physical execution cancelled')
-        } else {
-            const postExit = await stableMemberObservation({
-                authority,
-                inventory,
-                leaderPid: child.pid,
-                policy: { ...policy, zeroMemberObservations: 1 },
-                collectMembers,
-                platform: process.platform,
-                procRoot,
-                deadlineAt: Date.now()
-            })
-            if (postExit.status !== 'empty') {
-                await terminateTree('parent-exited-with-live-descendants')
-                failure = new Error('physical execution parent exited before its process group became empty')
-            } else if (exit.exitCode !== 0 || exit.signal) {
-                postObservedZero = true
-                failure = Object.assign(
+    let failure = first.kind === 'cancel'
+        ? abortReason instanceof Error
+            ? abortReason
+            : Object.assign(new Error('physical execution cancelled'), { name: 'AbortError' })
+        : first.kind === 'error'
+            ? first.error
+            : exit.exitCode !== 0 || exit.signal
+                ? Object.assign(
                     new Error(`command failed (${exit.signal ? `signal ${exit.signal}` : `exit ${exit.exitCode}`}): ${command.join(' ')}`),
                     { exitCode: exit.exitCode, signal: exit.signal }
                 )
+                : null
+    const attachSecondaryFailure = (field, error) => {
+        if (!failure) {
+            failure = error
+            return
+        }
+        if (!failure[field]) {
+            failure[field] = {
+                name: error.name,
+                message: error.message
+            }
+        }
+    }
+    try {
+        if (first.kind === 'cancel') {
+            try {
+                await terminateTree('cancel')
+            } catch (error) {
+                attachSecondaryFailure('physicalExecutionContainmentError', error)
+            }
+            const terminal = await boundedValue(childExitPromise, policy.forceTerminationMs)
+            if (terminal.completed) {
+                exit = terminal.value.kind === 'exit' ? terminal.value : null
+                if (terminal.value.kind === 'error') {
+                    attachSecondaryFailure('physicalExecutionTerminalError', terminal.value.error)
+                }
             } else {
+                attachSecondaryFailure(
+                    'physicalExecutionTerminalError',
+                    new Error('physical execution child did not become terminal before the deadline')
+                )
+            }
+        } else if (first.kind === 'error') {
+            try {
+                await terminateTree('child-process-error')
+            } catch (error) {
+                attachSecondaryFailure('physicalExecutionContainmentError', error)
+            }
+        } else {
+            const postExit = collectMembers(authority, { platform: process.platform, procRoot })
+            if (postExit?.status !== 'verified') {
+                throw new Error(`physical execution post-exit member collection failed: ${postExit?.reason ?? 'unknown'}`)
+            }
+            recordMembers(inventory, postExit.identities, authority, child.pid, process.platform, procRoot)
+            if (postExit.identities.length > 0) {
+                failure ??= new Error('physical execution parent exited before its process group became empty')
+                try {
+                    await terminateTree('parent-exited-with-live-descendants')
+                } catch (error) {
+                    attachSecondaryFailure('physicalExecutionContainmentError', error)
+                }
+            } else {
+                lifecycle.push('bounded-pipe-close')
+                output = await outputTracker.close()
+                const observed = await stableMemberObservation({
+                    authority,
+                    inventory,
+                    leaderPid: child.pid,
+                    policy,
+                    collectMembers,
+                    platform: process.platform,
+                    procRoot,
+                    deadlineAt: Date.now() + policy.forceTerminationMs
+                })
+                if (observed.status !== 'empty') {
+                    throw new Error(`physical execution left ${observed.members.length} process-group member(s) after pipe close`)
+                }
+                lifecycle.push('post-observe-zero-members')
                 postObservedZero = true
             }
         }
     } catch (error) {
-        failure = error
+        attachSecondaryFailure('physicalExecutionContainmentError', error)
     } finally {
         signal?.removeEventListener('abort', onAbort)
+    }
+    if (output === null) {
+        output = await outputTracker.close()
+    }
+    if (!output.logComplete) {
+        attachSecondaryFailure(
+            'physicalExecutionLogError',
+            new Error(`physical execution log is incomplete: ${output.logTruncationReason}`)
+        )
     }
     lifecycle.push(failure ? 'seal-cancelled-or-failed-receipt' : 'seal-completed-receipt')
 
@@ -625,14 +928,11 @@ async function startUnixExecution({
         termination,
         postObservation: postObservedZero ? 'zero-members' : 'unverifiable',
         processInventory: [...inventory.values()].sort((left, right) => left.pid - right.pid),
-        stdout: output.stdout,
-        stderr: output.stderr
+        ...output
     }
     if (failure) {
-        if (/collect|observe|left \d+ process-group/u.test(failure.message)) {
+        if (evidence.postObservation !== 'zero-members') {
             evidence.residualBlock = writeResidualMarker(residualRoot, evidence, failure.message)
-            child.stdout?.destroy()
-            child.stderr?.destroy()
             child.unref()
         }
         throw physicalExecutionError(failure.message, evidence, failure)
@@ -687,6 +987,18 @@ export async function runPhysicalExecution({
                 termination: [],
                 postObservation: 'unverifiable',
                 processInventory: [],
+                logComplete: false,
+                logTruncationReason: 'adapter-failed-before-pipe-closure',
+                forcedPipeClose: false,
+                outputCapture: {
+                    maximumBytesPerStream: policy.maximumCapturedOutputBytesPerStream,
+                    stdoutBytes: 0,
+                    stderrBytes: 0,
+                    stdoutCapturedBytes: 0,
+                    stderrCapturedBytes: 0,
+                    stdoutTruncated: false,
+                    stderrTruncated: false
+                },
                 stdout: '',
                 stderr: ''
             }
@@ -708,9 +1020,24 @@ export async function runPhysicalExecution({
             !evidence.authority.jobName ||
             evidence.authority.killPolicy !== 'kill-on-close' ||
             evidence.postObservation !== 'zero-members' ||
+            evidence.logComplete !== true ||
+            evidence.logTruncationReason !== null ||
+            evidence.forcedPipeClose !== false ||
+            !evidence.lifecycle?.includes('bounded-pipe-close') ||
             !Array.isArray(evidence.processInventory)
         ) {
-            throw new Error('physical execution Windows Job Object adapter returned unverifiable evidence')
+            const error = new Error(
+                'physical execution Windows Job Object adapter returned unverifiable evidence'
+            )
+            error.physicalExecution = evidence
+            if (evidence?.postObservation !== 'zero-members') {
+                evidence.residualBlock = writeResidualMarker(
+                    residualRoot,
+                    evidence,
+                    error.message
+                )
+            }
+            throw error
         }
         return evidence
     }
@@ -725,7 +1052,7 @@ export async function runPhysicalExecution({
         const adapter = (await import('./physical-execution-linux-systemd-adapter.mjs'))
             .createPhysicalExecutionLinuxSystemdAdapter()
         try {
-            return await adapter.run({
+            const evidence = await adapter.run({
                 command,
                 cwd,
                 env,
@@ -736,14 +1063,62 @@ export async function runPhysicalExecution({
                 stderr,
                 schema: physicalExecutionProcessTreeSchema
             })
+            if (
+                evidence?.schema !== physicalExecutionProcessTreeSchema ||
+                evidence.platform !== 'linux' ||
+                evidence.authority?.kind !== 'linux-cgroup-process-group' ||
+                evidence.authority.established !== true ||
+                evidence.authority.processGroup?.kind !== 'process-group' ||
+                evidence.authority.processGroup.groupId
+                    !== evidence.authority.processGroup.leaderPid ||
+                evidence.postObservation !== 'zero-members' ||
+                evidence.logComplete !== true ||
+                evidence.logTruncationReason !== null ||
+                evidence.forcedPipeClose !== false ||
+                !evidence.lifecycle?.includes('bounded-pipe-close') ||
+                !evidence.lifecycle?.includes('post-observe-zero-members') ||
+                !Array.isArray(evidence.processInventory)
+            ) {
+                const error = new Error(
+                    'physical execution Linux cgroup adapter returned unverifiable evidence'
+                )
+                error.physicalExecution = evidence
+                throw error
+            }
+            return evidence
         } catch (error) {
-            if (error?.physicalExecution && error.physicalExecution.postObservation !== 'zero-members') {
-                error.physicalExecution.residualBlock = writeResidualMarker(
+            const failureEvidence = error?.physicalExecution ?? {
+                schema: physicalExecutionProcessTreeSchema,
+                platform: 'linux',
+                policy,
+                authority: null,
+                lifecycle: ['created', 'containment-authority-not-established'],
+                termination: [],
+                postObservation: 'zero-members',
+                processInventory: [],
+                logComplete: true,
+                logTruncationReason: null,
+                forcedPipeClose: false,
+                outputCapture: {
+                    maximumBytesPerStream: policy.maximumCapturedOutputBytesPerStream,
+                    stdoutBytes: 0,
+                    stderrBytes: 0,
+                    stdoutCapturedBytes: 0,
+                    stderrCapturedBytes: 0,
+                    stdoutTruncated: false,
+                    stderrTruncated: false
+                },
+                stdout: '',
+                stderr: ''
+            }
+            if (failureEvidence.postObservation !== 'zero-members') {
+                failureEvidence.residualBlock = writeResidualMarker(
                     residualRoot,
-                    error.physicalExecution,
+                    failureEvidence,
                     error instanceof Error ? error.message : String(error)
                 )
             }
+            if (error && typeof error === 'object') error.physicalExecution = failureEvidence
             throw error
         }
     }

@@ -12,6 +12,9 @@ import {
     executeRegisteredLifecycleAction
 } from '../../tools/test/release-reliability-lifecycle-actions.mjs';
 import {
+    runPhysicalExecution
+} from '../../tools/test/physical-execution-process-tree.mjs';
+import {
     verifyLifecycleActionReceipt
 } from '../../tools/test/verify-release-reliability-lifecycle-action.mjs';
 import {
@@ -22,6 +25,10 @@ const invocationId = 'fixture-invocation';
 const runId = 'fixture-run';
 const scenarioId = 'release-fixture-scenario';
 const sourceCommit = 'a'.repeat(40);
+const repositoryRoot = path.resolve(
+    path.dirname(new URL(import.meta.url).pathname),
+    '../..'
+);
 const actionReceiptSchema =
     'fsusblog.release-reliability-lifecycle-action-receipt.v2';
 const fixtureSource = String.raw`
@@ -168,6 +175,13 @@ function createFixture(context)
     context.after(() => fs.rmSync(root, { recursive: true, force: true }));
     const producer = path.join(root, 'action-producer.mjs');
     fs.writeFileSync(producer, fixtureSource);
+    const policyRelativePath =
+        'config/testing/physical-execution-process-policy.json';
+    const policyBytes = fs.readFileSync(
+        path.join(repositoryRoot, policyRelativePath)
+    );
+    fs.mkdirSync(path.join(root, 'config/testing'), { recursive: true });
+    fs.writeFileSync(path.join(root, policyRelativePath), policyBytes);
     const identity = sealDocument({
         schema: 'fsusblog.release-reliability-run-identity.v1',
         status: 'complete',
@@ -179,7 +193,14 @@ function createFixture(context)
             dirtyPathCount: 0,
             hashedPathCount: 0
         },
-        build: { contentDigest: `sha256:${'c'.repeat(64)}` }
+        build: { contentDigest: `sha256:${'c'.repeat(64)}` },
+        policy: {
+            physicalExecution: {
+                status: 'complete',
+                path: policyRelativePath,
+                fileDigest: bytesDigest(policyBytes)
+            }
+        }
     });
     const identityRelativePath =
         `.tmp/release-reliability/${invocationId}/identity.json`;
@@ -281,7 +302,16 @@ function executePlan(fixture, modes = {})
         identityReference: fixture.identityReference,
         actionEnvironment: fixture.environment,
         measurementEnvironment: fixture.environment,
-        spawnProcess: spawn
+        spawnProcess: spawn,
+        physicalExecution: fixturePhysicalExecution
+    });
+}
+
+function fixturePhysicalExecution(options)
+{
+    return runPhysicalExecution({
+        ...options,
+        spawnProcess: (...args) => spawn(...args)
     });
 }
 
@@ -366,9 +396,10 @@ test('timeout deletes a preexisting receipt and cannot consume a later stale rec
         identityReference: fixture.identityReference,
         actionEnvironment: fixture.environment,
         measurementEnvironment: fixture.environment,
-        spawnProcess: spawn
+        spawnProcess: spawn,
+        physicalExecution: fixturePhysicalExecution
     });
-    assert.equal(record.status, 'failed');
+    assert.equal(record.status, 'timed-out');
     assert.equal(record.timedOut, true);
     assert.equal(fs.existsSync(receiptPath), false);
     fs.writeFileSync(receiptPath, '{"status":"passed","stale":true}');
@@ -435,7 +466,8 @@ test('raw receipt bytes tampering is rejected against the sealed reference diges
         identityReference: fixture.identityReference,
         actionEnvironment: fixture.environment,
         measurementEnvironment: fixture.environment,
-        spawnProcess: spawn
+        spawnProcess: spawn,
+        physicalExecution: fixturePhysicalExecution
     });
     assert.equal(record.status, 'passed', record.failure);
     const receiptPath = path.join(fixture.root, record.receipt.path);

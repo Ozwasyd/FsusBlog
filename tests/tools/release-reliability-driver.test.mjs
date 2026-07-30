@@ -6,7 +6,9 @@ import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const { loadCatalog } = await import(
+const {
+    loadCatalog
+} = await import(
     pathToFileURL(path.join(root, 'tools/test/run-release-reliability-scenarios.mjs')).href
 );
 
@@ -41,6 +43,7 @@ test('release reliability catalog declares structured executable commands and ev
     assert.deepEqual(catalog.policyBindings, {
         loadProfile: 'tests/performance/perf-policy.yml',
         mutationSubset: 'config/testing/mutation/release-parity-subset.json',
+        physicalExecution: 'config/testing/physical-execution-process-policy.json',
         releaseResource: 'config/deployment/zero-downtime-resource-policy.json'
     });
     for (const scenario of catalog.scenarios) {
@@ -193,4 +196,29 @@ test('release reliability lifecycle declarations reference the closed action reg
     assert.equal(referenced.length, 35);
     assert.equal(new Set(referenced).size, 35);
     assert.deepEqual([...referenced].sort(), [...actions.keys()].sort());
+});
+
+test('physical tree termination policy is canonical and separate from action timeouts', () => {
+    const catalog = loadCatalog();
+    const policyPath = path.join(root, catalog.policyBindings.physicalExecution);
+    const policy = JSON.parse(fs.readFileSync(policyPath, 'utf8'));
+    assert.equal(policy.schema, 'fsusblog.physical-execution-process-policy.v1');
+    assert.ok(policy.gracefulTerminationMs >= 0);
+    assert.ok(policy.forceTerminationMs > 0);
+    assert.ok(policy.pipeCloseTimeoutMs > 0);
+    assert.ok(policy.zeroMemberObservations >= 2);
+    const registry = JSON.parse(fs.readFileSync(path.join(
+        root,
+        catalog.actionRegistry
+    ), 'utf8'));
+    assert.equal(registry.actions.length, 35);
+    assert.ok(registry.actions.every((action) => (
+        Number.isInteger(action.timeoutPolicy.timeoutMs)
+        && action.timeoutPolicy.timeoutMs > 0
+    )));
+    assert.equal(
+        Object.hasOwn(policy, 'actionTimeoutMs'),
+        false,
+        'physical termination policy must not own lifecycle action deadlines'
+    );
 });

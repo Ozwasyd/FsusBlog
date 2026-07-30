@@ -38,12 +38,29 @@ await waitFor(startFile);
 
 const child = spawn(command[0], command.slice(1), {
     env: commandEnvironment,
+    detached: true,
     stdio: 'inherit'
 });
-fs.writeFileSync(childFile, `${JSON.stringify({ pid: child.pid })}\n`, { mode: 0o600 });
-const result = await new Promise((resolve, reject) =>
+const result = await new Promise((resolve) =>
 {
-    child.once('error', reject);
+    child.once('spawn', () =>
+    {
+        fs.writeFileSync(childFile, `${JSON.stringify({ pid: child.pid })}\n`, { mode: 0o600 });
+    });
+    child.once('error', (error) =>
+    {
+        const spawnError = {
+            name: error.name,
+            code: error.code ?? null,
+            message: error.message
+        };
+        fs.writeFileSync(
+            childFile,
+            `${JSON.stringify({ pid: null, spawnError })}\n`,
+            { mode: 0o600 }
+        );
+        resolve({ exitCode: null, signal: null, spawnError });
+    });
     child.once('exit', (exitCode, signal) => resolve({ exitCode, signal }));
 });
 fs.writeFileSync(resultFile, `${JSON.stringify(result)}\n`, { mode: 0o600 });

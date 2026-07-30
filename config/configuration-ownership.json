@@ -150,7 +150,24 @@
             "id": "physical-execution-process-policy",
             "owner": "physical-execution-governance",
             "canonicalPath": "config/testing/physical-execution-process-policy.json",
-            "pathType": "file"
+            "pathType": "file",
+            "purpose": "Canonical tree termination, bounded pipe close, and zero-member observation policy",
+            "consumers": [
+                "tools/test/physical-execution-process-tree.mjs",
+                "tools/test/release-reliability-lifecycle-actions.mjs",
+                "tools/test/release-reliability-lifecycle.mjs",
+                "tools/test/release-reliability-receipt.mjs",
+                "tools/test/verify-release-reliability-lifecycle-action.mjs",
+                "tools/test/verify-release-reliability-receipt.mjs",
+                "tests/tools/physical-execution-process-tree.test.mjs",
+                "tests/tools/release-reliability-cancellation.test.mjs",
+                "tests/tools/release-reliability-process-tree.test.mjs",
+                "docs/testing.md",
+                "docs/release-evidence-model.md"
+            ],
+            "validationCommand": "node --test tests/tools/physical-execution-process-tree.test.mjs tests/tools/release-reliability-process-tree.test.mjs tests/tools/release-reliability-cancellation.test.mjs",
+            "changePolicy": "manual-update-with-physical-execution-contract-validation",
+            "status": "manual"
         },
         {
             "id": "producer-execution-class-contract",

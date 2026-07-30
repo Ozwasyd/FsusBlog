@@ -10,7 +10,12 @@ import { PassThrough } from 'node:stream';
 import test from 'node:test';
 
 const { createPhysicalExecutionLinuxSystemdAdapter } = await import(new URL("../../tools/test/physical-execution-linux-systemd-adapter.mjs", import.meta.url));
-const { physicalExecutionProcessTreeSchema, runPhysicalExecution } = await import(new URL("../../tools/test/physical-execution-process-tree.mjs", import.meta.url));
+const { createPhysicalExecutionWindowsJobAdapter } = await import(new URL("../../tools/test/physical-execution-windows-job-adapter.mjs", import.meta.url));
+const {
+    physicalExecutionProcessTreeSchema,
+    runPhysicalExecution,
+    terminatePhysicalExecutionAuthoritySync
+} = await import(new URL("../../tools/test/physical-execution-process-tree.mjs", import.meta.url));
 const { processGroupMemberIdentities } = await import(new URL("../../tools/test/process-identity.mjs", import.meta.url));
 const { runBoundExecution } = await import(new URL("../../tools/test/run-once.mjs", import.meta.url));
 
@@ -20,8 +25,10 @@ const fastPolicy = {
     schema: 'fsusblog.physical-execution-process-policy.v1',
     gracefulTerminationMs: 80,
     forceTerminationMs: 1500,
+    pipeCloseTimeoutMs: 1500,
     observationIntervalMs: 10,
     zeroMemberObservations: 2,
+    maximumCapturedOutputBytesPerStream: 1024 * 1024,
     unixProcessGroupRequired: true,
     linuxCgroupRequired: true,
     windowsJobObjectRequired: true
@@ -47,6 +54,20 @@ function processExists(pid)
         }
         throw error;
     }
+}
+
+async function waitForProcessAbsence(pid, timeoutMs)
+{
+    const deadlineAt = Date.now() + timeoutMs;
+    while (Date.now() <= deadlineAt)
+    {
+        if (!processExists(pid))
+        {
+            return true;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    return !processExists(pid);
 }
 
 function readinessSink(marker = 'ready')
@@ -129,6 +150,8 @@ function createStubSystemdExecution({
         }
         child.exitCode = exitCode;
         child.signalCode = signal;
+        child.stdout.end();
+        child.stderr.end();
         child.emit('exit', exitCode, signal);
     };
     const adapter = createPhysicalExecutionLinuxSystemdAdapter({
@@ -176,6 +199,8 @@ function createStubSystemdExecution({
                 }
                 if (childError)
                 {
+                    child.stdout.end();
+                    child.stderr.end();
                     child.emit('error', childError);
                 }
                 onHandshake?.({ state, child });
@@ -289,6 +314,20 @@ function createStubSystemdExecution({
                 commandDigest: `command-${pid}`
             };
         },
+        readProcessGroupIdentity(pid)
+        {
+            return {
+                status: 'verified',
+                value: {
+                    schema: 'fsusblog.process-group-or-job-identity.v1',
+                    platform: 'linux',
+                    kind: 'process-group',
+                    groupId: pid,
+                    leaderPid: pid,
+                    leaderProcessStartIdentity: `stub-${pid}`
+                }
+            };
+        },
         removeControlRoot(controlRoot)
         {
             if (removeRootError)
@@ -346,6 +385,48 @@ test('parent exit with a live grandchild is terminated and cannot succeed', asyn
     {
         assert.equal(processExists(entry.pid), false);
     }
+});
+
+test('detached=false Unix bootstrap is rejected before business child spawn and cleaned', {
+    skip: !['linux', 'darwin'].includes(process.platform)
+}, async (context) =>
+{
+    const root = temporaryRoot('detached-false');
+    const marker = path.join(root, 'business-child-started');
+    let supervisorPid = null;
+    context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const startedAt = Date.now();
+    const error = await expectFailure({
+        command: [
+            process.execPath,
+            '-e',
+            `require('node:fs').writeFileSync(${JSON.stringify(marker)},'started')`
+        ],
+        residualRoot: path.join(root, 'residuals'),
+        spawnProcess(executable, argumentsList, options)
+        {
+            const child = spawn(executable, argumentsList, {
+                ...options,
+                detached: false
+            });
+            supervisorPid = child.pid;
+            return child;
+        }
+    });
+    assert.match(
+        error.message,
+        /did not become its run-owned process-group leader/u
+    );
+    assert.equal(fs.existsSync(marker), false);
+    assert.ok(Number.isInteger(supervisorPid) && supervisorPid > 0);
+    assert.equal(
+        await waitForProcessAbsence(supervisorPid, fastPolicy.forceTerminationMs),
+        true
+    );
+    assert.ok(
+        Date.now() - startedAt
+            < fastPolicy.forceTerminationMs + fastPolicy.pipeCloseTimeoutMs + 1000
+    );
 });
 
 test('ignored graceful signal is followed by force kill and recorded', async () =>
@@ -418,10 +499,43 @@ test('PID start identity mismatch prevents any signal from being sent', async ()
     });
     setTimeout(() => controller.abort(Object.assign(new Error('cancel'), { name: 'AbortError', signal: 'SIGTERM' })), 80);
     const error = await result.catch((value) => value);
-    assert.match(error.message, /start identity mismatch/u);
-    assert.deepEqual(signalled, []);
-    assert.ok(authority);
-    process.kill(-authority.groupId, 'SIGKILL');
+    try
+    {
+        assert.equal(error.message, 'cancel');
+        assert.match(
+            error.physicalExecutionContainmentError?.message ?? '',
+            /start identity mismatch/u
+        );
+        assert.deepEqual(signalled, []);
+        assert.ok(authority);
+    }
+    finally
+    {
+        const expectedIdentities = (error.physicalExecution?.processInventory ?? []).map(
+            (entry) => ({
+                pid: entry.pid,
+                processStartIdentity: entry.startIdentity,
+                executableDigest: entry.executableDigest,
+                commandDigest: entry.commandDigest
+            })
+        );
+        const cleanup = terminatePhysicalExecutionAuthoritySync({
+            authority,
+            reason: 'PID mismatch negative-test cleanup',
+            policy: fastPolicy,
+            expectedIdentities
+        });
+        assert.equal(cleanup.terminated, true, cleanup.reason);
+        assert.equal(cleanup.postObservation, 'zero-members');
+        for (const identity of expectedIdentities)
+        {
+            assert.equal(
+                await waitForProcessAbsence(identity.pid, fastPolicy.forceTerminationMs),
+                true,
+                `negative-test cleanup leaked PID ${identity.pid}`
+            );
+        }
+    }
 });
 
 test('post-observe collector failure blocks the next candidate before spawn', async () =>
@@ -448,7 +562,11 @@ test('post-observe collector failure blocks the next candidate before spawn', as
     });
     setTimeout(() => controller.abort(Object.assign(new Error('cancel'), { name: 'AbortError', signal: 'SIGTERM' })), 80);
     const error = await result.catch((value) => value);
-    assert.match(error.message, /post-observe failed: injected collector failure/u);
+    assert.equal(error.message, 'cancel');
+    assert.match(
+        error.physicalExecutionContainmentError?.message ?? '',
+        /post-observe failed: injected collector failure/u
+    );
     assert.ok(fs.readdirSync(residualRoot).some((entry) => entry.endsWith('.json')));
 
     let spawns = 0;
@@ -497,10 +615,27 @@ test('Windows requires a Job Object adapter and validates its kill-on-close evid
                         jobName: 'Local\\FsusBlogPhysicalExecution-test',
                         killPolicy: 'kill-on-close'
                     },
-                    lifecycle: ['created', 'running', 'post-observe-zero-members'],
+                    lifecycle: [
+                        'created',
+                        'running',
+                        'bounded-pipe-close',
+                        'post-observe-zero-members'
+                    ],
                     termination: [],
                     postObservation: 'zero-members',
                     processInventory: [],
+                    logComplete: true,
+                    logTruncationReason: null,
+                    forcedPipeClose: false,
+                    outputCapture: {
+                        maximumBytesPerStream: fastPolicy.maximumCapturedOutputBytesPerStream,
+                        stdoutBytes: 0,
+                        stderrBytes: 0,
+                        stdoutCapturedBytes: 0,
+                        stderrCapturedBytes: 0,
+                        stdoutTruncated: false,
+                        stderrTruncated: false
+                    },
                     stdout: '',
                     stderr: ''
                 };
@@ -550,6 +685,61 @@ test('Windows native Job Object physically contains and terminates a descendant 
     {
         assert.equal(processExists(entry.pid), false);
     }
+});
+
+test('Windows Job adapter aborts a pre-ready handshake and bounds supervisor cleanup', async () =>
+{
+    const controller = new AbortController();
+    const child = new EventEmitter();
+    child.stdout = new PassThrough();
+    child.stderr = new PassThrough();
+    child.exitCode = null;
+    child.signalCode = null;
+    let controlRoot = null;
+    let killCount = 0;
+    child.kill = () =>
+    {
+        killCount += 1;
+        child.exitCode = 1;
+        child.stdout.end();
+        child.stderr.end();
+        queueMicrotask(() => child.emit('exit', 1, null));
+        return true;
+    };
+    const adapter = createPhysicalExecutionWindowsJobAdapter({
+        spawnProcess: (_executable, args) =>
+        {
+            controlRoot = path.dirname(args[args.indexOf('-ReadyFile') + 1]);
+            return child;
+        },
+        queryMembers: () =>
+        {
+            throw new Error('member query must not run before the ready handshake');
+        }
+    });
+    const startedAt = Date.now();
+    const execution = adapter.run({
+        command: ['cmd.exe', '/c', 'exit', '0'],
+        cwd: process.cwd(),
+        env: process.env,
+        signal: controller.signal,
+        policy: { ...fastPolicy, forceTerminationMs: 200 },
+        stdout: quiet,
+        stderr: quiet
+    });
+    setTimeout(() => controller.abort(Object.assign(new Error('pre-ready cancellation'), {
+        name: 'AbortError',
+        signal: 'SIGTERM'
+    })), 20);
+    const error = await execution.catch((value) => value);
+    assert.equal(error.name, 'AbortError');
+    assert.equal(error.message, 'pre-ready cancellation');
+    assert.equal(error.physicalExecution.postObservation, 'unverifiable');
+    assert.equal(error.physicalExecution.logComplete, true);
+    assert.ok(error.physicalExecution.lifecycle.includes('bounded-pipe-close'));
+    assert.equal(killCount, 1);
+    assert.ok(Date.now() - startedAt < 1000);
+    assert.equal(fs.existsSync(controlRoot), false);
 });
 
 test('partial outputs remain evidence but cannot turn a failed execution into success', async () =>
@@ -721,6 +911,7 @@ test('Linux systemd adapter cleanup treats command results as evidence and final
         ...fastPolicy,
         gracefulTerminationMs: 5,
         forceTerminationMs: 30,
+        pipeCloseTimeoutMs: 30,
         observationIntervalMs: 1,
         zeroMemberObservations: 2
     };
@@ -1246,6 +1437,10 @@ test('Linux cgroup authority contains a setsid daemon holding a port and inherit
     }));
     const error = await execution.catch((value) => value);
     assert.equal(error.physicalExecution.authority.kind, 'linux-cgroup-process-group');
+    assert.equal(
+        error.physicalExecution.authority.processGroup.groupId,
+        error.physicalExecution.authority.processGroup.leaderPid
+    );
     assert.equal(error.physicalExecution.postObservation, 'zero-members');
     assert.ok(error.physicalExecution.processInventory.some((entry) => entry.pid === daemon.pid));
     assert.equal(processExists(daemon.pid), false);

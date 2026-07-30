@@ -2,8 +2,10 @@
     "schema": "fsusblog.physical-execution-process-policy.v1",
     "gracefulTerminationMs": 250,
     "forceTerminationMs": 2000,
+    "pipeCloseTimeoutMs": 2000,
     "observationIntervalMs": 20,
     "zeroMemberObservations": 2,
+    "maximumCapturedOutputBytesPerStream": 1048576,
     "unixProcessGroupRequired": true,
     "linuxCgroupRequired": true,
     "windowsJobObjectRequired": true

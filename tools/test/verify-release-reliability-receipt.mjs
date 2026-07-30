@@ -19,6 +19,7 @@ import {
     releaseReliabilityAuditedContainerOverrides
 } from './release-reliability-runtime-environment.mjs';
 import {
+    expandLifecycleTemplate,
     lifecycleActionIds,
     loadLifecycleActionContracts
 } from './release-reliability-lifecycle-actions.mjs';
@@ -57,6 +58,7 @@ const canonicalChildEnvironmentContract = {
 const canonicalPolicyBindings = {
     loadProfile: 'tests/performance/perf-policy.yml',
     mutationSubset: 'config/testing/mutation/release-parity-subset.json',
+    physicalExecution: 'config/testing/physical-execution-process-policy.json',
     releaseResource: 'config/deployment/zero-downtime-resource-policy.json'
 };
 const canonicalRuntimeInheritedEnvironment = {
@@ -1092,6 +1094,7 @@ async function verifyIdentity(
         'threshold',
         'mutationSubset',
         'releaseResource',
+        'physicalExecution',
         'childEnvironment',
         'executorSchema',
         'lifecycleSchema'
@@ -1115,7 +1118,8 @@ async function verifyIdentity(
     const policyFiles = [
         ['threshold', 'loadProfile', 'threshold policy'],
         ['mutationSubset', 'mutationSubset', 'mutation subset policy'],
-        ['releaseResource', 'releaseResource', 'release resource policy']
+        ['releaseResource', 'releaseResource', 'release resource policy'],
+        ['physicalExecution', 'physicalExecution', 'physical execution policy']
     ];
     for (const [field, bindingKey, label] of policyFiles)
     {
@@ -1494,8 +1498,258 @@ function timelineAction(record)
         signal: record.signal,
         timedOut: record.timedOut,
         status: record.status,
-        receipt: record.receipt
+        receipt: record.receipt,
+        processTreeReceipt: record.processTreeReceipt,
+        terminalFence: record.terminalFence
     };
+}
+
+function expectedActionCommand(action, scenario, identity, executionIdentity)
+{
+    const declaredExecutable = action.executable === '$scenario.command'
+        ? scenario.command.executable
+        : action.executable;
+    const declaredArgs = action.executable === '$scenario.command'
+        ? scenario.command.args
+        : action.args;
+    const declaredEnvironment = action.executable === '$scenario.command'
+        ? scenario.command.env
+        : action.env;
+    const declaredCwd = action.executable === '$scenario.command'
+        ? scenario.command.cwd
+        : action.cwd;
+    const toolId = path.basename(declaredExecutable).replace(/\.exe$/iu, '');
+    const executable = identity.tools.find((tool) => tool.id === toolId)?.executable
+        ?? (declaredExecutable === 'node' ? process.execPath : declaredExecutable);
+    const args = declaredArgs.map((argument) =>
+        expandLifecycleTemplate(argument, executionIdentity)
+    );
+    return {
+        executable,
+        args,
+        cwd: declaredCwd,
+        commandDigest: bytesDigest(Buffer.from(JSON.stringify({
+            executable,
+            args,
+            env: declaredEnvironment,
+            cwd: declaredCwd
+        })))
+    };
+}
+
+function verifyPhysicalProcessTreeEvidence(receipt, action)
+{
+    const tree = receipt.processTree;
+    const label = `${action.actionId} process-tree`;
+    if (tree?.schema !== 'fsusblog.physical-execution-process-tree.v1'
+        || !['linux', 'darwin', 'win32'].includes(tree.platform)
+        || !Array.isArray(tree.lifecycle)
+        || !tree.lifecycle.includes('bounded-pipe-close')
+        || !tree.lifecycle.includes('post-observe-zero-members')
+        || tree.postObservation !== 'zero-members'
+        || tree.logComplete !== true
+        || tree.logTruncationReason !== null
+        || tree.forcedPipeClose !== false
+        || !Array.isArray(tree.processInventory)
+        || tree.processInventory.length === 0)
+    {
+        throw new Error(`${label} evidence is incomplete`);
+    }
+    for (const member of tree.processInventory)
+    {
+        if (!Number.isInteger(member?.pid) || member.pid <= 0
+            || typeof member.startIdentity !== 'string' || !member.startIdentity
+            || !digestPattern.test(member.executableDigest)
+            || !digestPattern.test(member.commandDigest)
+            || !['containment-supervisor', 'direct-child', 'descendant']
+                .includes(member.role)
+            || !isoTimePattern.test(member.observedAt))
+        {
+            throw new Error(`${label} process inventory is incomplete`);
+        }
+    }
+    const directChild = tree.processInventory.find(
+        (member) => member.role === 'direct-child'
+    );
+    const authority = tree.authority;
+    if (!directChild)
+    {
+        throw new Error(`${label} leader identity is missing`);
+    }
+    if (tree.platform === 'linux')
+    {
+        const processGroup = authority?.processGroup;
+        if (authority?.schema !== 'fsusblog.physical-execution-authority.v1'
+            || authority.kind !== 'linux-cgroup-process-group'
+            || authority.established !== true
+            || typeof authority.unitName !== 'string' || !authority.unitName
+            || typeof authority.controlGroup !== 'string'
+            || !authority.controlGroup.startsWith('/')
+            || !Number.isInteger(authority.supervisorPid)
+            || processGroup?.schema
+                !== 'fsusblog.process-group-or-job-identity.v1'
+            || processGroup.platform !== 'linux'
+            || processGroup.kind !== 'process-group'
+            || !Number.isInteger(processGroup.groupId)
+            || processGroup.groupId !== processGroup.leaderPid
+            || typeof processGroup.leaderProcessStartIdentity !== 'string'
+            || !processGroup.leaderProcessStartIdentity
+            || directChild.pid !== processGroup.leaderPid
+            || directChild.pgid !== processGroup.groupId)
+        {
+            throw new Error(`${label} Linux cgroup/process-group authority is incomplete`);
+        }
+    }
+    else if (tree.platform === 'darwin')
+    {
+        if (authority?.schema !== 'fsusblog.process-group-or-job-identity.v1'
+            || authority.platform !== 'darwin'
+            || authority.kind !== 'process-group'
+            || !Number.isInteger(authority.groupId)
+            || authority.groupId !== authority.leaderPid
+            || directChild.pgid !== authority.groupId)
+        {
+            throw new Error(`${label} macOS process-group authority is incomplete`);
+        }
+    }
+    else if (authority?.schema
+            !== 'fsusblog.process-group-or-job-identity.v1'
+        || authority.platform !== 'win32'
+        || authority.kind !== 'windows-job-object'
+        || typeof authority.jobName !== 'string' || !authority.jobName
+        || authority.killPolicy !== 'kill-on-close'
+        || directChild.jobId !== authority.jobName)
+    {
+        throw new Error(`${label} Windows Job Object authority is incomplete`);
+    }
+}
+
+function verifyActionProcessTreeReceipt({
+    repositoryRoot,
+    reference,
+    terminalFence,
+    action,
+    scenario,
+    identity,
+    identityReference,
+    invocationId,
+    runId
+})
+{
+    exactKeys(reference, [
+        'path',
+        'schema',
+        'status',
+        'bytesDigest',
+        'contentDigest',
+        'postObservation',
+        'logComplete'
+    ], `${action.actionId} process-tree reference`);
+    const expectedPath =
+        `.tmp/release-reliability/${invocationId}/process-trees/` +
+        `${scenario.id}/${action.actionId}.json`;
+    const file = readJsonFile(
+        repositoryRoot,
+        reference.path,
+        `${action.actionId} process-tree receipt`,
+        expectedPath
+    );
+    const receipt = file.document;
+    exactKeys(receipt, [
+        'schema',
+        'status',
+        'invocationId',
+        'runId',
+        'scenarioId',
+        'actionId',
+        'phase',
+        'identity',
+        'physicalPolicy',
+        'command',
+        'startedAt',
+        'finishedAt',
+        'exitCode',
+        'signal',
+        'timedOut',
+        'cancellation',
+        'reason',
+        'duplicateRequests',
+        'processTree',
+        'logComplete',
+        'logTruncationReason',
+        'forcedPipeClose',
+        'terminalFence',
+        'failure',
+        'contentDigest'
+    ], `${action.actionId} process-tree receipt`);
+    exactKeys(receipt.command, [
+        'executable',
+        'args',
+        'cwd',
+        'commandDigest'
+    ], `${action.actionId} process-tree command`);
+    const expectedCommand = expectedActionCommand(
+        action,
+        scenario,
+        identity,
+        {
+            actionId: action.actionId,
+            invocationId,
+            runId,
+            scenarioId: scenario.id
+        }
+    );
+    if (reference.schema
+            !== 'fsusblog.release-reliability-process-tree-receipt.v1'
+        || receipt.schema !== reference.schema
+        || receipt.status !== 'passed' || reference.status !== 'passed'
+        || bytesDigest(file.bytes) !== reference.bytesDigest
+        || receipt.contentDigest !== reference.contentDigest
+        || receipt.contentDigest !== semanticDigest(receipt)
+        || receipt.invocationId !== invocationId || receipt.runId !== runId
+        || receipt.scenarioId !== scenario.id
+        || receipt.actionId !== action.actionId || receipt.phase !== action.phase
+        || JSON.stringify(receipt.identity) !== JSON.stringify(identityReference)
+        || JSON.stringify(receipt.physicalPolicy)
+            !== JSON.stringify(identity.policy.physicalExecution)
+        || JSON.stringify(receipt.command) !== JSON.stringify(expectedCommand)
+        || receipt.processTree?.postObservation !== 'zero-members'
+        || reference.postObservation !== 'zero-members'
+        || receipt.logComplete !== true || receipt.processTree?.logComplete !== true
+        || reference.logComplete !== true || receipt.failure !== null
+        || receipt.timedOut !== false
+        || receipt.terminalFence?.status !== 'closed'
+        || receipt.terminalFence?.lateEvidenceAccepted !== false)
+    {
+        throw new Error(`${action.actionId} process-tree receipt is not qualified`);
+    }
+    if (JSON.stringify(receipt.terminalFence) !== JSON.stringify(terminalFence))
+    {
+        throw new Error(`${action.actionId} terminal fence changed`);
+    }
+    verifyPhysicalProcessTreeEvidence(receipt, action);
+    const policy = readJsonFile(
+        repositoryRoot,
+        receipt.physicalPolicy.path,
+        'physical execution policy',
+        catalogPolicyPath(identity, 'physicalExecution')
+    );
+    if (bytesDigest(policy.bytes) !== receipt.physicalPolicy.fileDigest
+        || JSON.stringify(receipt.processTree.policy)
+            !== JSON.stringify(policy.document))
+    {
+        throw new Error(`${action.actionId} physical execution policy changed`);
+    }
+    isoTime(receipt.startedAt, `${action.actionId}.processTree.startedAt`);
+    isoTime(receipt.finishedAt, `${action.actionId}.processTree.finishedAt`);
+}
+
+function catalogPolicyPath(identity, field)
+{
+    return normalizedRelative(
+        identity.policy?.[field]?.path,
+        `${field} policy`
+    );
 }
 
 function verifyLifecycle(
@@ -1553,6 +1807,8 @@ function verifyLifecycle(
             'stdoutLog',
             'stderrLog',
             'receipt',
+            'processTreeReceipt',
+            'terminalFence',
             'finalObservation',
             'failure'
         ], `${scenario.id}.${declaration.actionId} action record`);
@@ -1579,6 +1835,17 @@ function verifyLifecycle(
             identity,
             identityReference,
             expectedBytesDigest: reference?.bytesDigest
+        });
+        verifyActionProcessTreeReceipt({
+            repositoryRoot,
+            reference: record.processTreeReceipt,
+            terminalFence: record.terminalFence,
+            action,
+            scenario,
+            identity,
+            identityReference,
+            invocationId,
+            runId
         });
         if (JSON.stringify(reference) !== JSON.stringify(verified)
             || JSON.stringify(record.receipt) !== JSON.stringify(verified)
@@ -1669,6 +1936,8 @@ function verifyResult(
         'outputs',
         'firstFailure',
         'cleanupFailures',
+        'terminalFence',
+        'cancellation',
         'failure',
         'recordedAt',
         'contentDigest'
@@ -1709,7 +1978,8 @@ function verifyResult(
         'signal',
         'timedOut',
         'stdoutLog',
-        'stderrLog'
+        'stderrLog',
+        'processTreeReceipt'
     ], `scenario ${scenario.id} producer`);
     const commandToolId = path.basename(scenario.command.executable).replace(/\.exe$/iu, '');
     const expectedExecutable = identity.tools.find((tool) => tool.id === commandToolId)?.executable;
@@ -1725,7 +1995,18 @@ function verifyResult(
         || result.producer.exitCode !== 0 || result.producer.signal !== null
         || result.producer.timedOut !== false
         || result.producer.stdoutLog !== `${expectedLogRoot}.stdout.log`
-        || result.producer.stderrLog !== `${expectedLogRoot}.stderr.log`)
+        || result.producer.stderrLog !== `${expectedLogRoot}.stderr.log`
+        || JSON.stringify(result.producer.processTreeReceipt)
+            !== JSON.stringify(result.lifecycle.actions.find(
+                (record) => record.phase === 'measurement'
+            )?.processTreeReceipt)
+        || JSON.stringify(result.terminalFence)
+            !== JSON.stringify(result.lifecycle.actions.find(
+                (record) => record.phase === 'measurement'
+            )?.terminalFence)
+        || result.terminalFence?.status !== 'closed'
+        || result.terminalFence?.lateEvidenceAccepted !== false
+        || result.cancellation !== null)
     {
         throw new Error(`scenario ${scenario.id} producer invocation mismatch`);
     }
@@ -1787,6 +2068,7 @@ function persistentPaths(repositoryRoot, candidate)
         identity.policy.threshold.path,
         identity.policy.mutationSubset.path,
         identity.policy.releaseResource.path,
+        identity.policy.physicalExecution.path,
         'config/schemas/release-reliability-lifecycle-action-registry.schema.json',
         'config/testing/release-reliability-lifecycle-action-registry.json',
         'config/testing/runtime-state-domain-registry.json',
@@ -1815,6 +2097,7 @@ function persistentPaths(repositoryRoot, candidate)
         for (const action of result.lifecycle?.actions ?? [])
         {
             paths.add(action.receipt?.path);
+            paths.add(action.processTreeReceipt?.path);
         }
     }
     return [...paths].sort();

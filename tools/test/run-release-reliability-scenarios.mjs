@@ -47,6 +47,7 @@ const canonicalChildEnvironmentContract = {
 const canonicalPolicyBindings = {
     loadProfile: 'tests/performance/perf-policy.yml',
     mutationSubset: 'config/testing/mutation/release-parity-subset.json',
+    physicalExecution: 'config/testing/physical-execution-process-policy.json',
     releaseResource: 'config/deployment/zero-downtime-resource-policy.json'
 };
 const canonicalRuntimeInheritedEnvironment = {
@@ -674,17 +675,89 @@ function repositoryRelative(repositoryRoot, file)
     return path.relative(repositoryRoot, file).replaceAll(path.sep, '/');
 }
 
+export function createReleaseReliabilityCancellation({
+    parentSignal = null,
+    now = () => new Date().toISOString()
+} = {})
+{
+    const controller = new AbortController();
+    const state = {
+        kind: null,
+        signal: null,
+        reason: null,
+        observedAt: null,
+        duplicateRequests: 0
+    };
+    const request = ({
+        kind = 'abort',
+        signal = null,
+        reason = null
+    } = {}) =>
+    {
+        if (state.kind !== null)
+        {
+            state.duplicateRequests += 1;
+            return false;
+        }
+        state.kind = kind;
+        state.signal = signal;
+        state.reason = reason instanceof Error
+            ? reason.message
+            : reason == null
+                ? 'release reliability execution cancelled'
+                : String(reason);
+        state.observedAt = now();
+        const error = reason instanceof Error
+            ? reason
+            : new Error(state.reason);
+        error.name = kind === 'timeout' ? 'TimeoutError' : 'AbortError';
+        error.signal = signal;
+        error.releaseReliabilityCancellation = state;
+        controller.abort(error);
+        return true;
+    };
+    const onParentAbort = () =>
+    {
+        const parent = parentSignal.reason?.releaseReliabilityCancellation;
+        request({
+            kind: parent?.kind ?? 'abort',
+            signal: parent?.signal ?? parentSignal.reason?.signal ?? null,
+            reason: parentSignal.reason
+        });
+    };
+    if (parentSignal?.aborted)
+    {
+        onParentAbort();
+    }
+    else
+    {
+        parentSignal?.addEventListener('abort', onParentAbort, { once: true });
+    }
+    const dispose = () =>
+    {
+        parentSignal?.removeEventListener('abort', onParentAbort);
+    };
+    return {
+        signal: controller.signal,
+        request,
+        snapshot: () => ({ ...state }),
+        dispose
+    };
+}
+
 export async function executeScenario({
     catalog,
     scenarioId,
-    evidenceClass,
-    qualificationEligible,
+    evidenceClass = 'diagnostic',
+    qualificationEligible = false,
     repositoryRoot = root,
     invocationId,
     runId,
     identity,
     identityReference,
     spawnProcess = spawn,
+    physicalExecution,
+    signal = null,
     ambientEnvironment = process.env,
     lifecycleContracts = null,
     now = () => new Date().toISOString()
@@ -764,15 +837,16 @@ export async function executeScenario({
                 ...childEnvironment,
                 ...Object.fromEntries([
                     'FSUSBLOG_DATA_SCALE_RUNTIME_RECEIPT_PATH',
-                    'FSUSBLOG_DATA_SCALE_TEARDOWN_RECEIPT_PATH',
-                    'FSUSBLOG_RELEASE_RELIABILITY_PROCESS_TREE_RECEIPT_PATH'
+                    'FSUSBLOG_DATA_SCALE_TEARDOWN_RECEIPT_PATH'
                 ].filter((key) => ambientEnvironment[key]).map((key) => [
                     key,
                     String(ambientEnvironment[key])
                 ]))
             },
             measurementEnvironment: childEnvironment,
-            spawnProcess
+            signal,
+            spawnProcess,
+            ...(physicalExecution === undefined ? {} : { physicalExecution })
         })
         : {
             status: 'failed',
@@ -832,7 +906,8 @@ export async function executeScenario({
             signal: measurement?.signal ?? null,
             timedOut: measurement?.timedOut ?? false,
             stdoutLog: measurement?.stdoutLog ?? null,
-            stderrLog: measurement?.stderrLog ?? null
+            stderrLog: measurement?.stderrLog ?? null,
+            processTreeReceipt: measurement?.processTreeReceipt ?? null
         },
         lifecycle: {
             actions: lifecycle.actions,
@@ -842,6 +917,14 @@ export async function executeScenario({
         },
         firstFailure: lifecycle.firstFailure,
         cleanupFailures: lifecycle.cleanupFailures,
+        terminalFence: measurement?.terminalFence ?? {
+            status: 'closed',
+            sealedAt: finishedAt,
+            lateEvidenceAccepted: false
+        },
+        cancellation: ['cancelled', 'timed-out'].includes(lifecycle.status)
+            ? measurement?.processTreeReceipt ?? null
+            : null,
         authoritativeEvidence: evidence,
         outputs: evidence === null
             ? []
@@ -864,6 +947,8 @@ export async function executeScenarios({
     identity,
     identityReference,
     spawnProcess = spawn,
+    physicalExecution,
+    signal = null,
     ambientEnvironment = process.env,
     lifecycleContracts = null,
     now = () => new Date().toISOString()
@@ -904,6 +989,8 @@ export async function executeScenarios({
             identity,
             identityReference,
             spawnProcess,
+            physicalExecution,
+            signal,
             ambientEnvironment,
             lifecycleContracts: resolvedLifecycleContracts,
             now
@@ -981,17 +1068,47 @@ async function main()
         repositoryRoot: root,
         catalog
     });
-    const results = await executeScenarios({
-        catalog,
-        scenarioId: scenario,
-        evidenceClass,
-        qualificationEligible,
-        invocationId,
-        runId,
-        identity,
-        identityReference,
-        lifecycleContracts
-    });
+    const driverCancellation = createReleaseReliabilityCancellation();
+    const signalHandlers = new Map(
+        ['SIGINT', 'SIGTERM', 'SIGHUP'].map((signalName) => [
+            signalName,
+            () => driverCancellation.request({
+                kind: 'signal',
+                signal: signalName,
+                reason: new Error(
+                    `release reliability execution cancelled by ${signalName}`
+                )
+            })
+        ])
+    );
+    for (const [signalName, handler] of signalHandlers)
+    {
+        process.on(signalName, handler);
+    }
+    let results;
+    try
+    {
+        results = await executeScenarios({
+            catalog,
+            scenarioId: scenario,
+            evidenceClass,
+            qualificationEligible,
+            invocationId,
+            runId,
+            identity,
+            identityReference,
+            lifecycleContracts,
+            signal: driverCancellation.signal
+        });
+    }
+    finally
+    {
+        for (const [signalName, handler] of signalHandlers)
+        {
+            process.off(signalName, handler);
+        }
+        driverCancellation.dispose();
+    }
     for (const result of results)
     {
         console.log(`[release-reliability:${result.scenarioId}] status=${result.status} result=${result.resultPath}`);
@@ -1009,6 +1126,7 @@ async function main()
         const timelineFile = path.join(invocationRoot, 'timeline.json');
         writeJsonAtomic(timelineFile, timeline);
         const receipt = createCandidateReceipt({
+            repositoryRoot: root,
             invocationId,
             runId,
             scenarioResults: results,

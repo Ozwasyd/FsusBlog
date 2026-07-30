@@ -40,6 +40,11 @@ export function digestFile(file)
     return `sha256:${createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`;
 }
 
+function rawDigest(bytes)
+{
+    return `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+}
+
 export function sealDocument(value)
 {
     const sealed = { ...value, contentDigest: null };
@@ -734,6 +739,13 @@ export async function collectRunIdentity({
         'release resource policy',
         errors
     );
+    const physicalExecution = collectCatalogPolicyBinding(
+        repositoryRoot,
+        catalog,
+        'physicalExecution',
+        'physical execution policy',
+        errors
+    );
     return sealDocument({
         schema: 'fsusblog.release-reliability-run-identity.v1',
         status: errors.length === 0 ? 'complete' : 'unavailable',
@@ -754,6 +766,7 @@ export async function collectRunIdentity({
             threshold,
             mutationSubset,
             releaseResource,
+            physicalExecution,
             childEnvironment: collectChildEnvironmentIdentity(catalog),
             executorSchema: 'fsusblog.release-reliability-scenario-result.v3',
             lifecycleSchema: catalog.lifecycleSchema
@@ -896,10 +909,11 @@ function validateCompleteIdentity(identity, catalog, lifecycleContracts)
             identity.policy?.[field]?.status !== 'complete'
             || !digestPattern.test(identity.policy[field]?.fileDigest)
         ))
-        || ['threshold', 'mutationSubset', 'releaseResource'].some((field) => (
+        || ['threshold', 'mutationSubset', 'releaseResource', 'physicalExecution']
+            .some((field) => (
             identity.policy?.[field]?.status !== 'complete'
             || !digestPattern.test(identity.policy[field]?.fileDigest)
-        ))
+            ))
         || !digestPattern.test(identity.policy.catalog.fileDigest)
         || identity.policy.catalog.path !== 'config/testing/release-reliability-scenario-catalog.json'
         || identity.policy.lifecycleActionRegistry.path
@@ -917,6 +931,8 @@ function validateCompleteIdentity(identity, catalog, lifecycleContracts)
         || identity.policy.threshold.path !== catalog.policyBindings.loadProfile
         || identity.policy.mutationSubset.path !== catalog.policyBindings.mutationSubset
         || identity.policy.releaseResource.path !== catalog.policyBindings.releaseResource
+        || identity.policy.physicalExecution.path
+            !== catalog.policyBindings.physicalExecution
         || JSON.stringify(identity.policy.childEnvironment) !== JSON.stringify(expectedChildEnvironment)
         || identity.policy.executorSchema !== 'fsusblog.release-reliability-scenario-result.v3'
         || identity.policy.lifecycleSchema !== catalog.lifecycleSchema)
@@ -926,6 +942,7 @@ function validateCompleteIdentity(identity, catalog, lifecycleContracts)
 }
 
 function validateScenarioForQualification(result, {
+    repositoryRoot,
     invocationId,
     runId,
     identity,
@@ -970,7 +987,10 @@ function validateScenarioForQualification(result, {
     }
     const expectedResultPath = `.tmp/release-reliability/${invocationId}/scenario-results/${scenario.id}.json`;
     if (result.resultPath !== expectedResultPath || result.owner !== scenario.owner
-        || result.resourceClass !== scenario.resourceClass || result.failure !== null)
+        || result.resourceClass !== scenario.resourceClass || result.failure !== null
+        || result.terminalFence?.status !== 'closed'
+        || result.terminalFence?.lateEvidenceAccepted !== false
+        || result.cancellation !== null)
     {
         throw new Error(`scenario ${result.scenarioId} result metadata mismatch`);
     }
@@ -1003,7 +1023,8 @@ function validateScenarioForQualification(result, {
         'signal',
         'timedOut',
         'stdoutLog',
-        'stderrLog'
+        'stderrLog',
+        'processTreeReceipt'
     ];
     const commandToolId = path.basename(scenario.command.executable).replace(/\.exe$/iu, '');
     const expectedExecutable = identity.tools.find((tool) => tool.id === commandToolId)?.executable;
@@ -1025,7 +1046,18 @@ function validateScenarioForQualification(result, {
         || result.producer.exitCode !== 0 || result.producer.signal !== null
         || result.producer.timedOut !== false
         || result.producer.stdoutLog !== `${expectedLogRoot}.stdout.log`
-        || result.producer.stderrLog !== `${expectedLogRoot}.stderr.log`)
+        || result.producer.stderrLog !== `${expectedLogRoot}.stderr.log`
+        || result.producer.processTreeReceipt?.status !== 'passed'
+        || result.producer.processTreeReceipt?.postObservation !== 'zero-members'
+        || result.producer.processTreeReceipt?.logComplete !== true
+        || JSON.stringify(result.producer.processTreeReceipt)
+            !== JSON.stringify(result.lifecycle.actions.find(
+                (record) => record.phase === 'measurement'
+            )?.processTreeReceipt)
+        || JSON.stringify(result.terminalFence)
+            !== JSON.stringify(result.lifecycle.actions.find(
+                (record) => record.phase === 'measurement'
+            )?.terminalFence))
     {
         throw new Error(`scenario ${result.scenarioId} producer invocation mismatch`);
     }
@@ -1103,6 +1135,49 @@ function validateScenarioForQualification(result, {
         {
             throw new Error(`scenario ${result.scenarioId} ${expected.actionId} reference is incomplete`);
         }
+        const expectedProcessTreePath =
+            `.tmp/release-reliability/${invocationId}/process-trees/` +
+            `${scenario.id}/${action.actionId}.json`;
+        if (record.processTreeReceipt?.path !== expectedProcessTreePath)
+        {
+            throw new Error(`scenario ${result.scenarioId} ${expected.actionId} process-tree path is invalid`);
+        }
+        const processTreeFile = resolveApprovedPath(
+            repositoryRoot,
+            record.processTreeReceipt.path,
+            `${expected.actionId} process-tree receipt`
+        );
+        if (!fs.existsSync(processTreeFile.absolute)
+            || !fs.lstatSync(processTreeFile.absolute).isFile())
+        {
+            throw new Error(`scenario ${result.scenarioId} ${expected.actionId} process-tree receipt is unavailable`);
+        }
+        const processTreeBytes = fs.readFileSync(processTreeFile.absolute);
+        const processTreeDocument = JSON.parse(processTreeBytes.toString('utf8'));
+        if (record.processTreeReceipt.bytesDigest !== rawDigest(processTreeBytes)
+            || processTreeDocument.contentDigest
+                !== record.processTreeReceipt.contentDigest
+            || processTreeDocument.contentDigest
+                !== digestValue(processTreeDocument)
+            || processTreeDocument.invocationId !== invocationId
+            || processTreeDocument.runId !== runId
+            || processTreeDocument.scenarioId !== scenario.id
+            || processTreeDocument.actionId !== action.actionId
+            || processTreeDocument.phase !== action.phase
+            || processTreeDocument.status !== 'passed'
+            || JSON.stringify(processTreeDocument.identity)
+                !== JSON.stringify(identityReference)
+            || JSON.stringify(processTreeDocument.physicalPolicy)
+                !== JSON.stringify(identity.policy.physicalExecution)
+            || processTreeDocument.processTree?.postObservation !== 'zero-members'
+            || processTreeDocument.logComplete !== true
+            || record.processTreeReceipt.postObservation !== 'zero-members'
+            || record.processTreeReceipt.logComplete !== true
+            || record.terminalFence?.status !== 'closed'
+            || record.terminalFence?.lateEvidenceAccepted !== false)
+        {
+            throw new Error(`scenario ${result.scenarioId} ${expected.actionId} process-tree receipt is incomplete`);
+        }
         if (![record.startedAt, record.finishedAt].every(
             (value) => isoTimePattern.test(value) && Number.isFinite(Date.parse(value))
         )
@@ -1142,7 +1217,9 @@ function scenarioReference(result)
             signal: action.signal,
             timedOut: action.timedOut,
             status: action.status,
-            receipt: action.receipt
+            receipt: action.receipt,
+            processTreeReceipt: action.processTreeReceipt,
+            terminalFence: action.terminalFence
         })),
         resetPostObservation: result.lifecycle?.resetPostObservation ?? null,
         finalPostObservation: result.lifecycle?.finalPostObservation ?? null,
@@ -1167,6 +1244,7 @@ export function createTimeline({ invocationId, runId, scenarioResults, identityR
 }
 
 export function createCandidateReceipt({
+    repositoryRoot = process.cwd(),
     invocationId,
     runId,
     scenarioResults,
@@ -1220,6 +1298,7 @@ export function createCandidateReceipt({
         for (const result of scenarioResults)
         {
             validateScenarioForQualification(result, {
+                repositoryRoot,
                 invocationId,
                 runId,
                 identity,

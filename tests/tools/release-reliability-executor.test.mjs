@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -142,6 +143,13 @@ function createFixture()
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-release-reliability-executor-'));
     const producer = path.join(root, 'producer.mjs');
     fs.writeFileSync(producer, producerSource, 'utf8');
+    const policyRelativePath =
+        'config/testing/physical-execution-process-policy.json';
+    const policyBytes = fs.readFileSync(
+        path.join(repositoryRoot, policyRelativePath)
+    );
+    fs.mkdirSync(path.join(root, 'config/testing'), { recursive: true });
+    fs.writeFileSync(path.join(root, policyRelativePath), policyBytes);
     const identityPath = `.tmp/release-reliability/${invocationId}/identity.json`;
     const identity = sealDocument({
         schema: 'fsusblog.release-reliability-run-identity.v1',
@@ -165,6 +173,14 @@ function createFixture()
                         }
                     }
                 }
+            }
+        },
+        policy: {
+            physicalExecution: {
+                status: 'complete',
+                path: policyRelativePath,
+                fileDigest: `sha256:${createHash('sha256')
+                    .update(policyBytes).digest('hex')}`
             }
         }
     });
@@ -350,8 +366,112 @@ function executeFixtureScenario(fixture, catalog, options = {})
         identity: options.identity ?? fixture.identity,
         identityReference: fixture.identityReference,
         spawnProcess: options.spawnProcess ?? spawn,
+        physicalExecution:
+            options.physicalExecution ?? fixturePhysicalExecution,
         ambientEnvironment: options.ambientEnvironment ?? fixtureAmbientEnvironment,
         lifecycleContracts: options.lifecycleContracts ?? contractsFor(fixture, catalog)
+    });
+}
+
+function fixtureProcessEvidence(policy)
+{
+    return {
+        schema: 'fsusblog.physical-execution-process-tree.v1',
+        platform: process.platform,
+        policy,
+        authority: {
+            schema: 'fsusblog.process-group-or-job-identity.v1',
+            kind: 'fixture-process-group',
+            platform: process.platform,
+            established: true
+        },
+        lifecycle: [
+            'created',
+            'bounded-pipe-close',
+            'post-observe-zero-members',
+            'seal-completed-receipt'
+        ],
+        termination: [],
+        postObservation: 'zero-members',
+        processInventory: [],
+        logComplete: true,
+        logTruncationReason: null,
+        forcedPipeClose: false,
+        outputCapture: {
+            maximumBytesPerStream: policy.maximumCapturedOutputBytesPerStream,
+            stdoutBytes: 0,
+            stderrBytes: 0,
+            stdoutCapturedBytes: 0,
+            stderrCapturedBytes: 0,
+            stdoutTruncated: false,
+            stderrTruncated: false
+        },
+        stdout: '',
+        stderr: ''
+    };
+}
+
+function fixturePhysicalExecution(options)
+{
+    return new Promise((resolve, reject) =>
+    {
+        let child;
+        try
+        {
+            child = options.spawnProcess(
+                options.command[0],
+                options.command.slice(1),
+                {
+                    cwd: options.cwd,
+                    env: options.env,
+                    stdio: ['ignore', 'pipe', 'pipe']
+                }
+            );
+        }
+        catch (error)
+        {
+            reject(error);
+            return;
+        }
+        if (!child || typeof child.once !== 'function')
+        {
+            reject(new Error('spawn did not return a child process'));
+            return;
+        }
+        child.stdout?.on('data', (chunk) => options.stdout?.write(chunk));
+        child.stderr?.on('data', (chunk) => options.stderr?.write(chunk));
+        const evidence = fixtureProcessEvidence(options.policy);
+        const onAbort = () => child.kill?.('SIGTERM');
+        options.signal?.addEventListener('abort', onAbort, { once: true });
+        child.once('error', (error) =>
+        {
+            options.signal?.removeEventListener('abort', onAbort);
+            error.physicalExecution = evidence;
+            reject(error);
+        });
+        child.once('close', (exitCode, signal) =>
+        {
+            options.signal?.removeEventListener('abort', onAbort);
+            if (options.signal?.aborted)
+            {
+                const error = options.signal.reason;
+                error.physicalExecution = evidence;
+                reject(error);
+                return;
+            }
+            if (exitCode !== 0 || signal)
+            {
+                const error = Object.assign(
+                    new Error(signal
+                        ? `command failed by signal ${signal}`
+                        : `command failed with exit ${exitCode}`),
+                    { exitCode, signal, physicalExecution: evidence }
+                );
+                reject(error);
+                return;
+            }
+            resolve(evidence);
+        });
     });
 }
 
@@ -474,6 +594,7 @@ test('precondition and cleanup failures revoke correctness qualification eligibi
                 runId,
                 identity: fixture.identity,
                 identityReference: fixture.identityReference,
+                physicalExecution: fixturePhysicalExecution,
                 ambientEnvironment: fixtureAmbientEnvironment,
                 lifecycleContracts: contractsFor(fixture, catalog)
             });
@@ -543,19 +664,19 @@ test('nonzero exit, signal cancellation, and unavailable executable fail closed'
     {
         const nonzero = await executeFixtureScenario(fixture, catalogFor(fixture, 'nonzero'));
         assert.equal(nonzero.status, 'failed');
-        assert.match(nonzero.failure, /code: 19/u);
+        assert.match(nonzero.failure, /exit 19/u);
 
         const signalled = await executeFixtureScenario(fixture, catalogFor(fixture), {
             spawnProcess: () => fakeChild(null, 'SIGTERM')
         });
-        assert.equal(signalled.status, 'failed');
-        assert.match(signalled.failure, /signal: SIGTERM/u);
+        assert.equal(signalled.status, 'cancelled');
+        assert.match(signalled.failure, /signal SIGTERM/u);
 
         const missing = catalogFor(fixture);
         missing.scenarios[0].command.executable = 'fsusblog-command-does-not-exist';
         const unavailable = await executeFixtureScenario(fixture, missing);
         assert.equal(unavailable.status, 'failed');
-        assert.match(unavailable.failure, /spawn failed/u);
+        assert.match(unavailable.failure, /ENOENT/u);
     }
     finally
     {
@@ -600,6 +721,7 @@ test('complete execution stays serial and single-scenario execution produces onl
             identity: fixture.identity,
             identityReference: fixture.identityReference,
             spawnProcess,
+            physicalExecution: fixturePhysicalExecution,
             ambientEnvironment: fixtureAmbientEnvironment,
             lifecycleContracts: contractsFor(fixture, catalog)
         });
@@ -622,6 +744,7 @@ test('complete execution stays serial and single-scenario execution produces onl
             runId,
             identity: fixture.identity,
             identityReference: fixture.identityReference,
+            physicalExecution: fixturePhysicalExecution,
             ambientEnvironment: fixtureAmbientEnvironment,
             lifecycleContracts: contractsFor(fixture, catalog)
         });
@@ -671,6 +794,7 @@ test('ambient semantic overrides and undeclared keys never reach any scenario pr
             identity: fixture.identity,
             identityReference: fixture.identityReference,
             ambientEnvironment,
+            physicalExecution: fixturePhysicalExecution,
             lifecycleContracts: contractsFor(fixture, catalog),
             spawnProcess: (executable, args, options) =>
             {
@@ -760,6 +884,7 @@ test('full execution clears old qualification and scenario results before a fail
             runId,
             identity: fixture.identity,
             identityReference: fixture.identityReference,
+            physicalExecution: fixturePhysicalExecution,
             ambientEnvironment: fixtureAmbientEnvironment,
             lifecycleContracts: contractsFor(fixture, catalog)
         });

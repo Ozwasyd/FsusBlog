@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
     inspectBackendIdentity,
+    readMeasurementProcessTreeObservation,
     runLifecycleAction
 } from '../../tools/test/release-reliability-lifecycle.mjs';
 import {
@@ -16,7 +17,8 @@ import {
 import {
     verifyDataScaleOwnerReceipt,
     verifyDataScaleTeardownRuntimeBinding,
-    verifyLifecycleActionReceipt
+    verifyLifecycleActionReceipt,
+    verifyMeasurementProcessTreeBinding
 } from '../../tools/test/verify-release-reliability-lifecycle-action.mjs';
 import {
     digestValue,
@@ -74,6 +76,7 @@ function createFixture(context)
         'config/schemas/release-reliability-lifecycle-action-registry.schema.json',
         'config/testing/release-reliability-lifecycle-action-registry.json',
         'config/testing/release-reliability-scenario-catalog.json',
+        'config/testing/physical-execution-process-policy.json',
         'config/testing/runtime-state-domain-registry.json'
     ])
     {
@@ -93,6 +96,16 @@ function createFixture(context)
         build: {
             contentDigest: `sha256:${'c'.repeat(64)}`,
             imageDigest: `sha256:${'2'.repeat(64)}`
+        },
+        policy: {
+            physicalExecution: {
+                status: 'complete',
+                path: 'config/testing/physical-execution-process-policy.json',
+                fileDigest: rawDigest(fs.readFileSync(path.join(
+                    root,
+                    'config/testing/physical-execution-process-policy.json'
+                )))
+            }
         }
     });
     const identityRelativePath =
@@ -116,6 +129,92 @@ function createFixture(context)
         }
     };
 }
+
+test('measurement descendant binding rereads raw process-tree bytes and rejects tamper', (context) =>
+{
+    const fixture = createFixture(context);
+    const contracts = loadLifecycleActionContracts({
+        repositoryRoot: fixture.root
+    });
+    const scenario = contracts.catalog.scenarios.find(
+        (candidate) => candidate.id === scenarioId
+    );
+    const measurementActionId = scenario.isolation.lifecycle.measurement;
+    const receiptRelative =
+        `.tmp/release-reliability/${invocationId}/process-trees/` +
+        `${scenarioId}/${measurementActionId}.json`;
+    const policy = JSON.parse(fs.readFileSync(path.join(
+        fixture.root,
+        fixture.identity.policy.physicalExecution.path
+    ), 'utf8'));
+    const receipt = sealDocument({
+        schema: 'fsusblog.release-reliability-process-tree-receipt.v1',
+        status: 'passed',
+        invocationId,
+        runId,
+        scenarioId,
+        actionId: measurementActionId,
+        phase: 'measurement',
+        identity: fixture.identityReference,
+        physicalPolicy: fixture.identity.policy.physicalExecution,
+        processTree: {
+            policy,
+            postObservation: 'zero-members',
+            logComplete: true
+        },
+        logComplete: true
+    });
+    const receiptFile = path.join(fixture.root, receiptRelative);
+    fs.mkdirSync(path.dirname(receiptFile), { recursive: true });
+    fs.writeFileSync(receiptFile, `${JSON.stringify(receipt, null, 2)}\n`);
+    const contextValue = {
+        contracts,
+        environment: {
+            ...fixture.environment,
+            FSUSBLOG_RELEASE_RELIABILITY_PROCESS_TREE_RECEIPT_PATH:
+                receiptRelative
+        },
+        identity: fixture.identity,
+        identityReference: fixture.identityReference,
+        invocationId,
+        repositoryRoot: fixture.root,
+        runId,
+        scenarioId
+    };
+    const observation = readMeasurementProcessTreeObservation(contextValue);
+    assert.equal(observation.status, 'zero');
+    assert.equal(observation.bytesDigest, rawDigest(fs.readFileSync(receiptFile)));
+    const actionReceipt = {
+        invocationId,
+        runId,
+        identity: fixture.identityReference
+    };
+    verifyMeasurementProcessTreeBinding({
+        repositoryRoot: fixture.root,
+        binding: observation,
+        actionReceipt,
+        scenario,
+        identity: fixture.identity
+    });
+    fs.appendFileSync(receiptFile, '\n');
+    assert.throws(
+        () => verifyMeasurementProcessTreeBinding({
+            repositoryRoot: fixture.root,
+            binding: observation,
+            actionReceipt,
+            scenario,
+            identity: fixture.identity
+        }),
+        /bytes changed/u
+    );
+    const tampered = JSON.parse(fs.readFileSync(receiptFile, 'utf8'));
+    tampered.processTree.postObservation = 'members-remain';
+    fs.writeFileSync(receiptFile, `${JSON.stringify(tampered, null, 2)}\n`);
+    assert.equal(
+        readMeasurementProcessTreeObservation(contextValue).status,
+        'failed'
+    );
+});
 
 function observedMutationState()
 {

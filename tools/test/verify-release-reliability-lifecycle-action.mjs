@@ -456,6 +456,74 @@ function rereadBoundReceipt(repositoryRoot, binding, label)
     return document;
 }
 
+export function verifyMeasurementProcessTreeBinding({
+    repositoryRoot,
+    binding,
+    actionReceipt,
+    scenario,
+    identity
+})
+{
+    const measurementActionId = scenario.isolation.lifecycle.measurement;
+    const expectedPath =
+        `.tmp/release-reliability/${actionReceipt.invocationId}/process-trees/` +
+        `${scenario.id}/${measurementActionId}.json`;
+    if (binding?.status !== 'zero' || binding.path !== expectedPath
+        || binding.actionId !== measurementActionId
+        || binding.schema
+            !== 'fsusblog.release-reliability-process-tree-receipt.v1')
+    {
+        throw new Error('measurement descendant receipt binding is incomplete');
+    }
+    const resolved = safeRelativePath(
+        repositoryRoot,
+        binding.path,
+        'measurement process-tree receipt'
+    );
+    const bytes = fs.readFileSync(resolved.absolute);
+    if (rawDigest(bytes) !== binding.bytesDigest)
+    {
+        throw new Error('measurement process-tree receipt bytes changed');
+    }
+    const receipt = JSON.parse(bytes.toString('utf8'));
+    if (receipt.schema !== binding.schema
+        || receipt.invocationId !== actionReceipt.invocationId
+        || receipt.runId !== actionReceipt.runId
+        || receipt.scenarioId !== scenario.id
+        || receipt.actionId !== measurementActionId
+        || receipt.phase !== 'measurement'
+        || JSON.stringify(receipt.identity)
+            !== JSON.stringify(actionReceipt.identity)
+        || JSON.stringify(receipt.physicalPolicy)
+            !== JSON.stringify(identity.policy?.physicalExecution)
+        || receipt.contentDigest !== binding.contentDigest
+        || receipt.contentDigest !== digestValue(receipt))
+    {
+        throw new Error('measurement process-tree receipt identity/content changed');
+    }
+    const policy = safeRelativePath(
+        repositoryRoot,
+        receipt.physicalPolicy.path,
+        'physical execution policy'
+    );
+    const policyBytes = fs.readFileSync(policy.absolute);
+    if (rawDigest(policyBytes) !== receipt.physicalPolicy.fileDigest
+        || JSON.stringify(binding.physicalPolicy)
+            !== JSON.stringify(receipt.physicalPolicy)
+        || JSON.stringify(receipt.processTree?.policy)
+            !== JSON.stringify(JSON.parse(policyBytes.toString('utf8'))))
+    {
+        throw new Error('measurement process-tree policy binding changed');
+    }
+    if (binding.postObservation !== 'zero-members'
+        || receipt.processTree?.postObservation !== 'zero-members'
+        || receipt.logComplete !== true
+        || receipt.processTree?.logComplete !== true)
+    {
+        throw new Error('measurement descendant zero-state is unproved');
+    }
+}
+
 export function verifyDataScaleTeardownRuntimeBinding({
     runtimeReceipt,
     teardownReceipt,
@@ -490,6 +558,16 @@ function verifyLifecycleOperation({
         throw new Error('action receipt operation/observation contract mismatch');
     }
     const after = document.observations.after;
+    if (action.stateDomains.includes('runtime.measurement-children'))
+    {
+        verifyMeasurementProcessTreeBinding({
+            repositoryRoot,
+            binding: after.measurementDescendants,
+            actionReceipt: document,
+            scenario,
+            identity
+        });
+    }
     if (action.operation === 'prepare-evidence-files')
     {
         const deletedPaths = (document.operation.deleted ?? [])

@@ -48,6 +48,7 @@
     "policyBindings": {
         "loadProfile": "tests/performance/perf-policy.yml",
         "mutationSubset": "config/testing/mutation/release-parity-subset.json",
+        "physicalExecution": "config/testing/physical-execution-process-policy.json",
         "releaseResource": "config/deployment/zero-downtime-resource-policy.json"
     },
     "actionRegistry": "config/testing/release-reliability-lifecycle-action-registry.json",

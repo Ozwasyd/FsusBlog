@@ -6,7 +6,11 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-import { collectProcessIdentity } from './process-identity.mjs';
+import {
+    collectProcessGroupOrJobIdentity,
+    collectProcessIdentity
+} from './process-identity.mjs';
+import { createPhysicalExecutionOutputTracker } from './physical-execution-process-tree.mjs';
 
 const bootstrap = path.join(
     path.dirname(fileURLToPath(import.meta.url)),
@@ -300,6 +304,8 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
     runSystemctl = systemctl,
     readCgroupMemberPids = cgroupMemberPids,
     readProcessIdentity = collectProcessIdentity,
+    readProcessGroupIdentity = (pid) =>
+        collectProcessGroupOrJobIdentity(pid, { platform: 'linux' }),
     removeControlRoot = (controlRoot) => fs.rmSync(controlRoot, { recursive: true, force: true }),
     handshakeTimeoutMs = 10_000
 } = {})
@@ -317,7 +323,8 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
             policy,
             stdout,
             stderr,
-            schema
+            schema,
+            outputTracker = null
         })
         {
             requireSystemdAuthority(runSystemctl);
@@ -390,8 +397,6 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                 removeUnestablishedRoot(error);
                 throw error;
             }
-            let capturedStdout = '';
-            let capturedStderr = '';
             let childError = null;
             let systemdRunSpawnError = null;
             child.once('error', (error) =>
@@ -399,16 +404,10 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                 systemdRunSpawnError = error;
                 childError = error;
             });
-            child.stdout.on('data', (chunk) =>
-            {
-                capturedStdout += chunk.toString();
-                stdout?.write(chunk);
-            });
-            child.stderr.on('data', (chunk) =>
-            {
-                capturedStderr += chunk.toString();
-                stderr?.write(chunk);
-            });
+            const executionOutput = outputTracker ??
+                createPhysicalExecutionOutputTracker({ policy, stdout, stderr });
+            executionOutput.attach(child.stdout, 'stdout');
+            executionOutput.attach(child.stderr, 'stderr');
             const inventory = new Map();
             const lifecycle = ['created'];
             const termination = [];
@@ -417,8 +416,10 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
             let supervisorPid;
             let controlGroup;
             let commandPid;
+            let commandProcessGroup = null;
             let authorityEstablished = false;
             let first;
+            let outputEvidence = null;
             const childTerminal = new Promise((resolve) =>
             {
                 if (child.exitCode !== null || child.signalCode !== null)
@@ -507,7 +508,6 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                         observedAt: new Date().toISOString()
                     });
                 }
-                lifecycle.push('post-observe-zero-members');
                 return await observeStableEmpty({
                     unitName,
                     controlGroup,
@@ -571,6 +571,8 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                 runCleanupCommand(stopArgs);
                 const resetArgs = ['reset-failed', unitName];
                 runCleanupCommand(resetArgs);
+                lifecycle.push('bounded-pipe-close');
+                outputEvidence = await executionOutput.close();
 
                 let zeroObservations = 0;
                 let lastProperties = null;
@@ -695,12 +697,32 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                     deadlineAt: Date.now() + handshakeTimeoutMs,
                     getChildError: () => childError
                 });
-                commandPid = Number(JSON.parse(fs.readFileSync(childFile, 'utf8')).pid);
+                const childRegistration = JSON.parse(fs.readFileSync(childFile, 'utf8'));
+                if (childRegistration.spawnError)
+                {
+                    const spawnError = new Error(
+                        `command spawn failed: ${childRegistration.spawnError.message}`
+                    );
+                    spawnError.name = childRegistration.spawnError.name ?? 'Error';
+                    spawnError.code = childRegistration.spawnError.code ?? null;
+                    throw spawnError;
+                }
+                commandPid = Number(childRegistration.pid);
                 const commandIdentity = readProcessIdentity(commandPid);
                 if (commandIdentity.status !== 'verified')
                 {
                     throw new Error(`physical execution command identity is unverifiable: ${commandIdentity.reason}`);
                 }
+                const processGroupIdentity = readProcessGroupIdentity(commandPid);
+                if (processGroupIdentity.status !== 'verified'
+                    || processGroupIdentity.value?.kind !== 'process-group'
+                    || processGroupIdentity.value.groupId !== commandPid)
+                {
+                    throw new Error(
+                        'physical execution command did not become its run-owned process-group leader'
+                    );
+                }
+                commandProcessGroup = processGroupIdentity.value;
                 inventory.set(`${commandPid}:${commandIdentity.processStartIdentity}`, commandIdentity);
                 lifecycle.push('running');
                 const resultPromise = waitForFile({
@@ -868,6 +890,9 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                 unitName: establishedState === true ? unitName : null,
                 controlGroup: establishedState === true ? controlGroup : null,
                 supervisorPid: establishedState === true ? supervisorPid : null,
+                processGroup: establishedState === true
+                    ? commandProcessGroup
+                    : null,
                 killPolicy: 'control-group',
                 established: establishedState,
                 attemptedUnitName: establishedState === true ? null : unitName
@@ -875,6 +900,24 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
             if (!cleanupVerified && cleanup.status !== 'not-established')
             {
                 primaryError ??= new Error(`physical execution cleanup is unverifiable: ${cleanup.reason}`);
+            }
+            outputEvidence ??= await executionOutput.close();
+            if (!outputEvidence.logComplete)
+            {
+                const logError = new Error(
+                    `physical execution log is incomplete: ${outputEvidence.logTruncationReason}`
+                );
+                if (primaryError)
+                {
+                    primaryError.physicalExecutionLogError ??= {
+                        name: logError.name,
+                        message: logError.message
+                    };
+                }
+                else
+                {
+                    primaryError = logError;
+                }
             }
             lifecycle.push(primaryError ? 'seal-cancelled-or-failed-receipt' : 'seal-completed-receipt');
             const evidence = {
@@ -893,7 +936,9 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                     pid: identity.pid,
                     startIdentity: identity.processStartIdentity,
                     ppid: null,
-                    pgid: null,
+                    pgid: identity.pid === commandPid
+                        ? commandProcessGroup?.groupId ?? null
+                        : null,
                     jobId: unitName,
                     executableDigest: identity.executableDigest,
                     commandDigest: identity.commandDigest,
@@ -912,8 +957,7 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                 ? 'SIGTERM'
                 : null
                 })),
-                stdout: capturedStdout,
-                stderr: capturedStderr
+                ...outputEvidence
             };
             if (primaryError)
             {

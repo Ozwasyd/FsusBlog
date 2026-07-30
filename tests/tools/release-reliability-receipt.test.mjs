@@ -67,6 +67,11 @@ const repositoryCatalog = JSON.parse(fs.readFileSync(
     path.join(repositoryRoot, 'config/testing/release-reliability-scenario-catalog.json'),
     'utf8'
 ));
+const physicalPolicyRelativePath =
+    'config/testing/physical-execution-process-policy.json';
+const repositoryPhysicalPolicyBytes = fs.readFileSync(
+    path.join(repositoryRoot, physicalPolicyRelativePath)
+);
 
 function runtimeEnvironmentText({
     namespace,
@@ -208,6 +213,10 @@ function fixtureLifecycleContracts(catalog = fixtureCatalog())
                 actionId,
                 scenarioId: scenario.id,
                 phase,
+                executable: measurement ? '$scenario.command' : 'node',
+                args: measurement ? [] : ['fixture-action.mjs'],
+                env: {},
+                cwd: '.',
                 expectedReceiptPath: measurement
                     ? scenario.authoritativeEvidence.path
                     : `.tmp/release-reliability/{invocationId}/lifecycle/{scenarioId}/{actionId}.json`,
@@ -458,6 +467,11 @@ function completeIdentity(overrides = {})
                 path: 'config/deployment/zero-downtime-resource-policy.json',
                 fileDigest: digest('a')
             },
+            physicalExecution: {
+                status: 'complete',
+                path: physicalPolicyRelativePath,
+                fileDigest: bytesDigest(repositoryPhysicalPolicyBytes)
+            },
             childEnvironment: childEnvironmentIdentity(fixtureCatalog()),
             executorSchema: 'fsusblog.release-reliability-scenario-result.v3',
             lifecycleSchema:
@@ -477,7 +491,7 @@ function identityReference(identity)
     };
 }
 
-function producerRecord(scenario, identity)
+function producerRecord(scenario, identity, processTreeReceipt = null)
 {
     const commandToolId = path.basename(scenario.command.executable).replace(/\.exe$/iu, '');
     const executable = identity.tools.find((tool) => tool.id === commandToolId)?.executable;
@@ -494,7 +508,167 @@ function producerRecord(scenario, identity)
         signal: null,
         timedOut: false,
         stdoutLog: `${logRoot}.stdout.log`,
-        stderrLog: `${logRoot}.stderr.log`
+        stderrLog: `${logRoot}.stderr.log`,
+        processTreeReceipt
+    };
+}
+
+function writeFixtureProcessTreeReceipt({
+    repositoryRoot: fixtureRoot,
+    identity,
+    identityReference: reference,
+    scenario,
+    action,
+    index
+})
+{
+    const relative =
+        `.tmp/release-reliability/${identity.invocationId}/process-trees/` +
+        `${scenario.id}/${action.actionId}.json`;
+    const policyBytes = fs.readFileSync(
+        path.join(fixtureRoot, physicalPolicyRelativePath)
+    );
+    const terminalFence = {
+        status: 'closed',
+        sealedAt: `2026-07-26T00:00:0${index * 2 + 1}.000Z`,
+        lateEvidenceAccepted: false
+    };
+    const fixturePid = 10_000 + index;
+    const fixtureProcessGroup = {
+        schema: 'fsusblog.process-group-or-job-identity.v1',
+        platform: process.platform,
+        kind: 'process-group',
+        groupId: fixturePid,
+        leaderPid: fixturePid,
+        leaderProcessStartIdentity: `fixture-start-${fixturePid}`
+    };
+    const authority = process.platform === 'linux'
+        ? {
+            schema: 'fsusblog.physical-execution-authority.v1',
+            platform: 'linux',
+            kind: 'linux-cgroup-process-group',
+            authorityId: `fixture-authority-${index}`,
+            unitName: `fsusblog-physical-fixture-${index}`,
+            controlGroup: `/user.slice/fixture-${index}.service`,
+            supervisorPid: fixturePid - 1,
+            processGroup: fixtureProcessGroup,
+            killPolicy: 'control-group',
+            established: true,
+            attemptedUnitName: null
+        }
+        : process.platform === 'darwin'
+            ? fixtureProcessGroup
+            : {
+                schema: 'fsusblog.process-group-or-job-identity.v1',
+                platform: 'win32',
+                kind: 'windows-job-object',
+                jobName: `Local\\FsusBlogPhysicalExecution-fixture-${index}`,
+                killPolicy: 'kill-on-close'
+            };
+    const declaredExecutable = action.executable === '$scenario.command'
+        ? scenario.command.executable
+        : action.executable;
+    const declaredArgs = action.executable === '$scenario.command'
+        ? scenario.command.args
+        : action.args;
+    const declaredEnvironment = action.executable === '$scenario.command'
+        ? scenario.command.env
+        : action.env;
+    const declaredCwd = action.executable === '$scenario.command'
+        ? scenario.command.cwd
+        : action.cwd;
+    const toolId = path.basename(declaredExecutable).replace(/\.exe$/iu, '');
+    const executable = identity.tools.find((tool) => tool.id === toolId)?.executable
+        ?? (declaredExecutable === 'node' ? process.execPath : declaredExecutable);
+    const args = declaredArgs.map((argument) => argument
+        .replaceAll('{actionId}', action.actionId)
+        .replaceAll('{invocationId}', identity.invocationId)
+        .replaceAll('{runId}', identity.runId)
+        .replaceAll('{scenarioId}', scenario.id));
+    const receipt = sealDocument({
+        schema: 'fsusblog.release-reliability-process-tree-receipt.v1',
+        status: 'passed',
+        invocationId: identity.invocationId,
+        runId: identity.runId,
+        scenarioId: scenario.id,
+        actionId: action.actionId,
+        phase: action.phase,
+        identity: reference,
+        physicalPolicy: identity.policy.physicalExecution,
+        command: {
+            executable,
+            args,
+            cwd: declaredCwd,
+            commandDigest: bytesDigest(Buffer.from(JSON.stringify({
+                executable,
+                args,
+                env: declaredEnvironment,
+                cwd: declaredCwd
+            })))
+        },
+        startedAt: `2026-07-26T00:00:0${index * 2}.000Z`,
+        finishedAt: `2026-07-26T00:00:0${index * 2 + 1}.000Z`,
+        exitCode: 0,
+        signal: null,
+        timedOut: false,
+        cancellation: null,
+        reason: null,
+        duplicateRequests: 0,
+        processTree: {
+            schema: 'fsusblog.physical-execution-process-tree.v1',
+            platform: process.platform,
+            policy: JSON.parse(policyBytes.toString('utf8')),
+            authority,
+            lifecycle: [
+                'bounded-pipe-close',
+                'post-observe-zero-members',
+                'seal-completed-receipt'
+            ],
+            termination: [],
+            postObservation: 'zero-members',
+            processInventory: [{
+                pid: fixturePid,
+                startIdentity: `fixture-start-${fixturePid}`,
+                ppid: null,
+                pgid: process.platform === 'win32' ? null : fixturePid,
+                jobId: process.platform === 'win32'
+                    ? authority.jobName
+                    : process.platform === 'linux' ? authority.unitName : null,
+                executableDigest: bytesDigest(Buffer.from(
+                    `fixture-executable-${fixturePid}`
+                )),
+                commandDigest: bytesDigest(Buffer.from(
+                    `fixture-command-${fixturePid}`
+                )),
+                role: 'direct-child',
+                observedAt: `2026-07-26T00:00:0${index * 2}.000Z`,
+                exitCode: 0,
+                signal: null
+            }],
+            logComplete: true,
+            logTruncationReason: null,
+            forcedPipeClose: false
+        },
+        logComplete: true,
+        logTruncationReason: null,
+        forcedPipeClose: false,
+        terminalFence,
+        failure: null
+    });
+    const absolute = path.join(fixtureRoot, relative);
+    fs.mkdirSync(path.dirname(absolute), { recursive: true });
+    fs.writeFileSync(absolute, `${JSON.stringify(receipt, null, 2)}\n`);
+    return {
+        reference: {
+            path: relative,
+            schema: receipt.schema,
+            status: receipt.status,
+            bytesDigest: bytesDigest(fs.readFileSync(absolute)),
+            contentDigest: receipt.contentDigest,
+            postObservation: 'zero-members',
+            logComplete: true
+        },
+        terminalFence
     };
 }
 
@@ -511,6 +685,7 @@ function scenarioResults(identity = completeIdentity())
             [scenario.isolation.lifecycle.postconditions[0], 'postcondition'],
             [scenario.isolation.lifecycle.resetsAfter[0], 'reset-after']
         ];
+        const contracts = fixtureLifecycleContracts();
         const actions = actionIds.map(([actionId, phase], index) =>
         {
             const measurement = phase === 'measurement';
@@ -537,6 +712,14 @@ function scenarioResults(identity = completeIdentity())
                 contentDigest: measurement ? null : digest(String(index + 2)),
                 finalObservation
             };
+            const processTree = writeFixtureProcessTreeReceipt({
+                repositoryRoot,
+                identity,
+                identityReference: reference,
+                scenario,
+                action: contracts.actions.get(actionId),
+                index
+            });
             return {
                 actionId,
                 phase,
@@ -550,6 +733,8 @@ function scenarioResults(identity = completeIdentity())
                 stdoutLog: `.tmp/logs/${actionId}.stdout.log`,
                 stderrLog: `.tmp/logs/${actionId}.stderr.log`,
                 receipt,
+                processTreeReceipt: processTree.reference,
+                terminalFence: processTree.terminalFence,
                 finalObservation,
                 failure: null
             };
@@ -581,12 +766,21 @@ function scenarioResults(identity = completeIdentity())
             identity: reference,
             startedAt: '2026-07-26T00:00:00.000Z',
             finishedAt: '2026-07-26T00:00:10.000Z',
-            producer: producerRecord(scenario, identity),
+            producer: producerRecord(
+                scenario,
+                identity,
+                actions.find((action) => action.phase === 'measurement')
+                    .processTreeReceipt
+            ),
             lifecycle,
             authoritativeEvidence: evidence,
             outputs: [{ id: 'authoritative-evidence', path: evidence.path, digest: evidence.digest }],
             firstFailure: null,
             cleanupFailures: [],
+            terminalFence: actions.find(
+                (action) => action.phase === 'measurement'
+            ).terminalFence,
+            cancellation: null,
             failure: null,
             recordedAt: '2026-07-26T00:00:11.000Z'
         });
@@ -604,6 +798,7 @@ function qualifiedReceipt(identity = completeIdentity(), results = scenarioResul
         createdAt: '2026-07-26T00:00:12.000Z'
     });
     const receipt = createCandidateReceipt({
+        repositoryRoot,
         invocationId: identity.invocationId,
         runId: identity.runId,
         scenarioResults: results,
@@ -674,6 +869,7 @@ test('identity precondition failures still produce sealed partial timeline and f
         createdAt
     });
     const receipt = createCandidateReceipt({
+        repositoryRoot,
         invocationId: identity.invocationId,
         runId: identity.runId,
         scenarioResults: results,
@@ -890,6 +1086,8 @@ test('identity collector consumes the canonical production build receipt without
             path.join(repositoryRoot, 'config/deployment/zero-downtime-resource-policy.json'),
             'utf8'
         ),
+        [physicalPolicyRelativePath]:
+            repositoryPhysicalPolicyBytes,
         'fixtures/config.env': runtimeEnvironmentText({ namespace: 'collector-fixture' }),
         'fixtures/schema.sql': 'CREATE TABLE fixture(id integer);\n',
         'fixtures/seed.json': '{"seed":[1]}\n',
@@ -1483,6 +1681,8 @@ async function createCliFixture(context)
             path.join(repositoryRoot, 'config/deployment/zero-downtime-resource-policy.json'),
             'utf8'
         ),
+        [physicalPolicyRelativePath]:
+            repositoryPhysicalPolicyBytes,
         'config/testing/runtime-http-route-contracts.json': fs.readFileSync(
             path.join(repositoryRoot, 'config/testing/runtime-http-route-contracts.json'),
             'utf8'
@@ -1768,6 +1968,7 @@ const requested = process.argv.at(-1); const entry = state.containers[requested]
             threshold: binding('tests/performance/perf-policy.yml'),
             mutationSubset: binding('config/testing/mutation/release-parity-subset.json'),
             releaseResource: binding('config/deployment/zero-downtime-resource-policy.json'),
+            physicalExecution: binding(physicalPolicyRelativePath),
             childEnvironment: childEnvironmentIdentity(catalog),
             executorSchema: 'fsusblog.release-reliability-scenario-result.v3',
             lifecycleSchema: catalog.lifecycleSchema
@@ -1804,6 +2005,7 @@ const requested = process.argv.at(-1); const entry = state.containers[requested]
         threshold: path.join(root, 'tests/performance/perf-policy.yml'),
         mutationSubset: path.join(root, 'config/testing/mutation/release-parity-subset.json'),
         releaseResource: path.join(root, 'config/deployment/zero-downtime-resource-policy.json'),
+        physicalExecution: path.join(root, physicalPolicyRelativePath),
         routeCatalog: path.join(root, 'config/testing/runtime-http-route-contracts.json'),
         schedulerPolicy: path.join(root, 'fixtures/resources.json')
     };
@@ -1948,6 +2150,22 @@ const requested = process.argv.at(-1); const entry = state.containers[requested]
                     files.lifecycle = path.join(root, relative);
                 }
             }
+            const processTree = writeFixtureProcessTreeReceipt({
+                repositoryRoot: root,
+                identity,
+                identityReference: identityRef,
+                scenario,
+                action,
+                index
+            });
+            if (scenario.id === scenarioIds[0]
+                && action.phase === 'measurement')
+            {
+                files.processTree = path.join(
+                    root,
+                    processTree.reference.path
+                );
+            }
             lifecycleActions.push({
                 actionId: action.actionId,
                 phase: action.phase,
@@ -1961,6 +2179,8 @@ const requested = process.argv.at(-1); const entry = state.containers[requested]
                 stdoutLog: `.tmp/logs/${action.actionId}.stdout.log`,
                 stderrLog: `.tmp/logs/${action.actionId}.stderr.log`,
                 receipt: reference,
+                processTreeReceipt: processTree.reference,
+                terminalFence: processTree.terminalFence,
                 finalObservation: reference.finalObservation,
                 failure: null
             });
@@ -1988,7 +2208,12 @@ const requested = process.argv.at(-1); const entry = state.containers[requested]
             identity: identityRef,
             startedAt: '2026-07-26T00:00:00.000Z',
             finishedAt: '2026-07-26T00:00:10.000Z',
-            producer: producerRecord(scenario, identity),
+            producer: producerRecord(
+                scenario,
+                identity,
+                lifecycleActions.find((action) => action.phase === 'measurement')
+                    .processTreeReceipt
+            ),
             lifecycle,
             authoritativeEvidence: {
                 path: evidencePath,
@@ -1999,6 +2224,10 @@ const requested = process.argv.at(-1); const entry = state.containers[requested]
             outputs: [{ id: 'authoritative-evidence', path: evidencePath, digest: evidenceDigest }],
             firstFailure: null,
             cleanupFailures: [],
+            terminalFence: lifecycleActions.find(
+                (action) => action.phase === 'measurement'
+            ).terminalFence,
+            cancellation: null,
             failure: null,
             recordedAt: '2026-07-26T00:00:11.000Z'
         });
@@ -2021,6 +2250,7 @@ const requested = process.argv.at(-1); const entry = state.containers[requested]
     writeJson(path.join(root, timelinePath), timeline);
     files.timeline = path.join(root, timelinePath);
     const receipt = createCandidateReceipt({
+        repositoryRoot: root,
         invocationId,
         runId,
         scenarioResults: results,

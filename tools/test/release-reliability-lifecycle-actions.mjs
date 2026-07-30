@@ -3,8 +3,13 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
-import { PassThrough } from 'node:stream';
 import { fileURLToPath } from 'node:url';
+
+import {
+    loadPhysicalExecutionProcessPolicy,
+    runPhysicalExecution
+} from './physical-execution-process-tree.mjs';
+import { sealDocument } from './release-reliability-receipt.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const actionRegistryRelativePath =
@@ -505,13 +510,21 @@ function actionArguments(action, scenario, executionIdentity)
 
 function processFailure(outcome)
 {
+    if (outcome.cancelled)
+    {
+        return outcome.error?.message ?? 'action cancelled';
+    }
+    if (outcome.timedOut)
+    {
+        return outcome.error?.message ?? 'action timed out';
+    }
     if (outcome.spawnError)
     {
         return `action spawn failed: ${outcome.spawnError}`;
     }
-    if (outcome.timedOut)
+    if (outcome.error)
     {
-        return 'action timed out';
+        return outcome.error.message;
     }
     if (outcome.signal)
     {
@@ -524,7 +537,92 @@ function processFailure(outcome)
     return null;
 }
 
-function runActionProcess({
+function openActionLogSinks(stdoutLog, stderrLog)
+{
+    fs.mkdirSync(path.dirname(stdoutLog), { recursive: true });
+    const stdoutDescriptor = fs.openSync(stdoutLog, 'w', 0o600);
+    let stderrDescriptor;
+    try
+    {
+        stderrDescriptor = fs.openSync(stderrLog, 'w', 0o600);
+    }
+    catch (error)
+    {
+        fs.closeSync(stdoutDescriptor);
+        throw error;
+    }
+    let closed = false;
+    return {
+        stdout: { write: (chunk) => fs.writeSync(stdoutDescriptor, chunk) },
+        stderr: { write: (chunk) => fs.writeSync(stderrDescriptor, chunk) },
+        close()
+        {
+            if (closed)
+            {
+                return;
+            }
+            closed = true;
+            fs.closeSync(stdoutDescriptor);
+            fs.closeSync(stderrDescriptor);
+        }
+    };
+}
+
+function physicalProcessReceiptPath(repositoryRoot, {
+    invocationId,
+    scenarioId,
+    actionId
+})
+{
+    return resolveRepositoryPath(
+        repositoryRoot,
+        `.tmp/release-reliability/${invocationId}/process-trees/${scenarioId}/${actionId}.json`,
+        'physical process-tree receipt'
+    );
+}
+
+function physicalPolicyBinding(repositoryRoot, identity)
+{
+    const binding = identity?.policy?.physicalExecution;
+    const configuredPath = String(binding?.path ?? '').trim();
+    if (!configuredPath || !/^sha256:[0-9a-f]{64}$/u.test(
+        String(binding?.fileDigest ?? '')
+    ))
+    {
+        throw new Error('physical execution policy is absent from run identity');
+    }
+    const absolute = resolveRepositoryPath(
+        repositoryRoot,
+        configuredPath,
+        'physical execution policy'
+    );
+    const bytes = fs.readFileSync(absolute);
+    if (rawDigest(bytes) !== binding.fileDigest)
+    {
+        throw new Error('physical execution policy bytes changed after identity collection');
+    }
+    return {
+        binding: {
+            status: 'complete',
+            path: configuredPath,
+            fileDigest: binding.fileDigest
+        },
+        policy: loadPhysicalExecutionProcessPolicy(absolute)
+    };
+}
+
+function writeJsonAtomic(file, value)
+{
+    fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
+    const temporary = `${file}.next-${process.pid}-${Date.now()}`;
+    fs.writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, {
+        encoding: 'utf8',
+        mode: 0o600
+    });
+    fs.renameSync(temporary, file);
+}
+
+async function runActionProcess({
     executable,
     args,
     cwd,
@@ -532,100 +630,119 @@ function runActionProcess({
     stdoutLog,
     stderrLog,
     timeoutPolicy,
+    signal,
+    physicalPolicy,
+    residualRoot,
+    physicalExecution,
     spawnProcess
 })
 {
-    return new Promise((resolve) =>
+    const startedAtMs = Date.now();
+    const controller = new AbortController();
+    let timedOut = false;
+    let cancellation = null;
+    const cancel = (reason, kind) =>
     {
-        const startedAtMs = Date.now();
-        let child;
+        if (controller.signal.aborted)
+        {
+            return false;
+        }
+        timedOut = kind === 'timeout';
+        const inherited = reason?.releaseReliabilityCancellation ?? null;
+        cancellation = {
+            kind: inherited?.kind ?? kind,
+            reason: reason instanceof Error ? reason.message : String(reason),
+            signal: inherited?.signal ?? reason?.signal ?? null,
+            observedAt: inherited?.observedAt ?? new Date().toISOString(),
+            duplicateRequests: inherited?.duplicateRequests ?? 0
+        };
+        const error = reason instanceof Error ? reason : new Error(String(reason));
+        error.name = timedOut ? 'TimeoutError' : 'AbortError';
+        error.releaseReliabilityCancellation ??= cancellation;
+        controller.abort(error);
+        return true;
+    };
+    const onAbort = () => cancel(
+        signal.reason ?? new Error('action cancelled'),
+        signal.reason?.releaseReliabilityCancellation?.kind ?? 'cancelled'
+    );
+    if (signal?.aborted)
+    {
+        onAbort();
+    }
+    else
+    {
+        signal?.addEventListener('abort', onAbort, { once: true });
+    }
+    const timeout = setTimeout(() =>
+    {
+        const error = new Error(`action timeout after ${timeoutPolicy.timeoutMs}ms`);
+        error.signal = null;
+        cancel(error, 'timeout');
+    }, timeoutPolicy.timeoutMs);
+    timeout.unref?.();
+    let logSinks = null;
+    let evidence = null;
+    let error = null;
+    try
+    {
+        if (controller.signal.aborted)
+        {
+            throw controller.signal.reason;
+        }
+        logSinks = openActionLogSinks(stdoutLog, stderrLog);
+        evidence = await physicalExecution({
+            command: [executable, ...args],
+            cwd,
+            env,
+            signal: controller.signal,
+            policy: physicalPolicy,
+            residualRoot,
+            spawnProcess,
+            stdout: logSinks.stdout,
+            stderr: logSinks.stderr
+        });
+    }
+    catch (caught)
+    {
+        error = caught instanceof Error ? caught : new Error(String(caught));
+        evidence = error.physicalExecution ?? null;
+    }
+    finally
+    {
+        clearTimeout(timeout);
+        signal?.removeEventListener('abort', onAbort);
         try
         {
-            child = spawnProcess(executable, args, {
-                cwd,
-                env,
-                stdio: ['ignore', 'pipe', 'pipe']
-            });
+            logSinks?.close();
         }
-        catch (error)
+        catch (closeError)
         {
-            resolve({
-                startedAtMs,
-                finishedAtMs: Date.now(),
-                durationMs: Date.now() - startedAtMs,
-                exitCode: null,
-                signal: null,
-                timedOut: false,
-                spawnError: error instanceof Error ? error.message : String(error)
-            });
-            return;
+            error ??= closeError instanceof Error
+                ? closeError
+                : new Error(String(closeError));
         }
-        if (!child || typeof child.once !== 'function')
-        {
-            resolve({
-                startedAtMs,
-                finishedAtMs: Date.now(),
-                durationMs: Date.now() - startedAtMs,
-                exitCode: null,
-                signal: null,
-                timedOut: false,
-                spawnError: 'spawn did not return a child process'
-            });
-            return;
-        }
-        fs.mkdirSync(path.dirname(stdoutLog), { recursive: true });
-        const stdout = fs.createWriteStream(stdoutLog, { flags: 'w' });
-        const stderr = fs.createWriteStream(stderrLog, { flags: 'w' });
-        (child.stdout ?? new PassThrough()).pipe(stdout);
-        (child.stderr ?? new PassThrough()).pipe(stderr);
-        let timedOut = false;
-        let forceTimer = null;
-        let settled = false;
-        const timeout = setTimeout(() =>
-        {
-            timedOut = true;
-            child.kill?.('SIGTERM');
-            forceTimer = setTimeout(
-                () => child.kill?.('SIGKILL'),
-                timeoutPolicy.terminateGraceMs
-            );
-            forceTimer.unref?.();
-        }, timeoutPolicy.timeoutMs);
-        timeout.unref?.();
-        const finish = (outcome) =>
-        {
-            if (settled)
-            {
-                return;
-            }
-            settled = true;
-            clearTimeout(timeout);
-            if (forceTimer)
-            {
-                clearTimeout(forceTimer);
-            }
-            stdout.end();
-            stderr.end();
-            const finishedAtMs = Date.now();
-            resolve({
-                startedAtMs,
-                finishedAtMs,
-                durationMs: finishedAtMs - startedAtMs,
-                timedOut,
-                ...outcome
-            });
-        };
-        child.once('error', (error) => finish({
-            exitCode: null,
-            signal: null,
-            spawnError: error instanceof Error ? error.message : String(error)
-        }));
-        child.once('close', (exitCode, signal) => finish({
-            exitCode,
-            signal,
-            spawnError: null
-        }));
-    });
+    }
+    const finishedAtMs = Date.now();
+    const finalCancellation = controller.signal.reason
+        ?.releaseReliabilityCancellation ?? cancellation;
+    return {
+        startedAtMs,
+        finishedAtMs,
+        durationMs: finishedAtMs - startedAtMs,
+        exitCode: error === null
+            ? 0
+            : Number.isInteger(error.exitCode) ? error.exitCode : null,
+        signal: finalCancellation?.signal ?? error?.signal ?? null,
+        timedOut,
+        cancelled: cancellation !== null && !timedOut,
+        cancellation: finalCancellation,
+        spawnError: evidence === null && error !== null
+            ? error.message
+            : null,
+        error,
+        physicalExecution: evidence
+    };
 }
 
 export async function executeRegisteredLifecycleAction({
@@ -638,7 +755,9 @@ export async function executeRegisteredLifecycleAction({
     identityReference,
     actionEnvironment,
     measurementEnvironment,
-    spawnProcess = spawn
+    signal = null,
+    spawnProcess = spawn,
+    physicalExecution = runPhysicalExecution
 })
 {
     const executionIdentity = {
@@ -659,7 +778,16 @@ export async function executeRegisteredLifecycleAction({
     );
     const stdoutLog = path.join(logRoot, `${action.actionId}.stdout.log`);
     const stderrLog = path.join(logRoot, `${action.actionId}.stderr.log`);
+    const processReceiptFile = physicalProcessReceiptPath(
+        repositoryRoot,
+        executionIdentity
+    );
+    const {
+        binding: processPolicyBinding,
+        policy: physicalPolicy
+    } = physicalPolicyBinding(repositoryRoot, identity);
     fs.rmSync(expectedReceiptPath, { force: true, recursive: true });
+    fs.rmSync(processReceiptFile, { force: true, recursive: true });
     let outcome;
     {
         const environment = action.phase === 'measurement'
@@ -684,10 +812,83 @@ export async function executeRegisteredLifecycleAction({
             stdoutLog,
             stderrLog,
             timeoutPolicy: action.timeoutPolicy,
+            signal,
+            physicalPolicy,
+            residualRoot: resolveRepositoryPath(
+                repositoryRoot,
+                `.tmp/release-reliability/${invocationId}/process-residuals/${scenario.id}/${action.actionId}`,
+                'action process residual root'
+            ),
+            physicalExecution,
             spawnProcess
         });
     }
     let failure = processFailure(outcome);
+    const terminalStatus = outcome.timedOut
+        ? 'timed-out'
+        : outcome.cancelled
+            ? 'cancelled'
+            : failure === null
+                ? 'passed'
+                : 'failed';
+    const terminalFence = {
+        status: 'closed',
+        sealedAt: new Date(outcome.finishedAtMs).toISOString(),
+        lateEvidenceAccepted: false
+    };
+    const processReceipt = sealDocument({
+        schema: 'fsusblog.release-reliability-process-tree-receipt.v1',
+        status: terminalStatus,
+        invocationId,
+        runId,
+        scenarioId: scenario.id,
+        actionId: action.actionId,
+        phase: action.phase,
+        identity: identityReference,
+        physicalPolicy: processPolicyBinding,
+        command: {
+            executable: resolveExecutable(action, scenario, identity),
+            args: actionArguments(action, scenario, executionIdentity),
+            cwd: action.executable === '$scenario.command'
+                ? scenario.command.cwd
+                : action.cwd,
+            commandDigest: rawDigest(Buffer.from(JSON.stringify({
+                executable: resolveExecutable(action, scenario, identity),
+                args: actionArguments(action, scenario, executionIdentity),
+                env: action.executable === '$scenario.command'
+                    ? scenario.command.env
+                    : action.env,
+                cwd: action.executable === '$scenario.command'
+                    ? scenario.command.cwd
+                    : action.cwd
+            })))
+        },
+        startedAt: new Date(outcome.startedAtMs).toISOString(),
+        finishedAt: new Date(outcome.finishedAtMs).toISOString(),
+        exitCode: outcome.exitCode,
+        signal: outcome.signal,
+        timedOut: outcome.timedOut,
+        cancellation: outcome.cancellation,
+        reason: outcome.cancellation?.reason ?? null,
+        duplicateRequests: outcome.cancellation?.duplicateRequests ?? 0,
+        processTree: outcome.physicalExecution,
+        logComplete: outcome.physicalExecution?.logComplete ?? false,
+        logTruncationReason: outcome.physicalExecution?.logTruncationReason
+            ?? (outcome.error ? 'physical-execution-failed-before-log-closure' : null),
+        forcedPipeClose: outcome.physicalExecution?.forcedPipeClose ?? false,
+        terminalFence,
+        failure
+    });
+    writeJsonAtomic(processReceiptFile, processReceipt);
+    const processTreeReceipt = {
+        path: repositoryRelative(repositoryRoot, processReceiptFile),
+        schema: processReceipt.schema,
+        status: processReceipt.status,
+        bytesDigest: rawDigest(fs.readFileSync(processReceiptFile)),
+        contentDigest: processReceipt.contentDigest,
+        postObservation: processReceipt.processTree?.postObservation ?? 'unverifiable',
+        logComplete: processReceipt.logComplete
+    };
     let receipt = null;
     if (failure === null)
     {
@@ -712,14 +913,17 @@ export async function executeRegisteredLifecycleAction({
             failure = error instanceof Error ? error.message : String(error);
         }
     }
-    if (outcome.timedOut)
+    if (failure !== null)
     {
         fs.rmSync(expectedReceiptPath, { force: true, recursive: true });
     }
+    const recordStatus = failure === null
+        ? terminalStatus
+        : terminalStatus === 'passed' ? 'failed' : terminalStatus;
     return {
         actionId: action.actionId,
         phase: action.phase,
-        status: failure === null ? 'passed' : 'failed',
+        status: recordStatus,
         startedAt: new Date(outcome.startedAtMs).toISOString(),
         finishedAt: new Date(outcome.finishedAtMs).toISOString(),
         durationMs: outcome.durationMs,
@@ -729,6 +933,8 @@ export async function executeRegisteredLifecycleAction({
         stdoutLog: repositoryRelative(repositoryRoot, stdoutLog),
         stderrLog: repositoryRelative(repositoryRoot, stderrLog),
         receipt,
+        processTreeReceipt,
+        terminalFence,
         finalObservation: receipt?.finalObservation ?? null,
         failure
     };
@@ -736,16 +942,18 @@ export async function executeRegisteredLifecycleAction({
 
 function failureRecord(record)
 {
+    const kind = record.timedOut
+        ? 'timeout'
+        : record.status === 'cancelled' || record.signal
+            ? 'cancelled'
+            : record.exitCode !== 0 && record.exitCode !== null
+                ? 'failed'
+                : 'verification';
     return Object.freeze({
         actionId: record.actionId,
         phase: record.phase,
-        kind: record.timedOut
-            ? 'timeout'
-            : record.signal
-                ? 'cancelled'
-                : record.exitCode !== 0 && record.exitCode !== null
-                    ? 'failed'
-                    : 'verification',
+        kind,
+        classification: kind,
         message: record.failure
     });
 }
@@ -906,7 +1114,9 @@ export async function executeLifecycleActionPlan({
     identityReference,
     actionEnvironment,
     measurementEnvironment,
+    signal = null,
     spawnProcess = spawn,
+    physicalExecution = runPhysicalExecution,
     executeAction = executeRegisteredLifecycleAction
 })
 {
@@ -955,7 +1165,11 @@ export async function executeLifecycleActionPlan({
                 exitCode: null,
                 signal: null,
                 timedOut: false,
+                stdoutLog: null,
+                stderrLog: null,
                 receipt: null,
+                processTreeReceipt: null,
+                terminalFence: null,
                 finalObservation: null,
                 failure: 'not run after an earlier lifecycle failure'
             });
@@ -996,6 +1210,14 @@ export async function executeLifecycleActionPlan({
             }
         }
         const bindingTime = new Date().toISOString();
+        const effectiveActionEnvironment = cleanupPhase
+            && measurementRecord?.processTreeReceipt?.path
+            ? {
+                ...actionEnvironment,
+                FSUSBLOG_RELEASE_RELIABILITY_PROCESS_TREE_RECEIPT_PATH:
+                    measurementRecord.processTreeReceipt.path
+            }
+            : actionEnvironment;
         const record = bindingFailure === null
             ? await executeAction({
                 action,
@@ -1005,9 +1227,11 @@ export async function executeLifecycleActionPlan({
                 runId,
                 identity,
                 identityReference,
-                actionEnvironment,
+                actionEnvironment: effectiveActionEnvironment,
                 measurementEnvironment: effectiveMeasurementEnvironment,
-                spawnProcess
+                signal: cleanupPhase ? null : signal,
+                spawnProcess,
+                physicalExecution
             })
             : {
                 actionId: action.actionId,
@@ -1022,6 +1246,8 @@ export async function executeLifecycleActionPlan({
                 stdoutLog: null,
                 stderrLog: null,
                 receipt: null,
+                processTreeReceipt: null,
+                terminalFence: null,
                 finalObservation: null,
                 failure: bindingFailure
             };
@@ -1062,7 +1288,11 @@ export async function executeLifecycleActionPlan({
     return {
         status: firstFailure === null && cleanupFailures.length === 0
             ? 'passed'
-            : 'failed',
+            : firstFailure?.kind === 'timeout'
+                ? 'timed-out'
+                : firstFailure?.kind === 'cancelled'
+                    ? 'cancelled'
+                    : 'failed',
         actions: records,
         verifiedActionReceipts: records
             .filter((record) => record.receipt !== null)

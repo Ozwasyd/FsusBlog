@@ -2516,15 +2516,15 @@
         },
         {
             "id": "release-reliability-qualified-receipt",
-            "description": "Release Final consumes exactly one independently verified Release Reliability v3 qualified receipt that binds the exact seven canonical scenarios and their source, build, image, fixture, machine, topology, policy and evidence identities.",
+            "description": "Release Final consumes exactly one independently verified Release Reliability v3 qualified receipt that binds the exact seven canonical scenarios, all 35 process-tree receipts, and their source, build, image, fixture, machine, topology, policy and evidence identities.",
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
                 ".tmp/release-reliability"
             ],
             "assertionType": "perf",
-            "failClosedRule": "Reject zero or multiple canonical qualified receipts, independent-verifier failure, non-qualified or non-exact scenario sets, identity mismatch, lifecycle isolation failure, failed scenarios, or any bound evidence tamper.",
-            "minimumRequirement": "One canonical v3 qualified-receipt.json must pass the independent terminal verifier and project the exact seven audit fields with all seven scenario result and original evidence digests.",
+            "failClosedRule": "Reject zero or multiple canonical qualified receipts, independent-verifier failure, non-qualified or non-exact scenario sets, identity mismatch, lifecycle isolation failure, cancellation, timeout, non-zero process-tree post-observation, incomplete logs, failed scenarios, or any bound evidence tamper.",
+            "minimumRequirement": "One canonical v3 qualified-receipt.json must pass the independent terminal verifier and project the exact seven audit fields with all seven scenario result, original evidence, lifecycle action and sealed process-tree receipt digests.",
             "tierIds": [
                 "release-reliability-fresh"
             ]

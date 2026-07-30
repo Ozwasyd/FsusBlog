@@ -72,6 +72,95 @@ function sha256(bytes)
     return `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 }
 
+export function readMeasurementProcessTreeObservation(context)
+{
+    try
+    {
+        const configuredPath = String(
+            context.environment
+                .FSUSBLOG_RELEASE_RELIABILITY_PROCESS_TREE_RECEIPT_PATH ?? ''
+        ).trim();
+        if (!configuredPath)
+        {
+            throw new Error('measurement process-tree receipt path is required');
+        }
+        const scenario = context.contracts.catalog.scenarios.find(
+            (candidate) => candidate.id === context.scenarioId
+        );
+        const measurementActionId = scenario?.isolation?.lifecycle?.measurement;
+        const expectedPath =
+            `.tmp/release-reliability/${context.invocationId}/process-trees/` +
+            `${context.scenarioId}/${measurementActionId}.json`;
+        if (configuredPath !== expectedPath)
+        {
+            throw new Error('measurement process-tree receipt path is not canonical');
+        }
+        const resolved = repositoryPath(
+            context.repositoryRoot,
+            configuredPath,
+            'measurement process-tree receipt'
+        );
+        if (!fs.existsSync(resolved.absolute)
+            || !fs.lstatSync(resolved.absolute).isFile())
+        {
+            throw new Error('measurement process-tree receipt is unavailable');
+        }
+        const bytes = fs.readFileSync(resolved.absolute);
+        const document = JSON.parse(bytes.toString('utf8'));
+        if (document.schema
+                !== 'fsusblog.release-reliability-process-tree-receipt.v1'
+            || document.invocationId !== context.invocationId
+            || document.runId !== context.runId
+            || document.scenarioId !== context.scenarioId
+            || document.actionId !== measurementActionId
+            || document.phase !== 'measurement'
+            || document.identity?.path !== context.identityReference.path
+            || document.identity?.contentDigest
+                !== context.identityReference.contentDigest
+            || JSON.stringify(document.physicalPolicy)
+                !== JSON.stringify(context.identity.policy?.physicalExecution)
+            || document.contentDigest !== digestValue(document))
+        {
+            throw new Error('measurement process-tree receipt identity is invalid');
+        }
+        const policy = repositoryPath(
+            context.repositoryRoot,
+            document.physicalPolicy.path,
+            'physical execution policy'
+        );
+        const policyBytes = fs.readFileSync(policy.absolute);
+        if (sha256(policyBytes) !== document.physicalPolicy.fileDigest
+            || JSON.stringify(document.processTree?.policy)
+                !== JSON.stringify(JSON.parse(policyBytes.toString('utf8'))))
+        {
+            throw new Error('measurement process-tree policy binding changed');
+        }
+        if (document.processTree?.postObservation !== 'zero-members'
+            || document.logComplete !== true
+            || document.processTree?.logComplete !== true)
+        {
+            throw new Error('measurement descendant zero-state is unproved');
+        }
+        return {
+            status: 'zero',
+            path: resolved.relative,
+            schema: document.schema,
+            actionId: measurementActionId,
+            bytesDigest: sha256(bytes),
+            contentDigest: document.contentDigest,
+            physicalPolicy: document.physicalPolicy,
+            postObservation: document.processTree.postObservation
+        };
+    }
+    catch (error)
+    {
+        return {
+            status: 'failed',
+            reason: error instanceof Error ? error.message : String(error)
+        };
+    }
+}
+
 function inspectPath(repositoryRoot, relativePath)
 {
     const resolved = repositoryPath(repositoryRoot, relativePath, 'observed path');
@@ -369,10 +458,7 @@ async function inspectRuntime(context, { spawnProcess, fetchImpl })
         measurementDescendants: context.action.stateDomains.includes(
             'runtime.measurement-children'
         )
-            ? {
-                status: 'failed',
-                reason: '#1610 process-tree zero-member receipt is not integrated'
-            }
+            ? readMeasurementProcessTreeObservation(context)
             : null,
         network: inspectNetwork(topology, spawnProcess, context.repositoryRoot),
         live
@@ -460,10 +546,7 @@ function inspectMutation(context, spawnProcess)
         measurementDescendants: context.action.stateDomains.includes(
             'runtime.measurement-children'
         )
-            ? {
-                status: 'failed',
-                reason: '#1610 process-tree zero-member receipt is not integrated'
-            }
+            ? readMeasurementProcessTreeObservation(context)
             : null
     };
 }
@@ -586,10 +669,7 @@ async function inspectDataScaleOwner(context, dependencies)
             measurementDescendants: context.action.stateDomains.includes(
                 'runtime.measurement-children'
             )
-                ? {
-                    status: 'failed',
-                    reason: '#1610 process-tree zero-member receipt is not integrated'
-                }
+                ? readMeasurementProcessTreeObservation(context)
                 : null
         };
     }

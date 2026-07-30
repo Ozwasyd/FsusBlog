@@ -51,8 +51,11 @@ Release Reliability 的场景与动作事实源分离：`config/testing/release-
 进程调用、timeout、回执、状态域与 failure-safe cleanup 合同，对应 JSON Schema 位于
 `config/schemas/release-reliability-lifecycle-action-registry.schema.json`。
 `config/testing/runtime-state-domain-registry.json` 是 action state domain 的 closed-world
-词表。`tools/test/release-reliability-lifecycle-actions.mjs` 只负责加载和交叉校验这些
-authority，`tools/test/release-reliability-lifecycle.mjs` 执行动作/观察真实状态，
+词表。`config/testing/physical-execution-process-policy.json` 单独拥有 tree termination、
+bounded pipe close 与连续 zero-member observation，不拥有 registry action timeout。
+`tools/test/release-reliability-lifecycle-actions.mjs` 加载合同，并作为唯一 outer executor
+通过 `tools/test/physical-execution-process-tree.mjs` 运行每个 action、封存 process-tree
+receipt；`tools/test/release-reliability-lifecycle.mjs` 只执行动作/观察真实状态，
 `tools/test/verify-release-reliability-lifecycle-action.mjs` 独立重读 raw receipt；
 具体 soak/load/data-scale/mutation/resource lane 不拥有 lifecycle receipt，也不得自封
 precondition、reset 或 postcondition。Data-scale lane 只测量 dedicated runtime owner
