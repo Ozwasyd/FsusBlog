@@ -55,6 +55,26 @@ test('release reliability catalog declares structured executable commands and ev
             )
         );
     }
+    for (const scenarioId of [
+        'release-soak-min',
+        'release-load-peak',
+        'release-load-burst',
+        'release-data-scale-m',
+        'release-memory-leak-budget',
+        'release-open-handle-budget'
+    ]) {
+        const inherited = catalog.scenarios.find(
+            (scenario) => scenario.id === scenarioId
+        ).command.inheritEnv.required;
+        assert.ok(
+            inherited.includes('FSUSBLOG_POSTGRES_CONTAINER_NAME'),
+            `${scenarioId} must inherit the run-owned PostgreSQL container`
+        );
+        assert.ok(
+            inherited.includes('FSUSBLOG_REDIS_CONTAINER_NAME'),
+            `${scenarioId} must inherit the run-owned Redis container`
+        );
+    }
     assert.equal(
         catalog.scenarios.find((scenario) => scenario.id === 'release-soak-min').authoritativeEvidence.path,
         '.tmp/soak/short/summary.json'

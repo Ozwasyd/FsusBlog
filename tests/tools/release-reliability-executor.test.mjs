@@ -493,6 +493,17 @@ test('ambient semantic overrides and undeclared keys never reach any scenario pr
             assert.equal('NODE_OPTIONS' in environment, false);
             assert.equal('DBUS_SESSION_BUS_ADDRESS' in environment, false);
             assert.equal('FSUSBLOG_SECRET_SENTINEL' in environment, false);
+            if (scenarioId !== 'release-mutation-critical-slice')
+            {
+                assert.equal(
+                    environment.FSUSBLOG_POSTGRES_CONTAINER_NAME,
+                    fixtureAmbientEnvironment.FSUSBLOG_POSTGRES_CONTAINER_NAME
+                );
+                assert.equal(
+                    environment.FSUSBLOG_REDIS_CONTAINER_NAME,
+                    fixtureAmbientEnvironment.FSUSBLOG_REDIS_CONTAINER_NAME
+                );
+            }
         }
         assert.ok(results.every(
             (result) => !JSON.stringify(result).includes('must-not-leak')

@@ -53,6 +53,8 @@ const canonicalPolicyBindings = {
 const canonicalRuntimeInheritedEnvironment = {
     required: [
         'FSUSBLOG_DEBUG_BACKEND_URL',
+        'FSUSBLOG_POSTGRES_CONTAINER_NAME',
+        'FSUSBLOG_REDIS_CONTAINER_NAME',
         'FSUSBLOG_TEST_NAMESPACE',
         'FSUSBLOG_TEST_RUN_ID'
     ],
