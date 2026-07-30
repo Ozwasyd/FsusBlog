@@ -6,6 +6,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { digestValue } from './release-reliability-receipt.mjs';
+import {
+    projectQualifiedContainerEnvironment,
+    releaseReliabilityAuditedContainerOverrides
+} from './release-reliability-runtime-environment.mjs';
 import { parseRuntimeEnvironment } from './bundles/runtime-environment.mjs';
 
 const digest = (value) => `sha256:${createHash('sha256').update(value).digest('hex')}`;
@@ -168,29 +172,16 @@ const imageEnvironment = Object.fromEntries((runtimeImage.Config?.Env ?? []).map
     const separator = entry.indexOf('=');
     return separator < 1 ? [entry, ''] : [entry.slice(0, separator), entry.slice(separator + 1)];
 }));
-const auditedContainerOverrides = {
-    FSUSBLOG_DATA_ROOT: '/app/data',
-    PublicAot__SsrClientRoot: '/app/wwwroot',
-    ASPNETCORE_URLS: 'http://0.0.0.0:8080',
-    AllowedHosts: '127.0.0.1;localhost',
-    ConnectionStrings__DefaultConnection: 'Host=postgres;Port=5432;Database=fsusblog;Username=fsusblog;Password=fsusblog_dev;Include Error Detail=true',
-    ConnectionStrings__Redis: 'redis:6379,abortConnect=false,connectTimeout=10000',
-    RedisOptions__Configuration: 'redis:6379,abortConnect=false,connectTimeout=10000',
-    DOTNET_DbgEnableMiniDump: '1',
-    DOTNET_DbgMiniDumpType: '4',
-    DOTNET_DbgMiniDumpName: '/app/runtime-cache/coredump.%p',
-    DOTNET_EnableCrashReport: '1',
-    DOTNET_CreateDumpDiagnostics: '1',
-    DOTNET_CreateDumpLogToFile: '/app/runtime-cache/createdump.log',
-    FSUSBLOG_TEST_RUN_ID: args['run-id'],
-    FSUSBLOG_TEST_NAMESPACE: args.namespace,
-    FSUSBLOG_RUNTIME_ROLE: 'backend',
-    FSUSBLOG_TEST_SOURCE_COMMIT: args['source-commit'],
-    FSUSBLOG_TEST_SOURCE_FINGERPRINT: args['source-fingerprint']
-};
+const auditedContainerOverrides = releaseReliabilityAuditedContainerOverrides({
+    runId: args['run-id'],
+    namespace: args.namespace,
+    sourceCommit: args['source-commit'],
+    sourceFingerprint: args['source-fingerprint']
+});
+const projectedRuntimeEnvironment = projectQualifiedContainerEnvironment(runtimeEnvironment);
 const expectedContainerEnvironment = {
     ...imageEnvironment,
-    ...runtimeEnvironment,
+    ...projectedRuntimeEnvironment,
     ...auditedContainerOverrides
 };
 if (observedBackend.pid !== 1 || observedBackend.processGroupId !== 1 || observedBackend.sessionId !== 1

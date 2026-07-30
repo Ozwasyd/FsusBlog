@@ -34,7 +34,10 @@ test('release reliability catalog declares structured executable commands and ev
         catalog.childEnvironmentContract.schema,
         'fsusblog.release-reliability-child-environment.v1'
     );
-    assert.deepEqual(catalog.childEnvironmentContract.requiredBaseKeys, ['HOME', 'PATH']);
+    assert.deepEqual(
+        catalog.childEnvironmentContract.requiredBaseKeys,
+        ['HOME', 'PATH', 'XDG_RUNTIME_DIR']
+    );
     assert.deepEqual(catalog.policyBindings, {
         loadProfile: 'tests/performance/perf-policy.yml',
         mutationSubset: 'config/testing/mutation/release-parity-subset.json',

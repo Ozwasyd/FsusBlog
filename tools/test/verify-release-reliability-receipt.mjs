@@ -14,6 +14,10 @@ import {
 } from '../ci/production-build-artifacts.mjs';
 import { snapshotGitWorktree } from '../test-matrix/scheduler.mjs';
 import { parseRuntimeEnvironment } from './bundles/runtime-environment.mjs';
+import {
+    projectQualifiedContainerEnvironment,
+    releaseReliabilityAuditedContainerOverrides
+} from './release-reliability-runtime-environment.mjs';
 
 const defaultRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const lifecyclePhases = ['precondition', 'reset', 'measurement', 'postcondition'];
@@ -32,7 +36,7 @@ const canonicalScenarioIds = [
 ];
 const canonicalChildEnvironmentContract = {
     schema: 'fsusblog.release-reliability-child-environment.v1',
-    requiredBaseKeys: ['HOME', 'PATH'],
+    requiredBaseKeys: ['HOME', 'PATH', 'XDG_RUNTIME_DIR'],
     optionalBaseKeys: ['LANG', 'LC_ALL', 'TMPDIR', 'TZ'],
     internalKeys: [
         'FSUSBLOG_RELEASE_RELIABILITY_IDENTITY_DIGEST',
@@ -686,6 +690,7 @@ function verifyBuild(repositoryRoot, identity)
     {
         throw new Error('runtime registry image digest is no longer live');
     }
+    return liveImage;
 }
 
 function inspectContainerProcess(containerId)
@@ -714,7 +719,7 @@ function inspectContainerProcess(containerId)
     };
 }
 
-function verifyFixture(repositoryRoot, fixture, identity)
+function verifyFixture(repositoryRoot, fixture, identity, runtimeImage)
 {
     if (fixture?.status !== 'complete' || !fixture.root || !fixture.namespace)
     {
@@ -790,6 +795,17 @@ function verifyFixture(repositoryRoot, fixture, identity)
     const backendContainerInspection = spawnSync('docker', ['inspect', topology.runtime.backendContainer.id], { encoding: 'utf8' });
     if (backendContainerInspection.status !== 0) throw new Error('fixture backend app container inspect failed');
     const [backendContainer] = JSON.parse(backendContainerInspection.stdout);
+    const topologyHealth = topology.runtime.backendContainer.health;
+    const containerHealthcheck = backendContainer?.Config?.Healthcheck;
+    const imageHealthcheck = runtimeImage?.Config?.Healthcheck;
+    const expectedHealthcheckDigest = bytesDigest(Buffer.from(JSON.stringify(
+        canonicalize(containerHealthcheck)
+    )));
+    const backendHostPort = runtimeEnvironment.FSUSBLOG_DEBUG_BACKEND_PORT;
+    const configuredPortBindings = backendContainer?.HostConfig?.PortBindings?.['8080/tcp'];
+    const observedPortBindings = backendContainer?.NetworkSettings?.Ports?.['8080/tcp'];
+    const validPortBinding = (bindings) => Array.isArray(bindings) && bindings.length === 1
+        && bindings[0]?.HostIp === '127.0.0.1' && bindings[0]?.HostPort === backendHostPort;
     if (!backendContainer?.State?.Running
         || backendContainer.Image !== identity.build.imageDigest
         || backendContainer.Config?.Image !== identity.build.image.reference
@@ -798,25 +814,63 @@ function verifyFixture(repositoryRoot, fixture, identity)
         || backendContainer.State.StartedAt !== topology.runtime.backendContainer.startedAt
         || backendContainer.Path !== topology.runtime.backendContainer.path
         || JSON.stringify(backendContainer.Args) !== JSON.stringify(topology.runtime.backendContainer.args)
-        || JSON.stringify(backendContainer.Config.Env) !== JSON.stringify(topology.runtime.backendContainer.environment))
+        || JSON.stringify(backendContainer.Config.Env) !== JSON.stringify(topology.runtime.backendContainer.environment)
+        || backendContainer.Config?.Labels?.['io.fsusblog.test.run-id'] !== identity.runId
+        || backendContainer.Config?.Labels?.['io.fsusblog.test.namespace'] !== fixture.namespace
+        || backendContainer.State?.Health?.Status !== 'healthy'
+        || topologyHealth?.status !== 'healthy'
+        || !sameJson(containerHealthcheck, imageHealthcheck)
+        || !sameJson(topologyHealth?.configuration, containerHealthcheck)
+        || topologyHealth?.configurationDigest !== expectedHealthcheckDigest
+        || !Object.hasOwn(backendContainer.Config?.ExposedPorts ?? {}, '8080/tcp')
+        || !validPortBinding(configuredPortBindings)
+        || !validPortBinding(observedPortBindings)
+        || !sameJson(topology.runtime.backendContainer.portBinding, {
+            containerPort: 8080,
+            hostIp: '127.0.0.1',
+            hostPort: Number(backendHostPort),
+            protocol: 'tcp'
+        }))
     {
-        throw new Error('fixture backend app container no longer binds the runtime image and PID');
+        throw new Error('fixture backend app container no longer binds image, health, port, ownership, and PID');
     }
     const liveProcess = inspectContainerProcess(backendContainer.Id);
     const configuredEnvironment = Object.fromEntries(backendContainer.Config.Env.map((entry) => {
         const separator = entry.indexOf('=');
         return separator < 1 ? [entry, ''] : [entry.slice(0, separator), entry.slice(separator + 1)];
     }));
+    const configuredEnvironmentEntries = backendContainer.Config.Env;
+    const configuredEnvironmentKeys = configuredEnvironmentEntries.map((entry) => {
+        const separator = entry.indexOf('=');
+        return separator < 1 ? entry : entry.slice(0, separator);
+    });
+    const imageEnvironmentEntries = runtimeImage.Config?.Env ?? [];
+    const imageEnvironmentKeys = imageEnvironmentEntries.map((entry) => {
+        const separator = entry.indexOf('=');
+        return separator < 1 ? entry : entry.slice(0, separator);
+    });
+    const imageEnvironment = Object.fromEntries(imageEnvironmentEntries.map((entry) => {
+        const separator = entry.indexOf('=');
+        return separator < 1 ? [entry, ''] : [entry.slice(0, separator), entry.slice(separator + 1)];
+    }));
     const expectedContainerEnvironment = {
-        ...runtimeEnvironment,
-        FSUSBLOG_DATA_ROOT: '/app/data',
-        PublicAot__SsrClientRoot: '/app/wwwroot'
+        ...imageEnvironment,
+        ...projectQualifiedContainerEnvironment(runtimeEnvironment),
+        ...releaseReliabilityAuditedContainerOverrides({
+            runId: identity.runId,
+            namespace: fixture.namespace,
+            sourceCommit: identity.sourceState.commit,
+            sourceFingerprint: topology.runtime.sourceState.worktreeFingerprint
+        })
     };
     if (JSON.stringify(liveProcess) !== JSON.stringify(topology.runtime.process)
         || liveProcess.pid !== 1 || liveProcess.processGroupId !== 1 || liveProcess.sessionId !== 1
-        || Object.entries(expectedContainerEnvironment).some(([key, value]) => (
-            configuredEnvironment[key] !== value || liveProcess.environment[key] !== value
-        ))
+        || new Set(configuredEnvironmentKeys).size !== configuredEnvironmentKeys.length
+        || new Set(imageEnvironmentKeys).size !== imageEnvironmentKeys.length
+        || !sameJson(configuredEnvironment, expectedContainerEnvironment)
+        || !sameJson(liveProcess.environment, expectedContainerEnvironment)
+        || topology.runtime.environmentProjection?.source !== 'strict-runtime-env-plus-audited-container-overrides'
+        || !sameJson(topology.runtime.environmentProjection?.effective, expectedContainerEnvironment)
         || configuredEnvironment.FSUSBLOG_TEST_RUN_ID !== identity.runId
         || configuredEnvironment.FSUSBLOG_TEST_NAMESPACE !== fixture.namespace
         || configuredEnvironment.FSUSBLOG_RUNTIME_ROLE !== 'backend'
@@ -829,6 +883,7 @@ function verifyFixture(repositoryRoot, fixture, identity)
     {
         throw new Error('fixture backend Docker/procfs identity does not match the live runtime authority');
     }
+    const serviceContainers = {};
     for (const [label, entry, configuredName] of [
         ['postgres', topology.postgres, runtimeEnvironment.FSUSBLOG_POSTGRES_CONTAINER_NAME],
         ['redis', topology.redis, runtimeEnvironment.FSUSBLOG_REDIS_CONTAINER_NAME]
@@ -855,6 +910,71 @@ function verifyFixture(repositoryRoot, fixture, identity)
         {
             throw new Error(`fixture ${label} inspected topology digest mismatch`);
         }
+        serviceContainers[label] = container;
+    }
+    const networkInspection = spawnSync(
+        'docker',
+        ['network', 'inspect', topology.runtime.network?.name],
+        { encoding: 'utf8' }
+    );
+    if (networkInspection.status !== 0)
+    {
+        throw new Error('fixture runtime network inspect failed');
+    }
+    const [runtimeNetwork] = JSON.parse(networkInspection.stdout);
+    if (!runtimeNetwork?.Id
+        || runtimeNetwork.Id !== topology.runtime.network?.id
+        || runtimeNetwork.Name !== topology.runtime.network?.name
+        || runtimeNetwork.Driver !== 'bridge'
+        || topology.runtime.network?.driver !== 'bridge'
+        || !sameJson(runtimeNetwork.Labels ?? {}, topology.runtime.network?.labels)
+        || runtimeNetwork.Labels?.['io.fsusblog.test.run-id'] !== identity.runId
+        || runtimeNetwork.Labels?.['io.fsusblog.test.namespace'] !== fixture.namespace)
+    {
+        throw new Error('fixture runtime network identity or ownership changed');
+    }
+    const verifyAttachment = (container, label, authority, requiredAlias = null) => {
+        const attachment = container?.NetworkSettings?.Networks?.[runtimeNetwork.Name];
+        const aliases = Array.isArray(attachment?.Aliases) ? [...attachment.Aliases].sort() : [];
+        if (!attachment
+            || authority?.containerId !== container.Id
+            || authority.networkId !== runtimeNetwork.Id
+            || attachment.NetworkID !== runtimeNetwork.Id
+            || authority.ipv4Address !== attachment.IPAddress
+            || !sameJson(authority.aliases, aliases)
+            || requiredAlias !== null && !aliases.includes(requiredAlias))
+        {
+            throw new Error(`fixture ${label} runtime network attachment changed`);
+        }
+        return aliases;
+    };
+    const backendAliases = verifyAttachment(
+        backendContainer,
+        'backend',
+        topology.runtime.network.backend
+    );
+    const postgresAliases = verifyAttachment(
+        serviceContainers.postgres,
+        'postgres',
+        topology.runtime.network.postgres,
+        'postgres'
+    );
+    const redisAliases = verifyAttachment(
+        serviceContainers.redis,
+        'redis',
+        topology.runtime.network.redis,
+        'redis'
+    );
+    const expectedContainerIds = [
+        backendContainer.Id,
+        serviceContainers.postgres.Id,
+        serviceContainers.redis.Id
+    ].sort();
+    if (backendAliases.includes('postgres') || backendAliases.includes('redis')
+        || postgresAliases.includes('redis') || redisAliases.includes('postgres')
+        || !sameJson(Object.keys(runtimeNetwork.Containers ?? {}).sort(), expectedContainerIds))
+    {
+        throw new Error('fixture runtime network aliases or membership changed');
     }
 }
 
@@ -904,8 +1024,8 @@ async function verifyIdentity(repositoryRoot, identityReference, catalog, invoca
     {
         throw new Error('run source identity does not match the current worktree bytes/mode/index state');
     }
-    verifyBuild(repositoryRoot, identity);
-    verifyFixture(repositoryRoot, identity.fixture, identity);
+    const runtimeImage = verifyBuild(repositoryRoot, identity);
+    verifyFixture(repositoryRoot, identity.fixture, identity, runtimeImage);
     const cpus = os.cpus();
     const currentMachine = {
         os: `${os.platform()} ${os.release()}`,

@@ -23,6 +23,13 @@ const {
 const {
     snapshotGitWorktree
 } = await import(pathToFileURL(path.join(repositoryRoot, 'tools/test-matrix/scheduler.mjs')).href);
+const {
+    projectQualifiedContainerEnvironment,
+    releaseReliabilityAuditedContainerOverrides
+} = await import(pathToFileURL(path.join(
+    repositoryRoot,
+    'tools/test/release-reliability-runtime-environment.mjs'
+)).href);
 
 const verifier = path.join(repositoryRoot, 'tools/test/verify-release-reliability-receipt.mjs');
 const scenarioIds = [
@@ -80,19 +87,47 @@ function runtimeEnvironmentText({
     ].join('\n') + '\n';
 }
 
-function containerRuntimeEnvironment(options)
+function containerRuntimeEnvironment({
+    sourceCommit,
+    sourceFingerprint,
+    ...options
+})
 {
-    return runtimeEnvironmentText(options).trimEnd().split('\n').map((entry) =>
-    {
-        if (entry.startsWith('FSUSBLOG_DATA_ROOT=')) return 'FSUSBLOG_DATA_ROOT=/app/data';
-        if (entry.startsWith('PublicAot__SsrClientRoot=')) return 'PublicAot__SsrClientRoot=/app/wwwroot';
-        return entry;
-    });
+    const runtimeEnvironment = Object.fromEntries(
+        runtimeEnvironmentText(options)
+            .trimEnd()
+            .split('\n')
+            .map((entry) => entry.split(/=(.*)/su).slice(0, 2))
+    );
+    return Object.entries({
+        ...projectQualifiedContainerEnvironment(runtimeEnvironment),
+        ...releaseReliabilityAuditedContainerOverrides({
+            runId: options.run ?? runId,
+            namespace: options.namespace,
+            sourceCommit,
+            sourceFingerprint
+        })
+    }).map(([key, value]) => `${key}=${value}`);
 }
 
 function bytesDigest(bytes)
 {
     return `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+}
+
+function canonicalize(value)
+{
+    if (Array.isArray(value))
+    {
+        return value.map(canonicalize);
+    }
+    if (value !== null && typeof value === 'object')
+    {
+        return Object.fromEntries(
+            Object.keys(value).sort().map((key) => [key, canonicalize(value[key])])
+        );
+    }
+    return value;
 }
 
 function fixtureCatalog()
@@ -662,31 +697,114 @@ test('identity collector consumes the canonical production build receipt without
     fs.chmodSync(fakeLsof, 0o755);
     const collectorDocker = path.join(fakeToolDirectory, 'docker');
     const collectorDockerState = path.join(root, '.tmp/collector-docker-state.json');
-    const collectorEnvironment = [
-        ...containerRuntimeEnvironment({ namespace: 'collector-fixture' }),
-        'FSUSBLOG_RUNTIME_ROLE=backend',
-        `FSUSBLOG_TEST_SOURCE_COMMIT=${commit}`,
-        `FSUSBLOG_TEST_SOURCE_FINGERPRINT=${snapshot.fingerprint}`
-    ];
+    const collectorEnvironment = containerRuntimeEnvironment({
+        namespace: 'collector-fixture',
+        sourceCommit: commit,
+        sourceFingerprint: snapshot.fingerprint
+    });
     const collectorProcess = {
         pid: 1, processGroupId: 1, sessionId: 1, startTimeTicks: '123',
         executable: '/app/FsusBlog.Server', commandLine: ['/app/FsusBlog.Server'],
         workingDirectory: '/app',
         environment: Object.fromEntries(collectorEnvironment.map((entry) => entry.split(/=(.*)/su).slice(0, 2)))
     };
+    const collectorHealthcheck = {
+        Test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:8080/health/live'],
+        Interval: 30_000_000_000,
+        Timeout: 5_000_000_000,
+        StartPeriod: 45_000_000_000,
+        Retries: 3
+    };
+    const collectorLabels = {
+        'io.fsusblog.test.run-id': runId,
+        'io.fsusblog.test.namespace': 'collector-fixture'
+    };
+    const collectorNetworkName = 'collector-fixture-network';
+    const collectorNetworkId = 'collector-fixture-network-id';
     const collectorState = {
-        image: { Id: digest('9'), Config: { Labels: { 'org.opencontainers.image.revision': commit, ...imageProducerLabels } }, RootFS: { Layers: [digest('a'), digest('b')] } },
+        image: {
+            Id: digest('9'),
+            Config: {
+                Env: [],
+                Healthcheck: structuredClone(collectorHealthcheck),
+                Labels: { 'org.opencontainers.image.revision': commit, ...imageProducerLabels }
+            },
+            RootFS: { Layers: [digest('a'), digest('b')] }
+        },
         process: collectorProcess,
-        'fixture-backend': { Id: 'fixture-backend-id', Image: digest('9'), Path: '/app/FsusBlog.Server', Args: [], State: { Running: true, Pid: 4242, StartedAt: '2026-07-26T00:00:00Z' }, Config: { Image: 'fixture/runtime:immutable', Env: collectorEnvironment, Labels: {} } }
+        'fixture-backend': {
+            Id: 'fixture-backend-id',
+            Image: digest('9'),
+            Path: '/app/FsusBlog.Server',
+            Args: [],
+            State: {
+                Running: true,
+                Pid: 4242,
+                StartedAt: '2026-07-26T00:00:00Z',
+                Health: { Status: 'healthy' }
+            },
+            Config: {
+                Image: 'fixture/runtime:immutable',
+                Env: collectorEnvironment,
+                ExposedPorts: { '8080/tcp': {} },
+                Healthcheck: structuredClone(collectorHealthcheck),
+                Labels: { ...collectorLabels }
+            },
+            HostConfig: {
+                PortBindings: {
+                    '8080/tcp': [{ HostIp: '127.0.0.1', HostPort: '24501' }]
+                }
+            },
+            NetworkSettings: {
+                Networks: {
+                    [collectorNetworkName]: {
+                        Aliases: ['backend'],
+                        IPAddress: '172.29.0.4',
+                        NetworkID: collectorNetworkId
+                    }
+                },
+                Ports: {
+                    '8080/tcp': [{ HostIp: '127.0.0.1', HostPort: '24501' }]
+                }
+            }
+        }
     };
     for (const name of ['fixture-postgres', 'fixture-redis'])
     {
-        collectorState[name] = { Id: `${name}-id`, Image: digest('d'), State: { Running: true }, Config: { Image: `${name}:fixture`, Labels: { 'io.fsusblog.test.run-id': runId, 'io.fsusblog.test.namespace': 'collector-fixture' } } };
+        const alias = name === 'fixture-postgres' ? 'postgres' : 'redis';
+        collectorState[name] = {
+            Id: `${name}-id`,
+            Image: digest('d'),
+            State: { Running: true },
+            Config: { Image: `${name}:fixture`, Labels: { ...collectorLabels } },
+            NetworkSettings: {
+                Networks: {
+                    [collectorNetworkName]: {
+                        Aliases: [alias],
+                        IPAddress: alias === 'postgres' ? '172.29.0.2' : '172.29.0.3',
+                        NetworkID: collectorNetworkId
+                    }
+                }
+            }
+        };
     }
+    collectorState[collectorNetworkName] = {
+        Id: collectorNetworkId,
+        Name: collectorNetworkName,
+        Driver: 'bridge',
+        Labels: { ...collectorLabels },
+        Containers: Object.fromEntries(
+            ['fixture-backend', 'fixture-postgres', 'fixture-redis'].map((name) => [
+                collectorState[name].Id,
+                { Name: name }
+            ])
+        )
+    };
     writeJson(collectorDockerState, collectorState);
     fs.writeFileSync(collectorDocker, String.raw`#!/usr/bin/env node
 const fs = require('node:fs'); const state = JSON.parse(fs.readFileSync(process.env.FSUSBLOG_COLLECTOR_DOCKER_STATE, 'utf8'));
 if (process.argv[2] === 'image') { process.stdout.write(JSON.stringify([state.image])); process.exit(0); }
+if (process.argv[2] === 'network' && process.argv[3] === 'inspect') { const value = state[process.argv.at(-1)]; if (!value) process.exit(1); process.stdout.write(JSON.stringify([value])); process.exit(0); }
 if (process.argv[2] === 'exec') { const command = process.argv.at(-1); const value = state.process; if (command.includes('/proc/1/stat')) { const tail = ['S', '0', String(value.processGroupId), String(value.sessionId), ...Array(15).fill('0'), String(value.startTimeTicks)]; process.stdout.write('1 (FsusBlog.Server) ' + tail.join(' ') + '\n'); } else if (command.includes('/proc/1/environ')) process.stdout.write(Object.entries(value.environment).map(([key, item]) => key + '=' + item).join('\n') + '\n'); else if (command.includes('/proc/1/exe')) process.stdout.write(value.executable + '\n'); else if (command.includes('/proc/1/cmdline')) process.stdout.write(value.commandLine.join('\n') + '\n'); else if (command.includes('/proc/1/cwd')) process.stdout.write(value.workingDirectory + '\n'); else process.exit(1); process.exit(0); }
 const value = state[process.argv.at(-1)]; if (process.argv[2] !== 'inspect' || !value) process.exit(1); process.stdout.write(JSON.stringify([value]));
 `);
@@ -697,6 +815,7 @@ const value = state[process.argv.at(-1)]; if (process.argv[2] !== 'inspect' || !
         '--config', 'fixtures/config.env', '--schema', 'fixtures/schema.sql', '--seed', 'fixtures/seed.json',
         '--audit-retention-policy', 'src/backend/Infrastructure/Audit/AuditRetentionCatalog.cs',
         '--postgres', 'fixture-postgres', '--redis', 'fixture-redis', '--backend-container', 'fixture-backend',
+        '--network', collectorNetworkName,
         '--source-commit', commit, '--source-fingerprint', snapshot.fingerprint,
         '--runtime-image', 'fixture/runtime:immutable', '--image-digest', digest('9'), '--out', collectedTopology
     ], { cwd: root, encoding: 'utf8', env: { ...process.env, PATH: `${fakeToolDirectory}${path.delimiter}${process.env.PATH ?? ''}`, FSUSBLOG_COLLECTOR_DOCKER_STATE: collectorDockerState } });
@@ -1072,9 +1191,33 @@ async function createCliFixture(context)
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-receipt-verifier-'));
     context.after(() => fs.rmSync(root, { recursive: true, force: true }));
     const catalog = fixtureCatalog();
+    const fixtureNamespace = 'verifier-fixture';
+    const fixtureNetworkName = 'verifier-fixture-network';
+    const fixtureNetworkId = 'verifier-fixture-network-id';
+    const fixtureLabels = {
+        'io.fsusblog.test.run-id': runId,
+        'io.fsusblog.test.namespace': fixtureNamespace
+    };
+    const fixtureHealthcheck = {
+        Test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:8080/health/live'],
+        Interval: 30_000_000_000,
+        Timeout: 5_000_000_000,
+        StartPeriod: 45_000_000_000,
+        Retries: 3
+    };
     const containers = Object.fromEntries(['fixture-postgres', 'fixture-redis'].map((name) => [name, {
         Id: `fixture-${name}-id`, Image: `sha256:${name.padEnd(64, '0').slice(0, 64)}`,
-        State: { Running: true }, Config: { Image: `${name}:fixture`, Labels: { fixture: name } }
+        State: { Running: true },
+        Config: { Image: `${name}:fixture`, Labels: { ...fixtureLabels } },
+        NetworkSettings: {
+            Networks: {
+                [fixtureNetworkName]: {
+                    Aliases: [name === 'fixture-postgres' ? 'postgres' : 'redis'],
+                    IPAddress: name === 'fixture-postgres' ? '172.30.0.2' : '172.30.0.3',
+                    NetworkID: fixtureNetworkId
+                }
+            }
+        }
     }]));
     let topology;
     const trackedFiles = {
@@ -1096,7 +1239,7 @@ async function createCliFixture(context)
             path.join(repositoryRoot, 'config/testing/runtime-http-route-contracts.json'),
             'utf8'
         ),
-        'fixtures/config.env': runtimeEnvironmentText({ namespace: 'verifier-fixture' }),
+        'fixtures/config.env': runtimeEnvironmentText({ namespace: fixtureNamespace }),
         'fixtures/schema.sql': 'CREATE TABLE fixture(id integer);\n',
         'fixtures/seed.json': '{"seed":[1]}\n',
         'fixtures/resources.json': '{"cpu":"exclusive"}\n',
@@ -1116,6 +1259,7 @@ async function createCliFixture(context)
     fs.writeFileSync(path.join(fakeTools, 'docker'), String.raw`#!/usr/bin/env node
 const fs = require('node:fs'); const state = JSON.parse(fs.readFileSync(process.env.FSUSBLOG_RECEIPT_DOCKER_STATE, 'utf8'));
 if (process.argv[2] === 'image' && process.argv[3] === 'inspect') { process.stdout.write(JSON.stringify([state.image])); process.exit(0); }
+if (process.argv[2] === 'network' && process.argv[3] === 'inspect') { process.stdout.write(JSON.stringify([state.network])); process.exit(0); }
 if (process.argv[2] === 'exec') { const command = process.argv.at(-1); const value = state.process; if (command.includes('/proc/1/stat')) { const tail = ['S', '0', String(value.processGroupId), String(value.sessionId), ...Array(15).fill('0'), String(value.startTimeTicks)]; process.stdout.write('1 (FsusBlog.Server) ' + tail.join(' ') + '\n'); } else if (command.includes('/proc/1/environ')) process.stdout.write(Object.entries(value.environment).map(([key, item]) => key + '=' + item).join('\n') + '\n'); else if (command.includes('/proc/1/exe')) process.stdout.write(value.executable + '\n'); else if (command.includes('/proc/1/cmdline')) process.stdout.write(value.commandLine.join('\n') + '\n'); else if (command.includes('/proc/1/cwd')) process.stdout.write(value.workingDirectory + '\n'); else process.exit(1); process.exit(0); }
 const requested = process.argv.at(-1); const entry = state.containers[requested] ?? Object.values(state.containers).find((value) => value.Id === requested); if (process.argv[2] !== 'inspect' || !entry) process.exit(1); process.stdout.write(JSON.stringify([entry]));
 `);
@@ -1128,7 +1272,23 @@ const requested = process.argv.at(-1); const entry = state.containers[requested]
     const commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
     fs.writeFileSync(dockerState, JSON.stringify({
         containers,
-        image: { Id: digest('9'), RepoDigests: [`fixture/runtime@${digest('9')}`], Config: { Labels: { 'org.opencontainers.image.revision': commit, ...imageProducerLabels } }, RootFS: { Layers: [digest('a')] } },
+        image: {
+            Id: digest('9'),
+            RepoDigests: [`fixture/runtime@${digest('9')}`],
+            Config: {
+                Env: [],
+                Healthcheck: structuredClone(fixtureHealthcheck),
+                Labels: { 'org.opencontainers.image.revision': commit, ...imageProducerLabels }
+            },
+            RootFS: { Layers: [digest('a')] }
+        },
+        network: {
+            Id: fixtureNetworkId,
+            Name: fixtureNetworkName,
+            Driver: 'bridge',
+            Labels: { ...fixtureLabels },
+            Containers: {}
+        },
         process: null
     }));
     const snapshot = await snapshotGitWorktree(root);
@@ -1138,12 +1298,11 @@ const requested = process.argv.at(-1); const entry = state.containers[requested]
         dirtyPathCount: 0,
         hashedPathCount: 0
     };
-    const backendEnvironment = [
-        ...containerRuntimeEnvironment({ namespace: 'verifier-fixture' }),
-        'FSUSBLOG_RUNTIME_ROLE=backend',
-        `FSUSBLOG_TEST_SOURCE_COMMIT=${commit}`,
-        `FSUSBLOG_TEST_SOURCE_FINGERPRINT=${sourceState.worktreeFingerprint}`
-    ];
+    const backendEnvironment = containerRuntimeEnvironment({
+        namespace: fixtureNamespace,
+        sourceCommit: commit,
+        sourceFingerprint: sourceState.worktreeFingerprint
+    });
     const backendProcess = {
         pid: 1, processGroupId: 1, sessionId: 1, startTimeTicks: '123',
         executable: '/app/FsusBlog.Server', commandLine: ['/app/FsusBlog.Server'],
@@ -1155,19 +1314,56 @@ const requested = process.argv.at(-1); const entry = state.containers[requested]
         Image: digest('9'),
         Path: '/app/FsusBlog.Server',
         Args: [],
-        State: { Running: true, Pid: 4242, StartedAt: '2026-07-26T00:00:00Z' },
-        Config: { Image: 'fixture/runtime:immutable', Env: backendEnvironment, Labels: { fixture: 'backend' } }
+        State: {
+            Running: true,
+            Pid: 4242,
+            StartedAt: '2026-07-26T00:00:00Z',
+            Health: { Status: 'healthy' }
+        },
+        Config: {
+            Image: 'fixture/runtime:immutable',
+            Env: backendEnvironment,
+            ExposedPorts: { '8080/tcp': {} },
+            Healthcheck: structuredClone(fixtureHealthcheck),
+            Labels: { ...fixtureLabels }
+        },
+        HostConfig: {
+            PortBindings: {
+                '8080/tcp': [{ HostIp: '127.0.0.1', HostPort: '24501' }]
+            }
+        },
+        NetworkSettings: {
+            Networks: {
+                [fixtureNetworkName]: {
+                    Aliases: ['backend'],
+                    IPAddress: '172.30.0.4',
+                    NetworkID: fixtureNetworkId
+                }
+            },
+            Ports: {
+                '8080/tcp': [{ HostIp: '127.0.0.1', HostPort: '24501' }]
+            }
+        }
     };
     const liveDockerState = JSON.parse(fs.readFileSync(dockerState, 'utf8'));
     liveDockerState.containers = containers;
+    liveDockerState.network.Containers = Object.fromEntries(
+        Object.entries(containers).map(([name, container]) => [
+            container.Id,
+            { Name: name }
+        ])
+    );
     liveDockerState.process = backendProcess;
     fs.writeFileSync(dockerState, JSON.stringify(liveDockerState));
     topology = sealDocument({
-        schema: 'fsusblog.release-reliability-runtime-topology.v1', status: 'complete', runId, namespace: 'verifier-fixture',
+        schema: 'fsusblog.release-reliability-runtime-topology.v1',
+        status: 'complete',
+        runId,
+        namespace: fixtureNamespace,
         root: 'fixtures/runtime',
         config: {
             path: 'fixtures/config.env',
-            fileDigest: bytesDigest(Buffer.from(runtimeEnvironmentText({ namespace: 'verifier-fixture' })))
+            fileDigest: bytesDigest(Buffer.from(runtimeEnvironmentText({ namespace: fixtureNamespace })))
         },
         schemaFile: { path: 'fixtures/schema.sql', fileDigest: bytesDigest(Buffer.from('CREATE TABLE fixture(id integer);\n')) },
         seed: { path: 'fixtures/seed.json', fileDigest: bytesDigest(Buffer.from('{"seed":[1]}\n')) },
@@ -1188,7 +1384,50 @@ const requested = process.argv.at(-1); const entry = state.containers[requested]
                 environment: containers['fixture-backend'].Config.Env,
                 path: containers['fixture-backend'].Path,
                 args: containers['fixture-backend'].Args,
-                startedAt: containers['fixture-backend'].State.StartedAt
+                startedAt: containers['fixture-backend'].State.StartedAt,
+                health: {
+                    status: 'healthy',
+                    configuration: fixtureHealthcheck,
+                    configurationDigest: bytesDigest(Buffer.from(JSON.stringify(
+                        canonicalize(fixtureHealthcheck)
+                    )))
+                },
+                portBinding: {
+                    containerPort: 8080,
+                    hostIp: '127.0.0.1',
+                    hostPort: 24501,
+                    protocol: 'tcp'
+                }
+            },
+            network: {
+                id: fixtureNetworkId,
+                name: fixtureNetworkName,
+                driver: 'bridge',
+                labels: fixtureLabels,
+                backend: {
+                    containerId: containers['fixture-backend'].Id,
+                    aliases: ['backend'],
+                    ipv4Address: '172.30.0.4',
+                    networkId: fixtureNetworkId
+                },
+                postgres: {
+                    containerId: containers['fixture-postgres'].Id,
+                    aliases: ['postgres'],
+                    ipv4Address: '172.30.0.2',
+                    networkId: fixtureNetworkId
+                },
+                redis: {
+                    containerId: containers['fixture-redis'].Id,
+                    aliases: ['redis'],
+                    ipv4Address: '172.30.0.3',
+                    networkId: fixtureNetworkId
+                }
+            },
+            environmentProjection: {
+                source: 'strict-runtime-env-plus-audited-container-overrides',
+                effective: Object.fromEntries(
+                    backendEnvironment.map((entry) => entry.split(/=(.*)/su).slice(0, 2))
+                )
             },
             process: backendProcess
         },
@@ -1242,7 +1481,7 @@ const requested = process.argv.at(-1); const entry = state.containers[requested]
         fixture: {
             status: 'complete',
             root: 'fixtures/runtime',
-            namespace: 'verifier-fixture',
+            namespace: fixtureNamespace,
             config: binding('fixtures/config.env'),
             schema: binding('fixtures/schema.sql'),
             seed: binding('fixtures/seed.json'),
@@ -1619,17 +1858,30 @@ test('tamper after receipt fails for every source, identity, evidence, lifecycle
 test('independent verifier rejects stopped, replaced, and topology-image-mismatched live fixture state', async (context) =>
 {
     for (const mutate of [
-        (containers) => { containers['fixture-postgres'].State.Running = false; },
-        (containers) => { containers['fixture-redis'].Id = 'recycled-redis-id'; },
-        (containers) => { containers['fixture-postgres'].Image = `sha256:${'f'.repeat(64)}`; },
-        (containers) => { containers['fixture-backend'].State.Pid += 1; }
+        (state) => { state.containers['fixture-postgres'].State.Running = false; },
+        (state) => { state.containers['fixture-redis'].Id = 'recycled-redis-id'; },
+        (state) => { state.containers['fixture-postgres'].Image = `sha256:${'f'.repeat(64)}`; },
+        (state) => { state.containers['fixture-backend'].State.Pid += 1; },
+        (state) => { state.containers['fixture-backend'].State.Health.Status = 'unhealthy'; },
+        (state) => {
+            state.containers['fixture-backend'].Config.Env.push(
+                `FSUSBLOG_TEST_RUN_ID=${runId}`
+            );
+        },
+        (state) => {
+            state.containers['fixture-postgres'].NetworkSettings
+                .Networks['verifier-fixture-network'].Aliases = ['wrong-postgres'];
+        },
+        (state) => {
+            state.containers['fixture-backend'].HostConfig
+                .PortBindings['8080/tcp'][0].HostIp = '0.0.0.0';
+        },
+        (state) => { delete state.network.Containers['fixture-fixture-redis-id']; }
     ])
     {
         const fixture = await createCliFixture(context);
-        const containers = structuredClone(fixture.containers);
-        mutate(containers);
         const state = JSON.parse(fs.readFileSync(fixture.dockerState, 'utf8'));
-        state.containers = containers;
+        mutate(state);
         fs.writeFileSync(fixture.dockerState, JSON.stringify(state));
         assert.notEqual(verifyCli(fixture).status, 0);
     }

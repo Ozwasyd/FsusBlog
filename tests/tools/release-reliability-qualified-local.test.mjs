@@ -13,7 +13,9 @@ const wrapper = path.join(root, 'tools/test/run-release-reliability-qualified-lo
 const runtimeEnvironmentTool = path.join(root, 'tools/test/release-reliability-runtime-environment.mjs');
 const productionBuildEnvironmentTool = path.join(root, 'tools/test/export-production-build-environment.mjs');
 const {
-    readQualifiedRuntimeEnvironment
+    readQualifiedRuntimeEnvironment,
+    releaseReliabilityAuditedContainerOverrideKeys,
+    releaseReliabilityAuditedContainerOverrides
 } = await import(pathToFileURL(runtimeEnvironmentTool).href);
 const {
     probeReleaseReliabilityRuntimeSmoke,
@@ -426,6 +428,113 @@ test('qualified runtime environment rejects duplicate and malformed assignments 
     assert.match(invalidPort.stderr, /invalid FSUSBLOG_DEBUG_BACKEND_PORT/u);
 });
 
+test('qualified container environment projection is strict, private, atomic, and Docker-exact', (context) =>
+{
+    const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-container-environment-'));
+    context.after(() => fs.rmSync(fixtureRoot, { recursive: true, force: true }));
+    const namespace = 'qualified-container';
+    const runId = 'qualified-run';
+    const retainedValue = 'literal value = "quoted" $(must-not-run)';
+    const environmentFile = writeRuntimeEnvironment(fixtureRoot, namespace, {
+        FSUSBLOG_DATA_ROOT: '/host/run-bound/data',
+        PublicAot__SsrClientRoot: '/host/run-bound/frontend/dist',
+        ConnectionStrings__DefaultConnection: 'Host=127.0.0.1;Port=20001',
+        ConnectionStrings__Redis: '127.0.0.1:22001',
+        RedisOptions__Configuration: '127.0.0.1:22001',
+        RedisOptions__InstanceName: 'FsusBlog_qualified-container_',
+        CORS_ALLOWED_HOSTS: retainedValue
+    });
+    const validInput = fs.readFileSync(environmentFile, 'utf8');
+    const invoke = () => spawnSync(process.execPath, [
+        runtimeEnvironmentTool,
+        'project-container-environment',
+        '--root', fixtureRoot,
+        '--namespace', namespace,
+        '--run-id', runId
+    ], { encoding: 'utf8' });
+    const result = invoke();
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stderr, '');
+    const output = result.stdout;
+    assert.equal(
+        path.relative(fixtureRoot, output),
+        path.join('.tmp', 'env', `${namespace}.${runId}.container.env`)
+    );
+    const outputStat = fs.statSync(output);
+    assert.equal(outputStat.mode & 0o777, 0o600);
+    assert.equal(fs.statSync(path.dirname(output)).mode & 0o777, 0o700);
+    if (typeof process.getuid === 'function')
+    {
+        assert.equal(outputStat.uid, process.getuid());
+    }
+    const projectedContents = fs.readFileSync(output, 'utf8');
+    const projectedEntries = projectedContents.trimEnd().split('\n');
+    const projectedEnvironment = Object.fromEntries(projectedEntries.map((entry) => (
+        entry.split(/=(.*)/su).slice(0, 2)
+    )));
+    const projectedKeys = Object.keys(projectedEnvironment);
+    assert.deepEqual(projectedKeys, [...projectedKeys].sort());
+    assert.equal(projectedEnvironment.CORS_ALLOWED_HOSTS, retainedValue);
+    assert.equal(projectedEnvironment.RedisOptions__InstanceName, 'FsusBlog_qualified-container_');
+    assert.deepEqual(
+        projectedKeys.filter((key) => releaseReliabilityAuditedContainerOverrideKeys.includes(key)),
+        []
+    );
+    const repeated = invoke();
+    assert.equal(repeated.status, 0, repeated.stderr);
+    assert.equal(repeated.stdout, output);
+    assert.equal(fs.readFileSync(output, 'utf8'), projectedContents);
+
+    const runtimeEnvironment = readQualifiedRuntimeEnvironment({
+        repositoryRoot: fixtureRoot,
+        namespace,
+        runId
+    });
+    const overrides = releaseReliabilityAuditedContainerOverrides({
+        runId,
+        namespace,
+        sourceCommit: 'a'.repeat(40),
+        sourceFingerprint: 'b'.repeat(64)
+    });
+    const imageEnvironment = {
+        DOTNET_RUNNING_IN_CONTAINER: 'true',
+        ASPNETCORE_URLS: 'http://image-default:8080'
+    };
+    const suppliedEnvironment = { ...projectedEnvironment, ...overrides };
+    const mockedDockerConfigEnvironment = [
+        ...Object.entries(imageEnvironment)
+            .filter(([key]) => !Object.hasOwn(suppliedEnvironment, key)),
+        ...Object.entries(projectedEnvironment),
+        ...Object.entries(overrides)
+    ].map(([key, value]) => `${key}=${value}`);
+    const mockedDockerKeys = mockedDockerConfigEnvironment.map((entry) => entry.slice(0, entry.indexOf('=')));
+    assert.equal(new Set(mockedDockerKeys).size, mockedDockerKeys.length);
+    assert.deepEqual(
+        Object.fromEntries(mockedDockerConfigEnvironment.map((entry) => entry.split(/=(.*)/su).slice(0, 2))),
+        { ...imageEnvironment, ...projectedEnvironment, ...overrides }
+    );
+    const rawPlusOverrides = [
+        ...Object.keys(runtimeEnvironment),
+        ...Object.keys(overrides)
+    ];
+    assert.ok(new Set(rawPlusOverrides).size < rawPlusOverrides.length);
+
+    const committedProjection = fs.readFileSync(output, 'utf8');
+    for (const invalidLine of [
+        'CORS_ALLOWED_HOSTS=duplicate-secret',
+        'malformed-secret',
+        '=empty-key-secret'
+    ])
+    {
+        fs.writeFileSync(environmentFile, `${validInput}\n${invalidLine}\n`);
+        const invalid = invoke();
+        assert.notEqual(invalid.status, 0);
+        assert.equal(invalid.stdout, '');
+        assert.doesNotMatch(invalid.stderr, /duplicate-secret|malformed-secret|empty-key-secret/u);
+        assert.equal(fs.readFileSync(output, 'utf8'), committedProjection);
+    }
+});
+
 test('qualified runtime smoke validates the canonical SeoConfig AEDS header, length, and CRC', () =>
 {
     const payload = Uint8Array.from([1, 2, 3, 4]);
@@ -588,7 +697,8 @@ test('qualified final container overrides host-bound runtime paths with a UID-ow
     assert.match(invocation, /--network "\$backend_network"/u);
     assert.doesNotMatch(invocation, /--network host/u);
     assert.match(invocation, /-p "127\.0\.0\.1:\$\{backend_host_port\}:8080"/u);
-    assert.match(invocation, /--env-file "\$env_file"/u);
+    assert.match(invocation, /--env-file "\$container_env_file"/u);
+    assert.doesNotMatch(invocation, /--env-file "\$env_file"/u);
     assert.match(invocation, /--tmpfs \/app\/data:uid=1654,gid=1654,mode=0700/u);
     assert.match(invocation, /--tmpfs \/app\/\.upload-sessions:uid=1654,gid=1654,mode=0700/u);
     assert.match(invocation, /--tmpfs \/app\/runtime-cache:uid=1654,gid=1654,mode=0700/u);
@@ -610,13 +720,20 @@ test('qualified final container overrides host-bound runtime paths with a UID-ow
     assert.match(invocation, /-e DOTNET_CreateDumpDiagnostics=1/u);
     assert.match(invocation, /-e DOTNET_CreateDumpLogToFile=\/app\/runtime-cache\/createdump\.log/u);
     assert.ok(
-        invocation.indexOf('--env-file "$env_file"') < invocation.indexOf('-e FSUSBLOG_DATA_ROOT=/app/data'),
-        'container-local data root must override the bootstrap env file'
+        invocation.indexOf('--env-file "$container_env_file"') < invocation.indexOf('-e FSUSBLOG_DATA_ROOT=/app/data'),
+        'audited container overrides must follow the projected runtime environment'
     );
-    assert.ok(
-        invocation.indexOf('--env-file "$env_file"') < invocation.indexOf('-e PublicAot__SsrClientRoot=/app/wwwroot'),
-        'container-local SSR root must override the bootstrap env file'
+    const explicitEnvironmentKeys = [...invocation.matchAll(
+        /-e "?([A-Za-z_][A-Za-z0-9_]*)=/gu
+    )].map((match) => match[1]);
+    assert.equal(new Set(explicitEnvironmentKeys).size, explicitEnvironmentKeys.length);
+    assert.deepEqual(
+        [...explicitEnvironmentKeys].sort(),
+        [...releaseReliabilityAuditedContainerOverrideKeys].sort()
     );
+    const projection = source.indexOf('project-container-environment');
+    const dockerRun = source.indexOf('backend_container_id="$(docker run');
+    assert.ok(projection >= 0 && projection < dockerRun);
     assert.doesNotMatch(invocation, /\.tmp\/(?:data|build)\//u);
     assert.doesNotMatch(invocation, /--health-cmd/u);
 });

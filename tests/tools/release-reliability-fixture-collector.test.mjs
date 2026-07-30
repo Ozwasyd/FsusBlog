@@ -6,10 +6,17 @@ import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const collector = path.join(repositoryRoot, 'tools/test/collect-release-reliability-fixture.mjs');
+const {
+    releaseReliabilityAuditedContainerOverrideKeys,
+    releaseReliabilityAuditedContainerOverrides
+} = await import(pathToFileURL(path.join(
+    repositoryRoot,
+    'tools/test/release-reliability-runtime-environment.mjs'
+)).href);
 const digest = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 const sourceCommit = 'a'.repeat(40);
 const sourceFingerprint = 'b'.repeat(64);
@@ -23,20 +30,14 @@ const healthcheck = {
     StartPeriod: 45_000_000_000,
     Retries: 3
 };
-const containerOverrides = {
-    FSUSBLOG_DATA_ROOT: '/app/data',
-    PublicAot__SsrClientRoot: '/app/wwwroot',
-    ASPNETCORE_URLS: 'http://0.0.0.0:8080',
-    AllowedHosts: '127.0.0.1;localhost',
-    ConnectionStrings__DefaultConnection: 'Host=postgres;Port=5432;Database=fsusblog;Username=fsusblog;Password=fsusblog_dev;Include Error Detail=true',
-    ConnectionStrings__Redis: 'redis:6379,abortConnect=false,connectTimeout=10000',
-    RedisOptions__Configuration: 'redis:6379,abortConnect=false,connectTimeout=10000',
-    DOTNET_DbgEnableMiniDump: '1',
-    DOTNET_DbgMiniDumpType: '4',
-    DOTNET_DbgMiniDumpName: '/app/runtime-cache/coredump.%p',
-    DOTNET_EnableCrashReport: '1',
-    DOTNET_CreateDumpDiagnostics: '1',
-    DOTNET_CreateDumpLogToFile: '/app/runtime-cache/createdump.log'
+const containerOverrides = releaseReliabilityAuditedContainerOverrides({
+    runId: 'fixture-run',
+    namespace: 'fixture-namespace',
+    sourceCommit,
+    sourceFingerprint
+});
+const imageEnvironment = {
+    DOTNET_RUNNING_IN_CONTAINER: 'true'
 };
 
 function createFixture(context)
@@ -73,13 +74,11 @@ function createFixture(context)
         fs.writeFileSync(file, contents);
     }
     const configuredEnvironment = [
+        ...Object.entries(imageEnvironment).map(([key, value]) => `${key}=${value}`),
         ...runtimeEnvironment.filter((entry) => (
-            !Object.keys(containerOverrides).some((key) => entry.startsWith(`${key}=`))
+            !releaseReliabilityAuditedContainerOverrideKeys.some((key) => entry.startsWith(`${key}=`))
         )),
-        ...Object.entries(containerOverrides).map(([key, value]) => `${key}=${value}`),
-        'FSUSBLOG_RUNTIME_ROLE=backend',
-        `FSUSBLOG_TEST_SOURCE_COMMIT=${sourceCommit}`,
-        `FSUSBLOG_TEST_SOURCE_FINGERPRINT=${sourceFingerprint}`
+        ...Object.entries(containerOverrides).map(([key, value]) => `${key}=${value}`)
     ];
     const processIdentity = {
         pid: 1,
@@ -156,6 +155,7 @@ function createFixture(context)
     const image = {
         Id: runtimeImageDigest,
         Config: {
+            Env: Object.entries(imageEnvironment).map(([key, value]) => `${key}=${value}`),
             Healthcheck: structuredClone(healthcheck),
             Labels: { 'org.opencontainers.image.revision': sourceCommit }
         },
@@ -266,17 +266,18 @@ test('fixture collector seals Docker-native backend procfs identity and fixture 
     assert.equal(topology.runtime.network.driver, 'bridge');
     assert.ok(topology.runtime.network.postgres.aliases.includes('postgres'));
     assert.ok(topology.runtime.network.redis.aliases.includes('redis'));
+    const configuredEnvironmentKeys = fixture.containers.backend.Config.Env
+        .map((entry) => entry.slice(0, entry.indexOf('=')));
+    assert.equal(new Set(configuredEnvironmentKeys).size, configuredEnvironmentKeys.length);
     assert.deepEqual(topology.runtime.environmentProjection.effective, {
+        ...imageEnvironment,
         ...Object.fromEntries(
             fs.readFileSync(path.join(fixture.root, 'fixture/config.env'), 'utf8')
                 .trim()
                 .split('\n')
                 .map((entry) => entry.split(/=(.*)/su).slice(0, 2))
         ),
-        ...containerOverrides,
-        FSUSBLOG_RUNTIME_ROLE: 'backend',
-        FSUSBLOG_TEST_SOURCE_COMMIT: sourceCommit,
-        FSUSBLOG_TEST_SOURCE_FINGERPRINT: sourceFingerprint
+        ...containerOverrides
     });
     assert.deepEqual(topology.runtime.process, fixture.processIdentity);
     assert.equal(topology.config.fileDigest, digest(fs.readFileSync(path.join(fixture.root, 'fixture/config.env'))));
@@ -315,6 +316,7 @@ test('fixture collector rejects Docker/procfs PID, env, audited override, comman
         (fixture) => { delete fixture.image.Config.Healthcheck; },
         (fixture) => { fixture.containers.backend.State.Pid = 1; },
         (fixture) => { fixture.containers.backend.Image = `sha256:${'f'.repeat(64)}`; },
+        (fixture) => { fixture.containers.backend.Config.Env.push('FSUSBLOG_TEST_RUN_ID=fixture-run'); },
         (fixture) => { fixture.containers.backend.Config.Env[0] = 'FSUSBLOG_TEST_RUN_ID=other-run'; },
         (fixture) => {
             const index = fixture.containers.backend.Config.Env.indexOf('FSUSBLOG_DATA_ROOT=/app/data');

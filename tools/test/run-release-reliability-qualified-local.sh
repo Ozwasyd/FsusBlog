@@ -7,6 +7,7 @@ backend_container=""
 backend_container_id=""
 backend_network=""
 backend_network_id=""
+container_env_file=""
 postgres_container_id=""
 redis_container_id=""
 managed_pid_file=""
@@ -219,6 +220,9 @@ CleanupQualifiedRuntimeResources() {
     if [[ -n "$test_resource" ]]; then
         rm -f -- "$test_resource"
     fi
+    if [[ -n "$container_env_file" ]]; then
+        rm -f -- "$container_env_file"
+    fi
     set -e
     return "$cleanupStatus"
 }
@@ -411,9 +415,10 @@ if [[ -z "${GITHUB_PACKAGES_TOKEN:-}" ]] && command -v gh >/dev/null 2>&1; then 
 FSUSBLOG_FINAL_LOCAL_ONLY=1 FSUSBLOG_FINAL_IMAGE_TAG="$image" "$root/tools/build-final-image.sh"
 ImportProductionBuildEnvironment "${run_id}-acceptance"
 InvokeQualifiedAcceptanceBootstrap "$root/tools/bootstrap-acceptance-env.sh"
-env_file="$root/.tmp/env/${namespace}.env"
 fixture_config=".tmp/env/${namespace}.env"
 runtime_environment_tool="$root/tools/test/release-reliability-runtime-environment.mjs"
+container_env_file="$(node "$runtime_environment_tool" project-container-environment \
+    --root "$root" --namespace "$namespace" --run-id "$run_id")"
 postgres_container="$(node "$runtime_environment_tool" get --root "$root" --namespace "$namespace" --run-id "$run_id" --field postgres-container)"
 redis_container="$(node "$runtime_environment_tool" get --root "$root" --namespace "$namespace" --run-id "$run_id" --field redis-container)"
 runtime_base_url="$(node "$runtime_environment_tool" get --root "$root" --namespace "$namespace" --run-id "$run_id" --field backend-url)"
@@ -457,7 +462,7 @@ if docker inspect "$backend_container" >/dev/null 2>&1; then
     exit 1
 fi
 backend_container_id="$(docker run -d --name "$backend_container" --network "$backend_network" \
-    -p "127.0.0.1:${backend_host_port}:8080" --env-file "$env_file" \
+    -p "127.0.0.1:${backend_host_port}:8080" --env-file "$container_env_file" \
     --tmpfs /app/data:uid=1654,gid=1654,mode=0700 \
     --tmpfs /app/.upload-sessions:uid=1654,gid=1654,mode=0700 \
     --tmpfs /app/runtime-cache:uid=1654,gid=1654,mode=0700 \

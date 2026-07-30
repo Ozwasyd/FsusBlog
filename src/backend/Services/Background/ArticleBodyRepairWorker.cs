@@ -93,7 +93,7 @@ public sealed class ArticleBodyRepairService(
             INSERT INTO article_body (article_id, markdown_content, updated_at)
             SELECT article.id, revision.markdown_content, NOW()
             FROM article
-            JOIN article_publication_record publication
+            JOIN article_publication publication
               ON publication.id = article.current_publication_id
              AND publication.article_id = article.id
             JOIN article_revision revision
