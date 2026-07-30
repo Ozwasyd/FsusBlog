@@ -17,9 +17,12 @@
         :primary-action-text="submitButtonText"
         :show-save-draft="submitButtonText !== '保存草稿'"
         :submitting="submitting"
+        :critical-status-text="criticalInspectorSummary?.text"
+        :critical-status-target="criticalInspectorSummary?.target"
         @back="requestLeave"
         @save-draft="saveDraftNow"
         @submit="requestSubmit"
+        @open-inspector="openInspector"
       />
 
       <el-form
@@ -68,9 +71,8 @@
 
       <div
         class="write-grid"
-        :class="{ 'write-grid--wide': editorLayoutMode === 'wide' }"
         aria-label="写作工作区"
-        :data-editor-layout-mode="editorLayoutMode"
+        data-editor-document-column="stable"
       >
         <section class="write-editor-panel" aria-label="正文编辑器">
           <div class="overflow-hidden">
@@ -90,402 +92,306 @@
             </el-form-item>
           </div>
         </section>
-
-        <aside class="write-side-panel" aria-label="文章检查器">
-          <div class="write-inspector">
-            <ArticleWriteSidebar
-              :form="articleForm"
-              :categories="categories"
-              :tags="tags"
-              :submitting="submitting"
-              :quick-creating-category="quickCreatingCategory"
-              :quick-creating-tag="quickCreatingTag"
-              @open-create-category="openQuickCreateCategory"
-              @open-create-tag="openQuickCreateTag"
-              @open-cover-upload="triggerCoverInput"
-              @clear-cover="articleForm.coverImageUrl = ''"
-            />
-
-            <section class="write-inspector-section" :class="{ 'is-open': rightsInspectorOpen }">
-              <button
-                type="button"
-                class="write-inspector-summary"
-                :aria-expanded="rightsInspectorOpen"
-                aria-controls="write-inspector-rights"
-                @click="rightsInspectorOpen = !rightsInspectorOpen"
-              >
-                <span class="write-inspector-summary__copy">
-                  <span>版权保护</span>
-                  <span>版权与转载设置</span>
-                </span>
-                <span class="write-inspector-summary__action" aria-hidden="true">
-                  <span class="write-inspector-summary__state write-inspector-summary__state--closed">展开</span>
-                  <span class="write-inspector-summary__state write-inspector-summary__state--open">收起</span>
-                  <span class="write-inspector-summary__chevron"></span>
-                </span>
-              </button>
-              <ElCollapseTransition>
-                <div v-show="rightsInspectorOpen" id="write-inspector-rights" class="write-inspector-section__body">
-                  <section class="write-rights-panel border-t border-[var(--fsusblog-panel-border)]" aria-label="版权保护">
-                    <div class="p-4 space-y-4">
-                  <p class="text-[11px] leading-5 text-[var(--fsusblog-text-tertiary)]">
-                    默认使用站点版权设置；需要单篇不同规则时切换为自定义。
-                  </p>
-                  <el-form-item label="版权来源">
-                    <el-radio-group
-                      :model-value="articleForm.rights.mode"
-                      aria-label="版权来源"
-                      :disabled="submitting"
-                      @change="(value) => setArticleRightsMode(value === 'custom' ? 'custom' : 'site')"
-                    >
-                      <el-radio-button label="site">继承站点设置</el-radio-button>
-                      <el-radio-button label="custom">自定义本文版权</el-radio-button>
-                    </el-radio-group>
-                    <p class="mt-2 text-[11px] leading-5 text-[var(--fsusblog-text-tertiary)]">
-                      {{ articleRightsInheritanceText }}
-                    </p>
-                  </el-form-item>
-
-                  <el-form-item prop="rights.enabled" label="启用策略">
-                    <el-switch
-                      v-model="articleForm.rights.enabled"
-                      aria-label="启用版权策略"
-                      :disabled="submitting || articleRightsUsingSiteDefaults"
-                    />
-                  </el-form-item>
-
-                  <el-form-item prop="rights.licenseType" label="许可类型">
-                    <el-select
-                      v-model="articleForm.rights.licenseType"
-                      name="articleRightsLicenseType"
-                      aria-label="版权许可类型"
-                      :disabled="submitting || articleRightsUsingSiteDefaults"
-                    >
-                      <el-option
-                        v-for="item in articleRightsLicenseOptions"
-                        :key="item.value"
-                        :label="item.label"
-                        :value="item.value"
-                      />
-                    </el-select>
-                  </el-form-item>
-
-                  <el-form-item prop="rights.copyrightHolder" label="权利人">
-                    <el-input
-                      v-model="articleForm.rights.copyrightHolder"
-                      name="articleRightsCopyrightHolder"
-                      aria-label="版权权利人"
-                      maxlength="256"
-                      show-word-limit
-                      :disabled="submitting || articleRightsUsingSiteDefaults"
-                    />
-                  </el-form-item>
-
-                  <el-form-item prop="rights.copyrightYear" label="版权年份">
-                    <el-input-number
-                      :model-value="articleForm.rights.copyrightYear ?? undefined"
-                      @update:model-value="updateCopyrightYear"
-                      name="articleRightsCopyrightYear"
-                      aria-label="版权年份"
-                      :min="1900"
-                      :max="new Date().getFullYear() + 1"
-                      :step="1"
-                      :disabled="submitting || articleRightsUsingSiteDefaults"
-                      controls-position="right"
-                    />
-                  </el-form-item>
-
-                  <el-form-item prop="rights.rightsStatement" label="权利声明">
-                    <el-input
-                      v-model="articleForm.rights.rightsStatement"
-                      :csp-safe="true"
-                      name="articleRightsStatement"
-                      type="textarea"
-                      :rows="3"
-                      maxlength="4000"
-                      show-word-limit
-                      aria-label="版权权利声明"
-                      :disabled="submitting || articleRightsUsingSiteDefaults"
-                    />
-                  </el-form-item>
-
-                  <el-form-item prop="rights.attributionTemplate" label="署名模板">
-                    <el-input
-                      v-model="articleForm.rights.attributionTemplate"
-                      :csp-safe="true"
-                      name="articleRightsAttributionTemplate"
-                      type="textarea"
-                      :rows="2"
-                      maxlength="4000"
-                      show-word-limit
-                      aria-label="版权署名模板"
-                      :disabled="submitting || articleRightsUsingSiteDefaults"
-                    />
-                  </el-form-item>
-
-                  <el-form-item prop="rights.copyPolicy" label="复制策略">
-                    <el-select
-                      v-model="articleForm.rights.copyPolicy"
-                      name="articleRightsCopyPolicy"
-                      aria-label="版权复制策略"
-                      :disabled="submitting || articleRightsUsingSiteDefaults"
-                    >
-                      <el-option
-                        v-for="item in articleRightsCopyPolicyOptions"
-                        :key="item.value"
-                        :label="item.label"
-                        :value="item.value"
-                      />
-                    </el-select>
-                  </el-form-item>
-
-                  <el-form-item prop="rights.maxExcerptChars" label="摘录长度">
-                    <el-input-number
-                      v-model="articleForm.rights.maxExcerptChars"
-                      name="articleRightsMaxExcerptChars"
-                      aria-label="最大摘录字符数"
-                      :min="0"
-                      :max="articleRightsExcerptMax"
-                      :step="10"
-                      :disabled="submitting || articleRightsUsingSiteDefaults"
-                      controls-position="right"
-                    />
-                  </el-form-item>
-
-                  <div class="grid gap-3">
-                    <el-checkbox v-model="articleForm.rights.allowCodeCopy" :disabled="submitting || articleRightsUsingSiteDefaults">
-                      允许代码块复制
-                    </el-checkbox>
-                    <el-checkbox v-model="articleForm.rights.showPublicBadge" :disabled="submitting || articleRightsUsingSiteDefaults">
-                      公开页显示版权标识
-                    </el-checkbox>
-                    <el-checkbox v-model="articleForm.rights.proofBindingEnabled" :disabled="submitting || articleRightsUsingSiteDefaults">
-                      启用 proof 绑定
-                    </el-checkbox>
-                  </div>
-                    </div>
-                  </section>
-                </div>
-              </ElCollapseTransition>
-            </section>
-
-            <section class="write-inspector-section" :class="{ 'is-open': checkInspectorVisible }">
-              <button
-                type="button"
-                class="write-inspector-summary"
-                :aria-expanded="checkInspectorVisible"
-                aria-controls="write-inspector-check"
-                @click="toggleCheckInspector"
-              >
-                <span class="write-inspector-summary__copy">
-                  <span>内容检查</span>
-                  <span>摘要、标题、标签和结构建议</span>
-                </span>
-                <span class="write-inspector-summary__action" aria-hidden="true">
-                  <span class="write-inspector-summary__state write-inspector-summary__state--closed">展开</span>
-                  <span class="write-inspector-summary__state write-inspector-summary__state--open">收起</span>
-                  <span class="write-inspector-summary__chevron"></span>
-                </span>
-              </button>
-              <ElCollapseTransition>
-                <div v-if="checkInspectorVisible" id="write-inspector-check" class="write-inspector-section__body">
-                  <ArticleSeoPreviewPanel
-                    :preview="seoPreview"
-                    :issues="seoIssues"
-                    :loading="seoChecking"
-                    :status-text="seoStatusText"
-                    @refresh="refreshPrepublishCheck"
-                  />
-                  <section
-                    class="write-content-check-panel border-t border-[var(--fsusblog-panel-border)]"
-                    data-author-content-check-panel="true"
-                    aria-label="内容检查"
-                  >
-                    <header class="px-4 py-3 border-b border-[var(--fsusblog-panel-border)]">
-                      <div class="text-[13px] font-medium normal-case tracking-normal text-[var(--fsusblog-text-primary)]">内容检查</div>
-                    </header>
-                    <div class="p-6 space-y-5">
-                      <p class="text-xs leading-6 text-[var(--fsusblog-text-secondary)]" aria-live="polite">
-                        {{ aiAssistStatusText || '生成可选摘要建议、标题备选和标签匹配。建议仅供参考，应用前可继续编辑。' }}
-                      </p>
-                      <div class="grid grid-cols-2 gap-3">
-                        <el-button :disabled="submitting" @click="autoGenerateSummary">
-                          生成摘要建议
-                        </el-button>
-                        <el-button type="primary" :loading="aiAssistLoading" :disabled="submitting || aiAssistLoading" @click="requestAiAssist">
-                          检查内容
-                        </el-button>
-                      </div>
-                      <div v-if="aiAssist" class="space-y-4 border-t border-[var(--fsusblog-panel-border)] pt-5">
-                        <p v-if="aiAssist.suggestedSummary" class="text-xs leading-6 text-[var(--fsusblog-text-secondary)]">
-                          {{ aiAssist.suggestedSummary }}
-                        </p>
-                        <el-button v-if="aiAssist.suggestedSummary" size="small" :disabled="submitting" @click="applyAiSummary">
-                          应用摘要
-                        </el-button>
-                        <div v-if="aiAssist.suggestedTags.length > 0" class="flex flex-wrap gap-2">
-                          <el-tag v-for="tag in aiAssist.suggestedTags" :key="tag" size="small">{{ tag }}</el-tag>
-                        </div>
-                        <el-button v-if="aiAssist.suggestedTags.length > 0" size="small" :disabled="submitting" @click="applyAiSuggestedTags">
-                          应用标签
-                        </el-button>
-                        <div v-if="aiAssist.titleCandidates.length > 0" class="grid gap-2">
-                          <el-button
-                            v-for="title in aiAssist.titleCandidates"
-                            :key="title"
-                            :disabled="submitting"
-                            @click="applyAiTitleCandidate(title)"
-                          >
-                            <span class="min-w-0 whitespace-normal text-left leading-5">应用标题：{{ title }}</span>
-                          </el-button>
-                        </div>
-                        <el-button v-if="aiAssist.translationDraft" size="small" :disabled="submitting" @click="applyAiTranslationDraft">
-                          应用翻译建议
-                        </el-button>
-                      </div>
-                    </div>
-                  </section>
-                </div>
-              </ElCollapseTransition>
-            </section>
-
-            <section class="write-inspector-section" :class="{ 'is-open': previewInspectorOpen }">
-              <button
-                type="button"
-                class="write-inspector-summary"
-                :aria-expanded="previewInspectorOpen"
-                aria-controls="write-inspector-preview"
-                @click="togglePreviewInspector"
-              >
-                <span class="write-inspector-summary__copy">
-                  <span>阅读预览</span>
-                  <span>按需生成私有预览</span>
-                </span>
-                <span class="write-inspector-summary__action" aria-hidden="true">
-                  <span class="write-inspector-summary__state write-inspector-summary__state--closed">展开</span>
-                  <span class="write-inspector-summary__state write-inspector-summary__state--open">收起</span>
-                  <span class="write-inspector-summary__chevron"></span>
-                </span>
-              </button>
-              <ElCollapseTransition>
-                <div v-if="previewInspectorOpen" id="write-inspector-preview" class="write-inspector-section__body">
-                  <ArticlePrivatePreviewPanel
-                    :html="privatePreview?.html ?? ''"
-                    :issues="privatePreview?.issues ?? []"
-                    :loading="privatePreviewLoading"
-                    :status-text="privatePreviewStatusText"
-                    :can-preview="canGeneratePrivatePreview"
-                    @preview="generatePrivatePreview"
-                  />
-                </div>
-              </ElCollapseTransition>
-            </section>
-
-            <section class="write-inspector-section" :class="{ 'is-open': versionsInspectorOpen }">
-              <button
-                type="button"
-                class="write-inspector-summary"
-                :aria-expanded="versionsInspectorOpen"
-                aria-controls="write-inspector-versions"
-                @click="toggleVersionsInspector"
-              >
-                <span class="write-inspector-summary__copy">
-                  <span>版本</span>
-                  <span>查看修订和回滚</span>
-                </span>
-                <span class="write-inspector-summary__action" aria-hidden="true">
-                  <span class="write-inspector-summary__state write-inspector-summary__state--closed">展开</span>
-                  <span class="write-inspector-summary__state write-inspector-summary__state--open">收起</span>
-                  <span class="write-inspector-summary__chevron"></span>
-                </span>
-              </button>
-              <ElCollapseTransition>
-                <div v-if="versionsInspectorOpen" id="write-inspector-versions" class="write-inspector-section__body">
-                  <ArticleRevisionPanel
-                    :is-edit="isEdit"
-                    :revisions="articleRevisions"
-                    :selected-revision="selectedRevision"
-                    :selected-label="selectedRevisionLabel"
-                    :loading="revisionLoading"
-                    :rollbacking="revisionRollbacking"
-                    :status-text="revisionStatusText"
-                    :compare-text="revisionCompareText"
-                    @refresh="() => refreshArticleRevisions()"
-                    @select-revision="selectArticleRevision"
-                    @rollback="rollbackSelectedRevision"
-                  />
-                </div>
-              </ElCollapseTransition>
-            </section>
-
-            <section class="write-inspector-section" :class="{ 'is-open': resourcesInspectorOpen }">
-              <button
-                type="button"
-                class="write-inspector-summary"
-                :aria-expanded="resourcesInspectorOpen"
-                aria-controls="write-inspector-resources"
-                @click="toggleResourcesInspector"
-              >
-                <span class="write-inspector-summary__copy">
-                  <span>资源</span>
-                  <span>图片资源和上传策略</span>
-                </span>
-                <span class="write-inspector-summary__action" aria-hidden="true">
-                  <span class="write-inspector-summary__state write-inspector-summary__state--closed">展开</span>
-                  <span class="write-inspector-summary__state write-inspector-summary__state--open">收起</span>
-                  <span class="write-inspector-summary__chevron"></span>
-                </span>
-              </button>
-              <ElCollapseTransition>
-                <div v-if="resourcesInspectorOpen" id="write-inspector-resources" class="write-inspector-section__body">
-                  <ArticleAssetLibraryPanel
-                    :assets="assetLibrary"
-                    :loading="assetLibraryLoading"
-                    :status-text="assetLibraryStatusText"
-                    :can-reindex="isEdit"
-                    @refresh="() => refreshAssetLibrary()"
-                    @reindex="reindexCurrentArticleAssets"
-                    @cleanup-orphans="cleanupAssetOrphans"
-                    @insert="insertAssetIntoEditor"
-                  />
-                  <details class="write-upload-disclosure border-t border-[var(--fsusblog-panel-border)]">
-                    <summary class="write-disclosure-summary px-4 py-3 border-b border-[var(--fsusblog-panel-border)] cursor-pointer outline-none">
-                      <div class="flex items-center justify-between">
-                        <span class="text-[13px] font-medium normal-case tracking-normal text-[var(--fsusblog-text-primary)]">图片上传策略</span>
-                        <span class="text-[12px] font-medium text-[var(--fsusblog-text-muted)]" aria-live="polite">{{ imageUploadRuntime.statusText }}</span>
-                      </div>
-                    </summary>
-                    <div class="p-6 bg-[var(--fsusblog-page-bg)]">
-                      <ImageUploadOptionsPanel
-                        :options="imageUploadOptions"
-                        :status-text="imageUploadRuntime.statusText"
-                        :can-abort="Boolean(imageUploadRuntime.activeSession.uploadId)"
-                        :can-resume="imageUploadRuntime.canResume"
-                        :preview="imageUploadRuntime.preview"
-                        :wasm-only="imageUploadWasmOnlyMode"
-                        :wasm-supported-formats="imageUploadRuntime.wasmSupportedFormats"
-                        @update:options="setImageUploadOptions"
-                        @update:wasm-only="setImageUploadWasmOnlyMode"
-                        @reset="setImageUploadOptions({ format: 'webp', quality: 82, scaleRatio: 1, maxEdge: 1920, preserveAlpha: true })"
-                        @resume="resumeImageUpload"
-                        @abandon="imageUploadRuntime.abandon"
-                      />
-                    </div>
-                  </details>
-                </div>
-              </ElCollapseTransition>
-            </section>
-          </div>
-
-          <input
-            ref="coverInputRef"
-            type="file"
-            accept="image/*"
-            class="hidden"
-            @change="onCoverFileChange"
-          />
-        </aside>
       </div>
+
+      <ArticleWriteInspectorShell
+        :active-inspector="activeInspector"
+        :register-trigger-element="registerInspectorTrigger"
+        :register-scroll-element="registerInspectorScrollContainer"
+        @activate="openInspector"
+        @switch="switchInspector"
+        @close="closeInspector"
+        @closed="restoreInspectorFocus"
+        @scroll="updateInspectorScroll"
+      >
+        <template #publish>
+          <ArticleWriteSidebar
+            :form="articleForm"
+            :categories="categories"
+            :tags="tags"
+            :submitting="submitting"
+            :quick-creating-category="quickCreatingCategory"
+            :quick-creating-tag="quickCreatingTag"
+            @open-create-category="openQuickCreateCategory"
+            @open-create-tag="openQuickCreateTag"
+            @open-cover-upload="triggerCoverInput"
+            @clear-cover="articleForm.coverImageUrl = ''"
+          />
+        </template>
+
+        <template #rights>
+          <section class="write-rights-panel border-t border-[var(--fsusblog-panel-border)]" aria-label="版权保护">
+            <div class="p-4 space-y-4">
+              <p class="text-[11px] leading-5 text-[var(--fsusblog-text-tertiary)]">
+                默认使用站点版权设置；需要单篇不同规则时切换为自定义。
+              </p>
+              <el-form-item label="版权来源">
+                <el-radio-group
+                  :model-value="articleForm.rights.mode"
+                  aria-label="版权来源"
+                  :disabled="submitting"
+                  @change="(value) => setArticleRightsMode(value === 'custom' ? 'custom' : 'site')"
+                >
+                  <el-radio-button label="site">继承站点设置</el-radio-button>
+                  <el-radio-button label="custom">自定义本文版权</el-radio-button>
+                </el-radio-group>
+                <p class="mt-2 text-[11px] leading-5 text-[var(--fsusblog-text-tertiary)]">
+                  {{ articleRightsInheritanceText }}
+                </p>
+              </el-form-item>
+
+              <el-form-item prop="rights.enabled" label="启用策略">
+                <el-switch
+                  v-model="articleForm.rights.enabled"
+                  aria-label="启用版权策略"
+                  :disabled="submitting || articleRightsUsingSiteDefaults"
+                />
+              </el-form-item>
+
+              <el-form-item prop="rights.licenseType" label="许可类型">
+                <el-select
+                  v-model="articleForm.rights.licenseType"
+                  name="articleRightsLicenseType"
+                  aria-label="版权许可类型"
+                  :disabled="submitting || articleRightsUsingSiteDefaults"
+                >
+                  <el-option
+                    v-for="item in articleRightsLicenseOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </el-form-item>
+
+              <el-form-item prop="rights.copyrightHolder" label="权利人">
+                <el-input
+                  v-model="articleForm.rights.copyrightHolder"
+                  name="articleRightsCopyrightHolder"
+                  aria-label="版权权利人"
+                  maxlength="256"
+                  show-word-limit
+                  :disabled="submitting || articleRightsUsingSiteDefaults"
+                />
+              </el-form-item>
+
+              <el-form-item prop="rights.copyrightYear" label="版权年份">
+                <el-input-number
+                  :model-value="articleForm.rights.copyrightYear ?? undefined"
+                  @update:model-value="updateCopyrightYear"
+                  name="articleRightsCopyrightYear"
+                  aria-label="版权年份"
+                  :min="1900"
+                  :max="new Date().getFullYear() + 1"
+                  :step="1"
+                  :disabled="submitting || articleRightsUsingSiteDefaults"
+                  controls-position="right"
+                />
+              </el-form-item>
+
+              <el-form-item prop="rights.rightsStatement" label="权利声明">
+                <el-input
+                  v-model="articleForm.rights.rightsStatement"
+                  :csp-safe="true"
+                  name="articleRightsStatement"
+                  type="textarea"
+                  :rows="3"
+                  maxlength="4000"
+                  show-word-limit
+                  aria-label="版权权利声明"
+                  :disabled="submitting || articleRightsUsingSiteDefaults"
+                />
+              </el-form-item>
+
+              <el-form-item prop="rights.attributionTemplate" label="署名模板">
+                <el-input
+                  v-model="articleForm.rights.attributionTemplate"
+                  :csp-safe="true"
+                  name="articleRightsAttributionTemplate"
+                  type="textarea"
+                  :rows="2"
+                  maxlength="4000"
+                  show-word-limit
+                  aria-label="版权署名模板"
+                  :disabled="submitting || articleRightsUsingSiteDefaults"
+                />
+              </el-form-item>
+
+              <el-form-item prop="rights.copyPolicy" label="复制策略">
+                <el-select
+                  v-model="articleForm.rights.copyPolicy"
+                  name="articleRightsCopyPolicy"
+                  aria-label="版权复制策略"
+                  :disabled="submitting || articleRightsUsingSiteDefaults"
+                >
+                  <el-option
+                    v-for="item in articleRightsCopyPolicyOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </el-form-item>
+
+              <el-form-item prop="rights.maxExcerptChars" label="摘录长度">
+                <el-input-number
+                  v-model="articleForm.rights.maxExcerptChars"
+                  name="articleRightsMaxExcerptChars"
+                  aria-label="最大摘录字符数"
+                  :min="0"
+                  :max="articleRightsExcerptMax"
+                  :step="10"
+                  :disabled="submitting || articleRightsUsingSiteDefaults"
+                  controls-position="right"
+                />
+              </el-form-item>
+
+              <div class="grid gap-3">
+                <el-checkbox v-model="articleForm.rights.allowCodeCopy" :disabled="submitting || articleRightsUsingSiteDefaults">
+                  允许代码块复制
+                </el-checkbox>
+                <el-checkbox v-model="articleForm.rights.showPublicBadge" :disabled="submitting || articleRightsUsingSiteDefaults">
+                  公开页显示版权标识
+                </el-checkbox>
+                <el-checkbox v-model="articleForm.rights.proofBindingEnabled" :disabled="submitting || articleRightsUsingSiteDefaults">
+                  启用 proof 绑定
+                </el-checkbox>
+              </div>
+            </div>
+          </section>
+        </template>
+
+        <template #check>
+          <ArticleSeoPreviewPanel
+            :preview="seoPreview"
+            :issues="seoIssues"
+            :loading="seoChecking"
+            :status-text="seoStatusText"
+            @refresh="refreshPrepublishCheck"
+          />
+          <section
+            class="write-content-check-panel border-t border-[var(--fsusblog-panel-border)]"
+            data-author-content-check-panel="true"
+            aria-label="内容检查"
+          >
+            <header class="px-4 py-3 border-b border-[var(--fsusblog-panel-border)]">
+              <div class="text-[13px] font-medium normal-case tracking-normal text-[var(--fsusblog-text-primary)]">内容检查</div>
+            </header>
+            <div class="p-6 space-y-5">
+              <p class="text-xs leading-6 text-[var(--fsusblog-text-secondary)]" aria-live="polite">
+                {{ aiAssistStatusText || '生成可选摘要建议、标题备选和标签匹配。建议仅供参考，应用前可继续编辑。' }}
+              </p>
+              <div class="grid grid-cols-2 gap-3">
+                <el-button :disabled="submitting" @click="autoGenerateSummary">
+                  生成摘要建议
+                </el-button>
+                <el-button type="primary" :loading="aiAssistLoading" :disabled="submitting || aiAssistLoading" @click="requestAiAssist">
+                  检查内容
+                </el-button>
+              </div>
+              <div v-if="aiAssist" class="space-y-4 border-t border-[var(--fsusblog-panel-border)] pt-5">
+                <p v-if="aiAssist.suggestedSummary" class="text-xs leading-6 text-[var(--fsusblog-text-secondary)]">
+                  {{ aiAssist.suggestedSummary }}
+                </p>
+                <el-button v-if="aiAssist.suggestedSummary" size="small" :disabled="submitting" @click="applyAiSummary">
+                  应用摘要
+                </el-button>
+                <div v-if="aiAssist.suggestedTags.length > 0" class="flex flex-wrap gap-2">
+                  <el-tag v-for="tag in aiAssist.suggestedTags" :key="tag" size="small">{{ tag }}</el-tag>
+                </div>
+                <el-button v-if="aiAssist.suggestedTags.length > 0" size="small" :disabled="submitting" @click="applyAiSuggestedTags">
+                  应用标签
+                </el-button>
+                <div v-if="aiAssist.titleCandidates.length > 0" class="grid gap-2">
+                  <el-button
+                    v-for="title in aiAssist.titleCandidates"
+                    :key="title"
+                    :disabled="submitting"
+                    @click="applyAiTitleCandidate(title)"
+                  >
+                    <span class="min-w-0 whitespace-normal text-left leading-5">应用标题：{{ title }}</span>
+                  </el-button>
+                </div>
+                <el-button v-if="aiAssist.translationDraft" size="small" :disabled="submitting" @click="applyAiTranslationDraft">
+                  应用翻译建议
+                </el-button>
+              </div>
+            </div>
+          </section>
+        </template>
+
+        <template #preview>
+          <ArticlePrivatePreviewPanel
+            :html="privatePreview?.html ?? ''"
+            :issues="privatePreview?.issues ?? []"
+            :loading="privatePreviewLoading"
+            :status-text="privatePreviewStatusText"
+            :can-preview="canGeneratePrivatePreview"
+            @preview="generatePrivatePreview"
+          />
+        </template>
+
+        <template #versions>
+          <ArticleRevisionPanel
+            :is-edit="isEdit"
+            :revisions="articleRevisions"
+            :selected-revision="selectedRevision"
+            :selected-label="selectedRevisionLabel"
+            :loading="revisionLoading"
+            :rollbacking="revisionRollbacking"
+            :status-text="revisionStatusText"
+            :compare-text="revisionCompareText"
+            @refresh="() => refreshArticleRevisions()"
+            @select-revision="selectArticleRevision"
+            @rollback="rollbackSelectedRevision"
+          />
+        </template>
+
+        <template #resources>
+          <ArticleAssetLibraryPanel
+            :assets="assetLibrary"
+            :loading="assetLibraryLoading"
+            :status-text="assetLibraryStatusText"
+            :can-reindex="isEdit"
+            @refresh="() => refreshAssetLibrary()"
+            @reindex="reindexCurrentArticleAssets"
+            @cleanup-orphans="cleanupAssetOrphans"
+            @insert="insertAssetIntoEditor"
+          />
+          <details class="write-upload-disclosure border-t border-[var(--fsusblog-panel-border)]">
+            <summary class="write-disclosure-summary px-4 py-3 border-b border-[var(--fsusblog-panel-border)] cursor-pointer outline-none">
+              <div class="flex items-center justify-between">
+                <span class="text-[13px] font-medium normal-case tracking-normal text-[var(--fsusblog-text-primary)]">图片上传策略</span>
+                <span class="text-[12px] font-medium text-[var(--fsusblog-text-muted)]" aria-live="polite">{{ imageUploadRuntime.statusText }}</span>
+              </div>
+            </summary>
+            <div class="p-6 bg-[var(--fsusblog-page-bg)]">
+              <ImageUploadOptionsPanel
+                :options="imageUploadOptions"
+                :status-text="imageUploadRuntime.statusText"
+                :can-abort="Boolean(imageUploadRuntime.activeSession.uploadId)"
+                :can-resume="imageUploadRuntime.canResume"
+                :preview="imageUploadRuntime.preview"
+                :wasm-only="imageUploadWasmOnlyMode"
+                :wasm-supported-formats="imageUploadRuntime.wasmSupportedFormats"
+                @update:options="setImageUploadOptions"
+                @update:wasm-only="setImageUploadWasmOnlyMode"
+                @reset="setImageUploadOptions({ format: 'webp', quality: 82, scaleRatio: 1, maxEdge: 1920, preserveAlpha: true })"
+                @resume="resumeImageUpload"
+                @abandon="imageUploadRuntime.abandon"
+              />
+            </div>
+          </details>
+        </template>
+      </ArticleWriteInspectorShell>
+
+      <input
+        ref="coverInputRef"
+        type="file"
+        accept="image/*"
+        class="hidden"
+        @change="onCoverFileChange"
+      />
       </el-form>
     </div>
 
@@ -639,7 +545,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import ArticleAssetLibraryPanel from '@/components/admin/article/ArticleAssetLibraryPanel.vue'
 import ArticlePrivatePreviewPanel from '@/components/admin/article/ArticlePrivatePreviewPanel.vue'
@@ -647,14 +553,18 @@ import ArticleRevisionPanel from '@/components/admin/article/ArticleRevisionPane
 import ArticleSeoPreviewPanel from '@/components/admin/article/ArticleSeoPreviewPanel.vue'
 import ArticleWriteCommandBar from '@/components/admin/article/ArticleWriteCommandBar.vue'
 import ArticleWriteEditor from '@/components/admin/article/ArticleWriteEditor.vue'
+import ArticleWriteInspectorShell from '@/components/admin/article/ArticleWriteInspectorShell.vue'
 import ArticleWriteSidebar from '@/components/admin/article/ArticleWriteSidebar.vue'
 import ArticleWriteTitleField from '@/components/admin/article/ArticleWriteTitleField.vue'
 import { focusFirstArticleValidationError } from '@/components/admin/article/articleEditorAccessibility'
 import FsusDialog from '@/components/ui/FsusDialog.vue'
 import ImageUploadOptionsPanel from '@/components/ui/ImageUploadOptionsPanel.vue'
 import { useAdminArticleWrite } from '@/composables/useAdminArticleWrite'
+import {
+  useArticleWriteInspector,
+  type ArticleWriteInspectorView
+} from '@/composables/useArticleWriteInspector'
 import { ArticlePublishStatus } from '@/api/article'
-import { ElCollapseTransition } from '@/fsusui/motion'
 import type { AssetLibraryItemResponse } from '@/api/authoring'
 import { showErrorToast } from '@/utils/errorPresentation'
 
@@ -773,14 +683,24 @@ const coverInputRef = ref<HTMLInputElement | null>(null)
 const articleEditorRef = ref<{ insertMarkdownAtCursor?: (markdown: string) => boolean } | null>(null)
 const submitConfirmDialog = ref(false)
 const leaveConfirmDialog = ref(false)
-const checkInspectorOpen = ref(false)
-const checkInspectorUserToggled = ref(false)
-const rightsInspectorOpen = ref(false)
-const previewInspectorOpen = ref(route.query.preview === 'private')
-const resourcesInspectorOpen = ref(false)
-const versionsInspectorOpen = ref(false)
-const assetLibraryLoaded = ref(false)
-const revisionsLoaded = ref(false)
+const {
+  activeInspector,
+  open: openInspector,
+  switchTo: switchInspector,
+  close: closeInspector,
+  registerTrigger: registerInspectorTrigger,
+  registerScrollContainer: registerInspectorScrollContainer,
+  updateScroll: updateInspectorScroll,
+  restoreFocus: restoreInspectorFocus
+} = useArticleWriteInspector({
+  initialInspector: route.query.preview === 'private' ? 'preview' : null,
+  loadView: {
+    resources: () => refreshAssetLibrary()
+      .catch((error: unknown) => showErrorToast(error, '资产库刷新失败')),
+    versions: () => refreshArticleRevisions()
+      .catch((error: unknown) => showErrorToast(error, '历史版本刷新失败'))
+  }
+})
 
 const triggerCoverInput = (): void => {
   coverInputRef.value?.click()
@@ -788,70 +708,6 @@ const triggerCoverInput = (): void => {
 
 const updateCopyrightYear = (value: number | undefined): void => {
   articleForm.rights.copyrightYear = typeof value === 'number' ? value : null
-}
-
-watch(
-  () => [seoIssues.value.length, Boolean(aiAssist.value)] as const,
-  ([issueCount, hasAssist]) => {
-    if (!checkInspectorUserToggled.value && (issueCount > 0 || hasAssist)) {
-      checkInspectorOpen.value = true
-    }
-  },
-  { immediate: true }
-)
-
-const checkInspectorVisible = computed(() => checkInspectorOpen.value)
-const editorLayoutMode = computed(() =>
-  rightsInspectorOpen.value ||
-  checkInspectorVisible.value ||
-  previewInspectorOpen.value ||
-  resourcesInspectorOpen.value ||
-  versionsInspectorOpen.value
-    ? 'with-inspector'
-    : 'wide'
-)
-
-const toggleCheckInspector = (): void => {
-  checkInspectorUserToggled.value = true
-  checkInspectorOpen.value = !checkInspectorVisible.value
-}
-
-const togglePreviewInspector = (): void => {
-  previewInspectorOpen.value = !previewInspectorOpen.value
-}
-
-const openResourcesInspector = (): void => {
-  resourcesInspectorOpen.value = true
-  if (!assetLibraryLoaded.value) {
-    assetLibraryLoaded.value = true
-    refreshAssetLibrary().catch((error: unknown) => showErrorToast(error, '资产库刷新失败'))
-  }
-}
-
-const toggleResourcesInspector = (): void => {
-  if (resourcesInspectorOpen.value) {
-    resourcesInspectorOpen.value = false
-    return
-  }
-
-  openResourcesInspector()
-}
-
-const openVersionsInspector = (): void => {
-  versionsInspectorOpen.value = true
-  if (!revisionsLoaded.value) {
-    revisionsLoaded.value = true
-    refreshArticleRevisions().catch((error: unknown) => showErrorToast(error, '历史版本刷新失败'))
-  }
-}
-
-const toggleVersionsInspector = (): void => {
-  if (versionsInspectorOpen.value) {
-    versionsInspectorOpen.value = false
-    return
-  }
-
-  openVersionsInspector()
 }
 
 const submitChecklist = computed<Array<{ label: string; state: SubmitChecklistState; detail?: string }>>(() => {
@@ -917,6 +773,30 @@ const editorSaveStatusTone = computed<'quiet' | 'danger'>(() =>
     ? 'danger'
     : 'quiet'
 )
+
+const criticalInspectorSummary = computed<{
+  text: string
+  target: ArticleWriteInspectorView
+} | null>(() => {
+  if (editorSaveStatusTone.value === 'danger') {
+    return {
+      text: editorSaveStatusText.value,
+      target: 'publish'
+    }
+  }
+
+  const blockingIssueCount = seoIssues.value
+    .filter((issue) => issue.severity.toLowerCase() === 'error')
+    .length
+  if (blockingIssueCount > 0) {
+    return {
+      text: `${blockingIssueCount} 项发布检查需处理`,
+      target: 'check'
+    }
+  }
+
+  return null
+})
 
 const requestSubmit = async (): Promise<void> => {
   const isValid = await validateBeforeSubmit()
@@ -994,6 +874,8 @@ const submitQuickCreateTag = async (): Promise<void> => {
 
 <style scoped>
 .write-workspace {
+  --fsusblog-article-document-inline-size: 70rem;
+
   display: flex;
   flex-direction: column;
 }
@@ -1066,14 +948,12 @@ const submitQuickCreateTag = async (): Promise<void> => {
 
 .write-grid {
   display: grid;
+  box-sizing: border-box;
+  width: min(100%, var(--fsusblog-article-document-inline-size));
   align-items: start;
-  grid-template-columns: minmax(0, 1fr) minmax(16rem, min(22rem, 38%));
-  gap: 2rem;
-  padding: 0 1rem;
-}
-
-.write-grid--wide {
   grid-template-columns: minmax(0, 1fr);
+  margin-inline: auto;
+  padding: 0 1rem;
 }
 
 .write-editor-panel {
@@ -1086,125 +966,17 @@ const submitQuickCreateTag = async (): Promise<void> => {
 }
 
 .write-title-panel {
+  box-sizing: border-box;
+  width: min(100%, var(--fsusblog-article-document-inline-size));
+  margin-inline: auto;
   margin-bottom: 1.5rem;
-}
-
-.write-side-panel {
-  position: sticky;
-  top: 6rem;
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-}
-
-.write-inspector {
-  display: grid;
-  border-top: 1px solid var(--fsusblog-panel-border);
-  background: var(--fsusblog-page-bg);
-}
-
-.write-inspector-section {
-  border-bottom: 1px solid var(--fsusblog-panel-border);
-}
-
-.write-inspector-summary {
-  display: flex;
-  cursor: pointer;
-  width: 100%;
-  border: 0;
-  list-style: none;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  min-height: 3.75rem;
-  padding: 0.75rem 1rem;
-  background: transparent;
-  color: var(--fsusblog-text-primary);
-  font-size: 14px;
-  font-weight: 700;
-  text-align: left;
-  transition:
-    background-color var(--blog-motion-fast) var(--blog-motion-ease),
-    color var(--blog-motion-fast) var(--blog-motion-ease);
-}
-
-.write-inspector-summary:hover {
-  background: color-mix(in srgb, var(--fsusblog-text-primary) 4%, transparent);
-}
-
-.write-inspector-summary:focus-visible {
-  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
-  outline: none;
-}
-
-.write-inspector-summary::-webkit-details-marker {
-  display: none;
-}
-
-.write-inspector-summary__copy {
-  display: grid;
-  min-width: 0;
-  gap: 0.18rem;
-}
-
-.write-inspector-summary__copy > span + span {
-  color: var(--fsusblog-text-tertiary);
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.write-inspector-summary__action {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 0.45rem;
-  border: 1px solid var(--fsusblog-panel-border);
-  padding: 0.28rem 0.48rem;
-  color: var(--fsusblog-text-secondary);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.write-inspector-summary__state--open {
-  display: none;
-}
-
-.write-inspector-section.is-open > .write-inspector-summary .write-inspector-summary__state--closed {
-  display: none;
-}
-
-.write-inspector-section.is-open > .write-inspector-summary .write-inspector-summary__state--open {
-  display: inline;
-}
-
-.write-inspector-summary__chevron {
-  width: 0.42rem;
-  height: 0.42rem;
-  border-right: 2px solid currentColor;
-  border-bottom: 2px solid currentColor;
-  transform: translateY(-0.1rem) rotate(45deg);
-  transition: transform var(--blog-motion-fast) var(--blog-motion-ease);
-}
-
-.write-inspector-section.is-open > .write-inspector-summary .write-inspector-summary__chevron {
-  transform: translateY(0.08rem) rotate(225deg);
-}
-
-.write-inspector-section__body {
-  min-height: 0;
-  overflow: hidden;
 }
 
 .write-disclosure-summary::-webkit-details-marker {
   display: none;
 }
 
-@media (max-width: 1024px) {
-  .write-grid,
-  .write-side-panel {
-    position: static;
-  }
-
+@media (max-width: 1023px) {
   .write-draft-banner {
     align-items: flex-start;
     flex-direction: column;
@@ -1220,14 +992,5 @@ const submitQuickCreateTag = async (): Promise<void> => {
     justify-content: flex-start;
   }
 
-  .write-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .write-inspector-summary__chevron {
-    transition: none;
-  }
 }
 </style>

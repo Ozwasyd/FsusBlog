@@ -21,7 +21,18 @@
     </template>
     <template #actions>
       <div class="article-write-command-bar__actions">
+        <el-button
+          v-if="criticalStatusText && criticalStatusTarget"
+          :id="statusId"
+          class="article-write-command-bar__critical-status"
+          text
+          :disabled="submitting"
+          @click="openCriticalInspector"
+        >
+          {{ criticalStatusText }}
+        </el-button>
         <span
+          v-else
           :id="statusId"
           class="article-write-command-bar__save-status"
           :class="{ 'article-write-command-bar__save-status--danger': statusTone === 'danger' }"
@@ -56,8 +67,9 @@
 
 <script setup lang="ts">
 import { FsusUiTaskPageHeader } from '@/fsusui'
+import type { ArticleWriteInspectorView } from '@/composables/useArticleWriteInspector'
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   titleId?: string
   statusId?: string
   pageTitle: string
@@ -67,19 +79,30 @@ withDefaults(defineProps<{
   primaryActionText: string
   showSaveDraft?: boolean
   submitting?: boolean
+  criticalStatusText?: string
+  criticalStatusTarget?: ArticleWriteInspectorView | null
 }>(), {
   titleId: 'article-write-title',
   statusId: 'article-editor-status',
   statusTone: 'quiet',
   showSaveDraft: true,
-  submitting: false
+  submitting: false,
+  criticalStatusText: '',
+  criticalStatusTarget: null
 })
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'back'): void
   (e: 'saveDraft'): void
   (e: 'submit'): void
+  (e: 'openInspector', view: ArticleWriteInspectorView, trigger: HTMLElement): void
 }>()
+
+const openCriticalInspector = (event: MouseEvent): void => {
+  if (props.criticalStatusTarget) {
+    emit('openInspector', props.criticalStatusTarget, event.currentTarget as HTMLElement)
+  }
+}
 </script>
 
 <style scoped>
@@ -146,6 +169,18 @@ defineEmits<{
   white-space: nowrap;
 }
 
+.article-write-command-bar__critical-status {
+  width: 12rem;
+  min-height: 2.75rem;
+  overflow: hidden;
+  justify-content: flex-end;
+  color: var(--fsusblog-color-danger);
+  font-size: 14px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .article-write-command-bar__save-status--danger {
   color: var(--fsusblog-color-danger);
 }
@@ -205,6 +240,13 @@ defineEmits<{
     text-align: left;
   }
 
+  .article-write-command-bar__critical-status {
+    width: auto;
+    min-width: 0;
+    flex: 1 1 auto;
+    justify-content: flex-start;
+  }
+
   .article-write-command-bar__save-draft,
   .article-write-command-bar__primary {
     min-width: 0;
@@ -220,6 +262,10 @@ defineEmits<{
 
   .article-write-command-bar__save-status {
     max-width: 5.5rem;
+  }
+
+  .article-write-command-bar__critical-status {
+    max-width: 7rem;
   }
 }
 </style>

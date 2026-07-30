@@ -11,6 +11,18 @@ const read = (file) => fs.readFileSync(file, 'utf8')
 
 const writePath = path.join(repoRoot, 'src/frontend/src/views/admin/article/Write.vue')
 const sidebarPath = path.join(repoRoot, 'src/frontend/src/components/admin/article/ArticleWriteSidebar.vue')
+const inspectorShellPath = path.join(
+  repoRoot,
+  'src/frontend/src/components/admin/article/ArticleWriteInspectorShell.vue'
+)
+const inspectorRailPath = path.join(
+  repoRoot,
+  'src/frontend/src/components/admin/article/ArticleWriteInspectorRail.vue'
+)
+const inspectorStatePath = path.join(
+  repoRoot,
+  'src/frontend/src/composables/useArticleWriteInspector.ts'
+)
 const seoPath = path.join(repoRoot, 'src/frontend/src/components/admin/article/ArticleSeoPreviewPanel.vue')
 const titleFieldPath = path.join(repoRoot, 'src/frontend/src/components/admin/article/ArticleWriteTitleField.vue')
 const commandBarPath = path.join(repoRoot, 'src/frontend/src/components/admin/article/ArticleWriteCommandBar.vue')
@@ -35,6 +47,9 @@ function lineOf(source, token) {
 
 const write = read(writePath)
 const sidebar = read(sidebarPath)
+const inspectorShell = read(inspectorShellPath)
+const inspectorRail = read(inspectorRailPath)
+const inspectorState = read(inspectorStatePath)
 const seo = read(seoPath)
 const titleField = read(titleFieldPath)
 const commandBar = read(commandBarPath)
@@ -60,6 +75,14 @@ for (const [file, source, tokens] of [
     'editorLayoutModeLabel',
     '视图：{{ editorLayoutModeLabel }}',
     'write-layout-control',
+    'rightsPanelOpen',
+    'checkPanelOpen',
+    'previewPanelOpen',
+    'versionsPanelOpen',
+    'resourcesPanelOpen',
+    'editorLayoutMode',
+    'ElCollapseTransition',
+    'write-inspector',
     '生成摘要草稿',
     '检查草稿',
     '使用这版摘要',
@@ -91,10 +114,19 @@ const requiredWriteTokens = [
   '<ArticleWriteCommandBar',
   '@save-draft="saveDraftNow"',
   'focusFirstArticleValidationError()',
-  'class="write-inspector"',
-  'class="write-inspector-section"',
-  'openResourcesInspector',
-  'openVersionsInspector',
+  '<ArticleWriteInspectorShell',
+  ':active-inspector="activeInspector"',
+  '@switch="switchInspector"',
+  '@open-inspector="openInspector"',
+  'data-editor-document-column="stable"',
+  '<template #publish>',
+  '<template #rights>',
+  '<template #check>',
+  '<template #preview>',
+  '<template #versions>',
+  '<template #resources>',
+  'useArticleWriteInspector({',
+  'criticalInspectorSummary',
   '内容检查',
   '生成摘要建议',
   '检查内容',
@@ -109,6 +141,77 @@ const requiredWriteTokens = [
 for (const token of requiredWriteTokens) {
   if (!write.includes(token)) {
     fail(writePath, 1, `Article editor workspace contract is missing ${token}`)
+  }
+}
+
+for (const token of [
+  'articleWriteInspectorRegistry',
+  "useMediaQuery('(max-width: 1023px)', false)",
+  "resolveComponent('ElDrawer')",
+  "isCompact.value ? publicDrawer : 'aside'",
+  'v-if="!isCompact"',
+  'v-if="isCompact"',
+  'v-show="activeInspector === null"',
+  'aria-label="打开文章检查器"',
+  '<ArticleWriteInspectorRail',
+  "role: 'complementary'",
+  "size: '100%'",
+  'modal: true',
+  'lockScroll: true',
+  'closeOnClickModal: true',
+  'destroyOnClose: false',
+  ':inert="activeInspector !== view.id"',
+  'position: fixed;',
+  "event.key === 'Escape'"
+]) {
+  if (!inspectorShell.includes(token)) {
+    fail(inspectorShellPath, 1, `Article inspector shell contract is missing ${token}`)
+  }
+}
+for (const forbidden of [
+  /aria-modal/iu,
+  /:deep\(/u,
+  /::v-deep/u,
+  /\.el-[\w-]+/u,
+  /transition\s*:[^;]*(?:width|inline-size)/iu,
+  /backdrop-filter/iu,
+  /linear-gradient/iu
+]) {
+  if (forbidden.test(`${inspectorShell}\n${inspectorRail}`)) {
+    fail(inspectorShellPath, 1, `Article inspector shell crosses its public boundary: ${forbidden}`)
+  }
+}
+if ((inspectorShell.match(/\bElDrawer\b/gu) ?? []).length > 1) {
+  fail(inspectorShellPath, 1, 'Article inspector shell must use one responsive public Drawer host')
+}
+for (const token of [
+  'articleWriteInspectorRegistry',
+  "placement: 'desktop' | 'drawer'",
+  'article-write-inspector-rail--desktop',
+  'article-write-inspector-rail--drawer',
+  'var(--fsus-control-height-spacious)',
+  'registerTriggerElement'
+]) {
+  if (!inspectorRail.includes(token)) {
+    fail(inspectorRailPath, 1, `Article inspector rail contract is missing ${token}`)
+  }
+}
+if ((inspectorRail.match(/<nav\b/gu) ?? []).length !== 1) {
+  fail(inspectorRailPath, 1, 'Article inspector must define exactly one responsive rail navigation')
+}
+
+for (const token of [
+  'export const articleWriteInspectorRegistry',
+  "const activeInspector = ref<ArticleWriteInspectorView | null>",
+  'const requestedViews = shallowReactive(new Set<ArticleWriteInspectorView>())',
+  'const scrollPositions = shallowReactive(new Map<ArticleWriteInspectorView, number>())',
+  'const pendingLoads = new Map<ArticleWriteInspectorView, Promise<void>>()',
+  'const switchTo = (view: ArticleWriteInspectorView): Promise<void> => {',
+  'requestedViews.add(view)',
+  'target?.focus({ preventScroll: true })'
+]) {
+  if (!inspectorState.includes(token)) {
+    fail(inspectorStatePath, 1, `Article inspector state contract is missing ${token}`)
   }
 }
 
@@ -192,6 +295,40 @@ for (const token of ['ArticleWriteTitleField', 'articleEditorFixtureReady']) {
   }
 }
 for (const token of [
+  'ArticleWriteInspectorShell',
+  'ArticleWriteSidebar',
+  'EditorIdentitySentinel',
+  '__articleEditorFixtureLoadCounts',
+  'data-document-wrap-signature',
+  'rightsParagraphs',
+  'revisionItems',
+  'assetItems',
+  'issueItems'
+]) {
+  if (!productionFixture.includes(token)) {
+    fail(productionFixturePath, 1, `Article editor inspector fixture is missing ${token}`)
+  }
+}
+for (const [field, value] of [
+  ['rightsParagraphs', 24],
+  ['revisions', 100],
+  ['assets', 1000],
+  ['issues', 120]
+]) {
+  if (productionFixtureContract.largeContent?.[field] !== value) {
+    fail(
+      productionFixtureContractPath,
+      1,
+      `Article editor inspector fixture must cover ${value} ${field}`
+    )
+  }
+}
+for (const state of ['empty', 'loading', 'error', 'success', 'partial']) {
+  if (!productionFixtureContract.states?.includes(state)) {
+    fail(productionFixtureContractPath, 1, `Article editor inspector fixture must cover ${state}`)
+  }
+}
+for (const token of [
   'fontSize).toBeLessThanOrEqual(40)',
   '150% zoom',
   'height).toBeGreaterThanOrEqual(360)',
@@ -199,7 +336,16 @@ for (const token of [
   'new Set([40])',
   'actionBox!.height).toBe(64)',
   'toBeGreaterThanOrEqual(80)',
-  'toBeFocused()'
+  'toBeFocused()',
+  'maximumDocumentWidthDelta',
+  'data-document-wrap-signature',
+  '__articleEditorFixtureEditorNode',
+  '__articleEditorFixtureLoadCounts',
+  '[data-inspector-view][aria-hidden="false"]',
+  "'打开文章检查器'",
+  "getByRole('button', { name: /关闭|close/i })",
+  '/@vite/client',
+  "emulateMedia({ reducedMotion: 'reduce' })"
 ]) {
   if (!productionFixtureSpec.includes(token)) {
     fail(productionFixtureSpecPath, 1, `Article editor production fixture acceptance is missing ${token}`)
@@ -208,7 +354,9 @@ for (const token of [
 
 const requiredSidebarTokens = [
   'article-sidebar-section',
-  'article-sidebar-summary',
+  'article-sidebar-publish-title',
+  'article-sidebar-info-title',
+  'article-sidebar-cover-title',
   '<span>状态</span>',
   '<span>分类</span>',
   '<span>标签</span>',
@@ -223,6 +371,12 @@ const requiredSidebarTokens = [
 for (const token of requiredSidebarTokens) {
   if (!sidebar.includes(token)) {
     fail(sidebarPath, 1, `Article editor sidebar contract is missing ${token}`)
+  }
+}
+
+for (const token of ['ElCollapseTransition', 'article-sidebar-summary', 'aria-expanded=']) {
+  if (sidebar.includes(token)) {
+    fail(sidebarPath, lineOf(sidebar, token), `Article editor sidebar must be flat and omit ${token}`)
   }
 }
 

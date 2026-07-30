@@ -232,6 +232,41 @@ export function findTaskSurfaceGeometryViolations({ root = defaultRepoRoot } = {
     }
   }
 
+  const articleWrite = readFileSync(resolve(sourceRoot, 'views/admin/article/Write.vue'), 'utf8')
+  const articleInspector = readFileSync(
+    resolve(sourceRoot, 'components/admin/article/ArticleWriteInspectorShell.vue'),
+    'utf8'
+  )
+  for (const token of [
+    'data-editor-document-column="stable"',
+    'width: min(100%, var(--fsusblog-article-document-inline-size));',
+    'margin-inline: auto;',
+    'grid-template-columns: minmax(0, 1fr);'
+  ]) {
+    if (!articleWrite.includes(token)) {
+      errors.push(`views/admin/article/Write.vue: missing stable article document geometry ${token}`)
+    }
+  }
+  for (const token of [
+    'position: fixed;',
+    'width: min(32rem, 42vw);',
+    "role: 'complementary'",
+    "isCompact.value ? publicDrawer : 'aside'"
+  ]) {
+    if (!articleInspector.includes(token)) {
+      errors.push(`components/admin/article/ArticleWriteInspectorShell.vue: missing non-reflow inspector geometry ${token}`)
+    }
+  }
+  for (const forbidden of [
+    /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+(?:16|18|20|22)rem/u,
+    /transition\s*:[^;]*(?:width|inline-size)/u,
+    /aria-modal/u
+  ]) {
+    if (forbidden.test(`${articleWrite}\n${articleInspector}`)) {
+      errors.push(`article write geometry must not reintroduce split-width or modal desktop residue ${forbidden}`)
+    }
+  }
+
   for (const [file, needle] of [
     ['views/admin/Category.vue', 'dialogWidth: fsusDialogWidths.extraCompact'],
     ['views/admin/Tag.vue', 'dialogWidth: fsusDialogWidths.extraCompact'],

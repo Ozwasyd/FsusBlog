@@ -9,9 +9,22 @@
   "viewports": [
     { "id": "mobile", "width": 375, "height": 812 },
     { "id": "tablet", "width": 768, "height": 1024 },
+    { "id": "wide-tablet", "width": 1024, "height": 768 },
     { "id": "laptop", "width": 1366, "height": 768 },
     { "id": "desktop", "width": 1440, "height": 900 }
   ],
   "themes": ["light", "dark"],
-  "zoom": [1, 1.5]
+  "zoom": [1, 1.5, 2],
+  "inspectorViews": ["publish", "rights", "check", "preview", "versions", "resources"],
+  "states": ["empty", "loading", "error", "success", "partial"],
+  "inputModalities": ["keyboard", "touch"],
+  "largeContent": {
+    "rightsParagraphs": 24,
+    "revisions": 100,
+    "assets": 1000,
+    "issues": 120
+  },
+  "geometry": {
+    "maximumDocumentWidthDelta": 8
+  }
 }

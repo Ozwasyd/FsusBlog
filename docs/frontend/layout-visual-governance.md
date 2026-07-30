@@ -48,3 +48,30 @@ Public/design documentation follows the single-concern ownership map in
 separate design documents. A current document must not cite an issue/handoff file
 as its contract, and deleted migration sources are represented only by lifecycle
 `pathMigrations`, not by replacement aliases or copied session notes.
+
+## Manage write task and inspector evidence
+
+`ManageWriteArticle` composes a `task` surface around a stable, centered reading
+column and a route-owned `overlay` inspector. The editor and its form stay
+outside the inspector host and retain one component identity. Opening, closing,
+or switching among publish, rights, check, preview, versions, and resources
+must change the document content-box width by no more than 8px at 1366px and
+1440px, and the representative mixed-language paragraph must keep the same
+wrap signature.
+
+`ArticleWriteInspectorShell` is the only inspector host and consumes one active
+view registry. Desktop uses a fixed, nonmodal complementary pane with a compact
+icon rail; it does not reserve document-grid width, expose modal semantics, trap
+focus, or intercept pointer input outside the pane and rail. Viewports below
+1024px keep one Drawer-external launcher while closed, then use the public
+FsusUI Drawer and its single internal icon rail for modal focus, view switching,
+safe-area, and visual viewport behavior. The responsive host switch never mounts
+two copies of the panel content or creates a second state or data-loading owner.
+
+Inactive views remain hidden and inert while preserving their local scroll
+position, and each view starts its data loader only on first entry. Closing
+through the close control, Escape, or Drawer overlay returns focus to the exact
+external opener rather than the last internal rail control. A save conflict,
+publish blocker, or high-severity check remains discoverable as one low-noise action in the
+existing command/status surface and opens its owning view; the rail and command
+surface do not expose a persistent per-view count wall.
