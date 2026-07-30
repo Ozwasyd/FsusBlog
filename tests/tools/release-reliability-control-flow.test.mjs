@@ -193,6 +193,52 @@ test('passed diagnostic result files cannot substitute for a qualified receipt',
     }
 });
 
+test('runtime-admission receipts are ignored by the locator and rejected by the qualified verifier', (context) =>
+{
+    const repositoryRoot = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'fsusblog-runtime-admission-control-flow-')
+    );
+    context.after(() => fs.rmSync(repositoryRoot, { recursive: true, force: true }));
+    const invocationId = 'runtime-admission-only';
+    const relative =
+        `.tmp/release-reliability/${invocationId}/runtime-admission-receipt.json`;
+    const receiptFile = path.join(repositoryRoot, relative);
+    fs.mkdirSync(path.dirname(receiptFile), { recursive: true });
+    fs.writeFileSync(receiptFile, `${JSON.stringify({
+        schema: 'fsusblog.release-reliability.runtime-admission.v1',
+        artifactKind: 'receipt',
+        status: 'passed',
+        qualificationEligible: false,
+        invocationId
+    })}\n`);
+
+    let verifierCalls = 0;
+    assert.throws(
+        () => locateReleaseReliabilityQualifiedReceipt({
+            repositoryRoot,
+            verifyQualifiedReceipt()
+            {
+                verifierCalls += 1;
+            }
+        }),
+        /qualified receipt is missing.*release-reliability-fresh/su
+    );
+    assert.equal(verifierCalls, 0);
+
+    const result = spawnSync(process.execPath, [
+        verifier,
+        '--root',
+        repositoryRoot,
+        '--receipt',
+        relative
+    ], {
+        cwd: root,
+        encoding: 'utf8'
+    });
+    assert.notEqual(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stderr, /qualified receipt fields are not exact/u);
+});
+
 test('matrix governance rejects release correctness classification for --scenario commands', async (context) =>
 {
     const cases = [

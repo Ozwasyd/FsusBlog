@@ -993,6 +993,25 @@ tools/operations/check-release-evidence-manifest.mjs --require-ok
   不能作为
   `release-final` 输入或在事后合成 receipt。matrix validator 会拒绝把任何含
   `--scenario` 的入口重新标成 correctness 或 `requiredFor=release-final`。
+- 只需要验证 final image 的本地 runtime admission、而不运行 exact-seven 时，
+  使用同一 wrapper 的显式
+  `tools/test/run-release-reliability-qualified-local.sh --runtime-admission-only`。
+  该模式仍执行 fresh production build、immutable final image、qualified
+  PostgreSQL/Redis/backend bridge topology、transaction fixture producer，以及固定
+  60 秒窗口内由 `runtime-load-soak` 拥有的六条 canonical binary route smoke；
+  每条证据记录 method/path/status/content type、`X-Fsus-*`、body bytes 和完整
+  AEDS v2 header/payload/CRC 结论。它在 scenario runner 前退出，只生成
+  `.tmp/release-reliability/<invocation>/runtime-admission-candidate.json` 与
+  `runtime-admission-receipt.json`，schema 固定为
+  `fsusblog.release-reliability.runtime-admission.v1` 且
+  `qualificationEligible=false`；不会生成或聚合 exact-seven candidate。wrapper
+  必须先移除 EXIT trap、调用既有 `CleanupQualifiedRuntimeResources 0`，再由
+  admission owner 证明记录的 container/network/process/file identity 全部消失，
+  才能 finalize pass receipt。wrapper 的 process ownership 只复核 task-owned
+  PID/identity 文件和 `/proc/<pid>/stat` 的 start-time、PGID、session，不读取
+  process args 或 environment。cleanup 失败或仍有资源时没有 pass receipt；该
+  receipt 也不会被 qualified locator 发现，且不能交给 release-final verifier
+  充当 qualification。
 - Reliability final binding：finalizer 只在 canonical
   `.tmp/release-reliability/*/qualified-receipt.json` 查找权威回执，零份报告
   `./tools/test.sh ci-tier release-reliability-fresh`，多份按排序后的全部路径报告

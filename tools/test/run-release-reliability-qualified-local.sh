@@ -17,6 +17,7 @@ host_backend_pid=""
 debug_frontend_pid=""
 release_preview_pid=""
 test_resource=""
+runtime_admission_only=0
 declare -a qualified_bootstrap_fixture_environment=()
 ValidateUserSystemdCarrier() {
     local runtimeDirectory="${1:-}"
@@ -49,25 +50,24 @@ const fs = require('node:fs');
 const [pidFile, identityFile, pidText, runId, namespace, role] = process.argv.slice(2);
 const pid = Number(pidText);
 try {
+    const pidFileStat = fs.lstatSync(pidFile);
+    const identityFileStat = fs.lstatSync(identityFile);
     const identity = JSON.parse(fs.readFileSync(identityFile, 'utf8'));
     const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8');
-    const tail = stat.slice(stat.lastIndexOf(')') + 2).trim().split(/\s+/u);
-    const environment = Object.fromEntries(fs.readFileSync(`/proc/${pid}/environ`, 'utf8')
-        .split('\0')
-        .filter(Boolean)
-        .map((entry) => {
-            const separator = entry.indexOf('=');
-            return separator < 1 ? [entry, ''] : [entry.slice(0, separator), entry.slice(separator + 1)];
-        }));
-    if (fs.readFileSync(pidFile, 'utf8').trim() !== pidText
+    const close = stat.lastIndexOf(')');
+    const tail = close < 0 ? [] : stat.slice(close + 2).trim().split(/\s+/u);
+    if (!Number.isInteger(pid) || pid < 2
+      || !pidFileStat.isFile() || pidFileStat.isSymbolicLink()
+      || !identityFileStat.isFile() || identityFileStat.isSymbolicLink()
+      || pidFileStat.uid !== process.getuid() || identityFileStat.uid !== process.getuid()
+      || fs.readFileSync(pidFile, 'utf8').trim() !== pidText
       || identity.schema !== 'fsusblog.local-runtime-process-identity.v1'
       || identity.pid !== pid || identity.processGroupId !== pid
+      || !/^\d+$/u.test(String(identity.startTimeTicks ?? ''))
       || identity.startTimeTicks !== tail[19]
       || identity.runId !== runId || identity.namespace !== namespace || identity.role !== role
-      || Number(tail[2]) !== pid || Number(tail[3]) !== pid
-      || environment.FSUSBLOG_TEST_RUN_ID !== runId
-      || environment.FSUSBLOG_TEST_NAMESPACE !== namespace
-      || environment.FSUSBLOG_RUNTIME_ROLE !== role) {
+      || Number(tail[2]) !== identity.processGroupId
+      || Number(tail[3]) !== identity.processGroupId) {
         process.exitCode = 1;
     }
 } catch {
@@ -338,6 +338,30 @@ if [[ "${1:-}" == "--test-user-systemd-carrier" ]]; then
         "XDG_RUNTIME_DIR=$test_runtime_directory" "$test_producer"
     exit
 fi
+if [[ "${1:-}" == "--test-managed-runtime-owned" ]]; then
+    [[ "$#" -eq 6 ]] \
+        || { printf '%s\n' '--test-managed-runtime-owned requires PID file, PID, run ID, namespace, and role' >&2; exit 2; }
+    test_pid_file="$(realpath "$2")"
+    test_pid="$3"
+    run_id="$4"
+    namespace="$5"
+    test_runtime_role="$6"
+    [[ "$test_pid_file" == /tmp/* && "$test_pid" =~ ^[1-9][0-9]*$ \
+        && "$run_id" =~ ^[a-z0-9][a-z0-9_.-]*$ \
+        && "$namespace" =~ ^[a-z0-9][a-z0-9_.-]*$ \
+        && "$test_runtime_role" =~ ^[a-z][a-z0-9-]*$ ]] \
+        || { printf '%s\n' '--test-managed-runtime-owned accepts only isolated canonical test identity' >&2; exit 2; }
+    ManagedRuntimeOwned "$test_pid_file" "$test_pid" "$test_runtime_role"
+    exit
+fi
+if [[ "${1:-}" == "--runtime-admission-only" ]]; then
+    [[ "$#" -eq 1 ]] \
+        || { printf '%s\n' '--runtime-admission-only does not accept additional arguments' >&2; exit 2; }
+    runtime_admission_only=1
+elif [[ "$#" -ne 0 ]]; then
+    printf 'unknown qualified local reliability argument: %s\n' "$1" >&2
+    exit 2
+fi
 run_id="${FSUSBLOG_RELEASE_RUN_ID:?FSUSBLOG_RELEASE_RUN_ID is required}"
 namespace="${FSUSBLOG_TEST_NAMESPACE:-release-reliability-${run_id}}"
 image="${FSUSBLOG_RELEASE_RUNTIME_IMAGE:?FSUSBLOG_RELEASE_RUNTIME_IMAGE is required}"
@@ -348,6 +372,11 @@ source_commit="$(git -C "$root" rev-parse HEAD)"
 source_fingerprint="$(node --input-type=module -e 'import { snapshotGitWorktree } from "./tools/test-matrix/scheduler.mjs"; const root = process.argv[1]; process.stdout.write((await snapshotGitWorktree(root)).fingerprint)' "$root")"
 export FSUSBLOG_TEST_RUN_ID="$run_id" FSUSBLOG_TEST_NAMESPACE="$namespace"
 export FSUSBLOG_TEST_SOURCE_COMMIT="$source_commit" FSUSBLOG_TEST_SOURCE_FINGERPRINT="$source_fingerprint"
+invocation_id=""
+if ((runtime_admission_only == 1)); then
+    invocation_id="$(node -e 'process.stdout.write(require("node:crypto").randomUUID())')"
+    export FSUSBLOG_RELEASE_INVOCATION_ID="$invocation_id"
+fi
 export FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT=".tmp/ci-production-build/$run_id"
 export FSUSBLOG_CI_PRODUCTION_PRODUCER_WORKFLOW="Local production"
 export FSUSBLOG_CI_PRODUCTION_PRODUCER_RUN_ID="$run_id"
@@ -481,7 +510,15 @@ backend_container_id="$(docker run -d --name "$backend_container" --network "$ba
 runtime_health_deadline=$((SECONDS + 180))
 runtime_smoke_deadline=""
 runtime_smoke_observation=""
+runtime_smoke_attempt_count=0
+runtime_smoke_started_seconds=""
+runtime_smoke_observation_file=""
 runtime_smoke_probe="${root}/tools/test/probe-release-reliability-runtime-smoke.mjs"
+runtime_smoke_probe_arguments=(--base-url "$runtime_base_url" --timeout-ms 1000)
+if ((runtime_admission_only == 1)); then
+    runtime_smoke_observation_file=".tmp/release-reliability/${invocation_id}/runtime-smoke-observation.json"
+    runtime_smoke_probe_arguments+=(--out "$runtime_smoke_observation_file")
+fi
 while true; do
     if ! runtime_health_observation="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}|{{.State.Running}}|{{.State.ExitCode}}' "$backend_container_id" 2>/dev/null)"; then
         printf '%s\n' 'runtime image backend inspection failed during health admission' >&2
@@ -496,8 +533,11 @@ while true; do
         healthy)
             if [[ -z "$runtime_smoke_deadline" ]]; then
                 runtime_smoke_deadline=$((SECONDS + 60))
+                runtime_smoke_started_seconds="$SECONDS"
             fi
-            if runtime_smoke_observation=$(node "$runtime_smoke_probe" --base-url "$runtime_base_url" --timeout-ms 1000 2>&1); then
+            runtime_smoke_attempt_count=$((runtime_smoke_attempt_count + 1))
+            if runtime_smoke_observation=$(node "$runtime_smoke_probe" \
+                "${runtime_smoke_probe_arguments[@]}" 2>&1); then
                 break
             fi
             if ((SECONDS >= runtime_smoke_deadline)); then
@@ -523,6 +563,7 @@ while true; do
     esac
     sleep 0.25
 done
+runtime_smoke_elapsed_seconds=$((SECONDS - runtime_smoke_started_seconds))
 fixture_authority=".tmp/release-reliability/${run_id}/fixture-authority.json"
 audit_retention_policy="src/backend/Infrastructure/Audit/AuditRetentionCatalog.cs"
 node "$root/tools/test/collect-release-reliability-fixture.mjs" --root "$root" --run-id "$run_id" --namespace "$namespace" --fixture-root ".tmp/fixtures/${namespace}" --config "$fixture_config" --schema "src/backend/Infrastructure/SchemaMigration/SchemaModelInspector.cs" --seed "tools/data-scale/seed.sh" --audit-retention-policy "$audit_retention_policy" --postgres "$postgres_container" --redis "$redis_container" --backend-container "$backend_container_id" --network "$backend_network" --source-commit "$source_commit" --source-fingerprint "$source_fingerprint" --runtime-image "$image" --image-digest "$image_id" --out "$fixture_authority"
@@ -530,10 +571,44 @@ export FSUSBLOG_RELEASE_FIXTURE_AUTHORITY="$fixture_authority"
 export FSUSBLOG_TEST_FIXTURE_ROOT=".tmp/fixtures/${namespace}" FSUSBLOG_TEST_FIXTURE_CONFIG="$fixture_config"
 export FSUSBLOG_TEST_FIXTURE_SCHEMA="src/backend/Infrastructure/SchemaMigration/SchemaModelInspector.cs" FSUSBLOG_TEST_FIXTURE_SEED="tools/data-scale/seed.sh"
 export FSUSBLOG_TEST_FIXTURE_AUDIT_RETENTION_POLICY="$audit_retention_policy"
-invocation_id="$(node -e 'process.stdout.write(require("node:crypto").randomUUID())')"
-export FSUSBLOG_RELEASE_INVOCATION_ID="$invocation_id"
+if [[ -z "$invocation_id" ]]; then
+    invocation_id="$(node -e 'process.stdout.write(require("node:crypto").randomUUID())')"
+    export FSUSBLOG_RELEASE_INVOCATION_ID="$invocation_id"
+fi
 current_uid="$(id -u)"
 ValidateUserSystemdCarrier "${XDG_RUNTIME_DIR:-}" "$current_uid"
+if ((runtime_admission_only == 1)); then
+    runtime_admission_candidate=".tmp/release-reliability/${invocation_id}/runtime-admission-candidate.json"
+    runtime_admission_receipt=".tmp/release-reliability/${invocation_id}/runtime-admission-receipt.json"
+    runtime_admission_tool="$root/tools/test/release-reliability-runtime-admission.mjs"
+    node "$runtime_admission_tool" create --root "$root" \
+        --candidate "$runtime_admission_candidate" \
+        --source-commit "$source_commit" \
+        --source-fingerprint "$source_fingerprint" \
+        --build-receipt "$FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT/receipt.json" \
+        --build-receipt-digest "$build_receipt_digest" \
+        --image-reference "$image" \
+        --image-digest "$image_id" \
+        --run-id "$run_id" \
+        --namespace "$namespace" \
+        --invocation-id "$invocation_id" \
+        --fixture-authority "$fixture_authority" \
+        --smoke-observation "$runtime_smoke_observation_file" \
+        --deadline-seconds 60 \
+        --attempt-count "$runtime_smoke_attempt_count" \
+        --elapsed-seconds "$runtime_smoke_elapsed_seconds"
+    trap - EXIT
+    if ! CleanupQualifiedRuntimeResources 0; then
+        printf '%s\n' 'runtime admission cleanup failed; pass receipt was not created' >&2
+        exit 1
+    fi
+    node "$runtime_admission_tool" finalize --root "$root" \
+        --candidate "$runtime_admission_candidate" \
+        --receipt "$runtime_admission_receipt"
+    node "$runtime_admission_tool" verify --root "$root" \
+        --receipt "$runtime_admission_receipt"
+    exit 0
+fi
 qualified_executor_environment=(
     "HOME=$HOME"
     "PATH=$PATH"

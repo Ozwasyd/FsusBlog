@@ -45,18 +45,50 @@ if [[ -x "${CMAKE_BIN}" ]]; then
 fi
 
 ARCHIVE_NAME="cmake-${CMAKE_VERSION}-linux-${ARCHIVE_ARCH}.tar.gz"
-ARCHIVE_URL="https://cmake.org/files/v4.3/${ARCHIVE_NAME}"
+PRIMARY_ARCHIVE_URL="https://cmake.org/files/v4.3/${ARCHIVE_NAME}"
+FALLBACK_ARCHIVE_URL="https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/${ARCHIVE_NAME}"
+CURL_CONNECT_TIMEOUT_SECONDS="5"
+CURL_MAX_TIME_SECONDS="120"
 WORK_DIR="$(mktemp -d "${CACHE_ROOT}/cmake/.${CMAKE_VERSION}.install.XXXXXX")"
+ARCHIVE_PATH="${WORK_DIR}/${ARCHIVE_NAME}"
 Cleanup() {
     rm -rf "${WORK_DIR}"
 }
 trap Cleanup EXIT
 
+FetchArchive() {
+    local archiveUrl="$1"
+
+    rm -f "${ARCHIVE_PATH}"
+    if ! curl -fsSL \
+        --connect-timeout "${CURL_CONNECT_TIMEOUT_SECONDS}" \
+        --max-time "${CURL_MAX_TIME_SECONDS}" \
+        --retry 3 \
+        --retry-delay 1 \
+        --retry-max-time "${CURL_MAX_TIME_SECONDS}" \
+        "${archiveUrl}" \
+        -o "${ARCHIVE_PATH}"; then
+        rm -f "${ARCHIVE_PATH}"
+        return 1
+    fi
+}
+
 echo "[ensure-cmake] installing pinned CMake ${CMAKE_VERSION} into dependency cache" >&2
-curl -fsSL --retry 3 --retry-delay 1 "${ARCHIVE_URL}" -o "${WORK_DIR}/${ARCHIVE_NAME}"
-printf '%s  %s\n' "${ARCHIVE_SHA256}" "${WORK_DIR}/${ARCHIVE_NAME}" | sha256sum -c - >/dev/null
+if ! FetchArchive "${PRIMARY_ARCHIVE_URL}"; then
+    echo "[ensure-cmake] primary CMake archive unavailable; trying official fallback" >&2
+    if ! FetchArchive "${FALLBACK_ARCHIVE_URL}"; then
+        echo "[ensure-cmake] no CMake archive source is available" >&2
+        exit 1
+    fi
+fi
+
+if ! printf '%s  %s\n' "${ARCHIVE_SHA256}" "${ARCHIVE_PATH}" | sha256sum -c - >/dev/null; then
+    echo "[ensure-cmake] downloaded CMake archive failed checksum verification" >&2
+    exit 1
+fi
+
 mkdir -p "${WORK_DIR}/root"
-tar -xzf "${WORK_DIR}/${ARCHIVE_NAME}" --strip-components=1 -C "${WORK_DIR}/root"
+tar -xzf "${ARCHIVE_PATH}" --strip-components=1 -C "${WORK_DIR}/root"
 [[ -x "${WORK_DIR}/root/bin/cmake" ]] || {
     echo "[ensure-cmake] downloaded archive does not contain bin/cmake" >&2
     exit 1
@@ -64,5 +96,9 @@ tar -xzf "${WORK_DIR}/${ARCHIVE_NAME}" --strip-components=1 -C "${WORK_DIR}/root
 
 # The lock serializes publishers; rename on the same filesystem makes the
 # fully verified directory visible atomically to future fresh runs.
+if [[ -e "${CMAKE_ROOT}" || -L "${CMAKE_ROOT}" ]]; then
+    echo "[ensure-cmake] refusing to replace conflicting CMake cache root: ${CMAKE_ROOT}" >&2
+    exit 1
+fi
 mv "${WORK_DIR}/root" "${CMAKE_ROOT}"
 printf '%s\n' "${CMAKE_BIN}"

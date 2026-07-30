@@ -116,6 +116,209 @@ process.exit(42)
   return bin
 }
 
+const publishedFsusuiSentinel = {
+  content: 'published-package\n',
+  path: 'vue/packages/.fsusblog-published-package-context'
+}
+
+function writeExecutableFixture(file, contents) {
+  fs.writeFileSync(file, contents, { mode: 0o755 })
+}
+
+function createFinalImageHarness(t, scenario) {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-final-image-context-'))
+  const bin = path.join(directory, 'bin')
+  const state = path.join(directory, 'state')
+  const callerRoot = path.join(directory, 'caller-fsusui')
+  fs.mkdirSync(bin)
+  fs.mkdirSync(state)
+  fs.mkdirSync(callerRoot)
+  fs.writeFileSync(path.join(state, 'scenario'), `${scenario}\n`)
+  fs.writeFileSync(path.join(callerRoot, 'caller-source.ts'), 'caller-controlled-source\n')
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }))
+
+  writeExecutableFixture(path.join(bin, 'node'), `#!/usr/bin/env bash
+set -euo pipefail
+case "\${1:-}" in
+    */release-id.mjs)
+        printf '%s\\n' \
+            'fixture-release-id' \
+            '2026-07-31T00:00:00.000Z' \
+            '${commitSha}'
+        ;;
+    */resolve-runtime-publish-profile.mjs)
+        printf '%s\\n' \
+            'throughput-musl' \
+            'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' \
+            'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' \
+            'musl' \
+            'linux-musl-x64' \
+            'true' \
+            'false' \
+            'true' \
+            'true' \
+            'true' \
+            'false' \
+            'container-default' \
+            'container-limit' \
+            '0' \
+            'runtime-default' \
+            '0' \
+            'smt-visible'
+        ;;
+    */check-wasm-artifact-ownership.mjs | */wasm-build-receipt.mjs)
+        ;;
+    -e)
+        printf 'sha256:%064d' 0
+        ;;
+    *)
+        printf 'unexpected node invocation: %s\\n' "\${1:-<missing>}" >&2
+        exit 97
+        ;;
+esac
+`)
+
+  writeExecutableFixture(path.join(bin, 'mktemp'), `#!/usr/bin/env bash
+set -euo pipefail
+FIXTURE_ROOT="$(cd "$(dirname "\${BASH_SOURCE[0]}")/.." && pwd)"
+created="$(/usr/bin/mktemp "$@")"
+printf '%s\\n' "\${created}" >>"\${FIXTURE_ROOT}/state/mktemp.log"
+printf '%s\\n' "\${created}"
+`)
+
+  writeExecutableFixture(path.join(bin, 'mkdir'), `#!/usr/bin/env bash
+set -euo pipefail
+FIXTURE_ROOT="$(cd "$(dirname "\${BASH_SOURCE[0]}")/.." && pwd)"
+scenario="$(/bin/cat "\${FIXTURE_ROOT}/state/scenario")"
+target="\${@: -1}"
+if [[ "\${scenario}" == "create-fail" && "\${target}" == */vue/packages ]]; then
+    printf '%s\\n' "\${target}" >"\${FIXTURE_ROOT}/state/failed-mkdir-path"
+    exit 73
+fi
+exec /bin/mkdir "$@"
+`)
+
+  writeExecutableFixture(path.join(bin, 'rm'), `#!/usr/bin/env bash
+set -euo pipefail
+FIXTURE_ROOT="$(cd "$(dirname "\${BASH_SOURCE[0]}")/.." && pwd)"
+printf '%s\\n' "$*" >>"\${FIXTURE_ROOT}/state/rm.log"
+exec /bin/rm "$@"
+`)
+
+  writeExecutableFixture(path.join(bin, 'docker'), `#!${process.execPath}
+const fs = require('node:fs')
+const path = require('node:path')
+const state = path.resolve(__dirname, '../state')
+const scenario = fs.readFileSync(path.join(state, 'scenario'), 'utf8').trim()
+const args = process.argv.slice(2)
+
+function snapshot(directory, prefix = '') {
+  const entries = []
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name))) {
+    const relativePath = prefix ? prefix + '/' + entry.name : entry.name
+    const absolutePath = path.join(directory, entry.name)
+    if (entry.isDirectory()) {
+      entries.push({ path: relativePath, type: 'directory' })
+      entries.push(...snapshot(absolutePath, relativePath))
+    } else if (entry.isFile()) {
+      entries.push({ content: fs.readFileSync(absolutePath, 'utf8'), path: relativePath, type: 'file' })
+    } else if (entry.isSymbolicLink()) {
+      entries.push({ path: relativePath, target: fs.readlinkSync(absolutePath), type: 'symlink' })
+    } else {
+      entries.push({ path: relativePath, type: 'other' })
+    }
+  }
+  return entries
+}
+
+if (args[0] === 'build') {
+  const contextOption = args.indexOf('--build-context')
+  const contextValue = contextOption >= 0 ? args[contextOption + 1] : ''
+  if (!contextValue.startsWith('fsusui=')) process.exit(91)
+  const contextRoot = contextValue.slice('fsusui='.length)
+  fs.writeFileSync(path.join(state, 'docker-build.json'), JSON.stringify({
+    args,
+    contextRoot,
+    entries: snapshot(contextRoot)
+  }, null, 2))
+  process.exit(scenario === 'build-fail' ? 79 : 0)
+}
+if (args[0] === 'image' && args[1] === 'inspect') {
+  process.stdout.write('[{}]\\n')
+  process.exit(0)
+}
+if (args[0] === 'run') {
+  process.stdout.write('v24.17.0\\n')
+  process.exit(0)
+}
+process.stderr.write('unexpected docker invocation: ' + JSON.stringify(args) + '\\n')
+process.exit(92)
+`)
+
+  const baseEnvironment = {
+    FSUSBLOG_COMMIT_SHA: commitSha,
+    FSUSBLOG_FINAL_IMAGE_TAG: 'fsusblogapp:fixture',
+    FSUSBLOG_FINAL_LOCAL_ONLY: '1',
+    FSUSBLOG_FINAL_PUSH: '0',
+    FSUSBLOG_FINAL_SKIP_WASM: '1',
+    FSUSBLOG_FSUSUI_CONTEXT_ROOT: path.join(directory, 'caller-context'),
+    FSUSBLOG_FSUSUI_CONTEXT_URL: 'https://caller.invalid/fsusui.tar.gz',
+    FSUSBLOG_FSUSUI_STUB_CONTENT: 'caller-controlled-stub',
+    FSUSBLOG_LOCAL_FSUSUI_ROOT: callerRoot,
+    FSUSBLOG_RELEASE_CREATED_AT_UTC: '2026-07-31T00:00:00.000Z',
+    FSUSBLOG_USE_LOCAL_FSUSUI: '0',
+    GITHUB_PACKAGES_TOKEN: 'fixture-secret',
+    LC_ALL: 'C',
+    PATH: `${bin}:/usr/local/bin:/usr/bin:/bin`
+  }
+
+  function readLines(name) {
+    const file = path.join(state, name)
+    if (!fs.existsSync(file)) return []
+    return fs.readFileSync(file, 'utf8').trim().split('\n').filter(Boolean)
+  }
+
+  return {
+    callerRoot,
+    cleanupCalls: () => readLines('rm.log'),
+    directory,
+    dockerBuild: () => {
+      const file = path.join(state, 'docker-build.json')
+      return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : null
+    },
+    failedMkdirPath: () => readLines('failed-mkdir-path')[0] ?? null,
+    mktempPaths: () => readLines('mktemp.log'),
+    run: (environment = {}) => spawnSync('/bin/bash', [path.join(root, 'tools/build-final-image.sh')], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...baseEnvironment, ...environment },
+      timeout: 10_000
+    })
+  }
+}
+
+function createLocalFsusuiCheckout(directory) {
+  const checkout = path.join(directory, 'local-fsusui')
+  const packageEntry = path.join(checkout, 'vue/packages/element-plus/index.ts')
+  fs.mkdirSync(path.dirname(packageEntry), { recursive: true })
+  fs.writeFileSync(packageEntry, 'export const fixture = true\n')
+  for (const args of [
+    ['init', '--quiet'],
+    ['add', '.'],
+    ['-c', 'user.name=FsusBlog Tests', '-c', 'user.email=tests@fsus.blog', 'commit', '--quiet', '--no-gpg-sign', '-m', 'fixture']
+  ]) {
+    const result = spawnSync('git', args, { cwd: checkout, encoding: 'utf8' })
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
+  }
+  const commit = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: checkout, encoding: 'utf8' })
+  assert.equal(commit.status, 0, commit.stderr)
+  return { commit: commit.stdout.trim(), root: checkout }
+}
+
+function assertBuildArgument(args, value) {
+  assert.ok(args.some((argument, index) => argument === value && args[index - 1] === '--build-arg'), value)
+}
+
 test('runtime profile catalog covers every required controlled axis', () => {
   const loaded = readRuntimeProfileManifest()
   assert.equal(loaded.manifest.defaultProfile, 'throughput-musl')
@@ -619,6 +822,97 @@ test('successful profile results require concrete runtime, image, SDK, Node and 
     'effectiveRuntime.nodeVersion',
     'execution.targetMemoryBytes'
   ]) assert.ok(errors.some((error) => error.includes(expected)), expected)
+})
+
+test('published-package final image context contains only the fixed source-free sentinel', t => {
+  const harness = createFinalImageHarness(t, 'success')
+  const result = harness.run()
+
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
+  const [contextRoot] = harness.mktempPaths()
+  assert.ok(contextRoot)
+  const build = harness.dockerBuild()
+  assert.ok(build)
+  assert.equal(build.contextRoot, contextRoot)
+  assert.deepEqual(build.entries, [
+    { path: 'vue', type: 'directory' },
+    { path: 'vue/packages', type: 'directory' },
+    { content: publishedFsusuiSentinel.content, path: publishedFsusuiSentinel.path, type: 'file' }
+  ])
+  const contextOption = build.args.indexOf('--build-context')
+  assert.equal(build.args[contextOption + 1], `fsusui=${contextRoot}`)
+  assertBuildArgument(build.args, 'FSUSBLOG_USE_LOCAL_FSUSUI=0')
+  assertBuildArgument(build.args, 'FSUSBLOG_FSUSUI_SOURCE=published-package')
+  assertBuildArgument(build.args, 'FSUSBLOG_FSUSUI_COMMIT_SHA=0000000000000000000000000000000000000000')
+  const buildRecord = JSON.stringify(build)
+  for (const callerValue of [
+    'caller-controlled-source',
+    'caller-controlled-stub',
+    'https://caller.invalid/fsusui.tar.gz',
+    'fixture-secret',
+    harness.callerRoot
+  ]) assert.doesNotMatch(buildRecord, new RegExp(callerValue.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&'), 'u'))
+  assert.equal(fs.existsSync(contextRoot), false)
+  assert.deepEqual(harness.cleanupCalls(), [`-rf -- ${contextRoot}`])
+  assert.equal(fs.existsSync(path.join(harness.callerRoot, 'caller-source.ts')), true)
+})
+
+test('published-package context cleanup covers creation and downstream build failures', async t => {
+  await t.test('sentinel tree creation failure', child => {
+    const harness = createFinalImageHarness(child, 'create-fail')
+    const result = harness.run()
+
+    assert.notEqual(result.status, 0, `${result.stdout}\n${result.stderr}`)
+    const [contextRoot] = harness.mktempPaths()
+    assert.ok(contextRoot)
+    assert.equal(harness.dockerBuild(), null)
+    assert.equal(harness.failedMkdirPath(), `${contextRoot}/vue/packages`)
+    assert.equal(fs.existsSync(contextRoot), false)
+    assert.deepEqual(harness.cleanupCalls(), [`-rf -- ${contextRoot}`])
+    assert.equal(fs.existsSync(path.join(harness.callerRoot, 'caller-source.ts')), true)
+  })
+
+  await t.test('docker build failure', child => {
+    const harness = createFinalImageHarness(child, 'build-fail')
+    const result = harness.run()
+
+    assert.notEqual(result.status, 0, `${result.stdout}\n${result.stderr}`)
+    const [contextRoot] = harness.mktempPaths()
+    assert.ok(contextRoot)
+    assert.deepEqual(harness.dockerBuild()?.entries, [
+      { path: 'vue', type: 'directory' },
+      { path: 'vue/packages', type: 'directory' },
+      { content: publishedFsusuiSentinel.content, path: publishedFsusuiSentinel.path, type: 'file' }
+    ])
+    assert.equal(fs.existsSync(contextRoot), false)
+    assert.deepEqual(harness.cleanupCalls(), [`-rf -- ${contextRoot}`])
+    assert.equal(fs.existsSync(path.join(harness.callerRoot, 'caller-source.ts')), true)
+  })
+})
+
+test('local FsusUI mode keeps the explicit clean checkout and never creates a published stub', t => {
+  const harness = createFinalImageHarness(t, 'success')
+  const checkout = createLocalFsusuiCheckout(harness.directory)
+  const result = harness.run({
+    FSUSBLOG_LOCAL_FSUSUI_ROOT: checkout.root,
+    FSUSBLOG_USE_LOCAL_FSUSUI: '1'
+  })
+
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
+  const build = harness.dockerBuild()
+  assert.ok(build)
+  assert.equal(build.contextRoot, checkout.root)
+  const contextOption = build.args.indexOf('--build-context')
+  assert.equal(build.args[contextOption + 1], `fsusui=${checkout.root}`)
+  assertBuildArgument(build.args, 'FSUSBLOG_USE_LOCAL_FSUSUI=1')
+  assertBuildArgument(build.args, 'FSUSBLOG_FSUSUI_SOURCE=local-git-alias')
+  assertBuildArgument(build.args, `FSUSBLOG_FSUSUI_COMMIT_SHA=${checkout.commit}`)
+  assert.deepEqual(harness.mktempPaths(), [])
+  assert.deepEqual(harness.cleanupCalls(), [])
+  assert.equal(build.entries.some((entry) => entry.path === publishedFsusuiSentinel.path), false)
+  const status = spawnSync('git', ['status', '--porcelain'], { cwd: checkout.root, encoding: 'utf8' })
+  assert.equal(status.status, 0, status.stderr)
+  assert.equal(status.stdout, '')
 })
 
 test('publish scripts and Dockerfile consume the named profile instead of restoring split hardcoded defaults', () =>

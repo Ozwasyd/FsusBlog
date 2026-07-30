@@ -170,6 +170,13 @@ case "$IMAGE_TAG" in
     *:latest | *:final-current | fsusblogapp | *:@*) Fail "mutable or malformed image reference is forbidden: $IMAGE_TAG" ;;
 esac
 
+CleanupLocalContext() {
+    if [[ -n "$FSUSUI_EMPTY_CONTEXT" ]]; then
+        rm -rf -- "$FSUSUI_EMPTY_CONTEXT"
+    fi
+}
+trap CleanupLocalContext EXIT
+
 case "${USE_LOCAL_FSUSUI_RAW,,}" in
     1 | true | yes | on)
         USE_LOCAL_FSUSUI=1
@@ -183,18 +190,15 @@ case "${USE_LOCAL_FSUSUI_RAW,,}" in
         ;;
     0 | false | no | off | '')
         USE_LOCAL_FSUSUI=0
-        FSUSUI_EMPTY_CONTEXT="$(mktemp -d)"
+        FSUSUI_EMPTY_CONTEXT="$(mktemp -d)" || Fail "unable to create published-package FsusUI context"
         FSUSUI_CONTEXT_DIR="$FSUSUI_EMPTY_CONTEXT"
+        mkdir -p "$FSUSUI_CONTEXT_DIR/vue/packages" ||
+            Fail "unable to create published-package FsusUI context tree"
+        printf '%s\n' 'published-package' >"$FSUSUI_CONTEXT_DIR/vue/packages/.fsusblog-published-package-context" ||
+            Fail "unable to create published-package FsusUI context sentinel"
         ;;
     *) Fail "FSUSBLOG_USE_LOCAL_FSUSUI must be a boolean" ;;
 esac
-
-CleanupLocalContext() {
-    if [[ -n "$FSUSUI_EMPTY_CONTEXT" ]]; then
-        rm -rf "$FSUSUI_EMPTY_CONTEXT"
-    fi
-}
-trap CleanupLocalContext EXIT
 
 if [[ "${FSUSBLOG_FINAL_SKIP_WASM:-0}" == "1" ]]; then
     Log "resume with an existing generated wasm artifact package by FSUSBLOG_FINAL_SKIP_WASM=1"

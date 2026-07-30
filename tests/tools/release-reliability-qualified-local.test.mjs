@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
 import net from 'node:net';
@@ -115,6 +115,53 @@ function createAedsFrame(frameType, payload = Uint8Array.from([1, 2, 3, 4]))
     frame.set(payload, 16);
     view.setUint16(14, crc16(payload), true);
     return frame;
+}
+
+async function waitForDedicatedProcessIdentity(pid)
+{
+    const deadline = Date.now() + 2000;
+    while (Date.now() <= deadline)
+    {
+        try
+        {
+            const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8');
+            const close = stat.lastIndexOf(')');
+            const tail = close < 0
+                ? []
+                : stat.slice(close + 2).trim().split(/\s+/u);
+            if (Number(tail[2]) === pid
+                && Number(tail[3]) === pid
+                && /^\d+$/u.test(String(tail[19] ?? '')))
+            {
+                return tail[19];
+            }
+        }
+        catch (error)
+        {
+            if (error?.code !== 'ENOENT')
+            {
+                throw error;
+            }
+        }
+        await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    throw new Error('dedicated test process identity did not stabilize');
+}
+
+function runManagedRuntimeOwned(pidFile, pid, runId, namespace, role)
+{
+    return spawnSync('bash', [
+        wrapper,
+        '--test-managed-runtime-owned',
+        pidFile,
+        String(pid),
+        runId,
+        namespace,
+        role
+    ], {
+        cwd: root,
+        encoding: 'utf8'
+    });
 }
 
 async function runUserSystemdCarrier({
@@ -557,9 +604,22 @@ test('qualified runtime smoke validates canonical taxonomy and SEO AEDS header, 
     const tag = createAedsFrame(10);
     const seo = createAedsFrame(13);
 
-    assert.deepEqual(validateAedsFrame(category, 9), { frameType: 9, payloadBytes: 4 });
-    assert.deepEqual(validateAedsFrame(tag, 10), { frameType: 10, payloadBytes: 4 });
-    assert.deepEqual(validateSeoConfigFrame(seo), { frameType: 13, payloadBytes: 4 });
+    const expectedCategory = {
+        version: 2,
+        headerLength: 16,
+        frameType: 9,
+        payloadLength: 4,
+        crcValidated: true
+    };
+    assert.deepEqual(validateAedsFrame(category, 9), expectedCategory);
+    assert.deepEqual(validateAedsFrame(tag, 10), {
+        ...expectedCategory,
+        frameType: 10
+    });
+    assert.deepEqual(validateSeoConfigFrame(seo), {
+        ...expectedCategory,
+        frameType: 13
+    });
 
     const invalidHeader = category.slice();
     invalidHeader[0] ^= 0xff;
@@ -599,7 +659,10 @@ test('qualified runtime smoke requires live JSON and the exact canonical runtime
         const frame = routes.get(request.url);
         if (frame)
         {
-            response.writeHead(200, { 'content-type': 'application/octet-stream' });
+            response.writeHead(200, {
+                'content-type': 'application/octet-stream',
+                'x-fsus-frame-version': '2'
+            });
             response.end(frame);
             return;
         }
@@ -614,17 +677,53 @@ test('qualified runtime smoke requires live JSON and the exact canonical runtime
         baseUrl: `http://127.0.0.1:${address.port}/`,
         timeoutMs: 1000
     });
-    assert.deepEqual(result, {
-        live: { status: 200, reportStatus: 'live' },
-        binary: [
-            { routeId: 'system-seo', status: 200, frameType: 13, payloadBytes: 4 },
-            { routeId: 'article-list-home-10', status: 200, frameType: 1, payloadBytes: 4 },
-            { routeId: 'category-list', status: 200, frameType: 9, payloadBytes: 4 },
-            { routeId: 'tag-list', status: 200, frameType: 10, payloadBytes: 4 },
-            { routeId: 'article-hot', status: 200, frameType: 3, payloadBytes: 4 },
-            { routeId: 'article-featured', status: 200, frameType: 15, payloadBytes: 4 }
-        ]
+    assert.equal(result.schema, 'fsusblog.release-reliability-runtime-smoke.v1');
+    assert.equal(result.status, 'passed');
+    assert.match(result.contentDigest, /^sha256:[0-9a-f]{64}$/u);
+    assert.deepEqual(result.live, {
+        method: 'GET',
+        path: '/health/live',
+        status: 200,
+        contentType: 'application/json',
+        bodyBytes: 56,
+        reportStatus: 'live',
+        checkedAt: '2026-07-26T20:00:00.000Z'
     });
+    assert.deepEqual(
+        result.routes.map((route) => ({
+            routeId: route.routeId,
+            method: route.method,
+            path: route.path,
+            status: route.status,
+            contentType: route.contentType,
+            fsusHeaders: route.fsusHeaders,
+            bodyBytes: route.bodyBytes,
+            aeds: route.aeds
+        })),
+        [
+            ['system-seo', '/api/binary/system/seo', 13],
+            ['article-list-home-10', '/api/binary/article/list/home/1/10.aeds', 1],
+            ['category-list', '/api/binary/category', 9],
+            ['tag-list', '/api/binary/tag', 10],
+            ['article-hot', '/api/binary/article/hot/5.aeds', 3],
+            ['article-featured', '/api/binary/article/featured/4.aeds', 15]
+        ].map(([routeId, routePath, frameType]) => ({
+            routeId,
+            method: 'GET',
+            path: routePath,
+            status: 200,
+            contentType: 'application/octet-stream',
+            fsusHeaders: { 'x-fsus-frame-version': '2' },
+            bodyBytes: 20,
+            aeds: {
+                version: 2,
+                headerLength: 16,
+                frameType,
+                payloadLength: 4,
+                crcValidated: true
+            }
+        }))
+    );
     assert.deepEqual(requests, [
         '/health/live',
         '/api/binary/system/seo',
@@ -662,14 +761,13 @@ test('qualified runtime smoke blocks every incomplete taxonomy response', async 
         const frame = override?.path === request.url
             ? override.frame
             : validRoutes.get(request.url);
-        response.writeHead(
-            override?.path === request.url ? override.status : 200,
-            {
-                'content-type': override?.path === request.url
-                    ? override.contentType
-                    : 'application/octet-stream'
-            }
-        );
+        const selectedOverride = override?.path === request.url ? override : null;
+        response.writeHead(selectedOverride ? selectedOverride.status : 200, {
+            'content-type': selectedOverride
+                ? selectedOverride.contentType
+                : 'application/octet-stream',
+            ...(selectedOverride?.headers ?? { 'x-fsus-frame-version': '2' })
+        });
         response.end(frame);
     });
     await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -685,6 +783,10 @@ test('qualified runtime smoke blocks every incomplete taxonomy response', async 
     {
         const invalidHeader = createAedsFrame(route.frameType);
         invalidHeader[0] ^= 0xff;
+        const invalidVersion = createAedsFrame(route.frameType);
+        invalidVersion[4] = 1;
+        const invalidHeaderLength = createAedsFrame(route.frameType);
+        invalidHeaderLength[5] = 15;
         const invalidLength = createAedsFrame(route.frameType);
         new DataView(invalidLength.buffer).setUint32(10, 5, true);
         const invalidCrc = createAedsFrame(route.frameType);
@@ -705,11 +807,48 @@ test('qualified runtime smoke blocks every incomplete taxonomy response', async 
                 expected: /did not return application\/octet-stream/u
             },
             {
+                name: 'missing Fsus header',
+                status: 200,
+                contentType: 'application/octet-stream',
+                headers: {},
+                frame: createAedsFrame(route.frameType),
+                expected: /invalid X-Fsus-Frame-Version header/u
+            },
+            {
+                name: 'wrong Fsus header',
+                status: 200,
+                contentType: 'application/octet-stream',
+                headers: { 'x-fsus-frame-version': '1' },
+                frame: createAedsFrame(route.frameType),
+                expected: /invalid X-Fsus-Frame-Version header/u
+            },
+            {
                 name: 'header',
                 status: 200,
                 contentType: 'application/octet-stream',
                 frame: invalidHeader,
                 expected: new RegExp(`valid ${route.name} AEDS v2 frame`, 'u')
+            },
+            {
+                name: 'version',
+                status: 200,
+                contentType: 'application/octet-stream',
+                frame: invalidVersion,
+                expected: new RegExp(`valid ${route.name} AEDS v2 frame`, 'u')
+            },
+            {
+                name: 'header length',
+                status: 200,
+                contentType: 'application/octet-stream',
+                frame: invalidHeaderLength,
+                expected: new RegExp(`valid ${route.name} AEDS v2 frame`, 'u')
+            },
+            {
+                name: 'body bounds',
+                status: 200,
+                contentType: 'application/octet-stream',
+                frame: new Uint8Array(),
+                expected: /out-of-bounds AEDS frame/u
             },
             {
                 name: 'length',
@@ -768,6 +907,115 @@ test('qualified local wrapper uses strict runtime parsing and canonical semantic
     assert.match(source, /export-production-build-environment\.mjs/u);
     assert.match(source, /read -r -d '' assignment/u);
     assert.doesNotMatch(source, /eval\s/u);
+});
+
+test('qualified local runtime ownership uses bounded identity and rejects every identity mismatch', async (context) =>
+{
+    const source = fs.readFileSync(wrapper, 'utf8');
+    const start = source.indexOf('ManagedRuntimeOwned() {');
+    const end = source.indexOf('\nStopManagedRuntime() {', start);
+    assert.ok(start >= 0 && end > start);
+    const ownership = source.slice(start, end);
+    assert.match(ownership, /\/proc\/\$\{pid\}\/stat/u);
+    assert.doesNotMatch(
+        ownership,
+        /\/proc\/\$\{pid\}\/(?:environ|cmdline)|readFileSync\([^)]*(?:environ|cmdline)/u
+    );
+    for (const binding of [
+        'identity.pid !== pid',
+        'identity.processGroupId !== pid',
+        'identity.startTimeTicks !== tail[19]',
+        'identity.runId !== runId',
+        'identity.namespace !== namespace',
+        'identity.role !== role',
+        'Number(tail[2]) !== identity.processGroupId',
+        'Number(tail[3]) !== identity.processGroupId'
+    ])
+    {
+        assert.ok(ownership.includes(binding), binding);
+    }
+
+    const fixtureRoot = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'fsusblog-qualified-owned-runtime-')
+    );
+    context.after(() => fs.rmSync(fixtureRoot, { recursive: true, force: true }));
+    const child = spawn('sleep', ['30'], {
+        detached: true,
+        stdio: 'ignore'
+    });
+    context.after(() =>
+    {
+        try
+        {
+            process.kill(-child.pid, 'SIGKILL');
+        }
+        catch (error)
+        {
+            if (error?.code !== 'ESRCH')
+            {
+                throw error;
+            }
+        }
+    });
+    const startTimeTicks = await waitForDedicatedProcessIdentity(child.pid);
+    const pidFile = path.join(fixtureRoot, 'backend.pid');
+    const identityFile = path.join(fixtureRoot, 'backend.identity.json');
+    const expected = {
+        schema: 'fsusblog.local-runtime-process-identity.v1',
+        pid: child.pid,
+        processGroupId: child.pid,
+        startTimeTicks,
+        runId: 'owned-runtime',
+        namespace: 'owned-namespace',
+        role: 'backend'
+    };
+    fs.writeFileSync(pidFile, `${child.pid}\n`, { mode: 0o600 });
+    const writeIdentity = (value) =>
+    {
+        fs.writeFileSync(identityFile, `${JSON.stringify(value)}\n`, { mode: 0o600 });
+        fs.chmodSync(identityFile, 0o600);
+    };
+    writeIdentity(expected);
+    const valid = runManagedRuntimeOwned(
+        pidFile,
+        child.pid,
+        expected.runId,
+        expected.namespace,
+        expected.role
+    );
+    assert.equal(valid.status, 0, valid.stderr);
+
+    const mismatches = [
+        ['schema', { schema: 'fsusblog.local-runtime-process-identity.invalid' }],
+        ['PID', { pid: child.pid + 1 }],
+        ['process group', { processGroupId: child.pid + 1 }],
+        ['start time', { startTimeTicks: String(Number(startTimeTicks) + 1) }],
+        ['run ID', { runId: 'wrong-run' }],
+        ['namespace', { namespace: 'wrong-namespace' }],
+        ['role', { role: 'release-preview' }]
+    ];
+    for (const [name, mutation] of mismatches)
+    {
+        writeIdentity({ ...expected, ...mutation });
+        const invalid = runManagedRuntimeOwned(
+            pidFile,
+            child.pid,
+            expected.runId,
+            expected.namespace,
+            expected.role
+        );
+        assert.notEqual(invalid.status, 0, name);
+    }
+    writeIdentity(expected);
+    fs.writeFileSync(pidFile, `${child.pid + 1}\n`);
+    const wrongPidFile = runManagedRuntimeOwned(
+        pidFile,
+        child.pid,
+        expected.runId,
+        expected.namespace,
+        expected.role
+    );
+    assert.notEqual(wrongPidFile.status, 0, 'PID file');
 });
 
 test('qualified local wrapper binds bootstrap to the freshly completed production build receipt digest', () =>

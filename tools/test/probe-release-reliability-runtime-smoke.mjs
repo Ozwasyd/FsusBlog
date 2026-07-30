@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -7,11 +8,17 @@ import { fileURLToPath } from 'node:url';
 
 import {
     producerRouteIds,
+    routeCatalogDigest,
     routeContract
 } from './lanes/runtime-http-route-contract.mjs';
+import {
+    digestValue
+} from './release-reliability-receipt.mjs';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const protocolFile = path.join(repositoryRoot, 'src/shared/Contracts/Validation/aeds-protocol.json');
+const routeCatalogFile = 'config/testing/runtime-http-route-contracts.json';
+const runtimeSmokeSchema = 'fsusblog.release-reliability-runtime-smoke.v1';
 const runtimeRouteContracts = Object.freeze(
     producerRouteIds('runtime-load-soak').map((routeId) => routeContract(routeId))
 );
@@ -86,8 +93,11 @@ export function validateAedsFrame(bytes, expectedFrameType, authority = canonica
         throw new Error(`binary canary is not one valid ${frameName} AEDS v2 frame`);
     }
     return {
+        version: view.getUint8(4),
+        headerLength: view.getUint8(5),
         frameType: expectedFrameType,
-        payloadBytes: payloadLength
+        payloadLength,
+        crcValidated: true
     };
 }
 
@@ -96,10 +106,14 @@ export function validateSeoConfigFrame(bytes, authority = canonicalProtocolAutho
     return validateAedsFrame(bytes, authority.seoConfigFrameType, authority);
 }
 
-async function fetchResponse(baseUrl, relativePath, accept, signal)
+async function fetchResponse(baseUrl, relativePath, method, accept, signal)
 {
     const response = await fetch(`${baseUrl}${relativePath}`, {
-        headers: { Accept: accept },
+        method,
+        headers: {
+            Accept: accept,
+            'Accept-Encoding': 'identity'
+        },
         redirect: 'error',
         signal
     });
@@ -113,19 +127,53 @@ async function fetchResponse(baseUrl, relativePath, accept, signal)
 async function liveStatus(baseUrl, signal)
 {
     const relativePath = '/health/live';
-    const response = await fetchResponse(baseUrl, relativePath, 'application/json', signal);
-    const contentType = response.headers.get('content-type') ?? '';
-    if (!contentType.toLowerCase().includes('application/json'))
+    const response = await fetchResponse(
+        baseUrl,
+        relativePath,
+        'GET',
+        'application/json',
+        signal
+    );
+    const contentType = (response.headers.get('content-type') ?? '')
+        .split(';', 1)[0]
+        .trim()
+        .toLowerCase();
+    if (contentType !== 'application/json')
     {
         throw new Error(`${relativePath} did not return JSON`);
     }
-    const body = await response.json();
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    let body;
+    try
+    {
+        body = JSON.parse(new TextDecoder().decode(bytes));
+    }
+    catch
+    {
+        throw new Error(`${relativePath} returned invalid JSON`);
+    }
     if (body?.status !== 'live'
         || !Number.isFinite(Date.parse(String(body?.checkedAt ?? ''))))
     {
         throw new Error(`${relativePath} returned an invalid live report`);
     }
-    return { status: response.status, reportStatus: body.status };
+    return {
+        method: 'GET',
+        path: relativePath,
+        status: response.status,
+        contentType,
+        bodyBytes: bytes.byteLength,
+        reportStatus: body.status,
+        checkedAt: body.checkedAt
+    };
+}
+
+function fsusHeaders(response)
+{
+    return Object.fromEntries([...response.headers.entries()]
+        .filter(([name]) => name.toLowerCase().startsWith('x-fsus-'))
+        .map(([name, value]) => [name.toLowerCase(), value])
+        .sort(([left], [right]) => left.localeCompare(right)));
 }
 
 async function binaryRouteStatus(baseUrl, contract, signal)
@@ -134,6 +182,7 @@ async function binaryRouteStatus(baseUrl, contract, signal)
     const response = await fetchResponse(
         baseUrl,
         relativePath,
+        contract.method,
         contract.expectedContentType[0],
         signal
     );
@@ -146,6 +195,11 @@ async function binaryRouteStatus(baseUrl, contract, signal)
     {
         throw new Error(`${relativePath} did not return application/octet-stream`);
     }
+    const headers = fsusHeaders(response);
+    if (headers['x-fsus-frame-version'] !== String(canonicalProtocolAuthority.version))
+    {
+        throw new Error(`${relativePath} returned an invalid X-Fsus-Frame-Version header`);
+    }
     const bytes = new Uint8Array(await response.arrayBuffer());
     if (bytes.byteLength < contract.minimumBodyBytes
         || bytes.byteLength > contract.maximumBodyBytes)
@@ -155,8 +209,13 @@ async function binaryRouteStatus(baseUrl, contract, signal)
     const frame = validateAedsFrame(bytes, contract.expectedAedsFrameType);
     return {
         routeId: contract.routeId,
+        method: contract.method,
+        path: relativePath,
         status: response.status,
-        ...frame
+        contentType,
+        fsusHeaders: headers,
+        bodyBytes: bytes.byteLength,
+        aeds: frame
     };
 }
 
@@ -191,10 +250,22 @@ export async function probeReleaseReliabilityRuntimeSmoke({ baseUrl, timeoutMs =
         {
             binary.push(await binaryRouteStatus(parsed.origin, contract, controller.signal));
         }
-        return {
+        const observation = {
+            schema: runtimeSmokeSchema,
+            status: 'passed',
+            producer: {
+                id: 'runtime-load-soak',
+                routeCatalog: {
+                    path: routeCatalogFile,
+                    contentDigest: routeCatalogDigest()
+                }
+            },
             live,
-            binary
+            routes: binary,
+            contentDigest: null
         };
+        observation.contentDigest = digestValue(observation);
+        return observation;
     }
     finally
     {
@@ -214,7 +285,7 @@ function parseArguments(argumentsList)
             throw new Error(`invalid argument near ${name ?? '<end>'}`);
         }
         const key = name.slice(2);
-        if (!['base-url', 'timeout-ms'].includes(key))
+        if (!['base-url', 'timeout-ms', 'out'].includes(key))
         {
             throw new Error(`unknown argument --${key}`);
         }
@@ -233,12 +304,58 @@ function parseArguments(argumentsList)
     {
         throw new Error('--timeout-ms must be an integer');
     }
-    return { baseUrl: values['base-url'], timeoutMs };
+    return { baseUrl: values['base-url'], timeoutMs, out: values.out ?? null };
+}
+
+function writeObservation(output, value)
+{
+    const normalized = String(output).replaceAll('\\', '/').replace(/^\.\//u, '');
+    if (!/^\.tmp\/release-reliability\/[A-Za-z0-9][A-Za-z0-9_.-]*\/runtime-smoke-observation\.json$/u
+        .test(normalized))
+    {
+        throw new Error('--out must be one canonical invocation smoke observation path');
+    }
+    const absolute = path.resolve(repositoryRoot, normalized);
+    if (!absolute.startsWith(`${repositoryRoot}${path.sep}`))
+    {
+        throw new Error('--out escapes the repository');
+    }
+    for (let cursor = path.dirname(absolute); cursor !== repositoryRoot; cursor = path.dirname(cursor))
+    {
+        if (fs.existsSync(cursor) && fs.lstatSync(cursor).isSymbolicLink())
+        {
+            throw new Error('--out contains a symlink');
+        }
+    }
+    fs.mkdirSync(path.dirname(absolute), { recursive: true, mode: 0o700 });
+    if (fs.existsSync(absolute))
+    {
+        throw new Error('--out already exists');
+    }
+    const temporary = `${absolute}.next-${process.pid}-${randomUUID()}`;
+    try
+    {
+        fs.writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, {
+            encoding: 'utf8',
+            flag: 'wx',
+            mode: 0o600
+        });
+        fs.renameSync(temporary, absolute);
+    }
+    finally
+    {
+        fs.rmSync(temporary, { force: true });
+    }
 }
 
 async function main()
 {
-    const result = await probeReleaseReliabilityRuntimeSmoke(parseArguments(process.argv.slice(2)));
+    const options = parseArguments(process.argv.slice(2));
+    const result = await probeReleaseReliabilityRuntimeSmoke(options);
+    if (options.out)
+    {
+        writeObservation(options.out, result);
+    }
     process.stdout.write(`${JSON.stringify(result)}\n`);
 }
 
