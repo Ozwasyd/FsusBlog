@@ -6,6 +6,7 @@ using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Services.Articles;
 using FsusBlog.Core.Services.Gateways;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
@@ -17,7 +18,7 @@ namespace FsusBlog.Server.Services.Fixtures;
 /// <summary>
 /// Test-only public content fixture composition root (#1712).
 /// Calls application/domain ports (IArticleCoreGateway, IAdminArtifactOperations)
-/// and owned-namespace taxonomy inserts — never public/admin HTTP APIs, never Node SQL.
+/// and owned-namespace taxonomy inserts/invalidation — never public/admin HTTP APIs, never Node SQL.
 /// </summary>
 public interface IPublicContentFixtureSeeder
 {
@@ -218,6 +219,7 @@ public sealed class PublicContentProjectionHints
 public sealed class PublicContentFixtureSeeder(
     IArticleCoreGateway articles,
     ISqlSugarClient db,
+    ICacheInvalidationDispatcher cacheInvalidation,
     IAdminArtifactOperations artifactOperations,
     ISearchIndexService searchIndex,
     TimeProvider timeProvider) : IPublicContentFixtureSeeder
@@ -268,8 +270,13 @@ public sealed class PublicContentFixtureSeeder(
         // Rerun ownership: remove only previously owned entities for this owner prefix.
         await CleanupOwnedAsync(ownerPrefix, cancellationToken).ConfigureAwait(false);
 
-        Category category = await EnsureCategoryAsync($"{ownerPrefix}:category", cancellationToken).ConfigureAwait(false);
-        Tag tag = await EnsureTagAsync($"{ownerPrefix}:tag", cancellationToken).ConfigureAwait(false);
+        (Category category, Tag tag) = await EnsureTaxonomyAsync(
+                EnsureCategoryAsync,
+                EnsureTagAsync,
+                cacheInvalidation,
+                ownerPrefix,
+                cancellationToken)
+            .ConfigureAwait(false);
         string taxonomyCapabilityHint = capabilities.Contains(
             "public.taxonomy.category-tag",
             StringComparer.Ordinal)
@@ -964,6 +971,25 @@ public sealed class PublicContentFixtureSeeder(
             .Where(item => item.Id == articleId)
             .ExecuteCommandAsync()
             .ConfigureAwait(false);
+    }
+
+    internal static async Task<(Category Category, Tag Tag)> EnsureTaxonomyAsync(
+        Func<string, CancellationToken, Task<Category>> ensureCategory,
+        Func<string, CancellationToken, Task<Tag>> ensureTag,
+        ICacheInvalidationDispatcher cacheInvalidation,
+        string ownerPrefix,
+        CancellationToken cancellationToken)
+    {
+        Category category = await ensureCategory(
+                $"{ownerPrefix}:category",
+                cancellationToken)
+            .ConfigureAwait(false);
+        Tag tag = await ensureTag(
+                $"{ownerPrefix}:tag",
+                cancellationToken)
+            .ConfigureAwait(false);
+        await cacheInvalidation.InvalidateCategoryTagAsync(cancellationToken).ConfigureAwait(false);
+        return (category, tag);
     }
 
     private async Task<Category> EnsureCategoryAsync(string name, CancellationToken cancellationToken)
