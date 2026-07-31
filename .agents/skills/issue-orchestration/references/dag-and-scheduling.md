@@ -25,7 +25,7 @@ node .agents/skills/issue-orchestration/scripts/validate-state-root.mjs \
 
 守卫会按输入遍历顺序解析相对路径和 `..`，拒绝 symlink 组件，以最近存在祖先推导不存在尾部的规范路径，并同时核验 Linux mount coordinate、device/inode identity 和实际 Git worktree。对无法证明 backing path 的 FUSE/overlay alias mount 直接拒绝。它不以字符串前缀作为充分证据；无法读取 mount 或 worktree 身份时 fail closed。第一次校验通过后，只能使用输出的 `candidate.canonical` 以 `0700` 权限创建状态根；创建后必须用同一参数复验，复验通过前不得写 DAG。
 
-根代理是完整状态的唯一写入者。implementer 和 reviewer 只接收当前闭环任务、局部 diff 与所需 evidence 投影，不得读取或修改完整 DAG、ledger、锁、槽位或状态根。
+根代理是完整运行态（ledger、锁、槽位和事件）的唯一写入者。implementer 和 reviewer 只接收当前闭环任务、局部 diff 与所需 evidence 投影，不得读取或修改完整 DAG、ledger、锁、槽位或状态根。根代理可以追加已验证的阶段事件，但不得自行生成、删除或修补 completed-prerequisite tombstone；tombstone 只能由 root scheduler 拉起的、`gpt-5.6-sol / max`、fresh-context、read-only 的 DAG updater 提议，再由机器门禁校验后纳入 v2 DAG。
 
 ## 启动 DAG 门禁
 
@@ -52,9 +52,24 @@ instructions_loaded
 
 DAG 和 issue snapshot 均必须在已验证状态根内。所有 `runtimeFiles` 路径必须相对状态根，且不得包含父目录跳转或穿过 symlink。至少使用以下 schema 字段：
 
-- DAG：`issue-orchestration.dag.v1`、run id、规范状态根、刷新时间、仓库 facts/fingerprint、issue fingerprint、节点、验收组、运行态相对路径和 consistency evidence；
-- issue snapshot：`issue-orchestration.issue-snapshot.v1`、刷新时间，以及每个 open issue 的仓库、编号、状态、更新时间和评论 fingerprint；
-- 节点：精确 issue identity、owner、依赖、验收组、状态、难度、调查过的代码/测试/current 文档/约束；terminal 节点另含类别、直接证据和恢复 fingerprint。
+- DAG：`issue-orchestration.dag.v2`、run id、规范状态根、刷新时间、仓库 facts/fingerprint、active issue fingerprint、包含 active issue 与 prerequisite observation 的 `remoteSnapshotDigest`、节点、验收组、运行态相对路径、阶段 receipts 和 consistency evidence；
+- issue snapshot：`issue-orchestration.issue-snapshot.v1`、刷新时间、只包含本次 scope 的 open executable issues（仓库、编号、状态、更新时间和评论 fingerprint），以及独立的 `prerequisiteObservations`。observation 不是 active issue node，而是远端复核投影，至少绑定 `dependencyKey`、仓库/issue identity、`remoteState`、`stateReason`、`closedAt`、`deliveredCommit`、`remoteDefaultBranch`、完成 evidence 和 `evidenceDigest`、`verifiedAt`；
+- 节点：精确 issue identity、owner、`dependencyKeys`、互斥的 `activeDependencies` 与 `satisfiedDependencies`、验收组、状态、难度、调查过的代码/测试/current 文档/约束；terminal 节点另含类别、直接证据和恢复 fingerprint。不得再使用 v1 的隐式 `dependencies` 删除即满足语义。
+
+### Completed prerequisite tombstone authority
+
+`issue-orchestration.dag.v2` 把一条依赖的声明和分类分开：`dependencyKeys` 保留完整边；仍需执行的边放在 `activeDependencies`，已由远端完成事实满足的边放在 `satisfiedDependencies`。同一个 key 不得同时出现在两组，且每个 key 必须出现在其中一组；未知 key、删除边或把 closed issue 塞进 active `nodes` 都 fail closed。
+
+每个 satisfied entry 是不可变 tombstone，必须与 snapshot 中同 key 的 observation 完全一致，并绑定：
+
+- `issue`、`repository`、`issueNumber` 三者一致的远端身份；
+- `remoteState=CLOSED`、`stateReason=completed`、已发生且不晚于 snapshot `refreshedAt` 的 `closedAt`；
+- 默认分支上的完整 40-hex `deliveredCommit`，且该 commit 可由当前仓库 default branch 的 ancestry 证明；
+- `remoteDefaultBranch`、完成 evidence payload、其规范化 SHA-256 `evidenceDigest` 和 `verifiedAt`。
+
+`closed:not_planned`、`duplicate`（没有明确合法替代节点）、缺少交付 commit、commit 不可达或 evidence 缺失/篡改均不得自动满足依赖。远端 issue reopen、state reason、默认分支、交付 ancestry 或 evidence digest 任一漂移，会让旧 tombstone 在下一次远端 snapshot 刷新时失效；dependent 必须恢复为 unsatisfied，不能继续 `ready`、`implementing`、`review`、`verifying` 或 `deliverable`。completed prerequisite 不进入 active issue snapshot、DAG `nodes`、`readyFrontier` 或 `activeAttempts`，也不消耗执行槽位。
+
+门禁对依赖解析输出稳定 reason code：`dependency-active`、`dependency-satisfied`、`dependency-unknown`；不合法 tombstone 使用对应的 `tombstone-*` 或 `dependency-classification-overlap` / `dependency-edge-deleted` 错误码。`dag.v1` 只能作为诊断输入；启动时必须重新读取远端 issue、默认分支和完成 evidence 重建 v2，禁止填空 tombstone、只写 `status=closed` 或把缺失 dependency 当作已满足。
 
 远端 snapshot 写入状态根后，先用下列命令加 `--facts-only`，取得规范仓库 facts、issue fingerprint 和 repository fingerprint；该阶段固定输出 `dispatchEnabled=false`，只用于新建或核对 DAG。写入或恢复 DAG 后，去掉 `--facts-only` 运行完整门禁：
 
@@ -115,7 +130,7 @@ Skill 的调度预算固定为 15 个 subagent 槽位，根调度线程不占用
 
 ## 根调度模型
 
-根调度进程固定使用 `gpt-5.6-sol` / `max`。进入调度循环前先从本轮
+根调度进程（root scheduler）固定使用 `gpt-5.6-sol` / `low`。进入调度循环前先从本轮
 运行时元数据核验实际 model 与 reasoning effort；不匹配时分类为调用
 问题，停止本次父调用并以正确参数接管 checkpoint。错误父调用产生的
 子任务或 evidence 只有在角色、任务边界、内容 fingerprint 和候选验证

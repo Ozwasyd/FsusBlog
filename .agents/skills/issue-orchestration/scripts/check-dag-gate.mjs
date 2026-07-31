@@ -100,6 +100,19 @@ function runGit(repository, args) {
     }
 }
 
+function isAncestor(repository, commit, branch) {
+    try {
+        execFileSync(
+            'git',
+            ['-C', repository, 'merge-base', '--is-ancestor', commit, branch],
+            { stdio: 'ignore' }
+        )
+        return true
+    } catch {
+        return false
+    }
+}
+
 function ensureStateFile(path, stateRoot, label) {
     const absolute = resolve(path)
     let canonical
@@ -202,6 +215,12 @@ function validateIssueSnapshot(snapshot, startupTime, repositoryNames) {
         fingerprint: fingerprint(
             [...snapshot.issues].sort((left, right) => issueKey(left).localeCompare(issueKey(right)))
         ),
+        remoteSnapshotDigest: fingerprint({
+            issues: [...snapshot.issues].sort((left, right) => issueKey(left).localeCompare(issueKey(right))),
+            prerequisiteObservations: [...(snapshot.prerequisiteObservations ?? [])].sort(
+                (left, right) => left.dependencyKey.localeCompare(right.dependencyKey)
+            )
+        }),
         keys
     }
 }
@@ -266,7 +285,7 @@ function validateAcyclic(nodesById) {
         if (visiting.has(id)) fail('dependency-cycle', `DAG dependency cycle includes ${id}.`)
         if (visited.has(id)) return
         visiting.add(id)
-        for (const dependency of nodesById.get(id).dependencies) visit(dependency)
+        for (const dependency of nodesById.get(id).activeDependencies) visit(dependency)
         visiting.delete(id)
         visited.add(id)
     }
@@ -274,7 +293,95 @@ function validateAcyclic(nodesById) {
     for (const id of nodesById.keys()) visit(id)
 }
 
-function validateNodesAndGroups(dag, snapshot, repositoryNames) {
+function validateStageReceipts(dag) {
+    if (!/^[a-f0-9]{64}$/u.test(dag.testContractDigest ?? '')) {
+        fail('stage-receipt-test-contract', 'DAG lacks a valid frozen test contract digest.')
+    }
+    const receipts = dag.stageReceipts
+    const names = ['proposal', 'testContract', 'dispatch', 'implementation', 'verification', 'behavior', 'documentation']
+    if (!receipts || names.some((name) => !receipts[name])) {
+        fail('stage-receipt-stage-role', 'DAG lacks the required stage receipt chain.')
+    }
+    const expectedRoles = {
+        proposal: 'dag-updater',
+        testContract: 'test-owner',
+        dispatch: 'root-scheduler',
+        implementation: 'code-implementer',
+        verification: 'test-owner',
+        behavior: 'test-owner',
+        documentation: 'documentation-writer'
+    }
+    for (const name of names) {
+        if (receipts[name].stageRole !== expectedRoles[name]) {
+            if (name === 'proposal' && receipts[name].stageRole === 'root-scheduler') {
+                fail('tombstone-authority-role', 'Root scheduler cannot author a tombstone proposal.')
+            }
+            fail('stage-receipt-stage-role', `${name} receipt has the wrong or missing stage role.`)
+        }
+    }
+    const proposal = receipts.proposal
+    if (proposal.spawnedByStageRole !== 'root-scheduler') {
+        fail('dag-updater-caller-role', 'Only the root scheduler may spawn a DAG updater.')
+    }
+    if (!Array.isArray(proposal.directWrites) || proposal.directWrites.length !== 0 || proposal.mode !== 'read-only' || proposal.proposalOnly !== true) {
+        fail('dag-updater-direct-write', 'DAG updater must be read-only and proposal-only.')
+    }
+    if (proposal.trigger !== 'remote-live-snapshot-digest-changed') {
+        fail('remote-snapshot-trigger-required', 'A tombstone update requires a changed remote snapshot digest.')
+    }
+    if (receipts.testContract.actorId === receipts.implementation.actorId) {
+        fail('stage-role-write-conflict', 'Test owner and code implementer must be different actors.')
+    }
+    if (
+        !Array.isArray(receipts.implementation.changedPaths)
+        || receipts.implementation.changedPaths.some((path) => /(^|\/)(tests?|fixtures?)(\/|$)/u.test(path))
+    ) {
+        fail('frozen-test-contract-modified', 'Implementation receipt modifies a frozen test or fixture.')
+    }
+    for (const receipt of Object.values(receipts)) {
+        if (receipt.candidateSha !== receipts.dispatch.candidateSha) {
+            fail('stage-receipt-candidate-sha', 'Stage receipt candidate SHA does not match dispatch.')
+        }
+        if (receipt.remoteSnapshotDigest !== dag.remoteSnapshotDigest) {
+            fail('stage-receipt-remote-snapshot', 'Stage receipt remote snapshot digest does not match the DAG.')
+        }
+        if (receipt.testContractDigest !== dag.testContractDigest) {
+            fail('stage-receipt-test-contract', 'Stage receipt test contract digest does not match the DAG.')
+        }
+    }
+    if (receipts.behavior.status !== 'passed' || receipts.documentation.behaviorReceiptDigest !== fingerprint(receipts.behavior)) {
+        fail('documentation-before-behavior-green', 'Documentation requires a matching green behavior receipt.')
+    }
+    if (receipts.dispatch.model !== 'gpt-5.6-sol' || receipts.dispatch.effort !== 'low') {
+        fail('root-scheduler-runtime-identity', 'Root scheduler runtime identity is invalid.')
+    }
+    if (proposal.model !== 'gpt-5.6-sol' || proposal.effort !== 'max' || proposal.freshContext !== true) {
+        fail('dag-updater-runtime-identity', 'DAG updater runtime identity is invalid.')
+    }
+    if (receipts.testContract.model !== 'gpt-5.6-sol' || receipts.testContract.effort !== 'max') {
+        fail('test-owner-runtime-identity', 'Test owner runtime identity is invalid.')
+    }
+    if (receipts.implementation.model !== 'gpt-5.6-sol' || receipts.implementation.effort !== 'low') {
+        fail('implementer-runtime-identity', 'Code implementer runtime identity is invalid.')
+    }
+}
+
+function validateNodesAndGroups(dag, snapshot, repositoryNames, liveFacts) {
+    const observations = Array.isArray(snapshot.prerequisiteObservations)
+        ? snapshot.prerequisiteObservations
+        : []
+    const observationsByKey = new Map()
+    for (const observation of observations) {
+        requireString(observation.dependencyKey, 'prerequisiteObservation.dependencyKey')
+        if (observationsByKey.has(observation.dependencyKey)) {
+            fail('tombstone-duplicate', `Remote observations repeat ${observation.dependencyKey}.`)
+        }
+        observationsByKey.set(observation.dependencyKey, observation)
+    }
+    const observationKeys = new Set(observationsByKey.keys())
+    if (Array.isArray(dag.nodes) && dag.nodes.some((node) => observationKeys.has(node.id))) {
+        fail('tombstone-active-node-forbidden', 'A closed prerequisite cannot be an active DAG node.')
+    }
     if (!Array.isArray(dag.nodes) || dag.nodes.length !== snapshot.issues.length) {
         fail('node-scope-mismatch', 'DAG nodes do not exactly cover the current issue scope.')
     }
@@ -349,7 +456,9 @@ function validateNodesAndGroups(dag, snapshot, repositoryNames) {
             requireString(node.effortPromotionEvidence, `${node.id}.effortPromotionEvidence`)
         }
         requireString(node.acceptanceGroup, `${node.id}.acceptanceGroup`)
-        if (!Array.isArray(node.dependencies)) fail('node-dependencies', `${node.id}.dependencies must be an array.`)
+        if (!Array.isArray(node.dependencyKeys) || !Array.isArray(node.activeDependencies) || !Array.isArray(node.satisfiedDependencies)) {
+            fail('node-dependencies', `${node.id} must declare dependencyKeys, activeDependencies, and satisfiedDependencies arrays.`)
+        }
         requireStringArray(node.investigation?.codePaths, `${node.id}.investigation.codePaths`)
         requireStringArray(node.investigation?.testPaths, `${node.id}.investigation.testPaths`)
         requireStringArray(node.investigation?.currentDocs, `${node.id}.investigation.currentDocs`)
@@ -367,21 +476,94 @@ function validateNodesAndGroups(dag, snapshot, repositoryNames) {
         nodesById.set(node.id, node)
     }
 
+    const factsByName = new Map(liveFacts.map((facts) => [facts.name, facts]))
+    const dependencyResolutions = []
+    const closedKeys = new Set()
     for (const node of nodesById.values()) {
-        for (const dependency of node.dependencies) {
+        const dependencyKeys = new Set(node.dependencyKeys)
+        if (dependencyKeys.size !== node.dependencyKeys.length) fail('dependency-unknown', `Node ${node.id} repeats a dependency key.`)
+        const active = new Set(node.activeDependencies)
+        const tombstoneKeys = new Set()
+        for (const tombstone of node.satisfiedDependencies) {
+            const key = tombstone.issue
+            if (tombstoneKeys.has(key)) fail('tombstone-duplicate', `Node ${node.id} repeats tombstone ${key}.`)
+            tombstoneKeys.add(key)
+        }
+        if ([...active].some((key) => tombstoneKeys.has(key))) {
+            fail('dependency-classification-overlap', `Node ${node.id} classifies a dependency as both active and satisfied.`)
+        }
+        for (const dependency of node.activeDependencies) {
             if (!nodesById.has(dependency)) {
-                fail('dependency-missing', `Node ${node.id} depends on absent node ${dependency}.`)
+                fail('dependency-unknown', `Node ${node.id} has unknown active dependency ${dependency}.`)
             }
             if (dependency === node.id) fail('dependency-cycle', `Node ${node.id} depends on itself.`)
+            dependencyResolutions.push({ node: node.id, dependency, code: 'dependency-active' })
+        }
+        for (const tombstone of node.satisfiedDependencies) {
+            const key = tombstone.issue
+            if (!dependencyKeys.has(key)) {
+                fail('tombstone-identity-mismatch', `Tombstone ${key} does not match a declared dependency key.`)
+            }
+            const observation = observationsByKey.get(key)
+            if (!observation) fail('dependency-unknown', `Node ${node.id} has an unobserved satisfied dependency ${key}.`)
+            if (observation.remoteState !== 'CLOSED') fail('tombstone-remote-state-drift', `${key} is no longer closed.`)
+            if (observation.disposition === 'duplicate') fail('tombstone-duplicate-disposition', `${key} is a duplicate without a valid substitute.`)
+            if (observation.stateReason !== 'completed') fail('tombstone-state-reason', `${key} was not closed as completed.`)
+            if (!observation.deliveredCommit) fail('tombstone-delivered-commit-missing', `${key} lacks a delivered commit.`)
+            if (!observation.completionEvidence) fail('tombstone-completion-evidence-missing', `${key} lacks completion evidence.`)
+            if (observation.evidenceDigest !== fingerprint(observation.completionEvidence)) {
+                fail('tombstone-evidence-tampered', `${key} completion evidence has been tampered with.`)
+            }
+            if (tombstone.evidenceDigest !== observation.evidenceDigest) {
+                fail('tombstone-evidence-digest-mismatch', `${key} evidence digest does not match the live observation.`)
+            }
+            if (key !== observation.dependencyKey) fail('tombstone-identity-mismatch', `${key} does not match its dependency key.`)
+            if (tombstone.repository !== observation.repository) fail('tombstone-repository-mismatch', `${key} repository does not match.`)
+            if (tombstone.issueNumber !== observation.issueNumber) fail('tombstone-issue-number-mismatch', `${key} issue number does not match.`)
+            if (tombstone.issue !== `${tombstone.repository}#${tombstone.issueNumber}`) fail('tombstone-identity-mismatch', `${key} identity fields disagree.`)
+            if (!/^[a-f0-9]{40}$/u.test(tombstone.deliveredCommit ?? '')) {
+                fail('tombstone-delivered-commit-format', `${key} delivered commit must be a full SHA.`)
+            }
+            if (tombstone.deliveredCommit !== observation.deliveredCommit) fail('tombstone-identity-mismatch', `${key} delivered commit does not match.`)
+            const repository = factsByName.get(tombstone.repository)
+            if (!repository || tombstone.remoteDefaultBranch !== repository.defaultBranch || tombstone.remoteDefaultBranch !== observation.remoteDefaultBranch) {
+                fail('tombstone-default-branch-mismatch', `${key} default branch does not match repository facts.`)
+            }
+            if (!isAncestor(repository.path, tombstone.deliveredCommit, repository.defaultBranch)) {
+                fail('tombstone-delivered-commit-unreachable', `${key} delivered commit is not reachable from the default branch.`)
+            }
+            const closedAt = parseTimestamp(tombstone.closedAt, `${key}.closedAt`)
+            if (closedAt > parseTimestamp(snapshot.refreshedAt, 'issue snapshot refreshedAt')) {
+                fail('tombstone-closed-at-future', `${key} closedAt is later than the snapshot.`)
+            }
+            for (const field of ['remoteState', 'stateReason', 'closedAt', 'verifiedAt']) {
+                if (tombstone[field] !== observation[field]) fail('tombstone-identity-mismatch', `${key}.${field} does not match the observation.`)
+            }
+            closedKeys.add(key)
+            dependencyResolutions.push({ node: node.id, dependency: key, code: 'dependency-satisfied' })
+        }
+        for (const dependency of node.dependencyKeys) {
+            if (!active.has(dependency) && !tombstoneKeys.has(dependency)) {
+                if (observationsByKey.has(dependency)) fail('dependency-edge-deleted', `Node ${node.id} deleted dependency edge ${dependency}.`)
+                fail('dependency-unknown', `Node ${node.id} has unknown dependency ${dependency}.`)
+            }
+        }
+        for (const classified of [...active, ...tombstoneKeys]) {
+            if (!dependencyKeys.has(classified)) fail('dependency-unknown', `Node ${node.id} classifies undeclared dependency ${classified}.`)
         }
         if (node.status === 'ready') {
-            const incomplete = node.dependencies.filter((dependency) => !['delivered', 'closed'].includes(nodesById.get(dependency).status))
+            const incomplete = node.activeDependencies.filter((dependency) => !['delivered', 'closed'].includes(nodesById.get(dependency).status))
             if (incomplete.length > 0) {
                 fail('ready-dependency', `Ready node ${node.id} has incomplete dependencies.`, { incomplete })
             }
         }
     }
     validateAcyclic(nodesById)
+
+    if (!Array.isArray(dag.readyFrontier)) fail('invalid-schema', 'DAG readyFrontier must be an array.')
+    if (dag.readyFrontier.some((id) => closedKeys.has(id))) fail('tombstone-frontier-forbidden', 'A closed prerequisite cannot enter the ready frontier.')
+    if (!Array.isArray(dag.activeAttempts)) fail('invalid-schema', 'DAG activeAttempts must be an array.')
+    if (dag.activeAttempts.some((attempt) => closedKeys.has(attempt.issue))) fail('tombstone-attempt-forbidden', 'A closed prerequisite cannot have an active attempt.')
 
     if (!Array.isArray(dag.acceptanceGroups) || dag.acceptanceGroups.length === 0) {
         fail('acceptance-groups-missing', 'DAG acceptance groups are missing.')
@@ -409,6 +591,7 @@ function validateNodesAndGroups(dag, snapshot, repositoryNames) {
             }
         }
     }
+    return { dependencyResolutions, closedPrerequisiteCount: closedKeys.size }
 }
 
 function validateRuntimePaths(dag, stateRoot) {
@@ -496,7 +679,10 @@ export function checkDagGate({
 
     const canonicalDag = ensureStateFile(dagPath, canonicalRoot, 'dag')
     const dag = readJson(canonicalDag, 'dag')
-    if (dag?.schema !== 'issue-orchestration.dag.v1') {
+    if (dag?.schema === 'issue-orchestration.dag.v1') {
+        fail('dag-v1-rebuild-required', 'Legacy DAG v1 is diagnostic-only and must be rebuilt from remote facts.')
+    }
+    if (dag?.schema !== 'issue-orchestration.dag.v2') {
         fail('dag-schema', 'DAG schema is missing or unsupported.')
     }
     requireString(dag.runId, 'dag.runId')
@@ -519,7 +705,11 @@ export function checkDagGate({
     }
 
     validateRepositories(dag, liveRepositories)
-    validateNodesAndGroups(dag, snapshot, repositoryNames)
+    if (dag.remoteSnapshotDigest !== snapshotValidation.remoteSnapshotDigest) {
+        fail('remote-snapshot-digest', 'DAG remote snapshot digest does not match current remote facts.')
+    }
+    validateStageReceipts(dag)
+    const nodeValidation = validateNodesAndGroups(dag, snapshot, repositoryNames, liveRepositories)
     validateRuntimePaths(dag, canonicalRoot)
 
     const dagRefreshedAt = parseTimestamp(dag.refreshedAt, 'DAG refreshedAt')
@@ -550,7 +740,9 @@ export function checkDagGate({
         issueSnapshotFingerprint: snapshotValidation.fingerprint,
         repositoryFingerprint: repositoriesFingerprint,
         nodeCount: dag.nodes.length,
-        acceptanceGroupCount: dag.acceptanceGroups.length
+        acceptanceGroupCount: dag.acceptanceGroups.length,
+        closedPrerequisiteCount: nodeValidation.closedPrerequisiteCount,
+        dependencyResolutions: nodeValidation.dependencyResolutions
     }
 }
 
