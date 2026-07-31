@@ -1,0 +1,32 @@
+{
+    "schema": "issue-orchestration.event-ledger-expected-initial-failures.v1",
+    "baseSha": "7f75d2a04d9eeaf65af0b4b0db5a572bdec25150",
+    "expectedStatus": "red",
+    "failureClasses": [
+        {
+            "id": "ledger-runtime-missing",
+            "expectedError": "ERR_MODULE_NOT_FOUND",
+            "meaning": "The base has no append-only event-ledger schema, transition table, reducer, durable append, or recovery implementation."
+        },
+        {
+            "id": "legacy-direct-state-authority",
+            "sourcePath": ".agents/skills/issue-orchestration/scripts/check-dag-gate.mjs",
+            "meaning": "The base gate validates an allowed status enum and stage receipt snapshot but does not bind dag.json projection fields to replayed ledger history."
+        },
+        {
+            "id": "legacy-review-verification-states",
+            "sourcePath": ".agents/skills/issue-orchestration/scripts/check-dag-gate.mjs",
+            "meaning": "The base still accepts implementing, review, verifying, deliverable, and delivered as independently editable node states."
+        }
+    ],
+    "knownExistingBehaviorThatCannotStartRed": [
+        {
+            "id": "external-state-root-boundary",
+            "evidence": ".agents/skills/issue-orchestration/scripts/validate-state-root.mjs already rejects protected-root overlap and symlink escapes; R05/R06 retain it as a non-regression and integrate ledger path authority."
+        },
+        {
+            "id": "stage-role-separation",
+            "evidence": ".agents/skills/issue-orchestration/scripts/check-dag-gate.mjs already rejects several role/receipt conflicts; the new controls tighten them around append authority and the latest candidate-green contract."
+        }
+    ]
+}

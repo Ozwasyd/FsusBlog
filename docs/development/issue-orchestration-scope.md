@@ -61,7 +61,7 @@ computedAt
 
 `readyFrontier` 是当前 scope 内所有没有 compiler reason 的 member-stage 对的最大集合。DAG 的节点顺序、issue 返回顺序、文件遍历顺序、root narration 和手写 status 都不参与 eligibility；节点必须与 selector receipt 的 `resolvedIssueSet` 精确相等。因而遗漏一个 eligible member、把 blocked member 加入 ready，或只改写 digest，都会使独立重算失败。
 
-每个 issue 只有一个确定的下一 stage。非 UI 节点按 `test-contract-ready → implementation-ready → behavior-verification-ready → documentation-ready → delivery-ready → cleanup-ready` 推进；UI/UX 节点在 behavior green 后必须先经过 `ux-acceptance-ready`，再进入 documentation。对应 stage receipt 未通过时，后续 stage 不得进入 frontier；所有 receipt 通过后，该 issue 不再产生 ready 或 not-ready projection。
+每个 issue 只有一个确定的下一 stage。frontier 的语义 stage 映射到事件账本中的严格链：非 UI 节点按 `test-contracting → test-contract-frozen → implementing-self-testing → candidate-green → independent-verifying → behavior-green → documenting → documentation-green → delivery-ready → delivering → cleaning` 推进，UI/UX 节点在 `behavior-green` 后必须先经过 `ux-acceptance → ux-accepted`，再进入 `documenting`。对应 stage receipt 未通过时，后续 stage 不得进入 frontier；所有 receipt 通过后，该 issue 不再产生 ready 或 not-ready projection。`review`、通用 `verifying`、`deliverable` 和 `delivered` 不是当前 stage 或兼容入口。
 
 编译器至少检查 active dependency/tombstone、investigation 完整度、owner repository、base SHA、selector/remote fact identity、同 stage active attempt、未变化 terminal、候选能力与权限、delivery freeze、exclusive lease 和 remote facts freshness。候选的 role、model、effort、mode、允许路径、UI 所需 design Skill/authority digest 也属于 eligibility input；local stage progress 只重新计算 execution frontier，不触发 semantic DAG update。
 
@@ -91,6 +91,77 @@ Root scheduler 只消费 compiler projection 和 selector/batch 输出，不得�
 
 DAG gate 必须使用当前 runtime 和 selector receipt 独立重算 projection，并比较 `eligibilityInputDigest`、`frontierDigest`、ready frontier、reason 和 execution projection；任何缺失、篡改或 scope 不完整都保持 `dispatchEnabled=false`，直到生成新的绑定 projection。该 frontier 合同不改变产品 API、数据库、发布或前端运行时。
 
+## Append-only event ledger 与 projection
+
+Issue execution history 的唯一事实源是仓库外状态根中的追加式事件账本；`dag.json` 只保存由账本重放得到的 projection，不再是可独立编辑的状态事实。账本不进入 FsusBlog、FsusUI、共同工作区或任一 worktree。
+
+### Versioned schemas 与 hash chain
+
+账本首行使用 `issue-orchestration.ledger.v1`，至少绑定 `runId`、规范化 `stateRootCanonical`、`baseSha`、`issueSnapshotFingerprint`、`repositoryFingerprint` 和 `createdAt`；其后每行是 `issue-orchestration.event.v1`。事件必须带有以下机器字段：
+
+```text
+eventId / sequence / runId / nodeId / eventType / fromState / toState
+attemptId / actorRole / sourceDagDigest / issueSnapshotFingerprint
+repositoryFingerprint / baseSha / payloadDigest / evidenceRefs[]
+createdAt / previousEventDigest / eventDigest
+```
+
+`sequence` 从 1 连续递增，第一事件的 `previousEventDigest` 是 64 个零组成的 genesis digest；之后必须严格等于上一事件的 `eventDigest`。对象在计算 SHA-256 前按 key 递归 canonicalize，`payloadDigest` 覆盖 payload，`eventDigest` 覆盖去掉自身 digest 后的完整事件。缺字段、重复 `eventId`、run/node/base 身份漂移、序列缺口、重排、删除、payload 或 hash-chain 篡改均 fail closed。
+
+历史事件不可编辑或覆盖。纠错必须追加 `ledger.correction-recorded`，并引用既有 `targetEventId` 与其原始 `targetEventDigest`；目标缺失或 digest 不匹配时拒绝。自然语言说明不能替代状态、身份、sequence 或 evidence 字段。
+
+### Deterministic projection 与 recovery
+
+`issue-orchestration.projection.v1` 从空 projection 和有序 ledger replay 确定性生成，至少包含每个 node 的 `status`、`activeAttemptId`、`reworkCount`、`terminal`、`evidenceRefs`、`timestamps`，以及 `lastSequence`、`lastEventDigest` 和 `projectionDigest`。相同 ledger 必须得到相同 projection digest；DAG gate 比较 `runId`、`projectionDigest` 及上述 node 字段，手工修改 `dag.json` 而不追加合法事件一律拒绝。
+
+恢复只信任已提交的 ledger：
+
+| 现场 | 恢复动作 | 派发边界 |
+| --- | --- | --- |
+| event 已提交、projection 缺失或落后 | 从 ledger forward replay 并原子写回 projection | replay 成功前不得派发 |
+| projection 超前 ledger | 丢弃 projection，按 ledger 重建 | 不执行 projection 中未提交动作 |
+| projection digest 已相同 | 保持 `projection-already-current` | 不重复 attempt、delivery、commit 或 cleanup side effect |
+| JSONL tail 截断或损坏 | 报告最后有效 sequence，返回 `ledger-tail-corrupt` | `dispatchEnabled=false`，不得跳过坏事件 |
+
+event append 与 projection 写回使用外部状态根内的受控写入和 fsync/atomic rename；delivery、commit、cleanup 的 side-effect key 重复时拒绝，而不是再次执行。
+
+### Stage events、same-attempt loop 与 receipts
+
+唯一正常事件链为：
+
+```text
+discovered
+  → test-contracting → test-contract-frozen
+  → implementing-self-testing → candidate-green
+  → independent-verifying → behavior-green
+  → documenting → documentation-green
+  → delivery-ready → delivering → cleaning → closed
+```
+
+UI/UX issue 在 `behavior-green` 与 `documenting` 之间必须追加：
+
+```text
+behavior-green → ux-acceptance → ux-accepted
+```
+
+事件类型由唯一 machine transition table 约束。当前 authority 使用 `test-contract.*`、`implementation.*`、`independent-verification.*`、`ux-acceptance.*`、`documentation.*`、`delivery.*`、`cleanup.*`、`issue.closed/reopened` 及 terminal/attempt/correction 事件；旧 `review.*`、通用 `verification.*`、direct `node.status-updated` 不得作为兼容权威。
+
+`implementation.started` 建立一个 active attempt 和实现 owner。实现者可以在 `implementing-self-testing` 内反复修改实现、运行冻结合同允许的可见矩阵并记录 attempt-local red/green cycles；这些内部循环不创建新的全局 attempt、不递增 `reworkCount`，也不触发 semantic DAG update。`implementation.candidate-green` 必须绑定同一 active attempt、candidate SHA 和 `issue-orchestration.verified-candidate-receipt.v1`：receipt 必须为 passed、visible matrix 完整、冻结测试路径未被修改、self-test cycles 非空且最后一次为 passed，并带自洽的 `receiptDigest`。
+
+`candidate-green` 不能直接成为 `behavior-green`。必须先由独立 `test-owner` 启动 `independent-verification`，重新运行关键检查并签发 fresh receipt，且 receipt 与事件都绑定同一 candidate SHA；实现者本人、root narration 或旧 reviewer 不能宣告 pass。独立 verifier 拒绝时，`independent-verification.rejected` 必须绑定原 active attempt 或明确的 continuation attempt，只递增一次全局 `reworkCount`，并保留最早 `firstFailure` evidence；后续自测、文档或 cleanup 成功不得覆盖它。
+
+文档 writer 只能在非 UI issue 的 `behavior-green` 或 UI issue 的 `ux-accepted` 后启动；delivery 只能在 `documentation-green` 后启动，关闭还要求 delivery 与 machine cleanup 都已完成。`issue.reopened` 会清除 delivery authority/completion，并标记 semantic DAG/frontier 重新计算。
+
+### Authority 与 fail-closed 边界
+
+- root scheduler（`root-scheduler`）是唯一可调用 ledger append 的 writer；所有 implementer、test owner、UX verifier、documentation writer、machine cleanup verifier、issue reviewer、subagent 都只能返回 receipt/evidence，尝试写 ledger 必须返回 `ledger-writer-role`。
+- DAG creator/updater 只产生 proposal；只有 root 在 remote live snapshot digest 确实变化、proposal 身份匹配且 actor 为 `dag-updater` 时，才能追加 `dag.proposal-accepted`。本地 stage/rework event 不触发 semantic DAG update。
+- `stateRoot` 必须与两个产品仓库、共同工作区和所有 worktree 完全分离；保护根重叠、路径逃逸、祖先 symlink 或 ledger/projection 位于受保护目录时拒绝。ledger path 不能通过 symlink 绕过该边界。
+- terminal 进入必须有合法 category（`externally_blocked`、`resource_failed` 或 `contract_disputed`）和 direct evidence；recovery fingerprint 未变化时不得恢复或重派。cleanup failure 不能释放 lease/slot，也不能覆盖 first failure。
+- group session 与每个 member 独立 replay；group green 不能替代 member 的 contract、independent verification、commit 或 delivery。非法成员顺序、重复 active member、一个 lease 绑定多个 member 均 fail closed。
+
+这些拒绝是合同失败，不应通过重试未变化的 ledger、projection、candidate SHA、remote snapshot 或权限请求绕过。
+
 ## DAG update authority
 
 初始 DAG 只能由使用 `gpt-5.6-sol` / `low` 的 root scheduler 显式启动一次 `gpt-5.6-sol` / `max`、read-only、fresh-context、非 resident 的 one-shot `dag-creator`。后续只有 root scheduler 发现 `remoteSnapshotDigest` 相对上一轮变化，才显式启动同样隔离属性的 one-shot `dag-updater`。没有 digest 变化时 semantic action 为 `none`，即使 execution ledger 有失败或返工事件也不得更新 DAG。
@@ -109,7 +180,7 @@ Acceptance-group delivery 在窗口开始前记录 `preWindowRemoteSnapshotDiges
 
 调用方应保留以下错误码，便于故障定位：`invalid-selector-schema`、`selector-version-parameters-mismatch`、`dag-launch-required`、`dag-launch-denied`、`proposal-mismatch` 和 `delivery-window-invalid`。这些拒绝表示合同不满足，不应通过重试未变化的 selector、snapshot 或 launch request 绕过。
 
-Selector 行为合同位于 `tests/tools/issue-orchestration-scope-selector.test.mjs`，fixture 位于 `tests/fixtures/issue-orchestration/scope-selector-cases.json`，实现入口为 `.agents/skills/issue-orchestration/scripts/scope-selector.mjs`；frontier 行为合同位于 `tests/tools/issue-orchestration-ready-frontier.test.mjs`，实现入口为 `.agents/skills/issue-orchestration/scripts/frontier-compiler.mjs`。修改 selector、snapshot 或 frontier 合同时运行：
+Selector 行为合同位于 `tests/tools/issue-orchestration-scope-selector.test.mjs`，fixture 位于 `tests/fixtures/issue-orchestration/scope-selector-cases.json`，实现入口为 `.agents/skills/issue-orchestration/scripts/scope-selector.mjs`；frontier 行为合同位于 `tests/tools/issue-orchestration-ready-frontier.test.mjs`，实现入口为 `.agents/skills/issue-orchestration/scripts/frontier-compiler.mjs`；event ledger 行为合同位于 `tests/tools/issue-orchestration-event-ledger.test.mjs`，其 acceptance/mutation/runtime fixtures 位于 `tests/fixtures/issue-orchestration/event-ledger-*.json`，实现入口为 `.agents/skills/issue-orchestration/scripts/event-ledger.mjs`。修改 selector、snapshot、frontier 或 ledger 合同时运行：
 
 ```bash
 node --test tests/tools/issue-orchestration-scope-selector.test.mjs

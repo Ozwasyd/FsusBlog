@@ -394,10 +394,19 @@ function validateNodesAndGroups(dag, snapshot, repositoryNames, liveFacts) {
         'investigated',
         'ready',
         'implementing',
-        'review',
-        'verifying',
-        'deliverable',
-        'delivered',
+        'test-contracting',
+        'test-contract-frozen',
+        'implementing-self-testing',
+        'candidate-green',
+        'independent-verifying',
+        'behavior-green',
+        'ux-acceptance',
+        'ux-accepted',
+        'documenting',
+        'documentation-green',
+        'delivery-ready',
+        'delivering',
+        'cleaning',
         'closed',
         'terminal'
     ])
@@ -409,6 +418,7 @@ function validateNodesAndGroups(dag, snapshot, repositoryNames, liveFacts) {
         ['hard-to-extreme', 'max']
     ])
     const effortOrder = ['low', 'medium', 'high', 'xhigh', 'max']
+    const invalidStatusNodes = []
 
     for (const node of dag.nodes) {
         requireString(node.id, 'node.id')
@@ -421,7 +431,7 @@ function validateNodesAndGroups(dag, snapshot, repositoryNames, liveFacts) {
         if (node.issueUpdatedAt !== issue.updatedAt || node.commentsFingerprint !== issue.commentsFingerprint) {
             fail('node-remote-mismatch', `DAG node ${node.id} is stale relative to current issue facts.`)
         }
-        if (!allowedStatuses.has(node.status)) fail('node-status', `DAG node ${node.id} has invalid status ${node.status}.`)
+        if (!allowedStatuses.has(node.status)) invalidStatusNodes.push(node)
         requireString(node.ownerRepository, `${node.id}.ownerRepository`)
         if (!repositoryNames.has(node.ownerRepository)) {
             fail('node-owner', `DAG node ${node.id} has unknown owner repository ${node.ownerRepository}.`)
@@ -552,12 +562,16 @@ function validateNodesAndGroups(dag, snapshot, repositoryNames, liveFacts) {
         for (const classified of [...active, ...tombstoneKeys]) {
             if (!dependencyKeys.has(classified)) fail('dependency-unknown', `Node ${node.id} classifies undeclared dependency ${classified}.`)
         }
-        if (node.status === 'ready') {
-            const incomplete = node.activeDependencies.filter((dependency) => !['delivered', 'closed'].includes(nodesById.get(dependency).status))
+        if (node.status === 'ready' || node.status === 'test-contract-frozen') {
+            const incomplete = node.activeDependencies.filter((dependency) => nodesById.get(dependency).status !== 'closed')
             if (incomplete.length > 0) {
                 fail('ready-dependency', `Ready node ${node.id} has incomplete dependencies.`, { incomplete })
             }
         }
+    }
+    if (invalidStatusNodes.length > 0) {
+        const node = invalidStatusNodes[0]
+        fail('node-status', `DAG node ${node.id} has invalid status ${node.status}.`)
     }
     validateAcyclic(nodesById)
 

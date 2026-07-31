@@ -203,6 +203,30 @@ Fix: rebuild frontend assets, confirm Node is available, and ensure the backend 
 
 Relevant logs: backend PublicAOT logs, frontend build logs, `.tmp` or backend data-root logs if configured.
 
+## Issue Orchestration Ledger Or Projection Failure
+
+Symptom: orchestration refuses to dispatch with `ledger-tail-corrupt`, `ledger-hash-chain`, `event-payload-digest`, `event-digest`, `dag-projection-mismatch`, or `ledger-sequence`.
+
+Likely cause: the external JSONL ledger was truncated, reordered, edited, or written with a projection that is ahead of the durable event prefix.
+
+How to verify: preserve the state root and inspect the reported `lastValidSequence`, `lastEventDigest`, `runId`, `baseSha`, and `projectionDigest`. Do not delete, truncate, reorder, or hand-edit a historical event. A correction is a new `ledger.correction-recorded` event referencing the original event ID and digest.
+
+Fix: stop dispatch and ask the root scheduler to run the ledger recovery path. A missing or stale projection is rebuilt by replaying the durable ledger; a projection ahead of the ledger is discarded and rebuilt. A corrupt tail remains fail-closed until the tail is repaired through the normal append/correction procedure. Recovery must report `projection-already-current` when no write is needed and must not repeat an already recorded attempt, delivery, commit, or cleanup side effect.
+
+Relevant evidence: the state-root recovery receipt, the final valid sequence, the projection digest, and the preserved ledger bytes. The ledger must remain outside both product repositories, the shared workspace, and every worktree.
+
+## Issue Orchestration Receipt Or Permission Rejection
+
+Symptom: `candidate-tests-not-green`, `candidate-visible-matrix-incomplete`, `frozen-test-contract-modified`, `independent-verification-not-fresh`, `candidate-identity-mismatch`, `first-failure-mismatch`, `ledger-writer-role`, `state-root-protected-overlap`, or `ledger-path-symlink`.
+
+Likely cause: an implementer receipt is incomplete or stale, an independent verifier is not fresh or is checking a different candidate SHA, a later stage attempted to erase the first failure, or a non-root actor tried to write the ledger/path.
+
+How to verify: compare the receipt's candidate SHA, actor role/identity, frozen test-contract digest, visible-matrix result, self-test cycles, first-failure evidence, and modified-path list with the event payload and current run identity. Confirm that the writer is `root-scheduler` and that the canonical state root has no protected-root overlap or symlink escape.
+
+Fix: keep the same implementation attempt for internal red/green cycles; do not increment global `reworkCount` for those private cycles. Only an independent verification rejection may increment it, exactly once, and it must retain the original failure evidence. Reissue a fresh receipt for the unchanged candidate or return to the explicitly bound continuation attempt. Do not bypass the rejection by writing `behavior-green`, `documentation-green`, or a direct DAG status.
+
+Relevant evidence: the verified candidate receipt, independent verifier receipt, event digest chain, state-root validation result, and the machine rejection code. A rejection caused by unchanged identity, permissions, or evidence is not fixed by retrying the same request.
+
 ## Permission / File Path Issues On Linux, macOS, Or Windows
 
 Symptom: build, upload, AOT cache, logs, or Docker volume writes fail with permission denied or path errors.
