@@ -1,0 +1,107 @@
+{
+  "schema": "issue-orchestration.ready-frontier-test-contract.v2",
+  "phase": "test-contract",
+  "status": "frozen-red-corrective-revision-4",
+  "revision": "corrective-layered-integrity-4",
+  "supersedesTestContractDigest": "c61e9ba9a231e7f2dea43b77df7b02b8869e8234a07fdfd777e0b94c5219699d",
+  "testContractHistory": [
+    {
+      "revision": "corrective-layered-projection-1",
+      "testContractDigest": "0d1a03bf57e6bee57194b35f79e16222c1e5ec6af7311b18310b2c8bac47d976",
+      "frozenTreeDigest": "3f6c0f8baa64fa6fc6efc4807c6ab1a8f0a5ab0f611e3dee3d9400989f4d0250",
+      "manifestRawSha256": "2a4b0e28bbf6fb25b15298bd045530c89045fb85845b8602efc494437a33b9e4",
+      "redSummary": {
+        "tests": 63,
+        "passed": 34,
+        "failed": 29,
+        "exitCode": 1
+      }
+    },
+    {
+      "revision": "corrective-layered-projection-2",
+      "testContractDigest": "f19115196b933b984c6d5107141127380ffa47f6bafbc059b150b1b39b534fb3",
+      "frozenTreeDigest": "3f6c0f8baa64fa6fc6efc4807c6ab1a8f0a5ab0f611e3dee3d9400989f4d0250",
+      "manifestRawSha256": "db18ab564912daae4cec403aa49cb3ac6c5a90ab71df9adbdcdbc4ade0cd88d4",
+      "candidateIdentityDigest": "dcfd8a86f2b6c04a052475e8c95c63efcd42a51c588969179acf2aefef586caf",
+      "greenSummary": {
+        "tests": 63,
+        "passed": 63,
+        "failed": 0,
+        "exitCode": 0
+      }
+    },
+    {
+      "revision": "corrective-layered-authority-3",
+      "testContractDigest": "c61e9ba9a231e7f2dea43b77df7b02b8869e8234a07fdfd777e0b94c5219699d",
+      "frozenTreeDigest": "1b5d7ce3fa3ccb2b50cee04879933bbd65a59dc9a2992b94ffebc27f4b8ac3a6",
+      "manifestRawSha256": "7884a193a3194e10c428b6638a286ac722b3217af6b6544201105e478de6b57b",
+      "candidateManifestDigest": "d4972274a7a2355058bf40d687149f6afce705886f1d47aca5bfba9d92c96379",
+      "greenSummary": {
+        "tests": 64,
+        "passed": 64,
+        "failed": 0,
+        "exitCode": 0
+      }
+    }
+  ],
+  "freshVerifierRejection": {
+    "epoch": "corrective-1",
+    "rejectedReceiptDigest": "58f18e70fcd0e716308ba4554bb6815fdccaec49e44171ed5cfcabc7009155c5",
+    "candidateIdentityDigest": "dcfd8a86f2b6c04a052475e8c95c63efcd42a51c588969179acf2aefef586caf",
+    "firstFailureEvidenceDigest": "451e9961742d23b09fe909be7fa1158749928bcf8c3acbcabfcf8dc76e4252e3",
+    "expectedCode": "investigation-layer-authority"
+  },
+  "revision3FreshVerifierRejection": {
+    "epoch": "corrective-r3",
+    "rejectedReceiptDigest": "cc0b0e8be529cd507b7aec12b64b5a605dda168dcb12823f494cd96bcd06b7f9",
+    "aggregateFailureEvidenceDigest": "0d1626b6ac055d68c94f0d63a5360e188906eae98929b414841f8bff11a82305",
+    "firstFailureEvidenceDigest": "f8ad0a51ce7b6b5d38e318a01d725d35805f3e42aabccd0f5bd5de94fc4449c5",
+    "unexpectedAcceptedMutationCount": 11
+  },
+  "testOwnerId": "test-owner-fsusblog-1816-corrective-18c6003eb5ad",
+  "issueId": "Ozwasyd/FsusBlog#1816",
+  "baseSha": "18c6003eb5ad8697f4b74ac2d42a45e74fe18756",
+  "worktree": "/home/lyuaoss/.local/state/codex/bootstrap-issue-orchestration-repair/cdfdbdbe-d901-4482-bafe-c4ba92c17779/tmp/worktrees/1816-corrective",
+  "branch": "bootstrap-repair/1816-corrective",
+  "allowedTestPaths": [
+    "tests/tools/issue-orchestration-ready-frontier.test.mjs",
+    "tests/fixtures/issue-orchestration/ready-frontier-cases.json",
+    "tests/fixtures/issue-orchestration/ready-frontier-acceptance-map.json",
+    "tests/fixtures/issue-orchestration/ready-frontier-expected-initial-failures.json",
+    "tests/fixtures/issue-orchestration/ready-frontier-runtime-probes.json",
+    "tests/fixtures/issue-orchestration/ready-frontier-mutation-controls.json",
+    "tests/fixtures/issue-orchestration/ready-frontier-test-contract.json"
+  ],
+  "allowedImplementationPaths": [
+    ".agents/skills/issue-orchestration/scripts/frontier-compiler.mjs",
+    ".agents/skills/issue-orchestration/scripts/check-dag-gate.mjs"
+  ],
+  "minimalImplementationPaths": [
+    ".agents/skills/issue-orchestration/scripts/frontier-compiler.mjs",
+    ".agents/skills/issue-orchestration/scripts/check-dag-gate.mjs"
+  ],
+  "forbiddenScopes": [
+    "implementation outside allowedImplementationPaths",
+    "formal documentation",
+    "DAG/bootstrap runtime state",
+    "other issue artifacts",
+    "commit",
+    "push"
+  ],
+  "acceptanceMap": "tests/fixtures/issue-orchestration/ready-frontier-acceptance-map.json",
+  "expectedInitialFailures": "tests/fixtures/issue-orchestration/ready-frontier-expected-initial-failures.json",
+  "runtimeProbes": "tests/fixtures/issue-orchestration/ready-frontier-runtime-probes.json",
+  "mutationControls": "tests/fixtures/issue-orchestration/ready-frontier-mutation-controls.json",
+  "hashAlgorithm": "sha256",
+  "selfHashPolicy": "fileHashes covers raw bytes for every allowedTestPath except this manifest; frozenTreeDigest covers the canonical fileHashes object; testContractDigest covers the canonical manifest with testContractDigest omitted",
+  "fileHashes": {
+    "tests/tools/issue-orchestration-ready-frontier.test.mjs": "78be8054632e52bd8e461865b560aa014ae92345a3d5e1936f2e0cd4b4e31605",
+    "tests/fixtures/issue-orchestration/ready-frontier-cases.json": "82b0b8f8d5755ee54174e2a87fe633c5eeced6de975e371c52255eb12fffcbd3",
+    "tests/fixtures/issue-orchestration/ready-frontier-acceptance-map.json": "e5de609e6b9a3f3d62e0edb588f2c91f1736dd7176be13b616c2b3859a83de28",
+    "tests/fixtures/issue-orchestration/ready-frontier-expected-initial-failures.json": "73bdcb43088c92b65e90fb216f4b2e21bfd3e5b9c96c97649655421794ba46dd",
+    "tests/fixtures/issue-orchestration/ready-frontier-runtime-probes.json": "be4e4389d7ec0f2cd0cd904dd643b8b0db03bae64a2393dee61aa312bce20c0a",
+    "tests/fixtures/issue-orchestration/ready-frontier-mutation-controls.json": "dd6ba0494eb1a74c4df2bf45de9e31ecd9252b5488b0c569e281784bab6626d3"
+  },
+  "frozenTreeDigest": "e5787d45d5deee18d1eab7ebd2b4e1b7ce11fe3cfa66ac6f36de7325ee805601",
+  "testContractDigest": "5de7ca519e9e21e79aeb48c587f2cb98a218a1e42b5b329c3ae647e9984d2908"
+}

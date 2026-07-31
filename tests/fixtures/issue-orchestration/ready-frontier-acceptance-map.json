@@ -1,12 +1,13 @@
 {
-  "schema": "issue-orchestration.ready-frontier-acceptance-map.v1",
+  "schema": "issue-orchestration.ready-frontier-acceptance-map.v2",
   "issue": "Ozwasyd/FsusBlog#1816",
+  "revision": "corrective-layered-integrity-4",
   "acceptance": [
     {
       "id": "AC-01",
-      "requirement": "The same canonical DAG, selector receipt, and runtime facts produce the same eligibility and frontier digests regardless of input order or computedAt.",
+      "requirement": "The same canonical DAG, selector receipt, validated layered investigation projection, and runtime facts produce the same eligibility and frontier digests regardless of input order or computedAt.",
       "tests": ["F01", "F02"],
-      "mutations": ["frontier-digest-forged"]
+      "mutations": ["frontier-digest-forged", "layered-projection-digest-forged", "layer-digest-forged"]
     },
     {
       "id": "AC-02",
@@ -40,15 +41,15 @@
     },
     {
       "id": "AC-07",
-      "requirement": "Discovered members may remain shallow but must expose investigation-incomplete with blocked time and owner identity.",
-      "tests": ["F03"],
+      "requirement": "A validated candidate-ready layered projection may enter only test-contract-ready; shallower phases expose investigation-incomplete with blocked time and owner identity, while later stages require dispatch-investigated.",
+      "tests": ["L01", "L02", "F03"],
       "mutations": []
     },
     {
       "id": "AC-08",
-      "requirement": "Selector/comment, base, scope, terminal, and role-permission drift invalidate old eligibility input digests.",
+      "requirement": "Selector/comment, base, scope, layered freshness/digest, terminal, and role-permission drift invalidate old eligibility input digests.",
       "tests": ["F08"],
-      "mutations": ["remote-comment-drift", "base-sha-drift", "selector-member-omitted", "terminal-fingerprint-changed", "candidate-permission-drift"]
+      "mutations": ["remote-comment-drift", "base-sha-drift", "selector-member-omitted", "terminal-fingerprint-changed", "candidate-permission-drift", "layered-selector-drift", "layered-freshness-stale", "layered-member-fact-drift", "dispatch-investigation-base-drift"]
     },
     {
       "id": "AC-09",
@@ -121,6 +122,54 @@
       "requirement": "Ineligible grouping falls back to per-issue dispatch and cannot serialize independent low-conflict members.",
       "tests": ["G03"],
       "mutations": ["group-serializes-independent-members"]
+    },
+    {
+      "id": "LAYER-01",
+      "requirement": "The #1816 fixture and production compiler consume one validated discovery/classification/dispatch investigation projection and never node.investigation.",
+      "tests": ["L01", "L02", "B01"],
+      "mutations": ["unvalidated-layered-projection", "legacy-node-investigation-accepted"]
+    },
+    {
+      "id": "LAYER-02",
+      "requirement": "Projection and layer digests are recomputed and bound to the selected member facts; arbitrary 64-hex values are not authority.",
+      "tests": ["L01"],
+      "mutations": ["layered-projection-digest-forged", "layered-member-fact-drift", "layer-digest-forged"]
+    },
+    {
+      "id": "TRUST-01",
+      "requirement": "Discovery and classification authoredBy facts exactly bind role=dag-creator-updater, model=gpt-5.6-sol, effort=max, sandboxMode=read-only, freshContext=true authority; dispatch investigation exactly binds the frozen Sol/max write-tests-only test owner and testOwnerId.",
+      "tests": ["L01", "TRUST-01"],
+      "mutations": ["root-authored-discovery-facts", "root-authored-classification-facts", "root-authored-dispatch-investigation", "layer-authority-runtime-policy-drift"]
+    },
+    {
+      "id": "TRUST-02",
+      "requirement": "Discovery and classification bind the exact non-root DAG actor identity and the same actorId across both semantic layers; dispatch binds the frozen contract testOwnerId rather than trusting a self-consistent replacement identity.",
+      "tests": ["TRUST-02"],
+      "mutations": ["discovery-root-like-actor-id", "classification-root-like-actor-id", "semantic-layer-actor-continuity-drift", "dispatch-owner-substitution"]
+    },
+    {
+      "id": "LAYER-03",
+      "requirement": "Every discovery layer independently binds its exact schema, complete status, and recomputed inputDigest; re-signing the outer layer digest cannot authorize changed envelope or source inputs.",
+      "tests": ["LAYER-03"],
+      "mutations": ["discovery-schema-resigned", "discovery-status-incomplete-resigned", "discovery-input-digest-resigned"]
+    },
+    {
+      "id": "LAYER-04",
+      "requirement": "The validated projection binds its exact schema, exact machine read-only validation actor, one projection member per DAG member, and testOwnerCandidates/implementationReady recomputed from member phases.",
+      "tests": ["LAYER-04"],
+      "mutations": ["projection-schema-resigned", "validation-root-authored-resigned", "projection-duplicate-member-resigned", "projection-derived-lists-forged"]
+    },
+    {
+      "id": "BIND-01",
+      "requirement": "check-dag-gate passes the validated layered investigation projection into frontier validation; importing or storing it without consumption is insufficient.",
+      "tests": ["B01"],
+      "mutations": ["layered-projection-binding-removed"]
+    },
+    {
+      "id": "COMPAT-01",
+      "requirement": "Production dot or bracket reads of node.investigation and any compatibility fallback are forbidden; legacy input is rejected rather than replayed as dispatch authority.",
+      "tests": ["B01"],
+      "mutations": ["legacy-property-fallback-present", "legacy-node-investigation-accepted"]
     }
   ]
 }

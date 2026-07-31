@@ -163,7 +163,206 @@ function dependencySatisfied(dependency) {
         && /^[a-f0-9]{40}$/u.test(dependency.deliveredCommit ?? '')
 }
 
-export function computeNodeEligibility({ node, dag, runtimeState, selectorReceipt }) {
+function without(record, ...keys) {
+    return Object.fromEntries(
+        Object.entries(record ?? {}).filter(([key]) => !keys.includes(key))
+    )
+}
+
+function validateLayerDigest(record) {
+    return record?.digest === digest(without(record, 'digest'))
+}
+
+function validateSemanticActor(record) {
+    const actor = record?.authoredBy
+    return actor?.role === 'dag-creator-updater'
+        && typeof actor.actorId === 'string'
+        && actor.actorId.length > 0
+        && actor.model === 'gpt-5.6-sol'
+        && actor.effort === 'max'
+        && actor.sandboxMode === 'read-only'
+        && actor.freshContext === true
+        && actor.proposalOnly === true
+}
+
+function validateTestOwnerActor(record) {
+    const actor = record?.authoredBy
+    return actor?.role === 'test-owner'
+        && typeof actor.actorId === 'string'
+        && actor.actorId.length > 0
+        && actor.model === 'gpt-5.6-sol'
+        && actor.effort === 'max'
+        && actor.mode === 'write-tests-only'
+        && record.testOwnerId === actor.actorId
+}
+
+function validateInvestigationProjection({
+    dag,
+    runtimeState,
+    selectorReceipt,
+    investigationProjection
+}) {
+    if ((dag.nodes ?? []).some((node) =>
+        Object.prototype.hasOwnProperty.call(node, 'investigation')
+    )) {
+        fail('legacy-investigation-schema-forbidden', 'Legacy investigation authority is forbidden.')
+    }
+    if (!investigationProjection?.validation
+        || investigationProjection.validation.status !== 'passed') {
+        fail('investigation-projection-unvalidated', 'Investigation projection is unvalidated.')
+    }
+    if (investigationProjection.schema !== 'issue-orchestration.investigation-projection.v1') {
+        fail('investigation-projection-schema', 'Investigation projection schema is unsupported.')
+    }
+    const validation = investigationProjection.validation
+    if (validation.schema !== 'issue-orchestration.investigation-validation-receipt.v1'
+        || validation.validator?.role !== 'layered-investigation-validator'
+        || validation.validator?.model !== 'machine'
+        || validation.validator?.mode !== 'read-only') {
+        fail('investigation-validation-authority', 'Investigation validation authority is invalid.')
+    }
+    const projectionNodes = investigationProjection.nodes ?? []
+    if (new Set(projectionNodes.map(({ issueId }) => issueId)).size
+        !== projectionNodes.length) {
+        fail('investigation-projection-member-duplicate', 'Projection repeats a member.')
+    }
+    const expectedTestOwnerCandidates = projectionNodes
+        .filter(({ phase }) => phase === 'candidate-ready')
+        .map(({ issueId }) => ({ issueId, stage: 'test-contract-ready' }))
+    const expectedImplementationReady = projectionNodes
+        .filter(({ phase }) => phase === 'dispatch-investigated')
+        .map(({ issueId }) => ({ issueId, stage: 'implementation-ready' }))
+    if (JSON.stringify(canonical(investigationProjection.testOwnerCandidates))
+            !== JSON.stringify(canonical(expectedTestOwnerCandidates))
+        || JSON.stringify(canonical(investigationProjection.implementationReady))
+            !== JSON.stringify(canonical(expectedImplementationReady))) {
+        fail(
+            'investigation-projection-derived-list-mismatch',
+            'Projection derived candidate lists do not match member phases.'
+        )
+    }
+    const projectionBody = without(investigationProjection, 'validation', 'projectionDigest')
+    if (investigationProjection.projectionDigest !== digest(projectionBody)
+        || investigationProjection.inputDigest !== digest({
+            selectorReceiptDigest: investigationProjection.selectorReceiptDigest,
+            remoteSnapshotDigest: investigationProjection.remoteSnapshotDigest,
+            nodes: investigationProjection.nodes
+        })) {
+        fail('investigation-projection-digest-mismatch', 'Investigation projection digest mismatch.')
+    }
+    if (validation.receiptDigest !== digest(without(validation, 'receiptDigest'))
+        || validation.projectionDigest !== investigationProjection.projectionDigest
+        || validation.projectionInputDigest !== investigationProjection.inputDigest) {
+        fail('investigation-projection-digest-mismatch', 'Validation receipt binding mismatch.')
+    }
+    if (investigationProjection.selectorReceiptDigest !== selectorReceipt.receiptDigest
+        || validation.selectorReceiptDigest !== selectorReceipt.receiptDigest
+        || investigationProjection.remoteSnapshotDigest !== selectorReceipt.remoteSnapshotDigest
+        || validation.remoteSnapshotDigest !== selectorReceipt.remoteSnapshotDigest) {
+        fail('selector-receipt-mismatch', 'Investigation projection is selector-stale.')
+    }
+    const freshness = validation.freshness
+    if (freshness?.status !== 'current'
+        || freshness.selectorReceiptDigest !== selectorReceipt.receiptDigest
+        || freshness.remoteSnapshotDigest !== selectorReceipt.remoteSnapshotDigest) {
+        fail('investigation-projection-stale', 'Investigation projection is not current.')
+    }
+
+    const projectedById = new Map(
+        (investigationProjection.nodes ?? []).map((entry) => [entry.issueId, entry])
+    )
+    if (projectedById.size !== (dag.nodes ?? []).length) {
+        fail('investigation-projection-digest-mismatch', 'Projection node coverage is incomplete.')
+    }
+    for (const node of dag.nodes ?? []) {
+        const discovery = node.discoveryFacts
+        const classification = node.classificationFacts
+        const dispatch = node.dispatchInvestigation
+        if (discovery?.schema !== 'issue-orchestration.discovery-facts.v1'
+            || classification?.schema !== 'issue-orchestration.classification-facts.v1'
+            || (dispatch && dispatch.schema !== 'issue-orchestration.dispatch-investigation.v1')) {
+            fail('investigation-layer-schema', `Layer schema mismatch for ${node.id}.`)
+        }
+        if (discovery.status !== 'complete'
+            || classification.status !== 'complete'
+            || (dispatch && dispatch.status !== 'complete')) {
+            fail('investigation-layer-status', `Layer status mismatch for ${node.id}.`)
+        }
+        if (!validateLayerDigest(discovery) || !validateLayerDigest(classification)
+            || (dispatch && !validateLayerDigest(dispatch))) {
+            fail('investigation-layer-digest-mismatch', `Layer digest mismatch for ${node.id}.`)
+        }
+        if (!validateSemanticActor(discovery)
+            || !validateSemanticActor(classification)
+            || discovery.authoredBy.actorId.startsWith('root-scheduler')
+            || classification.authoredBy.actorId.startsWith('root-scheduler')
+            || discovery.authoredBy.actorId !== classification.authoredBy.actorId
+            || (dispatch && (
+                !validateTestOwnerActor(dispatch)
+                || dispatch.testOwnerId
+                    !== runtimeState.nodeStates?.[node.id]?.receipts?.testContract?.testOwnerId
+            ))) {
+            fail('investigation-layer-authority', `Invalid layered authority for ${node.id}.`)
+        }
+        const expectedDiscoveryInputDigest = digest({
+            selectorDigest: selectorReceipt.selectorDigest,
+            issueId: node.id,
+            memberRemoteFactDigest: selectorReceipt.remoteFactDigests?.[node.id]
+        })
+        if (discovery.inputDigest !== expectedDiscoveryInputDigest) {
+            fail(
+                'investigation-layer-input-digest-mismatch',
+                `Discovery input digest mismatch for ${node.id}.`
+            )
+        }
+        if (classification.discoveryFactsDigest !== discovery.digest
+            || (dispatch && dispatch.classificationFactsDigest !== classification.digest)) {
+            fail('investigation-layer-digest-mismatch', `Layer chain mismatch for ${node.id}.`)
+        }
+        if (discovery.selectorReceiptDigest !== selectorReceipt.receiptDigest
+            || (dispatch && dispatch.selectorReceiptDigest !== selectorReceipt.receiptDigest)) {
+            fail('selector-receipt-mismatch', `Selector binding mismatch for ${node.id}.`)
+        }
+        const remoteDigest = selectorReceipt.remoteFactDigests?.[node.id]
+        if (discovery.memberRemoteFactDigest !== remoteDigest
+            || freshness.memberRemoteFactDigests?.[node.id] !== remoteDigest
+            || (dispatch && dispatch.memberRemoteFactDigest !== remoteDigest)) {
+            fail('issue-facts-stale', `Issue facts are stale for ${node.id}.`)
+        }
+        if (dispatch && dispatch.baseSha !== node.baseSha) {
+            fail('base-drift', `Dispatch investigation base drift for ${node.id}.`)
+        }
+        const phase = dispatch?.status === 'complete'
+            ? 'dispatch-investigated'
+            : classification.candidateReady
+                ? 'candidate-ready'
+                : 'dependency-classified'
+        const expected = {
+            issueId: node.id,
+            phase,
+            discoveryFactsDigest: discovery.digest,
+            classificationFactsDigest: classification.digest,
+            dispatchInvestigationDigest: dispatch?.digest ?? null,
+            selectorReceiptDigest: discovery.selectorReceiptDigest,
+            memberRemoteFactDigest: discovery.memberRemoteFactDigest,
+            baseSha: dispatch?.baseSha ?? node.baseSha,
+            blockedSince: classification.blockedSince ?? dispatch?.blockedSince ?? null,
+            blockerOwner: classification.blockerOwner ?? dispatch?.blockerOwner ?? null
+        }
+        if (JSON.stringify(canonical(projectedById.get(node.id)))
+            !== JSON.stringify(canonical(expected))) {
+            fail('investigation-projection-digest-mismatch', `Projection binding mismatch for ${node.id}.`)
+        }
+    }
+}
+
+export function computeNodeEligibility({
+    node,
+    dag,
+    runtimeState,
+    selectorReceipt,
+    investigationProjection
+}) {
     const state = runtimeState.nodeStates?.[node.id] ?? { receipts: {}, terminal: null }
     const stage = stageFor(node, state)
     if (!stage) return { issueId: node.id, stage: null, ready: false, reasons: [] }
@@ -182,12 +381,19 @@ export function computeNodeEligibility({ node, dag, runtimeState, selectorReceip
             )
         })
     }
-    if (node.investigation?.status !== 'complete') {
+    const investigationPhase = investigationProjection?.nodes?.find(
+        ({ issueId }) => issueId === node.id
+    )?.phase
+    const investigationComplete = stage === 'test-contract-ready'
+        ? investigationPhase === 'candidate-ready'
+            || investigationPhase === 'dispatch-investigated'
+        : investigationPhase === 'dispatch-investigated'
+    if (!investigationComplete) {
         reasons.push({
             code: 'investigation-incomplete',
             evidence: evidence(
-                node.investigation?.ownerId ?? node.id,
-                node.investigation ?? null
+                node.id,
+                { phase: investigationPhase ?? null, requiredStage: stage }
             )
         })
     }
@@ -273,9 +479,10 @@ export function computeNodeEligibility({ node, dag, runtimeState, selectorReceip
     return { issueId: node.id, stage, ready: reasons.length === 0, reasons }
 }
 
-function eligibilityInputs({ dag, runtimeState, selectorReceipt }) {
+function eligibilityInputs({ dag, runtimeState, selectorReceipt, investigationProjection }) {
     return {
         selectorReceipt,
+        investigationProjection,
         dag: {
             schema: dag.schema,
             selectorReceiptDigest: dag.selectorReceiptDigest,
@@ -293,6 +500,7 @@ export function compileReadyFrontier({
     dag,
     runtimeState,
     selectorReceipt,
+    investigationProjection,
     computedAt = new Date().toISOString()
 }) {
     const selected = [...(selectorReceipt.resolvedIssueSet ?? [])].sort()
@@ -300,8 +508,20 @@ export function compileReadyFrontier({
     if (JSON.stringify(selected) !== JSON.stringify(nodes.map(({ id }) => id).sort())) {
         fail('frontier-scope-incomplete', 'DAG nodes do not exactly cover the selector receipt.')
     }
+    validateInvestigationProjection({
+        dag,
+        runtimeState,
+        selectorReceipt,
+        investigationProjection
+    })
     const outcomes = nodes.map((node) =>
-        computeNodeEligibility({ node, dag, runtimeState, selectorReceipt })
+        computeNodeEligibility({
+            node,
+            dag,
+            runtimeState,
+            selectorReceipt,
+            investigationProjection
+        })
     )
     const readyFrontier = outcomes
         .filter(({ ready }) => ready)
@@ -321,7 +541,7 @@ export function compileReadyFrontier({
             candidateFor(runtimeState, issueId, stage)?.capabilityReceiptDigest
     }))
     const eligibilityInputDigest = digest(
-        eligibilityInputs({ dag, runtimeState, selectorReceipt })
+        eligibilityInputs({ dag, runtimeState, selectorReceipt, investigationProjection })
     )
     const frontierDigest = digest({
         eligibilityInputDigest,
@@ -344,9 +564,15 @@ export function validateReadyFrontier({
     dag,
     runtimeState,
     selectorReceipt,
+    investigationProjection,
     recordedProjection
 }) {
-    const expected = compileReadyFrontier({ dag, runtimeState, selectorReceipt })
+    const expected = compileReadyFrontier({
+        dag,
+        runtimeState,
+        selectorReceipt,
+        investigationProjection
+    })
     if (recordedProjection?.eligibilityInputDigest !== expected.eligibilityInputDigest) {
         return { valid: false, code: 'frontier-input-digest-mismatch' }
     }

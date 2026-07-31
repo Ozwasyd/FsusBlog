@@ -19,18 +19,31 @@ const selectorPath = resolve(
     '.agents/skills/issue-orchestration/scripts/scope-selector.mjs'
 )
 const fixtureRoot = resolve(root, 'tests/fixtures/issue-orchestration')
-const cases = JSON.parse(readFileSync(
-    resolve(fixtureRoot, 'ready-frontier-cases.json'),
-    'utf8'
-))
-const mutationControls = JSON.parse(readFileSync(
-    resolve(fixtureRoot, 'ready-frontier-mutation-controls.json'),
-    'utf8'
-)).controls
-const acceptanceMap = JSON.parse(readFileSync(
-    resolve(fixtureRoot, 'ready-frontier-acceptance-map.json'),
-    'utf8'
-))
+const artifactPaths = {
+    test: 'tests/tools/issue-orchestration-ready-frontier.test.mjs',
+    cases: 'tests/fixtures/issue-orchestration/ready-frontier-cases.json',
+    acceptance:
+        'tests/fixtures/issue-orchestration/ready-frontier-acceptance-map.json',
+    expectedFailures:
+        'tests/fixtures/issue-orchestration/ready-frontier-expected-initial-failures.json',
+    runtimeProbes:
+        'tests/fixtures/issue-orchestration/ready-frontier-runtime-probes.json',
+    mutations:
+        'tests/fixtures/issue-orchestration/ready-frontier-mutation-controls.json',
+    contract:
+        'tests/fixtures/issue-orchestration/ready-frontier-test-contract.json'
+}
+
+function readFixture(path) {
+    return JSON.parse(readFileSync(resolve(root, path), 'utf8'))
+}
+
+const cases = readFixture(artifactPaths.cases)
+const mutationControls = readFixture(artifactPaths.mutations).controls
+const acceptanceMap = readFixture(artifactPaths.acceptance)
+const expectedInitialFailures = readFixture(artifactPaths.expectedFailures)
+const runtimeProbes = readFixture(artifactPaths.runtimeProbes)
+const frozenContract = readFixture(artifactPaths.contract)
 const requiredExports = [
     'computeNodeEligibility',
     'compileReadyFrontier',
@@ -50,21 +63,36 @@ function clone(value) {
     return structuredClone(value)
 }
 
-function digest(value) {
-    const canonical = (input) => {
-        if (Array.isArray(input)) {
-            return input
-                .map(canonical)
-                .sort((left, right) =>
-                    JSON.stringify(left).localeCompare(JSON.stringify(right))
-                )
-        }
-        if (!input || typeof input !== 'object') return input
-        return Object.fromEntries(
-            Object.keys(input).sort().map((key) => [key, canonical(input[key])])
-        )
+function canonical(input) {
+    if (Array.isArray(input)) {
+        return input
+            .map(canonical)
+            .sort((left, right) =>
+                JSON.stringify(left).localeCompare(JSON.stringify(right))
+            )
     }
+    if (!input || typeof input !== 'object') return input
+    return Object.fromEntries(
+        Object.keys(input).sort().map((key) => [key, canonical(input[key])])
+    )
+}
+
+function digest(value) {
     return sha256(JSON.stringify(canonical(value)))
+}
+
+function sha256File(path) {
+    return sha256(readFileSync(resolve(root, path)))
+}
+
+function withDigest(record) {
+    return { ...record, digest: digest(record) }
+}
+
+function redigest(record) {
+    const changed = clone(record)
+    delete changed.digest
+    return withDigest(changed)
 }
 
 async function implementation() {
@@ -132,23 +160,184 @@ function selectorFor(members, version = 'frontier-contract.v1') {
     }
 }
 
-function investigation(issueId) {
-    return {
-        status: 'complete',
-        checkedAt: '2026-08-01T00:00:00.000Z',
-        blockedSince: null,
-        ownerId: `investigator:${issueId}`,
-        codePaths: [
-            '.agents/skills/issue-orchestration/scripts/check-dag-gate.mjs'
-        ],
-        testPaths: [
-            'tests/tools/issue-orchestration-ready-frontier.test.mjs'
-        ],
-        currentDocs: [
-            'docs/development/issue-orchestration-scope.md'
-        ],
-        constraints: ['member issue plus stage is the eligibility grain']
+function layeredActor(role) {
+    if (role === 'test-owner') {
+        return clone(cases.layerAuthorityPolicy.testOwnerDispatchFacts)
     }
+    if (role === 'dag-creator-updater') {
+        return clone(cases.layerAuthorityPolicy.semanticFacts)
+    }
+    throw new Error(`unsupported layered actor role: ${role}`)
+}
+
+function discoveryFacts(member, selectorReceipt) {
+    return withDigest({
+        schema: cases.layeredSchemas.discovery,
+        status: 'complete',
+        authoredBy: layeredActor('dag-creator-updater'),
+        checkedAt: cases.computedAt,
+        inputDigest: digest({
+            selectorDigest: selectorReceipt.selectorDigest,
+            issueId: member.issueId,
+            memberRemoteFactDigest:
+                selectorReceipt.remoteFactDigests[member.issueId]
+        }),
+        issueIdentity: member.issueId,
+        issueState: 'OPEN',
+        explicitDependencyReferences: [...member.dependsOn],
+        scopeMembership: 'selected',
+        candidateRepositoryOwner: member.repository,
+        selectorDigest: selectorReceipt.selectorDigest,
+        selectorReceiptDigest: selectorReceipt.receiptDigest,
+        memberRemoteFactDigest:
+            selectorReceipt.remoteFactDigests[member.issueId]
+    })
+}
+
+function classificationFacts(member, discovery) {
+    return withDigest({
+        schema: cases.layeredSchemas.classification,
+        status: 'complete',
+        authoredBy: layeredActor('dag-creator-updater'),
+        checkedAt: cases.computedAt,
+        inputDigest: digest({
+            discoveryFactsDigest: discovery.digest,
+            activeDependencies: member.dependsOn,
+            candidateOwnerEvidenceDigest: digest({
+                repository: member.repository,
+                roots: ['AGENTS.md']
+            }),
+            requiredInstructionRoots: ['AGENTS.md']
+        }),
+        discoveryFactsDigest: discovery.digest,
+        candidateOwner: member.repository,
+        candidateOwnerEvidenceDigest: digest({
+            repository: member.repository,
+            path: '.agents/skills/issue-orchestration/scripts/frontier-compiler.mjs'
+        }),
+        activeDependencies: [...member.dependsOn],
+        satisfiedDependencies: [],
+        candidateConflictDomains: ['issue-orchestration-frontier'],
+        candidateResourceDomains: [],
+        riskFlags: [],
+        requiredInstructionRoots: ['AGENTS.md'],
+        confidence: 'confirmed',
+        unresolvedDecisions: [],
+        candidateReady: true,
+        blockedSince: null,
+        blockerOwner: null
+    })
+}
+
+function pathEvidence(path) {
+    return {
+        path,
+        digest: sha256File(path)
+    }
+}
+
+function sealDispatchInvestigation(record) {
+    const sealed = clone(record)
+    delete sealed.digest
+    sealed.inputDigest = digest({
+        classificationFactsDigest: sealed.classificationFactsDigest,
+        baseSha: sealed.baseSha,
+        worktree: sealed.worktree,
+        deliveryEpoch: sealed.deliveryEpoch,
+        selectorReceiptDigest: sealed.selectorReceiptDigest,
+        memberRemoteFactDigest: sealed.memberRemoteFactDigest,
+        nearestAgentsChain: sealed.nearestAgentsChain,
+        codePaths: sealed.codePaths,
+        testPaths: sealed.testPaths,
+        currentDocs: sealed.currentDocs,
+        implementationDecision: sealed.implementationDecision,
+        acceptanceMap: sealed.acceptanceMap,
+        runtimeProbes: sealed.runtimeProbes,
+        mutationControls: sealed.mutationControls
+    })
+    return withDigest(sealed)
+}
+
+function dispatchInvestigation(node, selectorReceipt) {
+    const record = {
+        schema: cases.layeredSchemas.dispatch,
+        status: 'complete',
+        authoredBy: layeredActor('test-owner'),
+        testOwnerId: frozenContract.testOwnerId,
+        checkedAt: cases.computedAt,
+        blockedSince: null,
+        blockerOwner: null,
+        baseSha: node.baseSha,
+        worktree: frozenContract.worktree,
+        deliveryEpoch: cases.deliveryEpoch,
+        selectorReceiptDigest: selectorReceipt.receiptDigest,
+        memberRemoteFactDigest:
+            selectorReceipt.remoteFactDigests[node.id],
+        classificationFactsDigest: node.classificationFacts.digest,
+        nearestAgentsChain: [pathEvidence('AGENTS.md')],
+        confirmedOwner: node.ownerRepository,
+        allowedTestPaths: [...node.allowedTestPaths],
+        allowedImplementationPaths: [...node.allowedImplementationPaths],
+        forbiddenPaths: [
+            'src/backend/**',
+            'src/frontend/**',
+            'docs/**',
+            'DAG/bootstrap runtime state'
+        ],
+        codePaths: [
+            pathEvidence(
+                '.agents/skills/issue-orchestration/scripts/frontier-compiler.mjs'
+            ),
+            pathEvidence(
+                '.agents/skills/issue-orchestration/scripts/check-dag-gate.mjs'
+            )
+        ],
+        testPaths: [pathEvidence(artifactPaths.test)],
+        currentDocs: [
+            pathEvidence('docs/development/issue-orchestration-scope.md')
+        ],
+        implementationDecision: {
+            decision:
+                'consume one validated layered investigation projection '
+                + 'without legacy node investigation fallback',
+            noFallback: true
+        },
+        acceptanceGroup: node.acceptanceGroup,
+        acceptanceMap: acceptanceMap.acceptance.map(({ id }) => ({
+            id,
+            issueId: node.id,
+            evidenceRequired: true
+        })),
+        runtimeProbes: {
+            status: 'not-applicable',
+            reasonCode: 'deterministic-local-frontier-runtime'
+        },
+        mutationControls: mutationControls.map(({ id }) => id),
+        promptInputs: {
+            testCommands: [
+                'node --test tests/tools/issue-orchestration-ready-frontier.test.mjs'
+            ],
+            counterexamples: [
+                'legacy node investigation is accepted as dispatch authority',
+                'an unvalidated or stale layered projection enters the frontier',
+                'root-authored layered facts are trusted'
+            ],
+            failureClassification: [
+                'contract-red',
+                'implementation-defect',
+                'environment-unavailable'
+            ],
+            stopConditions: [
+                'do not implement a compatibility fallback'
+            ]
+        },
+        issueSpecificEvidenceDigest: digest({
+            issueId: node.id,
+            classificationFactsDigest: node.classificationFacts.digest,
+            acceptanceGroup: node.acceptanceGroup
+        })
+    }
+    return sealDispatchInvestigation(record)
 }
 
 function nodeFor(member, selectorReceipt) {
@@ -159,7 +348,7 @@ function nodeFor(member, selectorReceipt) {
     const allowedImplementationPaths = member.surface === 'ui-ux'
         ? [`src/components/frontier-${member.issueNumber}.tsx`]
         : [`.agents/runtime/frontier-${member.issueNumber}.mjs`]
-    return {
+    const node = {
         id: member.issueId,
         repository: member.repository,
         issueNumber: member.issueNumber,
@@ -176,12 +365,18 @@ function nodeFor(member, selectorReceipt) {
             allowedImplementationPaths,
             allowedTestPaths
         }),
-        investigation: investigation(member.issueId),
         selectorReceiptDigest: selectorReceipt.receiptDigest,
         remoteFactDigest: selectorReceipt.remoteFactDigests[member.issueId],
         status: 'investigated',
         narration: 'Root-authored prose is deliberately non-authoritative.'
     }
+    node.discoveryFacts = discoveryFacts(member, selectorReceipt)
+    node.classificationFacts = classificationFacts(
+        member,
+        node.discoveryFacts
+    )
+    node.dispatchInvestigation = null
+    return node
 }
 
 function receipt(status = 'passed', extra = {}) {
@@ -311,6 +506,98 @@ function runtimeFor(members) {
     }
 }
 
+function investigationPhase(node) {
+    if (!node.discoveryFacts) return null
+    if (!node.classificationFacts) return 'discovered'
+    if (node.dispatchInvestigation?.status === 'complete') {
+        return 'dispatch-investigated'
+    }
+    return node.classificationFacts.candidateReady
+        ? 'candidate-ready'
+        : 'dependency-classified'
+}
+
+function sealInvestigationProjection(projection, freshness = null) {
+    const sealed = clone(projection)
+    const previousFreshness = freshness ?? sealed.validation?.freshness
+    delete sealed.validation
+    delete sealed.projectionDigest
+    sealed.inputDigest = digest({
+        selectorReceiptDigest: sealed.selectorReceiptDigest,
+        remoteSnapshotDigest: sealed.remoteSnapshotDigest,
+        nodes: sealed.nodes
+    })
+    sealed.projectionDigest = digest(sealed)
+    const validation = {
+        schema: cases.layeredSchemas.validation,
+        status: 'passed',
+        validator: {
+            role: 'layered-investigation-validator',
+            model: 'machine',
+            mode: 'read-only'
+        },
+        selectorReceiptDigest: sealed.selectorReceiptDigest,
+        remoteSnapshotDigest: sealed.remoteSnapshotDigest,
+        projectionInputDigest: sealed.inputDigest,
+        projectionDigest: sealed.projectionDigest,
+        validatedAt: cases.computedAt,
+        freshness: clone(previousFreshness)
+    }
+    validation.receiptDigest = digest(validation)
+    sealed.validation = validation
+    return sealed
+}
+
+function rebuildInvestigationProjection(input) {
+    const nodes = input.dag.nodes.map((node) => ({
+        issueId: node.id,
+        phase: investigationPhase(node),
+        discoveryFactsDigest: node.discoveryFacts?.digest ?? null,
+        classificationFactsDigest: node.classificationFacts?.digest ?? null,
+        dispatchInvestigationDigest:
+            node.dispatchInvestigation?.digest ?? null,
+        selectorReceiptDigest:
+            node.discoveryFacts?.selectorReceiptDigest ?? null,
+        memberRemoteFactDigest:
+            node.discoveryFacts?.memberRemoteFactDigest ?? null,
+        baseSha: node.dispatchInvestigation?.baseSha ?? node.baseSha,
+        blockedSince: node.classificationFacts?.blockedSince
+            ?? node.dispatchInvestigation?.blockedSince
+            ?? null,
+        blockerOwner: node.classificationFacts?.blockerOwner
+            ?? node.dispatchInvestigation?.blockerOwner
+            ?? null
+    })).sort((left, right) => left.issueId.localeCompare(right.issueId))
+    const projection = {
+        schema: cases.layeredSchemas.projection,
+        valid: true,
+        selectorReceiptDigest: input.selectorReceipt.receiptDigest,
+        remoteSnapshotDigest: input.selectorReceipt.remoteSnapshotDigest,
+        nodes,
+        testOwnerCandidates: nodes
+            .filter(({ phase }) => phase === 'candidate-ready')
+            .map(({ issueId }) => ({ issueId, stage: 'test-contract-ready' })),
+        implementationReady: nodes
+            .filter(({ phase }) => phase === 'dispatch-investigated')
+            .map(({ issueId }) => ({ issueId, stage: 'implementation-ready' })),
+        computedAt: cases.computedAt
+    }
+    const freshness = {
+        status: 'current',
+        observedAt: cases.computedAt,
+        selectorReceiptDigest: input.selectorReceipt.receiptDigest,
+        remoteSnapshotDigest: input.selectorReceipt.remoteSnapshotDigest,
+        memberRemoteFactDigests: Object.fromEntries(nodes.map((node) => [
+            node.issueId,
+            node.memberRemoteFactDigest
+        ]))
+    }
+    input.investigationProjection = sealInvestigationProjection(
+        projection,
+        freshness
+    )
+}
+
 async function scenario(
     members = cases.canonicalMembers,
     {
@@ -335,22 +622,22 @@ async function scenario(
     runtimeState.remoteFacts.selectorReceiptDigest = selectorReceipt.receiptDigest
     runtimeState.remoteFacts.remoteSnapshotDigest =
         selectorReceipt.remoteSnapshotDigest
-    const uiMember = members.find(({ surface }) => surface === 'ui-ux')
-    if (uiMember) {
-        runtimeState.nodeStates[uiMember.issueId].receipts.testContract =
-            receipt('passed', {
-                testOwnerId: 'test-owner-ui',
-                testContractDigest: 'c'.repeat(64)
-            })
-    }
-    return {
+    const input = {
         dag,
         members: clone(members),
         remoteIssues: clone(remoteIssues),
         runtimeState,
         selector: clone(selector),
-        selectorReceipt
+        selectorReceipt,
+        investigationProjection: null
     }
+    const uiMember = members.find(({ surface }) => surface === 'ui-ux')
+    if (uiMember) {
+        setProgress(input, uiMember.issueId, ['testContract'])
+    } else {
+        rebuildInvestigationProjection(input)
+    }
+    return input
 }
 
 async function compile(input, computedAt = cases.computedAt) {
@@ -359,6 +646,7 @@ async function compile(input, computedAt = cases.computedAt) {
         dag: clone(input.dag),
         runtimeState: clone(input.runtimeState),
         selectorReceipt: clone(input.selectorReceipt),
+        investigationProjection: clone(input.investigationProjection),
         computedAt
     })
 }
@@ -418,6 +706,7 @@ async function validateFrontier(input, recordedProjection) {
         dag: clone(input.dag),
         runtimeState: clone(input.runtimeState),
         selectorReceipt: clone(input.selectorReceipt),
+        investigationProjection: clone(input.investigationProjection),
         recordedProjection: clone(recordedProjection)
     })
 }
@@ -451,20 +740,398 @@ function independentMembers(count, repository = 'Ozwasyd/FsusBlog') {
     }))
 }
 
-function setProgress(runtimeState, issueId, completedReceipts) {
+function setProgress(input, issueId, completedReceipts) {
     const receipts = {}
     for (const name of completedReceipts) {
         receipts[name] = receipt('passed', {
-            testOwnerId: name === 'testContract' ? 'test-owner-1' : undefined,
+            testOwnerId: name === 'testContract'
+                ? frozenContract.testOwnerId
+                : undefined,
             testContractDigest: name === 'testContract' ? 'd'.repeat(64) : undefined,
             candidateDigest: name === 'implementation' ? 'e'.repeat(64) : undefined
         })
     }
-    runtimeState.nodeStates[issueId].receipts = receipts
+    input.runtimeState.nodeStates[issueId].receipts = receipts
+    const node = input.dag.nodes.find(({ id }) => id === issueId)
+    if (completedReceipts.includes('testContract')) {
+        node.dispatchInvestigation = dispatchInvestigation(
+            node,
+            input.selectorReceipt
+        )
+    } else {
+        node.dispatchInvestigation = null
+    }
+    rebuildInvestigationProjection(input)
 }
 
-test('contract fixtures cover every acceptance and mutation identity', () => {
-    assert.equal(cases.schema, 'issue-orchestration.ready-frontier-cases.v1')
+function markInvestigationIncomplete(input, node) {
+    node.classificationFacts.candidateReady = false
+    node.classificationFacts.confidence = 'unresolved'
+    node.classificationFacts.unresolvedDecisions = ['test-boundary']
+    node.classificationFacts.blockedSince = '2026-07-31T23:00:00.000Z'
+    node.classificationFacts.blockerOwner = frozenContract.testOwnerId
+    node.classificationFacts = redigest(node.classificationFacts)
+    node.dispatchInvestigation = null
+    rebuildInvestigationProjection(input)
+}
+
+function resealSemanticAuthority(input, node) {
+    node.discoveryFacts = redigest(node.discoveryFacts)
+    node.classificationFacts.discoveryFactsDigest =
+        node.discoveryFacts.digest
+    node.classificationFacts = redigest(node.classificationFacts)
+    if (node.dispatchInvestigation) {
+        node.dispatchInvestigation.classificationFactsDigest =
+            node.classificationFacts.digest
+        node.dispatchInvestigation = sealDispatchInvestigation(
+            node.dispatchInvestigation
+        )
+    }
+    rebuildInvestigationProjection(input)
+}
+
+function replaceSemanticLayerActors(input, actor) {
+    const node = input.dag.nodes[0]
+    node.discoveryFacts.authoredBy = clone(actor)
+    node.classificationFacts.authoredBy = clone(actor)
+    resealSemanticAuthority(input, node)
+}
+
+function driftSemanticLayerAuthority(input, layer, field, value) {
+    const node = input.dag.nodes[0]
+    node[layer].authoredBy[field] = value
+    resealSemanticAuthority(input, node)
+}
+
+function driftTestOwnerAuthority(input, field, value) {
+    const node = input.dag.nodes[0]
+    if (field === 'testOwnerId') {
+        node.dispatchInvestigation.testOwnerId = value
+    } else {
+        node.dispatchInvestigation.authoredBy[field] = value
+    }
+    node.dispatchInvestigation = sealDispatchInvestigation(
+        node.dispatchInvestigation
+    )
+    rebuildInvestigationProjection(input)
+}
+
+async function assertLayerAuthorityRuntimePolicy(expectedCode) {
+    const rejectionProbe = runtimeProbes.freshVerifierRejectionProbe
+    const mutation = rejectionProbe.mutation
+    assert.equal(mutation.expectedCode, expectedCode)
+    assert.equal(
+        rejectionProbe.rejectedReceiptDigest,
+        '58f18e70fcd0e716308ba4554bb6815fdccaec49e44171ed5cfcabc7009155c5'
+    )
+    assert.equal(
+        rejectionProbe.candidateIdentityDigest,
+        'dcfd8a86f2b6c04a052475e8c95c63efcd42a51c588969179acf2aefef586caf'
+    )
+    assert.equal(
+        rejectionProbe.firstFailureEvidenceDigest,
+        '451e9961742d23b09fe909be7fa1158749928bcf8c3acbcabfcf8dc76e4252e3'
+    )
+
+    const verifierReplay = await scenario(independentMembers(1))
+    replaceSemanticLayerActors(verifierReplay, {
+        ...mutation.previousRevisionAcceptedActor,
+        [mutation.field]: mutation.to
+    })
+    await expectDenied(
+        () => compile(verifierReplay),
+        expectedCode
+    )
+
+    const semanticDriftValues = {
+        role: 'dag-creator',
+        model: 'gpt-5.6-luna',
+        effort: 'low',
+        sandboxMode: 'workspace-write',
+        freshContext: false
+    }
+    for (const layer of mutation.layers) {
+        for (const field of cases.layerAuthorityPolicy.semanticDriftFields) {
+            const input = await scenario(independentMembers(1))
+            driftSemanticLayerAuthority(
+                input,
+                layer,
+                field,
+                semanticDriftValues[field]
+            )
+            await expectDenied(() => compile(input), expectedCode)
+        }
+    }
+
+    const testOwnerDriftValues = {
+        role: 'root-scheduler',
+        actorId: 'different-test-owner',
+        model: 'gpt-5.6-luna',
+        effort: 'low',
+        mode: 'read-execute-only',
+        testOwnerId: 'different-test-owner'
+    }
+    for (const field of cases.layerAuthorityPolicy.testOwnerDriftFields) {
+        const input = await scenario(independentMembers(1))
+        setProgress(input, input.dag.nodes[0].id, ['testContract'])
+        driftTestOwnerAuthority(input, field, testOwnerDriftValues[field])
+        await expectDenied(() => compile(input), expectedCode)
+    }
+}
+
+async function assertRevision4LayeredIntegrityMutation(control) {
+    const verifierProbe =
+        runtimeProbes.revision3FreshVerifierRejectionProbe
+    const evidence = verifierProbe.mutations.find(
+        ({ id }) => id === control.id
+    )
+    assert.ok(evidence, `missing verifier probe for ${control.id}`)
+    assert.equal(evidence.evidenceDigest, control.verifierEvidenceDigest)
+
+    const input = await scenario(independentMembers(1))
+    const node = input.dag.nodes[0]
+    if (control.id === 'discovery-root-like-actor-id') {
+        node.discoveryFacts.authoredBy.actorId =
+            'root-scheduler:forged'
+        resealSemanticAuthority(input, node)
+    } else if (control.id === 'classification-root-like-actor-id') {
+        node.classificationFacts.authoredBy.actorId =
+            'root-scheduler:forged'
+        resealSemanticAuthority(input, node)
+    } else if (
+        control.id === 'semantic-layer-actor-continuity-drift'
+    ) {
+        node.classificationFacts.authoredBy.actorId =
+            'dag-creator-updater:other'
+        resealSemanticAuthority(input, node)
+    } else if (control.id === 'dispatch-owner-substitution') {
+        setProgress(input, node.id, ['testContract'])
+        node.dispatchInvestigation.authoredBy.actorId =
+            'test-owner-fsusblog-1816-other'
+        node.dispatchInvestigation.testOwnerId =
+            'test-owner-fsusblog-1816-other'
+        node.dispatchInvestigation = sealDispatchInvestigation(
+            node.dispatchInvestigation
+        )
+        rebuildInvestigationProjection(input)
+    } else if (control.id === 'discovery-schema-resigned') {
+        node.discoveryFacts.schema =
+            'issue-orchestration.discovery-facts.v999'
+        resealSemanticAuthority(input, node)
+    } else if (
+        control.id === 'discovery-status-incomplete-resigned'
+    ) {
+        node.discoveryFacts.status = 'incomplete'
+        resealSemanticAuthority(input, node)
+    } else if (control.id === 'discovery-input-digest-resigned') {
+        node.discoveryFacts.inputDigest = 'f'.repeat(64)
+        resealSemanticAuthority(input, node)
+    } else if (control.id === 'validation-root-authored-resigned') {
+        const validation = input.investigationProjection.validation
+        validation.validator = {
+            role: 'root-scheduler',
+            actorId: 'root-scheduler:forged',
+            model: 'gpt-5.6-sol',
+            effort: 'low',
+            mode: 'root-only'
+        }
+        delete validation.receiptDigest
+        validation.receiptDigest = digest(validation)
+    } else {
+        const changed = clone(input.investigationProjection)
+        const freshness = clone(changed.validation.freshness)
+        if (control.id === 'projection-schema-resigned') {
+            changed.schema =
+                'issue-orchestration.investigation-projection.v999'
+        } else if (
+            control.id === 'projection-duplicate-member-resigned'
+        ) {
+            changed.nodes.push(clone(changed.nodes[0]))
+        } else if (
+            control.id === 'projection-derived-lists-forged'
+        ) {
+            changed.testOwnerCandidates = []
+            changed.implementationReady = [{
+                issueId: node.id,
+                stage: 'implementation-ready'
+            }]
+        } else {
+            assert.fail(`unknown revision-4 mutation ${control.id}`)
+        }
+        input.investigationProjection = sealInvestigationProjection(
+            changed,
+            freshness
+        )
+    }
+    await expectDenied(() => compile(input), control.expectedCode)
+}
+
+function inspectProductionLayeredBinding(
+    frontierSource = readFileSync(implementationPath, 'utf8'),
+    gateSource = readFileSync(gatePath, 'utf8')
+) {
+    const legacyRead =
+        /\bnode\s*(?:\.\s*investigation\b|\[\s*['"]investigation['"]\s*\])/u
+    if (legacyRead.test(frontierSource) || legacyRead.test(gateSource)) {
+        return {
+            valid: false,
+            code: 'legacy-investigation-fallback-forbidden'
+        }
+    }
+    if (!/\binvestigationProjection\b/u.test(frontierSource)) {
+        return {
+            valid: false,
+            code: 'layered-projection-consumer-missing'
+        }
+    }
+    if (!/\binvestigationProjection\b/u.test(gateSource)
+        || !/\bvalidateReadyFrontier\s*\(/u.test(gateSource)) {
+        return {
+            valid: false,
+            code: 'layered-projection-binding-missing'
+        }
+    }
+    return { valid: true }
+}
+
+test('frozen corrective contract covers every acceptance, probe, and mutation identity', () => {
+    assert.equal(cases.schema, 'issue-orchestration.ready-frontier-cases.v2')
+    assert.equal(
+        acceptanceMap.schema,
+        'issue-orchestration.ready-frontier-acceptance-map.v2'
+    )
+    assert.equal(
+        expectedInitialFailures.schema,
+        'issue-orchestration.ready-frontier-expected-initial-failures.v2'
+    )
+    assert.equal(
+        runtimeProbes.schema,
+        'issue-orchestration.ready-frontier-runtime-probes.v2'
+    )
+    assert.equal(
+        readFixture(artifactPaths.mutations).schema,
+        'issue-orchestration.ready-frontier-mutation-controls.v2'
+    )
+    assert.equal(
+        frozenContract.schema,
+        'issue-orchestration.ready-frontier-test-contract.v2'
+    )
+    assert.equal(frozenContract.testOwnerId,
+        'test-owner-fsusblog-1816-corrective-18c6003eb5ad')
+    assert.equal(frozenContract.issueId, 'Ozwasyd/FsusBlog#1816')
+    assert.equal(frozenContract.baseSha,
+        '18c6003eb5ad8697f4b74ac2d42a45e74fe18756')
+    for (const artifact of [
+        cases,
+        acceptanceMap,
+        expectedInitialFailures,
+        runtimeProbes,
+        readFixture(artifactPaths.mutations),
+        frozenContract
+    ]) {
+        assert.equal(
+            artifact.revision,
+            'corrective-layered-integrity-4'
+        )
+    }
+    const exactImplementationPaths = [
+        '.agents/skills/issue-orchestration/scripts/frontier-compiler.mjs',
+        '.agents/skills/issue-orchestration/scripts/check-dag-gate.mjs'
+    ]
+    assert.deepEqual(
+        frozenContract.allowedImplementationPaths,
+        exactImplementationPaths
+    )
+    assert.deepEqual(
+        frozenContract.minimalImplementationPaths,
+        exactImplementationPaths
+    )
+    assert.equal(
+        frozenContract.supersedesTestContractDigest,
+        'c61e9ba9a231e7f2dea43b77df7b02b8869e8234a07fdfd777e0b94c5219699d'
+    )
+    assert.deepEqual(
+        frozenContract.testContractHistory.map(
+            ({ testContractDigest }) => testContractDigest
+        ),
+        [
+            '0d1a03bf57e6bee57194b35f79e16222c1e5ec6af7311b18310b2c8bac47d976',
+            'f19115196b933b984c6d5107141127380ffa47f6bafbc059b150b1b39b534fb3',
+            'c61e9ba9a231e7f2dea43b77df7b02b8869e8234a07fdfd777e0b94c5219699d'
+        ]
+    )
+    assert.equal(
+        frozenContract.freshVerifierRejection.rejectedReceiptDigest,
+        '58f18e70fcd0e716308ba4554bb6815fdccaec49e44171ed5cfcabc7009155c5'
+    )
+    assert.equal(
+        frozenContract.freshVerifierRejection.firstFailureEvidenceDigest,
+        '451e9961742d23b09fe909be7fa1158749928bcf8c3acbcabfcf8dc76e4252e3'
+    )
+    assert.equal(
+        frozenContract.revision3FreshVerifierRejection
+            .rejectedReceiptDigest,
+        'cc0b0e8be529cd507b7aec12b64b5a605dda168dcb12823f494cd96bcd06b7f9'
+    )
+    assert.equal(
+        frozenContract.revision3FreshVerifierRejection
+            .aggregateFailureEvidenceDigest,
+        '0d1626b6ac055d68c94f0d63a5360e188906eae98929b414841f8bff11a82305'
+    )
+    assert.deepEqual(cases.layerAuthorityPolicy.semanticFacts, {
+        role: 'dag-creator-updater',
+        actorId: 'dag-creator-updater:frontier-fixture',
+        model: 'gpt-5.6-sol',
+        effort: 'max',
+        sandboxMode: 'read-only',
+        freshContext: true,
+        proposalOnly: true
+    })
+    assert.deepEqual(
+        cases.layerAuthorityPolicy.testOwnerDispatchFacts,
+        {
+            role: 'test-owner',
+            actorId: frozenContract.testOwnerId,
+            model: 'gpt-5.6-sol',
+            effort: 'max',
+            mode: 'write-tests-only'
+        }
+    )
+    assert.deepEqual(
+        cases.layerIntegrityPolicy.validationActor,
+        {
+            role: 'layered-investigation-validator',
+            model: 'machine',
+            mode: 'read-only'
+        }
+    )
+    assert.deepEqual(
+        frozenContract.allowedTestPaths.toSorted(),
+        Object.values(artifactPaths).toSorted()
+    )
+    assert.equal(frozenContract.acceptanceMap, artifactPaths.acceptance)
+    assert.equal(
+        frozenContract.expectedInitialFailures,
+        artifactPaths.expectedFailures
+    )
+    assert.equal(frozenContract.runtimeProbes, artifactPaths.runtimeProbes)
+    assert.equal(frozenContract.mutationControls, artifactPaths.mutations)
+    const observedHashes = Object.fromEntries(
+        Object.values(artifactPaths)
+            .filter((path) => path !== artifactPaths.contract)
+            .map((path) => [path, sha256File(path)])
+    )
+    assert.deepEqual(frozenContract.fileHashes, observedHashes)
+    assert.equal(
+        frozenContract.frozenTreeDigest,
+        digest(observedHashes)
+    )
+    const unsignedContract = clone(frozenContract)
+    delete unsignedContract.testContractDigest
+    assert.equal(
+        frozenContract.testContractDigest,
+        digest(unsignedContract)
+    )
     assert.deepEqual(cases.reasonOrder, [
         'dependency-unsatisfied',
         'investigation-incomplete',
@@ -487,6 +1154,107 @@ test('contract fixtures cover every acceptance and mutation identity', () => {
         [...mapped].sort(),
         mutationControls.map(({ id }) => id).sort()
     )
+    assert.equal(runtimeProbes.oldCorrectBaselineProbe.tests, 48)
+    assert.equal(runtimeProbes.oldCorrectBaselineProbe.passed, 48)
+    assert.equal(runtimeProbes.oldCorrectBaselineProbe.failed, 0)
+    assert.equal(expectedInitialFailures.expectedStatus, 'red')
+    assert.ok(expectedInitialFailures.firstFailure)
+})
+
+test('[L01] canonical fixture is layered-only and carries a validated projection', async () => {
+    const input = await scenario()
+    for (const node of input.dag.nodes) {
+        assert.equal(Object.hasOwn(node, 'investigation'), false)
+        assert.equal(node.discoveryFacts.schema, cases.layeredSchemas.discovery)
+        assert.equal(node.discoveryFacts.status, 'complete')
+        assert.equal(
+            node.discoveryFacts.inputDigest,
+            digest({
+                selectorDigest: node.discoveryFacts.selectorDigest,
+                issueId: node.id,
+                memberRemoteFactDigest:
+                    node.discoveryFacts.memberRemoteFactDigest
+            })
+        )
+        assert.equal(
+            node.classificationFacts.schema,
+            cases.layeredSchemas.classification
+        )
+        assert.deepEqual(
+            node.discoveryFacts.authoredBy,
+            cases.layerAuthorityPolicy.semanticFacts
+        )
+        assert.deepEqual(
+            node.classificationFacts.authoredBy,
+            cases.layerAuthorityPolicy.semanticFacts
+        )
+        if (node.dispatchInvestigation) {
+            assert.deepEqual(
+                node.dispatchInvestigation.authoredBy,
+                cases.layerAuthorityPolicy.testOwnerDispatchFacts
+            )
+            assert.equal(
+                node.dispatchInvestigation.testOwnerId,
+                frozenContract.testOwnerId
+            )
+        }
+        assert.equal(
+            node.discoveryFacts.digest,
+            digest(Object.fromEntries(Object.entries(node.discoveryFacts)
+                .filter(([key]) => key !== 'digest')))
+        )
+        assert.equal(
+            node.classificationFacts.digest,
+            digest(Object.fromEntries(Object.entries(node.classificationFacts)
+                .filter(([key]) => key !== 'digest')))
+        )
+    }
+    assert.equal(
+        input.investigationProjection.schema,
+        cases.layeredSchemas.projection
+    )
+    assert.equal(input.investigationProjection.validation.status, 'passed')
+    assert.deepEqual(
+        input.investigationProjection.validation.validator,
+        cases.layerIntegrityPolicy.validationActor
+    )
+    assert.equal(
+        input.investigationProjection.validation.projectionDigest,
+        input.investigationProjection.projectionDigest
+    )
+    assert.equal(
+        input.investigationProjection.validation.selectorReceiptDigest,
+        input.selectorReceipt.receiptDigest
+    )
+    const projectedIds = input.investigationProjection.nodes.map(
+        ({ issueId }) => issueId
+    )
+    assert.equal(new Set(projectedIds).size, input.dag.nodes.length)
+    assert.equal(projectedIds.length, input.dag.nodes.length)
+    assert.deepEqual(
+        input.investigationProjection.testOwnerCandidates,
+        input.investigationProjection.nodes
+            .filter(({ phase }) => phase === 'candidate-ready')
+            .map(({ issueId }) => ({
+                issueId,
+                stage: 'test-contract-ready'
+            }))
+    )
+    assert.deepEqual(
+        input.investigationProjection.implementationReady,
+        input.investigationProjection.nodes
+            .filter(({ phase }) => phase === 'dispatch-investigated')
+            .map(({ issueId }) => ({
+                issueId,
+                stage: 'implementation-ready'
+            }))
+    )
+})
+
+test('[TRUST-01] MUTATION layer-authority-runtime-policy-drift is killed with investigation-layer-authority', async () => {
+    await assertLayerAuthorityRuntimePolicy(
+        'investigation-layer-authority'
+    )
 })
 
 test('[F01] compiler emits the canonical maximal member-stage projection', async () => {
@@ -507,6 +1275,40 @@ test('[F01] compiler emits the canonical maximal member-stage projection', async
     assert.equal(validation.valid, true)
 })
 
+test('[L02] candidate-ready unlocks only test-contract and later stages require dispatch investigation', async () => {
+    const input = await scenario(independentMembers(1))
+    const issueId = input.dag.nodes[0].id
+    assert.equal(
+        input.investigationProjection.nodes[0].phase,
+        'candidate-ready'
+    )
+    const testContractFrontier = await compile(input)
+    assert.deepEqual(testContractFrontier.readyFrontier, [{
+        issueId,
+        stage: 'test-contract-ready'
+    }])
+
+    setProgress(input, issueId, ['testContract'])
+    assert.equal(
+        input.investigationProjection.nodes[0].phase,
+        'dispatch-investigated'
+    )
+    const implementationFrontier = await compile(input)
+    assert.deepEqual(implementationFrontier.readyFrontier, [{
+        issueId,
+        stage: 'implementation-ready'
+    }])
+
+    input.dag.nodes[0].dispatchInvestigation = null
+    rebuildInvestigationProjection(input)
+    const missingDispatch = await compile(input)
+    assert.deepEqual(missingDispatch.readyFrontier, [])
+    assert.deepEqual(
+        missingDispatch.notReadyReasons[issueId].map(({ code }) => code),
+        ['investigation-incomplete']
+    )
+})
+
 test('[F02] issue, dependency, candidate, and traversal order do not affect digests', async () => {
     const input = await scenario()
     const original = await compile(input, cases.computedAt)
@@ -516,8 +1318,19 @@ test('[F02] issue, dependency, candidate, and traversal order do not affect dige
         node.activeDependencies.reverse()
         node.allowedTestPaths.reverse()
         node.allowedImplementationPaths.reverse()
+        node.discoveryFacts.explicitDependencyReferences.reverse()
+        node.classificationFacts.activeDependencies.reverse()
+        node.classificationFacts.requiredInstructionRoots.reverse()
+        node.dispatchInvestigation?.codePaths.reverse()
+        node.dispatchInvestigation?.testPaths.reverse()
+        node.dispatchInvestigation?.currentDocs.reverse()
+        node.dispatchInvestigation?.acceptanceMap.reverse()
+        node.dispatchInvestigation?.mutationControls.reverse()
     }
     reordered.runtimeState.candidates.reverse()
+    reordered.investigationProjection.nodes.reverse()
+    reordered.investigationProjection.testOwnerCandidates.reverse()
+    reordered.investigationProjection.implementationReady.reverse()
     const replay = await compile(reordered, cases.laterComputedAt)
     assert.deepEqual(replay.readyFrontier, original.readyFrontier)
     assert.deepEqual(replay.notReadyReasons, original.notReadyReasons)
@@ -530,16 +1343,7 @@ test('[F03] all eleven blocker reasons are stable and directly evidence-bound', 
         'dependency-unsatisfied': async () => scenario(),
         'investigation-incomplete': async () => {
             const input = await scenario(independentMembers(1))
-            input.dag.nodes[0].investigation = {
-                status: 'incomplete',
-                checkedAt: cases.computedAt,
-                blockedSince: '2026-07-31T23:00:00.000Z',
-                ownerId: 'investigation-owner-1',
-                codePaths: [],
-                testPaths: [],
-                currentDocs: [],
-                constraints: []
-            }
+            markInvestigationIncomplete(input, input.dag.nodes[0])
             return input
         },
         'owner-unresolved': async () => {
@@ -631,8 +1435,7 @@ test('[F04] multiple blocker reasons follow the frozen canonical reason order', 
     const input = await scenario(independentMembers(1))
     const issueId = input.dag.nodes[0].id
     delete input.dag.nodes[0].ownerRepository
-    input.dag.nodes[0].investigation.status = 'incomplete'
-    input.dag.nodes[0].investigation.blockedSince = '2026-07-31T23:00:00.000Z'
+    markInvestigationIncomplete(input, input.dag.nodes[0])
     input.runtimeState.repositoryBases['Ozwasyd/FsusBlog'] = 'f'.repeat(40)
     input.runtimeState.candidates = []
     input.runtimeState.remoteFacts.fresh = false
@@ -670,8 +1473,7 @@ test('[F05] the validator independently rejects root-edited frontier and reasons
 test('[F06] an empty frontier is proven by complete blocker coverage', async () => {
     const input = await scenario(independentMembers(3))
     for (const node of input.dag.nodes) {
-        node.investigation.status = 'incomplete'
-        node.investigation.blockedSince = '2026-07-31T23:00:00.000Z'
+        markInvestigationIncomplete(input, node)
     }
     const projection = await compile(input)
     assert.deepEqual(projection.readyFrontier, [])
@@ -770,14 +1572,14 @@ test('[S01] non-UI stage progression is deterministic through cleanup', async ()
         [['testContract', 'implementation', 'behavior', 'documentation', 'delivery'], 'cleanup-ready']
     ]
     for (const [receipts, expectedStage] of progression) {
-        setProgress(input.runtimeState, issueId, receipts)
+        setProgress(input, issueId, receipts)
         const projection = await compile(input)
         assert.deepEqual(projection.readyFrontier, [{
             issueId,
             stage: expectedStage
         }])
     }
-    setProgress(input.runtimeState, issueId, [
+    setProgress(input, issueId, [
         'testContract',
         'implementation',
         'behavior',
@@ -799,7 +1601,7 @@ test('[S02] UI behavior green advances only to UX acceptance, then documentation
         dependsOn: []
     }
     const input = await scenario([member])
-    setProgress(input.runtimeState, member.issueId, [
+    setProgress(input, member.issueId, [
         'testContract',
         'implementation',
         'behavior'
@@ -809,7 +1611,7 @@ test('[S02] UI behavior green advances only to UX acceptance, then documentation
         issueId: member.issueId,
         stage: 'ux-acceptance-ready'
     }])
-    setProgress(input.runtimeState, member.issueId, [
+    setProgress(input, member.issueId, [
         'testContract',
         'implementation',
         'behavior',
@@ -825,7 +1627,7 @@ test('[S02] UI behavior green advances only to UX acceptance, then documentation
 test('[S03] local stage progress changes execution frontier without semantic DAG update', async () => {
     const input = await scenario(independentMembers(1))
     const first = await compile(input)
-    setProgress(input.runtimeState, input.dag.nodes[0].id, ['testContract'])
+    setProgress(input, input.dag.nodes[0].id, ['testContract'])
     const second = await compile(input)
     assert.notEqual(second.frontierDigest, first.frontierDigest)
     assert.equal(
@@ -936,7 +1738,7 @@ test('[G01] group ready cannot mask a blocked member', async () => {
 test('[G02] group green cannot advance an individually failed member', async () => {
     const input = await scenario(independentMembers(2))
     const failedId = input.dag.nodes[1].id
-    setProgress(input.runtimeState, failedId, [
+    setProgress(input, failedId, [
         'testContract',
         'implementation'
     ])
@@ -985,13 +1787,175 @@ test('mutation catalog and executable controls are exact-set equal', () => {
             'ready-slots-empty-batch',
             'group-ready-masks-blocked-member',
             'group-green-masks-member-failure',
-            'group-serializes-independent-members'
+            'group-serializes-independent-members',
+            'legacy-node-investigation-accepted',
+            'legacy-property-fallback-present',
+            'layered-projection-binding-removed',
+            'unvalidated-layered-projection',
+            'layered-projection-digest-forged',
+            'layered-selector-drift',
+            'layered-freshness-stale',
+            'layered-member-fact-drift',
+            'root-authored-discovery-facts',
+            'root-authored-classification-facts',
+            'root-authored-dispatch-investigation',
+            'layer-authority-runtime-policy-drift',
+            'discovery-root-like-actor-id',
+            'classification-root-like-actor-id',
+            'semantic-layer-actor-continuity-drift',
+            'dispatch-owner-substitution',
+            'discovery-schema-resigned',
+            'discovery-status-incomplete-resigned',
+            'discovery-input-digest-resigned',
+            'projection-schema-resigned',
+            'validation-root-authored-resigned',
+            'projection-duplicate-member-resigned',
+            'projection-derived-lists-forged',
+            'layer-digest-forged',
+            'dispatch-investigation-base-drift'
         ].sort()
     )
 })
 
-for (const control of mutationControls) {
+for (const control of mutationControls.filter(
+    ({ id }) => id !== 'layer-authority-runtime-policy-drift'
+)) {
     test(`MUTATION ${control.id} is killed with ${control.expectedCode}`, async () => {
+        if (control.surface === 'layered-integrity-r4') {
+            await assertRevision4LayeredIntegrityMutation(control)
+            return
+        }
+
+        if (control.surface === 'integration') {
+            const frontierSource = readFileSync(implementationPath, 'utf8')
+            const gateSource = readFileSync(gatePath, 'utf8')
+            const current = inspectProductionLayeredBinding(
+                frontierSource,
+                gateSource
+            )
+            assert.equal(current.valid, true, current.code)
+            const mutated = control.id === 'legacy-property-fallback-present'
+                ? inspectProductionLayeredBinding(
+                    `${frontierSource}\nnode['investigation']`,
+                    gateSource
+                )
+                : inspectProductionLayeredBinding(
+                    frontierSource,
+                    gateSource.replaceAll(
+                        'investigationProjection',
+                        'projectionBindingRemoved'
+                    )
+                )
+            assert.equal(mutated.valid, false)
+            assert.equal(mutated.code, control.expectedCode)
+            return
+        }
+
+        if (control.surface === 'legacy-input') {
+            const input = await scenario(independentMembers(1))
+            const node = input.dag.nodes[0]
+            delete node.discoveryFacts
+            delete node.classificationFacts
+            delete node.dispatchInvestigation
+            node.investigation = {
+                status: 'complete',
+                checkedAt: cases.computedAt,
+                blockedSince: null,
+                ownerId: 'legacy-investigator',
+                codePaths: [
+                    '.agents/skills/issue-orchestration/scripts/frontier-compiler.mjs'
+                ],
+                testPaths: [artifactPaths.test],
+                currentDocs: [
+                    'docs/development/issue-orchestration-scope.md'
+                ],
+                constraints: ['legacy compatibility is forbidden']
+            }
+            input.investigationProjection = null
+            await expectDenied(() => compile(input), control.expectedCode)
+            return
+        }
+
+        if (control.surface === 'layered-input') {
+            const input = await scenario(independentMembers(1))
+            if (control.id === 'unvalidated-layered-projection') {
+                input.investigationProjection.validation = null
+            } else if (control.id === 'layered-projection-digest-forged') {
+                input.investigationProjection.projectionDigest = 'f'.repeat(64)
+            } else if (control.id === 'layered-selector-drift') {
+                const changed = clone(input.investigationProjection)
+                changed.selectorReceiptDigest = 'f'.repeat(64)
+                const freshness = clone(changed.validation.freshness)
+                freshness.selectorReceiptDigest = 'f'.repeat(64)
+                input.investigationProjection = sealInvestigationProjection(
+                    changed,
+                    freshness
+                )
+            } else if (control.id === 'layered-freshness-stale') {
+                const validation =
+                    input.investigationProjection.validation
+                validation.freshness.status = 'stale'
+                delete validation.receiptDigest
+                validation.receiptDigest = digest(validation)
+            } else if (control.id === 'layered-member-fact-drift') {
+                const changed = clone(input.investigationProjection)
+                changed.nodes[0].memberRemoteFactDigest = 'f'.repeat(64)
+                const freshness = clone(changed.validation.freshness)
+                freshness.memberRemoteFactDigests[
+                    changed.nodes[0].issueId
+                ] = 'f'.repeat(64)
+                input.investigationProjection = sealInvestigationProjection(
+                    changed,
+                    freshness
+                )
+            }
+            await expectDenied(() => compile(input), control.expectedCode)
+            return
+        }
+
+        if (control.surface === 'layered-authority') {
+            const input = await scenario(independentMembers(1))
+            const node = input.dag.nodes[0]
+            const rootActor = {
+                role: 'root-scheduler',
+                actorId: 'root-scheduler-1',
+                model: 'gpt-5.6-sol',
+                effort: 'low',
+                mode: 'root-only'
+            }
+            if (control.id === 'root-authored-discovery-facts') {
+                node.discoveryFacts.authoredBy = rootActor
+                node.discoveryFacts = redigest(node.discoveryFacts)
+                node.classificationFacts.discoveryFactsDigest =
+                    node.discoveryFacts.digest
+                node.classificationFacts = redigest(
+                    node.classificationFacts
+                )
+            } else if (control.id === 'root-authored-classification-facts') {
+                node.classificationFacts.authoredBy = rootActor
+                node.classificationFacts = redigest(
+                    node.classificationFacts
+                )
+            } else if (control.id === 'layer-digest-forged') {
+                node.classificationFacts.digest = 'f'.repeat(64)
+            } else {
+                setProgress(input, node.id, ['testContract'])
+                if (control.id === 'root-authored-dispatch-investigation') {
+                    node.dispatchInvestigation.authoredBy = rootActor
+                } else if (
+                    control.id === 'dispatch-investigation-base-drift'
+                ) {
+                    node.dispatchInvestigation.baseSha = 'f'.repeat(40)
+                }
+                node.dispatchInvestigation = sealDispatchInvestigation(
+                    node.dispatchInvestigation
+                )
+            }
+            rebuildInvestigationProjection(input)
+            await expectDenied(() => compile(input), control.expectedCode)
+            return
+        }
+
         if (control.id === 'selector-member-omitted') {
             const input = await scenario(independentMembers(2))
             input.dag.nodes.pop()
@@ -1047,9 +2011,34 @@ for (const control of mutationControls) {
                 input.runtimeState.nodeStates[input.dag.nodes[0].id]
                     .terminal.observedRecoveryFingerprint = 'changed'
             } else if (control.id === 'remote-comment-drift') {
+                input.selectorReceipt.receiptDigest = 'd'.repeat(64)
                 input.selectorReceipt.remoteFactDigests[input.dag.nodes[0].id] =
                     'f'.repeat(64)
                 input.selectorReceipt.remoteSnapshotDigest = 'e'.repeat(64)
+                input.dag.selectorReceiptDigest =
+                    input.selectorReceipt.receiptDigest
+                input.dag.remoteSnapshotDigest =
+                    input.selectorReceipt.remoteSnapshotDigest
+                input.dag.nodes[0].selectorReceiptDigest =
+                    input.selectorReceipt.receiptDigest
+                input.dag.nodes[0].remoteFactDigest =
+                    input.selectorReceipt.remoteFactDigests[
+                        input.dag.nodes[0].id
+                    ]
+                input.dag.nodes[0].discoveryFacts = discoveryFacts(
+                    input.members[0],
+                    input.selectorReceipt
+                )
+                input.dag.nodes[0].classificationFacts =
+                    classificationFacts(
+                        input.members[0],
+                        input.dag.nodes[0].discoveryFacts
+                    )
+                input.runtimeState.remoteFacts.selectorReceiptDigest =
+                    input.selectorReceipt.receiptDigest
+                input.runtimeState.remoteFacts.remoteSnapshotDigest =
+                    input.selectorReceipt.remoteSnapshotDigest
+                rebuildInvestigationProjection(input)
             }
             await expectDenied(
                 () => validateFrontier(input, projection),
@@ -1101,9 +2090,11 @@ for (const control of mutationControls) {
     })
 }
 
-test('check-dag-gate is the runtime consumer of the compiler validator', async () => {
+test('[B01] gate and compiler bind validated layered projection without legacy authority', async () => {
     await implementation()
     const source = readFileSync(gatePath, 'utf8')
     assert.match(source, /frontier-compiler\.mjs/u)
     assert.match(source, /validateReadyFrontier/u)
+    const binding = inspectProductionLayeredBinding()
+    assert.equal(binding.valid, true, binding.code)
 })

@@ -1,8 +1,74 @@
 {
-  "schema": "issue-orchestration.ready-frontier-cases.v1",
+  "schema": "issue-orchestration.ready-frontier-cases.v2",
   "issue": "Ozwasyd/FsusBlog#1816",
+  "revision": "corrective-layered-integrity-4",
+  "baseSha": "18c6003eb5ad8697f4b74ac2d42a45e74fe18756",
   "computedAt": "2026-08-01T00:00:00.000Z",
   "laterComputedAt": "2026-08-01T00:05:00.000Z",
+  "deliveryEpoch": "bootstrap-repair-1816-corrective-epoch-0",
+  "layeredSchemas": {
+    "projection": "issue-orchestration.investigation-projection.v1",
+    "validation": "issue-orchestration.investigation-validation-receipt.v1",
+    "discovery": "issue-orchestration.discovery-facts.v1",
+    "classification": "issue-orchestration.classification-facts.v1",
+    "dispatch": "issue-orchestration.dispatch-investigation.v1"
+  },
+  "layerAuthorityPolicy": {
+    "semanticFacts": {
+      "role": "dag-creator-updater",
+      "actorId": "dag-creator-updater:frontier-fixture",
+      "model": "gpt-5.6-sol",
+      "effort": "max",
+      "sandboxMode": "read-only",
+      "freshContext": true,
+      "proposalOnly": true
+    },
+    "testOwnerDispatchFacts": {
+      "role": "test-owner",
+      "actorId": "test-owner-fsusblog-1816-corrective-18c6003eb5ad",
+      "model": "gpt-5.6-sol",
+      "effort": "max",
+      "mode": "write-tests-only"
+    },
+    "semanticDriftFields": [
+      "role",
+      "model",
+      "effort",
+      "sandboxMode",
+      "freshContext"
+    ],
+    "testOwnerDriftFields": [
+      "role",
+      "actorId",
+      "model",
+      "effort",
+      "mode",
+      "testOwnerId"
+    ]
+  },
+  "layerIntegrityPolicy": {
+    "discovery": {
+      "schema": "issue-orchestration.discovery-facts.v1",
+      "status": "complete",
+      "inputDigestFields": [
+        "selectorDigest",
+        "issueId",
+        "memberRemoteFactDigest"
+      ]
+    },
+    "projection": {
+      "schema": "issue-orchestration.investigation-projection.v1",
+      "memberIdentity": "issueId",
+      "memberMultiplicity": "exactly-once",
+      "testOwnerCandidatesFromPhase": "candidate-ready",
+      "implementationReadyFromPhase": "dispatch-investigated"
+    },
+    "validationActor": {
+      "role": "layered-investigation-validator",
+      "model": "machine",
+      "mode": "read-only"
+    }
+  },
   "reasonOrder": [
     "dependency-unsatisfied",
     "investigation-incomplete",
@@ -27,7 +93,7 @@
   ],
   "repositories": {
     "Ozwasyd/FsusBlog": {
-      "baseSha": "7f75d2a04d9eeaf65af0b4b0db5a572bdec25150",
+      "baseSha": "18c6003eb5ad8697f4b74ac2d42a45e74fe18756",
       "defaultBranch": "master"
     },
     "Ozwasyd/FsusUI": {
@@ -78,7 +144,7 @@
       "selector receipt and remote snapshot identity",
       "member semantic graph and completed prerequisite identities",
       "repository base identities and modification boundaries",
-      "investigation completeness",
+      "validated layered investigation projection, layer authority, freshness, and digests",
       "stage receipts and terminal fingerprints",
       "active attempts, delivery freezes, and exclusive leases",
       "stage candidate role, actual runtime identity, permissions, and authority digests",

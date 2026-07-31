@@ -227,6 +227,18 @@ Fix: keep the same implementation attempt for internal red/green cycles; do not 
 
 Relevant evidence: the verified candidate receipt, independent verifier receipt, event digest chain, state-root validation result, and the machine rejection code. A rejection caused by unchanged identity, permissions, or evidence is not fixed by retrying the same request.
 
+## Issue Orchestration Layered Investigation Rejection
+
+Symptom: frontier compilation refuses to dispatch with `legacy-investigation-schema-forbidden`, `investigation-projection-unvalidated`, `investigation-projection-schema`, `investigation-validation-authority`, `investigation-projection-member-duplicate`, `investigation-projection-derived-list-mismatch`, `investigation-projection-digest-mismatch`, `selector-receipt-mismatch`, `investigation-projection-stale`, `investigation-layer-schema`, `investigation-layer-status`, `investigation-layer-digest-mismatch`, `investigation-layer-authority`, `investigation-layer-input-digest-mismatch`, or `issue-facts-stale`.
+
+Likely cause: the discovery/classification/dispatch investigation chain is missing, unsigned with the wrong authority, stale against the live selector or remote facts, incomplete for the requested stage, or still carries the retired `node.investigation` authority.
+
+How to verify: preserve the candidate and current state root, then compare every member in `issue-orchestration.investigation-projection.v1` with the current selector receipt. Check the exact validation schema and machine read-only validator, one projection member per DAG node, recomputed layer digests and input digests, the non-root `dag-creator-updater` identity shared by discovery/classification, the frozen `test-owner` identity and `testOwnerId` for dispatch, freshness member digests, and dispatch `baseSha`. Confirm that no production path reads or falls back to `node.investigation`.
+
+Fix: regenerate the layered facts and projection from the current live selector/remote snapshot, re-run the read-only validation, and compile a new frontier. A `candidate-ready` member may enter only `test-contract-ready`; later stages remain blocked with compiler-owned `investigation-incomplete` evidence until `dispatch-investigated` is complete. Do not re-sign an altered envelope, reuse a stale projection, or restore the retired full-investigation field as a compatibility fallback.
+
+Relevant evidence: the layered investigation projection and validation receipt, discovery/classification/dispatch layer digests, selector and remote snapshot digests, freshness member-fact digests, stage blocker evidence, and the current frontier projection. If any identity or digest is unchanged and still rejected, do not retry the same request.
+
 ## Permission / File Path Issues On Linux, macOS, Or Windows
 
 Symptom: build, upload, AOT cache, logs, or Docker volume writes fail with permission denied or path errors.

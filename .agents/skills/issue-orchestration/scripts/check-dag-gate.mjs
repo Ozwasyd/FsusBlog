@@ -470,12 +470,6 @@ function validateNodesAndGroups(dag, snapshot, repositoryNames, liveFacts) {
         if (!Array.isArray(node.dependencyKeys) || !Array.isArray(node.activeDependencies) || !Array.isArray(node.satisfiedDependencies)) {
             fail('node-dependencies', `${node.id} must declare dependencyKeys, activeDependencies, and satisfiedDependencies arrays.`)
         }
-        requireStringArray(node.investigation?.codePaths, `${node.id}.investigation.codePaths`)
-        requireStringArray(node.investigation?.testPaths, `${node.id}.investigation.testPaths`)
-        requireStringArray(node.investigation?.currentDocs, `${node.id}.investigation.currentDocs`)
-        requireStringArray(node.investigation?.constraints, `${node.id}.investigation.constraints`)
-        parseTimestamp(node.investigation?.checkedAt, `${node.id}.investigation.checkedAt`)
-
         if (node.status === 'terminal') {
             if (!['impossible', 'externally_blocked', 'not_applicable'].includes(node.terminalCategory)) {
                 fail('terminal-category', `Terminal node ${node.id} lacks a valid category.`)
@@ -699,6 +693,7 @@ export function checkDagGate({
             dag,
             runtimeState: dag.frontierRuntime,
             selectorReceipt: dag.selectorReceipt,
+            investigationProjection: dag.investigationProjection,
             recordedProjection: dag.frontierProjection
         })
         if (!frontierValidation.valid) {

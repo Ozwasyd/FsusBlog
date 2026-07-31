@@ -1,6 +1,6 @@
 # Issue orchestration scope and remote snapshot
 
-本文件是多 issue 调度中 scope selector、远端 live snapshot 和 DAG 更新触发条件的 current authority。它只约束调度运行态，不改变 FsusBlog 产品 API、数据库、发布或前端运行时。
+本文件是多 issue 调度中 scope selector、远端 live snapshot、分层 investigation projection、frontier 和 DAG 更新触发条件的 current authority。它只约束调度运行态，不改变 FsusBlog 产品 API、数据库、发布或前端运行时。
 
 ## Versioned selector
 
@@ -46,6 +46,24 @@ receiptDigest
 
 每个 resolved issue 的 remote fact 包括 issue identity、state、state reason、updatedAt、title、body、relevant comments、labels 和 milestone。`remoteSnapshotDigest` 同时绑定 selector digest、排序后的 issue set 和这些 remote fact digests；本地 test failure、rework、agent blocker、epoch、slot、lease、worktree、resource 或 cleanup 状态不属于 remote fact。动态 selector 中离开的 issue 进入 `issueHistory`，并带有 `left-selector-scope` disposition 与此前的 snapshot digest。
 
+## Layered investigation projection
+
+Frontier 不再把单个节点上的完整 investigation 记录当作 dispatch authority。DAG 节点必须使用三层、可独立校验的事实链：
+
+```text
+discoveryFacts
+  → classificationFacts
+  → dispatchInvestigation（仅在需要完整 dispatch 调查时存在）
+```
+
+对应的调查阶段是 `discovered → dependency-classified → candidate-ready → dispatch-investigated`。`discoveryFacts` 只承载 issue identity/state、显式依赖、scope membership 和候选 owner；`classificationFacts` 承载 owner evidence、active/satisfied dependencies、conflict/resource domains、risk flags、instruction roots、confidence 与 unresolved decisions；`dispatchInvestigation` 承载 exact base/worktree、AGENTS 链、允许/禁止边界、code/test/current-doc paths、实现决定、acceptance mapping、runtime probes、mutation controls 和完整 prompt inputs。浅层事实不能直接生成 implementer prompt。
+
+各层的 schema 分别是 `issue-orchestration.discovery-facts.v1`、`issue-orchestration.classification-facts.v1` 和 `issue-orchestration.dispatch-investigation.v1`。每层都必须是 `status=complete`、带有自洽的 SHA-256 `digest`，并通过前一层 digest、selector receipt digest 和 member remote-fact digest 串联；dispatch 层还必须绑定节点的 `baseSha`。发现层与分类层由非 root 的 `dag-creator-updater` 以 `gpt-5.6-sol/max`、read-only、fresh-context、proposal-only 身份产生且共享同一 actor identity；dispatch 层由冻结合同中的 `gpt-5.6-sol/max`、`test-owner`、`write-tests-only` 身份产生，并绑定 `testOwnerId`。
+
+三层事实由 `issue-orchestration.investigation-projection.v1` 汇总。projection 必须覆盖 selector receipt 中每个 member 恰好一次，并携带 `selectorReceiptDigest`、`remoteSnapshotDigest`、`inputDigest`、`projectionDigest`、`testOwnerCandidates` 和 `implementationReady`。其 validation 必须使用 `issue-orchestration.investigation-validation-receipt.v1`，由 `layered-investigation-validator` / `machine` / `read-only` 签发，状态为 `passed`，且 freshness 仍绑定当前 selector、remote snapshot 和每个 member 的 remote fact digest。派生列表只能由 member phase 重新计算：`candidate-ready` 只产生 `test-contract-ready`，`dispatch-investigated` 才产生 `implementation-ready`；`dependency-classified` 仍需保留 `investigation-incomplete`。
+
+Projection、validation 和每层事实的 digest 或 selector/freshness 任一漂移都使 frontier 重新计算并 fail closed。旧的 `node.investigation` 属性及任何兼容 fallback 不是 current schema；出现时必须拒绝，不能把旧字段重放为 dispatch authority。
+
 ## Ready frontier 与 stage eligibility
 
 Frontier 的计算粒度是 `member issue + stage`，不是根代理手写的 `status=ready`。编译器接收同一份 DAG、selector receipt 和 frontier runtime，输出 `issue-orchestration.frontier-projection.v1`：
@@ -63,7 +81,7 @@ computedAt
 
 每个 issue 只有一个确定的下一 stage。frontier 的语义 stage 映射到事件账本中的严格链：非 UI 节点按 `test-contracting → test-contract-frozen → implementing-self-testing → candidate-green → independent-verifying → behavior-green → documenting → documentation-green → delivery-ready → delivering → cleaning` 推进，UI/UX 节点在 `behavior-green` 后必须先经过 `ux-acceptance → ux-accepted`，再进入 `documenting`。对应 stage receipt 未通过时，后续 stage 不得进入 frontier；所有 receipt 通过后，该 issue 不再产生 ready 或 not-ready projection。`review`、通用 `verifying`、`deliverable` 和 `delivered` 不是当前 stage 或兼容入口。
 
-编译器至少检查 active dependency/tombstone、investigation 完整度、owner repository、base SHA、selector/remote fact identity、同 stage active attempt、未变化 terminal、候选能力与权限、delivery freeze、exclusive lease 和 remote facts freshness。候选的 role、model、effort、mode、允许路径、UI 所需 design Skill/authority digest 也属于 eligibility input；local stage progress 只重新计算 execution frontier，不触发 semantic DAG update。
+编译器至少检查 active dependency/tombstone、上述 layered investigation projection 的完整度与 freshness、owner repository、base SHA、selector/remote fact identity、同 stage active attempt、未变化 terminal、候选能力与权限、delivery freeze、exclusive lease 和 remote facts freshness。候选的 role、model、effort、mode、允许路径、UI 所需 design Skill/authority digest 也属于 eligibility input；local stage progress 只重新计算 execution frontier，不触发 semantic DAG update。
 
 所有非 ready active member 必须由编译器产生稳定、排序固定的 reason。reason 只能使用以下枚举，并绑定直接 evidence identity 或 digest：
 
