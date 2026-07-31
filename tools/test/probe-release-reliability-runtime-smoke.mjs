@@ -19,6 +19,8 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 const protocolFile = path.join(repositoryRoot, 'src/shared/Contracts/Validation/aeds-protocol.json');
 const routeCatalogFile = 'config/testing/runtime-http-route-contracts.json';
 const runtimeSmokeSchema = 'fsusblog.release-reliability-runtime-smoke.v1';
+const liveTimestampPattern =
+    /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})T(?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2})(?:\.\d{1,7})?(?<offset>Z|[+-](?<offsetHour>\d{2}):(?<offsetMinute>\d{2}))$/u;
 const runtimeRouteContracts = Object.freeze(
     producerRouteIds('runtime-load-soak').map((routeId) => routeContract(routeId))
 );
@@ -124,6 +126,64 @@ async function fetchResponse(baseUrl, relativePath, method, accept, signal)
     return response;
 }
 
+function canonicalizeLiveTimestamp(value)
+{
+    if (typeof value !== 'string' || value.length === 0)
+    {
+        return null;
+    }
+    const groups = liveTimestampPattern.exec(value)?.groups;
+    if (!groups)
+    {
+        return null;
+    }
+    const year = Number(groups.year);
+    const month = Number(groups.month);
+    const day = Number(groups.day);
+    const hour = Number(groups.hour);
+    const minute = Number(groups.minute);
+    const second = Number(groups.second);
+    const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+    const maximumDay = [
+        0,
+        31,
+        leapYear ? 29 : 28,
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31
+    ][month] ?? 0;
+    if (year < 1
+        || month < 1
+        || month > 12
+        || day < 1
+        || day > maximumDay
+        || hour > 23
+        || minute > 59
+        || second > 59)
+    {
+        return null;
+    }
+    if (groups.offset !== 'Z')
+    {
+        const offsetHour = Number(groups.offsetHour);
+        const offsetMinute = Number(groups.offsetMinute);
+        if (offsetHour > 14 || offsetMinute > 59
+            || (offsetHour === 14 && offsetMinute !== 0))
+        {
+            return null;
+        }
+    }
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? new Date(parsed).toISOString() : null;
+}
+
 async function liveStatus(baseUrl, signal)
 {
     const relativePath = '/health/live';
@@ -152,8 +212,9 @@ async function liveStatus(baseUrl, signal)
     {
         throw new Error(`${relativePath} returned invalid JSON`);
     }
+    const checkedAt = canonicalizeLiveTimestamp(body?.checkedAt);
     if (body?.status !== 'live'
-        || !Number.isFinite(Date.parse(String(body?.checkedAt ?? ''))))
+        || checkedAt === null)
     {
         throw new Error(`${relativePath} returned an invalid live report`);
     }
@@ -164,7 +225,7 @@ async function liveStatus(baseUrl, signal)
         contentType,
         bodyBytes: bytes.byteLength,
         reportStatus: body.status,
-        checkedAt: body.checkedAt
+        checkedAt
     };
 }
 

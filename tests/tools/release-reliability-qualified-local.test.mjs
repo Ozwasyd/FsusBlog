@@ -639,6 +639,10 @@ test('qualified runtime smoke validates canonical taxonomy and SEO AEDS header, 
 test('qualified runtime smoke requires live JSON and the exact canonical runtime-load-soak route set', async (context) =>
 {
     const requests = [];
+    const liveBody = JSON.stringify({
+        status: 'live',
+        checkedAt: '2026-07-31T00:04:22.6481393+00:00'
+    });
     const routes = new Map([
         ['/api/binary/system/seo', createAedsFrame(13)],
         ['/api/binary/article/list/home/1/10.aeds', createAedsFrame(1)],
@@ -653,7 +657,7 @@ test('qualified runtime smoke requires live JSON and the exact canonical runtime
         if (request.url === '/health/live')
         {
             response.writeHead(200, { 'content-type': 'application/json' });
-            response.end('{"status":"live","checkedAt":"2026-07-26T20:00:00.000Z"}');
+            response.end(liveBody);
             return;
         }
         const frame = routes.get(request.url);
@@ -685,9 +689,9 @@ test('qualified runtime smoke requires live JSON and the exact canonical runtime
         path: '/health/live',
         status: 200,
         contentType: 'application/json',
-        bodyBytes: 56,
+        bodyBytes: Buffer.byteLength(liveBody),
         reportStatus: 'live',
-        checkedAt: '2026-07-26T20:00:00.000Z'
+        checkedAt: '2026-07-31T00:04:22.648Z'
     });
     assert.deepEqual(
         result.routes.map((route) => ({
@@ -733,6 +737,82 @@ test('qualified runtime smoke requires live JSON and the exact canonical runtime
         '/api/binary/article/hot/5.aeds',
         '/api/binary/article/featured/4.aeds'
     ]);
+});
+
+test('qualified runtime smoke canonicalizes equivalent timestamp forms and rejects invalid live timestamps', async (context) =>
+{
+    const routes = new Map([
+        ['/api/binary/system/seo', createAedsFrame(13)],
+        ['/api/binary/article/list/home/1/10.aeds', createAedsFrame(1)],
+        ['/api/binary/category', createAedsFrame(9)],
+        ['/api/binary/tag', createAedsFrame(10)],
+        ['/api/binary/article/hot/5.aeds', createAedsFrame(3)],
+        ['/api/binary/article/featured/4.aeds', createAedsFrame(15)]
+    ]);
+    let liveContentType = 'application/json';
+    let liveReport = {
+        status: 'live',
+        checkedAt: '2026-07-31T00:04:22.000Z'
+    };
+    const server = http.createServer((request, response) =>
+    {
+        if (request.url === '/health/live')
+        {
+            response.writeHead(200, { 'content-type': liveContentType });
+            response.end(JSON.stringify(liveReport));
+            return;
+        }
+        const frame = routes.get(request.url);
+        if (frame)
+        {
+            response.writeHead(200, {
+                'content-type': 'application/octet-stream',
+                'x-fsus-frame-version': '2'
+            });
+            response.end(frame);
+            return;
+        }
+        response.writeHead(404, { 'content-type': 'application/json' });
+        response.end('{"status":"not_found"}');
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    context.after(() => server.close());
+    const address = server.address();
+    assert.equal(typeof address, 'object');
+    const invoke = () => probeReleaseReliabilityRuntimeSmoke({
+        baseUrl: `http://127.0.0.1:${address.port}/`,
+        timeoutMs: 1000
+    });
+
+    for (const [input, expected] of [
+        ['2026-07-31T00:04:22.000Z', '2026-07-31T00:04:22.000Z'],
+        ['2026-07-31T00:04:22.6481393+00:00', '2026-07-31T00:04:22.648Z'],
+        ['2026-07-31T02:04:22.648+02:00', '2026-07-31T00:04:22.648Z']
+    ])
+    {
+        liveReport = { status: 'live', checkedAt: input };
+        const result = await invoke();
+        assert.equal(result.live.checkedAt, expected);
+    }
+
+    for (const checkedAt of [
+        '',
+        0,
+        null,
+        {},
+        'not-a-timestamp',
+        '2026-02-30T00:00:00.000Z'
+    ])
+    {
+        liveReport = { status: 'live', checkedAt };
+        await assert.rejects(invoke, /returned an invalid live report/u);
+    }
+
+    liveReport = { status: 'ready', checkedAt: '2026-07-31T00:04:22.000Z' };
+    await assert.rejects(invoke, /returned an invalid live report/u);
+    liveReport = { status: 'live', checkedAt: '2026-07-31T00:04:22.000Z' };
+    liveContentType = 'text/plain';
+    await assert.rejects(invoke, /did not return JSON/u);
 });
 
 test('qualified runtime smoke blocks every incomplete taxonomy response', async (context) =>

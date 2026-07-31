@@ -69,7 +69,7 @@ function writeJson(repositoryRoot, relative, value)
     return file;
 }
 
-function smokeObservation()
+function smokeObservation(checkedAt = '2026-07-31T00:04:22.648Z')
 {
     const routes = producerRouteIds('runtime-load-soak').map((routeId) =>
     {
@@ -108,7 +108,7 @@ function smokeObservation()
             contentType: 'application/json',
             bodyBytes: 56,
             reportStatus: 'live',
-            checkedAt: '2026-07-31T00:00:00.000Z'
+            checkedAt
         },
         routes,
         contentDigest: null
@@ -211,7 +211,7 @@ function cleanupOwnership()
     };
 }
 
-function createFixture(context)
+function createFixture(context, options = {})
 {
     const repositoryRoot = fs.mkdtempSync(
         path.join(os.tmpdir(), 'fsusblog-runtime-admission-')
@@ -234,7 +234,11 @@ function createFixture(context)
     });
     writeJson(repositoryRoot, buildPath, build);
     writeJson(repositoryRoot, fixturePath, fixtureAuthority());
-    writeJson(repositoryRoot, smokePath, smokeObservation());
+    writeJson(
+        repositoryRoot,
+        smokePath,
+        smokeObservation(options.smokeCheckedAt)
+    );
     const candidate = createRuntimeAdmissionCandidate({
         repositoryRoot,
         candidatePath,
@@ -253,7 +257,7 @@ function createFixture(context)
         attemptCount: 2,
         elapsedSeconds: 3,
         cleanupOwnership: cleanupOwnership(),
-        createdAt: '2026-07-31T00:00:01.000Z'
+        createdAt: options.createdAt ?? '2026-07-31T00:00:01.000Z'
     }, {
         inspectImage()
         {
@@ -329,6 +333,51 @@ test('runtime admission candidate is independently sealed and ineligible', (cont
         )),
         false
     );
+});
+
+test('runtime admission accepts canonical smoke time while keeping every artifact timestamp strict', async (context) =>
+{
+    const fixture = createFixture(context);
+    assert.equal(
+        fixture.candidate.admission.live.checkedAt,
+        '2026-07-31T00:04:22.648Z'
+    );
+
+    await context.test('noncanonical smoke timestamp', (subtest) =>
+    {
+        assert.throws(
+            () => createFixture(subtest, {
+                smokeCheckedAt: '2026-07-31T00:04:22.6481393+00:00'
+            }),
+            /runtime live evidence is invalid/u
+        );
+    });
+
+    await context.test('noncanonical candidate createdAt', (subtest) =>
+    {
+        assert.throws(
+            () => createFixture(subtest, {
+                createdAt: '2026-07-31T00:00:01+00:00'
+            }),
+            /runtime admission candidate envelope is invalid/u
+        );
+    });
+
+    await context.test('noncanonical receipt finalizedAt', (subtest) =>
+    {
+        const receiptFixture = createFixture(subtest);
+        assert.throws(
+            () => finalizeRuntimeAdmissionReceipt({
+                repositoryRoot: receiptFixture.repositoryRoot,
+                candidatePath,
+                receiptPath,
+                finalizedAt: '2026-07-31T00:00:02+00:00'
+            }, {
+                resourceExists: () => false
+            }),
+            /runtime admission receipt envelope is invalid/u
+        );
+    });
 });
 
 test('runtime admission finalizes only after every owned identity is absent', (context) =>
