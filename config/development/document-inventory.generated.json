@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v3",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:6533c9d044d3609061721c3d5fe7f78bcb35184e4cedcb12cd6f7d682b135912",
+    "policyDigest": "sha256:a372dfbfb2e6dc3d1737dcf50fbd3d0fdf5b1a7411484b905ac51bfe8312c575",
     "documents": [
         {
             "path": "docs/active-release-fenced-commits.md",
@@ -1221,6 +1221,7 @@
             "supersedes": [],
             "supersededBy": null,
             "relatedIssues": [
+                1816,
                 1825
             ],
             "producer": null

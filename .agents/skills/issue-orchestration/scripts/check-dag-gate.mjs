@@ -22,6 +22,7 @@ import {
     StateRootValidationError,
     validateStateRoot
 } from './validate-state-root.mjs'
+import { validateReadyFrontier } from './frontier-compiler.mjs'
 
 class DagGateError extends Error {
     constructor(code, message, details = {}) {
@@ -679,6 +680,20 @@ export function checkDagGate({
 
     const canonicalDag = ensureStateFile(dagPath, canonicalRoot, 'dag')
     const dag = readJson(canonicalDag, 'dag')
+    if (dag?.frontierProjection && dag?.frontierRuntime && dag?.selectorReceipt) {
+        const frontierValidation = validateReadyFrontier({
+            dag,
+            runtimeState: dag.frontierRuntime,
+            selectorReceipt: dag.selectorReceipt,
+            recordedProjection: dag.frontierProjection
+        })
+        if (!frontierValidation.valid) {
+            fail(
+                frontierValidation.code,
+                'DAG ready frontier does not match independently compiled eligibility.'
+            )
+        }
+    }
     if (dag?.schema === 'issue-orchestration.dag.v1') {
         fail('dag-v1-rebuild-required', 'Legacy DAG v1 is diagnostic-only and must be rebuilt from remote facts.')
     }

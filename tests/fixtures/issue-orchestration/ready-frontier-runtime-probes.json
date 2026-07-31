@@ -1,0 +1,43 @@
+{
+  "schema": "issue-orchestration.ready-frontier-runtime-probes.v1",
+  "observedAt": "2026-08-01T00:00:00+08:00",
+  "purpose": "Bind the canonical two-repository frontier trajectory to live repository and issue identities; the deterministic 15-slot trajectory itself is executed by D01 and D02.",
+  "probes": [
+    {
+      "repository": "Ozwasyd/FsusBlog",
+      "defaultBranch": "master",
+      "headSha": "7f75d2a04d9eeaf65af0b4b0db5a572bdec25150",
+      "openIssue": 1831,
+      "issueState": "open",
+      "issueStateReason": null,
+      "issueUpdatedAt": "2026-07-31T16:30:54Z",
+      "commands": [
+        "gh api repos/Ozwasyd/FsusBlog --jq '{full_name,default_branch}'",
+        "gh api repos/Ozwasyd/FsusBlog/commits/master --jq '{sha:.sha}'",
+        "gh api repos/Ozwasyd/FsusBlog/issues/1831 --jq '{number,state,state_reason,updated_at}'"
+      ]
+    },
+    {
+      "repository": "Ozwasyd/FsusUI",
+      "defaultBranch": "main",
+      "headSha": "7f4850b8b0ce8aad9a3969baceaeff0eb5b9d164",
+      "openIssue": 280,
+      "issueState": "open",
+      "issueStateReason": null,
+      "issueUpdatedAt": "2026-07-31T11:13:13Z",
+      "commands": [
+        "gh api repos/Ozwasyd/FsusUI --jq '{full_name,default_branch}'",
+        "gh api repos/Ozwasyd/FsusUI/commits/main --jq '{sha:.sha}'",
+        "gh api repos/Ozwasyd/FsusUI/issues/280 --jq '{number,state,state_reason,updated_at}'"
+      ]
+    }
+  ],
+  "resourceObservation": {
+    "ports": [],
+    "containers": [],
+    "networks": [],
+    "locks": [],
+    "persistentProcesses": [],
+    "temporaryRoots": []
+  }
+}

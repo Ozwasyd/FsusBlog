@@ -46,6 +46,51 @@ receiptDigest
 
 每个 resolved issue 的 remote fact 包括 issue identity、state、state reason、updatedAt、title、body、relevant comments、labels 和 milestone。`remoteSnapshotDigest` 同时绑定 selector digest、排序后的 issue set 和这些 remote fact digests；本地 test failure、rework、agent blocker、epoch、slot、lease、worktree、resource 或 cleanup 状态不属于 remote fact。动态 selector 中离开的 issue 进入 `issueHistory`，并带有 `left-selector-scope` disposition 与此前的 snapshot digest。
 
+## Ready frontier 与 stage eligibility
+
+Frontier 的计算粒度是 `member issue + stage`，不是根代理手写的 `status=ready`。编译器接收同一份 DAG、selector receipt 和 frontier runtime，输出 `issue-orchestration.frontier-projection.v1`：
+
+```text
+eligibilityInputDigest
+frontierDigest
+readyFrontier[]
+notReadyReasons{}
+executionProjection[]
+computedAt
+```
+
+`readyFrontier` 是当前 scope 内所有没有 compiler reason 的 member-stage 对的最大集合。DAG 的节点顺序、issue 返回顺序、文件遍历顺序、root narration 和手写 status 都不参与 eligibility；节点必须与 selector receipt 的 `resolvedIssueSet` 精确相等。因而遗漏一个 eligible member、把 blocked member 加入 ready，或只改写 digest，都会使独立重算失败。
+
+每个 issue 只有一个确定的下一 stage。非 UI 节点按 `test-contract-ready → implementation-ready → behavior-verification-ready → documentation-ready → delivery-ready → cleanup-ready` 推进；UI/UX 节点在 behavior green 后必须先经过 `ux-acceptance-ready`，再进入 documentation。对应 stage receipt 未通过时，后续 stage 不得进入 frontier；所有 receipt 通过后，该 issue 不再产生 ready 或 not-ready projection。
+
+编译器至少检查 active dependency/tombstone、investigation 完整度、owner repository、base SHA、selector/remote fact identity、同 stage active attempt、未变化 terminal、候选能力与权限、delivery freeze、exclusive lease 和 remote facts freshness。候选的 role、model、effort、mode、允许路径、UI 所需 design Skill/authority digest 也属于 eligibility input；local stage progress 只重新计算 execution frontier，不触发 semantic DAG update。
+
+所有非 ready active member 必须由编译器产生稳定、排序固定的 reason。reason 只能使用以下枚举，并绑定直接 evidence identity 或 digest：
+
+| 顺序 | `notReadyReason` |
+| ---: | --- |
+| 1 | `dependency-unsatisfied` |
+| 2 | `investigation-incomplete` |
+| 3 | `owner-unresolved` |
+| 4 | `base-drift` |
+| 5 | `scope-drift` |
+| 6 | `active-attempt` |
+| 7 | `terminal-unchanged` |
+| 8 | `runtime-capability-missing` |
+| 9 | `delivery-frozen` |
+| 10 | `exclusive-lease-held` |
+| 11 | `remote-facts-stale` |
+
+自由文本 reason、没有 evidence 的 reason、数组重排导致的 digest 漂移以及 stale selector/comment、base、scope、terminal 或 candidate permission 下继续复用旧 projection 均 fail closed。`notReadyReasons` 为空只有在所有 active member 已完成 stage chain 时合法；空 frontier 但仍有无 blocker 的 member 不合法。
+
+## Dispatch candidate 与 fail-closed 边界
+
+Root scheduler 只消费 compiler projection 和 selector/batch 输出，不得编辑 ready、reason 或当前 stage。没有 root-only delivery action 时，`selectDispatchCandidates` 按 canonical `readyFrontier` 顺序截取 `availableSlots`，输出必须是非空且最大化的 dispatch candidate set：有 15 个可用独立 eligible member 就必须有 15 个候选，只有 N 个 eligible member 就精确为 N 个。ready work 被空 batch 隐藏、派发非当前 stage、为 group overlay 折叠 member、或用 group green 掩盖单个 member blocker，均由 dispatch validator 拒绝。
+
+唯一允许 ready frontier 非空而暂不派发的情形，是已登记且有直接 evidence 的 root-only delivery action；输出必须保留机器 `noDispatchReason`。依赖未满足、scope/remote facts 漂移、base 不一致、候选能力缺失、未变化 terminal、freeze 或 exclusive lease 只能减少 frontier，不能通过手写 ready 绕过。completed prerequisite 只在合法 `CLOSED/completed` tombstone、可达 delivered commit 和 evidence digest 都一致时满足依赖；reopen 或 tombstone 漂移会在下一次编译中移除 dependent。
+
+DAG gate 必须使用当前 runtime 和 selector receipt 独立重算 projection，并比较 `eligibilityInputDigest`、`frontierDigest`、ready frontier、reason 和 execution projection；任何缺失、篡改或 scope 不完整都保持 `dispatchEnabled=false`，直到生成新的绑定 projection。该 frontier 合同不改变产品 API、数据库、发布或前端运行时。
+
 ## DAG update authority
 
 初始 DAG 只能由使用 `gpt-5.6-sol` / `low` 的 root scheduler 显式启动一次 `gpt-5.6-sol` / `max`、read-only、fresh-context、非 resident 的 one-shot `dag-creator`。后续只有 root scheduler 发现 `remoteSnapshotDigest` 相对上一轮变化，才显式启动同样隔离属性的 one-shot `dag-updater`。没有 digest 变化时 semantic action 为 `none`，即使 execution ledger 有失败或返工事件也不得更新 DAG。
@@ -64,12 +109,13 @@ Acceptance-group delivery 在窗口开始前记录 `preWindowRemoteSnapshotDiges
 
 调用方应保留以下错误码，便于故障定位：`invalid-selector-schema`、`selector-version-parameters-mismatch`、`dag-launch-required`、`dag-launch-denied`、`proposal-mismatch` 和 `delivery-window-invalid`。这些拒绝表示合同不满足，不应通过重试未变化的 selector、snapshot 或 launch request 绕过。
 
-行为合同和负向测试位于 `tests/tools/issue-orchestration-scope-selector.test.mjs`，fixture 位于 `tests/fixtures/issue-orchestration/scope-selector-cases.json`，实现入口为 `.agents/skills/issue-orchestration/scripts/scope-selector.mjs`。修改 selector 或 snapshot 合同时运行：
+Selector 行为合同位于 `tests/tools/issue-orchestration-scope-selector.test.mjs`，fixture 位于 `tests/fixtures/issue-orchestration/scope-selector-cases.json`，实现入口为 `.agents/skills/issue-orchestration/scripts/scope-selector.mjs`；frontier 行为合同位于 `tests/tools/issue-orchestration-ready-frontier.test.mjs`，实现入口为 `.agents/skills/issue-orchestration/scripts/frontier-compiler.mjs`。修改 selector、snapshot 或 frontier 合同时运行：
 
 ```bash
 node --test tests/tools/issue-orchestration-scope-selector.test.mjs
+node --test tests/tools/issue-orchestration-ready-frontier.test.mjs
 node tools/docs/generate-document-lifecycle.mjs --check
 node tools/docs/check-authoritative-development-docs.mjs
 ```
 
-本合同不实现 DAG dependency/frontier/batch，不自动创建远端 issue，也不改变产品代码。
+本合同不自动创建远端 issue，也不改变产品代码、API、数据库、发布或前端运行时。

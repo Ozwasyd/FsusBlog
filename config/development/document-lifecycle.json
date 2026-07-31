@@ -784,6 +784,7 @@
             "status": "current",
             "owner": "governance",
             "relatedIssues": [
+                1816,
                 1825
             ],
             "supersedes": [],

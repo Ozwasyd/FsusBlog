@@ -1,0 +1,20 @@
+{
+  "schema": "issue-orchestration.ready-frontier-expected-initial-failures.v1",
+  "baseSha": "7f75d2a04d9eeaf65af0b4b0db5a572bdec25150",
+  "expectedStatus": "red",
+  "expectedExitCode": 1,
+  "expectedSummary": {
+    "tests": 48,
+    "passed": 2,
+    "failed": 46,
+    "cancelled": 0,
+    "skipped": 0
+  },
+  "expectedFailureClass": "frontier-compiler-missing",
+  "expectedDiagnostic": "missing #1816 frontier compiler",
+  "implementationPath": ".agents/skills/issue-orchestration/scripts/frontier-compiler.mjs",
+  "passingControls": [
+    "contract fixtures cover every acceptance and mutation identity",
+    "mutation catalog and executable controls are exact-set equal"
+  ]
+}

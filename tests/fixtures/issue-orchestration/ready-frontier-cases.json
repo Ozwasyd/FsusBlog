@@ -1,0 +1,88 @@
+{
+  "schema": "issue-orchestration.ready-frontier-cases.v1",
+  "issue": "Ozwasyd/FsusBlog#1816",
+  "computedAt": "2026-08-01T00:00:00.000Z",
+  "laterComputedAt": "2026-08-01T00:05:00.000Z",
+  "reasonOrder": [
+    "dependency-unsatisfied",
+    "investigation-incomplete",
+    "owner-unresolved",
+    "base-drift",
+    "scope-drift",
+    "active-attempt",
+    "terminal-unchanged",
+    "runtime-capability-missing",
+    "delivery-frozen",
+    "exclusive-lease-held",
+    "remote-facts-stale"
+  ],
+  "stages": [
+    "test-contract-ready",
+    "implementation-ready",
+    "behavior-verification-ready",
+    "ux-acceptance-ready",
+    "documentation-ready",
+    "delivery-ready",
+    "cleanup-ready"
+  ],
+  "repositories": {
+    "Ozwasyd/FsusBlog": {
+      "baseSha": "7f75d2a04d9eeaf65af0b4b0db5a572bdec25150",
+      "defaultBranch": "master"
+    },
+    "Ozwasyd/FsusUI": {
+      "baseSha": "7f4850b8b0ce8aad9a3969baceaeff0eb5b9d164",
+      "defaultBranch": "main"
+    }
+  },
+  "canonicalMembers": [
+    {
+      "issueId": "Ozwasyd/FsusBlog#9101",
+      "repository": "Ozwasyd/FsusBlog",
+      "issueNumber": 9101,
+      "surface": "code",
+      "dependsOn": []
+    },
+    {
+      "issueId": "Ozwasyd/FsusBlog#9102",
+      "repository": "Ozwasyd/FsusBlog",
+      "issueNumber": 9102,
+      "surface": "code",
+      "dependsOn": ["Ozwasyd/FsusBlog#9101"]
+    },
+    {
+      "issueId": "Ozwasyd/FsusUI#2901",
+      "repository": "Ozwasyd/FsusUI",
+      "issueNumber": 2901,
+      "surface": "ui-ux",
+      "dependsOn": []
+    }
+  ],
+  "expectedCanonicalReadyFrontier": [
+    {
+      "issueId": "Ozwasyd/FsusBlog#9101",
+      "stage": "test-contract-ready"
+    },
+    {
+      "issueId": "Ozwasyd/FsusUI#2901",
+      "stage": "implementation-ready"
+    }
+  ],
+  "expectedCanonicalNotReady": {
+    "Ozwasyd/FsusBlog#9102": ["dependency-unsatisfied"]
+  },
+  "canonicalization": {
+    "algorithm": "SHA-256 over recursively key-sorted JSON; set-like arrays sort by canonical member-stage or identity",
+    "frontierDigestExcludes": ["computedAt", "root narration", "handwritten node status", "array and file traversal order"],
+    "eligibilityInputDigestIncludes": [
+      "selector receipt and remote snapshot identity",
+      "member semantic graph and completed prerequisite identities",
+      "repository base identities and modification boundaries",
+      "investigation completeness",
+      "stage receipts and terminal fingerprints",
+      "active attempts, delivery freezes, and exclusive leases",
+      "stage candidate role, actual runtime identity, permissions, and authority digests",
+      "acceptance-group member eligibility inputs"
+    ]
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "schema": "issue-orchestration.ready-frontier-mutation-controls.v1",
+  "controls": [
+    {
+      "id": "eligible-member-omitted",
+      "surface": "frontier",
+      "expectedCode": "frontier-projection-mismatch",
+      "acceptanceIds": ["AC-02", "NEG-01", "NEG-03", "NEG-05", "ROLE-01"]
+    },
+    {
+      "id": "blocked-member-overreported",
+      "surface": "frontier",
+      "expectedCode": "frontier-projection-mismatch",
+      "acceptanceIds": ["AC-02", "NEG-02"]
+    },
+    {
+      "id": "free-text-reason",
+      "surface": "frontier",
+      "expectedCode": "frontier-projection-mismatch",
+      "acceptanceIds": ["AC-03", "NEG-04"]
+    },
+    {
+      "id": "reason-code-or-evidence-modified",
+      "surface": "frontier",
+      "expectedCode": "frontier-projection-mismatch",
+      "acceptanceIds": ["AC-03", "ROLE-01"]
+    },
+    {
+      "id": "non-current-stage-dispatched",
+      "surface": "dispatch",
+      "expectedCode": "dispatch-candidate-mismatch",
+      "acceptanceIds": ["STAGE-01", "ROLE-01"]
+    },
+    {
+      "id": "frontier-digest-forged",
+      "surface": "frontier",
+      "expectedCode": "frontier-digest-mismatch",
+      "acceptanceIds": ["AC-01"]
+    },
+    {
+      "id": "remote-comment-drift",
+      "surface": "input",
+      "expectedCode": "frontier-input-digest-mismatch",
+      "acceptanceIds": ["AC-08", "NEG-07"]
+    },
+    {
+      "id": "base-sha-drift",
+      "surface": "input",
+      "expectedCode": "frontier-input-digest-mismatch",
+      "acceptanceIds": ["AC-08", "NEG-08"]
+    },
+    {
+      "id": "selector-member-omitted",
+      "surface": "compile",
+      "expectedCode": "frontier-scope-incomplete",
+      "acceptanceIds": ["AC-02", "AC-08"]
+    },
+    {
+      "id": "terminal-fingerprint-changed",
+      "surface": "input",
+      "expectedCode": "frontier-input-digest-mismatch",
+      "acceptanceIds": ["AC-08", "NEG-09"]
+    },
+    {
+      "id": "candidate-permission-drift",
+      "surface": "input",
+      "expectedCode": "frontier-input-digest-mismatch",
+      "acceptanceIds": ["ROLE-02"]
+    },
+    {
+      "id": "ready-slots-empty-batch",
+      "surface": "dispatch",
+      "expectedCode": "dispatch-work-conservation",
+      "acceptanceIds": ["AC-06", "NEG-06"]
+    },
+    {
+      "id": "group-ready-masks-blocked-member",
+      "surface": "dispatch",
+      "expectedCode": "dispatch-candidate-mismatch",
+      "acceptanceIds": ["GROUP-01"]
+    },
+    {
+      "id": "group-green-masks-member-failure",
+      "surface": "dispatch",
+      "expectedCode": "dispatch-candidate-mismatch",
+      "acceptanceIds": ["GROUP-02"]
+    },
+    {
+      "id": "group-serializes-independent-members",
+      "surface": "dispatch",
+      "expectedCode": "dispatch-maximality",
+      "acceptanceIds": ["GROUP-03", "AC-11"]
+    }
+  ]
+}
