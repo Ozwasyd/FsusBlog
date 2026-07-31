@@ -15,7 +15,7 @@ export type PrivateStateCleanupTrigger =
   | 'shared-device'
 
 export type PrivateStorageDataScope = 'public' | 'account' | 'admin' | 'session' | 'temporary'
-export type PrivateStorageMedium = 'local-storage' | 'session-storage' | 'cache-storage' | 'runtime'
+export type PrivateStorageMedium = 'local-storage' | 'session-storage' | 'indexed-db' | 'cache-storage' | 'runtime'
 export type PrivateStorageCleanupStatus = 'retained' | 'not-present' | 'removed' | 'cleared' | 'inactive' | 'failed'
 
 type WebStorageEntry = Readonly<{
@@ -38,6 +38,15 @@ type CacheStorageEntry = Readonly<{
     | Readonly<{ type: 'request-path-prefix', cachePrefix: string, values: readonly string[] }>
 }>
 
+type IndexedDbEntry = Readonly<{
+  id: string
+  medium: 'indexed-db'
+  dataScope: PrivateStorageDataScope
+  dataClass: string
+  clearOn: readonly PrivateStateCleanupTrigger[]
+  matcher: Readonly<{ type: 'database', value: string }>
+}>
+
 type RuntimeStorageEntry = Readonly<{
   id: string
   medium: 'runtime'
@@ -46,7 +55,7 @@ type RuntimeStorageEntry = Readonly<{
   clearOn: readonly PrivateStateCleanupTrigger[]
 }>
 
-export type PrivateStorageRegistryEntry = WebStorageEntry | CacheStorageEntry | RuntimeStorageEntry
+export type PrivateStorageRegistryEntry = WebStorageEntry | IndexedDbEntry | CacheStorageEntry | RuntimeStorageEntry
 
 const ACCOUNT_CLEAR_TRIGGERS = Object.freeze<PrivateStateCleanupTrigger[]>([
   'logout',
@@ -75,6 +84,14 @@ const AUTH_TRANSITION_TRIGGERS = Object.freeze<PrivateStateCleanupTrigger[]>([
     ...ACCOUNT_CLEAR_TRIGGERS,
     'admin-logout'
 ])
+const ARTICLE_RECOVERY_CLEAR_TRIGGERS = Object.freeze<PrivateStateCleanupTrigger[]>([
+  ...new Set([
+    ...ACCOUNT_CLEAR_TRIGGERS,
+    ...ADMIN_CLEAR_TRIGGERS
+  ])
+])
+export const RETIRED_ARTICLE_DRAFT_CREATE_METADATA_KEY = 'fsus:article-draft:create'
+export const RETIRED_ARTICLE_DRAFT_EDIT_METADATA_PREFIX = 'fsus:article-draft:edit:'
 
 export const PRIVATE_STORAGE_REGISTRY: readonly PrivateStorageRegistryEntry[] = Object.freeze([
     { id: 'theme-mode', medium: 'local-storage', dataScope: 'public', dataClass: 'public-preference', clearOn: [], matcher: { type: 'exact', value: 'fsus:theme-mode' } },
@@ -84,7 +101,9 @@ export const PRIVATE_STORAGE_REGISTRY: readonly PrivateStorageRegistryEntry[] = 
     { id: 'public-comment-drafts', medium: 'local-storage', dataScope: 'account', dataClass: 'public-draft', clearOn: ACCOUNT_CLEAR_TRIGGERS, matcher: { type: 'prefix', value: 'fsus:comment-public-draft:v3:' } },
     { id: 'public-comment-draft-scope', medium: 'local-storage', dataScope: 'account', dataClass: 'local-unlinkable-scope', clearOn: ACCOUNT_CLEAR_TRIGGERS, matcher: { type: 'exact', value: 'fsus:comment-public-draft-scope:v3' } },
     { id: 'image-upload-sessions', medium: 'local-storage', dataScope: 'account', dataClass: 'upload-session', clearOn: ACCOUNT_CLEAR_TRIGGERS, matcher: { type: 'prefix', value: 'fsus:image-upload-session:' } },
-    { id: 'article-drafts', medium: 'local-storage', dataScope: 'admin', dataClass: 'private-draft', clearOn: ADMIN_CLEAR_TRIGGERS, matcher: { type: 'prefix', value: 'fsus:article-draft:' } },
+    { id: 'article-recovery-journal', medium: 'indexed-db', dataScope: 'admin', dataClass: 'bounded-unconfirmed-article-body', clearOn: ARTICLE_RECOVERY_CLEAR_TRIGGERS, matcher: { type: 'database', value: 'fsusblog-article-recovery-journal' } },
+    { id: 'retired-article-draft-create-metadata', medium: 'local-storage', dataScope: 'admin', dataClass: 'retired-metadata-only', clearOn: ARTICLE_RECOVERY_CLEAR_TRIGGERS, matcher: { type: 'exact', value: RETIRED_ARTICLE_DRAFT_CREATE_METADATA_KEY } },
+    { id: 'retired-article-draft-edit-metadata', medium: 'local-storage', dataScope: 'admin', dataClass: 'retired-metadata-only', clearOn: ARTICLE_RECOVERY_CLEAR_TRIGGERS, matcher: { type: 'prefix', value: RETIRED_ARTICLE_DRAFT_EDIT_METADATA_PREFIX } },
     { id: 'console-welcome-identity', medium: 'local-storage', dataScope: 'admin', dataClass: 'identity-preference', clearOn: ADMIN_CLEAR_TRIGGERS, matcher: { type: 'prefix', value: 'fsus:console-welcome-callout:dismissed:' } },
   { id: 'local-fixture-account', medium: 'session-storage', dataScope: 'account', dataClass: 'local-fixture', clearOn: ACCOUNT_CLEAR_TRIGGERS, matcher: { type: 'exact', value: 'fsusblog_local_fixture_session' } },
   { id: 'local-fixture-admin', medium: 'session-storage', dataScope: 'admin', dataClass: 'local-fixture', clearOn: ADMIN_CLEAR_TRIGGERS, matcher: { type: 'exact', value: 'fsusblog_local_fixture_admin_session' } },
@@ -127,6 +146,10 @@ interface CacheStorageLike {
   open(cacheName: string): Promise<Pick<Cache, 'keys' | 'delete'>>
 }
 
+interface IndexedDbLike {
+  deleteDatabase(name: string): IDBOpenDBRequest
+}
+
 const runtimeCleanupHandlers = new Map<string, Set<PrivateStateCleanupHandler>>()
 
 function findRuntimeEntry(id: string): RuntimeStorageEntry | undefined {
@@ -160,6 +183,30 @@ function registeredKeys(storage: Storage, entry: WebStorageEntry): string[] {
     if (key?.startsWith(entry.matcher.value)) keys.push(key)
   }
   return keys
+}
+
+export function purgeRetiredArticleDraftMetadata(
+  storage: Storage | undefined = typeof localStorage === 'undefined' ? undefined : localStorage
+): readonly string[] {
+  if (!storage) {
+    return []
+  }
+  const keys: string[] = []
+  try {
+    for (let index = 0; index < storage.length; index += 1) {
+      const key = storage.key(index)
+      if (key === RETIRED_ARTICLE_DRAFT_CREATE_METADATA_KEY
+        || key?.startsWith(RETIRED_ARTICLE_DRAFT_EDIT_METADATA_PREFIX)) {
+        keys.push(key)
+      }
+    }
+    for (const key of keys) {
+      storage.removeItem(key)
+    }
+    return keys
+  } catch {
+    return []
+  }
 }
 
 function retainedResult(entry: PrivateStorageRegistryEntry): PrivateStorageCleanupItemResult {
@@ -231,6 +278,32 @@ async function clearCacheStorageEntry(
   }
 }
 
+async function clearIndexedDbEntry(
+  entry: IndexedDbEntry,
+  indexedDb: IndexedDbLike | undefined
+): Promise<PrivateStorageCleanupItemResult> {
+  if (!indexedDb) {
+    return { id: entry.id, medium: entry.medium, dataScope: entry.dataScope, status: 'inactive', affected: 0 }
+  }
+  try {
+    const deleted = await new Promise<boolean>((resolve, reject) => {
+      const request = indexedDb.deleteDatabase(entry.matcher.value)
+      request.onsuccess = () => resolve(true)
+      request.onerror = () => reject(request.error ?? new Error('private_indexeddb_cleanup_failed'))
+      request.onblocked = () => reject(new Error('private_indexeddb_cleanup_blocked'))
+    })
+    return {
+      id: entry.id,
+      medium: entry.medium,
+      dataScope: entry.dataScope,
+      status: deleted ? 'removed' : 'not-present',
+      affected: deleted ? 1 : 0
+    }
+  } catch {
+    return { id: entry.id, medium: entry.medium, dataScope: entry.dataScope, status: 'failed', affected: 0 }
+  }
+}
+
 async function clearRuntimeEntry(entry: RuntimeStorageEntry, trigger: PrivateStateCleanupTrigger): Promise<PrivateStorageCleanupItemResult> {
   const handlers = [...(runtimeCleanupHandlers.get(entry.id) ?? [])]
   if (handlers.length === 0) return { id: entry.id, medium: entry.medium, dataScope: entry.dataScope, status: 'inactive', affected: 0 }
@@ -248,10 +321,12 @@ export async function clearRegisteredPrivateState(options: {
   trigger: PrivateStateCleanupTrigger
   local?: Storage
   session?: Storage
+  indexedDb?: IndexedDbLike
   cacheStorage?: CacheStorageLike
 }): Promise<PrivateStorageCleanupResult> {
   const local = options.local ?? (typeof localStorage === 'undefined' ? undefined : localStorage)
   const session = options.session ?? (typeof sessionStorage === 'undefined' ? undefined : sessionStorage)
+  const indexedDb = options.indexedDb ?? (typeof indexedDB === 'undefined' ? undefined : indexedDB)
   const cacheStorage = options.cacheStorage ?? (typeof caches === 'undefined' ? undefined : caches)
   const removed: string[] = []
   const items: PrivateStorageCleanupItemResult[] = []
@@ -265,6 +340,8 @@ export async function clearRegisteredPrivateState(options: {
       items.push(clearWebStorageEntry(entry, local, removed))
     } else if (entry.medium === 'session-storage') {
       items.push(clearWebStorageEntry(entry, session, removed))
+    } else if (entry.medium === 'indexed-db') {
+      items.push(await clearIndexedDbEntry(entry, indexedDb))
     } else if (entry.medium === 'cache-storage') {
       items.push(await clearCacheStorageEntry(entry, cacheStorage))
     } else {

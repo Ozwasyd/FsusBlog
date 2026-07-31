@@ -1,10 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { IDBFactory } from 'fake-indexeddb'
 import { createPinia, defineStore, setActivePinia } from 'pinia'
 import {
   clearRegisteredPrivateState,
   clearRegisteredPrivateStorage,
   PRIVATE_STORAGE_REGISTRY,
+  purgeRetiredArticleDraftMetadata,
   registerPrivateStateCleanupHandler,
+  RETIRED_ARTICLE_DRAFT_CREATE_METADATA_KEY,
+  RETIRED_ARTICLE_DRAFT_EDIT_METADATA_PREFIX,
   resetPrivateStateCleanupHandlersForTests,
   type PrivateStateCleanupTrigger,
   type PrivateStorageRegistryEntry
@@ -66,6 +70,18 @@ function seedWebStorage(local: Storage, session: Storage): void {
   }
 }
 
+async function seedArticleRecoveryDatabase(indexedDB: IDBFactory): Promise<void> {
+  const database = await new Promise<IDBDatabase>((resolve, reject) => {
+    const request = indexedDB.open('fsusblog-article-recovery-journal', 1)
+    request.onupgradeneeded = () => {
+      request.result.createObjectStore('entries', { keyPath: 'id' })
+    }
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error)
+  })
+  database.close()
+}
+
 function webEntry(id: string) {
   const entry = PRIVATE_STORAGE_REGISTRY.find(candidate => candidate.id === id)
   if (!entry || (entry.medium !== 'local-storage' && entry.medium !== 'session-storage')) {
@@ -84,12 +100,31 @@ describe('private storage registry', () => {
       'public', 'account', 'admin', 'session', 'temporary'
     ]))
     expect(new Set(PRIVATE_STORAGE_REGISTRY.map(entry => entry.medium))).toEqual(new Set([
-      'local-storage', 'session-storage', 'cache-storage', 'runtime'
+      'local-storage', 'session-storage', 'indexed-db', 'cache-storage', 'runtime'
     ]))
     for (const entry of PRIVATE_STORAGE_REGISTRY) {
       expect(entry.id).toMatch(/^[a-z0-9-]+$/)
       if (entry.dataScope === 'public') expect(entry.clearOn).toEqual([])
     }
+  })
+
+  it('purges retired create/edit metadata without reading values or deleting unrelated storage', () => {
+    const local = memoryStorage()
+    const getItem = vi.spyOn(local, 'getItem')
+    local.setItem(RETIRED_ARTICLE_DRAFT_CREATE_METADATA_KEY, '{"content":"must-not-be-decoded"}')
+    local.setItem(`${RETIRED_ARTICLE_DRAFT_EDIT_METADATA_PREFIX}42`, '{"title":"must-not-be-shown"}')
+    local.setItem('fsus:article-draft:preview', 'unrelated')
+    local.setItem('unrelated-private-key', 'retained')
+
+    expect(purgeRetiredArticleDraftMetadata(local)).toEqual([
+      RETIRED_ARTICLE_DRAFT_CREATE_METADATA_KEY,
+      `${RETIRED_ARTICLE_DRAFT_EDIT_METADATA_PREFIX}42`
+    ])
+    expect(getItem).not.toHaveBeenCalled()
+    expect(local.getItem(RETIRED_ARTICLE_DRAFT_CREATE_METADATA_KEY)).toBeNull()
+    expect(local.getItem(`${RETIRED_ARTICLE_DRAFT_EDIT_METADATA_PREFIX}42`)).toBeNull()
+    expect(local.getItem('fsus:article-draft:preview')).toBe('unrelated')
+    expect(local.getItem('unrelated-private-key')).toBe('retained')
   })
 
   it.each<PrivateStateCleanupTrigger>(['logout', 'account-switch', 'session-expired'])(
@@ -119,16 +154,55 @@ describe('private storage registry', () => {
   it('admin logout clears only admin and shared temporary entries', async () => {
     const local = memoryStorage()
     const session = memoryStorage()
+    const indexedDB = new IDBFactory()
     seedWebStorage(local, session)
+    await seedArticleRecoveryDatabase(indexedDB)
 
-    const result = await clearRegisteredPrivateState({ trigger: 'admin-logout', local, session })
+    const result = await clearRegisteredPrivateState({
+      trigger: 'admin-logout',
+      local,
+      session,
+      indexedDb: indexedDB
+    })
 
     expect(result.complete).toBe(true)
-    expect(local.getItem(storedKey(webEntry('article-drafts')))).toBeNull()
+    expect(result.items.find(item => item.id === 'article-recovery-journal')).toMatchObject({
+      medium: 'indexed-db',
+      status: 'removed',
+      affected: 1
+    })
     expect(session.getItem(storedKey(webEntry('local-fixture-admin')))).toBeNull()
     expect(local.getItem(storedKey(webEntry('public-comment-drafts')))).not.toBeNull()
     expect(session.getItem(storedKey(webEntry('local-fixture-account')))).not.toBeNull()
     expect(local.getItem(storedKey(webEntry('theme-mode')))).not.toBeNull()
+  })
+
+  it.each<PrivateStateCleanupTrigger>([
+    'logout',
+    'account-switch',
+    'session-expired',
+    'admin-logout',
+    'panic',
+    'migration-failure',
+    'shared-device'
+  ])('%s deletes the bounded article recovery database', async trigger => {
+    const indexedDB = new IDBFactory()
+    await seedArticleRecoveryDatabase(indexedDB)
+
+    const result = await clearRegisteredPrivateState({
+      trigger,
+      local: memoryStorage(),
+      session: memoryStorage(),
+      indexedDb: indexedDB
+    })
+
+    expect(result.items.find(item => item.id === 'article-recovery-journal')).toMatchObject({
+      status: 'removed',
+      affected: 1
+    })
+    expect((await indexedDB.databases()).some(database => (
+      database.name === 'fsusblog-article-recovery-journal'
+    ))).toBe(false)
   })
 
   it('is idempotent and reports not-present for an already removed item', async () => {

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { IDBFactory } from 'fake-indexeddb'
 import { clearPrivateBrowserState, registerServiceWorker } from '@/services/serviceWorkerRuntime'
 
 class MemoryCache {
@@ -208,6 +209,13 @@ describe('serviceWorkerRuntime private browser cleanup', () => {
 
   it('admin logout clears admin storage without erasing account state or notifying credential workers', async () => {
     const activeWorker = createAcknowledgingWorker()
+    const indexedDB = new IDBFactory()
+    const recoveryDatabase = await openIndexedDatabase(indexedDB, 'fsusblog-article-recovery-journal')
+    recoveryDatabase.close()
+    Object.defineProperty(globalThis, 'indexedDB', {
+      value: indexedDB,
+      configurable: true
+    })
     Object.defineProperty(navigator, 'serviceWorker', {
       value: {
         controller: activeWorker,
@@ -215,7 +223,6 @@ describe('serviceWorkerRuntime private browser cleanup', () => {
       },
       configurable: true
     })
-    localStorage.setItem('fsus:article-draft:create', 'admin-private')
     localStorage.setItem('fsus:comment-draft:v1:account:1:root', 'account-private')
     localStorage.setItem('fsus:theme-mode', 'dark')
     sessionStorage.setItem('fsusblog_local_fixture_admin_session', '1')
@@ -223,17 +230,30 @@ describe('serviceWorkerRuntime private browser cleanup', () => {
 
     const result = await clearPrivateBrowserState('admin-logout')
 
-    expect(localStorage.getItem('fsus:article-draft:create')).toBeNull()
+    expect((await indexedDB.databases()).some(database => (
+      database.name === 'fsusblog-article-recovery-journal'
+    ))).toBe(false)
     expect(sessionStorage.getItem('fsusblog_local_fixture_admin_session')).toBeNull()
     expect(localStorage.getItem('fsus:comment-draft:v1:account:1:root')).toBe('account-private')
     expect(sessionStorage.getItem('fsusblog_local_fixture_session')).toBe('1')
     expect(localStorage.getItem('fsus:theme-mode')).toBe('dark')
     expect(activeWorker.postMessage).not.toHaveBeenCalled()
     expect(result.credentialStateCleared).toBe(true)
-    expect(result.items.find(item => item.id === 'article-drafts')?.status).toBe('removed')
+    expect(result.items.find(item => item.id === 'article-recovery-journal')?.status).toBe('removed')
     expect(result.items.find(item => item.id === 'legacy-comment-drafts')?.status).toBe('retained')
   })
 })
+
+function openIndexedDatabase(indexedDB: IDBFactory, name: string): Promise<IDBDatabase> {
+  return new Promise<IDBDatabase>((resolve, reject) => {
+    const request = indexedDB.open(name, 1)
+    request.onupgradeneeded = () => {
+      request.result.createObjectStore('entries', { keyPath: 'id' })
+    }
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error)
+  })
+}
 
 function createAcknowledgingWorker() {
   return {

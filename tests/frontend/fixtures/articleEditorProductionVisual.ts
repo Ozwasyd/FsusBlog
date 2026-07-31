@@ -1,4 +1,4 @@
-import { createApp, defineComponent, h, nextTick, reactive, ref } from 'vue'
+import { computed, createApp, defineComponent, h, nextTick, onUnmounted, reactive, ref } from 'vue'
 import {
   ElButton,
   ElCheckbox,
@@ -28,10 +28,21 @@ import {
   useArticleWriteInspector,
   type ArticleWriteInspectorView
 } from '@/composables/useArticleWriteInspector'
+import {
+  ArticleRecoveryCoordinator,
+  articleRecoveryJournal,
+  articleRecoverySourceHash,
+  createArticleRecoveryOperationRunner,
+  createArticleRecoveryClientRevision,
+  summarizeArticleRecoveryComparison,
+  type ArticleRecoveryJournalRecord,
+  type ArticleRecoveryJournalWriteResult,
+  type ArticleRecoveryOperationKind
+} from '@/services/articleRecoveryJournal'
 import contract from './article-editor-production-contract.json'
 
 type FixtureState = 'empty' | 'loading' | 'error' | 'success' | 'partial'
-type FixtureSurface = 'title' | 'editor' | 'command' | 'inspector'
+type FixtureSurface = 'title' | 'editor' | 'command' | 'inspector' | 'recovery'
 const inspectorViews = contract.inspectorViews as ArticleWriteInspectorView[]
 const fixtureStates = contract.states as FixtureState[]
 
@@ -41,7 +52,7 @@ export async function mountArticleEditorProductionFixture(): Promise<void> {
   const titleKey = requestedTitle && requestedTitle in contract.titles ? requestedTitle : 'empty'
   const theme = params.get('theme') === 'dark' ? 'dark' : 'light'
   const requestedSurface = params.get('surface') as FixtureSurface | null
-  const surface: FixtureSurface = ['editor', 'command', 'inspector'].includes(requestedSurface ?? '')
+  const surface: FixtureSurface = ['editor', 'command', 'inspector', 'recovery'].includes(requestedSurface ?? '')
     ? requestedSurface as FixtureSurface
     : 'title'
   const requestedState = params.get('state') as FixtureState | null
@@ -103,6 +114,13 @@ export async function mountArticleEditorProductionFixture(): Promise<void> {
     setup() {
       const title = ref(contract.titles[titleKey])
       const content = ref('先写下可以验证的正文，再检查预览。')
+      const recoveryContent = ref('')
+      const recoveryCandidates = ref<readonly ArticleRecoveryJournalRecord[]>([])
+      const selectedRecoveryId = ref('')
+      const recoveryStorageStatus = ref('')
+      const recoveryComparison = ref('')
+      const recoveryOperationKind = ref<ArticleRecoveryOperationKind | null>(null)
+      const recoveryOperationError = ref('')
       const state = ref<FixtureState>(fixtureState)
       const editorState = ref<'editing' | 'saving' | 'saved' | 'failed' | 'published'>('editing')
       const actionCounts = reactive({ back: 0, saveDraft: 0, submit: 0 })
@@ -140,6 +158,188 @@ export async function mountArticleEditorProductionFixture(): Promise<void> {
           }
         ])) as Partial<Record<ArticleWriteInspectorView, () => void>>
       })
+      const recoveryIdentity = 'fixture-admin-1813'
+      const recoveryCoordinator = surface === 'recovery'
+        ? new ArticleRecoveryCoordinator({
+            tabId: params.get('tabId')?.trim() || undefined
+          })
+        : null
+      const fixedRecoveryClientRevision = params.get('clientRevision')?.trim() || null
+      const recoveryAuthoritativeContent = '初始化时的服务端权威正文'
+      let failNextRecoveryOperation: ArticleRecoveryOperationKind | null = null
+      let recoveryWriteQueue = Promise.resolve<ArticleRecoveryJournalWriteResult>({
+        status: 'unavailable',
+        record: null
+      })
+      let recoveryRefreshTimer: ReturnType<typeof window.setInterval> | null = null
+      let unsubscribeRecoveryCoordination: (() => void) | null = null
+
+      const selectedRecovery = computed(() => (
+        recoveryCandidates.value.find(candidate => candidate.id === selectedRecoveryId.value)
+        ?? recoveryCandidates.value[0]
+        ?? null
+      ))
+      const recoveryOperationPending = computed(() => recoveryOperationKind.value !== null)
+      const recoveryOperationStatusText = computed(() => {
+        switch (recoveryOperationKind.value) {
+          case 'compare':
+            return '正在比较所选正文'
+          case 'recover':
+            return '正在恢复所选正文'
+          case 'discard':
+            return '正在丢弃所选正文'
+          default:
+            return ''
+        }
+      })
+      const runRecoveryOperation = createArticleRecoveryOperationRunner((state) => {
+        recoveryOperationKind.value = state.kind
+        recoveryOperationError.value = state.error
+      })
+
+      const performRecoveryOperation = (
+        kind: ArticleRecoveryOperationKind,
+        failureMessage: string,
+        operation: () => void | Promise<void>
+      ): Promise<boolean> => runRecoveryOperation(kind, failureMessage, async () => {
+        await new Promise(resolvePromise => window.setTimeout(resolvePromise, 400))
+        if (failNextRecoveryOperation === kind) {
+          failNextRecoveryOperation = null
+          throw new Error(`fixture_recovery_${kind}_failure`)
+        }
+        await operation()
+      })
+
+      const refreshRecoveryCandidates = async (): Promise<void> => {
+        const [result, currentSourceHash] = await Promise.all([
+          articleRecoveryJournal.list(recoveryIdentity, null),
+          articleRecoverySourceHash(recoveryContent.value)
+        ])
+        if (result.status === 'unavailable') {
+          recoveryStorageStatus.value = '浏览器短期恢复不可用，服务端自动保存继续'
+          recoveryCandidates.value = []
+          selectedRecoveryId.value = ''
+          return
+        }
+        const candidates = result.records.filter(record => record.sourceHash !== currentSourceHash)
+        recoveryCandidates.value = Object.freeze(candidates)
+        if (!candidates.some(candidate => candidate.id === selectedRecoveryId.value)) {
+          selectedRecoveryId.value = candidates[0]?.id ?? ''
+        }
+      }
+
+      const writeRecoveryContent = (value: string): Promise<ArticleRecoveryJournalWriteResult> => {
+        recoveryContent.value = value
+        const clientRevision = fixedRecoveryClientRevision ?? createArticleRecoveryClientRevision()
+        recoveryWriteQueue = recoveryWriteQueue.then(async () => {
+          const result = await articleRecoveryJournal.write({
+            identityId: recoveryIdentity,
+            articleId: null,
+            tabId: recoveryCoordinator?.tabId ?? 'fixture-tab-missing',
+            baseRevisionId: null,
+            serverRevision: null,
+            clientRevision,
+            content: value
+          })
+          recoveryStorageStatus.value = result.status === 'stored'
+            ? ''
+            : '浏览器短期恢复不可用，服务端自动保存继续'
+          if (result.status === 'stored') {
+            recoveryCoordinator?.notify('changed', null)
+          }
+          await refreshRecoveryCandidates()
+          return result
+        })
+        return recoveryWriteQueue
+      }
+
+      const compareSelectedRecovery = async (): Promise<void> => {
+        await performRecoveryOperation('compare', '所选正文比较失败，请保留当前选择并重试', () => {
+          const record = selectedRecovery.value
+          if (!record) throw new Error('fixture_recovery_comparison_selection_required')
+          recoveryComparison.value = summarizeArticleRecoveryComparison(record, [{
+            label: '初始化时的服务端权威正文',
+            content: recoveryAuthoritativeContent
+          }])
+        })
+      }
+
+      const performRestoreSelectedRecovery = async (): Promise<void> => {
+        const record = selectedRecovery.value
+        if (!record) return
+        recoveryContent.value = record.content
+        await articleRecoveryJournal.discard(record.id)
+        recoveryCoordinator?.notify('cleared', null)
+        await writeRecoveryContent(record.content)
+      }
+
+      const restoreSelectedRecovery = async (): Promise<void> => {
+        await performRecoveryOperation(
+          'recover',
+          '正文恢复失败，所选版本仍保留，请重试',
+          performRestoreSelectedRecovery
+        )
+      }
+
+      const performDiscardSelectedRecovery = async (): Promise<void> => {
+        const record = selectedRecovery.value
+        if (!record) return
+        await articleRecoveryJournal.discard(record.id)
+        recoveryCoordinator?.notify('cleared', null)
+        await refreshRecoveryCandidates()
+      }
+
+      const discardSelectedRecovery = async (): Promise<void> => {
+        await performRecoveryOperation(
+          'discard',
+          '正文丢弃失败，所选版本仍保留，请重试',
+          performDiscardSelectedRecovery
+        )
+      }
+
+      const confirmCurrentRecovery = async (): Promise<boolean> => {
+        await recoveryWriteQueue
+        const result = await articleRecoveryJournal.list(recoveryIdentity, null)
+        const record = result.records.find(candidate => candidate.tabId === recoveryCoordinator?.tabId)
+        if (!record) return false
+        const confirmed = await articleRecoveryJournal.confirm({
+          id: record.id,
+          clientRevision: record.clientRevision,
+          sourceHash: record.sourceHash
+        })
+        if (confirmed) {
+          recoveryCoordinator?.notify('cleared', null)
+        }
+        await refreshRecoveryCandidates()
+        return confirmed
+      }
+
+      const clearRecovery = async (): Promise<void> => {
+        await articleRecoveryJournal.clearScope(recoveryIdentity, null)
+        recoveryCoordinator?.notify('cleared', null)
+        recoveryContent.value = ''
+        await refreshRecoveryCandidates()
+      }
+
+      if (recoveryCoordinator) {
+        unsubscribeRecoveryCoordination = recoveryCoordinator.subscribe((message) => {
+          if (message.articleKey === 'create') {
+            void refreshRecoveryCandidates()
+          }
+        })
+        recoveryRefreshTimer = window.setInterval(() => {
+          void refreshRecoveryCandidates()
+        }, 500)
+        void refreshRecoveryCandidates()
+      }
+
+      onUnmounted(() => {
+        unsubscribeRecoveryCoordination?.()
+        recoveryCoordinator?.dispose()
+        if (recoveryRefreshTimer !== null) {
+          window.clearInterval(recoveryRefreshTimer)
+        }
+      })
 
       const openInspector = (
         view: ArticleWriteInspectorView,
@@ -160,6 +360,12 @@ export async function mountArticleEditorProductionFixture(): Promise<void> {
         },
         __articleEditorFixtureCloseInspector: () => {
           inspector.close()
+        },
+        __articleEditorFixtureWriteRecovery: writeRecoveryContent,
+        __articleEditorFixtureConfirmRecovery: confirmCurrentRecovery,
+        __articleEditorFixtureClearRecovery: clearRecovery,
+        __articleEditorFixtureFailNextRecoveryOperation: (kind: ArticleRecoveryOperationKind) => {
+          failNextRecoveryOperation = kind
         },
         __articleEditorFixtureActionCounts: actionCounts,
         __articleEditorFixtureLoadCounts: loadCounts
@@ -346,10 +552,127 @@ export async function mountArticleEditorProductionFixture(): Promise<void> {
         ])
       ])
 
+      const renderRecovery = () => h('section', {
+        class: 'article-editor-production-fixture__recovery',
+        'aria-label': '文章未同步正文恢复'
+      }, [
+        h('header', { class: 'article-editor-production-fixture__task' }, [
+          h('div', [
+            h('h1', '撰写文章'),
+            h('p', '服务端草稿是长期权威')
+          ]),
+          h('button', { type: 'button' }, '发布')
+        ]),
+        recoveryCandidates.value.length > 0
+          ? h('section', {
+              class: 'article-editor-production-fixture__recovery-prompt',
+              'data-article-recovery-prompt': 'true',
+              'aria-live': 'polite',
+              'aria-labelledby': 'fixture-recovery-title',
+              'aria-busy': recoveryOperationPending.value
+            }, [
+              h('div', { class: 'article-editor-production-fixture__recovery-copy' }, [
+                h('h2', { id: 'fixture-recovery-title' }, (
+                  recoveryCandidates.value.length > 1
+                    ? `${recoveryCandidates.value.length} 个标签页的未同步正文`
+                    : '未同步正文'
+                )),
+                h('p', recoveryCandidates.value.length > 1
+                  ? '不同标签页各自保留版本，没有 last-write-wins。请选择一个版本恢复或逐个丢弃。'
+                  : '此正文尚未得到服务端确认。恢复只替换当前表单正文，随后继续现有自动保存。'),
+                h('fieldset', {
+                  'aria-label': '选择要恢复的未同步正文版本'
+                }, recoveryCandidates.value.map((candidate, index) => h('label', {
+                  class: 'article-editor-production-fixture__recovery-candidate',
+                  key: candidate.id
+                }, [
+                  h('input', {
+                    type: 'radio',
+                    name: 'fixture-article-recovery-candidate',
+                    value: candidate.id,
+                    checked: candidate.id === selectedRecovery.value?.id,
+                    onChange: () => {
+                      selectedRecoveryId.value = candidate.id
+                      recoveryComparison.value = ''
+                      recoveryOperationError.value = ''
+                    }
+                  }),
+                  h('span', [
+                    h('strong', `标签页版本 ${index + 1} · ${new Date(candidate.updatedAt).toLocaleString()}`),
+                    h('small', `${candidate.content.length.toLocaleString()} 字 · client revision 独立归属`),
+                    h('span', candidate.content.replace(/\s+/gu, ' ').trim().slice(0, 120) || '（空正文）')
+                  ])
+                ]))),
+                recoveryComparison.value
+                  ? h('p', {
+                      class: 'article-editor-production-fixture__recovery-comparison',
+                      'data-article-recovery-comparison': 'true',
+                      'aria-live': 'polite'
+                    }, recoveryComparison.value)
+                  : null,
+                recoveryOperationStatusText.value
+                  ? h('p', {
+                      class: 'article-editor-production-fixture__recovery-operation-status',
+                      role: 'status'
+                    }, recoveryOperationStatusText.value)
+                  : null,
+                recoveryOperationError.value
+                  ? h('p', {
+                      class: 'article-editor-production-fixture__recovery-operation-error',
+                      role: 'alert'
+                    }, recoveryOperationError.value)
+                  : null
+              ]),
+              h('div', { class: 'article-editor-production-fixture__recovery-actions' }, [
+                h(ElButton, {
+                  disabled: recoveryOperationPending.value,
+                  loading: recoveryOperationKind.value === 'compare',
+                  onClick: () => {
+                    void compareSelectedRecovery()
+                  }
+                }, () => '比较所选正文'),
+                h(ElButton, {
+                  type: 'primary',
+                  disabled: recoveryOperationPending.value,
+                  loading: recoveryOperationKind.value === 'recover',
+                  onClick: () => {
+                    void restoreSelectedRecovery()
+                  }
+                }, () => '恢复所选正文'),
+                h(ElButton, {
+                  disabled: recoveryOperationPending.value,
+                  loading: recoveryOperationKind.value === 'discard',
+                  onClick: () => {
+                    void discardSelectedRecovery()
+                  }
+                }, () => '丢弃所选正文')
+              ])
+            ])
+          : null,
+        recoveryStorageStatus.value
+          ? h('p', {
+              class: 'article-editor-production-fixture__recovery-status',
+              role: 'status'
+            }, recoveryStorageStatus.value)
+          : null,
+        h('label', {
+          class: 'article-editor-production-fixture__recovery-editor'
+        }, [
+          h('span', '正文'),
+          h('textarea', {
+            value: recoveryContent.value,
+            'aria-label': '未同步正文编辑区',
+            onInput: (event: Event) => {
+              void writeRecoveryContent((event.target as HTMLTextAreaElement).value)
+            }
+          })
+        ])
+      ])
+
       return () => h('main', {
         class: 'article-editor-production-fixture',
         'aria-label': '文章编辑器 production fixture'
-      }, surface === 'editor' ? [renderEditor()] : surface === 'command' ? [renderCommand()] : surface === 'inspector' ? [renderInspector()] : [
+      }, surface === 'editor' ? [renderEditor()] : surface === 'command' ? [renderCommand()] : surface === 'inspector' ? [renderInspector()] : surface === 'recovery' ? [renderRecovery()] : [
         h('header', { class: 'article-editor-production-fixture__task' }, [
           h('div', [
             h('h1', '撰写文章'),

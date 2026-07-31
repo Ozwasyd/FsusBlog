@@ -13,7 +13,7 @@ async function openFixture(
   page: Page,
   title: keyof typeof contract.titles,
   theme: 'light' | 'dark',
-  surface: 'title' | 'editor' | 'command' | 'inspector' = 'title',
+  surface: 'title' | 'editor' | 'command' | 'inspector' | 'recovery' = 'title',
   inspectorState: 'empty' | 'loading' | 'error' | 'success' | 'partial' = 'success',
   inspectorView?: typeof contract.inspectorViews[number]
 ): Promise<void> {
@@ -93,6 +93,39 @@ async function openFixture(
     await page.reload({ waitUntil: 'domcontentloaded' })
     await waitForFixtureReady(50_000)
   }
+}
+
+async function clearFixtureRecovery(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    await (
+      window as Window & {
+        __articleEditorFixtureClearRecovery?: () => Promise<void>
+      }
+    ).__articleEditorFixtureClearRecovery?.()
+  })
+}
+
+async function writeFixtureRecovery(page: Page, content: string): Promise<void> {
+  await page.evaluate(async (value) => {
+    await (
+      window as Window & {
+        __articleEditorFixtureWriteRecovery?: (content: string) => Promise<unknown>
+      }
+    ).__articleEditorFixtureWriteRecovery?.(value)
+  }, content)
+}
+
+async function failNextRecoveryOperation(
+  page: Page,
+  kind: 'compare' | 'recover' | 'discard'
+): Promise<void> {
+  await page.evaluate((operationKind) => {
+    (
+      window as Window & {
+        __articleEditorFixtureFailNextRecoveryOperation?: (value: typeof operationKind) => void
+      }
+    ).__articleEditorFixtureFailNextRecoveryOperation?.(operationKind)
+  }, kind)
 }
 
 test.describe('article editor production fixture title hierarchy', () => {
@@ -240,6 +273,165 @@ test.describe('article editor production fixture title hierarchy', () => {
           await expect(count).toBeVisible()
         }
       }
+    }
+  })
+})
+
+test.describe('article editor production fixture recovery prompt', () => {
+  test.use({ viewport: { width: 1440, height: 900 } })
+
+  test('stays silent normally, separates tab ownership and cleans exact server confirmation', async ({ context, page }) => {
+    await openFixture(page, 'short', 'light', 'recovery')
+    await clearFixtureRecovery(page)
+
+    await expect(page.locator('[data-article-recovery-prompt]')).toHaveCount(0)
+    await expect(page.getByRole('status')).toHaveCount(0)
+
+    const unsynced = '进程退出前尚未确认的正文 🧭\nclient revision belongs to writer tab'
+    await writeFixtureRecovery(page, unsynced)
+    await expect(page.getByRole('textbox', { name: '未同步正文编辑区' })).toHaveValue(unsynced)
+    await expect(page.locator('[data-article-recovery-prompt]')).toHaveCount(0)
+
+    const observer = await context.newPage()
+    try {
+      await openFixture(observer, 'short', 'light', 'recovery')
+      const prompt = observer.locator('[data-article-recovery-prompt]')
+      await expect(prompt).toBeVisible()
+      await expect(prompt).toHaveAttribute('aria-live', 'polite')
+      await expect(observer.getByRole('group', { name: '选择要恢复的未同步正文版本' })).toBeVisible()
+      await expect(observer.getByRole('radio')).toHaveCount(1)
+      await expect(observer.getByText(/client revision 独立归属/u)).toBeVisible()
+
+      for (const action of ['比较所选正文', '恢复所选正文', '丢弃所选正文']) {
+        const button = observer.getByRole('button', { name: action })
+        const box = await button.boundingBox()
+        expect(box).not.toBeNull()
+        expect(box!.height).toBeGreaterThanOrEqual(44)
+      }
+      expect(await observer.evaluate(() => document.documentElement.scrollWidth - window.innerWidth))
+        .toBeLessThanOrEqual(1)
+
+      await failNextRecoveryOperation(observer, 'compare')
+      await observer.getByRole('button', { name: '比较所选正文' }).click()
+      await expect(prompt).toHaveAttribute('aria-busy', 'true')
+      await expect(observer.getByRole('status', { name: '' })).toContainText('正在比较所选正文')
+      for (const action of ['比较所选正文', '恢复所选正文', '丢弃所选正文']) {
+        await expect(observer.getByRole('button', { name: action })).toBeDisabled()
+      }
+      await expect(observer.getByRole('alert')).toContainText('所选正文比较失败')
+      await expect(prompt).toBeVisible()
+
+      await observer.getByRole('button', { name: '比较所选正文' }).click()
+      const comparison = observer.locator('[data-article-recovery-comparison]')
+      await expect(comparison).toContainText('未同步正文')
+      await expect(comparison).toContainText('初始化时的服务端权威正文')
+      await expect(prompt).toHaveAttribute('aria-busy', 'false')
+
+      await observer.getByRole('button', { name: '恢复所选正文' }).focus()
+      await observer.keyboard.press('Enter')
+      await expect(observer.getByRole('textbox', { name: '未同步正文编辑区' })).toHaveValue(unsynced)
+      await expect(prompt).toHaveCount(0)
+
+      const confirmed = await observer.evaluate(async () => await (
+        window as Window & {
+          __articleEditorFixtureConfirmRecovery?: () => Promise<boolean>
+        }
+      ).__articleEditorFixtureConfirmRecovery?.())
+      expect(confirmed).toBe(true)
+
+      const cleanReader = await context.newPage()
+      try {
+        await openFixture(cleanReader, 'short', 'light', 'recovery')
+        await expect(cleanReader.locator('[data-article-recovery-prompt]')).toHaveCount(0)
+      } finally {
+        await cleanReader.close()
+      }
+    } finally {
+      await clearFixtureRecovery(observer).catch(() => {})
+      await observer.close()
+    }
+  })
+
+  test('shows three tab-owned versions without last-write-wins and supports explicit discard', async ({ context, page }) => {
+    await openFixture(page, 'short', 'dark', 'recovery')
+    await clearFixtureRecovery(page)
+    const writers = [page, await context.newPage(), await context.newPage()]
+    const contents = [
+      '标签页甲：中文恢复正文',
+      '标签页乙：emoji recovery 🧪',
+      '标签页丙：independent client revision'
+    ]
+    try {
+      for (let index = 1; index < writers.length; index += 1) {
+        await openFixture(writers[index], 'short', 'dark', 'recovery')
+      }
+      await Promise.all(writers.map((writer, index) => writeFixtureRecovery(writer, contents[index])))
+
+      const observer = await context.newPage()
+      try {
+        await openFixture(observer, 'short', 'dark', 'recovery')
+        await expect(observer.getByRole('heading', { name: '3 个标签页的未同步正文' })).toBeVisible()
+        await expect(observer.getByRole('radio')).toHaveCount(3)
+        for (const content of contents) {
+          await expect(observer.getByText(content, { exact: true })).toBeVisible()
+        }
+        await observer.getByRole('radio').nth(1).check()
+        await failNextRecoveryOperation(observer, 'discard')
+        await observer.getByRole('button', { name: '丢弃所选正文' }).click()
+        await expect(observer.locator('[data-article-recovery-prompt]')).toHaveAttribute('aria-busy', 'true')
+        await expect(observer.getByRole('alert')).toContainText('正文丢弃失败')
+        await expect(observer.getByRole('radio')).toHaveCount(3)
+        await observer.getByRole('button', { name: '丢弃所选正文' }).click()
+        await expect(observer.getByRole('radio')).toHaveCount(2)
+      } finally {
+        await observer.close()
+      }
+    } finally {
+      await clearFixtureRecovery(page).catch(() => {})
+      await Promise.all(writers.slice(1).map(writer => writer.close()))
+    }
+  })
+})
+
+test.describe('article editor production fixture recovery touch', () => {
+  test.use({ viewport: { width: 375, height: 812 }, hasTouch: true })
+
+  test('keeps the direct decision reachable by touch and screen-reader name at 375px', async ({ context, page }) => {
+    await openFixture(page, 'short', 'light', 'recovery')
+    await clearFixtureRecovery(page)
+    await writeFixtureRecovery(page, '移动端未同步正文 👆')
+
+    const observer = await context.newPage()
+    try {
+      await openFixture(observer, 'short', 'light', 'recovery')
+      const prompt = observer.locator('[data-article-recovery-prompt]')
+      await expect(prompt).toBeVisible()
+      await expect(observer.getByRole('group', { name: '选择要恢复的未同步正文版本' })).toBeVisible()
+      await observer.getByRole('radio').tap()
+      const compare = observer.getByRole('button', { name: '比较所选正文' })
+      const restore = observer.getByRole('button', { name: '恢复所选正文' })
+      const discard = observer.getByRole('button', { name: '丢弃所选正文' })
+      for (const action of [compare, restore, discard]) {
+        const box = await action.boundingBox()
+        expect(box).not.toBeNull()
+        expect(box!.height).toBeGreaterThanOrEqual(44)
+      }
+      expect(await observer.evaluate(() => document.documentElement.scrollWidth - window.innerWidth))
+        .toBeLessThanOrEqual(1)
+      await compare.tap()
+      await expect(prompt).toHaveAttribute('aria-busy', 'true')
+      await expect(observer.getByRole('status')).toContainText('正在比较所选正文')
+      await expect(observer.locator('[data-article-recovery-comparison]')).toBeVisible()
+      await failNextRecoveryOperation(observer, 'recover')
+      await restore.tap()
+      await expect(observer.getByRole('alert')).toContainText('正文恢复失败')
+      await expect(prompt).toBeVisible()
+      await restore.tap()
+      await expect(observer.getByRole('textbox', { name: '未同步正文编辑区' }))
+        .toHaveValue('移动端未同步正文 👆')
+    } finally {
+      await clearFixtureRecovery(observer).catch(() => {})
+      await observer.close()
     }
   })
 })

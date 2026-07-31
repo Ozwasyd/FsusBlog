@@ -48,8 +48,26 @@ import { useImageUploadFlow } from '@/composables/useImageUploadFlow'
 import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
 import { ensureAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
 import { usePow } from '@/composables/usePow'
-import { decodePublicAotPayload, encodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload'
 import { BinaryTransportError } from '@/composition/binaryTransport'
+import { useAdminStore } from '@/store/admin'
+import {
+  ArticleRecoveryCoordinator,
+  ArticleRecoveryFlushOwner,
+  articleRecoveryArticleKey,
+  articleRecoveryJournal,
+  articleRecoverySourceHash,
+  assessArticleRecoveryDivergence,
+  bindArticleRecoveryLifecycleFlush,
+  createArticleRecoveryOperationRunner,
+  createArticleRecoveryClientRevision,
+  summarizeArticleRecoveryComparison,
+  type ArticleRecoveryDivergence,
+  type ArticleRecoveryFlushResult,
+  type ArticleRecoveryJournalRecord,
+  type ArticleRecoveryJournalWriteResult,
+  type ArticleRecoveryOperationKind
+} from '@/services/articleRecoveryJournal'
+import { purgeRetiredArticleDraftMetadata } from '@/services/privateStorageRegistry'
 
 interface ArticleParams {
   title: string
@@ -71,18 +89,6 @@ interface ArticleDraftSnapshot extends ArticleParams {
   source: 'local' | 'server'
   clientRevision: string
   serverRevision: number | null
-}
-
-export interface LocalDraftMetadataSource {
-  savedAt: number
-  sourceArticleId: number | null
-  isEdit: boolean
-  clientRevision: string
-}
-
-export interface LocalDraftMetadata extends LocalDraftMetadataSource {
-  schema: 'fsusblog.article-draft-metadata.v1'
-  source: 'local'
 }
 
 export interface ArticleRevisionConflictMetadata {
@@ -148,10 +154,12 @@ export const parseServerDraftConflictDetails = (details?: string | null): Server
 export const shouldRetryServerDraftSave = (error: unknown): boolean =>
   !(error instanceof BinaryTransportError && error.message === 'draft_conflict')
 
-export interface LocalDraftRecovery<TDraft> {
-  draft: TDraft | null
-  savedAt: number | null
-  hasLocalMetadataWithoutRestorableDraft: boolean
+interface ArticleRecoveryCandidateView {
+  id: string
+  label: string
+  detail: string
+  excerpt: string
+  divergence: ArticleRecoveryDivergence
 }
 
 interface ArticleSeoPreviewState {
@@ -183,14 +191,7 @@ interface ArticleRightsForm {
 const CREATE_DRAFT_KEY = 'fsus:article-draft:create'
 const EDIT_DRAFT_PREFIX = 'fsus:article-draft:edit:'
 const DRAFT_SAVE_DELAY_MS = 700
-const LOCAL_DRAFT_METADATA_KEYS = new Set([
-  'schema',
-  'savedAt',
-  'sourceArticleId',
-  'isEdit',
-  'source',
-  'clientRevision'
-])
+const ARTICLE_RECOVERY_FLUSH_INTERVAL_MS = 2_000
 const ARTICLE_RIGHTS_LICENSE_TYPES = [
   'all-rights-reserved',
   'CC-BY-4.0',
@@ -379,116 +380,11 @@ const slugifyTitle = (title: string): string => {
   return slug || 'draft-preview'
 }
 
-export const normalizeLocalDraftMetadata = (value: unknown): LocalDraftMetadata | null => {
-  if (typeof value !== 'object' || value === null) {
-    return null
-  }
-
-  const raw = value as Partial<LocalDraftMetadata>
-  if (Object.keys(raw).some((key) => !LOCAL_DRAFT_METADATA_KEYS.has(key))
-      || raw.schema !== 'fsusblog.article-draft-metadata.v1'
-      || raw.source !== 'local'
-      || typeof raw.savedAt !== 'number'
-      || !Number.isFinite(raw.savedAt)
-      || typeof raw.isEdit !== 'boolean'
-      || typeof raw.clientRevision !== 'string'
-      || (raw.sourceArticleId !== null
-        && (typeof raw.sourceArticleId !== 'number' || !Number.isFinite(raw.sourceArticleId)))) {
-    return null
-  }
-
-  return {
-    schema: 'fsusblog.article-draft-metadata.v1',
-    savedAt: raw.savedAt,
-    sourceArticleId: raw.sourceArticleId,
-    isEdit: raw.isEdit,
-    source: 'local',
-    clientRevision: raw.clientRevision
-  }
-}
-
-export const toLocalDraftMetadata = (snapshot: LocalDraftMetadataSource): LocalDraftMetadata => ({
-  schema: 'fsusblog.article-draft-metadata.v1',
-  savedAt: snapshot.savedAt,
-  sourceArticleId: snapshot.sourceArticleId,
-  isEdit: snapshot.isEdit,
-  source: 'local',
-  clientRevision: snapshot.clientRevision
-})
-
-export const encodeLocalDraftMetadata = (snapshot: LocalDraftMetadataSource): string =>
-  encodePublicAotPayload(toLocalDraftMetadata(snapshot))
-
-export const decodeLocalDraftMetadata = (encoded: string): LocalDraftMetadata | null =>
-  normalizeLocalDraftMetadata(decodePublicAotPayload(encoded))
-
-export function resolveLocalDraftRecovery<TDraft extends { savedAt: number }>(
-  localMetadata: LocalDraftMetadata | null,
-  serverDraft: TDraft | null,
-  isServerDraftRestorable: (draft: TDraft) => boolean
-): LocalDraftRecovery<TDraft> {
-  const draft = serverDraft && isServerDraftRestorable(serverDraft) ? serverDraft : null
-  return {
-    draft,
-    savedAt: Math.max(localMetadata?.savedAt ?? 0, serverDraft?.savedAt ?? 0) || null,
-    hasLocalMetadataWithoutRestorableDraft: localMetadata !== null && draft === null
-  }
-}
-
-const readDraftMetadata = (key: string): LocalDraftMetadata | null => {
-  if (typeof window === 'undefined') {
-    return null
-  }
-
-  try {
-    const raw = window.localStorage.getItem(key)
-    if (!raw) {
-      return null
-    }
-
-    const parsed = decodeLocalDraftMetadata(raw)
-    if (!parsed) {
-      window.localStorage.removeItem(key)
-    }
-    return parsed
-  } catch {
-    try {
-      window.localStorage.removeItem(key)
-    } catch {
-      // Storage may be unavailable in restricted browser contexts.
-    }
-    return null
-  }
-}
-
-const writeLocalDraftMetadata = (key: string, snapshot: ArticleDraftSnapshot): void => {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  try {
-    window.localStorage.setItem(key, encodeLocalDraftMetadata(snapshot))
-  } catch {
-    // Local draft metadata is best-effort and must never block editing.
-  }
-}
-
-const removeLocalDraftMetadata = (key: string): void => {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  try {
-    window.localStorage.removeItem(key)
-  } catch {
-    // Ignore storage failures.
-  }
-}
-
 export function useAdminArticleWrite() {
   const route = useRoute()
   const router = useRouter()
   const powProvider = usePow()
+  const adminStore = useAdminStore()
   const formRef = useTemplateRef<FormInstance>('formRef')
   const articleId = computed(() => {
     const raw = route.params.id ?? route.query.id
@@ -510,6 +406,13 @@ export function useAdminArticleWrite() {
   const pendingDraft = ref<ArticleDraftSnapshot | null>(null)
   const draftSavedAt = ref<number | null>(null)
   const draftConflictText = ref('')
+  const articleRecoveryCandidates = shallowRef<ArticleRecoveryJournalRecord[]>([])
+  const selectedArticleRecoveryId = ref('')
+  const articleRecoveryStorageWarning = ref('')
+  const articleRecoveryComparison = ref('')
+  const comparedArticleRecoveryId = ref('')
+  const articleRecoveryOperationKind = ref<ArticleRecoveryOperationKind | null>(null)
+  const articleRecoveryOperationError = ref('')
   const currentRevisionId = ref<string | null>(null)
   const currentRevisionNo = ref<number | null>(null)
   const serverDraftRevision = ref<number | null>(null)
@@ -585,17 +488,103 @@ export function useAdminArticleWrite() {
     return isEdit.value ? '更新后会生成新的文章版本并刷新公开缓存。' : '发布后文章会进入公开阅读页并同步搜索索引。'
   })
   const draftKey = computed(() => (isEdit.value && articleId.value !== null ? `${EDIT_DRAFT_PREFIX}${articleId.value}` : CREATE_DRAFT_KEY))
-  const hasLocalDraft = computed(() => pendingDraft.value !== null)
-  const pendingDraftSourceLabel = computed(() => '服务端草稿')
+  const selectedArticleRecovery = computed(() =>
+    articleRecoveryCandidates.value.find(candidate => candidate.id === selectedArticleRecoveryId.value)
+    ?? articleRecoveryCandidates.value[0]
+    ?? null)
+  const selectedArticleRecoveryDivergence = computed<ArticleRecoveryDivergence>(() => {
+    const selected = selectedArticleRecovery.value
+    return selected
+      ? assessArticleRecoveryDivergence(selected, {
+          currentRevisionId: currentRevisionId.value,
+          serverRevision: serverDraftRevision.value
+        })
+      : 'none'
+  })
+  const articleRecoveryCandidateViews = computed<ArticleRecoveryCandidateView[]>(() =>
+    articleRecoveryCandidates.value.map((candidate, index) => {
+      const divergence = assessArticleRecoveryDivergence(candidate, {
+        currentRevisionId: currentRevisionId.value,
+        serverRevision: serverDraftRevision.value
+      })
+      const divergenceText = divergence === 'newer-current-revision'
+        ? '当前文章已有较新修订'
+        : divergence === 'newer-server-draft'
+          ? '服务端草稿已更新'
+          : '可直接恢复后继续自动保存'
+      const excerpt = candidate.content
+        .replace(/\s+/gu, ' ')
+        .trim()
+        .slice(0, 120)
+      return {
+        id: candidate.id,
+        label: `标签页版本 ${index + 1} · ${new Date(candidate.updatedAt).toLocaleString()}`,
+        detail: `${candidate.content.length.toLocaleString()} 字 · ${divergenceText}`,
+        excerpt: excerpt || '（正文为空；此版本记录了删除后的未同步状态）',
+        divergence
+      }
+    }))
+  const hasArticleRecoveryCandidates = computed(() => articleRecoveryCandidates.value.length > 0)
+  const hasLocalDraft = computed(() => pendingDraft.value !== null || hasArticleRecoveryCandidates.value)
+  const pendingDraftSourceLabel = computed(() => {
+    if (hasArticleRecoveryCandidates.value) {
+      return articleRecoveryCandidates.value.length > 1
+        ? `${articleRecoveryCandidates.value.length} 个标签页的未同步正文`
+        : '未同步正文'
+    }
+    return '服务端草稿'
+  })
   const pendingDraftDescription = computed(() => {
+    if (hasArticleRecoveryCandidates.value) {
+      const selected = selectedArticleRecovery.value
+      if (!selected) {
+        return ''
+      }
+      const divergence = assessArticleRecoveryDivergence(selected, {
+        currentRevisionId: currentRevisionId.value,
+        serverRevision: serverDraftRevision.value
+      })
+      if (divergence === 'newer-current-revision') {
+        return '当前文章已有较新修订。请先比较再明确选择；恢复只替换当前表单正文，并继续现有 revision conflict 流程。'
+      }
+      if (divergence === 'newer-server-draft') {
+        return '服务端已有较新的草稿。请先比较再明确选择；不会自动覆盖服务端版本。'
+      }
+      if (articleRecoveryCandidates.value.length > 1) {
+        return '不同标签页各自保留版本，没有 last-write-wins。请选择一个版本恢复或逐个丢弃。'
+      }
+      return '此正文尚未得到服务端确认。恢复只替换当前表单正文，随后继续现有自动保存。'
+    }
     if (draftConflictText.value) {
       return draftConflictText.value
     }
 
     return '恢复会覆盖当前表单，丢弃会删除服务端草稿与浏览器中的保存记录。'
   })
-  const draftRestoreButtonText = computed(() => '恢复服务端草稿')
-  const draftDiscardButtonText = computed(() => '丢弃服务端草稿')
+  const draftRestoreButtonText = computed(() =>
+    hasArticleRecoveryCandidates.value ? '恢复所选正文' : '恢复服务端草稿')
+  const draftDiscardButtonText = computed(() =>
+    hasArticleRecoveryCandidates.value ? '丢弃所选正文' : '丢弃服务端草稿')
+  const articleRecoveryOperationPending = computed(() => articleRecoveryOperationKind.value !== null)
+  const articleRecoveryOperationStatusText = computed(() => {
+    switch (articleRecoveryOperationKind.value) {
+      case 'compare':
+        return '正在比较所选正文'
+      case 'recover':
+        return '正在恢复所选正文'
+      case 'discard':
+        return '正在丢弃所选正文'
+      default:
+        return ''
+    }
+  })
+  const articleRecoveryComparisonRequired = computed(() => (
+    selectedArticleRecovery.value !== null
+    && selectedArticleRecoveryDivergence.value !== 'none'
+    && comparedArticleRecoveryId.value !== selectedArticleRecovery.value.id
+  ))
+  const recoveryAwareDraftStatusText = computed(() =>
+    [draftStatusText.value.trim(), articleRecoveryStorageWarning.value.trim()].filter(Boolean).join('；'))
   const requiresLeaveConfirm = computed(() => hasDraftContent(articleForm) || hasLocalDraft.value)
   const selectedRevisionLabel = computed(() => selectedRevision.value ? `版本 ${selectedRevision.value.revisionNo}` : '未选择历史版本')
   const canGeneratePrivatePreview = computed(() => articleForm.title.trim().length > 0 || articleForm.content.trim().length > 0)
@@ -725,6 +714,19 @@ export function useAdminArticleWrite() {
   let serverDraftRetryTimer: ReturnType<typeof window.setTimeout> | null = null
   let suppressDraftSave = true
   let serverDraftSaveToken = 0
+  let activeRecoveryClientRevision: string | null = null
+  let authoritativeArticleSourceHash: string | null = null
+  let authoritativeServerDraftSourceHash: string | null = null
+  let authoritativeArticleContent = ''
+  let authoritativeServerDraftContent: string | null = null
+  let articleRecoveryRefreshToken = 0
+  const recoveryCoordinator = new ArticleRecoveryCoordinator({
+    BroadcastChannel: typeof window === 'undefined'
+      ? null
+      : (window as Window & { BroadcastChannel?: typeof BroadcastChannel }).BroadcastChannel ?? null
+  })
+  let unsubscribeArticleRecoveryCoordination: (() => void) | null = null
+  let disposeArticleRecoveryLifecycle: (() => void) | null = null
 
   const clearDraftSaveTimer = (): void => {
     if (draftSaveTimer !== null) {
@@ -737,9 +739,10 @@ export function useAdminArticleWrite() {
     }
   }
 
-  const nextClientRevision = (): string => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
-
-  const buildDraftSnapshot = (source: ArticleDraftSnapshot['source'] = 'local'): ArticleDraftSnapshot => ({
+  const buildDraftSnapshot = (
+    clientRevision: string,
+    source: ArticleDraftSnapshot['source'] = 'local'
+  ): ArticleDraftSnapshot => ({
     title: articleForm.title,
     content: articleForm.content,
     summary: articleForm.summary,
@@ -754,7 +757,7 @@ export function useAdminArticleWrite() {
     baseRevisionId: isEdit.value ? currentRevisionId.value : null,
     isEdit: isEdit.value,
     source,
-    clientRevision: nextClientRevision(),
+    clientRevision,
     serverRevision: serverDraftRevision.value
   })
 
@@ -799,7 +802,115 @@ export function useAdminArticleWrite() {
     }
   }
 
-  const saveServerDraftSnapshot = async (snapshot: ArticleDraftSnapshot): Promise<void> => {
+  const recoveryIdentityId = (): string | null => {
+    const identity = adminStore.adminPrincipal?.id?.trim()
+    return identity ? identity : null
+  }
+
+  const safeRecoverySourceHash = async (content: string): Promise<string | null> => {
+    try {
+      return await articleRecoverySourceHash(content)
+    } catch {
+      articleRecoveryStorageWarning.value = '浏览器短期恢复不可用，服务端自动保存继续'
+      return null
+    }
+  }
+
+  const updateRecoveryStorageWarning = (status: ArticleRecoveryJournalWriteResult['status']): void => {
+    switch (status) {
+      case 'stored':
+        articleRecoveryStorageWarning.value = ''
+        break
+      case 'oversize':
+        articleRecoveryStorageWarning.value = '正文超过浏览器短期恢复上限，服务端自动保存继续'
+        break
+      case 'quota-exceeded':
+      case 'capacity-exceeded':
+        articleRecoveryStorageWarning.value = '浏览器短期恢复空间不足，服务端自动保存继续'
+        break
+      default:
+        articleRecoveryStorageWarning.value = '浏览器短期恢复不可用，服务端自动保存继续'
+        break
+    }
+  }
+
+  const articleRecoveryFlushOwner = new ArticleRecoveryFlushOwner(async (input) => {
+    const result = await articleRecoveryJournal.write(input)
+    updateRecoveryStorageWarning(result.status)
+    if (result.status === 'stored') {
+      recoveryCoordinator.notify('changed', input.articleId)
+    }
+    return result
+  })
+
+  const stageArticleRecoveryWrite = (
+    content: string,
+    clientRevision: string,
+    coordinates: {
+      articleId: number | null
+      baseRevisionId: string | null
+      serverRevision: number | null
+    }
+  ): boolean => {
+    const identityId = recoveryIdentityId()
+    if (!identityId) {
+      updateRecoveryStorageWarning('unavailable')
+      return false
+    }
+
+    articleRecoveryFlushOwner.stage({
+      identityId,
+      articleId: coordinates.articleId,
+      tabId: recoveryCoordinator.tabId,
+      baseRevisionId: coordinates.baseRevisionId,
+      serverRevision: coordinates.serverRevision,
+      clientRevision,
+      content
+    })
+    return true
+  }
+
+  const flushArticleRecoveryWrite = async (): Promise<ArticleRecoveryJournalWriteResult> => {
+    let result: ArticleRecoveryFlushResult
+    try {
+      result = await articleRecoveryFlushOwner.flush()
+    } catch {
+      result = {
+        status: 'unavailable',
+        record: null
+      }
+    }
+    if (!result) {
+      return {
+        status: 'unavailable',
+        record: null
+      }
+    }
+    return result
+  }
+
+  const queueArticleRecoveryWrite = (
+    content: string,
+    clientRevision: string,
+    coordinates: {
+      articleId: number | null
+      baseRevisionId: string | null
+      serverRevision: number | null
+    }
+  ): Promise<ArticleRecoveryJournalWriteResult> => {
+    if (!stageArticleRecoveryWrite(content, clientRevision, coordinates)) {
+      return Promise.resolve({
+        status: 'unavailable',
+        record: null
+      })
+    }
+    return flushArticleRecoveryWrite()
+  }
+
+  const saveServerDraftSnapshot = async (
+    snapshot: ArticleDraftSnapshot,
+    recoveryRecord: ArticleRecoveryJournalRecord | null
+  ): Promise<void> => {
     if (serverDraftSyncPaused.value) {
       draftStatusText.value = '当前更改尚未同步，请先处理已有服务端草稿'
       return
@@ -808,6 +919,24 @@ export function useAdminArticleWrite() {
     const token = ++serverDraftSaveToken
     try {
       const saved = await saveServerDraft(buildServerDraftRequest(snapshot))
+      if (recoveryRecord) {
+        const confirmed = await articleRecoveryJournal.confirm({
+          id: recoveryRecord.id,
+          clientRevision: recoveryRecord.clientRevision,
+          sourceHash: recoveryRecord.sourceHash
+        })
+        if (confirmed) {
+          articleRecoveryFlushOwner.markConfirmed({
+            id: recoveryRecord.id,
+            clientRevision: recoveryRecord.clientRevision,
+            sourceHash: recoveryRecord.sourceHash
+          })
+          recoveryCoordinator.notify('cleared', snapshot.sourceArticleId)
+          if (activeRecoveryClientRevision === recoveryRecord.clientRevision) {
+            activeRecoveryClientRevision = null
+          }
+        }
+      }
       if (token !== serverDraftSaveToken) {
         return
       }
@@ -842,7 +971,7 @@ export function useAdminArticleWrite() {
           }
           serverDraftRetryTimer = window.setTimeout(() => {
             serverDraftRetryTimer = null
-            void saveServerDraftSnapshot(snapshot)
+            void saveServerDraftSnapshot(snapshot, recoveryRecord)
           }, 1_200)
         }
       }
@@ -854,11 +983,17 @@ export function useAdminArticleWrite() {
       return
     }
 
-    const snapshot = buildDraftSnapshot()
-    writeLocalDraftMetadata(draftKey.value, snapshot)
+    clearDraftSaveTimer()
+    const clientRevision = activeRecoveryClientRevision ?? createArticleRecoveryClientRevision()
+    activeRecoveryClientRevision = clientRevision
+    const snapshot = buildDraftSnapshot(clientRevision)
     draftSavedAt.value = snapshot.savedAt
     draftStatusText.value = '正在保存服务端草稿…'
-    void saveServerDraftSnapshot(snapshot)
+    void queueArticleRecoveryWrite(snapshot.content, snapshot.clientRevision, {
+      articleId: snapshot.sourceArticleId,
+      baseRevisionId: snapshot.baseRevisionId,
+      serverRevision: snapshot.serverRevision
+    }).then(result => saveServerDraftSnapshot(snapshot, result.record))
   }
 
   const scheduleDraftSave = (): void => {
@@ -891,37 +1026,91 @@ export function useAdminArticleWrite() {
     }
   }
 
+  const refreshArticleRecoveryCandidates = async (): Promise<void> => {
+    const identityId = recoveryIdentityId()
+    if (!identityId) {
+      articleRecoveryCandidates.value = []
+      selectedArticleRecoveryId.value = ''
+      return
+    }
+    const token = ++articleRecoveryRefreshToken
+    const [result, currentFormSourceHash] = await Promise.all([
+      articleRecoveryJournal.list(identityId, articleId.value),
+      safeRecoverySourceHash(articleForm.content)
+    ])
+    if (token !== articleRecoveryRefreshToken) {
+      return
+    }
+    if (result.status === 'unavailable' || currentFormSourceHash === null) {
+      articleRecoveryStorageWarning.value = '浏览器短期恢复不可用，服务端自动保存继续'
+      articleRecoveryCandidates.value = []
+      selectedArticleRecoveryId.value = ''
+      return
+    }
+
+    const redundantRecords = result.records.filter(record => (
+      record.sourceHash === authoritativeArticleSourceHash
+      || record.sourceHash === authoritativeServerDraftSourceHash
+    ))
+    for (const record of redundantRecords) {
+      await articleRecoveryJournal.discard(record.id)
+    }
+    if (redundantRecords.length > 0) {
+      recoveryCoordinator.notify('cleared', articleId.value)
+    }
+
+    const candidates = result.records.filter(record => (
+      !redundantRecords.some(redundant => redundant.id === record.id)
+      && record.sourceHash !== currentFormSourceHash
+    ))
+    articleRecoveryCandidates.value = Object.freeze(candidates)
+    if (!candidates.some(candidate => candidate.id === selectedArticleRecoveryId.value)) {
+      selectedArticleRecoveryId.value = candidates[0]?.id ?? ''
+    }
+    const hasDivergentRecovery = candidates.some(candidate => (
+      assessArticleRecoveryDivergence(candidate, {
+        currentRevisionId: currentRevisionId.value,
+        serverRevision: serverDraftRevision.value
+      }) !== 'none'
+    ))
+    if (hasDivergentRecovery) {
+      serverDraftSyncPaused.value = true
+    } else if (pendingDraft.value?.source !== 'server' && !draftConflictText.value) {
+      serverDraftSyncPaused.value = false
+    }
+  }
+
   const detectDraftCandidates = async (signal: AbortSignal): Promise<void> => {
-    const localMetadata = readDraftMetadata(draftKey.value)
+    authoritativeArticleContent = articleForm.content
+    authoritativeArticleSourceHash = await safeRecoverySourceHash(articleForm.content)
     const serverDraft = await readServerDraftSnapshot(signal)
     if (signal.aborted) {
       return
     }
     serverDraftRevision.value = serverDraft?.serverRevision ?? null
+    authoritativeServerDraftContent = serverDraft?.content ?? null
+    authoritativeServerDraftSourceHash = serverDraft
+      ? await safeRecoverySourceHash(serverDraft.content)
+      : null
 
-    const recovery = resolveLocalDraftRecovery(
-      localMetadata,
-      serverDraft,
-      (candidate) => hasDraftContent(candidate) && !isDraftSameAsForm(candidate)
-    )
-    const draft = recovery.draft
+    const draft = serverDraft && hasDraftContent(serverDraft) && !isDraftSameAsForm(serverDraft)
+      ? serverDraft
+      : null
     if (!draft) {
       pendingDraft.value = null
       draftConflictText.value = ''
       serverDraftSyncPaused.value = false
-      draftSavedAt.value = recovery.savedAt
-      if (recovery.hasLocalMetadataWithoutRestorableDraft) {
-        draftStatusText.value = '未找到可恢复的服务端草稿；浏览器只保留了保存时间记录'
-      }
-      return
+      draftSavedAt.value = serverDraft?.savedAt ?? null
+    } else {
+      pendingDraft.value = draft
+      serverDraftRevision.value = draft.serverRevision
+      draftSavedAt.value = draft.savedAt
+      draftConflictText.value = ''
+      serverDraftSyncPaused.value = draft.source === 'server'
+      draftStatusText.value = `发现 ${new Date(draft.savedAt).toLocaleString()} 保存的服务端草稿`
     }
 
-    pendingDraft.value = draft
-    serverDraftRevision.value = draft.serverRevision
-    draftSavedAt.value = draft.savedAt
-    draftConflictText.value = ''
-    serverDraftSyncPaused.value = draft.source === 'server'
-    draftStatusText.value = `发现 ${new Date(draft.savedAt).toLocaleString()} 保存的服务端草稿`
+    await refreshArticleRecoveryCandidates()
   }
 
   const applyDraftToForm = (draft: ArticleDraftSnapshot): void => {
@@ -943,12 +1132,95 @@ export function useAdminArticleWrite() {
     suppressDraftSave = false
   }
 
-  const restoreLocalDraft = (): void => {
-    if (!pendingDraft.value) {
+  const clearArticleRecoveryScope = async (): Promise<void> => {
+    await articleRecoveryFlushOwner.drain()
+    articleRecoveryFlushOwner.clear()
+    const identityId = recoveryIdentityId()
+    if (identityId) {
+      await articleRecoveryJournal.clearScope(identityId, articleId.value)
+      recoveryCoordinator.notify('cleared', articleId.value)
+    }
+    articleRecoveryCandidates.value = []
+    selectedArticleRecoveryId.value = ''
+    activeRecoveryClientRevision = null
+  }
+
+  const runArticleRecoveryOperation = createArticleRecoveryOperationRunner((state) => {
+    articleRecoveryOperationKind.value = state.kind
+    articleRecoveryOperationError.value = state.error
+  })
+
+  const compareSelectedArticleRecovery = async (): Promise<void> => {
+    await runArticleRecoveryOperation(
+      'compare',
+      '所选正文比较失败，请保留当前选择并重试',
+      async () => {
+        const recovery = selectedArticleRecovery.value
+        if (!recovery) {
+          throw new Error('article_recovery_comparison_selection_required')
+        }
+        const sources = [{
+          label: '初始化时的当前文章正文',
+          content: authoritativeArticleContent
+        }]
+        if (authoritativeServerDraftContent !== null) {
+          sources.push({
+            label: '初始化时的服务端草稿正文',
+            content: authoritativeServerDraftContent
+          })
+        }
+        articleRecoveryComparison.value = summarizeArticleRecoveryComparison(recovery, sources)
+        comparedArticleRecoveryId.value = recovery.id
+      }
+    )
+  }
+
+  const performRestoreLocalDraft = async (): Promise<void> => {
+    const recovery = selectedArticleRecovery.value
+    if (recovery) {
+      const previousContent = articleForm.content
+      const previousServerDraftSyncPaused = serverDraftSyncPaused.value
+      clearDraftSaveTimer()
+      suppressDraftSave = true
+      articleForm.content = recovery.content
+      pendingDraft.value = null
+      serverDraftSyncPaused.value = false
+      draftConflictText.value = ''
+      const clientRevision = createArticleRecoveryClientRevision()
+      activeRecoveryClientRevision = clientRevision
+      const snapshot = buildDraftSnapshot(clientRevision)
+      suppressDraftSave = false
+      draftStatusText.value = '已恢复未同步正文，正在继续服务端自动保存'
+      const result = await queueArticleRecoveryWrite(snapshot.content, snapshot.clientRevision, {
+        articleId: snapshot.sourceArticleId,
+        baseRevisionId: snapshot.baseRevisionId,
+        serverRevision: snapshot.serverRevision
+      })
+      if (result.status !== 'stored' || !result.record) {
+        suppressDraftSave = true
+        articleForm.content = previousContent
+        serverDraftSyncPaused.value = previousServerDraftSyncPaused
+        suppressDraftSave = false
+        throw new Error(`article_recovery_restore_flush_failed:${result.status}`)
+      }
+      if (result.record.id !== recovery.id) {
+        const discarded = await articleRecoveryJournal.discard(recovery.id)
+        if (!discarded) {
+          throw new Error('article_recovery_restore_source_discard_failed')
+        }
+      }
+      await refreshArticleRecoveryCandidates()
+      serverDraftSyncPaused.value = false
+      void saveServerDraftSnapshot(snapshot, result.record)
+      toast.success('已恢复未同步正文')
       return
     }
 
+    if (!pendingDraft.value) {
+      return
+    }
     const sourceLabel = pendingDraftSourceLabel.value
+    await clearArticleRecoveryScope()
     applyDraftToForm(pendingDraft.value)
     pendingDraft.value = null
     draftConflictText.value = ''
@@ -957,9 +1229,20 @@ export function useAdminArticleWrite() {
     toast.success(`已恢复${sourceLabel}`)
   }
 
-  const discardLocalDraft = async (): Promise<void> => {
+  const performDiscardLocalDraft = async (): Promise<void> => {
+    const recovery = selectedArticleRecovery.value
+    if (recovery) {
+      const discarded = await articleRecoveryJournal.discard(recovery.id)
+      if (!discarded) {
+        throw new Error('article_recovery_discard_failed')
+      }
+      recoveryCoordinator.notify('cleared', recovery.articleId)
+      await refreshArticleRecoveryCandidates()
+      toast.success('所选未同步正文已丢弃')
+      return
+    }
+
     const shouldDiscardServerDraft = pendingDraft.value?.source === 'server'
-    removeLocalDraftMetadata(draftKey.value)
     if (shouldDiscardServerDraft) {
       try {
         const expectedServerRevision = pendingDraft.value?.serverRevision
@@ -969,9 +1252,10 @@ export function useAdminArticleWrite() {
         await discardServerDraft(draftKey.value, expectedServerRevision)
       } catch {
         showWarningToast('服务端草稿删除失败，请稍后重试', '服务端草稿删除失败，请稍后重试')
-        return
+        throw new Error('server_draft_discard_failed')
       }
     }
+    await clearArticleRecoveryScope()
 
     pendingDraft.value = null
     draftConflictText.value = ''
@@ -982,9 +1266,29 @@ export function useAdminArticleWrite() {
     toast.success('服务端草稿已丢弃')
   }
 
-  const clearLocalDraft = (): void => {
+  const restoreLocalDraft = async (): Promise<void> => {
+    if (articleRecoveryComparisonRequired.value) {
+      articleRecoveryOperationError.value = '此版本与较新的权威正文坐标不同，请先比较再明确恢复'
+      return
+    }
+    await runArticleRecoveryOperation(
+      'recover',
+      '正文恢复失败，所选版本仍保留，请重试',
+      performRestoreLocalDraft
+    )
+  }
+
+  const discardLocalDraft = async (): Promise<void> => {
+    await runArticleRecoveryOperation(
+      'discard',
+      '正文丢弃失败，所选版本仍保留，请重试',
+      performDiscardLocalDraft
+    )
+  }
+
+  const clearLocalDraft = async (): Promise<void> => {
     clearDraftSaveTimer()
-    removeLocalDraftMetadata(draftKey.value)
+    await clearArticleRecoveryScope()
     pendingDraft.value = null
     draftConflictText.value = ''
     serverDraftSyncPaused.value = false
@@ -995,7 +1299,7 @@ export function useAdminArticleWrite() {
 
   const clearDraftAfterSubmit = async (): Promise<void> => {
     const expectedServerRevision = serverDraftRevision.value
-    clearLocalDraft()
+    await clearLocalDraft()
     if (expectedServerRevision !== null) {
       try {
         await discardServerDraft(draftKey.value, expectedServerRevision)
@@ -1156,7 +1460,7 @@ export function useAdminArticleWrite() {
 
       suppressDraftSave = true
       const expectedServerRevision = serverDraftRevision.value
-      clearLocalDraft()
+      await clearLocalDraft()
       if (expectedServerRevision !== null) {
         try {
           await discardServerDraft(draftKey.value, expectedServerRevision)
@@ -1190,7 +1494,7 @@ export function useAdminArticleWrite() {
     taskFeedback.begin('正在生成私有预览', '预览不会发布到公开站点', 'article-preview')
     try {
       await previewTask.run(async (signal) => {
-        const snapshot = buildDraftSnapshot('server')
+        const snapshot = buildDraftSnapshot(createArticleRecoveryClientRevision(), 'server')
         const preview = await previewArticleDraft(buildServerDraftRequest(snapshot), buildSignalConfig(signal))
         if (signal.aborted) {
           return
@@ -1241,7 +1545,7 @@ export function useAdminArticleWrite() {
     try {
       let canPublish = true
       await prepublishTask.run(async (signal) => {
-        const snapshot = buildDraftSnapshot('server')
+        const snapshot = buildDraftSnapshot(createArticleRecoveryClientRevision(), 'server')
         const request = {
           ...buildServerDraftRequest(snapshot),
           warningOverrideReason: warningOverrideReason?.trim() || null
@@ -1798,6 +2102,30 @@ export function useAdminArticleWrite() {
   )
 
   watch(
+    () => articleForm.content,
+    (content) => {
+      if (suppressDraftSave) {
+        return
+      }
+      const clientRevision = createArticleRecoveryClientRevision()
+      activeRecoveryClientRevision = clientRevision
+      stageArticleRecoveryWrite(content, clientRevision, {
+        articleId: articleId.value,
+        baseRevisionId: isEdit.value ? currentRevisionId.value : null,
+        serverRevision: serverDraftRevision.value
+      })
+      void flushArticleRecoveryWrite()
+    },
+    { flush: 'sync' }
+  )
+
+  watch(selectedArticleRecoveryId, () => {
+    comparedArticleRecoveryId.value = ''
+    articleRecoveryComparison.value = ''
+    articleRecoveryOperationError.value = ''
+  })
+
+  watch(
     () => ({
       title: articleForm.title,
       content: articleForm.content,
@@ -1816,12 +2144,36 @@ export function useAdminArticleWrite() {
   onMounted(() => {
     if (typeof window !== 'undefined') {
       mountedBrowserSeoBaseUrl.value = window.location.origin
+      try {
+        purgeRetiredArticleDraftMetadata(window.localStorage)
+      } catch {
+        // Private-mode storage access must not block the editor or server autosave.
+      }
+    }
+    unsubscribeArticleRecoveryCoordination = recoveryCoordinator.subscribe((message) => {
+      if (message.articleKey === articleRecoveryArticleKey(articleId.value) && !suppressDraftSave) {
+        void refreshArticleRecoveryCandidates()
+      }
+    })
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      disposeArticleRecoveryLifecycle = bindArticleRecoveryLifecycleFlush(async () => {
+        await flushArticleRecoveryWrite()
+        if (!suppressDraftSave) {
+          await refreshArticleRecoveryCandidates()
+        }
+      }, { document, window }, ARTICLE_RECOVERY_FLUSH_INTERVAL_MS)
     }
     powProvider.prewarm()
     void initData()
   })
 
   onUnmounted(() => {
+    suppressDraftSave = true
+    unsubscribeArticleRecoveryCoordination?.()
+    unsubscribeArticleRecoveryCoordination = null
+    disposeArticleRecoveryLifecycle?.()
+    disposeArticleRecoveryLifecycle = null
+    recoveryCoordinator.dispose()
     initTask.cancel()
     submitTask.cancel()
     taxonomyTask.cancel()
@@ -1852,12 +2204,21 @@ export function useAdminArticleWrite() {
     submitConfirmContent,
     requiresLeaveConfirm,
     pendingDraft,
-    draftStatusText,
+    draftStatusText: recoveryAwareDraftStatusText,
     pendingDraftSourceLabel,
     pendingDraftDescription,
     draftRestoreButtonText,
     draftDiscardButtonText,
+    articleRecoveryComparison,
+    articleRecoveryComparisonRequired,
+    articleRecoveryOperationError,
+    articleRecoveryOperationKind,
+    articleRecoveryOperationPending,
+    articleRecoveryOperationStatusText,
     hasLocalDraft,
+    articleRecoveryCandidateViews,
+    selectedArticleRecoveryId,
+    hasArticleRecoveryCandidates,
     articleRevisions,
     selectedRevision,
     selectedRevisionLabel,
@@ -1888,6 +2249,7 @@ export function useAdminArticleWrite() {
     rules,
     validateBeforeSubmit,
     saveDraftNow,
+    compareSelectedArticleRecovery,
     handleUploadImg,
     handleCoverUpload,
     submitForm,

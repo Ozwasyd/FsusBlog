@@ -11,6 +11,7 @@ import { getCategories, type CategoryItem } from '@/api/category'
 import { getTags, type TagItem } from '@/api/tag'
 import { useMutationFlow } from '@/composables/useMutationFlow'
 import { useRowStateMotion } from '@/composables/useRowStateMotion'
+import { articleRecoveryJournal } from '@/services/articleRecoveryJournal'
 import { useViewTask } from '@/composables/useViewTask'
 import { showErrorToast } from '@/utils/errorPresentation'
 import { TimeUtils } from '@/utils/time'
@@ -361,7 +362,10 @@ export function useAdminArticleList() {
       }, {
         fallbackMessage: '文章移入回收站失败',
         successMessage: '文章已移入回收站',
-        onSuccess: loadData
+        onSuccess: async () => {
+          await articleRecoveryJournal.clearArticle(row.id)
+          return loadData()
+        }
       })
     } finally {
       rowMotion.clear(row.id)

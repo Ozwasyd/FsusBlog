@@ -1,0 +1,1166 @@
+export const ARTICLE_RECOVERY_JOURNAL_DATABASE = 'fsusblog-article-recovery-journal';
+export const ARTICLE_RECOVERY_JOURNAL_STORE = 'entries';
+export const ARTICLE_RECOVERY_JOURNAL_SCHEMA = 'fsusblog.article-recovery-journal.v1';
+export const ARTICLE_RECOVERY_JOURNAL_PAYLOAD_CODEC = 'gzip-v1';
+export const ARTICLE_RECOVERY_JOURNAL_TTL_MS = 12 * 60 * 60 * 1000;
+export const ARTICLE_RECOVERY_JOURNAL_MAX_CONTENT_BYTES = 1024 * 1024;
+export const ARTICLE_RECOVERY_JOURNAL_MAX_STORED_BYTES = 1024 * 1024;
+export const ARTICLE_RECOVERY_JOURNAL_MAX_SCOPE_ENTRIES = 8;
+export const ARTICLE_RECOVERY_JOURNAL_MAX_TOTAL_ENTRIES = 32;
+export const ARTICLE_RECOVERY_JOURNAL_MAX_TOTAL_BYTES = 4 * 1024 * 1024;
+
+const ARTICLE_RECOVERY_JOURNAL_VERSION = 1;
+const ARTICLE_RECOVERY_COORDINATION_CHANNEL = 'fsus-article-recovery-journal-v1';
+const HASH_PATTERN = /^[a-f0-9]{64}$/u;
+const ARTICLE_KEY_PATTERN = /^(?:create|edit:[1-9]\d*)$/u;
+const CLIENT_REVISION_PATTERN = /^[a-zA-Z0-9-]{8,128}$/u;
+const TAB_ID_PATTERN = /^[a-zA-Z0-9-]{8,128}$/u;
+const RECORD_KEYS = new Set([
+    'id',
+    'schema',
+    'identityHash',
+    'articleKey',
+    'articleId',
+    'tabId',
+    'baseRevisionId',
+    'serverRevision',
+    'clientRevision',
+    'sourceHash',
+    'payloadCodec',
+    'payload',
+    'createdAt',
+    'updatedAt',
+    'expiresAt',
+    'contentBytes',
+    'storedBytes'
+]);
+
+export type ArticleRecoveryJournalWriteStatus =
+  | 'stored'
+  | 'unavailable'
+  | 'oversize'
+  | 'quota-exceeded'
+  | 'capacity-exceeded';
+
+export type ArticleRecoveryJournalReadStatus = 'ready' | 'unavailable';
+
+export type ArticleRecoveryDivergence =
+  | 'none'
+  | 'newer-server-draft'
+  | 'newer-current-revision';
+
+export interface ArticleRecoveryJournalRecord {
+    id: string;
+    schema: typeof ARTICLE_RECOVERY_JOURNAL_SCHEMA;
+    identityHash: string;
+    articleKey: string;
+    articleId: number | null;
+    tabId: string;
+    baseRevisionId: string | null;
+    serverRevision: number | null;
+    clientRevision: string;
+    sourceHash: string;
+    content: string;
+    createdAt: number;
+    updatedAt: number;
+    expiresAt: number;
+    contentBytes: number;
+    storedBytes: number;
+}
+
+interface ArticleRecoveryJournalStoredRecord {
+    id: string;
+    schema: typeof ARTICLE_RECOVERY_JOURNAL_SCHEMA;
+    identityHash: string;
+    articleKey: string;
+    articleId: number | null;
+    tabId: string;
+    baseRevisionId: string | null;
+    serverRevision: number | null;
+    clientRevision: string;
+    sourceHash: string;
+    payloadCodec: typeof ARTICLE_RECOVERY_JOURNAL_PAYLOAD_CODEC;
+    payload: Uint8Array;
+    createdAt: number;
+    updatedAt: number;
+    expiresAt: number;
+    contentBytes: number;
+    storedBytes: number;
+}
+
+export interface ArticleRecoveryJournalWriteInput {
+    identityId: string;
+    articleId: number | null;
+    tabId: string;
+    baseRevisionId: string | null;
+    serverRevision: number | null;
+    clientRevision: string;
+    content: string;
+}
+
+export interface ArticleRecoveryJournalWriteResult {
+    status: ArticleRecoveryJournalWriteStatus;
+    record: ArticleRecoveryJournalRecord | null;
+}
+
+export type ArticleRecoveryFlushResult = ArticleRecoveryJournalWriteResult | null;
+
+export interface ArticleRecoveryJournalReadResult {
+    status: ArticleRecoveryJournalReadStatus;
+    records: readonly ArticleRecoveryJournalRecord[];
+    removedInvalidRecords: number;
+}
+
+export interface ArticleRecoveryJournalConfirmation {
+    id: string;
+    clientRevision: string;
+    sourceHash: string;
+}
+
+export interface ArticleRecoveryAuthoritativeState {
+    currentRevisionId: string | null;
+    serverRevision: number | null;
+}
+
+export interface ArticleRecoveryComparisonSource {
+    label: string;
+    content: string;
+}
+
+export type ArticleRecoveryOperationKind = 'compare' | 'recover' | 'discard';
+
+export interface ArticleRecoveryOperationState {
+    kind: ArticleRecoveryOperationKind | null;
+    error: string;
+}
+
+export interface ArticleRecoveryLifecycleEnvironment {
+    document: Pick<Document, 'addEventListener' | 'removeEventListener' | 'visibilityState'>;
+    window: Pick<Window, 'addEventListener' | 'removeEventListener' | 'setInterval' | 'clearInterval'>;
+}
+
+interface ArticleRecoveryJournalOptions {
+    indexedDB?: IDBFactory | null;
+    now?: () => number;
+}
+
+interface ArticleRecoveryCoordinationMessage {
+    schema: 'fsusblog.article-recovery-coordination.v1';
+    type: 'changed' | 'cleared';
+    articleKey: string;
+    tabId: string;
+    at: number;
+}
+
+type BroadcastChannelConstructor = new (name: string) => BroadcastChannel;
+
+function getGlobalIndexedDb(): IDBFactory | null
+{
+    return typeof globalThis.indexedDB === 'undefined' ? null : globalThis.indexedDB;
+}
+
+function bytesToHex(bytes: Uint8Array): string
+{
+    return [...bytes].map(value => value.toString(16).padStart(2, '0')).join('');
+}
+
+async function sha256Hex(value: string): Promise<string>
+{
+    const bytes = new TextEncoder().encode(value);
+    const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+    return bytesToHex(new Uint8Array(digest));
+}
+
+async function readBoundedByteStream(
+    readable: ReadableStream<Uint8Array>,
+    maxBytes: number
+): Promise<Uint8Array>
+{
+    const reader = readable.getReader();
+    const chunks: Uint8Array[] = [];
+    let totalBytes = 0;
+    try
+    {
+        while (true)
+        {
+            const next = await reader.read();
+            if (next.done)
+            {
+                break;
+            }
+            const chunk = next.value;
+            totalBytes += chunk.byteLength;
+            if (totalBytes > maxBytes)
+            {
+                await reader.cancel('article_recovery_payload_oversize');
+                throw new Error('article_recovery_payload_oversize');
+            }
+            chunks.push(chunk);
+        }
+    }
+    finally
+    {
+        reader.releaseLock();
+    }
+
+    const bytes = new Uint8Array(totalBytes);
+    let offset = 0;
+    for (const chunk of chunks)
+    {
+        bytes.set(chunk, offset);
+        offset += chunk.byteLength;
+    }
+    return bytes;
+}
+
+async function compressArticleRecoveryContent(content: string): Promise<Uint8Array>
+{
+    if (typeof globalThis.CompressionStream !== 'function')
+    {
+        throw new Error('article_recovery_compression_unavailable');
+    }
+    const source = new TextEncoder().encode(content);
+    const stream = new Blob([Uint8Array.from(source).buffer])
+        .stream()
+        .pipeThrough(new CompressionStream('gzip'));
+    return readBoundedByteStream(stream, ARTICLE_RECOVERY_JOURNAL_MAX_STORED_BYTES);
+}
+
+async function decompressArticleRecoveryContent(payload: Uint8Array): Promise<string>
+{
+    if (typeof globalThis.DecompressionStream !== 'function')
+    {
+        throw new Error('article_recovery_decompression_unavailable');
+    }
+    const stream = new Blob([Uint8Array.from(payload).buffer])
+        .stream()
+        .pipeThrough(new DecompressionStream('gzip'));
+    const content = await readBoundedByteStream(
+        stream,
+        ARTICLE_RECOVERY_JOURNAL_MAX_CONTENT_BYTES
+    );
+    return new TextDecoder('utf-8', { fatal: true }).decode(content);
+}
+
+export function articleRecoveryArticleKey(articleId: number | null): string
+{
+    return articleId === null ? 'create' : `edit:${articleId}`;
+}
+
+export function createArticleRecoveryTabId(): string
+{
+    if (typeof globalThis.crypto?.randomUUID === 'function')
+    {
+        return globalThis.crypto.randomUUID();
+    }
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}`;
+}
+
+export function createArticleRecoveryClientRevision(): string
+{
+    return createArticleRecoveryTabId();
+}
+
+export async function articleRecoverySourceHash(content: string): Promise<string>
+{
+    return sha256Hex(`${ARTICLE_RECOVERY_JOURNAL_SCHEMA}:source:${content}`);
+}
+
+export async function articleRecoveryIdentityHash(identityId: string): Promise<string>
+{
+    return sha256Hex(`${ARTICLE_RECOVERY_JOURNAL_SCHEMA}:identity:${identityId}`);
+}
+
+export function assessArticleRecoveryDivergence(
+    record: ArticleRecoveryJournalRecord,
+    authoritative: ArticleRecoveryAuthoritativeState
+): ArticleRecoveryDivergence
+{
+    if (record.baseRevisionId !== authoritative.currentRevisionId)
+    {
+        return 'newer-current-revision';
+    }
+    if (authoritative.serverRevision !== null
+    && (record.serverRevision === null || authoritative.serverRevision > record.serverRevision))
+    {
+        return 'newer-server-draft';
+    }
+    return 'none';
+}
+
+function comparisonExcerpt(content: string): string
+{
+    const excerpt = content.replace(/\s+/gu, ' ').trim().slice(0, 120);
+    return excerpt || '（空正文）';
+}
+
+export function summarizeArticleRecoveryComparison(
+    record: ArticleRecoveryJournalRecord,
+    sources: readonly ArticleRecoveryComparisonSource[]
+): string
+{
+    const comparisons = sources.map(source =>
+    {
+        const relation = source.content === record.content ? '内容相同' : '内容不同';
+        return `${source.label} ${source.content.length.toLocaleString()} 字，${relation}，摘要“${comparisonExcerpt(source.content)}”`;
+    });
+    return [
+        `未同步正文 ${record.content.length.toLocaleString()} 字，摘要“${comparisonExcerpt(record.content)}”`,
+        ...comparisons
+    ].join('；');
+}
+
+export function createArticleRecoveryOperationRunner(
+    onStateChange: (state: ArticleRecoveryOperationState) => void
+): (
+    kind: ArticleRecoveryOperationKind,
+    failureMessage: string,
+    operation: () => void | Promise<void>
+) => Promise<boolean>
+{
+    let activeOperation: ArticleRecoveryOperationKind | null = null;
+    return async (kind, failureMessage, operation) =>
+    {
+        if (activeOperation !== null)
+        {
+            return false;
+        }
+        activeOperation = kind;
+        onStateChange({ kind, error: '' });
+        try
+        {
+            await operation();
+            onStateChange({ kind: null, error: '' });
+            return true;
+        }
+        catch
+        {
+            onStateChange({ kind: null, error: failureMessage });
+            return false;
+        }
+        finally
+        {
+            activeOperation = null;
+        }
+    };
+}
+
+function isNullableRevision(value: unknown): value is string | null
+{
+    return value === null || (typeof value === 'string' && /^\d+$/u.test(value));
+}
+
+function isNullableServerRevision(value: unknown): value is number | null
+{
+    return value === null || (Number.isSafeInteger(value) && Number(value) > 0);
+}
+
+function normalizeStoredRecord(
+    value: unknown,
+    now: number
+): ArticleRecoveryJournalStoredRecord | null
+{
+    if (typeof value !== 'object' || value === null)
+    {
+        return null;
+    }
+    const raw = value as Partial<ArticleRecoveryJournalStoredRecord>;
+    if (Object.keys(raw).some(key => !RECORD_KEYS.has(key))
+    || raw.schema !== ARTICLE_RECOVERY_JOURNAL_SCHEMA
+    || typeof raw.id !== 'string'
+    || typeof raw.identityHash !== 'string'
+    || !HASH_PATTERN.test(raw.identityHash)
+    || typeof raw.articleKey !== 'string'
+    || !ARTICLE_KEY_PATTERN.test(raw.articleKey)
+    || (raw.articleId !== null && (!Number.isSafeInteger(raw.articleId) || Number(raw.articleId) < 1))
+    || articleRecoveryArticleKey(raw.articleId ?? null) !== raw.articleKey
+    || typeof raw.tabId !== 'string'
+    || !TAB_ID_PATTERN.test(raw.tabId)
+    || !isNullableRevision(raw.baseRevisionId)
+    || !isNullableServerRevision(raw.serverRevision)
+    || typeof raw.clientRevision !== 'string'
+    || !CLIENT_REVISION_PATTERN.test(raw.clientRevision)
+    || typeof raw.sourceHash !== 'string'
+    || !HASH_PATTERN.test(raw.sourceHash)
+    || raw.payloadCodec !== ARTICLE_RECOVERY_JOURNAL_PAYLOAD_CODEC
+    || !(raw.payload instanceof Uint8Array)
+    || typeof raw.createdAt !== 'number'
+    || !Number.isFinite(raw.createdAt)
+    || typeof raw.updatedAt !== 'number'
+    || !Number.isFinite(raw.updatedAt)
+    || typeof raw.expiresAt !== 'number'
+    || !Number.isFinite(raw.expiresAt)
+    || raw.expiresAt <= now
+    || raw.createdAt > raw.updatedAt
+    || raw.expiresAt > raw.updatedAt + ARTICLE_RECOVERY_JOURNAL_TTL_MS
+    || raw.expiresAt > now + ARTICLE_RECOVERY_JOURNAL_TTL_MS
+    || typeof raw.contentBytes !== 'number'
+    || !Number.isSafeInteger(raw.contentBytes)
+    || raw.contentBytes < 0
+    || raw.contentBytes > ARTICLE_RECOVERY_JOURNAL_MAX_CONTENT_BYTES
+    || typeof raw.storedBytes !== 'number'
+    || !Number.isSafeInteger(raw.storedBytes)
+    || raw.storedBytes < 0
+    || raw.storedBytes > ARTICLE_RECOVERY_JOURNAL_MAX_STORED_BYTES
+    || raw.payload.byteLength !== raw.storedBytes)
+    {
+        return null;
+    }
+    const expectedId = `${raw.identityHash}:${raw.articleKey}:${raw.tabId}`;
+    if (raw.id !== expectedId)
+    {
+        return null;
+    }
+    return raw as ArticleRecoveryJournalStoredRecord;
+}
+
+async function hydrateStoredRecord(
+    stored: ArticleRecoveryJournalStoredRecord
+): Promise<ArticleRecoveryJournalRecord>
+{
+    const content = await decompressArticleRecoveryContent(stored.payload);
+    const contentBytes = new TextEncoder().encode(content).byteLength;
+    const sourceHash = await articleRecoverySourceHash(content);
+    if (contentBytes !== stored.contentBytes || sourceHash !== stored.sourceHash)
+    {
+        throw new Error('article_recovery_payload_integrity_mismatch');
+    }
+    return {
+        id: stored.id,
+        schema: stored.schema,
+        identityHash: stored.identityHash,
+        articleKey: stored.articleKey,
+        articleId: stored.articleId,
+        tabId: stored.tabId,
+        baseRevisionId: stored.baseRevisionId,
+        serverRevision: stored.serverRevision,
+        clientRevision: stored.clientRevision,
+        sourceHash: stored.sourceHash,
+        content,
+        createdAt: stored.createdAt,
+        updatedAt: stored.updatedAt,
+        expiresAt: stored.expiresAt,
+        contentBytes: stored.contentBytes,
+        storedBytes: stored.storedBytes
+    };
+}
+
+function requestResult<T>(request: IDBRequest<T>): Promise<T>
+{
+    return new Promise<T>((resolve, reject) =>
+    {
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error ?? new Error('article_recovery_indexeddb_request_failed'));
+    });
+}
+
+function transactionDone(transaction: IDBTransaction): Promise<void>
+{
+    return new Promise<void>((resolve, reject) =>
+    {
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error ?? new Error('article_recovery_indexeddb_transaction_failed'));
+        transaction.onabort = () => reject(transaction.error ?? new Error('article_recovery_indexeddb_transaction_aborted'));
+    });
+}
+
+function openDatabase(indexedDB: IDBFactory): Promise<IDBDatabase>
+{
+    return new Promise<IDBDatabase>((resolve, reject) =>
+    {
+        let request: IDBOpenDBRequest;
+        try
+        {
+            request = indexedDB.open(ARTICLE_RECOVERY_JOURNAL_DATABASE, ARTICLE_RECOVERY_JOURNAL_VERSION);
+        }
+        catch (error: unknown)
+        {
+            reject(error instanceof Error
+                ? error
+                : new Error('article_recovery_indexeddb_open_failed', { cause: error }));
+            return;
+        }
+        request.onupgradeneeded = () =>
+        {
+            const database = request.result;
+            if (!database.objectStoreNames.contains(ARTICLE_RECOVERY_JOURNAL_STORE))
+            {
+                database.createObjectStore(ARTICLE_RECOVERY_JOURNAL_STORE, { keyPath: 'id' });
+            }
+        };
+        request.onsuccess = () =>
+        {
+            const database = request.result;
+            database.onversionchange = () => database.close();
+            resolve(database);
+        };
+        request.onerror = () => reject(request.error ?? new Error('article_recovery_indexeddb_open_failed'));
+        request.onblocked = () => reject(new Error('article_recovery_indexeddb_open_blocked'));
+    });
+}
+
+function classifyWriteFailure(error: unknown): ArticleRecoveryJournalWriteStatus
+{
+    if (error instanceof Error && error.message === 'article_recovery_payload_oversize')
+    {
+        return 'oversize';
+    }
+    return error instanceof DOMException && error.name === 'QuotaExceededError'
+        ? 'quota-exceeded'
+        : 'unavailable';
+}
+
+async function deleteRecordIds(database: IDBDatabase, ids: readonly string[]): Promise<void>
+{
+    if (ids.length === 0)
+    {
+        return;
+    }
+    const transaction = database.transaction(ARTICLE_RECOVERY_JOURNAL_STORE, 'readwrite');
+    const store = transaction.objectStore(ARTICLE_RECOVERY_JOURNAL_STORE);
+    for (const id of ids)
+    {
+        store.delete(id);
+    }
+    await transactionDone(transaction);
+}
+
+export class ArticleRecoveryJournal
+{
+    private readonly configuredIndexedDb: IDBFactory | null | undefined;
+    private readonly now: () => number;
+
+    constructor(options: ArticleRecoveryJournalOptions = {})
+    {
+        this.configuredIndexedDb = options.indexedDB;
+        this.now = options.now ?? (() => Date.now());
+    }
+
+    private resolveIndexedDb(): IDBFactory | null
+    {
+        return this.configuredIndexedDb === undefined ? getGlobalIndexedDb() : this.configuredIndexedDb;
+    }
+
+    async write(input: ArticleRecoveryJournalWriteInput): Promise<ArticleRecoveryJournalWriteResult>
+    {
+        const indexedDB = this.resolveIndexedDb();
+        if (!indexedDB || !input.identityId.trim())
+        {
+            return { status: 'unavailable', record: null };
+        }
+        const contentBytes = new TextEncoder().encode(input.content).byteLength;
+        if (contentBytes > ARTICLE_RECOVERY_JOURNAL_MAX_CONTENT_BYTES)
+        {
+            return { status: 'oversize', record: null };
+        }
+
+        let database: IDBDatabase | null = null;
+        try
+        {
+            const [identityHash, sourceHash, payload] = await Promise.all([
+                articleRecoveryIdentityHash(input.identityId),
+                articleRecoverySourceHash(input.content),
+                compressArticleRecoveryContent(input.content)
+            ]);
+            const storedBytes = payload.byteLength;
+            const articleKey = articleRecoveryArticleKey(input.articleId);
+            const now = this.now();
+            const id = `${identityHash}:${articleKey}:${input.tabId}`;
+            database = await openDatabase(indexedDB);
+            const transaction = database.transaction(ARTICLE_RECOVERY_JOURNAL_STORE, 'readwrite');
+            const store = transaction.objectStore(ARTICLE_RECOVERY_JOURNAL_STORE);
+            const rawRecords = await requestResult(store.getAll()) as unknown[];
+            const activeRecords: ArticleRecoveryJournalStoredRecord[] = [];
+            for (const raw of rawRecords)
+            {
+                const record = normalizeStoredRecord(raw, now);
+                if (record)
+                {
+                    activeRecords.push(record);
+                }
+                else if (typeof raw === 'object' && raw !== null && typeof (raw as { id?: unknown; }).id === 'string')
+                {
+                    store.delete((raw as { id: string; }).id);
+                }
+            }
+            const previous = activeRecords.find(record => record.id === id);
+            const scopeCount = activeRecords.filter(record => (
+                record.identityHash === identityHash
+        && record.articleKey === articleKey
+        && record.id !== id
+            )).length;
+            const totalCount = activeRecords.filter(record => record.id !== id).length;
+            const totalBytes = activeRecords
+                .filter(record => record.id !== id)
+                .reduce((sum, record) => sum + record.storedBytes, 0);
+            if (scopeCount >= ARTICLE_RECOVERY_JOURNAL_MAX_SCOPE_ENTRIES
+        || totalCount >= ARTICLE_RECOVERY_JOURNAL_MAX_TOTAL_ENTRIES
+        || totalBytes + storedBytes > ARTICLE_RECOVERY_JOURNAL_MAX_TOTAL_BYTES)
+            {
+                await transactionDone(transaction);
+                return { status: 'capacity-exceeded', record: null };
+            }
+
+            const storedRecord: ArticleRecoveryJournalStoredRecord = {
+                id,
+                schema: ARTICLE_RECOVERY_JOURNAL_SCHEMA,
+                identityHash,
+                articleKey,
+                articleId: input.articleId,
+                tabId: input.tabId,
+                baseRevisionId: input.baseRevisionId,
+                serverRevision: input.serverRevision,
+                clientRevision: input.clientRevision,
+                sourceHash,
+                payloadCodec: ARTICLE_RECOVERY_JOURNAL_PAYLOAD_CODEC,
+                payload,
+                createdAt: previous?.createdAt ?? now,
+                updatedAt: now,
+                expiresAt: now + ARTICLE_RECOVERY_JOURNAL_TTL_MS,
+                contentBytes,
+                storedBytes
+            };
+            store.put(storedRecord);
+            await transactionDone(transaction);
+            return {
+                status: 'stored',
+                record: {
+                    id,
+                    schema: ARTICLE_RECOVERY_JOURNAL_SCHEMA,
+                    identityHash,
+                    articleKey,
+                    articleId: input.articleId,
+                    tabId: input.tabId,
+                    baseRevisionId: input.baseRevisionId,
+                    serverRevision: input.serverRevision,
+                    clientRevision: input.clientRevision,
+                    sourceHash,
+                    content: input.content,
+                    createdAt: storedRecord.createdAt,
+                    updatedAt: now,
+                    expiresAt: storedRecord.expiresAt,
+                    contentBytes,
+                    storedBytes
+                }
+            };
+        }
+        catch (error: unknown)
+        {
+            return { status: classifyWriteFailure(error), record: null };
+        }
+        finally
+        {
+            database?.close();
+        }
+    }
+
+    async list(identityId: string, articleId: number | null): Promise<ArticleRecoveryJournalReadResult>
+    {
+        const indexedDB = this.resolveIndexedDb();
+        if (!indexedDB
+        || !identityId.trim()
+        || typeof globalThis.DecompressionStream !== 'function')
+        {
+            return { status: 'unavailable', records: [], removedInvalidRecords: 0 };
+        }
+        let database: IDBDatabase | null = null;
+        try
+        {
+            const identityHash = await articleRecoveryIdentityHash(identityId);
+            const articleKey = articleRecoveryArticleKey(articleId);
+            const now = this.now();
+            database = await openDatabase(indexedDB);
+            const transaction = database.transaction(ARTICLE_RECOVERY_JOURNAL_STORE, 'readonly');
+            const rawRecords = await requestResult(transaction.objectStore(ARTICLE_RECOVERY_JOURNAL_STORE).getAll()) as unknown[];
+            await transactionDone(transaction);
+            const invalidIds: string[] = [];
+            const candidates: ArticleRecoveryJournalRecord[] = [];
+            for (const raw of rawRecords)
+            {
+                const stored = normalizeStoredRecord(raw, now);
+                const rawId = typeof raw === 'object' && raw !== null ? (raw as { id?: unknown; }).id : null;
+                if (!stored)
+                {
+                    if (typeof rawId === 'string')
+                    {
+                        invalidIds.push(rawId);
+                    }
+                    continue;
+                }
+                if (stored.identityHash !== identityHash || stored.articleKey !== articleKey)
+                {
+                    continue;
+                }
+                try
+                {
+                    candidates.push(await hydrateStoredRecord(stored));
+                }
+                catch
+                {
+                    invalidIds.push(stored.id);
+                }
+            }
+            await deleteRecordIds(database, invalidIds);
+            candidates.sort((left, right) => right.updatedAt - left.updatedAt || left.tabId.localeCompare(right.tabId));
+            return {
+                status: 'ready',
+                records: Object.freeze(candidates),
+                removedInvalidRecords: invalidIds.length
+            };
+        }
+        catch
+        {
+            return { status: 'unavailable', records: [], removedInvalidRecords: 0 };
+        }
+        finally
+        {
+            database?.close();
+        }
+    }
+
+    async confirm(confirmation: ArticleRecoveryJournalConfirmation): Promise<boolean>
+    {
+        const indexedDB = this.resolveIndexedDb();
+        if (!indexedDB)
+        {
+            return false;
+        }
+        let database: IDBDatabase | null = null;
+        try
+        {
+            database = await openDatabase(indexedDB);
+            const transaction = database.transaction(ARTICLE_RECOVERY_JOURNAL_STORE, 'readwrite');
+            const store = transaction.objectStore(ARTICLE_RECOVERY_JOURNAL_STORE);
+            const record = normalizeStoredRecord(
+                await requestResult(store.get(confirmation.id)),
+                this.now()
+            );
+            const matched = record?.clientRevision === confirmation.clientRevision
+        && record.sourceHash === confirmation.sourceHash;
+            if (matched)
+            {
+                store.delete(confirmation.id);
+            }
+            await transactionDone(transaction);
+            return matched;
+        }
+        catch
+        {
+            return false;
+        }
+        finally
+        {
+            database?.close();
+        }
+    }
+
+    async discard(recordId: string): Promise<boolean>
+    {
+        const indexedDB = this.resolveIndexedDb();
+        if (!indexedDB)
+        {
+            return false;
+        }
+        let database: IDBDatabase | null = null;
+        try
+        {
+            database = await openDatabase(indexedDB);
+            const transaction = database.transaction(ARTICLE_RECOVERY_JOURNAL_STORE, 'readwrite');
+            const store = transaction.objectStore(ARTICLE_RECOVERY_JOURNAL_STORE);
+            const existing = await requestResult<unknown>(store.get(recordId));
+            if (existing !== undefined)
+            {
+                store.delete(recordId);
+            }
+            await transactionDone(transaction);
+            return existing !== undefined;
+        }
+        catch
+        {
+            return false;
+        }
+        finally
+        {
+            database?.close();
+        }
+    }
+
+    async clearScope(identityId: string, articleId: number | null): Promise<number>
+    {
+        try
+        {
+            const identityHash = await articleRecoveryIdentityHash(identityId);
+            return this.clearMatching(record => (
+                record.identityHash === identityHash
+        && record.articleKey === articleRecoveryArticleKey(articleId)
+            ));
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    async clearArticle(articleId: number): Promise<number>
+    {
+        return this.clearMatching(record => record.articleKey === articleRecoveryArticleKey(articleId));
+    }
+
+    private async clearMatching(
+        matches: (record: Partial<ArticleRecoveryJournalStoredRecord>) => boolean
+    ): Promise<number>
+    {
+        const indexedDB = this.resolveIndexedDb();
+        if (!indexedDB)
+        {
+            return 0;
+        }
+        let database: IDBDatabase | null = null;
+        try
+        {
+            database = await openDatabase(indexedDB);
+            const transaction = database.transaction(ARTICLE_RECOVERY_JOURNAL_STORE, 'readwrite');
+            const store = transaction.objectStore(ARTICLE_RECOVERY_JOURNAL_STORE);
+            const rawRecords = await requestResult(store.getAll()) as unknown[];
+            let removed = 0;
+            for (const raw of rawRecords)
+            {
+                if (typeof raw !== 'object' || raw === null)
+                {
+                    continue;
+                }
+                const record = raw as Partial<ArticleRecoveryJournalStoredRecord>;
+                if (typeof record.id === 'string' && matches(record))
+                {
+                    store.delete(record.id);
+                    removed += 1;
+                }
+            }
+            await transactionDone(transaction);
+            return removed;
+        }
+        catch
+        {
+            return 0;
+        }
+        finally
+        {
+            database?.close();
+        }
+    }
+}
+
+interface ArticleRecoveryFlushOperation {
+    sequence: number;
+    input: ArticleRecoveryJournalWriteInput;
+    settled: boolean;
+    promise: Promise<ArticleRecoveryFlushResult>;
+    resolve: (result: ArticleRecoveryFlushResult) => void;
+    reject: (error: unknown) => void;
+}
+
+export class ArticleRecoveryFlushOwner
+{
+    private latest: ArticleRecoveryJournalWriteInput | null = null;
+    private latestSequence = 0;
+    private lastStoredSequence = 0;
+    private lastStoredResult: ArticleRecoveryJournalWriteResult | null = null;
+    private inFlight: ArticleRecoveryFlushOperation | null = null;
+    private pending: ArticleRecoveryFlushOperation | null = null;
+
+    constructor(
+        private readonly writer: (
+            input: ArticleRecoveryJournalWriteInput
+        ) => Promise<ArticleRecoveryJournalWriteResult>
+    )
+    {}
+
+    stage(input: ArticleRecoveryJournalWriteInput): void
+    {
+        if (this.latest?.identityId === input.identityId
+        && this.latest.articleId === input.articleId
+        && this.latest.tabId === input.tabId
+        && this.latest.baseRevisionId === input.baseRevisionId
+        && this.latest.serverRevision === input.serverRevision
+        && this.latest.clientRevision === input.clientRevision
+        && this.latest.content === input.content)
+        {
+            return;
+        }
+        this.latest = {
+            ...input
+        };
+        this.latestSequence += 1;
+        if (this.pending)
+        {
+            this.pending.resolve(null);
+            this.pending = this.createOperation(this.latestSequence, this.latest);
+        }
+    }
+
+    flush(): Promise<ArticleRecoveryFlushResult>
+    {
+        if (!this.latest)
+        {
+            return Promise.resolve(null);
+        }
+
+        const sequence = this.latestSequence;
+        if (sequence === this.lastStoredSequence && this.lastStoredResult)
+        {
+            return Promise.resolve(this.lastStoredResult);
+        }
+        if (this.inFlight?.sequence === sequence && !this.inFlight.settled)
+        {
+            return this.inFlight.promise;
+        }
+        if (this.pending?.sequence === sequence)
+        {
+            return this.pending.promise;
+        }
+
+        const operation = this.createOperation(sequence, this.latest);
+        if (this.inFlight)
+        {
+            if (this.pending)
+            {
+                this.pending.resolve(null);
+            }
+            this.pending = operation;
+        }
+        else
+        {
+            this.startOperation(operation);
+        }
+        return operation.promise;
+    }
+
+    markConfirmed(confirmation: ArticleRecoveryJournalConfirmation): void
+    {
+        const stored = this.lastStoredResult?.record;
+        if (this.latest?.clientRevision !== confirmation.clientRevision
+        || stored?.id !== confirmation.id
+        || stored.sourceHash !== confirmation.sourceHash)
+        {
+            return;
+        }
+        this.latest = null;
+        this.lastStoredResult = null;
+        this.lastStoredSequence = 0;
+    }
+
+    async drain(): Promise<void>
+    {
+        while (this.inFlight || this.pending)
+        {
+            if (!this.inFlight && this.pending)
+            {
+                const operation = this.pending;
+                this.pending = null;
+                this.startOperation(operation);
+            }
+            await this.inFlight?.promise.catch(() => undefined);
+            await Promise.resolve();
+        }
+    }
+
+    clear(): void
+    {
+        this.pending?.resolve(null);
+        this.pending = null;
+        this.latest = null;
+        this.lastStoredResult = null;
+        this.lastStoredSequence = 0;
+        this.latestSequence += 1;
+    }
+
+    pendingClientRevision(): string | null
+    {
+        return this.latest?.clientRevision ?? null;
+    }
+
+    private createOperation(
+        sequence: number,
+        input: ArticleRecoveryJournalWriteInput
+    ): ArticleRecoveryFlushOperation
+    {
+        let resolveOperation!: (result: ArticleRecoveryFlushResult) => void;
+        let rejectOperation!: (error: unknown) => void;
+        const promise = new Promise<ArticleRecoveryFlushResult>((resolve, reject) =>
+        {
+            resolveOperation = resolve;
+            rejectOperation = reject;
+        });
+        void promise.catch(() => undefined);
+        return {
+            sequence,
+            input: { ...input },
+            settled: false,
+            promise,
+            resolve: resolveOperation,
+            reject: rejectOperation
+        };
+    }
+
+    private startOperation(operation: ArticleRecoveryFlushOperation): void
+    {
+        this.inFlight = operation;
+        void this.writer(operation.input)
+            .then(result =>
+            {
+                operation.settled = true;
+                if (result.status === 'stored')
+                {
+                    this.lastStoredSequence = operation.sequence;
+                    this.lastStoredResult = result;
+                }
+                operation.resolve(result);
+            }, error =>
+            {
+                operation.settled = true;
+                operation.reject(error);
+            })
+            .finally(() =>
+            {
+                if (this.inFlight === operation)
+                {
+                    this.inFlight = null;
+                }
+                const next = this.pending;
+                this.pending = null;
+                if (next)
+                {
+                    this.startOperation(next);
+                }
+            });
+    }
+}
+
+export function bindArticleRecoveryLifecycleFlush(
+    flush: () => void | Promise<unknown>,
+    environment: ArticleRecoveryLifecycleEnvironment,
+    intervalMs: number
+): () => void
+{
+    let disposed = false;
+    const requestFlush = (): void =>
+    {
+        if (!disposed)
+        {
+            void Promise.resolve(flush()).catch(() => undefined);
+        }
+    };
+    const handleVisibilityChange = (): void =>
+    {
+        if (environment.document.visibilityState === 'hidden')
+        {
+            requestFlush();
+        }
+    };
+    const handlePageHide = (): void => requestFlush();
+    const handleBeforeUnload = (): void => requestFlush();
+
+    environment.document.addEventListener('visibilitychange', handleVisibilityChange);
+    environment.window.addEventListener('pagehide', handlePageHide);
+    environment.window.addEventListener('beforeunload', handleBeforeUnload);
+    const timer = environment.window.setInterval(requestFlush, intervalMs);
+
+    return () =>
+    {
+        disposed = true;
+        environment.document.removeEventListener('visibilitychange', handleVisibilityChange);
+        environment.window.removeEventListener('pagehide', handlePageHide);
+        environment.window.removeEventListener('beforeunload', handleBeforeUnload);
+        environment.window.clearInterval(timer);
+    };
+}
+
+function parseCoordinationMessage(value: unknown): ArticleRecoveryCoordinationMessage | null
+{
+    if (typeof value !== 'object' || value === null)
+    {
+        return null;
+    }
+    const raw = value as Partial<ArticleRecoveryCoordinationMessage>;
+    if (raw.schema !== 'fsusblog.article-recovery-coordination.v1'
+    || (raw.type !== 'changed' && raw.type !== 'cleared')
+    || typeof raw.articleKey !== 'string'
+    || !ARTICLE_KEY_PATTERN.test(raw.articleKey)
+    || typeof raw.tabId !== 'string'
+    || !TAB_ID_PATTERN.test(raw.tabId)
+    || typeof raw.at !== 'number'
+    || !Number.isFinite(raw.at))
+    {
+        return null;
+    }
+    return {
+        schema: 'fsusblog.article-recovery-coordination.v1',
+        type: raw.type,
+        articleKey: raw.articleKey,
+        tabId: raw.tabId,
+        at: raw.at
+    };
+}
+
+export class ArticleRecoveryCoordinator
+{
+    readonly tabId: string;
+    private channel: BroadcastChannel | null = null;
+    private readonly subscribers = new Set<(message: ArticleRecoveryCoordinationMessage) => void>();
+
+    constructor(options: {
+        tabId?: string;
+        BroadcastChannel?: BroadcastChannelConstructor | null;
+    } = {})
+    {
+        this.tabId = options.tabId ?? createArticleRecoveryTabId();
+        const BroadcastChannelImpl = options.BroadcastChannel === undefined
+            ? (typeof globalThis.BroadcastChannel === 'function' ? globalThis.BroadcastChannel : null)
+            : options.BroadcastChannel;
+        if (BroadcastChannelImpl)
+        {
+            this.channel = new BroadcastChannelImpl(ARTICLE_RECOVERY_COORDINATION_CHANNEL);
+            this.channel.addEventListener('message', this.handleMessage);
+        }
+    }
+
+    subscribe(subscriber: (message: ArticleRecoveryCoordinationMessage) => void): () => void
+    {
+        this.subscribers.add(subscriber);
+        return () => this.subscribers.delete(subscriber);
+    }
+
+    notify(type: ArticleRecoveryCoordinationMessage['type'], articleId: number | null): void
+    {
+        this.channel?.postMessage({
+            schema: 'fsusblog.article-recovery-coordination.v1',
+            type,
+            articleKey: articleRecoveryArticleKey(articleId),
+            tabId: this.tabId,
+            at: Date.now()
+        } satisfies ArticleRecoveryCoordinationMessage);
+    }
+
+    dispose(): void
+    {
+        this.channel?.removeEventListener('message', this.handleMessage);
+        this.channel?.close();
+        this.channel = null;
+        this.subscribers.clear();
+    }
+
+    private handleMessage = (event: MessageEvent): void =>
+    {
+        const message = parseCoordinationMessage(event.data);
+        if (!message || message.tabId === this.tabId)
+        {
+            return;
+        }
+        for (const subscriber of this.subscribers)
+        {
+            subscriber(message);
+        }
+    };
+}
+
+export const articleRecoveryJournal = new ArticleRecoveryJournal();

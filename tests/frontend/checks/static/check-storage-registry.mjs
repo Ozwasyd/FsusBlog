@@ -57,7 +57,7 @@ for (const [value, path] of discovered) {
 }
 
 for (const requiredValue of [
-  'fsus:article-draft:',
+  'fsusblog-article-recovery-journal',
   'fsus:comment-draft:v1:',
   'fsus:console-welcome-callout:dismissed:',
   'fsus-shell-',
@@ -71,7 +71,7 @@ for (const requiredValue of [
 
 for (const token of [
   "PrivateStorageDataScope = 'public' | 'account' | 'admin' | 'session' | 'temporary'",
-  "PrivateStorageMedium = 'local-storage' | 'session-storage' | 'cache-storage' | 'runtime'",
+  "PrivateStorageMedium = 'local-storage' | 'session-storage' | 'indexed-db' | 'cache-storage' | 'runtime'",
   "| 'admin-logout'",
   'registerPrivateStateCleanupHandler',
   'clearRegisteredPrivateState',

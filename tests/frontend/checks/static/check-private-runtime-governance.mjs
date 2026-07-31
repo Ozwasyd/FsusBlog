@@ -27,7 +27,7 @@ const postAuthCallers = [
 for (const registeredValue of [
   'fsus_user_storage',
   'notification_stream_guest_pow',
-  'fsus:article-draft:',
+  'fsusblog-article-recovery-journal',
   'fsus:comment-draft:v1:',
   'fsus:image-upload-session:',
   'fsus:console-welcome-callout:dismissed:',

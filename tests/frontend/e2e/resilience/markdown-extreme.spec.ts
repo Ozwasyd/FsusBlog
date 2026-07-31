@@ -1,4 +1,8 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
+import {
+  articleRecoveryArticleKey,
+  articleRecoverySourceHash
+} from '../../../../src/frontend/src/services/articleRecoveryJournal'
 import {
   MOBILE_VIEWPORT,
   adminName,
@@ -12,6 +16,114 @@ import {
 } from '../../support/playwright/acceptance-shared'
 
 const EXTREME_SIZE = Number(process.env.FSUSBLOG_MARKDOWN_EXTREME_SIZE || '500000')
+const ARTICLE_RECOVERY_DATABASE = 'fsusblog-article-recovery-journal'
+const ARTICLE_RECOVERY_STORE = 'entries'
+const ARTICLE_RECOVERY_CLIENT_REVISION_PATTERN = /^[a-zA-Z0-9-]{8,128}$/u
+
+interface BrowserArticleRecoveryRecord {
+  schema?: unknown
+  articleKey?: unknown
+  clientRevision?: unknown
+  sourceHash?: unknown
+  payloadCodec?: unknown
+  payloadBytes?: unknown
+  payloadIsUint8Array: boolean
+  contentBytes?: unknown
+  storedBytes?: unknown
+  hasOwnContent: boolean
+}
+
+function matchesCompressedArticleRecovery(
+  record: BrowserArticleRecoveryRecord,
+  expected: {
+    articleKey: string
+    sourceHash: string
+    contentBytes: number
+  }
+): record is BrowserArticleRecoveryRecord & { clientRevision: string } {
+  return record.schema === 'fsusblog.article-recovery-journal.v1'
+    && record.articleKey === expected.articleKey
+    && typeof record.clientRevision === 'string'
+    && ARTICLE_RECOVERY_CLIENT_REVISION_PATTERN.test(record.clientRevision)
+    && record.sourceHash === expected.sourceHash
+    && record.payloadCodec === 'gzip-v1'
+    && record.payloadIsUint8Array
+    && record.payloadBytes === record.storedBytes
+    && typeof record.storedBytes === 'number'
+    && Number.isSafeInteger(record.storedBytes)
+    && record.storedBytes > 0
+    && record.storedBytes <= 1024 * 1024
+    && record.contentBytes === expected.contentBytes
+    && !record.hasOwnContent
+}
+
+async function readArticleRecoveryJournal(page: Page): Promise<BrowserArticleRecoveryRecord[]> {
+  return page.evaluate(async ({ databaseName, storeName }) => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open(databaseName, 1)
+      request.onupgradeneeded = () => {
+        if (!request.result.objectStoreNames.contains(storeName)) {
+          request.result.createObjectStore(storeName, { keyPath: 'id' })
+        }
+      }
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    try {
+      return await new Promise<BrowserArticleRecoveryRecord[]>((resolve, reject) => {
+        const transaction = database.transaction(storeName, 'readonly')
+        const request = transaction.objectStore(storeName).getAll()
+        request.onsuccess = () => resolve(request.result.map(record => ({
+          schema: record.schema,
+          articleKey: record.articleKey,
+          clientRevision: record.clientRevision,
+          sourceHash: record.sourceHash,
+          payloadCodec: record.payloadCodec,
+          payloadBytes: record.payload instanceof Uint8Array ? record.payload.byteLength : null,
+          payloadIsUint8Array: record.payload instanceof Uint8Array,
+          contentBytes: record.contentBytes,
+          storedBytes: record.storedBytes,
+          hasOwnContent: Object.hasOwn(record, 'content')
+        })))
+        request.onerror = () => reject(request.error)
+      })
+    } finally {
+      database.close()
+    }
+  }, {
+    databaseName: ARTICLE_RECOVERY_DATABASE,
+    storeName: ARTICLE_RECOVERY_STORE
+  })
+}
+
+async function clearArticleRecoveryJournal(page: Page): Promise<void> {
+  await page.evaluate(async ({ databaseName, storeName }) => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open(databaseName, 1)
+      request.onupgradeneeded = () => {
+        if (!request.result.objectStoreNames.contains(storeName)) {
+          request.result.createObjectStore(storeName, { keyPath: 'id' })
+        }
+      }
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const transaction = database.transaction(storeName, 'readwrite')
+        transaction.objectStore(storeName).clear()
+        transaction.oncomplete = () => resolve()
+        transaction.onerror = () => reject(transaction.error)
+        transaction.onabort = () => reject(transaction.error)
+      })
+    } finally {
+      database.close()
+    }
+  }, {
+    databaseName: ARTICLE_RECOVERY_DATABASE,
+    storeName: ARTICLE_RECOVERY_STORE
+  })
+}
 
 function normalizeExtremeSize(value: number): number {
   return Number.isFinite(value) && value >= 10_000 ? Math.floor(value) : 500_000
@@ -92,6 +204,15 @@ test.describe('markdown extreme editor resilience', () => {
     const storageState = await adminStorageStatePromise
     const source = buildMarkdownExtremeCorpus()
     const expectedHash = fnv1a32(source)
+    const expectedRecoveryArticleKey = articleRecoveryArticleKey(null)
+    const expectedRecoverySourceHash = await articleRecoverySourceHash(source)
+    const expectedRecoveryContentBytes = new TextEncoder().encode(source).byteLength
+    const expectedRecoveryRecord = {
+      articleKey: expectedRecoveryArticleKey,
+      sourceHash: expectedRecoverySourceHash,
+      contentBytes: expectedRecoveryContentBytes
+    }
+    let runtimeClientRevision: string | null = null
     const session = await openAuditedPage(browser, storageState)
 
     try {
@@ -101,16 +222,17 @@ test.describe('markdown extreme editor resilience', () => {
       await settlePage(session.page)
       await assertNoHorizontalOverflow(session.page, 8)
       await session.page.evaluate(async () => {
-        localStorage.removeItem('fsus:article-draft:create')
         await fetch('/api/author/drafts/fsus%3Aarticle-draft%3Acreate', {
           method: 'DELETE',
           credentials: 'include',
           headers: { Accept: 'application/json' }
         })
       })
+      await clearArticleRecoveryJournal(session.page)
       await session.page.reload({ waitUntil: 'domcontentloaded' })
       await waitForAppReady(session.page)
       await settlePage(session.page)
+      await session.page.route('**/api/binary/author/drafts', route => route.abort('internetdisconnected'))
 
       const titleInput = session.page.getByPlaceholder('在此键入博文标题...')
       const editor = session.page.getByRole('textbox', { name: 'Markdown 正文编辑区' })
@@ -124,8 +246,18 @@ test.describe('markdown extreme editor resilience', () => {
       await expect(editor).toHaveValue(source, { timeout: 20_000 })
       await expect(session.page.getByText(`字 ${source.length}`)).toBeVisible({ timeout: 20_000 })
       await expect
-        .poll(async () => await session.page.evaluate(() => Boolean(localStorage.getItem('fsus:article-draft:create'))), {
-          message: 'extreme draft should be written to localStorage',
+        .poll(async () => {
+          const records = await readArticleRecoveryJournal(session.page)
+          const matches = records.filter(record => (
+            matchesCompressedArticleRecovery(record, expectedRecoveryRecord)
+          ))
+          if (matches.length !== 1) {
+            return false
+          }
+          runtimeClientRevision = matches[0]?.clientRevision ?? null
+          return runtimeClientRevision !== null
+        }, {
+          message: 'extreme unsynced body should be written to the bounded IndexedDB journal',
           timeout: 20_000
         })
         .toBe(true)
@@ -141,7 +273,13 @@ test.describe('markdown extreme editor resilience', () => {
       await session.page.reload({ waitUntil: 'domcontentloaded' })
       await waitForAppReady(session.page)
       await settlePage(session.page)
-      const restoreDraftButton = session.page.getByRole('button', { name: /恢复(本地缓存|服务端草稿)/ })
+      expect(runtimeClientRevision).not.toBeNull()
+      const reloadedRecoveryRecords = await readArticleRecoveryJournal(session.page)
+      expect(reloadedRecoveryRecords.filter(record => (
+        matchesCompressedArticleRecovery(record, expectedRecoveryRecord)
+        && record.clientRevision === runtimeClientRevision
+      ))).toHaveLength(1)
+      const restoreDraftButton = session.page.getByRole('button', { name: '恢复所选正文' })
       await expect(restoreDraftButton).toBeVisible({ timeout: 20_000 })
       await restoreDraftButton.click()
       await expect(editor).toHaveValue(source, { timeout: 20_000 })
@@ -159,27 +297,27 @@ test.describe('markdown extreme editor resilience', () => {
       await session.page.reload({ waitUntil: 'domcontentloaded' })
       await waitForAppReady(session.page)
       await settlePage(session.page)
-      const discardDraftButton = session.page.getByRole('button', { name: /丢弃(缓存|服务端草稿)/ })
+      const discardDraftButton = session.page.getByRole('button', { name: '丢弃所选正文' })
       await expect(discardDraftButton).toBeVisible({ timeout: 20_000 })
       await discardDraftButton.click()
-      await expect(session.page.getByRole('button', { name: /恢复(本地缓存|服务端草稿)/ })).toHaveCount(0)
+      await expect(session.page.getByRole('button', { name: '恢复所选正文' })).toHaveCount(0)
       await expect
-        .poll(async () => await session.page.evaluate(() => localStorage.getItem('fsus:article-draft:create')), {
-          message: 'extreme draft should be removed after discard',
+        .poll(async () => (await readArticleRecoveryJournal(session.page)).length, {
+          message: 'extreme unsynced body should be removed from the IndexedDB journal after discard',
           timeout: 10_000
         })
-        .toBeNull()
+        .toBe(0)
 
       session.audit.assertCleanSince(start, 'markdown-extreme-editor')
     } finally {
       await session.page.evaluate(async () => {
-        localStorage.removeItem('fsus:article-draft:create')
         await fetch('/api/author/drafts/fsus%3Aarticle-draft%3Acreate', {
           method: 'DELETE',
           credentials: 'include',
           headers: { Accept: 'application/json' }
         })
       }).catch(() => {})
+      await clearArticleRecoveryJournal(session.page).catch(() => {})
       await session.close()
     }
   })

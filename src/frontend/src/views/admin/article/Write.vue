@@ -42,22 +42,87 @@
       >
       <section class="write-title-panel px-4" aria-label="文章标题">
         <div
-          v-if="pendingDraft"
+          v-if="hasLocalDraft"
           class="write-draft-banner border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] py-4 px-6 mb-8"
-          role="status"
           aria-live="polite"
+          aria-labelledby="article-recovery-title"
+          :aria-busy="articleRecoveryOperationPending"
+          data-article-recovery-prompt="true"
         >
           <div class="write-draft-copy min-w-0">
-            <div class="write-draft-title">{{ pendingDraftSourceLabel }}</div>
+            <h2 id="article-recovery-title" class="write-draft-title">{{ pendingDraftSourceLabel }}</h2>
             <p class="write-draft-description">
-              {{ draftStatusText }}。{{ pendingDraftDescription }}
+              {{ draftStatusText ? `${draftStatusText}。` : '' }}{{ pendingDraftDescription }}
+            </p>
+            <fieldset
+              v-if="hasArticleRecoveryCandidates"
+              class="write-recovery-candidates"
+              aria-label="选择要恢复的未同步正文版本"
+            >
+              <label
+                v-for="candidate in articleRecoveryCandidateViews"
+                :key="candidate.id"
+                class="write-recovery-candidate"
+                :data-recovery-divergence="candidate.divergence"
+              >
+                <input
+                  v-model="selectedArticleRecoveryId"
+                  type="radio"
+                  name="article-recovery-candidate"
+                  :value="candidate.id"
+                >
+                <span class="write-recovery-candidate-copy">
+                  <span class="write-recovery-candidate-label">{{ candidate.label }}</span>
+                  <span class="write-recovery-candidate-detail">{{ candidate.detail }}</span>
+                  <span class="write-recovery-candidate-excerpt">{{ candidate.excerpt }}</span>
+                </span>
+              </label>
+            </fieldset>
+            <p
+              v-if="articleRecoveryComparison"
+              class="write-recovery-comparison"
+              data-article-recovery-comparison="true"
+              aria-live="polite"
+            >
+              {{ articleRecoveryComparison }}
+            </p>
+            <p
+              v-if="articleRecoveryOperationStatusText"
+              class="write-recovery-operation-status"
+              role="status"
+            >
+              {{ articleRecoveryOperationStatusText }}
+            </p>
+            <p
+              v-if="articleRecoveryOperationError"
+              class="write-recovery-operation-error"
+              role="alert"
+            >
+              {{ articleRecoveryOperationError }}
             </p>
           </div>
           <div class="write-draft-actions flex gap-4">
-            <el-button type="primary" @click="restoreLocalDraft">
+            <el-button
+              v-if="hasArticleRecoveryCandidates"
+              :disabled="articleRecoveryOperationPending"
+              :loading="articleRecoveryOperationKind === 'compare'"
+              @click="compareSelectedArticleRecovery"
+            >
+              比较所选正文
+            </el-button>
+            <el-button
+              type="primary"
+              :disabled="articleRecoveryOperationPending || articleRecoveryComparisonRequired"
+              :loading="articleRecoveryOperationKind === 'recover'"
+              @click="restoreLocalDraft"
+            >
               {{ draftRestoreButtonText }}
             </el-button>
-            <el-button @click="discardLocalDraft">
+            <el-button
+              :disabled="articleRecoveryOperationPending"
+              :loading="articleRecoveryOperationKind === 'discard'"
+              @click="discardLocalDraft"
+            >
               {{ draftDiscardButtonText }}
             </el-button>
           </div>
@@ -528,7 +593,7 @@
       :close-on-click-modal="false"
     >
       <p class="text-sm text-[var(--fsusblog-text-secondary)]">
-        尚未同步的更改只保留在当前页面，离开后可能丢失。返回编辑页后只能恢复已同步的服务端草稿；浏览器只保留保存时间等不可恢复正文的记录。
+        服务端草稿仍是长期权威。浏览器会在 12 小时内短期保留有界的未确认正文；返回编辑页后如存在额外内容，会要求你明确恢复或丢弃。
       </p>
       <template #footer>
         <div class="grid grid-cols-2 gap-4">
@@ -585,12 +650,21 @@ const {
   submitButtonText,
   submitConfirmContent,
   requiresLeaveConfirm,
-  pendingDraft,
   draftStatusText,
   pendingDraftSourceLabel,
   pendingDraftDescription,
   draftRestoreButtonText,
   draftDiscardButtonText,
+  articleRecoveryComparison,
+  articleRecoveryComparisonRequired,
+  articleRecoveryOperationError,
+  articleRecoveryOperationKind,
+  articleRecoveryOperationPending,
+  articleRecoveryOperationStatusText,
+  hasLocalDraft,
+  articleRecoveryCandidateViews,
+  selectedArticleRecoveryId,
+  hasArticleRecoveryCandidates,
   articleRevisions,
   selectedRevision,
   selectedRevisionLabel,
@@ -624,6 +698,7 @@ const {
   handleUploadImg,
   handleCoverUpload,
   submitForm,
+  compareSelectedArticleRecovery,
   restoreLocalDraft,
   discardLocalDraft,
   refreshArticleRevisions,
@@ -892,7 +967,7 @@ const submitQuickCreateTag = async (): Promise<void> => {
 }
 
 .write-draft-title {
-  margin-bottom: 0.375rem;
+  margin: 0 0 0.375rem;
   color: var(--fsusblog-color-warning-text);
   font-size: 14px;
   font-weight: 700;
@@ -906,6 +981,76 @@ const submitQuickCreateTag = async (): Promise<void> => {
   font-size: 14px;
   font-weight: 500;
   line-height: 1.55;
+}
+
+.write-recovery-candidates {
+  display: grid;
+  max-height: 20rem;
+  padding: 0;
+  margin: 1rem 0 0;
+  overflow-y: auto;
+  border: 0;
+  border-block: 1px solid var(--fsusblog-panel-border);
+}
+
+.write-recovery-candidate {
+  display: grid;
+  min-height: 2.75rem;
+  align-items: start;
+  padding: 0.75rem 0;
+  cursor: pointer;
+  gap: 0.75rem;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.write-recovery-candidate + .write-recovery-candidate {
+  border-top: 1px solid var(--fsusblog-panel-border);
+}
+
+.write-recovery-candidate > input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0.2rem 0 0;
+  accent-color: var(--fsus-scholarly-blue);
+}
+
+.write-recovery-candidate-copy {
+  display: grid;
+  min-width: 0;
+  gap: 0.2rem;
+}
+
+.write-recovery-candidate-label {
+  color: var(--fsusblog-text-primary);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.write-recovery-candidate-detail,
+.write-recovery-candidate-excerpt {
+  color: var(--fsusblog-text-tertiary);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.write-recovery-comparison,
+.write-recovery-operation-status,
+.write-recovery-operation-error {
+  margin: 0.75rem 0 0;
+  font-size: 12px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.write-recovery-comparison,
+.write-recovery-operation-status {
+  color: var(--fsusblog-text-tertiary);
+}
+
+.write-recovery-operation-error {
+  color: var(--fsusblog-color-error);
 }
 
 .write-draft-actions {
