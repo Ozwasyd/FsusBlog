@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v3",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:de0ea853dce4ff5d94eb57392b77df3991b7ed68ee852232e9cee17037c3ffec",
+    "policyDigest": "sha256:6533c9d044d3609061721c3d5fe7f78bcb35184e4cedcb12cd6f7d682b135912",
     "documents": [
         {
             "path": "docs/active-release-fenced-commits.md",
@@ -1209,6 +1209,20 @@
             "supersedes": [],
             "supersededBy": null,
             "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/development/issue-orchestration-scope.md",
+            "title": "Issue orchestration scope and remote snapshot",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "governance",
+            "sourceOfTruth": true,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1825
+            ],
             "producer": null
         },
         {
