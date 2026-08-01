@@ -70,6 +70,26 @@ Acceptance group 可以复用共享 code/test/docs 索引、schema/runtime facts
 
 Projection、validation 和每层事实的 digest 或 selector/freshness 任一漂移都使 frontier 重新计算并 fail closed。旧的 `node.investigation` 属性及任何兼容 fallback 不是 current schema；出现时必须拒绝，不能把旧字段重放为 dispatch authority。
 
+## Semantic graph 与 runtime projection 分层
+
+语义图和运行态投影是两份独立、可分别校验和持久化的事实。`issue-orchestration.semantic-graph.v1` 只承载节点的 semantic facts（依赖、owner、conflict key、risk/UI class、acceptance group 和 contract digest），并以 `semanticGraphDigest` 封存；`issue-orchestration.runtime-projection.v1` 只承载 immutable runtime ledger 与 runtime facts 的确定性 replay 结果，并以 `runtimeProjectionDigest` 封存。两者必须分别通过 validator，写入 state root 的 `semantic-graph.json` 与 `runtime-projection.json`；不得把运行态字段写回 semantic graph，也不得把 `graphPatch`、`semanticGraph` 或其它语义 payload 嵌入 runtime projection。旧的合并对象或 compatibility fallback 一律拒绝。
+
+三层 digest 的 ownership 不可互换：
+
+- `scopeDigest` 覆盖 selector 及远端 snapshot 的 scope facts（issue identity、state、labels、comments、title/body、milestone 等）；
+- `semanticGraphInputDigest` 只覆盖 snapshot 中用于生成 semantic graph 的 `semanticFacts`；
+- `runtimeProjectionDigest` 覆盖 projector replay 的 completed、ready/blocked、critical path、conflict、lease/slot、epoch、candidate/delivery commit 和 cleanup 结果。
+
+三者在 canonical JSON 后计算，数组返回顺序不改变 digest，且不得互相 alias。projector 版本和 digest（`issue-orchestration.runtime-projector.v1`）必须绑定 projection；projector 只能读取 semantic graph，不能解释、修改或新增 semantic edge/class。
+
+### Remote mutation reconciliation 与 DAG mode
+
+每轮 remote refresh 先按 `issue-orchestration.expected-remote-mutations.v1` 封存 expected registry 和 `expectedRemoteMutationDigest`，再将观测到的 completion comment、state/reason transition、delivery label change 等逐项 reconcile。expected delivery window（包括 acceptance-group window）若匹配，semantic graph digest 保持稳定，决策为 `projection-only`，`dagUpdaterDispatchCount` 必须为 0。slot、lease、epoch、ready/frontier、candidate、delivery、cleanup、telemetry，以及本地 failure/rework/verifier/agent event 同样只能更新 runtime projection，不得请求 semantic DAG work。
+
+只有 `semanticGraphInputDigest` 发生未预期变化（dependency、owner、conflict、contract 或 acceptance-group 等 semantic fact）时，决策才是 `semantic-patch`，并且必须授权恰好一次 fresh、read-only DAG updater。普通 semantic update 只能返回 `issue-orchestration.semantic-graph-patch.v1`：patch 绑定 base `semanticGraphDigest`、允许的最小 operation、直接 evidence digests、可重算的 result digest，且不得嵌入 full graph；root 只能原样接受已封存 patch，不能自行 author/edit/apply。`full-create` 仅用于 initial create；`full-recovery` 仅用于带 machine evidence 的 `graph-corruption-recovery` 或显式 `scope-replacement`。其它 full proposal、base drift、非法 operation、结果 digest 不匹配或 root-authored patch 必须 fail closed。
+
+每个判断必须签发 `issue-orchestration.dag-update-decision-receipt.v1`，同时绑定 scope、semantic input、semantic graph、runtime projection 的 before/after digests、expected-mutation reconciliation、patch/full identity、updater dispatch identity 和 projector identity，并按 mode 强制 nullability。`#1826` telemetry 只能由已验证 receipt 派生；`falsePositiveDagDispatchCount` 必须恒为 `0`，不能由手写计数器或本地 stage event 推断。
+
 ## Ready frontier 与 stage eligibility
 
 Frontier 的计算粒度是 `member issue + stage`，不是根代理手写的 `status=ready`。编译器接收同一份 DAG、selector receipt 和 frontier runtime，输出 `issue-orchestration.frontier-projection.v1`：
@@ -220,7 +240,7 @@ Member cleanup 只删除 member-owned resources；group-owned worktree/service �
 
 ## DAG update authority
 
-初始 DAG 只能由使用 `luna-low` 的 root scheduler 显式启动一次 `stage-model-pool.v2` semantic-proposal route 的 `dag-creator`；后续只有 root scheduler 发现 `remoteSnapshotDigest` 相对上一轮变化，才显式启动同样 fresh-context、read-only、非 resident 的 `dag-updater`。route 默认使用 `terra-max`，仅在冻结分类证据允许时使用 `sol-xhigh`，Sol/max 只保留给合法 frontier exception。没有 digest 变化时 semantic action 为 `none`，即使 execution ledger 有失败或返工事件也不得更新 DAG。
+初始 DAG 只能由使用 `luna-low` 的 root scheduler 显式启动一次 `stage-model-pool.v2` semantic-proposal route 的 `dag-creator`。后续 root scheduler 先对 live remote snapshot 重算本节的三层 digest 和 expected-mutation registry；只有 `semanticGraphInputDigest` 出现未预期变化时，才显式启动同样 fresh-context、read-only、非 resident 的 `dag-updater`，且其唯一允许的普通 proposal 是一次最小 `semantic-patch`。scope、runtime projection、expected delivery mutation 或本地 execution ledger 变化都保持 `projection-only`，不得启动 updater；三层 digest 均未变化时 semantic action 为 `none`。route 默认使用 `terra-max`，仅在冻结分类证据允许时使用 `sol-xhigh`，Sol/max 只保留给合法 frontier exception。即使 execution ledger 有失败或返工事件也不得更新 semantic DAG。
 
 启动请求必须声明 `explicit=true`，requester role 为 `root-scheduler`；任何非 root requester、错误 model/effort、可写 sandbox、继承 context、resident agent 或错误 agent role 都以稳定 denial 返回。更新 agent 生成的 proposal 必须由 root scheduler 原样接受，且 proposal、selector receipt、remote snapshot 和 resolved issue set 的 digest/内容逐项相等；root 不得在接受时改写 issue set 或 selector。
 
@@ -236,7 +256,7 @@ Acceptance-group delivery 在窗口开始前记录 `preWindowRemoteSnapshotDiges
 
 调用方应保留以下错误码，便于故障定位：`invalid-selector-schema`、`selector-version-parameters-mismatch`、`dag-launch-required`、`dag-launch-denied`、`proposal-mismatch` 和 `delivery-window-invalid`。这些拒绝表示合同不满足，不应通过重试未变化的 selector、snapshot 或 launch request 绕过。
 
-Selector 行为合同位于 `tests/tools/issue-orchestration-scope-selector.test.mjs`，fixture 位于 `tests/fixtures/issue-orchestration/scope-selector-cases.json`，实现入口为 `.agents/skills/issue-orchestration/scripts/scope-selector.mjs`；frontier 行为合同位于 `tests/tools/issue-orchestration-ready-frontier.test.mjs`，实现入口为 `.agents/skills/issue-orchestration/scripts/frontier-compiler.mjs`；stage model pool 行为合同位于 `tests/tools/issue-orchestration-stage-profiles.test.mjs`，其 v2 acceptance/mutation/runtime fixtures 位于 `tests/fixtures/issue-orchestration/stage-profile-*.json`，实现入口为 `.agents/skills/issue-orchestration/scripts/stage-profile-policy.mjs`；event ledger 行为合同位于 `tests/tools/issue-orchestration-event-ledger.test.mjs`，其 acceptance/mutation/runtime fixtures 位于 `tests/fixtures/issue-orchestration/event-ledger-*.json`，实现入口为 `.agents/skills/issue-orchestration/scripts/event-ledger.mjs`；dispatch/runtime/self-test 行为合同位于 `tests/tools/issue-orchestration-dispatch-receipt.test.mjs`，fixture 位于 `tests/fixtures/issue-orchestration/dispatch-receipt-*.json`，实现入口为 `.agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs`。修改 selector、snapshot、frontier、stage model pool、ledger 或 dispatch receipt 合同时运行：
+Selector 行为合同位于 `tests/tools/issue-orchestration-scope-selector.test.mjs`，fixture 位于 `tests/fixtures/issue-orchestration/scope-selector-cases.json`，实现入口为 `.agents/skills/issue-orchestration/scripts/scope-selector.mjs`；frontier 行为合同位于 `tests/tools/issue-orchestration-ready-frontier.test.mjs`，实现入口为 `.agents/skills/issue-orchestration/scripts/frontier-compiler.mjs`；stage model pool 行为合同位于 `tests/tools/issue-orchestration-stage-profiles.test.mjs`，其 v2 acceptance/mutation/runtime fixtures 位于 `tests/fixtures/issue-orchestration/stage-profile-*.json`，实现入口为 `.agents/skills/issue-orchestration/scripts/stage-profile-policy.mjs`；event ledger 行为合同位于 `tests/tools/issue-orchestration-event-ledger.test.mjs`，其 acceptance/mutation/runtime fixtures 位于 `tests/fixtures/issue-orchestration/event-ledger-*.json`，实现入口为 `.agents/skills/issue-orchestration/scripts/event-ledger.mjs`；dispatch/runtime/self-test 行为合同位于 `tests/tools/issue-orchestration-dispatch-receipt.test.mjs`，fixture 位于 `tests/fixtures/issue-orchestration/dispatch-receipt-*.json`，实现入口为 `.agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs`；semantic graph/runtime projection 行为合同位于 `tests/tools/issue-orchestration-semantic-runtime-projection.test.mjs`，fixture 位于 `tests/fixtures/issue-orchestration/semantic-runtime-projection-*.json`，实现入口为 `.agents/skills/issue-orchestration/scripts/semantic-runtime-projection.mjs`。修改 selector、snapshot、frontier、stage model pool、ledger、dispatch receipt 或 semantic/runtime projection 合同时运行：
 
 ```bash
 node --test tests/tools/issue-orchestration-scope-selector.test.mjs
@@ -245,6 +265,7 @@ node --test tests/tools/issue-orchestration-stage-profiles.test.mjs
 node --test tests/tools/issue-orchestration-dispatch-receipt.test.mjs
 node --test tests/tools/issue-orchestration-event-ledger.test.mjs
 node --check .agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs
+node --test tests/tools/issue-orchestration-semantic-runtime-projection.test.mjs
 node tools/docs/generate-document-lifecycle.mjs --check
 node tools/docs/check-authoritative-development-docs.mjs
 ```
