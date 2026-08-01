@@ -141,6 +141,8 @@ Level S 的 `status` 必须是 `structural-only`；M/R/C 必须是 `measured`。
 
 `pull_request` job 把 candidate head 与 `pull_request.base.sha` 分别 checkout。它从 trusted base checkout 加载 checker，通过 `--root` 审计 candidate repository，避免 PR 先把自己的 gate 改成 no-op；candidate diff 使用 merge base 到 head，而不是把 base 后续提交反向算入 PR。删除、rename 和 file-type change 都属于 changed-path 集合。
 
+trusted base/before checkout 必须使用完整 reachable Git history（`fetch-depth: 0`）。blame-ignore、format-history 和 merge-base 审计需要读取被登记 revision 及其 parent；shallow trusted checkout 造成 object 不可达时属于 CI invocation defect，不能降级为跳过历史校验或把 candidate checker 当作 fallback。checkout 仍固定到 PR base 或 push `before` SHA，并保持 `persist-credentials: false`。
+
 trusted registry 还列出 gate、workflow、template、release config 和 commitlint adapter 的 policy file set。candidate PR 若修改其中任一文件，base checker 会按 Git object 比较并拒绝该 PR，不能把必需 token 留在注释里后替换未来 gate。当前仓库尚无可用 protected-branch 套餐，因此 policy bootstrap 只能由 owner 做 issue-scoped direct push，再由 push audit 报告；这是外部保护缺失下的受限升级路径，不是普通 contributor PR 例外。
 
 `push` 到 `master` 时，job 优先从 `github.event.before` checkout 前一版本 checker 审计 candidate 的 `before..after` commit range；首次安装没有前序 checker 时才由 candidate bootstrap。`workflow_dispatch` 使用 candidate checker 执行 repository audit。push job 发生在 GitHub 接收对象之后：只有当仓库套餐和设置支持 branch/ruleset protection、并把 `Change Contract` 配为 required status 时，它才能阻止合入。private repository 无法启用该 protection 时，push gate 只是事后审计和告警，不是预防控制，issue/发布证据不得声称 protected branch 已启用。

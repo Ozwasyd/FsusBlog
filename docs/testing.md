@@ -732,6 +732,8 @@ disk/artifact storage write-failure drill 同样由 `runtime-evidence-probe.mjs 
 
 data-scale lanes 必须生成真实、可查询、可清理的 fixture。`tools/data-scale/seed.sh` 按 `FSUSBLOG_TEST_NAMESPACE` 写入 namespace 前缀数据：`scale-xs=1/0`、`scale-s=100/1,000`、`scale-m=10,000/100,000`、`scale-l-nightly=100,000/1,000,000`（article/comment）。seed summary 必须包含 `declared`、`expected`、`observed`、`coverage`、`search`、`artifacts` 和 `durationMs`；`runtime-evidence-probe.mjs data-scale` 必须读取该 seed summary，并按同一 namespace 前缀复核 PostgreSQL 中 article、comment、category、tag、article_body、article_tag、root comment 和 nested comment 数量。声明值、seed 实测值、probe 实测值任一不一致都必须失败。`tools/data-scale/cleanup.sh` 只删除同 namespace/tier 前缀数据，并在 `cleanup.json` 中证明 remaining 为 0；不能用全库 truncate 或只丢弃 manifest 代替清理。每个 tier 必须把 release summary 写入 `.tmp/scale/release-summaries/<tier>.json`，禁止共享 writer；production 的 `data-scale-evidence-summary` 只有在 `scale-xs` 与 `scale-s` 两份输入齐全时才原子生成 `.tmp/release-evidence/data-scale-summary.json`，并保留两档完整实测与清理证据。
 
+CI release evidence 必须显式依赖当前 `plan-pr-risk` authority，并单独下载本 workflow run 的 `integration-runtime` artifact。required scale summary 的 `runIdentity` 必须 exact-match `GITHUB_SHA`、`GITHUB_RUN_ID`、`GITHUB_RUN_ATTEMPT` 和声明的 producer job；四项只要启用一项就必须全部存在。缺 artifact、缺 identity、跨 run/attempt/commit、错误 producer 或 historical artifact 都是 hard failure，不允许以宽松 artifact 下载或旧 summary 继续生成 release evidence。
+
 ---
 
 ### `load` — 轻量并发压测

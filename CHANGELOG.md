@@ -21,6 +21,7 @@ The timestamp and SHA suffix are illustrative. A real heading must equal the bui
 - Ready-frontier eligibility now consumes a validated `issue-orchestration.investigation-projection.v1` built from discovery, classification, and dispatch investigation layers; stale, unauthorized, or legacy `node.investigation` authority is rejected fail-closed.
 - Layered investigation now deepens only ready-adjacent members, reuses unaffected shallow facts, invalidates dispatch evidence on base/epoch/owner-path drift, and preserves issue-specific contracts when acceptance groups share indexes.
 - Stage dispatch now binds request and runtime-observed model, effort, role, sandbox, fork, cwd, Skill and candidate identities; `implementation.started` requires a verified dispatch receipt and `candidate-green` requires the complete `issue-orchestration.implementer-self-test-receipt.v1` rather than the legacy candidate receipt.
+- Trusted Change Contract checkouts now retain full reachable history, and release data-scale evidence must match the current commit, workflow run, attempt, and integration-runtime producer.
 - Dispatch selection now produces a deterministic maximal safe batch from strict priority, downstream unlock, critical-path, starvation, acceptance, conflict-key, resource-lease, and stable task-identity evidence; root cannot reorder or rewrite the machine batch.
 
 ### Fixed

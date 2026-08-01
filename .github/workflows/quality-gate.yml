@@ -1274,6 +1274,7 @@ jobs:
         name: Release Evidence
         runs-on: ubuntu-latest
         needs:
+            - plan-pr-risk
             - behavior-doc-static-admission
             - coverage-summary
             - fast-backend
@@ -1307,7 +1308,14 @@ jobs:
             - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
               with:
                   path: .tmp/downloaded-artifacts
+            - name: Download current integration scale producer
+              uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: integration-runtime
+                  path: .tmp/downloaded-artifacts/integration-runtime
             - run: ./tools/test.sh data-scale-evidence-summary --no-deps
+              env:
+                  FSUSBLOG_DATA_SCALE_PRODUCER_JOB: integration-runtime
             - run: ./tools/test.sh performance-evidence-summary --no-deps
             - run: ./tools/test.sh release-evidence --no-deps
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

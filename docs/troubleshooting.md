@@ -272,6 +272,18 @@ Fix: regenerate the bound dispatch frontier and batch from unchanged machine fac
 
 Relevant evidence: the verified frontier projection, dispatch frontier, versioned ranking policy, active lease receipts, acceptance-group qualification evidence, selected/deferred explanations, and independently recomputed batch digest.
 
+## Trusted History Or Data-Scale Artifact CI Failure
+
+Symptom: Change Contract cannot resolve a blame-ignore revision/parent, or release evidence reports missing data-scale evidence, incomplete current-run identity, or a run identity mismatch.
+
+Likely cause: the trusted base/before checkout is shallow, release evidence did not depend on current plan authority, the current `integration-runtime` artifact was not downloaded, or a scale summary belongs to another commit, run, attempt, or producer.
+
+How to verify: confirm trusted checkout uses `fetch-depth: 0` at the exact PR base or push-before SHA. For scale evidence compare summary `runIdentity.{commit,runId,runAttempt,producerJob}` with `GITHUB_SHA`, `GITHUB_RUN_ID`, `GITHUB_RUN_ATTEMPT`, and `integration-runtime`.
+
+Fix: rerun only after correcting checkout depth or current-run artifact wiring. Do not use candidate-controlled checker code, synthesize missing identity, reuse a historical artifact, soften a required summary, or retry an unchanged workflow SHA/configuration.
+
+Relevant evidence: trusted checkout SHA and reachable objects, plan artifact, integration-runtime artifact metadata, scale summary run identity, and release-evidence job run/attempt.
+
 ## Permission / File Path Issues On Linux, macOS, Or Windows
 
 Symptom: build, upload, AOT cache, logs, or Docker volume writes fail with permission denied or path errors.

@@ -68,6 +68,25 @@ function readSummary(root, source) {
   if (typeof summary.status !== 'string' || summary.status.length === 0) {
     throw new Error(`${source.tier} data-scale evidence status is missing`)
   }
+  const expectedRunIdentity = {
+    commit: String(process.env.GITHUB_SHA ?? '').trim(),
+    runId: String(process.env.GITHUB_RUN_ID ?? '').trim(),
+    runAttempt: String(process.env.GITHUB_RUN_ATTEMPT ?? '').trim(),
+    producerJob: String(process.env.FSUSBLOG_DATA_SCALE_PRODUCER_JOB ?? '').trim()
+  }
+  const identityValues = Object.values(expectedRunIdentity)
+  const currentRunIdentityRequired = identityValues.some((value) => value.length > 0)
+  if (currentRunIdentityRequired
+    && identityValues.some((value) => value.length === 0)) {
+    throw new Error('current run identity is incomplete for required data-scale evidence')
+  }
+  const observedRunIdentity = summary.runIdentity
+  if (currentRunIdentityRequired && (!observedRunIdentity
+    || Object.entries(expectedRunIdentity).some(
+      ([field, expected]) => String(observedRunIdentity[field] ?? '') !== expected
+    ))) {
+    throw new Error(`${source.tier} data-scale evidence run identity mismatch`)
+  }
   return {
     tier: source.tier,
     path: source.path,
