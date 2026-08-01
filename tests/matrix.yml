@@ -571,6 +571,49 @@ tiers:
       retentionClass: must-keep
       triggerReason: PR smart gate plan and skip evidence must always be generated
 
+    - id: wasm-build-artifacts
+      owner: InteropGlueAgent
+      command: ./tools/build-wasm-artifact.sh
+      executionDependsOn: [behavior-doc-static-admission]
+      services: []
+      parallelizable: false
+      exclusiveResources: [wasm-build-artifacts]
+      phase: 1
+      cost: high
+      resourceClass: cpu
+      cpuWeight: 4
+      memoryWeight: 4
+      minCpuUnits: 2
+      requiresBootstrap: none
+      requiresNode: false
+      requiresDotnet: false
+      requiresPlaywright: none
+      cacheProfile: none
+      timeoutMinutes: 35
+      shardable: false
+      defaultShards: 1
+      maxParallel: 1
+      risk: critical
+      cadence: pr
+      requiredFor: production
+      coverage: []
+      artifacts: [build/artifacts/wasm-release]
+      evidence:
+          [
+              build/artifacts/wasm-release/wasm-build-receipt.json,
+              build/artifacts/wasm-release/wasm-manifest.aeds,
+              tools/build-wasm-artifact.sh,
+              tools/frontend/wasm-build-receipt.mjs,
+              tests/tools/wasm-artifact-ownership.test.mjs,
+              tests/tools/wasm-build-receipt.test.mjs,
+          ]
+      ciJob: wasm-build-artifacts
+      localOnly: false
+      nightlyOnly: false
+      smartGateMode: always
+      retentionClass: must-keep
+      triggerReason: every WASM consumer requires the immutable current-run producer artifact
+
     - id: production-build-artifacts
       owner: ServerContractAgent
       command: bash tools/test/lanes/production-build-artifacts.sh

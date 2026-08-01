@@ -188,7 +188,7 @@ jobs:
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
                   receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
-            - run: ./tools/build-wasm-artifact.sh
+            - run: ./tools/test.sh ci-tier wasm-build-artifacts --no-deps
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
               with:
                   name: wasm-build-artifacts

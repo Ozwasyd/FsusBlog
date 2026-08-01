@@ -47,6 +47,42 @@
       "historicalReceiptFallbackAllowed": false
     }
   },
+  "correctiveRevision4": {
+    "run": { "id": 30687733975, "conclusion": "failure" },
+    "command": "./tools/test.sh ci-tier validate-matrix --no-deps",
+    "firstFailure": "[workflow-matrix-sync] workflow job wasm-build-artifacts is not declared by required matrix ciJob metadata",
+    "matrixAuthority": "tests/matrix.yml",
+    "syncChecker": "tools/check-workflow-matrix-sync.mjs",
+    "authorizedImplementationPath": "tests/matrix.yml"
+  },
+  "correctiveRevision5": {
+    "candidateSha": "1503b8c4",
+    "behaviorProof": {
+      "matrixSchema": "green",
+      "preflight": "green",
+      "tierCount": 135,
+      "workflowSyncRequiredJobs": 29
+    },
+    "combinedBehaviorContract": { "passed": 54, "failed": 0 },
+    "combinedBehaviorBreakdown": {
+      "baseline": 10,
+      "wasmArtifactOwnership": 24,
+      "wasmBuildReceipt": 20
+    },
+    "lifecycle": "green",
+    "documentationStage": {
+      "status": "required-output-pending",
+      "diagnostic": "[testing-docs] docs/testing.generated.md is not in sync with tests/matrix.yml",
+      "requiredPath": "docs/testing.generated.md",
+      "generator": "node tools/docs/generate-testing-docs.mjs --out docs/testing.generated.md",
+      "check": "node tools/docs/generate-testing-docs.mjs --check",
+      "rendersAllTiers": true,
+      "excludedTierIds": [],
+      "writerRole": "Luna documentation writer",
+      "writerStartCondition": "behavior-green",
+      "implementerAuthorized": false
+    }
+  },
   "downstream": {
     "disposition": "consequence-of-primary-failures",
     "missingArtifacts": ["fast-summary", "integration-runtime"],

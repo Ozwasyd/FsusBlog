@@ -19,6 +19,9 @@
     { "id": "unrelated-test-source-cleanup", "killedBy": "R10CI04", "consequence": "required-job-red" },
     { "id": "appcontext-parent-traversal-retained", "killedBy": "R10CI05", "consequence": "required-job-red" },
     { "id": "private-root-probe-renamed", "killedBy": "R10CI05", "consequence": "required-job-red" },
-    { "id": "downstream-stale-artifact-fallback", "killedBy": "R10CI06", "consequence": "required-job-red" }
+    { "id": "downstream-stale-artifact-fallback", "killedBy": "R10CI06", "consequence": "required-job-red" },
+    { "id": "workflow-only-wasm-producer", "killedBy": "R10CI07", "consequence": "required-job-red" },
+    { "id": "non-doc-validate-failure-reclassified-as-documentation", "killedBy": "R10CI08", "consequence": "required-job-red" },
+    { "id": "multiple-doc-mismatches-treated-as-unique", "killedBy": "R10CI08", "consequence": "required-job-red" }
   ]
 }

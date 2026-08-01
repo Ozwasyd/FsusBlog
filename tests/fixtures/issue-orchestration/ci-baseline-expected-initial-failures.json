@@ -3,10 +3,15 @@
   "issue": "Ozwasyd/FsusBlog#1822",
   "revision": 10,
   "baseSha": "9a8ab8cd80a4cdc7f76866f0c475b8fa64218731",
-  "expectedStatus": "red",
+  "expectedStatus": "conditional-documentation-red",
+  "behaviorStatus": "green",
+  "documentationStatus": "required-output-pending",
   "expectedExitCode": 1,
-  "expectedSummary": { "tests": 8, "passed": 4, "failed": 4 },
-  "expectedFailingTests": ["R10CI01", "R10CI02", "R10CI04", "R10CI05"],
-  "remoteRunId": 30683846973,
-  "remoteConclusion": "failure"
+  "expectedSummary": { "tests": 10, "passed": 10, "failed": 0 },
+  "expectedFailingTests": [],
+  "remoteRunId": 30687733975,
+  "remoteConclusion": "failure",
+  "reproductionCommand": "./tools/test.sh ci-tier validate-matrix --no-deps",
+  "firstFailure": "[testing-docs] docs/testing.generated.md is not in sync with tests/matrix.yml",
+  "requiredPath": "docs/testing.generated.md"
 }

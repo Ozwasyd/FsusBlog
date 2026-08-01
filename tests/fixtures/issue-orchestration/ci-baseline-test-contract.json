@@ -2,12 +2,12 @@
   "schema": "issue-orchestration.ci-baseline-test-contract.v1",
   "issue": "Ozwasyd/FsusBlog#1822",
   "revision": 10,
-  "correctiveRevision": 3,
+  "correctiveRevision": 6,
   "status": "frozen-red",
   "testOwnerId": "test-owner-1822-ci-baseline-r10",
   "baseSha": "9a8ab8cd80a4cdc7f76866f0c475b8fa64218731",
   "prioritySupplementCommentId": 5149820258,
-  "requiredRunId": 30683846973,
+  "requiredRunId": 30687733975,
   "allowedTestPaths": [
     "tests/tools/issue-1822-ci-baseline.test.mjs",
     "tests/fixtures/issue-orchestration/ci-baseline-acceptance-map.json",
@@ -19,14 +19,12 @@
   ],
   "allowedImplementationPaths": [
     ".github/workflows/quality-gate.yml",
-    "src/frontend/src/api/binaryApiClient.ts",
-    "src/frontend/src/services/binaryTransport.ts",
-    "tests/test-retention-replacements.json",
-    "tests/governance/browser-test-migration.json",
-    "tests/governance/test-lifecycle-registry.json",
-    "tests/frontend/e2e/article-editor-recovery-persistent-probe.mjs",
-    "tests/backend/Unit/SpaAssetManifestServiceTests.cs"
+    "tests/matrix.yml"
   ],
+  "documentationWriterAllowedPaths": [
+    "docs/testing.generated.md"
+  ],
+  "documentationWriterStartCondition": "behavior-green",
   "implementationValidationCommands": [
     "node --test tests/tools/issue-1822-ci-baseline.test.mjs",
     "npm --prefix src/frontend ci --no-audit --progress=false",
@@ -36,7 +34,9 @@
     "FSUSBLOG_FRONTEND_WASM_ROOT=build/artifacts/wasm-release npm --prefix src/frontend run build",
     "node tools/check-browser-test-migration.mjs",
     "node tools/check-test-lifecycle.mjs",
-    "node tools/check-backend-test-governance.mjs"
+    "node tools/check-backend-test-governance.mjs",
+    "./tools/test.sh ci-tier validate-matrix --no-deps",
+    "node tools/docs/generate-testing-docs.mjs --check"
   ],
   "environmentPrerequisiteProbes": [
     {
@@ -59,14 +59,14 @@
     "other issue contracts"
   ],
   "fileHashes": {
-    "tests/tools/issue-1822-ci-baseline.test.mjs": "df706b22853d1f1aa1b1692fb3ceb2ae054baf4e2fff8e17060c5a29f52001bd",
-    "tests/fixtures/issue-orchestration/ci-baseline-acceptance-map.json": "c2f336bc09f3b65fdaf0f9c2bb47ca156818de2bb0ba7bf75b5777cd03f90f5b",
-    "tests/fixtures/issue-orchestration/ci-baseline-expected-initial-failures.json": "2d00281beffbb2e8d84708a571a031f68d81ba86b37381491c9fa17a39f87700",
-    "tests/fixtures/issue-orchestration/ci-baseline-mutation-controls.json": "09e492dedd860253edf075c582154eb758c66b29398a847e010853d5b3d96682",
-    "tests/fixtures/issue-orchestration/ci-baseline-runtime-probes.json": "5093cd418019b7d52775effe28701fc96a4b607987a83b2f24e66567bee06cab",
+    "tests/tools/issue-1822-ci-baseline.test.mjs": "a0f6646dbfb59999aabc9ee88566d7ef65827a3f884f7cd452d198b97b7cbfd9",
+    "tests/fixtures/issue-orchestration/ci-baseline-acceptance-map.json": "ee81d18d05692a5232f68412ad4bf4f5964c3deb37ef1fc44abcefbb036cef70",
+    "tests/fixtures/issue-orchestration/ci-baseline-expected-initial-failures.json": "e04695c6677ce7fb08be0024e06281cc49bc05185918cee4a53da9b3b6a347eb",
+    "tests/fixtures/issue-orchestration/ci-baseline-mutation-controls.json": "da4962cf9c4266638c0c8bf21b4a4bc6d48a0bb89ea99132e600930a55b1453d",
+    "tests/fixtures/issue-orchestration/ci-baseline-runtime-probes.json": "18b2a416b75bcf098417cd25bc76f77ec4d0f4216db997519405f358cb15d131",
     "tests/frontend/unit/services/binaryTransport.test.ts": "cf79829e9285d755d1b4dba7719ed89d7ad0695c5643b2eb656835bc5c611ae0"
   },
-  "frozenTreeDigest": "4bba40881c78336912cc9ab921d7180278ff20de53a16082894b3571f57e6739",
+  "frozenTreeDigest": "5a29690627d7d464ac9b3783f68a71bb53f9c60cd630d1c3a2562b3a2ab750fb",
   "hashAlgorithm": "sha256-raw-file-bytes",
-  "contractDigest": "ef29d8f93d8d2ea9d1264a6dfa503764eadc7fa1ba460a825dbed20ff13ec77a"
+  "contractDigest": "c7e2930b579bdbd9fe67742580908a3f875879410328caff725a4e12692b0dc8"
 }

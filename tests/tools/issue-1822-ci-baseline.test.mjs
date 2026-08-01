@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import test from 'node:test'
 
@@ -26,7 +27,16 @@ test('frozen #1822 corrective CI-baseline contract is self-consistent', () => {
   assert.equal(contract.testOwnerId, 'test-owner-1822-ci-baseline-r10')
   assert.equal(contract.baseSha, '9a8ab8cd80a4cdc7f76866f0c475b8fa64218731')
   assert.equal(runtime.run.id, 30683846973)
-  assert.deepEqual(expected.expectedFailingTests, acceptance.acceptance.slice(0, 5).map(({ id }) => id).filter((id) => id !== 'R10CI03'))
+  assert.deepEqual(expected.expectedFailingTests, [])
+  assert.equal(expected.behaviorStatus, 'green')
+  assert.equal(expected.documentationStatus, 'required-output-pending')
+  assert.deepEqual(runtime.correctiveRevision5.behaviorProof, {
+    matrixSchema: 'green',
+    preflight: 'green',
+    tierCount: 135,
+    workflowSyncRequiredJobs: 29
+  })
+  assert.deepEqual(runtime.correctiveRevision5.combinedBehaviorContract, { passed: 54, failed: 0 })
   assert.deepEqual(
     acceptance.acceptance.flatMap(({ mutations: ids }) => ids).sort(),
     mutations.controls.map(({ id }) => id).sort()
@@ -111,7 +121,47 @@ test('R10CI06 downstream summaries require only current-run producer evidence', 
   assert.deepEqual(runtime.downstream.missingArtifacts, ['fast-summary', 'integration-runtime'])
 })
 
-test('mutation controls keep all five primary repairs fail closed', () => {
+test('R10CI07 the standalone WASM producer is declared by canonical matrix ciJob authority', () => {
+  const temporaryRoot = mkdtempSync(resolve(tmpdir(), 'fsusblog-1822-matrix-sync-'))
+  try {
+    const plan = spawnSync(process.execPath, ['tools/run-test-matrix.mjs', 'ci-plan', '--format', 'github-actions'], {
+      cwd: root,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024
+    })
+    assert.equal(plan.status, 0, plan.stderr.trim())
+    const planPath = resolve(temporaryRoot, 'ci-plan.json')
+    writeFileSync(planPath, plan.stdout)
+    const sync = spawnSync(process.execPath, [
+      'tools/check-workflow-matrix-sync.mjs',
+      planPath,
+      '.github/workflows/quality-gate.yml'
+    ], {
+      cwd: root,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024
+    })
+    assert.equal(sync.status, 0, sync.stderr.trim())
+  } finally {
+    rmSync(temporaryRoot, { recursive: true, force: true })
+  }
+})
+
+test('R10CI08 only the generated testing docs projection remains for the documentation stage', () => {
+  const result = spawnSync(process.execPath, ['tools/docs/generate-testing-docs.mjs', '--check'], {
+    cwd: root,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024
+  })
+  const diagnostic = '[testing-docs] docs/testing.generated.md is not in sync with tests/matrix.yml'
+  assert.equal(result.status, 1)
+  assert.equal(result.stderr.trim(), diagnostic)
+  assert.equal(runtime.correctiveRevision5.documentationStage.requiredPath, 'docs/testing.generated.md')
+  assert.equal(runtime.correctiveRevision5.documentationStage.writerStartCondition, 'behavior-green')
+  assert.equal(runtime.correctiveRevision5.documentationStage.implementerAuthorized, false)
+})
+
+test('mutation controls keep every primary repair fail closed', () => {
   assert.equal(new Set(mutations.controls.map(({ id }) => id)).size, mutations.controls.length)
   assert.ok(mutations.controls.every(({ consequence }) => consequence === 'required-job-red'))
 })

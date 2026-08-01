@@ -8,6 +8,8 @@
     { "id": "R10CI03", "requirement": "an absent published FsusUI surface blocks locally with exact remote evidence and no invented release or fallback", "mutations": ["local-component-copy", "invented-fsusui-release"] },
     { "id": "R10CI04", "requirement": "authoritative lifecycle and browser migration identities resolve exactly, all current Node tests have registry owners, and browser probes do not own child processes", "mutations": ["missing-replacement-ignored", "deleted-test-evidence-file-used-as-test", "browser-probe-direct-child-process", "partial-node-ownership-registry", "unrelated-test-source-cleanup"] },
     { "id": "R10CI05", "requirement": "SpaAssetManifestServiceTests uses shared repository-root authority", "mutations": ["appcontext-parent-traversal-retained", "private-root-probe-renamed"] },
-    { "id": "R10CI06", "requirement": "downstream summaries consume only current-run artifacts after primary producers succeed", "mutations": ["downstream-stale-artifact-fallback"] }
+    { "id": "R10CI06", "requirement": "downstream summaries consume only current-run artifacts after primary producers succeed", "mutations": ["downstream-stale-artifact-fallback"] },
+    { "id": "R10CI07", "requirement": "the standalone current-run WASM producer is declared by canonical tests/matrix.yml ciJob metadata as well as the workflow", "mutations": ["workflow-only-wasm-producer"] },
+    { "id": "R10CI08", "requirement": "behavior proves schema, preflight, 135 tiers, and 29-job workflow sync green before the sole generated testing docs mismatch is handed to the documentation stage", "mutations": ["non-doc-validate-failure-reclassified-as-documentation", "multiple-doc-mismatches-treated-as-unique"] }
   ]
 }
