@@ -1,7 +1,7 @@
 {
   "schema": "issue-orchestration.layered-investigation-expected-initial-failures.v2",
-  "revision": 4,
-  "baseSha": "c8cb56dce27769a3cc3663cc0e39cc0a75716fed",
+  "revision": 7,
+  "baseSha": "c1867af759f3fba319185c6a692eecc3b8980af3",
   "expectedStatus": "green",
   "expectedExitCode": 0,
   "expectedSummary": {
@@ -11,9 +11,9 @@
     "cancelled": 0,
     "skipped": 0
   },
-  "expectedFailureClass": "none-candidate-satisfies-contract",
-  "expectedDiagnostic": "revision-4 delivery-epoch rebind preserves the revision-3 green semantics",
-  "implementationPath": ".agents/skills/issue-orchestration/scripts/investigation-compiler.mjs",
+  "expectedFailureClass": "none-corrective-candidate-satisfies-contract",
+  "expectedDiagnostic": "revision-6 binds the implemented operational policy asset identities",
+  "implementationPath": ".codex/agents/issue-dag-agent.toml",
   "implementationExpectedToExist": true,
   "expectedFailingTests": [],
   "passingControls": [
@@ -26,7 +26,7 @@
   ],
   "matrixIdentity": {
     "schema": "issue-orchestration.test-matrix-identity.v1",
-    "baseSha": "c8cb56dce27769a3cc3663cc0e39cc0a75716fed",
+    "baseSha": "c1867af759f3fba319185c6a692eecc3b8980af3",
     "commands": [
       {
         "command": "node --test tests/tools/issue-orchestration-layered-investigation.test.mjs",
@@ -58,7 +58,55 @@
       }
     ],
     "expectedFailingTests": [],
-    "matrixDigest": "3c4352d5c985d5d07bc69df57bb5284edf4a5f1bd3dc51686af727c1aaddbb47"
+    "matrixDigest": "14dd62311c03ae15aa7d992bad1c21aeecaa6378cd53368a47d4372ca5c529c6"
+  },
+  "revision4Evidence": {
+    "baseSha": "c8cb56dce27769a3cc3663cc0e39cc0a75716fed",
+    "contractDigest": "7ca89125778a08ba63a4f835cc80333a467ac148ab2d006b7630ec73b8fdcc9a",
+    "contractRawSha256": "25f4838feffa938af13e339f132d08eb85210667b075950bfaf58760e0b669e3",
+    "treeDigest": "8f793db0ac16ac896d88eacc70de1cbb1715ed64fa10246cfbe432bb1a68922c",
+    "matrixDigest": "3c4352d5c985d5d07bc69df57bb5284edf4a5f1bd3dc51686af727c1aaddbb47",
+    "candidateDigest": "29f86434c5805741856221720c96a325670a25c9d77d9320b55f94fa659ca7f3",
+    "expectedSummary": {
+      "tests": 62,
+      "passed": 62,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "exitCode": 0
+    }
+  },
+  "revision5Evidence": {
+    "baseSha": "0c363486d0b7f08fc0a078aba3655d86420dceab",
+    "contractDigest": "3c1f8e4c83c9addef7949c065191c8003a9dcddcbf49fddd920213f6f8549a24",
+    "contractRawSha256": "2084e028b842b697d83480c22d8ddfb4831ced3aa1a9633bfb14914480c65dac",
+    "treeDigest": "1430d9f03b45b774c23f443212a5ba747340a9e304b2f1228ddb0cf5bdcef166",
+    "matrixDigest": "ddf7de250260c47ac49e2782f4054b2d03bbed86721c01d715ef1246e72954c0",
+    "candidateDigest": "a043fa0bf7a0a30906e1bf3424326d92bb69c64e4107f50881f5159809e2cdf6",
+    "expectedSummary": {
+      "tests": 62,
+      "passed": 61,
+      "failed": 1,
+      "cancelled": 0,
+      "skipped": 0,
+      "exitCode": 1
+    }
+  },
+  "revision6Evidence": {
+    "baseSha": "0c363486d0b7f08fc0a078aba3655d86420dceab",
+    "contractDigest": "a2d739e8f8b121bb35ba4385eaba4d727acaf79e9ab73c4506adc1d1a5798787",
+    "contractRawSha256": "977e18637805aae220b7c90a9c22af8ac700d642828dd218bfd1ac4a5f4cec94",
+    "treeDigest": "1c327e04d468715eb39f5e0bb7235bdd3afacda860c42ac6321beb21d5273064",
+    "matrixDigest": "e4a3bea372a99634d9e38d92dea0c0e17fc8ef35741ece513be38b8bcc512e95",
+    "candidateDigest": "7eda3311fbc8f7e04899f76614e99ce0525b2707e077c07098ea207de2ea88f1",
+    "expectedSummary": {
+      "tests": 62,
+      "passed": 62,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "exitCode": 0
+    }
   },
   "revision3Evidence": {
     "baseSha": "9c02ed22bdd578d07d6e4ca8c1c4c9bc161bbc18",

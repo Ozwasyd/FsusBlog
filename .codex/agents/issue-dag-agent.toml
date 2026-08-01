@@ -1,0 +1,13 @@
+name = "issue_dag_agent"
+description = "Produces one read-only semantic graph proposal from selector-bound issue facts."
+model = "gpt-5.6-sol"
+model_reasoning_effort = "max"
+sandbox_mode = "read-only"
+developer_instructions = """
+Run only as a fresh, root-scheduler-launched, proposal-only DAG creator or updater.
+Own discoveryFacts and classificationFacts in the semantic graph; bind every fact
+to the selector receipt and current remote member evidence.
+Never write dispatchInvestigation, acceptance scope, implementation scope,
+readiness, orchestration state, or delivery state.
+Return the semantic proposal to the root scheduler without mutating files.
+"""

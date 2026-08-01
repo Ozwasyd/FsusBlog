@@ -1,13 +1,13 @@
 {
   "schema": "issue-orchestration.layered-investigation-cases.v1",
   "issue": "Ozwasyd/FsusBlog#1822",
-  "revision": 4,
-  "previousContractDigest": "479a60b5f027372e7c68df7cdf67de56d8d16664bdc685e4d7fc28d221f1588b",
-  "baseSha": "c8cb56dce27769a3cc3663cc0e39cc0a75716fed",
+  "revision": 7,
+  "previousContractDigest": "a2d739e8f8b121bb35ba4385eaba4d727acaf79e9ab73c4506adc1d1a5798787",
+  "baseSha": "c1867af759f3fba319185c6a692eecc3b8980af3",
   "observedAt": "2026-08-01T12:00:00.000+08:00",
   "computedAt": "2026-08-01T04:00:00.000Z",
   "laterComputedAt": "2026-08-01T04:05:00.000Z",
-  "deliveryEpoch": "bootstrap-repair-1822-epoch-2",
+  "deliveryEpoch": "bootstrap-repair-1822-epoch-4",
   "largeScopeNodeCount": 100,
   "saturationNodeCount": 120,
   "configuredSlots": 15,
@@ -172,6 +172,27 @@
     "baseDependencyPath": ".agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs",
     "baseDependencySha256": "e6c26a2b16e145379689edbedc4ef21e52e517808ad34731b25b2f33beb7b833",
     "candidateDisposition": "base-dependency-not-candidate"
+  },
+  "correctiveRemoteTreeEvidence": {
+    "baselineDisposition": "remote-delivered-but-issue-open",
+    "missingPaths": [
+      ".codex/agents/issue-dag-agent.toml",
+      ".codex/agents/issue-test-owner.toml"
+    ],
+    "priorClaimedFiles": [
+      {
+        "path": ".codex/agents/issue-dag-agent.toml",
+        "sha256": "81c48323cffa7f484896a08ac86bf928a3a218ba347b29905bd43328f95ffdb5"
+      },
+      {
+        "path": ".codex/agents/issue-test-owner.toml",
+        "sha256": "717f36bc98949a53988fc03bd422225ddbfc75336b54bd4abd5bd9c9466ba147"
+      }
+    ],
+    "correctiveAllowedImplementationPaths": [
+      ".codex/agents/issue-dag-agent.toml",
+      ".codex/agents/issue-test-owner.toml"
+    ]
   },
   "implementationPromptRequiredFields": [
     "issueId",

@@ -1,10 +1,12 @@
 {
   "schema": "issue-orchestration.layered-investigation-runtime-probes.v2",
   "issue": "Ozwasyd/FsusBlog#1822",
-  "revision": 4,
+  "revision": 7,
   "observedAt": "2026-08-01T12:00:00+08:00",
   "baseProbe": {
-    "worktreeHead": "c8cb56dce27769a3cc3663cc0e39cc0a75716fed",
+    "worktreeHead": "c1867af759f3fba319185c6a692eecc3b8980af3",
+    "revision6Head": "0c363486d0b7f08fc0a078aba3655d86420dceab",
+    "revision4Head": "c8cb56dce27769a3cc3663cc0e39cc0a75716fed",
     "revision3Head": "9c02ed22bdd578d07d6e4ca8c1c4c9bc161bbc18",
     "revision1Head": "18c6003eb5ad8697f4b74ac2d42a45e74fe18756",
     "revision0Head": "0cfb94f0ccd5f0cc74704b129751459c5cc2300e",
@@ -31,13 +33,43 @@
     "failed": 0,
     "exitCode": 0
   },
-  "revision4CandidateGreenProbe": {
+  "revision7DeliveryEpochGreenProbe": {
     "command": "node --test tests/tools/issue-orchestration-layered-investigation.test.mjs",
     "tests": 62,
     "passed": 62,
     "failed": 0,
     "exitCode": 0,
-    "implementationExists": true
+    "missingImplementationPaths": []
+  },
+  "revision6CandidateGreenProbe": {
+    "baseSha": "0c363486d0b7f08fc0a078aba3655d86420dceab",
+    "contractDigest": "a2d739e8f8b121bb35ba4385eaba4d727acaf79e9ab73c4506adc1d1a5798787",
+    "candidateDigest": "7eda3311fbc8f7e04899f76614e99ce0525b2707e077c07098ea207de2ea88f1",
+    "tests": 62,
+    "passed": 62,
+    "failed": 0,
+    "exitCode": 0
+  },
+  "revision5CorrectiveRedProbe": {
+    "contractDigest": "3c1f8e4c83c9addef7949c065191c8003a9dcddcbf49fddd920213f6f8549a24",
+    "candidateDigest": "a043fa0bf7a0a30906e1bf3424326d92bb69c64e4107f50881f5159809e2cdf6",
+    "tests": 62,
+    "passed": 61,
+    "failed": 1,
+    "exitCode": 1,
+    "missingImplementationPaths": [
+      ".codex/agents/issue-dag-agent.toml",
+      ".codex/agents/issue-test-owner.toml"
+    ]
+  },
+  "revision4CandidateGreenProbe": {
+    "baseSha": "c8cb56dce27769a3cc3663cc0e39cc0a75716fed",
+    "contractDigest": "7ca89125778a08ba63a4f835cc80333a467ac148ab2d006b7630ec73b8fdcc9a",
+    "candidateDigest": "29f86434c5805741856221720c96a325670a25c9d77d9320b55f94fa659ca7f3",
+    "tests": 62,
+    "passed": 62,
+    "failed": 0,
+    "exitCode": 0
   },
   "revision3CandidateGreenProbe": {
     "baseSha": "9c02ed22bdd578d07d6e4ca8c1c4c9bc161bbc18",
@@ -85,6 +117,26 @@
       "passed": 41,
       "failed": 0,
       "exitCode": 0
+    }
+  ],
+  "ciClassification": [
+    {
+      "workflow": "Change Contract",
+      "runId": 30679287221,
+      "conclusion": "failure",
+      "classification": "trusted-shallow-history-checker",
+      "attributableToCorrectiveMissingAssets": false
+    },
+    {
+      "workflow": "Quality Gate",
+      "runId": 30679287232,
+      "conclusion": "failure",
+      "classification": "baseline-infrastructure-and-evidence-failures",
+      "attributableToCorrectiveMissingAssets": false,
+      "passingRelevantControls": [
+        "Validate Test Matrix",
+        "BehaviorDoc Static Admission"
+      ]
     }
   ],
   "dynamicAcceptance": [

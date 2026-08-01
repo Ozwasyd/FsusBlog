@@ -305,6 +305,10 @@ const minimalAllowedImplementationPaths = [
     '.codex/agents/issue-implementer.toml'
 ]
 const candidateImplementationPaths = [...minimalAllowedImplementationPaths]
+const correctiveAllowedImplementationPaths = [
+    '.codex/agents/issue-dag-agent.toml',
+    '.codex/agents/issue-test-owner.toml'
+]
 const baseDependencyPaths = [
     '.agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs'
 ]
@@ -338,7 +342,7 @@ function dispatchInvestigation(issue, classification, selectorReceipt) {
         baseSha: cases.baseSha,
         worktree:
             '/home/lyuaoss/.local/state/codex/bootstrap-issue-orchestration-repair/'
-            + 'cdfdbdbe-d901-4482-bafe-c4ba92c17779/tmp/worktrees/1822',
+            + 'cdfdbdbe-d901-4482-bafe-c4ba92c17779/tmp/worktrees/1822-corrective',
         deliveryEpoch: cases.deliveryEpoch,
         selectorReceiptDigest: selectorReceipt.receiptDigest,
         memberRemoteFactDigest: selectorReceipt.remoteFactDigests[issueId],
@@ -598,6 +602,10 @@ test('frozen test-owner manifest, acceptance map, and mutation identities are se
         frozenContract.minimalAllowedImplementationPaths,
         minimalAllowedImplementationPaths
     )
+    assert.deepEqual(
+        frozenContract.correctiveAllowedImplementationPaths,
+        correctiveAllowedImplementationPaths
+    )
     assert.equal(frozenContract.acceptanceMap, artifactPaths.acceptance)
     assert.equal(frozenContract.expectedInitialFailures, artifactPaths.expectedFailures)
     assert.equal(frozenContract.runtimeProbes, artifactPaths.runtimeProbes)
@@ -631,13 +639,18 @@ test('frozen test-owner manifest, acceptance map, and mutation identities are se
     delete digestInput.contractDigest
     delete digestInput.candidateIdentity
     assert.equal(digest(digestInput), frozenContract.contractDigest)
-    const implementationFiles = candidateImplementationPaths.map((path) => ({
-        path,
-        sha256: sha256(readFileSync(resolve(root, path))),
-        gitMode: statSync(resolve(root, path)).mode & 0o111
-            ? '100755'
-            : '100644'
-    }))
+    const implementationFiles = candidateImplementationPaths.map((path) => {
+        const absolute = resolve(root, path)
+        if (!existsSync(absolute)) return { path, presence: 'missing' }
+        return {
+            path,
+            presence: 'present',
+            sha256: sha256(readFileSync(absolute)),
+            gitMode: statSync(absolute).mode & 0o111
+                ? '100755'
+                : '100644'
+        }
+    })
     const baseDependencyFiles = baseDependencyPaths.map((path) => ({
         path,
         sha256: sha256(readFileSync(resolve(root, path))),
@@ -655,6 +668,12 @@ test('frozen test-owner manifest, acceptance map, and mutation identities are se
     assert.deepEqual(
         frozenContract.candidateIdentity.implementationFiles,
         implementationFiles
+    )
+    assert.deepEqual(
+        implementationFiles
+            .filter(({ presence }) => presence === 'missing')
+            .map(({ path }) => path),
+        frozenContract.expectedMissingCandidatePaths
     )
     assert.equal(
         frozenContract.candidateIdentity.candidateDigest,
@@ -928,7 +947,7 @@ test('[F03] base and epoch drift invalidate dispatch only', async () => {
             changed.runtimeState.repositoryBases['Ozwasyd/FsusBlog'] = 'f'.repeat(40)
         },
         (changed) => {
-            changed.runtimeState.deliveryEpoch = 'bootstrap-repair-1822-epoch-3'
+            changed.runtimeState.deliveryEpoch = 'bootstrap-repair-1822-epoch-5'
         }
     ]) {
         const input = await scenario({ deepIndices: [0] })
