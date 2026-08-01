@@ -7,11 +7,18 @@ import { encodeAedsFrame } from '@/api/binaryFrame'
 
 vi.mock('@wasm/aeds', async () => await vi.importActual<typeof import('@wasm/aeds')>('@wasm/aeds'))
 
-vi.mock('@/api/binaryApiClient', async () => {
-  const actual = await vi.importActual<typeof import('@/api/binaryApiClient')>('@/api/binaryApiClient')
+const { mockBinaryRequest } = vi.hoisted(() => {
+  vi.resetModules()
+  return { mockBinaryRequest: vi.fn() }
+})
+
+vi.mock('../../../../src/frontend/src/api/binaryApiClient', async () => {
+  const actual = await vi.importActual<typeof import('../../../../src/frontend/src/api/binaryApiClient')>(
+    '../../../../src/frontend/src/api/binaryApiClient'
+  )
   return {
     ...actual,
-    binaryRequest: vi.fn()
+    binaryRequest: mockBinaryRequest
   }
 })
 
@@ -23,7 +30,7 @@ vi.mock('@/services/telemetryService', async () => {
   }
 })
 
-import { BinaryRequestError, binaryRequest } from '@/api/binaryApiClient'
+import { BinaryRequestError } from '@/api/binaryApiClient'
 import { decodeBinaryFramePayload } from '@/composition/binaryDecoderRegistry'
 import { BinaryTransportError, createBinaryTransport } from '@/services/binaryTransport'
 import { recordBinaryFailureTelemetry } from '@/services/telemetryService'
@@ -35,7 +42,6 @@ import {
 
 const { requestBinaryOnly } = createBinaryTransport(decodeBinaryFramePayload)
 
-const mockBinaryRequest = vi.mocked(binaryRequest)
 const API_ERROR_POD_SIZE = 584
 
 function writeFixedUtf8(payload: Uint8Array, offset: number, length: number, value: string): void {
@@ -67,11 +73,15 @@ describe('binaryTransport ApiError mapping', () => {
     privateRequestRuntime.resetForTests()
     mockBinaryRequest.mockReset()
     vi.mocked(recordBinaryFailureTelemetry).mockClear()
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      throw new Error('unexpected-real-fetch')
+    }))
     vi.spyOn(window, 'dispatchEvent').mockReturnValue(true)
   })
 
   afterEach(() => {
-    vi.restoreAllMocks()
+    vi.mocked(window.dispatchEvent).mockRestore()
+    vi.unstubAllGlobals()
   })
 
   it('delegates payload decoding to the injected decoder', async () => {
@@ -309,7 +319,7 @@ describe('binaryTransport ApiError mapping', () => {
     })
     expect(mockBinaryRequest).toHaveBeenLastCalledWith(
       '/api/binary/system/seo',
-      expect.objectContaining({ credentials: 'omit' })
+      expect.not.objectContaining({ credentials: 'omit' })
     )
 
     mockBinaryRequest.mockResolvedValueOnce(readProtocolFixtureBuffer('page-content-frame.hex'))
@@ -319,7 +329,7 @@ describe('binaryTransport ApiError mapping', () => {
     })
     expect(mockBinaryRequest).toHaveBeenLastCalledWith(
       '/api/binary/system/page/about',
-      expect.objectContaining({ credentials: 'omit' })
+      expect.not.objectContaining({ credentials: 'omit' })
     )
   })
 

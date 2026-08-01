@@ -29,9 +29,12 @@
 3. frontend build 的 `ensure-wasm` 是唯一 canonical producer：完成真实 build、完整 source/output hash 与 ownership 校验后，原子写入 `wasm-build-receipt.json`。receipt 绑定 worktree/source、toolchain、build args/features、input tree、output hash/size、manifest digest table、ownership policy、producer run ID 与 content digest。
 4. 同一 Production fresh 内，production-build-artifacts、Browser Contract、visual 与 final-image host path 只执行 exact receipt/immutable identity 校验；该路径的 source traversal 与 output hash 均为 `0`。receipt 不存在、歧义、source/toolchain/args/policy/output identity 漂移时 fail closed，consumer 不得自行 build，只能回到 canonical producer。
 5. `.dockerignore` 只为 Docker context 重新纳入这个已生成目录。跨 Docker COPY 的 inode 会变化，因此 producer 从 receipt 的既有 output digest 投影一次 `SHA256SUMS`（不重读 output）；BuildKit copy 后只执行一次 checksum transport 校验，再校验 receipt envelope，不再执行第二次 `ensure-wasm` 全树扫描。
-6. Quality Gate 将 fresh `payload/wasm` 连同 immutable production-build receipt 上传为短期 Actions artifact。最终 OCI image 内的 `SHA256SUMS` hash 写入 release manifest 的 `wasmArtifactHash`，消费方绑定该 digest，而不是 Git 路径中的旧 binary。
+6. Quality Gate 的 `wasm-build-artifacts` job 是该 workflow run 唯一的 Wasm package producer：它 fresh 构建 `build/artifacts/wasm-release/`，并把 manifest、receipt 与输出作为同名短期 Actions artifact 上传。frontend runtime contracts、frontend build 与 immutable production build 必须先依赖该 job，再从当前 commit、run、attempt 下载该 artifact；不得各自重建、复用历史 run、用仅有 receipt 的不完整 package，或以 skipped producer 继续。
+7. Quality Gate 将 fresh `payload/wasm` 连同 immutable production-build receipt 上传为短期 Actions artifact。最终 OCI image 内的 `SHA256SUMS` hash 写入 release manifest 的 `wasmArtifactHash`，消费方绑定该 digest，而不是 Git 路径中的旧 binary。
 
 `.gitignore` 必须持续忽略该目录，仓库中出现任何 tracked `build/artifacts/wasm-release/**` 都是治理错误。`FSUSBLOG_FINAL_SKIP_WASM=1` 只允许同一工作区断点续用已经生成且立即通过 exact receipt 与 ownership policy 复核的 package；它不能把缺失、stale、自报错误 toolchain 或被篡改的 package 变成可发布状态。
+
+若 `wasm-build-artifacts` 未上传完整 package，或下游无法证明 artifact 来自当前 workflow run，相关主 Quality Gate job 必须 fail closed。绿色的本地构建、自报 manifest/receipt、其他 job 的临时重建或历史 artifact 都不能替代这项远端证据。
 
 ## AEDS artifact 与固定 ABI
 

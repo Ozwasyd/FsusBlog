@@ -1461,7 +1461,7 @@ public sealed class SpaAssetManifestServiceTests
         string root = CreateTempDirectory();
         try
         {
-            string repositoryRoot = FindRepositoryRoot();
+            string repositoryRoot = BackendTestPaths.RepositoryRoot;
             ProcessResult git = await RunProcessAsync(
                 "git",
                 ["rev-parse", "HEAD"],
@@ -1597,23 +1597,6 @@ public sealed class SpaAssetManifestServiceTests
         JsonElement entry = Assert.Single(FindManifestOwners(manifest, owner));
         JsonElement css = Assert.Single(entry.GetProperty("css").EnumerateArray());
         return "/" + css.GetString();
-    }
-
-    private static string FindRepositoryRoot()
-    {
-        foreach (string start in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })
-        {
-            for (DirectoryInfo? current = new(start); current is not null; current = current.Parent)
-            {
-                if (File.Exists(Path.Combine(current.FullName, "tools", "frontend", "build.mjs"))
-                    && File.Exists(Path.Combine(current.FullName, "src", "frontend", "vite.config.ts")))
-                {
-                    return current.FullName;
-                }
-            }
-        }
-
-        throw new DirectoryNotFoundException("FsusBlog repository root was not found.");
     }
 
     private static async Task<ProcessResult> RunProcessAsync(

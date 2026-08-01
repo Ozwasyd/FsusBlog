@@ -28,9 +28,9 @@
         "reason": "#1145 is the last source state before Acceptance thinning, Browser Contract extraction, diagnostics isolation, and removal of elastic/persistent browser orchestration."
     },
     "authorities": {
-        "acceptanceBaseline": "tests/lightweight-acceptance-baseline.json",
+        "acceptanceBaseline": "tests\/lightweight-acceptance-baseline.json",
         "acceptanceReplacements": "tests/test-retention-replacements.json",
-        "diagnosticsMigration": "tests/browser-diagnostics-retirement-map.json"
+        "diagnosticsMigration": "tests\/browser-diagnostics-retirement-map.json"
     },
     "browserlessInPlaceSources": [
         "tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs",
@@ -43,7 +43,7 @@
             "kind": "retention-replacements",
             "path": "tests/test-retention-replacements.json",
             "selector": "deletedTests",
-            "idBaseline": "tests/lightweight-acceptance-baseline.json",
+            "idBaseline": "tests\/lightweight-acceptance-baseline.json",
             "disposition": "migrated",
             "fieldMap": {
                 "sourceFile": "path",
@@ -589,7 +589,7 @@
                     "node-test:tests/tools/browserless-public-contracts.test.mjs#public-synthetic-matrices-are-browserless-and-use-produc-1c3224edac",
                     "node-test:tests/tools/browserless-public-contracts.test.mjs#migration-handoff-maps-every-removed-browser-responsibil-407381b615",
                     "test-support:tests/frontend/unit/public-renderers/publicBrowserEnvironment.test.ts",
-                    "vitest:tests/frontend/unit/public-renderers/publicRenderClock.test.ts#uses-an-injected-clock-without-mutating-global-time-59f40a5cc1"
+                    "vitest:tests/frontend/unit/public-renderers/publicRenderClock.test.ts#keeps-relative-full-time-deterministic-across-locale-and-47b46b9895"
                 ],
                 "browserOnlyRisk": {
                     "present": true,

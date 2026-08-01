@@ -1,0 +1,117 @@
+import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import test from 'node:test'
+
+const root = resolve(import.meta.dirname, '../..')
+const fixtureRoot = resolve(root, 'tests/fixtures/issue-orchestration')
+const read = (path) => readFileSync(resolve(root, path), 'utf8')
+const readJson = (name) => JSON.parse(readFileSync(resolve(fixtureRoot, name), 'utf8'))
+const acceptance = readJson('ci-baseline-acceptance-map.json')
+const expected = readJson('ci-baseline-expected-initial-failures.json')
+const mutations = readJson('ci-baseline-mutation-controls.json')
+const runtime = readJson('ci-baseline-runtime-probes.json')
+const contract = readJson('ci-baseline-test-contract.json')
+const sha256 = (value) => createHash('sha256').update(value).digest('hex')
+const canonical = (value) => {
+  if (Array.isArray(value)) return value.map(canonical).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+  if (!value || typeof value !== 'object') return value
+  return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]))
+}
+const digest = (value) => sha256(JSON.stringify(canonical(value)))
+
+test('frozen #1822 corrective CI-baseline contract is self-consistent', () => {
+  assert.equal(contract.testOwnerId, 'test-owner-1822-ci-baseline-r10')
+  assert.equal(contract.baseSha, '9a8ab8cd80a4cdc7f76866f0c475b8fa64218731')
+  assert.equal(runtime.run.id, 30683846973)
+  assert.deepEqual(expected.expectedFailingTests, acceptance.acceptance.slice(0, 5).map(({ id }) => id).filter((id) => id !== 'R10CI03'))
+  assert.deepEqual(
+    acceptance.acceptance.flatMap(({ mutations: ids }) => ids).sort(),
+    mutations.controls.map(({ id }) => id).sort()
+  )
+  for (const [relative, expectedHash] of Object.entries(contract.fileHashes)) {
+    assert.equal(sha256(readFileSync(resolve(root, relative))), expectedHash, `${relative} drifted`)
+  }
+  assert.equal(digest(contract.fileHashes), contract.frozenTreeDigest)
+  const unsigned = structuredClone(contract)
+  delete unsigned.contractDigest
+  assert.equal(digest(unsigned), contract.contractDigest)
+})
+
+test('R10CI01 binary transport resolves relative routes in browser and Node test runtimes', () => {
+  const transport = `${read('src/frontend/src/api/binaryApiClient.ts')}\n${read('src/frontend/src/services/binaryTransport.ts')}`
+  const transportTest = read('tests/frontend/unit/services/binaryTransport.test.ts')
+  assert.match(transport, /resolveBinaryTransportUrl/u)
+  assert.match(transport, /new URL\([^,]+,\s*(?:window\.location|globalThis\.location)/u)
+  assert.match(transport, /fetch\(resolveBinaryTransportUrl\(/u)
+  assert.match(transportTest, /unexpected-real-fetch/u)
+  assert.match(transportTest, /vi\.stubGlobal\(['"]fetch['"]/u)
+})
+
+test('R10CI02 a current-run WASM manifest and receipt producer precedes every consumer', () => {
+  const workflow = read('.github/workflows/quality-gate.yml')
+  assert.match(workflow, /^\s{4}wasm-build-artifacts:\n/mu)
+  assert.match(workflow, /name:\s+wasm-build-artifacts/u)
+  for (const job of ['production-build-artifacts', 'frontend-build', 'frontend-runtime-contracts']) {
+    const start = workflow.indexOf(`    ${job}:\n`)
+    assert.ok(start >= 0)
+    const nextJob = /^    [a-z][a-z0-9-]*:\s*$/gmu.exec(workflow.slice(start + 1))
+    const end = nextJob ? start + 1 + nextJob.index : workflow.length
+    const source = workflow.slice(start, end < 0 ? workflow.length : end)
+    assert.match(source, /needs:[^\n]*wasm-build-artifacts/u, `${job} must require the producer`)
+    assert.match(source, /actions\/download-artifact@[^\n]+[\s\S]*name:\s+wasm-build-artifacts/u, `${job} must consume its current-run artifact`)
+  }
+})
+
+test('R10CI03 absent published FsusUI surfaces remain an exact remote blocker without fallback', () => {
+  const packageJson = JSON.parse(read('src/frontend/package.json'))
+  assert.equal(packageJson.dependencies['@ozwasyd/element-plus'], '1.5.1')
+  assert.deepEqual(runtime.remoteContractImpacts.R10CI03, {
+    disposition: 'possible-remote-contract-impact',
+    ownerRepository: 'Ozwasyd/FsusUI',
+    publishedVersion: '1.5.1',
+    publishedCommit: '94d64b73219e6cb96e8aa8968355b730ea0dfccd',
+    exportIndexBlob: '2a2cad96fa46b2aab565b1b0f94ed64ea4cd239a',
+    missingExports: ['FsusTaskPageHeader', 'FsusDataList'],
+    reproduction: 'npm ci followed by npm run build reports MISSING_EXPORT for both canonical names',
+    blockedCriterion: 'a published @ozwasyd/element-plus release exporting both canonical surfaces is required',
+    fallbackAllowed: false,
+    directEvidenceDigest: '93fd479bb6d3ee3a50c1c9ed0e4f5edfa15e4ddd6d9c2a0ca787efc616b1c5c0'
+  })
+})
+
+test('R10CI04 authoritative test lifecycle and browser migration inventories reconcile', () => {
+  const lifecycle = read('tests/test-retention-replacements.json')
+  const migration = read('tests/governance/browser-test-migration.json')
+  const persistentProbe = read('tests/frontend/e2e/article-editor-recovery-persistent-probe.mjs')
+  assert.doesNotMatch(lifecycle, /tests\/browser-diagnostics-retirement-map\.json/u)
+  assert.doesNotMatch(lifecycle, /tests\/lightweight-acceptance-baseline\.json/u)
+  assert.doesNotMatch(lifecycle, /tests\/admin-console-behavior-evidence\.json/u)
+  assert.doesNotMatch(migration, /round-trips only non-recoverable metadata/u)
+  assert.doesNotMatch(persistentProbe, /node:child_process/u)
+  assert.doesNotMatch(persistentProbe, /\bspawn\(/u)
+  for (const command of ['tools/check-browser-test-migration.mjs', 'tools/check-test-lifecycle.mjs']) {
+    const result = spawnSync(process.execPath, [command], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+    assert.equal(result.status, 0, `${command} must reconcile without ignored or unowned tests`)
+  }
+})
+
+test('R10CI05 backend build governance uses the shared repository-root authority', () => {
+  const source = read('tests/backend/Unit/SpaAssetManifestServiceTests.cs')
+  assert.doesNotMatch(source, /private static string FindRepositoryRoot\(/u)
+  assert.doesNotMatch(source, /AppContext\.BaseDirectory/u)
+  assert.match(source, /BackendTestPaths\.RepositoryRoot/u)
+})
+
+test('R10CI06 downstream summaries require only current-run producer evidence', () => {
+  assert.equal(runtime.downstream.disposition, 'consequence-of-primary-failures')
+  assert.equal(runtime.downstream.fallbackAllowed, false)
+  assert.deepEqual(runtime.downstream.missingArtifacts, ['fast-summary', 'integration-runtime'])
+})
+
+test('mutation controls keep all five primary repairs fail closed', () => {
+  assert.equal(new Set(mutations.controls.map(({ id }) => id)).size, mutations.controls.length)
+  assert.ok(mutations.controls.every(({ consequence }) => consequence === 'required-job-red'))
+})

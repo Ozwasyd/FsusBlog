@@ -274,17 +274,17 @@ Fix: regenerate the bound dispatch frontier and batch from unchanged machine fac
 
 Relevant evidence: the verified frontier projection, dispatch frontier, versioned ranking policy, active lease receipts, acceptance-group qualification evidence, selected/deferred explanations, and independently recomputed batch digest.
 
-## Trusted History Or Data-Scale Artifact CI Failure
+## Trusted History Or Current-Run Artifact CI Failure
 
-Symptom: Change Contract cannot resolve a blame-ignore revision/parent, or release evidence reports missing data-scale evidence, incomplete current-run identity, or a run identity mismatch.
+Symptom: Change Contract cannot resolve a blame-ignore revision/parent; release evidence reports missing data-scale evidence, incomplete current-run identity, or a run identity mismatch; or a primary frontend Quality Gate job cannot download a complete `wasm-build-artifacts` package.
 
-Likely cause: the trusted base/before checkout is shallow, release evidence did not depend on current plan authority, the current `integration-runtime` artifact was not downloaded, or a scale summary belongs to another commit, run, attempt, or producer.
+Likely cause: the trusted base/before checkout is shallow, release evidence did not depend on current plan authority, the current `integration-runtime` artifact was not downloaded, a scale summary belongs to another commit/run/attempt/producer, or the current-run Wasm producer was skipped, failed, or uploaded a package without its manifest and receipt.
 
-How to verify: confirm trusted checkout uses `fetch-depth: 0` at the exact PR base or push-before SHA. For scale evidence compare summary `runIdentity.{commit,runId,runAttempt,producerJob}` with `GITHUB_SHA`, `GITHUB_RUN_ID`, `GITHUB_RUN_ATTEMPT`, and `integration-runtime`.
+How to verify: confirm trusted checkout uses `fetch-depth: 0` at the exact PR base or push-before SHA. For scale evidence compare summary `runIdentity.{commit,runId,runAttempt,producerJob}` with `GITHUB_SHA`, `GITHUB_RUN_ID`, `GITHUB_RUN_ATTEMPT`, and `integration-runtime`. For Wasm evidence confirm the single `wasm-build-artifacts` producer completed in the same workflow run, uploaded the generated manifest and receipt with the package, and every frontend consumer depends on and downloads that named artifact.
 
-Fix: rerun only after correcting checkout depth or current-run artifact wiring. Do not use candidate-controlled checker code, synthesize missing identity, reuse a historical artifact, soften a required summary, or retry an unchanged workflow SHA/configuration.
+Fix: rerun only after correcting checkout depth or current-run artifact wiring. Do not use candidate-controlled checker code, synthesize missing identity, reuse a historical artifact, soften a required summary, rebuild Wasm independently in a consumer, accept a receipt without its manifest, or retry an unchanged workflow SHA/configuration.
 
-Relevant evidence: trusted checkout SHA and reachable objects, plan artifact, integration-runtime artifact metadata, scale summary run identity, and release-evidence job run/attempt.
+Relevant evidence: trusted checkout SHA and reachable objects, plan artifact, integration-runtime artifact metadata, scale summary run identity, `wasm-build-artifacts` producer/upload/download metadata, and release-evidence job run/attempt.
 
 ## Issue Orchestration Resource Cleanup Or Recovery Failure
 

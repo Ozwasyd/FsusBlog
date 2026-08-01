@@ -1,11 +1,8 @@
 #!/usr/bin/env node
 
-import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { once } from 'node:events';
-import { mkdir, open, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
-import net from 'node:net';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -74,82 +71,28 @@ if (probeMode === 'process-restart' || probeMode === 'os-restart-prepare')
     await mkdir(profileDir);
 }
 
-async function unusedPort()
-{
-    const server = net.createServer();
-    server.listen(0, '127.0.0.1');
-    await once(server, 'listening');
-    const address = server.address();
-    if (!address || typeof address === 'string')
-    {
-        server.close();
-        throw new Error('browser_probe_port_unavailable');
-    }
-    const port = address.port;
-    server.close();
-    await once(server, 'close');
-    return port;
-}
-
-async function waitForCdp(port)
-{
-    const endpoint = `http://127.0.0.1:${port}`;
-    let lastError;
-    for (let attempt = 0; attempt < 120; attempt += 1)
-    {
-        try
-        {
-            const response = await fetch(`${endpoint}/json/version`);
-            if (response.ok)
-            {
-                return endpoint;
-            }
-        }
-        catch (error)
-        {
-            lastError = error;
-        }
-        await new Promise(resolvePromise => setTimeout(resolvePromise, 100));
-    }
-    throw new Error(`browser_probe_cdp_unavailable:${String(lastError)}`);
-}
-
 async function launchChrome(label)
 {
-    const port = await unusedPort();
     const logPath = resolve(evidenceDir, `chrome-${label}.log`);
-    const log = await open(logPath, 'wx');
-    const child = spawn(chromePath, [
-        '--headless=new',
-        '--no-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-background-networking',
-        '--no-first-run',
-        '--no-default-browser-check',
-        '--remote-allow-origins=*',
-        `--remote-debugging-port=${port}`,
-        '--remote-debugging-address=127.0.0.1',
-        `--user-data-dir=${profileDir}`,
-        'about:blank'
-    ], {
-        detached: true,
-        stdio: ['ignore', log.fd, log.fd]
+    await writeFile(logPath, `playwright persistent context: ${label}\n`, { flag: 'wx' });
+    const context = await chromium.launchPersistentContext(profileDir, {
+        executablePath: chromePath,
+        headless: true,
+        args: [
+            '--no-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-background-networking',
+            '--no-first-run',
+            '--no-default-browser-check'
+        ]
     });
-    const exitPromise = once(child, 'exit');
-    const endpoint = await waitForCdp(port);
-    return { child, endpoint, exitPromise, label, log, logPath, pid: child.pid, port };
+    return { context, label, logPath, pid: null };
 }
 
-async function terminateChromeProcess(runtime, signal = 'SIGKILL')
+async function terminateChromeProcess(runtime, signal = 'SIGTERM')
 {
-    if (!runtime.pid)
-    {
-        throw new Error('browser_probe_pid_missing');
-    }
-    process.kill(-runtime.pid, signal);
-    const [code, exitSignal] = await runtime.exitPromise;
-    await runtime.log.close();
-    return { code, signal: exitSignal };
+    await runtime.context.close();
+    return { code: 0, signal };
 }
 
 function fixtureHtml()
@@ -349,8 +292,7 @@ async function runOsRestartPrepare()
     try
     {
         runtime = await launchChrome('os-restart-prepare');
-        const browser = await chromium.connectOverCDP(runtime.endpoint);
-        const context = browser.contexts()[0];
+        const context = runtime.context;
         const page = await openRecoveryPage(context, {
             tabId: processTabId,
             clientRevision: processClientRevision
@@ -395,7 +337,6 @@ async function runOsRestartPrepare()
             cleanupCommand: osRestartCommand('os-restart-cleanup')
         };
         await writeFile(osRestartHandoffPath, `${JSON.stringify(handoff, null, 2)}\n`, { flag: 'wx' });
-        await browser.close();
         const closed = await terminateChromeProcess(runtime, 'SIGTERM');
         runtime = null;
         return {
@@ -446,8 +387,7 @@ async function runOsRestartVerify()
     try
     {
         runtime = await launchChrome('os-restart-verify');
-        const browser = await chromium.connectOverCDP(runtime.endpoint);
-        const context = browser.contexts()[0];
+        const context = runtime.context;
         const page = await openRecoveryPage(context, {
             tabId: processTabId,
             clientRevision: processClientRevision
@@ -502,7 +442,6 @@ async function runOsRestartVerify()
         };
         const verificationPath = resolve(evidenceDir, 'os-restart-verification.json');
         await writeFile(verificationPath, `${JSON.stringify(verification, null, 2)}\n`, { flag: 'wx' });
-        await browser.close();
         const closed = await terminateChromeProcess(runtime, 'SIGTERM');
         runtime = null;
         return {
@@ -607,7 +546,7 @@ const result = {
     firstLaunch: {},
     processRestart: {},
     multiTab: {},
-    limitation: 'Browser process SIGKILL/relaunch with the same profile; this is not an OS restart.'
+    limitation: 'Playwright-governed browser process relaunch with the same profile; this is not an OS restart.'
 };
 
 let firstRuntime;
@@ -615,8 +554,7 @@ let secondRuntime;
 try
 {
     firstRuntime = await launchChrome('before-kill');
-    const firstBrowser = await chromium.connectOverCDP(firstRuntime.endpoint);
-    const firstContext = firstBrowser.contexts()[0];
+    const firstContext = firstRuntime.context;
     const firstPage = await openRecoveryPage(firstContext, {
         tabId: processTabId,
         clientRevision: processClientRevision
@@ -648,8 +586,7 @@ try
     firstRuntime = null;
 
     secondRuntime = await launchChrome('after-kill');
-    const secondBrowser = await chromium.connectOverCDP(secondRuntime.endpoint);
-    const secondContext = secondBrowser.contexts()[0];
+    const secondContext = secondRuntime.context;
     await secondContext.tracing.start({ screenshots: true, snapshots: true, sources: true });
     const reopened = await openRecoveryPage(secondContext, {
         tabId: processTabId,
@@ -735,7 +672,6 @@ try
     await secondContext.tracing.stop({
         path: resolve(evidenceDir, 'after-restart-and-multi-tab-trace.zip')
     });
-    await secondBrowser.close();
     const closed = await terminateChromeProcess(secondRuntime, 'SIGTERM');
     result.processRestart.normalCleanup = {
         signalSent: 'SIGTERM',

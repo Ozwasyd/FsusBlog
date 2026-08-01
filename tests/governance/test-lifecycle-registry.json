@@ -2487,6 +2487,1310 @@
             "classifications": [
                 "source-text"
             ]
+        },
+        {
+            "file": "tests/frontend/checks/acceptance/article-private-preview-entry.test.mjs",
+            "owner": "manual-diagnostic:tests/frontend/checks/acceptance/article-private-preview-entry.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/frontend/checks/perf/markdown-preview-release-performance.test.mjs",
+            "owner": "manual-diagnostic:tests/frontend/checks/perf/markdown-preview-release-performance.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "perf",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/frontend/checks/static/auth-fixture-projection.test.mjs",
+            "owner": "manual-diagnostic:tests/frontend/checks/static/auth-fixture-projection.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/frontend/checks/static/internal-selector-governance.test.mjs",
+            "owner": "manual-diagnostic:tests/frontend/checks/static/internal-selector-governance.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "compatibility-wrapper",
+                "migration",
+                "perf"
+            ]
+        },
+        {
+            "file": "tests/tools/auth-session-permission-observation.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/auth-session-permission-observation.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "compatibility-wrapper",
+                "migration"
+            ]
+        },
+        {
+            "file": "tests/tools/backend-coverage-pipeline.test.mjs",
+            "owner": "repository-governance:test-asset-behavior",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/backend-qps-driver.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/backend-qps-driver.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper"
+            ]
+        },
+        {
+            "file": "tests/tools/behavior-contract-catalog.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/behavior-contract-catalog.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "migration",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/behavior-doc-static-admission.test.mjs",
+            "owner": "repository-governance:test-asset-behavior",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/behavior-fact-extractors.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/behavior-fact-extractors.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/behavior-graph-join.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/behavior-graph-join.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/behavior-owner-binding.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/behavior-owner-binding.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/behavior-test-binding.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/behavior-test-binding.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "migration",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/browser-diagnostics-release-runtime.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/browser-diagnostics-release-runtime.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text"
+            ]
+        },
+        {
+            "file": "tests/tools/cancellation-token-source-ownership.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/cancellation-token-source-ownership.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text"
+            ]
+        },
+        {
+            "file": "tests/tools/config-error-security-policy-observation.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/config-error-security-policy-observation.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper"
+            ]
+        },
+        {
+            "file": "tests/tools/content-addressed-build-cache.test.mjs",
+            "owner": "repository-governance:test-asset-behavior",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper"
+            ]
+        },
+        {
+            "file": "tests/tools/content-addressed-evidence-store.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/content-addressed-evidence-store.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/content-lifecycle-observation.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/content-lifecycle-observation.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/correctness-budget-hierarchy.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/correctness-budget-hierarchy.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "perf"
+            ]
+        },
+        {
+            "file": "tests/tools/correctness-runner-identity.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/correctness-runner-identity.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/customization-contracts.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/customization-contracts.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/data-scale-temporal-replay.integration.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/data-scale-temporal-replay.integration.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/demo-public-producer.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/demo-public-producer.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/doc-claim-staleness-mutation.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/doc-claim-staleness-mutation.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "migration"
+            ]
+        },
+        {
+            "file": "tests/tools/doc-claim.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/doc-claim.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "migration",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/ensure-cmake.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/ensure-cmake.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/fixture-orchestrator.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/fixture-orchestrator.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/fixture-receipt.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/fixture-receipt.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/font-license-evidence.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/font-license-evidence.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text"
+            ]
+        },
+        {
+            "file": "tests/tools/frontend-render-structure-receipts.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/frontend-render-structure-receipts.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "perf"
+            ]
+        },
+        {
+            "file": "tests/tools/generated-fact-sections.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/generated-fact-sections.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/issue-1822-ci-baseline.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/issue-1822-ci-baseline.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "migration",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/issue-1822-ci-post-delivery.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/issue-1822-ci-post-delivery.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text"
+            ]
+        },
+        {
+            "file": "tests/tools/issue-1822-ci-regressions.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/issue-1822-ci-regressions.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/issue-orchestration-completed-prerequisite-live.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/issue-orchestration-completed-prerequisite-live.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/issue-orchestration-completed-prerequisite.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/issue-orchestration-completed-prerequisite.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/issue-orchestration-dispatch-batch.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/issue-orchestration-dispatch-batch.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/issue-orchestration-dispatch-receipt.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/issue-orchestration-dispatch-receipt.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/issue-orchestration-event-ledger.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/issue-orchestration-event-ledger.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper"
+            ]
+        },
+        {
+            "file": "tests/tools/issue-orchestration-layered-investigation.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/issue-orchestration-layered-investigation.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "migration"
+            ]
+        },
+        {
+            "file": "tests/tools/issue-orchestration-ready-frontier.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/issue-orchestration-ready-frontier.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper"
+            ]
+        },
+        {
+            "file": "tests/tools/issue-orchestration-resource-lifecycle.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/issue-orchestration-resource-lifecycle.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text"
+            ]
+        },
+        {
+            "file": "tests/tools/issue-orchestration-scope-selector.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/issue-orchestration-scope-selector.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/issue-orchestration-stage-profiles.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/issue-orchestration-stage-profiles.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper"
+            ]
+        },
+        {
+            "file": "tests/tools/locale-catalog.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/locale-catalog.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/locale-domain-static.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/locale-domain-static.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/long-soak-measurement-authority.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/long-soak-measurement-authority.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/managed-production-build-gc.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/managed-production-build-gc.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "perf"
+            ]
+        },
+        {
+            "file": "tests/tools/measurement-noise-envelope.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/measurement-noise-envelope.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "perf",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/measurement-window-inventory.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/measurement-window-inventory.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "perf"
+            ]
+        },
+        {
+            "file": "tests/tools/migrate-public-assets.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/migrate-public-assets.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "migration",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/mutation-inventory-retention.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/mutation-inventory-retention.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/mutation-release-parity.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/mutation-release-parity.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/openapi-aeds-observation.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/openapi-aeds-observation.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text"
+            ]
+        },
+        {
+            "file": "tests/tools/performance-admission.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/performance-admission.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "perf",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/physical-execution-process-tree.test.mjs",
+            "owner": "repository-governance:test-asset-behavior",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/producer-execution-class-contract.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/producer-execution-class-contract.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "compatibility-wrapper",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/production-build-materialization-benchmark.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/production-build-materialization-benchmark.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "perf",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/production-build-owner-identity.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/production-build-owner-identity.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/production-capacity-preflight-order.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/production-capacity-preflight-order.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "perf",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/production-capacity-reservation.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/production-capacity-reservation.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/production-disk-demand.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/production-disk-demand.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "perf",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/production-fresh-bundle-failure.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/production-fresh-bundle-failure.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "perf",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/production-fresh-cache-crash-recovery.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/production-fresh-cache-crash-recovery.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/production-fresh-cache-transaction.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/production-fresh-cache-transaction.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text"
+            ]
+        },
+        {
+            "file": "tests/tools/production-fresh-exclusive-lease.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/production-fresh-exclusive-lease.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/production-fresh-lease-recovery.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/production-fresh-lease-recovery.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/production-fresh-orphan-runtime-discovery.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/production-fresh-orphan-runtime-discovery.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/production-fresh-orphan-runtime-ownership.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/production-fresh-orphan-runtime-ownership.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "migration",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/production-fresh-output-governance.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/production-fresh-output-governance.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "perf",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/production-fresh-run-bound-outputs.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/production-fresh-run-bound-outputs.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "perf",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/prose-claim-verifier.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/prose-claim-verifier.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/public-content-producer.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/public-content-producer.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "migration",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/public-preview-quality-publication.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/public-preview-quality-publication.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text"
+            ]
+        },
+        {
+            "file": "tests/tools/public-preview-quality.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/public-preview-quality.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/release-domain-projections.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/release-domain-projections.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/release-final-evidence-binding.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/release-final-evidence-binding.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "perf",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/release-final-execution-graph.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/release-final-execution-graph.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "perf",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/release-final-local-profile-qualification.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/release-final-local-profile-qualification.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text"
+            ]
+        },
+        {
+            "file": "tests/tools/release-final-reliability-binding.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/release-final-reliability-binding.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/release-load-response-oracle.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/release-load-response-oracle.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "perf"
+            ]
+        },
+        {
+            "file": "tests/tools/release-reliability-cancellation.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/release-reliability-cancellation.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "perf"
+            ]
+        },
+        {
+            "file": "tests/tools/release-reliability-control-flow.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/release-reliability-control-flow.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "perf",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/release-reliability-driver.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/release-reliability-driver.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "perf",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/release-reliability-evidence-binding.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/release-reliability-evidence-binding.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/release-reliability-executor.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/release-reliability-executor.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "perf",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/release-reliability-fixture-collector.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/release-reliability-fixture-collector.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/release-reliability-lane-projection.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/release-reliability-lane-projection.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "perf",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/release-reliability-lifecycle-actions.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/release-reliability-lifecycle-actions.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/release-reliability-lifecycle-negative.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/release-reliability-lifecycle-negative.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/release-reliability-lifecycle.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/release-reliability-lifecycle.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "perf",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/release-reliability-process-tree.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/release-reliability-process-tree.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/release-reliability-qualified-local.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/release-reliability-qualified-local.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/release-reliability-receipt.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/release-reliability-receipt.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "perf",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/release-reliability-runtime-admission.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/release-reliability-runtime-admission.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/reset-postcondition-verifier.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/reset-postcondition-verifier.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/route-title-contract.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/route-title-contract.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/run-once-process-identity.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/run-once-process-identity.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/runtime-evidence-policy.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/runtime-evidence-policy.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/runtime-http-route-contract.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/runtime-http-route-contract.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "compatibility-wrapper"
+            ]
+        },
+        {
+            "file": "tests/tools/runtime-scenario-host.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/runtime-scenario-host.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "migration",
+                "perf",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/runtime-state-access-analyzer.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/runtime-state-access-analyzer.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/runtime-state-domain-catalog.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/runtime-state-domain-catalog.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/scheduler-owner-identity.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/scheduler-owner-identity.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "perf",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/spa-manifest-descriptor.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/spa-manifest-descriptor.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "perf",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/static-governance-host.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/static-governance-host.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text"
+            ]
+        },
+        {
+            "file": "tests/tools/summary-only-qualification.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/summary-only-qualification.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text"
+            ]
+        },
+        {
+            "file": "tests/tools/test-matrix-execution-mode-contract.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/test-matrix-execution-mode-contract.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/test-matrix-projection-declarations.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/test-matrix-projection-declarations.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "migration",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/test-matrix-topology-observation.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/test-matrix-topology-observation.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "perf"
+            ]
+        },
+        {
+            "file": "tests/tools/test-temporal-context.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/test-temporal-context.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "perf",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/test-temporal-producer-bindings.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/test-temporal-producer-bindings.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "perf",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/test-wall-clock-governance.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/test-wall-clock-governance.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "perf",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/theme-css-safety-evidence.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/theme-css-safety-evidence.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "perf"
+            ]
+        },
+        {
+            "file": "tests/tools/wasm-build-receipt.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/wasm-build-receipt.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
         }
     ]
 }

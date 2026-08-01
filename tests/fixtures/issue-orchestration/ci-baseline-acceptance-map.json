@@ -1,0 +1,13 @@
+{
+  "schema": "issue-orchestration.ci-baseline-acceptance.v1",
+  "issue": "Ozwasyd/FsusBlog#1822",
+  "revision": 10,
+  "acceptance": [
+    { "id": "R10CI01", "requirement": "relative binary routes work in browser and Node test runtimes while all 61 transport tests consume the mock and real fetch fails fast", "mutations": ["relative-url-forwarded-to-node-fetch", "absolute-only-test-environment", "binary-transport-real-fetch-leak", "partial-61-test-green"] },
+    { "id": "R10CI02", "requirement": "one current-run WASM producer creates and transports the manifest and receipt before all consumers", "mutations": ["consumer-self-rebuild-fallback", "historical-wasm-artifact-reuse", "wasm-receipt-without-manifest"] },
+    { "id": "R10CI03", "requirement": "an absent published FsusUI surface blocks locally with exact remote evidence and no invented release or fallback", "mutations": ["local-component-copy", "invented-fsusui-release"] },
+    { "id": "R10CI04", "requirement": "authoritative lifecycle and browser migration identities resolve exactly, all current Node tests have registry owners, and browser probes do not own child processes", "mutations": ["missing-replacement-ignored", "deleted-test-evidence-file-used-as-test", "browser-probe-direct-child-process", "partial-node-ownership-registry", "unrelated-test-source-cleanup"] },
+    { "id": "R10CI05", "requirement": "SpaAssetManifestServiceTests uses shared repository-root authority", "mutations": ["appcontext-parent-traversal-retained", "private-root-probe-renamed"] },
+    { "id": "R10CI06", "requirement": "downstream summaries consume only current-run artifacts after primary producers succeed", "mutations": ["downstream-stale-artifact-fallback"] }
+  ]
+}

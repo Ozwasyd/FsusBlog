@@ -1,0 +1,56 @@
+{
+  "schema": "issue-orchestration.ci-baseline-runtime-probes.v1",
+  "issue": "Ozwasyd/FsusBlog#1822",
+  "revision": 10,
+  "baseSha": "9a8ab8cd80a4cdc7f76866f0c475b8fa64218731",
+  "run": { "id": 30683846973, "headSha": "9a8ab8cd80a4cdc7f76866f0c475b8fa64218731", "status": "completed", "conclusion": "failure" },
+  "primaryFailures": [
+    { "id": "R10CI01", "job": "Fast Frontend Unit DAG", "evidence": "BinaryTransportError: Failed to parse URL from /api/binary/auth/me", "localProbe": "source contract" },
+    { "id": "R10CI02", "job": "Frontend Runtime Contracts, Frontend Build, Immutable Production Build Artifacts", "evidence": "WASM build receipt is missing; manifest missing; emcmake unavailable", "localProbe": "workflow producer graph" },
+    { "id": "R10CI03", "job": "Immutable Production Build Artifacts", "evidence": "MISSING_EXPORT FsusUiTaskPageHeader and FsusUiDataList from locked FsusUI 1.5.1", "localProbe": "package and lock identity" },
+    { "id": "R10CI04", "job": "Fast Static Governance", "evidence": "replacement test identities and deleted-test evidence assets do not resolve", "localProbe": "authoritative manifests" },
+    { "id": "R10CI05", "job": "Fast Backend DAG", "evidence": "appcontext-parent-traversal at SpaAssetManifestServiceTests.cs:1604", "localProbe": "source governance contract" }
+  ],
+  "remoteContractImpacts": {
+    "R10CI03": {
+      "disposition": "possible-remote-contract-impact",
+      "ownerRepository": "Ozwasyd/FsusUI",
+      "publishedVersion": "1.5.1",
+      "publishedCommit": "94d64b73219e6cb96e8aa8968355b730ea0dfccd",
+      "exportIndexBlob": "2a2cad96fa46b2aab565b1b0f94ed64ea4cd239a",
+      "missingExports": ["FsusTaskPageHeader", "FsusDataList"],
+      "reproduction": "npm ci followed by npm run build reports MISSING_EXPORT for both canonical names",
+      "blockedCriterion": "a published @ozwasyd/element-plus release exporting both canonical surfaces is required",
+      "fallbackAllowed": false,
+      "directEvidenceDigest": "93fd479bb6d3ee3a50c1c9ed0e4f5edfa15e4ddd6d9c2a0ca787efc616b1c5c0"
+    }
+  },
+  "correctiveRevision2": {
+    "lifecycleOwnership": {
+      "unownedNodeTestCount": 116,
+      "directOutputSha256": "23ba5c19170bb04b705ec9f695ae1fe18d5427672727784e374dc81fb237ea2b",
+      "ownerAuthority": "tests/governance/test-lifecycle-registry.json",
+      "disposition": "current-required-governance-producer-blocker",
+      "authorizedChange": "exact registry entries only",
+      "testSourceCleanupAuthorized": false
+    },
+    "binaryTransportUnit": {
+      "tests": 61,
+      "failed": 52,
+      "failureClass": "mock-not-consumed-real-fetch",
+      "disposition": "candidate-regression"
+    },
+    "wasmConsumerBuild": {
+      "producerCommand": "./tools/build-wasm-artifact.sh",
+      "producerOutput": "build/artifacts/wasm-release",
+      "consumerRootEnvironment": "FSUSBLOG_FRONTEND_WASM_ROOT",
+      "historicalReceiptFallbackAllowed": false
+    }
+  },
+  "downstream": {
+    "disposition": "consequence-of-primary-failures",
+    "missingArtifacts": ["fast-summary", "integration-runtime"],
+    "fallbackAllowed": false,
+    "requiredIdentity": "current-run-only"
+  }
+}

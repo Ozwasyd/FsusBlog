@@ -273,10 +273,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts#keeps-compact-audit-actions-reachable-on-mobile-touch-sc-479bf54d43",
       "path": "tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs"
       ],
       "reason": "The same audit action contract now also covers short landscape touch screens and rejects the former desktop-only size override."
     },
@@ -284,7 +281,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminSettingsUserWorkflow.test.ts#keeps-destructive-social-preview-actions-reachable-on-mo-65e7882ceb",
       "path": "tests/frontend/unit/view-contracts/adminSettingsUserWorkflow.test.ts",
       "replacementTestIds": [
-        "vitest:tests/frontend/unit/api/admin.test.ts"
+        "vitest:tests/frontend/unit/api/admin.test.ts#adminchangestatus-sends-binary-status-request-for-accoun-9392b98c6a"
       ],
       "reason": "The same settings action contract now covers short landscape touch screens and rejects the former desktop-only size override."
     },
@@ -301,11 +298,11 @@
       "id": "vitest:tests/frontend/unit/view-contracts/articleRightsEditorWorkflow.test.ts#wires-rights-through-defaults-edit-loading-local-drafts--6196c42ca5",
       "path": "tests/frontend/unit/view-contracts/articleRightsEditorWorkflow.test.ts",
       "replacementTestIds": [
-        "vitest:tests/frontend/unit/composables/useAdminArticleWrite.localDraft.test.ts#round-trips-only-non-recoverable-metadata-through-the-re-d20ec77d2c",
-        "vitest:tests/frontend/unit/composables/useAdminArticleWrite.localDraft.test.ts#rejects-legacy-browser-payloads-that-contain-unpublished-5097953009",
-        "vitest:tests/frontend/unit/composables/useAdminArticleWrite.localDraft.test.ts#never-promotes-local-only-metadata-to-a-restorable-form--8f4eadd3f1",
-        "vitest:tests/frontend/unit/api/authoring.test.ts",
-        "xunit:tests/backend/Unit/ArticleRightsWritePathTests.cs"
+        "vitest:tests/frontend/unit/composables/useAdminArticleWrite.localDraft.test.ts#parses-authoritative-coordinates-for-stale-two-tab-delay-14787a8217",
+        "vitest:tests/frontend/unit/composables/useAdminArticleWrite.localDraft.test.ts#parses-bounded-draft-conflict-metadata-without-unpublish-d303022b8f",
+        "vitest:tests/frontend/unit/composables/useAdminArticleWrite.localDraft.test.ts#stops-automatic-retries-for-draft-conflicts-but-retries--7a04e07163",
+        "vitest:tests/frontend/unit/api/authoring.test.ts#saveserverdraft-posts-an-aeds-author-draft-request-frame-80bb5f40aa",
+        "xunit:tests/backend/Unit/ArticleRightsWritePathTests.cs#ArticleRightsWritePathTests.CreateAsync_WritesRightsPolicySnapshotAndOutboxInSameTransaction"
       ],
       "reason": "The former browser-restorable full draft assertion was intentionally split into a server-authoritative draft workflow contract and executable codec tests proving that unpublished content is never persisted or promoted from local metadata."
     },
@@ -881,7 +878,7 @@
       "id": "xunit:tests/backend/Unit/DevSeedSqlContractTests.cs#DevSeedSqlContractTests.DemoSeedSql_UsesAnonymousAccountsAndAdminPrincipalPlane",
       "path": "tests/backend/Unit/DevSeedSqlContractTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/DevSeedSqlContractTests.cs#DevSeedSqlContractTests.DemoSeedSql_ExecutesTwiceAgainstEmptyProductionSchemaAndPreservesDataInvariants"
+        "xunit:tests/backend/Integration/DemoFixtureSeederCleanupIntegrationTests.cs#DemoFixtureSeederCleanupIntegrationTests.CleanupThenPrepare_UsesReceiptAuthorityAfterBusinessFieldsDrift_WithoutDuplicates"
       ],
       "reason": "The actual psql seed now executes against production entity tables and queries the anonymous account, disabled admin principal, taxonomy, article, comment and audit rows."
     },
@@ -889,7 +886,7 @@
       "id": "xunit:tests/backend/Unit/DevSeedSqlContractTests.cs#DevSeedSqlContractTests.DemoDataDocs_DescribeAnonymousSeedAndAdminBootstrapOnly",
       "path": "tests/backend/Unit/DevSeedSqlContractTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/DevSeedSqlContractTests.cs#DevSeedSqlContractTests.DemoSeedSql_ExecutesTwiceAgainstEmptyProductionSchemaAndPreservesDataInvariants"
+        "xunit:tests/backend/Integration/DemoFixtureSeederCleanupIntegrationTests.cs#DemoFixtureSeederCleanupIntegrationTests.CleanupThenPrepare_UsesReceiptAuthorityAfterBusinessFieldsDrift_WithoutDuplicates"
       ],
       "reason": "Documentation wording and shell echo text are intentionally no longer xUnit contracts; executable data assertions prove the anonymous container and separate non-root admin principal behavior."
     },
@@ -897,7 +894,7 @@
       "id": "xunit:tests/backend/Unit/DevSeedSqlContractTests.cs#DevSeedSqlContractTests.DevStart_SeedsAnonymousCommentPrivacyFixtureForLocalDemo",
       "path": "tests/backend/Unit/DevSeedSqlContractTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/DevSeedSqlContractTests.cs#DevSeedSqlContractTests.DemoSeedSql_ExecutesTwiceAgainstEmptyProductionSchemaAndPreservesDataInvariants"
+        "xunit:tests/backend/Integration/DemoFixtureSeederCleanupIntegrationTests.cs#DemoFixtureSeederCleanupIntegrationTests.CleanupThenPrepare_UsesReceiptAuthorityAfterBusinessFieldsDrift_WithoutDuplicates"
       ],
       "reason": "The executed seed now proves both local comments have anonymous mode, no user/public handle binding, and complete nullifier, scope, moderation subject and credential privacy fields."
     },
@@ -905,7 +902,7 @@
       "id": "xunit:tests/backend/Unit/DevSeedSqlContractTests.cs#DevSeedSqlContractTests.HistoricalResidueBlocksLegacyDemoPasswordSeed",
       "path": "tests/backend/Unit/DevSeedSqlContractTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/DevSeedSqlContractTests.cs#DevSeedSqlContractTests.DemoSeedSql_ExecutesTwiceAgainstEmptyProductionSchemaAndPreservesDataInvariants",
+        "xunit:tests/backend/Integration/DemoFixtureSeederCleanupIntegrationTests.cs#DemoFixtureSeederCleanupIntegrationTests.CleanupThenPrepare_UsesReceiptAuthorityAfterBusinessFieldsDrift_WithoutDuplicates",
         "shell:tools/check-historical-residue.sh"
       ],
       "reason": "Database inspection proves no legacy username, password, role or login-IP columns or rows are used, while the centralized residue checker retains repository-wide prevention."
@@ -1578,10 +1575,7 @@
         "vitest:tests/frontend/unit/views/IntegrityProofConsole.test.ts#reports-a-load-failure-through-the-shared-error-presenta-b8171649fa",
         "vitest:tests/frontend/unit/views/IntegrityProofConsole.test.ts#consumes-admin-step-up-proof-before-retry-and-refreshes--1a20a21700",
         "vitest:tests/frontend/unit/router/index.test.ts#integrity-proof-console-is-denied-unless-the-admin-has-s-d8705a8a61",
-        "vitest:tests/frontend/unit/layouts/accountNavModules.test.ts#removes-unauthorized-modules-and-leaves-instead-of-expos-b2e02ea410",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "vitest:tests/frontend/unit/layouts/accountNavModules.test.ts#removes-unauthorized-modules-and-leaves-instead-of-expos-b2e02ea410"
       ],
       "reason": "API mocks and a mounted Vue view execute filters, empty/error states, step-up retry and refresh; the router guard owns permission denial."
     },
@@ -2348,10 +2342,7 @@
       "path": "tests/frontend/unit/view-contracts/adminPrincipalWorkspaceWorkflow.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-admin-user-manage-governance.mjs",
-        "vitest:tests/frontend/unit/api/admin.test.ts#adminchangestatus-sends-binary-status-request-for-accoun-9392b98c6a",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "vitest:tests/frontend/unit/api/admin.test.ts#adminchangestatus-sends-binary-status-request-for-accoun-9392b98c6a"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2360,10 +2351,7 @@
       "path": "tests/frontend/unit/view-contracts/adminPrincipalWorkspaceWorkflow.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-admin-user-manage-governance.mjs",
-        "vitest:tests/frontend/unit/api/admin.test.ts#adminchangestatus-sends-binary-status-request-for-accoun-9392b98c6a",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "vitest:tests/frontend/unit/api/admin.test.ts#adminchangestatus-sends-binary-status-request-for-accoun-9392b98c6a"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2372,10 +2360,7 @@
       "path": "tests/frontend/unit/view-contracts/adminPrincipalWorkspaceWorkflow.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-admin-user-manage-governance.mjs",
-        "vitest:tests/frontend/unit/api/admin.test.ts#adminchangestatus-sends-binary-status-request-for-accoun-9392b98c6a",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "vitest:tests/frontend/unit/api/admin.test.ts#adminchangestatus-sends-binary-status-request-for-accoun-9392b98c6a"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2474,10 +2459,7 @@
       "path": "tests/frontend/unit/view-contracts/adminCommentModerationWorkflow.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-comment-thread-view-contract-identity.mjs",
-        "node-script:tests/frontend/checks/static/check-admin-dashboard-panel-identity.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-dashboard-panel-identity.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2486,10 +2468,7 @@
       "path": "tests/frontend/unit/view-contracts/adminCommentModerationWorkflow.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-comment-thread-view-contract-identity.mjs",
-        "node-script:tests/frontend/checks/static/check-admin-dashboard-panel-identity.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-dashboard-panel-identity.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2498,10 +2477,7 @@
       "path": "tests/frontend/unit/view-contracts/adminCommentModerationWorkflow.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-comment-thread-view-contract-identity.mjs",
-        "node-script:tests/frontend/checks/static/check-admin-dashboard-panel-identity.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-dashboard-panel-identity.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2510,10 +2486,7 @@
       "path": "tests/frontend/unit/view-contracts/adminCommentModerationWorkflow.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-comment-thread-view-contract-identity.mjs",
-        "node-script:tests/frontend/checks/static/check-admin-dashboard-panel-identity.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-dashboard-panel-identity.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2522,10 +2495,7 @@
       "path": "tests/frontend/unit/view-contracts/adminCommentModerationWorkflow.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-comment-thread-view-contract-identity.mjs",
-        "node-script:tests/frontend/checks/static/check-admin-dashboard-panel-identity.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-dashboard-panel-identity.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2553,10 +2523,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminConsistencyWorkflow.test.ts#splits-admin-message-center-from-personal-messagebox-aa6dffb730",
       "path": "tests/frontend/unit/view-contracts/adminConsistencyWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-admin-task-feedback.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-task-feedback.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2564,10 +2531,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminConsistencyWorkflow.test.ts#exposes-asset-and-content-migration-admin-tools-4f827db26e",
       "path": "tests/frontend/unit/view-contracts/adminConsistencyWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-admin-task-feedback.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-task-feedback.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2575,10 +2539,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminConsistencyWorkflow.test.ts#requires-admin-sensitive-admin-step-up-proof-for-high-va-d446431baa",
       "path": "tests/frontend/unit/view-contracts/adminConsistencyWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-admin-task-feedback.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-task-feedback.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2586,10 +2547,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminConsistencyWorkflow.test.ts#keeps-system-messages-single-target-and-rejects-nullable-83068322cd",
       "path": "tests/frontend/unit/view-contracts/adminConsistencyWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-admin-task-feedback.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-task-feedback.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2597,10 +2555,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminConsistencyWorkflow.test.ts#routes-non-public-article-preview-through-the-management-1a9da4337e",
       "path": "tests/frontend/unit/view-contracts/adminConsistencyWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-admin-task-feedback.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-task-feedback.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2608,10 +2563,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts#serializes-admin-keyword-search-through-frontend-and-bac-96fc20bdc2",
       "path": "tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2619,10 +2571,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts#keeps-permanent-delete-out-of-the-active-article-list-wh-2582e5b7b6",
       "path": "tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2630,10 +2579,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts#supports-category-tag-status-keyword-filters-with-url-sy-c6628a3b65",
       "path": "tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2641,10 +2587,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts#shows-cover-thumbnails-contextual-row-actions-and-status-4b300a53b3",
       "path": "tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2652,10 +2595,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts#keeps-article-ids-on-one-line-in-the-desktop-table-169de23c29",
       "path": "tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2663,10 +2603,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts#keeps-the-fixed-action-column-aligned-without-segmented--fb2f17edea",
       "path": "tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2674,10 +2611,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts#uses-compact-article-cards-before-tablet-width-to-avoid--15904d08c3",
       "path": "tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2685,10 +2619,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts#allows-the-article-status-filter-to-shrink-before-mobile-d18c5fdd90",
       "path": "tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2696,10 +2627,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts#keeps-the-article-title-editor-usable-at-extreme-mobile--71ae4ace11",
       "path": "tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2707,10 +2635,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts#uses-compact-trash-cards-before-tablet-width-to-avoid-fi-6fde78ff76",
       "path": "tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2718,10 +2643,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts#keeps-taxonomy-fixed-action-columns-aligned-without-segm-800dc9a288",
       "path": "tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2729,10 +2651,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts#routes-taxonomy-dialogs-through-the-shared-fsus-dialog-s-d909cdb612",
       "path": "tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2740,10 +2659,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts#keeps-collection-toolbar-primary-actions-on-the-trailing-b8f8981b30",
       "path": "tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2751,10 +2667,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts#keeps-collection-summary-primary-actions-on-the-trailing-ed860c9bf0",
       "path": "tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2762,10 +2675,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts#keeps-compact-audit-actions-reachable-on-mobile-and-shor-c7e2d3c64f",
       "path": "tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2773,10 +2683,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts#makes-trash-restore-explicit-and-requires-title-or-id-be-4825dffd67",
       "path": "tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2784,10 +2691,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts#adds-taxonomy-search-duplicate-checks-reference-locks-an-1964a8b201",
       "path": "tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2795,10 +2699,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts#uses-admin-principal-attribution-for-article-revisions-433ddec61b",
       "path": "tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2806,10 +2707,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts#does-not-expose-importable-numeric-actor-ids-in-content--901f6ca53a",
       "path": "tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2817,10 +2715,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts#does-not-label-a-category-only-dashboard-route-as-catego-1f506d3200",
       "path": "tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2828,10 +2723,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminSettingsUserWorkflow.test.ts#keeps-site-metadata-and-media-policy-in-separate-tabs-wi-2dadaf0da9",
       "path": "tests/frontend/unit/view-contracts/adminSettingsUserWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-admin-user-manage-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-user-manage-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2839,10 +2731,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminSettingsUserWorkflow.test.ts#does-not-auto-save-seo-text-when-og-image-changes-838874f378",
       "path": "tests/frontend/unit/view-contracts/adminSettingsUserWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-admin-user-manage-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-user-manage-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2850,10 +2739,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminSettingsUserWorkflow.test.ts#keeps-destructive-social-preview-actions-reachable-on-mo-d234cbb786",
       "path": "tests/frontend/unit/view-contracts/adminSettingsUserWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-admin-user-manage-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-user-manage-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2861,10 +2747,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminSettingsUserWorkflow.test.ts#stacks-pwa-color-inputs-before-mobile-zoom-can-collapse--a1c27fce98",
       "path": "tests/frontend/unit/view-contracts/adminSettingsUserWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-admin-user-manage-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-user-manage-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2872,10 +2755,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminSettingsUserWorkflow.test.ts#exposes-brand-asset-uploads-and-favicon-set-generation-w-7bab9a10df",
       "path": "tests/frontend/unit/view-contracts/adminSettingsUserWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-admin-user-manage-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-user-manage-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2883,10 +2763,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminSettingsUserWorkflow.test.ts#uses-the-same-preview-and-replace-upload-mode-for-brand--736983b2fd",
       "path": "tests/frontend/unit/view-contracts/adminSettingsUserWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-admin-user-manage-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-user-manage-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2894,10 +2771,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminSettingsUserWorkflow.test.ts#protects-page-editor-content-before-switching-static-pag-ccdd48f593",
       "path": "tests/frontend/unit/view-contracts/adminSettingsUserWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-admin-user-manage-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-user-manage-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2905,10 +2779,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminSettingsUserWorkflow.test.ts#syncs-user-filters-to-url-query-and-exposes-reset-chips-d8bc47ee90",
       "path": "tests/frontend/unit/view-contracts/adminSettingsUserWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-admin-user-manage-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-user-manage-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2916,10 +2787,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminSettingsUserWorkflow.test.ts#shows-anonymous-account-governance-fields-instead-of-use-954cc64c8f",
       "path": "tests/frontend/unit/view-contracts/adminSettingsUserWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-admin-user-manage-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-user-manage-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2927,10 +2795,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminSettingsUserWorkflow.test.ts#removes-legacy-reset-password-production-ui-and-api-hook-eb068c3caa",
       "path": "tests/frontend/unit/view-contracts/adminSettingsUserWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-admin-user-manage-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-user-manage-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2938,10 +2803,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminSettingsUserWorkflow.test.ts#requires-ban-impact-review-public-preview-and-username-c-5a5cd87d36",
       "path": "tests/frontend/unit/view-contracts/adminSettingsUserWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-admin-user-manage-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-user-manage-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2949,10 +2811,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminOpsHealthWorkflow.test.ts#keeps-recent-errors-as-structured-frontend-and-backend-c-1340a49926",
       "path": "tests/frontend/unit/view-contracts/adminOpsHealthWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-admin-system-tabs-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-system-tabs-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2960,10 +2819,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminOpsHealthWorkflow.test.ts#renders-recent-errors-as-operational-rows-instead-of-raw-6d2a33e6d7",
       "path": "tests/frontend/unit/view-contracts/adminOpsHealthWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-admin-system-tabs-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-system-tabs-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2971,10 +2827,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminOpsHealthWorkflow.test.ts#uses-compact-empty-grouped-count-detail-disclosure-and-c-ebbaa1e146",
       "path": "tests/frontend/unit/view-contracts/adminOpsHealthWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-admin-system-tabs-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-system-tabs-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -2982,10 +2835,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminOpsHealthWorkflow.test.ts#normalizes-ops-hierarchy-and-backup-artifact-labels-9b21b0ff91",
       "path": "tests/frontend/unit/view-contracts/adminOpsHealthWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-admin-system-tabs-governance.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-system-tabs-governance.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -3030,10 +2880,7 @@
       "path": "tests/frontend/unit/view-contracts/adminModerationSystemWorkflow.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-comment-thread-view-contract-identity.mjs",
-        "node-script:tests/frontend/checks/static/check-admin-dashboard-panel-identity.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-dashboard-panel-identity.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -3042,10 +2889,7 @@
       "path": "tests/frontend/unit/view-contracts/adminModerationSystemWorkflow.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-comment-thread-view-contract-identity.mjs",
-        "node-script:tests/frontend/checks/static/check-admin-dashboard-panel-identity.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-dashboard-panel-identity.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -3054,10 +2898,7 @@
       "path": "tests/frontend/unit/view-contracts/adminModerationSystemWorkflow.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-comment-thread-view-contract-identity.mjs",
-        "node-script:tests/frontend/checks/static/check-admin-dashboard-panel-identity.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-dashboard-panel-identity.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -3066,10 +2907,7 @@
       "path": "tests/frontend/unit/view-contracts/adminModerationSystemWorkflow.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-comment-thread-view-contract-identity.mjs",
-        "node-script:tests/frontend/checks/static/check-admin-dashboard-panel-identity.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-dashboard-panel-identity.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -3078,10 +2916,7 @@
       "path": "tests/frontend/unit/view-contracts/adminModerationSystemWorkflow.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-comment-thread-view-contract-identity.mjs",
-        "node-script:tests/frontend/checks/static/check-admin-dashboard-panel-identity.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-dashboard-panel-identity.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -3090,10 +2925,7 @@
       "path": "tests/frontend/unit/view-contracts/adminModerationSystemWorkflow.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-comment-thread-view-contract-identity.mjs",
-        "node-script:tests/frontend/checks/static/check-admin-dashboard-panel-identity.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-dashboard-panel-identity.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -3102,10 +2934,7 @@
       "path": "tests/frontend/unit/view-contracts/adminModerationSystemWorkflow.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-comment-thread-view-contract-identity.mjs",
-        "node-script:tests/frontend/checks/static/check-admin-dashboard-panel-identity.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-dashboard-panel-identity.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -3114,10 +2943,7 @@
       "path": "tests/frontend/unit/view-contracts/adminModerationSystemWorkflow.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-comment-thread-view-contract-identity.mjs",
-        "node-script:tests/frontend/checks/static/check-admin-dashboard-panel-identity.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-dashboard-panel-identity.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -3126,10 +2952,7 @@
       "path": "tests/frontend/unit/view-contracts/adminModerationSystemWorkflow.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-comment-thread-view-contract-identity.mjs",
-        "node-script:tests/frontend/checks/static/check-admin-dashboard-panel-identity.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-dashboard-panel-identity.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -3138,10 +2961,7 @@
       "path": "tests/frontend/unit/view-contracts/adminModerationSystemWorkflow.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-comment-thread-view-contract-identity.mjs",
-        "node-script:tests/frontend/checks/static/check-admin-dashboard-panel-identity.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-dashboard-panel-identity.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -3151,10 +2971,7 @@
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-admin-a11y-governance.mjs",
         "node-script:tests/frontend/checks/static/check-admin-empty-state-governance.mjs",
-        "node-script:tests/frontend/checks/static/check-admin-task-feedback.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-task-feedback.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -3164,10 +2981,7 @@
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-admin-a11y-governance.mjs",
         "node-script:tests/frontend/checks/static/check-admin-empty-state-governance.mjs",
-        "node-script:tests/frontend/checks/static/check-admin-task-feedback.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-task-feedback.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -3177,10 +2991,7 @@
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-admin-a11y-governance.mjs",
         "node-script:tests/frontend/checks/static/check-admin-empty-state-governance.mjs",
-        "node-script:tests/frontend/checks/static/check-admin-task-feedback.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-task-feedback.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -3190,10 +3001,7 @@
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-admin-a11y-governance.mjs",
         "node-script:tests/frontend/checks/static/check-admin-empty-state-governance.mjs",
-        "node-script:tests/frontend/checks/static/check-admin-task-feedback.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-task-feedback.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -3203,10 +3011,7 @@
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-admin-a11y-governance.mjs",
         "node-script:tests/frontend/checks/static/check-admin-empty-state-governance.mjs",
-        "node-script:tests/frontend/checks/static/check-admin-task-feedback.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-task-feedback.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -3216,10 +3021,7 @@
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-admin-a11y-governance.mjs",
         "node-script:tests/frontend/checks/static/check-admin-empty-state-governance.mjs",
-        "node-script:tests/frontend/checks/static/check-admin-task-feedback.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-task-feedback.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -3229,10 +3031,7 @@
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-admin-a11y-governance.mjs",
         "node-script:tests/frontend/checks/static/check-admin-empty-state-governance.mjs",
-        "node-script:tests/frontend/checks/static/check-admin-task-feedback.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-task-feedback.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -3242,10 +3041,7 @@
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-admin-a11y-governance.mjs",
         "node-script:tests/frontend/checks/static/check-admin-empty-state-governance.mjs",
-        "node-script:tests/frontend/checks/static/check-admin-task-feedback.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-task-feedback.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -3255,10 +3051,7 @@
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-admin-a11y-governance.mjs",
         "node-script:tests/frontend/checks/static/check-admin-empty-state-governance.mjs",
-        "node-script:tests/frontend/checks/static/check-admin-task-feedback.mjs",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "node-script:tests/frontend/checks/static/check-admin-task-feedback.mjs"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4111,9 +3904,7 @@
       "path": "tests/frontend/unit/components/AccountLayoutDensity.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-shell-material-governance.mjs",
-        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4122,9 +3913,7 @@
       "path": "tests/frontend/unit/components/AccountLayoutDensity.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-shell-material-governance.mjs",
-        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4133,9 +3922,7 @@
       "path": "tests/frontend/unit/components/AccountLayoutDensity.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-shell-material-governance.mjs",
-        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4144,9 +3931,7 @@
       "path": "tests/frontend/unit/components/AccountLayoutDensity.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-shell-material-governance.mjs",
-        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4155,9 +3940,7 @@
       "path": "tests/frontend/unit/components/AccountLayoutDensity.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-shell-material-governance.mjs",
-        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4166,9 +3949,7 @@
       "path": "tests/frontend/unit/components/AccountLayoutDensity.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-shell-material-governance.mjs",
-        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4177,9 +3958,7 @@
       "path": "tests/frontend/unit/components/AccountLayoutHeaderAdapter.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-shell-material-governance.mjs",
-        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4188,9 +3967,7 @@
       "path": "tests/frontend/unit/components/AccountLayoutHeaderAdapter.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-shell-material-governance.mjs",
-        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4199,9 +3976,7 @@
       "path": "tests/frontend/unit/components/AccountLayoutHeaderAdapter.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-shell-material-governance.mjs",
-        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4210,9 +3985,7 @@
       "path": "tests/frontend/unit/components/AccountLayoutSidebar.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-shell-material-governance.mjs",
-        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4221,9 +3994,7 @@
       "path": "tests/frontend/unit/components/AccountLayoutSidebar.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-shell-material-governance.mjs",
-        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4232,9 +4003,7 @@
       "path": "tests/frontend/unit/components/AccountLayoutSidebar.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-shell-material-governance.mjs",
-        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4243,9 +4012,7 @@
       "path": "tests/frontend/unit/components/AccountLayoutSidebar.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-shell-material-governance.mjs",
-        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4254,9 +4021,7 @@
       "path": "tests/frontend/unit/components/AccountLayoutSidebar.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-shell-material-governance.mjs",
-        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4265,9 +4030,7 @@
       "path": "tests/frontend/unit/components/AccountLayoutSidebar.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-shell-material-governance.mjs",
-        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4276,9 +4039,7 @@
       "path": "tests/frontend/unit/components/AccountLayoutSidebar.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-shell-material-governance.mjs",
-        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4287,9 +4048,7 @@
       "path": "tests/frontend/unit/components/LayoutHeaderConsistency.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-shell-material-governance.mjs",
-        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4298,9 +4057,7 @@
       "path": "tests/frontend/unit/components/LayoutHeaderConsistency.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-shell-material-governance.mjs",
-        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4309,9 +4066,7 @@
       "path": "tests/frontend/unit/components/LayoutHeaderConsistency.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-shell-material-governance.mjs",
-        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4320,9 +4075,7 @@
       "path": "tests/frontend/unit/components/LayoutHeaderConsistency.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-shell-material-governance.mjs",
-        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4331,9 +4084,7 @@
       "path": "tests/frontend/unit/components/LayoutHeaderConsistency.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-shell-material-governance.mjs",
-        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4808,10 +4559,7 @@
       "path": "tests/frontend/unit/runtime/eventualTaxonomy.test.ts",
       "replacementTestIds": [
         "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#createtag-sends-binary-mutation-frame-55f70101a4",
-        "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#getcategories-calls-get-category-f797e4de92",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#getcategories-calls-get-category-f797e4de92"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4820,10 +4568,7 @@
       "path": "tests/frontend/unit/runtime/eventualTaxonomy.test.ts",
       "replacementTestIds": [
         "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#createtag-sends-binary-mutation-frame-55f70101a4",
-        "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#getcategories-calls-get-category-f797e4de92",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#getcategories-calls-get-category-f797e4de92"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4832,10 +4577,7 @@
       "path": "tests/frontend/unit/runtime/eventualTaxonomy.test.ts",
       "replacementTestIds": [
         "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#createtag-sends-binary-mutation-frame-55f70101a4",
-        "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#getcategories-calls-get-category-f797e4de92",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#getcategories-calls-get-category-f797e4de92"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4844,10 +4586,7 @@
       "path": "tests/frontend/unit/runtime/eventualTaxonomy.test.ts",
       "replacementTestIds": [
         "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#createtag-sends-binary-mutation-frame-55f70101a4",
-        "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#getcategories-calls-get-category-f797e4de92",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#getcategories-calls-get-category-f797e4de92"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4856,10 +4595,7 @@
       "path": "tests/frontend/unit/runtime/eventualTaxonomy.test.ts",
       "replacementTestIds": [
         "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#createtag-sends-binary-mutation-frame-55f70101a4",
-        "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#getcategories-calls-get-category-f797e4de92",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#getcategories-calls-get-category-f797e4de92"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4868,10 +4604,7 @@
       "path": "tests/frontend/unit/runtime/eventualTaxonomy.test.ts",
       "replacementTestIds": [
         "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#createtag-sends-binary-mutation-frame-55f70101a4",
-        "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#getcategories-calls-get-category-f797e4de92",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#getcategories-calls-get-category-f797e4de92"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4880,10 +4613,7 @@
       "path": "tests/frontend/unit/runtime/eventualTaxonomy.test.ts",
       "replacementTestIds": [
         "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#createtag-sends-binary-mutation-frame-55f70101a4",
-        "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#getcategories-calls-get-category-f797e4de92",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#getcategories-calls-get-category-f797e4de92"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4892,10 +4622,7 @@
       "path": "tests/frontend/unit/runtime/eventualTaxonomy.test.ts",
       "replacementTestIds": [
         "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#createtag-sends-binary-mutation-frame-55f70101a4",
-        "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#getcategories-calls-get-category-f797e4de92",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#getcategories-calls-get-category-f797e4de92"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4904,10 +4631,7 @@
       "path": "tests/frontend/unit/runtime/eventualTaxonomy.test.ts",
       "replacementTestIds": [
         "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#createtag-sends-binary-mutation-frame-55f70101a4",
-        "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#getcategories-calls-get-category-f797e4de92",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#getcategories-calls-get-category-f797e4de92"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4916,10 +4640,7 @@
       "path": "tests/frontend/unit/runtime/eventualTaxonomy.test.ts",
       "replacementTestIds": [
         "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#createtag-sends-binary-mutation-frame-55f70101a4",
-        "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#getcategories-calls-get-category-f797e4de92",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#getcategories-calls-get-category-f797e4de92"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4928,10 +4649,7 @@
       "path": "tests/frontend/unit/runtime/eventualTaxonomy.test.ts",
       "replacementTestIds": [
         "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#createtag-sends-binary-mutation-frame-55f70101a4",
-        "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#getcategories-calls-get-category-f797e4de92",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#getcategories-calls-get-category-f797e4de92"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4940,10 +4658,7 @@
       "path": "tests/frontend/unit/runtime/eventualTaxonomy.test.ts",
       "replacementTestIds": [
         "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#createtag-sends-binary-mutation-frame-55f70101a4",
-        "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#getcategories-calls-get-category-f797e4de92",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#getcategories-calls-get-category-f797e4de92"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4952,10 +4667,7 @@
       "path": "tests/frontend/unit/runtime/eventualTaxonomy.test.ts",
       "replacementTestIds": [
         "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#createtag-sends-binary-mutation-frame-55f70101a4",
-        "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#getcategories-calls-get-category-f797e4de92",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#getcategories-calls-get-category-f797e4de92"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -4964,10 +4676,7 @@
       "path": "tests/frontend/unit/runtime/eventualTaxonomy.test.ts",
       "replacementTestIds": [
         "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#createtag-sends-binary-mutation-frame-55f70101a4",
-        "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#getcategories-calls-get-category-f797e4de92",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#getcategories-calls-get-category-f797e4de92"
       ],
       "reason": "source-locked unit file replaced by direct behavior or single-owner static governance"
     },
@@ -5044,10 +4753,7 @@
       "path": "tests/frontend/unit/api/admin.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-admin-user-manage-governance.mjs",
-        "vitest:tests/frontend/unit/api/admin.test.ts#adminchangestatus-sends-binary-status-request-for-accoun-9392b98c6a",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "vitest:tests/frontend/unit/api/admin.test.ts#adminchangestatus-sends-binary-status-request-for-accoun-9392b98c6a"
       ],
       "reason": "source assertion removed while direct behavior tests remain in the file or its static owner"
     },
@@ -5056,10 +4762,7 @@
       "path": "tests/frontend/unit/api/admin.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-admin-user-manage-governance.mjs",
-        "vitest:tests/frontend/unit/api/admin.test.ts#adminchangestatus-sends-binary-status-request-for-accoun-9392b98c6a",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "vitest:tests/frontend/unit/api/admin.test.ts#adminchangestatus-sends-binary-status-request-for-accoun-9392b98c6a"
       ],
       "reason": "source assertion removed while direct behavior tests remain in the file or its static owner"
     },
@@ -5068,10 +4771,7 @@
       "path": "tests/frontend/unit/api/admin.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-admin-user-manage-governance.mjs",
-        "vitest:tests/frontend/unit/api/admin.test.ts#adminchangestatus-sends-binary-status-request-for-accoun-9392b98c6a",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json",
-        "node-script:tests/admin-console-behavior-evidence.json"
+        "vitest:tests/frontend/unit/api/admin.test.ts#adminchangestatus-sends-binary-status-request-for-accoun-9392b98c6a"
       ],
       "reason": "source assertion removed while direct behavior tests remain in the file or its static owner"
     },
@@ -7528,8 +7228,7 @@
       "id": "vitest:tests/frontend/unit/components/AuthRecoverySplit.test.ts#routes-recovery-through-the-public-auth-layout-b2fa8dcc0b",
       "path": "tests/frontend/unit/components/AuthRecoverySplit.test.ts",
       "replacementTestIds": [
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
       ],
       "reason": "Auth entry and recovery navigation are observed in the rendered browser flow."
     },
@@ -7537,9 +7236,7 @@
       "id": "vitest:tests/frontend/unit/components/AuthRecoverySplit.test.ts#keeps-recovery-key-verification-out-of-login-vue-66a5c4fdd4",
       "path": "tests/frontend/unit/components/AuthRecoverySplit.test.ts",
       "replacementTestIds": [
-        "vitest:tests/frontend/unit/api/auth.test.ts#recovery-key-methods-use-binary-identity-frames-439ce4e2f4",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/unit/api/auth.test.ts#recovery-key-methods-use-binary-identity-frames-439ce4e2f4"
       ],
       "reason": "Binary recovery transport and rendered login behavior replace source ownership assertions."
     },
@@ -7564,8 +7261,7 @@
       "id": "vitest:tests/frontend/unit/components/PublicAuthLayout.test.ts#routes-login-and-register-through-the-public-auth-layout-128f73ebbe",
       "path": "tests/frontend/unit/components/PublicAuthLayout.test.ts",
       "replacementTestIds": [
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
       ],
       "reason": "Login and registration routing is observed through rendered auth flows."
     },
@@ -7581,8 +7277,7 @@
       "id": "vitest:tests/frontend/unit/components/PublicAuthLayout.test.ts#removes-duplicated-nav-chrome-from-login-and-register-vi-6a94870be3",
       "path": "tests/frontend/unit/components/PublicAuthLayout.test.ts",
       "replacementTestIds": [
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
       ],
       "reason": "Rendered login and register pages expose duplicate navigation if it regresses."
     },
@@ -7599,9 +7294,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/authAnonymousIdentityWorkflow.test.ts#makes-passkey-login-primary-and-removes-the-legacy-passw-6d0c9ac014",
       "path": "tests/frontend/unit/view-contracts/authAnonymousIdentityWorkflow.test.ts",
       "replacementTestIds": [
-        "vitest:tests/frontend/unit/api/auth.test.ts#passkey-methods-use-binary-frames-fc6ccb9ae0",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/unit/api/auth.test.ts#passkey-methods-use-binary-frames-fc6ccb9ae0"
       ],
       "reason": "Passkey transport and rendered login behavior replace source token assertions."
     },
@@ -7618,9 +7311,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/authAnonymousIdentityWorkflow.test.ts#replaces-password-registration-with-passkey-first-anonym-49444ac5f1",
       "path": "tests/frontend/unit/view-contracts/authAnonymousIdentityWorkflow.test.ts",
       "replacementTestIds": [
-        "vitest:tests/frontend/unit/api/auth.test.ts#recovery-key-methods-use-binary-identity-frames-439ce4e2f4",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/unit/api/auth.test.ts#recovery-key-methods-use-binary-identity-frames-439ce4e2f4"
       ],
       "reason": "The browser onboarding flow and binary Recovery Key transport execute the new registration path."
     },
@@ -7628,8 +7319,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/authAnonymousIdentityWorkflow.test.ts#keeps-public-handle-registration-decoupled-from-username-7152180014",
       "path": "tests/frontend/unit/view-contracts/authAnonymousIdentityWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
       ],
       "reason": "The mounted browser registration flow exercises the public-handle input contract."
     },
@@ -7637,9 +7327,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/authAnonymousIdentityWorkflow.test.ts#keeps-recovery-key-plaintext-in-memory-only-and-uses-exi-7e61b582e7",
       "path": "tests/frontend/unit/view-contracts/authAnonymousIdentityWorkflow.test.ts",
       "replacementTestIds": [
-        "vitest:tests/frontend/unit/api/auth.test.ts#recovery-key-create-and-rotate-send-step-up-proof-header-4fbc548829",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/unit/api/auth.test.ts#recovery-key-create-and-rotate-send-step-up-proof-header-4fbc548829"
       ],
       "reason": "Recovery Key transport and rendered one-time onboarding behavior replace composable source checks."
     },
@@ -7656,8 +7344,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/identityCenterWorkflow.test.ts#routes-identity-center-pages-through-the-existing-accoun-a60675a19c",
       "path": "tests/frontend/unit/view-contracts/identityCenterWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
       ],
       "reason": "The browser walks the real user routes and account shell."
     },
@@ -7665,8 +7352,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/identityCenterWorkflow.test.ts#redirects-the-legacy-profile-route-to-the-anonymous-iden-32bc0e7a50",
       "path": "tests/frontend/unit/view-contracts/identityCenterWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
       ],
       "reason": "The rendered profile/session flow observes the active identity-center destination."
     },
@@ -7674,8 +7360,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/identityCenterWorkflow.test.ts#renders-real-identity-pages-with-workspace-context-and-e-a0f0e16b05",
       "path": "tests/frontend/unit/view-contracts/identityCenterWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
       ],
       "reason": "Rendered identity routes and the Passkey modal execute the real workspace behavior."
     },
@@ -7691,9 +7376,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/identityCenterWorkflow.test.ts#routes-passkey-mutations-through-header-only-step-up-pro-0383e68e03",
       "path": "tests/frontend/unit/view-contracts/identityCenterWorkflow.test.ts",
       "replacementTestIds": [
-        "vitest:tests/frontend/unit/api/auth.test.ts#recovery-key-create-and-rotate-send-step-up-proof-header-4fbc548829",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/unit/api/auth.test.ts#recovery-key-create-and-rotate-send-step-up-proof-header-4fbc548829"
       ],
       "reason": "Header proof transport and the rendered credential mutation entry are directly exercised."
     },
@@ -7701,8 +7384,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/identityCenterWorkflow.test.ts#keeps-page-states-explicit-for-loading-empty-and-recover-6ad2a7662f",
       "path": "tests/frontend/unit/view-contracts/identityCenterWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
       ],
       "reason": "User-console browser scenarios observe the actual loading, empty and recoverable error surfaces."
     },
@@ -7710,9 +7392,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/identityCenterWorkflow.test.ts#keeps-passkey-registration-modal-bounded-and-scrollable--a407042a58",
       "path": "tests/frontend/unit/view-contracts/identityCenterWorkflow.test.ts",
       "replacementTestIds": [
-        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
       ],
       "reason": "The opened modal and console visual scenario replace CSS source fragments."
     },
@@ -7720,9 +7400,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#protects-message-replies-with-per-conversation-drafts-an-f889de5bef",
       "path": "tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts",
       "replacementTestIds": [
-        "vitest:tests/frontend/unit/composables/frontendDerivedStateWatch.test.ts#keeps-inbox-split-pane-behavior-while-deriving-pane-stat-a030e338f0",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/unit/composables/frontendDerivedStateWatch.test.ts#keeps-inbox-split-pane-behavior-while-deriving-pane-stat-a030e338f0"
       ],
       "reason": "Imported inbox state and the real ticket/detail browser flow own message behavior."
     },
@@ -7739,9 +7417,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#keeps-auth-copy-and-mfa-modes-aligned-with-backend-expec-9b1d2b7dcb",
       "path": "tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts",
       "replacementTestIds": [
-        "vitest:tests/frontend/unit/api/auth.test.ts#recovery-key-methods-use-binary-identity-frames-439ce4e2f4",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/unit/api/auth.test.ts#recovery-key-methods-use-binary-identity-frames-439ce4e2f4"
       ],
       "reason": "Rendered auth copy/states and binary MFA/recovery transport replace source scanning."
     },
@@ -7784,8 +7460,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#routes-profile-settings-to-the-anonymous-identity-center-e36b8456e4",
       "path": "tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts",
       "replacementTestIds": [
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
       ],
       "reason": "The user-console profile scenario observes the identity-center transition."
     },
@@ -7793,9 +7468,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#keeps-user-comments-and-error-recovery-paths-searchable--779506cb69",
       "path": "tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts",
       "replacementTestIds": [
-        "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410",
-        "node-script:tests/browser-diagnostics-retirement-map.json",
-        "node-script:tests/lightweight-acceptance-baseline.json"
+        "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"
       ],
       "reason": "Rendered user and public routes cover comments, empty states and error recovery."
     },
@@ -7993,7 +7666,7 @@
       "id": "node-test:tests/tools/local-production-profile.test.mjs#local-production-reserves-the-declared-profile-memory-bu-820abdfce8",
       "path": "tests/tools/local-production-profile.test.mjs",
       "replacementTestIds": [
-        "node-test:tests/tools/local-production-profile.test.mjs#collectlogicaltierids-returns-the-complete-dependency-cl-a2344ee31c"
+        "node-test:tests/tools/local-production-profile.test.mjs#collectlogicaltierids-returns-the-complete-dependency-an-50c12003bd"
       ],
       "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
     },
@@ -9776,7 +9449,7 @@
       "id": "xunit:tests/backend/Unit/PublicContentInvalidationFlowTests.cs#ArticleMutationReplayEdges.OutboxReplay_TreatsPublicHotEnqueueFailureAsRequiredEdgeFailure",
       "path": "tests/backend/Unit/PublicContentInvalidationFlowTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/PublicContentInvalidationFlowTests.cs#PublicContentInvalidationFlowTests.OutboxReplay_TreatsPublicHotEnqueueFailureAsRequiredEdgeFailure"
+        "xunit:tests/backend/Unit/PublicContentInvalidationFlowTests.cs#PublicContentInvalidationFlowTests.OutboxReplay_TracksRequiredEdgesBeforeMarkingEventProcessed"
       ],
       "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
     },
@@ -10540,7 +10213,6 @@
       "replacementTestIds": [
         "vitest:tests/frontend/unit/components/account/AccountNavigationPanel.test.ts#keeps mobile module and local navigation in one panel with 44px-class controls",
         "vitest:tests/frontend/unit/api/authoring.test.ts#saveServerDraft posts an AEDS author draft request frame",
-        "vitest:tests/frontend/unit/composables/useAdminArticleWrite.localDraft.test.ts#round-trips only non-recoverable metadata through the real AEDS storage codec",
         "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#createTag sends binary mutation frame",
         "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#createCategory sends binary mutation frame",
         "xunit:tests/backend/Unit/AuthoringDraftConcurrencyTests.cs#AuthoringDraftConcurrencyTests.SaveDraftAsync_ConcurrentCreateAllowsExactlyOneWriter"
@@ -10610,7 +10282,7 @@
       "replacementTestIds": [
         "xunit:tests/backend/Unit/CspNonceUtf8TemplateTests.cs#CspNonceUtf8TemplateTests.Compile_PerRenderNonceIsUniqueWhileEverySlotMatches",
         "xunit:tests/backend/Unit/PublicHotReadFastPathTests.cs#PublicHotReadFastPathTests.TryServeAsync_PublicHtmlHomeHit_WithInlineAotDocumentUsesEnvironmentCsp",
-        "vitest:tests/frontend/unit/security/trustedTypesRuntime.test.ts#rejects raw HTML and script URL strings while allowing the audited wrappers"
+        "vitest:tests/frontend/unit/security/trustedTypesRuntime.test.ts#accepts-only-the-fsusui-opaque-markdown-html-brand-and-p-eeb7cbdfad"
       ],
       "reason": "Nonce uniqueness, response CSP and Trusted Types sink enforcement are tested directly without a browser page lifecycle."
     },
@@ -11618,7 +11290,7 @@
       "id": "vitest:tests/frontend/unit/bootstrap/publicTakeoverDeterminism.test.ts#normalizes-site-title-and-compliance-through-one-shared--6b4d90c983",
       "path": "tests/frontend/unit/bootstrap/publicTakeoverDeterminism.test.ts",
       "replacementTestIds": [
-        "vitest:tests/frontend/unit/public-renderers/publicSiteIdentity.test.ts#normalizes-site-title-and-compliance-through-one-shared--6b4d90c983"
+        "vitest:tests/frontend/unit/public-renderers/publicSiteIdentity.test.ts#normalizes-site-title-and-compliance-through-one-shared--81881f31b7"
       ],
       "reason": "coverage moved with the production ownership cutover; no legacy activation phase authority remains"
     },
@@ -11626,7 +11298,7 @@
       "id": "vitest:tests/frontend/unit/bootstrap/publicTakeoverDeterminism.test.ts#creates-an-immutable-takeover-seed-from-the-public-hydra-9fc13eb920",
       "path": "tests/frontend/unit/bootstrap/publicTakeoverDeterminism.test.ts",
       "replacementTestIds": [
-        "vitest:tests/frontend/unit/public-renderers/publicSiteIdentity.test.ts#creates-an-immutable-takeover-seed-from-the-public-hydra-9fc13eb920"
+        "vitest:tests/frontend/unit/public-renderers/publicSiteIdentity.test.ts#creates-an-immutable-takeover-seed-from-the-public-hydra-1d0dba7e41"
       ],
       "reason": "coverage moved with the production ownership cutover; no legacy activation phase authority remains"
     },
@@ -11634,7 +11306,7 @@
       "id": "vitest:tests/frontend/unit/bootstrap/publicTakeoverDeterminism.test.ts#rejects-a-takeover-payload-whose-render-locale-is-missin-49ebfbee74",
       "path": "tests/frontend/unit/bootstrap/publicTakeoverDeterminism.test.ts",
       "replacementTestIds": [
-        "vitest:tests/frontend/unit/public-renderers/publicSiteIdentity.test.ts#rejects-a-takeover-payload-whose-render-locale-is-missin-49ebfbee74"
+        "vitest:tests/frontend/unit/public-renderers/publicSiteIdentity.test.ts#rejects-a-takeover-payload-whose-render-locale-is-missin-869ef82766"
       ],
       "reason": "coverage moved with the production ownership cutover; no legacy activation phase authority remains"
     },
@@ -11642,8 +11314,8 @@
       "id": "vitest:tests/frontend/unit/bootstrap/publicTakeoverDeterminism.test.ts#uses-one-deterministic-public-takeover-state-machine-5534e450f1",
       "path": "tests/frontend/unit/bootstrap/publicTakeoverDeterminism.test.ts",
       "replacementTestIds": [
-        "vitest:tests/frontend/unit/bootstrap/publicActivationCoordinator.test.ts#warms-an-idle-route-without-creating-a-fullapp-or-changi-52d2739b65",
-        "vitest:tests/frontend/unit/bootstrap/publicActivationCoordinator.test.ts#fails-closed-on-an-illegal-transition-without-changing-o-5b536aca37",
+        "vitest:tests/frontend/unit/bootstrap/publicActivationCoordinator.test.ts#idle-core-warm-does-not-prepare-a-route-or-commit-fullap-f0a688492e",
+        "vitest:tests/frontend/unit/bootstrap/publicActivationCoordinator.test.ts#fails-closed-on-an-illegal-transition-without-changing-o-6e9971b500",
         "node-script:tests/frontend/checks/static/check-public-atomic-takeover-governance.mjs"
       ],
       "reason": "old public activation phase authority retired; coordinator owns activation phases"
@@ -11652,7 +11324,7 @@
       "id": "vitest:tests/frontend/unit/bootstrap/publicTakeoverDeterminism.test.ts#rejects-illegal-public-takeover-transitions-without-movi-8277405cee",
       "path": "tests/frontend/unit/bootstrap/publicTakeoverDeterminism.test.ts",
       "replacementTestIds": [
-        "vitest:tests/frontend/unit/bootstrap/publicActivationCoordinator.test.ts#fails-closed-on-an-illegal-transition-without-changing-o-5b536aca37"
+        "vitest:tests/frontend/unit/bootstrap/publicActivationCoordinator.test.ts#fails-closed-on-an-illegal-transition-without-changing-o-6e9971b500"
       ],
       "reason": "old public activation phase authority retired; coordinator owns activation phases"
     },

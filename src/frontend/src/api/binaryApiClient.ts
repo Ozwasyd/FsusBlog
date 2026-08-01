@@ -61,11 +61,19 @@ const DEFAULT_POW_SCOPE = 'mutation'
 const DEFAULT_POW_TIMEOUT_MS = 60_000
 const inFlightBinaryRequests = new Map<string, InFlightBinaryRequest>()
 
+export function resolveBinaryTransportUrl(url: string): string {
+  if (typeof globalThis.location !== 'undefined') {
+    return new URL(url, globalThis.location).toString()
+  }
+
+  return new URL(url, 'http://localhost').toString()
+}
+
 async function buildBinaryPowHeadersFresh(fp: string, signal?: AbortSignal): Promise<Record<string, string>> {
   throwIfAborted(signal)
 
   const { calculate } = usePow()
-  const challengeResponse = await fetch('/api/binary/auth/pow-challenge?_t=' + Date.now(), {
+  const challengeResponse = await fetch(resolveBinaryTransportUrl('/api/binary/auth/pow-challenge?_t=' + Date.now()), {
     credentials: 'include',
     headers: withBinaryAccept(),
     signal
@@ -345,7 +353,7 @@ async function binaryRequestResultFresh(url: string, options?: BinaryRequestOpti
   } = options ?? {}
   let response: Response
   try {
-    response = await fetch(url, {
+    response = await fetch(resolveBinaryTransportUrl(url), {
       credentials: 'include',
       ...fetchOptions,
       headers

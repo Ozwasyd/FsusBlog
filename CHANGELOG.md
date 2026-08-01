@@ -23,6 +23,7 @@ The timestamp and SHA suffix are illustrative. A real heading must equal the bui
 - Stage dispatch now binds request and runtime-observed model, effort, role, sandbox, fork, cwd, Skill and candidate identities; `implementation.started` requires a verified dispatch receipt and `candidate-green` requires the complete `issue-orchestration.implementer-self-test-receipt.v1` rather than the legacy candidate receipt.
 - Issue orchestration now uses one versioned eight-role stage-profile policy, with Luna/xhigh capability-bound documentation and dedicated cleanup verification; legacy issue implementer/reviewer aliases and node-local profile authority are retired.
 - Trusted Change Contract checkouts now retain full reachable history, and release data-scale evidence must match the current commit, workflow run, attempt, and integration-runtime producer.
+- Quality Gate now builds the Wasm release package once per workflow run and requires frontend consumers to download its manifest-, receipt-, and run-bound artifact without historical reuse or consumer rebuild fallback.
 - Dispatch selection now produces a deterministic maximal safe batch from strict priority, downstream unlock, critical-path, starvation, acceptance, conflict-key, resource-lease, and stable task-identity evidence; root cannot reorder or rewrite the machine batch.
 - Issue orchestration resources now use a versioned registry with same-attempt red/green retention, machine cleanup receipts, dirty-worktree quarantine, crash recovery, and group-owned retention through final group cleanup.
 

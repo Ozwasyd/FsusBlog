@@ -1,0 +1,72 @@
+{
+  "schema": "issue-orchestration.ci-baseline-test-contract.v1",
+  "issue": "Ozwasyd/FsusBlog#1822",
+  "revision": 10,
+  "correctiveRevision": 3,
+  "status": "frozen-red",
+  "testOwnerId": "test-owner-1822-ci-baseline-r10",
+  "baseSha": "9a8ab8cd80a4cdc7f76866f0c475b8fa64218731",
+  "prioritySupplementCommentId": 5149820258,
+  "requiredRunId": 30683846973,
+  "allowedTestPaths": [
+    "tests/tools/issue-1822-ci-baseline.test.mjs",
+    "tests/fixtures/issue-orchestration/ci-baseline-acceptance-map.json",
+    "tests/fixtures/issue-orchestration/ci-baseline-expected-initial-failures.json",
+    "tests/fixtures/issue-orchestration/ci-baseline-mutation-controls.json",
+    "tests/fixtures/issue-orchestration/ci-baseline-runtime-probes.json",
+    "tests/fixtures/issue-orchestration/ci-baseline-test-contract.json",
+    "tests/frontend/unit/services/binaryTransport.test.ts"
+  ],
+  "allowedImplementationPaths": [
+    ".github/workflows/quality-gate.yml",
+    "src/frontend/src/api/binaryApiClient.ts",
+    "src/frontend/src/services/binaryTransport.ts",
+    "tests/test-retention-replacements.json",
+    "tests/governance/browser-test-migration.json",
+    "tests/governance/test-lifecycle-registry.json",
+    "tests/frontend/e2e/article-editor-recovery-persistent-probe.mjs",
+    "tests/backend/Unit/SpaAssetManifestServiceTests.cs"
+  ],
+  "implementationValidationCommands": [
+    "node --test tests/tools/issue-1822-ci-baseline.test.mjs",
+    "npm --prefix src/frontend ci --no-audit --progress=false",
+    "npm --prefix src/frontend run test:unit:fast -- ../../tests/frontend/unit/services/binaryTransport.test.ts",
+    "./tools/build-wasm-artifact.sh",
+    "FSUSBLOG_FRONTEND_WASM_ROOT=build/artifacts/wasm-release node tools/frontend/ensure-wasm.mjs status",
+    "FSUSBLOG_FRONTEND_WASM_ROOT=build/artifacts/wasm-release npm --prefix src/frontend run build",
+    "node tools/check-browser-test-migration.mjs",
+    "node tools/check-test-lifecycle.mjs",
+    "node tools/check-backend-test-governance.mjs"
+  ],
+  "environmentPrerequisiteProbes": [
+    {
+      "command": "./tools/test.sh backend-test-governance --no-deps",
+      "prerequisite": "current BehaviorDoc admission receipt bound to the candidate worktree",
+      "classificationWithoutPrerequisite": "invocation-prerequisite-failure-not-behavior"
+    },
+    {
+      "command": "node tools/frontend/ensure-wasm.mjs status",
+      "prerequisite": "current-run WASM producer artifact and receipt downloaded into the consumer workspace",
+      "classificationWithoutPrerequisite": "producer-artifact-absent-not-consumer-behavior"
+    }
+  ],
+  "forbiddenScopes": [
+    "fallback to historical artifacts",
+    "weakening current-run release identity",
+    "product behavior changes",
+    "documentation",
+    "DAG or bootstrap state",
+    "other issue contracts"
+  ],
+  "fileHashes": {
+    "tests/tools/issue-1822-ci-baseline.test.mjs": "df706b22853d1f1aa1b1692fb3ceb2ae054baf4e2fff8e17060c5a29f52001bd",
+    "tests/fixtures/issue-orchestration/ci-baseline-acceptance-map.json": "c2f336bc09f3b65fdaf0f9c2bb47ca156818de2bb0ba7bf75b5777cd03f90f5b",
+    "tests/fixtures/issue-orchestration/ci-baseline-expected-initial-failures.json": "2d00281beffbb2e8d84708a571a031f68d81ba86b37381491c9fa17a39f87700",
+    "tests/fixtures/issue-orchestration/ci-baseline-mutation-controls.json": "09e492dedd860253edf075c582154eb758c66b29398a847e010853d5b3d96682",
+    "tests/fixtures/issue-orchestration/ci-baseline-runtime-probes.json": "5093cd418019b7d52775effe28701fc96a4b607987a83b2f24e66567bee06cab",
+    "tests/frontend/unit/services/binaryTransport.test.ts": "cf79829e9285d755d1b4dba7719ed89d7ad0695c5643b2eb656835bc5c611ae0"
+  },
+  "frozenTreeDigest": "4bba40881c78336912cc9ab921d7180278ff20de53a16082894b3571f57e6739",
+  "hashAlgorithm": "sha256-raw-file-bytes",
+  "contractDigest": "ef29d8f93d8d2ea9d1264a6dfa503764eadc7fa1ba460a825dbed20ff13ec77a"
+}
