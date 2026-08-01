@@ -33,7 +33,7 @@ description: Use only to coordinate multiple open FsusBlog/FsusUI issues that re
 3. **准备任务**：读取 [`references/dispatch-and-runtime-probe.md`](references/dispatch-and-runtime-probe.md)；完成调查，必要时运行最小真实探针，再填写 [`templates/subagent-task.md`](templates/subagent-task.md)。
 4. **派发实现者**：按 dispatch reference 调用具体 stage role（`issue_code_implementer` 或 `issue_ui_ux_implementer`），使用 `stage-model-pool.v2` routing compiler 产出的 profile。
 5. **独立验证**：实现者返回产出后，完整读取 [`references/review-failure-and-verification.md`](references/review-failure-and-verification.md)，按其中的 fresh read-only 条件调用 `issue_test_owner` 的 behavior-verification phase；UI system dispute 先调用 `issue_ui_system_adjudicator`，UX 路径再调用 `issue_ux_acceptance_verifier`。
-6. **分类与验证**：按 review reference 分类任何失败、处理 blocker、复用有效 evidence，并从 focused/低成本检查推进到稳定候选所需的高成本检查。
+6. **分类与验证**：按独立验证 reference 分类任何失败、处理 blocker、复用有效 evidence，并从 focused/低成本检查推进到稳定候选所需的高成本检查。
 7. **立即交付验收组**：一组全部通过后，读取 [`references/group-delivery.md`](references/group-delivery.md)，按其中的 CI evidence 分类与关闭门禁完成提交、主分支推送、远端核验和 issue 关闭；dry-run 时停在明确的首个有副作用动作之前。
 8. **回写运行态并继续**：由根代理在已验证的仓库外状态根更新 DAG、证据键、槽位和恢复指纹，然后回到步骤 1；不得靠记忆补全尚未读取的阶段规则。
 
@@ -44,7 +44,7 @@ description: Use only to coordinate multiple open FsusBlog/FsusUI issues that re
 仅当以下条件同时成立才结束：
 
 - 所有本地可完成 issue 均已交付并经远端核验为 closed；
-- DAG 没有 ready、running、review、verifying 或 deliverable 节点；
+- DAG 没有 ready、running、independent-verifying、delivery-ready 或 delivering 节点；
 - 其余 open issues 均按 DAG reference 以直接证据进入合法 terminal 状态。
 
 连续 60 分钟没有有效产出时，不结束；执行 DAG reference 的恢复动作。任何能力、权限、仓库事实或 prompt 信息不足以安全继续时，保留节点状态和证据，报告缺口及恢复条件，不自行降级。

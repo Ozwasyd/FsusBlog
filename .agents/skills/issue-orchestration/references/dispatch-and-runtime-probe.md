@@ -61,4 +61,4 @@
 
 使用项目 custom agent `issue_code_implementer` 或 `issue_ui_ux_implementer`，传入完整模板内容，并按 [`dag-and-scheduling.md`](dag-and-scheduling.md) 传递 routing compiler 生成的 stage assignment 与非 full-history fork。角色文件只负责加载本合同，不拥有模型选择规则；实际 requested/effective profile 必须由 `stage-model-pool.v2` receipt 证明。
 
-实现者返回后，根代理先检查实际 diff、产物和局部 evidence 是否存在，再进入 review；不得用完成声明代替产出。
+实现者返回后，根代理先检查实际 diff、产物和局部 evidence 是否存在，再进入 independent verification；不得用完成声明代替产出。

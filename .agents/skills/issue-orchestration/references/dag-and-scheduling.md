@@ -67,7 +67,7 @@ DAG 和 issue snapshot 均必须在已验证状态根内。所有 `runtimeFiles`
 - 默认分支上的完整 40-hex `deliveredCommit`，且该 commit 可由当前仓库 default branch 的 ancestry 证明；
 - `remoteDefaultBranch`、完成 evidence payload、其规范化 SHA-256 `evidenceDigest` 和 `verifiedAt`。
 
-`closed:not_planned`、`duplicate`（没有明确合法替代节点）、缺少交付 commit、commit 不可达或 evidence 缺失/篡改均不得自动满足依赖。远端 issue reopen、state reason、默认分支、交付 ancestry 或 evidence digest 任一漂移，会让旧 tombstone 在下一次远端 snapshot 刷新时失效；dependent 必须恢复为 unsatisfied，不能继续 `ready`、`implementing`、`review`、`verifying` 或 `deliverable`。completed prerequisite 不进入 active issue snapshot、DAG `nodes`、`readyFrontier` 或 `activeAttempts`，也不消耗执行槽位。
+`closed:not_planned`、`duplicate`（没有明确合法替代节点）、缺少交付 commit、commit 不可达或 evidence 缺失/篡改均不得自动满足依赖。远端 issue reopen、state reason、默认分支、交付 ancestry 或 evidence digest 任一漂移，会让旧 tombstone 在下一次远端 snapshot 刷新时失效；dependent 必须恢复为 unsatisfied，不能继续 `ready`、`implementing`、`independent-verifying`、`delivery-ready` 或 `delivering`。completed prerequisite 不进入 active issue snapshot、DAG `nodes`、`readyFrontier` 或 `activeAttempts`，也不消耗执行槽位。
 
 门禁对依赖解析输出稳定 reason code：`dependency-active`、`dependency-satisfied`、`dependency-unknown`；不合法 tombstone 使用对应的 `tombstone-*` 或 `dependency-classification-overlap` / `dependency-edge-deleted` 错误码。`dag.v1` 只能作为诊断输入；启动时必须重新读取远端 issue、默认分支和完成 evidence 重建 v2，禁止填空 tombstone、只写 `status=closed` 或把缺失 dependency 当作已满足。
 
