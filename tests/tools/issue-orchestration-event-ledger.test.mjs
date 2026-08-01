@@ -15,19 +15,20 @@ const fixturesRoot = path.join(root, 'tests/fixtures/issue-orchestration')
 const acceptance = readJson('event-ledger-acceptance-map.json')
 const controls = readJson('event-ledger-mutation-controls.json').controls
 const runtimeProbes = readJson('event-ledger-runtime-probes.json').probes
+const frozenContract = readJson('event-ledger-expected-initial-failures.json')
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-event-ledger-contract-'))
 
 const runId = 'run-1817-contract'
 const nodeId = 'FsusBlog#1817'
-const baseSha = '7f75d2a04d9eeaf65af0b4b0db5a572bdec25150'
+const baseSha = frozenContract.baseSha
 const candidateSha = '1'.repeat(40)
 const issueSnapshotFingerprint = '2'.repeat(64)
 const repositoryFingerprint = '3'.repeat(64)
 const sourceDagDigest = '4'.repeat(64)
-const testContractDigest = '5'.repeat(64)
+const testContractDigest = frozenContract.testContractDigest
 const genesisDigest = '0'.repeat(64)
 const implementationActorId = 'code-implementer-1817'
-const testOwnerActorId = 'test-owner-1817'
+const testOwnerActorId = frozenContract.testOwnerId
 const uxActorId = 'ux-verifier-1817'
 
 after(() => fs.rmSync(scratch, { force: true, recursive: true }))
@@ -51,6 +52,58 @@ function digest(value) {
         ? value
         : JSON.stringify(normalizeJson(value))
     return createHash('sha256').update(source).digest('hex')
+}
+
+function fileDigest(relativePath) {
+    return createHash('sha256')
+        .update(fs.readFileSync(path.join(root, relativePath)))
+        .digest('hex')
+}
+
+function verifiedDispatchReceipt({
+    actorRole = 'code-implementer',
+    attemptId = 'attempt-1817-001',
+    verificationStatus = 'verified'
+} = {}) {
+    const requestIdentity = {
+        schema: 'issue-orchestration.dispatch-request.v1',
+        requestId: `request-${attemptId}`,
+        runId,
+        nodeId,
+        attemptId,
+        stageRole: actorRole,
+        baseSha,
+        testOwnerId: testOwnerActorId,
+        testContractDigest,
+        epochId: 'epoch-1817-corrective-001'
+    }
+    const runtimeIdentity = {
+        threadId: `thread-${attemptId}`,
+        rolloutId: `rollout-${attemptId}`,
+        effectiveRole: actorRole,
+        effectiveModel: 'gpt-5.6-sol',
+        effectiveEffort: 'low',
+        effectiveSandbox: 'workspace-write',
+        effectiveForkTurns: 'none'
+    }
+    const receipt = {
+        schema: 'issue-orchestration.dispatch-receipt.v1',
+        requestId: requestIdentity.requestId,
+        requestDigest: digest(requestIdentity),
+        attemptId,
+        epochId: requestIdentity.epochId,
+        threadId: runtimeIdentity.threadId,
+        rolloutId: runtimeIdentity.rolloutId,
+        runtimeMetadataDigest: digest(runtimeIdentity),
+        verificationStatus,
+        mismatchReasons: verificationStatus === 'verified'
+            ? []
+            : ['runtime-verification-rejected']
+    }
+    return {
+        ...receipt,
+        receiptDigest: digest(receipt)
+    }
 }
 
 function header(stateRootCanonical = path.join(scratch, 'state')) {
@@ -92,6 +145,58 @@ function verifiedReceipt({
         selfTestCycles,
         status,
         visibleMatrixComplete
+    }
+    return {
+        ...receipt,
+        receiptDigest: digest(receipt)
+    }
+}
+
+function implementerSelfTestReceipt({
+    actorRole = 'code-implementer',
+    schema = 'issue-orchestration.implementer-self-test-receipt.v1'
+} = {}) {
+    const selfTestCycles = [
+        { cycle: 1, outcome: 'failed', signature: 'expected-red' },
+        { cycle: 2, outcome: 'failed', signature: 'implementation-defect' },
+        { cycle: 3, outcome: 'passed', signature: null }
+    ]
+    const receipt = {
+        schema,
+        verificationStatus: 'verified',
+        runId,
+        nodeId,
+        attemptId: 'attempt-1817-001',
+        stageRole: actorRole,
+        actorId: implementationActorId,
+        actorRole,
+        candidateSha,
+        baseSha,
+        frozenTestContractDigest: testContractDigest,
+        testContractDigest,
+        frozenTestTreeDigestBefore: '6'.repeat(64),
+        frozenTestTreeDigestAfter: '6'.repeat(64),
+        implementationDiffDigest: '7'.repeat(64),
+        commands: [
+            ['node', '--test', 'tests/tools/issue-orchestration-event-ledger.test.mjs']
+        ],
+        exitStatuses: [0],
+        visibleTestMatrixDigest: '8'.repeat(64),
+        lintTypecheckBuildResults: {
+            build: 'not-applicable-no-build-artifact',
+            lint: 'passed',
+            typecheck: 'passed'
+        },
+        firstFailureRefs: ['evidence://1817/expected-red'],
+        fixCycleCount: 2,
+        remainingFailures: [],
+        workingTreeStatusDigest: '9'.repeat(64),
+        modifiedPaths: [
+            '.agents/skills/issue-orchestration/scripts/event-ledger.mjs'
+        ],
+        selfTestCycles,
+        status: 'passed',
+        visibleMatrixComplete: true
     }
     return {
         ...receipt,
@@ -154,10 +259,13 @@ function clone(value) {
     return structuredClone(value)
 }
 
-function discoveredLedger({ issueKind = 'code' } = {}) {
+function discoveredLedger({
+    discoveryActorRole = 'dag-updater',
+    issueKind = 'code'
+} = {}) {
     const ledger = emptyLedger()
     sealEvent(ledger, {
-        actorRole: 'dag-updater',
+        actorRole: discoveryActorRole,
         eventType: 'node.discovered',
         fromState: 'none',
         payload: {
@@ -202,15 +310,17 @@ function frozenLedger(options = {}) {
 
 function implementingLedger(options = {}) {
     const ledger = frozenLedger(options)
+    const actorRole = options.issueKind === 'ui-ux'
+        ? 'ui-ux-implementer'
+        : 'code-implementer'
     sealEvent(ledger, {
-        actorRole: options.issueKind === 'ui-ux'
-            ? 'ui-ux-implementer'
-            : 'code-implementer',
+        actorRole,
         attemptId: 'attempt-1817-001',
         eventType: 'implementation.started',
         fromState: 'test-contract-frozen',
         payload: {
             actorId: implementationActorId,
+            dispatchReceipt: verifiedDispatchReceipt({ actorRole }),
             effort: 'low',
             model: 'gpt-5.6-sol',
             ownerContinuationId: 'implementation-owner-1817'
@@ -233,15 +343,7 @@ function candidateLedger(options = {}) {
         payload: {
             actorId: implementationActorId,
             candidateSha,
-            receipt: verifiedReceipt({
-                actorId: implementationActorId,
-                actorRole,
-                selfTestCycles: [
-                    { cycle: 1, outcome: 'failed', signature: 'expected-red' },
-                    { cycle: 2, outcome: 'failed', signature: 'implementation-defect' },
-                    { cycle: 3, outcome: 'passed', signature: null }
-                ]
-            }),
+            receipt: implementerSelfTestReceipt({ actorRole }),
             reworkCount: 0
         },
         toState: 'candidate-green'
@@ -492,7 +594,85 @@ const requiredEventTypes = [
 ]
 
 test('contract fixtures are exact, internally linked, and bind the latest authority comment', () => {
-    assert.equal(acceptance.authorityCommentId, 5145136921)
+    assert.equal(acceptance.authorityCommentId, 5148362773)
+    assert.equal(frozenContract.authorityCommentId, 5148362773)
+    assert.equal(frozenContract.issueId, 'Ozwasyd/FsusBlog#1817')
+    assert.equal(frozenContract.baseSha, 'f99e6091165edc9dba7f2b1314568c3a07b69537')
+    assert.equal(
+        frozenContract.testOwnerId,
+        'test-owner-fsusblog-1817-corrective-f99e6091165e'
+    )
+    const expectedImplementationFiles = [
+        {
+            path: '.agents/skills/issue-orchestration/scripts/event-ledger.mjs',
+            sha256: '68360e2265be6f4ee448b1f6170a64468dc3c62ee82d0a8db70249a513eaaefd',
+            gitMode: '100644'
+        }
+    ]
+    assert.deepEqual(
+        frozenContract.allowedImplementationPaths,
+        expectedImplementationFiles.map(({ path }) => path)
+    )
+    const expectedPaths = [
+        'tests/tools/issue-orchestration-event-ledger.test.mjs',
+        'tests/fixtures/issue-orchestration/event-ledger-acceptance-map.json',
+        'tests/fixtures/issue-orchestration/event-ledger-mutation-controls.json',
+        'tests/fixtures/issue-orchestration/event-ledger-runtime-probes.json',
+        'tests/fixtures/issue-orchestration/event-ledger-expected-initial-failures.json'
+    ]
+    assert.deepEqual(frozenContract.allowedTestPaths, expectedPaths)
+    assert.equal(
+        frozenContract.acceptanceMap,
+        'tests/fixtures/issue-orchestration/event-ledger-acceptance-map.json'
+    )
+    assert.equal(
+        frozenContract.expectedInitialFailures,
+        'tests/fixtures/issue-orchestration/event-ledger-expected-initial-failures.json'
+    )
+    assert.equal(
+        frozenContract.runtimeProbes,
+        'tests/fixtures/issue-orchestration/event-ledger-runtime-probes.json'
+    )
+    assert.equal(
+        frozenContract.mutationControls,
+        'tests/fixtures/issue-orchestration/event-ledger-mutation-controls.json'
+    )
+    const hashedPaths = expectedPaths.filter((entry) =>
+        entry !== frozenContract.expectedInitialFailures)
+    assert.deepEqual(Object.keys(frozenContract.fileHashes), hashedPaths)
+    for (const relativePath of hashedPaths) {
+        assert.equal(
+            frozenContract.fileHashes[relativePath],
+            fileDigest(relativePath),
+            `${relativePath} drifted from the frozen corrective contract`
+        )
+    }
+    const unsignedContract = clone(frozenContract)
+    delete unsignedContract.testContractDigest
+    delete unsignedContract.candidateIdentity
+    assert.equal(
+        frozenContract.testContractDigest,
+        digest(unsignedContract),
+        'corrective test contract digest mismatch'
+    )
+    assert.deepEqual(frozenContract.candidateIdentity, {
+        schema: 'issue-orchestration.candidate-identity.v1',
+        algorithm: 'sha256-canonical-json-v1',
+        baseSha: frozenContract.baseSha,
+        testContractDigest: frozenContract.testContractDigest,
+        implementationFiles: expectedImplementationFiles,
+        candidateDigest: digest({
+            baseSha: frozenContract.baseSha,
+            testContractDigest: frozenContract.testContractDigest,
+            implementationFiles: expectedImplementationFiles
+        })
+    })
+    assert.deepEqual(frozenContract.expectedBaseSummary, {
+        fail: 4,
+        pass: 85,
+        skipped: 0,
+        tests: 89
+    })
     const controlIds = controls.map(({ id }) => id)
     assert.equal(new Set(controlIds).size, controlIds.length)
     const mapped = new Set(acceptance.acceptance.flatMap((entry) => entry.mutations))
@@ -854,6 +1034,28 @@ async function writerMutation(writerRole, code) {
     )
 }
 
+function implementationStartLedger({
+    discoveryActorRole = 'dag-updater',
+    dispatchReceipt
+} = {}) {
+    const ledger = frozenLedger({ discoveryActorRole })
+    sealEvent(ledger, {
+        actorRole: 'code-implementer',
+        attemptId: 'attempt-1817-001',
+        eventType: 'implementation.started',
+        fromState: 'test-contract-frozen',
+        payload: {
+            actorId: implementationActorId,
+            ...(dispatchReceipt ? { dispatchReceipt } : {}),
+            effort: 'low',
+            model: 'gpt-5.6-sol',
+            ownerContinuationId: 'implementation-owner-1817'
+        },
+        toState: 'implementing-self-testing'
+    })
+    return ledger
+}
+
 function writeLedger(file, ledger) {
     fs.mkdirSync(path.dirname(file), { recursive: true })
     fs.writeFileSync(
@@ -875,6 +1077,25 @@ const mutations = {
     'discovered-to-delivery-ready': (code) => replayMutation(invalidTransition('delivery.ready-computed', 'discovered', 'delivery-ready'), code),
     'test-contracting-to-closed': (code) => replayMutation(invalidTransition('issue.closed', 'test-contracting', 'closed', { ledger: frozenLedger().events.slice(0, 2) && discoveredLedger() }), code),
     'implementing-to-closed': (code) => replayMutation(invalidTransition('issue.closed', 'implementing-self-testing', 'closed', { ledger: implementingLedger() }), code),
+    'implementation-start-dispatch-missing': (code) =>
+        replayMutation(implementationStartLedger(), code),
+    'implementation-start-dispatch-nonverified': (code) =>
+        replayMutation(implementationStartLedger({
+            dispatchReceipt: verifiedDispatchReceipt({
+                verificationStatus: 'rejected'
+            })
+        }), code),
+    'implementation-start-discovery-actor-opt-out': async (code) => {
+        for (const discoveryActorRole of [
+            'root-scheduler',
+            'dag-updater',
+            'legacy-bootstrap-agent'
+        ]) {
+            await replayMutation(implementationStartLedger({
+                discoveryActorRole
+            }), code)
+        }
+    },
     'duplicate-implementation-start': async (code) => {
         const ledger = implementingLedger()
         sealEvent(ledger, {
@@ -882,7 +1103,10 @@ const mutations = {
             attemptId: 'attempt-1817-001',
             eventType: 'implementation.started',
             fromState: 'implementing-self-testing',
-            payload: { actorId: implementationActorId },
+            payload: {
+                actorId: implementationActorId,
+                dispatchReceipt: verifiedDispatchReceipt()
+            },
             toState: 'implementing-self-testing'
         })
         await replayMutation(ledger, code)
@@ -891,6 +1115,29 @@ const mutations = {
     'self-test-matrix-incomplete': (code) => receiptMutation((receipt) => { receipt.visibleMatrixComplete = false }, code),
     'self-test-candidate-identity-missing': (code) => receiptMutation((receipt, payload) => { delete receipt.candidateSha; delete payload.candidateSha }, code),
     'frozen-test-contract-modified': (code) => receiptMutation((receipt) => { receipt.modifiedPaths = ['tests/tools/issue-orchestration-event-ledger.test.mjs'] }, code),
+    'obsolete-verified-candidate-receipt': async (code) => {
+        const ledger = implementingLedger()
+        sealEvent(ledger, {
+            actorRole: 'code-implementer',
+            attemptId: 'attempt-1817-001',
+            eventType: 'implementation.candidate-green',
+            fromState: 'implementing-self-testing',
+            payload: {
+                actorId: implementationActorId,
+                candidateSha,
+                receipt: verifiedReceipt({
+                    actorId: implementationActorId,
+                    actorRole: 'code-implementer',
+                    selfTestCycles: [
+                        { cycle: 1, outcome: 'passed', signature: null }
+                    ]
+                }),
+                reworkCount: 0
+            },
+            toState: 'candidate-green'
+        })
+        await replayMutation(ledger, code)
+    },
     'candidate-direct-to-behavior-green': (code) => replayMutation(invalidTransition('independent-verification.passed', 'candidate-green', 'behavior-green', { ledger: candidateLedger(), actorRole: 'test-owner', attemptId: 'attempt-1817-001' }), code),
     'implementer-verifies-own-candidate': (code) => verifierMutation((receipt, payload) => { receipt.actorId = implementationActorId; payload.actorId = implementationActorId }, code),
     'independent-verification-not-fresh': (code) => verifierMutation((receipt) => { receipt.fresh = false }, code),
@@ -988,10 +1235,15 @@ const mutations = {
             toState: 'test-contract-frozen'
         })
         sealEvent(ledger, {
+            actorRole: 'code-implementer',
             attemptId: 'attempt-1817-001',
             eventType: 'implementation.candidate-green',
             fromState: 'test-contract-frozen',
-            payload: { candidateSha },
+            payload: {
+                actorId: implementationActorId,
+                candidateSha,
+                receipt: implementerSelfTestReceipt()
+            },
             toState: 'candidate-green'
         })
         await replayMutation(ledger, code)

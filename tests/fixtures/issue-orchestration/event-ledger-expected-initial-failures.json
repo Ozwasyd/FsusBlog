@@ -1,32 +1,117 @@
 {
-    "schema": "issue-orchestration.event-ledger-expected-initial-failures.v1",
-    "baseSha": "7f75d2a04d9eeaf65af0b4b0db5a572bdec25150",
+    "schema": "issue-orchestration.event-ledger-corrective-test-contract.v1",
+    "phase": "test-contract",
+    "status": "frozen-red-corrective",
+    "revision": "universal-dispatch-receipt-migration-2",
+    "authorityCommentId": 5148362773,
+    "supersedesAuthorityCommentId": 5145136921,
+    "testOwnerId": "test-owner-fsusblog-1817-corrective-f99e6091165e",
+    "issueId": "Ozwasyd/FsusBlog#1817",
+    "baseSha": "f99e6091165edc9dba7f2b1314568c3a07b69537",
+    "allowedTestPaths": [
+        "tests/tools/issue-orchestration-event-ledger.test.mjs",
+        "tests/fixtures/issue-orchestration/event-ledger-acceptance-map.json",
+        "tests/fixtures/issue-orchestration/event-ledger-mutation-controls.json",
+        "tests/fixtures/issue-orchestration/event-ledger-runtime-probes.json",
+        "tests/fixtures/issue-orchestration/event-ledger-expected-initial-failures.json"
+    ],
+    "allowedImplementationPaths": [
+        ".agents/skills/issue-orchestration/scripts/event-ledger.mjs"
+    ],
+    "forbiddenScopes": [
+        "implementation",
+        "documentation",
+        "DAG or bootstrap runtime state",
+        "other tests or fixtures",
+        "commit",
+        "push"
+    ],
+    "acceptanceMap": "tests/fixtures/issue-orchestration/event-ledger-acceptance-map.json",
+    "expectedInitialFailures": "tests/fixtures/issue-orchestration/event-ledger-expected-initial-failures.json",
+    "runtimeProbes": "tests/fixtures/issue-orchestration/event-ledger-runtime-probes.json",
+    "mutationControls": "tests/fixtures/issue-orchestration/event-ledger-mutation-controls.json",
+    "hashAlgorithm": "sha256",
+    "selfHashPolicy": "fileHashes covers raw bytes for every allowedTestPath except this manifest; stage 1 testContractDigest covers canonical JSON with testContractDigest and candidateIdentity omitted; stage 2 candidateDigest covers canonical JSON of baseSha, the stage 1 testContractDigest, and path-sorted exact implementationFiles records",
+    "fileHashes": {
+        "tests/tools/issue-orchestration-event-ledger.test.mjs": "def3f093c55e204049848a5b4a6af75a437a54390787a4673867a8dce28b9c41",
+        "tests/fixtures/issue-orchestration/event-ledger-acceptance-map.json": "79599f56b3a397af9b0894dc29fdbef0fa7446ba3b8e1deca3941d618b93cd3f",
+        "tests/fixtures/issue-orchestration/event-ledger-mutation-controls.json": "4c69c0946b4369c0dc90d6164c98676d2bd61165f67af98ee54b8fa03a8a05fa",
+        "tests/fixtures/issue-orchestration/event-ledger-runtime-probes.json": "2a696c1c2b8914264e4bde1d506ed560b272b25ff2cab058870fc2c51a288bda"
+    },
+    "testContractDigest": "afafe3fd1e3d64d53096698a2a963e5bc87e427b7bcd3f4eadeb75f9c7d83dda",
+    "candidateIdentity": {
+        "schema": "issue-orchestration.candidate-identity.v1",
+        "algorithm": "sha256-canonical-json-v1",
+        "baseSha": "f99e6091165edc9dba7f2b1314568c3a07b69537",
+        "testContractDigest": "afafe3fd1e3d64d53096698a2a963e5bc87e427b7bcd3f4eadeb75f9c7d83dda",
+        "implementationFiles": [
+            {
+                "path": ".agents/skills/issue-orchestration/scripts/event-ledger.mjs",
+                "sha256": "68360e2265be6f4ee448b1f6170a64468dc3c62ee82d0a8db70249a513eaaefd",
+                "gitMode": "100644"
+            }
+        ],
+        "candidateDigest": "8ee880fd67de292228e90d6b2a4f37722802f844065842d0b4c80eb7146615ef"
+    },
     "expectedStatus": "red",
+    "preservedOriginalCaseCount": 85,
+    "addedCorrectiveControlCount": 4,
+    "expectedBaseSummary": {
+        "tests": 89,
+        "pass": 85,
+        "fail": 4,
+        "skipped": 0
+    },
+    "expectedUniversalCandidateSummary": {
+        "tests": 89,
+        "pass": 89,
+        "fail": 0,
+        "skipped": 0
+    },
+    "preMigrationUniversalCandidateEvidence": {
+        "observedAt": "2026-08-01T00:00:00+08:00",
+        "command": ["node", "--test", "tests/tools/issue-orchestration-event-ledger.test.mjs"],
+        "tests": 85,
+        "pass": 45,
+        "fail": 40,
+        "skipped": 0,
+        "firstGateError": "verified-dispatch-receipt-required",
+        "meaning": "The universal #1818 candidate correctly reached the shared #1817 ownership conflict before the intended assertions."
+    },
     "failureClasses": [
         {
-            "id": "ledger-runtime-missing",
-            "expectedError": "ERR_MODULE_NOT_FOUND",
-            "meaning": "The base has no append-only event-ledger schema, transition table, reducer, durable append, or recovery implementation."
+            "id": "missing-verified-dispatch-prerequisite",
+            "mutationControl": "implementation-start-dispatch-missing",
+            "expectedError": "verified-dispatch-receipt-required",
+            "meaning": "The current base accepts implementation.started without any dispatch receipt."
         },
         {
-            "id": "legacy-direct-state-authority",
-            "sourcePath": ".agents/skills/issue-orchestration/scripts/check-dag-gate.mjs",
-            "meaning": "The base gate validates an allowed status enum and stage receipt snapshot but does not bind dag.json projection fields to replayed ledger history."
+            "id": "nonverified-dispatch-prerequisite",
+            "mutationControl": "implementation-start-dispatch-nonverified",
+            "expectedError": "verified-dispatch-receipt-required",
+            "meaning": "The current base accepts a digest-valid dispatch receipt whose verification status is rejected."
         },
         {
-            "id": "legacy-review-verification-states",
-            "sourcePath": ".agents/skills/issue-orchestration/scripts/check-dag-gate.mjs",
-            "meaning": "The base still accepts implementing, review, verifying, deliverable, and delivered as independently editable node states."
+            "id": "discovery-actor-role-opt-out",
+            "mutationControl": "implementation-start-discovery-actor-opt-out",
+            "expectedError": "verified-dispatch-receipt-required",
+            "meaning": "The current base has no universal frozen-contract gate across discovery actorRole values."
+        },
+        {
+            "id": "obsolete-candidate-receipt-authority",
+            "mutationControl": "obsolete-verified-candidate-receipt",
+            "expectedError": "receipt-schema-stage-mismatch",
+            "meaning": "The current base still accepts issue-orchestration.verified-candidate-receipt.v1 for candidate-green."
         }
     ],
-    "knownExistingBehaviorThatCannotStartRed": [
+    "preservedBehavior": [
         {
-            "id": "external-state-root-boundary",
-            "evidence": ".agents/skills/issue-orchestration/scripts/validate-state-root.mjs already rejects protected-root overlap and symlink escapes; R05/R06 retain it as a non-regression and integrate ledger path authority."
+            "id": "original-event-ledger-regression-surface",
+            "evidence": "All 85 pre-corrective semantic, mutation, recovery, path, authority, group, and DAG assertions remain present with their original error codes."
         },
         {
-            "id": "stage-role-separation",
-            "evidence": ".agents/skills/issue-orchestration/scripts/check-dag-gate.mjs already rejects several role/receipt conflicts; the new controls tighten them around append authority and the latest candidate-green contract."
+            "id": "legal-setup-only-migration",
+            "evidence": "Shared helpers add a verified dispatch prerequisite and implementer-self-test-receipt.v1 without weakening any downstream assertion."
         }
     ]
 }

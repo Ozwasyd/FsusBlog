@@ -164,7 +164,8 @@ function initialNode() {
         implementationEffort: null,
         candidateSha: null,
         deliveryCompleted: false,
-        cleanupCompleted: false
+        cleanupCompleted: false,
+        receiptContractRequired: false
     }
 }
 
@@ -180,12 +181,26 @@ function firstFailure(node, event) {
 function validateSpecial(event, node, context) {
     const { eventType: type, payload = {} } = event
     if (type === 'implementation.started') {
+        const dispatchReceipt = payload.dispatchReceipt
+        const unsignedDispatchReceipt = { ...dispatchReceipt }
+        delete unsignedDispatchReceipt.receiptDigest
+        if (node.receiptContractRequired && (
+            dispatchReceipt?.schema !== 'issue-orchestration.dispatch-receipt.v1' ||
+            dispatchReceipt?.verificationStatus !== 'verified' ||
+            typeof dispatchReceipt?.receiptDigest !== 'string' ||
+            dispatchReceipt.receiptDigest !== digest(unsignedDispatchReceipt)
+        )) fail('verified-dispatch-receipt-required')
         if (context.attemptIds.has(event.attemptId)) fail('attempt-id-duplicate')
         if (node.status === 'implementing-self-testing' || node.activeAttemptId !== null) {
             fail('implementation-attempt-active')
         }
     }
     if (type === 'implementation.candidate-green') {
+        if (node.receiptContractRequired &&
+            receipt(event)?.schema !==
+                'issue-orchestration.implementer-self-test-receipt.v1') {
+            fail('receipt-schema-stage-mismatch')
+        }
         if (context.terminalAttempts.has(event.attemptId)) fail('attempt-terminal-conflict')
         if (!node.activeAttemptId || event.attemptId !== node.activeAttemptId) {
             fail('candidate-attempt-mismatch')
@@ -266,6 +281,7 @@ function reduceNode(node, event, context) {
     firstFailure(node, event)
     const { eventType: type, payload = {} } = event
     if (type === 'node.discovered') node.issueKind = payload.issueKind
+    if (type === 'test-contract.frozen') node.receiptContractRequired = true
     if (type === 'implementation.started') {
         context.attemptIds.add(event.attemptId)
         node.activeAttemptId = event.attemptId

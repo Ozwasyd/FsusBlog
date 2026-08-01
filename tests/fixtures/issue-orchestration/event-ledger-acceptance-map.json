@@ -1,7 +1,8 @@
 {
     "schema": "issue-orchestration.event-ledger-acceptance-map.v1",
     "issue": "Ozwasyd/FsusBlog#1817",
-    "authorityCommentId": 5145136921,
+    "authorityCommentId": 5148362773,
+    "supersedesAuthorityCommentId": 5145136921,
     "acceptance": [
         {
             "id": "SCHEMA-01",
@@ -16,6 +17,12 @@
             "mutations": ["old-review-event", "old-verification-event", "old-direct-state-event", "discovered-to-delivery-ready", "test-contracting-to-closed", "implementing-to-closed"]
         },
         {
+            "id": "DISPATCH-01",
+            "requirement": "Every frozen test contract requires a digest-valid verified dispatch receipt before implementation starts; discovery actorRole values cannot opt out of the universal gate.",
+            "tests": ["P03", "P04", "P05", "P06", "P09"],
+            "mutations": ["implementation-start-dispatch-missing", "implementation-start-dispatch-nonverified", "implementation-start-discovery-actor-opt-out"]
+        },
+        {
             "id": "SELFTEST-01",
             "requirement": "Implementation is one implementing-self-testing attempt whose private red/green log may contain multiple failures without increasing global reworkCount.",
             "tests": ["P03"],
@@ -23,9 +30,9 @@
         },
         {
             "id": "SELFTEST-02",
-            "requirement": "Candidate-green binds a verified implementer self-test receipt and the unchanged frozen test contract.",
+            "requirement": "Candidate-green binds issue-orchestration.implementer-self-test-receipt.v1 and the unchanged frozen test contract; obsolete verified-candidate receipts cannot satisfy the stage.",
             "tests": ["P03"],
-            "mutations": ["frozen-test-contract-modified", "self-test-red-candidate-green", "self-test-matrix-incomplete", "self-test-candidate-identity-missing"]
+            "mutations": ["frozen-test-contract-modified", "self-test-red-candidate-green", "self-test-matrix-incomplete", "self-test-candidate-identity-missing", "obsolete-verified-candidate-receipt"]
         },
         {
             "id": "VERIFY-01",
