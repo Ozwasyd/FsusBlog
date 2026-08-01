@@ -123,7 +123,146 @@ function receipt(event) {
     return event.payload?.receipt
 }
 
-function validateReceipt(event, node) {
+function receiptDigestValid(item) {
+    if (!item || typeof item.receiptDigest !== 'string') return false
+    const unsigned = { ...item }
+    delete unsigned.receiptDigest
+    return item.receiptDigest === digest(unsigned)
+}
+
+function isV1Receipt(item) {
+    return typeof item?.schema === 'string' && item.schema.endsWith('.v1')
+}
+
+function isV2Transition(event, context) {
+    const payload = event.payload ?? {}
+    if (context.transitionSchema === 'issue-orchestration.transition.v2' ||
+        event.schema === 'issue-orchestration.event.v2' ||
+        payload.transitionSchema === 'issue-orchestration.transition.v2') {
+        return true
+    }
+    return [payload.dispatchReceipt, payload.selfTestReceipt, payload.behaviorReceipt,
+        payload.uxAcceptanceReceipt, payload.receipt]
+        .some((item) => typeof item?.schema === 'string' && item.schema.endsWith('.v2'))
+}
+
+function requireV2Receipt(item, schema, missingCode) {
+    if (isV1Receipt(item)) fail('receipt-v1-historical-only')
+    if (item?.schema !== schema) fail('receipt-schema-stage-mismatch')
+    if (item.verificationStatus !== 'verified' || !receiptDigestValid(item)) {
+        fail(missingCode)
+    }
+    return item
+}
+
+function transitionReceipt(event, field) {
+    return event.payload?.[field] ?? receipt(event)
+}
+
+function validateV2Special(event, node) {
+    const payload = event.payload ?? {}
+    if (event.eventType === 'implementation.started') {
+        const dispatchReceipt = payload.dispatchReceipt
+        requireV2Receipt(
+            dispatchReceipt,
+            'issue-orchestration.dispatch-receipt.v2',
+            'verified-dispatch-receipt-required'
+        )
+        if (dispatchReceipt.attemptId !== event.attemptId ||
+            dispatchReceipt.baseSha !== event.baseSha ||
+            dispatchReceipt.nodeId !== event.nodeId ||
+            event.actorRole !== dispatchReceipt.stageRole) {
+            fail('dispatch-receipt-replay')
+        }
+    }
+    if (event.eventType === 'implementation.candidate-green') {
+        const selfTestReceipt = transitionReceipt(event, 'selfTestReceipt')
+        requireV2Receipt(
+            selfTestReceipt,
+            'issue-orchestration.implementer-self-test-receipt.v2',
+            'verified-self-test-receipt-required'
+        )
+        if (selfTestReceipt.candidateSha !== payload.candidateSha ||
+            selfTestReceipt.baseSha !== event.baseSha ||
+            selfTestReceipt.attemptId !== event.attemptId ||
+            selfTestReceipt.remainingFailures?.length ||
+            selfTestReceipt.frozenTestTreeDigestBefore !==
+                selfTestReceipt.frozenTestTreeDigestAfter ||
+            (selfTestReceipt.modifiedPaths ?? []).some((entry) =>
+                entry.startsWith('tests/'))) {
+            fail('candidate-tests-not-green')
+        }
+        const expectedRole = node.issueKind === 'ui-ux'
+            ? 'ui-ux-implementer'
+            : 'code-implementer'
+        if (event.actorRole !== expectedRole ||
+            selfTestReceipt.stageRole !== expectedRole) {
+            fail('candidate-actor-authority')
+        }
+    }
+    if (event.eventType === 'independent-verification.passed') {
+        const behaviorReceipt = transitionReceipt(event, 'behaviorReceipt')
+        requireV2Receipt(
+            behaviorReceipt,
+            'issue-orchestration.behavior-receipt.v2',
+            'independent-behavior-receipt-required'
+        )
+        if (behaviorReceipt.stageRole !== 'test-owner' ||
+            behaviorReceipt.readOnly !== true ||
+            behaviorReceipt.freshVerificationRollout !== true ||
+            event.actorRole !== 'test-owner') {
+            fail('independent-verifier-freshness-required')
+        }
+        if (behaviorReceipt.candidateSha !== payload.candidateSha ||
+            behaviorReceipt.candidateSha !== node.candidateSha) {
+            fail('candidate-identity-mismatch')
+        }
+    }
+    if (event.eventType === 'ux-acceptance.accepted') {
+        const uxReceipt = transitionReceipt(event, 'uxAcceptanceReceipt')
+        requireV2Receipt(
+            uxReceipt,
+            'issue-orchestration.ux-acceptance-receipt.v2',
+            'independent-ux-receipt-required'
+        )
+        if (uxReceipt.readOnly !== true || uxReceipt.freshVerificationRollout !== true) {
+            fail('independent-verifier-freshness-required')
+        }
+        if (event.actorRole !== 'ux-acceptance-verifier') fail('event-actor-authority')
+    }
+    if (event.eventType === 'documentation.started') {
+        const behaviorReceipt = payload.behaviorReceipt
+        requireV2Receipt(
+            behaviorReceipt,
+            'issue-orchestration.behavior-receipt.v2',
+            'documentation-before-behavior-green'
+        )
+        if (node.issueKind === 'ui-ux') {
+            requireV2Receipt(
+                payload.uxAcceptanceReceipt,
+                'issue-orchestration.ux-acceptance-receipt.v2',
+                'documentation-before-ux-accepted'
+            )
+        }
+    }
+}
+
+function validateV2Receipt(event) {
+    if (event.eventType !== 'implementation.candidate-green') return
+    const item = transitionReceipt(event, 'selfTestReceipt')
+    if (item?.verificationStatus !== 'verified' ||
+        !Array.isArray(item.commandResults) ||
+        item.commandResults.some((entry) => entry.exitStatus !== 0 || entry.skipped) ||
+        !Array.isArray(item.remainingFailures) || item.remainingFailures.length) {
+        fail('candidate-tests-not-green')
+    }
+}
+
+function validateReceipt(event, node, context) {
+    if (isV2Transition(event, context)) {
+        validateV2Receipt(event)
+        return
+    }
     const item = receipt(event)
     if (event.eventType === 'implementation.candidate-green') {
         if (!event.payload?.candidateSha || !item?.candidateSha) fail('candidate-identity-missing')
@@ -186,6 +325,22 @@ function firstFailure(node, event) {
 }
 
 function validateSpecial(event, node, context) {
+    if (isV2Transition(event, context)) {
+        validateV2Special(event, node)
+        if (event.eventType === 'implementation.started') {
+            if (context.attemptIds.has(event.attemptId)) fail('attempt-id-duplicate')
+            if (node.status === 'implementing-self-testing' || node.activeAttemptId !== null) {
+                fail('implementation-attempt-active')
+            }
+        }
+        if (event.eventType === 'implementation.candidate-green' &&
+            (!node.activeAttemptId || event.attemptId !== node.activeAttemptId)) {
+            fail('candidate-attempt-mismatch')
+        }
+        if (event.eventType === 'independent-verification.passed' &&
+            event.fromState === 'candidate-green') fail('transition-not-allowed')
+        return
+    }
     const { eventType: type, payload = {} } = event
     if (type === 'implementation.started') {
         const dispatchReceipt = payload.dispatchReceipt
@@ -287,7 +442,7 @@ function validateSpecial(event, node, context) {
 
 function reduceNode(node, event, context) {
     validateSpecial(event, node, context)
-    validateReceipt(event, node)
+    validateReceipt(event, node, context)
     firstFailure(node, event)
     const { eventType: type, payload = {} } = event
     if (type === 'node.discovered') node.issueKind = payload.issueKind
@@ -397,7 +552,11 @@ export async function replayEventLedger(ledger) {
     const context = {
         attemptIds: new Set(), terminalAttempts: new Set(), sideEffects: new Set(),
         eventsById: new Map(), leases: new Map(), leaseOwners: new Map(),
-        activatedGroups: new Set()
+        activatedGroups: new Set(),
+        transitionSchema: ledger.header.transitionSchema ??
+            (ledger.header.schema === 'issue-orchestration.ledger.v2'
+                ? 'issue-orchestration.transition.v2'
+                : null)
     }
     let expectedDigest = GENESIS
     let primaryNodeId = null

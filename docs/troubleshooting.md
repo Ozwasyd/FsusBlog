@@ -217,11 +217,11 @@ Relevant evidence: the state-root recovery receipt, the final valid sequence, th
 
 ## Issue Orchestration Receipt Or Permission Rejection
 
-Symptom: `verified-dispatch-receipt-required`, `verified-self-test-receipt-required`, `receipt-schema-stage-mismatch`, `candidate-tests-not-green`, `candidate-visible-matrix-incomplete`, `frozen-test-contract-modified`, `independent-verification-not-fresh`, `candidate-identity-mismatch`, `first-failure-mismatch`, `ledger-writer-role`, `state-root-protected-overlap`, or `ledger-path-symlink`.
+Symptom: `root-startup-capability-unverified`, `root-startup-profile-mismatch`, `verified-dispatch-receipt-required`, `receipt-v1-historical-only`, `receipt-schema-stage-mismatch`, `candidate-tests-not-green`, `candidate-visible-matrix-incomplete`, `frozen-test-contract-modified`, `independent-verification-not-fresh`, `candidate-identity-mismatch`, `first-failure-mismatch`, `ledger-writer-role`, `state-root-protected-overlap`, or `ledger-path-symlink`.
 
-Likely cause: implementation started without a verified dispatch receipt, candidate-green used the legacy `verified-candidate-receipt.v1` instead of `implementer-self-test-receipt.v1`, an implementer receipt is incomplete or stale, an independent verifier is not fresh or is checking a different candidate SHA, a later stage attempted to erase the first failure, or a non-root actor tried to write the ledger/path.
+Likely cause: root startup did not prove the actual `luna-low`/normal runtime, implementation started without a verified `dispatch-receipt.v2`, candidate-green used a v1 or incomplete self-test receipt, an implementer receipt is stale, an independent verifier is not fresh or is checking a different candidate SHA, a later stage attempted to erase the first failure, or a non-root actor tried to write the ledger/path. v1 receipts remain historical-only and cannot authorize v2 transitions.
 
-How to verify: compare the dispatch receipt's request/runtime metadata digest, effective model/effort/role/sandbox/fork/cwd, loaded Skill digests, candidate SHA, actor identity, frozen test-contract digest, visible-matrix result, self-test cycles, first-failure evidence, and modified-path list with the event payload and current run identity. Confirm that the writer is `root-scheduler` and that the canonical state root has no protected-root overlap or symlink escape.
+How to verify: compare the root-startup receipt's request/runtime metadata and actual model/effort/mode/role/cwd with the dispatch receipt's request/runtime metadata digest, effective model/effort/role/mode/sandbox/fork/cwd/profile, loaded Skill/capability digests, candidate SHA, actor identity, frozen test-contract digest, visible-matrix result, self-test cycles, first-failure evidence, and modified-path list. Confirm that the writer is `root-scheduler` and that the canonical state root has no protected-root overlap or symlink escape.
 
 Fix: keep the same implementation attempt for internal red/green cycles; do not increment global `reworkCount` for those private cycles. Only an independent verification rejection may increment it, exactly once, and it must retain the original failure evidence. Reissue a fresh dispatch/self-test receipt for the unchanged candidate or return to the explicitly bound continuation attempt. Do not bypass the rejection by writing `candidate-green`, `behavior-green`, `documentation-green`, or a direct DAG status.
 
@@ -229,11 +229,11 @@ Relevant evidence: the verified implementer self-test receipt, verified dispatch
 
 ## Issue Orchestration Dispatch Runtime Failure
 
-Symptom: `runtime-model-unobservable`, `runtime-effort-unobservable`, `runtime-role-unobservable`, `runtime-sandbox-unobservable`, `runtime-fork-unobservable`, `runtime-working-directory-unobservable`, `runtime-prompt-digest-mismatch`, `runtime-base-sha-mismatch`, `runtime-candidate-identity-mismatch`, `runtime-required-skill-missing`, `runtime-skill-digest-mismatch`, `runtime-provenance-request-copy`, `dispatch-stage-profile-policy`, `dispatch-ui-design-authority-policy`, `dispatch-secret-material`, `dispatch-receipt-replay`, or a `routing-*` rejection such as `routing-policy-version`, `routing-classification-field`, `routing-selected-profile`, `routing-permission`, `routing-ui-adjudication-required`, `routing-verifier-fresh-context`, or `runtime-capability-missing`.
+Symptom: `runtime-thread-id-unobservable`, `runtime-rollout-id-unobservable`, `runtime-started-at-unobservable`, `runtime-model-unobservable`, `runtime-effort-unobservable`, `runtime-role-unobservable`, `runtime-mode-unobservable`, `runtime-sandbox-unobservable`, `runtime-fork-unobservable`, `runtime-working-directory-unobservable`, `runtime-context-drift`, `runtime-sandbox-drift`, `runtime-full-history-fork`, `runtime-prompt-digest-mismatch`, `runtime-base-sha-mismatch`, `runtime-candidate-identity-mismatch`, `runtime-required-skill-missing`, `runtime-skill-digest-mismatch`, `runtime-provenance-request-copy`, `dispatch-routing-policy-replay`, `dispatch-routing-selection-mismatch`, `dispatch-ui-adjudication-required`, `dispatch-secret-material`, `dispatch-receipt-replay`, or `runtime-capability-missing`.
 
 Likely cause: the child rollout did not expose effective metadata, the runtime was copied from the request instead of observed, the child inherited a different model/effort/sandbox/fork/cwd, a required Skill was not loaded from machine evidence, a candidate/request/epoch identity drifted, or a secret-bearing observation was supplied.
 
-How to verify: preserve the external state root and run the deterministic verifier with the original files:
+How to verify: preserve the external state root and run the deterministic v2 verifier with the original files:
 
 ```bash
 node .agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs verify-runtime \
@@ -242,7 +242,7 @@ node .agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs verify-runt
   --machine-observations <state-root>/observations/<request-id>.json
 ```
 
-Inspect `runtime-observation.v1` effective fields, `skill-loader` source/digests, git candidate/base identity, lease identity, `mismatchReasons`, and `verificationStatus`. `capability-unverified` means a required observation is unavailable; `rejected` means an observed identity/policy/evidence mismatch. Neither status permits `implementation.started`. Do not use agent self-report or requested fields as a fallback.
+Inspect `runtime-observation.v2` effective fields, `skill-loader`/capability source and digests, git candidate/base identity, lease identity, `mismatchReasons`, and `verificationStatus`. `capability-unverified` means a required observation is unavailable; `rejected` means an observed identity/policy/evidence mismatch. Neither status permits `implementation.started`. Do not use agent self-report or requested fields as a fallback.
 
 Fix: stop the attempt, preserve the receipt and first failure, and correct the dispatch boundary or produce a new request with a new attempt/epoch/thread identity after the relevant runtime or candidate change. Do not retry an unchanged request, rollout, sandbox, Skill load, or state root. Behavior/UX verifier and UI adjudicator requests must remain read-only; test-owner test-contract writes must remain inside the scoped tests/fixtures lease.
 
