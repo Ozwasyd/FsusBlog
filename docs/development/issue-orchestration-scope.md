@@ -109,11 +109,17 @@ computedAt
 
 ## Dispatch candidate 与 fail-closed 边界
 
-Root scheduler 只消费 compiler projection 和 selector/batch 输出，不得编辑 ready、reason 或当前 stage。没有 root-only delivery action 时，`selectDispatchCandidates` 按 canonical `readyFrontier` 顺序截取 `availableSlots`，输出必须是非空且最大化的 dispatch candidate set：有 15 个可用独立 eligible member 就必须有 15 个候选，只有 N 个 eligible member 就精确为 N 个。ready work 被空 batch 隐藏、派发非当前 stage、为 group overlay 折叠 member、或用 group green 掩盖单个 member blocker，均由 dispatch validator 拒绝。
+Root scheduler 只消费 compiler projection 和 selector/batch 输出，不得编辑 ready、reason、rank 或当前 stage。DAG gate 把 `frontierProjection`、`frontierRuntime`、`selectorReceipt`、`dispatchFrontier`、`dispatchRankingPolicy` 和 `dispatchBatch` 作为一个不可拆分单元；缺少一个或全部缺失都 fail closed。dispatch frontier 必须与已验证 ready frontier 的 issue/stage 集合精确相等，并把每个 DAG node 的 priority、critical-path、downstream unlock、starvation、acceptance group、conflict/resource evidence、role/worktree/write scope、receipt/Skill、candidate 和 epoch facts 原样绑定。
 
-唯一允许 ready frontier 非空而暂不派发的情形，是已登记且有直接 evidence 的 root-only delivery action；输出必须保留机器 `noDispatchReason`。依赖未满足、scope/remote facts 漂移、base 不一致、候选能力缺失、未变化 terminal、freeze 或 exclusive lease 只能减少 frontier，不能通过手写 ready 绕过。completed prerequisite 只在合法 `CLOSED/completed` tombstone、可达 delivered commit 和 evidence digest 都一致时满足依赖；reopen 或 tombstone 漂移会在下一次编译中移除 dependent。
+版本化 `critical-unlock-conflict.v1` policy 先严格按 `P0 → P1 → P2`，同一 priority 内再按 starvation threshold、downstream blocked count、critical-path length、acceptance-group completion value、starvation age 和稳定 `taskId` 排序。高 acceptance completion 不能越过更高 priority；长期等待只能在同 priority 内前移，不能越过 semantic dependency 或 stage receipt prerequisite。input 顺序和 issue number 不具有调度权威。
 
-DAG gate 必须使用当前 runtime 和 selector receipt 独立重算 projection，并比较 `eligibilityInputDigest`、`frontierDigest`、ready frontier、reason 和 execution projection；任何缺失、篡改或 scope 不完整都保持 `dispatchEnabled=false`，直到生成新的绑定 projection。该 frontier 合同不改变产品 API、数据库、发布或前端运行时。
+selector 按该确定顺序逐项加入不超过 `availableSlots` 的安全任务，得到 deterministic maximal safe batch。20 个互不冲突任务与 15 个槽必须选择 15 个；只有 N 个安全任务时精确选择 N 个。共享显式 write conflict key、同一 issue worktree 的两个 writer、共享 exclusive resource key 或命中 active lease 的任务不能共选；长任务只占自己的 slot 和显式 resource keys，不冻结无关 ready work。conflict key 必须来自 investigated owner/write-surface evidence，不能只按路径前缀猜测，也不能伪造成 semantic dependency。root-only delivery 同样只阻塞其 repository 或显式 keys。
+
+输出 `issue-orchestration.dispatch-batch.v1` 必须完整列出 `selected`、`deferred`、机器 `selectionReasons`、结构化 `deferReasons`、全部 rank components 和 `batchDigest`。ready work 被空 batch 隐藏、遗漏仍可安全填槽的任务、超出 slot、派发非法 stage、绕过 conflict/resource lease、root 重排或改写 reason/digest，均由独立重算拒绝。acceptance group 只有在 shared surface、same epoch、atomic independent commits、有限且有界的 cold-start/lost-parallelism evidence 和 canonical member order 全部成立时可用；group session 没有 active member 时不占 slot，也不能降低 work conservation 或替代 member receipt。
+
+依赖未满足、scope/remote facts 漂移、base 不一致、候选能力缺失、未变化 terminal、freeze 或 exclusive lease 只能减少可选安全集合，不能通过手写 ready 绕过。completed prerequisite 只在合法 `CLOSED/completed` tombstone、可达 delivered commit 和 evidence digest 都一致时满足依赖；reopen 或 tombstone 漂移会在下一次编译中移除 dependent。
+
+DAG gate 必须使用当前 runtime 和 selector receipt 独立重算 frontier 与 dispatch batch，并比较 `eligibilityInputDigest`、`frontierDigest`、ready frontier、execution projection、ranking explanations 和 `batchDigest`；任何缺失、篡改或 scope 不完整都保持 `dispatchEnabled=false`，直到生成新的绑定 projection/batch。该合同不改变产品 API、数据库、发布或前端运行时。
 
 ## Dispatch receipt 与 runtime identity
 

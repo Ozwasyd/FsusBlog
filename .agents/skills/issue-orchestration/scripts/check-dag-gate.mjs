@@ -24,6 +24,10 @@ import {
 } from './validate-state-root.mjs'
 import { validateReadyFrontier } from './frontier-compiler.mjs'
 import { validateInvestigationProjection } from './investigation-compiler.mjs'
+import {
+    validateDispatchBatch,
+    validateDispatchFrontierBinding
+} from './dispatch-batch-selector.mjs'
 
 class DagGateError extends Error {
     constructor(code, message, details = {}) {
@@ -36,6 +40,30 @@ class DagGateError extends Error {
 
 function fail(code, message, details = {}) {
     throw new DagGateError(code, message, details)
+}
+
+const DISPATCH_PROJECTION_FIELDS = [
+    'frontierProjection', 'frontierRuntime', 'selectorReceipt',
+    'dispatchFrontier', 'dispatchRankingPolicy', 'dispatchBatch'
+]
+
+export function validateDispatchProjectionPresence(dag) {
+    const present = DISPATCH_PROJECTION_FIELDS.filter(
+        (field) => dag?.[field] !== undefined
+    )
+    if (present.length === 0) {
+        fail(
+            'dispatch-projection-required',
+            'The verified frontier and dispatch projection are required.'
+        )
+    }
+    if (present.length !== DISPATCH_PROJECTION_FIELDS.length) {
+        fail(
+            'dispatch-projection-incomplete',
+            'Ready frontier and dispatch projection must be present as one fail-closed unit.'
+        )
+    }
+    return { valid: true }
 }
 
 function tryLstat(target) {
@@ -692,6 +720,12 @@ export function checkDagGate({
     if (dag?.investigationCompilerInput) {
         validateInvestigationProjection(dag.investigationCompilerInput)
     }
+    const hasDispatchProjection = DISPATCH_PROJECTION_FIELDS.some(
+        (field) => dag?.[field] !== undefined
+    )
+    if (hasDispatchProjection) {
+        validateDispatchProjectionPresence(dag)
+    }
     if (dag?.frontierProjection && dag?.frontierRuntime && dag?.selectorReceipt) {
         const frontierValidation = validateReadyFrontier({
             dag,
@@ -706,6 +740,24 @@ export function checkDagGate({
                 'DAG ready frontier does not match independently compiled eligibility.'
             )
         }
+    }
+    if (hasDispatchProjection) {
+        validateDispatchFrontierBinding({
+            frontier: dag.dispatchFrontier,
+            verifiedProjection: dag.frontierProjection,
+            dag
+        })
+        validateDispatchBatch({
+            frontier: dag.dispatchFrontier,
+            rankingPolicy: dag.dispatchRankingPolicy,
+            activeLeases: dag.dispatchLeases ?? [],
+            availableSlots: Math.min(
+                dag.subagentSlotsEffective,
+                dag.frontierRuntime.availableSlots
+            ),
+            groupProposals: dag.acceptanceGroupProposals ?? [],
+            recordedBatch: dag.dispatchBatch
+        })
     }
     if (dag?.schema === 'issue-orchestration.dag.v1') {
         fail('dag-v1-rebuild-required', 'Legacy DAG v1 is diagnostic-only and must be rebuilt from remote facts.')

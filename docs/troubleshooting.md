@@ -260,6 +260,18 @@ If dispatch evidence is rejected after a base, epoch, AGENTS, current-doc, owner
 
 Relevant evidence: the layered investigation projection and validation receipt, discovery/classification/dispatch layer digests, selector and remote snapshot digests, freshness member-fact digests, stage blocker evidence, investigation queue explanation, member-specific group evidence, and the current frontier projection. If any identity or digest is unchanged and still rejected, do not retry the same request.
 
+## Issue Orchestration Dispatch Batch Rejection
+
+Symptom: orchestration refuses to dispatch with `dispatch-projection-required`, `dispatch-projection-incomplete`, `dispatch-frontier-binding`, `ranking-policy-schema`, `batch-not-maximal`, `batch-selection-mismatch`, `batch-write-conflict`, `batch-worktree-write-conflict`, `batch-resource-conflict`, `conflict-key-evidence`, or `semantic-conflict-conflation`.
+
+Likely cause: the six-field frontier/dispatch unit is missing or partial, dispatch tasks drifted from the verified frontier/DAG facts, a recorded batch omitted a task that could safely fill an idle slot, exceeded available slots, reordered deterministic rank, co-selected conflicting writers/resources, inferred a conflict from an uninvestigated path prefix, or encoded serialization as a semantic dependency.
+
+How to verify: preserve the state root and independently recompute the dispatch frontier and `critical-unlock-conflict.v1` batch from the same selector receipt, verified frontier, runtime slots, active leases, and group proposals. Compare selected/deferred task IDs, strict priority and within-priority rank components, conflict/resource evidence digests, structured defer reasons, `frontierDigest`, and `batchDigest`. Confirm that conflict keys come from investigated owner/write surfaces or explicit runtime requirements and that the effective slot count is the lower current scheduler/runtime limit.
+
+Fix: regenerate the bound dispatch frontier and batch from unchanged machine facts, or refresh the specific stale frontier, lease, candidate, or investigation evidence first. Do not hand-sort by issue number/input order, delete a conflicting ready task, turn a write conflict into a dependency, globally freeze unrelated work for one long task or root-only delivery, or edit a recorded reason/digest. An unchanged rejected batch must not be retried.
+
+Relevant evidence: the verified frontier projection, dispatch frontier, versioned ranking policy, active lease receipts, acceptance-group qualification evidence, selected/deferred explanations, and independently recomputed batch digest.
+
 ## Permission / File Path Issues On Linux, macOS, Or Windows
 
 Symptom: build, upload, AOT cache, logs, or Docker volume writes fail with permission denied or path errors.
