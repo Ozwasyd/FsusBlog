@@ -109,6 +109,16 @@ Root scheduler 只消费 compiler projection 和 selector/batch 输出，不得�
 
 DAG gate 必须使用当前 runtime 和 selector receipt 独立重算 projection，并比较 `eligibilityInputDigest`、`frontierDigest`、ready frontier、reason 和 execution projection；任何缺失、篡改或 scope 不完整都保持 `dispatchEnabled=false`，直到生成新的绑定 projection。该 frontier 合同不改变产品 API、数据库、发布或前端运行时。
 
+## Dispatch receipt 与 runtime identity
+
+每次阶段派发都必须先生成不可变的 `issue-orchestration.dispatch-request.v1`。request 至少绑定 `runId`、`nodeId`、`attemptId`、`stageRole`、prompt/DAG/frontier/issue snapshot digest、repository/base/candidate identity、`testContractDigest`、`epochId`、allowed/forbidden path digest、requested model/effort/sandbox/fork/cwd、required Skill 与 design-authority digest、group/member/lease identity（非分组路径也必须显式写 `groupId=null`）以及 `requestDigest`。request、完整 prompt、token、credential 和 secret environment 不进入 receipt；request/receipt 只写仓库外状态根。
+
+`issue-orchestration.runtime-observation.v1` 必须从真实 child rollout 和机器 observation 读取，而不是复制 request 字段。它至少记录 `threadId`、`rolloutId`、`startedAt`、effective model/effort/role/sandbox/fork/cwd、runtime metadata digest、dispatch/git/Skill/lease observation 及其来源。`skill-loader`、git identity 和 lease observation 必须来自受信机器来源并自洽哈希；agent 自述不是 authority。缺少这些字段时只能返回 `capability-unverified`，任何 mismatch、漂移、重放、secret material、错误 worktree 或不符合角色的 sandbox 都返回 `rejected`，不得进入 active attempt。
+
+当前阶段 profile 的 machine policy 是：`root-scheduler` 为 Sol/low/read-only 且只写外部状态根；`dag-creator-updater` 为 Sol/max/read-only、fresh one-shot 且只由 root 启动；`test-owner` 为 Sol/max，workspace write 仅限其 tests/fixtures lease；`code-implementer` 和 `ui-ux-implementer` 为 Sol/low、stage-scoped workspace lease；`ux-acceptance-verifier` 为 Sol/max/read-only。FsusBlog UI/UX stage 必须从机器 load evidence 取得 `fsusblog-design-conformance` 与 `fsusui-design-conformance` 的 exact digest。`documentation-writer` 与 `cleanup-verifier` 的 request 仍必须包含完整 stage/receipt identity；在 dispatch verifier 没有相应 concrete profile 时，不能把 requested model/effort 当作 effective proof，必须保留 runtime machine observation 并 fail closed。
+
+dispatch receipt `issue-orchestration.dispatch-receipt.v1` 只有在 request digest、runtime metadata digest、thread/rollout identity、prompt/DAG/frontier/base/candidate/epoch、effective model/effort/role/sandbox/fork/cwd、Skills 和 group/member/lease 全部一致时才是 `verified`。`implementation.started` 和 ledger transition 必须引用 verified dispatch receipt；普通冻结合同也不能依赖某个 issue-specific test path 才启用此门禁。
+
 ## Append-only event ledger 与 projection
 
 Issue execution history 的唯一事实源是仓库外状态根中的追加式事件账本；`dag.json` 只保存由账本重放得到的 projection，不再是可独立编辑的状态事实。账本不进入 FsusBlog、FsusUI、共同工作区或任一 worktree。
@@ -164,7 +174,9 @@ behavior-green → ux-acceptance → ux-accepted
 
 事件类型由唯一 machine transition table 约束。当前 authority 使用 `test-contract.*`、`implementation.*`、`independent-verification.*`、`ux-acceptance.*`、`documentation.*`、`delivery.*`、`cleanup.*`、`issue.closed/reopened` 及 terminal/attempt/correction 事件；旧 `review.*`、通用 `verification.*`、direct `node.status-updated` 不得作为兼容权威。
 
-`implementation.started` 建立一个 active attempt 和实现 owner。实现者可以在 `implementing-self-testing` 内反复修改实现、运行冻结合同允许的可见矩阵并记录 attempt-local red/green cycles；这些内部循环不创建新的全局 attempt、不递增 `reworkCount`，也不触发 semantic DAG update。`implementation.candidate-green` 必须绑定同一 active attempt、candidate SHA 和 `issue-orchestration.verified-candidate-receipt.v1`：receipt 必须为 passed、visible matrix 完整、冻结测试路径未被修改、self-test cycles 非空且最后一次为 passed，并带自洽的 `receiptDigest`。
+`implementation.started` 建立一个 active attempt 和实现 owner，但必须同时绑定 `issue-orchestration.dispatch-receipt.v1` 且 `verificationStatus=verified`。实现者可以在 `implementing-self-testing` 内反复修改实现、运行冻结合同允许的可见矩阵并记录 attempt-local red/green cycles；这些内部循环不创建新的全局 attempt、不递增 `reworkCount`，也不触发 semantic DAG update。
+
+`implementation.candidate-green` 必须绑定同一 active attempt、request/base/candidate/epoch/test-contract identity 和 `issue-orchestration.implementer-self-test-receipt.v1`。self-test receipt 必须由 deterministic verifier 根据完整 visible test matrix、每个命令的 exit/result digest、lint/typecheck/build policy、非空 failure history/fix cycles、`firstFailureRefs`、implementation diff digest、working-tree digest 和 before/after 相同的 frozen test-tree digest 生成；所有命令通过、`remainingFailures` 为空、冻结 tests/fixtures/snapshots/thresholds 未改动时才可为 `verified`。旧 `issue-orchestration.verified-candidate-receipt.v1`、focused subset、skipped 命令、snapshot/断言放宽或 root/implementer 自述均不能满足 candidate-green。
 
 `candidate-green` 不能直接成为 `behavior-green`。必须先由独立 `test-owner` 启动 `independent-verification`，重新运行关键检查并签发 fresh receipt，且 receipt 与事件都绑定同一 candidate SHA；实现者本人、root narration 或旧 reviewer 不能宣告 pass。独立 verifier 拒绝时，`independent-verification.rejected` 必须绑定原 active attempt 或明确的 continuation attempt，只递增一次全局 `reworkCount`，并保留最早 `firstFailure` evidence；后续自测、文档或 cleanup 成功不得覆盖它。
 
@@ -198,11 +210,14 @@ Acceptance-group delivery 在窗口开始前记录 `preWindowRemoteSnapshotDiges
 
 调用方应保留以下错误码，便于故障定位：`invalid-selector-schema`、`selector-version-parameters-mismatch`、`dag-launch-required`、`dag-launch-denied`、`proposal-mismatch` 和 `delivery-window-invalid`。这些拒绝表示合同不满足，不应通过重试未变化的 selector、snapshot 或 launch request 绕过。
 
-Selector 行为合同位于 `tests/tools/issue-orchestration-scope-selector.test.mjs`，fixture 位于 `tests/fixtures/issue-orchestration/scope-selector-cases.json`，实现入口为 `.agents/skills/issue-orchestration/scripts/scope-selector.mjs`；frontier 行为合同位于 `tests/tools/issue-orchestration-ready-frontier.test.mjs`，实现入口为 `.agents/skills/issue-orchestration/scripts/frontier-compiler.mjs`；event ledger 行为合同位于 `tests/tools/issue-orchestration-event-ledger.test.mjs`，其 acceptance/mutation/runtime fixtures 位于 `tests/fixtures/issue-orchestration/event-ledger-*.json`，实现入口为 `.agents/skills/issue-orchestration/scripts/event-ledger.mjs`。修改 selector、snapshot、frontier 或 ledger 合同时运行：
+Selector 行为合同位于 `tests/tools/issue-orchestration-scope-selector.test.mjs`，fixture 位于 `tests/fixtures/issue-orchestration/scope-selector-cases.json`，实现入口为 `.agents/skills/issue-orchestration/scripts/scope-selector.mjs`；frontier 行为合同位于 `tests/tools/issue-orchestration-ready-frontier.test.mjs`，实现入口为 `.agents/skills/issue-orchestration/scripts/frontier-compiler.mjs`；event ledger 行为合同位于 `tests/tools/issue-orchestration-event-ledger.test.mjs`，其 acceptance/mutation/runtime fixtures 位于 `tests/fixtures/issue-orchestration/event-ledger-*.json`，实现入口为 `.agents/skills/issue-orchestration/scripts/event-ledger.mjs`；dispatch/runtime/self-test 行为合同位于 `tests/tools/issue-orchestration-dispatch-receipt.test.mjs`，fixture 位于 `tests/fixtures/issue-orchestration/dispatch-receipt-*.json`，实现入口为 `.agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs`。修改 selector、snapshot、frontier、ledger 或 dispatch receipt 合同时运行：
 
 ```bash
 node --test tests/tools/issue-orchestration-scope-selector.test.mjs
 node --test tests/tools/issue-orchestration-ready-frontier.test.mjs
+node --test tests/tools/issue-orchestration-dispatch-receipt.test.mjs
+node --test tests/tools/issue-orchestration-event-ledger.test.mjs
+node --check .agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs
 node tools/docs/generate-document-lifecycle.mjs --check
 node tools/docs/check-authoritative-development-docs.mjs
 ```

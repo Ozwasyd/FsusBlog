@@ -19,6 +19,7 @@ The timestamp and SHA suffix are illustrative. A real heading must equal the bui
 - Product planning, stability, support, issue intake, and release documentation use capability stages, explicit contract classifications, and canonical ReleaseId evidence instead of product SemVer.
 - Issue orchestration now treats the external `issue-orchestration.ledger.v1` append-only hash chain as the execution authority and derives DAG state from deterministic projection/recovery; implementer self-testing and independent behavior verification remain separate receipt-bound stages.
 - Ready-frontier eligibility now consumes a validated `issue-orchestration.investigation-projection.v1` built from discovery, classification, and dispatch investigation layers; stale, unauthorized, or legacy `node.investigation` authority is rejected fail-closed.
+- Stage dispatch now binds request and runtime-observed model, effort, role, sandbox, fork, cwd, Skill and candidate identities; `implementation.started` requires a verified dispatch receipt and `candidate-green` requires the complete `issue-orchestration.implementer-self-test-receipt.v1` rather than the legacy candidate receipt.
 
 ### Fixed
 
