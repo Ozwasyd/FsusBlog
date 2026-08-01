@@ -1,0 +1,23 @@
+{
+  "schema": "issue-orchestration.resource-lifecycle-mutations.v1",
+  "issueId": "Ozwasyd/FsusBlog#1828",
+  "controls": [
+    { "id": "red-cycle-new-attempt", "killedBy": "R01" },
+    { "id": "red-cycle-new-worktree", "killedBy": "R01" },
+    { "id": "red-cycle-releases-slot", "killedBy": "R02" },
+    { "id": "red-cycle-starts-cleanup", "killedBy": "R02" },
+    { "id": "candidate-green-keeps-writer", "killedBy": "R03" },
+    { "id": "rejection-dual-writer", "killedBy": "R04" },
+    { "id": "rejection-new-worktree", "killedBy": "R04" },
+    { "id": "retained-service-owner-lost", "killedBy": "R05" },
+    { "id": "red-cycle-global-attempt", "killedBy": "R06" },
+    { "id": "cleanup-overwrites-first-failure", "killedBy": "R07" },
+    { "id": "dirty-worktree-force-remove", "killedBy": "R08" },
+    { "id": "agent-self-signs-clean", "killedBy": "R09" },
+    { "id": "cleanup-without-post-inventory", "killedBy": "R09" },
+    { "id": "member-deletes-group-worktree", "killedBy": "R10" },
+    { "id": "group-complete-retains-resource", "killedBy": "R10" },
+    { "id": "orphan-ignored", "killedBy": "R11" },
+    { "id": "external-resource-deleted", "killedBy": "R11" }
+  ]
+}

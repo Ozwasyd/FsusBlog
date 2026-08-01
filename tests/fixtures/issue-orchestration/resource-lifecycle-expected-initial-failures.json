@@ -1,0 +1,16 @@
+{
+  "schema": "issue-orchestration.resource-lifecycle-initial-failures.v1",
+  "revision": 2,
+  "issueId": "Ozwasyd/FsusBlog#1828",
+  "baseSha": "b5796c28c379f8d8725d8b32ff261b15baed3822",
+  "expectedStatus": "red",
+  "expectedExitCode": 1,
+  "expectedSummary": { "tests": 13, "passed": 2, "failed": 11 },
+  "expectedFailureClass": "resource-lifecycle-owner-missing",
+  "expectedDiagnostic": "missing #1828 resource lifecycle owner",
+  "expectedFailingTests": ["R01", "R02", "R03", "R04", "R05", "R06", "R07", "R08", "R09", "R10", "R11"],
+  "passingControls": [
+    "frozen #1828 resource lifecycle identities are self-consistent",
+    "recorded old baseline proves cleanup completion lacked machine post-inventory authority"
+  ]
+}

@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import { STAGE_PROFILES } from './stage-profile-policy.mjs'
+import { verifyCleanupReceipt } from './resource-lifecycle.mjs'
 
 const HASH = /^[a-f0-9]{64}$/u
 const SHA = /^[a-f0-9]{40}$/u
@@ -68,6 +69,11 @@ function deepFreeze(value) {
     if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value
     for (const child of Object.values(value)) deepFreeze(child)
     return Object.freeze(value)
+}
+
+export function sealCleanupReceipt(receipt) {
+    verifyCleanupReceipt(receipt)
+    return deepFreeze(structuredClone(receipt))
 }
 
 function observationByKind(observations, kind) {

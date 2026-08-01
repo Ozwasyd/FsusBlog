@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
+import { verifyCleanupReceipt } from './resource-lifecycle.mjs'
 
 const GENESIS = '0'.repeat(64)
 const EVENT_FIELDS = [
@@ -145,6 +146,10 @@ function validateReceipt(event, node) {
         if (item?.candidateSha !== node.candidateSha || event.payload?.candidateSha !== node.candidateSha) {
             fail('candidate-identity-mismatch')
         }
+    }
+    if (event.eventType === 'cleanup.completed'
+        && event.payload?.cleanupReceipt) {
+        verifyCleanupReceipt(event.payload.cleanupReceipt)
     }
 }
 

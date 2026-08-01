@@ -1,0 +1,24 @@
+{
+  "schema": "issue-orchestration.resource-lifecycle-cases.v1",
+  "issueId": "Ozwasyd/FsusBlog#1828",
+  "baseSha": "b5796c28c379f8d8725d8b32ff261b15baed3822",
+  "terminalDispositions": ["candidate-green", "independent-verification-rejected", "test-contract-disputed", "external-blocked", "resource-failed", "cancelled", "crashed"],
+  "groupRegistry": {
+    "schema": "issue-orchestration.resource-registry.v1",
+    "runId": "run-1828-group",
+    "groupSessionDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "resources": [
+      { "resourceId": "group-worktree", "resourceType": "worktree", "ownerClass": "group-owned", "state": "retained" },
+      { "resourceId": "member-port", "resourceType": "port", "ownerClass": "member-stage", "memberId": "member-1", "state": "active" }
+    ]
+  },
+  "crashRecovery": {
+    "baseline": [
+      { "resourceId": "external-cache", "resourceType": "directory", "ownerClass": "externally-owned" }
+    ],
+    "observed": [
+      { "resourceId": "external-cache", "resourceType": "directory", "ownerClass": "externally-owned" },
+      { "resourceId": "orphan-worktree", "resourceType": "worktree", "ownerClass": "unknown-owner" }
+    ]
+  }
+}

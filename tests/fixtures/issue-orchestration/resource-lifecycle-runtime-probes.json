@@ -1,0 +1,27 @@
+{
+  "schema": "issue-orchestration.resource-lifecycle-runtime-probes.v1",
+  "revision": 2,
+  "issueId": "Ozwasyd/FsusBlog#1828",
+  "baseSha": "b5796c28c379f8d8725d8b32ff261b15baed3822",
+  "issueState": "open",
+  "prioritySupplementCommentId": 5145161177,
+  "oldBaseline": {
+    "observedBaseSha": "b5796c28c379f8d8725d8b32ff261b15baed3822",
+    "observationDisposition": "historical-pre-implementation-evidence",
+    "resourceLifecycleOwnerExists": false,
+    "cleanupCompletionAuthority": "event-payload-without-post-inventory",
+    "eventLedgerPath": ".agents/skills/issue-orchestration/scripts/event-ledger.mjs",
+    "dispatchReceiptPath": ".agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs",
+    "currentDoc": "docs/development/issue-orchestration-scope.md",
+    "internalSelfTestLoopAlreadyDocumented": true,
+    "machineCleanupReceiptImplemented": false
+  },
+  "dynamicResources": {
+    "realGitMutationRequired": false,
+    "realProcessSpawnRequired": false,
+    "realDockerRequired": false,
+    "ports": [],
+    "containers": [],
+    "temporaryRoots": []
+  }
+}

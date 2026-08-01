@@ -208,6 +208,16 @@ behavior-green → ux-acceptance → ux-accepted
 
 这些拒绝是合同失败，不应通过重试未变化的 ledger、projection、candidate SHA、remote snapshot 或权限请求绕过。
 
+## Resource registry、retention 与 cleanup
+
+每个运行使用 `issue-orchestration.resource-registry.v1` 登记唯一 resource identity、owner class、run/attempt/member、worktree、slot、writer/read lease、service descendants、ports 和 state。Implementer 内部 red/green cycle 保留同一 attempt、issue worktree、slot 和 writer；普通测试失败只追加 self-test cycle 与不可覆盖的 first-failure evidence，不创建全局 attempt、重建 worktree 或启动 cleanup。
+
+`candidate-green` 原子撤销 implementer writer，并只为同一 candidate 授予 independent verifier read-only lease。verification rejection 撤销 reader，并在同一 worktree/attempt 上恢复唯一 writer；双 writer、新 worktree 或丢失 retained service descendant/port owner 都 fail closed。
+
+Cleanup 只在合法 disposition 后启动。`issue-orchestration.resource-cleanup-receipt.v1` 必须由 cleanup machine verifier 签发，状态为 `resources-clean`，包含空的 machine-observed `postInventory` 和自洽 digest；agent 自述、缺 inventory 或仍有 owned resource 都不能释放 slot/lease 或授权 delivery。dirty worktree 进入 `quarantined-dirty`，保持 slot、阻止 delivery 且不得 force remove。
+
+Member cleanup 只删除 member-owned resources；group-owned worktree/service 必须保持 `retained`，直到所有 member cleanup 后的 group cleanup。Crash recovery 对比 baseline/observed registry：unknown/orphan owner 使恢复失败，externally-owned resource 必须保留且不得删除；外部资源缺失同样是 cleanup failure。
+
 ## DAG update authority
 
 初始 DAG 只能由使用 `gpt-5.6-sol` / `low` 的 root scheduler 显式启动一次 `gpt-5.6-sol` / `max`、read-only、fresh-context、非 resident 的 one-shot `dag-creator`。后续只有 root scheduler 发现 `remoteSnapshotDigest` 相对上一轮变化，才显式启动同样隔离属性的 one-shot `dag-updater`。没有 digest 变化时 semantic action 为 `none`，即使 execution ledger 有失败或返工事件也不得更新 DAG。

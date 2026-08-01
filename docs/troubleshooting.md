@@ -286,6 +286,18 @@ Fix: rerun only after correcting checkout depth or current-run artifact wiring. 
 
 Relevant evidence: trusted checkout SHA and reachable objects, plan artifact, integration-runtime artifact metadata, scale summary run identity, and release-evidence job run/attempt.
 
+## Issue Orchestration Resource Cleanup Or Recovery Failure
+
+Symptom: cleanup reports `resource-registry-schema`, `internal-red-attempt-rebuild-forbidden`, `machine-cleanup-verifier-required`, `cleanup-post-inventory-required`, `cleanup-post-inventory-not-empty`, `cleanup-receipt-digest`, `quarantined-dirty`, or `cleanup-failed`.
+
+Likely cause: an internal red cycle rebuilt the attempt/worktree, candidate-green retained the writer, cleanup lacked machine post-inventory, a dirty worktree was targeted for force removal, member cleanup touched group resources, or crash recovery found an orphan/unknown owner or missing external resource.
+
+How to verify: compare resource registry pre/post inventory, attempt/worktree/slot/writer identities, candidate read lease, service descendants/ports, owner class, group/member cleanup order, first-failure refs, and cleanup receipt digest.
+
+Fix: quarantine dirty state without removal; restore exact ownership or complete machine-observed cleanup, then issue a fresh receipt. Retain group-owned resources until group cleanup, preserve externally-owned resources, and fail closed on every orphan.
+
+Relevant evidence: resource registry, ledger transition, inventories, cleanup receipt, quarantine record, group session digest, process/port observations, and recovery failed/retained lists.
+
 ## Permission / File Path Issues On Linux, macOS, Or Windows
 
 Symptom: build, upload, AOT cache, logs, or Docker volume writes fail with permission denied or path errors.

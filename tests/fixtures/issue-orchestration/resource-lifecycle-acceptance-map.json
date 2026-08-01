@@ -1,0 +1,17 @@
+{
+  "schema": "issue-orchestration.resource-lifecycle-acceptance.v1",
+  "issueId": "Ozwasyd/FsusBlog#1828",
+  "acceptance": [
+    { "id": "R01", "requirement": "internal red-green cycles retain one attempt, worktree, slot, and writer", "mutations": ["red-cycle-new-attempt", "red-cycle-new-worktree"] },
+    { "id": "R02", "requirement": "ordinary test failure does not enter resource disposition", "mutations": ["red-cycle-releases-slot", "red-cycle-starts-cleanup"] },
+    { "id": "R03", "requirement": "candidate-green revokes implementer writer and grants verifier read-only", "mutations": ["candidate-green-keeps-writer"] },
+    { "id": "R04", "requirement": "verification rejection regrants one writer on the same issue worktree", "mutations": ["rejection-dual-writer", "rejection-new-worktree"] },
+    { "id": "R05", "requirement": "retained test services keep unique descendant and port ownership", "mutations": ["retained-service-owner-lost"] },
+    { "id": "R06", "requirement": "per-red worktree and global-attempt reconstruction is forbidden", "mutations": ["red-cycle-global-attempt"] },
+    { "id": "R07", "requirement": "first-failure evidence survives fix cycles and cleanup", "mutations": ["cleanup-overwrites-first-failure"] },
+    { "id": "R08", "requirement": "dirty worktree is quarantined without force removal", "mutations": ["dirty-worktree-force-remove"] },
+    { "id": "R09", "requirement": "only machine post-inventory can sign resources-clean", "mutations": ["agent-self-signs-clean", "cleanup-without-post-inventory"] },
+    { "id": "R10", "requirement": "member cleanup retains group-owned resources until group cleanup", "mutations": ["member-deletes-group-worktree", "group-complete-retains-resource"] },
+    { "id": "R11", "requirement": "crash recovery fails on orphans and preserves external resources", "mutations": ["orphan-ignored", "external-resource-deleted"] }
+  ]
+}
