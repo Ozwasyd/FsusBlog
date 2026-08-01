@@ -390,7 +390,7 @@ export function processGroupMemberIdentities(
         }
         return { status: 'verified', identities: identities.sort((left, right) => left.pid - right.pid) }
     } catch (error) {
-        if (error?.code === 'ENOENT' && raceRetries > 0) {
+        if (['ENOENT', 'ESRCH'].includes(error?.code) && raceRetries > 0) {
             return processGroupMemberIdentities(group, { procRoot, platform, execute, raceRetries: raceRetries - 1 })
         }
         return { status: 'unverifiable', reason: error instanceof Error ? error.message : String(error) }

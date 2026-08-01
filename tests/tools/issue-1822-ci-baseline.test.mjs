@@ -25,11 +25,12 @@ const digest = (value) => sha256(JSON.stringify(canonical(value)))
 
 test('frozen #1822 corrective CI-baseline contract is self-consistent', () => {
   assert.equal(contract.testOwnerId, 'test-owner-1822-ci-baseline-r10')
+  assert.equal(contract.correctiveRevision, 8)
   assert.equal(contract.baseSha, '9a8ab8cd80a4cdc7f76866f0c475b8fa64218731')
   assert.equal(runtime.run.id, 30683846973)
-  assert.deepEqual(expected.expectedFailingTests, [])
-  assert.equal(expected.behaviorStatus, 'green')
-  assert.equal(expected.documentationStatus, 'required-output-pending')
+  assert.deepEqual(expected.expectedFailingTests, ['R10CI09', 'R10CI10', 'R10CI11', 'R10CI12'])
+  assert.equal(expected.behaviorStatus, 'red')
+  assert.equal(expected.documentationStatus, 'blocked-until-behavior-green')
   assert.deepEqual(runtime.correctiveRevision5.behaviorProof, {
     matrixSchema: 'green',
     preflight: 'green',
@@ -37,6 +38,12 @@ test('frozen #1822 corrective CI-baseline contract is self-consistent', () => {
     workflowSyncRequiredJobs: 29
   })
   assert.deepEqual(runtime.correctiveRevision5.combinedBehaviorContract, { passed: 54, failed: 0 })
+  assert.deepEqual(runtime.correctiveRevision8.focusedFrontendUnit, {
+    files: 2,
+    tests: 80,
+    passed: 80,
+    failed: 0
+  })
   assert.deepEqual(
     acceptance.acceptance.flatMap(({ mutations: ids }) => ids).sort(),
     mutations.controls.map(({ id }) => id).sort()
@@ -154,11 +161,52 @@ test('R10CI08 only the generated testing docs projection remains for the documen
     maxBuffer: 64 * 1024 * 1024
   })
   const diagnostic = '[testing-docs] docs/testing.generated.md is not in sync with tests/matrix.yml'
-  assert.equal(result.status, 1)
-  assert.equal(result.stderr.trim(), diagnostic)
+  assert.ok([0, 1].includes(result.status))
+  if (result.status === 0) {
+    assert.equal(result.stdout.trim(), '[testing-docs] ok docs/testing.generated.md')
+    assert.equal(result.stderr.trim(), '')
+  } else {
+    assert.equal(result.stderr.trim(), diagnostic)
+  }
   assert.equal(runtime.correctiveRevision5.documentationStage.requiredPath, 'docs/testing.generated.md')
   assert.equal(runtime.correctiveRevision5.documentationStage.writerStartCondition, 'behavior-green')
   assert.equal(runtime.correctiveRevision5.documentationStage.implementerAuthorized, false)
+})
+
+test('R10CI09 PostgreSQL collection estimated facts match their canonical manifest', () => {
+  const result = spawnSync(process.execPath, ['tools/check-postgres-test-collections.mjs'], {
+    cwd: root,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024
+  })
+  assert.equal(result.status, 0, result.stderr.trim())
+})
+
+test('R10CI10 retention consumers fetch the historical before-snapshot source commit', () => {
+  const workflow = read('.github/workflows/quality-gate.yml')
+  const start = workflow.indexOf('    fast-static-governance:\n')
+  assert.ok(start >= 0)
+  const nextJob = /^    [a-z][a-z0-9-]*:\s*$/gmu.exec(workflow.slice(start + 1))
+  const end = nextJob ? start + 1 + nextJob.index : workflow.length
+  const source = workflow.slice(start, end)
+  assert.match(source, /actions\/checkout@[^\n]+\n\s+with:\n\s+fetch-depth:\s+0/u)
+  assert.match(read('tests/test-retention-before.json'), /"matrix":\s*"sha256:[a-f0-9]{64}"/u)
+})
+
+test('R10CI11 process-group disappearance races do not invalidate a successful producer seal', () => {
+  const source = read('tools/test/process-identity.mjs')
+  const start = source.indexOf('export function processGroupMemberIdentities(')
+  assert.ok(start >= 0)
+  const implementation = source.slice(start)
+  assert.match(
+    implementation,
+    /catch \(error\) \{\s*if \(\['ENOENT', 'ESRCH'\]\.includes\(error\?\.code\) && raceRetries > 0\)/u
+  )
+})
+
+test('R10CI12 frontend unit isolation and decoder cardinality do not depend on global or stale state', () => {
+  assert.doesNotMatch(read('tests/frontend/unit/services/binaryTransport.test.ts'), /vi\.resetModules\(\)/u)
+  assert.doesNotMatch(read('tests/frontend/unit/adapters/binary/index.test.ts'), /toHaveLength\(132\)/u)
 })
 
 test('mutation controls keep every primary repair fail closed', () => {

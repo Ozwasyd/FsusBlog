@@ -83,6 +83,111 @@
       "implementerAuthorized": false
     }
   },
+  "correctiveRevision7": {
+    "run": { "id": 30689788661, "headSha": "4d5b491d6ae1588578d2bcff957e044d1f58319a", "conclusion": "failure" },
+    "primaryFailures": [
+      {
+        "jobId": 91342753725,
+        "job": "Fast Backend DAG",
+        "diagnostic": "[postgres-test-collections] SchemaMigrationPostgresCollectionA estimatedFacts mismatch: manifest=213 source=214",
+        "checker": "node tools/check-postgres-test-collections.mjs",
+        "collection": "SchemaMigrationPostgresCollectionA",
+        "manifestEstimatedFacts": 213,
+        "sourceEstimatedFacts": 214,
+        "authority": "tests/backend/Fixtures/postgres-test-collections.json",
+        "authorizedChange": "update the exact collection estimatedFacts only"
+      },
+      {
+        "jobId": 91342753723,
+        "job": "Fast Static Governance",
+        "diagnostic": "[test-retention] cannot resolve before snapshot source tests/matrix.yml",
+        "checker": "node tools/check-test-retention.mjs",
+        "authority": "tests/test-retention-before.json",
+        "authorityAlreadyRegistersMatrix": true,
+        "checkoutDepthObserved": 1,
+        "authorizedChange": "set fetch-depth 0 for the Fast Static Governance repository checkout",
+        "secondaryFailures": "nine lane wrappers and ESRCH are consequences of the primary retention failure"
+      },
+      {
+        "jobId": 91342753716,
+        "job": "wasm-build-artifacts",
+        "diagnostic": "[matrix] production build process identity failure: managed process group is unverifiable: ESRCH: no such process, read",
+        "producer": { "status": "green", "outputs": 24, "buildCount": 1, "artifact": "published", "receipt": "published" },
+        "failureStage": "post-checkpoint-process-identity-seal",
+        "runnerAuthority": "tools/test/process-identity.mjs",
+        "matrixMetadataChangeAuthorized": false,
+        "fallbackAuthorized": false,
+        "authorizedChange": "treat ENOENT and ESRCH disappearance races consistently while preserving identity verification"
+      },
+      {
+        "jobId": 91342753719,
+        "job": "Fast Frontend Unit DAG",
+        "diagnostic": "72 of 1818 frontend unit tests failed across 27 files with 6 unhandled errors",
+        "failureStage": "frontend-unit-suite",
+        "authorizedChange": "test-owner isolation and generated-cardinality corrections only; no broad assertion weakening"
+      }
+    ],
+    "frontendUnitInvestigation": {
+      "jobId": 91342753719,
+      "job": "Fast Frontend Unit DAG",
+      "summary": { "tests": 1818, "failed": 72, "failedFiles": 27, "unhandled": 6 },
+      "clusters": [
+        {
+          "id": "pow-worker-and-cross-file-module-identity",
+          "evidence": "pow_worker_init_failed plus broad auth and UI fallout",
+          "candidateAdjacent": "tests/frontend/unit/services/binaryTransport.test.ts contains hoisted vi.resetModules()",
+          "disposition": "focused-proof-required-before-authorizing-correction"
+        },
+        {
+          "id": "binary-adapter-cardinality",
+          "evidence": "expected 132 decoders but received 134",
+          "candidateChangedRelevantSources": false,
+          "disposition": "inherited-current-suite-blocker-not-remote-contract-impact"
+        },
+        {
+          "id": "broad-ui-fallout",
+          "evidence": "unrelated navigation, composition, viewport, and realtime tests",
+          "disposition": "secondary-or-inherited-no-broad-test-weakening"
+        }
+      ],
+      "authorizedImplementationPaths": [],
+      "possibleRemoteContractImpact": false
+    },
+    "documentationWriterStatus": "blocked-until-behavior-green"
+  },
+  "correctiveRevision8": {
+    "testOwnerId": "test-owner-1822-ci-baseline-r10",
+    "authorizedTestPaths": [
+      "tests/frontend/unit/services/binaryTransport.test.ts",
+      "tests/frontend/unit/adapters/binary/index.test.ts"
+    ],
+    "mutations": {
+      "frontend-unit-global-module-reset-leak": {
+        "before": "target test globally reset the Vitest module registry",
+        "after": "targeted namespace spies preserve the shared module identity and fail fast on real fetch",
+        "killedBy": "R10CI12"
+      },
+      "binary-adapter-stale-cardinality": {
+        "before": "adapter contract asserted 132 registrations and the previous registry fingerprint",
+        "after": "adapter contract asserts 134 unique registrations, the current fingerprint, and locale decoder output",
+        "killedBy": "R10CI12"
+      }
+    },
+    "focusedFrontendUnit": {
+      "files": 2,
+      "tests": 80,
+      "passed": 80,
+      "failed": 0
+    },
+    "exactCiJob": {
+      "command": "./tools/test.sh ci-job fast-frontend-unit --fresh",
+      "exitCode": 1,
+      "targetFilesPassed": 2,
+      "targetTestsPassed": 80,
+      "disposition": "test-owner-scope-green-full-job-red-on-out-of-scope-existing-suite-and-local-provider-failures",
+      "checkpoint": ".tmp/test-runs/ci-job-fast-frontend-unit-2026-08-01_07-57-36-765-2775065/checkpoint.json"
+    }
+  },
   "downstream": {
     "disposition": "consequence-of-primary-failures",
     "missingArtifacts": ["fast-summary", "integration-runtime"],

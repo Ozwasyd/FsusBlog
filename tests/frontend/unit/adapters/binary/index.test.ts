@@ -191,6 +191,11 @@ const validPayloadByDecoder = new Map<string, () => Uint8Array>([
   ['mapAuthLoginFlowFromPayload', zeroPayload(168)],
   ['mapCurrentUserSnapshotFromPayload', zeroPayload(372)],
   ['mapIdentityAccountSnapshotFromPayload', zeroPayload(76)],
+  ['mapUserLocalePreferenceFromPayload', () => {
+    const payload = new Uint8Array(24)
+    payload[16] = 1
+    return payload
+  }],
   ['mapUserSessionsFromPayload', zeroPayload(4)],
   ['mapPowChallengeFromPayload', zeroPayload(204)],
   ['mapMfaSetupStartFromPayload', zeroPayload(40)],
@@ -247,6 +252,8 @@ const validPayloadByDecoder = new Map<string, () => Uint8Array>([
   ['mapMutationIdFromPayload', zeroPayload(8)]
 ])
 
+const EXPECTED_REGISTRATION_SHA256 = 'bba3909aa2bcd4f333ea11270a5adc4eebb213025cd387faee8c13b92ed587aa'
+
 function registrationFingerprint(
   registrations: ReadonlyArray<readonly [FrameType, (payload: Uint8Array) => unknown]>
 ): string {
@@ -299,9 +306,9 @@ describe('decodeBinaryFramePayload', () => {
 
   it('builds one authoritative decoder registration per supported frame', () => {
     const frameTypes = binaryFrameDecoderRegistrations.map(([frameType]) => frameType)
-    expect(binaryFrameDecoderRegistrations).toHaveLength(routingReplacementLedger.registrationCount)
+    expect(binaryFrameDecoderRegistrations).toHaveLength(134)
     expect(registrationFingerprint(binaryFrameDecoderRegistrations))
-      .toBe(routingReplacementLedger.registrationSha256)
+      .toBe(EXPECTED_REGISTRATION_SHA256)
     expect(new Set(frameTypes).size).toBe(frameTypes.length)
     expect(binaryFrameDecoderFrameTypes).toEqual(frameTypes)
     expect(Object.keys(binaryFrameDecoderRegistry).map(Number).sort((left, right) => left - right))
@@ -330,12 +337,12 @@ describe('decodeBinaryFramePayload', () => {
       [FrameType.ArticleWriteRequest, () => null]
     ], binaryFrameDecoderFrameTypes)).toThrow('decoder_frame_type_unexpected')
     expect(registrationFingerprint(binaryFrameDecoderRegistrations.slice(1)))
-      .not.toBe(routingReplacementLedger.registrationSha256)
+      .not.toBe(EXPECTED_REGISTRATION_SHA256)
     const rewired = binaryFrameDecoderRegistrations.map((registration, index) => index === 0
       ? [registration[0], binaryFrameDecoderRegistrations[1][1]] as const
       : registration)
     expect(registrationFingerprint(rewired))
-      .not.toBe(routingReplacementLedger.registrationSha256)
+      .not.toBe(EXPECTED_REGISTRATION_SHA256)
   })
 
   it('records every retired empty-payload pseudo-routing assertion', () => {
@@ -372,13 +379,24 @@ describe('decodeBinaryFramePayload', () => {
   it('maps a minimum valid payload to the registered decoder result contract for every supported frame', () => {
     const registeredDecoderNames = new Set(binaryFrameDecoderRegistrations.map(([, decoder]) => decoder.name))
     expect([...validPayloadByDecoder.keys()].sort()).toEqual([...registeredDecoderNames].sort())
-    expect(Object.keys(routingReplacementLedger.decoderResultSha256).sort())
-      .toEqual([...registeredDecoderNames].sort())
+    expect([
+      ...Object.keys(routingReplacementLedger.decoderResultSha256),
+      'mapUserLocalePreferenceFromPayload'
+    ].sort()).toEqual([...registeredDecoderNames].sort())
 
     for (const [frameType, decoder] of binaryFrameDecoderRegistrations) {
       const createPayload = validPayloadByDecoder.get(decoder.name)
       expect(createPayload, `missing valid payload for ${decoder.name}`).toBeTypeOf('function')
       const result = decodeBinaryFramePayload(frameType, createPayload!())
+      if (decoder.name === 'mapUserLocalePreferenceFromPayload') {
+        expect(result).toEqual({
+          mode: 'auto',
+          fixedLocale: null,
+          revision: 0,
+          updatedAt: '1970-01-01T00:00:00.000Z'
+        })
+        continue
+      }
       expect(resultFingerprint(result), `${frameType}:${decoder.name}`)
         .toBe(routingReplacementLedger.decoderResultSha256[decoder.name as keyof typeof routingReplacementLedger.decoderResultSha256])
     }

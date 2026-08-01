@@ -1,39 +1,19 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { FrameType } from '@wasm/protocol/frame'
+import { decode } from '@wasm/aeds'
+import { AEDS_HEADER_LENGTH, AEDS_MAGIC, AEDS_VERSION, FrameType } from '@wasm/protocol/frame'
 import { AppErrorCode } from '@/utils/appError'
 import { encodeAedsFrame } from '@/api/binaryFrame'
 
-vi.mock('@wasm/aeds', async () => await vi.importActual<typeof import('@wasm/aeds')>('@wasm/aeds'))
-
 const { mockBinaryRequest } = vi.hoisted(() => {
-  vi.resetModules()
   return { mockBinaryRequest: vi.fn() }
 })
 
-vi.mock('../../../../src/frontend/src/api/binaryApiClient', async () => {
-  const actual = await vi.importActual<typeof import('../../../../src/frontend/src/api/binaryApiClient')>(
-    '../../../../src/frontend/src/api/binaryApiClient'
-  )
-  return {
-    ...actual,
-    binaryRequest: mockBinaryRequest
-  }
-})
-
-vi.mock('@/services/telemetryService', async () => {
-  const actual = await vi.importActual<typeof import('@/services/telemetryService')>('@/services/telemetryService')
-  return {
-    ...actual,
-    recordBinaryFailureTelemetry: vi.fn(actual.recordBinaryFailureTelemetry)
-  }
-})
-
-import { BinaryRequestError } from '@/api/binaryApiClient'
+import * as binaryApiClient from '@/api/binaryApiClient'
 import { decodeBinaryFramePayload } from '@/composition/binaryDecoderRegistry'
 import { BinaryTransportError, createBinaryTransport } from '@/services/binaryTransport'
-import { recordBinaryFailureTelemetry } from '@/services/telemetryService'
+import * as telemetryService from '@/services/telemetryService'
 import {
   privateRequestRuntime,
   runPrivateRequest,
@@ -41,6 +21,9 @@ import {
 } from '@/services/privateRequestRuntime'
 
 const { requestBinaryOnly } = createBinaryTransport(decodeBinaryFramePayload)
+const { BinaryRequestError } = binaryApiClient
+const recordBinaryFailureTelemetry = telemetryService.recordBinaryFailureTelemetry
+let recordTelemetrySpy: ReturnType<typeof vi.spyOn>
 
 const API_ERROR_POD_SIZE = 584
 
@@ -72,7 +55,37 @@ describe('binaryTransport ApiError mapping', () => {
   beforeEach(() => {
     privateRequestRuntime.resetForTests()
     mockBinaryRequest.mockReset()
-    vi.mocked(recordBinaryFailureTelemetry).mockClear()
+    mockBinaryRequest.mockRejectedValue(new Error('unexpected-real-fetch'))
+    vi.spyOn(binaryApiClient, 'binaryRequest').mockImplementation(mockBinaryRequest)
+    vi.mocked(decode).mockImplementation((buffer: ArrayBuffer) => {
+      const bytes = new Uint8Array(buffer)
+      const view = new DataView(buffer)
+      if (
+        bytes.byteLength < AEDS_HEADER_LENGTH
+        || view.getUint32(0, true) !== AEDS_MAGIC
+        || view.getUint8(4) !== AEDS_VERSION
+      ) {
+        return {
+          ok: false,
+          frameType: FrameType.Unknown,
+          payload: new Uint8Array(0),
+          payloadView: new Uint8Array(0),
+          textBlob: '',
+          error: 'invalid-test-frame'
+        }
+      }
+      const payloadView = bytes.subarray(AEDS_HEADER_LENGTH)
+      return {
+        ok: true,
+        frameType: view.getUint16(8, true) as FrameType,
+        payload: payloadView,
+        payloadView,
+        textBlob: '',
+        error: ''
+      }
+    })
+    recordTelemetrySpy = vi.spyOn(telemetryService, 'recordBinaryFailureTelemetry')
+      .mockImplementation(recordBinaryFailureTelemetry)
     vi.stubGlobal('fetch', vi.fn(async () => {
       throw new Error('unexpected-real-fetch')
     }))
@@ -81,6 +94,8 @@ describe('binaryTransport ApiError mapping', () => {
 
   afterEach(() => {
     vi.mocked(window.dispatchEvent).mockRestore()
+    vi.mocked(binaryApiClient.binaryRequest).mockRestore()
+    vi.mocked(telemetryService.recordBinaryFailureTelemetry).mockRestore()
     vi.unstubAllGlobals()
   })
 
@@ -115,6 +130,7 @@ describe('binaryTransport ApiError mapping', () => {
       privateScope: 'admin',
       frameType: FrameType.EmptySuccess
     })
+    await vi.waitFor(() => expect(requestSignal).toBeDefined())
     privateRequestRuntime.advance('admin')
 
     expect(requestSignal?.aborted).toBe(true)
@@ -1273,7 +1289,7 @@ describe('binaryTransport ApiError mapping', () => {
       frameType: FrameType.ArticleList
     })).rejects.toBeInstanceOf(BinaryTransportError)
 
-    const payloads = vi.mocked(recordBinaryFailureTelemetry).mock.results.map((result) => result.value)
+    const payloads = recordTelemetrySpy.mock.results.map((result) => result.value)
     expect(payloads).toHaveLength(1)
     for (const payload of payloads) {
       expect(payload).toEqual({
@@ -1291,7 +1307,7 @@ describe('binaryTransport ApiError mapping', () => {
 
   it('suppresses telemetry for expected anonymous auth failures', async () => {
     mockBinaryRequest.mockRejectedValue(new BinaryRequestError(401, 'Binary request failed: 401', new ArrayBuffer(0)))
-    const recordSpy = vi.mocked(recordBinaryFailureTelemetry)
+    const recordSpy = recordTelemetrySpy
 
     await expect(requestBinaryOnly({
       binaryUrl: '/api/binary/auth/me',
@@ -1310,7 +1326,7 @@ describe('binaryTransport ApiError mapping', () => {
     const controller = new AbortController()
     controller.abort()
     mockBinaryRequest.mockRejectedValue(new TypeError('Failed to fetch'))
-    const recordSpy = vi.mocked(recordBinaryFailureTelemetry)
+    const recordSpy = recordTelemetrySpy
 
     await expect(requestBinaryOnly({
       binaryUrl: '/api/binary/article/list/home/1/10.aeds',
@@ -1328,7 +1344,7 @@ describe('binaryTransport ApiError mapping', () => {
     const controller = new AbortController()
     controller.abort()
     mockBinaryRequest.mockRejectedValue(new TypeError('Failed to fetch'))
-    const recordSpy = vi.mocked(recordBinaryFailureTelemetry)
+    const recordSpy = recordTelemetrySpy
 
     await expect(requestBinaryOnly({
       binaryUrl: '/api/binary/system/seo',
@@ -1359,7 +1375,7 @@ describe('binaryTransport ApiError mapping', () => {
       code: AppErrorCode.InfraFailure
     })
 
-    expect(recordBinaryFailureTelemetry).toHaveBeenCalledTimes(1)
+    expect(recordTelemetrySpy).toHaveBeenCalledTimes(1)
   })
 })
 
