@@ -23,6 +23,7 @@ import {
     validateStateRoot
 } from './validate-state-root.mjs'
 import { validateReadyFrontier } from './frontier-compiler.mjs'
+import { validateInvestigationProjection } from './investigation-compiler.mjs'
 
 class DagGateError extends Error {
     constructor(code, message, details = {}) {
@@ -688,6 +689,9 @@ export function checkDagGate({
 
     const canonicalDag = ensureStateFile(dagPath, canonicalRoot, 'dag')
     const dag = readJson(canonicalDag, 'dag')
+    if (dag?.investigationCompilerInput) {
+        validateInvestigationProjection(dag.investigationCompilerInput)
+    }
     if (dag?.frontierProjection && dag?.frontierRuntime && dag?.selectorReceipt) {
         const frontierValidation = validateReadyFrontier({
             dag,

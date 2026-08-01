@@ -62,6 +62,12 @@ discoveryFacts
 
 三层事实由 `issue-orchestration.investigation-projection.v1` 汇总。projection 必须覆盖 selector receipt 中每个 member 恰好一次，并携带 `selectorReceiptDigest`、`remoteSnapshotDigest`、`inputDigest`、`projectionDigest`、`testOwnerCandidates` 和 `implementationReady`。其 validation 必须使用 `issue-orchestration.investigation-validation-receipt.v1`，由 `layered-investigation-validator` / `machine` / `read-only` 签发，状态为 `passed`，且 freshness 仍绑定当前 selector、remote snapshot 和每个 member 的 remote fact digest。派生列表只能由 member phase 重新计算：`candidate-ready` 只产生 `test-contract-ready`，`dispatch-investigated` 才产生 `implementation-ready`；`dependency-classified` 仍需保留 `investigation-incomplete`。
 
+调查队列按 ready-adjacent、downstream unlock、critical path、priority、waiting age 和稳定 member identity 确定排序，数组顺序不参与权威。有 machine-ready stage 和空槽时必须先派发；后台深度调查不能压住 ready work。100 个 shallow member 中只要两个即将执行的 member 完成所需层，就可派发对应 test-owner/implementation stage，无需等待其余 98 个。长期阻塞的深度调查必须记录 `blockedSince`、blocker owner 和直接 evidence；没有 owner/evidence 的 starvation 不能成为永久停留理由。
+
+Freshness 按 member 和 layer 隔离。issue/relevant-comment 或 selector member fact 漂移只失效受影响 member 的 discovery/classification 及其下游；base、delivery epoch、AGENTS chain、current docs、owner code 或 test-entry digest 漂移只失效该 member 的 dispatch investigation。未漂移层必须幂等复用，不能因另一 member 变化而全 scope 重做。深度 member 只能出现在 implementation 输出或 dispatch-investigation queue 之一，不能双重派发。
+
+Acceptance group 可以复用共享 code/test/docs 索引、schema/runtime facts 和 conflict/resource evidence，但每个 member 在冻结合同前仍独立绑定 issue-specific paths、tests/probes、current docs、constraints/non-goals、owner repository、allowed/forbidden paths、acceptance map 和 investigation digest。组级 evidence 不能替代 member contract；一个 member 缺证据只阻塞该 member。Implementer 只消费完整、base/receipt-bound prompt；缺 owner、design、acceptance、counterexample、command、probe、mutation 或 stop condition 时必须返回 `test-contract-disputed`，不得自行补调查。
+
 Projection、validation 和每层事实的 digest 或 selector/freshness 任一漂移都使 frontier 重新计算并 fail closed。旧的 `node.investigation` 属性及任何兼容 fallback 不是 current schema；出现时必须拒绝，不能把旧字段重放为 dispatch authority。
 
 ## Ready frontier 与 stage eligibility

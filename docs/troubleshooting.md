@@ -256,7 +256,9 @@ How to verify: preserve the candidate and current state root, then compare every
 
 Fix: regenerate the layered facts and projection from the current live selector/remote snapshot, re-run the read-only validation, and compile a new frontier. A `candidate-ready` member may enter only `test-contract-ready`; later stages remain blocked with compiler-owned `investigation-incomplete` evidence until `dispatch-investigated` is complete. Do not re-sign an altered envelope, reuse a stale projection, or restore the retired full-investigation field as a compatibility fallback.
 
-Relevant evidence: the layered investigation projection and validation receipt, discovery/classification/dispatch layer digests, selector and remote snapshot digests, freshness member-fact digests, stage blocker evidence, and the current frontier projection. If any identity or digest is unchanged and still rejected, do not retry the same request.
+If dispatch evidence is rejected after a base, epoch, AGENTS, current-doc, owner-code, or test-entry change, rebuild only that member's dispatch layer. Issue/comment drift invalidates that member's discovery/classification chain; unrelated members retain unchanged layers. Do not clear and rebuild the full scope, pad missing paths with `TODO`/`N/A`, let group evidence replace a member contract, or let background investigation suppress machine-ready work.
+
+Relevant evidence: the layered investigation projection and validation receipt, discovery/classification/dispatch layer digests, selector and remote snapshot digests, freshness member-fact digests, stage blocker evidence, investigation queue explanation, member-specific group evidence, and the current frontier projection. If any identity or digest is unchanged and still rejected, do not retry the same request.
 
 ## Permission / File Path Issues On Linux, macOS, Or Windows
 

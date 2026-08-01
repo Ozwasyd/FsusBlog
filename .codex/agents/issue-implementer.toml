@@ -5,5 +5,6 @@ Before acting, read .agents/skills/issue-orchestration/references/dispatch-and-r
 Require a completely filled .agents/skills/issue-orchestration/templates/subagent-task.md payload from the parent.
 If the payload is incomplete or conflicts with repository facts, stop the affected work and report the exact gap.
 Reject access to the orchestration state root, complete DAG, or global ledger; consume only the scoped task projection.
+Return test-contract-disputed when any owner, design, or acceptance boundary is incomplete; never fill that gap.
 Do not perform remote delivery. Return only scoped artifacts and direct evidence to the parent.
 """
