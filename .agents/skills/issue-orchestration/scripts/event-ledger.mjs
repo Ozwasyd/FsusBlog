@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { verifyCleanupReceipt } from './resource-lifecycle.mjs'
+import { validateRouteReclassification } from './stage-profile-policy.mjs'
 
 const GENESIS = '0'.repeat(64)
 const EVENT_FIELDS = [
@@ -88,6 +89,7 @@ const rules = {
     'ledger.correction-recorded': [['*', '*']],
     'dag.proposal-accepted': [['*', '*']],
     'dag.proposal-rejected': [['*', '*']],
+    'route.reclassified': [['*', '*']],
     'group.session.proposed': [['none', 'proposed']],
     'group.session.created': [['proposed', 'created']],
     'group.session.activated': [['created', 'active'], ['active', 'active']],
@@ -274,6 +276,9 @@ function validateSpecial(event, node, context) {
             fail('dag-proposal-trigger')
         }
     }
+    if (type === 'route.reclassified') {
+        validateRouteReclassification(payload.reclassification ?? payload)
+    }
     if (['delivery.completed', 'cleanup.completed', 'group.member.committed'].includes(type)) {
         const key = payload.sideEffectKey ?? payload.deliveryId ?? payload.cleanupId ?? payload.commitSha
         if (key && context.sideEffects.has(`${type}:${key}`)) fail('side-effect-duplicate')
@@ -385,6 +390,7 @@ export async function replayEventLedger(ledger) {
         groups: {},
         corrections: [],
         dagProposals: [],
+        routeReclassifications: [],
         lastSequence: 0,
         lastEventDigest: GENESIS
     }
@@ -431,6 +437,11 @@ export async function replayEventLedger(ledger) {
         }
         if (event.eventType === 'ledger.correction-recorded') projection.corrections.push(event.payload)
         if (event.eventType.startsWith('dag.proposal-')) projection.dagProposals.push(event.payload)
+        if (event.eventType === 'route.reclassified') {
+            projection.routeReclassifications.push(
+                event.payload.reclassification ?? event.payload
+            )
+        }
         const sideEffectKey = event.payload?.sideEffectKey ?? event.payload?.deliveryId ??
             event.payload?.cleanupId ?? event.payload?.commitSha
         if (sideEffectKey && ['delivery.completed', 'cleanup.completed', 'group.member.committed'].includes(event.eventType)) {

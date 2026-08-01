@@ -182,8 +182,7 @@ export function applyResourceEvent(registry, event) {
 }
 
 export function verifyCleanupReceipt(receipt) {
-    if (!['cleanup-verifier', 'machine-cleanup-verifier']
-        .includes(receipt?.actorRole)) {
+    if (receipt?.actorRole !== 'machine-cleanup-verifier') {
         fail('machine-cleanup-verifier-required')
     }
     if (receipt.schema !== 'issue-orchestration.resource-cleanup-receipt.v1'

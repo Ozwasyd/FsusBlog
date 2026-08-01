@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { STAGE_PROFILES } from './stage-profile-policy.mjs'
+import { STAGE_ROUTE_DEFINITIONS } from './stage-profile-policy.mjs'
 
 export class DispatchBatchError extends Error {
     constructor(code, message, details = {}) {
@@ -11,8 +11,10 @@ export class DispatchBatchError extends Error {
 }
 
 const SELECTABLE_ROLES = new Set([
-    ...Object.keys(STAGE_PROFILES).filter((role) =>
-        role !== 'dag-creator-updater')
+    ...Object.keys(STAGE_ROUTE_DEFINITIONS)
+        .map((key) => key.split(':', 1)[0])
+        .filter((role) =>
+            role !== 'dag-creator-updater')
 ])
 const EVIDENCE_TYPES = new Set([
     'investigated-owner-write-surface', 'explicit-runtime-requirement',
@@ -31,11 +33,11 @@ const STAGE_ROLES = new Map([
     ['test-contract', new Set(['test-owner'])],
     ['code-implementation', new Set(['code-implementer'])],
     ['ui-ux-implementation', new Set(['ui-ux-implementer'])],
+    ['ui-system-adjudication', new Set(['ui-system-adjudicator'])],
     ['behavior-verification', new Set(['test-owner'])],
     ['ux-acceptance', new Set(['ux-acceptance-verifier'])],
     ['documentation', new Set(['documentation-writer'])],
-    ['delivery', new Set(['root-scheduler'])],
-    ['cleanup', new Set(['cleanup-verifier'])]
+    ['delivery', new Set(['root-scheduler'])]
 ])
 const POLICY = {
     schema: 'issue-orchestration.dispatch-ranking-policy.v1',

@@ -1,29 +1,29 @@
-# Review、失败分类与验证
+# 独立验证、失败分类与验收
 
-本文件是实现者/reviewer 数量、reviewer 合同、失败分类、重跑、evidence 复用和验收顺序的唯一详细来源。
+本文件是实现者/独立 verifier 数量、验证合同、失败分类、重跑、evidence 复用和验收顺序的唯一详细来源。
 
 ## 角色与只读边界
 
-每项修改最多一名实现者和一名独立 reviewer。不得为同一修改并行派发第二名实现者或增加评审层。
+每项修改最多一名实现者和一名独立 behavior verifier。不得为同一修改并行派发第二名实现者或增加评审层。
 
-`issue_reviewer` 只审查指定 issue、已填充的闭环 prompt、实际 diff、测试与局部 evidence 投影，不接收状态根路径或完整 DAG，也不得读取或修改完整 DAG、ledger、槽位、锁或恢复指纹。它只报告会阻止当前验收组交付的 blocker；每条必须包含：
+`issue_test_owner` 的 `behavior-verification` phase 只审查指定 issue、已填充的闭环 prompt、实际 diff、测试与局部 evidence 投影，不接收状态根路径或完整 DAG，也不得读取或修改完整 DAG、ledger、槽位、锁或恢复指纹。它必须使用 `stage-model-pool.v2` 的 fresh read-only route，只报告会阻止当前验收组交付的 blocker；每条必须包含：
 
 - 准确路径或产物；
 - 可复核的事实依据；
 - 被违反的验收条件；
 - 最小必要修正。
 
-没有 blocker 时明确返回 `no delivery blocker`。不得修改代码、扩大范围、启动额外 agent、重复完整验收或提出纯偏好型风格意见。
+没有 blocker 时明确返回 `no delivery blocker`。不得修改代码、扩大范围、启动额外 agent、重复完整验收或提出纯偏好型风格意见。UI 的 `system-design-dispute` 由独立 `issue_ui_system_adjudicator` 只读裁决；不得让 behavior verifier 或 implementer 代替该 authority。
 
-当前 Codex 会把父 turn 的实时 sandbox 重新应用到 child，因此 custom-agent 文件中的 `sandbox_mode = "read-only"` 只是默认值，不能单独证明只读。调用 reviewer 前必须把父 turn 设为 read-only，使用非 full-history fork，并在 child rollout 或等价元数据中核验实际 `sandbox_policy` 为 `read-only`。若当前 surface 不能建立并核验该边界，不运行 reviewer，也不声称已独立只读 review。
+当前 Codex 会把父 turn 的实时 sandbox 重新应用到 child，因此 custom-agent 文件中的 `sandbox_mode = "read-only"` 只是默认值，不能单独证明只读。调用 behavior verifier、UX verifier 或 UI adjudicator 前必须把父 turn 设为 read-only，使用非 full-history fork，并在 child rollout 或等价元数据中核验实际 `sandbox_policy` 为 `read-only`。若当前 surface 不能建立并核验该边界，不运行 verifier/adjudicator，也不声称已独立只读验收。
 
 ## Blocker 回路
 
-每项修改只调用一次全量 reviewer。blocker 由原实现者修复；根代理只复验 blocker 指向的路径、验收条件和受影响检查。
+每项修改只调用一次全量 independent verifier（UI dispute 另按 policy 调用一次 adjudicator）。blocker 由原实现者修复；根代理只复验 blocker 指向的路径、验收条件和受影响检查。
 
-只有修复重新触及安全、公开契约或架构边界时，才允许再次全量 review，并记录触发事实。普通修复不得增加第二 reviewer 或重复整套 review。
+只有修复重新触及安全、公开契约或架构边界时，才允许再次全量 verification，并记录触发事实。普通修复不得增加第二 verifier 或重复整套验收。
 
-每次确认实现缺陷或 reviewer blocker 并回派原实现者时，根代理递增 DAG 节点的 `reworkCount`。第二次及后续返工的 effort 提升只按 [`dag-and-scheduling.md`](dag-and-scheduling.md) 的唯一模型规则执行；其他失败类别不得伪装成返工，也不得触发或重置该计数。
+每次确认实现缺陷或 verifier blocker 并回派原实现者时，根代理递增 DAG 节点的 `reworkCount`。该计数不属于 routing input，也不得自动升档；只有冻结 policy 允许的结构化 blocker receipt 才能生成 route-reclassification。其他失败类别不得伪装成返工，也不得触发或重置该计数。
 
 ## 先分类再修改
 

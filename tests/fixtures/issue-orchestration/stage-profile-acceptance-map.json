@@ -1,55 +1,82 @@
 {
-  "schema": "issue-orchestration.stage-profile-acceptance-map.v1",
+  "schema": "issue-orchestration.stage-profile-acceptance-map.v2",
   "issue": "Ozwasyd/FsusBlog#1819",
-  "authorityCommentId": 5145144548,
+  "authority": {
+    "kind": "merged-issue-body",
+    "updatedAt": "2026-08-01T09:01:42Z"
+  },
   "acceptance": [
     {
-      "id": "PROFILE-01",
-      "requirement": "One versioned stageProfiles authority defines all eight required roles with capability digest, model, effort, sandbox, write scope, required Skill digests, and rationale codes.",
+      "id": "CLASSIFICATION-01",
+      "requirement": "Every dispatchable node freezes the seven mandatory classification fields plus routingPolicyVersion, validates every published enum, and binds modelRoutingEvidenceDigest.",
       "tests": ["P01", "P02"],
-      "mutations": ["role-missing", "policy-version-missing", "capability-digest-missing", "rationale-codes-missing"]
+      "mutations": []
+    },
+    {
+      "id": "PROFILE-SCHEMA-01",
+      "requirement": "One versioned machine policy and deterministic compiler emit the complete stage profile schema, including allowed pool, default and selected profile, routing authority/input digest, reason, permissions, Skill digests, and capability digest.",
+      "tests": ["P03"],
+      "mutations": []
     },
     {
       "id": "ROOT-DAG-01",
-      "requirement": "Root is exactly Sol/low and cannot author DAG semantics; DAG creation/update is exactly fresh Sol/max/read-only and root-launched after remote snapshot drift.",
-      "tests": ["P03"],
-      "mutations": ["root-effort-max", "root-authors-dag", "dag-effort-low", "dag-sandbox-writable", "dag-not-fresh", "dag-nonroot-launch", "dag-local-event-trigger"]
-    },
-    {
-      "id": "OWNER-01",
-      "requirement": "The same Sol/max testOwnerId freezes tests and independently verifies behavior without implementation write authority or implementer context inheritance.",
+      "requirement": "Root is exactly Luna/low/normal and cannot choose profiles; DAG defaults to Terra/max, uses Sol/xhigh only for specified conflict/complexity evidence, and reserves Sol/max for a frontier exception.",
       "tests": ["P04"],
-      "mutations": ["test-owner-implementation-write", "behavior-verifier-inherits-implementer", "group-receipt-substitutes-member"]
+      "mutations": ["N01-root-sol-rejected"]
     },
     {
-      "id": "IMPLEMENT-01",
-      "requirement": "Code and UI/UX implementers remain Sol/low, own the full same-attempt self-test loop, modify only implementation paths, and cannot sign behavior or UX acceptance.",
+      "id": "TEST-OWNER-01",
+      "requirement": "Test-contract and fresh read-only behavior-verification phases use the Sol/high, Terra/max, Sol/xhigh ladder selected from verification and contract evidence; neither phase gains implementation authority.",
       "tests": ["P05"],
-      "mutations": ["implementer-effort-upgrade", "implementer-modifies-frozen-test", "implementer-modifies-docs", "implementer-returns-red-candidate", "implementer-signs-behavior", "internal-cycle-increments-rework"]
+      "mutations": ["N06-verifier-context-inheritance"]
     },
     {
-      "id": "UX-01",
-      "requirement": "UI and UX implementation have one Sol/low owner with required design Skill digests; UX acceptance is separate Sol/max/read-only and cannot implement.",
+      "id": "CODE-01",
+      "requirement": "Code bounded, complex, high-risk, and frontier routes are respectively Luna/max, Sol/high, Terra/max, and Sol/xhigh; Sol/medium and Terra/xhigh are forbidden.",
       "tests": ["P06"],
-      "mutations": ["ui-owner-split", "ui-skill-missing", "code-role-writes-ui", "ux-verifier-writable", "ux-verifier-implements"]
+      "mutations": ["N02-bounded-terra-without-evidence", "N03-high-risk-luna"]
     },
     {
-      "id": "DOC-01",
-      "requirement": "Documentation starts only after behavior green and, for UI work, UX accepted; Luna/xhigh is used only with a matching capability receipt and fallback is explicit.",
+      "id": "UI-UX-01",
+      "requirement": "Prescribed and bounded-composition UI use Sol/low; layout and interaction judgment use Sol/medium; system-design disputes stop implementation and route to a fresh read-only Sol/high or Sol/xhigh adjudicator.",
       "tests": ["P07"],
-      "mutations": ["documentation-before-green", "documentation-before-ux", "documentation-silent-fallback"]
+      "mutations": ["N04-ui-forbidden-model", "N05-ui-dispute-bypasses-adjudicator"]
+    },
+    {
+      "id": "UX-VERIFY-01",
+      "requirement": "UX local, path, and system verification use Sol/medium, Sol/high, and Sol/xhigh in a fresh read-only context without implementation or redesign authority.",
+      "tests": ["P08"],
+      "mutations": []
+    },
+    {
+      "id": "DOC-CLEANUP-01",
+      "requirement": "Documentation uses only Luna/high or Luna/max after behavior and UX prerequisites; cleanup green is issued only by the deterministic machine verifier and no LLM cleanup profile exists.",
+      "tests": ["P09"],
+      "mutations": []
+    },
+    {
+      "id": "SELF-TEST-01",
+      "requirement": "An implementer reaches candidate-green in one attempt with an unchanged frozen test tree; its self-test receipt cannot sign independent behavior or UX acceptance.",
+      "tests": ["P10"],
+      "mutations": ["N07-frozen-test-modified", "N08-internal-red-escalates"]
+    },
+    {
+      "id": "RECLASSIFICATION-01",
+      "requirement": "Only a structured blocker matching the frozen policy can reclassify a route; implementation failures, rework count, balance, telemetry, or human preference cannot change correctness routing, and unavailable capability fails closed.",
+      "tests": ["P11"],
+      "mutations": ["N09-silent-capability-fallback", "N11-telemetry-controls-policy"]
     },
     {
       "id": "CONTINUITY-01",
-      "requirement": "Group continuity preserves the exact member stage profile and receipt; it cannot upgrade effort, accumulate permissions, share verifier context, or replace member metadata.",
-      "tests": ["P08"],
-      "mutations": ["continuity-effort-upgrade", "continuity-permission-accumulation", "continuity-member-metadata-missing"]
+      "requirement": "Every acceptance-group member has independent classification, routing, contract, lease, candidate, self-test and fresh verification receipts; continuity never inherits another member's profile, permissions, or verifier context.",
+      "tests": ["P12"],
+      "mutations": ["N10-group-member-inherits-route"]
     },
     {
       "id": "LEGACY-01",
-      "requirement": "Legacy implementer/reviewer aliases, single-node model/effort, implementationProfile, and reviewProfile have no authority or fallback.",
-      "tests": ["P09", "P10"],
-      "mutations": ["legacy-implementer-role", "legacy-reviewer-role", "legacy-node-profile-authority"]
+      "requirement": "Legacy issue-implementer/reviewer aliases, node-local model/effort, implementationProfile/reviewProfile, and the fixed-Sol v1 shared install have no authority or fallback.",
+      "tests": ["P13"],
+      "mutations": ["N12-legacy-fixed-sol-discoverable"]
     }
   ]
 }

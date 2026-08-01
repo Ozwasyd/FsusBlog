@@ -3,7 +3,10 @@
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { STAGE_PROFILES } from './stage-profile-policy.mjs'
+import {
+    compileStageRoute,
+    splitProfile
+} from './stage-profile-policy.mjs'
 import { verifyCleanupReceipt } from './resource-lifecycle.mjs'
 
 const HASH = /^[a-f0-9]{64}$/u
@@ -89,6 +92,90 @@ function trustworthyObservation(item) {
         item.observationDigest === unsignedDigest(item, 'observationDigest')
 }
 
+function validateVersionedRoute(input) {
+    const classification = input.routingClassification ?? input.classification
+    if (!classification || !input.stagePhase) return false
+    const route = compileStageRoute({
+        ...classification,
+        stageRole: input.stageRole,
+        stagePhase: input.stagePhase,
+        frontierException: input.frontierException,
+        requiredSkillDigests: input.requiredSkills.map(({ digest: value }) => value),
+        capabilityDigest: input.capabilityDigest
+    })
+    const requested = splitProfile(route.selectedProfile)
+    const writePolicies = {
+        'root-scheduler:scheduling': 'external-state-root-only',
+        'dag-creator-updater:semantic-proposal': 'read-only',
+        'test-owner:test-contract': 'test-owner-scoped-write-lease',
+        'test-owner:behavior-verification': 'read-only',
+        'code-implementer:implementation': 'stage-scoped-write-lease',
+        'ui-ux-implementer:implementation': 'stage-scoped-write-lease',
+        'ui-system-adjudicator:adjudication': 'read-only',
+        'ux-acceptance-verifier:ux-acceptance': 'read-only',
+        'documentation-writer:documentation': 'documentation-scoped-write-lease'
+    }
+    const actual = [
+        input.requestedModel,
+        input.requestedEffort,
+        input.requestedSandbox,
+        input.writePolicy
+    ]
+    const expected = [
+        requested.model,
+        requested.effort,
+        route.sandbox,
+        writePolicies[`${input.stageRole}:${input.stagePhase}`]
+    ]
+    if (actual.some((value, index) => value !== expected[index])) {
+        fail(input.stageRole === 'root-scheduler'
+            ? 'dispatch-root-profile-policy'
+            : 'dispatch-stage-profile-policy')
+    }
+    return true
+}
+
+function validateV1RequestBoundary(input) {
+    const expected = {
+        'root-scheduler': [
+            'gpt-5.6-sol', 'low', 'read-only', 'external-state-root-only'
+        ],
+        'dag-creator-updater': [
+            'gpt-5.6-sol', 'max', 'read-only', 'read-only'
+        ],
+        'test-owner': [
+            'gpt-5.6-sol', 'max', 'workspace-write',
+            'test-owner-scoped-write-lease'
+        ],
+        'code-implementer': [
+            'gpt-5.6-sol', 'low', 'workspace-write',
+            'stage-scoped-write-lease'
+        ],
+        'ui-ux-implementer': [
+            'gpt-5.6-sol', 'low', 'workspace-write',
+            'stage-scoped-write-lease'
+        ],
+        'ux-acceptance-verifier': [
+            'gpt-5.6-sol', 'max', 'read-only', 'read-only'
+        ],
+        'documentation-writer': [
+            'gpt-5.6-sol', 'low', 'workspace-write',
+            'documentation-scoped-write-lease'
+        ]
+    }[input.stageRole]
+    const actual = [
+        input.requestedModel,
+        input.requestedEffort,
+        input.requestedSandbox,
+        input.writePolicy
+    ]
+    if (!expected || actual.some((value, index) => value !== expected[index])) {
+        fail(input.stageRole === 'root-scheduler'
+            ? 'dispatch-root-profile-policy'
+            : 'dispatch-stage-profile-policy')
+    }
+}
+
 export async function sealDispatchRequest(input) {
     if (containsSecret(input)) fail('dispatch-secret-material')
     for (const field of REQUIRED_REQUEST_FIELDS) {
@@ -100,28 +187,7 @@ export async function sealDispatchRequest(input) {
         fail('dispatch-request-field-missing')
     }
     if (!SHA.test(input.baseSha ?? '')) fail('dispatch-request-base-sha')
-    const policyProfile = STAGE_PROFILES[input.stageRole]
-    const writePolicies = {
-        'root-scheduler': 'external-state-root-only',
-        'dag-creator-updater': 'read-only',
-        'test-owner': 'test-owner-scoped-write-lease',
-        'code-implementer': 'stage-scoped-write-lease',
-        'ui-ux-implementer': 'stage-scoped-write-lease',
-        'ux-acceptance-verifier': 'read-only',
-        'documentation-writer': 'stage-scoped-write-lease',
-        'cleanup-verifier': 'read-only'
-    }
-    const expectedProfile = policyProfile && [
-        policyProfile.model, policyProfile.effort,
-        policyProfile.sandbox, writePolicies[input.stageRole]
-    ]
-    if (expectedProfile && [input.requestedModel, input.requestedEffort,
-        input.requestedSandbox, input.writePolicy].some((value, index) =>
-        value !== expectedProfile[index])) {
-        fail(input.stageRole === 'root-scheduler'
-            ? 'dispatch-root-profile-policy'
-            : 'dispatch-stage-profile-policy')
-    }
+    if (!validateVersionedRoute(input)) validateV1RequestBoundary(input)
     if (input.stageRole === 'ui-ux-implementer' && input.repository === 'Ozwasyd/FsusBlog') {
         const expectedSkills = ['fsusblog-design-conformance', 'fsusui-design-conformance']
         const actualSkills = input.requiredSkills.map(({ id }) => id)

@@ -25,7 +25,7 @@ node .agents/skills/issue-orchestration/scripts/validate-state-root.mjs \
 
 守卫会按输入遍历顺序解析相对路径和 `..`，拒绝 symlink 组件，以最近存在祖先推导不存在尾部的规范路径，并同时核验 Linux mount coordinate、device/inode identity 和实际 Git worktree。对无法证明 backing path 的 FUSE/overlay alias mount 直接拒绝。它不以字符串前缀作为充分证据；无法读取 mount 或 worktree 身份时 fail closed。第一次校验通过后，只能使用输出的 `candidate.canonical` 以 `0700` 权限创建状态根；创建后必须用同一参数复验，复验通过前不得写 DAG。
 
-根代理是完整运行态（ledger、锁、槽位和事件）的唯一写入者。implementer 和 reviewer 只接收当前闭环任务、局部 diff 与所需 evidence 投影，不得读取或修改完整 DAG、ledger、锁、槽位或状态根。根代理可以追加已验证的阶段事件，但不得自行生成、删除或修补 completed-prerequisite tombstone；tombstone 只能由 root scheduler 拉起的、`gpt-5.6-sol / max`、fresh-context、read-only 的 DAG updater 提议，再由机器门禁校验后纳入 v2 DAG。
+根代理是完整运行态（ledger、锁、槽位和事件）的唯一写入者。各 stage agent 只接收当前闭环任务、局部 diff 与所需 evidence 投影，不得读取或修改完整 DAG、ledger、锁、槽位或状态根。根代理可以追加已验证的阶段事件，但不得自行生成、删除或修补 completed-prerequisite tombstone；tombstone 只能由 root scheduler 拉起、绑定 `stage-model-pool.v2` semantic-proposal route 的 fresh-context、read-only DAG updater 提议，再由机器门禁校验后纳入 v2 DAG。
 
 ## 启动 DAG 门禁
 
@@ -94,7 +94,7 @@ DAG 至少记录：
 
 - run id、刷新时间、固定请求的 15 个 subagent 槽位、实际可用槽位及能力证据；
 - 两仓绝对路径、默认分支、HEAD、dirty state 与远端身份；
-- 每个节点的 issue URL/编号、当前标题、依赖、责任仓、验收组、状态、难度、实现者、reviewer、开始时间；
+- 每个节点的 issue URL/编号、当前标题、依赖、责任仓、验收组、状态、routing classification、实现者、独立 verifier、开始时间；
 - 状态根内运行态相对路径、已执行命令的 evidence key、产物 fingerprint、合法重跑原因；
 - terminal 类别、直接证据、恢复条件及恢复指纹。
 
@@ -106,7 +106,7 @@ DAG 至少记录：
 
 1. 远端新出现且属于本次范围的 issue；
 2. 执行中由直接证据确认的真实实现缺陷；
-3. reviewer blocker 或验收失败形成的返工节点。
+3. independent behavior/UX verifier blocker 或验收失败形成的返工节点。
 
 随后重算每个受影响节点的依赖、责任仓、执行顺序和重合验收组。不得把执行期缺陷放在图外处理。责任仓必须来自当前代码、测试、文档和本地 alias 事实，不从 issue 标签或标题猜测。
 
@@ -126,38 +126,17 @@ DAG 至少记录：
 
 Skill 的调度预算固定为 15 个 subagent 槽位，根调度线程不占用该预算。DAG 必须记录 `subagentSlotsConfigured=15`、实际运行时可提供的 subagent capacity 证据，以及 `subagentSlotsEffective`。
 
-`subagentSlotsEffective` 取 15、运行时实际 subagent capacity 和环境资源上限三者的最小值；调用者可为单次运行显式降低，但不得提高到 15 以上。每个 implementer、reviewer 或仍运行的长任务各占一个 subagent 槽位。槽位满时才等待最早能改变 DAG 的事件。
+`subagentSlotsEffective` 取 15、运行时实际 subagent capacity 和环境资源上限三者的最小值；调用者可为单次运行显式降低，但不得提高到 15 以上。每个 implementer、independent verifier/adjudicator 或仍运行的长任务各占一个 subagent 槽位。槽位满时才等待最早能改变 DAG 的事件。
 
 ## 根调度模型
 
-根调度进程（root scheduler）固定使用 `gpt-5.6-sol` / `low`。进入调度循环前先从本轮
-运行时元数据核验实际 model 与 reasoning effort；不匹配时分类为调用
-问题，停止本次父调用并以正确参数接管 checkpoint。错误父调用产生的
-子任务或 evidence 只有在角色、任务边界、内容 fingerprint 和候选验证
-仍然有效时才可复用；不得借修正父模型重复实现或重建有效产物。
+根调度进程（root scheduler）固定使用 `luna-low`。进入调度循环前先从本轮运行时元数据核验实际 model 与 reasoning effort；不匹配时分类为调用问题，停止本次父调用并以正确参数接管 checkpoint。Root 只调用 `stage-model-pool.v2` routing compiler，不得自行判断风险、UI 分类、模型或 fallback。
 
-这项要求只约束根调度进程，不参与下面的任务难度分档，也不得传播成
-custom agent 的固定模型。
+## Stage model pool 与重分类
 
-## Subagent 难度、模型与返工提升
+唯一 authority 是 `issue-orchestration.stage-model-pool-policy.v2`。DAG semantic proposal 使用 `[terra-max, sol-xhigh, sol-max]`（默认 Terra/max，Sol/max 仅 frontier exception）；test-owner 的 test-contract 与 behavior-verification 使用 `[sol-high, terra-max, sol-xhigh]`，按 verification/lifecycle risk 确定性选择；code implementer 按 bounded/complex/high-risk/frontier 选择 `luna-max`/`sol-high`/`terra-max`/`sol-xhigh`；UI implementer 只能使用 `sol-low`/`sol-medium`，system-design-dispute 必须先交 fresh read-only `ui-system-adjudicator`；UX acceptance 使用 `sol-medium`/`sol-high`/`sol-xhigh`；documentation writer 仅 `luna-high`/`luna-max`。Cleanup/quiescence 不进入 LLM pool，绿色 authority 是机器 resource verifier，异常可由诊断 profile 解释但不能签发 resources-clean。
 
-所有实现和 review 任务使用 `gpt-5.6-sol`，只按当前闭环任务的实际难度选择 reasoning effort；不按比例凑数，也不参照根调度进程的 effort：
-
-| 难度带 | 判断 | effort |
-| --- | --- | --- |
-| 简单至中下 | 边界明确、单一 owner、局部机械实现与 focused checks | `low` |
-| 中下至中等 | 局部设计判断、少量跨文件修改或一般运行时验证 | `medium` |
-| 中等至中上 | 跨模块协作、重要权衡或多阶段验证，但边界已闭合 | `high` |
-| 中上至难 | 复杂并发、跨 owner 行为或高风险运行时/契约推演 | `xhigh` |
-| 难至极难 | 跨仓、跨协议、安全/公开契约/架构级高风险推演 | `max` |
-
-DAG 为每个节点记录 `difficultyBand`、`model`、`effort` 和 `reworkCount`。`reworkCount` 只在已确认的实现缺陷或 reviewer blocker 回到原实现者时增加；测试/基线、环境和调用问题不计数。
-
-`reworkCount < 2` 时 effort 必须精确等于难度带对应档位，不得无依据升档或降档。
-
-当 `reworkCount >= 2` 时，下一次修复派发必须在该节点基础难度档之上至少提升一档 effort：`low → medium → high → xhigh → max`，并记录提升前后档位及直接触发证据。基础档已为 `max` 时保持 `max` 并记录封顶，不得通过更换 owner、重置计数或把实现缺陷改分类来规避提升。
-
-每次派发显式传递该节点的 model 与 reasoning effort，并使用非 full-history fork；当前 Codex 的角色派发要求 `fork_turns="none"` 或正整数，full-history fork 不接受角色/模型覆盖。派发后从实际 child rollout 或等价运行时元数据核验 model、effort 和 role。若当前 surface 不暴露这些参数或无法核验，不得默默继承父线程并声称选型成功；停止该派发并记录能力缺口。
+`reworkCount`、失败次数、余额、telemetry、当前 root profile 和人工偏好不是 routing input。只有冻结 policy 允许的结构化 blocker receipt 才能生成 route-reclassification；不可用 profile 返回 `runtime-capability-missing`，不得静默切换。Acceptance-group continuity 每个 member 独立分类、routing、lease 和 verifier context，不能继承上一 member 的 profile 或权限。每次派发使用非 full-history fork，并从实际 child rollout 或等价机器 metadata 核验 effective profile、role、sandbox、cwd、Skill 和 lease；无法核验即停止派发并记录 capability 缺口。
 
 ## Terminal
 

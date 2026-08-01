@@ -26,20 +26,20 @@ description: Use only to coordinate multiple open FsusBlog/FsusUI issues that re
 
 ## 总循环
 
-根代理负责 DAG、任务裁剪、闭环 prompt、槽位调度、完成度复核、最终验收、本地整合、提交、推送、issue 评论与关闭；实现者和 reviewer 不执行远端交付。
+根代理负责 DAG、任务裁剪、闭环 prompt、槽位调度、完成度复核、最终验收、本地整合、提交、推送、issue 评论与关闭；实现者和独立 verifier/adjudicator 不执行远端交付。
 
 1. **建立或刷新 DAG**：按 [`references/dag-and-scheduling.md`](references/dag-and-scheduling.md) 验证仓库外状态根，读取或重建当前范围 DAG，对照远端与仓库事实通过一致性门禁，再重算受影响节点。
 2. **选择节点**：继续按同一 reference 的 ready、槽位、长任务、模型和 terminal 规则选择下一动作。
 3. **准备任务**：读取 [`references/dispatch-and-runtime-probe.md`](references/dispatch-and-runtime-probe.md)；完成调查，必要时运行最小真实探针，再填写 [`templates/subagent-task.md`](templates/subagent-task.md)。
-4. **派发实现者**：按 dispatch reference 调用项目角色 `issue_implementer`，使用 DAG 阶段选定的模型与 reasoning effort。
-5. **独立 review**：实现者返回产出后，完整读取 [`references/review-failure-and-verification.md`](references/review-failure-and-verification.md)，按其中的只读启动条件调用一次 `issue_reviewer`。
+4. **派发实现者**：按 dispatch reference 调用具体 stage role（`issue_code_implementer` 或 `issue_ui_ux_implementer`），使用 `stage-model-pool.v2` routing compiler 产出的 profile。
+5. **独立验证**：实现者返回产出后，完整读取 [`references/review-failure-and-verification.md`](references/review-failure-and-verification.md)，按其中的 fresh read-only 条件调用 `issue_test_owner` 的 behavior-verification phase；UI system dispute 先调用 `issue_ui_system_adjudicator`，UX 路径再调用 `issue_ux_acceptance_verifier`。
 6. **分类与验证**：按 review reference 分类任何失败、处理 blocker、复用有效 evidence，并从 focused/低成本检查推进到稳定候选所需的高成本检查。
 7. **立即交付验收组**：一组全部通过后，读取 [`references/group-delivery.md`](references/group-delivery.md)，按其中的 CI evidence 分类与关闭门禁完成提交、主分支推送、远端核验和 issue 关闭；dry-run 时停在明确的首个有副作用动作之前。
 8. **回写运行态并继续**：由根代理在已验证的仓库外状态根更新 DAG、证据键、槽位和恢复指纹，然后回到步骤 1；不得靠记忆补全尚未读取的阶段规则。
 
 ## 状态与停止
 
-节点沿 `discovered → investigated → ready → implementing → review → verifying → deliverable → delivered` 推进；关闭远端后成为 `closed`。失败、返工、阻塞和 terminal 的合法转换由对应 reference 定义，不得跳过证据条件。
+节点沿 `discovered → test-contracting → test-contract-frozen → implementing-self-testing → candidate-green → independent-verifying → behavior-green → (ux-acceptance → ux-accepted) → documenting → documentation-green → delivery-ready → delivering → cleaning → closed` 推进；UI 节点必须经过 UX acceptance，cleanup green 由机器 resource verifier 签发。失败、返工、阻塞和 terminal 的合法转换由对应 reference 定义，不得跳过证据条件。
 
 仅当以下条件同时成立才结束：
 
