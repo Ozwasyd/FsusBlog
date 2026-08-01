@@ -248,6 +248,36 @@ Member cleanup 只删除 member-owned resources；group-owned worktree/service �
 
 Subagent 的本地发现只作为 `possible-remote-contract-impact` execution-ledger event 返回并附直接 evidence。要纳入 scope，root 必须先让事实成为远端 issue 或现有 issue 的正文/评论变化；下一轮真实 remote snapshot 变化后才可更新 DAG。无关优化建议不创建 issue，也不扩大 scope。
 
+## Shared package、安装与发现
+
+调度 Skill、运行脚本、策略、图 schema、模板和 agent 定义只有一个可编辑 authoring source：`tools/codex/issue-orchestration-package/`。`manifest.json` 是该 package 的身份和完整性边界，绑定 `sourceCommit`、`sourceTreeDigest`、每个 artifact digest、`manifestDigest`、`stage-model-pool.v2` 的 model/routing/stage-permission/remote-mutation digest、semantic graph/patch/runtime-projection schema、projector、两个支持仓库和所需 capabilities。manifest 不能把自己列入 `artifactDigests`；任一绑定或 canonical SHA-256 不匹配都必须拒绝。
+
+Package 对外只发布七个角色：`code-implementer`、`dag-creator-updater`、`documentation-writer`、`test-owner`、`ui-system-adjudicator`、`ui-ux-implementer` 和 `ux-acceptance-verifier`。角色与 profile 由单一 `stage-model-pool.v2` 和 deterministic routing compiler 选择：root scheduler 固定 `luna-low`（`gpt-5.6-luna`/`low`），documentation 只能使用 `luna-high` 或 `luna-max`，cleanup 的 green authority 是 machine resource verifier。旧的 `.agents/skills/issue-orchestration`、`.codex/agents` issue aliases、review/cleanup-verifier aliases 和 fixed-Sol/node-local profile authority 都不是可发现的兼容来源；产品 API、design、documentation 和 runtime authority 仍由各仓库 current 文档/AGENTS 在运行时提供，不能复制进 package。
+
+安装目标必须是 caller-supplied、位于两个仓库、common workspace 和全部 worktree 之外的 external install root；runtime state root 也必须独立于 authoring source 和 install root。安装通过 staging sibling 后原子 rename，并写入 `.issue-orchestration-install.json` ownership manifest。验证逐文件比较 source/install/manifest/install digests；未知手工编辑、半安装残留、symlink、protected-root overlap 和 ownership drift 都 fail closed，不能覆盖未知编辑。卸载只在 ownership manifest 完全匹配时删除 package-owned install root，外部 sibling 或 sentinel 保留。
+
+使用 `install.mjs`、`verify-install.mjs` 和 `discover.mjs` 时，应从五个 cwd 复核同一身份：FsusBlog root、FsusUI root、common workspace，以及两仓各一个 worktree。每个 discovery receipt 必须返回相同的 `packageIdentity`/`packageDigest`、Skill identity/digest、七角色集合、model-pool、routing、remote-mutation、graph/patch/runtime-projection 和 projector digests；任何 cwd-specific drift 都拒绝。典型验证（所有路径均为外部临时目录）如下：
+
+```bash
+PACKAGE_ROOT=tools/codex/issue-orchestration-package
+INSTALL_ROOT=/external/issue-orchestration-install
+STATE_ROOT=/external/issue-orchestration-state
+node "$PACKAGE_ROOT/scripts/install.mjs" \
+  --source-root "$PACKAGE_ROOT" --install-root "$INSTALL_ROOT" \
+  --protected-root "$PWD" --protected-root /path/to/FsusUI
+node "$PACKAGE_ROOT/scripts/verify-install.mjs" \
+  --source-root "$PACKAGE_ROOT" --install-root "$INSTALL_ROOT" \
+  --runtime-state-root "$STATE_ROOT" \
+  --probe-cwd /path/to/FsusBlog --probe-cwd /path/to/FsusUI \
+  --probe-cwd /path/to/common-workspace \
+  --probe-cwd /path/to/FsusBlog-worktree \
+  --probe-cwd /path/to/FsusUI-worktree
+node "$PACKAGE_ROOT/scripts/uninstall.mjs" \
+  --source-root "$PACKAGE_ROOT" --install-root "$INSTALL_ROOT"
+```
+
+Semantic graph（`semantic-graph.json`）、immutable ledger、runtime projection（`runtime-projection.json`）、receipts 和 resource registry 只能写入 `STATE_ROOT`；不得进入 source 或 installed artifact。`semanticGraphDigest` 与 `runtimeProjectionDigest` 各自由对应 validator/projector 产生，receipt 同时绑定 manifest/package/install digests、candidate/base、epoch、role/model/effort、cwd、Skill/capability 和 runtime-state-root identity。
+
 ## Grouped delivery window
 
 Acceptance-group delivery 在窗口开始前记录 `preWindowRemoteSnapshotDigest`。一次 push 和窗口内逐 issue side effect 完成后，只做一次 live remote refresh，形成 `postWindowReceipt`；refresh 必须标记为 `post-window`、`live-remote` 且确实发生在 side effect 之后。禁止按 member 刷新、用本地推算替代真实刷新，或因已知 side effect 跳过窗口末刷新。
@@ -258,7 +288,7 @@ Acceptance-group delivery 在窗口开始前记录 `preWindowRemoteSnapshotDiges
 
 调用方应保留以下错误码，便于故障定位：`invalid-selector-schema`、`selector-version-parameters-mismatch`、`dag-launch-required`、`dag-launch-denied`、`proposal-mismatch` 和 `delivery-window-invalid`。这些拒绝表示合同不满足，不应通过重试未变化的 selector、snapshot 或 launch request 绕过。
 
-Selector 行为合同位于 `tests/tools/issue-orchestration-scope-selector.test.mjs`，fixture 位于 `tests/fixtures/issue-orchestration/scope-selector-cases.json`，实现入口为 `.agents/skills/issue-orchestration/scripts/scope-selector.mjs`；frontier 行为合同位于 `tests/tools/issue-orchestration-ready-frontier.test.mjs`，实现入口为 `.agents/skills/issue-orchestration/scripts/frontier-compiler.mjs`；stage model pool 行为合同位于 `tests/tools/issue-orchestration-stage-profiles.test.mjs`，其 v2 acceptance/mutation/runtime fixtures 位于 `tests/fixtures/issue-orchestration/stage-profile-*.json`，实现入口为 `.agents/skills/issue-orchestration/scripts/stage-profile-policy.mjs`；event ledger 行为合同位于 `tests/tools/issue-orchestration-event-ledger.test.mjs`，其 acceptance/mutation/runtime fixtures 位于 `tests/fixtures/issue-orchestration/event-ledger-*.json`，实现入口为 `.agents/skills/issue-orchestration/scripts/event-ledger.mjs`；dispatch/runtime/self-test 行为合同位于 `tests/tools/issue-orchestration-dispatch-receipt.test.mjs`，fixture 位于 `tests/fixtures/issue-orchestration/dispatch-receipt-*.json`，实现入口为 `.agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs`；semantic graph/runtime projection 行为合同位于 `tests/tools/issue-orchestration-semantic-runtime-projection.test.mjs`，fixture 位于 `tests/fixtures/issue-orchestration/semantic-runtime-projection-*.json`，实现入口为 `.agents/skills/issue-orchestration/scripts/semantic-runtime-projection.mjs`。修改 selector、snapshot、frontier、stage model pool、ledger、dispatch receipt 或 semantic/runtime projection 合同时运行：
+Selector 行为合同位于 `tests/tools/issue-orchestration-scope-selector.test.mjs`，fixture 位于 `tests/fixtures/issue-orchestration/scope-selector-cases.json`，实现入口为 `tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/scope-selector.mjs`；frontier 行为合同位于 `tests/tools/issue-orchestration-ready-frontier.test.mjs`，实现入口为 `tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/frontier-compiler.mjs`；stage model pool 行为合同位于 `tests/tools/issue-orchestration-stage-profiles.test.mjs`，其 v2 acceptance/mutation/runtime fixtures 位于 `tests/fixtures/issue-orchestration/stage-profile-*.json`，实现入口为 `tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/stage-profile-policy.mjs`；event ledger 行为合同位于 `tests/tools/issue-orchestration-event-ledger.test.mjs`，其 acceptance/mutation/runtime fixtures 位于 `tests/fixtures/issue-orchestration/event-ledger-*.json`，实现入口为 `tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/event-ledger.mjs`；dispatch/runtime/self-test 行为合同位于 `tests/tools/issue-orchestration-dispatch-receipt.test.mjs`，fixture 位于 `tests/fixtures/issue-orchestration/dispatch-receipt-*.json`，实现入口为 `tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/dispatch-receipt.mjs`；semantic graph/runtime projection 行为合同位于 `tests/tools/issue-orchestration-semantic-runtime-projection.test.mjs`，fixture 位于 `tests/fixtures/issue-orchestration/semantic-runtime-projection-*.json`，实现入口为 `tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/semantic-runtime-projection.mjs`。修改 selector、snapshot、frontier、stage model pool、ledger、dispatch receipt 或 semantic/runtime projection 合同时运行：
 
 ```bash
 node --test tests/tools/issue-orchestration-scope-selector.test.mjs
@@ -266,7 +296,7 @@ node --test tests/tools/issue-orchestration-ready-frontier.test.mjs
 node --test tests/tools/issue-orchestration-stage-profiles.test.mjs
 node --test tests/tools/issue-orchestration-dispatch-receipt.test.mjs
 node --test tests/tools/issue-orchestration-event-ledger.test.mjs
-node --check .agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs
+node --check tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/dispatch-receipt.mjs
 node --test tests/tools/issue-orchestration-semantic-runtime-projection.test.mjs
 node tools/docs/generate-document-lifecycle.mjs --check
 node tools/docs/check-authoritative-development-docs.mjs

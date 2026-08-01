@@ -215,6 +215,18 @@ Fix: stop dispatch and ask the root scheduler to run the ledger recovery path. A
 
 Relevant evidence: the state-root recovery receipt, the final valid sequence, the projection digest, and the preserved ledger bytes. The ledger must remain outside both product repositories, the shared workspace, and every worktree.
 
+## Issue Orchestration Shared Package Install Or Discovery Failure
+
+Symptom: install, verify, or discovery reports `manifest-*`, `install-target-protected-overlap`, `install-transaction-incomplete`, `installed-artifact-drift`, `install-target-ownership-drift`, `uninstall-target-ownership-drift`, `runtime-state-root-artifact-overlap`, `runtime-state-leaked`, `repo-local-skill-authority-present`, `repo-local-agent-authority-present`, or `discovery-identity-drift`.
+
+Likely cause: more than one editable authoring source is present, the package manifest or ownership file no longer matches its canonical artifact digests, an install target overlaps FsusBlog/FsusUI/common workspace/worktrees, an unknown hand edit or partial transaction exists, or runtime state was written into source/installed artifacts. The only authoring source is `tools/codex/issue-orchestration-package`; it owns exactly seven roles and the `stage-model-pool.v2` model/routing/policy/graph/projector bindings. Repository-local `.agents/skills/issue-orchestration`, issue-agent aliases, retired roles, and fixed-Sol compatibility authority must not be restored.
+
+How to verify: choose external temporary `INSTALL_ROOT` and `STATE_ROOT`, then run `install.mjs` and `verify-install.mjs` with protected roots for both repositories and all five discovery cwd values (FsusBlog root, FsusUI root, common workspace, and one worktree per repository). Compare `manifestDigest`, `sourceTreeDigest`, ownership `installDigest`, the seven `agentIds`, Skill/model/routing/remote-mutation/graph/patch/runtime-projector digests, and every discovery entry. A verified install must report `issue-orchestration.shared-install-verification.v1` with `status=verified`; a verified uninstall must report `issue-orchestration.shared-uninstall-receipt.v1` and leave externally owned siblings untouched.
+
+Fix: remove only a failed, package-owned install after preserving the error receipt; correct the boundary or regenerate the package manifest from its source artifacts, then perform a fresh atomic install. Do not overwrite an unknown hand edit, delete a protected repository/worktree, place semantic graph/ledger/runtime projection/receipts/resource registry under source or install, or retry an unchanged digest/ownership failure. Re-run discovery from every cwd and require the same package identity/digests before dispatch.
+
+Relevant evidence: package `manifest.json`, `.issue-orchestration-install.json`, install/verify/uninstall receipts, five-cwd discovery entries, and the external runtime-state-root inventory. The manifest and receipts must remain bound to canonical SHA-256 digests; missing or mismatched evidence is fail-closed.
+
 ## Issue Orchestration Receipt Or Permission Rejection
 
 Symptom: `root-startup-capability-unverified`, `root-startup-profile-mismatch`, `verified-dispatch-receipt-required`, `receipt-v1-historical-only`, `receipt-schema-stage-mismatch`, `candidate-tests-not-green`, `candidate-visible-matrix-incomplete`, `frozen-test-contract-modified`, `independent-verification-not-fresh`, `candidate-identity-mismatch`, `first-failure-mismatch`, `ledger-writer-role`, `state-root-protected-overlap`, or `ledger-path-symlink`.
@@ -236,7 +248,7 @@ Likely cause: the child rollout did not expose effective metadata, the runtime w
 How to verify: preserve the external state root and run the deterministic v2 verifier with the original files:
 
 ```bash
-node .agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs verify-runtime \
+node <install-root>/skills/issue-orchestration/scripts/dispatch-receipt.mjs verify-runtime \
   --request <state-root>/requests/<request-id>.json \
   --rollout <runtime-rollout-jsonl> \
   --machine-observations <state-root>/observations/<request-id>.json
