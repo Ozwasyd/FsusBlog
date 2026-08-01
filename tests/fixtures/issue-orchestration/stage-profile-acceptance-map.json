@@ -1,0 +1,55 @@
+{
+  "schema": "issue-orchestration.stage-profile-acceptance-map.v1",
+  "issue": "Ozwasyd/FsusBlog#1819",
+  "authorityCommentId": 5145144548,
+  "acceptance": [
+    {
+      "id": "PROFILE-01",
+      "requirement": "One versioned stageProfiles authority defines all eight required roles with capability digest, model, effort, sandbox, write scope, required Skill digests, and rationale codes.",
+      "tests": ["P01", "P02"],
+      "mutations": ["role-missing", "policy-version-missing", "capability-digest-missing", "rationale-codes-missing"]
+    },
+    {
+      "id": "ROOT-DAG-01",
+      "requirement": "Root is exactly Sol/low and cannot author DAG semantics; DAG creation/update is exactly fresh Sol/max/read-only and root-launched after remote snapshot drift.",
+      "tests": ["P03"],
+      "mutations": ["root-effort-max", "root-authors-dag", "dag-effort-low", "dag-sandbox-writable", "dag-not-fresh", "dag-nonroot-launch", "dag-local-event-trigger"]
+    },
+    {
+      "id": "OWNER-01",
+      "requirement": "The same Sol/max testOwnerId freezes tests and independently verifies behavior without implementation write authority or implementer context inheritance.",
+      "tests": ["P04"],
+      "mutations": ["test-owner-implementation-write", "behavior-verifier-inherits-implementer", "group-receipt-substitutes-member"]
+    },
+    {
+      "id": "IMPLEMENT-01",
+      "requirement": "Code and UI/UX implementers remain Sol/low, own the full same-attempt self-test loop, modify only implementation paths, and cannot sign behavior or UX acceptance.",
+      "tests": ["P05"],
+      "mutations": ["implementer-effort-upgrade", "implementer-modifies-frozen-test", "implementer-modifies-docs", "implementer-returns-red-candidate", "implementer-signs-behavior", "internal-cycle-increments-rework"]
+    },
+    {
+      "id": "UX-01",
+      "requirement": "UI and UX implementation have one Sol/low owner with required design Skill digests; UX acceptance is separate Sol/max/read-only and cannot implement.",
+      "tests": ["P06"],
+      "mutations": ["ui-owner-split", "ui-skill-missing", "code-role-writes-ui", "ux-verifier-writable", "ux-verifier-implements"]
+    },
+    {
+      "id": "DOC-01",
+      "requirement": "Documentation starts only after behavior green and, for UI work, UX accepted; Luna/xhigh is used only with a matching capability receipt and fallback is explicit.",
+      "tests": ["P07"],
+      "mutations": ["documentation-before-green", "documentation-before-ux", "documentation-silent-fallback"]
+    },
+    {
+      "id": "CONTINUITY-01",
+      "requirement": "Group continuity preserves the exact member stage profile and receipt; it cannot upgrade effort, accumulate permissions, share verifier context, or replace member metadata.",
+      "tests": ["P08"],
+      "mutations": ["continuity-effort-upgrade", "continuity-permission-accumulation", "continuity-member-metadata-missing"]
+    },
+    {
+      "id": "LEGACY-01",
+      "requirement": "Legacy implementer/reviewer aliases, single-node model/effort, implementationProfile, and reviewProfile have no authority or fallback.",
+      "tests": ["P09", "P10"],
+      "mutations": ["legacy-implementer-role", "legacy-reviewer-role", "legacy-node-profile-authority"]
+    }
+  ]
+}

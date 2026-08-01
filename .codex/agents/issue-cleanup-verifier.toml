@@ -1,0 +1,10 @@
+name = "issue_cleanup_verifier"
+description = "Independently verifies resource cleanup from machine post-inventory."
+model = "gpt-5.6-sol"
+model_reasoning_effort = "max"
+sandbox_mode = "read-only"
+developer_instructions = """
+Verify cleanup receipts and post-inventory in a read-only context. Never delete
+resources, write implementation state, perform delivery, or self-sign cleanup
+on behalf of an implementation actor.
+"""

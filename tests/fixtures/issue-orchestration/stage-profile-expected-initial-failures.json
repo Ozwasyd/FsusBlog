@@ -1,0 +1,21 @@
+{
+  "schema": "issue-orchestration.stage-profile-expected-initial-failures.v1",
+  "issueId": "Ozwasyd/FsusBlog#1819",
+  "baseSha": "b5796c28c379f8d8725d8b32ff261b15baed3822",
+  "expectedStatus": "red",
+  "baselineCommand": ["node","--test","tests/tools/issue-orchestration-stage-profiles.test.mjs"],
+  "failureClasses": [
+    {"id":"central-policy-module-missing","path":".agents/skills/issue-orchestration/scripts/stage-profile-policy.mjs"},
+    {"id":"partial-inline-dispatch-profiles","path":".agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs","evidence":"Six inline profiles omit documentation-writer and cleanup-verifier and do not bind version/capability/rationale."},
+    {"id":"batch-role-drift","path":".agents/skills/issue-orchestration/scripts/dispatch-batch-selector.mjs","evidence":"ux-verifier and root-scheduler cleanup remain selectable instead of the canonical roles."},
+    {"id":"legacy-agent-authority","paths":[".codex/agents/issue-implementer.toml",".codex/agents/issue-reviewer.toml"]}
+  ],
+  "observedSummary": {
+    "tests": 46,
+    "pass": 2,
+    "fail": 44,
+    "skipped": 0,
+    "firstFailure": "central-policy-module-missing",
+    "observedAt": "2026-08-01T00:00:00+08:00"
+  }
+}

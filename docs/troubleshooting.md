@@ -246,6 +246,8 @@ Inspect `runtime-observation.v1` effective fields, `skill-loader` source/digests
 
 Fix: stop the attempt, preserve the receipt and first failure, and correct the dispatch boundary or produce a new request with a new attempt/epoch/thread identity after the relevant runtime or candidate change. Do not retry an unchanged request, rollout, sandbox, Skill load, or state root. Reviewer/UX verifier requests must remain read-only; test-owner writes must remain inside the scoped tests/fixtures lease.
 
+If the rejection is `stage-profile-legacy-role`, `stage-profile-policy-version`, `stage-profile-capability-digest`, `stage-profile-rationale`, `stage-profile-continuity`, or `stage-profile-documentation-capability`, inspect the assignment against `stage-profiles.v1`. Replace legacy issue implementer/reviewer aliases with the exact stage role, remove node-local implementation/review profiles, and preserve the member receipt across group continuation. Documentation requires a matching Luna/xhigh capability receipt or an explicit fallback receipt; requested metadata alone is not proof.
+
 ## Issue Orchestration Layered Investigation Rejection
 
 Symptom: frontier compilation refuses to dispatch with `legacy-investigation-schema-forbidden`, `investigation-projection-unvalidated`, `investigation-projection-schema`, `investigation-validation-authority`, `investigation-projection-member-duplicate`, `investigation-projection-derived-list-mismatch`, `investigation-projection-digest-mismatch`, `selector-receipt-mismatch`, `investigation-projection-stale`, `investigation-layer-schema`, `investigation-layer-status`, `investigation-layer-digest-mismatch`, `investigation-layer-authority`, `investigation-layer-input-digest-mismatch`, or `issue-facts-stale`.

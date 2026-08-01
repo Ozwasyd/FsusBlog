@@ -3,6 +3,7 @@
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import { pathToFileURL } from 'node:url'
+import { STAGE_PROFILES } from './stage-profile-policy.mjs'
 
 const HASH = /^[a-f0-9]{64}$/u
 const SHA = /^[a-f0-9]{40}$/u
@@ -93,18 +94,21 @@ export async function sealDispatchRequest(input) {
         fail('dispatch-request-field-missing')
     }
     if (!SHA.test(input.baseSha ?? '')) fail('dispatch-request-base-sha')
-    const profiles = {
-        'root-scheduler': ['gpt-5.6-sol', 'low', 'read-only', 'external-state-root-only'],
-        'dag-creator-updater': ['gpt-5.6-sol', 'max', 'read-only', 'read-only'],
-        'test-owner': ['gpt-5.6-sol', 'max', 'workspace-write',
-            'test-owner-scoped-write-lease'],
-        'code-implementer': ['gpt-5.6-sol', 'low', 'workspace-write',
-            'stage-scoped-write-lease'],
-        'ui-ux-implementer': ['gpt-5.6-sol', 'low', 'workspace-write',
-            'stage-scoped-write-lease'],
-        'ux-acceptance-verifier': ['gpt-5.6-sol', 'max', 'read-only', 'read-only']
+    const policyProfile = STAGE_PROFILES[input.stageRole]
+    const writePolicies = {
+        'root-scheduler': 'external-state-root-only',
+        'dag-creator-updater': 'read-only',
+        'test-owner': 'test-owner-scoped-write-lease',
+        'code-implementer': 'stage-scoped-write-lease',
+        'ui-ux-implementer': 'stage-scoped-write-lease',
+        'ux-acceptance-verifier': 'read-only',
+        'documentation-writer': 'stage-scoped-write-lease',
+        'cleanup-verifier': 'read-only'
     }
-    const expectedProfile = profiles[input.stageRole]
+    const expectedProfile = policyProfile && [
+        policyProfile.model, policyProfile.effort,
+        policyProfile.sandbox, writePolicies[input.stageRole]
+    ]
     if (expectedProfile && [input.requestedModel, input.requestedEffort,
         input.requestedSandbox, input.writePolicy].some((value, index) =>
         value !== expectedProfile[index])) {

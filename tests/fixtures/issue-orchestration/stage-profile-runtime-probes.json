@@ -1,0 +1,15 @@
+{
+  "schema": "issue-orchestration.stage-profile-runtime-probes.v1",
+  "probes": [
+    {"id":"RP01","scenario":"Observe root runtime as Sol/max","expectedCode":"stage-profile-effort"},
+    {"id":"RP02","scenario":"Observe DAG child without fresh read-only root launch metadata","expectedCode":"stage-profile-dag-authority"},
+    {"id":"RP03","scenario":"Observe test owner writing an implementation path","expectedCode":"stage-profile-test-boundary"},
+    {"id":"RP04","scenario":"Observe implementer editing a frozen test during its self-test loop","expectedCode":"stage-profile-implementation-boundary"},
+    {"id":"RP05","scenario":"Observe candidate-green with a remaining failing command","expectedCode":"stage-profile-candidate-green"},
+    {"id":"RP06","scenario":"Observe UI implementation without both design Skill digests","expectedCode":"stage-profile-skill-digest"},
+    {"id":"RP07","scenario":"Observe writable UX acceptance verifier","expectedCode":"stage-profile-sandbox"},
+    {"id":"RP08","scenario":"Observe documentation fallback without a versioned capability decision","expectedCode":"stage-profile-documentation-capability"},
+    {"id":"RP09","scenario":"Observe continuity identity with accumulated permissions","expectedCode":"stage-profile-continuity"},
+    {"id":"RP10","scenario":"Observe a legacy issue-reviewer runtime role","expectedCode":"stage-profile-legacy-role"}
+  ]
+}
