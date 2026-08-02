@@ -21,6 +21,10 @@ const policyPath = path.join(
     root,
     'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/stage-profile-policy.mjs'
 )
+const executionPolicyPath = path.join(
+    root,
+    'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/execution-route-compiler.mjs'
+)
 const stagePermissionsPolicyPath = path.join(
     root,
     'tools/codex/issue-orchestration-package/policy/stage-permissions.json'
@@ -91,6 +95,12 @@ async function policy() {
     return import(`${pathToFileURL(policyPath).href}?v2=${Date.now()}-${Math.random()}`)
 }
 
+async function executionPolicy() {
+    return import(
+        `${pathToFileURL(executionPolicyPath).href}?v2=${Date.now()}-${Math.random()}`
+    )
+}
+
 async function frozenRoute(changes = {}) {
     const module = await policy()
     const classification = {
@@ -133,7 +143,6 @@ async function requestInput(overrides = {}) {
         requiredSkillDigests: (overrides.requiredSkills ?? [])
             .map(({ digest: value }) => value)
     })
-    const selected = routeInput.module.splitProfile(routeInput.route.selectedProfile)
     const allowedImplementationPaths = routeInput.stageRole ===
         'ui-ux-implementer'
         ? ['src/components/issue-1832.tsx']
@@ -160,6 +169,51 @@ async function requestInput(overrides = {}) {
         routingInputDigest: routeInput.route.routingInputDigest,
         stageAttemptId
     })
+    const executionModule = await executionPolicy()
+    const executionMetrics = {
+        expectedChangedFileCount: 1,
+        ownedModuleCount: 1,
+        commandLoopCount: routeInput.stageRole ===
+            'ui-ux-implementer' ? 1 : 3,
+        runtimeProbeDepth: routeInput.stageRole ===
+            'ui-ux-implementer' ? 0 : 4,
+        toolInteractionDepth: routeInput.stageRole ===
+            'ui-ux-implementer' ? 2 : 7,
+        contextBreadth: 'moderate',
+        statefulContinuationRequired: false,
+        checkpointSupportRequired: routeInput.stageRole ===
+            'ui-ux-implementer' ? 'simple' : 'resumable',
+        firstActionDeterministic: true,
+        wholeIssueScope: false,
+        ...overrides.executionMetrics
+    }
+    const machineClassificationEvidence = {
+        schema: 'issue-orchestration.execution-shape-observation.v1',
+        source: 'machine-slice-and-runtime-observer',
+        observedAt: '2026-08-01T12:59:59.000Z',
+        evidenceDigest: digest({
+            requestId,
+            executionMetrics
+        }),
+        ...overrides.machineClassificationEvidence
+    }
+    const executionRoute = executionModule.compileExecutionRoute({
+        stageWorkPlan: artifacts.stageWorkPlan,
+        executableSlice: artifacts.executableSlice,
+        routingClassification: routeInput.classification,
+        executionMetrics,
+        machineClassificationEvidence,
+        machinePartitionEvidence:
+            overrides.machinePartitionEvidence ?? undefined,
+        machineFrontierEvidence:
+            overrides.machineFrontierEvidence ?? undefined,
+        frontierException: overrides.frontierException === true
+    })
+    const executionDecision =
+        executionRoute.executionRouteDecision
+    const selected = routeInput.module.splitProfile(
+        executionDecision.selectedProfile
+    )
     const writerSequenceBinding = {
         schema: 'issue-orchestration.writer-slice-sequence-binding.v1',
         source: 'initial-stage-plan',
@@ -182,14 +236,36 @@ async function requestInput(overrides = {}) {
         stagePermissionsPolicyDigest,
         stageRole: routeInput.stageRole,
         stagePhase: routeInput.stagePhase,
-        stageProfileId: routeInput.route.selectedProfile,
-        allowedProfilesDigest: digest(routeInput.route.allowedProfiles),
+        stageProfileId: executionDecision.selectedProfile,
+        allowedProfilesDigest:
+            digest(executionDecision.allowedProfiles),
         defaultProfileId: routeInput.route.defaultProfile,
-        routingAuthority: routeInput.route.routingAuthority,
+        routingAuthority: executionDecision.routingAuthority,
         routingInputDigest: routeInput.route.routingInputDigest,
-        selectedProfileReason: routeInput.route.selectedProfileReason,
-        selectedProfileId: routeInput.route.selectedProfile,
+        selectedProfileReason:
+            executionDecision.selectedProfileReason,
+        selectedProfileId: executionDecision.selectedProfile,
         routingClassification: routeInput.classification,
+        executionRoutingPolicyDigest:
+            executionModule.EXECUTION_ROUTING_POLICY_DIGEST,
+        executionMetrics,
+        machineClassificationEvidence,
+        machinePartitionEvidence:
+            overrides.machinePartitionEvidence ?? null,
+        machineFrontierEvidence:
+            overrides.machineFrontierEvidence ?? null,
+        executionShapeClassification:
+            executionRoute.executionShapeClassification,
+        stageCapabilityRequirement:
+            executionRoute.stageCapabilityRequirement,
+        executionRouteDecision: executionDecision,
+        executionShapeClassificationDigest:
+            executionRoute.executionShapeClassification
+                .classificationDigest,
+        stageCapabilityRequirementDigest:
+            executionRoute.stageCapabilityRequirement.capabilityDigest,
+        executionRouteDecisionDigest:
+            executionDecision.routeDecisionDigest,
         routeTransitionFrom: null,
         routeTransitionReason: 'initial-classification',
         requestedByRole: 'root-scheduler',
@@ -258,6 +334,47 @@ async function requestInput(overrides = {}) {
     }
 }
 
+async function bindExecutionRoute(input) {
+    const executionModule = await executionPolicy()
+    const bundle = executionModule.compileExecutionRoute({
+        stageWorkPlan: input.stageWorkPlan,
+        executableSlice: input.executableSlice,
+        routingClassification: input.routingClassification,
+        executionMetrics: input.executionMetrics,
+        machineClassificationEvidence:
+            input.machineClassificationEvidence,
+        machinePartitionEvidence:
+            input.machinePartitionEvidence ?? undefined,
+        machineFrontierEvidence:
+            input.machineFrontierEvidence ?? undefined,
+        frontierException: input.frontierException === true
+    })
+    const decision = bundle.executionRouteDecision
+    const profileModule = await policy()
+    const selected = profileModule.splitProfile(
+        decision.selectedProfile
+    )
+    input.executionShapeClassification =
+        bundle.executionShapeClassification
+    input.stageCapabilityRequirement =
+        bundle.stageCapabilityRequirement
+    input.executionRouteDecision = decision
+    input.executionShapeClassificationDigest =
+        bundle.executionShapeClassification.classificationDigest
+    input.stageCapabilityRequirementDigest =
+        bundle.stageCapabilityRequirement.capabilityDigest
+    input.executionRouteDecisionDigest =
+        decision.routeDecisionDigest
+    input.stageProfileId = decision.selectedProfile
+    input.selectedProfileId = decision.selectedProfile
+    input.selectedProfileReason = decision.selectedProfileReason
+    input.allowedProfilesDigest = digest(decision.allowedProfiles)
+    input.routingAuthority = decision.routingAuthority
+    input.requestedModel = selected.model
+    input.requestedEffort = selected.effort
+    return input
+}
+
 function dispatchEvidence(request) {
     const machineObservations = [
         sealedObservation({
@@ -276,6 +393,8 @@ function dispatchEvidence(request) {
             stagePermissionsPolicyDigest:
                 request.stagePermissionsPolicyDigest,
             routingInputDigest: request.routingInputDigest,
+            executionRouteDecisionDigest:
+                request.executionRouteDecisionDigest,
             planDigest: request.planDigest,
             sliceDigest: request.sliceDigest,
             compiledPromptDigest: request.compiledPromptDigest,
@@ -565,7 +684,10 @@ test('P01 dispatch-request.v2 seals every route and serial identity field', asyn
     assert.equal(request.groupId, null)
     assert.equal(request.memberIssueId, issueId)
     assert.equal(request.stageProfileId, 'terra-max')
-    assert.equal(request.selectedProfileReason, 'engineering-risk-high-risk')
+    assert.equal(
+        request.selectedProfileReason,
+        'runtime-probe-heavy-minimum-capability-fit'
+    )
     assert.equal(
         request.stagePermissionsPolicyDigest,
         module.STAGE_PERMISSIONS_POLICY_DIGEST
@@ -769,6 +891,7 @@ test('P01D writer dispatch accepts only the projection-owned slice order', async
     request.compiledPrompt = secondPrompt
     request.compiledPromptDigest = secondPrompt.promptDigest
     request.promptDigest = secondPrompt.promptDigest
+    await bindExecutionRoute(request)
 
     const wrongOrder = clone(request)
     wrongOrder.writerSequenceBinding = {
@@ -1083,6 +1206,13 @@ async function runControl(control) {
     } else input = await requestInput()
     if (control.id === 'N02-bounded-terra-without-reclassification') {
         input.routingClassification.engineeringRiskClass = 'bounded'
+        input.executionMetrics = {
+            ...input.executionMetrics,
+            commandLoopCount: 1,
+            runtimeProbeDepth: 0,
+            toolInteractionDepth: 2,
+            checkpointSupportRequired: 'simple'
+        }
     }
     if (control.id === 'N03-high-risk-luna') {
         input.stageProfileId = 'luna-max'

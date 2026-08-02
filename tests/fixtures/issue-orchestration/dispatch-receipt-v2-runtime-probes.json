@@ -3,7 +3,7 @@
   "issue": "Ozwasyd/FsusBlog#1832",
   "probes": [
     {"id": "RP01", "mutation": "N01-root-actual-sol-low", "expectedCode": "root-startup-profile-mismatch"},
-    {"id": "RP02", "mutation": "N02-bounded-terra-without-reclassification", "expectedCode": "dispatch-routing-selection-mismatch"},
+    {"id": "RP02", "mutation": "N02-bounded-terra-without-reclassification", "expectedCode": "dispatch-execution-route-binding"},
     {"id": "RP03", "mutation": "N03-high-risk-luna", "expectedCode": "dispatch-routing-selection-mismatch"},
     {"id": "RP04", "mutation": "N04-ui-prescribed-forbidden-family", "expectedCode": "dispatch-routing-selection-mismatch"},
     {"id": "RP05", "mutation": "N05-ui-implementer-sol-high", "expectedCode": "dispatch-routing-selection-mismatch"},

@@ -12,7 +12,7 @@
       "id": "N02-bounded-terra-without-reclassification",
       "surface": "request",
       "requirement": "Bounded code selects Terra/max without a policy-authorized reclassification.",
-      "expectedCode": "dispatch-routing-selection-mismatch"
+      "expectedCode": "dispatch-execution-route-binding"
     },
     {
       "id": "N03-high-risk-luna",

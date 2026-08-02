@@ -100,11 +100,11 @@
     "digest": "63667ffe6babd8a30bba09e5c03091779a676e35e6b09e031b11b0d2fd1e8fa6"
   },
   "fileHashes": {
-    "tests/tools/issue-orchestration-dispatch-receipt-v2.test.mjs": "b720ff8051c2d867080aff86dad2fb280ec3a8ea247c2552e799ac986d033d95",
+    "tests/tools/issue-orchestration-dispatch-receipt-v2.test.mjs": "6bf4244907993c6e950c852bbbf625049dc8c4e98928caafc623d3fcb3b70bfe",
     "tests/fixtures/issue-orchestration/dispatch-receipt-v2-acceptance-map.json": "e07a6fbeefaad809547a0851e1fd7fc64369d23cbc8d3f0d29b556a255304f4e",
     "tests/fixtures/issue-orchestration/dispatch-receipt-v2-expected-initial-failures.json": "d4133d6d577cfc43bdac0333e1090b094158f0ce7f530cd08a6b5e74f5f1b203",
-    "tests/fixtures/issue-orchestration/dispatch-receipt-v2-runtime-probes.json": "77c2325af77cdb8f1cd9d18d00d7958a37638f26d0949fe226941daee1948981",
-    "tests/fixtures/issue-orchestration/dispatch-receipt-v2-mutation-controls.json": "ce28e53c624cc24307710ee44d0c775713be7506b2832b0f652f07cbc0a3c3da"
+    "tests/fixtures/issue-orchestration/dispatch-receipt-v2-runtime-probes.json": "2710fdc8d5f382d56a0c047840393371b07a9ecf444981a6b04ce8145b207e39",
+    "tests/fixtures/issue-orchestration/dispatch-receipt-v2-mutation-controls.json": "776dc98f748beb90a12c5e5876a541d102e6e0fb3b5708f71b88d1426f8e42fc"
   },
   "hashAlgorithm": "sha256-raw-bytes-and-canonical-json-v1",
   "selfHashPolicy": "fileHashes covers raw bytes of every allowedTestPaths entry except this manifest; testContractDigest covers canonical JSON with testContractDigest omitted",
@@ -114,5 +114,5 @@
     "fail": 31,
     "skipped": 0
   },
-  "testContractDigest": "06bd1f2b01b8ac20aaf622da5cf39ea3423314c4f63c39a94f43feee02efde61"
+  "testContractDigest": "4d1a3b80c22858ddd6071fb4a1a80304e64bd6e7c9e42d4c0ba922f72ec798c0"
 }
