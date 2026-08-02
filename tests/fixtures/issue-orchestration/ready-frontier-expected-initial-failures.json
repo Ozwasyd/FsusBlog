@@ -100,8 +100,8 @@
     "downstreamDiagnostic": "The revision-2 candidate rejects the exact role=dag-creator-updater valid authority before prior frontier assertions can execute; those tests remain frozen and recover after the authority policy is implemented."
   },
   "implementationPaths": [
-    ".agents/skills/issue-orchestration/scripts/frontier-compiler.mjs",
-    ".agents/skills/issue-orchestration/scripts/check-dag-gate.mjs"
+    "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/frontier-compiler.mjs",
+    "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/check-dag-gate.mjs"
   ],
   "correctiveFailureScope": [
     "frontier compiler ignores investigationProjection and still reads node.investigation",

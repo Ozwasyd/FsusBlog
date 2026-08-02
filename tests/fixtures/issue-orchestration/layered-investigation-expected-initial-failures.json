@@ -13,7 +13,7 @@
   },
   "expectedFailureClass": "none-corrective-candidate-satisfies-contract",
   "expectedDiagnostic": "revision-6 binds the implemented operational policy asset identities",
-  "implementationPath": ".codex/agents/issue-dag-agent.toml",
+  "implementationPath": "tools/codex/issue-orchestration-package/agents/dag-creator-updater.toml",
   "implementationExpectedToExist": true,
   "expectedFailingTests": [],
   "passingControls": [

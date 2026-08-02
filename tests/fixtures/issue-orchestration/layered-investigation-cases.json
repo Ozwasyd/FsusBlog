@@ -140,7 +140,7 @@
   "legacyFixtureMigration": {
     "ownerIssue": "Ozwasyd/FsusBlog#1816",
     "correctedLayeredTestPath": "tests/tools/issue-orchestration-ready-frontier.test.mjs",
-    "correctedLayeredTestSha256": "78be8054632e52bd8e461865b560aa014ae92345a3d5e1936f2e0cd4b4e31605",
+    "correctedLayeredTestSha256": "12cab3dbb344747cd396c4947863c62a186c26e070dbcb0374382e4ec8251e28",
     "correctedFixtureUsesValidatedProjection": true,
     "historicalReasonCodeMayRemain": "investigation-incomplete",
     "runtimeLegacyPropertyReadsAllowed": false,
@@ -169,29 +169,29 @@
     "sourceIssue": "Ozwasyd/FsusBlog#1818",
     "previousBaseSha": "9c02ed22bdd578d07d6e4ca8c1c4c9bc161bbc18",
     "currentBaseSha": "c8cb56dce27769a3cc3663cc0e39cc0a75716fed",
-    "baseDependencyPath": ".agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs",
+    "baseDependencyPath": "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/dispatch-receipt.mjs",
     "baseDependencySha256": "e6c26a2b16e145379689edbedc4ef21e52e517808ad34731b25b2f33beb7b833",
     "candidateDisposition": "base-dependency-not-candidate"
   },
   "correctiveRemoteTreeEvidence": {
     "baselineDisposition": "remote-delivered-but-issue-open",
     "missingPaths": [
-      ".codex/agents/issue-dag-agent.toml",
-      ".codex/agents/issue-test-owner.toml"
+      "tools/codex/issue-orchestration-package/agents/dag-creator-updater.toml",
+      "tools/codex/issue-orchestration-package/agents/test-owner.toml"
     ],
     "priorClaimedFiles": [
       {
-        "path": ".codex/agents/issue-dag-agent.toml",
+        "path": "tools/codex/issue-orchestration-package/agents/dag-creator-updater.toml",
         "sha256": "81c48323cffa7f484896a08ac86bf928a3a218ba347b29905bd43328f95ffdb5"
       },
       {
-        "path": ".codex/agents/issue-test-owner.toml",
+        "path": "tools/codex/issue-orchestration-package/agents/test-owner.toml",
         "sha256": "717f36bc98949a53988fc03bd422225ddbfc75336b54bd4abd5bd9c9466ba147"
       }
     ],
     "correctiveAllowedImplementationPaths": [
-      ".codex/agents/issue-dag-agent.toml",
-      ".codex/agents/issue-test-owner.toml"
+      "tools/codex/issue-orchestration-package/agents/dag-creator-updater.toml",
+      "tools/codex/issue-orchestration-package/agents/test-owner.toml"
     ]
   },
   "implementationPromptRequiredFields": [

@@ -128,16 +128,16 @@
     "tests/fixtures/issue-orchestration/layered-investigation-test-contract.json"
   ],
   "minimalAllowedImplementationPaths": [
-    ".agents/skills/issue-orchestration/scripts/investigation-compiler.mjs",
-    ".agents/skills/issue-orchestration/scripts/frontier-compiler.mjs",
-    ".agents/skills/issue-orchestration/scripts/check-dag-gate.mjs",
-    ".codex/agents/issue-dag-agent.toml",
-    ".codex/agents/issue-test-owner.toml",
-    ".codex/agents/issue-implementer.toml"
+    "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/investigation-compiler.mjs",
+    "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/frontier-compiler.mjs",
+    "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/check-dag-gate.mjs",
+    "tools/codex/issue-orchestration-package/agents/dag-creator-updater.toml",
+    "tools/codex/issue-orchestration-package/agents/test-owner.toml",
+    "tools/codex/issue-orchestration-package/agents/code-implementer.toml"
   ],
   "correctiveAllowedImplementationPaths": [
-    ".codex/agents/issue-dag-agent.toml",
-    ".codex/agents/issue-test-owner.toml"
+    "tools/codex/issue-orchestration-package/agents/dag-creator-updater.toml",
+    "tools/codex/issue-orchestration-package/agents/test-owner.toml"
   ],
   "expectedMissingCandidatePaths": [],
   "forbiddenImplementationScopes": [
@@ -152,19 +152,19 @@
   "runtimeProbes": "tests/fixtures/issue-orchestration/layered-investigation-runtime-probes.json",
   "mutations": "tests/fixtures/issue-orchestration/layered-investigation-mutation-controls.json",
   "fileHashes": {
-    "tests/tools/issue-orchestration-layered-investigation.test.mjs": "e5b8f104a7aa272f60c0742ef435c480dade4a0b64c90191f399b8d53c832824",
-    "tests/fixtures/issue-orchestration/layered-investigation-cases.json": "49c2624f98e31bd8316f9df885541fa5c817d45c33245046eb3de5bf51e7fdb4",
+    "tests/tools/issue-orchestration-layered-investigation.test.mjs": "f1df3483cb0aa3301ed58b56382882f08003be292e3c8f826e96c78206097693",
+    "tests/fixtures/issue-orchestration/layered-investigation-cases.json": "3ac856e681f6cd22398fd666a17d4cead273a1390b9e9b65bf5467f1c3cf116b",
     "tests/fixtures/issue-orchestration/layered-investigation-acceptance-map.json": "63b71d7d3258f825faff6d791357d2add489501e0f85000175646f3d77003ef9",
-    "tests/fixtures/issue-orchestration/layered-investigation-expected-initial-failures.json": "4111b1c0a0e4a82d4c65e80674dc0ed54ba6f1af8e50991928b70ec3d423ee5a",
-    "tests/fixtures/issue-orchestration/layered-investigation-runtime-probes.json": "da20b924149e027ae4e79f610fbe4c5988a89aea9c9cda4b5656c2356211b3c5",
+    "tests/fixtures/issue-orchestration/layered-investigation-expected-initial-failures.json": "03afbfede27ff35685a0d4ae6fd3ef0976de095b17f52a0fd7d39fa0bd6e0bd1",
+    "tests/fixtures/issue-orchestration/layered-investigation-runtime-probes.json": "a7f21b26181c96362666da8cacf13b95db1697019174b4d90ff5b7484ea08a0c",
     "tests/fixtures/issue-orchestration/layered-investigation-mutation-controls.json": "d4ef682b931650668f1f44ab3d02f7619d9911d69eb9aa36493f38e45ec3e583"
   },
-  "frozenTreeDigest": "3322a46d03979a8ece1e4cfe8b9b630eb5f2b04e5480cceb4840a2aafc0d5f6d",
+  "frozenTreeDigest": "c9239f3d426ae3ddd7d0d410af859235511d4ccabd5e38a75ec4bb182948e60c",
   "matrixIdentityDigest": "14dd62311c03ae15aa7d992bad1c21aeecaa6378cd53368a47d4372ca5c529c6",
   "baseDependencyFiles": [
     {
-      "path": ".agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs",
-      "sha256": "e6c26a2b16e145379689edbedc4ef21e52e517808ad34731b25b2f33beb7b833",
+      "path": "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/dispatch-receipt.mjs",
+      "sha256": "d3e9c5f1aa155f369639f49052eadbe0c95790f0def11b70ba11147d8d0d7f5f",
       "gitMode": "100644",
       "ownerIssue": "Ozwasyd/FsusBlog#1818",
       "disposition": "base-dependency-not-candidate"
@@ -174,49 +174,49 @@
     "schema": "issue-orchestration.candidate-identity.v1",
     "algorithm": "sha256-canonical-json-v1",
     "baseSha": "c1867af759f3fba319185c6a692eecc3b8980af3",
-    "contractDigest": "b9d357e1f410885aa6c92b25587e4cea54fc628a54c39597432b2eeedcda0c44",
+    "contractDigest": "395a50fa58fabc586fefdb826c0ad73c669322362236ff37e451f041194c4ffe",
     "matrixIdentityDigest": "14dd62311c03ae15aa7d992bad1c21aeecaa6378cd53368a47d4372ca5c529c6",
     "implementationFiles": [
       {
-        "path": ".agents/skills/issue-orchestration/scripts/investigation-compiler.mjs",
+        "path": "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/investigation-compiler.mjs",
         "presence": "present",
-        "sha256": "af781e7c754383ee5177cacb61b21794ee019c785387328c10e06e4840b12326",
+        "sha256": "9bd8db272f795e309a7c588ff57511726414a039d17c59a8efacd3de2be65156",
         "gitMode": "100644"
       },
       {
-        "path": ".agents/skills/issue-orchestration/scripts/frontier-compiler.mjs",
+        "path": "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/frontier-compiler.mjs",
         "presence": "present",
-        "sha256": "268c8bb5f068c4e40ac83484392f17e321f24d9797def1d2a84e9cd8d0b47398",
+        "sha256": "9430b4eea6d0fef57c32b919791fd5fd232a83850b34f606a15f1b0aa6b40e79",
         "gitMode": "100644"
       },
       {
-        "path": ".agents/skills/issue-orchestration/scripts/check-dag-gate.mjs",
+        "path": "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/check-dag-gate.mjs",
         "presence": "present",
-        "sha256": "7ca98a2349e9f3eb6014cf61faeb5867b6adcde0a28a2046215104c71209a84d",
+        "sha256": "490ddd86c321ba14c95dd92c197377a7771c1ab4cbd30b156d0d1c833e68511c",
         "gitMode": "100644"
       },
       {
-        "path": ".codex/agents/issue-dag-agent.toml",
+        "path": "tools/codex/issue-orchestration-package/agents/dag-creator-updater.toml",
         "presence": "present",
-        "sha256": "4cce1b971a9c5b560ba49cf9011017f69e6c4df0f19d1f67de0d3c568b53630d",
+        "sha256": "45519067ef0173a6b6394b13b189915591cd9a7f4ec7f96151f13c40f0c6a7a7",
         "gitMode": "100644"
       },
       {
-        "path": ".codex/agents/issue-test-owner.toml",
+        "path": "tools/codex/issue-orchestration-package/agents/test-owner.toml",
         "presence": "present",
-        "sha256": "446fc11faa626bc82ffc9555a86f1d8ace275618286c8efb90f422c0a475af8f",
+        "sha256": "7f42f70f89ea64db0edb68aeed3779003c202d27fc46c08fcabe0f64f2a51939",
         "gitMode": "100644"
       },
       {
-        "path": ".codex/agents/issue-implementer.toml",
+        "path": "tools/codex/issue-orchestration-package/agents/code-implementer.toml",
         "presence": "present",
-        "sha256": "842158c055e169ed1a9a0e4b2ed16536e2356bfb6e7fea0f32d05c3b9e4920b0",
+        "sha256": "0d327e9215c32a400e85d0b1967e2828c69cd218b513d3eca5b83ee704cdc797",
         "gitMode": "100644"
       }
     ],
-    "candidateDigest": "0f2761421bd693d0a22618a0c889665df02e3a9340437e673bd13635db8c49a1"
+    "candidateDigest": "923e7adb2ed8957c01cb183c63e5e394068a86d28b3f20fa8e90b8cd9310d58d"
   },
   "hashAlgorithm": "sha256-raw-file-bytes",
   "selfHashPolicy": "stage 1: fileHashes covers raw bytes for every allowedTestPath except this manifest, frozenTreeDigest covers canonical fileHashes, and contractDigest covers the canonical manifest with contractDigest and candidateIdentity omitted; stage 2: candidateDigest covers baseSha, stage-1 contractDigest, matrixIdentityDigest, and path-ordered exact records for all six allowed implementation paths; tests require live hash and gitMode equality",
-  "contractDigest": "b9d357e1f410885aa6c92b25587e4cea54fc628a54c39597432b2eeedcda0c44"
+  "contractDigest": "395a50fa58fabc586fefdb826c0ad73c669322362236ff37e451f041194c4ffe"
 }

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -6,10 +7,28 @@ import path from 'node:path'
 import test, { after } from 'node:test'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+import {
+    authorizeWriterStageRetry,
+    compileVerifiedWriterStageContinuation,
+    evaluateWriterStageObservation,
+    sealSliceTerminalReceipt,
+    sealWriterStageRetryRevisionEvidence
+} from '../../tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/writer-stage-progress.mjs'
+import {
+    buildCanonicalWriterStageLedger,
+    compileWriterStageTestArtifacts,
+    createCanonicalWriterDispatchReceipt,
+    createWriterStageGitFixture,
+    sealCanonicalWriterLedgerEvent
+} from './issue-orchestration-writer-stage-test-helper.mjs'
+import {
+    buildVerifiedWriterProgressCheckpoint
+} from './issue-orchestration-writer-progress-test-helper.mjs'
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const implementationPath = path.join(
     root,
-    '.agents/skills/issue-orchestration/scripts/event-ledger.mjs'
+    'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/event-ledger.mjs'
 )
 const fixturesRoot = path.join(root, 'tests/fixtures/issue-orchestration')
 const acceptance = readJson('event-ledger-acceptance-map.json')
@@ -30,6 +49,15 @@ const genesisDigest = '0'.repeat(64)
 const implementationActorId = 'code-implementer-1817'
 const testOwnerActorId = frozenContract.testOwnerId
 const uxActorId = 'ux-verifier-1817'
+const writerRunId = 'run-1874-event-ledger-writer-contract'
+const writerNodeId = 'FsusBlog#1874'
+const writerRepository = 'Ozwasyd/FsusBlog'
+const writerIssue = 1874
+const writerEpochId = 'epoch-1874-event-ledger-001'
+const writerRouteDigest = digest('writer-route-1874')
+const writerAttemptId = 'attempt-1874-writer-001'
+const writerAgentId = 'code-implementer-1874'
+let writerLedgerInvocation = 0
 
 after(() => fs.rmSync(scratch, { force: true, recursive: true }))
 
@@ -106,23 +134,48 @@ function verifiedDispatchReceipt({
     }
 }
 
-function header(stateRootCanonical = path.join(scratch, 'state')) {
+function header(
+    stateRootCanonical = path.join(scratch, 'state'),
+    {
+        headerBaseSha = baseSha,
+        headerRunId = runId
+    } = {}
+) {
     return {
         schema: 'issue-orchestration.ledger.v1',
-        runId,
+        runId: headerRunId,
         stateRootCanonical,
-        baseSha,
+        baseSha: headerBaseSha,
         issueSnapshotFingerprint,
         repositoryFingerprint,
         createdAt: '2026-08-01T00:00:00.000Z'
     }
 }
 
-function emptyLedger() {
+function emptyLedger(options = {}) {
     return {
-        header: header(),
+        header: header(path.join(scratch, 'state'), options),
         events: []
     }
+}
+
+function activeEmptyLedger(options = {}) {
+    const ledger = emptyLedger(options)
+    ledger.header.schema = 'issue-orchestration.ledger.v2'
+    ledger.header.transitionSchema = 'issue-orchestration.transition.v2'
+    return ledger
+}
+
+function activeDiscoveredLedger(options = {}) {
+    const ledger = activeEmptyLedger(options)
+    sealEvent(ledger, {
+        actorRole: 'dag-updater',
+        eventType: 'node.discovered',
+        fromState: 'none',
+        payload: { issueKind: 'code' },
+        toState: 'discovered'
+    })
+    return ledger
 }
 
 function verifiedReceipt({
@@ -192,7 +245,7 @@ function implementerSelfTestReceipt({
         remainingFailures: [],
         workingTreeStatusDigest: '9'.repeat(64),
         modifiedPaths: [
-            '.agents/skills/issue-orchestration/scripts/event-ledger.mjs'
+            'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/event-ledger.mjs'
         ],
         selfTestCycles,
         status: 'passed',
@@ -216,10 +269,12 @@ function sealEvent(ledger, {
     toState
 }) {
     const event = {
-        schema: 'issue-orchestration.event.v1',
+        schema: ledger.header.schema === 'issue-orchestration.ledger.v2'
+            ? 'issue-orchestration.event.v2'
+            : 'issue-orchestration.event.v1',
         eventId,
         sequence: ledger.events.length + 1,
-        runId,
+        runId: ledger.header.runId,
         nodeId: node,
         eventType,
         fromState,
@@ -229,7 +284,7 @@ function sealEvent(ledger, {
         sourceDagDigest,
         issueSnapshotFingerprint,
         repositoryFingerprint,
-        baseSha,
+        baseSha: ledger.header.baseSha,
         payload,
         payloadDigest: digest(payload),
         evidenceRefs,
@@ -257,6 +312,558 @@ function resealFrom(ledger, start = 0) {
 
 function clone(value) {
     return structuredClone(value)
+}
+
+function writerSliceDefinition({
+    acceptanceItemId,
+    command,
+    file,
+    order,
+    prerequisiteSliceIds,
+    revisionTag,
+    sliceId
+}) {
+    return {
+        sliceId,
+        order,
+        prerequisiteSliceIds,
+        singleObjective:
+            `Prove the focused writer ledger transition for ${sliceId}`,
+        firstRequiredAction: command,
+        firstReadTargets: [file],
+        firstWritablePath: file,
+        allowedPaths: [file],
+        forbiddenPaths: [],
+        requiredCreatedOrModifiedFiles: [file],
+        requiredCommands: [command],
+        requiredEvidence: [
+            'filesystem-git-command-evidence'
+        ],
+        expectedFailureOrProgressSignal:
+            'a sealed checkpoint, terminal receipt, or terminal failure receipt',
+        explicitNonGoals: [
+            'dispatch unrelated work',
+            'replace machine evidence with prose',
+            'change runtime policy'
+        ],
+        maxChangedFiles: 1,
+        maxOwnedModules: 1,
+        maxReadOnlyOperationsBeforeCheckpoint: 8,
+        maxNoArtifactToolCalls: 6,
+        maxNoArtifactActiveDurationClass: 'short',
+        safeCheckpointKind: 'stage-progress',
+        acceptanceItemIds: [acceptanceItemId],
+        completionPredicate:
+            'the required file and command have machine-verifiable evidence',
+        continuationPredicate:
+            'resume the sealed cursor for this exact executable slice'
+    }
+}
+
+async function compileWriterLedgerArtifacts({
+    current = null,
+    fixture,
+    revisionTag = null,
+    runId: requestedRunId = null,
+    sliceCount = 2,
+    stageAttemptId: requestedStageAttemptId = null
+} = {}) {
+    if (!fixture) {
+        throw new TypeError('an isolated writer-stage Git fixture is required')
+    }
+    writerLedgerInvocation += 1
+    const invocationId =
+        `${process.pid}-${writerLedgerInvocation}`
+    const selectedPaths = fixture.filePaths.slice(0, sliceCount)
+    const runId = requestedRunId ??
+        `${writerRunId}-${invocationId}`
+    const stageAttemptId = requestedStageAttemptId ??
+        `${writerAttemptId}-${invocationId}`
+    const canonical = await buildCanonicalWriterStageLedger({
+        current,
+        repository: writerRepository,
+        issue: writerIssue,
+        node: writerNodeId,
+        runId,
+        stageRole: 'code-implementer',
+        stagePhase: 'implementation',
+        baseSha: fixture.baseSha,
+        epochId: writerEpochId,
+        worktreeIdentity: fixture.worktreeIdentity,
+        allowedPaths: selectedPaths,
+        requiredFiles: selectedPaths,
+        requiredCommands: selectedPaths.map((filePath) =>
+            `node --check ${filePath}`),
+        requiredEvidence: ['filesystem-git-command-evidence'],
+        sliceId: 'fsusblog-1874-event-ledger-slice-1',
+        sliceCount,
+        testContractDigest: digest({
+            issue: writerIssue,
+            owner: 'writer-ledger-test-contract'
+        }),
+        routingInputDigest: writerRouteDigest,
+        stageAttemptId
+    })
+    return {
+        canonical,
+        plan: canonical.artifacts.stageWorkPlan,
+        prompts: [...canonical.artifacts.compiledPrompts],
+        slices: [...canonical.artifacts.executableSlices]
+    }
+}
+
+function writerStartedLedger({ artifacts, sliceIndex = 0 }) {
+    const { plan, prompts, slices } = artifacts
+    const ledger = clone(artifacts.canonical.ledger)
+    const slice = slices[sliceIndex]
+    const prompt = prompts[sliceIndex]
+    sealWriterEvent(ledger, {
+        actorRole: 'code-implementer',
+        attemptId: plan.stageAttemptId,
+        eventType: 'implementation.started',
+        fromState: 'test-contract-frozen',
+        payload: {
+            actorId: writerAgentId,
+            dispatchReceipt: createCanonicalWriterDispatchReceipt({
+                artifacts: {
+                    ...artifacts.canonical.artifacts,
+                    executableSlice: slice,
+                    compiledPrompt: prompt
+                },
+                attemptId: plan.stageAttemptId
+            }),
+            stageWorkPlan: plan,
+            currentSlice: slice,
+            executableSlice: slice,
+            compiledPrompt: prompt,
+            effort: 'low',
+            model: 'gpt-5.6-sol',
+            ownerContinuationId: 'implementation-owner-1874'
+        },
+        toState: 'implementing-self-testing'
+    })
+    return ledger
+}
+
+function sealWriterEvent(ledger, options) {
+    const payload = {
+        transitionSchema: 'issue-orchestration.transition.v2',
+        ...options.payload
+    }
+    const plan = payload.stageWorkPlan
+    const event = sealCanonicalWriterLedgerEvent({
+        ledger,
+        actorRole:
+            options.actorRole ?? plan?.stageRole ?? 'code-implementer',
+        attemptId: options.attemptId ??
+            plan?.stageAttemptId ?? null,
+        eventType: options.eventType,
+        fromState: options.fromState,
+        payload,
+        toState: options.toState
+    })
+    ledger.events.push(event)
+    return event
+}
+
+async function writerCheckpointContinuationLedger(current) {
+    const fixture = createWriterStageGitFixture({
+        filePaths: [
+            'src/event-ledger-slice-1.mjs',
+            'src/event-ledger-slice-2.mjs'
+        ]
+    })
+    fixture.activate(0)
+    const artifacts = await compileWriterLedgerArtifacts({
+        current,
+        fixture,
+        sliceCount: 2
+    })
+    const { plan, prompts, slices } = artifacts
+    const ledger = writerStartedLedger({ artifacts })
+    const slice = slices[0]
+    const progress = buildVerifiedWriterProgressCheckpoint({
+        current,
+        artifacts: {
+            ...artifacts.canonical.artifacts,
+            executableSlice: slice,
+            compiledPrompt: prompts[0]
+        },
+        routeDigest: plan.routingInputDigest,
+        status: 'partial'
+    })
+    const checkpoint = progress.checkpoint
+    sealWriterEvent(ledger, {
+        eventType: 'writer-stage.checkpoint-recorded',
+        fromState: 'implementing-self-testing',
+        payload: {
+            stageWorkPlan: plan,
+            currentSlice: slice,
+            compiledPrompt: prompts[0],
+            checkpoint,
+            checkpointVerificationReceipt:
+                progress.checkpointVerificationReceipt
+        },
+        toState: 'implementing-self-testing'
+    })
+    const continuationReceipt =
+        compileVerifiedWriterStageContinuation({
+        plan,
+        slice,
+        checkpoint,
+        compiledPrompt: prompts[0],
+        compiledPromptDigest: prompts[0].promptDigest,
+        routeDigest: progress.routeDigest,
+        checkpointVerificationReceipt:
+            progress.checkpointVerificationReceipt,
+        sealedAuthority: artifacts.canonical.anchors
+    })
+    sealWriterEvent(ledger, {
+        eventType: 'writer-stage.continuation-recorded',
+        fromState: 'implementing-self-testing',
+        payload: {
+            stageWorkPlan: plan,
+            currentSlice: slice,
+            compiledPrompt: prompts[0],
+            checkpoint,
+            checkpointVerificationReceipt:
+                progress.checkpointVerificationReceipt,
+            continuationReceipt
+        },
+        toState: 'implementing-self-testing'
+    })
+    return {
+        artifacts,
+        checkpoint,
+        continuationReceipt,
+        fixture,
+        ledger
+    }
+}
+
+async function writerTerminalLedger({ current, sliceCount }) {
+    const fixture = createWriterStageGitFixture({
+        filePaths: [
+            'src/event-ledger-terminal-slice-1.mjs',
+            'src/event-ledger-terminal-slice-2.mjs'
+        ]
+    })
+    fixture.activate(0)
+    const artifacts = await compileWriterLedgerArtifacts({
+        current,
+        fixture,
+        sliceCount
+    })
+    const { plan, prompts, slices } = artifacts
+    const ledger = writerStartedLedger({ artifacts })
+    const slice = slices[0]
+    const progress = buildVerifiedWriterProgressCheckpoint({
+        current,
+        artifacts: {
+            ...artifacts.canonical.artifacts,
+            executableSlice: slice,
+            compiledPrompt: prompts[0]
+        },
+        routeDigest: plan.routingInputDigest,
+        status: 'complete'
+    })
+    const checkpoint = progress.checkpoint
+    sealWriterEvent(ledger, {
+        eventType: 'writer-stage.checkpoint-recorded',
+        fromState: 'implementing-self-testing',
+        payload: {
+            stageWorkPlan: plan,
+            currentSlice: slice,
+            compiledPrompt: prompts[0],
+            checkpoint,
+            checkpointVerificationReceipt:
+                progress.checkpointVerificationReceipt
+        },
+        toState: 'implementing-self-testing'
+    })
+    const terminalReceipt = sealSliceTerminalReceipt({
+        plan,
+        slice,
+        checkpoint,
+        compiledPrompt: prompts[0],
+        compiledPromptDigest: prompts[0].promptDigest,
+        routeDigest: progress.routeDigest,
+        checkpointVerificationReceipt:
+            progress.checkpointVerificationReceipt,
+        sealedAuthority: artifacts.canonical.anchors,
+        completedSlicePrefixDigest:
+            progress.completedSlicePrefixDigest,
+        priorTerminalReceipts: [],
+        changedPaths: [...slice.requiredFiles],
+        commandEvidenceDigests:
+            checkpoint.evidence.commands.map(({ outputDigest }) => outputDigest)
+    })
+    const nextSlice = sliceCount > 1 ? slices[1] : null
+    const nextCompiledPrompt =
+        nextSlice ? prompts[1] : null
+    const nextDispatchReceipt = nextSlice
+        ? createCanonicalWriterDispatchReceipt({
+            artifacts: {
+                ...artifacts.canonical.artifacts,
+                executableSlice: nextSlice,
+                compiledPrompt: nextCompiledPrompt
+            },
+            attemptId: plan.stageAttemptId
+        })
+        : null
+    sealWriterEvent(ledger, {
+        eventType: nextSlice
+            ? 'writer-stage.slice-completed'
+            : 'writer-stage.completed',
+        fromState: 'implementing-self-testing',
+        payload: {
+            stageWorkPlan: plan,
+            currentSlice: slice,
+            currentCheckpoint: checkpoint,
+            compiledPrompt: prompts[0],
+            checkpointVerificationReceipt:
+                progress.checkpointVerificationReceipt,
+            completedSlicePrefixDigest:
+                progress.completedSlicePrefixDigest,
+            terminalReceipt,
+            sliceTerminalReceipts: [terminalReceipt],
+            ...(nextSlice
+                ? {
+                    nextSlice,
+                    nextCompiledPrompt,
+                    nextDispatchReceipt
+                }
+                : {})
+        },
+        toState: 'implementing-self-testing'
+    })
+    return {
+        artifacts,
+        checkpoint,
+        fixture,
+        ledger,
+        nextSlice,
+        terminalReceipt
+    }
+}
+
+function writerOutputMissingObservation({ plan, prompt, slice }) {
+    return {
+        schema: 'issue-orchestration.writer-stage-observation.v1',
+        runId: plan.runId,
+        repository: plan.repository,
+        issue: plan.issue,
+        node: plan.node,
+        baseSha: plan.baseSha,
+        epochId: plan.epochId,
+        worktreeIdentity: plan.worktreeIdentity,
+        sliceId: slice.sliceId,
+        sliceDigest: slice.sliceDigest,
+        planDigest: plan.planDigest,
+        compiledPromptDigest: prompt.promptDigest,
+        routeDigest: plan.routingInputDigest,
+        stageRole: slice.stageRole,
+        stagePhase: slice.stagePhase,
+        attemptId: plan.stageAttemptId,
+        agentId: writerAgentId,
+        firstRequiredActionExecuted: true,
+        requiredArtifactManifest: {
+            requiredOutputs: ['diff', 'commands', 'checkpoint']
+        },
+        filesystemObservation: {
+            createdFiles: [],
+            modifiedFiles: [],
+            treeDigest: digest([])
+        },
+        gitObservation: {
+            changedPaths: [],
+            diffDigest: digest([]),
+            unauthorizedPaths: []
+        },
+        commandObservation: {
+            commands: [],
+            statuses: [],
+            evidenceDigests: []
+        },
+        checkpoint: null,
+        terminalReceipt: null
+    }
+}
+
+function writerRuntimeRevisionReceipt(artifacts) {
+    const plan = artifacts.plan
+    const slice = artifacts.slices[0]
+    const prompt = artifacts.prompts[0]
+    const receipt = {
+        schema: 'issue-orchestration.dispatch-receipt.v2',
+        verificationStatus: 'verified',
+        runId: plan.runId,
+        nodeId: plan.node,
+        baseSha: plan.baseSha,
+        epochId: plan.epochId,
+        stageRole: plan.stageRole,
+        stagePhase: plan.stagePhase,
+        planDigest: plan.planDigest,
+        sliceDigest: slice.sliceDigest,
+        compiledPromptDigest: prompt.promptDigest,
+        runtimeMetadataDigest: digest({
+            status: 'verified-runtime-capability'
+        }),
+        rolloutId: `rollout-${plan.stageAttemptId}`,
+        threadId: `thread-${plan.stageAttemptId}`,
+        actualModel: 'gpt-5.6-sol',
+        actualEffort: 'ultra',
+        actualRole: plan.stageRole,
+        actualMode: 'work',
+        actualSandbox: 'workspace-write',
+        actualForkTurns: 'all',
+        actualWorkingDirectory: plan.worktreeIdentity
+    }
+    receipt.receiptDigest = digest(receipt)
+    return receipt
+}
+
+function writerCleanupReceipt(failure) {
+    const receipt = {
+        schema: 'issue-orchestration.resource-cleanup-receipt.v1',
+        actorRole: 'machine-resource-verifier',
+        status: 'resources-clean',
+        runId: failure.runId,
+        attemptId: failure.attemptId,
+        epochId: failure.epochId,
+        baselineDigest: digest('writer-retry-cleanup-baseline'),
+        ownedResourceDigest: digest('writer-retry-owned-resources'),
+        cleanupActions: [],
+        lockReleaseObservations: [],
+        finalFilesystemObservations: [],
+        retainedResources: [],
+        quarantinedResources: [],
+        failedResources: [],
+        postInventory: [],
+        postCleanupInventoryDigest: digest([]),
+        verifiedAt: '2026-08-02T08:00:00.000Z'
+    }
+    receipt.receiptDigest = digest(receipt)
+    return receipt
+}
+
+async function writerFailureRetryLedger() {
+    const fixture = createWriterStageGitFixture({
+        filePaths: [
+            'src/event-ledger-retry-slice-1.mjs',
+            'src/event-ledger-retry-slice-2.mjs'
+        ]
+    })
+    const initialArtifacts = await compileWriterLedgerArtifacts({
+        fixture,
+        sliceCount: 1
+    })
+    const artifacts = initialArtifacts
+    const { plan, prompts, slices } = artifacts
+    const ledger = writerStartedLedger({ artifacts })
+    const observation = writerOutputMissingObservation({
+        plan,
+        prompt: prompts[0],
+        slice: slices[0]
+    })
+    const failure = evaluateWriterStageObservation(observation)
+    const failureEvent = sealWriterEvent(ledger, {
+        eventType: failure.eventType,
+        fromState: 'implementing-self-testing',
+        payload: {
+            stageWorkPlan: plan,
+            currentSlice: slices[0],
+            compiledPrompt: prompts[0],
+            currentCheckpoint: observation.checkpoint,
+            writerStageObservation: observation,
+            failureReceipt: failure.failureReceipt,
+            countsAsImplementationRework:
+                failure.countsAsImplementationRework,
+            reworkCountDelta: failure.reworkCountDelta,
+            triggersHumanDecision: failure.triggersHumanDecision
+        },
+        toState: 'terminal'
+    })
+    const changedRequirementIds = [
+        'fsusblog-1874-event-ledger-slice-1-acceptance'
+    ]
+    const revised = compileWriterStageTestArtifacts({
+        repository: writerRepository,
+        issue: writerIssue,
+        node: writerNodeId,
+        runId: plan.runId,
+        stageRole: 'code-implementer',
+        stagePhase: 'implementation',
+        baseSha: fixture.baseSha,
+        epochId: writerEpochId,
+        worktreeIdentity: fixture.worktreeIdentity,
+        allowedPaths: [fixture.filePaths[0]],
+        requiredFiles: [fixture.filePaths[0]],
+        requiredCommands: [
+            `node --check ${fixture.filePaths[0]}`
+        ],
+        requiredEvidence: ['filesystem-git-command-evidence'],
+        sliceId: 'fsusblog-1874-event-ledger-slice-1',
+        sliceCount: 1,
+        testContractDigest: plan.testContractDigest,
+        routingInputDigest: writerRouteDigest,
+        stageAttemptId: `${plan.stageAttemptId}-retry`
+    })
+    const revisedArtifacts = {
+        canonical: { artifacts: revised },
+        plan: revised.stageWorkPlan,
+        prompts: [...revised.compiledPrompts],
+        slices: [...revised.executableSlices]
+    }
+    const authorityReceipt =
+        writerRuntimeRevisionReceipt(revisedArtifacts)
+    const proposedRetry = {
+        stageWorkPlan: revisedArtifacts.plan,
+        executableSlice: revisedArtifacts.slices[0],
+        compiledPrompt: revisedArtifacts.prompts[0],
+        completedSlicePrefix: [],
+        authorityReceipt
+    }
+    const revision = sealWriterStageRetryRevisionEvidence({
+        priorFailure: failure.failureReceipt,
+        sourceFailureEvent: failureEvent,
+        proposed: proposedRetry,
+        revisionKind: 'runtime-revision',
+        changedRequirementIds,
+        authorityReceipt
+    })
+    const resourceCleanupReceipt =
+        writerCleanupReceipt(failure.failureReceipt)
+    const retryAuthorization = authorizeWriterStageRetry({
+        priorFailure: failure.failureReceipt,
+        proposed: proposedRetry,
+        revisions: [revision],
+        sourceFailureEvent: failureEvent,
+        resourceCleanupReceipt
+    })
+    sealWriterEvent(ledger, {
+        actorRole: 'root-scheduler',
+        attemptId: null,
+        eventType: 'writer-stage.retry-authorized',
+        fromState: 'terminal',
+        payload: {
+            priorFailureReceipt: failure.failureReceipt,
+            proposedRetry,
+            revisions: [revision],
+            sourceFailureEvent: failureEvent,
+            resourceCleanupReceipt,
+            retryAuthorization
+        },
+        toState: 'test-contract-frozen'
+    })
+    return {
+        artifacts: revisedArtifacts,
+        failure,
+        fixture,
+        initialArtifacts,
+        ledger,
+        retryAuthorization
+    }
 }
 
 function discoveredLedger({
@@ -502,7 +1109,11 @@ async function runtime() {
 
 async function replay(ledger) {
     const module = await runtime()
-    return module.replayEventLedger(clone(ledger))
+    if (ledger?.header?.schema === 'issue-orchestration.ledger.v2') {
+        return module.replayEventLedger(clone(ledger))
+    }
+    const audit = await module.auditHistoricalEventLedger(clone(ledger))
+    return audit.projection
 }
 
 async function expectCode(operation, expectedCode) {
@@ -573,6 +1184,18 @@ const requiredEventTypes = [
     'attempt.expired',
     'attempt.invocation-failed',
     'attempt.environment-failed',
+    'writer-stage.checkpoint-recorded',
+    'writer-stage.continuation-recorded',
+    'writer-stage.invocation-failed',
+    'writer-stage.environment-failed',
+    'writer-stage.runtime-capability-missing',
+    'writer-stage.first-action-not-executed',
+    'writer-stage.output-missing',
+    'writer-stage.checkpoint-missing',
+    'writer-stage.receipt-rejected',
+    'writer-stage.retry-authorized',
+    'writer-stage.slice-completed',
+    'writer-stage.completed',
     'ledger.correction-recorded',
     'dag.proposal-accepted',
     'dag.proposal-rejected',
@@ -604,8 +1227,8 @@ test('contract fixtures are exact, internally linked, and bind the latest author
     )
     const expectedImplementationFiles = [
         {
-            path: '.agents/skills/issue-orchestration/scripts/event-ledger.mjs',
-            sha256: '68360e2265be6f4ee448b1f6170a64468dc3c62ee82d0a8db70249a513eaaefd',
+            path: 'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/event-ledger.mjs',
+            sha256: '693624b3f5b3de45c71bfe8a3d924baaedbfe814a90da0d076cec4977bb16526',
             gitMode: '100644'
         }
     ]
@@ -925,6 +1548,239 @@ test('P10 semantic DAG proposal events require a changed remote live snapshot an
     assert.equal((await replay(ledger)).dagProposals.length, 1)
 })
 
+test('#1874 writer checkpoint and continuation replay bind one compiled executable slice', async (current) => {
+    const {
+        artifacts,
+        checkpoint,
+        continuationReceipt,
+        fixture,
+        ledger
+    } = await writerCheckpointContinuationLedger(current)
+    current.after(() => fixture.dispose())
+    const projection = await replay(ledger)
+    const writerNode = nodeOf(projection, writerNodeId)
+
+    assert.equal(
+        artifacts.plan.schema,
+        'issue-orchestration.stage-work-plan.v1'
+    )
+    assert.equal(
+        artifacts.slices[0].schema,
+        'issue-orchestration.executable-slice.v1'
+    )
+    assert.equal(
+        artifacts.prompts[0].schema,
+        'issue-orchestration.compiled-dispatch-prompt.v1'
+    )
+    assert.equal(
+        artifacts.slices[0].planDigest,
+        artifacts.plan.planDigest
+    )
+    assert.equal(
+        artifacts.prompts[0].sliceDigest,
+        artifacts.slices[0].sliceDigest
+    )
+    assert.equal(writerNode.activePlanDigest, artifacts.plan.planDigest)
+    assert.equal(writerNode.activeSliceDigest, artifacts.slices[0].sliceDigest)
+    assert.equal(writerNode.latestCheckpointDigest, checkpoint.checkpointDigest)
+    assert.equal(
+        writerNode.latestContinuationReceiptDigest,
+        continuationReceipt.receiptDigest
+    )
+    assert.equal(continuationReceipt.restartInvestigation, false)
+    assert.deepEqual(continuationReceipt.resumeCursor, checkpoint.cursor)
+})
+
+test('#1874 writer slice terminal gate projects only the compiled next slice', async (current) => {
+    const {
+        artifacts,
+        fixture,
+        ledger,
+        nextSlice,
+        terminalReceipt
+    } = await writerTerminalLedger({ current, sliceCount: 2 })
+    current.after(() => fixture.dispose())
+    const writerNode = nodeOf(await replay(ledger), writerNodeId)
+
+    assert.equal(terminalReceipt.stageComplete, false)
+    assert.equal(terminalReceipt.candidateEligible, false)
+    assert.equal(terminalReceipt.nextSliceId, nextSlice.sliceId)
+    assert.equal(nextSlice.planDigest, artifacts.plan.planDigest)
+    assert.deepEqual(
+        nextSlice.prerequisiteSliceIds,
+        [artifacts.slices[0].sliceId]
+    )
+    assert.equal(writerNode.expectedNextSliceId, nextSlice.sliceId)
+    assert.equal(writerNode.expectedNextSliceDigest, nextSlice.sliceDigest)
+    assert.equal(
+        writerNode.writerStageTerminalReceiptDigest,
+        terminalReceipt.receiptDigest
+    )
+    assert.equal(
+        writerNode.activeAttemptId,
+        artifacts.plan.stageAttemptId
+    )
+})
+
+test('#1874 writer terminal failure opens the breaker and substantive retry closes it', async (current) => {
+    const {
+        artifacts,
+        failure,
+        fixture,
+        ledger,
+        retryAuthorization
+    } = await writerFailureRetryLedger()
+    current.after(() => fixture.dispose())
+    const failedLedger = clone(ledger)
+    failedLedger.events.pop()
+    const failedNode = nodeOf(await replay(failedLedger), writerNodeId)
+
+    assert.equal(failure.status, 'failed')
+    assert.equal(failure.eventType, 'writer-stage.output-missing')
+    assert.equal(failure.breakerOpen, true)
+    assert.equal(failure.countsAsImplementationRework, false)
+    assert.equal(failure.reworkCountDelta, 0)
+    assert.equal(failedNode.status, 'terminal')
+    assert.equal(failedNode.terminal.category, 'writer_stage_failure')
+    assert.equal(
+        failedNode.writerStageFailureReceiptDigest,
+        failure.failureReceipt.receiptDigest
+    )
+
+    const retriedNode = nodeOf(await replay(ledger), writerNodeId)
+    assert.equal(retryAuthorization.authorized, true)
+    assert.equal(retryAuthorization.breakerOpen, false)
+    assert.equal(retriedNode.status, 'test-contract-frozen')
+    assert.equal(retriedNode.terminal, null)
+    assert.equal(
+        retriedNode.expectedNextSliceDigest,
+        artifacts.slices[0].sliceDigest
+    )
+    assert.equal(
+        retriedNode.writerStageRetryAuthorizationDigest,
+        retryAuthorization.receiptDigest
+    )
+})
+
+test('#1874 writer stage completion requires the final compiled-slice terminal receipt', async (current) => {
+    const {
+        artifacts,
+        fixture,
+        ledger,
+        terminalReceipt
+    } = await writerTerminalLedger({ current, sliceCount: 1 })
+    current.after(() => fixture.dispose())
+    const writerNode = nodeOf(await replay(ledger), writerNodeId)
+
+    assert.equal(terminalReceipt.stageComplete, true)
+    assert.equal(terminalReceipt.candidateEligible, true)
+    assert.equal(terminalReceipt.nextSliceId, null)
+    assert.equal(
+        terminalReceipt.compiledPromptDigest,
+        artifacts.prompts[0].promptDigest
+    )
+    assert.equal(
+        writerNode.writerStageTerminalReceiptDigest,
+        terminalReceipt.receiptDigest
+    )
+    assert.equal(writerNode.expectedNextSliceId, null)
+    assert.equal(writerNode.expectedNextSliceDigest, null)
+})
+
+test('#1874 replay fails closed when writer artifact objects or gate digests are missing', async (current) => {
+    const cases = [
+        {
+            mutate(payload) {
+                delete payload.stageWorkPlan
+            },
+            name: 'stage work plan object',
+            expectedCode: 'writer-stage-terminal-gate-required'
+        },
+        {
+            mutate(payload) {
+                delete payload.currentSlice
+            },
+            name: 'executable slice object',
+            expectedCode: 'writer-stage-terminal-gate-required'
+        },
+        {
+            mutate(payload) {
+                delete payload.terminalReceipt
+            },
+            name: 'terminal receipt object',
+            expectedCode: 'writer-stage-terminal-receipt-rejected'
+        },
+        {
+            mutate(payload) {
+                delete payload.stageWorkPlan.planDigest
+            },
+            name: 'plan digest',
+            expectedCode: 'writer-stage-terminal-gate-required'
+        },
+        {
+            mutate(payload) {
+                delete payload.currentSlice.sliceDigest
+            },
+            name: 'slice digest',
+            expectedCode: 'writer-stage-terminal-gate-required'
+        },
+        {
+            mutate(payload) {
+                for (const receipt of [
+                    payload.terminalReceipt,
+                    ...payload.sliceTerminalReceipts
+                ]) {
+                    delete receipt.compiledPromptDigest
+                    delete receipt.receiptDigest
+                    receipt.receiptDigest = digest(receipt)
+                }
+            },
+            name: 'compiled prompt digest',
+            expectedCode: 'writer-stage-terminal-gate-required'
+        }
+    ]
+
+    for (const contractCase of cases) {
+        const result = await writerTerminalLedger({
+            current,
+            sliceCount: 1
+        })
+        current.after(() => result.fixture.dispose())
+        const ledger = clone(result.ledger)
+        const event = ledger.events.at(-1)
+        event.payload = clone(event.payload)
+        contractCase.mutate(event.payload)
+        resealFrom(ledger, ledger.events.length - 1)
+        await expectCode(
+            () => replay(ledger),
+            contractCase.expectedCode
+        ).catch((error) => {
+            error.message = `${contractCase.name}: ${error.message}`
+            throw error
+        })
+    }
+})
+
+test('#1874 replay rejects terminal observations missing any compiled artifact digest', async (current) => {
+    for (const field of [
+        'planDigest',
+        'sliceDigest',
+        'compiledPromptDigest'
+    ]) {
+        const { fixture, ledger } =
+            await writerFailureRetryLedger()
+        current.after(() => fixture.dispose())
+        ledger.events.pop()
+        const event = ledger.events.at(-1)
+        delete event.payload.writerStageObservation[field]
+        resealFrom(ledger, ledger.events.length - 1)
+        await expectCode(
+            () => replay(ledger),
+            'writer-stage-failure-observation-rejected'
+        )
+    }
+})
+
 function groupLedger() {
     const ledger = emptyLedger()
     const groupId = 'group-1817'
@@ -961,6 +1817,89 @@ test('G01 group session and each member are independently replayed', async () =>
     assert.equal(projection.groups['group-1817'].status, 'completed')
     assert.equal(projection.groups['group-1817'].members[nodeId].status, 'delivery-completed')
     assert.equal(projection.groups['group-1817'].members[nodeId].leaseId, null)
+})
+
+test('active replay requires explicit ledger, transition, and event v2 schemas', async () => {
+    const module = await runtime()
+    const ledger = activeDiscoveredLedger()
+    const projection = await module.replayEventLedger(clone(ledger))
+    assert.equal(projection.schema, 'issue-orchestration.projection.v2')
+    assert.equal(nodeOf(projection).status, 'discovered')
+    assert.equal(
+        await module.validateDagProjection({
+            dag: dagFrom(projection),
+            projection
+        }),
+        true
+    )
+
+    const missingTransition = clone(ledger)
+    delete missingTransition.header.transitionSchema
+    await expectCode(
+        () => module.replayEventLedger(missingTransition),
+        'ledger-v2-required'
+    )
+
+    const legacyEvent = clone(ledger)
+    legacyEvent.events[0].schema = 'issue-orchestration.event.v1'
+    resealFrom(legacyEvent)
+    await expectCode(
+        () => module.replayEventLedger(legacyEvent),
+        'event-v2-required'
+    )
+})
+
+test('v1 replay is explicit read-only audit with no mutation authority', async () => {
+    const module = await runtime()
+    const legacy = discoveredLedger()
+    await expectCode(
+        () => module.replayEventLedger(clone(legacy)),
+        'ledger-v1-historical-only'
+    )
+    const audit = await module.auditHistoricalEventLedger(clone(legacy))
+    assert.equal(audit.schema, 'issue-orchestration.historical-ledger-audit.v1')
+    assert.equal(audit.mode, 'read-only-historical-audit')
+    assert.equal(audit.mutationAuthority, 'none')
+    assert.equal(audit.canAppend, false)
+    assert.equal(audit.canRecoverProjection, false)
+    assert.equal(Object.isFrozen(audit), true)
+    assert.equal(Object.isFrozen(audit.projection), true)
+    assert.equal(nodeOf(audit.projection).status, 'discovered')
+    await expectCode(
+        () => module.validateDagProjection({
+            dag: dagFrom(audit.projection),
+            projection: audit.projection
+        }),
+        'projection-v1-historical-only'
+    )
+    await expectCode(
+        () => module.auditHistoricalEventLedger(activeDiscoveredLedger()),
+        'historical-ledger-v1-required'
+    )
+})
+
+test('append and recovery reject v1 before writing ledger or projection', async () => {
+    const module = await runtime()
+    const legacy = discoveredLedger()
+    const io = canonicalIo(module, legacy, 'retired-v1')
+    const event = legacy.events.pop()
+    writeLedger(io.ledgerPath, legacy)
+    const before = fs.readFileSync(io.ledgerPath, 'utf8')
+    await expectCode(
+        () => module.appendEventAtomic({
+            event,
+            ...io,
+            writerRole: 'root-scheduler'
+        }),
+        'ledger-v1-historical-only'
+    )
+    assert.equal(fs.readFileSync(io.ledgerPath, 'utf8'), before)
+    assert.equal(fs.existsSync(io.projectionPath), false)
+    await expectCode(
+        () => module.recoverEventLedger(io),
+        'ledger-v1-historical-only'
+    )
+    assert.equal(fs.existsSync(io.projectionPath), false)
 })
 
 test('mutation catalog is executable and exact-set equal', () => {
@@ -1003,9 +1942,11 @@ async function verifierMutation(mutator, code) {
     await replayMutation(ledger, code)
 }
 
-async function projectionMutation(mutator, code, ledger = behaviorGreenLedger()) {
+async function projectionMutation(mutator, code) {
     const module = await runtime()
-    const projection = await module.replayEventLedger(clone(ledger))
+    const projection = await module.replayEventLedger(
+        activeDiscoveredLedger()
+    )
     const dag = dagFrom(projection)
     mutator(dag, projection)
     await expectCode(
@@ -1016,18 +1957,16 @@ async function projectionMutation(mutator, code, ledger = behaviorGreenLedger())
 
 async function writerMutation(writerRole, code) {
     const module = await runtime()
-    const directory = fs.mkdtempSync(path.join(scratch, 'writer-'))
     const ledger = frozenLedger()
-    const ledgerPath = path.join(directory, 'ledger.jsonl')
-    const projectionPath = path.join(directory, 'projection.json')
-    writeLedger(ledgerPath, { ...ledger, events: ledger.events.slice(0, -1) })
+    const io = canonicalIo(module, ledger, 'writer-role')
+    writeLedger(io.ledgerPath, {
+        ...ledger,
+        events: ledger.events.slice(0, -1)
+    })
     await expectCode(
         () => module.appendEventAtomic({
             event: clone(ledger.events.at(-1)),
-            ledgerPath,
-            projectionPath,
-            protectedRoots: [],
-            stateRoot: directory,
+            ...io,
             writerRole
         }),
         code
@@ -1062,6 +2001,43 @@ function writeLedger(file, ledger) {
         file,
         `${[ledger.header, ...ledger.events].map((entry) => JSON.stringify(entry)).join('\n')}\n`
     )
+}
+
+let canonicalIoInvocation = 0
+
+function canonicalIo(
+    module,
+    ledger,
+    label,
+    {
+        node = nodeId,
+        stageAttemptId = 'event-ledger-authority'
+    } = {}
+) {
+    canonicalIoInvocation += 1
+    const canonicalRunId =
+        `${ledger.header.runId}-${label}-${process.pid}-${canonicalIoInvocation}`
+    ledger.header.runId = canonicalRunId
+    for (const event of ledger.events) {
+        event.runId = canonicalRunId
+    }
+    resealFrom(ledger)
+    const location = module.canonicalEventLedgerLocation({
+        runId: canonicalRunId,
+        nodeId: node,
+        stageAttemptId
+    })
+    fs.rmSync(location.ledgerPath, { force: true })
+    fs.rmSync(location.projectionPath, { force: true })
+    return {
+        ledgerPath: location.ledgerPath,
+        nodeId: node,
+        projectionPath: location.projectionPath,
+        protectedRoots: [],
+        runId: canonicalRunId,
+        stageAttemptId,
+        stateRoot: location.stateRoot
+    }
 }
 
 const mutations = {
@@ -1169,7 +2145,7 @@ const mutations = {
     'ux-verifier-modifies-code': async (code) => {
         const ledger = closedLedger({ issueKind: 'ui-ux' })
         const event = ledger.events.find(({ eventType }) => eventType === 'ux-acceptance.accepted')
-        event.payload.modifiedPaths = ['.agents/skills/issue-orchestration/scripts/event-ledger.mjs']
+        event.payload.modifiedPaths = ['tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/event-ledger.mjs']
         resealFrom(ledger, ledger.events.indexOf(event))
         await replayMutation(ledger, code)
     },
@@ -1271,7 +2247,10 @@ const mutations = {
     'terminal-category-invalid': (code) => terminalMutation({ category: 'unknown' }, code),
     'terminal-evidence-missing': (code) => terminalMutation({ directEvidence: [] }, code),
     'terminal-recovery-fingerprint-unchanged': (code) => terminalRecoveryUnchanged(code),
-    'reopen-retains-closed-projection': (code) => projectionMutation((dag) => { dag.nodes[0].status = 'closed' }, code, reopenedLedger()),
+    'reopen-retains-closed-projection': (code) => projectionMutation(
+        (dag) => { dag.nodes[0].status = 'closed' },
+        code
+    ),
     'implementer-writes-ledger': (code) => writerMutation('code-implementer', code),
     'test-owner-writes-ledger': (code) => writerMutation('test-owner', code),
     'reviewer-writes-pass-event': (code) => writerMutation('issue-reviewer', code),
@@ -1457,8 +2436,8 @@ function reopenedLedger() {
 
 async function rootWithoutReceiptMutation(code) {
     const module = await runtime()
-    const directory = fs.mkdtempSync(path.join(scratch, 'root-no-receipt-'))
     const ledger = candidateLedger()
+    const io = canonicalIo(module, ledger, 'root-no-receipt')
     const event = sealEvent(clone(ledger), {
         actorRole: 'test-owner',
         attemptId: 'attempt-1817-001',
@@ -1468,16 +2447,14 @@ async function rootWithoutReceiptMutation(code) {
         toState: 'independent-verifying'
     })
     delete event.payload.receipt
-    resealFrom({ header: ledger.header, events: [event] })
-    const ledgerPath = path.join(directory, 'ledger.jsonl')
-    writeLedger(ledgerPath, ledger)
+    event.payloadDigest = digest(event.payload)
+    delete event.eventDigest
+    event.eventDigest = digest(event)
+    writeLedger(io.ledgerPath, ledger)
     await expectCode(
         () => module.appendEventAtomic({
             event,
-            ledgerPath,
-            projectionPath: path.join(directory, 'projection.json'),
-            protectedRoots: [],
-            stateRoot: directory,
+            ...io,
             writerRole: 'root-scheduler'
         }),
         code
@@ -1486,15 +2463,12 @@ async function rootWithoutReceiptMutation(code) {
 
 async function protectedPathMutation(kind, code) {
     const module = await runtime()
-    const protectedRoot = fs.mkdtempSync(path.join(scratch, `${kind}-`))
-    const stateRoot = path.join(protectedRoot, 'runtime-state')
-    fs.mkdirSync(stateRoot)
+    const ledger = activeDiscoveredLedger()
+    const io = canonicalIo(module, ledger, kind)
     await expectCode(
         () => module.recoverEventLedger({
-            ledgerPath: path.join(stateRoot, 'ledger.jsonl'),
-            projectionPath: path.join(stateRoot, 'projection.json'),
-            protectedRoots: [protectedRoot],
-            stateRoot
+            ...io,
+            protectedRoots: [io.stateRoot]
         }),
         code
     )
@@ -1502,34 +2476,33 @@ async function protectedPathMutation(kind, code) {
 
 async function symlinkMutation(code) {
     const module = await runtime()
-    const stateRoot = fs.mkdtempSync(path.join(scratch, 'symlink-state-'))
+    const ledger = activeDiscoveredLedger()
+    const io = canonicalIo(module, ledger, 'symlink')
     const target = fs.mkdtempSync(path.join(scratch, 'symlink-target-'))
-    fs.symlinkSync(target, path.join(stateRoot, 'runtime'))
-    await expectCode(
-        () => module.recoverEventLedger({
-            ledgerPath: path.join(stateRoot, 'runtime/ledger.jsonl'),
-            projectionPath: path.join(stateRoot, 'projection.json'),
-            protectedRoots: [],
-            stateRoot
-        }),
-        code
-    )
+    const runRoot = path.dirname(io.ledgerPath)
+    fs.mkdirSync(path.dirname(runRoot), { recursive: true })
+    fs.symlinkSync(target, runRoot)
+    try {
+        await expectCode(
+            () => module.recoverEventLedger(io),
+            code
+        )
+    } finally {
+        fs.rmSync(runRoot, { force: true })
+    }
 }
 
 async function truncatedTailMutation(code) {
     const module = await runtime()
-    const directory = fs.mkdtempSync(path.join(scratch, 'truncated-'))
     const ledger = frozenLedger()
-    const ledgerPath = path.join(directory, 'ledger.jsonl')
-    writeLedger(ledgerPath, ledger)
-    fs.appendFileSync(ledgerPath, '{"schema":"issue-orchestration.event.v1"')
+    const io = canonicalIo(module, ledger, 'truncated')
+    writeLedger(io.ledgerPath, ledger)
+    fs.appendFileSync(
+        io.ledgerPath,
+        '{"schema":"issue-orchestration.event.v1"'
+    )
     await expectCode(
-        () => module.recoverEventLedger({
-            ledgerPath,
-            projectionPath: path.join(directory, 'projection.json'),
-            protectedRoots: [],
-            stateRoot: directory
-        }),
+        () => module.recoverEventLedger(io),
         code
     )
 }
@@ -1637,61 +2610,44 @@ for (const control of controls) {
 
 test('R01/R02/R04 durable recovery derives projection only from the ledger', async () => {
     const module = await runtime()
-    const directory = fs.mkdtempSync(path.join(scratch, 'recovery-'))
-    const ledger = frozenLedger()
-    const ledgerPath = path.join(directory, 'ledger.jsonl')
-    const projectionPath = path.join(directory, 'projection.json')
-    writeLedger(ledgerPath, ledger)
+    const ledger = activeDiscoveredLedger()
+    const io = canonicalIo(module, ledger, 'recovery')
+    writeLedger(io.ledgerPath, ledger)
 
-    const missing = await module.recoverEventLedger({
-        ledgerPath,
-        projectionPath,
-        protectedRoots: [],
-        stateRoot: directory
-    })
+    const missing = await module.recoverEventLedger(io)
     assert.equal(missing.recoveryAction, 'replay-ledger-forward')
-    assert.equal(nodeOf(missing.projection).status, 'test-contract-frozen')
+    assert.equal(nodeOf(missing.projection).status, 'discovered')
 
     const ahead = clone(missing.projection)
     ahead.lastSequence += 1
     ahead.nodes[nodeId].status = 'closed'
-    fs.writeFileSync(projectionPath, `${JSON.stringify(ahead, null, 2)}\n`)
-    const rebuilt = await module.recoverEventLedger({
-        ledgerPath,
-        projectionPath,
-        protectedRoots: [],
-        stateRoot: directory
-    })
+    fs.writeFileSync(
+        io.projectionPath,
+        `${JSON.stringify(ahead, null, 2)}\n`
+    )
+    const rebuilt = await module.recoverEventLedger(io)
     assert.equal(rebuilt.recoveryAction, 'discard-projection-and-rebuild')
-    assert.equal(nodeOf(rebuilt.projection).status, 'test-contract-frozen')
+    assert.equal(nodeOf(rebuilt.projection).status, 'discovered')
 
-    const current = await module.recoverEventLedger({
-        ledgerPath,
-        projectionPath,
-        protectedRoots: [],
-        stateRoot: directory
-    })
+    const current = await module.recoverEventLedger(io)
     assert.equal(current.recoveryAction, 'projection-already-current')
     assert.deepEqual(current.repeatedSideEffects, [])
 })
 
 test('R03 corrupt tail reports the final valid sequence and keeps dispatch disabled', async () => {
     const module = await runtime()
-    const directory = fs.mkdtempSync(path.join(scratch, 'tail-'))
-    const ledger = frozenLedger()
-    const ledgerPath = path.join(directory, 'ledger.jsonl')
-    writeLedger(ledgerPath, ledger)
-    fs.appendFileSync(ledgerPath, '{"schema":"issue-orchestration.event.v1"')
+    const ledger = activeDiscoveredLedger()
+    const io = canonicalIo(module, ledger, 'tail')
+    writeLedger(io.ledgerPath, ledger)
+    fs.appendFileSync(
+        io.ledgerPath,
+        '{"schema":"issue-orchestration.event.v1"'
+    )
     await assert.rejects(
-        () => module.recoverEventLedger({
-            ledgerPath,
-            projectionPath: path.join(directory, 'projection.json'),
-            protectedRoots: [],
-            stateRoot: directory
-        }),
+        () => module.recoverEventLedger(io),
         (error) => {
             assert.equal(error.code, 'ledger-tail-corrupt')
-            assert.equal(error.lastValidSequence, 3)
+            assert.equal(error.lastValidSequence, 1)
             assert.equal(error.dispatchEnabled, false)
             return true
         }
@@ -1700,7 +2656,6 @@ test('R03 corrupt tail reports the final valid sequence and keeps dispatch disab
 
 test('R05/R06 append authority leaves protected repository and workspace inventories unchanged', async () => {
     const module = await runtime()
-    const stateRoot = fs.mkdtempSync(path.join(scratch, 'external-state-'))
     const protectedRoots = ['FsusBlog', 'FsusUI', 'workspace', 'FsusBlog-worktree', 'FsusUI-worktree']
         .map((name) => {
             const directory = path.join(scratch, name)
@@ -1709,16 +2664,14 @@ test('R05/R06 append authority leaves protected repository and workspace invento
             return directory
         })
     const before = protectedRoots.map(treeDigest)
-    const ledger = frozenLedger()
+    const ledger = activeDiscoveredLedger()
+    const io = canonicalIo(module, ledger, 'external-state')
     const last = ledger.events.pop()
-    const ledgerPath = path.join(stateRoot, 'ledger.jsonl')
-    writeLedger(ledgerPath, ledger)
+    writeLedger(io.ledgerPath, ledger)
     await module.appendEventAtomic({
         event: last,
-        ledgerPath,
-        projectionPath: path.join(stateRoot, 'projection.json'),
+        ...io,
         protectedRoots,
-        stateRoot,
         writerRole: 'root-scheduler'
     })
     assert.deepEqual(protectedRoots.map(treeDigest), before)

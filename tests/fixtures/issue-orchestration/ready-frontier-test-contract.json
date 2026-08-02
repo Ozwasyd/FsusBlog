@@ -73,12 +73,12 @@
     "tests/fixtures/issue-orchestration/ready-frontier-test-contract.json"
   ],
   "allowedImplementationPaths": [
-    ".agents/skills/issue-orchestration/scripts/frontier-compiler.mjs",
-    ".agents/skills/issue-orchestration/scripts/check-dag-gate.mjs"
+    "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/frontier-compiler.mjs",
+    "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/check-dag-gate.mjs"
   ],
   "minimalImplementationPaths": [
-    ".agents/skills/issue-orchestration/scripts/frontier-compiler.mjs",
-    ".agents/skills/issue-orchestration/scripts/check-dag-gate.mjs"
+    "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/frontier-compiler.mjs",
+    "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/check-dag-gate.mjs"
   ],
   "forbiddenScopes": [
     "implementation outside allowedImplementationPaths",
@@ -95,13 +95,13 @@
   "hashAlgorithm": "sha256",
   "selfHashPolicy": "fileHashes covers raw bytes for every allowedTestPath except this manifest; frozenTreeDigest covers the canonical fileHashes object; testContractDigest covers the canonical manifest with testContractDigest omitted",
   "fileHashes": {
-    "tests/tools/issue-orchestration-ready-frontier.test.mjs": "78be8054632e52bd8e461865b560aa014ae92345a3d5e1936f2e0cd4b4e31605",
-    "tests/fixtures/issue-orchestration/ready-frontier-cases.json": "82b0b8f8d5755ee54174e2a87fe633c5eeced6de975e371c52255eb12fffcbd3",
+    "tests/tools/issue-orchestration-ready-frontier.test.mjs": "12cab3dbb344747cd396c4947863c62a186c26e070dbcb0374382e4ec8251e28",
+    "tests/fixtures/issue-orchestration/ready-frontier-cases.json": "63cb43ab24db46fca2cb6591f3cbada36676fb8c9d567fef333402a1292ac1cc",
     "tests/fixtures/issue-orchestration/ready-frontier-acceptance-map.json": "e5de609e6b9a3f3d62e0edb588f2c91f1736dd7176be13b616c2b3859a83de28",
-    "tests/fixtures/issue-orchestration/ready-frontier-expected-initial-failures.json": "73bdcb43088c92b65e90fb216f4b2e21bfd3e5b9c96c97649655421794ba46dd",
-    "tests/fixtures/issue-orchestration/ready-frontier-runtime-probes.json": "be4e4389d7ec0f2cd0cd904dd643b8b0db03bae64a2393dee61aa312bce20c0a",
+    "tests/fixtures/issue-orchestration/ready-frontier-expected-initial-failures.json": "4ef596a4fcec0c0bcf4eb10318e7c4a09919339a37d7e7fdf5f28fecd6097626",
+    "tests/fixtures/issue-orchestration/ready-frontier-runtime-probes.json": "8ac48a1b8285c9c077bf2d92bac848a3a54f63bcfb357b402714ef5f0390ae48",
     "tests/fixtures/issue-orchestration/ready-frontier-mutation-controls.json": "dd6ba0494eb1a74c4df2bf45de9e31ecd9252b5488b0c569e281784bab6626d3"
   },
-  "frozenTreeDigest": "e5787d45d5deee18d1eab7ebd2b4e1b7ce11fe3cfa66ac6f36de7325ee805601",
-  "testContractDigest": "5de7ca519e9e21e79aeb48c587f2cb98a218a1e42b5b329c3ae647e9984d2908"
+  "frozenTreeDigest": "7f735129806818a1905b743733c1d215f7f092258f4acae73761e933d31a3adb",
+  "testContractDigest": "03eacf4a762415b9a61f177796f35327c022aac27a2a34441403049a6e696d66"
 }

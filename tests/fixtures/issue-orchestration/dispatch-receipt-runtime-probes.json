@@ -59,7 +59,7 @@
         {
             "id": "RP08",
             "scenario": "Execute verify-runtime with three nonexistent required input paths; the CLI must fail nonzero and emit a deterministic rejection diagnostic.",
-            "command": ["node", ".agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs", "verify-runtime", "--request", "<nonexistent-state-root>/request.json", "--rollout", "<nonexistent-state-root>/rollout.jsonl", "--machine-observations", "<nonexistent-state-root>/observations.json"],
+            "command": ["node", "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/dispatch-receipt.mjs", "verify-runtime", "--request", "<nonexistent-state-root>/request.json", "--rollout", "<nonexistent-state-root>/rollout.jsonl", "--machine-observations", "<nonexistent-state-root>/observations.json"],
             "expectedExitStatus": "nonzero",
             "requiredDiagnostic": true,
             "firstFailureId": "required-runtime-cli-no-op",

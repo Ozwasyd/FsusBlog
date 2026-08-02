@@ -9,9 +9,9 @@
     "tests/tools/issue-orchestration-dispatch-receipt-v2.test.mjs"
   ],
   "sourceRealityDigests": {
-    ".agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs": "cd6985fcaaddf2380b40351608abe5fd38845b63f2cf4148dc4108e670fe534a",
-    ".agents/skills/issue-orchestration/scripts/stage-profile-policy.mjs": "ea3d7dd2d36199c0d8ce309a61449cbf91be33c6807fdf29021afd3c5a36c2dc",
-    ".agents/skills/issue-orchestration/scripts/event-ledger.mjs": "27f678f81b342af8a6ece5edf009c48d782c664dd888fdcfc0065963f8358cf6",
+    "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/dispatch-receipt.mjs": "cd6985fcaaddf2380b40351608abe5fd38845b63f2cf4148dc4108e670fe534a",
+    "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/stage-profile-policy.mjs": "ea3d7dd2d36199c0d8ce309a61449cbf91be33c6807fdf29021afd3c5a36c2dc",
+    "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/event-ledger.mjs": "27f678f81b342af8a6ece5edf009c48d782c664dd888fdcfc0065963f8358cf6",
     "docs/development/issue-orchestration-scope.md": "508fcc06d8978e67516ace06586c0936d27e5f376ee5cd08d12e923c5548cff2"
   },
   "expectedFailures": [

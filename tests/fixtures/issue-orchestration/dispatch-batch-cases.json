@@ -41,12 +41,12 @@
         "candidateDigestInput": "{baseSha,testContractDigest,path-sorted implementationFiles[{path,sha256,gitMode}]}",
         "implementationFiles": [
             {
-                "path": ".agents/skills/issue-orchestration/scripts/check-dag-gate.mjs",
+                "path": "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/check-dag-gate.mjs",
                 "sha256": "7ca98a2349e9f3eb6014cf61faeb5867b6adcde0a28a2046215104c71209a84d",
                 "gitMode": "100644"
             },
             {
-                "path": ".agents/skills/issue-orchestration/scripts/dispatch-batch-selector.mjs",
+                "path": "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/dispatch-batch-selector.mjs",
                 "sha256": "36c4d3607b87e11f9fcd796377a3ff6e93f1b471befcf14241d8dbede9d48f42",
                 "gitMode": "100644"
             }

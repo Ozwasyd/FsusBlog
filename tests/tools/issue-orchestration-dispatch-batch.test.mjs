@@ -2,17 +2,23 @@ import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import test from 'node:test'
+import test, { after } from 'node:test'
 import { pathToFileURL } from 'node:url'
+
+import {
+    compileWriterStageTestArtifacts,
+    createWriterStageGitFixture,
+    writerStageBindingForKind
+} from './issue-orchestration-writer-stage-test-helper.mjs'
 
 const root = resolve(import.meta.dirname, '../..')
 const implementationPath = resolve(
     root,
-    '.agents/skills/issue-orchestration/scripts/dispatch-batch-selector.mjs'
+    'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/dispatch-batch-selector.mjs'
 )
 const gatePath = resolve(
     root,
-    '.agents/skills/issue-orchestration/scripts/check-dag-gate.mjs'
+    'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/check-dag-gate.mjs'
 )
 const fixtureRoot = resolve(root, 'tests/fixtures/issue-orchestration')
 const cases = readJson('dispatch-batch-cases.json')
@@ -43,6 +49,11 @@ const frontierDispatchFields = [
 
 let implementationPromise
 let gatePromise
+const writerGitFixtures = new Map()
+
+after(() => {
+    for (const fixture of writerGitFixtures.values()) fixture.dispose()
+})
 
 function readJson(name) {
     return JSON.parse(readFileSync(resolve(fixtureRoot, name), 'utf8'))
@@ -70,6 +81,46 @@ function digest(value) {
     return createHash('sha256')
         .update(JSON.stringify(canonical(value)))
         .digest('hex')
+}
+
+function orderedCanonical(value) {
+    if (Array.isArray(value)) return value.map(orderedCanonical)
+    if (!value || typeof value !== 'object') return value
+    return Object.fromEntries(
+        Object.keys(value).sort()
+            .map((key) => [key, orderedCanonical(value[key])])
+    )
+}
+
+function orderedDigest(value) {
+    return createHash('sha256')
+        .update(JSON.stringify(orderedCanonical(value)))
+        .digest('hex')
+}
+
+function initialWriterSequence(artifacts) {
+    if (!artifacts.stageWorkPlan || !artifacts.executableSlice) return {}
+    const plan = artifacts.stageWorkPlan
+    const slice = artifacts.executableSlice
+    const binding = {
+        schema: 'issue-orchestration.writer-slice-sequence-binding.v1',
+        source: 'initial-stage-plan',
+        projectionStatus: null,
+        planDigest: plan.planDigest,
+        stageAttemptId: plan.stageAttemptId,
+        stageRole: plan.stageRole,
+        stagePhase: plan.stagePhase,
+        sliceIndex: 0,
+        expectedNextSliceId: slice.sliceId,
+        expectedNextSliceDigest: slice.sliceDigest,
+        prerequisiteSliceIds: [],
+        completedSliceReceiptDigests: [],
+        writerStageProjectionDigest: null
+    }
+    return {
+        writerSequenceBinding: binding,
+        writerSequenceBindingDigest: orderedDigest(binding)
+    }
 }
 
 async function implementation() {
@@ -117,6 +168,17 @@ function resourceEvidence(keys) {
     ]))
 }
 
+function writerGitFixtureFor(identity, filePaths) {
+    const key = JSON.stringify([identity, filePaths])
+    if (!writerGitFixtures.has(key)) {
+        writerGitFixtures.set(
+            key,
+            createWriterStageGitFixture({ filePaths })
+        )
+    }
+    return writerGitFixtures.get(key)
+}
+
 function stageTask(number, overrides = {}) {
     const issueId = overrides.issueId ?? `Ozwasyd/FsusBlog#${number}`
     const stageKind = overrides.stageKind ?? 'test-contract'
@@ -124,6 +186,56 @@ function stageTask(number, overrides = {}) {
     const exclusiveResourceKeys = overrides.exclusiveResourceKeys ?? []
     const writePaths = overrides.writePaths
         ?? [`tests/contracts/issue-${number}.test.mjs`]
+    const writerBinding = writerStageBindingForKind(
+        stageKind,
+        overrides.stageRole
+    )
+    const writerFixture = writerBinding && writePaths.length > 0
+        ? overrides.writerGitFixture ?? writerGitFixtureFor(
+            overrides.issueWorktreeId ?? `worktree-${number}`,
+            writePaths
+        )
+        : null
+    const writerArtifacts = overrides.writerArtifacts ??
+        (writerBinding && writePaths.length > 0
+            ? compileWriterStageTestArtifacts({
+            repository: overrides.repository ?? 'Ozwasyd/FsusBlog',
+            issue: overrides.issueNumber ?? number,
+            node: issueId,
+            stageRole: writerBinding.stageRole,
+            stagePhase: writerBinding.stagePhase,
+            baseSha: writerFixture.baseSha,
+            runId: `run-dispatch-batch-${number}-${stageKind}`,
+            epochId: overrides.epochId ?? 'epoch-1820-1',
+            worktreeIdentity: writerFixture.worktreeIdentity,
+            allowedPaths: writePaths,
+            requiredFiles: [writePaths[0]],
+            requiredCommands: [`node --check ${writePaths[0]}`],
+            ...(stageKind === 'landing-conflict-resolution' &&
+                overrides.landingConflictResolution
+                ? {
+                    requiredEvidence: [
+                        'landing-conflict-source:' +
+                            overrides.landingConflictResolution
+                                .conflictSourceDigest,
+                        'delivery-failure-receipt:' +
+                            overrides.landingConflictResolution
+                                .deliveryFailureReceiptDigest,
+                        'landing-conflict-mapping:' +
+                            overrides.landingConflictResolution
+                                .conflictMappingDigest
+                    ]
+                }
+                : {})
+            })
+            : {})
+    const writerSequence = initialWriterSequence(writerArtifacts)
+    const {
+        issueWorktreeId: requestedWorktreeIdentity,
+        writerGitFixture: requestedWriterFixture,
+        writerArtifacts: requestedWriterArtifacts,
+        ...publicOverrides
+    } = overrides
     const task = {
         taskId: overrides.taskId ?? `${issueId}@${stageKind}`,
         issueId,
@@ -131,7 +243,8 @@ function stageTask(number, overrides = {}) {
         repository: overrides.repository ?? 'Ozwasyd/FsusBlog',
         stageKind,
         stageRole: overrides.stageRole ?? 'test-owner',
-        issueWorktreeId: overrides.issueWorktreeId ?? `worktree-${number}`,
+        issueWorktreeId: writerFixture?.worktreeIdentity ??
+            requestedWorktreeIdentity ?? `worktree-${number}`,
         writeScopeDigest: overrides.writeScopeDigest ?? digest(writePaths),
         writePaths,
         requiredReceiptDigests: overrides.requiredReceiptDigests ?? [],
@@ -160,9 +273,152 @@ function stageTask(number, overrides = {}) {
             overrides.stagePrerequisitesSatisfied ?? true,
         dependencyStatus: overrides.dependencyStatus ?? 'satisfied',
         active: overrides.active ?? true,
-        rootOnly: overrides.rootOnly ?? false
+        rootOnly: overrides.rootOnly ?? false,
+        ...writerArtifacts,
+        ...writerSequence
     }
-    return { ...task, ...overrides }
+    return { ...task, ...publicOverrides }
+}
+
+function sameWorktreeWriterTasks(number, identity) {
+    const testPath = `tests/contracts/issue-${number}.test.mjs`
+    const implementationPath = `src/issue-${number}.mjs`
+    const writerGitFixture = writerGitFixtureFor(identity, [
+        testPath,
+        implementationPath
+    ])
+    return [
+        stageTask(number, {
+            issueWorktreeId: identity,
+            writerGitFixture,
+            writePaths: [testPath]
+        }),
+        stageTask(number, {
+            taskId:
+                `Ozwasyd/FsusBlog#${number}@code-implementation`,
+            stageKind: 'code-implementation',
+            stageRole: 'code-implementer',
+            issueWorktreeId: identity,
+            writerGitFixture,
+            writePaths: [implementationPath]
+        })
+    ]
+}
+
+function twoSliceStageTask(number, sliceIndex, {
+    sequenceSource = sliceIndex === 0
+        ? 'initial-stage-plan'
+        : 'semantic-runtime-projection'
+} = {}) {
+    const issueId = `Ozwasyd/FsusBlog#${number}`
+    const writePaths = [
+        `tests/contracts/issue-${number}-slice-1.test.mjs`,
+        `tests/contracts/issue-${number}-slice-2.test.mjs`
+    ]
+    const writerFixture = writerGitFixtureFor(
+        `worktree-${number}-two-slice`,
+        writePaths
+    )
+    const artifacts = compileWriterStageTestArtifacts({
+        repository: 'Ozwasyd/FsusBlog',
+        issue: number,
+        node: issueId,
+        stageRole: 'test-owner',
+        stagePhase: 'test-contract',
+        baseSha: writerFixture.baseSha,
+        epochId: 'epoch-1820-two-slice-1',
+        worktreeIdentity: writerFixture.worktreeIdentity,
+        allowedPaths: writePaths,
+        requiredFiles: writePaths,
+        requiredCommands: writePaths.map((file) =>
+            `node --check ${file}`),
+        sliceCount: 2
+    })
+    const slice = artifacts.executableSlices[sliceIndex]
+    const compiledPrompt = artifacts.compiledPrompts[sliceIndex]
+    const initial = sliceIndex === 0
+    const writerSequenceBinding = {
+        schema: 'issue-orchestration.writer-slice-sequence-binding.v1',
+        source: sequenceSource,
+        projectionStatus: initial ? null : 'next-slice',
+        planDigest: artifacts.planDigest,
+        stageAttemptId: artifacts.stageWorkPlan.stageAttemptId,
+        stageRole: artifacts.stageWorkPlan.stageRole,
+        stagePhase: artifacts.stageWorkPlan.stagePhase,
+        sliceIndex,
+        expectedNextSliceId: slice.sliceId,
+        expectedNextSliceDigest: slice.sliceDigest,
+        prerequisiteSliceIds: [...slice.prerequisiteSliceIds],
+        completedSliceReceiptDigests: initial ? [] : ['8'.repeat(64)],
+        writerStageProjectionDigest: initial ? null : '9'.repeat(64)
+    }
+    return stageTask(number, {
+        writePaths,
+        writerGitFixture: writerFixture,
+        writerArtifacts: artifacts,
+        epochId: artifacts.stageWorkPlan.epochId,
+        executableSlice: slice,
+        sliceDigest: slice.sliceDigest,
+        compiledPrompt,
+        compiledPromptDigest: compiledPrompt.promptDigest,
+        promptDigest: compiledPrompt.promptDigest,
+        writerSequenceBinding,
+        writerSequenceBindingDigest:
+            orderedDigest(writerSequenceBinding)
+    })
+}
+
+function landingConflictStageTask(number, overrides = {}) {
+    const issueId =
+        overrides.issueId ?? `Ozwasyd/FsusBlog#${number}`
+    const epochId = overrides.epochId ?? 'epoch-1820-1'
+    const issueWorktreeId =
+        overrides.issueWorktreeId ?? `worktree-${number}`
+    const stageRole = overrides.stageRole ?? 'code-implementer'
+    const writePaths = overrides.writePaths ??
+        [`src/landing-conflict-${number}.mjs`]
+    const writerFixture = writerGitFixtureFor(
+        overrides.issueWorktreeId ?? `worktree-${number}`,
+        writePaths
+    )
+    const conflict = {
+        schema: 'issue-orchestration.landing-conflict-resolution.v1',
+        status: 'active',
+        node: issueId,
+        baseSha: writerFixture.baseSha,
+        epochId,
+        worktreeIdentity: writerFixture.worktreeIdentity,
+        memberWriterRole: stageRole,
+        conflictSource: 'delivery-failure-receipt',
+        conflictSourceDigest: digest({
+            issueId,
+            source: 'machine-observed-landing-conflict'
+        }),
+        deliveryFailureReceiptDigest: digest({
+            issueId,
+            eventType: 'delivery.failed',
+            failure: 'merge-conflict'
+        }),
+        conflictMappingDigest: digest({
+            issueId,
+            writePaths,
+            mapping: 'ours-theirs-base'
+        }),
+        conflictPaths: [...writePaths]
+    }
+    conflict.resolutionDigest = digest(conflict)
+    return stageTask(number, {
+        ...overrides,
+        issueId,
+        epochId,
+        issueWorktreeId,
+        writerGitFixture: writerFixture,
+        writePaths,
+        stageKind: 'landing-conflict-resolution',
+        stageRole,
+        landingConflictResolution: conflict,
+        landingConflictResolutionDigest: conflict.resolutionDigest
+    })
 }
 
 function dispatchFrontier(tasks, semanticDependencies = []) {
@@ -182,6 +438,8 @@ const readyStageByKind = new Map([
     ['test-contract', 'test-contract-ready'],
     ['code-implementation', 'implementation-ready'],
     ['ui-ux-implementation', 'implementation-ready'],
+    ['landing-conflict-resolution',
+        'landing-conflict-resolution-ready'],
     ['behavior-verification', 'behavior-verification-ready'],
     ['ux-acceptance', 'ux-acceptance-ready'],
     ['documentation', 'documentation-ready'],
@@ -202,6 +460,15 @@ function frontierBindingFixture(tasks) {
             executionProjection: tasks.map((task) => ({
                 issueId: task.issueId,
                 stage: readyStageByKind.get(task.stageKind),
+                planDigest: task.planDigest,
+                sliceDigest: task.sliceDigest,
+                compiledPromptDigest: task.compiledPromptDigest,
+                writerSequenceBinding:
+                    clone(task.writerSequenceBinding),
+                writerSequenceBindingDigest:
+                    task.writerSequenceBindingDigest,
+                landingConflictResolutionDigest:
+                    task.landingConflictResolutionDigest ?? null,
                 candidateCapabilityReceiptDigest: digest({
                     issueId: task.issueId,
                     stageKind: task.stageKind
@@ -232,7 +499,29 @@ function frontierBindingFixture(tasks) {
                 readOnly: task.readOnly,
                 candidateSha: task.candidateSha,
                 candidateFrozen: task.candidateFrozen,
-                epochId: task.epochId
+                epochId: task.epochId,
+                ...(writerStageBindingForKind(
+                    task.stageKind,
+                    task.stageRole
+                )
+                    ? {
+                        planDigest: task.planDigest,
+                        sliceDigest: task.sliceDigest,
+                        compiledPromptDigest: task.compiledPromptDigest,
+                        stageWorkPlan: clone(task.stageWorkPlan),
+                        executableSlice: clone(task.executableSlice),
+                        compiledPrompt: clone(task.compiledPrompt),
+                        ...(task.stageKind ===
+                            'landing-conflict-resolution'
+                            ? {
+                                landingConflictResolution:
+                                    clone(task.landingConflictResolution),
+                                landingConflictResolutionDigest:
+                                    task.landingConflictResolutionDigest
+                            }
+                            : {})
+                    }
+                    : {})
             }))
         }
     }
@@ -489,12 +778,12 @@ test('contract fixtures cover every acceptance and mutation identity', () => {
         candidateDigestInput: '{baseSha,testContractDigest,path-sorted implementationFiles[{path,sha256,gitMode}]}',
         implementationFiles: [
             {
-                path: '.agents/skills/issue-orchestration/scripts/check-dag-gate.mjs',
+                path: 'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/check-dag-gate.mjs',
                 sha256: '7ca98a2349e9f3eb6014cf61faeb5867b6adcde0a28a2046215104c71209a84d',
                 gitMode: '100644'
             },
             {
-                path: '.agents/skills/issue-orchestration/scripts/dispatch-batch-selector.mjs',
+                path: 'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/dispatch-batch-selector.mjs',
                 sha256: '36c4d3607b87e11f9fcd796377a3ff6e93f1b471befcf14241d8dbede9d48f42',
                 gitMode: '100644'
             }
@@ -576,6 +865,198 @@ test('[P01] all six frontier/dispatch fields cannot disappear as one bypass', as
     await expectDenied(
         () => validateDispatchProjectionPresence({}),
         'dispatch-projection-required'
+    )
+})
+
+test('[P02] writer tasks require the complete compiler-owned executable slice chain', async () => {
+    const task = stageTask(9299)
+    assert.equal((await validateInput({ tasks: [task] })).valid, true)
+    for (const field of [
+        'planDigest',
+        'sliceDigest',
+        'compiledPromptDigest',
+        'stageWorkPlan',
+        'executableSlice',
+        'compiledPrompt'
+    ]) {
+        const mutated = clone(task)
+        delete mutated[field]
+        await expectDenied(
+            () => validateInput({ tasks: [mutated] }),
+            'stage-task-executable-slice'
+        )
+    }
+})
+
+test('[P02A] writer tasks select a two-slice stage only in projection order', async () => {
+    const first = twoSliceStageTask(9291, 0)
+    assert.equal(
+        (await validateInput({ tasks: [first] })).valid,
+        true
+    )
+
+    const wrongOrder = twoSliceStageTask(9290, 1, {
+        sequenceSource: 'initial-stage-plan'
+    })
+    await expectDenied(
+        () => validateInput({ tasks: [wrongOrder] }),
+        'stage-task-writer-sequence'
+    )
+
+    const second = twoSliceStageTask(9289, 1)
+    assert.equal(
+        (await validateInput({ tasks: [second] })).valid,
+        true
+    )
+    const fixture = frontierBindingFixture([second])
+    assert.equal((await validateBinding(fixture)).valid, true)
+
+    const forgedProjection = frontierBindingFixture([second])
+    forgedProjection.verifiedProjection.executionProjection[0]
+        .writerSequenceBinding.expectedNextSliceDigest = '0'.repeat(64)
+    forgedProjection.verifiedProjection.executionProjection[0]
+        .writerSequenceBindingDigest = orderedDigest(
+            forgedProjection.verifiedProjection.executionProjection[0]
+                .writerSequenceBinding
+        )
+    await expectDenied(
+        () => validateBinding(forgedProjection),
+        'dispatch-frontier-binding'
+    )
+
+    const unbound = clone(first)
+    unbound.stageWorkPlan.plannerBindingStatus =
+        'unbound-test-only'
+    unbound.executableSlice.plannerBindingStatus =
+        'unbound-test-only'
+    await expectDenied(
+        () => validateInput({ tasks: [unbound] }),
+        'stage-task-executable-slice'
+    )
+})
+
+test('[P03] landing conflict tasks reuse only code or UI writers and bind the verified frontier', async () => {
+    const tasks = [
+        landingConflictStageTask(9297),
+        landingConflictStageTask(9298, {
+            stageRole: 'ui-ux-implementer'
+        })
+    ]
+    assert.equal((await validateInput({ tasks })).valid, true)
+    assert.equal(
+        (await validateBinding(frontierBindingFixture(tasks))).valid,
+        true
+    )
+    const batch = await select({ tasks, availableSlots: 2 })
+    assert.deepEqual(
+        batch.selected.map(({ taskId }) => taskId).toSorted(),
+        tasks.map(({ taskId }) => taskId).toSorted()
+    )
+    assert.ok(tasks.every(({ stageRole }) =>
+        ['code-implementer', 'ui-ux-implementer'].includes(stageRole)))
+})
+
+test('[P04] landing evidence is complete, identity-bound, and has no ordinary implementation fallback', async () => {
+    const requiredFields = [
+        'conflictSourceDigest',
+        'deliveryFailureReceiptDigest',
+        'conflictMappingDigest',
+        'node',
+        'baseSha',
+        'epochId',
+        'worktreeIdentity',
+        'memberWriterRole',
+        'resolutionDigest'
+    ]
+    for (const field of requiredFields) {
+        const task = landingConflictStageTask(9296)
+        delete task.landingConflictResolution[field]
+        await expectDenied(
+            () => validateInput({ tasks: [task] }),
+            'stage-task-landing-conflict-binding'
+        )
+    }
+
+    const owner = landingConflictStageTask(9295, {
+        stageRole: 'landing-owner'
+    })
+    await expectDenied(
+        () => validateInput({ tasks: [owner] }),
+        'stage-role-not-selectable'
+    )
+
+    const fallback = landingConflictStageTask(9294)
+    const ordinary = stageTask(9294, {
+        stageKind: 'code-implementation',
+        stageRole: 'code-implementer',
+        issueWorktreeId: fallback.issueWorktreeId,
+        writePaths: fallback.writePaths
+    })
+    for (const field of [
+        'stageWorkPlan',
+        'executableSlice',
+        'compiledPrompt',
+        'planDigest',
+        'sliceDigest',
+        'compiledPromptDigest',
+        'writerSequenceBinding',
+        'writerSequenceBindingDigest'
+    ]) {
+        fallback[field] = clone(ordinary[field])
+    }
+    await expectDenied(
+        () => validateInput({ tasks: [fallback] }),
+        'stage-task-landing-conflict-binding'
+    )
+})
+
+test('[P05] landing task cannot detach from the verified execution projection', async () => {
+    const task = landingConflictStageTask(9293)
+    const fixture = frontierBindingFixture([task])
+    delete fixture.verifiedProjection.executionProjection[0]
+        .landingConflictResolutionDigest
+    await expectDenied(
+        () => validateBinding(fixture),
+        'dispatch-frontier-binding'
+    )
+
+    const nodeDrift = frontierBindingFixture([task])
+    nodeDrift.dag.nodes[0].landingConflictResolutionDigest =
+        'f'.repeat(64)
+    await expectDenied(
+        () => validateBinding(nodeDrift),
+        'dispatch-frontier-binding'
+    )
+})
+
+test('[P06] landing permissions exist only for the bound code and UI writers', () => {
+    const policy = JSON.parse(readFileSync(resolve(
+        root,
+        'tools/codex/issue-orchestration-package/policy/stage-permissions.json'
+    ), 'utf8'))
+    const landingEntries = Object.entries(policy.stages)
+        .filter(([key]) =>
+            key.endsWith(':landing-conflict-resolution'))
+    assert.deepEqual(
+        landingEntries.map(([key]) => key).toSorted(),
+        [
+            'code-implementer:landing-conflict-resolution',
+            'ui-ux-implementer:landing-conflict-resolution'
+        ]
+    )
+    for (const [, permission] of landingEntries) {
+        assert.deepEqual(permission, {
+            sandbox: 'workspace-write',
+            writeScope: 'implementation-only',
+            freshContext: false
+        })
+    }
+    assert.equal(
+        Object.hasOwn(
+            policy.stages,
+            'landing-owner:landing-conflict-resolution'
+        ),
+        false
     )
 })
 
@@ -690,15 +1171,10 @@ test('[C01] writers sharing an explicit conflict key never run together', async 
 })
 
 test('[C02] same issue worktree test and implementation writers cannot fill two slots', async () => {
-    const issueWorktreeId = 'worktree-same-issue'
-    const testWriter = stageTask(9340, { issueWorktreeId })
-    const codeWriter = stageTask(9340, {
-        taskId: 'Ozwasyd/FsusBlog#9340@code-implementation',
-        stageKind: 'code-implementation',
-        stageRole: 'code-implementer',
-        issueWorktreeId,
-        writePaths: ['.agents/runtime/dispatch.mjs']
-    })
+    const [testWriter, codeWriter] = sameWorktreeWriterTasks(
+        9340,
+        'worktree-same-issue'
+    )
     const batch = await select({
         tasks: [testWriter, codeWriter],
         availableSlots: 2
@@ -1624,15 +2100,7 @@ async function executeMutation(control) {
         ]
         availableSlots = 2
     } else if (control.id === 'same-worktree-writers-co-selected') {
-        tasks = [
-            stageTask(9600, { issueWorktreeId: 'same-worktree' }),
-            stageTask(9600, {
-                taskId: 'Ozwasyd/FsusBlog#9600@code-implementation',
-                stageKind: 'code-implementation',
-                stageRole: 'code-implementer',
-                issueWorktreeId: 'same-worktree'
-            })
-        ]
+        tasks = sameWorktreeWriterTasks(9690, 'same-worktree')
         availableSlots = 2
     } else if (control.id === 'resource-lease-bypassed') {
         tasks = [stageTask(9600, {

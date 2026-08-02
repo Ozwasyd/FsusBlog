@@ -196,6 +196,7 @@
                 ".http",
                 ".npmrc",
                 ".template",
+                ".toml",
                 ".production-template",
                 ".Dockerfile",
                 ".editorconfig",

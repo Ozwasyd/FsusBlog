@@ -11,7 +11,7 @@ const fixturePath = resolve(
 )
 const implementationPath = resolve(
     root,
-    '.agents/skills/issue-orchestration/scripts/scope-selector.mjs'
+    'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/scope-selector.mjs'
 )
 const fixture = JSON.parse(readFileSync(fixturePath, 'utf8'))
 const requiredExports = [

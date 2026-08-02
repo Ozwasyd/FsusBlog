@@ -16,7 +16,7 @@
         "tests/fixtures/issue-orchestration/event-ledger-expected-initial-failures.json"
     ],
     "allowedImplementationPaths": [
-        ".agents/skills/issue-orchestration/scripts/event-ledger.mjs"
+        "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/event-ledger.mjs"
     ],
     "forbiddenScopes": [
         "implementation",
@@ -33,25 +33,25 @@
     "hashAlgorithm": "sha256",
     "selfHashPolicy": "fileHashes covers raw bytes for every allowedTestPath except this manifest; stage 1 testContractDigest covers canonical JSON with testContractDigest and candidateIdentity omitted; stage 2 candidateDigest covers canonical JSON of baseSha, the stage 1 testContractDigest, and path-sorted exact implementationFiles records",
     "fileHashes": {
-        "tests/tools/issue-orchestration-event-ledger.test.mjs": "def3f093c55e204049848a5b4a6af75a437a54390787a4673867a8dce28b9c41",
+        "tests/tools/issue-orchestration-event-ledger.test.mjs": "5ff403ddf7c392897669b18e466a188aebde5ee38ce828fe205236838f956f41",
         "tests/fixtures/issue-orchestration/event-ledger-acceptance-map.json": "79599f56b3a397af9b0894dc29fdbef0fa7446ba3b8e1deca3941d618b93cd3f",
         "tests/fixtures/issue-orchestration/event-ledger-mutation-controls.json": "4c69c0946b4369c0dc90d6164c98676d2bd61165f67af98ee54b8fa03a8a05fa",
         "tests/fixtures/issue-orchestration/event-ledger-runtime-probes.json": "2a696c1c2b8914264e4bde1d506ed560b272b25ff2cab058870fc2c51a288bda"
     },
-    "testContractDigest": "afafe3fd1e3d64d53096698a2a963e5bc87e427b7bcd3f4eadeb75f9c7d83dda",
+    "testContractDigest": "311446d120d0e6edd66b35bf11a14f65ad1cd25b72c0573ca8a7c87f96949a4d",
     "candidateIdentity": {
         "schema": "issue-orchestration.candidate-identity.v1",
         "algorithm": "sha256-canonical-json-v1",
         "baseSha": "f99e6091165edc9dba7f2b1314568c3a07b69537",
-        "testContractDigest": "afafe3fd1e3d64d53096698a2a963e5bc87e427b7bcd3f4eadeb75f9c7d83dda",
+        "testContractDigest": "311446d120d0e6edd66b35bf11a14f65ad1cd25b72c0573ca8a7c87f96949a4d",
         "implementationFiles": [
             {
-                "path": ".agents/skills/issue-orchestration/scripts/event-ledger.mjs",
-                "sha256": "68360e2265be6f4ee448b1f6170a64468dc3c62ee82d0a8db70249a513eaaefd",
+                "path": "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/event-ledger.mjs",
+                "sha256": "693624b3f5b3de45c71bfe8a3d924baaedbfe814a90da0d076cec4977bb16526",
                 "gitMode": "100644"
             }
         ],
-        "candidateDigest": "8ee880fd67de292228e90d6b2a4f37722802f844065842d0b4c80eb7146615ef"
+        "candidateDigest": "9f9274bbb98b827c69025491e4ba9c3a812791d38c0e0f62924ff5b6e8a1bd3a"
     },
     "expectedStatus": "red",
     "preservedOriginalCaseCount": 85,

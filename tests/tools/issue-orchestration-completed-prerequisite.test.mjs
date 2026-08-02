@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const gate = path.join(
   root,
-  '.agents/skills/issue-orchestration/scripts/check-dag-gate.mjs'
+  'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/check-dag-gate.mjs'
 )
 const controls = JSON.parse(fs.readFileSync(
   path.join(
@@ -148,11 +148,11 @@ function nodeFor(issue, {
     investigation: {
       checkedAt: '2026-01-01T12:30:00Z',
       codePaths: [
-        '.agents/skills/issue-orchestration/scripts/check-dag-gate.mjs'
+        'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/check-dag-gate.mjs'
       ],
       constraints: ['completed prerequisites remain auditable'],
       currentDocs: [
-        '.agents/skills/issue-orchestration/references/dag-and-scheduling.md'
+        'tools/codex/issue-orchestration-package/skills/issue-orchestration/references/dag-and-scheduling.md'
       ],
       testPaths: [
         'tests/tools/issue-orchestration-completed-prerequisite.test.mjs'
@@ -255,7 +255,7 @@ function stageReceipts(candidateSha, remoteSnapshotDigest) {
       actorId: 'code-implementer-1',
       allowedWriteClasses: ['schema', 'generator', 'validator'],
       changedPaths: [
-        '.agents/skills/issue-orchestration/scripts/check-dag-gate.mjs'
+        'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/check-dag-gate.mjs'
       ],
       effort: 'low',
       model: 'gpt-5.6-sol',

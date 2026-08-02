@@ -9,23 +9,23 @@ const root = resolve(import.meta.dirname, '../..')
 const fixtureRoot = resolve(root, 'tests/fixtures/issue-orchestration')
 const implementationPath = resolve(
     root,
-    '.agents/skills/issue-orchestration/scripts/investigation-compiler.mjs'
+    'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/investigation-compiler.mjs'
 )
 const frontierPath = resolve(
     root,
-    '.agents/skills/issue-orchestration/scripts/frontier-compiler.mjs'
+    'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/frontier-compiler.mjs'
 )
 const gatePath = resolve(
     root,
-    '.agents/skills/issue-orchestration/scripts/check-dag-gate.mjs'
+    'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/check-dag-gate.mjs'
 )
 const selectorPath = resolve(
     root,
-    '.agents/skills/issue-orchestration/scripts/scope-selector.mjs'
+    'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/scope-selector.mjs'
 )
-const dagAgentPolicyPath = resolve(root, '.codex/agents/issue-dag-agent.toml')
-const testOwnerPolicyPath = resolve(root, '.codex/agents/issue-test-owner.toml')
-const implementerPolicyPath = resolve(root, '.codex/agents/issue-implementer.toml')
+const dagAgentPolicyPath = resolve(root, 'tools/codex/issue-orchestration-package/agents/dag-creator-updater.toml')
+const testOwnerPolicyPath = resolve(root, 'tools/codex/issue-orchestration-package/agents/test-owner.toml')
+const implementerPolicyPath = resolve(root, 'tools/codex/issue-orchestration-package/agents/code-implementer.toml')
 
 const artifactPaths = {
     test: 'tests/tools/issue-orchestration-layered-investigation.test.mjs',
@@ -274,7 +274,7 @@ function classificationFacts(issue, discovery, { candidateReady, index }) {
         }),
         candidateOwner: 'Ozwasyd/FsusBlog',
         candidateOwnerEvidence: [{
-            path: '.agents/skills/issue-orchestration/scripts/check-dag-gate.mjs',
+            path: 'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/check-dag-gate.mjs',
             claim: 'existing DAG schema owner'
         }],
         activeDependencies: [...issue.dependsOn],
@@ -297,26 +297,26 @@ function classificationFacts(issue, discovery, { candidateReady, index }) {
 
 const allowedTestPaths = Object.values(artifactPaths)
 const minimalAllowedImplementationPaths = [
-    '.agents/skills/issue-orchestration/scripts/investigation-compiler.mjs',
-    '.agents/skills/issue-orchestration/scripts/frontier-compiler.mjs',
-    '.agents/skills/issue-orchestration/scripts/check-dag-gate.mjs',
-    '.codex/agents/issue-dag-agent.toml',
-    '.codex/agents/issue-test-owner.toml',
-    '.codex/agents/issue-implementer.toml'
+    'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/investigation-compiler.mjs',
+    'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/frontier-compiler.mjs',
+    'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/check-dag-gate.mjs',
+    'tools/codex/issue-orchestration-package/agents/dag-creator-updater.toml',
+    'tools/codex/issue-orchestration-package/agents/test-owner.toml',
+    'tools/codex/issue-orchestration-package/agents/code-implementer.toml'
 ]
 const candidateImplementationPaths = [...minimalAllowedImplementationPaths]
 const correctiveAllowedImplementationPaths = [
-    '.codex/agents/issue-dag-agent.toml',
-    '.codex/agents/issue-test-owner.toml'
+    'tools/codex/issue-orchestration-package/agents/dag-creator-updater.toml',
+    'tools/codex/issue-orchestration-package/agents/test-owner.toml'
 ]
 const baseDependencyPaths = [
-    '.agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs'
+    'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/dispatch-receipt.mjs'
 ]
 const currentPathDigests = {
     'AGENTS.md': sha256(readFileSync(resolve(root, 'AGENTS.md'))),
-    '.agents/skills/issue-orchestration/scripts/check-dag-gate.mjs':
+    'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/check-dag-gate.mjs':
         sha256(readFileSync(gatePath)),
-    '.agents/skills/issue-orchestration/scripts/frontier-compiler.mjs':
+    'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/frontier-compiler.mjs':
         sha256(readFileSync(frontierPath)),
     'tests/tools/issue-orchestration-layered-investigation.test.mjs':
         sha256(readFileSync(resolve(root, artifactPaths.test))),
@@ -359,10 +359,10 @@ function dispatchInvestigation(issue, classification, selectorReceipt) {
         ],
         codePaths: [
             pathEvidence(
-                '.agents/skills/issue-orchestration/scripts/check-dag-gate.mjs'
+                'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/check-dag-gate.mjs'
             ),
             pathEvidence(
-                '.agents/skills/issue-orchestration/scripts/frontier-compiler.mjs'
+                'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/frontier-compiler.mjs'
             )
         ],
         testPaths: [
@@ -409,8 +409,8 @@ function dispatchInvestigation(issue, classification, selectorReceipt) {
         issueSpecificEvidenceDigest: digest({
             issueId,
             codePaths: [
-                '.agents/skills/issue-orchestration/scripts/check-dag-gate.mjs',
-                '.agents/skills/issue-orchestration/scripts/frontier-compiler.mjs'
+                'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/check-dag-gate.mjs',
+                'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/frontier-compiler.mjs'
             ],
             acceptanceIds: acceptanceMap.acceptance.map(({ id }) => id)
         })
@@ -850,7 +850,7 @@ test('[L06] root-authored facts, arbitrary digests, and nonexistent paths fail c
 
     const nonexistent = await scenario({ deepIndices: [0] })
     nonexistent.dagProposal.nodes[0].dispatchInvestigation.codePaths[0] = {
-        path: '.agents/skills/issue-orchestration/scripts/does-not-exist.mjs',
+        path: 'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/does-not-exist.mjs',
         digest: 'a'.repeat(64)
     }
     await expectDenied(() => compile(nonexistent), 'path-missing')
@@ -980,7 +980,7 @@ test('[F04] instruction and current-doc drift invalidate dispatch only', async (
 test('[F05] owner-code and test-entry drift invalidate dispatch and disable reuse', async () => {
     const driftCases = [
         {
-            path: '.agents/skills/issue-orchestration/scripts/check-dag-gate.mjs',
+            path: 'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/check-dag-gate.mjs',
             expectedCode: 'owner-code-drift'
         },
         {
@@ -1122,11 +1122,16 @@ test('[R02] operational agent policies freeze authority and dispute behavior', a
     assert.match(dagPolicy, /sandbox_mode\s*=\s*"read-only"/u)
     assert.match(dagPolicy, /semantic graph/iu)
     assert.match(dagPolicy, /dispatchInvestigation/iu)
-    assert.match(ownerPolicy, /gpt-5\.6-sol|max/iu)
+    assert.match(ownerPolicy, /stage-model-pool\.v2/iu)
+    assert.match(ownerPolicy, /never select|never.*profile/iu)
+    assert.doesNotMatch(ownerPolicy, /^\s*(?:model|effort)\s*=/mu)
     assert.match(ownerPolicy, /tests\/fixtures\/probes\/contract|tests.*fixtures.*probes/iu)
     assert.match(ownerPolicy, /cannot|must not|不得/iu)
     assert.match(implementerPolicy, /test-contract-disputed/u)
-    assert.match(implementerPolicy, /owner|design|acceptance/iu)
+    assert.match(
+        implementerPolicy,
+        /contract[\s\S]*work plan[\s\S]*slice[\s\S]*compiled prompt[\s\S]*incomplete/iu
+    )
 })
 
 test('[R03] root cannot author discovery or classification facts', async () => {
@@ -1672,7 +1677,7 @@ for (const control of mutationControls) {
         }
         if (control.id === 'nonexistent-evidence-path') {
             first.dispatchInvestigation.codePaths[0] = {
-                path: '.agents/skills/issue-orchestration/scripts/missing.mjs',
+                path: 'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/missing.mjs',
                 digest: 'a'.repeat(64)
             }
             await expectDenied(() => compile(input), control.expectedCode)
@@ -1706,7 +1711,7 @@ for (const control of mutationControls) {
             || control.id === 'test-digest-drift-reused') {
             const projection = await compile(input)
             const path = control.id.startsWith('code')
-                ? '.agents/skills/issue-orchestration/scripts/check-dag-gate.mjs'
+                ? 'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/check-dag-gate.mjs'
                 : 'tests/tools/issue-orchestration-layered-investigation.test.mjs'
             input.runtimeState.currentPathDigests[path] = 'f'.repeat(64)
             const report = await freshness(input, projection)

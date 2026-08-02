@@ -58,8 +58,8 @@
     "failed": 1,
     "exitCode": 1,
     "missingImplementationPaths": [
-      ".codex/agents/issue-dag-agent.toml",
-      ".codex/agents/issue-test-owner.toml"
+      "tools/codex/issue-orchestration-package/agents/dag-creator-updater.toml",
+      "tools/codex/issue-orchestration-package/agents/test-owner.toml"
     ]
   },
   "revision4CandidateGreenProbe": {

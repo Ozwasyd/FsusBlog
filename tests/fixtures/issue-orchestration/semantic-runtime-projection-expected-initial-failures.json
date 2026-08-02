@@ -9,10 +9,10 @@
     "tests/tools/issue-orchestration-semantic-runtime-projection.test.mjs"
   ],
   "sourceRealityDigests": {
-    ".agents/skills/issue-orchestration/scripts/scope-selector.mjs": "df3f832304361663b3df649d7154899afbc741b507865c87f8af333182e57e63",
-    ".agents/skills/issue-orchestration/scripts/frontier-compiler.mjs": "268c8bb5f068c4e40ac83484392f17e321f24d9797def1d2a84e9cd8d0b47398",
-    ".agents/skills/issue-orchestration/scripts/event-ledger.mjs": "27f678f81b342af8a6ece5edf009c48d782c664dd888fdcfc0065963f8358cf6",
-    ".agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs": "cd6985fcaaddf2380b40351608abe5fd38845b63f2cf4148dc4108e670fe534a",
+    "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/scope-selector.mjs": "df3f832304361663b3df649d7154899afbc741b507865c87f8af333182e57e63",
+    "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/frontier-compiler.mjs": "268c8bb5f068c4e40ac83484392f17e321f24d9797def1d2a84e9cd8d0b47398",
+    "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/event-ledger.mjs": "27f678f81b342af8a6ece5edf009c48d782c664dd888fdcfc0065963f8358cf6",
+    "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/dispatch-receipt.mjs": "cd6985fcaaddf2380b40351608abe5fd38845b63f2cf4148dc4108e670fe534a",
     "docs/development/issue-orchestration-scope.md": "508fcc06d8978e67516ace06586c0936d27e5f376ee5cd08d12e923c5548cff2"
   },
   "legacyFalsePositiveProbe": {

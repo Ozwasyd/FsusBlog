@@ -89,7 +89,7 @@
         "observedAt": "2026-07-31T21:03:35Z",
         "command": [
             "node",
-            ".agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs",
+            "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/dispatch-receipt.mjs",
             "verify-runtime",
             "--request",
             "/definitely/missing/request.json",
@@ -292,18 +292,18 @@
         {
             "id": "required-runtime-cli-no-op",
             "expectedError": "verify-runtime must reject unreadable or nonexistent required inputs",
-            "sourcePath": ".agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs",
+            "sourcePath": "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/dispatch-receipt.mjs",
             "meaning": "The executable currently ignores verify-runtime arguments, exits zero, and emits no receipt or diagnostic; this remains the preserved first failure."
         },
         {
             "id": "dispatch-receipt-runtime-missing",
             "expectedError": "ERR_MODULE_NOT_FOUND",
-            "sourcePath": ".agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs",
+            "sourcePath": "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/dispatch-receipt.mjs",
             "meaning": "The base has no deterministic request, runtime-observation, dispatch-receipt, self-test-receipt, replay, or transition verifier."
         },
         {
             "id": "legacy-candidate-receipt-too-weak",
-            "sourcePath": ".agents/skills/issue-orchestration/scripts/event-ledger.mjs",
+            "sourcePath": "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/event-ledger.mjs",
             "meaning": "The base candidate-green path accepts issue-orchestration.verified-candidate-receipt.v1 without request/base/full-matrix/frozen-tree/runtime dispatch identity."
         },
         {
@@ -315,63 +315,63 @@
             "id": "runtime-candidate-digest-unbound",
             "expectedStatus": "rejected",
             "expectedReason": "runtime-candidate-identity-mismatch",
-            "sourcePath": ".agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs",
+            "sourcePath": "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/dispatch-receipt.mjs",
             "meaning": "A machine-observed candidateDigest drift to all zeroes is accepted when candidateSha still matches; both identities must be bound."
         },
         {
             "id": "reviewer-write-policy-request-bypass",
             "expectedError": "dispatch-stage-profile-policy",
-            "sourcePath": ".agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs",
+            "sourcePath": "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/dispatch-receipt.mjs",
             "meaning": "An invalid workspace-write reviewer request is sealed and later verified when runtime matches it; reviewer read-only policy must be enforced during sealing."
         },
         {
             "id": "test-owner-profile-request-bypass",
             "expectedError": "dispatch-stage-profile-policy",
-            "sourcePath": ".agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs",
+            "sourcePath": "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/dispatch-receipt.mjs",
             "meaning": "An unsafe test-owner request is sealed and verified when runtime matches it; the Sol/max/scoped-write profile must be enforced during sealing."
         },
         {
             "id": "non-root-dag-profile-request-bypass",
             "expectedError": "dispatch-stage-profile-policy",
-            "sourcePath": ".agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs",
+            "sourcePath": "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/dispatch-receipt.mjs",
             "meaning": "A non-root DAG request can self-select Terra/low/workspace-write and verify; DAG creation and updates require the frozen Sol/max/read-only profile."
         },
         {
             "id": "ui-required-skills-empty-bypass",
             "expectedError": "dispatch-ui-design-authority-policy",
-            "sourcePath": ".agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs",
+            "sourcePath": "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/dispatch-receipt.mjs",
             "meaning": "An FsusBlog UI request with empty required Skills and design-authority digests verifies because an empty declaration is treated as complete."
         },
         {
             "id": "credential-bearing-observation-leak",
             "expectedStatus": "rejected",
             "expectedReason": "dispatch-secret-material",
-            "sourcePath": ".agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs",
+            "sourcePath": "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/dispatch-receipt.mjs",
             "meaning": "Credential-bearing machine evidence verifies and is copied into runtimeObservation; secret material must reject without being returned."
         },
         {
             "id": "ledger-frozen-path-dispatch-bypass",
             "expectedError": "verified-dispatch-receipt-required",
-            "sourcePath": ".agents/skills/issue-orchestration/scripts/event-ledger.mjs",
+            "sourcePath": "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/event-ledger.mjs",
             "meaning": "Dispatch enforcement is incorrectly enabled only when one issue-specific test path appears in frozenFiles, allowing ordinary frozen contracts to start without a receipt."
         },
         {
             "id": "ledger-frozen-path-legacy-candidate-bypass",
             "expectedError": "receipt-schema-stage-mismatch",
-            "sourcePath": ".agents/skills/issue-orchestration/scripts/event-ledger.mjs",
+            "sourcePath": "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/event-ledger.mjs",
             "meaning": "The same issue-specific frozen-path switch allows ordinary contracts to enter candidate-green with a legacy verified-candidate receipt."
         },
         {
             "id": "self-test-evidence-digest-collision",
             "expectedDigestRelation": "distinct",
-            "sourcePath": ".agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs",
+            "sourcePath": "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/dispatch-receipt.mjs",
             "meaning": "Self-test receipts omit implementation diff, command-result, and failure-history evidence from their digest authority, so materially different executions collide."
         },
         {
             "id": "self-test-minimal-dispatch-forgery",
             "expectedStatus": "rejected",
             "expectedReason": "verified-dispatch-receipt-required",
-            "sourcePath": ".agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs",
+            "sourcePath": "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/dispatch-receipt.mjs",
             "meaning": "Self-test verification trusts a minimal forged object containing only the dispatch schema and a verified status instead of validating full request-bound receipt identity."
         }
     ]

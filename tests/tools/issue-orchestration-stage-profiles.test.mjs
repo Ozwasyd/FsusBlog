@@ -9,7 +9,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const fixtureRoot = path.join(root, 'tests/fixtures/issue-orchestration')
 const policyPath = path.join(
     root,
-    '.agents/skills/issue-orchestration/scripts/stage-profile-policy.mjs'
+    'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/stage-profile-policy.mjs'
 )
 const contract = readJson('stage-profile-test-contract.json')
 const acceptance = readJson('stage-profile-acceptance-map.json')
@@ -38,7 +38,11 @@ const EXPECTED_POOLS = {
         [['sol-high', 'terra-max', 'sol-xhigh'], 'sol-high'],
     'code-implementer:implementation':
         [['luna-max', 'sol-high', 'terra-max', 'sol-xhigh'], 'luna-max'],
-    'ui-ux-implementer:implementation':
+    'code-implementer:landing-conflict-resolution':
+        [['luna-max', 'sol-high', 'terra-max', 'sol-xhigh'], 'luna-max'],
+    'ui-ux-implementer:ui-implementation':
+        [['sol-low', 'sol-medium'], 'sol-low'],
+    'ui-ux-implementer:landing-conflict-resolution':
         [['sol-low', 'sol-medium'], 'sol-low'],
     'ui-system-adjudicator:adjudication':
         [['sol-high', 'sol-xhigh'], 'sol-high'],
@@ -115,7 +119,7 @@ function assignment(overrides = {}) {
             attemptId: 'attempt-1819-1',
             frozenTestTreeDigestBefore: hash('e'),
             frozenTestTreeDigestAfter: hash('e'),
-            modifiedPaths: ['.agents/skills/issue-orchestration/scripts/stage-profile-policy.mjs']
+            modifiedPaths: ['tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/stage-profile-policy.mjs']
         },
         ...overrides
     }
@@ -244,10 +248,14 @@ test('P04-P09 deterministic compiler maps every role and classification', async 
             { engineeringRiskClass: 'high-risk' }, 'terra-max'],
         ['code-implementer', 'implementation',
             { engineeringRiskClass: 'frontier' }, 'sol-xhigh'],
-        ['ui-ux-implementer', 'implementation',
+        ['code-implementer', 'landing-conflict-resolution',
+            { engineeringRiskClass: 'bounded' }, 'luna-max'],
+        ['ui-ux-implementer', 'ui-implementation',
             { domain: 'ui-ux', uiDecisionClass: 'prescribed' }, 'sol-low'],
-        ['ui-ux-implementer', 'implementation',
+        ['ui-ux-implementer', 'ui-implementation',
             { domain: 'ui-ux', uiDecisionClass: 'layout-judgment' }, 'sol-medium'],
+        ['ui-ux-implementer', 'landing-conflict-resolution',
+            { domain: 'ui-ux', uiDecisionClass: 'prescribed' }, 'sol-low'],
         ['ui-system-adjudicator', 'adjudication',
             { domain: 'ui-ux', uiDecisionClass: 'system-design-dispute' }, 'sol-high'],
         ['ux-acceptance-verifier', 'ux-acceptance',
@@ -305,7 +313,8 @@ const negativeCases = {
     }),
     'N04-ui-forbidden-model': () => ['luna-max', 'terra-max', 'sol-high'].map(
         (selectedProfile) => assignment({
-            stageRole: 'ui-ux-implementer', stagePhase: 'implementation',
+            stageRole: 'ui-ux-implementer',
+            stagePhase: 'ui-implementation',
             allowedProfiles: ['sol-low', 'sol-medium'], defaultProfile: 'sol-low',
             selectedProfile,
             classification: classification({
@@ -314,7 +323,8 @@ const negativeCases = {
         })
     ),
     'N05-ui-dispute-bypasses-adjudicator': () => assignment({
-        stageRole: 'ui-ux-implementer', stagePhase: 'implementation',
+        stageRole: 'ui-ux-implementer',
+        stagePhase: 'ui-implementation',
         allowedProfiles: ['sol-low', 'sol-medium'], defaultProfile: 'sol-low',
         selectedProfile: 'sol-medium',
         classification: classification({

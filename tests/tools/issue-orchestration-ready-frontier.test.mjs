@@ -1,22 +1,27 @@
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import test from 'node:test'
 import { pathToFileURL } from 'node:url'
 
+import {
+    compileWriterStageTestArtifacts
+} from './issue-orchestration-writer-stage-test-helper.mjs'
+
 const root = resolve(import.meta.dirname, '../..')
 const implementationPath = resolve(
     root,
-    '.agents/skills/issue-orchestration/scripts/frontier-compiler.mjs'
+    'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/frontier-compiler.mjs'
 )
 const gatePath = resolve(
     root,
-    '.agents/skills/issue-orchestration/scripts/check-dag-gate.mjs'
+    'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/check-dag-gate.mjs'
 )
 const selectorPath = resolve(
     root,
-    '.agents/skills/issue-orchestration/scripts/scope-selector.mjs'
+    'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/scope-selector.mjs'
 )
 const fixtureRoot = resolve(root, 'tests/fixtures/issue-orchestration')
 const artifactPaths = {
@@ -44,6 +49,20 @@ const acceptanceMap = readFixture(artifactPaths.acceptance)
 const expectedInitialFailures = readFixture(artifactPaths.expectedFailures)
 const runtimeProbes = readFixture(artifactPaths.runtimeProbes)
 const frozenContract = readFixture(artifactPaths.contract)
+const writerEpochId = 'epoch-ready-frontier-1816-001'
+const repositoryWorktrees = Object.freeze({
+    'Ozwasyd/FsusBlog': root,
+    'Ozwasyd/FsusUI': resolve(root, '../FsusUI')
+})
+const repositoryBaseShas = Object.freeze(Object.fromEntries(
+    Object.entries(repositoryWorktrees).map(([repository, worktree]) => [
+        repository,
+        execFileSync('git', ['rev-parse', 'HEAD'], {
+            cwd: worktree,
+            encoding: 'utf8'
+        }).trim()
+    ])
+))
 const requiredExports = [
     'computeNodeEligibility',
     'compileReadyFrontier',
@@ -213,7 +232,7 @@ function classificationFacts(member, discovery) {
         candidateOwner: member.repository,
         candidateOwnerEvidenceDigest: digest({
             repository: member.repository,
-            path: '.agents/skills/issue-orchestration/scripts/frontier-compiler.mjs'
+            path: 'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/frontier-compiler.mjs'
         }),
         activeDependencies: [...member.dependsOn],
         satisfiedDependencies: [],
@@ -286,10 +305,10 @@ function dispatchInvestigation(node, selectorReceipt) {
         ],
         codePaths: [
             pathEvidence(
-                '.agents/skills/issue-orchestration/scripts/frontier-compiler.mjs'
+                'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/frontier-compiler.mjs'
             ),
             pathEvidence(
-                '.agents/skills/issue-orchestration/scripts/check-dag-gate.mjs'
+                'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/check-dag-gate.mjs'
             )
         ],
         testPaths: [pathEvidence(artifactPaths.test)],
@@ -353,7 +372,7 @@ function nodeFor(member, selectorReceipt) {
         repository: member.repository,
         issueNumber: member.issueNumber,
         ownerRepository: member.repository,
-        baseSha: cases.repositories[member.repository].baseSha,
+        baseSha: repositoryBaseShas[member.repository],
         acceptanceGroup: `member-${member.issueNumber}`,
         surface: member.surface,
         documentationRequired: true,
@@ -387,6 +406,72 @@ function receipt(status = 'passed', extra = {}) {
     }
 }
 
+function bindWriterCandidate(member, candidate, stageKind) {
+    const stagePhase = stageKind === 'test-contract'
+        ? 'test-contract'
+        : stageKind === 'documentation'
+            ? 'documentation'
+            : member.surface === 'ui-ux'
+                ? 'ui-implementation'
+                : 'implementation'
+    return {
+        ...candidate,
+        ...compileWriterStageTestArtifacts({
+            repository: member.repository,
+            issue: member.issueNumber,
+            node: member.issueId,
+            stageRole: candidate.role,
+            stagePhase,
+            baseSha: repositoryBaseShas[member.repository],
+            runId:
+                `run-ready-frontier-${member.issueNumber}-${stagePhase}`,
+            epochId: writerEpochId,
+            worktreeIdentity: repositoryWorktrees[member.repository],
+            allowedPaths: candidate.allowedPaths,
+            requiredFiles: [candidate.allowedPaths[0]],
+            requiredCommands: [
+                `node --check ${candidate.allowedPaths[0]}`
+            ]
+        })
+    }
+}
+
+function bindTwoSliceTestCandidate(input, member, sliceIndex) {
+    const node = input.dag.nodes.find(({ id }) => id === member.issueId)
+    const candidate = input.runtimeState.candidates.find(
+        (item) => item.issueId === member.issueId &&
+            item.stage === 'test-contract-ready'
+    )
+    const requiredFiles = [...node.allowedTestPaths]
+    const artifacts = compileWriterStageTestArtifacts({
+        repository: member.repository,
+        issue: member.issueNumber,
+        node: member.issueId,
+        stageRole: 'test-owner',
+        stagePhase: 'test-contract',
+        baseSha: node.baseSha,
+        epochId: writerEpochId,
+        worktreeIdentity: repositoryWorktrees[member.repository],
+        allowedPaths: requiredFiles,
+        requiredFiles,
+        requiredCommands: requiredFiles.map((file) =>
+            `node --check ${file}`),
+        sliceCount: 2
+    })
+    const slice = artifacts.executableSlices[sliceIndex]
+    const compiledPrompt = artifacts.compiledPrompts[sliceIndex]
+    Object.assign(candidate, artifacts, {
+        executableSlice: slice,
+        compiledPrompt,
+        sliceDigest: slice.sliceDigest,
+        compiledPromptDigest: compiledPrompt.promptDigest,
+        promptDigest: compiledPrompt.promptDigest,
+        allowedPathsDigest: digest(slice.allowedPaths),
+        forbiddenPathsDigest: digest(slice.forbiddenPaths)
+    })
+    return { artifacts, candidate, compiledPrompt, slice }
+}
+
 function roleCandidate(member, stage) {
     const common = {
         issueId: member.issueId,
@@ -399,7 +484,7 @@ function roleCandidate(member, stage) {
         })
     }
     if (stage === 'test-contract-ready') {
-        return {
+        return bindWriterCandidate(member, {
             ...common,
             role: 'test-owner',
             model: 'gpt-5.6-sol',
@@ -409,11 +494,11 @@ function roleCandidate(member, stage) {
                 `tests/contracts/${member.issueNumber}.test.mjs`,
                 `tests/fixtures/contracts/${member.issueNumber}.json`
             ]
-        }
+        }, 'test-contract')
     }
     if (stage === 'implementation-ready') {
         if (member.surface === 'ui-ux') {
-            return {
+            return bindWriterCandidate(member, {
                 ...common,
                 role: 'ui-ux-implementer',
                 model: 'gpt-5.6-sol',
@@ -422,16 +507,16 @@ function roleCandidate(member, stage) {
                 allowedPaths: [`src/components/frontier-${member.issueNumber}.tsx`],
                 designSkillDigest: 'a'.repeat(64),
                 designAuthorityDigests: ['b'.repeat(64)]
-            }
+            }, 'ui-ux-implementation')
         }
-        return {
+        return bindWriterCandidate(member, {
             ...common,
             role: 'code-implementer',
             model: 'gpt-5.6-sol',
             effort: 'low',
             mode: 'write-implementation-only',
             allowedPaths: [`.agents/runtime/frontier-${member.issueNumber}.mjs`]
-        }
+        }, 'code-implementation')
     }
     if (stage === 'behavior-verification-ready') {
         return {
@@ -456,14 +541,14 @@ function roleCandidate(member, stage) {
         }
     }
     if (stage === 'documentation-ready') {
-        return {
+        return bindWriterCandidate(member, {
             ...common,
             role: 'documentation-writer',
             model: 'gpt-5.6-luna',
             effort: 'xhigh',
             mode: 'write-docs-only',
             allowedPaths: [`docs/frontier-${member.issueNumber}.md`]
-        }
+        }, 'documentation')
     }
     return {
         ...common,
@@ -475,13 +560,99 @@ function roleCandidate(member, stage) {
     }
 }
 
+function bindLandingConflictResolution(input, member) {
+    const node = input.dag.nodes.find(({ id }) => id === member.issueId)
+    setProgress(input, member.issueId, ['testContract'])
+    const memberWriterRole = member.surface === 'ui-ux'
+        ? 'ui-ux-implementer'
+        : 'code-implementer'
+    const conflictPaths = [...node.allowedImplementationPaths]
+    const conflict = {
+        schema: 'issue-orchestration.landing-conflict-resolution.v1',
+        status: 'active',
+        node: member.issueId,
+        baseSha: node.baseSha,
+        epochId: writerEpochId,
+        worktreeIdentity: repositoryWorktrees[member.repository],
+        memberWriterRole,
+        conflictSource: 'delivery-failure-receipt',
+        conflictSourceDigest: digest({
+            node: member.issueId,
+            source: 'machine-observed-landing-conflict'
+        }),
+        deliveryFailureReceiptDigest: digest({
+            node: member.issueId,
+            eventType: 'delivery.failed',
+            failure: 'merge-conflict'
+        }),
+        conflictMappingDigest: digest({
+            node: member.issueId,
+            conflictPaths,
+            mapping: 'ours-theirs-base'
+        }),
+        conflictPaths
+    }
+    conflict.resolutionDigest = digest(conflict)
+    const requiredEvidence = [
+        `landing-conflict-source:${conflict.conflictSourceDigest}`,
+        `delivery-failure-receipt:${conflict.deliveryFailureReceiptDigest}`,
+        `landing-conflict-mapping:${conflict.conflictMappingDigest}`
+    ]
+    const artifacts = compileWriterStageTestArtifacts({
+        repository: member.repository,
+        issue: member.issueNumber,
+        node: member.issueId,
+        stageRole: memberWriterRole,
+        stagePhase: 'landing-conflict-resolution',
+        baseSha: node.baseSha,
+        runId: `run-ready-frontier-${member.issueNumber}-landing`,
+        epochId: conflict.epochId,
+        worktreeIdentity: conflict.worktreeIdentity,
+        allowedPaths: conflictPaths,
+        requiredFiles: conflictPaths,
+        requiredCommands: [
+            `node --check ${conflictPaths[0]}`
+        ],
+        requiredEvidence
+    })
+    const candidate = {
+        issueId: member.issueId,
+        stage: 'landing-conflict-resolution-ready',
+        actorId:
+            `landing-conflict-resolution-ready:${member.issueId}`,
+        role: memberWriterRole,
+        model: 'gpt-5.6-sol',
+        effort: 'low',
+        mode: 'write-implementation-only',
+        allowedPaths: conflictPaths,
+        capabilityReceiptDigest: digest({
+            issueId: member.issueId,
+            stage: 'landing-conflict-resolution-ready',
+            capability: true
+        }),
+        landingConflictResolutionDigest: conflict.resolutionDigest,
+        ...(memberWriterRole === 'ui-ux-implementer'
+            ? {
+                designSkillDigest: 'a'.repeat(64),
+                designAuthorityDigests: ['b'.repeat(64)]
+            }
+            : {}),
+        ...artifacts
+    }
+    input.runtimeState.landingConflictResolutions ??= {}
+    input.runtimeState.landingConflictResolutions[member.issueId] =
+        conflict
+    input.runtimeState.candidates.push(candidate)
+    return { candidate, conflict }
+}
+
 function runtimeFor(members) {
     return {
         schema: 'issue-orchestration.frontier-runtime.v1',
         repositoryBases: Object.fromEntries(
-            Object.entries(cases.repositories).map(([repository, facts]) => [
+            Object.entries(cases.repositories).map(([repository]) => [
                 repository,
-                facts.baseSha
+                repositoryBaseShas[repository]
             ])
         ),
         nodeStates: Object.fromEntries(members.map(({ issueId }) => [
@@ -1035,8 +1206,8 @@ test('frozen corrective contract covers every acceptance, probe, and mutation id
         )
     }
     const exactImplementationPaths = [
-        '.agents/skills/issue-orchestration/scripts/frontier-compiler.mjs',
-        '.agents/skills/issue-orchestration/scripts/check-dag-gate.mjs'
+        'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/frontier-compiler.mjs',
+        'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/check-dag-gate.mjs'
     ]
     assert.deepEqual(
         frozenContract.allowedImplementationPaths,
@@ -1140,6 +1311,7 @@ test('frozen corrective contract covers every acceptance, probe, and mutation id
         'scope-drift',
         'active-attempt',
         'terminal-unchanged',
+        'executable-slice-missing',
         'runtime-capability-missing',
         'delivery-frozen',
         'exclusive-lease-held',
@@ -1338,7 +1510,7 @@ test('[F02] issue, dependency, candidate, and traversal order do not affect dige
     assert.equal(replay.frontierDigest, original.frontierDigest)
 })
 
-test('[F03] all eleven blocker reasons are stable and directly evidence-bound', async (current) => {
+test('[F03] all twelve blocker reasons are stable and directly evidence-bound', async (current) => {
     const reasonCases = {
         'dependency-unsatisfied': async () => scenario(),
         'investigation-incomplete': async () => {
@@ -1379,6 +1551,11 @@ test('[F03] all eleven blocker reasons are stable and directly evidence-bound', 
                 observedRecoveryFingerprint: 'terminal-fingerprint-1',
                 evidenceDigest: '1'.repeat(64)
             }
+            return input
+        },
+        'executable-slice-missing': async () => {
+            const input = await scenario(independentMembers(1))
+            delete input.runtimeState.candidates[0].compiledPrompt
             return input
         },
         'runtime-capability-missing': async () => {
@@ -1446,6 +1623,7 @@ test('[F04] multiple blocker reasons follow the frozen canonical reason order', 
             'investigation-incomplete',
             'owner-unresolved',
             'base-drift',
+            'executable-slice-missing',
             'runtime-capability-missing',
             'remote-facts-stale'
         ]
@@ -1467,6 +1645,251 @@ test('[F05] the validator independently rejects root-edited frontier and reasons
     await expectDenied(
         () => validateFrontier(input, editedReason),
         'frontier-projection-mismatch'
+    )
+})
+
+test('[F05A] writer readiness fails closed without any compiler-owned artifact link', async () => {
+    const fields = [
+        'planDigest',
+        'sliceDigest',
+        'compiledPromptDigest',
+        'stageWorkPlan',
+        'executableSlice',
+        'compiledPrompt'
+    ]
+    for (const field of fields) {
+        const input = await scenario(independentMembers(1))
+        delete input.runtimeState.candidates[0][field]
+        const projection = await compile(input)
+        const issueId = input.dag.nodes[0].id
+        assert.deepEqual(projection.readyFrontier, [], field)
+        assert.equal(
+            projection.notReadyReasons[issueId][0].code,
+            'executable-slice-missing',
+            field
+        )
+    }
+})
+
+test('[F05AA] two-slice writer readiness consumes only the projection-owned next slice', async () => {
+    const member = independentMembers(1)[0]
+
+    const initial = await scenario([member])
+    const first = bindTwoSliceTestCandidate(initial, member, 0)
+    const initialProjection = await compile(initial)
+    assert.deepEqual(initialProjection.readyFrontier, [{
+        issueId: member.issueId,
+        stage: 'test-contract-ready'
+    }])
+    assert.equal(
+        initialProjection.executionProjection[0]
+            .writerSequenceBinding.source,
+        'initial-stage-plan'
+    )
+    assert.equal(
+        initialProjection.executionProjection[0]
+            .writerSequenceBinding.sliceIndex,
+        0
+    )
+
+    const outOfOrder = await scenario([member])
+    bindTwoSliceTestCandidate(outOfOrder, member, 1)
+    const deniedOutOfOrder = await compile(outOfOrder)
+    assert.deepEqual(deniedOutOfOrder.readyFrontier, [])
+    assert.ok(deniedOutOfOrder.notReadyReasons[member.issueId]
+        .some(({ code }) => code === 'executable-slice-missing'))
+
+    const next = await scenario([member])
+    const second = bindTwoSliceTestCandidate(next, member, 1)
+    next.runtimeState.writerStageProjection = {
+        [member.issueId]: {
+            runId: second.artifacts.stageWorkPlan.runId,
+            repository: second.artifacts.stageWorkPlan.repository,
+            issue: second.artifacts.stageWorkPlan.issue,
+            node: member.issueId,
+            baseSha: second.artifacts.stageWorkPlan.baseSha,
+            epochId: second.artifacts.stageWorkPlan.epochId,
+            worktreeIdentity:
+                second.artifacts.stageWorkPlan.worktreeIdentity,
+            stageRole: second.artifacts.stageWorkPlan.stageRole,
+            stagePhase: second.artifacts.stageWorkPlan.stagePhase,
+            stageAttemptId:
+                second.artifacts.stageWorkPlan.stageAttemptId,
+            planDigest: second.artifacts.planDigest,
+            sliceId: second.artifacts.executableSlices[0].sliceId,
+            sliceDigest:
+                second.artifacts.executableSlices[0].sliceDigest,
+            compiledPromptDigest:
+                second.artifacts.compiledPrompts[0].promptDigest,
+            completedSliceReceiptDigests: ['8'.repeat(64)],
+            expectedNextSliceId: second.slice.sliceId,
+            expectedNextSliceDigest: second.slice.sliceDigest,
+            status: 'next-slice'
+        }
+    }
+    const nextProjection = await compile(next)
+    assert.deepEqual(nextProjection.readyFrontier, [{
+        issueId: member.issueId,
+        stage: 'test-contract-ready'
+    }])
+    assert.equal(
+        nextProjection.executionProjection[0]
+            .writerSequenceBinding.source,
+        'semantic-runtime-projection'
+    )
+    assert.equal(
+        nextProjection.executionProjection[0]
+            .writerSequenceBinding.sliceIndex,
+        1
+    )
+    assert.deepEqual(
+        nextProjection.executionProjection[0]
+            .writerSequenceBinding.completedSliceReceiptDigests,
+        ['8'.repeat(64)]
+    )
+
+    const forged = clone(next)
+    forged.runtimeState.writerStageProjection[member.issueId]
+        .expectedNextSliceDigest = '0'.repeat(64)
+    const deniedForgery = await compile(forged)
+    assert.deepEqual(deniedForgery.readyFrontier, [])
+    assert.ok(deniedForgery.notReadyReasons[member.issueId]
+        .some(({ code }) => code === 'executable-slice-missing'))
+
+    const newAttempt = clone(next)
+    newAttempt.runtimeState.writerStageProjection[member.issueId]
+        .stageAttemptId = 'caller-defined-new-attempt'
+    const deniedAttempt = await compile(newAttempt)
+    assert.deepEqual(deniedAttempt.readyFrontier, [])
+    assert.ok(deniedAttempt.notReadyReasons[member.issueId]
+        .some(({ code }) => code === 'executable-slice-missing'))
+
+    assert.equal(first.artifacts.stageWorkPlan.orderedSlices.length, 2)
+})
+
+test('[F05B] landing conflict readiness reuses the member code or UI writer with a verified slice chain', async () => {
+    for (const member of [
+        independentMembers(1)[0],
+        {
+            issueId: 'Ozwasyd/FsusBlog#9298',
+            repository: 'Ozwasyd/FsusBlog',
+            issueNumber: 9298,
+            surface: 'ui-ux',
+            dependsOn: []
+        }
+    ]) {
+        const input = await scenario([member])
+        const { candidate, conflict } =
+            bindLandingConflictResolution(input, member)
+        const projection = await compile(input)
+        assert.deepEqual(projection.readyFrontier, [{
+            issueId: member.issueId,
+            stage: 'landing-conflict-resolution-ready'
+        }])
+        assert.equal(
+            projection.executionProjection[0]
+                .landingConflictResolutionDigest,
+            conflict.resolutionDigest
+        )
+        assert.equal(candidate.stageWorkPlan.stageRole,
+            conflict.memberWriterRole)
+        assert.equal(candidate.stageWorkPlan.stagePhase,
+            'landing-conflict-resolution')
+        assert.notEqual(candidate.role, 'landing-owner')
+    }
+})
+
+test('[F05C] incomplete or identity-drifted landing evidence blocks readiness without implementation fallback', async () => {
+    const requiredFields = [
+        'conflictSourceDigest',
+        'deliveryFailureReceiptDigest',
+        'conflictMappingDigest',
+        'node',
+        'baseSha',
+        'epochId',
+        'worktreeIdentity',
+        'memberWriterRole',
+        'resolutionDigest'
+    ]
+    for (const field of requiredFields) {
+        const member = independentMembers(1)[0]
+        const input = await scenario([member])
+        bindLandingConflictResolution(input, member)
+        delete input.runtimeState
+            .landingConflictResolutions[member.issueId][field]
+        const projection = await compile(input)
+        assert.deepEqual(projection.readyFrontier, [], field)
+        assert.ok(
+            projection.notReadyReasons[member.issueId]
+                .some(({ code }) => code === 'executable-slice-missing'),
+            field
+        )
+    }
+
+    const member = independentMembers(1)[0]
+    const fallback = await scenario([member])
+    bindLandingConflictResolution(fallback, member)
+    fallback.runtimeState.candidates =
+        fallback.runtimeState.candidates.filter(
+            ({ stage }) =>
+                stage !== 'landing-conflict-resolution-ready'
+        )
+    const fallbackProjection = await compile(fallback)
+    assert.deepEqual(fallbackProjection.readyFrontier, [])
+    assert.deepEqual(
+        fallbackProjection.notReadyReasons[member.issueId]
+            .map(({ code }) => code),
+        ['executable-slice-missing', 'runtime-capability-missing']
+    )
+
+    const forged = await scenario([member])
+    const { conflict } =
+        bindLandingConflictResolution(forged, member)
+    conflict.worktreeIdentity = 'different-worktree'
+    delete conflict.resolutionDigest
+    conflict.resolutionDigest = digest(conflict)
+    forged.runtimeState.landingConflictResolutions[member.issueId] =
+        conflict
+    const forgedProjection = await compile(forged)
+    assert.deepEqual(forgedProjection.readyFrontier, [])
+    assert.ok(
+        forgedProjection.notReadyReasons[member.issueId]
+            .some(({ code }) => code === 'executable-slice-missing')
+    )
+})
+
+test('[F05D] landing-owner and ordinary implementation prompts cannot enter the landing frontier', async () => {
+    const member = independentMembers(1)[0]
+    const input = await scenario([member])
+    const { candidate } =
+        bindLandingConflictResolution(input, member)
+    candidate.role = 'landing-owner'
+    const ownerProjection = await compile(input)
+    assert.deepEqual(ownerProjection.readyFrontier, [])
+    assert.ok(
+        ownerProjection.notReadyReasons[member.issueId]
+            .some(({ code }) => code === 'runtime-capability-missing')
+    )
+
+    const fallback = await scenario([member])
+    const { conflict } =
+        bindLandingConflictResolution(fallback, member)
+    const ordinary = fallback.runtimeState.candidates.find(
+        ({ stage }) => stage === 'implementation-ready'
+    )
+    ordinary.stage = 'landing-conflict-resolution-ready'
+    ordinary.landingConflictResolutionDigest =
+        conflict.resolutionDigest
+    fallback.runtimeState.candidates =
+        fallback.runtimeState.candidates.filter(
+            (entry) => entry === ordinary ||
+                entry.stage !== 'landing-conflict-resolution-ready'
+        )
+    const ordinaryProjection = await compile(fallback)
+    assert.deepEqual(ordinaryProjection.readyFrontier, [])
+    assert.ok(
+        ordinaryProjection.notReadyReasons[member.issueId]
+            .some(({ code }) => code === 'executable-slice-missing')
     )
 })
 
@@ -1863,7 +2286,7 @@ for (const control of mutationControls.filter(
                 blockedSince: null,
                 ownerId: 'legacy-investigator',
                 codePaths: [
-                    '.agents/skills/issue-orchestration/scripts/frontier-compiler.mjs'
+                    'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/frontier-compiler.mjs'
                 ],
                 testPaths: [artifactPaths.test],
                 currentDocs: [

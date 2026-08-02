@@ -171,7 +171,7 @@
     "dagGateLegacyAuthority": "node.investigation codePaths/testPaths/currentDocs/constraints/checkedAt",
     "validatedLayeredProjectionBound": false,
     "commands": [
-      "rg -n \"node\\\\.investigation|investigationProjection\" .agents/skills/issue-orchestration/scripts/frontier-compiler.mjs .agents/skills/issue-orchestration/scripts/check-dag-gate.mjs"
+      "rg -n \"node\\\\.investigation|investigationProjection\" tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/frontier-compiler.mjs tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/check-dag-gate.mjs"
     ]
   },
   "dynamicAcceptance": [

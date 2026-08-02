@@ -7,10 +7,18 @@ import path from 'node:path'
 import test from 'node:test'
 import { pathToFileURL } from 'node:url'
 
+import {
+    collectArtifactDigests,
+    resolveSourceCommit,
+    WRITER_STAGE_CONTRACT_FILES,
+    WRITER_STAGE_RUNTIME_FILES
+} from '../../tools/codex/issue-orchestration-package/scripts/package-lib.mjs'
+
 const root = path.resolve(import.meta.dirname, '../..')
 const fixtureRoot = path.join(root, 'tests/fixtures/issue-orchestration')
 const packageRoot = path.join(root, 'tools/codex/issue-orchestration-package')
 const manifestPath = path.join(packageRoot, 'manifest.json')
+const discoverScript = path.join(packageRoot, 'scripts/discover.mjs')
 const installScript = path.join(packageRoot, 'scripts/install.mjs')
 const verifyScript = path.join(packageRoot, 'scripts/verify-install.mjs')
 const uninstallScript = path.join(packageRoot, 'scripts/uninstall.mjs')
@@ -30,6 +38,32 @@ const agentIds = [
     'ui-ux-implementer',
     'ux-acceptance-verifier'
 ]
+const writerAgentIds = [
+    'code-implementer',
+    'documentation-writer',
+    'test-owner',
+    'ui-ux-implementer'
+]
+const writerStageSchemas = {
+    'contracts/compiled-dispatch-prompt.schema.json':
+        'issue-orchestration.compiled-dispatch-prompt.v1',
+    'contracts/executable-slice.schema.json':
+        'issue-orchestration.executable-slice.v1',
+    'contracts/slice-terminal-receipt.schema.json':
+        'issue-orchestration.slice-terminal-receipt.v1',
+    'contracts/stage-continuation-receipt.schema.json':
+        'issue-orchestration.stage-continuation-receipt.v1',
+    'contracts/stage-progress-checkpoint.schema.json':
+        'issue-orchestration.stage-progress-checkpoint.v1',
+    'contracts/stage-work-plan.schema.json':
+        'issue-orchestration.stage-work-plan.v1',
+    'contracts/writer-stage-checkpoint-verification-receipt.schema.json':
+        'issue-orchestration.writer-stage-checkpoint-verification-receipt.v1',
+    'contracts/writer-stage-failure-receipt.schema.json':
+        'issue-orchestration.writer-stage-failure-receipt.v1',
+    'contracts/writer-stage-retry-authorization.schema.json':
+        'issue-orchestration.writer-stage-retry-authorization.v1'
+}
 const requiredPackageFiles = [
     'manifest.json',
     'policy/model-pool.json',
@@ -39,22 +73,28 @@ const requiredPackageFiles = [
     'graph/graph-patch.schema.json',
     'graph/runtime-projection.schema.json',
     'graph/semantic-graph.schema.json',
+    'scripts/discover.mjs',
     'scripts/install.mjs',
     'scripts/uninstall.mjs',
     'scripts/verify-install.mjs',
     'skills/issue-orchestration/SKILL.md',
+    ...WRITER_STAGE_CONTRACT_FILES,
     ...agentIds.map((id) => `agents/${id}.toml`)
 ]
 const requiredRuntimeModules = [
+    'delivery-epoch.mjs',
     'dispatch-batch-selector.mjs',
     'dispatch-receipt.mjs',
+    'executable-slice-compiler.mjs',
     'event-ledger.mjs',
     'frontier-compiler.mjs',
+    'human-decision.mjs',
     'resource-lifecycle.mjs',
     'scope-selector.mjs',
     'semantic-runtime-projection.mjs',
     'stage-profile-policy.mjs',
-    'validate-state-root.mjs'
+    'validate-state-root.mjs',
+    'writer-stage-progress.mjs'
 ]
 const runtimeStateNames = new Set([
     'dag.json',
@@ -228,13 +268,14 @@ function install(value) {
     )
 }
 
-async function sourceRuntimeModule(name) {
+async function installedRuntimeModule(installRoot, name) {
     const modulePath = path.join(
-        packageRoot,
-        'skills/issue-orchestration/scripts',
+        installRoot,
+        '.agents/skills/issue-orchestration/scripts',
         name
     )
-    assert.ok(fs.existsSync(modulePath), `shared-runtime-module-missing:${name}`)
+    assert.ok(fs.existsSync(modulePath),
+        `installed-runtime-module-missing:${name}`)
     return import(`${pathToFileURL(modulePath).href}?probe=${Date.now()}-${Math.random()}`)
 }
 
@@ -303,15 +344,62 @@ test('P02 requires one complete authoring package and a self-consistent manifest
     assert.equal(manifest.manifestDigest,
         unsignedDigest(manifest, 'manifestDigest'))
     assert.deepEqual(Object.keys(manifest.agentDigests).sort(), agentIds)
+    const actualContractDigests = Object.fromEntries(
+        WRITER_STAGE_CONTRACT_FILES.map((relative) => [
+            relative,
+            manifest.artifactDigests[relative]
+        ])
+    )
+    const actualRuntimeDigests = Object.fromEntries(
+        WRITER_STAGE_RUNTIME_FILES.map((relative) => [
+            relative,
+            manifest.artifactDigests[relative]
+        ])
+    )
+    assert.deepEqual(
+        manifest.writerStageContractDigests,
+        actualContractDigests,
+        'manifest-writer-stage-contract-binding-drift'
+    )
+    assert.deepEqual(
+        manifest.writerStageRuntimeDigests,
+        actualRuntimeDigests,
+        'manifest-writer-stage-runtime-binding-drift'
+    )
+    assert.deepEqual(
+        Object.keys(writerStageSchemas).sort(),
+        [...WRITER_STAGE_CONTRACT_FILES].sort()
+    )
+    for (const [relative, schema] of Object.entries(writerStageSchemas)) {
+        const document = JSON.parse(fs.readFileSync(
+            path.join(packageRoot, relative),
+            'utf8'
+        ))
+        assert.equal(document.title, schema, `contract-title:${relative}`)
+        assert.equal(document.properties?.schema?.const, schema,
+            `contract-schema:${relative}`)
+    }
     assert.equal(Object.hasOwn(manifest.artifactDigests ?? {}, 'manifest.json'),
         false, 'manifest-cannot-digest-itself-as-an-artifact')
+    const actualArtifacts = collectArtifactDigests(packageRoot)
+    const comparePaths = (left, right) => left.localeCompare(right)
+    assert.deepEqual(
+        Object.keys(manifest.artifactDigests ?? {}).sort(comparePaths),
+        Object.keys(actualArtifacts).sort(comparePaths),
+        'manifest-artifact-set-drift'
+    )
     for (const [relative, expected] of
         Object.entries(manifest.artifactDigests ?? {})) {
-        assert.equal(fileDigest(path.join(packageRoot, relative)), expected,
+        assert.equal(actualArtifacts[relative], expected,
             `manifest-artifact-drift:${relative}`)
     }
     assert.equal(manifest.sourceTreeDigest,
         digest(manifest.artifactDigests))
+    assert.equal(
+        resolveSourceCommit(packageRoot),
+        git(root, ['rev-parse', '--verify', 'HEAD^{commit}']),
+        'manifest-builder-source-identity-drift'
+    )
 })
 
 test('P03 removes repo-local authority and exposes exactly seven shared roles', () => {
@@ -326,6 +414,46 @@ test('P03 removes repo-local authority and exposes exactly seven shared roles', 
         .map((name) => name.slice(0, -5))
         .sort()
     assert.deepEqual(packageAgents, agentIds)
+    const permissions = JSON.parse(fs.readFileSync(path.join(
+        packageRoot,
+        'policy/stage-permissions.json'
+    ), 'utf8'))
+    for (const key of [
+        'code-implementer:landing-conflict-resolution',
+        'ui-ux-implementer:landing-conflict-resolution'
+    ]) {
+        assert.deepEqual(permissions.stages[key], {
+            sandbox: 'workspace-write',
+            writeScope: 'implementation-only',
+            freshContext: false
+        }, `landing-conflict-permission:${key}`)
+    }
+    assert.equal(JSON.stringify(permissions).includes('landing-owner'), false,
+        'landing-observation-label-became-dispatch-role')
+    for (const agentId of writerAgentIds) {
+        const source = fs.readFileSync(path.join(
+            packageRoot,
+            'agents',
+            `${agentId}.toml`
+        ), 'utf8')
+        for (const required of [
+            'issue-orchestration.stage-work-plan.v1',
+            'issue-orchestration.executable-slice.v1',
+            'issue-orchestration.compiled-dispatch-prompt.v1',
+            'firstRequiredAction',
+            'firstReadTargets',
+            'firstWritablePath',
+            'explicitReadOnlyOutput',
+            'issue-orchestration.stage-progress-checkpoint.v1',
+            'issue-orchestration.writer-stage-checkpoint-verification-receipt.v1',
+            'issue-orchestration.stage-continuation-receipt.v1',
+            'issue-orchestration.slice-terminal-receipt.v1',
+            'issue-orchestration.writer-stage-failure-receipt.v1'
+        ]) {
+            assert.ok(source.includes(required),
+                `writer-agent-contract-missing:${agentId}:${required}`)
+        }
+    }
     const packageText = walkFiles(packageRoot)
         .map((file) => fs.readFileSync(file, 'utf8'))
         .join('\n')
@@ -368,13 +496,57 @@ test('P04 performs a real atomic install and five-cwd discovery probe', (t) => {
             agentIds: entry.agentIds,
             modelPoolDigest: entry.modelPoolDigest,
             routingPolicyDigest: entry.routingPolicyDigest,
+            stagePermissionDigest: entry.stagePermissionDigest,
             remoteMutationPolicyDigest: entry.remoteMutationPolicyDigest,
             graphSchemaDigest: entry.graphSchemaDigest,
             patchSchemaDigest: entry.patchSchemaDigest,
+            runtimeProjectionSchemaDigest:
+                entry.runtimeProjectionSchemaDigest,
+            writerStageContractDigests:
+                entry.writerStageContractDigests,
+            writerStageRuntimeDigests:
+                entry.writerStageRuntimeDigests,
             projectorDigest: entry.projectorDigest
         })))
     assert.equal(identities.size, 1, 'discovery-identity-drift')
     assert.deepEqual(receipt.discoveries[0].agentIds.toSorted(), agentIds)
+    const standalone = parseReceipt(run(process.execPath, [
+        discoverScript,
+        '--source-root', packageRoot,
+        '--install-root', value.installRoot,
+        '--cwd', value.fsusBlog,
+        '--json'
+    ]), 'standalone shared package discovery')
+    for (const field of [
+        'stagePermissionDigest',
+        'runtimeProjectionSchemaDigest',
+        'writerStageContractDigests',
+        'writerStageRuntimeDigests'
+    ]) {
+        assert.deepEqual(standalone[field], receipt.discoveries[0][field],
+            `standalone-discovery-binding-drift:${field}`)
+    }
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+    for (const relative of WRITER_STAGE_CONTRACT_FILES) {
+        const installed = path.join(
+            value.installRoot,
+            '.agents/contracts',
+            path.basename(relative)
+        )
+        assert.equal(fileDigest(installed),
+            manifest.writerStageContractDigests[relative],
+            `installed-writer-contract-drift:${relative}`)
+    }
+    for (const relative of WRITER_STAGE_RUNTIME_FILES) {
+        const installed = path.join(
+            value.installRoot,
+            '.agents/skills/issue-orchestration/scripts',
+            path.basename(relative)
+        )
+        assert.equal(fileDigest(installed),
+            manifest.writerStageRuntimeDigests[relative],
+            `installed-writer-runtime-drift:${relative}`)
+    }
 })
 
 test('P05 reinstall is deterministic and cannot leave half-installed artifacts', (t) => {
@@ -438,12 +610,29 @@ test('P07 protected targets and ownership-unsafe uninstall fail closed', (t) => 
     assert.equal(fs.readFileSync(sibling, 'utf8'), 'external owner\n')
 })
 
-test('P08 installed runtime carries routing, graph and receipt authority', async () => {
-    const stage = await sourceRuntimeModule('stage-profile-policy.mjs')
-    const semantic = await sourceRuntimeModule(
+test('P08 installed runtime carries routing, graph and receipt authority', async (t) => {
+    const value = topology(t)
+    install(value)
+    const stage = await installedRuntimeModule(
+        value.installRoot,
+        'stage-profile-policy.mjs'
+    )
+    const semantic = await installedRuntimeModule(
+        value.installRoot,
         'semantic-runtime-projection.mjs'
     )
-    const dispatch = await sourceRuntimeModule('dispatch-receipt.mjs')
+    const dispatch = await installedRuntimeModule(
+        value.installRoot,
+        'dispatch-receipt.mjs'
+    )
+    const compiler = await installedRuntimeModule(
+        value.installRoot,
+        'executable-slice-compiler.mjs'
+    )
+    const progress = await installedRuntimeModule(
+        value.installRoot,
+        'writer-stage-progress.mjs'
+    )
     assert.equal(stage.STAGE_MODEL_POOL_POLICY.version,
         'stage-model-pool.v2')
     assert.equal(stage.STAGE_MODEL_POOL_POLICY.stages[
@@ -461,6 +650,21 @@ test('P08 installed runtime carries routing, graph and receipt authority', async
         'verifyRuntimeDispatch',
         'sealImplementerSelfTestReceipt'
     ]) assert.equal(typeof dispatch[name], 'function', `runtime-export:${name}`)
+    for (const name of [
+        'compileContinuation',
+        'compileDispatchPrompt',
+        'compileExecutableSlice',
+        'compileStageWorkPlan',
+        'sealProgressCheckpoint',
+        'validateCompiledDispatchPrompt',
+        'validateProgressCheckpoint'
+    ]) assert.equal(typeof compiler[name], 'function', `runtime-export:${name}`)
+    for (const name of [
+        'authorizeWriterStageRetry',
+        'evaluateSliceTerminalGate',
+        'evaluateWriterStageObservation',
+        'sealSliceTerminalReceipt'
+    ]) assert.equal(typeof progress[name], 'function', `runtime-export:${name}`)
 })
 
 test('P09 runtime state is external to source and installed artifacts', (t) => {

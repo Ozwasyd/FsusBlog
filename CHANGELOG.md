@@ -17,6 +17,7 @@ The timestamp and SHA suffix are illustrative. A real heading must equal the bui
 ### Changed
 
 - Product planning, stability, support, issue intake, and release documentation use capability stages, explicit contract classifications, and canonical ReleaseId evidence instead of product SemVer.
+- Issue orchestration writer stages now require deterministic verified work plans, bounded executable slices and compiled prompts; machine checkpoints resume through sealed continuations, ordered slice terminal receipts gate candidate-green, and stage-generic output failures open a semantic breaker that only material revision evidence can clear. The permanent package remains fixed at seven roles, with landing conflicts handled by the code or UI writer.
 - Issue orchestration now treats the external `issue-orchestration.ledger.v1` append-only hash chain as the execution authority and derives DAG state from deterministic projection/recovery; implementer self-testing and independent behavior verification remain separate receipt-bound stages.
 - Ready-frontier eligibility now consumes a validated `issue-orchestration.investigation-projection.v1` built from discovery, classification, and dispatch investigation layers; stale, unauthorized, or legacy `node.investigation` authority is rejected fail-closed.
 - Layered investigation now deepens only ready-adjacent members, reuses unaffected shallow facts, invalidates dispatch evidence on base/epoch/owner-path drift, and preserves issue-specific contracts when acceptance groups share indexes.

@@ -77,6 +77,7 @@
     "scope-drift",
     "active-attempt",
     "terminal-unchanged",
+    "executable-slice-missing",
     "runtime-capability-missing",
     "delivery-frozen",
     "exclusive-lease-held",

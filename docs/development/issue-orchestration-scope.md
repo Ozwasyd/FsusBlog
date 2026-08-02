@@ -70,6 +70,44 @@ Acceptance group 可以复用共享 code/test/docs 索引、schema/runtime facts
 
 Projection、validation 和每层事实的 digest 或 selector/freshness 任一漂移都使 frontier 重新计算并 fail closed。旧的 `node.investigation` 属性及任何兼容 fallback 不是 current schema；出现时必须拒绝，不能把旧字段重放为 dispatch authority。
 
+## Writer work plan、executable slice 与可恢复进度
+
+完整 issue、标题、正文、评论和 Root 手写任务都不是 writer dispatch authority。每个 writer stage 必须先由 `compileStageWorkPlan(input)` 生成 `issue-orchestration.stage-work-plan.v1`，再由 `compileExecutableSlice({ plan, sliceId })` 提取当前 `issue-orchestration.executable-slice.v1`，最后由 `compileDispatchPrompt({ plan, slice })` 确定性生成 `issue-orchestration.compiled-dispatch-prompt.v1`。`validateCompiledDispatchPrompt` 必须重算 prompt 并核对 plan/slice/stage identity 与 digest；Root 只能调用 compiler/validator、选择 ready slice 和路由输出，不能 author、编辑、删减或重写 compiled prompt。
+
+Verified work plan 绑定 run/repository/issue/node、stage role/phase、base SHA、epoch、worktree identity、semantic/test/authority/Skill/baseline/routing digests、单一 stage objective、acceptance items、有序 slices、slice dependency graph、stage 允许/禁止路径、required commands 与 terminal artifacts。每条 acceptance item 和 required command 都必须有且只有一个 slice owner；不完整 coverage、重复 owner、stage identity 漂移或没有 terminal artifact 的 plan 必须 fail closed。
+
+每个 executable slice 只承载一个有界 objective，并固定：
+
+- first required action、read targets、允许写路径或 read-only output、forbidden paths；
+- required files、commands、evidence 与 non-goals；
+- completion/continuation predicates；
+- `maxChangedFiles`、`maxModules`、`maxReadOperations`、`maxNoArtifactCalls` 和 duration class 等 thresholds；
+- checkpoint kind、predecessor terminal receipts 和 next slice identity。
+
+Writer 不能把 slice 扩展回完整 issue，也不能自行选择 owner、方案、兼容策略或验收强度。永久 writer phase/role/output mapping 为：
+
+| Stage phase | Writer role | Terminal 前必需输出 |
+| --- | --- | --- |
+| `test-contract` | `test-owner` | tests/fixtures、commands、checkpoint |
+| `implementation` | `code-implementer` | diff、commands、checkpoint |
+| `ui-implementation` | `ui-ux-implementer` | diff、render evidence、checkpoint |
+| `documentation` | `documentation-writer` | diff 或 verified no-change evidence、checkpoint |
+| `landing-conflict-resolution` | `code-implementer` 或 `ui-ux-implementer` | conflict mapping、diff、checkpoint |
+
+Landing 复用 code/UI writer，不存在 `landing-owner` dispatch role。冻结审计 fixture 可以原样保留历史 `frozenObservationRole=landing-owner` 标签，但该标签不能进入 role registry、routing、permission 或 dispatch。Package 的七角色集合保持 `code-implementer`、`dag-creator-updater`、`documentation-writer`、`test-owner`、`ui-system-adjudicator`、`ui-ux-implementer`、`ux-acceptance-verifier`，不能因 landing 或恢复新增第八个角色。
+
+Writer 在 threshold 前必须通过 `sealProgressCheckpoint` 生成 `issue-orchestration.stage-progress-checkpoint.v1`，并由 `validateProgressCheckpoint` 复核真实 filesystem、Git 和 command evidence。Checkpoint 至少封存文件 canonical realpath 与 `git hash-object`、Git HEAD/status、命令 exit/output digest、tree/diff/command/evidence digests、cursor、status 与 next required action。`partial` 必须带 `nextRequiredAction` 且不能 candidate-green；`complete` 必须令该字段为 `null`。自然语言进度、文件名、命令字符串或 agent 自述不能代替 checkpoint。
+
+暂停或运行时中断只能通过 `compileContinuation` 生成 `issue-orchestration.stage-continuation-receipt.v1`。Continuation 必须绑定原 run/node/base/epoch/worktree/plan/slice/checkpoint/cursor，保持 `restartInvestigation=false`，并从封存 cursor 的下一 required action 继续；新 thread、attempt 或 agent 不能从 issue body 重启调查、重做已证明动作或丢弃未漂移 evidence。
+
+完成 slice 时，`sealSliceTerminalReceipt` 生成 `issue-orchestration.slice-terminal-receipt.v1`，绑定 plan/slice/compiled prompt/route、complete checkpoint、changed paths、command evidence 与 next slice。`evaluateSliceTerminalGate` 按 `orderedSlices` 检查无遗漏、无重复、无乱序：非最终 slice 只能产生 `writer-stage.slice-completed → next-slice`，且 `candidateEligible=false`；只有 final slice 连同此前所有 terminal receipts 都有效，才能产生 `writer-stage.completed → candidate-green`。Partial checkpoint、continuation、单次 command pass 或单个 diff 都不能提前完成 stage。
+
+`evaluateWriterStageObservation` 对 test-contract、implementation、ui-implementation、documentation 和 landing-conflict-resolution 使用同一失败合同。Invocation、environment、runtime capability、first required action、required output、checkpoint 或 terminal receipt 任一失败，都必须签发 `issue-orchestration.writer-stage-failure-receipt.v1`，进入 terminal 并打开 breaker。`writer-stage.output-missing` 包括 agent 返回但没有该 phase 必需产物；它不计 implementation rework、不增加 `reworkCount`、不触发 human decision，也不能改写成 verifier blocker或直接重试。
+
+Breaker 使用 failure receipt 的 semantic identity，绑定 repository/issue/node/base/epoch、plan/slice/route、stage role/phase、event type 与 evidence。改变 attempt、agent、prompt wording、worktree、slice id、时间或重复相同调用都不能清除 breaker。`authorizeWriterStageRetry` 只有在验证 `issue-orchestration.writer-stage-retry-authorization.v1` 时才允许重派：authorization 必须引用 prior failure receipt 与 `semanticFailureDigest`，并提供 `slice-revision`、`compiled-prompt-revision`、`runtime-revision` 或 `capability-revision` 的 material evidence，包括不同的 previous/current digest、非空 `changedRequirementIds` 与可重算 evidence digest。只改 identity 或措辞不是 material retry。
+
+上述八个 schema 与 compiler/progress API 是永久 runtime 合同。某次 repair issue 直接授权 Sol Ultra 完成代码、文档和交付，只是该批次的实现授权，不能写入永久 `stage-model-pool.v2`、routing 或 fallback policy。任何临时 bootstrap run、旧 receipt、first failure 与 breaker 只保留作冻结测试恢复、历史审计 fixture 和最终退役证据；它们不是永久 dispatcher、执行前置或兼容入口。
+
 ## Semantic graph 与 runtime projection 分层
 
 语义图和运行态投影是两份独立、可分别校验和持久化的事实。`issue-orchestration.semantic-graph.v1` 只承载节点的 semantic facts（依赖、owner、conflict key、risk/UI class、acceptance group 和 contract digest），并以 `semanticGraphDigest` 封存；`issue-orchestration.runtime-projection.v1` 只承载 immutable runtime ledger 与 runtime facts 的确定性 replay 结果，并以 `runtimeProjectionDigest` 封存。两者必须分别通过 validator，写入 state root 的 `semantic-graph.json` 与 `runtime-projection.json`；不得把运行态字段写回 semantic graph，也不得把 `graphPatch`、`semanticGraph` 或其它语义 payload 嵌入 runtime projection。旧的合并对象或 compatibility fallback 一律拒绝。
@@ -250,13 +288,13 @@ Subagent 的本地发现只作为 `possible-remote-contract-impact` execution-le
 
 ## Shared package、安装与发现
 
-调度 Skill、运行脚本、策略、图 schema、模板和 agent 定义只有一个可编辑 authoring source：`tools/codex/issue-orchestration-package/`。`manifest.json` 是该 package 的身份和完整性边界，绑定 `sourceCommit`、`sourceTreeDigest`、每个 artifact digest、`manifestDigest`、`stage-model-pool.v2` 的 model/routing/stage-permission/remote-mutation digest、semantic graph/patch/runtime-projection schema、projector、两个支持仓库和所需 capabilities。manifest 不能把自己列入 `artifactDigests`；任一绑定或 canonical SHA-256 不匹配都必须拒绝。
+调度 Skill、运行脚本、策略、图 schema、writer plan/slice/prompt/checkpoint/failure schemas、模板和 agent 定义只有一个可编辑 authoring source：`tools/codex/issue-orchestration-package/`。`manifest.json` 是该 package 的身份和完整性边界，绑定 `sourceCommit`、`sourceTreeDigest`、每个 artifact digest、`manifestDigest`、`stage-model-pool.v2` 的 model/routing/stage-permission/remote-mutation digest、semantic graph/patch/runtime-projection schema、writer compiler/progress API 及其八个 schema、projector、两个支持仓库和所需 capabilities。manifest 不能把自己列入 `artifactDigests`；任一绑定或 canonical SHA-256 不匹配都必须拒绝。
 
-Package 对外只发布七个角色：`code-implementer`、`dag-creator-updater`、`documentation-writer`、`test-owner`、`ui-system-adjudicator`、`ui-ux-implementer` 和 `ux-acceptance-verifier`。角色与 profile 由单一 `stage-model-pool.v2` 和 deterministic routing compiler 选择：root scheduler 固定 `luna-low`（`gpt-5.6-luna`/`low`），documentation 只能使用 `luna-high` 或 `luna-max`，cleanup 的 green authority 是 machine resource verifier。旧的 `.agents/skills/issue-orchestration`、`.codex/agents` issue aliases、review/cleanup-verifier aliases 和 fixed-Sol/node-local profile authority 都不是可发现的兼容来源；产品 API、design、documentation 和 runtime authority 仍由各仓库 current 文档/AGENTS 在运行时提供，不能复制进 package。
+Package 对外只发布七个角色：`code-implementer`、`dag-creator-updater`、`documentation-writer`、`test-owner`、`ui-system-adjudicator`、`ui-ux-implementer` 和 `ux-acceptance-verifier`。Landing conflict resolution 只能复用 code/UI writer，不发布 `landing-owner`。角色与 profile 由单一 `stage-model-pool.v2` 和 deterministic routing compiler 选择：root scheduler 固定 `luna-low`（`gpt-5.6-luna`/`low`），documentation 只能使用 `luna-high` 或 `luna-max`，cleanup 的 green authority 是 machine resource verifier。旧的 `.agents/skills/issue-orchestration`、`.codex/agents` issue aliases、review/cleanup-verifier aliases、临时 bootstrap dispatcher 和 fixed-Sol/node-local profile authority 都不是可发现的兼容来源；产品 API、design、documentation 和 runtime authority 仍由各仓库 current 文档/AGENTS 在运行时提供，不能复制进 package。
 
 安装目标必须是 caller-supplied、位于两个仓库、common workspace 和全部 worktree 之外的 external install root；runtime state root 也必须独立于 authoring source 和 install root。安装通过 staging sibling 后原子 rename，并写入 `.issue-orchestration-install.json` ownership manifest。验证逐文件比较 source/install/manifest/install digests；未知手工编辑、半安装残留、symlink、protected-root overlap 和 ownership drift 都 fail closed，不能覆盖未知编辑。卸载只在 ownership manifest 完全匹配时删除 package-owned install root，外部 sibling 或 sentinel 保留。
 
-使用 `install.mjs`、`verify-install.mjs` 和 `discover.mjs` 时，应从五个 cwd 复核同一身份：FsusBlog root、FsusUI root、common workspace，以及两仓各一个 worktree。每个 discovery receipt 必须返回相同的 `packageIdentity`/`packageDigest`、Skill identity/digest、七角色集合、model-pool、routing、remote-mutation、graph/patch/runtime-projection 和 projector digests；任何 cwd-specific drift 都拒绝。典型验证（所有路径均为外部临时目录）如下：
+使用 `install.mjs`、`verify-install.mjs` 和 `discover.mjs` 时，应从五个 cwd 复核同一身份：FsusBlog root、FsusUI root、common workspace，以及两仓各一个 worktree。每个 discovery receipt 必须返回相同的 `packageIdentity`/`packageDigest`、Skill identity/digest、七角色集合、model-pool、routing、remote-mutation、graph/patch/runtime-projection、writer compiler/progress/schema 和 projector digests；任何 cwd-specific drift 都拒绝。典型验证（所有路径均为外部临时目录）如下：
 
 ```bash
 PACKAGE_ROOT=tools/codex/issue-orchestration-package
@@ -276,7 +314,7 @@ node "$PACKAGE_ROOT/scripts/uninstall.mjs" \
   --source-root "$PACKAGE_ROOT" --install-root "$INSTALL_ROOT"
 ```
 
-Semantic graph（`semantic-graph.json`）、immutable ledger、runtime projection（`runtime-projection.json`）、receipts 和 resource registry 只能写入 `STATE_ROOT`；不得进入 source 或 installed artifact。`semanticGraphDigest` 与 `runtimeProjectionDigest` 各自由对应 validator/projector 产生，receipt 同时绑定 manifest/package/install digests、candidate/base、epoch、role/model/effort、cwd、Skill/capability 和 runtime-state-root identity。
+Semantic graph（`semantic-graph.json`）、immutable ledger、runtime projection（`runtime-projection.json`）、work plans、slices、compiled prompts、checkpoints、continuations、terminal/failure/retry receipts 和 resource registry 只能写入 `STATE_ROOT`；不得进入 source 或 installed artifact。`semanticGraphDigest` 与 `runtimeProjectionDigest` 各自由对应 validator/projector 产生；writer lifecycle event 只能引用通过验证的 plan/slice/prompt/checkpoint/terminal/failure/retry digest。Receipt 同时绑定 manifest/package/install digests、candidate/base、epoch、role/model/effort、cwd、Skill/capability 和 runtime-state-root identity。
 
 ## Grouped delivery window
 
@@ -286,7 +324,7 @@ Acceptance-group delivery 在窗口开始前记录 `preWindowRemoteSnapshotDiges
 
 ## Stable denial codes and checks
 
-调用方应保留以下错误码，便于故障定位：`invalid-selector-schema`、`selector-version-parameters-mismatch`、`dag-launch-required`、`dag-launch-denied`、`proposal-mismatch` 和 `delivery-window-invalid`。这些拒绝表示合同不满足，不应通过重试未变化的 selector、snapshot 或 launch request 绕过。
+调用方应保留以下错误码，便于故障定位：`invalid-selector-schema`、`selector-version-parameters-mismatch`、`dag-launch-required`、`dag-launch-denied`、`proposal-mismatch`、`delivery-window-invalid`、`writer-stage.invocation-failed`、`writer-stage.environment-failed`、`writer-stage.runtime-capability-missing`、`writer-stage.first-action-not-executed`、`writer-stage.output-missing`、`writer-stage.checkpoint-missing` 和 `writer-stage.receipt-rejected`。这些拒绝表示合同不满足，不应通过重试未变化的 selector、snapshot、launch request 或 writer semantic identity 绕过。
 
 Selector 行为合同位于 `tests/tools/issue-orchestration-scope-selector.test.mjs`，fixture 位于 `tests/fixtures/issue-orchestration/scope-selector-cases.json`，实现入口为 `tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/scope-selector.mjs`；frontier 行为合同位于 `tests/tools/issue-orchestration-ready-frontier.test.mjs`，实现入口为 `tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/frontier-compiler.mjs`；stage model pool 行为合同位于 `tests/tools/issue-orchestration-stage-profiles.test.mjs`，其 v2 acceptance/mutation/runtime fixtures 位于 `tests/fixtures/issue-orchestration/stage-profile-*.json`，实现入口为 `tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/stage-profile-policy.mjs`；event ledger 行为合同位于 `tests/tools/issue-orchestration-event-ledger.test.mjs`，其 acceptance/mutation/runtime fixtures 位于 `tests/fixtures/issue-orchestration/event-ledger-*.json`，实现入口为 `tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/event-ledger.mjs`；dispatch/runtime/self-test 行为合同位于 `tests/tools/issue-orchestration-dispatch-receipt.test.mjs`，fixture 位于 `tests/fixtures/issue-orchestration/dispatch-receipt-*.json`，实现入口为 `tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/dispatch-receipt.mjs`；semantic graph/runtime projection 行为合同位于 `tests/tools/issue-orchestration-semantic-runtime-projection.test.mjs`，fixture 位于 `tests/fixtures/issue-orchestration/semantic-runtime-projection-*.json`，实现入口为 `tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/semantic-runtime-projection.mjs`。修改 selector、snapshot、frontier、stage model pool、ledger、dispatch receipt 或 semantic/runtime projection 合同时运行：
 
@@ -300,6 +338,17 @@ node --check tools/codex/issue-orchestration-package/skills/issue-orchestration/
 node --test tests/tools/issue-orchestration-semantic-runtime-projection.test.mjs
 node tools/docs/generate-document-lifecycle.mjs --check
 node tools/docs/check-authoritative-development-docs.mjs
+```
+
+Writer 永久合同由三个冻结测试和一个永久 integration contract 共同约束：`tests/tools/issue-orchestration-compiled-dispatch-prompt.test.mjs` 与 `tests/tools/issue-orchestration-progress-checkpoint.test.mjs` 的唯一 runtime owner 是 `executable-slice-compiler.mjs`；`tests/tools/issue-orchestration-writer-stage-failure.test.mjs` 的唯一 runtime owner 是 `writer-stage-progress.mjs`；`tests/tools/issue-orchestration-issue-1874-permanent-contract.test.mjs` 绑定八个 schemas、两个 canonical runtime owners、固定七角色和冻结 test-tree audit。修改 writer plan/slice/prompt/checkpoint/continuation/terminal/failure/retry 合同时运行：
+
+```bash
+node --test tests/tools/issue-orchestration-compiled-dispatch-prompt.test.mjs
+node --test tests/tools/issue-orchestration-progress-checkpoint.test.mjs
+node --test tests/tools/issue-orchestration-writer-stage-failure.test.mjs
+node --test tests/tools/issue-orchestration-issue-1874-permanent-contract.test.mjs
+node --check tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/executable-slice-compiler.mjs
+node --check tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/writer-stage-progress.mjs
 ```
 
 本合同不自动创建远端 issue，也不改变产品代码、API、数据库、发布或前端运行时。

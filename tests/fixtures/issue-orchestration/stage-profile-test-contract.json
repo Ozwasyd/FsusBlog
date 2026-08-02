@@ -24,14 +24,14 @@
   "runtimeProbes": "tests/fixtures/issue-orchestration/stage-profile-runtime-probes.json",
   "mutationControls": "tests/fixtures/issue-orchestration/stage-profile-mutation-controls.json",
   "allowedImplementationPaths": [
-    ".agents/skills/issue-orchestration/scripts/stage-profile-policy.mjs",
-    ".agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs",
-    ".agents/skills/issue-orchestration/scripts/dispatch-batch-selector.mjs",
-    ".agents/skills/issue-orchestration/scripts/check-dag-gate.mjs",
-    ".agents/skills/issue-orchestration/scripts/investigation-compiler.mjs",
-    ".agents/skills/issue-orchestration/scripts/frontier-compiler.mjs",
-    ".agents/skills/issue-orchestration/scripts/event-ledger.mjs",
-    ".agents/skills/issue-orchestration/scripts/resource-lifecycle.mjs",
+    "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/stage-profile-policy.mjs",
+    "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/dispatch-receipt.mjs",
+    "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/dispatch-batch-selector.mjs",
+    "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/check-dag-gate.mjs",
+    "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/investigation-compiler.mjs",
+    "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/frontier-compiler.mjs",
+    "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/event-ledger.mjs",
+    "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/resource-lifecycle.mjs",
     ".codex/agents/issue-dag-agent.toml",
     ".codex/agents/issue-test-owner.toml",
     ".codex/agents/issue-code-implementer.toml",
@@ -82,9 +82,9 @@
     }
   ],
   "fileHashes": {
-    "tests/tools/issue-orchestration-stage-profiles.test.mjs": "9bea8f8b13b7224476a74f1ddfe09ae8c0138d376a0f781943b73f28a07c256d",
+    "tests/tools/issue-orchestration-stage-profiles.test.mjs": "f0f8e88cfc0819ec5f7b4c8614edf7ba24ba2996c35d8b667b343cc269701473",
     "tests/fixtures/issue-orchestration/stage-profile-acceptance-map.json": "c8ddb8b01c8e94f282907fb6629b35ccb3d1d48b06de9163fdb109089d0eab85",
-    "tests/fixtures/issue-orchestration/stage-profile-expected-initial-failures.json": "7996f52d9609c972ba981e341cbe6930f4580086e1673d20c2032d4fce23de09",
+    "tests/fixtures/issue-orchestration/stage-profile-expected-initial-failures.json": "6acefe3712aa8bd38bcb14839a6723eeb1e7c62a928825742434412e8c6aae52",
     "tests/fixtures/issue-orchestration/stage-profile-runtime-probes.json": "4cf09200238c28e0b2c755113fd4dc05d86f800d91663f4bb65ff5d25c5209f1",
     "tests/fixtures/issue-orchestration/stage-profile-mutation-controls.json": "9ac289777de98b04b8f37e19845c014c44ce1526f59a0cfca8ba83f77e9836c8"
   },
@@ -96,5 +96,5 @@
     "fail": 18,
     "skipped": 0
   },
-  "testContractDigest": "2fff33fca632b883cb9426d79c4d78050b183c33c844aae31d3906db70fa2c74"
+  "testContractDigest": "a519e377b6f3ad6cd326a60063e6254ece093502bfe14e6d9ff90fbdce8002f8"
 }

@@ -29,7 +29,8 @@
                 ".yaml",
                 ".yml",
                 ".json",
-                ".jsonc"
+                ".jsonc",
+                ".toml"
             ],
             "specialFiles": []
         },

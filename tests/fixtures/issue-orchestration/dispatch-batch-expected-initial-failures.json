@@ -41,8 +41,8 @@
     ],
     "expectedDiagnostic": "revision-1 executable negatives remain alive against the current candidate",
     "minimalAllowedImplementationPaths": [
-        ".agents/skills/issue-orchestration/scripts/dispatch-batch-selector.mjs",
-        ".agents/skills/issue-orchestration/scripts/check-dag-gate.mjs"
+        "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/dispatch-batch-selector.mjs",
+        "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/check-dag-gate.mjs"
     ],
     "expectedSummary": {
         "tests": 92,

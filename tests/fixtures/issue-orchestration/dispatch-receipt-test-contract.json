@@ -94,12 +94,12 @@
         "tests/fixtures/issue-orchestration/dispatch-receipt-test-contract.json"
     ],
     "minimalImplementationPaths": [
-        ".agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs"
+        "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/dispatch-receipt.mjs"
     ],
     "satisfiedBaseDependencies": [
         {
             "issue": "Ozwasyd/FsusBlog#1817",
-            "path": ".agents/skills/issue-orchestration/scripts/event-ledger.mjs",
+            "path": "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/event-ledger.mjs",
             "status": "satisfied-by-base",
             "baseSha": "9c02ed22bdd578d07d6e4ca8c1c4c9bc161bbc18"
         }
@@ -202,19 +202,19 @@
             "id": "dispatch-receipt-syntax",
             "kind": "typecheck",
             "required": true,
-            "command": ["node", "--check", ".agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs"]
+            "command": ["node", "--check", "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/dispatch-receipt.mjs"]
         },
         {
             "id": "dispatch-receipt-style",
             "kind": "lint",
             "required": true,
-            "command": ["node", "tools/style/check-native-tooling-style.mjs", "--operation", "lint", "--mode", "changed", "--domain", "scripts", "--file", ".agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs", "--file", "tests/tools/issue-orchestration-dispatch-receipt.test.mjs"]
+            "command": ["node", "tools/style/check-native-tooling-style.mjs", "--operation", "lint", "--mode", "changed", "--domain", "scripts", "--file", "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/dispatch-receipt.mjs", "--file", "tests/tools/issue-orchestration-dispatch-receipt.test.mjs"]
         },
         {
             "id": "implementer-runtime-rollout-probe",
             "kind": "probe",
             "required": true,
-            "command": ["node", ".agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs", "verify-runtime", "--request", "<state-root>/requests/<request-id>.json", "--rollout", "<runtime-rollout-jsonl>", "--machine-observations", "<state-root>/observations/<request-id>.json"]
+            "command": ["node", "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/dispatch-receipt.mjs", "verify-runtime", "--request", "<state-root>/requests/<request-id>.json", "--rollout", "<runtime-rollout-jsonl>", "--machine-observations", "<state-root>/observations/<request-id>.json"]
         }
     ],
     "lintTypecheckBuildPolicy": {
@@ -232,7 +232,7 @@
             },
             {
                 "path": "tests/fixtures/issue-orchestration/dispatch-receipt-expected-initial-failures.json",
-                "sha256": "8ec4d994b92c2a3a4bc18e1a08248ded7fa2bb74fbf57f5fbec8ea0155de238b"
+                "sha256": "5ab16808f5ae0f6e2a760fa282b01c3b33180af018f6bd1f59a4d7db776e41f7"
             },
             {
                 "path": "tests/fixtures/issue-orchestration/dispatch-receipt-mutation-controls.json",
@@ -240,31 +240,31 @@
             },
             {
                 "path": "tests/fixtures/issue-orchestration/dispatch-receipt-runtime-probes.json",
-                "sha256": "8184452da474605373b52d698d686e8b1bc8b5a773c32f02c3df887cfe929f21"
+                "sha256": "7a484116a4c8aa3ee5a1b523d8332cbe26736081360a91885c45bf1e967dcedb"
             },
             {
                 "path": "tests/tools/issue-orchestration-dispatch-receipt.test.mjs",
-                "sha256": "11537083d4225e3a6acbd284cd3450c9795087a42b3ea48bb2e6a3d4680869ed"
+                "sha256": "af034662fd09db7902f11133021793ff3ec61b4bc0d7ca5c647e7432ee17109e"
             }
         ],
-        "digest": "1eec12b21e7b0d47ee7d5c9af49091f94b0fb5daeeafc36d281ce88264b86084"
+        "digest": "fc53c748800a2bed4f9ce0771b39d2f04208a677cefcf7cffaa5ba2c1a907b2a"
     },
-    "visibleTestMatrixDigest": "10929aa826518bd0191a88fc753dfbb94b34e258089c288fde75d38c1ea9422f",
-    "testContractDigest": "0016f40258f9d2034529798aedf338cb79cd12423f15513c478c25fce8475105",
+    "visibleTestMatrixDigest": "578b30bf5cdc3a1719ae526be69176c10882dbb02271b704fb43269224820044",
+    "testContractDigest": "f2980f1ae2dd28cb33f894b2dc0ebf598fc26fdd44bc89036d2ccdb63430acb1",
     "candidateIdentity": {
         "schema": "issue-orchestration.candidate-identity.v1",
         "algorithm": "sha256-canonical-json-v1",
         "policy": "two-stage-no-self-reference",
         "baseSha": "9c02ed22bdd578d07d6e4ca8c1c4c9bc161bbc18",
         "candidateSha": "9c02ed22bdd578d07d6e4ca8c1c4c9bc161bbc18",
-        "testContractDigest": "0016f40258f9d2034529798aedf338cb79cd12423f15513c478c25fce8475105",
+        "testContractDigest": "f2980f1ae2dd28cb33f894b2dc0ebf598fc26fdd44bc89036d2ccdb63430acb1",
         "implementationFiles": [
             {
-                "path": ".agents/skills/issue-orchestration/scripts/dispatch-receipt.mjs",
+                "path": "tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/dispatch-receipt.mjs",
                 "sha256": "e6c26a2b16e145379689edbedc4ef21e52e517808ad34731b25b2f33beb7b833",
                 "gitMode": "100644"
             }
         ],
-        "candidateDigest": "274f8dedb174380d4f950d70062083a4e7e503e9a9e6c4f3656c20e97320ff62"
+        "candidateDigest": "4995c6bb21abd1013591c39b421531bb4240ec5b07641ae4cc7e81d3814e9542"
     }
 }

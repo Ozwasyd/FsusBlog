@@ -10,7 +10,7 @@ const root = path.resolve(import.meta.dirname, '../..')
 const fixtureRoot = path.join(root, 'tests/fixtures/issue-orchestration')
 const implementationPath = path.join(
     root,
-    '.agents/skills/issue-orchestration/scripts/semantic-runtime-projection.mjs'
+    'tools/codex/issue-orchestration-package/skills/issue-orchestration/scripts/semantic-runtime-projection.mjs'
 )
 const cases = readJson('semantic-runtime-projection-cases.json')
 const acceptance = readJson('semantic-runtime-projection-acceptance-map.json')
