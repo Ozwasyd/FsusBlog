@@ -1,0 +1,96 @@
+{
+  "schema": "fsusblog-design-conformance.ui-stage-policy.v1",
+  "repository": "Ozwasyd/FsusBlog",
+  "requiredSkillIds": [
+    "fsusblog-design-conformance",
+    "fsusui-design-conformance"
+  ],
+  "writerLeaseOrder": [
+    "test-owner",
+    "ui-ux-implementer",
+    "documentation-writer"
+  ],
+  "implementation": {
+    "role": "ui-ux-implementer",
+    "allowedProfiles": [
+      "sol-low",
+      "sol-medium"
+    ],
+    "automaticPromotion": false,
+    "writeScope": "implementation-only",
+    "routing": {
+      "prescribed": "sol-low",
+      "bounded-composition": "sol-low",
+      "layout-judgment": "sol-medium",
+      "interaction-judgment": "sol-medium",
+      "system-design-dispute": "stop"
+    },
+    "resliceShapes": [
+      "context-heavy",
+      "high-tool-depth",
+      "long-horizon-cross-module",
+      "complete-page-system"
+    ]
+  },
+  "adjudication": {
+    "role": "ui-system-adjudicator",
+    "allowedProfiles": [
+      "sol-high",
+      "sol-xhigh"
+    ],
+    "freshContext": true,
+    "sandbox": "read-only",
+    "writeScope": "none",
+    "requiredReslice": true
+  },
+  "uxAcceptance": {
+    "role": "ux-acceptance-verifier",
+    "freshContext": true,
+    "sandbox": "read-only",
+    "writeScope": "none",
+    "routing": {
+      "ux-local": "sol-medium",
+      "ux-path": "sol-high",
+      "ux-system": "sol-xhigh"
+    }
+  },
+  "documentation": {
+    "role": "documentation-writer",
+    "allowedProfiles": [
+      "luna-high",
+      "luna-max"
+    ],
+    "requires": [
+      "behavior-green",
+      "ux-accepted"
+    ],
+    "writeScope": "documentation-only"
+  },
+  "humanGate": {
+    "requestSchema": "issue-orchestration.human-decision-request.v1",
+    "requestStatus": "verified",
+    "eligibleReasons": [
+      "authority-conflict",
+      "multiple-valid-product-directions",
+      "irreversible-public-contract-tradeoff"
+    ],
+    "ineligibleReasons": [
+      "model-uncertainty",
+      "layout-difficulty",
+      "responsive-complexity",
+      "test-failure",
+      "prompt-incomplete",
+      "reslice-required",
+      "profile-capability-mismatch"
+    ],
+    "requiresFullRevalidation": true
+  },
+  "consumerWorkaroundsForbidden": [
+    "private-selector",
+    "deep-selector",
+    "fsusui-token-fork",
+    "component-wrapper",
+    "consumer-local-parser",
+    "consumer-local-offset-map"
+  ]
+}

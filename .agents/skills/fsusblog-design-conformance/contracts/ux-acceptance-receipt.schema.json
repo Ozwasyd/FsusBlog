@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fsusblog-design-conformance:ux-acceptance-receipt:v1",
+  "title": "fsusblog-design-conformance.ux-acceptance-receipt.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "repository",
+    "classificationReceiptDigest",
+    "dispatchReceiptDigest",
+    "candidateSha",
+    "candidateIdentityDigest",
+    "actualModel",
+    "actualEffort",
+    "actualProfile",
+    "freshContext",
+    "sandbox",
+    "writeLease",
+    "requiredSkills",
+    "designAuthorityDigests",
+    "fsusUIBaselineDigest",
+    "workPlanDigest",
+    "sliceDigest",
+    "compiledPromptDigest",
+    "executionRouteDecisionDigest",
+    "implementationRunIdentityDigest",
+    "verifierRunIdentityDigest",
+    "viewportStateMatrix",
+    "renderedArtifacts",
+    "blockers",
+    "status",
+    "modifiedPaths",
+    "designSuggestions",
+    "receiptDigest"
+  ],
+  "properties": {
+    "schema": {
+      "const": "fsusblog-design-conformance.ux-acceptance-receipt.v1"
+    },
+    "repository": {
+      "const": "Ozwasyd/FsusBlog"
+    },
+    "classificationReceiptDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "dispatchReceiptDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "candidateSha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "candidateIdentityDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "actualModel": {
+      "const": "gpt-5.6-sol"
+    },
+    "actualEffort": {
+      "enum": [
+        "medium",
+        "high",
+        "xhigh"
+      ]
+    },
+    "actualProfile": {
+      "enum": [
+        "sol-medium",
+        "sol-high",
+        "sol-xhigh"
+      ]
+    },
+    "freshContext": {
+      "const": true
+    },
+    "sandbox": {
+      "const": "read-only"
+    },
+    "writeLease": {
+      "type": "null"
+    },
+    "requiredSkills": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object"
+      }
+    },
+    "designAuthorityDigests": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      }
+    },
+    "fsusUIBaselineDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "workPlanDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "sliceDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "compiledPromptDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "executionRouteDecisionDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "implementationRunIdentityDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "verifierRunIdentityDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "viewportStateMatrix": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object"
+      }
+    },
+    "renderedArtifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object"
+      }
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "status": {
+      "enum": [
+        "accepted",
+        "rejected"
+      ]
+    },
+    "modifiedPaths": {
+      "type": "array",
+      "maxItems": 0
+    },
+    "designSuggestions": {
+      "type": "array",
+      "maxItems": 0
+    },
+    "receiptDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

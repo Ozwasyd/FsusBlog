@@ -30,6 +30,16 @@ FsusBlog 是面向真实部署、以二进制公开读取链路和可验证运�
 
 如果表中入口与 `docs/index.md` 的 current 分类冲突，先修正理解，不要引用 proposed、historical、generated 或 retired 文档作为当前设计依据。
 
+用户可观察 UI 的编排还必须消费
+`.agents/skills/fsusblog-design-conformance/contracts/blog-ui-stage-policy.json`：
+先冻结 `uiDecisionClass`、`verificationClass`、双设计 Skill 与当前 FsusUI
+baseline，再绑定永久 work-plan/slice/compiled-prompt/route。实现只允许
+Sol/low 或 Sol/medium 的单一 UI/UX owner；系统争议进入 fresh/read-only
+裁决，真正的多合法产品方向才可生成 verified `human-decision` request。
+test、UI implementation、documentation 的 write lease 按顺序互斥，
+behavior/UX/adjudication 只读；没有实际 inspected rendered evidence
+不得签 UX accepted。
+
 ## 不可隐式改变的边界
 
 - 公开运行时只接受 AEDS v2；binary endpoint 是主 API。不得新增旧文本 API fallback，也不得用通用 stream response 重新拼装已编码帧。

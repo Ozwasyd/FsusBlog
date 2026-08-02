@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fsusblog-design-conformance:ui-system-adjudication-receipt:v1",
+  "title": "fsusblog-design-conformance.ui-system-adjudication-receipt.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "repository",
+    "classificationReceiptDigest",
+    "actualModel",
+    "actualEffort",
+    "actualProfile",
+    "freshContext",
+    "sandbox",
+    "writeLease",
+    "authorityState",
+    "uniqueResolutionAvailable",
+    "allowedImplementationClass",
+    "inScope",
+    "outOfScope",
+    "requiredFollowUpIssue",
+    "requiredReslice",
+    "humanGateReason",
+    "humanDecisionRequestSchema",
+    "humanDecisionRequestStatus",
+    "humanDecisionRequestDigest",
+    "modifiedPaths",
+    "receiptDigest"
+  ],
+  "properties": {
+    "schema": {
+      "const": "fsusblog-design-conformance.ui-system-adjudication-receipt.v1"
+    },
+    "repository": {
+      "const": "Ozwasyd/FsusBlog"
+    },
+    "classificationReceiptDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "actualModel": {
+      "const": "gpt-5.6-sol"
+    },
+    "actualEffort": {
+      "enum": [
+        "high",
+        "xhigh"
+      ]
+    },
+    "actualProfile": {
+      "enum": [
+        "sol-high",
+        "sol-xhigh"
+      ]
+    },
+    "freshContext": {
+      "const": true
+    },
+    "sandbox": {
+      "const": "read-only"
+    },
+    "writeLease": {
+      "type": "null"
+    },
+    "authorityState": {
+      "enum": [
+        "unique-resolution",
+        "authority-conflict",
+        "multiple-valid-product-directions",
+        "irreversible-public-contract-tradeoff",
+        "model-uncertainty"
+      ]
+    },
+    "uniqueResolutionAvailable": {
+      "type": "boolean"
+    },
+    "allowedImplementationClass": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "sol-low",
+        "sol-medium",
+        null
+      ]
+    },
+    "inScope": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "outOfScope": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "requiredFollowUpIssue": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "requiredReslice": {
+      "const": true
+    },
+    "humanGateReason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "humanDecisionRequestSchema": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "humanDecisionRequestStatus": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "humanDecisionRequestDigest": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "modifiedPaths": {
+      "type": "array",
+      "maxItems": 0
+    },
+    "receiptDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}
