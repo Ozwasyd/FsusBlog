@@ -164,7 +164,7 @@ function routeInput(index, metricOverrides = {}) {
             contractState: 'frozen',
             verificationClass: 'focused',
             modelRoutingEvidenceDigest: hash(`routing-${index}`),
-            routingPolicyVersion: 'stage-model-pool.v2'
+            routingPolicyVersion: 'stage-model-pool.v3'
         },
         executionMetrics: {
             expectedChangedFileCount: 1,
@@ -189,14 +189,18 @@ function routeInput(index, metricOverrides = {}) {
     const initial = compileExecutionRoute(base)
     const selected =
         initial.executionRouteDecision.selectedProfile
+    const [family, effort] = selected.split('-')
     return {
         ...base,
         runtimeCapabilityObservation: {
             schema: 'issue-orchestration.runtime-capability-observation.v1',
             source: 'runtime-capability-registry',
             observable: true,
-            requestedProfile: selected,
-            effectiveProfile: selected,
+            requestedModel: `gpt-5.6-${family}`,
+            effectiveModel: `gpt-5.6-${family}`,
+            requestedEffort: effort,
+            effectiveEffort: effort,
+            multiAgentBackend: 'v2',
             observationDigest: hash({ index, selected })
         }
     }

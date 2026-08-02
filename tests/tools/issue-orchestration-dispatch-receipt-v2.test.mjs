@@ -111,7 +111,7 @@ async function frozenRoute(changes = {}) {
         contractState: 'frozen',
         verificationClass: 'runtime',
         modelRoutingEvidenceDigest: hash('a'),
-        routingPolicyVersion: 'stage-model-pool.v2',
+        routingPolicyVersion: 'stage-model-pool.v3',
         ...changes.classification
     }
     const stageRole = changes.stageRole ?? 'code-implementer'
@@ -231,7 +231,7 @@ async function requestInput(overrides = {}) {
     }
     return {
         schema: 'issue-orchestration.dispatch-request.v2',
-        policyVersion: 'stage-model-pool.v2',
+        policyVersion: 'stage-model-pool.v3',
         routingPolicyDigest: digest(routeInput.module.STAGE_MODEL_POOL_POLICY),
         stagePermissionsPolicyDigest,
         stageRole: routeInput.stageRole,
@@ -285,6 +285,7 @@ async function requestInput(overrides = {}) {
         epochId: 'epoch-1832-001',
         requestedModel: selected.model,
         requestedEffort: selected.effort,
+        requestedMultiAgentBackend: 'v2',
         requestedMode: 'normal',
         requestedSandbox: routeInput.route.sandbox,
         requestedForkTurns: '3',
@@ -372,6 +373,7 @@ async function bindExecutionRoute(input) {
     input.routingAuthority = decision.routingAuthority
     input.requestedModel = selected.model
     input.requestedEffort = selected.effort
+    input.requestedMultiAgentBackend = 'v2'
     return input
 }
 
@@ -422,6 +424,11 @@ function dispatchEvidence(request) {
             source: 'runtime-capability-registry',
             requestedProfileId: request.selectedProfileId,
             effectiveProfileId: request.selectedProfileId,
+            requestedModel: request.requestedModel,
+            effectiveModel: request.requestedModel,
+            requestedEffort: request.requestedEffort,
+            effectiveEffort: request.requestedEffort,
+            multiAgentBackend: 'v2',
             available: true
         }),
         sealedObservation({
@@ -470,6 +477,7 @@ function dispatchEvidence(request) {
                 cwd: request.requestedWorkingDirectory,
                 model: request.requestedModel,
                 effort: request.requestedEffort,
+                multiAgentBackend: 'v2',
                 mode: request.requestedMode,
                 sandbox_policy: { type: request.requestedSandbox }
             }
@@ -497,15 +505,16 @@ async function verifiedDispatch() {
 function rootStartupInput() {
     const request = {
         schema: 'issue-orchestration.root-startup-request.v2',
-        policyVersion: 'stage-model-pool.v2',
+        policyVersion: 'stage-model-pool.v3',
         routingPolicyDigest: hash('6'),
         runId: 'run-1832-001',
         stageRole: 'root-scheduler',
         stagePhase: 'scheduling',
-        stageProfileId: 'luna-low',
+        stageProfileId: 'terra-low',
         routingInputDigest: hash('7'),
-        requestedModel: 'gpt-5.6-luna',
+        requestedModel: 'gpt-5.6-terra',
         requestedEffort: 'low',
+        requestedMultiAgentBackend: 'v2',
         requestedMode: 'normal',
         requestedWorkingDirectory: worktree,
         repositoryFingerprint: hash('f'),
@@ -521,8 +530,9 @@ function rootStartupInput() {
                 id: 'rollout-1832-root',
                 session_id: 'thread-1832-root',
                 role: 'root-scheduler',
-                model: 'gpt-5.6-luna',
+                model: 'gpt-5.6-terra',
                 effort: 'low',
+                multiAgentBackend: 'v2',
                 mode: 'normal'
             }
         },
@@ -532,8 +542,9 @@ function rootStartupInput() {
             payload: {
                 cwd: worktree,
                 role: 'root-scheduler',
-                model: 'gpt-5.6-luna',
+                model: 'gpt-5.6-terra',
                 effort: 'low',
+                multiAgentBackend: 'v2',
                 mode: 'normal'
             }
         }
@@ -542,7 +553,8 @@ function rootStartupInput() {
         sealedObservation({
             kind: 'root-runtime-capability.v2',
             source: 'runtime-capability-registry',
-            stageProfileId: 'luna-low',
+            stageProfileId: 'terra-low',
+            multiAgentBackend: 'v2',
             available: true
         })
     ]
@@ -604,7 +616,7 @@ function verifiedV2DispatchReceipt(request = {}) {
         epochId: request.epochId ?? 'epoch-1832-001',
         baseSha: request.baseSha ?? baseSha,
         candidateSha: request.candidateSha ?? baseSha,
-        policyVersion: 'stage-model-pool.v2',
+        policyVersion: 'stage-model-pool.v3',
         routingPolicyDigest: request.routingPolicyDigest ?? hash('6'),
         routingInputDigest: request.routingInputDigest ?? hash('7'),
         verificationStatus: 'verified',
@@ -962,7 +974,7 @@ test('P02 dispatch-receipt.v2 binds independently observed actual metadata', asy
         request.dependencyIdentityDigest)
 })
 
-test('P03 independent root-startup-receipt.v2 proves Luna/low/normal actuals', async () => {
+test('P03 root startup proves Terra/low/V2/normal actuals', async () => {
     const module = await runtime()
     const verifyRootStartup = module.verifyRootStartup
     assert.equal(typeof verifyRootStartup, 'function')
@@ -971,8 +983,9 @@ test('P03 independent root-startup-receipt.v2 proves Luna/low/normal actuals', a
         ...result.rootStartupReceipt,
         schema: 'issue-orchestration.root-startup-receipt.v2',
         stageRole: 'root-scheduler',
-        actualModel: 'gpt-5.6-luna',
+        actualModel: 'gpt-5.6-terra',
         actualEffort: 'low',
+        actualMultiAgentBackend: 'v2',
         actualMode: 'normal',
         verificationStatus: 'verified',
         mismatchReasons: []

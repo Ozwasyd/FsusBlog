@@ -324,7 +324,7 @@ test('P02 requires one complete authoring package and a self-consistent manifest
         'Ozwasyd/FsusBlog',
         'Ozwasyd/FsusUI'
     ])
-    assert.equal(manifest.modelPoolPolicyVersion, 'stage-model-pool.v2')
+    assert.equal(manifest.modelPoolPolicyVersion, 'stage-model-pool.v3')
     for (const field of [
         'sourceTreeDigest',
         'skillDigest',
@@ -634,10 +634,10 @@ test('P08 installed runtime carries routing, graph and receipt authority', async
         'writer-stage-progress.mjs'
     )
     assert.equal(stage.STAGE_MODEL_POOL_POLICY.version,
-        'stage-model-pool.v2')
+        'stage-model-pool.v3')
     assert.equal(stage.STAGE_MODEL_POOL_POLICY.stages[
         'root-scheduler:scheduling'
-    ].defaultProfile, 'luna-low')
+    ].defaultProfile, 'terra-low')
     for (const name of [
         'classifyRemoteMutations',
         'createSemanticGraph',
@@ -701,11 +701,14 @@ test('P10 package carries orchestration facts, not product design facts', () => 
         'stage-dispatch'
     ])
     assert.deepEqual(manifest.excludedAuthorities.toSorted(), [
+        'bootstrap-executor',
         'product-api',
         'product-design',
         'product-documentation',
         'product-runtime',
-        'repository-agents'
+        'repo-local-orchestration-copy',
+        'repository-agents',
+        'temporary-scheduler'
     ])
     const forbiddenPaths = walkFiles(packageRoot)
         .map((file) => path.relative(packageRoot, file))

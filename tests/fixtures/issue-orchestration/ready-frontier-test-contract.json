@@ -95,13 +95,13 @@
   "hashAlgorithm": "sha256",
   "selfHashPolicy": "fileHashes covers raw bytes for every allowedTestPath except this manifest; frozenTreeDigest covers the canonical fileHashes object; testContractDigest covers the canonical manifest with testContractDigest omitted",
   "fileHashes": {
-    "tests/tools/issue-orchestration-ready-frontier.test.mjs": "12cab3dbb344747cd396c4947863c62a186c26e070dbcb0374382e4ec8251e28",
+    "tests/tools/issue-orchestration-ready-frontier.test.mjs": "368f33bc93e82a8eb0792cd49880a1efec65cea9d9d9ee525608fe3600d1fa10",
     "tests/fixtures/issue-orchestration/ready-frontier-cases.json": "63cb43ab24db46fca2cb6591f3cbada36676fb8c9d567fef333402a1292ac1cc",
     "tests/fixtures/issue-orchestration/ready-frontier-acceptance-map.json": "e5de609e6b9a3f3d62e0edb588f2c91f1736dd7176be13b616c2b3859a83de28",
     "tests/fixtures/issue-orchestration/ready-frontier-expected-initial-failures.json": "4ef596a4fcec0c0bcf4eb10318e7c4a09919339a37d7e7fdf5f28fecd6097626",
     "tests/fixtures/issue-orchestration/ready-frontier-runtime-probes.json": "8ac48a1b8285c9c077bf2d92bac848a3a54f63bcfb357b402714ef5f0390ae48",
     "tests/fixtures/issue-orchestration/ready-frontier-mutation-controls.json": "dd6ba0494eb1a74c4df2bf45de9e31ecd9252b5488b0c569e281784bab6626d3"
   },
-  "frozenTreeDigest": "7f735129806818a1905b743733c1d215f7f092258f4acae73761e933d31a3adb",
-  "testContractDigest": "03eacf4a762415b9a61f177796f35327c022aac27a2a34441403049a6e696d66"
+  "frozenTreeDigest": "c92ba5d70d122e26320f46d290f51623202a0ccf18ba24c383b702dfa991214f",
+  "testContractDigest": "7dc8b918f9519f79c830096c581473bfb4263654571707f903a5940c9a90cf1a"
 }

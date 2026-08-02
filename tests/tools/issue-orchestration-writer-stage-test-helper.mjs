@@ -1053,9 +1053,9 @@ export function createCanonicalWriterDispatchReceipt({
         epochId: plan.epochId,
         stageRole: plan.stageRole,
         stagePhase: plan.stagePhase,
-        policyVersion: 'stage-model-pool.v2',
+        policyVersion: 'stage-model-pool.v3',
         routingPolicyDigest: writerTestDigest({
-            policyVersion: 'stage-model-pool.v2',
+            policyVersion: 'stage-model-pool.v3',
             stageRole: plan.stageRole,
             stagePhase: plan.stagePhase
         }),

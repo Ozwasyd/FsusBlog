@@ -69,7 +69,7 @@ function dispatchReceipt(artifacts, sliceIndex) {
         epochId: plan.epochId,
         stageRole: plan.stageRole,
         stagePhase: plan.stagePhase,
-        policyVersion: 'stage-model-pool.v2',
+        policyVersion: 'stage-model-pool.v3',
         routingPolicyDigest:
             writerTestDigest('canonical-retry-routing-policy'),
         routingInputDigest: plan.routingInputDigest,

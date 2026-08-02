@@ -124,17 +124,35 @@ async function expectDenied(operation, messagePattern = /denied|invalid|required
 }
 
 function launchRequest(role) {
+    const routeDecision = (stageRole, stagePhase, selectedProfile) => ({
+        schema: 'issue-orchestration.execution-route-decision.v1',
+        policyVersion: 'execution-capability-routing.v2',
+        modelPoolPolicyVersion: 'stage-model-pool.v3',
+        routingAuthority: 'deterministic-execution-capability-compiler',
+        stageRole,
+        stagePhase,
+        selectedProfile,
+        runtimeVerificationStatus: 'verified',
+        routeDecisionDigest: 'a'.repeat(64)
+    })
     return {
         explicit: true,
         requester: {
             role: 'root-scheduler',
-            model: 'gpt-5.6-sol',
-            effort: 'low'
+            routeDecision: routeDecision(
+                'root-scheduler',
+                'scheduling',
+                'terra-low'
+            )
         },
         agent: {
-            role,
-            model: 'gpt-5.6-sol',
-            effort: 'max',
+            role: 'dag-creator-updater',
+            action: role,
+            routeDecision: routeDecision(
+                'dag-creator-updater',
+                'semantic-proposal',
+                'terra-high'
+            ),
             sandboxMode: 'read-only',
             freshContext: true,
             resident: false
@@ -336,7 +354,7 @@ test('[A07][N09][N10][M06] dependency closure follows only declared dependsOn ed
     assert.equal(receipt.resolvedIssueSet.includes('Ozwasyd/FsusBlog#105'), false)
 })
 
-test('[A08][M07] initial DAG creation is an explicit root-scheduler launch of a one-shot Sol/max creator', async () => {
+test('[A08][M07] initial DAG creation consumes Root and DAG route decisions', async () => {
     const { evaluateDagUpdate } = await implementation()
     const currentReceipt = await resolveFixture('explicitIssues')
     const result = await evaluateDagUpdate({
@@ -349,11 +367,12 @@ test('[A08][M07] initial DAG creation is an explicit root-scheduler launch of a 
     assert.equal(result.dagCreationRequired, true)
     assert.equal(result.dagUpdateRequired, false)
     assert.equal(result.launchAuthorized, true)
-    assert.equal(result.agentRole, 'dag-creator')
+    assert.equal(result.agentRole, 'dag-creator-updater')
+    assert.equal(result.agentAction, 'dag-creator')
     assert.equal(result.oneShot, true)
 })
 
-test('[A09][N04][M08] a changed remote body requires exactly one explicit updater launch', async () => {
+test('[A09][N04][M08] a changed remote body requires one routed updater launch', async () => {
     const { evaluateDagUpdate } = await implementation()
     const previous = await resolveFixture('explicitIssues')
     const issues = clone(fixture.remoteIssues)
@@ -384,7 +403,8 @@ test('[A09][N04][M08] a changed remote body requires exactly one explicit update
     assert.equal(launched.semanticAction, 'update')
     assert.equal(launched.dagUpdateRequired, true)
     assert.equal(launched.launchAuthorized, true)
-    assert.equal(launched.agentRole, 'dag-updater')
+    assert.equal(launched.agentRole, 'dag-creator-updater')
+    assert.equal(launched.agentAction, 'dag-updater')
     assert.equal(launched.oneShot, true)
 })
 
@@ -469,11 +489,17 @@ test('[A12][N02][N05][M11] all non-root, non-Sol/max, writable, inherited, or re
     const mutants = [
         ['implicit request', (request) => { request.explicit = false }],
         ['non-root requester', (request) => { request.requester.role = 'reviewer' }],
-        ['wrong root model', (request) => { request.requester.model = 'gpt-5.6-luna' }],
-        ['wrong root effort', (request) => { request.requester.effort = 'high' }],
+        ['wrong root route', (request) => {
+            request.requester.routeDecision.stageRole =
+                'dag-creator-updater'
+        }],
         ['wrong agent role', (request) => { request.agent.role = 'issue-implementer' }],
-        ['wrong agent model', (request) => { request.agent.model = 'gpt-5.6-luna' }],
-        ['wrong agent effort', (request) => { request.agent.effort = 'xhigh' }],
+        ['wrong agent action', (request) => {
+            request.agent.action = 'unexpected-action'
+        }],
+        ['wrong agent route', (request) => {
+            request.agent.routeDecision.stagePhase = 'implementation'
+        }],
         ['writable sandbox', (request) => { request.agent.sandboxMode = 'workspace-write' }],
         ['inherited context', (request) => { request.agent.freshContext = false }],
         ['resident updater', (request) => { request.agent.resident = true }]

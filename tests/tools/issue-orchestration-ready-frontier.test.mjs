@@ -544,8 +544,8 @@ function roleCandidate(member, stage) {
         return bindWriterCandidate(member, {
             ...common,
             role: 'documentation-writer',
-            model: 'gpt-5.6-luna',
-            effort: 'xhigh',
+            model: 'gpt-5.6-terra',
+            effort: 'medium',
             mode: 'write-docs-only',
             allowedPaths: [`docs/frontier-${member.issueNumber}.md`]
         }, 'documentation')
@@ -553,7 +553,7 @@ function roleCandidate(member, stage) {
     return {
         ...common,
         role: 'root-scheduler',
-        model: 'gpt-5.6-sol',
+        model: 'gpt-5.6-terra',
         effort: 'low',
         mode: 'root-only',
         allowedPaths: []
@@ -2068,16 +2068,21 @@ test('[S03] local stage progress changes execution frontier without semantic DAG
     assert.equal(update.dagUpdateRequired, false)
 })
 
-test('[R01] wrong test-owner runtime identity is a capability blocker', async () => {
+test('[R01] node model and effort fields have no routing authority', async () => {
     const input = await scenario(independentMembers(1))
     const candidate = input.runtimeState.candidates.find(
         ({ stage }) => stage === 'test-contract-ready'
     )
     candidate.effort = 'low'
     const projection = await compile(input)
-    assert.deepEqual(
-        projection.notReadyReasons[input.dag.nodes[0].id].map(({ code }) => code),
-        ['runtime-capability-missing']
+    assert.deepEqual(projection.notReadyReasons, {})
+    assert.equal(
+        Object.hasOwn(projection.executionProjection[0], 'model'),
+        false
+    )
+    assert.equal(
+        Object.hasOwn(projection.executionProjection[0], 'effort'),
+        false
     )
 })
 

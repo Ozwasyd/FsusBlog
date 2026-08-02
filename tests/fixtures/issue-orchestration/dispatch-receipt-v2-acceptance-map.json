@@ -24,7 +24,7 @@
     },
     {
       "id": "ROOT-STARTUP-01",
-      "requirement": "An independent root-startup-receipt.v2 proves actual root-scheduler, gpt-5.6-luna, low effort and normal mode from root runtime metadata; unobservable or Sol-root metadata fails closed.",
+      "requirement": "An independent root-startup-receipt.v2 proves actual root-scheduler, gpt-5.6-terra, low effort, Codex V2 backend and normal mode from root runtime metadata; unobservable or Sol-root metadata fails closed.",
       "tests": ["P03", "P04"],
       "mutations": [
         "N01-root-actual-sol-low",
@@ -42,7 +42,7 @@
     },
     {
       "id": "ROUTING-01",
-      "requirement": "The v2 request and receipt deterministically recompute selectedProfileId from frozen classification, stage role/phase and stage-model-pool.v2; root narration, balance, failure count and silent fallback have no routing authority.",
+      "requirement": "The v2 request and receipt deterministically recompute selectedProfileId from frozen classification, stage role/phase and stage-model-pool.v3; root narration, balance, failure count and silent fallback have no routing authority.",
       "tests": ["P05"],
       "mutations": [
         "N02-bounded-terra-without-reclassification",

@@ -10,13 +10,13 @@
     "schemas": [
         "issue-orchestration.execution-shape-classification.v1",
         "issue-orchestration.stage-capability-requirement.v1",
-        "issue-orchestration.profile-capability-matrix.v1",
+        "issue-orchestration.profile-capability-matrix.v2",
         "issue-orchestration.execution-route-decision.v1"
     ],
     "schemaFiles": {
         "issue-orchestration.execution-shape-classification.v1": "execution-shape-classification.schema.json",
         "issue-orchestration.stage-capability-requirement.v1": "stage-capability-requirement.schema.json",
-        "issue-orchestration.profile-capability-matrix.v1": "profile-capability-matrix.schema.json",
+        "issue-orchestration.profile-capability-matrix.v2": "profile-capability-matrix.schema.json",
         "issue-orchestration.execution-route-decision.v1": "execution-route-decision.schema.json"
     },
     "positiveCases": [

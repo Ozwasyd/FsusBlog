@@ -1122,7 +1122,7 @@ test('[R02] operational agent policies freeze authority and dispute behavior', a
     assert.match(dagPolicy, /sandbox_mode\s*=\s*"read-only"/u)
     assert.match(dagPolicy, /semantic graph/iu)
     assert.match(dagPolicy, /dispatchInvestigation/iu)
-    assert.match(ownerPolicy, /stage-model-pool\.v2/iu)
+    assert.match(ownerPolicy, /stage-model-pool\.v3/iu)
     assert.match(ownerPolicy, /never select|never.*profile/iu)
     assert.doesNotMatch(ownerPolicy, /^\s*(?:model|effort)\s*=/mu)
     assert.match(ownerPolicy, /tests\/fixtures\/probes\/contract|tests.*fixtures.*probes/iu)

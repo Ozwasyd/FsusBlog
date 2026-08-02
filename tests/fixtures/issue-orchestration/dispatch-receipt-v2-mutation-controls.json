@@ -5,7 +5,7 @@
     {
       "id": "N01-root-actual-sol-low",
       "surface": "root-startup",
-      "requirement": "Root actual is gpt-5.6-sol/low instead of Luna/low.",
+      "requirement": "Root actual is gpt-5.6-sol/low instead of Terra/low.",
       "expectedCode": "root-startup-profile-mismatch"
     },
     {

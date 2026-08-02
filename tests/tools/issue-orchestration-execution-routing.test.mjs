@@ -101,7 +101,7 @@ function classification(overrides = {}) {
         contractState: 'frozen',
         verificationClass: 'focused',
         modelRoutingEvidenceDigest: hash('routing-classification'),
-        routingPolicyVersion: 'stage-model-pool.v2',
+        routingPolicyVersion: 'stage-model-pool.v3',
         ...overrides
     }
 }
@@ -179,9 +179,9 @@ test('C02 recomputes the sole capability matrix from machine observations', () =
         observations
     })
     assert.equal(verified.schema,
-        'issue-orchestration.profile-capability-matrix.v1')
+        'issue-orchestration.profile-capability-matrix.v2')
     assert.equal(verified.evidenceAuthority,
-        'recomputed-machine-runtime-observations')
+        'recomputed-codex-v2-runtime-observations')
     assert.equal(verified.modelSelfReportAccepted, false)
     for (const field of contract.requiredEvidenceFields) {
         assert.ok(observations.observations.every((item) =>
@@ -205,7 +205,7 @@ test('C03 requires a verified #1874 executable slice and rejects whole issues', 
     )
 })
 
-test('C04 routes atomic and bounded slices to Luna without risk-only Terra', () => {
+test('C04 routes atomic and bounded slices to the minimum capable Terra profile', () => {
     const bounded = route({
         files: 2,
         classificationOverrides: { engineeringRiskClass: 'high-risk' }
@@ -214,11 +214,11 @@ test('C04 routes atomic and bounded slices to Luna without risk-only Terra', () 
         bounded.executionShapeClassification.dominantWorkShape,
         'bounded-multifile'
     )
-    assert.equal(bounded.executionRouteDecision.selectedProfile, 'luna-max')
+    assert.equal(bounded.executionRouteDecision.selectedProfile, 'terra-medium')
     assert.notEqual(bounded.executionRouteDecision.selectedProfile, 'terra-max')
 })
 
-test('C05 selects Terra for evidenced runtime probes and Sol for deeper tools', () => {
+test('C05 selects the minimum capable Terra profiles for runtime and deep tools', () => {
     const runtime = route({
         classificationOverrides: {
             engineeringRiskClass: 'high-risk',
@@ -253,7 +253,7 @@ test('C05 selects Terra for evidenced runtime probes and Sol for deeper tools', 
             checkpointSupportRequired: 'resumable'
         }
     })
-    assert.equal(deep.executionRouteDecision.selectedProfile, 'sol-high')
+    assert.equal(deep.executionRouteDecision.selectedProfile, 'terra-xhigh')
 })
 
 test('C06 requires machine partition proof for long-horizon Sol/xhigh', () => {
@@ -287,7 +287,7 @@ test('C06 requires machine partition proof for long-horizon Sol/xhigh', () => {
         compiled.executionShapeClassification.dominantWorkShape,
         'long-horizon-cross-module'
     )
-    assert.equal(compiled.executionRouteDecision.selectedProfile, 'sol-xhigh')
+    assert.equal(compiled.executionRouteDecision.selectedProfile, 'sol-high')
 })
 
 test('C07 keeps Sol/max frontier-only and never uses it as fallback', () => {
@@ -469,8 +469,11 @@ test('C12 valid mismatch reroute changes candidate identity and binds authority'
                 schema:
                     'issue-orchestration.runtime-capability-observation.v1',
                 source: 'runtime-capability-registry',
-                requestedProfile: 'sol-high',
-                effectiveProfile: 'sol-high',
+                requestedModel: 'gpt-5.6-terra',
+                effectiveModel: 'gpt-5.6-terra',
+                requestedEffort: 'xhigh',
+                effectiveEffort: 'xhigh',
+                multiAgentBackend: 'v2',
                 observable: true,
                 observationDigest: hash('runtime-capability')
             }
@@ -481,7 +484,7 @@ test('C12 valid mismatch reroute changes candidate identity and binds authority'
             failureReceipt.candidateReceiptDigest,
         nextCandidateReceiptDigest: hash('new-candidate')
     })
-    assert.equal(next.executionRouteDecision.selectedProfile, 'sol-high')
+    assert.equal(next.executionRouteDecision.selectedProfile, 'terra-xhigh')
     assert.equal(
         next.executionRouteDecision.previousFailureReceiptDigest,
         failureReceipt.receiptDigest

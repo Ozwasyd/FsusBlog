@@ -247,7 +247,7 @@ function dispatchReceipt({ plan, slice, compiledPrompt }) {
         epochId: plan.epochId,
         stageRole: plan.stageRole,
         stagePhase: plan.stagePhase,
-        policyVersion: 'stage-model-pool.v2',
+        policyVersion: 'stage-model-pool.v3',
         routingPolicyDigest:
             digest('writer-projection-routing-policy'),
         routingInputDigest: plan.routingInputDigest,

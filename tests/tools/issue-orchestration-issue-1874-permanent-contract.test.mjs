@@ -537,7 +537,7 @@ test('the UI writer has one permanent phase and landing keeps the existing write
         contractState: 'frozen',
         verificationClass: 'ux-local',
         modelRoutingEvidenceDigest: 'a'.repeat(64),
-        routingPolicyVersion: 'stage-model-pool.v2'
+        routingPolicyVersion: 'stage-model-pool.v3'
     }
     const route = profileModule.compileStageRoute({
         ...classification,
@@ -570,7 +570,14 @@ test('the UI writer has one permanent phase and landing keeps the existing write
     })
     assert.deepEqual(
         codeLandingRoute.allowedProfiles,
-        ['luna-max', 'sol-high', 'terra-max', 'sol-xhigh']
+        [
+            'terra-medium',
+            'terra-high',
+            'terra-xhigh',
+            'terra-max',
+            'sol-high',
+            'sol-xhigh'
+        ]
     )
     assert.throws(
         () => profileModule.compileStageRoute({

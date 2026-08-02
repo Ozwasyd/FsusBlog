@@ -97,14 +97,14 @@
   ],
   "frozenTestTree": {
     "algorithm": "sha256-raw-bytes-and-canonical-json-v1",
-    "digest": "63667ffe6babd8a30bba09e5c03091779a676e35e6b09e031b11b0d2fd1e8fa6"
+    "digest": "43075108c7e1aa3e98f88c7ce29cd144a5fbb7192e85f4374d7553ac695e2f74"
   },
   "fileHashes": {
-    "tests/tools/issue-orchestration-dispatch-receipt-v2.test.mjs": "6bf4244907993c6e950c852bbbf625049dc8c4e98928caafc623d3fcb3b70bfe",
-    "tests/fixtures/issue-orchestration/dispatch-receipt-v2-acceptance-map.json": "e07a6fbeefaad809547a0851e1fd7fc64369d23cbc8d3f0d29b556a255304f4e",
+    "tests/tools/issue-orchestration-dispatch-receipt-v2.test.mjs": "a964eb64809819dc7d55926f0bda022faeac6a1008796ca3a1e223afc39b7832",
+    "tests/fixtures/issue-orchestration/dispatch-receipt-v2-acceptance-map.json": "5f3560de91c1f2ce1d142856cf001a96033fdfa41408bf794b81ea8b46bc56d6",
     "tests/fixtures/issue-orchestration/dispatch-receipt-v2-expected-initial-failures.json": "d4133d6d577cfc43bdac0333e1090b094158f0ce7f530cd08a6b5e74f5f1b203",
     "tests/fixtures/issue-orchestration/dispatch-receipt-v2-runtime-probes.json": "2710fdc8d5f382d56a0c047840393371b07a9ecf444981a6b04ce8145b207e39",
-    "tests/fixtures/issue-orchestration/dispatch-receipt-v2-mutation-controls.json": "776dc98f748beb90a12c5e5876a541d102e6e0fb3b5708f71b88d1426f8e42fc"
+    "tests/fixtures/issue-orchestration/dispatch-receipt-v2-mutation-controls.json": "5afbaa985745c3e779ddf83ab8b4c8f552b0709d7cb1b1da0e46a4594b3fde4b"
   },
   "hashAlgorithm": "sha256-raw-bytes-and-canonical-json-v1",
   "selfHashPolicy": "fileHashes covers raw bytes of every allowedTestPaths entry except this manifest; testContractDigest covers canonical JSON with testContractDigest omitted",
@@ -114,5 +114,5 @@
     "fail": 31,
     "skipped": 0
   },
-  "testContractDigest": "4d1a3b80c22858ddd6071fb4a1a80304e64bd6e7c9e42d4c0ba922f72ec798c0"
+  "testContractDigest": "7c9a124035abf981608b3b22513d3cbea7bee9d6dd0bb4fd448b8c0a9fc47577"
 }

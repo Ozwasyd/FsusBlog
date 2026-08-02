@@ -29,27 +29,36 @@ const REQUIRED_PROFILE_FIELDS = [
     'requiredSkillDigests', 'capabilityDigest'
 ]
 const EXPECTED_POOLS = {
-    'root-scheduler:scheduling': [['luna-low'], 'luna-low'],
+    'root-scheduler:scheduling':
+        [['terra-low', 'terra-medium'], 'terra-low'],
     'dag-creator-updater:semantic-proposal':
-        [['terra-max', 'sol-xhigh', 'sol-max'], 'terra-max'],
+        [['terra-high', 'terra-xhigh', 'terra-max', 'sol-xhigh', 'sol-max'],
+            'terra-high'],
+    'test-owner:test-contract-planning':
+        [['terra-high', 'terra-xhigh', 'terra-max', 'sol-high', 'sol-xhigh'],
+            'terra-high'],
     'test-owner:test-contract':
-        [['sol-high', 'terra-max', 'sol-xhigh'], 'sol-high'],
+        [['terra-medium', 'terra-high', 'terra-xhigh', 'terra-max',
+            'sol-high', 'sol-xhigh'], 'terra-medium'],
     'test-owner:behavior-verification':
-        [['sol-high', 'terra-max', 'sol-xhigh'], 'sol-high'],
+        [['terra-high', 'terra-xhigh', 'terra-max', 'sol-high', 'sol-xhigh'],
+            'terra-high'],
     'code-implementer:implementation':
-        [['luna-max', 'sol-high', 'terra-max', 'sol-xhigh'], 'luna-max'],
+        [['terra-low', 'terra-medium', 'terra-high', 'terra-xhigh',
+            'terra-max', 'sol-high', 'sol-xhigh'], 'terra-medium'],
     'code-implementer:landing-conflict-resolution':
-        [['luna-max', 'sol-high', 'terra-max', 'sol-xhigh'], 'luna-max'],
+        [['terra-medium', 'terra-high', 'terra-xhigh', 'terra-max',
+            'sol-high', 'sol-xhigh'], 'terra-high'],
     'ui-ux-implementer:ui-implementation':
         [['sol-low', 'sol-medium'], 'sol-low'],
     'ui-ux-implementer:landing-conflict-resolution':
-        [['sol-low', 'sol-medium'], 'sol-low'],
+        [['sol-low', 'sol-medium'], 'sol-medium'],
     'ui-system-adjudicator:adjudication':
         [['sol-high', 'sol-xhigh'], 'sol-high'],
     'ux-acceptance-verifier:ux-acceptance':
         [['sol-medium', 'sol-high', 'sol-xhigh'], 'sol-medium'],
     'documentation-writer:documentation':
-        [['luna-high', 'luna-max'], 'luna-high']
+        [['terra-low', 'terra-medium', 'terra-high'], 'terra-medium']
 }
 
 function readJson(name) {
@@ -82,7 +91,7 @@ function classification(overrides = {}) {
         contractState: 'frozen',
         verificationClass: 'focused',
         modelRoutingEvidenceDigest: hash('a'),
-        routingPolicyVersion: 'stage-model-pool.v2',
+        routingPolicyVersion: 'stage-model-pool.v3',
         ...overrides
     }
 }
@@ -90,14 +99,17 @@ function classification(overrides = {}) {
 function assignment(overrides = {}) {
     return {
         schema: 'issue-orchestration.stage-assignment.v2',
-        stageProfilePolicyVersion: 'stage-model-pool.v2',
+        stageProfilePolicyVersion: 'stage-model-pool.v3',
         stageRole: 'code-implementer',
         stagePhase: 'implementation',
-        allowedProfiles: ['luna-max', 'sol-high', 'terra-max', 'sol-xhigh'],
-        defaultProfile: 'luna-max',
-        routingAuthority: 'deterministic-routing-compiler',
+        allowedProfiles: [
+            'terra-low', 'terra-medium', 'terra-high', 'terra-xhigh',
+            'terra-max', 'sol-high', 'sol-xhigh'
+        ],
+        defaultProfile: 'terra-medium',
+        routingAuthority: 'deterministic-execution-capability-compiler',
         routingInputDigest: hash('b'),
-        selectedProfile: 'luna-max',
+        selectedProfile: 'terra-medium',
         selectedProfileReason: 'engineering-risk-bounded',
         sandbox: 'workspace-write',
         writeScope: 'implementation-only',
@@ -110,8 +122,11 @@ function assignment(overrides = {}) {
         forkTurns: '3',
         inheritedThreadId: null,
         runtimeCapability: {
-            requestedProfile: 'luna-max',
-            effectiveProfile: 'luna-max',
+            requestedModel: 'gpt-5.6-terra',
+            effectiveModel: 'gpt-5.6-terra',
+            requestedEffort: 'medium',
+            effectiveEffort: 'medium',
+            multiAgentBackend: 'v2',
             available: true
         },
         candidate: {
@@ -131,7 +146,7 @@ function assertCode(error, expectedCode) {
 
 function requireFunction(module, name) {
     assert.equal(typeof module[name], 'function',
-        `stage-model-pool.v2 must export ${name}()`)
+        `stage-model-pool.v3 must export ${name}()`)
     return module[name]
 }
 
@@ -178,7 +193,7 @@ test('contract assets are frozen against the merged issue body', () => {
 test('P01 mandatory classification fields and enums are versioned', async () => {
     const module = await policy()
     assert.deepEqual(module.REQUIRED_ROUTING_FIELDS, REQUIRED_CLASSIFICATION_FIELDS)
-    assert.equal(module.ROUTING_POLICY_VERSION, 'stage-model-pool.v2')
+    assert.equal(module.ROUTING_POLICY_VERSION, 'stage-model-pool.v3')
     assert.deepEqual(module.ROUTING_ENUMS, {
         domain: [
             'generic-code', 'ui-ux', 'documentation', 'orchestration-core',
@@ -214,8 +229,8 @@ test('P02 classification validation rejects missing or invalid authority evidenc
 test('P03 one manifest owns every allowed pool and the full stage schema', async () => {
     const module = await policy()
     const manifest = module.STAGE_MODEL_POOL_POLICY
-    assert.equal(manifest?.schema, 'issue-orchestration.stage-model-pool-policy.v2')
-    assert.equal(manifest?.version, 'stage-model-pool.v2')
+    assert.equal(manifest?.schema, 'issue-orchestration.stage-model-pool-policy.v3')
+    assert.equal(manifest?.version, 'stage-model-pool.v3')
     assert.deepEqual(Object.keys(manifest?.stages ?? {}).sort(),
         Object.keys(EXPECTED_POOLS).sort())
     for (const [key, [allowedProfiles, defaultProfile]] of Object.entries(EXPECTED_POOLS)) {
@@ -230,32 +245,45 @@ test('P03 one manifest owns every allowed pool and the full stage schema', async
 test('P04-P09 deterministic compiler maps every role and classification', async () => {
     const compile = requireFunction(await policy(), 'compileStageRoute')
     const cases = [
-        ['root-scheduler', 'scheduling', {}, 'luna-low'],
-        ['dag-creator-updater', 'semantic-proposal', {}, 'terra-max'],
+        ['root-scheduler', 'scheduling', {}, 'terra-low'],
+        ['dag-creator-updater', 'semantic-proposal', {}, 'terra-high'],
         ['dag-creator-updater', 'semantic-proposal',
-            { contractState: 'authority-conflict' }, 'sol-xhigh'],
+            { contractState: 'authority-conflict' }, 'terra-xhigh'],
         ['dag-creator-updater', 'semantic-proposal',
-            { engineeringRiskClass: 'frontier', frontierException: true }, 'sol-max'],
-        ['test-owner', 'test-contract', { verificationClass: 'focused' }, 'sol-high'],
+            {
+                engineeringRiskClass: 'frontier',
+                frontierException: true,
+                frontierExceptionReceipt: {
+                    schema:
+                        'issue-orchestration.frontier-exception-receipt.v1',
+                    sliceMinimal: true,
+                    solXhighCapabilityInsufficient: true,
+                    evidenceDigest: hash('9')
+                }
+            }, 'sol-max'],
+        ['test-owner', 'test-contract-planning',
+            { verificationClass: 'focused' }, 'terra-high'],
+        ['test-owner', 'test-contract',
+            { verificationClass: 'focused' }, 'terra-medium'],
         ['test-owner', 'test-contract', { verificationClass: 'runtime' }, 'terra-max'],
         ['test-owner', 'behavior-verification',
             { verificationClass: 'protocol' }, 'sol-xhigh'],
         ['code-implementer', 'implementation',
-            { engineeringRiskClass: 'bounded' }, 'luna-max'],
+            { engineeringRiskClass: 'bounded' }, 'terra-medium'],
         ['code-implementer', 'implementation',
-            { engineeringRiskClass: 'complex' }, 'sol-high'],
+            { engineeringRiskClass: 'complex' }, 'terra-high'],
         ['code-implementer', 'implementation',
             { engineeringRiskClass: 'high-risk' }, 'terra-max'],
         ['code-implementer', 'implementation',
             { engineeringRiskClass: 'frontier' }, 'sol-xhigh'],
         ['code-implementer', 'landing-conflict-resolution',
-            { engineeringRiskClass: 'bounded' }, 'luna-max'],
+            { engineeringRiskClass: 'bounded' }, 'terra-high'],
         ['ui-ux-implementer', 'ui-implementation',
             { domain: 'ui-ux', uiDecisionClass: 'prescribed' }, 'sol-low'],
         ['ui-ux-implementer', 'ui-implementation',
             { domain: 'ui-ux', uiDecisionClass: 'layout-judgment' }, 'sol-medium'],
         ['ui-ux-implementer', 'landing-conflict-resolution',
-            { domain: 'ui-ux', uiDecisionClass: 'prescribed' }, 'sol-low'],
+            { domain: 'ui-ux', uiDecisionClass: 'prescribed' }, 'sol-medium'],
         ['ui-system-adjudicator', 'adjudication',
             { domain: 'ui-ux', uiDecisionClass: 'system-design-dispute' }, 'sol-high'],
         ['ux-acceptance-verifier', 'ux-acceptance',
@@ -265,9 +293,11 @@ test('P04-P09 deterministic compiler maps every role and classification', async 
         ['ux-acceptance-verifier', 'ux-acceptance',
             { domain: 'ui-ux', verificationClass: 'ux-system' }, 'sol-xhigh'],
         ['documentation-writer', 'documentation',
-            { domain: 'documentation', engineeringRiskClass: 'bounded' }, 'luna-high'],
+            { domain: 'documentation', engineeringRiskClass: 'bounded' },
+            'terra-medium'],
         ['documentation-writer', 'documentation',
-            { domain: 'documentation', engineeringRiskClass: 'complex' }, 'luna-max']
+            { domain: 'documentation', engineeringRiskClass: 'complex' },
+            'terra-high']
     ]
     for (const [stageRole, stagePhase, changes, expected] of cases) {
         const route = compile({
@@ -301,7 +331,8 @@ test('P13 legacy fixed-profile shared authority is absent', () => {
 const negativeCases = {
     'N01-root-sol-rejected': () => assignment({
         stageRole: 'root-scheduler', stagePhase: 'scheduling',
-        allowedProfiles: ['luna-low'], defaultProfile: 'luna-low',
+        allowedProfiles: ['terra-low', 'terra-medium'],
+        defaultProfile: 'terra-low',
         selectedProfile: 'sol-low', sandbox: 'read-only', writeScope: 'none'
     }),
     'N02-bounded-terra-without-evidence': () => assignment({
@@ -334,8 +365,10 @@ const negativeCases = {
     }),
     'N06-verifier-context-inheritance': () => assignment({
         stageRole: 'test-owner', stagePhase: 'behavior-verification',
-        allowedProfiles: ['sol-high', 'terra-max', 'sol-xhigh'],
-        defaultProfile: 'sol-high', selectedProfile: 'sol-high',
+        allowedProfiles: [
+            'terra-high', 'terra-xhigh', 'terra-max', 'sol-high', 'sol-xhigh'
+        ],
+        defaultProfile: 'terra-high', selectedProfile: 'terra-high',
         sandbox: 'read-only', writeScope: 'none',
         freshContext: false, forkTurns: 'all',
         inheritedThreadId: 'implementer-thread'
@@ -355,7 +388,7 @@ const negativeCases = {
         blockerReceiptDigest: hash('1'),
         newRiskOrVerificationClass: 'complex',
         newProfile: 'sol-high',
-        policyVersion: 'stage-model-pool.v2',
+        policyVersion: 'stage-model-pool.v3',
         sourceRole: 'code-implementer',
         sourcePhase: 'self-test',
         opensNewAttempt: true,

@@ -82,7 +82,7 @@
     }
   ],
   "fileHashes": {
-    "tests/tools/issue-orchestration-stage-profiles.test.mjs": "f0f8e88cfc0819ec5f7b4c8614edf7ba24ba2996c35d8b667b343cc269701473",
+    "tests/tools/issue-orchestration-stage-profiles.test.mjs": "b928631674cb09aef7df8458f90db718006cc159a6a7bd2af0e3951851284dc8",
     "tests/fixtures/issue-orchestration/stage-profile-acceptance-map.json": "c8ddb8b01c8e94f282907fb6629b35ccb3d1d48b06de9163fdb109089d0eab85",
     "tests/fixtures/issue-orchestration/stage-profile-expected-initial-failures.json": "6acefe3712aa8bd38bcb14839a6723eeb1e7c62a928825742434412e8c6aae52",
     "tests/fixtures/issue-orchestration/stage-profile-runtime-probes.json": "4cf09200238c28e0b2c755113fd4dc05d86f800d91663f4bb65ff5d25c5209f1",
@@ -96,5 +96,5 @@
     "fail": 18,
     "skipped": 0
   },
-  "testContractDigest": "a519e377b6f3ad6cd326a60063e6254ece093502bfe14e6d9ff90fbdce8002f8"
+  "testContractDigest": "03589d03adb8a1265014223ef9666284f4a35d2f9e27736c5f8571b6ee153ab8"
 }
