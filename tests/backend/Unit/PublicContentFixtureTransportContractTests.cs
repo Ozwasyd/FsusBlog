@@ -16,7 +16,9 @@ public sealed class PublicContentFixtureTransportContractTests
             .OrderBy(static name => name, StringComparer.Ordinal)
             .ToArray();
 
-        Assert.Equal(["Capabilities", "Namespace", "RunId"], propertyNames);
+        Assert.Equal(
+            ["Capabilities", "Namespace", "RunId", "SecurityMatrix", "TemporalContext"],
+            propertyNames);
         Assert.DoesNotContain(propertyNames, static name =>
             name.Contains("Variant", StringComparison.Ordinal)
             || name.Contains("Digest", StringComparison.Ordinal));
@@ -31,5 +33,29 @@ public sealed class PublicContentFixtureTransportContractTests
             JsonSerializer.Deserialize<PublicContentFixtureRequest>(
                 json,
                 LocalPublicContentFixtureEndpoints.s_requestJsonOptions));
+    }
+
+    [Fact]
+    public void PublicContentRequest_AcceptsBoundedSecurityMatrixSeed()
+    {
+        const string Json = """
+            {
+              "capabilities": ["public.article.published"],
+              "namespace": "xss-run",
+              "runId": "run-1",
+              "securityMatrix": {
+                "cases": [{"id":"mxss-raw-event","category":"raw-event","markdown":"<img src=x>"}],
+                "aboutMarkdown": "# About",
+                "metadataText": "<img src=x>"
+              }
+            }
+            """;
+
+        PublicContentFixtureRequest? request = JsonSerializer.Deserialize<PublicContentFixtureRequest>(
+            Json,
+            LocalPublicContentFixtureEndpoints.s_requestJsonOptions);
+
+        Assert.NotNull(request?.SecurityMatrix);
+        Assert.Single(request.SecurityMatrix.Cases);
     }
 }

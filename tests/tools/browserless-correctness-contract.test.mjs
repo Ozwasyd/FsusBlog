@@ -80,8 +80,10 @@ test('release final binds one immutable browser contract as evidence without sch
     const browserTiers = release.filter((tier) => tier.requiresPlaywright !== 'none');
     assert.equal(browserTiers.length, 0);
     assert.ok(tiers.get('release-final').requiresEvidenceFrom.includes('browser-contract'));
+    assert.ok(tiers.get('release-final').requiresEvidenceFrom.includes('production-xss-release'));
     assert.ok(tierExecutionDependencies(tiers.get('browser-contract')).includes('production-build-artifacts'));
     assert.equal(correctness.has('browser-contract'), false);
+    assert.equal(correctness.has('production-xss-release'), false);
 });
 
 test('smart-gate behavior selects browser work only for declared boundary inputs', () =>

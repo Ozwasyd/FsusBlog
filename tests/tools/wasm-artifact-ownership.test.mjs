@@ -248,7 +248,7 @@ test('ensure-wasm exposes the current schema v3, ABI v4 and complete output cont
     assert.equal(wasmArtifactContract.schemaVersion, 3);
     assert.equal(wasmArtifactContract.aedsAbi, 'fsusblog.aeds.v4');
     assert.deepEqual(wasmArtifactContract.toolchain, wasmToolchainContract);
-    assert.equal(wasmToolchainContract.emscriptenVersion, '4.0.13');
+    assert.equal(wasmToolchainContract.emscriptenVersion, '6.0.0');
     assert.equal(wasmToolchainContract.binaryenVersion, '123');
     assert.equal(wasmToolchainContract.cmakeVersion, '4.3.3');
     assert.deepEqual(wasmArtifactContract.aedsRuntimeRoot, {

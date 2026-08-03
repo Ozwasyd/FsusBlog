@@ -1433,6 +1433,16 @@ lossless/state/low lane 无法继续安全实时投递时必须按 delivery poli
 
 ### Development local auth fixture
 
+### Development public-content security matrix fixture
+
+`POST /api/local/public-content-fixture/prepare` 保留原有 loopback、Development 和
+`X-Fsus-Local-Public-Content-Fixture-Secret` 门控。可选 `securityMatrix` 仅供
+Production Release 浏览器安全验收，字段为 `cases[{id,category,markdown}]`、
+`aboutMarkdown`、`metadataText` 和可选 `actorUserId`。case 数限制为 1..256，ID 必须
+使用 FsusUI `mxss-*` 稳定 ID；服务端通过领域端口创建文章、根评论、回复和 About
+内容，并在响应的 `entityIdentities[].handle` 返回 case 到实体的映射。该字段不进入
+公开 OpenAPI/AEDS 契约，Production 环境不映射此入口。
+
 `GET /__local/auth-fixture/admin` 与 `GET /api/local/auth-fixture/admin` 只在 `Development` 且 `fsus:allowLocalAuthFixture=true` 时映射；调用方还必须来自 loopback 地址，并提供 `X-Fsus-Local-Auth-Fixture-Secret`，其值用固定时间比较匹配 `fsus:localAuthFixtureSecret`。配套的 `/status` 端点使用相同的 loopback + shared-secret 门控。生产启动校验会拒绝 `fsus:allowLocalAuthFixture=true`。该入口只用于本地 Playwright fixture 刷新和 cookie 注入，不能在测试、预发布或生产环境作为匿名 admin 登录 fallback；刷新失败只返回固定失败文案，不回显脚本 stderr/stdout、异常消息或本地 storage-state 绝对路径。
 
 前端只在 localhost + DEV + development mode + 非 PROD 四项同时成立时消费 `fsusLocalFixtureLogin` / `fsusLocalFixtureAdmin`。成功写入当前 tab 的 SessionStorage marker 后必须立即从当前 URL 删除这两个参数，同时保留其他显式本地测试参数、pathname 与 hash。传给 fixture endpoint 的 `redirect` 和 endpoint 成功后的 `Location` 都必须再次删除两个激活参数；失败返回固定本地 Problem 响应且不重定向，避免把 fixture 状态带回业务 URL 或形成循环。

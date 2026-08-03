@@ -60,7 +60,16 @@ AEDS preview 响应证明 current source completion、在途表单变化后的 s
 mobile-dark 的 rendered evidence。它属于 scheduled/manual browser diagnostics，
 不能替代 `browser-contract` correctness，也不能被通用 route acceptance 的结果代替。
 
-普通 PR 使用 smart gate：`plan-pr-risk` 始终运行并生成 `.tmp/pr-plan.json` 与 `.tmp/release-evidence/pr-smart-gate-summary.json`，fast lane 与 backend-qps sentinel 默认保留，Production、release、load、resilience 等 correctness lane 只在 changed paths、coverage id 或显式 full gate 命中时运行。backend/frontend coverage 已并入对应 fast `ci-job`，并通过 `supersedes` 替代同一 `executionKey` 的普通 unit 执行；跳过必须写入 skip evidence，不得 silent skip。普通 PR 与 `production-correctness` 的完整依赖闭包固定为零浏览器、零 Playwright、零 browser resource、零 session schema；只有 browser-boundary PR、主分支 push 或显式 release 追加一个 10 分钟、零 retry 的 Chromium `browser-contract`。Acceptance、visual、UX full/risk、cross-browser、geometry/motion/focus、browser a11y/performance/resilience 以及 search/PoW/permission/zero-auth browser probe 只由 scheduled/manual diagnostics 运行。完整拓扑见 [`testing/issue-1150-browserless-ci-topology.md`](testing/issue-1150-browserless-ci-topology.md)，receipt、flaky 与迁移治理见 [`testing/issue-1151-evidence-governance.md`](testing/issue-1151-evidence-governance.md)。
+生产 XSS conformance 由 `production-xss-fast` 与 `production-xss-release` 两个 matrix
+leaf 共同拥有。两者直接加载本地 FsusUI alias 的 test-only corpus，禁止复制 payload
+清单或要求发布 FsusUI 包；fast 每个顶级类别取一个代表 case 并只跑 managed Chromium，
+release 消费完整人工 corpus 并并行运行 Chromium、Firefox、WebKit。它们复用同一
+Release frontend、Kestrel、PostgreSQL snapshot 和 browser worker，覆盖禁用 JavaScript
+的 AOT DOM、hydration、SPA 导航、About、评论持久化/重载和 admin 私有预览，并把
+`corpus ID × surface × browser × phase` 写入唯一 `matrix.json`。任一脚本执行、外部
+请求、导航/窗口/下载、危险 DOM、CSP 或 Trusted Types 观测均 fail closed。
+
+普通 PR 使用 smart gate：`plan-pr-risk` 始终运行并生成 `.tmp/pr-plan.json` 与 `.tmp/release-evidence/pr-smart-gate-summary.json`，fast lane 与 backend-qps sentinel 默认保留，Production、release、load、resilience 等 correctness lane 只在 changed paths、coverage id 或显式 full gate 命中时运行。backend/frontend coverage 已并入对应 fast `ci-job`，并通过 `supersedes` 替代同一 `executionKey` 的普通 unit 执行；跳过必须写入 skip evidence，不得 silent skip。`production-correctness` 的完整依赖闭包固定为零浏览器、零 Playwright、零 browser resource、零 session schema；release-final 通过 evidence-only 绑定通用单 Chromium `browser-contract` 与专用 Chromium/Firefox/WebKit `production-xss-release`，两者都不成为 production scheduler edge。其他 Acceptance、visual、UX full/risk、geometry/motion/focus、browser a11y/performance/resilience 以及 search/PoW/permission/zero-auth browser probe 只由 scheduled/manual diagnostics 运行。完整拓扑见 [`testing/issue-1150-browserless-ci-topology.md`](testing/issue-1150-browserless-ci-topology.md)，receipt、flaky 与迁移治理见 [`testing/issue-1151-evidence-governance.md`](testing/issue-1151-evidence-governance.md)。
 
 `run-deterministic-command.mjs` invocation 必须显式声明 `--execution-class correctness|diagnostic` 与 `--producer-id`。`config/testing/producer-execution-class-contract.json` 是 matrix `evidenceClass` 到 execution class 的机器可读映射：默认 correctness 与 browser-contract 都要求 producer、scheduler run 和 source identity，diagnostic 恒定不可 qualification。correctness 在 child spawn 前要求 `FSUSBLOG_TEST_RUN_ID`、`FSUSBLOG_TEST_SOURCE_COMMIT`、`FSUSBLOG_TEST_SOURCE_FINGERPRINT`，缺任一字段以 `contract.missing-run-identity` 失败且零执行；它不生成 local、timestamp 或 latest fallback。diagnostic 也必须显式选择，才可 direct 执行，并恒定输出 `qualificationEligible=false`，不得发布 correctness projection。
 

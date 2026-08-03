@@ -3212,6 +3212,91 @@ tiers:
       triggerCoverage: [article-private-preview-browser]
       triggerReason: private preview rendering, stale generation, admin fixture, rendered evidence, or fixed browser owner changed
 
+    - id: production-xss-fast
+      owner: InteropGlueAgent
+      command: tools/test/lanes/production-xss-fast.sh
+      fixtureProfile: production-xss
+      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
+      executionDependsOn: [production-build-artifacts]
+      services: []
+      parallelizable: false
+      serialReason: one production runtime and managed Chromium own the run-bound XSS corpus entities and admin preview session
+      exclusiveResources: [browser-contract, database-writes]
+      phase: 3
+      cost: high
+      resourceClass: browser
+      cpuWeight: 1
+      memoryWeight: 3
+      minCpuUnits: 1
+      maxParallel: 1
+      requiresBootstrap: full
+      selfBootstraps: true
+      requiresNode: true
+      requiresDotnet: true
+      requiresPlaywright: chromium
+      evidenceClass: diagnostic
+      cacheProfile: full
+      timeoutMinutes: 10
+      shardable: false
+      defaultShards: 1
+      risk: critical
+      cadence: nightly
+      requiredFor: none
+      coverage: [browser-diagnostics-orchestration, production-xss-fast]
+      artifacts: [src/frontend/test-results/playwright/production-xss-fast/matrix.json]
+      evidence: [src/frontend/test-results/playwright/production-xss-fast/matrix.json]
+      ciJob: browser-diagnostics
+      localOnly: false
+      nightlyOnly: true
+      smartGateMode: full-only
+      retentionClass: must-keep
+      triggerPaths: [src/frontend, src/backend, tests/frontend, tools/test/lanes/production-xss-fast.sh]
+      triggerFiles: [tests/matrix.yml]
+      triggerCoverage: [production-xss-fast]
+      triggerReason: public Markdown, AOT, comments, private preview, CSP, Trusted Types, or FsusUI alias changed
+
+    - id: production-xss-release
+      owner: InteropGlueAgent
+      command: tools/test/lanes/production-xss-release.sh
+      fixtureProfile: production-xss
+      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
+      executionDependsOn: [production-build-artifacts]
+      services: []
+      parallelizable: false
+      serialReason: Chromium, Firefox and WebKit share one production runtime, database snapshot and run-bound XSS corpus
+      exclusiveResources: [browser-contract, database-writes]
+      phase: 5
+      cost: very-high
+      resourceClass: browser
+      cpuWeight: 3
+      memoryWeight: 6
+      minCpuUnits: 2
+      maxParallel: 1
+      requiresBootstrap: full
+      selfBootstraps: true
+      requiresNode: true
+      requiresDotnet: true
+      requiresPlaywright: all
+      evidenceClass: browser-contract
+      cacheProfile: full
+      timeoutMinutes: 20
+      shardable: false
+      defaultShards: 1
+      risk: critical
+      cadence: push
+      requiredFor: release-final
+      coverage: [production-xss-release, release-browser-contract]
+      artifacts: [src/frontend/test-results/playwright/production-xss-release/matrix.json]
+      evidence: [src/frontend/test-results/playwright/production-xss-release/matrix.json]
+      ciJob: browser-contract
+      localOnly: false
+      nightlyOnly: false
+      retentionClass: must-keep
+      triggerPaths: [src/frontend, src/backend, tests/frontend, tools/test/lanes/production-xss-release.sh]
+      triggerFiles: [tests/matrix.yml]
+      triggerCoverage: [production-xss-release]
+      triggerReason: release browser XSS corpus, production rendering, CSP, Trusted Types, or FsusUI alias changed
+
     - id: browser-contract
       owner: InteropGlueAgent
       command: bash tools/test/lanes/browser-contract.sh
@@ -7400,6 +7485,7 @@ tiers:
               native-fuzz-sanitizer,
               perception-character-v3-release-gate,
               production-correctness,
+              production-xss-release,
               release-admin-console,
               release-aot-generation,
               release-auth-flow,

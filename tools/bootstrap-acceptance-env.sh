@@ -906,12 +906,20 @@ KillPidIfRunning() {
 
 FindPortPid() {
     local port="$1"
-    ss -ltnp "( sport = :${port} )" 2>/dev/null | awk -F'pid=' 'NR>1 {split($2, a, /[,)]/); if (a[1] != "") {print a[1]; exit}}'
+    if command -v ss >/dev/null 2>&1; then
+        ss -ltnp "( sport = :${port} )" 2>/dev/null | awk -F'pid=' 'NR>1 {split($2, a, /[,)]/); if (a[1] != "") {print a[1]; exit}}'
+        return
+    fi
+    lsof -nP -iTCP:"${port}" -sTCP:LISTEN -t 2>/dev/null | head -1
 }
 
 PortIsListening() {
     local port="$1"
-    ss -H -ltn "( sport = :${port} )" 2>/dev/null | awk 'NR == 1 { found = 1 } END { exit found ? 0 : 1 }'
+    if command -v ss >/dev/null 2>&1; then
+        ss -H -ltn "( sport = :${port} )" 2>/dev/null | awk 'NR == 1 { found = 1 } END { exit found ? 0 : 1 }'
+        return
+    fi
+    lsof -nP -iTCP:"${port}" -sTCP:LISTEN -t >/dev/null 2>&1
 }
 
 DedicatedRuntimeProcessBindingMatches() {

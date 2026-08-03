@@ -643,8 +643,10 @@ function validateWorkflowSetup(jobId, workflowJob, requirements, errors) {
     if (requirements.requiresPlaywright === 'chromium' && !/playwright\s+install\s+--with-deps\s+chromium(?:\s|$)/.test(installCommand)) {
       errors.push(`workflow job ${jobId} must install only chromium for requiresPlaywright=chromium`)
     }
-    if (requirements.requiresPlaywright === 'all' && !/\$\{\{\s*matrix\.browser\s*\}\}/.test(installCommand)) {
-      errors.push(`workflow job ${jobId} must install the matrix browser for requiresPlaywright=all`)
+    const installsMatrixBrowser = /\$\{\{\s*matrix\.browser\s*\}\}/.test(installCommand)
+    const installsAllBrowsers = /playwright\s+install\s+--with-deps\s+chromium\s+firefox\s+webkit(?:\s|$)/.test(installCommand)
+    if (requirements.requiresPlaywright === 'all' && !installsMatrixBrowser && !installsAllBrowsers) {
+      errors.push(`workflow job ${jobId} must install the matrix browser or all governed browsers for requiresPlaywright=all`)
     }
     if (jobId === 'browser-contract') {
       if (workflowJob.flakyGovernedCommands.length > 0) {

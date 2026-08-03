@@ -314,7 +314,8 @@ export function createWasmBuildReceipt({
 })
 {
     const repositoryRoot = fs.realpathSync(path.resolve(repositoryRootValue));
-    const clientRoot = fs.realpathSync(assertInside(repositoryRoot, path.resolve(clientRootValue), 'frontend root'));
+    const clientRoot = fs.realpathSync(path.resolve(clientRootValue));
+    assertInside(repositoryRoot, clientRoot, 'frontend root');
     const artifactDir = fs.realpathSync(path.resolve(artifactDirValue));
     assertPlainObject(manifest, 'WASM manifest');
     assertPlainObject(contract, 'WASM artifact contract');
@@ -424,7 +425,8 @@ export function validateWasmBuildReceipt({
 })
 {
     const repositoryRoot = fs.realpathSync(path.resolve(repositoryRootValue));
-    const clientRoot = fs.realpathSync(assertInside(repositoryRoot, path.resolve(clientRootValue), 'frontend root'));
+    const clientRoot = fs.realpathSync(path.resolve(clientRootValue));
+    assertInside(repositoryRoot, clientRoot, 'frontend root');
     const artifactDir = fs.realpathSync(path.resolve(artifactDirValue));
     const receiptFile = path.resolve(receiptFileValue || path.join(artifactDir, wasmBuildReceiptName));
     assertInside(artifactDir, receiptFile, 'WASM build receipt');
@@ -625,7 +627,8 @@ export function writeWasmReceiptChecksums({
 
 function artifactDirectoryIdentity(artifactDir)
 {
-    return fs.readdirSync(artifactDir, { withFileTypes: true })
+    const realArtifactDir = fs.realpathSync(artifactDir);
+    return fs.readdirSync(realArtifactDir, { withFileTypes: true })
         .sort((left, right) => left.name.localeCompare(right.name))
         .map((entry) =>
         {
@@ -635,8 +638,8 @@ function artifactDirectoryIdentity(artifactDir)
             }
             return {
                 name: entry.name,
-                identity: fileIdentity(path.join(artifactDir, entry.name), {
-                    expectedRoot: artifactDir,
+                identity: fileIdentity(path.join(realArtifactDir, entry.name), {
+                    expectedRoot: realArtifactDir,
                     label: `WASM artifact ${entry.name}`
                 })
             };
@@ -654,7 +657,8 @@ export function stageWasmReceiptEnvelope({
 })
 {
     const repositoryRoot = fs.realpathSync(path.resolve(repositoryRootValue));
-    const clientRoot = fs.realpathSync(assertInside(repositoryRoot, path.resolve(clientRootValue), 'frontend root'));
+    const clientRoot = fs.realpathSync(path.resolve(clientRootValue));
+    assertInside(repositoryRoot, clientRoot, 'frontend root');
     const sourceArtifactDir = fs.realpathSync(path.resolve(sourceArtifactDirValue));
     const destinationArtifactDir = path.resolve(destinationArtifactDirValue);
     if (destinationArtifactDir === sourceArtifactDir

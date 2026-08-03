@@ -521,6 +521,14 @@ AEDS wire protocol 是传输层版本，不等同于 URL 版本。当前运行�
 
 ### Test-only schema qualification bridge
 
+### Development public-content security fixture
+
+`POST /api/local/public-content-fixture/prepare` 的 `securityMatrix` 分支只在既有
+Development + loopback + shared-secret 门控下可用。它直接消费 FsusUI 工作区的
+test-only corpus 投影，通过 `IArticleCoreGateway`、`ICommentCommandService` 与
+`ISystemService` 写入 run-owned 文章、评论和静态页，不增加生产业务路由，也不允许
+Node 直写数据库。Production 启动继续拒绝启用该 fixture。
+
 在线迁移资格的 HTTP bridge 不是生产业务 API，也不是第二个 migration 入口。
 `MapReleaseSchemaQualificationEndpoints` 只有在 environment 精确为 `Test` 且
 `SchemaMigration:QualificationEnabled=true` 时才注册：

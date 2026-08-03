@@ -10,6 +10,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Models.Requests;
 
 using SqlSugar;
 
@@ -31,7 +32,19 @@ public sealed record PublicContentFixtureRequest(
     IReadOnlyList<string> Capabilities,
     string? Namespace,
     string? RunId,
-    JsonElement? TemporalContext = null);
+    JsonElement? TemporalContext = null,
+    PublicContentSecurityMatrixRequest? SecurityMatrix = null);
+
+public sealed record PublicContentSecurityMatrixRequest(
+    IReadOnlyList<PublicContentSecurityCase> Cases,
+    string AboutMarkdown,
+    string MetadataText,
+    int? ActorUserId = null);
+
+public sealed record PublicContentSecurityCase(
+    string Id,
+    string Category,
+    string Markdown);
 
 public sealed class PublicContentFixtureResult
 {
@@ -222,6 +235,8 @@ public sealed class PublicContentFixtureSeeder(
     ICacheInvalidationDispatcher cacheInvalidation,
     IAdminArtifactOperations artifactOperations,
     ISearchIndexService searchIndex,
+    ICommentCommandService comments,
+    ISystemService system,
     TimeProvider timeProvider) : IPublicContentFixtureSeeder
 {
     private const string Strategy = "transaction-fixture";
@@ -249,6 +264,17 @@ public sealed class PublicContentFixtureSeeder(
             ? "run"
             : new string(request.RunId.Where(static ch => char.IsAsciiLetterOrDigit(ch) || ch is '-' or '_').Take(24).ToArray());
         string ownerPrefix = $"fxpc:{ns}:{runToken}";
+
+        if (request.SecurityMatrix is not null)
+        {
+            return await PrepareSecurityMatrixAsync(
+                    request.SecurityMatrix,
+                    capabilities,
+                    ns,
+                    ownerPrefix,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
 
         if (capabilities.Contains("public.empty", StringComparer.Ordinal))
         {
@@ -1065,6 +1091,235 @@ public sealed class PublicContentFixtureSeeder(
         int Views,
         ArticleStatus Status,
         DateTime? ScheduledPublishAt = null);
+
+    private async Task<PublicContentFixtureResult> PrepareSecurityMatrixAsync(
+        PublicContentSecurityMatrixRequest matrix,
+        IReadOnlyList<string> capabilities,
+        string ns,
+        string ownerPrefix,
+        CancellationToken cancellationToken)
+    {
+        if (matrix.Cases is null || matrix.Cases.Count is < 1 or > 256)
+        {
+            throw new InvalidOperationException("security matrix requires between 1 and 256 cases");
+        }
+
+        PublicContentSecurityCase[] cases = matrix.Cases
+            .Select(static item => item with
+            {
+                Id = item.Id?.Trim() ?? string.Empty,
+                Category = item.Category?.Trim() ?? string.Empty,
+                Markdown = item.Markdown ?? string.Empty
+            })
+            .ToArray();
+        if (cases.Any(static item =>
+                !System.Text.RegularExpressions.Regex.IsMatch(
+                    item.Id,
+                    "^mxss-[a-z0-9]+(?:-[a-z0-9]+)*$",
+                    System.Text.RegularExpressions.RegexOptions.CultureInvariant)
+                || item.Category.Length == 0
+                || item.Markdown.Length == 0
+                || item.Markdown.Length > 64 * 1024)
+            || cases.Select(static item => item.Id).Distinct(StringComparer.Ordinal).Count() != cases.Length)
+        {
+            throw new InvalidOperationException("security matrix cases are invalid or duplicated");
+        }
+
+        await CleanupOwnedAsync(ownerPrefix, cancellationToken).ConfigureAwait(false);
+
+        string metadata = matrix.MetadataText?.Trim() ?? string.Empty;
+        if (metadata.Length == 0 || metadata.IndexOf('\0') >= 0)
+        {
+            throw new InvalidOperationException("security matrix metadata probe is missing or contains NUL");
+        }
+
+        static string Fit(string value) => value.Length <= 128 ? value : value[..128];
+        var category = new Category { Name = Fit($"{ownerPrefix}:category:{metadata}") };
+        category.Id = await db.Insertable(category).ExecuteReturnIdentityAsync(cancellationToken).ConfigureAwait(false);
+        var tag = new Tag { Name = Fit($"{ownerPrefix}:tag:{metadata}") };
+        tag.Id = await db.Insertable(tag).ExecuteReturnIdentityAsync(cancellationToken).ConfigureAwait(false);
+
+        int actorUserId = matrix.ActorUserId.GetValueOrDefault();
+        if (actorUserId <= 0)
+        {
+            actorUserId = await db.Queryable<User>()
+                .Where(static user => user.PublicHandle != null)
+                .OrderBy(static user => user.Id)
+                .Select(static user => user.Id)
+                .FirstAsync(cancellationToken)
+                .ConfigureAwait(false);
+        }
+        if (actorUserId <= 0)
+        {
+            throw new InvalidOperationException("security matrix requires a prepared public account fixture");
+        }
+
+        bool aboutUpdated = await system.UpdatePageContentAsync(new UpdatePageContentRequest
+        {
+            Slug = "about",
+            Content = matrix.AboutMarkdown
+        }).ConfigureAwait(false);
+        if (!aboutUpdated)
+        {
+            throw new InvalidOperationException("security matrix failed to seed the about page through the system service");
+        }
+
+        var identities = new List<PublicContentEntityIdentity>
+        {
+            new("category", category.Id.ToString(System.Globalization.CultureInfo.InvariantCulture), "metadata:category", "security-xss"),
+            new("tag", tag.Id.ToString(System.Globalization.CultureInfo.InvariantCulture), "metadata:tag", "security-xss")
+        };
+        var observed = new List<PublicContentObservedEntity>();
+        var publishedIds = new List<string>();
+
+        foreach (PublicContentSecurityCase securityCase in cases)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            string title = $"{ownerPrefix}:xss:{securityCase.Id}";
+            string summary = metadata.Length <= 512 ? metadata : metadata[..512];
+            string safeMarkdown = $"# Security fixture {securityCase.Id}\n\nPending corpus injection.";
+            int articleId = await CreateArticleAsync(
+                    new SeedArticlePlan(
+                        $"security-{securityCase.Id}",
+                        title,
+                        "Pending security fixture metadata injection.",
+                        safeMarkdown,
+                        null,
+                        1,
+                        ArticleStatus.Published),
+                    category.Id,
+                    tag.Id,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            Article article = await LoadArticleAsync(articleId, cancellationToken).ConfigureAwait(false)
+                ?? throw new InvalidOperationException($"security matrix article missing for {securityCase.Id}");
+            ArticleRevision revision = await db.Queryable<ArticleRevision>()
+                .Where(item => item.Id == article.CurrentRevisionId)
+                .FirstAsync(cancellationToken)
+                .ConfigureAwait(false)
+                ?? throw new InvalidOperationException($"security matrix revision missing for {securityCase.Id}");
+            revision.ContentBlockId = await FsusBlog.Server.Services.Articles.ArticleRevisionContentBlockStore.GetOrCreateAsync(
+                    db,
+                    securityCase.Markdown,
+                    timeProvider.GetUtcNow().UtcDateTime,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            revision.MarkdownContent = string.Empty;
+            revision.Summary = summary;
+            await db.Updateable(revision)
+                .UpdateColumns(static item => new { item.ContentBlockId, item.MarkdownContent, item.Summary })
+                .ExecuteCommandAsync(cancellationToken)
+                .ConfigureAwait(false);
+            await SetViewsAsync(articleId, 1, cancellationToken).ConfigureAwait(false);
+
+            bool rootCreated = await comments.CreateCommentAsync(actorUserId, new CommentDto
+            {
+                ArticleId = articleId,
+                Content = $"Security fixture comment {securityCase.Id}",
+                AuthorMode = "public",
+                PublicSendExplicitlySelected = true,
+                DisplayLanguage = "auto"
+            }).ConfigureAwait(false);
+            if (!rootCreated)
+            {
+                throw new InvalidOperationException($"security matrix comment seed failed for {securityCase.Id}");
+            }
+
+            Comment? rootComment = await db.Queryable<Comment>()
+                .Where(item => item.ArticleId == articleId && item.UserId == actorUserId && item.ParentId == null)
+                .OrderBy(static item => item.Id, OrderByType.Desc)
+                .FirstAsync(cancellationToken)
+                .ConfigureAwait(false);
+            if (rootComment is null)
+            {
+                throw new InvalidOperationException($"security matrix comment observation missing for {securityCase.Id}");
+            }
+            rootComment.Content = securityCase.Markdown;
+            rootComment.ModerationStatus = CommentModerationStatus.Approved;
+            await db.Updateable(rootComment)
+                .UpdateColumns(static item => new { item.Content, item.ModerationStatus })
+                .ExecuteCommandAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            bool replyCreated = await comments.CreateCommentAsync(actorUserId, new CommentDto
+            {
+                ArticleId = articleId,
+                Content = $"Security fixture reply {securityCase.Id}",
+                ParentId = rootComment.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                RootId = rootComment.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ReplyToCommentId = rootComment.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                AuthorMode = "public",
+                PublicSendExplicitlySelected = true,
+                DisplayLanguage = "auto"
+            }).ConfigureAwait(false);
+            if (!replyCreated)
+            {
+                throw new InvalidOperationException($"security matrix reply seed failed for {securityCase.Id}");
+            }
+
+            Comment? reply = await db.Queryable<Comment>()
+                .Where(item => item.ArticleId == articleId && item.ParentId == rootComment.Id)
+                .OrderBy(static item => item.Id, OrderByType.Desc)
+                .FirstAsync(cancellationToken)
+                .ConfigureAwait(false);
+            if (reply is null)
+            {
+                throw new InvalidOperationException($"security matrix reply observation missing for {securityCase.Id}");
+            }
+            reply.Content = securityCase.Markdown;
+            reply.ModerationStatus = CommentModerationStatus.Approved;
+            await db.Updateable(reply)
+                .UpdateColumns(static item => new { item.Content, item.ModerationStatus })
+                .ExecuteCommandAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            string articleIdText = articleId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            string rootIdText = rootComment.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            string replyIdText = reply.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            publishedIds.Add(articleIdText);
+            identities.Add(new("article", articleIdText, $"{securityCase.Id}:article", "security-xss"));
+            identities.Add(new("comment", rootIdText, $"{securityCase.Id}:comment", "security-xss"));
+            identities.Add(new("comment", replyIdText, $"{securityCase.Id}:reply", "security-xss"));
+            observed.Add(new PublicContentObservedEntity
+            {
+                Kind = "article",
+                Id = articleIdText,
+                CapabilityHint = "security-xss",
+                Fields = new Dictionary<string, object?>
+                {
+                    ["caseId"] = securityCase.Id,
+                    ["category"] = securityCase.Category,
+                    ["status"] = "published",
+                    ["commentId"] = rootIdText,
+                    ["replyId"] = replyIdText,
+                    ["title"] = title
+                }
+            });
+        }
+
+        return new PublicContentFixtureResult
+        {
+            Strategy = Strategy,
+            Mode = "security-xss-matrix",
+            EntityIdentities = identities,
+            Observations = new PublicContentObservations
+            {
+                Database = new PublicContentDatabaseObservation
+                {
+                    Namespace = ns,
+                    Entities = observed
+                }
+            },
+            Projection = new PublicContentProjectionHints
+            {
+                ArticleId = publishedIds[0],
+                CategoryId = category.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                TagId = tag.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                PublishedArticleIds = publishedIds
+            },
+            ProvidedCapabilities = capabilities
+        };
+    }
 
     public static string SerializeResult(PublicContentFixtureResult result)
         => JsonSerializer.Serialize(result, s_json);

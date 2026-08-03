@@ -107,7 +107,7 @@ function fixture()
         buildModes: ['basic', 'simd'],
         productionZkEnabled: false,
         toolchain: {
-            emscriptenVersion: '4.0.13',
+            emscriptenVersion: '6.0.0',
             compilerVersion: 'clang-21',
             emsdkImage: 'emsdk@sha256:fixture'
         }
@@ -267,7 +267,7 @@ test('readonly source stages deterministic checksums before the outer immutable 
                 vite: '8',
                 vitest: '4',
                 playwright: '1.58',
-                emsdk: '4.0.13'
+                emsdk: '6.0.0'
             },
             inputPaths: [policyFiles[0]],
             domains: [{ name: 'wasm', path: 'payload/wasm' }],

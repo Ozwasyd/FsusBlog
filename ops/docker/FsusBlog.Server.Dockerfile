@@ -85,7 +85,7 @@ FROM base-${RUNTIME_BASE_FLAVOR} AS base
 # 阶段 1.5：受控 wasm 工件构建
 # 只用于导出受信 wasm artifact，不进入 final build 运行时链路。
 ## =========================================================================
-FROM emscripten/emsdk:4.0.13@sha256:520088b81877b610389dfd4cf7fb8c69f3ae41a611b0f80e222f57dafd930973 AS wasm-builder
+FROM emscripten/emsdk:6.0.0@sha256:9eed2e47b4206928b22f99d2917013ad5462d777bb24cb546a652729896badd8 AS wasm-builder
 ARG VCPKG_COMMIT
 ARG NODE_VERSION
 WORKDIR /work

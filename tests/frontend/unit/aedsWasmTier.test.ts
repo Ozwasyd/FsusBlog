@@ -16,11 +16,11 @@ function runtimeManifest() {
       }
     },
     toolchain: {
-      emscriptenVersion: '4.0.13',
+      emscriptenVersion: '6.0.0',
       binaryenVersion: '123',
       cmakeVersion: '4.3.3',
       vcpkgCommit: 'b'.repeat(40),
-      emsdkImage: `emscripten/emsdk:4.0.13@sha256:${'c'.repeat(64)}`
+      emsdkImage: `emscripten/emsdk:6.0.0@sha256:${'c'.repeat(64)}`
     },
     tiers: {
       basic: {

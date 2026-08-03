@@ -74,7 +74,7 @@ npm run bench:pow-wasm
 生产 Docker builder 固定为：
 
 ```text
-emscripten/emsdk:4.0.13@sha256:520088b81877b610389dfd4cf7fb8c69f3ae41a611b0f80e222f57dafd930973
+emscripten/emsdk:6.0.0@sha256:9eed2e47b4206928b22f99d2917013ad5462d777bb24cb546a652729896badd8
 ```
 
 同时固定 CMake `4.3.3`、Binaryen `123` 与 vcpkg commit `eae1680538b86f962455c27abca2aad0dc304a4d`。这些值与上述 emsdk image/digest 一起由 `ensure-wasm.mjs` 的单一权威 contract 导出；outer/runtime manifest 必须逐字段完全一致。其他 compiler 可用于本地实验，但不能生成通过 `ensure-wasm status` 的 release package，也不能冒充生产 builder。

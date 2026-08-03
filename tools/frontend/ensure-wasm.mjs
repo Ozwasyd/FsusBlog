@@ -29,11 +29,11 @@ const cmakeBootstrapPath = fileURLToPath(new URL('./ensure-cmake.sh', import.met
 const binaryenBootstrapPath = fileURLToPath(new URL('./ensure-binaryen.sh', import.meta.url));
 const buildScriptPath = join(wasmRoot, 'build.sh');
 export const wasmToolchainContract = Object.freeze({
-  emscriptenVersion: '4.0.13',
+  emscriptenVersion: '6.0.0',
   binaryenVersion: '123',
   cmakeVersion: '4.3.3',
     vcpkgCommit: 'eae1680538b86f962455c27abca2aad0dc304a4d',
-    emsdkImage: 'emscripten/emsdk:4.0.13@sha256:520088b81877b610389dfd4cf7fb8c69f3ae41a611b0f80e222f57dafd930973'
+    emsdkImage: 'emscripten/emsdk:6.0.0@sha256:9eed2e47b4206928b22f99d2917013ad5462d777bb24cb546a652729896badd8'
 });
 const imageCodecEnabled = ['ON', '1', 'TRUE'].includes(
   String(process.env.FSUSBLOG_WASM_IMAGE_CODEC_ENABLE || 'ON').toUpperCase()
@@ -643,7 +643,8 @@ async function validateReceipt() {
 
 async function runBuild() {
   return new Promise((resolve, reject) => {
-    const child = spawn('bash', ['./wasm/build.sh'], {
+    const bashExecutable = process.env.FSUSBLOG_BASH?.trim() || 'bash';
+    const child = spawn(bashExecutable, ['./wasm/build.sh'], {
       cwd: clientRoot,
       stdio: 'inherit',
       env: process.env

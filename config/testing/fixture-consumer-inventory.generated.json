@@ -950,6 +950,62 @@
             ]
         },
         {
+            "consumerId": "matrix:production-xss-fast",
+            "executionClass": "browser",
+            "source": "tools/test/lanes/production-xss-fast.sh",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, public.article.published, session.single-device",
+            "implicitSource": "tests/matrix.yml tier production-xss-fast; command tools/test/lanes/production-xss-fast.sh",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "profileId": "production-xss",
+            "profileIds": [
+                "production-xss"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "public.article.published",
+                "session.single-device"
+            ],
+            "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.public.article.published",
+                "canonical.session.single-device"
+            ],
+            "producerOwners": [
+                "auth-session",
+                "public-content"
+            ]
+        },
+        {
+            "consumerId": "matrix:production-xss-release",
+            "executionClass": "browser",
+            "source": "tools/test/lanes/production-xss-release.sh",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, public.article.published, session.single-device",
+            "implicitSource": "tests/matrix.yml tier production-xss-release; command tools/test/lanes/production-xss-release.sh",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "profileId": "production-xss",
+            "profileIds": [
+                "production-xss"
+            ],
+            "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "public.article.published",
+                "session.single-device"
+            ],
+            "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.public.article.published",
+                "canonical.session.single-device"
+            ],
+            "producerOwners": [
+                "auth-session",
+                "public-content"
+            ]
+        },
+        {
             "consumerId": "matrix:release",
             "executionClass": "runtime",
             "source": "tools/test/lanes/release-public.sh",

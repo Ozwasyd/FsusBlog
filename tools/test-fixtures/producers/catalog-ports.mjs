@@ -155,12 +155,23 @@ export function createAuthSessionPort(catalogs = readFixtureCatalogs())
                 env: buildProducerChildEnv(context),
                 signal
             });
+            const backendObservation = context.temporalContext
+                ? await observeBackendTemporalContext(context, signal)
+                : null;
             return {
                 producerId: producer.id,
                 strategy: producer.strategy,
                 implementation: 'tests/frontend/fixtures/prepare-auth-smoke-users.mjs',
                 ...variantOutputFromTypedPlan(context, producer.id),
-                postconditions: [...producer.receiptPostconditions]
+                postconditions: [...producer.receiptPostconditions],
+                ...(backendObservation
+                    ? {
+                        temporalObservation: {
+                            ...backendObservation,
+                            observationBoundary: 'server-owned-auth-session-backend-and-postgres-session'
+                        }
+                    }
+                    : {})
             };
         },
         async cleanup()
@@ -182,11 +193,22 @@ export function createPublicContentPort(catalogs = readFixtureCatalogs())
                 preparePublicContent
             } = await import('./public-content-producer.mjs');
             const result = await preparePublicContent(context, signal);
+            const backendObservation = context.temporalContext
+                ? await observeBackendTemporalContext(context, signal)
+                : null;
             return {
                 ...result,
                 producerId: producer.id,
                 strategy: producer.strategy,
-                postconditions: [...producer.receiptPostconditions]
+                postconditions: [...producer.receiptPostconditions],
+                ...(backendObservation
+                    ? {
+                        temporalObservation: {
+                            ...backendObservation,
+                            observationBoundary: 'server-owned-public-content-backend-and-postgres-session'
+                        }
+                    }
+                    : {})
             };
         },
         async verify(context, producerReceipt)
@@ -347,14 +369,17 @@ function requireConsumedProducerOutputs(producer, context)
 function createStructuralBusinessPort(producer, adapterHandleName)
 {
     return basePort(producer, {
-        async prepare(context)
+        async prepare(context, signal)
         {
             assertNoStrategyEnv();
             const adapter = context.handles?.[adapterHandleName];
             if (adapter && typeof adapter.prepare === 'function')
             {
                 requireConsumedProducerOutputs(producer, context);
-                const result = await adapter.prepare(context);
+                const result = await adapter.prepare(context, signal);
+                const backendObservation = context.temporalContext
+                    ? await observeBackendTemporalContext(context, signal)
+                    : null;
                 return {
                     producerId: producer.id,
                     strategy: producer.strategy,
@@ -362,7 +387,15 @@ function createStructuralBusinessPort(producer, adapterHandleName)
                     structuralOnly: false,
                     ...(result && typeof result === 'object' ? result : {}),
                     ...variantOutputFromTypedPlan(context, producer.id),
-                    postconditions: [...producer.receiptPostconditions]
+                    postconditions: [...producer.receiptPostconditions],
+                    ...(backendObservation
+                        ? {
+                            temporalObservation: {
+                                ...backendObservation,
+                                observationBoundary: `server-owned-${producer.id}-backend-and-postgres-session`
+                            }
+                        }
+                        : {})
                 };
             }
             requireConsumedProducerOutputs(producer, context);

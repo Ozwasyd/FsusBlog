@@ -153,6 +153,8 @@ jobs:
                     args+=(--category "$REQUESTED_CATEGORY")
                   fi
                   bash tools/test/lanes/browser-diagnostics.sh "$mode" --workers 1 "${args[@]}"
+            - name: Execute representative production XSS matrix
+              run: ./tools/test.sh ci-tier production-xss-fast --no-deps
             - name: Validate diagnostics receipt schema
               if: always()
               env:

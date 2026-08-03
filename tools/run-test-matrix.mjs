@@ -146,6 +146,7 @@ const requiredForValues = ['fast', 'production', 'release-final', 'none'];
 const smartGateModeValues = ['always', 'conditional', 'full-only'];
 const retentionClassValues = ['must-keep', 'conditional', 'redundant-candidate', 'obsolete'];
 const evidenceClassValues = ['correctness', 'browser-contract', 'diagnostic'];
+const releaseBrowserAuthorityTierIds = new Set(['browser-contract', 'production-xss-release']);
 const executionVariantValues = ['ordinary', 'coverage', 'property', 'model', 'performance', 'runtime'];
 const uxViewportTierIds = new Set(['ux-viewport-smoke', 'ux-viewport-visual', 'ux-viewport-boundaries']);
 const aliases = new Map([
@@ -1283,15 +1284,17 @@ function validateMatrix(matrix)
         }
         if (tier.requiresPlaywright !== 'none')
         {
-            const expectedEvidenceClass = tier.id === 'browser-contract' ? 'browser-contract' : 'diagnostic';
+            const expectedEvidenceClass = releaseBrowserAuthorityTierIds.has(tier.id)
+                ? 'browser-contract'
+                : 'diagnostic';
             if (tier.evidenceClass !== expectedEvidenceClass)
             {
                 errors.push(`${tier.id}.requiresPlaywright=${tier.requiresPlaywright} requires evidenceClass=${expectedEvidenceClass}`);
             }
         }
-        if (tier.evidenceClass === 'browser-contract' && tier.id !== 'browser-contract')
+        if (tier.evidenceClass === 'browser-contract' && !releaseBrowserAuthorityTierIds.has(tier.id))
         {
-            errors.push(`${tier.id}.evidenceClass=browser-contract is reserved for browser-contract`);
+            errors.push(`${tier.id}.evidenceClass=browser-contract is reserved for release browser authorities`);
         }
         if (tier.requiresPlaywright !== 'none' && tier.resourceClass !== 'browser')
         {
@@ -1489,6 +1492,17 @@ function validateMatrix(matrix)
     )
     {
         errors.push('browser-contract must be one self-bootstrapped, unsharded 10m Chromium tier consuming only production-build-artifacts');
+    }
+
+    const productionXssRelease = byId.get('production-xss-release');
+    if (!productionXssRelease
+        || productionXssRelease.resourceClass !== 'browser'
+        || productionXssRelease.requiresPlaywright !== 'all'
+        || productionXssRelease.evidenceClass !== 'browser-contract'
+        || productionXssRelease.parallelizable !== false
+        || productionXssRelease.requiredFor !== 'release-final')
+    {
+        errors.push('production-xss-release must remain the unsharded cross-engine release XSS browser authority');
     }
 
     const releaseFinal = byId.get('release-final');

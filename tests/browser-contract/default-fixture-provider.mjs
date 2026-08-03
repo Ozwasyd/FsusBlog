@@ -4,6 +4,7 @@
 
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
+import { writeFileSync } from 'node:fs';
 import { chmod, copyFile, lstat, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
@@ -277,6 +278,14 @@ function run(command, args, { env = process.env, timeoutMs = 0 } = {})
             }
             if (code !== 0 || signal)
             {
+                const diagnosticsFile = String(process.env.FSUSBLOG_BROWSER_CONTRACT_PROVIDER_DIAGNOSTICS_FILE ?? '').trim();
+                if (diagnosticsFile)
+                {
+                    writeFileSync(
+                        diagnosticsFile,
+                        `command=${path.basename(command)}\n${stdout}\n--- stderr ---\n${stderr}`,
+                        { mode: 0o600 });
+                }
                 reject(new Error(`${path.basename(command)} failed with ${signal || `exit ${code}`}`));
             }
             else
@@ -630,13 +639,25 @@ async function immutableBuildEnvironment(request)
             fail(`immutable build receipt is missing ${domain}`);
         }
     }
+    const producer = receipt.producer ?? {};
+    const localProducer = producer.workflow === 'Local production';
     return {
         FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT: artifactRoot,
         FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST: receipt.contentDigest,
         FSUSBLOG_TEST_SOURCE_COMMIT: receipt.sourceState.commit,
         FSUSBLOG_TEST_SOURCE_FINGERPRINT: receipt.sourceState.worktreeFingerprint,
-        GITHUB_RUN_ID: String(receipt.producer?.runId ?? ''),
-        GITHUB_RUN_ATTEMPT: String(receipt.producer?.runAttempt ?? 1)
+        ...(localProducer
+            ? {
+                FSUSBLOG_CI_PRODUCTION_PRODUCER_WORKFLOW: String(producer.workflow),
+                FSUSBLOG_CI_PRODUCTION_PRODUCER_RUN_ID: String(producer.runId),
+                FSUSBLOG_CI_PRODUCTION_PRODUCER_RUN_ATTEMPT: String(producer.runAttempt ?? 1),
+                FSUSBLOG_CI_PRODUCTION_PRODUCER_JOB: String(producer.job)
+            }
+            : {
+                GITHUB_WORKFLOW: String(producer.workflow),
+                GITHUB_RUN_ID: String(producer.runId),
+                GITHUB_RUN_ATTEMPT: String(producer.runAttempt ?? 1)
+            })
     };
 }
 
@@ -781,6 +802,20 @@ async function bootstrapDedicatedRuntime(request)
     };
     await writePrivateJson(providerStateFile(request), state);
     const env = { ...process.env };
+    const inheritedBuildRoot = String(env.FSUSBLOG_PRODUCTION_BUILD_ROOT ?? '').trim();
+    const consumerBuildRoot = path.join(request.resources.fixtureRoot, 'production-build');
+    const consumerBuildEnvironment = {};
+    if (path.isAbsolute(inheritedBuildRoot))
+    {
+        for (const [key, value] of Object.entries(env))
+        {
+            if (typeof value === 'string'
+            && (value === inheritedBuildRoot || value.startsWith(`${inheritedBuildRoot}${path.sep}`)))
+            {
+                consumerBuildEnvironment[key] = `${consumerBuildRoot}${value.slice(inheritedBuildRoot.length)}`;
+            }
+        }
+    }
     for (const key of [
         'FSUSBLOG_POSTGRES_PORT',
         'FSUSBLOG_REDIS_PORT',
@@ -792,7 +827,14 @@ async function bootstrapDedicatedRuntime(request)
         'FSUSBLOG_RELEASE_PREVIEW_URL',
         'FSUSBLOG_POSTGRES_CONTAINER_NAME',
         'FSUSBLOG_REDIS_CONTAINER_NAME',
+        'FSUSBLOG_PG_CONTAINER',
+        'FSUSBLOG_REDIS_CONTAINER',
         'FSUSBLOG_DATA_ROOT',
+        'FSUSBLOG_PRODUCTION_BUILD_ROOT',
+        'FSUSBLOG_FRONTEND_DIST_ROOT',
+        'FSUSBLOG_FRONTEND_CACHE_ROOT',
+        'ASPNETCORE_WEBROOT',
+        'FSUSBLOG_RETENTION_WEBROOT_DIR',
         'FSUSBLOG_TEST_SESSION',
         'FSUSBLOG_TEMPORAL_CONTEXT_FILE',
         'FSUSBLOG_TEMPORAL_CONTEXT_JSON',
@@ -804,12 +846,15 @@ async function bootstrapDedicatedRuntime(request)
     }
     Object.assign(env, {
         ...buildEnvironment,
+        ...consumerBuildEnvironment,
         FSUSBLOG_TEST_NAMESPACE: request.identity.namespace,
         FSUSBLOG_TEST_RUN_ID: runtimeRunId,
         FSUSBLOG_PHYSICAL_BUNDLE_ID: 'browser-contract',
         FSUSBLOG_STEP_ID: 'browser-contract-fixture',
         FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID: request.preparation.id,
         FSUSBLOG_FIXTURE_ROOT: request.resources.fixtureRoot,
+        FSUSBLOG_ACCEPTANCE_FIXTURE_ROOT: path.dirname(request.resources.fixtureRoot),
+        FSUSBLOG_PRODUCTION_BUILD_ROOT: consumerBuildRoot,
         FSUSBLOG_PLAYWRIGHT_SESSION_MODE: 'legacy-parallel',
         FSUSBLOG_PLAYWRIGHT_WORKERS: '1',
         FSUSBLOG_PLAYWRIGHT_SESSION_PREP_CONCURRENCY: '1',
@@ -827,6 +872,12 @@ async function bootstrapDedicatedRuntime(request)
         TZ: temporal.nodeTimezone,
         FSUSBLOG_TEMPORAL_CONTEXT_JSON: JSON.stringify(temporal.context)
     });
+    if (!String(env.GITHUB_WORKFLOW ?? '').trim())
+    {
+        delete env.GITHUB_RUN_ID;
+        delete env.GITHUB_RUN_ATTEMPT;
+        delete env.GITHUB_JOB;
+    }
     await run('bash', [path.join(repoRoot, 'tools', 'bootstrap-acceptance-env.sh')], { env });
     const environment = await parseEnvFile(path.join(repoRoot, '.tmp', 'env', `${request.identity.namespace}.env`));
     if (environment.FSUSBLOG_TEST_NAMESPACE !== request.identity.namespace
@@ -883,7 +934,8 @@ async function bootstrapDedicatedRuntime(request)
 async function publishedArticle(request)
 {
     const state = await readPreparedProviderState(request);
-    const fixture = decodePublicFixture(await readFile(path.join(request.resources.fixtureRoot, 'public.aeds'), 'utf8'));
+    const prepareState = JSON.parse(await readFile(path.join(request.resources.fixtureRoot, 'prepare-state.json'), 'utf8'));
+    const fixture = prepareState.producerOutputs?.['public-content']?.projection ?? {};
     if (!/^\d+$/u.test(fixture.articleId) || !/^\d+$/u.test(fixture.categoryId) || !fixture.articleTitle)
     {
         fail('dedicated public fixture is incomplete');
@@ -974,7 +1026,7 @@ async function pendingComment(request)
 SET TIME ZONE '${temporal.postgresTimezone}';
 SET fsusblog.test_business_epoch_utc = '${temporal.businessEpochUtc}';
 INSERT INTO comment (
-  id, article_id, content, create_time, user_id, author_mode, public_handle,
+  id, article_id, content, create_time, current_version, user_id, author_mode, public_handle,
   anonymous_handle, anonymous_display_name, anonymous_display_language,
   anonymous_nullifier_hash, anonymous_scope, moderation_subject_hash,
   credential_level, reputation_bucket, account_age_bucket,
@@ -984,7 +1036,7 @@ INSERT INTO comment (
   moderation_status, moderation_reason, moderated_by_admin_principal_id, moderated_at
 ) VALUES (
   ${commentId}, ${article.id}, 'Browser Contract pending comment',
-  current_setting('fsusblog.test_business_epoch_utc')::timestamptz, NULL, 'zk_anonymous', NULL,
+  current_setting('fsusblog.test_business_epoch_utc')::timestamptz, 1, NULL, 'zk_anonymous', NULL,
   '${privacy.anonymousHandle}', 'Browser Contract Reader', 'en',
   '${privacy.nullifierHash}', 'browser-contract:${article.id}', '${privacy.moderationSubjectHash}',
   NULL, NULL, NULL, 'common', true,
@@ -995,6 +1047,7 @@ INSERT INTO comment (
   article_id = EXCLUDED.article_id,
   content = EXCLUDED.content,
   create_time = EXCLUDED.create_time,
+  current_version = 1,
   user_id = NULL,
   author_mode = EXCLUDED.author_mode,
   public_handle = NULL,

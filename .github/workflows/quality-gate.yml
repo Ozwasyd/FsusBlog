@@ -959,18 +959,18 @@ jobs:
                       .tmp/release-evidence/fuzz-seeds.json
                       .tmp/release-evidence/jobs/**
 
-    # This is the only correctness/release browser job. workflow_dispatch is the
-    # explicit release-final entry; ordinary PRs select it only for browser-boundary changes.
-    # The matrix smart gate owns the bootstrap/public-renderer/router/auth/worker/PWA path list.
+    # This job owns both release browser authorities. The general Browser Contract
+    # remains fixed Chromium; the XSS authority separately consumes all three engines
+    # and the checked-out local FsusUI test-only corpus.
     browser-contract:
         name: Browser Contract
         runs-on: ubuntu-latest
-        needs: [validate-matrix, behavior-doc-static-admission, plan-pr-risk, production-build-artifacts]
+        needs: [validate-matrix, behavior-doc-static-admission, plan-pr-risk, production-build-artifacts, integration-runtime]
         if: >-
             github.event_name == 'workflow_dispatch' ||
             (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) ||
             (github.event_name == 'pull_request' && needs.plan-pr-risk.outputs.browser_contract == 'true')
-        timeout-minutes: 10
+        timeout-minutes: 20
         outputs:
             source_fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
             production_receipt_digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
@@ -985,8 +985,14 @@ jobs:
             FSUSBLOG_BROWSER_CONTRACT_BUILD_RECEIPT: ${{ github.workspace }}/.tmp/downloaded-production-build/receipt.json
             FSUSBLOG_TEST_SOURCE_COMMIT: ${{ github.sha }}
             FSUSBLOG_TEST_SOURCE_FINGERPRINT: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
+            FSUSBLOG_LOCAL_FSUSUI_ROOT: ${{ github.workspace }}/.tmp/local-fsusui
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  repository: Ozwasyd/FsusUI
+                  path: .tmp/local-fsusui
+                  token: ${{ secrets.GITHUB_PACKAGES_TOKEN || github.token }}
             - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
               with:
                   dotnet-version: 10.0.x
@@ -1004,11 +1010,12 @@ jobs:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
                   receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+            - run: corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" install --frozen-lockfile --ignore-scripts
             - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
               with:
                   path: ~/.cache/ms-playwright
-                  key: playwright-browser-contract-chromium-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
-            - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend exec -- playwright install --with-deps chromium
+                  key: playwright-release-browser-authorities-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
+            - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend exec -- playwright install --with-deps chromium firefox webkit
             - uses: ./.github/actions/consume-production-build
               with:
                   source-fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
@@ -1018,6 +1025,8 @@ jobs:
             # the shared acceptance bootstrap, another Playwright shard, or retries.
             - name: Run the single release Browser Contract
               run: ./tools/test.sh ci-tier browser-contract --no-deps
+            - name: Run the production XSS release browser authority
+              run: ./tools/test.sh ci-tier production-xss-release --no-deps
             - name: Validate Browser Contract receipt schema
               env:
                   FSUSBLOG_CI_PRODUCTION_SOURCE_FINGERPRINT: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
@@ -1058,6 +1067,7 @@ jobs:
                       .tmp/browser-contract/receipt.json
                       .tmp/release-evidence/public-preview-screenshots.json
                       .tmp/release-evidence/jobs/**
+                      src/frontend/test-results/playwright/production-xss-release/matrix.json
 
     resilience-runtime:
         name: Resilience Runtime

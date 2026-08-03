@@ -383,7 +383,7 @@ expectWorkflowTextFailure(
 
 expectWorkflowTextFailure(
   (workflow) => replaceWorkflowJobField(workflow, 'browser-contract', 'timeout-minutes', '11'),
-  'workflow job browser-contract timeout-minutes 11 does not match ci-plan 10',
+  'workflow job browser-contract timeout-minutes 11 does not match ci-plan 20',
   'workflow sync must reject Browser Contract timeout drift'
 )
 
@@ -524,14 +524,19 @@ for (const tierId of [
 {
   const matrix = readJsonFile(docsEvidence('browser-contract-matrix.json')).matrix
   requireCondition(
-    matrix.include.length === 1
-      && matrix.include[0].tier === 'browser-contract'
-      && matrix.include[0].shard === ''
-      && matrix.include[0].playwright_workers === 1
-      && matrix.include[0].max_parallel === 1
-      && matrix.include[0].timeout_minutes === 10
-      && matrix.include[0].artifact_name === 'browser-contract-browser-contract',
-    'browser-contract CI matrix must remain one unsharded, single-worker, ten-minute Chromium contract'
+    matrix.include.length === 2
+      && matrix.include.some((entry) => entry.tier === 'browser-contract'
+        && entry.shard === ''
+        && entry.playwright_workers === 1
+        && entry.max_parallel === 1
+        && entry.timeout_minutes === 10
+        && entry.artifact_name === 'browser-contract-browser-contract')
+      && matrix.include.some((entry) => entry.tier === 'production-xss-release'
+        && entry.shard === ''
+        && entry.max_parallel === 1
+        && entry.timeout_minutes === 20
+        && entry.artifact_name === 'browser-contract-production-xss-release'),
+    'browser-contract CI matrix must contain the fixed general contract and cross-engine XSS authority'
   )
 }
 run(['aggregate', 'fast-summary', '--dry-run', '--out', docsEvidence('fast-summary-aggregate-plan.json')])
@@ -759,6 +764,7 @@ requireFileIncludes(
   const tiers = new Map(parsed.tiers.map((tier) => [tier.id, tier]))
   const production = tiers.get('production-correctness')
   const contract = tiers.get('browser-contract')
+  const productionXssRelease = tiers.get('production-xss-release')
   const acceptance = tiers.get('acceptance')
   const releaseFinal = tiers.get('release-final')
   requireCondition(
@@ -777,7 +783,16 @@ requireFileIncludes(
       && contract?.parallelizable === false
       && contract?.timeoutMinutes === 10
       && contract?.selfBootstraps === true,
-    'browser-contract must remain the single fixed release Chromium boundary'
+    'browser-contract must remain the fixed general release Chromium boundary'
+  )
+  requireCondition(
+    productionXssRelease?.ciJob === 'browser-contract'
+      && productionXssRelease?.resourceClass === 'browser'
+      && productionXssRelease?.requiresPlaywright === 'all'
+      && productionXssRelease?.evidenceClass === 'browser-contract'
+      && productionXssRelease?.parallelizable === false
+      && productionXssRelease?.requiredFor === 'release-final',
+    'production-xss-release must remain the fixed cross-engine release security boundary'
   )
   requireCondition(
     acceptance?.ciJob === 'browser-diagnostics'
@@ -791,8 +806,9 @@ requireFileIncludes(
       && releaseFinal?.evidenceClass === 'correctness'
       && tierExecutionDependencies(releaseFinal).length === 0
       && releaseFinal?.requiresEvidenceFrom?.includes('production-correctness')
-      && releaseFinal?.requiresEvidenceFrom?.includes('browser-contract'),
-    'release-final must bind browserless correctness and Browser Contract as evidence only'
+      && releaseFinal?.requiresEvidenceFrom?.includes('browser-contract')
+      && releaseFinal?.requiresEvidenceFrom?.includes('production-xss-release'),
+    'release-final must bind browserless correctness and both release browser authorities as evidence only'
   )
 }
 {
@@ -985,6 +1001,11 @@ requireFileIncludes(
   '.github/workflows/browser-diagnostics.yml',
   'playwright install --with-deps chromium firefox webkit',
   'scheduled/manual diagnostics must install every governed browser engine'
+)
+requireFileIncludes(
+  '.github/workflows/quality-gate.yml',
+  'playwright install --with-deps chromium firefox webkit',
+  'release XSS authority must install every governed browser engine'
 )
 requireFileIncludes(
   'src/frontend/playwright.config.ts',

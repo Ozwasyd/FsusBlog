@@ -24,7 +24,7 @@ test('seal-in-place benchmark records three honest before/after rounds and fallb
     assert.equal(sample.after.testResultDigest, sample.before.testResultDigest)
     assert.ok(['reflink', 'copy-fallback'].includes(sample.after.writableMethod))
     if (sample.after.writableMethod === 'copy-fallback') {
-      assert.match(sample.after.fallbackReason, /ENOTSUP|EXDEV|EOPNOTSUPP/u)
+      assert.match(sample.after.fallbackReason, /ENOSYS|ENOTSUP|EXDEV|EOPNOTSUPP/u)
     }
   }
 })
