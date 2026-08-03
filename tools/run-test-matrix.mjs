@@ -14,6 +14,7 @@ import {
     runBehaviorDocStaticAdmission
 } from './docs/behavior-doc-static-admission.mjs';
 import { sealSourceIdentity } from './fact-extractors/identity.mjs';
+import { availableMemoryGiB } from './test/system-memory.mjs';
 import {
     buildAggregatePlan as buildAggregateReachabilityPlan,
     buildReceiptPlan as buildReceiptReachabilityPlan
@@ -473,7 +474,7 @@ function logicalTierSystemResources()
     return {
         cpuCount,
         availableCpuUnits: cpuCount,
-        availableMemoryGiB: Math.max(Number.EPSILON, os.freemem() / (1024 ** 3)),
+        availableMemoryGiB: Math.max(Number.EPSILON, availableMemoryGiB()),
         totalMemoryGiB: Math.max(Number.EPSILON, os.totalmem() / (1024 ** 3)),
         load1
     };
@@ -2902,7 +2903,7 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {})
     const productionFresh = ['production-correctness', 'production'].includes(profileId);
     const detectResources = () => runtime.detectedResources ?? localProfileSystemResources(profile, {
         cpuCount: os.availableParallelism?.() ?? os.cpus().length,
-        availableMemoryGiB: os.freemem() / (1024 ** 3),
+        availableMemoryGiB: availableMemoryGiB(),
         load1: process.platform === 'win32' ? 0 : os.loadavg()[0]
     });
     const assertProductionFreshLeaseSourceStable = async () =>

@@ -10,6 +10,7 @@ import {
   articleTocDrawerPaddingBottomPx,
   articleWriteActionBarHeightPx,
   articleWriteWorkspacePaddingBottomPx,
+  findCanonicalViewportSafeAreaViolations,
   findSourceViolations,
   toastBottomOffsetPx
 } from '../../checks/static/check-canonical-viewport-safe-area.mjs'

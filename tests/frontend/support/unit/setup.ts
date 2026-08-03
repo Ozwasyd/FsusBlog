@@ -2,8 +2,6 @@ import { Window } from 'happy-dom'
 import { afterAll, beforeAll, vi } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
 import { createUnitAnimationFrameEnvironment } from './animationFrameEnvironment'
-import { LOCALE_DOMAINS } from '@/locales/localeDomains'
-import { activateLocaleRuntime, resetLocaleRuntimeForTests } from '@/locales'
 
 const unitWindow = new Window({ url: 'https://fsusblog.test/' })
 const animationFrames = createUnitAnimationFrameEnvironment()
@@ -31,6 +29,15 @@ afterAll(() => {
 })
 
 beforeAll(async () => {
+  // Import the application locale graph only after each test module has had a
+  // chance to register its hoisted mocks. Static setup imports can otherwise
+  // cache API and transport modules before file-local vi.mock calls apply.
+  const [localeDomains, localeRuntime] = await Promise.all([
+    vi.importActual<typeof import('@/locales/localeDomains')>('@/locales/localeDomains'),
+    vi.importActual<typeof import('@/locales')>('@/locales')
+  ])
+  const { LOCALE_DOMAINS } = localeDomains
+  const { activateLocaleRuntime, resetLocaleRuntimeForTests } = localeRuntime
   resetLocaleRuntimeForTests()
   await activateLocaleRuntime('zh-CN', LOCALE_DOMAINS)
 })

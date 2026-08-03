@@ -197,20 +197,21 @@ export function getAccountNavGroups(context: AccountNavWorkspaceContext): Accoun
         item.groupKey === group.key && isNavItemVisible(item, context)
       ))
       const landingItem = items.find((item) => item.to === group.landingTo) ?? items[0]
+      const adminMessages = messages.value.admin
 
             return landingItem ? {
         key: group.key,
-        label: messages.value.admin.groups[group.key],
-        helper: messages.value.admin.groupHelpers[group.key],
+        label: adminMessages?.groups?.[group.key] ?? group.label,
+        helper: adminMessages?.groupHelpers?.[group.key] ?? group.helper,
         area: group.area,
         to: landingItem.to,
         items: items.map((item) => {
           const labelKey = navLabelKeys[item.to as keyof typeof navLabelKeys]
           return {
             ...item,
-            label: labelKey ? messages.value.admin.nav[labelKey] : item.label,
+            label: labelKey ? adminMessages?.nav?.[labelKey] ?? item.label : item.label,
             helper: item.helper
-              ? messages.value.admin.helpers[helperKeys[item.helper as keyof typeof helperKeys]]
+              ? adminMessages?.helpers?.[helperKeys[item.helper as keyof typeof helperKeys]] ?? item.helper
               : undefined
           }
         })

@@ -11,7 +11,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 const failures = [];
@@ -211,6 +211,8 @@ function validateComposer(source)
     return local;
 }
 
+function runLiveCheck()
+{
 // --- 1. Source index.html is the sole authoring source ---
 const indexHtmlPath = 'src/frontend/index.html';
 const indexHtml = read(indexHtmlPath);
@@ -359,3 +361,12 @@ if (failures.length > 0)
 console.log(
     `[check-document-viewport-source] ok source=1 dist=${exists(distIndexPath) ? 'checked' : 'absent'} mutations=${mutationProofs}`
 );
+}
+
+const isDirectRun = process.argv[1]
+    && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url;
+
+if (isDirectRun)
+{
+    runLiveCheck();
+}

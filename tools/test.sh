@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-export FSUSBLOG_TEST_INVOCATION_STARTED_AT_MS="${FSUSBLOG_TEST_INVOCATION_STARTED_AT_MS:-$(date +%s%3N)}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 NODE_BIN="${FSUSBLOG_NODE:-node}"
+NowEpochMs() {
+    "$NODE_BIN" -e 'process.stdout.write(String(Date.now()))'
+}
+export FSUSBLOG_TEST_INVOCATION_STARTED_AT_MS="${FSUSBLOG_TEST_INVOCATION_STARTED_AT_MS:-$(NowEpochMs)}"
 export FSUSBLOG_REPO_ROOT="${FSUSBLOG_REPO_ROOT:-$ROOT_DIR}"
 
 if [[ $# -eq 0 || "${1:-}" == "-h" || "${1:-}" == "--help" || "${1:-}" == "help" ]]; then

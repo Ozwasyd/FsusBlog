@@ -84,6 +84,10 @@ type ObserverRecord = {
 
 const observerRecords: ObserverRecord[] = []
 
+const useDraftFakeTimers = (): void => {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+}
+
 class TestIntersectionObserver {
   readonly observe = vi.fn()
   readonly unobserve = vi.fn()
@@ -184,7 +188,7 @@ describe('ArticleCommentComposer mounted identity behavior', () => {
   })
 
   it('persists public drafts without exposing the raw account id', async () => {
-    vi.useFakeTimers()
+    useDraftFakeTimers()
     const wrapper = mountComposer({
       articleId: 42,
       accountId: 7,
@@ -206,7 +210,7 @@ describe('ArticleCommentComposer mounted identity behavior', () => {
   })
 
   it('keeps strong anonymous drafts in memory and removes a prior public copy on mode switch', async () => {
-    vi.useFakeTimers()
+    useDraftFakeTimers()
     const wrapper = mountComposer({
       articleId: 42,
       accountId: 7,
@@ -297,7 +301,7 @@ describe('ArticleCommentComposer mounted identity behavior', () => {
     expect(anonymous.emitted('update:modelValue')).toContainEqual([''])
     anonymous.unmount()
 
-    vi.useFakeTimers()
+    useDraftFakeTimers()
     const publicDraft = mountComposer({
       articleId: 42,
       accountId: 7,

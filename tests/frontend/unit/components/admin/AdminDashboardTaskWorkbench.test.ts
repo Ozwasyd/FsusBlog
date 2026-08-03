@@ -218,7 +218,7 @@ describe('AdminDashboardTaskWorkbench', () => {
   it('keeps the recent-change empty state without exposing an unauthorized audit link', () => {
     const wrapper = mountWorkbench({ canViewAuditLog: false })
 
-    expect(wrapper.get('.dashboard-changes').text()).toContain('暂无可显示的最近变更')
+    expect(wrapper.get('.dashboard-changes').text()).toContain('最近变更中暂无新记录。')
     expect(wrapper.findAll('[data-route]').some((link) => (
       link.attributes('data-route') === '{"name":"ManageAuditLog"}'
     ))).toBe(false)

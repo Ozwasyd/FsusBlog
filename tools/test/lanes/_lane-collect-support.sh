@@ -81,7 +81,7 @@ AppendCollectGrantHistory() {
     parentMemory="$(CollectAdmissionSnapshotValue "$snapshotFile" FSUSBLOG_COLLECT_PARENT_MEMORY_GIB)"
     source="$(CollectAdmissionSnapshotValue "$snapshotFile" FSUSBLOG_COLLECT_GRANT_SOURCE)"
     printf '%s\t%s\t%s\t%s\t%s\n' \
-        "$(date +%s%3N)" "$workerCap" "$parentCpu" "$parentMemory" "$source" >>"$historyFile"
+        "$(NowEpochMs)" "$workerCap" "$parentCpu" "$parentMemory" "$source" >>"$historyFile"
 }
 
 WriteCollectLiveGrantEvidence() {
@@ -265,7 +265,7 @@ RunCollectParallel() {
                     esac
                 done <"$admissionSnapshotFile"
                 local admittedAtMs
-                admittedAtMs="$(date +%s%3N)"
+                admittedAtMs="$(NowEpochMs)"
                 Log "collect start: ${labels[$index]}"
                 ("${commands[$index]}")
                 local childStatus=$?
@@ -275,7 +275,7 @@ RunCollectParallel() {
                     Log "collect failed: ${labels[$index]} (exit $childStatus)"
                 fi
                 local finishedAtMs
-                finishedAtMs="$(date +%s%3N)"
+                finishedAtMs="$(NowEpochMs)"
                 local pendingStatus="${statusFiles[$index]}.pending-$BASHPID"
                 printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
                     "$childStatus" "$admittedAtMs" "$finishedAtMs" \
@@ -294,7 +294,7 @@ RunCollectParallel() {
             local nextBlockedSignature="$next:$active:$workerCap"
             if [[ "$nextBlockedSignature" != "$blockedSignature" ]]; then
                 blockedSignature="$nextBlockedSignature"
-                printf '%s\t%s\t%s\t%s\n' "$(date +%s%3N)" "$next" "$active" "$workerCap" >>"$statusDir/blocked.tsv"
+                printf '%s\t%s\t%s\t%s\n' "$(NowEpochMs)" "$next" "$active" "$workerCap" >>"$statusDir/blocked.tsv"
             fi
         fi
         local progressed=0

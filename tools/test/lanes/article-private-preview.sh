@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 # fixture-catalog: consumer article-private-preview-lane matrix
+if ((BASH_VERSINFO[0] < 4)); then
+  for candidate in /opt/homebrew/bin/bash /usr/local/bin/bash; do
+    if [[ -x "$candidate" ]]; then exec "$candidate" "$0" "$@"; fi
+  done
+  printf 'article-private-preview requires Bash 4 or newer\n' >&2
+  exit 2
+fi
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"

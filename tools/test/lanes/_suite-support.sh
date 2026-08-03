@@ -21,6 +21,10 @@ RUNTIME_OUTPUT_ROOT="${FSUSBLOG_RUNTIME_OUTPUT_ROOT:-$ROOT_DIR/.tmp/runtime}"
 FRONTEND_FAST_GROUP_TIMINGS_JSONL="${FSUSBLOG_FRONTEND_FAST_GROUP_TIMINGS_JSONL:-}"
 FRONTEND_FAST_GROUP_TIMINGS_JSON="${FSUSBLOG_FRONTEND_FAST_GROUP_TIMINGS_JSON:-}"
 
+NowEpochMs() {
+    "${FSUSBLOG_NODE:-node}" -e 'process.stdout.write(String(Date.now()))'
+}
+
 INTEGRATION_HTTP_TIMEOUT_MS="${FSUSBLOG_INTEGRATION_HTTP_TIMEOUT_MS:-15000}"
 RELEASE_HTTP_TIMEOUT_MS="${FSUSBLOG_RELEASE_HTTP_TIMEOUT_MS:-15000}"
 ACCEPTANCE_HTTP_TIMEOUT_MS="${FSUSBLOG_ACCEPTANCE_HTTP_TIMEOUT_MS:-15000}"
@@ -375,6 +379,11 @@ InvokeLaneFixtureOrchestrator() {
     if [[ -z "$profileId" ]]; then
         Fail "lane fixture orchestrator requires sealed profile id (FSUSBLOG_SEALED_FIXTURE_PROFILE_ID)"
     fi
+    if [[ -z "${FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET:-}" ]]; then
+        local namespaceSlug
+        namespaceSlug="$(NamespaceSlug "${FSUSBLOG_TEST_NAMESPACE:-local}")"
+        export FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET="fsusblog-local-public-content-fixture-secret-${namespaceSlug}-${FSUSBLOG_TEST_RUN_ID:-local}"
+    fi
     fixtureRoot="$(FixtureRootPath)"
     orchestratorPlan="$fixtureRoot/orchestrator-plan.json"
     prepareState="$fixtureRoot/prepare-state.json"
@@ -491,7 +500,7 @@ RunVisualGroupCheck() {
     local group="$1"
     shift
     local startedMs
-    startedMs="$(date +%s%3N)"
+    startedMs="$(NowEpochMs)"
     Log "visual screenshot group start: $group"
 
     set +e
@@ -500,7 +509,7 @@ RunVisualGroupCheck() {
     set -e
 
     local finishedMs durationMs state
-    finishedMs="$(date +%s%3N)"
+    finishedMs="$(NowEpochMs)"
     durationMs=$((finishedMs - startedMs))
     if ((status == 0)); then
         state="success"
@@ -559,7 +568,7 @@ RunFrontendFastGroup() {
     local group="$1"
     shift
     local startedMs
-    startedMs="$(date +%s%3N)"
+    startedMs="$(NowEpochMs)"
     Log "frontend-fast group start: $group"
 
     set +e
@@ -568,7 +577,7 @@ RunFrontendFastGroup() {
     set -e
 
     local finishedMs durationMs state
-    finishedMs="$(date +%s%3N)"
+    finishedMs="$(NowEpochMs)"
     durationMs=$((finishedMs - startedMs))
     if ((status == 0)); then
         state="success"
@@ -748,12 +757,12 @@ RunParallel() {
                 done <<<"$childEnvironment"
                 CURRENT_STAGE="$group/$label"
                 local childStartedMs
-                childStartedMs="$(date +%s%3N)"
+                childStartedMs="$(NowEpochMs)"
                 Log "parallel start: $label"
                 eval "$command"
                 local childStatus=$?
                 local childFinishedMs childDurationMs
-                childFinishedMs="$(date +%s%3N)"
+                childFinishedMs="$(NowEpochMs)"
                 childDurationMs=$((childFinishedMs - childStartedMs))
                 if ((childStatus == 0)); then
                     Log "parallel done: $label (${childDurationMs}ms)"
@@ -863,14 +872,14 @@ ProbeHttpUntilReady() {
 
     RuntimeProbeTimeoutSeconds timeoutSeconds
     timeoutMs="$(awk -v seconds="$timeoutSeconds" 'BEGIN { value = int(seconds * 1000); if (value < 1) value = 1; printf "%d", value }')"
-    startedAtMs="$(date +%s%3N)"
+    startedAtMs="$(NowEpochMs)"
     deadlineAtMs=$((startedAtMs + timeoutMs))
     if [[ -n "$acceptHeader" ]]; then
         curlHeaders=(-H "Accept: $acceptHeader")
     fi
 
     while true; do
-        nowMs="$(date +%s%3N)"
+        nowMs="$(NowEpochMs)"
         if ((nowMs >= deadlineAtMs)); then
             break
         fi
@@ -906,7 +915,7 @@ ProbeHttpUntilReady() {
             Fail "$label returned terminal HTTP $httpStatus at $url observed=$observations"
         fi
 
-        nowMs="$(date +%s%3N)"
+        nowMs="$(NowEpochMs)"
         if ((nowMs < deadlineAtMs)); then
             sleep 0.25
         fi
@@ -1648,7 +1657,7 @@ BeginLegacyRuntimeScenarioObservation() {
     fi
     FSUSBLOG_RUNTIME_SCENARIO_OBSERVATION_ACTIVE=1
     FSUSBLOG_RUNTIME_SCENARIO_OBSERVATION_PHASE="$phase"
-    FSUSBLOG_RUNTIME_SCENARIO_OBSERVATION_STARTED_MS="$(date +%s%3N)"
+    FSUSBLOG_RUNTIME_SCENARIO_OBSERVATION_STARTED_MS="$(NowEpochMs)"
     FSUSBLOG_RUNTIME_SCENARIO_OBSERVATION_DIR="$RUNTIME_SCENARIO_OUTPUT_ROOT/$phase/before-processes"
     FSUSBLOG_RUNTIME_SCENARIO_ORIGINAL_NODE_OPTIONS="${NODE_OPTIONS:-}"
     rm -rf "$FSUSBLOG_RUNTIME_SCENARIO_OBSERVATION_DIR"

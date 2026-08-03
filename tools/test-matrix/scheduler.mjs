@@ -17,6 +17,8 @@ import {
 } from '../test/physical-execution-process-tree.mjs';
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler observations reuse the canonical process identity collector.
 import { collectProcessIdentity } from '../test/process-identity.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler admission needs host-accurate Darwin available memory.
+import { availableMemoryBytes, availableMemoryGiB } from '../test/system-memory.mjs';
 import {
     validateRunBoundConsumerEvidence,
     validateRunBoundProjection
@@ -1549,6 +1551,21 @@ function durableSubprocessSpec(tier, { root, env })
             }
         };
     }
+    if (process.platform === 'darwin')
+    {
+        return {
+            command: '/bin/bash',
+            args: ['-lc', tier.command],
+            authority: {
+                schema: 'fsusblog.durable-process-containment.v1',
+                platform: 'darwin',
+                kind: 'darwin-process-group',
+                authorityId,
+                killPolicy: 'process-group-with-descendant-ledger',
+                createdAt: new Date().toISOString()
+            }
+        };
+    }
     throw new Error(`durable process containment is unavailable on ${process.platform}`);
 }
 
@@ -1726,16 +1743,21 @@ function beginSubprocess(
         if (process.platform !== 'win32')
         {
             const leader = collectProcessIdentity(child.pid);
-            const authority = durableSpec?.authority ?? (
+            const processGroupAuthority = leader.status === 'verified'
+                ? {
+                    schema: 'fsusblog.process-group-or-job-identity.v1',
+                    platform: process.platform,
+                    kind: 'process-group',
+                    groupId: child.pid,
+                    leaderPid: child.pid,
+                    leaderProcessStartIdentity: leader.processStartIdentity
+                }
+                : null;
+            const authority = durableSpec?.authority?.kind === 'darwin-process-group'
+                ? processGroupAuthority
+                : durableSpec?.authority ?? (
                 leader.status === 'verified'
-                    ? {
-                        schema: 'fsusblog.process-group-or-job-identity.v1',
-                        platform: process.platform,
-                        kind: 'process-group',
-                        groupId: child.pid,
-                        leaderPid: child.pid,
-                        leaderProcessStartIdentity: leader.processStartIdentity
-                    }
+                    ? processGroupAuthority
                     : null
             );
             terminationAuthority = authority;
@@ -1909,7 +1931,7 @@ function defaultSystemResources()
 {
     return {
         cpuCount: typeof os.availableParallelism === 'function' ? os.availableParallelism() : os.cpus().length,
-        availableMemoryGiB: os.freemem() / (1024 ** 3),
+        availableMemoryGiB: availableMemoryGiB(),
         load1: process.platform === 'win32' ? 0 : os.loadavg()[0]
     };
 }
@@ -4252,7 +4274,7 @@ async function runDagUnlocked(options)
         timedOut: false,
         resourcePeaks: {
             load1: Math.max(0, Number(os.loadavg()[0]) || 0),
-            usedMemoryGiB: Math.max(0, (os.totalmem() - os.freemem()) / (1024 ** 3)),
+            usedMemoryGiB: Math.max(0, (os.totalmem() - availableMemoryBytes()) / (1024 ** 3)),
             reservedCpuUnits: 0,
             reservedMemoryGiB: 0
         },
@@ -4628,7 +4650,7 @@ async function runDagUnlocked(options)
         checkpoint.resourcePeaks.load1 = Math.max(checkpoint.resourcePeaks.load1, Math.max(0, Number(os.loadavg()[0]) || 0));
         checkpoint.resourcePeaks.usedMemoryGiB = Math.max(
             checkpoint.resourcePeaks.usedMemoryGiB,
-            Math.max(0, (os.totalmem() - os.freemem()) / (1024 ** 3))
+            Math.max(0, (os.totalmem() - availableMemoryBytes()) / (1024 ** 3))
         );
         checkpoint.resourcePeaks.reservedCpuUnits = Math.max(checkpoint.resourcePeaks.reservedCpuUnits, usage.cpuUnits);
         checkpoint.resourcePeaks.reservedMemoryGiB = Math.max(checkpoint.resourcePeaks.reservedMemoryGiB, usage.memoryGiB);
@@ -4640,7 +4662,7 @@ async function runDagUnlocked(options)
             activeCount: active.size,
             reservedCpuUnits: usage.cpuUnits,
             reservedMemoryGiB: usage.memoryGiB,
-            hostUsedMemoryGiB: Math.max(0, (os.totalmem() - os.freemem()) / (1024 ** 3))
+            hostUsedMemoryGiB: Math.max(0, (os.totalmem() - availableMemoryBytes()) / (1024 ** 3))
         });
         resourceEnforcer.sample();
         const maximumCurveSamples = Math.max(1024, Math.min(16384, Math.ceil(budget.cpuUnits * 512)));
@@ -4699,7 +4721,7 @@ async function runDagUnlocked(options)
 
     const currentFreeMemoryGiB = () =>
     {
-        const measured = Number(options.currentFreeMemoryGiB?.() ?? (os.freemem() / (1024 ** 3)));
+        const measured = Number(options.currentFreeMemoryGiB?.() ?? availableMemoryGiB());
         return Number.isFinite(measured) && measured >= 0 ? measured : budget.memoryGiB;
     };
 

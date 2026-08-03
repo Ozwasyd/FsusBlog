@@ -78,12 +78,14 @@ describe('account navigation module IA', () => {
     expect(itemPaths.security).toEqual(['/user/manage/security'])
     expect(itemPaths.system).toEqual([
       '/user/manage/settings',
+      '/user/manage/plugins',
       '/user/manage/content-tools',
       '/user/manage/audit'
     ])
     expect(itemPaths.ops).toEqual([
       '/user/manage/analytics',
       '/user/manage/ops',
+      '/user/manage/cluster',
       '/user/manage/cache',
       '/user/manage/integrity',
       '/user/manage/integrity-proof'
@@ -103,7 +105,7 @@ describe('account navigation module IA', () => {
     const operationsOnly = getAccountNavGroups(manageContext(['system.config']))
     expect(operationsOnly.map((group) => group.label)).toEqual(['安全', '系统', '运维'])
     expect(operationsOnly.find((group) => group.key === 'system')?.items.map((item) => item.label))
-      .toEqual(['系统设置', '备份迁移'])
+      .toEqual(['系统设置', '插件', '备份迁移'])
     expect(operationsOnly.find((group) => group.key === 'ops')?.items.map((item) => item.label))
       .toContain('Integrity Proof')
     expect(operationsOnly.flatMap((group) => group.items).map((item) => item.label))

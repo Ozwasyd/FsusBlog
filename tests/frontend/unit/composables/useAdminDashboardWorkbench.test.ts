@@ -37,7 +37,10 @@ vi.mock('@/api/stats', () => ({
 vi.mock('@/composables/useSessionBootstrap', () => ({
   useSessionBootstrap: () => ({
     userStore: { isAuthChecked: true },
-    adminStore: { canManage: false }
+    adminStore: {
+      canManage: false,
+      hasPermission: vi.fn(() => false)
+    }
   })
 }))
 
@@ -81,6 +84,11 @@ const mountProbe = () => {
     }
   }
 }
+
+const dashboardActions = (workbench: ReturnType<typeof useAdminDashboardWorkbench>) => [
+  ...workbench.pendingActions.value,
+  ...(workbench.writeAction.value ? [workbench.writeAction.value] : [])
+]
 
 beforeEach(() => {
   mocks.getCacheDiagnostics.mockReset().mockResolvedValue(healthyCacheDiagnostics())
@@ -145,8 +153,8 @@ describe('useAdminDashboardWorkbench', () => {
     cacheRequest.resolve(healthyCacheDiagnostics())
     await refreshPromise
 
-    expect(probe.workbench.todayActions.value.map((item) => item.countText))
-      .toEqual(['5', '7', '0', '开始'])
+    expect(dashboardActions(probe.workbench).map((item) => item.countText))
+      .toEqual(['5', '7', '开始'])
     expect(probe.workbench.ledgerItems.value.map((item) => item.value))
       .toEqual([12, 34, 2])
     expect(probe.workbench.summaryLoaded.value).toBe(true)
@@ -166,11 +174,12 @@ describe('useAdminDashboardWorkbench', () => {
 
     expect(probe.workbench.summaryLoaded.value).toBe(false)
     expect(probe.workbench.summaryErrorMessage.value).toBe('stats offline')
-    expect(probe.workbench.todayActions.value.map((item) => item.countText))
+    const actions = dashboardActions(probe.workbench)
+    expect(actions.map((item) => item.countText))
       .toEqual(['读取失败', '读取失败', '读取失败', '开始'])
-    expect(probe.workbench.todayActions.value[0]?.helper).toContain('进入评论审核重新检查')
-    expect(probe.workbench.todayActions.value[1]?.helper).toContain('进入站内信重新检查')
-    expect(probe.workbench.todayActions.value[2]?.helper).toContain('进入缓存与索引重新检查')
+    expect(actions[0]?.helper).toContain('进入评论审核重新检查')
+    expect(actions[1]?.helper).toContain('进入站内信重新检查')
+    expect(actions[2]?.helper).toContain('进入缓存与索引重新检查')
 
     probe.wrapper.unmount()
   })

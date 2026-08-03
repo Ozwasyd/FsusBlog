@@ -268,7 +268,14 @@ function completeContainmentAuthority(authority) {
                     authority.killPolicy === 'kill-on-job-close' &&
                     typeof authority.jobName === 'string' &&
                     authority.jobName.length > 0 &&
-                    /^sha256:[a-f0-9]{64}$/u.test(authority.supervisorScriptDigest)))
+                    /^sha256:[a-f0-9]{64}$/u.test(authority.supervisorScriptDigest)) ||
+                (authority.platform === 'darwin' &&
+                    authority.kind === 'darwin-process-group' &&
+                    authority.killPolicy === 'process-group-with-descendant-ledger' &&
+                    authority.groupId === authority.supervisorProcessIdentity.pid &&
+                    authority.leaderPid === authority.supervisorProcessIdentity.pid &&
+                    authority.leaderProcessStartIdentity ===
+                        authority.supervisorProcessIdentity.processStartIdentity))
     )
 }
 
@@ -288,6 +295,37 @@ function completeSchedulerLockIdentity(identity, owner) {
             identity.commandDigest === owner.ownerCommandDigest &&
             schedulerProcessGroupOrJobIdentityIsComplete(identity.processGroupOrJobIdentity)
     )
+}
+
+function compilerIdentityHasContainmentAuthority(owner, identity) {
+    if (
+        owner.managedContainmentAuthorities.some(
+            (authority) =>
+                authority.supervisorProcessIdentity.processStartIdentity === identity.processStartIdentity
+        )
+    ) {
+        return true
+    }
+    const status = processIdentityStatus(identity)
+    if (['dead', 'mismatch'].includes(status.status)) return true
+    if (status.status !== 'live' || owner.ownerPlatform !== 'darwin') return false
+    return owner.managedContainmentAuthorities
+        .filter((authority) => authority.kind === 'darwin-process-group')
+        .some((authority) => {
+            const members = processGroupMemberIdentities({
+                schema: 'fsusblog.process-group-or-job-identity.v1',
+                platform: 'darwin',
+                kind: 'process-group',
+                groupId: authority.groupId,
+                leaderPid: authority.leaderPid,
+                leaderProcessStartIdentity: authority.leaderProcessStartIdentity
+            })
+            return members.status === 'verified' && members.identities.some(
+                (member) =>
+                    member.pid === identity.pid &&
+                    member.processStartIdentity === identity.processStartIdentity
+            )
+        })
 }
 
 function readBuildOwner(layout) {
@@ -327,11 +365,7 @@ function readBuildOwner(layout) {
         owner.activeCompilerProcessIdentities.every(completeProcessIdentity) &&
         (owner.allowDiagnosticProcessContainmentForTests ||
             owner.activeCompilerProcessIdentities.every((identity) =>
-                owner.managedContainmentAuthorities.some(
-                    (authority) =>
-                        authority.supervisorProcessIdentity.processStartIdentity === identity.processStartIdentity
-                )
-            )) &&
+                compilerIdentityHasContainmentAuthority(owner, identity))) &&
         ['preparing', 'building', 'finalizing'].includes(owner.state) &&
         (owner.state === 'preparing'
             ? owner.schedulerLockIdentity === null
@@ -888,6 +922,13 @@ function containmentAuthorityReceipt(authority, supervisorProcessIdentity) {
             jobName: authority.jobName,
             supervisorScriptDigest: authority.supervisorScriptDigest
         }
+    } else if (authority?.kind === 'darwin-process-group') {
+        receipt = {
+            ...common,
+            groupId: supervisorProcessIdentity.pid,
+            leaderPid: supervisorProcessIdentity.pid,
+            leaderProcessStartIdentity: supervisorProcessIdentity.processStartIdentity
+        }
     }
     if (!completeContainmentAuthority(receipt)) {
         throw new Error('production build durable containment authority is incomplete')
@@ -938,6 +979,20 @@ function containmentAuthorityStatus(authority) {
             reason: supervisor.actual?.reason ?? 'Windows Job Object supervisor identity is unavailable'
         }
     }
+    if (authority.kind === 'darwin-process-group') {
+        const members = processGroupMemberIdentities({
+            schema: 'fsusblog.process-group-or-job-identity.v1',
+            platform: 'darwin',
+            kind: 'process-group',
+            groupId: authority.groupId,
+            leaderPid: authority.leaderPid,
+            leaderProcessStartIdentity: authority.leaderProcessStartIdentity
+        })
+        if (members.status !== 'verified') {
+            return { status: 'unverifiable', reason: members.reason }
+        }
+        return members.identities.length > 0 ? { status: 'active' } : { status: 'inactive' }
+    }
     return { status: 'unverifiable', reason: `unsupported containment authority ${authority.kind}` }
 }
 
@@ -970,6 +1025,7 @@ export function scanProductionBuildProcesses(layout) {
             }
             if (containedByKnownGroup) continue
             const group = collectProcessGroupOrJobIdentity(descendant.pid)
+            if (group.status === 'dead') continue
             if (group.status !== 'verified') throw new Error(`managed compiler group is unverifiable: ${group.reason}`)
             changed = addManagedGroup(owner, group.value) || changed
         }

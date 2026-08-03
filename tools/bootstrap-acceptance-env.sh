@@ -1,5 +1,15 @@
 #!/usr/bin/env bash
 # fixture-catalog: consumer acceptance-bootstrap acceptance-representative
+if ((BASH_VERSINFO[0] < 4)); then
+    for candidate in "${FSUSBLOG_BASH:-}" /opt/homebrew/bin/bash /usr/local/bin/bash; do
+        if [[ -n "$candidate" && -x "$candidate" ]]; then
+            exec "$candidate" "$0" "$@"
+        fi
+    done
+    printf '%s\n' 'acceptance bootstrap requires Bash 4 or newer' >&2
+    exit 1
+fi
+export PATH="$(dirname "$BASH"):$PATH"
 set -euo pipefail
 umask 077
 
@@ -23,6 +33,10 @@ ENV_DIR="${FSUSBLOG_ACCEPTANCE_ENV_ROOT:-$ROOT_DIR/.tmp/env}"
 FIXTURE_DIR="${FSUSBLOG_ACCEPTANCE_FIXTURE_ROOT:-$ROOT_DIR/.tmp/fixtures}/$NS_SLUG"
 mkdir -p "$TMP_DIR"
 mkdir -p "$ENV_DIR" "$FIXTURE_DIR"
+
+NowEpochMs() {
+    "${FSUSBLOG_NODE:-node}" -e 'process.stdout.write(String(Date.now()))'
+}
 
 FindFreePort() {
     local start="${1:-20000}"
@@ -363,7 +377,7 @@ CiProductionHasDomain() {
     [[ ",${FSUSBLOG_CI_PRODUCTION_DOMAINS:-}," == *",${expected},"* ]]
 }
 
-EXECUTION_STARTED_AT_MS="$(date +%s%3N)"
+EXECUTION_STARTED_AT_MS="$(NowEpochMs)"
 DEDICATED_RUNTIME_EXECUTION_BUDGET_CAP_MS=240000
 PUBLIC_PREVIEW_CAPTURE_EXECUTION_BUDGET_CAP_MS=1800000
 ResolveExecutionBudgetMs() {
@@ -424,7 +438,7 @@ READINESS_DEADLINE_AT_MS="$EXECUTION_DEADLINE_AT_MS"
 AllocateReadinessDeadline() {
     local label="$1"
     local now remaining phaseBudget
-    now="$(date +%s%3N)"
+    now="$(NowEpochMs)"
     remaining=$((EXECUTION_DEADLINE_AT_MS - now))
     if ((remaining <= 0)); then
         Log "$label has no remaining execution deadline"
@@ -727,7 +741,7 @@ WriteRuntimePidFile() {
         printf '%s\n' "$pid" >"$pending"
     )
     chmod 0600 "$pending"
-    mv -fT -- "$pending" "$pidFile"
+    mv -f "$pending" "$pidFile"
     chmod 0600 "$pidFile"
 }
 
@@ -748,9 +762,11 @@ WriteRuntimeProcessIdentity() {
         FSUSBLOG_RUNTIME_IDENTITY_SOURCE_FINGERPRINT="${FSUSBLOG_TEST_SOURCE_FINGERPRINT:-}" \
         FSUSBLOG_RUNTIME_IDENTITY_FILE="$identityFile" \
         FSUSBLOG_RUNTIME_IDENTITY_DEADLINE_AT_MS="$readinessDeadlineAtMs" \
+        FSUSBLOG_RUNTIME_SNAPSHOT_SCRIPT="$ROOT_DIR/tools/test/darwin-process-snapshot.py" \
         "${FSUSBLOG_NODE:-node}" <<'NODE'
 const fs = require('node:fs')
 const path = require('node:path')
+const { execFileSync } = require('node:child_process')
 
 const pid = Number.parseInt(process.env.FSUSBLOG_RUNTIME_IDENTITY_PID ?? '', 10)
 const runId = String(process.env.FSUSBLOG_RUNTIME_IDENTITY_RUN_ID ?? '').trim()
@@ -773,27 +789,36 @@ if (!Number.isInteger(pid) || pid <= 1 || !runId || !namespace || !role || !file
 }
 
 const waitBuffer = new Int32Array(new SharedArrayBuffer(4))
-const deadlineAtMs = Math.min(inheritedDeadlineAtMs, Date.now() + 2_000)
+const deadlineAtMs = Math.min(inheritedDeadlineAtMs, Date.now() + 10_000)
 let observed = null
 let lastReason = 'procfs identity unavailable'
-while (Date.now() <= deadlineAtMs) {
-  try {
+function readProcess() {
+  if (process.platform !== 'darwin') {
     const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8')
     const tail = stat.slice(stat.lastIndexOf(')') + 2).trim().split(/\s+/u)
-    const processGroupId = Number.parseInt(tail[2] ?? '', 10)
-    const sessionId = Number.parseInt(tail[3] ?? '', 10)
-    const startTimeTicks = tail[19] ?? ''
-    const environment = Object.fromEntries(
-      fs.readFileSync(`/proc/${pid}/environ`, 'utf8')
-        .split('\0')
-        .filter(Boolean)
-        .map((entry) => {
-          const separator = entry.indexOf('=')
-          return separator < 1
-            ? [entry, '']
-            : [entry.slice(0, separator), entry.slice(separator + 1)]
-        })
-    )
+    return {
+      processGroupId: Number.parseInt(tail[2] ?? '', 10),
+      sessionId: Number.parseInt(tail[3] ?? '', 10),
+      startTimeTicks: tail[19] ?? '',
+      environment: Object.fromEntries(
+        fs.readFileSync(`/proc/${pid}/environ`, 'utf8')
+          .split('\0')
+          .filter(Boolean)
+          .map((entry) => {
+            const separator = entry.indexOf('=')
+            return separator < 1 ? [entry, ''] : [entry.slice(0, separator), entry.slice(separator + 1)]
+          })
+      )
+    }
+  }
+  return JSON.parse(execFileSync('/usr/bin/python3', [process.env.FSUSBLOG_RUNTIME_SNAPSHOT_SCRIPT, String(pid)], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe']
+  }))
+}
+while (Date.now() <= deadlineAtMs) {
+  try {
+    const { processGroupId, sessionId, startTimeTicks, environment } = readProcess()
     if (processGroupId === pid
       && sessionId === pid
       && /^\d+$/u.test(startTimeTicks)
@@ -813,8 +838,8 @@ while (Date.now() <= deadlineAtMs) {
     }
     lastReason = `pgrp=${processGroupId} session=${sessionId} role=${environment.FSUSBLOG_RUNTIME_ROLE ?? ''}`
   } catch (error) {
-    if (error.code === 'ENOENT') {
-      lastReason = 'process exited before identity stabilized'
+    if (error.code === 'ENOENT' || (process.platform === 'darwin' && error.status !== undefined)) {
+      lastReason = 'process identity changed before it stabilized'
     } else {
       throw error
     }
@@ -851,7 +876,7 @@ SleepWithinDeadline() {
     local deadlineAtMs="$1"
     local pollIntervalMs="$2"
     local now remaining sleepMs
-    now="$(date +%s%3N)"
+    now="$(NowEpochMs)"
     remaining=$((deadlineAtMs - now))
     if ((remaining <= 0)); then
         return 1
@@ -903,8 +928,10 @@ DedicatedRuntimeProcessBindingMatches() {
         FSUSBLOG_RUNTIME_BINDING_NAMESPACE="$NS_SLUG" \
         FSUSBLOG_RUNTIME_BINDING_ROLE="$role" \
         FSUSBLOG_RUNTIME_BINDING_PREPARATION_ID="${FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID:-}" \
+        FSUSBLOG_RUNTIME_SNAPSHOT_SCRIPT="$ROOT_DIR/tools/test/darwin-process-snapshot.py" \
         "${FSUSBLOG_NODE:-node}" <<'NODE'
 const fs = require('node:fs')
+const { execFileSync } = require('node:child_process')
 
 const pidFile = process.env.FSUSBLOG_RUNTIME_BINDING_PID_FILE ?? ''
 const identityFile = process.env.FSUSBLOG_RUNTIME_BINDING_IDENTITY_FILE ?? ''
@@ -933,6 +960,12 @@ function readPrivateFile(file) {
 }
 
 function readProcess(pid) {
+  if (process.platform === 'darwin') {
+    return JSON.parse(execFileSync('/usr/bin/python3', [process.env.FSUSBLOG_RUNTIME_SNAPSHOT_SCRIPT, String(pid)], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe']
+    }))
+  }
   const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8')
   const tail = stat.slice(stat.lastIndexOf(')') + 2).trim().split(/\s+/u)
   const environment = Object.fromEntries(
@@ -1254,7 +1287,7 @@ WaitForUrl() {
     local url="$2"
     local deadlineAtMs="$3"
 
-    while (($(date +%s%3N) < deadlineAtMs)); do
+    while (($(NowEpochMs) < deadlineAtMs)); do
         if ProbeUrl "$url"; then
             return 0
         fi
@@ -1270,7 +1303,7 @@ WaitForBinaryUrl() {
     local url="$2"
     local deadlineAtMs="$3"
 
-    while (($(date +%s%3N) < deadlineAtMs)); do
+    while (($(NowEpochMs) < deadlineAtMs)); do
         if ProbeBinaryUrl "$url"; then
             return 0
         fi
@@ -1288,7 +1321,7 @@ WaitForManagedBinaryUrl() {
     local pid="$4"
     local logFile="$5"
 
-    while (($(date +%s%3N) < deadlineAtMs)); do
+    while (($(NowEpochMs) < deadlineAtMs)); do
         if ProbeBinaryUrl "$url"; then
             return 0
         fi
@@ -1440,7 +1473,7 @@ EnsurePostgres() {
             postgres:16-alpine >/dev/null
     fi
 
-    while (($(date +%s%3N) < readinessDeadline)); do
+    while (($(NowEpochMs) < readinessDeadline)); do
         if docker exec "$POSTGRES_CONTAINER" pg_isready -U fsusblog -d fsusblog >/dev/null 2>&1; then
             return
         fi
@@ -1483,7 +1516,7 @@ EnsureRedis() {
         docker run -d "${DOCKER_RESOURCE_ARGS[@]}" --name "$REDIS_CONTAINER" -p "127.0.0.1:${REDIS_PORT}:6379" redis:7-alpine >/dev/null
     fi
 
-    while (($(date +%s%3N) < readinessDeadline)); do
+    while (($(NowEpochMs) < readinessDeadline)); do
         if docker exec "$REDIS_CONTAINER" redis-cli ping >/dev/null 2>&1; then
             return
         fi
@@ -1841,7 +1874,7 @@ EnsureBackend() {
         FSUSBLOG_RUNTIME_NO_BUILD=1 \
         FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME="${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" \
         FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID="${FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID:-}" \
-        nohup setsid bash -lc "cd $(printf '%q' "$ROOT_DIR") && export FSUSBLOG_DATA_ROOT=$(printf '%q' "$TEST_DATA_ROOT") ConnectionStrings__DefaultConnection=$(printf '%q' "$POSTGRES_CONNECTION") ConnectionStrings__Redis=$(printf '%q' "$REDIS_CONNECTION") RedisOptions__Configuration=$(printf '%q' "$REDIS_CONNECTION") RedisOptions__InstanceName=$(printf '%q' "FsusBlog_${NS_SLUG}_") FSUSBLOG_NOTIFICATION_DRILL_SECRET=$(printf '%q' "$NOTIFICATION_DRILL_SECRET") NotificationStream__DrillSecret=$(printf '%q' "$NOTIFICATION_DRILL_SECRET") Jwt__KeyVersion=$(printf '%q' "$JWT_KEY_VERSION") Jwt__SecretKey=$(printf '%q' "$JWT_SECRET") Jwt__Issuer=$(printf '%q' "$JWT_ISSUER") Jwt__Audience=$(printf '%q' "$JWT_AUDIENCE") Jwt__AccessTokenExpiresMinutes=$(printf '%q' "$JWT_ACCESS_TOKEN_EXPIRES_MINUTES") Security__Pow__SigningKey=$(printf '%q' "$POW_SIGNING_KEY") Security__Pow__BaseDifficulty=$(printf '%q' "$POW_BASE_DIFFICULTY") Security__Pow__MaxDifficulty=$(printf '%q' "$POW_MAX_DIFFICULTY") Security__PerceptionSealedToken__CurrentKeyVersion=dev Security__PerceptionSealedToken__Keys__dev=$(printf '%q' "$PERCEPTION_SEALED_TOKEN_KEY") Security__RecoveryKeyPepper=$(printf '%q' "$RECOVERY_KEY_PEPPER") MfaChallenge__TicketSigningKey=$(printf '%q' "$MFA_TICKET_SIGNING_KEY") VisitLog__IpPseudonymization__CurrentEpoch=$(printf '%q' "$VISIT_LOG_IP_KEY_EPOCH") VisitLog__IpPseudonymization__CurrentKey=$(printf '%q' "$VISIT_LOG_IP_KEY") Moderation__Pepper=$(printf '%q' "$MODERATION_PEPPER") Moderation__RegionPolicy__IpHashKey=$(printf '%q' "$MODERATION_REGION_IP_HASH_KEY") Subscription__EmailHashPepper=$(printf '%q' "$SUBSCRIPTION_EMAIL_HASH_PEPPER") AnonymousCredentialIssuer__IssuerPublicKeyId=local-acceptance-issuer AnonymousCredentialIssuer__SubjectHashPepper=$(printf '%q' "$ANONYMOUS_SUBJECT_HASH_PEPPER") AnonymousCredentialRoot__AttestationKey=$(printf '%q' "$ANONYMOUS_ROOT_ATTESTATION_KEY") AnonymousCredentialRoot__AttestationKeyId=local-acceptance-root AnonymousIdentity__NullifierPepper=$(printf '%q' "$ANONYMOUS_NULLIFIER_PEPPER") FSUSBLOG_ANONYMOUS_IDENTITY_MODE=$(printf '%q' "$ANONYMOUS_IDENTITY_MODE") Security__RiskControl__PublicReadChallenge__Enabled=$(printf '%q' "$RISK_PUBLIC_READ_CHALLENGE_ENABLED") RateLimiting__PublicReadPermitLimit=$(printf '%q' "$PUBLIC_READ_PERMIT_LIMIT") RateLimiting__PublicReadQueueLimit=$(printf '%q' "$PUBLIC_READ_QUEUE_LIMIT") NotificationStream__MaxConnectionsPerAccount=$(printf '%q' "$NOTIFICATION_STREAM_MAX_CONNECTIONS_PER_ACCOUNT") PublicAot__BackfillConcurrency=$(printf '%q' "$PUBLIC_AOT_BACKFILL_CONCURRENCY") PublicAot__SsrWorkerCount=$(printf '%q' "$PUBLIC_AOT_SSR_WORKER_COUNT") PublicAot__SsrWorkerScript=$(printf '%q' "$PUBLIC_AOT_SSR_WORKER_SCRIPT") ActiveReleaseFence__AllowSyntheticLocalFence=true RuntimeTuning__ThreadPool__Enabled=true RuntimeTuning__ThreadPool__MinThreadsPerCpu=$(printf '%q' "$RUNTIME_THREADPOOL_MIN_THREADS_PER_CPU") ASPNETCORE_URLS=http://127.0.0.1:${DEBUG_BACKEND_PORT} ASPNETCORE_ENVIRONMENT=Development CORS_ALLOWED_HOSTS=$(printf '%q' "$CORS_ALLOWED_HOSTS_VALUE") AuthCookies__AllowInsecureTransportCookies=true && exec ./tools/build-with-data-env.sh dotnet run --project src/backend/FsusBlog.Server.csproj --no-launch-profile $runtimeArgs" >"$logFile" 2>&1 </dev/null &
+        nohup "${FSUSBLOG_PYTHON:-python3}" -c 'import os, sys; os.setsid(); os.execvp(sys.argv[1], sys.argv[1:])' bash -lc "cd $(printf '%q' "$ROOT_DIR") && export FSUSBLOG_DATA_ROOT=$(printf '%q' "$TEST_DATA_ROOT") ConnectionStrings__DefaultConnection=$(printf '%q' "$POSTGRES_CONNECTION") ConnectionStrings__Redis=$(printf '%q' "$REDIS_CONNECTION") RedisOptions__Configuration=$(printf '%q' "$REDIS_CONNECTION") RedisOptions__InstanceName=$(printf '%q' "FsusBlog_${NS_SLUG}_") FSUSBLOG_NOTIFICATION_DRILL_SECRET=$(printf '%q' "$NOTIFICATION_DRILL_SECRET") NotificationStream__DrillSecret=$(printf '%q' "$NOTIFICATION_DRILL_SECRET") Jwt__KeyVersion=$(printf '%q' "$JWT_KEY_VERSION") Jwt__SecretKey=$(printf '%q' "$JWT_SECRET") Jwt__Issuer=$(printf '%q' "$JWT_ISSUER") Jwt__Audience=$(printf '%q' "$JWT_AUDIENCE") Jwt__AccessTokenExpiresMinutes=$(printf '%q' "$JWT_ACCESS_TOKEN_EXPIRES_MINUTES") Security__Pow__SigningKey=$(printf '%q' "$POW_SIGNING_KEY") Security__Pow__BaseDifficulty=$(printf '%q' "$POW_BASE_DIFFICULTY") Security__Pow__MaxDifficulty=$(printf '%q' "$POW_MAX_DIFFICULTY") Security__PerceptionSealedToken__CurrentKeyVersion=dev Security__PerceptionSealedToken__Keys__dev=$(printf '%q' "$PERCEPTION_SEALED_TOKEN_KEY") Security__RecoveryKeyPepper=$(printf '%q' "$RECOVERY_KEY_PEPPER") MfaChallenge__TicketSigningKey=$(printf '%q' "$MFA_TICKET_SIGNING_KEY") VisitLog__IpPseudonymization__CurrentEpoch=$(printf '%q' "$VISIT_LOG_IP_KEY_EPOCH") VisitLog__IpPseudonymization__CurrentKey=$(printf '%q' "$VISIT_LOG_IP_KEY") Moderation__Pepper=$(printf '%q' "$MODERATION_PEPPER") Moderation__RegionPolicy__IpHashKey=$(printf '%q' "$MODERATION_REGION_IP_HASH_KEY") Subscription__EmailHashPepper=$(printf '%q' "$SUBSCRIPTION_EMAIL_HASH_PEPPER") AnonymousCredentialIssuer__IssuerPublicKeyId=local-acceptance-issuer AnonymousCredentialIssuer__SubjectHashPepper=$(printf '%q' "$ANONYMOUS_SUBJECT_HASH_PEPPER") AnonymousCredentialRoot__AttestationKey=$(printf '%q' "$ANONYMOUS_ROOT_ATTESTATION_KEY") AnonymousCredentialRoot__AttestationKeyId=local-acceptance-root AnonymousIdentity__NullifierPepper=$(printf '%q' "$ANONYMOUS_NULLIFIER_PEPPER") FSUSBLOG_ANONYMOUS_IDENTITY_MODE=$(printf '%q' "$ANONYMOUS_IDENTITY_MODE") Security__RiskControl__PublicReadChallenge__Enabled=$(printf '%q' "$RISK_PUBLIC_READ_CHALLENGE_ENABLED") RateLimiting__PublicReadPermitLimit=$(printf '%q' "$PUBLIC_READ_PERMIT_LIMIT") RateLimiting__PublicReadQueueLimit=$(printf '%q' "$PUBLIC_READ_QUEUE_LIMIT") NotificationStream__MaxConnectionsPerAccount=$(printf '%q' "$NOTIFICATION_STREAM_MAX_CONNECTIONS_PER_ACCOUNT") PublicAot__BackfillConcurrency=$(printf '%q' "$PUBLIC_AOT_BACKFILL_CONCURRENCY") PublicAot__SsrWorkerCount=$(printf '%q' "$PUBLIC_AOT_SSR_WORKER_COUNT") PublicAot__SsrWorkerScript=$(printf '%q' "$PUBLIC_AOT_SSR_WORKER_SCRIPT") ActiveReleaseFence__AllowSyntheticLocalFence=true RuntimeTuning__ThreadPool__Enabled=true RuntimeTuning__ThreadPool__MinThreadsPerCpu=$(printf '%q' "$RUNTIME_THREADPOOL_MIN_THREADS_PER_CPU") ASPNETCORE_URLS=http://127.0.0.1:${DEBUG_BACKEND_PORT} ASPNETCORE_ENVIRONMENT=Development CORS_ALLOWED_HOSTS=$(printf '%q' "$CORS_ALLOWED_HOSTS_VALUE") AuthCookies__AllowInsecureTransportCookies=true && exec ./tools/build-with-data-env.sh dotnet run --project src/backend/FsusBlog.Server.csproj --no-launch-profile $runtimeArgs" >"$logFile" 2>&1 </dev/null &
     local startedPid=$!
     WriteRuntimePidFile "$pidFile" "$startedPid"
     if ! WriteRuntimeProcessIdentity "$pidFile" "$startedPid" backend "$readinessDeadline"; then
@@ -1919,7 +1952,7 @@ StartBackgroundIfNeeded() {
         FSUSBLOG_RUNTIME_ROLE="$role" \
         FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME="${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" \
         FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID="${FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID:-}" \
-        nohup setsid bash -lc "cd ${escapedClientDir} && exec ${escapedCmd}" >"$logFile" 2>&1 </dev/null &
+        nohup "${FSUSBLOG_PYTHON:-python3}" -c 'import os, sys; os.setsid(); os.execvp(sys.argv[1], sys.argv[1:])' bash -lc "cd ${escapedClientDir} && exec ${escapedCmd}" >"$logFile" 2>&1 </dev/null &
     local startedPid=$!
     WriteRuntimePidFile "$pidFile" "$startedPid"
     if ! WriteRuntimeProcessIdentity "$pidFile" "$startedPid" "$role" "$readinessDeadline"; then
@@ -1928,7 +1961,7 @@ StartBackgroundIfNeeded() {
         return 1
     fi
 
-    while (($(date +%s%3N) < readinessDeadline)); do
+    while (($(NowEpochMs) < readinessDeadline)); do
         if ProbeUrl "$url"; then
             if AdmitDedicatedRuntimePort "$role" "$label" "$pidFile" "$port" 1; then
                 return 0
@@ -2073,6 +2106,7 @@ EnsureReleasePreview() {
             export VITE_API_BASE_URL="$DEBUG_BACKEND_URL"
             export FSUSBLOG_TEST_NAMESPACE
             source "$laneSupport"
+            EnsureWasmReceiptOnce
             RunFrontendFastBuildGroup
         )
     fi
@@ -2125,7 +2159,7 @@ WaitForPowReady() {
     local maxDifficulty="$POW_READY_MAX_DIFFICULTY"
     local difficulty=""
 
-    while (($(date +%s%3N) < EXECUTION_DEADLINE_AT_MS)); do
+    while (($(NowEpochMs) < EXECUTION_DEADLINE_AT_MS)); do
         difficulty="$(CurrentPowDifficulty 2>/dev/null || true)"
         if [[ "$difficulty" =~ ^[0-9]+$ ]] && ((difficulty <= maxDifficulty)); then
             Log "pow difficulty ready: ${difficulty}"

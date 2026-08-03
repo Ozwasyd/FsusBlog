@@ -2,6 +2,8 @@ import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { analyzeHtmlSinks } from '../../../../tools/security/html-sink-ast.mjs'
+
 const repoRoot = fileURLToPath(new URL('../../../../', import.meta.url))
 const srcRoot = resolve(repoRoot, 'src/frontend/src')
 
@@ -19,10 +21,6 @@ const bannedRules = [
     regex: /\b(?:sanitizePreviewHtml|sanitizeMarkdownRuntimeHtml|sanitizeHtmlAllowlist|sanitizeHtmlFallback)\b/g
   }
 ]
-
-const vHtmlWhitelist = new Set()
-
-const publicRendererInnerHtmlWhitelist = new Set()
 
 const cspRuntimeStyleBoundary = 'services/cspStyleRuntime.ts'
 
@@ -53,21 +51,10 @@ function walk(dir) {
       rule.regex.lastIndex = 0
     }
 
-    if (content.includes('v-html=') && !vHtmlWhitelist.has(relativePath)) {
-      violations.push(`${relativePath}: v-html is not in the audited whitelist`)
-    }
-
-    if (
-      relativePath.startsWith('public-renderers/')
-      && /\.innerHTML\s*=/.test(content)
-      && !publicRendererInnerHtmlWhitelist.has(relativePath)
-    ) {
-      violations.push(`${relativePath}: public renderer innerHTML sink is not in the audited whitelist`)
-    }
-
-    if (/(?:markdown|preview|public-renderers)/iu.test(relativePath)
-      && /(?:\bv-html\s*=|\.innerHTML\s*=|\.outerHTML\s*=|insertAdjacentHTML\s*\(|\bsrcdoc\s*=)/u.test(content)) {
-      violations.push(`${relativePath}: Markdown and preview code must not own an HTML sink`)
+    for (const diagnostic of analyzeHtmlSinks(content, { filePath: relativePath })) {
+      violations.push(
+        `${relativePath}:${diagnostic.line}:${diagnostic.column}: forbidden HTML sink ${diagnostic.sink}`
+      )
     }
 
     if (relativePath !== cspRuntimeStyleBoundary) {

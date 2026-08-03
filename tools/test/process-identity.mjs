@@ -7,7 +7,7 @@ import process from 'node:process'
 export const processIdentitySchema = 'fsusblog.process-identity.v1'
 const executableDigestCache = new Map()
 const macProcStartScript = [
-    'import ctypes, sys',
+    'import ctypes, errno, sys',
     'class ProcBsdInfo(ctypes.Structure):',
     '    _fields_ = [',
     "        ('header', ctypes.c_uint32 * 12),",
@@ -23,8 +23,24 @@ const macProcStartScript = [
     'libproc.proc_pidinfo.restype = ctypes.c_int',
     'info = ProcBsdInfo()',
     'size = libproc.proc_pidinfo(int(sys.argv[1]), 3, 0, ctypes.byref(info), ctypes.sizeof(info))',
-    "if size != ctypes.sizeof(info) or info.start_sec <= 0 or info.start_usec >= 1000000: raise OSError(ctypes.get_errno(), 'proc_pidinfo failed')",
+    'if size != ctypes.sizeof(info) or info.start_sec <= 0 or info.start_usec >= 1000000:',
+    '    error_number = ctypes.get_errno()',
+    '    if error_number == errno.ESRCH: sys.exit(3)',
+    "    raise OSError(error_number, 'proc_pidinfo failed')",
     "print(f'{info.start_sec}:{info.start_usec:06d}')"
+].join('\n')
+const macProcPathScript = [
+    'import ctypes, errno, os, sys',
+    "libproc = ctypes.CDLL('/usr/lib/libproc.dylib', use_errno=True)",
+    'libproc.proc_pidpath.argtypes = [ctypes.c_int, ctypes.c_void_p, ctypes.c_uint32]',
+    'libproc.proc_pidpath.restype = ctypes.c_int',
+    'buffer = ctypes.create_string_buffer(4096)',
+    'size = libproc.proc_pidpath(int(sys.argv[1]), buffer, ctypes.sizeof(buffer))',
+    'if size <= 0:',
+    '    error_number = ctypes.get_errno()',
+    '    if error_number == errno.ESRCH: sys.exit(3)',
+    "    raise OSError(error_number, 'proc_pidpath failed')",
+    'print(os.fsdecode(buffer.value))'
 ].join('\n')
 
 function digest(value) {
@@ -92,6 +108,25 @@ export function parseMacProcessIdentityFields({ startIdentity, executablePath, c
     return normalized
 }
 
+function resolveMacExecutablePath(pid, executablePath) {
+    if (pid === process.pid) return fs.realpathSync(process.execPath)
+
+    const candidate = executablePath.trim()
+    if (path.isAbsolute(candidate)) return fs.realpathSync(candidate)
+    if (candidate.includes(path.sep)) return fs.realpathSync(path.resolve(candidate))
+
+    for (const directory of String(process.env.PATH ?? '').split(path.delimiter)) {
+        if (!directory) continue
+        const resolved = path.join(directory, candidate)
+        try {
+            if (fs.statSync(resolved).isFile()) return fs.realpathSync(resolved)
+        } catch {
+            // Continue through PATH; unverifiable identities fail closed below.
+        }
+    }
+    throw new Error(`macOS process executable is not resolvable: ${candidate}`)
+}
+
 function commandIdentity(pid, platform, execute) {
     const script =
         platform === 'win32'
@@ -112,15 +147,16 @@ function commandIdentity(pid, platform, execute) {
     }
     const parsed = parseMacProcessIdentityFields({
         startIdentity: execute('/usr/bin/python3', ['-c', macProcStartScript, String(pid)], { encoding: 'utf8' }),
-        executablePath: execute('ps', ['-ww', '-o', 'comm=', '-p', String(pid)], { encoding: 'utf8' }),
+        executablePath: execute('/usr/bin/python3', ['-c', macProcPathScript, String(pid)], { encoding: 'utf8' }),
         command: execute('ps', ['-ww', '-o', 'command=', '-p', String(pid)], { encoding: 'utf8' })
     })
+    const executablePath = resolveMacExecutablePath(pid, parsed.executablePath)
     return {
         schema: processIdentitySchema,
         pid,
         processStartIdentity: `darwin:${parsed.startIdentity}`,
-        executablePath: parsed.executablePath,
-        executableDigest: executableDigest(parsed.executablePath),
+        executablePath,
+        executableDigest: executableDigest(executablePath),
         commandDigest: digest(parsed.command)
     }
 }
@@ -134,10 +170,17 @@ export function collectProcessIdentity(
         const identity = platform === 'linux' ? linuxIdentity(pid, procRoot) : commandIdentity(pid, platform, execute)
         return { status: 'verified', ...identity }
     } catch (error) {
+        const detail = error && typeof error === 'object'
+            ? `${error.message ?? ''}\n${error.stderr ?? ''}`
+            : String(error)
+        const code = platform === 'darwin'
+            && (error?.status === 3 || /ProcessLookupError:\s*\[Errno 3\]\s*proc_pidinfo failed/u.test(detail))
+            ? 'ESRCH'
+            : (error && typeof error === 'object' ? (error.code ?? null) : null)
         return {
             status: 'unverifiable',
             pid,
-            code: error && typeof error === 'object' ? (error.code ?? null) : null,
+            code,
             reason: error instanceof Error ? error.message : String(error)
         }
     }
@@ -217,6 +260,12 @@ export function collectProcessGroupOrJobIdentity(
         }
         throw new Error(`unsupported process-group platform: ${platform}`)
     } catch (error) {
+        if (platform === 'darwin') {
+            const current = collectProcessIdentity(pid, { platform, procRoot, execute })
+            if (current.status === 'unverifiable' && ['ENOENT', 'ESRCH'].includes(current.code)) {
+                return { status: 'dead', reason: 'process exited while process-group identity was collected' }
+            }
+        }
         return { status: 'unverifiable', reason: error instanceof Error ? error.message : String(error) }
     }
 }
