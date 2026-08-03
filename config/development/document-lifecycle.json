@@ -780,18 +780,6 @@
             "supersededBy": null
         },
         {
-            "path": "docs/development/issue-orchestration-scope.md",
-            "status": "current",
-            "owner": "governance",
-            "relatedIssues": [
-                1816,
-                1817,
-                1825
-            ],
-            "supersedes": [],
-            "supersededBy": null
-        },
-        {
             "path": "docs/development/frontend-style-enforcement.md",
             "status": "current",
             "owner": "governance",

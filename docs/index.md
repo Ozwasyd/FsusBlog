@@ -243,7 +243,6 @@
 - [DocClaim protocol](development/doc-claim-protocol.md)
 - [Documentation Lifecycle](development/document-lifecycle.md)
 - [Frontend style enforcement](development/frontend-style-enforcement.md)
-- [Issue orchestration scope and remote snapshot](development/issue-orchestration-scope.md)
 - [Native and tooling style enforcement](development/native-tooling-style-enforcement.md)
 - [Internationalization](i18n.md)
 - [Known Limitations](known-limitations.md)

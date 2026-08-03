@@ -6,12 +6,7 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 const skillRoot = path.resolve(import.meta.dirname, '..')
-const repositoryRoot = path.resolve(skillRoot, '../../..')
 const contractRoot = path.resolve(skillRoot, 'contracts')
-const fixtureRoot = path.resolve(
-    repositoryRoot,
-    'tests/fixtures/issue-orchestration'
-)
 const policyPath = path.resolve(contractRoot, 'blog-ui-stage-policy.json')
 const schemaNames = [
     'fsusui-baseline-identity.schema.json',
@@ -955,7 +950,7 @@ export function runBlogUiSelfCheck() {
     }
     validateBlogUiBundle(createValidBlogUiBundle())
     const controls = JSON.parse(readFileSync(path.resolve(
-        fixtureRoot,
+        contractRoot,
         'blog-ui-orchestration-negative-controls.json'
     ), 'utf8'))
     for (const control of controls) {
