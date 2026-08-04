@@ -100,6 +100,33 @@ function resolveAdminManualChunk(id: string): string | undefined {
     return undefined
 }
 
+function bindMarkdownFeatureTrustedTypes(): Plugin {
+    const gatewaySuffix = '/packages/wasm/markdown-feature-output-gateway.ts'
+    const rawSink = 'template.innerHTML = output.payload'
+    const trustedSink = 'template.innerHTML = toTrustedMarkdownFeatureHtml(output) as string'
+    return {
+        name: 'bind-markdown-feature-trusted-types',
+        enforce: 'pre',
+        transform(source, id) {
+            const normalizedId = id.replaceAll('\\', '/').split('?')[0]
+            if (!normalizedId.endsWith(gatewaySuffix)) {
+                return
+            }
+            const occurrences = source.split(rawSink).length - 1
+            if (occurrences !== 1) {
+                throw new Error(`markdown_feature_trusted_types_sink_not_unique:${occurrences}`)
+            }
+            return {
+                code: [
+                    "import { toTrustedMarkdownFeatureHtml } from '@/security/trustedTypesRuntime'",
+                    source.replace(rawSink, trustedSink)
+                ].join('\n'),
+                map: null
+            }
+        }
+    }
+}
+
 function resolveLocaleDomainChunk(id: string): string | undefined {
     const localeDomain = localeDomainChunkPattern.exec(id)
     return localeDomain ? `locale-${localeDomain[1]}-${localeDomain[2]}` : undefined
@@ -137,7 +164,8 @@ function resolveManualChunk(id: string): string | undefined {
             id.includes('/src/public-renderers/publicRouteRegistry.ts') ||
             id.includes('/src/public-renderers/publicRoutePaths.ts') ||
             id.includes('/src/public-renderers/publicFixedPageSemantics.ts') ||
-            id.includes('/src/public-renderers/generated/publicPageManifest.ts')
+            id.includes('/src/public-renderers/generated/publicPageManifest.ts') ||
+            id.includes('/src/router/routeTitleContract.ts')
         ) {
             return 'public-route-core'
         }
@@ -362,6 +390,32 @@ function servePublicAotHydrationSidecars() {
     }
 }
 
+function serveReleaseScopedPreviewAssets() {
+    const releaseAssetPathPattern =
+        /^\/release-assets\/\d{14}-[0-9a-f]{12}(?=\/|$)/u
+    const rewriteReleaseAssetRequest = (
+        request: any,
+        _response: any,
+        next: () => void
+    ) => {
+        const requestUrl = request.url ?? '/'
+        const [pathname, suffix = ''] = requestUrl.split(/(?=[?#])/u, 2)
+        const match = releaseAssetPathPattern.exec(pathname)
+        if (match) {
+            request.url = `${pathname.slice(match[0].length) || '/'}${suffix}`
+        }
+        next()
+    }
+
+    return {
+        name: 'serve-release-scoped-preview-assets',
+        apply: 'serve' as const,
+        configurePreviewServer(server: any) {
+            server.middlewares.use(rewriteReleaseAssetRequest)
+        }
+    }
+}
+
 function rejectRetiredBrandEntrypoints() {
     const retiredBrandEntrypointPaths = new Set([
         '/favicon.svg',
@@ -471,7 +525,7 @@ function productionManifestOwnerModuleId(owner: string): string {
     return `${productionManifestOwnerResolvedPrefix}${owner}`
 }
 
-function preserveProductionManifestOwners(): Plugin {
+function preserveProductionManifestOwners(validateOwners: boolean): Plugin {
     const styleByOwner = new Map(
         productionManifestStyleOwners.map((style) => [style.owner, style])
     )
@@ -531,6 +585,18 @@ function preserveProductionManifestOwners(): Plugin {
             for (const output of Object.values(bundle)) {
                 if (output.type === 'chunk' && output.name === 'publicBootKernel') {
                     output.isEntry = false
+                }
+            }
+
+            if (!validateOwners) {
+                return
+            }
+
+            for (const owner of owners) {
+                const matches = Object.values(bundle)
+                    .filter((output) => output.type === 'chunk' && output.name === owner)
+                if (matches.length !== 1) {
+                    throw new Error(`production_manifest_owner_not_unique:${owner}:${matches.length}`)
                 }
             }
         }
@@ -703,10 +769,12 @@ export default defineConfig(({ command, mode }) => {
             applyDevelopmentSecurityHeaders(),
             rejectRetiredBrandEntrypoints(),
             injectPublicSourceCssInDev(),
-            preserveProductionManifestOwners(),
+            preserveProductionManifestOwners(!isPublicSsrBuild),
+            bindMarkdownFeatureTrustedTypes(),
             fixViteClientWorkerDocumentGuard(),
             serveFsusUiOptimizedWasmAssets(fsusUiWasmDist),
             servePublicAotHydrationSidecars(),
+            serveReleaseScopedPreviewAssets(),
             tailwindcss(),
             vue(),
             vueJsx(),
@@ -813,6 +881,12 @@ export default defineConfig(({ command, mode }) => {
                                         priority: 120,
                                         minSize: 0
                                     })),
+                                    {
+                                        name: 'markdown-adapter',
+                                        test: /[\\/]src[\\/]fsusui[\\/]markdown\.ts$/u,
+                                        priority: 115,
+                                        minSize: 0
+                                    },
                                     {
                                         name: 'entry-runtime',
                                         test: (moduleId: string) =>

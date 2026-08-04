@@ -34,7 +34,9 @@ public static class WebApplicationBuilderCompositionExtensions
         return builder;
     }
 
-    public static WebApplicationBuilder ConfigureFsusApplication(this WebApplicationBuilder builder)
+    public static WebApplicationBuilder ConfigureFsusApplication(
+        this WebApplicationBuilder builder,
+        TimeProvider? businessTimeProvider = null)
     {
         builder.Host.UseDefaultServiceProvider(static (_, options) =>
             FsusServiceProviderValidation.Configure(options));
@@ -64,7 +66,7 @@ public static class WebApplicationBuilderCompositionExtensions
         });
 
         builder.Services
-            .AddFsusApiFoundation(builder.Configuration)
+            .AddFsusApiFoundation(builder.Configuration, businessTimeProvider)
             .AddFsusRuntimeServices(builder.Configuration)
             .AddFsusObservability(builder.Configuration, builder.Environment)
             .AddFsusRateLimiting()

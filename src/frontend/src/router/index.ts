@@ -147,11 +147,13 @@ function isSameAccountShellChildSwitch(to: RouteLocationNormalized, from: RouteL
 
 function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): void {
   type LocaleTransaction = Awaited<ReturnType<LocaleRoutePreparationPort>>
+  type LocaleSnapshot = LocaleTransaction['snapshot']
   let acceptedLocaleTransaction: LocaleTransaction | null = null
 
   const runApplicationRouteGuard = async (
     to: RouteLocationNormalized,
-    from: RouteLocationNormalized
+    from: RouteLocationNormalized,
+    preparedLocaleSnapshot?: LocaleSnapshot
   ) => {
     if (isPublicSearchRouteName(to.name)) {
       const normalized = normalizePublicSearchQuery(to.query)
@@ -235,7 +237,10 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
         return false
       }
 
-      const prewarm = await options.prewarmPublicRoute(to.fullPath, { reason: 'atomic-navigation' })
+      const prewarm = await options.prewarmPublicRoute(to.fullPath, {
+        reason: 'atomic-navigation',
+        ...(preparedLocaleSnapshot ? { preparedLocaleSnapshot } : {})
+      })
       if (prewarm.status !== 'ready') {
         window.location.assign(to.fullPath)
         return false
@@ -327,7 +332,7 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
 
     const transaction = await prepareLocaleRoute(options.prepareLocaleDomains, to)
     try {
-      const result = await runApplicationRouteGuard(to, from)
+      const result = await runApplicationRouteGuard(to, from, transaction.snapshot)
       if (result !== true && result !== undefined) {
         transaction.rollback()
         return result

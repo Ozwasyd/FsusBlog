@@ -19,7 +19,12 @@ import {
   type PublicNavigationSnapshotEnvelope
 } from '@/router/publicRoutePreload'
 import { getLocaleDescriptor, LOCALE_CATALOG_DIGEST } from '@/locales/localeCatalog'
-import { activeLocale, resetLocaleRuntimeForTests, type SupportedLocale } from '@/locales'
+import {
+  activateLocaleRuntime,
+  activeLocale,
+  resetLocaleRuntimeForTests,
+  type SupportedLocale
+} from '@/locales'
 import {
   computePublicSeoHeadDigest,
   resetPublicSeoHeadForTests,
@@ -255,6 +260,61 @@ describe('public route prewarm', () => {
       seedReady: true
     })
     expect(activeLocale.value).toBe('ja-JP')
+  })
+
+  it('accepts a matching staged route-locale snapshot without a nested runtime commit', async () => {
+    await activateLocaleRuntime('zh-CN', ['common', 'layout', 'public'])
+    const envelope = await createArchiveEnvelope('ja-JP')
+    const prewarm = createPublicRoutePrewarmer({
+      routePreloads: [{
+        kind: 'Archive',
+        name: 'Archive',
+        match: (url) => url.pathname === '/archive',
+        preloadComponent: vi.fn(async () => ({ default: {} }))
+      }],
+      fetchNavigationSnapshot: vi.fn(async () => snapshotBytes(envelope)),
+      preloadStyle: vi.fn(async () => {}),
+      lifetimeSignal: () => new AbortController().signal
+    })
+
+    await expect(prewarm.prewarm('/archive', {
+      reason: 'atomic-navigation',
+      preparedLocaleSnapshot: {
+        locale: 'ja-JP',
+        domains: ['common', 'layout', 'public']
+      }
+    })).resolves.toMatchObject({
+      status: 'ready',
+      seedReady: true
+    })
+    expect(activeLocale.value).toBe('zh-CN')
+  })
+
+  it('rejects a staged route-locale snapshot that omits a required domain', async () => {
+    const envelope = await createArchiveEnvelope('ja-JP')
+    const prewarm = createPublicRoutePrewarmer({
+      routePreloads: [{
+        kind: 'Archive',
+        name: 'Archive',
+        match: (url) => url.pathname === '/archive',
+        preloadComponent: vi.fn(async () => ({ default: {} }))
+      }],
+      fetchNavigationSnapshot: vi.fn(async () => snapshotBytes(envelope)),
+      preloadStyle: vi.fn(async () => {}),
+      lifetimeSignal: () => new AbortController().signal
+    })
+
+    await expect(prewarm.prewarm('/archive', {
+      reason: 'atomic-navigation',
+      preparedLocaleSnapshot: {
+        locale: 'ja-JP',
+        domains: ['common', 'layout']
+      }
+    })).resolves.toMatchObject({
+      status: 'failure',
+      seedReady: false
+    })
+    expect(consumePublicRouteSeed('Archive', { fullPath: '/archive' })).toBeNull()
   })
 
   it('rejects a tampered locale identity before committing a route seed', async () => {
@@ -787,6 +847,42 @@ describe('public route prewarm', () => {
       seedReady: true
     })
     expect(events).toContain('public_route_prewarm_ready')
+  })
+
+  it('times out when a non-abortable component import never settles', async () => {
+    const events: string[] = []
+    const envelope = await createArchiveEnvelope()
+    const componentStarted = deferredMarker()
+    const prewarm = createPublicRoutePrewarmer({
+      routePreloads: [{
+        kind: 'Archive',
+        name: 'Archive',
+        match: (url) => url.pathname === '/archive',
+        preloadComponent: vi.fn(() => {
+          componentStarted.mark()
+          return new Promise(() => {})
+        })
+      }],
+      fetchNavigationSnapshot: vi.fn(async () => snapshotBytes(envelope)),
+      preloadStyle: vi.fn(async () => {}),
+      emitTelemetry: (name) => events.push(name),
+      lifetimeSignal: () => new AbortController().signal,
+      timeoutMs: 10
+    })
+
+    const task = prewarm.prewarm('/archive', {
+      reason: 'atomic-navigation',
+      nowMs: 1_000
+    })
+    await componentStarted.promise
+
+    await expect(task).resolves.toMatchObject({
+      status: 'timeout',
+      routeComponentReady: false,
+      seedReady: false
+    })
+    expect(events).toContain('public_route_prewarm_timeout')
+    expect(consumePublicRouteSeed('Archive', { fullPath: '/archive' }, { nowMs: 1_001 })).toBeNull()
   })
 
   it('does not leave a consumable seed when the component producer fails after snapshot starts', async () => {

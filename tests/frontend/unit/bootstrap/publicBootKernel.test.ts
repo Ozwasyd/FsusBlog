@@ -107,7 +107,10 @@ describe('public boot kernel browser scheduling', () => {
 
     expect(window.cancelIdleCallback).toHaveBeenCalledWith(17)
     expect(entryScripts(), document.documentElement.outerHTML).toHaveLength(1)
-    expect(document.getElementById('fsus-public-boot-handoff')?.textContent).toContain('pointerdown')
+    const handoff = document.getElementById('fsus-public-boot-handoff')
+    expect(handoff?.tagName).toBe('DIV')
+    expect(handoff?.hidden).toBe(true)
+    expect(handoff?.textContent).toContain('pointerdown')
     expect(timerCallbacks.size).toBe(0)
   })
 
@@ -296,6 +299,20 @@ describe('public boot kernel browser scheduling', () => {
     expect(entryScripts()).toHaveLength(0)
     expect(document.getElementById('fsus-public-boot-config')).toBeNull()
     expect(timerCallbacks.size).toBe(0)
+  })
+
+  it('creates the CSP-authorized SPA entry Trusted Types policy', async () => {
+    const createPolicy = vi.fn((_name: string, rules: TrustedTypePolicyRules) => rules)
+    Object.defineProperty(window, 'trustedTypes', {
+      configurable: true,
+      value: { createPolicy }
+    })
+
+    await boot()
+    dispatchIntent('pointerdown')
+
+    expect(createPolicy).toHaveBeenCalledWith('fsusblog-spa-entry', expect.any(Object))
+    expect(entryScripts()).toHaveLength(1)
   })
 
   it('fails closed for an existing entry whose build identity is absent or stale', async () => {

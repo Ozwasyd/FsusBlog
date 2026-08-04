@@ -203,7 +203,7 @@ else
             trustedTypes?: TrustedTypePolicyFactoryLike;
         }).trustedTypes;
         trustedUrl = trustedTypesFactory?.createPolicy
-            ? trustedTypesFactory.createPolicy('fsusblog-public-boot', {
+            ? trustedTypesFactory.createPolicy('fsusblog-spa-entry', {
                 createScriptURL(value)
                 {
                     if (!trustedSources.has(value))
@@ -306,9 +306,9 @@ else
     function writeHandoff(intent: PublicBootIntent | null): void
     {
         document.getElementById(handoffElementId)?.remove();
-        const carrier = document.createElement('script');
+        const carrier = document.createElement('div');
         carrier.id = handoffElementId;
-        carrier.type = 'application/json';
+        carrier.hidden = true;
         carrier.textContent = JSON.stringify({
             schema: PUBLIC_BOOT_HANDOFF_SCHEMA,
             frontendBuildIdentity: config.frontendBuildIdentity,

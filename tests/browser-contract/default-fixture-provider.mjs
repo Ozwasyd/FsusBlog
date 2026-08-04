@@ -11,6 +11,7 @@ import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { loadTemporalContext } from '../../tools/test/temporal-context.mjs';
+import { releaseProductionBuildConsumer } from '../../tools/ci/production-build-artifacts.mjs';
 import { cleanupLocalRuntime } from '../../tools/test-matrix/local-runtime-cleanup.mjs';
 
 const responseSchema = 'fsusblog.browser-contract-fixture-provider-response.v1';
@@ -579,6 +580,57 @@ async function pathExists(value)
     }
 }
 
+export async function retryLocalRuntimeCleanup(operation, {
+    attempts = 5,
+    delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds))
+} = {})
+{
+    let lastError = null;
+    for (let attempt = 0; attempt < attempts; attempt += 1)
+    {
+        try
+        {
+            return operation();
+        }
+        catch (error)
+        {
+            lastError = error;
+            if (!['EBUSY', 'ENOTEMPTY', 'ENOENT'].includes(error?.code) || attempt + 1 >= attempts)
+            {
+                throw error;
+            }
+            await delay(50 * (attempt + 1));
+        }
+    }
+    throw lastError;
+}
+
+async function waitForOwnedContainersAbsent(observedBefore, expectedContainers, timeoutMs = 8_000)
+{
+    const deadline = Date.now() + timeoutMs;
+    while (true)
+    {
+        const observations = await Promise.all([
+            ...[...observedBefore.values()].flatMap((observed) => [
+                inspectContainerIdOptional(observed.id),
+                inspectContainerOptional(observed.name)
+            ]),
+            ...expectedContainers
+                .filter((expected) => !observedBefore.has(expected.name))
+                .map((expected) => inspectContainerOptional(expected.name))
+        ]);
+        if (observations.every((observation) => !observation))
+        {
+            return true;
+        }
+        if (Date.now() >= deadline)
+        {
+            return false;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+}
+
 function runtimeRecoveryPaths(request)
 {
     const namespace = request.identity.namespace;
@@ -691,21 +743,67 @@ async function cleanupOwnedRuntime(request, state = null)
             }
         }
     }
-    const result = cleanupLocalRuntime({
+    const cleanupRuntime = () => cleanupLocalRuntime({
         root: repoRoot,
         namespace: request.identity.namespace,
+        dedicatedTerminationGraceMs: 8_000,
         removeContainer: (containerId, { name, inspected } = {}) => removeVerifiedContainerById(containerId, {
             name,
             inspected,
             expected: observedBefore.get(name)
         })
     });
+    let result = await retryLocalRuntimeCleanup(cleanupRuntime);
     // The local runtime manifest is recovery evidence, not the ownership source.
     // It may be absent or only partially written after bootstrap fails. Always
     // compensate from the full IDs whose state, labels, image, and name were
     // verified above; the helper refuses to touch a same-name replacement.
     const compensation = compensateVerifiedContainerCleanup(observedBefore.values());
     const compensationFailures = compensation.filter((entry) => entry.removed !== true);
+    if (!await waitForOwnedContainersAbsent(observedBefore, expectedContainers))
+    {
+        for (const observed of observedBefore.values())
+        {
+            if (await inspectContainerIdOptional(observed.id))
+            {
+                fail(`owned container id survived cleanup: ${observed.id}`);
+            }
+            if (await inspectContainerOptional(observed.name))
+            {
+                fail(`owned container name survived cleanup: ${observed.name}`);
+            }
+        }
+        for (const expected of expectedContainers)
+        {
+            if (!observedBefore.has(expected.name) && await inspectContainerOptional(expected.name))
+            {
+                fail(`owned container name appeared during cleanup: ${expected.name}`);
+            }
+        }
+        fail('owned containers survived cleanup without an attributable identity');
+    }
+    if (result.retainedRuntimeState
+    || result.skippedContainers.length > 0
+    || result.containerCleanupFailures.length > 0
+    || result.cleanupStatus !== 'complete'
+    || compensationFailures.length > 0)
+    {
+        const terminatedPids = new Set(result.terminatedPids ?? []);
+        for (let attempt = 0; attempt < 4; attempt += 1)
+        {
+            await new Promise((resolve) => setTimeout(resolve, 50 * (attempt + 1)));
+            result = await retryLocalRuntimeCleanup(cleanupRuntime);
+            for (const pid of result.terminatedPids ?? [])
+            {
+                terminatedPids.add(pid);
+            }
+            if (!result.retainedRuntimeState)
+            {
+                break;
+            }
+        }
+        result.terminatedPids = [...terminatedPids];
+    }
     const skippedProcesses = result.skippedProcesses ?? [];
     const skippedPids = skippedProcesses
         .map((entry) => entry?.pid)
@@ -728,25 +826,64 @@ async function cleanupOwnedRuntime(request, state = null)
     const success = result.skippedContainers.length === 0
     && skippedProcesses.length === 0
     && result.containerCleanupFailures.length === 0
-    && compensationFailures.length === 0
     && result.cleanupStatus === 'complete'
     && files.status === 'success';
-    for (const observed of observedBefore.values())
+    let buildConsumer = {
+        status: 'retained',
+        runId: state?.runtimeRunId ?? null,
+        consumerId: request.identity.namespace
+    };
+    if (success && state?.runtimeRunId)
     {
-        if (await inspectContainerIdOptional(observed.id))
+        const relativeReceipt = String(request.build?.receipt ?? '').trim();
+        const receiptFile = assertInside(
+            repoRoot,
+            path.resolve(repoRoot, relativeReceipt),
+            'immutable build receipt');
+        const artifactRoot = path.dirname(receiptFile);
+        const leaseIdentity = `${state.runtimeRunId}--${request.identity.namespace}`;
+        if (!/^[A-Za-z0-9._-]+--[A-Za-z0-9._-]+$/u.test(leaseIdentity))
         {
-            fail(`owned container id survived cleanup: ${observed.id}`);
+            fail('production build consumer lease identity is unsafe');
         }
-        if (await inspectContainerOptional(observed.name))
+        const leaseFile = path.join(`${artifactRoot}.state`, 'consumers', `${leaseIdentity}.json`);
+        if (await pathExists(leaseFile))
         {
-            fail(`owned container name survived cleanup: ${observed.name}`);
+            const lease = JSON.parse(await readFile(leaseFile, 'utf8'));
+            if (lease.status === 'active')
+            {
+                releaseProductionBuildConsumer({
+                    artifactRoot,
+                    runId: state.runtimeRunId,
+                    consumerId: request.identity.namespace,
+                    reason: 'browser-contract-cleanup'
+                });
+                buildConsumer = {
+                    status: 'success',
+                    runId: state.runtimeRunId,
+                    consumerId: request.identity.namespace
+                };
+            }
+            else if (lease.status === 'released')
+            {
+                buildConsumer = {
+                    status: 'already-released',
+                    runId: state.runtimeRunId,
+                    consumerId: request.identity.namespace
+                };
+            }
+            else
+            {
+                fail('production build consumer lease has invalid status');
+            }
         }
-    }
-    for (const expected of expectedContainers)
-    {
-        if (!observedBefore.has(expected.name) && await inspectContainerOptional(expected.name))
+        else
         {
-            fail(`owned container name appeared during cleanup: ${expected.name}`);
+            buildConsumer = {
+                status: 'already-absent',
+                runId: state.runtimeRunId,
+                consumerId: request.identity.namespace
+            };
         }
     }
     return {
@@ -769,7 +906,8 @@ async function cleanupOwnedRuntime(request, state = null)
                 skippedProcesses,
                 retainedRuntimeState: result.retainedRuntimeState === true
             },
-            files
+            files,
+            buildConsumer
         }
     };
 }
@@ -801,6 +939,17 @@ async function bootstrapDedicatedRuntime(request)
         }
     };
     await writePrivateJson(providerStateFile(request), state);
+    const staticWebAssetsManifest = path.join(
+        request.resources.fixtureRoot,
+        'empty-staticwebassets.runtime.json');
+    await writePrivateJson(staticWebAssetsManifest, {
+        ContentRoots: [],
+        Root: {
+            Children: null,
+            Asset: null,
+            Patterns: null
+        }
+    });
     const env = { ...process.env };
     const inheritedBuildRoot = String(env.FSUSBLOG_PRODUCTION_BUILD_ROOT ?? '').trim();
     const consumerBuildRoot = path.join(request.resources.fixtureRoot, 'production-build');
@@ -825,6 +974,7 @@ async function bootstrapDedicatedRuntime(request)
         'FSUSBLOG_DEBUG_BACKEND_URL',
         'FSUSBLOG_DEBUG_FRONTEND_URL',
         'FSUSBLOG_RELEASE_PREVIEW_URL',
+        'CORS_ALLOWED_HOSTS',
         'FSUSBLOG_POSTGRES_CONTAINER_NAME',
         'FSUSBLOG_REDIS_CONTAINER_NAME',
         'FSUSBLOG_PG_CONTAINER',
@@ -833,8 +983,13 @@ async function bootstrapDedicatedRuntime(request)
         'FSUSBLOG_PRODUCTION_BUILD_ROOT',
         'FSUSBLOG_FRONTEND_DIST_ROOT',
         'FSUSBLOG_FRONTEND_CACHE_ROOT',
+        'FSUSBLOG_WEB_ROOT',
+        'FSUSBLOG_BACKEND_WEBROOT',
         'ASPNETCORE_WEBROOT',
+        'ASPNETCORE_STATICWEBASSETS',
         'FSUSBLOG_RETENTION_WEBROOT_DIR',
+        'PublicAot__SsrClientRoot',
+        'PublicAot__SsrWorkerScript',
         'FSUSBLOG_TEST_SESSION',
         'FSUSBLOG_TEMPORAL_CONTEXT_FILE',
         'FSUSBLOG_TEMPORAL_CONTEXT_JSON',
@@ -843,6 +998,11 @@ async function bootstrapDedicatedRuntime(request)
     ])
     {
         delete env[key];
+    }
+    const consumerWebRoot = path.join(consumerBuildRoot, 'frontend', 'wwwroot');
+    if (!consumerWebRoot.startsWith(`${consumerBuildRoot}${path.sep}`))
+    {
+        fail('dedicated acceptance runtime web root is outside its consumer build root');
     }
     Object.assign(env, {
         ...buildEnvironment,
@@ -855,6 +1015,16 @@ async function bootstrapDedicatedRuntime(request)
         FSUSBLOG_FIXTURE_ROOT: request.resources.fixtureRoot,
         FSUSBLOG_ACCEPTANCE_FIXTURE_ROOT: path.dirname(request.resources.fixtureRoot),
         FSUSBLOG_PRODUCTION_BUILD_ROOT: consumerBuildRoot,
+        FSUSBLOG_WEB_ROOT: consumerWebRoot,
+        FSUSBLOG_BACKEND_WEBROOT: consumerWebRoot,
+        ASPNETCORE_WEBROOT: consumerWebRoot,
+        ASPNETCORE_STATICWEBASSETS: staticWebAssetsManifest,
+        FSUSBLOG_RETENTION_WEBROOT_DIR: consumerWebRoot,
+        FSUSBLOG_PUBLIC_AOT_SSR_CLIENT_ROOT: consumerWebRoot,
+        FSUSBLOG_PUBLIC_AOT_SSR_WORKER_SCRIPT:
+            './server/server-public-ssr.bundle.mjs',
+        PublicAot__SsrClientRoot: consumerWebRoot,
+        PublicAot__SsrWorkerScript: './server/server-public-ssr.bundle.mjs',
         FSUSBLOG_PLAYWRIGHT_SESSION_MODE: 'legacy-parallel',
         FSUSBLOG_PLAYWRIGHT_WORKERS: '1',
         FSUSBLOG_PLAYWRIGHT_SESSION_PREP_CONCURRENCY: '1',
@@ -1091,6 +1261,31 @@ RETURNING id;
     };
 }
 
+export async function retryVerifiedCleanup(operation, {
+    attempts = 4,
+    delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds))
+} = {})
+{
+    let lastError = null;
+    for (let attempt = 0; attempt < attempts; attempt += 1)
+    {
+        try
+        {
+            return await operation();
+        }
+        catch (error)
+        {
+            lastError = error;
+            if (attempt + 1 >= attempts)
+            {
+                throw error;
+            }
+            await delay(100 * (attempt + 1));
+        }
+    }
+    throw lastError;
+}
+
 async function respond(request)
 {
     switch (request.operation)
@@ -1103,8 +1298,13 @@ async function respond(request)
             }
             if (request.phase === 'cleanup')
             {
-                const state = await readProviderStateOptional(request);
-                return { cleanup: await cleanupOwnedRuntime(request, state) };
+                return {
+                    cleanup: await retryVerifiedCleanup(async () =>
+                    {
+                        const state = await readProviderStateOptional(request);
+                        return await cleanupOwnedRuntime(request, state);
+                    })
+                };
             }
             fail('resetContractNamespace phase is invalid');
             break;

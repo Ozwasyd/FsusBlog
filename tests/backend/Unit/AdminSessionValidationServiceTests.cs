@@ -56,6 +56,30 @@ public sealed class AdminSessionValidationServiceTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    public async Task ValidateAsync_UsesInjectedBusinessClockForExpiry()
+    {
+        string connectionString = await CreateConnectionStringAsync();
+        const string Token = "business-clock-admin-token";
+        DateTimeOffset businessNow = new(2026, 6, 2, 12, 0, 0, TimeSpan.Zero);
+        AdminSession session = CreateSession(accessTokenHash: HashForStorage(Token));
+        session.IdleExpiresAtUtc = businessNow.UtcDateTime.AddMinutes(10);
+        session.AbsoluteExpiresAtUtc = businessNow.UtcDateTime.AddHours(1);
+
+        using SqlSugarClient db = CreateDb(connectionString);
+        Seed(db, CreatePrincipal(status: AdminPrincipalStatus.Active), session);
+        var service = new AdminSessionValidationService(
+            db,
+            timeProvider: new TestBusinessTimeProvider(businessNow));
+
+        AdminSessionValidationResult result = await service.ValidateAsync(
+            CreateClaimsPrincipal(1, "sid-1"),
+            Token,
+            CancellationToken.None);
+
+        Assert.True(result.IsValid, result.Reason);
+    }
+
+    [Fact]
     public async Task ValidateCurrentSessionAfterTouchConflict_AllowsConcurrentLastSeenUpdate()
     {
         string connectionString = await CreateConnectionStringAsync();

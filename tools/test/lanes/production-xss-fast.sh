@@ -12,6 +12,8 @@ export FSUSBLOG_TEST_BUSINESS_EPOCH_UTC="${FSUSBLOG_TEST_BUSINESS_EPOCH_UTC:-202
 export FSUSBLOG_TEST_POSTGRES_TIMEZONE="UTC"
 export FSUSBLOG_TEST_BACKEND_CULTURE="Invariant"
 export FSUSBLOG_TEST_NODE_TIMEZONE="UTC"
+export ArticleMutationOutbox__Enabled="false"
+export PublicContentFixture__SecurityMatrixOwnsOutbox="true"
 export TZ="UTC"
 TEMPORAL_CONTEXT_FILE="$ROOT_DIR/.tmp/production-xss/fast-temporal-context.json"
 mkdir -p "$(dirname "$TEMPORAL_CONTEXT_FILE")"

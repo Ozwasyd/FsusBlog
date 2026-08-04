@@ -11,9 +11,19 @@ function responseHeaders(response) {
 }
 
 export function retryablePublicAotDelayMs(response) {
-  if (responseStatus(response) !== 503) return null
-
+  const status = responseStatus(response)
   const headers = responseHeaders(response)
+  if (status === 410) {
+    const revokedGeneration = headers['x-fsus-revoked'] ?? ''
+    const cacheControl = String(headers['cache-control'] ?? '').toLowerCase()
+    return /^g[1-9]\d*$/u.test(revokedGeneration)
+      && cacheControl.includes('no-store')
+      && cacheControl.includes('no-cache')
+      ? 250
+      : null
+  }
+  if (status !== 503) return null
+
   const retryAfter = headers['retry-after'] ?? ''
   if (!/^\d+$/u.test(retryAfter) || Number(retryAfter) <= 0) return null
   if (headers['x-fsus-public-aot-source'] !== 'server-status') return null
@@ -24,12 +34,26 @@ export function retryablePublicAotDelayMs(response) {
   return Number(retryAfter) * 1_000
 }
 
+export function isRetryablePublicAotTransportError(error) {
+  const message = error instanceof Error ? error.message : String(error ?? '')
+  if (message.includes('NS_ERROR_NET_EMPTY_RESPONSE')
+    || message.includes('net::ERR_EMPTY_RESPONSE')) {
+    return true
+  }
+
+  const interrupted = message.match(
+    /Navigation to "([^"]+)" is interrupted by another navigation to "([^"]+)"/u
+  )
+  return interrupted !== null && interrupted[1] === interrupted[2]
+}
+
 export async function navigateThroughRetryablePublicAot({
   navigate,
   sleep,
   deadlineAtMs,
   now = Date.now,
-  onRetryableResponse = null
+  onRetryableResponse = null,
+  onRetryableError = null
 }) {
   if (typeof navigate !== 'function' || typeof sleep !== 'function') {
     throw new TypeError('public AOT navigation requires navigate and sleep functions')
@@ -37,12 +61,31 @@ export async function navigateThroughRetryablePublicAot({
   if (onRetryableResponse !== null && typeof onRetryableResponse !== 'function') {
     throw new TypeError('public AOT navigation retry observer must be a function')
   }
+  if (onRetryableError !== null && typeof onRetryableError !== 'function') {
+    throw new TypeError('public AOT navigation error retry observer must be a function')
+  }
   if (!Number.isFinite(deadlineAtMs) || deadlineAtMs <= now()) {
     throw new TypeError('public AOT navigation requires a future runtime-derived deadline')
   }
 
+  let consecutiveTransportRetries = 0
   while (true) {
-    const response = await navigate()
+    let response
+    try {
+      response = await navigate()
+    } catch (error) {
+      consecutiveTransportRetries += 1
+      const retryDelayMs = Math.min(250 * consecutiveTransportRetries, 1_000)
+      const remainingMs = deadlineAtMs - now()
+      if (!isRetryablePublicAotTransportError(error)
+        || retryDelayMs >= remainingMs) {
+        throw error
+      }
+      await onRetryableError?.({ error, retryDelayMs, attempt: consecutiveTransportRetries })
+      await sleep(retryDelayMs)
+      continue
+    }
+    consecutiveTransportRetries = 0
     const retryDelayMs = retryablePublicAotDelayMs(response)
     if (retryDelayMs === null) return response
 

@@ -390,10 +390,12 @@ public sealed class UserSessionValidationService(
     ISqlSugarClient db,
     IUserSessionValidationCache cache,
     ILogger<UserSessionValidationService>? logger = null,
-    IUserSessionDbFallbackGate? fallbackGate = null) : IUserSessionValidationService
+    IUserSessionDbFallbackGate? fallbackGate = null,
+    TimeProvider? timeProvider = null) : IUserSessionValidationService
 {
     private readonly IUserSessionDbFallbackGate _fallbackGate =
         fallbackGate ?? new UserSessionDbFallbackGate(new ConfigurationBuilder().Build());
+    private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
     private const int BannedAccountStatus = 1;
     private const int DeletedAccountStatus = 2;
 
@@ -444,7 +446,7 @@ public sealed class UserSessionValidationService(
 
         if (state is not null)
         {
-            return ValidateState(state, accountId, principal, DateTime.UtcNow);
+            return ValidateState(state, accountId, principal, _timeProvider.GetUtcNow().UtcDateTime);
         }
 
         long fallbackStarted = Stopwatch.GetTimestamp();
@@ -478,7 +480,11 @@ public sealed class UserSessionValidationService(
             return UserSessionValidationResult.Invalid("user_session_not_found");
         }
 
-        UserSessionValidationResult result = ValidateState(state, accountId, principal, DateTime.UtcNow);
+        UserSessionValidationResult result = ValidateState(
+            state,
+            accountId,
+            principal,
+            _timeProvider.GetUtcNow().UtcDateTime);
         try
         {
             bool published = await cache.PublishAsync(
@@ -504,7 +510,11 @@ public sealed class UserSessionValidationService(
                         cancellationToken).ConfigureAwait(false);
                     return winner is null
                         ? UserSessionValidationResult.Invalid("user_session_cache_conflict")
-                        : ValidateState(winner, accountId, principal, DateTime.UtcNow);
+                        : ValidateState(
+                            winner,
+                            accountId,
+                            principal,
+                            _timeProvider.GetUtcNow().UtcDateTime);
                 }
                 catch (Exception exception) when (exception is RedisException or InvalidDataException or ArgumentException)
                 {

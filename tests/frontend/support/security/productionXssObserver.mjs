@@ -1,8 +1,42 @@
 const dangerousProtocol = /^(?:javascript|vbscript|data):/iu
 
+export const productionXssRelevantCspDirectives = Object.freeze([
+  'base-uri',
+  'child-src',
+  'connect-src',
+  'default-src',
+  'form-action',
+  'frame-src',
+  'navigate-to',
+  'object-src',
+  'require-trusted-types-for',
+  'script-src',
+  'script-src-attr',
+  'script-src-elem',
+  'trusted-types',
+  'worker-src'
+])
+
+export function isSecurityRelevantConsoleMessage(message) {
+  const text = String(message)
+  if (/trusted[ -]types|require-trusted-types-for/iu.test(text)) return true
+  if (!/content security policy|violat(?:e|ion)/iu.test(text)) return false
+  return productionXssRelevantCspDirectives.some((directive) =>
+    new RegExp(`(?:^|[^a-z-])${directive}(?:[^a-z-]|$)`, 'iu').test(text)
+  )
+}
+
 export function evaluateSecurityObservation(observation) {
   const failures = []
-  for (const key of ['dialogs', 'popups', 'downloads', 'externalRequests', 'cspViolations', 'trustedTypesErrors']) {
+  for (const key of [
+    'dialogs',
+    'popups',
+    'downloads',
+    'externalRequests',
+    'unexpectedNavigations',
+    'cspViolations',
+    'trustedTypesErrors'
+  ]) {
     if ((observation[key] ?? []).length > 0) failures.push(`${key}:${JSON.stringify(observation[key])}`)
   }
   if ((observation.executionSentinel ?? 0) !== 0) failures.push(`executionSentinel:${observation.executionSentinel}`)
@@ -10,6 +44,16 @@ export function evaluateSecurityObservation(observation) {
   if ((observation.missingText ?? []).length > 0) failures.push(`missingText:${JSON.stringify(observation.missingText)}`)
   if ((observation.missingSelectors ?? []).length > 0) failures.push(`missingSelectors:${JSON.stringify(observation.missingSelectors)}`)
   return failures
+}
+
+export function recordMainFrameNavigation(observation, url) {
+  const remaining = observation.allowedNavigations?.get(url) ?? 0
+  if (remaining > 0) {
+    observation.allowedNavigations.set(url, remaining - 1)
+  } else if (observation.lastNavigationUrl !== url) {
+    observation.unexpectedNavigations.push(url)
+  }
+  observation.lastNavigationUrl = url
 }
 
 export function auditSerializedElementTree(nodes, invariants = {}, baseUrl = 'http://127.0.0.1') {

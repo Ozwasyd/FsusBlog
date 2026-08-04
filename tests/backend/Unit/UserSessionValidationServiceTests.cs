@@ -5,6 +5,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.Security;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 using Microsoft.Extensions.Configuration;
 
@@ -72,6 +73,32 @@ public sealed class UserSessionValidationServiceTests
 
         Assert.True(result.IsValid, result.Reason);
         Assert.Equal(1, cache.ReadCount);
+        _ = db.DidNotReceive().Ado;
+    }
+
+    [Fact]
+    public async Task CachedSession_UsesInjectedBusinessClockForExpiry()
+    {
+        const int AccountId = 42;
+        const string SessionId = "business-clock-session";
+        DateTimeOffset businessNow = new(2026, 6, 2, 12, 0, 0, TimeSpan.Zero);
+        UserSessionValidationCacheState state = CreateState(SessionId, AccountId) with
+        {
+            IdleExpiresAtUtc = businessNow.UtcDateTime.AddMinutes(10),
+            AbsoluteExpiresAtUtc = businessNow.UtcDateTime.AddHours(1)
+        };
+        var cache = new StubSessionValidationCache(state);
+        var db = Substitute.For<ISqlSugarClient>();
+        var service = new UserSessionValidationService(
+            db,
+            cache,
+            timeProvider: new TestBusinessTimeProvider(businessNow));
+
+        UserSessionValidationResult result = await service.ValidateAsync(
+            CreatePrincipal(AccountId, SessionId),
+            CancellationToken.None);
+
+        Assert.True(result.IsValid, result.Reason);
         _ = db.DidNotReceive().Ado;
     }
 

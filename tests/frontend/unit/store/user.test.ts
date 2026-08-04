@@ -122,6 +122,21 @@ describe('useUserStore', () => {
     expect(store.isAuthChecked).toBe(true)
     expect(store.lastFetchedAt).toBeGreaterThan(0)
     expect(store.lastVerifiedAt).toBeGreaterThan(0)
+    expect(store.authGeneration).toBe(generationBefore)
+    expect(mockClearPrivateBrowserState).not.toHaveBeenCalled()
+  })
+
+  it('expires private state when a previously authenticated session returns 401', async () => {
+    const { createAppError, AppErrorCode } = await import('@/utils/appError')
+    const authErr = createAppError(AppErrorCode.Unauthorized, 'session expired')
+    mockGetMe.mockRejectedValueOnce(authErr)
+    const store = useUserStore()
+    store.markAuthenticated(anonymousUser(1) as never)
+    const generationBefore = store.authGeneration
+
+    await store.fetchUserInfo(true)
+
+    expect(store.accountState).toBe('guest')
     expect(store.authGeneration).not.toBe(generationBefore)
     expect(mockClearPrivateBrowserState).toHaveBeenCalledWith('session-expired', {
       broadcastCredentialPurge: true

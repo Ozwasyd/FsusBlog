@@ -108,22 +108,17 @@ export async function loadProductionXssCorpus(env = process.env) {
 }
 
 function featureMarkdown(featureOutput) {
-  const payload = String(featureOutput?.payload ?? '')
-  switch (featureOutput?.kind) {
-    case 'mermaid':
-      return `\`\`\`mermaid\n${payload}\n\`\`\``
-    case 'latex':
-    case 'math':
-      return `$$\n${payload}\n$$`
-    default:
-      return `\`\`\`html\n${payload}\n\`\`\``
-  }
+  return String(featureOutput?.payload ?? '')
 }
 
 export function markdownForCorpusCase(entry) {
   return typeof entry.source === 'string'
     ? entry.source
     : featureMarkdown(entry.featureOutput)
+}
+
+export function persistenceSafeMarkdownForCorpusCase(entry) {
+  return markdownForCorpusCase(entry).replaceAll('\0', '\uFFFD')
 }
 
 export function selectProductionXssCases(corpus, mode) {
@@ -135,6 +130,15 @@ export function selectProductionXssCases(corpus, mode) {
     selected.push(entry)
   }
   return selected
+}
+
+export function resolveProductionFeatureGatewayAsset(manifest) {
+  const matches = Object.entries(manifest ?? {}).filter(([source, entry]) =>
+    source.endsWith('/markdown-feature-output-gateway.ts')
+    && entry?.isDynamicEntry === true
+    && /^assets\/markdown-feature-output-gateway-[A-Za-z0-9_-]+\.js$/u.test(String(entry.file ?? '')))
+  assertCorpus(matches.length === 1, 'production feature gateway asset ownership drift')
+  return `/${matches[0][1].file}`
 }
 
 export function resolveMetadataProbe(cases) {

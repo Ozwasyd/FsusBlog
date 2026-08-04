@@ -167,6 +167,18 @@ describe('PublicBlogLayoutShell PublicShell delegation', () => {
     wrapper.unmount()
   })
 
+  it('delegates a mutated public-nav href through the SPA navigation contract', async () => {
+    const wrapper = mountShell()
+    await wrapper.setProps({ spaNavigation: true })
+    const link = wrapper.get('a[data-public-nav="auth"]')
+    link.element.setAttribute('href', '/article/4')
+
+    await link.trigger('click')
+
+    expect(wrapper.emitted('navigate')).toEqual([['/article/4']])
+    wrapper.unmount()
+  })
+
   it('marks only ArticleDetail content as content-driven', async () => {
     const wrapper = mountShell()
     const content = wrapper.get('#main-content')

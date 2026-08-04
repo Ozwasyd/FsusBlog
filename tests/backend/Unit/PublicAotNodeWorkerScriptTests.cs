@@ -92,6 +92,21 @@ public sealed class PublicAotNodeWorkerScriptTests
     }
 
     [Fact]
+    public void WorkerResponseParser_PreservesRenderLocale()
+    {
+        PublicAotShellEntryContract entry = PublicAotNodeSsrRenderer.ParseEntryForTests(
+            new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["pageId"] = (int)PublicPageId.Home,
+                ["routeKey"] = "home",
+                ["html"] = "<main></main>",
+                ["renderLocale"] = "ja-JP"
+            });
+
+        Assert.Equal("ja-JP", entry.RenderLocale);
+    }
+
+    [Fact]
     public async Task BoundedOutputReader_RejectsOversizedSsrResponse()
     {
         InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>

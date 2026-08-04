@@ -10,6 +10,8 @@ import {
     deriveLocalPublicContentFixtureSecret,
     derivePendingCommentPrivacyIdentity,
     removeVerifiedContainerById,
+    retryLocalRuntimeCleanup,
+    retryVerifiedCleanup,
     resolveDedicatedRuntimeRunId,
     validateDefaultFixtureProviderState
 } from '../browser-contract/default-fixture-provider.mjs';
@@ -244,6 +246,22 @@ function processIsAlive(pid)
     }
 }
 
+test('dedicated runtime discards inherited CORS origins before binding its own ports', async () =>
+{
+    const source = await readFile(
+        new URL('../browser-contract/default-fixture-provider.mjs', import.meta.url),
+        'utf8');
+    const bootstrap = source.match(
+        /async function bootstrapDedicatedRuntime[\s\S]+?(?=\nexport async function)/u)?.[0] ?? source;
+
+    assert.match(
+        bootstrap,
+        /'FSUSBLOG_RELEASE_PREVIEW_URL',\s*\n\s*'CORS_ALLOWED_HOSTS',/u);
+    assert.match(
+        bootstrap,
+        /await run\('bash', \[path\.join\(repoRoot, 'tools', 'bootstrap-acceptance-env\.sh'\)\], \{ env \}\)/u);
+});
+
 test('default provider removes only the pre-inspected full container id and refuses a same-name replacement', async () =>
 {
     const containerId = 'd'.repeat(64);
@@ -341,11 +359,18 @@ test('default provider removes only the pre-inspected full container id and refu
     const localCleanupIndex = cleanupSource.indexOf('cleanupLocalRuntime({');
     const compensationIndex = cleanupSource.indexOf('compensateVerifiedContainerCleanup(observedBefore.values())');
     assert.ok(localCleanupIndex >= 0 && compensationIndex > localCleanupIndex);
-    assert.match(cleanupSource, /compensationFailures\.length === 0/u);
+    assert.match(
+        cleanupSource,
+        /result\.retainedRuntimeState[\s\S]*?result\.containerCleanupFailures\.length > 0[\s\S]*?compensationFailures\.length > 0[\s\S]*?retryLocalRuntimeCleanup\(cleanupRuntime\)/u
+    );
+    assert.match(
+        cleanupSource,
+        /for \(let attempt = 0; attempt < 4; attempt \+= 1\)[\s\S]*?setTimeout\(resolve, 50 \* \(attempt \+ 1\)\)/u
+    );
     assert.match(source, /path\.join\(repoRoot, '\.tmp', 'run-once', namespace\)/u);
     assert.match(cleanupSource, /const filePaths = runtimeRecoveryPaths\(request\)[\s\S]*?confirmedAbsent: retainedFilePaths\.length === 0/u);
     assert.match(cleanupSource, /result\.cleanupStatus === 'complete'[\s\S]*?files\.status === 'success'/u);
-    assert.match(cleanupSource, /files\s*\n\s*\}/u);
+    assert.match(cleanupSource, /files,\s*\n\s*buildConsumer\s*\n\s*\}/u);
 });
 
 function fakeContainerRuntime(initialContainers)
@@ -447,6 +472,78 @@ test('provider compensation refuses a same-name replacement and allows a later f
     assert.deepEqual(retryable.removalTargets, [original.Id, original.Id]);
     assert.equal(retryable.byId.size, 0);
     assert.equal(retryable.byName.size, 0);
+});
+
+test('verified runtime cleanup retries transient provider failures with bounded backoff', async () =>
+{
+    let attempts = 0;
+    const delays = [];
+    const result = await retryVerifiedCleanup(async () =>
+    {
+        attempts += 1;
+        if (attempts < 3)
+        {
+            throw new Error('transient cleanup race');
+        }
+        return { status: 'success' };
+    }, {
+        delay: async (milliseconds) =>
+        {
+            delays.push(milliseconds);
+        }
+    });
+    assert.deepEqual(result, { status: 'success' });
+    assert.equal(attempts, 3);
+    assert.deepEqual(delays, [100, 200]);
+
+    attempts = 0;
+    await assert.rejects(
+        retryVerifiedCleanup(async () =>
+        {
+            attempts += 1;
+            throw new Error('persistent cleanup failure');
+        }, { attempts: 2, delay: async () => {} }),
+        /persistent cleanup failure/u
+    );
+    assert.equal(attempts, 2);
+});
+
+test('local runtime cleanup retries only transient filesystem races', async () =>
+{
+    let attempts = 0;
+    const delays = [];
+    const result = await retryLocalRuntimeCleanup(() =>
+    {
+        attempts += 1;
+        if (attempts < 3)
+        {
+            const error = new Error('runtime directory is still draining');
+            error.code = 'ENOTEMPTY';
+            throw error;
+        }
+        return { cleanupStatus: 'complete' };
+    }, {
+        delay: async (milliseconds) =>
+        {
+            delays.push(milliseconds);
+        }
+    });
+    assert.deepEqual(result, { cleanupStatus: 'complete' });
+    assert.equal(attempts, 3);
+    assert.deepEqual(delays, [50, 100]);
+
+    attempts = 0;
+    await assert.rejects(
+        retryLocalRuntimeCleanup(() =>
+        {
+            attempts += 1;
+            const error = new Error('ownership mismatch');
+            error.code = 'EPERM';
+            throw error;
+        }, { delay: async () => {} }),
+        /ownership mismatch/u
+    );
+    assert.equal(attempts, 1);
 });
 
 test('pending comment fixture uses deterministic ZK privacy fields and resets every identity linkage on conflict', async () =>

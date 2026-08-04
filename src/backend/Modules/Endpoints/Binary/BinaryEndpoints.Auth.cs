@@ -498,7 +498,8 @@ public static partial class BinaryEndpoints
         group.MapGet("/auth/me", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IUserAccountReader users,
-            IAedsEncoder aeds) =>
+            IAedsEncoder aeds,
+            TimeProvider timeProvider) =>
         {
             long startedAt = Stopwatch.GetTimestamp();
             try
@@ -516,7 +517,7 @@ public static partial class BinaryEndpoints
                 }
 
                 var snapshot = UserAccountReader.ToAnonymousAccountSnapshot(user.Value);
-                if (!TryWriteAccessExpiryHeader(httpContext))
+                if (!TryWriteAccessExpiryHeader(httpContext, timeProvider))
                 {
                     return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "访问凭证到期时间无效"), aeds, StatusCodes.Status401Unauthorized);
                 }
@@ -2149,7 +2150,9 @@ public static partial class BinaryEndpoints
             ? values.ToString().Trim()
             : string.Empty;
 
-    private static bool TryWriteAccessExpiryHeader(HttpContext httpContext)
+    private static bool TryWriteAccessExpiryHeader(
+        HttpContext httpContext,
+        TimeProvider timeProvider)
     {
         string? rawExpiry = httpContext.User.FindFirst("exp")?.Value;
         if (!long.TryParse(rawExpiry, NumberStyles.None, CultureInfo.InvariantCulture, out long unixSeconds))
@@ -2160,7 +2163,7 @@ public static partial class BinaryEndpoints
         try
         {
             DateTimeOffset expiresAtUtc = DateTimeOffset.FromUnixTimeSeconds(unixSeconds);
-            if (expiresAtUtc <= DateTimeOffset.UtcNow)
+            if (expiresAtUtc <= timeProvider.GetUtcNow())
             {
                 return false;
             }

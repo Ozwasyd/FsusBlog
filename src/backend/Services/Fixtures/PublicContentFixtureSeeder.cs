@@ -8,6 +8,7 @@ using FsusBlog.Core.Services.Gateways;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Requests;
@@ -237,9 +238,16 @@ public sealed class PublicContentFixtureSeeder(
     ISearchIndexService searchIndex,
     ICommentCommandService comments,
     ISystemService system,
-    TimeProvider timeProvider) : IPublicContentFixtureSeeder
+    PublicArtifactRevocationRegistry publicArtifactRevocations,
+    IPublicArtifactRevocationStateStore publicArtifactRevocationState,
+    IPublicHotArtifactObligationStore publicHotObligations,
+    TimeProvider timeProvider,
+    IConfiguration configuration) : IPublicContentFixtureSeeder
 {
     private const string Strategy = "transaction-fixture";
+    private static readonly TimeSpan s_securityMatrixConvergenceTimeout = TimeSpan.FromMinutes(6);
+    private static readonly TimeSpan s_securityMatrixConvergencePollInterval = TimeSpan.FromMilliseconds(250);
+    private static readonly TimeSpan s_securityMatrixHandoffQuietPeriod = TimeSpan.FromSeconds(10);
     internal const string RevisionHistoryFixtureAppendix = "\n\nSecond edition body for history checks.";
     private static readonly JsonSerializerOptions s_json = new()
     {
@@ -1154,14 +1162,14 @@ public sealed class PublicContentFixtureSeeder(
             throw new InvalidOperationException("security matrix requires a prepared public account fixture");
         }
 
-        bool aboutUpdated = await system.UpdatePageContentAsync(new UpdatePageContentRequest
+        bool aboutPrepared = await system.UpdatePageContentAsync(new UpdatePageContentRequest
         {
             Slug = "about",
             Content = matrix.AboutMarkdown
         }).ConfigureAwait(false);
-        if (!aboutUpdated)
+        if (!aboutPrepared)
         {
-            throw new InvalidOperationException("security matrix failed to seed the about page through the system service");
+            throw new InvalidOperationException("security matrix failed to prepare the about page through the system service");
         }
 
         var identities = new List<PublicContentEntityIdentity>
@@ -1172,25 +1180,36 @@ public sealed class PublicContentFixtureSeeder(
         var observed = new List<PublicContentObservedEntity>();
         var publishedIds = new List<string>();
 
-        foreach (PublicContentSecurityCase securityCase in cases)
+        for (int caseIndex = 0; caseIndex < cases.Length; caseIndex++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            string title = $"{ownerPrefix}:xss:{securityCase.Id}";
+            PublicContentSecurityCase securityCase = cases[caseIndex];
+            string title = $"{ownerPrefix}:matrix:{caseIndex + 1}";
             string summary = metadata.Length <= 512 ? metadata : metadata[..512];
-            string safeMarkdown = $"# Security fixture {securityCase.Id}\n\nPending corpus injection.";
-            int articleId = await CreateArticleAsync(
-                    new SeedArticlePlan(
-                        $"security-{securityCase.Id}",
-                        title,
-                        "Pending security fixture metadata injection.",
-                        safeMarkdown,
-                        null,
-                        1,
-                        ArticleStatus.Published),
-                    category.Id,
-                    tag.Id,
-                    cancellationToken)
-                .ConfigureAwait(false);
+            string safeMarkdown = $"# Security fixture placeholder {caseIndex + 1}.";
+            int articleId;
+            try
+            {
+                articleId = await CreateArticleAsync(
+                        new SeedArticlePlan(
+                            $"security-{securityCase.Id}",
+                            title,
+                            "Pending security fixture metadata injection.",
+                            safeMarkdown,
+                            null,
+                            1,
+                            ArticleStatus.Published),
+                        category.Id,
+                        tag.Id,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(
+                    $"security matrix article preparation failed for {securityCase.Id}: {ex.Message}",
+                    ex);
+            }
             Article article = await LoadArticleAsync(articleId, cancellationToken).ConfigureAwait(false)
                 ?? throw new InvalidOperationException($"security matrix article missing for {securityCase.Id}");
             ArticleRevision revision = await db.Queryable<ArticleRevision>()
@@ -1215,7 +1234,7 @@ public sealed class PublicContentFixtureSeeder(
             bool rootCreated = await comments.CreateCommentAsync(actorUserId, new CommentDto
             {
                 ArticleId = articleId,
-                Content = $"Security fixture comment {securityCase.Id}",
+                Content = $"Security fixture comment {caseIndex + 1}",
                 AuthorMode = "public",
                 PublicSendExplicitlySelected = true,
                 DisplayLanguage = "auto"
@@ -1244,7 +1263,7 @@ public sealed class PublicContentFixtureSeeder(
             bool replyCreated = await comments.CreateCommentAsync(actorUserId, new CommentDto
             {
                 ArticleId = articleId,
-                Content = $"Security fixture reply {securityCase.Id}",
+                Content = $"Security fixture reply {caseIndex + 1}",
                 ParentId = rootComment.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 RootId = rootComment.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 ReplyToCommentId = rootComment.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
@@ -1272,6 +1291,17 @@ public sealed class PublicContentFixtureSeeder(
                 .UpdateColumns(static item => new { item.Content, item.ModerationStatus })
                 .ExecuteCommandAsync(cancellationToken)
                 .ConfigureAwait(false);
+            await cacheInvalidation.InvalidateArticleMutationAsync(articleId, cancellationToken)
+                .ConfigureAwait(false);
+            await cacheInvalidation.InvalidateCommentMutationAsync(
+                    new CommentCacheInvalidationScope(
+                        ArticleId: articleId,
+                        RootId: rootComment.Id,
+                        AccountId: actorUserId,
+                        PublicArticleChanged: true,
+                        UserCommentsChanged: true),
+                    cancellationToken)
+                .ConfigureAwait(false);
 
             string articleIdText = articleId.ToString(System.Globalization.CultureInfo.InvariantCulture);
             string rootIdText = rootComment.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -1297,6 +1327,22 @@ public sealed class PublicContentFixtureSeeder(
             });
         }
 
+        int[] publishedArticleIds = publishedIds.Select(static id => int.Parse(
+            id,
+            System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+        if (OwnsSecurityMatrixOutbox(configuration))
+        {
+            await DiscardOwnedSecurityMatrixOutboxAsync(publishedArticleIds, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        else
+        {
+            await AwaitSecurityMatrixPublicationConvergenceAsync(
+                    publishedArticleIds,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
         return new PublicContentFixtureResult
         {
             Strategy = Strategy,
@@ -1319,6 +1365,156 @@ public sealed class PublicContentFixtureSeeder(
             },
             ProvidedCapabilities = capabilities
         };
+    }
+
+    internal static bool OwnsSecurityMatrixOutbox(IConfiguration configuration)
+        => configuration.GetValue<bool?>("PublicContentFixture:SecurityMatrixOwnsOutbox") == true
+            && configuration.GetValue<bool?>("ArticleMutationOutbox:Enabled") == false;
+
+    private async Task DiscardOwnedSecurityMatrixOutboxAsync(
+        IReadOnlyCollection<int> articleIds,
+        CancellationToken cancellationToken)
+    {
+        int[] selectedArticleIds = articleIds.ToArray();
+        List<long> outboxIds = await db.Queryable<ArticleMutationOutboxEvent>()
+            .Where(item => selectedArticleIds.Contains(item.AggregateId))
+            .Select(static item => item.Id)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+        if (outboxIds.Count > 0)
+        {
+            await db.Deleteable<ArticleMutationOutboxEdge>()
+                .Where(item => outboxIds.Contains(item.OutboxEventId))
+                .ExecuteCommandAsync(cancellationToken)
+                .ConfigureAwait(false);
+            await db.Deleteable<ArticleMutationOutboxEvent>()
+                .Where(item => selectedArticleIds.Contains(item.AggregateId))
+                .ExecuteCommandAsync(cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        await AwaitSecurityMatrixOwnedOutboxHandoffAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task AwaitSecurityMatrixOwnedOutboxHandoffAsync(CancellationToken cancellationToken)
+    {
+        long startedAt = timeProvider.GetTimestamp();
+        IReadOnlyList<PublicArtifactTombstone> tombstones = [];
+        IReadOnlyList<PublicArtifactTombstone> durableTombstones = [];
+        PublicHotArtifactObligation? obligation = null;
+        long? readySince = null;
+        while (timeProvider.GetElapsedTime(startedAt) < s_securityMatrixConvergenceTimeout)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            tombstones = publicArtifactRevocations.Snapshot();
+            durableTombstones = await publicArtifactRevocationState.LoadActiveAsync(cancellationToken)
+                .ConfigureAwait(false);
+            obligation = await publicHotObligations.GetActiveAsync(cancellationToken).ConfigureAwait(false);
+            if (IsSecurityMatrixOwnedOutboxHandoffReady(tombstones, durableTombstones, obligation))
+            {
+                readySince ??= timeProvider.GetTimestamp();
+                if (timeProvider.GetElapsedTime(readySince.Value) >= s_securityMatrixHandoffQuietPeriod)
+                {
+                    return;
+                }
+            }
+            else
+            {
+                readySince = null;
+            }
+
+            await Task.Delay(s_securityMatrixConvergencePollInterval, cancellationToken).ConfigureAwait(false);
+        }
+
+        tombstones = publicArtifactRevocations.Snapshot();
+        string activeTombstones = string.Join(
+            ",",
+            tombstones
+                .Select(static item => $"{item.ArticleId}:{item.Generation}")
+                .Order(StringComparer.Ordinal));
+        string durableActiveTombstones = string.Join(
+            ",",
+            durableTombstones
+                .Select(static item => $"{item.ArticleId}:{item.Generation}")
+                .Order(StringComparer.Ordinal));
+        throw new TimeoutException(
+            "security matrix owned outbox handoff did not reach a published public artifact obligation "
+            + $"(obligation={obligation?.ObligationId ?? "<none>"}:{obligation?.State.ToString() ?? "<none>"}:"
+            + $"{obligation?.TargetGeneration.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "<none>"}, "
+            + $"tombstones=[{activeTombstones}], durableTombstones=[{durableActiveTombstones}])");
+    }
+
+    internal static bool IsSecurityMatrixOwnedOutboxHandoffReady(
+        IReadOnlyCollection<PublicArtifactTombstone> tombstones,
+        IReadOnlyCollection<PublicArtifactTombstone> durableTombstones,
+        PublicHotArtifactObligation? obligation)
+        => tombstones.Count == 0
+            && durableTombstones.Count == 0
+            && obligation is null or { State: PublicHotArtifactObligationState.Published };
+
+    private async Task AwaitSecurityMatrixPublicationConvergenceAsync(
+        IReadOnlyCollection<int> articleIds,
+        CancellationToken cancellationToken)
+    {
+        long startedAt = timeProvider.GetTimestamp();
+        IReadOnlyList<ArticleMutationOutboxEvent> outboxEvents = [];
+        IReadOnlyList<PublicArtifactTombstone> tombstones = [];
+        int[] selectedArticleIds = articleIds.ToArray();
+
+        while (timeProvider.GetElapsedTime(startedAt) < s_securityMatrixConvergenceTimeout)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            outboxEvents = await db.Queryable<ArticleMutationOutboxEvent>()
+                .Where(item => selectedArticleIds.Contains(item.AggregateId))
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+            tombstones = publicArtifactRevocations.Snapshot();
+            if (IsSecurityMatrixPublicationConverged(selectedArticleIds, outboxEvents, tombstones))
+            {
+                return;
+            }
+
+            await Task.Delay(s_securityMatrixConvergencePollInterval, cancellationToken).ConfigureAwait(false);
+        }
+
+        string pendingEvents = string.Join(
+            ",",
+            outboxEvents
+                .Where(item => !string.Equals(item.Status, "processed", StringComparison.Ordinal))
+                .Select(static item => $"{item.AggregateId}:{item.EventType}:{item.Status}")
+                .Order(StringComparer.Ordinal));
+        string activeTombstones = string.Join(
+            ",",
+            tombstones
+                .Select(static item => $"{item.ArticleId}:{item.Generation}")
+                .Order(StringComparer.Ordinal));
+        throw new TimeoutException(
+            "security matrix publication did not converge before fixture handoff "
+            + $"(articles={selectedArticleIds.Length}, events={outboxEvents.Count}, "
+            + $"pending=[{pendingEvents}], tombstones=[{activeTombstones}])");
+    }
+
+    internal static bool IsSecurityMatrixPublicationConverged(
+        IReadOnlyCollection<int> articleIds,
+        IReadOnlyCollection<ArticleMutationOutboxEvent> outboxEvents,
+        IReadOnlyCollection<PublicArtifactTombstone> tombstones)
+    {
+        if (articleIds.Count == 0 || tombstones.Count > 0)
+        {
+            return false;
+        }
+
+        var articlesWithEvents = new HashSet<int>();
+        foreach (ArticleMutationOutboxEvent item in outboxEvents)
+        {
+            articlesWithEvents.Add(item.AggregateId);
+            if (!string.Equals(item.Status, "processed", StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return articleIds.All(articlesWithEvents.Contains);
     }
 
     public static string SerializeResult(PublicContentFixtureResult result)

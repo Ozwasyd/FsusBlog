@@ -40,11 +40,16 @@ public sealed class AdminSessionValidationService : IAdminSessionValidationServi
 
     private readonly ISqlSugarClient _db;
     private readonly IMemoryCache _validationCache;
+    private readonly TimeProvider _timeProvider;
 
-    public AdminSessionValidationService(ISqlSugarClient db, IMemoryCache? validationCache = null)
+    public AdminSessionValidationService(
+        ISqlSugarClient db,
+        IMemoryCache? validationCache = null,
+        TimeProvider? timeProvider = null)
     {
         this._db = db;
         this._validationCache = validationCache ?? new MemoryCache(new MemoryCacheOptions());
+        this._timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     public async Task<AdminSessionValidationResult> ValidateAsync(ClaimsPrincipal? principal, string accessToken, CancellationToken cancellationToken)
@@ -72,7 +77,7 @@ public sealed class AdminSessionValidationService : IAdminSessionValidationServi
             return AdminSessionValidationResult.Invalid("admin_access_token_missing");
         }
 
-        DateTime now = DateTime.UtcNow;
+        DateTime now = _timeProvider.GetUtcNow().UtcDateTime;
         string currentTokenHash = HashAccessTokenForStorage(accessToken);
         string snapshotKey = SnapshotKey(sessionId, currentTokenHash);
         if (TryGetValidationSnapshot(snapshotKey, out AdminSessionValidationSnapshot? snapshot) && snapshot is not null)

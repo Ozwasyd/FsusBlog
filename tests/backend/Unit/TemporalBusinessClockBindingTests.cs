@@ -15,6 +15,25 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class TemporalBusinessClockBindingTests
 {
+    [Fact]
+    public void Program_ConfiguresTestBusinessClockBeforeApplicationServices()
+    {
+        string source = File.ReadAllText(Path.Combine(
+            FindRepositoryRoot(),
+            "src",
+            "backend",
+            "Program.cs"));
+        int temporalIndex = source.IndexOf(
+            "TimeProvider? testBusinessTimeProvider = TestTemporalRuntimeContext.Configure(builder);",
+            StringComparison.Ordinal);
+        int applicationIndex = source.IndexOf(
+            "builder.ConfigureFsusApplication(testBusinessTimeProvider);",
+            StringComparison.Ordinal);
+
+        Assert.True(temporalIndex >= 0);
+        Assert.True(applicationIndex > temporalIndex);
+    }
+
     [Theory]
     [InlineData(typeof(PublicHotArtifactProjector))]
     [InlineData(typeof(ArticleDetailAedsArtifactProjector))]
@@ -94,5 +113,19 @@ public sealed class TemporalBusinessClockBindingTests
         public string EnvironmentName { get; set; } = "Development";
         public string ContentRootPath { get; set; } = root;
         public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+    }
+
+    private static string FindRepositoryRoot()
+    {
+        DirectoryInfo? directory = new(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "FsusBlog.slnx")))
+            {
+                return directory.FullName;
+            }
+            directory = directory.Parent;
+        }
+        throw new DirectoryNotFoundException("repository root was not found");
     }
 }

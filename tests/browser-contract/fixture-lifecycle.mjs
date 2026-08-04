@@ -145,7 +145,7 @@ function providerTimeoutMs(request, env) {
       : env.FSUSBLOG_BROWSER_CONTRACT_PROVIDER_TIMEOUT_MS
   const fallback = request.operation === 'resetContractNamespace' && request.phase === 'prepare'
     ? 300_000
-    : request.operation === 'resetContractNamespace' && request.phase === 'cleanup' ? 10_000 : 30_000
+    : 30_000
   if (configured === undefined || String(configured).trim() === '') return fallback
   const parsed = Number(configured)
   if (!Number.isInteger(parsed) || parsed < 100 || parsed > fallback) {

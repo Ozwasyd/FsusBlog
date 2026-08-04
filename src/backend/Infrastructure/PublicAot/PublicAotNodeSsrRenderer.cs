@@ -327,7 +327,8 @@ public sealed class PublicAotNodeSsrRenderer(
             RendererVersion = PublicAotBinaryPayload.TryGetString(payload, "rendererVersion").NullIfEmpty(),
             IslandsPayload = PublicAotBinaryPayload.TryGetString(payload, "islandsPayload").NullIfEmpty(),
             Title = PublicAotBinaryPayload.TryGetString(payload, "title").NullIfEmpty(),
-            BaseUrl = PublicAotBinaryPayload.TryGetString(payload, "baseUrl").NullIfEmpty()
+            BaseUrl = PublicAotBinaryPayload.TryGetString(payload, "baseUrl").NullIfEmpty(),
+            RenderLocale = PublicAotBinaryPayload.TryGetString(payload, "renderLocale")
         };
 
     private static bool GetBool(IReadOnlyDictionary<string, object?> payload, string propertyName)
@@ -362,6 +363,9 @@ public sealed class PublicAotNodeSsrRenderer(
 
     internal static PublicAotSsrWorkerResourceStatus CheckWorkerResourceForTests(IWebHostEnvironment env, IConfiguration configuration)
         => CheckWorkerResource(env, configuration);
+
+    internal static PublicAotShellEntryContract ParseEntryForTests(IReadOnlyDictionary<string, object?> payload)
+        => ToEntry(payload);
 
     internal PublicAotSsrWorkerResourceStatus GetWorkerResourceStatus()
         => runtimeState.GetOrCreateWorkerResourceSnapshot(() => CheckWorkerResource(env, configuration));

@@ -101,6 +101,10 @@ async function loadPortableStorageState(file, baseUrl, role)
             delete portable.domain;
             delete portable.path;
             delete portable.url;
+            // Fixture JWTs are bound to the injected business clock. Keeping a
+            // host-wall-clock expiry would make Playwright discard an otherwise
+            // valid acceptance session before the request reaches the runtime.
+            delete portable.expires;
             return { ...portable, url: runtimeOrigin };
         });
     contractAssert(cookies.length > 0, `${role} storage state has no cookies valid for ${runtimeOrigin}`);
@@ -111,6 +115,30 @@ async function loadPortableStorageState(file, baseUrl, role)
             ...origin,
             origin: runtimeOrigin
         })))
+    });
+}
+
+function combineAdminStorageState(userStorageState, adminStorageState)
+{
+    const cookies = new Map();
+    for (const cookie of [...userStorageState.cookies, ...adminStorageState.cookies])
+    {
+        const key = [
+            cookie.name,
+            cookie.url ?? '',
+            cookie.domain ?? '',
+            cookie.path ?? ''
+        ].join('\0');
+        cookies.set(key, cookie);
+    }
+    const origins = new Map();
+    for (const origin of [...userStorageState.origins, ...adminStorageState.origins])
+    {
+        origins.set(origin.origin, origin);
+    }
+    return Object.freeze({
+        cookies: Object.freeze([...cookies.values()]),
+        origins: Object.freeze([...origins.values()])
     });
 }
 
@@ -197,6 +225,10 @@ async function loadSealedContractFixture({
         loadPortableStorageState(userStorageStateFile, manifest.baseUrl, 'user'),
         loadPortableStorageState(adminStorageStateFile, manifest.baseUrl, 'admin')
     ]);
+    const completeAdminStorageState = combineAdminStorageState(
+        userStorageState,
+        adminStorageState
+    );
 
     return Object.freeze({
         schema: browserContractFixtureAdapterSchema,
@@ -243,7 +275,7 @@ async function loadSealedContractFixture({
         admin: Object.freeze({
             id: Number(entities.admin.id),
             storageStateFile: adminStorageStateFile,
-            storageState: adminStorageState
+            storageState: completeAdminStorageState
         })
     });
 }
@@ -323,6 +355,10 @@ export async function loadBrowserContractFixture({
         loadPortableStorageState(userStorageStateFile, baseUrl, 'user'),
         loadPortableStorageState(adminStorageStateFile, baseUrl, 'admin')
     ]);
+    const completeAdminStorageState = combineAdminStorageState(
+        userStorageState,
+        adminStorageState
+    );
 
     return Object.freeze({
         schema: browserContractFixtureAdapterSchema,
@@ -348,7 +384,7 @@ export async function loadBrowserContractFixture({
         admin: Object.freeze({
             id: Number(authFixture.admin.id),
             storageStateFile: adminStorageStateFile,
-            storageState: adminStorageState
+            storageState: completeAdminStorageState
         })
     });
 }

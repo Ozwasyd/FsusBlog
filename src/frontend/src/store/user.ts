@@ -113,6 +113,8 @@ export const useUserStore = defineStore('user', () => {
             if (accountState.value === 'authenticated' && userInfo.value) return
             if (accountState.value === 'guest' && Date.now() - lastVerifiedAt.value <= ACCOUNT_GUEST_NEGATIVE_CACHE_MS) return
         }
+        const hadAuthenticatedSession =
+            accountState.value === 'authenticated' && userInfo.value !== null
 
         if (force && abortController) {
             cancelUserInfoRequest()
@@ -141,7 +143,11 @@ export const useUserStore = defineStore('user', () => {
                 if (isAbortError(error)) return;
 
                 if (isAuthFailureError(error)) {
-                    await expireAuthentication()
+                    if (hadAuthenticatedSession) {
+                        await expireAuthentication()
+                    } else {
+                        markGuest()
+                    }
                 } else {
                     const info = getKnownErrorInfo(error, 'auth_handshake_failed')
                     console.error('[UserStore] Auth handshake failed:', info.message);

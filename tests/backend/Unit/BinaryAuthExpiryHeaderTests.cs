@@ -11,6 +11,8 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class BinaryAuthExpiryHeaderTests
 {
     private const string HeaderName = "X-Fsus-Access-Expires-At-Utc";
+    private static readonly DateTimeOffset s_businessNow =
+        new(2024, 2, 29, 23, 59, 59, TimeSpan.Zero);
     private static readonly MethodInfo s_tryWriteAccessExpiryHeader = typeof(BinaryEndpoints).GetMethod(
         "TryWriteAccessExpiryHeader",
         BindingFlags.NonPublic | BindingFlags.Static)
@@ -19,10 +21,10 @@ public sealed class BinaryAuthExpiryHeaderTests
     [Fact]
     public void TryWriteAccessExpiryHeader_UsesValidatedPrincipalExpiry()
     {
-        DateTimeOffset expiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(10);
+        DateTimeOffset expiresAtUtc = s_businessNow.AddMinutes(10);
         var context = CreateContext(expiresAtUtc.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture));
 
-        bool written = Invoke(context);
+        bool written = Invoke(context, new FixedTimeProvider(s_businessNow));
 
         Assert.True(written);
         Assert.True(DateTimeOffset.TryParseExact(
@@ -42,7 +44,7 @@ public sealed class BinaryAuthExpiryHeaderTests
     {
         var context = CreateContext(rawExpiry);
 
-        bool written = Invoke(context);
+        bool written = Invoke(context, new FixedTimeProvider(s_businessNow));
 
         Assert.False(written);
         Assert.False(context.Response.Headers.ContainsKey(HeaderName));
@@ -57,6 +59,11 @@ public sealed class BinaryAuthExpiryHeaderTests
         return context;
     }
 
-    private static bool Invoke(HttpContext context)
-        => Assert.IsType<bool>(s_tryWriteAccessExpiryHeader.Invoke(null, [context]));
+    private static bool Invoke(HttpContext context, TimeProvider timeProvider)
+        => Assert.IsType<bool>(s_tryWriteAccessExpiryHeader.Invoke(null, [context, timeProvider]));
+
+    private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => utcNow;
+    }
 }

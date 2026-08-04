@@ -312,6 +312,10 @@ test('bootstrap validates the build marker before reuse/start and publishes only
         bootstrapSource.slice(start, apiReady),
         /VITE_API_BASE_URL="\$DEBUG_BACKEND_URL" VITE_PUBLIC_SHELL_PROXY=1[\s\\]*npm exec -- vite preview/u
     );
+    assert.match(
+        viteConfigSource,
+        /serveReleaseScopedPreviewAssets[\s\S]*?release-assets\\\/\\d\{14\}-\[0-9a-f\]\{12\}[\s\S]*?configurePreviewServer/u
+    );
     assert.match(viteConfigSource, /const releasePreviewApplicationProxy:[\s\S]*?SSR nonce, redirects, real 404s, and integrity APIs/u);
     assert.match(viteConfigSource, /publicSeoProxy:[\s\S]*?searchParams\.has\('fsus-preview-proof'\)[\s\S]*?return '\/index\.html'/u);
     assert.match(viteConfigSource, /const sharedApiProxy:[\s\S]*?'\^\/integrity\(\?:\/\|\$\)': publicSeoProxy/u);

@@ -176,7 +176,7 @@ test('fixture adapter consumes one immutable namespace without exposing infrastr
         user: { id: 21, storageStateFile: 'user.storage-state.json' },
         admin: { id: 22, storageStateFile: 'admin.storage-state.json' }
     }));
-    const storageState = JSON.stringify({
+    const userStorageState = JSON.stringify({
         cookies: [
             {
                 name: '__Host-AccessToken',
@@ -194,13 +194,27 @@ test('fixture adapter consumes one immutable namespace without exposing infrastr
                 path: '/',
                 secure: false,
                 httpOnly: true,
-                sameSite: 'Lax'
+                sameSite: 'Lax',
+                expires: 1709337599
             }
         ],
         origins: []
     });
-    await writeFile(path.join(authDirectory, 'user.storage-state.json'), storageState);
-    await writeFile(path.join(authDirectory, 'admin.storage-state.json'), storageState);
+    const adminStorageState = JSON.stringify({
+        cookies: [{
+            name: 'AdminAccessToken',
+            value: 'portable-admin-token',
+            url: 'http://127.0.0.1:27231',
+            path: '/',
+            secure: false,
+            httpOnly: true,
+            sameSite: 'Lax',
+            expires: 1709337599
+        }],
+        origins: []
+    });
+    await writeFile(path.join(authDirectory, 'user.storage-state.json'), userStorageState);
+    await writeFile(path.join(authDirectory, 'admin.storage-state.json'), adminStorageState);
 
     const fixture = await loadBrowserContractFixture({
         repoRoot: root,
@@ -227,6 +241,17 @@ test('fixture adapter consumes one immutable namespace without exposing infrastr
         httpOnly: true,
         sameSite: 'Lax'
     }]);
+    assert.deepEqual(fixture.admin.storageState.cookies, [
+        ...fixture.user.storageState.cookies,
+        {
+            name: 'AdminAccessToken',
+            value: 'portable-admin-token',
+            url: 'http://127.0.0.1:3000',
+            secure: false,
+            httpOnly: true,
+            sameSite: 'Lax'
+        }
+    ]);
 });
 
 test('runner source enforces one managed launch, one context factory, and process-group timeout', async () =>
@@ -259,7 +284,7 @@ test('runner source enforces one managed launch, one context factory, and proces
     assert.match(lifecycle, /providerProcessGroupIsOwned/u);
     assert.match(lifecycle, /FSUSBLOG_BROWSER_CONTRACT_PROVIDER_TIMEOUT_MS/u);
     assert.match(lifecycle, /FSUSBLOG_BROWSER_CONTRACT_CLEANUP_TIMEOUT_MS/u);
-    assert.match(lifecycle, /\? 10_000 : 30_000/u);
+    assert.match(lifecycle, /\? 300_000\s*:\s*30_000/u);
     assert.match(prepareFacade, /export async function prepareSingleBrowserContractFixture/u);
     assert.match(prepareFacade, /export async function cleanupSingleBrowserContractFixture/u);
     assert.doesNotMatch(prepareFacade, /isMain|process\.argv|pathToFileURL|#!\/usr\/bin\/env/u);
@@ -268,6 +293,7 @@ test('runner source enforces one managed launch, one context factory, and proces
     assert.match(defaultProvider, /databaseInstance !== `fsusblog-test-postgres-\$\{namespace\}`/u);
     assert.match(defaultProvider, /redisInstance !== `fsusblog-test-redis-\$\{namespace\}`/u);
     assert.match(defaultProvider, /FSUSBLOG_PLAYWRIGHT_WORKERS:\s*'1'/u);
+    assert.match(defaultProvider, /dedicatedTerminationGraceMs:\s*8_000/u);
     assert.match(defaultProvider, /FSUSBLOG_PLAYWRIGHT_SESSION_PREP_CONCURRENCY:\s*'1'/u);
     assert.match(defaultProvider, /FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:\s*'1'/u);
     assert.match(defaultProvider, /FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID:\s*request\.preparation\.id/u);
@@ -277,9 +303,31 @@ test('runner source enforces one managed launch, one context factory, and proces
     assert.match(defaultProvider, /SET fsusblog\.test_business_epoch_utc/u);
     assert.match(
         defaultProvider,
-        /current_setting\('fsusblog\.test_business_epoch_utc'\)::timestamptz,\s*(?:NULL,\s*)?'zk_anonymous'/u
+        /current_setting\('fsusblog\.test_business_epoch_utc'\)::timestamptz,\s*1,\s*NULL,\s*'zk_anonymous'/u
     );
+    assert.match(
+        defaultProvider,
+        /FSUSBLOG_PUBLIC_AOT_SSR_CLIENT_ROOT:\s*consumerWebRoot/u
+    );
+    assert.match(
+        defaultProvider,
+        /FSUSBLOG_PUBLIC_AOT_SSR_WORKER_SCRIPT:\s*'\.\/server\/server-public-ssr\.bundle\.mjs'/u
+    );
+    assert.match(defaultProvider, /PublicAot__SsrClientRoot:\s*consumerWebRoot/u);
+    assert.match(
+        defaultProvider,
+        /PublicAot__SsrWorkerScript:\s*'\.\/server\/server-public-ssr\.bundle\.mjs'/u
+    );
+    assert.match(defaultProvider, /'empty-staticwebassets\.runtime\.json'/u);
+    assert.match(defaultProvider, /ASPNETCORE_STATICWEBASSETS:\s*staticWebAssetsManifest/u);
+    assert.match(defaultProvider, /ContentRoots:\s*\[\]/u);
     assert.match(defaultProvider, /retainedRuntimeState/u);
+    assert.match(
+        defaultProvider,
+        /if \(result\.retainedRuntimeState[\s\S]*result\.containerCleanupFailures\.length > 0[\s\S]*compensationFailures\.length > 0\)[\s\S]*result = await retryLocalRuntimeCleanup\(cleanupRuntime\)/u
+    );
+    assert.match(defaultProvider, /releaseProductionBuildConsumer/u);
+    assert.match(defaultProvider, /reason:\s*'browser-contract-cleanup'/u);
     assert.doesNotMatch(defaultProvider, /os\.(?:loadavg|freemem)|FSUSBLOG_POSTGRES_PID_HEADROOM/u);
     assert.match(runner, /extraHTTPHeaders:\s*fixture\.testSession\s*\?\s*\{ 'X-Fsus-Test-Session': fixture\.testSession \}\s*:\s*(?:undefined|\{\})/u);
     assert.match(runner, /async function resetRunOutput\(\)[\s\S]+await rm\(ownedReceiptFile, \{ force: true \}\)/u);

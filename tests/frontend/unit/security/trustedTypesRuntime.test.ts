@@ -4,6 +4,7 @@ import {
   resetTrustedTypesRuntimeForTests,
   setCommentPrivacyProverScriptUrl,
   setNonExecutableScriptText,
+  toTrustedMarkdownFeatureHtml,
   toTrustedMarkdownHtml,
   toTrustedApplicationWorkerScriptUrl,
   toTrustedMarkdownWorkerScriptUrl,
@@ -64,6 +65,20 @@ describe('trustedTypesRuntime', () => {
       createScript: expect.any(Function),
       createScriptURL: expect.any(Function)
     }))
+  })
+
+  it('trusts only typed feature-renderer output before the gateway sanitizer parses it', () => {
+    const featureHtml = toTrustedMarkdownFeatureHtml({
+      kind: 'mermaid',
+      payload: '<svg data-mermaid-root="diagram"></svg>'
+    })
+    expect(String(featureHtml)).toContain('data-mermaid-root')
+    expect(featureHtml).toMatchObject({ [trustedTypeMarker]: 'html' })
+    expect(() => toTrustedMarkdownFeatureHtml({
+      // @ts-expect-error unknown feature kinds cannot enter the parsing adapter
+      kind: 'raw-html',
+      payload: '<img src=x onerror=alert(1)>'
+    })).toThrow('markdown_feature_output_invalid')
   })
 
   it('only creates TrustedScript values for non-executable data script types', () => {

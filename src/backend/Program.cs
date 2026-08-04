@@ -43,8 +43,8 @@ if (command.Kind != OnlineSchemaMigrationCommandKind.Serve)
 }
 
 builder.ConfigureFsusKestrelSingleProcessRuntime();
-builder.ConfigureFsusApplication();
-TestTemporalRuntimeContext.Configure(builder);
+TimeProvider? testBusinessTimeProvider = TestTemporalRuntimeContext.Configure(builder);
+builder.ConfigureFsusApplication(testBusinessTimeProvider);
 builder.Services.ApplyFsusRuntimeModeGates(builder.Configuration);
 builder.Services.AddOnlineSchemaMigrationControlPlane(builder.Configuration);
 if (command.Kind == OnlineSchemaMigrationCommandKind.Serve && builder.Environment.IsProduction())

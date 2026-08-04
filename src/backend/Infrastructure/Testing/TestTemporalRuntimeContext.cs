@@ -163,12 +163,12 @@ public sealed class TestTemporalRuntimeContext
             Required(root, "firstDayOfWeek"));
     }
 
-    public static void Configure(WebApplicationBuilder builder)
+    public static TimeProvider? Configure(WebApplicationBuilder builder)
     {
         TestTemporalRuntimeContext? context = LoadOptional();
         if (context is null)
         {
-            return;
+            return null;
         }
         if (!builder.Environment.IsDevelopment() && !builder.Environment.IsEnvironment("Test"))
         {
@@ -179,8 +179,10 @@ public sealed class TestTemporalRuntimeContext
         CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
         CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
         builder.Services.RemoveAll<TimeProvider>();
-        builder.Services.AddSingleton<TimeProvider>(new FixedBusinessTimeProvider(context.BusinessEpochUtc));
+        TimeProvider businessTimeProvider = new FixedBusinessTimeProvider(context.BusinessEpochUtc);
+        builder.Services.AddSingleton(businessTimeProvider);
         builder.Services.AddSingleton(context);
+        return businessTimeProvider;
     }
 
     private static string Required(JsonElement root, string property)

@@ -2,6 +2,7 @@ import { decodePublicAotPayload, decodePublicAotPayloadBytes } from '@/bootstrap
 import { getPublicShellLifetimeSignal } from '@/bootstrap/publicShellLifetime'
 import { activateLocaleRuntime, isSupportedLocale } from '@/locales'
 import { getLocaleDescriptor, LOCALE_CATALOG_DIGEST } from '@/locales/localeCatalog'
+import type { LocaleDomain } from '@/locales/localeDomains'
 import { requiredLocaleDomainsForRoute } from '@/locales/routeLocaleDomains'
 import { emitTelemetry as emitRuntimeTelemetry } from '@/services/telemetryBus'
 import type { PublicPageSeed } from '@/public-renderers/pageSeed'
@@ -76,6 +77,10 @@ export type PublicRoutePrewarmOptions = Readonly<{
   signal?: AbortSignal
   timeoutMs?: number
   nowMs?: number
+  preparedLocaleSnapshot?: Readonly<{
+    locale: string
+    domains: readonly LocaleDomain[]
+  }>
 }>
 
 type PublicRoutePrewarmerDependencies = Readonly<{
@@ -203,6 +208,29 @@ function createLinkedAbortController(
 function throwIfAborted(signal: AbortSignal): void {
   if (signal.aborted) {
     throw new DOMException('aborted', 'AbortError')
+  }
+}
+
+function createAbortBarrier(signal: AbortSignal): {
+  promise: Promise<never>
+  dispose: () => void
+} {
+  let rejectBarrier: (reason: DOMException) => void = () => {}
+  const promise = new Promise<never>((_resolve, reject) => {
+    rejectBarrier = reject
+  })
+  const rejectForAbort = (): void => {
+    rejectBarrier(new DOMException('aborted', 'AbortError'))
+  }
+  if (signal.aborted) {
+    rejectForAbort()
+    return { promise, dispose: () => {} }
+  }
+
+  signal.addEventListener('abort', rejectForAbort, { once: true })
+  return {
+    promise,
+    dispose: () => signal.removeEventListener('abort', rejectForAbort)
   }
 }
 
@@ -512,8 +540,12 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
         })()
 
         let frame: Uint8Array | ArrayBuffer
+        const abortBarrier = createAbortBarrier(linked.controller.signal)
         try {
-          ;[, frame] = await Promise.all([componentTask, snapshotTask])
+          ;[, frame] = await Promise.race([
+            Promise.all([componentTask, snapshotTask]),
+            abortBarrier.promise
+          ])
         } catch (error) {
           if (producerFailure?.stage === 'component') {
             throw new Error(`route-component-failed: ${failureMessage(producerFailure.error)}`)
@@ -522,6 +554,8 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
             throw new Error(`route-snapshot-failed: ${failureMessage(producerFailure.error)}`)
           }
           throw error
+        } finally {
+          abortBarrier.dispose()
         }
 
         throwIfAborted(linked.controller.signal)
@@ -558,16 +592,19 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
           throw new Error('route-seo-validation-failed: invalid navigation snapshot SEO head')
         }
 
-        const preparedLocale = await activateLocaleRuntime(
-          descriptor.code,
-          requiredLocaleDomainsForRoute({
-            name: matchedRoute.name,
-            path: normalized.url.pathname,
-            meta: { routeState: 'public-shareable' }
-          })
-        )
+        const requiredLocaleDomains = requiredLocaleDomainsForRoute({
+          name: matchedRoute.name,
+          path: normalized.url.pathname,
+          meta: { routeState: 'public-shareable' }
+        })
+        const stagedLocale = options.preparedLocaleSnapshot
+        const preparedLocale = stagedLocale
+          ? stagedLocale.locale
+          : await activateLocaleRuntime(descriptor.code, requiredLocaleDomains)
         throwIfAborted(linked.controller.signal)
-        if (preparedLocale !== descriptor.code) {
+        if (preparedLocale !== descriptor.code ||
+            (stagedLocale &&
+              requiredLocaleDomains.some((domain) => !stagedLocale.domains.includes(domain)))) {
           throw new Error('route-snapshot-decode-failed: navigation snapshot locale runtime not prepared')
         }
         // Seed/head commit only after component + snapshot + validation all succeed

@@ -638,69 +638,6 @@ export function cleanupLocalRuntime({
   const containerIsPresent = typeof containerExists === 'function'
     ? containerExists
     : (identity) => inspectContainer(identity) !== null
-  for (const container of containerCandidates) {
-    if (!owned.has(container)) {
-      skippedContainers.push(container)
-      containerRecords.push({ name: container, id: null, ownershipLabels: null, action: 'skipped-external-name', postObservation: 'not-observed' })
-      continue
-    }
-    const inspected = inspectContainer(container)
-    if (inspected === null && !containerIsPresent(container)) {
-      alreadyAbsentContainers.push(container)
-      containerRecords.push({ name: container, id: null, ownershipLabels: null, action: 'already-absent', postObservation: 'name-absent' })
-      continue
-    }
-    if (inspected === null) {
-      skippedContainers.push(container)
-      containerCleanupFailures.push({ container, reason: 'container-inspect-identity-unavailable' })
-      containerRecords.push({ name: container, id: null, ownershipLabels: null, action: 'blocked-identity-incomplete', postObservation: 'not-removed' })
-      continue
-    }
-    if (!runtimeContainerOwnershipMatches(inspected, {
-      runId,
-      bundleId,
-      stepId,
-      namespace: slug,
-      preparationId,
-      dedicatedRuntime
-    })) {
-      skippedContainers.push(container)
-      containerCleanupFailures.push({ container, reason: 'ownership-label-mismatch' })
-      containerRecords.push({ name: container, id: String(inspected?.Id ?? '') || null, ownershipLabels: inspected?.Config?.Labels ?? null, action: 'blocked-ownership-mismatch', postObservation: 'not-removed' })
-      continue
-    }
-    const observedContainerId = String(inspected?.Id ?? '').trim()
-    if (!/^[a-f0-9]{64}$/u.test(observedContainerId)) {
-      skippedContainers.push(container)
-      containerCleanupFailures.push({ container, reason: 'container-id-unavailable' })
-      containerRecords.push({ name: container, id: observedContainerId || null, ownershipLabels: inspected?.Config?.Labels ?? null, action: 'blocked-identity-incomplete', postObservation: 'not-removed' })
-      continue
-    }
-    const removalTarget = observedContainerId
-    const outcome = removeContainer(removalTarget, { name: container, inspected })
-    const nameStillPresent = hasContainerObserver && containerIsPresent(container)
-    const idStillPresent = hasContainerObserver && containerIsPresent(removalTarget)
-    const removed = containerRemovalSucceeded(outcome)
-      && !nameStillPresent
-      && !idStillPresent
-    if (removed) {
-      removedContainers.push(container)
-      containerRecords.push({ name: container, id: removalTarget, ownershipLabels: inspected?.Config?.Labels ?? null, action: 'removed', postObservation: 'name-and-id-absent' })
-    } else {
-      skippedContainers.push(container)
-      containerCleanupFailures.push({
-        container,
-        reason: outcome?.reason || (idStillPresent
-          ? 'docker-rm-id-still-present'
-          : nameStillPresent
-            ? 'docker-rm-name-still-present'
-            : 'docker-rm-reported-failure'),
-        exitCode: outcome?.exitCode ?? null
-      })
-      containerRecords.push({ name: container, id: removalTarget, ownershipLabels: inspected?.Config?.Labels ?? null, action: 'remove-failed', postObservation: idStillPresent ? 'id-still-present' : nameStillPresent ? 'name-still-present' : 'removal-unconfirmed' })
-    }
-  }
-
   const runtimeRelative = path.join('.tmp', 'acceptance', slug)
   const runtimeDirectory = path.join(resolvedRoot, runtimeRelative)
   const terminatedPids = []
@@ -772,6 +709,72 @@ export function cleanupLocalRuntime({
     }
   }
 
+  // Stop the verified application processes before removing their database and
+  // cache containers. Besides avoiding shutdown writes against already-absent
+  // services, this makes the subsequent filesystem cleanup deterministic.
+  for (const container of containerCandidates) {
+    if (!owned.has(container)) {
+      skippedContainers.push(container)
+      containerRecords.push({ name: container, id: null, ownershipLabels: null, action: 'skipped-external-name', postObservation: 'not-observed' })
+      continue
+    }
+    const inspected = inspectContainer(container)
+    if (inspected === null && !containerIsPresent(container)) {
+      alreadyAbsentContainers.push(container)
+      containerRecords.push({ name: container, id: null, ownershipLabels: null, action: 'already-absent', postObservation: 'name-absent' })
+      continue
+    }
+    if (inspected === null) {
+      skippedContainers.push(container)
+      containerCleanupFailures.push({ container, reason: 'container-inspect-identity-unavailable' })
+      containerRecords.push({ name: container, id: null, ownershipLabels: null, action: 'blocked-identity-incomplete', postObservation: 'not-removed' })
+      continue
+    }
+    if (!runtimeContainerOwnershipMatches(inspected, {
+      runId,
+      bundleId,
+      stepId,
+      namespace: slug,
+      preparationId,
+      dedicatedRuntime
+    })) {
+      skippedContainers.push(container)
+      containerCleanupFailures.push({ container, reason: 'ownership-label-mismatch' })
+      containerRecords.push({ name: container, id: String(inspected?.Id ?? '') || null, ownershipLabels: inspected?.Config?.Labels ?? null, action: 'blocked-ownership-mismatch', postObservation: 'not-removed' })
+      continue
+    }
+    const observedContainerId = String(inspected?.Id ?? '').trim()
+    if (!/^[a-f0-9]{64}$/u.test(observedContainerId)) {
+      skippedContainers.push(container)
+      containerCleanupFailures.push({ container, reason: 'container-id-unavailable' })
+      containerRecords.push({ name: container, id: observedContainerId || null, ownershipLabels: inspected?.Config?.Labels ?? null, action: 'blocked-identity-incomplete', postObservation: 'not-removed' })
+      continue
+    }
+    const removalTarget = observedContainerId
+    const outcome = removeContainer(removalTarget, { name: container, inspected })
+    const nameStillPresent = hasContainerObserver && containerIsPresent(container)
+    const idStillPresent = hasContainerObserver && containerIsPresent(removalTarget)
+    const removed = containerRemovalSucceeded(outcome)
+      && !nameStillPresent
+      && !idStillPresent
+    if (removed) {
+      removedContainers.push(container)
+      containerRecords.push({ name: container, id: removalTarget, ownershipLabels: inspected?.Config?.Labels ?? null, action: 'removed', postObservation: 'name-and-id-absent' })
+    } else {
+      skippedContainers.push(container)
+      containerCleanupFailures.push({
+        container,
+        reason: outcome?.reason || (idStillPresent
+          ? 'docker-rm-id-still-present'
+          : nameStillPresent
+            ? 'docker-rm-name-still-present'
+            : 'docker-rm-reported-failure'),
+        exitCode: outcome?.exitCode ?? null
+      })
+      containerRecords.push({ name: container, id: removalTarget, ownershipLabels: inspected?.Config?.Labels ?? null, action: 'remove-failed', postObservation: idStillPresent ? 'id-still-present' : nameStillPresent ? 'name-still-present' : 'removal-unconfirmed' })
+    }
+  }
+
   const result = {
     startedAt,
     namespace: slug,
@@ -791,19 +794,28 @@ export function cleanupLocalRuntime({
     ? path.join(resolvedRoot, '.tmp', 'test-runs', schedulerRunId, 'checkpoint.json')
     : null
   if (checkpointFile && fs.existsSync(checkpointFile)) {
-    const checkpoint = finalizeResidentLeaseCleanup({
-      root: resolvedRoot,
-      checkpointFile,
-      cleanup: result,
-      checkpointAuthority: (file, updateCheckpoint) =>
-        recordCheckpointResidentLeaseCleanup(file, schedulerRunId, updateCheckpoint),
-      ...(observeResidentService ? { observeService: observeResidentService } : {}),
-      ...(residentCleanupTimeoutMs === null ? {} : { timeoutMs: residentCleanupTimeoutMs })
-    })
-    result.residentResourceLeases = {
-      status: checkpoint.residentResourceLeases?.status ?? 'not-acquired',
-      releasedAt: checkpoint.residentResourceLeases?.releasedAt ?? null,
-      reservation: checkpoint.residentResourceLeases?.reservation ?? { cpuUnits: 0, memoryGiB: 0 }
+    const checkpoint = JSON.parse(fs.readFileSync(checkpointFile, 'utf8'))
+    if (checkpoint.residentResourceLeases?.status === 'not-acquired') {
+      result.residentResourceLeases = {
+        status: 'not-acquired',
+        releasedAt: null,
+        reservation: { cpuUnits: 0, memoryGiB: 0 }
+      }
+    } else {
+      const updatedCheckpoint = finalizeResidentLeaseCleanup({
+        root: resolvedRoot,
+        checkpointFile,
+        cleanup: result,
+        checkpointAuthority: (file, updateCheckpoint) =>
+          recordCheckpointResidentLeaseCleanup(file, schedulerRunId, updateCheckpoint),
+        ...(observeResidentService ? { observeService: observeResidentService } : {}),
+        ...(residentCleanupTimeoutMs === null ? {} : { timeoutMs: residentCleanupTimeoutMs })
+      })
+      result.residentResourceLeases = {
+        status: updatedCheckpoint.residentResourceLeases?.status ?? 'not-acquired',
+        releasedAt: updatedCheckpoint.residentResourceLeases?.releasedAt ?? null,
+        reservation: updatedCheckpoint.residentResourceLeases?.reservation ?? { cpuUnits: 0, memoryGiB: 0 }
+      }
     }
   }
   const cleanupIdentityIncomplete = containerCleanupFailures.length > 0

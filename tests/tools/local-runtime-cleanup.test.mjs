@@ -206,7 +206,7 @@ test('dedicated browser bootstrap is fixed at one worker and fail-closes owned r
         assert.match(source, new RegExp(label.replaceAll('.', '\\.'), 'u'));
     }
 
-    assert.match(source, /const deadlineAtMs = Math\.min\(inheritedDeadlineAtMs, Date\.now\(\) \+ 2_000\)/u);
+    assert.match(source, /const deadlineAtMs = Math\.min\(inheritedDeadlineAtMs, Date\.now\(\) \+ 10_000\)/u);
     assert.match(source, /processGroupId === pid[\s\S]*?sessionId === pid[\s\S]*?FSUSBLOG_RUNTIME_ROLE === role/u);
     assert.match(source, /FSUSBLOG_RUNTIME_IDENTITY_PREPARATION_ID[\s\S]*?environment\.FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID === preparationId[\s\S]*?preparationId,/u);
     assert.match(source, /fs\.writeFileSync\(pending,[\s\S]*?mode: 0o600/u);
@@ -232,12 +232,12 @@ test('dedicated browser bootstrap is fixed at one worker and fail-closes owned r
         assert.ok(runtimeSource.indexOf('AdmitDedicatedRuntimePort')
       < runtimeSource.indexOf(reuseMarker), `${label} admits after reuse`);
     }
-    assert.doesNotMatch(backend.slice(0, backend.indexOf('nohup setsid')), /KillPidIfRunning/u);
+    assert.doesNotMatch(backend, /KillPidIfRunning/u);
     assert.doesNotMatch(debugFrontend, /KillPidIfRunning/u);
     assert.doesNotMatch(releasePreview, /KillPidIfRunning/u);
     assert.match(background, /local role[\s\S]*?role="\$\(RuntimeProcessRole[\s\S]*?ProbeUrl[\s\S]*?AdmitDedicatedRuntimePort[\s\S]*?already reachable/u);
-    assert.match(background, /AssertDedicatedRuntimePortAvailable "\$label" "\$port"[\s\S]*?nohup setsid/u);
-    assert.match(backend, /AssertDedicatedRuntimePortAvailable 'debug backend' "\$DEBUG_BACKEND_PORT"[\s\S]*?nohup setsid/u);
+    assert.match(background, /AssertDedicatedRuntimePortAvailable "\$label" "\$port"[\s\S]*?nohup[\s\S]*?os\.setsid/u);
+    assert.match(backend, /AssertDedicatedRuntimePortAvailable 'debug backend' "\$DEBUG_BACKEND_PORT"[\s\S]*?nohup[\s\S]*?os\.setsid/u);
     assert.match(debugFrontend, /KillRuntimePidIfOwned debug-frontend[\s\S]*?WaitForPortRelease[\s\S]*?StartBackgroundIfNeeded/u);
     assert.match(releasePreview, /AdmitDedicatedRuntimePort[\s\S]*?building release preview[\s\S]*?AdmitDedicatedRuntimePort[\s\S]*?KillRuntimePidIfOwned release-preview/u);
     const portRelease = source.slice(source.indexOf('WaitForPortRelease()'), source.indexOf('ProbeUrl()'));
@@ -282,7 +282,7 @@ test('dedicated runtime admission fail-closes foreign, hidden, reachable, and ra
     export FSUSBLOG_DEBUG_FRONTEND_PORT=45102
     export FSUSBLOG_RELEASE_PREVIEW_PORT=45103
     export FSUSBLOG_STEP_DEADLINE_MS=10000
-    export FSUSBLOG_NODE=/definitely/unavailable-node
+    export FSUSBLOG_NODE="$(command -v node)"
     source ./tools/bootstrap-acceptance-env.sh
 
     fail_fixture() { printf 'fixture failure: %s\n' "$1" >&2; exit 1; }
@@ -560,6 +560,7 @@ test('dedicated cleanup removes inspected container IDs and confirmed process gr
     ]);
     const present = new Set([...containerIds.keys(), ...containerIds.values()]);
     const removals = [];
+    const cleanupOrder = [];
     let processRunning = true;
     const observed = {
         pid: fixture.pid,
@@ -583,6 +584,7 @@ test('dedicated cleanup removes inspected container IDs and confirmed process gr
         inspectContainer: (name) => runtimeContainer(fixture.labels, containerIds.get(name)),
         removeContainer: (id, context) =>
         {
+            cleanupOrder.push(`container:${context.name}`);
             removals.push([id, context.name]);
             present.delete(id);
             present.delete(context.name);
@@ -592,6 +594,7 @@ test('dedicated cleanup removes inspected container IDs and confirmed process gr
         processGroupExists: () => processRunning,
         terminateDedicatedProcess: () =>
         {
+            cleanupOrder.push('process:backend');
             processRunning = false; return true;
         }
     });
@@ -609,6 +612,11 @@ test('dedicated cleanup removes inspected container IDs and confirmed process gr
         `fsusblog-test-redis-${fixture.namespace}`
     ]);
     assert.deepEqual(result.terminatedPids, [fixture.pid]);
+    assert.deepEqual(cleanupOrder, [
+        'process:backend',
+        `container:fsusblog-test-postgres-${fixture.namespace}`,
+        `container:fsusblog-test-redis-${fixture.namespace}`
+    ]);
     assert.deepEqual(result.skippedProcesses, []);
     assert.equal(result.cleanupStatus, 'complete');
     assert.equal(result.retainedRuntimeState, false);
@@ -2096,6 +2104,43 @@ test('cleanupLocalRuntime refuses container names not derived from the current n
     });
     assert.equal(receipt.receipt.status, 'complete');
     assert.deepEqual(receipt.receipt.skipped, result.skippedContainers);
+});
+
+test('cleanupLocalRuntime does not acquire the scheduler lock when resident leases were never acquired', (t) =>
+{
+    const root = fs.mkdtempSync(path.join(process.env.TMPDIR ?? '/tmp', 'fsusblog-local-runtime-no-resident-'));
+    t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const namespace = 'production-no-resident';
+    const runId = 'active-scheduler-run';
+    const envFile = path.join(root, '.tmp/env', `${namespace}.env`);
+    const checkpointFile = path.join(root, '.tmp/test-runs', runId, 'checkpoint.json');
+    fs.mkdirSync(path.dirname(envFile), { recursive: true });
+    fs.mkdirSync(path.dirname(checkpointFile), { recursive: true });
+    fs.writeFileSync(envFile, [
+        `FSUSBLOG_TEST_NAMESPACE=${namespace}`,
+        `FSUSBLOG_TEST_RUN_ID=${runId}`,
+        'FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME=0'
+    ].join('\n'));
+    fs.writeFileSync(checkpointFile, `${JSON.stringify({
+        residentResourceLeases: { status: 'not-acquired' }
+    })}\n`);
+
+    const cleanup = cleanupLocalRuntime({
+        root,
+        namespace,
+        removeContainer: () =>
+        {},
+        observeProcess: () => null,
+        processGroupExists: () => false
+    });
+
+    assert.deepEqual(cleanup.residentResourceLeases, {
+        status: 'not-acquired',
+        releasedAt: null,
+        reservation: { cpuUnits: 0, memoryGiB: 0 }
+    });
+    assert.equal(cleanup.cleanupStatus, 'complete');
+    assert.equal(fs.existsSync(envFile), false);
 });
 
 test('cleanupLocalRuntime retains recovery handles until resident identities are confirmed exited', (t) =>

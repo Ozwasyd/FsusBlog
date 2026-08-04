@@ -364,6 +364,42 @@ describe('account router meta and guards', () => {
     expect(router.currentRoute.value.name).toBe('Archive')
   })
 
+  it('passes the staged locale snapshot into atomic prewarm without nesting a locale commit', async () => {
+    publicRuntimeOwner = 'full-app'
+    const localeTransaction = {
+      snapshot: {
+        locale: 'en-US',
+        domains: ['common', 'layout', 'public'] as const
+      },
+      commit: vi.fn(),
+      rollback: vi.fn()
+    }
+    const prewarmPublicRoute = vi.fn(async () => ({
+      status: 'ready' as const,
+      target: '/archive',
+      reason: 'atomic-navigation' as const,
+      routeKind: 'Archive' as const,
+      routeComponentReady: true,
+      seedReady: true
+    }))
+    const router = createAppRouter({
+      history: createMemoryHistory(),
+      ssr: false,
+      getPublicActivationOwner: () => publicRuntimeOwner,
+      prepareLocaleDomains: vi.fn(async () => localeTransaction),
+      prewarmPublicRoute
+    })
+
+    await router.push('/archive')
+
+    expect(prewarmPublicRoute).toHaveBeenCalledWith('/archive', {
+      reason: 'atomic-navigation',
+      preparedLocaleSnapshot: localeTransaction.snapshot
+    })
+    expect(localeTransaction.commit).toHaveBeenCalledOnce()
+    expect(localeTransaction.rollback).not.toHaveBeenCalled()
+  })
+
   it('renders the initial SPA fallback without entering the atomic AOT prewarm path', async () => {
     document.body.innerHTML = '<div id="app"></div>'
     const prewarmPublicRoute = vi.fn(async (target: string) => ({

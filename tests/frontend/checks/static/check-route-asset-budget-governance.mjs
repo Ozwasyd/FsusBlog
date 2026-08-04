@@ -55,6 +55,15 @@ if (fs.existsSync(budgetScriptPath)) {
 assert(!viteConfig.includes('chunkSizeWarningLimit: 1000'), 'chunkSizeWarningLimit must not remain the only wide guardrail')
 assert(!viteConfig.includes('minSize: 1'), 'manual chunk minSize must not force 1-byte chunk splitting')
 assert(viteConfig.includes('minSize: 4096'), 'manual chunk minSize should use a non-trivial floor')
+const routeTitleChunkIndex = viteConfig.indexOf("id.includes('/src/router/routeTitleContract.ts')")
+const fullAppRouterChunkIndex = viteConfig.indexOf(
+  "id.includes('/src/bootstrap/fullApp.ts') || id.includes('/src/router/')"
+)
+assert(routeTitleChunkIndex >= 0, 'route title contract must share the public route core chunk')
+assert(
+  routeTitleChunkIndex < fullAppRouterChunkIndex,
+  'route title contract chunk rule must precede the generic full-app router rule to avoid a production cycle'
+)
 
 assert(
   !fullApp.includes("import { FsuMotion } from '@ozwasyd/element-plus/motion'"),

@@ -1886,7 +1886,7 @@ EnsureBackend() {
     local startedPid=$!
     WriteRuntimePidFile "$pidFile" "$startedPid"
     if ! WriteRuntimeProcessIdentity "$pidFile" "$startedPid" backend "$readinessDeadline"; then
-        KillPidIfRunning "$startedPid" "$readinessDeadline"
+        KillRuntimePidIfOwned backend "$pidFile" "$startedPid" "$readinessDeadline" || true
         rm -f "$pidFile" "$(RuntimeIdentityFile "$pidFile")"
         return 1
     fi
@@ -1964,7 +1964,7 @@ StartBackgroundIfNeeded() {
     local startedPid=$!
     WriteRuntimePidFile "$pidFile" "$startedPid"
     if ! WriteRuntimeProcessIdentity "$pidFile" "$startedPid" "$role" "$readinessDeadline"; then
-        KillPidIfRunning "$startedPid" "$readinessDeadline"
+        KillRuntimePidIfOwned "$role" "$pidFile" "$startedPid" "$readinessDeadline" || true
         rm -f "$pidFile" "$(RuntimeIdentityFile "$pidFile")"
         return 1
     fi
