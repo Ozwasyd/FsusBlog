@@ -41,6 +41,24 @@ public class TotpServiceTests
         }
     }
 
+    public static TheoryData<string, string, string> InvalidRecoveryCodeCases
+    {
+        get
+        {
+            var cases = new TheoryData<string, string, string>
+            {
+                { "empty-input", "ABCD1234EF", "" },
+                { "wrong-code", "GOODCODE01", "BADCODE001" }
+            };
+            if (cases.Count != 2)
+            {
+                throw new InvalidOperationException("The invalid recovery-code inventory must contain exactly two cases.");
+            }
+
+            return cases;
+        }
+    }
+
     private static TotpService MakeService(DateTimeOffset? utcNow = null, bool productionHashPolicy = false)
     {
         // EphemeralDataProtectionProvider works in-memory without any file system
@@ -462,13 +480,21 @@ public class TotpServiceTests
         Assert.False(result.Success);
     }
 
-    [Fact]
-    public void ConsumeRecoveryCode_EmptyInputCode_ReturnsFalse()
+    [Theory]
+    [MemberData(nameof(InvalidRecoveryCodeCases))]
+    public void ConsumeRecoveryCode_InvalidInput_ReturnsExpectedFailure(
+        string caseName,
+        string storedCode,
+        string inputCode)
     {
         var svc = MakeService();
-        var hashes = svc.HashRecoveryCodes(["ABCD1234EF"]);
-        var result = svc.ConsumeRecoveryCode(hashes, "");
-        Assert.False(result.Success);
+        var hashes = svc.HashRecoveryCodes([storedCode]);
+        var result = svc.ConsumeRecoveryCode(hashes, inputCode);
+
+        Assert.False(result.Success, $"Recovery-code case '{caseName}' unexpectedly succeeded.");
+        Assert.True(
+            StringComparer.Ordinal.Equals(hashes, result.UpdatedHashes),
+            $"Recovery-code case '{caseName}' changed stored hashes on failure.");
     }
 
     [Fact]
@@ -484,15 +510,6 @@ public class TotpServiceTests
         // After consuming, updated hashes should have 2 entries
         var remaining = result.UpdatedHashes.Split('\n', StringSplitOptions.RemoveEmptyEntries);
         Assert.Equal(2, remaining.Length);
-    }
-
-    [Fact]
-    public void ConsumeRecoveryCode_WrongCode_ReturnsFalse()
-    {
-        var svc = MakeService();
-        var hashes = svc.HashRecoveryCodes(["GOODCODE01"]);
-        var result = svc.ConsumeRecoveryCode(hashes, "BADCODE001");
-        Assert.False(result.Success);
     }
 
     [Fact]

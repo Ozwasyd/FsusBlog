@@ -11367,6 +11367,22 @@
         "xunit:tests/backend/Unit/TotpServiceTests.cs#TotpServiceTests.VerifyCode_MalformedCode_ReturnsFalse"
       ],
       "reason": "The malformed-code Theory retains the alphabetic input as the independently discoverable all-letters case with a stable diagnostic label."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/TotpServiceTests.cs#TotpServiceTests.ConsumeRecoveryCode_EmptyInputCode_ReturnsFalse",
+      "path": "tests/backend/Unit/TotpServiceTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/TotpServiceTests.cs#TotpServiceTests.ConsumeRecoveryCode_InvalidInput_ReturnsExpectedFailure"
+      ],
+      "reason": "The invalid-input Theory retains the empty input as an independently discoverable case and proves failure leaves the stored recovery-code hashes unchanged."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/TotpServiceTests.cs#TotpServiceTests.ConsumeRecoveryCode_WrongCode_ReturnsFalse",
+      "path": "tests/backend/Unit/TotpServiceTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/TotpServiceTests.cs#TotpServiceTests.ConsumeRecoveryCode_InvalidInput_ReturnsExpectedFailure"
+      ],
+      "reason": "The invalid-input Theory retains the wrong code as an independently discoverable case and proves failure leaves the stored recovery-code hashes unchanged."
     }
   ],
   "assertionReplacements": [
