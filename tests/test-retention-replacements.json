@@ -2,6 +2,22 @@
   "schema": "fsusblog.test-retention-replacements.v1",
   "deletedTests": [
     {
+      "id": "xunit:tests/backend/Unit/CommentServiceValidationTests.cs#CommentServiceValidationTests.CreateComment_InvalidRootId_ReturnsFalse",
+      "path": "tests/backend/Unit/CommentServiceValidationTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/CommentServiceValidationTests.cs#CommentServiceValidationTests.CreateComment_RootIdBoundary_ReturnsFalseWithoutSideEffects"
+      ],
+      "reason": "The replacement Theory retains the non-numeric root ID boundary as the independently reported not-numeric case and adds zero-side-effect oracles."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/CommentServiceValidationTests.cs#CommentServiceValidationTests.CreateComment_NegativeRootId_ReturnsFalse",
+      "path": "tests/backend/Unit/CommentServiceValidationTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/CommentServiceValidationTests.cs#CommentServiceValidationTests.CreateComment_RootIdBoundary_ReturnsFalseWithoutSideEffects"
+      ],
+      "reason": "The replacement Theory retains the negative root ID boundary as the independently reported negative case and adds zero-side-effect oracles."
+    },
+    {
       "id": "xunit:tests/backend/Unit/CommentServiceValidationTests.cs#CommentServiceValidationTests.CreateComment_InvalidParentId_ReturnsFalse",
       "path": "tests/backend/Unit/CommentServiceValidationTests.cs",
       "replacementTestIds": [

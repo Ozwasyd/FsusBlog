@@ -203,3 +203,48 @@ test('rejects drift in a required Theory case label without relying on case coun
     /CreateComment_ParentIdBoundary_ReturnsFalseWithoutSideEffects required Theory cases mismatch/u
   )
 })
+
+test('rejects deletion of a required root ID Theory case', () => {
+  const fixture = createFixture()
+  const sourcePath = path.join(
+    fixture.backendRoot,
+    'Unit/CommentServiceValidationTests.cs'
+  )
+  const source = fs.readFileSync(sourcePath, 'utf8')
+  fs.writeFileSync(
+    sourcePath,
+    source.replace('    [InlineData("negative", "-5")]\n', '')
+  )
+
+  const result = runChecker(fixture.root)
+
+  assert.notEqual(result.status, 0)
+  assert.match(
+    result.stderr,
+    /CreateComment_RootIdBoundary_ReturnsFalseWithoutSideEffects required Theory cases mismatch/u
+  )
+})
+
+test('rejects drift in a required root ID Theory input', () => {
+  const fixture = createFixture()
+  const sourcePath = path.join(
+    fixture.backendRoot,
+    'Unit/CommentServiceValidationTests.cs'
+  )
+  const source = fs.readFileSync(sourcePath, 'utf8')
+  fs.writeFileSync(
+    sourcePath,
+    source.replace(
+      '[InlineData("not-numeric", "abc")]',
+      '[InlineData("not-numeric", "not-a-root-id")]'
+    )
+  )
+
+  const result = runChecker(fixture.root)
+
+  assert.notEqual(result.status, 0)
+  assert.match(
+    result.stderr,
+    /CreateComment_RootIdBoundary_ReturnsFalseWithoutSideEffects required Theory cases mismatch/u
+  )
+})

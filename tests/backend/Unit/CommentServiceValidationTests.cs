@@ -125,13 +125,51 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
             testFixture.Attribution.ReceivedCalls().Select(static call => call.GetMethodInfo().Name));
     }
 
-    [Fact]
-    public async Task CreateComment_InvalidRootId_ReturnsFalse()
+    [Theory]
+    [InlineData("not-numeric", "abc")]
+    [InlineData("negative", "-5")]
+    public async Task CreateComment_RootIdBoundary_ReturnsFalseWithoutSideEffects(
+        string caseName,
+        string rootId)
     {
-        var svc = BuildService();
-        var dto = new CommentDto { ArticleId = 1, Content = "hello", ParentId = "100", RootId = "abc" };
-        bool result = await svc.CreateCommentAsync(1, dto);
-        Assert.False(result);
+        CreateCommentValidationFixture testFixture = BuildCreateCommentValidationFixture();
+        var dto = new CommentDto
+        {
+            ArticleId = 1,
+            Content = "hello",
+            ParentId = "100",
+            RootId = rootId
+        };
+
+        bool result = await testFixture.Service.CreateCommentAsync(1, dto);
+
+        Assert.False(result, $"root ID case '{caseName}' must be rejected");
+        testFixture.Moderation.Received(1).ResolveSubmissionRegion("hello", 1, 1, null);
+        await testFixture.Attribution.Received(1).ResolvePublicActorAsync(
+            1,
+            Arg.Is<CommentDto>(request =>
+                request.ArticleId == 1
+                && request.Content == "hello"
+                && request.ParentId == "100"
+                && request.RootId == rootId
+                && request.ReplyToCommentId == null),
+            "hello",
+            RegionCodes.Unknown,
+            Arg.Any<CancellationToken>());
+        testFixture.Attribution.Received(1).RequiresAnonymousNullifierEnforcement(testFixture.Actor);
+        Assert.Equal(
+            [nameof(ISqlSugarClient.Queryable)],
+            testFixture.Database.ReceivedCalls().Select(static call => call.GetMethodInfo().Name));
+        Assert.Equal(
+            [nameof(ISugarQueryable<Article>.Where), nameof(ISugarQueryable<Article>.AnyAsync)],
+            testFixture.Articles.ReceivedCalls().Select(static call => call.GetMethodInfo().Name));
+        Assert.Empty(testFixture.Notifications.ReceivedCalls());
+        Assert.Empty(testFixture.Invalidations.ReceivedCalls());
+        Assert.Empty(testFixture.Outbox.ReceivedCalls());
+        Assert.Single(testFixture.Moderation.ReceivedCalls());
+        Assert.Equal(
+            [nameof(ICommentAttributionPrivacyService.ResolvePublicActorAsync), nameof(ICommentAttributionPrivacyService.RequiresAnonymousNullifierEnforcement)],
+            testFixture.Attribution.ReceivedCalls().Select(static call => call.GetMethodInfo().Name));
     }
 
     [Fact]
@@ -148,15 +186,6 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
     {
         var svc = BuildService();
         var dto = new CommentDto { ArticleId = 1, Content = null! };
-        bool result = await svc.CreateCommentAsync(1, dto);
-        Assert.False(result);
-    }
-
-    [Fact]
-    public async Task CreateComment_NegativeRootId_ReturnsFalse()
-    {
-        var svc = BuildService();
-        var dto = new CommentDto { ArticleId = 1, Content = "hello", ParentId = "100", RootId = "-5" };
         bool result = await svc.CreateCommentAsync(1, dto);
         Assert.False(result);
     }

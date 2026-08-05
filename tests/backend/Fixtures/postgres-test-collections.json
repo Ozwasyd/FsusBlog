@@ -257,6 +257,26 @@
                   ]
                 }
               ]
+            },
+            {
+              "method": "CreateComment_RootIdBoundary_ReturnsFalseWithoutSideEffects",
+              "caseNameArgument": 0,
+              "cases": [
+                {
+                  "caseName": "not-numeric",
+                  "arguments": [
+                    "not-numeric",
+                    "abc"
+                  ]
+                },
+                {
+                  "caseName": "negative",
+                  "arguments": [
+                    "negative",
+                    "-5"
+                  ]
+                }
+              ]
             }
           ]
         },
