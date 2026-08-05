@@ -287,6 +287,219 @@ public sealed class FileServiceTests
     }
 
     [Fact]
+    [Trait("Category", "Concurrency")]
+    public async Task CompleteUploadAsync_ConcurrentSameOwnerRetriesFinalizeSingleStableResult()
+    {
+        ResetSessionLocks();
+        string root = CreateTempDirectory();
+        try
+        {
+            byte[] payload = CreatePngPart(2 * 1024 * 1024, 0x41, includeHeader: true);
+            string sha256 = Convert.ToHexStringLower(SHA256.HashData(payload));
+            FileService setupService = CreateService(root);
+            Result<UploadInitDto> init =
+                await setupService.InitUploadSessionAsync(41, CreatePngUploadRequest(payload.Length));
+            UploadInitDto session = Assert.IsType<UploadInitDto>(init.Value);
+            var owner = new UploadSessionAccess(session.UploadId, 41, session.UploadToken);
+            Result<UploadPartAckDto> upload = await setupService.UploadPartAsync(
+                owner,
+                0,
+                0,
+                CreateFormFile(payload, "complete-race"),
+                sha256);
+            Assert.True(upload.IsSuccess, upload.Error.Message);
+
+            string commitRoot = Path.Combine(CreateStoragePaths(root).UploadCommitRoot, "current");
+            Directory.CreateDirectory(commitRoot);
+            int commitCandidateCreations = 0;
+            using var watcher = new FileSystemWatcher(commitRoot)
+            {
+                NotifyFilter = NotifyFilters.FileName,
+                EnableRaisingEvents = true
+            };
+            watcher.Created += (_, args) =>
+            {
+                if (args.Name?.EndsWith(".tmp", StringComparison.Ordinal) == true)
+                {
+                    Interlocked.Increment(ref commitCandidateCreations);
+                }
+            };
+
+            using (var firstWave = new Barrier(4))
+            {
+                Result<UploadCompleteDto>[] concurrent = await Task.WhenAll(
+                    Enumerable.Range(0, 4)
+                        .Select(_ => StartTogetherAsync(
+                            firstWave,
+                            () => CreateService(root).CompleteUploadAsync(owner, sha256))));
+                Assert.All(concurrent, result => Assert.True(result.IsSuccess, result.Error.Message));
+
+                using var retryWave = new Barrier(6);
+                Result<UploadCompleteDto>[] retries = await Task.WhenAll(
+                    Enumerable.Range(0, 6)
+                        .Select(_ => StartTogetherAsync(
+                            retryWave,
+                            () => CreateService(root).CompleteUploadAsync(owner, sha256))));
+                Assert.All(retries, result => Assert.True(result.IsSuccess, result.Error.Message));
+
+                UploadCompleteDto expected = concurrent[0].Value!;
+                Assert.All(
+                    concurrent.Concat(retries),
+                    result => Assert.Equal(
+                        (expected.UploadId, expected.Url, expected.RelativeUrl, expected.MimeType, expected.TotalBytes),
+                        (result.Value!.UploadId, result.Value.Url, result.Value.RelativeUrl, result.Value.MimeType, result.Value.TotalBytes)));
+            }
+
+            await FlushFileSystemWatcherAsync(watcher, commitRoot);
+            Assert.Equal(1, Volatile.Read(ref commitCandidateCreations));
+            string finalPath = Assert.Single(Directory.GetFiles(GetIllustrationFolder(root)));
+            Assert.Equal($"{session.UploadId}.png", Path.GetFileName(finalPath));
+            Assert.Equal(payload, await File.ReadAllBytesAsync(finalPath));
+            Assert.Equal(sha256, Convert.ToHexStringLower(SHA256.HashData(await File.ReadAllBytesAsync(finalPath))));
+            Assert.Empty(Directory.GetFiles(commitRoot, "*.tmp"));
+
+            UploadSessionRecord completed = await ReadManifestAsync(root, session.UploadId);
+            Assert.Equal("completed", completed.Status);
+            Assert.Equal(payload.Length, completed.UploadedBytes);
+            Assert.True(Directory.Exists(GetSessionPath(root, session.UploadId)));
+            Assert.Single(GetExpirationIndexFiles(root, session.UploadId));
+            Result<UploadStatusDto> status = await CreateService(root).GetUploadStatusAsync(owner);
+            Assert.True(status.IsSuccess, status.Error.Message);
+            Assert.Equal("completed", status.Value!.Status);
+            Assert.Equal(payload.Length, status.Value.UploadedBytes);
+            Assert.Equal(1, status.Value.UploadedPartCount);
+        }
+        finally
+        {
+            ResetSessionLocks();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Concurrency")]
+    public async Task CompleteUploadAsync_ConcurrentUnauthorizedAttemptsCannotInheritOrDisruptCompletion()
+    {
+        ResetSessionLocks();
+        string root = CreateTempDirectory();
+        try
+        {
+            byte[] payload = CreatePngPart(512 * 1024, 0x52, includeHeader: true);
+            string sha256 = Convert.ToHexStringLower(SHA256.HashData(payload));
+            FileService setupService = CreateService(root);
+            Result<UploadInitDto> init =
+                await setupService.InitUploadSessionAsync(41, CreatePngUploadRequest(payload.Length));
+            UploadInitDto session = Assert.IsType<UploadInitDto>(init.Value);
+            var owner = new UploadSessionAccess(session.UploadId, 41, session.UploadToken);
+            Assert.True((await setupService.UploadPartAsync(
+                owner,
+                0,
+                0,
+                CreateFormFile(payload, "authorized-race"),
+                sha256)).IsSuccess);
+
+            using var start = new Barrier(3);
+            Task<Result<UploadCompleteDto>> authorized = StartTogetherAsync(
+                start,
+                () => CreateService(root).CompleteUploadAsync(owner, sha256));
+            Task<Result<UploadCompleteDto>> wrongOwner = StartTogetherAsync(
+                start,
+                () => CreateService(root).CompleteUploadAsync(
+                    owner with
+                    {
+                        OwnerAdminPrincipalId = 42
+                    },
+                    sha256));
+            Task<Result<UploadCompleteDto>> wrongToken = StartTogetherAsync(
+                start,
+                () => CreateService(root).CompleteUploadAsync(
+                    owner with
+                    {
+                        UploadToken = "wrong-token"
+                    },
+                    sha256));
+
+            Result<UploadCompleteDto>[] results = await Task.WhenAll(authorized, wrongOwner, wrongToken);
+            Result<UploadCompleteDto> authorizedResult = results[0];
+            Result<UploadCompleteDto> wrongOwnerResult = results[1];
+            Result<UploadCompleteDto> wrongTokenResult = results[2];
+
+            Assert.True(authorizedResult.IsSuccess, authorizedResult.Error.Message);
+            Assert.Equal(ErrorCode.NotFound, wrongOwnerResult.Error.Code);
+            Assert.Equal("UPLOAD_SESSION_NOT_FOUND", wrongOwnerResult.Error.Message);
+            Assert.Equal(ErrorCode.NotFound, wrongTokenResult.Error.Code);
+            Assert.Equal("UPLOAD_SESSION_NOT_FOUND", wrongTokenResult.Error.Message);
+            string finalPath = Assert.Single(Directory.GetFiles(GetIllustrationFolder(root)));
+            Assert.Equal(payload, await File.ReadAllBytesAsync(finalPath));
+            Assert.Equal("completed", (await ReadManifestAsync(root, session.UploadId)).Status);
+            Assert.True(Directory.Exists(GetSessionPath(root, session.UploadId)));
+            Assert.Single(GetExpirationIndexFiles(root, session.UploadId));
+        }
+        finally
+        {
+            ResetSessionLocks();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Concurrency")]
+    public async Task CompleteUploadAsync_FinalizationFailureLeavesRetryableSessionWithoutPartialArtifact()
+    {
+        ResetSessionLocks();
+        string root = CreateTempDirectory();
+        try
+        {
+            byte[] payload = CreatePngPart(512 * 1024, 0x63, includeHeader: true);
+            string sha256 = Convert.ToHexStringLower(SHA256.HashData(payload));
+            FileService service = CreateService(root);
+            Result<UploadInitDto> init =
+                await service.InitUploadSessionAsync(41, CreatePngUploadRequest(payload.Length));
+            UploadInitDto session = Assert.IsType<UploadInitDto>(init.Value);
+            var owner = new UploadSessionAccess(session.UploadId, 41, session.UploadToken);
+            Assert.True((await service.UploadPartAsync(
+                owner,
+                0,
+                0,
+                CreateFormFile(payload, "failed-finalization"),
+                sha256)).IsSuccess);
+
+            string finalPath = Path.Combine(GetIllustrationFolder(root), $"{session.UploadId}.png");
+            Directory.CreateDirectory(finalPath);
+
+            Result<UploadCompleteDto> failed = await service.CompleteUploadAsync(owner, sha256);
+
+            Assert.False(failed.IsSuccess);
+            Assert.Equal(ErrorCode.InfraFailure, failed.Error.Code);
+            Assert.True(Directory.Exists(finalPath));
+            Assert.Empty(Directory.EnumerateFiles(finalPath));
+            string commitRoot = Path.Combine(CreateStoragePaths(root).UploadCommitRoot, "current");
+            Assert.Empty(Directory.GetFiles(commitRoot, "*.tmp"));
+            UploadSessionRecord retryable = await ReadManifestAsync(root, session.UploadId);
+            Assert.Equal("uploaded", retryable.Status);
+            Assert.True(Directory.Exists(GetSessionPath(root, session.UploadId)));
+            Assert.Single(GetExpirationIndexFiles(root, session.UploadId));
+
+            Directory.Delete(finalPath);
+            Result<UploadCompleteDto> retry = await CreateService(root).CompleteUploadAsync(owner, sha256);
+            Result<UploadCompleteDto> stableRetry = await CreateService(root).CompleteUploadAsync(owner, sha256);
+
+            Assert.True(retry.IsSuccess, retry.Error.Message);
+            Assert.True(stableRetry.IsSuccess, stableRetry.Error.Message);
+            Assert.Equal(retry.Value!.RelativeUrl, stableRetry.Value!.RelativeUrl);
+            Assert.Equal(payload, await File.ReadAllBytesAsync(finalPath));
+            Assert.Single(Directory.GetFiles(GetIllustrationFolder(root)));
+            Assert.Equal("completed", (await ReadManifestAsync(root, session.UploadId)).Status);
+            Assert.Single(GetExpirationIndexFiles(root, session.UploadId));
+        }
+        finally
+        {
+            ResetSessionLocks();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task CompleteUploadAsync_ReleasesSessionLockAfterCompletion()
     {
         ResetSessionLocks();
@@ -1886,6 +2099,44 @@ public sealed class FileServiceTests
         MethodInfo method = typeof(FileService).GetMethod("EncodeSession", BindingFlags.Static | BindingFlags.NonPublic)!;
         byte[] payload = (byte[])method.Invoke(null, [record])!;
         await File.WriteAllBytesAsync(manifestPath, payload);
+    }
+
+    private static Task<T> StartTogetherAsync<T>(Barrier barrier, Func<Task<T>> action)
+        => Task.Factory.StartNew(
+            async () =>
+            {
+                Assert.True(
+                    barrier.SignalAndWait(TimeSpan.FromSeconds(30)),
+                    "Timed out waiting for concurrent upload completion requests.");
+                return await action();
+            },
+            CancellationToken.None,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default).Unwrap();
+
+    private static async Task FlushFileSystemWatcherAsync(FileSystemWatcher watcher, string directory)
+    {
+        string sentinelName = $"{Guid.NewGuid():N}.sync";
+        var observed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        FileSystemEventHandler handler = (_, args) =>
+        {
+            if (string.Equals(args.Name, sentinelName, StringComparison.Ordinal))
+            {
+                observed.TrySetResult();
+            }
+        };
+        watcher.Created += handler;
+        string sentinelPath = Path.Combine(directory, sentinelName);
+        try
+        {
+            await File.WriteAllBytesAsync(sentinelPath, []);
+            await observed.Task.WaitAsync(TimeSpan.FromSeconds(30));
+        }
+        finally
+        {
+            watcher.Created -= handler;
+            File.Delete(sentinelPath);
+        }
     }
 
     private static string CreateTempDirectory()

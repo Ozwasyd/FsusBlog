@@ -867,11 +867,12 @@
         },
         {
             "id": "backend-race-idempotency-model",
-            "description": "Backend Race Idempotency Model is covered by unit/property tests that exercise the named behavior.",
+            "description": "Backend race and idempotency behavior is covered by real service, persistence and concurrency tests rather than in-test state models.",
             "owner": "ServerContractAgent",
             "risk": "high",
             "evidencePaths": [
                 "tests/backend/Unit/BackendConcurrencyModelTests.cs",
+                "tests/backend/Unit/FileServiceTests.cs",
                 "tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs",
                 "tests/backend/Unit/SubscriptionEndpointsContractTests.cs",
                 "tests/backend/Unit/DevSeedSqlContractTests.cs",
@@ -884,7 +885,7 @@
             ],
             "assertionType": "unit",
             "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-            "minimumRequirement": "The referenced unit or property test evidence must execute assertions for this behavior, not merely prove that a source file exists.",
+            "minimumRequirement": "The referenced owners must execute real service, filesystem or persistence assertions for each behavior, not merely prove that a source file exists.",
             "tierIds": [
                 "backend-concurrency",
                 "backend-unit",
@@ -3422,6 +3423,7 @@
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
+                "tests/backend/Unit/FileServiceTests.cs",
                 "tests/backend/Unit/ReleaseStorageLifecycleTests.cs"
             ],
             "assertionType": "unit",
@@ -3429,6 +3431,7 @@
             "minimumRequirement": "Executable upload lifecycle tests must cover multipart retry, direct commit, atomic finalization, lease exclusion and exact cleanup candidate selection.",
             "tierIds": [
                 "backend-unit",
+                "backend-concurrency",
                 "release",
                 "production"
             ]
@@ -3632,7 +3635,7 @@
         },
         {
             "id": "backend-concurrency-state-machine-behavior",
-            "description": "Anonymous nullifier consumption, destructive article mutation, comment mutation, account lifecycle, refresh and MFA recovery, Passkey registration capacity, and security challenge outcomes are proven through PostgreSQL races and observable state-machine effects rather than source text.",
+            "description": "Anonymous nullifier consumption, destructive article mutation, comment mutation, account lifecycle, refresh and MFA recovery, Passkey registration capacity, upload completion, and security challenge outcomes are proven through real persistence and filesystem races with observable state-machine effects rather than source text.",
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
@@ -3641,13 +3644,14 @@
                 "tests/backend/Unit/CommentMutationPostgresConcurrencyTests.cs",
                 "tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs",
                 "tests/backend/Integration/PasskeyRegistrationProjectionIntegrationTests.cs",
+                "tests/backend/Unit/FileServiceTests.cs",
                 "tests/backend/Unit/SecurityChallengePersistenceTests.cs",
                 "tests/test-retention-replacements.json",
                 "docs/testing/issue-1040-concurrency-state-machines.md"
             ],
             "assertionType": "integration",
-            "failClosedRule": "Reject lost updates, duplicate terminal transitions, stale writes, partial database state, repeated external side effects, refresh replay acceptance, recovery-code double use, Passkey registration above the per-account limit or a challenge terminal state that can be overwritten.",
-            "minimumRequirement": "The concurrency lane must execute the real PostgreSQL race owners with bounded synchronization and assert final rows, projections, return values, cache invalidations and notification counts.",
+            "failClosedRule": "Reject lost updates, duplicate terminal transitions, stale writes, partial database or filesystem state, repeated external side effects, refresh replay acceptance, recovery-code double use, Passkey registration above the per-account limit, repeated upload finalization or a challenge terminal state that can be overwritten.",
+            "minimumRequirement": "The concurrency lane must execute the real PostgreSQL and filesystem race owners with bounded synchronization and assert final rows or files, projections, return values, indexes, cache invalidations and notification counts.",
             "tierIds": [
                 "backend-concurrency"
             ]

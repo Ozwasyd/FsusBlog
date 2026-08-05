@@ -75,6 +75,7 @@
       ],
       "evidencePaths": [
         "tests/backend/Unit/BackendConcurrencyModelTests.cs",
+        "tests/backend/Unit/FileServiceTests.cs",
         "tests/backend/Unit/PasskeySignCountConcurrencyTests.cs",
         "tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs",
         "tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs",
@@ -446,6 +447,7 @@
       "coverage": "refresh/logout, recovery code, passkey limit, publish/cache, comment/message/notification stream/upload races",
       "evidencePaths": [
         "tests/backend/Unit/BackendConcurrencyModelTests.cs",
+        "tests/backend/Unit/FileServiceTests.cs",
         "tests/backend/Unit/DbConcurrencyGateTests.cs",
         "tests/backend/Integration/SchemaMigrationIntegrationTests.cs",
         "tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs",
@@ -828,7 +830,6 @@
       "coverage": "MIME mismatch, content sniffing, huge/zero-byte, dedupe, orphan cleanup, path traversal",
       "evidencePaths": [
         "tests/backend/Unit/FileServiceTests.cs",
-        "tests/backend/Unit/BackendConcurrencyModelTests.cs",
         "tests/backend/Unit/ReleaseStorageLifecycleTests.cs",
         "tests/backend/Unit/SecurityHardening/UploadBoundaryTests.cs",
         "tests/backend/Unit/UploadSessionCleanupQueueBehaviorTests.cs",
@@ -910,6 +911,7 @@
       "coverage": "upload complete, delete/restore article, logout, mark-read, cache invalidation, migration, draft save",
       "evidencePaths": [
         "tests/backend/Unit/BackendConcurrencyModelTests.cs",
+        "tests/backend/Unit/FileServiceTests.cs",
         "tests/backend/Unit/SchemaMigrationRegistryTests.cs",
         "tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs",
         "tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs",

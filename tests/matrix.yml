@@ -7967,6 +7967,7 @@ tiers:
           - backend-concurrency-state-machine-behavior
           - backend-executable-data-test-governance
           - backend-passkey-behavior-governance
+          - atomic-idempotent-upload-commit
       artifacts:
           [
               .tmp/backend-concurrency,
@@ -7976,6 +7977,7 @@ tiers:
       evidence:
           - .tmp/backend-concurrency/summary.json
           - tests/backend/Unit/BackendConcurrencyModelTests.cs
+          - tests/backend/Unit/FileServiceTests.cs
           - tests/backend/Fixtures/backend-test-requirements.json
           - tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs
           - tests/backend/Unit/SubscriptionEndpointsContractTests.cs

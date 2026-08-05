@@ -431,6 +431,18 @@ public sealed partial class FileService : IFileService
                 expectedHash = NormalizeHash(record.Sha256);
             }
 
+            if (string.Equals(record.Status, "completed", StringComparison.Ordinal))
+            {
+                CommittedUploadResolution completed = await TryResolveCommittedUploadAsync(
+                    normalizedUploadId,
+                    expectedHash,
+                    cancellationToken);
+                if (completed.Found)
+                {
+                    return completed.Result;
+                }
+            }
+
             string sourcePath = usesWorkingFile ? GetWorkingFilePath(normalizedUploadId, record) : tempPath;
             Result<AssembledUploadFile> assembleResult = await BoundaryExecutor.ExecuteResultAsync(
                 async () => usesWorkingFile
@@ -1595,7 +1607,9 @@ public sealed partial class FileService : IFileService
 
         record.UploadedParts = PartsFromBitmap(bitmap, record.TotalParts);
         record.UploadedPartBitmapBase64 = Convert.ToBase64String(bitmap);
-        if (record.UploadedParts.Count >= record.TotalParts && record.TotalParts > 0)
+        if (record.UploadedParts.Count >= record.TotalParts &&
+            record.TotalParts > 0 &&
+            !string.Equals(record.Status, "completed", StringComparison.Ordinal))
         {
             record.Status = "uploaded";
         }

@@ -2,6 +2,16 @@
   "schema": "fsusblog.test-retention-replacements.v1",
   "deletedTests": [
     {
+      "id": "xunit:tests/backend/Unit/BackendConcurrencyModelTests.cs#BackendConcurrencyModelTests.UploadCompleteRace_FinalizesOnceAndReturnsStableMutation",
+      "path": "tests/backend/Unit/BackendConcurrencyModelTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.CompleteUploadAsync_ConcurrentSameOwnerRetriesFinalizeSingleStableResult",
+        "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.CompleteUploadAsync_ConcurrentUnauthorizedAttemptsCannotInheritOrDisruptCompletion",
+        "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.CompleteUploadAsync_FinalizationFailureLeavesRetryableSessionWithoutPartialArtifact"
+      ],
+      "reason": "Real FileService completion races use persisted upload sessions and physical filesystem commits to prove single finalization, stable retries, authorization isolation, index consistency and failure recovery."
+    },
+    {
       "id": "xunit:tests/backend/Unit/BackendConcurrencyModelTests.cs#BackendConcurrencyModelTests.PasskeyRegistrationLimitRace_StopsAtConfiguredLimit",
       "path": "tests/backend/Unit/BackendConcurrencyModelTests.cs",
       "replacementTestIds": [
