@@ -68,6 +68,9 @@ function validateOpsHealthContract(source) {
   const violations = []
   const stateTags = countMatches(source, /<FsusUiEmptyState\b/gu)
   const actionTags = countMatches(source, /<ElButton\b/gu)
+  const stateTag = source.match(/<FsusUiEmptyState\b[\s\S]*?>/u)?.[0] ?? ''
+  const actionTag = source.match(/<ElButton\b[\s\S]*?>/u)?.[0] ?? ''
+  const toastCalls = countMatches(source, /\bshowErrorToast\s*\(/gu)
   const nativeControls =
     countMatches(source, /<(?:button|input|select|textarea)\b/giu) +
     countMatches(source, /<a\b[^>]*\bhref\s*=/giu)
@@ -83,10 +86,19 @@ function validateOpsHealthContract(source) {
     'size="compact"',
     ':illustration="false"',
     'data-ops-health-state',
+    'data-ops-health-failure-reason',
     'data-ops-health-retry',
+    '#description',
+    'id="ops-health-failure-reason"',
+    'aria-describedby="ops-health-failure-reason"',
     ':loading=',
     ':disabled=',
     'showErrorToast',
+    'if (activeRequest)',
+    'return activeRequest',
+    '正在读取运维状态…',
+    '正在重新读取运维状态…',
+    '运维状态暂不可用',
     'AbortController',
     'onUnmounted',
     'signal'
@@ -97,6 +109,15 @@ function validateOpsHealthContract(source) {
   }
   if (actionTags !== 1) {
     violations.push(`OpsHealth must expose exactly one ElButton retry action, got ${actionTags}`)
+  }
+  if (stateTag.includes('role="alert"') || stateTag.includes("'alert'") || stateTag.includes('assertive')) {
+    violations.push('OpsHealth inline failure must not create an assertive live region')
+  }
+  if (toastCalls !== 1) {
+    violations.push(`OpsHealth must call showErrorToast exactly once per admitted failure path, got ${toastCalls}`)
+  }
+  if (/\b(?:hidden|aria-hidden|v-show)\b/u.test(actionTag)) {
+    violations.push('OpsHealth retry action must remain visible and discoverable')
   }
   if (nativeControls !== 0) {
     violations.push(`OpsHealth source contains ${nativeControls} native interactive control(s)`)
@@ -192,18 +213,26 @@ if (
   opsHealthContract.issue !== 1896 ||
   opsHealthContract.componentChoice?.stateComponent !== 'FsusUiEmptyState' ||
   opsHealthContract.componentChoice?.size !== 'compact' ||
-  opsHealthContract.componentChoice?.actionComponent !== 'ElButton'
+  opsHealthContract.componentChoice?.actionComponent !== 'ElButton' ||
+  opsHealthContract.states?.find((state) => state.id === 'failure')?.assertiveLiveRegions !== 1 ||
+  opsHealthContract.states?.find((state) => state.id === 'failure')?.inlineAnnunciation !== 'off' ||
+  opsHealthContract.states?.find((state) => state.id === 'failure')?.retryDescribedBy !==
+    'ops-health-failure-reason'
 ) {
   errors.push(`${opsHealthContractPath}: invalid frozen component contract`)
 }
 
 for (const token of [
-  'announces initial loading without flashing the failure reason or retry action',
-  'replaces initial loading with the workbench after success',
-  'exposes the mapped failure reason and one keyboard-discoverable FsusUI retry action',
-  'admits only one retry request, exposes loading and disabled, then replaces feedback with success',
+  'announces initial loading without flashing the failure reason, alert, toast or retry action',
+  'replaces initial loading with the workbench after success and leaves no inline failure state',
+  'uses one real toast and a visible described failure reason',
+  'prevents duplicate retry announcements and clears inline state on success',
+  'adds exactly one toast and one assertive announcement for each newly admitted retry failure',
   'coalesces repeated workbench refresh while the current request is pending',
-  'aborts the in-flight request on unmount so a stale response cannot commit',
+  'aborts the in-flight request on unmount so a stale response cannot commit, toast or announce',
+  "document.querySelectorAll('[aria-live=\"assertive\"]')",
+  "document.querySelectorAll('.el-message')",
+  'aria-describedby',
   'toHaveBeenCalledTimes(2)',
   'capturedSignal?.aborted'
 ]) {
@@ -215,9 +244,13 @@ for (const token of [
 const requiredForbiddenMutations = [
   'native-retry-moved-to-child',
   'second-native-retry-inside-result',
+  'inline-failure-restores-assertive-live-region',
+  'failure-calls-toast-twice',
   'initial-loading-shows-failure',
   'double-click-starts-concurrent-loads',
   'toast-only-without-recovery-action',
+  'toast-only-without-inline-reason',
+  'hidden-retry-action',
   'private-el-selector-css',
   'published-mode-falls-back-to-legacy-dom'
 ]
@@ -232,11 +265,17 @@ const validOpsHealthFixture = `
   <FsusUiEmptyState
     size="compact"
     :illustration="false"
+    :role="loading ? 'status' : undefined"
+    :aria-live="loading ? 'polite' : 'off'"
     data-ops-health-state
   >
-    <template #actions>
+    <template v-if="failure" #description>
+      <span id="ops-health-failure-reason" data-ops-health-failure-reason>{{ failure }}</span>
+    </template>
+    <template v-if="failure" #actions>
       <ElButton
         data-ops-health-retry
+        aria-describedby="ops-health-failure-reason"
         :loading="loading"
         :disabled="loading"
       />
@@ -244,11 +283,28 @@ const validOpsHealthFixture = `
   </FsusUiEmptyState>
 </template>
 <script setup>
-import { onUnmounted } from 'vue'
+import { computed, onUnmounted } from 'vue'
 import OpsHealthWorkbench from '@/components/admin/OpsHealthWorkbench.vue'
 import { showErrorToast } from '@/utils/errorPresentation'
+const stateTitle = computed(() => {
+  if (loading.value) {
+    return failure.value ? '正在重新读取运维状态…' : '正在读取运维状态…'
+  }
+  return '运维状态暂不可用'
+})
+let activeRequest = null
 const controller = new AbortController()
-getOpsHealth({ signal: controller.signal })
+function loadHealth() {
+  if (activeRequest) return activeRequest
+  activeRequest = (async () => {
+    try {
+      await getOpsHealth({ signal: controller.signal })
+    } catch (error) {
+      failure.value = showErrorToast(error, '服务与后台状态加载失败')
+    }
+  })()
+  return activeRequest
+}
 onUnmounted(() => controller.abort())
 </script>`
 if (validateOpsHealthContract(validOpsHealthFixture).length !== 0) {
@@ -267,6 +323,47 @@ requireOpsHealthMutationRejected(
   validOpsHealthFixture.replace('</FsusUiEmptyState>', '<button>retry</button></FsusUiEmptyState>'),
   'native interactive control'
 )
+const opsHealthAnnouncementMutations = [
+  [
+    'inline failure restores assertive live region',
+    validOpsHealthFixture.replace(
+      'data-ops-health-state',
+      'role="alert" aria-live="assertive" data-ops-health-state'
+    ),
+    'inline failure must not create an assertive live region'
+  ],
+  [
+    'failure calls toast twice',
+    validOpsHealthFixture.replace(
+      "failure.value = showErrorToast(error, '服务与后台状态加载失败')",
+      "showErrorToast(error, '服务与后台状态加载失败'); failure.value = showErrorToast(error, '服务与后台状态加载失败')"
+    ),
+    'showErrorToast exactly once'
+  ],
+  [
+    'double click starts concurrent loads',
+    validOpsHealthFixture.replace('if (activeRequest) return activeRequest', ''),
+    'missing if (activeRequest)'
+  ],
+  [
+    'initial loading shows failure',
+    validOpsHealthFixture.replace('正在读取运维状态…', '运维状态暂不可用'),
+    'missing 正在读取运维状态…'
+  ],
+  [
+    'toast only without inline reason',
+    validOpsHealthFixture.replace(/<template v-if="failure" #description>[\s\S]*?<\/template>/u, ''),
+    'missing data-ops-health-failure-reason'
+  ],
+  [
+    'hidden retry',
+    validOpsHealthFixture.replace('<ElButton', '<ElButton hidden'),
+    'retry action must remain visible'
+  ]
+]
+for (const [label, source, expected] of opsHealthAnnouncementMutations) {
+  requireOpsHealthMutationRejected(label, source, expected)
+}
 requireOpsHealthMutationRejected(
   'toast only',
   validOpsHealthFixture.replace(/<ElButton[\s\S]*?\/>/u, ''),

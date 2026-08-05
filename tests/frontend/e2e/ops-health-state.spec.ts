@@ -3,7 +3,7 @@ import { mkdirSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-type FixtureState = 'initial-loading' | 'failure' | 'retry-loading' | 'retry-success'
+type FixtureState = 'initial-loading' | 'failure' | 'retry-loading' | 'retry-failure' | 'retry-success'
 type FixtureTheme = 'light' | 'dark'
 type FixtureMode = 'default' | 'zoom-200' | 'forced-colors'
 
@@ -33,7 +33,9 @@ async function openFixture(page: Page, state: FixtureState, theme: FixtureTheme,
         if (message.type() !== 'error') return
         const text = message.text()
         const expectedFailure =
-            text.includes('fixture upstream unavailable') || text.includes('fixture initial request failed')
+            text.includes('fixture upstream unavailable') ||
+            text.includes('fixture initial request failed') ||
+            text.includes('fixture retry request failed')
         const viteInfrastructure =
             text.includes('ERR_BLOCKED_BY_LOCAL_NETWORK_ACCESS_CHECKS') ||
             text.startsWith('[vite] failed to connect to websocket') ||
@@ -109,19 +111,32 @@ for (const viewport of viewports) {
                     await expect(page.locator('[data-ops-health-state]')).toHaveAttribute('role', 'status')
                     await expect(page.locator('[data-ops-health-state]')).toContainText('正在读取运维状态')
                     await expect(page.getByText('运维状态暂不可用')).toHaveCount(0)
+                    await expect(page.locator('[data-ops-health-failure-reason]')).toHaveCount(0)
                     await expect(page.getByRole('button', { name: '重新加载' })).toHaveCount(0)
+                    await expect(page.locator('[role="alert"]')).toHaveCount(0)
+                    await expect(page.locator('[aria-live="assertive"]')).toHaveCount(0)
                     await assertNoHorizontalOverflow(page)
 
                     await openFixture(page, 'failure', theme, mode)
                     const failure = page.locator('[data-ops-health-state]')
+                    const failureReason = page.locator('[data-ops-health-failure-reason]')
                     const retry = page.getByRole('button', {
                         name: '重新加载'
                     })
-                    await expect(failure).toHaveAttribute('role', 'alert')
-                    await expect(failure).toHaveAttribute('aria-live', 'assertive')
+                    await expect(failure).not.toHaveAttribute('role', 'alert')
+                    await expect(failure).not.toHaveAttribute('aria-live', 'assertive')
                     await expect(failure).toContainText('运维状态暂不可用')
-                    await expect(failure).toContainText('fixture upstream unavailable')
+                    await expect(failureReason).toContainText('fixture upstream unavailable')
+                    await expect(failureReason).toHaveAttribute('id', 'ops-health-failure-reason')
+                    await expect(retry).toHaveAttribute('aria-describedby', 'ops-health-failure-reason')
                     await expect(retry).toBeEnabled()
+                    await expect(page.locator('.el-message')).toHaveCount(1)
+                    await expect(page.locator('[aria-live="assertive"]')).toHaveCount(1)
+                    await expect(page.locator('html')).toHaveAttribute(
+                        'data-ops-health-assertive-announcement-count',
+                        '1'
+                    )
+                    await expect(page.locator('html')).toHaveAttribute('data-ops-health-toast-count', '1')
                     const retryBox = await retry.boundingBox()
                     expect(retryBox).not.toBeNull()
                     expect(retryBox!.height).toBeGreaterThanOrEqual(44)
@@ -151,10 +166,40 @@ for (const viewport of viewports) {
                     await expect
                         .poll(() => page.evaluate(() => document.documentElement.dataset.opsHealthRequestCount))
                         .toBe('2')
+                    await expect(page.locator('.el-message')).toHaveCount(1)
+                    await expect(page.locator('[aria-live="assertive"]')).toHaveCount(1)
+                    await expect(page.locator('html')).toHaveAttribute(
+                        'data-ops-health-assertive-announcement-count',
+                        '1'
+                    )
+                    await expect(page.locator('html')).toHaveAttribute('data-ops-health-toast-count', '1')
+                    await assertNoHorizontalOverflow(page)
+
+                    await openFixture(page, 'retry-failure', theme, mode)
+                    await expect(page.locator('[data-ops-health-failure-reason]')).toContainText(
+                        'fixture retry request failed'
+                    )
+                    await expect(page.getByRole('button', { name: '重新加载' })).toHaveAttribute(
+                        'aria-describedby',
+                        'ops-health-failure-reason'
+                    )
+                    await expect(page.locator('[data-ops-health-state]')).not.toHaveAttribute('role', 'alert')
+                    await expect(page.locator('[data-ops-health-state]')).not.toHaveAttribute(
+                        'aria-live',
+                        'assertive'
+                    )
+                    await expect(page.locator('html')).toHaveAttribute('data-ops-health-request-count', '2')
+                    await expect(page.locator('html')).toHaveAttribute(
+                        'data-ops-health-assertive-announcement-count',
+                        '2'
+                    )
+                    await expect(page.locator('html')).toHaveAttribute('data-ops-health-toast-count', '2')
                     await assertNoHorizontalOverflow(page)
 
                     await openFixture(page, 'retry-success', theme, mode)
                     await expect(page.locator('[data-ops-health-state]')).toHaveCount(0)
+                    await expect(page.locator('[data-ops-health-failure-reason]')).toHaveCount(0)
+                    await expect(page.getByRole('button', { name: '重新加载' })).toHaveCount(0)
                     await expect(page.locator('[data-ops-health-workbench]')).toBeVisible()
                     await assertNoHorizontalOverflow(page)
                 })

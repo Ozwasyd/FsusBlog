@@ -19,26 +19,44 @@
         {
             "id": "initial-loading",
             "annunciation": "polite",
+            "assertiveLiveRegions": 0,
             "hasRetry": false,
             "hasWorkbench": false
         },
         {
             "id": "failure",
-            "annunciation": "assertive",
+            "toastAnnunciation": "assertive",
+            "inlineAnnunciation": "off",
+            "assertiveLiveRegions": 1,
+            "inlineReasonVisible": true,
+            "retryDescribedBy": "ops-health-failure-reason",
             "hasRetry": true,
             "hasWorkbench": false
         },
         {
             "id": "retry-loading",
             "annunciation": "polite",
+            "newToastCount": 0,
+            "newAssertiveAnnouncementCount": 0,
             "hasRetry": true,
             "retryDisabled": true,
             "retryLoading": true,
             "hasWorkbench": false
         },
         {
+            "id": "retry-failure",
+            "toastIncrementPerAdmittedRequest": 1,
+            "assertiveAnnouncementIncrementPerAdmittedRequest": 1,
+            "inlineAnnunciation": "off",
+            "inlineReasonVisible": true,
+            "retryDescribedBy": "ops-health-failure-reason",
+            "hasRetry": true,
+            "hasWorkbench": false
+        },
+        {
             "id": "success",
             "hasRetry": false,
+            "hasInlineFailureReason": false,
             "hasWorkbench": true
         }
     ],
@@ -46,7 +64,10 @@
         "success",
         "initial-loading",
         "failure",
+        "single-assertive-live-region",
+        "accessible-inline-failure-reason",
         "retry-success",
+        "retry-failure",
         "repeated-retry",
         "unmount-stale-response"
     ],
@@ -65,9 +86,13 @@
     "forbiddenMutations": [
         "native-retry-moved-to-child",
         "second-native-retry-inside-result",
+        "inline-failure-restores-assertive-live-region",
+        "failure-calls-toast-twice",
         "initial-loading-shows-failure",
         "double-click-starts-concurrent-loads",
         "toast-only-without-recovery-action",
+        "toast-only-without-inline-reason",
+        "hidden-retry-action",
         "private-el-selector-css",
         "published-mode-falls-back-to-legacy-dom"
     ],

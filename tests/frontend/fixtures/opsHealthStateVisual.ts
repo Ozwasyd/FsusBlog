@@ -5,7 +5,7 @@ import { encodeAedsFrame } from '@/api/binaryFrame'
 import type { OpsHealthResponse } from '@/api/authoring'
 import { FrameType } from '@wasm/protocol/frame'
 
-type FixtureState = 'initial-loading' | 'failure' | 'retry-loading' | 'retry-success'
+type FixtureState = 'initial-loading' | 'failure' | 'retry-loading' | 'retry-failure' | 'retry-success'
 type FixtureTheme = 'light' | 'dark'
 type FixtureMode = 'default' | 'zoom-200' | 'forced-colors'
 
@@ -48,6 +48,8 @@ document.documentElement.dataset.themeMode = theme
 document.documentElement.dataset.themeResolved = theme
 document.documentElement.dataset.opsHealthFixtureState = fixtureState
 document.documentElement.dataset.opsHealthFixtureMode = mode
+document.documentElement.dataset.opsHealthAssertiveAnnouncementCount = '0'
+document.documentElement.dataset.opsHealthToastCount = '0'
 document.body.className = 'account-shell admin-workspace-frame'
 if (mode === 'zoom-200') {
     document.documentElement.style.zoom = '2'
@@ -74,6 +76,24 @@ function pendingResponse(signal?: AbortSignal | null): Promise<Response> {
 }
 
 let opsRequestCount = 0
+let assertiveAnnouncementCount = 0
+let toastCount = 0
+const announcementObserver = new MutationObserver((records) => {
+    for (const record of records) {
+        for (const addedNode of record.addedNodes) {
+            if (!(addedNode instanceof Element)) continue
+            const addedElements = [addedNode, ...addedNode.querySelectorAll('*')]
+            assertiveAnnouncementCount += addedElements.filter(
+                (element) => element.getAttribute('aria-live') === 'assertive'
+            ).length
+            toastCount += addedElements.filter((element) => element.classList.contains('el-message')).length
+        }
+    }
+    document.documentElement.dataset.opsHealthAssertiveAnnouncementCount = String(assertiveAnnouncementCount)
+    document.documentElement.dataset.opsHealthToastCount = String(toastCount)
+})
+announcementObserver.observe(document.body, { childList: true, subtree: true })
+
 window.fetch = async (input, init) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
     if (!url.includes('/api/binary/author/ops/health')) {
@@ -95,6 +115,9 @@ window.fetch = async (input, init) => {
     if (fixtureState === 'retry-loading') {
         return pendingResponse(init?.signal)
     }
+    if (fixtureState === 'retry-failure') {
+        throw new TypeError('fixture retry request failed')
+    }
     return healthResponse()
 }
 
@@ -110,15 +133,26 @@ const app = createApp(OpsHealth)
 app.mount(fixtureHost)
 await nextTick()
 
-if (fixtureState === 'failure' || fixtureState === 'retry-loading' || fixtureState === 'retry-success') {
+if (
+    fixtureState === 'failure' ||
+    fixtureState === 'retry-loading' ||
+    fixtureState === 'retry-failure' ||
+    fixtureState === 'retry-success'
+) {
     await waitFor(() => Boolean(document.querySelector('[data-ops-health-retry]')))
 }
-if (fixtureState === 'retry-loading' || fixtureState === 'retry-success') {
+if (fixtureState === 'retry-loading' || fixtureState === 'retry-failure' || fixtureState === 'retry-success') {
     const retry = document.querySelector<HTMLButtonElement>('[data-ops-health-retry]')
     retry?.click()
 }
 if (fixtureState === 'retry-success') {
     await waitFor(() => Boolean(document.querySelector('[data-ops-health-workbench]')))
+}
+if (fixtureState === 'failure' || fixtureState === 'retry-loading' || fixtureState === 'retry-success') {
+    await waitFor(() => assertiveAnnouncementCount === 1 && toastCount === 1)
+}
+if (fixtureState === 'retry-failure') {
+    await waitFor(() => assertiveAnnouncementCount === 2 && toastCount === 2)
 }
 
 document.documentElement.dataset.opsHealthFixtureReady = 'true'
