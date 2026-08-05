@@ -69,6 +69,97 @@ function countXunitCases(maskedClassSource) {
   return { facts: facts.length, theories: theories.length, cases }
 }
 
+function parseInlineStringArguments(rawArguments) {
+  try {
+    const values = JSON.parse(`[${rawArguments}]`)
+    return Array.isArray(values) && values.every((value) => typeof value === 'string')
+      ? values
+      : null
+  } catch {
+    return null
+  }
+}
+
+function extractTheoryCases(classSource, method) {
+  const escapedMethod = method.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')
+  const declaration = new RegExp(
+    `((?:\\s*\\[[^\\]]+\\]\\s*)+)\\b(?:public|internal)\\s+(?:static\\s+)?(?:async\\s+)?`
+      + `(?:Task(?:<[^>]+>)?|ValueTask(?:<[^>]+>)?|void|[A-Za-z_][A-Za-z0-9_<>,.?\\[\\]]*)`
+      + `\\s+${escapedMethod}\\s*\\(`,
+    'u'
+  ).exec(classSource)
+  if (!declaration) return null
+
+  const attributes = declaration[1]
+  if (![...attributes.matchAll(/\[\s*(?:Xunit\.)?Theory(?:Attribute)?\b[^\]]*\]/gu)].length) {
+    return null
+  }
+
+  return [...attributes.matchAll(/\[\s*(?:Xunit\.)?InlineData\s*\(([^)]*)\)\s*\]/gu)]
+    .map((match) => parseInlineStringArguments(match[1]))
+}
+
+function validateRequiredTheoryCases(entry, currentClass, relativePath) {
+  if (entry.requiredTheoryCases === undefined) return
+  if (!Array.isArray(entry.requiredTheoryCases) || entry.requiredTheoryCases.length === 0) {
+    errors.push(`${relativePath}#${currentClass.name} requiredTheoryCases must be a non-empty array`)
+    return
+  }
+
+  const methods = new Set()
+  for (const contract of entry.requiredTheoryCases) {
+    const method = String(contract?.method ?? '')
+    const caseNameArgument = Number(contract?.caseNameArgument)
+    const cases = contract?.cases
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/u.test(method)
+      || !Number.isInteger(caseNameArgument)
+      || caseNameArgument < 0
+      || !Array.isArray(cases)
+      || cases.length === 0) {
+      errors.push(`${relativePath}#${currentClass.name} has an invalid required Theory case contract`)
+      continue
+    }
+    if (methods.has(method)) {
+      errors.push(`${relativePath}#${currentClass.name} repeats required Theory method ${method}`)
+      continue
+    }
+    methods.add(method)
+
+    const expected = []
+    const caseNames = new Set()
+    let contractValid = true
+    for (const item of cases) {
+      const caseName = String(item?.caseName ?? '')
+      const argumentsList = item?.arguments
+      if (!caseName
+        || caseNames.has(caseName)
+        || !Array.isArray(argumentsList)
+        || argumentsList.length <= caseNameArgument
+        || argumentsList.some((value) => typeof value !== 'string')
+        || argumentsList[caseNameArgument] !== caseName) {
+        contractValid = false
+        break
+      }
+      caseNames.add(caseName)
+      expected.push(argumentsList)
+    }
+    if (!contractValid) {
+      errors.push(`${relativePath}#${currentClass.name}.${method} has invalid case names or arguments`)
+      continue
+    }
+
+    const actual = extractTheoryCases(currentClass.source, method)
+    if (actual === null
+      || actual.some((argumentsList) => argumentsList === null)
+      || JSON.stringify(actual) !== JSON.stringify(expected)) {
+      errors.push(
+        `${relativePath}#${currentClass.name}.${method} required Theory cases mismatch: `
+        + `manifest=${JSON.stringify(expected)} source=${JSON.stringify(actual)}`
+      )
+    }
+  }
+}
+
 function extractClasses(file, source) {
   const masked = maskCSharpTrivia(source)
   const classes = []
@@ -95,6 +186,7 @@ function extractClasses(file, source) {
       name,
       collectionIds,
       usesFixture: new RegExp(`\\b${fixtureType}\\b`, 'u').test(classSource),
+      source: source.slice(match.index, bodyEnd),
       ...counts
     })
   }
@@ -195,6 +287,7 @@ for (const collection of manifest.collections ?? []) {
     } else if (currentClass.collectionIds[0] !== collectionId) {
       errors.push(`${relativePath}#${className} is assigned to ${currentClass.collectionIds[0]}, expected ${collectionId}`)
     }
+    validateRequiredTheoryCases(entry, currentClass, relativePath)
     sourceCaseCount += currentClass.cases
   }
 

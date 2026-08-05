@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using System.Reflection;
 
 using FsusBlog.Server.Entities;
@@ -7,6 +8,7 @@ using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Moderation;
@@ -81,22 +83,46 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
         Assert.False(result);
     }
 
-    [Fact]
-    public async Task CreateComment_InvalidParentId_ReturnsFalse()
+    [Theory]
+    [InlineData("not-numeric", "not-a-number")]
+    [InlineData("zero", "0")]
+    [InlineData("negative", "-1")]
+    public async Task CreateComment_ParentIdBoundary_ReturnsFalseWithoutSideEffects(
+        string caseName,
+        string parentId)
     {
-        var svc = BuildService();
-        var dto = new CommentDto { ArticleId = 1, Content = "hello", ParentId = "not-a-number" };
-        bool result = await svc.CreateCommentAsync(1, dto);
-        Assert.False(result);
-    }
+        CreateCommentValidationFixture testFixture = BuildCreateCommentValidationFixture();
+        var dto = new CommentDto { ArticleId = 1, Content = "hello", ParentId = parentId };
 
-    [Fact]
-    public async Task CreateComment_ZeroParentId_ReturnsFalse()
-    {
-        var svc = BuildService();
-        var dto = new CommentDto { ArticleId = 1, Content = "hello", ParentId = "0" };
-        bool result = await svc.CreateCommentAsync(1, dto);
-        Assert.False(result);
+        bool result = await testFixture.Service.CreateCommentAsync(1, dto);
+
+        Assert.False(result, $"parent ID case '{caseName}' must be rejected");
+        testFixture.Moderation.Received(1).ResolveSubmissionRegion("hello", 1, 1, null);
+        await testFixture.Attribution.Received(1).ResolvePublicActorAsync(
+            1,
+            Arg.Is<CommentDto>(request =>
+                request.ArticleId == 1
+                && request.Content == "hello"
+                && request.ParentId == parentId
+                && request.RootId == null
+                && request.ReplyToCommentId == null),
+            "hello",
+            RegionCodes.Unknown,
+            Arg.Any<CancellationToken>());
+        testFixture.Attribution.Received(1).RequiresAnonymousNullifierEnforcement(testFixture.Actor);
+        Assert.Equal(
+            [nameof(ISqlSugarClient.Queryable)],
+            testFixture.Database.ReceivedCalls().Select(static call => call.GetMethodInfo().Name));
+        Assert.Equal(
+            [nameof(ISugarQueryable<Article>.Where), nameof(ISugarQueryable<Article>.AnyAsync)],
+            testFixture.Articles.ReceivedCalls().Select(static call => call.GetMethodInfo().Name));
+        Assert.Empty(testFixture.Notifications.ReceivedCalls());
+        Assert.Empty(testFixture.Invalidations.ReceivedCalls());
+        Assert.Empty(testFixture.Outbox.ReceivedCalls());
+        Assert.Single(testFixture.Moderation.ReceivedCalls());
+        Assert.Equal(
+            [nameof(ICommentAttributionPrivacyService.ResolvePublicActorAsync), nameof(ICommentAttributionPrivacyService.RequiresAnonymousNullifierEnforcement)],
+            testFixture.Attribution.ReceivedCalls().Select(static call => call.GetMethodInfo().Name));
     }
 
     [Fact]
@@ -122,15 +148,6 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
     {
         var svc = BuildService();
         var dto = new CommentDto { ArticleId = 1, Content = null! };
-        bool result = await svc.CreateCommentAsync(1, dto);
-        Assert.False(result);
-    }
-
-    [Fact]
-    public async Task CreateComment_NegativeParentId_ReturnsFalse()
-    {
-        var svc = BuildService();
-        var dto = new CommentDto { ArticleId = 1, Content = "hello", ParentId = "-1" };
         bool result = await svc.CreateCommentAsync(1, dto);
         Assert.False(result);
     }
@@ -498,4 +515,92 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
         var result = (bool)method.Invoke(null, args)!;
         Assert.Equal(expectedSuccess, result);
     }
+
+    private static CreateCommentValidationFixture BuildCreateCommentValidationFixture()
+    {
+        var database = Substitute.For<ISqlSugarClient>();
+        var articles = Substitute.For<ISugarQueryable<Article>>();
+        database.Queryable<Article>().Returns(articles);
+        articles.Where(Arg.Any<Expression<Func<Article, bool>>>()).Returns(articles);
+        articles.AnyAsync().Returns(Task.FromResult(true));
+
+        var moderation = Substitute.For<ICommentModerationService>();
+        moderation.ResolveSubmissionRegion("hello", 1, 1, null).Returns(new RegionModerationDecision(
+            CanPublish: true,
+            SubmitRegion: RegionCodes.Unknown,
+            SubmitRegionConfidence: 0d,
+            RegionProvider: "test",
+            SubmitIpHash: null,
+            BlockedRegions: [],
+            RiskLabels: [],
+            RuleHits: [],
+            PolicyVersion: "test-v1",
+            DecisionReason: "allowed",
+            PublicReason: "allowed",
+            RequiresManualReview: false,
+            HideUntilReviewed: false));
+
+        var actor = new CommentActor(
+            UserId: 1,
+            AuthorMode: CommentAuthorModes.Public,
+            PublicHandle: "writer",
+            AnonymousHandle: null,
+            DisplayName: "writer",
+            DisplayLanguage: "zh-CN",
+            AnonymousNullifierHash: null,
+            AnonymousScope: null,
+            ModerationSubjectHash: "writer-subject",
+            RateClass: "common",
+            RequiresModeration: false);
+        var attribution = Substitute.For<ICommentAttributionPrivacyService>();
+        attribution.ResolvePublicActorAsync(
+                1,
+                Arg.Any<CommentDto>(),
+                "hello",
+                RegionCodes.Unknown,
+                Arg.Any<CancellationToken>())
+            .Returns(actor);
+        attribution.RequiresAnonymousNullifierEnforcement(actor).Returns(false);
+
+        var notifications = Substitute.For<ICommentNotificationService>();
+        var invalidations = Substitute.For<ICacheInvalidationDispatcher>();
+        var outbox = Substitute.For<ICommentMutationOutbox>();
+        var service = new CommentCommandService(
+            database,
+            NullLogger<CommentCommandService>.Instance,
+            notifications,
+            moderation,
+            attribution,
+            invalidations,
+            mutationOutbox: outbox);
+
+        database.ClearReceivedCalls();
+        articles.ClearReceivedCalls();
+        moderation.ClearReceivedCalls();
+        attribution.ClearReceivedCalls();
+        notifications.ClearReceivedCalls();
+        invalidations.ClearReceivedCalls();
+        outbox.ClearReceivedCalls();
+        return new(
+            service,
+            database,
+            articles,
+            moderation,
+            attribution,
+            actor,
+            notifications,
+            invalidations,
+            outbox);
+    }
+
+    private sealed record CreateCommentValidationFixture(
+        CommentCommandService Service,
+        ISqlSugarClient Database,
+        ISugarQueryable<Article> Articles,
+        ICommentModerationService Moderation,
+        ICommentAttributionPrivacyService Attribution,
+        CommentActor Actor,
+        ICommentNotificationService Notifications,
+        ICacheInvalidationDispatcher Invalidations,
+        ICommentMutationOutbox Outbox);
 }

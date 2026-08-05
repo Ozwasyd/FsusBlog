@@ -229,7 +229,36 @@
         },
         {
           "path": "Unit/CommentServiceValidationTests.cs",
-          "class": "CommentServiceValidationTests"
+          "class": "CommentServiceValidationTests",
+          "requiredTheoryCases": [
+            {
+              "method": "CreateComment_ParentIdBoundary_ReturnsFalseWithoutSideEffects",
+              "caseNameArgument": 0,
+              "cases": [
+                {
+                  "caseName": "not-numeric",
+                  "arguments": [
+                    "not-numeric",
+                    "not-a-number"
+                  ]
+                },
+                {
+                  "caseName": "zero",
+                  "arguments": [
+                    "zero",
+                    "0"
+                  ]
+                },
+                {
+                  "caseName": "negative",
+                  "arguments": [
+                    "negative",
+                    "-1"
+                  ]
+                }
+              ]
+            }
+          ]
         },
         {
           "path": "Unit/CommentTreeContractTests.cs",

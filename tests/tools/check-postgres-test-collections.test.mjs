@@ -152,3 +152,54 @@ test('rejects estimatedFacts drift using Fact and InlineData execution semantics
     /SchemaMigrationPostgresCollectionA estimatedFacts mismatch: manifest=\d+ source=\d+/u
   )
 })
+
+test('rejects deletion of a required Theory case even when the aggregate count is repaired', () => {
+  const fixture = createFixture()
+  const sourcePath = path.join(
+    fixture.backendRoot,
+    'Unit/CommentServiceValidationTests.cs'
+  )
+  const source = fs.readFileSync(sourcePath, 'utf8')
+  fs.writeFileSync(
+    sourcePath,
+    source.replace('    [InlineData("zero", "0")]\n', '')
+  )
+  const manifest = JSON.parse(fs.readFileSync(fixture.manifestPath, 'utf8'))
+  const collection = manifest.collections.find(
+    (item) => item.tests.some((entry) => entry.class === 'CommentServiceValidationTests')
+  )
+  collection.estimatedFacts -= 1
+  fs.writeFileSync(fixture.manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
+
+  const result = runChecker(fixture.root)
+
+  assert.notEqual(result.status, 0)
+  assert.match(
+    result.stderr,
+    /CreateComment_ParentIdBoundary_ReturnsFalseWithoutSideEffects required Theory cases mismatch/u
+  )
+})
+
+test('rejects drift in a required Theory case label without relying on case count', () => {
+  const fixture = createFixture()
+  const sourcePath = path.join(
+    fixture.backendRoot,
+    'Unit/CommentServiceValidationTests.cs'
+  )
+  const source = fs.readFileSync(sourcePath, 'utf8')
+  fs.writeFileSync(
+    sourcePath,
+    source.replace(
+      '[InlineData("not-numeric", "not-a-number")]',
+      '[InlineData("not_numeric", "not-a-number")]'
+    )
+  )
+
+  const result = runChecker(fixture.root)
+
+  assert.notEqual(result.status, 0)
+  assert.match(
+    result.stderr,
+    /CreateComment_ParentIdBoundary_ReturnsFalseWithoutSideEffects required Theory cases mismatch/u
+  )
+})
