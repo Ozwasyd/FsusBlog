@@ -3720,21 +3720,22 @@
         },
         {
             "id": "backend-risk-control-behavior",
-            "description": "Crawler synchronization, anti-crawler policy and pipeline partitioning, comment risk frame handling and decision modes are exercised through controlled I/O, TestServer and production objects rather than private method or configuration strings.",
+            "description": "Crawler synchronization, anti-crawler policy and pipeline partitioning, blank User-Agent rejection, comment risk frame handling and decision modes are exercised through controlled I/O, TestServer and production objects rather than private method or configuration strings.",
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
                 "tests/backend/Unit/CrawlerRangeSyncBehaviorTests.cs",
                 "tests/backend/Unit/AntiCrawlerPolicyBehaviorTests.cs",
                 "tests/backend/Unit/AntiCrawlerPipelineTests.cs",
+                "tests/backend/Unit/ShieldMiddlewareTests.cs",
                 "tests/backend/Unit/CommentRiskActionFilterTests.cs",
                 "tests/backend/Unit/SecurityRiskPolicySnapshotV2Tests.cs",
                 "tests/frontend/checks/static/check-infra-security-governance.mjs",
                 "docs/testing/issue-1046-risk-control-behavior-handoff.md"
             ],
             "assertionType": "integration",
-            "failClosedRule": "Reject unsafe provider URLs or paths, non-atomic snapshots, incorrect crawler partitions, unbounded risk writes, malformed or oversized body acceptance, lost non-seekable body reset, or wrong allow, challenge, queue and block effects.",
-            "minimumRequirement": "Backend unit and risk-control lanes must execute provider fallbacks, cancellation, policy replacement, TestServer partitions, AEDS body boundaries and structured gateway ownership.",
+            "failClosedRule": "Reject unsafe provider URLs or paths, non-atomic snapshots, incorrect crawler partitions, blank User-Agent pass-through or incomplete rejection responses, unbounded risk writes, malformed or oversized body acceptance, lost non-seekable body reset, or wrong allow, challenge, queue and block effects.",
+            "minimumRequirement": "Backend unit and risk-control lanes must execute provider fallbacks, cancellation, policy replacement, TestServer partitions, independent empty and whitespace User-Agent rejection cases with response and risk-signal oracles, AEDS body boundaries and structured gateway ownership.",
             "tierIds": [
                 "backend-unit",
                 "risk-control-test-matrix"

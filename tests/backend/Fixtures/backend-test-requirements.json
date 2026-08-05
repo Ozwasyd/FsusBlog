@@ -36,6 +36,7 @@
       ],
       "evidencePaths": [
         "tests/backend/Unit/BackendAuthStateMachineTests.cs",
+        "tests/backend/Unit/ShieldMiddlewareTests.cs",
         "tools/security/check-security-matrices.mjs",
         "tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs",
         "tests/backend/Unit/SubscriptionEndpointsContractTests.cs",
@@ -581,11 +582,12 @@
     {
       "id": "BACKEND-SECURITY-MATRIX",
       "risk": "critical",
-      "coverage": "admin-only, binary endpoint auth, banned/deleted, MFA partial token, replay, CORS, oversized bodies",
+      "coverage": "admin-only, binary endpoint auth, banned/deleted, MFA partial token, replay, CORS, oversized bodies, production blank User-Agent rejection response and risk side effects",
       "evidencePaths": [
         "tools/security/check-security-matrices.mjs",
         "tests/frontend/checks/security/check-permission-matrix.mjs",
         "tests/backend/Unit/BackendAuthStateMachineTests.cs",
+        "tests/backend/Unit/ShieldMiddlewareTests.cs",
         "tests/backend/Unit/SecurityHardening/CanonicalPathBoundaryTests.cs",
         "tests/backend/Unit/SecurityHardening/InputLimitBoundaryTests.cs",
         "tests/backend/Unit/SecurityHardening/CryptographyBoundaryTests.cs",

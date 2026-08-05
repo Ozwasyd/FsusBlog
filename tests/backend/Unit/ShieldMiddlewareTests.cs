@@ -1,4 +1,5 @@
 using System.Net;
+using System.Reflection;
 
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -81,40 +82,78 @@ public sealed class ShieldMiddlewareTests
 
     // ─── Empty / missing User-Agent in production ─────────────────────────
 
-    [Fact]
-    public async Task InvokeAsync_EmptyUserAgent_Production_DoesNotCallNext()
+    [Theory]
+    [Trait("Category", "SecurityStateMachine")]
+    [InlineData("empty", "")]
+    [InlineData("whitespace", "   ")]
+    public async Task InvokeAsync_BlankUserAgent_Production_RejectsRequest(
+        string caseName,
+        string ua)
     {
         bool nextCalled = false;
+        var riskSink = new CapturingSecurityRiskSink();
         var sut = CreateMiddleware(
             env: ProductionEnv(),
+            securityRisk: riskSink,
             onNext: _ =>
             {
                 nextCalled = true;
                 return Task.CompletedTask;
             });
-        var ctx = BuildContext("/api/articles", ua: "");
+        var ctx = BuildContext("/api/articles", ua);
 
         await sut.InvokeAsync(ctx);
 
+        Assert.Equal(
+            caseName switch
+            {
+                "empty" => "",
+                "whitespace" => "   ",
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected blank User-Agent case: {caseName}")
+            },
+            ua);
+        Assert.Equal(ua, ctx.Request.Headers.UserAgent.ToString());
         Assert.False(nextCalled);
+        Assert.Equal(StatusCodes.Status403Forbidden, ctx.Response.StatusCode);
+        Assert.Equal("text/plain; charset=utf-8", ctx.Response.ContentType);
+        Assert.Equal("text/plain; charset=utf-8", ctx.Response.Headers.ContentType);
+        Assert.Equal("ua_missing", await ReadResponseBodyAsync(ctx));
+        Assert.False(ctx.Items.ContainsKey("VerifiedCrawler"));
+        Assert.False(ctx.Items.ContainsKey("CrawlerProvider"));
+
+        SecurityRiskSignal signal = Assert.Single(riskSink.Signals);
+        Assert.Same(ctx, signal.Context);
+        Assert.Equal(SecurityRiskReason.UserAgentMissing, signal.Reason);
+        Assert.Equal(5, signal.Score);
+        Assert.Equal(TimeSpan.FromSeconds(600), signal.Ttl);
+        Assert.Equal(SecurityRiskSources.AntiCrawler, signal.Source);
+        Assert.Equal("shield_rejected", signal.Action);
+        Assert.Equal("ua_missing", signal.Detail);
+        Assert.Null(signal.SubjectHash);
+        Assert.Null(signal.RouteKey);
+        Assert.Null(signal.ClientIpHash);
+        Assert.Null(signal.DeviceFpHash);
     }
 
     [Fact]
-    public async Task InvokeAsync_WhitespaceUserAgent_Production_DoesNotCallNext()
+    public void BlankUserAgentTheory_HasStableCaseInventory()
     {
-        bool nextCalled = false;
-        var sut = CreateMiddleware(
-            env: ProductionEnv(),
-            onNext: _ =>
-            {
-                nextCalled = true;
-                return Task.CompletedTask;
-            });
-        var ctx = BuildContext("/api/articles", ua: "   ");
+        MethodInfo method = typeof(ShieldMiddlewareTests).GetMethod(
+            nameof(InvokeAsync_BlankUserAgent_Production_RejectsRequest))!;
 
-        await sut.InvokeAsync(ctx);
-
-        Assert.False(nextCalled);
+        Assert.NotNull(method.GetCustomAttribute<TheoryAttribute>());
+        Assert.Collection(
+            method.GetCustomAttributes<InlineDataAttribute>(),
+            row => Assert.Equal(
+                new object?[] { "empty", "" },
+                Assert.Single(row.GetData(method))),
+            row => Assert.Equal(
+                new object?[] { "whitespace", "   " },
+                Assert.Single(row.GetData(method))));
+        Assert.Null(typeof(ShieldMiddlewareTests).GetMethod(
+            "InvokeAsync_EmptyUserAgent_Production_DoesNotCallNext"));
+        Assert.Null(typeof(ShieldMiddlewareTests).GetMethod(
+            "InvokeAsync_WhitespaceUserAgent_Production_DoesNotCallNext"));
     }
 
     // ─── Blocked tool User-Agents ─────────────────────────────────────────
@@ -547,6 +586,7 @@ public sealed class ShieldMiddlewareTests
     private static DefaultHttpContext BuildContext(string path, string ua, string method = "GET")
     {
         var ctx = new DefaultHttpContext();
+        ctx.Response.Body = new MemoryStream();
         ctx.Request.Path = new PathString(path);
         ctx.Request.Method = method;
         if (!string.IsNullOrEmpty(ua))
@@ -554,6 +594,15 @@ public sealed class ShieldMiddlewareTests
             ctx.Request.Headers.UserAgent = ua;
         }
         return ctx;
+    }
+
+    private static async Task<string> ReadResponseBodyAsync(HttpContext context)
+    {
+        context.Response.Body.Position = 0;
+        using var reader = new StreamReader(
+            context.Response.Body,
+            leaveOpen: true);
+        return await reader.ReadToEndAsync();
     }
 
     private static AdaptivePowGovernor CreateFreshGovernor()
