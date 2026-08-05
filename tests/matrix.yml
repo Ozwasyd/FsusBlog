@@ -2808,6 +2808,7 @@ tiers:
           - tests/backend/user-session-revocation-evidence.json
           - tests/backend/Integration/RecoveryPasskeyCompletionIntegrationTests.cs
           - tests/backend/recovery-passkey-completion-evidence.json
+          - tests/backend/Integration/PasskeyRegistrationProjectionIntegrationTests.cs
           - tests/backend/Integration/PasskeyCounterRollbackIntegrationTests.cs
           - docs/security/passkey-counter-risk-response.md
           - tests/backend/Unit/AdminConsistencyContractTests.cs
@@ -7881,6 +7882,7 @@ tiers:
           - backend-user-session-revocation-enforcement
           - backend-auth-cookie-jwt-expiry-alignment
           - backend-recovery-passkey-idempotent-completion
+          - backend-passkey-behavior-governance
       artifacts:
           [
               .tmp/backend-auth-state-machine,
@@ -7894,6 +7896,7 @@ tiers:
           - tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs
           - tests/backend/Unit/SubscriptionEndpointsContractTests.cs
           - tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs
+          - tests/backend/Integration/PasskeyRegistrationProjectionIntegrationTests.cs
           - tests/backend/Unit/SecurityChallengePersistenceTests.cs
           - tests/backend/endpoint-security-evidence.json
           - tests/backend/Unit/UserSessionValidationServiceTests.cs
@@ -7981,6 +7984,7 @@ tiers:
           - tests/backend/Unit/ArticleDestructiveMutationBehaviorTests.cs
           - tests/backend/Unit/CommentMutationPostgresConcurrencyTests.cs
           - tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs
+          - tests/backend/Integration/PasskeyRegistrationProjectionIntegrationTests.cs
           - tests/backend/Unit/AuthoringUserBanConcurrencyTests.cs
           - tests/backend/Unit/SecurityChallengePersistenceTests.cs
           - tests/backend/Unit/CrawlerRangeSyncBehaviorTests.cs

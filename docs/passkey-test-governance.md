@@ -1,6 +1,6 @@
 # Passkey 测试治理与保留映射
 
-本文记录 GitHub issue #1044 对 Passkey 测试的精简边界，以及 #1181 增补的 WebAuthn counter 状态机行为。目标是删除 C# record/constructor 编译器语义断言和私有 SQL 源码形状断言，同时保留缓存安全、匿名账号 metadata、随机 handle ownership、实体映射、counter 分类和 PostgreSQL 并发行为。
+本文记录 GitHub issue #1044 对 Passkey 测试的精简边界、#1181 增补的 WebAuthn counter 状态机行为，以及 #2331 将注册容量伪模型迁移到真实 PostgreSQL completion 的边界。目标是删除 C# record/constructor 编译器语义断言和私有 SQL 源码形状断言，同时保留缓存安全、匿名账号 metadata、随机 handle ownership、原子注册容量、实体映射、counter 分类和 PostgreSQL 并发行为。
 
 ## Before / after
 
@@ -26,6 +26,7 @@
 | empty/whitespace identity 两个方法 | `CachePolicy_PasskeyChallenge_EmptyIdentityNormalizesToDefault` | 两个输入成为一个 normalization theory 的数据行 |
 | 4 个 metadata 碎片方法 | `BuildAnonymousSafeMetadata_MapsAccountLabelsAndPreservesStoredRandomHandle` | 直接调用实际 metadata 映射，覆盖匿名 fallback、public handle trim、legacy 隔离与 defensive copy |
 | stored random handle ownership 与 internal account ID source search | `CredentialOwnership_AcceptsStoredRandomHandleAndRejectsInternalAccountIdDerivation` | 直接验证 stored handle 成功、`BitConverter.GetBytes(accountId)` 失败、缺失 handle 失败 |
+| `PasskeyRegistrationLimitRace_StopsAtConfiguredLimit` 与测试内 `BoundedCredentialSet` | `PasskeyRegistrationProjectionIntegrationTests` 的 capacity、full-account、credential-ID conflict 三个 PostgreSQL owner | 真实 `PasskeyService` completion 通过账户行锁串行化同一账户的容量决策，同时证明不同账户不互锁、projection/read model/cache 与响应一致 |
 | Passkey begin 的 POD/model/service 私有块源码读取 | `PodBinaryCodecTests.PasskeyRegisterBegin_RoundTrip_PreservesOptions` + metadata behavior + stable-handle race | wire、label 和并发持久化由各自的可观察行为 owner 覆盖 |
 | `PasskeyCredential.AccountId` 与 legacy `UserId` source search | `PasskeyCredential_UsesAccountIdColumnAndIndexWithoutLegacyUserId` | 反射锁定真实 entity column/index，避免依赖 service 局部变量名 |
 | optimistic sign-count SQL/private helper shape | `PasskeySignCountConcurrencyTests.UserPasskeySignCount_ConcurrentStaleRowVersionAllowsOnlyOneUpdate` | 两个 PostgreSQL stale writer 只能一个成功，最终计数为新值 |
@@ -47,6 +48,7 @@
 | metadata 恢复 internal ID/username label，或直接返回 caller byte array | metadata theory | label、handle 内容或 defensive-copy 断言失败 |
 | credential ownership 接受 account-ID-derived bytes | ownership behavior | negative case 变为 true |
 | entity 恢复 `UserId`/旧 column/index | entity reflection contract | property、column 或 index 断言失败 |
+| 注册容量恢复事务外 count-then-insert，或移除账户级 PostgreSQL row lock | registration-capacity PostgreSQL race | `MaxCredentialsPerUser-1` 的两个不同 credential completion 同时成功、最终数量超过上限或 projection/cache side effect 重复 |
 | stable handle 初始化失去并发串行化 | stable-handle PostgreSQL race | 两个返回值/持久化值不一致 |
 | sign-count 更新失去 stale row guard | sign-count PostgreSQL race | 两个 writer 同时成功或最终计数异常 |
 | `0 -> 0` 恢复为风险、登录与 step-up 分叉，或默认撤销全账号 Session | counter classifier + integration state machine | 分类、成功结果、audit response action 或 Session mock 断言失败 |

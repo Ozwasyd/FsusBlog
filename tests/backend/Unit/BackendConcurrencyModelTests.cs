@@ -4,16 +4,6 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class BackendConcurrencyModelTests
 {
     [Fact]
-    public async Task PasskeyRegistrationLimitRace_StopsAtConfiguredLimit()
-    {
-        var credentials = new BoundedCredentialSet(limit: 5);
-        int successCount = await RaceAsync(24, () => credentials.TryAdd(Guid.NewGuid().ToString("N")));
-
-        Assert.Equal(5, successCount);
-        Assert.Equal(5, credentials.Count);
-    }
-
-    [Fact]
     public async Task UploadCompleteRace_FinalizesOnceAndReturnsStableMutation()
     {
         var completion = new IdempotentCompletion();
@@ -70,36 +60,6 @@ public sealed class BackendConcurrencyModelTests
         start.TrySetResult(true);
         int[] results = await Task.WhenAll(tasks);
         return results.Sum();
-    }
-
-    private sealed class BoundedCredentialSet(int limit)
-    {
-        private readonly HashSet<string> _credentials = [];
-        private readonly object _lock = new();
-
-        public int Count
-        {
-            get
-            {
-                lock (_lock)
-                {
-                    return _credentials.Count;
-                }
-            }
-        }
-
-        public bool TryAdd(string credentialId)
-        {
-            lock (_lock)
-            {
-                if (_credentials.Count >= limit)
-                {
-                    return false;
-                }
-
-                return _credentials.Add(credentialId);
-            }
-        }
     }
 
     private sealed class IdempotentCompletion

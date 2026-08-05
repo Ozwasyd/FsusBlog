@@ -20,6 +20,8 @@ using FsusBlog.Server.Services.NotificationStream;
 using FsusBlog.Shared.Contracts.NotificationStream;
 using FsusBlog.Shared.Contracts.Outputs;
 
+using Npgsql;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Security;
@@ -140,7 +142,7 @@ public sealed class PasskeyService(
     ILogger<PasskeyService> logger,
     IConfiguration? configuration = null) : IPasskeyService
 {
-    private const int MaxCredentialsPerUser = 5;
+    internal const int MaxCredentialsPerUser = 5;
     private const int PasskeyUserHandleBytes = 32;
     private const string AnonymousPasskeyAccountName = "fsus-anonymous-account";
     private const string AnonymousPasskeyDisplayName = "Anonymous account";
@@ -281,8 +283,23 @@ public sealed class PasskeyService(
         }
 
         PasskeySignalStateDto? signalState = null;
+        bool capacityReached = false;
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
+            if (!await LockPasskeyRegistrationAccountAsync(accountId, cancellationToken))
+            {
+                throw new InvalidOperationException("passkey_registration_projection_failed");
+            }
+
+            int committedCredentialCount = await db.Queryable<PasskeyCredential>()
+                .Where(credential => credential.AccountId == accountId)
+                .CountAsync();
+            if (committedCredentialCount >= MaxCredentialsPerUser)
+            {
+                capacityReached = true;
+                return;
+            }
+
             await db.Insertable(validation.Credential).ExecuteCommandAsync();
             int projected = await db.Updateable<User>()
                 .Where(u => u.Id == accountId && u.Status != 2 && u.DeletedAt == null)
@@ -301,7 +318,17 @@ public sealed class PasskeyService(
         });
         if (!transaction.IsSuccess)
         {
+            if (IsCredentialIdUniqueViolation(transaction.ErrorException))
+            {
+                return (false, "通行密钥验证失败，请重试", null);
+            }
+
             throw new InvalidOperationException("passkey_registration_transaction_failed", transaction.ErrorException);
+        }
+
+        if (capacityReached)
+        {
+            return (false, $"已达到 {MaxCredentialsPerUser} 枚通行密钥上限", null);
         }
 
         await AccountSnapshotCacheInvalidator.BumpVersionAsync(counters, accountId, cancellationToken).ConfigureAwait(false);
@@ -615,6 +642,45 @@ public sealed class PasskeyService(
             .Where(c => c.CredentialId == credId)
             .CountAsync();
         return count == 0;
+    }
+
+    private async Task<bool> LockPasskeyRegistrationAccountAsync(
+        int accountId,
+        CancellationToken cancellationToken)
+    {
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT id
+            FROM sys_user
+            WHERE id = @AccountId
+              AND status != 2
+              AND deleted_at IS NULL
+            FOR UPDATE;
+            """,
+            new SugarParameter("@AccountId", accountId));
+        return await reader.ReadAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private static bool IsCredentialIdUniqueViolation(Exception? exception)
+    {
+        while (exception is not null)
+        {
+            if (exception is PostgresException postgres &&
+                string.Equals(postgres.SqlState, PostgresErrorCodes.UniqueViolation, StringComparison.Ordinal) &&
+                string.Equals(postgres.ConstraintName, "unique_idx_passkey_cred_id", StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            if (exception.Message.Contains("unique_idx_passkey_cred_id", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            exception = exception.InnerException;
+        }
+
+        return false;
     }
 
     // ─────────────────────────────────────────────────────────────────────

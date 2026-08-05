@@ -2,6 +2,16 @@
   "schema": "fsusblog.test-retention-replacements.v1",
   "deletedTests": [
     {
+      "id": "xunit:tests/backend/Unit/BackendConcurrencyModelTests.cs#BackendConcurrencyModelTests.PasskeyRegistrationLimitRace_StopsAtConfiguredLimit",
+      "path": "tests/backend/Unit/BackendConcurrencyModelTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Integration/PasskeyRegistrationProjectionIntegrationTests.cs#PasskeyRegistrationProjectionIntegrationTests.Registration_ConcurrentCapacityCompletionPersistsExactlyOneAndDoesNotSerializeOtherAccount",
+        "xunit:tests/backend/Integration/PasskeyRegistrationProjectionIntegrationTests.cs#PasskeyRegistrationProjectionIntegrationTests.Registration_FullAccountRejectsEveryConcurrentCompletionWithoutSideEffects",
+        "xunit:tests/backend/Integration/PasskeyRegistrationProjectionIntegrationTests.cs#PasskeyRegistrationProjectionIntegrationTests.Registration_ConcurrentDuplicateCredentialReturnsVerificationConflictDistinctFromCapacity"
+      ],
+      "reason": "Real PasskeyService completion races use independent PostgreSQL clients and account-scoped row locking to prove the per-account credential limit, cross-account independence, global credential-ID uniqueness, projection consistency and cache side effects."
+    },
+    {
       "id": "xunit:tests/backend/Unit/CommentServiceValidationTests.cs#CommentServiceValidationTests.CreateComment_InvalidRootId_ReturnsFalse",
       "path": "tests/backend/Unit/CommentServiceValidationTests.cs",
       "replacementTestIds": [
