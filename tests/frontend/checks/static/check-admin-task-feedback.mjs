@@ -60,6 +60,76 @@ function scanTextFiles(rootPath, callback) {
   }
 }
 
+function countMatches(source, pattern) {
+  return [...source.matchAll(pattern)].length
+}
+
+function validateOpsHealthContract(source) {
+  const violations = []
+  const stateTags = countMatches(source, /<FsusUiEmptyState\b/gu)
+  const actionTags = countMatches(source, /<ElButton\b/gu)
+  const nativeControls =
+    countMatches(source, /<(?:button|input|select|textarea)\b/giu) +
+    countMatches(source, /<a\b[^>]*\bhref\s*=/giu)
+  const componentImports = [...source.matchAll(/from\s+['"](@\/components\/[^'"]+)['"]/gu)].map((match) => match[1])
+
+  if (stateTags !== 1) {
+    violations.push(`OpsHealth must use exactly one FsusUiEmptyState tag, got ${stateTags}`)
+  }
+  if (source.includes('FsusUiResult') || source.includes('<ElResult')) {
+    violations.push('OpsHealth must keep the frozen compact EmptyState choice and reject Result')
+  }
+  for (const token of [
+    'size="compact"',
+    ':illustration="false"',
+    'data-ops-health-state',
+    'data-ops-health-retry',
+    ':loading=',
+    ':disabled=',
+    'showErrorToast',
+    'AbortController',
+    'onUnmounted',
+    'signal'
+  ]) {
+    if (!source.includes(token)) {
+      violations.push(`OpsHealth missing ${token}`)
+    }
+  }
+  if (actionTags !== 1) {
+    violations.push(`OpsHealth must expose exactly one ElButton retry action, got ${actionTags}`)
+  }
+  if (nativeControls !== 0) {
+    violations.push(`OpsHealth source contains ${nativeControls} native interactive control(s)`)
+  }
+  if (componentImports.some((path) => path !== '@/components/admin/OpsHealthWorkbench.vue')) {
+    violations.push('OpsHealth must not move feedback or retry into a Blog wrapper component')
+  }
+  for (const token of [
+    'AdminInlineEmptyState',
+    'OpsRetryButton',
+    'AdminErrorPanel',
+    '.ops-health-loading button',
+    ':deep(',
+    '.el-',
+    'resolveComponent(',
+    'FSUSBLOG_USE_LOCAL_FSUSUI',
+    'FSUSBLOG_LOCAL_FSUSUI_ROOT'
+  ]) {
+    if (source.includes(token)) {
+      violations.push(`OpsHealth forbidden ${token}`)
+    }
+  }
+
+  return violations
+}
+
+function requireOpsHealthMutationRejected(label, source, expected) {
+  const mutationViolations = validateOpsHealthContract(source)
+  if (!mutationViolations.some((message) => message.includes(expected))) {
+    errors.push(`OpsHealth mutation ${label} was not rejected for ${expected}`)
+  }
+}
+
 requireFile('src/frontend/src/composables/useAdminTaskFeedback.ts')
 forbidFile('src/frontend/src/components/admin/AdminTaskFeedbackBar.vue')
 
@@ -107,6 +177,119 @@ scanTextFiles('src/frontend/src', (path, source) => {
     errors.push(`${path}: forbidden AdminTaskFeedbackBar`)
   }
 })
+
+const opsHealthPath = 'src/frontend/src/views/admin/OpsHealth.vue'
+const opsHealthTestPath = 'tests/frontend/unit/views/OpsHealth.test.ts'
+const opsHealthContractPath = 'tests/frontend/fixtures/ops-health-state-contract.json'
+const opsHealthSource = read(opsHealthPath)
+const opsHealthTestSource = read(opsHealthTestPath)
+const opsHealthContract = JSON.parse(read(opsHealthContractPath))
+
+errors.push(...validateOpsHealthContract(opsHealthSource).map((message) => `${opsHealthPath}: ${message}`))
+
+if (
+  opsHealthContract.schema !== 'fsusblog-ops-health-state-contract.v1' ||
+  opsHealthContract.issue !== 1896 ||
+  opsHealthContract.componentChoice?.stateComponent !== 'FsusUiEmptyState' ||
+  opsHealthContract.componentChoice?.size !== 'compact' ||
+  opsHealthContract.componentChoice?.actionComponent !== 'ElButton'
+) {
+  errors.push(`${opsHealthContractPath}: invalid frozen component contract`)
+}
+
+for (const token of [
+  'announces initial loading without flashing the failure reason or retry action',
+  'replaces initial loading with the workbench after success',
+  'exposes the mapped failure reason and one keyboard-discoverable FsusUI retry action',
+  'admits only one retry request, exposes loading and disabled, then replaces feedback with success',
+  'coalesces repeated workbench refresh while the current request is pending',
+  'aborts the in-flight request on unmount so a stale response cannot commit',
+  'toHaveBeenCalledTimes(2)',
+  'capturedSignal?.aborted'
+]) {
+  if (!opsHealthTestSource.includes(token)) {
+    errors.push(`${opsHealthTestPath}: missing behavior proof ${token}`)
+  }
+}
+
+const requiredForbiddenMutations = [
+  'native-retry-moved-to-child',
+  'second-native-retry-inside-result',
+  'initial-loading-shows-failure',
+  'double-click-starts-concurrent-loads',
+  'toast-only-without-recovery-action',
+  'private-el-selector-css',
+  'published-mode-falls-back-to-legacy-dom'
+]
+for (const mutation of requiredForbiddenMutations) {
+  if (!opsHealthContract.forbiddenMutations?.includes(mutation)) {
+    errors.push(`${opsHealthContractPath}: missing forbidden mutation ${mutation}`)
+  }
+}
+
+const validOpsHealthFixture = `
+<template>
+  <FsusUiEmptyState
+    size="compact"
+    :illustration="false"
+    data-ops-health-state
+  >
+    <template #actions>
+      <ElButton
+        data-ops-health-retry
+        :loading="loading"
+        :disabled="loading"
+      />
+    </template>
+  </FsusUiEmptyState>
+</template>
+<script setup>
+import { onUnmounted } from 'vue'
+import OpsHealthWorkbench from '@/components/admin/OpsHealthWorkbench.vue'
+import { showErrorToast } from '@/utils/errorPresentation'
+const controller = new AbortController()
+getOpsHealth({ signal: controller.signal })
+onUnmounted(() => controller.abort())
+</script>`
+if (validateOpsHealthContract(validOpsHealthFixture).length !== 0) {
+  errors.push('OpsHealth validator rejected its conforming control fixture')
+}
+requireOpsHealthMutationRejected(
+  'native retry moved to child',
+  validOpsHealthFixture.replace(
+    "import OpsHealthWorkbench from '@/components/admin/OpsHealthWorkbench.vue'",
+    "import OpsRetryButton from '@/components/admin/OpsRetryButton.vue'"
+  ),
+  'Blog wrapper component'
+)
+requireOpsHealthMutationRejected(
+  'second native retry inside result',
+  validOpsHealthFixture.replace('</FsusUiEmptyState>', '<button>retry</button></FsusUiEmptyState>'),
+  'native interactive control'
+)
+requireOpsHealthMutationRejected(
+  'toast only',
+  validOpsHealthFixture.replace(/<ElButton[\s\S]*?\/>/u, ''),
+  'exactly one ElButton'
+)
+requireOpsHealthMutationRejected(
+  'private selector',
+  `${validOpsHealthFixture}<style>.el-button { min-width: 10rem; }</style>`,
+  'forbidden .el-'
+)
+requireOpsHealthMutationRejected(
+  'published fallback',
+  `${validOpsHealthFixture}<script>if (FSUSBLOG_USE_LOCAL_FSUSUI) { resolveComponent('legacy') }</script>`,
+  'forbidden resolveComponent('
+)
+requireOpsHealthMutationRejected(
+  'Blog wrapper',
+  validOpsHealthFixture.replace(
+    "import OpsHealthWorkbench from '@/components/admin/OpsHealthWorkbench.vue'",
+    "import OpsRetryButton from '@/components/admin/OpsRetryButton.vue'"
+  ),
+  'Blog wrapper component'
+)
 
 if (errors.length > 0) {
   for (const error of errors) {
