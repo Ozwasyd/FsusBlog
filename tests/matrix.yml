@@ -7745,7 +7745,7 @@ tiers:
           - docs/testing.md
           - tests/frontend/unit/api/admin.test.ts
           - tests/backend/Unit/BackendAuthStateMachineTests.cs
-          - tests/backend/Unit/BackendConcurrencyModelTests.cs
+          - tests/backend/Integration/UserSessionRevocationIntegrationTests.cs
           - .tmp/backend-concurrency/summary.json
           - tests/backend/Unit/AuditProjectionBehaviorTests.cs
           - tests/backend/Unit/ProductionReadinessCoordinatorBehaviorTests.cs
@@ -7976,7 +7976,6 @@ tiers:
           ]
       evidence:
           - .tmp/backend-concurrency/summary.json
-          - tests/backend/Unit/BackendConcurrencyModelTests.cs
           - tests/backend/Unit/FileServiceTests.cs
           - tests/backend/Fixtures/backend-test-requirements.json
           - tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs

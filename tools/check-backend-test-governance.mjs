@@ -602,7 +602,7 @@ for (const contract of [
 for (const path of [
   'tests/backend/Unit/BackendApiIntegrationContractTests.cs',
   'tests/backend/Unit/BackendAuthStateMachineTests.cs',
-  'tests/backend/Unit/BackendConcurrencyModelTests.cs',
+  'tests/backend/Integration/UserSessionRevocationIntegrationTests.cs',
   'tests/backend/Unit/BackendGoldenCatalogTests.cs',
   'tests/backend/Unit/BackendPropertyTests.cs',
   'tests/backend/Unit/BackendTestGovernanceTests.cs',

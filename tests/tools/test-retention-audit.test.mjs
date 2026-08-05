@@ -82,7 +82,7 @@ test('tier invocation inference accounts for ordinary, coverage, specialized, an
     ['integration']
   )
   assert.deepEqual(
-    inferTierIdsForFile('tests/backend/Unit/BackendConcurrencyModelTests.cs', '[Trait("Category", "Concurrency")]'),
+    inferTierIdsForFile('tests/backend/Integration/UserSessionRevocationIntegrationTests.cs', '[Trait("Category", "Concurrency")]'),
     ['backend-concurrency', 'backend-nightly']
   )
   assert.deepEqual(

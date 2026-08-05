@@ -74,7 +74,6 @@
         "BACKEND-CHAOS-TESTING"
       ],
       "evidencePaths": [
-        "tests/backend/Unit/BackendConcurrencyModelTests.cs",
         "tests/backend/Unit/FileServiceTests.cs",
         "tests/backend/Unit/PasskeySignCountConcurrencyTests.cs",
         "tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs",
@@ -446,7 +445,6 @@
       "risk": "high",
       "coverage": "refresh/logout, recovery code, passkey limit, publish/cache, comment/message/notification stream/upload races",
       "evidencePaths": [
-        "tests/backend/Unit/BackendConcurrencyModelTests.cs",
         "tests/backend/Unit/FileServiceTests.cs",
         "tests/backend/Unit/DbConcurrencyGateTests.cs",
         "tests/backend/Integration/SchemaMigrationIntegrationTests.cs",
@@ -841,8 +839,7 @@
       "risk": "high",
       "coverage": "participant state, unread count, admin broadcast, revoke, closed conversation, notification stream recipient targeting",
       "evidencePaths": [
-        "tests/backend/Unit/MessageCenterServiceTests.cs",
-        "tests/backend/Unit/BackendConcurrencyModelTests.cs"
+        "tests/backend/Unit/MessageCenterServiceTests.cs"
       ]
     },
     {
@@ -910,7 +907,7 @@
       "risk": "medium",
       "coverage": "upload complete, delete/restore article, logout, mark-read, cache invalidation, migration, draft save",
       "evidencePaths": [
-        "tests/backend/Unit/BackendConcurrencyModelTests.cs",
+        "tests/backend/Integration/UserSessionRevocationIntegrationTests.cs",
         "tests/backend/Unit/FileServiceTests.cs",
         "tests/backend/Unit/SchemaMigrationRegistryTests.cs",
         "tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs",

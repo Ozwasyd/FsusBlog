@@ -162,6 +162,7 @@ public sealed partial class UserSessionCommandService(
         DateTime tombstoneExpiresAt = now.Add(s_refreshTombstoneRetention);
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
+            await UserSessionConcurrencyGate.AcquireAsync(db, session.UserId);
             using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
                 """
                 WITH rotated AS (

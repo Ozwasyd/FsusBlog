@@ -2,6 +2,16 @@
   "schema": "fsusblog.test-retention-replacements.v1",
   "deletedTests": [
     {
+      "id": "xunit:tests/backend/Unit/BackendConcurrencyModelTests.cs#BackendConcurrencyModelTests.RefreshLogoutAllRace_RejectsRefreshAfterGlobalRevocation",
+      "path": "tests/backend/Unit/BackendConcurrencyModelTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Integration/UserSessionRevocationIntegrationTests.cs#UserSessionRevocationIntegrationTests.RevokeAllCommittedBeforeRefreshRejectsWarmPrincipalAndLeavesOtherAccountActive",
+        "xunit:tests/backend/Integration/UserSessionRevocationIntegrationTests.cs#UserSessionRevocationIntegrationTests.RefreshReadOldRowThenRevokeCommitRejectsRotationAndEveryIssuedToken",
+        "xunit:tests/backend/Integration/UserSessionRevocationIntegrationTests.cs#UserSessionRevocationIntegrationTests.RefreshCommitThenRevokeCommitInvalidatesOldAndNewTokenAuthority"
+      ],
+      "reason": "Real PostgreSQL refresh rotation and revoke-all interleavings now share the account concurrency gate and prove principal, refresh-family, cache, persistence, API-result and unrelated-account outcomes without an in-test state model."
+    },
+    {
       "id": "xunit:tests/backend/Unit/BackendConcurrencyModelTests.cs#BackendConcurrencyModelTests.UploadCompleteRace_FinalizesOnceAndReturnsStableMutation",
       "path": "tests/backend/Unit/BackendConcurrencyModelTests.cs",
       "replacementTestIds": [

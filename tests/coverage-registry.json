@@ -871,7 +871,7 @@
             "owner": "ServerContractAgent",
             "risk": "high",
             "evidencePaths": [
-                "tests/backend/Unit/BackendConcurrencyModelTests.cs",
+                "tests/backend/Integration/UserSessionRevocationIntegrationTests.cs",
                 "tests/backend/Unit/FileServiceTests.cs",
                 "tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs",
                 "tests/backend/Unit/SubscriptionEndpointsContractTests.cs",
@@ -4028,7 +4028,7 @@
         },
         {
             "id": "backend-user-session-revocation-enforcement",
-            "description": "Ordinary JWT principals remain authorized only while their sid is active; every revocation producer publishes a distributed revoked snapshot before PostgreSQL commit, rolls back on publication failure and compensates failed commits without adding session lookups to anonymous public traffic or the independent admin plane.",
+            "description": "Ordinary JWT principals and refresh families remain authorized only while their sid is active; refresh rotation and account-wide revocation share one PostgreSQL transaction gate, every revocation producer publishes a distributed revoked snapshot before commit, publication failures roll back, and failed commits are compensated without adding session lookups to anonymous public traffic or the independent admin plane.",
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
@@ -4043,7 +4043,7 @@
             ],
             "assertionType": "integration",
             "failClosedRule": "Reject an ordinary principal with a revoked, expired, deleted, mismatched or stale-resurrected session, any database commit that precedes its distributed revocation fence, any publication failure that still commits, any failed-commit cleanup that can authorize stale active state, any fail-open Redis path, or any ordinary-session lookup on public anonymous requests.",
-            "minimumRequirement": "Unit and integration owners must cover warmed-cache revoke, logout, revoke-others, login replacement, account deletion, recovery-key revocation, publication failure rollback, commit-failure invalidation, publish-before-commit ordering, refresh replay, cache-miss versus revoke, mapped notification-stream and protected-binary rejection, DB-only reloadable fallback, admin isolation and zero public-anonymous store reads.",
+            "minimumRequirement": "Unit and integration owners must cover warmed-cache revoke, logout, revoke-others, login replacement, account deletion, recovery-key revocation, controlled revoke-before-refresh, refresh-read-before-revoke and refresh-commit-before-revoke interleavings, old and newly issued token rejection, refresh-family rotation, unrelated-account isolation, publication failure rollback, commit-failure invalidation, publish-before-commit ordering, refresh replay, cache-miss versus revoke, mapped notification-stream and protected-binary rejection, DB-only reloadable fallback, admin isolation and zero public-anonymous store reads.",
             "tierIds": [
                 "backend-unit",
                 "backend-auth-state-machine",
