@@ -80,11 +80,10 @@
           </el-form-item>
 
           <el-form-item class="article-list-toolbar-item article-list-status-filter !m-0">
-            <AdminSegmentedControl
-              :model-value="queryParam.status"
-              :items="statusFilters"
+            <FsusUiSegmentedControl
+              :model-value="selectedStatusFilter"
+              :items="segmentedStatusFilters"
               aria-label="文章状态筛选"
-              :disabled="isBusy"
               @update:model-value="handleStatusFilterChange"
             />
           </el-form-item>
@@ -294,14 +293,20 @@
 import { computed } from 'vue'
 import { FsusUiTaskPageHeader } from '@/fsusui'
 import { Search, View, Calendar, Plus, ArrowDown } from '@/fsusui/icons'
-import { type ArticleListItemResponse } from '@/api/article'
+import {
+  FsusUiSegmentedControl,
+  type FsusUiSegmentedControlItem,
+  type FsusUiSegmentedControlValue
+} from '@/fsusui/segmentedControl'
+import { ArticlePublishStatus, type ArticleListItemResponse } from '@/api/article'
 import { useAdminArticleList } from '@/composables/useAdminArticleList'
 import { useMediaQuery } from '@/composables/useMediaQuery'
 import AdminArticleCompactCard from '@/components/admin/article/AdminArticleCompactCard.vue'
 import CollectionWorkbench from '@/components/admin/CollectionWorkbench.vue'
 import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
-import AdminSegmentedControl from '@/components/admin/AdminSegmentedControl.vue'
 import SemanticTime from '@/components/ui/SemanticTime.vue'
+
+const ALL_ARTICLES = 'all' as const satisfies FsusUiSegmentedControlValue
 
 type ArticleListViewItem = ArticleListItemResponse & {
   createdAtText: string
@@ -352,8 +357,31 @@ const articleWorkbenchState = computed(() => loading.value && !hasArticleRows.va
   : hasArticleRows.value
     ? 'ready'
     : 'empty')
-const handleStatusFilterChange = (value: string | number | boolean | undefined): void => {
-  setStatusFilter(typeof value === 'number' ? value as Parameters<typeof setStatusFilter>[0] : undefined)
+const selectedStatusFilter = computed<FsusUiSegmentedControlValue>(
+  () => queryParam.status ?? ALL_ARTICLES
+)
+const segmentedStatusFilters = computed<FsusUiSegmentedControlItem[]>(() =>
+  statusFilters.map((item) => ({
+    label: item.label,
+    value: item.value ?? ALL_ARTICLES,
+    disabled: isBusy.value
+  }))
+)
+const toArticleStatusFilter = (
+  value: FsusUiSegmentedControlValue
+): ArticlePublishStatus | undefined => {
+  switch (value) {
+    case ArticlePublishStatus.Draft:
+    case ArticlePublishStatus.Scheduled:
+    case ArticlePublishStatus.Published:
+    case ArticlePublishStatus.Archived:
+      return value
+    default:
+      return undefined
+  }
+}
+const handleStatusFilterChange = (value: FsusUiSegmentedControlValue): void => {
+  setStatusFilter(toArticleStatusFilter(value))
 }
 const normalizeFilterId = (value: string | number | undefined): number | undefined => {
   if (typeof value === 'number' && Number.isFinite(value) && value > 0) return value
