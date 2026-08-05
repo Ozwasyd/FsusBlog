@@ -11335,6 +11335,38 @@
         "vitest:tests/frontend/unit/bootstrap/publicShellLifetime.test.ts#aborts-public-shell-lifetime-listeners-exactly-once-1f21071ba6"
       ],
       "reason": "coverage moved with the production ownership cutover; no legacy activation phase authority remains"
+    },
+    {
+      "id": "xunit:tests/backend/Unit/TotpServiceTests.cs#TotpServiceTests.VerifyCode_EmptyCode_ReturnsFalse",
+      "path": "tests/backend/Unit/TotpServiceTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/TotpServiceTests.cs#TotpServiceTests.VerifyCode_MalformedCode_ReturnsFalse"
+      ],
+      "reason": "The malformed-code Theory retains the empty input as the independently discoverable empty case with a stable diagnostic label."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/TotpServiceTests.cs#TotpServiceTests.VerifyCode_CodeTooShort_ReturnsFalse",
+      "path": "tests/backend/Unit/TotpServiceTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/TotpServiceTests.cs#TotpServiceTests.VerifyCode_MalformedCode_ReturnsFalse"
+      ],
+      "reason": "The malformed-code Theory retains the five-digit input as the independently discoverable too-short case with a stable diagnostic label."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/TotpServiceTests.cs#TotpServiceTests.VerifyCode_CodeTooLong_ReturnsFalse",
+      "path": "tests/backend/Unit/TotpServiceTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/TotpServiceTests.cs#TotpServiceTests.VerifyCode_MalformedCode_ReturnsFalse"
+      ],
+      "reason": "The malformed-code Theory retains the seven-digit input as the independently discoverable too-long case with a stable diagnostic label."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/TotpServiceTests.cs#TotpServiceTests.VerifyCode_CodeAllLetters_ReturnsFalse",
+      "path": "tests/backend/Unit/TotpServiceTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/TotpServiceTests.cs#TotpServiceTests.VerifyCode_MalformedCode_ReturnsFalse"
+      ],
+      "reason": "The malformed-code Theory retains the alphabetic input as the independently discoverable all-letters case with a stable diagnostic label."
     }
   ],
   "assertionReplacements": [

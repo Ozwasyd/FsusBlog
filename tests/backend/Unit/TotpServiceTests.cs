@@ -21,6 +21,26 @@ public class TotpServiceTests
     private static string RfcBase32TestSecret
         => string.Concat("GEZDGNBVGY3TQOJQ", "GEZDGNBVGY3TQOJQ");
 
+    public static TheoryData<string, string> MalformedCodeCases
+    {
+        get
+        {
+            var cases = new TheoryData<string, string>
+            {
+                { "empty", "" },
+                { "too-short", "12345" },
+                { "too-long", "1234567" },
+                { "all-letters", "abcdef" }
+            };
+            if (cases.Count != 4)
+            {
+                throw new InvalidOperationException("The malformed TOTP code inventory must contain exactly four cases.");
+            }
+
+            return cases;
+        }
+    }
+
     private static TotpService MakeService(DateTimeOffset? utcNow = null, bool productionHashPolicy = false)
     {
         // EphemeralDataProtectionProvider works in-memory without any file system
@@ -192,28 +212,13 @@ public class TotpServiceTests
         Assert.False(result);
     }
 
-    [Fact]
-    public void VerifyCode_EmptyCode_ReturnsFalse()
+    [Theory]
+    [MemberData(nameof(MalformedCodeCases))]
+    public void VerifyCode_MalformedCode_ReturnsFalse(string caseName, string code)
     {
         var svc = MakeService();
-        var result = svc.VerifyCode(ShortBase32TestSecret, "");
-        Assert.False(result);
-    }
-
-    [Fact]
-    public void VerifyCode_CodeTooShort_ReturnsFalse()
-    {
-        var svc = MakeService();
-        var result = svc.VerifyCode(ShortBase32TestSecret, "12345");
-        Assert.False(result);
-    }
-
-    [Fact]
-    public void VerifyCode_CodeTooLong_ReturnsFalse()
-    {
-        var svc = MakeService();
-        var result = svc.VerifyCode(ShortBase32TestSecret, "1234567");
-        Assert.False(result);
+        var result = svc.VerifyCode(ShortBase32TestSecret, code);
+        Assert.False(result, $"Malformed TOTP code case '{caseName}' was accepted.");
     }
 
     [Fact]
@@ -233,15 +238,6 @@ public class TotpServiceTests
         // Code with spaces/dashes - should extract digits "12 34 56" → "123456"
         var result = svc.VerifyCode(ShortBase32TestSecret, "12 34 56");
         Assert.IsType<bool>(result);
-    }
-
-    [Fact]
-    public void VerifyCode_CodeAllLetters_ReturnsFalse()
-    {
-        var svc = MakeService();
-        // Non-digit code results in empty after filtering
-        var result = svc.VerifyCode(ShortBase32TestSecret, "abcdef");
-        Assert.False(result);
     }
 
     [Fact]
