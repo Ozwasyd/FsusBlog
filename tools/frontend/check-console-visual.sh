@@ -22,6 +22,8 @@ groups=(
     'console visual \(tablet, dark\)'
     'console visual \(tablet-landscape, light\)'
     'console visual \(tablet-landscape, dark\)'
+    'account menu contract \(375px, 200% zoom, light\)'
+    'account menu contract \(375px, 200% zoom, dark\)'
 )
 
 for group in "${groups[@]}"; do

@@ -55,17 +55,28 @@ async function assertArchetypeAccessibility(page: Page, label: string): Promise<
 
 async function assertAccountHeaderMenuContract(page: Page, label: string): Promise<void> {
   const trigger = page.locator('button.account-header-menu__trigger:visible')
+  const accountLabel = trigger.locator('span:not(:has(span))').filter({ hasText: /^账号$/u })
   const visibleMenu = page.locator('[role="menu"]:visible').filter({ hasText: '使用规范' })
   await expect(trigger, `${label} visible account-menu trigger`).toHaveCount(1)
-  await expect(trigger).toHaveClass(/(?:^|\s)el-button(?:\s|$)/u)
   await expect(trigger).toHaveAccessibleName('打开账号菜单')
   await expect(trigger).toHaveAttribute('aria-haspopup', 'menu')
   await expect(trigger).toHaveAttribute('aria-expanded', 'false')
   await expect(trigger.locator('button'), `${label} nested clickable button`).toHaveCount(0)
+  await expect(accountLabel, `${label} account label`).toHaveCount(1)
   await expect(visibleMenu, `${label} collapsed menu`).toHaveCount(0)
 
+  const compact = (page.viewportSize()?.width ?? 0) < 1024
+  if (compact) {
+    await expect(accountLabel, `${label} compact account label`).toHaveClass(/(?:^|\s)sr-only(?:\s|$)/u)
+  } else {
+    await expect(accountLabel, `${label} noncompact account label`).not.toHaveClass(
+      /(?:^|\s)sr-only(?:\s|$)/u
+    )
+    await expect(accountLabel, `${label} visible noncompact account label`).toBeVisible()
+  }
+
   const triggerBox = await trigger.boundingBox()
-  const minimumTarget = (page.viewportSize()?.width ?? 0) < 1024 ? 44 : 40
+  const minimumTarget = compact ? 44 : 40
   expect(triggerBox, `${label} account-menu trigger box`).not.toBeNull()
   expect(triggerBox!.width, `${label} account-menu trigger width`).toBeGreaterThanOrEqual(minimumTarget)
   expect(triggerBox!.height, `${label} account-menu trigger height`).toBeGreaterThanOrEqual(minimumTarget)

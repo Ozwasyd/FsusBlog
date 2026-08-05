@@ -49,9 +49,9 @@ const ElDropdownItemStub = defineComponent({
   },
   setup(props, { slots }) {
     const dispatch = inject(commandKey)!
-    return () => h('button', {
-      type: 'button',
-      disabled: props.disabled,
+    return () => h('li', {
+      role: 'menuitem',
+      'aria-disabled': String(props.disabled),
       'data-command': String(props.command),
       onClick: () => {
         if (!props.disabled) dispatch(props.command)
@@ -181,10 +181,14 @@ describe('AccountHeaderMenu', () => {
   it('rejects repeated logout dispatch while logout is already running', async () => {
     const { wrapper } = await mountMenu({ isLoggingOut: true })
     await setMenuVisible(wrapper, true)
-    const logout = wrapper.get<HTMLButtonElement>('[data-command="logout"]')
+    const logoutItem = wrapper
+      .findAllComponents(ElDropdownItemStub)
+      .find((item) => item.props('command') === 'logout')
+    const logout = wrapper.get<HTMLElement>('[data-command="logout"]')
 
+    expect(logoutItem?.props('disabled')).toBe(true)
     expect(logout.text()).toContain('登出中…')
-    expect(logout.element.disabled).toBe(true)
+    expect(logout.attributes('aria-disabled')).toBe('true')
     await logout.trigger('click')
     expect(wrapper.emitted('logout')).toBeUndefined()
 

@@ -171,6 +171,89 @@ assert.match(
     /playwright_config="\$\{FSUSBLOG_PLAYWRIGHT_CONFIG:-playwright\.diagnostics\.config\.ts\}"/u,
     'console visual tests must use the diagnostics config that admits visual/** by default'
 );
+for (const theme of ['light', 'dark'])
+{
+    const accountMenuGroup = `    'account menu contract \\(375px, 200% zoom, ${theme}\\)'`;
+    assert.equal(
+        consoleVisualSource.split(accountMenuGroup).length - 1,
+        1,
+        `console visual helper must run the exact account-menu 375px/200% zoom ${theme} group once`
+    );
+}
+
+const accountMenuBrowserSource = await readFile(
+    path.join(root, 'tests/frontend/e2e/visual/console-visual.spec.ts'),
+    'utf8'
+);
+assert.match(
+    accountMenuBrowserSource,
+    /const themes: ThemeMode\[\] = \['light', 'dark'\]/u,
+    'account-menu browser coverage must retain both light and dark themes'
+);
+assert.match(
+    accountMenuBrowserSource,
+    /test\.describe\(`account menu contract \(375px, 200% zoom, \$\{theme\}\)`/u,
+    'account-menu browser coverage must retain the helper-addressable 375px/200% zoom group name'
+);
+assert.match(
+    accountMenuBrowserSource,
+    /const trigger = page\.locator\('button\.account-header-menu__trigger:visible'\)[\s\S]*?await expect\(trigger, `\$\{label\} visible account-menu trigger`\)\.toHaveCount\(1\)/u,
+    'account-menu browser coverage must require one visible product trigger'
+);
+assert.doesNotMatch(
+    accountMenuBrowserSource,
+    /\.el-button/u,
+    'browser coverage must not infer FsusUI Button identity from a forgeable private class'
+);
+assert.match(
+    accountMenuBrowserSource,
+    /span:not\(:has\(span\)\)[\s\S]*?\^账号\$[\s\S]*?compact = \(page\.viewportSize\(\)\?\.width \?\? 0\) < 1024[\s\S]*?compact account label[\s\S]*?sr-only[\s\S]*?visible noncompact account label[\s\S]*?toBeVisible\(\)[\s\S]*?minimumTarget = compact \? 44 : 40/u,
+    'account-menu browser coverage must distinguish compact sr-only copy from visible noncompact copy and preserve FsusUI target tiers'
+);
+
+const accountMenuUnitSource = await readFile(
+    path.join(root, 'tests/frontend/unit/components/account/AccountHeaderMenu.test.ts'),
+    'utf8'
+);
+assert.match(
+    accountMenuUnitSource,
+    /import \{ ElButton \} from '@ozwasyd\/element-plus'/u,
+    'account-menu unit coverage must import the real public FsusUI Button'
+);
+assert.doesNotMatch(
+    accountMenuUnitSource,
+    /\bElButton\s*:/u,
+    'account-menu unit coverage must not replace the public FsusUI Button with a plain stub'
+);
+assert.doesNotMatch(
+    accountMenuUnitSource,
+    /h\('button'/u,
+    'account-menu unit coverage must not simulate the FsusUI trigger with an ordinary button stub'
+);
+assert.match(
+    accountMenuUnitSource,
+    /findComponent\(ElButton\)[\s\S]*?tagName\)\.toBe\('BUTTON'\)[\s\S]*?props\('size'\)\)\.toBe\('small'\)/u,
+    'account-menu unit coverage must prove the real Button identity and noncompact density'
+);
+assert.match(
+    accountMenuUnitSource,
+    /isLoggingOut: true[\s\S]*?props\('disabled'\)\)\.toBe\(true\)[\s\S]*?text\(\)\)\.toContain\('登出中…'\)[\s\S]*?attributes\('aria-disabled'\)\)\.toBe\('true'\)[\s\S]*?emitted\('logout'\)\)\.toBeUndefined\(\)[\s\S]*?\$emit\('command', 'logout'\)[\s\S]*?emitted\('logout'\)\)\.toBeUndefined\(\)/u,
+    'account-menu unit coverage must freeze disabled/loading logout duplicate prevention'
+);
+for (const semantic of [
+    "toEqual([['guidelines'], ['privacy']])",
+    "expect(wrapper.emitted('logout')).toHaveLength(1)",
+    "toBe('/user/identity')",
+    "toBe('/user/manage')",
+    "toEqual(['manage', 'guidelines', 'privacy', 'logout'])",
+    "toEqual(['guidelines', 'privacy', 'logout'])"
+])
+{
+    assert.ok(
+        accountMenuUnitSource.includes(semantic),
+        `account-menu unit coverage must retain command semantics: ${semantic}`
+    );
+}
 
 const fastOptions = vitest.createVitestRuntimeOptions('unit-core', {
     env: { FSUSBLOG_TEST_SHARD_INDEX: '2', FSUSBLOG_TEST_SHARD_TOTAL: '4' },
