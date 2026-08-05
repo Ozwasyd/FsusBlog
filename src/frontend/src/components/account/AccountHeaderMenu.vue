@@ -5,10 +5,10 @@
         @command="handleCommand"
         @visible-change="menuOpen = $event"
     >
-        <button
-            type="button"
+        <FsusUiButton
+            native-type="button"
+            :size="compact ? 'default' : 'small'"
             class="account-header-menu__trigger"
-            :class="{ 'account-header-menu__trigger--touch': compact }"
             aria-label="打开账号菜单"
             aria-haspopup="menu"
             :aria-expanded="menuOpen"
@@ -18,7 +18,7 @@
                 :size="18"
                 aria-hidden="true"
             ><ArrowDown /></ElIcon>
-        </button>
+        </FsusUiButton>
 
         <template #dropdown>
             <ElDropdownMenu>
@@ -46,12 +46,13 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 
+import { FsusUiButton } from '@/fsusui/button';
 import { ArrowDown } from '@/fsusui/icons';
 import type { AccountArea } from '@/layouts/accountNav';
 
 type AccountMenuCommand = 'account' | 'manage' | 'guidelines' | 'privacy' | 'logout';
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
     canManage: boolean;
     compact?: boolean;
     currentArea: AccountArea;
@@ -94,68 +95,9 @@ const handleCommand = (rawCommand: string | number | object): void =>
         return;
     }
 
-    if (command === 'logout')
+    if (command === 'logout' && !props.isLoggingOut)
     {
         emit('logout');
     }
 };
 </script>
-
-<style scoped>
-.account-header-menu__trigger
- {
-    display: inline-flex;
-    min-height: var(--fsus-control-height-compact);
-    min-width: var(--fsus-control-height-compact);
-    align-items: center;
-    justify-content: center;
-    gap: var(--fsus-space-1);
-    border: 1px solid var(--fsusblog-panel-border);
-    border-radius: var(--fsus-radius-control);
-    background: var(--fsusblog-page-bg);
-    color: var(--fsusblog-text-secondary);
-    cursor: pointer;
-    font: inherit;
-    font-size: 12px;
-    font-weight: 700;
-    padding-inline: var(--fsus-space-2);
-    transition:
-        border-color var(--fsus-motion-control-fast) var(--fsus-motion-standard),
-        background-color var(--fsus-motion-control-fast) var(--fsus-motion-standard),
-        color var(--fsus-motion-control-fast) var(--fsus-motion-standard);
-}
-
-.account-header-menu__trigger--touch
- {
-    min-height: var(--fsus-control-height);
-    min-width: var(--fsus-control-height);
-}
-
-.account-header-menu__trigger:hover,
-.account-header-menu__trigger[aria-expanded="true"]
- {
-    border-color: var(--fsusblog-color-primary);
-    background: var(--fsusblog-page-bg-soft);
-    color: var(--fsusblog-color-primary);
-}
-
-.account-header-menu__trigger:focus-visible
- {
-    box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
-    outline: none;
-}
-
-@media (forced-colors: active)
- {
-    .account-header-menu__trigger
- {
-        border-color: ButtonText;
-    }
-
-    .account-header-menu__trigger:focus-visible
- {
-        outline: 2px solid Highlight;
-        outline-offset: -2px;
-    }
-}
-</style>
