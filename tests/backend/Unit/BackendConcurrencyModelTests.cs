@@ -4,15 +4,6 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class BackendConcurrencyModelTests
 {
     [Fact]
-    public async Task RecoveryCodeReplayRace_AllowsOnlyOneConsumption()
-    {
-        var secret = new OneShotValue();
-        int successCount = await RaceAsync(32, secret.TryConsume);
-
-        Assert.Equal(1, successCount);
-    }
-
-    [Fact]
     public async Task PasskeyRegistrationLimitRace_StopsAtConfiguredLimit()
     {
         var credentials = new BoundedCredentialSet(limit: 5);
@@ -79,14 +70,6 @@ public sealed class BackendConcurrencyModelTests
         start.TrySetResult(true);
         int[] results = await Task.WhenAll(tasks);
         return results.Sum();
-    }
-
-    private sealed class OneShotValue
-    {
-        private int _consumed;
-
-        public bool TryConsume()
-            => Interlocked.CompareExchange(ref _consumed, 1, 0) == 0;
     }
 
     private sealed class BoundedCredentialSet(int limit)

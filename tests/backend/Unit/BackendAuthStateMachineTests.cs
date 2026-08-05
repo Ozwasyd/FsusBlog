@@ -52,17 +52,6 @@ public sealed class BackendAuthStateMachineTests
         Assert.Throws<InvalidOperationException>(() => Apply(AuthState.Expired, AuthEvent.Refresh));
     }
 
-    [Fact]
-    public void RecoveryCode_CanMoveMfaForwardOnlyOnce()
-    {
-        var recoveryCode = new OneTimeSecret();
-        AuthState first = Apply(AuthState.MfaRequired, recoveryCode.Consume() ? AuthEvent.UseRecoveryCode : AuthEvent.InvalidProof);
-
-        Assert.Equal(AuthState.MfaVerified, first);
-        Assert.False(recoveryCode.Consume());
-        Assert.Throws<InvalidOperationException>(() => Apply(AuthState.MfaRequired, AuthEvent.InvalidProof));
-    }
-
     [Theory]
     [InlineData(AccountState.Active, true)]
     [InlineData(AccountState.Banned, false)]
@@ -94,14 +83,6 @@ public sealed class BackendAuthStateMachineTests
 
     private static bool CanWrite(AccountState state)
         => state == AccountState.Active;
-
-    private sealed class OneTimeSecret
-    {
-        private int _consumed;
-
-        public bool Consume()
-            => Interlocked.CompareExchange(ref _consumed, 1, 0) == 0;
-    }
 
     public enum AuthState
     {

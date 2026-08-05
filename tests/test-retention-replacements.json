@@ -42,6 +42,22 @@
       "reason": "The replacement Theory retains the negative parent ID boundary as the independently reported negative case and adds zero-side-effect oracles."
     },
     {
+      "id": "xunit:tests/backend/Unit/BackendConcurrencyModelTests.cs#BackendConcurrencyModelTests.RecoveryCodeReplayRace_AllowsOnlyOneConsumption",
+      "path": "tests/backend/Unit/BackendConcurrencyModelTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs#UserAuthPostgresConcurrencyTests.VerifyMfaOrRecoveryCodeAsync_ConcurrentConsumptionPersistsExactlyOnce"
+      ],
+      "reason": "Controlled two- and six-consumer PostgreSQL races exercise the real recovery-code hash verification and compare-and-swap path, prove exactly one login session and token response, reject loser session completion, and retain the unrelated recovery code."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/BackendAuthStateMachineTests.cs#BackendAuthStateMachineTests.RecoveryCode_CanMoveMfaForwardOnlyOnce",
+      "path": "tests/backend/Unit/BackendAuthStateMachineTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs#UserAuthPostgresConcurrencyTests.VerifyMfaOrRecoveryCodeAsync_ConcurrentConsumptionPersistsExactlyOnce"
+      ],
+      "reason": "The real PostgreSQL recovery-code owner now carries the MFA-to-session transition: only the CAS winner receives access and refresh tokens while every loser remains sessionless."
+    },
+    {
       "id": "xunit:tests/backend/Unit/LegacyFixturePrivacyContractTests.cs#LegacyFixturePrivacyContractTests.Legacy20260517MinimalFixture_UsesAnonymizedIdentitySamples",
       "path": "tests/backend/Unit/LegacyFixturePrivacyContractTests.cs",
       "replacementTestIds": [
@@ -1741,8 +1757,7 @@
       "replacementTestIds": [
         "xunit:tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs#UserAuthPostgresConcurrencyTests.RotateRefreshTokenAsync_ConcurrentCasHasOneWinnerThenTombstoneReplayCompromisesOnlyFamily",
         "xunit:tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs#UserAuthPostgresConcurrencyTests.VerifyMfaOrRecoveryCodeAsync_ConcurrentConsumptionPersistsExactlyOnce",
-        "xunit:tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs#UserAuthPostgresConcurrencyTests.BlacklistService_BanAndUnbanCannotResurrectDeletedAccount",
-        "xunit:tests/backend/Unit/BackendAuthStateMachineTests.cs#BackendAuthStateMachineTests.RecoveryCode_CanMoveMfaForwardOnlyOnce"
+        "xunit:tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs#UserAuthPostgresConcurrencyTests.BlacklistService_BanAndUnbanCannotResurrectDeletedAccount"
       ],
       "reason": "Held-row PostgreSQL races make both callers observe stale auth state, then prove refresh replay revocation and one-time recovery-code CAS."
     },

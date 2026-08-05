@@ -5,12 +5,15 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
 
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 
 using Npgsql;
@@ -273,68 +276,171 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
     [Fact]
     public async Task VerifyMfaOrRecoveryCodeAsync_ConcurrentConsumptionPersistsExactlyOnce()
     {
-        const string OldHashes = "issue-1040-old-recovery-hashes";
-        const string NewHashes = "issue-1040-new-recovery-hashes";
+        await VerifyConcurrentRecoveryCodeConsumptionAsync(participantCount: 2);
+        await VerifyConcurrentRecoveryCodeConsumptionAsync(participantCount: 6);
+    }
+
+    private async Task VerifyConcurrentRecoveryCodeConsumptionAsync(int participantCount)
+    {
+        const string ConsumedCode = "2330-AAAA-BBBB-CCCC";
+        const string RetainedCode = "2330-DDDD-EEEE-FFFF";
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
         using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
         CreateTables(setupDb);
         int userId = SeedUser(setupDb, mfaEnabled: true);
+        var totp = new TotpService(
+            new EphemeralDataProtectionProvider(),
+            TimeProvider.System,
+            new TotpService.RecoveryCodeHashPolicy(1024, 1, 1));
+        string oldHashes = totp.HashRecoveryCodes([ConsumedCode, RetainedCode]);
+        RecoveryCodeConsumeResult expectedConsumption = totp.ConsumeRecoveryCode(oldHashes, ConsumedCode);
+        Assert.True(expectedConsumption.Success);
         setupDb.Insertable(new UserMfaProfile
         {
             UserId = userId,
-            MfaSecretEncrypted = "protected-secret",
-            MfaRecoveryCodesHash = OldHashes,
-            MfaRecoveryCodesHashVersion = 1,
+            MfaSecretEncrypted = totp.ProtectSecret(totp.GenerateSecret()),
+            MfaRecoveryCodesHash = oldHashes,
+            MfaRecoveryCodesHashVersion = TotpService.CurrentRecoveryCodeHashVersion,
             UpdatedAtUtc = DateTime.UtcNow
         }).ExecuteCommand();
 
-        var totp = Substitute.For<ITotpService>();
-        totp.ConsumeRecoveryCode(OldHashes, "RECOVERY")
-            .Returns(new RecoveryCodeConsumeResult(
-                Success: true,
-                UpdatedHashes: NewHashes,
-                ConsumedLegacyHash: false,
-                LegacyHashExpired: false,
-                RequiresRecoveryCodeRegeneration: false));
-        using SqlSugarClient firstDb = PostgresSqlSugarTestClient.Create(connectionString);
-        using SqlSugarClient secondDb = PostgresSqlSugarTestClient.Create(connectionString);
-        UserService firstService = CreateService(firstDb, "unused-first", Substitute.For<IUserSessionValidationCache>(), totp);
-        UserService secondService = CreateService(secondDb, "unused-second", Substitute.For<IUserSessionValidationCache>(), totp);
-        var user = new User { Id = userId, MfaEnabled = true };
+        var databases = Enumerable.Range(0, participantCount)
+            .Select(_ => PostgresSqlSugarTestClient.Create(connectionString))
+            .ToArray();
+        UserService[] verificationServices = databases
+            .Select(db => CreateService(db, "unused", Substitute.For<IUserSessionValidationCache>(), totp))
+            .ToArray();
+        UserLoginWorkflowService[] loginServices = databases
+            .Select(CreateLoginWorkflowService)
+            .ToArray();
 
-        await using var holder = new NpgsqlConnection(connectionString);
-        await holder.OpenAsync();
-        await using NpgsqlTransaction transaction = await holder.BeginTransactionAsync();
-        await using (var lockCommand = new NpgsqlCommand(
-            "UPDATE user_mfa_profile SET updated_at_utc = updated_at_utc WHERE user_id = @user_id;",
-            holder,
-            transaction))
+        try
         {
-            lockCommand.Parameters.AddWithValue("user_id", userId);
-            Assert.Equal(1, await lockCommand.ExecuteNonQueryAsync());
+            await using var holder = new NpgsqlConnection(connectionString);
+            await holder.OpenAsync();
+            await using NpgsqlTransaction transaction = await holder.BeginTransactionAsync();
+            await using (var lockCommand = new NpgsqlCommand(
+                "UPDATE user_mfa_profile SET updated_at_utc = updated_at_utc WHERE user_id = @user_id;",
+                holder,
+                transaction))
+            {
+                lockCommand.Parameters.AddWithValue("user_id", userId);
+                Assert.Equal(1, await lockCommand.ExecuteNonQueryAsync());
+            }
+
+            using var barrier = new Barrier(participantCount);
+            Task<RecoveryCodeLoginAttempt>[] attempts = Enumerable.Range(0, participantCount)
+                .Select(index => StartTogetherAsync(
+                    barrier,
+                    () => VerifyRecoveryCodeAndCompleteLoginAsync(
+                        verificationServices[index],
+                        loginServices[index],
+                        userId,
+                        ConsumedCode)))
+                .ToArray();
+            await Task.Delay(TimeSpan.FromMilliseconds(300));
+            Assert.All(attempts, static attempt => Assert.False(attempt.IsCompleted));
+
+            await transaction.CommitAsync();
+            RecoveryCodeLoginAttempt[] results = await Task.WhenAll(attempts)
+                .WaitAsync(TimeSpan.FromSeconds(30));
+
+            RecoveryCodeLoginAttempt success = Assert.Single(results, static result => result.Verified);
+            Assert.True(success.LoginSucceeded);
+            Assert.NotNull(success.SessionTokens);
+            Assert.False(string.IsNullOrWhiteSpace(success.SessionTokens.Value.AccessToken));
+            Assert.False(string.IsNullOrWhiteSpace(success.SessionTokens.Value.RefreshToken));
+            Assert.All(results.Where(static result => !result.Verified), static failure =>
+            {
+                Assert.False(failure.LoginSucceeded);
+                Assert.Null(failure.SessionTokens);
+            });
+            Assert.Equal(1, await setupDb.Queryable<UserSession>()
+                .Where(session => session.UserId == userId)
+                .CountAsync());
+
+            UserMfaProfile stored = await setupDb.Queryable<UserMfaProfile>()
+                .SingleAsync(item => item.UserId == userId);
+            Assert.Equal(expectedConsumption.UpdatedHashes, stored.MfaRecoveryCodesHash);
+            Assert.Equal(TotpService.CurrentRecoveryCodeHashVersion, stored.MfaRecoveryCodesHashVersion);
+            Assert.False(totp.ConsumeRecoveryCode(stored.MfaRecoveryCodesHash, ConsumedCode).Success);
+            Assert.True(totp.ConsumeRecoveryCode(stored.MfaRecoveryCodesHash, RetainedCode).Success);
+
+            bool retainedCodeSucceeded = await verificationServices[0].VerifyMfaOrRecoveryCodeAsync(
+                userId,
+                code: null,
+                recoveryCode: RetainedCode,
+                persistRecoveryConsumption: true);
+            Assert.True(retainedCodeSucceeded);
+            UserMfaProfile fullyConsumed = await setupDb.Queryable<UserMfaProfile>()
+                .SingleAsync(item => item.UserId == userId);
+            Assert.Equal(string.Empty, fullyConsumed.MfaRecoveryCodesHash);
+        }
+        finally
+        {
+            foreach (SqlSugarClient database in databases)
+            {
+                database.Dispose();
+            }
+        }
+    }
+
+    private static async Task<RecoveryCodeLoginAttempt> VerifyRecoveryCodeAndCompleteLoginAsync(
+        UserService verificationService,
+        UserLoginWorkflowService loginService,
+        int userId,
+        string recoveryCode)
+    {
+        bool verified = await verificationService.VerifyMfaOrRecoveryCodeAsync(
+            userId,
+            code: null,
+            recoveryCode,
+            persistRecoveryConsumption: true);
+        if (!verified)
+        {
+            return new RecoveryCodeLoginAttempt(false, false, null);
         }
 
-        using var barrier = new Barrier(2);
-        Task<bool> first = StartTogetherAsync(
-            barrier,
-            () => firstService.VerifyMfaOrRecoveryCodeAsync(user, code: null, recoveryCode: "RECOVERY", persistRecoveryConsumption: true));
-        Task<bool> second = StartTogetherAsync(
-            barrier,
-            () => secondService.VerifyMfaOrRecoveryCodeAsync(user, code: null, recoveryCode: "RECOVERY", persistRecoveryConsumption: true));
-        await Task.Delay(TimeSpan.FromMilliseconds(300));
-        Assert.False(first.IsCompleted);
-        Assert.False(second.IsCompleted);
-
-        await transaction.CommitAsync();
-        bool[] results = await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(30));
-
-        Assert.Single(results, static success => success);
-        UserMfaProfile stored = await setupDb.Queryable<UserMfaProfile>()
-            .SingleAsync(item => item.UserId == userId);
-        Assert.Equal(NewHashes, stored.MfaRecoveryCodesHash);
-        Assert.Equal(TotpService.CurrentRecoveryCodeHashVersion, stored.MfaRecoveryCodesHashVersion);
-        totp.Received(2).ConsumeRecoveryCode(OldHashes, "RECOVERY");
+        var login = await loginService.CompleteLoginAsync(
+            userId,
+            "203.0.113.30",
+            "issue-2330-device",
+            "issue-2330-agent",
+            mfaVerified: true,
+            rememberMe: false,
+            authenticationContext: new UserSessionAuthenticationContext(
+                UserSessionAuthenticationMethods.RecoveryKey,
+                UserSessionAuthenticationStrengths.Recovery,
+                DateTime.UtcNow,
+                DurationPolicy: UserSessionDurationPolicies.BrowserSession));
+        return new RecoveryCodeLoginAttempt(true, login.Success, login.Data);
     }
+
+    private static UserLoginWorkflowService CreateLoginWorkflowService(SqlSugarClient db)
+    {
+        var jwt = Substitute.For<IJwtHelper>();
+        jwt.GenerateRefreshToken().Returns(_ => $"issue-2330-refresh-{Guid.NewGuid():N}");
+        jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string?>(), Arg.Any<UserSessionAuthenticationContext>())
+            .Returns(_ => new IssuedAccessToken(
+                $"issue-2330-access-{Guid.NewGuid():N}",
+                DateTimeOffset.UtcNow.AddMinutes(15)));
+        return new UserLoginWorkflowService(
+            db,
+            NullLogger<UserLoginWorkflowService>.Instance,
+            jwt,
+            Substitute.For<IUserSessionValidationCache>(),
+            Substitute.For<IAuthRiskService>(),
+            new UserSessionMetadataProtector(
+                new SecurityRiskPseudonymizer(
+                    1,
+                    Enumerable.Range(1, 32).Select(static value => (byte)value).ToArray())),
+            new ConfigurationBuilder().Build());
+    }
+
+    private sealed record RecoveryCodeLoginAttempt(
+        bool Verified,
+        bool LoginSucceeded,
+        SessionTokenResponseDto? SessionTokens);
 
     [Fact]
     public async Task BlacklistService_BanAndUnbanCannotResurrectDeletedAccount()
