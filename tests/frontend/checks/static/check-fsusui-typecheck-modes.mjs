@@ -18,6 +18,7 @@ const localRunnerPath = path.join(frontendRoot, 'scripts/run-local-fsusui-typech
 const frontendBuildPath = path.join(repoRoot, 'tools/frontend/build.mjs');
 const augmentationPath = path.join(frontendRoot, 'src/fsusui/elementPlusAugmentations.d.ts');
 const contractPath = path.join(repoRoot, 'tests/frontend/typecheck/fsusui-export-contract.ts');
+const segmentedConsumerContractPath = path.join(repoRoot, 'tests/frontend/typecheck/admin-segmented-control-consumer-contract.ts');
 const docsPath = path.join(repoRoot, 'docs/frontend/fsusui-typecheck-modes.md');
 
 const failures = [];
@@ -59,6 +60,7 @@ for (const file of [
     localRunnerPath,
     frontendBuildPath,
     contractPath,
+    segmentedConsumerContractPath,
     docsPath
 ])
 {
@@ -84,6 +86,7 @@ if (failures.length === 0)
     const localRunner = read(localRunnerPath);
     const frontendBuild = read(frontendBuildPath);
     const contract = read(contractPath);
+    const segmentedConsumerContract = read(segmentedConsumerContractPath);
     const docs = read(docsPath);
 
     if (scripts['typecheck:published-fsusui'] !== 'vue-tsc --noEmit -p tsconfig.fsusui-published.json')
@@ -106,6 +109,14 @@ if (failures.length === 0)
     if (!published.include?.includes('../../tests/frontend/typecheck/fsusui-export-contract.ts'))
     {
         failures.push('src/frontend/tsconfig.fsusui-published.json: must include the FsusUI export contract');
+    }
+    if (!published.include?.includes('../../tests/frontend/typecheck/admin-segmented-control-consumer-contract.ts'))
+    {
+        failures.push('src/frontend/tsconfig.fsusui-published.json: must include the admin segmented consumer contract');
+    }
+    if (!local.include?.includes('../../tests/frontend/typecheck/admin-segmented-control-consumer-contract.ts'))
+    {
+        failures.push('src/frontend/tsconfig.fsusui-local.json: must include the admin segmented consumer contract');
     }
     if (published.include?.some((entry) => entry.includes('elementPlusAugmentations')))
     {
@@ -239,6 +250,21 @@ if (failures.length === 0)
     ])
     {
         expectIncludes(contractPath, contract, token, `export contract token ${token}`);
+    }
+    for (const token of [
+        'FsusUiSegmentedControlItem',
+        'FsusUiSegmentedControlValue',
+        'ArticlePublishStatus',
+        'disabled',
+        'toBusinessStatus'
+    ])
+    {
+        expectIncludes(
+            segmentedConsumerContractPath,
+            segmentedConsumerContract,
+            token,
+            `admin segmented consumer type contract token ${token}`
+        );
     }
     for (const token of [
         'typecheck:published-fsusui',

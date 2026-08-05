@@ -44,8 +44,9 @@ assert.doesNotMatch(
 );
 assert.match(
     articleList,
-    /<AdminSegmentedControl[\s\S]*?aria-label="文章状态筛选"[\s\S]*?\/>/,
-    'article status filter must retain an accessible name'
+    /<FsusUiSegmentedControl[\s\S]*?aria-label="文章状态筛选"[\s\S]*?\/>/,
+    'article status filter must directly consume the named FsusUI control'
 );
+assert.doesNotMatch(articleList, /<AdminSegmentedControl\b/, 'article status filter must not retain the local wrapper');
 
 console.log('admin article list layout checks passed');

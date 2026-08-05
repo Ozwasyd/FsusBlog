@@ -79,6 +79,7 @@ writeFileSync(
         extends: '../../tsconfig.fsusui-published.json',
         include: [
             fromGeneratedConfigRoot(path.join(frontendRoot, '..', '..', 'tests', 'frontend', 'typecheck', 'fsusui-export-contract.ts')),
+            fromGeneratedConfigRoot(path.join(frontendRoot, '..', '..', 'tests', 'frontend', 'typecheck', 'admin-segmented-control-consumer-contract.ts')),
             fromGeneratedConfigRoot(path.join(frontendRoot, '..', '..', 'tests', 'frontend', 'typecheck', 'fsusui-local-export-contract.ts')),
             fromGeneratedConfigRoot(path.join(frontendRoot, 'src', 'vite-env.d.ts')),
             fromGeneratedConfigRoot(path.join(localRoot, 'vue', 'global.d.ts')),

@@ -747,8 +747,6 @@ function checkIssueDensityContracts()
     assertNotContains(registerPath, /min-height:\s*36px;/, 'Register inline policy action must use at least 40px hit target');
     assertContains(registerPath, /min-height:\s*40px;/, 'Register inline policy action must use the compact 40px control height');
 
-    assertNotContains(path.join(repoRoot, 'src/frontend/src/components/admin/AdminSegmentedControl.vue'), /\bmin-h-8\b/, 'Admin segmented controls must not use 32px hit targets');
-    assertContains(path.join(repoRoot, 'src/frontend/src/components/admin/AdminSegmentedControl.vue'), /\bmin-h-10\b/, 'Admin segmented controls must use at least 40px hit targets');
     assertNotContains(path.join(repoRoot, 'src/frontend/src/components/article/ArticleImageLightbox.vue'), /min-height:\s*2\.5rem;/, 'Article lightbox controls must use the 44px default control height');
     assertContains(path.join(repoRoot, 'src/frontend/src/components/article/ArticleImageLightbox.vue'), /min-height:\s*2\.75rem;/, 'Article lightbox controls must use the 44px default control height');
     assertNotContains(path.join(repoRoot, 'src/frontend/src/components/article/ArticleTocPanel.vue'), /min-height:\s*2\.25rem;|font-size:\s*0\.71875rem;/, 'Article TOC controls must use 40px hit targets and the 12px small text scale');

@@ -2,6 +2,10 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
+import {
+  auditAdminSegmentedControlRemoval,
+  loadAdminSegmentedControlSources
+} from '../static/check-admin-segmented-control-removal.mjs'
 
 const root = fileURLToPath(new URL('../../../..', import.meta.url))
 const read = (path) => readFileSync(resolve(root, path), 'utf8')
@@ -35,7 +39,6 @@ const expectAdminCollectionSfcPrimitives = () => {
   const primitivePaths = [
     'src/frontend/src/components/admin/CollectionWorkbench.vue',
     'src/frontend/src/components/admin/AdminFilterGroup.vue',
-    'src/frontend/src/components/admin/AdminSegmentedControl.vue',
     'src/frontend/src/components/admin/AdminInlineEmptyState.vue'
   ]
 
@@ -52,6 +55,8 @@ const expectAdminCollectionSfcPrimitives = () => {
     failures.push(`src/frontend/src/components/admin: admin collection primitive SFCs total ${totalLines} lines; expected <= 200`)
   }
 }
+
+failures.push(...auditAdminSegmentedControlRemoval(loadAdminSegmentedControlSources(root)))
 
 expectIncludes('src/frontend/src/layouts/accountNav.ts', "label: '内容'", 'admin nav must expose content task group')
 expectIncludes('src/frontend/src/layouts/accountNav.ts', "label: '互动'", 'admin nav must expose interaction task group')
@@ -160,11 +165,12 @@ expectNotIncludes('src/frontend/src/views/admin/Analytics.vue', '访客来源构
 expectNotIncludes('src/frontend/src/views/admin/Analytics.vue', '地域访问分布 (Top 10)', 'region analytics must not keep old chart-oriented title copy')
 expectAdminCollectionSfcPrimitives()
 expectFileMissing('src/frontend/src/components/admin/AdminCollectionPrimitives.ts', 'admin collection primitives must be split into SFC files')
+expectFileMissing('src/frontend/src/components/admin/AdminSegmentedControl.vue', 'generic segmented controls must remain owned by FsusUI')
 expectIncludes('src/frontend/src/components/admin/CollectionWorkbench.vue', 'CollectionWorkbench', 'admin collections must use the fixed workbench composition')
-expectIncludes('src/frontend/src/components/admin/AdminSegmentedControl.vue', 'AdminSegmentedControl', 'admin collection screens must provide a restrained segmented control primitive')
 expectIncludes('src/frontend/src/components/admin/AdminInlineEmptyState.vue', 'AdminInlineEmptyState', 'admin collection screens must provide compact inline empty-state primitives')
 expectIncludes('src/frontend/src/views/admin/article/List.vue', 'CollectionWorkbench', 'article list filters and results must share the collection workbench')
-expectIncludes('src/frontend/src/views/admin/article/List.vue', 'AdminSegmentedControl', 'article status filters must use a restrained local segmented control')
+expectIncludes('src/frontend/src/views/admin/article/List.vue', 'FsusUiSegmentedControl', 'article status filters must directly consume the FsusUI segmented control')
+expectNotIncludes('src/frontend/src/views/admin/article/List.vue', 'AdminSegmentedControl', 'article status filters must not retain the local segmented wrapper')
 expectIncludes('src/frontend/src/views/admin/article/List.vue', 'AdminInlineEmptyState', 'article list empty states must use compact inline semantics')
 expectIncludes('src/frontend/src/views/admin/article/List.vue', '检索文章、编辑状态与进入写作流程。', 'article list header copy must be short and task-oriented')
 expectIncludes('src/frontend/src/views/admin/article/List.vue', '搜索文章标题', 'article list search placeholder must be direct')
