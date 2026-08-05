@@ -33,6 +33,7 @@ const accountRouteFramePath = path.join(repoRoot, 'src/frontend/src/layouts/Acco
 const accountMobileActionPath = path.join(repoRoot, 'src/frontend/src/layouts/AccountFrameMobileAction.vue');
 const accountNavigationPanelPath = path.join(repoRoot, 'src/frontend/src/components/account/AccountNavigationPanel.vue');
 const accountHeaderMenuPath = path.join(repoRoot, 'src/frontend/src/components/account/AccountHeaderMenu.vue');
+const buttonAdapterPath = path.join(repoRoot, 'src/frontend/src/fsusui/button.ts');
 const siteChromeHeaderAdapterPath = path.join(repoRoot, 'src/frontend/src/components/layout/SiteChromeHeaderAdapter.vue');
 const publicAuthLayoutPath = path.join(repoRoot, 'src/frontend/src/layouts/PublicAuthLayout.vue');
 const registerPath = path.join(repoRoot, 'src/frontend/src/views/auth/Register.vue');
@@ -653,11 +654,31 @@ function checkIssueDensityContracts()
     assertContains(accountLayoutPath, /account-header-theme-action--mobile[\s\S]*?variant="menu-button"/, 'account mobile theme action must use the low-noise FsusUI menu-button variant');
     assertContains(accountShellBasePath, /\.account-mobile-drawer-trigger\s*\{[\s\S]*?width:\s*var\(--fsus-control-height\);[\s\S]*?min-height:\s*var\(--fsus-control-height\);/, 'account mobile drawer trigger must consume the 44px default control token from the shared base layer');
     assertContains(accountMobileActionPath, /aria-controls="account-mobile-drawer"[\s\S]*?:aria-expanded="mobileDrawerVisible"/, 'account mobile drawer trigger must expose its controlled expanded state');
-    assertContains(accountHeaderMenuPath, /\.account-header-menu__trigger\s*\{[\s\S]*?min-height:\s*var\(--fsus-control-height-compact\);[\s\S]*?min-width:\s*var\(--fsus-control-height-compact\);/, 'account desktop menu trigger must consume the 40px compact control token');
-    assertContains(accountHeaderMenuPath, /\.account-header-menu__trigger--touch\s*\{[\s\S]*?min-height:\s*var\(--fsus-control-height\);[\s\S]*?min-width:\s*var\(--fsus-control-height\);/, 'account mobile menu trigger must consume the 44px default control token');
-    assertContains(accountHeaderMenuPath, /\.account-header-menu__trigger\[aria-expanded="true"\]/, 'account menu trigger must keep a distinguishable expanded state');
+    if (!fs.existsSync(buttonAdapterPath))
+    {
+        fail(buttonAdapterPath, 1, 'account menu trigger must expose the public FsusUI Button through the type-preserving adapter boundary');
+    }
+    else
+    {
+        assertContains(buttonAdapterPath, /export\s*\{\s*ElButton\s+as\s+FsusUiButton\s*\}\s*from\s*['"]@ozwasyd\/element-plus['"]/, 'account menu trigger must consume the public FsusUI Button through the adapter boundary');
+        assertNotContains(buttonAdapterPath, /defineComponent|<template|<style|render\s*\(|h\s*\(/, 'the FsusUI Button adapter must remain a type-preserving re-export, not a generic trigger wrapper');
+    }
+    assertContains(accountHeaderMenuPath, /<FsusUiButton[\s\S]*?:size="compact \? 'default' : 'small'"[\s\S]*?class="account-header-menu__trigger"[\s\S]*?aria-label="打开账号菜单"[\s\S]*?aria-haspopup="menu"[\s\S]*?:aria-expanded="menuOpen"[\s\S]*?<\/FsusUiButton>/, 'account menu trigger must delegate compact/default geometry and expanded semantics to FsusUI Button');
+    assertContains(accountHeaderMenuPath, /import\s*\{\s*FsusUiButton\s*\}\s*from\s*['"]@\/fsusui\/button['"]/, 'account menu must import the type-preserving FsusUI Button adapter');
+    assertNotContains(accountHeaderMenuPath, /<button\b|account-header-menu__trigger--touch|:deep\(|\.el-button|querySelector\s*\(|getElementsBy/, 'account menu must not retain a native fallback, private selector or runtime DOM repair');
+    assertNotContains(accountHeaderMenuPath, /\.account-header-menu__trigger(?::hover|:focus|:focus-visible|:disabled|\[aria-expanded)/, 'account menu must not reimplement FsusUI Button hover, focus, disabled or expanded visuals');
+    assertNotContains(accountHeaderMenuPath, /\.account-header-menu__trigger[^{]*\{[^}]*(?:min-)?(?:block-size|height|width)|\.account-header-menu__trigger[^{]*\{[^}]*(?:border|background|box-shadow|outline|font|padding|transition|cursor|gap)\s*:/, 'account menu product CSS must not reimplement FsusUI Button geometry or visual kernel');
+    assertNotContains(accountShellBasePath, /\.account-header-menu__trigger/, 'account shell must not style the FsusUI account-menu Button through a consumer selector');
+    const accountHeaderMenuSource = read(accountHeaderMenuPath);
+    if ((accountHeaderMenuSource.match(/aria-label="打开账号菜单"/g) ?? []).length !== 1)
+    {
+        fail(accountHeaderMenuPath, 1, 'account menu must expose exactly one accessible trigger');
+    }
+    for (const file of walk(productionSourceRoot))
+    {
+        assertNotContains(file, /(?:AccountMenuButton|HeaderMenuTrigger)/, 'account menu must not introduce a generic trigger wrapper beside FsusUI Button');
+    }
     assertContains(accountShellBasePath, /@media \(forced-colors:\s*active\)[\s\S]*?outline:\s*2px solid Highlight;/, 'account shared header actions must retain a visible system focus outline in forced-colors mode');
-    assertContains(accountHeaderMenuPath, /@media \(forced-colors:\s*active\)[\s\S]*?outline:\s*2px solid Highlight;/, 'account menu trigger must retain a visible system focus outline in forced-colors mode');
     assertContains(accountRouteFramePath, /<ElDrawer[\s\S]*?id="account-mobile-drawer"[\s\S]*?<\/ElDrawer>/, 'account route frame mobile navigation must use a drawer that carries the account sidebar visual language');
     assertContains(accountLayoutPath, /<RouterView name="accountMobileAction" \/>/, 'AccountLayout must host the active frame mobile action without duplicating the header');
     assertContains(accountMobileActionPath, /account-mobile-drawer-trigger/, 'active account frame must expose a compact drawer trigger');
@@ -697,7 +718,7 @@ function checkIssueDensityContracts()
         ].join('|')),
         'account chrome must not keep preference-header or binary locale owners'
     );
-    assertContains(accountShellBasePath, /\.account-site-header__actions \.account-header-link,[\s\S]*?\.account-header-theme-action > button,[\s\S]*?\.locale-selector__trigger,[\s\S]*?\.account-header-menu__trigger\.account-header-menu__trigger[\s\S]*?height:\s*var\(--fsus-control-height-compact\);[\s\S]*?border:\s*1px solid var\(--fsusblog-panel-border\);/, 'account desktop actions must share the 40px bordered paper treatment');
+    assertContains(accountShellBasePath, /\.account-site-header__actions \.account-header-link,[\s\S]*?\.account-header-theme-action > button,[\s\S]*?\.locale-selector__trigger[\s\S]*?height:\s*var\(--fsus-control-height-compact\);[\s\S]*?border:\s*1px solid var\(--fsusblog-panel-border\);/, 'account non-Button desktop actions must share the 40px bordered paper treatment');
     assertContains(accountShellBasePath, /\.account-site-header__actions \.account-header-link:hover,[\s\S]*?border-color:\s*var\(--fsusblog-color-primary\);[\s\S]*?background:\s*var\(--fsusblog-page-bg-soft\);/, 'account desktop actions must share the restrained hover treatment');
     assertContains(accountShellBasePath, /@media \(min-width: 1024px\)[\s\S]*?\.account-route-frame\s*\{[\s\S]*?gap:\s*var\(--fsus-space-8\);[\s\S]*?padding-inline:\s*var\(--fsus-space-6\);/, 'account desktop frame must use the 32px gap and 24px horizontal inset');
     assertNotContains(accountShellBasePath, /calc\(var\(--fsus-space-5\) \* 2\)/, 'account desktop frame must not restore the non-tokenized 40px calculation');

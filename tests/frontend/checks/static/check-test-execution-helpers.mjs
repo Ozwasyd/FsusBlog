@@ -166,6 +166,11 @@ for (const token of [
 assert.doesNotMatch(playwrightConfigSource, /process\.env\.CI\s*\?\s*\d+/u);
 const consoleVisualSource = await readFile(path.join(root, 'tools/frontend/check-console-visual.sh'), 'utf8');
 assert.match(consoleVisualSource, /resolve-playwright-workers\.mjs visual-console/u);
+assert.match(
+    consoleVisualSource,
+    /playwright_config="\$\{FSUSBLOG_PLAYWRIGHT_CONFIG:-playwright\.diagnostics\.config\.ts\}"/u,
+    'console visual tests must use the diagnostics config that admits visual/** by default'
+);
 
 const fastOptions = vitest.createVitestRuntimeOptions('unit-core', {
     env: { FSUSBLOG_TEST_SHARD_INDEX: '2', FSUSBLOG_TEST_SHARD_TOTAL: '4' },

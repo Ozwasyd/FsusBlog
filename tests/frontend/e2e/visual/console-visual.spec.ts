@@ -53,6 +53,37 @@ async function assertArchetypeAccessibility(page: Page, label: string): Promise<
   await resetUxViewportMediaMode(page)
 }
 
+async function assertAccountHeaderMenuContract(page: Page, label: string): Promise<void> {
+  const trigger = page.locator('button.account-header-menu__trigger:visible')
+  const visibleMenu = page.locator('[role="menu"]:visible').filter({ hasText: '使用规范' })
+  await expect(trigger, `${label} visible account-menu trigger`).toHaveCount(1)
+  await expect(trigger).toHaveClass(/(?:^|\s)el-button(?:\s|$)/u)
+  await expect(trigger).toHaveAccessibleName('打开账号菜单')
+  await expect(trigger).toHaveAttribute('aria-haspopup', 'menu')
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  await expect(trigger.locator('button'), `${label} nested clickable button`).toHaveCount(0)
+  await expect(visibleMenu, `${label} collapsed menu`).toHaveCount(0)
+
+  const triggerBox = await trigger.boundingBox()
+  const minimumTarget = (page.viewportSize()?.width ?? 0) < 1024 ? 44 : 40
+  expect(triggerBox, `${label} account-menu trigger box`).not.toBeNull()
+  expect(triggerBox!.width, `${label} account-menu trigger width`).toBeGreaterThanOrEqual(minimumTarget)
+  expect(triggerBox!.height, `${label} account-menu trigger height`).toBeGreaterThanOrEqual(minimumTarget)
+
+  for (const key of ['Enter', 'Space']) {
+    await trigger.focus()
+    await trigger.press(key)
+    await expect(trigger, `${label} ${key} expanded state`).toHaveAttribute('aria-expanded', 'true')
+    await expect(visibleMenu, `${label} ${key} menu visibility`).toHaveCount(1)
+    await expect(visibleMenu).toBeVisible()
+
+    await page.keyboard.press('Escape')
+    await expect(trigger, `${label} ${key} collapsed state`).toHaveAttribute('aria-expanded', 'false')
+    await expect(visibleMenu, `${label} ${key} collapsed menu`).toHaveCount(0)
+    await expect(trigger, `${label} ${key} focus return`).toBeFocused()
+  }
+}
+
 for (const viewport of viewports) {
   for (const theme of themes) {
     test.describe(`console visual (${viewport.name}, ${theme})`, () => {
@@ -83,6 +114,12 @@ for (const viewport of viewports) {
             }
 
             await assertArchetypeAccessibility(session.page, `${route.label} ${viewport.name} ${theme}`)
+            if (route.label === 'user-profile') {
+              await assertAccountHeaderMenuContract(
+                session.page,
+                `${route.label} ${viewport.name} ${theme}`
+              )
+            }
 
             if (viewport.screenshot && route.snapshot) {
               const screenshotTarget = session.page.locator(route.screenshotTarget).first()
@@ -178,6 +215,38 @@ for (const viewport of viewports) {
       })
     })
   }
+}
+
+for (const theme of themes) {
+  test.describe(`account menu contract (375px, 200% zoom, ${theme})`, () => {
+    test.use({ viewport: { width: 375, height: 812 } })
+    test.describe.configure({ timeout: 360_000 })
+
+    test('keeps the FsusUI trigger operable in forced colors with keyboard input', async ({
+      browser
+    }, testInfo) => {
+      userStorageStatePromise ??= captureStorageState(browser, userName, userPassword, '/user/profile')
+      const session = await openThemedAuditedPage(browser, theme, await userStorageStatePromise)
+
+      try {
+        await session.page.emulateMedia({ forcedColors: 'active' })
+        await session.page.goto('/user/profile', { waitUntil: 'domcontentloaded' })
+        await waitForAppReady(session.page)
+        await session.page.evaluate(() => {
+          document.documentElement.style.zoom = '2'
+        })
+        await settlePage(session.page)
+        await assertAccountHeaderMenuContract(session.page, `375px 200% ${theme} forced-colors`)
+        await assertNoHorizontalOverflow(session.page, 8)
+        await session.page.screenshot({
+          path: testInfo.outputPath(`account-menu-375-zoom-200-${theme}.png`),
+          fullPage: false
+        })
+      } finally {
+        await session.close()
+      }
+    })
+  })
 }
 
 for (const theme of themes) {

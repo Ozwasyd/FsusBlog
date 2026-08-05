@@ -2,7 +2,7 @@
 set -euo pipefail
 
 workers="${FSUSBLOG_CONSOLE_VISUAL_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-$(node ../../tools/test/resolve-playwright-workers.mjs visual-console)}}"
-playwright_config="${FSUSBLOG_PLAYWRIGHT_CONFIG:-playwright.config.ts}"
+playwright_config="${FSUSBLOG_PLAYWRIGHT_CONFIG:-playwright.diagnostics.config.ts}"
 shard_args=()
 if [[ -n "${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-}" ]]; then
     shard_args+=("$FSUSBLOG_PLAYWRIGHT_SHARD_ARG")
