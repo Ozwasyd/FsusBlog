@@ -183,43 +183,91 @@ public sealed class ShieldMiddlewareTests
         Assert.False(nextCalled);
     }
 
-    // ─── Unverified bot UA ────────────────────────────────────────────────
+    // ─── Unverified bot / spider UA ───────────────────────────────────────
 
-    [Fact]
-    public async Task InvokeAsync_UnverifiedBotUA_DoesNotCallNext()
+    [Theory]
+    [Trait("Category", "SecurityStateMachine")]
+    [InlineData("bot-keyword", "FakeBot/2.0")]
+    [InlineData("spider-keyword", "FakeSpider/1.0")]
+    public async Task InvokeAsync_UnverifiedCrawlerUserAgent_Production_RejectsRequest(
+        string caseName,
+        string ua)
     {
-        // "bot" keyword triggers crawler path; no CIDR loaded → unverified → abort
         bool nextCalled = false;
+        using var crawlerCache = new MemoryCache(new MemoryCacheOptions());
+        var crawlerDetector = new CrawlerDetectorService(
+            NullLogger<CrawlerDetectorService>.Instance,
+            crawlerCache);
+        var riskSink = new CapturingSecurityRiskSink();
         var sut = CreateMiddleware(
             env: ProductionEnv(),
+            crawlerDetector: crawlerDetector,
+            securityRisk: riskSink,
             onNext: _ =>
             {
                 nextCalled = true;
                 return Task.CompletedTask;
             });
-        var ctx = BuildContext("/api/articles", "FakeBot/2.0");
+        var ctx = BuildContext("/api/articles", ua);
 
         await sut.InvokeAsync(ctx);
 
+        Assert.Equal(
+            caseName switch
+            {
+                "bot-keyword" => "FakeBot/2.0",
+                "spider-keyword" => "FakeSpider/1.0",
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected unverified crawler case: {caseName}")
+            },
+            ua);
+        Assert.Equal(CrawlerRangeStatus.Empty, crawlerDetector.GetRangeStatus());
+        Assert.Equal(ua, ctx.Request.Headers.UserAgent.ToString());
         Assert.False(nextCalled);
+        Assert.Equal(StatusCodes.Status403Forbidden, ctx.Response.StatusCode);
+        Assert.Equal("text/plain; charset=utf-8", ctx.Response.ContentType);
+        Assert.Equal("text/plain; charset=utf-8", ctx.Response.Headers.ContentType);
+        Assert.Equal("unknown_bot", await ReadResponseBodyAsync(ctx));
+        Assert.DoesNotContain(
+            ctx.Response.Headers,
+            header => header.Key.Contains("crawler", StringComparison.OrdinalIgnoreCase));
+        Assert.False(ctx.Items.ContainsKey("VerifiedCrawler"));
+        Assert.False(ctx.Items.ContainsKey("CrawlerProvider"));
+
+        SecurityRiskSignal signal = Assert.Single(riskSink.Signals);
+        Assert.Same(ctx, signal.Context);
+        Assert.Equal("/api/articles", signal.Context.Request.Path);
+        Assert.Equal(SecurityRiskReason.UnknownBot, signal.Reason);
+        Assert.Equal(15, signal.Score);
+        Assert.Equal(TimeSpan.FromSeconds(600), signal.Ttl);
+        Assert.Equal(SecurityRiskSources.AntiCrawler, signal.Source);
+        Assert.Equal("shield_rejected", signal.Action);
+        Assert.Equal("unknown_bot", signal.Detail);
+        Assert.DoesNotContain(ua, signal.Detail, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(signal.SubjectHash);
+        Assert.Null(signal.RouteKey);
+        Assert.Null(signal.ClientIpHash);
+        Assert.Null(signal.DeviceFpHash);
     }
 
     [Fact]
-    public async Task InvokeAsync_UnverifiedSpiderUA_DoesNotCallNext()
+    public void UnverifiedCrawlerUserAgentTheory_HasStableCaseInventory()
     {
-        bool nextCalled = false;
-        var sut = CreateMiddleware(
-            env: ProductionEnv(),
-            onNext: _ =>
-            {
-                nextCalled = true;
-                return Task.CompletedTask;
-            });
-        var ctx = BuildContext("/api/articles", "FakeSpider/1.0");
+        MethodInfo method = typeof(ShieldMiddlewareTests).GetMethod(
+            nameof(InvokeAsync_UnverifiedCrawlerUserAgent_Production_RejectsRequest))!;
 
-        await sut.InvokeAsync(ctx);
-
-        Assert.False(nextCalled);
+        Assert.NotNull(method.GetCustomAttribute<TheoryAttribute>());
+        Assert.Collection(
+            method.GetCustomAttributes<InlineDataAttribute>(),
+            row => Assert.Equal(
+                new object?[] { "bot-keyword", "FakeBot/2.0" },
+                Assert.Single(row.GetData(method))),
+            row => Assert.Equal(
+                new object?[] { "spider-keyword", "FakeSpider/1.0" },
+                Assert.Single(row.GetData(method))));
+        Assert.Null(typeof(ShieldMiddlewareTests).GetMethod(
+            "InvokeAsync_UnverifiedBotUA_DoesNotCallNext"));
+        Assert.Null(typeof(ShieldMiddlewareTests).GetMethod(
+            "InvokeAsync_UnverifiedSpiderUA_DoesNotCallNext"));
     }
 
     [Fact]

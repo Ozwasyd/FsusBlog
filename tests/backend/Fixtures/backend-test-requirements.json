@@ -582,7 +582,7 @@
     {
       "id": "BACKEND-SECURITY-MATRIX",
       "risk": "critical",
-      "coverage": "admin-only, binary endpoint auth, banned/deleted, MFA partial token, replay, CORS, oversized bodies, production blank User-Agent rejection response and risk side effects",
+      "coverage": "admin-only, binary endpoint auth, banned/deleted, MFA partial token, replay, CORS, oversized bodies, production blank and unverified bot/spider User-Agent rejection responses and risk side effects",
       "evidencePaths": [
         "tools/security/check-security-matrices.mjs",
         "tests/frontend/checks/security/check-permission-matrix.mjs",

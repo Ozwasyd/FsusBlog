@@ -11439,6 +11439,22 @@
         "xunit:tests/backend/Unit/ShieldMiddlewareTests.cs#ShieldMiddlewareTests.InvokeAsync_BlankUserAgent_Production_RejectsRequest"
       ],
       "reason": "The whitespace User-Agent case now has stable Theory case identity and preserves the production fail-closed path with stronger downstream, response, marker and isolated risk-signal assertions."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/ShieldMiddlewareTests.cs#ShieldMiddlewareTests.InvokeAsync_UnverifiedBotUA_DoesNotCallNext",
+      "path": "tests/backend/Unit/ShieldMiddlewareTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/ShieldMiddlewareTests.cs#ShieldMiddlewareTests.InvokeAsync_UnverifiedCrawlerUserAgent_Production_RejectsRequest"
+      ],
+      "reason": "The FakeBot keyword case now has stable Theory case identity and preserves the production fail-closed path with stronger downstream, response, verified-marker and isolated risk-signal assertions."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/ShieldMiddlewareTests.cs#ShieldMiddlewareTests.InvokeAsync_UnverifiedSpiderUA_DoesNotCallNext",
+      "path": "tests/backend/Unit/ShieldMiddlewareTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/ShieldMiddlewareTests.cs#ShieldMiddlewareTests.InvokeAsync_UnverifiedCrawlerUserAgent_Production_RejectsRequest"
+      ],
+      "reason": "The FakeSpider keyword case now has stable Theory case identity and preserves the production fail-closed path with stronger downstream, response, verified-marker and isolated risk-signal assertions."
     }
   ],
   "assertionReplacements": [
