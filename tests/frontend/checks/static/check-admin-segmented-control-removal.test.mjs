@@ -1,11 +1,24 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { auditAdminSegmentedControlRemoval } from './check-admin-segmented-control-removal.mjs'
+import {
+  auditAdminSegmentedControlBrowserContract,
+  auditAdminSegmentedControlRemoval
+} from './check-admin-segmented-control-removal.mjs'
 
 const listPath = 'src/frontend/src/views/admin/article/List.vue'
 const composablePath = 'src/frontend/src/composables/useAdminArticleList.ts'
 const adapterPath = 'src/frontend/src/fsusui/segmentedControl.ts'
+const browserGroups = [
+  'admin article direct FsusUI segmented consumer (#1888, light)',
+  'admin article direct FsusUI segmented consumer (#1888, dark)'
+]
+const evidenceScreenshots = [
+  'issue-1888-admin-article-segmented-light-375-100-states.png',
+  'issue-1888-admin-article-segmented-dark-375-100-states.png',
+  'issue-1888-admin-article-segmented-light-375-200-long-scroll.png',
+  'issue-1888-admin-article-segmented-dark-375-200-long-scroll.png'
+]
 
 const canonicalSources = () => ({
   [listPath]: `
@@ -74,6 +87,32 @@ expectMutationFailure('rejects a renamed AdminFilterTabs wrapper', (sources) => 
 <script setup>defineProps<{ items: unknown[]; modelValue: unknown }>()</script>`
 }, /renamed segmented wrapper/u)
 
+expectMutationFailure('rejects an arbitrarily named forwarding wrapper without native buttons', (sources) => {
+  sources['src/frontend/src/components/admin/StatusChoice.vue'] = `
+<template>
+  <FsusUiSegmentedControl
+    :items="props.items"
+    :model-value="props.modelValue"
+    @update:model-value="emit('update:modelValue', $event)"
+  />
+</template>
+<script setup lang="ts">
+import { FsusUiSegmentedControl } from '@/fsusui/segmentedControl'
+const props = defineProps<{ items: readonly unknown[]; modelValue: unknown }>()
+const emit = defineEmits<{ 'update:modelValue': [value: unknown] }>()
+</script>`
+}, /arbitrary FsusUiSegmentedControl items\/modelValue\/update forwarding wrapper/u)
+
+expectMutationFailure('rejects an arbitrarily named compatibility export alias', (sources) => {
+  sources['src/frontend/src/fsusui/statusChoice.ts'] =
+    'export { FsusUiSegmentedControl as StatusChoice } from "./segmentedControl"'
+}, /arbitrary FsusUiSegmentedControl compatibility alias/u)
+
+expectMutationFailure('rejects an arbitrarily named local compatibility alias', (sources) => {
+  sources['src/frontend/src/fsusui/statusChoice.ts'] =
+    'import { FsusUiSegmentedControl } from "./segmentedControl"\nexport const StatusChoice = FsusUiSegmentedControl'
+}, /arbitrary FsusUiSegmentedControl compatibility alias/u)
+
 expectMutationFailure('rejects native button aria-pressed in the article caller', (sources) => {
   sources[listPath] += '<button :aria-pressed="true">全部</button>'
 }, /button\[aria-pressed\]/u)
@@ -128,3 +167,95 @@ test('allows trailing disabled bindings after the segmented opening tag closes',
 
   assert.deepEqual(auditAdminSegmentedControlRemoval(sources), [])
 })
+
+const canonicalBrowserSmoke = () => `
+test.describe('${browserGroups[0]}', () => {})
+test.describe('${browserGroups[1]}', () => {})
+const routePath = '/user/manage/article/list?page=1&size=10&status=2'
+const viewport = { width: 375, height: 812 }
+document.documentElement.style.zoom = '2'
+await selected.press('Home')
+await selected.press('ArrowRight')
+await expect(items).toBeDisabled()
+const longLabel = '已发布且完成公开索引'
+expect(url).toContain('status=0')
+expect(url).toContain('status=3')
+const geometry = { documentOverflow, scrollWidth, clientWidth, scrollLeft, itemInsideRoot, itemNotClipped }
+${evidenceScreenshots.map((name) => `testInfo.outputPath('${name}')`).join('\n')}
+`
+
+const canonicalVisualRunner = () => `
+segmented_consumer_config="\${FSUSBLOG_VISUAL_DIAGNOSTICS_CONFIG:-playwright.diagnostics.config.ts}"
+segmented_consumer_groups=(
+  '${browserGroups[0].replace(/[()]/gu, '\\$&')}'
+  '${browserGroups[1].replace(/[()]/gu, '\\$&')}'
+)
+for group in "\${segmented_consumer_groups[@]}"; do
+  npx playwright test --config="\${segmented_consumer_config}" ux/admin-article-segmented-consumer.spec.ts --grep "\${group}"
+done
+`
+
+const expectBrowserContractMutationFailure = (name, mutate, expected) => {
+  test(name, () => {
+    const fixture = {
+      browserSmoke: canonicalBrowserSmoke(),
+      visualRunner: canonicalVisualRunner()
+    }
+    mutate(fixture)
+    assert.equal(
+      auditAdminSegmentedControlBrowserContract(fixture.browserSmoke, fixture.visualRunner)
+        .some((failure) => expected.test(failure)),
+      true
+    )
+  })
+}
+
+test('canonical focused browser execution and evidence contract is accepted', () => {
+  assert.deepEqual(
+    auditAdminSegmentedControlBrowserContract(canonicalBrowserSmoke(), canonicalVisualRunner()),
+    []
+  )
+})
+
+for (const group of browserGroups) {
+  expectBrowserContractMutationFailure(`rejects missing browser group ${group}`, (fixture) => {
+    fixture.browserSmoke = fixture.browserSmoke.replace(`test.describe('${group}', () => {})`, '')
+  }, /focused browser group must exist exactly once/u)
+
+  expectBrowserContractMutationFailure(`rejects changed browser group ${group}`, (fixture) => {
+    fixture.browserSmoke = fixture.browserSmoke.replace(group, `${group}-changed`)
+  }, /focused browser group must exist exactly once/u)
+
+  expectBrowserContractMutationFailure(`rejects duplicated browser group ${group}`, (fixture) => {
+    fixture.browserSmoke += `\ntest.describe('${group}', () => {})`
+  }, /focused browser group must exist exactly once/u)
+
+  expectBrowserContractMutationFailure(`rejects missing runner group ${group}`, (fixture) => {
+    fixture.visualRunner = fixture.visualRunner.replace(group.replace(/[()]/gu, '\\$&'), '')
+  }, /focused browser group must be registered exactly once/u)
+
+  expectBrowserContractMutationFailure(`rejects changed runner group ${group}`, (fixture) => {
+    fixture.visualRunner = fixture.visualRunner.replace(group.replace(/[()]/gu, '\\$&'), `${group}-changed`)
+  }, /focused browser group must be registered exactly once/u)
+
+  expectBrowserContractMutationFailure(`rejects duplicated runner group ${group}`, (fixture) => {
+    fixture.visualRunner += `\n'${group.replace(/[()]/gu, '\\$&')}'`
+  }, /focused browser group must be registered exactly once/u)
+}
+
+for (const screenshot of evidenceScreenshots) {
+  expectBrowserContractMutationFailure(`rejects missing evidence screenshot ${screenshot}`, (fixture) => {
+    fixture.browserSmoke = fixture.browserSmoke.replace(`testInfo.outputPath('${screenshot}')`, '')
+  }, /fixed evidence screenshot must exist exactly once/u)
+}
+
+expectBrowserContractMutationFailure('rejects omitting the production-route browser spec from the runner', (fixture) => {
+  fixture.visualRunner = fixture.visualRunner.replace('ux/admin-article-segmented-consumer.spec.ts', 'ux/other.spec.ts')
+}, /missing focused browser execution contract/u)
+
+expectBrowserContractMutationFailure('rejects disconnecting the focused spec from diagnostics config', (fixture) => {
+  fixture.visualRunner = fixture.visualRunner.replace(
+    '--config="${segmented_consumer_config}"',
+    '--config="${playwright_config}"'
+  )
+}, /must bind diagnostics config, spec and exact group grep/u)

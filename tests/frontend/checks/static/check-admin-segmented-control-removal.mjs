@@ -7,6 +7,19 @@ const legacyComponentPath = 'src/frontend/src/components/admin/AdminSegmentedCon
 const articleListPath = 'src/frontend/src/views/admin/article/List.vue'
 const articleListComposablePath = 'src/frontend/src/composables/useAdminArticleList.ts'
 const adapterPath = 'src/frontend/src/fsusui/segmentedControl.ts'
+const browserSmokePath = 'tests/frontend/e2e/ux/admin-article-segmented-consumer.spec.ts'
+const visualRunnerPath = 'tools/frontend/check-console-visual.sh'
+
+const browserGroups = [
+  'admin article direct FsusUI segmented consumer (#1888, light)',
+  'admin article direct FsusUI segmented consumer (#1888, dark)'
+]
+const evidenceScreenshots = [
+  'issue-1888-admin-article-segmented-light-375-100-states.png',
+  'issue-1888-admin-article-segmented-dark-375-100-states.png',
+  'issue-1888-admin-article-segmented-light-375-200-long-scroll.png',
+  'issue-1888-admin-article-segmented-dark-375-200-long-scroll.png'
+]
 
 const normalizePath = (value) => value.replaceAll(path.sep, '/')
 
@@ -27,6 +40,19 @@ export const loadAdminSegmentedControlSources = (root) => Object.fromEntries(
 )
 
 const countMatches = (source, expression) => [...source.matchAll(expression)].length
+const countLiteral = (source, token) => source.split(token).length - 1
+const countQuotedLiteral = (source, token) => (
+  countLiteral(source, `'${token}'`) + countLiteral(source, `"${token}"`)
+)
+
+const isSegmentedForwardingWrapper = (source) => (
+  /<FsusUiSegmentedControl\b/u.test(source)
+  && /:items(?:\s|=\s*["'][^"']*\bitems\b[^"']*["'])/u.test(source)
+  && /:model(?:-value|Value)(?:\s|=\s*["'][^"']*\bmodelValue\b[^"']*["'])/u.test(source)
+  && /@update:model(?:-value|Value)\s*=\s*["'][^"']*(?:emit|update:modelValue)[^"']*["']/u.test(source)
+  && /\bdefineProps\b|\bprops\s*:/u.test(source)
+  && /\bdefineEmits\b|\bemits\s*:/u.test(source)
+)
 
 export function auditAdminSegmentedControlRemoval(sources) {
   const failures = []
@@ -100,6 +126,15 @@ export function auditAdminSegmentedControlRemoval(sources) {
     ) {
       failures.push(`${relativePath}: renamed segmented wrapper or compatibility alias is forbidden`)
     }
+    if (relativePath !== articleListPath && isSegmentedForwardingWrapper(source)) {
+      failures.push(`${relativePath}: arbitrary FsusUiSegmentedControl items/modelValue/update forwarding wrapper is forbidden`)
+    }
+    if (
+      /\bFsusUiSegmentedControl\s+as\s+(?!FsusUiSegmentedControl\b)[A-Za-z_$][\w$]*/u.test(source)
+      || /\b(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=\s*FsusUiSegmentedControl\b/u.test(source)
+    ) {
+      failures.push(`${relativePath}: arbitrary FsusUiSegmentedControl compatibility alias is forbidden`)
+    }
     if (/\.el-segmented(?:-control)?(?:__|[-\s.{:#])/u.test(source)) {
       failures.push(`${relativePath}: private .el-segmented* consumer override is forbidden`)
     }
@@ -128,6 +163,67 @@ export function auditAdminSegmentedControlRemoval(sources) {
   return failures
 }
 
+export function auditAdminSegmentedControlBrowserContract(browserSmoke, visualRunner) {
+  const failures = []
+
+  for (const group of browserGroups) {
+    if (countQuotedLiteral(browserSmoke, group) !== 1) {
+      failures.push(`${browserSmokePath}: focused browser group must exist exactly once: ${group}`)
+    }
+    const escapedGroup = group.replace(/[()]/gu, '\\$&')
+    if (countQuotedLiteral(visualRunner, escapedGroup) !== 1) {
+      failures.push(`${visualRunnerPath}: focused browser group must be registered exactly once: ${group}`)
+    }
+  }
+
+  for (const screenshot of evidenceScreenshots) {
+    if (countQuotedLiteral(browserSmoke, screenshot) !== 1) {
+      failures.push(`${browserSmokePath}: fixed evidence screenshot must exist exactly once: ${screenshot}`)
+    }
+  }
+
+  for (const token of [
+    'width: 375',
+    '/user/manage/article/list?page=1&size=10&status=2',
+    "style.zoom = '2'",
+    "press('Home')",
+    'ArrowRight',
+    'toBeDisabled',
+    'longLabel',
+    'status=0',
+    'status=3',
+    'documentOverflow',
+    'scrollWidth',
+    'clientWidth',
+    'scrollLeft',
+    'itemInsideRoot',
+    'itemNotClipped'
+  ]) {
+    if (!browserSmoke.includes(token)) {
+      failures.push(`${browserSmokePath}: missing browser contract ${token}`)
+    }
+  }
+
+  for (const token of [
+    'ux/admin-article-segmented-consumer.spec.ts',
+    'FSUSBLOG_VISUAL_DIAGNOSTICS_CONFIG:-playwright.diagnostics.config.ts',
+    'segmented_consumer_groups',
+    'for group in "${segmented_consumer_groups[@]}"'
+  ]) {
+    if (!visualRunner.includes(token)) {
+      failures.push(`${visualRunnerPath}: missing focused browser execution contract ${token}`)
+    }
+  }
+  if (
+    !/npx playwright test --config="\$\{segmented_consumer_config\}"[\s\S]*ux\/admin-article-segmented-consumer\.spec\.ts --grep "\$\{group\}"/u
+      .test(visualRunner)
+  ) {
+    failures.push(`${visualRunnerPath}: focused browser execution must bind diagnostics config, spec and exact group grep`)
+  }
+
+  return failures
+}
+
 function run() {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
   const sources = loadAdminSegmentedControlSources(root)
@@ -136,26 +232,16 @@ function run() {
   if (fs.existsSync(retiredTest)) {
     failures.push('tests/frontend/unit/components/admin/AdminSegmentedControl.test.ts: retired wrapper test must be removed')
   }
-  const browserSmokePath = path.join(root, 'tests/frontend/e2e/ux/admin-article-segmented-consumer.spec.ts')
-  if (!fs.existsSync(browserSmokePath)) {
+  const absoluteBrowserSmokePath = path.join(root, browserSmokePath)
+  const absoluteVisualRunnerPath = path.join(root, visualRunnerPath)
+  if (!fs.existsSync(absoluteBrowserSmokePath)) {
     failures.push('tests/frontend/e2e/ux/admin-article-segmented-consumer.spec.ts: focused consumer browser smoke is required')
   } else {
-    const browserSmoke = fs.readFileSync(browserSmokePath, 'utf8')
-    for (const token of [
-      "'light', 'dark'",
-      'width: 375',
-      "style.zoom = '2'",
-      'ArrowRight',
-      'toBeDisabled',
-      'longLabel',
-      'status=0',
-      'status=3',
-      'documentOverflow'
-    ]) {
-      if (!browserSmoke.includes(token)) {
-        failures.push(`tests/frontend/e2e/ux/admin-article-segmented-consumer.spec.ts: missing browser contract ${token}`)
-      }
-    }
+    const browserSmoke = fs.readFileSync(absoluteBrowserSmokePath, 'utf8')
+    const visualRunner = fs.existsSync(absoluteVisualRunnerPath)
+      ? fs.readFileSync(absoluteVisualRunnerPath, 'utf8')
+      : ''
+    failures.push(...auditAdminSegmentedControlBrowserContract(browserSmoke, visualRunner))
   }
 
   if (failures.length > 0) {

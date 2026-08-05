@@ -31,6 +31,16 @@ for group in "${groups[@]}"; do
     env -u NO_COLOR NODE_PATH=./node_modules npx playwright test --config="${playwright_config}" "${shard_args[@]}" visual/console-visual.spec.ts --grep "${group}" --workers="${workers}"
 done
 
+segmented_consumer_config="${FSUSBLOG_VISUAL_DIAGNOSTICS_CONFIG:-playwright.diagnostics.config.ts}"
+segmented_consumer_groups=(
+    'admin article direct FsusUI segmented consumer \(#1888, light\)'
+    'admin article direct FsusUI segmented consumer \(#1888, dark\)'
+)
+for group in "${segmented_consumer_groups[@]}"; do
+    echo "[console-visual] group=${group}"
+    env -u NO_COLOR NODE_PATH=./node_modules npx playwright test --config="${segmented_consumer_config}" "${shard_args[@]}" ux/admin-article-segmented-consumer.spec.ts --grep "${group}" --workers="${workers}"
+done
+
 echo "[console-visual] group=admin-dashboard-workload-matrix"
 env -u NO_COLOR NODE_PATH=./node_modules npx playwright test --config="${playwright_config}" "${shard_args[@]}" visual/admin-dashboard-workbench.spec.ts --workers="${workers}"
 
