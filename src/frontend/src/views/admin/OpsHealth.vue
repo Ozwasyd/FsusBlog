@@ -133,14 +133,15 @@ onUnmounted(() =>
 });
 </script>
 
-<style scoped>
+<style>
 /* Product focus evidence for keyboard-only recovery under forced-colors.
-   Uses the issue-owned data attribute only — never private FsusUI selectors. */
+   Uses the issue-owned data attribute only — never private FsusUI selectors.
+   Unscoped so the control's focus ring is not lost under EP button structure. */
 @media (forced-colors: active)
 {
-    :deep([data-ops-health-retry]:focus-visible)
+    [data-ops-health-retry]:focus-visible
     {
-        outline: 2px solid Highlight;
+        outline: 2px solid Highlight !important;
         outline-offset: 2px;
     }
 }
