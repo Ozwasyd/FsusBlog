@@ -4,6 +4,8 @@ using FsusBlog.Server.Tests.TestInfrastructure;
 
 using Microsoft.AspNetCore.WebUtilities;
 
+using NSubstitute;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -18,8 +20,10 @@ public sealed class CommentManagementCapabilityServiceTests(PostgresSchemaMigrat
     [Fact]
     public void IssueCapability_ProducesOpaqueCommitmentThatOnlyMatchingSecretVerifies()
     {
-        using SqlSugarClient db = PostgresSqlSugarTestClient.Create("Host=unused;Database=unused;Username=unused;Password=unused");
-        var service = new CommentManagementCapabilityService(db, new MutableTimeProvider(s_baseline));
+        // Pure crypto path: does not touch the database client.
+        var service = new CommentManagementCapabilityService(
+            Substitute.For<ISqlSugarClient>(),
+            new MutableTimeProvider(s_baseline));
 
         CommentManagementCapability first = service.IssueCapability();
         CommentManagementCapability second = service.IssueCapability();

@@ -502,7 +502,11 @@ public sealed class PublicHotReadResidencyTests
         Assert.Empty(failures);
         Assert.True(store.Current.TryGetArticle(42, out PublicBinaryArtifact visible));
         Assert.True(MemoryMarshal.TryGetArray(visible.Frame, out ArraySegment<byte> segment));
-        Assert.Same(firstBytes, segment.Array);
+        // Publish is version-monotonic: after second (v2) is admitted, first (v1) is rejected.
+        // Residency must still expose the admitted snapshot's original array without slice-copy.
+        Assert.Same(secondBytes, segment.Array);
+        Assert.Equal(0, segment.Offset);
+        Assert.Equal(secondBytes.Length, segment.Count);
     }
 
     private static PublicHotReadSnapshot Snapshot(

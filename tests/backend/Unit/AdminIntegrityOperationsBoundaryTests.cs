@@ -2,8 +2,8 @@ using System.Reflection;
 
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Infrastructure.Storage;
 
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -20,7 +20,7 @@ public sealed class AdminIntegrityOperationsBoundaryTests
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
             .GetParameters();
         Assert.Equal(
-            [typeof(ISqlSugarClient), typeof(IWebHostEnvironment)],
+            [typeof(ISqlSugarClient), typeof(ReleaseStoragePaths)],
             dependencies.Select(static parameter => parameter.ParameterType));
         Assert.DoesNotContain(typeof(IAdminOperationsHealthReader), dependencies.Select(static item => item.ParameterType));
         Assert.DoesNotContain(typeof(IAdminBackupStatusReader), dependencies.Select(static item => item.ParameterType));

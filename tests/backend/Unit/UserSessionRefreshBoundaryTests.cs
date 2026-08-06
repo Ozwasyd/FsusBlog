@@ -29,7 +29,8 @@ public sealed class UserSessionRefreshBoundaryTests
                 typeof(ILogger<UserSessionCommandService>),
                 typeof(IJwtHelper),
                 typeof(IUserSessionValidationCache),
-                typeof(IMessageNotificationStreamPort)
+                typeof(IMessageNotificationStreamPort),
+                typeof(TimeProvider)
             ],
             dependencies);
         Assert.DoesNotContain(typeof(UserService), dependencies);

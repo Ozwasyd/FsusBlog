@@ -61,6 +61,15 @@ public sealed class AedsProtocolCrossLanguageTests
             byte[] frame = encoder.Encode(frameType, payload);
             Result<FsusBlog.Core.Algorithms.AedsDecodeResult> decoded = encoder.TryDecode(frame);
 
+            // Enum retains retired wire numbers so decoders can reject them explicitly.
+            if (frameType is CoreFrameType.RetiredCredentialSpecificRevocationRequest
+                or CoreFrameType.RetiredCredentialSpecificRevocationResponse)
+            {
+                Assert.False(decoded.IsSuccess, $"{frameType}: retired frames must not round-trip");
+                Assert.Equal("AEDS frame type retired", decoded.Error.Message);
+                continue;
+            }
+
             Assert.True(decoded.IsSuccess, $"{frameType}: {decoded.Error.Message}");
             Assert.Equal(frameType, decoded.Value.FrameType);
             Assert.Equal(payload, decoded.Value.Payload.ToArray());

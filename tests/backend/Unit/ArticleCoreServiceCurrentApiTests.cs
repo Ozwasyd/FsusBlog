@@ -1,6 +1,7 @@
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Services.Articles;
+using FsusBlog.Core.Services.Implementations;
 
 using NSubstitute;
 
@@ -145,6 +146,7 @@ public partial class ArticleCoreServiceTests
     public async Task Create_CommandPreservesFieldsAndCancellationToken()
     {
         using var cts = new CancellationTokenSource();
+        DateTimeOffset clock = new(2026, 7, 19, 8, 0, 0, TimeSpan.Zero);
         DateTime scheduled = new(2026, 8, 1, 8, 0, 0, DateTimeKind.Utc);
         var rights = new ArticleRightsRequestCoreModel(
             true, "CC-BY-4.0", "Holder", 2026, "statement", "template", "append-attribution", 300, true, false, true);
@@ -153,8 +155,9 @@ public partial class ArticleCoreServiceTests
             scheduled, rights, ArticleRightsMutationMode.Replace);
         var command = new CreateArticleCommand(article);
         _gw.CreateAsync(command, cts.Token).Returns(77);
+        var service = new ArticleCoreService(_gw, new FixedTimeProvider(clock));
 
-        Result<int> result = await Svc().CreateAsync(command, cts.Token);
+        Result<int> result = await service.CreateAsync(command, cts.Token);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(77, result.Value);

@@ -288,18 +288,33 @@ public sealed class DistributedInvalidationBusTests
     [Fact]
     public void DistributedMode_RejectsMissingTopologyManifest()
     {
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["Runtime:Mode"] = "static-role",
-                ["Runtime:DistributedInvalidation:NodeId"] = "node-a"
-            })
-            .Build();
+        // Formal lanes set FSUSBLOG_TEST_RUNTIME_MODE=single; clear overrides so this
+        // config path exercises distributed topology validation rather than env mode.
+        string? previousRuntimeMode = Environment.GetEnvironmentVariable("FSUSBLOG_RUNTIME_MODE");
+        string? previousTestRuntimeMode = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_RUNTIME_MODE");
+        try
+        {
+            Environment.SetEnvironmentVariable("FSUSBLOG_RUNTIME_MODE", null);
+            Environment.SetEnvironmentVariable("FSUSBLOG_TEST_RUNTIME_MODE", null);
 
-        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
-            () => DistributedInvalidationOptions.FromConfiguration(configuration));
+            var configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Runtime:Mode"] = "static-role",
+                    ["Runtime:DistributedInvalidation:NodeId"] = "node-a"
+                })
+                .Build();
 
-        Assert.Equal("distributed_invalidation_topology_manifest_required", exception.Message);
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
+                () => DistributedInvalidationOptions.FromConfiguration(configuration));
+
+            Assert.Equal("distributed_invalidation_topology_manifest_required", exception.Message);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("FSUSBLOG_RUNTIME_MODE", previousRuntimeMode);
+            Environment.SetEnvironmentVariable("FSUSBLOG_TEST_RUNTIME_MODE", previousTestRuntimeMode);
+        }
     }
 
     [Theory]

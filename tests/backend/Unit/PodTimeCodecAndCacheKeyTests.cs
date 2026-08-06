@@ -187,6 +187,7 @@ public sealed class PodTimeCodecAndCacheKeyTests
             .GetMethods(BindingFlags.Public | BindingFlags.Static)
             .Where(static method => method.DeclaringType == typeof(CacheKeyBuilder))
             .Select(static method => method.Name)
+            .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
             .ToArray();
 

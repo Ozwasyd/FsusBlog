@@ -331,7 +331,14 @@ public sealed class OnlineSchemaMigrationPolicyTests
             MessagePrivacyRetentionMigrationDefinitions.MigrationId,
             userSessionMultiDevice.MigrationId,
             DistributedInvalidationConvergenceObligationMigrationDefinitions.MigrationId,
-            DistributedInvalidationDeliveryLedgerMigrationDefinitions.MigrationId
+            DistributedInvalidationDeliveryLedgerMigrationDefinitions.MigrationId,
+            CommentMutationOutboxClaimLeaseMigrationDefinitions.MigrationId,
+            CommentMutationOutboxDeliveryReservationMigrationDefinitions.MigrationId,
+            UserLocalePreferenceMigrationDefinitions.MigrationId,
+            PluginRegistryMigrationDefinitions.MigrationId,
+            ThemeRegistryMigrationDefinitions.MigrationId,
+            ThemeActivationRuntimeMigrationDefinitions.MigrationId,
+            CustomizationMigrationDefinitions.MigrationId
         };
         Assert.All(metadata.Values.Where(classification =>
             !onlineIds.Contains(classification.MigrationId)), classification =>

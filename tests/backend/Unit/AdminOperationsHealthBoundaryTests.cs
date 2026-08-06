@@ -2,9 +2,9 @@ using System.Reflection;
 
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Models.Dtos;
 
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -22,7 +22,7 @@ public sealed class AdminOperationsHealthBoundaryTests
             .GetParameters()
             .Select(static parameter => parameter.ParameterType)
             .ToArray();
-        Assert.Equal([typeof(ISqlSugarClient), typeof(IWebHostEnvironment)], integrityDependencies);
+        Assert.Equal([typeof(ISqlSugarClient), typeof(ReleaseStoragePaths)], integrityDependencies);
         Assert.DoesNotContain(
             typeof(AdminIntegrityOperations).GetMethods(),
             static method => method.Name == "GetOpsHealthAsync");
