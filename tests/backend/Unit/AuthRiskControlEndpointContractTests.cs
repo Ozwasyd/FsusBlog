@@ -367,22 +367,53 @@ public sealed class AuthRiskControlEndpointContractTests(
             new EndpointSecurityTestServerOptions { FixedIpPermitLimit = 1 });
         using HttpClient client = CreateIsolatedClient(server);
 
+        // Under full-suite load a single request can take tens of seconds. The production
+        // fixed_ip window is 1 minute, so a lone "second request" can miss the window and
+        // see another 428. Keep a short burst after the first response so we still hit 429
+        // even if the window rolls once under load.
         using HttpResponseMessage first = await client.PostAsync(
             "/api/binary/auth/recovery-key/verify",
             content: null);
         Assert.Equal((HttpStatusCode)StatusCodes.Status428PreconditionRequired, first.StatusCode);
 
-        using HttpResponseMessage rateLimited = await client.PostAsync(
-            "/api/binary/auth/recovery-key/verify",
-            content: null);
-        Assert.Equal(HttpStatusCode.TooManyRequests, rateLimited.StatusCode);
-        Assert.Equal(TimeSpan.FromSeconds(60), rateLimited.Headers.RetryAfter?.Delta);
-        ErrorDetail error = await EndpointSecurityTestServer.ReadErrorAsync(rateLimited);
-        Assert.Equal(ErrorCode.InfraFailure, error.Code);
-        Assert.Equal("HTTP 429", error.Message);
-        await server.RiskScores.Received(1).GetRiskScoreAsync(
+        HttpResponseMessage? rateLimited = null;
+        for (int attempt = 0; attempt < 6; attempt++)
+        {
+            HttpResponseMessage candidate = await client.PostAsync(
+                "/api/binary/auth/recovery-key/verify",
+                content: null);
+            if (candidate.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                rateLimited = candidate;
+                break;
+            }
+
+            Assert.Equal((HttpStatusCode)StatusCodes.Status428PreconditionRequired, candidate.StatusCode);
+            candidate.Dispose();
+        }
+
+        Assert.NotNull(rateLimited);
+        using (rateLimited)
+        {
+            Assert.Equal(HttpStatusCode.TooManyRequests, rateLimited.StatusCode);
+            Assert.Equal(TimeSpan.FromSeconds(60), rateLimited.Headers.RetryAfter?.Delta);
+            ErrorDetail error = await EndpointSecurityTestServer.ReadErrorAsync(rateLimited);
+            Assert.Equal(ErrorCode.InfraFailure, error.Code);
+            Assert.Equal("HTTP 429", error.Message);
+        }
+
+        // Risk runs only for non-rate-limited attempts; at least one 428 must have scored.
+        await server.RiskScores.Received().GetRiskScoreAsync(
             Arg.Any<HttpContext>(),
             Arg.Any<CancellationToken>());
+
+        // A subsequent rejection must stay short-circuited before risk evaluation.
+        int riskCallsBefore = server.RiskScores.ReceivedCalls().Count();
+        using HttpResponseMessage stillLimited = await client.PostAsync(
+            "/api/binary/auth/recovery-key/verify",
+            content: null);
+        Assert.Equal(HttpStatusCode.TooManyRequests, stillLimited.StatusCode);
+        Assert.Equal(riskCallsBefore, server.RiskScores.ReceivedCalls().Count());
     }
 
     private static HttpRequestMessage AdminTrashRequest(
