@@ -28,7 +28,10 @@ const ElDropdownStub = defineComponent({
       emit('visible-change', value)
       await nextTick()
     }
-    expose({ setVisible })
+    const handleClose = () => {
+      void setVisible(false)
+    }
+    expose({ setVisible, handleClose })
     return () => h('div', { class: 'account-menu-dropdown-contract' }, [
       slots.default?.(),
       visible.value ? slots.dropdown?.() : undefined
@@ -125,6 +128,11 @@ describe('AccountHeaderMenu', () => {
     await setMenuVisible(wrapper, true)
     expect(trigger.attributes('aria-expanded')).toBe('true')
     expect(wrapper.get('[role="menu"]').attributes('aria-label')).toBe('打开账号菜单')
+
+    await trigger.trigger('keydown', { key: 'Escape' })
+    await nextTick()
+    expect(trigger.attributes('aria-expanded')).toBe('false')
+    expect(wrapper.find('[role="menu"]').exists()).toBe(false)
 
     await setMenuVisible(wrapper, false)
     expect(trigger.attributes('aria-expanded')).toBe('false')

@@ -1,5 +1,6 @@
 <template>
     <ElDropdown
+        ref="dropdownRef"
         trigger="click"
         placement="bottom-end"
         @command="handleCommand"
@@ -12,6 +13,7 @@
             aria-label="打开账号菜单"
             aria-haspopup="menu"
             :aria-expanded="menuOpen"
+            @keydown="onTriggerKeydown"
         >
             <span :class="{ 'sr-only': compact }">账号</span>
             <ElIcon
@@ -52,6 +54,10 @@ import type { AccountArea } from '@/layouts/accountNav';
 
 type AccountMenuCommand = 'account' | 'manage' | 'guidelines' | 'privacy' | 'logout';
 
+type AccountMenuDropdownExpose = {
+    handleClose: () => void;
+};
+
 const props = withDefaults(defineProps<{
     canManage: boolean;
     compact?: boolean;
@@ -68,6 +74,22 @@ const emit = defineEmits<{
 
 const router = useRouter();
 const menuOpen = ref(false);
+const dropdownRef = ref<AccountMenuDropdownExpose | null>(null);
+
+// FsusUI Button keeps focus on the trigger after Enter/Space open. Element Plus
+// Escape handling is bound to the teleported menu; close explicitly so focus
+// return and aria-expanded stay in sync with the real dropdown.
+const onTriggerKeydown = (event: KeyboardEvent): void =>
+{
+    if (event.key !== 'Escape' || !menuOpen.value)
+    {
+        return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    dropdownRef.value?.handleClose();
+};
 
 const handleCommand = (rawCommand: string | number | object): void =>
 {
