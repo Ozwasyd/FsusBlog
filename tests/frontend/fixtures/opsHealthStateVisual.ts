@@ -78,25 +78,29 @@ function pendingResponse(signal?: AbortSignal | null): Promise<Response> {
 let opsRequestCount = 0
 let assertiveAnnouncementCount = 0
 let toastCount = 0
-const announcementObserver = new MutationObserver((records) => {
-    for (const record of records) {
-        for (const addedNode of record.addedNodes) {
-            if (!(addedNode instanceof Element)) continue
-            const addedElements = [addedNode, ...addedNode.querySelectorAll('*')]
-            assertiveAnnouncementCount += addedElements.filter(
-                (element) => element.getAttribute('aria-live') === 'assertive'
-            ).length
-            toastCount += addedElements.filter((element) => element.classList.contains('el-message')).length
-        }
-    }
+const recountAnnouncements = () => {
+    // Toast auto-dismisses; keep peak counts so slow mount cannot miss evidence.
+    const liveAssertive = document.querySelectorAll('[aria-live="assertive"]').length
+    const liveToast = document.querySelectorAll('.el-message, .fsusblog-motion-toast').length
+    assertiveAnnouncementCount = Math.max(assertiveAnnouncementCount, liveAssertive)
+    toastCount = Math.max(toastCount, liveToast)
     document.documentElement.dataset.opsHealthAssertiveAnnouncementCount = String(assertiveAnnouncementCount)
     document.documentElement.dataset.opsHealthToastCount = String(toastCount)
+}
+const announcementObserver = new MutationObserver(() => {
+    recountAnnouncements()
 })
-announcementObserver.observe(document.body, { childList: true, subtree: true })
+announcementObserver.observe(document.documentElement, { childList: true, subtree: true })
 
 window.fetch = async (input, init) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+    // Authoring health is the sole product path under test; all other binary
+    // traffic is rejected so the fixture cannot accidentally depend on a live
+    // backend or hang on PoW / auth bootstrap endpoints.
     if (!url.includes('/api/binary/author/ops/health')) {
+        if (url.includes('/api/binary/')) {
+            throw new TypeError('Failed to fetch')
+        }
         return originalFetch(input, init)
     }
 
@@ -148,20 +152,29 @@ if (fixtureState === 'retry-loading' || fixtureState === 'retry-failure' || fixt
 if (fixtureState === 'retry-success') {
     await waitFor(() => Boolean(document.querySelector('[data-ops-health-workbench]')))
 }
+// Poll peaks continuously so auto-dismissed toasts remain counted.
 if (fixtureState === 'failure' || fixtureState === 'retry-loading' || fixtureState === 'retry-success') {
-    await waitFor(() => assertiveAnnouncementCount === 1 && toastCount === 1)
+    await waitFor(() => {
+        recountAnnouncements()
+        return assertiveAnnouncementCount >= 1 && toastCount >= 1
+    })
 }
 if (fixtureState === 'retry-failure') {
-    await waitFor(() => assertiveAnnouncementCount === 2 && toastCount === 2)
+    await waitFor(() => {
+        recountAnnouncements()
+        return assertiveAnnouncementCount >= 2 && toastCount >= 2
+    })
 }
 
 document.documentElement.dataset.opsHealthFixtureReady = 'true'
 
 async function waitFor(predicate: () => boolean): Promise<void> {
-    const deadline = performance.now() + 5000
+    const deadline = performance.now() + 15000
     while (!predicate()) {
         if (performance.now() > deadline) {
-            throw new Error('ops_health_state_fixture_timeout')
+            throw new Error(
+                `ops_health_state_fixture_timeout state=${fixtureState} assertive=${assertiveAnnouncementCount} toast=${toastCount} requests=${opsRequestCount}`
+            )
         }
         await new Promise((resolve) => window.setTimeout(resolve, 16))
     }

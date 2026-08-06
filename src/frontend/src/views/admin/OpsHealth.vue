@@ -23,23 +23,22 @@
             :aria-live="loading ? 'polite' : 'off'"
             data-ops-health-state
         >
-            <template
-                v-if="failure"
-                #description
-            >
+            <!-- Keep named slots always registered; gate content inside so EmptyState
+                 hasDescription/hasActions re-render when failure appears after mount. -->
+            <template #description>
                 <span
+                    v-if="failure"
                     id="ops-health-failure-reason"
                     data-ops-health-failure-reason
                 >{{ failure }}</span>
             </template>
-            <template
-                v-if="failure"
-                #actions
-            >
+            <template #actions>
                 <ElButton
+                    v-if="failure"
                     native-type="button"
                     data-ops-health-retry
                     aria-describedby="ops-health-failure-reason"
+                    :aria-busy="loading ? 'true' : undefined"
                     :loading="loading"
                     :disabled="loading"
                     @click="loadHealth"
@@ -133,3 +132,16 @@ onUnmounted(() =>
     activeRequest = null;
 });
 </script>
+
+<style scoped>
+/* Product focus evidence for keyboard-only recovery under forced-colors.
+   Uses the issue-owned data attribute only — never private FsusUI selectors. */
+@media (forced-colors: active)
+{
+    :deep([data-ops-health-retry]:focus-visible)
+    {
+        outline: 2px solid Highlight;
+        outline-offset: 2px;
+    }
+}
+</style>
