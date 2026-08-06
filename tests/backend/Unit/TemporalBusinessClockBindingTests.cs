@@ -18,8 +18,7 @@ public sealed class TemporalBusinessClockBindingTests
     [Fact]
     public void Program_ConfiguresTestBusinessClockBeforeApplicationServices()
     {
-        string source = File.ReadAllText(Path.Combine(
-            FindRepositoryRoot(),
+        string source = File.ReadAllText(BackendTestPaths.FromRoot(
             "src",
             "backend",
             "Program.cs"));
@@ -115,17 +114,4 @@ public sealed class TemporalBusinessClockBindingTests
         public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
     }
 
-    private static string FindRepositoryRoot()
-    {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "FsusBlog.slnx")))
-            {
-                return directory.FullName;
-            }
-            directory = directory.Parent;
-        }
-        throw new DirectoryNotFoundException("repository root was not found");
-    }
 }
