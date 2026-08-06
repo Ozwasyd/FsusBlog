@@ -11500,6 +11500,78 @@
         "xunit:tests/backend/Unit/ShieldMiddlewareTests.cs#ShieldMiddlewareTests.InvokeAsync_UnverifiedCrawlerUserAgent_Production_RejectsRequest"
       ],
       "reason": "The FakeSpider keyword case now has stable Theory case identity and preserves the production fail-closed path with stronger downstream, response, verified-marker and isolated risk-signal assertions."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/Utf8CodecExtendedTests.cs#Utf8CodecBoundaryTests.Utf8Fixed32_SmallStrings_RoundTrip",
+      "path": "tests/backend/Unit/Utf8CodecExtendedTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/PodUtf8CodecTests.cs#PodUtf8CodecTests.UploadInit_Fixed32_64_256_ExactMultibyteBoundariesRoundTripThroughProductCodec"
+      ],
+      "reason": "The UploadInit product codec now materializes and decodes its real Utf8Fixed32 field at the exact byte boundary with an independent byte oracle."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/Utf8CodecExtendedTests.cs#Utf8CodecBoundaryTests.Utf8Fixed64_SmallStrings_RoundTrip",
+      "path": "tests/backend/Unit/Utf8CodecExtendedTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/PodUtf8CodecTests.cs#PodUtf8CodecTests.UploadInit_Fixed32_64_256_ExactMultibyteBoundariesRoundTripThroughProductCodec"
+      ],
+      "reason": "The UploadInit product codec now materializes and decodes its real Utf8Fixed64 field at the exact byte boundary with an independent byte oracle."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/Utf8CodecExtendedTests.cs#Utf8CodecBoundaryTests.Utf8Fixed256_LargeString_WithinBounds",
+      "path": "tests/backend/Unit/Utf8CodecExtendedTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/PodUtf8CodecTests.cs#PodUtf8CodecTests.UploadInit_Fixed32_64_256_ExactMultibyteBoundariesRoundTripThroughProductCodec"
+      ],
+      "reason": "The UploadInit product codec now materializes and decodes its real Utf8Fixed256 field at the exact byte boundary with an independent byte oracle."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/Utf8CodecExtendedTests.cs#Utf8CodecBoundaryTests.Utf8Fixed512_VeryLargeString_WithinBounds",
+      "path": "tests/backend/Unit/Utf8CodecExtendedTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/PodUtf8CodecTests.cs#PodUtf8CodecTests.TokenResponse_Fixed512ExactBoundaryMaterializesProductPodBytes"
+      ],
+      "reason": "TokenResponsePod now materializes its real Utf8Fixed512 fields at the exact byte boundary and verifies field order and bytes without relying on Marshal.SizeOf."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/Utf8CodecExtendedTests.cs#Utf8CodecBoundaryTests.Utf8MultiByteCharacters_Encode",
+      "path": "tests/backend/Unit/Utf8CodecExtendedTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/PodUtf8CodecTests.cs#PodUtf8CodecTests.UploadInit_Fixed32_64_256_ExactMultibyteBoundariesRoundTripThroughProductCodec"
+      ],
+      "reason": "The retained test carries multibyte text through the real UploadInit POD encoder and decoder and checks fixed-field bytes independently."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/Utf8CodecExtendedTests.cs#Utf8CodecBoundaryTests.Utf8Emoji_Encode",
+      "path": "tests/backend/Unit/Utf8CodecExtendedTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/PodUtf8CodecTests.cs#PodUtf8CodecTests.UploadInit_Fixed32_64_256_ExactMultibyteBoundariesRoundTripThroughProductCodec"
+      ],
+      "reason": "The standard-library character count is replaced by product-owned multibyte fixed-field round-trip and byte-boundary evidence."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/Utf8CodecExtendedTests.cs#StringEncodingTheoryTests.AsciiStrings_EncodeCorrectly",
+      "path": "tests/backend/Unit/Utf8CodecExtendedTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/PodUtf8CodecTests.cs#PodUtf8CodecTests.UploadInit_Fixed32_64_256_ExactMultibyteBoundariesRoundTripThroughProductCodec"
+      ],
+      "reason": "The real UploadInit product path now verifies ASCII suffix and MIME bytes, decoded values and zero padding instead of round-tripping System.Text.Encoding."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/Utf8CodecExtendedTests.cs#StringEncodingTheoryTests.AccentedCharacters_EncodeCorrectly",
+      "path": "tests/backend/Unit/Utf8CodecExtendedTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/PodUtf8CodecTests.cs#PodUtf8CodecTests.UploadInit_Fixed32_64_256_ExactMultibyteBoundariesRoundTripThroughProductCodec"
+      ],
+      "reason": "The duplicate standard-library Theory is replaced by the real product fixed-width multibyte encoder, decoder and byte oracle."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/Utf8CodecExtendedTests.cs#StringEncodingTheoryTests.ChineseCharacters_EncodeCorrectly",
+      "path": "tests/backend/Unit/Utf8CodecExtendedTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/PodUtf8CodecTests.cs#PodUtf8CodecTests.UploadInit_Fixed32_64_256_ExactMultibyteBoundariesRoundTripThroughProductCodec"
+      ],
+      "reason": "Chinese text now crosses the real UploadInit fixed-width encoder and decoder with exact hard-coded UTF-8 byte assertions."
     }
   ],
   "assertionReplacements": [
