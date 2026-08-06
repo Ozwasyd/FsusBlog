@@ -1315,7 +1315,7 @@ tiers:
           - tests/admin-console-behavior-evidence.json
           - tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs
           - tests/backend/Unit/SubscriptionEndpointsContractTests.cs
-          - tests/backend/Unit/DevSeedSqlContractTests.cs
+          - tests/backend/Integration/DemoFixtureSeederCleanupIntegrationTests.cs
           - tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs
           - tests/backend/Unit/ArticleDestructiveMutationBehaviorTests.cs
           - tests/backend/Unit/CommentMutationPostgresConcurrencyTests.cs
@@ -7820,7 +7820,7 @@ tiers:
           - .tmp/backend-api-integration/summary.json
           - tests/backend/Fixtures/backend-test-requirements.json
           - tests/backend/Unit/SubscriptionEndpointsContractTests.cs
-          - tests/backend/Unit/DevSeedSqlContractTests.cs
+          - tests/backend/Integration/DemoFixtureSeederCleanupIntegrationTests.cs
           - tests/backend/Unit/DeploymentRuntimeStateTests.cs
           - tests/backend/Unit/EndpointPolicyContractTests.cs
           - tests/backend/Unit/AuthRiskControlEndpointContractTests.cs
@@ -7980,7 +7980,7 @@ tiers:
           - tests/backend/Fixtures/backend-test-requirements.json
           - tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs
           - tests/backend/Unit/SubscriptionEndpointsContractTests.cs
-          - tests/backend/Unit/DevSeedSqlContractTests.cs
+          - tests/backend/Integration/DemoFixtureSeederCleanupIntegrationTests.cs
           - tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs
           - tests/backend/Unit/ArticleDestructiveMutationBehaviorTests.cs
           - tests/backend/Unit/CommentMutationPostgresConcurrencyTests.cs
