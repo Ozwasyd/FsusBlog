@@ -142,7 +142,7 @@ onUnmounted(() =>
     [data-ops-health-retry]:focus-visible
     {
         outline: 2px solid Highlight !important;
-        outline-offset: 2px;
+        outline-offset: -2px;
     }
 }
 </style>
