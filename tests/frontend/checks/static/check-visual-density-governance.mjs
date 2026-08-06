@@ -654,6 +654,8 @@ function checkIssueDensityContracts()
     assertContains(accountLayoutPath, /account-header-theme-action--mobile[\s\S]*?variant="menu-button"/, 'account mobile theme action must use the low-noise FsusUI menu-button variant');
     assertContains(accountShellBasePath, /\.account-mobile-drawer-trigger\s*\{[\s\S]*?width:\s*var\(--fsus-control-height\);[\s\S]*?min-height:\s*var\(--fsus-control-height\);/, 'account mobile drawer trigger must consume the 44px default control token from the shared base layer');
     assertContains(accountMobileActionPath, /aria-controls="account-mobile-drawer"[\s\S]*?:aria-expanded="mobileDrawerVisible"/, 'account mobile drawer trigger must expose its controlled expanded state');
+    assertContains(accountMobileActionPath, /FsusUiButton/, 'account mobile drawer trigger must be an FsusUI Button');
+    assertNotContains(accountMobileActionPath, /<button\b/, 'account mobile drawer trigger must not use a native button element');
     if (!fs.existsSync(buttonAdapterPath))
     {
         fail(buttonAdapterPath, 1, 'account menu trigger must expose the public FsusUI Button through the type-preserving adapter boundary');

@@ -1,6 +1,6 @@
 <template>
-    <button
-        type="button"
+    <FsusUiButton
+        native-type="button"
         class="account-mobile-drawer-trigger"
         :aria-label="`打开账户导航：${currentNavGroupLabel} / ${currentNavItem?.label ?? '当前页面'}`"
         aria-controls="account-mobile-drawer"
@@ -11,13 +11,14 @@
             :size="18"
             aria-hidden="true"
         ><Expand /></ElIcon>
-    </button>
+    </FsusUiButton>
 </template>
 
 <script setup lang="ts">
 import { computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
+import { FsusUiButton } from '@/fsusui/button';
 import { Expand } from '@/fsusui/icons';
 import { useAccountFrameDrawerState } from '@/layouts/accountFrameContext';
 import {
