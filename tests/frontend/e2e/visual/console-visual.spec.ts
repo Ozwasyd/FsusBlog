@@ -243,6 +243,16 @@ for (const theme of themes) {
         await session.page.emulateMedia({ forcedColors: 'active' })
         await session.page.goto('/user/profile', { waitUntil: 'domcontentloaded' })
         await waitForAppReady(session.page)
+        // Auth-fixture races must fail loudly instead of asserting a missing menu.
+        // Desktop + compact shells both mount the menu; only the visible one is in contract.
+        await expect(
+          session.page,
+          `375px 200% ${theme} forced-colors must land on authenticated profile`
+        ).not.toHaveURL(/\/login(?:\?|$)/u)
+        await expect(
+          session.page.locator('button.account-header-menu__trigger:visible'),
+          `375px 200% ${theme} forced-colors visible account-menu trigger`
+        ).toHaveCount(1, { timeout: 30_000 })
         await session.page.evaluate(() => {
           document.documentElement.style.zoom = '2'
         })
