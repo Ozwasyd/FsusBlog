@@ -416,16 +416,6 @@ function namedJavascriptTestId(framework, file, name, ordinal = 1) {
     : `${framework}:${file}#${slug(name)}-${shortHash(`${name}\n${ordinal}`)}`
 }
 
-function classBefore(source, offset) {
-  const prefix = source.slice(0, offset)
-  const matches = [...prefix.matchAll(/^\s*(?:(?:public|internal|private|protected|sealed|static|abstract|partial|new)\s+)*class\s+([A-Za-z_][A-Za-z0-9_]*)/gmu)]
-  const enclosing = matches.filter((match) => {
-    const block = balancedBlock(source, match.index, source.length - match.index)
-    return match.index + block.length > offset
-  })
-  return enclosing.at(-1)?.[1] ?? 'UnknownClass'
-}
-
 function balancedBlock(source, offset, limit = 12_000) {
   const start = source.indexOf('{', offset)
   if (start < 0) return source.slice(offset, Math.min(source.length, offset + 1_000))
@@ -483,9 +473,9 @@ function riskTagsFor(file, name, source) {
     .map(([tag]) => tag)
 }
 
-function record({ id, file, framework, name, source, tierCategory = undefined }) {
+function record({ id, file, framework, name, source, tierCategory = undefined, methodHistoryId = null }) {
   const normalized = normalizeSemanticSource(source)
-  return {
+  const result = {
     id,
     path: file,
     framework,
@@ -494,34 +484,8 @@ function record({ id, file, framework, name, source, tierCategory = undefined })
     _tierCategory: tierCategory,
     _semanticSignature: shortHash(`${framework}\n${normalized}`)
   }
-}
-
-function classTraitCategory(source, className, beforeIndex) {
-  const declarationIndex = source.lastIndexOf(`class ${className}`, beforeIndex)
-  if (declarationIndex < 0) return null
-  const headerStart = Math.max(source.lastIndexOf('}', declarationIndex), source.lastIndexOf(';', declarationIndex)) + 1
-  return source.slice(headerStart, declarationIndex).match(/\[Trait\(\s*"Category"\s*,\s*"([^"]+)"\s*\)\]/u)?.[1] ?? null
-}
-
-function extractXunit(file, source) {
-  const records = []
-  const pattern = /\[(?:Fact|Theory)(?:\([^\]]*\))?\][\s\S]{0,4000}?\b(?:public|internal)\s+(?:static\s+)?(?:async\s+)?(?:Task(?:<[^>]+>)?|ValueTask(?:<[^>]+>)?|void|[A-Za-z_][A-Za-z0-9_<>,.?\[\]]*)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(/gu
-  for (const match of source.matchAll(pattern)) {
-    const method = match[1]
-    const className = classBefore(source, match.index)
-    const block = balancedBlock(source, match.index)
-    const tierCategory = match[0].match(/\[Trait\(\s*"Category"\s*,\s*"([^"]+)"\s*\)\]/u)?.[1]
-      ?? classTraitCategory(source, className, match.index)
-    records.push(record({
-      id: `xunit:${file}#${className}.${method}`,
-      file,
-      framework: 'xunit',
-      name: `${className}.${method}`,
-      source: block,
-      tierCategory
-    }))
-  }
-  return records
+  if (methodHistoryId) result.methodHistoryId = methodHistoryId
+  return result
 }
 
 function extractBehaviorTestTitle(source, callIndex) {
@@ -712,7 +676,7 @@ export async function retentionSourceState(root) {
   }
 }
 
-export function extractTestRecords(file, source) {
+export function extractTestRecords(file, source, inventory = null) {
   if (file === 'tests/native/AedsCrc16SmokeTests.cpp') {
     return [record({
       id: 'native-smoke:aeds-crc16-known-vector',
@@ -750,15 +714,28 @@ export function extractTestRecords(file, source) {
     })]
   }
   if (file.endsWith('.cs')) {
-    const xunit = extractXunit(file, source)
-    if (xunit.length > 0) return xunit
-    return [record({
-      id: `xunit-support:${file}`,
+    if (!inventory) {
+      throw new Error(`xunit adapter artifact is required for C# retention records: ${file}; consume the canonical test inventory instead of private C# extraction`)
+    }
+    const cases = (inventory.testCases ?? []).filter((testCase) => testCase.ownerFile === file)
+    if (cases.length === 0) {
+      return [record({
+        id: `xunit-support:${file}`,
+        file,
+        framework: 'xunit-support',
+        name: path.basename(file),
+        source: source.slice(0, 4000)
+      })]
+    }
+    return cases.map((testCase) => record({
+      id: testCase.id,
       file,
-      framework: 'xunit-support',
-      name: path.basename(file),
-      source
-    })]
+      framework: 'xunit',
+      name: testCase.displayName,
+      source: testCase.bodySource ?? source,
+      tierCategory: (testCase.traits ?? []).find((trait) => trait.name === 'Category')?.value,
+      methodHistoryId: xunitMethodHistoryId(testCase.ownerClass, testCase.methodName)
+    }))
   }
   if (/\.(?:test|spec)\.[cm]?[jt]sx?$/u.test(file)) {
     const namedTests = extractJavascriptTests(file, source)
@@ -952,9 +929,22 @@ export function normalizeReplacementManifest(manifest, currentRecords, catalog =
     return matches.length === 1
   }
 
+  function resolvesLegacyXunitTestId(id) {
+    const value = String(id)
+    const match = value.match(/^xunit:(.+)#([^#]+)$/u)
+    if (!match) return false
+    const [, legacyFile, legacyMethod] = match
+    const methodHistoryKey = `xunit-method:${legacyMethod}`
+    return (currentRecords ?? []).some((record) => (
+      record.path === legacyFile
+      && record.methodHistoryId === methodHistoryKey
+    ))
+  }
+
   function resolvesToCurrentTest(id, visiting = new Set()) {
     if (currentTestIds.has(id)) return true
     if (resolvesLegacyJavascriptTestId(id)) return true
+    if (resolvesLegacyXunitTestId(id)) return true
     if (visiting.has(id)) return false
     const deleted = deletedTestById.get(id)
     if (!deleted || !Array.isArray(deleted.replacementTestIds) || deleted.replacementTestIds.length === 0) {
@@ -1091,14 +1081,15 @@ function applyEquivalence(records) {
   }
 }
 
-export async function auditTestRecords({ root, files, fileMetadata, timingHistory, failureHistory }) {
+export async function auditTestRecords({ root, files, fileMetadata, timingHistory, failureHistory, inventory = null }) {
   const records = []
   for (const file of files) {
     const source = await readFile(path.join(root, file), 'utf8')
     const metadata = fileMetadata.get(file) ?? {}
-    for (const extracted of extractTestRecords(file, source)) {
-      const timings = historyFor(timingHistory, extracted.id, file)
-      const failures = historyFor(failureHistory, extracted.id, file)
+    for (const extracted of extractTestRecords(file, source, inventory)) {
+      const historyId = extracted.methodHistoryId ?? extracted.id
+      const timings = historyFor(timingHistory, historyId, file)
+      const failures = historyFor(failureHistory, historyId, file)
       const inferredRecordTiers = extracted.framework === 'xunit' && /^tests\/backend\/.*\.cs$/u.test(file)
         ? inferTierIdsForFile(file, '', extracted._tierCategory ?? null)
         : metadata.tierIds ?? []

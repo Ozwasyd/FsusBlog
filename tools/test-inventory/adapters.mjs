@@ -35,6 +35,13 @@ const deferredStaticCase = (adapterOwner, deferredTo) => ({
   inventoryObligation: `case records for this file are produced by the ${adapterOwner} adapter before per-case membership is counted`
 })
 
+const readyStaticCase = (adapterOwner) => ({
+  mode: 'static',
+  owner: adapterOwner,
+  extractionStatus: 'ready',
+  inventoryObligation: `case records for this file are produced by the ${adapterOwner} adapter and merged into the canonical inventory`
+})
+
 const dynamicCase = (adapterOwner, generationLocation) => ({
   mode: 'dynamic',
   owner: adapterOwner,
@@ -68,9 +75,9 @@ export const SUPPORT_CLASSIFICATION = {
 export const ADAPTERS = [
   {
     id: 'xunit',
-    version: 'xunit.v1',
+    version: 'xunit.v2',
     kind: 'discoverable-test',
-    caseIdentity: () => deferredStaticCase('xunit-adapter', '#2617'),
+    caseIdentity: () => readyStaticCase('xunit-adapter'),
     matches: (file) => BACKEND_CS_TESTS.test(file)
   },
   {

@@ -26,6 +26,24 @@ import {
   xunitTrxHistoryEntries
 } from '../../tools/test-retention/audit.mjs'
 
+function xunitInventory(file, cases) {
+  return {
+    testCases: cases.map((spec, index) => ({
+      id: spec.id ?? `xunit:${file}#${spec.ownerClass}.${spec.methodName}#case-${String(index).padStart(4, '0')}`,
+      displayName: spec.displayName ?? `${spec.ownerClass}.${spec.methodName}`,
+      kind: spec.kind ?? 'fact',
+      identity: 'static',
+      adapter: 'xunit',
+      ownerFile: file,
+      ownerClass: spec.ownerClass,
+      ownerSuite: spec.ownerSuite ?? spec.ownerClass,
+      methodName: spec.methodName,
+      bodySource: spec.bodySource ?? '',
+      traits: spec.traits ?? []
+    }))
+  }
+}
+
 test('retention snapshot follows evidence inputs and aggregate authority siblings without scheduling them', () => {
   const snapshot = buildRetentionCatalogSnapshot({
     matrix: {
@@ -112,13 +130,19 @@ test('tier invocation inference accounts for ordinary, coverage, specialized, an
 })
 
 test('extractTestRecords creates stable xUnit and Vitest test ids with assertion targets', () => {
-  const xunit = extractTestRecords('tests/backend/Unit/ExampleTests.cs', `
+  const xunitFile = 'tests/backend/Unit/ExampleTests.cs'
+  const xunitSource = `
 public sealed class ExampleTests
 {
     [Fact]
     public void RejectsEmptyToken() => Assert.Throws<InvalidOperationException>(() => Parse(""));
 }
-`)
+`
+  const xunit = extractTestRecords(xunitFile, xunitSource, xunitInventory(xunitFile, [{
+    ownerClass: 'ExampleTests',
+    methodName: 'RejectsEmptyToken',
+    bodySource: '=> Assert.Throws<InvalidOperationException>(() => Parse(""))'
+  }]))
   const vitest = extractTestRecords('tests/frontend/unit/example.test.ts', `
 describe('token parser', () => {
   test('rejects empty token', () => {
@@ -128,7 +152,8 @@ describe('token parser', () => {
 `)
 
   assert.equal(xunit[0].framework, 'xunit')
-  assert.match(xunit[0].id, /^xunit:tests\/backend\/Unit\/ExampleTests\.cs#ExampleTests\.RejectsEmptyToken$/)
+  assert.match(xunit[0].id, /^xunit:tests\/backend\/Unit\/ExampleTests\.cs#ExampleTests\.RejectsEmptyToken#case-0000$/)
+  assert.equal(xunit[0].methodHistoryId, 'xunit-method:ExampleTests.RejectsEmptyToken')
   assert.ok(xunit[0].assertionTargets.some((target) => target.includes('Throws')))
   assert.equal(vitest[0].framework, 'vitest')
   assert.match(vitest[0].id, /^vitest:tests\/frontend\/unit\/example\.test\.ts#rejects-empty-token-/)
@@ -151,7 +176,7 @@ test('extractTestRecords gives xUnit collection and fixture support files audita
   const records = extractTestRecords('tests/backend/Fixtures/PostgresCollection.cs', `
 [CollectionDefinition("postgres")]
 public sealed class PostgresCollection : ICollectionFixture<PostgresFixture>;
-`)
+`, { testCases: [] })
 
   assert.equal(records.length, 1)
   assert.equal(records[0].id, 'xunit-support:tests/backend/Fixtures/PostgresCollection.cs')
@@ -160,7 +185,8 @@ public sealed class PostgresCollection : ICollectionFixture<PostgresFixture>;
 })
 
 test('extractTestRecords ignores class-like words in comments before an xUnit method', () => {
-  const records = extractTestRecords('tests/backend/Unit/CommentedTests.cs', `
+  const file = 'tests/backend/Unit/CommentedTests.cs'
+  const records = extractTestRecords(file, `
 public sealed class CommentedTests
 {
     // Nested class may not be accessible.
@@ -170,15 +196,21 @@ public sealed class CommentedTests
         Assert.True(true);
     }
 }
-  `)
+  `, xunitInventory(file, [{
+    ownerClass: 'CommentedTests',
+    methodName: 'KeepsTheDeclaringClass',
+    bodySource: '{ Assert.True(true); }'
+  }]))
 
   assert.deepEqual(records.map((record) => record.id), [
-    'xunit:tests/backend/Unit/CommentedTests.cs#CommentedTests.KeepsTheDeclaringClass'
+    'xunit:tests/backend/Unit/CommentedTests.cs#CommentedTests.KeepsTheDeclaringClass#case-0000'
   ])
+  assert.equal(records[0].methodHistoryId, 'xunit-method:CommentedTests.KeepsTheDeclaringClass')
 })
 
 test('extractTestRecords returns to the outer class after a nested helper closes', () => {
-  const records = extractTestRecords('tests/backend/Unit/NestedHelperTests.cs', `
+  const file = 'tests/backend/Unit/NestedHelperTests.cs'
+  const records = extractTestRecords(file, `
 public sealed class NestedHelperTests
 {
     private sealed class Helper
@@ -192,11 +224,16 @@ public sealed class NestedHelperTests
         Assert.True(new Helper().Ready);
     }
 }
-  `)
+  `, xunitInventory(file, [{
+    ownerClass: 'NestedHelperTests',
+    methodName: 'UsesTheOuterClassIdentity',
+    bodySource: '{ Assert.True(new Helper().Ready); }'
+  }]))
 
   assert.deepEqual(records.map((record) => record.id), [
-    'xunit:tests/backend/Unit/NestedHelperTests.cs#NestedHelperTests.UsesTheOuterClassIdentity'
+    'xunit:tests/backend/Unit/NestedHelperTests.cs#NestedHelperTests.UsesTheOuterClassIdentity#case-0000'
   ])
+  assert.equal(records[0].methodHistoryId, 'xunit-method:NestedHelperTests.UsesTheOuterClassIdentity')
 })
 
 test('risk classification scans the full test body before permitting replacement', () => {
@@ -292,7 +329,12 @@ public sealed class ExampleTests
       { failed: false, at: '2026-07-08T00:00:00Z' },
       { failed: true, at: '2026-07-09T00:00:00Z' },
       { failed: false, at: '2026-07-10T00:00:00Z' }
-    ]]])
+    ]]]),
+    inventory: xunitInventory(file, [{
+      ownerClass: 'ExampleTests',
+      methodName: 'RejectsEmptyToken',
+      bodySource: '=> Assert.True(true);'
+    }])
   })
 
   assert.deepEqual(records[0].timing, { samples: 3, p50Ms: 15, p95Ms: 100 })
@@ -623,11 +665,24 @@ public sealed class MixedCategoryTests
     files: [file],
     fileMetadata: new Map([[file, { coverageIds: ['backend-unit'], tierIds: ['backend-concurrency'] }]]),
     timingHistory: new Map(),
-    failureHistory: new Map()
+    failureHistory: new Map(),
+    inventory: xunitInventory(file, [
+      {
+        ownerClass: 'MixedCategoryTests',
+        methodName: 'Ordinary',
+        bodySource: '{ Assert.True(true); }'
+      },
+      {
+        ownerClass: 'MixedCategoryTests',
+        methodName: 'Concurrent',
+        bodySource: '{ Assert.True(true); }',
+        traits: [{ name: 'Category', value: 'Concurrency' }]
+      }
+    ])
   })
 
-  assert.deepEqual(records.find((record) => record.id.endsWith('.Ordinary')).tierIds, ['backend-unit', 'coverage-backend'])
-  assert.deepEqual(records.find((record) => record.id.endsWith('.Concurrent')).tierIds, ['backend-concurrency', 'backend-nightly'])
+  assert.deepEqual(records.find((record) => record.id.includes('#MixedCategoryTests.Ordinary#')).tierIds, ['backend-unit', 'coverage-backend'])
+  assert.deepEqual(records.find((record) => record.id.includes('#MixedCategoryTests.Concurrent#')).tierIds, ['backend-concurrency', 'backend-nightly'])
 })
 
 test('candidate replacement prefers retained evidence over a lexically earlier review candidate', async () => {
@@ -778,6 +833,25 @@ test('replacement manifest resolves an acyclic retirement chain to live tests', 
   }, [live])
 
   assert.equal(normalized.deletedTests.length, 2)
+})
+
+test('replacement manifest resolves legacy xUnit method ids to live adapter cases', () => {
+  const live = [{
+    id: 'xunit:tests/backend/Unit/ExampleTests.cs#FsusBlog.Server.Tests.Unit.ExampleTests.RejectsEmptyToken#case-0000',
+    path: 'tests/backend/Unit/ExampleTests.cs',
+    methodHistoryId: 'xunit-method:ExampleTests.RejectsEmptyToken',
+    assertionTargets: []
+  }]
+  const normalized = normalizeReplacementManifest({
+    schema: 'fsusblog.test-retention-replacements.v1',
+    deletedTests: [{
+      id: 'xunit:tests/backend/Unit/LegacyTests.cs#LegacyTests.OldMethod',
+      path: 'tests/backend/Unit/LegacyTests.cs',
+      replacementTestIds: ['xunit:tests/backend/Unit/ExampleTests.cs#ExampleTests.RejectsEmptyToken'],
+      reason: 'The legacy contract moved to the adapter-owned current test.'
+    }]
+  }, live)
+  assert.equal(normalized.deletedTests.length, 1)
 })
 
 test('replacement manifest resolves unique legacy JavaScript test titles to hashed live ids', () => {

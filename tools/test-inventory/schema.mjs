@@ -63,16 +63,25 @@ const KNOWN_CASE_IDENTITY_KEYS = new Set([
 const KNOWN_TEST_CASE_KEYS = new Set([
   'id',
   'displayName',
-  'sourceSpan',
+  'kind',
+  'identity',
   'ownerFile',
   'ownerClass',
   'ownerSuite',
-  'identity',
+  'methodName',
+  'adapter',
+  'sourceSpan',
+  'bodySpan',
+  'bodySource',
   'traits',
   'category',
   'platform',
   'fixture',
-  'adapter'
+  'skipReason',
+  'explicit',
+  'timeoutMs',
+  'dynamicCaseInfo',
+  'methodFacts'
 ])
 
 const KNOWN_SOURCE_SPAN_KEYS = new Set(['start', 'end'])
@@ -80,6 +89,29 @@ const KNOWN_SOURCE_SPAN_KEYS = new Set(['start', 'end'])
 const KNOWN_SOURCE_POSITION_KEYS = new Set(['line', 'column'])
 
 const KNOWN_TRAIT_KEYS = new Set(['name', 'value'])
+
+const KNOWN_DYNAMIC_CASE_INFO_KEYS = new Set([
+  'generationLocation',
+  'inventoryObligation'
+])
+
+const KNOWN_METHOD_FACTS_KEYS = new Set([
+  'invocations',
+  'assertionCandidates',
+  'returnStatements',
+  'productionSymbolReferences',
+  'testAttributeReferences'
+])
+
+const KNOWN_METHOD_FACT_KEYS = new Set([
+  'methodName',
+  'containingType',
+  'assembly',
+  'assemblyKind',
+  'callsTestMethod',
+  'calledTestMethodId',
+  'location'
+])
 
 const KNOWN_DIAGNOSTIC_KEYS = new Set([
   'severity',
@@ -144,6 +176,29 @@ function validateSourceSpan(span, label) {
   }
 }
 
+function validateMethodFacts(methodFacts, label) {
+  assertClosedObject(methodFacts, KNOWN_METHOD_FACTS_KEYS, label)
+  for (const key of ['invocations', 'assertionCandidates', 'productionSymbolReferences', 'testAttributeReferences']) {
+    const entries = methodFacts[key]
+    if (!Array.isArray(entries)) fail(`${label}.${key} must be an array`)
+    for (const [index, entry] of entries.entries()) {
+      assertClosedObject(entry, KNOWN_METHOD_FACT_KEYS, `${label}.${key}[${index}]`)
+      assertString(entry.methodName, `${label}.${key}[${index}].methodName`)
+      for (const field of ['containingType', 'assembly', 'assemblyKind']) {
+        if (entry[field] !== undefined) assertString(entry[field], `${label}.${key}[${index}].${field}`)
+      }
+      if (entry.callsTestMethod !== undefined && typeof entry.callsTestMethod !== 'boolean') {
+        fail(`${label}.${key}[${index}].callsTestMethod must be a boolean`)
+      }
+      if (entry.calledTestMethodId !== undefined) assertString(entry.calledTestMethodId, `${label}.${key}[${index}].calledTestMethodId`)
+      if (entry.location !== undefined) validateSourceSpan(entry.location, `${label}.${key}[${index}].location`)
+    }
+  }
+  const returns = methodFacts.returnStatements
+  if (!Array.isArray(returns)) fail(`${label}.returnStatements must be an array`)
+  for (const [index, value] of returns.entries()) assertString(value, `${label}.returnStatements[${index}]`)
+}
+
 function validateCaseIdentity(identity, label) {
   assertClosedObject(identity, KNOWN_CASE_IDENTITY_KEYS, label)
   if (!CASE_IDENTITY_MODES.has(identity.mode)) {
@@ -194,16 +249,35 @@ function validateTestCase(testCase, label) {
   assertClosedObject(testCase, KNOWN_TEST_CASE_KEYS, label)
   assertString(testCase.id, `${label}.id`)
   assertString(testCase.displayName, `${label}.displayName`)
+  if (testCase.kind !== undefined) assertString(testCase.kind, `${label}.kind`)
   if (testCase.sourceSpan !== undefined) validateSourceSpan(testCase.sourceSpan, `${label}.sourceSpan`)
+  if (testCase.bodySpan !== undefined) validateSourceSpan(testCase.bodySpan, `${label}.bodySpan`)
+  if (testCase.bodySource !== undefined) assertString(testCase.bodySource, `${label}.bodySource`)
   assertString(testCase.ownerFile, `${label}.ownerFile`)
   if (testCase.ownerClass !== undefined) assertString(testCase.ownerClass, `${label}.ownerClass`)
   if (testCase.ownerSuite !== undefined) assertString(testCase.ownerSuite, `${label}.ownerSuite`)
+  if (testCase.methodName !== undefined) assertString(testCase.methodName, `${label}.methodName`)
   if (!CASE_IDENTITY_MODES.has(testCase.identity)) {
     fail(`${label}.identity must be one of ${[...CASE_IDENTITY_MODES].join(', ')}`)
   }
   if (testCase.adapter !== undefined) assertString(testCase.adapter, `${label}.adapter`)
-  for (const key of ['category', 'platform', 'fixture']) {
+  for (const key of ['category', 'platform', 'fixture', 'skipReason']) {
     if (testCase[key] !== undefined) assertString(testCase[key], `${label}.${key}`)
+  }
+  if (testCase.explicit !== undefined && typeof testCase.explicit !== 'boolean') {
+    fail(`${label}.explicit must be a boolean`)
+  }
+  if (testCase.timeoutMs !== undefined && !Number.isInteger(testCase.timeoutMs)) {
+    fail(`${label}.timeoutMs must be an integer`)
+  }
+  if (testCase.dynamicCaseInfo !== undefined) {
+    assertClosedObject(testCase.dynamicCaseInfo, KNOWN_DYNAMIC_CASE_INFO_KEYS, `${label}.dynamicCaseInfo`)
+    assertString(testCase.dynamicCaseInfo.generationLocation, `${label}.dynamicCaseInfo.generationLocation`)
+    assertString(testCase.dynamicCaseInfo.inventoryObligation, `${label}.dynamicCaseInfo.inventoryObligation`)
+  }
+  if (testCase.methodFacts !== undefined) validateMethodFacts(testCase.methodFacts, `${label}.methodFacts`)
+  if (testCase.identity === 'dynamic' && testCase.dynamicCaseInfo === undefined) {
+    fail(`${label}.dynamicCaseInfo is required for dynamic test case identity`)
   }
   if (testCase.traits !== undefined) {
     if (!Array.isArray(testCase.traits)) fail(`${label}.traits must be an array`)

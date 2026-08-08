@@ -33,7 +33,7 @@ export function computeInventoryDigest(artifact) {
  * Detects source/path/adapter changes, removed or duplicated membership,
  * adapter-version drift and matrix/coverage/requirement input drift.
  */
-export function isInventoryStale(root, artifact) {
+export function isInventoryStale(root, artifact, { runAdapters = true } = {}) {
   if (artifact?.schema !== INVENTORY_SCHEMA) {
     return { stale: true, reason: `schema is ${artifact?.schema ?? 'missing'}, expected ${INVENTORY_SCHEMA}` }
   }
@@ -67,7 +67,7 @@ export function isInventoryStale(root, artifact) {
       }
     }
   }
-  const expected = discoverTestInventory(root)
+  const expected = discoverTestInventory(root, { runAdapters })
   if (expected.inventoryDigest !== artifact.inventoryDigest) {
     return { stale: true, reason: 'inventory content digest no longer matches current source/matrix/catalog input' }
   }
@@ -80,7 +80,7 @@ export function isInventoryStale(root, artifact) {
  * requireArtifact is false the canonical discovery computes membership
  * in-memory (same authority, no consumer-private walk).
  */
-export function loadCanonicalInventory(root, { artifactPath = DEFAULT_ARTIFACT_PATH, requireArtifact = false } = {}) {
+export function loadCanonicalInventory(root, { artifactPath = DEFAULT_ARTIFACT_PATH, requireArtifact = false, runAdapters = true } = {}) {
   const absolute = path.join(root, artifactPath)
   if (existsSync(absolute)) {
     let artifact
@@ -90,7 +90,7 @@ export function loadCanonicalInventory(root, { artifactPath = DEFAULT_ARTIFACT_P
       throw new Error(`test inventory artifact is not valid JSON: ${error.message}`)
     }
     validateInventoryArtifact(artifact)
-    const stale = isInventoryStale(root, artifact)
+    const stale = isInventoryStale(root, artifact, { runAdapters })
     if (stale.stale) {
       throw new Error(`test inventory artifact is stale: ${stale.reason}; run node tools/test-inventory/produce.mjs`)
     }
@@ -102,7 +102,7 @@ export function loadCanonicalInventory(root, { artifactPath = DEFAULT_ARTIFACT_P
       + 'run node tools/test-inventory/produce.mjs before this consumer'
     )
   }
-  return discoverTestInventory(root)
+  return discoverTestInventory(root, { runAdapters })
 }
 
 /** Source-file membership projection used by quality, retention and docs consumers. */

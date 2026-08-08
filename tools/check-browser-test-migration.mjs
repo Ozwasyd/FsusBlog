@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { browserContractScenarios } from '../tests/browser-contract/contract.mjs'
 import { browserDiagnosticCatalog } from '../tests/browser-diagnostics/catalog.mjs'
 import { extractTestRecords, vitestTestId } from './test-retention/audit.mjs'
+import { loadCanonicalInventory } from './test-inventory/api.mjs'
 
 const schema = 'fsusblog.browser-test-migration.v1';
 const allowedReplacementLayers = new Set(['correctness', 'browser-contract', 'diagnostic', 'none']);
@@ -172,7 +173,23 @@ const retiredHistoryAuthority = Object.freeze([
   })
 ])
 
-export function validateReplacementTargets(root, records) {
+function canonicalInventoryFor(root, inventory) {
+  return inventory ?? loadCanonicalInventory(root)
+}
+
+function legacyXunitTargetResolves(target, records) {
+  const match = String(target).match(/^xunit:(.+)#([^#]+)$/u)
+  if (!match) return false
+  const [, legacyFile, legacyMethod] = match
+  const methodHistoryKey = `xunit-method:${legacyMethod}`
+  return (records ?? []).some((record) => (
+    record.path === legacyFile
+    && record.methodHistoryId === methodHistoryKey
+  ))
+}
+
+export function validateReplacementTargets(root, records, inventory = null) {
+  let activeInventory = inventory
   const errors = []
   const browserContractIds = new Set(browserContractScenarios.map((scenario) => `browser-contract:${scenario.id}`))
   const diagnosticIds = new Set(browserDiagnosticCatalog.map((category) => `diagnostic:${category.id}`))
@@ -205,11 +222,15 @@ export function validateReplacementTargets(root, records) {
     if (framework === 'test-support') continue
 
     const source = readFileSync(absolute, 'utf8')
-    const extractedIds = new Set(extractTestRecords(sourceFile, source).map((record) => record.id))
+    if (framework === 'xunit') activeInventory ??= canonicalInventoryFor(root, inventory)
+    const extracted = extractTestRecords(sourceFile, source, activeInventory)
+    const extractedIds = new Set(extracted.map((record) => record.id))
     const rawVitestAlias = framework === 'vitest' && testName
       ? vitestTestId(sourceFile, testName)
       : null
-    if (!extractedIds.has(target) && (!rawVitestAlias || !extractedIds.has(rawVitestAlias))) {
+    if (!extractedIds.has(target)
+      && !legacyXunitTargetResolves(target, extracted)
+      && (!rawVitestAlias || !extractedIds.has(rawVitestAlias))) {
       errors.push(`replacement test identity does not exist: ${target}`)
     }
   }
@@ -386,12 +407,14 @@ function readJson(root, relativePath) {
   return JSON.parse(readFileSync(path.join(root, relativePath), 'utf8'))
 }
 
-function sourceRecords(root, sourcePaths) {
+function sourceRecords(root, sourcePaths, inventory = null) {
   const records = []
+  let activeInventory = inventory
   for (const sourceFile of unique(sourcePaths).sort()) {
     const absolute = path.join(root, sourceFile)
     if (!existsSync(absolute)) continue
-    for (const record of extractTestRecords(sourceFile, readFileSync(absolute, 'utf8'))) {
+    if (sourceFile.endsWith('.cs')) activeInventory ??= canonicalInventoryFor(root, inventory)
+    for (const record of extractTestRecords(sourceFile, readFileSync(absolute, 'utf8'), activeInventory)) {
       records.push({ sourceFile, sourceTestId: record.id })
     }
   }
@@ -530,6 +553,7 @@ export function historicalDeletedRecords(root, manifest) {
 }
 
 export function checkBrowserTestMigration(root) {
+  const inventory = loadCanonicalInventory(root)
   const manifestPath = 'tests/governance/browser-test-migration.json'
   const manifest = readJson(root, manifestPath)
   const loadJson = (relativePath) => readJson(root, relativePath)
@@ -538,7 +562,7 @@ export function checkBrowserTestMigration(root) {
   const acceptanceReplacements = loadJson(manifest.authorities.acceptanceReplacements)
   const diagnosticsMigration = loadJson(manifest.authorities.diagnosticsMigration)
   const allSourcePaths = records.map((record) => record.sourceFile)
-  const currentRecords = sourceRecords(root, allSourcePaths)
+  const currentRecords = sourceRecords(root, allSourcePaths, inventory)
   const deleted = historicalDeletedRecords(root, manifest)
   const errors = validateBrowserTestMigration({
     manifest,
@@ -549,7 +573,7 @@ export function checkBrowserTestMigration(root) {
     historicalDeletedRecords: deleted,
     currentRecords
   })
-  errors.push(...validateReplacementTargets(root, records))
+  errors.push(...validateReplacementTargets(root, records, inventory))
   errors.push(...repositoryBrowserTestIsolationViolations(root));
   if (errors.length > 0) {
     throw new Error(`browser test migration governance failed:\n- ${errors.join('\n- ')}`)

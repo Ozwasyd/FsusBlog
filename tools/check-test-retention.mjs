@@ -17,7 +17,7 @@ import {
   vitestHistoryEntries,
   xunitTrxHistoryEntries
 } from './test-retention/audit.mjs'
-import { inventorySourceFiles } from './test-inventory/api.mjs'
+import { inventorySourceFiles, loadCanonicalInventory } from './test-inventory/api.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
 const defaultOut = path.join(root, '.tmp/release-evidence/test-retention-audit.json')
@@ -94,12 +94,12 @@ function commandReferencedFiles(command) {
   return refs
 }
 
-function assertionEstimate(file) {
+function assertionEstimate(file, inventory) {
   if (!/\.(cs|ts|mjs|js)$/.test(file)) return 0
-  const text = fs.readFileSync(path.join(root, file), 'utf8')
   if (file.endsWith('.cs')) {
-    return (text.match(/\[(Fact|Theory)\b/g) ?? []).length
+    return (inventory?.testCases ?? []).filter((testCase) => testCase.ownerFile === file).length
   }
+  const text = fs.readFileSync(path.join(root, file), 'utf8')
   return (text.match(/\b(?:it|test)\s*\(/g) ?? []).length
 }
 
@@ -173,6 +173,7 @@ async function buildAudit({ runId = null } = {}) {
     }
   }
 
+  const canonicalInventory = loadCanonicalInventory(root)
   const files = auditedFiles.map((file) => {
     const coverageIds = [...(fileToCoverage.get(file) ?? [])].sort()
     const source = fs.readFileSync(path.join(root, file), 'utf8')
@@ -218,7 +219,7 @@ async function buildAudit({ runId = null } = {}) {
       coverageIds,
       tierIds,
       referencedBy: textReferences,
-      assertionEstimate: assertionEstimate(file)
+      assertionEstimate: assertionEstimate(file, canonicalInventory)
     }
   })
 
@@ -239,7 +240,8 @@ async function buildAudit({ runId = null } = {}) {
     files: auditedFiles,
     fileMetadata,
     timingHistory: loadTimingHistory(),
-    failureHistory: loadFailureHistory()
+    failureHistory: loadFailureHistory(),
+    inventory: canonicalInventory
   })
   const candidateReviews = reviewCandidateFiles(reviewCandidates, testRecords)
   const replaceableReviews = candidateReviews.filter((review) => review.decision === 'replaceable')

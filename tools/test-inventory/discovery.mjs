@@ -260,7 +260,62 @@ export function collectClosureCandidates(root, matrix, coverageRegistry, require
  * Compute the canonical inventory artifact for a repository root.
  * Deterministic for identical source, matrix and catalog inputs.
  */
-export function discoverTestInventory(root, { includeSourceState = true } = {}) {
+const XUNIT_TEST_PROJECT = 'tests/backend/FsusBlog.Server.Tests.csproj'
+const XUNIT_ADAPTER_PROJECT = 'tools/test-inventory/xunit-roslyn-adapter/FsusBlog.XunitRoslynAdapter.csproj'
+
+function runXunitRoslynAdapter(root, projectPath, sourceFiles) {
+  const xunitFiles = sourceFiles.filter((file) => file.adapter === 'xunit')
+  if (xunitFiles.length === 0) return { testCases: [], diagnostics: [] }
+  const adapterProject = path.join(root, XUNIT_ADAPTER_PROJECT)
+  if (!existsSync(adapterProject)) {
+    return {
+      testCases: [],
+      diagnostics: [{
+        severity: 'warning',
+        code: 'xunit-roslyn-adapter-unavailable',
+        file: null,
+        message: `xunit adapter project is not present at ${XUNIT_ADAPTER_PROJECT}; xunit cases were not extracted`
+      }]
+    }
+  }
+  const build = spawnSync(
+    'dotnet',
+    ['build', adapterProject, '-v:q'],
+    { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }
+  )
+  if (build.status !== 0) {
+    const detail = String(build.stderr ?? build.stdout ?? '').trim().split(/\r?\n/u).slice(-12).join('\n')
+    throw new Error(`xunit roslyn adapter build failed (exit ${build.status}): ${detail}`)
+  }
+  const adapterDirectory = path.dirname(adapterProject)
+  const adapterExecutable = path.join(adapterDirectory, 'bin/Debug/net10.0/FsusBlog.XunitRoslynAdapter')
+  const result = spawnSync(
+    adapterExecutable,
+    [root, path.join(root, projectPath)],
+    { cwd: root, encoding: 'utf8', maxBuffer: 128 * 1024 * 1024 }
+  )
+  if (result.status !== 0) {
+    const detail = String(result.stderr ?? result.stdout ?? '').trim().split(/\r?\n/u).slice(-12).join('\n')
+    throw new Error(`xunit roslyn adapter failed (exit ${result.status}): ${detail}`)
+  }
+  let report
+  try {
+    report = JSON.parse(result.stdout)
+  } catch (error) {
+    throw new Error(`xunit roslyn adapter output is not valid JSON: ${error.message}`)
+  }
+  const ownedFiles = new Set(xunitFiles.map((file) => file.path))
+  const testCases = (report.testCases ?? []).filter((testCase) => ownedFiles.has(testCase.ownerFile))
+  const diagnostics = (report.diagnostics ?? []).map((diagnostic) => ({
+    severity: diagnostic.severity === 'error' ? 'error' : 'warning',
+    code: diagnostic.code,
+    file: diagnostic.file ?? null,
+    message: diagnostic.message
+  }))
+  return { testCases, diagnostics }
+}
+
+export function discoverTestInventory(root, { includeSourceState = true, runAdapters = true } = {}) {
   const matrixText = readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8')
   const matrix = parseMatrix(matrixText)
   const coverageRegistry = JSON.parse(readFileSync(path.join(root, 'tests/coverage-registry.json'), 'utf8'))
@@ -337,6 +392,13 @@ export function discoverTestInventory(root, { includeSourceState = true } = {}) 
     }
   }
 
+  let adapterCases = []
+  let adapterDiagnostics = []
+  if (runAdapters) {
+    const adapterResult = runXunitRoslynAdapter(root, XUNIT_TEST_PROJECT, sourceFiles)
+    adapterCases = adapterResult.testCases
+    adapterDiagnostics = adapterResult.diagnostics
+  }
   const sourceState = includeSourceState ? { commit: gitCommit(root) } : null
   const discoverySources = {
     directories: [...DIRECTORY_CLOSURE].sort(),
@@ -351,11 +413,11 @@ export function discoverTestInventory(root, { includeSourceState = true } = {}) 
     sourceState,
     discoverySources,
     sourceFiles,
-    testCases: [],
-    diagnostics: diagnostics.sort((left, right) => (
+    testCases: adapterCases.sort((left, right) => left.id.localeCompare(right.id)),
+    diagnostics: [...diagnostics, ...adapterDiagnostics].sort((left, right) => (
       left.severity.localeCompare(right.severity)
       || left.code.localeCompare(right.code)
-      || left.file.localeCompare(right.file)
+      || String(left.file ?? '').localeCompare(String(right.file ?? ''))
     ))
   }
   const inventoryDigest = sha256(canonicalStringify(content))

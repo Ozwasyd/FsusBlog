@@ -699,7 +699,8 @@
                 "tools/check-test-retention.mjs",
                 "tools/test-retention/audit.mjs",
                 "tools/docs/generate-testing-docs.mjs",
-                "tests/tools/test-inventory.test.mjs"
+                "tests/tools/test-inventory.test.mjs",
+                "tests/tools/xunit-roslyn-adapter.test.mjs"
             ],
             "validationCommand": "node tools/test-inventory/produce.mjs --check && node tools/test-inventory/verify-closure.mjs",
             "changePolicy": "manual-update-with-inventory-closure-validation",
@@ -715,6 +716,19 @@
                 "tools/test-inventory"
             ],
             "validationCommand": "node --test tests/tools/test-inventory.test.mjs",
+            "changePolicy": "manual-update-with-inventory-closure-validation",
+            "status": "manual"
+        },
+        {
+            "id": "xunit-roslyn-adapter-focused-test",
+            "owner": "repository-governance",
+            "canonicalPath": "tests/tools/xunit-roslyn-adapter.test.mjs",
+            "pathType": "file",
+            "purpose": "Focused governance test covering the Roslyn xUnit adapter: Fact/Theory/InlineData/MemberData/ClassData, nested/partial/generic owners, trait merge/override, skip/explicit/platform/fixture, false-positive guards, symbol classification, fail-closed semantic model and byte-stable determinism.",
+            "consumers": [
+                "tools/test-inventory"
+            ],
+            "validationCommand": "node --test tests/tools/xunit-roslyn-adapter.test.mjs",
             "changePolicy": "manual-update-with-inventory-closure-validation",
             "status": "manual"
         }

@@ -81,7 +81,7 @@ function writeFullSurfaceFixture(root) {
 }
 
 function inventoryAdapterMap(root) {
-  const artifact = discoverTestInventory(root)
+  const artifact = discoverTestInventory(root, { runAdapters: false })
   return new Map(artifact.sourceFiles.map((sourceFile) => [sourceFile.path, sourceFile]))
 }
 
@@ -111,7 +111,7 @@ test('canonical discovery covers xunit, vitest, node:test, playwright, tests/too
       }
     }
 
-    const diagnostics = discoverTestInventory(root).diagnostics
+    const diagnostics = discoverTestInventory(root, { runAdapters: false }).diagnostics
     const codes = new Set(diagnostics.map((diagnostic) => diagnostic.code))
     assert.ok(codes.has('case-extraction-deferred'), 'deferred static extraction must be explicitly marked')
     assert.ok(codes.has('dynamic-case-obligation'), 'dynamic case obligations must be explicit')
@@ -168,7 +168,7 @@ test('matrix-referenced unknown executable entrypoint fails closed', () => {
       ''
     ].join('\n'))
     assert.throws(
-      () => discoverTestInventory(root),
+      () => discoverTestInventory(root, { runAdapters: false }),
       /fail closed|no adapter record|instead of a discoverable test/u
     )
   } finally {
@@ -200,16 +200,16 @@ test('source, path and adapter changes make a stored inventory stale', () => {
   const root = createFixtureRoot()
   try {
     writeFullSurfaceFixture(root)
-    const artifact = discoverTestInventory(root)
+    const artifact = discoverTestInventory(root, { runAdapters: false })
 
     writeFile(root, 'tests/backend/Unit/FooTests.cs', 'public sealed class FooTests { public void Changed() { } }\n')
-    let stale = isInventoryStale(root, artifact)
+    let stale = isInventoryStale(root, artifact, { runAdapters: false })
     assert.equal(stale.stale, true)
     assert.match(stale.reason, /source digest changed/u)
 
     writeFile(root, 'tests/backend/Unit/FooTests.cs', 'public sealed class FooTests { }\n')
     rmSync(path.join(root, 'tests/tools/check.test.mjs'))
-    stale = isInventoryStale(root, artifact)
+    stale = isInventoryStale(root, artifact, { runAdapters: false })
     assert.equal(stale.stale, true)
     assert.match(stale.reason, /no longer exists/u)
 
@@ -219,7 +219,7 @@ test('source, path and adapter changes make a stored inventory stale', () => {
     const flippedArtifact = structuredClone(artifact)
     const entry = flippedArtifact.sourceFiles.find((sourceFile) => sourceFile.path === 'tests/tools/check.test.mjs')
     entry.sourceDigest = sha256(flippedSource)
-    stale = isInventoryStale(root, flippedArtifact)
+    stale = isInventoryStale(root, flippedArtifact, { runAdapters: false })
     assert.equal(stale.stale, true)
     assert.match(stale.reason, /adapter membership changed/u)
   } finally {
@@ -270,7 +270,7 @@ test('inventory schema is closed: runtime metadata and unknown fields are reject
   const root = createFixtureRoot()
   try {
     writeFullSurfaceFixture(root)
-    const artifact = discoverTestInventory(root)
+    const artifact = discoverTestInventory(root, { runAdapters: false })
     assert.equal(computeDigestWithoutMetadata(artifact), artifact.inventoryDigest)
 
     const withGeneratedAt = { ...artifact, generatedAt: new Date().toISOString() }
@@ -294,21 +294,21 @@ test('loadCanonicalInventory fails closed on stale artifacts and missing require
   const root = createFixtureRoot()
   try {
     writeFullSurfaceFixture(root)
-    const artifact = discoverTestInventory(root)
+    const artifact = discoverTestInventory(root, { runAdapters: false })
     const artifactPath = '.tmp/fixture-inventory.json'
     writeFile(root, artifactPath, JSON.stringify(artifact, null, 2))
 
-    assert.equal(loadCanonicalInventory(root, { artifactPath }).schema, INVENTORY_SCHEMA)
+    assert.equal(loadCanonicalInventory(root, { artifactPath, runAdapters: false }).schema, INVENTORY_SCHEMA)
 
     writeFile(root, 'tests/backend/Unit/FooTests.cs', 'public sealed class FooTests { public void Changed() { } }\n')
     assert.throws(
-      () => loadCanonicalInventory(root, { artifactPath }),
+      () => loadCanonicalInventory(root, { artifactPath, runAdapters: false }),
       /artifact is stale/u
     )
 
     const missingPath = '.tmp/does-not-exist.json'
     assert.throws(
-      () => loadCanonicalInventory(root, { artifactPath: missingPath, requireArtifact: true }),
+      () => loadCanonicalInventory(root, { artifactPath: missingPath, requireArtifact: true, runAdapters: false }),
       /artifact missing/u
     )
   } finally {
