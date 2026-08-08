@@ -1,0 +1,71 @@
+namespace FsusBlog.Server.Contracts.Assets;
+
+/// <summary>
+/// The single public-URL boundary for content assets. URLs are display
+/// representations only and must never become database primary keys, cleanup
+/// keys, or filesystem locators. The codec encodes an
+/// <see cref="AssetRecord"/> into a public URL whose path directly carries the
+/// normalized <see cref="AssetStorageKey"/>, and decodes that path back without
+/// any database lookup.
+/// </summary>
+public sealed class PublicAssetUrlCodec
+{
+    public const string RoutePrefix = "/content-assets/";
+
+    public Uri ToPublicUrl(AssetRecord record, Uri publicBase)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+        if (!IsHttpBase(publicBase))
+        {
+            throw new ArgumentException(
+                "Public asset base must be an absolute http(s) URL without query, fragment, or user info.",
+                nameof(publicBase));
+        }
+
+        string url = publicBase.GetLeftPart(UriPartial.Authority)
+            + RoutePrefix
+            + record.StorageKey.Value;
+        return new Uri(url, UriKind.Absolute);
+    }
+
+    public bool TryGetStorageKey(Uri url, out AssetStorageKey storageKey)
+        => TryGetStorageKey(url, expectedBase: null, out storageKey);
+
+    public bool TryGetStorageKey(Uri url, Uri? expectedBase, out AssetStorageKey storageKey)
+    {
+        storageKey = default;
+        if (!url.IsAbsoluteUri
+            || (url.Scheme != Uri.UriSchemeHttp && url.Scheme != Uri.UriSchemeHttps)
+            || url.Query.Length > 0
+            || url.Fragment.Length > 0
+            || url.UserInfo.Length > 0)
+        {
+            return false;
+        }
+
+        if (expectedBase is not null
+            && !string.Equals(
+                url.GetLeftPart(UriPartial.Authority),
+                expectedBase.GetLeftPart(UriPartial.Authority),
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        string path = url.AbsolutePath;
+        if (!path.StartsWith(RoutePrefix, StringComparison.Ordinal)
+            || path.IndexOf('%') >= 0)
+        {
+            return false;
+        }
+
+        return AssetStorageKey.TryParse(path[RoutePrefix.Length..], out storageKey);
+    }
+
+    private static bool IsHttpBase(Uri value)
+        => value.IsAbsoluteUri
+            && (value.Scheme == Uri.UriSchemeHttp || value.Scheme == Uri.UriSchemeHttps)
+            && value.Query.Length == 0
+            && value.Fragment.Length == 0
+            && value.UserInfo.Length == 0;
+}
