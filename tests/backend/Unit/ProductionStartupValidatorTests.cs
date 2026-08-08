@@ -14,6 +14,7 @@ using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Server.Tests.Unit;
+using FsusBlog.Shared.Contracts.Governance;
 
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -35,6 +36,7 @@ public sealed class ProductionStartupValidatorTests
         => Convert.ToBase64String(Enumerable.Range(1, 32).Select(static value => (byte)value).ToArray());
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateCore_AcceptsProductionConfigurationWithHttpsAndRedisPassword()
     {
         IConfiguration configuration = CreateConfiguration(new Dictionary<string, string?>
@@ -125,6 +127,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary, InvariantId = "session-limit-boundary")]
     public void ValidateCore_RejectsOutOfRangeActiveUserSessionLimit()
     {
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
@@ -181,6 +184,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "risk-pseudonym-key-required")]
     public void ValidateCore_RejectsMissingWeakOrReusedRiskPseudonymKey()
     {
         IReadOnlyList<string> missing = ProductionStartupValidator.ValidateCore(

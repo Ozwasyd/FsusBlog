@@ -18,12 +18,14 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 
 using NSubstitute;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Category", "SecurityStateMachine")]
 public sealed class UserSessionJwtAuthenticationTests
 {
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "session-revocation-enforcement")]
     public async Task ProtectedEndpoint_RevokedOrdinarySessionFailsAuthenticationAndClearsOnlyUserCookies()
     {
         var userValidator = Substitute.For<IUserSessionValidationService>();
@@ -101,6 +103,7 @@ public sealed class UserSessionJwtAuthenticationTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task ProtectedEndpoint_AcceptsPreviousKidInsideRotationWindow()
     {
         var userValidator = Substitute.For<IUserSessionValidationService>();
@@ -156,6 +159,7 @@ public sealed class UserSessionJwtAuthenticationTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Migration, InvariantId = "jwt-kid-migration-window")]
     public async Task ProtectedEndpoint_AcceptsLegacyNoKidOnlyInsideExplicitMigrationWindow()
     {
         var userValidator = Substitute.For<IUserSessionValidationService>();

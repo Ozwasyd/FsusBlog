@@ -6,6 +6,7 @@ using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Middlewares;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Shared.Contracts.Governance;
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
@@ -15,6 +16,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class BinaryTransportHotPathContractTests
 {
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task BinaryRequestBinder_SegmentedFrameRoundTripsPayloadAndFrameType()
     {
         var aeds = new AedsEncoder();
@@ -44,6 +46,7 @@ public sealed class BinaryTransportHotPathContractTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-crc-invariant")]
     public async Task BinaryRequestBinder_CorruptedSegmentedFrameReturnsStableCrcFailure()
     {
         var aeds = new AedsEncoder();

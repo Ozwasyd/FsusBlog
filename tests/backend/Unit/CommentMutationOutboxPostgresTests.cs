@@ -12,6 +12,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
 using SqlSugar;
+using FsusBlog.Shared.Contracts.Governance;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -21,6 +22,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "transactional-rollback-boundary")]
     public async Task AuthoritativeMutationAndOutbox_RollBackTogetherAtCrashBoundary()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -40,6 +42,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task CommittedMutation_PersistsMinimalRecoverableEventAcrossRestart()
     {
         string connectionString = await CreateDatabaseAsync();
