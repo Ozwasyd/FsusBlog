@@ -4341,6 +4341,25 @@
                 "behavior-doc-static-admission"
             ]
         },
+                {
+            "id": "behavior-evidence-pre-runtime",
+            "description": "One unconditional source-bound gate joins sealed BehaviorGraph inputs (static admission, backend/frontend test evidence, mutation evidence, catalog, owner, facts, doc claims, generated sections) and produces a verified pre-runtime receipt proving all pre-runtime release-qualifying behaviors have required test kinds and mutation evidence before any runtime/browser/production candidate starts.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "tools/test-matrix/behavior-evidence-pre-runtime.mjs",
+                "tools/test/bundles/behavior-evidence-pre-runtime.sh",
+                "tools/contracts/behavior-graph-join.mjs",
+                "tests/tools/behavior-evidence-pre-runtime.test.mjs",
+                "tests/matrix.yml"
+            ],
+            "assertionType": "static",
+            "failClosedRule": "Reject a missing, duplicated, bypassed, stale, warning, partial, source-drifted, or unsealed pre-runtime receipt; any runtime/browser/production candidate spawn before verified receipt; per-behavior mutation failure masked by global average; skipped/diagnostic/old-run evidence satisfying the gate; and missing identity match across source/worktree/build/catalog/run.",
+            "minimumRequirement": "The unconditional tier must use fixtureProfile=none and no services or browser, join all sealed BehaviorGraph inputs with exact identity match, filter to pre-runtime release-qualifying behaviors, verify required test kinds and per-behavior mutation status, produce a receipt with runtimeCandidateSpawnCountBeforeReceipt=0, and fail closed on any identity drift, missing input, or partial producer failure.",
+            "tierIds": [
+                "behavior-evidence-pre-runtime"
+            ]
+        },
         {
             "id": "document-lifecycle-governance",
             "description": "Every docs file has explicit status, owner, issue and supersession metadata; current authority, semantic naming, generated producers, links and path migrations are fail-closed.",
