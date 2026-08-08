@@ -369,6 +369,74 @@ function runTsAstAdapter(root, sourceFiles) {
   return { testCases, suiteRecords, diagnostics }
 }
 
+const NATIVE_ENTRY_ADAPTER_ENTRY = 'tools/test-inventory/native-entry-adapter/index.mjs'
+const NATIVE_ENTRY_ADAPTERS = new Set([
+  'native-smoke',
+  'native-fuzz',
+  'native-cmake',
+  'native-corpus',
+  'node-script',
+  'shell'
+])
+
+function runNativeEntryAdapter(root, sourceFiles, matrix) {
+  const nativeFiles = sourceFiles.filter((file) => NATIVE_ENTRY_ADAPTERS.has(file.adapter))
+  if (nativeFiles.length === 0) return { testCases: [], diagnostics: [] }
+  const adapterEntry = path.join(root, NATIVE_ENTRY_ADAPTER_ENTRY)
+  if (!existsSync(adapterEntry)) {
+    return {
+      testCases: [],
+      diagnostics: [{
+        severity: 'warning',
+        code: 'native-entry-adapter-unavailable',
+        file: null,
+        message: `native entry adapter is not present at ${NATIVE_ENTRY_ADAPTER_ENTRY}; native/shell cases were not extracted`
+      }]
+    }
+  }
+  const requestDir = path.join(root, '.tmp')
+  mkdirSync(requestDir, { recursive: true })
+  const requestPath = path.join(requestDir, 'native-entry-adapter-request.json')
+  writeFileSync(requestPath, JSON.stringify({
+    root,
+    files: nativeFiles.map((file) => ({
+      path: file.path,
+      adapter: file.adapter,
+      declaredBy: file.declaredBy
+    })),
+    matrixTiers: (matrix.tiers ?? []).map((tier) => ({
+      id: tier.id,
+      command: tier.command,
+      evidence: tier.evidence ?? [],
+      artifacts: tier.artifacts ?? []
+    }))
+  }))
+  const result = spawnSync(
+    process.execPath,
+    [adapterEntry, requestPath],
+    { cwd: root, encoding: 'utf8', maxBuffer: 128 * 1024 * 1024 }
+  )
+  if (result.status !== 0) {
+    const detail = String(result.stderr ?? result.stdout ?? '').trim().split(/\r?\n/u).slice(-12).join('\n')
+    throw new Error(`native entry adapter failed (exit ${result.status}): ${detail}`)
+  }
+  let report
+  try {
+    report = JSON.parse(result.stdout)
+  } catch (error) {
+    throw new Error(`native entry adapter output is not valid JSON: ${error.message}`)
+  }
+  const ownedFiles = new Set(nativeFiles.map((file) => file.path))
+  const testCases = (report.testCases ?? []).filter((testCase) => ownedFiles.has(testCase.ownerFile))
+  const diagnostics = (report.diagnostics ?? []).map((diagnostic) => ({
+    severity: diagnostic.severity === 'error' ? 'error' : 'warning',
+    code: diagnostic.code,
+    file: diagnostic.file ?? null,
+    message: diagnostic.message
+  }))
+  return { testCases, diagnostics }
+}
+
 export function discoverTestInventory(root, { includeSourceState = true, runAdapters = true } = {}) {
   const matrixText = readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8')
   const matrix = parseMatrix(matrixText)
@@ -457,6 +525,9 @@ export function discoverTestInventory(root, { includeSourceState = true, runAdap
     adapterCases = [...adapterCases, ...tsResult.testCases]
     adapterSuiteRecords = tsResult.suiteRecords
     adapterDiagnostics = [...adapterDiagnostics, ...tsResult.diagnostics]
+    const nativeEntryResult = runNativeEntryAdapter(root, sourceFiles, matrix)
+    adapterCases = [...adapterCases, ...nativeEntryResult.testCases]
+    adapterDiagnostics = [...adapterDiagnostics, ...nativeEntryResult.diagnostics]
   }
   const sourceState = includeSourceState ? { commit: gitCommit(root) } : null
   const discoverySources = {

@@ -566,31 +566,14 @@ export async function retentionSourceState(root) {
 }
 
 export function extractTestRecords(file, source, inventory = null) {
-  if (file === 'tests/native/AedsCrc16SmokeTests.cpp') {
-    return [record({
-      id: 'native-smoke:aeds-crc16-known-vector',
-      file,
-      framework: 'native-smoke',
-      name: 'AEDS CRC16 known vector smoke',
-      source
-    })]
-  }
-  if (file === 'tests/native/AedsCrc16Fuzz.cpp') {
-    return [record({
-      id: 'native-fuzz:aeds-crc16-input-space',
-      file,
-      framework: 'native-fuzz',
-      name: 'AEDS CRC16 input space fuzz',
-      source
-    })]
-  }
   if (file === 'tests/native/CMakeLists.txt') {
     return [record({
       id: 'native-cmake:aeds-crc16-target-graph',
       file,
       framework: 'native-cmake',
       name: 'AEDS CRC16 native target graph',
-      source
+      source,
+      inventoryObligation: 'runtime CTest listing must cross-check the static native target graph after native-smoke execution'
     })]
   }
   if (file.startsWith('tests/native/corpus/')) {
@@ -599,7 +582,8 @@ export function extractTestRecords(file, source, inventory = null) {
       file,
       framework: 'native-corpus',
       name: path.basename(file),
-      source
+      source,
+      inventoryObligation: 'corpus inputs are fuzz evidence dependencies; runtime inventory must record every consumed corpus digest'
     })]
   }
   if (file.endsWith('.cs')) {
@@ -669,6 +653,18 @@ export function extractTestRecords(file, source, inventory = null) {
 
   const framework = file.endsWith('.sh') ? 'shell' : file.endsWith('.mjs') || file.endsWith('.js') ? 'node-script' : 'support'
   const name = path.basename(file)
+  const cases = (inventory?.testCases ?? []).filter((testCase) => testCase.ownerFile === file)
+  if (cases.length > 0) {
+    return cases.map((testCase) => record({
+      id: testCase.id,
+      file,
+      framework: testCase.kind ?? framework,
+      name: testCase.displayName,
+      source: testCase.bodySource ?? source,
+      tierCategory: (testCase.traits ?? []).find((trait) => trait.name === 'Category')?.value,
+      inventoryObligation: testCase.identity === 'dynamic' ? testCase.dynamicCaseInfo?.inventoryObligation ?? null : null
+    }))
+  }
   return [record({
     id: `${framework}:${file}`,
     file,
@@ -686,14 +682,6 @@ export function isTestInventoryPath(file) {
 
 export function inferTierIdsForFile(file, source = '', explicitCategory = undefined) {
   const tiers = new Set()
-  if (file === 'tests/native/AedsCrc16SmokeTests.cpp') tiers.add('native-smoke')
-  if (file === 'tests/native/AedsCrc16Fuzz.cpp' || file.startsWith('tests/native/corpus/')) {
-    tiers.add('native-fuzz-sanitizer')
-  }
-  if (file === 'tests/native/CMakeLists.txt') {
-    tiers.add('native-smoke')
-    tiers.add('native-fuzz-sanitizer')
-  }
   if (/^tests\/frontend\/unit\/.*\.test\.[cm]?[jt]sx?$/u.test(file)) {
     tiers.add('frontend-unit-shard')
     tiers.add('coverage-frontend')

@@ -113,8 +113,9 @@ test('canonical discovery covers xunit, vitest, node:test, playwright, tests/too
 
     const diagnostics = discoverTestInventory(root, { runAdapters: false }).diagnostics
     const codes = new Set(diagnostics.map((diagnostic) => diagnostic.code))
-    assert.ok(codes.has('case-extraction-deferred'), 'deferred static extraction must be explicitly marked')
+    assert.ok(!codes.has('case-extraction-deferred'), 'no adapter case extraction may remain deferred')
     assert.ok(codes.has('dynamic-case-obligation'), 'dynamic case obligations must be explicit')
+    assert.equal(byPath.get('tests/native/AedsCrc16Fuzz.cpp')?.caseIdentity.extractionStatus, 'ready')
   } finally {
     removeFixture(root)
   }

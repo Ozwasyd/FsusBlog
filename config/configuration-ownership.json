@@ -701,7 +701,8 @@
                 "tools/docs/generate-testing-docs.mjs",
                 "tests/tools/test-inventory.test.mjs",
                 "tests/tools/xunit-roslyn-adapter.test.mjs",
-                "tests/tools/ts-ast-adapter.test.mjs"
+                "tests/tools/ts-ast-adapter.test.mjs",
+                "tests/tools/native-entry-adapter.test.mjs"
             ],
             "validationCommand": "node tools/test-inventory/produce.mjs --check && node tools/test-inventory/verify-closure.mjs",
             "changePolicy": "manual-update-with-inventory-closure-validation",
@@ -743,6 +744,19 @@
                 "tools/test-inventory"
             ],
             "validationCommand": "node --test tests/tools/ts-ast-adapter.test.mjs",
+            "changePolicy": "manual-update-with-inventory-closure-validation",
+            "status": "manual"
+        },
+        {
+            "id": "native-entry-adapter-focused-test",
+            "owner": "repository-governance",
+            "canonicalPath": "tests/tools/native-entry-adapter.test.mjs",
+            "pathType": "file",
+            "purpose": "Focused governance test covering the native/fuzz/shell executable entry adapter: CTest smoke to source-symbol owner binding, fuzz harness versus corpus/dictionary evidence surfaces, matrix shell entries with child/receipt/fail-closed aggregation facts, node:test non-double-ownership, exit-code-only wrappers, unknown target/CTest fail-closed diagnostics, static/runtime drift obligations, source-change staling and byte-stable determinism.",
+            "consumers": [
+                "tools/test-inventory"
+            ],
+            "validationCommand": "node --test tests/tools/native-entry-adapter.test.mjs",
             "changePolicy": "manual-update-with-inventory-closure-validation",
             "status": "manual"
         }

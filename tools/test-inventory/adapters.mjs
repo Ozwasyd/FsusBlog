@@ -2,10 +2,11 @@
  * Canonical adapter registry for the repository test inventory.
  *
  * Adapters declare file-level membership only. Concrete case extraction for
- * C#, JS/TS, native and shell surfaces is intentionally deferred to the
- * dedicated adapter issues (#2617/#2618/#2619); this module records the
- * capability, case identity mode and runtime inventory obligation for every
- * member so no surface is silently dropped or forged into a static case.
+ * C# (Roslyn), JS/TS (TypeScript AST), native/fuzz/shell (native entry) and
+ * fixture/support/corpus surfaces is owned by the repository adapters; this
+ * module records the capability, case identity mode and runtime inventory
+ * obligation for every member so no surface is silently dropped or forged
+ * into a static case.
  */
 
 export const ADAPTER_VERSION = 'fsusblog.test-inventory.adapters.v1'
@@ -94,14 +95,14 @@ export const ADAPTERS = [
     id: 'native-smoke',
     version: 'native-smoke.v1',
     kind: 'discoverable-test',
-    caseIdentity: () => deferredStaticCase('native-smoke-adapter', '#2619'),
+    caseIdentity: () => readyStaticCase('native-smoke-adapter'),
     matches: (file) => file === NATIVE_SMOKE
   },
   {
     id: 'native-fuzz',
     version: 'native-fuzz.v1',
     kind: 'discoverable-test',
-    caseIdentity: () => deferredStaticCase('native-fuzz-adapter', '#2619'),
+    caseIdentity: () => readyStaticCase('native-fuzz-adapter'),
     matches: (file) => file === NATIVE_FUZZ
   },
   {
