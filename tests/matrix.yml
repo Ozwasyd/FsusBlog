@@ -196,6 +196,7 @@ localProfiles:
                       backend-golden,
                       backend-fast,
                       coverage-backend,
+                      backend-mutation-changed-critical,
                   ]
               resourceClass: cpu
               cpuWeight: 4
@@ -241,6 +242,7 @@ localProfiles:
                       static-governance,
                       frontend-static-governance,
                       frontend-render-structure,
+                      behavior-evidence-pre-runtime,
                   ]
               resourceClass: cpu
               cpuWeight: 3
@@ -534,6 +536,80 @@ tiers:
       smartGateMode: always
       retentionClass: must-keep
       triggerReason: every candidate requires a source-bound BehaviorDoc static admission receipt before any candidate process or output mutation
+
+    - id: behavior-evidence-pre-runtime
+      owner: ServerContractAgent
+      executionClass: static-governance
+      qualificationEligible: true
+      command: bash tools/test/bundles/behavior-evidence-pre-runtime.sh
+      outputReceiptSchema: fsusblog.behavior-evidence-pre-runtime-receipt.v1
+      executionDependsOn:
+          [
+              backend-mutation-changed-critical,
+              behavior-doc-static-admission,
+          ]
+      requiresEvidenceFrom:
+          [
+              backend-mutation-changed-critical,
+              backend-unit,
+              frontend-unit-shard,
+              release-evidence,
+          ]
+      services: []
+      parallelizable: false
+      exclusiveResources: [behavior-evidence-pre-runtime]
+      phase: 5
+      cost: medium
+      resourceClass: cpu
+      cpuWeight: 1
+      memoryWeight: 1
+      minCpuUnits: 1
+      maxParallel: 1
+      requiresBootstrap: none
+      fixtureProfile: none
+      fixtureCapabilities: []
+      requiresNode: true
+      requiresDotnet: false
+      requiresPlaywright: none
+      cacheProfile: none
+      timeoutMinutes: 10
+      shardable: false
+      defaultShards: 1
+      risk: critical
+      cadence: pr
+      requiredFor: production
+      coverage:
+          [
+              behavior-evidence-pre-runtime,
+          ]
+      artifacts:
+          [
+              .tmp/behavior-evidence-pre-runtime/receipt.json,
+          ]
+      evidence:
+          [
+              .tmp/behavior-evidence-pre-runtime/receipt.json,
+              .tmp/behavior-doc-static-admission/receipt.json,
+              .tmp/behavior-test-evidence/receipt.json,
+              .tmp/mutation/changed-critical,
+              config/contracts/behavior-contracts.json,
+              config/schemas/behavior-evidence-pre-runtime-receipt.schema.json,
+              config/schemas/behavior-test-evidence.schema.json,
+              tools/contracts/behavior-graph-join.mjs,
+              tools/contracts/behavior-test-binding.mjs,
+              tools/test/mutation-evidence-receipt.mjs,
+              tools/test-matrix/behavior-evidence-pre-runtime.mjs,
+              tools/test/bundles/behavior-evidence-pre-runtime.sh,
+              tests/tools/behavior-evidence-pre-runtime.test.mjs,
+              tests/matrix.yml,
+          ]
+      ciJob: behavior-evidence-pre-runtime
+      localOnly: false
+      nightlyOnly: false
+      prDefault: true
+      smartGateMode: always
+      retentionClass: must-keep
+      triggerReason: every runtime/browser/production/release candidate requires a source-bound BehaviorGraph pre-runtime evidence receipt joining static admission, current-run test evidence, and per-behavior mutation evidence before any candidate can start
 
     - id: pr-smart-gate-plan
       owner: ServerContractAgent
@@ -7488,6 +7564,7 @@ tiers:
       executionDependsOn: []
       requiresEvidenceFrom:
           [
+              behavior-evidence-pre-runtime,
               browser-contract,
               coverage-gate-strict,
               native-fuzz-sanitizer,
@@ -7592,6 +7669,7 @@ tiers:
       executionDependsOn:
           [
               behavior-doc-static-admission,
+              behavior-evidence-pre-runtime,
               fast,
               coverage-gate,
               production-build-artifacts,
@@ -7613,7 +7691,7 @@ tiers:
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false
       exclusiveResources: [production-correctness]
-      phase: 4
+      phase: 5
       cost: very-high
       resourceClass: io
       cpuWeight: 1
@@ -7683,7 +7761,7 @@ tiers:
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false
       exclusiveResources: [production-runtime]
-      phase: 4
+      phase: 5
       cost: very-high
       resourceClass: io
       cpuWeight: 1

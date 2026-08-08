@@ -3,6 +3,6 @@
     "source": "tests/fixtures/test-matrix/release-final-evidence-inputs.json",
     "producer": "node tools/test-matrix/release-final-evidence-contract.mjs --write",
     "targetTier": "release-final",
-    "inputCount": 18,
-    "inputDigest": "sha256:1897721c7c563182b24fcd58428e58c93bc7d488a644f1fa0c2bf48367c06f7b"
+    "inputCount": 19,
+    "inputDigest": "sha256:e5c6a7f505d0c6b7ca41b7f632b692a67da59c46712562944870d95c987ca15d"
 }

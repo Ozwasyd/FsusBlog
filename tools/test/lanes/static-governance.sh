@@ -42,6 +42,7 @@ TEST_ASSET_BEHAVIOR_FILES=(
     "$ROOT_DIR/tests/tools/backend-coverage-collector-layout.test.mjs"
     "$ROOT_DIR/tests/tools/backend-coverage-pipeline.test.mjs"
     "$ROOT_DIR/tests/tools/behavior-doc-static-admission.test.mjs"
+    "$ROOT_DIR/tests/tools/behavior-evidence-pre-runtime.test.mjs"
     "$ROOT_DIR/tests/tools/coverage-merge-parallelism.test.mjs"
     "$ROOT_DIR/tests/tools/cross-stack-receipt-join.test.mjs"
     "$ROOT_DIR/tests/tools/content-addressed-build-cache.test.mjs"

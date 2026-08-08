@@ -345,6 +345,17 @@
             "validationCommand": "node --test tests/tools/behavior-test-binding.test.mjs"
         },
         {
+            "id": "behavior-evidence-pre-runtime-schema",
+            "owner": "behavior-test-evidence-binding",
+            "canonicalPath": "config/schemas/behavior-evidence-pre-runtime-receipt.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/test-matrix/behavior-evidence-pre-runtime.mjs",
+                "tests/tools/behavior-evidence-pre-runtime.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/behavior-evidence-pre-runtime.test.mjs"
+        },
+        {
             "id": "test-matrix-priority-score-schema",
             "owner": "test-matrix-scheduler",
             "canonicalPath": "config/schemas/test-matrix-priority-score.schema.json",
