@@ -296,12 +296,12 @@ test('matrix consumers cannot omit fixture profile bindings', () => {
   try {
     const source = readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8')
     const missing = source.replace(
-      '      fixtureProfile: acceptance-representative\n      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]\n',
+      '      fixtureProfile: acceptance-representative\n      fixtureProfileReason: binds-acceptance-representative\n      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs\n      fixtureMutatorAllowed: true\n',
       ''
     )
     const file = path.join(directory, 'matrix.yml')
     writeFileSync(file, missing)
-    assert.match(validateFixtureCatalogs({ matrixFile: file, validateRepositoryAuthority: false }).join('\n'), /matrix data consumer bootstrap must bind fixtureProfile and fixtureCapabilities/)
+    assert.match(validateFixtureCatalogs({ matrixFile: file, validateRepositoryAuthority: false }).join('\n'), /matrix tier bootstrap must bind fixtureProfile/)
   } finally {
     rmSync(directory, { recursive: true, force: true })
   }

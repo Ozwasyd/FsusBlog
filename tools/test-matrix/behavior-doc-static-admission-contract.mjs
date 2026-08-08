@@ -166,8 +166,8 @@ export function validateBehaviorDocStaticAdmissionMatrix(matrix, {
   if ((admission.services ?? []).length !== 0) {
     errors.push(`${behaviorDocStaticAdmissionTierId} must not declare services`)
   }
-  if ((admission.fixtureCapabilities ?? []).length !== 0) {
-    errors.push(`${behaviorDocStaticAdmissionTierId} must not declare fixture capabilities`)
+  if (Object.hasOwn(admission, 'fixtureCapabilities')) {
+    errors.push(`${behaviorDocStaticAdmissionTierId} must not declare retired fixtureCapabilities field`)
   }
   if (!(admission.artifacts ?? []).includes(behaviorDocStaticAdmissionReceiptPath)
     || !(admission.evidence ?? []).includes(behaviorDocStaticAdmissionReceiptPath)) {

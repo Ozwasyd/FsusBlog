@@ -19,6 +19,7 @@ import {
     buildAggregatePlan as buildAggregateReachabilityPlan,
     buildReceiptPlan as buildReceiptReachabilityPlan
 } from './test-matrix/aggregate-plan.mjs';
+import { validateFixtureProfileMatrix } from './test-matrix/fixture-profile-contract.mjs';
 import { createArtifactDigestTable } from './test-matrix/artifact-digest-table.mjs';
 import {
     validateBehaviorDocStaticAdmissionMatrix
@@ -6347,7 +6348,8 @@ async function main()
         const errors = [
             ...validateMatrix(matrix),
             ...validateRuntimeStateDomainCatalog().map((error) => `runtime state-domain: ${error}`),
-            ...validateFixtureCatalogs().map((error) => `fixture catalog: ${error}`)
+            ...validateFixtureCatalogs().map((error) => `fixture catalog: ${error}`),
+            ...validateFixtureProfileMatrix(matrix).map((error) => `fixture profile matrix: ${error}`)
         ];
         if (errors.length > 0)
         {

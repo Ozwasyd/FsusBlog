@@ -20,28 +20,77 @@
         },
         "governance": {
             "type": "object",
-            "required": ["retention", "sourceLocking", "retiredTiers"],
+            "required": [
+                "retention",
+                "sourceLocking",
+                "retiredTiers"
+            ],
             "properties": {
                 "retention": {
                     "type": "object",
-                    "required": ["baseline", "replacementLedger", "postBaselines", "auditOutput", "automaticDeletion"],
+                    "required": [
+                        "baseline",
+                        "replacementLedger",
+                        "postBaselines",
+                        "auditOutput",
+                        "automaticDeletion"
+                    ],
                     "properties": {
-                        "baseline": {"type": "string", "minLength": 1},
-                        "replacementLedger": {"type": "string", "minLength": 1},
-                        "postBaselines": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
-                        "auditOutput": {"type": "string", "minLength": 1},
-                        "automaticDeletion": {"const": false}
+                        "baseline": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "replacementLedger": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "postBaselines": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "uniqueItems": true
+                        },
+                        "auditOutput": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "automaticDeletion": {
+                            "const": false
+                        }
                     },
                     "additionalProperties": false
                 },
                 "sourceLocking": {
                     "type": "object",
-                    "required": ["backendOwner", "frontendOwner", "fixtureReaderOwners", "delegatedOwners"],
+                    "required": [
+                        "backendOwner",
+                        "frontendOwner",
+                        "fixtureReaderOwners",
+                        "delegatedOwners"
+                    ],
                     "properties": {
-                        "backendOwner": {"type": "string", "minLength": 1},
-                        "frontendOwner": {"type": "string", "minLength": 1},
-                        "fixtureReaderOwners": {"type": "array", "items": {"$ref": "#/$defs/owner"}},
-                        "delegatedOwners": {"type": "array", "items": {"$ref": "#/$defs/delegatedOwner"}}
+                        "backendOwner": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "frontendOwner": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "fixtureReaderOwners": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/$defs/owner"
+                            }
+                        },
+                        "delegatedOwners": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/$defs/delegatedOwner"
+                            }
+                        }
                     },
                     "additionalProperties": false
                 },
@@ -49,14 +98,39 @@
                     "type": "array",
                     "items": {
                         "type": "object",
-                        "required": ["from", "to", "coverageIds", "reason"],
+                        "required": [
+                            "from",
+                            "to",
+                            "coverageIds",
+                            "reason"
+                        ],
                         "properties": {
-                            "from": {"type": "string", "minLength": 1},
-                            "to": {"type": "string", "minLength": 1},
-                            "coverageIds": {"type": "array", "items": {"type": "string"}, "minItems": 1, "uniqueItems": true},
-                            "reason": {"type": "string", "minLength": 1},
-                            "scope": {"type": "string"},
-                            "catalogReplacements": {"type": "object"}
+                            "from": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "to": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "coverageIds": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                },
+                                "minItems": 1,
+                                "uniqueItems": true
+                            },
+                            "reason": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "scope": {
+                                "type": "string"
+                            },
+                            "catalogReplacements": {
+                                "type": "object"
+                            }
                         },
                         "additionalProperties": false
                     }
@@ -68,14 +142,48 @@
             "type": "object",
             "additionalProperties": {
                 "type": "object",
-                "required": ["id", "commandKind", "ciJob", "summaryTierIds", "inputReceiptSchemas", "outputReceiptSchema"],
+                "required": [
+                    "id",
+                    "commandKind",
+                    "ciJob",
+                    "summaryTierIds",
+                    "inputReceiptSchemas",
+                    "outputReceiptSchema"
+                ],
                 "properties": {
-                    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
-                    "commandKind": {"const": "aggregate"},
-                    "ciJob": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
-                    "summaryTierIds": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"}, "uniqueItems": true},
-                    "inputReceiptSchemas": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
-                    "outputReceiptSchema": {"type": "string", "minLength": 1}
+                    "id": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9][a-z0-9-]*$"
+                    },
+                    "commandKind": {
+                        "const": "aggregate"
+                    },
+                    "ciJob": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9][a-z0-9-]*$"
+                    },
+                    "summaryTierIds": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9][a-z0-9-]*$"
+                        },
+                        "uniqueItems": true
+                    },
+                    "inputReceiptSchemas": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "uniqueItems": true
+                    },
+                    "outputReceiptSchema": {
+                        "type": "string",
+                        "minLength": 1
+                    }
                 },
                 "additionalProperties": false
             }
@@ -95,14 +203,52 @@
                     "outputReceiptSchema"
                 ],
                 "properties": {
-                    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
-                    "commandKind": {"const": "receipt"},
-                    "commandSourceId": {"type": "string", "minLength": 1},
-                    "command": {"type": "string", "minLength": 1},
-                    "summaryTierIds": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
-                    "inputTierIds": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
-                    "inputReceiptSchemas": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
-                    "outputReceiptSchema": {"type": "string", "minLength": 1}
+                    "id": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9][a-z0-9-]*$"
+                    },
+                    "commandKind": {
+                        "const": "receipt"
+                    },
+                    "commandSourceId": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "command": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "summaryTierIds": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "uniqueItems": true
+                    },
+                    "inputTierIds": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "uniqueItems": true
+                    },
+                    "inputReceiptSchemas": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "uniqueItems": true
+                    },
+                    "outputReceiptSchema": {
+                        "type": "string",
+                        "minLength": 1
+                    }
                 },
                 "additionalProperties": false
             }
@@ -120,22 +266,51 @@
                     "outputReceiptSchema"
                 ],
                 "properties": {
-                    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
-                    "commandKind": {"const": "finalizer"},
-                    "command": {"type": "string", "minLength": 1},
-                    "summaryTierIds": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
-                    "inputContractSchema": {"type": "string", "minLength": 1},
-                    "outputReceiptSchema": {"type": "string", "minLength": 1}
+                    "id": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9][a-z0-9-]*$"
+                    },
+                    "commandKind": {
+                        "const": "finalizer"
+                    },
+                    "command": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "summaryTierIds": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "uniqueItems": true
+                    },
+                    "inputContractSchema": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "outputReceiptSchema": {
+                        "type": "string",
+                        "minLength": 1
+                    }
                 },
                 "additionalProperties": false
             }
         },
         "commandGroups": {
             "type": "object",
-            "required": ["frontend-static-governance", "frontend-runtime-contracts"],
+            "required": [
+                "frontend-static-governance",
+                "frontend-runtime-contracts"
+            ],
             "properties": {
-                "frontend-static-governance": {"$ref": "#/$defs/commandGroup"},
-                "frontend-runtime-contracts": {"$ref": "#/$defs/commandGroup"}
+                "frontend-static-governance": {
+                    "$ref": "#/$defs/commandGroup"
+                },
+                "frontend-runtime-contracts": {
+                    "$ref": "#/$defs/commandGroup"
+                }
             },
             "additionalProperties": false
         },
@@ -176,7 +351,10 @@
                     },
                     "externalAuthorities": {
                         "type": "object",
-                        "additionalProperties": {"type": "string", "minLength": 1}
+                        "additionalProperties": {
+                            "type": "string",
+                            "minLength": 1
+                        }
                     },
                     "bundles": {
                         "type": "array",
@@ -319,7 +497,12 @@
                     "evidence",
                     "ciJob",
                     "localOnly",
-                    "nightlyOnly"
+                    "nightlyOnly",
+                    "fixtureProfile",
+                    "fixtureProfileReason",
+                    "fixtureProfileProof",
+                    "fixtureMutatorAllowed",
+                    "executionClass"
                 ],
                 "properties": {
                     "id": {
@@ -331,19 +514,41 @@
                     },
                     "executionClass": {
                         "type": "string",
-                        "enum": ["static-governance"]
+                        "enum": [
+                            "acceptance",
+                            "benchmark",
+                            "browser",
+                            "build",
+                            "coordination",
+                            "diagnostic",
+                            "development",
+                            "load",
+                            "runtime",
+                            "security",
+                            "static-governance"
+                        ]
                     },
                     "qualificationEligible": {
                         "type": "boolean"
                     },
                     "executionMode": {
                         "type": "string",
-                        "enum": ["execute", "projection", "summary"],
+                        "enum": [
+                            "execute",
+                            "projection",
+                            "summary"
+                        ],
                         "default": "execute"
                     },
                     "commandKind": {
                         "type": "string",
-                        "enum": ["aggregate", "finalizer", "producer", "projection", "receipt"]
+                        "enum": [
+                            "aggregate",
+                            "finalizer",
+                            "producer",
+                            "projection",
+                            "receipt"
+                        ]
                     },
                     "summaryAuthority": {
                         "type": "string",
@@ -352,7 +557,10 @@
                     "summaryInputs": {
                         "type": "array",
                         "minItems": 1,
-                        "items": {"type": "string", "minLength": 1},
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        },
                         "uniqueItems": true
                     },
                     "outputReceiptSchema": {
@@ -365,11 +573,17 @@
                     },
                     "projectFrom": {
                         "oneOf": [
-                            {"type": "string", "minLength": 1},
+                            {
+                                "type": "string",
+                                "minLength": 1
+                            },
                             {
                                 "type": "array",
                                 "minItems": 2,
-                                "items": {"type": "string", "minLength": 1},
+                                "items": {
+                                    "type": "string",
+                                    "minLength": 1
+                                },
                                 "uniqueItems": true
                             }
                         ]
@@ -381,13 +595,19 @@
                     "requiredTestIds": {
                         "type": "array",
                         "minItems": 1,
-                        "items": {"type": "string", "minLength": 1},
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        },
                         "uniqueItems": true
                     },
                     "requiredCoverageIds": {
                         "type": "array",
                         "minItems": 1,
-                        "items": {"type": "string", "minLength": 1},
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        },
                         "uniqueItems": true
                     },
                     "requiredArtifactDeclarations": {
@@ -395,10 +615,19 @@
                         "minItems": 1,
                         "items": {
                             "type": "object",
-                            "required": ["id", "path"],
+                            "required": [
+                                "id",
+                                "path"
+                            ],
                             "properties": {
-                                "id": {"type": "string", "minLength": 1},
-                                "path": {"type": "string", "minLength": 1}
+                                "id": {
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                "path": {
+                                    "type": "string",
+                                    "minLength": 1
+                                }
                             },
                             "additionalProperties": false
                         }
@@ -406,12 +635,18 @@
                     "requiresEvidenceFrom": {
                         "type": "array",
                         "minItems": 1,
-                        "items": {"type": "string", "minLength": 1},
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        },
                         "uniqueItems": true
                     },
                     "executionDependsOn": {
                         "type": "array",
-                        "items": {"type": "string", "minLength": 1},
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        },
                         "uniqueItems": true
                     },
                     "command": {
@@ -426,7 +661,11 @@
                     },
                     "runtimeMode": {
                         "type": "string",
-                        "enum": ["single", "static-role", "adaptive"],
+                        "enum": [
+                            "single",
+                            "static-role",
+                            "adaptive"
+                        ],
                         "default": "single"
                     },
                     "nodeCount": {
@@ -437,29 +676,48 @@
                     },
                     "artifactStorage": {
                         "type": "string",
-                        "enum": ["local", "shared-volume"],
+                        "enum": [
+                            "local",
+                            "shared-volume"
+                        ],
                         "default": "local"
                     },
                     "coordinationStore": {
                         "type": "string",
-                        "enum": ["none", "redis"],
+                        "enum": [
+                            "none",
+                            "redis"
+                        ],
                         "default": "none"
                     },
                     "clusterScenario": {
                         "type": "string",
-                        "enum": ["none", "convergence", "handoff", "notification", "lease"],
+                        "enum": [
+                            "none",
+                            "convergence",
+                            "handoff",
+                            "notification",
+                            "lease"
+                        ],
                         "default": "none"
                     },
                     "clusterBootstrap": {
                         "type": "string",
-                        "enum": ["none", "homogeneous"],
+                        "enum": [
+                            "none",
+                            "homogeneous"
+                        ],
                         "default": "none"
                     },
                     "clusterFixtures": {
                         "type": "array",
                         "items": {
                             "type": "string",
-                            "enum": ["shared-postgres", "shared-redis", "shared-artifact-storage"]
+                            "enum": [
+                                "shared-postgres",
+                                "shared-redis",
+                                "shared-artifact-storage"
+                            ]
                         },
                         "uniqueItems": true,
                         "default": []
@@ -560,15 +818,8 @@
                     },
                     "fixtureProfile": {
                         "type": "string",
+                        "minLength": 1,
                         "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
-                    },
-                    "fixtureCapabilities": {
-                        "type": "array",
-                        "items": {
-                            "type": "string",
-                            "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
-                        },
-                        "uniqueItems": true
                     },
                     "selfBootstraps": {
                         "type": "boolean"
@@ -715,6 +966,17 @@
                     },
                     "manualOnly": {
                         "type": "boolean"
+                    },
+                    "fixtureProfileReason": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "fixtureProfileProof": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "fixtureMutatorAllowed": {
+                        "type": "boolean"
                     }
                 },
                 "allOf": [
@@ -768,8 +1030,14 @@
                     },
                     {
                         "if": {
-                            "properties": {"executionMode": {"const": "projection"}},
-                            "required": ["executionMode"]
+                            "properties": {
+                                "executionMode": {
+                                    "const": "projection"
+                                }
+                            },
+                            "required": [
+                                "executionMode"
+                            ]
                         },
                         "then": {
                             "required": [
@@ -785,20 +1053,42 @@
                     },
                     {
                         "if": {
-                            "properties": {"executionMode": {"const": "summary"}},
-                            "required": ["executionMode"]
+                            "properties": {
+                                "executionMode": {
+                                    "const": "summary"
+                                }
+                            },
+                            "required": [
+                                "executionMode"
+                            ]
                         },
                         "then": {
-                            "required": ["commandKind", "summaryInputs", "outputReceiptSchema"]
+                            "required": [
+                                "commandKind",
+                                "summaryInputs",
+                                "outputReceiptSchema"
+                            ]
                         }
                     },
                     {
                         "if": {
-                            "properties": {"commandKind": {"enum": ["aggregate", "finalizer", "receipt"]}},
-                            "required": ["commandKind"]
+                            "properties": {
+                                "commandKind": {
+                                    "enum": [
+                                        "aggregate",
+                                        "finalizer",
+                                        "receipt"
+                                    ]
+                                }
+                            },
+                            "required": [
+                                "commandKind"
+                            ]
                         },
                         "then": {
-                            "required": ["summaryAuthority"]
+                            "required": [
+                                "summaryAuthority"
+                            ]
                         }
                     }
                 ],
@@ -810,29 +1100,63 @@
     "$defs": {
         "owner": {
             "type": "object",
-            "required": ["path", "reason"],
+            "required": [
+                "path",
+                "reason"
+            ],
             "properties": {
-                "path": {"type": "string", "minLength": 1},
-                "reason": {"type": "string", "minLength": 1}
+                "path": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "reason": {
+                    "type": "string",
+                    "minLength": 1
+                }
             },
             "additionalProperties": false
         },
         "delegatedOwner": {
             "type": "object",
-            "required": ["path", "owner"],
+            "required": [
+                "path",
+                "owner"
+            ],
             "properties": {
-                "path": {"type": "string", "minLength": 1},
-                "owner": {"type": "string", "minLength": 1}
+                "path": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "owner": {
+                    "type": "string",
+                    "minLength": 1
+                }
             },
             "additionalProperties": false
         },
         "commandGroup": {
             "type": "object",
-            "required": ["schema", "lane", "commands"],
+            "required": [
+                "schema",
+                "lane",
+                "commands"
+            ],
             "properties": {
-                "schema": {"type": "string", "minLength": 1},
-                "lane": {"type": "string", "minLength": 1},
-                "commands": {"type": "array", "minItems": 1, "items": {"type": "object"}}
+                "schema": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "lane": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "commands": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "object"
+                    }
+                }
             },
             "additionalProperties": false
         }

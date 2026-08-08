@@ -6,7 +6,7 @@
             "consumerId": "matrix:acceptance",
             "executionClass": "browser",
             "source": "tools/test/lanes/acceptance-playwright.sh",
-            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, public.article.published, session.single-device",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier acceptance; command tools/test/lanes/acceptance-playwright.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); scale data is produced by the scale-data generator for the selected scale profile only; upserts auth identities; reuses existing user/admin rows when handles already exist",
             "profileId": "acceptance-representative",
@@ -16,17 +16,33 @@
             "requiredCapabilities": [
                 "auth.admin.full-permission",
                 "auth.user.active",
+                "comment.moderation-matrix",
+                "comment.threaded",
+                "messages.thread",
+                "notifications.unread",
+                "public.article.draft",
                 "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
                 "session.single-device"
             ],
             "requiredVariantIds": [
                 "canonical.auth.admin.full-permission",
                 "canonical.auth.user.active",
+                "canonical.comment.moderation-matrix",
+                "canonical.comment.threaded",
+                "canonical.messages.thread",
+                "canonical.notifications.unread",
+                "canonical.public.article.draft",
                 "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.home.featured-hot",
                 "canonical.session.single-device"
             ],
             "producerOwners": [
+                "account-messaging",
                 "auth-session",
+                "comment-moderation",
                 "public-content"
             ]
         },
@@ -34,7 +50,7 @@
             "consumerId": "matrix:article-private-preview",
             "executionClass": "browser",
             "source": "tools/test/lanes/article-private-preview.sh",
-            "requiredBusinessFact": "auth.admin.full-permission, session.single-device",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier article-private-preview; command tools/test/lanes/article-private-preview.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
             "profileId": "acceptance-representative",
@@ -43,21 +59,42 @@
             ],
             "requiredCapabilities": [
                 "auth.admin.full-permission",
+                "auth.user.active",
+                "comment.moderation-matrix",
+                "comment.threaded",
+                "messages.thread",
+                "notifications.unread",
+                "public.article.draft",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
                 "session.single-device"
             ],
             "requiredVariantIds": [
                 "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.comment.moderation-matrix",
+                "canonical.comment.threaded",
+                "canonical.messages.thread",
+                "canonical.notifications.unread",
+                "canonical.public.article.draft",
+                "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.home.featured-hot",
                 "canonical.session.single-device"
             ],
             "producerOwners": [
-                "auth-session"
+                "account-messaging",
+                "auth-session",
+                "comment-moderation",
+                "public-content"
             ]
         },
         {
             "consumerId": "matrix:backend-cache-invalidation-batch",
             "executionClass": "runtime",
             "source": "tools/test/lanes/backend-qps.sh",
-            "requiredBusinessFact": "public.article.published",
+            "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
             "implicitSource": "tests/matrix.yml tier backend-cache-invalidation-batch; command tools/test/lanes/backend-qps.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "public-content-lifecycle",
@@ -65,10 +102,30 @@
                 "public-content-lifecycle"
             ],
             "requiredCapabilities": [
-                "public.article.published"
+                "public.article.archived",
+                "public.article.deleted",
+                "public.article.draft",
+                "public.article.multiple-publications",
+                "public.article.multiple-revisions",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.article.scheduled",
+                "public.home.featured-hot",
+                "public.search.indexed",
+                "public.taxonomy.category-tag"
             ],
             "requiredVariantIds": [
-                "canonical.public.article.published"
+                "canonical.public.article.archived",
+                "canonical.public.article.deleted",
+                "canonical.public.article.draft",
+                "canonical.public.article.multiple-publications",
+                "canonical.public.article.multiple-revisions",
+                "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.article.scheduled",
+                "canonical.public.home.featured-hot",
+                "canonical.public.search.indexed",
+                "canonical.public.taxonomy.category-tag"
             ],
             "producerOwners": [
                 "public-content"
@@ -78,7 +135,7 @@
             "consumerId": "matrix:backend-qps-article-detail-miss",
             "executionClass": "load",
             "source": "tools/test/lanes/backend-qps.sh",
-            "requiredBusinessFact": "public.article.published",
+            "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
             "implicitSource": "tests/matrix.yml tier backend-qps-article-detail-miss; command tools/test/lanes/backend-qps.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "public-content-lifecycle",
@@ -86,10 +143,30 @@
                 "public-content-lifecycle"
             ],
             "requiredCapabilities": [
-                "public.article.published"
+                "public.article.archived",
+                "public.article.deleted",
+                "public.article.draft",
+                "public.article.multiple-publications",
+                "public.article.multiple-revisions",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.article.scheduled",
+                "public.home.featured-hot",
+                "public.search.indexed",
+                "public.taxonomy.category-tag"
             ],
             "requiredVariantIds": [
-                "canonical.public.article.published"
+                "canonical.public.article.archived",
+                "canonical.public.article.deleted",
+                "canonical.public.article.draft",
+                "canonical.public.article.multiple-publications",
+                "canonical.public.article.multiple-revisions",
+                "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.article.scheduled",
+                "canonical.public.home.featured-hot",
+                "canonical.public.search.indexed",
+                "canonical.public.taxonomy.category-tag"
             ],
             "producerOwners": [
                 "public-content"
@@ -99,7 +176,7 @@
             "consumerId": "matrix:backend-qps-cache-hit",
             "executionClass": "load",
             "source": "tools/test/lanes/backend-qps.sh",
-            "requiredBusinessFact": "public.article.published",
+            "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
             "implicitSource": "tests/matrix.yml tier backend-qps-cache-hit; command tools/test/lanes/backend-qps.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "public-content-lifecycle",
@@ -107,10 +184,30 @@
                 "public-content-lifecycle"
             ],
             "requiredCapabilities": [
-                "public.article.published"
+                "public.article.archived",
+                "public.article.deleted",
+                "public.article.draft",
+                "public.article.multiple-publications",
+                "public.article.multiple-revisions",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.article.scheduled",
+                "public.home.featured-hot",
+                "public.search.indexed",
+                "public.taxonomy.category-tag"
             ],
             "requiredVariantIds": [
-                "canonical.public.article.published"
+                "canonical.public.article.archived",
+                "canonical.public.article.deleted",
+                "canonical.public.article.draft",
+                "canonical.public.article.multiple-publications",
+                "canonical.public.article.multiple-revisions",
+                "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.article.scheduled",
+                "canonical.public.home.featured-hot",
+                "canonical.public.search.indexed",
+                "canonical.public.taxonomy.category-tag"
             ],
             "producerOwners": [
                 "public-content"
@@ -120,7 +217,7 @@
             "consumerId": "matrix:backend-qps-cache-miss-singleflight",
             "executionClass": "load",
             "source": "tools/test/lanes/backend-qps.sh",
-            "requiredBusinessFact": "public.article.published",
+            "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
             "implicitSource": "tests/matrix.yml tier backend-qps-cache-miss-singleflight; command tools/test/lanes/backend-qps.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "public-content-lifecycle",
@@ -128,10 +225,30 @@
                 "public-content-lifecycle"
             ],
             "requiredCapabilities": [
-                "public.article.published"
+                "public.article.archived",
+                "public.article.deleted",
+                "public.article.draft",
+                "public.article.multiple-publications",
+                "public.article.multiple-revisions",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.article.scheduled",
+                "public.home.featured-hot",
+                "public.search.indexed",
+                "public.taxonomy.category-tag"
             ],
             "requiredVariantIds": [
-                "canonical.public.article.published"
+                "canonical.public.article.archived",
+                "canonical.public.article.deleted",
+                "canonical.public.article.draft",
+                "canonical.public.article.multiple-publications",
+                "canonical.public.article.multiple-revisions",
+                "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.article.scheduled",
+                "canonical.public.home.featured-hot",
+                "canonical.public.search.indexed",
+                "canonical.public.taxonomy.category-tag"
             ],
             "producerOwners": [
                 "public-content"
@@ -141,7 +258,7 @@
             "consumerId": "matrix:backend-qps-cache-registry",
             "executionClass": "load",
             "source": "tools/test/lanes/backend-qps.sh",
-            "requiredBusinessFact": "public.article.published",
+            "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
             "implicitSource": "tests/matrix.yml tier backend-qps-cache-registry; command tools/test/lanes/backend-qps.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "public-content-lifecycle",
@@ -149,10 +266,30 @@
                 "public-content-lifecycle"
             ],
             "requiredCapabilities": [
-                "public.article.published"
+                "public.article.archived",
+                "public.article.deleted",
+                "public.article.draft",
+                "public.article.multiple-publications",
+                "public.article.multiple-revisions",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.article.scheduled",
+                "public.home.featured-hot",
+                "public.search.indexed",
+                "public.taxonomy.category-tag"
             ],
             "requiredVariantIds": [
-                "canonical.public.article.published"
+                "canonical.public.article.archived",
+                "canonical.public.article.deleted",
+                "canonical.public.article.draft",
+                "canonical.public.article.multiple-publications",
+                "canonical.public.article.multiple-revisions",
+                "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.article.scheduled",
+                "canonical.public.home.featured-hot",
+                "canonical.public.search.indexed",
+                "canonical.public.taxonomy.category-tag"
             ],
             "producerOwners": [
                 "public-content"
@@ -162,7 +299,7 @@
             "consumerId": "matrix:backend-qps-comment-cursor",
             "executionClass": "load",
             "source": "tools/test/lanes/backend-qps.sh",
-            "requiredBusinessFact": "comment.threaded, public.article.published",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, moderation.policy-matrix, public.article.published",
             "implicitSource": "tests/matrix.yml tier backend-qps-comment-cursor; command tools/test/lanes/backend-qps.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "comments-moderation",
@@ -170,14 +307,23 @@
                 "comments-moderation"
             ],
             "requiredCapabilities": [
+                "auth.admin.full-permission",
+                "auth.user.active",
+                "comment.moderation-matrix",
                 "comment.threaded",
+                "moderation.policy-matrix",
                 "public.article.published"
             ],
             "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
+                "canonical.auth.user.active",
+                "canonical.comment.moderation-matrix",
                 "canonical.comment.threaded",
+                "canonical.moderation.policy-matrix",
                 "canonical.public.article.published"
             ],
             "producerOwners": [
+                "auth-session",
                 "comment-moderation",
                 "public-content"
             ]
@@ -186,7 +332,7 @@
             "consumerId": "matrix:backend-qps-hotread",
             "executionClass": "load",
             "source": "tools/test/lanes/backend-qps.sh",
-            "requiredBusinessFact": "public.article.published, public.home.featured-hot",
+            "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
             "implicitSource": "tests/matrix.yml tier backend-qps-hotread; command tools/test/lanes/backend-qps.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "public-content-lifecycle",
@@ -194,12 +340,30 @@
                 "public-content-lifecycle"
             ],
             "requiredCapabilities": [
+                "public.article.archived",
+                "public.article.deleted",
+                "public.article.draft",
+                "public.article.multiple-publications",
+                "public.article.multiple-revisions",
                 "public.article.published",
-                "public.home.featured-hot"
+                "public.article.revision-history",
+                "public.article.scheduled",
+                "public.home.featured-hot",
+                "public.search.indexed",
+                "public.taxonomy.category-tag"
             ],
             "requiredVariantIds": [
+                "canonical.public.article.archived",
+                "canonical.public.article.deleted",
+                "canonical.public.article.draft",
+                "canonical.public.article.multiple-publications",
+                "canonical.public.article.multiple-revisions",
                 "canonical.public.article.published",
-                "canonical.public.home.featured-hot"
+                "canonical.public.article.revision-history",
+                "canonical.public.article.scheduled",
+                "canonical.public.home.featured-hot",
+                "canonical.public.search.indexed",
+                "canonical.public.taxonomy.category-tag"
             ],
             "producerOwners": [
                 "public-content"
@@ -209,7 +373,7 @@
             "consumerId": "matrix:backend-qps-index-plan",
             "executionClass": "load",
             "source": "tools/test/lanes/backend-qps.sh",
-            "requiredBusinessFact": "public.article.published",
+            "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
             "implicitSource": "tests/matrix.yml tier backend-qps-index-plan; command tools/test/lanes/backend-qps.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "public-content-lifecycle",
@@ -217,10 +381,30 @@
                 "public-content-lifecycle"
             ],
             "requiredCapabilities": [
-                "public.article.published"
+                "public.article.archived",
+                "public.article.deleted",
+                "public.article.draft",
+                "public.article.multiple-publications",
+                "public.article.multiple-revisions",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.article.scheduled",
+                "public.home.featured-hot",
+                "public.search.indexed",
+                "public.taxonomy.category-tag"
             ],
             "requiredVariantIds": [
-                "canonical.public.article.published"
+                "canonical.public.article.archived",
+                "canonical.public.article.deleted",
+                "canonical.public.article.draft",
+                "canonical.public.article.multiple-publications",
+                "canonical.public.article.multiple-revisions",
+                "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.article.scheduled",
+                "canonical.public.home.featured-hot",
+                "canonical.public.search.indexed",
+                "canonical.public.taxonomy.category-tag"
             ],
             "producerOwners": [
                 "public-content"
@@ -230,7 +414,7 @@
             "consumerId": "matrix:backend-qps-list-pagination",
             "executionClass": "load",
             "source": "tools/test/lanes/backend-qps.sh",
-            "requiredBusinessFact": "public.article.published",
+            "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
             "implicitSource": "tests/matrix.yml tier backend-qps-list-pagination; command tools/test/lanes/backend-qps.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "public-content-lifecycle",
@@ -238,10 +422,30 @@
                 "public-content-lifecycle"
             ],
             "requiredCapabilities": [
-                "public.article.published"
+                "public.article.archived",
+                "public.article.deleted",
+                "public.article.draft",
+                "public.article.multiple-publications",
+                "public.article.multiple-revisions",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.article.scheduled",
+                "public.home.featured-hot",
+                "public.search.indexed",
+                "public.taxonomy.category-tag"
             ],
             "requiredVariantIds": [
-                "canonical.public.article.published"
+                "canonical.public.article.archived",
+                "canonical.public.article.deleted",
+                "canonical.public.article.draft",
+                "canonical.public.article.multiple-publications",
+                "canonical.public.article.multiple-revisions",
+                "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.article.scheduled",
+                "canonical.public.home.featured-hot",
+                "canonical.public.search.indexed",
+                "canonical.public.taxonomy.category-tag"
             ],
             "producerOwners": [
                 "public-content"
@@ -251,7 +455,7 @@
             "consumerId": "matrix:backend-qps-related-reading",
             "executionClass": "load",
             "source": "tools/test/lanes/backend-qps.sh",
-            "requiredBusinessFact": "public.article.published",
+            "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
             "implicitSource": "tests/matrix.yml tier backend-qps-related-reading; command tools/test/lanes/backend-qps.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "public-content-lifecycle",
@@ -259,10 +463,30 @@
                 "public-content-lifecycle"
             ],
             "requiredCapabilities": [
-                "public.article.published"
+                "public.article.archived",
+                "public.article.deleted",
+                "public.article.draft",
+                "public.article.multiple-publications",
+                "public.article.multiple-revisions",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.article.scheduled",
+                "public.home.featured-hot",
+                "public.search.indexed",
+                "public.taxonomy.category-tag"
             ],
             "requiredVariantIds": [
-                "canonical.public.article.published"
+                "canonical.public.article.archived",
+                "canonical.public.article.deleted",
+                "canonical.public.article.draft",
+                "canonical.public.article.multiple-publications",
+                "canonical.public.article.multiple-revisions",
+                "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.article.scheduled",
+                "canonical.public.home.featured-hot",
+                "canonical.public.search.indexed",
+                "canonical.public.taxonomy.category-tag"
             ],
             "producerOwners": [
                 "public-content"
@@ -272,7 +496,7 @@
             "consumerId": "matrix:backend-qps-risk-filter",
             "executionClass": "load",
             "source": "tools/test/lanes/backend-qps.sh",
-            "requiredBusinessFact": "auth.user.active, security.risk-escalated",
+            "requiredBusinessFact": "auth.user.active, security.credential.revoked, security.pow.elevated, security.risk-escalated, security.subject.banned, session.multi-device",
             "implicitSource": "tests/matrix.yml tier backend-qps-risk-filter; command tools/test/lanes/backend-qps.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "auth-security-matrix",
@@ -281,11 +505,19 @@
             ],
             "requiredCapabilities": [
                 "auth.user.active",
-                "security.risk-escalated"
+                "security.credential.revoked",
+                "security.pow.elevated",
+                "security.risk-escalated",
+                "security.subject.banned",
+                "session.multi-device"
             ],
             "requiredVariantIds": [
                 "canonical.auth.user.active",
-                "canonical.security.risk-escalated"
+                "canonical.security.credential.revoked",
+                "canonical.security.pow.elevated",
+                "canonical.security.risk-escalated",
+                "canonical.security.subject.banned",
+                "canonical.session.multi-device"
             ],
             "producerOwners": [
                 "auth-session",
@@ -296,7 +528,7 @@
             "consumerId": "matrix:backend-qps-runtime-sequential",
             "executionClass": "load",
             "source": "tools/test/lanes/backend-qps.sh",
-            "requiredBusinessFact": "auth.user.active, public.article.published, session.single-device",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier backend-qps-runtime-sequential; command tools/test/lanes/backend-qps.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "acceptance-representative",
@@ -304,17 +536,35 @@
                 "acceptance-representative"
             ],
             "requiredCapabilities": [
+                "auth.admin.full-permission",
                 "auth.user.active",
+                "comment.moderation-matrix",
+                "comment.threaded",
+                "messages.thread",
+                "notifications.unread",
+                "public.article.draft",
                 "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
                 "session.single-device"
             ],
             "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
                 "canonical.auth.user.active",
+                "canonical.comment.moderation-matrix",
+                "canonical.comment.threaded",
+                "canonical.messages.thread",
+                "canonical.notifications.unread",
+                "canonical.public.article.draft",
                 "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.home.featured-hot",
                 "canonical.session.single-device"
             ],
             "producerOwners": [
+                "account-messaging",
                 "auth-session",
+                "comment-moderation",
                 "public-content"
             ]
         },
@@ -322,7 +572,7 @@
             "consumerId": "matrix:backend-qps-view-count-flush",
             "executionClass": "load",
             "source": "tools/test/lanes/backend-qps.sh",
-            "requiredBusinessFact": "public.article.published",
+            "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
             "implicitSource": "tests/matrix.yml tier backend-qps-view-count-flush; command tools/test/lanes/backend-qps.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "public-content-lifecycle",
@@ -330,10 +580,30 @@
                 "public-content-lifecycle"
             ],
             "requiredCapabilities": [
-                "public.article.published"
+                "public.article.archived",
+                "public.article.deleted",
+                "public.article.draft",
+                "public.article.multiple-publications",
+                "public.article.multiple-revisions",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.article.scheduled",
+                "public.home.featured-hot",
+                "public.search.indexed",
+                "public.taxonomy.category-tag"
             ],
             "requiredVariantIds": [
-                "canonical.public.article.published"
+                "canonical.public.article.archived",
+                "canonical.public.article.deleted",
+                "canonical.public.article.draft",
+                "canonical.public.article.multiple-publications",
+                "canonical.public.article.multiple-revisions",
+                "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.article.scheduled",
+                "canonical.public.home.featured-hot",
+                "canonical.public.search.indexed",
+                "canonical.public.taxonomy.category-tag"
             ],
             "producerOwners": [
                 "public-content"
@@ -343,7 +613,7 @@
             "consumerId": "matrix:backend-qps-visitlog-invalidation",
             "executionClass": "load",
             "source": "tools/test/lanes/backend-qps.sh",
-            "requiredBusinessFact": "public.article.published",
+            "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
             "implicitSource": "tests/matrix.yml tier backend-qps-visitlog-invalidation; command tools/test/lanes/backend-qps.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "public-content-lifecycle",
@@ -351,10 +621,30 @@
                 "public-content-lifecycle"
             ],
             "requiredCapabilities": [
-                "public.article.published"
+                "public.article.archived",
+                "public.article.deleted",
+                "public.article.draft",
+                "public.article.multiple-publications",
+                "public.article.multiple-revisions",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.article.scheduled",
+                "public.home.featured-hot",
+                "public.search.indexed",
+                "public.taxonomy.category-tag"
             ],
             "requiredVariantIds": [
-                "canonical.public.article.published"
+                "canonical.public.article.archived",
+                "canonical.public.article.deleted",
+                "canonical.public.article.draft",
+                "canonical.public.article.multiple-publications",
+                "canonical.public.article.multiple-revisions",
+                "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.article.scheduled",
+                "canonical.public.home.featured-hot",
+                "canonical.public.search.indexed",
+                "canonical.public.taxonomy.category-tag"
             ],
             "producerOwners": [
                 "public-content"
@@ -364,7 +654,7 @@
             "consumerId": "matrix:bootstrap",
             "executionClass": "runtime",
             "source": "tools/test/lanes/bootstrap-acceptance-env.sh",
-            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, public.article.published, session.single-device",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier bootstrap; command tools/test/lanes/bootstrap-acceptance-env.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); scale data is produced by the scale-data generator for the selected scale profile only; upserts auth identities; reuses existing user/admin rows when handles already exist",
             "profileId": "acceptance-representative",
@@ -374,17 +664,33 @@
             "requiredCapabilities": [
                 "auth.admin.full-permission",
                 "auth.user.active",
+                "comment.moderation-matrix",
+                "comment.threaded",
+                "messages.thread",
+                "notifications.unread",
+                "public.article.draft",
                 "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
                 "session.single-device"
             ],
             "requiredVariantIds": [
                 "canonical.auth.admin.full-permission",
                 "canonical.auth.user.active",
+                "canonical.comment.moderation-matrix",
+                "canonical.comment.threaded",
+                "canonical.messages.thread",
+                "canonical.notifications.unread",
+                "canonical.public.article.draft",
                 "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.home.featured-hot",
                 "canonical.session.single-device"
             ],
             "producerOwners": [
+                "account-messaging",
                 "auth-session",
+                "comment-moderation",
                 "public-content"
             ]
         },
@@ -392,7 +698,7 @@
             "consumerId": "matrix:browser-contract",
             "executionClass": "browser",
             "source": "tools/test/lanes/browser-contract.sh",
-            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.threaded, public.article.published, session.single-device",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier browser-contract; command tools/test/lanes/browser-contract.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); requires sealed browser-contract fixture root; public fallback is forbidden; scale data is produced by the scale-data generator for the selected scale profile only; upserts auth identities; reuses existing user/admin rows when handles already exist",
             "profileId": "acceptance-representative",
@@ -402,18 +708,31 @@
             "requiredCapabilities": [
                 "auth.admin.full-permission",
                 "auth.user.active",
+                "comment.moderation-matrix",
                 "comment.threaded",
+                "messages.thread",
+                "notifications.unread",
+                "public.article.draft",
                 "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
                 "session.single-device"
             ],
             "requiredVariantIds": [
                 "canonical.auth.admin.full-permission",
                 "canonical.auth.user.active",
+                "canonical.comment.moderation-matrix",
                 "canonical.comment.threaded",
+                "canonical.messages.thread",
+                "canonical.notifications.unread",
+                "canonical.public.article.draft",
                 "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.home.featured-hot",
                 "canonical.session.single-device"
             ],
             "producerOwners": [
+                "account-messaging",
                 "auth-session",
                 "comment-moderation",
                 "public-content"
@@ -423,7 +742,7 @@
             "consumerId": "matrix:browser-diagnostics",
             "executionClass": "browser",
             "source": "tools/test/lanes/browser-runtime-risk-diagnostics.sh",
-            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, public.article.published, session.single-device",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier browser-diagnostics; command tools/test/lanes/browser-runtime-risk-diagnostics.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; lane may reset security runtime state around execution (not a business-data fallback)",
             "profileId": "acceptance-representative",
@@ -433,17 +752,33 @@
             "requiredCapabilities": [
                 "auth.admin.full-permission",
                 "auth.user.active",
+                "comment.moderation-matrix",
+                "comment.threaded",
+                "messages.thread",
+                "notifications.unread",
+                "public.article.draft",
                 "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
                 "session.single-device"
             ],
             "requiredVariantIds": [
                 "canonical.auth.admin.full-permission",
                 "canonical.auth.user.active",
+                "canonical.comment.moderation-matrix",
+                "canonical.comment.threaded",
+                "canonical.messages.thread",
+                "canonical.notifications.unread",
+                "canonical.public.article.draft",
                 "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.home.featured-hot",
                 "canonical.session.single-device"
             ],
             "producerOwners": [
+                "account-messaging",
                 "auth-session",
+                "comment-moderation",
                 "public-content"
             ]
         },
@@ -451,7 +786,7 @@
             "consumerId": "matrix:browser-diagnostics-manual",
             "executionClass": "browser",
             "source": "tools/test/lanes/browser-diagnostics.sh",
-            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, public.article.published, session.single-device",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier browser-diagnostics-manual; command tools/test/lanes/browser-diagnostics.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
             "profileId": "acceptance-representative",
@@ -461,17 +796,33 @@
             "requiredCapabilities": [
                 "auth.admin.full-permission",
                 "auth.user.active",
+                "comment.moderation-matrix",
+                "comment.threaded",
+                "messages.thread",
+                "notifications.unread",
+                "public.article.draft",
                 "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
                 "session.single-device"
             ],
             "requiredVariantIds": [
                 "canonical.auth.admin.full-permission",
                 "canonical.auth.user.active",
+                "canonical.comment.moderation-matrix",
+                "canonical.comment.threaded",
+                "canonical.messages.thread",
+                "canonical.notifications.unread",
+                "canonical.public.article.draft",
                 "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.home.featured-hot",
                 "canonical.session.single-device"
             ],
             "producerOwners": [
+                "account-messaging",
                 "auth-session",
+                "comment-moderation",
                 "public-content"
             ]
         },
@@ -479,7 +830,7 @@
             "consumerId": "matrix:browser-diagnostics-nightly",
             "executionClass": "browser",
             "source": "tools/test/lanes/browser-diagnostics.sh",
-            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, public.article.published, session.single-device",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier browser-diagnostics-nightly; command tools/test/lanes/browser-diagnostics.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
             "profileId": "acceptance-representative",
@@ -489,17 +840,33 @@
             "requiredCapabilities": [
                 "auth.admin.full-permission",
                 "auth.user.active",
+                "comment.moderation-matrix",
+                "comment.threaded",
+                "messages.thread",
+                "notifications.unread",
+                "public.article.draft",
                 "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
                 "session.single-device"
             ],
             "requiredVariantIds": [
                 "canonical.auth.admin.full-permission",
                 "canonical.auth.user.active",
+                "canonical.comment.moderation-matrix",
+                "canonical.comment.threaded",
+                "canonical.messages.thread",
+                "canonical.notifications.unread",
+                "canonical.public.article.draft",
                 "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.home.featured-hot",
                 "canonical.session.single-device"
             ],
             "producerOwners": [
+                "account-messaging",
                 "auth-session",
+                "comment-moderation",
                 "public-content"
             ]
         },
@@ -507,7 +874,7 @@
             "consumerId": "matrix:browser-runtime-risk-diagnostics",
             "executionClass": "browser",
             "source": "tools/test/lanes/browser-runtime-risk-diagnostics.sh",
-            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, public.article.published, session.single-device",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier browser-runtime-risk-diagnostics; command tools/test/lanes/browser-runtime-risk-diagnostics.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; lane may reset security runtime state around execution (not a business-data fallback)",
             "profileId": "acceptance-representative",
@@ -517,17 +884,33 @@
             "requiredCapabilities": [
                 "auth.admin.full-permission",
                 "auth.user.active",
+                "comment.moderation-matrix",
+                "comment.threaded",
+                "messages.thread",
+                "notifications.unread",
+                "public.article.draft",
                 "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
                 "session.single-device"
             ],
             "requiredVariantIds": [
                 "canonical.auth.admin.full-permission",
                 "canonical.auth.user.active",
+                "canonical.comment.moderation-matrix",
+                "canonical.comment.threaded",
+                "canonical.messages.thread",
+                "canonical.notifications.unread",
+                "canonical.public.article.draft",
                 "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.home.featured-hot",
                 "canonical.session.single-device"
             ],
             "producerOwners": [
+                "account-messaging",
                 "auth-session",
+                "comment-moderation",
                 "public-content"
             ]
         },
@@ -550,7 +933,7 @@
             "consumerId": "matrix:csrf-browser-matrix",
             "executionClass": "security",
             "source": "npm --prefix src/frontend run check:security:csrf-browser-matrix",
-            "requiredBusinessFact": "auth.user.active, session.multi-device",
+            "requiredBusinessFact": "auth.user.active, security.credential.revoked, security.pow.elevated, security.risk-escalated, security.subject.banned, session.multi-device",
             "implicitSource": "tests/matrix.yml tier csrf-browser-matrix; command npm --prefix src/frontend run check:security:csrf-browser-matrix",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); scale data is produced by the scale-data generator for the selected scale profile only; upserts auth identities; reuses existing user/admin rows when handles already exist",
             "profileId": "auth-security-matrix",
@@ -559,14 +942,23 @@
             ],
             "requiredCapabilities": [
                 "auth.user.active",
+                "security.credential.revoked",
+                "security.pow.elevated",
+                "security.risk-escalated",
+                "security.subject.banned",
                 "session.multi-device"
             ],
             "requiredVariantIds": [
                 "canonical.auth.user.active",
+                "canonical.security.credential.revoked",
+                "canonical.security.pow.elevated",
+                "canonical.security.risk-escalated",
+                "canonical.security.subject.banned",
                 "canonical.session.multi-device"
             ],
             "producerOwners": [
-                "auth-session"
+                "auth-session",
+                "security-state"
             ]
         },
         {
@@ -669,7 +1061,7 @@
             "consumerId": "matrix:endpoint-depth",
             "executionClass": "runtime",
             "source": "tools/test/lanes/endpoint-depth.sh",
-            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, public.article.published, session.single-device",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier endpoint-depth; command tools/test/lanes/endpoint-depth.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
             "profileId": "acceptance-representative",
@@ -679,17 +1071,33 @@
             "requiredCapabilities": [
                 "auth.admin.full-permission",
                 "auth.user.active",
+                "comment.moderation-matrix",
+                "comment.threaded",
+                "messages.thread",
+                "notifications.unread",
+                "public.article.draft",
                 "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
                 "session.single-device"
             ],
             "requiredVariantIds": [
                 "canonical.auth.admin.full-permission",
                 "canonical.auth.user.active",
+                "canonical.comment.moderation-matrix",
+                "canonical.comment.threaded",
+                "canonical.messages.thread",
+                "canonical.notifications.unread",
+                "canonical.public.article.draft",
                 "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.home.featured-hot",
                 "canonical.session.single-device"
             ],
             "producerOwners": [
+                "account-messaging",
                 "auth-session",
+                "comment-moderation",
                 "public-content"
             ]
         },
@@ -697,7 +1105,7 @@
             "consumerId": "matrix:fault-injection",
             "executionClass": "runtime",
             "source": "tools/test/lanes/fault-injection.sh",
-            "requiredBusinessFact": "auth.user.active, public.article.published, session.single-device",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier fault-injection; command tools/test/lanes/fault-injection.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
             "profileId": "acceptance-representative",
@@ -705,17 +1113,35 @@
                 "acceptance-representative"
             ],
             "requiredCapabilities": [
+                "auth.admin.full-permission",
                 "auth.user.active",
+                "comment.moderation-matrix",
+                "comment.threaded",
+                "messages.thread",
+                "notifications.unread",
+                "public.article.draft",
                 "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
                 "session.single-device"
             ],
             "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
                 "canonical.auth.user.active",
+                "canonical.comment.moderation-matrix",
+                "canonical.comment.threaded",
+                "canonical.messages.thread",
+                "canonical.notifications.unread",
+                "canonical.public.article.draft",
                 "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.home.featured-hot",
                 "canonical.session.single-device"
             ],
             "producerOwners": [
+                "account-messaging",
                 "auth-session",
+                "comment-moderation",
                 "public-content"
             ]
         },
@@ -723,7 +1149,7 @@
             "consumerId": "matrix:homogeneous-two-node-fixture",
             "executionClass": "runtime",
             "source": "tools/test/lanes/homogeneous-two-node-fixture.sh",
-            "requiredBusinessFact": "auth.user.active, public.article.published, session.single-device",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier homogeneous-two-node-fixture; command tools/test/lanes/homogeneous-two-node-fixture.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
             "profileId": "acceptance-representative",
@@ -731,17 +1157,35 @@
                 "acceptance-representative"
             ],
             "requiredCapabilities": [
+                "auth.admin.full-permission",
                 "auth.user.active",
+                "comment.moderation-matrix",
+                "comment.threaded",
+                "messages.thread",
+                "notifications.unread",
+                "public.article.draft",
                 "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
                 "session.single-device"
             ],
             "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
                 "canonical.auth.user.active",
+                "canonical.comment.moderation-matrix",
+                "canonical.comment.threaded",
+                "canonical.messages.thread",
+                "canonical.notifications.unread",
+                "canonical.public.article.draft",
                 "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.home.featured-hot",
                 "canonical.session.single-device"
             ],
             "producerOwners": [
+                "account-messaging",
                 "auth-session",
+                "comment-moderation",
                 "public-content"
             ]
         },
@@ -749,7 +1193,7 @@
             "consumerId": "matrix:integration",
             "executionClass": "runtime",
             "source": "tools/test/lanes/runtime-integration.sh",
-            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, public.article.published, session.single-device",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier integration; command tools/test/lanes/runtime-integration.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
             "profileId": "acceptance-representative",
@@ -759,17 +1203,33 @@
             "requiredCapabilities": [
                 "auth.admin.full-permission",
                 "auth.user.active",
+                "comment.moderation-matrix",
+                "comment.threaded",
+                "messages.thread",
+                "notifications.unread",
+                "public.article.draft",
                 "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
                 "session.single-device"
             ],
             "requiredVariantIds": [
                 "canonical.auth.admin.full-permission",
                 "canonical.auth.user.active",
+                "canonical.comment.moderation-matrix",
+                "canonical.comment.threaded",
+                "canonical.messages.thread",
+                "canonical.notifications.unread",
+                "canonical.public.article.draft",
                 "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.home.featured-hot",
                 "canonical.session.single-device"
             ],
             "producerOwners": [
+                "account-messaging",
                 "auth-session",
+                "comment-moderation",
                 "public-content"
             ]
         },
@@ -897,7 +1357,7 @@
             "consumerId": "matrix:production",
             "executionClass": "runtime",
             "source": "tools/test/lanes/production-correctness-receipt.sh",
-            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, public.article.published, session.single-device",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier production; command tools/test/lanes/production-correctness-receipt.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
             "profileId": "acceptance-representative",
@@ -907,17 +1367,33 @@
             "requiredCapabilities": [
                 "auth.admin.full-permission",
                 "auth.user.active",
+                "comment.moderation-matrix",
+                "comment.threaded",
+                "messages.thread",
+                "notifications.unread",
+                "public.article.draft",
                 "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
                 "session.single-device"
             ],
             "requiredVariantIds": [
                 "canonical.auth.admin.full-permission",
                 "canonical.auth.user.active",
+                "canonical.comment.moderation-matrix",
+                "canonical.comment.threaded",
+                "canonical.messages.thread",
+                "canonical.notifications.unread",
+                "canonical.public.article.draft",
                 "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.home.featured-hot",
                 "canonical.session.single-device"
             ],
             "producerOwners": [
+                "account-messaging",
                 "auth-session",
+                "comment-moderation",
                 "public-content"
             ]
         },
@@ -925,7 +1401,7 @@
             "consumerId": "matrix:production-correctness",
             "executionClass": "runtime",
             "source": "tools/test/lanes/production-correctness-receipt.sh",
-            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, public.article.published, session.single-device",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier production-correctness; command tools/test/lanes/production-correctness-receipt.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
             "profileId": "acceptance-representative",
@@ -935,17 +1411,33 @@
             "requiredCapabilities": [
                 "auth.admin.full-permission",
                 "auth.user.active",
+                "comment.moderation-matrix",
+                "comment.threaded",
+                "messages.thread",
+                "notifications.unread",
+                "public.article.draft",
                 "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
                 "session.single-device"
             ],
             "requiredVariantIds": [
                 "canonical.auth.admin.full-permission",
                 "canonical.auth.user.active",
+                "canonical.comment.moderation-matrix",
+                "canonical.comment.threaded",
+                "canonical.messages.thread",
+                "canonical.notifications.unread",
+                "canonical.public.article.draft",
                 "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.home.featured-hot",
                 "canonical.session.single-device"
             ],
             "producerOwners": [
+                "account-messaging",
                 "auth-session",
+                "comment-moderation",
                 "public-content"
             ]
         },
@@ -1009,7 +1501,7 @@
             "consumerId": "matrix:release",
             "executionClass": "runtime",
             "source": "tools/test/lanes/release-public.sh",
-            "requiredBusinessFact": "public.article.published",
+            "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
             "implicitSource": "tests/matrix.yml tier release; command tools/test/lanes/release-public.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
             "profileId": "public-content-lifecycle",
@@ -1017,10 +1509,30 @@
                 "public-content-lifecycle"
             ],
             "requiredCapabilities": [
-                "public.article.published"
+                "public.article.archived",
+                "public.article.deleted",
+                "public.article.draft",
+                "public.article.multiple-publications",
+                "public.article.multiple-revisions",
+                "public.article.published",
+                "public.article.revision-history",
+                "public.article.scheduled",
+                "public.home.featured-hot",
+                "public.search.indexed",
+                "public.taxonomy.category-tag"
             ],
             "requiredVariantIds": [
-                "canonical.public.article.published"
+                "canonical.public.article.archived",
+                "canonical.public.article.deleted",
+                "canonical.public.article.draft",
+                "canonical.public.article.multiple-publications",
+                "canonical.public.article.multiple-revisions",
+                "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.article.scheduled",
+                "canonical.public.home.featured-hot",
+                "canonical.public.search.indexed",
+                "canonical.public.taxonomy.category-tag"
             ],
             "producerOwners": [
                 "public-content"
@@ -1030,7 +1542,7 @@
             "consumerId": "matrix:resilience",
             "executionClass": "runtime",
             "source": "tools/test/lanes/resilience-runtime.sh",
-            "requiredBusinessFact": "auth.user.active, public.article.published, session.single-device",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier resilience; command tools/test/lanes/resilience-runtime.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
             "profileId": "acceptance-representative",
@@ -1038,17 +1550,35 @@
                 "acceptance-representative"
             ],
             "requiredCapabilities": [
+                "auth.admin.full-permission",
                 "auth.user.active",
+                "comment.moderation-matrix",
+                "comment.threaded",
+                "messages.thread",
+                "notifications.unread",
+                "public.article.draft",
                 "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
                 "session.single-device"
             ],
             "requiredVariantIds": [
+                "canonical.auth.admin.full-permission",
                 "canonical.auth.user.active",
+                "canonical.comment.moderation-matrix",
+                "canonical.comment.threaded",
+                "canonical.messages.thread",
+                "canonical.notifications.unread",
+                "canonical.public.article.draft",
                 "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.home.featured-hot",
                 "canonical.session.single-device"
             ],
             "producerOwners": [
+                "account-messaging",
                 "auth-session",
+                "comment-moderation",
                 "public-content"
             ]
         },
@@ -1056,7 +1586,7 @@
             "consumerId": "matrix:security",
             "executionClass": "security",
             "source": "tools/test/lanes/security-runtime.sh",
-            "requiredBusinessFact": "auth.user.active, security.risk-escalated, security.subject.banned",
+            "requiredBusinessFact": "auth.user.active, security.credential.revoked, security.pow.elevated, security.risk-escalated, security.subject.banned, session.multi-device",
             "implicitSource": "tests/matrix.yml tier security; command tools/test/lanes/security-runtime.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
             "profileId": "auth-security-matrix",
@@ -1065,13 +1595,19 @@
             ],
             "requiredCapabilities": [
                 "auth.user.active",
+                "security.credential.revoked",
+                "security.pow.elevated",
                 "security.risk-escalated",
-                "security.subject.banned"
+                "security.subject.banned",
+                "session.multi-device"
             ],
             "requiredVariantIds": [
                 "canonical.auth.user.active",
+                "canonical.security.credential.revoked",
+                "canonical.security.pow.elevated",
                 "canonical.security.risk-escalated",
-                "canonical.security.subject.banned"
+                "canonical.security.subject.banned",
+                "canonical.session.multi-device"
             ],
             "producerOwners": [
                 "auth-session",
@@ -1082,7 +1618,7 @@
             "consumerId": "matrix:security-authenticated-dast",
             "executionClass": "security",
             "source": "tools/test/lanes/security-authenticated-dast.sh",
-            "requiredBusinessFact": "auth.user.active, security.risk-escalated, session.multi-device",
+            "requiredBusinessFact": "auth.user.active, security.credential.revoked, security.pow.elevated, security.risk-escalated, security.subject.banned, session.multi-device",
             "implicitSource": "tests/matrix.yml tier security-authenticated-dast; command tools/test/lanes/security-authenticated-dast.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
             "profileId": "auth-security-matrix",
@@ -1091,12 +1627,18 @@
             ],
             "requiredCapabilities": [
                 "auth.user.active",
+                "security.credential.revoked",
+                "security.pow.elevated",
                 "security.risk-escalated",
+                "security.subject.banned",
                 "session.multi-device"
             ],
             "requiredVariantIds": [
                 "canonical.auth.user.active",
+                "canonical.security.credential.revoked",
+                "canonical.security.pow.elevated",
                 "canonical.security.risk-escalated",
+                "canonical.security.subject.banned",
                 "canonical.session.multi-device"
             ],
             "producerOwners": [
@@ -1132,7 +1674,7 @@
             "consumerId": "matrix:ux-viewport-boundaries",
             "executionClass": "browser",
             "source": "tools/test/lanes/ux-viewport-boundaries.sh",
-            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, public.article.published, session.single-device",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier ux-viewport-boundaries; command tools/test/lanes/ux-viewport-boundaries.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); scale data is produced by the scale-data generator for the selected scale profile only; upserts auth identities; reuses existing user/admin rows when handles already exist",
             "profileId": "acceptance-representative",
@@ -1142,17 +1684,33 @@
             "requiredCapabilities": [
                 "auth.admin.full-permission",
                 "auth.user.active",
+                "comment.moderation-matrix",
+                "comment.threaded",
+                "messages.thread",
+                "notifications.unread",
+                "public.article.draft",
                 "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
                 "session.single-device"
             ],
             "requiredVariantIds": [
                 "canonical.auth.admin.full-permission",
                 "canonical.auth.user.active",
+                "canonical.comment.moderation-matrix",
+                "canonical.comment.threaded",
+                "canonical.messages.thread",
+                "canonical.notifications.unread",
+                "canonical.public.article.draft",
                 "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.home.featured-hot",
                 "canonical.session.single-device"
             ],
             "producerOwners": [
+                "account-messaging",
                 "auth-session",
+                "comment-moderation",
                 "public-content"
             ]
         },
@@ -1160,7 +1718,7 @@
             "consumerId": "matrix:ux-viewport-smoke",
             "executionClass": "browser",
             "source": "tools/test/lanes/ux-viewport-smoke.sh",
-            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, public.article.published, session.single-device",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier ux-viewport-smoke; command tools/test/lanes/ux-viewport-smoke.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); scale data is produced by the scale-data generator for the selected scale profile only; upserts auth identities; reuses existing user/admin rows when handles already exist",
             "profileId": "acceptance-representative",
@@ -1170,17 +1728,33 @@
             "requiredCapabilities": [
                 "auth.admin.full-permission",
                 "auth.user.active",
+                "comment.moderation-matrix",
+                "comment.threaded",
+                "messages.thread",
+                "notifications.unread",
+                "public.article.draft",
                 "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
                 "session.single-device"
             ],
             "requiredVariantIds": [
                 "canonical.auth.admin.full-permission",
                 "canonical.auth.user.active",
+                "canonical.comment.moderation-matrix",
+                "canonical.comment.threaded",
+                "canonical.messages.thread",
+                "canonical.notifications.unread",
+                "canonical.public.article.draft",
                 "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.home.featured-hot",
                 "canonical.session.single-device"
             ],
             "producerOwners": [
+                "account-messaging",
                 "auth-session",
+                "comment-moderation",
                 "public-content"
             ]
         },
@@ -1188,7 +1762,7 @@
             "consumerId": "matrix:ux-viewport-visual",
             "executionClass": "browser",
             "source": "tools/test/lanes/ux-viewport-visual.sh",
-            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, public.article.published, session.single-device",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier ux-viewport-visual; command tools/test/lanes/ux-viewport-visual.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); scale data is produced by the scale-data generator for the selected scale profile only; upserts auth identities; reuses existing user/admin rows when handles already exist",
             "profileId": "acceptance-representative",
@@ -1198,17 +1772,33 @@
             "requiredCapabilities": [
                 "auth.admin.full-permission",
                 "auth.user.active",
+                "comment.moderation-matrix",
+                "comment.threaded",
+                "messages.thread",
+                "notifications.unread",
+                "public.article.draft",
                 "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
                 "session.single-device"
             ],
             "requiredVariantIds": [
                 "canonical.auth.admin.full-permission",
                 "canonical.auth.user.active",
+                "canonical.comment.moderation-matrix",
+                "canonical.comment.threaded",
+                "canonical.messages.thread",
+                "canonical.notifications.unread",
+                "canonical.public.article.draft",
                 "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.home.featured-hot",
                 "canonical.session.single-device"
             ],
             "producerOwners": [
+                "account-messaging",
                 "auth-session",
+                "comment-moderation",
                 "public-content"
             ]
         },
@@ -1216,7 +1806,7 @@
             "consumerId": "matrix:visual-console",
             "executionClass": "browser",
             "source": "tools/test/lanes/visual-console-playwright.sh",
-            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, public.article.published, session.single-device",
+            "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier visual-console; command tools/test/lanes/visual-console-playwright.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); scale data is produced by the scale-data generator for the selected scale profile only; upserts auth identities; reuses existing user/admin rows when handles already exist",
             "profileId": "acceptance-representative",
@@ -1226,17 +1816,33 @@
             "requiredCapabilities": [
                 "auth.admin.full-permission",
                 "auth.user.active",
+                "comment.moderation-matrix",
+                "comment.threaded",
+                "messages.thread",
+                "notifications.unread",
+                "public.article.draft",
                 "public.article.published",
+                "public.article.revision-history",
+                "public.home.featured-hot",
                 "session.single-device"
             ],
             "requiredVariantIds": [
                 "canonical.auth.admin.full-permission",
                 "canonical.auth.user.active",
+                "canonical.comment.moderation-matrix",
+                "canonical.comment.threaded",
+                "canonical.messages.thread",
+                "canonical.notifications.unread",
+                "canonical.public.article.draft",
                 "canonical.public.article.published",
+                "canonical.public.article.revision-history",
+                "canonical.public.home.featured-hot",
                 "canonical.session.single-device"
             ],
             "producerOwners": [
+                "account-messaging",
                 "auth-session",
+                "comment-moderation",
                 "public-content"
             ]
         },
@@ -1244,7 +1850,7 @@
             "consumerId": "matrix:visual-public",
             "executionClass": "browser",
             "source": "tools/test/lanes/visual-public-playwright.sh",
-            "requiredBusinessFact": "public.article.published, public.home.featured-hot",
+            "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.revision-history, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
             "implicitSource": "tests/matrix.yml tier visual-public; command tools/test/lanes/visual-public-playwright.sh",
             "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); scale data is produced by the scale-data generator for the selected scale profile only; upserts auth identities; reuses existing user/admin rows when handles already exist",
             "profileId": "public-content-lifecycle",
@@ -1252,12 +1858,30 @@
                 "public-content-lifecycle"
             ],
             "requiredCapabilities": [
+                "public.article.archived",
+                "public.article.deleted",
+                "public.article.draft",
+                "public.article.multiple-publications",
+                "public.article.multiple-revisions",
                 "public.article.published",
-                "public.home.featured-hot"
+                "public.article.revision-history",
+                "public.article.scheduled",
+                "public.home.featured-hot",
+                "public.search.indexed",
+                "public.taxonomy.category-tag"
             ],
             "requiredVariantIds": [
+                "canonical.public.article.archived",
+                "canonical.public.article.deleted",
+                "canonical.public.article.draft",
+                "canonical.public.article.multiple-publications",
+                "canonical.public.article.multiple-revisions",
                 "canonical.public.article.published",
-                "canonical.public.home.featured-hot"
+                "canonical.public.article.revision-history",
+                "canonical.public.article.scheduled",
+                "canonical.public.home.featured-hot",
+                "canonical.public.search.indexed",
+                "canonical.public.taxonomy.category-tag"
             ],
             "producerOwners": [
                 "public-content"

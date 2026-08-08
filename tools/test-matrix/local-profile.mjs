@@ -9,6 +9,7 @@ import {
     localBehaviorDocCandidateBundleIds
 } from './behavior-doc-static-admission-contract.mjs';
 import { productionResidentServiceIds } from './resident-resource-leases.mjs';
+import { expandFixtureProfile } from '../testing/fixture-catalog.mjs';
 
 function profileEntries(localProfiles)
 {
@@ -838,13 +839,13 @@ export function projectLocalBootstrapFixtureProfile(physicalTiers, logicalTiers)
     {
         delete tier.selfBootstraps;
         delete tier.fixtureProfile;
-        delete tier.fixtureCapabilities;
         delete tier.requiresBootstrap;
     }
+    const bootstrapCapabilities = expandFixtureProfile(logicalBootstrap.fixtureProfile).capabilities;
     Object.assign(runtimeTier, {
         selfBootstraps: true,
         fixtureProfile: logicalBootstrap.fixtureProfile,
-        fixtureCapabilities: logicalBootstrap.fixtureCapabilities.slice(),
+        fixtureCapabilities: bootstrapCapabilities.slice(),
         requiresBootstrap: logicalBootstrap.requiresBootstrap
     });
     return physicalTiers;

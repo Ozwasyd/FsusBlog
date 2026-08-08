@@ -818,6 +818,7 @@ export function validateFixtureAuthoritySources({ repositoryRoot = root, sourceO
     'docs/testing/fixture-capability-catalog.md',
     'tests/matrix.yml',
     'tests/tools/fixture-catalog.test.mjs',
+    'tests/tools/matrix-fixture-profile.test.mjs',
     'tools/test-matrix/behavior-doc-static-admission-contract.mjs',
     'tools/testing/fixture-catalog.mjs',
     'tools/testing/generate-fixture-catalog-artifacts.mjs'
@@ -1371,31 +1372,48 @@ export function validateFixtureCatalogs({
   try {
     const matrix = parseMatrix(fs.readFileSync(matrixFile, 'utf8'))
     const expectedMatrixConsumers = matrix.tiers.filter(isFixtureMatrixConsumer)
+    const profileById = new Map(profiles.map((item) => [item.id, item]))
     for (const tier of matrix.tiers) {
       const isConsumer = isFixtureMatrixConsumer(tier)
-      const explicitStaticNone = tier.executionClass === 'static-governance'
-        && tier.fixtureProfile === 'none'
-        && Array.isArray(tier.fixtureCapabilities)
-        && tier.fixtureCapabilities.length === 0
-      if (isConsumer && (!Object.hasOwn(tier, 'fixtureProfile') || !Object.hasOwn(tier, 'fixtureCapabilities'))) {
-        errors.push(`matrix data consumer ${tier.id} must bind fixtureProfile and fixtureCapabilities`)
+      const missing = ['fixtureProfile', 'fixtureProfileReason', 'fixtureProfileProof', 'fixtureMutatorAllowed', 'executionClass']
+        .filter((field) => !Object.hasOwn(tier, field))
+      if (missing.length) {
+        errors.push(`matrix tier ${tier.id} must bind ${missing.join(', ')}`)
         continue
       }
-      if (!isConsumer && !explicitStaticNone
-        && (Object.hasOwn(tier, 'fixtureProfile') || Object.hasOwn(tier, 'fixtureCapabilities'))) {
-        errors.push(`matrix non-consumer ${tier.id} must not declare fixture data`)
+      if (Object.hasOwn(tier, 'fixtureCapabilities')) {
+        errors.push(`matrix tier ${tier.id} must not declare retired fixtureCapabilities field`)
       }
-      if (!Object.hasOwn(tier, 'fixtureProfile')) continue
+      if (!profileIds.has(tier.fixtureProfile)) {
+        errors.push(`matrix tier ${tier.id} references unknown fixture profile ${tier.fixtureProfile}`)
+        continue
+      }
+      if (profileById.get(tier.fixtureProfile)?.status === 'deprecated') {
+        errors.push(`matrix tier ${tier.id} references deprecated fixture profile ${tier.fixtureProfile}`)
+      }
+      if (tier.fixtureMutatorAllowed !== (tier.fixtureProfile !== 'none')) {
+        errors.push(`matrix tier ${tier.id} fixtureMutatorAllowed must be ${tier.fixtureProfile !== 'none'}`)
+      }
+      const expectedReason = tier.fixtureProfile === 'none'
+        ? `none-${tier.executionClass}`
+        : `binds-${tier.fixtureProfile}`
+      if (tier.fixtureProfileReason !== expectedReason) {
+        errors.push(`matrix tier ${tier.id} fixtureProfileReason must be ${expectedReason}`)
+      }
+      if (typeof tier.fixtureProfileProof !== 'string' || !tier.fixtureProfileProof.startsWith('tests/tools/')
+        || !tier.fixtureProfileProof.endsWith('.test.mjs')) {
+        errors.push(`matrix tier ${tier.id} fixtureProfileProof must reference a tests/tools focused test`)
+      }
+      if (tier.fixtureProfile !== 'none' && !isConsumer) {
+        errors.push(`matrix non-consumer ${tier.id} must use fixtureProfile none`)
+      }
+      if (isConsumer && tier.fixtureProfile !== 'none') {
+        const selectedProfile = profileById.get(tier.fixtureProfile)
+        if (!selectedProfile.allowedExecutionClasses.includes(tier.executionClass)) {
+          errors.push(`matrix data consumer ${tier.id} profile ${tier.fixtureProfile} rejects execution class ${tier.executionClass}`)
+        }
+      }
       errors.push(...validateNoneFixtureTier(tier, { repositoryRoot }))
-      if (!profileIds.has(tier.fixtureProfile)) errors.push(`matrix tier ${tier.id} references unknown fixture profile ${tier.fixtureProfile}`)
-      if (!sortedUnique(tier.fixtureCapabilities)) errors.push(`matrix tier ${tier.id} fixtureCapabilities must be sorted and unique`)
-      validateReferences(tier.fixtureCapabilities, capabilityIds, `matrix tier ${tier.id}.fixtureCapabilities`, errors)
-      try {
-        const expanded = new Set(expandFixtureProfile(tier.fixtureProfile, catalogs).capabilities)
-        for (const required of tier.fixtureCapabilities) if (!expanded.has(required)) errors.push(`matrix tier ${tier.id} profile ${tier.fixtureProfile} omits ${required}`)
-        if (tier.fixtureProfile === 'none' && tier.fixtureCapabilities.length !== 0) errors.push(`matrix tier ${tier.id} none profile must have zero capabilities`)
-        if (tier.fixtureProfile !== 'none' && tier.fixtureCapabilities.length === 0) errors.push(`matrix data consumer ${tier.id} cannot hide its facts behind an empty capability list`)
-      } catch (error) { errors.push(`matrix tier ${tier.id} profile expansion failed: ${error.message}`) }
     }
     const inventoryMatrixIds = (inventory.consumers ?? []).filter((item) => item.consumerId.startsWith('matrix:')).map((item) => item.consumerId.slice('matrix:'.length)).sort()
     if (JSON.stringify(inventoryMatrixIds) !== JSON.stringify(expectedMatrixConsumers.map((tier) => tier.id).sort())) {
@@ -1404,13 +1422,20 @@ export function validateFixtureCatalogs({
     const inventoryById = new Map((inventory.consumers ?? []).map((item) => [item.consumerId, item]))
     for (const tier of expectedMatrixConsumers) {
       const entry = inventoryById.get(`matrix:${tier.id}`)
+      let requiredCapabilities
+      try {
+        requiredCapabilities = expandFixtureProfile(tier.fixtureProfile, catalogs).capabilities
+      } catch (error) {
+        errors.push(`matrix tier ${tier.id} profile expansion failed: ${error.message}`)
+        continue
+      }
       const expectedVariants = resolveFixtureVariants(
-        tier.fixtureCapabilities,
+        requiredCapabilities,
         entry?.executionClass ?? inferFixtureExecutionClass(tier, catalogs),
         catalogs,
         { requestedVariantIds: entry?.requiredVariantIds }
       )
-      if (entry && (entry.profileId !== tier.fixtureProfile || JSON.stringify(entry.requiredCapabilities) !== JSON.stringify(tier.fixtureCapabilities) || JSON.stringify(entry.requiredVariantIds) !== JSON.stringify(expectedVariants))) {
+      if (entry && (entry.profileId !== tier.fixtureProfile || JSON.stringify(entry.requiredCapabilities) !== JSON.stringify(requiredCapabilities) || JSON.stringify(entry.requiredVariantIds) !== JSON.stringify(expectedVariants))) {
         errors.push(`matrix tier ${tier.id} and generated inventory declaration differ`)
       }
       if (entry) {

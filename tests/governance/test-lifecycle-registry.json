@@ -3747,6 +3747,17 @@
                 "source-text",
                 "runtime"
             ]
+        },
+        {
+            "file": "tests/tools/matrix-fixture-profile.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/matrix-fixture-profile.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
         }
     ]
 }

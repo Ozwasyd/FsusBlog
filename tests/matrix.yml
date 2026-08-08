@@ -370,6 +370,11 @@ localProfiles:
               exclusiveResources: []
 tiers:
     - id: validate-matrix
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/run-matrix-governance-once.sh validate-matrix
       cacheInputs:
@@ -448,8 +453,12 @@ tiers:
       nightlyOnly: false
 
     - id: behavior-doc-static-admission
-      owner: ServerContractAgent
       executionClass: static-governance
+      fixtureProfile: none
+      fixtureProfileReason: none-static-governance
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
+      owner: ServerContractAgent
       qualificationEligible: true
       command: node tools/docs/behavior-doc-static-admission.mjs
       outputReceiptSchema: fsusblog.behavior-doc-static-admission-receipt.v1
@@ -488,8 +497,6 @@ tiers:
               tools/test-matrix/behavior-doc-static-admission-contract.mjs,
           ]
       requiresBootstrap: none
-      fixtureProfile: none
-      fixtureCapabilities: []
       requiresNode: true
       requiresDotnet: true
       requiresPlaywright: none
@@ -539,8 +546,12 @@ tiers:
       triggerReason: every candidate requires a source-bound BehaviorDoc static admission receipt before any candidate process or output mutation
 
     - id: behavior-evidence-pre-runtime
-      owner: ServerContractAgent
       executionClass: static-governance
+      fixtureProfile: none
+      fixtureProfileReason: none-static-governance
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
+      owner: ServerContractAgent
       qualificationEligible: true
       command: bash tools/test/bundles/behavior-evidence-pre-runtime.sh
       outputReceiptSchema: fsusblog.behavior-evidence-pre-runtime-receipt.v1
@@ -567,8 +578,6 @@ tiers:
       minCpuUnits: 1
       maxParallel: 1
       requiresBootstrap: none
-      fixtureProfile: none
-      fixtureCapabilities: []
       requiresNode: true
       requiresDotnet: false
       requiresPlaywright: none
@@ -613,6 +622,11 @@ tiers:
       triggerReason: every runtime/browser/production/release candidate requires a source-bound BehaviorGraph pre-runtime evidence receipt joining static admission, current-run test evidence, and per-behavior mutation evidence before any candidate can start
 
     - id: pr-smart-gate-plan
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: node tools/run-test-matrix.mjs ci-pr-plan --out .tmp/pr-plan.json
       executionDependsOn: [validate-matrix]
@@ -649,6 +663,11 @@ tiers:
       triggerReason: PR smart gate plan and skip evidence must always be generated
 
     - id: wasm-build-artifacts
+      executionClass: build
+      fixtureProfile: none
+      fixtureProfileReason: none-build
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: InteropGlueAgent
       command: ./tools/build-wasm-artifact.sh
       executionDependsOn: [behavior-doc-static-admission]
@@ -692,6 +711,11 @@ tiers:
       triggerReason: every WASM consumer requires the immutable current-run producer artifact
 
     - id: production-build-artifacts
+      executionClass: build
+      fixtureProfile: none
+      fixtureProfileReason: none-build
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: bash tools/test/lanes/production-build-artifacts.sh
       executionDependsOn: [behavior-doc-static-admission]
@@ -773,6 +797,11 @@ tiers:
       triggerReason: selected runtime/browser domains require one immutable production build artifact set
 
     - id: frontend-build
+      executionClass: build
+      fixtureProfile: none
+      fixtureProfileReason: none-build
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: InteropGlueAgent
       command: tools/test/lanes/frontend-build.sh
       outputReceiptSchema: fsusblog.ci.job-result.v1
@@ -830,6 +859,11 @@ tiers:
       nightlyOnly: false
 
     - id: frontend-unit-shard
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: InteropGlueAgent
       command: tools/test/lanes/frontend-unit-shard.sh
       outputReceiptSchema: fsusblog.ci.job-result.v1
@@ -948,6 +982,11 @@ tiers:
       nightlyOnly: false
 
     - id: frontend-property-model-perf
+      executionClass: benchmark
+      fixtureProfile: none
+      fixtureProfileReason: none-benchmark
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: InteropGlueAgent
       command: tools/test/lanes/frontend-property-model-perf.sh
       outputReceiptSchema: fsusblog.ci.job-result.v1
@@ -1011,6 +1050,11 @@ tiers:
       nightlyOnly: false
 
     - id: frontend-runtime-contracts
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: InteropGlueAgent
       command: tools/test/lanes/frontend-runtime-contracts.sh
       outputReceiptSchema: fsusblog.ci.job-result.v1
@@ -1070,6 +1114,11 @@ tiers:
       nightlyOnly: false
 
     - id: frontend-static-governance
+      executionClass: static-governance
+      fixtureProfile: none
+      fixtureProfileReason: none-static-governance
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: InteropGlueAgent
       command: tools/test/lanes/frontend-static-governance.sh
       outputReceiptSchema: fsusblog.ci.job-result.v1
@@ -1164,6 +1213,11 @@ tiers:
       nightlyOnly: false
 
     - id: frontend-fast-summary
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: InteropGlueAgent
       executionMode: summary
       commandKind: aggregate
@@ -1209,6 +1263,11 @@ tiers:
       nightlyOnly: false
 
     - id: backend-build-governance
+      executionClass: build
+      fixtureProfile: none
+      fixtureProfileReason: none-build
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/backend-build-governance.sh
       executionDependsOn: [behavior-doc-static-admission]
@@ -1265,6 +1324,11 @@ tiers:
       nightlyOnly: false
 
     - id: backend-unit
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/backend-unit.sh
       executionDependsOn: [backend-build-governance]
@@ -1473,6 +1537,11 @@ tiers:
       nightlyOnly: false
 
     - id: distributed-contract-fast
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/distributed-contract-fast.sh
       executionDependsOn: [backend-build-governance]
@@ -1538,6 +1607,11 @@ tiers:
       nightlyOnly: false
 
     - id: backend-fast
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/backend-fast.sh
       outputReceiptSchema: fsusblog.ci.job-result.v1
@@ -1583,6 +1657,11 @@ tiers:
       nightlyOnly: false
 
     - id: integrity-proof-verification
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       executionMode: projection
       commandKind: projection
@@ -1658,6 +1737,11 @@ tiers:
       nightlyOnly: false
 
     - id: rights-v3-test-matrix
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       executionMode: projection
       commandKind: projection
@@ -1730,6 +1814,11 @@ tiers:
       triggerReason: Rights V3 schema, codec, frontend contract, artifact hot path, or test matrix inputs changed
 
     - id: static-governance
+      executionClass: static-governance
+      fixtureProfile: none
+      fixtureProfileReason: none-static-governance
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/static-governance.sh
       outputReceiptSchema: fsusblog.ci.job-result.v1
@@ -2294,6 +2383,11 @@ tiers:
       nightlyOnly: false
 
     - id: app-config-local-tuning
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: node --test tests/tools/app-config-local-tuner.test.mjs
       outputReceiptSchema: fsusblog.ci.job-result.v1
@@ -2353,6 +2447,11 @@ tiers:
       nightlyOnly: false
 
     - id: public-hydration-fast
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/public-hydration-fast.sh
       outputReceiptSchema: fsusblog.ci.job-result.v1
@@ -2387,6 +2486,11 @@ tiers:
       nightlyOnly: false
 
     - id: fast
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       executionMode: summary
       commandKind: aggregate
@@ -2437,6 +2541,11 @@ tiers:
       nightlyOnly: false
 
     - id: coverage-backend
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/coverage/collect-backend-coverage.sh
       executionDependsOn:
@@ -2514,6 +2623,11 @@ tiers:
       triggerReason: backend source, backend tests, or coverage governance changed
 
     - id: coverage-frontend
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: InteropGlueAgent
       command: tools/coverage/collect-frontend-coverage.sh
       executionDependsOn: [behavior-doc-static-admission]
@@ -2569,6 +2683,11 @@ tiers:
       triggerReason: frontend source, frontend tests, or coverage governance changed
 
     - id: coverage-merge
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/coverage/merge-coverage.sh
       executionDependsOn: [coverage-backend, coverage-frontend]
@@ -2621,6 +2740,11 @@ tiers:
       triggerReason: full coverage inputs or coverage governance changed
 
     - id: coverage-threshold
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/coverage-threshold.sh
       outputReceiptSchema: fsusblog.ci.job-result.v1
@@ -2674,6 +2798,11 @@ tiers:
       triggerReason: strict coverage inputs or coverage governance changed
 
     - id: coverage-gate
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       executionMode: summary
       commandKind: aggregate
@@ -2732,10 +2861,13 @@ tiers:
       triggerReason: full coverage gate inputs or coverage governance changed
 
     - id: bootstrap
+      executionClass: runtime
+      fixtureProfile: acceptance-representative
+      fixtureProfileReason: binds-acceptance-representative
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/bootstrap-acceptance-env.sh
-      fixtureProfile: acceptance-representative
-      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
       executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend, preview]
       runtimeMode: single
@@ -2778,10 +2910,13 @@ tiers:
       nightlyOnly: false
 
     - id: homogeneous-two-node-fixture
+      executionClass: runtime
+      fixtureProfile: acceptance-representative
+      fixtureProfileReason: binds-acceptance-representative
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/homogeneous-two-node-fixture.sh
-      fixtureProfile: acceptance-representative
-      fixtureCapabilities: [auth.user.active, public.article.published, session.single-device]
       executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend]
       runtimeMode: static-role
@@ -2824,10 +2959,13 @@ tiers:
       triggerReason: homogeneous multi-node fixture or topology contract changed
 
     - id: integration
+      executionClass: runtime
+      fixtureProfile: acceptance-representative
+      fixtureProfileReason: binds-acceptance-representative
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/runtime-integration.sh
-      fixtureProfile: acceptance-representative
-      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
       outputReceiptSchema: fsusblog.ci.job-result.v1
       executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend]
@@ -2932,6 +3070,11 @@ tiers:
       triggerReason: backend runtime, API contract, auth, cache, DB, or runtime smoke inputs changed
 
     - id: ci
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       executionMode: summary
       commandKind: aggregate
@@ -2969,10 +3112,13 @@ tiers:
       nightlyOnly: false
 
     - id: release
+      executionClass: runtime
+      fixtureProfile: public-content-lifecycle
+      fixtureProfileReason: binds-public-content-lifecycle
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/release-public.sh
-      fixtureProfile: public-content-lifecycle
-      fixtureCapabilities: [public.article.published]
       executionDependsOn: [behavior-doc-static-admission, bootstrap]
       services: [backend, preview]
       parallelizable: false
@@ -3058,6 +3204,11 @@ tiers:
       triggerReason: public renderer, AOT, hydration, SEO, PWA, or release preview inputs changed
 
     - id: public-hydration-nightly
+      executionClass: browser
+      fixtureProfile: none
+      fixtureProfileReason: none-browser
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: InteropGlueAgent
       command: tools/test/lanes/public-hydration-nightly.sh
       executionDependsOn: [validate-matrix, behavior-doc-static-admission]
@@ -3099,10 +3250,13 @@ tiers:
       nightlyOnly: true
 
     - id: security
+      executionClass: security
+      fixtureProfile: auth-security-matrix
+      fixtureProfileReason: binds-auth-security-matrix
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/security-runtime.sh
-      fixtureProfile: auth-security-matrix
-      fixtureCapabilities: [auth.user.active, security.risk-escalated, security.subject.banned]
       executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend]
       parallelizable: false
@@ -3181,10 +3335,13 @@ tiers:
       triggerReason: auth, MFA, passkey, permission, risk-control, DAST, or security config changed
 
     - id: acceptance
+      executionClass: browser
+      fixtureProfile: acceptance-representative
+      fixtureProfileReason: binds-acceptance-representative
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: InteropGlueAgent
       command: tools/test/lanes/acceptance-playwright.sh
-      fixtureProfile: acceptance-representative
-      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
       executionDependsOn: [fast, integration, release]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: true
@@ -3242,10 +3399,13 @@ tiers:
       triggerReason: route, auth flow, console flow, public flow, or acceptance fixture changed
 
     - id: article-private-preview
+      executionClass: browser
+      fixtureProfile: acceptance-representative
+      fixtureProfileReason: binds-acceptance-representative
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: InteropGlueAgent
       command: tools/test/lanes/article-private-preview.sh
-      fixtureProfile: acceptance-representative
-      fixtureCapabilities: [auth.admin.full-permission, session.single-device]
       executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend]
       parallelizable: false
@@ -3298,10 +3458,13 @@ tiers:
       triggerReason: private preview rendering, stale generation, admin fixture, rendered evidence, or fixed browser owner changed
 
     - id: production-xss-fast
+      executionClass: browser
+      fixtureProfile: production-xss
+      fixtureProfileReason: binds-production-xss
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: InteropGlueAgent
       command: tools/test/lanes/production-xss-fast.sh
-      fixtureProfile: production-xss
-      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
       executionDependsOn: [production-build-artifacts]
       services: []
       parallelizable: false
@@ -3341,10 +3504,13 @@ tiers:
       triggerReason: public Markdown, AOT, comments, private preview, CSP, Trusted Types, or FsusUI alias changed
 
     - id: production-xss-release
+      executionClass: browser
+      fixtureProfile: production-xss
+      fixtureProfileReason: binds-production-xss
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: InteropGlueAgent
       command: tools/test/lanes/production-xss-release.sh
-      fixtureProfile: production-xss
-      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
       executionDependsOn: [production-build-artifacts]
       services: []
       parallelizable: false
@@ -3383,10 +3549,13 @@ tiers:
       triggerReason: release browser XSS corpus, production rendering, CSP, Trusted Types, or FsusUI alias changed
 
     - id: browser-contract
+      executionClass: browser
+      fixtureProfile: acceptance-representative
+      fixtureProfileReason: binds-acceptance-representative
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: InteropGlueAgent
       command: bash tools/test/lanes/browser-contract.sh
-      fixtureProfile: acceptance-representative
-      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, comment.threaded, public.article.published, session.single-device]
       executionDependsOn: [production-build-artifacts]
       services: []
       parallelizable: false
@@ -3508,10 +3677,13 @@ tiers:
       triggerReason: release browser boundary, sealed single-namespace fixture lifecycle, or immutable build input changed
 
     - id: browser-diagnostics-nightly
+      executionClass: browser
+      fixtureProfile: acceptance-representative
+      fixtureProfileReason: binds-acceptance-representative
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: InteropGlueAgent
       command: bash tools/test/lanes/browser-diagnostics.sh nightly
-      fixtureProfile: acceptance-representative
-      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
       executionDependsOn: [production-build-artifacts, bootstrap, release, integration]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false
@@ -3589,10 +3761,13 @@ tiers:
       retentionClass: conditional
 
     - id: browser-diagnostics-manual
+      executionClass: browser
+      fixtureProfile: acceptance-representative
+      fixtureProfileReason: binds-acceptance-representative
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: InteropGlueAgent
       command: bash tools/test/lanes/browser-diagnostics.sh manual
-      fixtureProfile: acceptance-representative
-      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
       executionDependsOn: [production-build-artifacts, bootstrap, release, integration]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false
@@ -3652,10 +3827,13 @@ tiers:
       retentionClass: conditional
 
     - id: browser-runtime-risk-diagnostics
+      executionClass: browser
+      fixtureProfile: acceptance-representative
+      fixtureProfileReason: binds-acceptance-representative
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: InteropGlueAgent
       command: tools/test/lanes/browser-runtime-risk-diagnostics.sh
-      fixtureProfile: acceptance-representative
-      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
       executionDependsOn: [bootstrap, release]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false
@@ -3697,12 +3875,15 @@ tiers:
       retentionClass: conditional
 
     - id: browser-diagnostics
+      executionClass: browser
+      fixtureProfile: acceptance-representative
+      fixtureProfileReason: binds-acceptance-representative
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: InteropGlueAgent
       executionMode: execute
       commandKind: producer
       command: tools/test/lanes/browser-runtime-risk-diagnostics.sh
-      fixtureProfile: acceptance-representative
-      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
       executionDependsOn: [browser-diagnostics-manual]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false
@@ -3744,10 +3925,13 @@ tiers:
       retentionClass: conditional
 
     - id: visual-public
+      executionClass: browser
+      fixtureProfile: public-content-lifecycle
+      fixtureProfileReason: binds-public-content-lifecycle
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: InteropGlueAgent
       command: tools/test/lanes/visual-public-playwright.sh
-      fixtureProfile: public-content-lifecycle
-      fixtureCapabilities: [public.article.published, public.home.featured-hot]
       executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: true
@@ -3817,10 +4001,13 @@ tiers:
       triggerReason: public visual surface, CSS, or screenshot fixtures changed
 
     - id: visual-console
+      executionClass: browser
+      fixtureProfile: acceptance-representative
+      fixtureProfileReason: binds-acceptance-representative
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: InteropGlueAgent
       command: tools/test/lanes/visual-console-playwright.sh
-      fixtureProfile: acceptance-representative
-      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
       executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: true
@@ -3909,6 +4096,11 @@ tiers:
       triggerReason: console visual surface, CSS, or screenshot fixtures changed
 
     - id: visual
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: InteropGlueAgent
       command: tools/test/lanes/visual-screenshots-aggregate.sh
       executionDependsOn: [visual-public, visual-console]
@@ -3962,10 +4154,13 @@ tiers:
       triggerReason: visual screenshot inputs changed
 
     - id: ux-viewport-smoke
+      executionClass: browser
+      fixtureProfile: acceptance-representative
+      fixtureProfileReason: binds-acceptance-representative
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: InteropGlueAgent
       command: tools/test/lanes/ux-viewport-smoke.sh
-      fixtureProfile: acceptance-representative
-      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
       executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: true
@@ -4020,6 +4215,11 @@ tiers:
       smartGateMode: full-only
 
     - id: ux-viewport-plan-progress
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: InteropGlueAgent
       command: node tools/ux/run-viewport-plan-progress.mjs
       executionDependsOn: [behavior-doc-static-admission]
@@ -4073,10 +4273,13 @@ tiers:
       triggerReason: viewport plan and progress/resume governance is a production invariant
 
     - id: ux-viewport-visual
+      executionClass: browser
+      fixtureProfile: acceptance-representative
+      fixtureProfileReason: binds-acceptance-representative
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: InteropGlueAgent
       command: tools/test/lanes/ux-viewport-visual.sh
-      fixtureProfile: acceptance-representative
-      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
       executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false
@@ -4121,10 +4324,13 @@ tiers:
       smartGateMode: full-only
 
     - id: ux-viewport-boundaries
+      executionClass: browser
+      fixtureProfile: acceptance-representative
+      fixtureProfileReason: binds-acceptance-representative
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: InteropGlueAgent
       command: tools/test/lanes/ux-viewport-boundaries.sh
-      fixtureProfile: acceptance-representative
-      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
       executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false
@@ -4167,6 +4373,11 @@ tiers:
       smartGateMode: full-only
 
     - id: frontend-render-structure
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: InteropGlueAgent
       command: tools/test/lanes/frontend-render-structure.sh
       executionDependsOn: [frontend-static-governance]
@@ -4227,10 +4438,13 @@ tiers:
       triggerReason: joins current-run DOM-depth and markdown producer receipts after frontend static governance
 
     - id: cross-browser-smoke
+      executionClass: browser
+      fixtureProfile: none
+      fixtureProfileReason: none-browser
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: InteropGlueAgent
       command: tools/test/lanes/cross-browser-smoke.sh
-      fixtureProfile: none
-      fixtureCapabilities: []
       executionDependsOn: [release]
       services: [preview]
       parallelizable: true
@@ -4297,10 +4511,13 @@ tiers:
       triggerReason: browser capability-risk closure, selector, Playwright project, service worker, worker, CSS, or public hydration code changed
 
     - id: resilience
+      executionClass: runtime
+      fixtureProfile: acceptance-representative
+      fixtureProfileReason: binds-acceptance-representative
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/resilience-runtime.sh
-      fixtureProfile: acceptance-representative
-      fixtureCapabilities: [auth.user.active, public.article.published, session.single-device]
       executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false
@@ -4377,10 +4594,13 @@ tiers:
       triggerReason: upload, search, notification stream, binary transport, or resilience runtime inputs changed
 
     - id: load
+      executionClass: load
+      fixtureProfile: scale-xs
+      fixtureProfileReason: binds-scale-xs
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/load-smoke.sh
-      fixtureProfile: scale-xs
-      fixtureCapabilities: [public.article.published, scale.article-comment.xs]
       executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false
@@ -4434,10 +4654,13 @@ tiers:
       triggerReason: performance-sensitive backend, notification pressure, or load policy inputs changed
 
     - id: backend-qps-view-count-flush
+      executionClass: load
+      fixtureProfile: public-content-lifecycle
+      fixtureProfileReason: binds-public-content-lifecycle
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh view-count-flush
-      fixtureProfile: public-content-lifecycle
-      fixtureCapabilities: [public.article.published]
       executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -4479,10 +4702,13 @@ tiers:
       triggerReason: view-count flush, article core bridge, or backend-qps collector changed
 
     - id: backend-qps-visitlog-invalidation
+      executionClass: load
+      fixtureProfile: public-content-lifecycle
+      fixtureProfileReason: binds-public-content-lifecycle
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh visitlog-invalidation
-      fixtureProfile: public-content-lifecycle
-      fixtureCapabilities: [public.article.published]
       executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -4523,10 +4749,13 @@ tiers:
       triggerReason: visit log invalidation or backend-qps collector changed
 
     - id: backend-qps-cache-hit
+      executionClass: load
+      fixtureProfile: public-content-lifecycle
+      fixtureProfileReason: binds-public-content-lifecycle
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh cache-hit
-      fixtureProfile: public-content-lifecycle
-      fixtureCapabilities: [public.article.published]
       executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -4568,10 +4797,13 @@ tiers:
       triggerReason: PR sentinel plus binary frame cache hit coverage
 
     - id: backend-qps-comment-cursor
+      executionClass: load
+      fixtureProfile: comments-moderation
+      fixtureProfileReason: binds-comments-moderation
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh comment-cursor
-      fixtureProfile: comments-moderation
-      fixtureCapabilities: [comment.threaded, public.article.published]
       executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -4612,10 +4844,13 @@ tiers:
       triggerReason: comment cursor cache or backend-qps collector changed
 
     - id: backend-qps-hotread
+      executionClass: load
+      fixtureProfile: public-content-lifecycle
+      fixtureProfileReason: binds-public-content-lifecycle
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh hotread
-      fixtureProfile: public-content-lifecycle
-      fixtureCapabilities: [public.article.published, public.home.featured-hot]
       executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -4657,10 +4892,13 @@ tiers:
       triggerReason: PR sentinel plus public hot-read coverage
 
     - id: backend-qps-cache-miss-singleflight
+      executionClass: load
+      fixtureProfile: public-content-lifecycle
+      fixtureProfileReason: binds-public-content-lifecycle
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh cache-miss-singleflight
-      fixtureProfile: public-content-lifecycle
-      fixtureCapabilities: [public.article.published]
       executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -4702,10 +4940,13 @@ tiers:
       triggerReason: PR sentinel plus cache miss singleflight coverage
 
     - id: backend-qps-risk-filter
+      executionClass: load
+      fixtureProfile: auth-security-matrix
+      fixtureProfileReason: binds-auth-security-matrix
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh risk-filter
-      fixtureProfile: auth-security-matrix
-      fixtureCapabilities: [auth.user.active, security.risk-escalated]
       executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -4746,10 +4987,13 @@ tiers:
       triggerReason: public read risk filter or backend-qps collector changed
 
     - id: backend-qps-related-reading
+      executionClass: load
+      fixtureProfile: public-content-lifecycle
+      fixtureProfileReason: binds-public-content-lifecycle
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh related-reading
-      fixtureProfile: public-content-lifecycle
-      fixtureCapabilities: [public.article.published]
       executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -4790,10 +5034,13 @@ tiers:
       triggerReason: related reading cache or backend-qps collector changed
 
     - id: backend-qps-list-pagination
+      executionClass: load
+      fixtureProfile: public-content-lifecycle
+      fixtureProfileReason: binds-public-content-lifecycle
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh list-pagination
-      fixtureProfile: public-content-lifecycle
-      fixtureCapabilities: [public.article.published]
       executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -4833,10 +5080,13 @@ tiers:
       triggerReason: public list pagination or backend-qps collector changed
 
     - id: backend-qps-article-detail-miss
+      executionClass: load
+      fixtureProfile: public-content-lifecycle
+      fixtureProfileReason: binds-public-content-lifecycle
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh article-detail-miss
-      fixtureProfile: public-content-lifecycle
-      fixtureCapabilities: [public.article.published]
       executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -4878,10 +5128,13 @@ tiers:
       triggerReason: article detail artifact miss or backend-qps collector changed
 
     - id: backend-qps-cache-registry
+      executionClass: load
+      fixtureProfile: public-content-lifecycle
+      fixtureProfileReason: binds-public-content-lifecycle
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh cache-registry
-      fixtureProfile: public-content-lifecycle
-      fixtureCapabilities: [public.article.published]
       executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -4918,10 +5171,13 @@ tiers:
       triggerReason: cache registry or backend-qps collector changed
 
     - id: backend-cache-invalidation-batch
+      executionClass: runtime
+      fixtureProfile: public-content-lifecycle
+      fixtureProfileReason: binds-public-content-lifecycle
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh cache-invalidation-batch
-      fixtureProfile: public-content-lifecycle
-      fixtureCapabilities: [public.article.published]
       executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -4962,10 +5218,13 @@ tiers:
       triggerReason: cache invalidation batching or backend-qps collector changed
 
     - id: backend-qps-index-plan
+      executionClass: load
+      fixtureProfile: public-content-lifecycle
+      fixtureProfileReason: binds-public-content-lifecycle
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh index-plan
-      fixtureProfile: public-content-lifecycle
-      fixtureCapabilities: [public.article.published]
       executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -5008,6 +5267,11 @@ tiers:
       triggerReason: database index or public article projection plan changed
 
     - id: backend-qps
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh aggregate
       executionDependsOn:
@@ -5063,10 +5327,13 @@ tiers:
       triggerReason: backend-qps aggregate requires full collector evidence and runs only in full gates
 
     - id: backend-qps-runtime-sequential
+      executionClass: load
+      fixtureProfile: acceptance-representative
+      fixtureProfileReason: binds-acceptance-representative
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/backend-qps.sh backend-qps-runtime-sequential
-      fixtureProfile: acceptance-representative
-      fixtureCapabilities: [auth.user.active, public.article.published, session.single-device]
       executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend]
       parallelizable: false
@@ -5102,6 +5369,11 @@ tiers:
       nightlyOnly: true
 
     - id: aeds-frame-cost
+      executionClass: benchmark
+      fixtureProfile: none
+      fixtureProfileReason: none-benchmark
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: InteropGlueAgent
       command: tools/test/lanes/aeds-frame-cost.sh
       executionDependsOn: [frontend-build]
@@ -5173,6 +5445,11 @@ tiers:
       nightlyOnly: false
 
     - id: aeds-compression-profile
+      executionClass: benchmark
+      fixtureProfile: none
+      fixtureProfileReason: none-benchmark
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/aeds-compression-profile.sh
       executionDependsOn: [behavior-doc-static-admission]
@@ -5237,10 +5514,13 @@ tiers:
       nightlyOnly: false
 
     - id: endpoint-depth
+      executionClass: runtime
+      fixtureProfile: acceptance-representative
+      fixtureProfileReason: binds-acceptance-representative
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/endpoint-depth.sh
-      fixtureProfile: acceptance-representative
-      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
       executionDependsOn: [bootstrap]
       services: [postgres, redis, backend]
       parallelizable: true
@@ -5282,10 +5562,13 @@ tiers:
       nightlyOnly: false
 
     - id: data-scale-xs
+      executionClass: load
+      fixtureProfile: scale-xs
+      fixtureProfileReason: binds-scale-xs
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/data-scale.sh scale-xs
-      fixtureProfile: scale-xs
-      fixtureCapabilities: [public.article.published, scale.article-comment.xs]
       executionDependsOn: [bootstrap]
       services: [postgres, redis]
       parallelizable: true
@@ -5319,10 +5602,13 @@ tiers:
       nightlyOnly: false
 
     - id: data-scale-s
+      executionClass: load
+      fixtureProfile: scale-s
+      fixtureProfileReason: binds-scale-s
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/data-scale.sh scale-s
-      fixtureProfile: scale-s
-      fixtureCapabilities: [public.article.published, scale.article-comment.s]
       executionDependsOn: [bootstrap]
       services: [postgres, redis]
       parallelizable: false
@@ -5357,6 +5643,11 @@ tiers:
       nightlyOnly: false
 
     - id: data-scale-evidence-summary
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: node --permission '--allow-fs-read=.tmp/scale/*' '--allow-fs-read=.tmp/downloaded-artifacts/*' '--allow-fs-read=.tmp/release-evidence/*' '--allow-fs-write=.tmp/release-evidence/*' tools/test/aggregate-data-scale-evidence.mjs
       executionDependsOn: [data-scale-xs, data-scale-s]
@@ -5398,10 +5689,13 @@ tiers:
       prDefault: true
 
     - id: data-scale-m
+      executionClass: load
+      fixtureProfile: scale-m
+      fixtureProfileReason: binds-scale-m
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/data-scale.sh scale-m
-      fixtureProfile: scale-m
-      fixtureCapabilities: [public.article.published, scale.article-comment.m]
       executionDependsOn: [bootstrap]
       services: [postgres, redis]
       parallelizable: false
@@ -5436,10 +5730,13 @@ tiers:
       nightlyOnly: true
 
     - id: data-scale-nightly
+      executionClass: load
+      fixtureProfile: scale-l-nightly
+      fixtureProfileReason: binds-scale-l-nightly
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/data-scale.sh scale-l-nightly
-      fixtureProfile: scale-l-nightly
-      fixtureCapabilities: [public.article.published, scale.article-comment.l]
       executionDependsOn: [bootstrap]
       services: [postgres, redis]
       parallelizable: false
@@ -5474,10 +5771,13 @@ tiers:
       nightlyOnly: true
 
     - id: load-baseline
+      executionClass: load
+      fixtureProfile: scale-xs
+      fixtureProfileReason: binds-scale-xs
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/load-profile.sh baseline
-      fixtureProfile: scale-xs
-      fixtureCapabilities: [public.article.published, scale.article-comment.xs]
       executionDependsOn: [bootstrap]
       services: [backend, redis, postgres]
       parallelizable: false
@@ -5517,10 +5817,13 @@ tiers:
       nightlyOnly: false
 
     - id: load-peak
+      executionClass: load
+      fixtureProfile: scale-s
+      fixtureProfileReason: binds-scale-s
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/load-profile.sh expected-peak
-      fixtureProfile: scale-s
-      fixtureCapabilities: [public.article.published, scale.article-comment.s]
       executionDependsOn: [bootstrap]
       services: [backend, redis, postgres]
       parallelizable: false
@@ -5560,10 +5863,13 @@ tiers:
       nightlyOnly: false
 
     - id: load-2x-peak
+      executionClass: load
+      fixtureProfile: scale-m
+      fixtureProfileReason: binds-scale-m
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/load-profile.sh 2x-peak
-      fixtureProfile: scale-m
-      fixtureCapabilities: [public.article.published, scale.article-comment.m]
       executionDependsOn: [bootstrap]
       services: [backend, redis, postgres]
       parallelizable: false
@@ -5603,10 +5909,13 @@ tiers:
       nightlyOnly: true
 
     - id: load-burst
+      executionClass: load
+      fixtureProfile: scale-m
+      fixtureProfileReason: binds-scale-m
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/load-profile.sh burst
-      fixtureProfile: scale-m
-      fixtureCapabilities: [public.article.published, scale.article-comment.m]
       executionDependsOn: [bootstrap]
       services: [backend, redis, postgres]
       parallelizable: false
@@ -5646,6 +5955,11 @@ tiers:
       nightlyOnly: true
 
     - id: backend-perf
+      executionClass: benchmark
+      fixtureProfile: none
+      fixtureProfileReason: none-benchmark
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/perf-regression.sh
       executionDependsOn: [behavior-doc-static-admission]
@@ -5707,6 +6021,11 @@ tiers:
       nightlyOnly: false
 
     - id: backend-benchmark-regression
+      executionClass: benchmark
+      fixtureProfile: none
+      fixtureProfileReason: none-benchmark
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/backend-benchmark-regression.sh
       executionDependsOn: [behavior-doc-static-admission]
@@ -5777,6 +6096,11 @@ tiers:
       nightlyOnly: false
 
     - id: browser-performance-regression
+      executionClass: benchmark
+      fixtureProfile: none
+      fixtureProfileReason: none-benchmark
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: InteropGlueAgent
       command: tools/test/lanes/browser-performance-regression.sh
       executionDependsOn: [behavior-doc-static-admission]
@@ -5816,6 +6140,11 @@ tiers:
       smartGateMode: full-only
 
     - id: markdown-preview-release-performance
+      executionClass: browser
+      fixtureProfile: none
+      fixtureProfileReason: none-browser
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: InteropGlueAgent
       command: tools/test/lanes/markdown-preview-release-performance.sh
       executionDependsOn: [behavior-doc-static-admission]
@@ -5873,6 +6202,11 @@ tiers:
       triggerReason: Markdown AOT, client activation, private preview, or paired Release measurement authority changed
 
     - id: performance-evidence-summary
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: node tools/test/aggregate-performance-evidence.mjs
       executionDependsOn: [load-baseline, load-peak, backend-benchmark-regression]
@@ -5922,10 +6256,13 @@ tiers:
       prDefault: true
 
     - id: fault-injection
+      executionClass: runtime
+      fixtureProfile: acceptance-representative
+      fixtureProfileReason: binds-acceptance-representative
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/fault-injection.sh
-      fixtureProfile: acceptance-representative
-      fixtureCapabilities: [auth.user.active, public.article.published, session.single-device]
       executionDependsOn: [bootstrap]
       services: [postgres, redis, backend]
       parallelizable: false
@@ -5956,10 +6293,13 @@ tiers:
       nightlyOnly: false
 
     - id: soak-short-runtime
+      executionClass: load
+      fixtureProfile: scale-s
+      fixtureProfileReason: binds-scale-s
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: FSUSBLOG_SOAK_MODE=short tools/test/lanes/soak.sh
-      fixtureProfile: scale-s
-      fixtureCapabilities: [public.article.published, scale.article-comment.s]
       executionDependsOn: [bootstrap]
       services: [postgres, redis, backend, frontend]
       parallelizable: false
@@ -5998,6 +6338,11 @@ tiers:
       nightlyOnly: true
 
     - id: soak-long-scheduled
+      executionClass: load
+      fixtureProfile: none
+      fixtureProfileReason: none-load
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: FSUSBLOG_SOAK_MODE=72h tools/test/lanes/soak.sh
       executionDependsOn: [behavior-doc-static-admission]
@@ -6029,6 +6374,11 @@ tiers:
       nightlyOnly: true
 
     - id: soak-long-evidence-import
+      executionClass: load
+      fixtureProfile: none
+      fixtureProfileReason: none-load
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: FSUSBLOG_SOAK_MODE=72h FSUSBLOG_SOAK_REQUIRE_IMPORTED_EVIDENCE=1 tools/test/lanes/soak.sh
       executionDependsOn: [behavior-doc-static-admission]
@@ -6061,10 +6411,13 @@ tiers:
       manualOnly: true
 
     - id: security-authenticated-dast
+      executionClass: security
+      fixtureProfile: auth-security-matrix
+      fixtureProfileReason: binds-auth-security-matrix
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/security-authenticated-dast.sh
-      fixtureProfile: auth-security-matrix
-      fixtureCapabilities: [auth.user.active, security.risk-escalated, session.multi-device]
       executionDependsOn: [behavior-doc-static-admission]
       services: [backend, frontend]
       parallelizable: false
@@ -6096,10 +6449,13 @@ tiers:
       nightlyOnly: false
 
     - id: csrf-browser-matrix
+      executionClass: security
+      fixtureProfile: auth-security-matrix
+      fixtureProfileReason: binds-auth-security-matrix
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: InteropGlueAgent
       command: npm --prefix src/frontend run check:security:csrf-browser-matrix
-      fixtureProfile: auth-security-matrix
-      fixtureCapabilities: [auth.user.active, session.multi-device]
       executionDependsOn: [behavior-doc-static-admission]
       services: [frontend, backend]
       parallelizable: true
@@ -6130,6 +6486,11 @@ tiers:
       nightlyOnly: false
 
     - id: risk-control-test-matrix
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/risk-control-test-matrix.sh
       executionDependsOn: [behavior-doc-static-admission]
@@ -6173,6 +6534,11 @@ tiers:
       nightlyOnly: false
 
     - id: perception-v2-test-matrix
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/perception-v2-test-matrix.sh
       executionDependsOn: [behavior-doc-static-admission]
@@ -6220,6 +6586,11 @@ tiers:
       nightlyOnly: false
 
     - id: privacy-zk-comment-matrix
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/privacy-zk-comment-matrix.sh
       executionDependsOn: [behavior-doc-static-admission]
@@ -6303,6 +6674,11 @@ tiers:
       nightlyOnly: false
 
     - id: wasm-fuzz-regression
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: WasmEngineAgent
       command: tools/test/lanes/wasm-fuzz-regression.sh
       executionDependsOn: [frontend-build]
@@ -6334,6 +6710,11 @@ tiers:
       nightlyOnly: false
 
     - id: perception-v2-redteam-pr
+      executionClass: benchmark
+      fixtureProfile: none
+      fixtureProfileReason: none-benchmark
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/perception-v2-redteam.sh pr
       executionDependsOn: [behavior-doc-static-admission]
@@ -6369,6 +6750,11 @@ tiers:
       nightlyOnly: false
 
     - id: perception-character-v3-release-gate
+      executionClass: benchmark
+      fixtureProfile: none
+      fixtureProfileReason: none-benchmark
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/perception-character-v3-release-gate.sh
       executionDependsOn: [behavior-doc-static-admission]
@@ -6408,6 +6794,11 @@ tiers:
       nightlyOnly: false
 
     - id: release-evidence
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/release-evidence.sh
       executionDependsOn:
@@ -6487,6 +6878,11 @@ tiers:
       prDefault: true
 
     - id: release-closeout
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/release-closeout.sh
       executionDependsOn: [release-evidence]
@@ -6520,6 +6916,11 @@ tiers:
       manualOnly: true
 
     - id: changed-code-coverage
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/changed-code-coverage.sh
       executionDependsOn: [coverage-merge]
@@ -6553,6 +6954,11 @@ tiers:
       manualOnly: true
 
     - id: coverage-gate-strict
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/coverage-gate-strict.sh
       executionDependsOn: [coverage-gate, changed-code-coverage]
@@ -6591,6 +6997,11 @@ tiers:
       manualOnly: true
 
     - id: release-admin-console
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: InteropGlueAgent
       executionMode: projection
       commandKind: projection
@@ -6639,6 +7050,11 @@ tiers:
       manualOnly: true
 
     - id: release-auth-flow
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: InteropGlueAgent
       executionMode: projection
       commandKind: projection
@@ -6681,6 +7097,11 @@ tiers:
       manualOnly: true
 
     - id: release-authoring-flow
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: InteropGlueAgent
       executionMode: projection
       commandKind: projection
@@ -6723,6 +7144,11 @@ tiers:
       manualOnly: true
 
     - id: release-private-preview
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: InteropGlueAgent
       executionMode: projection
       commandKind: projection
@@ -6765,6 +7191,11 @@ tiers:
       manualOnly: true
 
     - id: release-error-boundary
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: InteropGlueAgent
       executionMode: projection
       commandKind: projection
@@ -6807,6 +7238,11 @@ tiers:
       manualOnly: true
 
     - id: release-rbac-negative
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: InteropGlueAgent
       executionMode: projection
       commandKind: projection
@@ -6860,6 +7296,11 @@ tiers:
       retentionClass: conditional
 
     - id: release-aot-generation
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: InteropGlueAgent
       executionMode: projection
       commandKind: projection
@@ -6902,6 +7343,11 @@ tiers:
       manualOnly: true
 
     - id: release-aot-consumption
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: InteropGlueAgent
       executionMode: projection
       commandKind: projection
@@ -6955,6 +7401,11 @@ tiers:
       retentionClass: conditional
 
     - id: release-static-asset-digest-coherence
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: InteropGlueAgent
       executionMode: projection
       commandKind: projection
@@ -6997,6 +7448,11 @@ tiers:
       manualOnly: true
 
     - id: release-soak-min
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       executionMode: execute
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-soak-min
@@ -7036,6 +7492,11 @@ tiers:
       manualOnly: true
 
     - id: release-load-peak
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       executionMode: execute
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-load-peak
@@ -7080,6 +7541,11 @@ tiers:
       manualOnly: true
 
     - id: release-load-burst
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       executionMode: execute
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-load-burst
@@ -7124,6 +7590,11 @@ tiers:
       manualOnly: true
 
     - id: release-data-scale-m
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       executionMode: execute
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-data-scale-m
@@ -7163,6 +7634,11 @@ tiers:
       manualOnly: true
 
     - id: release-mutation-critical-slice
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       executionMode: execute
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-mutation-critical-slice
@@ -7210,6 +7686,11 @@ tiers:
       manualOnly: true
 
     - id: release-memory-leak-budget
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       executionMode: execute
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-memory-leak-budget
@@ -7253,6 +7734,11 @@ tiers:
       manualOnly: true
 
     - id: release-open-handle-budget
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       executionMode: execute
       command: node tools/test/run-release-reliability-scenarios.mjs --scenario release-open-handle-budget
@@ -7296,6 +7782,11 @@ tiers:
       manualOnly: true
 
     - id: release-reliability-fresh
+      executionClass: benchmark
+      fixtureProfile: none
+      fixtureProfileReason: none-benchmark
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       executionMode: execute
       command: tools/test/run-release-reliability-qualified-local.sh
@@ -7355,6 +7846,11 @@ tiers:
       retentionClass: must-keep
 
     - id: release-final-flaky-governance
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: node tools/ci/check-flaky-registry.mjs --release-final
       executionDependsOn: [validate-matrix, behavior-doc-static-admission]
@@ -7395,6 +7891,11 @@ tiers:
       manualOnly: true
 
     - id: release-final-shard-completeness
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: node tools/ci/check-job-summaries.mjs --require-plan --tier production --strict-shards
       executionDependsOn: [release-evidence]
@@ -7428,6 +7929,11 @@ tiers:
       manualOnly: true
 
     - id: test-inventory
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: node tools/test-inventory/produce.mjs
       executionDependsOn: [validate-matrix]
@@ -7460,6 +7966,11 @@ tiers:
       manualOnly: false
 
     - id: test-quality-lint
+      executionClass: static-governance
+      fixtureProfile: none
+      fixtureProfileReason: none-static-governance
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/test-quality-lint.sh
       executionDependsOn: [validate-matrix, behavior-doc-static-admission, test-inventory]
@@ -7502,6 +8013,11 @@ tiers:
       manualOnly: true
 
     - id: native-smoke
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: WasmEngineAgent
       command: node tools/test/run-native-tests.mjs --profile smoke
       executionDependsOn: [validate-matrix, behavior-doc-static-admission]
@@ -7542,6 +8058,11 @@ tiers:
       retentionClass: must-keep
 
     - id: native-fuzz-sanitizer
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: WasmEngineAgent
       command: node tools/test/run-native-tests.mjs --profile fuzz-sanitizer
       executionDependsOn: [validate-matrix, behavior-doc-static-admission]
@@ -7587,6 +8108,11 @@ tiers:
       retentionClass: must-keep
 
     - id: release-final
+      executionClass: coordination
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       executionMode: summary
       commandKind: finalizer
@@ -7695,10 +8221,13 @@ tiers:
       manualOnly: true
 
     - id: production-correctness
+      executionClass: runtime
+      fixtureProfile: acceptance-representative
+      fixtureProfileReason: binds-acceptance-representative
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/production-correctness-receipt.sh
-      fixtureProfile: acceptance-representative
-      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
       executionDependsOn:
           [
               behavior-doc-static-admission,
@@ -7784,12 +8313,15 @@ tiers:
       triggerReason: ordinary PR and local correctness always require the browserless production summary
 
     - id: production
+      executionClass: runtime
+      fixtureProfile: acceptance-representative
+      fixtureProfileReason: binds-acceptance-representative
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
       owner: ServerContractAgent
       executionMode: execute
       commandKind: producer
       command: tools/test/lanes/production-correctness-receipt.sh
-      fixtureProfile: acceptance-representative
-      fixtureCapabilities: [auth.admin.full-permission, auth.user.active, public.article.published, session.single-device]
       executionDependsOn: [production-correctness]
       services: [postgres, redis, backend, frontend, preview]
       parallelizable: false
@@ -7882,6 +8414,11 @@ tiers:
       triggerReason: production summary remains a full push/workflow_dispatch/release-final proof
 
     - id: backend-api-integration
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/backend-api-integration.sh
       executionDependsOn: [backend-build-governance]
@@ -7954,6 +8491,11 @@ tiers:
       triggerReason: backend API integration is a required dependency of the always-on backend coverage union
 
     - id: backend-auth-state-machine
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/backend-auth-state-machine.sh
       executionDependsOn: [backend-build-governance]
@@ -8034,6 +8576,11 @@ tiers:
       nightlyOnly: false
 
     - id: backend-concurrency
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/backend-concurrency.sh
       executionDependsOn: [backend-build-governance]
@@ -8126,6 +8673,11 @@ tiers:
       nightlyOnly: false
 
     - id: backend-property
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/backend-property.sh
       executionDependsOn: [backend-build-governance]
@@ -8182,6 +8734,11 @@ tiers:
       nightlyOnly: false
 
     - id: backend-golden
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/backend-golden.sh
       executionDependsOn: [backend-build-governance]
@@ -8249,6 +8806,11 @@ tiers:
       nightlyOnly: false
 
     - id: backend-test-governance
+      executionClass: static-governance
+      fixtureProfile: none
+      fixtureProfileReason: none-static-governance
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/backend-test-governance.sh
       executionDependsOn: [behavior-doc-static-admission]
@@ -8287,6 +8849,11 @@ tiers:
       nightlyOnly: false
 
     - id: backend-mutation
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/backend-mutation.sh
       executionDependsOn: [behavior-doc-static-admission]
@@ -8329,6 +8896,11 @@ tiers:
       nightlyOnly: true
 
     - id: backend-mutation-changed-critical
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/backend-mutation-changed-critical.sh
       executionDependsOn: [behavior-doc-static-admission]
@@ -8362,6 +8934,11 @@ tiers:
       nightlyOnly: false
 
     - id: backend-nightly
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/backend-nightly.sh
       executionDependsOn:
@@ -8414,6 +8991,11 @@ tiers:
       nightlyOnly: true
 
     - id: perception-v2-redteam-nightly
+      executionClass: benchmark
+      fixtureProfile: none
+      fixtureProfileReason: none-benchmark
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/perception-v2-redteam.sh nightly
       executionDependsOn: [behavior-doc-static-admission]
@@ -8449,6 +9031,11 @@ tiers:
       nightlyOnly: true
 
     - id: cross-stack-contract
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/cross-stack-contract.sh static
       executionDependsOn: [behavior-doc-static-admission]
@@ -8504,3 +9091,6 @@ tiers:
       ciJob: cross-stack-contract
       localOnly: false
       nightlyOnly: false
+
+
+

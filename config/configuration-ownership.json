@@ -129,6 +129,19 @@
             "pathType": "file"
         },
         {
+            "id": "fixture-profile-matrix-inventory",
+            "owner": "test-fixture-catalog",
+            "canonicalPath": "config/testing/fixture-profile-matrix.generated.json",
+            "pathType": "file",
+            "purpose": "Generated bidirectional matrix step/profile fixture inventory with stable digest (#2053)",
+            "consumers": [
+                "tools/run-test-matrix.mjs"
+            ],
+            "validationCommand": "node tools/testing/generate-fixture-catalog-artifacts.mjs --check",
+            "changePolicy": "manual-update-with-inventory-closure-validation",
+            "status": "manual"
+        },
+        {
             "id": "fixture-producer-registry",
             "owner": "test-fixture-catalog",
             "canonicalPath": "config/testing/fixture-producer-registry.json",
@@ -757,6 +770,19 @@
                 "tools/test-inventory"
             ],
             "validationCommand": "node --test tests/tools/native-entry-adapter.test.mjs",
+            "changePolicy": "manual-update-with-inventory-closure-validation",
+            "status": "manual"
+        },
+        {
+            "id": "matrix-fixture-profile-focused-test",
+            "owner": "repository-governance",
+            "canonicalPath": "tests/tools/matrix-fixture-profile.test.mjs",
+            "pathType": "file",
+            "purpose": "Focused governance test covering the #2053 fixtureProfile matrix contract: required per-executable-step profile declaration, closed execution classes, canonical profile ID validation, deprecated/duplicate rejection, none-versus-missing, retired fixture field/alias/second-table rejection, static/coordination/build none binding, stable step/profile inventory digest and byte-stable determinism.",
+            "consumers": [
+                "tools/test-matrix/fixture-profile-contract.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/matrix-fixture-profile.test.mjs",
             "changePolicy": "manual-update-with-inventory-closure-validation",
             "status": "manual"
         }

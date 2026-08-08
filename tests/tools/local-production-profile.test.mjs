@@ -38,7 +38,10 @@ const {
     runLocalProfile
 } = await import(pathToFileURL(path.join(root, 'tools/run-test-matrix.mjs')).href);
 const { behaviorDocStaticAdmissionTierId } = await import(
-    pathToFileURL(path.join(root, 'tools/test-matrix/behavior-doc-static-admission-contract.mjs')).href
+  pathToFileURL(path.join(root, 'tools/test-matrix/behavior-doc-static-admission-contract.mjs')).href
+);
+const { expandFixtureProfile } = await import(
+  pathToFileURL(path.join(root, 'tools/testing/fixture-catalog.mjs')).href
 );
 const { acquireProductionFreshExclusiveLease } = await import(
     pathToFileURL(path.join(root, 'tools/test-matrix/production-fresh-exclusive-lease.mjs')).href
@@ -1386,7 +1389,7 @@ test('logical bootstrap fixture identity is projected only onto runtime-browser'
     const bootstrap = logical.find((tier) => tier.id === 'bootstrap');
     assert.equal(runtime.selfBootstraps, true);
     assert.equal(runtime.fixtureProfile, bootstrap.fixtureProfile);
-    assert.deepEqual(runtime.fixtureCapabilities, bootstrap.fixtureCapabilities);
+    assert.deepEqual(runtime.fixtureCapabilities, expandFixtureProfile(bootstrap.fixtureProfile).capabilities);
     assert.equal(runtime.requiresBootstrap, bootstrap.requiresBootstrap);
     assert.equal(bundles.filter((bundle) => bundle.selfBootstraps === true).length, 1);
     assert.ok(bundles.filter((bundle) => bundle !== runtime)

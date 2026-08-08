@@ -12,10 +12,16 @@ import {
   resolveFixtureVariants,
   scanFixtureSourceDeclarations
 } from './fixture-catalog.mjs'
+import {
+  buildFixtureProfileMatrixInventory,
+  FIXTURE_PROFILE_MATRIX_FILE,
+  FIXTURE_PROFILE_MATRIX_SCHEMA
+} from '../test-matrix/fixture-profile-contract.mjs'
 import { parseMatrix } from '../test-matrix/parse-matrix.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const inventoryFile = fixtureCatalogFiles.inventory
+const fixtureProfileMatrixFile = FIXTURE_PROFILE_MATRIX_FILE
 const documentFile = process.env.FSUSBLOG_FIXTURE_DOCUMENT_FILE
   ? path.resolve(process.env.FSUSBLOG_FIXTURE_DOCUMENT_FILE)
   : path.join(root, 'docs/testing/fixture-capability-catalog.md')
@@ -40,18 +46,19 @@ export function generateFixtureInventory({ repositoryRoot = root } = {}) {
   const matrixConsumers = matrix.tiers.filter(isFixtureMatrixConsumer).map((tier) => {
     const commandPath = String(tier.command ?? '').match(/\b(tools\/[a-zA-Z0-9_./-]+\.(?:mjs|sh))\b/u)?.[1] ?? String(tier.command ?? '')
     const content = matrixConsumerObservationContent(tier, { repositoryRoot })
+    const requiredCapabilities = expandFixtureProfile(tier.fixtureProfile, catalogs).capabilities
     return {
       consumerId: `matrix:${tier.id}`,
-      executionClass: executionClass(tier),
+      executionClass: tier.executionClass ?? executionClass(tier),
       source: commandPath,
-      requiredBusinessFact: tier.fixtureCapabilities.join(', ') || 'none',
+      requiredBusinessFact: requiredCapabilities.join(', ') || 'none',
       implicitSource: observeFixtureImplicitSource(commandPath, content, { kind: 'matrix', tierId: tier.id }),
       currentFallback: observeFixtureConsumerSource(commandPath, content),
       profileId: tier.fixtureProfile,
       profileIds: [tier.fixtureProfile],
-      requiredCapabilities: tier.fixtureCapabilities,
-      requiredVariantIds: resolveFixtureVariants(tier.fixtureCapabilities, executionClass(tier), catalogs),
-      producerOwners: [...new Set(tier.fixtureCapabilities.map((id) => ownerByCapability.get(id)))].filter(Boolean).sort()
+      requiredCapabilities,
+      requiredVariantIds: resolveFixtureVariants(requiredCapabilities, tier.executionClass ?? executionClass(tier), catalogs),
+      producerOwners: [...new Set(requiredCapabilities.map((id) => ownerByCapability.get(id)))].filter(Boolean).sort()
     }
   })
   const sourceConsumers = declarations.consumers.map((declaration) => {
@@ -113,6 +120,15 @@ ${rows.join('\n')}
 `
 }
 
+export function generateFixtureProfileMatrixInventory({ repositoryRoot = root } = {}) {
+  const matrix = parseMatrix(fs.readFileSync(path.join(repositoryRoot, 'tests/matrix.yml'), 'utf8'))
+  const inventory = buildFixtureProfileMatrixInventory(matrix)
+  if (inventory.schema !== FIXTURE_PROFILE_MATRIX_SCHEMA) {
+    throw new Error(`fixture profile matrix schema mismatch: ${inventory.schema}`)
+  }
+  return inventory
+}
+
 export function detectGeneratedArtifactDrift(expected, actual) {
   return [...expected].filter(([file, content]) => actual.get(file) !== content).map(([file]) => file)
 }
@@ -132,6 +148,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   })
   const expected = new Map([
     [inventoryFile, `${JSON.stringify(generateFixtureInventory(), null, 4)}\n`],
+    [fixtureProfileMatrixFile, `${JSON.stringify(generateFixtureProfileMatrixInventory(), null, 4)}\n`],
     [documentFile, renderFixtureCatalogDocument(catalogs)]
   ])
   const actual = new Map([...expected].map(([file]) => [file, fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null]))
