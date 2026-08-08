@@ -11,13 +11,13 @@ import {
   buildRetentionCatalogSnapshot,
   compactRetentionBaseline,
   inferTierIdsForFile,
-  isTestInventoryPath,
   normalizeReplacementManifest,
   retentionSourceState,
   reviewCandidateFiles,
   vitestHistoryEntries,
   xunitTrxHistoryEntries
 } from './test-retention/audit.mjs'
+import { inventorySourceFiles } from './test-inventory/api.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
 const defaultOut = path.join(root, '.tmp/release-evidence/test-retention-audit.json')
@@ -58,21 +58,6 @@ function parseArgs(argv) {
 
 function toRepoPath(absolutePath) {
   return path.relative(root, absolutePath).split(path.sep).join('/')
-}
-
-function walk(dir, files = []) {
-  if (!fs.existsSync(dir)) return files
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const absolute = path.join(dir, entry.name)
-    const relative = toRepoPath(absolute)
-    if (entry.isDirectory()) {
-      if (/(^|\/)(bin|obj|node_modules|dist|coverage|TestResults|test-results|\.tmp|\.artifacts)(\/|$)/.test(relative)) continue
-      walk(absolute, files)
-    } else {
-      files.push(relative)
-    }
-  }
-  return files
 }
 
 function wildcardToRegExp(pattern) {
@@ -157,10 +142,9 @@ async function buildAudit({ runId = null } = {}) {
   const fileToTiers = new Map()
   const fileToTierRetention = new Map()
   const fileToCommandTiers = new Map()
-  const auditedFiles = [...new Set([
-    ...walk(path.join(root, 'tests')),
-    ...walk(path.join(root, 'tools'))
-  ])].filter(isTestInventoryPath).sort()
+  // Membership authority is the canonical test inventory; retention no longer
+  // owns a private file walk or discovery predicate.
+  const auditedFiles = inventorySourceFiles(root).map((sourceFile) => sourceFile.path).sort()
   const fileToTextReferences = buildTextReferenceIndex(auditedFiles)
 
   for (const entry of coverageRegistry.entries ?? []) {

@@ -2183,6 +2183,17 @@
             ]
         },
         {
+            "file": "tests/tools/test-inventory.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/test-inventory.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
             "file": "tests/tools/test-evidence-governance.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",

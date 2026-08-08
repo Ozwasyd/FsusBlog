@@ -686,6 +686,37 @@
             "owner": "documentation-visual-evidence",
             "canonicalPath": "config/docs/public-preview-quality-scenarios-zoom.json",
             "pathType": "file"
+        },
+        {
+            "id": "test-inventory-module",
+            "owner": "repository-governance",
+            "canonicalPath": "tools/test-inventory",
+            "pathType": "directory",
+            "recursive": true,
+            "purpose": "Canonical repository-owned test-case inventory: closed schema, adapter registry, discovery closure, artifact producer/API and independent closure verifier.",
+            "consumers": [
+                "tools/ci/check-test-quality.mjs",
+                "tools/check-test-retention.mjs",
+                "tools/test-retention/audit.mjs",
+                "tools/docs/generate-testing-docs.mjs",
+                "tests/tools/test-inventory.test.mjs"
+            ],
+            "validationCommand": "node tools/test-inventory/produce.mjs --check && node tools/test-inventory/verify-closure.mjs",
+            "changePolicy": "manual-update-with-inventory-closure-validation",
+            "status": "manual"
+        },
+        {
+            "id": "test-inventory-focused-test",
+            "owner": "repository-governance",
+            "canonicalPath": "tests/tools/test-inventory.test.mjs",
+            "pathType": "file",
+            "purpose": "Focused governance test covering canonical inventory membership, fail-closed unknown/duplicate/stale cases and byte-stable determinism.",
+            "consumers": [
+                "tools/test-inventory"
+            ],
+            "validationCommand": "node --test tests/tools/test-inventory.test.mjs",
+            "changePolicy": "manual-update-with-inventory-closure-validation",
+            "status": "manual"
         }
     ]
 }

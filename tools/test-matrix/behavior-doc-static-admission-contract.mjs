@@ -24,6 +24,10 @@ const purePreAdmissionTierContracts = Object.freeze({
   'pr-smart-gate-plan': Object.freeze({
     command: 'node tools/run-test-matrix.mjs ci-pr-plan --out .tmp/pr-plan.json',
     executionDependsOn: ['validate-matrix']
+  }),
+  'test-inventory': Object.freeze({
+    command: 'node tools/test-inventory/produce.mjs',
+    executionDependsOn: ['validate-matrix']
   })
 })
 

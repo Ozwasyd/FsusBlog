@@ -2848,6 +2848,21 @@
             ]
         },
         {
+            "id": "test-inventory-closure",
+            "description": "The canonical test-case inventory artifact is produced once by the repository-owned test-inventory module and independently verified against the filesystem, matrix commands/evidence, coverage registry and requirement catalog projections; quality, retention and docs consumers must consume the same artifact instead of re-walking the repository.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                ".tmp/release-evidence/test-inventory.json"
+            ],
+            "assertionType": "static",
+            "failClosedRule": "matrix-validate requires the test-inventory tier to produce a closed-schema, versioned inventory artifact whose source memberships cover xUnit, frontend, tests/tools, native and matrix-declared executable entrypoints; unknown executable surfaces, duplicate adapter ownership, cross-adapter duplicate test ids, stale source digests and unrecorded projected surfaces fail the independent closure verifier.",
+            "minimumRequirement": "The artifact must carry a byte-stable inventory digest over source paths, adapters, source digests, case identity and discovery projections; the verifier must compare canonical inventory membership with observed repository surfaces and fail on any missing, duplicated, unknown, dynamic-undeclared or stale record.",
+            "tierIds": [
+                "test-inventory"
+            ]
+        },
+        {
             "id": "test-quality-lint",
             "description": "Test Quality Lint is covered by runtime artifacts that exercise the named behavior.",
             "owner": "ServerContractAgent",

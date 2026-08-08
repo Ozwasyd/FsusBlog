@@ -5,6 +5,8 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
+import { loadCanonicalInventory } from '../test-inventory/api.mjs'
+
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const summaryPath = path.join(root, '.tmp/release-evidence/test-quality-summary.json')
 
@@ -12,29 +14,20 @@ const assertionPatterns = [
   /\bAssert\./,
   /\bAssert[A-Za-z]+\(/,
   /\bexpect\s*\(/,
-  /\bassert\s*\(/,
+  /\bassert(?:\.\w+)?\s*\(/,
   /\.Should\(/,
   /\bthrow new Error\(/,
   /\bprocess\.exit\s*\(\s*1\s*\)/
 ]
 
-const testFilePattern = /\.(test|spec)\.(ts|tsx|js|mjs|cs)$/u
+// Quality heuristics apply only to language/framework test files whose
+// assertion idiom the gate understands. Matrix shell/node-script entrypoints
+// and native smoke/fuzz surfaces belong to the inventory closure but are not
+// assertion-bearing test files for this consumer.
+const qualityAdapters = new Set(['xunit', 'vitest', 'node-test', 'playwright'])
+
 const criticalPathPattern = /(security|auth|permission|contract|binary|aeds|migration|production|release)/iu
 const negativePattern = /(invalid|reject|den(y|ied)|forbid|unauthor|expired|fail|error|tamper|oversized|wrong|missing|blocked)/iu
-
-function walk(dir, files = []) {
-  if (!fs.existsSync(dir)) return files
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const file = path.join(dir, entry.name)
-    if (entry.isDirectory()) {
-      if (['bin', 'obj', 'node_modules', 'coverage', 'test-results', 'playwright-report'].includes(entry.name)) continue
-      walk(file, files)
-    } else if (testFilePattern.test(entry.name)) {
-      files.push(file)
-    }
-  }
-  return files
-}
 
 function countMatches(text, pattern) {
   return [...text.matchAll(new RegExp(pattern.source, `${pattern.flags.replace('g', '')}g`))].length
@@ -118,10 +111,13 @@ function runSelfTest() {
 if (process.argv.includes('--self-test')) {
   runSelfTest()
 } else {
-  const files = [
-    ...walk(path.join(root, 'tests/backend')),
-    ...walk(path.join(root, 'tests/frontend'))
-  ]
+  const inventory = loadCanonicalInventory(root)
+  const files = inventory.sourceFiles
+    .filter((sourceFile) => (
+      sourceFile.kind === 'discoverable-test'
+      && qualityAdapters.has(sourceFile.adapter)
+    ))
+    .map((sourceFile) => path.join(root, sourceFile.path))
   const { errors, stats } = validateFiles(files)
   writeSummary(errors.length === 0 ? 'ok' : 'failed', stats, errors)
   if (errors.length > 0) {

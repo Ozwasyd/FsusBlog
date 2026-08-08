@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 
 import { snapshotGitWorktree } from '../test-matrix/scheduler.mjs'
+import { isInventoryPath } from '../test-inventory/adapters.mjs'
 
 function tierExecutionDependencies(tier) {
   return tier?.executionDependsOn ?? tier?.dependsOn ?? []
@@ -784,28 +785,9 @@ export function extractTestRecords(file, source) {
 }
 
 export function isTestInventoryPath(file) {
-  if (!String(file).startsWith('tests/') && !String(file).startsWith('tools/')) return false
-  if (file.startsWith('tests/native/')) {
-    return /\.(?:cpp|cc|cxx|dict|txt|bin)$/u.test(file) || path.basename(file) === 'CMakeLists.txt'
-  }
-  if (/^tests\/.*\.(?:test|spec)\.[cm]?[jt]sx?$/u.test(file)) return true
-  if (file.startsWith('tests/backend/')) {
-    return /(?:Tests?|Fixture|Collection)\.cs$/u.test(file)
-      || /tests\/backend\/Fixtures\/.*\.(?:json|jsonc|sql|txt)$/u.test(file)
-  }
-  if (file.startsWith('tests/frontend/')) {
-    return /tests\/frontend\/checks\/.*\.mjs$/u.test(file)
-      || /tests\/frontend\/support\/.*\.(?:mjs|ts)$/u.test(file)
-      || /tests\/frontend\/fixtures\/.*\.mjs$/u.test(file)
-  }
-  if (file.startsWith('tools/test/') || file.startsWith('tools/coverage/')) {
-    return /\.(?:sh|mjs)$/u.test(file)
-  }
-  return /^tools\/check-.*\.(?:mjs|sh)$/u.test(file)
-    || /^tools\/security\/check-.*\.mjs$/u.test(file)
-    || /^tools\/docs\/generate-testing-docs\.mjs$/u.test(file)
-    || /^tools\/check-workflow-matrix-sync\.mjs$/u.test(file)
-    || /^tools\/run-test-matrix\.mjs$/u.test(file)
+  // Delegates to the canonical inventory adapter registry; retention no longer
+  // owns a private discovery predicate.
+  return isInventoryPath(file)
 }
 
 export function inferTierIdsForFile(file, source = '', explicitCategory = undefined) {

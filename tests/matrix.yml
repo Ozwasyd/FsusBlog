@@ -240,6 +240,7 @@ localProfiles:
                       frontend-fast-summary,
                       coverage-frontend,
                       static-governance,
+                      test-inventory,
                       frontend-static-governance,
                       frontend-render-structure,
                       behavior-evidence-pre-runtime,
@@ -1732,7 +1733,7 @@ tiers:
       owner: ServerContractAgent
       command: tools/test/lanes/static-governance.sh
       outputReceiptSchema: fsusblog.ci.job-result.v1
-      executionDependsOn: [behavior-doc-static-admission]
+      executionDependsOn: [behavior-doc-static-admission, test-inventory]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -7426,10 +7427,42 @@ tiers:
       nightlyOnly: false
       manualOnly: true
 
+    - id: test-inventory
+      owner: ServerContractAgent
+      command: node tools/test-inventory/produce.mjs
+      executionDependsOn: [validate-matrix]
+      services: []
+      parallelizable: true
+      exclusiveResources: []
+      phase: 1
+      cost: medium
+      resourceClass: cpu
+      cpuWeight: 1
+      memoryWeight: 1
+      minCpuUnits: 1
+      requiresBootstrap: none
+      requiresNode: true
+      requiresDotnet: false
+      requiresPlaywright: none
+      cacheProfile: none
+      timeoutMinutes: 5
+      shardable: false
+      defaultShards: 1
+      risk: critical
+      cadence: pr
+      requiredFor: fast
+      coverage: [test-inventory-closure]
+      artifacts: [.tmp/release-evidence/test-inventory.json]
+      evidence: [.tmp/release-evidence/test-inventory.json]
+      ciJob: validate-matrix
+      localOnly: false
+      nightlyOnly: false
+      manualOnly: false
+
     - id: test-quality-lint
       owner: ServerContractAgent
       command: tools/test/lanes/test-quality-lint.sh
-      executionDependsOn: [validate-matrix, behavior-doc-static-admission]
+      executionDependsOn: [validate-matrix, behavior-doc-static-admission, test-inventory]
       services: []
       parallelizable: true
       exclusiveResources: []
