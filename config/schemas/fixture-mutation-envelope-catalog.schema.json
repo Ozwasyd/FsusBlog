@@ -1,0 +1,484 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "fsusblog.mutation-envelope-catalog.v1",
+    "title": "FsusBlog fixture mutation envelope catalog",
+    "description": "Unique closed/versioned MutationEnvelopeCatalog: receipt-owned semantic mutation targets, closed mutation kinds, allowed/forbidden domains, expected drift/recovery contracts, provider support matrix and profile sequence scenarios. No fixed IDs, wildcards, paths, SQL/scripts, restart or cleanup actions.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "version",
+        "destructiveScope",
+        "contentDigest",
+        "profileCatalogDigest",
+        "mutationKinds",
+        "providers",
+        "semanticDomains",
+        "entityKinds",
+        "fileRoles",
+        "cleanupOwners",
+        "envelopes",
+        "sequences"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.mutation-envelope-catalog.v1"
+        },
+        "version": {
+            "const": 1
+        },
+        "contentDigest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "profileCatalogDigest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "mutationKinds": {
+            "type": "array",
+            "minItems": 8,
+            "uniqueItems": true,
+            "items": {
+                "enum": [
+                    "set-wrong-value",
+                    "remove-required-row/relation",
+                    "add-extra-owned-relation",
+                    "delete-owned-file",
+                    "truncate-owned-file",
+                    "replace-owned-bytes",
+                    "delete-owned-cache-key",
+                    "modify-owned-cache-key"
+                ]
+            }
+        },
+        "providers": {
+            "type": "array",
+            "minItems": 5,
+            "uniqueItems": true,
+            "items": {
+                "enum": [
+                    "postgresql",
+                    "mysql",
+                    "sqlite",
+                    "redis",
+                    "filesystem"
+                ]
+            }
+        },
+        "semanticDomains": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_.-]*$"
+            }
+        },
+        "entityKinds": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+                "enum": [
+                    "article",
+                    "category",
+                    "tag",
+                    "user",
+                    "admin",
+                    "session",
+                    "comment",
+                    "thread",
+                    "notification",
+                    "preference",
+                    "media",
+                    "other"
+                ]
+            }
+        },
+        "fileRoles": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+                "enum": [
+                    "original",
+                    "thumbnail",
+                    "variant",
+                    "raw"
+                ]
+            }
+        },
+        "cleanupOwners": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+                "enum": [
+                    "fixture-receipt.owned-namespace",
+                    "fixture-receipt.owned-entities",
+                    "fixture-receipt.owned-keys",
+                    "fixture-receipt.owned-files"
+                ]
+            }
+        },
+        "envelopes": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "$ref": "#/$defs/envelope"
+            }
+        },
+        "sequences": {
+            "type": "array",
+            "minItems": 5,
+            "items": {
+                "$ref": "#/$defs/sequence"
+            }
+        },
+        "destructiveScope": {
+            "const": "fixture-namespace"
+        }
+    },
+    "$defs": {
+        "semanticField": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_.-]*$"
+        },
+        "semanticTarget": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "domain",
+                "kind",
+                "fields"
+            ],
+            "properties": {
+                "domain": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_.-]*$"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "fields": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "$ref": "#/$defs/semanticField"
+                    }
+                }
+            }
+        },
+        "redisKeyTarget": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "domain",
+                "keyRole"
+            ],
+            "properties": {
+                "domain": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_.-]*$"
+                },
+                "keyRole": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_.-]*$"
+                }
+            }
+        },
+        "cacheEntryTarget": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "domain",
+                "generationRole"
+            ],
+            "properties": {
+                "domain": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_.-]*$"
+                },
+                "generationRole": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_.-]*$"
+                }
+            }
+        },
+        "ownedFileTarget": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "domain",
+                "role"
+            ],
+            "properties": {
+                "domain": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_.-]*$"
+                },
+                "role": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_.-]*$"
+                }
+            }
+        },
+        "targetSurface": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "entities",
+                "redisKeys",
+                "cacheEntries",
+                "ownedFiles"
+            ],
+            "properties": {
+                "entities": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/semanticTarget"
+                    }
+                },
+                "redisKeys": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/redisKeyTarget"
+                    }
+                },
+                "cacheEntries": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/cacheEntryTarget"
+                    }
+                },
+                "ownedFiles": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/ownedFileTarget"
+                    }
+                }
+            }
+        },
+        "providerSupport": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "postgresql",
+                "mysql",
+                "sqlite",
+                "redis",
+                "filesystem"
+            ],
+            "properties": {
+                "postgresql": {
+                    "type": "boolean"
+                },
+                "mysql": {
+                    "type": "boolean"
+                },
+                "sqlite": {
+                    "type": "boolean"
+                },
+                "redis": {
+                    "type": "boolean"
+                },
+                "filesystem": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "envelope": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "envelopeId",
+                "version",
+                "targetProfileIds",
+                "targetCapabilities",
+                "semanticTargets",
+                "mutationKind",
+                "precondition",
+                "expectedDriftFacts",
+                "expectedRecovery",
+                "cleanupOwner",
+                "providerSupport",
+                "allowedChanges",
+                "forbiddenDomains",
+                "contentDigest"
+            ],
+            "properties": {
+                "envelopeId": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9/_-]*$"
+                },
+                "version": {
+                    "const": 1
+                },
+                "targetProfileIds": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9-]*$"
+                    }
+                },
+                "targetCapabilities": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9._-]*$"
+                    }
+                },
+                "semanticTargets": {
+                    "$ref": "#/$defs/targetSurface"
+                },
+                "mutationKind": {
+                    "type": "string"
+                },
+                "precondition": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "verifiedReceipt",
+                        "receiptSchema",
+                        "semanticSnapshot"
+                    ],
+                    "properties": {
+                        "verifiedReceipt": {
+                            "const": true
+                        },
+                        "receiptSchema": {
+                            "const": "fsusblog.fixture-receipt.v2"
+                        },
+                        "semanticSnapshot": {
+                            "const": "pre-mutation-verified"
+                        }
+                    }
+                },
+                "expectedDriftFacts": {
+                    "$ref": "#/$defs/targetSurface"
+                },
+                "expectedRecovery": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "source",
+                        "restoreTarget"
+                    ],
+                    "properties": {
+                        "source": {
+                            "const": "same-profile-current-producer-plan"
+                        },
+                        "restoreTarget": {
+                            "const": "pre-mutation-verified-semantic-snapshot"
+                        }
+                    }
+                },
+                "cleanupOwner": {
+                    "type": "string",
+                    "pattern": "^fixture-receipt\\.owned-[a-z-]+$"
+                },
+                "providerSupport": {
+                    "$ref": "#/$defs/providerSupport"
+                },
+                "allowedChanges": {
+                    "$ref": "#/$defs/targetSurface"
+                },
+                "forbiddenDomains": {
+                    "$ref": "#/$defs/targetSurface"
+                },
+                "contentDigest": {
+                    "type": "string",
+                    "pattern": "^sha256:[a-f0-9]{64}$"
+                }
+            }
+        },
+        "sequence": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "sequenceId",
+                "targetProfileIds",
+                "envelopeIds",
+                "providerSupport",
+                "qualificationEligible"
+            ],
+            "properties": {
+                "sequenceId": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_-]*$"
+                },
+                "targetProfileIds": {
+                    "type": "array",
+                    "minItems": 2,
+                    "items": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9-]*$"
+                    }
+                },
+                "envelopeIds": {
+                    "type": "array",
+                    "minItems": 2,
+                    "items": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9/_-]*$"
+                    }
+                },
+                "providerSupport": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "postgresql",
+                        "mysql",
+                        "sqlite",
+                        "redis",
+                        "filesystem"
+                    ],
+                    "properties": {
+                        "postgresql": {
+                            "enum": [
+                                "supported",
+                                "fail-closed",
+                                "unsupported"
+                            ]
+                        },
+                        "mysql": {
+                            "enum": [
+                                "supported",
+                                "fail-closed",
+                                "unsupported"
+                            ]
+                        },
+                        "sqlite": {
+                            "enum": [
+                                "supported",
+                                "fail-closed",
+                                "unsupported"
+                            ]
+                        },
+                        "redis": {
+                            "enum": [
+                                "supported",
+                                "fail-closed",
+                                "unsupported"
+                            ]
+                        },
+                        "filesystem": {
+                            "enum": [
+                                "supported",
+                                "fail-closed",
+                                "unsupported"
+                            ]
+                        }
+                    }
+                },
+                "qualificationEligible": {
+                    "type": "boolean"
+                }
+            }
+        }
+    }
+}

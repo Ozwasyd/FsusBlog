@@ -160,6 +160,61 @@
             "pathType": "file"
         },
         {
+            "id": "mutation-envelope-catalog",
+            "owner": "test-fixture-catalog",
+            "canonicalPath": "config/testing/fixture-mutation-envelope-catalog.json",
+            "pathType": "file",
+            "purpose": "Unique closed/versioned fixture MutationEnvelopeCatalog: receipt-owned semantic mutation targets, closed mutation kinds, exact allowed/forbidden domains, expected drift/recovery contracts referencing same-profile producer plans, provider support matrix and profile sequence scenarios. No fixed IDs, wildcards, paths, SQL/scripts, restart/cleanup actions or second mutation list.",
+            "consumers": [
+                "tools/test-fixtures/mutation-envelope-catalog.mjs",
+                "tests/tools/mutation-envelope-catalog.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/mutation-envelope-catalog.test.mjs",
+            "changePolicy": "manual-update-with-mutation-envelope-catalog-validation",
+            "status": "manual"
+        },
+        {
+            "id": "mutation-envelope-catalog-schema",
+            "owner": "test-fixture-catalog",
+            "canonicalPath": "config/schemas/fixture-mutation-envelope-catalog.schema.json",
+            "pathType": "file",
+            "purpose": "JSON Schema for the fixture MutationEnvelopeCatalog: closed envelope/sequence fields, semantic target surfaces, provider support matrix, precondition and expected recovery contracts, and strict rejection of extra identity or action fields.",
+            "consumers": [
+                "tools/test-fixtures/mutation-envelope-catalog.mjs",
+                "tests/tools/mutation-envelope-catalog.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/mutation-envelope-catalog.test.mjs",
+            "changePolicy": "manual-update-with-mutation-envelope-catalog-validation",
+            "status": "manual"
+        },
+        {
+            "id": "mutation-envelope-catalog-validator",
+            "owner": "test-fixture-catalog",
+            "canonicalPath": "tools/test-fixtures/mutation-envelope-catalog.mjs",
+            "pathType": "file",
+            "purpose": "Independent MutationEnvelopeCatalog validator and CLI: coverage of all required mutation surfaces, ownership, closed mutation kinds, provider support, sequence completeness, allowed/forbidden domain exactness, digest/tamper checks and JSON Schema conformance.",
+            "consumers": [
+                "config/testing/fixture-mutation-envelope-catalog.json",
+                "tests/tools/mutation-envelope-catalog.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/mutation-envelope-catalog.test.mjs",
+            "changePolicy": "manual-update-with-mutation-envelope-catalog-validation",
+            "status": "manual"
+        },
+        {
+            "id": "mutation-envelope-catalog-focused-test",
+            "owner": "repository-governance",
+            "canonicalPath": "tests/tools/mutation-envelope-catalog.test.mjs",
+            "pathType": "file",
+            "purpose": "Focused governance test covering the MutationEnvelopeCatalog: required surface/kind/provider coverage, receipt-owned semantic targets, profile sequence scenarios, owned/unowned/ambiguous targets, exact allowed/forbidden domains, unknown SQL/script/wildcard/path/restart actions, overlapping/duplicate envelopes, producer/profile drift invalidation, catalog tamper and stable canonical ordering.",
+            "consumers": [
+                "tools/test-fixtures/mutation-envelope-catalog.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/mutation-envelope-catalog.test.mjs",
+            "changePolicy": "manual-update-with-mutation-envelope-catalog-validation",
+            "status": "manual"
+        },
+        {
             "id": "physical-execution-process-policy",
             "owner": "physical-execution-governance",
             "canonicalPath": "config/testing/physical-execution-process-policy.json",

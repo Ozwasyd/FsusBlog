@@ -919,6 +919,17 @@
             ]
         },
         {
+            "file": "tests/tools/mutation-envelope-catalog.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/mutation-envelope-catalog.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
             "file": "tests/tools/no-global-dotnet-build-server-shutdown.test.mjs",
             "owner": "repository-governance:test-asset-behavior",
             "executionCategory": "repository-governance",
