@@ -416,34 +416,6 @@ function namedJavascriptTestId(framework, file, name, ordinal = 1) {
     : `${framework}:${file}#${slug(name)}-${shortHash(`${name}\n${ordinal}`)}`
 }
 
-function balancedBlock(source, offset, limit = 12_000) {
-  const start = source.indexOf('{', offset)
-  if (start < 0) return source.slice(offset, Math.min(source.length, offset + 1_000))
-  let depth = 0
-  let quote = ''
-  let escaped = false
-  const endLimit = Math.min(source.length, start + limit)
-  for (let index = start; index < endLimit; index += 1) {
-    const char = source[index]
-    if (quote) {
-      if (escaped) escaped = false
-      else if (char === '\\') escaped = true
-      else if (char === quote) quote = ''
-      continue
-    }
-    if (char === '"' || char === "'" || char === '`') {
-      quote = char
-      continue
-    }
-    if (char === '{') depth += 1
-    if (char === '}') {
-      depth -= 1
-      if (depth === 0) return source.slice(offset, index + 1)
-    }
-  }
-  return source.slice(offset, endLimit)
-}
-
 function normalizeSemanticSource(source) {
   return source
     .replace(/\s+/gu, ' ')
@@ -473,7 +445,7 @@ function riskTagsFor(file, name, source) {
     .map(([tag]) => tag)
 }
 
-function record({ id, file, framework, name, source, tierCategory = undefined, methodHistoryId = null }) {
+function record({ id, file, framework, name, source, tierCategory = undefined, methodHistoryId = null, inventoryObligation = null }) {
   const normalized = normalizeSemanticSource(source)
   const result = {
     id,
@@ -485,91 +457,8 @@ function record({ id, file, framework, name, source, tierCategory = undefined, m
     _semanticSignature: shortHash(`${framework}\n${normalized}`)
   }
   if (methodHistoryId) result.methodHistoryId = methodHistoryId
+  if (inventoryObligation) result.inventoryObligation = inventoryObligation
   return result
-}
-
-function extractBehaviorTestTitle(source, callIndex) {
-  // behaviorTest(id, kind, 'title', fn) or behaviorTest(id, kind, { title: '...' }, fn)
-  const open = source.indexOf('(', callIndex)
-  if (open < 0) return null
-  let cursor = open + 1
-  let depth = 1
-  let argIndex = 0
-  let argStart = cursor
-  let inString = null
-  let escaped = false
-  while (cursor < source.length && depth > 0) {
-    const char = source[cursor]
-    if (inString) {
-      if (escaped) escaped = false
-      else if (char === '\\') escaped = true
-      else if (char === inString) inString = null
-      cursor += 1
-      continue
-    }
-    if (char === '\'' || char === '"' || char === '`') {
-      inString = char
-      cursor += 1
-      continue
-    }
-    if (char === '(' || char === '{' || char === '[') depth += 1
-    else if (char === ')' || char === '}' || char === ']') {
-      depth -= 1
-      if (depth === 0) break
-    } else if (char === ',' && depth === 1) {
-      if (argIndex === 2) {
-        const raw = source.slice(argStart, cursor).trim()
-        const stringMatch = raw.match(/^(['"`])([\s\S]*)\1$/u)
-        if (stringMatch) return stringMatch[2].trim()
-        const titleMatch = raw.match(/title\s*:\s*(['"`])([^'"`\r\n]+)\1/u)
-        if (titleMatch) return titleMatch[2].trim()
-        return null
-      }
-      argIndex += 1
-      argStart = cursor + 1
-    }
-    cursor += 1
-  }
-  return null
-}
-
-function extractJavascriptTests(file, source) {
-  const records = []
-  const occurrenceByName = new Map()
-  const framework = /from\s+['"]node:test['"]/u.test(source) ? 'node-test' : 'vitest'
-  const pattern = /\b(?:it|test)(?:\.(?:skip|only|todo|fails|each))?\s*\(\s*(['"`])([^'"`\r\n]+)\1\s*,/gu
-  for (const match of source.matchAll(pattern)) {
-    const name = match[2].trim()
-    const ordinal = (occurrenceByName.get(name) ?? 0) + 1
-    occurrenceByName.set(name, ordinal)
-    const block = balancedBlock(source, match.index)
-    records.push(record({
-      id: namedJavascriptTestId(framework, file, name, ordinal),
-      file,
-      framework,
-      name,
-      source: block
-    }))
-  }
-  // Formal behaviorTest(...) registration is the only JS behavior-binding helper; inventory must see those titles.
-  const behaviorPattern = /\bbehaviorTest\s*\(/gu
-  for (const match of source.matchAll(behaviorPattern)) {
-    const name = extractBehaviorTestTitle(source, match.index)
-    if (!name) continue
-    const ordinal = (occurrenceByName.get(name) ?? 0) + 1
-    occurrenceByName.set(name, ordinal)
-    // Skip if an ordinary test() with the same title already owns this ordinal slot from a nested call.
-    if (records.some((entry) => entry.name === name && entry.file === file)) continue
-    const block = balancedBlock(source, match.index)
-    records.push(record({
-      id: namedJavascriptTestId(framework, file, name, ordinal),
-      file,
-      framework,
-      name,
-      source: block
-    }))
-  }
-  return records
 }
 
 export function vitestHistoryEntries(root, payload) {
@@ -734,20 +623,48 @@ export function extractTestRecords(file, source, inventory = null) {
       name: testCase.displayName,
       source: testCase.bodySource ?? source,
       tierCategory: (testCase.traits ?? []).find((trait) => trait.name === 'Category')?.value,
-      methodHistoryId: xunitMethodHistoryId(testCase.ownerClass, testCase.methodName)
+      methodHistoryId: xunitMethodHistoryId(testCase.ownerClass, testCase.methodName),
+      inventoryObligation: testCase.identity === 'dynamic' ? testCase.dynamicCaseInfo?.inventoryObligation ?? null : null
     }))
   }
   if (/\.(?:test|spec)\.[cm]?[jt]sx?$/u.test(file)) {
-    const namedTests = extractJavascriptTests(file, source)
-    if (namedTests.length > 0) return namedTests
+    if (!inventory) {
+      throw new Error(`js/ts adapter artifact is required for JS/TS retention records: ${file}; consume the canonical test inventory instead of private JS extraction`)
+    }
+    const cases = (inventory.testCases ?? []).filter((testCase) => testCase.ownerFile === file)
     const framework = file.includes('/e2e/') ? 'playwright-dynamic' : 'test-support'
-    return [record({
-      id: `${framework}:${file}`,
+    if (cases.length === 0) {
+      return [record({
+        id: `${framework}:${file}`,
+        file,
+        framework,
+        name: path.basename(file),
+        source
+      })]
+    }
+    const records = cases.map((testCase) => record({
+      id: testCase.id,
       file,
-      framework,
-      name: path.basename(file),
-      source
-    })]
+      framework: testCase.adapter ?? 'vitest',
+      name: testCase.displayName,
+      source: testCase.bodySource ?? source,
+      tierCategory: (testCase.traits ?? []).find((trait) => trait.name === 'Category')?.value,
+      inventoryObligation: testCase.identity === 'dynamic' ? testCase.dynamicCaseInfo?.inventoryObligation ?? null : null
+    }))
+    if (cases.every((testCase) => testCase.identity === 'dynamic')) {
+      // Files whose cases are all dynamic keep the frozen file-level owner id
+      // referenced by the retention replacement ledger; per-case dynamic
+      // obligations remain on the case records above.
+      records.unshift(record({
+        id: `${framework}:${file}`,
+        file,
+        framework,
+        name: path.basename(file),
+        source,
+        inventoryObligation: `runtime inventory must record every executed case id for ${file} after each run`
+      }))
+    }
+    return records
   }
 
   const framework = file.endsWith('.sh') ? 'shell' : file.endsWith('.mjs') || file.endsWith('.js') ? 'node-script' : 'support'

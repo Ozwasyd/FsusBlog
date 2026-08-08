@@ -128,21 +128,21 @@ export const ADAPTERS = [
     id: 'playwright',
     version: 'playwright.v1',
     kind: 'discoverable-test',
-    caseIdentity: () => deferredStaticCase('playwright-adapter', '#2618'),
+    caseIdentity: () => readyStaticCase('playwright-adapter'),
     matches: (file) => E2E_SPEC(file)
   },
   {
     id: 'node-test',
     version: 'node-test.v1',
     kind: 'discoverable-test',
-    caseIdentity: () => deferredStaticCase('node-test-adapter', '#2618'),
+    caseIdentity: () => readyStaticCase('node-test-adapter'),
     matches: (file, source) => JS_TEST_FILE.test(file) && !E2E_SPEC(file) && hasNodeTestImport(source)
   },
   {
     id: 'vitest',
     version: 'vitest.v1',
     kind: 'discoverable-test',
-    caseIdentity: () => deferredStaticCase('vitest-adapter', '#2618'),
+    caseIdentity: () => readyStaticCase('vitest-adapter'),
     matches: (file, source) => JS_TEST_FILE.test(file) && !E2E_SPEC(file) && !hasNodeTestImport(source)
   },
   {

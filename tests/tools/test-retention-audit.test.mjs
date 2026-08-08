@@ -44,6 +44,22 @@ function xunitInventory(file, cases) {
   }
 }
 
+function jsInventory(file, cases) {
+  return {
+    testCases: cases.map((spec, index) => ({
+      id: spec.id ?? vitestTestId(file, spec.name, spec.ordinal ?? 1),
+      displayName: spec.displayName ?? spec.name,
+      kind: spec.kind ?? 'test',
+      identity: spec.identity ?? 'static',
+      adapter: spec.adapter ?? 'vitest',
+      ownerFile: file,
+      ownerSuite: spec.ownerSuite,
+      bodySource: spec.bodySource ?? '',
+      traits: spec.traits ?? []
+    }))
+  }
+}
+
 test('retention snapshot follows evidence inputs and aggregate authority siblings without scheduling them', () => {
   const snapshot = buildRetentionCatalogSnapshot({
     matrix: {
@@ -143,13 +159,17 @@ public sealed class ExampleTests
     methodName: 'RejectsEmptyToken',
     bodySource: '=> Assert.Throws<InvalidOperationException>(() => Parse(""))'
   }]))
-  const vitest = extractTestRecords('tests/frontend/unit/example.test.ts', `
+  const vitestFile = 'tests/frontend/unit/example.test.ts'
+  const vitest = extractTestRecords(vitestFile, `
 describe('token parser', () => {
   test('rejects empty token', () => {
     expect(() => parseToken('')).toThrow('empty')
   })
 })
-`)
+`, jsInventory(vitestFile, [{
+  name: 'rejects empty token',
+  bodySource: "expect(() => parseToken('')).toThrow('empty')"
+}]))
 
   assert.equal(xunit[0].framework, 'xunit')
   assert.match(xunit[0].id, /^xunit:tests\/backend\/Unit\/ExampleTests\.cs#ExampleTests\.RejectsEmptyToken#case-0000$/)
@@ -163,9 +183,14 @@ describe('token parser', () => {
 
 test('extractTestRecords retains every distinct assertion target in a large test body', () => {
   const assertions = Array.from({ length: 20 }, (_, index) => `expect(subject.value${index}).toBe(${index})`).join('\n')
+  const largeFile = 'tests/frontend/unit/large-contract.test.ts'
   const [record] = extractTestRecords(
-    'tests/frontend/unit/large-contract.test.ts',
-    `test('checks the complete contract', () => {\n${assertions}\n})`
+    largeFile,
+    `test('checks the complete contract', () => {\n${assertions}\n})`,
+    jsInventory(largeFile, [{
+      name: 'checks the complete contract',
+      bodySource: assertions
+    }])
   )
 
   assert.equal(record.assertionTargets.length, 20)
@@ -237,13 +262,17 @@ public sealed class NestedHelperTests
 })
 
 test('risk classification scans the full test body before permitting replacement', () => {
-  const records = extractTestRecords('tests/frontend/unit/example.test.ts', `
+  const riskFile = 'tests/frontend/unit/example.test.ts'
+  const records = extractTestRecords(riskFile, `
 test('neutral title', () => {
   const padding = '${'x'.repeat(2500)}'
   expect(padding.length).toBeGreaterThan(0)
   expect(permission).toBeDenied()
 })
-`)
+`, jsInventory(riskFile, [{
+  name: 'neutral title',
+  bodySource: `const padding = '${'x'.repeat(2500)}'\nexpect(padding.length).toBeGreaterThan(0)\nexpect(permission).toBeDenied()`
+}]))
 
   assert.ok(records[0].riskTags.includes('security'))
 })
@@ -619,7 +648,11 @@ test('keeps protocol version', () => {
       }]
     ]),
     timingHistory: new Map(),
-    failureHistory: new Map()
+    failureHistory: new Map(),
+    inventory: jsInventory('tests/frontend/unit/example.test.ts', [{
+      name: 'keeps protocol version',
+      bodySource: 'expect(protocol.version).toBe(2)'
+    }])
   })
 
   assert.equal(result.length, 1)
@@ -711,7 +744,27 @@ test('candidate replacement prefers retained evidence over a lexically earlier r
       }]
     ]),
     timingHistory: new Map(),
-    failureHistory: new Map()
+    failureHistory: new Map(),
+    inventory: {
+      testCases: [
+        {
+          id: vitestTestId('tests/frontend/unit/a-candidate.test.ts', 'same behavior', 1),
+          displayName: 'same behavior',
+          identity: 'static',
+          adapter: 'vitest',
+          ownerFile: 'tests/frontend/unit/a-candidate.test.ts',
+          bodySource: 'expect(value).toBe(1)'
+        },
+        {
+          id: vitestTestId('tests/frontend/unit/z-protected.test.ts', 'same behavior', 1),
+          displayName: 'same behavior',
+          identity: 'static',
+          adapter: 'vitest',
+          ownerFile: 'tests/frontend/unit/z-protected.test.ts',
+          bodySource: 'expect(value).toBe(1)'
+        }
+      ]
+    }
   })
   const reviews = reviewCandidateFiles(['tests/frontend/unit/a-candidate.test.ts'], records)
 
@@ -734,7 +787,27 @@ test('semantic replacement does not collapse distinct URL assertions as line com
     files: [...metadata.keys()],
     fileMetadata: metadata,
     timingHistory: new Map(),
-    failureHistory: new Map()
+    failureHistory: new Map(),
+    inventory: {
+      testCases: [
+        {
+          id: vitestTestId('tests/frontend/unit/a.test.ts', 'same name', 1),
+          displayName: 'same name',
+          identity: 'static',
+          adapter: 'vitest',
+          ownerFile: 'tests/frontend/unit/a.test.ts',
+          bodySource: "expect(url).toBe('https://a.example')"
+        },
+        {
+          id: vitestTestId('tests/frontend/unit/b.test.ts', 'same name', 1),
+          displayName: 'same name',
+          identity: 'static',
+          adapter: 'vitest',
+          ownerFile: 'tests/frontend/unit/b.test.ts',
+          bodySource: "expect(url).toBe('https://b.example')"
+        }
+      ]
+    }
   })
 
   assert.equal(reviewCandidateFiles(['tests/frontend/unit/b.test.ts'], records)[0].decision, 'retain')

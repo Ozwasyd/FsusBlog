@@ -700,7 +700,8 @@
                 "tools/test-retention/audit.mjs",
                 "tools/docs/generate-testing-docs.mjs",
                 "tests/tools/test-inventory.test.mjs",
-                "tests/tools/xunit-roslyn-adapter.test.mjs"
+                "tests/tools/xunit-roslyn-adapter.test.mjs",
+                "tests/tools/ts-ast-adapter.test.mjs"
             ],
             "validationCommand": "node tools/test-inventory/produce.mjs --check && node tools/test-inventory/verify-closure.mjs",
             "changePolicy": "manual-update-with-inventory-closure-validation",
@@ -729,6 +730,19 @@
                 "tools/test-inventory"
             ],
             "validationCommand": "node --test tests/tools/xunit-roslyn-adapter.test.mjs",
+            "changePolicy": "manual-update-with-inventory-closure-validation",
+            "status": "manual"
+        },
+        {
+            "id": "ts-ast-adapter-focused-test",
+            "owner": "repository-governance",
+            "canonicalPath": "tests/tools/ts-ast-adapter.test.mjs",
+            "pathType": "file",
+            "purpose": "Focused governance test covering the TypeScript AST JS/TS test adapter: Vitest/node:test/Playwright/behaviorTest discovery, nested suites and hooks, skip/only/todo/fails, aliased and namespace imports, static test.each expansion, dynamic table/loop obligations, duplicate-title identity, production/helper/mock symbol classification, parse fail-closed and byte-stable determinism.",
+            "consumers": [
+                "tools/test-inventory"
+            ],
+            "validationCommand": "node --test tests/tools/ts-ast-adapter.test.mjs",
             "changePolicy": "manual-update-with-inventory-closure-validation",
             "status": "manual"
         }

@@ -96,11 +96,7 @@ function commandReferencedFiles(command) {
 
 function assertionEstimate(file, inventory) {
   if (!/\.(cs|ts|mjs|js)$/.test(file)) return 0
-  if (file.endsWith('.cs')) {
-    return (inventory?.testCases ?? []).filter((testCase) => testCase.ownerFile === file).length
-  }
-  const text = fs.readFileSync(path.join(root, file), 'utf8')
-  return (text.match(/\b(?:it|test)\s*\(/g) ?? []).length
+  return (inventory?.testCases ?? []).filter((testCase) => testCase.ownerFile === file).length
 }
 
 function buildTextReferenceIndex(files) {

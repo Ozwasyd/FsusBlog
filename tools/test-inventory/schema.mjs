@@ -28,6 +28,7 @@ const KNOWN_ROOT_KEYS = new Set([
   'discoverySources',
   'sourceFiles',
   'testCases',
+  'suiteRecords',
   'diagnostics'
 ])
 
@@ -59,6 +60,20 @@ const KNOWN_CASE_IDENTITY_KEYS = new Set([
   'extractionStatus',
   'deferredTo'
 ])
+
+const KNOWN_SUITE_RECORD_KEYS = new Set([
+  'id',
+  'title',
+  'file',
+  'adapter',
+  'suitePath',
+  'parentSuiteId',
+  'sourceSpan',
+  'hooks',
+  'traits'
+])
+
+const KNOWN_HOOK_KEYS = new Set(['name', 'sourceSpan'])
 
 const KNOWN_TEST_CASE_KEYS = new Set([
   'id',
@@ -245,6 +260,31 @@ function validateSourceFile(file, label) {
   if (file.caseIdentity !== undefined) validateCaseIdentity(file.caseIdentity, `${label}.caseIdentity`)
 }
 
+function validateSuiteRecord(suite, label) {
+  assertClosedObject(suite, KNOWN_SUITE_RECORD_KEYS, label)
+  assertString(suite.id, `${label}.id`)
+  assertString(suite.title, `${label}.title`)
+  assertString(suite.file, `${label}.file`)
+  assertString(suite.adapter, `${label}.adapter`)
+  assertString(suite.suitePath, `${label}.suitePath`)
+  if (suite.parentSuiteId !== undefined && suite.parentSuiteId !== null) {
+    assertString(suite.parentSuiteId, `${label}.parentSuiteId`)
+  }
+  validateSourceSpan(suite.sourceSpan, `${label}.sourceSpan`)
+  if (!Array.isArray(suite.hooks)) fail(`${label}.hooks must be an array`)
+  for (const [index, hook] of suite.hooks.entries()) {
+    assertClosedObject(hook, KNOWN_HOOK_KEYS, `${label}.hooks[${index}]`)
+    assertString(hook.name, `${label}.hooks[${index}].name`)
+    validateSourceSpan(hook.sourceSpan, `${label}.hooks[${index}].sourceSpan`)
+  }
+  if (!Array.isArray(suite.traits)) fail(`${label}.traits must be an array`)
+  for (const [index, trait] of suite.traits.entries()) {
+    assertClosedObject(trait, KNOWN_TRAIT_KEYS, `${label}.traits[${index}]`)
+    assertString(trait.name, `${label}.traits[${index}].name`)
+    assertString(trait.value, `${label}.traits[${index}].value`)
+  }
+}
+
 function validateTestCase(testCase, label) {
   assertClosedObject(testCase, KNOWN_TEST_CASE_KEYS, label)
   assertString(testCase.id, `${label}.id`)
@@ -345,6 +385,19 @@ export function validateInventoryArtifact(artifact) {
   for (const testCase of artifact.testCases) {
     if (!seenPaths.has(testCase.ownerFile)) {
       fail(`artifact.testCases ownerFile is not a declared source file: ${testCase.ownerFile}`)
+    }
+  }
+
+  if (!Array.isArray(artifact.suiteRecords)) fail('artifact.suiteRecords must be an array')
+  const seenSuiteIds = new Set()
+  for (const [index, suite] of artifact.suiteRecords.entries()) {
+    validateSuiteRecord(suite, `artifact.suiteRecords[${index}]`)
+    if (seenSuiteIds.has(suite.id)) fail(`artifact.suiteRecords contains duplicate id: ${suite.id}`)
+    seenSuiteIds.add(suite.id)
+  }
+  for (const suite of artifact.suiteRecords) {
+    if (!seenPaths.has(suite.file)) {
+      fail(`artifact.suiteRecords file is not a declared source file: ${suite.file}`)
     }
   }
 

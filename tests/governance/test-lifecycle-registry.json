@@ -3736,6 +3736,17 @@
                 "source-text",
                 "runtime"
             ]
+        },
+        {
+            "file": "tests/tools/ts-ast-adapter.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/ts-ast-adapter.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
         }
     ]
 }

@@ -14,7 +14,7 @@
  */
 
 import { createHash } from 'node:crypto'
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 
@@ -315,6 +315,60 @@ function runXunitRoslynAdapter(root, projectPath, sourceFiles) {
   return { testCases, diagnostics }
 }
 
+const TS_ADAPTER_ENTRY = 'tools/test-inventory/ts-ast-adapter/index.mjs'
+
+function runTsAstAdapter(root, sourceFiles) {
+  const tsFiles = sourceFiles.filter((file) => (
+    file.adapter === 'vitest' || file.adapter === 'node-test' || file.adapter === 'playwright'
+  ))
+  if (tsFiles.length === 0) return { testCases: [], suiteRecords: [], diagnostics: [] }
+  const adapterEntry = path.join(root, TS_ADAPTER_ENTRY)
+  if (!existsSync(adapterEntry)) {
+    return {
+      testCases: [],
+      suiteRecords: [],
+      diagnostics: [{
+        severity: 'warning',
+        code: 'ts-ast-adapter-unavailable',
+        file: null,
+        message: `ts adapter entry is not present at ${TS_ADAPTER_ENTRY}; JS/TS cases were not extracted`
+      }]
+    }
+  }
+  const requestDir = path.join(root, '.tmp')
+  mkdirSync(requestDir, { recursive: true })
+  const requestPath = path.join(requestDir, 'ts-ast-adapter-request.json')
+  writeFileSync(requestPath, JSON.stringify({
+    root,
+    files: tsFiles.map((file) => ({ path: file.path, adapter: file.adapter }))
+  }))
+  const result = spawnSync(
+    process.execPath,
+    [adapterEntry, requestPath],
+    { cwd: root, encoding: 'utf8', maxBuffer: 128 * 1024 * 1024 }
+  )
+  if (result.status !== 0) {
+    const detail = String(result.stderr ?? result.stdout ?? '').trim().split(/\r?\n/u).slice(-12).join('\n')
+    throw new Error(`ts ast adapter failed (exit ${result.status}): ${detail}`)
+  }
+  let report
+  try {
+    report = JSON.parse(result.stdout)
+  } catch (error) {
+    throw new Error(`ts ast adapter output is not valid JSON: ${error.message}`)
+  }
+  const ownedFiles = new Set(tsFiles.map((file) => file.path))
+  const testCases = (report.testCases ?? []).filter((testCase) => ownedFiles.has(testCase.ownerFile))
+  const suiteRecords = (report.suiteRecords ?? []).filter((suite) => ownedFiles.has(suite.file))
+  const diagnostics = (report.diagnostics ?? []).map((diagnostic) => ({
+    severity: diagnostic.severity === 'error' ? 'error' : 'warning',
+    code: diagnostic.code,
+    file: diagnostic.file ?? null,
+    message: diagnostic.message
+  }))
+  return { testCases, suiteRecords, diagnostics }
+}
+
 export function discoverTestInventory(root, { includeSourceState = true, runAdapters = true } = {}) {
   const matrixText = readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8')
   const matrix = parseMatrix(matrixText)
@@ -393,11 +447,16 @@ export function discoverTestInventory(root, { includeSourceState = true, runAdap
   }
 
   let adapterCases = []
+  let adapterSuiteRecords = []
   let adapterDiagnostics = []
   if (runAdapters) {
-    const adapterResult = runXunitRoslynAdapter(root, XUNIT_TEST_PROJECT, sourceFiles)
-    adapterCases = adapterResult.testCases
-    adapterDiagnostics = adapterResult.diagnostics
+    const xunitResult = runXunitRoslynAdapter(root, XUNIT_TEST_PROJECT, sourceFiles)
+    adapterCases = xunitResult.testCases
+    adapterDiagnostics = xunitResult.diagnostics
+    const tsResult = runTsAstAdapter(root, sourceFiles)
+    adapterCases = [...adapterCases, ...tsResult.testCases]
+    adapterSuiteRecords = tsResult.suiteRecords
+    adapterDiagnostics = [...adapterDiagnostics, ...tsResult.diagnostics]
   }
   const sourceState = includeSourceState ? { commit: gitCommit(root) } : null
   const discoverySources = {
@@ -414,6 +473,7 @@ export function discoverTestInventory(root, { includeSourceState = true, runAdap
     discoverySources,
     sourceFiles,
     testCases: adapterCases.sort((left, right) => left.id.localeCompare(right.id)),
+    suiteRecords: adapterSuiteRecords.sort((left, right) => left.id.localeCompare(right.id)),
     diagnostics: [...diagnostics, ...adapterDiagnostics].sort((left, right) => (
       left.severity.localeCompare(right.severity)
       || left.code.localeCompare(right.code)

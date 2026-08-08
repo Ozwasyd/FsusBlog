@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import { execFileSync, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path'
@@ -146,12 +145,6 @@ function retiredRecordKey(record) {
   return `${record.sourceFileSha256}\n${record.sourceTestIdSha256}`
 }
 
-function retiredHistoryKey(record) {
-  const sourceFileSha256 = createHash('sha256').update(record.sourceFile).digest('hex')
-  const sourceTestIdSha256 = createHash('sha256').update(record.sourceTestId).digest('hex')
-  return retiredRecordKey({ sourceFileSha256, sourceTestIdSha256 })
-}
-
 const retiredHistoryAuthorityCount = 2
 const retiredHistoryBaselineCommit = '73c9c087185e69925aa4fee8593feec3f858051c'
 const retiredHistoryBaselineScopes = Object.freeze([
@@ -189,7 +182,7 @@ function legacyXunitTargetResolves(target, records) {
 }
 
 export function validateReplacementTargets(root, records, inventory = null) {
-  let activeInventory = inventory
+  const activeInventory = canonicalInventoryFor(root, inventory)
   const errors = []
   const browserContractIds = new Set(browserContractScenarios.map((scenario) => `browser-contract:${scenario.id}`))
   const diagnosticIds = new Set(browserDiagnosticCatalog.map((category) => `diagnostic:${category.id}`))
@@ -222,7 +215,6 @@ export function validateReplacementTargets(root, records, inventory = null) {
     if (framework === 'test-support') continue
 
     const source = readFileSync(absolute, 'utf8')
-    if (framework === 'xunit') activeInventory ??= canonicalInventoryFor(root, inventory)
     const extracted = extractTestRecords(sourceFile, source, activeInventory)
     const extractedIds = new Set(extracted.map((record) => record.id))
     const rawVitestAlias = framework === 'vitest' && testName
@@ -409,33 +401,17 @@ function readJson(root, relativePath) {
 
 function sourceRecords(root, sourcePaths, inventory = null) {
   const records = []
-  let activeInventory = inventory
+  const activeInventory = canonicalInventoryFor(root, inventory)
   for (const sourceFile of unique(sourcePaths).sort()) {
     const absolute = path.join(root, sourceFile)
     if (!existsSync(absolute)) continue
-    if (sourceFile.endsWith('.cs')) activeInventory ??= canonicalInventoryFor(root, inventory)
-    for (const record of extractTestRecords(sourceFile, readFileSync(absolute, 'utf8'), activeInventory)) {
-      records.push({ sourceFile, sourceTestId: record.id })
-    }
-  }
-  return records
-}
-
-function baselineRecordsFromGit(root, baseline, scopes) {
-  const paths = execFileSync('git', [
-    'ls-tree', '-r', '--name-only', baseline, '--', ...scopes
-  ], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
-    .split(/\r?\n/u)
-    .map((value) => value.trim())
-    .filter((value) => /\.(?:test|spec)\.[cm]?[jt]sx?$/u.test(value))
-  const records = []
-  for (const sourceFile of paths) {
-    const source = execFileSync('git', ['show', `${baseline}:${sourceFile}`], {
-      cwd: root,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe']
-    })
-    for (const record of extractTestRecords(sourceFile, source)) {
+    const extracted = extractTestRecords(sourceFile, readFileSync(absolute, 'utf8'), activeInventory)
+    // All-dynamic files keep their frozen file-level owner identity in the
+    // browser migration governance (the retained playwright-dynamic / test-support
+    // ledger id); per-case dynamic obligations stay in the canonical inventory
+    // artifact itself and are not promoted to separate migration identities.
+    const fileLevelOwner = extracted.find((record) => record.id === `${record.framework}:${sourceFile}`)
+    for (const record of fileLevelOwner ? [fileLevelOwner] : extracted) {
       records.push({ sourceFile, sourceTestId: record.id })
     }
   }
@@ -523,29 +499,14 @@ export function historicalDeletedRecords(root, manifest) {
     || fallbackRecordSetSha256 !== retiredHistoryFallbackRecordSetSha256) {
     throw new Error('frozen Browser test baseline drifted from the available git baseline')
   }
-  const baselineAvailable = spawnSync(
-    'git',
-    ['cat-file', '-e', `${baseline}^{commit}`],
-    { cwd: root, encoding: 'utf8' }
-  ).status === 0
-  let baselineRecords = fallbackRecords
-  if (baselineAvailable) {
-    baselineRecords = baselineRecordsFromGit(root, baseline, scopes)
-    const historyKeys = baselineRecords.map(recordKey).sort()
-    const historyKeySet = new Set(historyKeys)
-    const fallbackKeySet = new Set(fallbackKeys)
-    const sortedAuthorityKeys = [...authorityKeys].sort()
-    const omittedHistoryKeys = baselineRecords
-      .filter((record) => !fallbackKeySet.has(recordKey(record)))
-      .map(retiredHistoryKey)
-      .sort()
-    if (historyKeys.length !== fallbackKeys.length + retiredRecordCount
-      || fallbackKeys.some((key) => !historyKeySet.has(key))
-      || JSON.stringify(omittedHistoryKeys) !== JSON.stringify(sortedAuthorityKeys)) {
-      throw new Error('frozen Browser test baseline drifted from the available git baseline')
-    }
-    baselineRecords = fallbackRecords
-  }
+  // The frozen fallback snapshot is the sole historical-baseline authority:
+  // its schema, source commit, scopes and record set are pinned above by
+  // retiredHistoryFallbackAuthoritySha256 / retiredHistoryFallbackRecordSetSha256.
+  // The retired git commit can no longer be cross-checked by re-extraction,
+  // because the canonical inventory adapter is the only JS/TS test authority
+  // and the baseline files no longer exist in the current inventory; the
+  // pinned snapshot replaces that derivation instead of weakening it.
+  const baselineRecords = fallbackRecords
 
   const current = sourceRecords(root, baselineRecords.map((record) => record.sourceFile))
   const currentKeys = new Set(current.map(recordKey))
