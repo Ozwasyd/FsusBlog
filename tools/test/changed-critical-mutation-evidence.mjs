@@ -100,7 +100,7 @@ export function createChangedCriticalMutationAuthority({
         sha256(Buffer.from(`${JSON.stringify(selection, null, 2)}\n`)),
         'selection bytes'
     )
-    assertEqual(selection.catalog.sha256, sha256(rawCatalog), 'catalog digest')
+    assertEqual(selection.toolPolicy.sha256, sha256(rawCatalog), 'catalog digest')
     if (!Array.isArray(runs) || runs.length !== selection.projectClosures.length) {
         throw new Error('authority requires one physical mutation run per source-project closure')
     }
@@ -298,7 +298,7 @@ export function validateChangedCriticalMutationAuthority({
     )
     assertEqual(authority.closureDigest, selection.closureDigest, 'closure digest')
     assertEqual(authority.selection.sha256, sha256(rawSelection), 'selection digest')
-    assertEqual(authority.catalog.sha256, sha256(rawCatalog), 'catalog digest')
+    assertEqual(authority.toolPolicy.sha256, sha256(rawCatalog), 'catalog digest')
     assertEqual(
         canonicalJson(authority.mutateFiles),
         canonicalJson(selection.mutateFiles),

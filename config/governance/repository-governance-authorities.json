@@ -43,11 +43,13 @@
                         "application-prechecks"
                     ],
                     "checkerSources": [
-                        "tools/test/lanes/static-governance.sh"
+                        "tools/test/lanes/static-governance.sh",
+                        "tools/governance/check-behavior-mutation-governance.mjs"
                     ],
                     "ruleIds": [
                         "application:aeds-policy",
                         "application:background-service-classification",
+                        "application:behavior-mutation-governance",
                         "application:backend-physical-topology",
                         "application:code-intent",
                         "application:configuration-authority",

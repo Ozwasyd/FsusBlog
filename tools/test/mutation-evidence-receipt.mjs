@@ -40,6 +40,12 @@ export function digestValue(value) {
  * @param {number} options.blockedCount - Number of blocked (ambiguous) mutants
  * @param {string} options.status - 'ok' or 'failed'
  * @param {string[]} options.failureReasons
+ * @param {string} [options.runId] - Current-run identity (provenance)
+ * @param {string} [options.attemptId] - Execution attempt identity
+ * @param {string} [options.scope] - 'pr' or 'release'
+ * @param {string} [options.testPlanDigest] - Current-run test plan digest (sha256: prefixed or bare)
+ * @param {string} [options.behaviorTestEvidenceDigest] - #2186 behavior-test evidence content digest
+ * @param {string} [options.implementationOwnerClosureDigest] - Derived C# mutation-owner closure digest
  */
 export function sealMutationEvidenceReceipt({
   sourceCommit,
@@ -54,7 +60,13 @@ export function sealMutationEvidenceReceipt({
   qualifications = [],
   blockedCount = 0,
   status,
-  failureReasons = []
+  failureReasons = [],
+  runId = null,
+  attemptId = null,
+  scope = null,
+  testPlanDigest = null,
+  behaviorTestEvidenceDigest = null,
+  implementationOwnerClosureDigest = null
 }) {
   if (status !== 'ok' && status !== 'failed') {
     throw new Error('[mutation-evidence] status must be ok or failed')
@@ -77,6 +89,19 @@ export function sealMutationEvidenceReceipt({
   if (status === 'failed' && failureReasons.length === 0) {
     throw new Error('[mutation-evidence] status=failed requires failureReasons')
   }
+  const bareDigest = (value) => String(value ?? '').replace(/^sha256:/u, '')
+  for (const [label, value] of Object.entries({
+    testPlanDigest,
+    behaviorTestEvidenceDigest,
+    implementationOwnerClosureDigest
+  })) {
+    if (value != null && !digestPattern.test(bareDigest(value))) {
+      throw new Error(`[mutation-evidence] ${label} must be a SHA-256 digest`)
+    }
+  }
+  if (scope != null && scope !== 'pr' && scope !== 'release') {
+    throw new Error('[mutation-evidence] scope must be pr or release')
+  }
 
   const payload = {
     schema: mutationEvidenceSchema,
@@ -88,6 +113,16 @@ export function sealMutationEvidenceReceipt({
     testBindingScanDigest,
     rawReportDigest,
     rawTraceDigest,
+    ...(runId != null ? { runId } : {}),
+    ...(attemptId != null ? { attemptId } : {}),
+    ...(scope != null ? { scope } : {}),
+    ...(testPlanDigest != null ? { testPlanDigest: bareDigest(testPlanDigest) } : {}),
+    ...(behaviorTestEvidenceDigest != null
+      ? { behaviorTestEvidenceDigest: bareDigest(behaviorTestEvidenceDigest) }
+      : {}),
+    ...(implementationOwnerClosureDigest != null
+      ? { implementationOwnerClosureDigest: bareDigest(implementationOwnerClosureDigest) }
+      : {}),
     attributions: [...attributions]
       .map((a) => ({
         mutantId: a.mutantId,
@@ -97,7 +132,12 @@ export function sealMutationEvidenceReceipt({
         mutator: a.mutator,
         status: a.status,
         coveredTestIds: [...(a.coveredTestIds ?? [])].sort(),
-        killedTestIds: [...(a.killedTestIds ?? [])].sort()
+        killedTestIds: [...(a.killedTestIds ?? [])].sort(),
+        expectedKilledTestIds: [...(a.expectedKilledTestIds ?? [])].sort(),
+        expectedTestKinds: [...(a.expectedTestKinds ?? [])].sort(),
+        rawResult: a.rawResult ?? null,
+        attempt: a.attempt ?? null,
+        provenance: a.provenance ?? null
       }))
       .sort((left, right) => left.mutantId.localeCompare(right.mutantId)),
     qualifications: [...qualifications]
@@ -109,6 +149,9 @@ export function sealMutationEvidenceReceipt({
         survived: q.survived,
         timeout: q.timeout,
         noCoverage: q.noCoverage,
+        compileError: q.compileError ?? 0,
+        requiredMutants: q.requiredMutants ?? 0,
+        recordedMutants: q.recordedMutants ?? 0,
         score: q.score,
         minimumMutationScore: q.minimumMutationScore,
         qualified: q.qualified,

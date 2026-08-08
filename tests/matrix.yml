@@ -8241,15 +8241,14 @@ tiers:
       shardable: false
       defaultShards: 1
       risk: critical
-      cadence: release-manual
-      requiredFor: none
+      cadence: pr
+      requiredFor: production
       coverage: [backend-changed-critical-mutation]
       artifacts: [.tmp/mutation/changed-critical]
       evidence: [.tmp/mutation/changed-critical]
       ciJob: backend-mutation
       localOnly: false
       nightlyOnly: false
-      manualOnly: true
 
     - id: backend-nightly
       owner: ServerContractAgent

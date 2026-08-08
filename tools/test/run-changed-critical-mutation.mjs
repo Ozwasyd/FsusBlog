@@ -161,6 +161,31 @@ function runPhysicalMutations({ selection, toolPolicy, runDirectory, root, physi
     return { status: 0 }
 }
 
+/**
+ * Run the physical Stryker closures for a selection.
+ *
+ * Reused by the canonical per-behavior mutation qualification producer so the
+ * two runners share the exact same physical execution path.
+ *
+ * @returns {{ status: number, physicalRuns: object[] }}
+ */
+export function runChangedCriticalPhysicalMutations({
+    selection,
+    toolPolicy,
+    runDirectory,
+    root
+}) {
+    const physicalRuns = []
+    const result = runPhysicalMutations({
+        selection,
+        toolPolicy,
+        runDirectory,
+        root,
+        physicalRuns
+    })
+    return { ...result, physicalRuns }
+}
+
 function main() {
     const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
     const options = parseArguments(process.argv.slice(2))

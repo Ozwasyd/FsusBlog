@@ -144,20 +144,62 @@ function attributeBySpan(mutant, fileOwners) {
  * @param {MutantAttribution[]} options.attributions
  * @param {object[]} options.blocked
  * @param {object} options.behaviorCatalog - behavior-contracts.json
+ * @param {string[]} [options.behaviorIds] - Restrict qualification to these behavior IDs
+ * @param {object} [options.qualificationOptions] - Exact-set and clean-test evidence
+ *   - expectedMutantIdsByBehavior: { behaviorId: mutantId[] } exact required mutant IDs
+ *   - cleanTestIdsByBehavior: { behaviorId: canonicalTestId[] } tests clean this round
+ *   - bindingByTestId: { canonicalTestId: binding } #2185 binding map
+ *   - testIdentityByRawId: { rawTestId: fullyQualifiedName } current-run raw identity map
  * @returns {{ qualifications: object[], failed: boolean }}
  */
-export function qualifyBehaviorMutations({ attributions, blocked, behaviorCatalog, behaviorIds = null }) {
+export function qualifyBehaviorMutations({
+  attributions,
+  blocked,
+  behaviorCatalog,
+  behaviorIds = null,
+  qualificationOptions = {}
+}) {
   const contractsById = new Map(
     (behaviorCatalog?.contracts ?? []).map((c) => [c.id, c])
   )
   const qualifications = []
   let failed = false
+  const expectedMutantIdsByBehavior = qualificationOptions.expectedMutantIdsByBehavior ?? {}
+  const cleanTestIdsByBehavior = qualificationOptions.cleanTestIdsByBehavior ?? {}
+  const bindingByTestId = qualificationOptions.bindingByTestId ?? {}
+  const testIdentityByRawId = qualificationOptions.testIdentityByRawId ?? {}
+  const hasCleanTestEvidence =
+    Object.keys(bindingByTestId).length > 0
+    && Object.keys(testIdentityByRawId).length > 0
 
   // Group attributions by behavior
   const byBehavior = new Map()
   for (const attr of attributions) {
     if (!byBehavior.has(attr.behaviorId)) byBehavior.set(attr.behaviorId, [])
     byBehavior.get(attr.behaviorId).push(attr)
+  }
+  // Duplicate mutant results must fail closed (delivery item 10).
+  const seenMutantIds = new Map()
+  for (const attr of attributions) {
+    if (seenMutantIds.has(attr.mutantId) && seenMutantIds.get(attr.mutantId) !== attr.behaviorId) {
+      failed = true
+    }
+    if (seenMutantIds.has(attr.mutantId)) {
+      failed = true
+    }
+    seenMutantIds.set(attr.mutantId, attr.behaviorId)
+  }
+
+  function expectedTestIdsForBehavior(behaviorId) {
+    return (cleanTestIdsByBehavior[behaviorId] ?? []).sort((a, b) => a.localeCompare(b))
+  }
+
+  function resolveCleanTestId(rawTestId) {
+    const fqn = testIdentityByRawId[rawTestId]
+    if (!fqn) return null
+    return Object.values(bindingByTestId).find((binding) => binding.fullyQualifiedName === fqn)
+      ? Object.values(bindingByTestId).find((binding) => binding.fullyQualifiedName === fqn).canonicalTestId
+      : null
   }
 
   for (const [behaviorId, contract] of contractsById) {
@@ -172,6 +214,7 @@ export function qualifyBehaviorMutations({ attributions, blocked, behaviorCatalo
     const survived = mutants.filter((m) => m.status === 'Survived')
     const timeout = mutants.filter((m) => m.status === 'Timeout')
     const noCoverage = mutants.filter((m) => m.status === 'NoCoverage')
+    const compileError = mutants.filter((m) => m.status === 'CompileError')
     const scoreable = mutants.filter((m) =>
       ['Killed', 'Survived', 'Timeout', 'NoCoverage'].includes(m.status))
     const score = scoreable.length > 0
@@ -193,8 +236,56 @@ export function qualifyBehaviorMutations({ attributions, blocked, behaviorCatalo
     if (noCoverage.length > 0 && policy.allowedEquivalentMutantPolicy === 'none') {
       failures.push(`${behaviorId} has ${noCoverage.length} no-coverage mutant(s)`)
     }
+    if (compileError.length > 0) {
+      failures.push(`${behaviorId} has ${compileError.length} error/compile-error mutant(s)`)
+    }
     if (score < policy.minimumMutationScore && scoreable.length > 0) {
       failures.push(`${behaviorId} mutation score ${score} < minimum ${policy.minimumMutationScore}`)
+    }
+
+    // Exact required mutant set (delivery items 1, 5, 10): any planned mutant
+    // with no attribution result or no execution is a missing result.
+    const expectedMutantIds = expectedMutantIdsByBehavior[behaviorId] ?? []
+    if (expectedMutantIds.length > 0) {
+      const attributedMutantIds = new Set(mutants.map((m) => m.mutantId))
+      const missing = expectedMutantIds.filter((mutantId) => !attributedMutantIds.has(mutantId))
+      if (missing.length > 0) {
+        failures.push(
+          `${behaviorId} missing required mutant result(s): ${missing.sort().join(', ')}`
+        )
+      }
+    }
+
+    // Required tests must be clean-first-attempt this round (delivery item 7):
+    // skipped/blocked/diagnostic/recovered tests cannot satisfy kill credit.
+    const requiredTestIds = expectedTestIdsForBehavior(behaviorId)
+    const expectedBindings = Object.values(bindingByTestId)
+      .filter((binding) => binding.behaviorId === behaviorId)
+      .map((binding) => binding.canonicalTestId)
+    if (expectedBindings.length > 0) {
+      const missingClean = expectedBindings.filter((id) => !requiredTestIds.includes(id))
+      if (missingClean.length > 0) {
+        failures.push(
+          `${behaviorId} required test(s) not clean this round: ${missingClean.sort().join(', ')}`
+        )
+      }
+    }
+
+    for (const mutant of hasCleanTestEvidence ? mutants : []) {
+      for (const rawTestId of mutant.killedTestIds ?? []) {
+        const canonicalTestId = resolveCleanTestId(rawTestId)
+        if (!canonicalTestId) {
+          failures.push(
+            `${behaviorId} mutant ${mutant.mutantId} killed by unbound test ${rawTestId}`
+          )
+          continue
+        }
+        if (!requiredTestIds.includes(canonicalTestId)) {
+          failures.push(
+            `${behaviorId} mutant ${mutant.mutantId} killed by unclean test ${canonicalTestId}`
+          )
+        }
+      }
     }
 
     // Blocked mutants for this behavior also fail qualification
@@ -214,6 +305,9 @@ export function qualifyBehaviorMutations({ attributions, blocked, behaviorCatalo
       survived: survived.length,
       timeout: timeout.length,
       noCoverage: noCoverage.length,
+      compileError: compileError.length,
+      requiredMutants: expectedMutantIds.length,
+      recordedMutants: mutants.length,
       score,
       minimumMutationScore: policy.minimumMutationScore,
       qualified,
@@ -231,4 +325,69 @@ export function qualifyBehaviorMutations({ attributions, blocked, behaviorCatalo
     blockedCount: blocked.length,
     failed
   }
+}
+
+/**
+ * Attach per-behavior expected killed test IDs/kinds to attributions.
+ *
+ * Each attribution records the behavior's binding-derived expected killer
+ * tests (canonical IDs and kinds) so the sealed receipt carries the exact
+ * expected test contract alongside the actual raw killed-by result.
+ *
+ * @param {object} options
+ * @param {MutantAttribution[]} options.attributions
+ * @param {object} options.selection - Selection with behaviors[].testBindings[]
+ * @returns {MutantAttribution[]} Enriched attributions
+ */
+export function attachExpectedTestEvidence({ attributions, selection }) {
+  const expectedByBehavior = new Map()
+  for (const behavior of selection?.behaviors ?? []) {
+    expectedByBehavior.set(behavior.behaviorId, {
+      testIds: [...new Set((behavior.testBindings ?? []).map((b) => b.canonicalTestId))]
+        .sort((a, b) => a.localeCompare(b)),
+      testKinds: [...new Set((behavior.testBindings ?? []).map((b) => b.testKind))]
+        .sort((a, b) => a.localeCompare(b))
+    })
+  }
+  return attributions.map((attribution) => {
+    const expected = expectedByBehavior.get(attribution.behaviorId) ?? { testIds: [], testKinds: [] }
+    return {
+      ...attribution,
+      expectedKilledTestIds: expected.testIds,
+      expectedTestKinds: expected.testKinds
+    }
+  })
+}
+
+/**
+ * Exact required-mutant IDs in attribution format.
+ *
+ * `attributeMutantsToBehaviors` identifies every mutant as
+ * `<sourceProject>:<project-relative-file>:<raw-mutant-id>`. The authority
+ * inventory instead keys mutants by the semantic SHA-256 identity, so the
+ * expected per-behavior set must be re-derived from the same raw mutant IDs
+ * to compare exactly (delivery items 1/5/10: 0/multiple/missing all fail).
+ */
+export function expectedAttributionMutantIdsByBehavior(selection, authority) {
+  const closures = selection?.projectClosures ?? []
+  const sourceProjectFor = (sourceFile) => {
+    const closure = closures.find((entry) =>
+      sourceFile.startsWith(`${entry.sourceProject}/`))
+    return closure?.sourceProject ?? sourceFile.split('/').slice(0, 2).join('/')
+  }
+  const result = {}
+  for (const behavior of selection?.behaviors ?? []) {
+    const mutateFiles = new Set(behavior.mutateFiles ?? [])
+    result[behavior.behaviorId] = (authority?.inventory ?? [])
+      .filter((mutant) => mutateFiles.has(mutant.sourceFile))
+      .map((mutant) => {
+        const sourceProject = sourceProjectFor(mutant.sourceFile)
+        const relative = sourceProject
+          ? mutant.sourceFile.slice(sourceProject.length + 1)
+          : mutant.sourceFile
+        return `${sourceProject}:${relative}:${mutant.rawMutantId}`
+      })
+      .sort((left, right) => left.localeCompare(right))
+  }
+  return result
 }

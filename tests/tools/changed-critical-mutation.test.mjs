@@ -195,7 +195,7 @@ test('non-mutation-required behavior change produces empty selection', () => {
 })
 
 test('unrelated changes produce empty selection and never start Stryker', () => {
-    const selection = select(['docs/testing.md', 'src/frontend/src/App.vue'])
+    const selection = select(['README.md', 'src/frontend/src/App.vue'])
     let starts = 0
     const run = executeChangedCriticalSelection({
         selection,
@@ -206,6 +206,32 @@ test('unrelated changes produce empty selection and never start Stryker', () => 
     assert.equal(run.status, 'empty')
     assert.equal(run.strykerStarted, false)
     assert.equal(starts, 0)
+})
+
+test('docs-only/binding/catalog change triggers the full required behavior closure (never skips)', () => {
+    const selection = select(['docs/testing.md'])
+
+    assert.equal(selection.status, 'selected')
+    assert.equal(selection.scope, 'pr')
+    assert.deepEqual(selection.behaviors.map((b) => b.behaviorId), [
+        'authentication-session-permission',
+        'binary-api-aeds-contract'
+    ])
+    assert.ok(selection.reasons.some((reason) => reason.startsWith('governance-change:')))
+    assert.deepEqual(selection.mutateFiles, [
+        'src/backend/Infrastructure/Auth/AccountSubjectHasher.cs',
+        'src/core/Integrity/ArticleRightsCanonicalHashV1.cs'
+    ])
+})
+
+test('binding/catalog config change triggers the full required behavior closure', () => {
+    const selection = select(['config/contracts/behavior-contracts.json'])
+
+    assert.equal(selection.status, 'selected')
+    assert.deepEqual(selection.behaviors.map((b) => b.behaviorId), [
+        'authentication-session-permission',
+        'binary-api-aeds-contract'
+    ])
 })
 
 test('generated config uses binding-derived test filter and owner-derived mutate files', () => {
