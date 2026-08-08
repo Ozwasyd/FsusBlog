@@ -49,7 +49,11 @@ function fixtureRoot() {
     'tools/test/run-test-asset-audit.mjs',
     'tools/governance/check-code-intent.mjs',
     'tools/docs/document-lifecycle.mjs',
-    'tools/run-test-matrix.mjs'
+    'tools/run-test-matrix.mjs',
+    'tools/fact-extractors/openapi-aeds/extract.mjs',
+    'tools/fact-extractors/auth-session-permission/extract.mjs',
+    'tools/fact-extractors/config-error-security-policy/extract.mjs',
+    'tools/fact-extractors/content-lifecycle/extract.mjs'
   ]) {
     const target = path.join(directory, relative)
     mkdirSync(path.dirname(target), { recursive: true })
@@ -109,6 +113,46 @@ behaviorTest('browserless-production-correctness', 'negative', { title: 'matrix 
   write(repositoryRoot, 'tests/tools/matrix.concurrency.test.mjs', `
 import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
 behaviorTest('browserless-production-correctness', 'concurrency', { title: 'matrix concurrency', concurrencyHarness: 'fsusblog.real-concurrency.v1' }, () => {})
+`)
+  write(repositoryRoot, 'tests/tools/binary-aeds.positive.test.mjs', `
+import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+behaviorTest('binary-api-aeds-contract', 'positive', 'aeds positive', () => {})
+`)
+  write(repositoryRoot, 'tests/tools/binary-aeds.negative.test.mjs', `
+import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+behaviorTest('binary-api-aeds-contract', 'negative', { title: 'aeds negative', invariantIds: ['aeds-crc-invariant'] }, () => {})
+`)
+  write(repositoryRoot, 'tests/tools/auth.positive.test.mjs', `
+import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+behaviorTest('authentication-session-permission', 'positive', 'auth positive', () => {})
+`)
+  write(repositoryRoot, 'tests/tools/auth.negative.test.mjs', `
+import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+behaviorTest('authentication-session-permission', 'negative', { title: 'auth negative', invariantIds: ['session-revocation-enforcement'] }, () => {})
+`)
+  write(repositoryRoot, 'tests/tools/auth.migration.test.mjs', `
+import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+behaviorTest('authentication-session-permission', 'migration', { title: 'auth migration', invariantIds: ['jwt-kid-migration-window'] }, () => {})
+`)
+  write(repositoryRoot, 'tests/tools/config.positive.test.mjs', `
+import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+behaviorTest('configuration-error-security-policy', 'positive', 'config positive', () => {})
+`)
+  write(repositoryRoot, 'tests/tools/config.negative.test.mjs', `
+import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+behaviorTest('configuration-error-security-policy', 'negative', { title: 'config negative', invariantIds: ['risk-pseudonym-key-required'] }, () => {})
+`)
+  write(repositoryRoot, 'tests/tools/config.boundary.test.mjs', `
+import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+behaviorTest('configuration-error-security-policy', 'boundary', { title: 'config boundary', invariantIds: ['session-limit-boundary'] }, () => {})
+`)
+  write(repositoryRoot, 'tests/tools/comment.positive.test.mjs', `
+import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+behaviorTest('article-comment-lifecycle-outbox', 'positive', 'comment positive', () => {})
+`)
+  write(repositoryRoot, 'tests/tools/comment.negative.test.mjs', `
+import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+behaviorTest('article-comment-lifecycle-outbox', 'negative', { title: 'comment negative', invariantIds: ['transactional-rollback-boundary'] }, () => {})
 `)
   // Install helper modules referenced by relative imports in fixture tests (not executed).
   write(repositoryRoot, 'tools/contracts/behavior-test.mjs', readFileSync(path.join(root, 'tools/contracts/behavior-test.mjs'), 'utf8'))
