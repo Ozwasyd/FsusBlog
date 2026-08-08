@@ -3318,6 +3318,17 @@
             ]
         },
         {
+            "file": "tests/tools/release-required-evidence-catalog.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/release-required-evidence-catalog.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
             "file": "tests/tools/release-load-response-oracle.test.mjs",
             "owner": "manual-diagnostic:tests/tools/release-load-response-oracle.test.mjs",
             "executionCategory": "manual-diagnostic",

@@ -785,6 +785,48 @@
             "validationCommand": "node --test tests/tools/matrix-fixture-profile.test.mjs",
             "changePolicy": "manual-update-with-inventory-closure-validation",
             "status": "manual"
+        },
+        {
+            "id": "required-evidence-catalog-ledger",
+            "owner": "release-final-governance",
+            "canonicalPath": "config/testing/required-evidence-authority-ledger.json",
+            "pathType": "file",
+            "purpose": "Exact-one release-final required evidence authority ledger: owner, producer tiers, receipt schema, current-run locator binding key, required IDs, identity fields, digests, diagnostic scope, local producer command, exactness and output binding key per correctness authority.",
+            "consumers": [
+                "tests/tools/release-required-evidence-catalog.test.mjs",
+                "tools/release/check-release-final.mjs",
+                "tools/test-matrix/required-evidence-catalog.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/release-required-evidence-catalog.test.mjs",
+            "changePolicy": "manual-update-with-required-evidence-catalog-validation",
+            "status": "manual"
+        },
+        {
+            "id": "required-evidence-catalog-schema",
+            "owner": "release-final-governance",
+            "canonicalPath": "config/schemas/required-evidence-catalog.schema.json",
+            "pathType": "file",
+            "purpose": "JSON Schema for the release-final required evidence catalog: closed authority fields, binding keys without path/mtime/latest/search semantics, digest and exactness contracts.",
+            "consumers": [
+                "tests/tools/release-required-evidence-catalog.test.mjs",
+                "tools/test-matrix/required-evidence-catalog.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/release-required-evidence-catalog.test.mjs",
+            "changePolicy": "manual-update-with-required-evidence-catalog-validation",
+            "status": "manual"
+        },
+        {
+            "id": "release-required-evidence-catalog-focused-test",
+            "owner": "repository-governance",
+            "canonicalPath": "tests/tools/release-required-evidence-catalog.test.mjs",
+            "pathType": "file",
+            "purpose": "Focused governance test covering the required evidence catalog and authority disposition ledger: missing/duplicate/orphan authority, missing fields and digests, mtime/latest/search locator rejection, job-name owners, diagnostic-versus-correctness, unknown correctness IDs, required-set reduction, missing producer verifier, tamper and output binding key conflicts, stable canonical ordering.",
+            "consumers": [
+                "tools/test-matrix/required-evidence-catalog.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/release-required-evidence-catalog.test.mjs",
+            "changePolicy": "manual-update-with-required-evidence-catalog-validation",
+            "status": "manual"
         }
     ]
 }
