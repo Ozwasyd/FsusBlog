@@ -1319,6 +1319,7 @@ tiers:
           - tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs
           - tests/backend/Unit/ArticleDestructiveMutationBehaviorTests.cs
           - tests/backend/Unit/CommentMutationPostgresConcurrencyTests.cs
+          - tests/backend/Unit/CommentMutationOutboxPostgresTests.cs
           - tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs
           - tests/backend/Unit/AuthoringUserBanConcurrencyTests.cs
           - tests/backend/Unit/SecurityChallengePersistenceTests.cs
@@ -1351,6 +1352,7 @@ tiers:
           - tests/backend/Unit/AuditTamperEvidenceBehaviorTests.cs
           - tests/backend/Unit/AuditFallbackWriterBehaviorTests.cs
           - tests/backend/Unit/ProductionReadinessCoordinatorBehaviorTests.cs
+          - tests/backend/Unit/ProductionStartupValidatorTests.cs
           - tests/backend/Unit/BackupRestoreScriptBehaviorTests.cs
           - tests/backend/Unit/AdminOperationsBehaviorTests.cs
           - tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs

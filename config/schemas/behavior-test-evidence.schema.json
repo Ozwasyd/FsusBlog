@@ -16,6 +16,11 @@
         "evidence",
         "coverage",
         "errors",
+        "testPlanDigest",
+        "testPlanCommit",
+        "plannedTestIds",
+        "unplannedBoundTestIds",
+        "extraExecutedTestIds",
         "contentDigest"
     ],
     "properties": {
@@ -117,9 +122,34 @@
             "type": "string",
             "minLength": 1
         },
-        "gatherPlanDigest": {
+        "testPlanDigest": {
             "type": "string",
-            "pattern": "^(?:sha256:)?[a-f0-9]{64}$"
+            "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "testPlanCommit": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{40}$"
+        },
+        "plannedTestIds": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "minLength": 1
+            }
+        },
+        "unplannedBoundTestIds": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "minLength": 1
+            }
+        },
+        "extraExecutedTestIds": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "minLength": 1
+            }
         },
         "runtimeCandidateSpawnCountBeforeReceipt": {
             "type": "integer",

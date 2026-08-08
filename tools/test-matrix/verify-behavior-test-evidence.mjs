@@ -15,6 +15,9 @@ import { forbiddenJoinFields } from '../contracts/behavior-graph-join.mjs'
 import { validateJsonSchema } from './schema-validator/validate.mjs'
 import {
   isHistoricalRawResultPath,
+  loadTestPlan,
+  planBoundClosure,
+  extraExecutedTestIdsFor,
   produceBehaviorTestEvidenceCommand,
   produceBehaviorTestEvidenceReceiptPath,
   produceBehaviorTestEvidenceReceiptSchema
@@ -91,6 +94,12 @@ export function verifyBehaviorTestEvidence(options) {
   const evidenceRoot = options.evidenceRoot ?? repositoryRoot
   const receiptPath = options.receipt ?? path.join(repositoryRoot, produceBehaviorTestEvidenceReceiptPath)
 
+  // 0. Load and validate the explicit current-run test plan receipt.
+  const planResult = loadTestPlan(options.plan, { repositoryRoot })
+  errors.push(...planResult.errors)
+  const plan = planResult.plan
+  const testPlanDigest = planResult.testPlanDigest
+
   // 1. Load and validate the sealed receipt.
   let receipt = null
   if (!fs.existsSync(receiptPath)) {
@@ -161,8 +170,11 @@ export function verifyBehaviorTestEvidence(options) {
     if (options.expectedClosureDigest && receipt.sourceClosureDigest !== options.expectedClosureDigest) {
       errors.push(`receipt source closure digest mismatch: expected ${options.expectedClosureDigest}, got ${receipt.sourceClosureDigest}`)
     }
-    if (options.expectedGatherPlanDigest && receipt.gatherPlanDigest !== options.expectedGatherPlanDigest) {
-      errors.push(`receipt gather plan digest mismatch: expected ${options.expectedGatherPlanDigest}, got ${receipt.gatherPlanDigest}`)
+    if (receipt.testPlanDigest !== testPlanDigest) {
+      errors.push('receipt testPlanDigest does not match current-run test plan')
+    }
+    if (receipt.testPlanCommit !== (plan?.commit ?? null)) {
+      errors.push(`receipt testPlanCommit does not match current-run test plan: ${receipt.testPlanCommit ?? '<missing>'} vs ${plan?.commit ?? '<missing>'}`)
     }
     if (options.staticAdmissionReceipt) {
       const staticReceipt = loadStaticAdmissionReceipt(options.staticAdmissionReceipt, errors)
@@ -215,6 +227,10 @@ export function verifyBehaviorTestEvidence(options) {
     errors.push('observation artifacts span multiple run identities; historical TRX cannot satisfy this round')
   }
 
+  if (plan && artifacts.length > 0 && plan.commit !== artifacts[0].sourceState?.commit) {
+    errors.push(`test plan commit does not match current-run observations: plan=${plan.commit}, observations=${artifacts[0].sourceState?.commit}`)
+  }
+
   // 3. Cross-check sealed receipt identity against current-run observations.
   if (receipt && artifacts.length > 0) {
     const first = artifacts[0]
@@ -264,6 +280,34 @@ export function verifyBehaviorTestEvidence(options) {
     if (JSON.stringify(canonicalize(joinedBase)) !== JSON.stringify(canonicalize(storedBase))) {
       errors.push('receipt does not match independent re-join of raw results and bindings (tamper)')
     }
+
+    // 5. Independent exact-match against the plan closure.
+    const closure = planBoundClosure(plan, scan)
+    const observedTestIds = new Set()
+    for (const artifact of artifacts) {
+      for (const observation of artifact.observations) observedTestIds.add(observation.testId)
+    }
+    const extraExecutedTestIds = extraExecutedTestIdsFor(
+      [...observedTestIds],
+      closure.plannedTestIds,
+      closure.plannedFiles
+    )
+    const expectedPlanned = [...closure.plannedTestIds].sort((a, b) => a.localeCompare(b))
+    if (JSON.stringify(canonicalize(receipt.plannedTestIds ?? [])) !== JSON.stringify(canonicalize(expectedPlanned))) {
+      errors.push('receipt plannedTestIds do not match plan closure re-derivation')
+    }
+    if (JSON.stringify(canonicalize(receipt.unplannedBoundTestIds ?? [])) !== JSON.stringify(canonicalize(closure.unplannedBoundTestIds))) {
+      errors.push('receipt unplannedBoundTestIds do not match plan closure re-derivation')
+    }
+    if (JSON.stringify(canonicalize(receipt.extraExecutedTestIds ?? [])) !== JSON.stringify(canonicalize(extraExecutedTestIds))) {
+      errors.push('receipt extraExecutedTestIds do not match current-run observations re-derivation')
+    }
+    if (closure.unplannedBoundTestIds.length > 0) {
+      errors.push(`bound test(s) not planned by test plan: ${closure.unplannedBoundTestIds.join(', ')}`)
+    }
+    if (extraExecutedTestIds.length > 0) {
+      errors.push(`extra executed test(s) beyond plan closure: ${extraExecutedTestIds.join(', ')}`)
+    }
   }
 
   return { receipt, errors: [...new Set(errors)].sort((left, right) => left.localeCompare(right)) }
@@ -272,13 +316,13 @@ export function verifyBehaviorTestEvidence(options) {
 function parseArgs(argv) {
   const options = {
     observations: [],
+    plan: null,
     receipt: null,
     out: null,
     evidenceRoot: null,
     expectedSourceCommit: null,
     expectedWorktreeFingerprint: null,
     expectedClosureDigest: null,
-    expectedGatherPlanDigest: null,
     staticAdmissionReceipt: null,
     repositoryRoot: root,
     help: false
@@ -287,6 +331,8 @@ function parseArgs(argv) {
     const argument = argv[index]
     if (argument === '--observations') {
       options.observations.push(argv[++index] ?? '')
+    } else if (argument === '--plan') {
+      options.plan = argv[++index] ?? null
     } else if (argument === '--receipt') {
       options.receipt = argv[++index] ?? options.receipt
     } else if (argument === '--out') {
@@ -299,8 +345,6 @@ function parseArgs(argv) {
       options.expectedWorktreeFingerprint = argv[++index] ?? null
     } else if (argument === '--closure-digest') {
       options.expectedClosureDigest = argv[++index] ?? null
-    } else if (argument === '--gather-plan-digest') {
-      options.expectedGatherPlanDigest = argv[++index] ?? null
     } else if (argument === '--static-admission-receipt') {
       options.staticAdmissionReceipt = argv[++index] ?? null
     } else if (argument === '--repository-root') {
@@ -324,13 +368,13 @@ diagnostic recovery evidence, default success fields, and second producers.
 
 Options:
   --observations <path>        Observation artifact file (repeatable; required)
+  --plan <path>                Current-run test plan receipt (release-evidence test-plan v1; required)
   --receipt <path>             Receipt to verify (default: .tmp/behavior-test-evidence/receipt.json)
   --out <path>                 Optional verification report output path
   --evidence-root <path>       Root for producer report digest verification
   --source-commit <sha>        Expected Git commit SHA (40 hex chars)
   --worktree-fingerprint <fp>  Expected worktree fingerprint
   --closure-digest <digest>    Expected source closure digest
-  --gather-plan-digest <dig>   Expected gather plan digest
   --static-admission-receipt <path>  Path to #1752 static admission receipt
   --repository-root <path>     Repository root for fixture/testing
 `)
@@ -346,6 +390,10 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     }
     if (options.observations.length === 0) {
       console.error('[verify-behavior-test-evidence] --observations is required (at least one observation artifact)')
+      process.exit(2)
+    }
+    if (!options.plan) {
+      console.error('[verify-behavior-test-evidence] --plan is required (release-evidence test-plan v1); a missing plan must fail closed, never silently skip exact-match')
       process.exit(2)
     }
 
@@ -367,7 +415,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       for (const error of errors) {
         console.error(`  ${error}`)
       }
-      console.error(`  canonical producer command: ${produceBehaviorTestEvidenceCommand} ${options.observations.map((item) => `--observations ${item}`).join(' ')}`)
+      const canonical = `${produceBehaviorTestEvidenceCommand}${options.observations.map((item) => ` --observations ${item}`).join('')}${options.plan ? ` --plan ${options.plan}` : ''}`
+      console.error(`  canonical producer command: ${canonical}`)
       process.exitCode = 1
     } else {
       console.log(`[verify-behavior-test-evidence] ok behaviors=${receipt?.coverage?.length ?? 0} evidence=${receipt?.evidence?.length ?? 0}`)

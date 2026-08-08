@@ -1106,32 +1106,69 @@ Stryker 4.14.2 自身标为 `Ignored` 的 block-removal 和唯一
 #2186 建立唯一的 behavior-test evidence producer：
 `tools/test-matrix/produce-behavior-test-evidence.mjs` 只消费本轮显式传入的
 backend/frontend raw result observation artifacts（
-`fsusblog.test-observation-artifact.v1`）、#2185 正式 source bindings 与
+`fsusblog.test-observation-artifact.v1`）、显式 current-run test plan
+receipt（`--plan <path>`，`fsusblog.release-evidence.test-plan.v1`，至少
+支持 `node tools/run-test-matrix.mjs evidence-plan` 产出的
+`.tmp/release-evidence/test-plan.json`）、#2185 正式 source bindings 与
 #1752 static admission identity，复用 #1748 的
 `joinBehaviorTestEvidence` / `validateExactBehaviorCoverage` /
 `--mode exact --out` authority，按 behavior 封存
-`fsusblog.behavior-test-evidence-receipt.v1`。receipt 逐 behavior 记录
-required/observed kinds、test IDs/status/outcome/raw result refs、binding /
-static / catalog digests 与 contentDigest，并固定
+`fsusblog.behavior-test-evidence-receipt.v1`。producer 不扫描历史
+TRX/latest 目录、不只看 job success；receipt 逐 behavior 记录
+required/observed kinds、test IDs/status/outcome/raw result refs、
+plan/binding/static/catalog digests 与 contentDigest，并固定
 `runtimeCandidateSpawnCountBeforeReceipt: 0`（producer 不执行、不重跑、
-不补 missing evidence）。
+不补 missing evidence，只报告 exact local producer command）。
+
+### 显式 test plan receipt 与 executed-set exact-match
+
+`--plan <path>` 是必填输入；producer 与 verifier 均校验 plan schema
+（`fsusblog.release-evidence.test-plan.v1`）、digest（`sha256:` 前缀）、
+commit/run/source identity（与 observation artifacts 和
+`--source-commit` 一致）。plan 缺失、schema 不匹配、digest/commit/run/
+source identity 漂移均 fail closed 并输出 canonical producer command，
+不允许静默跳过 exact-match。receipt 封存 `testPlanDigest`、
+`testPlanCommit`、`plannedTestIds`、`unplannedBoundTestIds` 与
+`extraExecutedTestIds`。
+
+executed test set 必须与 plan 的 bound closure exact 匹配：缺 bound test
+（plan 遗漏或本轮未执行）失败，**额外 executed test（计划外/超出
+closure）同样失败**。shard 遗漏、duplicate testId、多跑、result
+missing、failed/cancelled/timeout、binding drift 与 framework adapter
+mismatch 全部 fail closed。
+
+### evidenceStage 代理
+
+catalog 全仓不存在 `evidenceStage` 字段（`rg evidenceStage` 零命中），
+且 #2186 固定约束禁止修改 catalog/DocClaim 语义，因此 producer 以
+`status === 'active' && releaseQualification === true` 代理
+`evidenceStage=pre-runtime && releaseQualification=true`。当前 8 个
+active+releaseQualification contracts（test-asset-audit-reconciliation、
+code-intent-governance、document-lifecycle-governance、
+binary-api-aeds-contract、browserless-production-correctness、
+authentication-session-permission、configuration-error-security-policy、
+article-comment-lifecycle-outbox）全部是 static governance / contract /
+unit 级 pre-runtime 行为，没有 post-runtime（browser/load/soak/nightly）
+behavior 被误纳入。若未来 catalog 增加 post-runtime behavior，必须先行
+引入 evidenceStage 语义并收紧代理，不能在本 producer 内合成。
 
 独立 verifier `tools/test-matrix/verify-behavior-test-evidence.mjs` 重读
-raw results、bindings、catalog、plan digest 与 receipt，重算 contentDigest、
-rawResultDigest 和 exact join，拒绝 tamper、cross-run、historical
-TRX/latest 目录、retry/diagnostic recovered evidence、default success 字段
-与 second producer；缺 evidence 时只输出 canonical producer command。
-static governance 禁止从仓库元数据解析 default branch 读取 TRX、
-file-exists/job-status pass、manual behavior success 或第二套 producer。
+raw results、bindings、catalog、test plan receipt 与 receipt，重算
+contentDigest、rawResultDigest、exact join 与 plan closure，拒绝 tamper、
+cross-run、historical TRX/latest 目录、retry/diagnostic recovered
+evidence、default success 字段与 second producer；缺 evidence 时只输出
+canonical producer command。static governance 禁止从仓库元数据解析
+default branch 读取 TRX、file-exists/job-status pass、manual behavior
+success 或第二套 producer。
 
 docs-only/source-only closure 不跳过 required tests；global suite success
 不能掩盖 behavior missing/failed kind。producer 与 verifier 的 fixture
-测试覆盖 binding exists-but-not-executed、shard omitted/duplicate、
-skipped/blocked/diagnostic/retry、source/binding drift、docs-only closure、
-adapter mismatch、missing evidence zero auto-rerun、second producer 与
-receipt/raw refs tamper。
+测试覆盖 binding exists-but-not-executed、plan 缺失/schema/commit
+mismatch、plan 遗漏 bound test、多跑 extra executed、shard
+omitted/duplicate、skipped/blocked/diagnostic/retry、source/binding
+drift、docs-only closure、adapter mismatch、missing evidence zero
+auto-rerun、second producer 与 receipt/raw refs/plan tamper。
 
----
 
 ## 测试洁净性约定
 

@@ -198,6 +198,20 @@ function preparedFixture(directory, { mutateCase = null, retrySuites = new Set()
   return { catalog, scan, artifacts, paths }
 }
 
+function writePlan(repositoryRoot, scan, { commit = 'a'.repeat(40), tiers = null } = {}) {
+  const files = [...new Set(scan.bindings.map((binding) => binding.sourcePath))].sort()
+  const plan = {
+    schema: 'fsusblog.release-evidence.test-plan.v1',
+    generatedAt: '2026-07-28T00:00:00.000Z',
+    commit,
+    namespace: null,
+    tiers: tiers ?? [{ id: 'fixture-tier', evidence: files }]
+  }
+  const planPath = path.join(repositoryRoot, 'test-plan.json')
+  writeFileSync(planPath, `${JSON.stringify(plan, null, 2)}\n`)
+  return planPath
+}
+
 // =============================================================================
 // Tests
 // =============================================================================
@@ -464,9 +478,12 @@ test('producer seals an exact receipt from this-round observations (happy path)'
   const directory = fixtureRoot()
   try {
     const { paths } = preparedFixture(directory)
+    const scan = scanBehaviorTestBindings({ repositoryRoot: directory })
+    const planPath = writePlan(directory, scan)
     const { receipt, errors } = produceBehaviorTestEvidence({
       repositoryRoot: directory,
       observations: paths,
+      plan: planPath,
       evidenceRoot: directory,
       expectedSourceCommit: 'a'.repeat(40),
       expectedWorktreeFingerprint: `sha256:${'b'.repeat(64)}`,
@@ -477,6 +494,11 @@ test('producer seals an exact receipt from this-round observations (happy path)'
     assert.ok(receipt.coverage.length >= 8, 'every active behavior should be covered')
     assert.ok(receipt.coverage.every((row) => row.status === 'ok'), 'all behaviors ok')
     assert.ok(receipt.evidence.length >= 12, 'every bound test observed')
+    assert.equal(receipt.testPlanCommit, 'a'.repeat(40), 'receipt must seal the plan commit')
+    assert.match(receipt.testPlanDigest, /^sha256:[a-f0-9]{64}$/u, 'receipt must seal the plan digest')
+    assert.equal(receipt.unplannedBoundTestIds.length, 0, 'no bound test may be missing from the plan')
+    assert.equal(receipt.extraExecutedTestIds.length, 0, 'no executed test may fall outside the plan closure')
+    assert.equal(receipt.plannedTestIds.length, scan.bindings.length, 'every bound test must be planned')
     assert.equal(receipt.producer.command, 'node tools/test-matrix/produce-behavior-test-evidence.mjs')
     const schema = JSON.parse(readFileSync(path.join(root, 'config/schemas/behavior-test-evidence.schema.json'), 'utf8'))
     assert.deepEqual(validateJsonSchema(receipt, schema), [], 'receipt must satisfy canonical schema')
@@ -612,19 +634,132 @@ test('producer rejects unsupported framework adapter instead of defaulting to su
   }
 })
 
+test('producer fails closed when the current-run test plan is missing', () => {
+  const directory = fixtureRoot()
+  try {
+    const a1 = makeObservationArtifact({
+      repositoryRoot: directory, suite: 'suite-a',
+      testCases: [{ testId: 'tap:t1', outcome: 'passed' }]
+    })
+    const p1 = writeArtifact(directory, a1, 'a1.json')
+    const { errors } = produceBehaviorTestEvidence({
+      repositoryRoot: directory,
+      observations: [p1],
+      evidenceRoot: directory,
+      expectedWorktreeFingerprint: `sha256:${'0'.repeat(64)}`
+    })
+    assert.ok(errors.some((e) => e.includes('test plan input is required')),
+      'missing plan must fail closed instead of silently skipping exact-match')
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('producer fails closed on test plan schema mismatch', () => {
+  const directory = fixtureRoot()
+  try {
+    const { scan } = preparedFixture(directory)
+    const planPath = writePlan(directory, scan)
+    const plan = JSON.parse(readFileSync(planPath, 'utf8'))
+    plan.schema = 'fsusblog.release-evidence.test-plan.legacy'
+    writeFileSync(planPath, `${JSON.stringify(plan, null, 2)}\n`)
+    const { errors } = produceBehaviorTestEvidence({
+      repositoryRoot: directory,
+      observations: [writeArtifact(directory, makeObservationArtifact({
+        repositoryRoot: directory, suite: 'suite-a',
+        testCases: []
+      }), 'a1.json')],
+      plan: planPath,
+      evidenceRoot: directory,
+      expectedWorktreeFingerprint: `sha256:${'0'.repeat(64)}`
+    })
+    assert.ok(errors.some((e) => e.includes('test plan schema mismatch')),
+      'plan schema mismatch must fail closed')
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('producer fails closed on test plan commit mismatch', () => {
+  const directory = fixtureRoot()
+  try {
+    const { paths, scan } = preparedFixture(directory)
+    const planPath = writePlan(directory, scan, { commit: 'b'.repeat(40) })
+    const { errors } = produceBehaviorTestEvidence({
+      repositoryRoot: directory,
+      observations: paths,
+      plan: planPath,
+      evidenceRoot: directory,
+      expectedSourceCommit: 'a'.repeat(40),
+      expectedWorktreeFingerprint: `sha256:${'b'.repeat(64)}`
+    })
+    assert.ok(errors.some((e) => e.includes('test plan commit mismatch')),
+      'plan/source identity drift must fail closed')
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('producer fails closed when the plan omits a required bound test', () => {
+  const directory = fixtureRoot()
+  try {
+    const { paths, scan } = preparedFixture(directory)
+    const files = [...new Set(scan.bindings.map((binding) => binding.sourcePath))].sort()
+    const planPath = writePlan(directory, scan, {
+      tiers: [{ id: 'fixture-tier', evidence: files.slice(0, Math.max(1, files.length - 1)) }]
+    })
+    const { errors } = produceBehaviorTestEvidence({
+      repositoryRoot: directory,
+      observations: paths,
+      plan: planPath,
+      evidenceRoot: directory,
+      expectedWorktreeFingerprint: `sha256:${'b'.repeat(64)}`
+    })
+    assert.ok(errors.some((e) => e.includes('not planned by test plan')),
+      'a bound test missing from the plan must fail closed')
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('producer fails closed on extra executed tests beyond the plan closure (overrun)', () => {
+  const directory = fixtureRoot()
+  try {
+    const { paths, scan } = preparedFixture(directory, {
+      mutateCase: (bySuite) => {
+        bySuite.set('tests/tools/unplanned-extra.test.mjs', [{ name: 'unplanned extra test' }])
+      }
+    })
+    const planPath = writePlan(directory, scan)
+    const { errors } = produceBehaviorTestEvidence({
+      repositoryRoot: directory,
+      observations: paths,
+      plan: planPath,
+      evidenceRoot: directory,
+      expectedWorktreeFingerprint: `sha256:${'b'.repeat(64)}`
+    })
+    assert.ok(errors.some((e) => e.includes('extra executed test(s) beyond plan closure')),
+      'a test executed outside the planned closure must fail closed')
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
 test('CLI missing evidence exits 1, never auto-reruns, and reports canonical command', () => {
   const directory = fixtureRoot()
   try {
-    const { paths } = preparedFixture(directory, {
+    const { paths, scan } = preparedFixture(directory, {
       mutateCase: (bySuite) => {
         const first = [...bySuite.keys()][0]
         bySuite.set(first, [])
       }
     })
+    const planPath = writePlan(directory, scan)
     const out = path.join(directory, 'receipt.json')
     const result = spawnSync(process.execPath, [
       producerCli,
       ...paths.flatMap((item) => ['--observations', item]),
+      '--plan', planPath,
       '--out', out,
       '--evidence-root', directory,
       '--repository-root', directory,
@@ -633,6 +768,8 @@ test('CLI missing evidence exits 1, never auto-reruns, and reports canonical com
     assert.equal(result.status, 1, result.stderr)
     assert.ok(result.stderr.includes('canonical command: node tools/test-matrix/produce-behavior-test-evidence.mjs'),
       'missing evidence must report the exact canonical producer command')
+    assert.ok(result.stderr.includes(`--plan ${planPath}`),
+      'canonical command must include the explicit test plan input')
     const receipt = JSON.parse(readFileSync(out, 'utf8'))
     assert.equal(receipt.runtimeCandidateSpawnCountBeforeReceipt, 0)
     const producerSource = readFileSync(producerCli, 'utf8')
