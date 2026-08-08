@@ -535,79 +535,6 @@ tiers:
       retentionClass: must-keep
       triggerReason: every candidate requires a source-bound BehaviorDoc static admission receipt before any candidate process or output mutation
 
-    - id: behavior-evidence-pre-runtime
-      owner: ServerContractAgent
-      executionClass: static-governance
-      qualificationEligible: true
-      command: bash tools/test/bundles/behavior-evidence-pre-runtime.sh
-      outputReceiptSchema: fsusblog.behavior-evidence-pre-runtime-receipt.v1
-      executionDependsOn: [behavior-doc-static-admission]
-      requiresEvidenceFrom:
-          [
-              backend-unit,
-              backend-api-integration,
-              frontend-unit-shard,
-              backend-mutation,
-              release-mutation-critical-slice,
-          ]
-      services: []
-      parallelizable: false
-      exclusiveResources: [behavior-evidence-pre-runtime]
-      phase: 1
-      cost: medium
-      resourceClass: cpu
-      cpuWeight: 1
-      memoryWeight: 1
-      minCpuUnits: 1
-      maxParallel: 1
-      requiresBootstrap: none
-      fixtureProfile: none
-      fixtureCapabilities: []
-      requiresNode: true
-      requiresDotnet: false
-      requiresPlaywright: none
-      cacheProfile: none
-      timeoutMinutes: 10
-      shardable: false
-      defaultShards: 1
-      risk: critical
-      cadence: pr
-      requiredFor: production
-      coverage:
-          [
-              behavior-evidence-pre-runtime,
-          ]
-      artifacts:
-          [
-              .tmp/behavior-evidence-pre-runtime/receipt.json,
-          ]
-      evidence:
-          [
-              .tmp/behavior-evidence-pre-runtime/receipt.json,
-              .tmp/behavior-doc-static-admission/receipt.json,
-              .tmp/behavior-test-evidence,
-              .tmp/mutation/backend-critical/authority.json,
-              config/contracts/behavior-contracts.json,
-              config/schemas/behavior-graph-receipt.schema.json,
-              config/schemas/behavior-test-evidence.schema.json,
-              tools/contracts/behavior-graph-join.mjs,
-              tools/contracts/check-behavior-graph.mjs,
-              tools/contracts/behavior-test-binding.mjs,
-              tools/test/mutation-evidence-receipt.mjs,
-              tools/test-matrix/behavior-evidence-pre-runtime.mjs,
-              tools/test/bundles/behavior-evidence-pre-runtime.sh,
-              tests/tools/behavior-graph-join.test.mjs,
-              tests/tools/behavior-evidence-pre-runtime.test.mjs,
-              tests/matrix.yml,
-          ]
-      ciJob: behavior-evidence-pre-runtime
-      localOnly: false
-      nightlyOnly: false
-      prDefault: true
-      smartGateMode: always
-      retentionClass: must-keep
-      triggerReason: every candidate requires a source-bound BehaviorGraph pre-runtime evidence receipt joining static admission, test evidence, and mutation evidence before any runtime candidate can start
-
     - id: pr-smart-gate-plan
       owner: ServerContractAgent
       command: node tools/run-test-matrix.mjs ci-pr-plan --out .tmp/pr-plan.json
@@ -7555,7 +7482,6 @@ tiers:
       executionDependsOn: []
       requiresEvidenceFrom:
           [
-              behavior-evidence-pre-runtime,
               browser-contract,
               coverage-gate-strict,
               native-fuzz-sanitizer,

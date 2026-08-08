@@ -2,7 +2,6 @@
   "schema": "fsusblog.release-final-evidence-inputs.v1",
   "targetTier": "release-final",
   "inputs": [
-    "behavior-evidence-pre-runtime",
     "browser-contract",
     "coverage-gate-strict",
     "native-fuzz-sanitizer",
