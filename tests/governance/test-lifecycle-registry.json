@@ -1482,6 +1482,18 @@
             ]
         },
         {
+            "file": "tests/tools/produce-behavior-test-evidence.test.mjs",
+            "owner": "repository-governance:test-asset-behavior",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "migration",
+                "runtime"
+            ]
+        },
+        {
             "file": "tests/tools/production-resource-enforcement.test.mjs",
             "owner": "repository-governance:test-asset-behavior",
             "executionCategory": "repository-governance",
@@ -3667,6 +3679,18 @@
             "physicalExecutionCount": 0,
             "classifications": [
                 "perf"
+            ]
+        },
+        {
+            "file": "tests/tools/verify-behavior-test-evidence.test.mjs",
+            "owner": "repository-governance:test-asset-behavior",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "migration",
+                "runtime"
             ]
         },
         {

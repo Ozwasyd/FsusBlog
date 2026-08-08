@@ -1101,6 +1101,38 @@ Stryker 4.14.2 自身标为 `Ignored` 的 block-removal 和唯一
 
 ---
 
+## Behavior-test evidence producer
+
+#2186 建立唯一的 behavior-test evidence producer：
+`tools/test-matrix/produce-behavior-test-evidence.mjs` 只消费本轮显式传入的
+backend/frontend raw result observation artifacts（
+`fsusblog.test-observation-artifact.v1`）、#2185 正式 source bindings 与
+#1752 static admission identity，复用 #1748 的
+`joinBehaviorTestEvidence` / `validateExactBehaviorCoverage` /
+`--mode exact --out` authority，按 behavior 封存
+`fsusblog.behavior-test-evidence-receipt.v1`。receipt 逐 behavior 记录
+required/observed kinds、test IDs/status/outcome/raw result refs、binding /
+static / catalog digests 与 contentDigest，并固定
+`runtimeCandidateSpawnCountBeforeReceipt: 0`（producer 不执行、不重跑、
+不补 missing evidence）。
+
+独立 verifier `tools/test-matrix/verify-behavior-test-evidence.mjs` 重读
+raw results、bindings、catalog、plan digest 与 receipt，重算 contentDigest、
+rawResultDigest 和 exact join，拒绝 tamper、cross-run、historical
+TRX/latest 目录、retry/diagnostic recovered evidence、default success 字段
+与 second producer；缺 evidence 时只输出 canonical producer command。
+static governance 禁止从仓库元数据解析 default branch 读取 TRX、
+file-exists/job-status pass、manual behavior success 或第二套 producer。
+
+docs-only/source-only closure 不跳过 required tests；global suite success
+不能掩盖 behavior missing/failed kind。producer 与 verifier 的 fixture
+测试覆盖 binding exists-but-not-executed、shard omitted/duplicate、
+skipped/blocked/diagnostic/retry、source/binding drift、docs-only closure、
+adapter mismatch、missing evidence zero auto-rerun、second producer 与
+receipt/raw refs tamper。
+
+---
+
 ## 测试洁净性约定
 
 详见 `tests/backend/TESTING.md`。

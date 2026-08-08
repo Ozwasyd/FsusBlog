@@ -1,190 +1,396 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "fsusblog.behavior-test-evidence-receipt.v1",
-  "title": "FsusBlog behavior test evidence join receipt",
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "schema",
-    "catalogDigest",
-    "worktreeDigest",
-    "run",
-    "sourceState",
-    "sourceClosureDigest",
-    "rawResultDigest",
-    "bindings",
-    "evidence",
-    "coverage",
-    "errors",
-    "contentDigest"
-  ],
-  "properties": {
-    "schema": { "const": "fsusblog.behavior-test-evidence-receipt.v1" },
-    "catalogDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
-    "worktreeDigest": { "type": "string", "minLength": 1 },
-    "run": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["id", "attemptKind", "evidenceClass"],
-      "properties": {
-        "id": { "type": "string", "minLength": 1 },
-        "attemptKind": { "enum": ["primary", "retry", "diagnostic"] },
-        "evidenceClass": { "type": "string", "minLength": 1 }
-      }
-    },
-    "sourceState": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["commit", "worktreeFingerprint"],
-      "properties": {
-        "commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
-        "worktreeFingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
-      }
-    },
-    "sourceClosureDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
-    "rawResultDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
-    "bindings": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/binding" }
-    },
-    "evidence": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/evidence" }
-    },
-    "coverage": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/coverage" }
-    },
-    "errors": {
-      "type": "array",
-      "items": { "type": "string" }
-    },
-    "contentDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
-  },
-  "$defs": {
-    "testKind": {
-      "enum": ["positive", "boundary", "negative", "concurrency", "migration", "mutation"]
-    },
-    "framework": {
-      "enum": ["xunit-trx", "vitest", "node-tap", "playwright"]
-    },
-    "binding": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "behaviorId",
-        "testKind",
-        "canonicalTestId",
-        "framework",
-        "sourcePath",
-        "fullyQualifiedName",
-        "invariantIds",
-        "bindingKind",
-        "line"
-      ],
-      "properties": {
-        "behaviorId": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
-        "testKind": { "$ref": "#/$defs/testKind" },
-        "canonicalTestId": { "type": "string", "minLength": 1 },
-        "framework": { "$ref": "#/$defs/framework" },
-        "sourcePath": { "type": "string", "minLength": 1 },
-        "fullyQualifiedName": { "type": "string", "minLength": 1 },
-        "invariantIds": {
-          "type": "array",
-          "items": { "type": "string", "minLength": 1 }
-        },
-        "reasonId": { "type": ["string", "null"] },
-        "concurrencyHarness": { "type": ["string", "null"] },
-        "bindingKind": { "enum": ["attribute", "helper"] },
-        "line": { "type": "integer", "minimum": 1 }
-      }
-    },
-    "evidence": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "behaviorId",
-        "testKind",
-        "canonicalTestId",
-        "framework",
-        "sourcePath",
-        "fullyQualifiedName",
-        "discovered",
-        "executed",
-        "outcome",
-        "invariantIds",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "fsusblog.behavior-test-evidence-receipt.v1",
+    "title": "FsusBlog behavior test evidence join receipt",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "catalogDigest",
+        "worktreeDigest",
         "run",
         "sourceState",
         "sourceClosureDigest",
-        "rawResultDigest"
-      ],
-      "properties": {
-        "behaviorId": { "type": "string" },
-        "testKind": { "$ref": "#/$defs/testKind" },
-        "canonicalTestId": { "type": "string" },
-        "framework": { "$ref": "#/$defs/framework" },
-        "sourcePath": { "type": "string" },
-        "fullyQualifiedName": { "type": "string" },
-        "discovered": { "type": "boolean" },
-        "executed": { "type": "boolean" },
-        "outcome": {
-          "enum": ["passed", "failed", "skipped", "blocked", "missing"]
+        "rawResultDigest",
+        "bindings",
+        "evidence",
+        "coverage",
+        "errors",
+        "contentDigest"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.behavior-test-evidence-receipt.v1"
         },
-        "invariantIds": {
-          "type": "array",
-          "items": { "type": "string" }
+        "catalogDigest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
         },
-        "reasonId": { "type": ["string", "null"] },
-        "concurrencyHarness": { "type": ["string", "null"] },
+        "worktreeDigest": {
+            "type": "string",
+            "minLength": 1
+        },
         "run": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["id", "attemptKind", "evidenceClass"],
-          "properties": {
-            "id": { "type": "string" },
-            "attemptKind": { "enum": ["primary", "retry", "diagnostic"] },
-            "evidenceClass": { "type": "string" }
-          }
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "attemptKind",
+                "evidenceClass"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "attemptKind": {
+                    "enum": [
+                        "primary",
+                        "retry",
+                        "diagnostic"
+                    ]
+                },
+                "evidenceClass": {
+                    "type": "string",
+                    "minLength": 1
+                }
+            }
         },
         "sourceState": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["commit", "worktreeFingerprint"],
-          "properties": {
-            "commit": { "type": "string" },
-            "worktreeFingerprint": { "type": "string" }
-          }
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "commit",
+                "worktreeFingerprint"
+            ],
+            "properties": {
+                "commit": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{40}$"
+                },
+                "worktreeFingerprint": {
+                    "type": "string",
+                    "pattern": "^sha256:[a-f0-9]{64}$"
+                }
+            }
         },
-        "sourceClosureDigest": { "type": "string" },
-        "rawResultDigest": { "type": "string" }
-      }
+        "sourceClosureDigest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "rawResultDigest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "bindings": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/binding"
+            }
+        },
+        "evidence": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/evidence"
+            }
+        },
+        "coverage": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/coverage"
+            }
+        },
+        "errors": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "staticAdmissionDigest": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "staticAdmissionStatus": {
+            "type": "string",
+            "minLength": 1
+        },
+        "gatherPlanDigest": {
+            "type": "string",
+            "pattern": "^(?:sha256:)?[a-f0-9]{64}$"
+        },
+        "runtimeCandidateSpawnCountBeforeReceipt": {
+            "type": "integer",
+            "const": 0
+        },
+        "producer": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "command",
+                "schema"
+            ],
+            "properties": {
+                "command": {
+                    "const": "node tools/test-matrix/produce-behavior-test-evidence.mjs"
+                },
+                "schema": {
+                    "const": "fsusblog.behavior-test-evidence-receipt.v1"
+                }
+            }
+        },
+        "contentDigest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+        }
     },
-    "coverage": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "behaviorId",
-        "requiredTestKinds",
-        "satisfiedTestKinds",
-        "missingTestKinds",
-        "status"
-      ],
-      "properties": {
-        "behaviorId": { "type": "string" },
-        "requiredTestKinds": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/testKind" }
+    "$defs": {
+        "testKind": {
+            "enum": [
+                "positive",
+                "boundary",
+                "negative",
+                "concurrency",
+                "migration",
+                "mutation"
+            ]
         },
-        "satisfiedTestKinds": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/testKind" }
+        "framework": {
+            "enum": [
+                "xunit-trx",
+                "vitest",
+                "node-tap",
+                "playwright"
+            ]
         },
-        "missingTestKinds": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/testKind" }
+        "binding": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "behaviorId",
+                "testKind",
+                "canonicalTestId",
+                "framework",
+                "sourcePath",
+                "fullyQualifiedName",
+                "invariantIds",
+                "bindingKind",
+                "line"
+            ],
+            "properties": {
+                "behaviorId": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]*$"
+                },
+                "testKind": {
+                    "$ref": "#/$defs/testKind"
+                },
+                "canonicalTestId": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "framework": {
+                    "$ref": "#/$defs/framework"
+                },
+                "sourcePath": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "fullyQualifiedName": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "invariantIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "reasonId": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "concurrencyHarness": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "bindingKind": {
+                    "enum": [
+                        "attribute",
+                        "helper"
+                    ]
+                },
+                "line": {
+                    "type": "integer",
+                    "minimum": 1
+                }
+            }
         },
-        "status": { "enum": ["ok", "failed"] }
-      }
+        "evidence": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "behaviorId",
+                "testKind",
+                "canonicalTestId",
+                "framework",
+                "sourcePath",
+                "fullyQualifiedName",
+                "discovered",
+                "executed",
+                "outcome",
+                "invariantIds",
+                "run",
+                "sourceState",
+                "sourceClosureDigest",
+                "rawResultDigest"
+            ],
+            "properties": {
+                "behaviorId": {
+                    "type": "string"
+                },
+                "testKind": {
+                    "$ref": "#/$defs/testKind"
+                },
+                "canonicalTestId": {
+                    "type": "string"
+                },
+                "framework": {
+                    "$ref": "#/$defs/framework"
+                },
+                "sourcePath": {
+                    "type": "string"
+                },
+                "fullyQualifiedName": {
+                    "type": "string"
+                },
+                "discovered": {
+                    "type": "boolean"
+                },
+                "executed": {
+                    "type": "boolean"
+                },
+                "outcome": {
+                    "enum": [
+                        "passed",
+                        "failed",
+                        "skipped",
+                        "blocked",
+                        "missing"
+                    ]
+                },
+                "invariantIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "reasonId": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "concurrencyHarness": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "run": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "id",
+                        "attemptKind",
+                        "evidenceClass"
+                    ],
+                    "properties": {
+                        "id": {
+                            "type": "string"
+                        },
+                        "attemptKind": {
+                            "enum": [
+                                "primary",
+                                "retry",
+                                "diagnostic"
+                            ]
+                        },
+                        "evidenceClass": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "sourceState": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "commit",
+                        "worktreeFingerprint"
+                    ],
+                    "properties": {
+                        "commit": {
+                            "type": "string"
+                        },
+                        "worktreeFingerprint": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "sourceClosureDigest": {
+                    "type": "string"
+                },
+                "rawResultDigest": {
+                    "type": "string"
+                }
+            }
+        },
+        "coverage": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "behaviorId",
+                "requiredTestKinds",
+                "satisfiedTestKinds",
+                "missingTestKinds",
+                "status"
+            ],
+            "properties": {
+                "behaviorId": {
+                    "type": "string"
+                },
+                "requiredTestKinds": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/testKind"
+                    }
+                },
+                "satisfiedTestKinds": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/testKind"
+                    }
+                },
+                "missingTestKinds": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/testKind"
+                    }
+                },
+                "status": {
+                    "enum": [
+                        "ok",
+                        "failed"
+                    ]
+                }
+            }
+        }
     }
-  }
 }
