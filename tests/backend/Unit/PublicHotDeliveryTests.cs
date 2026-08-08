@@ -4,10 +4,15 @@ using System.Threading.Channels;
 
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Distributed;
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -324,13 +329,7 @@ public sealed class PublicHotDeliveryTests
         using ServiceProvider services = new ServiceCollection()
             .AddScoped<IPublicHotArtifactProjector, CountingProjector>()
             .BuildServiceProvider();
-        var worker = new PublicHotArtifactUpdateWorker(
-            queue,
-            store,
-            new NoopRevocations(),
-            services.GetRequiredService<IServiceScopeFactory>(),
-            Options.Create(new PublicHotReadOptions { UpdateDebounceMilliseconds = 0 }),
-            NullLogger<PublicHotArtifactUpdateWorker>.Instance);
+        var worker = CreateWorker(queue, store, services);
 
         await worker.ProcessOnceAsync(pending, CancellationToken.None);
 
@@ -535,13 +534,7 @@ public sealed class PublicHotDeliveryTests
         using ServiceProvider services = new ServiceCollection()
             .AddScoped<IPublicHotArtifactProjector, ThrowingProjector>()
             .BuildServiceProvider();
-        var worker = new PublicHotArtifactUpdateWorker(
-            queue,
-            store,
-            new NoopRevocations(),
-            services.GetRequiredService<IServiceScopeFactory>(),
-            Options.Create(new PublicHotReadOptions { UpdateDebounceMilliseconds = 0 }),
-            NullLogger<PublicHotArtifactUpdateWorker>.Instance);
+        var worker = CreateWorker(queue, store, services);
 
         await worker.ProcessOnceAsync(pending, CancellationToken.None);
 
@@ -565,13 +558,7 @@ public sealed class PublicHotDeliveryTests
         using ServiceProvider services = new ServiceCollection()
             .AddScoped<IPublicHotArtifactProjector, CountingProjector>()
             .BuildServiceProvider();
-        var worker = new PublicHotArtifactUpdateWorker(
-            queue,
-            store,
-            new ThrowingRevocations(),
-            services.GetRequiredService<IServiceScopeFactory>(),
-            Options.Create(new PublicHotReadOptions { UpdateDebounceMilliseconds = 0 }),
-            NullLogger<PublicHotArtifactUpdateWorker>.Instance);
+        var worker = CreateWorker(queue, store, services, new ThrowingRevocations());
 
         await worker.ProcessOnceAsync(pending, CancellationToken.None);
 
@@ -687,9 +674,7 @@ public sealed class PublicHotDeliveryTests
         await queue.EnqueueAsync(PublicHotArtifactDeliveryClass.RequiredContent, 7, "article-updated");
         Assert.True(queue.Reader.TryRead(out PublicHotArtifactUpdate wakeup));
         using ServiceProvider services = new ServiceCollection().AddScoped<IPublicHotArtifactProjector, CountingProjector>().BuildServiceProvider();
-        var worker = new PublicHotArtifactUpdateWorker(queue, new ThrowingPublishStore(), new NoopRevocations(),
-            services.GetRequiredService<IServiceScopeFactory>(), Options.Create(new PublicHotReadOptions { UpdateDebounceMilliseconds = 0 }),
-            NullLogger<PublicHotArtifactUpdateWorker>.Instance);
+        var worker = CreateWorker(queue, new ThrowingPublishStore(), services);
 
         await worker.ProcessOnceAsync(wakeup, CancellationToken.None);
 
@@ -777,14 +762,26 @@ public sealed class PublicHotDeliveryTests
     private static PublicHotArtifactUpdateWorker CreateWorker(
         PublicHotArtifactUpdateQueue queue,
         PublicHotReadStore store,
-        IServiceProvider services)
+        IServiceProvider services,
+        IPublicArtifactRevocationCoordinator? revocations = null)
         => new(
             queue,
             store,
-            new NoopRevocations(),
+            revocations ?? new NoopRevocations(),
+            CreateTestRuntime(),
             services.GetRequiredService<IServiceScopeFactory>(),
             Options.Create(new PublicHotReadOptions { UpdateDebounceMilliseconds = 0 }),
             NullLogger<PublicHotArtifactUpdateWorker>.Instance);
+
+    private static DeploymentRuntimeState CreateTestRuntime()
+    {
+        IConfiguration configuration = new ConfigurationBuilder().Build();
+        return new DeploymentRuntimeState(
+            new ReleaseIdentityProvider(configuration),
+            configuration,
+            new TestWebHostEnvironment(Environments.Development),
+            TimeProvider.System);
+    }
 
     private static async Task WaitUntilAsync(Func<Task<bool>> condition)
     {
@@ -802,13 +799,7 @@ public sealed class PublicHotDeliveryTests
         using ServiceProvider services = new ServiceCollection()
             .AddScoped<IPublicHotArtifactProjector, EmptyProjector>()
             .BuildServiceProvider();
-        var worker = new PublicHotArtifactUpdateWorker(
-            queue,
-            store,
-            new NoopRevocations(),
-            services.GetRequiredService<IServiceScopeFactory>(),
-            Options.Create(new PublicHotReadOptions { UpdateDebounceMilliseconds = 0 }),
-            NullLogger<PublicHotArtifactUpdateWorker>.Instance);
+        var worker = CreateWorker(queue, store, services);
         await worker.ProcessOnceAsync(pending, CancellationToken.None);
         Assert.True(store.Current.Version > 0);
     }
@@ -1092,4 +1083,15 @@ public sealed class PublicHotDeliveryTests
             InterlockedExtensions.Max(ref _lastCompletedGeneration, generation);
         }
     }
+
+    private sealed class TestWebHostEnvironment(string environmentName) : IWebHostEnvironment
+    {
+        public string ApplicationName { get; set; } = "FsusBlog.Server.Tests";
+        public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
+        public string WebRootPath { get; set; } = Path.GetTempPath();
+        public string EnvironmentName { get; set; } = environmentName;
+        public string ContentRootPath { get; set; } = Path.GetTempPath();
+        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+    }
 }
+

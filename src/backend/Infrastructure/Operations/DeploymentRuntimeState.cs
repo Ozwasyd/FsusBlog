@@ -701,7 +701,16 @@ public sealed class DeploymentDrainCoordinator(
         }
         if (serviceProvider.GetService<PublicHotArtifactUpdateQueue>() is { } publicHot)
         {
-            Add(components, "public-hot-updates", publicHot.QueuedCount);
+            PublicHotActivitySnapshot activity = publicHot.CreateActivitySnapshot();
+            PublicHotQuiescenceResult quiescence = PublicHotQuiescence.Evaluate(
+                activity,
+                activity.CurrentTargetGeneration ?? 0);
+            components.Add(new DeploymentDrainComponentSnapshot(
+                "public-hot-updates",
+                quiescence.Drained ? 0 : 1,
+                Blocking: true,
+                quiescence.Drained ? "drained" : string.Join(";", quiescence.Blockers),
+                quiescence.Error));
         }
         if (serviceProvider.GetService<UploadSessionCleanupQueue>() is { } uploadCleanup)
         {
@@ -713,12 +722,19 @@ public sealed class DeploymentDrainCoordinator(
         {
             foreach (ReleaseDrainParticipantSnapshot participant in participants)
             {
+                string? error = participant.ErrorCode;
+                if (participant.Blockers is { Count: > 0 })
+                {
+                    string blockers = string.Join(";", participant.Blockers);
+                    error = error is null ? blockers : error + ":" + blockers;
+                }
+
                 components.Add(new DeploymentDrainComponentSnapshot(
                     participant.Name,
                     Math.Max(0, participant.PendingCount),
                     Blocking: true,
                     participant.Status,
-                    participant.ErrorCode));
+                    error));
             }
         }
         return components;

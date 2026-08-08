@@ -11,6 +11,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Distributed;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.Taxonomy;
@@ -22,6 +23,8 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -309,13 +312,7 @@ public sealed class PublicHotDeliveryIntegrationTests(
             await using ServiceProvider services = new ServiceCollection()
                 .AddScoped<IPublicHotArtifactProjector>(_ => projector)
                 .BuildServiceProvider();
-            using var worker = new PublicHotArtifactUpdateWorker(
-                finalQueue,
-                finalStore,
-                new NoopRevocations(),
-                services.GetRequiredService<IServiceScopeFactory>(),
-                Options.Create(finalOptions),
-                NullLogger<PublicHotArtifactUpdateWorker>.Instance);
+            using var worker = CreateWorker(finalQueue, finalStore, services, finalOptions);
 
             await worker.StartAsync(CancellationToken.None);
             try
@@ -541,13 +538,7 @@ public sealed class PublicHotDeliveryIntegrationTests(
         await using ServiceProvider services = new ServiceCollection()
             .AddScoped<IPublicHotArtifactProjector, FixedProjector>()
             .BuildServiceProvider();
-        using var worker = new PublicHotArtifactUpdateWorker(
-            queue,
-            store,
-            new NoopRevocations(),
-            services.GetRequiredService<IServiceScopeFactory>(),
-            Options.Create(new PublicHotReadOptions { UpdateDebounceMilliseconds = 0 }),
-            NullLogger<PublicHotArtifactUpdateWorker>.Instance);
+        using var worker = CreateWorker(queue, store, services);
 
         await worker.StartAsync(CancellationToken.None);
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
@@ -697,6 +688,40 @@ public sealed class PublicHotDeliveryIntegrationTests(
             long maximumGeneration,
             CancellationToken cancellationToken = default)
             => Task.CompletedTask;
+    }
+
+    private static PublicHotArtifactUpdateWorker CreateWorker(
+        PublicHotArtifactUpdateQueue queue,
+        PublicHotReadStore store,
+        IServiceProvider services,
+        PublicHotReadOptions? options = null)
+        => new(
+            queue,
+            store,
+            new NoopRevocations(),
+            CreateTestRuntime(),
+            services.GetRequiredService<IServiceScopeFactory>(),
+            Options.Create(options ?? new PublicHotReadOptions { UpdateDebounceMilliseconds = 0 }),
+            NullLogger<PublicHotArtifactUpdateWorker>.Instance);
+
+    private static DeploymentRuntimeState CreateTestRuntime()
+    {
+        IConfiguration configuration = new ConfigurationBuilder().Build();
+        return new DeploymentRuntimeState(
+            new ReleaseIdentityProvider(configuration),
+            configuration,
+            new TestWebHostEnvironment(Environments.Development),
+            TimeProvider.System);
+    }
+
+    private sealed class TestWebHostEnvironment(string environmentName) : IWebHostEnvironment
+    {
+        public string ApplicationName { get; set; } = "FsusBlog.Server.Tests";
+        public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
+        public string WebRootPath { get; set; } = Path.GetTempPath();
+        public string EnvironmentName { get; set; } = environmentName;
+        public string ContentRootPath { get; set; } = Path.GetTempPath();
+        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
     }
 }
 

@@ -19,7 +19,8 @@ public sealed record ReleaseDrainParticipantSnapshot(
     string Status,
     TimeSpan MaxDrain,
     string ReplaySource,
-    string? ErrorCode = null);
+    string? ErrorCode = null,
+    IReadOnlyList<string>? Blockers = null);
 
 public sealed record ReleaseDrainRunResult(
     bool Drained,
@@ -310,14 +311,112 @@ public sealed class ChallengeAuditReleaseDrainParticipant(ChallengeV2AuditEventQ
     }
 }
 
-public sealed class PublicHotUpdateReleaseDrainParticipant(PublicHotArtifactUpdateQueue queue, TimeProvider timeProvider)
-    : PollingReleaseDrainParticipant(timeProvider)
+public sealed class PublicHotUpdateReleaseDrainParticipant(
+    PublicHotArtifactUpdateQueue queue,
+    TimeProvider timeProvider) : IReleaseDrainParticipant
 {
-    public override string Name => "public-hot-update";
-    public override TimeSpan MaxDrain => TimeSpan.FromSeconds(15);
-    protected override string Classification => "instance-local";
-    protected override string ReplaySource => "full database projection";
-    protected override long ReadPendingCount() => queue.QueuedCount;
+    private static readonly TimeSpan s_minimumObservationInterval = TimeSpan.FromMilliseconds(50);
+    private long _requestedDrainGeneration;
+    private PublicHotActivitySnapshot? _lastObservation;
+
+    public string Name => "public-hot-update";
+
+    public TimeSpan MaxDrain => TimeSpan.FromSeconds(15);
+
+    public ReleaseDrainParticipantSnapshot Snapshot()
+    {
+        PublicHotActivitySnapshot? observation = _lastObservation;
+        if (observation is null)
+        {
+            return new ReleaseDrainParticipantSnapshot(
+                Name,
+                "instance-local",
+                1,
+                "unknown",
+                MaxDrain,
+                "full database projection",
+                "public_hot_activity_unavailable");
+        }
+
+        long target = ResolveTargetGeneration(observation);
+        PublicHotQuiescenceResult quiescence = PublicHotQuiescence.Evaluate(observation, target);
+        return new ReleaseDrainParticipantSnapshot(
+            Name,
+            "instance-local",
+            quiescence.Drained ? 0 : 1,
+            quiescence.Drained ? "drained" : "blocked",
+            MaxDrain,
+            "full database projection",
+            quiescence.Drained ? null : "public_hot_not_quiescent",
+            quiescence.Blockers);
+    }
+
+    public async Task DrainAsync(CancellationToken cancellationToken)
+    {
+        PublicHotActivitySnapshot previous = await ObserveAsync(cancellationToken).ConfigureAwait(false);
+        bool previousDrained = Evaluate(previous);
+        while (true)
+        {
+            await Task.Delay(s_minimumObservationInterval, timeProvider, cancellationToken).ConfigureAwait(false);
+            PublicHotActivitySnapshot current = await ObserveAsync(cancellationToken).ConfigureAwait(false);
+            bool currentDrained = Evaluate(current);
+            // Drain completes only after two consecutive observations (spaced at
+            // least one worker scheduling tick) both satisfy quiescence and neither
+            // the published generation nor the requested target moved in between.
+            if (currentDrained
+                && previousDrained
+                && current.PublishedGeneration == previous.PublishedGeneration
+                && current.CurrentTargetGeneration == previous.CurrentTargetGeneration)
+            {
+                return;
+            }
+
+            previous = current;
+            previousDrained = currentDrained;
+        }
+    }
+
+    private async Task<PublicHotActivitySnapshot> ObserveAsync(CancellationToken cancellationToken)
+    {
+        PublicHotActivitySnapshot snapshot = await queue
+            .CreateActivitySnapshotAsync(cancellationToken)
+            .ConfigureAwait(false);
+        Volatile.Write(ref _lastObservation, snapshot);
+        if (snapshot.CurrentTargetGeneration is long target && target > _requestedDrainGeneration)
+        {
+            InterlockedExchangeMax(ref _requestedDrainGeneration, target);
+        }
+
+        return snapshot;
+    }
+
+    private bool Evaluate(PublicHotActivitySnapshot snapshot)
+        => PublicHotQuiescence.Evaluate(snapshot, ResolveTargetGeneration(snapshot)).Drained;
+
+    private long ResolveTargetGeneration(PublicHotActivitySnapshot snapshot)
+    {
+        if (snapshot.CurrentTargetGeneration is long target && target > _requestedDrainGeneration)
+        {
+            InterlockedExchangeMax(ref _requestedDrainGeneration, target);
+        }
+
+        return _requestedDrainGeneration;
+    }
+
+    private static void InterlockedExchangeMax(ref long location, long value)
+    {
+        long current = Volatile.Read(ref location);
+        while (value > current)
+        {
+            long observed = Interlocked.CompareExchange(ref location, value, current);
+            if (observed == current)
+            {
+                return;
+            }
+
+            current = observed;
+        }
+    }
 }
 
 public sealed class ArticleDetailAedsReleaseDrainParticipant(

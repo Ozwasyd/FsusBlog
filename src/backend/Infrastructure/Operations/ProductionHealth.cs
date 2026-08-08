@@ -318,6 +318,10 @@ public sealed record RuntimeHealthSnapshot(
     {
         get; init;
     }
+    public PublicHotQuiescenceResult? PublicHotQuiescence
+    {
+        get; init;
+    }
 }
 
 public static class ProductionLivenessProbe
@@ -553,8 +557,12 @@ public sealed class ProductionReadinessProbe(
             ?.CreateSnapshot();
         PublicHotReadStore? publicHotReadStore = serviceProvider.GetService<PublicHotReadStore>();
         AuditLogRuntimeState? auditLogRuntime = serviceProvider.GetService<AuditLogRuntimeState>();
+        PublicHotArtifactUpdateQueue? publicHotQueue = serviceProvider.GetService<PublicHotArtifactUpdateQueue>();
         Task<PublicHotReadRuntimeSnapshot?> publicHotReadTask = Task.Run(
             () => publicHotReadStore?.CreateRuntimeSnapshot(),
+            cancellationToken);
+        Task<PublicHotQuiescenceResult?> publicHotQuiescenceTask = Task.Run(
+            () => ReadPublicHotQuiescenceAsync(publicHotQueue, cancellationToken),
             cancellationToken);
         Task<AuditLogRuntimeSnapshot?> auditLogTask = Task.Run(
             () => auditLogRuntime?.Snapshot(),
@@ -562,14 +570,16 @@ public sealed class ProductionReadinessProbe(
         Task<RuntimePressureSnapshot> pressureTask = Task.Run(
             RuntimePressureSnapshot.Capture,
             cancellationToken);
-        await Task.WhenAll(publicHotReadTask, auditLogTask, pressureTask);
+        await Task.WhenAll(publicHotReadTask, publicHotQuiescenceTask, auditLogTask, pressureTask);
         PublicHotReadRuntimeSnapshot? publicHotRead = await publicHotReadTask;
+        PublicHotQuiescenceResult? publicHotQuiescence = await publicHotQuiescenceTask;
         AuditLogRuntimeSnapshot? auditLog = await auditLogTask;
         RuntimePressureSnapshot pressure = await pressureTask;
         string status = (publicHotRead is null
                 || (string.Equals(publicHotRead.State, nameof(PublicHotReadState.Ready), StringComparison.Ordinal)
                     && !publicHotRead.ArticleFrameLimitExceeded
                     && !publicHotRead.ResidentByteBudgetExceeded))
+            && (publicHotQuiescence?.Drained ?? true)
             && (commentMutationOutbox?.PoisonCount ?? 0) == 0
             ? "ok"
             : "degraded";
@@ -586,8 +596,24 @@ public sealed class ProductionReadinessProbe(
         {
             DbGateClasses = dbGateClasses,
             PublicArticleProjection = publicArticleProjection,
-            CommentMutationOutbox = commentMutationOutbox
+            CommentMutationOutbox = commentMutationOutbox,
+            PublicHotQuiescence = publicHotQuiescence
         };
+    }
+
+    private static async Task<PublicHotQuiescenceResult?> ReadPublicHotQuiescenceAsync(
+        PublicHotArtifactUpdateQueue? publicHotQueue,
+        CancellationToken cancellationToken)
+    {
+        if (publicHotQueue is null)
+        {
+            return null;
+        }
+
+        PublicHotActivitySnapshot snapshot = await publicHotQueue
+            .CreateActivitySnapshotAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return PublicHotQuiescence.Evaluate(snapshot, snapshot.CurrentTargetGeneration ?? 0);
     }
 
     private async Task<PublicHotRecoveryHealthCheck> CheckPublicHotRecoveryAsync(CancellationToken cancellationToken)

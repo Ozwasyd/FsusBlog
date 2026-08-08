@@ -2,6 +2,7 @@ using System.Threading.Channels;
 
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Distributed;
+using FsusBlog.Server.Infrastructure.Operations;
 
 using Microsoft.Extensions.Options;
 
@@ -76,13 +77,24 @@ public sealed class PublicHotArtifactUpdateQueue
     private readonly Channel<PublicHotArtifactUpdate> _channel;
     private readonly IPublicHotArtifactDeliveryStateStore _deliveryState;
     private readonly IPublicHotArtifactObligationStore? _obligations;
+    private readonly PublicHotReadStore? _store;
+    private readonly PublicArtifactRevocationRegistry? _revocations;
+    private int _inFlightBatchCount;
+    private int _activeProjectorCount;
+    private int _activeBackgroundClaimCountForPublicHot;
+    private long _lastPublishedGeneration;
+    private PublicHotActivitySnapshot? _lastActivitySnapshot;
 
     public PublicHotArtifactUpdateQueue(
         IOptions<PublicHotReadOptions> options,
         IPublicHotArtifactDeliveryStateStore deliveryState,
-        IPublicHotArtifactObligationStore? obligations = null)
+        IPublicHotArtifactObligationStore? obligations = null,
+        PublicHotReadStore? store = null,
+        PublicArtifactRevocationRegistry? revocations = null)
     {
         _deliveryState = deliveryState;
+        _store = store;
+        _revocations = revocations;
         // Redis is the production durability owner. The in-memory state remains
         // the legacy deterministic test double for watermark compatibility.
         _obligations = obligations ?? (deliveryState is RedisPublicHotArtifactDeliveryStateStore
@@ -175,6 +187,163 @@ public sealed class PublicHotArtifactUpdateQueue
 
     public int QueuedCount => _channel.Reader.CanCount ? _channel.Reader.Count : 0;
 
+    internal void RecordBatchStarted() => Interlocked.Increment(ref _inFlightBatchCount);
+
+    internal void RecordBatchFinished()
+    {
+        int remaining = Interlocked.Decrement(ref _inFlightBatchCount);
+        if (remaining < 0)
+        {
+            Interlocked.Exchange(ref _inFlightBatchCount, 0);
+        }
+    }
+
+    internal void RecordProjectorStarted() => Interlocked.Increment(ref _activeProjectorCount);
+
+    internal void RecordProjectorFinished()
+    {
+        int remaining = Interlocked.Decrement(ref _activeProjectorCount);
+        if (remaining < 0)
+        {
+            Interlocked.Exchange(ref _activeProjectorCount, 0);
+        }
+    }
+
+    internal void RecordBackgroundClaimStarted()
+        => Interlocked.Increment(ref _activeBackgroundClaimCountForPublicHot);
+
+    internal void RecordBackgroundClaimFinished()
+    {
+        int remaining = Interlocked.Decrement(ref _activeBackgroundClaimCountForPublicHot);
+        if (remaining < 0)
+        {
+            Interlocked.Exchange(ref _activeBackgroundClaimCountForPublicHot, 0);
+        }
+    }
+
+    internal void RecordPublishedGeneration(long generation)
+    {
+        if (generation <= 0)
+        {
+            return;
+        }
+
+        long current = Volatile.Read(ref _lastPublishedGeneration);
+        while (generation > current)
+        {
+            long observed = Interlocked.CompareExchange(ref _lastPublishedGeneration, generation, current);
+            if (observed == current)
+            {
+                return;
+            }
+
+            current = observed;
+        }
+    }
+
+    /// <summary>
+    /// The single atomic PublicHot activity snapshot used by release drain, runtime
+    /// health and readiness. Every owner is read in this one method; any exception
+    /// produces a collector-failed snapshot that blocks instead of assuming zero.
+    /// </summary>
+    public async Task<PublicHotActivitySnapshot> CreateActivitySnapshotAsync(
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            long? queuedCount = _channel.Reader.CanCount ? _channel.Reader.Count : null;
+            PublicHotArtifactObligation? active = null;
+            if (_obligations is { } obligations)
+            {
+                active = await obligations.GetActiveAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            long? pendingObligationCount;
+            long? failedTerminalObligationCount;
+            long? currentTargetGeneration;
+            if (_obligations is null)
+            {
+                long pendingGeneration = await _deliveryState
+                    .GetPendingGenerationAsync(cancellationToken)
+                    .ConfigureAwait(false);
+                pendingObligationCount = pendingGeneration > 0 ? 1 : 0;
+                failedTerminalObligationCount = 0;
+                currentTargetGeneration = pendingGeneration > 0 ? pendingGeneration : 0;
+            }
+            else if (active is null)
+            {
+                pendingObligationCount = 0;
+                failedTerminalObligationCount = 0;
+                currentTargetGeneration = 0;
+            }
+            else
+            {
+                pendingObligationCount = active.State != PublicHotArtifactObligationState.Published && !active.IsTerminal
+                    ? 1
+                    : 0;
+                failedTerminalObligationCount = active.IsTerminal ? 1 : 0;
+                currentTargetGeneration = active.TargetGeneration;
+            }
+
+            var snapshot = new PublicHotActivitySnapshot(
+                queuedCount,
+                Volatile.Read(ref _inFlightBatchCount),
+                Volatile.Read(ref _activeProjectorCount),
+                _store?.CreateRuntimeSnapshot().State,
+                pendingObligationCount,
+                failedTerminalObligationCount,
+                Volatile.Read(ref _lastPublishedGeneration),
+                _revocations?.Snapshot().Count,
+                Volatile.Read(ref _activeBackgroundClaimCountForPublicHot),
+                currentTargetGeneration);
+            Volatile.Write(ref _lastActivitySnapshot, snapshot);
+            return snapshot;
+        }
+        catch (Exception ex)
+        {
+            var snapshot = new PublicHotActivitySnapshot(
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                ex.GetType().Name);
+            Volatile.Write(ref _lastActivitySnapshot, snapshot);
+            return snapshot;
+        }
+    }
+
+    /// <summary>
+    /// Synchronous view for status consumers. Returns the latest atomic observation
+    /// when available; before the first observation the obligation fields are unknown
+    /// so quiescence fails closed instead of assuming zero.
+    /// </summary>
+    internal PublicHotActivitySnapshot CreateActivitySnapshot()
+    {
+        PublicHotActivitySnapshot? cached = Volatile.Read(ref _lastActivitySnapshot);
+        if (cached is not null)
+        {
+            return cached;
+        }
+
+        return new PublicHotActivitySnapshot(
+            _channel.Reader.CanCount ? _channel.Reader.Count : null,
+            Volatile.Read(ref _inFlightBatchCount),
+            Volatile.Read(ref _activeProjectorCount),
+            _store?.CreateRuntimeSnapshot().State,
+            null,
+            null,
+            Volatile.Read(ref _lastPublishedGeneration),
+            _revocations?.Snapshot().Count,
+            Volatile.Read(ref _activeBackgroundClaimCountForPublicHot),
+            null);
+    }
+
     internal async Task<PublicHotArtifactUpdate?> LoadRecoveryUpdateAsync(CancellationToken cancellationToken)
     {
         if (_obligations is { } obligations)
@@ -216,6 +385,7 @@ public sealed class PublicHotArtifactUpdateWorker(
     PublicHotArtifactUpdateQueue queue,
     PublicHotReadStore store,
     IPublicArtifactRevocationCoordinator revocations,
+    DeploymentRuntimeState runtime,
     IServiceScopeFactory scopeFactory,
     IOptions<PublicHotReadOptions> options,
     ILogger<PublicHotArtifactUpdateWorker> logger) : BackgroundService
@@ -263,81 +433,91 @@ public sealed class PublicHotArtifactUpdateWorker(
             await ProcessDurableAsync(stoppingToken).ConfigureAwait(false);
             return;
         }
+        queue.RecordBatchStarted();
+        IDisposable? claim = BeginBatchClaim();
         string reason = first.Reason;
-        PublicHotArtifactDirtyReason dirtyReason = first.DirtyReason;
         int coalesced = 1;
-        long deliveryGeneration = first.DeliveryGeneration;
-        var articleIds = new HashSet<int>();
-        var expectedReleaseIds = new Dictionary<int, long>();
-        bool requiresFullRebuild = false;
-        CollectUpdate(first, articleIds, expectedReleaseIds, ref requiresFullRebuild);
-        TimeSpan debounce = TimeSpan.FromMilliseconds(Math.Clamp(options.Value.UpdateDebounceMilliseconds, 0, 30_000));
-        if (debounce > TimeSpan.Zero)
-        {
-            await Task.Delay(debounce, stoppingToken).ConfigureAwait(false);
-        }
-
-        while (queue.Reader.TryRead(out PublicHotArtifactUpdate next))
-        {
-            reason = string.Concat(reason, "+", next.Reason);
-            dirtyReason |= next.DirtyReason;
-            deliveryGeneration = Math.Max(deliveryGeneration, next.DeliveryGeneration);
-            coalesced++;
-            CollectUpdate(next, articleIds, expectedReleaseIds, ref requiresFullRebuild);
-        }
-
-        if (dirtyReason == PublicHotArtifactDirtyReason.ViewProjection)
-        {
-            DateTime now = DateTime.UtcNow;
-            if (now - _lastViewProjectionRefreshUtc < s_viewProjectionRefreshInterval)
-            {
-                logger.LogInformation(
-                    "public-hot-read-view-refresh-coalesced {Reason} {Coalesced}",
-                    reason,
-                    coalesced);
-                return;
-            }
-
-            _lastViewProjectionRefreshUtc = now;
-        }
-
-        long maximumRevocationGeneration = revocations.CurrentGeneration;
-        store.BeginBuild(reason);
         try
         {
+            PublicHotArtifactDirtyReason dirtyReason = first.DirtyReason;
+            long deliveryGeneration = first.DeliveryGeneration;
+            var articleIds = new HashSet<int>();
+            var expectedReleaseIds = new Dictionary<int, long>();
+            bool requiresFullRebuild = false;
+            CollectUpdate(first, articleIds, expectedReleaseIds, ref requiresFullRebuild);
+            TimeSpan debounce = TimeSpan.FromMilliseconds(Math.Clamp(options.Value.UpdateDebounceMilliseconds, 0, 30_000));
+            if (debounce > TimeSpan.Zero)
+            {
+                await Task.Delay(debounce, stoppingToken).ConfigureAwait(false);
+            }
+
+            while (queue.Reader.TryRead(out PublicHotArtifactUpdate next))
+            {
+                reason = string.Concat(reason, "+", next.Reason);
+                dirtyReason |= next.DirtyReason;
+                deliveryGeneration = Math.Max(deliveryGeneration, next.DeliveryGeneration);
+                coalesced++;
+                CollectUpdate(next, articleIds, expectedReleaseIds, ref requiresFullRebuild);
+            }
+
+            if (dirtyReason == PublicHotArtifactDirtyReason.ViewProjection)
+            {
+                DateTime now = DateTime.UtcNow;
+                if (now - _lastViewProjectionRefreshUtc < s_viewProjectionRefreshInterval)
+                {
+                    logger.LogInformation(
+                        "public-hot-read-view-refresh-coalesced {Reason} {Coalesced}",
+                        reason,
+                        coalesced);
+                    return;
+                }
+
+                _lastViewProjectionRefreshUtc = now;
+            }
+
+            long maximumRevocationGeneration = revocations.CurrentGeneration;
+            store.BeginBuild(reason);
             await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
             var projector = scope.ServiceProvider.GetRequiredService<IPublicHotArtifactProjector>();
             PublicHotReadSnapshot snapshot = store.Current;
             bool publishesFullSnapshot = requiresFullRebuild
                 || articleIds.Count == 0
                 || RequiresInitialSnapshot(snapshot);
-            if (publishesFullSnapshot)
+            queue.RecordProjectorStarted();
+            try
             {
-                snapshot = await projector.BuildInitialSnapshotAsync(stoppingToken).ConfigureAwait(false);
-            }
-            else if (dirtyReason == PublicHotArtifactDirtyReason.ViewProjection)
-            {
-                snapshot = await projector
-                    .RebuildAfterViewProjectionAsync(snapshot, articleIds, stoppingToken)
-                    .ConfigureAwait(false);
-            }
-            else
-            {
-                foreach (int articleId in articleIds)
+                if (publishesFullSnapshot)
                 {
-                    expectedReleaseIds.TryGetValue(articleId, out long expectedReleaseId);
-                    snapshot = projector is IVersionedPublicHotArtifactProjector versionedProjector
-                        ? await versionedProjector
-                            .RebuildAfterArticleMutationAsync(
-                                snapshot,
-                                articleId,
-                                expectedReleaseId > 0 ? expectedReleaseId : null,
-                                stoppingToken)
-                            .ConfigureAwait(false)
-                        : await projector
-                            .RebuildAfterArticleMutationAsync(snapshot, articleId, stoppingToken)
-                            .ConfigureAwait(false);
+                    snapshot = await projector.BuildInitialSnapshotAsync(stoppingToken).ConfigureAwait(false);
                 }
+                else if (dirtyReason == PublicHotArtifactDirtyReason.ViewProjection)
+                {
+                    snapshot = await projector
+                        .RebuildAfterViewProjectionAsync(snapshot, articleIds, stoppingToken)
+                        .ConfigureAwait(false);
+                }
+                else
+                {
+                    foreach (int articleId in articleIds)
+                    {
+                        expectedReleaseIds.TryGetValue(articleId, out long expectedReleaseId);
+                        snapshot = projector is IVersionedPublicHotArtifactProjector versionedProjector
+                            ? await versionedProjector
+                                .RebuildAfterArticleMutationAsync(
+                                    snapshot,
+                                    articleId,
+                                    expectedReleaseId > 0 ? expectedReleaseId : null,
+                                    stoppingToken)
+                                .ConfigureAwait(false)
+                            : await projector
+                                .RebuildAfterArticleMutationAsync(snapshot, articleId, stoppingToken)
+                                .ConfigureAwait(false);
+                    }
+                }
+            }
+            finally
+            {
+                queue.RecordProjectorFinished();
             }
 
             store.Publish(snapshot);
@@ -363,6 +543,7 @@ public sealed class PublicHotArtifactUpdateWorker(
                     stoppingToken).ConfigureAwait(false);
             }
             await queue.CompleteGenerationAsync(deliveryGeneration, stoppingToken).ConfigureAwait(false);
+            queue.RecordPublishedGeneration(deliveryGeneration);
             logger.LogInformation("public-hot-read-snapshot-updated {Version} {Reason} {Coalesced}", snapshot.Version, reason, coalesced);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -374,6 +555,11 @@ public sealed class PublicHotArtifactUpdateWorker(
             store.ReportBuildFailure(reason, ex);
             logger.LogWarning(ex, "public-hot-read-snapshot-update-failed {Reason} {Coalesced}", reason, coalesced);
         }
+        finally
+        {
+            EndBatchClaim(claim);
+            queue.RecordBatchFinished();
+        }
     }
 
     private async Task ProcessDurableAsync(CancellationToken stoppingToken, bool scheduleRetry = false)
@@ -384,6 +570,8 @@ public sealed class PublicHotArtifactUpdateWorker(
         if (obligation is null)
             return;
 
+        queue.RecordBatchStarted();
+        IDisposable? claim = BeginBatchClaim();
         int maxAttempts = Math.Clamp(options.Value.PublicHotRecoveryMaximumAttempts, 1, 20);
         long maximumRevocationGeneration = revocations.CurrentGeneration;
         PublicHotArtifactAttemptStage stage = PublicHotArtifactAttemptStage.Projector;
@@ -396,23 +584,31 @@ public sealed class PublicHotArtifactUpdateWorker(
             bool publishesFullSnapshot = obligation.RequiresFullRebuild
                 || obligation.ArticleIds.Count == 0
                 || RequiresInitialSnapshot(snapshot);
-            if (publishesFullSnapshot)
+            queue.RecordProjectorStarted();
+            try
             {
-                snapshot = await projector.BuildInitialSnapshotAsync(stoppingToken).ConfigureAwait(false);
-            }
-            else if (obligation.DirtyReasons == PublicHotArtifactDirtyReason.ViewProjection)
-            {
-                snapshot = await projector.RebuildAfterViewProjectionAsync(snapshot, obligation.ArticleIds, stoppingToken).ConfigureAwait(false);
-            }
-            else
-            {
-                foreach (int articleId in obligation.ArticleIds)
+                if (publishesFullSnapshot)
                 {
-                    obligation.ExpectedReleaseIds.TryGetValue(articleId, out long release);
-                    snapshot = projector is IVersionedPublicHotArtifactProjector versioned
-                        ? await versioned.RebuildAfterArticleMutationAsync(snapshot, articleId, release > 0 ? release : null, stoppingToken).ConfigureAwait(false)
-                        : await projector.RebuildAfterArticleMutationAsync(snapshot, articleId, stoppingToken).ConfigureAwait(false);
+                    snapshot = await projector.BuildInitialSnapshotAsync(stoppingToken).ConfigureAwait(false);
                 }
+                else if (obligation.DirtyReasons == PublicHotArtifactDirtyReason.ViewProjection)
+                {
+                    snapshot = await projector.RebuildAfterViewProjectionAsync(snapshot, obligation.ArticleIds, stoppingToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    foreach (int articleId in obligation.ArticleIds)
+                    {
+                        obligation.ExpectedReleaseIds.TryGetValue(articleId, out long release);
+                        snapshot = projector is IVersionedPublicHotArtifactProjector versioned
+                            ? await versioned.RebuildAfterArticleMutationAsync(snapshot, articleId, release > 0 ? release : null, stoppingToken).ConfigureAwait(false)
+                            : await projector.RebuildAfterArticleMutationAsync(snapshot, articleId, stoppingToken).ConfigureAwait(false);
+                    }
+                }
+            }
+            finally
+            {
+                queue.RecordProjectorFinished();
             }
             await obligations.RecordStageSuccessAsync(obligation.ObligationId, obligation.AttemptNumber, PublicHotArtifactAttemptStage.Projector, DateTimeOffset.UtcNow, stoppingToken).ConfigureAwait(false);
             stage = PublicHotArtifactAttemptStage.Publish;
@@ -436,6 +632,7 @@ public sealed class PublicHotArtifactUpdateWorker(
             bool published = await obligations.CompletePublishedAsync(obligation.ObligationId, obligation.AttemptNumber, obligation.TargetGeneration, stoppingToken).ConfigureAwait(false);
             if (published)
             {
+                queue.RecordPublishedGeneration(obligation.TargetGeneration);
                 logger.LogInformation("public-hot obligation published {ObligationId} {Generation} {Recovered}", obligation.ObligationId, obligation.TargetGeneration, obligation.Recovered);
             }
         }
@@ -458,6 +655,33 @@ public sealed class PublicHotArtifactUpdateWorker(
                 await ProcessDurableAsync(stoppingToken, scheduleRetry: true).ConfigureAwait(false);
             }
         }
+        finally
+        {
+            EndBatchClaim(claim);
+            queue.RecordBatchFinished();
+        }
+    }
+
+    private IDisposable? BeginBatchClaim()
+    {
+        if (!runtime.TryBeginBackgroundClaim(out IDisposable? lease))
+        {
+            return null;
+        }
+
+        queue.RecordBackgroundClaimStarted();
+        return lease;
+    }
+
+    private void EndBatchClaim(IDisposable? lease)
+    {
+        if (lease is null)
+        {
+            return;
+        }
+
+        lease.Dispose();
+        queue.RecordBackgroundClaimFinished();
     }
 
     private static bool RequiresInitialSnapshot(PublicHotReadSnapshot snapshot)
