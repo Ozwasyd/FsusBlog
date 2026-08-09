@@ -35,12 +35,37 @@ if (retention.status !== 0)
 const audit = JSON.parse(fs.readFileSync(retentionInputPath, 'utf8'));
 if (writeRegistry)
 {
+    const existingRegistry = fs.existsSync(registryPath)
+        ? JSON.parse(fs.readFileSync(registryPath, 'utf8'))
+        : { nodeTests: [] };
+    const existingStaticGovernance = new Map(
+        (existingRegistry.nodeTests ?? [])
+            .filter((entry) => entry.staticGovernance)
+            .map((entry) => [entry.file, entry.staticGovernance])
+    );
     const nodeTests = audit.files
         .filter(({ path: file }) => isNodeTestFile(file))
-        .map(({ path: file }) => ({
-            file,
-            ...classifyNodeRegistryEntry(root, file, fs.readFileSync(path.join(root, file), 'utf8'))
-        }));
+        .map(({ path: file }) =>
+        {
+            const staticGovernance = existingStaticGovernance.get(file);
+            return {
+                file,
+                ...(staticGovernance
+                    ? {
+                        owner: 'repository-governance:static-node-contracts',
+                        executionCategory: 'repository-governance',
+                        lifecycle: 'canonical-execution',
+                        physicalExecutionCount: 1,
+                        classifications: classifyNodeRegistryEntry(
+                            root,
+                            file,
+                            fs.readFileSync(path.join(root, file), 'utf8')
+                        ).classifications,
+                        staticGovernance
+                      }
+                    : classifyNodeRegistryEntry(root, file, fs.readFileSync(path.join(root, file), 'utf8')))
+            };
+        });
     fs.mkdirSync(path.dirname(registryPath), { recursive: true });
     fs.writeFileSync(registryPath, `${JSON.stringify({
         schema: 'fsusblog.test-lifecycle-registry.v1',

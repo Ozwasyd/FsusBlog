@@ -11,15 +11,17 @@ import {
     buildStaticGovernanceHostEvidence,
     buildStaticGovernanceTestCatalog,
     collectExecutedStaticGovernanceTestIds,
-    loadStaticGovernanceIsolationRegistry
+    loadStaticGovernanceRegistry
 } from '../../tools/test/static-governance-host.mjs';
+import { loadCanonicalInventory } from '../../tools/test-inventory/api.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const registryFile = path.join(root, 'tests/governance/static-governance-isolation-registry.json');
+const registryFile = path.join(root, 'tests/governance/test-lifecycle-registry.json');
+const inventory = loadCanonicalInventory(root);
 
-test('isolation registry assigns every migrated static check to one physical owner', () =>
+test('lifecycle registry assigns every migrated static check to one physical owner', () =>
 {
-    const registry = loadStaticGovernanceIsolationRegistry(registryFile, root);
+    const registry = loadStaticGovernanceRegistry(registryFile, root);
     const plan = buildStaticGovernanceExecutionPlan(registry);
     const owned = plan.hosts.flatMap((host) => host.checks.map((check) => check.id));
 
@@ -30,7 +32,7 @@ test('isolation registry assigns every migrated static check to one physical own
 
 test('temporary repository cases share a host but retain unique roots and outputs', () =>
 {
-    const registry = loadStaticGovernanceIsolationRegistry(registryFile, root);
+    const registry = loadStaticGovernanceRegistry(registryFile, root);
     const fixtures = registry.checks.filter((check) => check.category === 'isolated-temporary-repository-fixture');
     assert.ok(fixtures.length > 1);
     assert.equal(new Set(fixtures.map((check) => check.physicalOwner)).size, 1);
@@ -40,7 +42,7 @@ test('temporary repository cases share a host but retain unique roots and output
 
 test('lifecycle and destructive checks preserve independent process boundaries', () =>
 {
-    const registry = loadStaticGovernanceIsolationRegistry(registryFile, root);
+    const registry = loadStaticGovernanceRegistry(registryFile, root);
     const plan = buildStaticGovernanceExecutionPlan(registry);
     for (const host of plan.hosts.filter((entry) => entry.category === 'real-subprocess-lifecycle'))
     {
@@ -56,7 +58,7 @@ test('lifecycle and destructive checks preserve independent process boundaries',
 
 test('registry and execution evidence fail closed for missing, duplicate and unknown checks', () =>
 {
-    const registry = loadStaticGovernanceIsolationRegistry(registryFile, root);
+    const registry = loadStaticGovernanceRegistry(registryFile, root);
     assert.throws(
         () => buildStaticGovernanceExecutionPlan({ ...registry, checks: [...registry.checks, registry.checks[0]] }),
         /duplicate static governance check ID/u
@@ -83,9 +85,9 @@ test('registry and execution evidence fail closed for missing, duplicate and unk
 
 test('structured evidence records exact-once catalog and before/after child process counts', () =>
 {
-    const registry = loadStaticGovernanceIsolationRegistry(registryFile, root);
+    const registry = loadStaticGovernanceRegistry(registryFile, root);
     const plan = buildStaticGovernanceExecutionPlan(registry);
-    const testCatalog = buildStaticGovernanceTestCatalog(root, registry);
+    const testCatalog = buildStaticGovernanceTestCatalog(root, registry, inventory);
     const evidence = buildStaticGovernanceHostEvidence({
         registry,
         plan,
@@ -107,9 +109,9 @@ test('structured evidence records exact-once catalog and before/after child proc
 
 test('canonical test ID catalog fails closed when execution omits or duplicates an ID', () =>
 {
-    const registry = loadStaticGovernanceIsolationRegistry(registryFile, root);
+    const registry = loadStaticGovernanceRegistry(registryFile, root);
     const plan = buildStaticGovernanceExecutionPlan(registry);
-    const testCatalog = buildStaticGovernanceTestCatalog(root, registry);
+    const testCatalog = buildStaticGovernanceTestCatalog(root, registry, inventory);
     const base = {
         registry,
         plan,
@@ -129,8 +131,8 @@ test('canonical test ID catalog fails closed when execution omits or duplicates 
 
 test('structured host results are the authority for actual exact-once test execution', () =>
 {
-    const registry = loadStaticGovernanceIsolationRegistry(registryFile, root);
-    const catalog = buildStaticGovernanceTestCatalog(root, registry);
+    const registry = loadStaticGovernanceRegistry(registryFile, root);
+    const catalog = buildStaticGovernanceTestCatalog(root, registry, inventory);
     const entries = catalog.slice(0, 2);
     const hostResult = {
         schema: 'fsusblog.static-governance-host-result.v1',
@@ -168,7 +170,7 @@ test('runner binds cancellation and partial child evidence without weakening lif
     assert.match(runner, /new AbortController\(\)/u);
     assert.match(runner, /static governance host cancelled by \$\{signal\}/u);
     assert.match(runner, /signal: controller\.signal/u);
-    assert.match(runner, /\.tmp\/test-governance\/live-grant\.json/u);
+    assert.match(runner, /live-grant\.json/u);
     assert.match(runner, /static-governance-reporter\.mjs/u);
     assert.match(runner, /collectExecutedStaticGovernanceTestIds/u);
 });

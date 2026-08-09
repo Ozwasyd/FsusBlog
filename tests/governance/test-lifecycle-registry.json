@@ -79,7 +79,14 @@
             "classifications": [
                 "source-text",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "perception-character-v3-pool",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/perception-character-v3-pool",
+                "output": ".tmp/test-governance/results/{checkId}/perception-character-v3-pool.json"
+            }
         },
         {
             "file": "tests/security/perception-character-v3-release-gate.test.mjs",
@@ -209,7 +216,12 @@
                 "source-text",
                 "compatibility-wrapper",
                 "migration"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "account-layout-document-authority",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/aeds-access-profile-authority.test.mjs",
@@ -242,7 +254,12 @@
                 "source-text",
                 "perf",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "aeds-frame-cost-evidence",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/app-config-local-tuner.test.mjs",
@@ -264,7 +281,14 @@
             "classifications": [
                 "source-text",
                 "compatibility-wrapper"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "appsettings-authority",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/appsettings-authority",
+                "output": ".tmp/test-governance/results/{checkId}/appsettings-authority.json"
+            }
         },
         {
             "file": "tests/tools/article-core-test-api-governance.test.mjs",
@@ -276,7 +300,12 @@
                 "source-text",
                 "compatibility-wrapper",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "article-core-test-api-governance",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/artifact-digest-table.test.mjs",
@@ -308,7 +337,12 @@
             "classifications": [
                 "source-text",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "authoritative-development-docs",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/backend-benchmark-regression.test.mjs",
@@ -330,7 +364,12 @@
             "physicalExecutionCount": 1,
             "classifications": [
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "backend-build-lock-behavior",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
         },
         {
             "file": "tests/tools/backend-configuration-contract.test.mjs",
@@ -341,7 +380,14 @@
             "classifications": [
                 "source-text",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "backend-configuration-contract",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/backend-configuration-contract",
+                "output": ".tmp/test-governance/results/{checkId}/backend-configuration-contract.json"
+            }
         },
         {
             "file": "tests/tools/backend-coverage-collector-layout.test.mjs",
@@ -365,7 +411,12 @@
                 "migration",
                 "perf",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "backend-physical-topology",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/backend-production-build-authority-measurement.test.mjs",
@@ -376,7 +427,12 @@
             "classifications": [
                 "source-text",
                 "perf"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "backend-production-build-authority-measurement",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
         },
         {
             "file": "tests/tools/backend-production-build-authority.test.mjs",
@@ -387,7 +443,14 @@
             "classifications": [
                 "source-text",
                 "compatibility-wrapper"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "backend-production-build-authority",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/backend-production-build-authority",
+                "output": ".tmp/test-governance/results/{checkId}/backend-production-build-authority.json"
+            }
         },
         {
             "file": "tests/tools/backend-production-shards.test.mjs",
@@ -431,7 +494,14 @@
             "physicalExecutionCount": 1,
             "classifications": [
                 "source-text"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "backup-envelope-contract",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/backup-envelope-contract",
+                "output": ".tmp/test-governance/results/{checkId}/backup-envelope-contract.json"
+            }
         },
         {
             "file": "tests/tools/browser-capability-contract.test.mjs",
@@ -441,7 +511,12 @@
             "physicalExecutionCount": 1,
             "classifications": [
                 "source-text"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "browser-capability-contract",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/browser-capability-risk.test.mjs",
@@ -451,7 +526,12 @@
             "physicalExecutionCount": 1,
             "classifications": [
                 "source-text"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "browser-capability-risk",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/browser-contract-fixture.test.mjs",
@@ -512,7 +592,12 @@
                 "migration",
                 "perf",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "browser-diagnostics",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/browser-geometry-motion-harness.test.mjs",
@@ -545,7 +630,12 @@
                 "source-text",
                 "migration",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "browser-migration-contract",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/browser-readiness-contract.test.mjs",
@@ -555,7 +645,12 @@
             "physicalExecutionCount": 1,
             "classifications": [
                 "perf"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "browser-readiness-contract",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/browser-session-isolation.test.mjs",
@@ -632,7 +727,12 @@
             "classifications": [
                 "source-text",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "canonical-hash-source-governance",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/challenge-kind-cutover-rollout.test.mjs",
@@ -668,7 +768,14 @@
             "classifications": [
                 "source-text",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "changed-critical-mutation",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/changed-critical-mutation",
+                "output": ".tmp/test-governance/results/{checkId}/changed-critical-mutation.json"
+            }
         },
         {
             "file": "tests/tools/check-job-summaries.test.mjs",
@@ -713,7 +820,12 @@
                 "source-text",
                 "migration",
                 "perf"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "code-intent",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/command-manifest-behavior.test.mjs",
@@ -724,7 +836,12 @@
             "classifications": [
                 "source-text",
                 "perf"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "command-manifest-behavior",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
         },
         {
             "file": "tests/tools/command-manifest-test-migration.test.mjs",
@@ -736,7 +853,12 @@
                 "source-text",
                 "migration",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "command-manifest-test-migration",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/configuration-layout.test.mjs",
@@ -748,7 +870,12 @@
                 "source-text",
                 "compatibility-wrapper",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "configuration-layout",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/content-credentials-prototype.test.mjs",
@@ -793,7 +920,12 @@
             "physicalExecutionCount": 1,
             "classifications": [
                 "source-text"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "csharp-entrypoint-ownership",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/csharp-style.test.mjs",
@@ -806,7 +938,12 @@
                 "compatibility-wrapper",
                 "perf",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "csharp-style",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/data-reader-ordinal-analyzer.test.mjs",
@@ -849,7 +986,12 @@
             "physicalExecutionCount": 1,
             "classifications": [
                 "source-text"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "dead-code-audit-index",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/deployment-slots.test.mjs",
@@ -861,7 +1003,12 @@
                 "source-text",
                 "perf",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "deployment-slots",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
         },
         {
             "file": "tests/tools/destructive-migration-proof.test.mjs",
@@ -873,7 +1020,12 @@
                 "source-text",
                 "migration",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "destructive-migration-proof",
+                "category": "exclusive-resource-destructive-rehearsal",
+                "physicalOwner": "process:destructive"
+            }
         },
         {
             "file": "tests/tools/document-lifecycle.test.mjs",
@@ -884,7 +1036,12 @@
             "classifications": [
                 "compatibility-wrapper",
                 "migration"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "document-lifecycle",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/document-topic-retirement.test.mjs",
@@ -896,7 +1053,12 @@
                 "source-text",
                 "compatibility-wrapper",
                 "migration"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "document-topic-retirement",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/dotnet-build-parallelism.test.mjs",
@@ -947,7 +1109,14 @@
             "physicalExecutionCount": 1,
             "classifications": [
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "dotnet-release-metadata",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/dotnet-release-metadata",
+                "output": ".tmp/test-governance/results/{checkId}/dotnet-release-metadata.json"
+            }
         },
         {
             "file": "tests/tools/evidence-projection.test.mjs",
@@ -981,7 +1150,12 @@
                 "source-text",
                 "perf",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "final-image-toolchain-pin",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/fixture-catalog.test.mjs",
@@ -1002,7 +1176,12 @@
             "classifications": [
                 "source-text",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "flaky-observation-lane",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
         },
         {
             "file": "tests/tools/flaky-test-governance.test.mjs",
@@ -1014,7 +1193,12 @@
                 "source-text",
                 "compatibility-wrapper",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "flaky-test-governance",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
         },
         {
             "file": "tests/tools/frontend-build-ready-marker.test.mjs",
@@ -1118,7 +1302,12 @@
                 "source-text",
                 "compatibility-wrapper",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "gateway-switch",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
         },
         {
             "file": "tests/tools/governance-suite-plan.test.mjs",
@@ -1128,7 +1317,12 @@
             "physicalExecutionCount": 1,
             "classifications": [
                 "behavior"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "governance-suite-plan",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/historical-topology-test-dispositions.test.mjs",
@@ -1139,7 +1333,12 @@
             "classifications": [
                 "source-text",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "historical-topology-test-dispositions",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/homogeneous-two-node-fixture.test.mjs",
@@ -1253,7 +1452,14 @@
             "classifications": [
                 "source-text",
                 "behavior"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "line-endings",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/line-endings",
+                "output": ".tmp/test-governance/results/{checkId}/line-endings.json"
+            }
         },
         {
             "file": "tests/tools/monolithic-distributed-architecture.test.mjs",
@@ -1264,7 +1470,12 @@
             "classifications": [
                 "source-text",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "monolithic-distributed-architecture",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/native-test-governance.test.mjs",
@@ -1274,7 +1485,12 @@
             "physicalExecutionCount": 1,
             "classifications": [
                 "behavior"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "native-test-governance",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/native-tooling-style.test.mjs",
@@ -1300,7 +1516,14 @@
                 "compatibility-wrapper",
                 "migration",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "online-schema-migration-wrapper",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/online-schema-migration-wrapper",
+                "output": ".tmp/test-governance/results/{checkId}/online-schema-migration-wrapper.json"
+            }
         },
         {
             "file": "tests/tools/operations-layout.test.mjs",
@@ -1311,7 +1534,12 @@
             "classifications": [
                 "source-text",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "operations-layout",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/perception-character-v3-cutover.test.mjs",
@@ -1323,7 +1551,14 @@
                 "source-text",
                 "migration",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "perception-character-v3-cutover",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/perception-character-v3-cutover",
+                "output": ".tmp/test-governance/results/{checkId}/perception-character-v3-cutover.json"
+            }
         },
         {
             "file": "tests/tools/perception-union-projection.test.mjs",
@@ -1346,7 +1581,14 @@
                 "source-text",
                 "perf",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "performance-evidence-summary",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/performance-evidence-summary",
+                "output": ".tmp/test-governance/results/{checkId}/performance-evidence-summary.json"
+            }
         },
         {
             "file": "tests/tools/performance-saturation-v2.test.mjs",
@@ -1358,7 +1600,12 @@
                 "source-text",
                 "perf",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "performance-saturation-v2",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
         },
         {
             "file": "tests/tools/playwright-worker-resolution.test.mjs",
@@ -1380,7 +1627,12 @@
             "classifications": [
                 "compatibility-wrapper",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "pod-binary-codec-batch-evidence",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/privacy-zk-contract.test.mjs",
@@ -1412,7 +1664,12 @@
             "physicalExecutionCount": 1,
             "classifications": [
                 "source-text"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "privacy-zk-prebuild-projection",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/privacy-zk-production-projection.test.mjs",
@@ -1433,7 +1690,12 @@
             "classifications": [
                 "compatibility-wrapper",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "product-version-governance",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/production-build-artifacts.test.mjs",
@@ -1546,7 +1808,12 @@
             "classifications": [
                 "source-text",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "public-aot-warm-evidence",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
         },
         {
             "file": "tests/tools/public-design-document-authority.test.mjs",
@@ -1558,7 +1825,12 @@
                 "source-text",
                 "compatibility-wrapper",
                 "migration"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "public-design-document-authority",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/public-hot-enqueue-governance.test.mjs",
@@ -1569,7 +1841,12 @@
             "classifications": [
                 "source-text",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "public-hot-enqueue-governance",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/public-load-readiness.test.mjs",
@@ -1591,7 +1868,14 @@
                 "source-text",
                 "perf",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "public-preview-screenshots",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/public-preview-screenshots",
+                "output": ".tmp/test-governance/results/{checkId}/public-preview-screenshots.json"
+            }
         },
         {
             "file": "tests/tools/public-representation-coordinate-carriers.test.mjs",
@@ -1602,7 +1886,12 @@
             "classifications": [
                 "source-text",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "public-representation-coordinate-carriers",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/public-representation-coordinate.test.mjs",
@@ -1613,7 +1902,14 @@
             "classifications": [
                 "source-text",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "public-representation-coordinate",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/public-representation-coordinate",
+                "output": ".tmp/test-governance/results/{checkId}/public-representation-coordinate.json"
+            }
         },
         {
             "file": "tests/tools/quality-gate-artifact-layout.test.mjs",
@@ -1633,7 +1929,12 @@
             "physicalExecutionCount": 1,
             "classifications": [
                 "migration"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "rehearsal-schema-qualification-probe",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
         },
         {
             "file": "tests/tools/release-asset-compatibility-probe.test.mjs",
@@ -1644,7 +1945,12 @@
             "classifications": [
                 "compatibility-wrapper",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "release-asset-compatibility-probe",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
         },
         {
             "file": "tests/tools/release-document-convergence.test.mjs",
@@ -1656,7 +1962,12 @@
                 "source-text",
                 "compatibility-wrapper",
                 "migration"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "release-document-convergence",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/release-evidence-artifact-restore.test.mjs",
@@ -1680,7 +1991,14 @@
                 "source-text",
                 "perf",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "release-evidence-model",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/release-evidence-model",
+                "output": ".tmp/test-governance/results/{checkId}/release-evidence-model.json"
+            }
         },
         {
             "file": "tests/tools/release-evidence-shell-contract.test.mjs",
@@ -1711,7 +2029,12 @@
             "classifications": [
                 "source-text",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "release-id",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/release-manifest.test.mjs",
@@ -1724,7 +2047,14 @@
                 "compatibility-wrapper",
                 "perf",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "release-manifest",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/release-manifest",
+                "output": ".tmp/test-governance/results/{checkId}/release-manifest.json"
+            }
         },
         {
             "file": "tests/tools/release-migration-qualification.test.mjs",
@@ -1736,7 +2066,12 @@
                 "source-text",
                 "compatibility-wrapper",
                 "migration"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "release-migration-qualification",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
         },
         {
             "file": "tests/tools/release-notification-probe.test.mjs",
@@ -1747,7 +2082,12 @@
             "classifications": [
                 "source-text",
                 "perf"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "release-notification-probe",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
         },
         {
             "file": "tests/tools/release-preview-readiness.test.mjs",
@@ -1783,7 +2123,14 @@
                 "migration",
                 "perf",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "release-rollout-bundle",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/release-rollout-bundle",
+                "output": ".tmp/test-governance/results/{checkId}/release-rollout-bundle.json"
+            }
         },
         {
             "file": "tests/tools/release-rollout-evidence.test.mjs",
@@ -1797,7 +2144,14 @@
                 "migration",
                 "perf",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "release-rollout-evidence",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/release-rollout-evidence",
+                "output": ".tmp/test-governance/results/{checkId}/release-rollout-evidence.json"
+            }
         },
         {
             "file": "tests/tools/release-rollout-probes.test.mjs",
@@ -1810,7 +2164,12 @@
                 "migration",
                 "perf",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "release-rollout-probes",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
         },
         {
             "file": "tests/tools/release-rollout-state.test.mjs",
@@ -1822,7 +2181,14 @@
                 "compatibility-wrapper",
                 "migration",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "release-rollout-state",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/release-rollout-state",
+                "output": ".tmp/test-governance/results/{checkId}/release-rollout-state.json"
+            }
         },
         {
             "file": "tests/tools/release-storage-lifecycle.test.mjs",
@@ -1835,7 +2201,12 @@
                 "compatibility-wrapper",
                 "perf",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "release-storage-lifecycle",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
         },
         {
             "file": "tests/tools/release-traffic-probe-session.test.mjs",
@@ -1848,7 +2219,12 @@
                 "compatibility-wrapper",
                 "migration",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "release-traffic-probe-session",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
         },
         {
             "file": "tests/tools/release-worker-drill.test.mjs",
@@ -1859,7 +2235,12 @@
             "classifications": [
                 "source-text",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "release-worker-drill",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
         },
         {
             "file": "tests/tools/release-worker-normal-observer.test.mjs",
@@ -1871,7 +2252,12 @@
                 "source-text",
                 "migration",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "release-worker-normal-observer",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
         },
         {
             "file": "tests/tools/release-worker-observer-service.test.mjs",
@@ -1882,7 +2268,12 @@
             "classifications": [
                 "source-text",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "release-worker-observer-service",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
         },
         {
             "file": "tests/tools/release-worker-reconciliation.test.mjs",
@@ -1894,7 +2285,12 @@
                 "source-text",
                 "perf",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "release-worker-reconciliation",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
         },
         {
             "file": "tests/tools/repository-governance-authority.test.mjs",
@@ -1905,7 +2301,14 @@
             "classifications": [
                 "source-text",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "repository-governance-authority",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/repository-governance-authority",
+                "output": ".tmp/test-governance/results/{checkId}/repository-governance-authority.json"
+            }
         },
         {
             "file": "tests/tools/resident-resource-leases.test.mjs",
@@ -1938,7 +2341,12 @@
             "physicalExecutionCount": 1,
             "classifications": [
                 "source-text"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "rights-v3-projection",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/rule-platform.test.mjs",
@@ -1951,7 +2359,14 @@
                 "compatibility-wrapper",
                 "perf",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "rule-platform",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/rule-platform",
+                "output": ".tmp/test-governance/results/{checkId}/rule-platform.json"
+            }
         },
         {
             "file": "tests/tools/run-bound-marker.test.mjs",
@@ -2018,7 +2433,14 @@
                 "migration",
                 "perf",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "runtime-publish-profile",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/runtime-publish-profile",
+                "output": ".tmp/test-governance/results/{checkId}/runtime-publish-profile.json"
+            }
         },
         {
             "file": "tests/tools/runtime-release-backend-bootstrap.test.mjs",
@@ -2040,7 +2462,12 @@
             "physicalExecutionCount": 1,
             "classifications": [
                 "perf"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "runtime-worker-admission",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
         },
         {
             "file": "tests/tools/scheduler-yield-experiment.test.mjs",
@@ -2061,7 +2488,14 @@
             "classifications": [
                 "compatibility-wrapper",
                 "migration"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "schema-compatibility-coordinate",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/schema-compatibility-coordinate",
+                "output": ".tmp/test-governance/results/{checkId}/schema-compatibility-coordinate.json"
+            }
         },
         {
             "file": "tests/tools/security-authenticated-dast.test.mjs",
@@ -2095,7 +2529,12 @@
             "classifications": [
                 "source-text",
                 "compatibility-wrapper"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "security-domain-layout",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/security-matrix-catalog.test.mjs",
@@ -2106,7 +2545,12 @@
             "classifications": [
                 "source-text",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "security-matrix-catalog",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/security-source-analyzer.test.mjs",
@@ -2116,7 +2560,12 @@
             "physicalExecutionCount": 1,
             "classifications": [
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "security-source-analyzer",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
         },
         {
             "file": "tests/tools/security-worker-admission.test.mjs",
@@ -2127,7 +2576,12 @@
             "classifications": [
                 "perf",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "security-worker-admission",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
         },
         {
             "file": "tests/tools/seo-measurement.test.mjs",
@@ -2180,7 +2634,14 @@
             "physicalExecutionCount": 1,
             "classifications": [
                 "source-text"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "test-asset-audit",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/test-asset-audit",
+                "output": ".tmp/test-governance/results/{checkId}/test-asset-audit.json"
+            }
         },
         {
             "file": "tests/tools/test-asset-semantic-renames.test.mjs",
@@ -2191,7 +2652,12 @@
             "classifications": [
                 "source-text",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "test-asset-semantic-renames",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/test-inventory.test.mjs",
@@ -2214,7 +2680,12 @@
                 "source-text",
                 "compatibility-wrapper",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "test-evidence-governance",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/test-evidence-receipt-aggregation.test.mjs",
@@ -2225,7 +2696,12 @@
             "classifications": [
                 "source-text",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "test-evidence-receipt-aggregation",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/test-evidence-receipt-authority.test.mjs",
@@ -2237,7 +2713,12 @@
                 "source-text",
                 "perf",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "test-evidence-receipt-authority",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/test-evidence-receipt-schema.test.mjs",
@@ -2248,7 +2729,12 @@
             "classifications": [
                 "source-text",
                 "perf"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "test-evidence-receipt-schema",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/test-lifecycle-governance.test.mjs",
@@ -2259,7 +2745,12 @@
             "classifications": [
                 "compatibility-wrapper",
                 "migration"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "test-lifecycle-governance",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/test-matrix-priority-score.test.mjs",
@@ -2316,7 +2807,12 @@
             "classifications": [
                 "source-text",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "test-observation-ledger",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/test-retention-audit.test.mjs",
@@ -2341,7 +2837,12 @@
             "classifications": [
                 "source-text",
                 "migration"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "test-suite-convergence",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/ux-risk-cli-timing.test.mjs",
@@ -2454,7 +2955,12 @@
             "classifications": [
                 "source-text",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "wasm-artifact-ownership",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/wasm-fuzz-runtime.test.mjs",
@@ -2487,7 +2993,12 @@
             "classifications": [
                 "source-text",
                 "compatibility-wrapper"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "zap-baseline-contract",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/zero-auth-probe-parallelism.test.mjs",
@@ -2511,7 +3022,20 @@
                 "migration",
                 "perf",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "zero-downtime-rehearsal",
+                "shards": [
+                    "all",
+                    "sigkill-resume",
+                    "explicit-rollback",
+                    "post-switch-rollback",
+                    "normal",
+                    "base"
+                ],
+                "category": "exclusive-resource-destructive-rehearsal",
+                "physicalOwner": "process:zero-downtime-rehearsal"
+            }
         },
         {
             "file": "tests/tools/zk-artifact-ownership.test.mjs",
@@ -2521,7 +3045,12 @@
             "physicalExecutionCount": 1,
             "classifications": [
                 "source-text"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "zk-artifact-ownership",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/zk-source-layout.test.mjs",
@@ -2531,7 +3060,12 @@
             "physicalExecutionCount": 1,
             "classifications": [
                 "source-text"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "zk-source-layout",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/frontend/checks/acceptance/article-private-preview-entry.test.mjs",
@@ -2868,14 +3402,21 @@
         },
         {
             "file": "tests/tools/frontend-render-structure-receipts.test.mjs",
-            "owner": "manual-diagnostic:tests/tools/frontend-render-structure-receipts.test.mjs",
-            "executionCategory": "manual-diagnostic",
-            "lifecycle": "manual-diagnostic",
-            "physicalExecutionCount": 0,
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
             "classifications": [
                 "source-text",
                 "perf"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "frontend-render-structure-receipts",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/frontend-render-structure-receipts",
+                "output": ".tmp/test-governance/results/{checkId}/frontend-render-structure-receipts.json"
+            }
         },
         {
             "file": "tests/tools/generated-fact-sections.test.mjs",
@@ -3626,13 +4167,18 @@
         },
         {
             "file": "tests/tools/static-governance-host.test.mjs",
-            "owner": "manual-diagnostic:tests/tools/static-governance-host.test.mjs",
-            "executionCategory": "manual-diagnostic",
-            "lifecycle": "manual-diagnostic",
-            "physicalExecutionCount": 0,
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
             "classifications": [
                 "source-text"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "static-governance-host",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/summary-only-qualification.test.mjs",
@@ -3682,38 +4228,53 @@
         },
         {
             "file": "tests/tools/test-temporal-context.test.mjs",
-            "owner": "manual-diagnostic:tests/tools/test-temporal-context.test.mjs",
-            "executionCategory": "manual-diagnostic",
-            "lifecycle": "manual-diagnostic",
-            "physicalExecutionCount": 0,
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
             "classifications": [
                 "source-text",
                 "perf",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "test-temporal-context",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/test-temporal-producer-bindings.test.mjs",
-            "owner": "manual-diagnostic:tests/tools/test-temporal-producer-bindings.test.mjs",
-            "executionCategory": "manual-diagnostic",
-            "lifecycle": "manual-diagnostic",
-            "physicalExecutionCount": 0,
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
             "classifications": [
                 "source-text",
                 "perf",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "test-temporal-producer-bindings",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/test-wall-clock-governance.test.mjs",
-            "owner": "manual-diagnostic:tests/tools/test-wall-clock-governance.test.mjs",
-            "executionCategory": "manual-diagnostic",
-            "lifecycle": "manual-diagnostic",
-            "physicalExecutionCount": 0,
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
             "classifications": [
                 "perf",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "test-wall-clock-governance",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/theme-css-safety-evidence.test.mjs",
@@ -3779,6 +4340,133 @@
             "classifications": [
                 "source-text",
                 "runtime"
+            ]
+        },
+        {
+            "file": "tests/frontend/checks/security/production-xss-observer.test.mjs",
+            "owner": "package-script:check:production-xss:observer",
+            "executionCategory": "package-script",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "perf"
+            ]
+        },
+        {
+            "file": "tests/frontend/checks/static/check-admin-segmented-control-removal.test.mjs",
+            "owner": "manual-diagnostic:tests/frontend/checks/static/check-admin-segmented-control-removal.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "compatibility-wrapper"
+            ]
+        },
+        {
+            "file": "tests/frontend/checks/static/html-sink-ast.test.mjs",
+            "owner": "package-script:test:html-sink-ast",
+            "executionCategory": "package-script",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text"
+            ]
+        },
+        {
+            "file": "tests/frontend/support/playwright/publicAotNavigationRetry.test.mjs",
+            "owner": "manual-diagnostic:tests/frontend/support/playwright/publicAotNavigationRetry.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/behavior-mutation-qualification.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/behavior-mutation-qualification.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/check-behavior-mutation-governance.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/check-behavior-mutation-governance.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/native-entry-adapter.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/native-entry-adapter.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "perf",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/production-fresh-consumer-exactness.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/production-fresh-consumer-exactness.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text"
+            ]
+        },
+        {
+            "file": "tests/tools/production-fresh-output-locator.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/production-fresh-output-locator.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text"
+            ]
+        },
+        {
+            "file": "tests/tools/production-fresh-port-handoff.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/production-fresh-port-handoff.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/production-fresh-port-lease.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/production-fresh-port-lease.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/system-memory.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/system-memory.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
             ]
         }
     ]

@@ -122,6 +122,16 @@ export function validateLifecycleRegistry({ audit, registry })
         {
             errors.push(`${entry.file} has no canonical owner`);
         }
+        if (entry.staticGovernance)
+        {
+            if (entry.owner !== 'repository-governance:static-node-contracts'
+                || entry.executionCategory !== 'repository-governance'
+                || entry.lifecycle !== 'canonical-execution'
+                || entry.physicalExecutionCount !== 1)
+            {
+                errors.push(`${entry.file} static governance metadata requires one canonical static-node-contracts owner`);
+            }
+        }
         if (!Array.isArray(entry.classifications) || entry.classifications.length === 0
       || entry.classifications.some((classification) => !CLASSIFICATIONS.has(classification)))
         {

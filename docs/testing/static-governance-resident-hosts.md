@@ -1,9 +1,10 @@
 # Static governance resident hosts and receipt join
 
-Issue #1380 moves the Node contract portion of `static-governance` from a
-filename-regex plan to
-`tests/governance/static-governance-isolation-registry.json`. Every migrated
-physical check has one registry ID, one category, and one physical owner.
+The Node contract portion of `static-governance` is selected from the
+`staticGovernance` metadata on `tests/governance/test-lifecycle-registry.json`
+entries. The lifecycle registry is the single test-file inventory authority;
+every migrated physical check has one registry ID, one category, and one
+physical owner without a parallel static-governance file list.
 
 The execution contract has four categories:
 
