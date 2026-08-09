@@ -17,22 +17,7 @@ thresholds:
 excludedGeneratedFiles:
     - src/shared/Contracts/Validation/*.g.*
     - src/frontend/src/generated/**
-temporaryExceptions:
-    - metric: backend line coverage
-      approvedUntil: 2026-07-31
-      reason: release-final baseline exception while backend coverage expansion is scheduled
-    - metric: backend branch coverage
-      approvedUntil: 2026-07-31
-      reason: release-final baseline exception while backend branch coverage expansion is scheduled
-    - metric: frontend line coverage
-      approvedUntil: 2026-07-31
-      reason: release-final baseline exception while frontend view coverage expansion is scheduled
-    - metric: frontend branch coverage
-      approvedUntil: 2026-07-31
-      reason: release-final baseline exception while frontend branch coverage expansion is scheduled
-    - metric: critical backend module branch coverage
-      approvedUntil: 2026-07-31
-      reason: file-level critical backend coverage is unavailable from current cobertura summary
+temporaryExceptions: []
 releaseFinal:
     backend:
         line: 85
