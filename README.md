@@ -2,8 +2,6 @@
 
 一个面向真实部署、以二进制公开读取链路和可验证运行时契约为核心的个人内容系统。
 
-> **Public Preview** — API Stability: Experimental · Deployment: Self-hosting preview · Production SLA: none。FsusBlog 可用于开发、自托管实验和代码审查；稳定性由明确登记的契约分类决定，不由产品版本号推导。需要标识具体构建时，请使用 canonical ReleaseId（`YYYYMMDDHHmmss-sha12`）或完整 commit SHA。
-
 | Public preview entry | Link |
 | ---------------------- | ------ |
 | Architecture overview | [docs/architecture/overview.md](docs/architecture/overview.md) |
