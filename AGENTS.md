@@ -69,7 +69,7 @@ node tools/docs/generate-document-lifecycle.mjs --check
 node tools/docs/check-authoritative-development-docs.mjs
 ```
 
-提交前按[变更契约](docs/development/change-contract.md)校验 commit message 和候选 range。除非用户另行要求，本仓库直接在 `master` 完成并推送；不要创建或遗留临时 `codex/*` branch 或 draft PR，也不要把无关工作区改动带入提交。
+提交前按[变更契约](docs/development/change-contract.md)校验 commit message 和候选 range。默认分支受 GitHub ruleset 保护时，在 issue-scoped 分支完成变更、创建非 draft PR，并在验证后合并回 `master`；不要绕过 ruleset、遗留临时 `codex/*` branch，或把无关工作区改动带入提交。GitHub Actions 可用时以已配置的远端 checks 为准；若 Actions 明确被关闭或不可用，只有本地等价 CI 全绿且 PR 记录了实际命令和结果后才可合并，不得把缺失的远端 check 描述为通过。
 
 ## 何时修改本文件
 

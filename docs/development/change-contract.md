@@ -143,9 +143,9 @@ Level S 的 `status` 必须是 `structural-only`；M/R/C 必须是 `measured`。
 
 trusted base/before checkout 必须使用完整 reachable Git history（`fetch-depth: 0`）。blame-ignore、format-history 和 merge-base 审计需要读取被登记 revision 及其 parent；shallow trusted checkout 造成 object 不可达时属于 CI invocation defect，不能降级为跳过历史校验或把 candidate checker 当作 fallback。checkout 仍固定到 PR base 或 push `before` SHA，并保持 `persist-credentials: false`。
 
-trusted registry 还列出 gate、workflow、template、release config 和 commitlint adapter 的 policy file set。candidate PR 若修改其中任一文件，base checker 会按 Git object 比较并拒绝该 PR，不能把必需 token 留在注释里后替换未来 gate。当前仓库尚无可用 protected-branch 套餐，因此 policy bootstrap 只能由 owner 做 issue-scoped direct push，再由 push audit 报告；这是外部保护缺失下的受限升级路径，不是普通 contributor PR 例外。
+trusted registry 还列出 gate、workflow、template、release config 和 commitlint adapter 的 policy file set。candidate PR 若修改其中任一文件，base checker 会按 Git object 比较并拒绝该 PR，不能把必需 token 留在注释里后替换未来 gate。默认分支当前由 repository ruleset 要求所有变更先经过 pull request；ruleset 的 enforcement、target 和 bypass actors 必须在执行时从 GitHub 回读，不能用历史文档或本地权限推断。policy bootstrap 仍须使用 owner 明确授权且满足当前 ruleset 的升级路径，不存在普通 contributor 例外。
 
-`push` 到 `master` 时，job 优先从 `github.event.before` checkout 前一版本 checker 审计 candidate 的 `before..after` commit range；首次安装没有前序 checker 时才由 candidate bootstrap。`workflow_dispatch` 使用 candidate checker 执行 repository audit。push job 发生在 GitHub 接收对象之后：只有当仓库套餐和设置支持 branch/ruleset protection、并把 `Change Contract` 配为 required status 时，它才能阻止合入。private repository 无法启用该 protection 时，push gate 只是事后审计和告警，不是预防控制，issue/发布证据不得声称 protected branch 已启用。
+PR 合并到 `master` 后，`push` job 优先从 `github.event.before` checkout 前一版本 checker 审计 candidate 的 `before..after` commit range；首次安装没有前序 checker 时才由 candidate bootstrap。`workflow_dispatch` 使用 candidate checker 执行 repository audit。push job 发生在 GitHub 接收对象之后，因此仍是事后审计；预防控制来自 ruleset 和配置为 required 的 pull-request status checks。GitHub Actions 可用时，本地通过不能替代这些远端 checks；若 Actions 明确被关闭或不可用且没有可执行的远端 check，maintainer 只有在本地等价 CI 全绿并把命令、结果和 Actions 状态记录到 PR 后才可合并。远端 check 缺失或未运行不得表述为通过。
 
 ## Release note authority
 
@@ -184,4 +184,4 @@ node tools/governance/check-change-contract.mjs --repository
 node --test tests/tools/change-contract.test.mjs
 ```
 
-GitHub `Change Contract` job 使用 merge-base/head diff、PR title/body、labels、PR author、evidence manifests 和 blame-ignore history 复核；本地通过不能替代可用且已配置的 protected branch status check。若 GitHub 套餐不提供该保护能力，报告必须把 push 结果标为 post-push audit。
+GitHub `Change Contract` job 使用 merge-base/head diff、PR title/body、labels、PR author、evidence manifests 和 blame-ignore history 复核；本地通过不能替代可用且已配置的 protected branch status check。只有 Actions 明确被关闭或不可用时，才使用上文定义的本地等价 CI 例外，并保留 PR 证据；合并后的 push job 仍报告为 post-merge audit。
