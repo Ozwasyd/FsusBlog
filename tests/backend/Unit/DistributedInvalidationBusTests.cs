@@ -23,6 +23,8 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class DistributedInvalidationBusTests
 {
+    private static readonly JsonSerializerOptions s_json = new(JsonSerializerDefaults.Web);
+
     [Fact]
     public async Task SingleModePublisher_RemainsLocalOnlyWithoutEventOrTransport()
     {
@@ -50,8 +52,16 @@ public sealed class DistributedInvalidationBusTests
             TaskCreationOptions.RunContinuationsAsynchronously);
         var nodeAApplier = new RecordingLocalApplier();
         var nodeBApplier = new RecordingLocalApplier(peerApplied);
-        using DistributedInvalidationBus nodeA = CreateBus("node-a", hub.CreateTransport(), nodeAApplier);
-        using DistributedInvalidationBus nodeB = CreateBus("node-b", hub.CreateTransport(), nodeBApplier);
+        using DistributedInvalidationBus nodeA = CreateBus(
+            "node-a",
+            hub.CreateTransport("node-a"),
+            nodeAApplier,
+            sharedInbox: hub.Inbox);
+        using DistributedInvalidationBus nodeB = CreateBus(
+            "node-b",
+            hub.CreateTransport("node-b"),
+            nodeBApplier,
+            sharedInbox: hub.Inbox);
         await nodeA.StartAsync(CancellationToken.None);
         await nodeB.StartAsync(CancellationToken.None);
 
@@ -68,7 +78,7 @@ public sealed class DistributedInvalidationBusTests
         Assert.Equal(1, nodeBApplier.PublicAotGeneration);
         Assert.Equal(1, nodeBApplier.PublicHotReadGeneration);
         Assert.Equal(1, hub.OriginalPublishCount);
-        await EventuallyAsync(() => nodeA.RuntimeSnapshotForTests().SelfIgnoredCount >= 1);
+        await EventuallyAsync(() => nodeA.RuntimeSnapshotForTests().ReceivedCount == 0);
 
         await nodeA.StopAsync(CancellationToken.None);
         await nodeB.StopAsync(CancellationToken.None);
@@ -118,7 +128,7 @@ public sealed class DistributedInvalidationBusTests
             .BuildServiceProvider();
         using DistributedInvalidationBus bus = CreateBus(
             "node-b",
-            hub.CreateTransport(),
+            hub.CreateTransport("node-b"),
             new RecordingLocalApplier(),
             scopeFactory: services.GetRequiredService<IServiceScopeFactory>());
 
@@ -517,7 +527,8 @@ public sealed class DistributedInvalidationBusTests
         IDistributedInvalidationTransport transport,
         IDistributedInvalidationLocalApplier applier,
         int applyRetryCount = 2,
-        IServiceScopeFactory? scopeFactory = null)
+        IServiceScopeFactory? scopeFactory = null,
+        ConcurrentDictionary<string, DistributedInvalidationEvent>? sharedInbox = null)
     {
         var options = new DistributedInvalidationOptions
         {
@@ -538,6 +549,8 @@ public sealed class DistributedInvalidationBusTests
             var ledger = Substitute.For<IDistributedInvalidationDeliveryLedger>();
             var inboxStates = new ConcurrentDictionary<string, DistributedInvalidationInboxApplyState>(
                 StringComparer.Ordinal);
+            ConcurrentDictionary<string, DistributedInvalidationEvent> inboxEvents = sharedInbox
+                ?? new ConcurrentDictionary<string, DistributedInvalidationEvent>(StringComparer.Ordinal);
             ledger.ReceiveAsync(
                     Arg.Any<DistributedInvalidationEvent>(),
                     Arg.Any<string>(),
@@ -546,8 +559,10 @@ public sealed class DistributedInvalidationBusTests
                 {
                     DistributedInvalidationEvent @event = callInfo.ArgAt<DistributedInvalidationEvent>(0);
                     string targetNodeId = callInfo.ArgAt<string>(1);
+                    string key = $"{@event.RuntimeScope}:{@event.EventId}:{targetNodeId}";
+                    inboxEvents[key] = @event;
                     DistributedInvalidationInboxApplyState state = inboxStates.GetValueOrDefault(
-                        $"{@event.RuntimeScope}:{@event.EventId}:{targetNodeId}",
+                        key,
                         DistributedInvalidationInboxApplyState.Pending);
                     return new DistributedInvalidationInboxReceipt(
                         state == DistributedInvalidationInboxApplyState.Applied,
@@ -555,11 +570,28 @@ public sealed class DistributedInvalidationBusTests
                         state == DistributedInvalidationInboxApplyState.TerminalFailed,
                         state);
                 });
+            ledger.ReadInboxEventAsync(
+                    Arg.Any<string>(),
+                    Arg.Any<string>(),
+                    Arg.Any<string>(),
+                    Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                    inboxEvents.GetValueOrDefault(
+                        $"{callInfo.ArgAt<string>(0)}:{callInfo.ArgAt<string>(1)}:{callInfo.ArgAt<string>(2)}"));
             ledger.TryBeginApplyAsync(
                     Arg.Any<DistributedInvalidationEvent>(),
                     Arg.Any<string>(),
                     Arg.Any<CancellationToken>())
-                .Returns(true);
+                .Returns(callInfo =>
+                {
+                    DistributedInvalidationEvent @event = callInfo.ArgAt<DistributedInvalidationEvent>(0);
+                    string targetNodeId = callInfo.ArgAt<string>(1);
+                    return inboxStates.GetValueOrDefault(
+                            $"{@event.RuntimeScope}:{@event.EventId}:{targetNodeId}",
+                            DistributedInvalidationInboxApplyState.Pending)
+                        is DistributedInvalidationInboxApplyState.Pending
+                            or DistributedInvalidationInboxApplyState.RetryableFailed;
+                });
             ledger.When(value => value.RecordApplyAsync(
                     Arg.Any<DistributedInvalidationEvent>(),
                     Arg.Any<string>(),
@@ -711,6 +743,12 @@ public sealed class DistributedInvalidationBusTests
     private sealed class InMemoryTransportHub
     {
         private readonly ConcurrentBag<Channel<string>> _subscribers = [];
+        private readonly ConcurrentBag<(Channel<string> Channel, string NodeId)> _subscriberNodes = [];
+
+        public ConcurrentDictionary<string, DistributedInvalidationEvent> Inbox
+        {
+            get;
+        } = new(StringComparer.Ordinal);
 
         public string? LastPayload
         {
@@ -721,11 +759,12 @@ public sealed class DistributedInvalidationBusTests
             get; private set;
         }
 
-        public IDistributedInvalidationTransport CreateTransport()
+        public IDistributedInvalidationTransport CreateTransport(string nodeId)
         {
             var channel = Channel.CreateUnbounded<string>();
             _subscribers.Add(channel);
-            return new HubTransport(this, channel);
+            _subscriberNodes.Add((channel, nodeId));
+            return new HubTransport(this, channel, nodeId);
         }
 
         public Task RepublishLastAsync()
@@ -746,14 +785,23 @@ public sealed class DistributedInvalidationBusTests
 
         private Task BroadcastAsync(string payload)
         {
-            foreach (Channel<string> subscriber in _subscribers)
+            DistributedInvalidationEvent? invalidation =
+                JsonSerializer.Deserialize<DistributedInvalidationEvent>(payload, s_json);
+            foreach ((Channel<string> Channel, string NodeId) subscriber in _subscriberNodes)
             {
-                subscriber.Writer.TryWrite(payload);
+                if (invalidation is not null)
+                {
+                    Inbox[$"{invalidation.RuntimeScope}:{invalidation.EventId}:{subscriber.NodeId}"] = invalidation;
+                }
+                subscriber.Channel.Writer.TryWrite(payload);
             }
             return Task.CompletedTask;
         }
 
-        private sealed class HubTransport(InMemoryTransportHub hub, Channel<string> channel)
+        private sealed class HubTransport(
+            InMemoryTransportHub hub,
+            Channel<string> channel,
+            string nodeId)
             : IDistributedInvalidationTransport
         {
             public Task<DistributedInvalidationTransportPublishResult> PublishAsync(string payload, CancellationToken cancellationToken = default)
@@ -764,7 +812,21 @@ public sealed class DistributedInvalidationBusTests
             {
                 await foreach (string payload in channel.Reader.ReadAllAsync(cancellationToken))
                 {
-                    yield return payload;
+                    DistributedInvalidationEvent? invalidation =
+                        JsonSerializer.Deserialize<DistributedInvalidationEvent>(payload, s_json);
+                    if (invalidation is null)
+                    {
+                        yield return payload;
+                        continue;
+                    }
+                    if (string.Equals(invalidation.SourceNodeId, nodeId, StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+                    yield return new DistributedInvalidationInboxReference(
+                        invalidation.RuntimeScope,
+                        invalidation.EventId,
+                        nodeId).ToChannelItem();
                 }
             }
         }

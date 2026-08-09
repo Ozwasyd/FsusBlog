@@ -354,3 +354,63 @@ public sealed class DistributedInvalidationReconcileCoverageEntity
         set;
     }
 }
+
+[SugarTable("distributed_invalidation_full_reconcile")]
+[SugarIndex(
+    "ux_distributed_invalidation_full_reconcile",
+    nameof(RuntimeScope),
+    OrderByType.Asc,
+    nameof(TargetNodeId),
+    OrderByType.Asc,
+    true)]
+public sealed class DistributedInvalidationFullReconcileObligationEntity
+{
+    [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
+    public long Id
+    {
+        get;
+        set;
+    }
+
+    [SugarColumn(ColumnName = "runtime_scope", Length = 128)]
+    public string RuntimeScope
+    {
+        get;
+        set;
+    } = string.Empty;
+
+    [SugarColumn(ColumnName = "target_node_id", Length = 128)]
+    public string TargetNodeId
+    {
+        get;
+        set;
+    } = string.Empty;
+
+    [SugarColumn(ColumnName = "reason", Length = 256)]
+    public string Reason
+    {
+        get;
+        set;
+    } = string.Empty;
+
+    [SugarColumn(ColumnName = "overflow_count")]
+    public int OverflowCount
+    {
+        get;
+        set;
+    }
+
+    [SugarColumn(ColumnName = "triggered_at")]
+    public DateTime TriggeredAt
+    {
+        get;
+        set;
+    }
+
+    [SugarColumn(ColumnName = "resolved_at", IsNullable = true)]
+    public DateTime? ResolvedAt
+    {
+        get;
+        set;
+    }
+}

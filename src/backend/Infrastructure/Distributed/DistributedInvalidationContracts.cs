@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.Cache;
 
@@ -135,6 +136,28 @@ public interface IDistributedInvalidationDeliveryLedger
         string targetNodeId,
         CancellationToken cancellationToken = default);
 
+    Task<DistributedInvalidationEvent?> ReadInboxEventAsync(
+        string runtimeScope,
+        string eventId,
+        string targetNodeId,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<DistributedInvalidationEvent>> ReadPendingInboxForNodeAsync(
+        string runtimeScope,
+        string targetNodeId,
+        CancellationToken cancellationToken = default);
+
+    Task<DistributedInvalidationPendingInboxSnapshot> ReadPendingInboxSnapshotAsync(
+        string runtimeScope,
+        string targetNodeId,
+        CancellationToken cancellationToken = default);
+
+    Task RecordFullReconcileObligationAsync(
+        string runtimeScope,
+        string targetNodeId,
+        string reason,
+        CancellationToken cancellationToken = default);
+
     Task RetireNodeAsync(
         string runtimeScope,
         string retiredNodeId,
@@ -186,6 +209,160 @@ public interface IDistributedInvalidationTransport
         CancellationToken cancellationToken = default);
 
     IAsyncEnumerable<string> ReadAllAsync(CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Durable inbox reference carried by the bounded ingress channel. The channel
+/// never holds the raw payload as the only copy; PostgreSQL inbox rows are the
+/// recovery truth and the channel is only a wake-up optimization.
+/// </summary>
+public sealed record DistributedInvalidationInboxReference(
+    string RuntimeScope,
+    string EventId,
+    string TargetNodeId)
+{
+    private static readonly JsonSerializerOptions s_json = new(JsonSerializerDefaults.Web);
+
+    public static DistributedInvalidationInboxReference? TryParse(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        try
+        {
+            DistributedInvalidationInboxReference? reference =
+                JsonSerializer.Deserialize<DistributedInvalidationInboxReference>(value, s_json);
+            if (reference is null
+                || string.IsNullOrWhiteSpace(reference.RuntimeScope)
+                || string.IsNullOrWhiteSpace(reference.EventId)
+                || string.IsNullOrWhiteSpace(reference.TargetNodeId))
+            {
+                return null;
+            }
+            return reference;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    public string ToChannelItem()
+        => JsonSerializer.Serialize(this, s_json);
+}
+
+public sealed record DistributedInvalidationPendingInboxSnapshot(
+    int PendingCount,
+    TimeSpan? OldestPendingAge,
+    bool LedgerAvailable);
+
+public sealed record DistributedInvalidationIngressSnapshot(
+    int Capacity,
+    int QueuedCount,
+    int InFlightCount,
+    long OverflowCount,
+    int PendingInboxCount,
+    TimeSpan? OldestPendingAge,
+    bool Degraded,
+    bool LedgerAvailable,
+    string? LastError);
+
+public sealed class DistributedInvalidationIngressRuntimeState(int capacity)
+{
+    private readonly object _gate = new();
+    private DistributedInvalidationIngressSnapshot _snapshot = new(
+        capacity,
+        0,
+        0,
+        0,
+        0,
+        null,
+        false,
+        true,
+        null);
+
+    public DistributedInvalidationIngressSnapshot Snapshot()
+    {
+        lock (_gate)
+        {
+            return _snapshot;
+        }
+    }
+
+    public void RecordQueued(int queuedCount)
+    {
+        lock (_gate)
+        {
+            _snapshot = _snapshot with
+            {
+                QueuedCount = Math.Max(0, queuedCount)
+            };
+        }
+    }
+
+    public void RecordInFlightChanged(int delta)
+    {
+        lock (_gate)
+        {
+            _snapshot = _snapshot with
+            {
+                InFlightCount = Math.Max(0, _snapshot.InFlightCount + delta)
+            };
+        }
+    }
+
+    public void RecordOverflow()
+    {
+        lock (_gate)
+        {
+            _snapshot = _snapshot with
+            {
+                OverflowCount = _snapshot.OverflowCount + 1
+            };
+        }
+    }
+
+    public void RecordPendingLedger(DistributedInvalidationPendingInboxSnapshot pending)
+    {
+        ArgumentNullException.ThrowIfNull(pending);
+        lock (_gate)
+        {
+            _snapshot = _snapshot with
+            {
+                PendingInboxCount = pending.PendingCount,
+                OldestPendingAge = pending.OldestPendingAge,
+                LedgerAvailable = pending.LedgerAvailable,
+                Degraded = _snapshot.Degraded || !pending.LedgerAvailable
+            };
+        }
+    }
+
+    public void RecordDegraded(string error)
+    {
+        lock (_gate)
+        {
+            _snapshot = _snapshot with
+            {
+                Degraded = true,
+                LedgerAvailable = false,
+                LastError = error
+            };
+        }
+    }
+
+    public void RecordFailClosed(string error)
+    {
+        lock (_gate)
+        {
+            _snapshot = _snapshot with
+            {
+                Degraded = true,
+                LastError = error
+            };
+        }
+    }
 }
 
 public enum DistributedInvalidationTransportStatus
@@ -361,6 +538,7 @@ public sealed class DistributedInvalidationOptions
     public TimeSpan ApplyRetryDelay { get; init; } = TimeSpan.FromMilliseconds(25);
     public TimeSpan RecoveryReplayInterval { get; init; } = TimeSpan.FromSeconds(5);
     public int DedupeCapacity { get; init; } = 4096;
+    public int IngressCapacity { get; init; } = 128;
     public DistributedInvalidationTopologyManifest? Topology
     {
         get; init;
@@ -405,7 +583,8 @@ public sealed class DistributedInvalidationOptions
                 Math.Clamp(section.GetValue("ApplyRetryDelayMilliseconds", 25), 1, 5000)),
             RecoveryReplayInterval = TimeSpan.FromMilliseconds(
                 Math.Clamp(section.GetValue("RecoveryReplayIntervalMilliseconds", 5000), 100, 60000)),
-            DedupeCapacity = Math.Clamp(section.GetValue("DedupeCapacity", 4096), 128, 65536)
+            DedupeCapacity = Math.Clamp(section.GetValue("DedupeCapacity", 4096), 128, 65536),
+            IngressCapacity = Math.Clamp(section.GetValue("IngressCapacity", 128), 1, 65536)
         };
     }
 

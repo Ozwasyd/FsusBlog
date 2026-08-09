@@ -69,6 +69,17 @@ public sealed record DistributedConvergenceHealthCheck(
     int AckGapCount,
     bool LedgerAvailable) : IProductionHealthCheck;
 
+public sealed record DistributedIngressHealthCheck(
+    string Status,
+    int Capacity,
+    int QueuedCount,
+    int InFlightCount,
+    long OverflowCount,
+    int PendingInboxCount,
+    TimeSpan? OldestPendingAge,
+    bool LedgerAvailable,
+    string? LastError) : IProductionHealthCheck;
+
 public sealed record ProductionResourceHealthCheck(
     string Status,
     bool WebRootExists,
@@ -416,6 +427,27 @@ public sealed class ProductionReadinessProbe(
                 snapshot.OldestPendingAge,
                 snapshot.AckGapCount,
                 snapshot.LedgerAvailable);
+        }
+
+        if (serviceProvider.GetService<DistributedInvalidationIngressRuntimeState>() is { } ingress)
+        {
+            DistributedInvalidationIngressSnapshot ingressSnapshot = ingress.Snapshot();
+            string ingressStatus =
+                ingressSnapshot.Degraded
+                || !ingressSnapshot.LedgerAvailable
+                || ingressSnapshot.LastError is not null
+                    ? "failed"
+                    : "ok";
+            checks["distributedIngress"] = new DistributedIngressHealthCheck(
+                ingressStatus,
+                ingressSnapshot.Capacity,
+                ingressSnapshot.QueuedCount,
+                ingressSnapshot.InFlightCount,
+                ingressSnapshot.OverflowCount,
+                ingressSnapshot.PendingInboxCount,
+                ingressSnapshot.OldestPendingAge,
+                ingressSnapshot.LedgerAvailable,
+                ingressSnapshot.LastError);
         }
 
         checks["postgres"] = asyncChecks.Postgres;

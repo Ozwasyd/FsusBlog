@@ -68,9 +68,20 @@ public sealed class SchemaMigrationCatalogTests
                     DistributedInvalidationDeliveryLedgerMigrationDefinitions.MigrationId,
                     dependency.MigrationId);
                 Assert.Equal(SchemaMigrationPhase.PostCodeFirst, dependency.Phase);
+            },
+            catalog =>
+            {
+                Assert.Equal("current-20260809", catalog.CatalogId);
+                Assert.Equal(new DateOnly(2026, 8, 9), catalog.StartVersion);
+                Assert.Equal(new DateOnly(2026, 8, 9), catalog.EndVersion);
+                SchemaMigrationCatalogDependency dependency = Assert.Single(catalog.Dependencies);
+                Assert.Equal(
+                    UserLocalePreferenceMigrationDefinitions.MigrationId,
+                    dependency.MigrationId);
+                Assert.Equal(SchemaMigrationPhase.PostCodeFirst, dependency.Phase);
             });
-        Assert.Equal(132, manifest.Descriptors.Count);
-        const string ExpectedPlanFingerprint = "27C39AD92DA3B4380C6199A6CE817DE381CCBA4B2A3ACCB88CA81DDBE7ACD089";
+        Assert.Equal(133, manifest.Descriptors.Count);
+        const string ExpectedPlanFingerprint = "E112015436B3F6CCAAD5D7228D06B4775215D7A22D43BF6A9BC017973456CE2C";
         string actualPlanFingerprint = ComputePlanFingerprint(manifest.Descriptors);
         Assert.True(
             string.Equals(ExpectedPlanFingerprint, actualPlanFingerprint, StringComparison.Ordinal),
@@ -332,7 +343,7 @@ public sealed class SchemaMigrationCatalogTests
 
         Assert.Same(first, second);
         Assert.Same(manifest, first);
-        Assert.Equal(132, first.Count);
+        Assert.Equal(133, first.Count);
         Assert.Equal(first.Count, first.Select(static descriptor => descriptor.MigrationId).Distinct(StringComparer.Ordinal).Count());
         Assert.Equal(
             ComputePlanFingerprint(manifest),

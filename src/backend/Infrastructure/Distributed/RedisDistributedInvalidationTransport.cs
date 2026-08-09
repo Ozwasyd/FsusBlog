@@ -3,20 +3,45 @@ using System.Threading.Channels;
 
 using FsusBlog.Server.Infrastructure.Cache;
 
+using Microsoft.Extensions.DependencyInjection;
+
 using StackExchange.Redis;
 
 namespace FsusBlog.Server.Infrastructure.Distributed;
 
-public sealed class RedisDistributedInvalidationTransport(
-    IConnectionMultiplexer redis,
-    IRuntimeKeyScope runtimeKeyScope,
-    DistributedInvalidationOptions options,
-    TimeProvider timeProvider) : IDistributedInvalidationTransport
+public sealed class RedisDistributedInvalidationTransport : IDistributedInvalidationTransport
 {
-    private readonly DistributedInvalidationTopologyManifest _topology = options.Topology
-        ?? throw new InvalidOperationException("distributed_invalidation_topology_manifest_required");
-    private readonly RedisChannel _channel = RedisChannel.Literal(
-        runtimeKeyScope.PrefixKey(options.Channel));
+    private readonly IConnectionMultiplexer _redis;
+    private readonly TimeProvider _timeProvider;
+    private readonly DistributedInvalidationOptions _options;
+    private readonly DistributedInvalidationTopologyManifest _topology;
+    private readonly RedisChannel _channel;
+    private readonly DistributedInvalidationIngressRuntimeState _ingressRuntimeState;
+    private readonly DistributedInvalidationIngressSink _ingressSink;
+
+    public RedisDistributedInvalidationTransport(
+        IConnectionMultiplexer redis,
+        IRuntimeKeyScope runtimeKeyScope,
+        DistributedInvalidationOptions options,
+        TimeProvider timeProvider,
+        IServiceScopeFactory? scopeFactory = null,
+        DistributedInvalidationIngressRuntimeState? ingressRuntimeState = null,
+        DistributedInvalidationRuntimeState? runtimeState = null)
+    {
+        _redis = redis;
+        _timeProvider = timeProvider;
+        _options = options;
+        _topology = options.Topology
+            ?? throw new InvalidOperationException("distributed_invalidation_topology_manifest_required");
+        _channel = RedisChannel.Literal(runtimeKeyScope.PrefixKey(options.Channel));
+        _ingressRuntimeState = ingressRuntimeState
+            ?? new DistributedInvalidationIngressRuntimeState(options.IngressCapacity);
+        _ingressSink = new DistributedInvalidationIngressSink(
+            options,
+            _ingressRuntimeState,
+            runtimeState ?? new DistributedInvalidationRuntimeState(timeProvider),
+            scopeFactory);
+    }
 
     public async Task<DistributedInvalidationTransportPublishResult> PublishAsync(
         string payload,
@@ -25,15 +50,15 @@ public sealed class RedisDistributedInvalidationTransport(
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            long subscriberCount = await redis.GetSubscriber()
+            long subscriberCount = await _redis.GetSubscriber()
                 .PublishAsync(_channel, payload)
                 .ConfigureAwait(false);
             return DistributedInvalidationTransportPublishResult.Observe(
                 _channel.ToString(),
                 subscriberCount,
                 _topology,
-                _topology.SubscriberNodeIds.Contains(options.NodeId, StringComparer.Ordinal),
-                timeProvider);
+                _topology.SubscriberNodeIds.Contains(_options.NodeId, StringComparer.Ordinal),
+                _timeProvider);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -44,8 +69,8 @@ public sealed class RedisDistributedInvalidationTransport(
             return DistributedInvalidationTransportPublishResult.Failed(
                 _channel.ToString(),
                 _topology,
-                _topology.SubscriberNodeIds.Contains(options.NodeId, StringComparer.Ordinal),
-                timeProvider,
+                _topology.SubscriberNodeIds.Contains(_options.NodeId, StringComparer.Ordinal),
+                _timeProvider,
                 exception.GetType().Name);
         }
     }
@@ -53,27 +78,46 @@ public sealed class RedisDistributedInvalidationTransport(
     public async IAsyncEnumerable<string> ReadAllAsync(
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        ISubscriber subscriber = redis.GetSubscriber();
-        var messages = Channel.CreateUnbounded<string>(new UnboundedChannelOptions
+        ISubscriber subscriber = _redis.GetSubscriber();
+        var messages = Channel.CreateBounded<string>(new BoundedChannelOptions(_options.IngressCapacity)
         {
             SingleReader = true,
             SingleWriter = false,
+            FullMode = BoundedChannelFullMode.Wait,
             AllowSynchronousContinuations = false
         });
         ChannelMessageQueue queue = await subscriber.SubscribeAsync(_channel).ConfigureAwait(false);
         queue.OnMessage(message =>
         {
-            if (!message.Message.IsNullOrEmpty)
+            if (message.Message.IsNullOrEmpty)
             {
-                messages.Writer.TryWrite(message.Message.ToString());
+                return;
             }
+
+            string payload = message.Message.ToString();
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _ingressSink.HandlePayloadAsync(payload, messages.Writer).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    // Shutdown path; durable inbox remains the recovery truth.
+                }
+                catch (Exception ex)
+                {
+                    _ingressRuntimeState.RecordDegraded($"ingress:unhandled:{ex.GetType().Name}");
+                }
+            });
         });
 
         try
         {
-            await foreach (string payload in messages.Reader.ReadAllAsync(cancellationToken).ConfigureAwait(false))
+            await foreach (string item in messages.Reader.ReadAllAsync(cancellationToken).ConfigureAwait(false))
             {
-                yield return payload;
+                _ingressRuntimeState.RecordQueued(messages.Reader.Count);
+                yield return item;
             }
         }
         finally

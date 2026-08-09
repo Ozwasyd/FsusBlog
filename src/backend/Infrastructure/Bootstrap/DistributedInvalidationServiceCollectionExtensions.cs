@@ -1,8 +1,12 @@
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Distributed;
 using FsusBlog.Server.Infrastructure.Distributed.Cluster;
 using FsusBlog.Server.Infrastructure.Distributed.StateControl;
 
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+
+using StackExchange.Redis;
 
 namespace FsusBlog.Server.Infrastructure.Bootstrap;
 
@@ -63,6 +67,7 @@ internal static class DistributedInvalidationServiceCollectionExtensions
         DistributedInvalidationOptions options = DistributedInvalidationOptions.FromConfiguration(configuration);
         services.AddSingleton(options);
         services.AddSingleton<DistributedInvalidationRuntimeState>();
+        services.AddSingleton(new DistributedInvalidationIngressRuntimeState(options.IngressCapacity));
         services.AddSingleton<DistributedInvalidationEventFactory>();
         services.AddSingleton<IDistributedInvalidationLocalApplier, DistributedInvalidationLocalApplier>();
         if (!options.Enabled)
@@ -71,7 +76,15 @@ internal static class DistributedInvalidationServiceCollectionExtensions
             return services;
         }
 
-        services.AddSingleton<IDistributedInvalidationTransport, RedisDistributedInvalidationTransport>();
+        services.AddSingleton<IDistributedInvalidationTransport>(
+            provider => new RedisDistributedInvalidationTransport(
+                provider.GetRequiredService<IConnectionMultiplexer>(),
+                provider.GetRequiredService<IRuntimeKeyScope>(),
+                options,
+                provider.GetRequiredService<TimeProvider>(),
+                provider.GetService<IServiceScopeFactory>(),
+                provider.GetRequiredService<DistributedInvalidationIngressRuntimeState>(),
+                provider.GetRequiredService<DistributedInvalidationRuntimeState>()));
         services.AddSingleton<DistributedInvalidationBus>();
         services.AddSingleton<IDistributedInvalidationPublisher>(
             sp => sp.GetRequiredService<DistributedInvalidationBus>());

@@ -454,6 +454,128 @@ public sealed class DistributedInvalidationConvergenceObligationStore(
         return pending;
     }
 
+    public async Task<DistributedInvalidationEvent?> ReadInboxEventAsync(
+        string runtimeScope,
+        string eventId,
+        string targetNodeId,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        DistributedInvalidationInboxEntity? inbox = await db
+            .Queryable<DistributedInvalidationInboxEntity>()
+            .Where(row => row.RuntimeScope == runtimeScope
+                && row.EventId == eventId
+                && row.TargetNodeId == targetNodeId)
+            .FirstAsync(cancellationToken)
+            .ConfigureAwait(false);
+        if (inbox is null)
+        {
+            return null;
+        }
+        return await ReadEventFromOutboxAsync(
+            runtimeScope,
+            eventId,
+            inbox.PayloadDigest,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<IReadOnlyList<DistributedInvalidationEvent>> ReadPendingInboxForNodeAsync(
+        string runtimeScope,
+        string targetNodeId,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        List<DistributedInvalidationInboxEntity> rows = await db
+            .Queryable<DistributedInvalidationInboxEntity>()
+            .Where(row => row.RuntimeScope == runtimeScope
+                && row.TargetNodeId == targetNodeId
+                && (row.ApplyState == InboxPendingState || row.ApplyState == InboxRetryableFailedState))
+            .OrderBy(row => row.ReceivedAt)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+        var pending = new List<DistributedInvalidationEvent>(rows.Count);
+        foreach (DistributedInvalidationInboxEntity row in rows)
+        {
+            pending.Add(await ReadEventFromOutboxAsync(
+                runtimeScope,
+                row.EventId,
+                row.PayloadDigest,
+                cancellationToken).ConfigureAwait(false));
+        }
+        return pending;
+    }
+
+    public async Task<DistributedInvalidationPendingInboxSnapshot> ReadPendingInboxSnapshotAsync(
+        string runtimeScope,
+        string targetNodeId,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            List<DistributedInvalidationInboxEntity> rows = await db
+                .Queryable<DistributedInvalidationInboxEntity>()
+                .Where(row => row.RuntimeScope == runtimeScope
+                    && row.TargetNodeId == targetNodeId
+                    && (row.ApplyState == InboxPendingState || row.ApplyState == InboxRetryableFailedState))
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+            TimeSpan? oldest = rows.Count == 0
+                ? null
+                : timeProvider.GetUtcNow().UtcDateTime - rows.Min(row => row.ReceivedAt);
+            return new DistributedInvalidationPendingInboxSnapshot(rows.Count, oldest, true);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            return new DistributedInvalidationPendingInboxSnapshot(0, null, false);
+        }
+    }
+
+    public async Task RecordFullReconcileObligationAsync(
+        string runtimeScope,
+        string targetNodeId,
+        string reason,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ValidateNodeId(targetNodeId);
+        if (string.IsNullOrWhiteSpace(runtimeScope) || string.IsNullOrWhiteSpace(reason))
+        {
+            throw new InvalidOperationException("distributed_invalidation_full_reconcile_contract_invalid");
+        }
+        DateTime now = timeProvider.GetUtcNow().UtcDateTime;
+        await db.Ado.ExecuteCommandAsync(
+            """
+            INSERT INTO distributed_invalidation_full_reconcile (
+                runtime_scope,
+                target_node_id,
+                reason,
+                overflow_count,
+                triggered_at,
+                resolved_at)
+            VALUES (
+                @RuntimeScope,
+                @TargetNodeId,
+                @Reason,
+                1,
+                @TriggeredAt,
+                NULL)
+            ON CONFLICT (runtime_scope, target_node_id)
+            DO UPDATE SET
+                overflow_count = distributed_invalidation_full_reconcile.overflow_count + 1,
+                triggered_at = EXCLUDED.triggered_at,
+                resolved_at = NULL;
+            """,
+            new SugarParameter("@RuntimeScope", runtimeScope),
+            new SugarParameter("@TargetNodeId", targetNodeId),
+            new SugarParameter("@Reason", reason.Trim()),
+            new SugarParameter("@TriggeredAt", now)).ConfigureAwait(false);
+    }
+
     public async Task RetireNodeAsync(
         string runtimeScope,
         string retiredNodeId,
@@ -737,6 +859,29 @@ public sealed class DistributedInvalidationConvergenceObligationStore(
             .FirstAsync(cancellationToken)
             .ConfigureAwait(false)
             ?? throw new InvalidOperationException("distributed_invalidation_inbox_required");
+
+    private async Task<DistributedInvalidationEvent> ReadEventFromOutboxAsync(
+        string runtimeScope,
+        string eventId,
+        string expectedPayloadDigest,
+        CancellationToken cancellationToken)
+    {
+        DistributedInvalidationConvergenceObligationEntity outbox = await FindOutboxAsync(
+            runtimeScope,
+            eventId,
+            cancellationToken).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(outbox.PayloadJson)
+            || !string.Equals(Digest(outbox.PayloadJson), expectedPayloadDigest, StringComparison.Ordinal)
+            || !string.Equals(Digest(outbox.PayloadJson), outbox.PayloadDigest, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("distributed_invalidation_outbox_payload_unavailable");
+        }
+        DistributedInvalidationEvent invalidation =
+            JsonSerializer.Deserialize<DistributedInvalidationEvent>(outbox.PayloadJson, s_json)
+            ?? throw new InvalidOperationException("distributed_invalidation_outbox_payload_invalid");
+        invalidation.Validate();
+        return invalidation;
+    }
 
     private static DistributedInvalidationEvent ValidatePublishResult(DistributedInvalidationPublishResult result)
     {

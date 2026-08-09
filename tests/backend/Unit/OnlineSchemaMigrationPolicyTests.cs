@@ -332,6 +332,7 @@ public sealed class OnlineSchemaMigrationPolicyTests
             userSessionMultiDevice.MigrationId,
             DistributedInvalidationConvergenceObligationMigrationDefinitions.MigrationId,
             DistributedInvalidationDeliveryLedgerMigrationDefinitions.MigrationId,
+            DistributedInvalidationFullReconcileMigrationDefinitions.MigrationId,
             CommentMutationOutboxClaimLeaseMigrationDefinitions.MigrationId,
             CommentMutationOutboxDeliveryReservationMigrationDefinitions.MigrationId,
             UserLocalePreferenceMigrationDefinitions.MigrationId,

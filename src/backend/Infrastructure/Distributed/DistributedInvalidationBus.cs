@@ -14,7 +14,9 @@ public sealed class DistributedInvalidationBus(
     DistributedInvalidationRuntimeState runtimeState,
     CacheInvalidationRuntimeState cacheRuntimeState,
     ILogger<DistributedInvalidationBus> logger,
-    IServiceScopeFactory? scopeFactory = null) : BackgroundService, IDistributedInvalidationPublisher
+    IServiceScopeFactory? scopeFactory = null,
+    DistributedInvalidationIngressRuntimeState? ingressRuntimeState = null)
+    : BackgroundService, IDistributedInvalidationPublisher
 {
     private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -133,9 +135,20 @@ public sealed class DistributedInvalidationBus(
         {
             try
             {
-                await foreach (string payload in transport.ReadAllAsync(stoppingToken).ConfigureAwait(false))
+                await foreach (string item in transport.ReadAllAsync(stoppingToken).ConfigureAwait(false))
                 {
-                    await HandlePayloadAsync(payload, stoppingToken).ConfigureAwait(false);
+                    DistributedInvalidationInboxReference? reference =
+                        DistributedInvalidationInboxReference.TryParse(item);
+                    if (reference is null)
+                    {
+                        string detail = "inbox:reference-invalid";
+                        runtimeState.RecordDegraded(null, detail);
+                        cacheRuntimeState.Record("distributed_degraded", detail);
+                        ingressRuntimeState?.RecordFailClosed("ingress:reference-invalid");
+                        logger.LogWarning("distributed-invalidation-inbox-reference-rejected");
+                        continue;
+                    }
+                    await HandleInboxReferenceAsync(reference, stoppingToken).ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -169,6 +182,15 @@ public sealed class DistributedInvalidationBus(
                     recoveredInterrupted = true;
                 }
                 await ReplayPendingAsync(stoppingToken).ConfigureAwait(false);
+                if (ingressRuntimeState is not null)
+                {
+                    DistributedInvalidationPendingInboxSnapshot pending = await WithLedgerAsync(
+                        ledger => ledger.ReadPendingInboxSnapshotAsync(
+                            eventFactory.RuntimeScope,
+                            options.NodeId,
+                            stoppingToken)).ConfigureAwait(false);
+                    ingressRuntimeState.RecordPendingLedger(pending);
+                }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -253,6 +275,60 @@ public sealed class DistributedInvalidationBus(
             runtimeState.RecordDuplicate(invalidation);
             return;
         }
+        await ApplyEventAsync(invalidation, cancellationToken).ConfigureAwait(false);
+    }
+
+    internal async Task HandleInboxReferenceAsync(
+        DistributedInvalidationInboxReference reference,
+        CancellationToken cancellationToken)
+    {
+        ingressRuntimeState?.RecordInFlightChanged(+1);
+        try
+        {
+            DistributedInvalidationEvent? invalidation;
+            try
+            {
+                invalidation = await WithLedgerAsync(ledger => ledger.ReadInboxEventAsync(
+                    reference.RuntimeScope,
+                    reference.EventId,
+                    reference.TargetNodeId,
+                    cancellationToken)).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                string detail = $"inbox-reference:{ex.GetType().Name};event:{reference.EventId}";
+                runtimeState.RecordDegraded(null, detail);
+                cacheRuntimeState.Record("distributed_degraded", detail);
+                logger.LogWarning(ex, "distributed-invalidation-inbox-reference-degraded {EventId}", reference.EventId);
+                return;
+            }
+
+            if (invalidation is null)
+            {
+                string detail = $"inbox:reference-missing;event:{reference.EventId}";
+                runtimeState.RecordDegraded(null, detail);
+                cacheRuntimeState.Record("distributed_degraded", detail);
+                ingressRuntimeState?.RecordFailClosed(detail);
+                logger.LogWarning("distributed-invalidation-inbox-reference-missing {EventId}", reference.EventId);
+                return;
+            }
+
+            await ApplyEventAsync(invalidation, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            ingressRuntimeState?.RecordInFlightChanged(-1);
+        }
+    }
+
+    private async Task ApplyEventAsync(
+        DistributedInvalidationEvent invalidation,
+        CancellationToken cancellationToken)
+    {
         if (!await WithLedgerAsync(ledger => ledger.TryBeginApplyAsync(
                 invalidation,
                 options.NodeId,
