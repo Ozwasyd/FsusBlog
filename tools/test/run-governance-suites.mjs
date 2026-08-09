@@ -9,15 +9,15 @@ import {
   buildStaticGovernanceHostEvidence,
   buildStaticGovernanceTestCatalog,
   collectExecutedStaticGovernanceTestIds,
-  loadStaticGovernanceIsolationRegistry
+  loadStaticGovernanceRegistry
 } from './static-governance-host.mjs'
 import { sourceIdentity } from './test-asset-audit/preflight.mjs'
 
 const root = path.resolve(new URL('../..', import.meta.url).pathname)
 const node = process.env.FSUSBLOG_NODE || process.execPath
-const registryFile = path.join(root, 'tests/governance/static-governance-isolation-registry.json')
+const registryFile = path.join(root, 'tests/governance/test-lifecycle-registry.json')
 const reporterFile = path.join(root, 'tools/test/static-governance-reporter.mjs')
-const registry = loadStaticGovernanceIsolationRegistry(registryFile, root)
+const registry = loadStaticGovernanceRegistry(registryFile, root)
 const plan = buildStaticGovernanceExecutionPlan(registry)
 const testCatalog = buildStaticGovernanceTestCatalog(root, registry)
 const governanceRoot = path.resolve(process.env.FSUSBLOG_TEST_GOVERNANCE_DIR || path.join(root, '.tmp/test-governance'))

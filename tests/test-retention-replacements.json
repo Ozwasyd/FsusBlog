@@ -10245,7 +10245,7 @@
         "vitest:tests/frontend/unit/components/account/AccountNavigationPanel.test.ts#renders no more than six global links and only the current module leaves",
         "vitest:tests/frontend/unit/components/account/AccountNavigationPanel.test.ts#updates module and page current state on deep navigation and browser back",
         "vitest:tests/frontend/unit/components/account/AccountNavigationPanel.test.ts#keeps mobile module and local navigation in one panel with 44px-class controls",
-        "vitest:tests/frontend/unit/components/account/AccountHeaderMenu.test.ts#moves account switching, policies and logout behind one accessible trigger"
+        "vitest:tests/frontend/unit/components/account/AccountHeaderMenu.test.ts#renders-one-real-fsusui-button-trigger-and-keeps-visibil-b285ba709e"
       ],
       "reason": "Mounted account navigation now owns module count, aria-current, deep-link/back updates, mobile branching and account actions."
     },

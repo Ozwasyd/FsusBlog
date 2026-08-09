@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-// eslint-disable-next-line import-x/no-relative-parent-imports -- The host consumes the canonical repository test-ID extractor.
-import { extractTestRecords } from '../test-retention/audit.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- The host consumes the canonical repository test inventory.
+import { loadCanonicalInventory } from '../test-inventory/api.mjs';
 
 const categories = new Set([
     'pure-file-validation',
@@ -55,34 +55,52 @@ function normalizeCheck(check, root)
     return { ...check };
 }
 
-export function loadStaticGovernanceIsolationRegistry(file, root)
+export function loadStaticGovernanceRegistry(file, root)
 {
     const registry = JSON.parse(fs.readFileSync(file, 'utf8'));
-    if (registry?.schema !== 'fsusblog.static-governance-isolation-registry.v1')
+    if (registry?.schema !== 'fsusblog.test-lifecycle-registry.v1')
     {
-        throw new Error('static governance isolation registry has an invalid schema');
+        throw new Error('test lifecycle registry has an invalid schema');
     }
-    if (!Array.isArray(registry.checks) || registry.checks.length === 0)
+    if (!Array.isArray(registry.nodeTests))
     {
-        throw new Error('static governance isolation registry checks are required');
+        throw new Error('test lifecycle registry nodeTests are required');
     }
-    const rehearsal = registry.destructiveRehearsal;
-    const rehearsalChecks = rehearsal
-        ? rehearsal.shards.map((shard) => ({
-        id: `${rehearsal.id}:${shard}`,
-        file: rehearsal.file,
-        category: rehearsal.category,
-        physicalOwner: rehearsal.physicalOwner,
-        environment: { FSUSBLOG_ZDT_FIXTURE_SHARD: shard }
-      }))
-        : [];
-    const checks = [...registry.checks, ...rehearsalChecks].map((check) => normalizeCheck(check, root));
+    const checks = registry.nodeTests.flatMap((entry) =>
+    {
+        const staticGovernance = entry?.staticGovernance;
+        if (!staticGovernance)
+        {
+            return [];
+        }
+        const shards = staticGovernance.shards;
+        if (shards !== undefined)
+        {
+            if (staticGovernance.category !== 'exclusive-resource-destructive-rehearsal'
+                || !Array.isArray(shards) || shards.length === 0
+                || shards.some((shard) => typeof shard !== 'string' || !shard.trim()))
+            {
+                throw new Error(`static governance destructive rehearsal shards are invalid: ${entry.file}`);
+            }
+            return shards.map((shard) => normalizeCheck({
+                ...staticGovernance,
+                id: `${staticGovernance.id}:${shard}`,
+                file: entry.file,
+                environment: { FSUSBLOG_ZDT_FIXTURE_SHARD: shard }
+            }, root));
+        }
+        return [normalizeCheck({ ...staticGovernance, file: entry.file }, root)];
+    });
+    if (checks.length === 0)
+    {
+        throw new Error('test lifecycle registry static governance entries are required');
+    }
     assertUnique(checks.map((check) => check.id), 'duplicate static governance check ID');
     assertUnique(
         checks.map((check) => `${check.file}\0${JSON.stringify(check.environment ?? {})}`),
         'static governance test invocation has multiple physical owners'
     );
-    return { ...registry, checks };
+    return { schema: registry.schema, checks };
 }
 
 export function buildStaticGovernanceExecutionPlan(registry)
@@ -132,7 +150,7 @@ export function buildStaticGovernanceExecutionPlan(registry)
     };
 }
 
-export function buildStaticGovernanceTestCatalog(root, registry)
+export function buildStaticGovernanceTestCatalog(root, registry, inventory = loadCanonicalInventory(root))
 {
     const byFile = new Map();
     for (const check of registry.checks)
@@ -144,21 +162,17 @@ export function buildStaticGovernanceTestCatalog(root, registry)
     const tests = [];
     for (const [file, owners] of byFile)
     {
-        const source = fs.readFileSync(path.join(root, file), 'utf8');
-        const records = extractTestRecords(file, source);
-        const runtimeNames = [...source.matchAll(
-            /\b(?:it|test)(?:\.(?:skip|only|todo|fails|each))?\s*\(\s*(['"`])([^'"`\r\n]+)\1\s*,/gu
-        )].map((match) => match[2].trim());
-        if (runtimeNames.length !== records.length)
+        const cases = (inventory.testCases ?? []).filter((testCase) => testCase.ownerFile === file);
+        if (cases.length === 0)
         {
-            throw new Error(`static governance runtime test-name catalog drift: ${file}`);
+            throw new Error(`static governance canonical test inventory has no cases: ${file}`);
         }
-        for (const [index, record] of records.entries())
+        for (const testCase of cases)
         {
             tests.push({
-                testId: record.id,
+                testId: testCase.id,
                 path: file,
-                name: runtimeNames[index],
+                name: testCase.displayName,
                 physicalOwner: owners[0].physicalOwner,
                 checkIds: owners.map((check) => check.id)
             });

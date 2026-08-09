@@ -47,6 +47,35 @@ test('unowned and duplicate physical execution fail closed', () =>
     assert.match(validateLifecycleRegistry({ audit, registry: registry({ physicalExecutionCount: 2 }) }).join('\n'), /exactly one physical owner/u);
 });
 
+test('static governance metadata requires the canonical lifecycle owner', () =>
+{
+    const staticGovernance = {
+        id: 'runner',
+        category: 'pure-file-validation',
+        physicalOwner: 'host:pure-file'
+    };
+    assert.match(
+        validateLifecycleRegistry({
+            audit,
+            registry: registry({
+                owner: 'manual-diagnostic:tests/tools/runner.test.mjs',
+                executionCategory: 'manual-diagnostic',
+                lifecycle: 'manual-diagnostic',
+                physicalExecutionCount: 0,
+                staticGovernance
+            })
+        }).join('\n'),
+        /requires one canonical static-node-contracts owner/u
+    );
+    assert.deepEqual(validateLifecycleRegistry({
+        audit,
+        registry: registry({
+            owner: 'repository-governance:static-node-contracts',
+            staticGovernance
+        })
+    }), []);
+});
+
 test('projection and summary records cannot execute a producer', () =>
 {
     assert.match(validateLifecycleRegistry({ audit, registry: registry({ lifecycle: 'projection', executionCategory: 'projection-contract', physicalExecutionCount: 1 }) }).join('\n'), /must not execute a producer/u);
