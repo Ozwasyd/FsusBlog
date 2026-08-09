@@ -2179,7 +2179,7 @@ EnsureBackend() {
         ProbeBinaryUrl "$DEBUG_BACKEND_URL/api/binary/auth/pow-challenge" &&
         ProbeNotificationDrillUrl; then
         Log 'debug backend already healthy; reusing existing process'
-        CompletePortLeaseHandoff backend 'debug backend HTTP' "pid:$(FindPortPid "$DEBUG_BACKEND_PORT" || true)"
+        CompletePortLeaseHandoff debug-backend 'debug backend HTTP' "pid:$(FindPortPid "$DEBUG_BACKEND_PORT" || true)"
         return
     fi
 
@@ -2197,7 +2197,7 @@ EnsureBackend() {
     WaitForPortRelease "$DEBUG_BACKEND_PORT" "$readinessDeadline" || return 1
 
     Log "starting managed ${runtimeConfiguration,,} backend"
-    ReleasePortLeaseBeforeBind backend 'debug backend HTTP'
+    ReleasePortLeaseBeforeBind debug-backend 'debug backend HTTP'
     local -x Testing__EnforceProductionCsp=true
     local -x PublicAot__SsrClientRoot="$PUBLIC_AOT_SSR_CLIENT_ROOT"
     AssertDedicatedRuntimePortAvailable 'debug backend' "$DEBUG_BACKEND_PORT" || return 1
@@ -2212,34 +2212,34 @@ EnsureBackend() {
     local startedPid=$!
     WriteRuntimePidFile "$pidFile" "$startedPid"
     if ! WriteRuntimeProcessIdentity "$pidFile" "$startedPid" backend "$readinessDeadline"; then
-        FailPortLeaseHandoff backend 'debug backend HTTP' 'runtime-identity-failed'
+        FailPortLeaseHandoff debug-backend 'debug backend HTTP' 'runtime-identity-failed'
         KillRuntimePidIfOwned backend "$pidFile" "$startedPid" "$readinessDeadline" || true
         rm -f "$pidFile" "$(RuntimeIdentityFile "$pidFile")"
         return 1
     fi
 
     if ! WaitForManagedBinaryUrl 'debug backend' "$DEBUG_BACKEND_URL/api/binary/system/seo" "$readinessDeadline" "$startedPid" "$logFile"; then
-        FailPortLeaseHandoff backend 'debug backend HTTP' 'backend-not-ready'
+        FailPortLeaseHandoff debug-backend 'debug backend HTTP' 'backend-not-ready'
         if KillRuntimePidIfOwned backend "$pidFile" "$startedPid" "$readinessDeadline"; then
             rm -f "$pidFile" "$(RuntimeIdentityFile "$pidFile")"
         fi
         return 1
     fi
     if ! WaitForManagedBinaryUrl 'pow challenge' "$DEBUG_BACKEND_URL/api/binary/auth/pow-challenge" "$readinessDeadline" "$startedPid" "$logFile"; then
-        FailPortLeaseHandoff backend 'debug backend HTTP' 'pow-challenge-not-ready'
+        FailPortLeaseHandoff debug-backend 'debug backend HTTP' 'pow-challenge-not-ready'
         if KillRuntimePidIfOwned backend "$pidFile" "$startedPid" "$readinessDeadline"; then
             rm -f "$pidFile" "$(RuntimeIdentityFile "$pidFile")"
         fi
         return 1
     fi
     if ! AdmitDedicatedRuntimePort backend 'debug backend' "$pidFile" "$DEBUG_BACKEND_PORT" 1; then
-        FailPortLeaseHandoff backend 'debug backend HTTP' 'runtime-admission-failed'
+        FailPortLeaseHandoff debug-backend 'debug backend HTTP' 'runtime-admission-failed'
         if KillRuntimePidIfOwned backend "$pidFile" "$startedPid" "$readinessDeadline"; then
             rm -f "$pidFile" "$(RuntimeIdentityFile "$pidFile")"
         fi
         return 1
     fi
-    CompletePortLeaseHandoff backend 'debug backend HTTP' "pid:$(FindPortPid "$DEBUG_BACKEND_PORT" || true)"
+    CompletePortLeaseHandoff debug-backend 'debug backend HTTP' "pid:$(FindPortPid "$DEBUG_BACKEND_PORT" || true)"
     printf '%s\n' "$nextFingerprint" >"$fingerprintFile"
 }
 
