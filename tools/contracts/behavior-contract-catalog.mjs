@@ -209,6 +209,7 @@ export function validateBehaviorReferences(catalog, repositoryRoot = root) {
     'tests/tools/behavior-fact-extractors.test.mjs',
     'tests/tools/generated-fact-sections.test.mjs',
     'tests/tools/test-matrix-topology-observation.test.mjs',
+    'tests/tools/ts-ast-adapter.test.mjs',
     'tools/contracts/behavior-contract-catalog.mjs',
     'tools/contracts/behavior-owner-binding.mjs',
     'tools/contracts/behavior-test.mjs',

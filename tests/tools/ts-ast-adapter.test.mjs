@@ -151,7 +151,7 @@ test('behaviorTest registration is extracted with behavior identity traits', () 
   write(root, 'tests/tools/behavior-binding.test.mjs', `
 import test from 'node:test'
 import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
-behaviorTest('test-asset-audit-reconciliation', 'positive', 'behavior title', () => {})
+behaviorTest('behavior-1', 'positive', 'behavior title', () => {})
 `)
   const report = runAdapter(root, [{ path: 'tests/tools/behavior-binding.test.mjs', adapter: 'node-test' }])
   assert.equal(report.diagnostics.length, 0)
@@ -159,7 +159,7 @@ behaviorTest('test-asset-audit-reconciliation', 'positive', 'behavior title', ()
   const entry = report.testCases[0]
   assert.equal(entry.kind, 'behavior-test')
   assert.equal(entry.displayName, 'behavior title')
-  assert.ok(entry.traits.some((trait) => trait.name === 'BehaviorId' && trait.value === 'test-asset-audit-reconciliation'))
+  assert.ok(entry.traits.some((trait) => trait.name === 'BehaviorId' && trait.value === 'behavior-1'))
   assert.ok(entry.traits.some((trait) => trait.name === 'BehaviorKind' && trait.value === 'positive'))
 })
 

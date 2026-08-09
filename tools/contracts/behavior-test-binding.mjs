@@ -548,7 +548,8 @@ export function scanBehaviorTestBindings({
     sourceDigests[normalizedPath] = digestText(source)
     scanForbiddenResidues(source, relativePath, errors)
     // Self-tests embed counterexample source as strings; they must not become live bindings.
-    if (normalizedPath.endsWith('behavior-test-binding.test.mjs')) continue
+    if (normalizedPath.endsWith('behavior-test-binding.test.mjs')
+      || normalizedPath.endsWith('ts-ast-adapter.test.mjs')) continue
     const scanned = parseBehaviorBindingsFromSource({ source, relativePath, catalogDigest })
     bindings.push(...scanned.bindings)
     errors.push(...scanned.errors)
