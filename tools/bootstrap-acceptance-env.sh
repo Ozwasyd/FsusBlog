@@ -38,17 +38,319 @@ NowEpochMs() {
     "${FSUSBLOG_NODE:-node}" -e 'process.stdout.write(String(Date.now()))'
 }
 
-FindFreePort() {
-    local start="${1:-20000}"
-    local end="${2:-55000}"
-    local port
-    for port in $(shuf -i "${start}-${end}" -n 200); do
-        if ! ss -ltn "( sport = :${port} )" 2>/dev/null | grep -q ":${port}"; then
-            printf '%s\n' "$port"
-            return 0
+PORT_LEASE_SCRIPT="$ROOT_DIR/tools/test-matrix/production-fresh-port-lease.mjs"
+PORT_LEASE_MANIFEST_FILE="${FSUSBLOG_PORT_LEASE_MANIFEST_FILE:-$TMP_DIR/port-leases.json}"
+PORT_LEASE_CONTROL_SOCKET="${FSUSBLOG_PORT_LEASE_CONTROL_SOCKET:-$TMP_DIR/port-lease-control.sock}"
+PORT_LEASE_TOKEN_FILE="${FSUSBLOG_PORT_LEASE_TOKEN_FILE:-$TMP_DIR/port-lease.token}"
+PORT_LEASE_PID_FILE="${FSUSBLOG_PORT_LEASE_PID_FILE:-$TMP_DIR/port-lease.pid}"
+PORT_LEASE_TERMINAL_RECEIPT_FILE="${FSUSBLOG_PORT_LEASE_TERMINAL_RECEIPT_FILE:-$TMP_DIR/port-lease-terminal.json}"
+PORT_LEASE_DAEMON_LOG="$TMP_DIR/port-lease-daemon.log"
+PORT_LEASE_DAEMON_PID=""
+PORT_LEASED_ROLES=""
+
+PortLeaseCli() {
+    "${FSUSBLOG_NODE:-node}" "$PORT_LEASE_SCRIPT" "$@"
+}
+
+ProductionFreshPortVariable() {
+    case "$1" in
+        postgres) printf 'FSUSBLOG_POSTGRES_PORT' ;;
+        redis) printf 'FSUSBLOG_REDIS_PORT' ;;
+        debug-backend) printf 'FSUSBLOG_DEBUG_BACKEND_PORT' ;;
+        debug-frontend) printf 'FSUSBLOG_DEBUG_FRONTEND_PORT' ;;
+        release-preview) printf 'FSUSBLOG_RELEASE_PREVIEW_PORT' ;;
+        *) return 1 ;;
+    esac
+}
+
+ProductionFreshAssignPort() {
+    case "$1" in
+        postgres) POSTGRES_PORT="$2" ;;
+        redis) REDIS_PORT="$2" ;;
+        debug-backend) DEBUG_BACKEND_PORT="$2" ;;
+        debug-frontend) DEBUG_FRONTEND_PORT="$2" ;;
+        release-preview) RELEASE_PREVIEW_PORT="$2" ;;
+        *) return 1 ;;
+    esac
+}
+
+LeaseRoleActive() {
+    local role="$1"
+    [[ -n "$PORT_LEASED_ROLES" && ",$PORT_LEASED_ROLES," == *",$role,"* ]]
+}
+
+PortLeasePortIsBound() {
+    local port="$1"
+    if command -v ss >/dev/null 2>&1; then
+        ss -H -ltn "( sport = :${port} )" 2>/dev/null | awk 'NR == 1 { found = 1 } END { exit found ? 0 : 1 }'
+        return
+    fi
+    lsof -nP -iTCP:"${port}" -sTCP:LISTEN -t >/dev/null 2>&1
+}
+
+ReleasePortLeaseBeforeBind() {
+    local role="$1"
+    local label="$2"
+    if ! LeaseRoleActive "$role"; then
+        return 0
+    fi
+    printf '[acceptance:bootstrap] port lease %s (%s) handoff begin\n' "$role" "$label"
+    PortLeaseCli release-before-bind \
+        --manifest "$PORT_LEASE_MANIFEST_FILE" \
+        --token-file "$PORT_LEASE_TOKEN_FILE" \
+        --role "$role"
+}
+
+CompletePortLeaseHandoff() {
+    local role="$1"
+    local label="$2"
+    local listenerIdentityRef="$3"
+    if ! LeaseRoleActive "$role"; then
+        return 0
+    fi
+    printf '[acceptance:bootstrap] port lease %s (%s) bound listener=%s\n' "$role" "$label" "$listenerIdentityRef"
+    PortLeaseCli complete-handoff \
+        --manifest "$PORT_LEASE_MANIFEST_FILE" \
+        --token-file "$PORT_LEASE_TOKEN_FILE" \
+        --role "$role" \
+        --listener-identity-ref "$listenerIdentityRef"
+}
+
+FailPortLeaseHandoff() {
+    local role="$1"
+    local label="$2"
+    local reason="$3"
+    if ! LeaseRoleActive "$role"; then
+        return 0
+    fi
+    PortLeaseCli fail-handoff \
+        --manifest "$PORT_LEASE_MANIFEST_FILE" \
+        --token-file "$PORT_LEASE_TOKEN_FILE" \
+        --role "$role" \
+        --reason "$reason" >/dev/null 2>&1 || true
+}
+
+ReleaseAllPortLeases() {
+    local reason="${1:-bootstrap-exit}"
+    if [[ -z "$PORT_LEASED_ROLES" || -z "$PORT_LEASE_DAEMON_PID" ]]; then
+        PORT_LEASED_ROLES=""
+        return 0
+    fi
+    if ! kill -0 "$PORT_LEASE_DAEMON_PID" >/dev/null 2>&1; then
+        PortLeaseCli recover --manifest "$PORT_LEASE_MANIFEST_FILE" >/dev/null 2>&1 || true
+        PORT_LEASED_ROLES=""
+        return 0
+    fi
+    printf '[acceptance:bootstrap] releasing production fresh port leases (%s)\n' "$reason"
+    PortLeaseCli release-all \
+        --manifest "$PORT_LEASE_MANIFEST_FILE" \
+        --token-file "$PORT_LEASE_TOKEN_FILE" \
+        --reason "$reason" >/dev/null 2>&1 || true
+    PORT_LEASED_ROLES=""
+}
+
+VerifyLeasePortsMatchManifest() {
+    local roles="$1"
+    local role portVar manifestPort envPort
+    for role in ${roles//,/ }; do
+        portVar="$(ProductionFreshPortVariable "$role")" || return 1
+        manifestPort="$(PortLeaseCli get-port --manifest "$PORT_LEASE_MANIFEST_FILE" --role "$role" 2>/dev/null || true)"
+        if [[ -v $portVar ]]; then
+            envPort="${!portVar}"
+        else
+            envPort=""
+        fi
+        if [[ -z "$manifestPort" ]] || [[ -n "$envPort" && "$manifestPort" != "$envPort" ]]; then
+            printf '[acceptance:bootstrap] port lease role %s env=%s manifest=%s mismatch\n' "$role" "${envPort:-}" "${manifestPort:-}" >&2
+            return 1
         fi
     done
-    return 1
+    return 0
+}
+
+StartPortLeaseReservationDaemon() {
+    local serveRoles="$1"
+    local pinArgs="${2:-}"
+    rm -f "$PORT_LEASE_CONTROL_SOCKET" "$PORT_LEASE_TOKEN_FILE" "$PORT_LEASE_PID_FILE"
+    local -a pinOption=()
+    if [[ -n "$pinArgs" ]]; then
+        pinOption=(--pin "$pinArgs")
+    fi
+    if command -v setsid >/dev/null 2>&1; then
+        setsid "${FSUSBLOG_NODE:-node}" "$PORT_LEASE_SCRIPT" serve \
+            --run-id "${FSUSBLOG_TEST_RUN_ID:-direct-$NS_SLUG}" \
+            --namespace "$NS_SLUG" \
+            --roles "$serveRoles" \
+            "${pinOption[@]}" \
+            --manifest "$PORT_LEASE_MANIFEST_FILE" \
+            --control-socket "$PORT_LEASE_CONTROL_SOCKET" \
+            --token-file "$PORT_LEASE_TOKEN_FILE" \
+            --pid-file "$PORT_LEASE_PID_FILE" \
+            --terminal-receipt "$PORT_LEASE_TERMINAL_RECEIPT_FILE" \
+            >"$PORT_LEASE_DAEMON_LOG" 2>&1 </dev/null &
+    else
+        nohup "${FSUSBLOG_NODE:-node}" "$PORT_LEASE_SCRIPT" serve \
+            --run-id "${FSUSBLOG_TEST_RUN_ID:-direct-$NS_SLUG}" \
+            --namespace "$NS_SLUG" \
+            --roles "$serveRoles" \
+            "${pinOption[@]}" \
+            --manifest "$PORT_LEASE_MANIFEST_FILE" \
+            --control-socket "$PORT_LEASE_CONTROL_SOCKET" \
+            --token-file "$PORT_LEASE_TOKEN_FILE" \
+            --pid-file "$PORT_LEASE_PID_FILE" \
+            --terminal-receipt "$PORT_LEASE_TERMINAL_RECEIPT_FILE" \
+            >"$PORT_LEASE_DAEMON_LOG" 2>&1 </dev/null &
+    fi
+    local deadline
+    deadline="$(($(NowEpochMs) + 15000))"
+    PORT_LEASE_DAEMON_PID=""
+    while (($(NowEpochMs) < deadline)); do
+        if [[ -f "$PORT_LEASE_PID_FILE" && -S "$PORT_LEASE_CONTROL_SOCKET" ]]; then
+            PORT_LEASE_DAEMON_PID="$(cat "$PORT_LEASE_PID_FILE" 2>/dev/null || true)"
+            if [[ -n "$PORT_LEASE_DAEMON_PID" ]] && kill -0 "$PORT_LEASE_DAEMON_PID" >/dev/null 2>&1; then
+                break
+            fi
+            PORT_LEASE_DAEMON_PID=""
+        fi
+        sleep 0.1
+    done
+    if [[ -z "$PORT_LEASE_DAEMON_PID" ]] || ! kill -0 "$PORT_LEASE_DAEMON_PID" >/dev/null 2>&1; then
+        printf '[acceptance:bootstrap] port lease reservation daemon failed to start\n' >&2
+        tail -20 "$PORT_LEASE_DAEMON_LOG" >&2 || true
+        return 1
+    fi
+    if ! PortLeaseCli verify --manifest "$PORT_LEASE_MANIFEST_FILE" >/dev/null 2>&1; then
+        printf '[acceptance:bootstrap] port lease manifest verification failed; refusing unsealed ports\n' >&2
+        return 1
+    fi
+    printf '[acceptance:bootstrap] started port lease reservation daemon pid=%s roles=%s\n' \
+        "$PORT_LEASE_DAEMON_PID" "$serveRoles"
+}
+
+AssignPortsFromLeaseManifest() {
+    local role port portVar
+    for role in postgres redis debug-backend debug-frontend release-preview; do
+        port="$(PortLeaseCli get-port --manifest "$PORT_LEASE_MANIFEST_FILE" --role "$role" 2>/dev/null || true)"
+        if [[ -z "$port" ]] || ! [[ "$port" =~ ^[0-9]+$ ]]; then
+            printf '[acceptance:bootstrap] port lease role %s did not resolve a port\n' "$role" >&2
+            return 1
+        fi
+        ProductionFreshAssignPort "$role" "$port"
+        portVar="$(ProductionFreshPortVariable "$role")"
+        export "$portVar=$port"
+    done
+}
+
+AcquireProductionFreshPortLeases() {
+    # 1) Explicit reattach: env file (or caller) references an active sealed lease set.
+    if [[ -n "${FSUSBLOG_PORT_LEASED_ROLES:-}" ]]; then
+        if [[ -n "${FSUSBLOG_PORT_LEASE_DAEMON_PID:-}" ]] &&
+            kill -0 "$FSUSBLOG_PORT_LEASE_DAEMON_PID" >/dev/null 2>&1 &&
+            [[ -S "$PORT_LEASE_CONTROL_SOCKET" ]] &&
+            [[ -f "$PORT_LEASE_MANIFEST_FILE" ]]; then
+            PORT_LEASE_DAEMON_PID="$FSUSBLOG_PORT_LEASE_DAEMON_PID"
+            if ! PortLeaseCli verify --manifest "$PORT_LEASE_MANIFEST_FILE" >/dev/null 2>&1; then
+                printf '[acceptance:bootstrap] port lease manifest verification failed; refusing unsealed ports\n' >&2
+                return 1
+            fi
+            if ! VerifyLeasePortsMatchManifest "$FSUSBLOG_PORT_LEASED_ROLES"; then
+                printf '[acceptance:bootstrap] refusing env reuse with ports that do not match the sealed manifest\n' >&2
+                return 1
+            fi
+            PORT_LEASED_ROLES="$FSUSBLOG_PORT_LEASED_ROLES"
+            printf '[acceptance:bootstrap] reusing port lease reservation daemon pid=%s roles=%s\n' \
+                "$PORT_LEASE_DAEMON_PID" "$PORT_LEASED_ROLES"
+            AssignPortsFromLeaseManifest
+            return 0
+        fi
+
+        # Reservation owner died. If every leased port is already bound by a live
+        # listener, the reservation was effectively handed off before the crash and
+        # the run may proceed without reallocating (existing ownership checks still
+        # validate reuse). Otherwise fail closed instead of silently re-choosing ports.
+        PortLeaseCli recover --manifest "$PORT_LEASE_MANIFEST_FILE" >/dev/null 2>&1 || true
+        local role portVar unbound=0
+        for role in ${FSUSBLOG_PORT_LEASED_ROLES//,/ }; do
+            portVar="$(ProductionFreshPortVariable "$role")"
+            if [[ -z "${!portVar:-}" ]] || ! PortLeasePortIsBound "${!portVar}"; then
+                printf '[acceptance:bootstrap] port lease %s is not bound by a live listener and its reservation owner is dead; refusing stale env reuse\n' "$role" >&2
+                unbound=1
+            fi
+        done
+        if ((unbound == 1)); then
+            return 1
+        fi
+        printf '[acceptance:bootstrap] port lease reservation owner is dead but all leased ports are bound; treating handoff as complete\n'
+        PORT_LEASED_ROLES=""
+        PORT_LEASE_DAEMON_PID=""
+        return 0
+    fi
+
+    # 2) Existing daemon from pid/control/manifest (covers partial reruns without metadata).
+    local existingDaemonPid=""
+    if [[ -f "$PORT_LEASE_PID_FILE" ]]; then
+        existingDaemonPid="$(cat "$PORT_LEASE_PID_FILE" 2>/dev/null || true)"
+    fi
+    if [[ -n "$existingDaemonPid" ]] && kill -0 "$existingDaemonPid" >/dev/null 2>&1 &&
+        [[ -S "$PORT_LEASE_CONTROL_SOCKET" ]] && [[ -f "$PORT_LEASE_MANIFEST_FILE" ]]; then
+        PORT_LEASE_DAEMON_PID="$existingDaemonPid"
+        if ! PortLeaseCli verify --manifest "$PORT_LEASE_MANIFEST_FILE" >/dev/null 2>&1; then
+            printf '[acceptance:bootstrap] port lease manifest verification failed; refusing unsealed ports\n' >&2
+            return 1
+        fi
+        local manifestRoles
+        manifestRoles="$(PortLeaseCli roles --manifest "$PORT_LEASE_MANIFEST_FILE" 2>/dev/null || true)"
+        if [[ -z "$manifestRoles" ]] || ! VerifyLeasePortsMatchManifest "$manifestRoles"; then
+            printf '[acceptance:bootstrap] existing port lease manifest is inconsistent with env ports; refusing reuse\n' >&2
+            return 1
+        fi
+        PORT_LEASED_ROLES="$manifestRoles"
+        printf '[acceptance:bootstrap] reusing port lease reservation daemon pid=%s roles=%s\n' \
+            "$PORT_LEASE_DAEMON_PID" "$PORT_LEASED_ROLES"
+        AssignPortsFromLeaseManifest
+        return 0
+    fi
+    if [[ -f "$PORT_LEASE_MANIFEST_FILE" ]]; then
+        PortLeaseCli recover --manifest "$PORT_LEASE_MANIFEST_FILE" >/dev/null 2>&1 || true
+    fi
+
+    # 3) Fresh daemon. Missing roles are allocated freely; explicitly configured
+    #    ports are pinned to the exact numbers so env writes only reference sealed leases.
+    local role portVar
+    local missingRoles=""
+    local pinArgs=""
+    for role in postgres redis debug-backend debug-frontend release-preview; do
+        portVar="$(ProductionFreshPortVariable "$role")"
+        if [[ -z "${!portVar:-}" ]]; then
+            missingRoles="${missingRoles:+$missingRoles,}$role"
+        else
+            pinArgs="${pinArgs:+$pinArgs,}$role:${!portVar}"
+        fi
+    done
+    if [[ -z "$missingRoles" ]]; then
+        # All ports pinned. Adopt without a daemon only when every configured port
+        # already has a live listener (legacy env reuse); otherwise the daemon must
+        # reserve the exact ports to close the probe-to-bind race.
+        local allBound=1
+        for role in postgres redis debug-backend debug-frontend release-preview; do
+            portVar="$(ProductionFreshPortVariable "$role")"
+            if ! PortLeasePortIsBound "${!portVar}"; then
+                allBound=0
+                break
+            fi
+        done
+        if ((allBound == 1)); then
+            printf '[acceptance:bootstrap] all configured ports already have live listeners; adopting without a reservation daemon\n'
+            PORT_LEASED_ROLES=""
+            PORT_LEASE_DAEMON_PID=""
+            return 0
+        fi
+    fi
+    if ! StartPortLeaseReservationDaemon 'postgres,redis,debug-backend,debug-frontend,release-preview' "$pinArgs"; then
+        return 1
+    fi
+    PORT_LEASED_ROLES='postgres,redis,debug-backend,debug-frontend,release-preview'
+    AssignPortsFromLeaseManifest
 }
 
 ENV_FILE="$ENV_DIR/$NS_SLUG.env"
@@ -67,15 +369,27 @@ if [[ -f "$ENV_FILE" ]]; then
             FSUSBLOG_REDIS_CONTAINER_NAME) FSUSBLOG_REDIS_CONTAINER_NAME="$value" ;;
             FSUSBLOG_NOTIFICATION_DRILL_SECRET) FSUSBLOG_NOTIFICATION_DRILL_SECRET="$value" ;;
             FSUSBLOG_DATA_ROOT) FSUSBLOG_DATA_ROOT="$value" ;;
+            FSUSBLOG_PORT_LEASED_ROLES) FSUSBLOG_PORT_LEASED_ROLES="$value" ;;
+            FSUSBLOG_PORT_LEASE_DAEMON_PID) FSUSBLOG_PORT_LEASE_DAEMON_PID="$value" ;;
         esac
     done <"$ENV_FILE"
 fi
 
-POSTGRES_PORT="${FSUSBLOG_POSTGRES_PORT:-$(FindFreePort 20000 21999)}"
-REDIS_PORT="${FSUSBLOG_REDIS_PORT:-$(FindFreePort 22000 23999)}"
-DEBUG_BACKEND_PORT="${FSUSBLOG_DEBUG_BACKEND_PORT:-$(FindFreePort 24000 25999)}"
-DEBUG_FRONTEND_PORT="${FSUSBLOG_DEBUG_FRONTEND_PORT:-$(FindFreePort 26000 27999)}"
-RELEASE_PREVIEW_PORT="${FSUSBLOG_RELEASE_PREVIEW_PORT:-$(FindFreePort 28000 29999)}"
+AcquireProductionFreshPortLeases
+
+PORT_LEASE_RELEASE_ON_EXIT=1
+if [[ "${1:-}" == "--prepare-env-only" ]]; then
+    PORT_LEASE_RELEASE_ON_EXIT=0
+fi
+PortLeaseReleaseTrap() {
+    local reason="${1:-bootstrap-exit}"
+    if ((PORT_LEASE_RELEASE_ON_EXIT == 1)); then
+        ReleaseAllPortLeases "$reason"
+    fi
+}
+trap 'PortLeaseReleaseTrap bootstrap-exit' EXIT
+trap 'PortLeaseReleaseTrap signal-term; exit 143' TERM
+trap 'PortLeaseReleaseTrap signal-int; exit 130' INT
 
 DEBUG_FRONTEND_URL="${FSUSBLOG_DEBUG_FRONTEND_URL:-http://127.0.0.1:${DEBUG_FRONTEND_PORT}}"
 DEBUG_BACKEND_URL="${FSUSBLOG_DEBUG_BACKEND_URL:-http://127.0.0.1:${DEBUG_BACKEND_PORT}}"
@@ -191,6 +505,8 @@ FSUSBLOG_DEBUG_BACKEND_URL=$DEBUG_BACKEND_URL
 FSUSBLOG_RELEASE_PREVIEW_URL=$RELEASE_PREVIEW_URL
 FSUSBLOG_POSTGRES_CONTAINER_NAME=$POSTGRES_CONTAINER
 FSUSBLOG_REDIS_CONTAINER_NAME=$REDIS_CONTAINER
+FSUSBLOG_PORT_LEASED_ROLES=${PORT_LEASED_ROLES:-}
+FSUSBLOG_PORT_LEASE_DAEMON_PID=${PORT_LEASE_DAEMON_PID:-}
 FSUSBLOG_NOTIFICATION_DRILL_SECRET=$NOTIFICATION_DRILL_SECRET
 FSUSBLOG_DATA_ROOT=$TEST_DATA_ROOT
 FSUSBLOG_FIXTURE_SERVICE_GENERATION=${FSUSBLOG_FIXTURE_SERVICE_GENERATION:-uninitialized}
@@ -1449,9 +1765,11 @@ EnsurePostgres() {
         readinessDeadline="$READINESS_DEADLINE_AT_MS"
     fi
     AssertDedicatedContainerBinding "$POSTGRES_CONTAINER" postgres || return 1
+    ReleasePortLeaseBeforeBind postgres 'PostgreSQL host mapping'
     if docker exec "$POSTGRES_CONTAINER" pg_isready -U fsusblog -d fsusblog >/dev/null 2>&1 &&
         ContainerResourceBindingMatches "$POSTGRES_CONTAINER"; then
         Log 'postgres already ready'
+        CompletePortLeaseHandoff postgres 'PostgreSQL host mapping' "container:$(docker inspect --format '{{.Id}}' "$POSTGRES_CONTAINER" 2>/dev/null || true)"
         return
     fi
 
@@ -1483,12 +1801,14 @@ EnsurePostgres() {
 
     while (($(NowEpochMs) < readinessDeadline)); do
         if docker exec "$POSTGRES_CONTAINER" pg_isready -U fsusblog -d fsusblog >/dev/null 2>&1; then
+            CompletePortLeaseHandoff postgres 'PostgreSQL host mapping' "container:$(docker inspect --format '{{.Id}}' "$POSTGRES_CONTAINER" 2>/dev/null || true)"
             return
         fi
         sleep 1
     done
 
     Log 'postgres failed to become ready'
+    FailPortLeaseHandoff postgres 'PostgreSQL host mapping' 'postgres-not-ready'
     exit 1
 }
 
@@ -1499,9 +1819,11 @@ EnsureRedis() {
         readinessDeadline="$READINESS_DEADLINE_AT_MS"
     fi
     AssertDedicatedContainerBinding "$REDIS_CONTAINER" redis || return 1
+    ReleasePortLeaseBeforeBind redis 'Redis host mapping'
     if docker exec "$REDIS_CONTAINER" redis-cli ping >/dev/null 2>&1 &&
         ContainerResourceBindingMatches "$REDIS_CONTAINER"; then
         Log 'redis already ready'
+        CompletePortLeaseHandoff redis 'Redis host mapping' "container:$(docker inspect --format '{{.Id}}' "$REDIS_CONTAINER" 2>/dev/null || true)"
         return
     fi
 
@@ -1526,12 +1848,14 @@ EnsureRedis() {
 
     while (($(NowEpochMs) < readinessDeadline)); do
         if docker exec "$REDIS_CONTAINER" redis-cli ping >/dev/null 2>&1; then
+            CompletePortLeaseHandoff redis 'Redis host mapping' "container:$(docker inspect --format '{{.Id}}' "$REDIS_CONTAINER" 2>/dev/null || true)"
             return
         fi
         sleep 1
     done
 
     Log 'redis failed to become ready'
+    FailPortLeaseHandoff redis 'Redis host mapping' 'redis-not-ready'
     exit 1
 }
 
@@ -1855,6 +2179,7 @@ EnsureBackend() {
         ProbeBinaryUrl "$DEBUG_BACKEND_URL/api/binary/auth/pow-challenge" &&
         ProbeNotificationDrillUrl; then
         Log 'debug backend already healthy; reusing existing process'
+        CompletePortLeaseHandoff backend 'debug backend HTTP' "pid:$(FindPortPid "$DEBUG_BACKEND_PORT" || true)"
         return
     fi
 
@@ -1872,6 +2197,7 @@ EnsureBackend() {
     WaitForPortRelease "$DEBUG_BACKEND_PORT" "$readinessDeadline" || return 1
 
     Log "starting managed ${runtimeConfiguration,,} backend"
+    ReleasePortLeaseBeforeBind backend 'debug backend HTTP'
     local -x Testing__EnforceProductionCsp=true
     local -x PublicAot__SsrClientRoot="$PUBLIC_AOT_SSR_CLIENT_ROOT"
     AssertDedicatedRuntimePortAvailable 'debug backend' "$DEBUG_BACKEND_PORT" || return 1
@@ -1886,29 +2212,34 @@ EnsureBackend() {
     local startedPid=$!
     WriteRuntimePidFile "$pidFile" "$startedPid"
     if ! WriteRuntimeProcessIdentity "$pidFile" "$startedPid" backend "$readinessDeadline"; then
+        FailPortLeaseHandoff backend 'debug backend HTTP' 'runtime-identity-failed'
         KillRuntimePidIfOwned backend "$pidFile" "$startedPid" "$readinessDeadline" || true
         rm -f "$pidFile" "$(RuntimeIdentityFile "$pidFile")"
         return 1
     fi
 
     if ! WaitForManagedBinaryUrl 'debug backend' "$DEBUG_BACKEND_URL/api/binary/system/seo" "$readinessDeadline" "$startedPid" "$logFile"; then
+        FailPortLeaseHandoff backend 'debug backend HTTP' 'backend-not-ready'
         if KillRuntimePidIfOwned backend "$pidFile" "$startedPid" "$readinessDeadline"; then
             rm -f "$pidFile" "$(RuntimeIdentityFile "$pidFile")"
         fi
         return 1
     fi
     if ! WaitForManagedBinaryUrl 'pow challenge' "$DEBUG_BACKEND_URL/api/binary/auth/pow-challenge" "$readinessDeadline" "$startedPid" "$logFile"; then
+        FailPortLeaseHandoff backend 'debug backend HTTP' 'pow-challenge-not-ready'
         if KillRuntimePidIfOwned backend "$pidFile" "$startedPid" "$readinessDeadline"; then
             rm -f "$pidFile" "$(RuntimeIdentityFile "$pidFile")"
         fi
         return 1
     fi
     if ! AdmitDedicatedRuntimePort backend 'debug backend' "$pidFile" "$DEBUG_BACKEND_PORT" 1; then
+        FailPortLeaseHandoff backend 'debug backend HTTP' 'runtime-admission-failed'
         if KillRuntimePidIfOwned backend "$pidFile" "$startedPid" "$readinessDeadline"; then
             rm -f "$pidFile" "$(RuntimeIdentityFile "$pidFile")"
         fi
         return 1
     fi
+    CompletePortLeaseHandoff backend 'debug backend HTTP' "pid:$(FindPortPid "$DEBUG_BACKEND_PORT" || true)"
     printf '%s\n' "$nextFingerprint" >"$fingerprintFile"
 }
 
@@ -1937,6 +2268,7 @@ StartBackgroundIfNeeded() {
     AdmitDedicatedRuntimePort "$role" "$label" "$pidFile" "$port" "$reachable" || return 1
     if [[ "$reachable" == "1" ]]; then
         Log "$label already reachable"
+        CompletePortLeaseHandoff "$role" "$label" "pid:$(FindPortPid "$port" || true)"
         return
     fi
 
@@ -1949,11 +2281,13 @@ StartBackgroundIfNeeded() {
                 return 1
             fi
             AdmitDedicatedRuntimePort "$role" "$label" "$pidFile" "$port" 1
+            CompletePortLeaseHandoff "$role" "$label" "pid:$(FindPortPid "$port" || true)"
             return
         fi
     fi
 
     AssertDedicatedRuntimePortAvailable "$label" "$port" || return 1
+    ReleasePortLeaseBeforeBind "$role" "$label"
     Log "starting $label"
     FSUSBLOG_TEST_RUN_ID="${FSUSBLOG_TEST_RUN_ID:-direct-$NS_SLUG}" \
         FSUSBLOG_TEST_NAMESPACE="$NS_SLUG" \
@@ -1964,6 +2298,7 @@ StartBackgroundIfNeeded() {
     local startedPid=$!
     WriteRuntimePidFile "$pidFile" "$startedPid"
     if ! WriteRuntimeProcessIdentity "$pidFile" "$startedPid" "$role" "$readinessDeadline"; then
+        FailPortLeaseHandoff "$role" "$label" 'runtime-identity-failed'
         KillRuntimePidIfOwned "$role" "$pidFile" "$startedPid" "$readinessDeadline" || true
         rm -f "$pidFile" "$(RuntimeIdentityFile "$pidFile")"
         return 1
@@ -1972,8 +2307,10 @@ StartBackgroundIfNeeded() {
     while (($(NowEpochMs) < readinessDeadline)); do
         if ProbeUrl "$url"; then
             if AdmitDedicatedRuntimePort "$role" "$label" "$pidFile" "$port" 1; then
+                CompletePortLeaseHandoff "$role" "$label" "pid:$(FindPortPid "$port" || true)"
                 return 0
             fi
+            FailPortLeaseHandoff "$role" "$label" 'runtime-admission-failed'
             if KillRuntimePidIfOwned "$role" "$pidFile" "$startedPid" "$readinessDeadline"; then
                 rm -f "$pidFile" "$(RuntimeIdentityFile "$pidFile")"
             fi
@@ -1989,6 +2326,7 @@ StartBackgroundIfNeeded() {
     done
 
     Log "$label did not become ready at $url"
+    FailPortLeaseHandoff "$role" "$label" 'runtime-not-ready'
     return 1
 }
 
@@ -2011,6 +2349,7 @@ EnsureDebugFrontend() {
         debug-frontend 'debug frontend' "$pidFile" "$DEBUG_FRONTEND_PORT" "$debugReachable" || return 1
     if CanReuseProcesses && [[ "$debugReachable" == "1" ]]; then
         Log 'debug frontend already healthy; reusing existing process'
+        CompletePortLeaseHandoff debug-frontend 'debug frontend HTTP' "pid:$(FindPortPid "$DEBUG_FRONTEND_PORT" || true)"
         return
     fi
 
@@ -2088,6 +2427,7 @@ EnsureReleasePreview() {
         [[ -f "$SERVER_WWWROOT_DIR/index.html" ]] &&
         [[ "$releaseReachable" == "1" ]]; then
         Log 'release preview already healthy with matching fingerprint; reusing existing process'
+        CompletePortLeaseHandoff release-preview 'release preview/backend HTTP' "pid:$(FindPortPid "$RELEASE_PREVIEW_PORT" || true)"
         if [[ "$runBoundBuild" == "true" && -z "${FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT:-}" ]]; then
             WaitForBinaryUrl 'release preview namespace API' "$RELEASE_PREVIEW_URL/api/binary/system/seo" "$readinessDeadline"
             FSUSBLOG_REPOSITORY_ROOT="$ROOT_DIR" \
