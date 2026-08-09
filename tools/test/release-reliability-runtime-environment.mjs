@@ -37,6 +37,12 @@ const dynamicAuditedContainerOverrideKeys = Object.freeze([
     'FSUSBLOG_TEST_SOURCE_COMMIT',
     'FSUSBLOG_TEST_SOURCE_FINGERPRINT'
 ]);
+// Host-only bootstrap bookkeeping: meaningful to the acceptance host, never to
+// the runtime image container, so it must not leak into the projected env file.
+const hostOnlyRuntimeBookkeepingKeys = Object.freeze([
+    'FSUSBLOG_PORT_LEASED_ROLES',
+    'FSUSBLOG_PORT_LEASE_DAEMON_PID'
+]);
 export const releaseReliabilityAuditedContainerOverrideKeys = Object.freeze([
     ...Object.keys(staticAuditedContainerOverrides),
     ...dynamicAuditedContainerOverrideKeys
@@ -44,6 +50,7 @@ export const releaseReliabilityAuditedContainerOverrideKeys = Object.freeze([
 const releaseReliabilityAuditedContainerOverrideKeySet = new Set(
     releaseReliabilityAuditedContainerOverrideKeys
 );
+const hostOnlyRuntimeBookkeepingKeySet = new Set(hostOnlyRuntimeBookkeepingKeys);
 
 function safeId(value, label)
 {
@@ -75,7 +82,8 @@ export function releaseReliabilityAuditedContainerOverrides({
 export function projectQualifiedContainerEnvironment(environment)
 {
     return Object.fromEntries(Object.entries(environment)
-        .filter(([key]) => !releaseReliabilityAuditedContainerOverrideKeySet.has(key))
+        .filter(([key]) => !releaseReliabilityAuditedContainerOverrideKeySet.has(key)
+            && !hostOnlyRuntimeBookkeepingKeySet.has(key))
         .sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0));
 }
 

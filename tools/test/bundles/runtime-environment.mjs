@@ -13,6 +13,10 @@ const allowedRuntimeEnvironmentKeys = new Set([
     'FSUSBLOG_RELEASE_PREVIEW_URL',
     'FSUSBLOG_POSTGRES_CONTAINER_NAME',
     'FSUSBLOG_REDIS_CONTAINER_NAME',
+    // Bootstrap writes host port-lease bookkeeping into the namespace env file
+    // so a later bootstrap resume can reattach to the same reservation daemon.
+    'FSUSBLOG_PORT_LEASED_ROLES',
+    'FSUSBLOG_PORT_LEASE_DAEMON_PID',
     'FSUSBLOG_NOTIFICATION_DRILL_SECRET',
     'FSUSBLOG_DATA_ROOT',
     'FSUSBLOG_FIXTURE_SERVICE_GENERATION',
