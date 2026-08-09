@@ -71,7 +71,7 @@ function copySummaryDependencies(root)
     fs.copyFileSync(path.join(repositoryRoot, relative), target);
 }
 
-function summaryEnvironment(plan, needs)
+function summaryEnvironment(plan, needs, root)
 {
     return {
         ...process.env,
@@ -81,6 +81,9 @@ function summaryEnvironment(plan, needs)
         GITHUB_RUN_ID: '42',
         GITHUB_RUN_ATTEMPT: '1',
         FSUSBLOG_CI_PR_PLAN_DIGEST: plan.contentDigest,
+        FSUSBLOG_CI_PR_SMART_GATE_PLAN: path.join(root, '.tmp/pr-plan.json'),
+        FSUSBLOG_RELEASE_EVIDENCE_DIR: path.join(root, '.tmp/release-evidence'),
+        FSUSBLOG_RELEASE_EVIDENCE_MANIFEST: path.join(root, '.tmp/release-evidence/manifest.json'),
         FSUSBLOG_CI_PRODUCTION_SOURCE_FINGERPRINT: sourceState.worktreeFingerprint,
         FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST: buildReceiptDigest
     };
@@ -130,7 +133,7 @@ test('production summary excludes diagnostics retry evidence from its correctnes
         encoding: 'utf8',
         env: {
             ...process.env,
-            ...summaryEnvironment(plan, { required: { result: 'success' } }),
+            ...summaryEnvironment(plan, { required: { result: 'success' } }, root),
             GITHUB_STEP_SUMMARY: stepSummary
         }
     });
@@ -161,14 +164,14 @@ test('production summary admits only policy-skipped needs and rejects a skipped 
     const admitted = spawnSync(process.execPath, [script], {
         cwd: root,
         encoding: 'utf8',
-        env: summaryEnvironment(plan, { required: { result: 'success' }, conditional: { result: 'skipped' } })
+        env: summaryEnvironment(plan, { required: { result: 'success' }, conditional: { result: 'skipped' } }, root)
     });
     assert.equal(admitted.status, 0, admitted.stderr || admitted.stdout);
 
     const rejected = spawnSync(process.execPath, [script], {
         cwd: root,
         encoding: 'utf8',
-        env: summaryEnvironment(plan, { required: { result: 'skipped' }, conditional: { result: 'skipped' } })
+        env: summaryEnvironment(plan, { required: { result: 'skipped' }, conditional: { result: 'skipped' } }, root)
     });
     assert.equal(rejected.status, 1);
     assert.match(rejected.stderr, /required: skipped/u);
@@ -176,7 +179,7 @@ test('production summary admits only policy-skipped needs and rejects a skipped 
     const missingNeed = spawnSync(process.execPath, [script], {
         cwd: root,
         encoding: 'utf8',
-        env: summaryEnvironment(plan, { conditional: { result: 'skipped' } })
+        env: summaryEnvironment(plan, { conditional: { result: 'skipped' } }, root)
     });
     assert.equal(missingNeed.status, 1);
     assert.match(missingNeed.stderr, /needs do not exactly match the production-summary authority job projection/u);
@@ -188,7 +191,7 @@ test('production summary admits only policy-skipped needs and rejects a skipped 
             required: { result: 'success' },
             conditional: { result: 'skipped' },
             extra: { result: 'success' }
-        })
+        }, root)
     });
     assert.equal(extraNeed.status, 1);
     assert.match(extraNeed.stderr, /needs do not exactly match the production-summary authority job projection/u);
@@ -212,7 +215,7 @@ test('production summary fails closed when the correctness receipt generator is 
     const result = spawnSync(process.execPath, [script], {
         cwd: root,
         encoding: 'utf8',
-        env: summaryEnvironment(plan, { required: { result: 'success' } })
+        env: summaryEnvironment(plan, { required: { result: 'success' } }, root)
     });
     assert.equal(result.status, 1);
     assert.match(result.stderr, /browserless correctness receipt generator is missing/u);

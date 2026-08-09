@@ -157,15 +157,39 @@ test('non-diagnostic mode preserves CI shard summary aggregation', () => {
 
     const result = runAggregate(root, {
       FSUSBLOG_BROWSER_DIAGNOSTICS: '0',
-      FSUSBLOG_DIAGNOSTIC_ARTIFACT_ROOT: ''
+      FSUSBLOG_DIAGNOSTIC_ARTIFACT_ROOT: '',
+      FSUSBLOG_UX_OUTPUT_ROOT: path.join(root, '.tmp/visual'),
+      FSUSBLOG_RELEASE_EVIDENCE_DIR: path.join(root, '.tmp/release-evidence')
     })
     assert.equal(result.status, 0, result.stderr)
     const summary = JSON.parse(fs.readFileSync(path.join(root, '.tmp/visual/summary.json'), 'utf8'))
     assert.equal(summary.aggregationMode, 'ci-job-shards')
+    assert.equal(summary.qualificationEligible, true)
     assert.deepEqual(
       summary.groups.map((group) => group.expectedJobSummaries),
       [['visual-public-playwright-1-of-1'], ['visual-console-playwright-1-of-1']]
     )
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('non-diagnostic mode fails closed without explicit locator roots', () => {
+  const root = createFixture()
+  try {
+    for (const group of ['public', 'console']) {
+      writeJson(path.join(root, `.tmp/visual/${group}/summary.json`), {
+        status: 'success',
+        durationMs: 1
+      })
+    }
+    const result = runAggregate(root, {
+      FSUSBLOG_BROWSER_DIAGNOSTICS: '0',
+      FSUSBLOG_DIAGNOSTIC_ARTIFACT_ROOT: ''
+    })
+    assert.equal(result.status, 1)
+    assert.match(result.stderr, /FSUSBLOG_UX_OUTPUT_ROOT/u)
+    assert.match(result.stderr, /FSUSBLOG_RELEASE_EVIDENCE_DIR/u)
   } finally {
     fs.rmSync(root, { recursive: true, force: true })
   }

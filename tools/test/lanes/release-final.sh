@@ -11,7 +11,11 @@ rm -f "$CORRECTNESS_RECEIPT"
 "$NODE_BIN" "$ROOT_DIR/tools/ci/check-job-summaries.mjs" --require-plan --tier release-final --include-manual --include-nightly --strict-shards
 "$NODE_BIN" "$ROOT_DIR/tools/ci/check-flaky-registry.mjs" --release-final
 "$NODE_BIN" "$ROOT_DIR/tools/ci/check-flaky-evidence.mjs" --release-final
-"$ROOT_DIR/tools/operations/check-release-evidence-manifest.mjs" --require-ok
+releaseEvidenceManifestArgs=()
+if [[ -n "${FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT:-}" ]]; then
+    releaseEvidenceManifestArgs+=("$FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT/release-evidence/release-evidence/manifest.json")
+fi
+"$ROOT_DIR/tools/operations/check-release-evidence-manifest.mjs" --require-ok ${releaseEvidenceManifestArgs[@]+"${releaseEvidenceManifestArgs[@]}"}
 for authority in \
     application-static-governance \
     test-asset-governance \

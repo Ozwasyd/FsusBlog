@@ -8,6 +8,12 @@ import { assertReleaseIdentity, isValidReleaseId } from '../release/release-id.m
 import { validateReleaseManifest } from '../release/release-manifest.mjs';
 import { validateReleaseRuntimeMatrix } from '../runtime-profiles/release-runtime-matrix.mjs';
 import { evidenceClassificationErrors } from './evidence-classification.mjs';
+import { resolveProductionFreshOutputAttempt } from '../test-matrix/production-fresh-run-bound-outputs.mjs';
+import {
+  createProductionFreshRunBoundLocator,
+  readProductionFreshJsonOutput,
+  resolveProductionFreshLocatorEnvironment
+} from '../test-matrix/production-fresh-output-locator.mjs';
 
 const rootDir = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..')
 const requiredRedisFaultCases = ['redis-restart', 'redis-reconnect', 'redis-latency']
@@ -1267,23 +1273,6 @@ function publicAotCacheResilienceOk(manifest, context) {
     && item.errors.length === 0)
 }
 
-function latestManifest() {
-  const baseDir = path.resolve(process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR
-    ?? path.join(rootDir, '.tmp', 'release-evidence'))
-  if (!fs.existsSync(baseDir)) {
-    return null
-  }
-
-  const candidates = fs.readdirSync(baseDir, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => path.join(baseDir, entry.name, 'manifest.json'))
-    .filter((file) => fs.existsSync(file))
-    .map((file) => ({ file, mtimeMs: fs.statSync(file).mtimeMs }))
-    .sort((a, b) => b.mtimeMs - a.mtimeMs)
-
-  return candidates[0]?.file ?? null
-}
-
 function validateManifest(manifest, options = {}) {
   const context = { manifestPath: options.manifestPath ?? null }
   const errors = []
@@ -2369,12 +2358,82 @@ if (args.includes('--self-test')) {
 }
 
 const manifestArg = args.find((arg) => !arg.startsWith('--'))
-const manifestPath = manifestArg ? path.resolve(manifestArg) : latestManifest()
-if (!manifestPath) {
-  fail('manifest path is required, or the configured release-evidence directory must contain at least one manifest.json')
+function resolveRunBoundManifest()
+{
+    const context = resolveProductionFreshLocatorEnvironment(process.env);
+    const collectionDir = String(process.env.FSUSBLOG_RELEASE_EVIDENCE_COLLECTION_DIR ?? '').trim();
+    if (!collectionDir)
+    {
+        fail(
+            'run-bound release manifest consumption requires'
+      + ' FSUSBLOG_RELEASE_EVIDENCE_COLLECTION_DIR'
+        );
+    }
+    const outputRoot = path.resolve(context.outputRoot);
+    const manifestFile = path.resolve(collectionDir, 'manifest.json');
+    if (manifestFile !== outputRoot
+  && !manifestFile.startsWith(`${outputRoot}${path.sep}`))
+    {
+        fail(
+            `release evidence collection dir escapes the run-bound output root: ${collectionDir}`
+        );
+    }
+    const relativePath = path.relative(outputRoot, manifestFile).replaceAll(path.sep, '/');
+    const namespace = String(process.env.FSUSBLOG_TEST_NAMESPACE ?? '').trim();
+    const commit = String(process.env.FSUSBLOG_TEST_SOURCE_COMMIT ?? '').trim();
+    const candidateIdentityDigest = sha256Value([
+        context.runId,
+        context.attemptId,
+        namespace,
+        commit
+    ].filter(Boolean).join('|'));
+    const layout = resolveProductionFreshOutputAttempt({
+        root: rootDir,
+        runId: context.runId,
+        attemptId: context.attemptId
+    });
+    const binding = createProductionFreshRunBoundLocator({
+        repositoryRoot: rootDir,
+        runId: context.runId,
+        attemptId: context.attemptId,
+        outputRoot,
+        producerId: 'release-evidence',
+        relativePath,
+        schema: 'fsusblog.release-evidence-manifest.v2',
+        candidateIdentityDigest,
+        receiptRef: path
+            .relative(rootDir, path.join(layout.runOutputRoot, 'terminal-attempts.json'))
+            .replaceAll(path.sep, '/')
+    });
+    const result = readProductionFreshJsonOutput({
+        root: rootDir,
+        locator: binding.locator,
+        expectedCandidateIdentityDigest: candidateIdentityDigest
+    });
+    return { manifest: result.json, manifestPath: result.file };
 }
 
-const manifest = readJson(manifestPath)
+let manifest = null
+let manifestPath = null
+if (manifestArg) {
+    manifestPath = path.resolve(manifestArg)
+    manifest = readJson(manifestPath)
+} else {
+    let runBound
+    try
+    {
+        runBound = resolveRunBoundManifest()
+    }
+    catch (error)
+    {
+        fail(
+            'explicit manifest path or a production-fresh run-bound locator context is required;'
+      + ` ${error instanceof Error ? error.message : String(error)}`
+        )
+    }
+    manifest = runBound.manifest
+    manifestPath = runBound.manifestPath
+}
 const result = validateManifest(manifest, { requireOk, manifestPath })
 if (!result.ok) {
   for (const error of result.errors) {

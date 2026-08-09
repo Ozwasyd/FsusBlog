@@ -49,11 +49,15 @@ CheckEvidenceMetrics() {
 }
 
 CheckEvidenceManifest() {
+    local manifest_args=()
+    if [[ -n "${FSUSBLOG_RELEASE_EVIDENCE_COLLECTION_DIR:-}" ]]; then
+        manifest_args+=("$FSUSBLOG_RELEASE_EVIDENCE_COLLECTION_DIR/manifest.json")
+    fi
     if [[ -n "${FSUSBLOG_RELEASE_EVIDENCE_CHECK_ARGS:-}" ]]; then
         # shellcheck disable=SC2086
-        Run "$ROOT_DIR/tools/operations/check-release-evidence-manifest.mjs" $FSUSBLOG_RELEASE_EVIDENCE_CHECK_ARGS
+        Run "$ROOT_DIR/tools/operations/check-release-evidence-manifest.mjs" ${manifest_args[@]+"${manifest_args[@]}"} $FSUSBLOG_RELEASE_EVIDENCE_CHECK_ARGS
     else
-        Run "$ROOT_DIR/tools/operations/check-release-evidence-manifest.mjs"
+        Run "$ROOT_DIR/tools/operations/check-release-evidence-manifest.mjs" ${manifest_args[@]+"${manifest_args[@]}"}
     fi
 }
 

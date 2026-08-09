@@ -10,14 +10,32 @@ import { parseWorkflowJobNeeds } from '../yaml/workflow-structure.mjs'
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const workflowPath = path.join(root, '.github/workflows/quality-gate.yml')
 
-function findFiles(dir, predicate, results = []) {
-  if (!fs.existsSync(dir)) return results
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const file = path.join(dir, entry.name)
-    if (entry.isDirectory()) findFiles(file, predicate, results)
-    else if (predicate(file)) results.push(file)
+// Explicit run-bound locator context for every production summary consumer.
+// Consumers must never discover files by scanning; the root and each named
+// input come from the environment or the workflow invocation.
+function explicitEvidenceRoot() {
+  const configured = process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR
+  if (!configured) {
+    throw new Error('production summary requires an explicit release-evidence locator root: FSUSBLOG_RELEASE_EVIDENCE_DIR')
   }
-  return results
+  return path.resolve(root, configured)
+}
+
+// Flat, non-recursive read of an explicitly bound JSON directory. No cross-run
+// discovery, no first-match selection, no downloaded-artifact fallback.
+function readExplicitDirectoryJson(directory) {
+  if (!fs.existsSync(directory)) return []
+  const files = []
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    if (!entry.isFile() || entry.isSymbolicLink() || !entry.name.endsWith('.json')) continue
+    const file = path.join(directory, entry.name)
+    try {
+      files.push({ file, text: fs.readFileSync(file, 'utf8'), value: JSON.parse(fs.readFileSync(file, 'utf8')) })
+    } catch {
+      // Ignore unrelated or malformed JSON inside the explicitly bound directory.
+    }
+  }
+  return files
 }
 
 function canonicalize(value) {
@@ -37,55 +55,42 @@ function normalizeFingerprint(value) {
 
 function loadPrSmartGatePlan() {
   const configured = process.env.FSUSBLOG_CI_PR_SMART_GATE_PLAN
-  const candidates = configured
-    ? [path.resolve(root, configured)]
-    : [
-        path.join(root, '.tmp/pr-plan.json'),
-        path.join(root, '.tmp/release-evidence/pr-smart-gate-summary.json'),
-        ...findFiles(path.join(root, '.tmp/downloaded-artifacts'), (file) => file.endsWith('.json'))
-      ]
-  const matches = []
-  for (const file of [...new Set(candidates)]) {
-    if (!fs.existsSync(file)) continue
-    let plan
-    try {
-      plan = JSON.parse(fs.readFileSync(file, 'utf8'))
-    } catch (error) {
-      if (configured) throw error
-      continue
-    }
-    if (plan.schema !== 'fsusblog.pr-smart-gate.v1') continue
-    if (plan.contentDigest !== contentDigest(plan)) throw new Error('PR smart gate plan content digest mismatch')
-    for (const field of ['selectedTierIds', 'skippedTierIds', 'selectedJobIds', 'skippedJobIds', 'summaryAuthorityJobIds']) {
-      const values = plan[field]
-      const normalized = [...new Set((values ?? []).map(String))].sort()
-      if (!Array.isArray(values) || JSON.stringify(values) !== JSON.stringify(normalized)) {
-        throw new Error(`PR smart gate plan ${field} must be sorted and unique`)
-      }
-    }
-    const expectedCommit = String(process.env.GITHUB_SHA ?? '').trim()
-    const expectedFingerprint = String(process.env.FSUSBLOG_CI_PRODUCTION_SOURCE_FINGERPRINT ?? '').trim()
-    const expectedRunId = String(process.env.GITHUB_RUN_ID ?? '').trim()
-    const expectedAttempt = String(process.env.GITHUB_RUN_ATTEMPT ?? '').trim()
-    if (!expectedCommit || !expectedFingerprint || !expectedRunId || !expectedAttempt) {
-      throw new Error('quality gate summary requires current plan source and run identity')
-    }
-    if (plan.sourceState?.commit !== expectedCommit
-      || normalizeFingerprint(plan.sourceState?.worktreeFingerprint) !== normalizeFingerprint(expectedFingerprint)) {
-      throw new Error('PR smart gate plan source identity is stale')
-    }
-    if (String(plan.runId) !== expectedRunId || String(plan.runAttempt) !== expectedAttempt) {
-      throw new Error('PR smart gate plan run identity is stale')
-    }
-    const expectedDigest = String(process.env.FSUSBLOG_CI_PR_PLAN_DIGEST ?? '').trim()
-    if (expectedDigest && plan.contentDigest !== expectedDigest) throw new Error('PR smart gate plan digest does not match producer output')
-    matches.push({ file, plan })
+  if (!configured) {
+    throw new Error('PR smart gate plan locator is required: FSUSBLOG_CI_PR_SMART_GATE_PLAN must name the explicit plan file')
   }
-  if (matches.length === 0) throw new Error('current PR smart gate plan is required by production summary')
-  if (new Set(matches.map(({ plan }) => plan.contentDigest)).size !== 1) {
-    throw new Error('multiple conflicting PR smart gate plans were discovered')
+  const file = path.resolve(root, configured)
+  if (!fs.existsSync(file) || !fs.lstatSync(file).isFile() || fs.lstatSync(file).isSymbolicLink()) {
+    throw new Error(`PR smart gate plan file is missing: ${configured}`)
   }
-  return matches[0]
+  const plan = JSON.parse(fs.readFileSync(file, 'utf8'))
+  if (plan.schema !== 'fsusblog.pr-smart-gate.v1') {
+    throw new Error(`PR smart gate plan schema mismatch: ${plan.schema ?? 'missing'}`)
+  }
+  if (plan.contentDigest !== contentDigest(plan)) throw new Error('PR smart gate plan content digest mismatch')
+  for (const field of ['selectedTierIds', 'skippedTierIds', 'selectedJobIds', 'skippedJobIds', 'summaryAuthorityJobIds']) {
+    const values = plan[field]
+    const normalized = [...new Set((values ?? []).map(String))].sort()
+    if (!Array.isArray(values) || JSON.stringify(values) !== JSON.stringify(normalized)) {
+      throw new Error(`PR smart gate plan ${field} must be sorted and unique`)
+    }
+  }
+  const expectedCommit = String(process.env.GITHUB_SHA ?? '').trim()
+  const expectedFingerprint = String(process.env.FSUSBLOG_CI_PRODUCTION_SOURCE_FINGERPRINT ?? '').trim()
+  const expectedRunId = String(process.env.GITHUB_RUN_ID ?? '').trim()
+  const expectedAttempt = String(process.env.GITHUB_RUN_ATTEMPT ?? '').trim()
+  if (!expectedCommit || !expectedFingerprint || !expectedRunId || !expectedAttempt) {
+    throw new Error('quality gate summary requires current plan source and run identity')
+  }
+  if (plan.sourceState?.commit !== expectedCommit
+    || normalizeFingerprint(plan.sourceState?.worktreeFingerprint) !== normalizeFingerprint(expectedFingerprint)) {
+    throw new Error('PR smart gate plan source identity is stale')
+  }
+  if (String(plan.runId) !== expectedRunId || String(plan.runAttempt) !== expectedAttempt) {
+    throw new Error('PR smart gate plan run identity is stale')
+  }
+  const expectedDigest = String(process.env.FSUSBLOG_CI_PR_PLAN_DIGEST ?? '').trim()
+  if (expectedDigest && plan.contentDigest !== expectedDigest) throw new Error('PR smart gate plan digest does not match producer output')
+  return { file, plan }
 }
 
 function classifyNeedsByPlan(needs, plan) {
@@ -113,42 +118,32 @@ function classifyNeedsByPlan(needs, plan) {
 }
 
 function loadJobSummaries() {
-  const roots = [
-    path.join(root, '.tmp/release-evidence/jobs'),
-    path.join(root, '.tmp/downloaded-artifacts')
-  ]
+  const jobsDir = path.join(explicitEvidenceRoot(), 'jobs')
   const summaries = new Map()
-  for (const searchRoot of roots) {
-    for (const file of findFiles(searchRoot, (candidate) => candidate.endsWith('.json') && candidate.includes(`${path.sep}jobs${path.sep}`))) {
-      try {
-        const summary = JSON.parse(fs.readFileSync(file, 'utf8'))
-        if (summary.schema !== 'fsusblog.ci.job-result.v1') continue
-        summaries.set(summary.jobId, { summary, file })
-        if (summary.ciJob) summaries.set(summary.ciJob, { summary, file })
-      } catch {
-        // Ignore unrelated JSON artifacts.
+  for (const { file, text, value: summary } of readExplicitDirectoryJson(jobsDir)) {
+    if (summary.schema !== 'fsusblog.ci.job-result.v1') continue
+    const digest = `sha256:${crypto.createHash('sha256').update(text).digest('hex')}`
+    for (const key of [summary.jobId, summary.ciJob]) {
+      if (!key) continue
+      const existing = summaries.get(key)
+      if (existing) {
+        if (existing.digest !== digest) {
+          throw new Error(`conflicting ${key} job summaries inside the bound release-evidence root: ${existing.file} and ${file}`)
+        }
+        continue
       }
+      summaries.set(key, { summary, file, digest })
     }
   }
   return summaries
 }
 
 function loadFlakyEvidence() {
-  const roots = [
-    path.join(root, '.tmp/release-evidence/flaky'),
-    path.join(root, '.tmp/downloaded-artifacts')
-  ]
+  const flakyDir = path.join(explicitEvidenceRoot(), 'flaky')
   const evidence = []
-  for (const searchRoot of roots) {
-    for (const file of findFiles(searchRoot, (candidate) => candidate.endsWith('.json') && candidate.includes(`${path.sep}flaky${path.sep}`))) {
-      try {
-        const item = JSON.parse(fs.readFileSync(file, 'utf8'))
-        if (item.schema !== 'fsusblog.ci.flaky.v1') continue
-        evidence.push({ item, file })
-      } catch {
-        // Ignore unrelated JSON artifacts.
-      }
-    }
+  for (const { file, value: item } of readExplicitDirectoryJson(flakyDir)) {
+    if (item.schema !== 'fsusblog.ci.flaky.v1') continue
+    evidence.push({ item, file })
   }
   return evidence.sort((left, right) => `${left.item.suite}:${left.item.test}`.localeCompare(`${right.item.suite}:${right.item.test}`))
 }
@@ -160,25 +155,20 @@ function isCorrectnessFlakyEvidence(item) {
   return item?.evidenceClass === undefined || item?.evidenceClass === 'correctness'
 }
 
-function latestReleaseManifest() {
-  const roots = [
-    path.join(root, '.tmp/release-evidence'),
-    path.join(root, '.tmp/downloaded-artifacts')
-  ]
-  const candidates = []
-  for (const searchRoot of roots) {
-    for (const file of findFiles(searchRoot, (candidate) => candidate.endsWith(`${path.sep}manifest.json`) && candidate.includes('release-evidence'))) {
-      try {
-        const manifest = JSON.parse(fs.readFileSync(file, 'utf8'))
-        if (manifest.status && manifest.evidenceSummary) {
-          candidates.push({ file, manifest, mtimeMs: fs.statSync(file).mtimeMs })
-        }
-      } catch {
-        // Ignore unrelated manifests.
-      }
-    }
+function explicitReleaseManifest() {
+  const configured = process.env.FSUSBLOG_RELEASE_EVIDENCE_MANIFEST
+  if (!configured) {
+    throw new Error('release manifest locator is required: FSUSBLOG_RELEASE_EVIDENCE_MANIFEST must name the explicit manifest file')
   }
-  return candidates.sort((left, right) => right.mtimeMs - left.mtimeMs)[0] ?? null
+  const file = path.resolve(root, configured)
+  if (!fs.existsSync(file) || !fs.lstatSync(file).isFile() || fs.lstatSync(file).isSymbolicLink()) {
+    throw new Error(`release manifest file is missing: ${configured}`)
+  }
+  const manifest = JSON.parse(fs.readFileSync(file, 'utf8'))
+  if (!manifest.status || !manifest.evidenceSummary) {
+    throw new Error(`release manifest is not a release-evidence manifest: ${configured}`)
+  }
+  return { file, manifest }
 }
 
 function evidenceBlockers(manifest) {
@@ -201,14 +191,16 @@ function evidenceBlockers(manifest) {
 }
 
 function inspectReleaseManifest({ requireOk }) {
-  const candidate = latestReleaseManifest()
-  if (!candidate) {
+  let candidate
+  try {
+    candidate = explicitReleaseManifest()
+  } catch (error) {
     return {
       ok: false,
       file: null,
       status: 'missing',
       blockers: ['release manifest missing'],
-      errors: ['release manifest missing']
+      errors: [`release manifest missing: ${error.message}`]
     }
   }
 

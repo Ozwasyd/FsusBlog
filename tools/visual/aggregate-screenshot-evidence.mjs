@@ -5,7 +5,15 @@ import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
-const downloadedArtifactsRoot = path.join(root, '.tmp/downloaded-artifacts')
+// Explicit run-bound locator roots (issue #1677). Consumers must receive these
+// from the orchestrator; missing roots fail closed instead of scanning
+// downloaded-artifacts or falling back to a global directory.
+const uxOutputRoot = process.env.FSUSBLOG_UX_OUTPUT_ROOT
+  ? path.resolve(root, process.env.FSUSBLOG_UX_OUTPUT_ROOT)
+  : null
+const releaseEvidenceDir = process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR
+  ? path.resolve(root, process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR)
+  : null
 const diagnosticMode = process.env.FSUSBLOG_BROWSER_DIAGNOSTICS === '1'
 const diagnosticArtifactRoot = process.env.FSUSBLOG_DIAGNOSTIC_ARTIFACT_ROOT
   ? path.resolve(process.env.FSUSBLOG_DIAGNOSTIC_ARTIFACT_ROOT)
@@ -34,53 +42,26 @@ function git(args) {
   return result.status === 0 ? result.stdout.trim() : null
 }
 
-function findFiles(dir, predicate, results = []) {
-  if (!fs.existsSync(dir)) return results
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const file = path.join(dir, entry.name)
-    if (entry.isDirectory()) findFiles(file, predicate, results)
-    else if (predicate(file)) results.push(file)
-  }
-  return results
-}
-
 function relative(filePath) {
   return path.relative(root, filePath).replaceAll(path.sep, '/')
-}
-
-function findAllRelative(relPath) {
-  const normalized = relPath.replaceAll('/', path.sep)
-  const matches = []
-  const direct = path.join(root, normalized)
-  if (fs.existsSync(direct)) matches.push(direct)
-
-  const suffix = `${path.sep}${normalized}`
-  for (const file of findFiles(downloadedArtifactsRoot, (candidate) => candidate.endsWith(suffix))) {
-    matches.push(file)
-  }
-
-  return [...new Set(matches.map((file) => path.resolve(file)))].sort()
 }
 
 function readJson(file) {
   return JSON.parse(fs.readFileSync(file, 'utf8'))
 }
 
-function jobSummaryFiles(jobId) {
-  const local = findAllRelative(`.tmp/release-evidence/jobs/${jobId}.json`)
-  const sharded = findFiles(path.join(root, '.tmp/release-evidence/jobs'), (candidate) =>
-    path.basename(candidate).startsWith(`${jobId}-`) && candidate.endsWith('.json')
-  )
-  const downloaded = findFiles(downloadedArtifactsRoot, (candidate) =>
-    candidate.includes(`${path.sep}.tmp${path.sep}release-evidence${path.sep}jobs${path.sep}`)
-    && path.basename(candidate).startsWith(`${jobId}-`)
-    && candidate.endsWith('.json')
-  )
-  return [...new Set([...local, ...sharded, ...downloaded].map((file) => path.resolve(file)))].sort()
+function explicitGroupSummaryFile(group) {
+  if (!uxOutputRoot) {
+    throw new Error('production-fresh group summary locator root is required: FSUSBLOG_UX_OUTPUT_ROOT')
+  }
+  return path.join(uxOutputRoot, group.id, 'summary.json')
 }
 
-function jobSummaryFilesForId(summaryId) {
-  return findAllRelative(`.tmp/release-evidence/jobs/${summaryId}.json`)
+function explicitJobSummaryFile(summaryId) {
+  if (!releaseEvidenceDir) {
+    throw new Error('production-fresh job summary locator root is required: FSUSBLOG_RELEASE_EVIDENCE_DIR')
+  }
+  return path.join(releaseEvidenceDir, 'jobs', `${summaryId}.json`)
 }
 
 function expectedSummaryIds(jobId) {
@@ -131,9 +112,17 @@ function validateGroupSummary({ group, summary, file, requiredStatus, expectedOu
 
 function summarizeGroup(group) {
   const directSummary = path.join(root, group.summaryPath)
+  let explicitSummaryFile = null
+  if (!diagnosticMode) {
+    try {
+      explicitSummaryFile = explicitGroupSummaryFile(group)
+    } catch (error) {
+      explicitSummaryFile = null
+    }
+  }
   const summaryFiles = diagnosticMode
     ? (fs.existsSync(directSummary) ? [directSummary] : [])
-    : findAllRelative(group.summaryPath)
+    : (explicitSummaryFile && fs.existsSync(explicitSummaryFile) ? [explicitSummaryFile] : [])
   const parsedSummaries = []
   const errors = []
   const expectedOutputPath = diagnosticMode ? diagnosticGroupOutputPath(group) : null
@@ -168,34 +157,19 @@ function summarizeGroup(group) {
       errors.push(error.message)
     }
     for (const summaryId of expectedJobSummaries) {
-      const files = jobSummaryFilesForId(summaryId)
-      if (files.length === 0) {
-        errors.push(`missing job summary artifact: ${summaryId}`)
-        continue
-      }
-      for (const file of files) {
-        try {
-          const summary = readJson(file)
-          jobSummaries.push({ summary, file })
-          if (summary.status !== 'success') {
-            errors.push(`${relative(file)} status=${summary.status ?? 'missing'}`)
-          }
-        } catch (error) {
-          errors.push(`${relative(file)} is not valid JSON: ${error.message}`)
-        }
-      }
-    }
-
-    for (const file of jobSummaryFiles(group.ciJob)) {
-      if (jobSummaries.some((entry) => path.resolve(entry.file) === path.resolve(file))) continue
       try {
+        const file = explicitJobSummaryFile(summaryId)
+        if (!fs.existsSync(file)) {
+          errors.push(`missing job summary artifact: ${summaryId}`)
+          continue
+        }
         const summary = readJson(file)
         jobSummaries.push({ summary, file })
         if (summary.status !== 'success') {
           errors.push(`${relative(file)} status=${summary.status ?? 'missing'}`)
         }
       } catch (error) {
-        errors.push(`${relative(file)} is not valid JSON: ${error.message}`)
+        errors.push(`${summaryId} locator error: ${error.message}`)
       }
     }
   }
@@ -214,9 +188,16 @@ function summarizeGroup(group) {
   }
 }
 
-const configurationErrors = diagnosticMode && !diagnosticArtifactRoot
-  ? ['diagnostic: FSUSBLOG_DIAGNOSTIC_ARTIFACT_ROOT is required']
-  : []
+const configurationErrors = []
+if (diagnosticMode && !diagnosticArtifactRoot) {
+  configurationErrors.push('diagnostic: FSUSBLOG_DIAGNOSTIC_ARTIFACT_ROOT is required')
+}
+if (!diagnosticMode && !uxOutputRoot) {
+  configurationErrors.push('production-fresh group summary locator root is required: FSUSBLOG_UX_OUTPUT_ROOT')
+}
+if (!diagnosticMode && !releaseEvidenceDir) {
+  configurationErrors.push('production-fresh job summary locator root is required: FSUSBLOG_RELEASE_EVIDENCE_DIR')
+}
 const groupSummaries = groups.map(summarizeGroup)
 const errors = [
   ...configurationErrors,
@@ -229,23 +210,24 @@ const summary = {
   aggregationMode: diagnosticMode ? 'diagnostic-probes' : 'ci-job-shards',
   evidenceClass: diagnosticMode ? 'diagnostic' : 'correctness',
   affectsCorrectness: !diagnosticMode,
+  qualificationEligible: !diagnosticMode,
   executionBoundary: diagnosticMode ? 'real-browser-screenshot-diagnostics' : 'ci-job-shards',
   generatedAt: new Date().toISOString(),
   commit: git(['rev-parse', 'HEAD']),
   groups: groupSummaries,
   groupDurationsMs: Object.fromEntries(groupSummaries.map((group) => [group.id, group.durationMs])),
   combinedEvidence: [
-    '.tmp/visual/public/summary.json',
-    '.tmp/visual/console/summary.json',
-    '.tmp/visual/summary.json',
-    '.tmp/release-evidence/visual-screenshot-summary.json'
+    relative(path.join(uxOutputRoot ?? path.join(root, '.tmp/visual'), 'public', 'summary.json')),
+    relative(path.join(uxOutputRoot ?? path.join(root, '.tmp/visual'), 'console', 'summary.json')),
+    relative(path.join(uxOutputRoot ?? path.join(root, '.tmp/visual'), 'summary.json')),
+    relative(path.join(releaseEvidenceDir ?? path.join(root, '.tmp/release-evidence'), 'visual-screenshot-summary.json'))
   ],
   errors
 }
 
 const outFiles = [
-  path.join(root, '.tmp/visual/summary.json'),
-  path.join(root, '.tmp/release-evidence/visual-screenshot-summary.json')
+  path.join(uxOutputRoot ?? path.join(root, '.tmp/visual'), 'summary.json'),
+  path.join(releaseEvidenceDir ?? path.join(root, '.tmp/release-evidence'), 'visual-screenshot-summary.json')
 ]
 for (const outFile of outFiles) {
   fs.mkdirSync(path.dirname(outFile), { recursive: true })

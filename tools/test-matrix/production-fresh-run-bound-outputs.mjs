@@ -554,6 +554,7 @@ export function productionFreshOutputEnvironment(layout, tierId)
     const root = path.resolve(layout.outputRoot);
     const tier = safeRelative(tierId).replaceAll('/', '-');
     return {
+        FSUSBLOG_PRODUCTION_FRESH_RUN_ID: layout.runId,
         FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT: root,
         FSUSBLOG_PRODUCTION_FRESH_ATTEMPT_ID: layout.attemptId,
         FSUSBLOG_TEST_RESULTS_ROOT: path.join(root, 'reports'),
