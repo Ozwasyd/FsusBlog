@@ -123,6 +123,14 @@ RUN bash -lc 'set -euo pipefail; \
   export VCPKG_ROOT="/opt/vcpkg"; \
   bash /work/tools/frontend/install-wasm-codec-deps.sh'
 
+# Align wasm-builder CMake with the pinned release toolchain contract
+# (tools/frontend/ensure-cmake.sh -> CMAKE_VERSION=4.3.3) instead of the
+# distro apt cmake shipped by the emsdk base image.
+RUN --mount=type=cache,id=fsusblog-wasm-dependency,target=/.tmp/dependency-cache,sharing=locked \
+    FSUSBLOG_DEPENDENCY_CACHE_ROOT=/.tmp/dependency-cache \
+    bash /work/tools/frontend/ensure-cmake.sh
+ENV FSUSBLOG_WASM_CMAKE=/.tmp/dependency-cache/cmake/4.3.3/bin/cmake
+
 ARG FSUSBLOG_ZK_PRODUCTION_ENABLED=0
 COPY artifacts/zk/comment-v5/ /work/artifacts/zk/comment-v5/
 COPY security/zk/contracts/comment-v5-circuit.manifest.json /work/security/zk/contracts/comment-v5-circuit.manifest.json
