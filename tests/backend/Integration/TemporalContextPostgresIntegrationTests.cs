@@ -23,6 +23,12 @@ public sealed class TemporalContextPostgresIntegrationTests(
             PostgresSqlSugarTestClient.VerifyTemporalObservation(temporal, timezone, epoch);
         }
 
+        string rawDatabaseName = await fixture.CreateDatabaseAsync();
+        string rawConnectionString = fixture.BuildDatabaseConnectionString(rawDatabaseName);
+        using (PostgresSqlSugarTestClient.Create(rawConnectionString))
+        {
+        }
+
         var mismatched = new NpgsqlConnectionStringBuilder(connectionString)
         {
             Options =
@@ -37,6 +43,10 @@ public sealed class TemporalContextPostgresIntegrationTests(
                 temporal,
                 mismatchTimezone,
                 mismatchEpoch));
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+            using var _ = PostgresSqlSugarTestClient.Create(mismatched.ConnectionString);
+        });
     }
 
     private static async Task<(string Timezone, string Epoch)> ObserveAsync(
