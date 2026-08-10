@@ -11581,6 +11581,14 @@
         "xunit:tests/backend/Unit/AedsEncoderTests.cs#AedsEncoderTests.TryDecode_RejectsEveryRetiredFrameType"
       ],
       "reason": "The removed frame-40 decoder test had no unique oracle: the retained cross-language test proves the retired name is absent from every protocol surface and asserts the exact decoder error, while the retained decoder Theory applies the same error oracle to every retired frame slot."
+    },
+    {
+      "id": "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.RunAsync_UpgradesLegacy20260517RealDump_WhenEnabled",
+      "path": "tests/backend/Integration/SchemaMigrationIntegrationTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.RunAsync_UpgradesLegacy20260517RealDump_WhenProvided"
+      ],
+      "reason": "The real external dump verification keeps the same restore, double-migration and common-upgrade oracles while the dump path becomes its only required invocation input; the redundant enable flag and old enabled-suffix identity are removed."
     }
   ],
   "assertionReplacements": [

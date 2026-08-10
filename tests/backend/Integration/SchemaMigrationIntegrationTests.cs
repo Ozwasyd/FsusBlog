@@ -43,7 +43,6 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
 {
     private const string Legacy20260517Fixture = "legacy-20260517-minimal.sql";
     private const string Legacy20260517DumpEnv = "FSUS_LEGACY_20260517_DUMP";
-    private const string Legacy20260517DumpTestsEnv = "FSUS_ENABLE_LEGACY_DUMP_TESTS";
 
     [Fact]
     public async Task RunAsync_UpgradesLegacyArticleAndPageContentSchema()
@@ -1624,15 +1623,15 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
     }
 
     [Fact]
-    public async Task RunAsync_UpgradesLegacy20260517RealDump_WhenEnabled()
+    public async Task RunAsync_UpgradesLegacy20260517RealDump_WhenProvided()
     {
-        if (!string.Equals(Environment.GetEnvironmentVariable(Legacy20260517DumpTestsEnv), "1", StringComparison.Ordinal))
+        string? dumpPath = Environment.GetEnvironmentVariable(Legacy20260517DumpEnv);
+        if (string.IsNullOrWhiteSpace(dumpPath))
         {
             return;
         }
 
-        string? dumpPath = Environment.GetEnvironmentVariable(Legacy20260517DumpEnv);
-        if (string.IsNullOrWhiteSpace(dumpPath) || !File.Exists(dumpPath))
+        if (!File.Exists(dumpPath))
         {
             throw new FileNotFoundException($"Set {Legacy20260517DumpEnv} to the decompressed 20260517 custom dump path.");
         }
