@@ -11572,6 +11572,15 @@
         "xunit:tests/backend/Unit/PodUtf8CodecTests.cs#PodUtf8CodecTests.UploadInit_Fixed32_64_256_ExactMultibyteBoundariesRoundTripThroughProductCodec"
       ],
       "reason": "Chinese text now crosses the real UploadInit fixed-width encoder and decoder with exact hard-coded UTF-8 byte assertions."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AedsProtocolCrossLanguageTests.cs#AedsProtocolCrossLanguageTests.Decoder_RejectsLegacyAdminPasswordResetFrameAsRetired",
+      "path": "tests/backend/Unit/AedsProtocolCrossLanguageTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AedsProtocolCrossLanguageTests.cs#AedsProtocolCrossLanguageTests.LegacyAdminPasswordResetFrame_IsRetiredAcrossProtocolSurfaces",
+        "xunit:tests/backend/Unit/AedsEncoderTests.cs#AedsEncoderTests.TryDecode_RejectsEveryRetiredFrameType"
+      ],
+      "reason": "The removed frame-40 decoder test had no unique oracle: the retained cross-language test proves the retired name is absent from every protocol surface and asserts the exact decoder error, while the retained decoder Theory applies the same error oracle to every retired frame slot."
     }
   ],
   "assertionReplacements": [
