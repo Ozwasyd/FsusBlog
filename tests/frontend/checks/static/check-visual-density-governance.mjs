@@ -613,12 +613,12 @@ function checkPublicTypographyContract()
     ])
     {
         assertContains(file, /#fsus-aot-shell \.ui-article-list\s*\{[\s\S]*?gap:\s*2\.5rem;/, 'AOT article list feed must use 40px group separation');
-        assertContains(file, /@media \(min-width: 640px\)\s*\{[\s\S]*?#fsus-aot-shell \.ui-article-list\s*\{[\s\S]*?gap:\s*3rem;/, 'AOT article list feed must use 48px group separation at the small breakpoint');
+        assertContains(file, /@media \(width >= 640px\)\s*\{[\s\S]*?#fsus-aot-shell \.ui-article-list\s*\{[\s\S]*?gap:\s*3rem;/, 'AOT article list feed must use 48px group separation at the small breakpoint');
         assertContains(file, /#fsus-aot-shell \.ui-article-title\s*\{[\s\S]*?font-size:\s*1\.125rem;[\s\S]*?line-height:\s*1\.25;/, 'AOT article list title must match the 18px display baseline');
-        assertContains(file, /@media \(min-width: 640px\)\s*\{[\s\S]*?#fsus-aot-shell \.ui-article-title\s*\{[\s\S]*?font-size:\s*1\.25rem;[\s\S]*?line-height:\s*1\.2;/, 'AOT article list title must match the 20px display breakpoint');
-        assertContains(file, /@media \(min-width: 1024px\)\s*\{[\s\S]*?#fsus-aot-shell \.ui-article-title\s*\{[\s\S]*?font-size:\s*1\.5rem;/, 'AOT article list title must match the 24px display breakpoint');
+        assertContains(file, /@media \(width >= 640px\)\s*\{[\s\S]*?#fsus-aot-shell \.ui-article-title\s*\{[\s\S]*?font-size:\s*1\.25rem;[\s\S]*?line-height:\s*1\.2;/, 'AOT article list title must match the 20px display breakpoint');
+        assertContains(file, /@media \(width >= 1024px\)\s*\{[\s\S]*?#fsus-aot-shell \.ui-article-title\s*\{[\s\S]*?font-size:\s*1\.5rem;/, 'AOT article list title must match the 24px display breakpoint');
         assertContains(file, /#fsus-aot-shell \.ui-article-summary\s*\{[\s\S]*?font-size:\s*14px;[\s\S]*?line-height:\s*1\.7;[\s\S]*?font-weight:\s*400;/, 'AOT article list summary must match the 14px, 400 weight, 1.7 leading baseline');
-        assertContains(file, /@media \(min-width: 640px\)\s*\{[\s\S]*?#fsus-aot-shell \.ui-article-summary\s*\{[\s\S]*?font-size:\s*16px;/, 'AOT article list summary must match the 16px reading breakpoint');
+        assertContains(file, /@media \(width >= 640px\)\s*\{[\s\S]*?#fsus-aot-shell \.ui-article-summary\s*\{[\s\S]*?font-size:\s*16px;/, 'AOT article list summary must match the 16px reading breakpoint');
         assertContains(file, /#fsus-aot-shell \.ui-article-meta[\s\S]*?font-size:\s*12px;[\s\S]*?line-height:\s*1rem;/, 'AOT metadata must match the 12px readable metadata baseline');
         assertContains(file, /#fsus-aot-shell \.ui-article-meta,[\s\S]*?#fsus-aot-shell \.ui-article-link\s*\{[\s\S]*?text-transform:\s*none;/, 'AOT article list metadata and CTA must not use uppercase');
         assertContains(file, /#fsus-aot-shell \.ui-article-link\s*\{[\s\S]*?color:\s*var\(--fsusblog-text-muted, GrayText\);/, 'AOT article list CTA must use the muted role by default');
@@ -722,7 +722,7 @@ function checkIssueDensityContracts()
     );
     assertContains(accountShellBasePath, /\.account-site-header__actions \.account-header-link,[\s\S]*?\.account-header-theme-action > button,[\s\S]*?\.locale-selector__trigger[\s\S]*?height:\s*var\(--fsus-control-height-compact\);[\s\S]*?border:\s*1px solid var\(--fsusblog-panel-border\);/, 'account non-Button desktop actions must share the 40px bordered paper treatment');
     assertContains(accountShellBasePath, /\.account-site-header__actions \.account-header-link:hover,[\s\S]*?border-color:\s*var\(--fsusblog-color-primary\);[\s\S]*?background:\s*var\(--fsusblog-page-bg-soft\);/, 'account desktop actions must share the restrained hover treatment');
-    assertContains(accountShellBasePath, /@media \(min-width: 1024px\)[\s\S]*?\.account-route-frame\s*\{[\s\S]*?gap:\s*var\(--fsus-space-8\);[\s\S]*?padding-inline:\s*var\(--fsus-space-6\);/, 'account desktop frame must use the 32px gap and 24px horizontal inset');
+    assertContains(accountShellBasePath, /@media \(width >= 1024px\)[\s\S]*?\.account-route-frame\s*\{[\s\S]*?gap:\s*var\(--fsus-space-8\);[\s\S]*?padding-inline:\s*var\(--fsus-space-6\);/, 'account desktop frame must use the 32px gap and 24px horizontal inset');
     assertNotContains(accountShellBasePath, /calc\(var\(--fsus-space-5\) \* 2\)/, 'account desktop frame must not restore the non-tokenized 40px calculation');
     assertContains(accountShellBasePath, /\.account-shell\s*\{[\s\S]*?--fsusblog-account-header-height:\s*5\.5625rem;/, 'account shell must expose the measured 89px header token');
     assertContains(accountShellBasePath, /max-height:\s*calc\(var\(--fsus-viewport-block-size\) - var\(--fsusblog-account-header-height\) - var\(--fsus-space-8\) - var\(--fsus-space-8\)\);/, 'account desktop scroll region must derive from measured header and FsusUI viewport token');

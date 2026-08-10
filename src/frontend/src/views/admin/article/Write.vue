@@ -1116,14 +1116,6 @@ const submitQuickCreateTag = async (): Promise<void> =>
     flex-direction: column;
 }
 
-@media (width <= 1023px)
- {
-    .write-workspace :deep(.article-write-command-bar .el-task-page-header__heading)
- {
-        padding-right: calc(var(--fsus-control-height-spacious) + var(--fsus-space-3));
-    }
-}
-
 .write-draft-banner
  {
     display: flex;

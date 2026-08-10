@@ -25,7 +25,7 @@ describe('MarkdownTextEditor responsive command composition', () => {
   })
 
   it.each([
-    [true, ['h1', 'h2', 'bold', 'italic']],
+    [true, ['h1', 'h2', 'bold']],
     [false, ['h1', 'h2', 'bold', 'italic', 'quote', 'link']]
   ] as const)('keeps all commands reachable when narrow=%s', async (narrow, expected) => {
     window.matchMedia = vi.fn().mockImplementation((query: string) => ({

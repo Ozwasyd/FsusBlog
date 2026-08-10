@@ -122,11 +122,6 @@ function walkRuntimeFiles(absoluteRoot, files = [])
     return files;
 }
 
-function relativePosix(absolutePath)
-{
-    return path.relative(repoRoot, absolutePath).split(path.sep).join('/');
-}
-
 /**
  * Scan a single source string for contract violations.
  * @param {string} relativePath

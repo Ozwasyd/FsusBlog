@@ -224,6 +224,16 @@ const openCriticalInspector = (event: MouseEvent): void =>
     }
 }
 
+@media (width <= 1023px)
+ {
+    .article-write-command-bar__heading
+ {
+        box-sizing: border-box;
+        width: 100%;
+        padding-right: calc(var(--fsus-control-height-spacious) + var(--fsus-space-3));
+    }
+}
+
 @media (width <= 767px)
  {
     .article-write-command-bar

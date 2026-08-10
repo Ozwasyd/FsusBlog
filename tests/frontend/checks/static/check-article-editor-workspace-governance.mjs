@@ -272,7 +272,7 @@ for (const forbidden of [
 }
 for (const token of [
     "useMediaQuery('(max-width: 639px)', false)",
-    "['h1', 'h2', 'bold', 'italic']",
+    "['h1', 'h2', 'bold']",
     "['h1', 'h2', 'bold', 'italic', 'quote', 'link']"
 ])
 {

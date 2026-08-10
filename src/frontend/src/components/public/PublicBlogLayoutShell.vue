@@ -356,15 +356,6 @@ watch(
   min-width: 0;
 }
 
-.fsusblog-public-shell-runtime :deep(.el-public-shell__nav-link) {
-  display: inline-flex;
-  box-sizing: border-box;
-  min-width: 2.5rem;
-  min-height: 2.5rem;
-  align-items: center;
-  justify-content: center;
-}
-
 .fsusblog-public-mobile-menu-utilities {
   display: flex;
   min-width: 0;
