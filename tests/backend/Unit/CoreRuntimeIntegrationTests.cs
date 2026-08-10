@@ -10,9 +10,8 @@ using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-namespace FsusBlog.Server.Tests.Integration;
+namespace FsusBlog.Server.Tests.Unit;
 
-[Trait("Category", "Integration")]
 public sealed class CoreRuntimeIntegrationTests
 {
     [Fact]
