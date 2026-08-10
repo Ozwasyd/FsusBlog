@@ -19,10 +19,10 @@
                     <span>{{ messages.article.metadata.publishedAt }}</span>
                     <time
                         :datetime="view.meta.published.isoTime"
-                        :title="formatDate(view.meta.published.isoTime, fullDateOptions)"
+                        :title="view.meta.published.fullTime"
                         itemprop="datePublished"
                     >
-                        {{ formatDate(view.meta.published.isoTime) }}
+                        {{ view.meta.published.displayTime }}
                     </time>
                 </span>
                 <span
@@ -36,10 +36,10 @@
                     <span>{{ messages.article.metadata.updatedAt }}</span>
                     <time
                         :datetime="view.meta.modified.isoTime"
-                        :title="formatDate(view.meta.modified.isoTime, fullDateOptions)"
+                        :title="view.meta.modified.fullTime"
                         itemprop="dateModified"
                     >
-                        {{ formatDate(view.meta.modified.isoTime) }}
+                        {{ view.meta.modified.displayTime }}
                     </time>
                 </span>
             </span>
@@ -99,14 +99,7 @@ const props = withDefaults(defineProps<{
     linkMode: 'router'
 });
 
-const { formatDate, messages } = useI18nText();
-const fullDateOptions: Intl.DateTimeFormatOptions = {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-};
+const { messages } = useI18nText();
 
 const categoryComponent = computed(() => (
     props.linkMode === 'anchor'
