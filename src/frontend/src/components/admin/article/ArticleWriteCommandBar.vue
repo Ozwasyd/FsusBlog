@@ -226,11 +226,6 @@ const openCriticalInspector = (event: MouseEvent): void =>
 
 @media (width <= 767px)
  {
-    :global(.write-workspace)
- {
-        padding-bottom: calc(var(--fsus-space-8) + var(--fsus-safe-area-inset-bottom));
-    }
-
     .article-write-command-bar
  {
         min-height: 3.5rem;
@@ -252,17 +247,14 @@ const openCriticalInspector = (event: MouseEvent): void =>
     .article-write-command-bar__actions
  {
         box-sizing: border-box;
-        position: fixed;
-        z-index: var(--fsusblog-z-sticky, 30);
-        right: 0;
-        bottom: 0;
-        left: 0;
-        height: calc(var(--fsus-space-8) + var(--fsus-safe-area-inset-bottom));
+        position: static;
+        width: 100%;
+        min-height: var(--fsus-control-height-spacious);
         justify-content: flex-end;
         gap: var(--fsus-space-2);
         border-top: 1px solid var(--fsusblog-panel-border);
         background: var(--fsusblog-page-bg);
-        padding: var(--fsus-space-3) var(--fsus-space-4) calc(var(--fsus-space-3) + var(--fsus-safe-area-inset-bottom));
+        padding: var(--fsus-space-3) 0 0;
     }
 
     .article-write-command-bar__save-status

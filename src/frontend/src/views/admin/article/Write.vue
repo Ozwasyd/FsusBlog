@@ -1111,8 +1111,17 @@ const submitQuickCreateTag = async (): Promise<void> =>
  {
     --fsusblog-article-document-inline-size: 70rem;
 
+    position: relative;
     display: flex;
     flex-direction: column;
+}
+
+@media (width <= 1023px)
+ {
+    .write-workspace :deep(.article-write-command-bar .el-task-page-header__heading)
+ {
+        padding-right: calc(var(--fsus-control-height-spacious) + var(--fsus-space-3));
+    }
 }
 
 .write-draft-banner

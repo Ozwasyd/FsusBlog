@@ -26,6 +26,7 @@ const inspectorStatePath = path.join(
 const seoPath = path.join(repoRoot, 'src/frontend/src/components/admin/article/ArticleSeoPreviewPanel.vue');
 const titleFieldPath = path.join(repoRoot, 'src/frontend/src/components/admin/article/ArticleWriteTitleField.vue');
 const commandBarPath = path.join(repoRoot, 'src/frontend/src/components/admin/article/ArticleWriteCommandBar.vue');
+const markdownEditorPath = path.join(repoRoot, 'src/frontend/src/components/ui/MarkdownTextEditor.vue');
 const accessibilityPath = path.join(repoRoot, 'src/frontend/src/components/admin/article/articleEditorAccessibility.ts');
 const productionFixturePath = path.join(repoRoot, 'tests/frontend/fixtures/articleEditorProductionVisual.ts');
 const productionFixtureContractPath = path.join(repoRoot, 'tests/frontend/fixtures/article-editor-production-contract.json');
@@ -56,6 +57,7 @@ const inspectorState = read(inspectorStatePath);
 const seo = read(seoPath);
 const titleField = read(titleFieldPath);
 const commandBar = read(commandBarPath);
+const markdownEditor = read(markdownEditorPath);
 const accessibility = read(accessibilityPath);
 const productionFixture = read(productionFixturePath);
 const productionFixtureContract = JSON.parse(read(productionFixtureContractPath));
@@ -236,12 +238,12 @@ for (const token of [
 for (const token of [
     'min-height: 3.5rem;',
     'min-height: 2.75rem;',
-    'height: calc(',
-    'var(--fsus-safe-area-inset-bottom));',
+    'position: static;',
+    'width: 100%;',
+    'min-height: var(--fsus-control-height-spacious);',
     'border-top: 1px solid var(--fsusblog-panel-border);',
     'background: var(--fsusblog-page-bg);',
-    'padding: ',
-    'var(--fsus-safe-area-inset-bottom));',
+    'padding: var(--fsus-space-3) 0 0;',
     'article-write-command-bar__save-status',
     'article-write-command-bar__save-draft',
     'article-write-command-bar__primary',
@@ -254,11 +256,29 @@ for (const token of [
         fail(commandBarPath, 1, `Article editor command bar contract is missing ${token}`);
     }
 }
-for (const forbidden of [/gradient/iu, /backdrop-filter/iu, /box-shadow/iu, /border-radius:\s*999/iu, /env\(\s*safe-area-inset-/iu])
+for (const forbidden of [
+    /gradient/iu,
+    /backdrop-filter/iu,
+    /box-shadow/iu,
+    /border-radius:\s*999/iu,
+    /env\(\s*safe-area-inset-/iu,
+    /position:\s*fixed/iu
+])
 {
     if (forbidden.test(commandBar))
     {
         fail(commandBarPath, 1, `Article editor command bar must not use decorative emphasis matching ${forbidden}`);
+    }
+}
+for (const token of [
+    "useMediaQuery('(max-width: 639px)', false)",
+    "['h1', 'h2', 'bold', 'italic']",
+    "['h1', 'h2', 'bold', 'italic', 'quote', 'link']"
+])
+{
+    if (!markdownEditor.includes(token))
+    {
+        fail(markdownEditorPath, 1, `Article editor responsive command contract is missing ${token}`);
     }
 }
 for (const token of ['.el-form-item.is-error', 'target.focus({ preventScroll: true })', "block: 'center'"])
@@ -268,11 +288,6 @@ for (const token of ['.el-form-item.is-error', 'target.focus({ preventScroll: tr
         fail(accessibilityPath, 1, `Article editor validation focus contract is missing ${token}`);
     }
 }
-if (!/padding-bottom:\s*calc\(.+var\(--fsus-safe-area-inset-bottom\)\);/u.test(commandBar))
-{
-    fail(commandBarPath, 1, 'Article editor body must reserve mobile action bar height plus canonical safe-area inset');
-}
-
 for (const token of [
     'type="textarea"',
     'textarea-variant="editor-title"',

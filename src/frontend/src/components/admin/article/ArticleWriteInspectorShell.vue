@@ -303,10 +303,10 @@ onUnmounted(() =>
 
 .article-write-inspector-launcher
  {
-    position: fixed;
+    position: absolute;
     z-index: var(--fsusblog-z-sticky, 30);
+    top: calc((3.5rem - var(--fsus-control-height-spacious)) / 2);
     right: var(--fsus-space-4);
-    bottom: calc((var(--fsus-space-8) * 2) + var(--fsus-safe-area-inset-bottom));
     display: inline-grid;
     width: var(--fsus-control-height-spacious);
     height: var(--fsus-control-height-spacious);

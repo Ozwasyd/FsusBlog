@@ -89,6 +89,7 @@ import {
   markdownEditorCommands
 } from '@/components/ui/markdown-editor/commands'
 import { createSnapshot, replaceSelection, type SelectionResult, type SelectionSnapshot } from '@/components/ui/markdown-editor/selection'
+import { useMediaQuery } from '@/composables/useMediaQuery'
 import { estimateReading } from '@/utils/readingEstimate'
 
 type FsusUiMarkdownEditorExpose = Readonly<{
@@ -155,7 +156,12 @@ const fsusCommandKeys = new Set<BlogCommandKey>([
   'table',
   'hr'
 ])
-const primaryCommandKeys: readonly BlogCommandKey[] = ['h1', 'h2', 'bold', 'italic', 'quote', 'link']
+const narrowCommandLayout = useMediaQuery('(max-width: 639px)', false)
+const primaryCommandKeys = computed<readonly BlogCommandKey[]>(() => (
+  narrowCommandLayout.value
+    ? ['h1', 'h2', 'bold', 'italic']
+    : ['h1', 'h2', 'bold', 'italic', 'quote', 'link']
+))
 const actionOverflowKeys = ['image'] as const
 
 const localValue = computed({
