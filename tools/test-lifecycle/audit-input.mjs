@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { retentionSourceState } from '../test-retention/audit.mjs';
+const { retentionSourceState } = await import(new URL('../test-retention/audit.mjs', import.meta.url));
 
 function validateSourceState(sourceState, label)
 {
@@ -50,7 +50,10 @@ function readStableJson(file)
         }
         catch (error)
         {
-            throw new Error(`audit input is invalid JSON: ${file}: ${error instanceof Error ? error.message : String(error)}`);
+            throw new Error(
+                `audit input is invalid JSON: ${file}: ${error instanceof Error ? error.message : String(error)}`,
+                { cause: error }
+            );
         }
     }
     finally

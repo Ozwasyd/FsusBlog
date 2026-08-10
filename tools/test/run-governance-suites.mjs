@@ -3,8 +3,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
-import { loadCanonicalInventory } from '../test-inventory/api.mjs';
-
 import { runWeightedCommandManifest } from './run-command-manifest.mjs';
 import {
     buildStaticGovernanceExecutionPlan,
@@ -14,6 +12,8 @@ import {
     loadStaticGovernanceRegistry
 } from './static-governance-host.mjs';
 import { sourceIdentity } from './test-asset-audit/preflight.mjs';
+
+const { loadCanonicalInventory } = await import(new URL('../test-inventory/api.mjs', import.meta.url));
 
 const root = path.resolve(new URL('../..', import.meta.url).pathname);
 const node = process.env.FSUSBLOG_NODE || process.execPath;

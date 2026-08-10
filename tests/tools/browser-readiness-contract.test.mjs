@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
+const {
     checkBrowserReadinessContract,
     inspectBrowserReadinessSource,
     inspectMeasurementHelper
-} from '../../tools/testing/check-browser-readiness-contract.mjs';
-import {
+} = await import(new URL('../../tools/testing/check-browser-readiness-contract.mjs', import.meta.url));
+const {
     applicationReadyPredicate,
     inspectFontLoadingReadiness,
     waitForAuthPermissionReady,
@@ -14,7 +14,7 @@ import {
     waitForPublicHydration,
     waitForServiceWorkerCacheReady,
     waitForSpaRoute
-} from '../frontend/support/playwright/readiness.mjs';
+} = await import(new URL('../frontend/support/playwright/readiness.mjs', import.meta.url));
 
 test('application readiness accepts a visible SPA shell once the runtime loader is closed', () =>
 {
@@ -149,10 +149,10 @@ class FakeLocator
 }
 
 const categories = [
-    ['hydration', (page, locator) => waitForPublicHydration(page, { timeoutMs: 17 })],
+    ['hydration', (page) => waitForPublicHydration(page, { timeoutMs: 17 })],
     ['SPA route', (page, locator) => waitForSpaRoute(page, '/archive', { content: locator, timeoutMs: 17 })],
-    ['service worker/cache', (page, locator) => waitForServiceWorkerCacheReady(page, { timeoutMs: 17 })],
-    ['notification suppression', (page, locator) => waitForNotificationSuppressed(page, { timeoutMs: 17 })],
+    ['service worker/cache', (page) => waitForServiceWorkerCacheReady(page, { timeoutMs: 17 })],
+    ['notification suppression', (page) => waitForNotificationSuppressed(page, { timeoutMs: 17 })],
     ['auth/permission', (page, locator) => waitForAuthPermissionReady(page, {
         pathPrefix: '/user/manage',
         content: locator,

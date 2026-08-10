@@ -8,22 +8,19 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
-    localFsusUiConsumptionDisabled,
-    resolveLocalFsusUiRepositoryRoot
-// eslint-disable-next-line import-x/no-relative-parent-imports -- The build consumes the frontend-owned local FsusUI repository resolver.
-} from '../../src/frontend/scripts/fsusui-root.mjs';
-import {
-    resolveMachineExecutionTimeoutMs
-} from '../test/bundles/bundle-steps.mjs';
-import {
-    resolveManifestLiveCapacity
-} from '../test/run-command-manifest.mjs';
-
-import {
     runFrontendBuildStageDag
 } from './build-stage-dag.mjs';
 
-const [{ createReleaseIdentitySnapshot, parseReleaseId }, { parseMatrix }] = await Promise.all([
+const [
+    { localFsusUiConsumptionDisabled, resolveLocalFsusUiRepositoryRoot },
+    { resolveMachineExecutionTimeoutMs },
+    { resolveManifestLiveCapacity },
+    { createReleaseIdentitySnapshot, parseReleaseId },
+    { parseMatrix }
+] = await Promise.all([
+    import(new URL('../../src/frontend/scripts/fsusui-root.mjs', import.meta.url)),
+    import(new URL('../test/bundles/bundle-steps.mjs', import.meta.url)),
+    import(new URL('../test/run-command-manifest.mjs', import.meta.url)),
     import(new URL('../release/release-id.mjs', import.meta.url)),
     import(new URL('../test-matrix/parse-matrix.mjs', import.meta.url))
 ]);

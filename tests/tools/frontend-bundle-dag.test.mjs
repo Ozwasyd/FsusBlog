@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 
-import { buildSettledPhaseJoinEvidence, executeWeightedStepDag } from '../../tools/test/bundles/bundle-steps.mjs';
+const { buildSettledPhaseJoinEvidence, executeWeightedStepDag } = await import(
+    new URL('../../tools/test/bundles/bundle-steps.mjs', import.meta.url)
+);
 
 const runnerSource = fs.readFileSync(new URL('../../tools/test/bundles/run-bundle.mjs', import.meta.url), 'utf8');
 const staticLaneSource = fs.readFileSync(new URL('../../tools/test/lanes/static-governance.sh', import.meta.url), 'utf8');
@@ -31,7 +33,7 @@ test('frontend bundle gates Vitest on only explicit blocking checks and schedule
 {
     const vitestStart = runnerSource.indexOf("const step = commandStep('vitest-production-projects'");
     const dagStart = runnerSource.indexOf('const frontendSteps = [', vitestStart);
-    const dagEnd = runnerSource.indexOf('\n  ];\n  await executeBundleStepDag(', dagStart);
+    const dagEnd = runnerSource.indexOf('\n    ];\n    await executeBundleStepDag(', dagStart);
     assert.ok(vitestStart >= 0 && dagStart > vitestStart && dagEnd > dagStart);
 
     const perfStart = runnerSource.indexOf("const perfStep = commandStep('vitest-production-perf-isolated'", vitestStart);

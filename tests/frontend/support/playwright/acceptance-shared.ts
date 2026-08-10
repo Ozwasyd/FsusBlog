@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
+import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { expect } from '@playwright/test'
 import type { Browser, BrowserContext, BrowserContextOptions, Locator, Page, ScreenshotOptions, StorageState } from '@playwright/test'
@@ -615,7 +616,7 @@ export async function prewarmDevRuntime(
         const deadlineAtMs = Date.now() + WARMUP_TIMEOUT_MS
         await navigateThroughRetryablePublicAot({
           navigate: async () => await session.page.goto(path, { waitUntil: 'domcontentloaded' }),
-          sleep: async (delayMs: number) => await session.page.waitForTimeout(delayMs),
+          sleep: async (delayMs: number) => await delay(delayMs),
           deadlineAtMs
         })
         await waitForAppReady(session.page, Math.max(1, deadlineAtMs - Date.now()))

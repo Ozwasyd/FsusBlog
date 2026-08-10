@@ -18,10 +18,10 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { parseMatrix } from '../test-matrix/parse-matrix.mjs';
-
 import { ADAPTER_VERSION, SUPPORT_CLASSIFICATION, classifyFile } from './adapters.mjs';
 import { INVENTORY_SCHEMA, validateInventoryArtifact } from './schema.mjs';
+
+const { parseMatrix } = await import(new URL('../test-matrix/parse-matrix.mjs', import.meta.url));
 
 export const DIRECTORY_CLOSURE = [
     'tests/backend',
@@ -419,7 +419,10 @@ function runXunitRoslynAdapter(root, projectPath, sourceFiles)
     }
     catch (error)
     {
-        throw new Error(`xunit roslyn adapter output is not valid JSON: ${error.message}`);
+        throw new Error(
+            `xunit roslyn adapter output is not valid JSON: ${error.message}`,
+            { cause: error }
+        );
     }
     const ownedFiles = new Set(xunitFiles.map((file) => file.path));
     const testCases = (report.testCases ?? []).filter((testCase) => ownedFiles.has(testCase.ownerFile));
@@ -481,7 +484,10 @@ function runTsAstAdapter(root, sourceFiles)
     }
     catch (error)
     {
-        throw new Error(`ts ast adapter output is not valid JSON: ${error.message}`);
+        throw new Error(
+            `ts ast adapter output is not valid JSON: ${error.message}`,
+            { cause: error }
+        );
     }
     const ownedFiles = new Set(tsFiles.map((file) => file.path));
     const testCases = (report.testCases ?? []).filter((testCase) => ownedFiles.has(testCase.ownerFile));
@@ -559,7 +565,10 @@ function runNativeEntryAdapter(root, sourceFiles, matrix)
     }
     catch (error)
     {
-        throw new Error(`native entry adapter output is not valid JSON: ${error.message}`);
+        throw new Error(
+            `native entry adapter output is not valid JSON: ${error.message}`,
+            { cause: error }
+        );
     }
     const ownedFiles = new Set(nativeFiles.map((file) => file.path));
     const testCases = (report.testCases ?? []).filter((testCase) => ownedFiles.has(testCase.ownerFile));
@@ -603,7 +612,10 @@ export function discoverTestInventory(root, { includeSourceState = true, runAdap
         }
         catch (error)
         {
-            throw new Error(`${error.message} (declared by ${[...bucket.declaredBy].sort().join(', ')})`);
+            throw new Error(
+                `${error.message} (declared by ${[...bucket.declaredBy].sort().join(', ')})`,
+                { cause: error }
+            );
         }
         if (classification === null)
         {

@@ -66,7 +66,7 @@ export function isInventoryStale(root, artifact, { runAdapters = true } = {})
         {
             return { stale: true, reason: `source digest changed: ${file.path}` };
         }
-        let classification = null;
+        let classification;
         try
         {
             classification = classifyFile(file.path, source);
@@ -124,7 +124,10 @@ export function loadCanonicalInventory(root, { artifactPath = DEFAULT_ARTIFACT_P
         }
         catch (error)
         {
-            throw new Error(`test inventory artifact is not valid JSON: ${error.message}`);
+            throw new Error(
+                `test inventory artifact is not valid JSON: ${error.message}`,
+                { cause: error }
+            );
         }
         validateInventoryArtifact(artifact);
         const stale = isInventoryStale(root, artifact, { runAdapters });

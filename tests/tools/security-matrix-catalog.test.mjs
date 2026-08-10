@@ -15,9 +15,10 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { projectCsrfRuntimeEvidence } from '../frontend/checks/security/csrf-browser-matrix.mjs';
-
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+const { projectCsrfRuntimeEvidence } = await import(
+    new URL('../frontend/checks/security/csrf-browser-matrix.mjs', import.meta.url)
+);
 const checker = path.join(root, 'tools/security/check-security-matrices.mjs');
 const catalogPath = path.join(root, 'security/matrices/catalog.json');
 const expectedMatrixPaths = [

@@ -1,3 +1,5 @@
+/* global caches, document, HTMLElement, requestAnimationFrame, window */
+
 const DEFAULT_READINESS_TIMEOUT_MS = 45_000;
 
 function readinessError(description, timeoutMs, error)

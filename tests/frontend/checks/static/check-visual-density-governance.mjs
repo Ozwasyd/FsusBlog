@@ -60,7 +60,6 @@ const identityCenterPath = path.join(repoRoot, 'src/frontend/src/views/user/Iden
 const userCommentsListPath = path.join(repoRoot, 'src/frontend/src/components/user/UserCommentsList.vue');
 const messagesConversationListPath = path.join(repoRoot, 'src/frontend/src/components/user/messages/MessagesConversationList.vue');
 const articleTrashPath = path.join(repoRoot, 'src/frontend/src/views/admin/article/Trash.vue');
-const articleWritePath = path.join(repoRoot, 'src/frontend/src/views/admin/article/Write.vue');
 const articleWriteCommandBarPath = path.join(
     repoRoot,
     'src/frontend/src/components/admin/article/ArticleWriteCommandBar.vue'

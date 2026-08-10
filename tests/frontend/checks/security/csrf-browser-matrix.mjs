@@ -7,9 +7,8 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-import { isDirectExecution } from '../../support/direct-execution.mjs';
-
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
+const { isDirectExecution } = await import(new URL('../../support/direct-execution.mjs', import.meta.url));
 const runtimeClass = 'FsusBlog.Server.Tests.Unit.SecurityHardening.CsrfOriginGuardRuntimeTests';
 const expectedMethodCounts = new Map([
     ['CredentialedUnsafeRequest_RejectsMissingTrustedOrigin', 4],

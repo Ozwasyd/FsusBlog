@@ -7,16 +7,18 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { ADAPTERS, classifyFile } from '../../tools/test-inventory/adapters.mjs';
-import {
-    computeInventoryDigest,
-    isInventoryStale,
-    loadCanonicalInventory
-} from '../../tools/test-inventory/api.mjs';
-import { canonicalStringify, discoverTestInventory } from '../../tools/test-inventory/discovery.mjs';
-import { INVENTORY_SCHEMA, validateInventoryArtifact } from '../../tools/test-inventory/schema.mjs';
-
 const repositoryRoot = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
+const [
+    { ADAPTERS, classifyFile },
+    { computeInventoryDigest, isInventoryStale, loadCanonicalInventory },
+    { canonicalStringify, discoverTestInventory },
+    { INVENTORY_SCHEMA, validateInventoryArtifact }
+] = await Promise.all([
+    import(new URL('../../tools/test-inventory/adapters.mjs', import.meta.url)),
+    import(new URL('../../tools/test-inventory/api.mjs', import.meta.url)),
+    import(new URL('../../tools/test-inventory/discovery.mjs', import.meta.url)),
+    import(new URL('../../tools/test-inventory/schema.mjs', import.meta.url))
+]);
 
 function writeFile(root, relative, content)
 {
@@ -269,6 +271,7 @@ test('source, path and adapter changes make a stored inventory stale', () =>
         const flippedArtifact = structuredClone(artifact);
         const entry = flippedArtifact.sourceFiles.find((sourceFile) => sourceFile.path === 'tests/tools/check.test.mjs');
         entry.sourceDigest = sha256(flippedSource);
+        flippedArtifact.inventoryDigest = computeInventoryDigest(flippedArtifact);
         stale = isInventoryStale(root, flippedArtifact, { runAdapters: false });
         assert.equal(stale.stale, true);
         assert.match(stale.reason, /adapter membership changed/u);
