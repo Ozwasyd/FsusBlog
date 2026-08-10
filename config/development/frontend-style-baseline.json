@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:a754b501ed7c023a5d508a13bf2f97ca006de6a448d0d71f609b92f4a689f3a0",
-    "sourceStateSha256": "a754b501ed7c023a5d508a13bf2f97ca006de6a448d0d71f609b92f4a689f3a0",
+    "generatedFrom": "source-state:eb9418845e743a051b38fa6cb40c1f5af19de44f5abda0e6ed4b60818389633f",
+    "sourceStateSha256": "eb9418845e743a051b38fa6cb40c1f5af19de44f5abda0e6ed4b60818389633f",
     "configurationSha256": "aa1eb8b9803748da07ffbcda4a9bf08f6dc69cf2a24828d2ad14bae5f97ffdf4",
     "violationCount": 273661,
     "fileCount": 1506,
@@ -793,7 +793,7 @@
         },
         {
             "path": "src/frontend/src/assets/public-shell-foundation.css",
-            "sourceSha256": "bf43ffb19dd260198b223f0a0a05b233e1825ae1f988ec74f48f70867f2f309b",
+            "sourceSha256": "2880430a4f904a875f41ff2cb6ec572dc9aa5a9f4d7247a8e2a27fbdd1057ff6",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
