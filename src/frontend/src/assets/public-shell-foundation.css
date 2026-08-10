@@ -232,6 +232,22 @@ html[data-theme-resolved='dark']
     }
 }
 
+/* 首屏接管稳定层：预留最终字体和 hydrated controls 的 header 高度。 */
+#fsus-aot-shell > header,
+#fsus-aot-shell [data-public-shell-header]
+ {
+    min-height: 3.25rem;
+}
+
+@media (width >= 768px)
+ {
+    #fsus-aot-shell > header,
+    #fsus-aot-shell [data-public-shell-header]
+ {
+        min-height: 6rem;
+    }
+}
+
 #fsus-aot-shell .ui-pagination
  {
     display: flex;
@@ -576,13 +592,7 @@ html[data-theme-resolved='dark'] #fsus-aot-shell .fsusblog-public-brand-image--d
     }
 }
 
-/* 首屏接管稳定层：约束 header/main/footer 的最小尺寸，避免整页下推造成 CLS。 */
-#fsus-aot-shell > header,
-#fsus-aot-shell [data-public-shell-header]
- {
-    min-height: 3.25rem;
-}
-
+/* 首屏接管稳定层：约束 main/footer 的最小尺寸，避免整页下推造成 CLS。 */
 #top > main,
 #fsus-aot-shell > main,
 #fsus-aot-shell .fsusblog-public-main-target
