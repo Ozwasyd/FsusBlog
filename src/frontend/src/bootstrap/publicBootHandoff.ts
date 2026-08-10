@@ -32,7 +32,7 @@ function isIntent(value: unknown): value is PublicBootIntent
 export function consumePublicBootHandoff(expectedBuildIdentity: string): PublicBootHandoff | null
 {
     const carrier = document.getElementById(handoffId);
-    if (!(carrier instanceof HTMLScriptElement) || carrier.type !== 'application/json')
+    if (!(carrier instanceof HTMLDivElement) || !carrier.hidden)
     {
         carrier?.remove();
         return null;

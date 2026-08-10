@@ -531,7 +531,6 @@ export async function openThemedAuditedContext(
       root.classList.toggle('light', mode === 'light')
       root.dataset.themeMode = mode
       root.dataset.themeResolved = isDark ? 'dark' : 'light'
-      root.style.colorScheme = isDark ? 'dark' : 'light'
       return true
     }
 
@@ -567,16 +566,11 @@ export async function setThemeMode(page: Page, mode: ThemeMode): Promise<void> {
   await page.evaluate((nextMode: ThemeMode) => {
     localStorage.setItem('fsus:theme-mode', nextMode)
     const root = document.documentElement
-    const body = document.body
     const isDark = nextMode === 'dark'
     root.classList.toggle('dark', nextMode === 'dark')
     root.classList.toggle('light', nextMode === 'light')
     root.dataset.themeMode = nextMode
     root.dataset.themeResolved = isDark ? 'dark' : 'light'
-    root.style.colorScheme = isDark ? 'dark' : 'light'
-    if (body) {
-      body.style.colorScheme = root.style.colorScheme
-    }
   }, mode)
 }
 

@@ -559,6 +559,11 @@ test('capture contracts keep shards temporary and release verification explicit'
         acceptanceShared,
         /prewarmDevRuntime[\s\S]*?navigateThroughRetryablePublicAot[\s\S]*?deadlineAtMs[\s\S]*?waitForAppReady/u
     );
+    assert.doesNotMatch(
+        acceptanceShared,
+        /\.style\.colorScheme/u,
+        'capture setup must preserve production style-src-attr CSP'
+    );
     assert.match(manualConfiguration, /FSUSBLOG_MANUAL_SCREENSHOT_SHARD_NAME must match/u);
     assert.match(manualConfiguration, /public-preview docs staging path mismatch/u);
     assert.match(manualConfiguration, /public-preview docs writer lock identity mismatch/u);

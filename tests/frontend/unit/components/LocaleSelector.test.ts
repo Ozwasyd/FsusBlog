@@ -63,7 +63,8 @@ describe('LocaleSelector presentational contract', () => {
     const wrapper = mountSelector({ items, activeLocale: 'ja-JP' })
     expect(items).toHaveLength(ENABLED_LOCALES.length)
     expect(items.map((item) => item.code)).toEqual(ENABLED_LOCALES.map((locale) => locale.code))
-    // Menu starts closed (v-show); items remain in DOM for stable projection.
+    // The CSS-owned closed state keeps every projected item in the DOM without
+    // creating an inline style that production CSP would reject.
     expect(wrapper.findAll('[data-locale-selector-item]')).toHaveLength(ENABLED_LOCALES.length)
     expect(wrapper.get('[data-locale-selector-trigger]').attributes('aria-expanded')).toBe('false')
     expect(wrapper.props('items')).toEqual(items)
@@ -304,6 +305,7 @@ describe('LocaleSelector source isolation', () => {
     expect(source).not.toMatch(/requestLocale|localeRuntime|localeCatalog|ENABLED_LOCALES/u)
     expect(source).not.toMatch(/@\/router|vue-router|localStorage|sessionStorage|document\.cookie/u)
     expect(source).not.toMatch(/@\/api\/|@\/store\/|@\/services\/localePreference/u)
+    expect(source).not.toMatch(/\bv-show\b/u)
     const deprecatedLocaleResiduePattern = [
       'Locale' + 'Toggle',
       'toggle' + 'Locale',
