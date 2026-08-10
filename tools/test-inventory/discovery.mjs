@@ -396,11 +396,18 @@ function runXunitRoslynAdapter(root, projectPath, sourceFiles)
             .join('\n');
         throw new Error(`xunit roslyn adapter build failed (exit ${build.status}): ${detail}`);
     }
-    const adapterDirectory = path.dirname(adapterProject);
-    const adapterExecutable = path.join(adapterDirectory, 'bin/Debug/net10.0/FsusBlog.XunitRoslynAdapter');
     const result = spawnSync(
-        adapterExecutable,
-        [root, path.join(root, projectPath)],
+        'dotnet',
+        [
+            'run',
+            '--project',
+            adapterProject,
+            '--no-build',
+            '--no-launch-profile',
+            '--',
+            root,
+            path.join(root, projectPath)
+        ],
         { cwd: root, encoding: 'utf8', maxBuffer: 128 * 1024 * 1024 }
     );
     if (result.status !== 0)

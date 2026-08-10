@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -11,22 +12,43 @@ const fixtureProject = path.join(
     'tools/test-inventory/xunit-roslyn-adapter/fixtures/AdapterFixtureTests/AdapterFixtureTests.csproj'
 );
 const adapterProjectDir = path.join(repositoryRoot, 'tools/test-inventory/xunit-roslyn-adapter');
-const adapterExecutable = path.join(adapterProjectDir, 'bin/Debug/net10.0/FsusBlog.XunitRoslynAdapter');
+const adapterProject = path.join(adapterProjectDir, 'FsusBlog.XunitRoslynAdapter.csproj');
+const productionBuildRoot = mkdtempSync(path.join(os.tmpdir(), 'fsus-xunit-adapter-build-'));
+const adapterEnvironment = {
+    ...process.env,
+    FSUSBLOG_PRODUCTION_BUILD_ROOT: productionBuildRoot
+};
+const relocatedAdapterExecutable = path.join(
+    productionBuildRoot,
+    'dotnet/FsusBlog.XunitRoslynAdapter/bin/Debug/net10.0/FsusBlog.XunitRoslynAdapter'
+);
 
 function buildAdapter()
 {
-    execFileSync('dotnet', ['build', path.join(adapterProjectDir, 'FsusBlog.XunitRoslynAdapter.csproj'), '-v:q'], {
+    execFileSync('dotnet', ['build', adapterProject, '-v:q'], {
         cwd: repositoryRoot,
         encoding: 'utf8',
+        env: adapterEnvironment,
         stdio: 'pipe'
     });
+    assert.equal(existsSync(relocatedAdapterExecutable), true, 'adapter build must honor the isolated output root');
 }
 
 function runAdapter()
 {
-    const stdout = execFileSync(adapterExecutable, [repositoryRoot, fixtureProject], {
+    const stdout = execFileSync('dotnet', [
+        'run',
+        '--project',
+        adapterProject,
+        '--no-build',
+        '--no-launch-profile',
+        '--',
+        repositoryRoot,
+        fixtureProject
+    ], {
         cwd: repositoryRoot,
         encoding: 'utf8',
+        env: adapterEnvironment,
         maxBuffer: 64 * 1024 * 1024
     });
     return JSON.parse(stdout);
@@ -43,6 +65,7 @@ function factsOf(report, methodName)
 }
 
 buildAdapter();
+test.after(() => rmSync(productionBuildRoot, { recursive: true, force: true }));
 
 test('xunit Roslyn adapter extracts Fact, InlineData Theory, MemberData, ClassData and nested/partial/generic owners', () =>
 {
@@ -135,9 +158,19 @@ test('test-to-test symbol calls are resolved and assembly kinds classify test vs
 test('compile or semantic model failure fails closed instead of falling back to regex', () =>
 {
     const root = path.join(repositoryRoot, 'tools/test-inventory/xunit-roslyn-adapter/fixtures');
-    assert.throws(() => execFileSync(adapterExecutable, [root, '/does/not/exist.csproj'], {
+    assert.throws(() => execFileSync('dotnet', [
+        'run',
+        '--project',
+        adapterProject,
+        '--no-build',
+        '--no-launch-profile',
+        '--',
+        root,
+        '/does/not/exist.csproj'
+    ], {
         cwd: root,
         encoding: 'utf8',
+        env: adapterEnvironment,
         stdio: 'pipe'
     }), /test project not found|fail closed/u);
 });
