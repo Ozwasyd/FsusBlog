@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v3",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:de0ea853dce4ff5d94eb57392b77df3991b7ed68ee852232e9cee17037c3ffec",
+    "policyDigest": "sha256:fa91c9f8a2e303d89c9118edd0d3005e7dc16fa4960487f0a484a40079bad7f3",
     "documents": [
         {
             "path": "docs/active-release-fenced-commits.md",
@@ -913,6 +913,20 @@
             "supersededBy": null,
             "relatedIssues": [],
             "producer": null
+        },
+        {
+            "path": "docs/assets/visual-evidence/public-preview-quality.json",
+            "title": "Public Preview Quality",
+            "kind": "json",
+            "status": "generated",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                2753
+            ],
+            "producer": "tools/docs/public-preview-quality-publication.mjs"
         },
         {
             "path": "docs/cache-governance.catalog.json",

@@ -581,6 +581,17 @@
             "supersededBy": null
         },
         {
+            "path": "docs/assets/visual-evidence/public-preview-quality.json",
+            "status": "generated",
+            "owner": "frontend",
+            "relatedIssues": [
+                2753
+            ],
+            "supersedes": [],
+            "supersededBy": null,
+            "producer": "tools/docs/public-preview-quality-publication.mjs"
+        },
+        {
             "path": "docs/cache-governance.catalog.json",
             "status": "current",
             "owner": "backend",
