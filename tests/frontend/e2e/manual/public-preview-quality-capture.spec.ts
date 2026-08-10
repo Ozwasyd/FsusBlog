@@ -79,9 +79,7 @@ test.describe('public-preview quality capture', () => {
         .filter((report) => report.status !== 'pass')
         .map((report) => ({
           id: report.id,
-          machineFailures: Object.entries(report.machine)
-            .filter(([, result]) => result.status !== 'pass')
-            .map(([name, result]) => ({ name, findings: result.findings })),
+          machineFailures: machineFailureDetails(report),
           reviewerReasons: report.reviewer.reasons
         })))}`
     ).toBe('pass')
@@ -89,13 +87,16 @@ test.describe('public-preview quality capture', () => {
 })
 
 function qualityFailureSummary(report: PublicPreviewQualityReport): string {
-  const machineFailures = Object.entries(report.machine)
-    .filter(([, result]) => result.status !== 'pass')
-    .map(([name, result]) => ({ name, findings: result.findings }))
   return JSON.stringify({
-    machineFailures,
+    machineFailures: machineFailureDetails(report),
     reviewerReasons: report.reviewer.reasons
   })
+}
+
+function machineFailureDetails(report: PublicPreviewQualityReport) {
+  return Object.entries(report.machine)
+    .filter(([, result]) => result.status !== 'pass')
+    .map(([name, result]) => ({ name, result }))
 }
 
 async function captureScenario(
