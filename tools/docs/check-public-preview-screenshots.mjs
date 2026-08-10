@@ -169,6 +169,26 @@ for (const token of [
 {
     includes('tests/frontend/support/playwright/manualScreenshotConfiguration.ts', manualConfiguration, token);
 }
+const qualityCapturePath = 'tests/frontend/e2e/manual/public-preview-quality-capture.spec.ts';
+const qualityCapture = read(qualityCapturePath);
+for (const token of [
+    'await waitForPublicHydration(session.page)',
+    'machineFailures',
+    'reviewerReasons'
+])
+{
+    includes(qualityCapturePath, qualityCapture, token);
+}
+const qualityHydrationReadinessIndex = qualityCapture.indexOf('await waitForPublicHydration(session.page)');
+const qualityDynamicNormalizationIndex = qualityCapture.indexOf('await normalizeDynamicEvidenceForScreenshot(session.page)');
+if (
+    qualityHydrationReadinessIndex < 0
+    || qualityDynamicNormalizationIndex < 0
+    || qualityHydrationReadinessIndex > qualityDynamicNormalizationIndex
+)
+{
+    errors.push('public-preview quality capture must finish hydration before normalizing dynamic DOM text');
+}
 const playwrightConfiguration = read('src/frontend/playwright.config.ts');
 for (const token of [
     'FSUSBLOG_PUBLIC_PREVIEW_DOCS_CAPTURE',

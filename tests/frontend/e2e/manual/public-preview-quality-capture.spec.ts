@@ -14,6 +14,7 @@ import {
   userName,
   userPassword,
   waitForAppReady,
+  waitForPublicHydration,
   waitForScreenshotPaintStability,
   type ThemeMode
 } from '../../support/playwright/acceptance-shared'
@@ -72,7 +73,18 @@ test.describe('public-preview quality capture', () => {
 
     const matrix = createPublicPreviewQualityMatrix(reports)
     await writePublicPreviewQualityMatrix(outputDirectory, matrix)
-    expect(matrix.status, 'public-preview quality matrix').toBe('pass')
+    expect(
+      matrix.status,
+      `public-preview quality matrix: ${JSON.stringify(reports
+        .filter((report) => report.status !== 'pass')
+        .map((report) => ({
+          id: report.id,
+          machineFailures: Object.entries(report.machine)
+            .filter(([, result]) => result.status !== 'pass')
+            .map(([name, result]) => ({ name, findings: result.findings })),
+          reviewerReasons: report.reviewer.reasons
+        })))}`
+    ).toBe('pass')
   })
 })
 
@@ -161,6 +173,9 @@ async function captureScenario(
     }
     headerSamples.push(await measurePublicPreviewHeader(session.page, 'application-ready'))
     await settlePage(session.page)
+    if (await session.page.locator('#fsus-aot-shell').count() > 0) {
+      await waitForPublicHydration(session.page)
+    }
     await ensureThemeApplied(session.page, scenario.theme as ThemeMode)
     await freezeUiForScreenshot(session.page)
     await normalizeDynamicEvidenceForScreenshot(session.page)
