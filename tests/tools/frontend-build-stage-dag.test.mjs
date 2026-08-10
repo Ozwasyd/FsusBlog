@@ -15,7 +15,8 @@ const {
     createFrontendBuildStages,
     prepareFrontendBuildOutputRoot,
     renderStablePublicBootKernelAlias,
-    renderStableSpaEntryAlias
+    renderStableSpaEntryAlias,
+    resolveProductionFrontendBuildEnv
 } = await import(pathToFileURL(path.join(repositoryRoot, 'tools/frontend/build.mjs')).href);
 
 function resources(overrides = {})
@@ -94,6 +95,40 @@ async function temporaryDirectory(t)
     t.after(() => fs.rm(directory, { recursive: true, force: true }));
     return directory;
 }
+
+test('production frontend build consumes the sealed runtime release identity', () =>
+{
+    const commitSha = 'a'.repeat(40);
+    const releaseId = `20260810150827-${commitSha.slice(0, 12)}`;
+    const resolved = resolveProductionFrontendBuildEnv({
+        FSUSBLOG_TEST_SOURCE_COMMIT: commitSha,
+        FSUSBLOG_RELEASE_ID: releaseId
+    });
+
+    assert.equal(resolved.VITE_FSUSBLOG_BUILD_ID, releaseId);
+    assert.throws(
+        () => resolveProductionFrontendBuildEnv({
+            FSUSBLOG_TEST_SOURCE_COMMIT: commitSha,
+            FSUSBLOG_RELEASE_ID: releaseId,
+            VITE_FSUSBLOG_BUILD_ID: `20260810151156-${commitSha.slice(0, 12)}`
+        }),
+        /does not match the sealed runtime release identity/u
+    );
+    assert.throws(
+        () => resolveProductionFrontendBuildEnv({
+            FSUSBLOG_TEST_SOURCE_COMMIT: 'b'.repeat(40),
+            FSUSBLOG_RELEASE_ID: releaseId
+        }),
+        /does not match the frontend source commit/u
+    );
+    assert.throws(
+        () => resolveProductionFrontendBuildEnv({
+            FSUSBLOG_TEST_SOURCE_COMMIT: commitSha,
+            FSUSBLOG_RELEASE_ID: 'local-unversioned'
+        }),
+        /sealed runtime release identity is invalid/u
+    );
+});
 
 test('frontend build stage validation rejects unknown dependencies and cycles', () =>
 {
