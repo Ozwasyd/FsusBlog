@@ -9,6 +9,9 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const { buildLifecycleReport, classifyNodeRegistryEntry, validateLifecycleRegistry } = await import(
     pathToFileURL(path.join(root, 'tools/test-lifecycle/lifecycle.mjs')).href
 );
+const { loadLifecycleAuditInput, resolveLifecycleAudit } = await import(
+    pathToFileURL(path.join(root, 'tools/test-lifecycle/audit-input.mjs')).href
+);
 
 const audit = {
     sourceState: { commit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) },
@@ -29,6 +32,22 @@ function registry(entry = {})
             classifications: ['behavior'],
             ...entry
         }]
+    };
+}
+
+function auditInputFixture(sourceState = {
+    commit: 'a'.repeat(40),
+    worktreeFingerprint: 'b'.repeat(64)
+})
+{
+    return {
+        schema: 'fsusblog.test-retention-audit.v2',
+        sourceState,
+        producer: { sourceState },
+        counts: { totalFiles: 1 },
+        files: audit.files,
+        testRecords: audit.testRecords,
+        retainedEvidence: { testRecordCount: 1 }
     };
 }
 
@@ -162,4 +181,103 @@ test('registry classification resolves lane, authority, workflow and package-scr
         classifyNodeRegistryEntry(fixtureRoot, 'tests/tools/package-owner.test.mjs', 'test("behavior", () => {})').owner,
         'package-script:test:package-owner'
     );
+});
+
+test('lifecycle audit input rejects invalid or stale artifacts and never invokes the standalone producer', async (context) =>
+{
+    const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-lifecycle-audit-input-'));
+    context.after(() => fs.rmSync(fixtureRoot, { recursive: true, force: true }));
+    const currentSourceState = {
+        commit: 'a'.repeat(40),
+        worktreeFingerprint: 'b'.repeat(64)
+    };
+    const file = path.join(fixtureRoot, 'retention.json');
+    const write = (value) => fs.writeFileSync(
+        file,
+        typeof value === 'string' ? value : `${JSON.stringify(value)}\n`
+    );
+
+    await assert.rejects(
+        loadLifecycleAuditInput({
+            root: fixtureRoot,
+            auditInput: path.join(fixtureRoot, 'missing.json'),
+            currentSourceState
+        }),
+        /audit input does not exist/u
+    );
+    write('{');
+    await assert.rejects(
+        loadLifecycleAuditInput({ root: fixtureRoot, auditInput: file, currentSourceState }),
+        /audit input is invalid JSON/u
+    );
+    write({ ...auditInputFixture(), schema: 'wrong' });
+    await assert.rejects(
+        loadLifecycleAuditInput({ root: fixtureRoot, auditInput: file, currentSourceState }),
+        /must use fsusblog\.test-retention-audit\.v2/u
+    );
+    write({
+        ...auditInputFixture(),
+        counts: { totalFiles: 0 },
+        files: [],
+        testRecords: [],
+        retainedEvidence: { testRecordCount: 0 }
+    });
+    await assert.rejects(
+        loadLifecycleAuditInput({ root: fixtureRoot, auditInput: file, currentSourceState }),
+        /audit input is empty/u
+    );
+    write({
+        ...auditInputFixture(),
+        counts: { totalFiles: 2 }
+    });
+    await assert.rejects(
+        loadLifecycleAuditInput({ root: fixtureRoot, auditInput: file, currentSourceState }),
+        /audit input file count is incomplete/u
+    );
+    write({
+        ...auditInputFixture(),
+        retainedEvidence: { testRecordCount: 2 }
+    });
+    await assert.rejects(
+        loadLifecycleAuditInput({ root: fixtureRoot, auditInput: file, currentSourceState }),
+        /audit input test-record count is incomplete/u
+    );
+    write({
+        ...auditInputFixture(),
+        producer: {
+            sourceState: {
+                commit: 'c'.repeat(40),
+                worktreeFingerprint: 'd'.repeat(64)
+            }
+        }
+    });
+    await assert.rejects(
+        loadLifecycleAuditInput({ root: fixtureRoot, auditInput: file, currentSourceState }),
+        /producer source state does not match/u
+    );
+    write(auditInputFixture({
+        commit: 'c'.repeat(40),
+        worktreeFingerprint: 'd'.repeat(64)
+    }));
+    await assert.rejects(
+        loadLifecycleAuditInput({ root: fixtureRoot, auditInput: file, currentSourceState }),
+        /does not match the current commit\/worktree/u
+    );
+
+    write(auditInputFixture());
+    const before = fs.readFileSync(file);
+    let producerCalls = 0;
+    const resolved = await resolveLifecycleAudit({
+        root: fixtureRoot,
+        auditInput: file,
+        currentSourceState,
+        produceStandaloneAudit: () =>
+        {
+            producerCalls += 1;
+            throw new Error('must not run');
+        }
+    });
+    assert.equal(producerCalls, 0);
+    assert.equal(resolved.schema, 'fsusblog.test-retention-audit.v2');
+    assert.deepEqual(fs.readFileSync(file), before);
 });
