@@ -67,7 +67,7 @@
       data-locale-selector-menu
       role="menu"
       :aria-label="triggerAriaLabel"
-      :aria-activedescendant="activeDescendantId"
+      v-bind="{ 'aria-activedescendant': activeDescendantId, hidden: !resolvedOpen }"
     >
       <component
         :is="item.href ? 'a' : 'button'"
@@ -528,11 +528,6 @@ onBeforeUnmount(() => {
   background: var(--fsusblog-page-bg, Canvas);
   box-shadow: var(--fsusblog-reading-shadow-panel, 0 8px 24px color-mix(in srgb, CanvasText 8%, transparent));
   overscroll-behavior: contain;
-}
-
-.locale-selector:not(.locale-selector--open) .locale-selector__menu
-{
-    display: none;
 }
 
 .locale-selector__item {

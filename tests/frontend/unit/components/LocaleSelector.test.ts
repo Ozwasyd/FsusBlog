@@ -63,10 +63,11 @@ describe('LocaleSelector presentational contract', () => {
     const wrapper = mountSelector({ items, activeLocale: 'ja-JP' })
     expect(items).toHaveLength(ENABLED_LOCALES.length)
     expect(items.map((item) => item.code)).toEqual(ENABLED_LOCALES.map((locale) => locale.code))
-    // The CSS-owned closed state keeps every projected item in the DOM without
-    // creating an inline style that production CSP would reject.
+    // Native hidden state keeps every projected item in the DOM without
+    // depending on a CSS chunk or creating an inline style rejected by CSP.
     expect(wrapper.findAll('[data-locale-selector-item]')).toHaveLength(ENABLED_LOCALES.length)
     expect(wrapper.get('[data-locale-selector-trigger]').attributes('aria-expanded')).toBe('false')
+    expect(wrapper.get('[data-locale-selector-menu]').attributes()).toHaveProperty('hidden')
     expect(wrapper.props('items')).toEqual(items)
     expect(wrapper.get('[data-locale-selector-trigger]').text()).not.toMatch(/\bAa\b/)
     expect(wrapper.get('[data-locale-selector-trigger]').text()).not.toContain('中/EN')
@@ -76,6 +77,7 @@ describe('LocaleSelector presentational contract', () => {
   it('desktop trigger shows globe affordance and current nativeName', async () => {
     const wrapper = mountSelector({ activeLocale: 'es-419', compact: false })
     await openWithKeyboard(wrapper)
+    expect(wrapper.get('[data-locale-selector-menu]').attributes()).not.toHaveProperty('hidden')
     expect(wrapper.get('[data-locale-selector-trigger]').text()).toContain('Español (Latinoamérica)')
     expect(wrapper.find('.locale-selector__globe-icon').exists()).toBe(true)
     expect(wrapper.get('[data-locale-selector-trigger]').text()).not.toMatch(/\bAa\b/)

@@ -109,6 +109,18 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         "markdown"
     ];
 
+    private static readonly string[] s_publicRuntimeCssOwners =
+    [
+        "public-page-runtime"
+    ];
+
+    private static readonly FrozenSet<string> s_publicRuntimeCssTraversalBoundaries =
+    new[]
+    {
+        "index",
+        "full-app-core"
+    }.ToFrozenSet(StringComparer.Ordinal);
+
     private static readonly string[] s_fullAppTakeoverModuleOwners =
     [
         "entry-runtime",
@@ -816,6 +828,20 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
             }
         }
 
+        foreach (string owner in s_publicRuntimeCssOwners)
+        {
+            foreach (string css in GetOwnedCss(
+                manifest,
+                owner,
+                s_publicRuntimeCssTraversalBoundaries))
+            {
+                if (!styles.Contains(css, StringComparer.Ordinal))
+                {
+                    styles.Add(css);
+                }
+            }
+        }
+
         if (styles.Count == 0 && _env.IsDevelopment())
         {
             styles.AddRange(PickCssFromAssetsDirectory(pageId));
@@ -839,6 +865,10 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
             .Concat(s_publicMarkdownCssOwners)
             .SelectMany(owner => GetOwnedCss(manifest, owner))
             .ToHashSet(StringComparer.Ordinal);
+        publicSet.UnionWith(s_publicRuntimeCssOwners.SelectMany(owner => GetOwnedCss(
+            manifest,
+            owner,
+            s_publicRuntimeCssTraversalBoundaries)));
         return s_fullAppTakeoverCssOwners
             .SelectMany(owner => GetOwnedCss(manifest, owner))
             .Where(href => !publicSet.Contains(href))
@@ -898,13 +928,25 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
             or PublicPageId.Copyright;
 
     private static IEnumerable<string> GetOwnedCss(IReadOnlyDictionary<string, ManifestAsset> manifest, string owner)
-        => GetOwnedAssets(manifest, owner)
+        => GetOwnedCss(manifest, owner, FrozenSet<string>.Empty);
+
+    private static IEnumerable<string> GetOwnedCss(
+        IReadOnlyDictionary<string, ManifestAsset> manifest,
+        string owner,
+        IReadOnlySet<string> traversalBoundaries)
+        => GetOwnedAssets(manifest, owner, traversalBoundaries)
             .SelectMany(static asset => asset.File.EndsWith(".css", StringComparison.OrdinalIgnoreCase)
                 ? new[] { asset.File }.Concat(asset.Css)
                 : asset.Css)
             .Distinct(StringComparer.Ordinal);
 
     private static IEnumerable<ManifestAsset> GetOwnedAssets(IReadOnlyDictionary<string, ManifestAsset> manifest, string owner)
+        => GetOwnedAssets(manifest, owner, FrozenSet<string>.Empty);
+
+    private static IEnumerable<ManifestAsset> GetOwnedAssets(
+        IReadOnlyDictionary<string, ManifestAsset> manifest,
+        string owner,
+        IReadOnlySet<string> traversalBoundaries)
     {
         ManifestAsset? root = manifest.Values.SingleOrDefault(asset => string.Equals(asset.Name, owner, StringComparison.Ordinal));
         if (root is null)
@@ -917,6 +959,12 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
 
         IEnumerable<ManifestAsset> Visit(ManifestAsset asset)
         {
+            if (!ReferenceEquals(asset, root)
+                && traversalBoundaries.Contains(asset.Name))
+            {
+                yield break;
+            }
+
             if (!visited.Add(asset.Key))
             {
                 yield break;
