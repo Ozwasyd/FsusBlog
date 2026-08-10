@@ -593,6 +593,19 @@ test('capture contracts keep shards temporary and release verification explicit'
     assert.match(bootstrap, /PUBLIC_PREVIEW_DOCS_CAPTURE:-0\}" == "1"[\s\S]*?PUBLIC_PREVIEW_CAPTURE_EXECUTION_BUDGET_CAP_MS/u);
     assert.match(runner, /FSUSBLOG_PHYSICAL_BUNDLE_ID=standalone/u);
     assert.match(runner, /FSUSBLOG_STEP_ID=bootstrap/u);
+    assert.match(
+        runner,
+        /FSUSBLOG_STEP_ID=release-public-hydration\s+\\\s*"\$ROOT_DIR\/tools\/test\/lanes\/release-public-hydration\.sh"/u
+    );
+    const environmentIndex = runner.indexOf('done <"$ENV_FILE"');
+    const hydrationIndex = runner.indexOf('FSUSBLOG_STEP_ID=release-public-hydration');
+    const identityIndex = runner.indexOf('public-preview-runtime-identity.mjs');
+    assert.ok(
+        environmentIndex >= 0
+        && environmentIndex < hydrationIndex
+        && hydrationIndex < identityIndex,
+        'docs writer must run the canonical release hydration producer after bootstrap and before preview readers'
+    );
     assert.match(runner, /node_modules\/\.bin\/\$executable/u);
     assert.match(runner, /public-preview-runtime-identity\.mjs/u);
     assert.match(runner, /FSUSBLOG_MANUAL_SCREENSHOT_DIR="\$WORK_DIR\/manual"/u);

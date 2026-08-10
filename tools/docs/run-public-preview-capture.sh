@@ -125,6 +125,9 @@ while IFS='=' read -r key value; do
     fi
 done <"$ENV_FILE"
 
+FSUSBLOG_STEP_ID=release-public-hydration \
+    "$ROOT_DIR/tools/test/lanes/release-public-hydration.sh"
+
 export FSUSBLOG_BASE_URL="$FSUSBLOG_RELEASE_PREVIEW_URL"
 export FSUSBLOG_PUBLIC_BASE_URL="$FSUSBLOG_RELEASE_PREVIEW_URL"
 export PLAYWRIGHT_BASE_URL="$FSUSBLOG_RELEASE_PREVIEW_URL"
