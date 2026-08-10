@@ -54,7 +54,7 @@ function replaceTierField(source, tierId, field, value)
     const fieldIndex = tierStart + fieldOffset;
     let nextFieldIndex = fieldIndex + 1;
     while (nextFieldIndex < tierEnd
-        && !/^      [A-Za-z][A-Za-z0-9]*:/u.test(lines[nextFieldIndex]))
+        && !/^ {6}[A-Za-z][A-Za-z0-9]*:/u.test(lines[nextFieldIndex]))
     {
         nextFieldIndex += 1;
     }

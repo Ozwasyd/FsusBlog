@@ -12,7 +12,8 @@ const {
     pathToFileURL(path.join(root, 'tools/test/run-release-reliability-scenarios.mjs')).href
 );
 
-test('release reliability catalog contains exactly 7 scenarios matching expected IDs 1:1', () => {
+test('release reliability catalog contains exactly 7 scenarios matching expected IDs 1:1', () =>
+{
     const catalog = loadCatalog();
     assert.equal(catalog.catalogScenarioCount, 7);
     assert.equal(catalog.scenarios.length, 7);
@@ -30,7 +31,8 @@ test('release reliability catalog contains exactly 7 scenarios matching expected
     assert.deepEqual(actualIds, expectedIds);
 });
 
-test('release reliability catalog declares structured executable commands and evidence contracts', () => {
+test('release reliability catalog declares structured executable commands and evidence contracts', () =>
+{
     const catalog = loadCatalog();
     assert.equal(
         catalog.childEnvironmentContract.schema,
@@ -46,7 +48,8 @@ test('release reliability catalog declares structured executable commands and ev
         physicalExecution: 'config/testing/physical-execution-process-policy.json',
         releaseResource: 'config/deployment/zero-downtime-resource-policy.json'
     });
-    for (const scenario of catalog.scenarios) {
+    for (const scenario of catalog.scenarios)
+    {
         assert.equal(typeof scenario.command.executable, 'string');
         assert.ok(Array.isArray(scenario.command.args));
         assert.equal(typeof scenario.command.cwd, 'string');
@@ -65,7 +68,8 @@ test('release reliability catalog declares structured executable commands and ev
         'release-data-scale-m',
         'release-memory-leak-budget',
         'release-open-handle-budget'
-    ]) {
+    ])
+    {
         const inherited = catalog.scenarios.find(
             (scenario) => scenario.id === scenarioId
         ).command.inheritEnv.required;
@@ -111,7 +115,8 @@ test('release reliability catalog declares structured executable commands and ev
     );
 });
 
-test('release reliability catalog rejects every weakened canonical qualification value', () => {
+test('release reliability catalog rejects every weakened canonical qualification value', () =>
+{
     const weakeningCases = [
         ['release-soak-min', 'FSUSBLOG_SOAK_SHORT_SECONDS', '1'],
         ['release-load-peak', 'FSUSBLOG_LOAD_PROFILE_CONCURRENCY', '1'],
@@ -133,19 +138,24 @@ test('release reliability catalog rejects every weakened canonical qualification
             'config/testing/mutation/forged.json'
         ]
     ];
-    for (const [scenarioId, key, value] of weakeningCases) {
+    for (const [scenarioId, key, value] of weakeningCases)
+    {
         const catalog = structuredClone(loadCatalog());
         catalog.scenarios.find((scenario) => scenario.id === scenarioId).command.env[key] = value;
         const temporaryRoot = fs.mkdtempSync(
             path.join(os.tmpdir(), 'fsusblog-release-reliability-catalog-')
         );
         assert.throws(
-            () => {
+            () =>
+            {
                 const temporary = path.join(temporaryRoot, 'catalog.json');
-                try {
+                try
+                {
                     fs.writeFileSync(temporary, JSON.stringify(catalog));
                     loadCatalog({ catalogFile: temporary });
-                } finally {
+                }
+                finally
+                {
                     fs.rmSync(temporaryRoot, { recursive: true, force: true });
                 }
             },
@@ -155,7 +165,8 @@ test('release reliability catalog rejects every weakened canonical qualification
     }
 });
 
-test('release reliability lifecycle declarations reference the closed action registry', () => {
+test('release reliability lifecycle declarations reference the closed action registry', () =>
+{
     const catalog = loadCatalog();
     const registry = JSON.parse(fs.readFileSync(
         path.join(root, catalog.actionRegistry),
@@ -166,7 +177,8 @@ test('release reliability lifecycle declarations reference the closed action reg
         action
     ]));
     const referenced = [];
-    for (const scenario of catalog.scenarios) {
+    for (const scenario of catalog.scenarios)
+    {
         assert.deepEqual(
             Object.keys(scenario.isolation.lifecycle).sort(),
             [
@@ -183,9 +195,11 @@ test('release reliability lifecycle declarations reference the closed action reg
             ['measurement', [scenario.isolation.lifecycle.measurement]],
             ['postcondition', scenario.isolation.lifecycle.postconditions],
             ['reset-after', scenario.isolation.lifecycle.resetsAfter]
-        ]) {
+        ])
+        {
             assert.ok(actionIds.length > 0);
-            for (const actionId of actionIds) {
+            for (const actionId of actionIds)
+            {
                 const action = actions.get(actionId);
                 assert.equal(action?.scenarioId, scenario.id);
                 assert.equal(action?.phase, phase);
@@ -198,7 +212,8 @@ test('release reliability lifecycle declarations reference the closed action reg
     assert.deepEqual([...referenced].sort(), [...actions.keys()].sort());
 });
 
-test('physical tree termination policy is canonical and separate from action timeouts', () => {
+test('physical tree termination policy is canonical and separate from action timeouts', () =>
+{
     const catalog = loadCatalog();
     const policyPath = path.join(root, catalog.policyBindings.physicalExecution);
     const policy = JSON.parse(fs.readFileSync(policyPath, 'utf8'));

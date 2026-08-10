@@ -94,6 +94,12 @@ Allman braces 适用于 C# 和仓库手写 C++。TS/JS/Vue、CSS、Shell、CMake
 - exported environment variable 使用 `UPPER_SNAKE_CASE`；仓库自有 function 使用 `PascalCase`，local variable 使用 `camelCase`；仅已登记的公共 Shell API 或环境契约保留外部名称。
 - 新脚本使用 fail-closed 参数解析、引用变量展开，并给 cleanup 安装 `trap`。
 
+## Python
+
+- Python tooling 使用 4 spaces、标准库优先的 import 分组和 `snake_case` function/local 命名；class 使用 `PascalCase`。
+- 脚本入口显式返回退出状态，subprocess、文件和临时资源由创建者负责关闭；不得以宽泛 exception handler 吞掉治理失败。
+- repository path、process identity 和平台差异通过窄 adapter 表达，不复制 Shell 或 Node owner 已有的平行实现。
+
 ## YAML
 
 - 4 spaces、禁止 Tab；mapping key 顺序按 schema/consumer 约定稳定排列。

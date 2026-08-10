@@ -276,7 +276,7 @@ test('matrix and workflow declare one unconditional fixture-free admission befor
         missingReceiptErrors
     );
     assert.ok(missingReceiptErrors.some((error) =>
-        /production-build-artifacts must verify the sealed/u.test(error)));
+        /must verify the sealed behavior-doc-static-admission receipt/u.test(error)));
 
     const consumerWithUnexpectedCacheInputs = workflowSource.replace(
         '                  receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}',
@@ -290,7 +290,7 @@ test('matrix and workflow declare one unconditional fixture-free admission befor
         consumerInputErrors
     );
     assert.ok(consumerInputErrors.some((error) =>
-        /production-build-artifacts.*must pass exactly.*cache/u.test(error)));
+        /BehaviorDoc consumer must pass exactly.*cache/u.test(error)));
 
     const setupNodeWithoutCache = workflowSource.replace(
         `                  node-version: 24.x
@@ -306,7 +306,7 @@ test('matrix and workflow declare one unconditional fixture-free admission befor
         setupNodeCacheErrors
     );
     assert.ok(setupNodeCacheErrors.some((error) =>
-        /production-build-artifacts.*npm cache inputs.*setup-node/u.test(error)));
+        /must keep the frontend npm cache inputs.*setup-node/u.test(error)));
 
     const failOpenAlwaysJob = workflowSource.replace(
         "if: always() && needs.behavior-doc-static-admission.result == 'success'",

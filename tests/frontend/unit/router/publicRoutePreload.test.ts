@@ -262,6 +262,36 @@ describe('public route prewarm', () => {
     expect(activeLocale.value).toBe('ja-JP')
   })
 
+  it('binds the server-resolved document locale to the navigation snapshot request', async () => {
+    document.documentElement.lang = 'zh-CN'
+    const envelope = await createArchiveEnvelope('zh-CN')
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(
+      snapshotBytes(envelope),
+      { status: 200 }
+    ))
+    const prewarm = createPublicRoutePrewarmer({
+      routePreloads: [{
+        kind: 'Archive',
+        name: 'Archive',
+        match: (url) => url.pathname === '/archive',
+        preloadComponent: vi.fn(async () => ({ default: {} }))
+      }],
+      preloadStyle: vi.fn(async () => {}),
+      lifetimeSignal: () => new AbortController().signal
+    })
+
+    try {
+      await expect(prewarm.prewarm('/archive', { reason: 'atomic-navigation' })).resolves.toMatchObject({
+        status: 'ready',
+        seedReady: true
+      })
+      const request = fetchSpy.mock.calls[0]
+      expect(new Headers(request?.[1]?.headers).get('Accept-Language')).toBe('zh-CN')
+    } finally {
+      fetchSpy.mockRestore()
+    }
+  })
+
   it('accepts a matching staged route-locale snapshot without a nested runtime commit', async () => {
     await activateLocaleRuntime('zh-CN', ['common', 'layout', 'public'])
     const envelope = await createArchiveEnvelope('ja-JP')
@@ -281,7 +311,7 @@ describe('public route prewarm', () => {
       reason: 'atomic-navigation',
       preparedLocaleSnapshot: {
         locale: 'ja-JP',
-        domains: ['common', 'layout', 'public']
+        domains: ['common', 'layout', 'public', 'security']
       }
     })).resolves.toMatchObject({
       status: 'ready',
@@ -312,7 +342,8 @@ describe('public route prewarm', () => {
       }
     })).resolves.toMatchObject({
       status: 'failure',
-      seedReady: false
+      seedReady: false,
+      error: 'route-snapshot-decode-failed: navigation snapshot locale domains missing:public,security'
     })
     expect(consumePublicRouteSeed('Archive', { fullPath: '/archive' })).toBeNull()
   })

@@ -1635,6 +1635,22 @@
             }
         },
         {
+            "file": "tests/tools/prepared-public-projection.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ],
+            "staticGovernance": {
+                "id": "prepared-public-projection",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
+        },
+        {
             "file": "tests/tools/privacy-zk-contract.test.mjs",
             "owner": "manual-diagnostic:tests/tools/privacy-zk-contract.test.mjs",
             "executionCategory": "manual-diagnostic",
@@ -3431,8 +3447,8 @@
             ]
         },
         {
-            "file": "tests/tools/issue-1822-ci-baseline.test.mjs",
-            "owner": "manual-diagnostic:tests/tools/issue-1822-ci-baseline.test.mjs",
+            "file": "tests/tools/ci-baseline-contract.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/ci-baseline-contract.test.mjs",
             "executionCategory": "manual-diagnostic",
             "lifecycle": "manual-diagnostic",
             "physicalExecutionCount": 0,
@@ -3443,8 +3459,8 @@
             ]
         },
         {
-            "file": "tests/tools/issue-1822-ci-post-delivery.test.mjs",
-            "owner": "manual-diagnostic:tests/tools/issue-1822-ci-post-delivery.test.mjs",
+            "file": "tests/tools/ci-post-delivery-contract.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/ci-post-delivery-contract.test.mjs",
             "executionCategory": "manual-diagnostic",
             "lifecycle": "manual-diagnostic",
             "physicalExecutionCount": 0,
@@ -3453,8 +3469,8 @@
             ]
         },
         {
-            "file": "tests/tools/issue-1822-ci-regressions.test.mjs",
-            "owner": "manual-diagnostic:tests/tools/issue-1822-ci-regressions.test.mjs",
+            "file": "tests/tools/ci-corrective-contract.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/ci-corrective-contract.test.mjs",
             "executionCategory": "manual-diagnostic",
             "lifecycle": "manual-diagnostic",
             "physicalExecutionCount": 0,

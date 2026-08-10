@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { test } from 'node:test';
 
 const { discoverRepositoryTemporalSources, validateWallClockGovernance, verifyRepositoryWallClockGovernance } = await import(new URL("../../tools/test/check-wall-clock-governance.mjs", import.meta.url));
@@ -34,12 +35,25 @@ function ledger(entries)
 test('repository temporal ledger has finite closure over real correctness producers', () =>
 {
     assert.deepEqual(verifyRepositoryWallClockGovernance(), {
-        callSiteCount: 51,
+        callSiteCount: 57,
         mixedClockCount: 0,
         pendingCount: 0,
         unknownCount: 0,
         governedSourceCount: 35
     });
+});
+
+test('Program binds the canonical test business clock before application services', () =>
+{
+    const source = fs.readFileSync(new URL('../../src/backend/Program.cs', import.meta.url), 'utf8');
+    const temporalIndex = source.indexOf(
+        'TimeProvider? testBusinessTimeProvider = TestTemporalRuntimeContext.Configure(builder);'
+    );
+    const applicationIndex = source.indexOf(
+        'builder.ConfigureFsusApplication(testBusinessTimeProvider);'
+    );
+    assert.ok(temporalIndex >= 0);
+    assert.ok(applicationIndex > temporalIndex);
 });
 
 test('independent full-repository discovery rejects a hidden temporal producer callsite', () =>

@@ -1,7 +1,6 @@
 using System.Text.Json;
 
 using FsusBlog.Core.Algorithms;
-
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Distributed.Cluster;
 using FsusBlog.Server.Infrastructure.Distributed.Modules;

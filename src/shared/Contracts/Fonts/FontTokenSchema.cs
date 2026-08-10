@@ -7,6 +7,9 @@ public static class FontTokenSchema
 {
     public const string Version = "1.0.0";
 
+    /// <summary>
+    /// Defines stable font-family token names.
+    /// </summary>
     public static class Family
     {
         public const string Ui = "font.family.ui";
@@ -22,6 +25,9 @@ public static class FontTokenSchema
             [Ui, Prose, Code, Cjk, Emoji];
     }
 
+    /// <summary>
+    /// Defines stable font-weight token names.
+    /// </summary>
     public static class Weight
     {
         public const string Regular = "font.weight.regular";
@@ -35,6 +41,9 @@ public static class FontTokenSchema
             [Regular, Medium, Bold];
     }
 
+    /// <summary>
+    /// Defines stable font-size token names.
+    /// </summary>
     public static class Size
     {
         public const string Body = "font.size.body";
@@ -49,6 +58,9 @@ public static class FontTokenSchema
             [Body, Article, Code, Caption];
     }
 
+    /// <summary>
+    /// Defines stable line-height token names.
+    /// </summary>
     public static class LineHeight
     {
         public const string Body = "font.lineHeight.body";
@@ -62,6 +74,9 @@ public static class FontTokenSchema
             [Body, Article, Code];
     }
 
+    /// <summary>
+    /// Defines stable letter-spacing token names.
+    /// </summary>
     public static class LetterSpacing
     {
         public const string Ui = "font.letterSpacing.ui";
@@ -75,6 +90,9 @@ public static class FontTokenSchema
             [Ui, Prose, Code];
     }
 
+    /// <summary>
+    /// Defines stable composed typography token names.
+    /// </summary>
     public static class Typography
     {
         public const string BodyFamily = "typography.body.family";

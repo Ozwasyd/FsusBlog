@@ -352,8 +352,8 @@ test('durable generation uses atomic Redis compare-and-clear', () =>
     const source = read(
         'src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactDeliveryState.cs');
     assert.match(source, /LuaScript\.Prepare/u);
-    assert.match(source, /generation > pending/u);
-    assert.match(source, /pending <= tonumber\(@generation\)/u);
+    assert.match(source, /if g>p then redis\.call\('SET',KEYS\[2\],g\) end/u);
+    assert.match(source, /if p>0 and p<=tonumber\(ARGV\[1\]\) then redis\.call\('DEL',KEYS\[1\]\)/u);
     assert.doesNotMatch(
         source,
         /StringSetAsync\(runtimeKeyScope\.PrefixKey\(PendingKey\)/u);

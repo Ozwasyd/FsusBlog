@@ -1,50 +1,60 @@
 #!/usr/bin/env node
-import { readFileSync } from 'node:fs'
-import { isAbsolute, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { readFileSync } from 'node:fs';
+import { isAbsolute, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-import { createStrykerAuthority } from './check-stryker-report.mjs'
-import { canonicalJson, sha256 } from './changed-critical-mutation-identity.mjs'
+import { canonicalJson, sha256 } from './changed-critical-mutation-identity.mjs';
+import { createStrykerAuthority } from './check-stryker-report.mjs';
 
-function assertEqual(actual, expected, label) {
-    if (actual !== expected) {
-        throw new Error(`${label} mismatch`)
+function assertEqual(actual, expected, label)
+{
+    if (actual !== expected)
+    {
+        throw new Error(`${label} mismatch`);
     }
 }
 
-function scopeMutationReport(report, mutateFiles, sourceProject) {
-    const normalizedMutateFiles = mutateFiles.map((path) => path.replaceAll('\\', '/'))
-    const selectedFiles = []
-    const unexpected = []
-    for (const [file, value] of Object.entries(report.files ?? {})) {
-        const normalizedFile = file.replaceAll('\\', '/')
+function scopeMutationReport(report, mutateFiles, sourceProject)
+{
+    const normalizedMutateFiles = mutateFiles.map((path) => path.replaceAll('\\', '/'));
+    const selectedFiles = [];
+    const unexpected = [];
+    for (const [file, value] of Object.entries(report.files ?? {}))
+    {
+        const normalizedFile = file.replaceAll('\\', '/');
         const selected = normalizedMutateFiles.some(
             (path) => normalizedFile === path || normalizedFile.endsWith(`/${path}`)
-        )
-        if (selected) {
-            selectedFiles.push(normalizedFile)
-            continue
+        );
+        if (selected)
+        {
+            selectedFiles.push(normalizedFile);
+            continue;
         }
-        for (const mutant of value?.mutants ?? []) {
-            unexpected.push(`${file}#${mutant.id}:${mutant.status}`)
+        for (const mutant of value?.mutants ?? [])
+        {
+            unexpected.push(`${file}#${mutant.id}:${mutant.status}`);
         }
     }
-    for (const mutateFile of normalizedMutateFiles) {
-        if (!selectedFiles.some((file) => file.endsWith(`/${mutateFile}`) || file === mutateFile)) {
+    for (const mutateFile of normalizedMutateFiles)
+    {
+        if (!selectedFiles.some((file) => file.endsWith(`/${mutateFile}`) || file === mutateFile))
+        {
             throw new Error(
                 `raw report is missing selected mutate file ${sourceProject}/${mutateFile}`
-            )
+            );
         }
     }
-    if (unexpected.length > 0) {
+    if (unexpected.length > 0)
+    {
         throw new Error(
             `raw report planned mutants outside selected closure: ${unexpected.join(', ')}`
-        )
+        );
     }
-    return report
+    return report;
 }
 
-function executionMatrix(inventory) {
+function executionMatrix(inventory)
+{
     return inventory.map((mutant) => ({
         mutantId: mutant.mutantId,
         rawMutantId: mutant.rawMutantId,
@@ -56,29 +66,34 @@ function executionMatrix(inventory) {
         durationMs: mutant.durationMs,
         durationState: mutant.durationState,
         traceBatchId: mutant.traceBatchId
-    }))
+    }));
 }
 
-function combinedTestIdentities(runAuthorities) {
-    const identities = new Map()
-    for (const run of runAuthorities) {
-        for (const identity of run.testIdentities) {
-            const existing = identities.get(identity.rawTestId)
-            if (existing && existing !== identity.fullyQualifiedName) {
+function combinedTestIdentities(runAuthorities)
+{
+    const identities = new Map();
+    for (const run of runAuthorities)
+    {
+        for (const identity of run.testIdentities)
+        {
+            const existing = identities.get(identity.rawTestId);
+            if (existing && existing !== identity.fullyQualifiedName)
+            {
                 throw new Error(
                     `raw test ID ${identity.rawTestId} resolves differently across physical runs`
-                )
+                );
             }
-            identities.set(identity.rawTestId, identity.fullyQualifiedName)
+            identities.set(identity.rawTestId, identity.fullyQualifiedName);
         }
     }
     return [...identities]
         .map(([rawTestId, fullyQualifiedName]) => ({ rawTestId, fullyQualifiedName }))
-        .sort((left, right) => left.rawTestId.localeCompare(right.rawTestId))
+        .sort((left, right) => left.rawTestId.localeCompare(right.rawTestId));
 }
 
-function absoluteArtifactPath(repositoryRoot, path) {
-    return isAbsolute(path) ? resolve(path) : resolve(repositoryRoot, path)
+function absoluteArtifactPath(repositoryRoot, path)
+{
+    return isAbsolute(path) ? resolve(path) : resolve(repositoryRoot, path);
 }
 
 export function createChangedCriticalMutationAuthority({
@@ -91,42 +106,47 @@ export function createChangedCriticalMutationAuthority({
     runId,
     generatedAt,
     repositoryRoot = process.cwd()
-}) {
-    if (selection?.status !== 'selected') {
-        throw new Error('authority requires a non-empty critical selection')
+})
+{
+    if (selection?.status !== 'selected')
+    {
+        throw new Error('authority requires a non-empty critical selection');
     }
     assertEqual(
         sha256(rawSelection),
         sha256(Buffer.from(`${JSON.stringify(selection, null, 2)}\n`)),
         'selection bytes'
-    )
-    assertEqual(selection.toolPolicy.sha256, sha256(rawCatalog), 'catalog digest')
-    if (!Array.isArray(runs) || runs.length !== selection.projectClosures.length) {
-        throw new Error('authority requires one physical mutation run per source-project closure')
+    );
+    assertEqual(selection.toolPolicy.sha256, sha256(rawCatalog), 'catalog digest');
+    if (!Array.isArray(runs) || runs.length !== selection.projectClosures.length)
+    {
+        throw new Error('authority requires one physical mutation run per source-project closure');
     }
 
-    const runAuthorities = runs.map((run) => {
+    const runAuthorities = runs.map((run) =>
+    {
         const closure = selection.projectClosures.find(
             ({ sourceProject }) => sourceProject === run.sourceProject
-        )
-        if (!closure) {
-            throw new Error(`unexpected mutation source project ${run.sourceProject}`)
+        );
+        if (!closure)
+        {
+            throw new Error(`unexpected mutation source project ${run.sourceProject}`);
         }
         assertEqual(
             canonicalJson(run.config['stryker-config'].mutate),
             canonicalJson(closure.mutateFiles),
             `${run.sourceProject} mutate scope`
-        )
+        );
         assertEqual(
             run.config['stryker-config']['test-case-filter'],
             closure.testFilter,
             `${run.sourceProject} test filter`
-        )
+        );
         const scopedReport = scopeMutationReport(
             run.report,
             closure.mutateFiles,
             run.sourceProject
-        )
+        );
         const authority = createStrykerAuthority({
             report: scopedReport,
             rawReport: run.rawReport,
@@ -144,11 +164,12 @@ export function createChangedCriticalMutationAuthority({
             generatedAt,
             repositoryRoot,
             sourceRoot: run.sourceProject
-        })
-        if (authority.executedMutants === 0) {
+        });
+        if (authority.executedMutants === 0)
+        {
             throw new Error(
                 `non-empty critical closure executed zero mutants for ${run.sourceProject}`
-            )
+            );
         }
         return {
             sourceProject: run.sourceProject,
@@ -183,23 +204,24 @@ export function createChangedCriticalMutationAuthority({
             executedTestIds: authority.executedTestIds,
             inventoryDigest: authority.inventoryDigest,
             executionMatrixDigest: authority.executionMatrixDigest
-        }
-    }).sort((left, right) => left.sourceProject.localeCompare(right.sourceProject))
+        };
+    }).sort((left, right) => left.sourceProject.localeCompare(right.sourceProject));
 
     const statuses = Object.fromEntries(knownStatuses().map((status) => [
         status,
         runAuthorities.reduce((total, run) => total + run.statuses[status], 0)
-    ]))
-    const executed = runAuthorities.reduce((total, run) => total + run.executed, 0)
+    ]));
+    const executed = runAuthorities.reduce((total, run) => total + run.executed, 0);
     const combinedInventory = runAuthorities
         .flatMap((run) => run.inventory)
-        .sort((left, right) => left.mutantId.localeCompare(right.mutantId))
-    if (new Set(combinedInventory.map(({ mutantId }) => mutantId)).size !== combinedInventory.length) {
-        throw new Error('changed-critical authority contains duplicate canonical mutant ID')
+        .sort((left, right) => left.mutantId.localeCompare(right.mutantId));
+    if (new Set(combinedInventory.map(({ mutantId }) => mutantId)).size !== combinedInventory.length)
+    {
+        throw new Error('changed-critical authority contains duplicate canonical mutant ID');
     }
     const collection = (name) => runAuthorities
         .flatMap((run) => run[name])
-        .sort((left, right) => left.localeCompare(right))
+        .sort((left, right) => left.localeCompare(right));
 
     return {
         schema: 'fsusblog.changed-critical-mutation-authority.v1',
@@ -267,11 +289,12 @@ export function createChangedCriticalMutationAuthority({
                 batchDigest: traceExecution.batchDigest
             }))
         ))
-    }
+    };
 }
 
-function knownStatuses() {
-    return ['CompileError', 'Ignored', 'Killed', 'NoCoverage', 'Survived', 'Timeout']
+function knownStatuses()
+{
+    return ['CompileError', 'Ignored', 'Killed', 'NoCoverage', 'Survived', 'Timeout'];
 }
 
 export function validateChangedCriticalMutationAuthority({
@@ -283,28 +306,30 @@ export function validateChangedCriticalMutationAuthority({
     runs,
     expectedSourceState,
     repositoryRoot = process.cwd()
-}) {
+})
+{
     if (
         authority?.schema !== 'fsusblog.changed-critical-mutation-authority.v1'
         || authority.status !== 'success'
-    ) {
-        throw new Error('changed-critical authority schema/status is invalid')
+    )
+    {
+        throw new Error('changed-critical authority schema/status is invalid');
     }
-    assertEqual(authority.sourceState.commit, expectedSourceState.commit, 'source commit')
+    assertEqual(authority.sourceState.commit, expectedSourceState.commit, 'source commit');
     assertEqual(
         authority.sourceState.worktreeFingerprint,
         expectedSourceState.worktreeFingerprint,
         'worktree fingerprint'
-    )
-    assertEqual(authority.closureDigest, selection.closureDigest, 'closure digest')
-    assertEqual(authority.selection.sha256, sha256(rawSelection), 'selection digest')
-    assertEqual(authority.toolPolicy.sha256, sha256(rawCatalog), 'catalog digest')
+    );
+    assertEqual(authority.closureDigest, selection.closureDigest, 'closure digest');
+    assertEqual(authority.selection.sha256, sha256(rawSelection), 'selection digest');
+    assertEqual(authority.toolPolicy.sha256, sha256(rawCatalog), 'catalog digest');
     assertEqual(
         canonicalJson(authority.mutateFiles),
         canonicalJson(selection.mutateFiles),
         'mutate file list'
-    )
-    assertEqual(authority.testFilter, selection.testFilter, 'test filter')
+    );
+    assertEqual(authority.testFilter, selection.testFilter, 'test filter');
 
     const recreated = createChangedCriticalMutationAuthority({
         selection,
@@ -316,12 +341,13 @@ export function validateChangedCriticalMutationAuthority({
         runId: authority.runId,
         generatedAt: authority.generatedAt,
         repositoryRoot
-    })
-    assertEqual(canonicalJson(authority), canonicalJson(recreated), 'authority content')
-    return authority
+    });
+    assertEqual(canonicalJson(authority), canonicalJson(recreated), 'authority content');
+    return authority;
 }
 
-function parseArguments(args) {
+function parseArguments(args)
+{
     const names = new Map([
         ['--authority', 'authority'],
         ['--selection', 'selection'],
@@ -329,40 +355,47 @@ function parseArguments(args) {
         ['--run-manifest', 'runManifest'],
         ['--source-commit', 'sourceCommit'],
         ['--worktree-fingerprint', 'worktreeFingerprint']
-    ])
-    const options = {}
-    for (let index = 0; index < args.length; index += 2) {
-        const key = names.get(args[index])
-        const value = args[index + 1]
-        if (!key || !value || value.startsWith('--')) {
-            throw new Error(`unknown or incomplete option ${args[index]}`)
+    ]);
+    const options = {};
+    for (let index = 0; index < args.length; index += 2)
+    {
+        const key = names.get(args[index]);
+        const value = args[index + 1];
+        if (!key || !value || value.startsWith('--'))
+        {
+            throw new Error(`unknown or incomplete option ${args[index]}`);
         }
-        options[key] = value
+        options[key] = value;
     }
-    for (const key of names.values()) {
-        if (!options[key]) {
-            throw new Error(`missing required option ${key}`)
+    for (const key of names.values())
+    {
+        if (!options[key])
+        {
+            throw new Error(`missing required option ${key}`);
         }
     }
-    return options
+    return options;
 }
 
-function readJsonWithBytes(path) {
-    const raw = readFileSync(resolve(path))
-    return { raw, value: JSON.parse(raw) }
+function readJsonWithBytes(path)
+{
+    const raw = readFileSync(resolve(path));
+    return { raw, value: JSON.parse(raw) };
 }
 
-function main() {
-    const root = resolve(fileURLToPath(new URL('../..', import.meta.url)))
-    const options = parseArguments(process.argv.slice(2))
-    const authority = readJsonWithBytes(options.authority)
-    const selection = readJsonWithBytes(options.selection)
-    const catalog = readJsonWithBytes(options.catalog)
-    const runManifest = JSON.parse(readFileSync(resolve(options.runManifest)))
-    const runs = runManifest.runs.map((entry) => {
-        const config = readJsonWithBytes(entry.config)
-        const report = readJsonWithBytes(entry.report)
-        const trace = readFileSync(resolve(entry.trace))
+function main()
+{
+    const root = resolve(fileURLToPath(new URL('../..', import.meta.url)));
+    const options = parseArguments(process.argv.slice(2));
+    const authority = readJsonWithBytes(options.authority);
+    const selection = readJsonWithBytes(options.selection);
+    const catalog = readJsonWithBytes(options.catalog);
+    const runManifest = JSON.parse(readFileSync(resolve(options.runManifest)));
+    const runs = runManifest.runs.map((entry) =>
+    {
+        const config = readJsonWithBytes(entry.config);
+        const report = readJsonWithBytes(entry.report);
+        const trace = readFileSync(resolve(entry.trace));
         return {
             sourceProject: entry.sourceProject,
             config: config.value,
@@ -376,8 +409,8 @@ function main() {
                 report: entry.report,
                 trace: entry.trace
             }
-        }
-    })
+        };
+    });
     validateChangedCriticalMutationAuthority({
         authority: authority.value,
         selection: selection.value,
@@ -390,22 +423,26 @@ function main() {
             worktreeFingerprint: options.worktreeFingerprint
         },
         repositoryRoot: root
-    })
+    });
     process.stdout.write(
         `[changed-critical-mutation-evidence] ok run=${authority.value.runId} `
         + `closure=${authority.value.closureDigest} `
         + `executed=${authority.value.mutants.executed}\n`
-    )
+    );
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-    try {
-        main()
-    } catch (error) {
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url))
+{
+    try
+    {
+        main();
+    }
+    catch (error)
+    {
         process.stderr.write(
             `[changed-critical-mutation-evidence] `
             + `${error instanceof Error ? error.message : String(error)}\n`
-        )
-        process.exitCode = 1
+        );
+        process.exitCode = 1;
     }
 }

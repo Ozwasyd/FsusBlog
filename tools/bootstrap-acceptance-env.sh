@@ -31,6 +31,7 @@ FSUSBLOG_TEST_NAMESPACE="$NS_SLUG"
 TMP_DIR="${FSUSBLOG_ACCEPTANCE_OUTPUT_ROOT:-$ROOT_DIR/.tmp/acceptance}/$NS_SLUG"
 ENV_DIR="${FSUSBLOG_ACCEPTANCE_ENV_ROOT:-$ROOT_DIR/.tmp/env}"
 FIXTURE_DIR="${FSUSBLOG_ACCEPTANCE_FIXTURE_ROOT:-$ROOT_DIR/.tmp/fixtures}/$NS_SLUG"
+PUBLIC_ID_PROJECTION_FILE="$FIXTURE_DIR/public-content-projection.json"
 mkdir -p "$TMP_DIR"
 mkdir -p "$ENV_DIR" "$FIXTURE_DIR"
 
@@ -40,7 +41,18 @@ NowEpochMs() {
 
 PORT_LEASE_SCRIPT="$ROOT_DIR/tools/test-matrix/production-fresh-port-lease.mjs"
 PORT_LEASE_MANIFEST_FILE="${FSUSBLOG_PORT_LEASE_MANIFEST_FILE:-$TMP_DIR/port-leases.json}"
-PORT_LEASE_CONTROL_SOCKET="${FSUSBLOG_PORT_LEASE_CONTROL_SOCKET:-$TMP_DIR/port-lease-control.sock}"
+PORT_LEASE_SOCKET_ID="$(
+    printf '%s\0%s\0%s' \
+        "$ROOT_DIR" \
+        "${FSUSBLOG_TEST_RUN_ID:-direct-$NS_SLUG}" \
+        "$NS_SLUG" |
+        if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum | awk '{printf "%.24s", $1}'
+        else
+            shasum -a 256 | awk '{printf "%.24s", $1}'
+        fi
+)"
+PORT_LEASE_CONTROL_SOCKET="${FSUSBLOG_PORT_LEASE_CONTROL_SOCKET:-/tmp/fsusb-pl-$PORT_LEASE_SOCKET_ID.sock}"
 PORT_LEASE_TOKEN_FILE="${FSUSBLOG_PORT_LEASE_TOKEN_FILE:-$TMP_DIR/port-lease.token}"
 PORT_LEASE_PID_FILE="${FSUSBLOG_PORT_LEASE_PID_FILE:-$TMP_DIR/port-lease.pid}"
 PORT_LEASE_TERMINAL_RECEIPT_FILE="${FSUSBLOG_PORT_LEASE_TERMINAL_RECEIPT_FILE:-$TMP_DIR/port-lease-terminal.json}"
@@ -369,13 +381,24 @@ if [[ -f "$ENV_FILE" ]]; then
             FSUSBLOG_REDIS_CONTAINER_NAME) FSUSBLOG_REDIS_CONTAINER_NAME="$value" ;;
             FSUSBLOG_NOTIFICATION_DRILL_SECRET) FSUSBLOG_NOTIFICATION_DRILL_SECRET="$value" ;;
             FSUSBLOG_DATA_ROOT) FSUSBLOG_DATA_ROOT="$value" ;;
+            FSUSBLOG_RELEASE_DERIVED_ROOT) FSUSBLOG_RELEASE_DERIVED_ROOT="$value" ;;
+            FSUSBLOG_RELEASE_ID) FSUSBLOG_RELEASE_ID="$value" ;;
+            FSUSBLOG_PUBLIC_ID_PROJECTION_FILE) FSUSBLOG_PUBLIC_ID_PROJECTION_FILE="$value" ;;
             FSUSBLOG_PORT_LEASED_ROLES) FSUSBLOG_PORT_LEASED_ROLES="$value" ;;
             FSUSBLOG_PORT_LEASE_DAEMON_PID) FSUSBLOG_PORT_LEASE_DAEMON_PID="$value" ;;
         esac
     done <"$ENV_FILE"
 fi
 
-AcquireProductionFreshPortLeases
+if [[ "${FSUSBLOG_BOOTSTRAP_SOURCE_ONLY:-0}" == "1" ]]; then
+    POSTGRES_PORT="${FSUSBLOG_POSTGRES_PORT:-20000}"
+    REDIS_PORT="${FSUSBLOG_REDIS_PORT:-22000}"
+    DEBUG_BACKEND_PORT="${FSUSBLOG_DEBUG_BACKEND_PORT:-24000}"
+    DEBUG_FRONTEND_PORT="${FSUSBLOG_DEBUG_FRONTEND_PORT:-26000}"
+    RELEASE_PREVIEW_PORT="${FSUSBLOG_RELEASE_PREVIEW_PORT:-28000}"
+else
+    AcquireProductionFreshPortLeases
+fi
 
 PORT_LEASE_RELEASE_ON_EXIT=1
 if [[ "${1:-}" == "--prepare-env-only" ]]; then
@@ -404,6 +427,23 @@ if [[ ! "$REDIS_CONTAINER" =~ ^fsusblog-(dev|test|ci)([-_.A-Za-z0-9]*)$ ]]; then
     REDIS_CONTAINER="fsusblog-test-redis-$NS_SLUG"
 fi
 TEST_DATA_ROOT="${FSUSBLOG_DATA_ROOT:-$ROOT_DIR/.tmp/data/$NS_SLUG}"
+if [[ -z "${FSUSBLOG_RELEASE_ID:-}" ]]; then
+    TEST_RELEASE_COMMIT="$(git -C "$ROOT_DIR" rev-parse HEAD)"
+    TEST_RELEASE_COMMIT_EPOCH="$(git -C "$ROOT_DIR" show -s --format=%ct "$TEST_RELEASE_COMMIT")"
+    FSUSBLOG_RELEASE_ID="$("${FSUSBLOG_NODE:-node}" - "$TEST_RELEASE_COMMIT_EPOCH" "$TEST_RELEASE_COMMIT" <<'NODE'
+const epoch = Number.parseInt(process.argv[2], 10)
+const commit = process.argv[3]
+if (!Number.isSafeInteger(epoch) || epoch < 0 || !/^[0-9a-f]{40}$/u.test(commit)) {
+    throw new Error('acceptance release identity source is invalid')
+}
+const timestamp = new Date(epoch * 1000).toISOString().replace(/\D/gu, '').slice(0, 14)
+process.stdout.write(`${timestamp}-${commit.slice(0, 12)}`)
+NODE
+)"
+fi
+FSUSBLOG_RELEASE_DERIVED_ROOT="${FSUSBLOG_RELEASE_DERIVED_ROOT:-$TEST_DATA_ROOT/release-derived}"
+export FSUSBLOG_RELEASE_DERIVED_ROOT FSUSBLOG_RELEASE_ID
+mkdir -p "$FSUSBLOG_RELEASE_DERIVED_ROOT"
 POSTGRES_CONNECTION="Host=127.0.0.1;Port=${POSTGRES_PORT};Database=fsusblog;Username=fsusblog;Password=fsusblog_dev;Include Error Detail=true"
 REDIS_CONNECTION="127.0.0.1:${REDIS_PORT}"
 NOTIFICATION_DRILL_SECRET="${FSUSBLOG_NOTIFICATION_DRILL_SECRET:-fsus-notification-drill-$NS_SLUG}"
@@ -509,6 +549,9 @@ FSUSBLOG_PORT_LEASED_ROLES=${PORT_LEASED_ROLES:-}
 FSUSBLOG_PORT_LEASE_DAEMON_PID=${PORT_LEASE_DAEMON_PID:-}
 FSUSBLOG_NOTIFICATION_DRILL_SECRET=$NOTIFICATION_DRILL_SECRET
 FSUSBLOG_DATA_ROOT=$TEST_DATA_ROOT
+FSUSBLOG_RELEASE_DERIVED_ROOT=$FSUSBLOG_RELEASE_DERIVED_ROOT
+FSUSBLOG_RELEASE_ID=$FSUSBLOG_RELEASE_ID
+FSUSBLOG_PUBLIC_ID_PROJECTION_FILE=$PUBLIC_ID_PROJECTION_FILE
 FSUSBLOG_FIXTURE_SERVICE_GENERATION=${FSUSBLOG_FIXTURE_SERVICE_GENERATION:-uninitialized}
 FSUSBLOG_RUNTIME_CONFIGURATION=${FSUSBLOG_RUNTIME_CONFIGURATION:-}
 FSUSBLOG_RUNTIME_NO_BUILD=${FSUSBLOG_RUNTIME_NO_BUILD:-0}
@@ -2040,6 +2083,13 @@ InvokeFixtureOrchestrator() {
         Log 'fixture orchestrator prepare failed'
         exit 1
     }
+    if [[ "$FIXTURE_REQUIRES_PUBLIC" == "1" ]]; then
+        "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test-fixtures/cli.mjs" \
+            project-prepared-public \
+            --prepare-state "$prepareStateFile" \
+            --out "$PUBLIC_ID_PROJECTION_FILE" >/dev/null
+        Log "public fixture navigation projection: ${PUBLIC_ID_PROJECTION_FILE}"
+    fi
     if [[ "$FIXTURE_PROFILE_ID" == "none" && -f "$FIXTURE_RECEIPT_FILE" ]]; then
         FIXTURE_RECEIPT_DIGEST="$("${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test-fixtures/cli.mjs" receipt-digest --file "$FIXTURE_RECEIPT_FILE")"
         FIXTURE_RECEIPT_TERMINAL_STATUS="verified"
@@ -2378,29 +2428,12 @@ EnsureDebugFrontend() {
     fi
 }
 
-EnsureReleasePreview() {
-    local pidFile="$TMP_DIR/preview.pid"
+PrepareReleasePreviewBundle() {
     local fingerprintFile="$TMP_DIR/release-inputs.sha"
-    local managedPid
-    local existingPid
     local nextFingerprint
     local currentFingerprint=""
     local runBoundBuild="false"
     local laneSupport="$ROOT_DIR/tools/test/lanes/_lane-collect-support.sh"
-    local releaseReachable=0
-    local readinessDeadline="${1:-}"
-    if [[ -z "$readinessDeadline" ]]; then
-        AllocateReadinessDeadline 'release preview'
-        readinessDeadline="$READINESS_DEADLINE_AT_MS"
-    fi
-    managedPid="$(ReadPidFile "$pidFile")"
-    existingPid="$(FindPortPid "$RELEASE_PREVIEW_PORT")"
-    local releasePreviewProbeUrl="${RELEASE_PREVIEW_URL}/?fsus-preview-proof=bootstrap"
-    if ProbeUrl "$releasePreviewProbeUrl"; then
-        releaseReachable=1
-    fi
-    AdmitDedicatedRuntimePort \
-        release-preview 'release preview' "$pidFile" "$RELEASE_PREVIEW_PORT" "$releaseReachable" || return 1
 
     if [[ -n "${FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT:-}" ]]; then
         runBoundBuild="true"
@@ -2421,24 +2454,10 @@ EnsureReleasePreview() {
         currentFingerprint="$(cat "$fingerprintFile" 2>/dev/null || true)"
     fi
 
-    if CanReuseProcesses &&
-        [[ "$currentFingerprint" == "$nextFingerprint" ]] &&
+    if [[ "$currentFingerprint" == "$nextFingerprint" ]] &&
         [[ -f "$CLIENT_DIR/dist/index.html" ]] &&
-        [[ -f "$SERVER_WWWROOT_DIR/index.html" ]] &&
-        [[ "$releaseReachable" == "1" ]]; then
-        Log 'release preview already healthy with matching fingerprint; reusing existing process'
-        CompletePortLeaseHandoff release-preview 'release preview/backend HTTP' "pid:$(FindPortPid "$RELEASE_PREVIEW_PORT" || true)"
-        if [[ "$runBoundBuild" == "true" && -z "${FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT:-}" ]]; then
-            WaitForBinaryUrl 'release preview namespace API' "$RELEASE_PREVIEW_URL/api/binary/system/seo" "$readinessDeadline"
-            FSUSBLOG_REPOSITORY_ROOT="$ROOT_DIR" \
-                FSUSBLOG_TEST_RUN_ID="$FSUSBLOG_TEST_RUN_ID" \
-                FSUSBLOG_TEST_SOURCE_COMMIT="${FSUSBLOG_TEST_SOURCE_COMMIT:?frontend build source commit is required}" \
-                FSUSBLOG_TEST_SOURCE_FINGERPRINT="${FSUSBLOG_TEST_SOURCE_FINGERPRINT:?frontend build source fingerprint is required}" \
-                FSUSBLOG_TEST_NAMESPACE="$FSUSBLOG_TEST_NAMESPACE" \
-                FSUSBLOG_RELEASE_PREVIEW_URL="$RELEASE_PREVIEW_URL" \
-                FSUSBLOG_DEBUG_BACKEND_URL="$DEBUG_BACKEND_URL" \
-                "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/ux/release-preview-readiness.mjs" publish-ready
-        fi
+        [[ -f "$SERVER_WWWROOT_DIR/index.html" ]]; then
+        Log 'release preview bundle already prepared with matching fingerprint'
         return
     fi
 
@@ -2458,15 +2477,64 @@ EnsureReleasePreview() {
             RunFrontendFastBuildGroup
         )
     fi
+    nextFingerprint="$(HashReleaseInputs)"
     printf '%s\n' "$nextFingerprint" >"$fingerprintFile"
+}
 
-    # Restart path: re-probe the immutable frontend entry (not backend SSR).
-    releaseReachable=0
+EnsureReleasePreview() {
+    local pidFile="$TMP_DIR/preview.pid"
+    local fingerprintFile="$TMP_DIR/release-inputs.sha"
+    local managedPid
+    local existingPid
+    local nextFingerprint
+    local currentFingerprint=""
+    local runBoundBuild="false"
+    local releaseReachable=0
+    local readinessDeadline="${1:-}"
+    if [[ -z "$readinessDeadline" ]]; then
+        AllocateReadinessDeadline 'release preview'
+        readinessDeadline="$READINESS_DEADLINE_AT_MS"
+    fi
+    local releasePreviewProbeUrl="${RELEASE_PREVIEW_URL}/?fsus-preview-proof=bootstrap"
+    if [[ -n "${FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT:-}" ||
+        -n "${FSUSBLOG_TEST_RUN_ID:-}" &&
+        -f "$ROOT_DIR/.tmp/test-runs/$FSUSBLOG_TEST_RUN_ID/frontend-build-ready.json" ]]; then
+        runBoundBuild="true"
+    fi
+    nextFingerprint="$(HashReleaseInputs)"
+    if [[ -f "$fingerprintFile" ]]; then
+        currentFingerprint="$(cat "$fingerprintFile" 2>/dev/null || true)"
+    fi
+    if [[ "$currentFingerprint" != "$nextFingerprint" ||
+        ! -f "$CLIENT_DIR/dist/index.html" ||
+        ! -f "$SERVER_WWWROOT_DIR/index.html" ]]; then
+        Log 'release preview bundle is not prepared for the current source fingerprint'
+        return 1
+    fi
+    managedPid="$(ReadPidFile "$pidFile")"
+    existingPid="$(FindPortPid "$RELEASE_PREVIEW_PORT")"
     if ProbeUrl "$releasePreviewProbeUrl"; then
         releaseReachable=1
     fi
     AdmitDedicatedRuntimePort \
         release-preview 'release preview' "$pidFile" "$RELEASE_PREVIEW_PORT" "$releaseReachable" || return 1
+    if CanReuseProcesses && [[ "$releaseReachable" == "1" ]]; then
+        Log 'release preview already healthy with prepared bundle; reusing existing process'
+        CompletePortLeaseHandoff release-preview 'release preview/backend HTTP' "pid:$(FindPortPid "$RELEASE_PREVIEW_PORT" || true)"
+        if [[ "$runBoundBuild" == "true" && -z "${FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT:-}" ]]; then
+            WaitForBinaryUrl 'release preview namespace API' "$RELEASE_PREVIEW_URL/api/binary/system/seo" "$readinessDeadline"
+            FSUSBLOG_REPOSITORY_ROOT="$ROOT_DIR" \
+                FSUSBLOG_TEST_RUN_ID="$FSUSBLOG_TEST_RUN_ID" \
+                FSUSBLOG_TEST_SOURCE_COMMIT="${FSUSBLOG_TEST_SOURCE_COMMIT:?frontend build source commit is required}" \
+                FSUSBLOG_TEST_SOURCE_FINGERPRINT="${FSUSBLOG_TEST_SOURCE_FINGERPRINT:?frontend build source fingerprint is required}" \
+                FSUSBLOG_TEST_NAMESPACE="$FSUSBLOG_TEST_NAMESPACE" \
+                FSUSBLOG_RELEASE_PREVIEW_URL="$RELEASE_PREVIEW_URL" \
+                FSUSBLOG_DEBUG_BACKEND_URL="$DEBUG_BACKEND_URL" \
+                "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/ux/release-preview-readiness.mjs" publish-ready
+        fi
+        return
+    fi
+
     managedPid="$(ReadPidFile "$pidFile")"
     existingPid="$(FindPortPid "$RELEASE_PREVIEW_PORT")"
     KillRuntimePidIfOwned release-preview "$pidFile" "$existingPid" "$readinessDeadline" || return 1
@@ -2538,7 +2606,7 @@ Main() {
         # Order: resolve/validate profile → planned receipt → schema/services/runtime → orchestrator → receipts.
         ResolveFixtureProfilePlan full
         ConfigureLocalPublicContentFixture
-        READINESS_PHASES_REMAINING=2
+        READINESS_PHASES_REMAINING=3
         ConfigureManagedBackendRuntimeReader
     fi
     mkdir -p "$SERVER_WWWROOT_DIR"
@@ -2558,6 +2626,10 @@ Main() {
         Log 'postgres and redis ready'
         return
     fi
+    if CiProductionHasDomain frontend-dist; then
+        AllocateReadinessDeadline 'release bundle preparation'
+        PrepareReleasePreviewBundle "$READINESS_DEADLINE_AT_MS"
+    fi
     AllocateReadinessDeadline 'runtime applications'
     local -a runtimeApplications=(debug-backend EnsureBackend)
     if CiProductionHasDomain frontend-dist; then
@@ -2565,6 +2637,11 @@ Main() {
     fi
     RunBootstrapParallel 'runtime applications' "$READINESS_DEADLINE_AT_MS" "${runtimeApplications[@]}"
     WaitForPowReady
+    if [[ -z "${FSUSBLOG_TEST_BUSINESS_EPOCH_UTC:-}" ]]; then
+        FSUSBLOG_TEST_BUSINESS_EPOCH_UTC="$(date -u '+%Y-%m-%dT%H:%M:%S.000Z')"
+        export FSUSBLOG_TEST_BUSINESS_EPOCH_UTC
+        Log "materialized local fixture business epoch after runtime readiness: $FSUSBLOG_TEST_BUSINESS_EPOCH_UTC"
+    fi
     InvokeFixtureOrchestrator
     if CiProductionHasDomain frontend-dist; then
         # Prefer the immutable frontend entry for liveness. Real public SSR may

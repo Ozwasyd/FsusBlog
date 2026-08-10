@@ -1135,11 +1135,15 @@ export function runtimeSteps()
     const needsRuntime = ['bootstrap'];
     const needsStableReleaseHydration = ['release-public-hydration'];
     const runtimeBuildReadiness = [
+        'behavior-evidence-ready',
         'backend-build-ready',
         'frontend-build-ready',
         'production-build-artifacts-ready'
     ];
     return [
+        step('behavior-evidence-ready', null, [], {
+            resources: { coordinationOnly: true }
+        }),
         step('backend-build-ready', null, [], {
             resources: { coordinationOnly: true }
         }),

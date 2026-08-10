@@ -85,8 +85,11 @@ internal sealed class InMemoryPublicHotArtifactDeliveryStateStore : IPublicHotAr
     private long _pending;
     private PublicHotArtifactObligation? _active;
 
-    public Task<long> MarkDirtyAsync(PublicHotArtifactDeliveryClass _, CancellationToken ct)
+    public Task<long> MarkDirtyAsync(
+        PublicHotArtifactDeliveryClass deliveryClass,
+        CancellationToken ct)
     {
+        _ = deliveryClass;
         ct.ThrowIfCancellationRequested();
         lock (_gate)
         {
@@ -235,7 +238,25 @@ internal sealed class InMemoryPublicHotArtifactDeliveryStateStore : IPublicHotAr
             return Task.FromResult(_active?.IsTerminal == true);
     }
 
-    private static PublicHotArtifactObligation New(string id, long g, PublicHotArtifactUpdate u) => new(id, g, u.DirtyReason, u.ArticleId is int a ? [a] : [], u.ArticleId is null, u.ExpectedReleaseId is long r && u.ArticleId is int a2 ? new Dictionary<int, long> { { a2, r } } : new Dictionary<int, long>(), 0, PublicHotArtifactObligationState.Pending, PublicHotArtifactFailureKind.None, DateTimeOffset.MinValue, []);
+    private static PublicHotArtifactObligation New(
+        string id,
+        long generation,
+        PublicHotArtifactUpdate update)
+        => new(
+            id,
+            generation,
+            update.DirtyReason,
+            update.ArticleId is int articleId ? [articleId] : [],
+            update.ArticleId is null,
+            update.ExpectedReleaseId is long releaseId
+                && update.ArticleId is int expectedArticleId
+                    ? new Dictionary<int, long> { { expectedArticleId, releaseId } }
+                    : new Dictionary<int, long>(),
+            0,
+            PublicHotArtifactObligationState.Pending,
+            PublicHotArtifactFailureKind.None,
+            DateTimeOffset.MinValue,
+            []);
     private static PublicHotArtifactObligation Merge(PublicHotArtifactObligation o, long g, PublicHotArtifactUpdate u)
     {
         var articles = o.ArticleIds.ToHashSet();

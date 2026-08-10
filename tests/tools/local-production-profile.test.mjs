@@ -38,10 +38,10 @@ const {
     runLocalProfile
 } = await import(pathToFileURL(path.join(root, 'tools/run-test-matrix.mjs')).href);
 const { behaviorDocStaticAdmissionTierId } = await import(
-  pathToFileURL(path.join(root, 'tools/test-matrix/behavior-doc-static-admission-contract.mjs')).href
+    pathToFileURL(path.join(root, 'tools/test-matrix/behavior-doc-static-admission-contract.mjs')).href
 );
 const { expandFixtureProfile } = await import(
-  pathToFileURL(path.join(root, 'tools/testing/fixture-catalog.mjs')).href
+    pathToFileURL(path.join(root, 'tools/testing/fixture-catalog.mjs')).href
 );
 const { acquireProductionFreshExclusiveLease } = await import(
     pathToFileURL(path.join(root, 'tools/test-matrix/production-fresh-exclusive-lease.mjs')).href
@@ -1165,7 +1165,7 @@ test('bundle child processes inherit their admitted machine-resolved CPU and mem
 
 test('bundle execution waits derive deadlines from matrix budgets and scheduler capacity', () =>
 {
-    assert.match(localBundleRunner, /function bundleDeadlineMs\(\)[\s\S]*?FSUSBLOG_BUNDLE_DEADLINE_MS[\s\S]*?Number\.isFinite\(deadlineMs\) && deadlineMs > 0[\s\S]*?profile\.enforceBudget === false[\s\S]*?timeoutMinutes[\s\S]*?baseTimeoutMs: profile\.budgetMs[\s\S]*?actualCapacity: bundleCapacity\(\)/u);
+    assert.match(localBundleRunner, /function bundleDeadlineMs\(\)[\s\S]*?profile\.enforceBudget === false[\s\S]*?timeoutMinutes[\s\S]*?FSUSBLOG_BUNDLE_DEADLINE_MS[\s\S]*?Number\.isFinite\(deadlineMs\) && deadlineMs > 0[\s\S]*?baseTimeoutMs: profile\.budgetMs[\s\S]*?actualCapacity: bundleCapacity\(\)/u);
     assert.match(localBundleRunner, /function resolveExecutionWaitTimeoutMs\(dependencyBundleIds\)[\s\S]*?baseTimeoutMs: bundleDeadlineMs\(\)[\s\S]*?workload: bundle[\s\S]*?actualCapacity: bundleCapacity\(\)/u);
     assert.doesNotMatch(localBundleRunner, /bundle\.budgetMs|dependency\.budgetMs/u);
     assert.match(localBundleRunner, /waitForBackendBuildReady\(timeoutMs = resolveExecutionWaitTimeoutMs\(\['backend-tests'\]\)\)/u);
@@ -1329,7 +1329,7 @@ test('acceptance bootstrap starts independent services within dynamic CPU and me
     assert.match(source, /resolveManifestChildEnvironment/u);
     assert.match(source, /capacity update workers=\$workerCap->\$nextWorkerCap active=\$active/u);
     assert.match(source, /RunBootstrapParallel 'database services'[\s\S]*?postgres EnsurePostgres[\s\S]*?redis EnsureRedis/u);
-    assert.match(source, /local -a runtimeApplications=\(debug-backend EnsureBackend\)[\s\S]*?CiProductionHasDomain frontend-dist[\s\S]*?runtimeApplications\+=\(release-preview EnsureReleasePreview debug-frontend EnsureDebugFrontend\)[\s\S]*?RunBootstrapParallel 'runtime applications'/u);
+    assert.match(source, /PrepareReleasePreviewBundle[\s\S]*?local -a runtimeApplications=\(debug-backend EnsureBackend\)[\s\S]*?runtimeApplications\+=\(release-preview EnsureReleasePreview debug-frontend EnsureDebugFrontend\)[\s\S]*?RunBootstrapParallel 'runtime applications'/u);
     assert.match(source, /InvokeFixtureOrchestrator/u);
     assert.match(source, /tools\/test-fixtures\/cli\.mjs/u);
     assert.doesNotMatch(source, /PrepareAuthFixturesOnce|PreparePublicFixturesOnce|PrepareRuntimeFixturesOnce|PrepareFixtures\s*\(/u);
@@ -1342,13 +1342,32 @@ test('acceptance bootstrap starts independent services within dynamic CPU and me
     assert.doesNotMatch(source, /FSUSBLOG_BOOTSTRAP_(?:WORKERS|CPU|MEMORY)=[0-9]/u);
 });
 
-test('acceptance service ports stay below the kernel ephemeral range and Vite cannot drift', () =>
+test('acceptance service ports use sealed role leases below the kernel ephemeral range and Vite cannot drift', () =>
 {
     const source = fs.readFileSync(path.join(root, 'tools/bootstrap-acceptance-env.sh'), 'utf8');
-    for (const range of ['20000 21999', '22000 23999', '24000 25999', '26000 27999', '28000 29999'])
+    const leaseSource = fs.readFileSync(
+        path.join(root, 'tools/test-matrix/production-fresh-port-lease.mjs'),
+        'utf8'
+    );
+    for (const [role, minPort, maxPort] of [
+        ['postgres', 20000, 21999],
+        ['redis', 22000, 23999],
+        ['debug-backend', 24000, 25999],
+        ['debug-frontend', 26000, 27999],
+        ['release-preview', 28000, 29999]
+    ])
     {
-        assert.match(source, new RegExp(`FindFreePort ${range}`, 'u'));
+        assert.match(
+            leaseSource,
+            new RegExp(`role: '${role}',[\\s\\S]*?minPort: ${minPort},[\\s\\S]*?maxPort: ${maxPort}`, 'u')
+        );
     }
+    assert.match(source, /PORT_LEASE_SCRIPT=.*production-fresh-port-lease\.mjs/u);
+    assert.match(source, /\$PORT_LEASE_SCRIPT" serve/u);
+    assert.match(source, /PortLeaseCli verify --manifest/u);
+    assert.match(source, /PortLeaseCli release-before-bind/u);
+    assert.match(source, /PortLeaseCli complete-handoff/u);
+    assert.doesNotMatch(source, /FindFreePort/u);
     assert.equal((source.match(/--strictPort/gu) ?? []).length, 3);
     assert.equal((source.match(/--host 127\.0\.0\.1/gu) ?? []).length, 3);
     assert.match(source, /-p "127\.0\.0\.1:\$\{POSTGRES_PORT\}:5432"/u);

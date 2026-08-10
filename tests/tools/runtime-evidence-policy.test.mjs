@@ -14,7 +14,8 @@ const {
     pathToFileURL(path.join(root, 'tools/test/lanes/runtime-evidence-probe.mjs')).href
 );
 
-test('load profile policy parser accepts repository CRLF or LF input', () => {
+test('load profile policy parser accepts repository CRLF or LF input', () =>
+{
     const policy = readLoadProfilePolicy('expected-peak');
     assert.deepEqual(policy.declared, {
         concurrency: 50,
@@ -25,7 +26,8 @@ test('load profile policy parser accepts repository CRLF or LF input', () => {
     assert.match(policy.fileDigest, /^sha256:[0-9a-f]{64}$/u);
 });
 
-test('release-bound runtime probes cannot reload ambient namespace secrets', () => {
+test('release-bound runtime probes cannot reload ambient namespace secrets', () =>
+{
     const source = fs.readFileSync(
         path.join(root, 'tools/test/lanes/runtime-evidence-probe.mjs'),
         'utf8'
@@ -36,13 +38,16 @@ test('release-bound runtime probes cannot reload ambient namespace secrets', () 
     );
 });
 
-test('release resource probes use the verified Docker container process namespace', () => {
+test('release resource probes use the verified Docker container process namespace', () =>
+{
     const containerId = 'a'.repeat(64);
     const hostPid = 4242;
     const calls = [];
-    const spawnProcess = (executable, args) => {
+    const spawnProcess = (executable, args) =>
+    {
         calls.push({ executable, args });
-        if (args[0] === 'inspect') {
+        if (args[0] === 'inspect')
+        {
             return {
                 status: 0,
                 stdout: JSON.stringify([{
@@ -93,7 +98,8 @@ test('release resource probes use the verified Docker container process namespac
     assert.ok(calls.every(({ executable }) => executable === 'docker'));
 });
 
-test('release resource container identity rejects a changed host PID', () => {
+test('release resource container identity rejects a changed host PID', () =>
+{
     const containerId = 'b'.repeat(64);
     const target = discoverBackendProcessTarget({
         environment: {

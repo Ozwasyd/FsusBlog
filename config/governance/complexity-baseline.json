@@ -1,6 +1,6 @@
 {
     "schema": "fsusblog.complexity-baseline.v1",
-    "sourceRevision": "4e47d2cfa1e6e6dcf6b21a1e0ab5572430bad118",
+    "sourceRevision": "d275672abdf982e7ab74bb26c42ca59c691adb1c",
     "measurement": "deterministic lexical structure with one shared repository inventory and content cache",
     "metricFields": [
         "fileLines",
@@ -19,67 +19,67 @@
     ],
     "categoryStatistics": {
         "EndpointComposition": {
-            "fileCount": 34,
+            "fileCount": 40,
             "budgets": {
-                "fileLines": 1813,
-                "codeLines": 1657,
-                "typeCount": 5,
-                "functionMethodCount": 101,
-                "cyclomaticComplexity": 196,
-                "cognitiveComplexity": 324,
+                "fileLines": 1398,
+                "codeLines": 1281,
+                "typeCount": 4,
+                "functionMethodCount": 51,
+                "cyclomaticComplexity": 168,
+                "cognitiveComplexity": 287,
                 "maxNestingDepth": 6,
-                "dependencyImportCount": 34,
-                "publicSurfaceCount": 10,
+                "dependencyImportCount": 33,
+                "publicSurfaceCount": 6,
                 "responsibilityCount": 7
             },
             "observations": {
                 "fileLines": {
                     "p50": 222,
-                    "p95": 1813,
-                    "max": 1934
+                    "p95": 1398,
+                    "max": 2214
                 },
                 "codeLines": {
-                    "p50": 189,
-                    "p95": 1657,
-                    "max": 1760
+                    "p50": 192,
+                    "p95": 1281,
+                    "max": 2016
                 },
                 "typeCount": {
                     "p50": 1,
-                    "p95": 5,
+                    "p95": 4,
                     "max": 7
                 },
                 "functionMethodCount": {
-                    "p50": 10,
-                    "p95": 101,
+                    "p50": 9,
+                    "p95": 51,
                     "max": 123
                 },
                 "cyclomaticComplexity": {
-                    "p50": 15,
-                    "p95": 196,
-                    "max": 208
+                    "p50": 17,
+                    "p95": 168,
+                    "max": 233
                 },
                 "cognitiveComplexity": {
                     "p50": 36,
-                    "p95": 324,
-                    "max": 477
+                    "p95": 287,
+                    "max": 549
                 },
                 "maxNestingDepth": {
                     "p50": 4,
                     "p95": 6,
-                    "max": 6
+                    "max": 7
                 },
                 "dependencyImportCount": {
-                    "p50": 15,
-                    "p95": 34,
-                    "max": 40
+                    "p50": 12,
+                    "p95": 33,
+                    "max": 41
                 },
                 "publicSurfaceCount": {
-                    "p50": 1,
-                    "p95": 10,
+                    "p50": 2,
+                    "p95": 6,
                     "max": 29
                 },
                 "responsibilityCount": {
-                    "p50": 6,
+                    "p50": 5,
                     "p95": 7,
                     "max": 7
                 },
@@ -90,8 +90,8 @@
                 },
                 "churn365Days": {
                     "p50": 10,
-                    "p95": 48,
-                    "max": 55
+                    "p95": 45,
+                    "max": 57
                 },
                 "testRelationshipCount": {
                     "p50": 1,
@@ -101,49 +101,49 @@
             }
         },
         "ServiceDomainLogic": {
-            "fileCount": 543,
+            "fileCount": 627,
             "budgets": {
-                "fileLines": 1036,
-                "codeLines": 808,
-                "typeCount": 12,
-                "functionMethodCount": 61,
-                "cyclomaticComplexity": 90,
+                "fileLines": 1055,
+                "codeLines": 816,
+                "typeCount": 13,
+                "functionMethodCount": 63,
+                "cyclomaticComplexity": 91,
                 "cognitiveComplexity": 180,
                 "maxNestingDepth": 6,
-                "dependencyImportCount": 23,
-                "publicSurfaceCount": 31,
+                "dependencyImportCount": 20,
+                "publicSurfaceCount": 37,
                 "responsibilityCount": 6
             },
             "observations": {
                 "fileLines": {
-                    "p50": 174,
-                    "p95": 1036,
-                    "max": 2344
+                    "p50": 191,
+                    "p95": 1055,
+                    "max": 2444
                 },
                 "codeLines": {
-                    "p50": 142,
-                    "p95": 808,
-                    "max": 2059
+                    "p50": 159,
+                    "p95": 816,
+                    "max": 2146
                 },
                 "typeCount": {
                     "p50": 2,
-                    "p95": 12,
+                    "p95": 13,
                     "max": 34
                 },
                 "functionMethodCount": {
-                    "p50": 11,
-                    "p95": 61,
+                    "p50": 12,
+                    "p95": 63,
                     "max": 166
                 },
                 "cyclomaticComplexity": {
                     "p50": 14,
-                    "p95": 90,
-                    "max": 276
+                    "p95": 91,
+                    "max": 282
                 },
                 "cognitiveComplexity": {
-                    "p50": 22,
+                    "p50": 24,
                     "p95": 180,
-                    "max": 634
+                    "max": 662
                 },
                 "maxNestingDepth": {
                     "p50": 4,
@@ -152,16 +152,16 @@
                 },
                 "dependencyImportCount": {
                     "p50": 4,
-                    "p95": 23,
+                    "p95": 20,
                     "max": 38
                 },
                 "publicSurfaceCount": {
-                    "p50": 5,
-                    "p95": 31,
-                    "max": 147
+                    "p50": 6,
+                    "p95": 37,
+                    "max": 149
                 },
                 "responsibilityCount": {
-                    "p50": 4,
+                    "p50": 3,
                     "p95": 6,
                     "max": 7
                 },
@@ -171,26 +171,26 @@
                     "max": 0
                 },
                 "churn365Days": {
-                    "p50": 4,
-                    "p95": 25,
-                    "max": 80
+                    "p50": 3,
+                    "p95": 23,
+                    "max": 83
                 },
                 "testRelationshipCount": {
                     "p50": 1,
-                    "p95": 3,
+                    "p95": 4,
                     "max": 8
                 }
             }
         },
         "CodecProtocol": {
-            "fileCount": 51,
+            "fileCount": 56,
             "budgets": {
                 "fileLines": 1566,
                 "codeLines": 1377,
                 "typeCount": 14,
                 "functionMethodCount": 53,
-                "cyclomaticComplexity": 227,
-                "cognitiveComplexity": 418,
+                "cyclomaticComplexity": 245,
+                "cognitiveComplexity": 415,
                 "maxNestingDepth": 6,
                 "dependencyImportCount": 10,
                 "publicSurfaceCount": 123,
@@ -198,12 +198,12 @@
             },
             "observations": {
                 "fileLines": {
-                    "p50": 250,
+                    "p50": 244,
                     "p95": 1566,
                     "max": 2065
                 },
                 "codeLines": {
-                    "p50": 230,
+                    "p50": 199,
                     "p95": 1377,
                     "max": 1755
                 },
@@ -213,19 +213,19 @@
                     "max": 20
                 },
                 "functionMethodCount": {
-                    "p50": 11,
+                    "p50": 9,
                     "p95": 53,
                     "max": 84
                 },
                 "cyclomaticComplexity": {
                     "p50": 21,
-                    "p95": 227,
+                    "p95": 245,
                     "max": 283
                 },
                 "cognitiveComplexity": {
-                    "p50": 35,
-                    "p95": 418,
-                    "max": 904
+                    "p50": 32,
+                    "p95": 415,
+                    "max": 976
                 },
                 "maxNestingDepth": {
                     "p50": 4,
@@ -238,7 +238,7 @@
                     "max": 11
                 },
                 "publicSurfaceCount": {
-                    "p50": 6,
+                    "p50": 4,
                     "p95": 123,
                     "max": 215
                 },
@@ -253,22 +253,22 @@
                     "max": 0
                 },
                 "churn365Days": {
-                    "p50": 5,
+                    "p50": 4,
                     "p95": 31,
-                    "max": 47
+                    "max": 50
                 },
                 "testRelationshipCount": {
                     "p50": 1,
-                    "p95": 12,
-                    "max": 23
+                    "p95": 14,
+                    "max": 26
                 }
             }
         },
         "GeneratedContract": {
-            "fileCount": 5,
+            "fileCount": 8,
             "budgets": {
-                "fileLines": 764,
-                "codeLines": 757,
+                "fileLines": 827,
+                "codeLines": 820,
                 "typeCount": 5,
                 "functionMethodCount": 8,
                 "cyclomaticComplexity": 12,
@@ -280,14 +280,14 @@
             },
             "observations": {
                 "fileLines": {
-                    "p50": 34,
-                    "p95": 764,
-                    "max": 764
+                    "p50": 40,
+                    "p95": 827,
+                    "max": 827
                 },
                 "codeLines": {
-                    "p50": 29,
-                    "p95": 757,
-                    "max": 757
+                    "p50": 36,
+                    "p95": 820,
+                    "max": 820
                 },
                 "typeCount": {
                     "p50": 1,
@@ -295,17 +295,17 @@
                     "max": 5
                 },
                 "functionMethodCount": {
-                    "p50": 1,
+                    "p50": 0,
                     "p95": 4,
                     "max": 4
                 },
                 "cyclomaticComplexity": {
-                    "p50": 3,
+                    "p50": 1,
                     "p95": 8,
                     "max": 8
                 },
                 "cognitiveComplexity": {
-                    "p50": 3,
+                    "p50": 0,
                     "p95": 11,
                     "max": 11
                 },
@@ -320,12 +320,12 @@
                     "max": 0
                 },
                 "publicSurfaceCount": {
-                    "p50": 6,
+                    "p50": 3,
                     "p95": 7,
                     "max": 7
                 },
                 "responsibilityCount": {
-                    "p50": 0,
+                    "p50": 2,
                     "p95": 4,
                     "max": 4
                 },
@@ -335,60 +335,60 @@
                     "max": 1
                 },
                 "churn365Days": {
-                    "p50": 3,
-                    "p95": 51,
-                    "max": 51
+                    "p50": 1,
+                    "p95": 54,
+                    "max": 54
                 },
                 "testRelationshipCount": {
-                    "p50": 1,
+                    "p50": 0,
                     "p95": 2,
                     "max": 2
                 }
             }
         },
         "VueViewComponent": {
-            "fileCount": 158,
+            "fileCount": 171,
             "budgets": {
                 "fileLines": 791,
-                "codeLines": 715,
-                "typeCount": 7,
-                "functionMethodCount": 37,
+                "codeLines": 711,
+                "typeCount": 6,
+                "functionMethodCount": 36,
                 "cyclomaticComplexity": 48,
-                "cognitiveComplexity": 57,
+                "cognitiveComplexity": 61,
                 "maxNestingDepth": 5,
-                "dependencyImportCount": 13,
+                "dependencyImportCount": 12,
                 "publicSurfaceCount": 6,
                 "responsibilityCount": 4
             },
             "observations": {
                 "fileLines": {
-                    "p50": 151,
+                    "p50": 158,
                     "p95": 791,
                     "max": 1362
                 },
                 "codeLines": {
-                    "p50": 129,
-                    "p95": 715,
-                    "max": 1230
+                    "p50": 140,
+                    "p95": 711,
+                    "max": 1248
                 },
                 "typeCount": {
                     "p50": 1,
-                    "p95": 7,
+                    "p95": 6,
                     "max": 17
                 },
                 "functionMethodCount": {
                     "p50": 4,
-                    "p95": 37,
-                    "max": 68
+                    "p95": 36,
+                    "max": 80
                 },
                 "cyclomaticComplexity": {
-                    "p50": 6,
+                    "p50": 7,
                     "p95": 48,
                     "max": 121
                 },
                 "cognitiveComplexity": {
                     "p50": 6,
-                    "p95": 57,
+                    "p95": 61,
                     "max": 131
                 },
                 "maxNestingDepth": {
@@ -398,7 +398,7 @@
                 },
                 "dependencyImportCount": {
                     "p50": 5,
-                    "p95": 13,
+                    "p95": 12,
                     "max": 23
                 },
                 "publicSurfaceCount": {
@@ -418,25 +418,25 @@
                 },
                 "churn365Days": {
                     "p50": 8,
-                    "p95": 27,
-                    "max": 40
+                    "p95": 28,
+                    "max": 44
                 },
                 "testRelationshipCount": {
                     "p50": 1,
-                    "p95": 7,
-                    "max": 13
+                    "p95": 9,
+                    "max": 15
                 }
             }
         },
         "BuildTestOrchestrator": {
-            "fileCount": 143,
+            "fileCount": 229,
             "budgets": {
-                "fileLines": 315,
-                "codeLines": 253,
+                "fileLines": 658,
+                "codeLines": 575,
                 "typeCount": 4,
-                "functionMethodCount": 17,
-                "cyclomaticComplexity": 50,
-                "cognitiveComplexity": 71,
+                "functionMethodCount": 21,
+                "cyclomaticComplexity": 108,
+                "cognitiveComplexity": 148,
                 "maxNestingDepth": 5,
                 "dependencyImportCount": 8,
                 "publicSurfaceCount": 6,
@@ -444,53 +444,53 @@
             },
             "observations": {
                 "fileLines": {
-                    "p50": 28,
-                    "p95": 828,
-                    "max": 4288
+                    "p50": 63,
+                    "p95": 1417,
+                    "max": 5075
                 },
                 "codeLines": {
-                    "p50": 22,
-                    "p95": 636,
-                    "max": 2777
+                    "p50": 43,
+                    "p95": 1278,
+                    "max": 2826
                 },
                 "typeCount": {
                     "p50": 0,
-                    "p95": 0,
-                    "max": 1
+                    "p95": 1,
+                    "max": 4
                 },
                 "functionMethodCount": {
-                    "p50": 0,
-                    "p95": 28,
-                    "max": 154
+                    "p50": 1,
+                    "p95": 43,
+                    "max": 156
                 },
                 "cyclomaticComplexity": {
-                    "p50": 2,
-                    "p95": 105,
-                    "max": 642
+                    "p50": 7,
+                    "p95": 218,
+                    "max": 703
                 },
                 "cognitiveComplexity": {
-                    "p50": 1,
-                    "p95": 151,
-                    "max": 784
+                    "p50": 5,
+                    "p95": 234,
+                    "max": 790
                 },
                 "maxNestingDepth": {
-                    "p50": 0,
-                    "p95": 5,
-                    "max": 7
+                    "p50": 2,
+                    "p95": 6,
+                    "max": 10
                 },
                 "dependencyImportCount": {
-                    "p50": 1,
-                    "p95": 8,
-                    "max": 27
+                    "p50": 2,
+                    "p95": 9,
+                    "max": 33
                 },
                 "publicSurfaceCount": {
                     "p50": 0,
-                    "p95": 5,
-                    "max": 34
+                    "p95": 6,
+                    "max": 37
                 },
                 "responsibilityCount": {
                     "p50": 1,
-                    "p95": 3,
+                    "p95": 4,
                     "max": 7
                 },
                 "generated": {
@@ -499,79 +499,79 @@
                     "max": 0
                 },
                 "churn365Days": {
-                    "p50": 3,
-                    "p95": 12,
-                    "max": 58
+                    "p50": 2,
+                    "p95": 13,
+                    "max": 94
                 },
                 "testRelationshipCount": {
-                    "p50": 0,
-                    "p95": 3,
-                    "max": 4
+                    "p50": 1,
+                    "p95": 4,
+                    "max": 8
                 }
             }
         },
         "ManifestRegistry": {
-            "fileCount": 79,
+            "fileCount": 125,
             "budgets": {
-                "fileLines": 3539,
-                "codeLines": 3363,
+                "fileLines": 4997,
+                "codeLines": 2866,
                 "typeCount": 13,
-                "functionMethodCount": 96,
-                "cyclomaticComplexity": 929,
-                "cognitiveComplexity": 867,
-                "maxNestingDepth": 7,
+                "functionMethodCount": 88,
+                "cyclomaticComplexity": 607,
+                "cognitiveComplexity": 609,
+                "maxNestingDepth": 8,
                 "dependencyImportCount": 22,
-                "publicSurfaceCount": 151,
-                "responsibilityCount": 7
+                "publicSurfaceCount": 54,
+                "responsibilityCount": 6
             },
             "observations": {
                 "fileLines": {
-                    "p50": 141,
-                    "p95": 1062,
-                    "max": 3539
+                    "p50": 195,
+                    "p95": 1184,
+                    "max": 6393
                 },
                 "codeLines": {
-                    "p50": 118,
-                    "p95": 941,
-                    "max": 3363
+                    "p50": 145,
+                    "p95": 643,
+                    "max": 4486
                 },
                 "typeCount": {
                     "p50": 0,
-                    "p95": 10,
-                    "max": 13
+                    "p95": 7,
+                    "max": 14
                 },
                 "functionMethodCount": {
-                    "p50": 6,
-                    "p95": 75,
-                    "max": 96
+                    "p50": 7,
+                    "p95": 51,
+                    "max": 139
                 },
                 "cyclomaticComplexity": {
-                    "p50": 7,
-                    "p95": 126,
-                    "max": 929
+                    "p50": 9,
+                    "p95": 135,
+                    "max": 934
                 },
                 "cognitiveComplexity": {
-                    "p50": 11,
-                    "p95": 173,
-                    "max": 867
+                    "p50": 12,
+                    "p95": 176,
+                    "max": 1033
                 },
                 "maxNestingDepth": {
                     "p50": 3,
-                    "p95": 6,
-                    "max": 7
+                    "p95": 7,
+                    "max": 9
                 },
                 "dependencyImportCount": {
                     "p50": 4,
-                    "p95": 18,
-                    "max": 22
+                    "p95": 17,
+                    "max": 36
                 },
                 "publicSurfaceCount": {
-                    "p50": 1,
+                    "p50": 2,
                     "p95": 17,
-                    "max": 151
+                    "max": 153
                 },
                 "responsibilityCount": {
-                    "p50": 3,
+                    "p50": 2,
                     "p95": 6,
                     "max": 7
                 },
@@ -581,76 +581,76 @@
                     "max": 0
                 },
                 "churn365Days": {
-                    "p50": 5,
-                    "p95": 35,
-                    "max": 49
+                    "p50": 3,
+                    "p95": 31,
+                    "max": 76
                 },
                 "testRelationshipCount": {
                     "p50": 0,
-                    "p95": 3,
-                    "max": 23
+                    "p95": 4,
+                    "max": 31
                 }
             }
         },
         "HandwrittenModule": {
-            "fileCount": 1997,
+            "fileCount": 2634,
             "budgets": {
-                "fileLines": 776,
-                "codeLines": 618,
-                "typeCount": 8,
-                "functionMethodCount": 42,
-                "cyclomaticComplexity": 87,
-                "cognitiveComplexity": 139,
+                "fileLines": 873,
+                "codeLines": 670,
+                "typeCount": 7,
+                "functionMethodCount": 43,
+                "cyclomaticComplexity": 95,
+                "cognitiveComplexity": 148,
                 "maxNestingDepth": 6,
-                "dependencyImportCount": 17,
+                "dependencyImportCount": 16,
                 "publicSurfaceCount": 28,
                 "responsibilityCount": 5
             },
             "observations": {
                 "fileLines": {
-                    "p50": 136,
-                    "p95": 776,
-                    "max": 2791
+                    "p50": 152,
+                    "p95": 873,
+                    "max": 6073
                 },
                 "codeLines": {
-                    "p50": 107,
-                    "p95": 618,
-                    "max": 2632
+                    "p50": 119,
+                    "p95": 670,
+                    "max": 5857
                 },
                 "typeCount": {
                     "p50": 0,
-                    "p95": 8,
-                    "max": 112
+                    "p95": 7,
+                    "max": 123
                 },
                 "functionMethodCount": {
                     "p50": 5,
-                    "p95": 42,
-                    "max": 183
+                    "p95": 43,
+                    "max": 242
                 },
                 "cyclomaticComplexity": {
                     "p50": 5,
-                    "p95": 87,
-                    "max": 787
+                    "p95": 95,
+                    "max": 1294
                 },
                 "cognitiveComplexity": {
-                    "p50": 4,
-                    "p95": 139,
-                    "max": 1101
+                    "p50": 5,
+                    "p95": 148,
+                    "max": 1556
                 },
                 "maxNestingDepth": {
                     "p50": 3,
                     "p95": 6,
-                    "max": 11
+                    "max": 18
                 },
                 "dependencyImportCount": {
-                    "p50": 3,
-                    "p95": 17,
-                    "max": 65
+                    "p50": 4,
+                    "p95": 16,
+                    "max": 87
                 },
                 "publicSurfaceCount": {
                     "p50": 1,
                     "p95": 28,
-                    "max": 362
+                    "max": 369
                 },
                 "responsibilityCount": {
                     "p50": 2,
@@ -664,18 +664,25 @@
                 },
                 "churn365Days": {
                     "p50": 3,
-                    "p95": 18,
+                    "p95": 16,
                     "max": 73
                 },
                 "testRelationshipCount": {
                     "p50": 0,
-                    "p95": 4,
-                    "max": 135
+                    "p95": 6,
+                    "max": 173
                 }
             }
         }
     },
     "files": {
+        ".agents/skills/fsusblog-design-conformance/scripts/ui-orchestration.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 989,
+                "cyclomaticComplexity": 209
+            }
+        },
         "benchmarks/core/AedsCacheMissFrameProfiler.cs": {
             "category": "HandwrittenModule",
             "excess": {
@@ -698,12 +705,12 @@
         "benchmarks/core/Program.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1325,
-                "codeLines": 1157,
+                "fileLines": 1331,
+                "codeLines": 1162,
                 "typeCount": 11,
                 "functionMethodCount": 61,
-                "cyclomaticComplexity": 130,
-                "cognitiveComplexity": 212,
+                "cyclomaticComplexity": 131,
+                "cognitiveComplexity": 213,
                 "dependencyImportCount": 38,
                 "publicSurfaceCount": 38,
                 "responsibilityCount": 6
@@ -761,13 +768,19 @@
         "src/backend/Entities/CommentMutationOutbox.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "publicSurfaceCount": 47
+                "publicSurfaceCount": 70
             }
         },
         "src/backend/Entities/CommentRevision.cs": {
             "category": "HandwrittenModule",
             "excess": {
                 "publicSurfaceCount": 34
+            }
+        },
+        "src/backend/Entities/DistributedInvalidationConvergenceObligation.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "publicSurfaceCount": 56
             }
         },
         "src/backend/Entities/Message.cs": {
@@ -792,7 +805,7 @@
         "src/backend/Infrastructure/Audit/AuditRecord.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "publicSurfaceCount": 97
+                "publicSurfaceCount": 98
             }
         },
         "src/backend/Infrastructure/Bootstrap/PublicWebRuntime.HtmlMaterialization.cs": {
@@ -804,17 +817,18 @@
         "src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "fileLines": 1152,
-                "codeLines": 1017,
-                "cyclomaticComplexity": 153,
-                "cognitiveComplexity": 214,
+                "fileLines": 1198,
+                "codeLines": 1059,
+                "cyclomaticComplexity": 154,
+                "cognitiveComplexity": 217,
                 "dependencyImportCount": 38
             }
         },
         "src/backend/Infrastructure/Bootstrap/RuntimeInfrastructureServiceCollectionExtensions.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "dependencyImportCount": 25
+                "dependencyImportCount": 29,
+                "responsibilityCount": 7
             }
         },
         "src/backend/Infrastructure/Cache/CachePorts.cs": {
@@ -826,7 +840,7 @@
         "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "functionMethodCount": 70
+                "functionMethodCount": 71
             }
         },
         "src/backend/Infrastructure/Cache/RedisCacheStorage.cs": {
@@ -837,8 +851,7 @@
                 "functionMethodCount": 124,
                 "cyclomaticComplexity": 149,
                 "cognitiveComplexity": 465,
-                "dependencyImportCount": 33,
-                "publicSurfaceCount": 37
+                "dependencyImportCount": 33
             }
         },
         "src/backend/Infrastructure/Cache/ServerCacheBinaryCodec.cs": {
@@ -853,10 +866,62 @@
                 "maxNestingDepth": 9
             }
         },
+        "src/backend/Infrastructure/Distributed/DistributedInvalidationContracts.cs": {
+            "category": "ServiceDomainLogic",
+            "excess": {
+                "typeCount": 30,
+                "functionMethodCount": 67,
+                "publicSurfaceCount": 74
+            }
+        },
+        "src/backend/Infrastructure/Distributed/DistributedInvalidationConvergenceObligationStore.cs": {
+            "category": "ServiceDomainLogic",
+            "excess": {
+                "functionMethodCount": 97,
+                "cyclomaticComplexity": 99
+            }
+        },
+        "src/backend/Infrastructure/Distributed/Modules/ModuleInvocationContracts.cs": {
+            "category": "ServiceDomainLogic",
+            "excess": {
+                "typeCount": 14
+            }
+        },
+        "src/backend/Infrastructure/Distributed/Modules/ModuleInvocationTransports.cs": {
+            "category": "ServiceDomainLogic",
+            "excess": {
+                "maxNestingDepth": 7
+            }
+        },
+        "src/backend/Infrastructure/Distributed/Scheduling/ResponsibilityRuntime.cs": {
+            "category": "ServiceDomainLogic",
+            "excess": {
+                "maxNestingDepth": 7
+            }
+        },
+        "src/backend/Infrastructure/Distributed/StateControl/DistributedStateControlContracts.cs": {
+            "category": "ServiceDomainLogic",
+            "excess": {
+                "typeCount": 24,
+                "publicSurfaceCount": 45
+            }
+        },
+        "src/backend/Infrastructure/Distributed/StateControl/RedisDistributedStateControlStore.cs": {
+            "category": "ServiceDomainLogic",
+            "excess": {
+                "responsibilityCount": 7
+            }
+        },
         "src/backend/Infrastructure/Execution/DbConcurrencyGate.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
                 "publicSurfaceCount": 39
+            }
+        },
+        "src/backend/Infrastructure/Fonts/FontLoadingPlanner.cs": {
+            "category": "ServiceDomainLogic",
+            "excess": {
+                "typeCount": 14
             }
         },
         "src/backend/Infrastructure/Helpers/JwtHelper.cs": {
@@ -875,7 +940,6 @@
         "src/backend/Infrastructure/Helpers/Security/ModernTaggedAcAutomaton.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "cyclomaticComplexity": 91,
                 "cognitiveComplexity": 321,
                 "maxNestingDepth": 8
             }
@@ -908,12 +972,6 @@
                 "responsibilityCount": 7
             }
         },
-        "src/backend/Infrastructure/Integrity/SiteIntegritySigning.cs": {
-            "category": "ServiceDomainLogic",
-            "excess": {
-                "publicSurfaceCount": 37
-            }
-        },
         "src/backend/Infrastructure/Middlewares/ShieldMiddleware.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
@@ -935,11 +993,12 @@
         "src/backend/Infrastructure/Observability/FsusObservability.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "fileLines": 2176,
-                "codeLines": 1949,
-                "functionMethodCount": 160,
-                "cognitiveComplexity": 231,
-                "publicSurfaceCount": 147,
+                "fileLines": 2236,
+                "codeLines": 2007,
+                "functionMethodCount": 162,
+                "cognitiveComplexity": 244,
+                "maxNestingDepth": 7,
+                "publicSurfaceCount": 149,
                 "responsibilityCount": 7
             }
         },
@@ -954,53 +1013,82 @@
         "src/backend/Infrastructure/Operations/AdminIntegrityOperations.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "typeCount": 14,
-                "publicSurfaceCount": 33
+                "typeCount": 14
             }
         },
         "src/backend/Infrastructure/Operations/DeploymentRuntimeState.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "codeLines": 826,
+                "codeLines": 860,
                 "typeCount": 15,
                 "functionMethodCount": 69,
-                "cognitiveComplexity": 183,
+                "cyclomaticComplexity": 93,
+                "cognitiveComplexity": 191,
                 "publicSurfaceCount": 52
             }
         },
         "src/backend/Infrastructure/Operations/ProductionHealth.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "fileLines": 1191,
-                "codeLines": 1081,
-                "typeCount": 24,
-                "cyclomaticComplexity": 111,
-                "cognitiveComplexity": 181,
-                "dependencyImportCount": 31,
-                "publicSurfaceCount": 33,
+                "fileLines": 1306,
+                "codeLines": 1187,
+                "typeCount": 27,
+                "functionMethodCount": 64,
+                "cyclomaticComplexity": 121,
+                "cognitiveComplexity": 196,
+                "dependencyImportCount": 33,
                 "responsibilityCount": 7
             }
         },
         "src/backend/Infrastructure/Operations/ProductionStartupValidator.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "fileLines": 1306,
-                "codeLines": 1139,
-                "cyclomaticComplexity": 216,
-                "cognitiveComplexity": 380
+                "fileLines": 1324,
+                "codeLines": 1154,
+                "cyclomaticComplexity": 222,
+                "cognitiveComplexity": 389
             }
         },
         "src/backend/Infrastructure/Operations/ReleaseDrainParticipants.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
                 "typeCount": 18,
-                "publicSurfaceCount": 57
+                "publicSurfaceCount": 59
+            }
+        },
+        "src/backend/Infrastructure/Plugins/PluginContracts.cs": {
+            "category": "ServiceDomainLogic",
+            "excess": {
+                "typeCount": 14,
+                "publicSurfaceCount": 40
+            }
+        },
+        "src/backend/Infrastructure/Plugins/PluginHooks.cs": {
+            "category": "ServiceDomainLogic",
+            "excess": {
+                "typeCount": 23,
+                "publicSurfaceCount": 38
+            }
+        },
+        "src/backend/Infrastructure/Plugins/PluginPackageReader.cs": {
+            "category": "ServiceDomainLogic",
+            "excess": {
+                "cyclomaticComplexity": 118,
+                "cognitiveComplexity": 236
+            }
+        },
+        "src/backend/Infrastructure/Plugins/PluginSecurity.cs": {
+            "category": "ServiceDomainLogic",
+            "excess": {
+                "typeCount": 26,
+                "publicSurfaceCount": 62
             }
         },
         "src/backend/Infrastructure/PublicAot/CspNonceUtf8Template.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "cognitiveComplexity": 227
+                "cognitiveComplexity": 259,
+                "maxNestingDepth": 7
             }
         },
         "src/backend/Infrastructure/PublicAot/PublicAotBinaryPayload.cs": {
@@ -1020,43 +1108,44 @@
         "src/backend/Infrastructure/PublicAot/PublicAotDocumentComposer.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "fileLines": 1242,
-                "cyclomaticComplexity": 94
+                "fileLines": 1145,
+                "codeLines": 853,
+                "cyclomaticComplexity": 101
             }
         },
         "src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "fileLines": 1186,
-                "codeLines": 1042,
-                "functionMethodCount": 75,
-                "cyclomaticComplexity": 121,
-                "cognitiveComplexity": 338,
+                "fileLines": 1566,
+                "codeLines": 1389,
+                "functionMethodCount": 91,
+                "cyclomaticComplexity": 148,
+                "cognitiveComplexity": 425,
+                "responsibilityCount": 7
+            }
+        },
+        "src/backend/Infrastructure/PublicAot/PublicAotInvalidationGenerationAuthority.cs": {
+            "category": "ServiceDomainLogic",
+            "excess": {
+                "codeLines": 856,
                 "responsibilityCount": 7
             }
         },
         "src/backend/Infrastructure/PublicAot/PublicAotPageSnapshots.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "typeCount": 19,
-                "publicSurfaceCount": 33
+                "typeCount": 19
             }
         },
         "src/backend/Infrastructure/PublicReadArtifacts/ArticleDetailAedsArtifactStore.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "fileLines": 1413,
-                "codeLines": 1016,
+                "fileLines": 1427,
+                "codeLines": 1030,
                 "typeCount": 17,
                 "functionMethodCount": 115,
                 "dependencyImportCount": 24,
                 "responsibilityCount": 7
-            }
-        },
-        "src/backend/Infrastructure/PublicReadArtifacts/PublicArticleProjectionStore.cs": {
-            "category": "ServiceDomainLogic",
-            "excess": {
-                "publicSurfaceCount": 32
             }
         },
         "src/backend/Infrastructure/PublicReadArtifacts/PublicArtifactRevocation.cs": {
@@ -1066,30 +1155,44 @@
                 "publicSurfaceCount": 46
             }
         },
+        "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactDeliveryState.cs": {
+            "category": "ServiceDomainLogic",
+            "excess": {
+                "publicSurfaceCount": 38
+            }
+        },
         "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "fileLines": 1451,
-                "codeLines": 1242,
+                "fileLines": 1453,
+                "codeLines": 1244,
                 "functionMethodCount": 74,
-                "cyclomaticComplexity": 122,
-                "cognitiveComplexity": 229,
+                "cyclomaticComplexity": 121,
+                "cognitiveComplexity": 224,
                 "dependencyImportCount": 27,
                 "responsibilityCount": 7
+            }
+        },
+        "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactUpdateQueue.cs": {
+            "category": "ServiceDomainLogic",
+            "excess": {
+                "cognitiveComplexity": 228
             }
         },
         "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Serving.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "fileLines": 1095
+                "fileLines": 1102
             }
         },
         "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "codeLines": 946,
+                "fileLines": 1063,
+                "codeLines": 977,
                 "typeCount": 17,
-                "publicSurfaceCount": 90
+                "dependencyImportCount": 21,
+                "publicSurfaceCount": 92
             }
         },
         "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadMetrics.cs": {
@@ -1122,26 +1225,23 @@
         "src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationCoordinator.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "fileLines": 1055,
                 "codeLines": 913,
                 "typeCount": 17,
                 "cyclomaticComplexity": 118,
-                "cognitiveComplexity": 281,
-                "publicSurfaceCount": 33
+                "cognitiveComplexity": 281
             }
         },
         "src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationMetadata.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "fileLines": 1317,
-                "codeLines": 1226,
-                "functionMethodCount": 98
+                "fileLines": 1533,
+                "codeLines": 1432,
+                "functionMethodCount": 118
             }
         },
         "src/backend/Infrastructure/SchemaMigration/SchemaMigrationDdlPrimitives.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "typeCount": 13,
                 "publicSurfaceCount": 46
             }
         },
@@ -1151,23 +1251,54 @@
                 "typeCount": 19
             }
         },
-        "src/backend/Infrastructure/Security/RiskActionRegistry.cs": {
-            "category": "ServiceDomainLogic",
-            "excess": {
-                "publicSurfaceCount": 32
-            }
-        },
         "src/backend/Infrastructure/Spa/SpaAssetManifestService.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "cognitiveComplexity": 199,
+                "fileLines": 1421,
+                "codeLines": 1279,
+                "functionMethodCount": 77,
+                "cyclomaticComplexity": 173,
+                "cognitiveComplexity": 335
+            }
+        },
+        "src/backend/Infrastructure/Spa/SpaManifestDescriptor.cs": {
+            "category": "ServiceDomainLogic",
+            "excess": {
+                "codeLines": 887,
+                "cyclomaticComplexity": 138,
+                "cognitiveComplexity": 316,
                 "maxNestingDepth": 7
+            }
+        },
+        "src/backend/Infrastructure/Themes/ThemeContracts.cs": {
+            "category": "ServiceDomainLogic",
+            "excess": {
+                "typeCount": 21,
+                "publicSurfaceCount": 66
+            }
+        },
+        "src/backend/Infrastructure/Themes/ThemePackageValidator.cs": {
+            "category": "ServiceDomainLogic",
+            "excess": {
+                "cyclomaticComplexity": 100
+            }
+        },
+        "src/backend/Infrastructure/Themes/ThemeRegistry.cs": {
+            "category": "ServiceDomainLogic",
+            "excess": {
+                "functionMethodCount": 97
+            }
+        },
+        "src/backend/Interfaces/IMessageService.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "typeCount": 8
             }
         },
         "src/backend/Interfaces/UserApplicationPorts.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "typeCount": 13
+                "typeCount": 17
             }
         },
         "src/backend/Models/CommentIdentity/AnonymousCommentIdentityModels.cs": {
@@ -1206,6 +1337,12 @@
             "category": "HandwrittenModule",
             "excess": {
                 "typeCount": 25
+            }
+        },
+        "src/backend/Models/Moderation/AntiSpamModerationModels.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "typeCount": 8
             }
         },
         "src/backend/Models/Moderation/ModerationDictionaryModels.cs": {
@@ -1257,34 +1394,69 @@
             "category": "EndpointComposition",
             "excess": {
                 "typeCount": 7,
+                "functionMethodCount": 109,
+                "cyclomaticComplexity": 212,
                 "publicSurfaceCount": 29
             }
         },
         "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs": {
             "category": "EndpointComposition",
             "excess": {
-                "fileLines": 1934,
-                "codeLines": 1760,
-                "cyclomaticComplexity": 208,
-                "cognitiveComplexity": 477
+                "fileLines": 2214,
+                "codeLines": 2016,
+                "cyclomaticComplexity": 233,
+                "cognitiveComplexity": 549
+            }
+        },
+        "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs": {
+            "category": "EndpointComposition",
+            "excess": {
+                "dependencyImportCount": 34
             }
         },
         "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Taxonomy.cs": {
             "category": "EndpointComposition",
             "excess": {
-                "dependencyImportCount": 40
+                "dependencyImportCount": 41
+            }
+        },
+        "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Uploads.cs": {
+            "category": "EndpointComposition",
+            "excess": {
+                "publicSurfaceCount": 10
+            }
+        },
+        "src/backend/Modules/Endpoints/LocalDemoFixtureEndpoints.cs": {
+            "category": "EndpointComposition",
+            "excess": {
+                "maxNestingDepth": 7
+            }
+        },
+        "src/backend/Modules/Endpoints/NotificationStreamDrillEndpoints.cs": {
+            "category": "EndpointComposition",
+            "excess": {
+                "typeCount": 5
             }
         },
         "src/backend/Modules/Endpoints/SecurityEndpoints.cs": {
             "category": "EndpointComposition",
             "excess": {
-                "functionMethodCount": 123
+                "fileLines": 1813,
+                "codeLines": 1657,
+                "functionMethodCount": 123,
+                "cognitiveComplexity": 324
             }
         },
-        "src/backend/Services/ArticleMutationOutboxEnvelope.cs": {
+        "src/backend/Services/ArticleMutationSideEffects.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "typeCount": 13
+                "publicSurfaceCount": 45
+            }
+        },
+        "src/backend/Services/ArticleService.CacheAndInvalidation.cs": {
+            "category": "ServiceDomainLogic",
+            "excess": {
+                "dependencyImportCount": 23
             }
         },
         "src/backend/Services/ArticleService.LifecycleAndReadModels.cs": {
@@ -1342,10 +1514,8 @@
         "src/backend/Services/Authoring/AuthoringDraftLifecycleService.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "codeLines": 845,
-                "functionMethodCount": 74,
-                "cyclomaticComplexity": 94,
-                "dependencyImportCount": 26,
+                "functionMethodCount": 70,
+                "dependencyImportCount": 24,
                 "responsibilityCount": 7
             }
         },
@@ -1370,13 +1540,8 @@
         "src/backend/Services/Background/CommentMutationOutboxWorker.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
+                "fileLines": 1183,
                 "responsibilityCount": 7
-            }
-        },
-        "src/backend/Services/CommentAuthorManagementService.cs": {
-            "category": "ServiceDomainLogic",
-            "excess": {
-                "typeCount": 13
             }
         },
         "src/backend/Services/CommentModerationService.cs": {
@@ -1396,30 +1561,48 @@
         "src/backend/Services/CommentService.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "fileLines": 1232,
-                "codeLines": 1025,
+                "fileLines": 1238,
+                "codeLines": 1028,
                 "functionMethodCount": 76,
                 "cyclomaticComplexity": 126,
                 "cognitiveComplexity": 248,
-                "dependencyImportCount": 25
+                "dependencyImportCount": 27
             }
         },
         "src/backend/Services/Distribution/BlogDistributionService.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "typeCount": 13,
                 "functionMethodCount": 78
             }
         },
         "src/backend/Services/FileService.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "fileLines": 2344,
-                "codeLines": 2059,
-                "typeCount": 13,
-                "functionMethodCount": 142,
-                "cyclomaticComplexity": 276,
-                "cognitiveComplexity": 634
+                "fileLines": 2444,
+                "codeLines": 2146,
+                "typeCount": 15,
+                "functionMethodCount": 149,
+                "cyclomaticComplexity": 282,
+                "cognitiveComplexity": 662,
+                "dependencyImportCount": 21
+            }
+        },
+        "src/backend/Services/Fixtures/DemoFixtureSeeder.cs": {
+            "category": "ServiceDomainLogic",
+            "excess": {
+                "fileLines": 1747,
+                "typeCount": 15,
+                "responsibilityCount": 7
+            }
+        },
+        "src/backend/Services/Fixtures/PublicContentFixtureSeeder.cs": {
+            "category": "ServiceDomainLogic",
+            "excess": {
+                "fileLines": 1523,
+                "codeLines": 1001,
+                "typeCount": 16,
+                "publicSurfaceCount": 58,
+                "responsibilityCount": 7
             }
         },
         "src/backend/Services/HumanReadProofService.cs": {
@@ -1456,7 +1639,6 @@
             "category": "ServiceDomainLogic",
             "excess": {
                 "codeLines": 851,
-                "cyclomaticComplexity": 91,
                 "cognitiveComplexity": 268,
                 "dependencyImportCount": 33
             }
@@ -1508,28 +1690,22 @@
                 "cyclomaticComplexity": 98
             }
         },
-        "src/backend/Services/Security/AnonymousCredentialRootLifecycleService.cs": {
-            "category": "ServiceDomainLogic",
-            "excess": {
-                "typeCount": 13
-            }
-        },
         "src/backend/Services/Security/ContentFilterService.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "cognitiveComplexity": 233
+                "cognitiveComplexity": 235
             }
         },
         "src/backend/Services/Security/PasskeyService.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "fileLines": 1933,
-                "codeLines": 1635,
+                "fileLines": 1999,
+                "codeLines": 1684,
                 "typeCount": 15,
-                "functionMethodCount": 82,
-                "cyclomaticComplexity": 148,
-                "cognitiveComplexity": 329,
-                "dependencyImportCount": 25,
+                "functionMethodCount": 85,
+                "cyclomaticComplexity": 157,
+                "cognitiveComplexity": 355,
+                "dependencyImportCount": 27,
                 "publicSurfaceCount": 39
             }
         },
@@ -1539,10 +1715,10 @@
                 "typeCount": 16
             }
         },
-        "src/backend/Services/Security/PerceptionCharacterV3StateStore.cs": {
+        "src/backend/Services/Security/PerceptionCharacterV3ResourcePlanner.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "typeCount": 16
+                "publicSurfaceCount": 41
             }
         },
         "src/backend/Services/Security/RecoveryKeyService.cs": {
@@ -1567,14 +1743,15 @@
         "src/backend/Services/Security/SecurityChallengeEnvelopeStateService.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "cyclomaticComplexity": 110,
-                "publicSurfaceCount": 33
+                "cyclomaticComplexity": 146,
+                "cognitiveComplexity": 202,
+                "publicSurfaceCount": 45
             }
         },
         "src/backend/Services/Security/SecurityChallengeOrchestrator.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "publicSurfaceCount": 32
+                "publicSurfaceCount": 38
             }
         },
         "src/backend/Services/Taxonomy/TaxonomyCountProjectionService.cs": {
@@ -1592,10 +1769,10 @@
         "src/backend/Services/UserSessionCommandService.cs": {
             "category": "ServiceDomainLogic",
             "excess": {
-                "fileLines": 1141,
-                "codeLines": 873,
+                "fileLines": 1144,
+                "codeLines": 877,
                 "functionMethodCount": 89,
-                "cyclomaticComplexity": 112,
+                "cyclomaticComplexity": 113,
                 "cognitiveComplexity": 213,
                 "dependencyImportCount": 30
             }
@@ -1603,10 +1780,10 @@
         "src/core/Cache/PodBinaryCodec.Article.cs": {
             "category": "CodecProtocol",
             "excess": {
-                "fileLines": 2014,
-                "codeLines": 1717,
+                "fileLines": 1995,
+                "codeLines": 1699,
                 "functionMethodCount": 63,
-                "cyclomaticComplexity": 273
+                "cyclomaticComplexity": 250
             }
         },
         "src/core/Cache/PodBinaryCodec.Comment.cs": {
@@ -1650,6 +1827,12 @@
                 "functionMethodCount": 47
             }
         },
+        "src/core/Integrity/MerkleCheckpoint.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "typeCount": 8
+            }
+        },
         "src/core/Mapping/Models/ReadModels.cs": {
             "category": "HandwrittenModule",
             "excess": {
@@ -1660,7 +1843,6 @@
         "src/core/Mapping/Projectors/PodProjector.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "codeLines": 632,
                 "typeCount": 17,
                 "publicSurfaceCount": 139
             }
@@ -1674,7 +1856,6 @@
         "src/frontend/public/sw.js": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 819,
                 "codeLines": 716,
                 "functionMethodCount": 71,
                 "cyclomaticComplexity": 133,
@@ -1685,7 +1866,7 @@
         "src/frontend/src/App.vue": {
             "category": "VueViewComponent",
             "excess": {
-                "dependencyImportCount": 18
+                "dependencyImportCount": 16
             }
         },
         "src/frontend/src/adapters/binary/articleAdapter.ts": {
@@ -1702,10 +1883,16 @@
                 "cyclomaticComplexity": 108
             }
         },
+        "src/frontend/src/adapters/binary/securityAdapter.ts": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "cyclomaticComplexity": 96
+            }
+        },
         "src/frontend/src/adapters/binary/types.ts": {
             "category": "HandwrittenModule",
             "excess": {
-                "publicSurfaceCount": 55
+                "publicSurfaceCount": 56
             }
         },
         "src/frontend/src/api/anonymousGovernance.ts": {
@@ -1723,27 +1910,27 @@
         "src/frontend/src/api/auth.ts": {
             "category": "HandwrittenModule",
             "excess": {
-                "codeLines": 661,
+                "codeLines": 691,
                 "typeCount": 10,
-                "functionMethodCount": 57,
-                "publicSurfaceCount": 51
+                "functionMethodCount": 58,
+                "publicSurfaceCount": 53
             }
         },
         "src/frontend/src/api/authoring.ts": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1808,
-                "codeLines": 1616,
-                "typeCount": 112,
-                "functionMethodCount": 71,
-                "publicSurfaceCount": 112,
+                "fileLines": 2123,
+                "codeLines": 1910,
+                "typeCount": 123,
+                "functionMethodCount": 77,
+                "publicSurfaceCount": 124,
                 "responsibilityCount": 6
             }
         },
-        "src/frontend/src/api/comment.ts": {
+        "src/frontend/src/api/clusterOperations.ts": {
             "category": "HandwrittenModule",
             "excess": {
-                "codeLines": 670
+                "typeCount": 14
             }
         },
         "src/frontend/src/api/integrityConsole.ts": {
@@ -1761,7 +1948,6 @@
         "src/frontend/src/api/security.ts": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 783,
                 "codeLines": 693,
                 "typeCount": 49,
                 "publicSurfaceCount": 80
@@ -1770,14 +1956,40 @@
         "src/frontend/src/bootstrap/fullApp.ts": {
             "category": "HandwrittenModule",
             "excess": {
-                "typeCount": 10,
-                "dependencyImportCount": 27
+                "typeCount": 9,
+                "dependencyImportCount": 28
+            }
+        },
+        "src/frontend/src/bootstrap/publicActivationCoordinator.ts": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "typeCount": 13,
+                "cognitiveComplexity": 190
+            }
+        },
+        "src/frontend/src/bootstrap/publicActivationRuntime.ts": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "typeCount": 9
+            }
+        },
+        "src/frontend/src/bootstrap/publicBootKernel.ts": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "typeCount": 8
             }
         },
         "src/frontend/src/bootstrap/publicShell.ts": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1087
+                "fileLines": 1163
+            }
+        },
+        "src/frontend/src/components/admin/OpsHealthWorkbench.vue": {
+            "category": "VueViewComponent",
+            "excess": {
+                "fileLines": 915,
+                "codeLines": 835
             }
         },
         "src/frontend/src/components/article/ArticleCommentComposer.vue": {
@@ -1790,7 +2002,7 @@
                 "cognitiveComplexity": 131
             }
         },
-        "src/frontend/src/components/public/PublicBlogLayoutShell.vue": {
+        "src/frontend/src/components/public/pages/PublicArticleDetailPageContent.vue": {
             "category": "VueViewComponent",
             "excess": {
                 "dependencyImportCount": 14
@@ -1818,6 +2030,12 @@
                 "cognitiveComplexity": 107
             }
         },
+        "src/frontend/src/components/ui/LocaleSelector.vue": {
+            "category": "VueViewComponent",
+            "excess": {
+                "cognitiveComplexity": 63
+            }
+        },
         "src/frontend/src/components/ui/MarkdownTextEditor.vue": {
             "category": "VueViewComponent",
             "excess": {
@@ -1838,20 +2056,21 @@
         "src/frontend/src/composables/useAdminArticleList.ts": {
             "category": "HandwrittenModule",
             "excess": {
+                "typeCount": 8,
                 "maxNestingDepth": 8
             }
         },
         "src/frontend/src/composables/useAdminArticleWrite.ts": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1926,
-                "codeLines": 1741,
-                "typeCount": 26,
-                "functionMethodCount": 122,
-                "cyclomaticComplexity": 316,
-                "cognitiveComplexity": 605,
+                "fileLines": 2745,
+                "codeLines": 2558,
+                "typeCount": 30,
+                "functionMethodCount": 154,
+                "cyclomaticComplexity": 353,
+                "cognitiveComplexity": 708,
                 "maxNestingDepth": 7,
-                "dependencyImportCount": 22
+                "dependencyImportCount": 25
             }
         },
         "src/frontend/src/composables/useAdminDashboard.ts": {
@@ -1863,7 +2082,7 @@
         "src/frontend/src/composables/useAdminMessageCenter.ts": {
             "category": "HandwrittenModule",
             "excess": {
-                "codeLines": 619,
+                "typeCount": 8,
                 "cyclomaticComplexity": 156,
                 "cognitiveComplexity": 279
             }
@@ -1871,7 +2090,8 @@
         "src/frontend/src/composables/useAdminSettingsPage.ts": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1068
+                "fileLines": 1068,
+                "dependencyImportCount": 17
             }
         },
         "src/frontend/src/composables/useAdminTaxonomyManage.ts": {
@@ -1900,9 +2120,10 @@
         "src/frontend/src/composables/useCommentModerationQueue.ts": {
             "category": "HandwrittenModule",
             "excess": {
-                "codeLines": 630,
-                "cyclomaticComplexity": 111,
-                "cognitiveComplexity": 204
+                "codeLines": 688,
+                "functionMethodCount": 45,
+                "cyclomaticComplexity": 124,
+                "cognitiveComplexity": 230
             }
         },
         "src/frontend/src/composables/useFilterView.ts": {
@@ -1919,7 +2140,13 @@
             "excess": {
                 "cyclomaticComplexity": 100,
                 "cognitiveComplexity": 210,
-                "dependencyImportCount": 18
+                "dependencyImportCount": 19
+            }
+        },
+        "src/frontend/src/composables/useImageUploadFlow.ts": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "typeCount": 8
             }
         },
         "src/frontend/src/composables/useNotification.ts": {
@@ -1946,22 +2173,16 @@
         "src/frontend/src/contracts/binaryApi.ts": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1022,
-                "codeLines": 907,
-                "typeCount": 111,
-                "publicSurfaceCount": 115
+                "fileLines": 1039,
+                "codeLines": 921,
+                "typeCount": 114,
+                "publicSurfaceCount": 118
             }
         },
         "src/frontend/src/contracts/binaryTransport.ts": {
             "category": "HandwrittenModule",
             "excess": {
                 "typeCount": 17
-            }
-        },
-        "src/frontend/src/copy/contracts.ts": {
-            "category": "HandwrittenModule",
-            "excess": {
-                "typeCount": 11
             }
         },
         "src/frontend/src/fsusui/primitiveAdapters.ts": {
@@ -1976,10 +2197,55 @@
                 "dependencyImportCount": 14
             }
         },
+        "src/frontend/src/layouts/accountNav.ts": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "typeCount": 8
+            }
+        },
         "src/frontend/src/layouts/accountWorkspaceContext.ts": {
             "category": "HandwrittenModule",
             "excess": {
                 "typeCount": 9
+            }
+        },
+        "src/frontend/src/locales/index.ts": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "typeCount": 8
+            }
+        },
+        "src/frontend/src/locales/keys.ts": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "typeCount": 21
+            }
+        },
+        "src/frontend/src/locales/localeDomainBundleStore.ts": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "typeCount": 10
+            }
+        },
+        "src/frontend/src/locales/runtime/localeRuntimeComposition.ts": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "typeCount": 13
+            }
+        },
+        "src/frontend/src/locales/runtime/localeRuntimeCoordinator.ts": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "codeLines": 696,
+                "typeCount": 23,
+                "cognitiveComplexity": 165,
+                "maxNestingDepth": 7
+            }
+        },
+        "src/frontend/src/performance/browserTaskScheduler.ts": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "typeCount": 8
             }
         },
         "src/frontend/src/privacy/commentPrivacyContracts.ts": {
@@ -2019,7 +2285,7 @@
         "src/frontend/src/public-renderers/pageAssemblies.ts": {
             "category": "HandwrittenModule",
             "excess": {
-                "dependencyImportCount": 18
+                "dependencyImportCount": 19
             }
         },
         "src/frontend/src/public-renderers/publicPayloadTypes.ts": {
@@ -2031,8 +2297,9 @@
         "src/frontend/src/router/index.ts": {
             "category": "HandwrittenModule",
             "excess": {
-                "cyclomaticComplexity": 94,
-                "cognitiveComplexity": 150
+                "typeCount": 10,
+                "cognitiveComplexity": 162,
+                "dependencyImportCount": 17
             }
         },
         "src/frontend/src/router/publicRoutePreload.ts": {
@@ -2045,24 +2312,43 @@
             "category": "HandwrittenModule",
             "excess": {
                 "typeCount": 25,
-                "functionMethodCount": 61,
-                "cyclomaticComplexity": 96
+                "functionMethodCount": 63,
+                "cyclomaticComplexity": 112
+            }
+        },
+        "src/frontend/src/security/challenge-proof-store.ts": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "typeCount": 8
+            }
+        },
+        "src/frontend/src/services/articleRecoveryJournal.ts": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 1167,
+                "codeLines": 1086,
+                "typeCount": 22,
+                "functionMethodCount": 62,
+                "cyclomaticComplexity": 168,
+                "cognitiveComplexity": 228,
+                "publicSurfaceCount": 35
             }
         },
         "src/frontend/src/services/binaryTransport.ts": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 936,
-                "codeLines": 839,
+                "fileLines": 949,
+                "codeLines": 852,
                 "cyclomaticComplexity": 157,
-                "cognitiveComplexity": 248
+                "cognitiveComplexity": 248,
+                "dependencyImportCount": 17
             }
         },
         "src/frontend/src/services/localSearch.ts": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 864,
                 "codeLines": 743,
+                "typeCount": 8,
                 "functionMethodCount": 80,
                 "cyclomaticComplexity": 119,
                 "cognitiveComplexity": 272
@@ -2071,7 +2357,6 @@
         "src/frontend/src/services/notificationStreamRuntime.ts": {
             "category": "HandwrittenModule",
             "excess": {
-                "cyclomaticComplexity": 89,
                 "cognitiveComplexity": 260,
                 "maxNestingDepth": 7
             }
@@ -2080,6 +2365,12 @@
             "category": "HandwrittenModule",
             "excess": {
                 "typeCount": 19
+            }
+        },
+        "src/frontend/src/services/privateStorageRegistry.ts": {
+            "category": "ManifestRegistry",
+            "excess": {
+                "typeCount": 14
             }
         },
         "src/frontend/src/services/securityPerceptionChallengeFlow.ts": {
@@ -2100,7 +2391,25 @@
                 "typeCount": 16
             }
         },
+        "src/frontend/src/services/securityPoSpaceClient.ts": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "typeCount": 8
+            }
+        },
+        "src/frontend/src/services/securityPoSpaceRuntime.ts": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "typeCount": 8
+            }
+        },
         "src/frontend/src/services/serviceWorkerRuntime.ts": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "typeCount": 10
+            }
+        },
+        "src/frontend/src/services/themeAssetRuntime.ts": {
             "category": "HandwrittenModule",
             "excess": {
                 "typeCount": 10
@@ -2121,14 +2430,20 @@
         "src/frontend/src/store/notificationStream.ts": {
             "category": "HandwrittenModule",
             "excess": {
-                "typeCount": 11,
-                "cognitiveComplexity": 144
+                "typeCount": 11
             }
         },
         "src/frontend/src/utils/wasmImageCodec.ts": {
             "category": "HandwrittenModule",
             "excess": {
+                "typeCount": 8,
                 "maxNestingDepth": 7
+            }
+        },
+        "src/frontend/src/view-contracts/adminDashboard.ts": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "typeCount": 8
             }
         },
         "src/frontend/src/view-contracts/articleDetail.ts": {
@@ -2147,8 +2462,8 @@
         "src/frontend/src/views/admin/AuditLog.vue": {
             "category": "VueViewComponent",
             "excess": {
-                "fileLines": 794,
-                "codeLines": 722,
+                "fileLines": 792,
+                "codeLines": 720,
                 "typeCount": 10,
                 "cyclomaticComplexity": 68,
                 "dependencyImportCount": 15
@@ -2157,8 +2472,7 @@
         "src/frontend/src/views/admin/Integrity.vue": {
             "category": "VueViewComponent",
             "excess": {
-                "typeCount": 8,
-                "cognitiveComplexity": 61
+                "typeCount": 8
             }
         },
         "src/frontend/src/views/admin/MessageCenter.vue": {
@@ -2167,19 +2481,26 @@
                 "functionMethodCount": 43
             }
         },
+        "src/frontend/src/views/admin/PluginAdmin.vue": {
+            "category": "VueViewComponent",
+            "excess": {
+                "cyclomaticComplexity": 57,
+                "cognitiveComplexity": 81
+            }
+        },
         "src/frontend/src/views/admin/Settings.vue": {
             "category": "VueViewComponent",
             "excess": {
-                "fileLines": 853,
+                "fileLines": 848,
                 "cognitiveComplexity": 70
             }
         },
         "src/frontend/src/views/admin/article/Write.vue": {
             "category": "VueViewComponent",
             "excess": {
-                "fileLines": 1314,
-                "codeLines": 1198,
-                "dependencyImportCount": 16
+                "fileLines": 1341,
+                "codeLines": 1248,
+                "dependencyImportCount": 19
             }
         },
         "src/frontend/src/views/admin/moderation/AnonymousGovernancePage.vue": {
@@ -2202,8 +2523,10 @@
         "src/frontend/src/views/admin/moderation/ModerationRegions.vue": {
             "category": "VueViewComponent",
             "excess": {
-                "fileLines": 948,
-                "codeLines": 847
+                "fileLines": 894,
+                "codeLines": 803,
+                "typeCount": 7,
+                "functionMethodCount": 37
             }
         },
         "src/frontend/src/views/admin/security/SecurityChallenges.vue": {
@@ -2223,10 +2546,10 @@
         "src/frontend/src/views/user/IdentityCenter.vue": {
             "category": "VueViewComponent",
             "excess": {
-                "fileLines": 1349,
-                "codeLines": 1203,
+                "fileLines": 1350,
+                "codeLines": 1204,
                 "typeCount": 9,
-                "functionMethodCount": 68,
+                "functionMethodCount": 80,
                 "cyclomaticComplexity": 111,
                 "cognitiveComplexity": 127,
                 "dependencyImportCount": 21
@@ -2235,7 +2558,6 @@
         "src/frontend/src/workers/security/perception-v2.renderer.ts": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 852,
                 "codeLines": 752,
                 "typeCount": 20,
                 "cyclomaticComplexity": 121,
@@ -2245,17 +2567,14 @@
         "src/frontend/vite.config.ts": {
             "category": "HandwrittenModule",
             "excess": {
-                "codeLines": 699,
-                "cyclomaticComplexity": 107,
-                "cognitiveComplexity": 165,
-                "maxNestingDepth": 9,
+                "fileLines": 1000,
                 "responsibilityCount": 6
             }
         },
         "src/frontend/wasm/aeds/include/aeds_frame.hpp": {
             "category": "CodecProtocol",
             "excess": {
-                "cognitiveComplexity": 904
+                "cognitiveComplexity": 976
             }
         },
         "src/frontend/wasm/build.sh": {
@@ -2271,10 +2590,28 @@
                 "maxNestingDepth": 7
             }
         },
+        "src/plugin-sdk/index.ts": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "typeCount": 13
+            }
+        },
         "src/shared/AedsFrameHeader.cs": {
             "category": "HandwrittenModule",
             "excess": {
                 "responsibilityCount": 6
+            }
+        },
+        "src/shared/Contracts/Customization/CustomizationContracts.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "typeCount": 9
+            }
+        },
+        "src/shared/Contracts/Fonts/FontTokenSchema.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "publicSurfaceCount": 45
             }
         },
         "src/shared/Contracts/Models/ArticlePods.cs": {
@@ -2315,7 +2652,7 @@
             "category": "HandwrittenModule",
             "excess": {
                 "typeCount": 9,
-                "publicSurfaceCount": 89
+                "publicSurfaceCount": 91
             }
         },
         "src/shared/Contracts/Models/SystemPods.cs": {
@@ -2327,8 +2664,8 @@
         "src/shared/Contracts/Models/UserPods.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "typeCount": 31,
-                "publicSurfaceCount": 233
+                "typeCount": 33,
+                "publicSurfaceCount": 248
             }
         },
         "src/shared/Contracts/Outputs/PublicAotEntryPayloadView.cs": {
@@ -2340,7 +2677,7 @@
         "src/shared/Contracts/Outputs/PublicPageContracts.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "publicSurfaceCount": 51
+                "publicSurfaceCount": 52
             }
         },
         "src/shared/Contracts/Outputs/PublicSeoHeadContracts.cs": {
@@ -2352,10 +2689,10 @@
         "src/shared/Contracts/Outputs/ServerResponseContracts.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1632,
-                "codeLines": 1206,
-                "typeCount": 108,
-                "publicSurfaceCount": 362
+                "fileLines": 1784,
+                "codeLines": 1305,
+                "typeCount": 121,
+                "publicSurfaceCount": 369
             }
         },
         "src/shared/Contracts/Security/RenderRecipeV2Contracts.cs": {
@@ -2370,8 +2707,8 @@
             "category": "HandwrittenModule",
             "excess": {
                 "typeCount": 11,
-                "functionMethodCount": 57,
-                "cognitiveComplexity": 163
+                "functionMethodCount": 61,
+                "cognitiveComplexity": 180
             }
         },
         "src/shared/Contracts/Validation/AnonymousPrivacyContract.cs": {
@@ -2386,14 +2723,20 @@
                 "cyclomaticComplexity": 153
             }
         },
+        "src/shared/Contracts/Validation/PodSizeCatalog.cs": {
+            "category": "ManifestRegistry",
+            "excess": {
+                "publicSurfaceCount": 153
+            }
+        },
         "tests/backend/Helpers/TestInfrastructure/EndpointSecurityTestHost.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 824,
-                "codeLines": 739,
+                "codeLines": 752,
+                "typeCount": 8,
                 "functionMethodCount": 45,
                 "dependencyImportCount": 40,
-                "publicSurfaceCount": 55,
+                "publicSurfaceCount": 57,
                 "responsibilityCount": 6
             }
         },
@@ -2410,11 +2753,25 @@
                 "responsibilityCount": 6
             }
         },
+        "tests/backend/Integration/DemoFixtureSeederCleanupIntegrationTests.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "dependencyImportCount": 20,
+                "responsibilityCount": 7
+            }
+        },
+        "tests/backend/Integration/DistributedInvalidationDeliveryLedgerIntegrationTests.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "dependencyImportCount": 50,
+                "responsibilityCount": 6
+            }
+        },
         "tests/backend/Integration/MessageCenterPersistenceIntegrationTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1822,
-                "codeLines": 1658,
+                "fileLines": 1826,
+                "codeLines": 1660,
                 "functionMethodCount": 57,
                 "dependencyImportCount": 46,
                 "responsibilityCount": 7
@@ -2424,6 +2781,31 @@
             "category": "HandwrittenModule",
             "excess": {
                 "dependencyImportCount": 19
+            }
+        },
+        "tests/backend/Integration/PasskeyRegistrationProjectionIntegrationTests.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "dependencyImportCount": 26,
+                "responsibilityCount": 6
+            }
+        },
+        "tests/backend/Integration/PublicAotInvalidationGenerationIntegrationTests.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "dependencyImportCount": 27,
+                "responsibilityCount": 7
+            }
+        },
+        "tests/backend/Integration/PublicHotDeliveryIntegrationTests.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "codeLines": 769,
+                "typeCount": 8,
+                "functionMethodCount": 69,
+                "dependencyImportCount": 47,
+                "publicSurfaceCount": 38,
+                "responsibilityCount": 7
             }
         },
         "tests/backend/Integration/RecoveryPasskeyCompletionIntegrationTests.cs": {
@@ -2447,7 +2829,11 @@
         "tests/backend/Integration/UserSessionRevocationIntegrationTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "dependencyImportCount": 22
+                "fileLines": 970,
+                "codeLines": 870,
+                "functionMethodCount": 54,
+                "dependencyImportCount": 34,
+                "publicSurfaceCount": 33
             }
         },
         "tests/backend/Unit/AccountSubjectHashProjectionTests.cs": {
@@ -2457,7 +2843,6 @@
                 "codeLines": 832,
                 "typeCount": 9,
                 "functionMethodCount": 61,
-                "cyclomaticComplexity": 92,
                 "cognitiveComplexity": 309,
                 "maxNestingDepth": 8
             }
@@ -2474,6 +2859,14 @@
                 "publicSurfaceCount": 36
             }
         },
+        "tests/backend/Unit/AdaptiveSchedulerTests.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "typeCount": 8,
+                "functionMethodCount": 77,
+                "publicSurfaceCount": 34
+            }
+        },
         "tests/backend/Unit/AdminAnonymousAccountGovernanceContractTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
@@ -2484,7 +2877,6 @@
         "tests/backend/Unit/AdminMfaStepUpSecurityTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "functionMethodCount": 43,
                 "dependencyImportCount": 20,
                 "publicSurfaceCount": 35
             }
@@ -2498,7 +2890,7 @@
         "tests/backend/Unit/AdminSessionValidationServiceTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "dependencyImportCount": 21
+                "dependencyImportCount": 22
             }
         },
         "tests/backend/Unit/AdminStatsOwnedFrameTests.cs": {
@@ -2517,11 +2909,9 @@
         "tests/backend/Unit/AedsProtocolCrossLanguageTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 825,
-                "codeLines": 667,
-                "functionMethodCount": 62,
+                "functionMethodCount": 61,
                 "dependencyImportCount": 21,
-                "publicSurfaceCount": 35,
+                "publicSurfaceCount": 34,
                 "responsibilityCount": 6
             }
         },
@@ -2546,7 +2936,6 @@
         "tests/backend/Unit/AnonymousCommentTicketServiceTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 813,
                 "codeLines": 688,
                 "typeCount": 12,
                 "functionMethodCount": 74,
@@ -2564,7 +2953,6 @@
         "tests/backend/Unit/AnonymousCredentialRootLifecycleTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "codeLines": 654,
                 "dependencyImportCount": 24
             }
         },
@@ -2575,10 +2963,15 @@
                 "responsibilityCount": 6
             }
         },
+        "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "typeCount": 8
+            }
+        },
         "tests/backend/Unit/AnonymousZkProdWrapperFixtureTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 821,
                 "codeLines": 699,
                 "typeCount": 15,
                 "functionMethodCount": 87,
@@ -2593,11 +2986,23 @@
                 "dependencyImportCount": 28
             }
         },
+        "tests/backend/Unit/ArchitectureMaintainabilityBehaviorTests.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "dependencyImportCount": 17
+            }
+        },
         "tests/backend/Unit/Argon2idPoSpaceV1ChallengeProviderTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
                 "publicSurfaceCount": 40,
                 "responsibilityCount": 6
+            }
+        },
+        "tests/backend/Unit/ArticleAssetReferenceLifecycleTests.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "dependencyImportCount": 17
             }
         },
         "tests/backend/Unit/ArticleDestructiveMutationBehaviorTests.cs": {
@@ -2611,6 +3016,7 @@
             "category": "HandwrittenModule",
             "excess": {
                 "functionMethodCount": 44,
+                "dependencyImportCount": 17,
                 "publicSurfaceCount": 42
             }
         },
@@ -2668,10 +3074,9 @@
         "tests/backend/Unit/AuthCookieExpiryFlowTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 895,
-                "codeLines": 820,
+                "fileLines": 914,
+                "codeLines": 840,
                 "typeCount": 10,
-                "functionMethodCount": 43,
                 "dependencyImportCount": 44,
                 "responsibilityCount": 6
             }
@@ -2679,7 +3084,7 @@
         "tests/backend/Unit/AuthRiskControlEndpointContractTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "dependencyImportCount": 62
+                "dependencyImportCount": 63
             }
         },
         "tests/backend/Unit/AuthoringBulkModerationTransactionTests.cs": {
@@ -2697,6 +3102,7 @@
         "tests/backend/Unit/AuthoringNativeAedsEndpointTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
+                "dependencyImportCount": 17,
                 "responsibilityCount": 6
             }
         },
@@ -2709,8 +3115,6 @@
         "tests/backend/Unit/AuthoringWorkflowServiceTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 810,
-                "codeLines": 643,
                 "dependencyImportCount": 20,
                 "responsibilityCount": 7
             }
@@ -2743,6 +3147,7 @@
             "category": "HandwrittenModule",
             "excess": {
                 "functionMethodCount": 45,
+                "dependencyImportCount": 17,
                 "publicSurfaceCount": 59
             }
         },
@@ -2761,7 +3166,10 @@
         "tests/backend/Unit/CommentMutationOutboxPostgresTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "dependencyImportCount": 20
+                "fileLines": 1064,
+                "codeLines": 975,
+                "functionMethodCount": 53,
+                "dependencyImportCount": 87
             }
         },
         "tests/backend/Unit/CommentMutationPostgresConcurrencyTests.cs": {
@@ -2792,6 +3200,7 @@
         "tests/backend/Unit/CommentServiceValidationTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
+                "dependencyImportCount": 18,
                 "responsibilityCount": 6
             }
         },
@@ -2814,10 +3223,35 @@
                 "publicSurfaceCount": 59
             }
         },
+        "tests/backend/Unit/CrawlerRangeSyncBehaviorTests.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "typeCount": 8,
+                "dependencyImportCount": 17
+            }
+        },
+        "tests/backend/Unit/CspNonceUtf8TemplateTests.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "publicSurfaceCount": 30
+            }
+        },
+        "tests/backend/Unit/DataProtectionKeyProtectionTests.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "dependencyImportCount": 17
+            }
+        },
         "tests/backend/Unit/DependencyGraphValidationTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
                 "typeCount": 13
+            }
+        },
+        "tests/backend/Unit/DeploymentRuntimeStateTests.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "dependencyImportCount": 17
             }
         },
         "tests/backend/Unit/DistributedContractFastTests.cs": {
@@ -2829,17 +3263,29 @@
         "tests/backend/Unit/DistributedInvalidationBusTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "dependencyImportCount": 21,
+                "fileLines": 917,
+                "codeLines": 824,
+                "typeCount": 9,
+                "functionMethodCount": 68,
+                "dependencyImportCount": 30,
+                "publicSurfaceCount": 43,
                 "responsibilityCount": 6
+            }
+        },
+        "tests/backend/Unit/DistributedInvalidationIngressTests.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "dependencyImportCount": 20
             }
         },
         "tests/backend/Unit/FileServiceTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1677,
-                "codeLines": 1491,
-                "functionMethodCount": 82,
-                "publicSurfaceCount": 69
+                "fileLines": 2267,
+                "codeLines": 2030,
+                "functionMethodCount": 96,
+                "dependencyImportCount": 21,
+                "publicSurfaceCount": 70
             }
         },
         "tests/backend/Unit/HumanReadProofPersistencePrivacyTests.cs": {
@@ -2851,8 +3297,8 @@
         "tests/backend/Unit/InfraHelperTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1074,
-                "codeLines": 882,
+                "fileLines": 1078,
+                "codeLines": 886,
                 "typeCount": 9,
                 "functionMethodCount": 55,
                 "dependencyImportCount": 43,
@@ -2866,16 +3312,27 @@
                 "dependencyImportCount": 28
             }
         },
+        "tests/backend/Unit/JavaScriptPluginRuntimeTests.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "dependencyImportCount": 17
+            }
+        },
         "tests/backend/Unit/JwtHelperTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "publicSurfaceCount": 30
+                "publicSurfaceCount": 31
+            }
+        },
+        "tests/backend/Unit/LocalDemoFixtureEndpointTests.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "dependencyImportCount": 19
             }
         },
         "tests/backend/Unit/MessageCenterServiceTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 870,
                 "codeLines": 781,
                 "dependencyImportCount": 27,
                 "publicSurfaceCount": 40,
@@ -2907,6 +3364,14 @@
                 "dependencyImportCount": 21
             }
         },
+        "tests/backend/Unit/ModuleInvocationTests.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "typeCount": 9,
+                "functionMethodCount": 49,
+                "publicSurfaceCount": 34
+            }
+        },
         "tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
@@ -2921,8 +3386,8 @@
         "tests/backend/Unit/NotificationStreamBoundaryTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1363,
-                "codeLines": 1211,
+                "fileLines": 1368,
+                "codeLines": 1216,
                 "typeCount": 11,
                 "functionMethodCount": 91,
                 "dependencyImportCount": 36,
@@ -2953,6 +3418,7 @@
         "tests/backend/Unit/OwnedFrameCacheTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
+                "typeCount": 8,
                 "dependencyImportCount": 30,
                 "responsibilityCount": 6
             }
@@ -2976,6 +3442,12 @@
                 "publicSurfaceCount": 55
             }
         },
+        "tests/backend/Unit/PerceptionChallengeV2E2eTests.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "dependencyImportCount": 17
+            }
+        },
         "tests/backend/Unit/PerceptionChallengeV2ServiceTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
@@ -2986,22 +3458,28 @@
                 "responsibilityCount": 7
             }
         },
+        "tests/backend/Unit/PerceptionCharacterV3ContractCutoverTests.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "dependencyImportCount": 22,
+                "responsibilityCount": 6
+            }
+        },
         "tests/backend/Unit/PerceptionCharacterV3Tests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1296,
-                "codeLines": 1229,
+                "fileLines": 1340,
+                "codeLines": 1275,
                 "typeCount": 22,
-                "functionMethodCount": 100,
-                "dependencyImportCount": 24,
-                "publicSurfaceCount": 85,
+                "functionMethodCount": 111,
+                "dependencyImportCount": 21,
+                "publicSurfaceCount": 99,
                 "responsibilityCount": 7
             }
         },
         "tests/backend/Unit/PodBinaryCodecBatchAllocationTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "codeLines": 631,
                 "typeCount": 12,
                 "publicSurfaceCount": 78
             }
@@ -3017,6 +3495,12 @@
                 "responsibilityCount": 6
             }
         },
+        "tests/backend/Unit/PodUtf8CodecTests.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "responsibilityCount": 6
+            }
+        },
         "tests/backend/Unit/PowValidationLogicTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
@@ -3027,46 +3511,65 @@
         "tests/backend/Unit/ProductionHealthTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1028,
-                "codeLines": 881,
-                "functionMethodCount": 72,
-                "dependencyImportCount": 35,
-                "publicSurfaceCount": 66
+                "fileLines": 1264,
+                "codeLines": 1098,
+                "typeCount": 9,
+                "functionMethodCount": 87,
+                "dependencyImportCount": 43,
+                "publicSurfaceCount": 77
             }
         },
         "tests/backend/Unit/ProductionStartupValidatorTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1208,
-                "codeLines": 1049,
-                "functionMethodCount": 81,
-                "dependencyImportCount": 20,
-                "publicSurfaceCount": 63
+                "fileLines": 1230,
+                "codeLines": 1068,
+                "functionMethodCount": 82,
+                "dependencyImportCount": 22,
+                "publicSurfaceCount": 64
+            }
+        },
+        "tests/backend/Unit/PublicAotArtifactStoreBoundaryTests.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "responsibilityCount": 6
             }
         },
         "tests/backend/Unit/PublicAotDocumentComposerTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "publicSurfaceCount": 31,
+                "functionMethodCount": 44,
+                "publicSurfaceCount": 35,
                 "responsibilityCount": 6
             }
         },
         "tests/backend/Unit/PublicAotDocumentServiceTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "functionMethodCount": 54,
+                "functionMethodCount": 56,
+                "dependencyImportCount": 17,
+                "publicSurfaceCount": 29,
                 "responsibilityCount": 6
             }
         },
         "tests/backend/Unit/PublicAotFileShellCacheTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1007,
-                "codeLines": 889,
-                "functionMethodCount": 51,
-                "dependencyImportCount": 37,
-                "publicSurfaceCount": 41,
+                "fileLines": 1559,
+                "codeLines": 1375,
+                "functionMethodCount": 84,
+                "dependencyImportCount": 57,
+                "publicSurfaceCount": 68,
                 "responsibilityCount": 7
+            }
+        },
+        "tests/backend/Unit/PublicAotInvalidationTrackerTests.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "typeCount": 9,
+                "functionMethodCount": 60,
+                "publicSurfaceCount": 45,
+                "responsibilityCount": 6
             }
         },
         "tests/backend/Unit/PublicAotRendererPayloadMapperTests.cs": {
@@ -3078,12 +3581,33 @@
         "tests/backend/Unit/PublicAotShellServiceTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1037,
-                "codeLines": 920,
+                "fileLines": 1133,
+                "codeLines": 1008,
                 "typeCount": 13,
-                "functionMethodCount": 85,
-                "publicSurfaceCount": 60,
+                "functionMethodCount": 91,
+                "dependencyImportCount": 17,
+                "publicSurfaceCount": 63,
                 "responsibilityCount": 7
+            }
+        },
+        "tests/backend/Unit/PublicHotDeliveryTests.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 1098,
+                "codeLines": 955,
+                "typeCount": 15,
+                "functionMethodCount": 101,
+                "dependencyImportCount": 34,
+                "publicSurfaceCount": 96
+            }
+        },
+        "tests/backend/Unit/PublicHotDrainTests.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "typeCount": 10,
+                "functionMethodCount": 69,
+                "dependencyImportCount": 30,
+                "publicSurfaceCount": 63
             }
         },
         "tests/backend/Unit/PublicHotReadCrossCuttingControlTests.cs": {
@@ -3096,11 +3620,11 @@
         "tests/backend/Unit/PublicHotReadFastPathTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1951,
-                "codeLines": 1608,
-                "functionMethodCount": 178,
+                "fileLines": 1998,
+                "codeLines": 1650,
+                "functionMethodCount": 183,
                 "dependencyImportCount": 22,
-                "publicSurfaceCount": 73,
+                "publicSurfaceCount": 74,
                 "responsibilityCount": 6
             }
         },
@@ -3108,6 +3632,12 @@
             "category": "HandwrittenModule",
             "excess": {
                 "responsibilityCount": 6
+            }
+        },
+        "tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "dependencyImportCount": 17
             }
         },
         "tests/backend/Unit/RecoveryKeyServiceBehaviorTests.cs": {
@@ -3156,13 +3686,12 @@
         "tests/backend/Unit/ReleaseStorageLifecycleTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "codeLines": 688
+                "codeLines": 706
             }
         },
         "tests/backend/Unit/RequiresRiskControlFilterTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 829,
                 "codeLines": 731,
                 "typeCount": 11,
                 "functionMethodCount": 96,
@@ -3193,37 +3722,43 @@
                 "dependencyImportCount": 28
             }
         },
-        "tests/backend/Unit/SearchIndexServiceTests.cs": {
-            "category": "HandwrittenModule",
-            "excess": {
-                "fileLines": 824
-            }
-        },
         "tests/backend/Unit/SecurityChallengeBinaryEndpointTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1448,
-                "codeLines": 1309,
+                "fileLines": 1496,
+                "codeLines": 1354,
                 "typeCount": 13,
-                "functionMethodCount": 172,
+                "functionMethodCount": 176,
                 "dependencyImportCount": 18,
-                "publicSurfaceCount": 64,
+                "publicSurfaceCount": 65,
                 "responsibilityCount": 6
             }
         },
         "tests/backend/Unit/SecurityChallengeOrchestratorTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "codeLines": 649,
-                "functionMethodCount": 50,
-                "publicSurfaceCount": 41
+                "codeLines": 751,
+                "functionMethodCount": 59,
+                "publicSurfaceCount": 48
+            }
+        },
+        "tests/backend/Unit/SecurityChallengePersistenceTests.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "dependencyImportCount": 17
             }
         },
         "tests/backend/Unit/SecurityChallengeProofServiceTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "functionMethodCount": 54,
-                "publicSurfaceCount": 57
+                "functionMethodCount": 56,
+                "publicSurfaceCount": 59
+            }
+        },
+        "tests/backend/Unit/SecurityHardening/CsrfOriginGuardRuntimeTests.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "dependencyImportCount": 18
             }
         },
         "tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs": {
@@ -3254,14 +3789,14 @@
         "tests/backend/Unit/SecurityPolicySnapshotPersistenceTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "dependencyImportCount": 29,
+                "dependencyImportCount": 28,
                 "responsibilityCount": 6
             }
         },
         "tests/backend/Unit/SecurityRiskEventPersistenceTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "codeLines": 670,
+                "typeCount": 8,
                 "functionMethodCount": 56,
                 "dependencyImportCount": 26,
                 "publicSurfaceCount": 42,
@@ -3280,9 +3815,16 @@
                 "publicSurfaceCount": 34
             }
         },
+        "tests/backend/Unit/ServiceCollectionExtensionsTests.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "dependencyImportCount": 17
+            }
+        },
         "tests/backend/Unit/Sha256PowChallengeProviderTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
+                "dependencyImportCount": 17,
                 "publicSurfaceCount": 32
             }
         },
@@ -3301,11 +3843,27 @@
                 "responsibilityCount": 7
             }
         },
+        "tests/backend/Unit/ThemeInfrastructureTests.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 1008,
+                "codeLines": 831,
+                "functionMethodCount": 53,
+                "dependencyImportCount": 42,
+                "responsibilityCount": 6
+            }
+        },
+        "tests/backend/Unit/ThemeTokenCompilerTests.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "maxNestingDepth": 10
+            }
+        },
         "tests/backend/Unit/TotpServiceTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "functionMethodCount": 61,
-                "publicSurfaceCount": 58
+                "functionMethodCount": 57,
+                "publicSurfaceCount": 56
             }
         },
         "tests/backend/Unit/UnifiedCacheTests.cs": {
@@ -3321,7 +3879,13 @@
         "tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "dependencyImportCount": 30,
+                "dependencyImportCount": 31,
+                "responsibilityCount": 6
+            }
+        },
+        "tests/backend/Unit/UserLocalePreferenceCodecAndNormalizeTests.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
                 "responsibilityCount": 6
             }
         },
@@ -3346,7 +3910,7 @@
         "tests/backend/Unit/UserSessionJwtAuthenticationTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
-                "dependencyImportCount": 32
+                "dependencyImportCount": 36
             }
         },
         "tests/backend/Unit/UserSessionLoginConcurrencyTests.cs": {
@@ -3377,6 +3941,7 @@
         "tests/backend/Unit/ZkProofVerifierTests.cs": {
             "category": "HandwrittenModule",
             "excess": {
+                "typeCount": 8,
                 "functionMethodCount": 45,
                 "publicSurfaceCount": 46
             }
@@ -3384,68 +3949,84 @@
         "tests/browser-contract/default-fixture-provider.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 803,
-                "codeLines": 669,
-                "functionMethodCount": 67,
-                "cyclomaticComplexity": 165,
-                "cognitiveComplexity": 193,
+                "fileLines": 1347,
+                "codeLines": 1164,
+                "functionMethodCount": 78,
+                "cyclomaticComplexity": 211,
+                "cognitiveComplexity": 266,
                 "responsibilityCount": 6
             }
         },
         "tests/browser-contract/fixture-lifecycle.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 863,
-                "codeLines": 823,
+                "fileLines": 1030,
+                "codeLines": 990,
                 "functionMethodCount": 51,
-                "cyclomaticComplexity": 161,
-                "cognitiveComplexity": 200
+                "cyclomaticComplexity": 160,
+                "cognitiveComplexity": 190
             }
         },
         "tests/browser-contract/run.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "cognitiveComplexity": 153,
+                "cognitiveComplexity": 167,
                 "maxNestingDepth": 7
             }
         },
         "tests/browser-diagnostics/run.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 875,
-                "codeLines": 710,
-                "cyclomaticComplexity": 96
+                "fileLines": 908,
+                "codeLines": 743,
+                "cyclomaticComplexity": 98,
+                "dependencyImportCount": 17
             }
         },
         "tests/frontend/checks/perf/check-aeds-decode-budget.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "cyclomaticComplexity": 118
+                "cyclomaticComplexity": 120
+            }
+        },
+        "tests/frontend/checks/perf/markdown-preview-release-performance.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 2234,
+                "codeLines": 1219,
+                "functionMethodCount": 62,
+                "cyclomaticComplexity": 105,
+                "responsibilityCount": 6
+            }
+        },
+        "tests/frontend/checks/perf/markdown-preview-release-performance.test.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 1215
             }
         },
         "tests/frontend/checks/public/check-public-aot-contracts.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 808,
-                "codeLines": 732,
-                "cyclomaticComplexity": 161,
-                "cognitiveComplexity": 353
+                "fileLines": 1007,
+                "codeLines": 920,
+                "cyclomaticComplexity": 165,
+                "cognitiveComplexity": 363
             }
         },
         "tests/frontend/checks/public/check-public-refresh-hydration.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1833,
-                "codeLines": 940,
+                "fileLines": 1846,
+                "codeLines": 951,
                 "functionMethodCount": 54,
-                "cyclomaticComplexity": 130,
+                "cyclomaticComplexity": 131,
                 "cognitiveComplexity": 192
             }
         },
         "tests/frontend/checks/runtime/distribution-version-coherence-smoke.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "codeLines": 635,
                 "functionMethodCount": 64,
                 "responsibilityCount": 6
             }
@@ -3462,65 +4043,120 @@
                 "maxNestingDepth": 7
             }
         },
+        "tests/frontend/checks/static/check-admin-task-feedback.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "maxNestingDepth": 7
+            }
+        },
         "tests/frontend/checks/static/check-frontend-test-governance.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "cyclomaticComplexity": 93,
-                "cognitiveComplexity": 198
-            }
-        },
-        "tests/frontend/checks/static/check-historical-residue-fixture.mjs": {
-            "category": "HandwrittenModule",
-            "excess": {
-                "fileLines": 845
+                "cognitiveComplexity": 191
             }
         },
         "tests/frontend/checks/static/check-public-reading-motion.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 858,
-                "cognitiveComplexity": 167,
-                "maxNestingDepth": 7
+                "fileLines": 885
             }
         },
         "tests/frontend/checks/static/check-test-execution-helpers.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 967,
-                "codeLines": 886,
+                "fileLines": 1203,
+                "codeLines": 1111,
                 "functionMethodCount": 52
             }
         },
         "tests/frontend/checks/static/check-visual-density-governance.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 937,
-                "cognitiveComplexity": 183,
-                "maxNestingDepth": 10
+                "fileLines": 984,
+                "cognitiveComplexity": 172,
+                "maxNestingDepth": 9
+            }
+        },
+        "tests/frontend/checks/ux/write-ux-viewport-summary.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "cyclomaticComplexity": 125
+            }
+        },
+        "tests/frontend/e2e/acceptance/article-private-preview.spec.ts": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "functionMethodCount": 45
+            }
+        },
+        "tests/frontend/e2e/article-editor-production-fixture.spec.ts": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 887,
+                "codeLines": 761,
+                "functionMethodCount": 164
+            }
+        },
+        "tests/frontend/e2e/article-editor-recovery-persistent-probe.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "codeLines": 679,
+                "maxNestingDepth": 8
             }
         },
         "tests/frontend/e2e/manual/manual-layout-screenshots.spec.ts": {
             "category": "HandwrittenModule",
             "excess": {
-                "functionMethodCount": 44,
-                "cyclomaticComplexity": 113,
-                "cognitiveComplexity": 224
+                "typeCount": 8,
+                "cyclomaticComplexity": 116,
+                "cognitiveComplexity": 215
             }
         },
-        "tests/frontend/e2e/security/perception-character-v3-dialog.spec.ts": {
+        "tests/frontend/e2e/ops-health-incidents.spec.ts": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "maxNestingDepth": 7
+            }
+        },
+        "tests/frontend/e2e/ops-health-state.spec.ts": {
             "category": "HandwrittenModule",
             "excess": {
                 "functionMethodCount": 52
             }
         },
+        "tests/frontend/e2e/public-article-reading-layout.spec.ts": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "maxNestingDepth": 7
+            }
+        },
+        "tests/frontend/e2e/resilience/markdown-extreme.spec.ts": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "responsibilityCount": 6
+            }
+        },
+        "tests/frontend/e2e/security/perception-character-v3-dialog.spec.ts": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "functionMethodCount": 56
+            }
+        },
+        "tests/frontend/e2e/ux/admin-article-segmented-consumer.spec.ts": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "maxNestingDepth": 7
+            }
+        },
         "tests/frontend/e2e/ux/viewport-boundaries.spec.ts": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 940,
-                "codeLines": 855,
-                "typeCount": 12,
-                "functionMethodCount": 70,
-                "cognitiveComplexity": 149,
+                "fileLines": 1292,
+                "codeLines": 989,
+                "typeCount": 14,
+                "functionMethodCount": 80,
+                "cyclomaticComplexity": 107,
+                "cognitiveComplexity": 237,
                 "maxNestingDepth": 7,
                 "responsibilityCount": 6
             }
@@ -3528,7 +4164,7 @@
         "tests/frontend/e2e/visual/console-visual.spec.ts": {
             "category": "HandwrittenModule",
             "excess": {
-                "functionMethodCount": 49,
+                "functionMethodCount": 73,
                 "maxNestingDepth": 10
             }
         },
@@ -3539,11 +4175,17 @@
                 "maxNestingDepth": 7
             }
         },
-        "tests/frontend/fixtures/discover-playwright-fixtures.mjs": {
+        "tests/frontend/e2e/visual/security-dashboard-workbench.spec.ts": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 905,
-                "responsibilityCount": 7
+                "maxNestingDepth": 7
+            }
+        },
+        "tests/frontend/fixtures/articleEditorProductionVisual.ts": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "codeLines": 704,
+                "maxNestingDepth": 7
             }
         },
         "tests/frontend/support/aeds-envelope.mjs": {
@@ -3568,33 +4210,34 @@
         "tests/frontend/support/playwright/acceptance-shared.ts": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 2340,
-                "codeLines": 2042,
+                "fileLines": 2883,
                 "typeCount": 16,
-                "functionMethodCount": 163,
-                "cyclomaticComplexity": 537,
-                "cognitiveComplexity": 1026,
-                "maxNestingDepth": 7,
+                "maxNestingDepth": 8,
                 "publicSurfaceCount": 40
+            }
+        },
+        "tests/frontend/support/playwright/publicBootstrapCausalHarness.ts": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "cognitiveComplexity": 160
+            }
+        },
+        "tests/frontend/support/playwright/uxViewportPlan.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "maxNestingDepth": 8
             }
         },
         "tests/frontend/support/session-fixtures.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 842,
-                "functionMethodCount": 48
+                "functionMethodCount": 50
             }
         },
         "tests/frontend/typecheck/fsusui-export-contract.ts": {
             "category": "HandwrittenModule",
             "excess": {
                 "typeCount": 27
-            }
-        },
-        "tests/frontend/unit/adapters/binary/commentAdapter.test.ts": {
-            "category": "HandwrittenModule",
-            "excess": {
-                "codeLines": 620
             }
         },
         "tests/frontend/unit/api/auth.test.ts": {
@@ -3610,6 +4253,14 @@
                 "codeLines": 926
             }
         },
+        "tests/frontend/unit/bootstrap/publicActivationCoordinator.test.ts": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 875,
+                "codeLines": 794,
+                "functionMethodCount": 48
+            }
+        },
         "tests/frontend/unit/components/PublicArticleCover.test.ts": {
             "category": "HandwrittenModule",
             "excess": {
@@ -3622,37 +4273,99 @@
                 "maxNestingDepth": 7
             }
         },
-        "tests/frontend/unit/protocol/aeds-contract.test.ts": {
+        "tests/frontend/unit/router/publicRoutePreload.test.ts": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 787
+                "fileLines": 988,
+                "codeLines": 911,
+                "functionMethodCount": 44,
+                "maxNestingDepth": 8
             }
         },
         "tests/frontend/unit/security/challengeClient.test.ts": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 785,
-                "codeLines": 704
+                "fileLines": 900,
+                "codeLines": 811,
+                "functionMethodCount": 45
+            }
+        },
+        "tests/frontend/unit/services/articleRecoveryJournal.test.ts": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "typeCount": 8
+            }
+        },
+        "tests/frontend/unit/services/authBroadcastRuntime.test.ts": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "dependencyImportCount": 17
             }
         },
         "tests/frontend/unit/services/binaryTransport.test.ts": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1421,
-                "codeLines": 911
+                "fileLines": 1447,
+                "codeLines": 939
+            }
+        },
+        "tests/tools/auth-session-permission-observation.test.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "maxNestingDepth": 7
+            }
+        },
+        "tests/tools/backend-coverage-pipeline.test.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "maxNestingDepth": 7
             }
         },
         "tests/tools/backend-production-shards.test.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1732
+                "fileLines": 1865
+            }
+        },
+        "tests/tools/behavior-doc-static-admission.test.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 935,
+                "codeLines": 844
+            }
+        },
+        "tests/tools/behavior-evidence-pre-runtime.test.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 875
+            }
+        },
+        "tests/tools/behavior-graph-join.test.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 1007,
+                "codeLines": 955
+            }
+        },
+        "tests/tools/behavior-mutation-qualification.test.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 1003,
+                "codeLines": 923,
+                "dependencyImportCount": 17
+            }
+        },
+        "tests/tools/behavior-test-binding.test.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "dependencyImportCount": 38
             }
         },
         "tests/tools/browser-contract-fixture.test.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1007,
-                "codeLines": 837,
+                "fileLines": 1212,
+                "codeLines": 1034,
                 "responsibilityCount": 7
             }
         },
@@ -3665,10 +4378,10 @@
         "tests/tools/bundle-step-contract.test.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1601,
-                "codeLines": 1518,
-                "cyclomaticComplexity": 89,
-                "cognitiveComplexity": 225
+                "fileLines": 2023,
+                "codeLines": 1929,
+                "cyclomaticComplexity": 109,
+                "cognitiveComplexity": 369
             }
         },
         "tests/tools/change-contract.test.mjs": {
@@ -3677,30 +4390,59 @@
                 "fileLines": 996
             }
         },
+        "tests/tools/config-error-security-policy-observation.test.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "codeLines": 688,
+                "maxNestingDepth": 8
+            }
+        },
+        "tests/tools/csharp-style.test.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "typeCount": 8
+            }
+        },
         "tests/tools/deployment-slots.test.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "codeLines": 623
+                "codeLines": 767
+            }
+        },
+        "tests/tools/fixture-orchestrator.test.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "codeLines": 705,
+                "maxNestingDepth": 8
+            }
+        },
+        "tests/tools/fixture-receipt.test.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "responsibilityCount": 6
             }
         },
         "tests/tools/local-production-profile.test.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1260,
-                "codeLines": 1006,
-                "maxNestingDepth": 8
+                "fileLines": 1663,
+                "codeLines": 1375,
+                "cognitiveComplexity": 262,
+                "maxNestingDepth": 18
             }
         },
         "tests/tools/local-runtime-cleanup.test.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 955
+                "fileLines": 2293
             }
         },
-        "tests/tools/native-tooling-style.test.mjs": {
+        "tests/tools/measurement-noise-envelope.test.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 783
+                "fileLines": 1340,
+                "codeLines": 1292,
+                "maxNestingDepth": 7
             }
         },
         "tests/tools/performance-saturation-v2.test.mjs": {
@@ -3709,10 +4451,91 @@
                 "responsibilityCount": 6
             }
         },
-        "tests/tools/release-rollout-evidence.test.mjs": {
+        "tests/tools/physical-execution-process-tree.test.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "codeLines": 639
+                "fileLines": 1464,
+                "codeLines": 1410,
+                "functionMethodCount": 44,
+                "cognitiveComplexity": 214
+            }
+        },
+        "tests/tools/produce-behavior-test-evidence.test.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 912,
+                "maxNestingDepth": 7
+            }
+        },
+        "tests/tools/production-capacity-preflight-order.test.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 953,
+                "codeLines": 925,
+                "maxNestingDepth": 9
+            }
+        },
+        "tests/tools/production-fresh-run-bound-outputs.test.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 1058,
+                "codeLines": 1007
+            }
+        },
+        "tests/tools/public-content-producer.test.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "maxNestingDepth": 7,
+                "responsibilityCount": 6
+            }
+        },
+        "tests/tools/release-final-reliability-binding.test.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "codeLines": 743
+            }
+        },
+        "tests/tools/release-reliability-executor.test.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 970,
+                "codeLines": 852,
+                "maxNestingDepth": 7
+            }
+        },
+        "tests/tools/release-reliability-lifecycle-actions.test.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "codeLines": 689,
+                "maxNestingDepth": 8
+            }
+        },
+        "tests/tools/release-reliability-lifecycle.test.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "maxNestingDepth": 9
+            }
+        },
+        "tests/tools/release-reliability-qualified-local.test.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 1311,
+                "codeLines": 1162,
+                "responsibilityCount": 6
+            }
+        },
+        "tests/tools/release-reliability-receipt.test.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 2697,
+                "codeLines": 2534,
+                "maxNestingDepth": 7
+            }
+        },
+        "tests/tools/release-reliability-runtime-admission.test.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "responsibilityCount": 6
             }
         },
         "tests/tools/release-worker-normal-observer.test.mjs": {
@@ -3727,11 +4550,29 @@
                 "responsibilityCount": 6
             }
         },
+        "tests/tools/runtime-evidence-policy.test.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "maxNestingDepth": 7
+            }
+        },
+        "tests/tools/runtime-http-route-contract.test.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "responsibilityCount": 6
+            }
+        },
         "tests/tools/runtime-publish-profile.test.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1243,
-                "codeLines": 1145
+                "fileLines": 1769
+            }
+        },
+        "tests/tools/scheduler-owner-identity.test.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 1031,
+                "codeLines": 974
             }
         },
         "tests/tools/security-authenticated-dast.test.mjs": {
@@ -3740,16 +4581,28 @@
                 "maxNestingDepth": 7
             }
         },
+        "tests/tools/test-matrix-scheduler.test.mjs": {
+            "category": "ManifestRegistry",
+            "excess": {
+                "codeLines": 4486
+            }
+        },
         "tests/tools/test-retention-audit.test.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 867
+                "fileLines": 1082
             }
         },
         "tests/tools/test-suite-convergence.test.mjs": {
             "category": "HandwrittenModule",
             "excess": {
                 "maxNestingDepth": 11
+            }
+        },
+        "tests/tools/verify-behavior-test-evidence.test.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "maxNestingDepth": 7
             }
         },
         "tests/tools/zero-downtime-rehearsal.test.mjs": {
@@ -3765,10 +4618,11 @@
         "tools/bootstrap-acceptance-env.sh": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 2002,
-                "codeLines": 1391,
-                "cyclomaticComplexity": 299,
-                "cognitiveComplexity": 477,
+                "fileLines": 2727,
+                "codeLines": 2297,
+                "cyclomaticComplexity": 450,
+                "cognitiveComplexity": 1151,
+                "maxNestingDepth": 8,
                 "responsibilityCount": 6
             }
         },
@@ -3784,13 +4638,6 @@
                 "responsibilityCount": 7
             }
         },
-        "tools/check-public-hot-read-fastpath.sh": {
-            "category": "HandwrittenModule",
-            "excess": {
-                "codeLines": 670,
-                "cyclomaticComplexity": 95
-            }
-        },
         "tools/check-test-hygiene.sh": {
             "category": "HandwrittenModule",
             "excess": {
@@ -3800,80 +4647,126 @@
         "tools/check-test-retention.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "cyclomaticComplexity": 169,
-                "cognitiveComplexity": 305
+                "codeLines": 733,
+                "cyclomaticComplexity": 163,
+                "cognitiveComplexity": 287
             }
         },
         "tools/ci/check-flaky-evidence.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "cyclomaticComplexity": 138,
+                "cyclomaticComplexity": 139,
                 "cognitiveComplexity": 201
             }
         },
         "tools/ci/check-job-summaries.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "cognitiveComplexity": 156
+                "cognitiveComplexity": 169
             }
         },
         "tools/ci/production-build-artifacts.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "cyclomaticComplexity": 127,
-                "cognitiveComplexity": 196
-            }
-        },
-        "tools/ci/run-flaky-governed.mjs": {
-            "category": "HandwrittenModule",
-            "excess": {
-                "cyclomaticComplexity": 88
+                "fileLines": 967,
+                "codeLines": 933,
+                "functionMethodCount": 45,
+                "cyclomaticComplexity": 170,
+                "cognitiveComplexity": 277
             }
         },
         "tools/ci/summarize-quality-gate.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "cyclomaticComplexity": 128,
-                "cognitiveComplexity": 215
+                "cyclomaticComplexity": 125,
+                "cognitiveComplexity": 177
             }
         },
         "tools/configuration/check-backend-configuration-contract.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "cognitiveComplexity": 195
+                "cognitiveComplexity": 197
             }
         },
         "tools/configuration/check-configuration-layout.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "cognitiveComplexity": 140
+                "cognitiveComplexity": 175
             }
         },
-        "tools/contracts/lib/openapi-contracts.mjs": {
+        "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/Program.cs": {
             "category": "HandwrittenModule",
             "excess": {
+                "fileLines": 894,
+                "codeLines": 796,
+                "cyclomaticComplexity": 113,
+                "cognitiveComplexity": 277,
+                "maxNestingDepth": 11
+            }
+        },
+        "tools/contracts/FsusBlog.ContentLifecycleObservation/Program.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "cognitiveComplexity": 150
+            }
+        },
+        "tools/contracts/FsusBlog.OpenApiObservation/Models.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "typeCount": 8,
+                "publicSurfaceCount": 39
+            }
+        },
+        "tools/contracts/FsusBlog.OpenApiObservation/Program.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "dependencyImportCount": 24
+            }
+        },
+        "tools/contracts/behavior-contract-catalog.mjs": {
+            "category": "ManifestRegistry",
+            "excess": {
+                "maxNestingDepth": 9
+            }
+        },
+        "tools/contracts/behavior-graph-join.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 1570,
+                "codeLines": 834,
+                "functionMethodCount": 53,
+                "cyclomaticComplexity": 259,
+                "cognitiveComplexity": 414
+            }
+        },
+        "tools/contracts/behavior-owner-binding.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "cyclomaticComplexity": 100,
+                "cognitiveComplexity": 172
+            }
+        },
+        "tools/contracts/behavior-test-binding.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 1192,
+                "cognitiveComplexity": 219,
                 "maxNestingDepth": 7
             }
         },
         "tools/contracts/perception-character-v3-reference.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "codeLines": 724,
-                "functionMethodCount": 50,
-                "cyclomaticComplexity": 102,
-                "cognitiveComplexity": 173
+                "functionMethodCount": 44
             }
         },
-        "tools/coverage/summarize-cobertura.mjs": {
+        "tools/coverage/backend-coverage-pipeline.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "cyclomaticComplexity": 88
-            }
-        },
-        "tools/deployment/gateway-recover.sh": {
-            "category": "HandwrittenModule",
-            "excess": {
-                "cyclomaticComplexity": 93
+                "functionMethodCount": 44,
+                "cyclomaticComplexity": 149,
+                "cognitiveComplexity": 278,
+                "maxNestingDepth": 9
             }
         },
         "tools/deployment/release-asset-browser-session.mjs": {
@@ -3900,9 +4793,8 @@
         "tools/deployment/release-rollout-evidence.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 873,
                 "codeLines": 840,
-                "cyclomaticComplexity": 396,
+                "cyclomaticComplexity": 397,
                 "cognitiveComplexity": 546,
                 "maxNestingDepth": 8
             }
@@ -3923,8 +4815,8 @@
         "tools/deployment/release-rollout.sh": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1641,
-                "codeLines": 1282,
+                "fileLines": 1698,
+                "codeLines": 1320,
                 "cyclomaticComplexity": 165
             }
         },
@@ -4011,11 +4903,24 @@
                 "responsibilityCount": 6
             }
         },
+        "tools/docs/behavior-doc-minimal-contract-build.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "cyclomaticComplexity": 96
+            }
+        },
+        "tools/docs/behavior-doc-static-admission.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "dependencyImportCount": 22
+            }
+        },
         "tools/docs/check-authoritative-development-docs.mjs": {
             "category": "HandwrittenModule",
             "excess": {
+                "fileLines": 989,
                 "cyclomaticComplexity": 105,
-                "cognitiveComplexity": 192
+                "cognitiveComplexity": 186
             }
         },
         "tools/docs/check-github-label-governance.mjs": {
@@ -4024,55 +4929,135 @@
                 "responsibilityCount": 6
             }
         },
+        "tools/docs/doc-claim-staleness-mutation/runner.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 1221
+            }
+        },
+        "tools/docs/doc-claim.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 1117,
+                "codeLines": 1034,
+                "functionMethodCount": 77,
+                "cyclomaticComplexity": 188,
+                "cognitiveComplexity": 352,
+                "publicSurfaceCount": 31,
+                "responsibilityCount": 6
+            }
+        },
+        "tools/docs/generated-fact-sections/renderers.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "functionMethodCount": 51,
+                "cyclomaticComplexity": 98
+            }
+        },
+        "tools/docs/prose-claim-verifier/parser.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "maxNestingDepth": 7
+            }
+        },
+        "tools/docs/prose-claim-verifier/renderers.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "functionMethodCount": 46,
+                "cyclomaticComplexity": 105
+            }
+        },
         "tools/dotnet/check-csharp-style.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1003,
+                "fileLines": 1005,
                 "cyclomaticComplexity": 174,
                 "cognitiveComplexity": 259
+            }
+        },
+        "tools/fact-extractors/config-error-security-policy/extract.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "cyclomaticComplexity": 159,
+                "cognitiveComplexity": 205
+            }
+        },
+        "tools/fact-extractors/content-lifecycle/extract.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "cyclomaticComplexity": 115,
+                "cognitiveComplexity": 160
+            }
+        },
+        "tools/fact-extractors/receipt.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "cognitiveComplexity": 163
+            }
+        },
+        "tools/fact-extractors/test-matrix/extract.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 891,
+                "codeLines": 748,
+                "functionMethodCount": 47,
+                "cyclomaticComplexity": 185,
+                "cognitiveComplexity": 356
             }
         },
         "tools/frontend/build-stage-dag.mjs": {
             "category": "HandwrittenModule",
             "excess": {
                 "cyclomaticComplexity": 97,
-                "cognitiveComplexity": 148,
                 "maxNestingDepth": 7
             }
         },
         "tools/frontend/build.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 857,
-                "codeLines": 794,
-                "functionMethodCount": 60,
-                "cyclomaticComplexity": 98,
-                "cognitiveComplexity": 156
+                "fileLines": 923,
+                "codeLines": 856,
+                "functionMethodCount": 65,
+                "cyclomaticComplexity": 99,
+                "cognitiveComplexity": 160
             }
         },
         "tools/frontend/check-frontend-style.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 888,
-                "codeLines": 850,
-                "functionMethodCount": 53,
-                "cyclomaticComplexity": 189,
-                "cognitiveComplexity": 386,
+                "fileLines": 900,
+                "codeLines": 862,
+                "functionMethodCount": 54,
+                "cyclomaticComplexity": 190,
+                "cognitiveComplexity": 389,
                 "maxNestingDepth": 7
+            }
+        },
+        "tools/frontend/check-locale-domain-static.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 1247,
+                "cyclomaticComplexity": 104,
+                "cognitiveComplexity": 229
             }
         },
         "tools/frontend/ensure-wasm.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "codeLines": 623,
-                "cyclomaticComplexity": 121,
-                "cognitiveComplexity": 198
+                "fileLines": 901,
+                "codeLines": 826,
+                "cyclomaticComplexity": 131,
+                "cognitiveComplexity": 208
             }
         },
-        "tools/frontend/warm-public-aot-cache.mjs": {
+        "tools/frontend/wasm-build-receipt.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "cyclomaticComplexity": 92
+                "fileLines": 878,
+                "codeLines": 839,
+                "functionMethodCount": 46,
+                "cyclomaticComplexity": 134,
+                "cognitiveComplexity": 165
             }
         },
         "tools/governance/change-contract.mjs": {
@@ -4087,8 +5072,7 @@
         "tools/governance/check-code-intent.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1024,
-                "codeLines": 619,
+                "fileLines": 1025,
                 "cyclomaticComplexity": 215,
                 "cognitiveComplexity": 484
             }
@@ -4102,7 +5086,6 @@
         "tools/governance/repository-governance-authority.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "cyclomaticComplexity": 95,
                 "cognitiveComplexity": 177
             }
         },
@@ -4129,11 +5112,11 @@
         "tools/operations/check-evidence-metrics.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1533,
-                "codeLines": 1400,
-                "functionMethodCount": 65,
-                "cyclomaticComplexity": 243,
-                "cognitiveComplexity": 334,
+                "fileLines": 1827,
+                "codeLines": 1691,
+                "functionMethodCount": 68,
+                "cyclomaticComplexity": 245,
+                "cognitiveComplexity": 324,
                 "maxNestingDepth": 7
             }
         },
@@ -4141,6 +5124,13 @@
             "category": "HandwrittenModule",
             "excess": {
                 "cognitiveComplexity": 180
+            }
+        },
+        "tools/operations/check-release-evidence-manifest.mjs": {
+            "category": "ManifestRegistry",
+            "excess": {
+                "cyclomaticComplexity": 934,
+                "responsibilityCount": 7
             }
         },
         "tools/operations/check-slo-alert-fixture.mjs": {
@@ -4152,8 +5142,7 @@
         "tools/operations/collect-release-evidence.sh": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1123,
-                "codeLines": 622,
+                "fileLines": 1152,
                 "responsibilityCount": 6
             }
         },
@@ -4167,13 +5156,13 @@
         "tools/operations/test-release-evidence-fixture.sh": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 911
+                "fileLines": 914
             }
         },
         "tools/perf/performance-saturation-v2.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "functionMethodCount": 49,
+                "functionMethodCount": 50,
                 "cyclomaticComplexity": 164,
                 "cognitiveComplexity": 243
             }
@@ -4183,6 +5172,19 @@
             "excess": {
                 "cyclomaticComplexity": 126,
                 "cognitiveComplexity": 160
+            }
+        },
+        "tools/release/check-release-final.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "cyclomaticComplexity": 103,
+                "cognitiveComplexity": 150
+            }
+        },
+        "tools/release/release-reliability-qualified-receipt.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "cyclomaticComplexity": 172
             }
         },
         "tools/release/test-evidence-receipts-cli.mjs": {
@@ -4195,11 +5197,20 @@
         "tools/release/test-evidence-receipts.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1499,
-                "codeLines": 1462,
-                "functionMethodCount": 71,
-                "cyclomaticComplexity": 493,
-                "cognitiveComplexity": 617
+                "fileLines": 1639,
+                "codeLines": 1598,
+                "functionMethodCount": 74,
+                "cyclomaticComplexity": 526,
+                "cognitiveComplexity": 660
+            }
+        },
+        "tools/run-test-matrix.mjs": {
+            "category": "ManifestRegistry",
+            "excess": {
+                "fileLines": 6393,
+                "functionMethodCount": 139,
+                "cognitiveComplexity": 1033,
+                "dependencyImportCount": 36
             }
         },
         "tools/runtime-profiles/execute-runtime-publish-profile.mjs": {
@@ -4219,18 +5230,11 @@
         "tools/runtime-profiles/runtime-publish-evidence.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 903,
-                "codeLines": 856,
-                "functionMethodCount": 82,
-                "cyclomaticComplexity": 501,
-                "cognitiveComplexity": 694
-            }
-        },
-        "tools/runtime-profiles/runtime-publish-profile.mjs": {
-            "category": "HandwrittenModule",
-            "excess": {
-                "cyclomaticComplexity": 93,
-                "cognitiveComplexity": 148
+                "fileLines": 991,
+                "codeLines": 942,
+                "functionMethodCount": 88,
+                "cyclomaticComplexity": 540,
+                "cognitiveComplexity": 755
             }
         },
         "tools/security/AnonymousCredentialRootBootstrap/Program.cs": {
@@ -4245,12 +5249,6 @@
             "excess": {
                 "cognitiveComplexity": 198,
                 "maxNestingDepth": 7
-            }
-        },
-        "tools/security/check-async-telemetry-privacy.mjs": {
-            "category": "HandwrittenModule",
-            "excess": {
-                "cognitiveComplexity": 144
             }
         },
         "tools/security/check-comment-privacy-credential-vault.mjs": {
@@ -4292,19 +5290,33 @@
                 "maxNestingDepth": 7
             }
         },
+        "tools/security/html-sink-ast.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "cyclomaticComplexity": 109,
+                "cognitiveComplexity": 191,
+                "maxNestingDepth": 7
+            }
+        },
+        "tools/security/run-authenticated-dast.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "responsibilityCount": 6
+            }
+        },
         "tools/security/run-privacy-zk-prod-smoke.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "cyclomaticComplexity": 117,
+                "cyclomaticComplexity": 118,
                 "cognitiveComplexity": 176
             }
         },
         "tools/security/test-production-exposure-tools.sh": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 2482,
-                "codeLines": 2009,
-                "cyclomaticComplexity": 205,
+                "fileLines": 2494,
+                "codeLines": 2020,
+                "cyclomaticComplexity": 207,
                 "cognitiveComplexity": 560,
                 "maxNestingDepth": 7
             }
@@ -4336,6 +5348,100 @@
                 "cognitiveComplexity": 187
             }
         },
+        "tools/test-fixtures/orchestrator.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 1058,
+                "cyclomaticComplexity": 123,
+                "cognitiveComplexity": 160,
+                "responsibilityCount": 6
+            }
+        },
+        "tools/test-fixtures/producers/demo-public-producer.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "cyclomaticComplexity": 111
+            }
+        },
+        "tools/test-fixtures/producers/public-content-producer.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "cyclomaticComplexity": 237,
+                "responsibilityCount": 6
+            }
+        },
+        "tools/test-fixtures/receipt/fixture-receipt.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "cyclomaticComplexity": 138
+            }
+        },
+        "tools/test-fixtures/receipt/postconditions.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "functionMethodCount": 108,
+                "cyclomaticComplexity": 265,
+                "cognitiveComplexity": 424
+            }
+        },
+        "tools/test-fixtures/receipt/reuse-verifier.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "cyclomaticComplexity": 109
+            }
+        },
+        "tools/test-inventory/discovery.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "cyclomaticComplexity": 125,
+                "cognitiveComplexity": 169
+            }
+        },
+        "tools/test-inventory/native-entry-adapter/index.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "cognitiveComplexity": 254
+            }
+        },
+        "tools/test-inventory/schema.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "cyclomaticComplexity": 103,
+                "cognitiveComplexity": 191
+            }
+        },
+        "tools/test-inventory/ts-ast-adapter/index.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 1284,
+                "codeLines": 922,
+                "functionMethodCount": 56,
+                "cyclomaticComplexity": 212,
+                "cognitiveComplexity": 394
+            }
+        },
+        "tools/test-inventory/verify-closure.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "cognitiveComplexity": 153
+            }
+        },
+        "tools/test-inventory/xunit-roslyn-adapter/Program.cs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 1053,
+                "typeCount": 14,
+                "maxNestingDepth": 7,
+                "publicSurfaceCount": 64
+            }
+        },
+        "tools/test-matrix/aggregate-plan.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "cyclomaticComplexity": 109,
+                "cognitiveComplexity": 151
+            }
+        },
         "tools/test-matrix/artifact-digest-table.mjs": {
             "category": "HandwrittenModule",
             "excess": {
@@ -4347,10 +5453,46 @@
                 "maxNestingDepth": 7
             }
         },
-        "tools/test-matrix/async-log-pipeline.mjs": {
+        "tools/test-matrix/behavior-evidence-pre-runtime.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "cognitiveComplexity": 147
+                "fileLines": 914,
+                "codeLines": 759,
+                "cyclomaticComplexity": 153,
+                "cognitiveComplexity": 237
+            }
+        },
+        "tools/test-matrix/content-addressed-build-cache-contract.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "codeLines": 817,
+                "functionMethodCount": 50,
+                "cyclomaticComplexity": 170,
+                "cognitiveComplexity": 273
+            }
+        },
+        "tools/test-matrix/content-addressed-build-cache.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "codeLines": 822,
+                "cyclomaticComplexity": 117,
+                "cognitiveComplexity": 180
+            }
+        },
+        "tools/test-matrix/content-addressed-evidence-store.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 948,
+                "codeLines": 906,
+                "cyclomaticComplexity": 134,
+                "cognitiveComplexity": 276
+            }
+        },
+        "tools/test-matrix/dotnet-build-server-cleanup.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "codeLines": 750,
+                "cyclomaticComplexity": 187
             }
         },
         "tools/test-matrix/frontend-build-ready-marker.mjs": {
@@ -4362,22 +5504,103 @@
         "tools/test-matrix/local-profile.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1356,
-                "codeLines": 1279,
-                "functionMethodCount": 92,
-                "cyclomaticComplexity": 478,
-                "cognitiveComplexity": 784,
+                "fileLines": 2196,
+                "codeLines": 2108,
+                "functionMethodCount": 117,
+                "cyclomaticComplexity": 575,
+                "cognitiveComplexity": 920,
                 "maxNestingDepth": 9
             }
         },
         "tools/test-matrix/local-runtime-cleanup.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 849,
+                "fileLines": 1875,
+                "codeLines": 1815,
+                "functionMethodCount": 65,
+                "cyclomaticComplexity": 527,
+                "cognitiveComplexity": 491
+            }
+        },
+        "tools/test-matrix/produce-behavior-mutation-qualification.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 912,
                 "codeLines": 801,
-                "functionMethodCount": 47,
-                "cyclomaticComplexity": 309,
-                "cognitiveComplexity": 309
+                "cyclomaticComplexity": 140,
+                "cognitiveComplexity": 211
+            }
+        },
+        "tools/test-matrix/production-build-layout.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 1697,
+                "codeLines": 1636,
+                "functionMethodCount": 69,
+                "cyclomaticComplexity": 329,
+                "cognitiveComplexity": 352
+            }
+        },
+        "tools/test-matrix/production-capacity-reservation.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "codeLines": 718,
+                "cyclomaticComplexity": 118
+            }
+        },
+        "tools/test-matrix/production-disk-demand.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "cyclomaticComplexity": 115,
+                "cognitiveComplexity": 186
+            }
+        },
+        "tools/test-matrix/production-fresh-cache-transaction.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 890,
+                "codeLines": 850,
+                "cyclomaticComplexity": 178,
+                "cognitiveComplexity": 268
+            }
+        },
+        "tools/test-matrix/production-fresh-exclusive-lease.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "cyclomaticComplexity": 117,
+                "cognitiveComplexity": 181
+            }
+        },
+        "tools/test-matrix/production-fresh-orphan-runtime-discovery.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 909
+            }
+        },
+        "tools/test-matrix/production-fresh-port-lease.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 1587,
+                "codeLines": 1458,
+                "functionMethodCount": 81,
+                "cyclomaticComplexity": 244,
+                "cognitiveComplexity": 398
+            }
+        },
+        "tools/test-matrix/production-fresh-run-bound-outputs.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 1632,
+                "codeLines": 1576,
+                "functionMethodCount": 74,
+                "cyclomaticComplexity": 269,
+                "cognitiveComplexity": 369
+            }
+        },
+        "tools/test-matrix/production-fresh-runtime-evidence.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "codeLines": 710
             }
         },
         "tools/test-matrix/production-resource-enforcement.mjs": {
@@ -4387,108 +5610,111 @@
                 "cognitiveComplexity": 173
             }
         },
+        "tools/test-matrix/reset-postcondition-verifier.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "cyclomaticComplexity": 100
+            }
+        },
         "tools/test-matrix/resident-resource-leases.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "codeLines": 695,
-                "functionMethodCount": 52,
-                "cyclomaticComplexity": 184,
-                "cognitiveComplexity": 237
+                "codeLines": 699,
+                "functionMethodCount": 53,
+                "cyclomaticComplexity": 185,
+                "cognitiveComplexity": 245
             }
         },
-        "tools/test-matrix/resource-utilization.mjs": {
+        "tools/test-matrix/scheduler-run-owner.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "cyclomaticComplexity": 92
+                "fileLines": 1172,
+                "codeLines": 1123,
+                "functionMethodCount": 53,
+                "cyclomaticComplexity": 210,
+                "cognitiveComplexity": 208
             }
         },
         "tools/test-matrix/scheduler.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 2791,
-                "codeLines": 2632,
-                "functionMethodCount": 164,
-                "cyclomaticComplexity": 787,
-                "cognitiveComplexity": 1101,
-                "maxNestingDepth": 7
+                "fileLines": 6073,
+                "codeLines": 5857,
+                "functionMethodCount": 242,
+                "cyclomaticComplexity": 1294,
+                "cognitiveComplexity": 1556,
+                "maxNestingDepth": 8,
+                "dependencyImportCount": 27
+            }
+        },
+        "tools/test-matrix/verify-behavior-mutation-qualification.mjs": {
+            "category": "HandwrittenModule",
+            "excess": {
+                "fileLines": 881
             }
         },
         "tools/test-retention/audit.mjs": {
             "category": "HandwrittenModule",
             "excess": {
-                "fileLines": 1064,
-                "codeLines": 914,
-                "functionMethodCount": 67,
-                "cyclomaticComplexity": 322,
-                "cognitiveComplexity": 406,
-                "responsibilityCount": 6
-            }
-        },
-        "tools/test/backend-production-topology.mjs": {
-            "category": "BuildTestOrchestrator",
-            "excess": {
-                "fileLines": 321,
-                "codeLines": 305
+                "fileLines": 1333,
+                "codeLines": 1032,
+                "functionMethodCount": 66,
+                "cyclomaticComplexity": 293,
+                "cognitiveComplexity": 273
             }
         },
         "tools/test/bundles/bundle-steps.mjs": {
             "category": "BuildTestOrchestrator",
             "excess": {
-                "fileLines": 1026,
-                "codeLines": 951,
-                "functionMethodCount": 44,
-                "cyclomaticComplexity": 141,
-                "cognitiveComplexity": 230,
+                "fileLines": 1454,
+                "codeLines": 1370,
+                "functionMethodCount": 59,
+                "cyclomaticComplexity": 246,
+                "cognitiveComplexity": 314,
                 "maxNestingDepth": 6,
-                "publicSurfaceCount": 8
+                "publicSurfaceCount": 11
             }
         },
         "tools/test/bundles/run-bundle.mjs": {
             "category": "BuildTestOrchestrator",
             "excess": {
-                "fileLines": 2599,
-                "codeLines": 1655,
-                "functionMethodCount": 103,
-                "cyclomaticComplexity": 207,
-                "cognitiveComplexity": 294,
+                "fileLines": 3819,
+                "codeLines": 2650,
+                "functionMethodCount": 137,
+                "cyclomaticComplexity": 309,
+                "cognitiveComplexity": 395,
                 "maxNestingDepth": 6,
-                "dependencyImportCount": 27,
+                "dependencyImportCount": 33,
                 "responsibilityCount": 4
-            }
-        },
-        "tools/test/bundles/step-dag.mjs": {
-            "category": "BuildTestOrchestrator",
-            "excess": {
-                "cyclomaticComplexity": 57,
-                "cognitiveComplexity": 116
             }
         },
         "tools/test/calibrate-backend-production-topology.mjs": {
             "category": "BuildTestOrchestrator",
             "excess": {
-                "fileLines": 377,
-                "codeLines": 344,
-                "functionMethodCount": 30,
-                "cyclomaticComplexity": 61,
-                "cognitiveComplexity": 87
+                "functionMethodCount": 35,
+                "dependencyImportCount": 9
+            }
+        },
+        "tools/test/changed-critical-mutation-attribution.mjs": {
+            "category": "BuildTestOrchestrator",
+            "excess": {
+                "maxNestingDepth": 6
             }
         },
         "tools/test/check-frontend-test-layout.mjs": {
             "category": "BuildTestOrchestrator",
             "excess": {
-                "fileLines": 414,
-                "codeLines": 284,
-                "functionMethodCount": 21,
-                "cyclomaticComplexity": 87,
                 "cognitiveComplexity": 161
             }
         },
         "tools/test/check-stryker-report.mjs": {
             "category": "BuildTestOrchestrator",
             "excess": {
-                "codeLines": 263,
-                "cyclomaticComplexity": 62,
-                "cognitiveComplexity": 79
+                "fileLines": 1678,
+                "codeLines": 1551,
+                "functionMethodCount": 63,
+                "cyclomaticComplexity": 230,
+                "cognitiveComplexity": 357
             }
         },
         "tools/test/frontend-vitest-transform-cache.mjs": {
@@ -4498,61 +5724,40 @@
                 "publicSurfaceCount": 9
             }
         },
-        "tools/test/homogeneous-two-node-fixture.mjs": {
-            "category": "BuildTestOrchestrator",
-            "excess": {
-                "fileLines": 368
-            }
-        },
-        "tools/test/lanes/_lane-collect-support.sh": {
-            "category": "BuildTestOrchestrator",
-            "excess": {
-                "fileLines": 346,
-                "codeLines": 323,
-                "cognitiveComplexity": 76
-            }
-        },
         "tools/test/lanes/_suite-support.sh": {
             "category": "BuildTestOrchestrator",
             "excess": {
-                "fileLines": 2021,
-                "codeLines": 1412,
-                "cyclomaticComplexity": 120,
-                "cognitiveComplexity": 278,
-                "maxNestingDepth": 7,
+                "fileLines": 2133,
+                "codeLines": 1549,
+                "cyclomaticComplexity": 147,
+                "cognitiveComplexity": 412,
+                "maxNestingDepth": 10,
                 "dependencyImportCount": 10,
                 "responsibilityCount": 7
-            }
-        },
-        "tools/test/lanes/backend-qps.sh": {
-            "category": "BuildTestOrchestrator",
-            "excess": {
-                "responsibilityCount": 6
             }
         },
         "tools/test/lanes/production-build-artifacts.sh": {
             "category": "BuildTestOrchestrator",
             "excess": {
-                "responsibilityCount": 4
-            }
-        },
-        "tools/test/lanes/project-privacy-zk-production.mjs": {
-            "category": "BuildTestOrchestrator",
-            "excess": {
-                "functionMethodCount": 19,
-                "cyclomaticComplexity": 68
+                "responsibilityCount": 5
             }
         },
         "tools/test/lanes/runtime-evidence-probe.mjs": {
             "category": "BuildTestOrchestrator",
             "excess": {
-                "fileLines": 4288,
-                "codeLines": 636,
-                "functionMethodCount": 18,
-                "cyclomaticComplexity": 105,
-                "cognitiveComplexity": 136,
+                "fileLines": 5075,
+                "codeLines": 751,
+                "cyclomaticComplexity": 110,
+                "cognitiveComplexity": 158,
                 "maxNestingDepth": 6,
+                "dependencyImportCount": 11,
                 "responsibilityCount": 7
+            }
+        },
+        "tools/test/lanes/runtime-http-route-contract.mjs": {
+            "category": "BuildTestOrchestrator",
+            "excess": {
+                "responsibilityCount": 6
             }
         },
         "tools/test/lanes/static-governance.sh": {
@@ -4561,52 +5766,182 @@
                 "responsibilityCount": 4
             }
         },
-        "tools/test/measure-backend-production-build-authority.mjs": {
+        "tools/test/measurement-noise-envelope.mjs": {
             "category": "BuildTestOrchestrator",
             "excess": {
-                "codeLines": 298,
-                "functionMethodCount": 19
+                "fileLines": 1803,
+                "codeLines": 1756,
+                "functionMethodCount": 76,
+                "cyclomaticComplexity": 323,
+                "cognitiveComplexity": 435,
+                "maxNestingDepth": 9,
+                "publicSurfaceCount": 18
+            }
+        },
+        "tools/test/mutation-release-parity.mjs": {
+            "category": "BuildTestOrchestrator",
+            "excess": {
+                "functionMethodCount": 24,
+                "cyclomaticComplexity": 115
+            }
+        },
+        "tools/test/performance-admission.mjs": {
+            "category": "BuildTestOrchestrator",
+            "excess": {
+                "maxNestingDepth": 6,
+                "dependencyImportCount": 9
+            }
+        },
+        "tools/test/physical-execution-linux-systemd-adapter.mjs": {
+            "category": "BuildTestOrchestrator",
+            "excess": {
+                "fileLines": 979,
+                "codeLines": 958,
+                "functionMethodCount": 31,
+                "cyclomaticComplexity": 124,
+                "cognitiveComplexity": 309,
+                "maxNestingDepth": 8,
+                "dependencyImportCount": 9
+            }
+        },
+        "tools/test/physical-execution-process-tree.mjs": {
+            "category": "BuildTestOrchestrator",
+            "excess": {
+                "fileLines": 1428,
+                "codeLines": 1393,
+                "functionMethodCount": 60,
+                "cyclomaticComplexity": 212,
+                "cognitiveComplexity": 405,
+                "maxNestingDepth": 7
+            }
+        },
+        "tools/test/physical-execution-windows-job-adapter.mjs": {
+            "category": "BuildTestOrchestrator",
+            "excess": {
+                "dependencyImportCount": 9
+            }
+        },
+        "tools/test/probe-release-reliability-runtime-smoke.mjs": {
+            "category": "BuildTestOrchestrator",
+            "excess": {
+                "responsibilityCount": 5
+            }
+        },
+        "tools/test/process-identity.mjs": {
+            "category": "BuildTestOrchestrator",
+            "excess": {
+                "codeLines": 589,
+                "cyclomaticComplexity": 128,
+                "cognitiveComplexity": 228,
+                "maxNestingDepth": 6,
+                "publicSurfaceCount": 10
+            }
+        },
+        "tools/test/release-reliability-lifecycle-actions.mjs": {
+            "category": "BuildTestOrchestrator",
+            "excess": {
+                "fileLines": 1307,
+                "codeLines": 1278,
+                "functionMethodCount": 37,
+                "cyclomaticComplexity": 218,
+                "cognitiveComplexity": 231,
+                "publicSurfaceCount": 9,
+                "responsibilityCount": 6
+            }
+        },
+        "tools/test/release-reliability-lifecycle.mjs": {
+            "category": "BuildTestOrchestrator",
+            "excess": {
+                "fileLines": 1155,
+                "codeLines": 1122,
+                "functionMethodCount": 33,
+                "cyclomaticComplexity": 169,
+                "cognitiveComplexity": 196,
+                "dependencyImportCount": 9,
+                "responsibilityCount": 6
+            }
+        },
+        "tools/test/release-reliability-receipt.mjs": {
+            "category": "BuildTestOrchestrator",
+            "excess": {
+                "fileLines": 1331,
+                "codeLines": 1292,
+                "functionMethodCount": 43,
+                "cyclomaticComplexity": 399,
+                "cognitiveComplexity": 221,
+                "responsibilityCount": 4
+            }
+        },
+        "tools/test/release-reliability-runtime-admission.mjs": {
+            "category": "BuildTestOrchestrator",
+            "excess": {
+                "fileLines": 1606,
+                "codeLines": 1548,
+                "functionMethodCount": 49,
+                "cyclomaticComplexity": 293,
+                "cognitiveComplexity": 213,
+                "dependencyImportCount": 9,
+                "responsibilityCount": 6
             }
         },
         "tools/test/run-backend-production-shards.mjs": {
             "category": "BuildTestOrchestrator",
             "excess": {
-                "fileLines": 2869,
-                "codeLines": 2777,
-                "functionMethodCount": 154,
-                "cyclomaticComplexity": 642,
-                "cognitiveComplexity": 784,
+                "fileLines": 2920,
+                "codeLines": 2826,
+                "functionMethodCount": 156,
+                "cyclomaticComplexity": 655,
+                "cognitiveComplexity": 790,
                 "maxNestingDepth": 7,
-                "dependencyImportCount": 14,
+                "dependencyImportCount": 15,
                 "publicSurfaceCount": 34,
                 "responsibilityCount": 4
+            }
+        },
+        "tools/test/run-backend-qps-scenarios.mjs": {
+            "category": "BuildTestOrchestrator",
+            "excess": {
+                "publicSurfaceCount": 8,
+                "responsibilityCount": 4
+            }
+        },
+        "tools/test/run-changed-critical-mutation.mjs": {
+            "category": "BuildTestOrchestrator",
+            "excess": {
+                "dependencyImportCount": 9
             }
         },
         "tools/test/run-command-manifest.mjs": {
             "category": "BuildTestOrchestrator",
             "excess": {
-                "fileLines": 828,
-                "codeLines": 770,
+                "fileLines": 835,
+                "codeLines": 777,
                 "functionMethodCount": 43,
-                "cyclomaticComplexity": 221,
-                "cognitiveComplexity": 230,
+                "cyclomaticComplexity": 225,
+                "cognitiveComplexity": 234,
                 "publicSurfaceCount": 11
+            }
+        },
+        "tools/test/run-deterministic-command.mjs": {
+            "category": "BuildTestOrchestrator",
+            "excess": {
+                "dependencyImportCount": 9
             }
         },
         "tools/test/run-frontend-vitest-rolling-shards.mjs": {
             "category": "BuildTestOrchestrator",
             "excess": {
-                "fileLines": 1410,
+                "fileLines": 1417,
                 "dependencyImportCount": 10
             }
         },
         "tools/test/run-mixed-performance-window.mjs": {
             "category": "BuildTestOrchestrator",
             "excess": {
-                "fileLines": 809,
-                "codeLines": 774,
+                "fileLines": 817,
+                "codeLines": 782,
                 "functionMethodCount": 71,
-                "cyclomaticComplexity": 107,
+                "cyclomaticComplexity": 109,
                 "cognitiveComplexity": 151,
                 "maxNestingDepth": 6,
                 "dependencyImportCount": 9,
@@ -4616,12 +5951,57 @@
         "tools/test/run-once.mjs": {
             "category": "BuildTestOrchestrator",
             "excess": {
-                "fileLines": 933,
-                "codeLines": 870,
-                "functionMethodCount": 85,
-                "cyclomaticComplexity": 179,
-                "cognitiveComplexity": 247,
+                "fileLines": 1653,
+                "codeLines": 1556,
+                "functionMethodCount": 112,
+                "cyclomaticComplexity": 291,
+                "cognitiveComplexity": 306,
                 "maxNestingDepth": 6
+            }
+        },
+        "tools/test/run-release-reliability-qualified-local.sh": {
+            "category": "BuildTestOrchestrator",
+            "excess": {
+                "cyclomaticComplexity": 128,
+                "responsibilityCount": 6
+            }
+        },
+        "tools/test/run-release-reliability-scenarios.mjs": {
+            "category": "BuildTestOrchestrator",
+            "excess": {
+                "fileLines": 1166,
+                "codeLines": 1133,
+                "functionMethodCount": 35,
+                "cyclomaticComplexity": 161,
+                "cognitiveComplexity": 182,
+                "maxNestingDepth": 6,
+                "dependencyImportCount": 9
+            }
+        },
+        "tools/test/runtime-scenario-host.mjs": {
+            "category": "BuildTestOrchestrator",
+            "excess": {
+                "codeLines": 635,
+                "functionMethodCount": 27,
+                "maxNestingDepth": 6,
+                "dependencyImportCount": 9,
+                "responsibilityCount": 4
+            }
+        },
+        "tools/test/static-governance-host.mjs": {
+            "category": "BuildTestOrchestrator",
+            "excess": {
+                "maxNestingDepth": 6
+            }
+        },
+        "tools/test/temporal-context.mjs": {
+            "category": "BuildTestOrchestrator",
+            "excess": {
+                "fileLines": 887,
+                "codeLines": 830,
+                "functionMethodCount": 54,
+                "cognitiveComplexity": 169,
+                "publicSurfaceCount": 37
             }
         },
         "tools/test/verify-privacy-zk-performance-inputs.mjs": {
@@ -4630,11 +6010,27 @@
                 "dependencyImportCount": 10
             }
         },
-        "tools/test/vstest-discovery-diagnostic.mjs": {
+        "tools/test/verify-release-reliability-lifecycle-action.mjs": {
             "category": "BuildTestOrchestrator",
             "excess": {
-                "cyclomaticComplexity": 59,
-                "cognitiveComplexity": 78
+                "fileLines": 1079,
+                "codeLines": 1051,
+                "functionMethodCount": 24,
+                "cyclomaticComplexity": 275,
+                "cognitiveComplexity": 257,
+                "responsibilityCount": 6
+            }
+        },
+        "tools/test/verify-release-reliability-receipt.mjs": {
+            "category": "BuildTestOrchestrator",
+            "excess": {
+                "fileLines": 2571,
+                "codeLines": 2506,
+                "functionMethodCount": 87,
+                "cyclomaticComplexity": 703,
+                "cognitiveComplexity": 343,
+                "dependencyImportCount": 13,
+                "responsibilityCount": 6
             }
         }
     }

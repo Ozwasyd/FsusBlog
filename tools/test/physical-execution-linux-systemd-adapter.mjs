@@ -6,11 +6,11 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import { createPhysicalExecutionOutputTracker } from './physical-execution-process-tree.mjs';
 import {
     collectProcessGroupOrJobIdentity,
     collectProcessIdentity
 } from './process-identity.mjs';
-import { createPhysicalExecutionOutputTracker } from './physical-execution-process-tree.mjs';
 
 const bootstrap = path.join(
     path.dirname(fileURLToPath(import.meta.url)),

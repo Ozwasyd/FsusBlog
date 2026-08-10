@@ -4,28 +4,34 @@ import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 
 const fixtureRoot = mkdtempSync(join(tmpdir(), 'fsusblog-acceptance-shared-unit-'))
-const fixtureFile = join(fixtureRoot, 'public.aeds')
-const originalFixtureFile = process.env.FSUSBLOG_PLAYWRIGHT_FIXTURES_FILE
+const fixtureFile = join(fixtureRoot, 'public-content-projection.json')
+const originalFixtureFile = process.env.FSUSBLOG_PUBLIC_ID_PROJECTION_FILE
 const fixturePayload = {
-  generatedAt: '2026-07-10T00:00:00.000Z',
-  baseUrl: 'http://127.0.0.1:3000',
+  schema: 'fsusblog.prepared-public-id-projection.v1',
+  authority: 'derived-from-current-run-prepared-public-content',
+  notAuthoritative: true,
+  evidenceUse: 'navigation-input-only',
+  sourcePrepareStateDigest: `sha256:${'a'.repeat(64)}`,
   articleId: '1',
   articleTitle: 'Unit fixture',
   categoryId: '1',
   tagId: '1',
   searchKeyword: 'fixture',
-  bodyProbeText: 'fixture body',
-  showReadingNotice: 'false',
-  wordCount: '10',
-  estimatedReadingMinutes: '1'
+  entities: [
+    { producerId: 'public-content', kind: 'article', id: '1', handle: 'Unit fixture', variantId: null },
+    { producerId: 'public-content', kind: 'category', id: '1', handle: 'Category', variantId: null },
+    { producerId: 'public-content', kind: 'tag', id: '1', handle: 'Tag', variantId: null }
+  ],
+  projectionDigest: null
 }
-writeFileSync(fixtureFile, `${Object.entries(fixturePayload)
-  .map(([key, value]) => `${key}\t${Buffer.from(value).toString('base64url')}`)
-  .join('\n')}\n`)
-process.env.FSUSBLOG_PLAYWRIGHT_FIXTURES_FILE = fixtureFile
+const { digestCanonical } = await import('../../../../tools/test-fixtures/receipt/canonical.mjs')
+fixturePayload.projectionDigest = digestCanonical({ ...fixturePayload, projectionDigest: undefined })
+writeFileSync(fixtureFile, `${JSON.stringify(fixturePayload, null, 2)}\n`)
+process.env.FSUSBLOG_PUBLIC_ID_PROJECTION_FILE = fixtureFile
 
 const {
   DESKTOP_VIEWPORT,
+  isRecoverablePrewarmFailure,
   normalizeDynamicScreenshotText,
   MOBILE_LANDSCAPE_VIEWPORT,
   MOBILE_VIEWPORT,
@@ -37,8 +43,8 @@ const {
 } = await import('../../support/playwright/acceptance-shared')
 
 afterAll(() => {
-  if (originalFixtureFile === undefined) delete process.env.FSUSBLOG_PLAYWRIGHT_FIXTURES_FILE
-  else process.env.FSUSBLOG_PLAYWRIGHT_FIXTURES_FILE = originalFixtureFile
+  if (originalFixtureFile === undefined) delete process.env.FSUSBLOG_PUBLIC_ID_PROJECTION_FILE
+  else process.env.FSUSBLOG_PUBLIC_ID_PROJECTION_FILE = originalFixtureFile
   rmSync(fixtureRoot, { recursive: true, force: true })
 })
 
@@ -60,5 +66,16 @@ describe('playwright acceptance shared helper', () => {
       '检查时间：1/1/2026, 12:00:00 AM；队列 0 / 0；detail=queued=0, dropped=0'
     )
     expect(normalizeDynamicScreenshotText('分页 2 / 7', '/user/manage/comments')).toBe('分页 2 / 7')
+  })
+
+  it('recognizes recoverable cold-start failures through readiness error causes', () => {
+    const targetClosed = new Error('page.waitForFunction: Target page, context or browser has been closed')
+    const wrappedTargetClosed = new Error('application readiness failed', { cause: targetClosed })
+    const timeout = new Error('page.waitForFunction: Timeout 120000ms exceeded.')
+    timeout.name = 'TimeoutError'
+
+    expect(isRecoverablePrewarmFailure(wrappedTargetClosed)).toBe(true)
+    expect(isRecoverablePrewarmFailure(new Error('application readiness failed', { cause: timeout }))).toBe(true)
+    expect(isRecoverablePrewarmFailure(new Error('route assertion failed'))).toBe(false)
   })
 })

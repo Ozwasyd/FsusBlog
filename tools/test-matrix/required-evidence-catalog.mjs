@@ -5,10 +5,10 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import { validateDispositionLedger } from './release-domain-ledger.mjs';
 import {
     loadCanonicalReleaseFinalEvidenceInputs
 } from './release-final-evidence-contract.mjs';
-import { validateDispositionLedger } from './release-domain-ledger.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const requiredEvidenceCatalogSchema = 'fsusblog.required-evidence-catalog.v1';

@@ -193,7 +193,7 @@ test('runtime bundle removes artificial serial dependencies while retaining ever
 {
     const steps = runtimeSteps();
     const index = byId(steps);
-    assert.equal(steps.length, 21);
+    assert.equal(steps.length, 22);
     assert.deepEqual(steps.flatMap((step) => step.members).sort(), [
         'bootstrap', 'cross-stack-contract', 'csrf-browser-matrix',
         'endpoint-depth', 'integration', 'release', 'resilience', 'security-authenticated-dast',
@@ -202,6 +202,7 @@ test('runtime bundle removes artificial serial dependencies while retaining ever
 
     assert.deepEqual(index.get('release-public-hydration').dependsOn, ['runtime-integration']);
     assert.deepEqual(index.get('bootstrap').dependsOn, [
+        'behavior-evidence-ready',
         'backend-build-ready',
         'frontend-build-ready',
         'production-build-artifacts-ready',
@@ -233,10 +234,11 @@ test('runtime bundle removes artificial serial dependencies while retaining ever
     assert.deepEqual(index.get('csrf-matrix').dependsOn, ['security-static', 'backend-build-ready']);
 
     assert.deepEqual(index.get('bootstrap').dependsOn, [
-        'backend-build-ready', 'frontend-build-ready',
+        'behavior-evidence-ready', 'backend-build-ready', 'frontend-build-ready',
         'production-build-artifacts-ready', 'security-static'
     ]);
     for (const id of [
+        'behavior-evidence-ready',
         'backend-build-ready',
         'frontend-build-ready',
         'production-build-artifacts-ready'
@@ -282,15 +284,16 @@ test('runtime bundle removes artificial serial dependencies while retaining ever
     assert.deepEqual(index.get('cross-stack-join').resources, { coordinationOnly: true });
     assert.equal(index.get('cross-stack-join').runAfterSettled, true);
     assert.deepEqual(index.get('zap-baseline').members, []);
-    assert.equal(steps[0].id, 'backend-build-ready');
-    assert.equal(steps[1].id, 'frontend-build-ready');
-    assert.equal(steps[2].id, 'production-build-artifacts-ready');
-    assert.equal(steps[3].id, 'security-static', 'static security is the sole t0 executable task');
-    assert.equal(steps[4].id, 'bootstrap', 'bootstrap follows markers and all pre-bootstrap source work');
-    assert.equal(steps[5].id, 'release-public-hydration', 'release dist writes must settle before preview readers');
-    assert.equal(steps[6].id, 'security-runtime-core', 'runtime security enters the first post-hydration wave');
-    assert.equal(steps[7].id, 'authenticated-dast', 'authenticated DAST follows runtime security');
-    assert.equal(steps[10].id, 'endpoint-depth', 'browserless endpoint depth follows stable release hydration');
+    assert.equal(steps[0].id, 'behavior-evidence-ready');
+    assert.equal(steps[1].id, 'backend-build-ready');
+    assert.equal(steps[2].id, 'frontend-build-ready');
+    assert.equal(steps[3].id, 'production-build-artifacts-ready');
+    assert.equal(steps[4].id, 'security-static', 'static security is the sole t0 executable task');
+    assert.equal(steps[5].id, 'bootstrap', 'bootstrap follows markers and all pre-bootstrap source work');
+    assert.equal(steps[6].id, 'release-public-hydration', 'release dist writes must settle before preview readers');
+    assert.equal(steps[7].id, 'security-runtime-core', 'runtime security enters the first post-hydration wave');
+    assert.equal(steps[8].id, 'authenticated-dast', 'authenticated DAST follows runtime security');
+    assert.equal(steps[11].id, 'endpoint-depth', 'browserless endpoint depth follows stable release hydration');
     assert.equal(index.has('privacy-zk'), false);
     assert.deepEqual(index.get('runtime-state-stable').dependsOn, [
         'runtime-integration', 'release-public', 'endpoint-depth', 'security-runtime-core',
@@ -1151,6 +1154,7 @@ test('elastic 3/4/6 CPU grants immediately widen an independent runtime wave', a
 
 test('t0 static security is followed by cross-stack and CSRF in the backend/frontend marker gap', async () =>
 {
+    const behaviorEvidence = deferred();
     const backend = deferred();
     const frontend = deferred();
     const productionArtifacts = deferred();
@@ -1161,6 +1165,7 @@ test('t0 static security is followed by cross-stack and CSRF in the backend/fron
     const started = [];
     const index = byId(runtimeSteps());
     const selected = [
+        index.get('behavior-evidence-ready'),
         index.get('backend-build-ready'),
         index.get('frontend-build-ready'),
         index.get('production-build-artifacts-ready'),
@@ -1176,6 +1181,10 @@ test('t0 static security is followed by cross-stack and CSRF in the backend/fron
     }, async (entry) =>
     {
         started.push(entry.id);
+        if (entry.id === 'behavior-evidence-ready')
+        {
+            await behaviorEvidence.promise;
+        }
         if (entry.id === 'backend-build-ready')
         {
             await backend.promise;
@@ -1208,6 +1217,7 @@ test('t0 static security is followed by cross-stack and CSRF in the backend/fron
 
     await new Promise((resolve) => setImmediate(resolve));
     assert.deepEqual(started, [
+        'behavior-evidence-ready',
         'backend-build-ready',
         'frontend-build-ready',
         'production-build-artifacts-ready',
@@ -1228,6 +1238,9 @@ test('t0 static security is followed by cross-stack and CSRF in the backend/fron
     frontend.resolve();
     productionArtifacts.resolve();
     await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(started.includes('bootstrap'), false);
+    behaviorEvidence.resolve();
+    await new Promise((resolve) => setImmediate(resolve));
     assert.equal(started.at(-1), 'bootstrap');
     bootstrap.resolve();
     await execution;
@@ -1235,6 +1248,7 @@ test('t0 static security is followed by cross-stack and CSRF in the backend/fron
 
 test('failed-run timing model gives bootstrap hydration and browser phases the complete grant', async () =>
 {
+    const behaviorEvidence = deferred();
     const backend = deferred();
     const frontend = deferred();
     const productionArtifacts = deferred();
@@ -1249,6 +1263,7 @@ test('failed-run timing model gives bootstrap hydration and browser phases the c
     let capacity = { maxParallel: 1, cpuUnits: 1, memoryGiB: 3 };
     const index = byId(runtimeSteps());
     const selected = [
+        index.get('behavior-evidence-ready'),
         index.get('backend-build-ready'),
         index.get('frontend-build-ready'),
         index.get('production-build-artifacts-ready'),
@@ -1263,6 +1278,10 @@ test('failed-run timing model gives bootstrap hydration and browser phases the c
     const execution = executeWeightedStepDag(selected, () => capacity, async (entry) =>
     {
         started.push({ id: entry.id, capacity: entry.runtimeCapacity });
+        if (entry.id === 'behavior-evidence-ready')
+        {
+            await behaviorEvidence.promise;
+        }
         if (entry.id === 'backend-build-ready')
         {
             await backend.promise;
@@ -1307,6 +1326,7 @@ test('failed-run timing model gives bootstrap hydration and browser phases the c
 
     await new Promise((resolve) => setImmediate(resolve));
     assert.deepEqual(started.map((entry) => entry.id), [
+        'behavior-evidence-ready',
         'backend-build-ready',
         'frontend-build-ready',
         'production-build-artifacts-ready',
@@ -1330,6 +1350,9 @@ test('failed-run timing model gives bootstrap hydration and browser phases the c
     capacity = { maxParallel: 2, cpuUnits: 2, memoryGiB: 4 };
     frontend.resolve();
     productionArtifacts.resolve();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(started.some((entry) => entry.id === 'bootstrap'), false);
+    behaviorEvidence.resolve();
     await new Promise((resolve) => setImmediate(resolve));
     const bootstrapStart = started.find((entry) => entry.id === 'bootstrap');
     assert.deepEqual(bootstrapStart?.capacity, { maxParallel: 2, cpuUnits: 2, memoryGiB: 4 });

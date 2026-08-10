@@ -391,6 +391,23 @@
             ]
         },
         {
+            "id": "behavior-mutation-owner-catalog",
+            "owner": "backend-test-governance",
+            "canonicalPath": "config/testing/mutation/behavior-mutation-owners.v1.json",
+            "pathType": "file",
+            "purpose": "Canonical behavior mutation owner mapping consumed by changed-critical qualification.",
+            "consumers": [
+                "tools/test-matrix/behavior-mutation-owner.mjs",
+                "tools/test-matrix/produce-behavior-mutation-qualification.mjs",
+                "tools/test-matrix/verify-behavior-mutation-qualification.mjs",
+                "tests/tools/behavior-mutation-qualification.test.mjs",
+                "tests/tools/check-behavior-mutation-governance.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/behavior-mutation-qualification.test.mjs tests/tools/check-behavior-mutation-governance.test.mjs",
+            "changePolicy": "manual-update-with-qualification-closure-validation",
+            "status": "manual"
+        },
+        {
             "id": "test-observation-schema",
             "owner": "test-observation-ledger",
             "canonicalPath": "config/schemas/test-observation-artifact.schema.json",

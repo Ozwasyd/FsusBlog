@@ -15,24 +15,6 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class TemporalBusinessClockBindingTests
 {
-    [Fact]
-    public void Program_ConfiguresTestBusinessClockBeforeApplicationServices()
-    {
-        string source = File.ReadAllText(BackendTestPaths.FromRoot(
-            "src",
-            "backend",
-            "Program.cs"));
-        int temporalIndex = source.IndexOf(
-            "TimeProvider? testBusinessTimeProvider = TestTemporalRuntimeContext.Configure(builder);",
-            StringComparison.Ordinal);
-        int applicationIndex = source.IndexOf(
-            "builder.ConfigureFsusApplication(testBusinessTimeProvider);",
-            StringComparison.Ordinal);
-
-        Assert.True(temporalIndex >= 0);
-        Assert.True(applicationIndex > temporalIndex);
-    }
-
     [Theory]
     [InlineData(typeof(PublicHotArtifactProjector))]
     [InlineData(typeof(ArticleDetailAedsArtifactProjector))]

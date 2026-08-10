@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -294,8 +294,14 @@ test('fixture collector seals Docker-native backend procfs identity and fixture 
 test('fixture collector fails closed for stopped and cross-namespace service containers', (context) =>
 {
     for (const mutate of [
-        (fixture) => { fixture.containers.postgres.State.Running = false; },
-        (fixture) => { fixture.containers.redis.Config.Labels['io.fsusblog.test.namespace'] = 'other-namespace'; }
+        (fixture) =>
+        {
+            fixture.containers.postgres.State.Running = false;
+        },
+        (fixture) =>
+        {
+            fixture.containers.redis.Config.Labels['io.fsusblog.test.namespace'] = 'other-namespace';
+        }
     ])
     {
         const fixture = createFixture(context);
@@ -309,49 +315,97 @@ test('fixture collector fails closed for stopped and cross-namespace service con
 test('fixture collector rejects Docker/procfs PID, env, audited override, command, session, and image mismatches', (context) =>
 {
     for (const mutate of [
-        (fixture) => { fixture.containers.backend.State.Running = false; },
-        (fixture) => { delete fixture.containers.backend.State.Health; },
-        (fixture) => { fixture.containers.backend.State.Health.Status = 'unhealthy'; },
-        (fixture) => { fixture.containers.backend.Config.Healthcheck.Retries = 1; },
-        (fixture) => { delete fixture.image.Config.Healthcheck; },
-        (fixture) => { fixture.containers.backend.State.Pid = 1; },
-        (fixture) => { fixture.containers.backend.Image = `sha256:${'f'.repeat(64)}`; },
-        (fixture) => { fixture.containers.backend.Config.Env.push('FSUSBLOG_TEST_RUN_ID=fixture-run'); },
-        (fixture) => { fixture.containers.backend.Config.Env[0] = 'FSUSBLOG_TEST_RUN_ID=other-run'; },
-        (fixture) => {
+        (fixture) =>
+        {
+            fixture.containers.backend.State.Running = false;
+        },
+        (fixture) =>
+        {
+            delete fixture.containers.backend.State.Health;
+        },
+        (fixture) =>
+        {
+            fixture.containers.backend.State.Health.Status = 'unhealthy';
+        },
+        (fixture) =>
+        {
+            fixture.containers.backend.Config.Healthcheck.Retries = 1;
+        },
+        (fixture) =>
+        {
+            delete fixture.image.Config.Healthcheck;
+        },
+        (fixture) =>
+        {
+            fixture.containers.backend.State.Pid = 1;
+        },
+        (fixture) =>
+        {
+            fixture.containers.backend.Image = `sha256:${'f'.repeat(64)}`;
+        },
+        (fixture) =>
+        {
+            fixture.containers.backend.Config.Env.push('FSUSBLOG_TEST_RUN_ID=fixture-run');
+        },
+        (fixture) =>
+        {
+            fixture.containers.backend.Config.Env[0] = 'FSUSBLOG_TEST_RUN_ID=other-run';
+        },
+        (fixture) =>
+        {
             const index = fixture.containers.backend.Config.Env.indexOf('FSUSBLOG_DATA_ROOT=/app/data');
             fixture.containers.backend.Config.Env[index] = 'FSUSBLOG_DATA_ROOT=/host/run-bound/data';
         },
-        (fixture) => {
+        (fixture) =>
+        {
             const index = fixture.containers.backend.Config.Env.indexOf('ASPNETCORE_URLS=http://0.0.0.0:8080');
             fixture.containers.backend.Config.Env[index] = 'ASPNETCORE_URLS=http://127.0.0.1:24501';
         },
-        (fixture) => {
+        (fixture) =>
+        {
             fixture.containers.backend.Config.Env.push('UNDECLARED_AMBIENT=value');
             fixture.processIdentity.environment.UNDECLARED_AMBIENT = 'value';
         },
-        (fixture) => {
+        (fixture) =>
+        {
             fixture.containers.backend.HostConfig.PortBindings['8080/tcp'][0].HostIp = '0.0.0.0';
         },
-        (fixture) => {
+        (fixture) =>
+        {
             fixture.containers.backend.NetworkSettings.Ports['8080/tcp'][0].HostPort = '8080';
         },
-        (fixture) => {
+        (fixture) =>
+        {
             fixture.containers.postgres.NetworkSettings.Networks[networkName].Aliases = ['wrong-postgres'];
         },
-        (fixture) => {
+        (fixture) =>
+        {
             fixture.network.Labels['io.fsusblog.test.run-id'] = 'other-run';
         },
-        (fixture) => {
+        (fixture) =>
+        {
             fixture.network.Driver = 'host';
         },
-        (fixture) => {
+        (fixture) =>
+        {
             delete fixture.network.Containers[fixture.containers.redis.Id];
         },
-        (fixture) => { fixture.processIdentity.environment.FSUSBLOG_TEST_NAMESPACE = 'other-namespace'; },
-        (fixture) => { fixture.processIdentity.commandLine = ['/app/Other.Server']; },
-        (fixture) => { fixture.processIdentity.processGroupId = 2; },
-        (fixture) => { fixture.processIdentity.sessionId = 2; }
+        (fixture) =>
+        {
+            fixture.processIdentity.environment.FSUSBLOG_TEST_NAMESPACE = 'other-namespace';
+        },
+        (fixture) =>
+        {
+            fixture.processIdentity.commandLine = ['/app/Other.Server'];
+        },
+        (fixture) =>
+        {
+            fixture.processIdentity.processGroupId = 2;
+        },
+        (fixture) =>
+        {
+            fixture.processIdentity.sessionId = 2;
+        }
     ])
     {
         const fixture = createFixture(context);

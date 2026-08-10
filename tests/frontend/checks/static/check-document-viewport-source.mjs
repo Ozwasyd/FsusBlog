@@ -137,7 +137,7 @@ export function validateIndexHtml(html, label = 'src/frontend/index.html')
     return local;
 }
 
-export { assertUniqueCanonicalViewport, CANONICAL_VIEWPORT_CONTENT, CANONICAL_VIEWPORT_META }
+export { assertUniqueCanonicalViewport, CANONICAL_VIEWPORT_CONTENT, CANONICAL_VIEWPORT_META };
 
 function validateAppVue(source)
 {
@@ -214,104 +214,104 @@ function validateComposer(source)
 function runLiveCheck()
 {
 // --- 1. Source index.html is the sole authoring source ---
-const indexHtmlPath = 'src/frontend/index.html';
-const indexHtml = read(indexHtmlPath);
-for (const message of validateIndexHtml(indexHtml))
-{
-    fail(message);
-}
-
-// --- 2. SPA runtime must not redeclare or patch viewport ---
-const appVuePath = 'src/frontend/src/App.vue';
-const appVue = read(appVuePath);
-for (const message of validateAppVue(appVue))
-{
-    fail(message);
-}
-
-for (const scanRoot of SPA_RUNTIME_SCAN_ROOTS)
-{
-    for (const file of collectFiles(scanRoot))
+    const indexHtmlPath = 'src/frontend/index.html';
+    const indexHtml = read(indexHtmlPath);
+    for (const message of validateIndexHtml(indexHtml))
     {
-        const rel = relative(file);
-        if (rel === appVuePath)
+        fail(message);
+    }
+
+    // --- 2. SPA runtime must not redeclare or patch viewport ---
+    const appVuePath = 'src/frontend/src/App.vue';
+    const appVue = read(appVuePath);
+    for (const message of validateAppVue(appVue))
+    {
+        fail(message);
+    }
+
+    for (const scanRoot of SPA_RUNTIME_SCAN_ROOTS)
+    {
+        for (const file of collectFiles(scanRoot))
         {
-            continue;
-        }
-        const source = fs.readFileSync(file, 'utf8');
-        if (/name\s*=\s*["']viewport["']/iu.test(source) || /name\s*:\s*['"]viewport['"]/u.test(source))
-        {
-            fail(`${rel}: SPA runtime must not author name="viewport" (index.html is sole source)`);
-        }
-        if (
-            /meta\[name=['"]?viewport/u.test(source)
+            const rel = relative(file);
+            if (rel === appVuePath)
+            {
+                continue;
+            }
+            const source = fs.readFileSync(file, 'utf8');
+            if (/name\s*=\s*["']viewport["']/iu.test(source) || /name\s*:\s*['"]viewport['"]/u.test(source))
+            {
+                fail(`${rel}: SPA runtime must not author name="viewport" (index.html is sole source)`);
+            }
+            if (
+                /meta\[name=['"]?viewport/u.test(source)
             || /querySelector(?:All)?\([^)]*viewport/u.test(source)
-        )
-        {
-            fail(`${rel}: must not patch document viewport via DOM selectors`);
+            )
+            {
+                fail(`${rel}: must not patch document viewport via DOM selectors`);
+            }
         }
     }
-}
 
-// --- 3. Backend template locator: no minimal HTML fallback ---
-const locatorPath = 'src/backend/Infrastructure/PublicAot/PublicSpaTemplateLocator.cs';
-const locatorSource = read(locatorPath);
-for (const message of validateLocator(locatorSource))
-{
-    fail(message);
-}
-
-// --- 4. Public AOT composer must not inject a second viewport ---
-const composerPath = 'src/backend/Infrastructure/PublicAot/PublicAotDocumentComposer.cs';
-const composerSource = read(composerPath);
-for (const message of validateComposer(composerSource))
-{
-    fail(message);
-}
-
-// --- 5. Dist index (when present) must preserve the unique canonical meta ---
-const distIndexPath = 'src/frontend/dist/index.html';
-if (exists(distIndexPath))
-{
-    assertUniqueCanonicalViewport(distIndexPath, read(distIndexPath));
-}
-
-// --- 6. Docs ownership statement ---
-const ownershipDoc = 'docs/frontend/public-shell-ownership.md';
-if (exists(ownershipDoc))
-{
-    const docs = read(ownershipDoc);
-    if (!docs.includes('document viewport') && !docs.includes('document-level viewport') && !docs.includes('文档级 viewport'))
+    // --- 3. Backend template locator: no minimal HTML fallback ---
+    const locatorPath = 'src/backend/Infrastructure/PublicAot/PublicSpaTemplateLocator.cs';
+    const locatorSource = read(locatorPath);
+    for (const message of validateLocator(locatorSource))
     {
-        fail(`${ownershipDoc}: must state that FsusBlog owns document-level viewport only`);
+        fail(message);
     }
-    if (!docs.includes('viewport-fit=cover'))
-    {
-        fail(`${ownershipDoc}: must document the canonical viewport-fit=cover content`);
-    }
-    if (!docs.includes('FsusUI') || !(/safe-area|安全区/u.test(docs)))
-    {
-        fail(`${ownershipDoc}: must assign component safe-area geometry to FsusUI`);
-    }
-}
 
-// --- 7. In-process mutation proofs (no re-exec / recursion) ---
-let mutationProofs = 0;
-
-function assertMutationRejected(label, messages)
-{
-    if (!Array.isArray(messages) || messages.length === 0)
+    // --- 4. Public AOT composer must not inject a second viewport ---
+    const composerPath = 'src/backend/Infrastructure/PublicAot/PublicAotDocumentComposer.cs';
+    const composerSource = read(composerPath);
+    for (const message of validateComposer(composerSource))
     {
-        fail(`mutation ${label}: expected non-zero validation failures`);
-        return;
+        fail(message);
     }
-    mutationProofs += 1;
-}
 
-// Mutation: App.vue re-adds useHead viewport meta.
-assertMutationRejected(
-    'app-vue-useHead-viewport',
-    validateAppVue(
+    // --- 5. Dist index (when present) must preserve the unique canonical meta ---
+    const distIndexPath = 'src/frontend/dist/index.html';
+    if (exists(distIndexPath))
+    {
+        assertUniqueCanonicalViewport(distIndexPath, read(distIndexPath));
+    }
+
+    // --- 6. Docs ownership statement ---
+    const ownershipDoc = 'docs/frontend/public-shell-ownership.md';
+    if (exists(ownershipDoc))
+    {
+        const docs = read(ownershipDoc);
+        if (!docs.includes('document viewport') && !docs.includes('document-level viewport') && !docs.includes('文档级 viewport'))
+        {
+            fail(`${ownershipDoc}: must state that FsusBlog owns document-level viewport only`);
+        }
+        if (!docs.includes('viewport-fit=cover'))
+        {
+            fail(`${ownershipDoc}: must document the canonical viewport-fit=cover content`);
+        }
+        if (!docs.includes('FsusUI') || !(/safe-area|安全区/u.test(docs)))
+        {
+            fail(`${ownershipDoc}: must assign component safe-area geometry to FsusUI`);
+        }
+    }
+
+    // --- 7. In-process mutation proofs (no re-exec / recursion) ---
+    let mutationProofs = 0;
+
+    function assertMutationRejected(label, messages)
+    {
+        if (!Array.isArray(messages) || messages.length === 0)
+        {
+            fail(`mutation ${label}: expected non-zero validation failures`);
+            return;
+        }
+        mutationProofs += 1;
+    }
+
+    // Mutation: App.vue re-adds useHead viewport meta.
+    assertMutationRejected(
+        'app-vue-useHead-viewport',
+        validateAppVue(
         appVue.includes('meta:')
             ? appVue.replace(
                 /meta:\s*isPublicShellRouteName\(route\.name\)[\s\S]*?:\s*\[\{ name: 'description'[\s\S]*?\]/,
@@ -321,46 +321,46 @@ assertMutationRejected(
   ]`
             )
             : `${appVue}\nuseHead({ meta: [{ name: 'viewport', content: 'width=device-width, initial-scale=1.0' }] })\n`
-    )
-);
-
-// Mutation: backend reintroduces minimal HTML fallback with viewport.
-assertMutationRejected(
-    'backend-minimal-fallback',
-    validateLocator(
-        `${locatorSource}\nprivate const string ${['Minimal', 'Index', 'Template'].join('')} = "<meta name=\\"viewport\\" content=\\"width=device-width, initial-scale=1.0\\" />";\n`
-    )
-);
-
-// Mutation: final HTML gains a second viewport meta in source index.
-assertMutationRejected(
-    'duplicate-viewport-meta',
-    validateIndexHtml(
-        indexHtml.replace(
-            CANONICAL_VIEWPORT_META,
-            `${CANONICAL_VIEWPORT_META}\n    ${CANONICAL_VIEWPORT_META}`
         )
-    )
-);
+    );
 
-if (mutationProofs < 3)
-{
-    fail(`expected 3 mutation proofs, got ${mutationProofs}`);
-}
+    // Mutation: backend reintroduces minimal HTML fallback with viewport.
+    assertMutationRejected(
+        'backend-minimal-fallback',
+        validateLocator(
+            `${locatorSource}\nprivate const string ${['Minimal', 'Index', 'Template'].join('')} = "<meta name=\\"viewport\\" content=\\"width=device-width, initial-scale=1.0\\" />";\n`
+        )
+    );
 
-// --- Report ---
-if (failures.length > 0)
-{
-    for (const message of failures)
+    // Mutation: final HTML gains a second viewport meta in source index.
+    assertMutationRejected(
+        'duplicate-viewport-meta',
+        validateIndexHtml(
+            indexHtml.replace(
+                CANONICAL_VIEWPORT_META,
+                `${CANONICAL_VIEWPORT_META}\n    ${CANONICAL_VIEWPORT_META}`
+            )
+        )
+    );
+
+    if (mutationProofs < 3)
     {
-        console.error(`[check-document-viewport-source] ${message}`);
+        fail(`expected 3 mutation proofs, got ${mutationProofs}`);
     }
-    process.exit(1);
-}
 
-console.log(
-    `[check-document-viewport-source] ok source=1 dist=${exists(distIndexPath) ? 'checked' : 'absent'} mutations=${mutationProofs}`
-);
+    // --- Report ---
+    if (failures.length > 0)
+    {
+        for (const message of failures)
+        {
+            console.error(`[check-document-viewport-source] ${message}`);
+        }
+        process.exit(1);
+    }
+
+    console.log(
+        `[check-document-viewport-source] ok source=1 dist=${exists(distIndexPath) ? 'checked' : 'absent'} mutations=${mutationProofs}`
+    );
 }
 
 const isDirectRun = process.argv[1]

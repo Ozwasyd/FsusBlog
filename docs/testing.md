@@ -4,11 +4,11 @@
 
 `config/testing/runtime-state-domain-catalog.json` is the sole runtime-state access authority. Domains must come from `config/testing/runtime-state-domain-registry.json`; executable runtime steps declare reads, writes, deletes, invalidations, creates, resets, predecessors, postconditions, and machine-verifiable source/test evidence. Coordination-only steps use `stateAccess: none`. The catalog is exact in both directions against `runtimeSteps()` and its validator runs as matrix governance; neither scheduler, lane scripts, nor documentation may keep a second conflict table. Runtime bundle producers write source/run-bound reset receipts after observing their real postconditions, and every `resetBefore`/`resetAfter` consumer verifies the receipt identity plus observation digests before proceeding.
 
-FsusBlog 采用机器可读测试 DAG。`tests/matrix.yml` 是唯一测试拓扑源，`tools/run-test-matrix.mjs` 负责 `preflight` / `validate` / `list` / `plan` / `run` / `ci-plan` / `docs` / `evidence-plan`，`tools/test.sh` 是唯一公开 shell 入口并代理到 runner。lane 脚本只能执行一个已由 matrix 声明的叶节点；共享 shell 文件是 source-only 能力库，不得包含 tier 分派、依赖关系或另一个命令清单。后端 profile、mutation、security static/runtime 和 cross-stack static/runtime 都由 matrix 或 production bundle 投影到同一组叶节点，不能通过兼容 alias 再建一套拓扑。
+FsusBlog 采用机器可读测试 DAG。`tests/matrix.yml` 是唯一测试拓扑源，`tools/run-test-matrix.mjs` 负责 `preflight` / `validate` / `list` / `plan` / `run` / `ci-plan` / `evidence-plan`，`tools/docs/generate-testing-docs.mjs` 是唯一测试文档 producer，`tools/test.sh` 是唯一公开 shell 入口并代理到 runner。lane 脚本只能执行一个已由 matrix 声明的叶节点；共享 shell 文件是 source-only 能力库，不得包含 tier 分派、依赖关系或另一个命令清单。后端 profile、mutation、security static/runtime 和 cross-stack static/runtime 都由 matrix 或 production bundle 投影到同一组叶节点，不能通过兼容 alias 再建一套拓扑。
 
 `behavior-doc-static-admission` 是所有候选测试、构建、服务、容器和浏览器之前唯一且无条件的 BehaviorDoc 静态准入节点。它使用 `executionClass: static-governance`、`fixtureProfile: none`，不启动数据库、runtime、Vitest 或 Playwright；节点依次复用 BehaviorCatalog、DocClaim schema/parser、ImplementationOwner、当前 extractor registry、generated section checker、prose verifier 和 staleness mutation fixtures 的既有 authority。四个 compiled-assembly extractor 只消费本轮 content-addressed minimal contract build 的精确 receipt，禁止读取 ambient `bin/obj`。同一 source/worktree/toolchain 的并发准入通过原子 owner lock 选出唯一 publisher，在 per-run staging 完整构建后原子发布；后继 run 只有在 receipt、source closure、project 和 observation digest 全部重验通过后才可复用，损坏或遗留 cache 必须重建。任一 missing、duplicate、stale、warning、partial 或 source/build identity 漂移都直接失败。
 
-准入 receipt 绑定 run、commit、FactObservation worktree fingerprint、toolchain、catalog/claim/extractor/renderer digest、owner 结果、全部 fact observation、minimal build、generated/prose/mutation 结果和 `candidateSpawnCountBeforeReceipt: 0`，并以 `contentDigest` 封存。本地 Production Fresh runner 先取得同一 candidate/run 的 repository lease 和 capacity reservation，再在 reservation live guard 内生成并校验该 receipt；BehaviorDoc cache 命中与未命中都按 catalog 中的 worst-case build/staging/retention demand 预留，不得消耗 safety headroom，host temp demand 同时覆盖 process-unique DocClaim staleness mutation fixture repositories。admission 完成后必须用 lease 的同一 `snapshotSourceState` authority 重取 commit/worktree fingerprint 并精确匹配，不能直接比较 BehaviorDoc extractor 的另一套 fingerprint；漂移在 cleanup 和 producer 前 fail closed。receipt 仍先于 cleanup、candidate output root 和 scheduler child spawn，随后在每个 physical bundle admission 前重验 source/worktree/digest。非 Fresh 本地 profile 保持无 capacity authority 的静态准入顺序。GitHub Actions 通过独立 prerequisite job 生成同一 artifact；每个候选 job 必须使用 `.github/actions/consume-behavior-doc-admission` 下载并验证 producer 输出后才可调用 `tools/test.sh`。docs-only、source-only 和其他 smart-gate 计划都不能省略该节点，package script 也不得直接暴露其内部 authority 形成旁路。
+准入 receipt 绑定 run、commit、FactObservation worktree fingerprint、toolchain、catalog/claim/extractor/renderer digest、owner 结果、全部 fact observation、minimal build、generated/prose/mutation 结果和 `candidateSpawnCountBeforeReceipt: 0`，并以 `contentDigest` 封存；同一 admission artifact 同时发布被主 receipt 逐项 digest 绑定的 implementation-owner、DocClaim parse/verification、generated-section 和 fact-observation companion receipts，后继 authority 不得从不存在的平行 `.tmp` producer 目录猜测这些输入。本地 Production Fresh runner 先取得同一 candidate/run 的 repository lease 和 capacity reservation，再在 reservation live guard 内生成并校验该 receipt；BehaviorDoc cache 命中与未命中都按 catalog 中的 worst-case build/staging/retention demand 预留，不得消耗 safety headroom，host temp demand 同时覆盖 process-unique DocClaim staleness mutation fixture repositories。admission 完成后必须用 lease 的同一 `snapshotSourceState` authority 重取 commit/worktree fingerprint 并精确匹配，不能直接比较 BehaviorDoc extractor 的另一套 fingerprint；漂移在 cleanup 和 producer 前 fail closed。receipt 仍先于 cleanup、candidate output root 和 scheduler child spawn，随后在每个 physical bundle admission 前重验 source/worktree/digest。非 Fresh 本地 profile 保持无 capacity authority 的静态准入顺序。GitHub Actions 通过独立 prerequisite job 生成同一 artifact；每个候选 job 必须使用 `.github/actions/consume-behavior-doc-admission` 下载并验证 producer 输出后才可调用 `tools/test.sh`。docs-only、source-only 和其他 smart-gate 计划都不能省略该节点，package script 也不得直接暴露其内部 authority 形成旁路。
 
 `production-correctness` 与 `production` 在 scheduler、runtime cleanup、cache/.tmp 清理、磁盘 reservation、namespace 准备或 producer spawn 前，必须取得以 canonical repository root 和 `production-fresh` 为键的仓库级独占 lease。candidate identity 绑定本轮真实 commit、worktree fingerprint、profile target tier 与固定 `production-fresh` namespace；owner process/start/executable/command 与 Unix process group 或 Windows Job Object authority 复用 scheduler verifier。Windows 必须在 acquisition 前证明 named Job member query 可用，release 时对稳定双快照中的每个成员收集完整 process identity，除 owner 外仍有成员或 query 不可验证都不得释放。第二个 Fresh 对可验证 owner fail-fast 且文件、进程、container、port 与 spawn 均零变化；owner 损坏或无法验证时 fail closed。stale reclaim 与 heartbeat/finalize 使用 owner token、content digest CAS；lease 只在 producer descendants、postflight、证据封存和 cache 恢复结束，写入 terminal receipt 后释放。
 
@@ -1169,6 +1169,18 @@ omitted/duplicate、skipped/blocked/diagnostic/retry、source/binding
 drift、docs-only closure、adapter mismatch、missing evidence zero
 auto-rerun、second producer 与 receipt/raw refs/plan tamper。
 
+`quality-gate.yml` 与本地 Production 只消费上述 matrix authority：PR risk
+计划统一由 `pr-smart-gate-plan` 的 `tools/test/lanes/plan-pr-risk.sh`
+生成 changed-files、plan 与 summary；`behavior-test-evidence` 运行并适配
+唯一的 Node TAP / xUnit observation closure；随后
+`backend-mutation-changed-critical` 和 `behavior-evidence-pre-runtime`
+按同一 source/run identity 串联。Actions 使用对应 `ciJob`，本地
+`build-static` / `backend-tests` physical bundle 执行同一 lane 命令并发布
+run-bound marker；`runtime-browser` 的 `bootstrap` 必须在密封
+pre-runtime receipt 校验成功后才可启动。Production profile 的五分钟预算
+是 observe-only 优化目标，不得覆盖 matrix tier 的 fault ceiling 变成短超时
+kill switch。
+
 
 ## 测试洁净性约定
 
@@ -1177,7 +1189,7 @@ auto-rerun、second producer 与 receipt/raw refs/plan tamper。
 核心约定：
 
 1. **无状态污染**：每个集成测试用例使用独立的数据库事务，测试后回滚
-2. **默认固定本地端口**：当前本地 acceptance/bootstrap 默认使用 3000/7568/8080/5432/6379 与固定容器名前缀，可通过环境变量覆盖；在 #51 的动态端口与 namespace 完全落地前，不保证同机多套 acceptance 并行
+2. **密封动态端口**：acceptance/bootstrap 只消费 `production-fresh-port-lease.mjs` 按角色分配的 loopback port lease；PostgreSQL、Redis、debug backend、debug frontend 与 release preview 各自使用低于 kernel ephemeral range 的独立区间，并在 listener bind 前后执行带 token 的 handoff。不得恢复固定端口或 `FindFreePort` 的检查后使用竞态。
 3. **无真实 IO 在单元测试中**：数据库、Redis、文件系统访问全部通过接口 Mock
 4. **测试隔离**：`fast` 层测试不依赖任何运行中的服务
 5. **失败即停**：CI 中任一层失败会阻断下游层；下游 skipped 会由 `production-summary` 归类为 downstream fan-out，不视为成功

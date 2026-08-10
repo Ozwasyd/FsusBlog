@@ -3801,14 +3801,14 @@ test('CI matrix exposes live machine resource resolution and derived shard concu
     assert.ok(resolution.totalMemoryGiB >= resolution.availableMemoryGiB);
     assert.ok(Number.isInteger(resolution.defaultShards) && resolution.defaultShards >= 1);
     const entries = payload.matrix.include;
-    assert.equal(entries.length, 1);
-    assert.equal(entries[0].tier, 'browser-contract');
-    assert.equal(entries[0].shard, '');
-    assert.equal(entries[0].max_parallel, 1);
-    assert.equal(entries[0].playwright_workers, 1);
-    assert.equal(entries[0].timeout_minutes, 10);
-    assert.ok(entries[0].cpu_units <= resolution.availableCpuUnits);
-    assert.ok(entries[0].memory_gib <= resolution.availableMemoryGiB);
+    const browserContract = entries.find((entry) => entry.tier === 'browser-contract');
+    assert.ok(browserContract, 'browser-contract tier must remain in the shared CI job matrix');
+    assert.equal(browserContract.shard, '');
+    assert.equal(browserContract.max_parallel, 1);
+    assert.equal(browserContract.playwright_workers, 1);
+    assert.equal(browserContract.timeout_minutes, 10);
+    assert.ok(browserContract.cpu_units <= resolution.availableCpuUnits);
+    assert.ok(browserContract.memory_gib <= resolution.availableMemoryGiB);
 });
 
 test('effective cache inputs include shared lane, Vitest, and setup consumers', async () =>

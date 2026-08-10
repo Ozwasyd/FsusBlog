@@ -7,8 +7,19 @@ import { canonicalize, sha256, sha256File } from './source-identity.mjs';
 
 function git(args, cwd)
 {
-    const result = spawnSync('git', args, { cwd, encoding: 'utf8' });
-    if (result.status !== 0) throw new Error(result.stderr.trim() || `git ${args.join(' ')} failed`);
+    const result = spawnSync('git', args, {
+        cwd,
+        encoding: 'utf8',
+        maxBuffer: 64 * 1024 * 1024
+    });
+    if (result.status !== 0)
+    {
+        throw new Error(
+            result.stderr.trim()
+            || result.error?.message
+            || `git ${args.join(' ')} failed`
+        );
+    }
     return result.stdout;
 }
 

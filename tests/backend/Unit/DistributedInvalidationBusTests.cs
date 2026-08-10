@@ -8,6 +8,7 @@ using FsusBlog.Server.Infrastructure.Distributed;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Storage;
+using FsusBlog.Server.Tests.Fixtures;
 
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Caching.Memory;
@@ -21,6 +22,7 @@ using StackExchange.Redis;
 
 namespace FsusBlog.Server.Tests.Unit;
 
+[Collection(nameof(EnvironmentVariableCollection))]
 public sealed class DistributedInvalidationBusTests
 {
     private static readonly JsonSerializerOptions s_json = new(JsonSerializerDefaults.Web);
@@ -300,12 +302,15 @@ public sealed class DistributedInvalidationBusTests
     {
         // Formal lanes set FSUSBLOG_TEST_RUNTIME_MODE=single; clear overrides so this
         // config path exercises distributed topology validation rather than env mode.
-        string? previousRuntimeMode = Environment.GetEnvironmentVariable("FSUSBLOG_RUNTIME_MODE");
-        string? previousTestRuntimeMode = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_RUNTIME_MODE");
-        try
+        string[] names =
         {
-            Environment.SetEnvironmentVariable("FSUSBLOG_RUNTIME_MODE", null);
-            Environment.SetEnvironmentVariable("FSUSBLOG_TEST_RUNTIME_MODE", null);
+            "FSUSBLOG_RUNTIME_MODE",
+            "FSUSBLOG_TEST_RUNTIME_MODE"
+        };
+        ScopedEnvironmentVariables.Run(names, environment =>
+        {
+            environment.Set("FSUSBLOG_RUNTIME_MODE", null);
+            environment.Set("FSUSBLOG_TEST_RUNTIME_MODE", null);
 
             var configuration = new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string?>
@@ -319,12 +324,7 @@ public sealed class DistributedInvalidationBusTests
                 () => DistributedInvalidationOptions.FromConfiguration(configuration));
 
             Assert.Equal("distributed_invalidation_topology_manifest_required", exception.Message);
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable("FSUSBLOG_RUNTIME_MODE", previousRuntimeMode);
-            Environment.SetEnvironmentVariable("FSUSBLOG_TEST_RUNTIME_MODE", previousTestRuntimeMode);
-        }
+        });
     }
 
     [Theory]

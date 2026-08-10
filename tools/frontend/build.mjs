@@ -12,16 +12,16 @@ import {
     resolveLocalFsusUiRepositoryRoot
 // eslint-disable-next-line import-x/no-relative-parent-imports -- The build consumes the frontend-owned local FsusUI repository resolver.
 } from '../../src/frontend/scripts/fsusui-root.mjs';
-
-import {
-    runFrontendBuildStageDag
-} from './build-stage-dag.mjs';
 import {
     resolveMachineExecutionTimeoutMs
 } from '../test/bundles/bundle-steps.mjs';
 import {
     resolveManifestLiveCapacity
 } from '../test/run-command-manifest.mjs';
+
+import {
+    runFrontendBuildStageDag
+} from './build-stage-dag.mjs';
 
 const [{ createReleaseIdentitySnapshot }, { parseMatrix }] = await Promise.all([
     import(new URL('../release/release-id.mjs', import.meta.url)),

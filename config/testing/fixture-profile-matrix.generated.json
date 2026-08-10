@@ -291,6 +291,14 @@
             "fixtureMutatorAllowed": false
         },
         {
+            "tierId": "behavior-test-evidence",
+            "executionClass": "runtime",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-runtime",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
             "tierId": "bootstrap",
             "executionClass": "runtime",
             "fixtureProfile": "acceptance-representative",
@@ -1020,9 +1028,9 @@
         },
         {
             "tierId": "test-inventory",
-            "executionClass": "coordination",
+            "executionClass": "build",
             "fixtureProfile": "none",
-            "fixtureProfileReason": "none-coordination",
+            "fixtureProfileReason": "none-build",
             "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
             "fixtureMutatorAllowed": false
         },
@@ -1115,5 +1123,5 @@
             "fixtureMutatorAllowed": false
         }
     ],
-    "digest": "sha256:01ac129ccdc5ffb5b1519b56d51897eaa1cb4b3cc54af6e7de77b4032583a6e7"
+    "digest": "sha256:83abd528a949931c58edc91a8827405985e9d6da435761c2fd40247ad23266d5"
 }

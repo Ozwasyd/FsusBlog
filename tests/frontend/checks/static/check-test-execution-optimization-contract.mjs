@@ -173,7 +173,8 @@ for (const relativePath of [
     }
 }
 requireIncludes('tests/frontend/support/playwright/routeAuditFixtures.ts', [
-    'resolvePublicFixtureFile'
+    'readPublicFixtures',
+    'requireCurrent: true'
 ]);
 requireIncludes('tests/frontend/support/playwright/testSession.ts', [
     'resolveSessionFixtureFile',

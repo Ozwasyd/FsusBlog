@@ -1,10 +1,9 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { readFixtureCatalogs } from '../../tools/testing/fixture-catalog.mjs';
 import {
     canonicalMutationEnvelopeCatalogPath,
     mutationEnvelopeCatalogSchema,
@@ -20,6 +19,7 @@ import {
     validateMutationEnvelopeCatalogSchema,
     checkMutationEnvelopeCatalog
 } from '../../tools/test-fixtures/mutation-envelope-catalog.mjs';
+import { readFixtureCatalogs } from '../../tools/testing/fixture-catalog.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 

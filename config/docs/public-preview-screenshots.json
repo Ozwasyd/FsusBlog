@@ -126,7 +126,8 @@
         "fixtures": [
             "src/frontend/public/fixtures",
             "tests/frontend/fixtures",
-            "tests/frontend/support/playwright/routeAuditFixtures.ts"
+            "tests/frontend/support/playwright/routeAuditFixtures.ts",
+            "tools/test-fixtures/producers/public-content-producer.mjs"
         ],
         "localization": [
             "src/frontend/src/locales"

@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
 import type { Browser, Page, StorageState } from '@playwright/test'
 import type { RouteRecordRaw } from 'vue-router'
@@ -111,9 +112,13 @@ const selectedRouteSets = filterManualScreenshotItems(
   parseManualScreenshotFilter('FSUSBLOG_MANUAL_SCREENSHOT_SCOPES', routeSets.map((routeSet) => routeSet.scope))
 )
 
+const repositoryRoot = path.resolve(
+  process.env.FSUSBLOG_REPOSITORY_ROOT
+    ?? fileURLToPath(new URL('../../../..', import.meta.url))
+)
 const baseScreenshotRoot = path.resolve(
   process.env.FSUSBLOG_MANUAL_SCREENSHOT_DIR
-    ?? path.resolve(process.cwd(), '../../.tmp/manual-layout-screenshots/current')
+    ?? path.join(repositoryRoot, '.tmp/manual-layout-screenshots/current')
 )
 const screenshotRoot = manualScreenshotShardName && !process.env.FSUSBLOG_MANUAL_SCREENSHOT_DIR
   ? path.join(baseScreenshotRoot, manualScreenshotShardName)
@@ -121,7 +126,7 @@ const screenshotRoot = manualScreenshotShardName && !process.env.FSUSBLOG_MANUAL
 
 const docsScreenshotRoot = resolveDocsScreenshotRoot({ publicPreviewDocsCapture })
 const docsScreenshotRegistry = JSON.parse(readFileSync(
-  path.resolve(process.cwd(), '../../config/docs/public-preview-screenshots.json'),
+  path.join(repositoryRoot, 'config/docs/public-preview-screenshots.json'),
   'utf8'
 )) as {
   screenshots: Array<{
@@ -700,10 +705,19 @@ test.describe('manual layout screenshot capture', () => {
     test.setTimeout(1_800_000)
 
     // The docs capture starts from a clean Vite transform cache. Warm the
-    // public bootstrap graph before the audited capture context so a valid
-    // first route is not mistaken for a hydration hang while Vite compiles
-    // the public renderer and its FsusUI dependencies.
-    await prewarmDevRuntime(browser)
+    // registered anonymous public routes before the audited capture context so
+    // a valid first route is not mistaken for a hydration hang while Vite and
+    // the backend snapshot cache compile route-specific dependencies.
+    const warmupPaths = publicPreviewDocsCapture
+      ? [...new Set(selectedRouteSets
+          .filter((routeSet) => routeSet.storage === 'anonymous')
+          .flatMap((routeSet) => routeSet.routes)
+          .filter((route) => selectedViewports.some((viewport) =>
+            selectedThemes.some((theme) =>
+              docsScreenshotAliases.has(docsScreenshotAliasKey(route.name, viewport.name, theme)))))
+          .map((route) => route.path))]
+      : ['/']
+    await prewarmDevRuntime(browser, warmupPaths)
 
     for (const viewport of selectedViewports) {
       for (const theme of selectedThemes) {
@@ -750,19 +764,45 @@ async function captureRouteSet(
   viewport: ManualViewport,
   theme: ThemeMode
 ): Promise<void> {
-  const session = await openThemedAuditedPage(browser, theme, storageState)
-
-  try {
-    for (const route of routes) {
-      const start = session.audit.checkpoint()
+  // Match the quality writer's scenario isolation: a permanent screenshot
+  // never inherits service-worker, locale, cache, or navigation state from
+  // another route.
+  for (const route of routes) {
+    const session = await openThemedAuditedPage(browser, theme, storageState)
+    const start = session.audit.checkpoint()
+    try {
       await captureRouteScreenshot(session.page, route, viewport, theme)
       // Manual boundary captures may intentionally render a missing-data state.
       // Keep the exception local so normal route screenshots still fail on runtime noise.
       if (strictRuntimeAudit && !route.allowExpectedRuntimeNoise) {
         session.audit.assertCleanSince(start, `${route.name} ${viewport.name} ${theme}`)
       }
+    } catch (error) {
+      const readiness = await session.page.evaluate(() => {
+        const app = document.querySelector<HTMLElement>('#app')
+        const loader = document.getElementById('global-loader')
+        const diagnosticWindow = window as typeof window & {
+          __FSUSBLOG_TEST_CONSOLE_ERRORS__?: readonly unknown[]
+          __FSUSBLOG_PUBLIC_ROUTE_DIAGNOSTICS__?: readonly unknown[]
+        }
+        return {
+          appChildCount: app?.childElementCount ?? null,
+          appHeight: app?.getBoundingClientRect().height ?? null,
+          documentReadyState: document.readyState,
+          loaderHidden: loader?.hidden ?? null,
+          pathname: window.location.pathname,
+          consoleErrors: diagnosticWindow.__FSUSBLOG_TEST_CONSOLE_ERRORS__ ?? [],
+          publicRouteDiagnostics: diagnosticWindow.__FSUSBLOG_PUBLIC_ROUTE_DIAGNOSTICS__ ?? []
+        }
+      }).catch(() => null)
+      throw new Error(
+        `manual route ${route.name} ${viewport.name} ${theme} failed at ${session.page.url()}; `
+          + `readiness=${JSON.stringify(readiness)}; `
+          + `runtimeEvents=${JSON.stringify(session.audit.eventsSince(start))}`,
+        { cause: error }
+      )
+    } finally {
+      await session.close()
     }
-  } finally {
-    await session.close()
   }
 }

@@ -5,7 +5,10 @@ export const supportedFrameworks = new Set(['xunit-trx', 'vitest', 'node-tap', '
 function requiredText(value, label)
 {
     const result = String(value ?? '').trim();
-    if (!result) throw new Error(`${label} is required`);
+    if (!result)
+    {
+        throw new Error(`${label} is required`);
+    }
     return result;
 }
 
@@ -29,11 +32,17 @@ function durationMilliseconds(value, label)
 {
     if (typeof value === 'number')
     {
-        if (!Number.isFinite(value) || value < 0) throw new Error(`${label} duration must be a finite non-negative number`);
+        if (!Number.isFinite(value) || value < 0)
+        {
+            throw new Error(`${label} duration must be a finite non-negative number`);
+        }
         return value;
     }
     const text = String(value ?? '').trim();
-    if (!text) return 0;
+    if (!text)
+    {
+        return 0;
+    }
     const clock = /^(?:(\d+)\.)?(\d{2}):(\d{2}):(\d{2}(?:\.\d+)?)$/u.exec(text);
     if (clock)
     {
@@ -41,7 +50,10 @@ function durationMilliseconds(value, label)
             + Number(clock[3])) * 60 + Number(clock[4])) * 1000;
     }
     const parsed = Number(text);
-    if (!Number.isFinite(parsed) || parsed < 0) throw new Error(`${label} duration is invalid`);
+    if (!Number.isFinite(parsed) || parsed < 0)
+    {
+        throw new Error(`${label} duration is invalid`);
+    }
     return parsed;
 }
 
@@ -66,7 +78,10 @@ function normalizedOutcome(value, framework)
         }
     };
     const result = maps[framework]?.[key];
-    if (!result) throw new Error(`${framework} outcome is unknown: ${value ?? 'missing'}`);
+    if (!result)
+    {
+        throw new Error(`${framework} outcome is unknown: ${value ?? 'missing'}`);
+    }
     return result;
 }
 
@@ -107,6 +122,11 @@ function canonicalId(framework, parts)
     return `${framework}:${normalized.join('#')}`;
 }
 
+function canonicalXunitClassName(value)
+{
+    return requiredText(value, 'xunit-trx class name').split(/[.+]/u).at(-1);
+}
+
 export function adaptTrx(reportText)
 {
     const definitions = new Map();
@@ -115,8 +135,10 @@ export function adaptTrx(reportText)
         const attributes = xmlAttributes(match[1]);
         const method = /<TestMethod\b([^>]*)\/?>/u.exec(match[2]);
         const methodAttributes = method ? xmlAttributes(method[1]) : {};
+        const declaredClassName = methodAttributes.className || 'unknown-class';
         definitions.set(attributes.id, {
-            className: methodAttributes.className || 'unknown-class',
+            className: canonicalXunitClassName(declaredClassName),
+            declaredClassName,
             methodName: methodAttributes.name || attributes.name || attributes.id
         });
     }
@@ -125,8 +147,17 @@ export function adaptTrx(reportText)
     {
         const attributes = xmlAttributes(match[1]);
         const definition = definitions.get(attributes.testId) ?? {};
-        const name = attributes.testName || definition.methodName;
-        if (!attributes.testId || !name) throw new Error('TRX result is missing testId or testName');
+        const reportedName = attributes.testName || definition.methodName;
+        const classPrefix = definition.declaredClassName
+            ? `${definition.declaredClassName}.`
+            : '';
+        const name = classPrefix && reportedName.startsWith(classPrefix)
+            ? reportedName.slice(classPrefix.length)
+            : reportedName;
+        if (!attributes.testId || !name)
+        {
+            throw new Error('TRX result is missing testId or testName');
+        }
         const body = match[2] ?? '';
         const message = /<Message>([\s\S]*?)<\/Message>/u.exec(body)?.[1] ?? '';
         const stack = /<StackTrace>([\s\S]*?)<\/StackTrace>/u.exec(body)?.[1] ?? '';
@@ -138,25 +169,37 @@ export function adaptTrx(reportText)
             failure: xmlDecode(`${message}\n${stack}`).trim()
         });
     }
-    if (observations.length === 0) throw new Error('TRX report contains no UnitTestResult records');
+    if (observations.length === 0)
+    {
+        throw new Error('TRX report contains no UnitTestResult records');
+    }
     return observations;
 }
 
 export function adaptVitest(report)
 {
     const files = report.testResults ?? report.files;
-    if (!Array.isArray(files)) throw new Error('Vitest report must contain testResults or files');
+    if (!Array.isArray(files))
+    {
+        throw new Error('Vitest report must contain testResults or files');
+    }
     const observations = [];
     for (const file of files)
     {
         const fileName = file.name ?? file.filepath ?? file.file ?? file.testModule?.moduleId;
         const assertions = file.assertionResults ?? file.tasks ?? file.tests;
-        if (!fileName || !Array.isArray(assertions)) throw new Error('Vitest file is missing name or assertions');
+        if (!fileName || !Array.isArray(assertions))
+        {
+            throw new Error('Vitest file is missing name or assertions');
+        }
         for (const assertion of assertions)
         {
             const title = assertion.title ?? assertion.name;
             const ancestors = assertion.ancestorTitles ?? assertion.suite ?? [];
-            if (!title) throw new Error(`Vitest assertion in ${fileName} is missing a title`);
+            if (!title)
+            {
+                throw new Error(`Vitest assertion in ${fileName} is missing a title`);
+            }
             const pathParts = [...(Array.isArray(ancestors) ? ancestors : [ancestors]), title];
             observations.push({
                 testId: canonicalId('vitest', [fileName, pathParts.join(' > ')]),
@@ -169,7 +212,10 @@ export function adaptVitest(report)
             });
         }
     }
-    if (observations.length === 0) throw new Error('Vitest report contains no assertions');
+    if (observations.length === 0)
+    {
+        throw new Error('Vitest report contains no assertions');
+    }
     return observations;
 }
 
@@ -183,7 +229,10 @@ export function adaptNodeTap(reportText, { suite = 'node-tap' } = {})
         {
             const directive = /#\s*(skip|todo)\b(?:\s*-\s*)?(.*)$/iu.exec(result[2]);
             const name = result[2].replace(/\s+#\s*(?:skip|todo)\b.*$/iu, '').trim();
-            if (!name) throw new Error('TAP assertion is missing a test name');
+            if (!name)
+            {
+                throw new Error('TAP assertion is missing a test name');
+            }
             observations.push({
                 testId: canonicalId('node-tap', [suite, name]),
                 suite,
@@ -207,13 +256,19 @@ export function adaptNodeTap(reportText, { suite = 'node-tap' } = {})
             observations.at(-1).failure += `\n${diagnostic[1]}`;
         }
     }
-    if (observations.length === 0) throw new Error('TAP report contains no assertions');
+    if (observations.length === 0)
+    {
+        throw new Error('TAP report contains no assertions');
+    }
     return observations;
 }
 
 export function adaptPlaywright(report)
 {
-    if (!Array.isArray(report.suites)) throw new Error('Playwright report must contain suites');
+    if (!Array.isArray(report.suites))
+    {
+        throw new Error('Playwright report must contain suites');
+    }
     const observations = [];
     const visit = (suite, parents = []) =>
     {
@@ -228,7 +283,10 @@ export function adaptPlaywright(report)
             for (const test of spec.tests ?? [])
             {
                 const results = test.results ?? [];
-                if (results.length === 0) throw new Error(`Playwright test ${spec.title} has no results`);
+                if (results.length === 0)
+                {
+                    throw new Error(`Playwright test ${spec.title} has no results`);
+                }
                 for (const [attempt, result] of results.entries())
                 {
                     const error = result.error ?? result.errors?.[0] ?? {};
@@ -244,18 +302,36 @@ export function adaptPlaywright(report)
                 }
             }
         }
-        for (const child of suite.suites ?? []) visit(child, titles);
+        for (const child of suite.suites ?? [])
+        {
+            visit(child, titles);
+        }
     };
-    for (const suite of report.suites) visit(suite);
-    if (observations.length === 0) throw new Error('Playwright report contains no test results');
+    for (const suite of report.suites)
+    {
+        visit(suite);
+    }
+    if (observations.length === 0)
+    {
+        throw new Error('Playwright report contains no test results');
+    }
     return observations;
 }
 
 export function adaptReport({ framework, reportText, suite, report })
 {
-    if (!supportedFrameworks.has(framework)) throw new Error(`unsupported test observation framework: ${framework}`);
-    if (framework === 'xunit-trx') return adaptTrx(reportText);
-    if (framework === 'node-tap') return adaptNodeTap(reportText, { suite });
+    if (!supportedFrameworks.has(framework))
+    {
+        throw new Error(`unsupported test observation framework: ${framework}`);
+    }
+    if (framework === 'xunit-trx')
+    {
+        return adaptTrx(reportText);
+    }
+    if (framework === 'node-tap')
+    {
+        return adaptNodeTap(reportText, { suite });
+    }
     const parsed = report ?? JSON.parse(reportText);
     return framework === 'vitest' ? adaptVitest(parsed) : adaptPlaywright(parsed);
 }

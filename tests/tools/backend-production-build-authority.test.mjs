@@ -36,8 +36,8 @@ test('validator rejects a Debug compatibility build in the Production backend bu
 {
     const fixture = inputs();
     fixture.bundleSource = fixture.bundleSource.replace(
-        'async function runBackendTests() {',
-        'async function runBackendTests() {\nFSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug EnsureBackendFilteredBuild'
+        'async function runBackendTests()\n{',
+        'async function runBackendTests()\n{\nFSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug EnsureBackendFilteredBuild'
     );
     assert.throws(
         () => validateBackendProductionBuildAuthority(fixture),

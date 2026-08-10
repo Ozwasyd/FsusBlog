@@ -20,15 +20,14 @@ env:
     DOTNET_NOLOGO: "true"
     DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
     FSUSBLOG_REPO_ROOT: ${{ github.workspace }}
+    FSUSBLOG_TEST_RUN_ID: quality-gate-${{ github.run_id }}-${{ github.run_attempt }}
     GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_PACKAGES_TOKEN || github.token }}
 
 jobs:
     validate-matrix:
         name: Validate Test Matrix
         runs-on: ubuntu-latest
-        timeout-minutes: 5
-        env:
-            FSUSBLOG_TEST_RUN_ID: quality-gate-validate-${{ github.run_id }}-${{ github.run_attempt }}
+        timeout-minutes: 20
         outputs:
             backend_qps_collectors_matrix: ${{ steps.backend_qps_collectors_matrix.outputs.matrix }}
             backend_qps_collectors_max_parallel: ${{ steps.backend_qps_collectors_matrix.outputs.max_parallel }}
@@ -39,6 +38,13 @@ jobs:
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
+            - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+              with:
+                  dotnet-version: 10.0.x
+            - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+              with:
+                  path: ~/.nuget/packages
+                  key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
             - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - run: ./tools/test.sh ci-tier validate-matrix --no-deps
             - run: ./tools/test.sh ci-tier test-inventory --no-deps
@@ -73,8 +79,6 @@ jobs:
         runs-on: ubuntu-latest
         needs: validate-matrix
         timeout-minutes: 20
-        env:
-            FSUSBLOG_TEST_RUN_ID: behavior-doc-admission-${{ github.run_id }}-${{ github.run_attempt }}
         outputs:
             receipt_digest: ${{ steps.receipt.outputs.receipt_digest }}
             source_commit: ${{ steps.receipt.outputs.source_commit }}
@@ -109,7 +113,7 @@ jobs:
                   if-no-files-found: error
                   retention-days: 14
                   include-hidden-files: true
-                  path: .tmp/behavior-doc-static-admission/receipt.json
+                  path: .tmp/behavior-doc-static-admission/**
 
     plan-pr-risk:
         name: Plan PR Smart Gate
@@ -151,22 +155,12 @@ jobs:
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
-            - name: Collect changed files
-              run: |
-                  mkdir -p .tmp
-                  if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-                    git diff --name-only "${{ github.event.pull_request.base.sha }}...${{ github.sha }}" > .tmp/pr-changed-files.txt
-                  else
-                    : > .tmp/pr-changed-files.txt
-                  fi
-            - id: smart
-              run: |
-                  node tools/run-test-matrix.mjs ci-pr-plan \
-                    --changed-files .tmp/pr-changed-files.txt \
-                    --event-name "${{ github.event_name }}" \
-                    --base-ref "${{ github.event.pull_request.base.sha || 'origin/master' }}" \
-                    --out .tmp/pr-plan.json \
-                    --github-output "$GITHUB_OUTPUT"
+            - name: Generate source-bound PR plan
+              id: smart
+              env:
+                  FSUSBLOG_PR_EVENT_NAME: ${{ github.event_name }}
+                  FSUSBLOG_PR_BASE_REF: ${{ github.event.pull_request.base.sha || 'origin/master' }}
+              run: ./tools/test.sh ci-tier pr-smart-gate-plan --no-deps
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
               if: always()
               with:
@@ -178,6 +172,127 @@ jobs:
                       .tmp/pr-plan.json
                       .tmp/pr-changed-files.txt
                       .tmp/release-evidence/pr-smart-gate-summary.json
+
+    behavior-test-evidence:
+        name: Behavior Test Evidence
+        runs-on: ubuntu-latest
+        needs: [validate-matrix, behavior-doc-static-admission]
+        timeout-minutes: 30
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+            - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+              with:
+                  dotnet-version: 10.0.x
+            - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+              with:
+                  path: ~/.nuget/packages
+                  key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
+            - uses: ./.github/actions/consume-behavior-doc-admission
+              with:
+                  source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: validate-matrix
+                  path: .
+            - run: ./tools/test.sh ci-tier behavior-test-evidence --no-deps
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: behavior-test-evidence
+                  if-no-files-found: error
+                  retention-days: 14
+                  include-hidden-files: true
+                  path: .tmp/behavior-test-evidence/**
+
+    backend-mutation:
+        name: Changed Critical Behavior Mutation
+        runs-on: ubuntu-latest
+        needs: [behavior-doc-static-admission, behavior-test-evidence, plan-pr-risk]
+        timeout-minutes: 120
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+            - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+              with:
+                  dotnet-version: 10.0.x
+            - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+              with:
+                  path: ~/.nuget/packages
+                  key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
+            - uses: ./.github/actions/consume-behavior-doc-admission
+              with:
+                  source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: behavior-test-evidence
+                  path: .tmp/behavior-test-evidence
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: pr-smart-gate
+                  path: .tmp
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: validate-matrix
+                  path: .
+            - name: Run per-behavior mutation qualification
+              env:
+                  FSUSBLOG_MUTATION_SCOPE: ${{ github.event_name == 'pull_request' && 'pr' || 'release' }}
+              run: ./tools/test.sh ci-tier backend-mutation-changed-critical --no-deps
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: backend-mutation
+                  if-no-files-found: error
+                  retention-days: 14
+                  include-hidden-files: true
+                  path: .tmp/mutation/**
+
+    behavior-evidence-pre-runtime:
+        name: Behavior Evidence Pre-Runtime
+        runs-on: ubuntu-latest
+        needs: [backend-mutation, behavior-doc-static-admission, behavior-test-evidence]
+        timeout-minutes: 10
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+            - uses: ./.github/actions/consume-behavior-doc-admission
+              with:
+                  source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: behavior-test-evidence
+                  path: .tmp/behavior-test-evidence
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: backend-mutation
+                  path: .tmp/mutation
+            - run: ./tools/test.sh ci-tier behavior-evidence-pre-runtime --no-deps
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: behavior-evidence-pre-runtime
+                  if-no-files-found: error
+                  retention-days: 14
+                  include-hidden-files: true
+                  path: |
+                      .tmp/behavior-evidence-pre-runtime/**
+                      .tmp/behavior-doc-static-admission/**
+                      .tmp/behavior-test-evidence/**
+                      .tmp/mutation/changed-critical/**
 
     wasm-build-artifacts:
         name: wasm-build-artifacts
@@ -550,6 +665,10 @@ jobs:
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
                   receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: validate-matrix
+                  path: .
             - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - run: node tools/db/migration-doc-lint.mjs
             - run: ./tools/test.sh static-governance --no-deps
@@ -688,6 +807,7 @@ jobs:
             [
                 validate-matrix,
                 behavior-doc-static-admission,
+                behavior-evidence-pre-runtime,
                 plan-pr-risk,
                 production-build-artifacts,
                 fast-backend,
@@ -714,6 +834,16 @@ jobs:
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
                   receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: behavior-evidence-pre-runtime
+                  path: .tmp
+            - name: Verify pre-runtime behavior evidence
+              run: >-
+                  node tools/test-matrix/behavior-evidence-pre-runtime.mjs
+                  --guard-runtime-candidate .tmp/behavior-evidence-pre-runtime/receipt.json
+                  --source-commit "$FSUSBLOG_TEST_SOURCE_COMMIT"
+                  --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT"
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
             - uses: ./.github/actions/consume-production-build
               with:
@@ -1384,6 +1514,7 @@ jobs:
         runs-on: ubuntu-latest
         needs:
             - behavior-doc-static-admission
+            - behavior-evidence-pre-runtime
             - plan-pr-risk
             - validate-matrix
             - production-build-artifacts
@@ -1406,7 +1537,7 @@ jobs:
             - backend-qps
             - perf-regression
             - release-evidence
-        if: always() && needs.behavior-doc-static-admission.result == 'success' && (github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.production_summary == 'true')
+        if: always() && needs.behavior-doc-static-admission.result == 'success' && needs.behavior-evidence-pre-runtime.result == 'success' && (github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.production_summary == 'true')
         timeout-minutes: 120
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -1417,6 +1548,16 @@ jobs:
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
                   receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: behavior-evidence-pre-runtime
+                  path: .tmp
+            - name: Verify pre-runtime behavior evidence
+              run: >-
+                  node tools/test-matrix/behavior-evidence-pre-runtime.mjs
+                  --guard-runtime-candidate .tmp/behavior-evidence-pre-runtime/receipt.json
+                  --source-commit "$FSUSBLOG_TEST_SOURCE_COMMIT"
+                  --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT"
             - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
               with:
                   path: .tmp/downloaded-artifacts

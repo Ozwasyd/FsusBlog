@@ -749,7 +749,7 @@ export function createUserMfaProofToken({
     return token;
 }
 
-function cookieEntries(cookieHeader, url, accessTokenExpiresAtEpochSeconds)
+function cookieEntries(cookieHeader, url)
 {
     return cookieHeader
         .split(';')
@@ -760,10 +760,6 @@ function cookieEntries(cookieHeader, url, accessTokenExpiresAtEpochSeconds)
             const separator = item.indexOf('=');
             const name = item.slice(0, separator);
             const isHostPrefixed = name.startsWith('__Host-');
-            const isAccessToken = name === 'AccessToken'
-        || name === '__Host-AccessToken'
-        || name === 'AdminAccessToken'
-        || name === '__Host-AdminAccessToken';
             return {
                 name,
                 value: item.slice(separator + 1),
@@ -771,8 +767,7 @@ function cookieEntries(cookieHeader, url, accessTokenExpiresAtEpochSeconds)
                 path: '/',
                 httpOnly: true,
                 secure: isHostPrefixed,
-                sameSite: isHostPrefixed ? 'Strict' : 'Lax',
-                ...(isAccessToken ? { expires: accessTokenExpiresAtEpochSeconds } : {})
+                sameSite: isHostPrefixed ? 'Strict' : 'Lax'
             };
         });
 }
@@ -780,7 +775,11 @@ function cookieEntries(cookieHeader, url, accessTokenExpiresAtEpochSeconds)
 function fixtureStorageState(fixture, url)
 {
     return {
-        cookies: cookieEntries(fixture.cookieHeader, url, fixture.accessTokenExpiresAtEpochSeconds),
+        // Browser cookie expiry follows the host clock, while fixture JWT
+        // lifetime validation follows the sealed business clock. Persist
+        // session cookies here so the browser cannot discard an otherwise
+        // valid fixed-time JWT before the backend validates its exp claim.
+        cookies: cookieEntries(fixture.cookieHeader, url),
         origins: []
     };
 }

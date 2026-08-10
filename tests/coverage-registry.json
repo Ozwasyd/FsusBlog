@@ -4190,7 +4190,8 @@
             "failClosedRule": "Reject path/filename/evidencePath mapping, comment-only registration, multi-kind one-test claims, missing invariant/reason IDs for negative/migration, name-only concurrency, skipped or filtered cases counted as pass, historical TRX/run identity reuse, forged producer digests, unregistered kinds satisfying requirements, or active behaviors missing this-round discovered/executed/passed evidence for a required kind.",
             "minimumRequirement": "C# CoversBehavior and JS behaviorTest are the only binding surfaces; fixture counterexamples cover missing boundary, filter miss, skip, multi-kind, missing invariant, previous-round identity, rename drift, unbound coverage hit, and comment registration; live active behaviors declare source bindings for every required kind.",
             "tierIds": [
-                "static-governance"
+                "static-governance",
+                "behavior-test-evidence"
             ]
         },
         {

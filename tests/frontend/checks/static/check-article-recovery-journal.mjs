@@ -128,20 +128,20 @@ assert(resilience.includes('readArticleRecoveryJournal'),
 assert(resilience.includes('articleRecoverySourceHash(source)')
     && resilience.includes('sourceHash: expectedRecoverySourceHash')
     && resilience.includes('record.sourceHash === expected.sourceHash'),
-    'markdown resilience must bind raw journal evidence to the production source-hash contract');
+'markdown resilience must bind raw journal evidence to the production source-hash contract');
 assert(resilience.includes("record.payloadCodec === 'gzip-v1'")
     && resilience.includes('record.payloadIsUint8Array')
     && resilience.includes("!record.hasOwnContent"),
-    'markdown resilience must require compressed typed bytes without a raw content field');
+'markdown resilience must require compressed typed bytes without a raw content field');
 assert(resilience.includes('ARTICLE_RECOVERY_CLIENT_REVISION_PATTERN.test(record.clientRevision)')
     && resilience.includes('runtimeClientRevision = matches[0]?.clientRevision ?? null')
     && resilience.includes('record.clientRevision === runtimeClientRevision')
     && resilience.includes('articleKey: expectedRecoveryArticleKey')
     && resilience.includes('record.articleKey === expected.articleKey'),
-    'markdown resilience must capture one valid runtime client revision and retain it across reload');
+'markdown resilience must capture one valid runtime client revision and retain it across reload');
 assert(!resilience.includes('randomUUID')
     && !resilience.includes('markdown-extreme-client-1813'),
-    'markdown resilience must not replace production client revision generation');
+'markdown resilience must not replace production client revision generation');
 assert(!resilience.includes('record.content === source'),
     'markdown resilience must not require the retired raw-body record shape');
 for (const token of [

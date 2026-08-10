@@ -90,7 +90,7 @@ coverage, and artifact checks. Object storage never relaxes projection validatio
 npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit
 node tools/run-test-matrix.mjs validate
 node --test tests/tools/evidence-projection.test.mjs
-node tools/run-test-matrix.mjs docs
+node tools/docs/generate-testing-docs.mjs --check
 ```
 
 These checks require no remote workflow or external service. Projection never permits reuse across a source, worktree, run, or namespace boundary.

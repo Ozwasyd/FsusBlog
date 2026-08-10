@@ -199,11 +199,11 @@ describe('LocaleDomainBundleStore', () => {
 
 describe('route locale-domain authority', () => {
   it.each([
-    ['Public Home', 'Home', ['common', 'layout', 'public']],
-    ['Public Article', 'ArticleDetail', ['common', 'layout', 'public', 'article']],
-    ['Auth', 'Login', ['common', 'layout', 'public', 'auth', 'errors']],
-    ['Account Messages', 'UserMessage', ['common', 'layout', 'admin', 'errors', 'messages']],
-    ['Admin Security', 'ManageSecurityDashboard', ['common', 'layout', 'admin', 'errors', 'security']]
+    ['Public Home', 'Home', ['common', 'layout', 'public', 'security']],
+    ['Public Article', 'ArticleDetail', ['common', 'layout', 'public', 'security', 'article']],
+    ['Auth', 'Login', ['common', 'layout', 'public', 'auth', 'errors', 'security']],
+    ['Account Messages', 'UserMessage', ['common', 'layout', 'admin', 'auth', 'errors', 'security', 'messages']],
+    ['Admin Security', 'ManageSecurityDashboard', ['common', 'layout', 'admin', 'auth', 'errors', 'security']]
   ])('declares only the domains required by the actual %s route', (_label, name, expected) => {
     const route = findRoute(APP_ROUTE_RECORDS, name)
     expect(requiredLocaleDomainsForRoute({
@@ -211,6 +211,27 @@ describe('route locale-domain authority', () => {
       path: route.path,
       meta: route.meta ?? {}
     })).toEqual(expected)
+  })
+
+  it('prepares security copy for the application-level challenge host on every route', () => {
+    for (const route of namedLeafRoutes(APP_ROUTE_RECORDS)) {
+      expect(requiredLocaleDomainsForRoute({
+        name: route.name,
+        path: route.path,
+        meta: route.meta ?? {}
+      })).toContain('security')
+    }
+  })
+
+  it('prepares auth copy for the account-shell policy modal', () => {
+    for (const name of ['UserProfile', 'ManageDashboard']) {
+      const route = findRoute(APP_ROUTE_RECORDS, name)
+      expect(requiredLocaleDomainsForRoute({
+        name: route.name,
+        path: route.path,
+        meta: route.meta ?? {}
+      })).toContain('auth')
+    }
   })
 
   it('fails closed when a route has no domain declaration', () => {

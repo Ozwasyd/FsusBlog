@@ -54,6 +54,7 @@
         "cpp",
         "cmake",
         "shell",
+        "python",
         "yaml",
         "json",
         "markdown",
@@ -143,6 +144,14 @@
                 ".shellcheckrc"
             ],
             "documentationHeading": "## Shell"
+        },
+        {
+            "id": "python",
+            "owner": "ToolingStyleOwner",
+            "extensions": [
+                ".py"
+            ],
+            "documentationHeading": "## Python"
         },
         {
             "id": "yaml",

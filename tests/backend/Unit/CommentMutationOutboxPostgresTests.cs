@@ -4,6 +4,7 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Shared.Contracts.Governance;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,7 +13,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
 using SqlSugar;
-using FsusBlog.Shared.Contracts.Governance;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -189,7 +189,11 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         ICacheInvalidationDispatcher invalidations = Substitute.For<ICacheInvalidationDispatcher>();
         invalidations.InvalidateCommentMutationAsync(Arg.Any<CommentCacheInvalidationScope?>(), Arg.Any<CancellationToken>())
-            .Returns(async _ => { entered.TrySetResult(); await release.Task; });
+            .Returns(async _ =>
+            {
+                entered.TrySetResult();
+                await release.Task;
+            });
         var services = new ServiceCollection();
         services.AddScoped<ISqlSugarClient>(_ => PostgresSqlSugarTestClient.Create(connectionString));
         services.AddSingleton(invalidations);
@@ -242,7 +246,11 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         ICacheInvalidationDispatcher invalidations = Substitute.For<ICacheInvalidationDispatcher>();
         invalidations.InvalidateCommentMutationAsync(Arg.Any<CommentCacheInvalidationScope?>(), Arg.Any<CancellationToken>())
-            .Returns(async _ => { entered.TrySetResult(); await release.Task; });
+            .Returns(async _ =>
+            {
+                entered.TrySetResult();
+                await release.Task;
+            });
         using ServiceProvider provider = BuildWorkerServices(connectionString, invalidations);
         var state = new CommentMutationOutboxRuntimeState();
         var worker = new CommentMutationOutboxWorker(provider.GetRequiredService<IServiceScopeFactory>(),
@@ -285,7 +293,11 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         ICacheInvalidationDispatcher invalidations = Substitute.For<ICacheInvalidationDispatcher>();
         invalidations.InvalidateCommentMutationAsync(Arg.Any<CommentCacheInvalidationScope?>(), Arg.Any<CancellationToken>())
-            .Returns(async _ => { entered.TrySetResult(); await release.Task; });
+            .Returns(async _ =>
+            {
+                entered.TrySetResult();
+                await release.Task;
+            });
         IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["CommentMutationOutbox:ClaimLeaseSeconds"] = "30",
@@ -329,7 +341,11 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         ICacheInvalidationDispatcher invalidations = Substitute.For<ICacheInvalidationDispatcher>();
         invalidations.InvalidateCommentMutationAsync(Arg.Any<CommentCacheInvalidationScope?>(), Arg.Any<CancellationToken>())
-            .Returns(async _ => { entered.TrySetResult(); await release.Task; });
+            .Returns(async _ =>
+            {
+                entered.TrySetResult();
+                await release.Task;
+            });
         ICommentNotificationService notifications = Substitute.For<ICommentNotificationService>();
         var services = new ServiceCollection();
         services.AddScoped<ISqlSugarClient>(_ => PostgresSqlSugarTestClient.Create(connectionString));
@@ -381,7 +397,11 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         ICacheInvalidationDispatcher invalidations = Substitute.For<ICacheInvalidationDispatcher>();
         invalidations.InvalidateCommentMutationAsync(Arg.Any<CommentCacheInvalidationScope?>(), Arg.Any<CancellationToken>())
-            .Returns(async _ => { entered.TrySetResult(); await release.Task; });
+            .Returns(async _ =>
+            {
+                entered.TrySetResult();
+                await release.Task;
+            });
         ICommentNotificationService notifications = Substitute.For<ICommentNotificationService>();
         var services = new ServiceCollection();
         services.AddScoped<ISqlSugarClient>(_ => PostgresSqlSugarTestClient.Create(connectionString));
@@ -426,7 +446,11 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         ICacheInvalidationDispatcher invalidations = Substitute.For<ICacheInvalidationDispatcher>();
         invalidations.InvalidateCommentMutationAsync(Arg.Any<CommentCacheInvalidationScope?>(), Arg.Any<CancellationToken>())
-            .Returns(async _ => { entered.TrySetResult(); await release.Task; });
+            .Returns(async _ =>
+            {
+                entered.TrySetResult();
+                await release.Task;
+            });
         ICommentNotificationService notifications = Substitute.For<ICommentNotificationService>();
         var services = new ServiceCollection();
         services.AddScoped<ISqlSugarClient>(_ => PostgresSqlSugarTestClient.Create(connectionString));
@@ -732,7 +756,11 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
         var worker = new CommentMutationOutboxWorker(provider.GetRequiredService<IServiceScopeFactory>(),
             Substitute.For<IBackgroundWorkerLease>(), state, TimeProvider.System,
             new ConfigurationBuilder().Build(), NullLogger<CommentMutationOutboxWorker>.Instance,
-            beforeMarkFailed: async _ => { beforeMarkFailed.TrySetResult(); await continueMarkFailed.Task; });
+            beforeMarkFailed: async _ =>
+            {
+                beforeMarkFailed.TrySetResult();
+                await continueMarkFailed.Task;
+            });
 
         Task<int> processing = worker.ProcessPendingAsync(CancellationToken.None);
         await beforeMarkFailed.Task.WaitAsync(TimeSpan.FromSeconds(10));
@@ -888,13 +916,23 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
         var continueRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         ICacheInvalidationDispatcher invalidations = Substitute.For<ICacheInvalidationDispatcher>();
         invalidations.InvalidateCommentMutationAsync(Arg.Any<CommentCacheInvalidationScope?>(), Arg.Any<CancellationToken>())
-            .Returns(async call => { entered.TrySetResult(); await Task.Delay(Timeout.InfiniteTimeSpan, call.ArgAt<CancellationToken>(1)); });
+            .Returns(async call =>
+            {
+                entered.TrySetResult();
+                await Task.Delay(
+                    Timeout.InfiniteTimeSpan,
+                    call.ArgAt<CancellationToken>(1));
+            });
         using ServiceProvider provider = BuildWorkerServices(connectionString, invalidations);
         var state = new CommentMutationOutboxRuntimeState();
         var worker = new CommentMutationOutboxWorker(provider.GetRequiredService<IServiceScopeFactory>(),
             Substitute.For<IBackgroundWorkerLease>(), state, TimeProvider.System,
             new ConfigurationBuilder().Build(), NullLogger<CommentMutationOutboxWorker>.Instance,
-            beforeReleaseClaim: async _ => { beforeRelease.TrySetResult(); await continueRelease.Task; });
+            beforeReleaseClaim: async _ =>
+            {
+                beforeRelease.TrySetResult();
+                await continueRelease.Task;
+            });
         using var cancellation = new CancellationTokenSource();
 
         Task<int> processing = worker.ProcessPendingAsync(cancellation.Token);
@@ -935,7 +973,11 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         ICacheInvalidationDispatcher invalidations = Substitute.For<ICacheInvalidationDispatcher>();
         invalidations.InvalidateCommentMutationAsync(Arg.Any<CommentCacheInvalidationScope?>(), Arg.Any<CancellationToken>())
-            .Returns(async _ => { entered.TrySetResult(); await release.Task; });
+            .Returns(async _ =>
+            {
+                entered.TrySetResult();
+                await release.Task;
+            });
         IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["CommentMutationOutbox:ClaimLeaseSeconds"] = "30",

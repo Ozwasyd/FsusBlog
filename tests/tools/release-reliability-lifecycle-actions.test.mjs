@@ -8,18 +8,18 @@ import process from 'node:process';
 import test from 'node:test';
 
 import {
+    runPhysicalExecution
+} from '../../tools/test/physical-execution-process-tree.mjs';
+import {
     executeLifecycleActionPlan,
     executeRegisteredLifecycleAction
 } from '../../tools/test/release-reliability-lifecycle-actions.mjs';
 import {
-    runPhysicalExecution
-} from '../../tools/test/physical-execution-process-tree.mjs';
+    sealDocument
+} from '../../tools/test/release-reliability-receipt.mjs';
 import {
     verifyLifecycleActionReceipt
 } from '../../tools/test/verify-release-reliability-lifecycle-action.mjs';
-import {
-    sealDocument
-} from '../../tools/test/release-reliability-receipt.mjs';
 
 const invocationId = 'fixture-invocation';
 const runId = 'fixture-run';

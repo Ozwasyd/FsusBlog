@@ -291,20 +291,22 @@ test('preview readiness refuses old HTML or an API response from another backend
 
 test('bootstrap validates the build marker before reuse/start and publishes only after preview API readiness', () =>
 {
+    const prepareStart = bootstrapSource.indexOf('PrepareReleasePreviewBundle()');
     const ensureStart = bootstrapSource.indexOf('EnsureReleasePreview()');
-    const validate = bootstrapSource.indexOf('release-preview-readiness.mjs" validate-build', ensureStart);
-    const reuse = bootstrapSource.indexOf('release preview already healthy with matching fingerprint', ensureStart);
+    const validate = bootstrapSource.indexOf('release-preview-readiness.mjs" validate-build', prepareStart);
+    const reuse = bootstrapSource.indexOf('release preview already healthy with prepared bundle', ensureStart);
     const start = bootstrapSource.indexOf("'release preview' \\", ensureStart);
     const apiReady = bootstrapSource.indexOf("WaitForBinaryUrl 'release preview namespace API'", start);
     const publish = bootstrapSource.indexOf('release-preview-readiness.mjs" publish-ready', apiReady);
 
-    assert.ok(validate > ensureStart);
+    assert.ok(validate > prepareStart);
+    assert.ok(validate < ensureStart);
     assert.match(
-        bootstrapSource.slice(ensureStart, validate),
+        bootstrapSource.slice(prepareStart, validate),
         /FSUSBLOG_TEST_SOURCE_COMMIT=.*frontend build source commit is required[\s\S]*?FSUSBLOG_TEST_SOURCE_FINGERPRINT=.*frontend build source fingerprint is required/u
     );
-    assert.ok(validate < reuse);
-    assert.ok(validate < start);
+    assert.ok(reuse > ensureStart);
+    assert.ok(start > ensureStart);
     assert.ok(apiReady > start);
     assert.ok(publish > apiReady);
     assert.match(bootstrapSource, /rm -f "\$ROOT_DIR\/\.tmp\/test-runs\/\$FSUSBLOG_TEST_RUN_ID\/release-preview-ready\.json"/u);

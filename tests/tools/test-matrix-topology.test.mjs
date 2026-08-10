@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+
 import {
     behaviorTest,
     concurrencyHarnessId,
@@ -151,11 +152,17 @@ test('matrix validate command rejects incomplete multi-node metadata', () =>
     try
     {
         const source = fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8');
-        const invalid = source.replace(
-            '      runtimeMode: single\n      nodeCount: 1\n      artifactStorage: local\n      coordinationStore: none\n      clusterScenario: none\n      clusterBootstrap: none\n      clusterFixtures: []',
-            '      runtimeMode: single\n      nodeCount: 2\n      artifactStorage: local\n      coordinationStore: none\n      clusterScenario: notification\n      clusterBootstrap: none\n      clusterFixtures: []'
+        const tierStart = source.indexOf('    - id: bootstrap\n');
+        const tierEnd = source.indexOf('\n    - id:', tierStart + 1);
+        assert.notEqual(tierStart, -1);
+        assert.notEqual(tierEnd, -1);
+        const bootstrapTier = source.slice(tierStart, tierEnd);
+        const invalidBootstrapTier = bootstrapTier.replace(
+            '      runtimeMode: single\n      nodeCount: 1\n      artifactStorage: local\n      coordinationStore: none\n      clusterScenario: none',
+            '      runtimeMode: single\n      nodeCount: 2\n      artifactStorage: local\n      coordinationStore: none\n      clusterScenario: notification'
         );
-        assert.notEqual(invalid, source);
+        assert.notEqual(invalidBootstrapTier, bootstrapTier);
+        const invalid = `${source.slice(0, tierStart)}${invalidBootstrapTier}${source.slice(tierEnd)}`;
         const matrixFile = path.join(temp, 'matrix.yml');
         fs.writeFileSync(matrixFile, invalid);
 

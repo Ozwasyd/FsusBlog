@@ -9,13 +9,13 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import {
-    createReleaseReliabilityCancellation,
-    executeScenario
-} from '../../tools/test/run-release-reliability-scenarios.mjs';
-import {
     createPhysicalExecutionOutputTracker
 } from '../../tools/test/physical-execution-process-tree.mjs';
 import { sealDocument } from '../../tools/test/release-reliability-receipt.mjs';
+import {
+    createReleaseReliabilityCancellation,
+    executeScenario
+} from '../../tools/test/run-release-reliability-scenarios.mjs';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const repositoryCatalog = JSON.parse(fs.readFileSync(
@@ -396,8 +396,14 @@ test('a pipe that never closes is bounded and reports forced truncation honestly
     const stderr = new PassThrough();
     const tracker = createPhysicalExecutionOutputTracker({
         policy: { ...physicalPolicy, pipeCloseTimeoutMs: 30 },
-        stdout: { write() { return true; } },
-        stderr: { write() { return true; } }
+        stdout: { write()
+        {
+            return true;
+        } },
+        stderr: { write()
+        {
+            return true;
+        } }
     });
     tracker.attach(stdout, 'stdout');
     tracker.attach(stderr, 'stderr');
@@ -425,7 +431,10 @@ test('bounded receipt capture reports truncation without mislabeling complete ex
                 return true;
             }
         },
-        stderr: { write() { return true; } }
+        stderr: { write()
+        {
+            return true;
+        } }
     });
     tracker.attach(stdout, 'stdout');
     tracker.attach(stderr, 'stderr');

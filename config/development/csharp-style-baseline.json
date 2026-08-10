@@ -1,59 +1,8 @@
 {
     "schema": "fsusblog.csharp-style-baseline.v1",
-    "generatedFrom": "a5e81f0ed4d8103969292e0fdf9d63c5c5885f90",
-    "policySha256": "cc8961ebe55e72e6ae84e9bd5b64acdc39c27d1869a898b92e690522f68f23d3",
-    "violationCount": 10,
-    "fileCount": 5,
-    "files": [
-        {
-            "path": "src/backend/Services/ArticlePublicationTransition.cs",
-            "sourceSha256": "48cbbc5e5e181633fab2d8543b4f6aff950f1f9bb836c291b97ce6e9af80dada",
-            "violationCount": 2,
-            "violationDigest": "4220b2f3623a9bbcf64586a694c68b45ab33c907530d06b2846af1180688bcbe",
-            "rules": {
-                "using-group": 1,
-                "using-order": 1
-            }
-        },
-        {
-            "path": "src/backend/Services/Articles/ArticleRevisionContentBlockStore.cs",
-            "sourceSha256": "c10f029b9a4ed7e5cab34760ced1d027af1a4cdbf41825605eb3c59a421d2289",
-            "violationCount": 2,
-            "violationDigest": "8de75aa5f96f8e1344aee07303f5a6ec1fb5242ee6e5a4d43f2e956065860f30",
-            "rules": {
-                "using-group": 1,
-                "using-order": 1
-            }
-        },
-        {
-            "path": "src/backend/Services/Background/CommentMutationOutboxWorker.cs",
-            "sourceSha256": "84b34293899d91f424f5ebfde477a07b0cd784c1fe36fc59700439b63a15f397",
-            "violationCount": 2,
-            "violationDigest": "858f9d08a6232d81471392f958432d903f208cf248e82719e52b8cce22cdd61c",
-            "rules": {
-                "using-group": 1,
-                "using-order": 1
-            }
-        },
-        {
-            "path": "src/backend/Services/Security/PasskeyProjectionConsistencyService.cs",
-            "sourceSha256": "3ad44ce60df1fdca64fbbac11f45835e23767492e3cb7ef15a9e4ba83baf1ff7",
-            "violationCount": 2,
-            "violationDigest": "44682cde75786039222551a1e9a3301dda85bec26e913c6d0aec91260f193088",
-            "rules": {
-                "using-group": 1,
-                "using-order": 1
-            }
-        },
-        {
-            "path": "src/backend/Services/UserSessionCommandService.cs",
-            "sourceSha256": "4840174fe96655e68021631191740a2303325c0d67dc31cd8c7875a6d1dd34eb",
-            "violationCount": 2,
-            "violationDigest": "5dc87a690a2dc25afd3acf36ffb545c51a5d5f15aafaf18bafed2529c8db4bfa",
-            "rules": {
-                "using-group": 1,
-                "using-order": 1
-            }
-        }
-    ]
+    "generatedFrom": "deb5fa197200769bfc8d85fa55c844233c2acac9",
+    "policySha256": "39175afb8d10ae5a03f8e4e1a6cfda18495baa48cbe8cd9c814d166c9bfb6655",
+    "violationCount": 0,
+    "fileCount": 0,
+    "files": []
 }

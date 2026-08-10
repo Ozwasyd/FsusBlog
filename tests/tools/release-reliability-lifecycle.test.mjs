@@ -7,23 +7,23 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import {
+    loadLifecycleActionContracts
+} from '../../tools/test/release-reliability-lifecycle-actions.mjs';
+import {
     inspectBackendIdentity,
     readMeasurementProcessTreeObservation,
     runLifecycleAction
 } from '../../tools/test/release-reliability-lifecycle.mjs';
 import {
-    loadLifecycleActionContracts
-} from '../../tools/test/release-reliability-lifecycle-actions.mjs';
+    digestValue,
+    sealDocument
+} from '../../tools/test/release-reliability-receipt.mjs';
 import {
     verifyDataScaleOwnerReceipt,
     verifyDataScaleTeardownRuntimeBinding,
     verifyLifecycleActionReceipt,
     verifyMeasurementProcessTreeBinding
 } from '../../tools/test/verify-release-reliability-lifecycle-action.mjs';
-import {
-    digestValue,
-    sealDocument
-} from '../../tools/test/release-reliability-receipt.mjs';
 
 const repositoryRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
@@ -483,7 +483,8 @@ test('PID data-scale backend observation uses executable bytes digest', () =>
             startTicks: 'unused',
             executableOrImageDigest: 'unused'
         },
-        () => {
+        () =>
+        {
             throw new Error('docker must not be used for a PID owner');
         },
         repositoryRoot
@@ -502,7 +503,8 @@ test('PID data-scale backend observation uses executable bytes digest', () =>
 
 test('resealed runtime observation cannot substitute non-current topology identities', () =>
 {
-    const fixture = createFixture({ after: () => {} });
+    const fixture = createFixture({ after: () =>
+    {} });
     try
     {
         const actionId = 'runtime-identity-precondition';

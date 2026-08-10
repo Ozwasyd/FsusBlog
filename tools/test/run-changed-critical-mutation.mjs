@@ -1,59 +1,64 @@
 #!/usr/bin/env node
-import { spawnSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process';
 import {
     mkdirSync,
     readFileSync,
     readdirSync,
     renameSync,
     writeFileSync
-} from 'node:fs'
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+} from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
+import {
+    attributeMutantsToBehaviors,
+    qualifyBehaviorMutations
+} from './changed-critical-mutation-attribution.mjs';
+import {
+    createChangedCriticalMutationAuthority
+} from './changed-critical-mutation-evidence.mjs';
+import { readChangedPaths, repoRelative } from './changed-critical-mutation-support.mjs';
 import {
     createChangedCriticalStrykerConfig,
     selectChangedCriticalMutation,
     validateToolPolicy
-} from './changed-critical-mutation.mjs'
-import { readChangedPaths, repoRelative } from './changed-critical-mutation-support.mjs'
-import {
-    createChangedCriticalMutationAuthority
-} from './changed-critical-mutation-evidence.mjs'
-import {
-    attributeMutantsToBehaviors,
-    qualifyBehaviorMutations
-} from './changed-critical-mutation-attribution.mjs'
-import { sealMutationEvidenceReceipt } from './mutation-evidence-receipt.mjs'
+} from './changed-critical-mutation.mjs';
+import { sealMutationEvidenceReceipt } from './mutation-evidence-receipt.mjs';
 
-export function executeChangedCriticalSelection({ selection, spawnStryker }) {
-    if (selection.status === 'empty') {
+export function executeChangedCriticalSelection({ selection, spawnStryker })
+{
+    if (selection.status === 'empty')
+    {
         return {
             schema: 'fsusblog.changed-critical-mutation-run.v1',
             status: 'empty',
             closureDigest: selection.closureDigest,
             strykerStarted: false
-        }
+        };
     }
-    const result = spawnStryker()
-    if (result.status !== 0) {
-        throw new Error(`Stryker failed with exit code ${result.status}`)
+    const result = spawnStryker();
+    if (result.status !== 0)
+    {
+        throw new Error(`Stryker failed with exit code ${result.status}`);
     }
     return {
         schema: 'fsusblog.changed-critical-mutation-run.v1',
         status: 'completed',
         closureDigest: selection.closureDigest,
         strykerStarted: true
-    }
+    };
 }
 
-function writeJsonAtomic(path, value) {
-    mkdirSync(dirname(path), { recursive: true })
-    const next = `${path}.next-${process.pid}`
-    writeFileSync(next, `${JSON.stringify(value, null, 2)}\n`)
-    renameSync(next, path)
+function writeJsonAtomic(path, value)
+{
+    mkdirSync(dirname(path), { recursive: true });
+    const next = `${path}.next-${process.pid}`;
+    writeFileSync(next, `${JSON.stringify(value, null, 2)}\n`);
+    renameSync(next, path);
 }
 
-function parseArguments(args) {
+function parseArguments(args)
+{
     const options = {
         catalog: null,
         changedPaths: null,
@@ -64,7 +69,7 @@ function parseArguments(args) {
         ownerReceipt: null,
         behaviorCatalog: null,
         testBindings: null
-    }
+    };
     const names = new Map([
         ['--catalog', 'catalog'],
         ['--changed-paths', 'changedPaths'],
@@ -75,56 +80,65 @@ function parseArguments(args) {
         ['--owner-receipt', 'ownerReceipt'],
         ['--behavior-catalog', 'behaviorCatalog'],
         ['--test-bindings', 'testBindings']
-    ])
-    for (let index = 0; index < args.length; index += 2) {
-        const key = names.get(args[index])
-        const value = args[index + 1]
-        if (!key || !value || value.startsWith('--')) {
-            throw new Error(`unknown or incomplete option ${args[index]}`)
+    ]);
+    for (let index = 0; index < args.length; index += 2)
+    {
+        const key = names.get(args[index]);
+        const value = args[index + 1];
+        if (!key || !value || value.startsWith('--'))
+        {
+            throw new Error(`unknown or incomplete option ${args[index]}`);
         }
-        options[key] = value
+        options[key] = value;
     }
-    for (const [key, value] of Object.entries(options)) {
-        if (!value) {
-            throw new Error(`missing required option ${key}`)
+    for (const [key, value] of Object.entries(options))
+    {
+        if (!value)
+        {
+            throw new Error(`missing required option ${key}`);
         }
     }
-    return options
+    return options;
 }
 
-function findTraceLog(physicalOutput) {
-    const logDirectory = resolve(physicalOutput, 'logs')
+function findTraceLog(physicalOutput)
+{
+    const logDirectory = resolve(physicalOutput, 'logs');
     const traceFiles = readdirSync(logDirectory, { withFileTypes: true })
         .filter((entry) => entry.isFile() && /^log-.*\.txt$/u.test(entry.name))
         .map((entry) => resolve(logDirectory, entry.name))
-        .sort((left, right) => left.localeCompare(right))
-    if (traceFiles.length !== 1) {
+        .sort((left, right) => left.localeCompare(right));
+    if (traceFiles.length !== 1)
+    {
         throw new Error(
             `physical Stryker run must emit exactly one verbose trace log; found ${traceFiles.length}`
-        )
+        );
     }
-    return traceFiles[0]
+    return traceFiles[0];
 }
 
-function runPhysicalMutations({ selection, toolPolicy, runDirectory, root, physicalRuns }) {
+function runPhysicalMutations({ selection, toolPolicy, runDirectory, root, physicalRuns })
+{
     const restore = spawnSync(
         'dotnet',
         ['tool', 'restore'],
         { cwd: root, stdio: 'inherit' }
-    )
-    if (restore.status !== 0) {
-        return restore
+    );
+    if (restore.status !== 0)
+    {
+        return restore;
     }
-    for (const closure of selection.projectClosures) {
-        const runName = closure.sourceProject.replaceAll('/', '-')
-        const physicalOutput = resolve(runDirectory, 'physical', runName)
+    for (const closure of selection.projectClosures)
+    {
+        const runName = closure.sourceProject.replaceAll('/', '-');
+        const physicalOutput = resolve(runDirectory, 'physical', runName);
         const config = createChangedCriticalStrykerConfig(
             selection,
             toolPolicy,
             closure.sourceProject
-        )
-        const configPath = resolve(runDirectory, 'configs', `${runName}.json`)
-        writeJsonAtomic(configPath, config)
+        );
+        const configPath = resolve(runDirectory, 'configs', `${runName}.json`);
+        writeJsonAtomic(configPath, config);
         const result = spawnSync(
             'dotnet',
             [
@@ -143,9 +157,10 @@ function runPhysicalMutations({ selection, toolPolicy, runDirectory, root, physi
                 stdio: 'inherit',
                 env: { ...process.env, FSUSBLOG_MUTATION_BUILD: '1' }
             }
-        )
-        if (result.status !== 0) {
-            return result
+        );
+        if (result.status !== 0)
+        {
+            return result;
         }
         physicalRuns.push({
             sourceProject: closure.sourceProject,
@@ -156,9 +171,9 @@ function runPhysicalMutations({ selection, toolPolicy, runDirectory, root, physi
                 'reports/changed-critical-mutation.json'
             ),
             tracePath: findTraceLog(physicalOutput)
-        })
+        });
     }
-    return { status: 0 }
+    return { status: 0 };
 }
 
 /**
@@ -174,32 +189,34 @@ export function runChangedCriticalPhysicalMutations({
     toolPolicy,
     runDirectory,
     root
-}) {
-    const physicalRuns = []
+})
+{
+    const physicalRuns = [];
     const result = runPhysicalMutations({
         selection,
         toolPolicy,
         runDirectory,
         root,
         physicalRuns
-    })
-    return { ...result, physicalRuns }
+    });
+    return { ...result, physicalRuns };
 }
 
-function main() {
-    const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
-    const options = parseArguments(process.argv.slice(2))
-    const toolPolicyPath = resolve(options.catalog)
-    const rawToolPolicy = readFileSync(toolPolicyPath)
-    const toolPolicy = JSON.parse(rawToolPolicy)
-    validateToolPolicy(toolPolicy)
-    const ownerReceiptPath = resolve(options.ownerReceipt)
-    const ownerReceipt = JSON.parse(readFileSync(ownerReceiptPath))
-    const behaviorCatalogPath = resolve(options.behaviorCatalog)
-    const behaviorCatalog = JSON.parse(readFileSync(behaviorCatalogPath))
-    const testBindingPath = resolve(options.testBindings)
-    const rawTestBindingScan = readFileSync(testBindingPath)
-    const testBindingScan = JSON.parse(rawTestBindingScan)
+function main()
+{
+    const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+    const options = parseArguments(process.argv.slice(2));
+    const toolPolicyPath = resolve(options.catalog);
+    const rawToolPolicy = readFileSync(toolPolicyPath);
+    const toolPolicy = JSON.parse(rawToolPolicy);
+    validateToolPolicy(toolPolicy);
+    const ownerReceiptPath = resolve(options.ownerReceipt);
+    const ownerReceipt = JSON.parse(readFileSync(ownerReceiptPath));
+    const behaviorCatalogPath = resolve(options.behaviorCatalog);
+    const behaviorCatalog = JSON.parse(readFileSync(behaviorCatalogPath));
+    const testBindingPath = resolve(options.testBindings);
+    const rawTestBindingScan = readFileSync(testBindingPath);
+    const testBindingScan = JSON.parse(rawTestBindingScan);
     const selection = selectChangedCriticalMutation({
         toolPolicy,
         rawToolPolicy,
@@ -212,13 +229,13 @@ function main() {
         behaviorCatalog,
         testBindingScan,
         rawTestBindingScan
-    })
-    const runDirectory = resolve(options.outputRoot, options.runId)
-    const selectionPath = resolve(runDirectory, 'selection.json')
-    writeJsonAtomic(selectionPath, selection)
-    const rawSelection = readFileSync(selectionPath)
+    });
+    const runDirectory = resolve(options.outputRoot, options.runId);
+    const selectionPath = resolve(runDirectory, 'selection.json');
+    writeJsonAtomic(selectionPath, selection);
+    const rawSelection = readFileSync(selectionPath);
 
-    const physicalRuns = []
+    const physicalRuns = [];
     const run = executeChangedCriticalSelection({
         selection,
         spawnStryker: () => runPhysicalMutations({
@@ -228,20 +245,22 @@ function main() {
             root,
             physicalRuns
         })
-    })
-    writeJsonAtomic(resolve(runDirectory, 'run.json'), run)
-    if (run.status === 'empty') {
+    });
+    writeJsonAtomic(resolve(runDirectory, 'run.json'), run);
+    if (run.status === 'empty')
+    {
         process.stdout.write(
             `[changed-critical-mutation] empty closure=${selection.closureDigest}; `
             + 'Stryker not started\n'
-        )
-        return
+        );
+        return;
     }
 
-    const authorityRuns = physicalRuns.map((physical) => {
-        const rawConfig = readFileSync(physical.configPath)
-        const rawReport = readFileSync(physical.reportPath)
-        const rawTrace = readFileSync(physical.tracePath)
+    const authorityRuns = physicalRuns.map((physical) =>
+    {
+        const rawConfig = readFileSync(physical.configPath);
+        const rawReport = readFileSync(physical.reportPath);
+        const rawTrace = readFileSync(physical.tracePath);
         return {
             sourceProject: physical.sourceProject,
             config: physical.config,
@@ -255,9 +274,9 @@ function main() {
                 report: repoRelative(root, physical.reportPath),
                 trace: repoRelative(root, physical.tracePath)
             }
-        }
-    })
-    const runManifestPath = resolve(runDirectory, 'run-manifest.json')
+        };
+    });
+    const runManifestPath = resolve(runDirectory, 'run-manifest.json');
     writeJsonAtomic(runManifestPath, {
         schema: 'fsusblog.changed-critical-mutation-run-manifest.v1',
         runs: authorityRuns.map((physical) => ({
@@ -266,7 +285,7 @@ function main() {
             report: physical.paths.report,
             trace: physical.paths.trace
         }))
-    })
+    });
     const authority = createChangedCriticalMutationAuthority({
         selection,
         rawSelection,
@@ -277,26 +296,26 @@ function main() {
         runId: options.runId,
         generatedAt: new Date().toISOString(),
         repositoryRoot: root
-    })
-    writeJsonAtomic(resolve(runDirectory, 'authority.json'), authority)
+    });
+    writeJsonAtomic(resolve(runDirectory, 'authority.json'), authority);
     const attributed = authorityRuns.map((physical) => attributeMutantsToBehaviors({
         report: physical.report,
         sourceProject: physical.sourceProject,
         ownerReceipt,
         selection
-    }))
-    const attributions = attributed.flatMap(({ attributions }) => attributions)
-    const blocked = attributed.flatMap(({ blocked }) => blocked)
+    }));
+    const attributions = attributed.flatMap(({ attributions }) => attributions);
+    const blocked = attributed.flatMap(({ blocked }) => blocked);
     const qualification = qualifyBehaviorMutations({
         attributions,
         blocked,
         behaviorCatalog,
         behaviorIds: selection.behaviors.map(({ behaviorId }) => behaviorId)
-    })
+    });
     const failureReasons = [
         ...blocked.map((entry) => `${entry.mutantId} attribution blocked: ${entry.reason}`),
         ...qualification.qualifications.flatMap((entry) => entry.failures)
-    ].sort()
+    ].sort();
     const mutationEvidence = sealMutationEvidenceReceipt({
         sourceCommit: selection.sourceState.commit,
         worktreeFingerprint: selection.sourceState.worktreeFingerprint,
@@ -311,23 +330,27 @@ function main() {
         blockedCount: blocked.length,
         status: qualification.failed ? 'failed' : 'ok',
         failureReasons
-    })
-    writeJsonAtomic(resolve(runDirectory, 'mutation-evidence.json'), mutationEvidence)
+    });
+    writeJsonAtomic(resolve(runDirectory, 'mutation-evidence.json'), mutationEvidence);
     process.stdout.write(
         `[changed-critical-mutation] ok closure=${selection.closureDigest} `
         + `executed=${authority.mutants.executed} `
         + `evidence=${repoRelative(root, resolve(runDirectory, 'mutation-evidence.json'))}\n`
-    )
+    );
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-    try {
-        main()
-    } catch (error) {
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url))
+{
+    try
+    {
+        main();
+    }
+    catch (error)
+    {
         process.stderr.write(
             `[changed-critical-mutation] `
             + `${error instanceof Error ? error.message : String(error)}\n`
-        )
-        process.exitCode = 1
+        );
+        process.exitCode = 1;
     }
 }

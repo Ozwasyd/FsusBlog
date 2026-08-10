@@ -4,6 +4,8 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- The contract test hashes fixture projections with the canonical receipt digest.
+import { digestCanonical } from '../../tools/test-fixtures/receipt/canonical.mjs';
 import {
     BrowserContractFailure,
     browserContractReceiptSchema,
@@ -16,6 +18,7 @@ import {
     loadBrowserContractFixture,
     resolveBrowserContractRunIdentity,
     selectBrowserContractScenarios
+// eslint-disable-next-line import-x/no-relative-parent-imports -- The static contract test exercises the browser-contract facade owned by its sibling suite.
 } from '../browser-contract/fixture.mjs';
 
 const root = path.resolve(import.meta.dirname, '../..');
@@ -164,13 +167,33 @@ test('fixture adapter consumes one immutable namespace without exposing infrastr
     });
     const authDirectory = path.join(directory, 'auth');
     await mkdir(authDirectory, { recursive: true });
-    const encode = (value) => Buffer.from(String(value), 'utf8').toString('base64url');
-    await writeFile(path.join(directory, 'public.aeds'), [
-        `generatedAt\t${encode('2026-07-16T00:00:00.000Z')}`,
-        `articleId\t${encode('17')}`,
-        `articleTitle\t${encode('Contract article')}`,
-        `categoryId\t${encode('3')}`
-    ].join('\n'));
+    const publicProjection = {
+        schema: 'fsusblog.prepared-public-id-projection.v1',
+        authority: 'derived-from-current-run-prepared-public-content',
+        notAuthoritative: true,
+        evidenceUse: 'navigation-input-only',
+        sourcePrepareStateDigest: `sha256:${'a'.repeat(64)}`,
+        namespace: 'contract-one',
+        articleId: '17',
+        articleTitle: 'Contract article',
+        categoryId: '3',
+        tagId: '4',
+        searchKeyword: 'Contract',
+        entities: [
+            { producerId: 'public-content', kind: 'article', id: '17', handle: 'Contract article', variantId: null },
+            { producerId: 'public-content', kind: 'category', id: '3', handle: 'Contract category', variantId: null },
+            { producerId: 'public-content', kind: 'tag', id: '4', handle: 'Contract tag', variantId: null }
+        ],
+        projectionDigest: null
+    };
+    publicProjection.projectionDigest = digestCanonical({
+        ...publicProjection,
+        projectionDigest: undefined
+    });
+    await writeFile(
+        path.join(directory, 'public-content-projection.json'),
+        `${JSON.stringify(publicProjection, null, 2)}\n`
+    );
     await writeFile(path.join(authDirectory, 'auth-fixtures.json'), JSON.stringify({
         generatedAt: '2026-07-16T00:00:00.000Z',
         user: { id: 21, storageStateFile: 'user.storage-state.json' },

@@ -1,47 +1,64 @@
 #!/usr/bin/env node
 
-import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { parseRuntimeEnvironment } from './bundles/runtime-environment.mjs';
 import { digestValue } from './release-reliability-receipt.mjs';
 import {
     projectQualifiedContainerEnvironment,
     releaseReliabilityAuditedContainerOverrides
 } from './release-reliability-runtime-environment.mjs';
-import { parseRuntimeEnvironment } from './bundles/runtime-environment.mjs';
 
 const digest = (value) => `sha256:${createHash('sha256').update(value).digest('hex')}`;
 const auditRetentionPolicyPath = 'src/backend/Infrastructure/Audit/AuditRetentionCatalog.cs';
 const canonical = (value) => Array.isArray(value) ? value.map(canonical) : value && typeof value === 'object'
     ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])])) : value;
-const confined = (root, relative, label) => {
+const confined = (root, relative, label) =>
+{
     const absolute = path.resolve(root, relative);
-    if (!relative || absolute === root || !absolute.startsWith(`${root}${path.sep}`)) throw new Error(`${label} escapes root`);
+    if (!relative || absolute === root || !absolute.startsWith(`${root}${path.sep}`))
+    {
+        throw new Error(`${label} escapes root`);
+    }
     for (let cursor = absolute; cursor !== root; cursor = path.dirname(cursor))
     {
-        if (fs.existsSync(cursor) && fs.lstatSync(cursor).isSymbolicLink()) throw new Error(`${label} contains a symlink`);
+        if (fs.existsSync(cursor) && fs.lstatSync(cursor).isSymbolicLink())
+        {
+            throw new Error(`${label} contains a symlink`);
+        }
     }
     return absolute;
 };
-const file = (root, value, label) => {
+const file = (root, value, label) =>
+{
     const relative = String(value ?? '').replace(/^\.\//u, '');
     const absolute = confined(root, relative, label);
     if (!fs.existsSync(absolute)
-        || !fs.lstatSync(absolute).isFile() || fs.lstatSync(absolute).isSymbolicLink()) throw new Error(`${label} is unavailable`);
+        || !fs.lstatSync(absolute).isFile() || fs.lstatSync(absolute).isSymbolicLink())
+    {
+        throw new Error(`${label} is unavailable`);
+    }
     return { path: relative, fileDigest: digest(fs.readFileSync(absolute)) };
 };
-const containerProcess = (name) => {
-    const read = (label, command) => {
+const containerProcess = (name) =>
+{
+    const read = (label, command) =>
+    {
         const result = spawnSync('docker', ['exec', name, 'sh', '-c', command], { encoding: 'utf8' });
-        if (result.status !== 0) throw new Error(`backend container procfs ${label} collection failed`);
+        if (result.status !== 0)
+        {
+            throw new Error(`backend container procfs ${label} collection failed`);
+        }
         return result.stdout;
     };
     const stat = read('stat', 'cat /proc/1/stat');
     const tail = stat.slice(stat.lastIndexOf(')') + 2).trim().split(/\s+/u);
     const lines = (value) => value.split(/\r?\n/u).filter(Boolean);
-    const environment = Object.fromEntries(lines(read('environment', "tr '\\000' '\\n' </proc/1/environ")).map((entry) => {
+    const environment = Object.fromEntries(lines(read('environment', "tr '\\000' '\\n' </proc/1/environ")).map((entry) =>
+    {
         const separator = entry.indexOf('=');
         return separator < 1 ? [entry, ''] : [entry.slice(0, separator), entry.slice(separator + 1)];
     }));
@@ -56,22 +73,41 @@ const containerProcess = (name) => {
         environment
     };
 };
-const inspectContainer = (name, label, runId, namespace) => {
+const inspectContainer = (name, label, runId, namespace) =>
+{
     const result = spawnSync('docker', ['inspect', name], { encoding: 'utf8' });
-    if (result.status !== 0) throw new Error(`${label} docker inspect failed`);
+    if (result.status !== 0)
+    {
+        throw new Error(`${label} docker inspect failed`);
+    }
     const [document] = JSON.parse(result.stdout);
     const labels = document?.Config?.Labels ?? {};
     if (!document?.Id || !document?.Config?.Image || !document?.Image || !document?.State?.Running
         || labels['io.fsusblog.test.run-id'] !== runId
-        || labels['io.fsusblog.test.namespace'] !== namespace) throw new Error(`${label} is not one running container for this run and namespace`);
+        || labels['io.fsusblog.test.namespace'] !== namespace)
+    {
+        throw new Error(`${label} is not one running container for this run and namespace`);
+    }
     return document;
 };
 const args = Object.fromEntries(process.argv.slice(2).reduce((pairs, value, index, values) => value.startsWith('--') ? [...pairs, [value.slice(2), values[index + 1]]] : pairs, []));
 const root = path.resolve(args.root ?? process.cwd());
 const required = ['run-id', 'namespace', 'fixture-root', 'config', 'schema', 'seed', 'audit-retention-policy', 'postgres', 'redis', 'backend-container', 'network', 'source-commit', 'source-fingerprint', 'runtime-image', 'image-digest', 'out'];
-for (const key of required) if (!args[key]) throw new Error(`--${key} is required`);
-if (args['audit-retention-policy'] !== auditRetentionPolicyPath) throw new Error('--audit-retention-policy must use the canonical machine-readable catalog');
-if (!/^sha256:[0-9a-f]{64}$/u.test(args['image-digest'])) throw new Error('--image-digest must be concrete');
+for (const key of required)
+{
+    if (!args[key])
+    {
+        throw new Error(`--${key} is required`);
+    }
+}
+if (args['audit-retention-policy'] !== auditRetentionPolicyPath)
+{
+    throw new Error('--audit-retention-policy must use the canonical machine-readable catalog');
+}
+if (!/^sha256:[0-9a-f]{64}$/u.test(args['image-digest']))
+{
+    throw new Error('--image-digest must be concrete');
+}
 const runtimeEnvironment = parseRuntimeEnvironment(
     fs.readFileSync(confined(root, String(args.config).replace(/^\.\//u, ''), 'config'), 'utf8'),
     args.namespace
@@ -84,7 +120,10 @@ if (runtimeEnvironment.FSUSBLOG_TEST_RUN_ID !== args['run-id']
     throw new Error('fixture config does not bind the qualified run, namespace services, and backend URL');
 }
 const imageInspection = spawnSync('docker', ['image', 'inspect', args['runtime-image']], { encoding: 'utf8' });
-if (imageInspection.status !== 0) throw new Error('runtime image docker inspect failed');
+if (imageInspection.status !== 0)
+{
+    throw new Error('runtime image docker inspect failed');
+}
 const [runtimeImage] = JSON.parse(imageInspection.stdout);
 if (runtimeImage?.Id !== args['image-digest'] || runtimeImage?.Config?.Labels?.['org.opencontainers.image.revision'] !== args['source-commit']
     || !Array.isArray(runtimeImage?.RootFS?.Layers) || runtimeImage.RootFS.Layers.length === 0)
@@ -92,7 +131,10 @@ if (runtimeImage?.Id !== args['image-digest'] || runtimeImage?.Config?.Labels?.[
     throw new Error('runtime image does not bind the inspected ID, source revision, and RootFS layers');
 }
 const backendContainerInspection = spawnSync('docker', ['inspect', args['backend-container']], { encoding: 'utf8' });
-if (backendContainerInspection.status !== 0) throw new Error('backend app container docker inspect failed');
+if (backendContainerInspection.status !== 0)
+{
+    throw new Error('backend app container docker inspect failed');
+}
 const [backendContainer] = JSON.parse(backendContainerInspection.stdout);
 const imageHealthcheck = runtimeImage?.Config?.Healthcheck;
 const containerHealthcheck = backendContainer?.Config?.Healthcheck;
@@ -111,7 +153,10 @@ if (!backendContainer?.State?.Running || !backendContainer.State?.StartedAt
 const postgresContainer = inspectContainer(args.postgres, 'postgres', args['run-id'], args.namespace);
 const redisContainer = inspectContainer(args.redis, 'redis', args['run-id'], args.namespace);
 const networkInspection = spawnSync('docker', ['network', 'inspect', args.network], { encoding: 'utf8' });
-if (networkInspection.status !== 0) throw new Error('qualified runtime network docker inspect failed');
+if (networkInspection.status !== 0)
+{
+    throw new Error('qualified runtime network docker inspect failed');
+}
 const [runtimeNetwork] = JSON.parse(networkInspection.stdout);
 const networkLabels = runtimeNetwork?.Labels ?? {};
 if (!runtimeNetwork?.Id || runtimeNetwork.Name !== args.network || runtimeNetwork.Driver !== 'bridge'
@@ -120,7 +165,8 @@ if (!runtimeNetwork?.Id || runtimeNetwork.Name !== args.network || runtimeNetwor
 {
     throw new Error('qualified runtime network is not one run-owned bridge');
 }
-const attachment = (container, label, requiredAlias = null) => {
+const attachment = (container, label, requiredAlias = null) =>
+{
     const value = container?.NetworkSettings?.Networks?.[args.network];
     const aliases = Array.isArray(value?.Aliases) ? value.Aliases : [];
     if (!value || value.NetworkID !== runtimeNetwork.Id
@@ -160,7 +206,8 @@ if (!Object.hasOwn(backendContainer.Config?.ExposedPorts ?? {}, '8080/tcp')
 }
 const observedBackend = containerProcess(args['backend-container']);
 const configuredEnvironmentEntries = backendContainer.Config?.Env ?? [];
-const configuredEnvironment = Object.fromEntries(configuredEnvironmentEntries.map((entry) => {
+const configuredEnvironment = Object.fromEntries(configuredEnvironmentEntries.map((entry) =>
+{
     const separator = entry.indexOf('=');
     return separator < 1 ? [entry, ''] : [entry.slice(0, separator), entry.slice(separator + 1)];
 }));
@@ -168,7 +215,8 @@ if (Object.keys(configuredEnvironment).length !== configuredEnvironmentEntries.l
 {
     throw new Error('backend container configured environment contains duplicate keys');
 }
-const imageEnvironment = Object.fromEntries((runtimeImage.Config?.Env ?? []).map((entry) => {
+const imageEnvironment = Object.fromEntries((runtimeImage.Config?.Env ?? []).map((entry) =>
+{
     const separator = entry.indexOf('=');
     return separator < 1 ? [entry, ''] : [entry.slice(0, separator), entry.slice(separator + 1)];
 }));
@@ -202,7 +250,10 @@ if (observedBackend.pid !== 1 || observedBackend.processGroupId !== 1 || observe
     throw new Error('backend container process identity does not bind Docker config, procfs, run, namespace, role, and source');
 }
 const fixtureRoot = confined(root, String(args['fixture-root']).replace(/^\.\//u, ''), 'fixture root');
-if (!fs.existsSync(fixtureRoot) || !fs.lstatSync(fixtureRoot).isDirectory() || fs.lstatSync(fixtureRoot).isSymbolicLink()) throw new Error('fixture root is unavailable');
+if (!fs.existsSync(fixtureRoot) || !fs.lstatSync(fixtureRoot).isDirectory() || fs.lstatSync(fixtureRoot).isSymbolicLink())
+{
+    throw new Error('fixture root is unavailable');
+}
 const document = {
     schema: 'fsusblog.release-reliability-runtime-topology.v1', status: 'complete', runId: args['run-id'], namespace: args.namespace,
     root: path.relative(root, fixtureRoot).replaceAll(path.sep, '/'), config: file(root, args.config, 'config'), schemaFile: file(root, args.schema, 'schema'), seed: file(root, args.seed, 'seed'),
@@ -248,11 +299,20 @@ const document = {
         },
         process: observedBackend
     },
-    postgres: (() => { const value = { id: postgresContainer.Id, image: postgresContainer.Config.Image, imageId: postgresContainer.Image, labels: postgresContainer.Config.Labels ?? {} }; return { instance: value.id, version: 'docker-inspected', configDigest: digest(JSON.stringify(canonical(value))) }; })(),
-    redis: (() => { const value = { id: redisContainer.Id, image: redisContainer.Config.Image, imageId: redisContainer.Image, labels: redisContainer.Config.Labels ?? {} }; return { instance: value.id, version: 'docker-inspected', configDigest: digest(JSON.stringify(canonical(value))) }; })(), contentDigest: null
+    postgres: (() =>
+    {
+        const value = { id: postgresContainer.Id, image: postgresContainer.Config.Image, imageId: postgresContainer.Image, labels: postgresContainer.Config.Labels ?? {} }; return { instance: value.id, version: 'docker-inspected', configDigest: digest(JSON.stringify(canonical(value))) };
+    })(),
+    redis: (() =>
+    {
+        const value = { id: redisContainer.Id, image: redisContainer.Config.Image, imageId: redisContainer.Image, labels: redisContainer.Config.Labels ?? {} }; return { instance: value.id, version: 'docker-inspected', configDigest: digest(JSON.stringify(canonical(value))) };
+    })(), contentDigest: null
 };
 document.contentDigest = digestValue(document);
 const output = confined(root, String(args.out).replace(/^\.\//u, ''), '--out');
 fs.mkdirSync(path.dirname(output), { recursive: true });
-if (fs.existsSync(output) && (!fs.lstatSync(output).isFile() || fs.lstatSync(output).isSymbolicLink())) throw new Error('--out is not a regular file');
+if (fs.existsSync(output) && (!fs.lstatSync(output).isFile() || fs.lstatSync(output).isSymbolicLink()))
+{
+    throw new Error('--out is not a regular file');
+}
 fs.writeFileSync(output, `${JSON.stringify(document, null, 2)}\n`, { mode: 0o600 });

@@ -9,7 +9,7 @@
   "prioritySupplementCommentId": 5149820258,
   "requiredRunId": 30687733975,
   "allowedTestPaths": [
-    "tests/tools/issue-1822-ci-baseline.test.mjs",
+    "tests/tools/ci-baseline-contract.test.mjs",
     "tests/fixtures/issue-orchestration/ci-baseline-acceptance-map.json",
     "tests/fixtures/issue-orchestration/ci-baseline-expected-initial-failures.json",
     "tests/fixtures/issue-orchestration/ci-baseline-mutation-controls.json",
@@ -32,7 +32,7 @@
     "tests/test-retention-before.json"
   ],
   "implementationValidationCommands": [
-    "node --test tests/tools/issue-1822-ci-baseline.test.mjs",
+    "node --test tests/tools/ci-baseline-contract.test.mjs",
     "npm --prefix src/frontend ci --no-audit --progress=false",
     "npm --prefix src/frontend run test:unit:fast -- ../../tests/frontend/unit/services/binaryTransport.test.ts",
     "npm --prefix src/frontend run test:unit:fast -- ../../tests/frontend/unit/services/binaryTransport.test.ts ../../tests/frontend/unit/adapters/binary/index.test.ts",
@@ -68,7 +68,7 @@
     "other issue contracts"
   ],
   "fileHashes": {
-    "tests/tools/issue-1822-ci-baseline.test.mjs": "eb4c939ffd27b8cfb6c6290992227c1c2ccb77af61ab8e4ab702d76242d42abc",
+    "tests/tools/ci-baseline-contract.test.mjs": "a990fce62dbbc7273a3e8733310672dd1cd686ef353b4ae8202cbc8d5926687e",
     "tests/fixtures/issue-orchestration/ci-baseline-acceptance-map.json": "2f7eebd3f107393b039067feaaac9e762eb1cd30fca91bfb3b20ebd6a7bf746d",
     "tests/fixtures/issue-orchestration/ci-baseline-expected-initial-failures.json": "0cdbedaacdd7b85fcfc070d56d1ded2364f381a3a9b7ab580caabc11cd307554",
     "tests/fixtures/issue-orchestration/ci-baseline-mutation-controls.json": "04d6e738cd39baa8c14a11a81cb1e9b5fc851a65b67f6bd8808fe9f51674de51",
@@ -76,7 +76,7 @@
     "tests/frontend/unit/services/binaryTransport.test.ts": "c0229fb0770102fc829f621ebbb73e8bcb67c439c429e44fae5e6ce7d72ced75",
     "tests/frontend/unit/adapters/binary/index.test.ts": "d0187f62ae3d9e1c9d93bc77733e5f24b0630c58d3779e97c10ac326466642bc"
   },
-  "frozenTreeDigest": "e21e1e84f702de2b52450d623b5889a70759ae84bd7d3f0a0d14f022162a696d",
+  "frozenTreeDigest": "e30f78dceab00e5a40a3fff9ccd08d30962a14afa686fb7263e51fc40bbaad51",
   "hashAlgorithm": "sha256-raw-file-bytes",
-  "contractDigest": "52b609759f5daea11b36dc9a821d4b97328de17eb2f5abf38c2ebce8fee5a229"
+  "contractDigest": "245a7876d8b14c54a0644d4862bc54d233c784e8effd026d341f9ee1a4496b10"
 }

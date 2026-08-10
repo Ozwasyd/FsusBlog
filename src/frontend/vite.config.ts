@@ -644,14 +644,18 @@ export default defineConfig(({ command, mode }) => {
     if (command === 'build' && mode === 'production') {
         assertProductionFrontendBuildId(frontendBuildId)
     }
-    const apiBaseUrl = env.VITE_API_BASE_URL?.trim() || 'http://127.0.0.1:7568'
+    const apiBaseUrl = process.env.VITE_API_BASE_URL?.trim()
+        || env.VITE_API_BASE_URL?.trim()
+        || 'http://127.0.0.1:7568'
     const enableVueHydrationMismatchDetails = process.env.FSUSBLOG_VUE_HYDRATION_DETAILS === '1'
         || process.env.FSUSBLOG_VUE_HYDRATION_DETAILS?.toLowerCase() === 'true'
     const warnAsError = process.env.FSUSBLOG_VITE_WARN_AS_ERROR === '1'
         || process.env.FSUSBLOG_VITE_WARN_AS_ERROR?.toLowerCase() === 'true'
     const isPublicSsrBuild = process.env.FSUSBLOG_PUBLIC_SSR_BUILD === '1'
         || process.env.FSUSBLOG_PUBLIC_SSR_BUILD?.toLowerCase() === 'true'
-    const enablePublicShellProxy = env.VITE_PUBLIC_SHELL_PROXY?.trim() === '1'
+    const publicShellProxyFlag = process.env.VITE_PUBLIC_SHELL_PROXY?.trim()
+        || env.VITE_PUBLIC_SHELL_PROXY?.trim()
+    const enablePublicShellProxy = publicShellProxyFlag === '1'
     const disableLocalFsusUi = process.env.FSUSBLOG_USE_LOCAL_FSUSUI === '0'
         || process.env.FSUSBLOG_USE_LOCAL_FSUSUI?.toLowerCase() === 'false'
     const localFsusUiRoot = !disableLocalFsusUi

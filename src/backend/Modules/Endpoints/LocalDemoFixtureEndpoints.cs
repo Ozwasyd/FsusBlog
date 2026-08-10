@@ -1,11 +1,11 @@
 // fixture-catalog: producer development-demo
-using System.Text.Json;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
-using FsusBlog.Server.Services.Fixtures;
 using FsusBlog.Server.Infrastructure.Testing;
+using FsusBlog.Server.Services.Fixtures;
 
 using Microsoft.AspNetCore.Mvc;
 

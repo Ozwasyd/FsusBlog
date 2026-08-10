@@ -54,9 +54,9 @@ import type { AccountArea } from '@/layouts/accountNav';
 
 type AccountMenuCommand = 'account' | 'manage' | 'guidelines' | 'privacy' | 'logout';
 
-type AccountMenuDropdownExpose = {
+interface AccountMenuDropdownExpose {
     handleClose: () => void;
-};
+}
 
 const props = withDefaults(defineProps<{
     canManage: boolean;

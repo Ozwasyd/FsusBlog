@@ -44,7 +44,7 @@ function replaceTierField(source, tierId, field, value)
     assert.notEqual(fieldIndex, -1, `${tierId} is missing field ${field}`);
     const absoluteFieldIndex = tierStart + fieldIndex;
     let nextFieldIndex = absoluteFieldIndex + 1;
-    while (nextFieldIndex < tierEnd && !/^      [A-Za-z][A-Za-z0-9]*:/u.test(lines[nextFieldIndex]))
+    while (nextFieldIndex < tierEnd && !/^ {6}[A-Za-z][A-Za-z0-9]*:/u.test(lines[nextFieldIndex]))
     {
         nextFieldIndex += 1;
     }
@@ -237,7 +237,10 @@ test('release-final exact-set binding rejects deletion, replacement, duplication
             const errors = validateReleaseFinalEvidenceBinding(mutated, canonical);
             assert.notDeepEqual(errors, []);
             const diagnostics = errors.join('\n');
-            for (const expected of mutation.diagnostics) assert.match(diagnostics, expected);
+            for (const expected of mutation.diagnostics)
+            {
+                assert.match(diagnostics, expected);
+            }
         });
     }
 });

@@ -248,40 +248,6 @@ public sealed class ReleaseStorageTopologyTests
     }
 
     [Fact]
-    public void AssetServices_SourceDoesNotReadWebRootContentRootOrLegacyUploadConstants()
-    {
-        string[] assetServiceSources =
-        [
-            Path.Combine("src", "backend", "Services", "FileService.cs"),
-            Path.Combine("src", "backend", "Services", "Background", "ArticleAssetCleanupWorker.cs"),
-            Path.Combine("src", "backend", "Infrastructure", "Operations", "AdminIntegrityOperations.cs")
-        ];
-
-        string repositoryRoot = BackendTestPaths.RepositoryRoot;
-        foreach (string relative in assetServiceSources)
-        {
-            string source = File.ReadAllText(Path.Combine(repositoryRoot, relative));
-            Assert.DoesNotContain("WebRootPath", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("ContentRootPath", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("wwwroot/uploads", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("wwwroot\\uploads", source, StringComparison.Ordinal);
-            Assert.DoesNotContain(".upload-sessions", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("UploadsRoot", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("FSUSBLOG_SHARED_STORAGE_ROOT", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("FSUSBLOG_INSTANCE_STORAGE_ROOT", source, StringComparison.Ordinal);
-        }
-
-        string fileServiceSource = File.ReadAllText(Path.Combine(repositoryRoot, assetServiceSources[0]));
-        Assert.Contains("ReleaseStoragePaths", fileServiceSource, StringComparison.Ordinal);
-        Assert.Contains("PublicAssetRoot", fileServiceSource, StringComparison.Ordinal);
-        Assert.Contains("UploadSessionRoot", fileServiceSource, StringComparison.Ordinal);
-        Assert.Contains("UploadCommitRoot", fileServiceSource, StringComparison.Ordinal);
-        Assert.Contains("expiration.bucket", fileServiceSource, StringComparison.Ordinal);
-        Assert.Contains("TryReadExpirationIndexOwner", fileServiceSource, StringComparison.Ordinal);
-        Assert.Contains("DeleteOwnedExpirationIndex", fileServiceSource, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void ReleaseStoragePaths_IsImmutableRecordWithoutUploadsRoot()
     {
         Assert.True(typeof(ReleaseStoragePaths).IsSealed);

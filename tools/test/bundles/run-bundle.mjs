@@ -70,6 +70,11 @@ import {
 } from '../../test-matrix/run-bound-marker.mjs';
 import { readSchedulerProducerTerminalFailure } from '../../test-matrix/scheduler-run-owner.mjs';
 import { backendTopologyDefaults } from '../backend-production-topology.mjs';
+import { buildLocalStaticManifest, planLocalStaticCommands } from '../local-static-governance.mjs';
+import {
+    readMeasurementNoiseAuthoritySequence,
+    validateMeasurementNoiseReceipt
+} from '../measurement-noise-envelope.mjs';
 import { validateShardSummaryArtifacts } from '../run-backend-production-shards.mjs';
 
 import {
@@ -86,11 +91,6 @@ import { wrapTaskScopedMeasurementCommand } from './measurement-step-command.mjs
 import { readRuntimeEnvironment } from './runtime-environment.mjs';
 import { writeBundleSummaryAtomically } from './terminal-summary.mjs';
 
-import { buildLocalStaticManifest, planLocalStaticCommands } from '../local-static-governance.mjs';
-import {
-    readMeasurementNoiseAuthoritySequence,
-    validateMeasurementNoiseReceipt
-} from '../measurement-noise-envelope.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const profileId = process.env.FSUSBLOG_LOCAL_PROFILE || 'production';
@@ -554,6 +554,8 @@ function criticalFrontendBuildStageOutputs(stages = expectedFrontendBuildStages(
 
 const runMarkerProducers = {
     'production-build-artifacts-ready': ['build-static', 'production-build-artifacts'],
+    'pr-smart-gate-plan-ready': ['build-static', 'pr-smart-gate-plan'],
+    'behavior-evidence-ready': ['backend-tests', 'behavior-evidence-pre-runtime'],
     'backend-coverage-ready': ['backend-tests', 'backend-coverage-summary'],
     'frontend-coverage-ready': ['frontend-tests', 'frontend-coverage-summary'],
     'runtime-state-ready': ['runtime-browser', 'runtime-state-stable'],
@@ -613,6 +615,14 @@ function currentRunMarkerArtifacts(markerId)
         process.env.FSUSBLOG_ACCEPTANCE_ENV_ROOT ?? path.join(root, '.tmp/env'));
     return {
         'production-build-artifacts-ready': [productionBuildReceiptFile()],
+        'pr-smart-gate-plan-ready': [
+            path.join(root, '.tmp/pr-plan.json'),
+            path.join(root, '.tmp/pr-changed-files.txt'),
+            releaseEvidenceFile('pr-smart-gate-summary.json')
+        ],
+        'behavior-evidence-ready': [
+            path.join(root, '.tmp/behavior-evidence-pre-runtime/receipt.json')
+        ],
         'backend-coverage-ready': [coverageDirectory('backend-merged', 'Summary.json')],
         'frontend-coverage-ready': [coverageDirectory('frontend', 'Summary.json')],
         'runtime-state-ready': [path.join(environmentRoot, `${namespace}.env`)],
@@ -1914,11 +1924,6 @@ function bundleDagCapacityForSteps(steps)
 
 function bundleDeadlineMs()
 {
-    const deadlineMs = Number(process.env.FSUSBLOG_BUNDLE_DEADLINE_MS);
-    if (Number.isFinite(deadlineMs) && deadlineMs > 0)
-    {
-        return deadlineMs;
-    }
     if (profile.enforceBudget === false)
     {
     // Observe-only production must not inherit the optimization target as a
@@ -1928,6 +1933,11 @@ function bundleDeadlineMs()
             .map((tierId) => Number(matrixTiers.get(tierId)?.timeoutMinutes) * 60_000)
             .filter((value) => Number.isFinite(value) && value > 0);
         return Math.max(profile.budgetMs, ...declaredFaultCeilings);
+    }
+    const deadlineMs = Number(process.env.FSUSBLOG_BUNDLE_DEADLINE_MS);
+    if (Number.isFinite(deadlineMs) && deadlineMs > 0)
+    {
+        return deadlineMs;
     }
     return resolveMachineExecutionTimeoutMs({
         baseTimeoutMs: profile.budgetMs,
@@ -2023,6 +2033,14 @@ function buildStaticSteps()
             }
         }),
         commandStep('validate-matrix', 'tools/test/run-matrix-governance-once.sh validate-matrix', ['validate-matrix']),
+        commandStep('pr-smart-gate-plan', 'tools/test/lanes/plan-pr-risk.sh', ['pr-smart-gate-plan'], {
+            dependsOn: ['validate-matrix'],
+            artifacts: currentRunMarkerArtifacts('pr-smart-gate-plan-ready'),
+            afterSuccess: () => publishCurrentRunMarker(
+                'pr-smart-gate-plan-ready',
+                'pr-smart-gate-plan'
+            )
+        }),
         commandStep('public-hydration-fast', 'tools/test/lanes/public-hydration-fast.sh', ['public-hydration-fast']),
         commandStep('perception-redteam', 'tools/test/lanes/perception-v2-redteam.sh pr', ['perception-v2-redteam-pr']),
         commandStep('risk-control', 'tools/test/lanes/risk-control-test-matrix.sh', ['risk-control-test-matrix'], {
@@ -2331,7 +2349,39 @@ async function runBackendTests()
       coverageDirectory('backend-merged', 'Summary.json')
     ])
   }
-/* eslint-enable @stylistic/brace-style, @stylistic/indent, @stylistic/semi, curly */
+    /* eslint-enable @stylistic/brace-style, @stylistic/indent, @stylistic/semi, curly */
+    await waitForCurrentRunMarker('pr-smart-gate-plan-ready');
+    const behaviorTestStep = commandStep(
+        'behavior-test-evidence',
+        'tools/test/lanes/behavior-test-evidence.sh',
+        ['behavior-test-evidence'],
+        {
+            artifacts: [path.join(root, '.tmp/behavior-test-evidence')]
+        }
+    );
+    await executeStep(behaviorTestStep);
+    const mutationStep = commandStep(
+        'backend-mutation-changed-critical',
+        'FSUSBLOG_MUTATION_SCOPE=pr tools/test/lanes/backend-mutation-changed-critical.sh',
+        ['backend-mutation-changed-critical'],
+        {
+            artifacts: [path.join(root, '.tmp/mutation/changed-critical')]
+        }
+    );
+    await executeStep(mutationStep);
+    const preRuntimeStep = commandStep(
+        'behavior-evidence-pre-runtime',
+        'tools/test/bundles/behavior-evidence-pre-runtime.sh',
+        ['behavior-evidence-pre-runtime'],
+        {
+            artifacts: [path.join(root, '.tmp/behavior-evidence-pre-runtime/receipt.json')],
+            afterSuccess: () => publishCurrentRunMarker(
+                'behavior-evidence-ready',
+                'behavior-evidence-pre-runtime'
+            )
+        }
+    );
+    await executeStep(preRuntimeStep);
 }
 
 function listFiles(directory, predicate = () => true)
@@ -2698,6 +2748,8 @@ async function executeRuntimeStepBody(step)
       ? waitForBackendTestsReady
       : step.id === 'frontend-build-ready'
         ? waitForFrontendBuildReady
+        : step.id === 'behavior-evidence-ready'
+          ? () => waitForCurrentRunMarker('behavior-evidence-ready')
         : step.id === 'production-build-artifacts-ready'
           ? () => waitForCurrentRunMarker('production-build-artifacts-ready')
         : null;

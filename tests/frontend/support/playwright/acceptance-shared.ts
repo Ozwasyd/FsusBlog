@@ -18,6 +18,7 @@ import {
 
 export type RuntimeAudit = {
   checkpoint: () => number
+  eventsSince: (start: number) => readonly string[]
   assertCleanSince: (start: number, label: string) => void
 }
 
@@ -247,7 +248,11 @@ export function attachRuntimeAudit(page: Page): RuntimeAudit {
       return
     }
 
-    events.push(`console:${message.type()}:${text}`)
+    const location = message.location()
+    const source = location.url
+      ? ` at ${location.url}:${location.lineNumber}:${location.columnNumber}`
+      : ''
+    events.push(`console:${message.type()}:${text}${source}`)
   })
 
   page.on('pageerror', (error) => {
@@ -286,6 +291,7 @@ export function attachRuntimeAudit(page: Page): RuntimeAudit {
 
   return {
     checkpoint: () => events.length,
+    eventsSince: (start) => events.slice(start),
     assertCleanSince: (start, label) => {
       expect(events.slice(start), `${label} should not emit runtime errors or warnings`).toEqual([])
     }
@@ -378,11 +384,86 @@ export async function openThemedAuditedContext(
   ))
   await context.addInitScript((options: {
     mode: ThemeMode
+    captureConsoleErrors: boolean
     disableHumanReadProof: boolean
     disableNotificationStream: boolean
     disableServiceWorker: boolean
   }) => {
-    const { mode, disableHumanReadProof, disableNotificationStream, disableServiceWorker } = options
+    const {
+      mode,
+      captureConsoleErrors,
+      disableHumanReadProof,
+      disableNotificationStream,
+      disableServiceWorker
+    } = options
+    const diagnosticWindow = window as typeof window & {
+      __FSUSBLOG_TEST_CONSOLE_ERRORS__?: Array<Readonly<{
+        message: string
+        name: string
+        stack: string[]
+      }>>
+      __FSUSBLOG_PUBLIC_ROUTE_DIAGNOSTICS__?: Array<Readonly<{
+        name: string
+        error?: string
+        target?: string
+      }>>
+    }
+    const diagnosticStorageKey = 'fsus:test:public-route-diagnostics'
+    try {
+      const storedDiagnostics = window.sessionStorage.getItem(diagnosticStorageKey)
+      diagnosticWindow.__FSUSBLOG_PUBLIC_ROUTE_DIAGNOSTICS__ = storedDiagnostics
+        ? JSON.parse(storedDiagnostics)
+        : []
+    } catch {
+      diagnosticWindow.__FSUSBLOG_PUBLIC_ROUTE_DIAGNOSTICS__ = []
+    }
+    if (captureConsoleErrors) {
+      diagnosticWindow.__FSUSBLOG_TEST_CONSOLE_ERRORS__ = []
+      const originalConsoleError = console.error.bind(console)
+      let consoleError = originalConsoleError
+      Object.defineProperty(console, 'error', {
+        configurable: true,
+        get: () => consoleError,
+        set: (writer: typeof console.error) => {
+          consoleError = (...data: unknown[]) => {
+            for (const value of data) {
+              if (!(value instanceof Error)) continue
+              diagnosticWindow.__FSUSBLOG_TEST_CONSOLE_ERRORS__?.push({
+                name: value.name.slice(0, 64),
+                message: value.message.slice(0, 512),
+                stack: (value.stack ?? '').split('\n').slice(0, 8)
+              })
+            }
+            writer(...data)
+          }
+        }
+      })
+    }
+    window.addEventListener('fsus:telemetry', (event) => {
+      const payload = (event as CustomEvent<{
+        name?: unknown
+        detail?: Readonly<Record<string, unknown>>
+      }>).detail
+      if (payload?.name !== 'public_route_prewarm_failure'
+        && payload?.name !== 'public_route_prewarm_timeout') {
+        return
+      }
+
+      const diagnostics = diagnosticWindow.__FSUSBLOG_PUBLIC_ROUTE_DIAGNOSTICS__
+      diagnostics?.push({
+        name: payload.name,
+        ...(typeof payload.detail?.error === 'string' ? { error: payload.detail.error } : {}),
+        ...(typeof payload.detail?.target === 'string' ? { target: payload.detail.target } : {})
+      })
+      if (diagnostics && diagnostics.length > 16) {
+        diagnostics.splice(0, diagnostics.length - 16)
+      }
+      try {
+        window.sessionStorage.setItem(diagnosticStorageKey, JSON.stringify(diagnostics))
+      } catch {
+        // Test diagnostics remain best-effort when storage is unavailable.
+      }
+    })
 
     if (disableServiceWorker) {
       const runtimeWindow = window as typeof window & {
@@ -457,6 +538,7 @@ export async function openThemedAuditedContext(
     }
   }, {
     mode: themeMode,
+    captureConsoleErrors: process.env.FSUSBLOG_MANUAL_SCREENSHOT_RUNTIME_AUDIT === '1',
     disableHumanReadProof: process.env.FSUSBLOG_DISABLE_HUMAN_READ_PROOF === '1',
     disableNotificationStream: process.env.FSUSBLOG_DISABLE_NOTIFICATION_STREAM === '1',
     disableServiceWorker
@@ -511,12 +593,58 @@ export async function ensureThemeApplied(page: Page, mode: ThemeMode): Promise<v
   await settlePage(page)
 }
 
-export async function prewarmDevRuntime(browser: Browser): Promise<void> {
+export async function prewarmDevRuntime(
+  browser: Browser,
+  paths: readonly string[] = ['/']
+): Promise<void> {
   let session = await openAuditedPage(browser)
 
   const warm = async (): Promise<void> => {
-    await session.page.goto('/', { waitUntil: 'domcontentloaded' })
-    await waitForAppReady(session.page, WARMUP_TIMEOUT_MS)
+    for (const path of paths) {
+      const checkpoint = session.audit.checkpoint()
+      try {
+        await session.page.goto(path, { waitUntil: 'domcontentloaded' })
+        await waitForAppReady(session.page, WARMUP_TIMEOUT_MS)
+      } catch (error) {
+        let readiness: unknown
+        try {
+          readiness = await session.page.evaluate(() => {
+            const app = document.querySelector('#app')
+            const loader = document.getElementById('global-loader')
+            const appRect = app?.getBoundingClientRect()
+            return {
+              url: location.href,
+              documentReadyState: document.readyState,
+              app: app instanceof HTMLElement
+                ? {
+                    display: getComputedStyle(app).display,
+                    visibility: getComputedStyle(app).visibility,
+                    opacity: getComputedStyle(app).opacity,
+                    width: appRect?.width ?? 0,
+                    height: appRect?.height ?? 0
+                  }
+                : null,
+              loader: loader
+                ? {
+                    hidden: loader.hidden,
+                    status: loader.querySelector('[data-fsus-loader-status]')?.textContent?.trim() ?? null
+                  }
+                : null
+            }
+          })
+        } catch (diagnosticError) {
+          readiness = {
+            unavailable: diagnosticError instanceof Error
+              ? diagnosticError.message
+              : String(diagnosticError)
+          }
+        }
+        throw new Error(`prewarm failed path=${path} diagnostics=${JSON.stringify({
+          readiness,
+          runtimeEvents: session.audit.eventsSince(checkpoint)
+        })}`, { cause: error })
+      }
+    }
   }
 
   try {
@@ -527,7 +655,7 @@ export async function prewarmDevRuntime(browser: Browser): Promise<void> {
       // triggered it and can crash that renderer before reload. Replace the
       // audited context once after the transform budget; a persistent failure
       // still fails the second readiness check instead of being hidden.
-      if (!(error instanceof Error) || error.name !== 'TimeoutError') {
+      if (!isRecoverablePrewarmFailure(error)) {
         throw error
       }
 
@@ -538,6 +666,26 @@ export async function prewarmDevRuntime(browser: Browser): Promise<void> {
   } finally {
     await session.close()
   }
+}
+
+export function isRecoverablePrewarmFailure(error: unknown): boolean {
+  const visited = new Set<unknown>()
+  let current: unknown = error
+
+  while (current !== null && current !== undefined && !visited.has(current)) {
+    visited.add(current)
+    if (current instanceof Error) {
+      if (current.name === 'TimeoutError'
+        || /Target page, context or browser has been closed|Execution context was destroyed/iu.test(current.message)) {
+        return true
+      }
+      current = current.cause
+      continue
+    }
+    break
+  }
+
+  return false
 }
 
 export async function captureStorageState(

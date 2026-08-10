@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -13,16 +13,17 @@ import {
     verifyProductionBuildReceipt
 } from '../ci/production-build-artifacts.mjs';
 import { snapshotGitWorktree } from '../test-matrix/scheduler.mjs';
+
 import { parseRuntimeEnvironment } from './bundles/runtime-environment.mjs';
-import {
-    projectQualifiedContainerEnvironment,
-    releaseReliabilityAuditedContainerOverrides
-} from './release-reliability-runtime-environment.mjs';
 import {
     expandLifecycleTemplate,
     lifecycleActionIds,
     loadLifecycleActionContracts
 } from './release-reliability-lifecycle-actions.mjs';
+import {
+    projectQualifiedContainerEnvironment,
+    releaseReliabilityAuditedContainerOverrides
+} from './release-reliability-runtime-environment.mjs';
 import {
     verifyLifecycleActionReceipt
 } from './verify-release-reliability-lifecycle-action.mjs';
@@ -678,9 +679,15 @@ function verifyBuild(repositoryRoot, identity)
         throw new Error('build receipt content/source/run/toolchain mismatch');
     }
     const inspected = spawnSync('docker', ['image', 'inspect', image.reference], { encoding: 'utf8' });
-    if (inspected.status !== 0) throw new Error('runtime image docker inspect failed');
+    if (inspected.status !== 0)
+    {
+        throw new Error('runtime image docker inspect failed');
+    }
     const documents = JSON.parse(inspected.stdout);
-    if (!Array.isArray(documents) || documents.length !== 1) throw new Error('runtime image inspect did not return exactly one image');
+    if (!Array.isArray(documents) || documents.length !== 1)
+    {
+        throw new Error('runtime image inspect did not return exactly one image');
+    }
     const liveImage = documents[0];
     if (liveImage?.Config?.Labels?.['org.opencontainers.image.revision'] !== identity.sourceState.commit
         || liveImage?.Config?.Labels?.['io.fsusblog.build.fsusui-source'] !== image.fsusuiSource
@@ -707,15 +714,20 @@ function verifyBuild(repositoryRoot, identity)
 
 function inspectContainerProcess(containerId)
 {
-    const read = (label, command) => {
+    const read = (label, command) =>
+    {
         const result = spawnSync('docker', ['exec', containerId, 'sh', '-c', command], { encoding: 'utf8' });
-        if (result.status !== 0) throw new Error(`fixture backend container procfs ${label} inspect failed`);
+        if (result.status !== 0)
+        {
+            throw new Error(`fixture backend container procfs ${label} inspect failed`);
+        }
         return result.stdout;
     };
     const stat = read('stat', 'cat /proc/1/stat');
     const tail = stat.slice(stat.lastIndexOf(')') + 2).trim().split(/\s+/u);
     const lines = (value) => value.split(/\r?\n/u).filter(Boolean);
-    const environment = Object.fromEntries(lines(read('environment', "tr '\\000' '\\n' </proc/1/environ")).map((entry) => {
+    const environment = Object.fromEntries(lines(read('environment', "tr '\\000' '\\n' </proc/1/environ")).map((entry) =>
+    {
         const separator = entry.indexOf('=');
         return separator < 1 ? [entry, ''] : [entry.slice(0, separator), entry.slice(separator + 1)];
     }));
@@ -805,7 +817,10 @@ function verifyFixture(repositoryRoot, fixture, identity, runtimeImage)
         throw new Error('fixture topology content identity is incomplete or mismatched');
     }
     const backendContainerInspection = spawnSync('docker', ['inspect', topology.runtime.backendContainer.id], { encoding: 'utf8' });
-    if (backendContainerInspection.status !== 0) throw new Error('fixture backend app container inspect failed');
+    if (backendContainerInspection.status !== 0)
+    {
+        throw new Error('fixture backend app container inspect failed');
+    }
     const [backendContainer] = JSON.parse(backendContainerInspection.stdout);
     const topologyHealth = topology.runtime.backendContainer.health;
     const containerHealthcheck = backendContainer?.Config?.Healthcheck;
@@ -847,21 +862,25 @@ function verifyFixture(repositoryRoot, fixture, identity, runtimeImage)
         throw new Error('fixture backend app container no longer binds image, health, port, ownership, and PID');
     }
     const liveProcess = inspectContainerProcess(backendContainer.Id);
-    const configuredEnvironment = Object.fromEntries(backendContainer.Config.Env.map((entry) => {
+    const configuredEnvironment = Object.fromEntries(backendContainer.Config.Env.map((entry) =>
+    {
         const separator = entry.indexOf('=');
         return separator < 1 ? [entry, ''] : [entry.slice(0, separator), entry.slice(separator + 1)];
     }));
     const configuredEnvironmentEntries = backendContainer.Config.Env;
-    const configuredEnvironmentKeys = configuredEnvironmentEntries.map((entry) => {
+    const configuredEnvironmentKeys = configuredEnvironmentEntries.map((entry) =>
+    {
         const separator = entry.indexOf('=');
         return separator < 1 ? entry : entry.slice(0, separator);
     });
     const imageEnvironmentEntries = runtimeImage.Config?.Env ?? [];
-    const imageEnvironmentKeys = imageEnvironmentEntries.map((entry) => {
+    const imageEnvironmentKeys = imageEnvironmentEntries.map((entry) =>
+    {
         const separator = entry.indexOf('=');
         return separator < 1 ? entry : entry.slice(0, separator);
     });
-    const imageEnvironment = Object.fromEntries(imageEnvironmentEntries.map((entry) => {
+    const imageEnvironment = Object.fromEntries(imageEnvironmentEntries.map((entry) =>
+    {
         const separator = entry.indexOf('=');
         return separator < 1 ? [entry, ''] : [entry.slice(0, separator), entry.slice(separator + 1)];
     }));
@@ -906,7 +925,10 @@ function verifyFixture(repositoryRoot, fixture, identity, runtimeImage)
             throw new Error(`fixture ${label} configured container name is missing`);
         }
         const inspected = spawnSync('docker', ['inspect', configuredName], { encoding: 'utf8' });
-        if (inspected.status !== 0) throw new Error(`fixture ${label} docker inspect failed`);
+        if (inspected.status !== 0)
+        {
+            throw new Error(`fixture ${label} docker inspect failed`);
+        }
         const [container] = JSON.parse(inspected.stdout);
         if (!container?.State?.Running || container.Id !== entry.instance)
         {
@@ -945,7 +967,8 @@ function verifyFixture(repositoryRoot, fixture, identity, runtimeImage)
     {
         throw new Error('fixture runtime network identity or ownership changed');
     }
-    const verifyAttachment = (container, label, authority, requiredAlias = null) => {
+    const verifyAttachment = (container, label, authority, requiredAlias = null) =>
+    {
         const attachment = container?.NetworkSettings?.Networks?.[runtimeNetwork.Name];
         const aliases = Array.isArray(attachment?.Aliases) ? [...attachment.Aliases].sort() : [];
         if (!attachment

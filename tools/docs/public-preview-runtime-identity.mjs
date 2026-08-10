@@ -10,7 +10,8 @@ const commitPattern = /^[a-f0-9]{40}$/u;
 const fingerprintPattern = /^[a-f0-9]{64}$/u;
 const runtimeRoles = [
     { role: 'backend', pidFile: 'backend.pid' },
-    { role: 'debug-frontend', pidFile: 'dev-server.pid' }
+    { role: 'debug-frontend', pidFile: 'dev-server.pid' },
+    { role: 'release-preview', pidFile: 'preview.pid' }
 ];
 
 function readPrivateFile(file)

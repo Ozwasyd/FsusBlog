@@ -58,7 +58,10 @@ test.describe('public-preview quality capture', () => {
           viewport: entry.qualityViewport
         })
         await writePublicPreviewQualitySidecar(outputDirectory, entry.file, report)
-        expect(report.status, `${entry.id} public-preview quality`).toBe('pass')
+        expect(
+          report.status,
+          `${entry.id} public-preview quality: ${qualityFailureSummary(report)}`
+        ).toBe('pass')
       }
     }
 
@@ -72,6 +75,16 @@ test.describe('public-preview quality capture', () => {
     expect(matrix.status, 'public-preview quality matrix').toBe('pass')
   })
 })
+
+function qualityFailureSummary(report: PublicPreviewQualityReport): string {
+  const machineFailures = Object.entries(report.machine)
+    .filter(([, result]) => result.status !== 'pass')
+    .map(([name, result]) => ({ name, findings: result.findings }))
+  return JSON.stringify({
+    machineFailures,
+    reviewerReasons: report.reviewer.reasons
+  })
+}
 
 async function captureScenario(
   browser: Browser,
@@ -97,7 +110,55 @@ async function captureScenario(
     await session.page.goto(path, { waitUntil: 'domcontentloaded' })
     await applyPublicPreviewZoom(session.page, scenario.zoom)
     const headerSamples = [await measurePublicPreviewHeader(session.page, 'domcontentloaded')]
-    await waitForAppReady(session.page)
+    try {
+      await waitForAppReady(session.page)
+    } catch (error) {
+      const readiness = await session.page.evaluate(() => {
+        const app = document.querySelector('#app')
+        const loader = document.getElementById('global-loader')
+        const appRect = app?.getBoundingClientRect()
+        const diagnostics = window as typeof window & {
+          __FSUSBLOG_PUBLIC_ROUTE_DIAGNOSTICS__?: Array<Readonly<{
+            name: string
+            error?: string
+            target?: string
+          }>>
+          __FSUSBLOG_TEST_CONSOLE_ERRORS__?: Array<Readonly<{
+            message: string
+            name: string
+            stack: string[]
+          }>>
+        }
+        return {
+          url: location.href,
+          documentReadyState: document.readyState,
+          app: app instanceof HTMLElement
+            ? {
+                display: getComputedStyle(app).display,
+                visibility: getComputedStyle(app).visibility,
+                opacity: getComputedStyle(app).opacity,
+                width: appRect?.width ?? 0,
+                height: appRect?.height ?? 0
+              }
+            : null,
+          loader: loader
+            ? {
+                hidden: loader.hidden,
+                status: loader.querySelector('[data-fsus-loader-status]')?.textContent?.trim() ?? null
+              }
+            : null,
+          publicRouteDiagnostics: diagnostics.__FSUSBLOG_PUBLIC_ROUTE_DIAGNOSTICS__ ?? [],
+          consoleErrors: diagnostics.__FSUSBLOG_TEST_CONSOLE_ERRORS__ ?? []
+        }
+      })
+      throw new Error(
+        `public-preview readiness failed scenario=${scenario.id} diagnostics=${JSON.stringify({
+          readiness,
+          runtimeEvents: session.audit.eventsSince(checkpoint)
+        })}`,
+        { cause: error }
+      )
+    }
     headerSamples.push(await measurePublicPreviewHeader(session.page, 'application-ready'))
     await settlePage(session.page)
     await ensureThemeApplied(session.page, scenario.theme as ThemeMode)

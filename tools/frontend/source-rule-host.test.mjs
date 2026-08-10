@@ -235,10 +235,19 @@ test('migration owner registry assigns every check command exactly once', async 
 test('repository migration registry binds the full static inventory and specialized command baseline', () =>
 {
     const registry = buildFrontendStaticOwnerRegistry({ repoRoot: repositoryRoot });
+    const policy = JSON.parse(readFileSync(
+        join(repositoryRoot, 'config/development/frontend-style-policy.json'),
+        'utf8'
+    ));
     assert.deepEqual(validateFrontendStaticOwnerRegistry(registry), []);
     assert.equal(registry.summary.sharedHost, 2);
     assert.equal(registry.commands.filter(({ owner }) => owner === 'shared-host').length, 2);
-    assert.equal(registry.specializedGovernance.commandCount, 207);
+    assert.deepEqual(registry.specializedGovernance, {
+        package: policy.specializedGovernance.package,
+        commandCount: policy.specializedGovernance.count,
+        idsSha256: policy.specializedGovernance.idsSha256,
+        definitionsSha256: policy.specializedGovernance.definitionsSha256
+    });
     assert.equal(
         registry.summary.commandCount,
         registry.summary.sharedHost

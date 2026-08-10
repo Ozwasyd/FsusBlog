@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { expandFixtureProfile } from '../testing/fixture-catalog.mjs';
+
 import { createArtifactDigestTable } from './artifact-digest-table.mjs';
 import {
     behaviorDocStaticAdmissionTierId,
@@ -9,7 +11,6 @@ import {
     localBehaviorDocCandidateBundleIds
 } from './behavior-doc-static-admission-contract.mjs';
 import { productionResidentServiceIds } from './resident-resource-leases.mjs';
-import { expandFixtureProfile } from '../testing/fixture-catalog.mjs';
 
 function profileEntries(localProfiles)
 {
