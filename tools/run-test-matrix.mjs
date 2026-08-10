@@ -4797,12 +4797,12 @@ function printCiJobPlan(matrix, jobId)
     }
 }
 
-async function runCiJobScheduled(matrix, jobId, tiers, options)
+async function runCiJobScheduled(matrix, jobId, tiers, options, existingBehaviorDocAdmission = null)
 {
     const targetTierId = `ci-job/${jobId}`;
     const { runsRoot, runId } = schedulerRunIdentity(targetTierId, options);
     const { sourceState: buildSourceState } = await collectSchedulerSourceState(root);
-    const behaviorDocAdmission = await establishBehaviorDocAdmission({
+    const behaviorDocAdmission = existingBehaviorDocAdmission ?? await establishBehaviorDocAdmission({
         repositoryRoot: root,
         runId
     });
@@ -4960,7 +4960,7 @@ async function runCiJobScheduled(matrix, jobId, tiers, options)
     return result.status === 'success' ? 0 : Number(result.failure?.exitCode) || 1;
 }
 
-async function runCiJob(matrix, jobId, args)
+async function runCiJob(matrix, jobId, args, context = {})
 {
     const options = parseCiJobOptions(args);
     const declaredTiers = effectiveCiJobTiers(matrix, jobId);
@@ -4979,15 +4979,38 @@ async function runCiJob(matrix, jobId, args)
     }
     if (jobId === 'validate-matrix')
     {
-        const { runId } = schedulerRunIdentity(`ci-job/${jobId}`, options);
-        const { sourceState } = await collectSchedulerSourceState(root);
-        executeStaticMatrixPrerequisite(declaredTiers[0], { runId, sourceState });
-        return;
+        if (!context.preflightComplete)
+        {
+            const { runId } = schedulerRunIdentity(`ci-job/${jobId}`, options);
+            const { sourceState } = await collectSchedulerSourceState(root);
+            executeStaticMatrixPrerequisite(declaredTiers[0], { runId, sourceState });
+        }
+        const remainingTiers = declaredTiers.filter((tier) => tier.id !== 'validate-matrix');
+        if (remainingTiers.length === 0)
+        {
+            return 0;
+        }
+        options.systemResources = logicalTierSystemResources();
+        const resolvedTiers = resolveLogicalTierResources(remainingTiers, options.systemResources);
+        options.forceSerial = process.env.FSUSBLOG_CI_JOB_SERIAL === '1'
+            || ciJobSchedulerMode(resolvedTiers) === 'serial';
+        const status = await runCiJobScheduled(
+            matrix,
+            jobId,
+            resolvedTiers,
+            options,
+            context.behaviorDocAdmission
+        );
+        if (status !== 0)
+        {
+            process.exitCode = status;
+        }
+        return status;
     }
     if (jobId === behaviorDocAdmissionTierId)
     {
         await runTier(matrix, behaviorDocAdmissionTierId, args);
-        return;
+        return Number(process.exitCode) || 0;
     }
 
     options.systemResources = logicalTierSystemResources();
@@ -4997,11 +5020,18 @@ async function runCiJob(matrix, jobId, args)
     {
         console.error(`[matrix:ci-job:${jobId}] scheduler=serial forced by FSUSBLOG_CI_JOB_SERIAL=1`);
     }
-    const status = await runCiJobScheduled(matrix, jobId, tiers, options);
+    const status = await runCiJobScheduled(
+        matrix,
+        jobId,
+        tiers,
+        options,
+        context.behaviorDocAdmission
+    );
     if (status !== 0)
     {
         process.exitCode = status;
     }
+    return status;
 }
 
 function parseAggregateOptions(args)
@@ -5426,6 +5456,147 @@ function buildCiPlan(matrix, format)
             evidence: [...job.evidence].sort()
         })).sort((a, b) => a.id.localeCompare(b.id))
     };
+}
+
+function buildLocalAggregateWorkflowPlan(matrix, aggregateJobId)
+{
+    const aggregatePlan = buildAggregatePlan(matrix, aggregateJobId);
+    const ciPlan = buildCiPlan(matrix, 'local-workflow');
+    const byJob = new Map(ciPlan.jobs.map((job) => [job.id, job]));
+    const selectedJobIds = new Set(aggregatePlan.dependencyJobs);
+    const pending = [...selectedJobIds];
+    while (pending.length > 0)
+    {
+        const jobId = pending.pop();
+        const job = byJob.get(jobId);
+        if (!job)
+        {
+            throw new Error(`aggregate dependency job is absent from ci-plan: ${jobId}`);
+        }
+        for (const dependencyId of job.needs)
+        {
+            if (dependencyId === aggregateJobId || selectedJobIds.has(dependencyId))
+            {
+                continue;
+            }
+            if (!byJob.has(dependencyId))
+            {
+                throw new Error(`CI job dependency is absent from ci-plan: ${jobId} -> ${dependencyId}`);
+            }
+            selectedJobIds.add(dependencyId);
+            pending.push(dependencyId);
+        }
+    }
+
+    const orderedJobIds = [];
+    const completed = new Set();
+    while (orderedJobIds.length < selectedJobIds.size)
+    {
+        const ready = [...selectedJobIds]
+            .filter((jobId) => !completed.has(jobId))
+            .filter((jobId) => byJob.get(jobId).needs
+                .filter((dependencyId) => selectedJobIds.has(dependencyId))
+                .every((dependencyId) => completed.has(dependencyId)))
+            .sort();
+        if (ready.length === 0)
+        {
+            const unresolved = [...selectedJobIds].filter((jobId) => !completed.has(jobId)).sort();
+            throw new Error(`local CI workflow contains a job dependency cycle: ${unresolved.join(', ')}`);
+        }
+        for (const jobId of ready)
+        {
+            completed.add(jobId);
+            orderedJobIds.push(jobId);
+        }
+    }
+
+    return {
+        aggregateJobId,
+        orderedJobIds,
+        aggregatePlan
+    };
+}
+
+function printLocalAggregateWorkflowPlan(matrix, workflowPlan)
+{
+    console.log(`Local CI workflow "${workflowPlan.aggregateJobId}" (matrix-derived):`);
+    let index = 1;
+    for (const jobId of workflowPlan.orderedJobIds)
+    {
+        if (jobId === 'validate-matrix')
+        {
+            for (const tier of effectiveCiJobTiers(matrix, jobId))
+            {
+                console.log(`${index}. ${tier.id} [setup]: ${tierReproductionCommand(tier, { noDeps: true })}`);
+                index += 1;
+            }
+            continue;
+        }
+        if (jobId === behaviorDocAdmissionTierId)
+        {
+            const tier = tierMap(matrix).get(behaviorDocAdmissionTierId);
+            console.log(`${index}. ${jobId} [setup]: ${tierReproductionCommand(tier, { noDeps: true })}`);
+            index += 1;
+            continue;
+        }
+        console.log(`${index}. ${jobId} [producer]: ${ciJobReproductionCommand(jobId, matrix)}`);
+        index += 1;
+    }
+    console.log(
+        `${index}. ${workflowPlan.aggregateJobId} [aggregate]:`
+        + ` node tools/run-test-matrix.mjs aggregate ${workflowPlan.aggregateJobId}`
+    );
+}
+
+async function runLocalAggregateWorkflow(matrix, aggregateJobId, args)
+{
+    const options = parseCiJobOptions(args);
+    if (options.shard)
+    {
+        throw new Error(`${aggregateJobId} local workflow does not accept --shard; shard its producer ci-job instead`);
+    }
+    const workflowPlan = buildLocalAggregateWorkflowPlan(matrix, aggregateJobId);
+    if (options.planOnly)
+    {
+        printLocalAggregateWorkflowPlan(matrix, workflowPlan);
+        return;
+    }
+
+    const validateJobId = 'validate-matrix';
+    const validateTier = tierMap(matrix).get(validateJobId);
+    if (!workflowPlan.orderedJobIds.includes(validateJobId) || !validateTier)
+    {
+        throw new Error(`${aggregateJobId} local workflow is missing validate-matrix setup`);
+    }
+    const setupRunId = createRunId(`ci-workflow/${aggregateJobId}`);
+    const { sourceState } = await collectSchedulerSourceState(root);
+    executeStaticMatrixPrerequisite(validateTier, { runId: setupRunId, sourceState });
+    const behaviorDocAdmission = await establishBehaviorDocAdmission({
+        repositoryRoot: root,
+        runId: setupRunId
+    });
+    console.error(
+        `[matrix:ci-workflow:${aggregateJobId}] admission=${relativeToRoot(behaviorDocAdmission.receiptFile)}`
+        + ` digest=${behaviorDocAdmission.contentDigest}`
+    );
+
+    for (const jobId of workflowPlan.orderedJobIds)
+    {
+        if (jobId === behaviorDocAdmissionTierId)
+        {
+            continue;
+        }
+        const status = await runCiJob(matrix, jobId, args, {
+            behaviorDocAdmission,
+            preflightComplete: jobId === validateJobId
+        });
+        if (status !== 0)
+        {
+            console.error(`[matrix:ci-workflow:${aggregateJobId}] stopped after ${jobId}`);
+            return;
+        }
+    }
+    aggregateCiJob(matrix, aggregateJobId, []);
 }
 
 function parsePrSmartGateOptions(args)
@@ -6337,7 +6508,7 @@ async function main()
     }
     if (command === 'ci-fast')
     {
-        await runTier(matrix, 'fast', args);
+        await runLocalAggregateWorkflow(matrix, 'fast-summary', args);
         return;
     }
     if (command === 'ci-production')

@@ -270,6 +270,46 @@ test('generated CI commands come from validated aggregate authorities instead of
     );
 });
 
+test('ci-fast plans the matrix-derived producer workflow before the artifact-only aggregate', () =>
+{
+    const result = spawnSync(
+        process.execPath,
+        ['tools/run-test-matrix.mjs', 'ci-fast', '--plan-only'],
+        { cwd: root, encoding: 'utf8' }
+    );
+    const output = `${result.stdout}\n${result.stderr}`;
+    assert.equal(result.status, 0, output);
+    assert.match(output, /^Local CI workflow "fast-summary" \(matrix-derived\):/mu);
+    for (const jobId of [
+        'validate-matrix',
+        'test-inventory',
+        'behavior-doc-static-admission',
+        'fast-backend',
+        'fast-frontend-unit',
+        'fast-static-governance',
+        'frontend-build',
+        'frontend-runtime-contracts',
+        'frontend-static-governance'
+    ])
+    {
+        assert.match(output, new RegExp(`^\\d+\\. ${jobId}\\b`, 'mu'), jobId);
+    }
+    assert.match(
+        output,
+        /^\d+\. fast-summary \[aggregate\]: node tools\/run-test-matrix\.mjs aggregate fast-summary$/mu
+    );
+    assert.ok(
+        output.indexOf('frontend-build [producer]')
+        < output.indexOf('frontend-static-governance [producer]'),
+        output
+    );
+    assert.ok(
+        output.indexOf('frontend-static-governance [producer]')
+        < output.indexOf('fast-summary [aggregate]'),
+        output
+    );
+});
+
 test('all four generic summaries consume typed producer receipts without execution dependencies', () =>
 {
     const matrix = parseMatrix(readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
