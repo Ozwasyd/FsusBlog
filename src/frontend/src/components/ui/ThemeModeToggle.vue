@@ -1,6 +1,6 @@
 <template>
   <el-theme-mode-toggle
-    :model-value="mode"
+    :model-value="renderedMode"
     :compact="compact"
     :visibility="visibility"
     :variant="variant"
@@ -13,8 +13,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
-import { reconcileThemeRuntimeAfterHydration, useThemeRuntime, type ThemeMode } from '@/services/themeRuntime'
+import { computed, onMounted, ref } from 'vue'
+import {
+  readInitialThemeMode,
+  reconcileThemeRuntimeAfterHydration,
+  useThemeRuntime,
+  type ThemeMode
+} from '@/services/themeRuntime'
 import { FSUSBLOG_THEME_MODE_LABELS, type ThemeModeToggleLabels } from '@/components/ui/themeModeLabels'
 import { useI18nText } from '@/composables/useI18nText'
 
@@ -33,7 +38,10 @@ const props = withDefaults(defineProps<{
   labels: () => ({})
 })
 
+const initialMode = readInitialThemeMode()
 const { mode, setThemeMode } = useThemeRuntime()
+const hydrationSettled = ref(false)
+const renderedMode = computed(() => hydrationSettled.value ? mode.value : initialMode)
 const resolvedLabels = computed(() => ({
   ...FSUSBLOG_THEME_MODE_LABELS,
   ...props.labels,
@@ -41,6 +49,7 @@ const resolvedLabels = computed(() => ({
 
 onMounted(() => {
   reconcileThemeRuntimeAfterHydration()
+  hydrationSettled.value = true
 })
 
 function handleThemeModeUpdate(value: ThemeMode): void {

@@ -66,6 +66,7 @@ async function main() {
   const appPath = resolve(clientRoot, 'src/App.vue')
   const indexHtmlPath = resolve(clientRoot, 'index.html')
   const viteConfigPath = resolve(clientRoot, 'vite.config.ts')
+  const themeTogglePath = resolve(clientRoot, 'src/components/ui/ThemeModeToggle.vue')
   const composerPath = resolve(repoRoot, 'src/backend/Infrastructure/PublicAot/PublicAotDocumentComposer.cs')
 
   const hydrateSource = await readUtf8(hydratePath)
@@ -141,6 +142,21 @@ async function main() {
   assert(
     /vue\(\{\s*template:\s*\{\s*compilerOptions:\s*\{\s*comments:\s*false\s*\}\s*\}\s*\}\)/u.test(viteConfig),
     'client and public SSR builds must share comments=false so source comments cannot drift hydration children'
+  )
+
+  const themeToggle = await readUtf8(themeTogglePath)
+  assert(
+    themeToggle.includes('const initialMode = readInitialThemeMode()'),
+    'ThemeModeToggle must capture the hydration-safe theme before initializing the shared runtime'
+  )
+  assert(
+    themeToggle.includes('const renderedMode = computed(() => hydrationSettled.value ? mode.value : initialMode)'),
+    'ThemeModeToggle must keep the SSR-safe mode until mounted hydration settles'
+  )
+  assert(
+    themeToggle.includes('reconcileThemeRuntimeAfterHydration()')
+      && themeToggle.indexOf('reconcileThemeRuntimeAfterHydration()') < themeToggle.indexOf('hydrationSettled.value = true'),
+    'ThemeModeToggle must reconcile persisted preference before exposing runtime mode after mount'
   )
 
   const composerSource = await readUtf8(composerPath)
