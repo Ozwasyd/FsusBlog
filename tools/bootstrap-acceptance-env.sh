@@ -2644,19 +2644,13 @@ Main() {
     fi
     InvokeFixtureOrchestrator
     if CiProductionHasDomain frontend-dist; then
-        # Prefer the immutable frontend entry for liveness. Real public SSR may
-        # still be warming via public-AOT backfill after empty-DB bootstrap.
-        if [[ "$FIXTURE_REQUIRES_PUBLIC" == "1" || "$FIXTURE_REQUIRES_AUTH" == "1" ]]; then
-            WaitForUrl \
-                'release preview public home after fixture seeding' \
-                "${RELEASE_PREVIEW_URL}/?fsus-preview-proof=bootstrap" \
-                "$EXECUTION_DEADLINE_AT_MS"
-        else
-            WaitForUrl \
-                'release preview public home (zero-mutation profile)' \
-                "${RELEASE_PREVIEW_URL}/?fsus-preview-proof=bootstrap" \
-                "$EXECUTION_DEADLINE_AT_MS"
-        fi
+        # Process startup already proved the immutable frontend entry. Before
+        # publishing runtime readiness, require the ordinary proxied route so
+        # public SSR/AOT warmup cannot be hidden by the static bootstrap proof.
+        WaitForUrl \
+            'release preview public home after fixture orchestration' \
+            "${RELEASE_PREVIEW_URL}/" \
+            "$EXECUTION_DEADLINE_AT_MS"
     fi
     PublishEnvironmentReadyReceipt
     # Runtime topology inventory only (#1710). URLs/containers/generatedAt are NOT fixture

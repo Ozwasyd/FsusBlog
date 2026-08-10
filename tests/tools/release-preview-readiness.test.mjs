@@ -325,16 +325,24 @@ test('bootstrap validates the build marker before reuse/start and publishes only
     assert.match(viteConfigSource, /build:\s*\{[\s\S]*?modulePreload:\s*false/u);
 });
 
-test('bootstrap does not publish resident readiness until the post-fixture public home is ready', () =>
+test('bootstrap does not publish resident readiness until the ordinary post-fixture public home is ready', () =>
 {
-    const mainStart = bootstrapSource.indexOf('main() {');
+    const mainStart = bootstrapSource.indexOf('Main() {');
     const mainSource = bootstrapSource.slice(mainStart);
     const fixtures = mainSource.indexOf('InvokeFixtureOrchestrator');
-    const publicHome = mainSource.indexOf("'release preview public home after fixture seeding'", fixtures);
+    const publicHome = mainSource.indexOf("'release preview public home after fixture orchestration'", fixtures);
     const residentLease = mainSource.indexOf('resident-resource-leases-cli.mjs" publish', publicHome);
 
     assert.ok(mainStart >= 0);
     assert.ok(fixtures >= 0);
     assert.ok(publicHome > fixtures);
     assert.ok(residentLease > publicHome);
+    assert.match(
+        mainSource.slice(publicHome, residentLease),
+        /"\$\{RELEASE_PREVIEW_URL\}\/"/u
+    );
+    assert.doesNotMatch(
+        mainSource.slice(fixtures, residentLease),
+        /fsus-preview-proof/u
+    );
 });
