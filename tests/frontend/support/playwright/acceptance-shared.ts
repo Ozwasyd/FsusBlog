@@ -49,6 +49,11 @@ export const APP_READY_TIMEOUT_MS = 45_000
 // its local FsusUI alias before any route is audited. Keep that one-time cold
 // compile outside the ordinary 45s route-readiness budget.
 export const WARMUP_TIMEOUT_MS = 120_000
+export const PUBLIC_RUNTIME_DIAGNOSTIC_EVENT_NAMES = Object.freeze([
+  'public_route_prewarm_failure',
+  'public_route_prewarm_timeout',
+  'public_shell_hydration_failed'
+] as const)
 
 export type ViewportSize = { width: number, height: number }
 export type UxViewport = Readonly<{
@@ -387,6 +392,7 @@ export async function openThemedAuditedContext(
   await context.addInitScript((options: {
     mode: ThemeMode
     captureConsoleErrors: boolean
+    diagnosticEventNames: readonly string[]
     disableHumanReadProof: boolean
     disableNotificationStream: boolean
     disableServiceWorker: boolean
@@ -394,6 +400,7 @@ export async function openThemedAuditedContext(
     const {
       mode,
       captureConsoleErrors,
+      diagnosticEventNames,
       disableHumanReadProof,
       disableNotificationStream,
       disableServiceWorker
@@ -446,8 +453,8 @@ export async function openThemedAuditedContext(
         name?: unknown
         detail?: Readonly<Record<string, unknown>>
       }>).detail
-      if (payload?.name !== 'public_route_prewarm_failure'
-        && payload?.name !== 'public_route_prewarm_timeout') {
+      if (typeof payload?.name !== 'string'
+        || !diagnosticEventNames.includes(payload.name)) {
         return
       }
 
@@ -540,6 +547,7 @@ export async function openThemedAuditedContext(
   }, {
     mode: themeMode,
     captureConsoleErrors: process.env.FSUSBLOG_MANUAL_SCREENSHOT_RUNTIME_AUDIT === '1',
+    diagnosticEventNames: PUBLIC_RUNTIME_DIAGNOSTIC_EVENT_NAMES,
     disableHumanReadProof: process.env.FSUSBLOG_DISABLE_HUMAN_READ_PROOF === '1',
     disableNotificationStream: process.env.FSUSBLOG_DISABLE_NOTIFICATION_STREAM === '1',
     disableServiceWorker

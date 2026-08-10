@@ -36,6 +36,7 @@ const {
   MOBILE_LANDSCAPE_VIEWPORT,
   MOBILE_VIEWPORT,
   NARROW_MOBILE_VIEWPORT,
+  PUBLIC_RUNTIME_DIAGNOSTIC_EVENT_NAMES,
   SHORT_MOBILE_VIEWPORT,
   ULTRA_WIDE_VIEWPORT,
   UX_CONTENT_BOUNDARY_CORPUS,
@@ -58,6 +59,11 @@ describe('playwright acceptance shared helper', () => {
     expect(ULTRA_WIDE_VIEWPORT).toEqual({ width: 3440, height: 1440 })
     expect(UX_VIEWPORT_MATRIX.modes.smoke.viewports).toContain('ultra-wide')
     expect(UX_CONTENT_BOUNDARY_CORPUS.cases.map((entry) => entry.kind)).toContain('mermaid')
+    expect(PUBLIC_RUNTIME_DIAGNOSTIC_EVENT_NAMES).toEqual([
+      'public_route_prewarm_failure',
+      'public_route_prewarm_timeout',
+      'public_shell_hydration_failed'
+    ])
   })
 
   it('normalizes screenshot evidence without changing unrelated route counters', () => {
