@@ -251,6 +251,31 @@ public sealed class AuthCookieServiceSecurityTests
     }
 
     [Fact]
+    public void ReadTokenCookies_MissingOrEmptyValuesReturnNoCredential()
+    {
+        var service = new AuthCookieService(CreateConfiguration(), ProductionEnv());
+        var missingContext = new DefaultHttpContext();
+        var emptyContext = new DefaultHttpContext();
+        emptyContext.Request.Headers.Cookie = string.Join("; ", [
+            "__Host-AccessToken=",
+            "__Host-RefreshToken=",
+            "__Host-SessionId=",
+            "__Host-AdminAccessToken="
+        ]);
+
+        Assert.Null(service.ReadAccessToken(missingContext));
+        Assert.Null(service.ReadRefreshToken(missingContext));
+        Assert.Null(service.ReadSessionId(missingContext));
+        Assert.False(service.TryReadAdminAccessToken(missingContext, out string missingAdminToken));
+        Assert.Equal(string.Empty, missingAdminToken);
+        Assert.Null(service.ReadAccessToken(emptyContext));
+        Assert.Null(service.ReadRefreshToken(emptyContext));
+        Assert.Null(service.ReadSessionId(emptyContext));
+        Assert.False(service.TryReadAdminAccessToken(emptyContext, out string emptyAdminToken));
+        Assert.Equal(string.Empty, emptyAdminToken);
+    }
+
+    [Fact]
     public void ReadTokenCookies_DevelopmentRejectsLegacyPlainCookieFallback()
     {
         var disabled = new AuthCookieService(CreateConfiguration(new Dictionary<string, string?>
@@ -313,6 +338,18 @@ public sealed class AuthCookieServiceSecurityTests
     private static void AssertHostPrefixedDeleteCookieAttributes(string[] setCookies, string cookieName)
     {
         string cookie = Assert.Single(setCookies, cookie => cookie.StartsWith(cookieName + "=", StringComparison.Ordinal));
+        string value = cookie[(cookieName.Length + 1)..].Split(';', 2, StringSplitOptions.None)[0];
+        string expires = Assert.Single(
+            cookie.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+            static attribute => attribute.StartsWith("expires=", StringComparison.OrdinalIgnoreCase));
+
+        Assert.Equal(string.Empty, value);
+        Assert.True(
+            DateTimeOffset.ParseExact(
+                expires["expires=".Length..],
+                "R",
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal) < DateTimeOffset.UtcNow);
         Assert.Contains("; path=/", cookie, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("; secure", cookie, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("; httponly", cookie, StringComparison.OrdinalIgnoreCase);
