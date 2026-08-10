@@ -62,6 +62,7 @@ async function main() {
   const guardPath = resolve(clientRoot, 'src/public-renderers/hydrationIdentityGuard.ts')
   const perfPath = resolve(clientRoot, 'src/public-renderers/hydrationPerf.ts')
   const normalizerPath = resolve(clientRoot, 'src/public-renderers/publicPayloadNormalizer.ts')
+  const publicShellPath = resolve(clientRoot, 'src/bootstrap/publicShell.ts')
   const routerPath = resolve(clientRoot, 'src/router/index.ts')
   const appPath = resolve(clientRoot, 'src/App.vue')
   const indexHtmlPath = resolve(clientRoot, 'index.html')
@@ -154,9 +155,14 @@ async function main() {
     'ThemeModeToggle must keep the SSR-safe mode until mounted hydration settles'
   )
   assert(
-    themeToggle.includes('reconcileThemeRuntimeAfterHydration()')
-      && themeToggle.indexOf('reconcileThemeRuntimeAfterHydration()') < themeToggle.indexOf('hydrationSettled.value = true'),
-    'ThemeModeToggle must reconcile persisted preference before exposing runtime mode after mount'
+    !themeToggle.includes('reconcileThemeRuntimeAfterHydration'),
+    'individual ThemeModeToggle instances must not race global preference reconciliation during tree hydration'
+  )
+
+  const publicShell = await readUtf8(publicShellPath)
+  assert(
+    /await hydratePublicPage\(payload\);\s*reconcileThemeRuntimeAfterHydration\(\);/u.test(publicShell),
+    'public shell root must reconcile persisted theme only after the complete hydration tree succeeds'
   )
 
   const composerSource = await readUtf8(composerPath)

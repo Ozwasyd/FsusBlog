@@ -39,7 +39,12 @@ import {
     isLocalFixtureSessionActive
 } from '@/services/localFixtureSession';
 import { emitRumMetric, emitTelemetry } from '@/services/telemetryBus';
-import { ensureThemeRuntime, setThemeMode, type ThemeMode } from '@/services/themeRuntime';
+import {
+    ensureThemeRuntime,
+    reconcileThemeRuntimeAfterHydration,
+    setThemeMode,
+    type ThemeMode
+} from '@/services/themeRuntime';
 
 function isModifiedEvent(event: MouseEvent): boolean
 {
@@ -1107,6 +1112,7 @@ async function hydratePublicShell(): Promise<void>
     storeInitialPublicRouteSeed(payload);
     const startedAt = performance.now();
     await hydratePublicPage(payload);
+    reconcileThemeRuntimeAfterHydration();
     scheduleDynamicIslands(payload);
     const durationMs = Math.round(performance.now() - startedAt);
     emitRumMetric('hydration_time', {

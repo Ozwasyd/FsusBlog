@@ -16,7 +16,6 @@
 import { computed, onMounted, ref } from 'vue'
 import {
   readInitialThemeMode,
-  reconcileThemeRuntimeAfterHydration,
   useThemeRuntime,
   type ThemeMode
 } from '@/services/themeRuntime'
@@ -48,7 +47,6 @@ const resolvedLabels = computed(() => ({
 }))
 
 onMounted(() => {
-  reconcileThemeRuntimeAfterHydration()
   hydrationSettled.value = true
 })
 
