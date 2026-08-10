@@ -74,8 +74,12 @@ describe('playwright acceptance shared helper', () => {
     const timeout = new Error('page.waitForFunction: Timeout 120000ms exceeded.')
     timeout.name = 'TimeoutError'
 
-    expect(isRecoverablePrewarmFailure(wrappedTargetClosed)).toBe(true)
-    expect(isRecoverablePrewarmFailure(new Error('application readiness failed', { cause: timeout }))).toBe(true)
-    expect(isRecoverablePrewarmFailure(new Error('route assertion failed'))).toBe(false)
+    expect(isRecoverablePrewarmFailure(wrappedTargetClosed, true)).toBe(true)
+    expect(isRecoverablePrewarmFailure(wrappedTargetClosed, false)).toBe(false)
+    expect(isRecoverablePrewarmFailure(
+      new Error('application readiness failed', { cause: timeout }),
+      true
+    )).toBe(true)
+    expect(isRecoverablePrewarmFailure(new Error('route assertion failed'), true)).toBe(false)
   })
 })

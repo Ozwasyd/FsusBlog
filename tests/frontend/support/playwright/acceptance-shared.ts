@@ -655,7 +655,7 @@ export async function prewarmDevRuntime(
       // triggered it and can crash that renderer before reload. Replace the
       // audited context once after the transform budget; a persistent failure
       // still fails the second readiness check instead of being hidden.
-      if (!isRecoverablePrewarmFailure(error)) {
+      if (!isRecoverablePrewarmFailure(error, browser.isConnected())) {
         throw error
       }
 
@@ -668,7 +668,12 @@ export async function prewarmDevRuntime(
   }
 }
 
-export function isRecoverablePrewarmFailure(error: unknown): boolean {
+export function isRecoverablePrewarmFailure(
+  error: unknown,
+  browserConnected: boolean
+): boolean {
+  if (!browserConnected) return false
+
   const visited = new Set<unknown>()
   let current: unknown = error
 
