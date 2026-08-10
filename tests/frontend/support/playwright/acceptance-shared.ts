@@ -15,6 +15,8 @@ import {
   waitForApplicationReady as waitForCanonicalApplicationReady,
   waitForVisualFrameReady
 } from './readiness.mjs'
+// @ts-ignore The retry helper is a pure module covered by node:test.
+import { navigateThroughRetryablePublicAot } from './publicAotNavigationRetry.mjs'
 
 export type RuntimeAudit = {
   checkpoint: () => number
@@ -603,8 +605,13 @@ export async function prewarmDevRuntime(
     for (const path of paths) {
       const checkpoint = session.audit.checkpoint()
       try {
-        await session.page.goto(path, { waitUntil: 'domcontentloaded' })
-        await waitForAppReady(session.page, WARMUP_TIMEOUT_MS)
+        const deadlineAtMs = Date.now() + WARMUP_TIMEOUT_MS
+        await navigateThroughRetryablePublicAot({
+          navigate: async () => await session.page.goto(path, { waitUntil: 'domcontentloaded' }),
+          sleep: async (delayMs: number) => await session.page.waitForTimeout(delayMs),
+          deadlineAtMs
+        })
+        await waitForAppReady(session.page, Math.max(1, deadlineAtMs - Date.now()))
       } catch (error) {
         let readiness: unknown
         try {

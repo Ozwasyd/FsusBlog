@@ -555,6 +555,10 @@ test('capture contracts keep shards temporary and release verification explicit'
         specification,
         /for \(const route of routes\) \{[\s\S]*?openThemedAuditedPage[\s\S]*?finally \{[\s\S]*?session\.close\(\)/u
     );
+    assert.match(
+        acceptanceShared,
+        /prewarmDevRuntime[\s\S]*?navigateThroughRetryablePublicAot[\s\S]*?deadlineAtMs[\s\S]*?waitForAppReady/u
+    );
     assert.match(manualConfiguration, /FSUSBLOG_MANUAL_SCREENSHOT_SHARD_NAME must match/u);
     assert.match(manualConfiguration, /public-preview docs staging path mismatch/u);
     assert.match(manualConfiguration, /public-preview docs writer lock identity mismatch/u);
