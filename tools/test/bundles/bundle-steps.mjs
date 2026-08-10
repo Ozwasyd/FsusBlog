@@ -1233,8 +1233,8 @@ export function runtimeSteps()
             dependsOn: ['runtime-integration']
         }),
         step('rights-matrix', 'tools/test/lanes/rights-v3-test-matrix.sh', ['rights-v3-test-matrix'], { dependsOn: ['runtime-integration'] }),
-        // This source-only matrix can use the backend/frontend marker gap without
-        // taking CPU from the backend compilation itself.
+        // The isolated TestServer matrix consumes the immutable backend test
+        // assembly and needs no mutable application services.
         step('csrf-matrix', 'cd src/frontend && npm run check:security:csrf-browser-matrix', ['csrf-browser-matrix'], {
             dependsOn: ['security-static', 'backend-build-ready']
         }),

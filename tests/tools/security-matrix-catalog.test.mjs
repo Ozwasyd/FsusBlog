@@ -15,6 +15,8 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 
+import { projectCsrfRuntimeEvidence } from '../frontend/checks/security/csrf-browser-matrix.mjs'
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const checker = path.join(root, 'tools/security/check-security-matrices.mjs')
 const catalogPath = path.join(root, 'security/matrices/catalog.json')
@@ -117,4 +119,51 @@ test('security matrix governance checker aggregates matrix metadata drift', () =
   } finally {
     rmSync(fixture, { recursive: true, force: true })
   }
+})
+
+const csrfRuntimeClass = 'FsusBlog.Server.Tests.Unit.SecurityHardening.CsrfOriginGuardRuntimeTests'
+const csrfMethodCounts = new Map([
+  ['CredentialedUnsafeRequest_RejectsMissingTrustedOrigin', 4],
+  ['CredentialedUnsafeRequest_RejectsCrossSiteOrigin', 1],
+  ['CredentialedUnsafeRequest_DoesNotAllowCsrfHeaderToBypassOrigin', 1],
+  ['CredentialedUnsafeRequest_RejectsUntrustedOriginEvenWhenRefererTrusted', 1],
+  ['CredentialedUnsafeRequest_AllowsTrustedOrigin', 1],
+  ['CredentialedUnsafeRequest_AllowsTrustedRefererWhenOriginMissing', 1],
+  ['SafeCookieRequest_BypassesOriginGuard', 1],
+  ['UnsafeCookielessRequest_BypassesOriginGuard', 1]
+])
+
+function csrfTrx({ omit = null, failed = null } = {}) {
+  const definitions = []
+  const results = []
+  let index = 0
+  for (const [method, count] of csrfMethodCounts) {
+    for (let occurrence = 0; occurrence < count; occurrence += 1) {
+      if (method === omit && occurrence === count - 1) continue
+      const id = `csrf-test-${index}`
+      definitions.push(
+        `<UnitTest id="${id}"><TestMethod className="${csrfRuntimeClass}" name="${method}" /></UnitTest>`)
+      results.push(
+        `<UnitTestResult testId="${id}" testName="${method}" outcome="${method === failed ? 'Failed' : 'Passed'}" duration="00:00:00.001" />`)
+      index += 1
+    }
+  }
+  return `<TestRun><Results>${results.join('')}</Results><TestDefinitions>${definitions.join('')}</TestDefinitions></TestRun>`
+}
+
+test('CSRF runtime evidence requires the complete passing TestServer matrix', () => {
+  const evidence = projectCsrfRuntimeEvidence(csrfTrx())
+
+  assert.equal(evidence.length, csrfMethodCounts.size)
+  assert.deepEqual(
+    evidence.map((entry) => [entry.method.split('.').at(-1), entry.expectedResults]),
+    [...csrfMethodCounts])
+  assert.throws(
+    () => projectCsrfRuntimeEvidence(
+      csrfTrx({ omit: 'CredentialedUnsafeRequest_RejectsMissingTrustedOrigin' })),
+    /result count mismatch/)
+  assert.throws(
+    () => projectCsrfRuntimeEvidence(
+      csrfTrx({ failed: 'CredentialedUnsafeRequest_RejectsCrossSiteOrigin' })),
+    /non-passing results/)
 })

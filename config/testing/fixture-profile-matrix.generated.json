@@ -429,10 +429,10 @@
         {
             "tierId": "csrf-browser-matrix",
             "executionClass": "security",
-            "fixtureProfile": "auth-security-matrix",
-            "fixtureProfileReason": "binds-auth-security-matrix",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-security",
             "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
-            "fixtureMutatorAllowed": true
+            "fixtureMutatorAllowed": false
         },
         {
             "tierId": "data-scale-evidence-summary",
@@ -1115,5 +1115,5 @@
             "fixtureMutatorAllowed": false
         }
     ],
-    "digest": "sha256:4f92579e153a74321a20f42c44ff974b672ee1700c3377e012d6714c78f865fa"
+    "digest": "sha256:01ac129ccdc5ffb5b1519b56d51897eaa1cb4b3cc54af6e7de77b4032583a6e7"
 }

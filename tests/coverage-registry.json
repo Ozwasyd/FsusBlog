@@ -1195,15 +1195,15 @@
         },
         {
             "id": "csrf-browser-negative-matrix",
-            "description": "CSRF Browser Negative Matrix is covered by runtime artifacts that exercise the named behavior.",
-            "owner": "InteropGlueAgent",
+            "description": "CSRF browser-credential origin enforcement is covered by HTTP TestServer runtime artifacts that exercise the production middleware.",
+            "owner": "ServerContractAgent",
             "risk": "high",
             "evidencePaths": [
                 ".tmp/release-evidence/security-depth-summary.json"
             ],
-            "assertionType": "browser",
+            "assertionType": "integration",
             "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-            "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
+            "minimumRequirement": "Evidence must bind the complete passing TRX result set to the built backend test assembly and fail closed when any credentialed unsafe Origin/Referer case is missing or failed.",
             "tierIds": [
                 "csrf-browser-matrix"
             ]

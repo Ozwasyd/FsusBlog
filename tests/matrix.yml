@@ -6450,14 +6450,14 @@ tiers:
 
     - id: csrf-browser-matrix
       executionClass: security
-      fixtureProfile: auth-security-matrix
-      fixtureProfileReason: binds-auth-security-matrix
+      fixtureProfile: none
+      fixtureProfileReason: none-security
       fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
-      fixtureMutatorAllowed: true
-      owner: InteropGlueAgent
-      command: npm --prefix src/frontend run check:security:csrf-browser-matrix
+      fixtureMutatorAllowed: false
+      owner: ServerContractAgent
+      command: tools/test/lanes/csrf-browser-matrix.sh
       executionDependsOn: [behavior-doc-static-admission]
-      services: [frontend, backend]
+      services: []
       parallelizable: true
       exclusiveResources: []
       phase: 3
@@ -6466,12 +6466,11 @@ tiers:
       cpuWeight: 2
       memoryWeight: 4
       minCpuUnits: 1
-      requiresBootstrap: full
-      workflowBootstraps: true
+      requiresBootstrap: none
       requiresNode: true
       requiresDotnet: true
       requiresPlaywright: none
-      cacheProfile: full
+      cacheProfile: backend
       timeoutMinutes: 20
       shardable: false
       defaultShards: 1
@@ -9091,6 +9090,3 @@ tiers:
       ciJob: cross-stack-contract
       localOnly: false
       nightlyOnly: false
-
-
-
