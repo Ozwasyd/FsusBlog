@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -49,6 +50,13 @@ function auditInputFixture(sourceState = {
         testRecords: audit.testRecords,
         retainedEvidence: { testRecordCount: 1 }
     };
+}
+
+function shellFunction(source, name)
+{
+    const match = new RegExp(`^${name}\\(\\) \\{[\\s\\S]*?^\\}`, 'mu').exec(source);
+    assert.ok(match, `missing shell function ${name}`);
+    return match[0];
 }
 
 test('lifecycle report binds every test ID and assertion target to one physical owner', () =>
@@ -280,4 +288,64 @@ test('lifecycle audit input rejects invalid or stale artifacts and never invokes
     assert.equal(producerCalls, 0);
     assert.equal(resolved.schema, 'fsusblog.test-retention-audit.v2');
     assert.deepEqual(fs.readFileSync(file), before);
+});
+
+test('test-assets phase invokes one canonical retention producer before lifecycle consumes it', (context) =>
+{
+    const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-retention-topology-'));
+    context.after(() => fs.rmSync(fixtureRoot, { recursive: true, force: true }));
+    const fakeNode = path.join(fixtureRoot, 'count-node.sh');
+    const countLog = path.join(fixtureRoot, 'calls.log');
+    fs.writeFileSync(fakeNode, [
+        '#!/usr/bin/env bash',
+        'printf "CALL" >>"$FSUSBLOG_COUNT_LOG"',
+        'printf "\\t%s" "$@" >>"$FSUSBLOG_COUNT_LOG"',
+        'printf "\\n" >>"$FSUSBLOG_COUNT_LOG"',
+        ''
+    ].join('\n'), { mode: 0o755 });
+    const laneSource = fs.readFileSync(
+        path.join(root, 'tools/test/lanes/static-governance.sh'),
+        'utf8'
+    );
+    const script = [
+        'set -euo pipefail',
+        `ROOT_DIR=${JSON.stringify(root)}`,
+        `FSUSBLOG_NODE=${JSON.stringify(fakeNode)}`,
+        `FSUSBLOG_RELEASE_EVIDENCE_DIR=${JSON.stringify(path.join(fixtureRoot, 'evidence'))}`,
+        `FSUSBLOG_COUNT_LOG=${JSON.stringify(countLog)}`,
+        'export FSUSBLOG_NODE FSUSBLOG_RELEASE_EVIDENCE_DIR FSUSBLOG_COUNT_LOG',
+        'Run() { "$@"; }',
+        'RunCollectParallel() {',
+        '    local group="$1"',
+        '    shift',
+        '    while (($# > 0)); do',
+        '        local label="$1"',
+        '        local command="$2"',
+        '        shift 2',
+        '        if [[ "$label" == "test-lifecycle" ]]; then "$command"; fi',
+        '    done',
+        '}',
+        shellFunction(laneSource, 'StaticTestLifecycle'),
+        shellFunction(laneSource, 'StaticRetention'),
+        shellFunction(laneSource, 'RunTestAssetGovernancePhase'),
+        'RunTestAssetGovernancePhase',
+        ''
+    ].join('\n');
+    const result = spawnSync('bash', ['-s'], {
+        cwd: root,
+        input: script,
+        encoding: 'utf8'
+    });
+    assert.equal(result.status, 0, result.stderr);
+    const calls = fs.readFileSync(countLog, 'utf8').trim().split(/\r?\n/u);
+    const retentionCalls = calls.filter((line) => line.includes('/tools/check-test-retention.mjs'));
+    const lifecycleCalls = calls.filter((line) => line.includes('/tools/check-test-lifecycle.mjs'));
+    const nativeCalls = calls.filter((line) => line.includes('/tools/test/native-test-governance.mjs'));
+    assert.equal(retentionCalls.length, 1);
+    assert.equal(lifecycleCalls.length, 1);
+    assert.equal(nativeCalls.length, 1);
+    assert.match(retentionCalls[0], /--out\t.*\/test-retention-audit\.json/u);
+    assert.match(lifecycleCalls[0], /--audit-input\t.*\/test-retention-audit\.json/u);
+    assert.ok(calls.indexOf(retentionCalls[0]) < calls.indexOf(lifecycleCalls[0]));
+    assert.doesNotMatch(calls.join('\n'), /test-lifecycle-retention-input\.json/u);
 });
