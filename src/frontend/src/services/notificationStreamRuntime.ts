@@ -139,7 +139,7 @@ export class NotificationStreamRuntime
         await this.connect(false, this.connectGeneration);
     }
 
-    public async stop(clearCursor = false): Promise<void>
+    public stop(clearCursor = false): Promise<void>
     {
         this.connectGeneration += 1;
         this.releaseCurrentChallengeLease();
@@ -161,6 +161,7 @@ export class NotificationStreamRuntime
         }
 
         this.onStatusChange?.('stopped', this.retryCount);
+        return Promise.resolve();
     }
 
     public isConnected(): boolean

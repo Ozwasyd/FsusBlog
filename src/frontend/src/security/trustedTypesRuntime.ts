@@ -41,7 +41,7 @@ let policyCreationAttempted = false;
 export function toTrustedMarkdownHtml(safeHtml: MarkdownSafeHtml): object
 {
     const policy = getAppPolicy();
-    return (policy?.createHTML(safeHtml) ?? safeHtml) as object;
+    return (policy?.createHTML(safeHtml) ?? safeHtml);
 }
 
 type MarkdownFeatureOutputForTrustedParsing = Readonly<{
@@ -199,7 +199,7 @@ function resolveApplicationUrl(value: string, invalidArtifactError: string): URL
     {
         throw new Error(invalidArtifactError);
     }
-    const expectedOrigin = runtimeLocation?.origin || new URL(baseHref).origin;
+    const expectedOrigin = runtimeLocation?.origin ?? new URL(baseHref).origin;
     if (resolved.origin !== expectedOrigin || resolved.username || resolved.password)
     {
         throw new Error(invalidArtifactError);

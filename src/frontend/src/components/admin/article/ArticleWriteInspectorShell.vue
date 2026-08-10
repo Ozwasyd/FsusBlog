@@ -155,7 +155,11 @@ const resolveElement = (
     {
         return element;
     }
-    const componentElement = element?.$el;
+    if (element === null || !('$el' in element))
+    {
+        return null;
+    }
+    const componentElement: unknown = element.$el;
     return componentElement instanceof HTMLElement ? componentElement : null;
 };
 

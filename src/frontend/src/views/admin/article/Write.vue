@@ -763,6 +763,8 @@ import {
 } from '@/composables/useArticleWriteInspector';
 import { showErrorToast } from '@/utils/errorPresentation';
 
+defineOptions({ name: 'ArticleWriteView' });
+
 type SubmitChecklistState = 'pass' | 'warning';
 
 const route = useRoute();
@@ -903,9 +905,15 @@ const {
     initialInspector: route.query.preview === 'private' ? 'preview' : null,
     loadView: {
         resources: () => refreshAssetLibrary()
-            .catch((error: unknown) => showErrorToast(error, '资产库刷新失败')),
+            .catch((error: unknown) =>
+            {
+                showErrorToast(error, '资产库刷新失败');
+            }),
         versions: () => refreshArticleRevisions()
-            .catch((error: unknown) => showErrorToast(error, '历史版本刷新失败'))
+            .catch((error: unknown) =>
+            {
+                showErrorToast(error, '历史版本刷新失败');
+            })
     }
 });
 

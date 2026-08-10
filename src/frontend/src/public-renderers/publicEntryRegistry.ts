@@ -1,5 +1,6 @@
 import type { FeaturedArticleItem, PopularArticleSummaryResponse, RelatedReadingItemResponse, RelatedReadingResponse } from '@/api/article';
 import type { SiteComplianceConfigPublic } from '@/api/system';
+import type { MarkdownSafeRenderResult } from '@/fsusui/markdown';
 import { isSupportedLocale, prepareLocaleDomains, type SupportedLocale } from '@/locales';
 import { LOCALE_CATALOG_DIGEST } from '@/locales/localeCatalog';
 import { requiredLocaleDomainsForPublicPage } from '@/locales/routeLocaleDomains';
@@ -88,7 +89,6 @@ type PublicEntryScope<K extends PublicPageKind = PublicPageKind> = Readonly<{
     loginLogoUrl: string;
     loginIconUrl: string;
     compliance: SiteComplianceConfigPublic | null;
-    baseUrlInput: unknown;
     baseUrlText: string;
     renderClock: PublicRenderClock;
     renderTimeOptions: TimeRenderOptions;
@@ -186,7 +186,6 @@ function createPublicEntryScope<K extends PublicPageKind>(kind: K, options: Publ
         loginLogoUrl,
         loginIconUrl,
         compliance,
-        baseUrlInput,
         baseUrlText,
         renderClock,
         renderTimeOptions,
@@ -380,7 +379,10 @@ const articleDetailEntryDefinition = definePublicEntry({
             relatedReading,
             scope.renderTimeOptions
         );
-        const initialRender = await renderAotMarkdown(article.content, scope.baseUrlText || null);
+        const initialRender: MarkdownSafeRenderResult = await renderAotMarkdown(
+            article.content,
+            scope.baseUrlText.length > 0 ? scope.baseUrlText : null
+        );
         const hydration = {
             ...scope.baseModel.hydrationBase,
             articleId,
@@ -407,10 +409,10 @@ const articleDetailEntryDefinition = definePublicEntry({
             responsibilityAuthors,
             responsibilityManifest,
             articleSummary: article.summary,
-            canonicalUrl: scope.baseUrlInput
-                ? `${String(scope.baseUrlInput).replace(/\/+$/u, '')}${buildPublicArticleHref(articleId)}`
+            canonicalUrl: scope.baseUrlText.length > 0
+                ? `${scope.baseUrlText.replace(/\/+$/u, '')}${buildPublicArticleHref(articleId)}`
                 : null,
-            baseUrl: scope.baseUrlText || null,
+            baseUrl: scope.baseUrlText.length > 0 ? scope.baseUrlText : null,
             hasBodyContent: article.content.trim().length > 0,
             bodyContent: article.content,
             initialRender
@@ -467,7 +469,11 @@ function createStaticPageEntryDefinition<K extends Extract<PublicPageKind, 'Abou
                 content,
                 title
             });
-            const initialRender = await renderAotMarkdown(content, scope.baseUrlText, 'about');
+            const initialRender: MarkdownSafeRenderResult = await renderAotMarkdown(
+                content,
+                scope.baseUrlText,
+                'about'
+            );
             const staticPage = {
                 slug,
                 content

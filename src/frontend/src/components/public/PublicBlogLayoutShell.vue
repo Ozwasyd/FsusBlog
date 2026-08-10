@@ -229,9 +229,13 @@ const emit = defineEmits<{
     (event: 'navigate', href: string): void;
 }>();
 
-const siteTitleText = computed(
-    () => props.siteTitle?.trim() || SHELL_DEFAULTS.siteTitle
-);
+const siteTitleText = computed(() =>
+{
+    const siteTitle = props.siteTitle?.trim();
+    return typeof siteTitle === 'string' && siteTitle.length > 0
+        ? siteTitle
+        : SHELL_DEFAULTS.siteTitle;
+});
 const siteDescriptionText = computed(() =>
     normalizePublicSiteDescription(props.siteDescription)
 );

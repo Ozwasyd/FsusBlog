@@ -288,6 +288,21 @@ const createDefaultArticleRightsForm = (mode: ArticleRightsForm['mode'] = 'site'
 
 const normalizeOptionalRightsText = (value: unknown): string => typeof value === 'string' ? value : '';
 
+const firstNonEmptyText = (...values: readonly (string | null | undefined)[]): string =>
+{
+    for (const value of values)
+    {
+        if (typeof value === 'string' && value.length > 0)
+        {
+            return value;
+        }
+    }
+    return '';
+};
+
+const nonEmptyTextOrNull = (value: string | null | undefined): string | null =>
+    typeof value === 'string' && value.length > 0 ? value : null;
+
 const normalizeNullableRightsYear = (value: unknown): number | null =>
 {
     if (value === null || value === undefined || value === '')
@@ -315,12 +330,12 @@ const normalizeArticleRightsForm = (value: unknown): ArticleRightsForm =>
     return {
         mode: raw.mode === 'custom' ? 'custom' : raw.mode === 'site' ? 'site' : defaults.mode,
         enabled: typeof raw.enabled === 'boolean' ? raw.enabled : defaults.enabled,
-        licenseType: normalizeOptionalRightsText(raw.licenseType) || defaults.licenseType,
+        licenseType: firstNonEmptyText(normalizeOptionalRightsText(raw.licenseType), defaults.licenseType),
         copyrightHolder: normalizeOptionalRightsText(raw.copyrightHolder),
         copyrightYear: normalizeNullableRightsYear(raw.copyrightYear),
         rightsStatement: normalizeOptionalRightsText(raw.rightsStatement),
         attributionTemplate: normalizeOptionalRightsText(raw.attributionTemplate),
-        copyPolicy: normalizeOptionalRightsText(raw.copyPolicy) || defaults.copyPolicy,
+        copyPolicy: firstNonEmptyText(normalizeOptionalRightsText(raw.copyPolicy), defaults.copyPolicy),
         maxExcerptChars,
         allowCodeCopy: typeof raw.allowCodeCopy === 'boolean' ? raw.allowCodeCopy : defaults.allowCodeCopy,
         showPublicBadge: typeof raw.showPublicBadge === 'boolean' ? raw.showPublicBadge : defaults.showPublicBadge,
@@ -440,7 +455,7 @@ const slugifyTitle = (title: string): string =>
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '')
         .slice(0, 64);
-    return slug || 'draft-preview';
+    return firstNonEmptyText(slug, 'draft-preview');
 };
 
 export function useAdminArticleWrite()
@@ -471,7 +486,7 @@ export function useAdminArticleWrite()
     const pendingDraft = ref<ArticleDraftSnapshot | null>(null);
     const draftSavedAt = ref<number | null>(null);
     const draftConflictText = ref('');
-    const articleRecoveryCandidates = shallowRef<ArticleRecoveryJournalRecord[]>([]);
+    const articleRecoveryCandidates = shallowRef<readonly ArticleRecoveryJournalRecord[]>([]);
     const selectedArticleRecoveryId = ref('');
     const articleRecoveryStorageWarning = ref('');
     const articleRecoveryComparison = ref('');
@@ -524,10 +539,13 @@ export function useAdminArticleWrite()
         const compliance = siteComplianceConfig.value;
         return {
             ...createDefaultArticleRightsForm('site'),
-            copyrightHolder: compliance?.copyrightOwner?.trim() || siteConfig.value?.title?.trim() || '',
+            copyrightHolder: firstNonEmptyText(
+                compliance?.copyrightOwner?.trim(),
+                siteConfig.value?.title?.trim()
+            ),
             copyrightYear: compliance?.copyrightStartYear ?? null,
-            rightsStatement: compliance?.copyrightText?.trim() || '',
-            attributionTemplate: compliance?.contentLicenseName?.trim() || '',
+            rightsStatement: firstNonEmptyText(compliance?.copyrightText?.trim()),
+            attributionTemplate: firstNonEmptyText(compliance?.contentLicenseName?.trim()),
             licenseType: resolveLicenseTypeFromCompliance(compliance)
         };
     });
@@ -535,9 +553,9 @@ export function useAdminArticleWrite()
     const articleRightsInheritanceText = computed(() =>
     {
         const inherited = siteInheritedRights.value;
-        const holder = inherited.copyrightHolder || '未设置版权主体';
+        const holder = firstNonEmptyText(inherited.copyrightHolder, '未设置版权主体');
         const year = inherited.copyrightYear ? `${inherited.copyrightYear} 年起` : '按站点年份';
-        const statement = inherited.rightsStatement || '保留所有权利。';
+        const statement = firstNonEmptyText(inherited.rightsStatement, '保留所有权利。');
         return articleRightsUsingSiteDefaults.value
             ? `当前继承：${holder}，${year}，${statement}`
             : `自定义本文版权；可从站点默认值继续调整。`;
@@ -609,7 +627,7 @@ export function useAdminArticleWrite()
                 id: candidate.id,
                 label: `标签页版本 ${index + 1} · ${new Date(candidate.updatedAt).toLocaleString()}`,
                 detail: `${candidate.content.length.toLocaleString()} 字 · ${divergenceText}`,
-                excerpt: excerpt || '（正文为空；此版本记录了删除后的未同步状态）',
+                excerpt: firstNonEmptyText(excerpt, '（正文为空；此版本记录了删除后的未同步状态）'),
                 divergence
             };
         }));
@@ -690,11 +708,21 @@ export function useAdminArticleWrite()
     const canGeneratePrivatePreview = computed(() => articleForm.title.trim().length > 0 || articleForm.content.trim().length > 0);
     const seoPreview = computed<ArticleSeoPreviewState>(() =>
     {
-        const baseUrl = normalizeSeoBaseUrl(siteConfig.value?.baseUrl || mountedBrowserSeoBaseUrl.value);
+        const baseUrl = normalizeSeoBaseUrl(firstNonEmptyText(
+            siteConfig.value?.baseUrl,
+            mountedBrowserSeoBaseUrl.value
+        ));
         const routePath = articleId.value ? `/article/${articleId.value}` : `/article/${slugifyTitle(articleForm.title)}`;
-        const title = articleForm.title.trim() || '未命名文章';
-        const description = (articleForm.summary.trim() || stripMarkdownForSeo(articleForm.content) || siteConfig.value?.description || '').slice(0, 220);
-        const ogImage = articleForm.coverImageUrl.trim() || siteConfig.value?.ogImage?.trim() || '';
+        const title = firstNonEmptyText(articleForm.title.trim(), '未命名文章');
+        const description = firstNonEmptyText(
+            articleForm.summary.trim(),
+            stripMarkdownForSeo(articleForm.content),
+            siteConfig.value?.description
+        ).slice(0, 220);
+        const ogImage = firstNonEmptyText(
+            articleForm.coverImageUrl.trim(),
+            siteConfig.value?.ogImage?.trim()
+        );
         return {
             title: siteConfig.value?.title ? `${title} | ${siteConfig.value.title}` : title,
             description,
@@ -900,8 +928,8 @@ export function useAdminArticleWrite()
         baseRevisionId: snapshot.baseRevisionId,
         title: snapshot.title,
         content: snapshot.content,
-        summary: snapshot.summary || null,
-        coverImageUrl: snapshot.coverImageUrl || null,
+        summary: nonEmptyTextOrNull(snapshot.summary),
+        coverImageUrl: nonEmptyTextOrNull(snapshot.coverImageUrl),
         categoryId: snapshot.categoryId ?? 0,
         tagIds: [...snapshot.tagIds],
         clientRevision: snapshot.clientRevision,
@@ -955,7 +983,7 @@ export function useAdminArticleWrite()
     const recoveryIdentityId = (): string | null =>
     {
         const identity = adminStore.adminPrincipal?.id?.trim();
-        return identity ? identity : null;
+        return typeof identity === 'string' && identity.length > 0 ? identity : null;
     };
 
     const safeRecoverySourceHash = async (content: string): Promise<string | null> =>
@@ -1128,7 +1156,9 @@ export function useAdminArticleWrite()
                 if (!shouldRetryServerDraftSave(error))
                 {
                     clearDraftSaveTimer();
-                    const details = parseServerDraftConflictDetails(error.details);
+                    const details = parseServerDraftConflictDetails(
+                        error instanceof BinaryTransportError ? error.details : null
+                    );
                     serverDraftSyncPaused.value = true;
                     draftConflictText.value = details?.currentUpdatedAt
                         ? `服务端已有版本 ${details.currentServerRevision ?? '未知'}（${new Date(details.currentUpdatedAt).toLocaleString()}），当前页面更改未覆盖它。请比较后选择恢复或丢弃。`
@@ -1368,7 +1398,7 @@ export function useAdminArticleWrite()
         await runArticleRecoveryOperation(
             'compare',
             '所选正文比较失败，请保留当前选择并重试',
-            async () =>
+            () =>
             {
                 const recovery = selectedArticleRecovery.value;
                 if (!recovery)
@@ -1621,10 +1651,10 @@ export function useAdminArticleWrite()
 
     const applyArticleDetailToForm = (data: ArticleDetailResponse): void =>
     {
-        articleForm.title = data.title || '';
-        articleForm.content = data.content || '';
-        articleForm.summary = data.summary || '';
-        articleForm.coverImageUrl = data.coverImageUrl || '';
+        articleForm.title = data.title ?? '';
+        articleForm.content = data.content ?? '';
+        articleForm.summary = data.summary ?? '';
+        articleForm.coverImageUrl = data.coverImageUrl ?? '';
         articleForm.categoryId = data.category?.id ? Number(data.category.id) : undefined;
         articleForm.tagIds = Array.isArray(data.tags) ? data.tags.map((item) => Number(item.id)) : [];
         articleForm.status = normalizeArticlePublishStatus(data.status);
@@ -1852,7 +1882,7 @@ export function useAdminArticleWrite()
                 const snapshot = buildDraftSnapshot(createArticleRecoveryClientRevision(), 'server');
                 const request = {
                     ...buildServerDraftRequest(snapshot),
-                    warningOverrideReason: warningOverrideReason?.trim() || null
+                    warningOverrideReason: nonEmptyTextOrNull(warningOverrideReason?.trim())
                 };
                 const result = await checkArticlePrepublish(request, buildSignalConfig(signal));
                 if (signal.aborted)
@@ -2002,7 +2032,7 @@ export function useAdminArticleWrite()
             return;
         }
 
-        const alt = asset.altText?.trim() || 'image';
+        const alt = firstNonEmptyText(asset.altText?.trim(), 'image');
         const markdown = `![${alt}](${asset.url})`;
         if (insertAtCursor?.(`\n${markdown}\n`) === true)
         {
@@ -2255,10 +2285,10 @@ export function useAdminArticleWrite()
             mode: articleForm.rights.mode,
             enabled: rights.enabled,
             licenseType: rights.licenseType.trim(),
-            copyrightHolder: rights.copyrightHolder.trim() || null,
+            copyrightHolder: nonEmptyTextOrNull(rights.copyrightHolder.trim()),
             copyrightYear: rights.copyrightYear,
-            rightsStatement: rights.rightsStatement.trim() || null,
-            attributionTemplate: rights.attributionTemplate.trim() || null,
+            rightsStatement: nonEmptyTextOrNull(rights.rightsStatement.trim()),
+            attributionTemplate: nonEmptyTextOrNull(rights.attributionTemplate.trim()),
             copyPolicy: rights.copyPolicy.trim(),
             maxExcerptChars: rights.maxExcerptChars,
             allowCodeCopy: rights.allowCodeCopy,
@@ -2416,7 +2446,7 @@ export function useAdminArticleWrite()
         const cleanStr = articleForm.content
             .replace(/```[\s\S]*?```/g, '')
             .replace(/(!\[.*?]\(.*?\))|(\[.*?]\(.*?\))/g, '')
-            .replace(/[#*`>|\-]/g, '')
+            .replace(/[#*`>|-]/g, '')
             .replace(/(\r\n|\n|\r)/gm, ' ')
             .replace(/\s+/g, ' ')
             .trim()

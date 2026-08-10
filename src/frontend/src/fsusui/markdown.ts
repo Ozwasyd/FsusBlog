@@ -1,12 +1,71 @@
 import {
-    renderMarkdownResultWithRuntime,
-    type MarkdownSafeRenderResult
+    renderMarkdownResultWithRuntime as renderMarkdownResultWithFsusUiRuntime
 } from '@ozwasyd/element-plus/markdown-runtime';
 
-import type { FsusUiResult } from '@/fsusui/result';
+import { isFsusUiResult, type FsusUiResult } from '@/fsusui/result';
 
 export type MarkdownRenderMode = 'article' | 'about' | 'preview' | 'editor';
+export type MarkdownRenderFeature =
+    | 'code_block'
+    | 'latex'
+    | 'mermaid'
+    | 'table'
+    | 'image'
+    | 'heading'
+    | 'link'
+    | 'emphasis'
+    | 'footnote';
+export type MarkdownPlaceholderKind = 'latex_inline' | 'latex_block' | 'mermaid_block';
+export type MarkdownSafeHtml = string;
+
+export interface MarkdownRenderMetadata
+{
+    readonly mode: MarkdownRenderMode;
+    readonly baseUrl: string | null;
+    readonly allowLatex: boolean;
+    readonly allowMermaid: boolean;
+    readonly sourceLength: number;
+    readonly sourceLineCount?: number;
+    readonly normalizedSourceLength?: number;
+    readonly featureCount: number;
+    readonly placeholderCount: number;
+    readonly rendererVersion: string;
+}
+
+export interface MarkdownRenderPlaceholder
+{
+    readonly kind: MarkdownPlaceholderKind;
+    readonly token: string;
+    readonly label: string;
+    readonly line: number;
+    readonly source?: string;
+    readonly column?: number;
+    readonly endLine?: number;
+    readonly endColumn?: number;
+    readonly startOffset?: number;
+    readonly endOffset?: number;
+}
+
+export interface MarkdownSafeRenderResult
+{
+    readonly html: MarkdownSafeHtml;
+    readonly normalizedSource: string;
+    readonly sourceIdentity: string;
+    readonly features: readonly MarkdownRenderFeature[];
+    readonly placeholders: readonly MarkdownRenderPlaceholder[];
+    readonly rendererVersion: string;
+    readonly metadata?: MarkdownRenderMetadata;
+}
+
 export type MarkdownRenderResult = MarkdownSafeRenderResult;
+
+type MarkdownRuntimeRenderer = (input: {
+    source: string;
+    mode: MarkdownRenderMode;
+    allowLatex: boolean;
+    allowMermaid: boolean;
+    baseUrl: string | null;
+}) => Promise<unknown>;
 
 const unavailable = (message: string, cause?: unknown): FsusUiResult<MarkdownRenderResult> => ({
     ok: false,
@@ -18,6 +77,87 @@ const unavailable = (message: string, cause?: unknown): FsusUiResult<MarkdownRen
     }
 });
 
+function isRecord(value: unknown): value is Record<string, unknown>
+{
+    return typeof value === 'object' && value !== null;
+}
+
+function isMarkdownRuntimeRenderer(value: unknown): value is MarkdownRuntimeRenderer
+{
+    return typeof value === 'function';
+}
+
+function isMarkdownRenderFeature(value: unknown): value is MarkdownRenderFeature
+{
+    return typeof value === 'string'
+        && [
+            'code_block',
+            'latex',
+            'mermaid',
+            'table',
+            'image',
+            'heading',
+            'link',
+            'emphasis',
+            'footnote'
+        ].includes(value);
+}
+
+function isMarkdownRenderPlaceholder(value: unknown): value is MarkdownRenderPlaceholder
+{
+    if (!isRecord(value))
+    {
+        return false;
+    }
+    return typeof value.kind === 'string'
+        && ['latex_inline', 'latex_block', 'mermaid_block'].includes(value.kind)
+        && typeof value.token === 'string'
+        && typeof value.label === 'string'
+        && typeof value.line === 'number'
+        && (value.source === undefined || typeof value.source === 'string')
+        && (value.column === undefined || typeof value.column === 'number')
+        && (value.endLine === undefined || typeof value.endLine === 'number')
+        && (value.endColumn === undefined || typeof value.endColumn === 'number')
+        && (value.startOffset === undefined || typeof value.startOffset === 'number')
+        && (value.endOffset === undefined || typeof value.endOffset === 'number');
+}
+
+function isMarkdownRenderMetadata(value: unknown): value is MarkdownRenderMetadata
+{
+    if (!isRecord(value))
+    {
+        return false;
+    }
+    return typeof value.mode === 'string'
+        && ['article', 'about', 'preview', 'editor'].includes(value.mode)
+        && (value.baseUrl === null || typeof value.baseUrl === 'string')
+        && typeof value.allowLatex === 'boolean'
+        && typeof value.allowMermaid === 'boolean'
+        && typeof value.sourceLength === 'number'
+        && (value.sourceLineCount === undefined || typeof value.sourceLineCount === 'number')
+        && (value.normalizedSourceLength === undefined || typeof value.normalizedSourceLength === 'number')
+        && typeof value.featureCount === 'number'
+        && typeof value.placeholderCount === 'number'
+        && typeof value.rendererVersion === 'string';
+}
+
+function isMarkdownSafeRenderResult(value: unknown): value is MarkdownSafeRenderResult
+{
+    if (!isRecord(value))
+    {
+        return false;
+    }
+    return typeof value.html === 'string'
+        && typeof value.normalizedSource === 'string'
+        && typeof value.sourceIdentity === 'string'
+        && Array.isArray(value.features)
+        && value.features.every(isMarkdownRenderFeature)
+        && Array.isArray(value.placeholders)
+        && value.placeholders.every(isMarkdownRenderPlaceholder)
+        && typeof value.rendererVersion === 'string'
+        && (value.metadata === undefined || isMarkdownRenderMetadata(value.metadata));
+}
+
 export async function renderMarkdownWithFsusRuntime(input: {
     source: string;
     mode?: MarkdownRenderMode;
@@ -28,14 +168,37 @@ export async function renderMarkdownWithFsusRuntime(input: {
 {
     try
     {
-        const result: FsusUiResult<MarkdownRenderResult> = await renderMarkdownResultWithRuntime({
+        const renderer: unknown = renderMarkdownResultWithFsusUiRuntime;
+        if (!isMarkdownRuntimeRenderer(renderer))
+        {
+            return unavailable('FsusUI markdown runtime export is unavailable.');
+        }
+        const result: unknown = await renderer({
             source: input.source,
             mode: input.mode ?? 'article',
             allowLatex: input.allowLatex ?? true,
             allowMermaid: input.allowMermaid ?? true,
             baseUrl: input.baseUrl ?? null
         });
-        return result;
+        if (!isFsusUiResult(result))
+        {
+            return unavailable('FsusUI markdown runtime returned an invalid result envelope.');
+        }
+        if (!result.ok)
+        {
+            return {
+                ok: false,
+                error: result.error
+            };
+        }
+        if (!isMarkdownSafeRenderResult(result.value))
+        {
+            return unavailable('FsusUI markdown runtime returned an invalid safe-render result.');
+        }
+        return {
+            ok: true,
+            value: result.value
+        };
     }
     catch (error: unknown)
     {
@@ -90,15 +253,9 @@ export type {
     MarkdownFeatureActivationOptions,
     MarkdownFeatureActivationResult,
     MarkdownFeatureAdapter,
-    MarkdownPlaceholderKind,
     MarkdownRenderChunk,
     MarkdownRenderChunkKind,
-    MarkdownRenderFeature,
-    MarkdownRenderMetadata,
-    MarkdownRenderPlaceholder,
     MarkdownRenderRequest,
-    MarkdownSafeHtml,
-    MarkdownSafeRenderResult,
     MarkdownRenderTimings,
     MarkdownRendererSurfaceContract,
     MarkdownRuntimeChunkResult,

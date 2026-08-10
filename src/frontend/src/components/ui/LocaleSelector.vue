@@ -69,7 +69,6 @@
 
         <div
             :id="menuId"
-            ref="menuRef"
             class="locale-selector__menu"
             data-locale-selector-menu
             role="menu"
@@ -81,7 +80,7 @@
                 v-for="(item, index) in items"
                 :id="itemDomId(item.code)"
                 :key="item.code"
-                :ref="(el) => setItemRef(item.code, el)"
+                :ref="(el: unknown) => setItemRef(item.code, el)"
                 class="locale-selector__item"
                 :class="{
                     'locale-selector__item--selected': isSelected(item),
@@ -207,7 +206,6 @@ const emit = defineEmits<{
 
 const rootRef = ref<HTMLElement | null>(null);
 const triggerRef = ref<HTMLButtonElement | null>(null);
-const menuRef = ref<HTMLElement | null>(null);
 const itemRefs = new Map<string, HTMLElement>();
 const internalOpen = ref(false);
 const activeMenuIndex = ref(0);
@@ -251,7 +249,7 @@ const activeDescendantId = computed(() =>
     return item ? itemDomId(item.code) : undefined;
 });
 
-const retryLocale = computed(() => props.pendingLocale || props.activeLocale || null);
+const retryLocale = computed(() => props.pendingLocale ?? props.activeLocale ?? null);
 
 const retryLocaleLabel = computed(() =>
 {
@@ -675,7 +673,6 @@ onBeforeUnmount(() =>
     font-weight: 600;
     line-height: 1.35;
     overflow-wrap: anywhere;
-    word-break: break-word;
     white-space: normal;
 }
 
@@ -686,7 +683,6 @@ onBeforeUnmount(() =>
     line-height: 1.35;
     color: var(--fsusblog-text-muted);
     overflow-wrap: anywhere;
-    word-break: break-word;
     white-space: normal;
 }
 
@@ -784,7 +780,6 @@ onBeforeUnmount(() =>
  {
     min-width: 0;
     overflow-wrap: anywhere;
-    word-break: break-word;
 }
 
 @keyframes locale-selector-spin
