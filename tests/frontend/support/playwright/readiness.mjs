@@ -144,6 +144,62 @@ export async function waitForVisualFrameReady(page, {
   })
 }
 
+export async function inspectFontLoadingReadiness(page, expectedFonts) {
+  return await page.evaluate(async (expectations) => {
+    const normalizeFamily = (family) => String(family)
+      .trim()
+      .replace(/^(['"])(.*)\1$/u, '$2')
+    const snapshotFaces = () => Array.from(document.fonts, (face) => ({
+      family: normalizeFamily(face.family),
+      status: face.status,
+      style: face.style,
+      weight: face.weight
+    }))
+
+    await document.fonts.ready
+    const fontSetStatusBeforeProbe = document.fonts.status
+    const facesBeforeProbe = snapshotFaces()
+    const families = []
+    for (const expectation of expectations) {
+      const expectedFamily = normalizeFamily(expectation.family)
+      const familyFacesBeforeProbe = facesBeforeProbe
+        .filter((face) => face.family === expectedFamily)
+      const probes = []
+      for (const weight of expectation.weights) {
+        const query = `${weight} 1em "${expectedFamily}"`
+        const loaded = await document.fonts.load(query, expectation.representativeText)
+        probes.push({
+          check: document.fonts.check(query, expectation.representativeText),
+          loadedCount: loaded.length,
+          query,
+          weight
+        })
+      }
+      families.push({
+        family: expectedFamily,
+        facesBeforeProbe: familyFacesBeforeProbe,
+        loadedWeightsBeforeProbe: Array.from(new Set(
+          familyFacesBeforeProbe
+            .filter((face) => face.status === 'loaded')
+            .map((face) => Number(face.weight))
+            .filter(Number.isFinite)
+        )).sort((left, right) => left - right),
+        probes,
+        representativeText: expectation.representativeText
+      })
+    }
+    const facesAfterProbe = snapshotFaces()
+
+    return {
+      errorFacesAfterProbe: facesAfterProbe.filter((face) => face.status === 'error'),
+      errorFacesBeforeProbe: facesBeforeProbe.filter((face) => face.status === 'error'),
+      families,
+      fontSetStatusAfterProbe: document.fonts.status,
+      fontSetStatusBeforeProbe
+    }
+  }, expectedFonts)
+}
+
 export async function runBrowserMeasurementWindow(page, {
   purpose,
   maxWindowMs,

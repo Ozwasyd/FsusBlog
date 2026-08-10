@@ -8,6 +8,7 @@ import {
 } from '../../tools/testing/check-browser-readiness-contract.mjs'
 import {
   applicationReadyPredicate,
+  inspectFontLoadingReadiness,
   waitForAuthPermissionReady,
   waitForNotificationSuppressed,
   waitForPublicHydration,
@@ -39,6 +40,58 @@ test('application readiness accepts a visible SPA shell once the runtime loader 
     globalThis.document = previousDocument
     globalThis.HTMLElement = previousHTMLElement
     globalThis.window = previousWindow
+  }
+})
+
+test('font readiness reports pre-probe loaded weights, glyph probes and error faces', async () => {
+  const previousDocument = globalThis.document
+  const faces = [
+    { family: '"Google Sans"', status: 'loaded', style: 'normal', weight: '400' },
+    { family: '"Google Sans"', status: 'loaded', style: 'normal', weight: '500' },
+    { family: '"Google Sans"', status: 'loaded', style: 'normal', weight: '700' },
+    { family: 'Broken Face', status: 'error', style: 'normal', weight: '400' }
+  ]
+  const loadCalls = []
+  globalThis.document = {
+    fonts: {
+      status: 'loaded',
+      ready: Promise.resolve(),
+      check: () => true,
+      load: async (query, text) => {
+        loadCalls.push([query, text])
+        return faces.filter((face) => face.family === '"Google Sans"')
+      },
+      [Symbol.iterator]: () => faces[Symbol.iterator]()
+    }
+  }
+  try {
+    const page = {
+      evaluate: async (predicate, argument) => await predicate(argument)
+    }
+    const report = await inspectFontLoadingReadiness(page, [{
+      family: 'Google Sans',
+      representativeText: 'Àéñçõ',
+      weights: [400, 500, 700]
+    }])
+
+    assert.equal(report.fontSetStatusBeforeProbe, 'loaded')
+    assert.equal(report.fontSetStatusAfterProbe, 'loaded')
+    assert.deepEqual(report.families[0].loadedWeightsBeforeProbe, [400, 500, 700])
+    assert.deepEqual(report.families[0].probes.map((probe) => probe.check), [true, true, true])
+    assert.deepEqual(loadCalls, [
+      ['400 1em "Google Sans"', 'Àéñçõ'],
+      ['500 1em "Google Sans"', 'Àéñçõ'],
+      ['700 1em "Google Sans"', 'Àéñçõ']
+    ])
+    assert.deepEqual(report.errorFacesBeforeProbe, [{
+      family: 'Broken Face',
+      status: 'error',
+      style: 'normal',
+      weight: '400'
+    }])
+    assert.deepEqual(report.errorFacesAfterProbe, report.errorFacesBeforeProbe)
+  } finally {
+    globalThis.document = previousDocument
   }
 })
 

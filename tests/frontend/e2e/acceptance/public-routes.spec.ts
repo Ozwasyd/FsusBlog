@@ -5,6 +5,7 @@ import {
   settlePage,
   waitForAppReady
 } from '../../support/playwright/acceptance-shared'
+import { inspectFontLoadingReadiness } from '../../support/playwright/readiness.mjs'
 
 type SeoHeadSnapshot = {
   canonical: string
@@ -98,6 +99,60 @@ test.describe('public browser-only navigation contract', () => {
   test.describe.configure({ mode: 'serial', timeout: 180_000 })
   test.skip(({ browserName }) => browserName !== 'chromium',
     'Firefox/WebKit project the Chromium canonical product path and run only capability delta probes')
+
+  test('locale pages load their bundled font faces without FontFace errors', async ({ page }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL
+    expect(typeof baseURL).toBe('string')
+
+    const localeFonts = [
+      {
+        family: 'Google Sans',
+        locale: 'en-US',
+        representativeText: 'Àéñçõ',
+        weights: [400, 500, 700]
+      },
+      {
+        family: 'Noto Sans SC',
+        locale: 'zh-CN',
+        representativeText: '汉语字形',
+        weights: [400, 500, 700]
+      }
+    ] as const
+
+    for (const expected of localeFonts) {
+      await page.context().addCookies([{
+        name: 'fsusblog.locale',
+        value: expected.locale,
+        url: baseURL as string,
+        httpOnly: true,
+        sameSite: 'Lax'
+      }])
+      const response = await page.goto('/', { waitUntil: 'domcontentloaded' })
+      expect(response?.ok()).toBe(true)
+      await waitForAppReady(page, WARMUP_TIMEOUT_MS)
+      await expect.poll(async () => await page.locator('html').getAttribute('lang'))
+        .toBe(expected.locale)
+
+      const report = await inspectFontLoadingReadiness(page, [expected])
+      expect(report.fontSetStatusBeforeProbe).toBe('loaded')
+      expect(report.fontSetStatusAfterProbe).toBe('loaded')
+      expect(report.errorFacesBeforeProbe).toEqual([])
+      expect(report.errorFacesAfterProbe).toEqual([])
+      expect(report.families).toHaveLength(1)
+      expect(report.families[0]?.family).toBe(expected.family)
+      expect(report.families[0]?.facesBeforeProbe.length).toBeGreaterThan(0)
+      expect(report.families[0]?.loadedWeightsBeforeProbe).toEqual(expected.weights)
+      expect(report.families[0]?.probes).toEqual(expected.weights.map((weight) => ({
+        check: true,
+        loadedCount: expect.any(Number),
+        query: `${weight} 1em "${expected.family}"`,
+        weight
+      })))
+      for (const probe of report.families[0]?.probes ?? []) {
+        expect(probe.loadedCount).toBeGreaterThan(0)
+      }
+    }
+  })
 
   test('Home → article A → article B → archive → category → tag → Home and history keep one coherent head', {
     tag: '@browser-test:primary-public-route-navigation',
