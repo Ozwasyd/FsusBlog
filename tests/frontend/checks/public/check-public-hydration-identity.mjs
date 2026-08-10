@@ -65,6 +65,7 @@ async function main() {
   const routerPath = resolve(clientRoot, 'src/router/index.ts')
   const appPath = resolve(clientRoot, 'src/App.vue')
   const indexHtmlPath = resolve(clientRoot, 'index.html')
+  const viteConfigPath = resolve(clientRoot, 'vite.config.ts')
   const composerPath = resolve(repoRoot, 'src/backend/Infrastructure/PublicAot/PublicAotDocumentComposer.cs')
 
   const hydrateSource = await readUtf8(hydratePath)
@@ -134,6 +135,12 @@ async function main() {
   assert(
     indexHtml.includes('<div id="app"><!--fsus:aot:app--></div>'),
     'index.html #app sentinel must be compact so SSR does not inject whitespace text nodes'
+  )
+
+  const viteConfig = await readUtf8(viteConfigPath)
+  assert(
+    /vue\(\{\s*template:\s*\{\s*compilerOptions:\s*\{\s*comments:\s*false\s*\}\s*\}\s*\}\)/u.test(viteConfig),
+    'client and public SSR builds must share comments=false so source comments cannot drift hydration children'
   )
 
   const composerSource = await readUtf8(composerPath)

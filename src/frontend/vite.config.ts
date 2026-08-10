@@ -780,7 +780,13 @@ export default defineConfig(({ command, mode }) => {
             servePublicAotHydrationSidecars(),
             serveReleaseScopedPreviewAssets(),
             tailwindcss(),
-            vue(),
+            vue({
+                template: {
+                    compilerOptions: {
+                        comments: false
+                    }
+                }
+            }),
             vueJsx(),
             AutoImport({
                 exclude: localFsusUiTransformExcludes,
