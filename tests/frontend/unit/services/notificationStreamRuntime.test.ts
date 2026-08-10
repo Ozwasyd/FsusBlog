@@ -89,7 +89,7 @@ describe('resolveNotificationStreamEndpointUrl', () => {
     vi.restoreAllMocks()
   })
 
-  it('uses the configured API origin for dev WebSocket connections', () => {
+  it('supports an explicitly configured API origin for dev WebSocket connections', () => {
     const url = resolveNotificationStreamEndpointUrl(
       '/api/notifications/stream',
       'websocket',

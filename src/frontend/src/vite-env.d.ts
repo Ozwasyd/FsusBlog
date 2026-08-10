@@ -1,7 +1,6 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-    readonly VITE_API_BASE_URL?: string;
     readonly VITE_FSUSBLOG_CONSOLE_WELCOME_ENABLED?: string;
     readonly VITE_FSUSBLOG_CONSOLE_WELCOME_SHOW_ON_FIRST_RUN?: string;
     readonly VITE_FSUSBLOG_CONSOLE_WELCOME_CONTRIBUTE_URL?: string;

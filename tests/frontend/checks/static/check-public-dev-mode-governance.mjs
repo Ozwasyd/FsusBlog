@@ -36,6 +36,7 @@ const readmePath = 'README.md';
 const emergencyGeneratorPath = 'tools/frontend/generate-public-shell-emergency.mjs';
 const frontendBuildPath = 'tools/frontend/build.mjs';
 const emergencyCssPath = 'src/frontend/public/public-shell-emergency.css';
+const notificationStreamPath = 'src/frontend/src/services/notificationStreamRuntime.ts';
 
 const viteConfig = read(viteConfigPath);
 const indexHtml = read(indexHtmlPath);
@@ -46,6 +47,7 @@ const packageJson = JSON.parse(read(packageJsonPath));
 const developmentDocs = read(developmentDocsPath);
 const readme = read(readmePath);
 const frontendBuild = read(frontendBuildPath);
+const notificationStream = read(notificationStreamPath);
 const scripts = packageJson.scripts ?? {};
 
 expectIncludes(
@@ -68,6 +70,16 @@ expectIncludes(
     "const apiBaseUrl = process.env.VITE_API_BASE_URL?.trim()",
     'dev and preview API proxy targets must consume the runtime-assigned backend URL'
 );
+expectIncludes(
+    notificationStreamPath,
+    notificationStream,
+    'configuredBaseUrl: string | undefined = undefined',
+    'notification HTTP and WebSocket endpoints must default to the same-origin API proxy'
+);
+if (notificationStream.includes('import.meta.env.VITE_API_BASE_URL'))
+{
+    fail(notificationStreamPath, 'browser notification runtime must not embed the Vite upstream API target');
+}
 
 expectIncludes(
     viteConfigPath,

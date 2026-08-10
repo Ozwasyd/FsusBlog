@@ -53,7 +53,7 @@ export type NotificationStreamRuntimeTelemetrySnapshot = Readonly<{
 export function resolveNotificationStreamEndpointUrl(
   path: string,
   protocol: NotificationStreamEndpointProtocol,
-  configuredBaseUrl: string | undefined = import.meta.env.VITE_API_BASE_URL,
+  configuredBaseUrl: string | undefined = undefined,
   currentOrigin: string = window.location.origin
 ): URL {
   const configured = configuredBaseUrl?.trim()
