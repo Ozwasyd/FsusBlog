@@ -1,7 +1,8 @@
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
-import { spawnSync } from 'node:child_process';
+
 import { failureSignature } from './adapters.mjs';
 import { canonicalize, sha256, sha256File } from './source-identity.mjs';
 
@@ -64,16 +65,24 @@ export function commandProducerDigest(command, cwd)
 
 function loadAttemptMetadata(file)
 {
-    if (!fs.existsSync(file)) return {};
+    if (!fs.existsSync(file))
+    {
+        return {};
+    }
     const value = JSON.parse(fs.readFileSync(file, 'utf8'));
     if (!value || typeof value !== 'object' || Array.isArray(value))
+    {
         throw new Error('attempt metadata must be an object');
+    }
     return value;
 }
 
 export function canonicalBinding(canonicalEvidenceFile, root)
 {
-    if (!canonicalEvidenceFile) return null;
+    if (!canonicalEvidenceFile)
+    {
+        return null;
+    }
     const absolute = path.resolve(canonicalEvidenceFile);
     const value = JSON.parse(fs.readFileSync(absolute, 'utf8'));
     const first = Array.isArray(value.attempts) ? value.attempts[0] : null;

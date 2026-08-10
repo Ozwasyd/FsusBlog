@@ -6,14 +6,14 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import {
+    resolveLifecycleAudit
+} from './test-lifecycle/audit-input.mjs';
+import {
     buildLifecycleReport,
     classifyNodeRegistryEntry,
     isNodeTestFile,
     renderLifecycleMatrix
 } from './test-lifecycle/lifecycle.mjs';
-import {
-    resolveLifecycleAudit
-} from './test-lifecycle/audit-input.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const registryPath = path.join(root, 'tests/governance/test-lifecycle-registry.json');

@@ -2,41 +2,47 @@ import type { FeaturedArticleItem, PopularArticleSummaryResponse, RelatedReading
 import type { SiteComplianceConfigPublic } from '@/api/system';
 import { isSupportedLocale, prepareLocaleDomains, type SupportedLocale } from '@/locales';
 import { LOCALE_CATALOG_DIGEST } from '@/locales/localeCatalog';
+import { requiredLocaleDomainsForPublicPage } from '@/locales/routeLocaleDomains';
 import {
     getSharedPublicPageManifestEntry,
     PUBLIC_PAGE_MANIFEST
 } from '@/public-renderers/generated/publicPageManifest';
 import {
-  createPublicAboutPageAssembly,
-  createPublicArchivePageAssembly,
-  createPublicArticleDetailPageAssembly,
-  createPublicFilterPageAssembly,
-  createPublicHomePageAssembly
-} from '@/public-renderers/pageAssemblies'
+    createPublicAboutPageAssembly,
+    createPublicArchivePageAssembly,
+    createPublicArticleDetailPageAssembly,
+    createPublicFilterPageAssembly,
+    createPublicHomePageAssembly
+} from '@/public-renderers/pageAssemblies';
 import {
-  createEntry,
-  normalizeArticleDetail,
-  normalizeArticleSummary,
-  PUBLIC_RENDERER_VERSION,
-  renderAotMarkdown,
-  renderShell,
-  toNumber,
-  toText,
-  type PublicEntryBuildOptions,
-  type RenderResult
-} from '@/public-renderers/publicEntryCore'
-import type { PublicAotPageAssembly } from '@/public-renderers/scaffold'
-import {
-    createPublicRenderBase,
-    type PublicPageKind,
-    type PublicRenderBase
-} from '@/public-renderers/publicRenderBase';
+    createEntry,
+    normalizeArticleDetail,
+    normalizeArticleSummary,
+    PUBLIC_RENDERER_VERSION,
+    renderAotMarkdown,
+    renderShell,
+    toNumber,
+    toText,
+    type PublicEntryBuildOptions,
+    type RenderResult
+} from '@/public-renderers/publicEntryCore';
 import {
     getPublicFilterLabel,
     normalizePublicFilterType,
     shouldShowPublicFilterSearchSort,
     type PublicFilterType
 } from '@/public-renderers/publicFilterSemantics';
+import {
+    createPublicRenderBase,
+    type PublicPageKind,
+    type PublicRenderBase
+} from '@/public-renderers/publicRenderBase';
+import {
+    createAuthoritativePublicRenderClock,
+    createPublicLocaleContext,
+    createPublicRenderTimeOptions,
+    type PublicRenderClock
+} from '@/public-renderers/publicRenderClock';
 import {
     buildPublicAboutRouteKey,
     buildPublicArchiveRouteKey,
@@ -51,18 +57,12 @@ import {
     buildPublicPrivacyRouteKey
 } from '@/public-renderers/publicRouteIdentity';
 import {
-    createAuthoritativePublicRenderClock,
-    createPublicLocaleContext,
-    createPublicRenderTimeOptions,
-    type PublicRenderClock
-} from '@/public-renderers/publicRenderClock';
-import {
     normalizePublicComplianceConfig,
     normalizePublicSiteDescription,
     normalizePublicSiteTitle
 } from '@/public-renderers/publicSiteIdentity';
+import type { PublicAotPageAssembly } from '@/public-renderers/scaffold';
 import type { TimeRenderOptions } from '@/utils/time';
-import { requiredLocaleDomainsForPublicPage } from '@/locales/routeLocaleDomains';
 import { createAboutPageViewContract } from '@/view-contracts/aboutPage';
 import { createArchivePageViewContract } from '@/view-contracts/archive';
 import { createArticleDetailPageViewContract, type ArticleDetailPageViewContract } from '@/view-contracts/articleDetail';

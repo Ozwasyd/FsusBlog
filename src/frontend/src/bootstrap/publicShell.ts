@@ -1,27 +1,23 @@
 import { dispatchAotActionEvent } from '@/bootstrap/aotActionEvent';
 import {
-  adoptPublicBootIntent,
-  getPublicActivationOwner,
-  submitPublicActivationIntent,
-  warmPublicActivation,
-  warmPublicFullAppCore
-} from '@/bootstrap/publicActivationRuntime'
-import type { PublicBootIntent } from '@/bootstrap/publicBootHandoff'
+    adoptPublicBootIntent,
+    getPublicActivationOwner,
+    submitPublicActivationIntent,
+    warmPublicActivation,
+    warmPublicFullAppCore
+} from '@/bootstrap/publicActivationRuntime';
+import type { PublicBootIntent } from '@/bootstrap/publicBootHandoff';
 import {
     readPublicHydrationPayloadAsync
 } from '@/bootstrap/publicHydrationBootstrap';
 import {
-    resolvePublicRoutePrewarmTarget,
-    type PublicRoutePrewarmReason
-} from '@/router/publicRoutePreload';
-import {
     classifyPublicNavigationIntent
 } from '@/bootstrap/publicNavigationIntent';
 import {
-  addPublicShellEventListener,
-  onPublicShellLifetimeAbort,
-  resetPublicShellLifetime
-} from '@/bootstrap/publicShellLifetime'
+    addPublicShellEventListener,
+    onPublicShellLifetimeAbort,
+    resetPublicShellLifetime
+} from '@/bootstrap/publicShellLifetime';
 import {
     isPublicSeoPath,
     removeGlobalLoader
@@ -31,6 +27,10 @@ import type { PublicPageSeed } from '@/public-renderers/pageSeed';
 import { hasCanonicalPublicSeedRenderTimestamp } from '@/public-renderers/publicRenderClock';
 import { putPublicRouteSeed, type PublicRouteSeedKind } from '@/public-renderers/publicRouteSeedStore';
 import { resetPublicShellRuntimeAuthState } from '@/public-renderers/publicShellRuntimeState';
+import {
+    resolvePublicRoutePrewarmTarget,
+    type PublicRoutePrewarmReason
+} from '@/router/publicRoutePreload';
 import {
     activateLocalFixtureSession,
     buildLocalFixtureAdminUrl,

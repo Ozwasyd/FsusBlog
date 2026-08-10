@@ -43,32 +43,32 @@ import { useArticlePreviewGeneration } from '@/composables/articlePreviewGenerat
 import { useAbortableTask } from '@/composables/useAbortableTask';
 import { ensureAdminSensitiveProof } from '@/composables/useAdminSensitiveProof';
 import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback';
-import { useImageUploadFlow } from '@/composables/useImageUploadFlow'
-import { useImageUploadPreferences } from '@/composables/useImageUploadPreferences'
-import { useImageUploadRuntime } from '@/composables/useImageUploadRuntime'
+import { useImageUploadFlow } from '@/composables/useImageUploadFlow';
+import { useImageUploadPreferences } from '@/composables/useImageUploadPreferences';
+import { useImageUploadRuntime } from '@/composables/useImageUploadRuntime';
 import { usePow } from '@/composables/usePow';
 import { BinaryTransportError } from '@/composition/binaryTransport';
 import { toast } from '@/fsusui/feedback';
 import { isFsusUiOk } from '@/fsusui/result';
 import {
-  ArticleRecoveryCoordinator,
-  ArticleRecoveryFlushOwner,
-  articleRecoveryArticleKey,
-  articleRecoveryJournal,
-  articleRecoverySourceHash,
-  assessArticleRecoveryDivergence,
-  bindArticleRecoveryLifecycleFlush,
-  createArticleRecoveryOperationRunner,
-  createArticleRecoveryClientRevision,
-  summarizeArticleRecoveryComparison,
-  type ArticleRecoveryDivergence,
-  type ArticleRecoveryFlushResult,
-  type ArticleRecoveryJournalRecord,
-  type ArticleRecoveryJournalWriteResult,
-  type ArticleRecoveryOperationKind
-} from '@/services/articleRecoveryJournal'
-import { useAdminStore } from '@/store/admin'
+    ArticleRecoveryCoordinator,
+    ArticleRecoveryFlushOwner,
+    articleRecoveryArticleKey,
+    articleRecoveryJournal,
+    articleRecoverySourceHash,
+    assessArticleRecoveryDivergence,
+    bindArticleRecoveryLifecycleFlush,
+    createArticleRecoveryOperationRunner,
+    createArticleRecoveryClientRevision,
+    summarizeArticleRecoveryComparison,
+    type ArticleRecoveryDivergence,
+    type ArticleRecoveryFlushResult,
+    type ArticleRecoveryJournalRecord,
+    type ArticleRecoveryJournalWriteResult,
+    type ArticleRecoveryOperationKind
+} from '@/services/articleRecoveryJournal';
 import { purgeRetiredArticleDraftMetadata } from '@/services/privateStorageRegistry';
+import { useAdminStore } from '@/store/admin';
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation';
 import { isAbortError } from '@/utils/errors';
 
