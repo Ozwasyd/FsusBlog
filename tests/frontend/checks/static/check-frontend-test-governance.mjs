@@ -549,7 +549,7 @@ const publicPreviewCaptureRunner = readFileSync(resolve(root, 'tools/docs/run-pu
 for (const token of [
     'FSUSBLOG_DISABLE_HUMAN_READ_PROOF=1',
     'FSUSBLOG_PLAYWRIGHT_SERIAL_REASON=shared-screenshot-baseline-writer',
-    'PLAYWRIGHT_BASE_URL="$FSUSBLOG_DEBUG_FRONTEND_URL"',
+    'PLAYWRIGHT_BASE_URL="$FSUSBLOG_RELEASE_PREVIEW_URL"',
     '--workers=1',
     'manual/manual-layout-screenshots.spec.ts'
 ])

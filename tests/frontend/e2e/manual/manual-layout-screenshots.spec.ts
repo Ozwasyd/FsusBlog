@@ -21,6 +21,7 @@ import {
   openThemedAuditedPage,
   prewarmDevRuntime,
   settlePage,
+  waitForPublicHydration,
   waitForScreenshotPaintStability,
   userName,
   userPassword,
@@ -429,6 +430,9 @@ async function captureRouteScreenshot(page: Page, route: ManualRoute, viewport: 
   await page.goto(route.path, { waitUntil: 'domcontentloaded' })
   await waitForAppReady(page)
   await settlePage(page)
+  if (await page.locator('#fsus-aot-shell').count() > 0) {
+    await waitForPublicHydration(page)
+  }
   await waitForManualRouteContentReady(page, route)
   await ensureThemeApplied(page, theme)
 

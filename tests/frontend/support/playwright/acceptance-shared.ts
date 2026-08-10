@@ -13,6 +13,7 @@ import { loadAuditFixtures } from './routeAuditFixtures'
 import { resolveTestSession, testSessionHeaders, withTestSessionContextOptions } from './testSession'
 import {
   waitForApplicationReady as waitForCanonicalApplicationReady,
+  waitForPublicHydration as waitForCanonicalPublicHydration,
   waitForVisualFrameReady
 } from './readiness.mjs'
 // @ts-ignore The retry helper is a pure module covered by node:test.
@@ -349,6 +350,10 @@ function isIgnorableHttpResponse(url: string, status: number): boolean {
 
 export async function waitForAppReady(page: Page, timeout = APP_READY_TIMEOUT_MS): Promise<void> {
   await waitForCanonicalApplicationReady(page, { timeoutMs: timeout })
+}
+
+export async function waitForPublicHydration(page: Page, timeout = APP_READY_TIMEOUT_MS): Promise<void> {
+  await waitForCanonicalPublicHydration(page, { timeoutMs: timeout })
 }
 
 export async function settlePage(page: Page): Promise<void> {

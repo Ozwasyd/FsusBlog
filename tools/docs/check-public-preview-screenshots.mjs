@@ -139,6 +139,7 @@ for (const token of [
     'filterManualScreenshotItems',
     'manualScreenshotShardName',
     'waitForHomeSecondaryContent',
+    'waitForPublicHydration',
     'manual screenshot shards cannot write docs assets',
     'public-preview docs capture requires the complete unfiltered registry',
     'assertContentDrivenCoverContract',
@@ -150,6 +151,12 @@ for (const token of [
 ])
 {
     includes('tests/frontend/e2e/manual/manual-layout-screenshots.spec.ts', manualCapture, token);
+}
+const hydrationReadinessIndex = manualCapture.indexOf('await waitForPublicHydration(page)');
+const dynamicNormalizationIndex = manualCapture.indexOf('await normalizeDynamicEvidenceForScreenshot(page)');
+if (hydrationReadinessIndex < 0 || dynamicNormalizationIndex < 0 || hydrationReadinessIndex > dynamicNormalizationIndex)
+{
+    errors.push('manual public screenshot capture must finish hydration before normalizing dynamic DOM text');
 }
 const manualConfiguration = read('tests/frontend/support/playwright/manualScreenshotConfiguration.ts');
 for (const token of [
