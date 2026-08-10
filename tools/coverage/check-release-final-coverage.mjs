@@ -222,8 +222,18 @@ function runSelfTest() {
   fs.writeFileSync(path.join(expiredTmp, 'changed-code/Summary.json'), JSON.stringify({ summary: { linecoverage: 100 } }))
   const expiredErrors = validate({ coverageRoot: expiredTmp, policyText: exceptionPolicy.replaceAll('2999-12-31', '2000-01-01') })
   fs.rmSync(expiredTmp, { recursive: true, force: true })
-  if (!expiredErrors.some((error) => error.includes('backend line coverage'))) {
-    fail(['self-test expected expired temporary exceptions to fail'])
+  const expiredMetrics = [
+    'backend line coverage',
+    'backend branch coverage',
+    'frontend line coverage',
+    'frontend branch coverage',
+    'critical backend module branch coverage'
+  ]
+  const missingExpiredFailures = expiredMetrics.filter(
+    (label) => !expiredErrors.some((error) => error.includes(label))
+  )
+  if (missingExpiredFailures.length > 0) {
+    fail([`self-test expected expired temporary exceptions to fail: ${missingExpiredFailures.join(', ')}`])
   }
 
   console.log('[release-final-coverage] self-test ok')
