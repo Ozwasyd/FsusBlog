@@ -33,7 +33,22 @@ function waitFor(file)
     });
 }
 
-fs.writeFileSync(readyFile, `${process.pid}\n`, { mode: 0o600 });
+function publishPrivateFile(file, content)
+{
+    const temporary = `${file}.next-${process.pid}`;
+    try
+    {
+        fs.writeFileSync(temporary, content, { flag: 'wx', mode: 0o600 });
+        fs.renameSync(temporary, file);
+    }
+    catch (error)
+    {
+        fs.rmSync(temporary, { force: true });
+        throw error;
+    }
+}
+
+publishPrivateFile(readyFile, `${process.pid}\n`);
 await waitFor(startFile);
 
 const child = spawn(command[0], command.slice(1), {
@@ -45,7 +60,7 @@ const result = await new Promise((resolve) =>
 {
     child.once('spawn', () =>
     {
-        fs.writeFileSync(childFile, `${JSON.stringify({ pid: child.pid })}\n`, { mode: 0o600 });
+        publishPrivateFile(childFile, `${JSON.stringify({ pid: child.pid })}\n`);
     });
     child.once('error', (error) =>
     {
@@ -54,14 +69,13 @@ const result = await new Promise((resolve) =>
             code: error.code ?? null,
             message: error.message
         };
-        fs.writeFileSync(
+        publishPrivateFile(
             childFile,
-            `${JSON.stringify({ pid: null, spawnError })}\n`,
-            { mode: 0o600 }
+            `${JSON.stringify({ pid: null, spawnError })}\n`
         );
         resolve({ exitCode: null, signal: null, spawnError });
     });
     child.once('exit', (exitCode, signal) => resolve({ exitCode, signal }));
 });
-fs.writeFileSync(resultFile, `${JSON.stringify(result)}\n`, { mode: 0o600 });
+publishPrivateFile(resultFile, `${JSON.stringify(result)}\n`);
 await waitFor(finalizeFile);

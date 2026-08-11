@@ -576,7 +576,6 @@ test('runDag executes independent tiers concurrently before their dependent tier
             return { code: 0, signal: null };
         }
     });
-
     assert.equal(result.status, 'success');
     assert.equal(maxActive, 2);
     assert.ok(events.indexOf('start:join') > events.indexOf('end:left'));
@@ -2653,6 +2652,7 @@ test('released elastic capacity admits newly-ready work before expanding active 
     const { runDag } = await loadScheduler();
     const temp = createTempDir('scheduler-elastic-admission-fairness');
     const events = new Map();
+    const runtimeStarted = Promise.withResolvers();
     const dynamicTier = (id, overrides = {}) => tier(id, {
         resourceGrantMode: 'dynamic',
         cpuWeight: 1,
@@ -2677,10 +2677,17 @@ test('released elastic capacity admits newly-ready work before expanding active 
         snapshotWorktree: stableSnapshot,
         executeTier: async (current) =>
         {
-            events.set(`${current.id}:start`, Date.now());
+            events.set(`${current.id}:start`, events.size);
             events.set(`${current.id}:cpu`, current.cpuUnits);
-            await delay(current.id === 'long' ? 100 : 20);
-            events.set(`${current.id}:finish`, Date.now());
+            if (current.id === 'long')
+            {
+                await runtimeStarted.promise;
+            }
+            if (current.id === 'runtime')
+            {
+                runtimeStarted.resolve();
+            }
+            events.set(`${current.id}:finish`, events.size);
             return { code: 0, signal: null };
         }
     });
@@ -2909,23 +2916,11 @@ test('bundle timeout kills a pipe-holding grandchild and still collects independ
     const grandchildFile = path.join(temp, 'grandchild.sh');
     const parentFile = path.join(temp, 'parent.sh');
     const failFile = path.join(temp, 'fail.mjs');
-
-    fs.writeFileSync(grandchildFile, [
-        '#!/usr/bin/env bash',
-        'trap "" TERM',
-        'while true; do',
-        "    printf 'holding-pipe\\n'",
-        '    sleep 0.025',
-        'done'
-    ].join('\n') + '\n', { mode: 0o700 });
-    fs.writeFileSync(parentFile, [
-        '#!/usr/bin/env bash',
-        'set -euo pipefail',
-        `${JSON.stringify(grandchildFile)} &`,
-        'child=$!',
-        `printf '%s\\n' "$child" > ${JSON.stringify(pidFile)}`,
-        'wait "$child"'
-    ].join('\n') + '\n', { mode: 0o700 });
+    fs.writeFileSync(grandchildFile, String.raw`trap "" TERM
+while true; do printf 'holding-pipe\n'; sleep 0.025; done`);
+    fs.writeFileSync(parentFile, String.raw`set -euo pipefail
+/bin/bash ${JSON.stringify(grandchildFile)} &
+child=$!; printf '%s\n' "$child" > ${JSON.stringify(pidFile)}; wait "$child"`);
     fs.writeFileSync(failFile, 'setTimeout(() => process.exit(7), 50)\n');
 
     t.after(() =>
