@@ -1196,6 +1196,7 @@ test('Linux systemd adapter cleanup treats command results as evidence and final
     await t.test('preserves abort after ready and before child as primary', async () =>
     {
         const controller = new AbortController();
+        let observeStart = true;
         const reason = Object.assign(new Error('abort after ready before child'), {
             name: 'AbortError',
             signal: 'SIGTERM'
@@ -1205,10 +1206,24 @@ test('Linux systemd adapter cleanup treats command results as evidence and final
             finalizeTransition: { emitTerminal: true, loadState: 'not-found', members: [] },
             onHandshake()
             {
-                setTimeout(() => controller.abort(reason), 5);
+                const abortAfterStart = () =>
+                {
+                    if (!observeStart)
+                    {
+                        return;
+                    }
+                    if (fs.existsSync(path.join(state.controlRoot, 'start')))
+                    {
+                        controller.abort(reason);
+                        return;
+                    }
+                    setImmediate(abortAfterStart);
+                };
+                setImmediate(abortAfterStart);
             }
         });
         const error = await adapter.run({ ...options, signal: controller.signal }).catch((value) => value);
+        observeStart = false;
         assert.equal(error, reason);
         assert.equal(error.physicalExecution.authority.supervisorPid, 101);
         assert.equal(error.physicalExecution.authority.established, true);

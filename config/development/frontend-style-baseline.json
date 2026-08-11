@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:054211b62361c20fe56eb0e7b0fcac1bc80e4071dc13d49b3ff81fd1cbfd2ab0",
-    "sourceStateSha256": "054211b62361c20fe56eb0e7b0fcac1bc80e4071dc13d49b3ff81fd1cbfd2ab0",
+    "generatedFrom": "source-state:d7ac0686c8a04de9719dde0fcc26fe8db4b6a2d30e11d70745fa790eec45b833",
+    "sourceStateSha256": "d7ac0686c8a04de9719dde0fcc26fe8db4b6a2d30e11d70745fa790eec45b833",
     "configurationSha256": "aa1eb8b9803748da07ffbcda4a9bf08f6dc69cf2a24828d2ad14bae5f97ffdf4",
     "violationCount": 272706,
     "fileCount": 1506,
@@ -10160,7 +10160,7 @@
         },
         {
             "path": "tests/tools/artifact-digest-table.test.mjs",
-            "sourceSha256": "2a3b0e5990fdcc33c26d976d785bc6d71c32e3d93b207dd543c1c564c3e894cd",
+            "sourceSha256": "cbb41475e805966937474c2a5b2cf83a64b32b6cf4d88c8ed2ebaea4262c48ab",
             "violationCount": 2,
             "violationDigest": "1a75d0f4c311c6b67ec00bed9859e0dbada3fc8d762742263989575e1c04a784",
             "rules": {
