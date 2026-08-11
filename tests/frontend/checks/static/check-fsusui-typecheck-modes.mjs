@@ -181,6 +181,8 @@ if (failures.length === 0)
         'resolveLocalFsusUiRepositoryRoot',
         'rev-parse',
         '--git-common-dir',
+        '--repository-root',
+        'process.stdout.write',
         'FSUSBLOG_LOCAL_FSUSUI_ROOT does not contain the FsusUI source contract'
     ])
     {

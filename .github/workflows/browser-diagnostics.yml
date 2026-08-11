@@ -38,7 +38,6 @@ env:
     DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
     FSUSBLOG_REPO_ROOT: ${{ github.workspace }}
     GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_PACKAGES_TOKEN || github.token }}
-    FSUSBLOG_LOCAL_FSUSUI_EXPECTED_COMMIT: b967712bcb9dfc13babd49006451a46e2dcc4771
 
 jobs:
     production-build-artifacts:
@@ -106,11 +105,13 @@ jobs:
             FSUSBLOG_LOCAL_FSUSUI_ROOT: ${{ github.workspace }}/.tmp/local-fsusui
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - id: fsusui-baseline
+              run: node tools/test/fsusui-baseline.mjs --github-output "$GITHUB_OUTPUT"
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
               with:
                   repository: Ozwasyd/FsusUI
-                  ref: ${{ env.FSUSBLOG_LOCAL_FSUSUI_EXPECTED_COMMIT }}
-                  token: ${{ secrets.GITHUB_PACKAGES_TOKEN }}
+                  ref: ${{ steps.fsusui-baseline.outputs.commit }}
+                  token: ${{ secrets.GITHUB_PACKAGES_TOKEN || github.token }}
                   persist-credentials: false
                   path: .tmp/local-fsusui
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6

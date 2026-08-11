@@ -117,6 +117,22 @@
             "pathType": "file"
         },
         {
+            "id": "fsusui-test-baseline",
+            "owner": "frontend-test-governance",
+            "canonicalPath": "config/testing/fsusui-baseline.json",
+            "pathType": "file",
+            "purpose": "Single full-commit authority for local and CI FsusUI source and generated theme consumption.",
+            "consumers": [
+                "tools/test/fsusui-baseline.mjs",
+                "tests/browser-diagnostics/local-fsusui-identity.mjs",
+                ".github/workflows/quality-gate.yml",
+                ".github/workflows/browser-diagnostics.yml"
+            ],
+            "validationCommand": "node --test tests/tools/browser-diagnostics-fsusui-identity.test.mjs",
+            "changePolicy": "manual-update-with-remote-head-and-current-screenshot-evidence-review",
+            "status": "manual"
+        },
+        {
             "id": "fixture-capability-catalog",
             "owner": "test-fixture-catalog",
             "canonicalPath": "config/testing/fixture-capability-catalog.json",

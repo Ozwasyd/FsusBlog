@@ -154,6 +154,7 @@ async function importPublicShell(
   }))
   vi.doMock('@/services/themeRuntime', () => ({
     ensureThemeRuntime: vi.fn(),
+    reconcileThemeRuntimeAfterHydration: vi.fn(),
     setThemeMode: vi.fn()
   }))
   vi.doMock('@/bootstrap/fullApp', () => ({

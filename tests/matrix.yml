@@ -897,6 +897,8 @@ tiers:
       executionVariant: ordinary
       cacheInputs:
           [
+              config/testing/fsusui-baseline.json,
+              tools/test/fsusui-baseline.mjs,
               src/frontend/package.json,
               src/frontend/package-lock.json,
               src/frontend/tsconfig*.json,
@@ -959,6 +961,8 @@ tiers:
       executionVariant: ordinary
       cacheInputs:
           [
+              config/testing/fsusui-baseline.json,
+              tools/test/fsusui-baseline.mjs,
               src/frontend/package.json,
               src/frontend/package-lock.json,
               src/frontend/vitest.config.ts,
@@ -1083,6 +1087,8 @@ tiers:
       executionVariant: property
       cacheInputs:
           [
+              config/testing/fsusui-baseline.json,
+              tools/test/fsusui-baseline.mjs,
               src/frontend/package.json,
               src/frontend/package-lock.json,
               src/frontend/vitest.shared.mjs,
@@ -1150,6 +1156,8 @@ tiers:
       executionVariant: runtime
       cacheInputs:
           [
+              config/testing/fsusui-baseline.json,
+              tools/test/fsusui-baseline.mjs,
               src/frontend/package.json,
               src/frontend/package-lock.json,
               src/frontend/src,
@@ -1214,6 +1222,8 @@ tiers:
       executionVariant: ordinary
       cacheInputs:
           [
+              config/testing/fsusui-baseline.json,
+              tools/test/fsusui-baseline.mjs,
               src/frontend/package.json,
               src,
               benchmarks,

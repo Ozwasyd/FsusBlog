@@ -502,8 +502,19 @@ jobs:
         runs-on: ubuntu-latest
         needs: [validate-matrix, behavior-doc-static-admission, wasm-build-artifacts]
         timeout-minutes: 20
+        env:
+            FSUSBLOG_LOCAL_FSUSUI_ROOT: ${{ github.workspace }}/.tmp/local-fsusui
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - id: fsusui-baseline
+              run: node tools/test/fsusui-baseline.mjs --github-output "$GITHUB_OUTPUT"
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  repository: Ozwasyd/FsusUI
+                  ref: ${{ steps.fsusui-baseline.outputs.commit }}
+                  token: ${{ secrets.GITHUB_PACKAGES_TOKEN || github.token }}
+                  persist-credentials: false
+                  path: .tmp/local-fsusui
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
@@ -518,6 +529,8 @@ jobs:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
                   receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+            - run: corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" install --frozen-lockfile --ignore-scripts
+            - run: corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" run build:theme
             - run: ./tools/test.sh ci-tier frontend-build --no-deps
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
               if: always()
@@ -537,8 +550,19 @@ jobs:
         runs-on: ubuntu-latest
         needs: [validate-matrix, behavior-doc-static-admission]
         timeout-minutes: 45
+        env:
+            FSUSBLOG_LOCAL_FSUSUI_ROOT: ${{ github.workspace }}/.tmp/local-fsusui
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - id: fsusui-baseline
+              run: node tools/test/fsusui-baseline.mjs --github-output "$GITHUB_OUTPUT"
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  repository: Ozwasyd/FsusUI
+                  ref: ${{ steps.fsusui-baseline.outputs.commit }}
+                  token: ${{ secrets.GITHUB_PACKAGES_TOKEN || github.token }}
+                  persist-credentials: false
+                  path: .tmp/local-fsusui
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
@@ -549,6 +573,8 @@ jobs:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
                   receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+            - run: corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" install --frozen-lockfile --ignore-scripts
+            - run: corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" run build:theme
             - run: ./tools/test.sh ci-job fast-frontend-unit --fresh
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
               if: always()
@@ -573,8 +599,19 @@ jobs:
         runs-on: ubuntu-latest
         needs: [validate-matrix, behavior-doc-static-admission, wasm-build-artifacts]
         timeout-minutes: 20
+        env:
+            FSUSBLOG_LOCAL_FSUSUI_ROOT: ${{ github.workspace }}/.tmp/local-fsusui
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - id: fsusui-baseline
+              run: node tools/test/fsusui-baseline.mjs --github-output "$GITHUB_OUTPUT"
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  repository: Ozwasyd/FsusUI
+                  ref: ${{ steps.fsusui-baseline.outputs.commit }}
+                  token: ${{ secrets.GITHUB_PACKAGES_TOKEN || github.token }}
+                  persist-credentials: false
+                  path: .tmp/local-fsusui
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
@@ -589,6 +626,8 @@ jobs:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
                   receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+            - run: corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" install --frozen-lockfile --ignore-scripts
+            - run: corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" run build:theme
             - run: ./tools/test.sh ci-tier frontend-runtime-contracts --no-deps
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
               if: always()
@@ -610,11 +649,13 @@ jobs:
             FSUSBLOG_LOCAL_FSUSUI_ROOT: ${{ github.workspace }}/.tmp/local-fsusui
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - id: fsusui-baseline
+              run: node tools/test/fsusui-baseline.mjs --github-output "$GITHUB_OUTPUT"
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
               with:
                   repository: Ozwasyd/FsusUI
-                  ref: b967712bcb9dfc13babd49006451a46e2dcc4771
-                  token: ${{ secrets.GITHUB_PACKAGES_TOKEN }}
+                  ref: ${{ steps.fsusui-baseline.outputs.commit }}
+                  token: ${{ secrets.GITHUB_PACKAGES_TOKEN || github.token }}
                   persist-credentials: false
                   path: .tmp/local-fsusui
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
@@ -631,6 +672,8 @@ jobs:
                   name: frontend-build
                   path: .
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+            - run: corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" install --frozen-lockfile --ignore-scripts
+            - run: corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" run build:theme
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix tools/frontend/style-toolchain ci --ignore-scripts --no-audit --progress=false
             - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - run: ./tools/test.sh ci-tier frontend-static-governance --no-deps
@@ -1120,11 +1163,15 @@ jobs:
             FSUSBLOG_LOCAL_FSUSUI_ROOT: ${{ github.workspace }}/.tmp/local-fsusui
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - id: fsusui-baseline
+              run: node tools/test/fsusui-baseline.mjs --github-output "$GITHUB_OUTPUT"
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
               with:
                   repository: Ozwasyd/FsusUI
+                  ref: ${{ steps.fsusui-baseline.outputs.commit }}
                   path: .tmp/local-fsusui
                   token: ${{ secrets.GITHUB_PACKAGES_TOKEN || github.token }}
+                  persist-credentials: false
             - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
               with:
                   dotnet-version: 10.0.x
@@ -1143,6 +1190,7 @@ jobs:
                   receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
             - run: corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" install --frozen-lockfile --ignore-scripts
+            - run: corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" run build:theme
             - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
               with:
                   path: ~/.cache/ms-playwright

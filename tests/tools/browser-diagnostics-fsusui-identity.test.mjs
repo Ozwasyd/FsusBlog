@@ -9,9 +9,11 @@ import {
   LOCAL_FSUSUI_IDENTITY_SCHEMA,
   resolveLocalFsusUiIdentity,
 } from '../browser-diagnostics/local-fsusui-identity.mjs'
+import { readFsusUiBaseline } from '../../tools/test/fsusui-baseline.mjs'
 
 const root = path.resolve(import.meta.dirname, '../..')
-const pinnedCommit = 'b967712bcb9dfc13babd49006451a46e2dcc4771'
+const pinnedCommit = readFsusUiBaseline().commit
+const baselineCli = path.join(root, 'tools/test/fsusui-baseline.mjs')
 
 function git(repository, ...args) {
   return execFileSync('git', ['-C', repository, ...args], {
@@ -46,17 +48,34 @@ function createFixture(t) {
   return { repository, commit: git(repository, 'rev-parse', 'HEAD') }
 }
 
+test('FsusUI baseline CLI exports the canonical commit for local and workflow consumers', (t) => {
+  const outputFile = path.join(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'fsusui-baseline-output-')),
+    'github-output',
+  )
+  t.after(() => fs.rmSync(path.dirname(outputFile), { recursive: true, force: true }))
+
+  const commit = execFileSync(process.execPath, [baselineCli, '--commit'], {
+    encoding: 'utf8',
+  }).trim()
+  execFileSync(
+    process.execPath,
+    [baselineCli, '--github-output', outputFile],
+    { encoding: 'utf8' },
+  )
+
+  assert.equal(commit, pinnedCommit)
+  assert.equal(fs.readFileSync(outputFile, 'utf8'), `commit=${pinnedCommit}\n`)
+})
+
 test('workflow exports and checks out the exact pinned FsusUI identity', () => {
   const workflow = fs.readFileSync(path.join(root, '.github/workflows/browser-diagnostics.yml'), 'utf8')
   const qualityGate = fs.readFileSync(path.join(root, '.github/workflows/quality-gate.yml'), 'utf8')
-  assert.match(
-    workflow,
-    new RegExp(`FSUSBLOG_LOCAL_FSUSUI_EXPECTED_COMMIT: ${pinnedCommit}`, 'u'),
-  )
-  assert.match(workflow, /ref: \$\{\{ env\.FSUSBLOG_LOCAL_FSUSUI_EXPECTED_COMMIT \}\}/u)
-  assert.match(workflow, /repository: Ozwasyd\/FsusUI[\s\S]*?token: \$\{\{ secrets\.GITHUB_PACKAGES_TOKEN \}\}[\s\S]*?persist-credentials: false/u)
+  assert.match(workflow, /ref: \$\{\{ steps\.fsusui-baseline\.outputs\.commit \}\}/u)
+  assert.match(workflow, /node tools\/test\/fsusui-baseline\.mjs --github-output "\$GITHUB_OUTPUT"/u)
+  assert.match(workflow, /repository: Ozwasyd\/FsusUI[\s\S]*?token: \$\{\{ secrets\.GITHUB_PACKAGES_TOKEN \|\| github\.token \}\}[\s\S]*?persist-credentials: false/u)
   assert.match(workflow, /node tests\/browser-diagnostics\/local-fsusui-identity\.mjs/u)
-  assert.match(qualityGate, /repository: Ozwasyd\/FsusUI[\s\S]*?token: \$\{\{ secrets\.GITHUB_PACKAGES_TOKEN \}\}[\s\S]*?persist-credentials: false/u)
+  assert.match(qualityGate, /repository: Ozwasyd\/FsusUI[\s\S]*?token: \$\{\{ secrets\.GITHUB_PACKAGES_TOKEN \|\| github\.token \}\}[\s\S]*?persist-credentials: false/u)
 })
 
 test('local FsusUI identity is stable, path-independent and binds source plus generated theme dist', (t) => {
@@ -67,9 +86,9 @@ test('local FsusUI identity is stable, path-independent and binds source plus ge
     expectedCommit: first.commit,
   })
   const repeatedIdentity = resolveLocalFsusUiIdentity({
+    expectedCommit: first.commit,
     env: {
       FSUSBLOG_LOCAL_FSUSUI_ROOT: first.repository,
-      FSUSBLOG_LOCAL_FSUSUI_EXPECTED_COMMIT: first.commit,
     },
   })
   const secondIdentity = resolveLocalFsusUiIdentity({
@@ -126,7 +145,10 @@ test('local FsusUI identity rejects dirty, unpinned and incomplete inputs', (t) 
     /identity input is missing/u,
   )
   assert.throws(
-    () => resolveLocalFsusUiIdentity({ root: fixture.repository }),
-    /must be a full lowercase Git commit/u,
+    () => resolveLocalFsusUiIdentity({
+      root: fixture.repository,
+      expectedCommit: 'not-a-commit',
+    }),
+    /FsusUI baseline must be a full lowercase Git commit/u,
   )
 })

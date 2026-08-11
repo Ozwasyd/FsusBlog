@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { validateCommentPrivacyWasmBuildSource } from '../../../../tools/security/comment-privacy-build-contract.mjs';
+import { readFsusUiBaseline } from '../../../../tools/test/fsusui-baseline.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 const errors = [];
@@ -198,8 +199,11 @@ requireIncludes('tools/test/lanes/_suite-support.sh', [
     'EnsureWasmReceiptOnce() {',
     '--value ensure-wasm-receipt-v2)',
     'npm run ensure:wasm',
-    'RunFrontendFastBuildLane() {\n    EnsureWasmReceiptOnce',
-    'RunFrontendRuntimeContractsLane() {\n    EnsureWasmReceiptOnce',
+    'EnsureFrontendFsusUiBaseline() {',
+    'frontend test lanes require the canonical local FsusUI baseline',
+    'tests/browser-diagnostics/local-fsusui-identity.mjs',
+    'RunFrontendFastBuildLane() {\n    EnsureFrontendFsusUiBaseline\n    EnsureWasmReceiptOnce',
+    'RunFrontendRuntimeContractsLane() {\n    EnsureFrontendFsusUiBaseline\n    EnsureWasmReceiptOnce',
     'run-command-manifest.mjs',
     'resolve-dotnet-test-processors.mjs',
     '--no-build',
@@ -446,6 +450,59 @@ if (read('.github/workflows/quality-gate.yml').includes('docs --out docs/testing
 {
     errors.push('quality-gate tests must not rewrite tracked docs/testing.generated.md');
 }
+const fsusUiBaseline = readFsusUiBaseline(path.join(root, 'config/testing/fsusui-baseline.json'));
+const screenshotManifest = JSON.parse(read('docs/assets/screenshots/manifest.json') || '{}');
+if (screenshotManifest.fsusUi?.commit !== fsusUiBaseline.commit)
+{
+    errors.push('FsusUI test baseline must match the current screenshot evidence baseline');
+}
+for (const [job, nextJob] of [
+    ['frontend-build', 'fast-frontend-unit'],
+    ['fast-frontend-unit', 'frontend-runtime-contracts'],
+    ['frontend-runtime-contracts', 'frontend-static-governance'],
+    ['frontend-static-governance', 'fast-static-governance']
+])
+{
+    requireSectionIncludes(
+        '.github/workflows/quality-gate.yml',
+        `    ${job}:`,
+        `    ${nextJob}:`,
+        [
+            'FSUSBLOG_LOCAL_FSUSUI_ROOT: ${{ github.workspace }}/.tmp/local-fsusui',
+            'id: fsusui-baseline',
+            'node tools/test/fsusui-baseline.mjs --github-output "$GITHUB_OUTPUT"',
+            'repository: Ozwasyd/FsusUI',
+            'ref: ${{ steps.fsusui-baseline.outputs.commit }}',
+            'corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" install --frozen-lockfile --ignore-scripts',
+            'corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" run build:theme'
+        ]
+    );
+}
+requireSectionIncludes(
+    '.github/workflows/quality-gate.yml',
+    '    browser-contract:',
+    '    resilience-runtime:',
+    [
+        'FSUSBLOG_LOCAL_FSUSUI_ROOT: ${{ github.workspace }}/.tmp/local-fsusui',
+        'id: fsusui-baseline',
+        'node tools/test/fsusui-baseline.mjs --github-output "$GITHUB_OUTPUT"',
+        'repository: Ozwasyd/FsusUI',
+        'ref: ${{ steps.fsusui-baseline.outputs.commit }}',
+        'corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" install --frozen-lockfile --ignore-scripts',
+        'corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" run build:theme'
+    ]
+);
+if (read('tools/coverage/collect-frontend-coverage.sh').includes(
+    'FSUSBLOG_USE_LOCAL_FSUSUI="${FSUSBLOG_USE_LOCAL_FSUSUI:-0}"'
+))
+{
+    errors.push('frontend coverage must not force a package-only FsusUI source outside the matrix/workflow baseline');
+}
+requireIncludes('tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs', [
+    'resolveLocalFsusUiRepositoryRoot',
+    'override: process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT',
+    'repositoryRoot: repoRoot'
+]);
 
 const suiteSupportSource = read('tools/test/lanes/_suite-support.sh');
 const frontendBuildFingerprintStart = suiteSupportSource.indexOf('RunFrontendFastBuildGroup()');

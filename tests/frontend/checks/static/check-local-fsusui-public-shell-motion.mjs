@@ -4,10 +4,20 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { resolveLocalFsusUiRepositoryRoot } from '../../../../src/frontend/scripts/fsusui-root.mjs'
+
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
 const frontendRoot = path.join(repoRoot, 'src', 'frontend')
-const defaultFsusUiRoot = path.resolve(repoRoot, '..', 'FsusUI')
-const fsusUiRoot = path.resolve(process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT || defaultFsusUiRoot)
+const fsusUiRoot = resolveLocalFsusUiRepositoryRoot({
+  override: process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT,
+  repositoryRoot: repoRoot,
+})
+if (!fsusUiRoot) {
+  throw new Error(
+    'local FsusUI source was not found beside the primary FsusBlog checkout; '
+      + 'set FSUSBLOG_LOCAL_FSUSUI_ROOT explicitly',
+  )
+}
 const aliasSource = fs.readFileSync(path.join(frontendRoot, 'scripts', 'fsusui-local.ts'), 'utf8')
 const themeDist = path.join(fsusUiRoot, 'vue', 'packages', 'theme-chalk', 'dist')
 const themeSource = path.join(fsusUiRoot, 'vue', 'packages', 'theme-chalk', 'src')

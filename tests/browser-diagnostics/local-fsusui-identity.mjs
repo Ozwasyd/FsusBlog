@@ -4,8 +4,9 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { readFsusUiBaseline } from '../../tools/test/fsusui-baseline.mjs'
+
 export const LOCAL_FSUSUI_IDENTITY_SCHEMA = 'fsusblog.browser-diagnostics.local-fsusui-identity.v1'
-export const LOCAL_FSUSUI_EXPECTED_COMMIT_ENV = 'FSUSBLOG_LOCAL_FSUSUI_EXPECTED_COMMIT'
 export const LOCAL_FSUSUI_ROOT_ENV = 'FSUSBLOG_LOCAL_FSUSUI_ROOT'
 
 const sourceScope = 'git-tracked-vue-packages-alias-surface'
@@ -58,7 +59,7 @@ function resolveRepositoryRoot(rawRoot) {
 function resolveExpectedCommit(rawCommit) {
   const expectedCommit = typeof rawCommit === 'string' ? rawCommit.trim() : ''
   if (!fullCommit.test(expectedCommit)) {
-    fail(`${LOCAL_FSUSUI_EXPECTED_COMMIT_ENV} must be a full lowercase Git commit`)
+    fail('FsusUI baseline must be a full lowercase Git commit')
   }
   return expectedCommit
 }
@@ -133,7 +134,7 @@ export function resolveLocalFsusUiIdentity(options = {}) {
   const env = options.env || process.env
   const root = resolveRepositoryRoot(options.root ?? env[LOCAL_FSUSUI_ROOT_ENV])
   const expectedCommit = resolveExpectedCommit(
-    options.expectedCommit ?? env[LOCAL_FSUSUI_EXPECTED_COMMIT_ENV],
+    options.expectedCommit ?? readFsusUiBaseline().commit,
   )
   const commit = assertCleanPinnedHead(root, expectedCommit)
   const sourceFiles = trackedSourceFiles(root)
@@ -167,7 +168,14 @@ const isMain = process.argv[1]
 
 if (isMain) {
   try {
-    process.stdout.write(`${JSON.stringify(resolveLocalFsusUiIdentity(), null, 2)}\n`)
+    const args = process.argv.slice(2)
+    if (args.length > 1 || (args.length === 1 && args[0] !== '--verify')) {
+      throw new Error('usage: local-fsusui-identity.mjs [--verify]')
+    }
+    const identity = resolveLocalFsusUiIdentity()
+    process.stdout.write(args[0] === '--verify'
+      ? `[fsusui-baseline] ok commit=${identity.commit}\n`
+      : `${JSON.stringify(identity, null, 2)}\n`)
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error))
     process.exitCode = 1

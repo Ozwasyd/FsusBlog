@@ -1508,6 +1508,21 @@ RunCrossStackContractOnly() {
     esac
 }
 
+EnsureFrontendFsusUiBaseline() {
+    local useLocalFsusUi="${FSUSBLOG_USE_LOCAL_FSUSUI:-}"
+    useLocalFsusUi="${useLocalFsusUi,,}"
+    if [[ "$useLocalFsusUi" == "0" ]] || [[ "$useLocalFsusUi" == "false" ]]; then
+        Fail "frontend test lanes require the canonical local FsusUI baseline"
+    fi
+    export FSUSBLOG_LOCAL_FSUSUI_ROOT="$(
+        "${FSUSBLOG_NODE:-node}" "$CLIENT_DIR/scripts/fsusui-root.mjs" \
+            --repository-root "$ROOT_DIR"
+    )"
+    Run "${FSUSBLOG_NODE:-node}" \
+        "$ROOT_DIR/tests/browser-diagnostics/local-fsusui-identity.mjs" \
+        --verify
+}
+
 RunFrontendFastBuildGroup() {
     local fingerprint
     local -a fingerprintArgs=(
@@ -1586,6 +1601,7 @@ NODE
 }
 
 RunFrontendFastBuildLane() {
+    EnsureFrontendFsusUiBaseline
     EnsureWasmReceiptOnce
     PrepareFrontendFastGroupTimings
     RunFrontendFastGroup build RunFrontendFastBuildGroup
@@ -1605,6 +1621,7 @@ RunFrontendFastTestsGroup() {
 }
 
 RunFrontendUnitShardLane() {
+    EnsureFrontendFsusUiBaseline
     ConfigureVitestShard
     PrepareFrontendFastGroupTimings
     RunFrontendFastTestsGroup
@@ -1621,6 +1638,7 @@ RunFrontendPropertyModelPerfGroupBody() {
 }
 
 RunFrontendPropertyModelPerfLane() {
+    EnsureFrontendFsusUiBaseline
     PrepareFrontendFastGroupTimings
     RunFrontendFastGroup property-model-perf RunFrontendPropertyModelPerfGroupBody
     WriteFrontendFastGroupSummary
@@ -1638,6 +1656,7 @@ RunFrontendFastRuntimeContractsGroup() {
 }
 
 RunFrontendRuntimeContractsLane() {
+    EnsureFrontendFsusUiBaseline
     EnsureWasmReceiptOnce
     PrepareFrontendFastGroupTimings
     RunFrontendFastRuntimeContractsGroup
@@ -1656,6 +1675,7 @@ RunFrontendFastStaticGovernanceGroup() {
 }
 
 RunFrontendStaticGovernanceLane() {
+    EnsureFrontendFsusUiBaseline
     PrepareFrontendFastGroupTimings
     RunFrontendFastStaticGovernanceGroup
     WriteFrontendFastGroupSummary

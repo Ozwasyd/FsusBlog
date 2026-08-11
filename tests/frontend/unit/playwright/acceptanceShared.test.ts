@@ -11,6 +11,24 @@ const fixturePayload = {
   authority: 'derived-from-current-run-prepared-public-content',
   notAuthoritative: true,
   evidenceUse: 'navigation-input-only',
+  ...(process.env.FSUSBLOG_TEST_NAMESPACE
+    ? { namespace: process.env.FSUSBLOG_TEST_NAMESPACE }
+    : {}),
+  ...(process.env.FSUSBLOG_SEALED_FIXTURE_CATALOG_DIGEST
+    ? { catalogDigest: process.env.FSUSBLOG_SEALED_FIXTURE_CATALOG_DIGEST }
+    : {}),
+  ...((process.env.FSUSBLOG_TEST_SOURCE_COMMIT || process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT)
+    ? {
+        sourceIdentity: {
+          ...(process.env.FSUSBLOG_TEST_SOURCE_COMMIT
+            ? { commit: process.env.FSUSBLOG_TEST_SOURCE_COMMIT }
+            : {}),
+          ...(process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT
+            ? { worktreeFingerprint: process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT }
+            : {})
+        }
+      }
+    : {}),
   sourcePrepareStateDigest: `sha256:${'a'.repeat(64)}`,
   articleId: '1',
   articleTitle: 'Unit fixture',
