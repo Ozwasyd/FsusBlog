@@ -310,6 +310,33 @@ test('ci-fast plans the matrix-derived producer workflow before the artifact-onl
     );
 });
 
+test('static governance owns its declared evidence without a CI-only fallback', () =>
+{
+    const lane = readFileSync(path.join(root, 'tools/test/lanes/static-governance.sh'), 'utf8');
+    const workflow = readFileSync(path.join(root, '.github/workflows/quality-gate.yml'), 'utf8');
+    const matrix = readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8');
+    for (const producer of [
+        'tools/docs/check-integrity-proof-docs.mjs',
+        'tools/check-doc-implementation-drift.mjs',
+        'tools/test/run-test-asset-audit.mjs'
+    ])
+    {
+        assert.match(lane, new RegExp(producer.replaceAll('.', '\\.'), 'u'), producer);
+    }
+    assert.match(lane, /run-test-asset-audit\.mjs" --phase discovery --audit-input "\$retentionAudit"/u);
+    assert.doesNotMatch(workflow, /run-test-asset-audit\.mjs/u);
+    assert.doesNotMatch(matrix, /tools\/dev\/seed-demo-data\.sh/u);
+    for (const authority of [
+        'config/testing/fixture-producer-registry.json',
+        'tests/tools/demo-public-producer.test.mjs',
+        'src/backend/Services/Fixtures/DemoFixtureSeeder.cs',
+        'docs/development/demo-data.md'
+    ])
+    {
+        assert.match(matrix, new RegExp(authority.replaceAll('.', '\\.'), 'u'), authority);
+    }
+});
+
 test('all four generic summaries consume typed producer receipts without execution dependencies', () =>
 {
     const matrix = parseMatrix(readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));

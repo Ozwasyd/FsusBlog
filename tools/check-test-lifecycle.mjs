@@ -6,8 +6,8 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import {
-    resolveLifecycleAudit
-} from './test-lifecycle/audit-input.mjs';
+    resolveRetentionAudit
+} from './retention/audit-input.mjs';
 import {
     buildLifecycleReport,
     classifyNodeRegistryEntry,
@@ -79,7 +79,7 @@ let audit;
 try
 {
     options = parseArgs(process.argv.slice(2));
-    audit = await resolveLifecycleAudit({
+    audit = await resolveRetentionAudit({
         root,
         auditInput: options.auditInput,
         produceStandaloneAudit

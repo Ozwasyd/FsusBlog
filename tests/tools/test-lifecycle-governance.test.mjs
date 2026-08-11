@@ -10,8 +10,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const { buildLifecycleReport, classifyNodeRegistryEntry, validateLifecycleRegistry } = await import(
     pathToFileURL(path.join(root, 'tools/test-lifecycle/lifecycle.mjs')).href
 );
-const { loadLifecycleAuditInput, resolveLifecycleAudit } = await import(
-    pathToFileURL(path.join(root, 'tools/test-lifecycle/audit-input.mjs')).href
+const { loadRetentionAuditInput, resolveRetentionAudit } = await import(
+    pathToFileURL(path.join(root, 'tools/retention/audit-input.mjs')).href
 );
 
 const audit = {
@@ -206,7 +206,7 @@ test('lifecycle audit input rejects invalid or stale artifacts and never invokes
     );
 
     await assert.rejects(
-        loadLifecycleAuditInput({
+        loadRetentionAuditInput({
             root: fixtureRoot,
             auditInput: path.join(fixtureRoot, 'missing.json'),
             currentSourceState
@@ -215,12 +215,12 @@ test('lifecycle audit input rejects invalid or stale artifacts and never invokes
     );
     write('{');
     await assert.rejects(
-        loadLifecycleAuditInput({ root: fixtureRoot, auditInput: file, currentSourceState }),
+        loadRetentionAuditInput({ root: fixtureRoot, auditInput: file, currentSourceState }),
         /audit input is invalid JSON/u
     );
     write({ ...auditInputFixture(), schema: 'wrong' });
     await assert.rejects(
-        loadLifecycleAuditInput({ root: fixtureRoot, auditInput: file, currentSourceState }),
+        loadRetentionAuditInput({ root: fixtureRoot, auditInput: file, currentSourceState }),
         /must use fsusblog\.test-retention-audit\.v2/u
     );
     write({
@@ -231,7 +231,7 @@ test('lifecycle audit input rejects invalid or stale artifacts and never invokes
         retainedEvidence: { testRecordCount: 0 }
     });
     await assert.rejects(
-        loadLifecycleAuditInput({ root: fixtureRoot, auditInput: file, currentSourceState }),
+        loadRetentionAuditInput({ root: fixtureRoot, auditInput: file, currentSourceState }),
         /audit input is empty/u
     );
     write({
@@ -239,7 +239,7 @@ test('lifecycle audit input rejects invalid or stale artifacts and never invokes
         counts: { totalFiles: 2 }
     });
     await assert.rejects(
-        loadLifecycleAuditInput({ root: fixtureRoot, auditInput: file, currentSourceState }),
+        loadRetentionAuditInput({ root: fixtureRoot, auditInput: file, currentSourceState }),
         /audit input file count is incomplete/u
     );
     write({
@@ -247,7 +247,7 @@ test('lifecycle audit input rejects invalid or stale artifacts and never invokes
         retainedEvidence: { testRecordCount: 2 }
     });
     await assert.rejects(
-        loadLifecycleAuditInput({ root: fixtureRoot, auditInput: file, currentSourceState }),
+        loadRetentionAuditInput({ root: fixtureRoot, auditInput: file, currentSourceState }),
         /audit input test-record count is incomplete/u
     );
     write({
@@ -260,7 +260,7 @@ test('lifecycle audit input rejects invalid or stale artifacts and never invokes
         }
     });
     await assert.rejects(
-        loadLifecycleAuditInput({ root: fixtureRoot, auditInput: file, currentSourceState }),
+        loadRetentionAuditInput({ root: fixtureRoot, auditInput: file, currentSourceState }),
         /producer source state does not match/u
     );
     write(auditInputFixture({
@@ -268,14 +268,14 @@ test('lifecycle audit input rejects invalid or stale artifacts and never invokes
         worktreeFingerprint: 'd'.repeat(64)
     }));
     await assert.rejects(
-        loadLifecycleAuditInput({ root: fixtureRoot, auditInput: file, currentSourceState }),
+        loadRetentionAuditInput({ root: fixtureRoot, auditInput: file, currentSourceState }),
         /does not match the current commit\/worktree/u
     );
 
     write(auditInputFixture());
     const before = fs.readFileSync(file);
     let producerCalls = 0;
-    const resolved = await resolveLifecycleAudit({
+    const resolved = await resolveRetentionAudit({
         root: fixtureRoot,
         auditInput: file,
         currentSourceState,

@@ -65,7 +65,7 @@ function readStableJson(file)
     }
 }
 
-export async function loadLifecycleAuditInput({
+export async function loadRetentionAuditInput({
     root,
     auditInput,
     currentSourceState = null
@@ -128,7 +128,7 @@ export async function loadLifecycleAuditInput({
     return audit;
 }
 
-export async function resolveLifecycleAudit({
+export async function resolveRetentionAudit({
     root,
     auditInput = null,
     produceStandaloneAudit,
@@ -144,7 +144,7 @@ export async function resolveLifecycleAudit({
         }
         file = await produceStandaloneAudit();
     }
-    return loadLifecycleAuditInput({
+    return loadRetentionAuditInput({
         root,
         auditInput: file,
         currentSourceState

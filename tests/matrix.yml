@@ -2054,7 +2054,14 @@ tiers:
           - tools/test-fixtures/producers/temporal-child-handshake-emitter.cjs
           - tools/data-scale/seed.sh
           - tools/data-scale/cleanup.sh
-          - tools/dev/seed-demo-data.sh
+          - config/testing/fixture-producer-registry.json
+          - config/testing/fixture-profile-catalog.json
+          - config/testing/fixture-variant-catalog.json
+          - tests/tools/demo-public-producer.test.mjs
+          - tests/tools/fixture-orchestrator.test.mjs
+          - src/backend/Modules/Endpoints/LocalDemoFixtureEndpoints.cs
+          - src/backend/Services/Fixtures/DemoFixtureSeeder.cs
+          - docs/development/demo-data.md
           - src/backend/Infrastructure/Middlewares/AnonymousGatewayHeaderGuardMiddleware.cs
           - src/backend/Modules/Endpoints/LocalPublicContentFixtureEndpoints.cs
           - tests/browser-contract/default-fixture-provider.mjs

@@ -1,9 +1,9 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:2abbaed850990c67aeab5f96d7434c1ddef7dc296b14859fe27d8a8c36ae57e9",
-    "sourceStateSha256": "2abbaed850990c67aeab5f96d7434c1ddef7dc296b14859fe27d8a8c36ae57e9",
+    "generatedFrom": "source-state:c6d751a2475eafd72dfd9e3fa0d6f5365aceaef9508168fa8c66036df7930596",
+    "sourceStateSha256": "c6d751a2475eafd72dfd9e3fa0d6f5365aceaef9508168fa8c66036df7930596",
     "configurationSha256": "aa1eb8b9803748da07ffbcda4a9bf08f6dc69cf2a24828d2ad14bae5f97ffdf4",
-    "violationCount": 272706,
+    "violationCount": 272330,
     "fileCount": 1506,
     "files": [
         {
@@ -12449,13 +12449,10 @@
         },
         {
             "path": "tests/tools/test-asset-audit.test.mjs",
-            "sourceSha256": "6e9243350820c5e5a28281ae55f48e05977b878c9154d624278f7ba53583266f",
-            "violationCount": 207,
-            "violationDigest": "234d041a067f5e0477ec9709fe0f2cba3c08a521293c91711e0e1424c1fd3968",
+            "sourceSha256": "4644d2c47f2433d9f1f3b6db3f18900f1717134dde6e097e1ca54cc20d6b15d7",
+            "violationCount": 4,
+            "violationDigest": "3cfc0d99009716b9cb9c03e2c40f456e9a4a73b72519a4bac540c2c5d9570f92",
             "rules": {
-                "eslint/@stylistic/brace-style": 13,
-                "eslint/@stylistic/indent": 114,
-                "eslint/@stylistic/semi": 76,
                 "eslint/import-x/no-relative-parent-imports": 4
             }
         },
@@ -17601,16 +17598,10 @@
         },
         {
             "path": "tools/test/run-test-asset-audit.mjs",
-            "sourceSha256": "bb53b60d4ba4bf78de159f6128c005cd6b5e4cb37d9e9e396da43c00bbf56594",
-            "violationCount": 173,
-            "violationDigest": "b6d941ee650950bf04fae9fdabf3e46e3af589fa20ba9d77ec3f9701602b4c24",
-            "rules": {
-                "eslint/@stylistic/brace-style": 9,
-                "eslint/@stylistic/indent": 86,
-                "eslint/@stylistic/semi": 62,
-                "eslint/curly": 14,
-                "eslint/import-x/order": 2
-            }
+            "sourceSha256": "465958280da1b670d98259fd64f73f9122abd8c3d946811aaaac252c966445f0",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tools/test/runtime-scenario-host.mjs",
