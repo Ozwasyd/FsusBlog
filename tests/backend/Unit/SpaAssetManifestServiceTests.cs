@@ -613,13 +613,16 @@ public sealed class SpaAssetManifestServiceTests
         string root = CreateTempDirectory();
         try
         {
+            var timeProvider = new ManualTimeProvider(
+                new DateTimeOffset(2026, 8, 11, 0, 0, 0, TimeSpan.Zero));
             WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
             File.Delete(Path.Combine(GetReleaseAssetRoot(root), ".vite", "manifest.json"));
             var service = CreateService(
                 root,
                 new TestWebHostEnvironment(root, Environments.Production),
                 retryIntervalMilliseconds: 50,
-                admissionDeadlineMilliseconds: 100);
+                admissionDeadlineMilliseconds: 100,
+                timeProvider: timeProvider);
             int firstAttempts = service.GetReadiness().Attempts;
 
             for (int index = 0; index < 20; index++)
@@ -628,11 +631,11 @@ public sealed class SpaAssetManifestServiceTests
             }
             Assert.Equal(firstAttempts, service.GetReadiness().Attempts);
 
-            Thread.Sleep(60);
+            timeProvider.Advance(TimeSpan.FromMilliseconds(50));
             int admittedAttempts = service.GetReadiness().Attempts;
             Assert.True(admittedAttempts > firstAttempts);
 
-            Thread.Sleep(60);
+            timeProvider.Advance(TimeSpan.FromMilliseconds(51));
             for (int index = 0; index < 20; index++)
             {
                 _ = service.GetReadiness();
@@ -640,9 +643,8 @@ public sealed class SpaAssetManifestServiceTests
             Assert.Equal(admittedAttempts, service.GetReadiness().Attempts);
 
             WriteManifest(root, "public-page-b.css", s_updatedManifestVersionUtc);
-            Assert.True(SpinWait.SpinUntil(
-                () => service.GetReadiness().State == "ready",
-                TimeSpan.FromSeconds(1)));
+            timeProvider.Advance(TimeSpan.FromMilliseconds(50));
+            Assert.Equal("ready", service.GetReadiness().State);
         }
         finally
         {
@@ -1845,7 +1847,8 @@ public sealed class SpaAssetManifestServiceTests
         string? commitSha = null,
         int? retryIntervalMilliseconds = null,
         int? admissionDeadlineMilliseconds = null,
-        Action? onLoadStartedForTests = null)
+        Action? onLoadStartedForTests = null,
+        TimeProvider? timeProvider = null)
     {
         IConfiguration configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -1865,11 +1868,13 @@ public sealed class SpaAssetManifestServiceTests
                 env,
                 configuration,
                 releaseIdentity,
+                timeProvider ?? TimeProvider.System,
                 NullLogger<SpaAssetManifestService>.Instance)
             : new SpaAssetManifestService(
                 env,
                 configuration,
                 releaseIdentity,
+                timeProvider ?? TimeProvider.System,
                 NullLogger<SpaAssetManifestService>.Instance,
                 onLoadStartedForTests);
     }
@@ -2244,6 +2249,15 @@ public sealed class SpaAssetManifestServiceTests
         int ExitCode,
         string StandardOutput,
         string StandardError);
+
+    private sealed class ManualTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        private DateTimeOffset _utcNow = utcNow;
+
+        public override DateTimeOffset GetUtcNow() => _utcNow;
+
+        public void Advance(TimeSpan delta) => _utcNow += delta;
+    }
 
     private sealed class TestWebHostEnvironment(string root, string environmentName) : IWebHostEnvironment
     {

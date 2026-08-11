@@ -165,6 +165,7 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
     private readonly IWebHostEnvironment _env;
     private readonly IConfiguration _configuration;
     private readonly IReleaseIdentityProvider _releaseIdentity;
+    private readonly TimeProvider _timeProvider;
     private readonly ILogger<SpaAssetManifestService> _logger;
     private readonly Action? _onLoadStartedForTests;
     private readonly Lock _loadLock = new();
@@ -180,8 +181,9 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         IWebHostEnvironment env,
         IConfiguration configuration,
         IReleaseIdentityProvider releaseIdentity,
+        TimeProvider timeProvider,
         ILogger<SpaAssetManifestService> logger)
-        : this(env, configuration, releaseIdentity, logger, onLoadStartedForTests: null)
+        : this(env, configuration, releaseIdentity, timeProvider, logger, onLoadStartedForTests: null)
     {
     }
 
@@ -189,12 +191,14 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         IWebHostEnvironment env,
         IConfiguration configuration,
         IReleaseIdentityProvider releaseIdentity,
+        TimeProvider timeProvider,
         ILogger<SpaAssetManifestService> logger,
         Action? onLoadStartedForTests)
     {
         _env = env;
         _configuration = configuration;
         _releaseIdentity = releaseIdentity;
+        _timeProvider = timeProvider;
         _logger = logger;
         _onLoadStartedForTests = onLoadStartedForTests;
         ManifestAssetSnapshot emptyAssets = CreateEmptyAssetSnapshot();
@@ -331,7 +335,7 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
     private void LoadManifest()
     {
         bool isDevelopment = _env.IsDevelopment();
-        DateTime now = DateTime.UtcNow;
+        DateTime now = _timeProvider.GetUtcNow().UtcDateTime;
         ManifestRuntimeSnapshot beforeLoad;
         lock (_loadLock)
         {
@@ -442,7 +446,7 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
                         candidate.ManifestPath,
                         candidate.ManifestByKey.Count);
                 }
-                ScheduleNextProductionProbe(DateTime.UtcNow);
+                ScheduleNextProductionProbe(_timeProvider.GetUtcNow().UtcDateTime);
             }
         }
         catch (Exception exception) when (exception is IOException
@@ -680,7 +684,7 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
             Volatile.Write(
                 ref _runtimeSnapshot,
                 new ManifestRuntimeSnapshot(servingAssets, readiness));
-            ScheduleNextProductionProbe(DateTime.UtcNow);
+            ScheduleNextProductionProbe(_timeProvider.GetUtcNow().UtcDateTime);
         }
     }
 
