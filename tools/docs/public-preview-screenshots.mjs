@@ -21,6 +21,7 @@ import { atomicPublishDirectory } from './public-preview-writer-transaction.mjs'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const registryPath = path.join(root, 'config/docs/public-preview-screenshots.json');
 const managedDirectory = path.join(root, 'docs/assets/screenshots');
+const localFsusUiResolver = path.join(root, 'src/frontend/scripts/fsusui-root.mjs');
 const manifestName = 'manifest.json';
 const manifestSchema = 'fsusblog.public-preview-screenshot-manifest.v1';
 const evidenceSchema = 'fsusblog.public-preview-screenshot-verification.v1';
@@ -222,12 +223,11 @@ export function categoryDigest(inputs, rootDirectory = root)
 
 function resolveFsusUiIdentity()
 {
-    const configured = process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT?.trim();
-    const directory = path.resolve(configured || path.join(root, '..', 'FsusUI'));
-    if (!fs.existsSync(path.join(directory, '.git')) && !fs.existsSync(path.join(directory, 'vue')))
-    {
-        throw new Error(`local FsusUI alias root is unavailable: ${directory}`);
-    }
+    const directory = execFileSync(
+        process.execPath,
+        [localFsusUiResolver, '--repository-root', root],
+        { encoding: 'utf8' }
+    ).trim();
     const status = git(['status', '--porcelain'], directory);
     const commit = git(['rev-parse', 'HEAD'], directory);
     const tree = git(['rev-parse', 'HEAD:vue'], directory);
