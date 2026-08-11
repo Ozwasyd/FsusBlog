@@ -1529,14 +1529,27 @@ RunSigkillInterruption() {
                 failed=1
             fi
         else
-            setsid "${ROLLOUT_ENV[@]}" bash "$ROLLOUT_SCRIPT" "${ROLLOUT_ARGS[@]}" \
+            local resumeReady="$stageRoot/handshake/reuse-final-artifacts-resume.ready.json"
+            rm -f "$resumeReady"
+            setsid "${ROLLOUT_ENV[@]}" bash -c '
+                readyFile="$1"
+                shift
+                sessionId="$(ps -o sid= -p "$$" 2>/dev/null | tr -d "[:space:]")"
+                [[ "$sessionId" == "$$" ]] || exit 97
+                printf \
+                    "{\"schema\":\"fsusblog.zero-downtime-isolated-process-ready.v1\",\"pid\":%s,\"sessionId\":%s}\n" \
+                    "$$" "$sessionId" >"$readyFile"
+                exec "$@"
+            ' fsusblog-isolated-resume "$resumeReady" bash "$ROLLOUT_SCRIPT" "${ROLLOUT_ARGS[@]}" \
                 --worker-ledger "$NORMAL_WORKER_LEDGER" --resume \
                 >"$stageRoot/logs/release-rollout-resume.stdout" 2>"$stageRoot/logs/release-rollout-resume.stderr" &
             releasePid=$!
             RecordCommand "sigkill-$interruptStage-reuse-final-artifacts-resume-start" 0
-            if ! WaitForIsolatedProcessGroup "$releasePid"; then
+            if ! WaitForJson "$resumeReady" \
+                ".schema == \"fsusblog.zero-downtime-isolated-process-ready.v1\" and .pid == $releasePid and .sessionId == $releasePid" \
+                "$timeoutSeconds" "$releasePid"; then
                 StopProcessGroup "$releasePid" TERM
-                AddError "sigkill-resume $interruptStage reused-artifact resume process group is not isolated"
+                AddError "sigkill-resume $interruptStage reused-artifact resume lacks isolated startup proof"
                 failed=1
             fi
             wait "$releasePid"

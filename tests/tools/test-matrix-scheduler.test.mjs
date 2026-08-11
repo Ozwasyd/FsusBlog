@@ -2911,7 +2911,7 @@ test('bundle timeout kills a pipe-holding grandchild and still collects independ
     const grandchildFile = path.join(temp, 'grandchild.sh');
     const parentFile = path.join(temp, 'parent.sh');
     const failFile = path.join(temp, 'fail.mjs');
-    fs.writeFileSync(grandchildFile, String.raw`trap "" TERM
+    fs.writeFileSync(grandchildFile, String.raw`trap "exit 0" TERM
 while true; do printf 'holding-pipe\n'; sleep 0.025; done`);
     fs.writeFileSync(parentFile, String.raw`set -euo pipefail
 /bin/bash ${JSON.stringify(grandchildFile)} &
