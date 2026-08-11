@@ -272,7 +272,8 @@ if (runsFixtureShard('all')) test('all mode aggregates a failure and continues i
   assert.equal(new Set(summary.modes.map(item => item.mode)).size, 4)
 })
 
-function createFixture(t, { continuationOnly = false, delayedSetsidMs = 0 } = {}) {
+function createFixture(t, { continuationOnly = false, delayedSetsidMs = 0 } = {})
+{
   const timing = machineTiming()
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-zdt-rehearsal-'))
   t.after(() => fs.rmSync(root, { recursive: true, force: true }))
@@ -290,14 +291,15 @@ function createFixture(t, { continuationOnly = false, delayedSetsidMs = 0 } = {}
     fs.writeFileSync(path.join(root, '.tmp/docker-failure-bin/docker'), '#!/usr/bin/env bash\nexit 73\n', { mode: 0o755 });
     fs.mkdirSync(path.join(root, 'bin'), { recursive: true });
   fs.writeFileSync(path.join(root, 'bin/docker'), '#!/usr/bin/env bash\nexit 0\n', { mode: 0o755 })
-  if (delayedSetsidMs > 0) {
-    const setsid = spawnSync('sh', ['-c', 'command -v setsid'], { encoding: 'utf8' }).stdout.trim()
-    assert.ok(path.isAbsolute(setsid), 'system setsid path is unavailable')
-    fs.writeFileSync(
-      path.join(root, 'bin/setsid'),
-      `#!/usr/bin/env bash\nsleep ${delayedSetsidMs / 1_000}\nexec ${JSON.stringify(setsid)} "$@"\n`,
-      { mode: 0o755 })
-  }
+    if (delayedSetsidMs > 0)
+    {
+        const setsid = spawnSync('sh', ['-c', 'command -v setsid'], { encoding: 'utf8' }).stdout.trim();
+        assert.ok(path.isAbsolute(setsid), 'system setsid path is unavailable');
+        fs.writeFileSync(
+            path.join(root, 'bin/setsid'),
+            `#!/usr/bin/env bash\nsleep ${delayedSetsidMs / 1_000}\nexec ${JSON.stringify(setsid)} "$@"\n`,
+            { mode: 0o755 });
+    }
     fs.copyFileSync(orchestratorSource, path.join(deployment, 'zero-downtime-rehearsal.sh'));
     if (continuationOnly) {installContinuationModeFixture(path.join(deployment, 'zero-downtime-rehearsal.sh'))};
     fs.copyFileSync(planToolSource, path.join(deployment, 'zero-downtime-rehearsal-plan.mjs'));

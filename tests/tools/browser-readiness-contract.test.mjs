@@ -148,39 +148,56 @@ class FakeLocator
     }
 }
 
-const categories = [
-    ['hydration', (page) => waitForPublicHydration(page, { timeoutMs: 17 })],
-    ['SPA route', (page, locator) => waitForSpaRoute(page, '/archive', { content: locator, timeoutMs: 17 })],
-    ['service worker/cache', (page) => waitForServiceWorkerCacheReady(page, { timeoutMs: 17 })],
-    ['notification suppression', (page) => waitForNotificationSuppressed(page, { timeoutMs: 17 })],
-    ['auth/permission', (page, locator) => waitForAuthPermissionReady(page, {
-        pathPrefix: '/user/manage',
-        content: locator,
-        timeoutMs: 17
-    })]
-];
+const hydrationReadiness = (page) => waitForPublicHydration(page, { timeoutMs: 17 });
+const spaRouteReadiness = (page, locator) =>
+    waitForSpaRoute(page, '/archive', { content: locator, timeoutMs: 17 });
+const serviceWorkerReadiness = (page) => waitForServiceWorkerCacheReady(page, { timeoutMs: 17 });
+const notificationReadiness = (page) => waitForNotificationSuppressed(page, { timeoutMs: 17 });
+const authPermissionReadiness = (page, locator) => waitForAuthPermissionReady(page, {
+    pathPrefix: '/user/manage',
+    content: locator,
+    timeoutMs: 17
+});
 
-for (const [name, run] of categories)
+async function assertReadinessSuccess(run)
 {
-    test(`${name} readiness succeeds when its observable condition is met`, async () =>
-    {
-        await run(new FakePage(), new FakeLocator());
-    });
-
-    test(`${name} readiness reports the unmet condition on timeout`, async () =>
-    {
-        await assert.rejects(
-            run(new FakePage({ fail: true }), new FakeLocator({ fail: true })),
-            (error) =>
-            {
-                assert.match(error.message, /Browser readiness condition|SPA route|authenticated permission route/u);
-                assert.match(error.message, /17ms/u);
-                assert.match(error.message, /fixture timeout/u);
-                return true;
-            }
-        );
-    });
+    await run(new FakePage(), new FakeLocator());
 }
+
+async function assertReadinessTimeout(run)
+{
+    await assert.rejects(
+        run(new FakePage({ fail: true }), new FakeLocator({ fail: true })),
+        (error) =>
+        {
+            assert.match(error.message, /Browser readiness condition|SPA route|authenticated permission route/u);
+            assert.match(error.message, /17ms/u);
+            assert.match(error.message, /fixture timeout/u);
+            return true;
+        }
+    );
+}
+
+test('hydration readiness succeeds when its observable condition is met',
+    async () => await assertReadinessSuccess(hydrationReadiness));
+test('hydration readiness reports the unmet condition on timeout',
+    async () => await assertReadinessTimeout(hydrationReadiness));
+test('SPA route readiness succeeds when its observable condition is met',
+    async () => await assertReadinessSuccess(spaRouteReadiness));
+test('SPA route readiness reports the unmet condition on timeout',
+    async () => await assertReadinessTimeout(spaRouteReadiness));
+test('service worker/cache readiness succeeds when its observable condition is met',
+    async () => await assertReadinessSuccess(serviceWorkerReadiness));
+test('service worker/cache readiness reports the unmet condition on timeout',
+    async () => await assertReadinessTimeout(serviceWorkerReadiness));
+test('notification suppression readiness succeeds when its observable condition is met',
+    async () => await assertReadinessSuccess(notificationReadiness));
+test('notification suppression readiness reports the unmet condition on timeout',
+    async () => await assertReadinessTimeout(notificationReadiness));
+test('auth/permission readiness succeeds when its observable condition is met',
+    async () => await assertReadinessSuccess(authPermissionReadiness));
+test('auth/permission readiness reports the unmet condition on timeout',
+    async () => await assertReadinessTimeout(authPermissionReadiness));
 
 test('negative governance fixture reports file and line for forbidden waits', () =>
 {

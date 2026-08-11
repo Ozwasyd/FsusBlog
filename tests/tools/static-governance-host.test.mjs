@@ -164,6 +164,69 @@ test('structured host results are the authority for actual exact-once test execu
     );
 });
 
+test('behaviorTest runtime registration resolves to its canonical caller and rejects ambiguous titles', () =>
+{
+    const behaviorRegistry = {
+        schema: 'fsusblog.test-lifecycle-registry.v1',
+        checks: [
+            {
+                id: 'behavior-caller',
+                file: 'tests/tools/test-asset-audit.test.mjs',
+                physicalOwner: 'host:pure-file'
+            }
+        ]
+    };
+    const behaviorCase = {
+        adapter: 'node-test',
+        id: 'node-test:behavior-caller',
+        ownerFile: 'tests/tools/test-asset-audit.test.mjs',
+        displayName: 'behavior caller title',
+        kind: 'behavior-test'
+    };
+    const catalog = buildStaticGovernanceTestCatalog(root, behaviorRegistry, {
+        testCases: [behaviorCase]
+    });
+    assert.equal(catalog[0].path, behaviorCase.ownerFile);
+    assert.equal(catalog[0].runtimeRegistrationPath, 'tools/contracts/behavior-test.mjs');
+    assert.deepEqual(
+        collectExecutedStaticGovernanceTestIds(root, catalog, [{
+            schema: 'fsusblog.static-governance-host-result.v1',
+            events: [{
+                type: 'test:pass',
+                name: behaviorCase.displayName,
+                file: path.join(root, catalog[0].runtimeRegistrationPath),
+                skipped: false,
+                todo: false
+            }]
+        }]),
+        [behaviorCase.id]
+    );
+
+    assert.throws(
+        () => buildStaticGovernanceTestCatalog(root, {
+            ...behaviorRegistry,
+            checks: [
+                ...behaviorRegistry.checks,
+                {
+                    id: 'second-behavior-caller',
+                    file: 'tests/tools/code-intent.test.mjs',
+                    physicalOwner: 'host:pure-file'
+                }
+            ]
+        }, {
+            testCases: [
+                behaviorCase,
+                {
+                    ...behaviorCase,
+                    id: 'node-test:second-behavior-caller',
+                    ownerFile: 'tests/tools/code-intent.test.mjs'
+                }
+            ]
+        }),
+        /behaviorTest runtime registration requires globally unique test titles/u
+    );
+});
+
 test('runner binds cancellation and partial child evidence without weakening lifecycle isolation', () =>
 {
     const runner = fs.readFileSync(path.join(root, 'tools/test/run-governance-suites.mjs'), 'utf8');

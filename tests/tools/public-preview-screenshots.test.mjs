@@ -6,11 +6,6 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import {
-    assertDeterministicPublicPreviewVerificationEvidence,
-    assertReleaseFinalRequiresLocalPublicPreviewEvidence
-} from './public-preview-release-evidence-fixture.mjs';
-
 /* eslint-disable import-x/no-relative-parent-imports */
 import { verifyPublicPreviewRuntimeIdentity } from '../../tools/docs/public-preview-runtime-identity.mjs';
 import {
@@ -25,6 +20,11 @@ import {
     releaseWriterLock
 } from '../../tools/docs/public-preview-writer-transaction.mjs';
 /* eslint-enable import-x/no-relative-parent-imports */
+
+import {
+    assertDeterministicPublicPreviewVerificationEvidence,
+    assertReleaseFinalRequiresLocalPublicPreviewEvidence
+} from './public-preview-release-evidence-fixture.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const tool = path.join(root, 'tools/docs/public-preview-screenshots.mjs');

@@ -1,9 +1,9 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:e35d02020397c8f8c1f71d53959016248fadc3fbc085e230fb5183e228141ae1",
-    "sourceStateSha256": "e35d02020397c8f8c1f71d53959016248fadc3fbc085e230fb5183e228141ae1",
+    "generatedFrom": "source-state:d5f1285a0c33593ac5afbbd8fb4dadcb90b056b540082939365ae679bb770b7b",
+    "sourceStateSha256": "d5f1285a0c33593ac5afbbd8fb4dadcb90b056b540082939365ae679bb770b7b",
     "configurationSha256": "aa1eb8b9803748da07ffbcda4a9bf08f6dc69cf2a24828d2ad14bae5f97ffdf4",
-    "violationCount": 272708,
+    "violationCount": 272706,
     "fileCount": 1506,
     "files": [
         {
@@ -10476,7 +10476,7 @@
         },
         {
             "path": "tests/tools/browser-readiness-contract.test.mjs",
-            "sourceSha256": "c344835984f9b998bae60121f8a804814c31baa14b9620f231d02d6e7e869af3",
+            "sourceSha256": "e959c9c9e80aecdf1af3ea5979f72b7029d48bcecef6d0a80024c6ce0caead7d",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
@@ -12748,11 +12748,11 @@
         },
         {
             "path": "tests/tools/zero-downtime-rehearsal.test.mjs",
-            "sourceSha256": "393ecd7804908cd8d9e215eb62b31c411ed114601552b00ffa105fc75efaa2f8",
-            "violationCount": 785,
-            "violationDigest": "4c3c1c680a43b2d94ce2dddd90bf3700469a01be095af1f39311e4ed2118ec59",
+            "sourceSha256": "af3d4467657623c50958760b5e977f834c2b829dbf72700a049448bc59b65692",
+            "violationCount": 783,
+            "violationDigest": "00af2002ebd3f98f65c0c39afcf912dccb02dafe1926fcd0b78d07e90c6275df",
             "rules": {
-                "eslint/@stylistic/brace-style": 59,
+                "eslint/@stylistic/brace-style": 58,
                 "eslint/@stylistic/indent": 473,
                 "eslint/@stylistic/max-statements-per-line": 3,
                 "eslint/@stylistic/semi": 232,
@@ -12760,7 +12760,7 @@
                 "eslint/import-x/no-relative-parent-imports": 1,
                 "eslint/import-x/order": 1,
                 "eslint/no-empty": 2,
-                "eslint/no-unused-vars": 2
+                "eslint/no-unused-vars": 1
             }
         },
         {

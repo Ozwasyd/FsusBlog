@@ -10,6 +10,7 @@ const categories = new Set([
     'real-subprocess-lifecycle',
     'exclusive-resource-destructive-rehearsal'
 ]);
+const behaviorTestRuntimeRegistrationPath = 'tools/contracts/behavior-test.mjs';
 
 function assertUnique(values, message)
 {
@@ -172,6 +173,9 @@ export function buildStaticGovernanceTestCatalog(root, registry, inventory = loa
             tests.push({
                 testId: testCase.id,
                 path: file,
+                runtimeRegistrationPath: testCase.adapter === 'node-test' && testCase.kind === 'behavior-test'
+                    ? behaviorTestRuntimeRegistrationPath
+                    : file,
                 name: testCase.displayName,
                 physicalOwner: owners[0].physicalOwner,
                 checkIds: owners.map((check) => check.id)
@@ -179,6 +183,12 @@ export function buildStaticGovernanceTestCatalog(root, registry, inventory = loa
         }
     }
     assertUnique(tests.map((entry) => entry.testId), 'static governance catalog contains duplicate test IDs');
+    assertUnique(
+        tests
+            .filter((entry) => entry.runtimeRegistrationPath === behaviorTestRuntimeRegistrationPath)
+            .map((entry) => `${entry.runtimeRegistrationPath}\0${entry.name}`),
+        'behaviorTest runtime registration requires globally unique test titles'
+    );
     return tests.sort((left, right) => left.testId.localeCompare(right.testId));
 }
 
@@ -187,7 +197,7 @@ export function collectExecutedStaticGovernanceTestIds(root, testCatalog, hostRe
     const catalogByIdentity = new Map();
     for (const entry of testCatalog)
     {
-        const key = `${entry.path}\0${entry.name}`;
+        const key = `${entry.runtimeRegistrationPath ?? entry.path}\0${entry.name}`;
         const current = catalogByIdentity.get(key) ?? [];
         current.push(entry.testId);
         catalogByIdentity.set(key, current);
