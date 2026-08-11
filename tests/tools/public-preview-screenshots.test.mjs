@@ -6,7 +6,10 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import './public-preview-release-evidence.cases.mjs';
+import {
+    assertDeterministicPublicPreviewVerificationEvidence,
+    assertReleaseFinalRequiresLocalPublicPreviewEvidence
+} from './public-preview-release-evidence-fixture.mjs';
 
 /* eslint-disable import-x/no-relative-parent-imports */
 import { verifyPublicPreviewRuntimeIdentity } from '../../tools/docs/public-preview-runtime-identity.mjs';
@@ -26,6 +29,16 @@ import {
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const tool = path.join(root, 'tools/docs/public-preview-screenshots.mjs');
 const sourceDirectory = path.join(root, 'docs/assets/screenshots');
+
+test(
+    'verification evidence is deterministic and excludes local or runtime-noise identities',
+    assertDeterministicPublicPreviewVerificationEvidence
+);
+
+test(
+    'release-final requires matching local public-preview evidence without a CI identity',
+    assertReleaseFinalRequiresLocalPublicPreviewEvidence
+);
 
 function fixture()
 {

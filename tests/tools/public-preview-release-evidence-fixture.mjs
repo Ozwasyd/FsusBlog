@@ -3,7 +3,6 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 /* eslint-disable import-x/no-relative-parent-imports */
@@ -14,7 +13,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const tool = path.join(root, 'tools/docs/public-preview-screenshots.mjs');
 const sourceDirectory = path.join(root, 'docs/assets/screenshots');
 
-test('verification evidence is deterministic and excludes local or runtime-noise identities', () =>
+export function assertDeterministicPublicPreviewVerificationEvidence()
 {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsus-public-preview-gallery-'));
     const evidenceRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsus-public-preview-evidence-'));
@@ -44,9 +43,9 @@ test('verification evidence is deterministic and excludes local or runtime-noise
         fs.rmSync(directory, { recursive: true, force: true });
         fs.rmSync(evidenceRoot, { recursive: true, force: true });
     }
-});
+}
 
-test('release-final requires matching local public-preview evidence without a CI identity', () =>
+export function assertReleaseFinalRequiresLocalPublicPreviewEvidence()
 {
     const commit = 'a'.repeat(40);
     const evidence = {
@@ -83,4 +82,4 @@ test('release-final requires matching local public-preview evidence without a CI
         sha256Hex: () => 'e'.repeat(64),
         environment: {}
     }), evidence);
-});
+}
