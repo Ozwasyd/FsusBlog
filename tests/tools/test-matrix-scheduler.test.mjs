@@ -2906,21 +2906,26 @@ test('bundle timeout kills a pipe-holding grandchild and still collects independ
     const { runDag } = await loadScheduler();
     const temp = createTempDir('scheduler-bundle-timeout-tree');
     const pidFile = path.join(temp, 'grandchild.pid');
-    const grandchildFile = path.join(temp, 'grandchild.mjs');
-    const parentFile = path.join(temp, 'parent.mjs');
+    const grandchildFile = path.join(temp, 'grandchild.sh');
+    const parentFile = path.join(temp, 'parent.sh');
     const failFile = path.join(temp, 'fail.mjs');
 
     fs.writeFileSync(grandchildFile, [
-        "process.on('SIGTERM', () => {})",
-        "setInterval(() => process.stdout.write('holding-pipe\\n'), 25)"
-    ].join('\n'));
+        '#!/usr/bin/env bash',
+        'trap "" TERM',
+        'while true; do',
+        "    printf 'holding-pipe\\n'",
+        '    sleep 0.025',
+        'done'
+    ].join('\n') + '\n', { mode: 0o700 });
     fs.writeFileSync(parentFile, [
-        "import { spawn } from 'node:child_process'",
-        "import fs from 'node:fs'",
-        `const child = spawn(process.execPath, [${JSON.stringify(grandchildFile)}], { stdio: ['ignore', 'inherit', 'inherit'] })`,
-        `fs.writeFileSync(${JSON.stringify(pidFile)}, String(child.pid))`,
-        'setInterval(() => {}, 1000)'
-    ].join('\n'));
+        '#!/usr/bin/env bash',
+        'set -euo pipefail',
+        `${JSON.stringify(grandchildFile)} &`,
+        'child=$!',
+        `printf '%s\\n' "$child" > ${JSON.stringify(pidFile)}`,
+        'wait "$child"'
+    ].join('\n') + '\n', { mode: 0o700 });
     fs.writeFileSync(failFile, 'setTimeout(() => process.exit(7), 50)\n');
 
     t.after(() =>
@@ -2946,7 +2951,7 @@ test('bundle timeout kills a pipe-holding grandchild and still collects independ
     const result = await runDag({
         tiers: [
             tier('timeout-bundle', {
-                command: `${JSON.stringify(process.execPath)} ${JSON.stringify(parentFile)}`,
+                command: `/bin/bash ${JSON.stringify(parentFile)}`,
                 budgetMs: 150
             }),
             tier('independent-failure', {
