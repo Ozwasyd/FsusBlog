@@ -34,7 +34,7 @@ if [[ "${FSUSBLOG_COVERAGE_SKIP_TESTS:-0}" != "1" ]]; then
     source "$ROOT_DIR/tools/test/lanes/_suite-support.sh"
     EnsureBackendFilteredBuild
     ConfigureDotnetTestProcessors
-    dotnet test "$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj" \
+    RunBackendDotnetTest coverage-backend \
         -c Debug \
         --no-build \
         -v minimal \

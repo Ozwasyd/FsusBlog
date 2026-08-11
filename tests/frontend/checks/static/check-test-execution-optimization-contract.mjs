@@ -562,6 +562,7 @@ if (!bootstrapSource.includes('tools/test-fixtures/cli.mjs'))
 requireIncludes('tools/coverage/collect-backend-coverage.sh', [
     'EnsureBackendFilteredBuild',
     'ConfigureDotnetTestProcessors',
+    'RunBackendDotnetTest coverage-backend',
     '--filter "$BACKEND_ORDINARY_TEST_FILTER"',
     'ORDINARY_RESULTS_DIR="$RESULTS_DIR/ordinary"',
     'rm -rf "$ORDINARY_RESULTS_DIR" "$SUMMARY_DIR"',
@@ -577,6 +578,29 @@ if (!suiteSupportSource.includes(`BACKEND_ORDINARY_TEST_FILTER="\${FSUSBLOG_BACK
 if (!suiteSupportSource.includes('RunBackendDotnetFilterOnly "$BACKEND_ORDINARY_TEST_FILTER"'))
 {
     errors.push('backend ordinary lane must consume BACKEND_ORDINARY_TEST_FILTER');
+}
+for (const binding of [
+    'RunBackendDotnetTest()',
+    'CleanupBackendTestRuntimeOutput()',
+    'BackendTestRuntimeOutputDirectory()',
+    'FSUSBLOG_BACKEND_DB_NAMESPACE=',
+    '"$outputDirectory/data"',
+    '"$outputDirectory/storage"',
+    'rm -rf -- "$runtimePath"'
+])
+{
+    if (!suiteSupportSource.includes(binding))
+    {
+        errors.push(`backend dotnet tests must preserve the canonical build/runtime output boundary: ${binding}`);
+    }
+}
+if ((suiteSupportSource.match(/"\$BUILD_ENV_RUNNER" dotnet test "\$SERVER_TEST_PROJ"/gu) ?? []).length !== 1)
+{
+    errors.push('backend dotnet tests must have exactly one canonical process owner');
+}
+if (read('tools/coverage/collect-backend-coverage.sh').includes('dotnet test "$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj"'))
+{
+    errors.push('backend coverage must not retain a second direct dotnet test process owner');
 }
 if (!suiteSupportSource.includes('FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.Server.Tests/bin/Debug/net10.0')
   || !suiteSupportSource.includes('FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.Server/bin/Debug/net10.0')

@@ -1074,11 +1074,50 @@ BackendTestConfiguration() {
     esac
 }
 
+BackendTestRuntimeOutputDirectory() {
+    local configuration
+    configuration="$(BackendTestConfiguration)" || return $?
+    if [[ -n "${FSUSBLOG_PRODUCTION_BUILD_ROOT:-}" ]]; then
+        printf '%s\n' "$FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.Server.Tests/bin/$configuration/net10.0"
+    else
+        printf '%s\n' "$ROOT_DIR/tests/backend/bin/$configuration/net10.0"
+    fi
+}
+
+CleanupBackendTestRuntimeOutput() {
+    local outputDirectory runtimePath
+    outputDirectory="$(BackendTestRuntimeOutputDirectory)" || return $?
+    for runtimePath in "$outputDirectory/data" "$outputDirectory/storage"; do
+        case "$runtimePath" in
+            "$outputDirectory/data" | "$outputDirectory/storage")
+                ;;
+            *)
+                Fail "refusing to clean backend test runtime path outside output directory: $runtimePath"
+                ;;
+        esac
+        if [[ -e "$runtimePath" || -L "$runtimePath" ]]; then
+            rm -rf -- "$runtimePath"
+        fi
+    done
+}
+
+RunBackendDotnetTest() {
+    local lane="$1"
+    shift
+    local laneSlug status=0
+    laneSlug="$(NamespaceSlug "$lane")"
+    FSUSBLOG_BACKEND_DB_NAMESPACE="${FSUSBLOG_TEST_NAMESPACE:-local}-${laneSlug}-${BASHPID}" \
+        Run "$BUILD_ENV_RUNNER" dotnet test "$SERVER_TEST_PROJ" "$@" || status=$?
+    CleanupBackendTestRuntimeOutput
+    return "$status"
+}
+
 EnsureBackendFilteredBuild() {
     local configuration configurationSlug outputContract fingerprintVariant dotnetSdkVersion buildTarget
     local debugOutputDir releaseOutputDir debugServerOutputDir
     local -a buildCommand
     configuration="$(BackendTestConfiguration)" || return $?
+    CleanupBackendTestRuntimeOutput
     configurationSlug="${configuration,,}"
     debugOutputDir="${FSUSBLOG_PRODUCTION_BUILD_ROOT:+$FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.Server.Tests/bin/Debug/net10.0}"
     releaseOutputDir="${FSUSBLOG_PRODUCTION_BUILD_ROOT:+$FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.Server.Tests/bin/Release/net10.0}"
@@ -1196,8 +1235,11 @@ RunBackendDotnetFilterOnly() {
     ConfigureDotnetTestProcessors
     EnsureBackendFilteredBuild
     rm -f "$trxFile"
-    FSUSBLOG_BACKEND_DB_NAMESPACE="${FSUSBLOG_TEST_NAMESPACE:-local}-${lane}-${BASHPID}" \
-        Run "$BUILD_ENV_RUNNER" dotnet test "$SERVER_TEST_PROJ" -c "$configuration" -v minimal --no-build --no-restore "${DOTNET_BUILD_SHARED_ARGS[@]}" --filter "$filter" --logger "trx;LogFileName=$trxFile"
+    RunBackendDotnetTest "$lane" \
+        -c "$configuration" -v minimal --no-build --no-restore \
+        "${DOTNET_BUILD_SHARED_ARGS[@]}" \
+        --filter "$filter" \
+        --logger "trx;LogFileName=$trxFile"
 }
 
 RunBackendDotnetFilterWithCoverage() {
@@ -1212,8 +1254,7 @@ RunBackendDotnetFilterWithCoverage() {
     rm -rf "$resultsDir"
     rm -f "$trxFile"
     mkdir -p "$resultsDir"
-    FSUSBLOG_BACKEND_DB_NAMESPACE="${FSUSBLOG_TEST_NAMESPACE:-local}-${lane}-${BASHPID}" \
-        Run "$BUILD_ENV_RUNNER" dotnet test "$SERVER_TEST_PROJ" \
+    RunBackendDotnetTest "$lane" \
         -c "$configuration" \
         -v minimal \
         --no-build \
