@@ -154,7 +154,11 @@ public sealed class CacheSingleFlightCoordinator(ICacheKeyResolver keyResolver) 
                 Volatile.Write(ref _retired, 1);
             }
 
-            if (Volatile.Read(ref _retired) != 0 && remaining == 0)
+            // Another contender may add a reference after this caller decrements
+            // the count to zero but before retirement becomes visible. Re-read the
+            // shared count after publishing retirement so a live lease keeps the
+            // semaphore alive until its own release.
+            if (Volatile.Read(ref _retired) != 0 && Volatile.Read(ref _references) == 0)
             {
                 Dispose();
                 return true;
