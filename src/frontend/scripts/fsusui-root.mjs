@@ -77,17 +77,40 @@ const isMain = process.argv[1]
 
 if (isMain)
 {
-    const [flag, repositoryRoot, ...rest] = process.argv.slice(2);
-    if (flag !== '--repository-root' || !repositoryRoot || rest.length > 0)
+    const args = process.argv.slice(2);
+    const options = {};
+    let valid = args.length >= 2 && args.length % 2 === 0;
+    for (let index = 0; valid && index < args.length; index += 2)
     {
-        console.error('usage: fsusui-root.mjs --repository-root ROOT');
+        const [flag, value] = args.slice(index, index + 2);
+        const key = {
+            '--repository-root': 'repositoryRoot',
+            '--override': 'override',
+            '--git-common-directory': 'gitCommonDirectory'
+        }[flag];
+        if (!key || !value || Object.hasOwn(options, key))
+        {
+            valid = false;
+            break;
+        }
+        options[key] = value;
+    }
+    if (!valid || !options.repositoryRoot)
+    {
+        console.error(
+            'usage: fsusui-root.mjs --repository-root ROOT '
+          + '[--override ROOT] [--git-common-directory PATH]'
+        );
         process.exitCode = 1;
     }
     else
     {
         const localRoot = resolveLocalFsusUiRepositoryRoot({
-            override: process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT,
-            repositoryRoot
+            override: options.override ?? process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT,
+            repositoryRoot: options.repositoryRoot,
+            ...(options.gitCommonDirectory
+                ? { gitCommonDirectory: options.gitCommonDirectory }
+                : {})
         });
         if (!localRoot)
         {

@@ -3,7 +3,7 @@
     "generatedBy": "tools/governance/check-rule-platform.mjs --write-registry",
     "inventory": {
         "packageScriptCount": 214,
-        "implementationCount": 391
+        "implementationCount": 392
     },
     "rules": [
         {
@@ -8993,7 +8993,7 @@
             "symbol": "CheckTestsFrontendChecksStaticCheckLocalFsusuiPublicShellMotion",
             "owner": "TestGovernanceOwner",
             "category": "test-governance",
-            "engine": "text",
+            "engine": "runtime",
             "sourceScopes": [
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/**",
@@ -9013,8 +9013,7 @@
                 "implementation": "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "executionKey": "governance:file:tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "receiptCompatible": true
-            },
-            "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
+            }
         },
         {
             "id": "Implementation.TestsFrontendChecksStaticCheckLocaleApiErasureMjs",
@@ -15187,6 +15186,34 @@
                 "mode": "delegated-implementation",
                 "implementation": "tools/test/lanes/backend-test-governance.sh",
                 "executionKey": "governance:file:tools/test/lanes/backend-test-governance.sh",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Implementation.ToolsTestLanesBackendTestRuntimeSupportSh",
+            "externalId": "tools/test/lanes/_backend-test-runtime-support.sh",
+            "symbol": "CheckToolsTestLanesBackendTestRuntimeSupport",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tools/test/lanes/_backend-test-runtime-support.sh",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/test/lanes/_backend-test-runtime-support.sh",
+                "executionKey": "governance:file:tools/test/lanes/_backend-test-runtime-support.sh",
                 "receiptCompatible": true
             }
         },

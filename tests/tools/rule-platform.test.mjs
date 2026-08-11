@@ -125,6 +125,21 @@ test('complexity policies use distinct repository categories and complete metric
     assert.match(policy.complexityEngine.reason, /compiler.*AST.*authoritative/iu);
 });
 
+test('complexity type count excludes inline type-only imports', () =>
+{
+    const metrics = MeasureComplexity(
+        'src/frontend/src/example.ts',
+        [
+            "import { createThing, type Thing, type ThingOptions } from './thing';",
+            "import type { OtherThing } from './other';",
+            'export interface ExampleContract {}',
+            'export type ExampleIdentity = string;',
+            'export class Example {}'
+        ].join('\n')
+    );
+    assert.equal(metrics.typeCount, 3);
+});
+
 test('new or significantly growing excess fails while legacy excess remains observe-only', () =>
 {
     const sample = MeasureComplexity('src/backend/Services/Example.cs', 'public class Example { }');

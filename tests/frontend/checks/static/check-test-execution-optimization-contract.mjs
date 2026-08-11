@@ -1,10 +1,8 @@
 #!/usr/bin/env node
+import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-
-import { validateCommentPrivacyWasmBuildSource } from '../../../../tools/security/comment-privacy-build-contract.mjs';
-import { readFsusUiBaseline } from '../../../../tools/test/fsusui-baseline.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 const errors = [];
@@ -286,33 +284,26 @@ for (const [sourceDirectory, expectedCalls] of [
         );
     }
 }
-for (const [label, statement, enabledOnlyBlock] of [
+const commentPrivacySourceCheck = spawnSync(
+    process.execPath,
     [
-        'proving key',
-        'cp -f "${COMMENT_PRIVACY_PROVER_KEY}" "${OUT_DIR}/comment-privacy-prover.zkey"',
-        'if [[ "${COMMENT_PRIVACY_BUILD_MODE}" == "enabled" ]]; then\n' +
-      '    cp -f "${COMMENT_PRIVACY_PROVER_KEY}" "${OUT_DIR}/comment-privacy-prover.zkey"\nfi'
+        path.join(root, 'tools/security/comment-privacy-build-contract.mjs'),
+        '--validate-wasm-source',
+        'src/frontend/wasm/build.sh'
     ],
-    [
-        'prover manifest',
-        'node "${REPOSITORY_ROOT}/tools/frontend/write-comment-privacy-prover-manifest.mjs"',
-        'if [[ "${COMMENT_PRIVACY_BUILD_MODE}" == "enabled" ]]; then\n' +
-      '    FSUSBLOG_REPOSITORY_ROOT="${REPOSITORY_ROOT}" \\\n' +
-      '        node "${REPOSITORY_ROOT}/tools/frontend/write-comment-privacy-prover-manifest.mjs"\nfi'
-    ]
-])
+    {
+        cwd: root,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe']
+    }
+);
+if (commentPrivacySourceCheck.status !== 0)
 {
-    if (!wasmBuildSource.includes(enabledOnlyBlock))
-    {
-        errors.push(`src/frontend/wasm/build.sh must emit the ${label} only when the current v5 build contract is enabled`);
-    }
-    if (wasmBuildSource.split(statement).length !== 2)
-    {
-        errors.push(`src/frontend/wasm/build.sh must contain exactly one ${label} emission statement`);
-    }
+    errors.push(
+        String(commentPrivacySourceCheck.stderr || commentPrivacySourceCheck.stdout).trim()
+        || 'src/frontend/wasm/build.sh comment privacy validation failed'
+    );
 }
-errors.push(...validateCommentPrivacyWasmBuildSource(wasmBuildSource)
-    .map((error) => `src/frontend/wasm/build.sh ${error}`));
 requireIncludes('tools/test/bundles/bundle-steps.mjs', [
     "step('cross-stack', 'FSUSBLOG_OPENAPI_BUILD=0 tools/test/lanes/cross-stack-contract.sh static'",
     "step('cross-stack-runtime', 'tools/test/lanes/cross-stack-contract.sh runtime'",
@@ -450,7 +441,13 @@ if (read('.github/workflows/quality-gate.yml').includes('docs --out docs/testing
 {
     errors.push('quality-gate tests must not rewrite tracked docs/testing.generated.md');
 }
-const fsusUiBaseline = readFsusUiBaseline(path.join(root, 'config/testing/fsusui-baseline.json'));
+const fsusUiBaseline = {
+    commit: execFileSync(
+        process.execPath,
+        [path.join(root, 'tools/test/fsusui-baseline.mjs'), '--commit'],
+        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] }
+    ).trim()
+};
 const screenshotManifest = JSON.parse(read('docs/assets/screenshots/manifest.json') || '{}');
 if (screenshotManifest.fsusUi?.commit !== fsusUiBaseline.commit)
 {
@@ -499,12 +496,13 @@ if (read('tools/coverage/collect-frontend-coverage.sh').includes(
     errors.push('frontend coverage must not force a package-only FsusUI source outside the matrix/workflow baseline');
 }
 requireIncludes('tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs', [
-    'resolveLocalFsusUiRepositoryRoot',
-    'override: process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT',
-    'repositoryRoot: repoRoot'
+    'execFileSync',
+    "'scripts', 'fsusui-root.mjs'",
+    "'--repository-root', repoRoot"
 ]);
 
 const suiteSupportSource = read('tools/test/lanes/_suite-support.sh');
+const backendTestRuntimeSupportSource = read('tools/test/lanes/_backend-test-runtime-support.sh');
 const frontendBuildFingerprintStart = suiteSupportSource.indexOf('RunFrontendFastBuildGroup()');
 const frontendBuildFingerprintEnd = suiteSupportSource.indexOf('WriteFrontendSplitSummary()', frontendBuildFingerprintStart);
 const frontendBuildFingerprint = suiteSupportSource.slice(frontendBuildFingerprintStart, frontendBuildFingerprintEnd);
@@ -646,12 +644,17 @@ for (const binding of [
     'rm -rf -- "$runtimePath"'
 ])
 {
-    if (!suiteSupportSource.includes(binding))
+    if (!backendTestRuntimeSupportSource.includes(binding))
     {
         errors.push(`backend dotnet tests must preserve the canonical build/runtime output boundary: ${binding}`);
     }
 }
-if ((suiteSupportSource.match(/"\$BUILD_ENV_RUNNER" dotnet test "\$SERVER_TEST_PROJ"/gu) ?? []).length !== 1)
+if (!suiteSupportSource.includes('. "$ROOT_DIR/tools/test/lanes/_backend-test-runtime-support.sh"'))
+{
+    errors.push('suite support must source the unique backend test runtime owner');
+}
+const backendTestRuntimeOwners = `${suiteSupportSource}\n${backendTestRuntimeSupportSource}`;
+if ((backendTestRuntimeOwners.match(/"\$BUILD_ENV_RUNNER" dotnet test "\$SERVER_TEST_PROJ"/gu) ?? []).length !== 1)
 {
     errors.push('backend dotnet tests must have exactly one canonical process owner');
 }

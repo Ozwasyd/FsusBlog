@@ -53,6 +53,7 @@ import {
     assertFreshRuntimeCleanupReceipt,
     writeFreshRuntimeCleanupReceipt
 } from './test-matrix/local-runtime-cleanup.mjs';
+import { runLocalWorkflow } from './test-matrix/local-workflow-runner.mjs';
 import { parseMatrix } from './test-matrix/parse-matrix.mjs';
 import {
     bindProductionBuildLayoutSource,
@@ -2327,7 +2328,6 @@ function frontendFastGroupEvidence(tier)
             groupDurationError: error.message
         };
     }
-    return null;
 }
 
 function jobEvidenceClassification(tier)
@@ -2631,7 +2631,7 @@ function writeSummaryOnlyEvidence(profileId, profile, runId, sourceState, artifa
     return evidence;
 }
 
-function readDeclaredExternalEvidenceReceipts(profileId)
+function readDeclaredExternalEvidenceReceipts()
 {
     const raw = process.env.FSUSBLOG_EXTERNAL_EVIDENCE_RECEIPTS;
     if (!raw)
@@ -2673,6 +2673,13 @@ function readDeclaredExternalEvidenceReceipts(profileId)
         });
     }
     return resolved;
+}
+
+function withoutDotnetBuildServerRecord(value)
+{
+    const entry = { ...value };
+    delete entry.record;
+    return entry;
 }
 
 function projectLocalBundleSummaries(matrix, profileId, profile, runId, completedTierIds, runOutputs = null)
@@ -2735,13 +2742,15 @@ function emitProductionResourceUtilization({ profileId, profile, result, detecte
         const summaryFile = runOutputs
             ? path.join(runOutputs.outputRoot, 'bundles', bundle.id, 'summary.json')
             : path.join(root, localBundleSummaryPath(profileId, bundle.id));
-        let resourceUtilization = null;
+        let resourceUtilization;
         try
         {
             resourceUtilization = JSON.parse(fs.readFileSync(resourceFile, 'utf8'));
         }
         catch
-        {}
+        {
+            resourceUtilization = undefined;
+        }
         if (resourceUtilization && (resourceUtilization.schedulerRunId !== result.runId
       || resourceUtilization.sourceState?.commit !== checkpoint.sourceState?.commit
       || resourceUtilization.sourceState?.worktreeFingerprint !== checkpoint.sourceState?.worktreeFingerprint))
@@ -2910,7 +2919,7 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {})
     const correctnessBudgetPolicy = loadCorrectnessBudgetPolicy();
     const profileCorrectnessBudget = correctnessBudgetPolicy.policies
         .find((entry) => entry.tierId === profileId) ?? null;
-    const externalEvidenceReceipts = readDeclaredExternalEvidenceReceipts(profileId);
+    const externalEvidenceReceipts = readDeclaredExternalEvidenceReceipts();
     const profileRoot = path.resolve(runtime.root ?? root);
     const resolveRunIdentity = runtime.schedulerRunIdentity ?? schedulerRunIdentity;
     const admissionRunIdentity = runtime.productionFreshRunIdentity
@@ -3926,8 +3935,9 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {})
                                 preflightOrphanPids: dotnetBuildServerPreflightPids,
                                 postflightOrphanPids: dotnetBuildServerPostflightPids,
                                 postflightInventoryBeforeCleanup: dotnetBuildServerPostflightInventoryBeforeCleanup
-                                    .map(({ record: _record, ...entry }) => entry),
-                                postflightInventory: dotnetBuildServerPostflightInventory.map(({ record: _record, ...entry }) => entry)
+                                    .map(withoutDotnetBuildServerRecord),
+                                postflightInventory: dotnetBuildServerPostflightInventory
+                                    .map(withoutDotnetBuildServerRecord)
                             },
                             generatedAt: new Date().toISOString()
                         }, null, 2)}\n`);
@@ -3980,10 +3990,6 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {})
                     if (postflightCleanup !== null)
                     {
                         console.error(`[matrix:${profileId}] runtime cleanup=${relativeToRoot(cleanupFile)} containers=${postflightCleanup.removedContainers?.length ?? 0}`);
-                    }
-                    if (finalizationError !== null && runError === null)
-                    {
-                        throw finalizationError;
                     }
                 }
 
@@ -4865,7 +4871,7 @@ async function runCiJobScheduled(matrix, jobId, tiers, options, existingBehavior
                         registerProductionBuildCompiler(buildLayout, identity, authority),
                     sourceState: buildSourceState,
                     namespace: buildNamespace,
-                    tiers,
+                    tiers: scheduledTiers,
                     root,
                     runsRoot,
                     runId,
@@ -5231,7 +5237,7 @@ function githubNeedsErrors(rawNeedsJson, dependencyJobs)
     {
         return [];
     }
-    let needs = null;
+    let needs;
     try
     {
         needs = JSON.parse(rawNeedsJson);
@@ -5458,145 +5464,33 @@ function buildCiPlan(matrix, format)
     };
 }
 
-function buildLocalAggregateWorkflowPlan(matrix, aggregateJobId)
-{
-    const aggregatePlan = buildAggregatePlan(matrix, aggregateJobId);
-    const ciPlan = buildCiPlan(matrix, 'local-workflow');
-    const byJob = new Map(ciPlan.jobs.map((job) => [job.id, job]));
-    const selectedJobIds = new Set(aggregatePlan.dependencyJobs);
-    const pending = [...selectedJobIds];
-    while (pending.length > 0)
-    {
-        const jobId = pending.pop();
-        const job = byJob.get(jobId);
-        if (!job)
-        {
-            throw new Error(`aggregate dependency job is absent from ci-plan: ${jobId}`);
-        }
-        for (const dependencyId of job.needs)
-        {
-            if (dependencyId === aggregateJobId || selectedJobIds.has(dependencyId))
-            {
-                continue;
-            }
-            if (!byJob.has(dependencyId))
-            {
-                throw new Error(`CI job dependency is absent from ci-plan: ${jobId} -> ${dependencyId}`);
-            }
-            selectedJobIds.add(dependencyId);
-            pending.push(dependencyId);
-        }
-    }
-
-    const orderedJobIds = [];
-    const completed = new Set();
-    while (orderedJobIds.length < selectedJobIds.size)
-    {
-        const ready = [...selectedJobIds]
-            .filter((jobId) => !completed.has(jobId))
-            .filter((jobId) => byJob.get(jobId).needs
-                .filter((dependencyId) => selectedJobIds.has(dependencyId))
-                .every((dependencyId) => completed.has(dependencyId)))
-            .sort();
-        if (ready.length === 0)
-        {
-            const unresolved = [...selectedJobIds].filter((jobId) => !completed.has(jobId)).sort();
-            throw new Error(`local CI workflow contains a job dependency cycle: ${unresolved.join(', ')}`);
-        }
-        for (const jobId of ready)
-        {
-            completed.add(jobId);
-            orderedJobIds.push(jobId);
-        }
-    }
-
-    return {
-        aggregateJobId,
-        orderedJobIds,
-        aggregatePlan
-    };
-}
-
-function printLocalAggregateWorkflowPlan(matrix, workflowPlan)
-{
-    console.log(`Local CI workflow "${workflowPlan.aggregateJobId}" (matrix-derived):`);
-    let index = 1;
-    for (const jobId of workflowPlan.orderedJobIds)
-    {
-        if (jobId === 'validate-matrix')
-        {
-            for (const tier of effectiveCiJobTiers(matrix, jobId))
-            {
-                console.log(`${index}. ${tier.id} [setup]: ${tierReproductionCommand(tier, { noDeps: true })}`);
-                index += 1;
-            }
-            continue;
-        }
-        if (jobId === behaviorDocAdmissionTierId)
-        {
-            const tier = tierMap(matrix).get(behaviorDocAdmissionTierId);
-            console.log(`${index}. ${jobId} [setup]: ${tierReproductionCommand(tier, { noDeps: true })}`);
-            index += 1;
-            continue;
-        }
-        console.log(`${index}. ${jobId} [producer]: ${ciJobReproductionCommand(jobId, matrix)}`);
-        index += 1;
-    }
-    console.log(
-        `${index}. ${workflowPlan.aggregateJobId} [aggregate]:`
-        + ` node tools/run-test-matrix.mjs aggregate ${workflowPlan.aggregateJobId}`
-    );
-}
-
 async function runLocalAggregateWorkflow(matrix, aggregateJobId, args)
 {
-    const options = parseCiJobOptions(args);
-    if (options.shard)
-    {
-        throw new Error(`${aggregateJobId} local workflow does not accept --shard; shard its producer ci-job instead`);
-    }
-    const workflowPlan = buildLocalAggregateWorkflowPlan(matrix, aggregateJobId);
-    if (options.planOnly)
-    {
-        printLocalAggregateWorkflowPlan(matrix, workflowPlan);
-        return;
-    }
-
-    const validateJobId = 'validate-matrix';
-    const validateTier = tierMap(matrix).get(validateJobId);
-    if (!workflowPlan.orderedJobIds.includes(validateJobId) || !validateTier)
-    {
-        throw new Error(`${aggregateJobId} local workflow is missing validate-matrix setup`);
-    }
-    const setupRunId = createRunId(`ci-workflow/${aggregateJobId}`);
-    const { sourceState } = await collectSchedulerSourceState(root);
-    executeStaticMatrixPrerequisite(validateTier, { runId: setupRunId, sourceState });
-    const behaviorDocAdmission = await establishBehaviorDocAdmission({
-        repositoryRoot: root,
-        runId: setupRunId
+    return runLocalWorkflow({
+        matrix,
+        aggregateJobId,
+        args,
+        behaviorDocAdmissionTierId,
+        dependencies: {
+            aggregateCiJob,
+            buildAggregatePlan,
+            buildCiPlan,
+            ciJobReproductionCommand,
+            collectSchedulerSourceState: () => collectSchedulerSourceState(root),
+            createRunId,
+            effectiveCiJobTiers,
+            establishBehaviorDocAdmission: (options) => establishBehaviorDocAdmission({
+                repositoryRoot: root,
+                ...options
+            }),
+            executeStaticMatrixPrerequisite,
+            parseCiJobOptions,
+            relativeToRoot,
+            runCiJob,
+            tierMap,
+            tierReproductionCommand
+        }
     });
-    console.error(
-        `[matrix:ci-workflow:${aggregateJobId}] admission=${relativeToRoot(behaviorDocAdmission.receiptFile)}`
-        + ` digest=${behaviorDocAdmission.contentDigest}`
-    );
-
-    for (const jobId of workflowPlan.orderedJobIds)
-    {
-        if (jobId === behaviorDocAdmissionTierId)
-        {
-            continue;
-        }
-        const status = await runCiJob(matrix, jobId, args, {
-            behaviorDocAdmission,
-            preflightComplete: jobId === validateJobId
-        });
-        if (status !== 0)
-        {
-            console.error(`[matrix:ci-workflow:${aggregateJobId}] stopped after ${jobId}`);
-            return;
-        }
-    }
-    aggregateCiJob(matrix, aggregateJobId, []);
 }
 
 function parsePrSmartGateOptions(args)
@@ -5711,9 +5605,9 @@ function wildcardToRegExp(pattern)
     const escaped = String(pattern)
         .replaceAll(path.sep, '/')
         .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-        .replace(/\*\*/g, '\u0000')
-        .replace(/\*/g, '[^/]*')
-        .replace(/\u0000/g, '.*');
+        .split('**')
+        .map((part) => part.replace(/\*/g, '[^/]*'))
+        .join('.*');
     return new RegExp(`^${escaped}$`, 'u');
 }
 
@@ -5815,8 +5709,8 @@ function buildPrSmartGatePlan(matrix, options, identity)
     for (const tier of matrix.tiers)
     {
         const mode = tierSmartGateMode(tier);
-        let selected = false;
-        let reason = '';
+        let selected;
+        let reason;
 
         if (fullMode)
         {

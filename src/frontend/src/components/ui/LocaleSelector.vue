@@ -179,6 +179,16 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue';
 
+import {
+    findActiveLocaleItem,
+    isLocaleItemPending,
+    isLocaleItemSelected,
+    localeItemDomId,
+    localeRetryLabel,
+    localeTriggerAriaLabel,
+    localeTriggerLabel,
+    selectedLocaleIndex
+} from '@/components/ui/localeSelectorPresentation';
 import type { LocaleSelectorItem } from '@/components/ui/localeSelectorTypes';
 import { Check, Loading, Refresh } from '@/fsusui/icons';
 
@@ -214,34 +224,14 @@ const menuId = `locale-selector-menu-${useId()}`;
 const isOpenControlled = computed(() => props.open !== undefined);
 const resolvedOpen = computed(() => (isOpenControlled.value ? Boolean(props.open) : internalOpen.value));
 
-const activeItem = computed(() =>
-    props.items.find((item) => item.code === props.activeLocale) ?? props.items[0] ?? null
-);
-
+const activeItem = computed(() => findActiveLocaleItem(props.items, props.activeLocale));
 const triggerLabel = computed(() =>
-{
-    if (!activeItem.value)
-    {
-        return props.activeLocale;
-    }
-    // Compact trigger keeps an unambiguous short identity; desktop shows native name.
-    return props.compact ? activeItem.value.code : activeItem.value.nativeName;
-});
-
+    localeTriggerLabel(activeItem.value, props.activeLocale, props.compact)
+);
 const triggerAriaLabel = computed(() =>
-{
-    if (!activeItem.value)
-    {
-        return props.activeLocale;
-    }
-    return `${activeItem.value.nativeName} (${activeItem.value.code})`;
-});
-
-const selectedIndex = computed(() =>
-{
-    const index = props.items.findIndex((item) => item.code === props.activeLocale);
-    return index >= 0 ? index : 0;
-});
+    localeTriggerAriaLabel(activeItem.value, props.activeLocale)
+);
+const selectedIndex = computed(() => selectedLocaleIndex(props.items, props.activeLocale));
 
 const activeDescendantId = computed(() =>
 {
@@ -251,32 +241,13 @@ const activeDescendantId = computed(() =>
 
 const retryLocale = computed(() => props.pendingLocale ?? props.activeLocale ?? null);
 
-const retryLocaleLabel = computed(() =>
-{
-    const code = retryLocale.value;
-    if (!code)
-    {
-        return '';
-    }
-    return props.items.find((item) => item.code === code)?.nativeName ?? code;
-});
+const retryLocaleLabel = computed(() => localeRetryLabel(props.items, retryLocale.value));
 
 const retryAriaLabel = computed(() => retryLocaleLabel.value);
 
-function itemDomId(code: string): string
-{
-    return `${menuId}-item-${code}`;
-}
-
-function isSelected(item: LocaleSelectorItem): boolean
-{
-    return item.selected || item.code === props.activeLocale;
-}
-
-function isPending(item: LocaleSelectorItem): boolean
-{
-    return props.pendingLocale === item.code;
-}
+const itemDomId = (code: string): string => localeItemDomId(menuId, code);
+const isSelected = (item: LocaleSelectorItem): boolean => isLocaleItemSelected(item, props.activeLocale);
+const isPending = (item: LocaleSelectorItem): boolean => isLocaleItemPending(item, props.pendingLocale);
 
 function setItemRef(code: string, el: unknown): void
 {
