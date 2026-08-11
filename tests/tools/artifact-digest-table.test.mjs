@@ -129,17 +129,27 @@ test('in-place overwrite, truncate and rename replacement invalidate cached cont
     const value = fixture();
     t.after(() => fs.rmSync(value.root, { recursive: true, force: true }));
     const file = write(value.root, '.tmp/results/value.bin', 'aaaa');
+    let timestampMs = fs.statSync(file).mtimeMs;
+    const advanceIdentity = () =>
+    {
+        timestampMs += 2_000;
+        const timestamp = new Date(timestampMs);
+        fs.utimesSync(file, timestamp, timestamp);
+    };
     const digest = () => value.table.digestDeclarations(['.tmp/results/value.bin'], {
         producer: { bundle: 'backend-tests', step: 'mutation-check' }
     }).digests['.tmp/results/value.bin'];
 
     const initial = digest();
     fs.writeFileSync(file, 'bbbb');
+    advanceIdentity();
     const overwritten = digest();
     fs.truncateSync(file, 2);
+    advanceIdentity();
     const truncated = digest();
     const replacement = write(value.root, '.tmp/results/replacement.bin', 'cc');
     fs.renameSync(replacement, file);
+    advanceIdentity();
     const renamed = digest();
     assert.equal(new Set([initial, overwritten, truncated, renamed]).size, 4);
 });

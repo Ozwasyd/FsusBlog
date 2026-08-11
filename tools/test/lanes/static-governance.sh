@@ -67,7 +67,18 @@ TEST_ASSET_BEHAVIOR_FILES=(
     "$ROOT_DIR/tests/tools/verify-behavior-test-evidence.test.mjs"
 )
 StaticTestAssetBehavior() {
-    Run "${FSUSBLOG_NODE:-node}" --test "${TEST_ASSET_BEHAVIOR_FILES[@]}"
+    (
+        # These tests create nested scheduler/coverage repositories. Their
+        # fixture identities must come from those repositories rather than the
+        # enclosing static-governance tier.
+        unset FSUSBLOG_ARTIFACT_DIGEST_TABLE
+        unset FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE
+        unset FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID
+        unset FSUSBLOG_TEST_RUN_ID
+        unset FSUSBLOG_TEST_SOURCE_COMMIT
+        unset FSUSBLOG_TEST_SOURCE_FINGERPRINT
+        Run "${FSUSBLOG_NODE:-node}" --test --test-concurrency=1 "${TEST_ASSET_BEHAVIOR_FILES[@]}"
+    )
 }
 StaticNodeContracts() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-governance-suites.mjs"

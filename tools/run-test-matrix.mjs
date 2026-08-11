@@ -4808,19 +4808,27 @@ async function runCiJobScheduled(matrix, jobId, tiers, options, existingBehavior
     const targetTierId = `ci-job/${jobId}`;
     const { runsRoot, runId } = schedulerRunIdentity(targetTierId, options);
     const { sourceState: buildSourceState } = await collectSchedulerSourceState(root);
-    const behaviorDocAdmission = existingBehaviorDocAdmission ?? await establishBehaviorDocAdmission({
-        repositoryRoot: root,
-        runId
-    });
-    tiers = bindBehaviorDocAdmissionVerification(tiers, behaviorDocAdmission);
+    const behaviorDocAdmission = jobId === 'validate-matrix'
+        ? null
+        : existingBehaviorDocAdmission ?? await establishBehaviorDocAdmission({
+            repositoryRoot: root,
+            runId
+        });
+    if (behaviorDocAdmission)
+    {
+        tiers = bindBehaviorDocAdmissionVerification(tiers, behaviorDocAdmission);
+    }
     const currentRunPreexecutedTierBindings = [];
-    appendCurrentRunBehaviorDocAdmissionBinding({
-        bindings: currentRunPreexecutedTierBindings,
-        tiers,
-        admission: behaviorDocAdmission,
-        schedulerRunId: runId,
-        sourceState: buildSourceState
-    });
+    if (behaviorDocAdmission)
+    {
+        appendCurrentRunBehaviorDocAdmissionBinding({
+            bindings: currentRunPreexecutedTierBindings,
+            tiers,
+            admission: behaviorDocAdmission,
+            schedulerRunId: runId,
+            sourceState: buildSourceState
+        });
+    }
     const buildNamespace = namespaceFor({ id: targetTierId, ciJob: jobId }, options.shard, runId);
     const schedulerMode = options.forceSerial ? 'serial' : 'parallel';
     const dynamicMaximum = Math.min(ciJobMaxParallel(tiers), options.systemResources.availableCpuUnits);
@@ -4837,7 +4845,6 @@ async function runCiJobScheduled(matrix, jobId, tiers, options, existingBehavior
         },
         async execute({ buildLayout, recordSchedulerResult, setFinalization, throwIfInterrupted })
         {
-            const scheduledTiers = prependManagedProductionBuildGc(tiers, runId, { enabled: !options.resume });
             throwIfInterrupted();
             console.error(`[matrix:ci-job:${jobId}] scheduler=${schedulerMode} max=${maxParallel}`);
             const bootstrapTier = tiers.find((tier) => tier.selfBootstraps === true);
@@ -4871,7 +4878,7 @@ async function runCiJobScheduled(matrix, jobId, tiers, options, existingBehavior
                         registerProductionBuildCompiler(buildLayout, identity, authority),
                     sourceState: buildSourceState,
                     namespace: buildNamespace,
-                    tiers: scheduledTiers,
+                    tiers,
                     root,
                     runsRoot,
                     runId,
@@ -4886,7 +4893,10 @@ async function runCiJobScheduled(matrix, jobId, tiers, options, existingBehavior
                     teeOutput: true,
                     beforeTierStart()
                     {
-                        verifyBehaviorDocAdmissionState(behaviorDocAdmission, root);
+                        if (behaviorDocAdmission)
+                        {
+                            verifyBehaviorDocAdmissionState(behaviorDocAdmission, root);
+                        }
                     },
                     onSourceState(sourceState)
                     {
@@ -4905,12 +4915,14 @@ async function runCiJobScheduled(matrix, jobId, tiers, options, existingBehavior
                                 FSUSBLOG_TEST_RUN_ID: runId,
                                 FSUSBLOG_CI_JOB_ID: options.forceSerial ? jobId : `${jobId}-${tier.id}`,
                                 FSUSBLOG_CI_JOB_SCHEDULER: schedulerMode,
-                                FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RECEIPT:
-                                    behaviorDocAdmission.receiptFile,
-                                FSUSBLOG_BEHAVIOR_DOC_ADMISSION_DIGEST:
-                                    behaviorDocAdmission.contentDigest,
-                                FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RUN_ID:
-                                    behaviorDocAdmission.runId
+                                ...(behaviorDocAdmission ? {
+                                    FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RECEIPT:
+                                        behaviorDocAdmission.receiptFile,
+                                    FSUSBLOG_BEHAVIOR_DOC_ADMISSION_DIGEST:
+                                        behaviorDocAdmission.contentDigest,
+                                    FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RUN_ID:
+                                        behaviorDocAdmission.runId
+                                } : {})
                             })
                         );
                         Object.assign(env, resourceEnvironmentForTier(tier, env));

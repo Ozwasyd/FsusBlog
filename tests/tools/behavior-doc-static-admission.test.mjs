@@ -723,7 +723,16 @@ test('matrix validation binds scheduler identity while plan-only paths never est
     const matrixFile = path.join(directory, 'matrix.yml');
     const marker = path.join(directory, 'dotnet-invoked');
     const identityEvidence = path.join(directory, 'identity-evidence.jsonl');
+    const inventoryEvidenceDirectory = path.join(
+        root,
+        '.tmp/behavior-doc-static-admission-fixtures',
+        path.basename(directory)
+    );
+    const inventoryEvidence = path.join(inventoryEvidenceDirectory, 'inventory-evidence.json');
+    const inventoryEvidenceRelative = path.relative(root, inventoryEvidence).replaceAll('\\', '/');
     const identityProbe = path.join(directory, 'identity-probe.mjs');
+    const inventoryProbe = path.join(directory, 'inventory-probe.mjs');
+    t.after(() => fs.rmSync(inventoryEvidenceDirectory, { recursive: true, force: true }));
     fs.writeFileSync(identityProbe, [
         "import fs from 'node:fs';",
         'const identity = {',
@@ -740,6 +749,20 @@ test('matrix validation binds scheduler identity while plan-only paths never est
         "fs.writeFileSync('.tmp/release-evidence/test-plan.json',",
         '    `${JSON.stringify({ schedulerRunId: identity.runId })}\\n`);'
     ].join('\n'));
+    fs.writeFileSync(inventoryProbe, [
+        "import fs from 'node:fs';",
+        'const identity = {',
+        '    runId: process.env.FSUSBLOG_TEST_RUN_ID,',
+        '    commit: process.env.FSUSBLOG_TEST_SOURCE_COMMIT,',
+        '    worktreeFingerprint: process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT',
+        '};',
+        'if (!identity.runId || !identity.commit || !identity.worktreeFingerprint)',
+        '{',
+        "    throw new Error('test inventory identity is incomplete');",
+        '}',
+        `fs.mkdirSync(${JSON.stringify(inventoryEvidenceDirectory)}, { recursive: true });`,
+        `fs.writeFileSync(${JSON.stringify(inventoryEvidence)}, \`\${JSON.stringify(identity)}\\n\`);`
+    ].join('\n'));
     const fakeBin = path.join(directory, 'bin');
     fs.mkdirSync(fakeBin);
     const dotnet = path.join(fakeBin, process.platform === 'win32' ? 'dotnet.cmd' : 'dotnet');
@@ -747,6 +770,7 @@ test('matrix validation binds scheduler identity while plan-only paths never est
         ? `@echo invoked>${marker}\r\n@exit /b 97\r\n`
         : `#!/usr/bin/env bash\nprintf invoked > ${JSON.stringify(marker)}\nexit 97\n`);
     fs.chmodSync(dotnet, 0o755);
+    const guardedPath = `${fakeBin}${path.delimiter}${process.env.PATH}`;
     const producerCommand = [
         JSON.stringify(process.execPath),
         'tools/test/run-deterministic-command.mjs',
@@ -767,7 +791,12 @@ test('matrix validation binds scheduler identity while plan-only paths never est
         .replace(
             'command: tools/test/run-matrix-governance-once.sh validate-matrix',
             `command: ${JSON.stringify(producerCommand)}`
-        );
+        )
+        .replace(
+            'command: tools/test/lanes/test-inventory.sh',
+            `command: ${JSON.stringify(`${process.execPath} ${inventoryProbe}`)}`
+        )
+        .replaceAll('.tmp/release-evidence/test-inventory.json', inventoryEvidenceRelative);
     fs.writeFileSync(matrixFile, matrixSource);
     const env = {
         ...process.env,
@@ -775,7 +804,7 @@ test('matrix validation binds scheduler identity while plan-only paths never est
         FSUSBLOG_TEST_RUN_ID: '',
         FSUSBLOG_TEST_SOURCE_COMMIT: '',
         FSUSBLOG_TEST_SOURCE_FINGERPRINT: '',
-        PATH: `${fakeBin}${path.delimiter}${process.env.PATH}`
+        PATH: guardedPath
     };
     const validate = spawnSync(process.execPath, [
         'tools/run-test-matrix.mjs',
@@ -804,6 +833,7 @@ test('matrix validation binds scheduler identity while plan-only paths never est
     });
     assert.equal(validateJob.status, 0, validateJob.stderr);
     assert.equal(fs.existsSync(marker), false);
+    assert.equal(JSON.parse(fs.readFileSync(inventoryEvidence, 'utf8')).runId.length > 0, true);
     const identities = fs.readFileSync(identityEvidence, 'utf8')
         .trim()
         .split('\n')

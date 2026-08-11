@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:d5f1285a0c33593ac5afbbd8fb4dadcb90b056b540082939365ae679bb770b7b",
-    "sourceStateSha256": "d5f1285a0c33593ac5afbbd8fb4dadcb90b056b540082939365ae679bb770b7b",
+    "generatedFrom": "source-state:054211b62361c20fe56eb0e7b0fcac1bc80e4071dc13d49b3ff81fd1cbfd2ab0",
+    "sourceStateSha256": "054211b62361c20fe56eb0e7b0fcac1bc80e4071dc13d49b3ff81fd1cbfd2ab0",
     "configurationSha256": "aa1eb8b9803748da07ffbcda4a9bf08f6dc69cf2a24828d2ad14bae5f97ffdf4",
     "violationCount": 272706,
     "fileCount": 1506,
@@ -10160,7 +10160,7 @@
         },
         {
             "path": "tests/tools/artifact-digest-table.test.mjs",
-            "sourceSha256": "81901fda6fee68d5608404b4876f708f11dc50e80283d28201901fe0c52b4943",
+            "sourceSha256": "2a3b0e5990fdcc33c26d976d785bc6d71c32e3d93b207dd543c1c564c3e894cd",
             "violationCount": 2,
             "violationDigest": "1a75d0f4c311c6b67ec00bed9859e0dbada3fc8d762742263989575e1c04a784",
             "rules": {
@@ -15242,7 +15242,7 @@
         },
         {
             "path": "tools/run-test-matrix.mjs",
-            "sourceSha256": "13f66da04aa15811b7da9477308b1d9c3820ba40ee23b97b7d254a0d546c5638",
+            "sourceSha256": "c47f7b329985997c98a27d5641b792aee9e16b133a62d34d4e7f2a01f9e509e2",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
