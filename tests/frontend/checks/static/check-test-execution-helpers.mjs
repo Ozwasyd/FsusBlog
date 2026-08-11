@@ -10,6 +10,20 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.
 const xunitRunner = JSON.parse(await readFile(path.join(root, 'tests/backend/xunit.runner.json'), 'utf8'));
 assert.equal(xunitRunner.stopOnFail, false, 'xUnit must collect all failures in each run');
 const suiteSupport = await readFile(path.join(root, 'tools/test/lanes/_suite-support.sh'), 'utf8');
+const backendCoverageCollector = await readFile(
+    path.join(root, 'tools/coverage/collect-backend-coverage.sh'),
+    'utf8'
+);
+assert.match(
+    backendCoverageCollector,
+    /source "\$ROOT_DIR\/tools\/test\/lanes\/_suite-support\.sh"/u,
+    'backend coverage must consume the current canonical suite support'
+);
+assert.doesNotMatch(
+    backendCoverageCollector,
+    /_legacy\.sh|legacy-test\.sh/u,
+    'backend coverage must not restore a retired orchestration compatibility path'
+);
 const parallelHelper = suiteSupport.slice(
     suiteSupport.indexOf('RunParallel()'),
     suiteSupport.indexOf('\nProbeUrl()')
