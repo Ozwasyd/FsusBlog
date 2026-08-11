@@ -14,7 +14,9 @@ public sealed class BackendPropertyTests
     {
         var encoder = new AedsEncoder();
         AedsFrameType[] frameTypes = Enum.GetValues<AedsFrameType>()
-            .Where(static frameType => frameType != AedsFrameType.Unknown)
+            .Where(static frameType =>
+                frameType != AedsFrameType.Unknown
+                && !frameType.ToString().StartsWith("Retired", StringComparison.Ordinal))
             .ToArray();
 
         foreach (AedsFrameType frameType in frameTypes)

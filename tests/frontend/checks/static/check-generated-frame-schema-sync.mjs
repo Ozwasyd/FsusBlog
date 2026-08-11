@@ -67,19 +67,28 @@ try {
   ], { cwd: root, encoding: 'utf8', timeout: 60_000 })
   assert(compile.status === 0, `C++ AEDS contract probe failed to compile: ${compile.stderr || compile.stdout}`)
 
-  const allFrames = spawnSync(executable, ['all', ...protocol.frameTypes.map(frame => String(frame.value))], {
+  const activeFrames = protocol.frameTypes.filter(frame => !frame.name.startsWith('Retired'))
+  const namedRetiredFrames = protocol.frameTypes.filter(frame => frame.name.startsWith('Retired'))
+  const allFrames = spawnSync(executable, ['all', ...activeFrames.map(frame => String(frame.value))], {
     cwd: root,
     encoding: 'utf8',
     timeout: 30_000
   })
   assert(allFrames.status === 0, `C++ decoder did not recognize every generated frame: ${allFrames.stderr || allFrames.stdout}`)
 
-  const rejectedFrames = spawnSync(executable, [
-    'reject',
+  const retiredFrames = spawnSync(executable, [
+    'retired',
     ...protocol.retiredFrameValues.map(frame => String(frame.value)),
-    '65535'
+    ...namedRetiredFrames.map(frame => String(frame.value))
   ], { cwd: root, encoding: 'utf8', timeout: 30_000 })
-  assert(rejectedFrames.status === 0, `C++ decoder accepted a retired or unknown frame: ${rejectedFrames.stderr || rejectedFrames.stdout}`)
+  assert(retiredFrames.status === 0, `C++ decoder accepted a retired frame: ${retiredFrames.stderr || retiredFrames.stdout}`)
+
+  const rejectedFrame = spawnSync(executable, ['reject', '65535'], {
+    cwd: root,
+    encoding: 'utf8',
+    timeout: 30_000
+  })
+  assert(rejectedFrame.status === 0, `C++ decoder accepted an unknown frame: ${rejectedFrame.stderr || rejectedFrame.stdout}`)
 
   const fixtureHex = readFileSync(resolve(root, 'tests/fixtures/protocol/mutation-id-frame.hex'), 'utf8').replace(/\s+/gu, '')
   const roundTrip = spawnSync(executable, ['decode', fixtureHex, String(protocolFrames.get('MutationId')), '0102030405'], {
