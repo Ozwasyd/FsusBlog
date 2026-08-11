@@ -171,8 +171,9 @@ test('an import-sensitive partition owns an exclusive one-worker admission windo
 
 test('live grant 1 to 2 to 4 admits additional hosts without duplicate partitions', async () =>
 {
-    const startedAt = Date.now();
     const launches = [];
+    const threeHostsAdmitted = Promise.withResolvers();
+    let grantReadCount = 0;
     const topology = {
         machineCpu: 4,
         preferredWorkersPerHost: 2,
@@ -183,22 +184,25 @@ test('live grant 1 to 2 to 4 admits additional hosts without duplicate partition
     const result = await runRollingVitestCoordinator({
         partitions: partitions(7),
         topology,
-        pollIntervalMs: 3,
+        pollIntervalMs: 1,
         readGrant: () =>
         {
-            const elapsed = Date.now() - startedAt;
-            return { cpuUnits: elapsed < 15 ? 1 : elapsed < 35 ? 2 : 4, memoryGiB: 4, source: 'test' };
+            const cpuUnits = [1, 2, 4][Math.min(grantReadCount, 2)];
+            grantReadCount += 1;
+            return { cpuUnits, memoryGiB: 4, source: 'test' };
         },
         launchHost: async (entry) =>
         {
-            launches.push({ partitionId: entry.partition.id, workers: entry.workers, atMs: Date.now() - startedAt });
-            await new Promise((resolve) => setTimeout(resolve, 70));
+            launches.push({ partitionId: entry.partition.id, workers: entry.workers });
+            if (launches.length === 3)
+            {
+                threeHostsAdmitted.resolve();
+            }
+            await threeHostsAdmitted.promise;
             return { code: 0, status: 'success' };
         }
     });
-    assert.ok(result.grantHistory.some((entry) => entry.cpuUnits === 1));
-    assert.ok(result.grantHistory.some((entry) => entry.cpuUnits === 2));
-    assert.ok(result.grantHistory.some((entry) => entry.cpuUnits === 4));
+    assert.deepEqual(result.grantHistory.map((entry) => entry.cpuUnits), [1, 2, 4]);
     assert.equal(result.initialHostCount, 1);
     assert.equal(result.peakHostCount, 3);
     assert.ok(launches.some((entry) => entry.workers === 2));

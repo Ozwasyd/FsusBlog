@@ -21,6 +21,7 @@ const { createSchedulerRunOwner, schedulerCandidateIdentityDigest, sealScheduler
 const runOnce = await import(new URL("../../tools/test/run-once.mjs", import.meta.url));
 const temporal = await import(new URL("../../tools/test/temporal-context.mjs", import.meta.url));
 
+import { runActiveJsonProbe } from './support/active-json-probe.mjs';
 import {
     createBehaviorDocAdmissionFixture,
     prepareBehaviorDocAdmissionFixtureAuthority
@@ -2822,7 +2823,7 @@ test('runDag charges pre-DAG elapsed time against the same wall-clock budget', a
     assert.equal(executed, false, 'an exhausted end-to-end budget must prevent DAG work from starting');
 });
 
-test('collectFailures consumes active settlements once after the wall-clock deadline without busy looping', { skip: process.platform === 'win32' }, () =>
+test('collectFailures consumes active settlements once after the wall-clock deadline without busy looping', { skip: process.platform === 'win32' }, async () =>
 {
     const temp = createTempDir('scheduler-deadline-collect-settle');
     const probeFile = path.join(temp, 'probe.mjs');
@@ -2847,6 +2848,7 @@ test('collectFailures consumes active settlements once after the wall-clock dead
         "  snapshotWorktree: async () => ({ fingerprint: 'stable', entries: {} }),",
         '  executeTier: async (current) => {',
         '    executed.push(current.id)',
+        "    if (executed.length === 2) console.log('ACTIVE')",
         "    await delay(current.id === 'active-a' ? 900 : 1100)",
         '    return { code: 0, signal: null }',
         '  },',
@@ -2863,14 +2865,7 @@ test('collectFailures consumes active settlements once after the wall-clock dead
         '}))'
     ].join('\n'));
 
-    const probe = spawnSync(process.execPath, [probeFile], {
-        cwd: temp,
-        encoding: 'utf8',
-        timeout: 5_000
-    });
-    assert.equal(probe.error, undefined, probe.error?.message);
-    assert.equal(probe.status, 0, probe.stderr);
-    const outcome = JSON.parse(probe.stdout.trim());
+    const outcome = await runActiveJsonProbe({ file: probeFile, cwd: temp });
     assert.equal(outcome.status, 'failure');
     assert.equal(outcome.timedOut, true);
     assert.deepEqual(outcome.executed.sort(), ['active-a', 'active-b']);
