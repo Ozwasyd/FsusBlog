@@ -116,17 +116,20 @@ public sealed class PublicArtifactStorageContractTests
     [Fact]
     public async Task RemoveIsIdempotentWhenArtifactDirectoryIsAlreadyAbsent()
     {
-        await WithStorageRootAsync(async (_, storage) =>
-        {
-            PublicArtifactKey key = PublicArtifactKey.ArticleDetail(42);
-            byte[] payload = [20, 21, 22];
-            await storage.WriteAsync(key, LocalPublicArtifactStorage.AedsMediaType, payload);
-            string artifactDirectory = Path.GetDirectoryName(storage.ResolvePathForTests(key))!;
-            Directory.Delete(artifactDirectory, recursive: true);
+        Exception? error = await Record.ExceptionAsync(
+            () => WithStorageRootAsync(async (_, storage) =>
+            {
+                PublicArtifactKey key = PublicArtifactKey.ArticleDetail(42);
+                byte[] payload = [20, 21, 22];
+                await storage.WriteAsync(key, LocalPublicArtifactStorage.AedsMediaType, payload);
+                string artifactDirectory = Path.GetDirectoryName(storage.ResolvePathForTests(key))!;
+                Directory.Delete(artifactDirectory, recursive: true);
 
-            await storage.RemoveAsync(key);
-            await storage.RemoveAsync(key);
-        });
+                await storage.RemoveAsync(key);
+                await storage.RemoveAsync(key);
+            }));
+
+        Assert.Null(error);
     }
 
     private static async Task WithStorageRootAsync(Func<string, LocalPublicArtifactStorage, Task> action)

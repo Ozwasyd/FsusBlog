@@ -112,9 +112,14 @@ public class PooledByteBufferWriterTests
     [Fact]
     public void Dispose_CanBeCalledTwice()
     {
-        var w = new PooledByteBufferWriter();
-        w.Dispose();
-        w.Dispose(); // should not throw
+        Exception? error = Record.Exception(() =>
+        {
+            var w = new PooledByteBufferWriter();
+            w.Dispose();
+            w.Dispose();
+        });
+
+        Assert.Null(error);
     }
 
     [Fact]

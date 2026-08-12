@@ -42,8 +42,14 @@ internal static class XunitAdapterProgram
 
     public sealed class Position
     {
-        public int Line { get; init; }
-        public int Column { get; init; }
+        public int Line
+        {
+            get; init;
+        }
+        public int Column
+        {
+            get; init;
+        }
     }
 
     public sealed class Span
@@ -64,9 +70,18 @@ internal static class XunitAdapterProgram
         public string ContainingType { get; init; } = "";
         public string Assembly { get; init; } = "";
         public string AssemblyKind { get; init; } = "";
-        public bool CallsTestMethod { get; init; }
-        public string? CalledTestMethodId { get; set; }
-        public Span? Location { get; init; }
+        public bool CallsTestMethod
+        {
+            get; init;
+        }
+        public string? CalledTestMethodId
+        {
+            get; set;
+        }
+        public Span? Location
+        {
+            get; init;
+        }
     }
 
     public sealed class MethodFacts
@@ -96,16 +111,43 @@ internal static class XunitAdapterProgram
         public string MethodName { get; init; } = "";
         public string Adapter { get; init; } = AdapterId;
         public Span SourceSpan { get; init; } = new();
-        public Span? BodySpan { get; init; }
-        public string? BodySource { get; init; }
+        public Span? BodySpan
+        {
+            get; init;
+        }
+        public string? BodySource
+        {
+            get; init;
+        }
         public List<Trait> Traits { get; init; } = new();
-        public string? Category { get; init; }
-        public string? Platform { get; init; }
-        public string? Fixture { get; init; }
-        public string? SkipReason { get; init; }
-        public bool Explicit { get; init; }
-        public int? TimeoutMs { get; init; }
-        public DynamicCaseInfo? DynamicCaseInfo { get; init; }
+        public string? Category
+        {
+            get; init;
+        }
+        public string? Platform
+        {
+            get; init;
+        }
+        public string? Fixture
+        {
+            get; init;
+        }
+        public string? SkipReason
+        {
+            get; init;
+        }
+        public bool Explicit
+        {
+            get; init;
+        }
+        public int? TimeoutMs
+        {
+            get; init;
+        }
+        public DynamicCaseInfo? DynamicCaseInfo
+        {
+            get; init;
+        }
         public MethodFacts MethodFacts { get; init; } = new();
     }
 
@@ -150,7 +192,7 @@ internal static class XunitAdapterProgram
         List<MetadataReference> references;
         try
         {
-            references = BuildReferences(root, projectDir, targetFramework);
+            references = BuildReferences(root, projectDir, projectPath, targetFramework);
         }
         catch (Exception error)
         {
@@ -495,7 +537,8 @@ internal static class XunitAdapterProgram
     {
         string projectText = File.ReadAllText(projectPath);
         int index = projectText.IndexOf("<TargetFramework>", StringComparison.Ordinal);
-        if (index < 0) return "net10.0";
+        if (index < 0)
+            return "net10.0";
         int start = index + "<TargetFramework>".Length;
         int end = projectText.IndexOf("</TargetFramework>", start, StringComparison.Ordinal);
         return end > start ? projectText[start..end].Trim() : "net10.0";
@@ -505,7 +548,7 @@ internal static class XunitAdapterProgram
     {
         var files = new List<string>();
         CollectCsFiles(projectDir, files);
-        string objDir = Path.Combine(projectDir, "obj");
+        string objDir = ResolveProjectBuildDirectory(projectDir, projectPath, "obj");
         if (Directory.Exists(objDir))
         {
             foreach (string generated in Directory.EnumerateFiles(objDir, "*.g.cs", SearchOption.AllDirectories))
@@ -513,7 +556,7 @@ internal static class XunitAdapterProgram
                 files.Add(generated);
             }
         }
-        string expectedOutput = FindOutputDirectory(projectDir);
+        string expectedOutput = FindOutputDirectory(projectDir, projectPath);
         if (expectedOutput is not null && !Directory.Exists(expectedOutput))
         {
             throw new InvalidOperationException($"test project build output is missing at {expectedOutput}; run dotnet build on {Path.GetFileName(projectPath)} before invoking the adapter");
@@ -522,7 +565,8 @@ internal static class XunitAdapterProgram
             .Where(file =>
             {
                 string relative = Path.GetRelativePath(projectDir, file).Replace(Path.DirectorySeparatorChar, '/');
-                if (relative.StartsWith("Fixtures/security-source-analysis/", StringComparison.Ordinal)) return false;
+                if (relative.StartsWith("Fixtures/security-source-analysis/", StringComparison.Ordinal))
+                    return false;
                 if (relative.StartsWith("Fixtures/", StringComparison.Ordinal) && file.Contains("/Fixtures/", StringComparison.Ordinal))
                 {
                     return !relative.Contains("security-source-analysis", StringComparison.Ordinal);
@@ -539,37 +583,60 @@ internal static class XunitAdapterProgram
         foreach (string entry in Directory.EnumerateFileSystemEntries(directory))
         {
             string name = Path.GetFileName(entry);
-            if (name is "bin" or "obj" or "node_modules") continue;
-            if (Directory.Exists(entry)) CollectCsFiles(entry, files);
-            else if (entry.EndsWith(".cs", StringComparison.Ordinal)) files.Add(entry);
+            if (name is "bin" or "obj" or "node_modules")
+                continue;
+            if (Directory.Exists(entry))
+                CollectCsFiles(entry, files);
+            else if (entry.EndsWith(".cs", StringComparison.Ordinal))
+                files.Add(entry);
         }
     }
 
-    private static string? FindOutputDirectory(string projectDir)
+    private static string ResolveProjectBuildDirectory(string projectDir, string projectPath, string leaf)
     {
-        string binDir = Path.Combine(projectDir, "bin");
-        if (!Directory.Exists(binDir)) return null;
+        string configuredRoot = Environment.GetEnvironmentVariable("FSUSBLOG_PRODUCTION_BUILD_ROOT")?.Trim() ?? "";
+        return configuredRoot.Length == 0
+            ? Path.Combine(projectDir, leaf)
+            : Path.Combine(
+                Path.GetFullPath(configuredRoot),
+                "dotnet",
+                Path.GetFileNameWithoutExtension(projectPath),
+                leaf);
+    }
+
+    private static string? FindOutputDirectory(string projectDir, string projectPath)
+    {
+        string binDir = ResolveProjectBuildDirectory(projectDir, projectPath, "bin");
+        if (!Directory.Exists(binDir))
+            return null;
         foreach (string config in new[] { "Debug", "Release" })
         {
             string candidate = Path.Combine(binDir, config, "net10.0");
-            if (Directory.Exists(candidate)) return candidate;
+            if (Directory.Exists(candidate))
+                return candidate;
         }
         foreach (string framework in Directory.EnumerateDirectories(binDir, "*", SearchOption.AllDirectories))
         {
-            if (Directory.EnumerateFiles(framework, "*.dll").Any()) return framework;
+            if (Directory.EnumerateFiles(framework, "*.dll").Any())
+                return framework;
         }
         return null;
     }
 
-    private static List<MetadataReference> BuildReferences(string root, string projectDir, string targetFramework)
+    private static List<MetadataReference> BuildReferences(
+        string root,
+        string projectDir,
+        string projectPath,
+        string targetFramework)
     {
         var references = new List<MetadataReference>();
         var seenNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        string? output = FindOutputDirectory(projectDir);
+        string? output = FindOutputDirectory(projectDir, projectPath);
         if (output is null)
         {
-            throw new InvalidOperationException($"test project build output is missing under {Path.Combine(projectDir, "bin")}; run dotnet build first");
+            throw new InvalidOperationException(
+                $"test project build output is missing under {ResolveProjectBuildDirectory(projectDir, projectPath, "bin")}; run dotnet build first");
         }
         foreach (string dll in Directory.EnumerateFiles(output, "*.dll").OrderBy(file => file, StringComparer.Ordinal))
         {
@@ -588,7 +655,8 @@ internal static class XunitAdapterProgram
         foreach (string dll in Directory.EnumerateFiles(AppContext.BaseDirectory, "*.dll").OrderBy(file => file, StringComparer.Ordinal))
         {
             string simpleName = Path.GetFileNameWithoutExtension(dll);
-            if (simpleName.StartsWith("FsusBlog.XunitRoslynAdapter", StringComparison.Ordinal)) continue;
+            if (simpleName.StartsWith("FsusBlog.XunitRoslynAdapter", StringComparison.Ordinal))
+                continue;
             if (seenNames.Add(simpleName))
             {
                 references.Add(MetadataReference.CreateFromFile(dll));
@@ -651,7 +719,8 @@ internal static class XunitAdapterProgram
                             if (Directory.Exists(packRoot))
                             {
                                 string? best = Directory.EnumerateDirectories(packRoot).OrderBy(item => item, StringComparer.Ordinal).LastOrDefault();
-                                if (best is not null) frameworks.Add(best);
+                                if (best is not null)
+                                    frameworks.Add(best);
                             }
                         }
                     }
@@ -668,7 +737,8 @@ internal static class XunitAdapterProgram
             if (Directory.Exists(fallback))
             {
                 string? best = Directory.EnumerateDirectories(fallback).OrderBy(item => item, StringComparer.Ordinal).LastOrDefault();
-                if (best is not null) frameworks.Add(best);
+                if (best is not null)
+                    frameworks.Add(best);
             }
         }
         return frameworks;
@@ -678,7 +748,8 @@ internal static class XunitAdapterProgram
     {
         List<string> candidates = new();
         string? dotnetRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT");
-        if (!string.IsNullOrWhiteSpace(dotnetRoot)) candidates.Add(dotnetRoot);
+        if (!string.IsNullOrWhiteSpace(dotnetRoot))
+            candidates.Add(dotnetRoot);
         string? dotnet = FindOnPath("dotnet");
         if (dotnet is not null)
         {
@@ -689,7 +760,8 @@ internal static class XunitAdapterProgram
         foreach (string candidate in candidates.Where(item => !string.IsNullOrWhiteSpace(item)))
         {
             string packRoot = Path.Combine(candidate, "packs", "Microsoft.NETCore.App.Ref");
-            if (!Directory.Exists(packRoot)) continue;
+            if (!Directory.Exists(packRoot))
+                continue;
             string? best = null;
             foreach (string version in Directory.EnumerateDirectories(packRoot).OrderBy(item => item, StringComparer.Ordinal).Reverse())
             {
@@ -700,7 +772,8 @@ internal static class XunitAdapterProgram
                     break;
                 }
             }
-            if (best is not null) return best;
+            if (best is not null)
+                return best;
         }
         return null;
     }
@@ -708,16 +781,19 @@ internal static class XunitAdapterProgram
     private static string? ResolveDotnetRoot()
     {
         string? dotnetRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT");
-        if (!string.IsNullOrWhiteSpace(dotnetRoot) && Directory.Exists(dotnetRoot)) return dotnetRoot;
+        if (!string.IsNullOrWhiteSpace(dotnetRoot) && Directory.Exists(dotnetRoot))
+            return dotnetRoot;
         string runtimeDir = System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory();
         if (!string.IsNullOrWhiteSpace(runtimeDir))
         {
             string candidate = Path.GetFullPath(Path.Combine(runtimeDir, "..", "..", "..", ".."));
-            if (Directory.Exists(Path.Combine(candidate, "shared"))) return candidate;
+            if (Directory.Exists(Path.Combine(candidate, "shared")))
+                return candidate;
         }
         foreach (string candidate in new[] { "/usr/share/dotnet", "/usr/lib/dotnet" })
         {
-            if (Directory.Exists(Path.Combine(candidate, "shared"))) return candidate;
+            if (Directory.Exists(Path.Combine(candidate, "shared")))
+                return candidate;
         }
         string? dotnet = FindOnPath("dotnet");
         if (dotnet is not null)
@@ -727,10 +803,12 @@ internal static class XunitAdapterProgram
             {
                 string resolved = Path.GetFullPath(Path.Combine(info.DirectoryName ?? "", info.LinkTarget));
                 string root = Path.GetDirectoryName(Path.GetDirectoryName(resolved)) ?? "";
-                if (Directory.Exists(Path.Combine(root, "shared"))) return root;
+                if (Directory.Exists(Path.Combine(root, "shared")))
+                    return root;
             }
             string fromPath = Path.GetDirectoryName(Path.GetDirectoryName(dotnet)) ?? "";
-            if (Directory.Exists(Path.Combine(fromPath, "shared"))) return fromPath;
+            if (Directory.Exists(Path.Combine(fromPath, "shared")))
+                return fromPath;
         }
         return null;
     }
@@ -740,10 +818,13 @@ internal static class XunitAdapterProgram
         string pathValue = Environment.GetEnvironmentVariable("PATH") ?? "";
         foreach (string directory in pathValue.Split(Path.PathSeparator))
         {
-            if (string.IsNullOrWhiteSpace(directory)) continue;
+            if (string.IsNullOrWhiteSpace(directory))
+                continue;
             string candidate = Path.Combine(directory.Trim(), executable);
-            if (File.Exists(candidate)) return candidate;
-            if (OperatingSystem.IsWindows() && File.Exists(candidate + ".exe")) return candidate + ".exe";
+            if (File.Exists(candidate))
+                return candidate;
+            if (OperatingSystem.IsWindows() && File.Exists(candidate + ".exe"))
+                return candidate + ".exe";
         }
         return null;
     }
@@ -761,7 +842,8 @@ internal static class XunitAdapterProgram
             if (IsAttributeType(attribute, "TraitAttribute"))
             {
                 Trait? trait = ReadTrait(attribute, semanticModel, file, unresolved);
-                if (trait is not null) traits.Add(trait);
+                if (trait is not null)
+                    traits.Add(trait);
             }
         }
         for (INamedTypeSymbol? current = classSymbol; current is not null; current = current.BaseType)
@@ -773,7 +855,8 @@ internal static class XunitAdapterProgram
                     || name.StartsWith("Xunit.ICollectionFixture<", StringComparison.Ordinal))
                 {
                     string inner = name["Xunit.IClassFixture<".Length..];
-                    if (inner.EndsWith(">", StringComparison.Ordinal)) inner = inner[..^1];
+                    if (inner.EndsWith(">", StringComparison.Ordinal))
+                        inner = inner[..^1];
                     fixture = inner;
                 }
             }
@@ -812,7 +895,8 @@ internal static class XunitAdapterProgram
             if (IsAttributeType(attribute, "TraitAttribute"))
             {
                 Trait? trait = ReadTrait(attribute, semanticModel, file, unresolved);
-                if (trait is not null) traits.Add(trait);
+                if (trait is not null)
+                    traits.Add(trait);
             }
             else if (IsAttributeType(attribute, "FactAttribute") || IsAttributeType(attribute, "TheoryAttribute"))
             {
@@ -827,7 +911,8 @@ internal static class XunitAdapterProgram
                             explicitFlag = named.Value.Value is true;
                             break;
                         case "Timeout":
-                            if (named.Value.Value is int timeout) timeoutMs = timeout;
+                            if (named.Value.Value is int timeout)
+                                timeoutMs = timeout;
                             break;
                         case "DisplayName":
                             displayName = named.Value.Value?.ToString();
@@ -872,15 +957,20 @@ internal static class XunitAdapterProgram
     {
         if (constant.Kind == TypedConstantKind.Array)
         {
-            if (constant.Values.IsDefault) return "[]";
+            if (constant.Values.IsDefault)
+                return "[]";
             return "[" + string.Join(", ", constant.Values.Select(ConstantLabel)) + "]";
         }
         if (constant.Kind == TypedConstantKind.Primitive || constant.Kind == TypedConstantKind.Enum)
         {
-            if (constant.Value is null) return "null";
-            if (constant.Value is string value) return "\"" + value.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
-            if (constant.Value is bool boolean) return boolean ? "true" : "false";
-            if (constant.Value is char character) return "'" + character + "'";
+            if (constant.Value is null)
+                return "null";
+            if (constant.Value is string value)
+                return "\"" + value.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
+            if (constant.Value is bool boolean)
+                return boolean ? "true" : "false";
+            if (constant.Value is char character)
+                return "'" + character + "'";
             return Convert.ToString(constant.Value, System.Globalization.CultureInfo.InvariantCulture) ?? "null";
         }
         if (constant.Kind == TypedConstantKind.Type)
@@ -892,18 +982,23 @@ internal static class XunitAdapterProgram
 
     private static string? MemberDataGenerationLocation(AttributeData attribute)
     {
-        if (attribute.ConstructorArguments.Length == 0) return null;
+        if (attribute.ConstructorArguments.Length == 0)
+            return null;
         TypedConstant first = attribute.ConstructorArguments[0];
-        if (first.Value is string memberName) return $"member-data:{memberName}";
-        if (first.Value is INamedTypeSymbol type) return $"member-data:{type.Name}";
+        if (first.Value is string memberName)
+            return $"member-data:{memberName}";
+        if (first.Value is INamedTypeSymbol type)
+            return $"member-data:{type.Name}";
         return "member-data";
     }
 
     private static string? ClassDataGenerationLocation(AttributeData attribute)
     {
-        if (attribute.ConstructorArguments.Length == 0) return null;
+        if (attribute.ConstructorArguments.Length == 0)
+            return null;
         TypedConstant first = attribute.ConstructorArguments[0];
-        if (first.Value is INamedTypeSymbol type) return $"class-data:{type.ToDisplayString()}";
+        if (first.Value is INamedTypeSymbol type)
+            return $"class-data:{type.ToDisplayString()}";
         return "class-data";
     }
 
@@ -932,9 +1027,12 @@ internal static class XunitAdapterProgram
         {
             return "production";
         }
-        if (assemblyName is "FsusBlog.Server.Tests" or "AdapterFixtureTests" or "FsusBlog.AdapterFixture") return "test";
-        if (assemblyName.EndsWith("Tests", StringComparison.Ordinal) || assemblyName.EndsWith("Test", StringComparison.Ordinal)) return "test";
-        if (assemblyName.StartsWith("xunit", StringComparison.OrdinalIgnoreCase)) return "test-framework";
+        if (assemblyName is "FsusBlog.Server.Tests" or "AdapterFixtureTests" or "FsusBlog.AdapterFixture")
+            return "test";
+        if (assemblyName.EndsWith("Tests", StringComparison.Ordinal) || assemblyName.EndsWith("Test", StringComparison.Ordinal))
+            return "test";
+        if (assemblyName.StartsWith("xunit", StringComparison.OrdinalIgnoreCase))
+            return "test-framework";
         if (assemblyName.StartsWith("System", StringComparison.Ordinal)
             || assemblyName.StartsWith("Microsoft", StringComparison.Ordinal)
             || assemblyName.StartsWith("netstandard", StringComparison.Ordinal)
@@ -947,7 +1045,8 @@ internal static class XunitAdapterProgram
 
     private static bool IsTestMethodTarget(IMethodSymbol target, Dictionary<IMethodSymbol, MethodDeclarationSyntax> seenTestMethods)
     {
-        if (seenTestMethods.ContainsKey(target)) return true;
+        if (seenTestMethods.ContainsKey(target))
+            return true;
         return target.GetAttributes().Any(attribute =>
         {
             string name = attribute.AttributeClass?.Name ?? "";
@@ -964,9 +1063,7 @@ internal static class XunitAdapterProgram
         List<string> unresolved)
     {
         var facts = new MethodFacts();
-        if (methodDeclaration.Body is null) return facts;
-
-        foreach (InvocationExpressionSyntax invocation in methodDeclaration.Body.DescendantNodes().OfType<InvocationExpressionSyntax>())
+        foreach (InvocationExpressionSyntax invocation in InvocationNodes(methodDeclaration))
         {
             if (invocation.Expression is IdentifierNameSyntax { Identifier.ValueText: "nameof" })
             {
@@ -985,7 +1082,11 @@ internal static class XunitAdapterProgram
                     Location = GetSpan(invocation, methodDeclaration.SyntaxTree)
                 };
                 facts.Invocations.Add(fact);
-                if (IsAssertionCandidate(target))
+                if (IsAssertionCandidate(
+                    target,
+                    fact.CallsTestMethod,
+                    semanticModel.Compilation,
+                    new HashSet<ISymbol>(SymbolEqualityComparer.Default)))
                 {
                     facts.AssertionCandidates.Add(fact);
                 }
@@ -1004,9 +1105,14 @@ internal static class XunitAdapterProgram
             }
         }
 
-        foreach (ReturnStatementSyntax returnStatement in methodDeclaration.Body.DescendantNodes().OfType<ReturnStatementSyntax>())
+        foreach (ReturnStatementSyntax returnStatement in
+            methodDeclaration.Body?.DescendantNodes().OfType<ReturnStatementSyntax>() ?? [])
         {
             facts.ReturnStatements.Add(returnStatement.ToString());
+        }
+        if (methodDeclaration.ExpressionBody is not null)
+        {
+            facts.ReturnStatements.Add(methodDeclaration.ExpressionBody.Expression.ToString());
         }
 
         foreach (AttributeSyntax attributeSyntax in methodDeclaration.AttributeLists.SelectMany(list => list.Attributes))
@@ -1033,14 +1139,69 @@ internal static class XunitAdapterProgram
         return facts;
     }
 
-    private static bool IsAssertionCandidate(IMethodSymbol target)
+    private static IEnumerable<InvocationExpressionSyntax> InvocationNodes(MethodDeclarationSyntax declaration)
+        => declaration.Body?.DescendantNodes().OfType<InvocationExpressionSyntax>()
+            ?? declaration.ExpressionBody?.Expression
+                .DescendantNodesAndSelf()
+                .OfType<InvocationExpressionSyntax>()
+            ?? [];
+
+    private static bool IsAssertionCandidate(
+        IMethodSymbol target,
+        bool callsTestMethod,
+        Compilation compilation,
+        HashSet<ISymbol> visited)
     {
+        if (IsDirectAssertionCandidate(target, callsTestMethod))
+            return true;
+        if (AssemblyKind(target) != "test" || !visited.Add(target.OriginalDefinition))
+            return false;
+
+        foreach (SyntaxReference syntaxReference in target.DeclaringSyntaxReferences)
+        {
+            if (syntaxReference.GetSyntax() is not MethodDeclarationSyntax declaration)
+                continue;
+            SemanticModel semanticModel = compilation.GetSemanticModel(declaration.SyntaxTree);
+            foreach (InvocationExpressionSyntax invocation in InvocationNodes(declaration))
+            {
+                SymbolInfo symbolInfo = semanticModel.GetSymbolInfo(invocation);
+                IEnumerable<IMethodSymbol> candidates = symbolInfo.Symbol is IMethodSymbol symbol
+                    ? [symbol]
+                    : symbolInfo.CandidateSymbols.OfType<IMethodSymbol>();
+                foreach (IMethodSymbol candidate in candidates)
+                {
+                    bool candidateCallsTest = candidate.GetAttributes().Any(attribute =>
+                    {
+                        string attributeName = attribute.AttributeClass?.Name ?? "";
+                        return attributeName is "FactAttribute" or "TheoryAttribute";
+                    });
+                    if (IsDirectAssertionCandidate(candidate, candidateCallsTest)
+                        || IsAssertionCandidate(candidate, candidateCallsTest, compilation, visited))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsDirectAssertionCandidate(IMethodSymbol target, bool callsTestMethod)
+    {
+        if (callsTestMethod)
+            return true;
         string name = target.Name;
-        if (name.StartsWith("Assert", StringComparison.Ordinal)) return true;
-        if (name.StartsWith("Should", StringComparison.Ordinal)) return true;
+        if (name.StartsWith("Assert", StringComparison.Ordinal))
+            return true;
+        if (name.StartsWith("Should", StringComparison.Ordinal))
+            return true;
         string containing = target.ContainingType?.ToDisplayString() ?? "";
         return containing == "Xunit.Assert"
             || containing.StartsWith("FluentAssertions", StringComparison.Ordinal)
+            || containing == "NSubstitute.Received"
+            || (containing == "NSubstitute.SubstituteExtensions"
+                && name is "Received" or "DidNotReceive" or "ReceivedWithAnyArgs" or "DidNotReceiveWithAnyArgs")
             || name is "expect" or "assert";
     }
 

@@ -39,6 +39,21 @@ public sealed class FalsePositiveTests
     }
 
     [Fact]
+    public void ExpressionBodiedForwarder_CarriesAssertionRelation()
+        => PlainFactTarget();
+
+    [Fact]
+    public void AssertionHelperCaller_CarriesTransitiveOracle()
+    {
+        AssertExpectedValue(4);
+    }
+
+    private static void AssertExpectedValue(int actual)
+    {
+        Assert.Equal(4, actual);
+    }
+
+    [Fact]
     public void PlainFactTarget()
     {
         Assert.True(true);

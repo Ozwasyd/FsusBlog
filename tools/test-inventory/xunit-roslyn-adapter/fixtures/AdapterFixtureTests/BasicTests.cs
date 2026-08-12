@@ -10,6 +10,10 @@ public sealed class BasicTests
         Assert.Equal(4, Add(2, 2));
     }
 
+    [Fact]
+    public void ExpressionBodiedFact_RetainsAssertion()
+        => Assert.Equal(4, Add(2, 2));
+
     [Theory]
     [InlineData(1, 2, 3)]
     [InlineData(4, 5, 9)]

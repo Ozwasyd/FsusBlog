@@ -122,7 +122,9 @@ public sealed class ContentAssetContractTests
             ValidReference() with { SourceKey = "article/2" },
             ValidReference() with { SourceKind = ContentAssetSourceKinds.Draft }
         ];
-        ContentAssetSchemaValidator.ValidateReferences(references);
+        Exception? error = Record.Exception(() => ContentAssetSchemaValidator.ValidateReferences(references));
+
+        Assert.Null(error);
     }
 
     [Theory]
@@ -142,13 +144,18 @@ public sealed class ContentAssetContractTests
     [Fact]
     public void ContentAssetReference_AcceptsAllClosedSourceKinds()
     {
-        foreach (string sourceKind in new[] { ContentAssetSourceKinds.Article, ContentAssetSourceKinds.Draft, ContentAssetSourceKinds.Revision })
+        Exception? error = Record.Exception(() =>
         {
-            ContentAssetSchemaValidator.Validate(ValidReference() with
+            foreach (string sourceKind in new[] { ContentAssetSourceKinds.Article, ContentAssetSourceKinds.Draft, ContentAssetSourceKinds.Revision })
             {
-                SourceKind = sourceKind
-            });
-        }
+                ContentAssetSchemaValidator.Validate(ValidReference() with
+                {
+                    SourceKind = sourceKind
+                });
+            }
+        });
+
+        Assert.Null(error);
     }
 
     [Fact]
@@ -194,13 +201,18 @@ public sealed class ContentAssetContractTests
     [Fact]
     public void AssetRecord_AcceptsValidMediaMetadata()
     {
-        ContentAssetSchemaValidator.Validate(ValidRecord());
-        ContentAssetSchemaValidator.Validate(ValidRecord() with
+        Exception? error = Record.Exception(() =>
         {
-            Sha256 = null,
-            WidthPixels = null,
-            HeightPixels = null
+            ContentAssetSchemaValidator.Validate(ValidRecord());
+            ContentAssetSchemaValidator.Validate(ValidRecord() with
+            {
+                Sha256 = null,
+                WidthPixels = null,
+                HeightPixels = null
+            });
         });
+
+        Assert.Null(error);
     }
 
     [Fact]
@@ -221,27 +233,32 @@ public sealed class ContentAssetContractTests
     [Fact]
     public void EntityValidation_AcceptsValidEntities()
     {
-        ContentAssetSchemaValidator.Validate(new ContentAsset
+        Exception? error = Record.Exception(() =>
         {
-            AssetId = CanonicalUuid,
-            StorageKey = "images/hero.png",
-            MimeType = "image/png",
-            SizeBytes = 10,
-            State = ContentAssetStates.Ready
+            ContentAssetSchemaValidator.Validate(new ContentAsset
+            {
+                AssetId = CanonicalUuid,
+                StorageKey = "images/hero.png",
+                MimeType = "image/png",
+                SizeBytes = 10,
+                State = ContentAssetStates.Ready
+            });
+            ContentAssetSchemaValidator.Validate(new ContentAssetReference
+            {
+                AssetId = CanonicalUuid,
+                SourceKind = ContentAssetSourceKinds.Article,
+                SourceKey = "article/1",
+                ReferenceCount = 1
+            });
+            ContentAssetSchemaValidator.Validate(new ContentAssetCleanupQueueItem
+            {
+                AssetId = CanonicalUuid,
+                NotBeforeUtc = DateTime.UtcNow.AddMinutes(5),
+                AttemptCount = 0
+            });
         });
-        ContentAssetSchemaValidator.Validate(new ContentAssetReference
-        {
-            AssetId = CanonicalUuid,
-            SourceKind = ContentAssetSourceKinds.Article,
-            SourceKey = "article/1",
-            ReferenceCount = 1
-        });
-        ContentAssetSchemaValidator.Validate(new ContentAssetCleanupQueueItem
-        {
-            AssetId = CanonicalUuid,
-            NotBeforeUtc = DateTime.UtcNow.AddMinutes(5),
-            AttemptCount = 0
-        });
+
+        Assert.Null(error);
     }
 
     [Fact]
@@ -261,7 +278,9 @@ public sealed class ContentAssetContractTests
     [Fact]
     public void ContentAssetSchema_MatchesCanonicalTableAndKeyContract()
     {
-        ContentAssetSchemaValidator.ValidateSchema();
+        Exception? error = Record.Exception(ContentAssetSchemaValidator.ValidateSchema);
+
+        Assert.Null(error);
     }
 
     [Fact]
