@@ -149,10 +149,12 @@ public class BoundaryExecutorTests
     [Fact]
     public async Task ExecuteAsync_Throws_DoesNotRethrow()
     {
-        // ExecuteAsync swallows exceptions
-        await BoundaryExecutor.ExecuteAsync(
-            () => Task.FromException(new Exception("swallowed")),
-            s_logger, "op");
-        // no exception → test passes
+        Exception? error = await Record.ExceptionAsync(
+            () => BoundaryExecutor.ExecuteAsync(
+                () => Task.FromException(new Exception("swallowed")),
+                s_logger,
+                "op"));
+
+        Assert.Null(error);
     }
 }

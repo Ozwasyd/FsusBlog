@@ -31,6 +31,12 @@ function buildAdapter()
         env: adapterEnvironment,
         stdio: 'pipe'
     });
+    execFileSync('dotnet', ['build', fixtureProject, '-v:q'], {
+        cwd: repositoryRoot,
+        encoding: 'utf8',
+        env: adapterEnvironment,
+        stdio: 'pipe'
+    });
     assert.equal(existsSync(relocatedAdapterExecutable), true, 'adapter build must honor the isolated output root');
 }
 
@@ -109,7 +115,7 @@ test('xunit Roslyn adapter extracts Fact, InlineData Theory, MemberData, ClassDa
     assert.equal(casesForMethod(report, 'GenericFact_IsExtracted').length, 1);
 
     assert.equal(report.testCases.filter((testCase) => testCase.identity === 'dynamic').length, 2);
-    assert.equal(report.testCases.filter((testCase) => testCase.identity === 'static').length, 18);
+    assert.equal(report.testCases.filter((testCase) => testCase.identity === 'static').length, 21);
 });
 
 test('traits merge with method-level override and skip/platform/fixture metadata is captured', () =>
@@ -155,6 +161,23 @@ test('test-to-test symbol calls are resolved and assembly kinds classify test vs
     assert.ok(report.testCases.every((testCase) => testCase.methodFacts.invocations.every((entry) => entry.assemblyKind !== '')));
 });
 
+test('expression-bodied assertions and test forwarders retain executable oracle ownership', () =>
+{
+    const report = runAdapter();
+    const direct = factsOf(report, 'ExpressionBodiedFact_RetainsAssertion');
+    assert.ok(direct.assertionCandidates.some((entry) => entry.methodName === 'Equal'));
+    assert.deepEqual(direct.returnStatements, ['Assert.Equal(4, Add(2, 2))']);
+
+    const forwarder = factsOf(report, 'ExpressionBodiedForwarder_CarriesAssertionRelation');
+    assert.ok(forwarder.assertionCandidates.some((entry) => (
+        entry.methodName === 'PlainFactTarget'
+        && entry.callsTestMethod === true
+    )));
+
+    const helperCaller = factsOf(report, 'AssertionHelperCaller_CarriesTransitiveOracle');
+    assert.ok(helperCaller.assertionCandidates.some((entry) => entry.methodName === 'AssertExpectedValue'));
+});
+
 test('compile or semantic model failure fails closed instead of falling back to regex', () =>
 {
     const root = path.join(repositoryRoot, 'tools/test-inventory/xunit-roslyn-adapter/fixtures');
@@ -177,11 +200,15 @@ test('compile or semantic model failure fails closed instead of falling back to 
 
 test('runtime xUnit discovery matches static inventory on statically expandable cases', () =>
 {
-    execFileSync('dotnet', ['build', fixtureProject, '-v:q'], { cwd: repositoryRoot, encoding: 'utf8' });
     const listed = execFileSync(
         'dotnet',
         ['test', fixtureProject, '--list-tests', '--no-build', '-v:q'],
-        { cwd: repositoryRoot, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 }
+        {
+            cwd: repositoryRoot,
+            encoding: 'utf8',
+            env: adapterEnvironment,
+            maxBuffer: 16 * 1024 * 1024
+        }
     );
     const runtimeTests = listed.split(/\r?\n/u).filter((line) => /^\s{2,}[A-Za-z_].*$/u.test(line)).length;
     const report = runAdapter();

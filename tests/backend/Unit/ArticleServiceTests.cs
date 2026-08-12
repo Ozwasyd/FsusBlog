@@ -86,7 +86,10 @@ public sealed class ArticleServiceTests
     [Fact]
     public void AttachTagsForTests_EmptyItems_NoException()
     {
-        ArticleService.AttachTagsForTests([], new Dictionary<int, List<TagReadModel>>());
+        Exception? error = Record.Exception(
+            () => ArticleService.AttachTagsForTests([], new Dictionary<int, List<TagReadModel>>()));
+
+        Assert.Null(error);
     }
 
     [Fact]

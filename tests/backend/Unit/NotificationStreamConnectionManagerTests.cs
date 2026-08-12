@@ -644,10 +644,15 @@ public class SharedNotificationStreamFrameExtendedTests
     [Fact]
     public void Retain_ThenRelease_DoesNotReturnToPool()
     {
-        var frame = SharedNotificationStreamFrame.FromArray([1, 2, 3]);
-        frame.Retain();  // refcount = 2
-        frame.Release(); // refcount = 1, no return
-        frame.Release(); // refcount = 0, return
+        Exception? error = Record.Exception(() =>
+        {
+            var frame = SharedNotificationStreamFrame.FromArray([1, 2, 3]);
+            frame.Retain();  // refcount = 2
+            frame.Release(); // refcount = 1, no return
+            frame.Release(); // refcount = 0, return
+        });
+
+        Assert.Null(error);
     }
 
     [Fact]
