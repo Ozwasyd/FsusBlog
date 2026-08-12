@@ -79,8 +79,9 @@ npm --prefix src/frontend run verify:public-preview-docs
 ```
 
 Both commands allocate an isolated acceptance namespace and ports, build the
-current checkout, create local fixtures, fix locale/timezone, wait for fonts,
-reduce motion and retain runtime/layout/quality audits. The capture sequence is:
+current checkout, create local fixtures, target the immutable Release-built
+frontend runtime, fix locale/timezone, wait for fonts, reduce motion and retain
+runtime/layout/quality audits. The capture sequence is:
 
 1. capture all nine PNGs into staging;
 2. write nine temporary quality sidecars and the complete matrix;

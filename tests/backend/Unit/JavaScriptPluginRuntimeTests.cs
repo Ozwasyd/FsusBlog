@@ -12,21 +12,33 @@ public sealed class JavaScriptPluginRuntimeTests
     private const string PluginId = "fsusblog.plugin.comment-guard";
 
     [Fact]
-    public async Task RepositoryTypeScriptFixture_LoadsBuiltEsmAndExecutesRealJintHook()
+    public async Task BuiltEsmFixture_LoadsAndExecutesRealJintHook()
     {
-        string source = await File.ReadAllTextAsync(Path.Combine(
-            BackendTestPaths.RepositoryRoot,
-            "examples",
-            "plugins",
-            "comment-guard",
-            "dist",
-            "main.js"));
+        const string Source =
+            """
+            const definePlugin = plugin => plugin
+
+            export default definePlugin({
+              id: 'fsusblog.plugin.comment-guard',
+
+              async activate(ctx) {
+                ctx.hooks.on('comment.beforeCreate', async event => {
+                  if (event.payload.content.includes('spam')) {
+                    await event.log.write('comment rejected by comment-guard')
+                    return event.comment.reject('spam_detected')
+                  }
+
+                  return event.next()
+                })
+              }
+            })
+            """;
         var host = new RecordingHostApi();
         var runtime = new JavaScriptPluginRuntime(
             host,
             new JavaScriptPluginRuntimeOptions(EnginePoolSize: 2));
         PluginPackage package = CreatePackage(
-            source,
+            Source,
             ["comment.create", "plugin.log.write"]);
         await runtime.LoadAsync(package);
         var grants = new InMemoryPluginPermissionGrantStore();

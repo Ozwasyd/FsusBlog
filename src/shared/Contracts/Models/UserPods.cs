@@ -85,6 +85,9 @@ public readonly struct IdentityAccountSnapshotPod
     public readonly Utf8SliceRef BanReason;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation of a user locale preference.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct UserLocalePreferencePod
 {
@@ -97,6 +100,9 @@ public readonly struct UserLocalePreferencePod
     public readonly uint Reserved1;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary request for updating a user locale preference.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct UserLocalePreferenceUpdateRequestPod
 {

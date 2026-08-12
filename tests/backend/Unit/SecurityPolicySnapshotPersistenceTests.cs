@@ -135,41 +135,6 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
     }
 
     [Fact]
-    public async Task ResolveNextVersionAsync_RuntimeUsesCounterReturningUpdateInsteadOfSnapshotMax()
-    {
-        string connectionString = await CreateConnectionStringAsync();
-        using SqlSugarClient db = CreateDb(connectionString);
-        CreateTable(db);
-        await db.Insertable(new SecurityPolicyVersionCounter
-        {
-            PolicyId = SecurityPolicyIds.AntiCrawler,
-            LastVersion = 0,
-            UpdatedAtUtc = s_baselineNow.UtcDateTime
-        }).ExecuteCommandAsync();
-        var sql = new List<string>();
-        db.Aop.OnLogExecuting = (statement, _) => sql.Add(statement);
-        var service = new SecurityPolicySnapshotService(db, new StaticTimeProvider(s_baselineNow));
-
-        SecurityPolicySnapshotRecord record = await service.ActivateAsync(
-            SecurityPolicyIds.AntiCrawler,
-            SecuritySystemModes.Observe,
-            CreateAntiCrawlerSnapshot("counter-runtime", SecuritySystemModes.Observe),
-            7,
-            "counter-runtime",
-            CancellationToken.None);
-
-        string[] counterStatements = sql.Where(static statement =>
-            statement.Contains("security_policy_version_counter", StringComparison.OrdinalIgnoreCase)).ToArray();
-        Assert.Equal(1, record.Version);
-        string update = Assert.Single(counterStatements, static statement =>
-            statement.Contains("UPDATE", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains("RETURNING last_version", update, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("FOR UPDATE", update, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain(counterStatements, static statement =>
-            statement.Contains("MAX(version)", StringComparison.OrdinalIgnoreCase));
-    }
-
-    [Fact]
     public async Task ResolveNextVersionAsync_RuntimeUsesSingleReturningUpdateOnHotPath()
     {
         string connectionString = await CreateConnectionStringAsync();
@@ -200,6 +165,7 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
         Assert.Contains("UPDATE", update, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("RETURNING last_version", update, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("SELECT last_version", update, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("MAX(version)", update, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("FOR UPDATE", update, StringComparison.OrdinalIgnoreCase);
     }
 

@@ -31,10 +31,10 @@ if [[ "${FSUSBLOG_COVERAGE_SKIP_TESTS:-0}" != "1" ]]; then
     rm -f "$TRX_FILE"
     # Reuse the exact build namespace/fingerprint used by backend-build-governance.
     # Standalone coverage still builds when the shared artifact is absent or stale.
-    source "$ROOT_DIR/tools/test/lanes/_legacy.sh"
+    source "$ROOT_DIR/tools/test/lanes/_suite-support.sh"
     EnsureBackendFilteredBuild
     ConfigureDotnetTestProcessors
-    dotnet test "$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj" \
+    RunBackendDotnetTest coverage-backend \
         -c Debug \
         --no-build \
         -v minimal \

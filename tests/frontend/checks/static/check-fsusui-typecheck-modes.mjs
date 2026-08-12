@@ -1,9 +1,8 @@
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-
-import { resolveLocalFsusUiRepositoryRoot } from '../../../../src/frontend/scripts/fsusui-root.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 const frontendRoot = path.join(repoRoot, 'src/frontend');
@@ -22,6 +21,14 @@ const segmentedConsumerContractPath = path.join(repoRoot, 'tests/frontend/typech
 const docsPath = path.join(repoRoot, 'docs/frontend/fsusui-typecheck-modes.md');
 
 const failures = [];
+
+function resolveLocalFsusUiRoot(args)
+{
+    return execFileSync(process.execPath, [localResolverPath, ...args], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe']
+    }).trim();
+}
 
 function read(file)
 {
@@ -181,6 +188,8 @@ if (failures.length === 0)
         'resolveLocalFsusUiRepositoryRoot',
         'rev-parse',
         '--git-common-dir',
+        '--repository-root',
+        'process.stdout.write',
         'FSUSBLOG_LOCAL_FSUSUI_ROOT does not contain the FsusUI source contract'
     ])
     {
@@ -299,20 +308,20 @@ if (failures.length === 0)
         fs.mkdirSync(linkedBlogRoot, { recursive: true });
         fs.mkdirSync(path.join(primaryBlogRoot, '.git'), { recursive: true });
 
-        const linkedResult = resolveLocalFsusUiRepositoryRoot({
-            repositoryRoot: linkedBlogRoot,
-            gitCommonDirectory: path.join(primaryBlogRoot, '.git')
-        });
+        const linkedResult = resolveLocalFsusUiRoot([
+            '--repository-root', linkedBlogRoot,
+            '--git-common-directory', path.join(primaryBlogRoot, '.git')
+        ]);
         if (linkedResult !== siblingFsusUiRoot)
         {
             failures.push('src/frontend/scripts/fsusui-root.mjs: linked worktree must resolve FsusUI beside the primary checkout');
         }
 
-        const explicitResult = resolveLocalFsusUiRepositoryRoot({
-            override: explicitFsusUiRoot,
-            repositoryRoot: linkedBlogRoot,
-            gitCommonDirectory: path.join(primaryBlogRoot, '.git')
-        });
+        const explicitResult = resolveLocalFsusUiRoot([
+            '--repository-root', linkedBlogRoot,
+            '--override', explicitFsusUiRoot,
+            '--git-common-directory', path.join(primaryBlogRoot, '.git')
+        ]);
         if (explicitResult !== explicitFsusUiRoot)
         {
             failures.push('src/frontend/scripts/fsusui-root.mjs: explicit local FsusUI root must take precedence');
@@ -321,11 +330,11 @@ if (failures.length === 0)
         let invalidExplicitFailed = false;
         try
         {
-            resolveLocalFsusUiRepositoryRoot({
-                override: path.join(fixtureRoot, 'missing'),
-                repositoryRoot: linkedBlogRoot,
-                gitCommonDirectory: path.join(primaryBlogRoot, '.git')
-            });
+            resolveLocalFsusUiRoot([
+                '--repository-root', linkedBlogRoot,
+                '--override', path.join(fixtureRoot, 'missing'),
+                '--git-common-directory', path.join(primaryBlogRoot, '.git')
+            ]);
         }
         catch
         {

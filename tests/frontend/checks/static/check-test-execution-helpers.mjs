@@ -10,6 +10,20 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.
 const xunitRunner = JSON.parse(await readFile(path.join(root, 'tests/backend/xunit.runner.json'), 'utf8'));
 assert.equal(xunitRunner.stopOnFail, false, 'xUnit must collect all failures in each run');
 const suiteSupport = await readFile(path.join(root, 'tools/test/lanes/_suite-support.sh'), 'utf8');
+const backendCoverageCollector = await readFile(
+    path.join(root, 'tools/coverage/collect-backend-coverage.sh'),
+    'utf8'
+);
+assert.match(
+    backendCoverageCollector,
+    /source "\$ROOT_DIR\/tools\/test\/lanes\/_suite-support\.sh"/u,
+    'backend coverage must consume the current canonical suite support'
+);
+assert.doesNotMatch(
+    backendCoverageCollector,
+    /_legacy\.sh|legacy-test\.sh/u,
+    'backend coverage must not restore a retired orchestration compatibility path'
+);
 const parallelHelper = suiteSupport.slice(
     suiteSupport.indexOf('RunParallel()'),
     suiteSupport.indexOf('\nProbeUrl()')
@@ -302,7 +316,7 @@ assert.match(
 );
 assert.match(
     fixturePaths.resolvePublicFixtureFile({ env: fixtureEnv, repoRoot: '/repo' }),
-    /^\/repo\/\.tmp\/fixtures\/ci-shard-2\/public\.aeds$/u
+    /^\/repo\/\.tmp\/fixtures\/ci-shard-2\/public-content-projection\.json$/u
 );
 assert.match(
     fixturePaths.resolveSessionFixtureFile('pw-3', { env: fixtureEnv, repoRoot: '/repo' }),
@@ -330,8 +344,18 @@ try
         'fixture JWT must carry the persisted stable account subject hash'
     );
     await sessionFixtures.persistAuthFixtureManifest({
-        user: { userId: 'user-1', sessionId: 'session-user', cookieHeader: 'fsus-user=value' },
-        admin: { adminId: 'admin-1', sessionId: 'session-admin', cookieHeader: 'fsus-admin=value' },
+        user: {
+            userId: 'user-1',
+            sessionId: 'session-user',
+            cookieHeader: 'AccessToken=user-access-token; SessionId=session-user',
+            accessTokenExpiresAtEpochSeconds: 1
+        },
+        admin: {
+            adminId: 'admin-1',
+            sessionId: 'session-admin',
+            cookieHeader: 'AdminAccessToken=admin-access-token; AdminSessionId=session-admin',
+            accessTokenExpiresAtEpochSeconds: 1
+        },
         baseUrl: 'http://127.0.0.1:3000'
     });
     const authDirectory = path.join(authFixtureRoot, 'auth');
@@ -342,6 +366,15 @@ try
             (await stat(path.join(authDirectory, fixtureFile))).mode & 0o777,
             0o600,
             `${fixtureFile} must be owner-only`
+        );
+    }
+    for (const storageStateFile of ['user.storage-state.json', 'admin.storage-state.json'])
+    {
+        const storageState = JSON.parse(await readFile(path.join(authDirectory, storageStateFile), 'utf8'));
+        assert.ok(storageState.cookies.length > 0, `${storageStateFile} must persist auth cookies`);
+        assert.ok(
+            storageState.cookies.every((cookie) => cookie.expires == null),
+            `${storageStateFile} must use session cookies because browser and fixture business clocks differ`
         );
     }
 }

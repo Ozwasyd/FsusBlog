@@ -1,36 +1,35 @@
 import { dispatchAotActionEvent } from '@/bootstrap/aotActionEvent';
 import {
-  adoptPublicBootIntent,
-  getPublicActivationOwner,
-  submitPublicActivationIntent,
-  warmPublicActivation,
-  warmPublicFullAppCore
-} from '@/bootstrap/publicActivationRuntime'
-import type { PublicBootIntent } from '@/bootstrap/publicBootHandoff'
+    adoptPublicBootIntent,
+    getPublicActivationOwner,
+    submitPublicActivationIntent,
+    warmPublicActivation,
+    warmPublicFullAppCore
+} from '@/bootstrap/publicActivationRuntime';
+import type { PublicBootIntent } from '@/bootstrap/publicBootHandoff';
 import {
     readPublicHydrationPayloadAsync
 } from '@/bootstrap/publicHydrationBootstrap';
 import {
-    resolvePublicRoutePrewarmTarget,
-    type PublicRoutePrewarmReason
-} from '@/router/publicRoutePreload';
-import {
     classifyPublicNavigationIntent
 } from '@/bootstrap/publicNavigationIntent';
 import {
-  addPublicShellEventListener,
-  onPublicShellLifetimeAbort,
-  resetPublicShellLifetime
-} from '@/bootstrap/publicShellLifetime'
+    addPublicShellEventListener,
+    onPublicShellLifetimeAbort,
+    resetPublicShellLifetime
+} from '@/bootstrap/publicShellLifetime';
 import {
     isPublicSeoPath,
     removeGlobalLoader
 } from '@/bootstrap/publicShellPrimitives';
 import { hydratePublicPage, type PublicHydrationPayload } from '@/public-renderers';
-import type { PublicPageSeed } from '@/public-renderers/pageSeed';
 import { hasCanonicalPublicSeedRenderTimestamp } from '@/public-renderers/publicRenderClock';
-import { putPublicRouteSeed, type PublicRouteSeedKind } from '@/public-renderers/publicRouteSeedStore';
+import { putPublicRouteSeed } from '@/public-renderers/publicRouteSeedStore';
 import { resetPublicShellRuntimeAuthState } from '@/public-renderers/publicShellRuntimeState';
+import {
+    resolvePublicRoutePrewarmTarget,
+    type PublicRoutePrewarmReason
+} from '@/router/publicRoutePreload';
 import {
     activateLocalFixtureSession,
     buildLocalFixtureAdminUrl,
@@ -39,7 +38,11 @@ import {
     isLocalFixtureSessionActive
 } from '@/services/localFixtureSession';
 import { emitRumMetric, emitTelemetry } from '@/services/telemetryBus';
-import { ensureThemeRuntime, setThemeMode, type ThemeMode } from '@/services/themeRuntime';
+import {
+    ensureThemeRuntime,
+    reconcileThemeRuntimeAfterHydration,
+    setThemeMode
+} from '@/services/themeRuntime';
 
 function isModifiedEvent(event: MouseEvent): boolean
 {
@@ -161,8 +164,10 @@ function dedupeStylesheetLinks(links: HTMLLinkElement[]): HTMLLinkElement[]
     const ordered: HTMLLinkElement[] = [];
     for (const link of links)
     {
-        const key = link.dataset.fsusblogStyle?.trim() || link.getAttribute('href') || '';
-        if (!key || seen.has(key))
+        const styleKey = link.dataset.fsusblogStyle?.trim() ?? '';
+        const href = link.getAttribute('href') ?? '';
+        const key = styleKey.length > 0 ? styleKey : href;
+        if (key.length === 0 || seen.has(key))
         {
             continue;
         }
@@ -363,13 +368,10 @@ let commentsFallbackTimer: number | null = null;
 let commentsIntersectionObserver: IntersectionObserver | null = null;
 let commentsActivationVersion = 0;
 let publicRoutePrewarmIdleTask: number | null = null;
-let homeHotArticlesIslandModulePromise: Promise<typeof import('@/public-renderers/homeHotArticlesIsland')> | null = null;
-let commentsIslandModulePromise: Promise<typeof import('@/public-renderers/commentsIsland')> | null = null;
-
-type IdleWindow = Window & typeof globalThis & {
-    requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number;
-    cancelIdleCallback?: (handle: number) => void;
-};
+const importHomeHotArticlesIslandModule = () => import('@/public-renderers/homeHotArticlesIsland');
+const importCommentsIslandModule = () => import('@/public-renderers/commentsIsland');
+let homeHotArticlesIslandModulePromise: ReturnType<typeof importHomeHotArticlesIslandModule> | null = null;
+let commentsIslandModulePromise: ReturnType<typeof importCommentsIslandModule> | null = null;
 
 function scheduleIdleTask(task: () => void): number
 {
@@ -399,15 +401,15 @@ function clearIdleTask(taskId: number | null): void
     window.clearTimeout(taskId);
 }
 
-function loadCommentsIslandModule(): Promise<typeof import('@/public-renderers/commentsIsland')>
+function loadCommentsIslandModule(): ReturnType<typeof importCommentsIslandModule>
 {
-    commentsIslandModulePromise ??= import('@/public-renderers/commentsIsland');
+    commentsIslandModulePromise ??= importCommentsIslandModule();
     return commentsIslandModulePromise;
 }
 
-function loadHomeHotArticlesIslandModule(): Promise<typeof import('@/public-renderers/homeHotArticlesIsland')>
+function loadHomeHotArticlesIslandModule(): ReturnType<typeof importHomeHotArticlesIslandModule>
 {
-    homeHotArticlesIslandModulePromise ??= import('@/public-renderers/homeHotArticlesIsland');
+    homeHotArticlesIslandModulePromise ??= importHomeHotArticlesIslandModule();
     return homeHotArticlesIslandModulePromise;
 }
 
@@ -1107,6 +1109,7 @@ async function hydratePublicShell(): Promise<void>
     storeInitialPublicRouteSeed(payload);
     const startedAt = performance.now();
     await hydratePublicPage(payload);
+    reconcileThemeRuntimeAfterHydration();
     scheduleDynamicIslands(payload);
     const durationMs = Math.round(performance.now() - startedAt);
     emitRumMetric('hydration_time', {

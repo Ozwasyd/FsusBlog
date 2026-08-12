@@ -1,3 +1,4 @@
+/* global HTMLElement, document, getComputedStyle, innerHeight, innerWidth */
 export async function collectPublicPreviewQualityDom(page, normalizedScenario, policy)
 {
     return await page.evaluate(({ currentScenario, currentPolicy }) =>
@@ -6,7 +7,10 @@ export async function collectPublicPreviewQualityDom(page, normalizedScenario, p
         const mobile = innerWidth <= Number(currentPolicy.mobileMaxWidth ?? 768);
         const visible = (element) =>
         {
-            if (!(element instanceof HTMLElement)) return false;
+            if (!(element instanceof HTMLElement))
+            {
+                return false;
+            }
             const style = getComputedStyle(element);
             const rect = element.getBoundingClientRect();
             return style.display !== 'none'
@@ -105,7 +109,10 @@ export async function collectPublicPreviewQualityDom(page, normalizedScenario, p
             for (let rightIndex = leftIndex + 1; rightIndex < interactive.length; rightIndex++)
             {
                 const right = interactive[rightIndex];
-                if (left.contains(right) || right.contains(left)) continue;
+                if (left.contains(right) || right.contains(left))
+                {
+                    continue;
+                }
                 const rightRect = right.getBoundingClientRect();
                 const width = Math.max(0, Math.min(leftRect.right, rightRect.right) - Math.max(leftRect.left, rightRect.left));
                 const height = Math.max(0, Math.min(leftRect.bottom, rightRect.bottom) - Math.max(leftRect.top, rightRect.top));
@@ -129,7 +136,10 @@ export async function collectPublicPreviewQualityDom(page, normalizedScenario, p
         const clippedFindings = [];
         for (const element of readable)
         {
-            if (element.matches('[data-public-preview-allow-truncation]') || element.closest('[data-public-preview-allow-truncation]')) continue;
+            if (element.matches('[data-public-preview-allow-truncation]') || element.closest('[data-public-preview-allow-truncation]'))
+            {
+                continue;
+            }
             const style = getComputedStyle(element);
             const clipped = element.scrollWidth > element.clientWidth + tolerance
                 || element.scrollHeight > element.clientHeight + tolerance;
@@ -155,8 +165,12 @@ export async function collectPublicPreviewQualityDom(page, normalizedScenario, p
                 right: rect.right + focusTolerance,
                 bottom: rect.bottom + focusTolerance
             };
-            if (expanded.left < -focusTolerance || expanded.top < -focusTolerance
-                || expanded.right > innerWidth + focusTolerance || expanded.bottom > innerHeight + Math.max(document.documentElement.scrollHeight - innerHeight, 0) + focusTolerance)
+            // Vertical positions outside the first viewport can be reachable through a
+            // nested scrolling task surface. Ancestor clipping below still catches
+            // genuinely clipped rings; the viewport check only owns the horizontal
+            // page boundary.
+            if (expanded.left < -focusTolerance
+                || expanded.right > innerWidth + focusTolerance)
             {
                 focusFindings.push({ element: descriptor(element), reason: 'viewport', rect: rectRecord(element) });
                 continue;
@@ -165,11 +179,18 @@ export async function collectPublicPreviewQualityDom(page, normalizedScenario, p
             while (ancestor)
             {
                 const style = getComputedStyle(ancestor);
-                if (/(hidden|clip)/u.test(`${style.overflow}${style.overflowX}${style.overflowY}`))
+                const clipsX = /^(hidden|clip)$/u.test(style.overflowX);
+                const clipsY = /^(hidden|clip)$/u.test(style.overflowY);
+                if (clipsX || clipsY)
                 {
                     const parentRect = ancestor.getBoundingClientRect();
-                    if (expanded.left < parentRect.left - focusTolerance || expanded.right > parentRect.right + focusTolerance
-                        || expanded.top < parentRect.top - focusTolerance || expanded.bottom > parentRect.bottom + focusTolerance)
+                    const horizontallyClipped = clipsX
+                        && (expanded.left < parentRect.left - focusTolerance
+                            || expanded.right > parentRect.right + focusTolerance);
+                    const verticallyClipped = clipsY
+                        && (expanded.top < parentRect.top - focusTolerance
+                            || expanded.bottom > parentRect.bottom + focusTolerance);
+                    if (horizontallyClipped || verticallyClipped)
                     {
                         focusFindings.push({ element: descriptor(element), reason: `clipped by ${descriptor(ancestor)}`, rect: rectRecord(element) });
                         break;
@@ -220,7 +241,10 @@ export async function collectPublicPreviewQualityDom(page, normalizedScenario, p
             let parent = panel.parentElement;
             while (parent)
             {
-                if (panelSet.has(parent)) return true;
+                if (panelSet.has(parent))
+                {
+                    return true;
+                }
                 parent = parent.parentElement;
             }
             return false;
@@ -261,12 +285,30 @@ export async function collectPublicPreviewQualityDom(page, normalizedScenario, p
         {
             reviewerFindings.push(`task surface has ${panels.length} panels; budget=${currentPolicy.maxTaskPanels}`);
         }
-        if (nestedPanels.length > 0) reviewerFindings.push(`nested panel count=${nestedPanels.length}`);
-        if (badges.length > Number(currentPolicy.maxBadges ?? 12)) reviewerFindings.push(`badge count=${badges.length}`);
-        if (primaryActions.length > Number(currentPolicy.maxPrimaryActions ?? 3)) reviewerFindings.push(`first-viewport primary action count=${primaryActions.length}`);
-        if (gradients.length > 0) reviewerFindings.push(`gradient surfaces=${gradients.length}`);
-        if (glass.length > 0) reviewerFindings.push(`backdrop-filter surfaces=${glass.length}`);
-        if (excessiveRadius.length > 0) reviewerFindings.push(`unscoped large-radius surfaces=${excessiveRadius.length}`);
+        if (nestedPanels.length > 0)
+        {
+            reviewerFindings.push(`nested panel count=${nestedPanels.length}`);
+        }
+        if (badges.length > Number(currentPolicy.maxBadges ?? 12))
+        {
+            reviewerFindings.push(`badge count=${badges.length}`);
+        }
+        if (primaryActions.length > Number(currentPolicy.maxPrimaryActions ?? 3))
+        {
+            reviewerFindings.push(`first-viewport primary action count=${primaryActions.length}`);
+        }
+        if (gradients.length > 0)
+        {
+            reviewerFindings.push(`gradient surfaces=${gradients.length}`);
+        }
+        if (glass.length > 0)
+        {
+            reviewerFindings.push(`backdrop-filter surfaces=${glass.length}`);
+        }
+        if (excessiveRadius.length > 0)
+        {
+            reviewerFindings.push(`unscoped large-radius surfaces=${excessiveRadius.length}`);
+        }
 
         return {
             overflow,

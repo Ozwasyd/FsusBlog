@@ -1074,11 +1074,14 @@ BackendTestConfiguration() {
     esac
 }
 
+. "$ROOT_DIR/tools/test/lanes/_backend-test-runtime-support.sh"
+
 EnsureBackendFilteredBuild() {
     local configuration configurationSlug outputContract fingerprintVariant dotnetSdkVersion buildTarget
     local debugOutputDir releaseOutputDir debugServerOutputDir
     local -a buildCommand
     configuration="$(BackendTestConfiguration)" || return $?
+    CleanupBackendTestRuntimeOutput
     configurationSlug="${configuration,,}"
     debugOutputDir="${FSUSBLOG_PRODUCTION_BUILD_ROOT:+$FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.Server.Tests/bin/Debug/net10.0}"
     releaseOutputDir="${FSUSBLOG_PRODUCTION_BUILD_ROOT:+$FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.Server.Tests/bin/Release/net10.0}"
@@ -1196,8 +1199,11 @@ RunBackendDotnetFilterOnly() {
     ConfigureDotnetTestProcessors
     EnsureBackendFilteredBuild
     rm -f "$trxFile"
-    FSUSBLOG_BACKEND_DB_NAMESPACE="${FSUSBLOG_TEST_NAMESPACE:-local}-${lane}-${BASHPID}" \
-        Run "$BUILD_ENV_RUNNER" dotnet test "$SERVER_TEST_PROJ" -c "$configuration" -v minimal --no-build --no-restore "${DOTNET_BUILD_SHARED_ARGS[@]}" --filter "$filter" --logger "trx;LogFileName=$trxFile"
+    RunBackendDotnetTest "$lane" \
+        -c "$configuration" -v minimal --no-build --no-restore \
+        "${DOTNET_BUILD_SHARED_ARGS[@]}" \
+        --filter "$filter" \
+        --logger "trx;LogFileName=$trxFile"
 }
 
 RunBackendDotnetFilterWithCoverage() {
@@ -1212,8 +1218,7 @@ RunBackendDotnetFilterWithCoverage() {
     rm -rf "$resultsDir"
     rm -f "$trxFile"
     mkdir -p "$resultsDir"
-    FSUSBLOG_BACKEND_DB_NAMESPACE="${FSUSBLOG_TEST_NAMESPACE:-local}-${lane}-${BASHPID}" \
-        Run "$BUILD_ENV_RUNNER" dotnet test "$SERVER_TEST_PROJ" \
+    RunBackendDotnetTest "$lane" \
         -c "$configuration" \
         -v minimal \
         --no-build \
@@ -1467,6 +1472,21 @@ RunCrossStackContractOnly() {
     esac
 }
 
+EnsureFrontendFsusUiBaseline() {
+    local useLocalFsusUi="${FSUSBLOG_USE_LOCAL_FSUSUI:-}"
+    useLocalFsusUi="${useLocalFsusUi,,}"
+    if [[ "$useLocalFsusUi" == "0" ]] || [[ "$useLocalFsusUi" == "false" ]]; then
+        Fail "frontend test lanes require the canonical local FsusUI baseline"
+    fi
+    export FSUSBLOG_LOCAL_FSUSUI_ROOT="$(
+        "${FSUSBLOG_NODE:-node}" "$CLIENT_DIR/scripts/fsusui-root.mjs" \
+            --repository-root "$ROOT_DIR"
+    )"
+    Run "${FSUSBLOG_NODE:-node}" \
+        "$ROOT_DIR/tests/browser-diagnostics/local-fsusui-identity.mjs" \
+        --verify
+}
+
 RunFrontendFastBuildGroup() {
     local fingerprint
     local -a fingerprintArgs=(
@@ -1545,6 +1565,7 @@ NODE
 }
 
 RunFrontendFastBuildLane() {
+    EnsureFrontendFsusUiBaseline
     EnsureWasmReceiptOnce
     PrepareFrontendFastGroupTimings
     RunFrontendFastGroup build RunFrontendFastBuildGroup
@@ -1564,6 +1585,7 @@ RunFrontendFastTestsGroup() {
 }
 
 RunFrontendUnitShardLane() {
+    EnsureFrontendFsusUiBaseline
     ConfigureVitestShard
     PrepareFrontendFastGroupTimings
     RunFrontendFastTestsGroup
@@ -1580,6 +1602,7 @@ RunFrontendPropertyModelPerfGroupBody() {
 }
 
 RunFrontendPropertyModelPerfLane() {
+    EnsureFrontendFsusUiBaseline
     PrepareFrontendFastGroupTimings
     RunFrontendFastGroup property-model-perf RunFrontendPropertyModelPerfGroupBody
     WriteFrontendFastGroupSummary
@@ -1597,6 +1620,7 @@ RunFrontendFastRuntimeContractsGroup() {
 }
 
 RunFrontendRuntimeContractsLane() {
+    EnsureFrontendFsusUiBaseline
     EnsureWasmReceiptOnce
     PrepareFrontendFastGroupTimings
     RunFrontendFastRuntimeContractsGroup
@@ -1615,6 +1639,7 @@ RunFrontendFastStaticGovernanceGroup() {
 }
 
 RunFrontendStaticGovernanceLane() {
+    EnsureFrontendFsusUiBaseline
     PrepareFrontendFastGroupTimings
     RunFrontendFastStaticGovernanceGroup
     WriteFrontendFastGroupSummary

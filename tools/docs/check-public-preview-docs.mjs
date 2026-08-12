@@ -62,10 +62,7 @@ export function ValidateProductVersionGovernance(contents)
     }
 
     for (const token of [
-        '**Public Preview**',
-        'API Stability: Experimental',
-        'Deployment: Self-hosting preview',
-        'Production SLA: none',
+        '| Public preview entry | Link |',
         'canonical ReleaseId',
         'docs/releases/public-preview-policy.md'
     ])

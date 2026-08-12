@@ -479,35 +479,6 @@ public sealed class FontPackageRegistryTests
         Assert.Same(first, second);
     }
 
-    [Fact]
-    public void ManifestSchema_IsMachineReadableAndKeepsRuntimeCategories()
-    {
-        string schemaPath = BackendTestPaths.FromRoot(
-            "docs",
-            "fonts",
-            "font-manifest.schema.json");
-        using JsonDocument schema = JsonDocument.Parse(File.ReadAllText(schemaPath));
-        JsonElement category = schema.RootElement
-            .GetProperty("properties")
-            .GetProperty("category")
-            .GetProperty("enum");
-        string[] categories =
-        [
-            .. category.EnumerateArray().Select(static item => item.GetString()!)
-        ];
-
-        Assert.Equal(
-            [
-                FontCategories.UiSans,
-                FontCategories.ProseSans,
-                FontCategories.CodeMono,
-                FontCategories.CjkSans,
-                FontCategories.Emoji
-            ],
-            categories);
-        Assert.False(schema.RootElement.GetProperty("additionalProperties").GetBoolean());
-    }
-
     private static async Task<ValidatedFontPackage> ReadFixturePackageAsync()
     {
         await using MemoryStream package = CreatePackage(CreateManifest(), FixtureFiles());

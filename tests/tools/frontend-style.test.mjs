@@ -387,6 +387,37 @@ test('frontend style governance full mode accepts only unchanged baseline debt a
     });
 });
 
+test('frontend style governance invalidates typed lint cache when an ambient source changes', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        const declarationPath = 'src/frontend/src/runtime-flag.d.ts';
+        const consumerPath = 'src/frontend/src/runtimeFlag.ts';
+        writeFixture(fixtureRoot, declarationPath, 'declare const runtimeFlag: any;\n');
+        writeFixture(
+            fixtureRoot,
+            consumerPath,
+            `export const enabled: boolean = runtimeFlag.enabled;
+`
+        );
+
+        const unsafe = runChecker(fixtureRoot, ['--mode', 'strict-full', '--file', consumerPath]);
+        assert.notEqual(unsafe.status, 0);
+        assert.match(output(unsafe), /@typescript-eslint\/no-unsafe-assignment/u);
+
+        writeFixture(
+            fixtureRoot,
+            declarationPath,
+            `declare const runtimeFlag: {
+    readonly enabled: boolean;
+};
+`
+        );
+        const safe = runChecker(fixtureRoot, ['--mode', 'strict-full', '--file', consumerPath]);
+        assert.equal(safe.status, 0, output(safe));
+    });
+});
+
 test('frontend style governance baseline updates preserve paths and reject violation growth', () =>
 {
     withFixture((fixtureRoot) =>

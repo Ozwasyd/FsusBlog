@@ -56,14 +56,6 @@ const REQUIRED_SURFACE_TOKENS = [
         ]
     },
     {
-        path: 'src/frontend/src/components/admin/article/ArticleWriteCommandBar.vue',
-        needles: [
-            'padding-bottom: calc(var(--fsus-space-8) + var(--fsus-safe-area-inset-bottom));',
-            'height: calc(var(--fsus-space-8) + var(--fsus-safe-area-inset-bottom));',
-            'calc(var(--fsus-space-3) + var(--fsus-safe-area-inset-bottom))'
-        ]
-    },
-    {
         path: 'src/frontend/src/components/article/ArticleTocPanel.vue',
         needles: [
             'max-height: calc(var(--fsus-viewport-block-size) - 11rem);',
@@ -128,11 +120,6 @@ function walkRuntimeFiles(absoluteRoot, files = [])
     }
 
     return files;
-}
-
-function relativePosix(absolutePath)
-{
-    return path.relative(repoRoot, absolutePath).split(path.sep).join('/');
 }
 
 /**
@@ -248,16 +235,6 @@ export function toastBottomOffsetPx(insetBottomPx, baseRemPx = 16)
 export function accountDrawerBlockSizePx(viewportBlockSizePx)
 {
     return viewportBlockSizePx;
-}
-
-export function articleWriteActionBarHeightPx(space8Px, insetBottomPx)
-{
-    return space8Px + insetBottomPx;
-}
-
-export function articleWriteWorkspacePaddingBottomPx(space8Px, insetBottomPx)
-{
-    return space8Px + insetBottomPx;
 }
 
 export function articleTocDrawerPaddingBottomPx(insetBottomPx, baseRemPx = 16)

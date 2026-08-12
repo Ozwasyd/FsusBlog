@@ -17,13 +17,13 @@ import {
 } from '../test/physical-execution-process-tree.mjs';
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler observations reuse the canonical process identity collector.
 import { collectProcessIdentity } from '../test/process-identity.mjs';
-// eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler admission needs host-accurate Darwin available memory.
-import { availableMemoryBytes, availableMemoryGiB } from '../test/system-memory.mjs';
 import {
     validateRunBoundConsumerEvidence,
     validateRunBoundProjection
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Run-bound evidence is owned by the shared execution contract.
 } from '../test/run-once.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler admission needs host-accurate Darwin available memory.
+import { availableMemoryBytes, availableMemoryGiB } from '../test/system-memory.mjs';
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Temporal replay validation is shared with the execution owner.
 import { verifyTemporalReplay } from '../test/temporal-context.mjs';
 
@@ -3265,7 +3265,7 @@ function bundleSummaryOutput(checkpoint, root, bundleId)
     }
     catch (error)
     {
-        throw new Error(`checkpoint bundle summary is invalid JSON: ${summaryPath} (${error.message})`);
+        throw new Error(`checkpoint bundle summary is invalid JSON: ${summaryPath} (${error.message})`, { cause: error });
     }
     if (!plainObject(summary) || !plainObject(summary.members))
     {
@@ -4347,10 +4347,10 @@ async function runDagUnlocked(options)
     const resultFingerprints = new Map();
     const active = new Map();
     const schedulerWaitLedger = createWaitLedger();
-    let interruptPromise = null;
     let resolveInterrupt = null;
     let interrupted = null;
     const interruptHandlers = new Map();
+    let interruptPromise;
     interruptPromise = new Promise((resolve) =>
     {
         resolveInterrupt = resolve;
@@ -6063,7 +6063,9 @@ export async function runDag(options)
                 await finalizer();
             }
             catch
-            {}
+            {
+                // Finalizers are best-effort; the scheduler owner state remains authoritative.
+            }
         }
         releaseLock(schedulerOwnerTerminalState);
     }

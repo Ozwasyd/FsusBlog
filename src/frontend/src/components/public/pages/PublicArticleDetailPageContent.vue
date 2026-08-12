@@ -1,465 +1,523 @@
 <template>
-  <!-- reading layout 的 content line 将中文正文限制在 760px，并为 wide media 提供共享 bleed line。 -->
-  <article
-    class="public-article-detail pt-6 pb-12 sm:pt-10 sm:pb-16"
-    data-fsus-reading-layout
-    data-readable-region
-    data-fsus-surface="reading"
-    itemscope
-    itemtype="https://schema.org/BlogPosting"
-  >
-    <meta itemprop="headline" :content="detailView.header.title" />
-    <meta itemprop="datePublished" :content="detailView.header.meta.published.isoTime" />
-    <meta v-if="detailView.header.meta.modified" itemprop="dateModified" :content="detailView.header.meta.modified.isoTime" />
-    <meta itemprop="articleSection" :content="detailView.header.meta.categoryName" />
-    <meta itemprop="description" :content="articleSummary || detailView.header.title" />
-    <meta
-      v-for="author in effectiveResponsibilityAuthors"
-      :key="author.name"
-      itemprop="author"
-      :content="author.name"
-    />
-    <meta itemprop="license" :content="detailView.rights.licenseType" />
-    <meta name="fsus:rights-snapshot-id" :content="detailView.rights.snapshotId" />
-    <meta name="fsus:rights-policy-hash" :content="detailView.rights.policyHash" />
-    <meta name="fsus:rights-content-hash" :content="detailView.rights.contentCanonicalHash" />
-    <meta name="fsus:rights-copy-policy" :content="detailView.rights.copyPolicy" />
-    <meta
-      v-if="detailView.rights.copyrightHolder"
-      itemprop="copyrightHolder"
-      :content="detailView.rights.copyrightHolder"
-    />
-    <meta
-      v-if="detailView.rights.copyrightYear"
-      itemprop="copyrightYear"
-      :content="String(detailView.rights.copyrightYear)"
-    />
-    <meta
-      v-if="canonicalUrl"
-      itemprop="mainEntityOfPage"
-      :content="canonicalUrl"
-    />
-
-    <div
-      v-if="detailCover"
-      class="mb-12 overflow-hidden rounded-[var(--fsusblog-radius-reading-media)] border border-[var(--fsusblog-panel-border)] shadow-none sm:mb-16"
-      data-fsus-reading-bleed
-      data-fsus-motion-surface="article-cover"
-      data-content-cover="article-detail"
-      :data-cover-safe-area="detailCover.safeArea"
+    <!-- reading layout 的 content line 将中文正文限制在 760px，并为 wide media 提供共享 bleed line。 -->
+    <article
+        class="public-article-detail pt-6 pb-12 sm:pt-10 sm:pb-16"
+        data-fsus-reading-layout
+        data-readable-region
+        data-fsus-surface="reading"
+        itemscope
+        itemtype="https://schema.org/BlogPosting"
     >
-      <img
-        :src="detailCover.url"
-        :alt="t('article.content.coverAlt', { title: detailView.header.title })"
-        class="aspect-video w-full object-cover object-center shadow-none"
-        width="1200"
-        height="675"
-        sizes="(min-width: 1024px) 56rem, calc(100vw - 3rem)"
-        loading="eager"
-        decoding="async"
-        fetchpriority="high"
-      />
-    </div>
-
-    <header
-      :class="themeTokens.articleDetail.header"
-      data-fsus-motion-surface="article-title"
-    >
-      <ArticleDetailHeader :view="detailView.header" :link-mode="linkMode" />
-      <ArticleResponsibilityDisclosure
-        :article-id="safeArticleId"
-        :fallback-author="authorName"
-        :initial-authors="responsibilityAuthors"
-        :initial-manifest="responsibilityManifest"
-      />
-      <slot name="header-actions" />
-    </header>
-
-    <section itemprop="articleBody" class="mt-8 sm:mt-10">
-      <ArticleDetailBody>
-        <ArticleReadingNotice
-          :notice="detailView.body.notice"
+        <meta
+            itemprop="headline"
+            :content="detailView.header.title"
         />
+        <meta
+            itemprop="datePublished"
+            :content="detailView.header.meta.published.isoTime"
+        />
+        <meta
+            v-if="detailView.header.meta.modified"
+            itemprop="dateModified"
+            :content="detailView.header.meta.modified.isoTime"
+        />
+        <meta
+            itemprop="articleSection"
+            :content="detailView.header.meta.categoryName"
+        />
+        <meta
+            itemprop="description"
+            :content="articleSummary || detailView.header.title"
+        />
+        <meta
+            v-for="author in effectiveResponsibilityAuthors"
+            :key="author.name"
+            itemprop="author"
+            :content="author.name"
+        />
+        <meta
+            itemprop="license"
+            :content="detailView.rights.licenseType"
+        />
+        <meta
+            name="fsus:rights-snapshot-id"
+            :content="detailView.rights.snapshotId"
+        />
+        <meta
+            name="fsus:rights-policy-hash"
+            :content="detailView.rights.policyHash"
+        />
+        <meta
+            name="fsus:rights-content-hash"
+            :content="detailView.rights.contentCanonicalHash"
+        />
+        <meta
+            name="fsus:rights-copy-policy"
+            :content="detailView.rights.copyPolicy"
+        />
+        <meta
+            v-if="detailView.rights.copyrightHolder"
+            itemprop="copyrightHolder"
+            :content="detailView.rights.copyrightHolder"
+        />
+        <meta
+            v-if="detailView.rights.copyrightYear"
+            itemprop="copyrightYear"
+            :content="String(detailView.rights.copyrightYear)"
+        />
+        <meta
+            v-if="canonicalUrl"
+            itemprop="mainEntityOfPage"
+            :content="canonicalUrl"
+        />
+
         <div
-          v-if="!hasBodyContent"
-          class="border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg)] px-10 py-16 text-center"
-          :aria-label="messages.article.content.emptyAria"
+            v-if="detailCover"
+            class="mb-12 overflow-hidden rounded-[var(--fsusblog-radius-reading-media)] border border-[var(--fsusblog-panel-border)] shadow-none sm:mb-16"
+            data-fsus-reading-bleed
+            data-fsus-motion-surface="article-cover"
+            data-content-cover="article-detail"
+            :data-cover-safe-area="detailCover.safeArea"
         >
-          <p class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
-            {{ messages.article.content.empty }}
-          </p>
+            <img
+                :src="detailCover.url"
+                :alt="t('article.content.coverAlt', { title: detailView.header.title })"
+                class="aspect-video w-full object-cover object-center shadow-none"
+                width="1200"
+                height="675"
+                sizes="(min-width: 1024px) 56rem, calc(100vw - 3rem)"
+                loading="eager"
+                decoding="async"
+                fetchpriority="high"
+            />
         </div>
-        <slot v-else name="body">
-          <MarkdownRenderer
+
+        <header
+            :class="themeTokens.articleDetail.header"
+            data-fsus-motion-surface="article-title"
+        >
+            <ArticleDetailHeader
+                :view="detailView.header"
+                :link-mode="linkMode"
+            />
+            <ArticleResponsibilityDisclosure
+                :article-id="safeArticleId"
+                :fallback-author="authorName"
+                :initial-authors="responsibilityAuthors"
+                :initial-manifest="responsibilityManifest"
+            />
+            <slot name="header-actions" />
+        </header>
+
+        <section
             itemprop="articleBody"
-            :content="bodyContent"
-            :initial-render="initialRender"
-            :base-url="props.baseUrl"
-            mode="article"
-          />
-        </slot>
-      </ArticleDetailBody>
-    </section>
-
-    <div
-      v-if="detailView.header.tags.length > 0 || rightsNoticeVisible || hasRelatedReading"
-      class="fsus-appendix"
-      data-article-tail-group
-      data-fsus-surface="reading"
-    >
-      <div
-        v-if="detailView.header.tags.length > 0"
-        class="fsus-appendix__tags"
-        :aria-label="messages.article.content.tagsAria"
-      >
-        <component
-          :is="appendixTagComponent"
-          v-for="tag in detailView.header.tags"
-          :key="tag.label"
-          v-bind="appendixTagLinkProps(tag)"
-          class="fsus-appendix__tag"
-          data-public-link="filter"
+            class="mt-8 sm:mt-10"
         >
-          {{ appendixTagLabel(tag.label) }}
-        </component>
-      </div>
+            <ArticleDetailBody>
+                <ArticleReadingNotice :notice="detailView.body.notice"/>
+                <div
+                    v-if="!hasBodyContent"
+                    class="border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg)] px-10 py-16 text-center"
+                    :aria-label="messages.article.content.emptyAria"
+                >
+                    <p class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
+                        {{ messages.article.content.empty }}
+                    </p>
+                </div>
+                <slot
+                    v-else
+                    name="body"
+                >
+                    <MarkdownRenderer
+                        itemprop="articleBody"
+                        :content="bodyContent"
+                        :initial-render="initialRender"
+                        :base-url="props.baseUrl"
+                        mode="article"
+                    />
+                </slot>
+            </ArticleDetailBody>
+        </section>
 
-      <div
-        v-if="rightsNoticeVisible"
-        class="fsus-appendix__copyright article-rights-notice"
-        data-article-rights-notice
-        :data-rights-snapshot-id="detailView.rights.snapshotId"
-        :data-rights-policy-hash="detailView.rights.policyHash"
-        :data-rights-content-hash="detailView.rights.contentCanonicalHash"
-        :aria-label="messages.article.content.rightsAria"
-      >
-        {{ appendixCopyrightText }}
-      </div>
-
-      <div
-        v-if="hasRelatedReading"
-        id="fsus-related-reading"
-        data-public-related-reading="true"
-        class="fsus-appendix__nav"
-        aria-labelledby="fsus-related-reading-heading"
-      >
         <div
-          id="fsus-related-reading-heading"
-          class="fsus-appendix__nav-label"
+            v-if="detailView.header.tags.length > 0 || rightsNoticeVisible || hasRelatedReading"
+            class="fsus-appendix"
+            data-article-tail-group
+            data-fsus-surface="reading"
         >
-          {{ messages.article.actions.related }}
+            <div
+                v-if="detailView.header.tags.length > 0"
+                class="fsus-appendix__tags"
+                :aria-label="messages.article.content.tagsAria"
+            >
+                <component
+                    :is="appendixTagComponent"
+                    v-for="tag in detailView.header.tags"
+                    :key="tag.label"
+                    v-bind="appendixTagLinkProps(tag)"
+                    class="fsus-appendix__tag"
+                    data-public-link="filter"
+                >
+                    {{ appendixTagLabel(tag.label) }}
+                </component>
+            </div>
+
+            <div
+                v-if="rightsNoticeVisible"
+                class="fsus-appendix__copyright article-rights-notice"
+                data-article-rights-notice
+                :data-rights-snapshot-id="detailView.rights.snapshotId"
+                :data-rights-policy-hash="detailView.rights.policyHash"
+                :data-rights-content-hash="detailView.rights.contentCanonicalHash"
+                :aria-label="messages.article.content.rightsAria"
+            >
+                {{ appendixCopyrightText }}
+            </div>
+
+            <div
+                v-if="hasRelatedReading"
+                id="fsus-related-reading"
+                data-public-related-reading="true"
+                class="fsus-appendix__nav"
+                aria-labelledby="fsus-related-reading-heading"
+            >
+                <div
+                    id="fsus-related-reading-heading"
+                    class="fsus-appendix__nav-label"
+                >
+                    {{ messages.article.actions.related }}
+                </div>
+
+                <nav :aria-label="messages.article.content.relatedAria">
+                    <ul class="fsus-appendix__nav-list">
+                        <li
+                            v-if="detailView.relatedReading.previous"
+                            class="fsus-appendix__nav-item"
+                        >
+                            <span class="fsus-appendix__meta">
+                                {{ messages.article.actions.previousArticle }} · {{ detailView.relatedReading.previous.displayTime }}
+                            </span>
+                            <a
+                                :href="detailView.relatedReading.previous.href"
+                                class="fsus-appendix__link"
+                                data-related-role="previous"
+                            >
+                                {{ detailView.relatedReading.previous.title }}
+                            </a>
+                        </li>
+
+                        <li
+                            v-if="detailView.relatedReading.next"
+                            class="fsus-appendix__nav-item"
+                        >
+                            <span class="fsus-appendix__meta">
+                                {{ messages.article.actions.nextArticle }} · {{ detailView.relatedReading.next.displayTime }}
+                            </span>
+                            <a
+                                :href="detailView.relatedReading.next.href"
+                                class="fsus-appendix__link"
+                                data-related-role="next"
+                            >
+                                {{ detailView.relatedReading.next.title }}
+                            </a>
+                        </li>
+
+                        <li
+                            v-for="item in detailView.relatedReading.items"
+                            :key="item.id"
+                            class="fsus-appendix__nav-item"
+                        >
+                            <span class="fsus-appendix__meta">
+                                {{ messages.article.actions.related }} · {{ item.displayTime }}
+                            </span>
+                            <a
+                                :href="item.href"
+                                class="fsus-appendix__link"
+                                data-related-role="related"
+                            >
+                                {{ item.title }}
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
         </div>
 
-        <nav :aria-label="messages.article.content.relatedAria">
-          <ul class="fsus-appendix__nav-list">
-            <li
-              v-if="detailView.relatedReading.previous"
-              class="fsus-appendix__nav-item"
+        <section
+            id="fsus-comments-island"
+            :class="themeTokens.articleDetail.commentsRoot"
+            data-fsus-surface="reading"
+            :data-article-id="String(safeArticleId)"
+        >
+            <h2
+                id="comments"
+                :class="themeTokens.articleDetail.commentsSectionHeading"
             >
-              <span class="fsus-appendix__meta">
-                {{ messages.article.actions.previousArticle }} · {{ detailView.relatedReading.previous.displayTime }}
-              </span>
-              <a
-                :href="detailView.relatedReading.previous.href"
-                class="fsus-appendix__link"
-                data-related-role="previous"
-              >
-                {{ detailView.relatedReading.previous.title }}
-              </a>
-            </li>
-
-            <li
-              v-if="detailView.relatedReading.next"
-              class="fsus-appendix__nav-item"
+                {{ messages.article.comments.heading }}
+            </h2>
+            <div
+                id="fsus-comments-island-content"
+                class="min-h-0"
             >
-              <span class="fsus-appendix__meta">
-                {{ messages.article.actions.nextArticle }} · {{ detailView.relatedReading.next.displayTime }}
-              </span>
-              <a
-                :href="detailView.relatedReading.next.href"
-                class="fsus-appendix__link"
-                data-related-role="next"
-              >
-                {{ detailView.relatedReading.next.title }}
-              </a>
-            </li>
-
-            <li
-              v-for="item in detailView.relatedReading.items"
-              :key="item.id"
-              class="fsus-appendix__nav-item"
-            >
-              <span class="fsus-appendix__meta">
-                {{ messages.article.actions.related }} · {{ item.displayTime }}
-              </span>
-              <a
-                :href="item.href"
-                class="fsus-appendix__link"
-                data-related-role="related"
-              >
-                {{ item.title }}
-              </a>
-            </li>
-          </ul>
-        </nav>
-      </div>
-    </div>
-
-    <section
-      id="fsus-comments-island"
-      :class="themeTokens.articleDetail.commentsRoot"
-      data-fsus-surface="reading"
-      :data-article-id="String(safeArticleId)"
-    >
-      <h2
-        id="comments"
-        :class="themeTokens.articleDetail.commentsSectionHeading"
-      >
-        {{ messages.article.comments.heading }}
-      </h2>
-      <div
-        id="fsus-comments-island-content"
-        class="min-h-0"
-      >
-        <slot name="comments">
-          <ArticleDetailCommentsPlaceholder
-            :text="detailView.comments.placeholderText"
-          />
-        </slot>
-      </div>
-    </section>
-  </article>
+                <slot name="comments">
+                    <ArticleDetailCommentsPlaceholder :text="detailView.comments.placeholderText"/>
+                </slot>
+            </div>
+        </section>
+    </article>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useI18nText } from '@/composables/useI18nText'
-import ArticleReadingNotice from '@/components/article/ArticleReadingNotice.vue'
-import ArticleDetailHeader from '@/components/article/ArticleDetailHeader.vue'
-import ArticleResponsibilityDisclosure from '@/components/article/ArticleResponsibilityDisclosure.vue'
-import ArticleDetailBody from '@/components/public/ArticleDetailBody.vue'
-import ArticleDetailCommentsPlaceholder from '@/components/public/ArticleDetailCommentsPlaceholder.vue'
-import MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue'
-import { usePublicSiteTitle } from '@/public-renderers/publicSiteIdentityContext'
-import { themeTokens } from '@/ui-tokens/themeTokens'
-import type { ArticleDetailPageViewContract } from '@/view-contracts/articleDetail'
-import type { ArticleResponsibilityPublicView } from '@/view-contracts/articleResponsibility'
-import type { MarkdownSafeRenderResult } from '@/fsusui/markdown'
-import { resolvePublicCoverPresentation } from '@/view-contracts/coverArt'
+import { computed } from 'vue';
+
+import ArticleDetailHeader from '@/components/article/ArticleDetailHeader.vue';
+import ArticleReadingNotice from '@/components/article/ArticleReadingNotice.vue';
+import ArticleResponsibilityDisclosure from '@/components/article/ArticleResponsibilityDisclosure.vue';
+import ArticleDetailBody from '@/components/public/ArticleDetailBody.vue';
+import ArticleDetailCommentsPlaceholder from '@/components/public/ArticleDetailCommentsPlaceholder.vue';
+import MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue';
+import { useI18nText } from '@/composables/useI18nText';
+import type { MarkdownSafeRenderResult } from '@/fsusui/markdown';
+import { usePublicSiteTitle } from '@/public-renderers/publicSiteIdentityContext';
+import { themeTokens } from '@/ui-tokens/themeTokens';
+import type { ArticleDetailPageViewContract } from '@/view-contracts/articleDetail';
+import type { ArticleResponsibilityPublicView } from '@/view-contracts/articleResponsibility';
+import { resolvePublicCoverPresentation } from '@/view-contracts/coverArt';
 
 const props = withDefaults(defineProps<{
-  detailView: ArticleDetailPageViewContract
-  articleId: number | string | null | undefined
-  authorName: string
-  responsibilityAuthors?: readonly Readonly<{ name: string; profileUrl: string | null }>[]
-  responsibilityManifest?: ArticleResponsibilityPublicView | null
-  articleSummary: string
-  canonicalUrl?: string | null
-  baseUrl?: string | null
-  hasBodyContent: boolean
-  bodyContent?: string
-  initialRender?: MarkdownSafeRenderResult | null
-  linkMode?: 'anchor' | 'router'
+    detailView: ArticleDetailPageViewContract;
+    articleId: number | string | null | undefined;
+    authorName: string;
+    responsibilityAuthors?: readonly Readonly<{ name: string; profileUrl: string | null; }>[];
+    responsibilityManifest?: ArticleResponsibilityPublicView | null;
+    articleSummary: string;
+    canonicalUrl?: string | null;
+    baseUrl?: string | null;
+    hasBodyContent: boolean;
+    bodyContent?: string;
+    initialRender?: MarkdownSafeRenderResult | null;
+    linkMode?: 'anchor' | 'router';
 }>(), {
-  canonicalUrl: null,
-  baseUrl: null,
-  bodyContent: '',
-  initialRender: null,
-  linkMode: 'anchor'
-})
+    canonicalUrl: null,
+    baseUrl: null,
+    bodyContent: '',
+    initialRender: null,
+    linkMode: 'anchor'
+});
 
-const { messages, t } = useI18nText()
+const { messages, t } = useI18nText();
 
-const siteTitle = usePublicSiteTitle()
+const siteTitle = usePublicSiteTitle();
 const effectiveResponsibilityAuthors = computed(() => (
-  props.responsibilityAuthors?.length
-    ? props.responsibilityAuthors
-    : [{ name: props.authorName.trim() || 'Fsu', profileUrl: null }]
-))
+    props.responsibilityAuthors?.length
+        ? props.responsibilityAuthors
+        : [{ name: props.authorName.trim() || 'Fsu', profileUrl: null }]
+));
 
-const safeArticleId = computed(() => {
-  const normalized = Number(props.articleId)
-  return Number.isFinite(normalized) && normalized > 0 ? Math.trunc(normalized) : 0
-})
+const safeArticleId = computed(() =>
+{
+    const normalized = Number(props.articleId);
+    return Number.isFinite(normalized) && normalized > 0 ? Math.trunc(normalized) : 0;
+});
 
-const detailCover = computed(() => resolvePublicCoverPresentation(props.detailView.header.coverImageUrl))
+const detailCover = computed(() => resolvePublicCoverPresentation(props.detailView.header.coverImageUrl));
 
 const hasRelatedReading = computed(() => (
-  props.detailView.relatedReading.previous !== null
-  || props.detailView.relatedReading.next !== null
-  || props.detailView.relatedReading.items.length > 0
-))
+    props.detailView.relatedReading.previous !== null
+    || props.detailView.relatedReading.next !== null
+    || props.detailView.relatedReading.items.length > 0
+));
 
-const rightsNoticeVisible = computed(() => props.detailView.rights.enabled && props.detailView.rights.showPublicBadge)
+const rightsNoticeVisible = computed(() => props.detailView.rights.enabled && props.detailView.rights.showPublicBadge);
 
-type AppendixTag = ArticleDetailPageViewContract['header']['tags'][number]
+type AppendixTag = ArticleDetailPageViewContract['header']['tags'][number];
 
 const appendixTagComponent = computed(() => (
-  props.linkMode === 'anchor'
-    ? 'a'
-    : 'RouterLink'
-))
+    props.linkMode === 'anchor'
+        ? 'a'
+        : 'RouterLink'
+));
 
 const appendixTagHref = (tag: AppendixTag): string => (
-  tag.href?.trim() ?? ''
-)
+    tag.href?.trim() ?? ''
+);
 
 const appendixTagLinkProps = (tag: AppendixTag): Record<string, string> => (
-  props.linkMode === 'anchor'
-    ? { href: appendixTagHref(tag) }
-    : { to: appendixTagHref(tag) }
-)
+    props.linkMode === 'anchor'
+        ? { href: appendixTagHref(tag) }
+        : { to: appendixTagHref(tag) }
+);
 
-const appendixTagLabel = (label: string): string => label.toLocaleLowerCase('en-US')
+const appendixTagLabel = (label: string): string => label.toLocaleLowerCase('en-US');
 
-const rightsLicenseText = computed(() => {
-  const licenseType = props.detailView.rights.licenseType
-  if (licenseType === 'all-rights-reserved') return '保留所有权利'
-  return licenseType
-})
+const rightsLicenseText = computed(() =>
+{
+    const licenseType = props.detailView.rights.licenseType;
+    if (licenseType === 'all-rights-reserved')
+    {
+        return '保留所有权利';
+    }
+    return licenseType;
+});
 
-const appendixCopyrightText = computed(() => {
-  const rights = props.detailView.rights
-  const holder = rights.copyrightHolder?.trim() || siteTitle.value
-  const copyrightPrefix = rights.copyrightYear
-    ? `© ${rights.copyrightYear} ${holder}.`
-    : `© ${holder}.`
-  const allowedUses = [
-    rights.allowCodeCopy ? '代码块复制' : '',
-    rights.maxExcerptChars > 0 ? `最多 ${rights.maxExcerptChars} 字符摘录` : ''
-  ].filter(Boolean)
-  const permissionText = allowedUses.length > 0
-    ? `允许${allowedUses.join('及')}`
-    : '未开放复制'
-  const attributionText = rights.copyPolicy === 'append-attribution' ? '，需追加署名' : ''
-  const rightsVersion = rights.contentCanonicalHash.split(':')[0]?.trim()
-  const versionText = rightsVersion ? ` (${rightsVersion})` : ''
+const appendixCopyrightText = computed(() =>
+{
+    const rights = props.detailView.rights;
+    const holder = rights.copyrightHolder?.trim() || siteTitle.value;
+    const copyrightPrefix = rights.copyrightYear
+        ? `© ${rights.copyrightYear} ${holder}.`
+        : `© ${holder}.`;
+    const allowedUses = [
+        rights.allowCodeCopy ? '代码块复制' : '',
+        rights.maxExcerptChars > 0 ? `最多 ${rights.maxExcerptChars} 字符摘录` : ''
+    ].filter(Boolean);
+    const permissionText = allowedUses.length > 0
+        ? `允许${allowedUses.join('及')}`
+        : '未开放复制';
+    const attributionText = rights.copyPolicy === 'append-attribution' ? '，需追加署名' : '';
+    const rightsVersion = rights.contentCanonicalHash.split(':')[0]?.trim();
+    const versionText = rightsVersion ? ` (${rightsVersion})` : '';
 
-  return `${copyrightPrefix} ${rightsLicenseText.value}。${permissionText}${attributionText}${versionText}。`
-})
+    return `${copyrightPrefix} ${rightsLicenseText.value}。${permissionText}${attributionText}${versionText}。`;
+});
 </script>
 
 <style scoped>
-.public-article-detail {
-  overflow-anchor: none;
+.public-article-detail
+ {
+    overflow-anchor: none;
 }
 
-.fsus-appendix {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  margin-top: 40px;
-  padding-top: 20px;
-  border-top: 1px solid var(--fsusblog-panel-border);
-  text-align: left;
-  background: transparent;
-  box-shadow: none;
-  color: var(--fsusblog-text-quiet);
-  font-size: 14px;
-  font-weight: 400;
-  font-family: var(--fsus-typography-body-family, var(--fsus-font-ui, system-ui, sans-serif));
+.fsus-appendix
+ {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid var(--fsusblog-panel-border);
+    text-align: left;
+    background: transparent;
+    box-shadow: none;
+    color: var(--fsusblog-text-quiet);
+    font-size: 14px;
+    font-weight: 400;
+    font-family: var(--fsus-typography-body-family, var(--fsus-font-ui, system-ui, sans-serif));
 }
 
-.fsus-appendix__tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-  color: var(--fsusblog-text-quiet);
-  font-size: 14px;
-  font-weight: 400;
+.fsus-appendix__tags
+ {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    color: var(--fsusblog-text-quiet);
+    font-size: 14px;
+    font-weight: 400;
 }
 
-.fsus-appendix__tag {
-  display: inline-flex;
-  min-height: 44px;
-  box-sizing: border-box;
-  align-items: center;
-  color: var(--fsusblog-text-quiet) !important;
-  font-size: 14px;
-  font-weight: 400;
-  letter-spacing: normal;
-  text-decoration: none;
-  text-transform: none;
+.fsus-appendix__tag
+ {
+    display: inline-flex;
+    min-height: 44px;
+    box-sizing: border-box;
+    align-items: center;
+    color: var(--fsusblog-text-quiet) !important;
+    font-size: 14px;
+    font-weight: 400;
+    letter-spacing: normal;
+    text-decoration: none;
+    text-transform: none;
 }
 
-.fsus-appendix__copyright {
-  padding: 16px;
-  border-radius: var(--fsusblog-radius-control, 6px);
-  background: var(--fsusblog-page-bg-soft);
-  color: var(--fsusblog-text-tertiary);
-  font-size: 13px;
-  font-weight: 400;
-  line-height: 1.7;
+.fsus-appendix__copyright
+ {
+    padding: 16px;
+    border-radius: var(--fsusblog-radius-control, 6px);
+    background: var(--fsusblog-page-bg-soft);
+    color: var(--fsusblog-text-tertiary);
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.7;
 }
 
-.fsus-appendix__nav-label {
-  margin-bottom: 12px;
-  color: var(--fsusblog-text-muted);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+.fsus-appendix__nav-label
+ {
+    margin-bottom: 12px;
+    color: var(--fsusblog-text-muted);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
 }
 
-.fsus-appendix__nav-list {
-  display: grid;
-  gap: 10px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+.fsus-appendix__nav-list
+ {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
 }
 
-.fsus-appendix__nav-item {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
+.fsus-appendix__nav-item
+ {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
 }
 
-.fsus-appendix__meta {
-  color: var(--fsusblog-text-quiet);
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 1.6;
+.fsus-appendix__meta
+ {
+    color: var(--fsusblog-text-quiet);
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.6;
 }
 
-.fsus-appendix__link {
-  display: inline-flex;
-  min-height: 44px;
-  box-sizing: border-box;
-  align-items: center;
-  color: var(--fsusblog-text-primary);
-  font-size: 14px;
-  font-weight: 400;
-  line-height: 1.5;
-  text-decoration: none;
-  transition: color var(--blog-motion-control) var(--blog-motion-ease);
+.fsus-appendix__link
+ {
+    display: inline-flex;
+    min-height: 44px;
+    box-sizing: border-box;
+    align-items: center;
+    color: var(--fsusblog-text-primary);
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.5;
+    text-decoration: none;
+    transition: color var(--blog-motion-control) var(--blog-motion-ease);
 }
 
-.fsus-appendix__tag:visited {
-  color: var(--fsusblog-text-quiet) !important;
+.fsus-appendix__tag:visited
+ {
+    color: var(--fsusblog-text-quiet) !important;
 }
 
 .fsus-appendix__tag:hover,
-.fsus-appendix__tag:focus-visible {
-  color: var(--fsusblog-text-primary) !important;
+.fsus-appendix__tag:focus-visible
+ {
+    color: var(--fsusblog-text-primary) !important;
 }
 
-.fsus-appendix__link:visited {
-  color: var(--fsusblog-text-primary);
+.fsus-appendix__link:visited
+ {
+    color: var(--fsusblog-text-primary);
 }
 
-.fsus-appendix__link:hover {
-  background: transparent;
-  color: var(--fsusblog-color-primary);
-  text-decoration: none;
+.fsus-appendix__link:hover
+ {
+    background: transparent;
+    color: var(--fsusblog-color-primary);
+    text-decoration: none;
 }
 
 .fsus-appendix__link:focus-visible,
-.fsus-appendix__tag:focus-visible {
-  outline: 2px solid var(--fsusblog-color-focus-ring);
-  outline-offset: -2px;
+.fsus-appendix__tag:focus-visible
+ {
+    outline: 2px solid var(--fsusblog-color-focus-ring);
+    outline-offset: -2px;
 }
 
 </style>

@@ -100,7 +100,7 @@ int main(int argc, char** argv)
         return 0;
     }
 
-    if (argc >= 3 && std::string_view(argv[1]) == "reject")
+    if (argc >= 3 && std::string_view(argv[1]) == "retired")
     {
         for (int index = 2; index < argc; ++index)
         {
@@ -111,9 +111,28 @@ int main(int argc, char** argv)
             }
             const std::vector<std::uint8_t> frame = empty_frame(frame_type);
             const FsusBlog::Aeds::DecodeResult decoded = FsusBlog::Aeds::DecodeFrame(frame.data(), frame.size());
-            if (decoded.error_code != FsusBlog::Aeds::ErrorCode::FrameTypeUnsupported)
+            if (decoded.error_code != FsusBlog::Aeds::ErrorCode::FrameTypeRetired)
             {
                 return 14;
+            }
+        }
+        return 0;
+    }
+
+    if (argc >= 3 && std::string_view(argv[1]) == "reject")
+    {
+        for (int index = 2; index < argc; ++index)
+        {
+            std::uint16_t frame_type = 0U;
+            if (!parse_u16(argv[index], frame_type))
+            {
+                return 15;
+            }
+            const std::vector<std::uint8_t> frame = empty_frame(frame_type);
+            const FsusBlog::Aeds::DecodeResult decoded = FsusBlog::Aeds::DecodeFrame(frame.data(), frame.size());
+            if (decoded.error_code != FsusBlog::Aeds::ErrorCode::FrameTypeUnsupported)
+            {
+                return 16;
             }
         }
         return 0;

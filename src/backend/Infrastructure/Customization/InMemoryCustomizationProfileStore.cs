@@ -3,7 +3,7 @@ using System.Collections.Concurrent;
 namespace FsusBlog.Server.Infrastructure.Customization;
 
 /// <summary>
-/// Thread-safe in-memory store for testing and development.
+/// In-memory store for testing and development; it is not a production persistence boundary.
 /// </summary>
 public sealed class InMemoryCustomizationProfileStore : ICustomizationProfileStore
 {

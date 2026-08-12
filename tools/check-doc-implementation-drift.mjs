@@ -213,10 +213,13 @@ add('backend-perf', 'backend-perf native P99 and BenchmarkDotNet regression resp
     && backendDocs.includes('backend-benchmark-regression');
 });
 
-add('ports', 'testing docs describe fixed local default ports with environment overrides', () =>
+add('ports', 'testing docs describe sealed dynamic loopback port leases', () =>
 {
     const docs = read('docs/testing.md');
-    return docs.includes('默认固定本地端口') && docs.includes('3000/7568/8080/5432/6379') && !docs.includes('无硬编码端口');
+    return docs.includes('密封动态端口')
+    && docs.includes('production-fresh-port-lease.mjs')
+    && docs.includes('低于 kernel ephemeral range')
+    && !docs.includes('默认固定本地端口');
 });
 
 add('version-table', 'README major/minor lines avoid patch drift', () =>

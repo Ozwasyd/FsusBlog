@@ -1,55 +1,63 @@
 #!/usr/bin/env node
 
-import { readFileSync } from 'node:fs'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
-const failures = []
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
+const failures = [];
 
-function read(relativePath) {
-  return readFileSync(path.join(repoRoot, relativePath), 'utf8')
+function read(relativePath)
+{
+    return readFileSync(path.join(repoRoot, relativePath), 'utf8');
 }
 
-function fail(file, message) {
-  failures.push(`${file}: ${message}`)
+function fail(file, message)
+{
+    failures.push(`${file}: ${message}`);
 }
 
-function expectIncludes(file, source, token, message) {
-  if (!source.includes(token)) {
-    fail(file, message)
-  }
+function expectIncludes(file, source, token, message)
+{
+    if (!source.includes(token))
+    {
+        fail(file, message);
+    }
 }
 
-function expectMatches(file, source, pattern, message) {
-  if (!pattern.test(source)) {
-    fail(file, message)
-  }
+function expectMatches(file, source, pattern, message)
+{
+    if (!pattern.test(source))
+    {
+        fail(file, message);
+    }
 }
 
-function expectNotMatches(file, source, pattern, message) {
-  if (pattern.test(source)) {
-    fail(file, message)
-  }
+function expectNotMatches(file, source, pattern, message)
+{
+    if (pattern.test(source))
+    {
+        fail(file, message);
+    }
 }
 
-const foundationPath = 'src/frontend/src/assets/public-shell-foundation.css'
-const publicPagePath = 'src/frontend/src/assets/public-page.css'
-const componentPath = 'src/frontend/src/components/public/PublicBlogLayoutShell.vue'
-const emergencyPath = 'src/frontend/public/public-shell-emergency.css'
-const generatorPath = 'tools/frontend/generate-public-shell-emergency.mjs'
-const docsPath = 'docs/frontend/public-shell-ownership.md'
-const packagePath = 'src/frontend/package.json'
+const foundationPath = 'src/frontend/src/assets/public-shell-foundation.css';
+const publicPagePath = 'src/frontend/src/assets/public-page.css';
+const componentPath = 'src/frontend/src/components/public/PublicBlogLayoutShell.vue';
+const emergencyPath = 'src/frontend/public/public-shell-emergency.css';
+const generatorPath = 'tools/frontend/generate-public-shell-emergency.mjs';
+const docsPath = 'docs/frontend/public-shell-ownership.md';
+const packagePath = 'src/frontend/package.json';
 
-const foundation = read(foundationPath)
-const publicPage = read(publicPagePath)
-const component = read(componentPath)
-const componentStyle = component.match(/<style scoped>([\s\S]*?)<\/style>/u)?.[1] ?? ''
-const emergency = read(emergencyPath)
-const generator = read(generatorPath)
-const docs = read(docsPath)
-const packageJson = JSON.parse(read(packagePath))
-const scripts = packageJson.scripts ?? {}
+const foundation = read(foundationPath);
+const publicPage = read(publicPagePath);
+const component = read(componentPath);
+const componentStyle = component.match(/<style scoped>([\s\S]*?)<\/style>/u)?.[1] ?? '';
+const emergency = read(emergencyPath);
+const generator = read(generatorPath);
+const docs = read(docsPath);
+const packageJson = JSON.parse(read(packagePath));
+const scripts = packageJson.scripts ?? {};
 
 expectNotMatches(
     publicPagePath,
@@ -58,11 +66,11 @@ expectNotMatches(
     'page layer must not own header, search, theme, auth, footer, brand, or runtime-shell selectors'
 );
 expectNotMatches(
-  publicPagePath,
-  publicPage,
-  /\.markdown-body\.prose\s+:where\((?:h1|h2|h3|p)\)/u,
-  'page layer must not redefine Markdown heading or paragraph typography',
-)
+    publicPagePath,
+    publicPage,
+    /\.markdown-body\.prose\s+:where\((?:h1|h2|h3|p)\)/u,
+    'page layer must not redefine Markdown heading or paragraph typography'
+);
 expectNotMatches(
     foundationPath,
     foundation,
@@ -88,6 +96,7 @@ for (const token of [
     '--fsusblog-public-sticky-top: var(--fsusblog-public-header-height-current);',
     '--fsusblog-public-anchor-offset: calc(var(--fsusblog-public-sticky-top) + 0.75rem);',
     '#fsus-aot-shell [data-public-shell-header]',
+    '#fsus-aot-shell [data-public-shell-header] a[data-public-nav]',
     '#fsus-aot-shell .fsusblog-public-brand-mark',
     '#fsus-aot-shell .public-colophon'
 ])
@@ -96,11 +105,11 @@ for (const token of [
 }
 
 expectMatches(
-  foundationPath,
-  foundation,
-  /#fsus-aot-shell\s+\.fsusblog-public-main-target\[data-public-content-flow=['"]content-driven['"]\]\s*\{[^}]*\bmin-height:\s*0;/u,
-  'content-driven article detail must opt out of the generic first-paint viewport minimum',
-)
+    foundationPath,
+    foundation,
+    /#fsus-aot-shell\s+\.fsusblog-public-main-target\[data-public-content-flow=['"]content-driven['"]\]\s*\{[^}]*\bmin-height:\s*0;/u,
+    'content-driven article detail must opt out of the generic first-paint viewport minimum'
+);
 
 for (const pattern of [
     /--fsusblog-public-(?:control|mobile-control|overlay)[a-z0-9-]*\s*:/u,
@@ -113,7 +122,7 @@ for (const pattern of [
         foundation,
         pattern,
         `generic component geometry must remain owned by FsusUI: ${pattern}`
-  );
+    );
 }
 
 for (const token of [
@@ -151,14 +160,14 @@ for (const pattern of [
         component,
         pattern,
         `Blog-owned shell must not retain delegated search/auth behavior: ${pattern}`
-  );
+    );
 }
 
 expectIncludes(foundationPath, foundation, 'emergency:keep-start', 'foundation must own the emergency source block');
-expectIncludes(foundationPath, foundation, 'emergency:keep-end', 'foundation must own the emergency source block')
-expectNotMatches(publicPagePath, publicPage, /emergency:keep-(?:start|end)/u, 'page layer must not own emergency shell markers')
-expectIncludes(generatorPath, generator, "const sourceRelativePath = 'src/assets/public-shell-foundation.css'", 'emergency generator must read the foundation source')
-expectIncludes(emergencyPath, emergency, 'Source: src/assets/public-shell-foundation.css emergency:keep blocks.', 'generated emergency CSS must identify its foundation source')
+expectIncludes(foundationPath, foundation, 'emergency:keep-end', 'foundation must own the emergency source block');
+expectNotMatches(publicPagePath, publicPage, /emergency:keep-(?:start|end)/u, 'page layer must not own emergency shell markers');
+expectIncludes(generatorPath, generator, "const sourceRelativePath = 'src/assets/public-shell-foundation.css'", 'emergency generator must read the foundation source');
+expectIncludes(emergencyPath, emergency, 'Source: src/assets/public-shell-foundation.css emergency:keep blocks.', 'generated emergency CSS must identify its foundation source');
 
 for (const token of [
     '`public-shell-foundation.css`',
@@ -173,17 +182,20 @@ for (const token of [
     expectIncludes(docsPath, docs, token, `public shell ownership documentation is missing ${token}`);
 }
 
-const checkCommand = 'node ../../tests/frontend/checks/static/check-public-shell-css-ownership.mjs'
-if (scripts['check:public-shell-css-ownership'] !== checkCommand) {
-  fail(packagePath, 'check:public-shell-css-ownership script is missing')
+const checkCommand = 'node ../../tests/frontend/checks/static/check-public-shell-css-ownership.mjs';
+if (scripts['check:public-shell-css-ownership'] !== checkCommand)
+{
+    fail(packagePath, 'check:public-shell-css-ownership script is missing');
 }
-if (!String(scripts['check:views-constraints'] ?? '').includes('check:public-shell-css-ownership')) {
-  fail(packagePath, 'check:views-constraints must run the public-shell ownership gate')
-}
-
-if (failures.length > 0) {
-  console.error(failures.map((failure) => `[public-shell-css-ownership] ${failure}`).join('\n'))
-  process.exit(1)
+if (!String(scripts['check:views-constraints'] ?? '').includes('check:public-shell-css-ownership'))
+{
+    fail(packagePath, 'check:views-constraints must run the public-shell ownership gate');
 }
 
-console.log('[public-shell-css-ownership] ok')
+if (failures.length > 0)
+{
+    console.error(failures.map((failure) => `[public-shell-css-ownership] ${failure}`).join('\n'));
+    process.exit(1);
+}
+
+console.log('[public-shell-css-ownership] ok');

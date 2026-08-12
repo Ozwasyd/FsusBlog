@@ -21,6 +21,7 @@ const { createSchedulerRunOwner, schedulerCandidateIdentityDigest, sealScheduler
 const runOnce = await import(new URL("../../tools/test/run-once.mjs", import.meta.url));
 const temporal = await import(new URL("../../tools/test/temporal-context.mjs", import.meta.url));
 
+import { runActiveJsonProbe } from './support/active-json-probe.mjs';
 import {
     createBehaviorDocAdmissionFixture,
     prepareBehaviorDocAdmissionFixtureAuthority
@@ -576,7 +577,6 @@ test('runDag executes independent tiers concurrently before their dependent tier
             return { code: 0, signal: null };
         }
     });
-
     assert.equal(result.status, 'success');
     assert.equal(maxActive, 2);
     assert.ok(events.indexOf('start:join') > events.indexOf('end:left'));
@@ -2653,6 +2653,7 @@ test('released elastic capacity admits newly-ready work before expanding active 
     const { runDag } = await loadScheduler();
     const temp = createTempDir('scheduler-elastic-admission-fairness');
     const events = new Map();
+    const runtimeStarted = Promise.withResolvers();
     const dynamicTier = (id, overrides = {}) => tier(id, {
         resourceGrantMode: 'dynamic',
         cpuWeight: 1,
@@ -2677,10 +2678,17 @@ test('released elastic capacity admits newly-ready work before expanding active 
         snapshotWorktree: stableSnapshot,
         executeTier: async (current) =>
         {
-            events.set(`${current.id}:start`, Date.now());
+            events.set(`${current.id}:start`, events.size);
             events.set(`${current.id}:cpu`, current.cpuUnits);
-            await delay(current.id === 'long' ? 100 : 20);
-            events.set(`${current.id}:finish`, Date.now());
+            if (current.id === 'long')
+            {
+                await runtimeStarted.promise;
+            }
+            if (current.id === 'runtime')
+            {
+                runtimeStarted.resolve();
+            }
+            events.set(`${current.id}:finish`, events.size);
             return { code: 0, signal: null };
         }
     });
@@ -2815,7 +2823,7 @@ test('runDag charges pre-DAG elapsed time against the same wall-clock budget', a
     assert.equal(executed, false, 'an exhausted end-to-end budget must prevent DAG work from starting');
 });
 
-test('collectFailures consumes active settlements once after the wall-clock deadline without busy looping', { skip: process.platform === 'win32' }, () =>
+test('collectFailures consumes active settlements once after the wall-clock deadline without busy looping', { skip: process.platform === 'win32' }, async () =>
 {
     const temp = createTempDir('scheduler-deadline-collect-settle');
     const probeFile = path.join(temp, 'probe.mjs');
@@ -2840,6 +2848,7 @@ test('collectFailures consumes active settlements once after the wall-clock dead
         "  snapshotWorktree: async () => ({ fingerprint: 'stable', entries: {} }),",
         '  executeTier: async (current) => {',
         '    executed.push(current.id)',
+        "    if (executed.length === 2) console.log('ACTIVE')",
         "    await delay(current.id === 'active-a' ? 900 : 1100)",
         '    return { code: 0, signal: null }',
         '  },',
@@ -2856,14 +2865,7 @@ test('collectFailures consumes active settlements once after the wall-clock dead
         '}))'
     ].join('\n'));
 
-    const probe = spawnSync(process.execPath, [probeFile], {
-        cwd: temp,
-        encoding: 'utf8',
-        timeout: 5_000
-    });
-    assert.equal(probe.error, undefined, probe.error?.message);
-    assert.equal(probe.status, 0, probe.stderr);
-    const outcome = JSON.parse(probe.stdout.trim());
+    const outcome = await runActiveJsonProbe({ file: probeFile, cwd: temp });
     assert.equal(outcome.status, 'failure');
     assert.equal(outcome.timedOut, true);
     assert.deepEqual(outcome.executed.sort(), ['active-a', 'active-b']);
@@ -2906,21 +2908,14 @@ test('bundle timeout kills a pipe-holding grandchild and still collects independ
     const { runDag } = await loadScheduler();
     const temp = createTempDir('scheduler-bundle-timeout-tree');
     const pidFile = path.join(temp, 'grandchild.pid');
-    const grandchildFile = path.join(temp, 'grandchild.mjs');
-    const parentFile = path.join(temp, 'parent.mjs');
+    const grandchildFile = path.join(temp, 'grandchild.sh');
+    const parentFile = path.join(temp, 'parent.sh');
     const failFile = path.join(temp, 'fail.mjs');
-
-    fs.writeFileSync(grandchildFile, [
-        "process.on('SIGTERM', () => {})",
-        "setInterval(() => process.stdout.write('holding-pipe\\n'), 25)"
-    ].join('\n'));
-    fs.writeFileSync(parentFile, [
-        "import { spawn } from 'node:child_process'",
-        "import fs from 'node:fs'",
-        `const child = spawn(process.execPath, [${JSON.stringify(grandchildFile)}], { stdio: ['ignore', 'inherit', 'inherit'] })`,
-        `fs.writeFileSync(${JSON.stringify(pidFile)}, String(child.pid))`,
-        'setInterval(() => {}, 1000)'
-    ].join('\n'));
+    fs.writeFileSync(grandchildFile, String.raw`trap "exit 0" TERM
+while true; do printf 'holding-pipe\n'; sleep 0.025; done`);
+    fs.writeFileSync(parentFile, String.raw`set -euo pipefail
+/bin/bash ${JSON.stringify(grandchildFile)} &
+child=$!; printf '%s\n' "$child" > ${JSON.stringify(pidFile)}; wait "$child"`);
     fs.writeFileSync(failFile, 'setTimeout(() => process.exit(7), 50)\n');
 
     t.after(() =>
@@ -2946,7 +2941,7 @@ test('bundle timeout kills a pipe-holding grandchild and still collects independ
     const result = await runDag({
         tiers: [
             tier('timeout-bundle', {
-                command: `${JSON.stringify(process.execPath)} ${JSON.stringify(parentFile)}`,
+                command: `/bin/bash ${JSON.stringify(parentFile)}`,
                 budgetMs: 150
             }),
             tier('independent-failure', {
@@ -3801,14 +3796,14 @@ test('CI matrix exposes live machine resource resolution and derived shard concu
     assert.ok(resolution.totalMemoryGiB >= resolution.availableMemoryGiB);
     assert.ok(Number.isInteger(resolution.defaultShards) && resolution.defaultShards >= 1);
     const entries = payload.matrix.include;
-    assert.equal(entries.length, 1);
-    assert.equal(entries[0].tier, 'browser-contract');
-    assert.equal(entries[0].shard, '');
-    assert.equal(entries[0].max_parallel, 1);
-    assert.equal(entries[0].playwright_workers, 1);
-    assert.equal(entries[0].timeout_minutes, 10);
-    assert.ok(entries[0].cpu_units <= resolution.availableCpuUnits);
-    assert.ok(entries[0].memory_gib <= resolution.availableMemoryGiB);
+    const browserContract = entries.find((entry) => entry.tier === 'browser-contract');
+    assert.ok(browserContract, 'browser-contract tier must remain in the shared CI job matrix');
+    assert.equal(browserContract.shard, '');
+    assert.equal(browserContract.max_parallel, 1);
+    assert.equal(browserContract.playwright_workers, 1);
+    assert.equal(browserContract.timeout_minutes, 10);
+    assert.ok(browserContract.cpu_units <= resolution.availableCpuUnits);
+    assert.ok(browserContract.memory_gib <= resolution.availableMemoryGiB);
 });
 
 test('effective cache inputs include shared lane, Vitest, and setup consumers', async () =>

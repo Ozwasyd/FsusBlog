@@ -10,8 +10,8 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { loadTemporalContext } from '../../tools/test/temporal-context.mjs';
 import { releaseProductionBuildConsumer } from '../../tools/ci/production-build-artifacts.mjs';
+import { loadTemporalContext } from '../../tools/test/temporal-context.mjs';
 import { cleanupLocalRuntime } from '../../tools/test-matrix/local-runtime-cleanup.mjs';
 
 const responseSchema = 'fsusblog.browser-contract-fixture-provider-response.v1';
@@ -607,7 +607,7 @@ export async function retryLocalRuntimeCleanup(operation, {
 
 async function waitForOwnedContainersAbsent(observedBefore, expectedContainers, timeoutMs = 8_000)
 {
-    const deadline = Date.now() + timeoutMs;
+    const deadline = performance.now() + timeoutMs;
     while (true)
     {
         const observations = await Promise.all([
@@ -623,7 +623,7 @@ async function waitForOwnedContainersAbsent(observedBefore, expectedContainers, 
         {
             return true;
         }
-        if (Date.now() >= deadline)
+        if (performance.now() >= deadline)
         {
             return false;
         }

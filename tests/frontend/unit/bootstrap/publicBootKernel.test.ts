@@ -109,8 +109,10 @@ describe('public boot kernel browser scheduling', () => {
     expect(entryScripts(), document.documentElement.outerHTML).toHaveLength(1)
     const handoff = document.getElementById('fsus-public-boot-handoff')
     expect(handoff?.tagName).toBe('DIV')
-    expect(handoff?.hidden).toBe(true)
+    expect(handoff).toBeInstanceOf(HTMLDivElement)
+    expect((handoff as HTMLDivElement).hidden).toBe(true)
     expect(handoff?.textContent).toContain('pointerdown')
+    expect(consumePublicBootHandoff(buildIdentity)?.intent?.type).toBe('pointerdown')
     expect(timerCallbacks.size).toBe(0)
   })
 
@@ -172,15 +174,34 @@ describe('public boot kernel browser scheduling', () => {
   })
 
   it('one handoff carrier can be consumed only once', () => {
-    document.body.innerHTML = `<script id="fsus-public-boot-handoff" type="application/json">${JSON.stringify({
+    document.body.innerHTML = `<div id="fsus-public-boot-handoff" hidden>${JSON.stringify({
       schema: 'fsusblog.public-boot-handoff.v1',
       frontendBuildIdentity: buildIdentity,
       intent: { type: 'scroll', timestamp: 42 }
-    })}</script>`
+    })}</div>`
 
     expect(consumePublicBootHandoff(buildIdentity)?.intent?.type).toBe('scroll')
     expect(document.getElementById('fsus-public-boot-handoff')).toBeNull()
     expect(consumePublicBootHandoff(buildIdentity)).toBeNull()
+  })
+
+  it('rejects carriers that are executable or not hidden', () => {
+    for (const markup of [
+      `<script id="fsus-public-boot-handoff" type="application/json">${JSON.stringify({
+        schema: 'fsusblog.public-boot-handoff.v1',
+        frontendBuildIdentity: buildIdentity,
+        intent: null
+      })}</script>`,
+      `<div id="fsus-public-boot-handoff">${JSON.stringify({
+        schema: 'fsusblog.public-boot-handoff.v1',
+        frontendBuildIdentity: buildIdentity,
+        intent: null
+      })}</div>`
+    ]) {
+      document.body.innerHTML = markup
+      expect(consumePublicBootHandoff(buildIdentity)).toBeNull()
+      expect(document.getElementById('fsus-public-boot-handoff')).toBeNull()
+    }
   })
 
   it('destroys schema and build mismatched handoffs without adopting them', () => {
@@ -188,7 +209,7 @@ describe('public boot kernel browser scheduling', () => {
       { schema: 'fsusblog.public-boot-handoff.v0', frontendBuildIdentity: buildIdentity, intent: null },
       { schema: 'fsusblog.public-boot-handoff.v1', frontendBuildIdentity: 'other-build', intent: null }
     ]) {
-      document.body.innerHTML = `<script id="fsus-public-boot-handoff" type="application/json">${JSON.stringify(handoff)}</script>`
+      document.body.innerHTML = `<div id="fsus-public-boot-handoff" hidden>${JSON.stringify(handoff)}</div>`
       expect(consumePublicBootHandoff(buildIdentity)).toBeNull()
       expect(document.getElementById('fsus-public-boot-handoff')).toBeNull()
     }

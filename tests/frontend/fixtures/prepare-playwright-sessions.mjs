@@ -272,7 +272,6 @@ async function main() {
       cleanupRedis(session)
     ]);
 
-    const fixtureFile = path.join(fixturesDir, `${session}.aeds`);
     const env = {
       FSUSBLOG_BASE_URL: backendBaseUrl,
       FSUSBLOG_PG_CONTAINER: pgContainer,
@@ -285,8 +284,7 @@ async function main() {
       // storage states and user-profile routes emit real 401 warnings.
       FSUSBLOG_USER_USERNAME: `binaryuser-${session}`,
       FSUSBLOG_ADMIN_USERNAME: `binaryadmin-${session}`,
-      FSUSBLOG_DEVICE_FP: `${session}-playwright`,
-      FSUSBLOG_PLAYWRIGHT_FIXTURES_FILE: fixtureFile
+      FSUSBLOG_DEVICE_FP: `${session}-playwright`
     };
 
     // Auth smoke only here. Public content is owned by FixtureOrchestrator public-content

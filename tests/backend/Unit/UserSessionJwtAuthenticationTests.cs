@@ -8,6 +8,7 @@ using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Shared.Contracts.Governance;
 
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -18,7 +19,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 
 using NSubstitute;
-using FsusBlog.Shared.Contracts.Governance;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Category", "SecurityStateMachine")]
@@ -158,6 +159,53 @@ public sealed class UserSessionJwtAuthenticationTests
         await userValidator.DidNotReceive().ValidateAsync(Arg.Any<ClaimsPrincipal>(), Arg.Any<CancellationToken>());
     }
 
+    [Theory]
+    [InlineData("expired")]
+    [InlineData("wrong-signing-key")]
+    [InlineData("tampered")]
+    public async Task ProtectedEndpoint_RejectsInvalidAccessTokenBeforeSessionValidation(string scenario)
+    {
+        var userValidator = Substitute.For<IUserSessionValidationService>();
+        userValidator.ValidateAsync(Arg.Any<ClaimsPrincipal>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(UserSessionValidationResult.Valid));
+        var adminValidator = Substitute.For<IAdminSessionValidationService>();
+        await using WebApplication app = await StartHostAsync(userValidator, adminValidator, new Dictionary<string, string?>
+        {
+            ["Jwt:KeyVersion"] = "test-v1",
+            ["Jwt:SecretKey"] = TestSecrets.JwtSigningKey
+        });
+        DateTime now = DateTime.UtcNow;
+        string token = scenario switch
+        {
+            "expired" => CreateOrdinaryToken(
+                TestSecrets.JwtSigningKey,
+                "test-v1",
+                notBefore: now.AddMinutes(-10),
+                expires: now.AddMinutes(-1)),
+            "wrong-signing-key" => CreateOrdinaryToken(
+                TestSecrets.SecondaryJwtSigningKey,
+                "test-v1"),
+            "tampered" => TamperSignature(CreateOrdinaryToken(
+                TestSecrets.JwtSigningKey,
+                "test-v1")),
+            _ => throw new ArgumentOutOfRangeException(nameof(scenario), scenario, null)
+        };
+        using HttpClient client = app.GetTestClient();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/protected");
+        request.Headers.Add("Cookie", $"AccessToken={token}");
+
+        using HttpResponseMessage response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        await userValidator.DidNotReceive().ValidateAsync(
+            Arg.Any<ClaimsPrincipal>(),
+            Arg.Any<CancellationToken>());
+        await adminValidator.DidNotReceive().ValidateAsync(
+            Arg.Any<ClaimsPrincipal>(),
+            Arg.Any<string>(),
+            Arg.Any<CancellationToken>());
+    }
+
     [Fact]
     [CoversBehavior("authentication-session-permission", BehaviorTestKind.Migration, InvariantId = "jwt-kid-migration-window")]
     public async Task ProtectedEndpoint_AcceptsLegacyNoKidOnlyInsideExplicitMigrationWindow()
@@ -224,8 +272,13 @@ public sealed class UserSessionJwtAuthenticationTests
         return app;
     }
 
-    private static string CreateOrdinaryToken(string secret, string? keyVersion)
+    private static string CreateOrdinaryToken(
+        string secret,
+        string? keyVersion,
+        DateTime? notBefore = null,
+        DateTime? expires = null)
     {
+        DateTime now = DateTime.UtcNow;
         var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret))
         {
             KeyId = keyVersion
@@ -239,15 +292,26 @@ public sealed class UserSessionJwtAuthenticationTests
                 new Claim(AccountSubjectHasher.ClaimType, new string('a', AccountSubjectHashRequirement.Sha256HexLength)),
                 new Claim("sid", "rotation-session")
             ]),
-            IssuedAt = DateTime.UtcNow,
-            NotBefore = DateTime.UtcNow.AddMinutes(-1),
-            Expires = DateTime.UtcNow.AddMinutes(10),
+            IssuedAt = notBefore ?? now,
+            NotBefore = notBefore ?? now.AddMinutes(-1),
+            Expires = expires ?? now.AddMinutes(10),
             Issuer = "issue-1052-tests",
             Audience = "issue-1052-tests",
             SigningCredentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256Signature)
         };
         var handler = new JwtSecurityTokenHandler();
         return handler.WriteToken(handler.CreateToken(descriptor));
+    }
+
+    private static string TamperSignature(string token)
+    {
+        string[] segments = token.Split('.');
+        Assert.Equal(3, segments.Length);
+        char[] signature = segments[2].ToCharArray();
+        int index = signature.Length / 2;
+        signature[index] = signature[index] == 'A' ? 'B' : 'A';
+        segments[2] = new string(signature);
+        return string.Join('.', segments);
     }
 
     private static User OrdinaryAccount()

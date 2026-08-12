@@ -1,49 +1,59 @@
 <template>
-  <el-theme-mode-toggle
-    :model-value="mode"
-    :compact="compact"
-    :visibility="visibility"
-    :variant="variant"
-    :labels="resolvedLabels"
-    :csp-safe="true"
-    size="small"
-    :label="themeModeCopy.label"
-    @update:model-value="handleThemeModeUpdate"
-  />
+    <ElThemeModeToggle
+        :model-value="renderedMode"
+        :compact="compact"
+        :visibility="visibility"
+        :variant="variant"
+        :labels="resolvedLabels"
+        :csp-safe="true"
+        size="small"
+        :label="themeModeCopy.label"
+        @update:model-value="handleThemeModeUpdate"
+    />
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
-import { reconcileThemeRuntimeAfterHydration, useThemeRuntime, type ThemeMode } from '@/services/themeRuntime'
-import { FSUSBLOG_THEME_MODE_LABELS, type ThemeModeToggleLabels } from '@/components/ui/themeModeLabels'
-import { useI18nText } from '@/composables/useI18nText'
+import { computed, onMounted, ref } from 'vue';
 
-const { messages } = useI18nText()
-const themeModeCopy = computed(() => messages.value.layout.themeMode)
+import { FSUSBLOG_THEME_MODE_LABELS, type ThemeModeToggleLabels } from '@/components/ui/themeModeLabels';
+import { useI18nText } from '@/composables/useI18nText';
+import {
+    readInitialThemeMode,
+    useThemeRuntime,
+    type ThemeMode
+} from '@/services/themeRuntime';
+
+const { messages } = useI18nText();
+const themeModeCopy = computed(() => messages.value.layout.themeMode);
 
 const props = withDefaults(defineProps<{
-  compact?: boolean
-  visibility?: 'always' | 'desktop' | 'mobile'
-  variant?: 'segmented' | 'menu-button'
-  labels?: ThemeModeToggleLabels
+    compact?: boolean;
+    visibility?: 'always' | 'desktop' | 'mobile';
+    variant?: 'segmented' | 'menu-button';
+    labels?: ThemeModeToggleLabels;
 }>(), {
-  compact: true,
-  visibility: 'always',
-  variant: 'segmented',
-  labels: () => ({})
-})
+    compact: true,
+    visibility: 'always',
+    variant: 'segmented',
+    labels: () => ({})
+});
 
-const { mode, setThemeMode } = useThemeRuntime()
+const initialMode = readInitialThemeMode();
+const { mode, setThemeMode } = useThemeRuntime();
+const hydrationSettled = ref(false);
+const renderedMode = computed(() => hydrationSettled.value ? mode.value : initialMode);
 const resolvedLabels = computed(() => ({
-  ...FSUSBLOG_THEME_MODE_LABELS,
-  ...props.labels,
-}))
+    ...FSUSBLOG_THEME_MODE_LABELS,
+    ...props.labels
+}));
 
-onMounted(() => {
-  reconcileThemeRuntimeAfterHydration()
-})
+onMounted(() =>
+{
+    hydrationSettled.value = true;
+});
 
-function handleThemeModeUpdate(value: ThemeMode): void {
-  setThemeMode(value)
+function handleThemeModeUpdate(value: ThemeMode): void
+{
+    setThemeMode(value);
 }
 </script>

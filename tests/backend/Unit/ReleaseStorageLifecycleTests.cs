@@ -313,6 +313,31 @@ public sealed class ReleaseStorageLifecycleTests
     }
 
     [Fact]
+    public async Task DerivedArtifacts_RemoveMissingArtifactProjectionIsIdempotentBeforeFirstPublication()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            var publisher = new ReleaseDerivedArtifactPublisher(
+                Path.Combine(root, "derived"),
+                "20260712000000-abcdef123456");
+
+            bool removed = await publisher.RemoveArtifactProjectionAsync(
+                "public-aot",
+                "frontend/missing.aeds");
+
+            Assert.False(removed);
+            Assert.False(File.Exists(publisher.GetArtifactPointerPath(
+                "public-aot",
+                "frontend/missing.aeds")));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task DerivedArtifacts_PublicationLockTimeoutLeavesAliasesAndPointerUnchanged()
     {
         string root = CreateTempDirectory();

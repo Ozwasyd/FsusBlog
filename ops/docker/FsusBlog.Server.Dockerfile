@@ -276,6 +276,7 @@ WORKDIR /app
 
 COPY src/frontend/package*.json ./
 COPY tools/frontend/ /tools/frontend/
+COPY src/frontend/scripts/fsusui-root.mjs /src/frontend/scripts/fsusui-root.mjs
 COPY tools/security/comment-privacy-build-contract.mjs /tools/security/comment-privacy-build-contract.mjs
 COPY tools/test-matrix/ /tools/test-matrix/
 

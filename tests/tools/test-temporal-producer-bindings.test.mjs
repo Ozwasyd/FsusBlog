@@ -534,7 +534,7 @@ test('producer sources do not use un-injected business wall clocks or correctnes
         }
         if (source !== 'tools/data-scale/cleanup.sh')
         {
-            assert.doesNotMatch(text, /(?<![a-z_])now\(\)/u, source);
+            assert.doesNotMatch(text, /(?<![a-z_.])now\(\)/u, source);
         }
     }
 });

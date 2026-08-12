@@ -26,21 +26,21 @@ export function normalizeManualScreenshotShardName(raw: string | undefined): str
 export function resolveDocsScreenshotRoot({
   publicPreviewDocsCapture,
   environment = process.env,
-  cwd = process.cwd(),
   readOwner
 }: {
   publicPreviewDocsCapture: boolean
   environment?: Environment
-  cwd?: string
   readOwner?: (file: string) => WriterOwner
 }): string | null {
   if (!publicPreviewDocsCapture) {
     return null
   }
 
-  const repositoryRoot = path.resolve(cwd, '../..')
   const namespace = requiredEnvironment(environment, 'FSUSBLOG_PUBLIC_PREVIEW_WRITER_NAMESPACE')
   const ownerPid = Number.parseInt(requiredEnvironment(environment, 'FSUSBLOG_PUBLIC_PREVIEW_WRITER_PID'), 10)
+  const repositoryRoot = path.resolve(
+    requiredEnvironment(environment, 'FSUSBLOG_REPOSITORY_ROOT')
+  )
   const staging = path.resolve(requiredEnvironment(environment, 'FSUSBLOG_PUBLIC_PREVIEW_STAGING_DIR'))
   const expectedStaging = path.join(repositoryRoot, '.tmp/public-preview-screenshots', namespace, 'staging')
   if (staging !== expectedStaging) {

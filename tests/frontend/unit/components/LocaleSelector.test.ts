@@ -63,9 +63,11 @@ describe('LocaleSelector presentational contract', () => {
     const wrapper = mountSelector({ items, activeLocale: 'ja-JP' })
     expect(items).toHaveLength(ENABLED_LOCALES.length)
     expect(items.map((item) => item.code)).toEqual(ENABLED_LOCALES.map((locale) => locale.code))
-    // Menu starts closed (v-show); items remain in DOM for stable projection.
+    // Native hidden state keeps every projected item in the DOM without
+    // depending on a CSS chunk or creating an inline style rejected by CSP.
     expect(wrapper.findAll('[data-locale-selector-item]')).toHaveLength(ENABLED_LOCALES.length)
     expect(wrapper.get('[data-locale-selector-trigger]').attributes('aria-expanded')).toBe('false')
+    expect(wrapper.get('[data-locale-selector-menu]').attributes()).toHaveProperty('hidden')
     expect(wrapper.props('items')).toEqual(items)
     expect(wrapper.get('[data-locale-selector-trigger]').text()).not.toMatch(/\bAa\b/)
     expect(wrapper.get('[data-locale-selector-trigger]').text()).not.toContain('中/EN')
@@ -75,6 +77,7 @@ describe('LocaleSelector presentational contract', () => {
   it('desktop trigger shows globe affordance and current nativeName', async () => {
     const wrapper = mountSelector({ activeLocale: 'es-419', compact: false })
     await openWithKeyboard(wrapper)
+    expect(wrapper.get('[data-locale-selector-menu]').attributes()).not.toHaveProperty('hidden')
     expect(wrapper.get('[data-locale-selector-trigger]').text()).toContain('Español (Latinoamérica)')
     expect(wrapper.find('.locale-selector__globe-icon').exists()).toBe(true)
     expect(wrapper.get('[data-locale-selector-trigger]').text()).not.toMatch(/\bAa\b/)
@@ -304,6 +307,7 @@ describe('LocaleSelector source isolation', () => {
     expect(source).not.toMatch(/requestLocale|localeRuntime|localeCatalog|ENABLED_LOCALES/u)
     expect(source).not.toMatch(/@\/router|vue-router|localStorage|sessionStorage|document\.cookie/u)
     expect(source).not.toMatch(/@\/api\/|@\/store\/|@\/services\/localePreference/u)
+    expect(source).not.toMatch(/\bv-show\b/u)
     const deprecatedLocaleResiduePattern = [
       'Locale' + 'Toggle',
       'toggle' + 'Locale',

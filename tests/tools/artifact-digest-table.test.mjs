@@ -34,6 +34,12 @@ function write(root, relativePath, content)
     return file;
 }
 
+function advanceMtime(file)
+{
+    const timestamp = new Date(fs.statSync(file).mtimeMs + 2_000);
+    fs.utimesSync(file, timestamp, timestamp);
+}
+
 test('same physical file is content-hashed once and retains every producer', (t) =>
 {
     const value = fixture();
@@ -135,11 +141,14 @@ test('in-place overwrite, truncate and rename replacement invalidate cached cont
 
     const initial = digest();
     fs.writeFileSync(file, 'bbbb');
+    advanceMtime(file);
     const overwritten = digest();
     fs.truncateSync(file, 2);
+    advanceMtime(file);
     const truncated = digest();
     const replacement = write(value.root, '.tmp/results/replacement.bin', 'cc');
     fs.renameSync(replacement, file);
+    advanceMtime(file);
     const renamed = digest();
     assert.equal(new Set([initial, overwritten, truncated, renamed]).size, 4);
 });
@@ -259,11 +268,12 @@ test('finalization rejects content or directory membership changed after its las
     {
         const value = fixture();
         t.after(() => fs.rmSync(value.root, { recursive: true, force: true }));
-        write(value.root, '.tmp/results/a.json', 'a');
+        const artifact = write(value.root, '.tmp/results/a.json', 'a');
         value.table.digestDeclarations([mode === 'content' ? '.tmp/results/a.json' : '.tmp/results/**/*.json']);
         if (mode === 'content')
         {
             write(value.root, '.tmp/results/a.json', 'b');
+            advanceMtime(artifact);
         }
         else
         {
@@ -279,6 +289,7 @@ test('finalization rejects content or directory membership changed after its las
     const snapshot = path.join(finalized.root, '.tmp/release-evidence/table.json');
     const descriptor = finalized.table.finalize(snapshot);
     write(finalized.root, '.tmp/results/a.json', 'b');
+    advanceMtime(path.join(finalized.root, '.tmp/results/a.json'));
     assert.throws(() => readAndValidateArtifactDigestTable(snapshot, {
         root: finalized.root,
         runId: 'run',

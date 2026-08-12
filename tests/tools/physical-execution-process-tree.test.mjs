@@ -127,7 +127,8 @@ function createStubSystemdExecution({
     childKillError = null,
     cgroupReadErrorAt = null,
     removeRootError = null,
-    onHandshake = null
+    onHandshake = null,
+    onCommandProcessGroupObserved = null
 } = {})
 {
     const state = {
@@ -316,6 +317,7 @@ function createStubSystemdExecution({
         },
         readProcessGroupIdentity(pid)
         {
+            onCommandProcessGroupObserved?.({ state, child, pid });
             return {
                 status: 'verified',
                 value: {
@@ -336,7 +338,7 @@ function createStubSystemdExecution({
             }
             fs.rmSync(controlRoot, { recursive: true, force: true });
         },
-        handshakeTimeoutMs: 20
+        handshakeTimeoutMs: 100
     });
     return { adapter, state };
 }
@@ -909,8 +911,8 @@ test('Linux systemd adapter cleanup treats command results as evidence and final
 {
     const policy = {
         ...fastPolicy,
-        gracefulTerminationMs: 5,
-        forceTerminationMs: 30,
+        gracefulTerminationMs: 100,
+        forceTerminationMs: 250,
         pipeCloseTimeoutMs: 30,
         observationIntervalMs: 1,
         zeroMemberObservations: 2
@@ -971,9 +973,9 @@ test('Linux systemd adapter cleanup treats command results as evidence and final
             commandStatuses: { SIGTERM: 1 },
             commandTransitions: { SIGTERM: { members: [] } },
             finalizeTransition: { emitTerminal: true, loadState: 'not-found', members: [] },
-            onHandshake()
+            onCommandProcessGroupObserved()
             {
-                setTimeout(() => controller.abort(reason), 5);
+                controller.abort(reason);
             }
         });
         const error = await adapter.run({ ...options, signal: controller.signal }).catch((value) => value);
@@ -1001,9 +1003,9 @@ test('Linux systemd adapter cleanup treats command results as evidence and final
                 SIGKILL: { members: [303] }
             },
             finalizeTransition: { emitTerminal: true, loadState: 'loaded', members: [303] },
-            onHandshake()
+            onCommandProcessGroupObserved()
             {
-                setTimeout(() => controller.abort(reason), 5);
+                controller.abort(reason);
             }
         });
         const error = await adapter.run({ ...options, signal: controller.signal }).catch((value) => value);
@@ -1196,6 +1198,7 @@ test('Linux systemd adapter cleanup treats command results as evidence and final
     await t.test('preserves abort after ready and before child as primary', async () =>
     {
         const controller = new AbortController();
+        let observeStart = true;
         const reason = Object.assign(new Error('abort after ready before child'), {
             name: 'AbortError',
             signal: 'SIGTERM'
@@ -1205,10 +1208,24 @@ test('Linux systemd adapter cleanup treats command results as evidence and final
             finalizeTransition: { emitTerminal: true, loadState: 'not-found', members: [] },
             onHandshake()
             {
-                setTimeout(() => controller.abort(reason), 5);
+                const abortAfterStart = () =>
+                {
+                    if (!observeStart)
+                    {
+                        return;
+                    }
+                    if (fs.existsSync(path.join(state.controlRoot, 'start')))
+                    {
+                        controller.abort(reason);
+                        return;
+                    }
+                    setImmediate(abortAfterStart);
+                };
+                setImmediate(abortAfterStart);
             }
         });
         const error = await adapter.run({ ...options, signal: controller.signal }).catch((value) => value);
+        observeStart = false;
         assert.equal(error, reason);
         assert.equal(error.physicalExecution.authority.supervisorPid, 101);
         assert.equal(error.physicalExecution.authority.established, true);
@@ -1224,9 +1241,9 @@ test('Linux systemd adapter cleanup treats command results as evidence and final
             initialMembers: [101, 303],
             commandTransitions: { SIGTERM: { members: [] } },
             finalizeTransition: { emitTerminal: true, loadState: 'not-found', members: [] },
-            onHandshake()
+            onCommandProcessGroupObserved()
             {
-                setTimeout(() => controller.abort('cancel'), 5);
+                controller.abort('cancel');
             }
         });
         const error = await adapter.run({ ...options, signal: controller.signal }).catch((value) => value);

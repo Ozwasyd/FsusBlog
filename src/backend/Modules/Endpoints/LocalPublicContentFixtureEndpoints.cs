@@ -6,8 +6,8 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 
 using FsusBlog.Server.Infrastructure.Middlewares;
-using FsusBlog.Server.Services.Fixtures;
 using FsusBlog.Server.Infrastructure.Testing;
+using FsusBlog.Server.Services.Fixtures;
 
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;

@@ -2,8 +2,8 @@
     "schema": "fsusblog.custom-rule-registry.v1",
     "generatedBy": "tools/governance/check-rule-platform.mjs --write-registry",
     "inventory": {
-        "packageScriptCount": 209,
-        "implementationCount": 378
+        "packageScriptCount": 214,
+        "implementationCount": 392
     },
     "rules": [
         {
@@ -793,6 +793,35 @@
                 "command": "node ../../tests/frontend/checks/static/check-article-image-lightbox-overlay.mjs",
                 "implementation": "tests/frontend/checks/static/check-article-image-lightbox-overlay.mjs",
                 "executionKey": "governance:check:article-image-lightbox-overlay",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Command.CheckArticlePrivatePreview",
+            "externalId": "check:article-private-preview",
+            "symbol": "CheckArticlePrivatePreview",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tests/frontend/checks/acceptance/run-article-private-preview.mjs",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": false,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-command",
+                "command": "node ../../tests/frontend/checks/acceptance/run-article-private-preview.mjs",
+                "implementation": "tests/frontend/checks/acceptance/run-article-private-preview.mjs",
+                "executionKey": "governance:check:article-private-preview",
                 "receiptCompatible": true
             }
         },
@@ -3045,6 +3074,36 @@
             }
         },
         {
+            "id": "Command.CheckMarkdownPreviewReleasePerformance",
+            "externalId": "check:markdown-preview-release-performance",
+            "symbol": "CheckMarkdownPreviewReleasePerformance",
+            "owner": "ReleaseEngineeringOwner",
+            "category": "release-evidence",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tools/test/lanes/markdown-preview-release-performance.sh",
+                ".github/**",
+                "ops/**",
+                "tools/**",
+                "tests/tools/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": false,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-command",
+                "command": "bash ../../tools/test/lanes/markdown-preview-release-performance.sh",
+                "implementation": "tools/test/lanes/markdown-preview-release-performance.sh",
+                "executionKey": "governance:check:markdown-preview-release-performance",
+                "receiptCompatible": true
+            }
+        },
+        {
             "id": "Command.CheckMarkdownRenderBudget",
             "externalId": "check:markdown-render-budget",
             "symbol": "CheckMarkdownRenderBudget",
@@ -3951,6 +4010,96 @@
                 "command": "node ../../tests/frontend/checks/static/check-private-runtime-governance.mjs",
                 "implementation": "tests/frontend/checks/static/check-private-runtime-governance.mjs",
                 "executionKey": "governance:check:private-runtime-governance",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Command.CheckProductionXssFast",
+            "externalId": "check:production-xss:fast",
+            "symbol": "CheckProductionXssFast",
+            "owner": "SecurityGovernanceOwner",
+            "category": "security-privacy",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tests/frontend/checks/security/run-production-xss-matrix.mjs",
+                "security/**",
+                "src/backend/**",
+                "src/frontend/src/privacy/**",
+                "tests/security/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": false,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-command",
+                "command": "node ../../tests/frontend/checks/security/run-production-xss-matrix.mjs",
+                "implementation": "tests/frontend/checks/security/run-production-xss-matrix.mjs",
+                "executionKey": "governance:check:production-xss:fast",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Command.CheckProductionXssObserver",
+            "externalId": "check:production-xss:observer",
+            "symbol": "CheckProductionXssObserver",
+            "owner": "SecurityGovernanceOwner",
+            "category": "security-privacy",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tests/frontend/checks/security/production-xss-observer.test.mjs",
+                "security/**",
+                "src/backend/**",
+                "src/frontend/src/privacy/**",
+                "tests/security/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": false,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-command",
+                "command": "node --test ../../tests/frontend/checks/security/production-xss-observer.test.mjs",
+                "implementation": "tests/frontend/checks/security/production-xss-observer.test.mjs",
+                "executionKey": "governance:check:production-xss:observer",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Command.CheckProductionXssRelease",
+            "externalId": "check:production-xss:release",
+            "symbol": "CheckProductionXssRelease",
+            "owner": "SecurityGovernanceOwner",
+            "category": "security-privacy",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tests/frontend/checks/security/run-production-xss-matrix.mjs",
+                "security/**",
+                "src/backend/**",
+                "src/frontend/src/privacy/**",
+                "tests/security/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": false,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-command",
+                "command": "node ../../tests/frontend/checks/security/run-production-xss-matrix.mjs --release",
+                "implementation": "tests/frontend/checks/security/run-production-xss-matrix.mjs",
+                "executionKey": "governance:check:production-xss:release",
                 "receiptCompatible": true
             }
         },
@@ -5256,7 +5405,7 @@
             "documentation": "docs/development/custom-rule-platform.md",
             "execution": {
                 "mode": "delegated-command",
-                "command": "node ../../tools/contracts/generate-pospace-v1-contract.mjs --check && node ../../tools/contracts/generate-perception-character-v3-release-target.mjs --check && node ../../tools/contracts/check-perception-character-v3-retirement.mjs && node ../../tests/frontend/checks/static/check-pospace-v1-contract.mjs && npm run check:pospace-runtime-reachability && node ../../tests/frontend/checks/static/check-security-consistency.mjs && node ../../tests/frontend/checks/static/check-risk-challenge-proof-transport.mjs && node ../../tests/frontend/checks/static/check-bootstrap-import-retry-privacy.mjs && node ../../tests/frontend/checks/static/check-public-boot-kernel-boundary.mjs && node ../../tests/frontend/checks/static/check-public-boot-production-output.mjs && node ../../tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs && node ../../tests/frontend/checks/static/check-private-runtime-governance.mjs && npm run check:private-request-generation && node ../../tests/frontend/checks/static/check-challenge-capability-registry.mjs && node ../../tests/frontend/checks/static/check-challenge-policy-shadow.mjs && node ../../tests/frontend/checks/static/check-perception-character-v3-dialog.mjs",
+                "command": "node ../../tools/contracts/generate-pospace-v1-contract.mjs --check && node ../../tools/contracts/generate-perception-character-v3-release-target.mjs --check && node ../../tools/contracts/check-perception-character-v3-retirement.mjs && node ../../tests/frontend/checks/static/check-pospace-v1-contract.mjs && npm run check:pospace-runtime-reachability && npm run test:html-sink-ast && node ../../tests/frontend/checks/static/check-security-consistency.mjs && node ../../tests/frontend/checks/static/check-risk-challenge-proof-transport.mjs && node ../../tests/frontend/checks/static/check-bootstrap-import-retry-privacy.mjs && node ../../tests/frontend/checks/static/check-public-boot-kernel-boundary.mjs && node ../../tests/frontend/checks/static/check-public-boot-production-output.mjs && node ../../tests/frontend/checks/static/check-local-fixture-url-hygiene.mjs && node ../../tests/frontend/checks/static/check-private-runtime-governance.mjs && npm run check:private-request-generation && node ../../tests/frontend/checks/static/check-challenge-capability-registry.mjs && node ../../tests/frontend/checks/static/check-challenge-policy-shadow.mjs && node ../../tests/frontend/checks/static/check-perception-character-v3-dialog.mjs",
                 "implementation": "tools/contracts/generate-pospace-v1-contract.mjs",
                 "executionKey": "governance:check:security-consistency",
                 "receiptCompatible": true
@@ -7523,6 +7672,62 @@
             "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
         },
         {
+            "id": "Implementation.TestsFrontendChecksStaticCheckAdminSegmentedControlRemovalMjs",
+            "externalId": "tests/frontend/checks/static/check-admin-segmented-control-removal.mjs",
+            "symbol": "CheckTestsFrontendChecksStaticCheckAdminSegmentedControlRemoval",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tests/frontend/checks/static/check-admin-segmented-control-removal.mjs",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/frontend/checks/static/check-admin-segmented-control-removal.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tests/frontend/checks/static/check-admin-segmented-control-removal.mjs",
+                "executionKey": "governance:file:tests/frontend/checks/static/check-admin-segmented-control-removal.mjs",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Implementation.TestsFrontendChecksStaticCheckAdminSegmentedControlRemovalTestMjs",
+            "externalId": "tests/frontend/checks/static/check-admin-segmented-control-removal.test.mjs",
+            "symbol": "CheckTestsFrontendChecksStaticCheckAdminSegmentedControlRemovalTest",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tests/frontend/checks/static/check-admin-segmented-control-removal.test.mjs",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/frontend/checks/static/check-admin-segmented-control-removal.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tests/frontend/checks/static/check-admin-segmented-control-removal.test.mjs",
+                "executionKey": "governance:file:tests/frontend/checks/static/check-admin-segmented-control-removal.test.mjs",
+                "receiptCompatible": true
+            }
+        },
+        {
             "id": "Implementation.TestsFrontendChecksStaticCheckAdminSystemTabsGovernanceMjs",
             "externalId": "tests/frontend/checks/static/check-admin-system-tabs-governance.mjs",
             "symbol": "CheckTestsFrontendChecksStaticCheckAdminSystemTabsGovernance",
@@ -7556,7 +7761,7 @@
             "symbol": "CheckTestsFrontendChecksStaticCheckAdminTaskFeedback",
             "owner": "TestGovernanceOwner",
             "category": "test-governance",
-            "engine": "text",
+            "engine": "parser",
             "sourceScopes": [
                 "tests/frontend/checks/static/check-admin-task-feedback.mjs",
                 "tests/**",
@@ -7576,8 +7781,7 @@
                 "implementation": "tests/frontend/checks/static/check-admin-task-feedback.mjs",
                 "executionKey": "governance:file:tests/frontend/checks/static/check-admin-task-feedback.mjs",
                 "receiptCompatible": true
-            },
-            "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
+            }
         },
         {
             "id": "Implementation.TestsFrontendChecksStaticCheckAdminUserManageGovernanceMjs",
@@ -7660,6 +7864,35 @@
                 "mode": "delegated-implementation",
                 "implementation": "tests/frontend/checks/static/check-article-image-lightbox-overlay.mjs",
                 "executionKey": "governance:file:tests/frontend/checks/static/check-article-image-lightbox-overlay.mjs",
+                "receiptCompatible": true
+            },
+            "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
+        },
+        {
+            "id": "Implementation.TestsFrontendChecksStaticCheckArticleRecoveryJournalMjs",
+            "externalId": "tests/frontend/checks/static/check-article-recovery-journal.mjs",
+            "symbol": "CheckTestsFrontendChecksStaticCheckArticleRecoveryJournal",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "text",
+            "sourceScopes": [
+                "tests/frontend/checks/static/check-article-recovery-journal.mjs",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/frontend/checks/static/check-article-recovery-journal.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tests/frontend/checks/static/check-article-recovery-journal.mjs",
+                "executionKey": "governance:file:tests/frontend/checks/static/check-article-recovery-journal.mjs",
                 "receiptCompatible": true
             },
             "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
@@ -8760,7 +8993,7 @@
             "symbol": "CheckTestsFrontendChecksStaticCheckLocalFsusuiPublicShellMotion",
             "owner": "TestGovernanceOwner",
             "category": "test-governance",
-            "engine": "text",
+            "engine": "runtime",
             "sourceScopes": [
                 "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "tests/**",
@@ -8780,8 +9013,7 @@
                 "implementation": "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "executionKey": "governance:file:tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
                 "receiptCompatible": true
-            },
-            "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
+            }
         },
         {
             "id": "Implementation.TestsFrontendChecksStaticCheckLocaleApiErasureMjs",
@@ -12740,6 +12972,35 @@
             "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
         },
         {
+            "id": "Implementation.ToolsGovernanceCheckBehaviorMutationGovernanceMjs",
+            "externalId": "tools/governance/check-behavior-mutation-governance.mjs",
+            "symbol": "CheckToolsGovernanceCheckBehaviorMutationGovernance",
+            "owner": "RepositoryGovernanceOwner",
+            "category": "repository-governance",
+            "engine": "parser",
+            "sourceScopes": [
+                "tools/governance/check-behavior-mutation-governance.mjs",
+                "config/**",
+                "docs/**",
+                "tools/**",
+                "tests/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/governance/check-behavior-mutation-governance.mjs",
+                "executionKey": "governance:file:tools/governance/check-behavior-mutation-governance.mjs",
+                "receiptCompatible": true
+            }
+        },
+        {
             "id": "Implementation.ToolsGovernanceCheckCancellationTokenSourceOwnershipMjs",
             "externalId": "tools/governance/check-cancellation-token-source-ownership.mjs",
             "symbol": "CheckToolsGovernanceCheckCancellationTokenSourceOwnership",
@@ -14481,6 +14742,34 @@
             }
         },
         {
+            "id": "Implementation.ToolsTestLanesArticlePrivatePreviewSh",
+            "externalId": "tools/test/lanes/article-private-preview.sh",
+            "symbol": "CheckToolsTestLanesArticlePrivatePreview",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tools/test/lanes/article-private-preview.sh",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/test/lanes/article-private-preview.sh",
+                "executionKey": "governance:file:tools/test/lanes/article-private-preview.sh",
+                "receiptCompatible": true
+            }
+        },
+        {
             "id": "Implementation.ToolsTestLanesBackendApiIntegrationSh",
             "externalId": "tools/test/lanes/backend-api-integration.sh",
             "symbol": "CheckToolsTestLanesBackendApiIntegration",
@@ -14710,7 +14999,7 @@
             "symbol": "CheckToolsTestLanesBackendMutationCritical",
             "owner": "TestGovernanceOwner",
             "category": "test-governance",
-            "engine": "runtime",
+            "engine": "parser",
             "sourceScopes": [
                 "tools/test/lanes/backend-mutation-critical.sh",
                 "tests/**",
@@ -14785,6 +15074,34 @@
                 "mode": "delegated-implementation",
                 "implementation": "tools/test/lanes/backend-nightly.sh",
                 "executionKey": "governance:file:tools/test/lanes/backend-nightly.sh",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Implementation.ToolsTestLanesBackendPerfNativeP99Sh",
+            "externalId": "tools/test/lanes/backend-perf-native-p99.sh",
+            "symbol": "CheckToolsTestLanesBackendPerfNativeP99",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tools/test/lanes/backend-perf-native-p99.sh",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/test/lanes/backend-perf-native-p99.sh",
+                "executionKey": "governance:file:tools/test/lanes/backend-perf-native-p99.sh",
                 "receiptCompatible": true
             }
         },
@@ -14873,6 +15190,34 @@
             }
         },
         {
+            "id": "Implementation.ToolsTestLanesBackendTestRuntimeSupportSh",
+            "externalId": "tools/test/lanes/_backend-test-runtime-support.sh",
+            "symbol": "CheckToolsTestLanesBackendTestRuntimeSupport",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tools/test/lanes/_backend-test-runtime-support.sh",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/test/lanes/_backend-test-runtime-support.sh",
+                "executionKey": "governance:file:tools/test/lanes/_backend-test-runtime-support.sh",
+                "receiptCompatible": true
+            }
+        },
+        {
             "id": "Implementation.ToolsTestLanesBackendUnitSh",
             "externalId": "tools/test/lanes/backend-unit.sh",
             "symbol": "CheckToolsTestLanesBackendUnit",
@@ -14897,6 +15242,34 @@
                 "mode": "delegated-implementation",
                 "implementation": "tools/test/lanes/backend-unit.sh",
                 "executionKey": "governance:file:tools/test/lanes/backend-unit.sh",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Implementation.ToolsTestLanesBehaviorTestEvidenceSh",
+            "externalId": "tools/test/lanes/behavior-test-evidence.sh",
+            "symbol": "CheckToolsTestLanesBehaviorTestEvidence",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tools/test/lanes/behavior-test-evidence.sh",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/test/lanes/behavior-test-evidence.sh",
+                "executionKey": "governance:file:tools/test/lanes/behavior-test-evidence.sh",
                 "receiptCompatible": true
             }
         },
@@ -15378,6 +15751,34 @@
             }
         },
         {
+            "id": "Implementation.ToolsTestLanesCsrfBrowserMatrixSh",
+            "externalId": "tools/test/lanes/csrf-browser-matrix.sh",
+            "symbol": "CheckToolsTestLanesCsrfBrowserMatrix",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tools/test/lanes/csrf-browser-matrix.sh",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/test/lanes/csrf-browser-matrix.sh",
+                "executionKey": "governance:file:tools/test/lanes/csrf-browser-matrix.sh",
+                "receiptCompatible": true
+            }
+        },
+        {
             "id": "Implementation.ToolsTestLanesDataScaleSh",
             "externalId": "tools/test/lanes/data-scale.sh",
             "symbol": "CheckToolsTestLanesDataScale",
@@ -15798,6 +16199,35 @@
             }
         },
         {
+            "id": "Implementation.ToolsTestLanesMarkdownPreviewReleasePerformanceSh",
+            "externalId": "tools/test/lanes/markdown-preview-release-performance.sh",
+            "symbol": "CheckToolsTestLanesMarkdownPreviewReleasePerformance",
+            "owner": "ReleaseEngineeringOwner",
+            "category": "release-evidence",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tools/test/lanes/markdown-preview-release-performance.sh",
+                ".github/**",
+                "ops/**",
+                "tools/**",
+                "tests/tools/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/test/lanes/markdown-preview-release-performance.sh",
+                "executionKey": "governance:file:tools/test/lanes/markdown-preview-release-performance.sh",
+                "receiptCompatible": true
+            }
+        },
+        {
             "id": "Implementation.ToolsTestLanesNoopSh",
             "externalId": "tools/test/lanes/noop.sh",
             "symbol": "CheckToolsTestLanesNoop",
@@ -15939,6 +16369,34 @@
             }
         },
         {
+            "id": "Implementation.ToolsTestLanesPlanPrRiskSh",
+            "externalId": "tools/test/lanes/plan-pr-risk.sh",
+            "symbol": "CheckToolsTestLanesPlanPrRisk",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tools/test/lanes/plan-pr-risk.sh",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/test/lanes/plan-pr-risk.sh",
+                "executionKey": "governance:file:tools/test/lanes/plan-pr-risk.sh",
+                "receiptCompatible": true
+            }
+        },
+        {
             "id": "Implementation.ToolsTestLanesPrivacyZkCommentMatrixSh",
             "externalId": "tools/test/lanes/privacy-zk-comment-matrix.sh",
             "symbol": "CheckToolsTestLanesPrivacyZkCommentMatrix",
@@ -16020,6 +16478,63 @@
                 "mode": "delegated-implementation",
                 "implementation": "tools/test/lanes/production-correctness-receipt.sh",
                 "executionKey": "governance:file:tools/test/lanes/production-correctness-receipt.sh",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Implementation.ToolsTestLanesProductionXssFastSh",
+            "externalId": "tools/test/lanes/production-xss-fast.sh",
+            "symbol": "CheckToolsTestLanesProductionXssFast",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tools/test/lanes/production-xss-fast.sh",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/test/lanes/production-xss-fast.sh",
+                "executionKey": "governance:file:tools/test/lanes/production-xss-fast.sh",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Implementation.ToolsTestLanesProductionXssReleaseSh",
+            "externalId": "tools/test/lanes/production-xss-release.sh",
+            "symbol": "CheckToolsTestLanesProductionXssRelease",
+            "owner": "ReleaseEngineeringOwner",
+            "category": "release-evidence",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tools/test/lanes/production-xss-release.sh",
+                ".github/**",
+                "ops/**",
+                "tools/**",
+                "tests/tools/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/test/lanes/production-xss-release.sh",
+                "executionKey": "governance:file:tools/test/lanes/production-xss-release.sh",
                 "receiptCompatible": true
             }
         },
@@ -16647,6 +17162,34 @@
                 "mode": "delegated-implementation",
                 "implementation": "tools/test/lanes/test-asset-governance.sh",
                 "executionKey": "governance:file:tools/test/lanes/test-asset-governance.sh",
+                "receiptCompatible": true
+            }
+        },
+        {
+            "id": "Implementation.ToolsTestLanesTestInventorySh",
+            "externalId": "tools/test/lanes/test-inventory.sh",
+            "symbol": "CheckToolsTestLanesTestInventory",
+            "owner": "TestGovernanceOwner",
+            "category": "test-governance",
+            "engine": "runtime",
+            "sourceScopes": [
+                "tools/test/lanes/test-inventory.sh",
+                "tests/**",
+                "tools/test/**",
+                ".github/workflows/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/test/lanes/test-inventory.sh",
+                "executionKey": "governance:file:tools/test/lanes/test-inventory.sh",
                 "receiptCompatible": true
             }
         },

@@ -134,6 +134,35 @@
             "reason": "Development-only Playwright auth fixture status probe, gated by loopback caller and shared secret; production startup rejects enabling this fixture."
         },
         {
+            "id": "local-demo-fixture-json",
+            "classification": "allowed-exemption",
+            "scope": "backend",
+            "file": "src/backend/Modules/Endpoints/LocalDemoFixtureEndpoints.cs",
+            "patterns": [
+                "Results.Json(result)"
+            ],
+            "routes": [
+                "/api/local/demo-fixture/prepare"
+            ],
+            "reason": "Development-only demo fixture producer response, gated by loopback caller and a shared secret; production startup rejects enabling this fixture."
+        },
+        {
+            "id": "local-public-content-fixture-json",
+            "classification": "allowed-exemption",
+            "scope": "backend",
+            "file": "src/backend/Modules/Endpoints/LocalPublicContentFixtureEndpoints.cs",
+            "patterns": [
+                "Results.Json(result)",
+                "Results.Json(temporal.Observe("
+            ],
+            "routes": [
+                "/api/local/public-content-fixture/prepare",
+                "/__local/public-content-fixture/prepare",
+                "/__local/temporal-observation"
+            ],
+            "reason": "Development-only public-content and temporal fixture responses, gated by loopback caller and a shared secret; production startup rejects enabling these fixtures."
+        },
+        {
             "id": "test-release-schema-qualification-json",
             "classification": "allowed-exemption",
             "scope": "backend",

@@ -65,21 +65,20 @@ internal static class PostgresSqlSugarTestClient
     public static async Task<string> CreateConnectionStringAsync(PostgresSchemaMigrationFixture fixture)
     {
         string databaseName = await fixture.CreateDatabaseAsync().ConfigureAwait(false);
-        var connection = new NpgsqlConnectionStringBuilder(
-            fixture.BuildDatabaseConnectionString(databaseName));
         TestTemporalContext temporal = TestTemporalContext.FromEnvironment();
-        connection.Options = string.IsNullOrWhiteSpace(connection.Options)
-            ? temporal.PostgresSessionOptions
-            : $"{connection.Options} {temporal.PostgresSessionOptions}";
-        return connection.ConnectionString;
+        return BindTemporalSessionOptions(
+            fixture.BuildDatabaseConnectionString(databaseName),
+            temporal);
     }
 
     public static SqlSugarClient Create(string connectionString)
     {
+        TestTemporalContext temporal = TestTemporalContext.FromEnvironment();
         var client = new SqlSugarClient(new ConnectionConfig
         {
             DbType = DbType.PostgreSQL,
-            ConnectionString = SqlSugarInitializer.NormalizeConnectionString(connectionString),
+            ConnectionString = SqlSugarInitializer.NormalizeConnectionString(
+                BindTemporalSessionOptions(connectionString, temporal)),
             InitKeyType = InitKeyType.Attribute,
             IsAutoCloseConnection = true,
             MoreSettings = new ConnMoreSettings
@@ -88,7 +87,6 @@ internal static class PostgresSqlSugarTestClient
                 PgSqlIsAutoToLowerCodeFirst = true
             }
         });
-        TestTemporalContext temporal = TestTemporalContext.FromEnvironment();
         temporal.AssertRuntimeContext();
         client.Ado.Open();
         try
@@ -112,6 +110,30 @@ internal static class PostgresSqlSugarTestClient
             client.Ado.Close();
         }
         return client;
+    }
+
+    private static string BindTemporalSessionOptions(
+        string connectionString,
+        TestTemporalContext temporal)
+    {
+        var connection = new NpgsqlConnectionStringBuilder(connectionString);
+        string options = connection.Options?.Trim() ?? string.Empty;
+        if (options.Contains(temporal.PostgresSessionOptions, StringComparison.Ordinal))
+        {
+            return connection.ConnectionString;
+        }
+        bool declaresTemporalContext =
+            options.Contains("timezone=", StringComparison.OrdinalIgnoreCase)
+            || options.Contains(
+                "fsusblog.test_business_epoch_utc=",
+                StringComparison.OrdinalIgnoreCase);
+        if (!declaresTemporalContext)
+        {
+            connection.Options = options.Length == 0
+                ? temporal.PostgresSessionOptions
+                : $"{options} {temporal.PostgresSessionOptions}";
+        }
+        return connection.ConnectionString;
     }
 
     internal static void VerifyTemporalObservation(

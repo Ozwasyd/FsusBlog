@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import {
     productionBuildReceiptSchema
 } from '../ci/production-build-artifacts.mjs';
+
 import {
     producerRouteIds,
     routeCatalogDigest,

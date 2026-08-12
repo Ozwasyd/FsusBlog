@@ -473,7 +473,11 @@ export function MeasureComplexity(file, source, context = {})
     const stripped = StripCommentsAndStrings(source);
     const lines = source.split(/\r?\n/u);
     const codeLines = stripped.split(/\r?\n/u).filter((line) => line.trim()).length;
-    const typeCount = (stripped.match(/\b(?:class|interface|record|struct|enum|type)\s+[A-Za-z_]/gu) ?? []).length;
+    const typeCount = stripped.split(/\r?\n/u).filter((line) =>
+    {
+        const trimmed = line.trim();
+        return /^(?:(?:export|declare|default|public|private|protected|internal|static|abstract|sealed|partial|readonly|ref|file)\s+)*(?:class|interface|record(?:\s+struct)?|struct|enum|type)\s+[A-Za-z_]/u.test(trimmed);
+    }).length;
     const functionCount = stripped.split(/\r?\n/u).filter((line) =>
     {
         const trimmed = line.trim();

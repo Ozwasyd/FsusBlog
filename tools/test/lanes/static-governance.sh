@@ -5,6 +5,8 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_lane-collect-support.sh"
 
 StaticEvidencePlan() { Run "$ROOT_DIR/tools/test/run-matrix-governance-once.sh" static-evidence-plan; }
 StaticAedsPolicy() { Run "$ROOT_DIR/tools/check-aeds-only-policy.sh"; }
+StaticIntegrityDocs() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/check-integrity-proof-docs.mjs"; }
+StaticImplementationDrift() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-doc-implementation-drift.mjs"; }
 StaticPerceptionCharacterV3Cutover() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/contracts/generate-perception-character-v3-release-target.mjs" --check
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/contracts/check-perception-character-v3-retirement.mjs"
@@ -15,14 +17,25 @@ StaticWallClockGovernance() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test
 StaticTemporalProducerBindings() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/verify-temporal-producers.mjs" --kind catalog; }
 StaticBackendPhysicalTopology() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/architecture/check-backend-physical-topology.mjs" --out "${FSUSBLOG_RELEASE_EVIDENCE_DIR:-$ROOT_DIR/.tmp/release-evidence}/backend-physical-topology.json"; }
 StaticBrowserTestMigration() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-browser-test-migration.mjs"; }
-StaticTestLifecycle() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-lifecycle.mjs"; Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/native-test-governance.mjs"; }
+StaticTestLifecycle() {
+    local retentionAudit="${FSUSBLOG_RELEASE_EVIDENCE_DIR:-$ROOT_DIR/.tmp/release-evidence}/test-retention-audit.json"
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-lifecycle.mjs" --audit-input "$retentionAudit"
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/native-test-governance.mjs"
+}
 StaticArticleCoreTestApi() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-article-core-test-api.mjs"; }
 StaticBackendGovernance() { RunTier "static-governance" RunBackendTestGovernanceOnly; }
 StaticGateIntegrity() { Run "$ROOT_DIR/tools/check-gate-integrity.sh" --self-test; }
 StaticFlakyRegistry() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/ci/check-flaky-registry.mjs"; }
 StaticMatrixContract() { Run "$ROOT_DIR/tools/test/run-matrix-governance-once.sh" static-matrix-contract; }
 StaticMatrixSchema() { Run "$ROOT_DIR/tools/test/run-matrix-governance-once.sh" static-matrix-schema; }
-StaticRetention() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-retention.mjs"; }
+StaticRetention() {
+    local retentionAudit="${FSUSBLOG_RELEASE_EVIDENCE_DIR:-$ROOT_DIR/.tmp/release-evidence}/test-retention-audit.json"
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-retention.mjs" --out "$retentionAudit"
+}
+StaticTestAssetAudit() {
+    local retentionAudit="${FSUSBLOG_RELEASE_EVIDENCE_DIR:-$ROOT_DIR/.tmp/release-evidence}/test-retention-audit.json"
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-test-asset-audit.mjs" --phase discovery --audit-input "$retentionAudit"
+}
 StaticCodeIntent() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-code-intent.mjs"; }
 StaticCustomRulePlatform() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-rule-platform.mjs" --mode full; }
 StaticLabelGovernance() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/check-github-label-governance.mjs"; }
@@ -60,18 +73,31 @@ TEST_ASSET_BEHAVIOR_FILES=(
     "$ROOT_DIR/tests/tools/verify-behavior-test-evidence.test.mjs"
 )
 StaticTestAssetBehavior() {
-    Run "${FSUSBLOG_NODE:-node}" --test "${TEST_ASSET_BEHAVIOR_FILES[@]}"
+    (
+        # These tests create nested scheduler/coverage repositories. Their
+        # fixture identities must come from those repositories rather than the
+        # enclosing static-governance tier.
+        unset FSUSBLOG_ARTIFACT_DIGEST_TABLE
+        unset FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE
+        unset FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID
+        unset FSUSBLOG_TEST_RUN_ID
+        unset FSUSBLOG_TEST_SOURCE_COMMIT
+        unset FSUSBLOG_TEST_SOURCE_FINGERPRINT
+        Run "${FSUSBLOG_NODE:-node}" --test --test-concurrency=1 "${TEST_ASSET_BEHAVIOR_FILES[@]}"
+    )
 }
 StaticNodeContracts() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-governance-suites.mjs"
 }
 
 # Every concurrent-phase writer owns a distinct artifact path and none reads
-# Vitest's live report directory. Retention intentionally stays post-Vitest
-# because it scans .tmp/test-results/vitest and must never observe partial JSON.
+# Vitest's live report directory. The test-assets phase stays post-Vitest, then
+# seals the canonical retention audit before lifecycle and parallel consumers.
 RunApplicationStaticPrechecksPhase() {
     RunCollectParallel application-static-governance-prechecks \
         aeds-policy StaticAedsPolicy \
+        integrity-docs StaticIntegrityDocs \
+        implementation-drift StaticImplementationDrift \
         perception-character-v3-cutover StaticPerceptionCharacterV3Cutover \
         background-services StaticBackgroundServices \
         backend-physical-topology StaticBackendPhysicalTopology \
@@ -87,11 +113,13 @@ RunApplicationStaticPrechecksPhase() {
 }
 
 RunTestAssetGovernancePhase() {
+    StaticRetention
     RunCollectParallel test-asset-governance \
         evidence-plan StaticEvidencePlan \
         suite-convergence StaticSuiteConvergence \
         wall-clock-governance StaticWallClockGovernance \
         temporal-producer-bindings StaticTemporalProducerBindings \
+        test-asset-audit StaticTestAssetAudit \
         browser-test-migration StaticBrowserTestMigration \
         test-lifecycle StaticTestLifecycle \
         canonical-node-behavior StaticTestAssetBehavior \
@@ -101,7 +129,6 @@ RunTestAssetGovernancePhase() {
         flaky-registry StaticFlakyRegistry \
         matrix-contract StaticMatrixContract \
         matrix-schema StaticMatrixSchema
-    RunCollect retention StaticRetention
 }
 
 RunStaticConcurrentPhase() {

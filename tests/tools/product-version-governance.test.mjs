@@ -32,6 +32,23 @@ test('active policy sources reject product SemVer promises', () =>
     assert.ok(readmeErrors.includes('README.md uses product SemVer as a current status or compatibility boundary'));
 });
 
+test('README governance does not require the retired preview status banner', () =>
+{
+    const errors = ValidateProductVersionGovernance(new Map([
+        ['README.md', [
+            '| Public preview entry | Link |',
+            '[Policy](docs/releases/public-preview-policy.md)',
+            'See CHANGELOG.md for the canonical ReleaseId.'
+        ].join('\n')]
+    ]));
+    assert.ok(!errors.some((error) => (
+        error.includes('**Public Preview**')
+        || error.includes('API Stability: Experimental')
+        || error.includes('Deployment: Self-hosting preview')
+        || error.includes('Production SLA: none')
+    )), errors.join('\n'));
+});
+
 test('governance does not confuse protocol, schema, runtime, dependency, or provenance versions with product SemVer', () =>
 {
     const exemptEvidence = [

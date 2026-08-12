@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -159,38 +159,38 @@ function fixtureCatalog()
                 (scenario) => scenario.id === id
             );
             return {
-            id,
-            owner: 'fixture-owner',
-            command: {
-                executable: 'node',
-                args: [],
-                env: canonicalScenario.command.env,
-                inheritEnv: canonicalScenario.command.inheritEnv,
-                cwd: '.'
-            },
-            qualification: canonicalScenario.qualification,
-            resourceClass: 'fixture',
-            identityTools: ['node'],
-            isolation: {
-                exclusiveResources: ['fixture-state'],
-                countableResources: [],
-                lifecycle: {
-                    preconditions: [`${id}-fixture-precondition`],
-                    resetsBefore: [`${id}-fixture-reset-before`],
-                    measurement: `${id}-fixture-measurement`,
-                    postconditions: [`${id}-fixture-postcondition`],
-                    resetsAfter: [`${id}-fixture-reset-after`]
+                id,
+                owner: 'fixture-owner',
+                command: {
+                    executable: 'node',
+                    args: [],
+                    env: canonicalScenario.command.env,
+                    inheritEnv: canonicalScenario.command.inheritEnv,
+                    cwd: '.'
                 },
-                outputs: [{ id: 'authoritative-evidence', path: `.tmp/evidence/${id}.json` }]
-            },
-            authoritativeEvidence: {
-                path: `.tmp/evidence/${id}.json`,
-                expectedSchema: {
-                    required: ['status', 'sentinel', 'releaseReliability'],
-                    passStatusValues: ['ok']
+                qualification: canonicalScenario.qualification,
+                resourceClass: 'fixture',
+                identityTools: ['node'],
+                isolation: {
+                    exclusiveResources: ['fixture-state'],
+                    countableResources: [],
+                    lifecycle: {
+                        preconditions: [`${id}-fixture-precondition`],
+                        resetsBefore: [`${id}-fixture-reset-before`],
+                        measurement: `${id}-fixture-measurement`,
+                        postconditions: [`${id}-fixture-postcondition`],
+                        resetsAfter: [`${id}-fixture-reset-after`]
+                    },
+                    outputs: [{ id: 'authoritative-evidence', path: `.tmp/evidence/${id}.json` }]
+                },
+                authoritativeEvidence: {
+                    path: `.tmp/evidence/${id}.json`,
+                    expectedSchema: {
+                        required: ['status', 'sentinel', 'releaseReliability'],
+                        passStatusValues: ['ok']
+                    }
                 }
-            }
-        };
+            };
         })
     };
 }
@@ -2376,13 +2376,23 @@ test('independent verifier re-reads every bound file and accepts an untampered r
 test('independent verifier rejects self-recomputed weakened effective, sampling, threshold, and policy evidence', async (context) =>
 {
     const mutations = [
-        (evidence) => { evidence.effective.concurrency = 1; },
-        (evidence) => { evidence.sampling.totalRequests = 1; },
-        (evidence) => {
+        (evidence) =>
+        {
+            evidence.effective.concurrency = 1;
+        },
+        (evidence) =>
+        {
+            evidence.sampling.totalRequests = 1;
+        },
+        (evidence) =>
+        {
             evidence.thresholds.maxP95Ms = 999999;
             evidence.thresholdEvaluation.checks[0].threshold = 999999;
         },
-        (evidence) => { evidence.policy.fileDigest = digest('f'); }
+        (evidence) =>
+        {
+            evidence.policy.fileDigest = digest('f');
+        }
     ];
     for (const mutate of mutations)
     {
@@ -2475,25 +2485,46 @@ test('tamper after receipt fails for every source, identity, evidence, lifecycle
 test('independent verifier rejects stopped, replaced, and topology-image-mismatched live fixture state', async (context) =>
 {
     for (const mutate of [
-        (state) => { state.containers['fixture-postgres'].State.Running = false; },
-        (state) => { state.containers['fixture-redis'].Id = 'recycled-redis-id'; },
-        (state) => { state.containers['fixture-postgres'].Image = `sha256:${'f'.repeat(64)}`; },
-        (state) => { state.containers['fixture-backend'].State.Pid += 1; },
-        (state) => { state.containers['fixture-backend'].State.Health.Status = 'unhealthy'; },
-        (state) => {
+        (state) =>
+        {
+            state.containers['fixture-postgres'].State.Running = false;
+        },
+        (state) =>
+        {
+            state.containers['fixture-redis'].Id = 'recycled-redis-id';
+        },
+        (state) =>
+        {
+            state.containers['fixture-postgres'].Image = `sha256:${'f'.repeat(64)}`;
+        },
+        (state) =>
+        {
+            state.containers['fixture-backend'].State.Pid += 1;
+        },
+        (state) =>
+        {
+            state.containers['fixture-backend'].State.Health.Status = 'unhealthy';
+        },
+        (state) =>
+        {
             state.containers['fixture-backend'].Config.Env.push(
                 `FSUSBLOG_TEST_RUN_ID=${runId}`
             );
         },
-        (state) => {
+        (state) =>
+        {
             state.containers['fixture-postgres'].NetworkSettings
                 .Networks['verifier-fixture-network'].Aliases = ['wrong-postgres'];
         },
-        (state) => {
+        (state) =>
+        {
             state.containers['fixture-backend'].HostConfig
                 .PortBindings['8080/tcp'][0].HostIp = '0.0.0.0';
         },
-        (state) => { delete state.network.Containers['fixture-fixture-redis-id']; }
+        (state) =>
+        {
+            delete state.network.Containers['fixture-fixture-redis-id'];
+        }
     ])
     {
         const fixture = await createCliFixture(context);
@@ -2507,11 +2538,26 @@ test('independent verifier rejects stopped, replaced, and topology-image-mismatc
 test('independent verifier rejects replaced and cross-source registry image inspection', async (context) =>
 {
     for (const mutate of [
-        (state) => { state.image.Id = digest('f'); },
-        (state) => { state.image.Config.Labels['org.opencontainers.image.revision'] = '0'.repeat(40); },
-        (state) => { state.image.Config.Labels['io.fsusblog.build.fsusui-source'] = 'published-package'; },
-        (state) => { delete state.image.Config.Labels['io.fsusblog.build.fsusui-commit']; },
-        (state) => { state.image.Config.Labels['io.fsusblog.build.fsusui-commit'] = '1'.repeat(40); }
+        (state) =>
+        {
+            state.image.Id = digest('f');
+        },
+        (state) =>
+        {
+            state.image.Config.Labels['org.opencontainers.image.revision'] = '0'.repeat(40);
+        },
+        (state) =>
+        {
+            state.image.Config.Labels['io.fsusblog.build.fsusui-source'] = 'published-package';
+        },
+        (state) =>
+        {
+            delete state.image.Config.Labels['io.fsusblog.build.fsusui-commit'];
+        },
+        (state) =>
+        {
+            state.image.Config.Labels['io.fsusblog.build.fsusui-commit'] = '1'.repeat(40);
+        }
     ])
     {
         const fixture = await createCliFixture(context);

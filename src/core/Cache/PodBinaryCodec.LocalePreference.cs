@@ -8,8 +8,14 @@ using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Core.Cache;
 
+/// <summary>
+/// Encodes and decodes locale preference payloads at the fixed POD wire boundary.
+/// </summary>
 public static partial class PodBinaryCodec
 {
+    /// <summary>
+    /// Writes an authoritative user locale preference to the binary destination.
+    /// </summary>
     public static void WriteUserLocalePreference(
         UserLocalePreferenceDto preference,
         IBufferWriter<byte> destination)
@@ -37,6 +43,9 @@ public static partial class PodBinaryCodec
         writer.WritePod(CastLocalePod<MutableUserLocalePreferencePod, UserLocalePreferencePod>(mutable));
     }
 
+    /// <summary>
+    /// Decodes a complete user locale preference payload.
+    /// </summary>
     public static bool TryDecodeUserLocalePreference(
         ReadOnlyMemory<byte> source,
         out UserLocalePreferenceDto preference)
@@ -64,6 +73,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes a locale preference update request to the binary destination.
+    /// </summary>
     public static void WriteUserLocalePreferenceUpdateRequest(
         UserLocalePreferenceUpdateDto request,
         IBufferWriter<byte> destination)
@@ -90,6 +102,9 @@ public static partial class PodBinaryCodec
         writer.WritePod(CastLocalePod<MutableUserLocalePreferenceUpdateRequestPod, UserLocalePreferenceUpdateRequestPod>(mutable));
     }
 
+    /// <summary>
+    /// Decodes a complete locale preference update request.
+    /// </summary>
     public static bool TryDecodeUserLocalePreferenceUpdateRequest(
         ReadOnlyMemory<byte> source,
         out UserLocalePreferenceUpdateDto request)

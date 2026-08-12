@@ -83,13 +83,7 @@ describe('PublicBlogLayoutShell PublicShell delegation', () => {
     expect(html).toContain('href="/user/profile"')
     expect(html).toContain('data-public-nav="auth"')
     expect(html).toContain('is-csp-hidden')
-    // LocaleSelector keeps closed menus with v-show (display:none). Strip only that
-    // contract-owned closed state before asserting the public shell stays CSP-safe.
-    const withoutLocaleMenuClosedStyle = html.replace(
-      /(<div[^>]*data-locale-selector-menu[^>]*?)\sstyle="display:none;"/gu,
-      '$1',
-    )
-    expect(withoutLocaleMenuClosedStyle).not.toMatch(/\sstyle=/u)
+    expect(html).not.toMatch(/\sstyle=/u)
     expect(html).toContain('data-locale-selector-runtime-adapter')
     expect(html).toContain('data-locale-selector-item')
   })

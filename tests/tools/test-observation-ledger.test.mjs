@@ -82,6 +82,8 @@ test('TRX, Vitest, Node TAP and Playwright adapters emit one source-bound schema
     );
     assert.ok(artifacts.flatMap((entry) => entry.observations)
         .some((entry) => entry.testId.includes('Adds(value: 1)')));
+    assert.ok(artifacts[0].observations
+        .some((entry) => entry.testId === 'xunit-trx:CalculatorTests#Adds(value: 1)'));
     assert.ok(artifacts.flatMap((entry) => entry.observations)
         .some((entry) => entry.testId.includes('adds [1, 2, 3]')));
 

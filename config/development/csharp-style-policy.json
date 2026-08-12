@@ -25,7 +25,8 @@
         "tools/vcpkg-overlays/**",
         "**/node_modules/**",
         "tests/**/Fixtures/**",
-        "tests/**/fixtures/**"
+        "tests/**/fixtures/**",
+        "tools/test-inventory/xunit-roslyn-adapter/fixtures/**"
     ],
     "naming": {
         "interfacePrefix": "I",

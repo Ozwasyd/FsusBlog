@@ -56,6 +56,10 @@ assert(
     'entry must compare the handoff with its current build identity'
 );
 assert(
+    /document\.createElement\('div'\)[\s\S]*carrier\.hidden\s*=\s*true/u.test(kernel),
+    'BootKernel must publish the exact Trusted-Types-safe hidden carrier accepted by the entry consumer'
+);
+assert(
     /bootstrapPublicShell\(\{\s*bootIntent:\s*publicBootIntent\s*\}\)/u.test(entry),
     'entry must pass the one-shot BootKernel intent into public activation composition'
 );

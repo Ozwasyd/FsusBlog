@@ -82,7 +82,10 @@ owner. The standalone Public Boot kernel remains a separately emitted preload
 target but is not a second primary document entry. The four public stylesheet
 owners use explicit build-only owner facades and priority-stable, zero-minimum-size
 chunk groups so each owner retains its own `css` binding instead of collapsing
-into `index`.
+into `index`. Production public documents also consume CSS reachable from the
+`public-page-runtime` static import graph. That traversal stops at `index` because
+the base owners are selected explicitly, and at `full-app-core` because SPA
+takeover presentation is not part of the server-rendered public shell.
 
 Every `file` and `css` reference must be a relative `assets/` path, exist in the
 sealed inventory, and resolve to a file whose SHA-256 equals that inventory entry.
@@ -90,10 +93,11 @@ Every static and dynamic import key must resolve to an entry in the same validat
 manifest. Vite/Rolldown may emit legitimate circular chunk relationships, so the
 runtime traverses those graphs with a visited set and deduplicates assets rather
 than requiring a DAG; dangling references still fail closed. Public stylesheets,
-including the article-only markdown owner, are excluded from the full-app takeover
-stylesheet set even when a circular runtime graph makes them reachable from a
-takeover owner. Production readiness remains failed until all of these checks,
-including the descriptor/receipt/inventory binding, succeed.
+including the article-only markdown owner and the bounded public runtime closure,
+are excluded from the full-app takeover stylesheet set even when a circular
+runtime graph makes them reachable from a takeover owner. Production readiness
+remains failed until all of these checks, including the descriptor/receipt/inventory
+binding, succeed.
 
 `SpaAssetManifestServiceTests.ProductionBuildManifest_SealedRuntimeFixture_IsReadyAndSelectsPublicAndTakeoverAssets`
 runs the production frontend producer into an isolated temporary dist, validates

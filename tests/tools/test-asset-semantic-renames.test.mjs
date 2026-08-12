@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const { isNodeTestFile } = await import(pathToFileURL(path.join(root, 'tools/test-lifecycle/lifecycle.mjs')).href);
+const { loadCanonicalInventory } = await import(pathToFileURL(path.join(root, 'tools/test-inventory/api.mjs')).href);
 const { extractTestRecords } = await import(pathToFileURL(path.join(root, 'tools/test-retention/audit.mjs')).href);
 const inventoryPath = 'tests/test-asset-semantic-renames.json';
 const issuePrefix = /(?:^|[/_.-])issue[-_]?[0-9]+(?:[-_][0-9]+)?(?:[/_.-]|$)|Issue[0-9]+/u;
@@ -72,6 +73,7 @@ test('semantic rename inventory resolves every historical test asset to one live
 test('active test paths and executable test IDs use domain semantics', () =>
 {
     const files = filesBelow('tests');
+    const inventory = loadCanonicalInventory(root);
     const activePaths = files.filter((file) => ![
         'tests/test-asset-semantic-renames.json',
         'tests/test-asset-lifecycle-retirement-baseline.json',
@@ -83,7 +85,11 @@ test('active test paths and executable test IDs use domain semantics', () =>
 
     const records = activePaths
         .filter(isNodeTestFile)
-        .flatMap((file) => extractTestRecords(file, fs.readFileSync(path.join(root, file), 'utf8')));
+        .flatMap((file) => extractTestRecords(
+            file,
+            fs.readFileSync(path.join(root, file), 'utf8'),
+            inventory
+        ));
     assert.deepEqual(records.filter(({ id }) => issuePrefix.test(id)).map(({ id }) => id), []);
 });
 

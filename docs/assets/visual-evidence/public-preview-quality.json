@@ -1,0 +1,3736 @@
+{
+    "schema": "fsusblog.public-preview-quality-manifest.v1",
+    "status": "pass",
+    "sourceCommit": "b9acbe47c533f4e071a1533f751f0926586f8720",
+    "policyDigest": "115deca3002dfb8b3cf161fc56618d3d7210acdb25f729ab34a79a46928ac793",
+    "screenshots": {
+        "admin-dashboard-desktop-light": {
+            "schema": "fsusblog.public-preview-quality-report.v1",
+            "id": "admin-dashboard-desktop-light",
+            "route": "ManageDashboard",
+            "viewport": {
+                "width": 1440,
+                "height": 960
+            },
+            "theme": "light",
+            "locale": "zh-CN",
+            "zoom": 1,
+            "surfaceRole": "task",
+            "linkedIssues": [
+                1471,
+                1476
+            ],
+            "status": "pass",
+            "machine": {
+                "overflow": {
+                    "scrollWidth": 1440,
+                    "clientWidth": 1440,
+                    "deltaPx": 0,
+                    "status": "pass",
+                    "findings": []
+                },
+                "overlaps": {
+                    "status": "pass",
+                    "checked": 13,
+                    "findings": []
+                },
+                "clippedText": {
+                    "status": "pass",
+                    "checked": 17,
+                    "findings": []
+                },
+                "hitTargets": {
+                    "status": "pass",
+                    "checked": 0,
+                    "findings": []
+                },
+                "focusClipping": {
+                    "status": "pass",
+                    "checked": 13,
+                    "findings": []
+                },
+                "localeCoherence": {
+                    "status": "pass",
+                    "expectedLocale": "zh-CN",
+                    "findings": []
+                },
+                "headerStability": {
+                    "status": "pass",
+                    "maximumDifferencePx": 0,
+                    "samples": [
+                        {
+                            "phase": "application-ready",
+                            "rect": {
+                                "x": 0,
+                                "y": 0,
+                                "width": 1440,
+                                "height": 93
+                            }
+                        },
+                        {
+                            "phase": "stable-frame",
+                            "rect": {
+                                "x": 0,
+                                "y": 0,
+                                "width": 1440,
+                                "height": 93
+                            }
+                        }
+                    ],
+                    "findings": []
+                },
+                "primaryTask": {
+                    "status": "pass",
+                    "checkedSelectors": [
+                        "main h1",
+                        "[data-page-title]",
+                        "[data-primary-task]",
+                        "[data-empty-state]"
+                    ],
+                    "visibleInFirstViewport": true,
+                    "findings": []
+                }
+            },
+            "reviewer": {
+                "classification": "pass",
+                "reasons": [],
+                "metrics": {
+                    "panelCount": 0,
+                    "nestedPanelCount": 0,
+                    "badgeCount": 0,
+                    "firstViewportPrimaryActionCount": 0,
+                    "gradientCount": 0,
+                    "glassCount": 0,
+                    "excessiveRadiusCount": 0
+                }
+            }
+        },
+        "article-detail-desktop-light": {
+            "schema": "fsusblog.public-preview-quality-report.v1",
+            "id": "article-detail-desktop-light",
+            "route": "ArticleDetail",
+            "viewport": {
+                "width": 1440,
+                "height": 960
+            },
+            "theme": "light",
+            "locale": "zh-CN",
+            "zoom": 1,
+            "surfaceRole": "public",
+            "linkedIssues": [
+                1462,
+                1463,
+                1464,
+                1473,
+                1476
+            ],
+            "status": "pass",
+            "machine": {
+                "overflow": {
+                    "scrollWidth": 1440,
+                    "clientWidth": 1440,
+                    "deltaPx": 0,
+                    "status": "pass",
+                    "findings": []
+                },
+                "overlaps": {
+                    "status": "pass",
+                    "checked": 8,
+                    "findings": []
+                },
+                "clippedText": {
+                    "status": "pass",
+                    "checked": 8,
+                    "findings": []
+                },
+                "hitTargets": {
+                    "status": "pass",
+                    "checked": 0,
+                    "findings": []
+                },
+                "focusClipping": {
+                    "status": "pass",
+                    "checked": 8,
+                    "findings": []
+                },
+                "localeCoherence": {
+                    "status": "pass",
+                    "expectedLocale": "zh-CN",
+                    "findings": []
+                },
+                "headerStability": {
+                    "status": "pass",
+                    "maximumDifferencePx": 0,
+                    "samples": [
+                        {
+                            "phase": "domcontentloaded",
+                            "rect": {
+                                "x": 0,
+                                "y": 0,
+                                "width": 1440,
+                                "height": 96
+                            }
+                        },
+                        {
+                            "phase": "application-ready",
+                            "rect": {
+                                "x": 0,
+                                "y": 0,
+                                "width": 1440,
+                                "height": 96
+                            }
+                        },
+                        {
+                            "phase": "stable-frame",
+                            "rect": {
+                                "x": 0,
+                                "y": 0,
+                                "width": 1440,
+                                "height": 96
+                            }
+                        }
+                    ],
+                    "findings": []
+                },
+                "primaryTask": {
+                    "status": "pass",
+                    "checkedSelectors": [],
+                    "visibleInFirstViewport": false,
+                    "findings": []
+                }
+            },
+            "reviewer": {
+                "classification": "pass",
+                "reasons": [],
+                "metrics": {
+                    "panelCount": 0,
+                    "nestedPanelCount": 0,
+                    "badgeCount": 0,
+                    "firstViewportPrimaryActionCount": 0,
+                    "gradientCount": 0,
+                    "glassCount": 0,
+                    "excessiveRadiusCount": 0
+                }
+            }
+        },
+        "article-detail-mobile-light": {
+            "schema": "fsusblog.public-preview-quality-report.v1",
+            "id": "article-detail-mobile-light",
+            "route": "ArticleDetail",
+            "viewport": {
+                "width": 390,
+                "height": 844
+            },
+            "theme": "light",
+            "locale": "zh-CN",
+            "zoom": 1,
+            "surfaceRole": "public",
+            "linkedIssues": [
+                1462,
+                1463,
+                1464,
+                1473,
+                1476
+            ],
+            "status": "pass",
+            "machine": {
+                "overflow": {
+                    "scrollWidth": 390,
+                    "clientWidth": 390,
+                    "deltaPx": 0,
+                    "status": "pass",
+                    "findings": []
+                },
+                "overlaps": {
+                    "status": "pass",
+                    "checked": 4,
+                    "findings": []
+                },
+                "clippedText": {
+                    "status": "pass",
+                    "checked": 4,
+                    "findings": []
+                },
+                "hitTargets": {
+                    "status": "pass",
+                    "checked": 4,
+                    "findings": []
+                },
+                "focusClipping": {
+                    "status": "pass",
+                    "checked": 4,
+                    "findings": []
+                },
+                "localeCoherence": {
+                    "status": "pass",
+                    "expectedLocale": "zh-CN",
+                    "findings": []
+                },
+                "headerStability": {
+                    "status": "pass",
+                    "maximumDifferencePx": 0,
+                    "samples": [
+                        {
+                            "phase": "domcontentloaded",
+                            "rect": {
+                                "x": 0,
+                                "y": 0,
+                                "width": 390,
+                                "height": 85
+                            }
+                        },
+                        {
+                            "phase": "application-ready",
+                            "rect": {
+                                "x": 0,
+                                "y": 0,
+                                "width": 390,
+                                "height": 85
+                            }
+                        },
+                        {
+                            "phase": "stable-frame",
+                            "rect": {
+                                "x": 0,
+                                "y": 0,
+                                "width": 390,
+                                "height": 85
+                            }
+                        }
+                    ],
+                    "findings": []
+                },
+                "primaryTask": {
+                    "status": "pass",
+                    "checkedSelectors": [],
+                    "visibleInFirstViewport": false,
+                    "findings": []
+                }
+            },
+            "reviewer": {
+                "classification": "pass",
+                "reasons": [],
+                "metrics": {
+                    "panelCount": 0,
+                    "nestedPanelCount": 0,
+                    "badgeCount": 0,
+                    "firstViewportPrimaryActionCount": 0,
+                    "gradientCount": 0,
+                    "glassCount": 0,
+                    "excessiveRadiusCount": 0
+                }
+            }
+        },
+        "article-editor-desktop-light": {
+            "schema": "fsusblog.public-preview-quality-report.v1",
+            "id": "article-editor-desktop-light",
+            "route": "ManageWriteArticle",
+            "viewport": {
+                "width": 1440,
+                "height": 960
+            },
+            "theme": "light",
+            "locale": "zh-CN",
+            "zoom": 1,
+            "surfaceRole": "task",
+            "linkedIssues": [
+                1476
+            ],
+            "status": "pass",
+            "machine": {
+                "overflow": {
+                    "scrollWidth": 1440,
+                    "clientWidth": 1440,
+                    "deltaPx": 0,
+                    "status": "pass",
+                    "findings": []
+                },
+                "overlaps": {
+                    "status": "pass",
+                    "checked": 32,
+                    "findings": []
+                },
+                "clippedText": {
+                    "status": "pass",
+                    "checked": 34,
+                    "findings": []
+                },
+                "hitTargets": {
+                    "status": "pass",
+                    "checked": 0,
+                    "findings": []
+                },
+                "focusClipping": {
+                    "status": "pass",
+                    "checked": 32,
+                    "findings": []
+                },
+                "localeCoherence": {
+                    "status": "pass",
+                    "expectedLocale": "zh-CN",
+                    "findings": []
+                },
+                "headerStability": {
+                    "status": "pass",
+                    "maximumDifferencePx": 0,
+                    "samples": [
+                        {
+                            "phase": "application-ready",
+                            "rect": {
+                                "x": 0,
+                                "y": 0,
+                                "width": 1440,
+                                "height": 93
+                            }
+                        },
+                        {
+                            "phase": "stable-frame",
+                            "rect": {
+                                "x": 0,
+                                "y": 0,
+                                "width": 1440,
+                                "height": 93
+                            }
+                        }
+                    ],
+                    "findings": []
+                },
+                "primaryTask": {
+                    "status": "pass",
+                    "checkedSelectors": [
+                        "main h1",
+                        "[data-page-title]",
+                        "[data-primary-task]",
+                        "[data-empty-state]"
+                    ],
+                    "visibleInFirstViewport": true,
+                    "findings": []
+                }
+            },
+            "reviewer": {
+                "classification": "pass",
+                "reasons": [],
+                "metrics": {
+                    "panelCount": 0,
+                    "nestedPanelCount": 0,
+                    "badgeCount": 0,
+                    "firstViewportPrimaryActionCount": 1,
+                    "gradientCount": 0,
+                    "glassCount": 0,
+                    "excessiveRadiusCount": 0
+                }
+            }
+        },
+        "comment-moderation-desktop-light": {
+            "schema": "fsusblog.public-preview-quality-report.v1",
+            "id": "comment-moderation-desktop-light",
+            "route": "ManageModerationComments",
+            "viewport": {
+                "width": 1440,
+                "height": 960
+            },
+            "theme": "light",
+            "locale": "zh-CN",
+            "zoom": 1,
+            "surfaceRole": "task",
+            "linkedIssues": [
+                1476
+            ],
+            "status": "pass",
+            "machine": {
+                "overflow": {
+                    "scrollWidth": 1440,
+                    "clientWidth": 1440,
+                    "deltaPx": 0,
+                    "status": "pass",
+                    "findings": []
+                },
+                "overlaps": {
+                    "status": "pass",
+                    "checked": 33,
+                    "findings": []
+                },
+                "clippedText": {
+                    "status": "pass",
+                    "checked": 34,
+                    "findings": []
+                },
+                "hitTargets": {
+                    "status": "pass",
+                    "checked": 0,
+                    "findings": []
+                },
+                "focusClipping": {
+                    "status": "pass",
+                    "checked": 33,
+                    "findings": []
+                },
+                "localeCoherence": {
+                    "status": "pass",
+                    "expectedLocale": "zh-CN",
+                    "findings": []
+                },
+                "headerStability": {
+                    "status": "pass",
+                    "maximumDifferencePx": 0,
+                    "samples": [
+                        {
+                            "phase": "application-ready",
+                            "rect": {
+                                "x": 0,
+                                "y": 0,
+                                "width": 1440,
+                                "height": 93
+                            }
+                        },
+                        {
+                            "phase": "stable-frame",
+                            "rect": {
+                                "x": 0,
+                                "y": 0,
+                                "width": 1440,
+                                "height": 93
+                            }
+                        }
+                    ],
+                    "findings": []
+                },
+                "primaryTask": {
+                    "status": "pass",
+                    "checkedSelectors": [
+                        "main h1",
+                        "[data-page-title]",
+                        "[data-primary-task]",
+                        "[data-empty-state]"
+                    ],
+                    "visibleInFirstViewport": true,
+                    "findings": []
+                }
+            },
+            "reviewer": {
+                "classification": "pass",
+                "reasons": [],
+                "metrics": {
+                    "panelCount": 0,
+                    "nestedPanelCount": 0,
+                    "badgeCount": 0,
+                    "firstViewportPrimaryActionCount": 0,
+                    "gradientCount": 0,
+                    "glassCount": 0,
+                    "excessiveRadiusCount": 0
+                }
+            }
+        },
+        "operations-status-desktop-light": {
+            "schema": "fsusblog.public-preview-quality-report.v1",
+            "id": "operations-status-desktop-light",
+            "route": "ManageOpsHealth",
+            "viewport": {
+                "width": 1440,
+                "height": 960
+            },
+            "theme": "light",
+            "locale": "zh-CN",
+            "zoom": 1,
+            "surfaceRole": "task",
+            "linkedIssues": [
+                1471,
+                1476
+            ],
+            "status": "pass",
+            "machine": {
+                "overflow": {
+                    "scrollWidth": 1440,
+                    "clientWidth": 1440,
+                    "deltaPx": 0,
+                    "status": "pass",
+                    "findings": []
+                },
+                "overlaps": {
+                    "status": "pass",
+                    "checked": 33,
+                    "findings": []
+                },
+                "clippedText": {
+                    "status": "pass",
+                    "checked": 46,
+                    "findings": []
+                },
+                "hitTargets": {
+                    "status": "pass",
+                    "checked": 0,
+                    "findings": []
+                },
+                "focusClipping": {
+                    "status": "pass",
+                    "checked": 33,
+                    "findings": []
+                },
+                "localeCoherence": {
+                    "status": "pass",
+                    "expectedLocale": "zh-CN",
+                    "findings": []
+                },
+                "headerStability": {
+                    "status": "pass",
+                    "maximumDifferencePx": 0,
+                    "samples": [
+                        {
+                            "phase": "application-ready",
+                            "rect": {
+                                "x": 0,
+                                "y": 0,
+                                "width": 1440,
+                                "height": 93
+                            }
+                        },
+                        {
+                            "phase": "stable-frame",
+                            "rect": {
+                                "x": 0,
+                                "y": 0,
+                                "width": 1440,
+                                "height": 93
+                            }
+                        }
+                    ],
+                    "findings": []
+                },
+                "primaryTask": {
+                    "status": "pass",
+                    "checkedSelectors": [
+                        "main h1",
+                        "[data-page-title]",
+                        "[data-primary-task]",
+                        "[data-empty-state]"
+                    ],
+                    "visibleInFirstViewport": true,
+                    "findings": []
+                }
+            },
+            "reviewer": {
+                "classification": "pass",
+                "reasons": [],
+                "metrics": {
+                    "panelCount": 0,
+                    "nestedPanelCount": 0,
+                    "badgeCount": 0,
+                    "firstViewportPrimaryActionCount": 0,
+                    "gradientCount": 0,
+                    "glassCount": 0,
+                    "excessiveRadiusCount": 0
+                }
+            }
+        },
+        "public-home-desktop-dark": {
+            "schema": "fsusblog.public-preview-quality-report.v1",
+            "id": "public-home-desktop-dark",
+            "route": "Home",
+            "viewport": {
+                "width": 1440,
+                "height": 960
+            },
+            "theme": "dark",
+            "locale": "zh-CN",
+            "zoom": 1,
+            "surfaceRole": "public",
+            "linkedIssues": [
+                1425,
+                1474,
+                1476
+            ],
+            "status": "pass",
+            "machine": {
+                "overflow": {
+                    "scrollWidth": 1440,
+                    "clientWidth": 1440,
+                    "deltaPx": 0,
+                    "status": "pass",
+                    "findings": []
+                },
+                "overlaps": {
+                    "status": "pass",
+                    "checked": 8,
+                    "findings": []
+                },
+                "clippedText": {
+                    "status": "pass",
+                    "checked": 10,
+                    "findings": []
+                },
+                "hitTargets": {
+                    "status": "pass",
+                    "checked": 0,
+                    "findings": []
+                },
+                "focusClipping": {
+                    "status": "pass",
+                    "checked": 8,
+                    "findings": []
+                },
+                "localeCoherence": {
+                    "status": "pass",
+                    "expectedLocale": "zh-CN",
+                    "findings": []
+                },
+                "headerStability": {
+                    "status": "pass",
+                    "maximumDifferencePx": 0,
+                    "samples": [
+                        {
+                            "phase": "domcontentloaded",
+                            "rect": {
+                                "x": 0,
+                                "y": 0,
+                                "width": 1440,
+                                "height": 96
+                            }
+                        },
+                        {
+                            "phase": "application-ready",
+                            "rect": {
+                                "x": 0,
+                                "y": 0,
+                                "width": 1440,
+                                "height": 96
+                            }
+                        },
+                        {
+                            "phase": "stable-frame",
+                            "rect": {
+                                "x": 0,
+                                "y": 0,
+                                "width": 1440,
+                                "height": 96
+                            }
+                        }
+                    ],
+                    "findings": []
+                },
+                "primaryTask": {
+                    "status": "pass",
+                    "checkedSelectors": [],
+                    "visibleInFirstViewport": false,
+                    "findings": []
+                }
+            },
+            "reviewer": {
+                "classification": "pass",
+                "reasons": [],
+                "metrics": {
+                    "panelCount": 0,
+                    "nestedPanelCount": 0,
+                    "badgeCount": 3,
+                    "firstViewportPrimaryActionCount": 0,
+                    "gradientCount": 0,
+                    "glassCount": 0,
+                    "excessiveRadiusCount": 0
+                }
+            }
+        },
+        "public-home-desktop-light": {
+            "schema": "fsusblog.public-preview-quality-report.v1",
+            "id": "public-home-desktop-light",
+            "route": "Home",
+            "viewport": {
+                "width": 1440,
+                "height": 960
+            },
+            "theme": "light",
+            "locale": "zh-CN",
+            "zoom": 1,
+            "surfaceRole": "public",
+            "linkedIssues": [
+                1425,
+                1474,
+                1476
+            ],
+            "status": "pass",
+            "machine": {
+                "overflow": {
+                    "scrollWidth": 1440,
+                    "clientWidth": 1440,
+                    "deltaPx": 0,
+                    "status": "pass",
+                    "findings": []
+                },
+                "overlaps": {
+                    "status": "pass",
+                    "checked": 8,
+                    "findings": []
+                },
+                "clippedText": {
+                    "status": "pass",
+                    "checked": 10,
+                    "findings": []
+                },
+                "hitTargets": {
+                    "status": "pass",
+                    "checked": 0,
+                    "findings": []
+                },
+                "focusClipping": {
+                    "status": "pass",
+                    "checked": 8,
+                    "findings": []
+                },
+                "localeCoherence": {
+                    "status": "pass",
+                    "expectedLocale": "zh-CN",
+                    "findings": []
+                },
+                "headerStability": {
+                    "status": "pass",
+                    "maximumDifferencePx": 0,
+                    "samples": [
+                        {
+                            "phase": "domcontentloaded",
+                            "rect": {
+                                "x": 0,
+                                "y": 0,
+                                "width": 1440,
+                                "height": 96
+                            }
+                        },
+                        {
+                            "phase": "application-ready",
+                            "rect": {
+                                "x": 0,
+                                "y": 0,
+                                "width": 1440,
+                                "height": 96
+                            }
+                        },
+                        {
+                            "phase": "stable-frame",
+                            "rect": {
+                                "x": 0,
+                                "y": 0,
+                                "width": 1440,
+                                "height": 96
+                            }
+                        }
+                    ],
+                    "findings": []
+                },
+                "primaryTask": {
+                    "status": "pass",
+                    "checkedSelectors": [],
+                    "visibleInFirstViewport": false,
+                    "findings": []
+                }
+            },
+            "reviewer": {
+                "classification": "pass",
+                "reasons": [],
+                "metrics": {
+                    "panelCount": 0,
+                    "nestedPanelCount": 0,
+                    "badgeCount": 3,
+                    "firstViewportPrimaryActionCount": 0,
+                    "gradientCount": 0,
+                    "glassCount": 0,
+                    "excessiveRadiusCount": 0
+                }
+            }
+        },
+        "security-console-desktop-light": {
+            "schema": "fsusblog.public-preview-quality-report.v1",
+            "id": "security-console-desktop-light",
+            "route": "ManageSecurityDashboard",
+            "viewport": {
+                "width": 1440,
+                "height": 960
+            },
+            "theme": "light",
+            "locale": "zh-CN",
+            "zoom": 1,
+            "surfaceRole": "task",
+            "linkedIssues": [
+                1476
+            ],
+            "status": "pass",
+            "machine": {
+                "overflow": {
+                    "scrollWidth": 1440,
+                    "clientWidth": 1440,
+                    "deltaPx": 0,
+                    "status": "pass",
+                    "findings": []
+                },
+                "overlaps": {
+                    "status": "pass",
+                    "checked": 20,
+                    "findings": []
+                },
+                "clippedText": {
+                    "status": "pass",
+                    "checked": 25,
+                    "findings": []
+                },
+                "hitTargets": {
+                    "status": "pass",
+                    "checked": 0,
+                    "findings": []
+                },
+                "focusClipping": {
+                    "status": "pass",
+                    "checked": 20,
+                    "findings": []
+                },
+                "localeCoherence": {
+                    "status": "pass",
+                    "expectedLocale": "zh-CN",
+                    "findings": []
+                },
+                "headerStability": {
+                    "status": "pass",
+                    "maximumDifferencePx": 0,
+                    "samples": [
+                        {
+                            "phase": "application-ready",
+                            "rect": {
+                                "x": 0,
+                                "y": 0,
+                                "width": 1440,
+                                "height": 93
+                            }
+                        },
+                        {
+                            "phase": "stable-frame",
+                            "rect": {
+                                "x": 0,
+                                "y": 0,
+                                "width": 1440,
+                                "height": 93
+                            }
+                        }
+                    ],
+                    "findings": []
+                },
+                "primaryTask": {
+                    "status": "pass",
+                    "checkedSelectors": [
+                        "main h1",
+                        "[data-page-title]",
+                        "[data-primary-task]",
+                        "[data-empty-state]"
+                    ],
+                    "visibleInFirstViewport": true,
+                    "findings": []
+                }
+            },
+            "reviewer": {
+                "classification": "pass",
+                "reasons": [],
+                "metrics": {
+                    "panelCount": 0,
+                    "nestedPanelCount": 0,
+                    "badgeCount": 0,
+                    "firstViewportPrimaryActionCount": 0,
+                    "gradientCount": 0,
+                    "glassCount": 0,
+                    "excessiveRadiusCount": 0
+                }
+            }
+        }
+    },
+    "matrix": {
+        "schema": "fsusblog.public-preview-quality-matrix.v1",
+        "status": "pass",
+        "policyDigest": "115deca3002dfb8b3cf161fc56618d3d7210acdb25f729ab34a79a46928ac793",
+        "scenarioCount": 27,
+        "reports": [
+            {
+                "schema": "fsusblog.public-preview-quality-report.v1",
+                "id": "admin-dashboard-desktop-1366",
+                "route": "ManageDashboard",
+                "viewport": {
+                    "width": 1366,
+                    "height": 768
+                },
+                "theme": "light",
+                "locale": "zh-CN",
+                "zoom": 1,
+                "surfaceRole": "task",
+                "linkedIssues": [
+                    1471,
+                    1476
+                ],
+                "status": "pass",
+                "machine": {
+                    "overflow": {
+                        "scrollWidth": 1366,
+                        "clientWidth": 1366,
+                        "deltaPx": 0,
+                        "status": "pass",
+                        "findings": []
+                    },
+                    "overlaps": {
+                        "status": "pass",
+                        "checked": 13,
+                        "findings": []
+                    },
+                    "clippedText": {
+                        "status": "pass",
+                        "checked": 17,
+                        "findings": []
+                    },
+                    "hitTargets": {
+                        "status": "pass",
+                        "checked": 0,
+                        "findings": []
+                    },
+                    "focusClipping": {
+                        "status": "pass",
+                        "checked": 13,
+                        "findings": []
+                    },
+                    "localeCoherence": {
+                        "status": "pass",
+                        "expectedLocale": "zh-CN",
+                        "findings": []
+                    },
+                    "headerStability": {
+                        "status": "pass",
+                        "maximumDifferencePx": 0,
+                        "samples": [
+                            {
+                                "phase": "application-ready",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1366,
+                                    "height": 93
+                                }
+                            },
+                            {
+                                "phase": "stable-frame",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1366,
+                                    "height": 93
+                                }
+                            }
+                        ],
+                        "findings": []
+                    },
+                    "primaryTask": {
+                        "status": "pass",
+                        "checkedSelectors": [
+                            "main h1",
+                            "[data-page-title]",
+                            "[data-primary-task]",
+                            "[data-empty-state]"
+                        ],
+                        "visibleInFirstViewport": true,
+                        "findings": []
+                    }
+                },
+                "reviewer": {
+                    "classification": "pass",
+                    "reasons": [],
+                    "metrics": {
+                        "panelCount": 0,
+                        "nestedPanelCount": 0,
+                        "badgeCount": 0,
+                        "firstViewportPrimaryActionCount": 0,
+                        "gradientCount": 0,
+                        "glassCount": 0,
+                        "excessiveRadiusCount": 0
+                    }
+                }
+            },
+            {
+                "schema": "fsusblog.public-preview-quality-report.v1",
+                "id": "admin-dashboard-desktop-1440",
+                "route": "ManageDashboard",
+                "viewport": {
+                    "width": 1440,
+                    "height": 900
+                },
+                "theme": "light",
+                "locale": "zh-CN",
+                "zoom": 1,
+                "surfaceRole": "task",
+                "linkedIssues": [
+                    1471,
+                    1476
+                ],
+                "status": "pass",
+                "machine": {
+                    "overflow": {
+                        "scrollWidth": 1440,
+                        "clientWidth": 1440,
+                        "deltaPx": 0,
+                        "status": "pass",
+                        "findings": []
+                    },
+                    "overlaps": {
+                        "status": "pass",
+                        "checked": 13,
+                        "findings": []
+                    },
+                    "clippedText": {
+                        "status": "pass",
+                        "checked": 17,
+                        "findings": []
+                    },
+                    "hitTargets": {
+                        "status": "pass",
+                        "checked": 0,
+                        "findings": []
+                    },
+                    "focusClipping": {
+                        "status": "pass",
+                        "checked": 13,
+                        "findings": []
+                    },
+                    "localeCoherence": {
+                        "status": "pass",
+                        "expectedLocale": "zh-CN",
+                        "findings": []
+                    },
+                    "headerStability": {
+                        "status": "pass",
+                        "maximumDifferencePx": 0,
+                        "samples": [
+                            {
+                                "phase": "application-ready",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1440,
+                                    "height": 93
+                                }
+                            },
+                            {
+                                "phase": "stable-frame",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1440,
+                                    "height": 93
+                                }
+                            }
+                        ],
+                        "findings": []
+                    },
+                    "primaryTask": {
+                        "status": "pass",
+                        "checkedSelectors": [
+                            "main h1",
+                            "[data-page-title]",
+                            "[data-primary-task]",
+                            "[data-empty-state]"
+                        ],
+                        "visibleInFirstViewport": true,
+                        "findings": []
+                    }
+                },
+                "reviewer": {
+                    "classification": "pass",
+                    "reasons": [],
+                    "metrics": {
+                        "panelCount": 0,
+                        "nestedPanelCount": 0,
+                        "badgeCount": 0,
+                        "firstViewportPrimaryActionCount": 0,
+                        "gradientCount": 0,
+                        "glassCount": 0,
+                        "excessiveRadiusCount": 0
+                    }
+                }
+            },
+            {
+                "schema": "fsusblog.public-preview-quality-report.v1",
+                "id": "admin-dashboard-mobile",
+                "route": "ManageDashboard",
+                "viewport": {
+                    "width": 375,
+                    "height": 812
+                },
+                "theme": "light",
+                "locale": "zh-CN",
+                "zoom": 1,
+                "surfaceRole": "task",
+                "linkedIssues": [
+                    1471,
+                    1476
+                ],
+                "status": "pass",
+                "machine": {
+                    "overflow": {
+                        "scrollWidth": 375,
+                        "clientWidth": 375,
+                        "deltaPx": 0,
+                        "status": "pass",
+                        "findings": []
+                    },
+                    "overlaps": {
+                        "status": "pass",
+                        "checked": 8,
+                        "findings": []
+                    },
+                    "clippedText": {
+                        "status": "pass",
+                        "checked": 12,
+                        "findings": []
+                    },
+                    "hitTargets": {
+                        "status": "pass",
+                        "checked": 8,
+                        "findings": []
+                    },
+                    "focusClipping": {
+                        "status": "pass",
+                        "checked": 8,
+                        "findings": []
+                    },
+                    "localeCoherence": {
+                        "status": "pass",
+                        "expectedLocale": "zh-CN",
+                        "findings": []
+                    },
+                    "headerStability": {
+                        "status": "pass",
+                        "maximumDifferencePx": 0,
+                        "samples": [
+                            {
+                                "phase": "application-ready",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 375,
+                                    "height": 85
+                                }
+                            },
+                            {
+                                "phase": "stable-frame",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 375,
+                                    "height": 85
+                                }
+                            }
+                        ],
+                        "findings": []
+                    },
+                    "primaryTask": {
+                        "status": "pass",
+                        "checkedSelectors": [
+                            "main h1",
+                            "[data-page-title]",
+                            "[data-primary-task]",
+                            "[data-empty-state]"
+                        ],
+                        "visibleInFirstViewport": true,
+                        "findings": []
+                    }
+                },
+                "reviewer": {
+                    "classification": "pass",
+                    "reasons": [],
+                    "metrics": {
+                        "panelCount": 0,
+                        "nestedPanelCount": 0,
+                        "badgeCount": 0,
+                        "firstViewportPrimaryActionCount": 0,
+                        "gradientCount": 0,
+                        "glassCount": 0,
+                        "excessiveRadiusCount": 0
+                    }
+                }
+            },
+            {
+                "schema": "fsusblog.public-preview-quality-report.v1",
+                "id": "article-detail-desktop-en-us",
+                "route": "ArticleDetail",
+                "viewport": {
+                    "width": 1440,
+                    "height": 900
+                },
+                "theme": "light",
+                "locale": "en-US",
+                "zoom": 1,
+                "surfaceRole": "public",
+                "linkedIssues": [
+                    1462,
+                    1463,
+                    1464,
+                    1473,
+                    1476
+                ],
+                "status": "pass",
+                "machine": {
+                    "overflow": {
+                        "scrollWidth": 1440,
+                        "clientWidth": 1440,
+                        "deltaPx": 0,
+                        "status": "pass",
+                        "findings": []
+                    },
+                    "overlaps": {
+                        "status": "pass",
+                        "checked": 8,
+                        "findings": []
+                    },
+                    "clippedText": {
+                        "status": "pass",
+                        "checked": 8,
+                        "findings": []
+                    },
+                    "hitTargets": {
+                        "status": "pass",
+                        "checked": 0,
+                        "findings": []
+                    },
+                    "focusClipping": {
+                        "status": "pass",
+                        "checked": 8,
+                        "findings": []
+                    },
+                    "localeCoherence": {
+                        "status": "pass",
+                        "expectedLocale": "en-US",
+                        "findings": []
+                    },
+                    "headerStability": {
+                        "status": "pass",
+                        "maximumDifferencePx": 0,
+                        "samples": [
+                            {
+                                "phase": "domcontentloaded",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1440,
+                                    "height": 96
+                                }
+                            },
+                            {
+                                "phase": "application-ready",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1440,
+                                    "height": 96
+                                }
+                            },
+                            {
+                                "phase": "stable-frame",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1440,
+                                    "height": 96
+                                }
+                            }
+                        ],
+                        "findings": []
+                    },
+                    "primaryTask": {
+                        "status": "pass",
+                        "checkedSelectors": [],
+                        "visibleInFirstViewport": false,
+                        "findings": []
+                    }
+                },
+                "reviewer": {
+                    "classification": "pass",
+                    "reasons": [],
+                    "metrics": {
+                        "panelCount": 0,
+                        "nestedPanelCount": 0,
+                        "badgeCount": 0,
+                        "firstViewportPrimaryActionCount": 0,
+                        "gradientCount": 0,
+                        "glassCount": 0,
+                        "excessiveRadiusCount": 0
+                    }
+                }
+            },
+            {
+                "schema": "fsusblog.public-preview-quality-report.v1",
+                "id": "article-detail-desktop-zh-cn",
+                "route": "ArticleDetail",
+                "viewport": {
+                    "width": 1440,
+                    "height": 900
+                },
+                "theme": "light",
+                "locale": "zh-CN",
+                "zoom": 1,
+                "surfaceRole": "public",
+                "linkedIssues": [
+                    1462,
+                    1463,
+                    1464,
+                    1473,
+                    1476
+                ],
+                "status": "pass",
+                "machine": {
+                    "overflow": {
+                        "scrollWidth": 1440,
+                        "clientWidth": 1440,
+                        "deltaPx": 0,
+                        "status": "pass",
+                        "findings": []
+                    },
+                    "overlaps": {
+                        "status": "pass",
+                        "checked": 8,
+                        "findings": []
+                    },
+                    "clippedText": {
+                        "status": "pass",
+                        "checked": 8,
+                        "findings": []
+                    },
+                    "hitTargets": {
+                        "status": "pass",
+                        "checked": 0,
+                        "findings": []
+                    },
+                    "focusClipping": {
+                        "status": "pass",
+                        "checked": 8,
+                        "findings": []
+                    },
+                    "localeCoherence": {
+                        "status": "pass",
+                        "expectedLocale": "zh-CN",
+                        "findings": []
+                    },
+                    "headerStability": {
+                        "status": "pass",
+                        "maximumDifferencePx": 0,
+                        "samples": [
+                            {
+                                "phase": "domcontentloaded",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1440,
+                                    "height": 96
+                                }
+                            },
+                            {
+                                "phase": "application-ready",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1440,
+                                    "height": 96
+                                }
+                            },
+                            {
+                                "phase": "stable-frame",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1440,
+                                    "height": 96
+                                }
+                            }
+                        ],
+                        "findings": []
+                    },
+                    "primaryTask": {
+                        "status": "pass",
+                        "checkedSelectors": [],
+                        "visibleInFirstViewport": false,
+                        "findings": []
+                    }
+                },
+                "reviewer": {
+                    "classification": "pass",
+                    "reasons": [],
+                    "metrics": {
+                        "panelCount": 0,
+                        "nestedPanelCount": 0,
+                        "badgeCount": 0,
+                        "firstViewportPrimaryActionCount": 0,
+                        "gradientCount": 0,
+                        "glassCount": 0,
+                        "excessiveRadiusCount": 0
+                    }
+                }
+            },
+            {
+                "schema": "fsusblog.public-preview-quality-report.v1",
+                "id": "article-detail-mobile-150-zoom",
+                "route": "ArticleDetail",
+                "viewport": {
+                    "width": 375,
+                    "height": 812
+                },
+                "theme": "light",
+                "locale": "zh-CN",
+                "zoom": 1.5,
+                "surfaceRole": "public",
+                "linkedIssues": [
+                    1463,
+                    1464,
+                    1473,
+                    1476
+                ],
+                "status": "pass",
+                "machine": {
+                    "overflow": {
+                        "scrollWidth": 375,
+                        "clientWidth": 375,
+                        "deltaPx": 0,
+                        "status": "pass",
+                        "findings": []
+                    },
+                    "overlaps": {
+                        "status": "pass",
+                        "checked": 4,
+                        "findings": []
+                    },
+                    "clippedText": {
+                        "status": "pass",
+                        "checked": 4,
+                        "findings": []
+                    },
+                    "hitTargets": {
+                        "status": "pass",
+                        "checked": 4,
+                        "findings": []
+                    },
+                    "focusClipping": {
+                        "status": "pass",
+                        "checked": 4,
+                        "findings": []
+                    },
+                    "localeCoherence": {
+                        "status": "pass",
+                        "expectedLocale": "zh-CN",
+                        "findings": []
+                    },
+                    "headerStability": {
+                        "status": "pass",
+                        "maximumDifferencePx": 0,
+                        "samples": [
+                            {
+                                "phase": "domcontentloaded",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 375,
+                                    "height": 127
+                                }
+                            },
+                            {
+                                "phase": "application-ready",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 375,
+                                    "height": 127
+                                }
+                            },
+                            {
+                                "phase": "stable-frame",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 375,
+                                    "height": 127
+                                }
+                            }
+                        ],
+                        "findings": []
+                    },
+                    "primaryTask": {
+                        "status": "pass",
+                        "checkedSelectors": [],
+                        "visibleInFirstViewport": false,
+                        "findings": []
+                    }
+                },
+                "reviewer": {
+                    "classification": "pass",
+                    "reasons": [],
+                    "metrics": {
+                        "panelCount": 0,
+                        "nestedPanelCount": 0,
+                        "badgeCount": 0,
+                        "firstViewportPrimaryActionCount": 0,
+                        "gradientCount": 0,
+                        "glassCount": 0,
+                        "excessiveRadiusCount": 0
+                    }
+                }
+            },
+            {
+                "schema": "fsusblog.public-preview-quality-report.v1",
+                "id": "article-detail-mobile-en-us",
+                "route": "ArticleDetail",
+                "viewport": {
+                    "width": 375,
+                    "height": 812
+                },
+                "theme": "light",
+                "locale": "en-US",
+                "zoom": 1,
+                "surfaceRole": "public",
+                "linkedIssues": [
+                    1462,
+                    1463,
+                    1464,
+                    1473,
+                    1476
+                ],
+                "status": "pass",
+                "machine": {
+                    "overflow": {
+                        "scrollWidth": 375,
+                        "clientWidth": 375,
+                        "deltaPx": 0,
+                        "status": "pass",
+                        "findings": []
+                    },
+                    "overlaps": {
+                        "status": "pass",
+                        "checked": 4,
+                        "findings": []
+                    },
+                    "clippedText": {
+                        "status": "pass",
+                        "checked": 4,
+                        "findings": []
+                    },
+                    "hitTargets": {
+                        "status": "pass",
+                        "checked": 4,
+                        "findings": []
+                    },
+                    "focusClipping": {
+                        "status": "pass",
+                        "checked": 4,
+                        "findings": []
+                    },
+                    "localeCoherence": {
+                        "status": "pass",
+                        "expectedLocale": "en-US",
+                        "findings": []
+                    },
+                    "headerStability": {
+                        "status": "pass",
+                        "maximumDifferencePx": 0,
+                        "samples": [
+                            {
+                                "phase": "domcontentloaded",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 375,
+                                    "height": 85
+                                }
+                            },
+                            {
+                                "phase": "application-ready",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 375,
+                                    "height": 85
+                                }
+                            },
+                            {
+                                "phase": "stable-frame",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 375,
+                                    "height": 85
+                                }
+                            }
+                        ],
+                        "findings": []
+                    },
+                    "primaryTask": {
+                        "status": "pass",
+                        "checkedSelectors": [],
+                        "visibleInFirstViewport": false,
+                        "findings": []
+                    }
+                },
+                "reviewer": {
+                    "classification": "pass",
+                    "reasons": [],
+                    "metrics": {
+                        "panelCount": 0,
+                        "nestedPanelCount": 0,
+                        "badgeCount": 0,
+                        "firstViewportPrimaryActionCount": 0,
+                        "gradientCount": 0,
+                        "glassCount": 0,
+                        "excessiveRadiusCount": 0
+                    }
+                }
+            },
+            {
+                "schema": "fsusblog.public-preview-quality-report.v1",
+                "id": "article-detail-mobile-zh-cn",
+                "route": "ArticleDetail",
+                "viewport": {
+                    "width": 375,
+                    "height": 812
+                },
+                "theme": "light",
+                "locale": "zh-CN",
+                "zoom": 1,
+                "surfaceRole": "public",
+                "linkedIssues": [
+                    1462,
+                    1463,
+                    1464,
+                    1473,
+                    1476
+                ],
+                "status": "pass",
+                "machine": {
+                    "overflow": {
+                        "scrollWidth": 375,
+                        "clientWidth": 375,
+                        "deltaPx": 0,
+                        "status": "pass",
+                        "findings": []
+                    },
+                    "overlaps": {
+                        "status": "pass",
+                        "checked": 4,
+                        "findings": []
+                    },
+                    "clippedText": {
+                        "status": "pass",
+                        "checked": 4,
+                        "findings": []
+                    },
+                    "hitTargets": {
+                        "status": "pass",
+                        "checked": 4,
+                        "findings": []
+                    },
+                    "focusClipping": {
+                        "status": "pass",
+                        "checked": 4,
+                        "findings": []
+                    },
+                    "localeCoherence": {
+                        "status": "pass",
+                        "expectedLocale": "zh-CN",
+                        "findings": []
+                    },
+                    "headerStability": {
+                        "status": "pass",
+                        "maximumDifferencePx": 0,
+                        "samples": [
+                            {
+                                "phase": "domcontentloaded",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 375,
+                                    "height": 85
+                                }
+                            },
+                            {
+                                "phase": "application-ready",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 375,
+                                    "height": 85
+                                }
+                            },
+                            {
+                                "phase": "stable-frame",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 375,
+                                    "height": 85
+                                }
+                            }
+                        ],
+                        "findings": []
+                    },
+                    "primaryTask": {
+                        "status": "pass",
+                        "checkedSelectors": [],
+                        "visibleInFirstViewport": false,
+                        "findings": []
+                    }
+                },
+                "reviewer": {
+                    "classification": "pass",
+                    "reasons": [],
+                    "metrics": {
+                        "panelCount": 0,
+                        "nestedPanelCount": 0,
+                        "badgeCount": 0,
+                        "firstViewportPrimaryActionCount": 0,
+                        "gradientCount": 0,
+                        "glassCount": 0,
+                        "excessiveRadiusCount": 0
+                    }
+                }
+            },
+            {
+                "schema": "fsusblog.public-preview-quality-report.v1",
+                "id": "article-detail-tablet-en-us",
+                "route": "ArticleDetail",
+                "viewport": {
+                    "width": 768,
+                    "height": 1024
+                },
+                "theme": "light",
+                "locale": "en-US",
+                "zoom": 1,
+                "surfaceRole": "public",
+                "linkedIssues": [
+                    1462,
+                    1463,
+                    1464,
+                    1473,
+                    1476
+                ],
+                "status": "pass",
+                "machine": {
+                    "overflow": {
+                        "scrollWidth": 768,
+                        "clientWidth": 768,
+                        "deltaPx": 0,
+                        "status": "pass",
+                        "findings": []
+                    },
+                    "overlaps": {
+                        "status": "pass",
+                        "checked": 8,
+                        "findings": []
+                    },
+                    "clippedText": {
+                        "status": "pass",
+                        "checked": 8,
+                        "findings": []
+                    },
+                    "hitTargets": {
+                        "status": "pass",
+                        "checked": 8,
+                        "findings": []
+                    },
+                    "focusClipping": {
+                        "status": "pass",
+                        "checked": 8,
+                        "findings": []
+                    },
+                    "localeCoherence": {
+                        "status": "pass",
+                        "expectedLocale": "en-US",
+                        "findings": []
+                    },
+                    "headerStability": {
+                        "status": "pass",
+                        "maximumDifferencePx": 0,
+                        "samples": [
+                            {
+                                "phase": "domcontentloaded",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 768,
+                                    "height": 96
+                                }
+                            },
+                            {
+                                "phase": "application-ready",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 768,
+                                    "height": 96
+                                }
+                            },
+                            {
+                                "phase": "stable-frame",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 768,
+                                    "height": 96
+                                }
+                            }
+                        ],
+                        "findings": []
+                    },
+                    "primaryTask": {
+                        "status": "pass",
+                        "checkedSelectors": [],
+                        "visibleInFirstViewport": false,
+                        "findings": []
+                    }
+                },
+                "reviewer": {
+                    "classification": "pass",
+                    "reasons": [],
+                    "metrics": {
+                        "panelCount": 0,
+                        "nestedPanelCount": 0,
+                        "badgeCount": 0,
+                        "firstViewportPrimaryActionCount": 0,
+                        "gradientCount": 0,
+                        "glassCount": 0,
+                        "excessiveRadiusCount": 0
+                    }
+                }
+            },
+            {
+                "schema": "fsusblog.public-preview-quality-report.v1",
+                "id": "article-detail-tablet-zh-cn",
+                "route": "ArticleDetail",
+                "viewport": {
+                    "width": 768,
+                    "height": 1024
+                },
+                "theme": "light",
+                "locale": "zh-CN",
+                "zoom": 1,
+                "surfaceRole": "public",
+                "linkedIssues": [
+                    1462,
+                    1463,
+                    1464,
+                    1473,
+                    1476
+                ],
+                "status": "pass",
+                "machine": {
+                    "overflow": {
+                        "scrollWidth": 768,
+                        "clientWidth": 768,
+                        "deltaPx": 0,
+                        "status": "pass",
+                        "findings": []
+                    },
+                    "overlaps": {
+                        "status": "pass",
+                        "checked": 8,
+                        "findings": []
+                    },
+                    "clippedText": {
+                        "status": "pass",
+                        "checked": 8,
+                        "findings": []
+                    },
+                    "hitTargets": {
+                        "status": "pass",
+                        "checked": 8,
+                        "findings": []
+                    },
+                    "focusClipping": {
+                        "status": "pass",
+                        "checked": 8,
+                        "findings": []
+                    },
+                    "localeCoherence": {
+                        "status": "pass",
+                        "expectedLocale": "zh-CN",
+                        "findings": []
+                    },
+                    "headerStability": {
+                        "status": "pass",
+                        "maximumDifferencePx": 0,
+                        "samples": [
+                            {
+                                "phase": "domcontentloaded",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 768,
+                                    "height": 96
+                                }
+                            },
+                            {
+                                "phase": "application-ready",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 768,
+                                    "height": 96
+                                }
+                            },
+                            {
+                                "phase": "stable-frame",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 768,
+                                    "height": 96
+                                }
+                            }
+                        ],
+                        "findings": []
+                    },
+                    "primaryTask": {
+                        "status": "pass",
+                        "checkedSelectors": [],
+                        "visibleInFirstViewport": false,
+                        "findings": []
+                    }
+                },
+                "reviewer": {
+                    "classification": "pass",
+                    "reasons": [],
+                    "metrics": {
+                        "panelCount": 0,
+                        "nestedPanelCount": 0,
+                        "badgeCount": 0,
+                        "firstViewportPrimaryActionCount": 0,
+                        "gradientCount": 0,
+                        "glassCount": 0,
+                        "excessiveRadiusCount": 0
+                    }
+                }
+            },
+            {
+                "schema": "fsusblog.public-preview-quality-report.v1",
+                "id": "article-editor-desktop-1366",
+                "route": "ManageWriteArticle",
+                "viewport": {
+                    "width": 1366,
+                    "height": 768
+                },
+                "theme": "light",
+                "locale": "zh-CN",
+                "zoom": 1,
+                "surfaceRole": "task",
+                "linkedIssues": [
+                    1476
+                ],
+                "status": "pass",
+                "machine": {
+                    "overflow": {
+                        "scrollWidth": 1366,
+                        "clientWidth": 1366,
+                        "deltaPx": 0,
+                        "status": "pass",
+                        "findings": []
+                    },
+                    "overlaps": {
+                        "status": "pass",
+                        "checked": 32,
+                        "findings": []
+                    },
+                    "clippedText": {
+                        "status": "pass",
+                        "checked": 34,
+                        "findings": []
+                    },
+                    "hitTargets": {
+                        "status": "pass",
+                        "checked": 0,
+                        "findings": []
+                    },
+                    "focusClipping": {
+                        "status": "pass",
+                        "checked": 32,
+                        "findings": []
+                    },
+                    "localeCoherence": {
+                        "status": "pass",
+                        "expectedLocale": "zh-CN",
+                        "findings": []
+                    },
+                    "headerStability": {
+                        "status": "pass",
+                        "maximumDifferencePx": 0,
+                        "samples": [
+                            {
+                                "phase": "application-ready",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1366,
+                                    "height": 93
+                                }
+                            },
+                            {
+                                "phase": "stable-frame",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1366,
+                                    "height": 93
+                                }
+                            }
+                        ],
+                        "findings": []
+                    },
+                    "primaryTask": {
+                        "status": "pass",
+                        "checkedSelectors": [
+                            "main h1",
+                            "[data-page-title]",
+                            "[data-primary-task]",
+                            "[data-empty-state]"
+                        ],
+                        "visibleInFirstViewport": true,
+                        "findings": []
+                    }
+                },
+                "reviewer": {
+                    "classification": "pass",
+                    "reasons": [],
+                    "metrics": {
+                        "panelCount": 0,
+                        "nestedPanelCount": 0,
+                        "badgeCount": 0,
+                        "firstViewportPrimaryActionCount": 1,
+                        "gradientCount": 0,
+                        "glassCount": 0,
+                        "excessiveRadiusCount": 0
+                    }
+                }
+            },
+            {
+                "schema": "fsusblog.public-preview-quality-report.v1",
+                "id": "article-editor-desktop-1440",
+                "route": "ManageWriteArticle",
+                "viewport": {
+                    "width": 1440,
+                    "height": 900
+                },
+                "theme": "light",
+                "locale": "zh-CN",
+                "zoom": 1,
+                "surfaceRole": "task",
+                "linkedIssues": [
+                    1476
+                ],
+                "status": "pass",
+                "machine": {
+                    "overflow": {
+                        "scrollWidth": 1440,
+                        "clientWidth": 1440,
+                        "deltaPx": 0,
+                        "status": "pass",
+                        "findings": []
+                    },
+                    "overlaps": {
+                        "status": "pass",
+                        "checked": 32,
+                        "findings": []
+                    },
+                    "clippedText": {
+                        "status": "pass",
+                        "checked": 34,
+                        "findings": []
+                    },
+                    "hitTargets": {
+                        "status": "pass",
+                        "checked": 0,
+                        "findings": []
+                    },
+                    "focusClipping": {
+                        "status": "pass",
+                        "checked": 32,
+                        "findings": []
+                    },
+                    "localeCoherence": {
+                        "status": "pass",
+                        "expectedLocale": "zh-CN",
+                        "findings": []
+                    },
+                    "headerStability": {
+                        "status": "pass",
+                        "maximumDifferencePx": 0,
+                        "samples": [
+                            {
+                                "phase": "application-ready",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1440,
+                                    "height": 93
+                                }
+                            },
+                            {
+                                "phase": "stable-frame",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1440,
+                                    "height": 93
+                                }
+                            }
+                        ],
+                        "findings": []
+                    },
+                    "primaryTask": {
+                        "status": "pass",
+                        "checkedSelectors": [
+                            "main h1",
+                            "[data-page-title]",
+                            "[data-primary-task]",
+                            "[data-empty-state]"
+                        ],
+                        "visibleInFirstViewport": true,
+                        "findings": []
+                    }
+                },
+                "reviewer": {
+                    "classification": "pass",
+                    "reasons": [],
+                    "metrics": {
+                        "panelCount": 0,
+                        "nestedPanelCount": 0,
+                        "badgeCount": 0,
+                        "firstViewportPrimaryActionCount": 1,
+                        "gradientCount": 0,
+                        "glassCount": 0,
+                        "excessiveRadiusCount": 0
+                    }
+                }
+            },
+            {
+                "schema": "fsusblog.public-preview-quality-report.v1",
+                "id": "article-editor-mobile",
+                "route": "ManageWriteArticle",
+                "viewport": {
+                    "width": 375,
+                    "height": 812
+                },
+                "theme": "light",
+                "locale": "zh-CN",
+                "zoom": 1,
+                "surfaceRole": "task",
+                "linkedIssues": [
+                    1476
+                ],
+                "status": "pass",
+                "machine": {
+                    "overflow": {
+                        "scrollWidth": 375,
+                        "clientWidth": 375,
+                        "deltaPx": 0,
+                        "status": "pass",
+                        "findings": []
+                    },
+                    "overlaps": {
+                        "status": "pass",
+                        "checked": 14,
+                        "findings": []
+                    },
+                    "clippedText": {
+                        "status": "pass",
+                        "checked": 15,
+                        "findings": []
+                    },
+                    "hitTargets": {
+                        "status": "pass",
+                        "checked": 14,
+                        "findings": []
+                    },
+                    "focusClipping": {
+                        "status": "pass",
+                        "checked": 14,
+                        "findings": []
+                    },
+                    "localeCoherence": {
+                        "status": "pass",
+                        "expectedLocale": "zh-CN",
+                        "findings": []
+                    },
+                    "headerStability": {
+                        "status": "pass",
+                        "maximumDifferencePx": 0,
+                        "samples": [
+                            {
+                                "phase": "application-ready",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 375,
+                                    "height": 85
+                                }
+                            },
+                            {
+                                "phase": "stable-frame",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 375,
+                                    "height": 85
+                                }
+                            }
+                        ],
+                        "findings": []
+                    },
+                    "primaryTask": {
+                        "status": "pass",
+                        "checkedSelectors": [
+                            "main h1",
+                            "[data-page-title]",
+                            "[data-primary-task]",
+                            "[data-empty-state]"
+                        ],
+                        "visibleInFirstViewport": true,
+                        "findings": []
+                    }
+                },
+                "reviewer": {
+                    "classification": "pass",
+                    "reasons": [],
+                    "metrics": {
+                        "panelCount": 0,
+                        "nestedPanelCount": 0,
+                        "badgeCount": 0,
+                        "firstViewportPrimaryActionCount": 1,
+                        "gradientCount": 0,
+                        "glassCount": 0,
+                        "excessiveRadiusCount": 0
+                    }
+                }
+            },
+            {
+                "schema": "fsusblog.public-preview-quality-report.v1",
+                "id": "comment-moderation-desktop-1366",
+                "route": "ManageModerationComments",
+                "viewport": {
+                    "width": 1366,
+                    "height": 768
+                },
+                "theme": "light",
+                "locale": "zh-CN",
+                "zoom": 1,
+                "surfaceRole": "task",
+                "linkedIssues": [
+                    1476
+                ],
+                "status": "pass",
+                "machine": {
+                    "overflow": {
+                        "scrollWidth": 1366,
+                        "clientWidth": 1366,
+                        "deltaPx": 0,
+                        "status": "pass",
+                        "findings": []
+                    },
+                    "overlaps": {
+                        "status": "pass",
+                        "checked": 33,
+                        "findings": []
+                    },
+                    "clippedText": {
+                        "status": "pass",
+                        "checked": 34,
+                        "findings": []
+                    },
+                    "hitTargets": {
+                        "status": "pass",
+                        "checked": 0,
+                        "findings": []
+                    },
+                    "focusClipping": {
+                        "status": "pass",
+                        "checked": 33,
+                        "findings": []
+                    },
+                    "localeCoherence": {
+                        "status": "pass",
+                        "expectedLocale": "zh-CN",
+                        "findings": []
+                    },
+                    "headerStability": {
+                        "status": "pass",
+                        "maximumDifferencePx": 0,
+                        "samples": [
+                            {
+                                "phase": "application-ready",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1366,
+                                    "height": 93
+                                }
+                            },
+                            {
+                                "phase": "stable-frame",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1366,
+                                    "height": 93
+                                }
+                            }
+                        ],
+                        "findings": []
+                    },
+                    "primaryTask": {
+                        "status": "pass",
+                        "checkedSelectors": [
+                            "main h1",
+                            "[data-page-title]",
+                            "[data-primary-task]",
+                            "[data-empty-state]"
+                        ],
+                        "visibleInFirstViewport": true,
+                        "findings": []
+                    }
+                },
+                "reviewer": {
+                    "classification": "pass",
+                    "reasons": [],
+                    "metrics": {
+                        "panelCount": 0,
+                        "nestedPanelCount": 0,
+                        "badgeCount": 0,
+                        "firstViewportPrimaryActionCount": 0,
+                        "gradientCount": 0,
+                        "glassCount": 0,
+                        "excessiveRadiusCount": 0
+                    }
+                }
+            },
+            {
+                "schema": "fsusblog.public-preview-quality-report.v1",
+                "id": "comment-moderation-desktop-1440",
+                "route": "ManageModerationComments",
+                "viewport": {
+                    "width": 1440,
+                    "height": 900
+                },
+                "theme": "light",
+                "locale": "zh-CN",
+                "zoom": 1,
+                "surfaceRole": "task",
+                "linkedIssues": [
+                    1476
+                ],
+                "status": "pass",
+                "machine": {
+                    "overflow": {
+                        "scrollWidth": 1440,
+                        "clientWidth": 1440,
+                        "deltaPx": 0,
+                        "status": "pass",
+                        "findings": []
+                    },
+                    "overlaps": {
+                        "status": "pass",
+                        "checked": 33,
+                        "findings": []
+                    },
+                    "clippedText": {
+                        "status": "pass",
+                        "checked": 34,
+                        "findings": []
+                    },
+                    "hitTargets": {
+                        "status": "pass",
+                        "checked": 0,
+                        "findings": []
+                    },
+                    "focusClipping": {
+                        "status": "pass",
+                        "checked": 33,
+                        "findings": []
+                    },
+                    "localeCoherence": {
+                        "status": "pass",
+                        "expectedLocale": "zh-CN",
+                        "findings": []
+                    },
+                    "headerStability": {
+                        "status": "pass",
+                        "maximumDifferencePx": 0,
+                        "samples": [
+                            {
+                                "phase": "application-ready",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1440,
+                                    "height": 93
+                                }
+                            },
+                            {
+                                "phase": "stable-frame",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1440,
+                                    "height": 93
+                                }
+                            }
+                        ],
+                        "findings": []
+                    },
+                    "primaryTask": {
+                        "status": "pass",
+                        "checkedSelectors": [
+                            "main h1",
+                            "[data-page-title]",
+                            "[data-primary-task]",
+                            "[data-empty-state]"
+                        ],
+                        "visibleInFirstViewport": true,
+                        "findings": []
+                    }
+                },
+                "reviewer": {
+                    "classification": "pass",
+                    "reasons": [],
+                    "metrics": {
+                        "panelCount": 0,
+                        "nestedPanelCount": 0,
+                        "badgeCount": 0,
+                        "firstViewportPrimaryActionCount": 0,
+                        "gradientCount": 0,
+                        "glassCount": 0,
+                        "excessiveRadiusCount": 0
+                    }
+                }
+            },
+            {
+                "schema": "fsusblog.public-preview-quality-report.v1",
+                "id": "comment-moderation-mobile",
+                "route": "ManageModerationComments",
+                "viewport": {
+                    "width": 375,
+                    "height": 812
+                },
+                "theme": "light",
+                "locale": "zh-CN",
+                "zoom": 1,
+                "surfaceRole": "task",
+                "linkedIssues": [
+                    1476
+                ],
+                "status": "pass",
+                "machine": {
+                    "overflow": {
+                        "scrollWidth": 375,
+                        "clientWidth": 375,
+                        "deltaPx": 0,
+                        "status": "pass",
+                        "findings": []
+                    },
+                    "overlaps": {
+                        "status": "pass",
+                        "checked": 20,
+                        "findings": []
+                    },
+                    "clippedText": {
+                        "status": "pass",
+                        "checked": 21,
+                        "findings": []
+                    },
+                    "hitTargets": {
+                        "status": "pass",
+                        "checked": 20,
+                        "findings": []
+                    },
+                    "focusClipping": {
+                        "status": "pass",
+                        "checked": 20,
+                        "findings": []
+                    },
+                    "localeCoherence": {
+                        "status": "pass",
+                        "expectedLocale": "zh-CN",
+                        "findings": []
+                    },
+                    "headerStability": {
+                        "status": "pass",
+                        "maximumDifferencePx": 0,
+                        "samples": [
+                            {
+                                "phase": "application-ready",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 375,
+                                    "height": 85
+                                }
+                            },
+                            {
+                                "phase": "stable-frame",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 375,
+                                    "height": 85
+                                }
+                            }
+                        ],
+                        "findings": []
+                    },
+                    "primaryTask": {
+                        "status": "pass",
+                        "checkedSelectors": [
+                            "main h1",
+                            "[data-page-title]",
+                            "[data-primary-task]",
+                            "[data-empty-state]"
+                        ],
+                        "visibleInFirstViewport": true,
+                        "findings": []
+                    }
+                },
+                "reviewer": {
+                    "classification": "pass",
+                    "reasons": [],
+                    "metrics": {
+                        "panelCount": 0,
+                        "nestedPanelCount": 0,
+                        "badgeCount": 0,
+                        "firstViewportPrimaryActionCount": 0,
+                        "gradientCount": 0,
+                        "glassCount": 0,
+                        "excessiveRadiusCount": 0
+                    }
+                }
+            },
+            {
+                "schema": "fsusblog.public-preview-quality-report.v1",
+                "id": "operations-status-desktop-1366",
+                "route": "ManageOpsHealth",
+                "viewport": {
+                    "width": 1366,
+                    "height": 768
+                },
+                "theme": "light",
+                "locale": "zh-CN",
+                "zoom": 1,
+                "surfaceRole": "task",
+                "linkedIssues": [
+                    1471,
+                    1476
+                ],
+                "status": "pass",
+                "machine": {
+                    "overflow": {
+                        "scrollWidth": 1366,
+                        "clientWidth": 1366,
+                        "deltaPx": 0,
+                        "status": "pass",
+                        "findings": []
+                    },
+                    "overlaps": {
+                        "status": "pass",
+                        "checked": 33,
+                        "findings": []
+                    },
+                    "clippedText": {
+                        "status": "pass",
+                        "checked": 46,
+                        "findings": []
+                    },
+                    "hitTargets": {
+                        "status": "pass",
+                        "checked": 0,
+                        "findings": []
+                    },
+                    "focusClipping": {
+                        "status": "pass",
+                        "checked": 33,
+                        "findings": []
+                    },
+                    "localeCoherence": {
+                        "status": "pass",
+                        "expectedLocale": "zh-CN",
+                        "findings": []
+                    },
+                    "headerStability": {
+                        "status": "pass",
+                        "maximumDifferencePx": 0,
+                        "samples": [
+                            {
+                                "phase": "application-ready",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1366,
+                                    "height": 93
+                                }
+                            },
+                            {
+                                "phase": "stable-frame",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1366,
+                                    "height": 93
+                                }
+                            }
+                        ],
+                        "findings": []
+                    },
+                    "primaryTask": {
+                        "status": "pass",
+                        "checkedSelectors": [
+                            "main h1",
+                            "[data-page-title]",
+                            "[data-primary-task]",
+                            "[data-empty-state]"
+                        ],
+                        "visibleInFirstViewport": true,
+                        "findings": []
+                    }
+                },
+                "reviewer": {
+                    "classification": "pass",
+                    "reasons": [],
+                    "metrics": {
+                        "panelCount": 0,
+                        "nestedPanelCount": 0,
+                        "badgeCount": 0,
+                        "firstViewportPrimaryActionCount": 0,
+                        "gradientCount": 0,
+                        "glassCount": 0,
+                        "excessiveRadiusCount": 0
+                    }
+                }
+            },
+            {
+                "schema": "fsusblog.public-preview-quality-report.v1",
+                "id": "operations-status-desktop-1440",
+                "route": "ManageOpsHealth",
+                "viewport": {
+                    "width": 1440,
+                    "height": 900
+                },
+                "theme": "light",
+                "locale": "zh-CN",
+                "zoom": 1,
+                "surfaceRole": "task",
+                "linkedIssues": [
+                    1471,
+                    1476
+                ],
+                "status": "pass",
+                "machine": {
+                    "overflow": {
+                        "scrollWidth": 1440,
+                        "clientWidth": 1440,
+                        "deltaPx": 0,
+                        "status": "pass",
+                        "findings": []
+                    },
+                    "overlaps": {
+                        "status": "pass",
+                        "checked": 33,
+                        "findings": []
+                    },
+                    "clippedText": {
+                        "status": "pass",
+                        "checked": 46,
+                        "findings": []
+                    },
+                    "hitTargets": {
+                        "status": "pass",
+                        "checked": 0,
+                        "findings": []
+                    },
+                    "focusClipping": {
+                        "status": "pass",
+                        "checked": 33,
+                        "findings": []
+                    },
+                    "localeCoherence": {
+                        "status": "pass",
+                        "expectedLocale": "zh-CN",
+                        "findings": []
+                    },
+                    "headerStability": {
+                        "status": "pass",
+                        "maximumDifferencePx": 0,
+                        "samples": [
+                            {
+                                "phase": "application-ready",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1440,
+                                    "height": 93
+                                }
+                            },
+                            {
+                                "phase": "stable-frame",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1440,
+                                    "height": 93
+                                }
+                            }
+                        ],
+                        "findings": []
+                    },
+                    "primaryTask": {
+                        "status": "pass",
+                        "checkedSelectors": [
+                            "main h1",
+                            "[data-page-title]",
+                            "[data-primary-task]",
+                            "[data-empty-state]"
+                        ],
+                        "visibleInFirstViewport": true,
+                        "findings": []
+                    }
+                },
+                "reviewer": {
+                    "classification": "pass",
+                    "reasons": [],
+                    "metrics": {
+                        "panelCount": 0,
+                        "nestedPanelCount": 0,
+                        "badgeCount": 0,
+                        "firstViewportPrimaryActionCount": 0,
+                        "gradientCount": 0,
+                        "glassCount": 0,
+                        "excessiveRadiusCount": 0
+                    }
+                }
+            },
+            {
+                "schema": "fsusblog.public-preview-quality-report.v1",
+                "id": "operations-status-mobile",
+                "route": "ManageOpsHealth",
+                "viewport": {
+                    "width": 375,
+                    "height": 812
+                },
+                "theme": "light",
+                "locale": "zh-CN",
+                "zoom": 1,
+                "surfaceRole": "task",
+                "linkedIssues": [
+                    1471,
+                    1476
+                ],
+                "status": "pass",
+                "machine": {
+                    "overflow": {
+                        "scrollWidth": 375,
+                        "clientWidth": 375,
+                        "deltaPx": 0,
+                        "status": "pass",
+                        "findings": []
+                    },
+                    "overlaps": {
+                        "status": "pass",
+                        "checked": 22,
+                        "findings": []
+                    },
+                    "clippedText": {
+                        "status": "pass",
+                        "checked": 35,
+                        "findings": []
+                    },
+                    "hitTargets": {
+                        "status": "pass",
+                        "checked": 22,
+                        "findings": []
+                    },
+                    "focusClipping": {
+                        "status": "pass",
+                        "checked": 22,
+                        "findings": []
+                    },
+                    "localeCoherence": {
+                        "status": "pass",
+                        "expectedLocale": "zh-CN",
+                        "findings": []
+                    },
+                    "headerStability": {
+                        "status": "pass",
+                        "maximumDifferencePx": 0,
+                        "samples": [
+                            {
+                                "phase": "application-ready",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 375,
+                                    "height": 85
+                                }
+                            },
+                            {
+                                "phase": "stable-frame",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 375,
+                                    "height": 85
+                                }
+                            }
+                        ],
+                        "findings": []
+                    },
+                    "primaryTask": {
+                        "status": "pass",
+                        "checkedSelectors": [
+                            "main h1",
+                            "[data-page-title]",
+                            "[data-primary-task]",
+                            "[data-empty-state]"
+                        ],
+                        "visibleInFirstViewport": true,
+                        "findings": []
+                    }
+                },
+                "reviewer": {
+                    "classification": "pass",
+                    "reasons": [],
+                    "metrics": {
+                        "panelCount": 0,
+                        "nestedPanelCount": 0,
+                        "badgeCount": 0,
+                        "firstViewportPrimaryActionCount": 0,
+                        "gradientCount": 0,
+                        "glassCount": 0,
+                        "excessiveRadiusCount": 0
+                    }
+                }
+            },
+            {
+                "schema": "fsusblog.public-preview-quality-report.v1",
+                "id": "public-home-desktop-150-zoom",
+                "route": "Home",
+                "viewport": {
+                    "width": 1440,
+                    "height": 900
+                },
+                "theme": "light",
+                "locale": "zh-CN",
+                "zoom": 1.5,
+                "surfaceRole": "public",
+                "linkedIssues": [
+                    1474,
+                    1476
+                ],
+                "status": "pass",
+                "machine": {
+                    "overflow": {
+                        "scrollWidth": 1440,
+                        "clientWidth": 1440,
+                        "deltaPx": 0,
+                        "status": "pass",
+                        "findings": []
+                    },
+                    "overlaps": {
+                        "status": "pass",
+                        "checked": 8,
+                        "findings": []
+                    },
+                    "clippedText": {
+                        "status": "pass",
+                        "checked": 10,
+                        "findings": []
+                    },
+                    "hitTargets": {
+                        "status": "pass",
+                        "checked": 0,
+                        "findings": []
+                    },
+                    "focusClipping": {
+                        "status": "pass",
+                        "checked": 8,
+                        "findings": []
+                    },
+                    "localeCoherence": {
+                        "status": "pass",
+                        "expectedLocale": "zh-CN",
+                        "findings": []
+                    },
+                    "headerStability": {
+                        "status": "pass",
+                        "maximumDifferencePx": 0,
+                        "samples": [
+                            {
+                                "phase": "domcontentloaded",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1440,
+                                    "height": 144
+                                }
+                            },
+                            {
+                                "phase": "application-ready",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1440,
+                                    "height": 144
+                                }
+                            },
+                            {
+                                "phase": "stable-frame",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1440,
+                                    "height": 144
+                                }
+                            }
+                        ],
+                        "findings": []
+                    },
+                    "primaryTask": {
+                        "status": "pass",
+                        "checkedSelectors": [],
+                        "visibleInFirstViewport": false,
+                        "findings": []
+                    }
+                },
+                "reviewer": {
+                    "classification": "pass",
+                    "reasons": [],
+                    "metrics": {
+                        "panelCount": 0,
+                        "nestedPanelCount": 0,
+                        "badgeCount": 3,
+                        "firstViewportPrimaryActionCount": 0,
+                        "gradientCount": 0,
+                        "glassCount": 0,
+                        "excessiveRadiusCount": 0
+                    }
+                }
+            },
+            {
+                "schema": "fsusblog.public-preview-quality-report.v1",
+                "id": "public-home-desktop-dark",
+                "route": "Home",
+                "viewport": {
+                    "width": 1440,
+                    "height": 900
+                },
+                "theme": "dark",
+                "locale": "zh-CN",
+                "zoom": 1,
+                "surfaceRole": "public",
+                "linkedIssues": [
+                    1425,
+                    1474,
+                    1476
+                ],
+                "status": "pass",
+                "machine": {
+                    "overflow": {
+                        "scrollWidth": 1440,
+                        "clientWidth": 1440,
+                        "deltaPx": 0,
+                        "status": "pass",
+                        "findings": []
+                    },
+                    "overlaps": {
+                        "status": "pass",
+                        "checked": 8,
+                        "findings": []
+                    },
+                    "clippedText": {
+                        "status": "pass",
+                        "checked": 10,
+                        "findings": []
+                    },
+                    "hitTargets": {
+                        "status": "pass",
+                        "checked": 0,
+                        "findings": []
+                    },
+                    "focusClipping": {
+                        "status": "pass",
+                        "checked": 8,
+                        "findings": []
+                    },
+                    "localeCoherence": {
+                        "status": "pass",
+                        "expectedLocale": "zh-CN",
+                        "findings": []
+                    },
+                    "headerStability": {
+                        "status": "pass",
+                        "maximumDifferencePx": 0,
+                        "samples": [
+                            {
+                                "phase": "domcontentloaded",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1440,
+                                    "height": 96
+                                }
+                            },
+                            {
+                                "phase": "application-ready",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1440,
+                                    "height": 96
+                                }
+                            },
+                            {
+                                "phase": "stable-frame",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1440,
+                                    "height": 96
+                                }
+                            }
+                        ],
+                        "findings": []
+                    },
+                    "primaryTask": {
+                        "status": "pass",
+                        "checkedSelectors": [],
+                        "visibleInFirstViewport": false,
+                        "findings": []
+                    }
+                },
+                "reviewer": {
+                    "classification": "pass",
+                    "reasons": [],
+                    "metrics": {
+                        "panelCount": 0,
+                        "nestedPanelCount": 0,
+                        "badgeCount": 3,
+                        "firstViewportPrimaryActionCount": 0,
+                        "gradientCount": 0,
+                        "glassCount": 0,
+                        "excessiveRadiusCount": 0
+                    }
+                }
+            },
+            {
+                "schema": "fsusblog.public-preview-quality-report.v1",
+                "id": "public-home-desktop-light",
+                "route": "Home",
+                "viewport": {
+                    "width": 1440,
+                    "height": 900
+                },
+                "theme": "light",
+                "locale": "zh-CN",
+                "zoom": 1,
+                "surfaceRole": "public",
+                "linkedIssues": [
+                    1425,
+                    1474,
+                    1476
+                ],
+                "status": "pass",
+                "machine": {
+                    "overflow": {
+                        "scrollWidth": 1440,
+                        "clientWidth": 1440,
+                        "deltaPx": 0,
+                        "status": "pass",
+                        "findings": []
+                    },
+                    "overlaps": {
+                        "status": "pass",
+                        "checked": 8,
+                        "findings": []
+                    },
+                    "clippedText": {
+                        "status": "pass",
+                        "checked": 10,
+                        "findings": []
+                    },
+                    "hitTargets": {
+                        "status": "pass",
+                        "checked": 0,
+                        "findings": []
+                    },
+                    "focusClipping": {
+                        "status": "pass",
+                        "checked": 8,
+                        "findings": []
+                    },
+                    "localeCoherence": {
+                        "status": "pass",
+                        "expectedLocale": "zh-CN",
+                        "findings": []
+                    },
+                    "headerStability": {
+                        "status": "pass",
+                        "maximumDifferencePx": 0,
+                        "samples": [
+                            {
+                                "phase": "domcontentloaded",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1440,
+                                    "height": 96
+                                }
+                            },
+                            {
+                                "phase": "application-ready",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1440,
+                                    "height": 96
+                                }
+                            },
+                            {
+                                "phase": "stable-frame",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1440,
+                                    "height": 96
+                                }
+                            }
+                        ],
+                        "findings": []
+                    },
+                    "primaryTask": {
+                        "status": "pass",
+                        "checkedSelectors": [],
+                        "visibleInFirstViewport": false,
+                        "findings": []
+                    }
+                },
+                "reviewer": {
+                    "classification": "pass",
+                    "reasons": [],
+                    "metrics": {
+                        "panelCount": 0,
+                        "nestedPanelCount": 0,
+                        "badgeCount": 3,
+                        "firstViewportPrimaryActionCount": 0,
+                        "gradientCount": 0,
+                        "glassCount": 0,
+                        "excessiveRadiusCount": 0
+                    }
+                }
+            },
+            {
+                "schema": "fsusblog.public-preview-quality-report.v1",
+                "id": "public-home-mobile-dark",
+                "route": "Home",
+                "viewport": {
+                    "width": 375,
+                    "height": 812
+                },
+                "theme": "dark",
+                "locale": "zh-CN",
+                "zoom": 1,
+                "surfaceRole": "public",
+                "linkedIssues": [
+                    1425,
+                    1474,
+                    1476
+                ],
+                "status": "pass",
+                "machine": {
+                    "overflow": {
+                        "scrollWidth": 375,
+                        "clientWidth": 375,
+                        "deltaPx": 0,
+                        "status": "pass",
+                        "findings": []
+                    },
+                    "overlaps": {
+                        "status": "pass",
+                        "checked": 4,
+                        "findings": []
+                    },
+                    "clippedText": {
+                        "status": "pass",
+                        "checked": 6,
+                        "findings": []
+                    },
+                    "hitTargets": {
+                        "status": "pass",
+                        "checked": 4,
+                        "findings": []
+                    },
+                    "focusClipping": {
+                        "status": "pass",
+                        "checked": 4,
+                        "findings": []
+                    },
+                    "localeCoherence": {
+                        "status": "pass",
+                        "expectedLocale": "zh-CN",
+                        "findings": []
+                    },
+                    "headerStability": {
+                        "status": "pass",
+                        "maximumDifferencePx": 0,
+                        "samples": [
+                            {
+                                "phase": "domcontentloaded",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 375,
+                                    "height": 85
+                                }
+                            },
+                            {
+                                "phase": "application-ready",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 375,
+                                    "height": 85
+                                }
+                            },
+                            {
+                                "phase": "stable-frame",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 375,
+                                    "height": 85
+                                }
+                            }
+                        ],
+                        "findings": []
+                    },
+                    "primaryTask": {
+                        "status": "pass",
+                        "checkedSelectors": [],
+                        "visibleInFirstViewport": false,
+                        "findings": []
+                    }
+                },
+                "reviewer": {
+                    "classification": "pass",
+                    "reasons": [],
+                    "metrics": {
+                        "panelCount": 0,
+                        "nestedPanelCount": 0,
+                        "badgeCount": 0,
+                        "firstViewportPrimaryActionCount": 0,
+                        "gradientCount": 0,
+                        "glassCount": 0,
+                        "excessiveRadiusCount": 0
+                    }
+                }
+            },
+            {
+                "schema": "fsusblog.public-preview-quality-report.v1",
+                "id": "public-home-mobile-light",
+                "route": "Home",
+                "viewport": {
+                    "width": 375,
+                    "height": 812
+                },
+                "theme": "light",
+                "locale": "zh-CN",
+                "zoom": 1,
+                "surfaceRole": "public",
+                "linkedIssues": [
+                    1425,
+                    1474,
+                    1476
+                ],
+                "status": "pass",
+                "machine": {
+                    "overflow": {
+                        "scrollWidth": 375,
+                        "clientWidth": 375,
+                        "deltaPx": 0,
+                        "status": "pass",
+                        "findings": []
+                    },
+                    "overlaps": {
+                        "status": "pass",
+                        "checked": 4,
+                        "findings": []
+                    },
+                    "clippedText": {
+                        "status": "pass",
+                        "checked": 6,
+                        "findings": []
+                    },
+                    "hitTargets": {
+                        "status": "pass",
+                        "checked": 4,
+                        "findings": []
+                    },
+                    "focusClipping": {
+                        "status": "pass",
+                        "checked": 4,
+                        "findings": []
+                    },
+                    "localeCoherence": {
+                        "status": "pass",
+                        "expectedLocale": "zh-CN",
+                        "findings": []
+                    },
+                    "headerStability": {
+                        "status": "pass",
+                        "maximumDifferencePx": 0,
+                        "samples": [
+                            {
+                                "phase": "domcontentloaded",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 375,
+                                    "height": 85
+                                }
+                            },
+                            {
+                                "phase": "application-ready",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 375,
+                                    "height": 85
+                                }
+                            },
+                            {
+                                "phase": "stable-frame",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 375,
+                                    "height": 85
+                                }
+                            }
+                        ],
+                        "findings": []
+                    },
+                    "primaryTask": {
+                        "status": "pass",
+                        "checkedSelectors": [],
+                        "visibleInFirstViewport": false,
+                        "findings": []
+                    }
+                },
+                "reviewer": {
+                    "classification": "pass",
+                    "reasons": [],
+                    "metrics": {
+                        "panelCount": 0,
+                        "nestedPanelCount": 0,
+                        "badgeCount": 0,
+                        "firstViewportPrimaryActionCount": 0,
+                        "gradientCount": 0,
+                        "glassCount": 0,
+                        "excessiveRadiusCount": 0
+                    }
+                }
+            },
+            {
+                "schema": "fsusblog.public-preview-quality-report.v1",
+                "id": "security-console-desktop-1366",
+                "route": "ManageSecurityDashboard",
+                "viewport": {
+                    "width": 1366,
+                    "height": 768
+                },
+                "theme": "light",
+                "locale": "zh-CN",
+                "zoom": 1,
+                "surfaceRole": "task",
+                "linkedIssues": [
+                    1476
+                ],
+                "status": "pass",
+                "machine": {
+                    "overflow": {
+                        "scrollWidth": 1366,
+                        "clientWidth": 1366,
+                        "deltaPx": 0,
+                        "status": "pass",
+                        "findings": []
+                    },
+                    "overlaps": {
+                        "status": "pass",
+                        "checked": 20,
+                        "findings": []
+                    },
+                    "clippedText": {
+                        "status": "pass",
+                        "checked": 25,
+                        "findings": []
+                    },
+                    "hitTargets": {
+                        "status": "pass",
+                        "checked": 0,
+                        "findings": []
+                    },
+                    "focusClipping": {
+                        "status": "pass",
+                        "checked": 20,
+                        "findings": []
+                    },
+                    "localeCoherence": {
+                        "status": "pass",
+                        "expectedLocale": "zh-CN",
+                        "findings": []
+                    },
+                    "headerStability": {
+                        "status": "pass",
+                        "maximumDifferencePx": 0,
+                        "samples": [
+                            {
+                                "phase": "application-ready",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1366,
+                                    "height": 93
+                                }
+                            },
+                            {
+                                "phase": "stable-frame",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1366,
+                                    "height": 93
+                                }
+                            }
+                        ],
+                        "findings": []
+                    },
+                    "primaryTask": {
+                        "status": "pass",
+                        "checkedSelectors": [
+                            "main h1",
+                            "[data-page-title]",
+                            "[data-primary-task]",
+                            "[data-empty-state]"
+                        ],
+                        "visibleInFirstViewport": true,
+                        "findings": []
+                    }
+                },
+                "reviewer": {
+                    "classification": "pass",
+                    "reasons": [],
+                    "metrics": {
+                        "panelCount": 0,
+                        "nestedPanelCount": 0,
+                        "badgeCount": 0,
+                        "firstViewportPrimaryActionCount": 0,
+                        "gradientCount": 0,
+                        "glassCount": 0,
+                        "excessiveRadiusCount": 0
+                    }
+                }
+            },
+            {
+                "schema": "fsusblog.public-preview-quality-report.v1",
+                "id": "security-console-desktop-1440",
+                "route": "ManageSecurityDashboard",
+                "viewport": {
+                    "width": 1440,
+                    "height": 900
+                },
+                "theme": "light",
+                "locale": "zh-CN",
+                "zoom": 1,
+                "surfaceRole": "task",
+                "linkedIssues": [
+                    1476
+                ],
+                "status": "pass",
+                "machine": {
+                    "overflow": {
+                        "scrollWidth": 1440,
+                        "clientWidth": 1440,
+                        "deltaPx": 0,
+                        "status": "pass",
+                        "findings": []
+                    },
+                    "overlaps": {
+                        "status": "pass",
+                        "checked": 20,
+                        "findings": []
+                    },
+                    "clippedText": {
+                        "status": "pass",
+                        "checked": 25,
+                        "findings": []
+                    },
+                    "hitTargets": {
+                        "status": "pass",
+                        "checked": 0,
+                        "findings": []
+                    },
+                    "focusClipping": {
+                        "status": "pass",
+                        "checked": 20,
+                        "findings": []
+                    },
+                    "localeCoherence": {
+                        "status": "pass",
+                        "expectedLocale": "zh-CN",
+                        "findings": []
+                    },
+                    "headerStability": {
+                        "status": "pass",
+                        "maximumDifferencePx": 0,
+                        "samples": [
+                            {
+                                "phase": "application-ready",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1440,
+                                    "height": 93
+                                }
+                            },
+                            {
+                                "phase": "stable-frame",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1440,
+                                    "height": 93
+                                }
+                            }
+                        ],
+                        "findings": []
+                    },
+                    "primaryTask": {
+                        "status": "pass",
+                        "checkedSelectors": [
+                            "main h1",
+                            "[data-page-title]",
+                            "[data-primary-task]",
+                            "[data-empty-state]"
+                        ],
+                        "visibleInFirstViewport": true,
+                        "findings": []
+                    }
+                },
+                "reviewer": {
+                    "classification": "pass",
+                    "reasons": [],
+                    "metrics": {
+                        "panelCount": 0,
+                        "nestedPanelCount": 0,
+                        "badgeCount": 0,
+                        "firstViewportPrimaryActionCount": 0,
+                        "gradientCount": 0,
+                        "glassCount": 0,
+                        "excessiveRadiusCount": 0
+                    }
+                }
+            },
+            {
+                "schema": "fsusblog.public-preview-quality-report.v1",
+                "id": "security-console-mobile",
+                "route": "ManageSecurityDashboard",
+                "viewport": {
+                    "width": 375,
+                    "height": 812
+                },
+                "theme": "light",
+                "locale": "zh-CN",
+                "zoom": 1,
+                "surfaceRole": "task",
+                "linkedIssues": [
+                    1476
+                ],
+                "status": "pass",
+                "machine": {
+                    "overflow": {
+                        "scrollWidth": 375,
+                        "clientWidth": 375,
+                        "deltaPx": 0,
+                        "status": "pass",
+                        "findings": []
+                    },
+                    "overlaps": {
+                        "status": "pass",
+                        "checked": 15,
+                        "findings": []
+                    },
+                    "clippedText": {
+                        "status": "pass",
+                        "checked": 20,
+                        "findings": []
+                    },
+                    "hitTargets": {
+                        "status": "pass",
+                        "checked": 15,
+                        "findings": []
+                    },
+                    "focusClipping": {
+                        "status": "pass",
+                        "checked": 15,
+                        "findings": []
+                    },
+                    "localeCoherence": {
+                        "status": "pass",
+                        "expectedLocale": "zh-CN",
+                        "findings": []
+                    },
+                    "headerStability": {
+                        "status": "pass",
+                        "maximumDifferencePx": 0,
+                        "samples": [
+                            {
+                                "phase": "application-ready",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 375,
+                                    "height": 85
+                                }
+                            },
+                            {
+                                "phase": "stable-frame",
+                                "rect": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 375,
+                                    "height": 85
+                                }
+                            }
+                        ],
+                        "findings": []
+                    },
+                    "primaryTask": {
+                        "status": "pass",
+                        "checkedSelectors": [
+                            "main h1",
+                            "[data-page-title]",
+                            "[data-primary-task]",
+                            "[data-empty-state]"
+                        ],
+                        "visibleInFirstViewport": true,
+                        "findings": []
+                    }
+                },
+                "reviewer": {
+                    "classification": "pass",
+                    "reasons": [],
+                    "metrics": {
+                        "panelCount": 0,
+                        "nestedPanelCount": 0,
+                        "badgeCount": 0,
+                        "firstViewportPrimaryActionCount": 0,
+                        "gradientCount": 0,
+                        "glassCount": 0,
+                        "excessiveRadiusCount": 0
+                    }
+                }
+            }
+        ]
+    }
+}

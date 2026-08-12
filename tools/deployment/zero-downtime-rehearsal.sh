@@ -85,6 +85,19 @@ WorkerObserverServiceProcessMatches() {
     ((scriptSeen == 1 && stateSeen == 1))
 }
 
+WaitForWorkerObserverServiceProcess() {
+    local pid="$1" serviceRoot="$2" attempt
+    for attempt in {1..200}; do
+        WorkerObserverServiceProcessIsLive "$pid" || return 1
+        if ProcessGroupIsIsolated "$pid" &&
+            WorkerObserverServiceProcessMatches "$pid" "$serviceRoot"; then
+            return 0
+        fi
+        sleep 0.05
+    done
+    return 1
+}
+
 WorkerObserverServiceStopProcess() {
     local serviceRoot="$1" requireRunning="${2:-1}"
     local pidFile="$serviceRoot/service.pid" pid="" wasRunning=0 status=0 state=""
@@ -137,7 +150,7 @@ WorkerObserverServiceStartProcess() {
     local serviceLabel="${serviceRoot##*/}"
     local stdoutFile="$logRoot/$serviceLabel.stdout"
     local stderrFile="$logRoot/$serviceLabel.stderr"
-    local pid sid
+    local pid
     [[ ! -e "$serviceRoot" && ! -L "$serviceRoot" ]] || return 1
     [[ -f "$servicePlan" && ! -L "$servicePlan" ]] || return 1
     [[ -f "$observerEnvSource" && ! -L "$observerEnvSource" ]] || return 1
@@ -157,19 +170,13 @@ WorkerObserverServiceStartProcess() {
         --state-dir "$stateDir" \
         >"$stdoutFile" 2>"$stderrFile" &
     pid=$!
-    sid="$(ps -o sid= -p "$pid" 2>/dev/null | tr -d '[:space:]')"
-    if [[ "$sid" != "$pid" ]]; then
-        kill -KILL "$pid" >/dev/null 2>&1 || true
-        wait "$pid" >/dev/null 2>&1 || true
-        return 1
-    fi
-    if ! WorkerObserverServiceProcessMatches "$pid" "$serviceRoot"; then
-        kill -KILL -- "-$pid" >/dev/null 2>&1 || true
+    if ! WaitForWorkerObserverServiceProcess "$pid" "$serviceRoot"; then
+        StopProcessGroup "$pid" KILL
         wait "$pid" >/dev/null 2>&1 || true
         return 1
     fi
     install -m 0600 /dev/null "$pidFile" || {
-        kill -KILL -- "-$pid" >/dev/null 2>&1 || true
+        StopProcessGroup "$pid" KILL
         wait "$pid" >/dev/null 2>&1 || true
         return 1
     }
@@ -320,9 +327,7 @@ InternalFaultSetup() {
         >"$INTERNAL_CASE_ROOT/normal-worker-observer.stdout" \
         2>"$INTERNAL_CASE_ROOT/normal-worker-observer.stderr" &
     local observerPid=$!
-    local observerSid
-    observerSid="$(ps -o sid= -p "$observerPid" 2>/dev/null | tr -d ' ')"
-    if [[ "$observerSid" != "$observerPid" ]]; then
+    if ! WaitForIsolatedProcessGroup "$observerPid"; then
         kill -KILL "$observerPid" >/dev/null 2>&1 || true
         WorkerObserverServiceStopProcess "$INTERNAL_OBSERVER_SERVICE_ROOT" 0 >/dev/null 2>&1 || true
         InternalFaultFail "normal observer process group is not isolated"
@@ -565,6 +570,18 @@ ProcessGroupIsIsolated() {
     [[ "$sid" == "$pid" ]]
 }
 
+WaitForIsolatedProcessGroup() {
+    local pid="$1" attempt state
+    [[ "$pid" =~ ^[0-9]+$ && "$pid" -gt 1 ]] || return 1
+    for attempt in {1..200}; do
+        state="$(ps -o stat= -p "$pid" 2>/dev/null | tr -d '[:space:]')"
+        [[ -n "$state" && "$state" != Z* ]] || return 1
+        ProcessGroupIsIsolated "$pid" && return 0
+        sleep 0.05
+    done
+    return 1
+}
+
 StopProcessGroup() {
     local pid="$1" signal="${2:-TERM}"
     kill -0 "$pid" >/dev/null 2>&1 || return 0
@@ -785,7 +802,7 @@ StartNormalWorkerObserver() {
         2>"$phaseRoot/logs/normal-worker-observer.stderr" &
     NORMAL_WORKER_PID=$!
     RecordCommand "$phase-normal-worker-observer-start" 0
-    ProcessGroupIsIsolated "$NORMAL_WORKER_PID"
+    WaitForIsolatedProcessGroup "$NORMAL_WORKER_PID"
 }
 
 ExecuteRolloutWithNormalObserver() {
@@ -814,7 +831,7 @@ ExecuteRolloutWithNormalObserver() {
         >"$logRoot/$label.stdout" 2>"$logRoot/$label.stderr" &
     rolloutPid=$!
     RecordCommand "$label-start" 0
-    if ! ProcessGroupIsIsolated "$rolloutPid"; then
+    if ! WaitForIsolatedProcessGroup "$rolloutPid"; then
         StopProcessGroup "$rolloutPid" TERM
         StopProcessGroup "$NORMAL_WORKER_PID" TERM
         wait "$rolloutPid" >/dev/null 2>&1 || true
@@ -926,7 +943,7 @@ RunWorkerQualificationDrill() {
             >"$qualRoot/logs/release-rollout.stdout" 2>"$qualRoot/logs/release-rollout.stderr" &
         releasePid=$!
         RecordCommand "$phase-qualification-rollout-start" 0
-        if ! ProcessGroupIsIsolated "$releasePid"; then
+        if ! WaitForIsolatedProcessGroup "$releasePid"; then
             AddError "$phase qualification rollout did not get an isolated process group"
             failed=1
         fi
@@ -943,7 +960,7 @@ RunWorkerQualificationDrill() {
             >"$qualRoot/logs/worker-drill.stdout" 2>"$qualRoot/logs/worker-drill.stderr" &
         drillPid=$!
         RecordCommand "$phase-worker-drill-start" 0
-        if ! ProcessGroupIsIsolated "$drillPid"; then
+        if ! WaitForIsolatedProcessGroup "$drillPid"; then
             AddError "$phase worker drill did not get an isolated process group"
             failed=1
         fi
@@ -1104,7 +1121,7 @@ RunMigrationQualificationDrill() {
         2>"$qualificationRoot/logs/release-rollout.stderr" &
     releasePid=$!
     RecordCommand "$phase-migration-qualification-rollout-start" 0
-    if ! ProcessGroupIsIsolated "$releasePid"; then
+    if ! WaitForIsolatedProcessGroup "$releasePid"; then
         AddError "$phase migration qualification rollout did not get an isolated process group"
         failed=1
     fi
@@ -1403,7 +1420,7 @@ RunSigkillInterruption() {
         fi
     fi
     if ((failed == 0)); then
-        if ! ProcessGroupIsIsolated "$releasePid"; then
+        if ! WaitForIsolatedProcessGroup "$releasePid"; then
             AddError "sigkill-resume $interruptStage rollout process group is not isolated"
             failed=1
         elif ! WaitForJson "$holdReady" \
@@ -1512,14 +1529,27 @@ RunSigkillInterruption() {
                 failed=1
             fi
         else
-            setsid "${ROLLOUT_ENV[@]}" bash "$ROLLOUT_SCRIPT" "${ROLLOUT_ARGS[@]}" \
+            local resumeReady="$stageRoot/handshake/reuse-final-artifacts-resume.ready.json"
+            rm -f "$resumeReady"
+            setsid "${ROLLOUT_ENV[@]}" bash -c '
+                readyFile="$1"
+                shift
+                sessionId="$(ps -o sid= -p "$$" 2>/dev/null | tr -d "[:space:]")"
+                [[ "$sessionId" == "$$" ]] || exit 97
+                printf \
+                    "{\"schema\":\"fsusblog.zero-downtime-isolated-process-ready.v1\",\"pid\":%s,\"sessionId\":%s}\n" \
+                    "$$" "$sessionId" >"$readyFile"
+                exec "$@"
+            ' fsusblog-isolated-resume "$resumeReady" bash "$ROLLOUT_SCRIPT" "${ROLLOUT_ARGS[@]}" \
                 --worker-ledger "$NORMAL_WORKER_LEDGER" --resume \
                 >"$stageRoot/logs/release-rollout-resume.stdout" 2>"$stageRoot/logs/release-rollout-resume.stderr" &
             releasePid=$!
             RecordCommand "sigkill-$interruptStage-reuse-final-artifacts-resume-start" 0
-            if ! ProcessGroupIsIsolated "$releasePid"; then
+            if ! WaitForJson "$resumeReady" \
+                ".schema == \"fsusblog.zero-downtime-isolated-process-ready.v1\" and .pid == $releasePid and .sessionId == $releasePid" \
+                "$timeoutSeconds" "$releasePid"; then
                 StopProcessGroup "$releasePid" TERM
-                AddError "sigkill-resume $interruptStage reused-artifact resume process group is not isolated"
+                AddError "sigkill-resume $interruptStage reused-artifact resume lacks isolated startup proof"
                 failed=1
             fi
             wait "$releasePid"

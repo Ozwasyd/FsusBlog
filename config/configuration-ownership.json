@@ -117,6 +117,22 @@
             "pathType": "file"
         },
         {
+            "id": "fsusui-test-baseline",
+            "owner": "frontend-test-governance",
+            "canonicalPath": "config/testing/fsusui-baseline.json",
+            "pathType": "file",
+            "purpose": "Single full-commit authority for local and CI FsusUI source and generated theme consumption.",
+            "consumers": [
+                "tools/test/fsusui-baseline.mjs",
+                "tests/browser-diagnostics/local-fsusui-identity.mjs",
+                ".github/workflows/quality-gate.yml",
+                ".github/workflows/browser-diagnostics.yml"
+            ],
+            "validationCommand": "node --test tests/tools/browser-diagnostics-fsusui-identity.test.mjs",
+            "changePolicy": "manual-update-with-remote-head-and-current-screenshot-evidence-review",
+            "status": "manual"
+        },
+        {
             "id": "fixture-capability-catalog",
             "owner": "test-fixture-catalog",
             "canonicalPath": "config/testing/fixture-capability-catalog.json",
@@ -389,6 +405,23 @@
                 "changed-critical-domains.json",
                 "stryker-changed-critical.json"
             ]
+        },
+        {
+            "id": "behavior-mutation-owner-catalog",
+            "owner": "backend-test-governance",
+            "canonicalPath": "config/testing/mutation/behavior-mutation-owners.v1.json",
+            "pathType": "file",
+            "purpose": "Canonical behavior mutation owner mapping consumed by changed-critical qualification.",
+            "consumers": [
+                "tools/test-matrix/behavior-mutation-owner.mjs",
+                "tools/test-matrix/produce-behavior-mutation-qualification.mjs",
+                "tools/test-matrix/verify-behavior-mutation-qualification.mjs",
+                "tests/tools/behavior-mutation-qualification.test.mjs",
+                "tests/tools/check-behavior-mutation-governance.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/behavior-mutation-qualification.test.mjs tests/tools/check-behavior-mutation-governance.test.mjs",
+            "changePolicy": "manual-update-with-qualification-closure-validation",
+            "status": "manual"
         },
         {
             "id": "test-observation-schema",

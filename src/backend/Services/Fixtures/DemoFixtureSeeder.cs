@@ -1251,7 +1251,7 @@ public sealed class DemoFixtureSeeder(
         using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(sql, parameters).ConfigureAwait(false);
         if (!await reader.ReadAsync(ct).ConfigureAwait(false))
             throw new InvalidOperationException("demo fixture insert did not return an identity");
-        return Convert.ToInt64(reader.GetValue(0), CultureInfo.InvariantCulture);
+        return Convert.ToInt64(reader.GetValue(reader.GetOrdinal("id")), CultureInfo.InvariantCulture);
     }
 
     private async Task<int> EnsureTagAsync(string name, CancellationToken ct)

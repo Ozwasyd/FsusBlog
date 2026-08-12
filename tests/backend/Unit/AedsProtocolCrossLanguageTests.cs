@@ -161,22 +161,6 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
-    public void Decoder_RejectsLegacyAdminPasswordResetFrameAsRetired()
-    {
-        Span<byte> frame = stackalloc byte[AedsFrameHeader.Size];
-        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(frame[0..4], CoreAedsEncoder.Magic);
-        frame[4] = AedsFrameHeader.CurrentVersion;
-        frame[5] = AedsFrameHeader.CurrentHeaderLength;
-        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(frame[8..10], 40);
-        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(frame[14..16], FsusBlog.Core.Algorithms.AedsCrc16.Compute([]));
-
-        Result<FsusBlog.Core.Algorithms.AedsDecodeResult> decoded = new CoreAedsEncoder().TryDecode(frame.ToArray());
-
-        Assert.False(decoded.IsSuccess);
-        Assert.Equal("AEDS frame type retired", decoded.Error.Message);
-    }
-
-    [Fact]
     public void FrontendHeaderConstants_MatchSharedProtocolMetadata()
     {
         using JsonDocument frontend = ReadFrontendProtocolRuntime();

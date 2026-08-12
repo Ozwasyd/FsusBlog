@@ -87,6 +87,16 @@ describe('public content semantics', () => {
     expect(detail.get('h1').text()).toBe(listItem.title)
     expect(detail.get('[itemprop="articleSection"]').text()).toBe(listItem.meta.categoryName)
     expect(detail.text()).toContain('18 浏览')
+    expect(detail.get('[itemprop="datePublished"]').attributes()).toMatchObject({
+      datetime: listItem.meta.isoTime,
+      title: listItem.meta.fullTime
+    })
+    expect(detail.get('[itemprop="datePublished"]').text()).toBe(listItem.meta.displayTime)
+    expect(detail.get('[itemprop="dateModified"]').attributes()).toMatchObject({
+      datetime: '2026-07-19T01:00:00.000Z',
+      title: '2026-07-19 09:00:00'
+    })
+    expect(detail.get('[itemprop="dateModified"]').text()).toBe('2026-07-19')
     expect(detail.findAll('[data-article-metadata-group]')).toHaveLength(2)
     expect(detail.get('[data-article-metadata-group="dates"]').text()).toContain('2026')
     expect(detail.get('[data-article-metadata-group="context"]').text()).toContain('18 浏览')

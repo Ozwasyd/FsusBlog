@@ -377,14 +377,17 @@ public sealed class AuthRiskControlEndpointContractTests(
         Assert.Equal((HttpStatusCode)StatusCodes.Status428PreconditionRequired, first.StatusCode);
 
         HttpResponseMessage? rateLimited = null;
+        int riskCallsBeforeRateLimit = -1;
         for (int attempt = 0; attempt < 6; attempt++)
         {
+            int riskCallsBeforeAttempt = server.RiskScores.ReceivedCalls().Count();
             HttpResponseMessage candidate = await client.PostAsync(
                 "/api/binary/auth/recovery-key/verify",
                 content: null);
             if (candidate.StatusCode == HttpStatusCode.TooManyRequests)
             {
                 rateLimited = candidate;
+                riskCallsBeforeRateLimit = riskCallsBeforeAttempt;
                 break;
             }
 
@@ -402,18 +405,12 @@ public sealed class AuthRiskControlEndpointContractTests(
             Assert.Equal("HTTP 429", error.Message);
         }
 
-        // Risk runs only for non-rate-limited attempts; at least one 428 must have scored.
+        // Risk runs only for non-rate-limited attempts; at least one 428 must have
+        // scored, while the observed 429 itself must short-circuit before risk.
         await server.RiskScores.Received().GetRiskScoreAsync(
             Arg.Any<HttpContext>(),
             Arg.Any<CancellationToken>());
-
-        // A subsequent rejection must stay short-circuited before risk evaluation.
-        int riskCallsBefore = server.RiskScores.ReceivedCalls().Count();
-        using HttpResponseMessage stillLimited = await client.PostAsync(
-            "/api/binary/auth/recovery-key/verify",
-            content: null);
-        Assert.Equal(HttpStatusCode.TooManyRequests, stillLimited.StatusCode);
-        Assert.Equal(riskCallsBefore, server.RiskScores.ReceivedCalls().Count());
+        Assert.Equal(riskCallsBeforeRateLimit, server.RiskScores.ReceivedCalls().Count());
     }
 
     private static HttpRequestMessage AdminTrashRequest(

@@ -322,7 +322,17 @@ function runEslint(files, fix)
     }
     const executable = path.join(root, policy.toolchain.eslint);
     const cache = path.join(root, '.tmp/frontend-style/eslint.cache');
+    const cacheKeyFile = path.join(root, '.tmp/frontend-style/eslint.cache-key');
+    const cacheKey = sha256(`${configurationDigest()}\n${sourceStateDigest()}`);
     fs.mkdirSync(path.dirname(cache), { recursive: true });
+    const previousCacheKey = fs.existsSync(cacheKeyFile)
+        ? fs.readFileSync(cacheKeyFile, 'utf8').trim()
+        : '';
+    if (previousCacheKey !== cacheKey)
+    {
+        fs.rmSync(cache, { force: true });
+        fs.writeFileSync(cacheKeyFile, `${cacheKey}\n`);
+    }
     const args = [
         executable,
         '--config', path.join(root, policy.eslintConfig),

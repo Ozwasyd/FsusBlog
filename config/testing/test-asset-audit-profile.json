@@ -32,7 +32,7 @@
       "id": "playwright-diagnostics",
       "producerTier": "browser-diagnostics-manual",
       "requirements": ["node", "dotnet10", "playwrightAll", "databaseFixture"],
-      "frameworks": ["playwright-dynamic", "node-test", "node-script"],
+      "frameworks": ["playwright", "playwright-dynamic", "node-test", "node-script"],
       "pathPrefixes": ["tests/browser-diagnostics/", "tests/frontend/e2e/"],
       "command": ["bash", "tools/test.sh", "ci-tier", "browser-diagnostics-manual"]
     },

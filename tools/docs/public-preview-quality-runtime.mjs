@@ -25,9 +25,9 @@ export async function measurePublicPreviewHeader(page, phase)
     return await page.evaluate((samplePhase) =>
     {
         const selectors = [
-            '[data-public-sticky-geometry-owner]',
             '[data-public-shell-header]',
             '.site-chrome-header',
+            '[data-public-sticky-geometry-owner]',
             'header'
         ];
         const element = selectors.map((selector) => document.querySelector(selector))

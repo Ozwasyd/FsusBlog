@@ -5,22 +5,28 @@
  * per-behavior mutant attribution and qualification results.
  * It is consumed by the BehaviorGraph join as an optional input.
  */
-import { createHash } from 'node:crypto'
+import { createHash } from 'node:crypto';
 
-export const mutationEvidenceSchema = 'fsusblog.mutation-evidence-receipt.v1'
+export const mutationEvidenceSchema = 'fsusblog.mutation-evidence-receipt.v1';
 
-const digestPattern = /^[a-f0-9]{64}$/u
+const digestPattern = /^[a-f0-9]{64}$/u;
 
-function stable(value) {
-  if (Array.isArray(value)) return value.map(stable)
-  if (value !== null && typeof value === 'object') {
-    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable(value[key])]))
-  }
-  return value
+function stable(value)
+{
+    if (Array.isArray(value))
+    {
+        return value.map(stable);
+    }
+    if (value !== null && typeof value === 'object')
+    {
+        return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable(value[key])]));
+    }
+    return value;
 }
 
-export function digestValue(value) {
-  return createHash('sha256').update(JSON.stringify(stable(value)), 'utf8').digest('hex')
+export function digestValue(value)
+{
+    return createHash('sha256').update(JSON.stringify(stable(value)), 'utf8').digest('hex');
 }
 
 /**
@@ -48,121 +54,130 @@ export function digestValue(value) {
  * @param {string} [options.implementationOwnerClosureDigest] - Derived C# mutation-owner closure digest
  */
 export function sealMutationEvidenceReceipt({
-  sourceCommit,
-  worktreeFingerprint,
-  catalogDigest,
-  selectionDigest,
-  ownerReceiptDigest,
-  testBindingScanDigest,
-  rawReportDigest,
-  rawTraceDigest,
-  attributions = [],
-  qualifications = [],
-  blockedCount = 0,
-  status,
-  failureReasons = [],
-  runId = null,
-  attemptId = null,
-  scope = null,
-  testPlanDigest = null,
-  behaviorTestEvidenceDigest = null,
-  implementationOwnerClosureDigest = null
-}) {
-  if (status !== 'ok' && status !== 'failed') {
-    throw new Error('[mutation-evidence] status must be ok or failed')
-  }
-  for (const [label, value] of Object.entries({
-    catalogDigest,
-    selectionDigest,
-    ownerReceiptDigest,
-    testBindingScanDigest,
-    rawReportDigest,
-    rawTraceDigest
-  })) {
-    if (!digestPattern.test(String(value ?? ''))) {
-      throw new Error(`[mutation-evidence] ${label} must be a SHA-256 digest`)
-    }
-  }
-  if (status === 'ok' && failureReasons.length !== 0) {
-    throw new Error('[mutation-evidence] status=ok cannot include failureReasons')
-  }
-  if (status === 'failed' && failureReasons.length === 0) {
-    throw new Error('[mutation-evidence] status=failed requires failureReasons')
-  }
-  const bareDigest = (value) => String(value ?? '').replace(/^sha256:/u, '')
-  for (const [label, value] of Object.entries({
-    testPlanDigest,
-    behaviorTestEvidenceDigest,
-    implementationOwnerClosureDigest
-  })) {
-    if (value != null && !digestPattern.test(bareDigest(value))) {
-      throw new Error(`[mutation-evidence] ${label} must be a SHA-256 digest`)
-    }
-  }
-  if (scope != null && scope !== 'pr' && scope !== 'release') {
-    throw new Error('[mutation-evidence] scope must be pr or release')
-  }
-
-  const payload = {
-    schema: mutationEvidenceSchema,
     sourceCommit,
-    worktreeFingerprint: worktreeFingerprint.replace(/^sha256:/u, ''),
+    worktreeFingerprint,
     catalogDigest,
     selectionDigest,
     ownerReceiptDigest,
     testBindingScanDigest,
     rawReportDigest,
     rawTraceDigest,
-    ...(runId != null ? { runId } : {}),
-    ...(attemptId != null ? { attemptId } : {}),
-    ...(scope != null ? { scope } : {}),
-    ...(testPlanDigest != null ? { testPlanDigest: bareDigest(testPlanDigest) } : {}),
-    ...(behaviorTestEvidenceDigest != null
-      ? { behaviorTestEvidenceDigest: bareDigest(behaviorTestEvidenceDigest) }
-      : {}),
-    ...(implementationOwnerClosureDigest != null
-      ? { implementationOwnerClosureDigest: bareDigest(implementationOwnerClosureDigest) }
-      : {}),
-    attributions: [...attributions]
-      .map((a) => ({
-        mutantId: a.mutantId,
-        behaviorId: a.behaviorId,
-        sourcePath: a.sourcePath,
-        symbol: a.symbol,
-        mutator: a.mutator,
-        status: a.status,
-        coveredTestIds: [...(a.coveredTestIds ?? [])].sort(),
-        killedTestIds: [...(a.killedTestIds ?? [])].sort(),
-        expectedKilledTestIds: [...(a.expectedKilledTestIds ?? [])].sort(),
-        expectedTestKinds: [...(a.expectedTestKinds ?? [])].sort(),
-        rawResult: a.rawResult ?? null,
-        attempt: a.attempt ?? null,
-        provenance: a.provenance ?? null
-      }))
-      .sort((left, right) => left.mutantId.localeCompare(right.mutantId)),
-    qualifications: [...qualifications]
-      .map((q) => ({
-        behaviorId: q.behaviorId,
-        mutationRequired: q.mutationRequired,
-        executed: q.executed,
-        killed: q.killed,
-        survived: q.survived,
-        timeout: q.timeout,
-        noCoverage: q.noCoverage,
-        compileError: q.compileError ?? 0,
-        requiredMutants: q.requiredMutants ?? 0,
-        recordedMutants: q.recordedMutants ?? 0,
-        score: q.score,
-        minimumMutationScore: q.minimumMutationScore,
-        qualified: q.qualified,
-        failures: [...(q.failures ?? [])].sort()
-      }))
-      .sort((left, right) => left.behaviorId.localeCompare(right.behaviorId)),
-    blockedCount,
+    attributions = [],
+    qualifications = [],
+    blockedCount = 0,
     status,
-    failureReasons: [...failureReasons].sort()
-  }
+    failureReasons = [],
+    runId = null,
+    attemptId = null,
+    scope = null,
+    testPlanDigest = null,
+    behaviorTestEvidenceDigest = null,
+    implementationOwnerClosureDigest = null
+})
+{
+    if (status !== 'ok' && status !== 'failed')
+    {
+        throw new Error('[mutation-evidence] status must be ok or failed');
+    }
+    for (const [label, value] of Object.entries({
+        catalogDigest,
+        selectionDigest,
+        ownerReceiptDigest,
+        testBindingScanDigest,
+        rawReportDigest,
+        rawTraceDigest
+    }))
+    {
+        if (!digestPattern.test(String(value ?? '')))
+        {
+            throw new Error(`[mutation-evidence] ${label} must be a SHA-256 digest`);
+        }
+    }
+    if (status === 'ok' && failureReasons.length !== 0)
+    {
+        throw new Error('[mutation-evidence] status=ok cannot include failureReasons');
+    }
+    if (status === 'failed' && failureReasons.length === 0)
+    {
+        throw new Error('[mutation-evidence] status=failed requires failureReasons');
+    }
+    const bareDigest = (value) => String(value ?? '').replace(/^sha256:/u, '');
+    for (const [label, value] of Object.entries({
+        testPlanDigest,
+        behaviorTestEvidenceDigest,
+        implementationOwnerClosureDigest
+    }))
+    {
+        if (value != null && !digestPattern.test(bareDigest(value)))
+        {
+            throw new Error(`[mutation-evidence] ${label} must be a SHA-256 digest`);
+        }
+    }
+    if (scope != null && scope !== 'pr' && scope !== 'release')
+    {
+        throw new Error('[mutation-evidence] scope must be pr or release');
+    }
 
-  payload.contentDigest = digestValue(payload)
-  return payload
+    const payload = {
+        schema: mutationEvidenceSchema,
+        sourceCommit,
+        worktreeFingerprint: worktreeFingerprint.replace(/^sha256:/u, ''),
+        catalogDigest,
+        selectionDigest,
+        ownerReceiptDigest,
+        testBindingScanDigest,
+        rawReportDigest,
+        rawTraceDigest,
+        ...(runId != null ? { runId } : {}),
+        ...(attemptId != null ? { attemptId } : {}),
+        ...(scope != null ? { scope } : {}),
+        ...(testPlanDigest != null ? { testPlanDigest: bareDigest(testPlanDigest) } : {}),
+        ...(behaviorTestEvidenceDigest != null
+            ? { behaviorTestEvidenceDigest: bareDigest(behaviorTestEvidenceDigest) }
+            : {}),
+        ...(implementationOwnerClosureDigest != null
+            ? { implementationOwnerClosureDigest: bareDigest(implementationOwnerClosureDigest) }
+            : {}),
+        attributions: [...attributions]
+            .map((a) => ({
+                mutantId: a.mutantId,
+                behaviorId: a.behaviorId,
+                sourcePath: a.sourcePath,
+                symbol: a.symbol,
+                mutator: a.mutator,
+                status: a.status,
+                coveredTestIds: [...(a.coveredTestIds ?? [])].sort(),
+                killedTestIds: [...(a.killedTestIds ?? [])].sort(),
+                expectedKilledTestIds: [...(a.expectedKilledTestIds ?? [])].sort(),
+                expectedTestKinds: [...(a.expectedTestKinds ?? [])].sort(),
+                rawResult: a.rawResult ?? null,
+                attempt: a.attempt ?? null,
+                provenance: a.provenance ?? null
+            }))
+            .sort((left, right) => left.mutantId.localeCompare(right.mutantId)),
+        qualifications: [...qualifications]
+            .map((q) => ({
+                behaviorId: q.behaviorId,
+                mutationRequired: q.mutationRequired,
+                executed: q.executed,
+                killed: q.killed,
+                survived: q.survived,
+                timeout: q.timeout,
+                noCoverage: q.noCoverage,
+                compileError: q.compileError ?? 0,
+                requiredMutants: q.requiredMutants ?? 0,
+                recordedMutants: q.recordedMutants ?? 0,
+                score: q.score,
+                minimumMutationScore: q.minimumMutationScore,
+                qualified: q.qualified,
+                failures: [...(q.failures ?? [])].sort()
+            }))
+            .sort((left, right) => left.behaviorId.localeCompare(right.behaviorId)),
+        blockedCount,
+        status,
+        failureReasons: [...failureReasons].sort()
+    };
+
+    payload.contentDigest = digestValue(payload);
+    return payload;
 }

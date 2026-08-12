@@ -135,8 +135,10 @@ public sealed class SpaAssetManifestServiceTests
                 assets.Stylesheets,
                 href => Assert.Equal("/assets/public-shell-critical-a.css", href),
                 href => Assert.Equal("/assets/tailwind-a.css", href),
-                href => Assert.Equal("/assets/public-page-a.css", href));
+                href => Assert.Equal("/assets/public-page-a.css", href),
+                href => Assert.Equal("/assets/public-shell-component-a.css", href));
             Assert.Contains("/assets/public-page-a.css", assets.Stylesheets);
+            Assert.Contains("/assets/public-shell-component-a.css", assets.Stylesheets);
             Assert.DoesNotContain(assets.Stylesheets, static href => href.Contains("vendor-element-plus", StringComparison.OrdinalIgnoreCase));
             Assert.DoesNotContain(assets.Stylesheets, static href => href.Contains("full-app-core", StringComparison.OrdinalIgnoreCase));
             Assert.DoesNotContain(assets.Stylesheets, static href => href.Contains("markdown", StringComparison.OrdinalIgnoreCase));
@@ -199,6 +201,7 @@ public sealed class SpaAssetManifestServiceTests
             SpaAssetSet assets = service.GetPublicAssetSet(pageId: PublicPageId.ArticleDetail);
 
             Assert.Contains("/assets/markdown-a.css", assets.Stylesheets);
+            Assert.Contains("/assets/public-shell-component-a.css", assets.Stylesheets);
             Assert.DoesNotContain(assets.Stylesheets, static href => href.Contains("vendor-element-plus", StringComparison.OrdinalIgnoreCase));
             Assert.DoesNotContain(assets.Stylesheets, static href => href.Contains("full-app-core", StringComparison.OrdinalIgnoreCase));
             Assert.Empty(assets.ModulePreloads);
@@ -610,13 +613,16 @@ public sealed class SpaAssetManifestServiceTests
         string root = CreateTempDirectory();
         try
         {
+            var timeProvider = new ManualTimeProvider(
+                new DateTimeOffset(2026, 8, 11, 0, 0, 0, TimeSpan.Zero));
             WriteManifest(root, "public-page-a.css", s_initialManifestVersionUtc);
             File.Delete(Path.Combine(GetReleaseAssetRoot(root), ".vite", "manifest.json"));
             var service = CreateService(
                 root,
                 new TestWebHostEnvironment(root, Environments.Production),
                 retryIntervalMilliseconds: 50,
-                admissionDeadlineMilliseconds: 100);
+                admissionDeadlineMilliseconds: 100,
+                timeProvider: timeProvider);
             int firstAttempts = service.GetReadiness().Attempts;
 
             for (int index = 0; index < 20; index++)
@@ -625,11 +631,11 @@ public sealed class SpaAssetManifestServiceTests
             }
             Assert.Equal(firstAttempts, service.GetReadiness().Attempts);
 
-            Thread.Sleep(60);
+            timeProvider.Advance(TimeSpan.FromMilliseconds(50));
             int admittedAttempts = service.GetReadiness().Attempts;
             Assert.True(admittedAttempts > firstAttempts);
 
-            Thread.Sleep(60);
+            timeProvider.Advance(TimeSpan.FromMilliseconds(51));
             for (int index = 0; index < 20; index++)
             {
                 _ = service.GetReadiness();
@@ -637,9 +643,8 @@ public sealed class SpaAssetManifestServiceTests
             Assert.Equal(admittedAttempts, service.GetReadiness().Attempts);
 
             WriteManifest(root, "public-page-b.css", s_updatedManifestVersionUtc);
-            Assert.True(SpinWait.SpinUntil(
-                () => service.GetReadiness().State == "ready",
-                TimeSpan.FromSeconds(1)));
+            timeProvider.Advance(TimeSpan.FromMilliseconds(50));
+            Assert.Equal("ready", service.GetReadiness().State);
         }
         finally
         {
@@ -1545,19 +1550,38 @@ public sealed class SpaAssetManifestServiceTests
             Assert.Equal(manifestDigest, readiness.ManifestDigest);
 
             SpaAssetSet home = service.GetPublicAssetSet(pageId: PublicPageId.Home);
-            Assert.Collection(
-                home.Stylesheets,
-                href => Assert.Equal(ManifestOwnerCss(manifest, "public-shell-critical"), href),
-                href => Assert.Equal(ManifestOwnerCss(manifest, "tailwind"), href),
-                href => Assert.Equal(ManifestOwnerCss(manifest, "public-page"), href));
+            string[] publicRuntimeCss = ManifestOwnerCssClosure(
+                manifest,
+                "public-page-runtime",
+                new HashSet<string>(StringComparer.Ordinal)
+                {
+                    "index",
+                    "full-app-core"
+                });
+            Assert.Equal(
+                new[]
+                {
+                    ManifestOwnerCss(manifest, "public-shell-critical"),
+                    ManifestOwnerCss(manifest, "tailwind"),
+                    ManifestOwnerCss(manifest, "public-page")
+                }.Concat(publicRuntimeCss).Distinct(StringComparer.Ordinal),
+                home.Stylesheets);
+            Assert.Contains(ManifestOwnerCss(manifest, "homeSpotlight"), home.Stylesheets);
+            Assert.Contains(ManifestOwnerCss(manifest, "PublicArticleList"), home.Stylesheets);
+            Assert.Contains(ManifestOwnerCss(manifest, "PublicContentState"), home.Stylesheets);
+            Assert.Contains(ManifestOwnerCss(manifest, "PublicReadingPageFrame"), home.Stylesheets);
+            Assert.DoesNotContain(ManifestOwnerCss(manifest, "full-app-core"), home.Stylesheets);
 
             SpaAssetSet article = service.GetPublicAssetSet(pageId: PublicPageId.ArticleDetail);
-            Assert.Collection(
-                article.Stylesheets,
-                href => Assert.Equal(ManifestOwnerCss(manifest, "public-shell-critical"), href),
-                href => Assert.Equal(ManifestOwnerCss(manifest, "tailwind"), href),
-                href => Assert.Equal(ManifestOwnerCss(manifest, "public-page"), href),
-                href => Assert.Equal(ManifestOwnerCss(manifest, "markdown"), href));
+            Assert.Equal(
+                new[]
+                {
+                    ManifestOwnerCss(manifest, "public-shell-critical"),
+                    ManifestOwnerCss(manifest, "tailwind"),
+                    ManifestOwnerCss(manifest, "public-page"),
+                    ManifestOwnerCss(manifest, "markdown")
+                }.Concat(publicRuntimeCss).Distinct(StringComparer.Ordinal),
+                article.Stylesheets);
 
             Assert.Contains(ManifestOwnerFile(manifest, "entry-runtime"), home.FullAppTakeover.ModulePreloads);
             Assert.Contains(ManifestOwnerFile(manifest, "public-page-runtime"), home.FullAppTakeover.ModulePreloads);
@@ -1585,6 +1609,50 @@ public sealed class SpaAssetManifestServiceTests
                 && string.Equals(name.GetString(), owner, StringComparison.Ordinal))
             .Select(static entry => entry.Value)
             .ToArray();
+
+    private static string[] ManifestOwnerCssClosure(
+        JsonElement manifest,
+        string owner,
+        IReadOnlySet<string> traversalBoundaries)
+    {
+        JsonProperty root = Assert.Single(manifest.EnumerateObject(), entry =>
+            entry.Value.TryGetProperty("name", out JsonElement name)
+            && string.Equals(name.GetString(), owner, StringComparison.Ordinal));
+        var entries = manifest.EnumerateObject()
+            .ToDictionary(static entry => entry.Name, static entry => entry.Value, StringComparer.Ordinal);
+        var visited = new HashSet<string>(StringComparer.Ordinal);
+        var styles = new List<string>();
+
+        Visit(root.Name, isRoot: true);
+        return styles.Distinct(StringComparer.Ordinal).ToArray();
+
+        void Visit(string key, bool isRoot = false)
+        {
+            JsonElement entry = entries[key];
+            string? name = entry.TryGetProperty("name", out JsonElement nameElement)
+                ? nameElement.GetString()
+                : null;
+            if (!isRoot && name is not null && traversalBoundaries.Contains(name))
+            {
+                return;
+            }
+            if (!visited.Add(key))
+            {
+                return;
+            }
+            if (entry.TryGetProperty("css", out JsonElement css))
+            {
+                styles.AddRange(css.EnumerateArray().Select(static item => "/" + item.GetString()));
+            }
+            if (entry.TryGetProperty("imports", out JsonElement imports))
+            {
+                foreach (JsonElement import in imports.EnumerateArray())
+                {
+                    Visit(Assert.IsType<string>(import.GetString()));
+                }
+            }
+        }
+    }
 
     private static string ManifestOwnerFile(JsonElement manifest, string owner)
     {
@@ -1727,7 +1795,19 @@ public sealed class SpaAssetManifestServiceTests
     "name": "route-admin",
     "css": ["assets/admin-a.css"]
   },
-  "public-runtime": { "file": "assets/public-runtime.js", "name": "public-page-runtime" },
+  "public-runtime": {
+    "file": "assets/public-runtime.js",
+    "name": "public-page-runtime",
+    "imports": [
+      "_public-shell-component-a.js",
+      "_full-app-core-a.js"
+    ]
+  },
+  "_public-shell-component-a.js": {
+    "file": "assets/public-shell-component-a.js",
+    "name": "public-shell-component",
+    "css": ["assets/public-shell-component-a.css"]
+  },
   "_public-shell-critical-a.js": {
     "file": "assets/public-shell-critical-owner-a.js",
     "name": "public-shell-critical",
@@ -1767,7 +1847,8 @@ public sealed class SpaAssetManifestServiceTests
         string? commitSha = null,
         int? retryIntervalMilliseconds = null,
         int? admissionDeadlineMilliseconds = null,
-        Action? onLoadStartedForTests = null)
+        Action? onLoadStartedForTests = null,
+        TimeProvider? timeProvider = null)
     {
         IConfiguration configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -1787,11 +1868,13 @@ public sealed class SpaAssetManifestServiceTests
                 env,
                 configuration,
                 releaseIdentity,
+                timeProvider ?? TimeProvider.System,
                 NullLogger<SpaAssetManifestService>.Instance)
             : new SpaAssetManifestService(
                 env,
                 configuration,
                 releaseIdentity,
+                timeProvider ?? TimeProvider.System,
                 NullLogger<SpaAssetManifestService>.Instance,
                 onLoadStartedForTests);
     }
@@ -2166,6 +2249,15 @@ public sealed class SpaAssetManifestServiceTests
         int ExitCode,
         string StandardOutput,
         string StandardError);
+
+    private sealed class ManualTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        private DateTimeOffset _utcNow = utcNow;
+
+        public override DateTimeOffset GetUtcNow() => _utcNow;
+
+        public void Advance(TimeSpan delta) => _utcNow += delta;
+    }
 
     private sealed class TestWebHostEnvironment(string root, string environmentName) : IWebHostEnvironment
     {

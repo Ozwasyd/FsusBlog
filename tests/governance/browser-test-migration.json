@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.browser-test-migration.v1",
     "issue": 1151,
-    "expectedEffectiveRecordCount": 72,
+    "expectedEffectiveRecordCount": 73,
     "historyBaseline": {
         "commit": "73c9c087185e69925aa4fee8593feec3f858051c",
         "scopes": [
@@ -201,7 +201,7 @@
                 "replacementLayer": "correctness",
                 "replacementTestIds": [
                     "node-script:tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
-                    "vitest:tests/frontend/unit/components/account/AccountHeaderMenu.test.ts#moves-account-switching-policies-and-logout-behind-one-a-22ee52afba"
+                    "vitest:tests/frontend/unit/components/account/AccountHeaderMenu.test.ts#preserves-menu-order-authorization-filtering-and-both-ro-63b0a1a682"
                 ],
                 "browserOnlyRisk": {
                     "present": true,
@@ -317,6 +317,7 @@
                     "testIds": [
                         "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0",
                         "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#admin-workbench-pages-stay-visually-stable-31d156d2c9",
+                        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#keeps-the-fsusui-trigger-operable-in-forced-colors-with--8bc79fd653",
                         "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#shows-every-task-the-summary-and-the-migrated-help-actio-36a7ede382"
                     ]
                 },
@@ -479,7 +480,7 @@
                 "replacementTestIds": [
                     "node-script:tests/frontend/checks/static/check-admin-a11y-governance.mjs",
                     "node-script:tests/frontend/checks/static/check-visual-density-governance.mjs",
-                    "vitest:tests/frontend/unit/components/account/AccountHeaderMenu.test.ts#moves-account-switching-policies-and-logout-behind-one-a-22ee52afba"
+                    "vitest:tests/frontend/unit/components/account/AccountHeaderMenu.test.ts#preserves-menu-order-authorization-filtering-and-both-ro-63b0a1a682"
                 ],
                 "browserOnlyRisk": {
                     "present": true,

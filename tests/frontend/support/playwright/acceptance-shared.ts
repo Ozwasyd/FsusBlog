@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
+import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { expect } from '@playwright/test'
 import type { Browser, BrowserContext, BrowserContextOptions, Locator, Page, ScreenshotOptions, StorageState } from '@playwright/test'
@@ -13,11 +14,15 @@ import { loadAuditFixtures } from './routeAuditFixtures'
 import { resolveTestSession, testSessionHeaders, withTestSessionContextOptions } from './testSession'
 import {
   waitForApplicationReady as waitForCanonicalApplicationReady,
+  waitForPublicHydration as waitForCanonicalPublicHydration,
   waitForVisualFrameReady
 } from './readiness.mjs'
+// @ts-ignore The retry helper is a pure module covered by node:test.
+import { navigateThroughRetryablePublicAot } from './publicAotNavigationRetry.mjs'
 
 export type RuntimeAudit = {
   checkpoint: () => number
+  eventsSince: (start: number) => readonly string[]
   assertCleanSince: (start: number, label: string) => void
 }
 
@@ -46,6 +51,11 @@ export const APP_READY_TIMEOUT_MS = 45_000
 // its local FsusUI alias before any route is audited. Keep that one-time cold
 // compile outside the ordinary 45s route-readiness budget.
 export const WARMUP_TIMEOUT_MS = 120_000
+export const PUBLIC_RUNTIME_DIAGNOSTIC_EVENT_NAMES = Object.freeze([
+  'public_route_prewarm_failure',
+  'public_route_prewarm_timeout',
+  'public_shell_hydration_failed'
+] as const)
 
 export type ViewportSize = { width: number, height: number }
 export type UxViewport = Readonly<{
@@ -247,7 +257,11 @@ export function attachRuntimeAudit(page: Page): RuntimeAudit {
       return
     }
 
-    events.push(`console:${message.type()}:${text}`)
+    const location = message.location()
+    const source = location.url
+      ? ` at ${location.url}:${location.lineNumber}:${location.columnNumber}`
+      : ''
+    events.push(`console:${message.type()}:${text}${source}`)
   })
 
   page.on('pageerror', (error) => {
@@ -286,6 +300,7 @@ export function attachRuntimeAudit(page: Page): RuntimeAudit {
 
   return {
     checkpoint: () => events.length,
+    eventsSince: (start) => events.slice(start),
     assertCleanSince: (start, label) => {
       expect(events.slice(start), `${label} should not emit runtime errors or warnings`).toEqual([])
     }
@@ -338,6 +353,10 @@ export async function waitForAppReady(page: Page, timeout = APP_READY_TIMEOUT_MS
   await waitForCanonicalApplicationReady(page, { timeoutMs: timeout })
 }
 
+export async function waitForPublicHydration(page: Page, timeout = APP_READY_TIMEOUT_MS): Promise<void> {
+  await waitForCanonicalPublicHydration(page, { timeoutMs: timeout })
+}
+
 export async function settlePage(page: Page): Promise<void> {
   await waitForCanonicalApplicationReady(page)
   await waitForVisualFrameReady(page)
@@ -378,11 +397,88 @@ export async function openThemedAuditedContext(
   ))
   await context.addInitScript((options: {
     mode: ThemeMode
+    captureConsoleErrors: boolean
+    diagnosticEventNames: readonly string[]
     disableHumanReadProof: boolean
     disableNotificationStream: boolean
     disableServiceWorker: boolean
   }) => {
-    const { mode, disableHumanReadProof, disableNotificationStream, disableServiceWorker } = options
+    const {
+      mode,
+      captureConsoleErrors,
+      diagnosticEventNames,
+      disableHumanReadProof,
+      disableNotificationStream,
+      disableServiceWorker
+    } = options
+    const diagnosticWindow = window as typeof window & {
+      __FSUSBLOG_TEST_CONSOLE_ERRORS__?: Array<Readonly<{
+        message: string
+        name: string
+        stack: string[]
+      }>>
+      __FSUSBLOG_PUBLIC_ROUTE_DIAGNOSTICS__?: Array<Readonly<{
+        name: string
+        error?: string
+        target?: string
+      }>>
+    }
+    const diagnosticStorageKey = 'fsus:test:public-route-diagnostics'
+    try {
+      const storedDiagnostics = window.sessionStorage.getItem(diagnosticStorageKey)
+      diagnosticWindow.__FSUSBLOG_PUBLIC_ROUTE_DIAGNOSTICS__ = storedDiagnostics
+        ? JSON.parse(storedDiagnostics)
+        : []
+    } catch {
+      diagnosticWindow.__FSUSBLOG_PUBLIC_ROUTE_DIAGNOSTICS__ = []
+    }
+    if (captureConsoleErrors) {
+      diagnosticWindow.__FSUSBLOG_TEST_CONSOLE_ERRORS__ = []
+      const originalConsoleError = console.error.bind(console)
+      let consoleError = originalConsoleError
+      Object.defineProperty(console, 'error', {
+        configurable: true,
+        get: () => consoleError,
+        set: (writer: typeof console.error) => {
+          consoleError = (...data: unknown[]) => {
+            for (const value of data) {
+              if (!(value instanceof Error)) continue
+              diagnosticWindow.__FSUSBLOG_TEST_CONSOLE_ERRORS__?.push({
+                name: value.name.slice(0, 64),
+                message: value.message.slice(0, 512),
+                stack: (value.stack ?? '').split('\n').slice(0, 8)
+              })
+            }
+            writer(...data)
+          }
+        }
+      })
+    }
+    window.addEventListener('fsus:telemetry', (event) => {
+      const payload = (event as CustomEvent<{
+        name?: unknown
+        detail?: Readonly<Record<string, unknown>>
+      }>).detail
+      if (typeof payload?.name !== 'string'
+        || !diagnosticEventNames.includes(payload.name)) {
+        return
+      }
+
+      const diagnostics = diagnosticWindow.__FSUSBLOG_PUBLIC_ROUTE_DIAGNOSTICS__
+      diagnostics?.push({
+        name: payload.name,
+        ...(typeof payload.detail?.error === 'string' ? { error: payload.detail.error } : {}),
+        ...(typeof payload.detail?.target === 'string' ? { target: payload.detail.target } : {})
+      })
+      if (diagnostics && diagnostics.length > 16) {
+        diagnostics.splice(0, diagnostics.length - 16)
+      }
+      try {
+        window.sessionStorage.setItem(diagnosticStorageKey, JSON.stringify(diagnostics))
+      } catch {
+        // Test diagnostics remain best-effort when storage is unavailable.
+      }
+    })
 
     if (disableServiceWorker) {
       const runtimeWindow = window as typeof window & {
@@ -448,7 +544,6 @@ export async function openThemedAuditedContext(
       root.classList.toggle('light', mode === 'light')
       root.dataset.themeMode = mode
       root.dataset.themeResolved = isDark ? 'dark' : 'light'
-      root.style.colorScheme = isDark ? 'dark' : 'light'
       return true
     }
 
@@ -457,6 +552,8 @@ export async function openThemedAuditedContext(
     }
   }, {
     mode: themeMode,
+    captureConsoleErrors: process.env.FSUSBLOG_MANUAL_SCREENSHOT_RUNTIME_AUDIT === '1',
+    diagnosticEventNames: PUBLIC_RUNTIME_DIAGNOSTIC_EVENT_NAMES,
     disableHumanReadProof: process.env.FSUSBLOG_DISABLE_HUMAN_READ_PROOF === '1',
     disableNotificationStream: process.env.FSUSBLOG_DISABLE_NOTIFICATION_STREAM === '1',
     disableServiceWorker
@@ -483,16 +580,11 @@ export async function setThemeMode(page: Page, mode: ThemeMode): Promise<void> {
   await page.evaluate((nextMode: ThemeMode) => {
     localStorage.setItem('fsus:theme-mode', nextMode)
     const root = document.documentElement
-    const body = document.body
     const isDark = nextMode === 'dark'
     root.classList.toggle('dark', nextMode === 'dark')
     root.classList.toggle('light', nextMode === 'light')
     root.dataset.themeMode = nextMode
     root.dataset.themeResolved = isDark ? 'dark' : 'light'
-    root.style.colorScheme = isDark ? 'dark' : 'light'
-    if (body) {
-      body.style.colorScheme = root.style.colorScheme
-    }
   }, mode)
 }
 
@@ -511,12 +603,63 @@ export async function ensureThemeApplied(page: Page, mode: ThemeMode): Promise<v
   await settlePage(page)
 }
 
-export async function prewarmDevRuntime(browser: Browser): Promise<void> {
+export async function prewarmDevRuntime(
+  browser: Browser,
+  paths: readonly string[] = ['/']
+): Promise<void> {
   let session = await openAuditedPage(browser)
 
   const warm = async (): Promise<void> => {
-    await session.page.goto('/', { waitUntil: 'domcontentloaded' })
-    await waitForAppReady(session.page, WARMUP_TIMEOUT_MS)
+    for (const path of paths) {
+      const checkpoint = session.audit.checkpoint()
+      try {
+        const deadlineAtMs = Date.now() + WARMUP_TIMEOUT_MS
+        await navigateThroughRetryablePublicAot({
+          navigate: async () => await session.page.goto(path, { waitUntil: 'domcontentloaded' }),
+          sleep: async (delayMs: number) => await delay(delayMs),
+          deadlineAtMs
+        })
+        await waitForAppReady(session.page, Math.max(1, deadlineAtMs - Date.now()))
+      } catch (error) {
+        let readiness: unknown
+        try {
+          readiness = await session.page.evaluate(() => {
+            const app = document.querySelector('#app')
+            const loader = document.getElementById('global-loader')
+            const appRect = app?.getBoundingClientRect()
+            return {
+              url: location.href,
+              documentReadyState: document.readyState,
+              app: app instanceof HTMLElement
+                ? {
+                    display: getComputedStyle(app).display,
+                    visibility: getComputedStyle(app).visibility,
+                    opacity: getComputedStyle(app).opacity,
+                    width: appRect?.width ?? 0,
+                    height: appRect?.height ?? 0
+                  }
+                : null,
+              loader: loader
+                ? {
+                    hidden: loader.hidden,
+                    status: loader.querySelector('[data-fsus-loader-status]')?.textContent?.trim() ?? null
+                  }
+                : null
+            }
+          })
+        } catch (diagnosticError) {
+          readiness = {
+            unavailable: diagnosticError instanceof Error
+              ? diagnosticError.message
+              : String(diagnosticError)
+          }
+        }
+        throw new Error(`prewarm failed path=${path} diagnostics=${JSON.stringify({
+          readiness,
+          runtimeEvents: session.audit.eventsSince(checkpoint)
+        })}`, { cause: error })
+      }
+    }
   }
 
   try {
@@ -527,7 +670,7 @@ export async function prewarmDevRuntime(browser: Browser): Promise<void> {
       // triggered it and can crash that renderer before reload. Replace the
       // audited context once after the transform budget; a persistent failure
       // still fails the second readiness check instead of being hidden.
-      if (!(error instanceof Error) || error.name !== 'TimeoutError') {
+      if (!isRecoverablePrewarmFailure(error, browser.isConnected())) {
         throw error
       }
 
@@ -538,6 +681,31 @@ export async function prewarmDevRuntime(browser: Browser): Promise<void> {
   } finally {
     await session.close()
   }
+}
+
+export function isRecoverablePrewarmFailure(
+  error: unknown,
+  browserConnected: boolean
+): boolean {
+  if (!browserConnected) return false
+
+  const visited = new Set<unknown>()
+  let current: unknown = error
+
+  while (current !== null && current !== undefined && !visited.has(current)) {
+    visited.add(current)
+    if (current instanceof Error) {
+      if (current.name === 'TimeoutError'
+        || /Target page, context or browser has been closed|Execution context was destroyed/iu.test(current.message)) {
+        return true
+      }
+      current = current.cause
+      continue
+    }
+    break
+  }
+
+  return false
 }
 
 export async function captureStorageState(

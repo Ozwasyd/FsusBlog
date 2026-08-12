@@ -76,12 +76,18 @@ public readonly record struct PasskeySignalStateDto(
     string DisplayName,
     IReadOnlyList<string> AllAcceptedCredentialIds);
 
+/// <summary>
+/// Defines the authoritative user locale preference returned by the server.
+/// </summary>
 public readonly record struct UserLocalePreferenceDto(
     string Mode,
     string? FixedLocale,
     long Revision,
     DateTime UpdatedAt);
 
+/// <summary>
+/// Defines a revision-checked user locale preference update.
+/// </summary>
 public readonly record struct UserLocalePreferenceUpdateDto(
     string Mode,
     string? FixedLocale,
@@ -1642,6 +1648,9 @@ public sealed record PluginAdminOverviewDto(
     string CurrentNodeId,
     IReadOnlyList<PluginAdminSummaryDto> Plugins);
 
+/// <summary>
+/// Defines the validated plugin manifest fields exposed to administrators.
+/// </summary>
 public sealed record PluginAdminManifestSummaryDto(
     string PluginId,
     string Name,
@@ -1655,6 +1664,9 @@ public sealed record PluginAdminManifestSummaryDto(
     IReadOnlyList<string> DeniedRawPermissions,
     IReadOnlyList<PluginAdminHookDto> Hooks);
 
+/// <summary>
+/// Defines one plugin hook registration exposed to administrators.
+/// </summary>
 public sealed record PluginAdminHookDto(
     string Name,
     int Priority,
@@ -1664,6 +1676,9 @@ public sealed record PluginAdminHookDto(
     string Scope,
     bool Idempotent);
 
+/// <summary>
+/// Defines one requested plugin capability and its grant decision.
+/// </summary>
 public sealed record PluginAdminCapabilityDto(
     string Name,
     string Risk,
@@ -1671,6 +1686,9 @@ public sealed record PluginAdminCapabilityDto(
     bool RequiresAdministratorConfirmation,
     string Reason);
 
+/// <summary>
+/// Defines the current versioned plugin configuration.
+/// </summary>
 public sealed record PluginAdminConfigDto(
     long Version,
     System.Text.Json.JsonElement Schema,
@@ -1678,6 +1696,9 @@ public sealed record PluginAdminConfigDto(
     DateTimeOffset UpdatedAtUtc,
     string ReloadState);
 
+/// <summary>
+/// Defines one plugin hook execution measurement.
+/// </summary>
 public sealed record PluginAdminExecutionMetricDto(
     string PluginId,
     string PluginVersion,
@@ -1695,6 +1716,9 @@ public sealed record PluginAdminExecutionMetricDto(
     string Scope,
     DateTimeOffset CreatedAtUtc);
 
+/// <summary>
+/// Defines aggregate plugin execution counters and latency.
+/// </summary>
 public sealed record PluginAdminMetricSummaryDto(
     long ExecutionCount,
     long SuccessCount,
@@ -1707,6 +1731,9 @@ public sealed record PluginAdminMetricSummaryDto(
     double AverageDurationMilliseconds,
     double MaximumDurationMilliseconds);
 
+/// <summary>
+/// Defines one sanitized plugin runtime log entry.
+/// </summary>
 public sealed record PluginAdminLogDto(
     string PluginId,
     string Runtime,
@@ -1717,6 +1744,9 @@ public sealed record PluginAdminLogDto(
     string Message,
     DateTimeOffset CreatedAtUtc);
 
+/// <summary>
+/// Defines one sanitized plugin runtime error entry.
+/// </summary>
 public sealed record PluginAdminErrorDto(
     string PluginId,
     string Runtime,
@@ -1726,6 +1756,9 @@ public sealed record PluginAdminErrorDto(
     string Code,
     DateTimeOffset CreatedAtUtc);
 
+/// <summary>
+/// Defines one cluster node's observed plugin runtime state.
+/// </summary>
 public sealed record PluginAdminNodeStateDto(
     string NodeId,
     string MemberStatus,
@@ -1735,6 +1768,9 @@ public sealed record PluginAdminNodeStateDto(
     string? LastErrorCode,
     DateTimeOffset? ObservedAtUtc);
 
+/// <summary>
+/// Defines the complete administrator-facing plugin detail projection.
+/// </summary>
 public sealed record PluginAdminDetailDto(
     PluginAdminSummaryDto Summary,
     PluginAdminManifestSummaryDto Manifest,

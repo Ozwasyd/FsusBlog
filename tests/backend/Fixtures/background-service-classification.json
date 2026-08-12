@@ -358,33 +358,13 @@
       "replaySource": "visit log channel"
     },
     {
-      "type": "RumTelemetryFlushWorker",
-      "source": "src/backend/Services/Telemetry/RumTelemetryService.cs",
-      "classification": "instance-local",
-      "idempotency": "flushes buffered RUM metrics to local queue without cross-instance coordination",
-      "drain": "explicit-flush",
-      "maxDrainSeconds": 10,
-      "fence": "not-required",
-      "replaySource": "RUM telemetry channel buffer"
-    },
-    {
-      "type": "ChallengeV2AuditEventWriterWorker",
-      "source": "src/backend/Services/Security/ChallengeV2EventWriter.cs",
-      "classification": "active-singleton",
-      "idempotency": "single-instance durable writer draining the audit event queue",
-      "drain": "explicit-flush",
-      "maxDrainSeconds": 15,
-      "fence": "required",
-      "replaySource": "security challenge audit event queue"
-    },
-    {
       "type": "ResponsibilityAssignmentHostedService",
       "source": "src/backend/Infrastructure/Distributed/Scheduling/ResponsibilityRuntime.cs",
-      "classification": "active-singleton",
-      "idempotency": "reconciles cluster responsibility assignments via planner/runtime/state coordination",
+      "classification": "instance-local",
+      "idempotency": "each node reconciles only its local assignment set while the responsibility runtime acquires the per-assignment distributed lease",
       "drain": "explicit-flush",
       "maxDrainSeconds": 15,
-      "fence": "required",
+      "fence": "per-responsibility-distributed-lease",
       "replaySource": "cluster responsibility state store"
     }
   ],

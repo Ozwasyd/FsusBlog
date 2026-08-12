@@ -4,7 +4,7 @@ governance:
     retention:
         baseline: tests/test-retention-before.json
         replacementLedger: tests/test-retention-replacements.json
-        postBaselines: [tests/admin-inline-empty-state-retirement-baseline.json, tests/lightweight-acceptance-baseline.json, tests/service-composition-registration-baseline.json, tests/test-asset-lifecycle-retirement-baseline.json, tests/test-governance-modernization-baseline.json]
+        postBaselines: [tests/admin-inline-empty-state-retirement-baseline.json, tests/ci-local-matrix-retirement-baseline.json, tests/lightweight-acceptance-baseline.json, tests/service-composition-registration-baseline.json, tests/test-asset-lifecycle-retirement-baseline.json, tests/test-governance-modernization-baseline.json]
         auditOutput: .tmp/release-evidence/test-retention-audit.json
         automaticDeletion: false
     sourceLocking:
@@ -69,7 +69,7 @@ commandGroups:
         schema: "fsusblog.frontend-static-command-manifest.v2"
         lane: "frontend-static-governance"
         commands:
-            - {id: "frontend-style-full", script: "lint:full", access: "write", stage: "blocking-prebuild", reason: "Runs the baseline-aware AST ESLint, Vue template and Stylelint gate over every governed frontend and Node source before other frontend governance checks.", consumedInputs: ["config/development/frontend-style-*.json", "eslint.config.mjs", "stylelint.config.mjs", "src/frontend/src", "src/frontend/wasm/web", "src/frontend/scripts", "src/frontend/public", "tools/**/*.mjs", "tests/**/*.mjs", "tools/frontend/style-toolchain"], ownedOutputs: [".tmp/frontend-style/eslint.cache"], dependsOn: [], resources: {cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1, exclusiveResources: ["frontend-style-cache"]}}
+            - {id: "frontend-style-full", script: "lint:full", access: "write", stage: "blocking-prebuild", reason: "Runs the baseline-aware AST ESLint, Vue template and Stylelint gate over every governed frontend and Node source before other frontend governance checks.", consumedInputs: ["config/development/frontend-style-*.json", "eslint.config.mjs", "stylelint.config.mjs", "src/frontend/src", "src/frontend/wasm/web", "src/frontend/scripts", "src/frontend/public", "tools/**/*.mjs", "tests/**/*.mjs", "tools/frontend/style-toolchain"], ownedOutputs: [".tmp/frontend-style/eslint.cache", ".tmp/frontend-style/eslint.cache-key"], dependsOn: [], resources: {cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1, exclusiveResources: ["frontend-style-cache"]}}
             - {id: "frontend-style-fixtures", command: ["node", "../../tests/tools/frontend-style.test.mjs"], access: "write", stage: "concurrent", reason: "Exercises positive and negative AST style fixtures, baseline invalidation, fixer idempotency and locale-stable diagnostics in isolated temporary repositories.", consumedInputs: ["config/development/frontend-style-*.json", "eslint.config.mjs", "stylelint.config.mjs", "src/frontend/package.json", "tests/tools/frontend-style.test.mjs", "tools/frontend/check-frontend-style.mjs", "tools/frontend/style-toolchain"], ownedOutputs: ["os-temp://fsusblog-frontend-style-unique"], dependsOn: ["frontend-style-full"], resources: {cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "frontend-test-governance", script: "check:frontend-test-governance", access: "read", stage: "blocking-prebuild", reason: "Validates the Vitest and test-lane admission contract, locale catalog projections, and the ten-locale × domain fail-closed static gate before test execution starts.", consumedInputs: ["src/frontend/vitest*.{ts,mjs}", "src/frontend/package.json", "src/frontend/src/locales", "src/frontend/src/bootstrap/globalLoaderCopy.ts", "src/shared/Contracts/Localization/locale-catalog.json", "src/shared/Contracts/Localization/LocaleCatalog.g.cs", "tools/contracts/generate-locale-catalog.mjs", "tools/contracts/check-locale-catalog.mjs", "tools/frontend/check-locale-domain-static.mjs", "tests/tools/locale-catalog.test.mjs", "tests/tools/locale-domain-static.test.mjs", "tests/frontend", "tools/test"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "locale-domain-static-fixtures", command: ["node", "--test", "../../tests/tools/locale-domain-static.test.mjs"], access: "write", stage: "concurrent", reason: "Exercises the eight required locale-domain static counterexamples and diagnostic contract without network access.", consumedInputs: ["src/frontend/src/locales", "src/frontend/src/bootstrap/globalLoaderCopy.ts", "src/shared/Contracts/Localization/locale-catalog.json", "tools/frontend/check-locale-domain-static.mjs", "tests/tools/locale-domain-static.test.mjs"], ownedOutputs: ["os-temp://fsusblog-locale-domain-static-unique"], dependsOn: ["frontend-test-governance"], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}
@@ -153,6 +153,7 @@ localProfiles:
                       frontend-build,
                       frontend-runtime-contracts,
                       validate-matrix,
+                      pr-smart-gate-plan,
                       production-build-artifacts,
                       public-hydration-fast,
                       app-config-local-tuning,
@@ -196,7 +197,9 @@ localProfiles:
                       backend-golden,
                       backend-fast,
                       coverage-backend,
+                      behavior-test-evidence,
                       backend-mutation-changed-critical,
+                      behavior-evidence-pre-runtime,
                   ]
               resourceClass: cpu
               cpuWeight: 4
@@ -243,7 +246,6 @@ localProfiles:
                       test-inventory,
                       frontend-static-governance,
                       frontend-render-structure,
-                      behavior-evidence-pre-runtime,
                   ]
               resourceClass: cpu
               cpuWeight: 3
@@ -545,6 +547,74 @@ tiers:
       retentionClass: must-keep
       triggerReason: every candidate requires a source-bound BehaviorDoc static admission receipt before any candidate process or output mutation
 
+    - id: behavior-test-evidence
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
+      owner: ServerContractAgent
+      qualificationEligible: true
+      command: tools/test/lanes/behavior-test-evidence.sh
+      outputReceiptSchema: fsusblog.behavior-test-evidence-receipt.v1
+      executionDependsOn:
+          [
+              validate-matrix,
+              behavior-doc-static-admission,
+          ]
+      services: []
+      parallelizable: false
+      serialReason: one source-bound producer owns the canonical Node TAP and xUnit observation set
+      exclusiveResources: [behavior-test-evidence, backend-dotnet-build]
+      phase: 1
+      cost: high
+      resourceClass: cpu
+      cpuWeight: 2
+      memoryWeight: 2
+      minCpuUnits: 1
+      maxParallel: 1
+      requiresBootstrap: none
+      requiresNode: true
+      requiresDotnet: true
+      requiresPlaywright: none
+      cacheProfile: backend
+      timeoutMinutes: 30
+      shardable: false
+      defaultShards: 1
+      risk: critical
+      cadence: pr
+      requiredFor: production
+      coverage:
+          [
+              behavior-test-evidence-binding,
+          ]
+      artifacts:
+          [
+              .tmp/behavior-test-evidence,
+          ]
+      evidence:
+          [
+              .tmp/behavior-test-evidence/receipt.json,
+              .tmp/behavior-test-evidence/verification.json,
+              config/contracts/behavior-contracts.json,
+              config/schemas/behavior-test-evidence.schema.json,
+              src/shared/Contracts/Governance/BehaviorTestKind.cs,
+              src/shared/Contracts/Governance/CoversBehaviorAttribute.cs,
+              tools/contracts/behavior-test.mjs,
+              tools/contracts/behavior-test-binding.mjs,
+              tools/test-observations,
+              tools/test-matrix/produce-behavior-test-evidence.mjs,
+              tools/test-matrix/verify-behavior-test-evidence.mjs,
+              tools/test/lanes/behavior-test-evidence.sh,
+          ]
+      ciJob: behavior-test-evidence
+      localOnly: false
+      nightlyOnly: false
+      prDefault: true
+      smartGateMode: always
+      retentionClass: must-keep
+      triggerReason: every candidate requires current-run discovered, executed, and passed evidence for each active behavior test kind
+
     - id: behavior-evidence-pre-runtime
       executionClass: static-governance
       fixtureProfile: none
@@ -559,18 +629,17 @@ tiers:
           [
               backend-mutation-changed-critical,
               behavior-doc-static-admission,
+              behavior-test-evidence,
           ]
       requiresEvidenceFrom:
           [
               backend-mutation-changed-critical,
-              backend-unit,
-              frontend-unit-shard,
-              release-evidence,
+              behavior-test-evidence,
           ]
       services: []
       parallelizable: false
       exclusiveResources: [behavior-evidence-pre-runtime]
-      phase: 5
+      phase: 1
       cost: medium
       resourceClass: cpu
       cpuWeight: 1
@@ -628,7 +697,7 @@ tiers:
       fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
       fixtureMutatorAllowed: false
       owner: ServerContractAgent
-      command: node tools/run-test-matrix.mjs ci-pr-plan --out .tmp/pr-plan.json
+      command: tools/test/lanes/plan-pr-risk.sh
       executionDependsOn: [validate-matrix]
       services: []
       parallelizable: true
@@ -652,8 +721,17 @@ tiers:
       requiredFor: fast
       coverage: [pr-smart-gate-plan]
       artifacts:
-          [.tmp/pr-plan.json, .tmp/release-evidence/pr-smart-gate-summary.json]
-      evidence: [.tmp/release-evidence/pr-smart-gate-summary.json]
+          [
+              .tmp/pr-plan.json,
+              .tmp/pr-changed-files.txt,
+              .tmp/release-evidence/pr-smart-gate-summary.json,
+          ]
+      evidence:
+          [
+              .tmp/pr-changed-files.txt,
+              .tmp/release-evidence/pr-smart-gate-summary.json,
+              tools/test/lanes/plan-pr-risk.sh,
+          ]
       ciJob: plan-pr-risk
       localOnly: false
       nightlyOnly: false
@@ -819,6 +897,8 @@ tiers:
       executionVariant: ordinary
       cacheInputs:
           [
+              config/testing/fsusui-baseline.json,
+              tools/test/fsusui-baseline.mjs,
               src/frontend/package.json,
               src/frontend/package-lock.json,
               src/frontend/tsconfig*.json,
@@ -881,6 +961,8 @@ tiers:
       executionVariant: ordinary
       cacheInputs:
           [
+              config/testing/fsusui-baseline.json,
+              tools/test/fsusui-baseline.mjs,
               src/frontend/package.json,
               src/frontend/package-lock.json,
               src/frontend/vitest.config.ts,
@@ -1005,6 +1087,8 @@ tiers:
       executionVariant: property
       cacheInputs:
           [
+              config/testing/fsusui-baseline.json,
+              tools/test/fsusui-baseline.mjs,
               src/frontend/package.json,
               src/frontend/package-lock.json,
               src/frontend/vitest.shared.mjs,
@@ -1072,6 +1156,8 @@ tiers:
       executionVariant: runtime
       cacheInputs:
           [
+              config/testing/fsusui-baseline.json,
+              tools/test/fsusui-baseline.mjs,
               src/frontend/package.json,
               src/frontend/package-lock.json,
               src/frontend/src,
@@ -1136,6 +1222,8 @@ tiers:
       executionVariant: ordinary
       cacheInputs:
           [
+              config/testing/fsusui-baseline.json,
+              tools/test/fsusui-baseline.mjs,
               src/frontend/package.json,
               src,
               benchmarks,
@@ -1837,7 +1925,7 @@ tiers:
       requiresDotnet: false
       requiresPlaywright: none
       cacheProfile: none
-      timeoutMinutes: 10
+      timeoutMinutes: 35
       shardable: false
       defaultShards: 1
       risk: critical
@@ -1966,7 +2054,14 @@ tiers:
           - tools/test-fixtures/producers/temporal-child-handshake-emitter.cjs
           - tools/data-scale/seed.sh
           - tools/data-scale/cleanup.sh
-          - tools/dev/seed-demo-data.sh
+          - config/testing/fixture-producer-registry.json
+          - config/testing/fixture-profile-catalog.json
+          - config/testing/fixture-variant-catalog.json
+          - tests/tools/demo-public-producer.test.mjs
+          - tests/tools/fixture-orchestrator.test.mjs
+          - src/backend/Modules/Endpoints/LocalDemoFixtureEndpoints.cs
+          - src/backend/Services/Fixtures/DemoFixtureSeeder.cs
+          - docs/development/demo-data.md
           - src/backend/Infrastructure/Middlewares/AnonymousGatewayHeaderGuardMiddleware.cs
           - src/backend/Modules/Endpoints/LocalPublicContentFixtureEndpoints.cs
           - tests/browser-contract/default-fixture-provider.mjs
@@ -2868,7 +2963,7 @@ tiers:
       fixtureMutatorAllowed: true
       owner: ServerContractAgent
       command: tools/test/lanes/bootstrap-acceptance-env.sh
-      executionDependsOn: [behavior-doc-static-admission]
+      executionDependsOn: [behavior-evidence-pre-runtime]
       services: [postgres, redis, backend, frontend, preview]
       runtimeMode: single
       nodeCount: 1
@@ -6450,14 +6545,14 @@ tiers:
 
     - id: csrf-browser-matrix
       executionClass: security
-      fixtureProfile: auth-security-matrix
-      fixtureProfileReason: binds-auth-security-matrix
+      fixtureProfile: none
+      fixtureProfileReason: none-security
       fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
-      fixtureMutatorAllowed: true
-      owner: InteropGlueAgent
-      command: npm --prefix src/frontend run check:security:csrf-browser-matrix
+      fixtureMutatorAllowed: false
+      owner: ServerContractAgent
+      command: tools/test/lanes/csrf-browser-matrix.sh
       executionDependsOn: [behavior-doc-static-admission]
-      services: [frontend, backend]
+      services: []
       parallelizable: true
       exclusiveResources: []
       phase: 3
@@ -6466,12 +6561,11 @@ tiers:
       cpuWeight: 2
       memoryWeight: 4
       minCpuUnits: 1
-      requiresBootstrap: full
-      workflowBootstraps: true
+      requiresBootstrap: none
       requiresNode: true
       requiresDotnet: true
       requiresPlaywright: none
-      cacheProfile: full
+      cacheProfile: backend
       timeoutMinutes: 20
       shardable: false
       defaultShards: 1
@@ -7929,29 +8023,29 @@ tiers:
       manualOnly: true
 
     - id: test-inventory
-      executionClass: coordination
+      executionClass: build
       fixtureProfile: none
-      fixtureProfileReason: none-coordination
+      fixtureProfileReason: none-build
       fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
       fixtureMutatorAllowed: false
       owner: ServerContractAgent
-      command: node tools/test-inventory/produce.mjs
+      command: tools/test/lanes/test-inventory.sh
       executionDependsOn: [validate-matrix]
       services: []
       parallelizable: true
-      exclusiveResources: []
+      exclusiveResources: [backend-build-output]
       phase: 1
-      cost: medium
+      cost: high
       resourceClass: cpu
       cpuWeight: 1
       memoryWeight: 1
       minCpuUnits: 1
       requiresBootstrap: none
       requiresNode: true
-      requiresDotnet: false
+      requiresDotnet: true
       requiresPlaywright: none
-      cacheProfile: none
-      timeoutMinutes: 5
+      cacheProfile: backend
+      timeoutMinutes: 20
       shardable: false
       defaultShards: 1
       risk: critical
@@ -8903,12 +8997,17 @@ tiers:
       fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/backend-mutation-changed-critical.sh
-      executionDependsOn: [behavior-doc-static-admission]
+      executionDependsOn:
+          [
+              behavior-doc-static-admission,
+              behavior-test-evidence,
+              pr-smart-gate-plan,
+          ]
       services: []
       parallelizable: false
       serialReason: one generated closure owns the repository Stryker process and run-bound authority
       exclusiveResources: [stryker]
-      phase: 5
+      phase: 1
       cost: high
       resourceClass: cpu
       cpuWeight: 1
@@ -8932,6 +9031,10 @@ tiers:
       ciJob: backend-mutation
       localOnly: false
       nightlyOnly: false
+      prDefault: true
+      smartGateMode: always
+      retentionClass: must-keep
+      triggerReason: every production candidate requires current-run per-behavior changed-critical mutation qualification
 
     - id: backend-nightly
       executionClass: runtime
@@ -9091,6 +9194,3 @@ tiers:
       ciJob: cross-stack-contract
       localOnly: false
       nightlyOnly: false
-
-
-

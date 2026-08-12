@@ -832,7 +832,10 @@ public sealed class CommentMutationOutboxWorker(
             }
             claim.OwnerState = ClaimOwnerState.Released;
         }
-        finally { claim.OperationGate.Release(); }
+        finally
+        {
+            claim.OperationGate.Release();
+        }
     }
 
     private static async Task MarkFailedAsync(ISqlSugarClient db, CommentMutationOutboxEvent item, ClaimState claim, Exception exception, DateTime now)
@@ -873,7 +876,10 @@ public sealed class CommentMutationOutboxWorker(
             }
             claim.OwnerState = ClaimOwnerState.Released;
         }
-        finally { claim.OperationGate.Release(); }
+        finally
+        {
+            claim.OperationGate.Release();
+        }
     }
 
     private static IReadOnlyList<string> GetRequiredConsumers(CommentMutationOutboxEvent item)
@@ -942,7 +948,10 @@ public sealed class CommentMutationOutboxWorker(
                 s_heartbeat.Add(1);
             }
         }
-        finally { claim.OperationGate.Release(); }
+        finally
+        {
+            claim.OperationGate.Release();
+        }
     }
 
     private async Task MaintainClaimHeartbeatsAsync(IReadOnlyDictionary<long, ClaimState> claims, CancellationToken cancellationToken)
@@ -953,7 +962,10 @@ public sealed class CommentMutationOutboxWorker(
             {
                 await Task.Delay(GetHeartbeatInterval(), timeProvider, cancellationToken).ConfigureAwait(false);
             }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { return; }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
             using IServiceScope scope = scopeFactory.CreateScope();
             ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
             foreach (ClaimState claim in claims.Values.Where(static value => value.OwnerState == ClaimOwnerState.Owned))
@@ -1007,7 +1019,10 @@ public sealed class CommentMutationOutboxWorker(
                         lost++;
                 }
             }
-            finally { claim.OperationGate.Release(); }
+            finally
+            {
+                claim.OperationGate.Release();
+            }
         }
         return lost;
     }

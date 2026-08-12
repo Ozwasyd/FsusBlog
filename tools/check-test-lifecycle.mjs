@@ -6,6 +6,9 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import {
+    resolveRetentionAudit
+} from './retention/audit-input.mjs';
+import {
     buildLifecycleReport,
     classifyNodeRegistryEntry,
     isNodeTestFile,
@@ -17,23 +20,77 @@ const registryPath = path.join(root, 'tests/governance/test-lifecycle-registry.j
 const outputPath = path.join(root, '.tmp/release-evidence/test-lifecycle-report.json');
 const matrixPath = path.join(root, '.tmp/release-evidence/test-lifecycle-candidate-matrix.md');
 const retentionInputPath = path.join(root, '.tmp/release-evidence/test-lifecycle-retention-input.json');
-const writeRegistry = process.argv.includes('--write-registry');
 
-const retention = spawnSync(process.execPath, [
-    path.join(root, 'tools/check-test-retention.mjs'),
-    '--out', retentionInputPath
-], {
-    cwd: root,
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024
-});
-if (retention.status !== 0)
+function parseArgs(argv)
 {
-    process.stderr.write(retention.stderr || retention.stdout);
-    process.exit(retention.status ?? 1);
+    const options = {
+        writeRegistry: false,
+        auditInput: null
+    };
+    for (let index = 0; index < argv.length; index += 1)
+    {
+        const argument = argv[index];
+        if (argument === '--write-registry')
+        {
+            options.writeRegistry = true;
+        }
+        else if (argument === '--audit-input')
+        {
+            const value = String(argv[index + 1] ?? '').trim();
+            if (!value)
+            {
+                throw new Error('--audit-input requires a path');
+            }
+            options.auditInput = path.resolve(root, value);
+            index += 1;
+        }
+        else if (argument === '--help' || argument === '-h')
+        {
+            console.log('Usage: node tools/check-test-lifecycle.mjs [--write-registry] [--audit-input .tmp/release-evidence/test-retention-audit.json]');
+            process.exit(0);
+        }
+        else
+        {
+            throw new Error(`unknown argument: ${argument}`);
+        }
+    }
+    return options;
 }
-const audit = JSON.parse(fs.readFileSync(retentionInputPath, 'utf8'));
-if (writeRegistry)
+
+function produceStandaloneAudit()
+{
+    const retention = spawnSync(process.execPath, [
+        path.join(root, 'tools/check-test-retention.mjs'),
+        '--out', retentionInputPath
+    ], {
+        cwd: root,
+        encoding: 'utf8',
+        maxBuffer: 64 * 1024 * 1024
+    });
+    if (retention.status !== 0)
+    {
+        throw new Error(String(retention.stderr || retention.stdout || `retention audit exited ${retention.status ?? 1}`).trim());
+    }
+    return retentionInputPath;
+}
+
+let options;
+let audit;
+try
+{
+    options = parseArgs(process.argv.slice(2));
+    audit = await resolveRetentionAudit({
+        root,
+        auditInput: options.auditInput,
+        produceStandaloneAudit
+    });
+}
+catch (error)
+{
+    console.error(`[test-lifecycle] ${error instanceof Error ? error.message : String(error)}`);
+    process.exit(1);
+}
+if (options.writeRegistry)
 {
     const existingRegistry = fs.existsSync(registryPath)
         ? JSON.parse(fs.readFileSync(registryPath, 'utf8'))

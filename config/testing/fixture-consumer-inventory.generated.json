@@ -930,38 +930,6 @@
             "producerOwners": []
         },
         {
-            "consumerId": "matrix:csrf-browser-matrix",
-            "executionClass": "security",
-            "source": "npm --prefix src/frontend run check:security:csrf-browser-matrix",
-            "requiredBusinessFact": "auth.user.active, security.credential.revoked, security.pow.elevated, security.risk-escalated, security.subject.banned, session.multi-device",
-            "implicitSource": "tests/matrix.yml tier csrf-browser-matrix; command npm --prefix src/frontend run check:security:csrf-browser-matrix",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); scale data is produced by the scale-data generator for the selected scale profile only; upserts auth identities; reuses existing user/admin rows when handles already exist",
-            "profileId": "auth-security-matrix",
-            "profileIds": [
-                "auth-security-matrix"
-            ],
-            "requiredCapabilities": [
-                "auth.user.active",
-                "security.credential.revoked",
-                "security.pow.elevated",
-                "security.risk-escalated",
-                "security.subject.banned",
-                "session.multi-device"
-            ],
-            "requiredVariantIds": [
-                "canonical.auth.user.active",
-                "canonical.security.credential.revoked",
-                "canonical.security.pow.elevated",
-                "canonical.security.risk-escalated",
-                "canonical.security.subject.banned",
-                "canonical.session.multi-device"
-            ],
-            "producerOwners": [
-                "auth-session",
-                "security-state"
-            ]
-        },
-        {
             "consumerId": "matrix:data-scale-m",
             "executionClass": "load",
             "source": "tools/test/lanes/data-scale.sh",

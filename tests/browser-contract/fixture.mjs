@@ -9,7 +9,10 @@ import {
     resolveFixtureNamespace,
     resolveFixtureRoot,
     resolvePublicFixtureFile
+// eslint-disable-next-line import-x/no-relative-parent-imports -- The browser-contract facade owns the canonical cross-suite fixture path adapter.
 } from '../frontend/support/fixture-paths.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- The browser-contract facade consumes the canonical public fixture reader.
+import { readPublicFixtures } from '../frontend/support/public-fixtures.mjs';
 
 import { BrowserContractFailure, contractAssert } from './contract.mjs';
 import {
@@ -30,27 +33,6 @@ export {
 } from './contract.mjs';
 
 export const browserContractFixtureAdapterSchema = 'fsusblog.browser-contract-fixture-adapter.v2';
-
-function decodePublicFixture(raw)
-{
-    const values = {};
-    for (const line of raw.split(/\r?\n/u))
-    {
-        const separator = line.indexOf('\t');
-        if (separator <= 0)
-        {
-            continue;
-        }
-        const key = line.slice(0, separator).trim();
-        const encoded = line.slice(separator + 1).trim();
-        if (!key || !encoded)
-        {
-            continue;
-        }
-        values[key] = Buffer.from(encoded, 'base64url').toString('utf8');
-    }
-    return values;
-}
 
 function resolveStorageStateFile(authDirectory, descriptor, role, { requirePrivate = false } = {})
 {
@@ -315,7 +297,11 @@ export async function loadBrowserContractFixture({
         );
     }
 
-    const publicFixture = decodePublicFixture(await readFile(publicFixtureFile, 'utf8'));
+    const publicFixture = readPublicFixtures({}, {
+        requireCurrent: true,
+        env,
+        repoRoot
+    });
     const authFixture = JSON.parse(await readFile(authFixtureFile, 'utf8'));
     const articleId = String(publicFixture.articleId ?? '').trim();
     const articleTitle = String(publicFixture.articleTitle ?? '').trim();

@@ -130,7 +130,8 @@ before retrying. The explicit capture command receives a cold-build budget,
 while ordinary dedicated browser-contract runs retain their shorter default.
 
 `verify:public-preview-docs` is read-only: it recaptures into a temporary
-directory, compares every screenshot ID, writes deterministic release evidence
+directory against the immutable Release-built frontend runtime, compares every
+screenshot ID, writes deterministic release evidence
 under `.tmp/release-evidence/`, and requests the explicit capture command when
 an update is required. Local `release-final` runs this same matrix tier. CI,
 when available, is only another caller and is not the authority.
@@ -141,8 +142,10 @@ table and writes only below `FSUSBLOG_MANUAL_SCREENSHOT_DIR` or
 cannot write or prune documentation assets. The retired
 `FSUSBLOG_MANUAL_SCREENSHOT_WRITE_DOCS_ASSETS=1` setting fails explicitly.
 
-For targeted local review or CI matrix jobs, keep each Playwright shard at
-`--workers=1` and split the route matrix with deterministic filters:
+For targeted local review or CI matrix jobs, the command below enters the same
+matrix-owned bootstrap and sealed fixture profile as the formal documentation
+capture. It does not start a second fixture orchestrator. Keep each Playwright
+shard at `--workers=1` and split the route matrix with deterministic filters:
 
 ```bash
 FSUSBLOG_MANUAL_SCREENSHOT_VIEWPORTS=desktop \

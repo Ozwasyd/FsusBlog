@@ -6,8 +6,6 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import './public-preview-release-evidence.cases.mjs';
-
 /* eslint-disable import-x/no-relative-parent-imports */
 import { verifyPublicPreviewRuntimeIdentity } from '../../tools/docs/public-preview-runtime-identity.mjs';
 import {
@@ -23,9 +21,24 @@ import {
 } from '../../tools/docs/public-preview-writer-transaction.mjs';
 /* eslint-enable import-x/no-relative-parent-imports */
 
+import {
+    assertDeterministicPublicPreviewVerificationEvidence,
+    assertReleaseFinalRequiresLocalPublicPreviewEvidence
+} from './public-preview-release-evidence-fixture.mjs';
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const tool = path.join(root, 'tools/docs/public-preview-screenshots.mjs');
 const sourceDirectory = path.join(root, 'docs/assets/screenshots');
+
+test(
+    'verification evidence is deterministic and excludes local or runtime-noise identities',
+    assertDeterministicPublicPreviewVerificationEvidence
+);
+
+test(
+    'release-final requires matching local public-preview evidence without a CI identity',
+    assertReleaseFinalRequiresLocalPublicPreviewEvidence
+);
 
 function fixture()
 {
@@ -105,7 +118,8 @@ function runtimeIdentityFixture()
     fs.mkdirSync(runtimeDirectory, { recursive: true });
     for (const [role, pidFile, pid] of [
         ['backend', 'backend.pid', 4101],
-        ['debug-frontend', 'dev-server.pid', 4102]
+        ['debug-frontend', 'dev-server.pid', 4102],
+        ['release-preview', 'preview.pid', 4103]
     ])
     {
         fs.writeFileSync(path.join(runtimeDirectory, pidFile), `${pid}\n`, { mode: 0o600 });
@@ -459,7 +473,7 @@ test('registry covers visible authorities and binds the resolved FsusUI identity
     assert.notEqual(combineVisualInputDigest(inputs.categories, changedFsusUi), inputs.visualInputDigest);
 });
 
-test('formal capture verifies both runtime processes against the current source identity', () =>
+test('formal capture verifies every browser and fixture runtime against the current source identity', () =>
 {
     const runtime = runtimeIdentityFixture();
     try
@@ -470,7 +484,7 @@ test('formal capture verifies both runtime processes against the current source 
             expectedSourceState: runtime.expectedSourceState,
             observeProcess: (pid) => runtime.processes.get(pid)
         });
-        assert.deepEqual(Object.keys(result).sort(), ['backend', 'debug-frontend']);
+        assert.deepEqual(Object.keys(result).sort(), ['backend', 'debug-frontend', 'release-preview']);
     }
     finally
     {
@@ -539,9 +553,30 @@ test('capture contracts keep shards temporary and release verification explicit'
     const browserRunner = fs.readFileSync(path.join(root, 'tests/browser-contract/run.mjs'), 'utf8');
     const browserGallery = fs.readFileSync(path.join(root, 'tests/browser-contract/public-preview-gallery.mjs'), 'utf8');
     const releaseFinal = fs.readFileSync(path.join(root, 'tools/release/check-release-final.mjs'), 'utf8');
+    const releaseFinalDomainEvidence = fs.readFileSync(
+        path.join(root, 'tools/release/release-final-domain-evidence.mjs'),
+        'utf8'
+    );
     const releaseEvidence = fs.readFileSync(path.join(root, 'tools/release/public-preview-release-evidence.mjs'), 'utf8');
     assert.match(specification, /manual screenshot shards cannot write docs assets/u);
     assert.match(specification, /public-preview docs capture requires the complete unfiltered registry/u);
+    assert.doesNotMatch(
+        specification,
+        /process\.cwd\(\).*config\/docs\/public-preview-screenshots/u
+    );
+    assert.match(
+        specification,
+        /for \(const route of routes\) \{[\s\S]*?openThemedAuditedPage[\s\S]*?finally \{[\s\S]*?session\.close\(\)/u
+    );
+    assert.match(
+        acceptanceShared,
+        /prewarmDevRuntime[\s\S]*?navigateThroughRetryablePublicAot[\s\S]*?deadlineAtMs[\s\S]*?waitForAppReady/u
+    );
+    assert.doesNotMatch(
+        acceptanceShared,
+        /\.style\.colorScheme/u,
+        'capture setup must preserve production style-src-attr CSP'
+    );
     assert.match(manualConfiguration, /FSUSBLOG_MANUAL_SCREENSHOT_SHARD_NAME must match/u);
     assert.match(manualConfiguration, /public-preview docs staging path mismatch/u);
     assert.match(manualConfiguration, /public-preview docs writer lock identity mismatch/u);
@@ -561,16 +596,48 @@ test('capture contracts keep shards temporary and release verification explicit'
     assert.match(runner, /FSUSBLOG_PUBLIC_PREVIEW_DOCS_CAPTURE=1/u);
     assert.match(runner, /FSUSBLOG_PUBLIC_PREVIEW_WRITER_NAMESPACE="\$NAMESPACE"/u);
     assert.match(runner, /FSUSBLOG_PUBLIC_PREVIEW_WRITER_PID="\$\$"/u);
+    assert.match(runner, /FSUSBLOG_REPOSITORY_ROOT="\$ROOT_DIR"/u);
+    assert.match(runner, /FSUSBLOG_PLAYWRIGHT_MANAGED_ONLY=1/u);
+    assert.match(runner, /FSUSBLOG_BASE_URL="\$FSUSBLOG_RELEASE_PREVIEW_URL"/u);
+    assert.match(runner, /FSUSBLOG_PUBLIC_BASE_URL="\$FSUSBLOG_RELEASE_PREVIEW_URL"/u);
+    assert.match(runner, /PLAYWRIGHT_BASE_URL="\$FSUSBLOG_RELEASE_PREVIEW_URL"/u);
+    assert.doesNotMatch(runner, /=("\$FSUSBLOG_DEBUG_FRONTEND_URL")/u);
+    assert.doesNotMatch(
+        bootstrap,
+        /-n "\$\{FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT:-\}" \|\|\s*"\$\{FSUSBLOG_PUBLIC_PREVIEW_DOCS_CAPTURE:-0\}" == "1"/u
+    );
+    assert.match(runner, /loadTestMatrix/u);
+    assert.match(runner, /sealMatrixFixtureProfile/u);
+    assert.match(runner, /applySealedFixtureProfileEnvironment/u);
+    assert.match(runner, /tiers\.find\(\(tier\) => tier\.id === 'bootstrap'\)/u);
+    assert.doesNotMatch(runner, /FSUSBLOG_SEALED_FIXTURE_PROFILE_ID=acceptance-representative/u);
     assert.match(bootstrap, /PUBLIC_PREVIEW_CAPTURE_EXECUTION_BUDGET_CAP_MS=1800000/u);
     assert.match(bootstrap, /PUBLIC_PREVIEW_DOCS_CAPTURE:-0\}" == "1"[\s\S]*?PUBLIC_PREVIEW_CAPTURE_EXECUTION_BUDGET_CAP_MS/u);
     assert.match(runner, /FSUSBLOG_PHYSICAL_BUNDLE_ID=standalone/u);
     assert.match(runner, /FSUSBLOG_STEP_ID=bootstrap/u);
+    assert.match(
+        runner,
+        /FSUSBLOG_STEP_ID=release-public-hydration\s+\\\s*"\$ROOT_DIR\/tools\/test\/lanes\/release-public-hydration\.sh"/u
+    );
+    const environmentIndex = runner.indexOf('done <"$ENV_FILE"');
+    const hydrationIndex = runner.indexOf('FSUSBLOG_STEP_ID=release-public-hydration');
+    const identityIndex = runner.indexOf('public-preview-runtime-identity.mjs');
+    assert.ok(
+        environmentIndex >= 0
+        && environmentIndex < hydrationIndex
+        && hydrationIndex < identityIndex,
+        'docs writer must run the canonical release hydration producer after bootstrap and before preview readers'
+    );
     assert.match(runner, /node_modules\/\.bin\/\$executable/u);
     assert.match(runner, /public-preview-runtime-identity\.mjs/u);
     assert.match(runner, /FSUSBLOG_MANUAL_SCREENSHOT_DIR="\$WORK_DIR\/manual"/u);
     assert.match(runner, /status == 0 && cleanupStatus != 0/u);
     assert.match(runner, /public-preview-screenshots\.mjs" publish/u);
-    const captureIndex = runner.indexOf('run capture:manual-layout-screenshots');
+    assert.match(runner, /FSUSBLOG_PUBLIC_PREVIEW_DOCS_CAPTURE=0/u);
+    assert.match(runner, /\[\[ "\$MODE" == "manual" \]\]/u);
+    assert.match(runner, /FSUSBLOG_PLAYWRIGHT_SERIAL_REASON=shared-screenshot-baseline-writer/u);
+    assert.doesNotMatch(runner, /run capture:manual-layout-screenshots/u);
+    const captureIndex = runner.indexOf('manual/manual-layout-screenshots.spec.ts');
     const generateIndex = runner.indexOf('public-preview-screenshots.mjs" generate');
     const checkIndex = runner.indexOf('public-preview-screenshots.mjs" check');
     const publishIndex = runner.indexOf('public-preview-screenshots.mjs" publish');
@@ -602,7 +669,8 @@ test('capture contracts keep shards temporary and release verification explicit'
     assert.match(matrix, /id: release-final[\s\S]*?browser-contract/u);
     assert.match(browserRunner, /receipt\.publicPreview = \{[\s\S]*?captureContextCount:[\s\S]*?evidenceFileDigest: sha256File/u);
     assert.doesNotMatch(browserGallery, /receipt\.topology\.contextCount/u);
-    assert.match(releaseFinal, /requirePublicPreviewReleaseEvidence/u);
+    assert.match(releaseFinal, /createReleaseFinalDomainEvidence/u);
+    assert.match(releaseFinalDomainEvidence, /requirePublicPreviewReleaseEvidence/u);
     assert.match(releaseEvidence, /public-preview screenshot evidence is required; release-final fails closed without local evidence/u);
     assert.match(releaseEvidence, /validatePublicPreviewEvidenceBinding/u);
     assert.match(releaseFinal, /public-preview commit=\$\{publicPreviewEvidence\.sourceCommit\} releaseId=\$\{publicPreviewEvidence\.releaseId\} images=/u);

@@ -8,8 +8,6 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   accountDrawerBlockSizePx,
   articleTocDrawerPaddingBottomPx,
-  articleWriteActionBarHeightPx,
-  articleWriteWorkspacePaddingBottomPx,
   findCanonicalViewportSafeAreaViolations,
   findSourceViolations,
   toastBottomOffsetPx
@@ -127,21 +125,6 @@ describe('canonical viewport / safe-area consumer contract (#1786)', () => {
     }
   })
 
-  it('ArticleWriteCommandBar fixed action bar stays above Home Indicator and matches workspace padding', () => {
-    const space8 = 32
-    for (const bottom of [0, 34] as const) {
-      const barHeight = articleWriteActionBarHeightPx(space8, bottom)
-      const workspacePad = articleWriteWorkspacePaddingBottomPx(space8, bottom)
-      expect(barHeight).toBe(workspacePad)
-      expect(barHeight - space8).toBe(bottom)
-    }
-
-    // Action content box sits above the inset padding region (bar height - inset).
-    const buttonBottomEdge = (inset: number) => articleWriteActionBarHeightPx(space8, inset) - inset
-    expect(buttonBottomEdge(34)).toBe(32)
-    expect(buttonBottomEdge(0)).toBe(32)
-  })
-
   it('ArticleTocPanel drawer nav keeps full padding under 34px bottom inset', () => {
     expect(articleTocDrawerPaddingBottomPx(34)).toBe(50)
     expect(articleTocDrawerPaddingBottomPx(0)).toBe(16)
@@ -151,13 +134,9 @@ describe('canonical viewport / safe-area consumer contract (#1786)', () => {
 
   it('portrait and landscape profiles keep fixed controls inside the safe rectangle formulas', () => {
     const rem = 16
-    const space8 = 32
     for (const profile of [PROFILES['47/0/34/0'], PROFILES['0/59/21/59'], PROFILES['0/0/0/0']]) {
       const toastBottom = toastBottomOffsetPx(profile.bottom, rem)
       expect(toastBottom).toBeGreaterThanOrEqual(profile.bottom + rem - 0)
-
-      const barHeight = articleWriteActionBarHeightPx(space8, profile.bottom)
-      expect(barHeight - profile.bottom).toBe(space8)
 
       const drawerHeight = accountDrawerBlockSizePx(profile.block)
       expect(drawerHeight).toBe(profile.block)

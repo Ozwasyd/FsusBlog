@@ -291,20 +291,22 @@ test('preview readiness refuses old HTML or an API response from another backend
 
 test('bootstrap validates the build marker before reuse/start and publishes only after preview API readiness', () =>
 {
+    const prepareStart = bootstrapSource.indexOf('PrepareReleasePreviewBundle()');
     const ensureStart = bootstrapSource.indexOf('EnsureReleasePreview()');
-    const validate = bootstrapSource.indexOf('release-preview-readiness.mjs" validate-build', ensureStart);
-    const reuse = bootstrapSource.indexOf('release preview already healthy with matching fingerprint', ensureStart);
+    const validate = bootstrapSource.indexOf('release-preview-readiness.mjs" validate-build', prepareStart);
+    const reuse = bootstrapSource.indexOf('release preview already healthy with prepared bundle', ensureStart);
     const start = bootstrapSource.indexOf("'release preview' \\", ensureStart);
     const apiReady = bootstrapSource.indexOf("WaitForBinaryUrl 'release preview namespace API'", start);
     const publish = bootstrapSource.indexOf('release-preview-readiness.mjs" publish-ready', apiReady);
 
-    assert.ok(validate > ensureStart);
+    assert.ok(validate > prepareStart);
+    assert.ok(validate < ensureStart);
     assert.match(
-        bootstrapSource.slice(ensureStart, validate),
+        bootstrapSource.slice(prepareStart, validate),
         /FSUSBLOG_TEST_SOURCE_COMMIT=.*frontend build source commit is required[\s\S]*?FSUSBLOG_TEST_SOURCE_FINGERPRINT=.*frontend build source fingerprint is required/u
     );
-    assert.ok(validate < reuse);
-    assert.ok(validate < start);
+    assert.ok(reuse > ensureStart);
+    assert.ok(start > ensureStart);
     assert.ok(apiReady > start);
     assert.ok(publish > apiReady);
     assert.match(bootstrapSource, /rm -f "\$ROOT_DIR\/\.tmp\/test-runs\/\$FSUSBLOG_TEST_RUN_ID\/release-preview-ready\.json"/u);
@@ -323,16 +325,24 @@ test('bootstrap validates the build marker before reuse/start and publishes only
     assert.match(viteConfigSource, /build:\s*\{[\s\S]*?modulePreload:\s*false/u);
 });
 
-test('bootstrap does not publish resident readiness until the post-fixture public home is ready', () =>
+test('bootstrap does not publish resident readiness until the ordinary post-fixture public home is ready', () =>
 {
-    const mainStart = bootstrapSource.indexOf('main() {');
+    const mainStart = bootstrapSource.indexOf('Main() {');
     const mainSource = bootstrapSource.slice(mainStart);
     const fixtures = mainSource.indexOf('InvokeFixtureOrchestrator');
-    const publicHome = mainSource.indexOf("'release preview public home after fixture seeding'", fixtures);
+    const publicHome = mainSource.indexOf("'release preview public home after fixture orchestration'", fixtures);
     const residentLease = mainSource.indexOf('resident-resource-leases-cli.mjs" publish', publicHome);
 
     assert.ok(mainStart >= 0);
     assert.ok(fixtures >= 0);
     assert.ok(publicHome > fixtures);
     assert.ok(residentLease > publicHome);
+    assert.match(
+        mainSource.slice(publicHome, residentLease),
+        /"\$\{RELEASE_PREVIEW_URL\}\/"/u
+    );
+    assert.doesNotMatch(
+        mainSource.slice(fixtures, residentLease),
+        /fsus-preview-proof/u
+    );
 });

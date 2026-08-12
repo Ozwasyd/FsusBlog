@@ -29,8 +29,7 @@ gzip -cd "$DUMP_PATH" >"$DECOMPRESSED_DUMP"
 
 (
     cd "$ROOT_DIR"
-    FSUS_ENABLE_LEGACY_DUMP_TESTS=1 \
-        FSUS_LEGACY_20260517_DUMP="$DECOMPRESSED_DUMP" \
+    FSUS_LEGACY_20260517_DUMP="$DECOMPRESSED_DUMP" \
         dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
-        --filter "FullyQualifiedName~RunAsync_UpgradesLegacy20260517RealDump_WhenEnabled"
+        --filter "FullyQualifiedName~RunAsync_UpgradesLegacy20260517RealDump_WhenProvided"
 )

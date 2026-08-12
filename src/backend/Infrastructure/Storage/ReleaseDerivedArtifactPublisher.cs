@@ -245,7 +245,11 @@ public sealed class ReleaseDerivedArtifactPublisher
             File.Delete(compatibilityPath);
         }
 
-        File.Delete(GetArtifactPointerPath(kind, normalizedPath));
+        string pointerPath = GetArtifactPointerPath(kind, normalizedPath);
+        if (File.Exists(pointerPath))
+        {
+            File.Delete(pointerPath);
+        }
         return existed;
     }
 

@@ -8,31 +8,34 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
-    localFsusUiConsumptionDisabled,
-    resolveLocalFsusUiRepositoryRoot
-// eslint-disable-next-line import-x/no-relative-parent-imports -- The build consumes the frontend-owned local FsusUI repository resolver.
-} from '../../src/frontend/scripts/fsusui-root.mjs';
-
-import {
     runFrontendBuildStageDag
 } from './build-stage-dag.mjs';
-import {
-    resolveMachineExecutionTimeoutMs
-} from '../test/bundles/bundle-steps.mjs';
-import {
-    resolveManifestLiveCapacity
-} from '../test/run-command-manifest.mjs';
 
-const [{ createReleaseIdentitySnapshot }, { parseMatrix }] = await Promise.all([
+const [
+    { localFsusUiConsumptionDisabled, resolveLocalFsusUiRepositoryRoot },
+    { resolveMachineExecutionTimeoutMs },
+    { resolveManifestLiveCapacity },
+    { createReleaseIdentitySnapshot, parseReleaseId },
+    { parseMatrix }
+] = await Promise.all([
+    import(new URL('../../src/frontend/scripts/fsusui-root.mjs', import.meta.url)),
+    import(new URL('../test/bundles/bundle-steps.mjs', import.meta.url)),
+    import(new URL('../test/run-command-manifest.mjs', import.meta.url)),
     import(new URL('../release/release-id.mjs', import.meta.url)),
     import(new URL('../test-matrix/parse-matrix.mjs', import.meta.url))
 ]);
 
 export { resolveStageEnvironment } from './build-stage-dag.mjs';
 
-function resolveProductionFrontendBuildEnv(env = process.env)
+export function resolveProductionFrontendBuildEnv(env = process.env)
 {
-    if (env.VITE_FSUSBLOG_BUILD_ID?.trim())
+    const frontendBuildId = env.VITE_FSUSBLOG_BUILD_ID?.trim() || '';
+    const runtimeReleaseId = env.FSUSBLOG_RELEASE_ID?.trim() || '';
+    if (frontendBuildId && runtimeReleaseId && frontendBuildId !== runtimeReleaseId)
+    {
+        throw new Error('production frontend build identity does not match the sealed runtime release identity');
+    }
+    if (frontendBuildId)
     {
         return env;
     }
@@ -47,6 +50,22 @@ function resolveProductionFrontendBuildEnv(env = process.env)
     if (!/^[0-9a-f]{40}$/u.test(commitSha))
     {
         return env;
+    }
+    if (runtimeReleaseId)
+    {
+        const parsedRuntimeRelease = parseReleaseId(runtimeReleaseId);
+        if (!parsedRuntimeRelease)
+        {
+            throw new Error('sealed runtime release identity is invalid');
+        }
+        if (!commitSha.startsWith(parsedRuntimeRelease.commitShaPrefix))
+        {
+            throw new Error('sealed runtime release identity does not match the frontend source commit');
+        }
+        return {
+            ...env,
+            VITE_FSUSBLOG_BUILD_ID: runtimeReleaseId
+        };
     }
     const identity = createReleaseIdentitySnapshot({
         commitSha,

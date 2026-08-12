@@ -351,7 +351,6 @@ test.describe('article semantic theme tokens', () => {
             root.classList.remove('light', 'dark')
             root.dataset.themeMode = 'system'
             root.dataset.themeResolved = 'dark'
-            root.style.colorScheme = 'dark'
           })
         }
 

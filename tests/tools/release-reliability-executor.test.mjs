@@ -218,47 +218,47 @@ function catalogFor(fixture, mode = 'success')
                 (scenario) => scenario.id === id
             );
             return {
-            id,
-            owner: 'test-owner',
-            command: {
-                executable: process.execPath,
-                args: [
-                    fixture.producer,
-                    'measurement',
-                    mode,
-                    `.tmp/evidence/${id}.json`,
-                    id,
-                    String(process.pid),
-                    'd'.repeat(64)
-                ],
-                env: canonicalScenario.command.env,
-                inheritEnv: canonicalScenario.command.inheritEnv,
-                cwd: '.'
-            },
-            qualification: canonicalScenario.qualification,
-            resourceClass: 'test',
-            identityTools: ['node'],
-            isolation: {
-                exclusiveResources: ['fixture-state'],
-                countableResources: [],
-                lifecycle: {
-                    preconditions: [`${id}-fixture-precondition`],
-                    resetsBefore: [`${id}-fixture-reset-before`],
-                    measurement: `${id}-fixture-measurement`,
-                    postconditions: [`${id}-fixture-postcondition`],
-                    resetsAfter: [`${id}-fixture-reset-after`]
+                id,
+                owner: 'test-owner',
+                command: {
+                    executable: process.execPath,
+                    args: [
+                        fixture.producer,
+                        'measurement',
+                        mode,
+                        `.tmp/evidence/${id}.json`,
+                        id,
+                        String(process.pid),
+                        'd'.repeat(64)
+                    ],
+                    env: canonicalScenario.command.env,
+                    inheritEnv: canonicalScenario.command.inheritEnv,
+                    cwd: '.'
                 },
-                outputs: [{ id: 'authoritative-evidence', path: `.tmp/evidence/${id}.json` }]
-            },
-            authoritativeEvidence: {
-                path: `.tmp/evidence/${id}.json`,
-                expectedSchema: {
-                    schema: 'fsusblog.fixture-authoritative-evidence.v1',
-                    required: ['status', 'sentinel', 'releaseReliability'],
-                    passStatusValues: ['ok']
+                qualification: canonicalScenario.qualification,
+                resourceClass: 'test',
+                identityTools: ['node'],
+                isolation: {
+                    exclusiveResources: ['fixture-state'],
+                    countableResources: [],
+                    lifecycle: {
+                        preconditions: [`${id}-fixture-precondition`],
+                        resetsBefore: [`${id}-fixture-reset-before`],
+                        measurement: `${id}-fixture-measurement`,
+                        postconditions: [`${id}-fixture-postcondition`],
+                        resetsAfter: [`${id}-fixture-reset-after`]
+                    },
+                    outputs: [{ id: 'authoritative-evidence', path: `.tmp/evidence/${id}.json` }]
+                },
+                authoritativeEvidence: {
+                    path: `.tmp/evidence/${id}.json`,
+                    expectedSchema: {
+                        schema: 'fsusblog.fixture-authoritative-evidence.v1',
+                        required: ['status', 'sentinel', 'releaseReliability'],
+                        passStatusValues: ['ok']
+                    }
                 }
-            }
-        };
+            };
         })
     };
 }

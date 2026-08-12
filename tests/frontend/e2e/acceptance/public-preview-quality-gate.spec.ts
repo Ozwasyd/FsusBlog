@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 
 import {
   auditPublicPreviewPage,
+  measurePublicPreviewHeader,
   type PublicPreviewHeaderSample,
   type PublicPreviewQualityPolicy,
   type PublicPreviewQualityScenario
@@ -57,6 +58,23 @@ async function audit(page: Page, currentScenario: PublicPreviewQualityScenario, 
 }
 
 test.describe('public-preview quality gate negative fixtures', () => {
+  test('measures the header rather than its full-shell sticky geometry owner', async ({ page }) => {
+    await page.setContent(`
+      <!doctype html>
+      <html>
+        <body style="margin:0">
+          <div data-public-sticky-geometry-owner style="height:320px">
+            <header data-public-shell-header style="height:44px">菜单</header>
+            <main style="height:276px">内容</main>
+          </div>
+        </body>
+      </html>
+    `)
+
+    const sample = await measurePublicPreviewHeader(page, 'stable')
+    expect(sample.rect?.height).toBe(44)
+  })
+
   test('passes a coherent public surface while excluding marked user content from locale checks', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.setContent(`
@@ -78,6 +96,27 @@ test.describe('public-preview quality gate negative fixtures', () => {
     expect(report.status).toBe('pass')
     expect(report.machine.localeCoherence.status).toBe('pass')
     expect(report.machine.hitTargets.status).toBe('pass')
+  })
+
+  test('does not treat controls below a nested scroll viewport as focus-clipped', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.setContent(`
+      <!doctype html>
+      <html lang="zh-CN">
+        <body style="margin:0">
+          <header data-public-shell-header data-ui-chrome style="height:44px">菜单</header>
+          <div style="overflow-x:hidden">
+            <main style="height:800px;overflow-y:auto">
+              <div style="height:900px"></div>
+              <textarea style="display:block;width:200px;height:80px;box-sizing:border-box">正文</textarea>
+            </main>
+          </div>
+        </body>
+      </html>
+    `)
+
+    const report = await audit(page, scenario())
+    expect(report.machine.focusClipping.status).toBe('pass')
   })
 
   test('fails mixed chrome locale, overflow, clipped text, overlap and undersized mobile actions', async ({ page }) => {

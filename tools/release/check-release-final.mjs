@@ -6,11 +6,13 @@ import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+
 import { validateReleaseRuntimeMatrix } from '../runtime-profiles/release-runtime-matrix.mjs';
-import { validateLocalProfileCheckpointEvidence } from '../test-matrix/scheduler.mjs';
 import {
     readEvidenceDocument as readJson
 } from '../test-matrix/content-addressed-evidence-store.mjs';
+import { validateLocalProfileCheckpointEvidence } from '../test-matrix/scheduler.mjs';
+
 import { validateFontLicenseEvidence } from './font-license-evidence.mjs';
 import {
     failReleaseFinal as fail,
@@ -259,15 +261,27 @@ export function validateQualifiedLocalProfile(checkpointFile, manifest, checkpoi
         return ['qualified local-profile checkpoint is missing'];
     }
     let checkpoint;
-    try { checkpoint = readJson(checkpointFile); }
-    catch { return ['qualified local-profile checkpoint is invalid JSON']; }
+    try
+    {
+        checkpoint = readJson(checkpointFile);
+    }
+    catch
+    {
+        return ['qualified local-profile checkpoint is invalid JSON'];
+    }
     const projection = checkpoint?.logicalTierProjection;
     if (!projection || typeof projection !== 'object')
     {
         return ['qualified local-profile checkpoint has no logicalTierProjection'];
     }
-    try { validateLocalProfileCheckpointEvidence(checkpoint, checkpointRoot); }
-    catch (error) { errors.push(`local-profile projection sealed validation failed: ${error.message}`); }
+    try
+    {
+        validateLocalProfileCheckpointEvidence(checkpoint, checkpointRoot);
+    }
+    catch (error)
+    {
+        errors.push(`local-profile projection sealed validation failed: ${error.message}`);
+    }
     if (projection.status !== 'complete-success' || projection.qualificationEligible !== true)
     {
         errors.push('local-profile projection is not qualification-eligible complete-success');
@@ -597,61 +611,62 @@ function sha256Hex(file)
     return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
-const args = process.argv.slice(2);
-if (args.includes('--self-test'))
+if (process.argv[1] === fileURLToPath(import.meta.url))
 {
-    await runSelfTest();
-    process.exit(0);
-}
+    const args = process.argv.slice(2);
+    if (args.includes('--self-test'))
+    {
+        await runSelfTest();
+        process.exit(0);
+    }
 
-const checkpointOption = args.indexOf('--local-profile-checkpoint');
-const localProfileCheckpoint = checkpointOption >= 0 ? path.resolve(args[checkpointOption + 1] ?? '') : null;
-if (checkpointOption >= 0 && !args[checkpointOption + 1])
-{
-    fail(['--local-profile-checkpoint requires a path']);
-}
-const manifestArg = args.find((arg, index) => !arg.startsWith('--') && index !== checkpointOption + 1);
-const manifestFile = manifestArg ? path.resolve(manifestArg) : latestManifest();
-if (!manifestFile)
-{
-    fail(['manifest path is required or .tmp/release-evidence must contain a manifest']);
-}
+    const checkpointOption = args.indexOf('--local-profile-checkpoint');
+    const localProfileCheckpoint = checkpointOption >= 0 ? path.resolve(args[checkpointOption + 1] ?? '') : null;
+    if (checkpointOption >= 0 && !args[checkpointOption + 1])
+    {
+        fail(['--local-profile-checkpoint requires a path']);
+    }
+    const manifestArg = args.find((arg, index) => !arg.startsWith('--') && index !== checkpointOption + 1);
+    const manifestFile = manifestArg ? path.resolve(manifestArg) : latestManifest();
+    if (!manifestFile)
+    {
+        fail(['manifest path is required or .tmp/release-evidence must contain a manifest']);
+    }
 
-const bindingFile = path.join(root, '.tmp/release-evidence/release-final-test-evidence-binding.json');
-fs.rmSync(bindingFile, { force: true });
-const manifest = readJson(manifestFile);
-const errors = validateManifest(manifest, manifestFile);
-if (localProfileCheckpoint)
-{
-    errors.push(...validateQualifiedLocalProfile(localProfileCheckpoint, manifest));
-}
-let testEvidenceBinding = null;
-let publicPreviewEvidence = null;
-try
-{
-    const testEvidence = createReleaseFinalDomainEvidence({
-        manifest,
-        repositoryRoot: root,
-        findReceiptFile,
-        sha256Hex
-    });
-    testEvidenceBinding = testEvidence.binding;
-    publicPreviewEvidence = testEvidence.publicPreview;
-}
-catch (error)
-{
-    errors.push(`test evidence: ${error instanceof Error ? error.message : String(error)}`);
-}
-if (errors.length > 0)
-{
-    fail(errors);
-}
-writeJsonAtomic(bindingFile, testEvidenceBinding);
-const publicPreviewImages = Object.entries(publicPreviewEvidence.images)
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([id, hash]) => `${id}:${hash}`)
-    .join(',');
-console.log(`[release-final] public-preview commit=${publicPreviewEvidence.sourceCommit} releaseId=${publicPreviewEvidence.releaseId} images=${publicPreviewImages}`);
-console.log(`[release-final] ok file=${path.relative(root, manifestFile)}`);
+    const bindingFile = path.join(root, '.tmp/release-evidence/release-final-test-evidence-binding.json');
+    fs.rmSync(bindingFile, { force: true });
+    const manifest = readJson(manifestFile);
+    const errors = validateManifest(manifest, manifestFile);
+    if (localProfileCheckpoint)
+    {
+        errors.push(...validateQualifiedLocalProfile(localProfileCheckpoint, manifest));
+    }
+    let testEvidenceBinding = null;
+    let publicPreviewEvidence = null;
+    try
+    {
+        const testEvidence = createReleaseFinalDomainEvidence({
+            manifest,
+            repositoryRoot: root,
+            findReceiptFile,
+            sha256Hex
+        });
+        testEvidenceBinding = testEvidence.binding;
+        publicPreviewEvidence = testEvidence.publicPreview;
+    }
+    catch (error)
+    {
+        errors.push(`test evidence: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    if (errors.length > 0)
+    {
+        fail(errors);
+    }
+    writeJsonAtomic(bindingFile, testEvidenceBinding);
+    const publicPreviewImages = Object.entries(publicPreviewEvidence.images)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([id, hash]) => `${id}:${hash}`)
+        .join(',');
+    console.log(`[release-final] public-preview commit=${publicPreviewEvidence.sourceCommit} releaseId=${publicPreviewEvidence.releaseId} images=${publicPreviewImages}`);
+    console.log(`[release-final] ok file=${path.relative(root, manifestFile)}`);
 }

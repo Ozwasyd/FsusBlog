@@ -1,5 +1,5 @@
-import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -225,7 +225,10 @@ function collectBuildIdentity(repositoryRoot, env, sourceState, runId, errors, i
     try
     {
         const root = resolveApprovedPath(repositoryRoot, configuredRoot, 'production build artifact root');
-        if (!fs.existsSync(root.absolute) || !fs.lstatSync(root.absolute).isDirectory()) throw new Error('production build artifact root is unavailable');
+        if (!fs.existsSync(root.absolute) || !fs.lstatSync(root.absolute).isDirectory())
+        {
+            throw new Error('production build artifact root is unavailable');
+        }
         const verification = verifyProductionBuildReceipt({
             artifactRoot: root.absolute,
             expectedSourceState: sourceState,
@@ -911,7 +914,7 @@ function validateCompleteIdentity(identity, catalog, lifecycleContracts)
         ))
         || ['threshold', 'mutationSubset', 'releaseResource', 'physicalExecution']
             .some((field) => (
-            identity.policy?.[field]?.status !== 'complete'
+                identity.policy?.[field]?.status !== 'complete'
             || !digestPattern.test(identity.policy[field]?.fileDigest)
             ))
         || !digestPattern.test(identity.policy.catalog.fileDigest)

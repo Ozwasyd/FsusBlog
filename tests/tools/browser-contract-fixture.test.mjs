@@ -502,7 +502,8 @@ test('verified runtime cleanup retries transient provider failures with bounded 
         {
             attempts += 1;
             throw new Error('persistent cleanup failure');
-        }, { attempts: 2, delay: async () => {} }),
+        }, { attempts: 2, delay: async () =>
+        {} }),
         /persistent cleanup failure/u
     );
     assert.equal(attempts, 2);
@@ -540,7 +541,8 @@ test('local runtime cleanup retries only transient filesystem races', async () =
             const error = new Error('ownership mismatch');
             error.code = 'EPERM';
             throw error;
-        }, { delay: async () => {} }),
+        }, { delay: async () =>
+        {} }),
         /ownership mismatch/u
     );
     assert.equal(attempts, 1);

@@ -8,15 +8,15 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import {
+    executeLifecycleActionPlan,
+    loadLifecycleActionContracts
+} from './release-reliability-lifecycle-actions.mjs';
+import {
     collectRunIdentity,
     createCandidateReceipt,
     createTimeline,
     sealDocument
 } from './release-reliability-receipt.mjs';
-import {
-    executeLifecycleActionPlan,
-    loadLifecycleActionContracts
-} from './release-reliability-lifecycle-actions.mjs';
 import { readQualifiedRuntimeEnvironment } from './release-reliability-runtime-environment.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');

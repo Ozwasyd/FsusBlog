@@ -67,7 +67,7 @@
         "bootstrapOrderedTokens": [
             "if (!options.Enabled)",
             "SingleNodeDistributedInvalidationPublisher",
-            "IDistributedInvalidationTransport, RedisDistributedInvalidationTransport"
+            "services.AddSingleton<IDistributedInvalidationTransport>("
         ]
     },
     "documentation": {

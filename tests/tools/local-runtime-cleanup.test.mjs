@@ -219,7 +219,8 @@ test('dedicated browser bootstrap is fixed at one worker and fail-closes owned r
 
     const backend = source.slice(source.indexOf('EnsureBackend()'), source.indexOf('StartBackgroundIfNeeded()'));
     const background = source.slice(source.indexOf('StartBackgroundIfNeeded()'), source.indexOf('EnsureDebugFrontend()'));
-    const debugFrontend = source.slice(source.indexOf('EnsureDebugFrontend()'), source.indexOf('EnsureReleasePreview()'));
+    const debugFrontend = source.slice(source.indexOf('EnsureDebugFrontend()'), source.indexOf('PrepareReleasePreviewBundle()'));
+    const releasePreparation = source.slice(source.indexOf('PrepareReleasePreviewBundle()'), source.indexOf('EnsureReleasePreview()'));
     const releasePreview = source.slice(source.indexOf('EnsureReleasePreview()'), source.indexOf('CurrentPowDifficulty()'));
     for (const [label, runtimeSource, reuseMarker] of [
         ['backend', backend, 'already healthy'],
@@ -239,7 +240,9 @@ test('dedicated browser bootstrap is fixed at one worker and fail-closes owned r
     assert.match(background, /AssertDedicatedRuntimePortAvailable "\$label" "\$port"[\s\S]*?nohup[\s\S]*?os\.setsid/u);
     assert.match(backend, /AssertDedicatedRuntimePortAvailable 'debug backend' "\$DEBUG_BACKEND_PORT"[\s\S]*?nohup[\s\S]*?os\.setsid/u);
     assert.match(debugFrontend, /KillRuntimePidIfOwned debug-frontend[\s\S]*?WaitForPortRelease[\s\S]*?StartBackgroundIfNeeded/u);
-    assert.match(releasePreview, /AdmitDedicatedRuntimePort[\s\S]*?building release preview[\s\S]*?AdmitDedicatedRuntimePort[\s\S]*?KillRuntimePidIfOwned release-preview/u);
+    assert.match(releasePreparation, /building release preview bundle through the shared frontend run-once key/u);
+    assert.match(releasePreview, /release preview bundle is not prepared for the current source fingerprint[\s\S]*?AdmitDedicatedRuntimePort[\s\S]*?KillRuntimePidIfOwned release-preview/u);
+    assert.match(source, /PrepareReleasePreviewBundle "\$READINESS_DEADLINE_AT_MS"[\s\S]*?runtimeApplications\+=\(release-preview EnsureReleasePreview/u);
     const portRelease = source.slice(source.indexOf('WaitForPortRelease()'), source.indexOf('ProbeUrl()'));
     assert.match(portRelease, /DEDICATED_RUNTIME:-0\}" == "1"[\s\S]*?PortIsListening[\s\S]*?refusing blind termination[\s\S]*?return 1[\s\S]*?KillPidIfRunning/u);
 
@@ -595,7 +598,8 @@ test('dedicated cleanup removes inspected container IDs and confirmed process gr
         terminateDedicatedProcess: () =>
         {
             cleanupOrder.push('process:backend');
-            processRunning = false; return true;
+            processRunning = false;
+            return true;
         }
     });
     const cleanupFinishedBefore = Date.now();
@@ -669,7 +673,8 @@ test('dedicated cleanup retains recovery evidence for mismatched ownership and p
         processGroupExists: () => true,
         terminateDedicatedProcess: () =>
         {
-            terminateCalled = true; return true;
+            terminateCalled = true;
+            return true;
         }
     });
 
@@ -743,7 +748,8 @@ test('tracked process with an invalid identity schema is retained without signal
         observeProcess: () => assert.fail('invalid sidecar must fail before proc observation'),
         terminateDedicatedProcess: () =>
         {
-            signalled = true; return true;
+            signalled = true;
+            return true;
         }
     });
 
@@ -881,7 +887,8 @@ test('untracked cleanup removes only classified orphan processes and schema cont
         discoverOrphanProcesses: () => [orphan],
         killOrphanProcess: (record, graceMs) =>
         {
-            killed.push([record.pid, graceMs]); return true;
+            killed.push([record.pid, graceMs]);
+            return true;
         },
         observeOrphanProcess: () => null,
         orphanProcessGroupExists: () => false,
@@ -1956,6 +1963,35 @@ test('default stale cleanup refuses a reused pid that is not a managed acceptanc
     assert.equal(process.kill(process.pid, 0), true);
 });
 
+test('cleanupLocalRuntime accepts an unknown auxiliary pid file after its process exited', () =>
+{
+    const root = fs.mkdtempSync(path.join(process.env.TMPDIR ?? '/tmp', 'fsusblog-local-runtime-exited-auxiliary-'));
+    const namespace = 'exited-auxiliary';
+    const runtimeDir = path.join(root, '.tmp/acceptance', namespace);
+    fs.mkdirSync(runtimeDir, { recursive: true });
+    fs.writeFileSync(path.join(runtimeDir, 'port-lease.pid'), '4242\n', { mode: 0o600 });
+
+    const result = cleanupLocalRuntime({
+        root,
+        namespace,
+        observeProcess: () => null,
+        containerExists: () => false
+    });
+
+    assert.deepEqual(result.alreadyExitedPids, [4242]);
+    assert.deepEqual(result.skippedProcesses, []);
+    assert.deepEqual(result.processRecords, [{
+        pid: 4242,
+        processGroupId: null,
+        startTimeTicks: null,
+        role: null,
+        identityResult: 'process-absent',
+        action: 'already-absent',
+        postObservation: 'leader-and-group-absent'
+    }]);
+    assert.equal(result.cleanupStatus, 'complete');
+});
+
 test('cleanupLocalRuntime removes only containers and process state owned by its namespace', () =>
 {
     const root = fs.mkdtempSync(path.join(process.env.TMPDIR ?? '/tmp', 'fsusblog-local-runtime-cleanup-'));
@@ -2041,7 +2077,8 @@ test('cleanupLocalRuntime removes only containers and process state owned by its
         processGroupExists: () => processRunning,
         terminateDedicatedProcess: () =>
         {
-            processRunning = false; return true;
+            processRunning = false;
+            return true;
         }
     });
 

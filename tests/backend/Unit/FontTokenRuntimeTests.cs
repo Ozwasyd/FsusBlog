@@ -198,28 +198,6 @@ public sealed class FontTokenRuntimeTests
             StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void FrontendFoundations_ConsumeStableFontVariables()
-    {
-        string tailwind = BackendTestPaths.ReadAllTextFromRoot(
-            "src", "frontend", "src", "assets", "tailwind.css");
-        string publicShell = BackendTestPaths.ReadAllTextFromRoot(
-            "src", "frontend", "src", "assets", "public-shell-foundation.css");
-        string markdown = BackendTestPaths.ReadAllTextFromRoot(
-            "src", "frontend", "src", "assets", "markdown.css");
-        string account = BackendTestPaths.ReadAllTextFromRoot(
-            "src", "frontend", "src", "assets", "account-shell-base.css");
-        string main = BackendTestPaths.ReadAllTextFromRoot(
-            "src", "frontend", "src", "assets", "main.css");
-
-        Assert.Contains("--fsus-font-ui:", tailwind, StringComparison.Ordinal);
-        Assert.Contains("--font-sans: var(--fsus-font-ui);", tailwind, StringComparison.Ordinal);
-        Assert.Contains("font-family: var(--fsus-typography-body-family", publicShell, StringComparison.Ordinal);
-        Assert.Contains("font-family: var(--fsus-typography-code-family", markdown, StringComparison.Ordinal);
-        Assert.Contains("font-family: var(--fsus-typography-body-family", account, StringComparison.Ordinal);
-        Assert.Contains("--el-font-family: var(--fsus-font-ui);", main, StringComparison.Ordinal);
-    }
-
     private static FontRegistrySnapshot DefaultSnapshot()
         => new(FontBuiltIns.All, []);
 

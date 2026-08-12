@@ -7,6 +7,13 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- Contract fixtures use the real production receipt producer.
+import { createProductionBuildReceipt } from '../../../../tools/ci/production-build-artifacts.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- Fixtures use the same canonical worktree fingerprint producer as the runner.
+import { resolveWorktreeFingerprint } from '../../../../tools/fact-extractors/identity.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- Contract test reads the canonical test matrix.
+import { parseMatrix } from '../../../../tools/test-matrix/parse-matrix.mjs';
+
 import {
     comparePairedSamples,
     contentDigest,
@@ -23,12 +30,6 @@ import {
     thresholds,
     verifyNavigationResponseIdentity
 } from './markdown-preview-release-performance.mjs';
-// eslint-disable-next-line import-x/no-relative-parent-imports -- Contract fixtures use the real production receipt producer.
-import { createProductionBuildReceipt } from '../../../../tools/ci/production-build-artifacts.mjs';
-// eslint-disable-next-line import-x/no-relative-parent-imports -- Fixtures use the same canonical worktree fingerprint producer as the runner.
-import { resolveWorktreeFingerprint } from '../../../../tools/fact-extractors/identity.mjs';
-// eslint-disable-next-line import-x/no-relative-parent-imports -- Contract test reads the canonical test matrix.
-import { parseMatrix } from '../../../../tools/test-matrix/parse-matrix.mjs';
 import {
     sealSideManifest,
     sideDeclarationSchema
@@ -255,7 +256,8 @@ function rewriteManifest(fixture, mutate)
     fs.chmodSync(fixture.manifestFile, 0o444);
 }
 
-function writeSideDeclaration(fixture, mutate = () => {})
+function writeSideDeclaration(fixture, mutate = () =>
+{})
 {
     const manifest = fixture.manifest;
     const declaration = {
@@ -546,43 +548,62 @@ test('canonical side producer rejects manual identities, dirty source, unsafe pr
     for (const [name, mutate, runOptions, pattern] of [
         [
             'manual source identity field',
-            declaration => { declaration.commit = 'a'.repeat(40); },
+            declaration =>
+            {
+                declaration.commit = 'a'.repeat(40);
+            },
             {},
             /exact schema mismatch/u
         ],
         [
             'manual image digest without authority',
-            declaration => { declaration.runtime.imageDigest = fingerprint('d'); },
+            declaration =>
+            {
+                declaration.runtime.imageDigest = fingerprint('d');
+            },
             {},
             /exact schema mismatch/u
         ],
         [
             'release commit mismatch',
-            declaration => { declaration.runtime.releaseId = `20260730000000-${'f'.repeat(12)}`; },
+            declaration =>
+            {
+                declaration.runtime.releaseId = `20260730000000-${'f'.repeat(12)}`;
+            },
             {},
             /commit prefix/u
         ],
         [
             'build identity mismatch',
-            declaration => { declaration.runtime.buildIdentity = 'wrong-release'; },
+            declaration =>
+            {
+                declaration.runtime.buildIdentity = 'wrong-release';
+            },
             {},
             /buildIdentity must equal/u
         ],
         [
             'missing release probe header',
-            declaration => { declaration.runtime.identityProbe.headerNames = ['x-fsus-build-identity']; },
+            declaration =>
+            {
+                declaration.runtime.identityProbe.headerNames = ['x-fsus-build-identity'];
+            },
             {},
             /must include x-fsus-release-id/u
         ],
         [
             'unsafe probe header',
-            declaration => { declaration.runtime.identityProbe.headerNames = ['cookie']; },
+            declaration =>
+            {
+                declaration.runtime.identityProbe.headerNames = ['cookie'];
+            },
             {},
             /non-identity header/u
         ],
         [
             'live probe from wrong Release',
-            () => {},
+            () =>
+            {},
             {
                 responseHeaders: {
                     'x-fsus-release-id': `20260730000000-${'f'.repeat(12)}`
@@ -592,19 +613,22 @@ test('canonical side producer rejects manual identities, dirty source, unsafe pr
         ],
         [
             'probe status drift',
-            () => {},
+            () =>
+            {},
             { responseStatus: 503 },
             /status mismatch/u
         ],
         [
             'dirty source',
-            () => {},
+            () =>
+            {},
             { dirtySource: true },
             /source checkout must be clean/u
         ],
         [
             'existing output',
-            () => {},
+            () =>
+            {},
             { existingOutput: true },
             /output already exists/u
         ]
@@ -766,17 +790,26 @@ test('side verifier rejects immutable authority, schema, URL, secret, and artifa
     for (const [name, mutate, pattern] of [
         [
             'commit authority',
-            manifest => { manifest.source.commit = 'f'.repeat(40); },
+            manifest =>
+            {
+                manifest.source.commit = 'f'.repeat(40);
+            },
             /commit|HEAD resolution/u
         ],
         [
             'tree authority',
-            manifest => { manifest.source.tree = 'f'.repeat(40); },
+            manifest =>
+            {
+                manifest.source.tree = 'f'.repeat(40);
+            },
             /tree resolution|tree authority/u
         ],
         [
             'worktree fingerprint authority',
-            manifest => { manifest.source.worktreeFingerprint = fingerprint('f'); },
+            manifest =>
+            {
+                manifest.source.worktreeFingerprint = fingerprint('f');
+            },
             /canonical checkout fingerprint/u
         ],
         [
@@ -790,42 +823,66 @@ test('side verifier rejects immutable authority, schema, URL, secret, and artifa
         ],
         [
             'base URL query',
-            manifest => { manifest.runtime.staticBaseUrl += '?credential=redacted'; },
+            manifest =>
+            {
+                manifest.runtime.staticBaseUrl += '?credential=redacted';
+            },
             /query or fragment/u
         ],
         [
             'release commit mismatch',
-            manifest => { manifest.runtime.releaseId = `20260730000000-${'f'.repeat(12)}`; },
+            manifest =>
+            {
+                manifest.runtime.releaseId = `20260730000000-${'f'.repeat(12)}`;
+            },
             /commit prefix/u
         ],
         [
             'build identity mismatch',
-            manifest => { manifest.runtime.buildIdentity = 'wrong-release'; },
+            manifest =>
+            {
+                manifest.runtime.buildIdentity = 'wrong-release';
+            },
             /buildIdentity must equal/u
         ],
         [
             'missing release identity header',
-            manifest => { manifest.runtime.identityProbe.headers = { 'x-fsus-build-identity': 'build' }; },
+            manifest =>
+            {
+                manifest.runtime.identityProbe.headers = { 'x-fsus-build-identity': 'build' };
+            },
             /must include x-fsus-release-id/u
         ],
         [
             'cross-origin route',
-            manifest => { manifest.runtime.routes.article = 'https://elsewhere.invalid/article'; },
+            manifest =>
+            {
+                manifest.runtime.routes.article = 'https://elsewhere.invalid/article';
+            },
             /root-relative route/u
         ],
         [
             'sensitive identity header',
-            manifest => { manifest.runtime.identityProbe.headers.cookie = 'must-not-appear'; },
+            manifest =>
+            {
+                manifest.runtime.identityProbe.headers.cookie = 'must-not-appear';
+            },
             /not an allowed identity header/u
         ],
         [
             'unknown sensitive field',
-            manifest => { manifest.runtime.authorization = 'must-not-appear'; },
+            manifest =>
+            {
+                manifest.runtime.authorization = 'must-not-appear';
+            },
             /exact schema mismatch/u
         ],
         [
             'inline storage state',
-            manifest => { manifest.fixture.adminStorageState.cookies = []; },
+            manifest =>
+            {
+                manifest.fixture.adminStorageState.cookies = [];
+            },
             /exact schema mismatch/u
         ]
     ])
@@ -1034,37 +1091,58 @@ test('evidence sealer independently recomputes the fixed paired gate and rejects
         for (const [name, mutate, pattern] of [
             [
                 'forged status',
-                value => { value.status = 'failed'; },
+                value =>
+                {
+                    value.status = 'failed';
+                },
                 /status does not match/u
             ],
             [
                 'forged comparison',
-                value => { value.comparison.ratios.aot = 0.5; },
+                value =>
+                {
+                    value.comparison.ratios.aot = 0.5;
+                },
                 /comparison does not match/u
             ],
             [
                 'threshold drift',
-                value => { value.thresholds.aotRatio = 1.5; },
+                value =>
+                {
+                    value.thresholds.aotRatio = 1.5;
+                },
                 /thresholds drift/u
             ],
             [
                 'schedule order drift',
-                value => { [value.schedule[2], value.schedule[3]] = [value.schedule[3], value.schedule[2]]; },
+                value =>
+                {
+                    [value.schedule[2], value.schedule[3]] = [value.schedule[3], value.schedule[2]];
+                },
                 /schedule drift/u
             ],
             [
                 'dropped sample',
-                value => { value.samples.pop(); },
+                value =>
+                {
+                    value.samples.pop();
+                },
                 /samples|sample count|object/u
             ],
             [
                 'sample order drift',
-                value => { [value.samples[2], value.samples[3]] = [value.samples[3], value.samples[2]]; },
+                value =>
+                {
+                    [value.samples[2], value.samples[3]] = [value.samples[3], value.samples[2]];
+                },
                 /side-swap|phase mismatch|sample index mismatch/u
             ],
             [
                 'runtime URL query',
-                value => { value.runtimeIdentities.base.runtimeProbe.url += '?secret=must-not-appear'; },
+                value =>
+                {
+                    value.runtimeIdentities.base.runtimeProbe.url += '?secret=must-not-appear';
+                },
                 /does not match|query or fragment/u
             ],
             [
@@ -1089,12 +1167,18 @@ test('evidence sealer independently recomputes the fixed paired gate and rejects
             ],
             [
                 'unknown sensitive side field',
-                value => { value.sides.base.authorization = 'must-not-appear'; },
+                value =>
+                {
+                    value.sides.base.authorization = 'must-not-appear';
+                },
                 /exact schema mismatch|sensitive evidence/u
             ],
             [
                 'inline storage state',
-                value => { value.sides.base.fixture.adminStorageState.inline = { cookies: [] }; },
+                value =>
+                {
+                    value.sides.base.fixture.adminStorageState.inline = { cookies: [] };
+                },
                 /exact schema mismatch/u
             ],
             [

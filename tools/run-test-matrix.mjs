@@ -19,7 +19,6 @@ import {
     buildAggregatePlan as buildAggregateReachabilityPlan,
     buildReceiptPlan as buildReceiptReachabilityPlan
 } from './test-matrix/aggregate-plan.mjs';
-import { validateFixtureProfileMatrix } from './test-matrix/fixture-profile-contract.mjs';
 import { createArtifactDigestTable } from './test-matrix/artifact-digest-table.mjs';
 import {
     validateBehaviorDocStaticAdmissionMatrix
@@ -36,6 +35,7 @@ import {
     discoverOrphanDotnetBuildServers,
     dotnetBuildServerInventory
 } from './test-matrix/dotnet-build-server-cleanup.mjs';
+import { validateFixtureProfileMatrix } from './test-matrix/fixture-profile-contract.mjs';
 import { cleanLocalProductionOutputs, dockerRootDirectory } from './test-matrix/fresh-production.mjs';
 import {
     buildLocalProfileProjection,
@@ -53,6 +53,7 @@ import {
     assertFreshRuntimeCleanupReceipt,
     writeFreshRuntimeCleanupReceipt
 } from './test-matrix/local-runtime-cleanup.mjs';
+import { runLocalWorkflow } from './test-matrix/local-workflow-runner.mjs';
 import { parseMatrix } from './test-matrix/parse-matrix.mjs';
 import {
     bindProductionBuildLayoutSource,
@@ -2327,7 +2328,6 @@ function frontendFastGroupEvidence(tier)
             groupDurationError: error.message
         };
     }
-    return null;
 }
 
 function jobEvidenceClassification(tier)
@@ -2631,7 +2631,7 @@ function writeSummaryOnlyEvidence(profileId, profile, runId, sourceState, artifa
     return evidence;
 }
 
-function readDeclaredExternalEvidenceReceipts(profileId)
+function readDeclaredExternalEvidenceReceipts()
 {
     const raw = process.env.FSUSBLOG_EXTERNAL_EVIDENCE_RECEIPTS;
     if (!raw)
@@ -2673,6 +2673,13 @@ function readDeclaredExternalEvidenceReceipts(profileId)
         });
     }
     return resolved;
+}
+
+function withoutDotnetBuildServerRecord(value)
+{
+    const entry = { ...value };
+    delete entry.record;
+    return entry;
 }
 
 function projectLocalBundleSummaries(matrix, profileId, profile, runId, completedTierIds, runOutputs = null)
@@ -2735,13 +2742,15 @@ function emitProductionResourceUtilization({ profileId, profile, result, detecte
         const summaryFile = runOutputs
             ? path.join(runOutputs.outputRoot, 'bundles', bundle.id, 'summary.json')
             : path.join(root, localBundleSummaryPath(profileId, bundle.id));
-        let resourceUtilization = null;
+        let resourceUtilization;
         try
         {
             resourceUtilization = JSON.parse(fs.readFileSync(resourceFile, 'utf8'));
         }
         catch
-        {}
+        {
+            resourceUtilization = undefined;
+        }
         if (resourceUtilization && (resourceUtilization.schedulerRunId !== result.runId
       || resourceUtilization.sourceState?.commit !== checkpoint.sourceState?.commit
       || resourceUtilization.sourceState?.worktreeFingerprint !== checkpoint.sourceState?.worktreeFingerprint))
@@ -2910,7 +2919,7 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {})
     const correctnessBudgetPolicy = loadCorrectnessBudgetPolicy();
     const profileCorrectnessBudget = correctnessBudgetPolicy.policies
         .find((entry) => entry.tierId === profileId) ?? null;
-    const externalEvidenceReceipts = readDeclaredExternalEvidenceReceipts(profileId);
+    const externalEvidenceReceipts = readDeclaredExternalEvidenceReceipts();
     const profileRoot = path.resolve(runtime.root ?? root);
     const resolveRunIdentity = runtime.schedulerRunIdentity ?? schedulerRunIdentity;
     const admissionRunIdentity = runtime.productionFreshRunIdentity
@@ -3926,8 +3935,9 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {})
                                 preflightOrphanPids: dotnetBuildServerPreflightPids,
                                 postflightOrphanPids: dotnetBuildServerPostflightPids,
                                 postflightInventoryBeforeCleanup: dotnetBuildServerPostflightInventoryBeforeCleanup
-                                    .map(({ record: _record, ...entry }) => entry),
-                                postflightInventory: dotnetBuildServerPostflightInventory.map(({ record: _record, ...entry }) => entry)
+                                    .map(withoutDotnetBuildServerRecord),
+                                postflightInventory: dotnetBuildServerPostflightInventory
+                                    .map(withoutDotnetBuildServerRecord)
                             },
                             generatedAt: new Date().toISOString()
                         }, null, 2)}\n`);
@@ -3980,10 +3990,6 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {})
                     if (postflightCleanup !== null)
                     {
                         console.error(`[matrix:${profileId}] runtime cleanup=${relativeToRoot(cleanupFile)} containers=${postflightCleanup.removedContainers?.length ?? 0}`);
-                    }
-                    if (finalizationError !== null && runError === null)
-                    {
-                        throw finalizationError;
                     }
                 }
 
@@ -4797,24 +4803,32 @@ function printCiJobPlan(matrix, jobId)
     }
 }
 
-async function runCiJobScheduled(matrix, jobId, tiers, options)
+async function runCiJobScheduled(matrix, jobId, tiers, options, existingBehaviorDocAdmission = null)
 {
     const targetTierId = `ci-job/${jobId}`;
     const { runsRoot, runId } = schedulerRunIdentity(targetTierId, options);
     const { sourceState: buildSourceState } = await collectSchedulerSourceState(root);
-    const behaviorDocAdmission = await establishBehaviorDocAdmission({
-        repositoryRoot: root,
-        runId
-    });
-    tiers = bindBehaviorDocAdmissionVerification(tiers, behaviorDocAdmission);
+    const behaviorDocAdmission = jobId === 'validate-matrix'
+        ? null
+        : existingBehaviorDocAdmission ?? await establishBehaviorDocAdmission({
+            repositoryRoot: root,
+            runId
+        });
+    if (behaviorDocAdmission)
+    {
+        tiers = bindBehaviorDocAdmissionVerification(tiers, behaviorDocAdmission);
+    }
     const currentRunPreexecutedTierBindings = [];
-    appendCurrentRunBehaviorDocAdmissionBinding({
-        bindings: currentRunPreexecutedTierBindings,
-        tiers,
-        admission: behaviorDocAdmission,
-        schedulerRunId: runId,
-        sourceState: buildSourceState
-    });
+    if (behaviorDocAdmission)
+    {
+        appendCurrentRunBehaviorDocAdmissionBinding({
+            bindings: currentRunPreexecutedTierBindings,
+            tiers,
+            admission: behaviorDocAdmission,
+            schedulerRunId: runId,
+            sourceState: buildSourceState
+        });
+    }
     const buildNamespace = namespaceFor({ id: targetTierId, ciJob: jobId }, options.shard, runId);
     const schedulerMode = options.forceSerial ? 'serial' : 'parallel';
     const dynamicMaximum = Math.min(ciJobMaxParallel(tiers), options.systemResources.availableCpuUnits);
@@ -4831,7 +4845,6 @@ async function runCiJobScheduled(matrix, jobId, tiers, options)
         },
         async execute({ buildLayout, recordSchedulerResult, setFinalization, throwIfInterrupted })
         {
-            const scheduledTiers = prependManagedProductionBuildGc(tiers, runId, { enabled: !options.resume });
             throwIfInterrupted();
             console.error(`[matrix:ci-job:${jobId}] scheduler=${schedulerMode} max=${maxParallel}`);
             const bootstrapTier = tiers.find((tier) => tier.selfBootstraps === true);
@@ -4880,7 +4893,10 @@ async function runCiJobScheduled(matrix, jobId, tiers, options)
                     teeOutput: true,
                     beforeTierStart()
                     {
-                        verifyBehaviorDocAdmissionState(behaviorDocAdmission, root);
+                        if (behaviorDocAdmission)
+                        {
+                            verifyBehaviorDocAdmissionState(behaviorDocAdmission, root);
+                        }
                     },
                     onSourceState(sourceState)
                     {
@@ -4899,12 +4915,14 @@ async function runCiJobScheduled(matrix, jobId, tiers, options)
                                 FSUSBLOG_TEST_RUN_ID: runId,
                                 FSUSBLOG_CI_JOB_ID: options.forceSerial ? jobId : `${jobId}-${tier.id}`,
                                 FSUSBLOG_CI_JOB_SCHEDULER: schedulerMode,
-                                FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RECEIPT:
-                                    behaviorDocAdmission.receiptFile,
-                                FSUSBLOG_BEHAVIOR_DOC_ADMISSION_DIGEST:
-                                    behaviorDocAdmission.contentDigest,
-                                FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RUN_ID:
-                                    behaviorDocAdmission.runId
+                                ...(behaviorDocAdmission ? {
+                                    FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RECEIPT:
+                                        behaviorDocAdmission.receiptFile,
+                                    FSUSBLOG_BEHAVIOR_DOC_ADMISSION_DIGEST:
+                                        behaviorDocAdmission.contentDigest,
+                                    FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RUN_ID:
+                                        behaviorDocAdmission.runId
+                                } : {})
                             })
                         );
                         Object.assign(env, resourceEnvironmentForTier(tier, env));
@@ -4960,7 +4978,7 @@ async function runCiJobScheduled(matrix, jobId, tiers, options)
     return result.status === 'success' ? 0 : Number(result.failure?.exitCode) || 1;
 }
 
-async function runCiJob(matrix, jobId, args)
+async function runCiJob(matrix, jobId, args, context = {})
 {
     const options = parseCiJobOptions(args);
     const declaredTiers = effectiveCiJobTiers(matrix, jobId);
@@ -4979,15 +4997,38 @@ async function runCiJob(matrix, jobId, args)
     }
     if (jobId === 'validate-matrix')
     {
-        const { runId } = schedulerRunIdentity(`ci-job/${jobId}`, options);
-        const { sourceState } = await collectSchedulerSourceState(root);
-        executeStaticMatrixPrerequisite(declaredTiers[0], { runId, sourceState });
-        return;
+        if (!context.preflightComplete)
+        {
+            const { runId } = schedulerRunIdentity(`ci-job/${jobId}`, options);
+            const { sourceState } = await collectSchedulerSourceState(root);
+            executeStaticMatrixPrerequisite(declaredTiers[0], { runId, sourceState });
+        }
+        const remainingTiers = declaredTiers.filter((tier) => tier.id !== 'validate-matrix');
+        if (remainingTiers.length === 0)
+        {
+            return 0;
+        }
+        options.systemResources = logicalTierSystemResources();
+        const resolvedTiers = resolveLogicalTierResources(remainingTiers, options.systemResources);
+        options.forceSerial = process.env.FSUSBLOG_CI_JOB_SERIAL === '1'
+            || ciJobSchedulerMode(resolvedTiers) === 'serial';
+        const status = await runCiJobScheduled(
+            matrix,
+            jobId,
+            resolvedTiers,
+            options,
+            context.behaviorDocAdmission
+        );
+        if (status !== 0)
+        {
+            process.exitCode = status;
+        }
+        return status;
     }
     if (jobId === behaviorDocAdmissionTierId)
     {
         await runTier(matrix, behaviorDocAdmissionTierId, args);
-        return;
+        return Number(process.exitCode) || 0;
     }
 
     options.systemResources = logicalTierSystemResources();
@@ -4997,11 +5038,18 @@ async function runCiJob(matrix, jobId, args)
     {
         console.error(`[matrix:ci-job:${jobId}] scheduler=serial forced by FSUSBLOG_CI_JOB_SERIAL=1`);
     }
-    const status = await runCiJobScheduled(matrix, jobId, tiers, options);
+    const status = await runCiJobScheduled(
+        matrix,
+        jobId,
+        tiers,
+        options,
+        context.behaviorDocAdmission
+    );
     if (status !== 0)
     {
         process.exitCode = status;
     }
+    return status;
 }
 
 function parseAggregateOptions(args)
@@ -5201,7 +5249,7 @@ function githubNeedsErrors(rawNeedsJson, dependencyJobs)
     {
         return [];
     }
-    let needs = null;
+    let needs;
     try
     {
         needs = JSON.parse(rawNeedsJson);
@@ -5428,6 +5476,35 @@ function buildCiPlan(matrix, format)
     };
 }
 
+async function runLocalAggregateWorkflow(matrix, aggregateJobId, args)
+{
+    return runLocalWorkflow({
+        matrix,
+        aggregateJobId,
+        args,
+        behaviorDocAdmissionTierId,
+        dependencies: {
+            aggregateCiJob,
+            buildAggregatePlan,
+            buildCiPlan,
+            ciJobReproductionCommand,
+            collectSchedulerSourceState: () => collectSchedulerSourceState(root),
+            createRunId,
+            effectiveCiJobTiers,
+            establishBehaviorDocAdmission: (options) => establishBehaviorDocAdmission({
+                repositoryRoot: root,
+                ...options
+            }),
+            executeStaticMatrixPrerequisite,
+            parseCiJobOptions,
+            relativeToRoot,
+            runCiJob,
+            tierMap,
+            tierReproductionCommand
+        }
+    });
+}
+
 function parsePrSmartGateOptions(args)
 {
     const options = {
@@ -5540,9 +5617,9 @@ function wildcardToRegExp(pattern)
     const escaped = String(pattern)
         .replaceAll(path.sep, '/')
         .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-        .replace(/\*\*/g, '\u0000')
-        .replace(/\*/g, '[^/]*')
-        .replace(/\u0000/g, '.*');
+        .split('**')
+        .map((part) => part.replace(/\*/g, '[^/]*'))
+        .join('.*');
     return new RegExp(`^${escaped}$`, 'u');
 }
 
@@ -5644,8 +5721,8 @@ function buildPrSmartGatePlan(matrix, options, identity)
     for (const tier of matrix.tiers)
     {
         const mode = tierSmartGateMode(tier);
-        let selected = false;
-        let reason = '';
+        let selected;
+        let reason;
 
         if (fullMode)
         {
@@ -6026,72 +6103,6 @@ function ciPlan(matrix, format, outFile)
     writeTextOutput(`${JSON.stringify(buildCiPlan(matrix, format), null, 2)}\n`, outFile, 'matrix:ci-plan');
 }
 
-function docs(matrix, outFile)
-{
-    const lines = [
-        '# Generated Test Matrix',
-        '',
-        '<!-- generated by tools/run-test-matrix.mjs docs; do not edit by hand -->',
-        '',
-        `Version: \`${matrix.version}\``,
-        '',
-        '| Tier | CI job | Local command | Phase | Risk | Cadence | Required for | Evidence class | Execution mode | Physical execution owner | Evidence source | Smart gate | PR default | Retention | Trigger reason | Resource weights | Cost | Parallelism | PW workers | Bootstrap | Node | .NET | Playwright | Cache | Execution depends on | Evidence inputs | Services | Sharding | Timeout | Artifacts | Evidence |',
-        '|---|---|---|---:|---|---|---|---|---|---|---|---|---|---|---|---|---|---:|---:|---|---|---|---|---|---|---|---|---:|---:|---|---|'
-    ];
-    for (const tier of resolveLogicalTierResources(matrix.tiers))
-    {
-        lines.push([
-            `\`${tier.id}\``,
-            `\`${tier.ciJob}\``,
-            `\`./tools/test.sh ci-tier ${tier.id}\``,
-            String(tier.phase),
-            tier.risk, tier.cadence, tier.requiredFor, tier.evidenceClass ?? 'correctness',
-            tier.executionMode ?? 'execute', `\`${tier.executionOwner ?? tier.id}\``, `\`${tier.projectFrom ?? tier.id}\``,
-            tierSmartGateMode(tier),
-      tier.prDefault === true ? 'yes' : 'no',
-      tier.retentionClass ?? '-',
-      tier.triggerReason ?? '-',
-      `${tier.resourceClass} cpu=${tier.cpuWeight} memory=${tier.memoryWeight} minCpu=${tier.minCpuUnits}`,
-      tier.cost,
-      tier.parallelizable ? 'machine' : 'serial',
-      playwrightWorkersForTier(tier) === null ? '-' : String(playwrightWorkersForTier(tier)),
-      tier.requiresBootstrap,
-      tier.requiresNode ? 'yes' : 'no',
-      tier.requiresDotnet ? 'yes' : 'no',
-      tier.requiresPlaywright,
-      tier.cacheProfile,
-      tierExecutionDependencies(tier).length > 0 ? tierExecutionDependencies(tier).map((id) => `\`${id}\``).join(', ') : '-',
-      (tier.requiresEvidenceFrom?.length ?? 0) > 0
-          ? tier.requiresEvidenceFrom.map((id) => `\`${id}\``).join(', ')
-          : '-',
-      tier.services.length > 0 ? tier.services.join(', ') : '-',
-      tier.shardable ? 'machine' : 'single',
-      `${tier.timeoutMinutes}m`,
-      tier.artifacts.length > 0 ? tier.artifacts.map((item) => `\`${item}\``).join('<br>') : '-',
-      tier.evidence.length > 0 ? tier.evidence.map((item) => `\`${item}\``).join('<br>') : '-'
-        ].join(' | ').replace(/^/, '| ').replace(/$/, ' |'));
-    }
-    const jobs = new Map();
-    for (const tier of matrix.tiers.filter((item) => item.localOnly !== true && item.nightlyOnly !== true && item.manualOnly !== true))
-    {
-        const job = jobs.get(tier.ciJob) ?? [];
-        job.push(tier.id);
-        jobs.set(tier.ciJob, job);
-    }
-    lines.push('');
-    lines.push('## CI Job Reproduction Commands');
-    lines.push('');
-    lines.push('| CI job | Execution | Local reproduction command | Matrix tiers |');
-    lines.push('|---|---|---|---|');
-    for (const [jobId, tiers] of [...jobs.entries()].sort(([left], [right]) => left.localeCompare(right)))
-    {
-        lines.push(`| \`${jobId}\` | \`${ciJobExecutionMode(matrix, jobId)}\` | \`${ciJobReproductionCommand(jobId, matrix)}\` | ${tiers.map((id) => `\`${id}\``).join(', ')} |`);
-    }
-    lines.push('');
-    const text = `${lines.join('\n').replace(/\n+$/u, '')}\n`;
-    writeTextOutput(text, outFile, 'matrix:docs');
-}
-
 function evidencePlan(matrix, outFile)
 {
     const resolvedTiers = resolveLogicalTierResources(matrix.tiers);
@@ -6304,7 +6315,6 @@ function usage()
   node tools/run-test-matrix.mjs ci-pr-plan [--changed-files file] [--base-ref ref] [--out .tmp/pr-plan.json] [--github-output file]
   node tools/run-test-matrix.mjs ci-pr-smart [--changed-files file] [--base-ref ref] [--full] [--plan-only]
   node tools/run-test-matrix.mjs ci-plan [--format github-actions] [--out .tmp/ci-plan.json]
-  node tools/run-test-matrix.mjs docs [--out docs/testing.generated.md]
   node tools/run-test-matrix.mjs evidence-plan [--out .tmp/release-evidence/test-plan.json]
 
 Compatibility:
@@ -6404,7 +6414,7 @@ async function main()
     }
     if (command === 'ci-fast')
     {
-        await runTier(matrix, 'fast', args);
+        await runLocalAggregateWorkflow(matrix, 'fast-summary', args);
         return;
     }
     if (command === 'ci-production')
@@ -6430,11 +6440,6 @@ async function main()
     if (command === 'ci-pr-smart')
     {
         await ciPrSmart(matrix, args);
-        return;
-    }
-    if (command === 'docs')
-    {
-        docs(matrix, optionValue(args, 'out'));
         return;
     }
     if (command === 'evidence-plan')
