@@ -887,9 +887,10 @@ public sealed class CommentMutationOutboxWorker(
 
     private async Task EnsureClaimOwnedAsync(ISqlSugarClient db, ClaimState claim, CancellationToken cancellationToken, bool heartbeat = false)
     {
-        await claim.OperationGate.WaitAsync().ConfigureAwait(false);
+        await claim.OperationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (claim.OwnerState != ClaimOwnerState.Owned)
                 throw new CommentMutationOutboxClaimLostException(claim.Event.Id);
             DateTime now = timeProvider.GetUtcNow().UtcDateTime;
@@ -966,14 +967,22 @@ public sealed class CommentMutationOutboxWorker(
             {
                 return;
             }
+            if (cancellationToken.IsCancellationRequested)
+                return;
             using IServiceScope scope = scopeFactory.CreateScope();
             ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
             foreach (ClaimState claim in claims.Values.Where(static value => value.OwnerState == ClaimOwnerState.Owned))
             {
+                if (cancellationToken.IsCancellationRequested)
+                    return;
                 try
                 {
                     await EnsureClaimOwnedAsync(db, claim, cancellationToken, heartbeat: true).ConfigureAwait(false);
                     UpdateLeaseRuntimeState(claims.Values, renewed: 1);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    return;
                 }
                 catch (CommentMutationOutboxClaimLostException)
                 {
