@@ -23,6 +23,9 @@ IMAGE_TAG="fsusblog-production-smoke:${RUN_ID}-${PROFILE_ID}"
 node "$ROOT_DIR/tools/deployment/check-production-compose-environment.mjs"
 bash "$ROOT_DIR/tools/deployment/check-production-gateway-config.sh"
 
+unset FSUSBLOG_RELEASE_ID FSUSBLOG_RELEASE_CREATED_AT_UTC
+export FSUSBLOG_COMMIT_SHA
+FSUSBLOG_COMMIT_SHA="$(git -C "$ROOT_DIR" rev-parse HEAD)"
 export FSUSBLOG_RELEASE_RUN_ID="$RUN_ID"
 export FSUSBLOG_RELEASE_RUNTIME_IMAGE="$IMAGE_TAG"
 export FSUSBLOG_RUNTIME_PROFILE_ID="$PROFILE_ID"

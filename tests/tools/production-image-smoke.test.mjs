@@ -130,6 +130,8 @@ test('one matrix lane owns local and hosted production image smoke', () =>
     assert.match(lane, /RUN_ID="\$BASE_RUN_ID"/u);
     assert.match(lane, /IMAGE_TAG="fsusblog-production-smoke:\$\{RUN_ID\}-\$\{PROFILE_ID\}"/u);
     assert.doesNotMatch(lane, /RUN_ID="\$\{BASE_RUN_ID\}-\$\{PROFILE_ID\}"/u);
+    assert.match(lane, /unset FSUSBLOG_RELEASE_ID FSUSBLOG_RELEASE_CREATED_AT_UTC/u);
+    assert.match(lane, /FSUSBLOG_COMMIT_SHA="\$\(git -C "\$ROOT_DIR" rev-parse HEAD\)"/u);
     assert.match(lane, /run-release-reliability-qualified-local\.sh" \\\s*\n\s*--runtime-admission-only/u);
     assert.match(wrapper, /FSUSBLOG_FINAL_LOCAL_ONLY=1[\s\S]*tools\/build-final-image\.sh/u);
     assert.doesNotMatch(lane, /\bdocker push\b|FSUSBLOG_FINAL_PUSH=1/u);
