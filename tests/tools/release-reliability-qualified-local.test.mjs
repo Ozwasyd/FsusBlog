@@ -1245,7 +1245,7 @@ test('qualified local wrapper captures bounded crash diagnostics before removing
     const remove = source.indexOf('RemoveOwnedContainer "$backend_container_id"');
     assert.ok(cleanup >= 0 && capture > cleanup && remove > capture, 'crash diagnostics must precede backend removal');
     assert.match(source, /\[\[ "\$binding" == "\$containerId\|\$run_id\|\$namespace" \]\]/u);
-    assert.match(source, /\[\[ "\$running" != "true" \|\| "\$exitCode" != "0" \]\] \|\| return 0/u);
+    assert.match(source, /\[\[ "\$exitCode" != "0" \]\] \|\| return 0/u);
     assert.match(source, /\.tmp\/release-reliability\/\$\{run_id\}\/crash-diagnostics/u);
     assert.match(source, /docker inspect --format '\{\{json \.State\}\}'/u);
     assert.match(source, /docker logs --tail 200/u);

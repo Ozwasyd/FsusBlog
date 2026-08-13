@@ -874,6 +874,92 @@ tiers:
           ]
       triggerReason: selected runtime/browser domains require one immutable production build artifact set
 
+    - id: production-image-smoke
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
+      owner: ServerContractAgent
+      executionMode: execute
+      command: bash tools/test/lanes/production-image-smoke.sh
+      executionDependsOn: [behavior-doc-static-admission]
+      services: []
+      parallelizable: false
+      serialReason: owns one final image build, isolated PostgreSQL/Redis topology, gateway syntax admission, and graceful container shutdown
+      exclusiveResources: [release-reliability, build-output, static-web-assets]
+      maxParallel: 1
+      phase: 2
+      cost: very-high
+      resourceClass: io
+      cpuWeight: 4
+      memoryWeight: 6
+      minCpuUnits: 2
+      requiresBootstrap: full
+      selfBootstraps: true
+      requiresNode: true
+      requiresDotnet: true
+      requiresPlaywright: none
+      evidenceClass: correctness
+      qualificationEligible: false
+      cacheProfile: full
+      timeoutMinutes: 120
+      shardable: false
+      defaultShards: 1
+      risk: critical
+      cadence: pr
+      requiredFor: production
+      coverage:
+          [
+              production-final-image-runtime-smoke,
+              production-compose-environment-contract,
+              production-gateway-syntax,
+              production-container-graceful-shutdown,
+          ]
+      artifacts: [.tmp/release-reliability]
+      evidence:
+          [
+              .tmp/release-reliability,
+              .env.production.example,
+              ops/docker/FsusBlog.Server.Dockerfile,
+              ops/docker/docker-compose.production.yml,
+              ops/gateway/production-openresty.conf,
+              tools/build-final-image.sh,
+              tools/deployment/check-production-compose-environment.mjs,
+              tools/deployment/check-production-gateway-config.sh,
+              tools/security/check-production-network-baseline.sh,
+              tools/test/lanes/production-image-smoke.sh,
+              tools/test/probe-release-reliability-runtime-smoke.mjs,
+              tools/test/run-release-reliability-qualified-local.sh,
+              tests/tools/production-image-smoke.test.mjs,
+              docs/production.md,
+          ]
+      ciJob: production-image-smoke
+      localOnly: false
+      nightlyOnly: false
+      smartGateMode: conditional
+      retentionClass: must-keep
+      triggerPaths:
+          [
+              .github/workflows/quality-gate.yml,
+              .env.production.example,
+              ops/docker/**,
+              ops/gateway/**,
+              src/backend/**,
+              src/core/**,
+              src/shared/**,
+              tools/build-final-image.sh,
+              tools/deployment/**,
+              tools/security/check-production-network-baseline.sh,
+              tools/test/lanes/production-image-smoke.sh,
+              tools/test/probe-release-reliability-runtime-smoke.mjs,
+              tools/test/run-release-reliability-qualified-local.sh,
+              tests/tools/production-image-smoke.test.mjs,
+              tests/matrix.yml,
+              docs/production.md,
+          ]
+      triggerReason: production Docker, gateway, runtime, deployment, or image-smoke contracts changed
+
     - id: frontend-build
       executionClass: build
       fixtureProfile: none

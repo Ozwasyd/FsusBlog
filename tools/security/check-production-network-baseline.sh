@@ -52,7 +52,7 @@ if [[ -f "$COMPOSE_FILE" ]]; then
     RejectPattern "$COMPOSE_FILE" '(^|["[:space:]])8080:8080(["[:space:]]|$)' 'public Kestrel 8080 binding'
     RejectPattern "$COMPOSE_FILE" '(^|["[:space:]])6379:6379(["[:space:]]|$)' 'public Redis port binding'
     RejectPattern "$COMPOSE_FILE" '(^|["[:space:]])5432:5432(["[:space:]]|$)' 'public PostgreSQL port binding'
-    RequirePattern "$COMPOSE_FILE" 'AllowedHosts=\$\{APP_ALLOWED_HOSTS\}' 'AllowedHosts production environment binding'
+    RequirePattern "$COMPOSE_FILE" 'AllowedHosts=\$\{APP_ALLOWED_HOSTS:\?[^}]+\}' 'fail-closed AllowedHosts production environment binding'
     RequirePattern "$COMPOSE_FILE" 'ReverseProxy__KnownProxies=' 'reverse proxy known proxies binding'
     RequirePattern "$COMPOSE_FILE" 'DOTNET_DbgEnableMiniDump=0' 'managed dump disablement'
     RequirePattern "$COMPOSE_FILE" 'COMPlus_DbgEnableMiniDump=0' 'legacy managed dump disablement'

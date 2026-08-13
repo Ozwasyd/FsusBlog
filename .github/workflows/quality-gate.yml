@@ -6,6 +6,8 @@ on:
         branches:
             - main
             - master
+    schedule:
+        - cron: "17 2 * * *"
     workflow_dispatch:
 
 permissions:
@@ -145,6 +147,7 @@ jobs:
             backend_qps: ${{ steps.smart.outputs.backend_qps }}
             perf_regression: ${{ steps.smart.outputs.perf_regression }}
             production_build_artifacts: ${{ steps.smart.outputs.production_build_artifacts }}
+            production_image_smoke: ${{ steps.smart.outputs.production_image_smoke }}
             production_build_domains: ${{ steps.smart.outputs.production_build_domains }}
             production_build_domains_json: ${{ steps.smart.outputs.production_build_domains_json }}
             production_summary: ${{ steps.smart.outputs.production_summary }}
@@ -368,6 +371,49 @@ jobs:
                   include-hidden-files: true
                   path: |
                       .tmp/ci-production-build/**
+
+    production-image-smoke:
+        name: Production Image Smoke (${{ matrix.profile }})
+        runs-on: ubuntu-latest
+        needs: [validate-matrix, behavior-doc-static-admission, plan-pr-risk]
+        if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.production_image_smoke == 'true'
+        timeout-minutes: 120
+        strategy:
+            fail-fast: false
+            matrix:
+                profile: ${{ fromJSON(github.event_name == 'schedule' && '["throughput-musl","throughput-glibc"]' || '["throughput-musl"]') }}
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+                  cache: npm
+                  cache-dependency-path: src/frontend/package-lock.json
+            - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+              with:
+                  dotnet-version: 10.0.x
+            - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+              with:
+                  path: ~/.nuget/packages
+                  key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
+            - uses: ./.github/actions/consume-behavior-doc-admission
+              with:
+                  source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
+            - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+            - run: ./tools/test.sh ci-tier production-image-smoke --no-deps
+              env:
+                  FSUSBLOG_RUNTIME_PROFILE_ID: ${{ matrix.profile }}
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: production-image-smoke-${{ matrix.profile }}
+                  if-no-files-found: error
+                  retention-days: 14
+                  include-hidden-files: true
+                  path: .tmp/release-reliability/**
 
     coverage-merge-threshold:
         name: Coverage Merge Threshold

@@ -111,6 +111,63 @@ RemoveOwnedContainer() {
     [[ "$binding" == "$containerId|$run_id|$namespace" ]] || return 1
     docker rm -f -v "$containerId" >/dev/null
 }
+StopOwnedBackendGracefully() {
+    local containerId="$1"
+    local graceSeconds="$2"
+    local observationFile="$3"
+    [[ "$containerId" =~ ^[0-9a-f]{64}$ ]] || {
+        printf '%s\n' 'graceful backend shutdown requires one concrete container ID' >&2
+        return 1
+    }
+    [[ "$graceSeconds" =~ ^[1-9][0-9]*$ && "$graceSeconds" -le 300 ]] || {
+        printf '%s\n' 'graceful backend shutdown requires a 1-300 second stop grace' >&2
+        return 1
+    }
+    local binding
+    binding="$(docker inspect --format '{{.Id}}|{{index .Config.Labels "io.fsusblog.test.run-id"}}|{{index .Config.Labels "io.fsusblog.test.namespace"}}' "$containerId")" \
+        || return 1
+    [[ "$binding" == "$containerId|$run_id|$namespace" ]] || {
+        printf '%s\n' 'graceful backend shutdown ownership does not match the qualified run' >&2
+        return 1
+    }
+
+    local startedAtMs finishedAtMs elapsedMs state running oomKilled exitCode
+    startedAtMs="$(node -e 'process.stdout.write(String(Date.now()))')"
+    docker stop --time "$graceSeconds" "$containerId" >/dev/null
+    finishedAtMs="$(node -e 'process.stdout.write(String(Date.now()))')"
+    elapsedMs=$((finishedAtMs - startedAtMs))
+    state="$(docker inspect --format '{{.State.Running}}|{{.State.OOMKilled}}|{{.State.ExitCode}}' "$containerId")" \
+        || return 1
+    IFS='|' read -r running oomKilled exitCode <<<"$state"
+    [[ "$running" == "false" && "$oomKilled" == "false" && "$exitCode" == "0" \
+        && "$elapsedMs" -lt $((graceSeconds * 1000)) ]] || {
+        printf '[runtime-admission] backend did not stop cleanly within grace: state=%s elapsedMs=%s graceSeconds=%s\n' \
+            "$state" "$elapsedMs" "$graceSeconds" >&2
+        return 1
+    }
+
+    mkdir -p -- "$(dirname "$observationFile")"
+    node - "$observationFile" "$source_commit" "$image" "$containerId" \
+        "$graceSeconds" "$elapsedMs" "$exitCode" <<'NODE'
+const fs = require('node:fs');
+const [file, sourceCommit, imageReference, containerId, grace, elapsed, exitCode] =
+    process.argv.slice(2);
+fs.writeFileSync(file, `${JSON.stringify({
+    schema: 'fsusblog.production-image.graceful-shutdown.v1',
+    sourceCommit,
+    imageReference,
+    containerId,
+    signal: 'SIGTERM',
+    graceSeconds: Number(grace),
+    elapsedMilliseconds: Number(elapsed),
+    exitCode: Number(exitCode),
+    oomKilled: false,
+    stoppedAt: new Date().toISOString()
+}, null, 2)}\n`, { flag: 'wx', mode: 0o400 });
+NODE
+    printf '[runtime-admission] backend stopped cleanly after SIGTERM in %sms (grace=%ss)\n' \
+        "$elapsedMs" "$graceSeconds"
+}
 RemoveOwnedNetwork() {
     local networkId="$1"
     [[ -n "$networkId" ]] || return 0
@@ -161,11 +218,10 @@ CaptureOwnedBackendCrashDiagnostics() {
     binding="$(docker inspect --format '{{.Id}}|{{index .Config.Labels "io.fsusblog.test.run-id"}}|{{index .Config.Labels "io.fsusblog.test.namespace"}}' "$containerId")" \
         || return 1
     [[ "$binding" == "$containerId|$run_id|$namespace" ]] || return 1
-    local state running exitCode
+    local state exitCode
     state="$(docker inspect --format '{{json .State}}' "$containerId")" || return 1
-    running="$(docker inspect --format '{{.State.Running}}' "$containerId")" || return 1
     exitCode="$(docker inspect --format '{{.State.ExitCode}}' "$containerId")" || return 1
-    [[ "$running" != "true" || "$exitCode" != "0" ]] || return 0
+    [[ "$exitCode" != "0" ]] || return 0
     local diagnosticDirectory="$root/.tmp/release-reliability/${run_id}/crash-diagnostics"
     umask 077
     mkdir -p -- "$diagnosticDirectory" || return 1
@@ -575,8 +631,6 @@ if [[ -z "$invocation_id" ]]; then
     invocation_id="$(node -e 'process.stdout.write(require("node:crypto").randomUUID())')"
     export FSUSBLOG_RELEASE_INVOCATION_ID="$invocation_id"
 fi
-current_uid="$(id -u)"
-ValidateUserSystemdCarrier "${XDG_RUNTIME_DIR:-}" "$current_uid"
 if ((runtime_admission_only == 1)); then
     runtime_admission_candidate=".tmp/release-reliability/${invocation_id}/runtime-admission-candidate.json"
     runtime_admission_receipt=".tmp/release-reliability/${invocation_id}/runtime-admission-receipt.json"
@@ -597,6 +651,10 @@ if ((runtime_admission_only == 1)); then
         --deadline-seconds 60 \
         --attempt-count "$runtime_smoke_attempt_count" \
         --elapsed-seconds "$runtime_smoke_elapsed_seconds"
+    graceful_shutdown_observation=".tmp/release-reliability/${invocation_id}/graceful-shutdown-observation.json"
+    StopOwnedBackendGracefully "$backend_container_id" \
+        "${FSUSBLOG_IMAGE_SMOKE_STOP_GRACE_SECONDS:-60}" \
+        "$graceful_shutdown_observation"
     trap - EXIT
     if ! CleanupQualifiedRuntimeResources 0; then
         printf '%s\n' 'runtime admission cleanup failed; pass receipt was not created' >&2
@@ -609,6 +667,8 @@ if ((runtime_admission_only == 1)); then
         --receipt "$runtime_admission_receipt"
     exit 0
 fi
+current_uid="$(id -u)"
+ValidateUserSystemdCarrier "${XDG_RUNTIME_DIR:-}" "$current_uid"
 qualified_executor_environment=(
     "HOME=$HOME"
     "PATH=$PATH"
