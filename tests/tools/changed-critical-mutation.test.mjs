@@ -269,6 +269,21 @@ test('generated config uses binding-derived test filter and owner-derived mutate
     assert.match(generated['stryker-config']['test-case-filter'], /ArticleRightsCanonicalHashTests/u);
     assert.deepEqual(generated['stryker-config'].thresholds, { high: 85, low: 70, break: 70 });
     assert.equal(generated['stryker-config']['break-on-initial-test-failure'], true);
+    assert.equal(generated['stryker-config'].concurrency, 1);
+});
+
+test('tool policy requires one canonical positive Stryker runner count', () =>
+{
+    assert.throws(
+        () => validateToolPolicy({
+            ...toolPolicy,
+            executionLimits: {
+                ...toolPolicy.executionLimits,
+                maxConcurrentTestRunners: 0
+            }
+        }),
+        /maxConcurrentTestRunners must be a positive integer/u
+    );
 });
 
 test('physical mutation sandbox preserves selected inputs and marks only non-selected C# as generated', () =>

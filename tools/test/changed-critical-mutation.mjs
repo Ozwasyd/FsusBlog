@@ -88,6 +88,13 @@ export function validateToolPolicy(toolPolicy)
     {
         throw new Error('tool policy sourceProjects must be non-empty');
     }
+    if (
+        !Number.isSafeInteger(toolPolicy.executionLimits?.maxConcurrentTestRunners)
+        || toolPolicy.executionLimits.maxConcurrentTestRunners < 1
+    )
+    {
+        throw new Error('tool policy maxConcurrentTestRunners must be a positive integer');
+    }
     return toolPolicy;
 }
 
@@ -560,6 +567,7 @@ export function createChangedCriticalStrykerConfig(selection, toolPolicy, source
             'mutation-level': toolPolicy.defaults.mutationLevel,
             thresholds: toolPolicy.defaults.thresholds,
             'break-on-initial-test-failure': true,
+            concurrency: toolPolicy.executionLimits.maxConcurrentTestRunners,
             reporters: ['progress', 'html', 'json'],
             'report-file-name': 'changed-critical-mutation',
             mutate: closure.mutateFiles,
