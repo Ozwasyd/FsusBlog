@@ -25,8 +25,18 @@ function walk(directory)
 
 const matrixPath = 'tests/frontend/fixtures/layout-archetype-matrix.json';
 const ledgerPath = 'tests/frontend/fixtures/layout-visual-change-ledger.json';
+const visualSnapshotRoot = resolve(root, 'tests/frontend/e2e/visual');
 const matrix = parse(matrixPath);
 const ledger = parse(ledgerPath);
+
+for (const absolute of walk(visualSnapshotRoot))
+{
+    const path = relative(root, absolute).replaceAll('\\', '/');
+    if (path.endsWith('-chrome-linux.png'))
+    {
+        fail(`${path}: branded Chrome snapshots are forbidden; use the canonical chromium project identity`);
+    }
+}
 
 const expectedArchetypes = new Set([
     'public/feed',

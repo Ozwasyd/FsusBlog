@@ -169,6 +169,7 @@ function resolvePositiveGrant(names: string[]): number | undefined {
 export default defineConfig({
   tsconfig: './tsconfig.playwright.json',
   testDir: '../../tests/frontend/e2e',
+  snapshotPathTemplate: '{testDir}/{testFilePath}-snapshots/{arg}-{projectName}-{platform}{ext}',
   // Browser-only diagnostics have their own scheduled/manual config. Keeping
   // this deny-list on the ordinary config prevents broad file globs and the
   // production correctness lane from accidentally re-admitting them.
